@@ -1,0 +1,119 @@
+import "dotenv/config";
+
+import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
+
+import { Prisma, PrismaClient } from "../src/generated/prisma/client";
+import { FIXTURES } from "../src/lib/visual/fixtures";
+import {
+  VISUAL_KIND_TO_PRISMA,
+  safeParseVisual,
+} from "../src/lib/visual/schema";
+
+// Mirror prisma.config.ts / src/lib/prisma.ts: anything other than the exact
+// string "postgres" selects SQLite, the zero-setup default for local dev/test.
+function createPrismaClient() {
+  if (process.env.DB_PROVIDER === "postgres") {
+    const connectionString = process.env.DATABASE_URL;
+
+    if (!connectionString) {
+      throw new Error("DATABASE_URL environment variable is not set.");
+    }
+
+    const adapter = new PrismaPg({ connectionString });
+
+    return new PrismaClient({ adapter });
+  }
+
+  // SQLite: DATABASE_URL wins when set; otherwise fall back to a local file so a
+  // fresh clone works with no configuration.
+  const url = process.env.DATABASE_URL ?? "file:./prisma/dev.db";
+
+  const adapter = new PrismaBetterSqlite3({ url });
+
+  return new PrismaClient({ adapter });
+}
+
+const prisma = createPrismaClient();
+
+async function main() {
+  const demoUser = await prisma.user.upsert({
+    where: { email: "demo@napkin.test" },
+    update: {},
+    create: {
+      email: "demo@napkin.test",
+      name: "Demo User",
+    },
+  });
+
+  const existingDocument = await prisma.document.findFirst({
+    where: { ownerId: demoUser.id, title: "Welcome to Napkin Clone" },
+  });
+
+  const demoDocument =
+    existingDocument ??
+    (await prisma.document.create({
+      data: {
+        title: "Welcome to Napkin Clone",
+        content:
+          "Paste your text here, then generate a flowchart, mind map, or chart.",
+        ownerId: demoUser.id,
+      },
+    }));
+
+  // Seed a sample visual with Json `data` so SQLite's Json -> TEXT mapping is
+  // exercised end to end. One active visual per document (mirrors attachVisual):
+  // find-or-create by documentId keeps the seed idempotent across re-runs and
+  // `migrate reset`.
+  const sampleVisual = FIXTURES.flowchart;
+  const visualData = sampleVisual as unknown as Prisma.InputJsonValue;
+
+  const existingVisual = await prisma.visual.findFirst({
+    where: { documentId: demoDocument.id },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const demoVisual = existingVisual
+    ? await prisma.visual.update({
+        where: { id: existingVisual.id },
+        data: {
+          type: VISUAL_KIND_TO_PRISMA[sampleVisual.type],
+          title: sampleVisual.title ?? null,
+          data: visualData,
+        },
+      })
+    : await prisma.visual.create({
+        data: {
+          documentId: demoDocument.id,
+          type: VISUAL_KIND_TO_PRISMA[sampleVisual.type],
+          title: sampleVisual.title ?? null,
+          data: visualData,
+        },
+      });
+
+  // Read the row back through the client and re-validate the Json payload so a
+  // broken Json round-trip (e.g. on SQLite) fails the seed loudly.
+  const readBack = await prisma.visual.findUniqueOrThrow({
+    where: { id: demoVisual.id },
+  });
+  const parsed = safeParseVisual(readBack.data);
+  if (!parsed.success) {
+    throw new Error(`Seeded visual failed to read back: ${parsed.error}`);
+  }
+
+  console.log(
+    `Seeded user "${demoUser.email}", document "${demoDocument.title}", ` +
+      `and ${readBack.type} visual ("${parsed.data.type}", ` +
+      `${parsed.data.nodes.length} nodes).`,
+  );
+}
+
+main()
+  .then(async () => {
+    await prisma.$disconnect();
+  })
+  .catch(async (error) => {
+    console.error(error);
+    await prisma.$disconnect();
+    process.exit(1);
+  });

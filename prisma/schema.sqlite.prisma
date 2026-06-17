@@ -1,0 +1,131 @@
+// Prisma schema for the Napkin Clone app.
+// The datasource URL is supplied via prisma.config.ts (env DATABASE_URL).
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  image        String?
+  passwordHash String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  documents       Document[]        @relation("DocumentOwner")
+  ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
+  memberships     WorkspaceMember[]
+  comments        Comment[]
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  ownerId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner       User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members     WorkspaceMember[]
+  documents   Document[]
+  inviteLinks InviteLink[]
+
+  @@index([ownerId])
+}
+
+model WorkspaceMember {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        String   @default("VIEWER")
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+}
+
+model Document {
+  id          String   @id @default(cuid())
+  title       String   @default("Untitled")
+  content     String   @default("")
+  ownerId     String
+  workspaceId String?
+  shareId     String?  @unique
+  isShared    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner     User       @relation("DocumentOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  visuals   Visual[]
+  comments  Comment[]
+
+  @@index([ownerId])
+  @@index([workspaceId])
+  @@index([shareId])
+}
+
+model Visual {
+  id         String   @id @default(cuid())
+  documentId String
+  type       String
+  title      String?
+  data       Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+}
+
+model Comment {
+  id           String   @id @default(cuid())
+  documentId   String
+  authorId     String
+  body         String
+  resolved     Boolean  @default(false)
+  parentId     String?
+  // Optional anchor tying a top-level comment to text or a visual element.
+  // anchorType: null (whole document) | "text" | "visual".
+  anchorType   String?
+  anchorText   String?
+  anchorNodeId String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  document Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  Comment[] @relation("CommentReplies")
+
+  @@index([documentId])
+  @@index([authorId])
+  @@index([parentId])
+}
+
+model InviteLink {
+  id          String   @id @default(cuid())
+  workspaceId String
+  token       String   @unique
+  role        String   @default("VIEWER")
+  isRevoked   Boolean  @default(false)
+  createdById String
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([token])
+}

@@ -1,0 +1,150 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import Link from "next/link";
+
+import { prisma } from "@/lib/prisma";
+import { requireUser } from "@/lib/session";
+import { asWorkspaceRole } from "@/lib/workspace/roles";
+
+import { InviteLinkManager } from "./invite-link-manager";
+import { MembersList } from "./members-list";
+import { WorkspaceDocuments } from "./workspace-documents";
+
+export const metadata: Metadata = {
+  title: "Workspace — Napkin Clone",
+};
+
+export default async function WorkspacePage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const user = await requireUser();
+
+  // Check if user is owner or member
+  const workspace = await prisma.workspace.findFirst({
+    where: {
+      id,
+      OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }],
+    },
+    select: {
+      id: true,
+      name: true,
+      ownerId: true,
+      owner: { select: { email: true, name: true } },
+      members: {
+        select: {
+          id: true,
+          userId: true,
+          role: true,
+          createdAt: true,
+          user: { select: { email: true, name: true } },
+        },
+        orderBy: { createdAt: "asc" },
+      },
+      inviteLinks: {
+        where: { isRevoked: false },
+        select: { id: true, token: true, role: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+      },
+      _count: { select: { documents: true } },
+    },
+  });
+
+  if (!workspace) {
+    notFound();
+  }
+
+  const isOwner = workspace.ownerId === user.id;
+  const userMembership = workspace.members.find((m) => m.userId === user.id);
+  const userRole = isOwner
+    ? "OWNER"
+    : userMembership
+      ? asWorkspaceRole(userMembership.role)
+      : null;
+
+  if (!userRole) {
+    notFound();
+  }
+
+  // The `role` columns are plain strings (portable schema); coerce them to the
+  // `WorkspaceRole` union at this read boundary before handing off to the UI.
+  const workspaceForMembers = {
+    ...workspace,
+    members: workspace.members.map((member) => ({
+      ...member,
+      role: asWorkspaceRole(member.role),
+    })),
+  };
+  const inviteLinks = workspace.inviteLinks.map((link) => ({
+    ...link,
+    role: asWorkspaceRole(link.role),
+  }));
+
+  return (
+    <main className="flex flex-1 flex-col items-center bg-zinc-50 px-6 py-12 dark:bg-black">
+      <div className="flex w-full max-w-5xl flex-col gap-8">
+        <header className="flex flex-col gap-4">
+          <Link
+            href="/app/workspaces"
+            className="flex items-center gap-1.5 text-sm text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+          >
+            <svg
+              viewBox="0 0 16 16"
+              fill="currentColor"
+              className="h-4 w-4"
+              aria-hidden="true"
+            >
+              <path d="M11.707 3.293a1 1 0 0 1 0 1.414L7.414 9l4.293 4.293a1 1 0 0 1-1.414 1.414l-5-5a1 1 0 0 1 0-1.414l5-5a1 1 0 0 1 1.414 0z" />
+            </svg>
+            Back to workspaces
+          </Link>
+          <div className="flex flex-col gap-1">
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+              {workspace.name}
+            </h1>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              {workspace._count.documents} document
+              {workspace._count.documents !== 1 ? "s" : ""} ·{" "}
+              {workspace.members.length + 1} member
+              {workspace.members.length + 1 !== 1 ? "s" : ""}
+            </p>
+          </div>
+        </header>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <section className="flex flex-col gap-4">
+            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+              Members
+            </h2>
+            <MembersList
+              workspace={workspaceForMembers}
+              isOwner={isOwner}
+              currentUserId={user.id}
+            />
+          </section>
+
+          {isOwner && (
+            <section className="flex flex-col gap-4">
+              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+                Invite links
+              </h2>
+              <InviteLinkManager
+                workspaceId={workspace.id}
+                inviteLinks={inviteLinks}
+              />
+            </section>
+          )}
+        </div>
+
+        <section className="flex flex-col gap-4">
+          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+            Documents
+          </h2>
+          <WorkspaceDocuments workspaceId={workspace.id} userRole={userRole} />
+        </section>
+      </div>
+    </main>
+  );
+}

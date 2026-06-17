@@ -1,0 +1,26 @@
+# build output & dependencies
+node_modules
+.next
+out
+build
+coverage
+
+# generated files & lockfiles
+package-lock.json
+*.tsbuildinfo
+next-env.d.ts
+# Prisma Client (generated) and migration SQL
+src/generated
+prisma/migrations
+
+# Ralph tooling & working files (not part of the app)
+scripts/ralph.sh
+scripts/prompt.md
+AGENTS.md
+scripts/prd.json
+scripts/progress.txt
+scripts/.last-branch
+skills-lock.json
+archive/
+tasks/
+.agents/
