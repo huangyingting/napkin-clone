@@ -5,6 +5,8 @@ import { useMemo } from "react";
 import { STYLE_THEMES, type StyleTheme } from "@/lib/visual/themes";
 import type { Visual, VisualNode, VisualStyle } from "@/lib/visual/schema";
 
+import { IconPicker } from "./icon-picker";
+
 /** Selectable label font weights (US-014). */
 const FONT_WEIGHTS: { value: number; label: string }[] = [
   { value: 400, label: "Normal" },
@@ -54,6 +56,31 @@ function resetNodeStyle(visual: Visual, id: string): Visual {
       delete next.color;
       delete next.stroke;
       delete next.textColor;
+      return next;
+    }),
+  };
+}
+
+/** Assigns a catalog icon name to a node. */
+function setNodeIcon(visual: Visual, id: string, icon: string): Visual {
+  return {
+    ...visual,
+    nodes: visual.nodes.map((node) =>
+      node.id === id ? { ...node, icon } : node,
+    ),
+  };
+}
+
+/** Removes a node's icon, falling back to no icon. */
+function clearNodeIcon(visual: Visual, id: string): Visual {
+  return {
+    ...visual,
+    nodes: visual.nodes.map((node) => {
+      if (node.id !== id) {
+        return node;
+      }
+      const next: VisualNode = { ...node };
+      delete next.icon;
       return next;
     }),
   };
@@ -328,6 +355,14 @@ export function StylePanel({
                 }
               />
             </div>
+            <IconPicker
+              key={selectedNode.id}
+              value={selectedNode.icon}
+              onSelect={(name) =>
+                onChange(setNodeIcon(visual, selectedNode.id, name))
+              }
+              onRemove={() => onChange(clearNodeIcon(visual, selectedNode.id))}
+            />
           </div>
         ) : (
           <p className="text-[11px] text-zinc-400 dark:text-zinc-500">

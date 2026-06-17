@@ -815,3 +815,24 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   `list` fixtures carry `icon` fields, so `/visuals` shows them. `prisma/seed.ts`
   seeds `FIXTURES.flowchart` and round-trips through `safeParseVisual`, which keeps
   known icons — adding `icon` to a fixture is safe.
+
+### Icon picker in the style panel (parity-gaps US-004)
+
+- **Node icon editing lives in the selected-element section of
+  `src/app/app/documents/[id]/style-panel.tsx`.** Keep icon writes aligned with the
+  existing per-node style helpers: update `visual.nodes` immutably, pass the next
+  `Visual` to the panel's `onChange`, and let `visual-panel.tsx`'s existing
+  debounced `attachVisual` path persist it.
+- **`src/app/app/documents/[id]/icon-picker.tsx` is intentionally presentational.**
+  It sources results from the offline `searchIcons` catalog and resolves preview
+  components with `resolveIconComponent`, but it does not save anything itself —
+  parents own persistence.
+- **React hooks lint gotcha:** when rendering a dynamically chosen lucide icon in a
+  client component, resolve the component first and pass it into a tiny child
+  component (`IconThumb`) rather than defining/rendering ad hoc components in the
+  main render body; this keeps `react-hooks/static-components` happy.
+- **Browser QA path:** select a node first (e.g. the overlay exposes `Edit <label>`
+  buttons / `[data-node-id]` hotspots), then the style panel reveals the icon
+  control. The results grid uses `aria-label="Search icons"` on the input and
+  `aria-label="Icon: <Name>"` on each option, which are the intended stable test
+  hooks.
