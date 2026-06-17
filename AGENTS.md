@@ -352,6 +352,10 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   (`MarkdownPreview`, directive-free so it's reusable in server views) — **never
   `dangerouslySetInnerHTML`**, so there's no HTML-injection surface. Reuse these
   for the read-only public page (US-017) instead of adding a Markdown dep.
+- **`parseMarkdown()` now assigns stable `block.id`s** from each block's normalized
+  signature plus per-signature occurrence count. When wiring inline UI/visual
+  anchors, key off `block.id` instead of array indexes so unchanged blocks keep the
+  same identity across re-parses while edited blocks get new ids.
 - **Autosave = debounced (800ms) server actions**, not a form submit:
   `src/app/app/documents/[id]/actions.ts` exports `saveDocumentTitle` /
   `saveDocumentContent`, both `"use server"`, `requireUser()` + owner-scoped

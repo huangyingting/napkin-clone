@@ -18,12 +18,12 @@ export function MarkdownPreview({ source }: { source: string }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {blocks.map((block, index) => {
+      {blocks.map((block) => {
         if (block.kind === "heading") {
           if (block.level === 1) {
             return (
               <h1
-                key={index}
+                key={block.id}
                 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50"
               >
                 {block.text}
@@ -33,7 +33,7 @@ export function MarkdownPreview({ source }: { source: string }) {
           if (block.level === 2) {
             return (
               <h2
-                key={index}
+                key={block.id}
                 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100"
               >
                 {block.text}
@@ -42,7 +42,7 @@ export function MarkdownPreview({ source }: { source: string }) {
           }
           return (
             <h3
-              key={index}
+              key={block.id}
               className="text-lg font-semibold tracking-tight text-zinc-800 dark:text-zinc-200"
             >
               {block.text}
@@ -53,7 +53,7 @@ export function MarkdownPreview({ source }: { source: string }) {
         if (block.kind === "bullets") {
           return (
             <ul
-              key={index}
+              key={block.id}
               className="list-disc space-y-1 pl-5 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300"
             >
               {block.items.map((item, itemIndex) => (
@@ -65,7 +65,7 @@ export function MarkdownPreview({ source }: { source: string }) {
 
         return (
           <p
-            key={index}
+            key={block.id}
             className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300"
           >
             {block.text}

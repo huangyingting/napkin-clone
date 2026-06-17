@@ -8,13 +8,35 @@
  * so there is no HTML-injection surface.
  */
 
+type MarkdownBlockBase = { id: string };
+
 export type MarkdownBlock =
-  | { kind: "heading"; level: 1 | 2 | 3; text: string }
-  | { kind: "bullets"; items: string[] }
-  | { kind: "paragraph"; text: string };
+  | (MarkdownBlockBase & { kind: "heading"; level: 1 | 2 | 3; text: string })
+  | (MarkdownBlockBase & { kind: "bullets"; items: string[] })
+  | (MarkdownBlockBase & { kind: "paragraph"; text: string });
 
 const HEADING_RE = /^(#{1,3})\s+(.*)$/;
 const BULLET_RE = /^[-*+]\s+(.*)$/;
+
+function hashString(value: string): string {
+  let hash = 2166136261;
+
+  for (let index = 0; index < value.length; index++) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return (hash >>> 0).toString(36);
+}
+
+function makeBlockId(
+  signatures: Map<string, number>,
+  signature: string,
+): string {
+  const occurrence = (signatures.get(signature) ?? 0) + 1;
+  signatures.set(signature, occurrence);
+  return `block-${hashString(signature)}-${occurrence}`;
+}
 
 /**
  * Parses a Markdown string into a flat list of supported blocks. Consecutive
@@ -25,17 +47,30 @@ export function parseMarkdown(source: string): MarkdownBlock[] {
   const blocks: MarkdownBlock[] = [];
   let paragraph: string[] = [];
   let bullets: string[] = [];
+  const signatures = new Map<string, number>();
 
   const flushParagraph = () => {
     if (paragraph.length > 0) {
-      blocks.push({ kind: "paragraph", text: paragraph.join(" ") });
+      const text = paragraph.join(" ");
+      const signature = `paragraph:${text}`;
+      blocks.push({
+        id: makeBlockId(signatures, signature),
+        kind: "paragraph",
+        text,
+      });
       paragraph = [];
     }
   };
 
   const flushBullets = () => {
     if (bullets.length > 0) {
-      blocks.push({ kind: "bullets", items: bullets });
+      const items = bullets;
+      const signature = `bullets:${items.join("\n")}`;
+      blocks.push({
+        id: makeBlockId(signatures, signature),
+        kind: "bullets",
+        items,
+      });
       bullets = [];
     }
   };
@@ -53,10 +88,14 @@ export function parseMarkdown(source: string): MarkdownBlock[] {
     if (heading) {
       flushParagraph();
       flushBullets();
+      const level = heading[1].length as 1 | 2 | 3;
+      const text = heading[2].trim();
+      const signature = `heading:${level}:${text}`;
       blocks.push({
+        id: makeBlockId(signatures, signature),
         kind: "heading",
-        level: heading[1].length as 1 | 2 | 3,
-        text: heading[2].trim(),
+        level,
+        text,
       });
       continue;
     }
