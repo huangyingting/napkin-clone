@@ -447,6 +447,7 @@ const DEFAULT_ICONS: readonly IconEntry[] = DEFAULT_ICON_NAMES.map((name) =>
 ).filter((entry): entry is IconEntry => entry !== undefined);
 
 const DEFAULT_LIMIT = 30;
+const DEFAULT_SUGGESTION_LIMIT = 6;
 
 /** Returns true when `name` is a known icon in the catalog. */
 export function isKnownIcon(name: string | null | undefined): boolean {
@@ -505,4 +506,46 @@ export function searchIcons(
   );
 
   return matches.slice(0, max).map((match) => match.entry);
+}
+
+/**
+ * Suggests icons for a node label by searching the full label first, then
+ * individual words as fallbacks. Results are de-duplicated in discovery order.
+ */
+export function suggestIconsForLabel(
+  label: string,
+  limit: number = DEFAULT_SUGGESTION_LIMIT,
+): IconEntry[] {
+  const max = Math.max(0, Math.floor(limit));
+  if (max === 0) return [];
+
+  const trimmed = label.trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const suggestions: IconEntry[] = [];
+  const queries = [
+    trimmed,
+    ...trimmed
+      .split(/[^A-Za-z0-9]+/)
+      .map((part) => part.trim())
+      .filter((part) => part.length >= 2),
+  ];
+
+  for (const query of queries) {
+    for (const entry of searchIcons(query, max)) {
+      if (seen.has(entry.name)) {
+        continue;
+      }
+      seen.add(entry.name);
+      suggestions.push(entry);
+      if (suggestions.length >= max) {
+        return suggestions;
+      }
+    }
+  }
+
+  return suggestions;
 }

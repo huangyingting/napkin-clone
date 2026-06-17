@@ -827,6 +827,11 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   It sources results from the offline `searchIcons` catalog and resolves preview
   components with `resolveIconComponent`, but it does not save anything itself —
   parents own persistence.
+- **Node-label suggestions are a pure catalog helper, not UI state.**
+  `suggestIconsForLabel(label, limit)` lives in `src/lib/icons/catalog.ts`; it
+  searches the full label first, then individual words as fallbacks, and
+  de-duplicates in discovery order. Reuse it anywhere the app needs "best icon
+  guesses" from text so the ranking logic stays consistent with `searchIcons`.
 - **React hooks lint gotcha:** when rendering a dynamically chosen lucide icon in a
   client component, resolve the component first and pass it into a tiny child
   component (`IconThumb`) rather than defining/rendering ad hoc components in the
@@ -835,4 +840,18 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   buttons / `[data-node-id]` hotspots), then the style panel reveals the icon
   control. The results grid uses `aria-label="Search icons"` on the input and
   `aria-label="Icon: <Name>"` on each option, which are the intended stable test
-  hooks.
+  hooks. For SVG overlay hotspots, `page.domCua.getVisibleDom()` + `domCua.click`
+  is more reliable than Playwright locators because the editor exposes the
+  node-selection targets as `<rect aria-label="Edit <label>">`.
+
+### AI icon suggestions (parity-gaps US-005)
+
+- **`src/lib/ai/prompt.ts` now enumerates the bundled icon catalog.** The system
+  prompt lists the allowed `node.icon` names from `ICON_CATALOG`, tells the model
+  to include an icon only when it clearly reinforces the node label, and to omit
+  `icon` otherwise. If you add/rename catalog entries, this prompt stays in sync
+  automatically because it derives names from the catalog module.
+- **Invalid AI icon names must stay non-fatal.** Generation still validates
+  returned visuals through `safeParseVisual`, so a bad `icon` is silently dropped
+  while the rest of the candidate remains usable. Keep that forgiving path intact
+  for AI-facing features instead of rejecting the whole visual.

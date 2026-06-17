@@ -6,6 +6,7 @@ import {
   getIconEntry,
   isKnownIcon,
   searchIcons,
+  suggestIconsForLabel,
   type IconEntry,
 } from "@/lib/icons/catalog";
 
@@ -105,4 +106,23 @@ test("isKnownIcon / getIconEntry agree with the catalog", () => {
   assert.equal(isKnownIcon(undefined), false);
   assert.equal(getIconEntry("Lightbulb")?.name, "Lightbulb");
   assert.equal(getIconEntry("NotAnIcon"), undefined);
+});
+
+test("suggestIconsForLabel prefers a whole-label match", () => {
+  const results = suggestIconsForLabel("Database sync");
+  assert.ok(results.length > 0);
+  assert.equal(results[0]?.name, "Database");
+});
+
+test("suggestIconsForLabel falls back to individual words and de-duplicates", () => {
+  const results = suggestIconsForLabel("customer support chat", 8);
+  const names = results.map((entry) => entry.name);
+  assert.ok(names.includes("MessageSquare"));
+  assert.equal(new Set(names).size, names.length);
+});
+
+test("suggestIconsForLabel handles blank labels and limits", () => {
+  assert.deepEqual(suggestIconsForLabel("   "), []);
+  assert.equal(suggestIconsForLabel("analytics dashboard", 2).length, 2);
+  assert.deepEqual(suggestIconsForLabel("analytics dashboard", 0), []);
 });

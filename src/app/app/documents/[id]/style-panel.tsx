@@ -357,6 +357,7 @@ export function StylePanel({
             </div>
             <IconPicker
               key={selectedNode.id}
+              nodeLabel={selectedNode.label}
               value={selectedNode.icon}
               onSelect={(name) =>
                 onChange(setNodeIcon(visual, selectedNode.id, name))

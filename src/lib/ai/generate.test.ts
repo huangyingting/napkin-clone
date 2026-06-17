@@ -151,6 +151,30 @@ test("filters invalid candidates and keeps the valid ones", async () => {
   assert.equal(result.length, 3);
 });
 
+test("drops invalid icon names without failing generation", async () => {
+  const mixed = JSON.stringify({
+    visuals: [
+      {
+        ...visual(),
+        nodes: [
+          { id: "a", label: "Idea", icon: "Lightbulb" },
+          { id: "b", label: "Review", icon: "NotAnIcon" },
+        ],
+      },
+      visual(),
+      visual(),
+    ],
+  });
+  const { complete } = sequence([mixed]);
+  const result = await generateVisuals(
+    { text: "hello" },
+    { complete, maxAttempts: 1 },
+  );
+  assert.equal(result.length, 3);
+  assert.equal(result[0]?.nodes[0]?.icon, "Lightbulb");
+  assert.equal(result[0]?.nodes[1]?.icon, undefined);
+});
+
 test("prefers candidates matching the requested type", async () => {
   const mixed = JSON.stringify({
     visuals: [

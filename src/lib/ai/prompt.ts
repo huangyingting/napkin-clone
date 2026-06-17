@@ -7,6 +7,7 @@
  * constants so the prompt stays in sync with the validator.
  */
 
+import { ICON_CATALOG } from "@/lib/icons/catalog";
 import {
   NODE_SHAPES,
   VISUAL_KINDS,
@@ -43,6 +44,8 @@ const KIND_GUIDANCE: Record<VisualKind, string> = {
     "concept: a non-linear graph of related ideas connected by labeled edges; set x/y to spread nodes out.",
 };
 
+const ICON_NAMES = ICON_CATALOG.map((entry) => entry.name);
+
 function schemaDescription(): string {
   return [
     "Each visual is a JSON object with this exact shape:",
@@ -64,7 +67,8 @@ function schemaDescription(): string {
     `      "value": number (required for chart bars, optional otherwise),`,
     `      "color": CSS color string (optional),`,
     `      "stroke": CSS color string for the node border (optional),`,
-    `      "textColor": CSS color string for the node label (optional)`,
+    `      "textColor": CSS color string for the node label (optional),`,
+    `      "icon": optional icon name from the bundled catalog`,
     `    }`,
     `  ],`,
     `  "edges": [`,
@@ -87,11 +91,16 @@ const SYSTEM_PROMPT = [
   "Visual type guidance:",
   ...VISUAL_KINDS.map((k) => `- ${KIND_GUIDANCE[k]}`),
   "",
+  "Bundled icon catalog:",
+  `- Valid node.icon values: ${ICON_NAMES.map((name) => `"${name}"`).join(", ")}.`,
+  "- Add an `icon` to a node when it clearly reinforces the label; otherwise omit `icon`.",
+  "",
   "Rules:",
   "- Every edge `from`/`to` MUST reference an `id` that exists in that visual's `nodes`.",
   "- Node and edge `id`s MUST be unique within their visual.",
   "- Keep labels concise (a few words).",
   "- Lay positioned types out without overlaps; keep all coordinates within width/height.",
+  "- If you include `icon`, it MUST be one of the listed catalog names exactly.",
   "- Return DISTINCT candidates that take different structural approaches.",
 ].join("\n");
 
