@@ -774,3 +774,44 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   re-deriving a name set).
 - **Tests** sit next to the module (`src/lib/icons/catalog.test.ts`), matching the
   repo convention (`*.test.ts` beside source, run via `npm test`).
+
+### Render icons inside nodes (parity-gaps US-003)
+
+- **Name → component resolution lives in `src/components/visual/icon-registry.ts`**
+  (`resolveIconComponent(name) => LucideIcon | undefined`). It's the **React-aware**
+  consumer of the framework-free catalog: it **explicitly named-imports** every
+  `ICON_CATALOG` name from `lucide-react` (not `import * as Icons`) so the bundler
+  tree-shakes to only the ~120 icons we ship. Keep it in sync with the catalog
+  (`isKnownIcon` validates names; this map renders them). The file was generated
+  from `ICON_CATALOG` to avoid typos — if you extend the catalog, regenerate/extend
+  this map too.
+- **GOTCHA — never `new Map(...)` in the registry.** One catalog icon is named
+  **`Map`**, and `import { Map } from "lucide-react"` **shadows the global `Map`
+  constructor** in that module (TS error "lacks a construct signature"). The
+  registry uses a plain `Record<string, LucideIcon>` object literal with a
+  `Object.prototype.hasOwnProperty` guard on lookup instead.
+- **lucide icons are RSC-safe.** Individual icon components and `createLucideIcon`
+  carry **no `"use client"`** (only the dynamic `Icon`/`DynamicIcon`/`context` do),
+  so the registry — and thus the directive-free `VisualRenderer` — render in both
+  server (gallery `/visuals`, `/share`) and client (editor) components. Don't import
+  the dynamic `Icon`/`DynamicIcon`.
+- **Render an icon as a nested, scaled `<svg>`** (helper `IconGlyph` in
+  `visual-renderer.tsx`): `<Icon x={cx-size/2} y={cy-size/2} width height color
+  aria-hidden="true" />`. lucide spreads `width`/`height`/`x`/`y` onto its root svg
+  (overriding its `size` default) and its `viewBox="0 0 24 24"` scales the glyph to
+  fit; `color` drives the stroke. This stays deterministic (no `<marker>`/id
+  concerns), matching the renderer's arrowhead approach.
+- **Icon color follows the node's text/theme color** (pass the same color used for
+  the label: `node.textColor ?? <theme/role color>`). **No layout shift when
+  `node.icon` is absent or unresolved** — resolve first, and only reserve space /
+  re-center when a component comes back (NodeEl stacks icon-above-label and keeps
+  the block centered; an absent icon centers the label exactly as before).
+- **Per-kind placement** (all share `IconGlyph`): boxed nodes (flowchart/mindmap/
+  concept, via `NodeEl`) = icon **above** the label; `list` = icon **left** of the
+  label (after the number badge, shifting only that card's text); `chart` = icon
+  **below** the category label (within `marginBottom`, so no clipping). Hit-boxes in
+  `layout.ts` are unchanged (icons live inside the existing node box).
+- **Fixtures demonstrate icons** (`src/lib/visual/fixtures.ts`): the `flowchart` and
+  `list` fixtures carry `icon` fields, so `/visuals` shows them. `prisma/seed.ts`
+  seeds `FIXTURES.flowchart` and round-trips through `safeParseVisual`, which keeps
+  known icons — adding `icon` to a fixture is safe.

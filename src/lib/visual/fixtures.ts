@@ -28,6 +28,7 @@ const flowchart: Visual = {
       width: 130,
       height: 50,
       shape: "ellipse",
+      icon: "Flag",
     },
     {
       id: "creds",
@@ -37,6 +38,7 @@ const flowchart: Visual = {
       width: 190,
       height: 56,
       shape: "rounded",
+      icon: "Key",
     },
     {
       id: "valid",
@@ -46,6 +48,7 @@ const flowchart: Visual = {
       width: 160,
       height: 96,
       shape: "diamond",
+      icon: "CircleHelp",
     },
     {
       id: "dashboard",
@@ -55,6 +58,7 @@ const flowchart: Visual = {
       width: 190,
       height: 56,
       shape: "rounded",
+      icon: "CircleCheck",
     },
     {
       id: "error",
@@ -64,6 +68,7 @@ const flowchart: Visual = {
       width: 170,
       height: 56,
       shape: "rounded",
+      icon: "TriangleAlert",
     },
   ],
   edges: [
@@ -165,10 +170,10 @@ const list: Visual = {
   height: 372,
   style: { ...DEFAULT_STYLE },
   nodes: [
-    { id: "s1", label: "Paste your text" },
-    { id: "s2", label: "Generate visual options" },
-    { id: "s3", label: "Polish colors and layout" },
-    { id: "s4", label: "Export & share" },
+    { id: "s1", label: "Paste your text", icon: "ClipboardList" },
+    { id: "s2", label: "Generate visual options", icon: "Sparkles" },
+    { id: "s3", label: "Polish colors and layout", icon: "Wrench" },
+    { id: "s4", label: "Export & share", icon: "Send" },
   ],
   edges: [],
 };

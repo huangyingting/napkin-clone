@@ -1,5 +1,7 @@
 import { forwardRef, Fragment, type JSX } from "react";
+import type { LucideIcon } from "lucide-react";
 
+import { resolveIconComponent } from "@/components/visual/icon-registry";
 import { chartLayout, listLayout } from "@/components/visual/layout";
 import {
   DEFAULT_NODE_HEIGHT,
@@ -37,6 +39,42 @@ function nodeHalf(node: VisualNode): { hw: number; hh: number } {
 
 function pick(palette: string[], index: number): string {
   return palette[((index % palette.length) + palette.length) % palette.length];
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+/**
+ * Renders a catalog icon (resolved to its `lucide-react` component) as a nested,
+ * scaled SVG centered at (`cx`, `cy`). The icon's own `viewBox` scales it to the
+ * requested `size`, and `color` drives its stroke so it follows the node's
+ * text/theme color. `aria-hidden` keeps it out of the accessibility tree (the
+ * node's label already conveys meaning).
+ */
+function IconGlyph({
+  Icon,
+  cx,
+  cy,
+  size,
+  color,
+}: {
+  Icon: LucideIcon;
+  cx: number;
+  cy: number;
+  size: number;
+  color: string;
+}): JSX.Element {
+  return (
+    <Icon
+      x={cx - size / 2}
+      y={cy - size / 2}
+      width={size}
+      height={size}
+      color={color}
+      aria-hidden="true"
+    />
+  );
 }
 
 /** Point where the line from `from` to a target (centered at `to`) meets the
@@ -243,7 +281,19 @@ function NodeEl({
 }): JSX.Element {
   const { x, y } = nodeCenter(node);
   const w = node.width ?? DEFAULT_NODE_WIDTH;
+  const h = node.height ?? DEFAULT_NODE_HEIGHT;
   const lines = wrapLabel(node.label, maxCharsForWidth(w, fontSize));
+  const Icon = node.icon ? resolveIconComponent(node.icon) : undefined;
+
+  // When an icon is present, stack it above the label and keep the whole block
+  // vertically centered; without one, the label centers exactly as before.
+  const lineHeight = fontSize * 1.2;
+  const textHeight = lines.length * lineHeight;
+  const iconSize = Icon ? clamp(Math.min(h * 0.4, fontSize * 1.6), 14, 30) : 0;
+  const iconGap = Icon ? Math.max(2, fontSize * 0.2) : 0;
+  const blockTop = y - (iconSize + iconGap + textHeight) / 2;
+  const textCy = Icon ? blockTop + iconSize + iconGap + textHeight / 2 : y;
+
   return (
     <g>
       <ShapeEl
@@ -252,9 +302,18 @@ function NodeEl({
         stroke={stroke}
         strokeWidth={strokeWidth}
       />
+      {Icon ? (
+        <IconGlyph
+          Icon={Icon}
+          cx={x}
+          cy={blockTop + iconSize / 2}
+          size={iconSize}
+          color={text}
+        />
+      ) : null}
       <MultilineText
         cx={x}
-        cy={y}
+        cy={textCy}
         lines={lines}
         color={text}
         style={style}
@@ -460,9 +519,15 @@ function ListScene({ visual }: { visual: Visual }): JSX.Element {
       ) : null}
       {layout.cards.map((card, index) => {
         const accent = card.node.color ?? pick(style.palette, index);
+        const Icon = card.node.icon
+          ? resolveIconComponent(card.node.icon)
+          : undefined;
+        const iconSize = Icon ? 24 : 0;
+        const iconGap = Icon ? 12 : 0;
+        const textX = labelX + iconSize + iconGap;
         const lines = wrapLabel(
           card.node.label,
-          maxCharsForWidth(cardWidth - (labelX - padX), style.fontSize),
+          maxCharsForWidth(cardWidth - (textX - padX), style.fontSize),
           2,
         );
         return (
@@ -490,8 +555,17 @@ function ListScene({ visual }: { visual: Visual }): JSX.Element {
             >
               {index + 1}
             </text>
+            {Icon ? (
+              <IconGlyph
+                Icon={Icon}
+                cx={labelX + iconSize / 2}
+                cy={card.centerY}
+                size={iconSize}
+                color={card.node.textColor ?? accent}
+              />
+            ) : null}
             <MultilineText
-              cx={labelX}
+              cx={textX}
               cy={card.centerY}
               lines={lines}
               color={card.node.textColor ?? style.nodeText}
@@ -526,6 +600,9 @@ function BarChart({ visual }: { visual: Visual }): JSX.Element {
       {layout.bars.map((bar, index) => {
         const color = bar.node.color ?? pick(style.palette, index);
         const textColor = bar.node.textColor ?? style.nodeText;
+        const Icon = bar.node.icon
+          ? resolveIconComponent(bar.node.icon)
+          : undefined;
         return (
           <g key={bar.node.id}>
             <rect
@@ -558,6 +635,15 @@ function BarChart({ visual }: { visual: Visual }): JSX.Element {
             >
               {bar.node.label}
             </text>
+            {Icon ? (
+              <IconGlyph
+                Icon={Icon}
+                cx={bar.centerX}
+                cy={baselineY + 38}
+                size={18}
+                color={textColor}
+              />
+            ) : null}
           </g>
         );
       })}
