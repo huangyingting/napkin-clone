@@ -123,7 +123,10 @@ in `public/`, configs (`next.config.ts`, `tsconfig.json`, `eslint.config.mjs`,
   stay **identical to the canonical `prisma/schema.prisma` except
   `provider = "sqlite"`**; `Json` validates on SQLite in Prisma 7 (it maps to
   TEXT). Run CLI commands with the matching env, e.g.
-  `DB_PROVIDER=postgres npx prisma validate`.
+  `DB_PROVIDER=postgres npx prisma validate`. **Gotcha:** on a fresh clone with no
+  `DATABASE_URL`, Postgres Prisma CLI commands still need an explicit
+  `postgresql://...` URL; otherwise `prisma.config.ts` only has the SQLite fallback
+  and Prisma errors with `P1013`.
 - **`schema.sqlite.prisma` is GENERATED — don't hand-edit it (US-004).** It's
   derived from the canonical `prisma/schema.prisma` by
   `scripts/gen-sqlite-schema.mjs` (run `npm run db:schema:sqlite`), which copies

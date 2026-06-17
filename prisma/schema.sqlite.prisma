@@ -77,13 +77,15 @@ model Document {
 }
 
 model Visual {
-  id         String   @id @default(cuid())
-  documentId String
-  type       String
-  title      String?
-  data       Json
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id            String   @id @default(cuid())
+  documentId    String
+  anchorBlockId String?
+  orderIndex    Int      @default(0)
+  type          String
+  title         String?
+  data          Json
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
