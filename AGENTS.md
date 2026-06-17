@@ -393,6 +393,13 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   `from`/`to` reference existing nodes) but are **forgiving about styling**
   (missing/partial `style`, `width`/`height` are merged with `DEFAULT_STYLE` /
   canvas defaults). Reuse these to reject garbled LLM output in US-010.
+- **Optional per-node `icon?: string`** (parity-gaps US-002) holds an icon
+  **catalog name** (`src/lib/icons/catalog.ts`). `validateNode` validates it with
+  `isKnownIcon` and **silently drops** a non-string or unknown name (treated as no
+  icon, never a hard failure) — mirroring the "forgiving about styling" rule, so
+  garbled AI output can't break a valid visual. `schema.ts` imports `isKnownIcon`
+  from `@/lib/icons/catalog` (no cycle; catalog.ts is React/lucide-free). Validator
+  coverage lives in `src/lib/visual/schema.test.ts`.
 - **Renderer `src/components/visual/visual-renderer.tsx` (`VisualRenderer`) is
   directive-free** (no `"use client"`, no hooks) so it renders in **both** server
   components (gallery, US-017 read-only pages) and client ones (US-011/013

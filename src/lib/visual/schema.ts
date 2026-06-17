@@ -11,6 +11,8 @@
  * styling (missing/partial `style` is merged with `DEFAULT_STYLE`).
  */
 
+import { isKnownIcon } from "@/lib/icons/catalog";
+
 export const VISUAL_SCHEMA_VERSION = 1 as const;
 
 export const VISUAL_KINDS = [
@@ -69,6 +71,11 @@ export interface VisualNode {
   stroke?: string;
   /** Optional per-node label text color override. */
   textColor?: string;
+  /**
+   * Optional icon catalog name (see `src/lib/icons/catalog.ts`). An unknown
+   * name is dropped during validation (treated as no icon), never a failure.
+   */
+  icon?: string;
 }
 
 /** A directed-by-default connection between two nodes (by id). */
@@ -255,6 +262,13 @@ function validateNode(input: unknown, index: number): VisualNode {
       throw new VisualValidationError(`${context}.textColor must be a string`);
     }
     node.textColor = input.textColor;
+  }
+
+  // Icons are forgiving: a non-string or unknown catalog name is silently
+  // dropped (treated as no icon) rather than failing validation, so garbled
+  // AI output can't break an otherwise-valid visual.
+  if (typeof input.icon === "string" && isKnownIcon(input.icon)) {
+    node.icon = input.icon;
   }
 
   return node;
