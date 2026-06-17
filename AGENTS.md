@@ -738,3 +738,32 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   `onFocus` sets the selection, which is all the anchor needs. Verify cross-user
   visibility with **two separate dev-browser instances** (owner + a workspace member)
   reading the same access-scoped action.
+
+## Napkin Parity Gaps (branch `ralph/napkin-parity-gaps`)
+
+> A second PRD (`scripts/prd.json`, doc `tasks/prd-napkin-parity-gaps.md`) that
+> **reuses US-001.. numbering** — these stories are distinct from the original
+> Napkin Clone stories above. Disambiguate by branch/section when referencing.
+
+### Offline icon catalog (parity-gaps US-001)
+
+- **Bundled icon source is `lucide-react`** (installed; v1.x). It ships every icon
+  as a named PascalCase React component (`import { ArrowRight } from "lucide-react"`)
+  and is fully offline (no runtime network calls). Resolve a catalog name to a
+  component via a named/`* as Icons` import; prefer explicit named imports in a
+  curated map to stay tree-shakeable.
+- **Catalog + search live in `src/lib/icons/catalog.ts`** and the module is
+  deliberately **framework-free** (no React import) so it unit-tests under
+  `node --test` + `tsx`. Shape: `IconEntry { name: string; keywords: string[] }`,
+  exported `ICON_CATALOG: IconEntry[]`. `name` is the **canonical lucide component
+  name** (PascalCase) so later stories (render US-003, picker US-004, AI suggest
+  US-005) can resolve/validate against it directly.
+- **`searchIcons(query, limit = 30)` is pure + deterministic**: case-insensitive,
+  ranks name matches above keyword matches (exact > prefix > substring), ties break
+  alphabetically by name. **Empty/whitespace query returns a curated default set**
+  (`DEFAULT_ICON_NAMES`), `limit <= 0` returns `[]`, and an unmatched query returns
+  `[]`. Helpers `isKnownIcon(name)` / `getIconEntry(name)` are the single source of
+  truth for validating icon names (reuse them in US-002/US-005 instead of
+  re-deriving a name set).
+- **Tests** sit next to the module (`src/lib/icons/catalog.test.ts`), matching the
+  repo convention (`*.test.ts` beside source, run via `npm test`).
