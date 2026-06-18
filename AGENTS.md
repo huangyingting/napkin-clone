@@ -1267,3 +1267,29 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   and scope the status to `div.absolute p[role="status"]` (the editor also has a
   save-status `role="status"`). Delete the throwaway user from `prisma/dev.db` after
   (root-level `tsx` cleanup script using `PrismaBetterSqlite3`, then remove it).
+
+## Napkin Product Maturity (branch `ralph/napkin-product-maturity`)
+
+> A third PRD (`scripts/prd.json`, doc `tasks/prd-napkin-product-maturity.md`) that
+> **reuses US-001.. numbering** — distinct from the original Napkin Clone and the
+> Napkin Parity Gaps stories above. Disambiguate by branch/section when referencing.
+> Branched from `ralph/napkin-parity-gaps` (it matures the product "beyond visual
+> parity"), so all parity-gaps features (icons, extra visual kinds, embed, connector
+> editing) are present.
+
+### Delete a document (US-001)
+
+- **`deleteDocument(id)` lives in `src/app/app/actions.ts`** (`"use server"`),
+  alongside `createDocument`. It access-gates with `getAccessibleDocument(user.id,
+  id)` from `@/lib/documents` (owner OR any-role workspace member); a non-accessible
+  id **returns early (silent no-op)** so existence never leaks, then deletes via
+  `prisma.document.deleteMany({ where: { id } })` (deleteMany, not delete, so a
+  concurrent removal is a no-op rather than a `P2025` throw). The document's `Visual`
+  and `Comment` rows are removed automatically by the existing `onDelete: Cascade`
+  FKs (verified in both migration histories) — no manual child deletes. Ends with
+  `revalidatePath("/app")`. Reuse this gate-then-`deleteMany`/`updateMany` shape for
+  the other dashboard mutations (rename/duplicate/favorite/soft-delete).
+- Server actions in this repo are **not** unit-tested (they need prisma + a session);
+  "Tests pass" for these stories means the existing `npm test` suite stays green.
+  Validate DB-level behavior (e.g. cascade) with a throwaway root-level `tsx` script
+  using the documented `PrismaBetterSqlite3` adapter, then delete it before committing.
