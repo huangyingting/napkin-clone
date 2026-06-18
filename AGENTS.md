@@ -1575,3 +1575,55 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   drops the param + shows all; unstar all favorites → "No favorite documents yet". Read card
   titles via `ul li span.font-medium` `allInnerTexts()`.
 
+### Account settings page — edit display name (US-009)
+
+- **The protected settings route is `/app/settings`** (`src/app/app/settings/page.tsx`, a
+  server component under `/app/*` so the proxy + a server-side `requireUser()` both guard
+  it). It reads the user **fresh from the DB** (`prisma.user.findUnique({ where: { id:
+  sessionUser.id }, select: { name, email } })`) and renders the client `ProfileForm`
+  (`profile-form.tsx`, `useActionState`) with `initialName`/`email`. The name `<input
+  aria-label="Display name">` is **uncontrolled** (`defaultValue`) so it keeps the typed
+  value after save; email shows in a disabled `<input aria-label="Email">`. Success/error
+  surface via `role="status"` ("Profile updated.") / `role="alert"`.
+- **`updateProfile(prev, formData)` (`settings/actions.ts`, `"use server"`)** is scoped to
+  the current user by keying the write on the **session `user.id`** (never a client id), so
+  it can only change the caller's own profile — a plain `prisma.user.update` is fine here
+  (unlike document mutations, the id isn't client-supplied). Trims + clamps the name to 100
+  chars; **empty → `null`** so the header/menu falls back to the email. Returns a typed
+  `ProfileFormState` discriminated union (`idle`/`success`/`error`).
+- **GOTCHA — the JWT session token holds the name captured at SIGN-IN; updating
+  `User.name` in the DB does NOT update `session.user.name`** (it stays stale even across
+  reloads, since the `jwt` callback returns the token unchanged on subsequent requests). So
+  anything that must reflect a just-saved name reads it **fresh from the DB**, not from
+  `getCurrentUser()`. `SiteHeader` now does `getCurrentUser()` → `prisma.user.findUnique`
+  by `sessionUser.id` for `{ name, email }`. `updateProfile` calls `revalidatePath("/",
+  "layout")` so the header (root layout) refreshes across the cached Router tree; the
+  action's automatic route refresh already updates the header on the settings page itself
+  without a reload. (Alternative: refresh the JWT via Auth.js `update()` — not used; the
+  DB read is simpler and bulletproof for "persists after reload".)
+- **The header user menu is `src/components/user-menu.tsx` (`UserMenu`, `"use client"`)** —
+  a dropdown using the ref-containment click-outside pattern (toggle + panel in one
+  `menuRef`, document listener, **never `stopPropagation`**). It shows the name (falling
+  back to email) + an avatar initial; the panel has the name+email, a `Settings`
+  `<Link href="/app/settings" role="menuitem">`, and the sign-out control. **The
+  `SignOutButton` (server component, inline `signOut` action) is passed as `children`** so
+  the server action stays server-side (the standard "server component into a client
+  component via children/props" pattern); it gained optional `className`/`role` props to
+  render as a full-width menu item. `SiteHeader` renders the authed nav based on the **DB
+  user** (not the raw session), so a stale JWT pointing at a deleted user falls back to the
+  signed-out header.
+- **Responsive header (avoid 375px overflow):** the always-visible name pill is wider than
+  the old `hidden sm:inline` email span, so the trigger **collapses to avatar-only on
+  mobile** — name span is `hidden ... sm:inline`, button padding `p-1 sm:pr-3` (a ~36px
+  circle < 640px, full pill at `sm`+). Matches the original email span's `hidden sm:inline`
+  so the site header stays within 375/768/1280 (`scrollWidth <= clientWidth`). The dropdown
+  body still shows the full name/email at every width.
+- **Browser QA:** sign up a fresh `*@test.dev` user (leave name blank → header shows the
+  email). Hooks: `[aria-label="User menu"]` (trigger), `[role="menu"]` + `a[href="/app/settings"]`,
+  `input[aria-label="Display name"]`, `button:has-text("Save changes")`,
+  `[role="status"]:has-text("Profile updated.")`. The trigger's **`innerText` hides the name
+  below 640px** (the `sm:inline` collapse) — set the viewport to 1280 before asserting the
+  name is visible, or assert via `textContent` (which includes `display:none` text) in a
+  `waitForFunction`. Verify the header updates after save WITHOUT reload, then `page.reload()`
+  to confirm both the header and the settings input persist; check no overflow at 375.
+
