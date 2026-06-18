@@ -1986,3 +1986,36 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   so prose line breaks are left as written — only tables/code get reflowed.) This mirrors
   the US-017 note that workflow YAML is also Prettier-checked.
 
+### Fix editor-header overflow at 375px (US-021)
+
+- **RESOLVED — the long-standing 375px editor-header overflow is fixed** (the
+  "known/pre-existing US-021 issue" called out across earlier sections is no longer
+  present). The offender was the editor header's **controls row** in
+  `src/app/app/documents/[id]/document-editor.tsx`: a non-wrapping `flex items-center
+  gap-3` holding `Presence` + `ShareButton` + `CommentsPanel` + a `shrink-0`
+  save-status `span`. Below the `sm` breakpoint the header is a `flex-col`, so that
+  row got the full content width (~327px at 375); its items don't shrink and the
+  `shrink-0` span ("All changes saved" ≈ 110px) forced ~82px of horizontal overflow
+  on `document.documentElement`.
+- **Fix = let the controls row wrap + let the save-status shrink, instead of forcing
+  width.** Controls container: `flex items-center gap-3` → `flex min-w-0 flex-wrap
+  items-center justify-end gap-3` (wrap so items flow onto a second line on narrow
+  screens; `justify-end` keeps the wrapped controls hugging the right, matching the
+  header's `sm:justify-between` intent). Save-status span: `shrink-0 text-xs …` →
+  `min-w-0 truncate text-xs …` (drop `shrink-0`, add `min-w-0 truncate` so it can
+  shrink/truncate if ever constrained; on its own wrapped line it has full width and
+  shows in full — verified `scrollWidth === clientWidth`, not ellipsis-clipped).
+- **Why this is regression-safe at 768/1280:** wrapping/shrinking can only ever
+  *reduce* a flex row's width, never increase it, so wider breakpoints (which already
+  had `overflow=0` and enough room to keep everything on one line) are unchanged. No
+  `justify`/layout change is visible there because the controls already fit.
+- **Browser QA (dev-browser, headless):** measure
+  `document.documentElement.scrollWidth - clientWidth` at 1280/768/375 — all 0 after
+  the fix (was 82 at 375 before). The previous "worst overflowing element" probe
+  (find any `el.getBoundingClientRect().right > clientWidth`) named the
+  `span.shrink-0 text-xs … "All changes saved"` as the sole offender, which is the
+  precise thing this change neutralizes. Reuse that "widest element past the viewport"
+  probe to pinpoint any future overflow regression. (No DB/Azure needed; just sign up
+  a `*@test.dev` user, create a doc via the New-document template picker → Blank, wait
+  for `textarea[aria-label="Document text"]:not([disabled])`, then measure.)
+

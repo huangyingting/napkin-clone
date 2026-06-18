@@ -232,7 +232,7 @@ export function DocumentEditor({
             className="w-full rounded-md bg-transparent text-xl font-semibold tracking-tight text-zinc-900 outline-none placeholder:text-zinc-400 focus:bg-zinc-100/60 focus:px-2 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-50 dark:placeholder:text-zinc-600 dark:focus:bg-zinc-800/60"
           />
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
           <Presence peers={peers} status={status} />
           <ShareButton
             id={id}
@@ -249,7 +249,7 @@ export function DocumentEditor({
           <span
             role="status"
             aria-live="polite"
-            className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400"
+            className="min-w-0 truncate text-xs text-zinc-500 dark:text-zinc-400"
           >
             {STATUS_LABEL[saveStatus]}
           </span>
