@@ -277,7 +277,7 @@ export function InlineVisualEditor({
       ref={containerRef}
       role="group"
       aria-label="Visual editing tools"
-      className="flex flex-col gap-3"
+      className="napkin-pop-in flex flex-col gap-3"
     >
       {/* Floating contextual toolbar above the visual. */}
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-black/[.08] bg-white/90 p-1.5 backdrop-blur dark:border-white/[.10] dark:bg-zinc-900/80">

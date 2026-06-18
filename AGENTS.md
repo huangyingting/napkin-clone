@@ -2540,3 +2540,45 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   When checking placement, target the **specific** hint element (`div.border-dashed`
   / `[role="note"]`), not "any div containing the text" — an ancestor wrapper also
   contains it and gives a false "above the textarea" reading.
+
+### Toolbar and affordance enter/exit animations (US-011)
+
+- **Reduced-motion-aware entrance for the contextual visual controls lives in
+  `src/app/globals.css`.** A single `@media (prefers-reduced-motion: no-preference)`
+  block holds BOTH the `@keyframes napkin-pop-in` (opacity + `translateY(0.375rem)` +
+  `scale(.98)` → identity, i.e. transform/opacity only, no layout shift) AND the
+  `.napkin-pop-in { animation: napkin-pop-in 160ms ease-out }` rule. **Wrapping the
+  class rule itself inside the no-preference media query is the trick** — under
+  `prefers-reduced-motion: reduce` the class has NO rule at all, so the element just
+  appears with zero motion (no JS, no library). Reuse `napkin-pop-in` for any new
+  conditionally-mounted floating control that should fade/slide in.
+- **The two ALWAYS-MOUNTED toolbars (spark gutter `sparkButtonClass`, selection/format
+  `formatToolbarClass` in `content-editor.tsx`) already animate in AND out** via
+  `transition duration-150` + the visible/hidden class toggle (`translate*-0
+  opacity-100` ↔ `translate*-N opacity-0`, transform/opacity only). US-011 only added
+  **`motion-reduce:transition-none`** to each so the show/hide is instant under reduced
+  motion. Note: Tailwind's bare `transition` utility's `transition-property` list
+  INCLUDES `opacity` and `transform`, so those enter/exit animations work; `transition-none`
+  (the `motion-reduce` variant) sets `transition-property: none` and wins by source order.
+- **The contextual visual controls (`InlineVisualEditor`) are conditionally mounted**
+  (`selectedVisualKey` gate), so they get an ENTRANCE animation only (`napkin-pop-in` on
+  the `role="group" aria-label="Visual editing tools"` container) — a CSS-only exit on an
+  unmounting component would need deferred unmount; the spark + format toolbars cover the
+  "in/out" demo. The animation plays once on mount (default `animation-fill-mode: none`
+  ends at identity transform/full opacity), so it never replays on the per-keystroke
+  re-renders during label editing and doesn't disturb the `VisualEditor` SVG overlay.
+- **No animation library** (PRD constraint) — CSS `@keyframes`/transitions only. **No
+  schema/action/endpoint changes** (pure styling). US-012 (visual mount/unmount + a
+  pulsing "thinking" indicator) is a SEPARATE story — don't animate the inline visual
+  card mount or the generation spinner here.
+- **Browser QA (build + `next start` + collab, headless) = deterministic computed-style
+  checks, NOT frame capture.** Open the US-012-seeded welcome doc (it has a doc-level
+  visual), wait for `textarea[aria-label="Document text"]:not([disabled])`. With
+  `page.emulateMedia({ reducedMotion: "no-preference" })`: the format toolbar
+  (`[role="toolbar"][aria-label="Text formatting"]`) and spark
+  (`[aria-label="Generate visual for this block"]`) `getComputedStyle().transitionProperty`
+  includes `opacity`/`transform` at `0.15s`; click `[aria-label="Edit document visual"]`
+  to mount the editor and assert its `animationName === "napkin-pop-in"` (0.16s). With
+  `{ reducedMotion: "reduce" }` + reload, all three report `none` (toolbars
+  `transitionProperty: none`, editor `animationName: none`). 0 horizontal overflow at
+  1280/768/375.

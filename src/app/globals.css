@@ -24,3 +24,27 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/*
+ * Entrance animation for floating toolbars / contextual controls (US-011).
+ * Keyframes + class live inside the no-preference media query so that when the
+ * user prefers reduced motion the class has no rule at all — the element simply
+ * appears with no motion. Transform/opacity only, so there is no layout shift.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes napkin-pop-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.375rem) scale(0.98);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .napkin-pop-in {
+    animation: napkin-pop-in 160ms ease-out;
+  }
+}

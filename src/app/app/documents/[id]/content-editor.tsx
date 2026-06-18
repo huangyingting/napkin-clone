@@ -180,7 +180,7 @@ const toolbarButtonClass =
 // mounted so it can animate in/out (US-011).
 function formatToolbarClass(visible: boolean): string {
   return [
-    "fixed inset-x-0 bottom-6 z-30 mx-auto flex w-fit max-w-[calc(100vw-1rem)] flex-wrap items-center justify-center gap-1 rounded-full border border-black/[.08] bg-white/95 p-1 shadow-lg backdrop-blur transition duration-150 dark:border-white/[.12] dark:bg-zinc-900/95",
+    "fixed inset-x-0 bottom-6 z-30 mx-auto flex w-fit max-w-[calc(100vw-1rem)] flex-wrap items-center justify-center gap-1 rounded-full border border-black/[.08] bg-white/95 p-1 shadow-lg backdrop-blur transition duration-150 motion-reduce:transition-none dark:border-white/[.12] dark:bg-zinc-900/95",
     visible
       ? "pointer-events-auto translate-y-0 opacity-100"
       : "pointer-events-none translate-y-2 opacity-0",
@@ -189,7 +189,7 @@ function formatToolbarClass(visible: boolean): string {
 
 function sparkButtonClass(visible: boolean, active: boolean): string {
   return [
-    "flex h-7 w-7 items-center justify-center rounded-md border border-black/[.08] bg-white text-zinc-500 shadow-sm transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[.12] dark:bg-zinc-900 dark:text-zinc-400 dark:hover:border-white/30 dark:hover:text-zinc-100 dark:focus-visible:ring-zinc-500",
+    "flex h-7 w-7 items-center justify-center rounded-md border border-black/[.08] bg-white text-zinc-500 shadow-sm transition duration-150 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[.12] dark:bg-zinc-900 dark:text-zinc-400 dark:hover:border-white/30 dark:hover:text-zinc-100 dark:focus-visible:ring-zinc-500",
     visible
       ? "pointer-events-auto translate-x-0 opacity-100"
       : "pointer-events-none -translate-x-1 opacity-0",
