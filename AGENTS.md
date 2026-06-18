@@ -1627,3 +1627,42 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   `waitForFunction`. Verify the header updates after save WITHOUT reload, then `page.reload()`
   to confirm both the header and the settings input persist; check no overflow at 375.
 
+### Change password (US-010)
+
+- **Pure password rules live in `src/lib/auth/password.ts`** (framework-free: no
+  bcrypt/Prisma/React) so they unit-test under `node --test` + `tsx`
+  (`password.test.ts` beside it). It exports `MIN_PASSWORD_LENGTH` (8) and
+  `validatePasswordChange({ newPassword, confirmPassword })` →
+  `{ ok: true } | { ok: false; message }` — **length check runs before the match
+  check**. bcrypt/DB verification stays in the server action, NOT here, to keep it
+  pure. (Sign-up still has its own `MIN_PASSWORD_LENGTH` in
+  `src/app/signup/actions.ts` — left untouched to keep the change focused; both are 8.)
+- **`changePassword(prev, formData)` (`src/app/app/settings/actions.ts`,
+  `"use server"`)** is scoped to the SESSION `user.id` (never client-supplied), reads
+  `passwordHash` fresh from the DB, runs `validatePasswordChange`, and — when the
+  account already has a hash — requires the current password (`bcrypt.compare`,
+  generic "Your current password is incorrect." so nothing leaks) and rejects
+  reusing the same password. On success it `bcrypt.hash(newPassword, 12)` (cost
+  matches sign-up) and `prisma.user.update`. Returns the `PasswordFormState`
+  discriminated union (`idle`/`success`/`error`). **Google-only accounts (no
+  `passwordHash`) can SET a password without a current one** — the same action skips
+  the current-password check when `passwordHash` is null.
+- **`PasswordForm` (`password-form.tsx`, `"use client"`, `useActionState`)** takes a
+  `hasPassword` boolean: when true it shows the Current-password field + "Update
+  password"; when false it hides it, shows a "You signed in with Google…" note, and
+  labels the button "Set password". A `useEffect` on `state` calls
+  `formRef.current?.reset()` on success to clear the typed secrets from the DOM
+  (ref-DOM-call in an effect is fine; it's not a `setState`). The page
+  (`settings/page.tsx`) selects `passwordHash`, computes `hasPassword =
+  Boolean(user.passwordHash)`, and renders the password `<section>` below Profile.
+- **Test hooks:** `input[aria-label="Current password"]` / `"New password"` /
+  `"Confirm new password"`; submit `button:has-text("Update password")` (or
+  `"Set password"`); success `[role=status]` ("Password updated." / "Password set."),
+  errors `[role=alert]`. **Browser QA gotcha for the Google-only variant:** you can't
+  log in as a passwordless user via credentials, so sign up a normal user (gets a
+  valid JWT session), null their `passwordHash` with a root-level `tsx`
+  (`PrismaBetterSqlite3`) script, then RELOAD `/app/settings` (the page reads
+  `passwordHash` fresh, so the session stays valid and the form flips to the
+  set-a-password variant). Verify a change by clearing cookies and logging in with
+  the new password (and confirming the old one now fails). Settings page has no
+  horizontal overflow at 1280/768/375. Clean up `*@test.dev` users after.
