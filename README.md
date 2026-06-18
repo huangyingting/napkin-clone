@@ -39,6 +39,7 @@ because signing in requires `AUTH_SECRET` (replace the placeholder with
 | `npm run typecheck`    | Type-check with `tsc --noEmit`            |
 | `npm run format`       | Format the codebase with Prettier         |
 | `npm run format:check` | Verify formatting without writing changes |
+| `npm run collab`       | Run the real-time collaboration server    |
 
 ## Database
 
@@ -69,6 +70,19 @@ DB_PROVIDER=postgres \
 DATABASE_URL="postgresql://user:pass@localhost:5432/napkin?schema=public" \
 npm run db:deploy
 ```
+
+## Real-time collaboration
+
+Collaborative editing is powered by a self-hosted Yjs websocket sync server
+(`npm run collab`). The browser editor connects to it via
+`NEXT_PUBLIC_COLLAB_WS_URL` (default `ws://localhost:1234`) and **degrades
+gracefully to local-only editing** after 2.5 s if the server is unreachable, so
+collaboration is never a hard dependency.
+
+For running the server in production, the single-instance in-memory limitation,
+and concrete scaling/persistence options (sticky routing, a Redis pub/sub
+backplane, or a Yjs persistence adapter), see
+[docs/collab-deployment.md](docs/collab-deployment.md).
 
 ## Project structure
 

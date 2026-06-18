@@ -1963,3 +1963,26 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   expected client error → NOT logged. Reuse `logError(scope, error, { requestId, reason,
   status })` for any other server route that needs diagnosable, PII-safe error logs.
 
+### Collab-server deployment & scaling docs (US-020)
+
+- **Documentation-only story** (no app/behavior change). The collab server
+  (`scripts/collab-server.mjs`) holds room state (`Y.Doc`s) in a **process-local
+  `Map`** — purely in-memory, never persisted, never shared across processes — so it
+  is single-instance: multiple instances behind a LB don't share rooms, and a restart
+  drops all rooms (masked by the editor's DB autosave, which is the durable source of
+  truth). `docs/collab-deployment.md` documents running it in prod (process manager +
+  `GET /health` probe + TLS at a reverse proxy → `wss://`), the env reference
+  (`COLLAB_PORT`/`COLLAB_HOST` for the server, `NEXT_PUBLIC_COLLAB_WS_URL` for the
+  client — a `NEXT_PUBLIC_*` var **inlined at build time**), the 2.5 s
+  (`DEGRADED_TIMEOUT_MS`) local-only graceful-degradation fallback, and three scaling
+  options with trade-offs: sticky routing (A, no new dep), Redis pub/sub backplane (B),
+  and a Yjs persistence adapter (C — `y-redis` for scale+durability, `y-leveldb` for a
+  single durable node). README links to it from a new "Real-time collaboration" section.
+- **GOTCHA — `docs/**` and `README.md` are NOT in `.prettierignore`**, so Prettier (and
+  thus `format:check` in the local gate + CI) formats them. After editing any
+  doc/README, run `npm run format` (or `npx prettier --check docs/<f>.md README.md`)
+  before committing — Prettier **realigns Markdown table columns**, so hand-aligned
+  tables will fail `format:check` until normalized. (`proseWrap` defaults to `preserve`,
+  so prose line breaks are left as written — only tables/code get reflowed.) This mirrors
+  the US-017 note that workflow YAML is also Prettier-checked.
+
