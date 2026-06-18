@@ -1462,3 +1462,46 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   collab/VisualPanel quirk, US-019's `ystate` observe, **not** a duplicate bug); don't chase it
   under US-005. The 375px editor-header overflow is the known US-021 issue (the **dashboard**
   has no overflow at 1280/768/375).
+
+### Search and sort documents on the dashboard (US-006)
+
+- **The dashboard toolbar (search + sort) lives in `DocumentList`**
+  (`src/app/app/document-list.tsx`), the existing client wrapper that already owns the
+  grid + soft-delete/undo. `page.tsx` (server) stays the data source; it now also
+  selects `createdAt` and passes raw sort keys (`createdAtMs`, `updatedAtMs` — numbers,
+  not Dates) on each item. The list-item type is the exported
+  `DashboardDocument = DocumentCardData & { createdAtMs; updatedAtMs }`; `DocumentCard`
+  still receives only `DocumentCardData` (id/title/editedLabel/workspaceName).
+- **Search is client-side + local state** (`useState`), case-insensitive substring on
+  `title` (`title.toLowerCase().includes(query.trim().toLowerCase())`). It is NOT
+  persisted in the URL (the AC only requires *sort* to persist). Sorting/filtering all
+  happen on the already-loaded list — no refetch.
+- **Sort persists in the URL via the History API, not `router.replace`.** Derive the
+  current key from `useSearchParams().get("sort")` (coerced by `parseSort`, default
+  `"edited"`) and write changes with `window.history.replaceState(null, "", url)`
+  (drop the param entirely for the default so `/app` stays clean). In the App Router
+  `useSearchParams()` **reactively reflects `history.replaceState`**, so the control
+  re-sorts instantly with **no server round-trip** (verified: re-sort is immediate and
+  the value/order survive `page.reload()`). Prefer this over `router.replace` for
+  purely client-side view state — `router.replace` would re-run the dynamic server
+  component (re-query + re-`purgeDeletedDocuments`). The page is dynamic (cookies via
+  `requireUser`), so `useSearchParams` needs **no** Suspense boundary; the build stays
+  `ƒ (Dynamic)`.
+- **Sort keys:** `edited` (updatedAtMs desc, default), `title` (`localeCompare`,
+  `sensitivity: "base"`), `created` (createdAtMs desc). `sortDocuments(docs, key)`
+  returns a **copy** (never mutate the prop). The undo/restore stash is now a
+  `DashboardDocument` (looked up from the `documents` prop, preserving any optimistic
+  title) so a restored card still sorts correctly until revalidation reconciles.
+- **Two distinct empty states:** truly-empty (`combined.length === 0`, no docs at all)
+  → the original "No documents yet" + create button, toolbar hidden; docs exist but the
+  search matches none → a "No documents match your search" `<h2>` with the toolbar still
+  shown. Don't conflate them — the toolbar must remain so the user can clear the query.
+- **Browser QA:** seed a user + ≥4 docs with **distinct `createdAt` AND `updatedAt`**
+  (Prisma *does* respect explicit `createdAt`/`updatedAt` passed to `create`, even
+  though `updatedAt` is `@updatedAt`) so the three orderings are all observable. Hooks:
+  `input[aria-label="Search documents"]`, `select[aria-label="Sort documents"]`
+  (`selectOption` by value `edited`/`title`/`created`), cards via
+  `ul li span.font-medium`. Assert order per key, `?sort=` in `page.url()`, persistence
+  after `page.reload()` (select `.value` + order), the no-match `<h2>`, and no
+  horizontal overflow at 1280/768/375. The dashboard has no overflow; the lone 375px
+  offender remains the editor-header save-status span (US-021).
