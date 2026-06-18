@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
 import { SignOutButton } from "@/components/sign-out-button";
 import { UserMenu } from "@/components/user-menu";
 import { prisma } from "@/lib/prisma";
@@ -43,6 +44,7 @@ export async function SiteHeader() {
             >
               Workspaces
             </Link>
+            <KeyboardShortcuts />
             <UserMenu name={account.name} email={account.email}>
               <SignOutButton
                 role="menuitem"

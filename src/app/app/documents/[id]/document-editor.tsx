@@ -10,6 +10,8 @@ import {
   useYText,
 } from "@/lib/collab/use-collaboration";
 import { applyBlockType, type BlockType } from "@/lib/markdown";
+import { isTogglePreviewShortcut } from "@/lib/shortcuts/match";
+import { useKeyboardShortcut } from "@/lib/shortcuts/use-keyboard-shortcuts";
 import type { Visual } from "@/lib/visual/schema";
 
 import { saveDocumentContent, saveDocumentTitle } from "./actions";
@@ -144,6 +146,18 @@ export function DocumentEditor({
   });
 
   const [tab, setTab] = useState<"write" | "preview">("write");
+
+  // Ctrl/⌘+E toggles Write/Preview. `allowInInput` is true because the user is
+  // usually typing in the textarea; the modifier means it never inserts text.
+  useKeyboardShortcut(
+    (event) => {
+      if (isTogglePreviewShortcut(event)) {
+        event.preventDefault();
+        setTab((current) => (current === "write" ? "preview" : "write"));
+      }
+    },
+    { allowInInput: true },
+  );
 
   // Seed shared state from the database once collaboration is ready.
   useEffect(() => {
@@ -280,6 +294,7 @@ export function DocumentEditor({
               <button
                 type="button"
                 onClick={() => setTab("write")}
+                title="Write (Ctrl/⌘+E to toggle)"
                 className={tabClass(tab === "write")}
               >
                 Write
@@ -287,6 +302,7 @@ export function DocumentEditor({
               <button
                 type="button"
                 onClick={() => setTab("preview")}
+                title="Preview (Ctrl/⌘+E to toggle)"
                 className={tabClass(tab === "preview")}
               >
                 Preview

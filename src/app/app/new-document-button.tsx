@@ -3,6 +3,8 @@
 import { useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 
+import { isNewDocumentShortcut } from "@/lib/shortcuts/match";
+import { useKeyboardShortcut } from "@/lib/shortcuts/use-keyboard-shortcuts";
 import { TEMPLATE_CATALOG } from "@/lib/templates/catalog";
 
 import { createDocumentFromTemplate } from "./actions";
@@ -124,15 +126,31 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
  * Opens the template picker so the user can choose how to start a new document.
  * Keeps the same props (`className`, `children`) as the previous submit button
  * so the header and empty-state call sites are unchanged.
+ *
+ * When `enableShortcut` is set (only the always-present header instance does so,
+ * to avoid double-handling when the empty-state button is also rendered), a bare
+ * `n` keypress opens the picker.
  */
 export function NewDocumentButton({
   className,
   children = "New document",
+  enableShortcut = false,
 }: {
   className: string;
   children?: React.ReactNode;
+  enableShortcut?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+
+  useKeyboardShortcut(
+    (event) => {
+      if (isNewDocumentShortcut(event)) {
+        event.preventDefault();
+        setOpen(true);
+      }
+    },
+    { enabled: enableShortcut },
+  );
 
   return (
     <>

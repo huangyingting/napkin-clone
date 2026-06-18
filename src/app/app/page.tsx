@@ -89,7 +89,7 @@ export default async function DashboardPage() {
               </span>
             </p>
           </div>
-          <NewDocumentButton className={primaryButtonClass} />
+          <NewDocumentButton className={primaryButtonClass} enableShortcut />
         </header>
 
         <DocumentList documents={documents} />

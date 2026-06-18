@@ -2019,3 +2019,53 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   a `*@test.dev` user, create a doc via the New-document template picker → Blank, wait
   for `textarea[aria-label="Document text"]:not([disabled])`, then measure.)
 
+### Core keyboard shortcuts (US-022)
+
+- **Shortcuts live in a small framework split** under `src/lib/shortcuts/`:
+  - `catalog.ts` — framework-free data (`SHORTCUTS`, `SHORTCUT_SCOPES`,
+    `shortcutsForScope`) consumed by the help dialog. No React import.
+  - `match.ts` — **pure, unit-tested matchers** (`isEditableTagName`,
+    `isHelpShortcut`, `isNewDocumentShortcut`, `isTogglePreviewShortcut`) taking a
+    `KeyEventLike` (the `KeyboardEvent` subset). A real `KeyboardEvent` is
+    structurally a `KeyEventLike`, so the DOM hook passes the event straight in.
+    Colocated `match.test.ts` (the "pure logic + colocated test" rule). US-022 has
+    NO unit-test AC, but extracting the matchers keeps `npm test` meaningful.
+  - `use-keyboard-shortcuts.ts` — `"use client"` `useKeyboardShortcut(handler,
+    { enabled?, allowInInput? })` + DOM `isEditableTarget`. It keeps `handler` in a
+    ref **updated inside a `useEffect`** (NEVER `ref.current = x` during render — the
+    `react-hooks/refs` rule) so the `document` keydown listener never churns or goes
+    stale; the listener effect deps are only `[enabled, allowInInput]`. `enabled:
+    false` registers nothing; `allowInInput: false` (default) ignores events from
+    INPUT/TEXTAREA/SELECT/contentEditable so typing is never hijacked.
+- **Bare-key shortcuts must be scoped to ONE mounted instance.** `NewDocumentButton`
+  renders in BOTH the dashboard header AND the empty-state, so the `n` shortcut is
+  gated by an `enableShortcut` prop that ONLY the always-present header instance
+  (`page.tsx`) passes — otherwise two listeners would both open the picker. Pattern
+  for any bare-key shortcut on a component that can mount more than once: add an
+  `enableShortcut`/`enabled` prop and turn it on for exactly one instance.
+- **Modifier shortcuts that work WHILE typing pass `allowInInput: true`.** The editor's
+  `Ctrl/⌘+E` (toggle Write/Preview, in `document-editor.tsx`) uses it because the user
+  is usually in the textarea; `event.preventDefault()` stops the browser default
+  (Ctrl+E focuses the address/search bar) and the modifier means it never inserts text.
+  `isTogglePreviewShortcut` accepts ctrl OR meta (cross-platform).
+- **The `?` help is global via the SiteHeader.** `src/components/keyboard-shortcuts.tsx`
+  (`KeyboardShortcuts`, `"use client"`) is mounted in `SiteHeader`'s logged-in nav, so
+  the `?` listener + `createPortal` dialog (grouped by `SHORTCUT_SCOPES`, `<kbd>` chips,
+  Escape/backdrop close) are available on every app page without an app-level layout.
+  The visible "?" button is `hidden sm:flex` to avoid 375px header overflow — the
+  component stays MOUNTED at all widths (`hidden` is just `display:none`), so the **`?`
+  keyboard shortcut still works at 375px** even though the button is hidden (mobile has
+  no physical keyboard anyway). GOTCHA: adding any item to the SiteHeader nav (`flex
+  items-center gap-3`) can push it past 375px — re-run the overflow probe and prefer
+  `hidden sm:flex` for non-essential affordances.
+- **Browser QA (dev-browser, headless):** press keys with `page.keyboard.press` —
+  `"Shift+Slash"` yields `event.key === "?"`, `"n"` is bare, `"Control+e"` toggles.
+  Move focus off inputs first (`locator('h1').click()` or `evaluate(()=>document
+  .activeElement?.blur())`) since the listener guards editable targets. Assert the
+  dialogs by `[role="dialog"][aria-labelledby="shortcuts-title"]` /
+  `#template-picker-title`. Preview-vs-Write is detectable because the `textarea[aria
+  -label="Document text"]` is conditionally rendered (present only in Write). Verify
+  "ignored while typing" by focusing the dashboard search (`input[aria-label="Search
+  documents"]`, present once ≥1 doc exists — US-012 seeds one on signup) and typing
+  `n`/`?`: no dialog opens and the chars land in the field.
+
