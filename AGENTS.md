@@ -481,17 +481,21 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   **non-blocking + retryable** (inline `role="alert"` + "Try again"; canvas/candidates
   state is preserved). Test hooks: `aria-label="Generate visual"`, thumbnail
   `aria-label="Select <Kind> option <n>"`, save `role="status"` text "Visual saved".
-- **One active visual per document.** `attachVisual(id, input)`
-  (`src/app/app/documents/[id]/actions.ts`, `"use server"`) re-validates the payload
-  with `validateVisual` (never trust the client), owner-scopes the document
-  (`findFirst { id, ownerId }`), then **create-or-updates the document's single `Visual`
-  row** (find the earliest by `createdAt`, else create). The full `Visual` JSON is stored
-  in `Visual.data` (cast `as unknown as Prisma.InputJsonValue`, importing `Prisma` from
-  `@/generated/prisma/client`); `type` maps via `VISUAL_KIND_TO_PRISMA`. The editor
-  **page** loads that visual (`visuals: { orderBy: { createdAt: "asc" }, take: 1 }`),
-  `safeParseVisual`s it, and passes `initialVisual: Visual | null` to `DocumentEditor` →
-  `VisualPanel` (so it renders on load and survives reload). US-012/013/014 build on this
-  single-visual-per-document model.
+- **Visuals are upserted per anchor block (parity-gaps US-008).** `attachVisual(id,
+  input, anchorBlockId?)` (`src/app/app/documents/[id]/actions.ts`, `"use server"`)
+  re-validates the payload with `validateVisual` (never trust the client),
+  **access-scopes** the document via `getAccessibleDocument(user.id, id)` (owner OR
+  workspace member — no longer owner-only `findFirst`), then **create-or-updates the
+  `Visual` row keyed by `(documentId, anchorBlockId)`**: it `findFirst`s the earliest
+  row for that anchor (else creates one). A **`null` anchor targets the legacy
+  document-level visual** (backward compatible: existing callers pass no anchor → one
+  document-level row, updated in place). Anchored ids let multiple visuals coexist in
+  one document. The full `Visual` JSON is stored in `Visual.data` (cast `as unknown as
+  Prisma.InputJsonValue`, importing `Prisma` from `@/generated/prisma/client`); `type`
+  maps via `VISUAL_KIND_TO_PRISMA`. The editor **page** still loads only the earliest
+  visual (`visuals: { orderBy: { createdAt: "asc" }, take: 1 }`), `safeParseVisual`s
+  it, and passes `initialVisual: Visual | null` to `DocumentEditor` → `VisualPanel`
+  (rendering all anchored visuals inline is US-010).
 - **Browser-testing generation locally:** Azure isn't configured in dev, so the real
   endpoint returns **503**. dev-browser's `page.route` interception is **unreliable in
   the QuickJS sandbox** (the fulfilled fetch hangs and unrelated requests fail with
@@ -862,3 +866,24 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   returned visuals through `safeParseVisual`, so a bad `icon` is silently dropped
   while the rest of the candidate remains usable. Keep that forgiving path intact
   for AI-facing features instead of rejecting the whole visual.
+
+### Anchored visuals in attachVisual (parity-gaps US-008)
+
+- **`attachVisual(id, input, anchorBlockId: string | null = null)`** now upserts a
+  visual keyed by **`(documentId, anchorBlockId)`** instead of overwriting the single
+  document-level row. A non-empty trimmed `anchorBlockId` (clamped to 200 chars, via
+  `normalizeAnchorBlockId`) anchors the visual to a Markdown block id (US-007's
+  `block.id`); **`null` = the legacy document-level visual** (existing callers pass no
+  third arg → unchanged behavior). The third param is positional + optional, so
+  `attachVisual(documentId, visual)` keeps working.
+- **Access is owner/member-scoped** via `getAccessibleDocument(userId, documentId)`
+  from `@/lib/documents` (owner OR any-role workspace member), replacing the prior
+  owner-only `findFirst`. Reuse that helper for any document write so workspace
+  collaborators (US-009/010) can attach visuals. Server-side `validateVisual`
+  re-validation is retained — never trust the client payload.
+- **Upsert pattern (no unique constraint yet):** `findFirst({ where: { documentId,
+  anchorBlockId } })` then `update` (keep the row's id/anchor) or `create` (set
+  `anchorBlockId`). Prisma's `anchorBlockId: null` where-clause maps to `IS NULL`, so
+  the null/document-level row is matched and updated in place (verified on SQLite:
+  null + per-block rows coexist; same-anchor re-attach updates, new anchor creates).
+  `orderIndex` stays at its schema default (0) until US-010 needs document ordering.

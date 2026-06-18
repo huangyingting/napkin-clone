@@ -4,6 +4,7 @@ import { customAlphabet } from "nanoid";
 import { revalidatePath } from "next/cache";
 
 import { Prisma } from "@/generated/prisma/client";
+import { getAccessibleDocument } from "@/lib/documents";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { VISUAL_KIND_TO_PRISMA, validateVisual } from "@/lib/visual/schema";
@@ -16,6 +17,26 @@ const generateShareId = customAlphabet(
 
 const MAX_TITLE_LENGTH = 200;
 const MAX_CONTENT_LENGTH = 100_000;
+const MAX_ANCHOR_BLOCK_ID_LENGTH = 200;
+
+/**
+ * Normalizes a caller-supplied anchor block id. A non-empty trimmed string
+ * (clamped to a sane length) anchors the visual to that Markdown block; any
+ * empty/whitespace value or non-string collapses to `null`, which targets the
+ * legacy document-level visual row (backward compatible).
+ */
+function normalizeAnchorBlockId(
+  value: string | null | undefined,
+): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed.slice(0, MAX_ANCHOR_BLOCK_ID_LENGTH);
+}
 
 /**
  * Saves a document title for the current user. Owner-scoped via `updateMany`
@@ -60,42 +81,46 @@ export async function saveDocumentContent(
 }
 
 /**
- * Attaches a generated visual to a document as its single active visual.
+ * Attaches a generated visual to a document, keyed by anchor block.
  *
- * The selected candidate is re-validated server-side (never trust the client),
- * owner-scoped to the current user, then persisted into the document's `Visual`
- * row (create-or-update). The full validated `Visual` JSON is stored in
- * `Visual.data`; its kind maps to the Prisma `VisualType` for queryability.
+ * The selected candidate is re-validated server-side (never trust the client)
+ * and the document is owner/member access-scoped before any write. The visual
+ * is upserted by `(documentId, anchorBlockId)` so multiple visuals can coexist
+ * in one document: each Markdown block keeps its own visual, and a `null`
+ * `anchorBlockId` targets the legacy document-level visual row (backward
+ * compatible). The full validated `Visual` JSON is stored in `Visual.data`; its
+ * kind maps to the Prisma `VisualType` for queryability.
  *
  * Returns the persisted visual id. Throws when the visual is invalid or the
- * document isn't owned by the current user (the caller surfaces a transient,
- * retryable message).
+ * document isn't accessible to the current user (the caller surfaces a
+ * transient, retryable message).
  */
 export async function attachVisual(
   id: string,
   input: unknown,
+  anchorBlockId: string | null = null,
 ): Promise<{ visualId: string }> {
   const user = await requireUser();
 
   // Re-validate so a tampered/garbled payload can never be persisted.
   const visual = validateVisual(input);
 
-  // Owner-scope first so a foreign document id can't be written to or probed.
-  const document = await prisma.document.findFirst({
-    where: { id, ownerId: user.id },
-    select: { id: true },
-  });
+  // Access-scope first (owner or workspace member) so a foreign/forbidden
+  // document id can't be written to or probed.
+  const document = await getAccessibleDocument(user.id, id);
   if (!document) {
     throw new Error("Document not found.");
   }
 
+  const anchor = normalizeAnchorBlockId(anchorBlockId);
   const type = VISUAL_KIND_TO_PRISMA[visual.type];
   const title = visual.title ?? null;
   const data = visual as unknown as Prisma.InputJsonValue;
 
-  // One active visual per document: update the existing row, else create it.
+  // One visual per (document, anchor block): update the existing row for this
+  // anchor, else create it. A null anchor maps to the document-level visual.
   const existing = await prisma.visual.findFirst({
-    where: { documentId: id },
+    where: { documentId: id, anchorBlockId: anchor },
     orderBy: { createdAt: "asc" },
     select: { id: true },
   });
@@ -107,7 +132,7 @@ export async function attachVisual(
         select: { id: true },
       })
     : await prisma.visual.create({
-        data: { documentId: id, type, title, data },
+        data: { documentId: id, anchorBlockId: anchor, type, title, data },
         select: { id: true },
       });
 
