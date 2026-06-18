@@ -2178,3 +2178,50 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   "All changes saved", edit persists across `page.reload()`, `scrollWidth ==
   clientWidth` (no overflow). The pre-existing `scroll-behavior: smooth` console
   note is unrelated.
+
+### Inline visuals beneath their source paragraph (US-002)
+
+- **`ContentEditor` now renders inline visuals in the single column.** It takes a
+  new `initialBlockVisuals: Record<blockId, Visual>` prop alongside the existing
+  `initialVisual: Visual | null`. Below the editable body textarea it renders a
+  `section[aria-label="Document visuals"]`: the **document-level visual** (anchor
+  `null`) in its own slot at the top, then each **block-anchored visual** in
+  document order. Each block visual reuses the existing inline pattern —
+  `BlockContent` (the directive-free block renderer from `./markdown-preview`)
+  above a `[data-block-visual="<blockId>"]` card wrapping a directive-free
+  `VisualRenderer` (`h-auto w-full`). The doc-level slot is a plain card (NOT a
+  `[data-block-visual]`) so it matches the repo convention of "doc-level visual =
+  `svg[role="img"]` not inside `[data-block-visual]`".
+- **Block ids come from `parseMarkdown(content.value)` at render time** and are
+  looked up against `initialBlockVisuals` keys — the SAME content-derived ids the
+  page computed server-side. As long as the live content matches the seed (it does
+  on first render, and the textarea stays the writing surface), the keys align; if
+  the prose is edited so a block's signature changes, its id drifts and the visual
+  drops out of the inline list (the pre-existing content-derived-id limitation,
+  consistent with `MarkdownPreview`/`BlockVisualGenerator`). Live collab sync /
+  editing of these visuals is **US-007**; US-002 renders the **static props only**
+  (no `ystate` read, no new query).
+- **The page splits the single `visuals` query into doc-level vs block-anchored**
+  (mirrors the share page exactly): iterate rows once, `safeParseVisual` each, put
+  `anchorBlockId === null` → `initialVisual` (first valid) and the rest →
+  `initialBlockVisuals[anchorBlockId]` (first per anchor). No extra query — both
+  derive from the one `visuals: { orderBy:[{orderIndex},{createdAt}], select:
+  {anchorBlockId,data} }` select the page already had.
+- **The US-001 textarea stays the writing surface.** Inline visuals render in a
+  section BELOW it (a single `<textarea>` can't interleave React-rendered visuals
+  between paragraphs), so blocks-with-visuals show their `BlockContent` caption
+  above the diagram. US-003 (inline editing) unifies write+read; US-004/005 attach
+  per-block sparks; US-015 retires the legacy editor and reconciles share/embed.
+- **Browser QA:** seed a fresh user + doc + visuals with a throwaway ROOT-level
+  `*.mts` tsx script (`PrismaBetterSqlite3({ url: "file:./prisma/dev.db" })`,
+  `PrismaClient` from `@/generated/prisma/client`; `@/` alias resolves under tsx).
+  Content blocks must be **blank-line separated** (else `parseMarkdown` joins
+  lines). Compute anchor ids via `parseMarkdown(content)` and store visuals with
+  `type: VISUAL_KIND_TO_PRISMA[v.type]`, `data: v as unknown as object`. Log in
+  (`button:has-text("Log in")`), open `/app/documents/<id>`, wait for
+  `textarea[aria-label="Document text"]:not([disabled])`, then assert: 3
+  `[data-block-visual]` cards in document order, each with one `svg[role="img"]`;
+  the doc-level `svg[role="img"]` is the one in the section NOT inside any
+  `[data-block-visual]`; `hasWriteTab === false`; no horizontal overflow at
+  1280/768/375. Delete the script + screenshot artifacts before committing (the
+  seeded SQLite rows are git-ignored).

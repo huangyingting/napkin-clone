@@ -56,8 +56,8 @@ export default async function DocumentEditorPage({
         },
       },
       // All visuals for this document: the document-level one (anchorBlockId =
-      // null) seeds the editor; block-anchored visuals render inline near their
-      // source block (added back to the content-first editor in US-002).
+      // null) renders in its own inline slot; block-anchored visuals render
+      // inline beneath their source block in the content-first editor (US-002).
       visuals: {
         orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }],
         select: { anchorBlockId: true, data: true },
@@ -75,18 +75,21 @@ export default async function DocumentEditorPage({
   const canEdit =
     isOwner || workspaceRole === "OWNER" || workspaceRole === "EDITOR";
 
-  // Tolerate legacy/garbled stored data: only pass through valid visuals. The
-  // content-first scaffold (US-001) seeds the document-level visual
-  // (anchorBlockId = null); block-anchored visuals are rendered inline in US-002.
+  // Tolerate legacy/garbled stored data: only pass through valid visuals. Split
+  // the document-level visual (anchorBlockId = null) — shown in its own inline
+  // slot — from block-anchored visuals, which render inline beneath their source
+  // block in document order (US-002). No new query: both come from the same rows.
   let initialVisual: Visual | null = null;
+  const initialBlockVisuals: Record<string, Visual> = {};
   for (const row of document.visuals) {
-    if (row.anchorBlockId !== null) {
+    const parsed = safeParseVisual(row.data);
+    if (!parsed.success) {
       continue;
     }
-    const parsed = safeParseVisual(row.data);
-    if (parsed.success) {
-      initialVisual = parsed.data;
-      break;
+    if (row.anchorBlockId === null) {
+      initialVisual ??= parsed.data;
+    } else if (!(row.anchorBlockId in initialBlockVisuals)) {
+      initialBlockVisuals[row.anchorBlockId] = parsed.data;
     }
   }
 
@@ -99,6 +102,7 @@ export default async function DocumentEditorPage({
       initialTitle={document.title}
       initialContent={document.content}
       initialVisual={initialVisual}
+      initialBlockVisuals={initialBlockVisuals}
       initialIsShared={document.isShared}
       initialShareId={document.shareId}
       canEdit={canEdit}

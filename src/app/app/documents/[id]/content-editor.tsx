@@ -9,11 +9,14 @@ import {
   useDebouncedSave,
   useYText,
 } from "@/lib/collab/use-collaboration";
+import { parseMarkdown } from "@/lib/markdown";
+import { VisualRenderer } from "@/components/visual/visual-renderer";
 import type { Visual } from "@/lib/visual/schema";
 
 import { saveDocumentContent, saveDocumentTitle } from "./actions";
 import { CommentsPanel } from "./comments-panel";
 import type { CommentThread } from "./comments-actions";
+import { BlockContent } from "./markdown-preview";
 import { Presence } from "./presence";
 import { ShareButton } from "./share-button";
 
@@ -26,7 +29,7 @@ const STATUS_LABEL: Record<SaveStatus, string> = {
 };
 
 /**
- * Content-first, single-canvas document editor (US-001 scaffold).
+ * Content-first, single-canvas document editor.
  *
  * Replaces the Write/Preview tabs + always-on right visual panel with one
  * centered, blog-width column: the title at the top and the body below. Writing
@@ -34,14 +37,21 @@ const STATUS_LABEL: Record<SaveStatus, string> = {
  * (`useCollaboration`/`useYText` + `saveDocumentContent`/`saveDocumentTitle`),
  * editing stays gated until collaboration is ready, and the save-status
  * indicator plus the existing presence/share/comments controls live in a
- * compact top bar. Subsequent stories layer inline visuals, per-paragraph
- * sparks, floating toolbars, and animations onto this scaffold.
+ * compact top bar.
+ *
+ * Inline visuals (US-002) render in document order within the same column: the
+ * document-level visual (anchor `null`) gets its own slot, and each
+ * block-anchored visual renders beneath its source block in a
+ * `[data-block-visual]` card via `VisualRenderer` (the existing inline pattern).
+ * Subsequent stories layer per-paragraph sparks, floating toolbars, and
+ * animations onto this scaffold.
  */
 export function ContentEditor({
   id,
   initialTitle,
   initialContent,
   initialVisual,
+  initialBlockVisuals,
   initialIsShared,
   initialShareId,
   canEdit = true,
@@ -54,6 +64,7 @@ export function ContentEditor({
   initialTitle: string;
   initialContent: string;
   initialVisual: Visual | null;
+  initialBlockVisuals: Record<string, Visual>;
   initialIsShared: boolean;
   initialShareId: string | null;
   canEdit?: boolean;
@@ -151,6 +162,14 @@ export function ContentEditor({
 
   const saveStatus = combineSaveStatus(titleSaver.status, contentSaver.status);
 
+  // Parse the live content into ordered blocks so each block-anchored visual can
+  // render beneath its source block (US-002). Block ids are derived from the
+  // content, matching the keys the server computed for `initialBlockVisuals`.
+  const blocks = parseMarkdown(content.value);
+  const hasInlineVisuals =
+    initialVisual !== null ||
+    blocks.some((block) => initialBlockVisuals[block.id] !== undefined);
+
   return (
     <main className="flex flex-1 flex-col bg-zinc-50 dark:bg-black">
       <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-black/[.06] bg-white/80 px-4 py-3 backdrop-blur sm:px-6 dark:border-white/[.08] dark:bg-black/40">
@@ -232,6 +251,48 @@ export function ContentEditor({
             placeholder="Start writing…"
             className="mt-6 block w-full resize-none overflow-hidden bg-transparent text-[15px] leading-7 text-zinc-800 outline-none placeholder:text-zinc-400 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200 dark:placeholder:text-zinc-600"
           />
+
+          {hasInlineVisuals ? (
+            <section
+              aria-label="Document visuals"
+              className="mt-10 flex flex-col gap-6 border-t border-black/[.06] pt-8 dark:border-white/[.08]"
+            >
+              {initialVisual ? (
+                <div className="flex flex-col gap-2">
+                  <span className="text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+                    Document visual
+                  </span>
+                  <div className="overflow-hidden rounded-xl border border-black/[.06] bg-white dark:border-white/[.08] dark:bg-zinc-950">
+                    <VisualRenderer
+                      visual={initialVisual}
+                      className="h-auto w-full"
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              {blocks.map((block) => {
+                const visual = initialBlockVisuals[block.id];
+                if (!visual) {
+                  return null;
+                }
+                return (
+                  <div key={block.id} className="flex flex-col gap-3">
+                    <BlockContent block={block} />
+                    <div
+                      data-block-visual={block.id}
+                      className="overflow-hidden rounded-xl border border-black/[.06] bg-white dark:border-white/[.08] dark:bg-zinc-950"
+                    >
+                      <VisualRenderer
+                        visual={visual}
+                        className="h-auto w-full"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </section>
+          ) : null}
         </div>
       </div>
     </main>
