@@ -1796,3 +1796,31 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   `textarea[aria-label="Document text"]:not([disabled])` (wait for collab-ready) and
   assert it contains the template's Markdown (Blank → empty string). Unknown-id
   fallback is covered by the `getTemplateOrBlank` unit tests, not the browser.
+
+### Persist visual revisions on save (US-015)
+
+- **`VisualRevision` model** (`prisma/schema.prisma`): `id`, `visualId`, `data Json`,
+  `type String`, `title String?`, `createdAt`, with `@@index([visualId])` and
+  **`onDelete: Cascade`** from `Visual` (so deleting a visual drops its history; a
+  deleted Document → cascaded Visuals → cascaded VisualRevisions). New model + a
+  `revisions VisualRevision[]` back-relation on `Visual` → both migrations are a clean
+  `CREATE TABLE` (no SQLite RedefineTables). Followed the DUAL-MIGRATION DRILL
+  (`add_visual_revision` in both histories, sqlite last, then `db:generate`).
+- **`attachVisual` snapshots the PREVIOUS row before overwriting it** — the upsert's
+  `existing` query now also selects `data/type/title`, and the **update branch** calls
+  the new `snapshotVisualRevision(previous)` helper first; the **create branch records
+  nothing** (no prior data → satisfies "skip when there is no prior data"). The public
+  signature/return/`revalidatePath` are unchanged (AC: "no change for callers").
+- **Prune-to-10 in the same action:** `snapshotVisualRevision` creates the snapshot,
+  then `findMany({ orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip:
+  MAX_VISUAL_REVISIONS(10), select: { id } })` returns the rows BEYOND the newest 10
+  and `deleteMany`s them. The `id` tiebreaker makes pruning deterministic even if two
+  snapshots share a `createdAt` ms (real saves are debounced ≥600ms apart, so they
+  don't, but belt-and-suspenders). Reading a non-null `Visual.data` (`Prisma.JsonValue`)
+  back into a create input needs `as unknown as Prisma.InputJsonValue` (JsonValue
+  includes null, InputJsonValue doesn't) — same cast as the deep-copy path.
+- **Validation:** server actions aren't unit-tested (need prisma+session), so "Tests
+  pass" = the existing `npm test` stays green; DB behavior (skip-on-create,
+  snapshot-previous, prune newest-10 V2..V11, cascade-on-visual-delete) verified with a
+  throwaway root `tsx` script mirroring the helper (`PrismaBetterSqlite3`), deleted
+  before committing. US-016 (browse/restore) consumes this history.

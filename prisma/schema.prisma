@@ -90,9 +90,23 @@ model Visual {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document  Document         @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  revisions VisualRevision[]
 
   @@index([documentId])
+}
+
+model VisualRevision {
+  id        String   @id @default(cuid())
+  visualId  String
+  data      Json
+  type      String
+  title     String?
+  createdAt DateTime @default(now())
+
+  visual Visual @relation(fields: [visualId], references: [id], onDelete: Cascade)
+
+  @@index([visualId])
 }
 
 model Comment {

@@ -19,6 +19,46 @@ const MAX_TITLE_LENGTH = 200;
 const MAX_CONTENT_LENGTH = 100_000;
 const MAX_ANCHOR_BLOCK_ID_LENGTH = 200;
 
+// How many historical snapshots to retain per visual. Older ones are pruned in
+// the same save so the history table can't grow without bound.
+const MAX_VISUAL_REVISIONS = 10;
+
+/**
+ * Records a snapshot of a visual's current persisted state into the
+ * `VisualRevision` history, then prunes that visual's history to the most recent
+ * `MAX_VISUAL_REVISIONS` entries. Called with the *previous* row before it is
+ * overwritten, so each edit/regeneration is restorable (US-016).
+ */
+async function snapshotVisualRevision(previous: {
+  id: string;
+  data: Prisma.JsonValue;
+  type: string;
+  title: string | null;
+}): Promise<void> {
+  await prisma.visualRevision.create({
+    data: {
+      visualId: previous.id,
+      data: previous.data as unknown as Prisma.InputJsonValue,
+      type: previous.type,
+      title: previous.title,
+    },
+  });
+
+  // Keep only the newest snapshots; delete anything beyond the retention limit.
+  const stale = await prisma.visualRevision.findMany({
+    where: { visualId: previous.id },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    skip: MAX_VISUAL_REVISIONS,
+    select: { id: true },
+  });
+
+  if (stale.length > 0) {
+    await prisma.visualRevision.deleteMany({
+      where: { id: { in: stale.map((revision) => revision.id) } },
+    });
+  }
+}
+
 /**
  * Normalizes a caller-supplied anchor block id. A non-empty trimmed string
  * (clamped to a sane length) anchors the visual to that Markdown block; any
@@ -89,7 +129,10 @@ export async function saveDocumentContent(
  * in one document: each Markdown block keeps its own visual, and a `null`
  * `anchorBlockId` targets the legacy document-level visual row (backward
  * compatible). The full validated `Visual` JSON is stored in `Visual.data`; its
- * kind maps to the Prisma `VisualType` for queryability.
+ * kind maps to the Prisma `VisualType` for queryability. When an existing visual
+ * is overwritten, its previous state is first snapshotted into the
+ * `VisualRevision` history (newest 10 retained) so the edit is restorable;
+ * creating a brand-new visual records no snapshot (no prior data).
  *
  * Returns the persisted visual id. Throws when the visual is invalid or the
  * document isn't accessible to the current user (the caller surfaces a
@@ -122,19 +165,25 @@ export async function attachVisual(
   const existing = await prisma.visual.findFirst({
     where: { documentId: id, anchorBlockId: anchor },
     orderBy: { createdAt: "asc" },
-    select: { id: true },
+    select: { id: true, data: true, type: true, title: true },
   });
 
-  const saved = existing
-    ? await prisma.visual.update({
-        where: { id: existing.id },
-        data: { type, title, data },
-        select: { id: true },
-      })
-    : await prisma.visual.create({
-        data: { documentId: id, anchorBlockId: anchor, type, title, data },
-        select: { id: true },
-      });
+  let saved: { id: string };
+  if (existing) {
+    // Snapshot the previous state before overwriting it (skipped on create — a
+    // brand-new visual has no prior data to record).
+    await snapshotVisualRevision(existing);
+    saved = await prisma.visual.update({
+      where: { id: existing.id },
+      data: { type, title, data },
+      select: { id: true },
+    });
+  } else {
+    saved = await prisma.visual.create({
+      data: { documentId: id, anchorBlockId: anchor, type, title, data },
+      select: { id: true },
+    });
+  }
 
   revalidatePath(`/app/documents/${id}`);
   return { visualId: saved.id };
