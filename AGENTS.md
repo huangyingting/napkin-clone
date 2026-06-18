@@ -1766,3 +1766,33 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   `catalog.test.ts` asserts this against the schema's `VISUAL_KINDS`, so adding a
   template with a bad kind fails tests. Mirrors the icon-catalog convention
   (`*.test.ts` beside the module, run via `npm test`).
+
+### Create a document from a template (US-014)
+
+- **`createDocument()` was REPLACED by `createDocumentFromTemplate(templateId:
+  string)`** in `src/app/app/actions.ts` (`"use server"`). It resolves the id via
+  `getTemplateOrBlank(templateId)` (so an unknown/missing id gracefully falls back
+  to Blank), seeds the new `Document.content` from the entry, then
+  `revalidatePath("/app")` + `redirect(\`/app/documents/${id}\`)` (redirect THROWS
+  `NEXT_REDIRECT`, so it stays last/outside try/catch). **No AI call here** — it's
+  pure template content. Blank intentionally seeds **empty** content (`template.id
+  === BLANK_TEMPLATE_ID ? "" : template.content`) to mirror the prior
+  from-scratch-document behavior (the catalog's `"# Untitled\n"` is only there to
+  satisfy the "parses to ≥1 block" test).
+- **`NewDocumentButton` (`new-document-button.tsx`, `"use client"`) now opens a
+  `TemplatePicker` modal** instead of being a `<form action={createDocument}>`
+  submit button. It keeps the SAME `className`/`children` props so both call sites
+  (`page.tsx` header + `document-list.tsx` empty state) are unchanged. The modal is
+  `createPortal(..., document.body)` (per the app's modal rule), lists
+  `TEMPLATE_CATALOG` as `button[aria-label="<name> template"]` tiles (name +
+  description, Blank first), and runs `createDocumentFromTemplate(id)` in a
+  `useTransition` with a per-tile "Creating…" state. Closes on Escape / backdrop /
+  Cancel.
+- **Browser QA (prod `next start`):** sign up a fresh `*@test.dev` user, on `/app`
+  click `button:has-text("New document")` → assert the `[role="dialog"]`
+  (`#template-picker-title` = "Start a new document") lists the 4
+  `button[aria-label$="template"]` options; click a template → `waitForFunction`
+  the URL matches `/app/documents/<id>`, then read
+  `textarea[aria-label="Document text"]:not([disabled])` (wait for collab-ready) and
+  assert it contains the template's Markdown (Blank → empty string). Unknown-id
+  fallback is covered by the `getTemplateOrBlank` unit tests, not the browser.

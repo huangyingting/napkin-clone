@@ -7,6 +7,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { documentAccessOr, getAccessibleDocument } from "@/lib/documents";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
+import { BLANK_TEMPLATE_ID, getTemplateOrBlank } from "@/lib/templates/catalog";
 
 /** Documents soft-deleted before this cutoff are eligible for permanent purge. */
 const SOFT_DELETE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
@@ -15,15 +16,27 @@ const SOFT_DELETE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const MAX_TITLE_LENGTH = 200;
 
 /**
- * Creates an empty document owned by the current user and redirects to its
- * editor. `redirect` throws `NEXT_REDIRECT`, so it must stay outside any
- * try/catch and run after the document is created.
+ * Creates a document for the current user seeded from a starter template, then
+ * redirects to its editor.
+ *
+ * The id is resolved via `getTemplateOrBlank`, so an unknown or missing id
+ * gracefully falls back to a blank document. The Blank template starts with
+ * empty content (mirroring a from-scratch document); named templates seed their
+ * Markdown `content`. No AI generation happens here.
+ *
+ * `redirect` throws `NEXT_REDIRECT`, so it must stay outside any try/catch and
+ * run after the document is created.
  */
-export async function createDocument() {
+export async function createDocumentFromTemplate(
+  templateId: string,
+): Promise<void> {
   const user = await requireUser();
 
+  const template = getTemplateOrBlank(templateId);
+  const content = template.id === BLANK_TEMPLATE_ID ? "" : template.content;
+
   const document = await prisma.document.create({
-    data: { ownerId: user.id },
+    data: { ownerId: user.id, content },
     select: { id: true },
   });
 
