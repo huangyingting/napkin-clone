@@ -13,15 +13,24 @@ import {
   type VisualKind,
 } from "@/lib/visual/schema";
 
-import { attachVisual } from "./actions";
+import {
+  attachVisual,
+  listVisualRevisions,
+  restoreVisualRevision,
+  type VisualRevisionSummary,
+} from "./actions";
 import { StylePanel } from "./style-panel";
 import { VisualEditor } from "./visual-editor";
 
 /** Debounce (ms) before persisting an in-canvas edit (drag/label/delete). */
 const EDIT_SAVE_DELAY = 600;
 
+/** Max generated candidates kept in the session-scoped variation history. */
+const MAX_HISTORY = 10;
+
 type GenStatus = "idle" | "loading";
 type SaveState = "idle" | "saving" | "saved" | "error";
+type HistoryStatus = "idle" | "loading" | "error";
 
 const KIND_LABEL: Record<VisualKind, string> = {
   flowchart: "Flowchart",
@@ -29,10 +38,17 @@ const KIND_LABEL: Record<VisualKind, string> = {
   list: "List",
   chart: "Chart",
   concept: "Concept",
+  timeline: "Timeline",
+  cycle: "Cycle",
+  comparison: "Comparison",
+  funnel: "Funnel",
 };
 
 const generateButtonClass =
   "flex h-9 items-center justify-center rounded-full bg-zinc-900 px-4 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200";
+
+const moreVariationsButtonClass =
+  "flex items-center gap-1.5 rounded-full border border-black/[.08] px-3 py-1 text-xs font-medium text-zinc-600 transition hover:border-black/20 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[.12] dark:text-zinc-300 dark:hover:border-white/30 dark:hover:text-zinc-100";
 
 function thumbButtonClass(active: boolean): string {
   return [
@@ -52,12 +68,33 @@ function typePillClass(active: boolean): string {
   ].join(" ");
 }
 
+const revisionTimeFormatter = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+/** Formats a revision's ISO timestamp for display in the history list. */
+function formatRevisionTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return "Earlier version";
+  }
+  return revisionTimeFormatter.format(date);
+}
+
 /**
  * Right-hand panel of the document editor: turns the current text into AI
  * visuals. It POSTs to `/api/generate`, shows a loading state, lists the
- * returned candidates as selectable thumbnails, renders the selected one in the
- * main canvas, and persists it to the document via the `attachVisual` action.
- * Generation/save errors are non-blocking and retryable.
+ * returned candidates as a browsable variations gallery ("Variation N of M")
+ * with a "More variations" re-roll, renders the selected one in the main canvas,
+ * and persists it to the document via the `attachVisual` action. Re-rolling
+ * requests a fresh batch without losing the current selection until the user
+ * picks a new one. A session-scoped "Recent" strip keeps the last 10 generated
+ * candidates so the user can step back to an earlier variation after re-rolling
+ * (client-only state; cleared on a full reload). Generation/save errors are
+ * non-blocking and retryable.
  */
 export function VisualPanel({
   documentId,
@@ -81,12 +118,21 @@ export function VisualPanel({
   const [status, setStatus] = useState<GenStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<Visual[]>([]);
+  // Session-scoped history of the last MAX_HISTORY generated candidates (newest
+  // first). Client-only — never persisted, so it clears on a full reload.
+  const [history, setHistory] = useState<Visual[]>([]);
   const [selected, setSelected] = useState<Visual | null>(initialVisual);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [pendingType, setPendingType] = useState<VisualKind | null>(null);
   const [saveState, setSaveState] = useState<SaveState>(
     initialVisual ? "saved" : "idle",
   );
+
+  // Version history (US-016): browsable previous versions of the active visual.
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [revisions, setRevisions] = useState<VisualRevisionSummary[]>([]);
+  const [historyStatus, setHistoryStatus] = useState<HistoryStatus>("idle");
+  const [restoringId, setRestoringId] = useState<string | null>(null);
 
   // Editing requires permission AND a ready collaboration session.
   const editable = canEdit && ready;
@@ -176,6 +222,11 @@ export function VisualPanel({
   const hasText = text.trim().length > 0;
   const canGenerate = hasText && status !== "loading";
 
+  // The "Recent" strip surfaces previously generated candidates that aren't in
+  // the current batch, so the user can step back to an earlier option after a
+  // re-roll without losing it.
+  const recent = history.filter((item) => !candidates.includes(item));
+
   // Renders a candidate in the main canvas and persists it as the document's
   // single active visual (re-validated server-side by `attachVisual`).
   const select = useCallback(
@@ -235,6 +286,60 @@ export function VisualPanel({
     [persistEdit, pushVisual],
   );
 
+  // Loads the active visual's revision history. `silent` skips the loading
+  // state for background refreshes (e.g. right after a restore).
+  const loadRevisions = useCallback(
+    async (silent = false) => {
+      if (!silent) {
+        setHistoryStatus("loading");
+      }
+      try {
+        const list = await listVisualRevisions(documentId);
+        setRevisions(list);
+        setHistoryStatus("idle");
+      } catch {
+        setHistoryStatus("error");
+      }
+    },
+    [documentId],
+  );
+
+  // Toggles the history section, fetching a fresh list whenever it opens.
+  const toggleHistory = useCallback(() => {
+    const next = !historyOpen;
+    setHistoryOpen(next);
+    if (next) {
+      void loadRevisions();
+    }
+  }, [historyOpen, loadRevisions]);
+
+  // Restores a previous version: writes it back (snapshotting the current state
+  // so the restore is undoable), updates the canvas live, and refreshes history.
+  const restore = useCallback(
+    async (revision: VisualRevisionSummary) => {
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+        saveTimer.current = null;
+      }
+      setRestoringId(revision.id);
+      setSaveState("saving");
+      try {
+        const result = await restoreVisualRevision(revision.id);
+        latestVisual.current = result.visual;
+        setSelected(result.visual);
+        setSelectedNodeId(null);
+        pushVisual(result.visual);
+        setSaveState("saved");
+        await loadRevisions(true);
+      } catch {
+        setSaveState("error");
+      } finally {
+        setRestoringId(null);
+      }
+    },
+    [pushVisual, loadRevisions],
+  );
+
   /**
    * Generates visuals from the current text. With no `type`, returns varied
    * candidates for the user to choose from (US-011). With a `type`, regenerates
@@ -292,6 +397,7 @@ export function VisualPanel({
         }
 
         setCandidates(valid);
+        setHistory((prev) => [...valid, ...prev].slice(0, MAX_HISTORY));
 
         // Type switch: drop the regenerated visual straight onto the canvas.
         if (type) {
@@ -340,6 +446,19 @@ export function VisualPanel({
           ) : null}
         </div>
         <div className="flex items-center gap-2">
+          {selected ? (
+            <button
+              type="button"
+              onClick={toggleHistory}
+              aria-label="Visual history"
+              aria-expanded={historyOpen}
+              aria-pressed={historyOpen}
+              title="Browse and restore previous versions"
+              className={moreVariationsButtonClass}
+            >
+              History
+            </button>
+          ) : null}
           {selected ? (
             <ExportMenu
               getSvgElement={() => rendererRef.current}
@@ -414,7 +533,7 @@ export function VisualPanel({
       ) : null}
 
       <div className="flex flex-1 items-center justify-center p-6">
-        {status === "loading" ? (
+        {status === "loading" && !selected && candidates.length === 0 ? (
           <div
             role="status"
             aria-live="polite"
@@ -436,7 +555,7 @@ export function VisualPanel({
             />
             <p className="text-center text-xs text-zinc-400 dark:text-zinc-500">
               {isPositionedKind(selected.type)
-                ? "Click a node to edit its text, drag to move it, or ✕ to delete."
+                ? "Click a node to edit or drag it, ✕ to delete, or a connector to relabel / flip it."
                 : "Click a node to edit its text, or ✕ to delete it."}
             </p>
           </div>
@@ -454,6 +573,88 @@ export function VisualPanel({
         )}
       </div>
 
+      {selected && historyOpen ? (
+        <div className="border-t border-black/[.06] px-4 py-3 dark:border-white/[.08]">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              Version history
+            </p>
+            <button
+              type="button"
+              onClick={() => void loadRevisions()}
+              disabled={historyStatus === "loading"}
+              aria-label="Refresh version history"
+              className={moreVariationsButtonClass}
+            >
+              {historyStatus === "loading" ? (
+                <span
+                  aria-hidden="true"
+                  className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+                />
+              ) : null}
+              Refresh
+            </button>
+          </div>
+
+          {historyStatus === "loading" ? (
+            <p
+              role="status"
+              aria-live="polite"
+              className="text-xs text-zinc-400 dark:text-zinc-500"
+            >
+              Loading version history…
+            </p>
+          ) : historyStatus === "error" ? (
+            <div
+              role="alert"
+              className="flex flex-wrap items-center justify-between gap-2 text-xs text-red-600 dark:text-red-400"
+            >
+              <span>Couldn&apos;t load history.</span>
+              <button
+                type="button"
+                onClick={() => void loadRevisions()}
+                className="rounded-md px-2 py-1 font-semibold underline-offset-2 hover:underline"
+              >
+                Try again
+              </button>
+            </div>
+          ) : revisions.length === 0 ? (
+            <p className="text-xs text-zinc-400 dark:text-zinc-500">
+              No previous versions yet. Each edit or regeneration is saved here
+              so you can roll back.
+            </p>
+          ) : (
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {revisions.map((revision) => {
+                const label = formatRevisionTime(revision.createdAt);
+                return (
+                  <li key={revision.id}>
+                    <button
+                      type="button"
+                      onClick={() => void restore(revision)}
+                      disabled={!editable || restoringId !== null}
+                      aria-label={`Restore version from ${label}`}
+                      title={`Restore version from ${label}`}
+                      className={thumbButtonClass(false)}
+                    >
+                      <span className="aspect-[4/3] w-full overflow-hidden rounded-md bg-white dark:bg-zinc-950">
+                        <VisualRenderer
+                          visual={revision.visual}
+                          className="h-full w-full"
+                        />
+                      </span>
+                      <span className="px-1 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                        {restoringId === revision.id ? "Restoring…" : label}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      ) : null}
+
       {selected && status !== "loading" && editable ? (
         <StylePanel
           visual={selected}
@@ -462,31 +663,98 @@ export function VisualPanel({
         />
       ) : null}
 
-      {candidates.length > 0 ? (
+      {candidates.length > 0 || (status === "loading" && selected) ? (
+        <div className="border-t border-black/[.06] px-4 py-3 dark:border-white/[.08]">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              {candidates.length > 0
+                ? `Variations (${candidates.length})`
+                : "Variations"}
+            </p>
+            <button
+              type="button"
+              onClick={() => runGenerate()}
+              disabled={!editable || !hasText || status === "loading"}
+              aria-label="More variations"
+              title="Generate a fresh batch of variations"
+              className={moreVariationsButtonClass}
+            >
+              {status === "loading" ? (
+                <span
+                  aria-hidden="true"
+                  className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+                />
+              ) : null}
+              More variations
+            </button>
+          </div>
+
+          {status === "loading" ? (
+            <p
+              role="status"
+              aria-live="polite"
+              className="mb-2 text-xs text-zinc-400 dark:text-zinc-500"
+            >
+              Generating fresh variations…
+            </p>
+          ) : null}
+
+          {candidates.length > 0 ? (
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {candidates.map((candidate, index) => {
+                const active = candidate === selected;
+                return (
+                  <li key={index}>
+                    <button
+                      type="button"
+                      onClick={() => select(candidate)}
+                      aria-pressed={active}
+                      aria-label={`Select variation ${index + 1} of ${candidates.length}`}
+                      title={candidate.title ?? KIND_LABEL[candidate.type]}
+                      className={thumbButtonClass(active)}
+                    >
+                      <span className="aspect-[4/3] w-full overflow-hidden rounded-md bg-white dark:bg-zinc-950">
+                        <VisualRenderer
+                          visual={candidate}
+                          className="h-full w-full"
+                        />
+                      </span>
+                      <span className="px-1 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                        Variation {index + 1} of {candidates.length}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
+
+      {recent.length > 0 ? (
         <div className="border-t border-black/[.06] px-4 py-3 dark:border-white/[.08]">
           <p className="mb-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-            Choose a visual
+            Recent
           </p>
-          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {candidates.map((candidate, index) => {
-              const active = candidate === selected;
+          <ul
+            role="group"
+            aria-label="Recent variations"
+            className="flex gap-3 overflow-x-auto pb-1"
+          >
+            {recent.map((item, index) => {
+              const active = item === selected;
               return (
-                <li key={index}>
+                <li key={index} className="shrink-0">
                   <button
                     type="button"
-                    onClick={() => select(candidate)}
+                    onClick={() => select(item)}
                     aria-pressed={active}
-                    aria-label={`Select ${KIND_LABEL[candidate.type]} option ${index + 1}`}
+                    aria-label={`Re-select recent variation ${index + 1} of ${recent.length}`}
+                    title={item.title ?? KIND_LABEL[item.type]}
                     className={thumbButtonClass(active)}
                   >
-                    <span className="aspect-[4/3] w-full overflow-hidden rounded-md bg-white dark:bg-zinc-950">
-                      <VisualRenderer
-                        visual={candidate}
-                        className="h-full w-full"
-                      />
-                    </span>
-                    <span className="px-1 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-                      {candidate.title ?? KIND_LABEL[candidate.type]}
+                    <span className="block aspect-[4/3] w-24 overflow-hidden rounded-md bg-white dark:bg-zinc-950">
+                      <VisualRenderer visual={item} className="h-full w-full" />
                     </span>
                   </button>
                 </li>

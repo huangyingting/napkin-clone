@@ -28,6 +28,7 @@ const flowchart: Visual = {
       width: 130,
       height: 50,
       shape: "ellipse",
+      icon: "Flag",
     },
     {
       id: "creds",
@@ -37,6 +38,7 @@ const flowchart: Visual = {
       width: 190,
       height: 56,
       shape: "rounded",
+      icon: "Key",
     },
     {
       id: "valid",
@@ -46,6 +48,7 @@ const flowchart: Visual = {
       width: 160,
       height: 96,
       shape: "diamond",
+      icon: "CircleHelp",
     },
     {
       id: "dashboard",
@@ -55,6 +58,7 @@ const flowchart: Visual = {
       width: 190,
       height: 56,
       shape: "rounded",
+      icon: "CircleCheck",
     },
     {
       id: "error",
@@ -64,6 +68,7 @@ const flowchart: Visual = {
       width: 170,
       height: 56,
       shape: "rounded",
+      icon: "TriangleAlert",
     },
   ],
   edges: [
@@ -165,10 +170,10 @@ const list: Visual = {
   height: 372,
   style: { ...DEFAULT_STYLE },
   nodes: [
-    { id: "s1", label: "Paste your text" },
-    { id: "s2", label: "Generate visual options" },
-    { id: "s3", label: "Polish colors and layout" },
-    { id: "s4", label: "Export & share" },
+    { id: "s1", label: "Paste your text", icon: "ClipboardList" },
+    { id: "s2", label: "Generate visual options", icon: "Sparkles" },
+    { id: "s3", label: "Polish colors and layout", icon: "Wrench" },
+    { id: "s4", label: "Export & share", icon: "Send" },
   ],
   edges: [],
 };
@@ -262,6 +267,93 @@ const concept: Visual = {
   ],
 };
 
+const timeline: Visual = {
+  version: VISUAL_SCHEMA_VERSION,
+  type: "timeline",
+  title: "Product launch timeline",
+  width: 820,
+  height: 300,
+  style: { ...DEFAULT_STYLE },
+  nodes: [
+    { id: "research", label: "Research", icon: "Search" },
+    { id: "design", label: "Design & prototype", icon: "Sparkles" },
+    { id: "build", label: "Build MVP", icon: "Hammer" },
+    { id: "beta", label: "Private beta", icon: "Flag" },
+    { id: "launch", label: "Public launch", icon: "Rocket" },
+  ],
+  edges: [],
+};
+
+const cycle: Visual = {
+  version: VISUAL_SCHEMA_VERSION,
+  type: "cycle",
+  title: "Continuous improvement loop",
+  width: 620,
+  height: 560,
+  style: { ...DEFAULT_STYLE },
+  nodes: [
+    {
+      id: "plan",
+      label: "Plan",
+      width: 140,
+      height: 56,
+      icon: "ClipboardList",
+    },
+    { id: "build", label: "Build", width: 140, height: 56, icon: "Hammer" },
+    { id: "ship", label: "Ship", width: 140, height: 56, icon: "Rocket" },
+    {
+      id: "measure",
+      label: "Measure",
+      width: 140,
+      height: 56,
+      icon: "BarChart",
+    },
+    { id: "learn", label: "Learn", width: 140, height: 56, icon: "RefreshCw" },
+  ],
+  edges: [],
+};
+
+const comparison: Visual = {
+  version: VISUAL_SCHEMA_VERSION,
+  type: "comparison",
+  title: "Plan comparison",
+  width: 760,
+  height: 340,
+  style: { ...DEFAULT_STYLE },
+  nodes: [
+    { id: "free", label: "Free", value: 0, icon: "Sparkles" },
+    { id: "free-1", label: "1 workspace", value: 0 },
+    { id: "free-2", label: "Community support", value: 0 },
+    { id: "free-3", label: "Basic exports", value: 0 },
+    { id: "pro", label: "Pro", value: 1, icon: "Rocket" },
+    { id: "pro-1", label: "Unlimited workspaces", value: 1 },
+    { id: "pro-2", label: "Priority support", value: 1 },
+    { id: "pro-3", label: "PNG & SVG export", value: 1 },
+    { id: "ent", label: "Enterprise", value: 2, icon: "Crown" },
+    { id: "ent-1", label: "SSO & SAML", value: 2 },
+    { id: "ent-2", label: "Dedicated manager", value: 2 },
+    { id: "ent-3", label: "Audit logs", value: 2 },
+  ],
+  edges: [],
+};
+
+const funnel: Visual = {
+  version: VISUAL_SCHEMA_VERSION,
+  type: "funnel",
+  title: "Marketing funnel",
+  width: 640,
+  height: 420,
+  style: { ...DEFAULT_STYLE },
+  nodes: [
+    { id: "visitors", label: "Visitors", value: 12000 },
+    { id: "signups", label: "Signups", value: 5200 },
+    { id: "trials", label: "Active trials", value: 2100 },
+    { id: "paid", label: "Paid customers", value: 760 },
+    { id: "advocates", label: "Advocates", value: 180 },
+  ],
+  edges: [],
+};
+
 /** All sample fixtures keyed by visual kind. */
 export const FIXTURES: Record<VisualKind, Visual> = {
   flowchart,
@@ -269,6 +361,10 @@ export const FIXTURES: Record<VisualKind, Visual> = {
   list,
   chart,
   concept,
+  timeline,
+  cycle,
+  comparison,
+  funnel,
 };
 
 /** Sample fixtures in the canonical {@link VISUAL_KINDS} order. */

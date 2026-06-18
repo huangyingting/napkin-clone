@@ -1,6 +1,20 @@
 import { forwardRef, Fragment, type JSX } from "react";
+import type { LucideIcon } from "lucide-react";
 
-import { chartLayout, listLayout } from "@/components/visual/layout";
+import { resolveIconComponent } from "@/components/visual/icon-registry";
+import {
+  boundaryPoint,
+  chartLayout,
+  comparisonLayout,
+  cycleLayout,
+  funnelLayout,
+  listLayout,
+  nodeCenter,
+  nodeHalf,
+  timelineLayout,
+  type CycleNodePlacement,
+  type Point,
+} from "@/components/visual/layout";
 import {
   DEFAULT_NODE_HEIGHT,
   DEFAULT_NODE_WIDTH,
@@ -19,40 +33,47 @@ import {
  * rather than `<marker>`s so there are no id collisions or hydration concerns.
  */
 
-interface Point {
-  x: number;
-  y: number;
-}
-
-function nodeCenter(node: VisualNode): Point {
-  return { x: node.x ?? 0, y: node.y ?? 0 };
-}
-
-function nodeHalf(node: VisualNode): { hw: number; hh: number } {
-  return {
-    hw: (node.width ?? DEFAULT_NODE_WIDTH) / 2,
-    hh: (node.height ?? DEFAULT_NODE_HEIGHT) / 2,
-  };
-}
-
 function pick(palette: string[], index: number): string {
   return palette[((index % palette.length) + palette.length) % palette.length];
 }
 
-/** Point where the line from `from` to a target (centered at `to`) meets the
- * target's bounding box — used to stop edges at the node boundary. */
-function boundaryPoint(from: Point, to: Point, hw: number, hh: number): Point {
-  const dx = from.x - to.x;
-  const dy = from.y - to.y;
-  if (dx === 0 && dy === 0) {
-    return { x: to.x, y: to.y };
-  }
-  const adx = Math.max(Math.abs(dx), 1e-6);
-  const ady = Math.max(Math.abs(dy), 1e-6);
-  const scale = Math.min(hw / adx, hh / ady);
-  return { x: to.x + dx * scale, y: to.y + dy * scale };
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
 }
 
+/**
+ * Renders a catalog icon (resolved to its `lucide-react` component) as a nested,
+ * scaled SVG centered at (`cx`, `cy`). The icon's own `viewBox` scales it to the
+ * requested `size`, and `color` drives its stroke so it follows the node's
+ * text/theme color. `aria-hidden` keeps it out of the accessibility tree (the
+ * node's label already conveys meaning).
+ */
+function IconGlyph({
+  Icon,
+  cx,
+  cy,
+  size,
+  color,
+}: {
+  Icon: LucideIcon;
+  cx: number;
+  cy: number;
+  size: number;
+  color: string;
+}): JSX.Element {
+  return (
+    <Icon
+      x={cx - size / 2}
+      y={cy - size / 2}
+      width={size}
+      height={size}
+      color={color}
+      aria-hidden="true"
+    />
+  );
+}
+
+/** A small filled triangle (arrowhead) pointing from `from` toward `tip`. */
 function arrowHead(
   tip: Point,
   from: Point,
@@ -243,7 +264,19 @@ function NodeEl({
 }): JSX.Element {
   const { x, y } = nodeCenter(node);
   const w = node.width ?? DEFAULT_NODE_WIDTH;
+  const h = node.height ?? DEFAULT_NODE_HEIGHT;
   const lines = wrapLabel(node.label, maxCharsForWidth(w, fontSize));
+  const Icon = node.icon ? resolveIconComponent(node.icon) : undefined;
+
+  // When an icon is present, stack it above the label and keep the whole block
+  // vertically centered; without one, the label centers exactly as before.
+  const lineHeight = fontSize * 1.2;
+  const textHeight = lines.length * lineHeight;
+  const iconSize = Icon ? clamp(Math.min(h * 0.4, fontSize * 1.6), 14, 30) : 0;
+  const iconGap = Icon ? Math.max(2, fontSize * 0.2) : 0;
+  const blockTop = y - (iconSize + iconGap + textHeight) / 2;
+  const textCy = Icon ? blockTop + iconSize + iconGap + textHeight / 2 : y;
+
   return (
     <g>
       <ShapeEl
@@ -252,9 +285,18 @@ function NodeEl({
         stroke={stroke}
         strokeWidth={strokeWidth}
       />
+      {Icon ? (
+        <IconGlyph
+          Icon={Icon}
+          cx={x}
+          cy={blockTop + iconSize / 2}
+          size={iconSize}
+          color={text}
+        />
+      ) : null}
       <MultilineText
         cx={x}
-        cy={y}
+        cy={textCy}
         lines={lines}
         color={text}
         style={style}
@@ -340,10 +382,12 @@ function EdgeEl({
   const showArrow = arrow && edge.directed !== false;
   const midX = (start.x + end.x) / 2;
   const midY = (start.y + end.y) / 2;
+  // A per-edge `style` (US-017) overrides the renderer-kind default `curved`.
+  const isCurved = edge.style !== undefined ? edge.style === "curved" : curved;
 
   return (
     <g>
-      {curved ? (
+      {isCurved ? (
         <path
           d={`M ${start.x} ${start.y} C ${midX} ${start.y}, ${midX} ${end.y}, ${end.x} ${end.y}`}
           fill="none"
@@ -363,7 +407,7 @@ function EdgeEl({
         />
       )}
       {showArrow
-        ? arrowHead(end, curved ? { x: midX, y: end.y } : start, stroke)
+        ? arrowHead(end, isCurved ? { x: midX, y: end.y } : start, stroke)
         : null}
       {edge.label ? (
         <EdgeLabel x={midX} y={midY} text={edge.label} style={style} />
@@ -460,9 +504,15 @@ function ListScene({ visual }: { visual: Visual }): JSX.Element {
       ) : null}
       {layout.cards.map((card, index) => {
         const accent = card.node.color ?? pick(style.palette, index);
+        const Icon = card.node.icon
+          ? resolveIconComponent(card.node.icon)
+          : undefined;
+        const iconSize = Icon ? 24 : 0;
+        const iconGap = Icon ? 12 : 0;
+        const textX = labelX + iconSize + iconGap;
         const lines = wrapLabel(
           card.node.label,
-          maxCharsForWidth(cardWidth - (labelX - padX), style.fontSize),
+          maxCharsForWidth(cardWidth - (textX - padX), style.fontSize),
           2,
         );
         return (
@@ -490,8 +540,17 @@ function ListScene({ visual }: { visual: Visual }): JSX.Element {
             >
               {index + 1}
             </text>
+            {Icon ? (
+              <IconGlyph
+                Icon={Icon}
+                cx={labelX + iconSize / 2}
+                cy={card.centerY}
+                size={iconSize}
+                color={card.node.textColor ?? accent}
+              />
+            ) : null}
             <MultilineText
-              cx={labelX}
+              cx={textX}
               cy={card.centerY}
               lines={lines}
               color={card.node.textColor ?? style.nodeText}
@@ -526,6 +585,9 @@ function BarChart({ visual }: { visual: Visual }): JSX.Element {
       {layout.bars.map((bar, index) => {
         const color = bar.node.color ?? pick(style.palette, index);
         const textColor = bar.node.textColor ?? style.nodeText;
+        const Icon = bar.node.icon
+          ? resolveIconComponent(bar.node.icon)
+          : undefined;
         return (
           <g key={bar.node.id}>
             <rect
@@ -558,6 +620,15 @@ function BarChart({ visual }: { visual: Visual }): JSX.Element {
             >
               {bar.node.label}
             </text>
+            {Icon ? (
+              <IconGlyph
+                Icon={Icon}
+                cx={bar.centerX}
+                cy={baselineY + 38}
+                size={18}
+                color={textColor}
+              />
+            ) : null}
           </g>
         );
       })}
@@ -599,6 +670,281 @@ function ConceptMap({ visual }: { visual: Visual }): JSX.Element {
   );
 }
 
+function Timeline({ visual }: { visual: Visual }): JSX.Element {
+  const { style } = visual;
+  const layout = timelineLayout(visual);
+  const { axisY, badgeRadius, cardHeight } = layout;
+
+  return (
+    <Fragment>
+      {visual.nodes.length > 1 ? (
+        <line
+          x1={layout.firstCenterX}
+          y1={axisY}
+          x2={layout.lastCenterX}
+          y2={axisY}
+          stroke={style.edgeColor}
+          strokeWidth={2}
+        />
+      ) : null}
+      {layout.steps.map((step, index) => {
+        const accent = step.node.color ?? pick(style.palette, index);
+        const cardEdgeY = step.above ? step.cardY + cardHeight : step.cardY;
+        return (
+          <g key={step.node.id}>
+            <line
+              x1={step.centerX}
+              y1={axisY}
+              x2={step.centerX}
+              y2={cardEdgeY}
+              stroke={style.edgeColor}
+              strokeWidth={1.5}
+            />
+            <NodeEl
+              node={{
+                ...step.node,
+                x: step.cardCenterX,
+                y: step.cardCenterY,
+                width: layout.cardWidth,
+                height: cardHeight,
+                shape: "rounded",
+              }}
+              fill={style.nodeFill}
+              stroke={step.node.stroke ?? style.nodeStroke}
+              text={step.node.textColor ?? style.nodeText}
+              style={style}
+              fontSize={style.fontSize}
+              fontWeight={style.fontWeight}
+            />
+            <circle
+              cx={step.centerX}
+              cy={axisY}
+              r={badgeRadius}
+              fill={accent}
+            />
+            <text
+              x={step.centerX}
+              y={axisY}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fill="#ffffff"
+              fontFamily={style.fontFamily}
+              fontSize={style.fontSize}
+              fontWeight={700}
+            >
+              {index + 1}
+            </text>
+          </g>
+        );
+      })}
+    </Fragment>
+  );
+}
+
+/**
+ * Directed arrow arcing along the ring from one node to the next. The control
+ * point bulges outward from the ring center so consecutive arrows follow the
+ * circle instead of cutting straight across it.
+ */
+function RingArrow({
+  from,
+  to,
+  cx,
+  cy,
+  color,
+}: {
+  from: CycleNodePlacement;
+  to: CycleNodePlacement;
+  cx: number;
+  cy: number;
+  color: string;
+}): JSX.Element {
+  const fromCenter = { x: from.x, y: from.y };
+  const toCenter = { x: to.x, y: to.y };
+  const start = boundaryPoint(
+    toCenter,
+    fromCenter,
+    from.width / 2,
+    from.height / 2,
+  );
+  const end = boundaryPoint(fromCenter, toCenter, to.width / 2, to.height / 2);
+  const mid = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
+
+  let ox = mid.x - cx;
+  let oy = mid.y - cy;
+  let len = Math.hypot(ox, oy);
+  if (len < 1e-3) {
+    ox = -(end.y - start.y);
+    oy = end.x - start.x;
+    len = Math.hypot(ox, oy) || 1;
+  }
+  const bulge = 28;
+  const control = {
+    x: mid.x + (ox / len) * bulge,
+    y: mid.y + (oy / len) * bulge,
+  };
+
+  return (
+    <g>
+      <path
+        d={`M ${start.x} ${start.y} Q ${control.x} ${control.y} ${end.x} ${end.y}`}
+        fill="none"
+        stroke={color}
+        strokeWidth={2.5}
+        strokeLinecap="round"
+      />
+      {arrowHead(end, control, color)}
+    </g>
+  );
+}
+
+function CycleScene({ visual }: { visual: Visual }): JSX.Element {
+  const { style } = visual;
+  const layout = cycleLayout(visual);
+  const { cx, cy, placements } = layout;
+  const count = placements.length;
+
+  return (
+    <Fragment>
+      {count > 1
+        ? placements.map((from, index) => {
+            const to = placements[(index + 1) % count];
+            if (from === to) {
+              return null;
+            }
+            return (
+              <RingArrow
+                key={`ring-${from.node.id}`}
+                from={from}
+                to={to}
+                cx={cx}
+                cy={cy}
+                color={pick(style.palette, index)}
+              />
+            );
+          })
+        : null}
+      {placements.map((placement, index) => {
+        const accent = placement.node.color ?? pick(style.palette, index);
+        return (
+          <NodeEl
+            key={placement.node.id}
+            node={{
+              ...placement.node,
+              x: placement.x,
+              y: placement.y,
+              width: placement.width,
+              height: placement.height,
+              shape: placement.node.shape ?? "pill",
+            }}
+            fill={accent}
+            stroke={placement.node.stroke ?? accent}
+            text={placement.node.textColor ?? "#ffffff"}
+            style={style}
+            fontSize={style.fontSize}
+            fontWeight={style.fontWeight}
+            strokeWidth={0}
+          />
+        );
+      })}
+    </Fragment>
+  );
+}
+
+function Comparison({ visual }: { visual: Visual }): JSX.Element {
+  const { style } = visual;
+  const layout = comparisonLayout(visual);
+
+  return (
+    <Fragment>
+      {layout.cells.map((cell) => {
+        const paletteColor = pick(style.palette, cell.column);
+        const node = {
+          ...cell.node,
+          x: cell.x,
+          y: cell.centerY,
+          width: cell.width,
+          height: cell.height,
+          shape: "rounded" as const,
+        };
+        if (cell.header) {
+          return (
+            <NodeEl
+              key={cell.node.id}
+              node={node}
+              fill={cell.node.color ?? paletteColor}
+              stroke={cell.node.stroke ?? cell.node.color ?? paletteColor}
+              text={cell.node.textColor ?? "#ffffff"}
+              style={style}
+              fontSize={style.fontSize + 1}
+              fontWeight={Math.min(style.fontWeight + 100, 900)}
+              strokeWidth={0}
+            />
+          );
+        }
+        return (
+          <NodeEl
+            key={cell.node.id}
+            node={node}
+            fill={cell.node.color ?? style.nodeFill}
+            stroke={cell.node.stroke ?? paletteColor}
+            text={cell.node.textColor ?? style.nodeText}
+            style={style}
+            fontSize={style.fontSize}
+            fontWeight={style.fontWeight}
+            strokeWidth={1.5}
+          />
+        );
+      })}
+    </Fragment>
+  );
+}
+
+function Funnel({ visual }: { visual: Visual }): JSX.Element {
+  const { style } = visual;
+  const layout = funnelLayout(visual);
+
+  return (
+    <Fragment>
+      {layout.bands.map((band, index) => {
+        const accent = band.node.color ?? pick(style.palette, index);
+        const text = band.node.textColor ?? "#ffffff";
+        const { cx, bandY, bandHeight, topWidth, bottomWidth } = band;
+        const points = [
+          `${cx - topWidth / 2},${bandY}`,
+          `${cx + topWidth / 2},${bandY}`,
+          `${cx + bottomWidth / 2},${bandY + bandHeight}`,
+          `${cx - bottomWidth / 2},${bandY + bandHeight}`,
+        ].join(" ");
+        const innerWidth = Math.max(Math.min(topWidth, bottomWidth), 48);
+        const labelLines = wrapLabel(
+          band.node.label,
+          maxCharsForWidth(innerWidth, style.fontSize),
+          2,
+        );
+        const lines =
+          band.node.value !== undefined
+            ? [...labelLines, String(band.node.value)]
+            : labelLines;
+        return (
+          <g key={band.node.id}>
+            <polygon points={points} fill={accent} />
+            <MultilineText
+              cx={cx}
+              cy={band.centerY}
+              lines={lines}
+              color={text}
+              style={style}
+              fontSize={style.fontSize}
+              fontWeight={style.fontWeight}
+            />
+          </g>
+        );
+      })}
+    </Fragment>
+  );
+}
+
 function VisualBody({ visual }: { visual: Visual }): JSX.Element | null {
   switch (visual.type) {
     case "flowchart":
@@ -611,6 +957,14 @@ function VisualBody({ visual }: { visual: Visual }): JSX.Element | null {
       return <BarChart visual={visual} />;
     case "concept":
       return <ConceptMap visual={visual} />;
+    case "timeline":
+      return <Timeline visual={visual} />;
+    case "cycle":
+      return <CycleScene visual={visual} />;
+    case "comparison":
+      return <Comparison visual={visual} />;
+    case "funnel":
+      return <Funnel visual={visual} />;
     default:
       return null;
   }

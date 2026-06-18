@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Mirrors the local quality gate documented in AGENTS.md. Runs entirely against
+# SQLite with a file: DATABASE_URL, so no external database service is required.
+jobs:
+  quality-gate:
+    name: Quality gate (Node 22, SQLite)
+    runs-on: ubuntu-latest
+    env:
+      DB_PROVIDER: sqlite
+      DATABASE_URL: "file:./prisma/dev.db"
+      # Auth.js requires a secret; a throwaway value is fine for build/test only.
+      AUTH_SECRET: ci-placeholder-secret-not-used-in-production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client (SQLite)
+        run: npm run db:generate
+
+      - name: Run tests
+        run: npm test
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Build
+        run: npm run build

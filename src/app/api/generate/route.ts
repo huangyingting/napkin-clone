@@ -9,6 +9,8 @@
  * cookie; authenticated callers are rate limited per user.
  */
 
+import { randomUUID } from "node:crypto";
+
 import { NextResponse, type NextRequest } from "next/server";
 
 import {
@@ -26,15 +28,18 @@ import {
 import {
   ANON_COOKIE_NAME,
   anonTrialLimit,
-  checkRateLimit,
+  checkRateLimitWithStore,
   newAnonState,
   parseAnonCookie,
   signAnonState,
   userRateLimit,
   userRateWindowMs,
+  type RateLimitStore,
   type RateLimitWindow,
 } from "@/lib/ai/quota";
+import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
+import { logError } from "@/lib/log";
 import {
   VISUAL_KINDS,
   isVisualKind,
@@ -44,10 +49,35 @@ import {
 // Use the Node.js runtime: the Azure call and node:crypto signing need it.
 export const runtime = "nodejs";
 
-/** Module-level store for the per-user fixed-window rate limiter. */
-const userRateStore = new Map<string, RateLimitWindow>();
+/**
+ * Shared, DB-backed store for the per-user fixed-window rate limiter. Persisting
+ * the window in a `RateLimitHit` row (instead of a per-instance Map) makes the
+ * limit hold across instances in production.
+ */
+const userRateStore: RateLimitStore = {
+  async get(key) {
+    const row = await prisma.rateLimitHit.findUnique({
+      where: { subject: key },
+    });
+    if (!row) {
+      return undefined;
+    }
+    return { count: row.count, resetAt: row.resetAt.getTime() };
+  },
+  async set(key, window: RateLimitWindow) {
+    const resetAt = new Date(window.resetAt);
+    await prisma.rateLimitHit.upsert({
+      where: { subject: key },
+      create: { subject: key, count: window.count, resetAt },
+      update: { count: window.count, resetAt },
+    });
+  },
+};
 
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
+
+/** Scope tag for structured error logs from this route. */
+const LOG_SCOPE = "api.generate";
 
 function errorResponse(
   status: number,
@@ -62,6 +92,10 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  // Correlation id shared by every structured log line for this request so an
+  // operator can trace a single generation across log entries.
+  const requestId = randomUUID();
+
   let body: unknown;
   try {
     body = await request.json();
@@ -97,6 +131,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const secret = process.env.AUTH_SECRET;
   if (!secret) {
+    logError(LOG_SCOPE, new Error("Missing AUTH_SECRET"), {
+      requestId,
+      reason: "missing-auth-secret",
+      status: 500,
+    });
     return errorResponse(500, "Server is misconfigured (missing AUTH_SECRET).");
   }
 
@@ -108,8 +147,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     complete = (messages) => azureChatComplete(messages, { config });
   } catch (error) {
     if (error instanceof AzureConfigError) {
+      logError(LOG_SCOPE, error, {
+        requestId,
+        reason: "azure-config",
+        status: 503,
+      });
       return errorResponse(503, "AI generation is not configured.");
     }
+    logError(LOG_SCOPE, error, {
+      requestId,
+      reason: "azure-config-unexpected",
+      status: 500,
+    });
     throw error;
   }
 
@@ -120,7 +169,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   let setAnonCookie: string | null = null;
 
   if (user) {
-    const result = checkRateLimit(userRateStore, user.id, {
+    const result = await checkRateLimitWithStore(userRateStore, user.id, {
       limit: userRateLimit(),
       windowMs: userRateWindowMs(),
       now: Date.now(),
@@ -174,11 +223,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return errorResponse(413, error.message);
     }
     if (error instanceof GenerationError) {
+      logError(LOG_SCOPE, error, {
+        requestId,
+        reason: "generation-failed",
+        status: 502,
+      });
       return errorResponse(
         502,
         "We couldn't generate visuals from that text. Please try again.",
       );
     }
+    logError(LOG_SCOPE, error, {
+      requestId,
+      reason: "unexpected",
+      status: 500,
+    });
     return errorResponse(500, "Unexpected error while generating visuals.");
   }
 }

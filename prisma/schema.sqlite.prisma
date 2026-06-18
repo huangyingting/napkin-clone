@@ -63,8 +63,10 @@ model Document {
   workspaceId String?
   shareId     String?  @unique
   isShared    Boolean  @default(false)
+  favorite    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
 
   owner     User       @relation("DocumentOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
@@ -74,20 +76,37 @@ model Document {
   @@index([ownerId])
   @@index([workspaceId])
   @@index([shareId])
+  @@index([deletedAt])
 }
 
 model Visual {
-  id         String   @id @default(cuid())
-  documentId String
-  type       String
-  title      String?
-  data       Json
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id            String   @id @default(cuid())
+  documentId    String
+  anchorBlockId String?
+  orderIndex    Int      @default(0)
+  type          String
+  title         String?
+  data          Json
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document  Document         @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  revisions VisualRevision[]
 
   @@index([documentId])
+}
+
+model VisualRevision {
+  id        String   @id @default(cuid())
+  visualId  String
+  data      Json
+  type      String
+  title     String?
+  createdAt DateTime @default(now())
+
+  visual Visual @relation(fields: [visualId], references: [id], onDelete: Cascade)
+
+  @@index([visualId])
 }
 
 model Comment {
@@ -128,4 +147,17 @@ model InviteLink {
 
   @@index([workspaceId])
   @@index([token])
+}
+
+// Shared, DB-backed fixed-window rate-limit state for the AI generation
+// endpoint (US-018). One row per subject (an authenticated user id); the row
+// holds the current window's hit count and its reset instant. Persisting this
+// instead of a per-instance in-memory Map lets the limit hold across instances
+// in production. The window is first-request-anchored (resetAt = first hit +
+// window), preserving the existing in-memory semantics.
+model RateLimitHit {
+  subject   String   @id
+  count     Int      @default(0)
+  resetAt   DateTime
+  updatedAt DateTime @updatedAt
 }

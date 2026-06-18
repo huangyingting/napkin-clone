@@ -26,6 +26,47 @@ export interface NodeBox {
   height: number;
 }
 
+export interface Point {
+  x: number;
+  y: number;
+}
+
+/** A node's center point in canvas coordinates. */
+export function nodeCenter(node: VisualNode): Point {
+  return { x: node.x ?? 0, y: node.y ?? 0 };
+}
+
+/** A node's half-width / half-height (its bounding-box radii). */
+export function nodeHalf(node: VisualNode): { hw: number; hh: number } {
+  return {
+    hw: (node.width ?? DEFAULT_NODE_WIDTH) / 2,
+    hh: (node.height ?? DEFAULT_NODE_HEIGHT) / 2,
+  };
+}
+
+/**
+ * Point where the line from `from` toward a target box (centered at `to`,
+ * half-extent `hw`/`hh`) meets the target's bounding box — used to stop edges
+ * at the node boundary. Shared by the renderer and the editor overlay so edge
+ * hit-areas always line up with the drawn connectors.
+ */
+export function boundaryPoint(
+  from: Point,
+  to: Point,
+  hw: number,
+  hh: number,
+): Point {
+  const dx = from.x - to.x;
+  const dy = from.y - to.y;
+  if (dx === 0 && dy === 0) {
+    return { x: to.x, y: to.y };
+  }
+  const adx = Math.max(Math.abs(dx), 1e-6);
+  const ady = Math.max(Math.abs(dy), 1e-6);
+  const scale = Math.min(hw / adx, hh / ady);
+  return { x: to.x + dx * scale, y: to.y + dy * scale };
+}
+
 /** Visual kinds whose nodes are freely positioned via `node.x`/`node.y`. */
 const POSITIONED_KINDS = new Set<VisualKind>([
   "flowchart",
@@ -171,6 +212,330 @@ export function listLayout(visual: Visual): ListLayout {
   };
 }
 
+export interface TimelineStep {
+  node: VisualNode;
+  index: number;
+  /** Marker/badge center X on the axis. */
+  centerX: number;
+  /** Whether the label card sits above the axis. */
+  above: boolean;
+  /** Card left edge X. */
+  cardX: number;
+  /** Card top edge Y. */
+  cardY: number;
+  /** Card center X. */
+  cardCenterX: number;
+  /** Card center Y. */
+  cardCenterY: number;
+}
+
+export interface TimelineLayout {
+  marginX: number;
+  /** Vertical position of the horizontal axis. */
+  axisY: number;
+  /** Horizontal space allotted to each step. */
+  slot: number;
+  badgeRadius: number;
+  /** Gap between the axis badge and the label card. */
+  stemLength: number;
+  cardWidth: number;
+  cardHeight: number;
+  firstCenterX: number;
+  lastCenterX: number;
+  steps: TimelineStep[];
+}
+
+/**
+ * Timeline geometry — ordered horizontal steps along a centered axis, with
+ * label cards alternating above/below. Positions are derived from node order
+ * (x/y are ignored), mirroring `Timeline` in the renderer exactly.
+ */
+export function timelineLayout(visual: Visual): TimelineLayout {
+  const marginX = 40;
+  const axisY = visual.height / 2;
+  const count = Math.max(visual.nodes.length, 1);
+  const slot = (visual.width - marginX * 2) / count;
+  const badgeRadius = 15;
+  const stemLength = 34;
+  const cardWidth = Math.min(Math.max(slot - 20, 96), 200);
+  const cardHeight = 60;
+
+  const centerXFor = (index: number) => marginX + slot * index + slot / 2;
+
+  const steps: TimelineStep[] = visual.nodes.map((node, index) => {
+    const centerX = centerXFor(index);
+    const above = index % 2 === 0;
+    const cardCenterY = above
+      ? axisY - badgeRadius - stemLength - cardHeight / 2
+      : axisY + badgeRadius + stemLength + cardHeight / 2;
+    return {
+      node,
+      index,
+      centerX,
+      above,
+      cardX: centerX - cardWidth / 2,
+      cardY: cardCenterY - cardHeight / 2,
+      cardCenterX: centerX,
+      cardCenterY,
+    };
+  });
+
+  return {
+    marginX,
+    axisY,
+    slot,
+    badgeRadius,
+    stemLength,
+    cardWidth,
+    cardHeight,
+    firstCenterX: centerXFor(0),
+    lastCenterX: centerXFor(Math.max(visual.nodes.length - 1, 0)),
+    steps,
+  };
+}
+
+export interface CycleNodePlacement {
+  node: VisualNode;
+  index: number;
+  /** Center X. */
+  x: number;
+  /** Center Y. */
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface CycleLayout {
+  /** Ring center X. */
+  cx: number;
+  /** Ring center Y. */
+  cy: number;
+  radius: number;
+  placements: CycleNodePlacement[];
+}
+
+/**
+ * Cycle geometry — nodes evenly spaced around a ring (starting at the top,
+ * going clockwise). Positions are derived from node order/count (x/y are
+ * ignored), mirroring `CycleScene` in the renderer exactly.
+ */
+export function cycleLayout(visual: Visual): CycleLayout {
+  const cx = visual.width / 2;
+  const cy = visual.height / 2;
+  const count = Math.max(visual.nodes.length, 1);
+
+  // Reserve room for the node boxes so they never clip the canvas edge.
+  const maxNodeWidth = Math.max(
+    ...visual.nodes.map((node) => node.width ?? DEFAULT_NODE_WIDTH),
+    DEFAULT_NODE_WIDTH,
+  );
+  const maxNodeHeight = Math.max(
+    ...visual.nodes.map((node) => node.height ?? DEFAULT_NODE_HEIGHT),
+    DEFAULT_NODE_HEIGHT,
+  );
+  const margin = 24;
+  const radius = Math.max(
+    Math.min(cx - maxNodeWidth / 2 - margin, cy - maxNodeHeight / 2 - margin),
+    40,
+  );
+
+  const placements: CycleNodePlacement[] = visual.nodes.map((node, index) => {
+    const angle = -Math.PI / 2 + (index / count) * Math.PI * 2;
+    return {
+      node,
+      index,
+      x: cx + radius * Math.cos(angle),
+      y: cy + radius * Math.sin(angle),
+      width: node.width ?? DEFAULT_NODE_WIDTH,
+      height: node.height ?? DEFAULT_NODE_HEIGHT,
+    };
+  });
+
+  return { cx, cy, radius, placements };
+}
+
+export interface ComparisonCell {
+  node: VisualNode;
+  /** Zero-based column index (left to right). */
+  column: number;
+  /** Whether this is the column's header (the first node in the column). */
+  header: boolean;
+  /** Card center X. */
+  x: number;
+  /** Card top edge Y. */
+  cardY: number;
+  /** Card center Y. */
+  centerY: number;
+  width: number;
+  height: number;
+}
+
+export interface ComparisonColumn {
+  /** Grouping key (rounded `node.value`, default 0). */
+  key: number;
+  /** Column center X. */
+  centerX: number;
+  cells: ComparisonCell[];
+}
+
+export interface ComparisonLayout {
+  marginX: number;
+  top: number;
+  columnGap: number;
+  columnWidth: number;
+  headerHeight: number;
+  itemHeight: number;
+  cardGap: number;
+  columns: ComparisonColumn[];
+  /** All cells flattened, in node order. */
+  cells: ComparisonCell[];
+}
+
+/**
+ * Comparison geometry — N side-by-side columns of grouped item cards. Nodes are
+ * grouped into columns by their rounded `node.value` (default 0), with columns
+ * ordered by first appearance. The first node in each column is the column
+ * header; the rest are stacked items. Mirrors `Comparison` in the renderer.
+ */
+export function comparisonLayout(visual: Visual): ComparisonLayout {
+  const marginX = 28;
+  const top = 28;
+  const columnGap = 18;
+  const cardGap = 12;
+  const headerHeight = 54;
+  const itemHeight = 46;
+
+  const order: number[] = [];
+  const groups = new Map<number, VisualNode[]>();
+  for (const node of visual.nodes) {
+    const key = Math.max(0, Math.round(node.value ?? 0));
+    let bucket = groups.get(key);
+    if (!bucket) {
+      bucket = [];
+      groups.set(key, bucket);
+      order.push(key);
+    }
+    bucket.push(node);
+  }
+
+  const columnCount = Math.max(order.length, 1);
+  const totalGap = columnGap * (columnCount - 1);
+  const columnWidth = (visual.width - marginX * 2 - totalGap) / columnCount;
+
+  const cells: ComparisonCell[] = [];
+  const columns: ComparisonColumn[] = order.map((key, columnIndex) => {
+    const left = marginX + columnIndex * (columnWidth + columnGap);
+    const centerX = left + columnWidth / 2;
+    let y = top;
+    const columnCells: ComparisonCell[] = (groups.get(key) ?? []).map(
+      (node, rowIndex) => {
+        const header = rowIndex === 0;
+        const height = header ? headerHeight : itemHeight;
+        const cell: ComparisonCell = {
+          node,
+          column: columnIndex,
+          header,
+          x: centerX,
+          cardY: y,
+          centerY: y + height / 2,
+          width: columnWidth,
+          height,
+        };
+        y += height + cardGap;
+        return cell;
+      },
+    );
+    cells.push(...columnCells);
+    return { key, centerX, cells: columnCells };
+  });
+
+  return {
+    marginX,
+    top,
+    columnGap,
+    columnWidth,
+    headerHeight,
+    itemHeight,
+    cardGap,
+    columns,
+    cells,
+  };
+}
+
+export interface FunnelBand {
+  node: VisualNode;
+  index: number;
+  value: number;
+  /** Band center X (the canvas center). */
+  cx: number;
+  /** Band top edge Y. */
+  bandY: number;
+  /** Band center Y. */
+  centerY: number;
+  bandHeight: number;
+  /** Width at the band's top edge. */
+  topWidth: number;
+  /** Width at the band's bottom edge. */
+  bottomWidth: number;
+}
+
+export interface FunnelLayout {
+  marginX: number;
+  top: number;
+  cx: number;
+  bandHeight: number;
+  bandGap: number;
+  bands: FunnelBand[];
+}
+
+/**
+ * Funnel geometry — bands stacked top-to-bottom in node order, each a trapezoid
+ * whose width is driven by `node.value` (falling back to a decreasing sequence
+ * by order). A running minimum of the width fraction keeps the funnel
+ * monotonically narrowing even when the values aren't strictly decreasing.
+ * Mirrors `Funnel` in the renderer exactly.
+ */
+export function funnelLayout(visual: Visual): FunnelLayout {
+  const marginX = 44;
+  const top = 28;
+  const bottom = 28;
+  const bandGap = 8;
+  const minFrac = 0.16;
+  const cx = visual.width / 2;
+  const count = Math.max(visual.nodes.length, 1);
+  const plotWidth = visual.width - marginX * 2;
+  const plotHeight = visual.height - top - bottom;
+  const bandHeight = (plotHeight - bandGap * (count - 1)) / count;
+
+  const values = visual.nodes.map((node, index) => node.value ?? count - index);
+  const maxValue = Math.max(...values, 1);
+  const effFrac: number[] = [];
+  for (let i = 0; i < values.length; i++) {
+    const raw = Math.min(Math.max(values[i] / maxValue, minFrac), 1);
+    effFrac[i] = i === 0 ? raw : Math.min(effFrac[i - 1], raw);
+  }
+
+  const bands: FunnelBand[] = visual.nodes.map((node, index) => {
+    const topWidth = effFrac[index] * plotWidth;
+    const nextFrac =
+      index < values.length - 1 ? effFrac[index + 1] : effFrac[index] * 0.6;
+    const bandY = top + index * (bandHeight + bandGap);
+    return {
+      node,
+      index,
+      value: values[index],
+      cx,
+      bandY,
+      centerY: bandY + bandHeight / 2,
+      bandHeight,
+      topWidth,
+      bottomWidth: nextFrac * plotWidth,
+    };
+  });
+
+  return { marginX, top, cx, bandHeight, bandGap, bands };
+}
+
 /**
  * Hit-box per node id for the interactive editor's overlay. For positioned
  * kinds it's the node's shape box; for charts it's the full bar column; for
@@ -202,6 +567,58 @@ export function nodeBoxes(visual: Visual): Map<string, NodeBox> {
     return boxes;
   }
 
+  if (visual.type === "timeline") {
+    const layout = timelineLayout(visual);
+    for (const step of layout.steps) {
+      boxes.set(step.node.id, {
+        x: step.cardCenterX,
+        y: step.cardCenterY,
+        width: layout.cardWidth,
+        height: layout.cardHeight,
+      });
+    }
+    return boxes;
+  }
+
+  if (visual.type === "cycle") {
+    const layout = cycleLayout(visual);
+    for (const placement of layout.placements) {
+      boxes.set(placement.node.id, {
+        x: placement.x,
+        y: placement.y,
+        width: placement.width,
+        height: placement.height,
+      });
+    }
+    return boxes;
+  }
+
+  if (visual.type === "comparison") {
+    const layout = comparisonLayout(visual);
+    for (const cell of layout.cells) {
+      boxes.set(cell.node.id, {
+        x: cell.x,
+        y: cell.centerY,
+        width: cell.width,
+        height: cell.height,
+      });
+    }
+    return boxes;
+  }
+
+  if (visual.type === "funnel") {
+    const layout = funnelLayout(visual);
+    for (const band of layout.bands) {
+      boxes.set(band.node.id, {
+        x: band.cx,
+        y: band.centerY,
+        width: Math.max(band.topWidth, band.bottomWidth),
+        height: band.bandHeight,
+      });
+    }
+    return boxes;
+  }
+
   // list / scene
   const layout = listLayout(visual);
   for (const card of layout.cards) {
@@ -213,4 +630,46 @@ export function nodeBoxes(visual: Visual): Map<string, NodeBox> {
     });
   }
   return boxes;
+}
+
+export interface EdgeSegment {
+  /** Connector start point (at the source node boundary). */
+  start: Point;
+  /** Connector end point (at the target node boundary). */
+  end: Point;
+  /** Midpoint of the connector (where labels/controls anchor). */
+  mid: Point;
+}
+
+/**
+ * Endpoints (at the node boundaries) for each drawn connector, keyed by edge id.
+ * Only positioned kinds (flowchart/mindmap/concept) draw `visual.edges`, so
+ * other kinds yield an empty map. Mirrors `EdgeEl` in the renderer so the
+ * editor overlay's edge hit-areas line up with the drawn connectors.
+ */
+export function edgeSegments(visual: Visual): Map<string, EdgeSegment> {
+  const segments = new Map<string, EdgeSegment>();
+  if (!isPositionedKind(visual.type)) {
+    return segments;
+  }
+  const nodeById = new Map(visual.nodes.map((node) => [node.id, node]));
+  for (const edge of visual.edges) {
+    const from = nodeById.get(edge.from);
+    const to = nodeById.get(edge.to);
+    if (!from || !to) {
+      continue;
+    }
+    const fromCenter = nodeCenter(from);
+    const toCenter = nodeCenter(to);
+    const fromHalf = nodeHalf(from);
+    const toHalf = nodeHalf(to);
+    const start = boundaryPoint(toCenter, fromCenter, fromHalf.hw, fromHalf.hh);
+    const end = boundaryPoint(fromCenter, toCenter, toHalf.hw, toHalf.hh);
+    segments.set(edge.id, {
+      start,
+      end,
+      mid: { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 },
+    });
+  }
+  return segments;
 }

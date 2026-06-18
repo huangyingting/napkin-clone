@@ -7,6 +7,7 @@
  * constants so the prompt stays in sync with the validator.
  */
 
+import { ICON_CATALOG } from "@/lib/icons/catalog";
 import {
   NODE_SHAPES,
   VISUAL_KINDS,
@@ -41,7 +42,17 @@ const KIND_GUIDANCE: Record<VisualKind, string> = {
     "chart: a bar chart; every node needs a numeric `value`; x/y may be omitted (bars are laid out from value + index).",
   concept:
     "concept: a non-linear graph of related ideas connected by labeled edges; set x/y to spread nodes out.",
+  timeline:
+    "timeline: an ordered sequence of steps along a horizontal axis; order nodes chronologically; x/y may be omitted (steps are laid out from order).",
+  cycle:
+    "cycle: a repeating loop of stages; order nodes in the direction of the cycle; x/y and edges may be omitted (nodes are arranged around a ring with directed arrows).",
+  comparison:
+    "comparison: side-by-side columns of grouped items; set each node's `value` to its column index (0, 1, 2, …) to group nodes into columns; the FIRST node in each column is the column title and the rest are its items; x/y and edges may be omitted.",
+  funnel:
+    "funnel: stacked stages that narrow downward; order nodes from widest (top) to narrowest (bottom) and give each a decreasing numeric `value` that drives its band width; x/y and edges may be omitted.",
 };
+
+const ICON_NAMES = ICON_CATALOG.map((entry) => entry.name);
 
 function schemaDescription(): string {
   return [
@@ -64,11 +75,12 @@ function schemaDescription(): string {
     `      "value": number (required for chart bars, optional otherwise),`,
     `      "color": CSS color string (optional),`,
     `      "stroke": CSS color string for the node border (optional),`,
-    `      "textColor": CSS color string for the node label (optional)`,
+    `      "textColor": CSS color string for the node label (optional),`,
+    `      "icon": optional icon name from the bundled catalog`,
     `    }`,
     `  ],`,
     `  "edges": [`,
-    `    { "id": unique string, "from": node id, "to": node id, "label": string (optional), "directed": boolean (optional) }`,
+    `    { "id": unique string, "from": node id, "to": node id, "label": string (optional), "directed": boolean (optional), "style": "straight" | "curved" (optional) }`,
     `  ],`,
     `  "style": {`,
     `    "palette": [hex colors], "background": hex, "nodeFill": hex, "nodeStroke": hex,`,
@@ -87,11 +99,16 @@ const SYSTEM_PROMPT = [
   "Visual type guidance:",
   ...VISUAL_KINDS.map((k) => `- ${KIND_GUIDANCE[k]}`),
   "",
+  "Bundled icon catalog:",
+  `- Valid node.icon values: ${ICON_NAMES.map((name) => `"${name}"`).join(", ")}.`,
+  "- Add an `icon` to a node when it clearly reinforces the label; otherwise omit `icon`.",
+  "",
   "Rules:",
   "- Every edge `from`/`to` MUST reference an `id` that exists in that visual's `nodes`.",
   "- Node and edge `id`s MUST be unique within their visual.",
   "- Keep labels concise (a few words).",
   "- Lay positioned types out without overlaps; keep all coordinates within width/height.",
+  "- If you include `icon`, it MUST be one of the listed catalog names exactly.",
   "- Return DISTINCT candidates that take different structural approaches.",
 ].join("\n");
 

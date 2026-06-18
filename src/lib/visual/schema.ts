@@ -11,6 +11,8 @@
  * styling (missing/partial `style` is merged with `DEFAULT_STYLE`).
  */
 
+import { isKnownIcon } from "@/lib/icons/catalog";
+
 export const VISUAL_SCHEMA_VERSION = 1 as const;
 
 export const VISUAL_KINDS = [
@@ -19,6 +21,10 @@ export const VISUAL_KINDS = [
   "list",
   "chart",
   "concept",
+  "timeline",
+  "cycle",
+  "comparison",
+  "funnel",
 ] as const;
 
 export type VisualKind = (typeof VISUAL_KINDS)[number];
@@ -35,6 +41,10 @@ export const VISUAL_TYPES = [
   "LIST",
   "CHART",
   "CONCEPT",
+  "TIMELINE",
+  "CYCLE",
+  "COMPARISON",
+  "FUNNEL",
 ] as const;
 
 export type VisualType = (typeof VISUAL_TYPES)[number];
@@ -50,6 +60,11 @@ export const NODE_SHAPES = [
 
 export type NodeShape = (typeof NODE_SHAPES)[number];
 
+/** Connector line styles. `straight` is the default. */
+export const EDGE_STYLES = ["straight", "curved"] as const;
+
+export type EdgeStyle = (typeof EDGE_STYLES)[number];
+
 /** A single node. `x`/`y` are the node **center** in canvas coordinates. */
 export interface VisualNode {
   id: string;
@@ -61,7 +76,10 @@ export interface VisualNode {
   width?: number;
   height?: number;
   shape?: NodeShape;
-  /** Numeric value used by chart bars. */
+  /**
+   * Numeric value. Drives chart bar heights and funnel band widths, and is
+   * used as the column index (rounded) for comparison visuals.
+   */
   value?: number;
   /** Optional per-node fill/accent color override (any CSS color string). */
   color?: string;
@@ -69,6 +87,11 @@ export interface VisualNode {
   stroke?: string;
   /** Optional per-node label text color override. */
   textColor?: string;
+  /**
+   * Optional icon catalog name (see `src/lib/icons/catalog.ts`). An unknown
+   * name is dropped during validation (treated as no icon), never a failure.
+   */
+  icon?: string;
 }
 
 /** A directed-by-default connection between two nodes (by id). */
@@ -79,6 +102,8 @@ export interface VisualEdge {
   label?: string;
   /** Defaults to `true`; set `false` to omit the arrowhead. */
   directed?: boolean;
+  /** Connector line style. Defaults to `"straight"`. */
+  style?: EdgeStyle;
 }
 
 export interface VisualStyle {
@@ -139,6 +164,10 @@ export const VISUAL_KIND_TO_PRISMA = {
   list: "LIST",
   chart: "CHART",
   concept: "CONCEPT",
+  timeline: "TIMELINE",
+  cycle: "CYCLE",
+  comparison: "COMPARISON",
+  funnel: "FUNNEL",
 } as const satisfies Record<VisualKind, VisualType>;
 
 /** Maps a persisted `VisualType` (DB `Visual.type`) back to the schema `VisualKind`. */
@@ -148,6 +177,10 @@ export const PRISMA_TO_VISUAL_KIND = {
   LIST: "list",
   CHART: "chart",
   CONCEPT: "concept",
+  TIMELINE: "timeline",
+  CYCLE: "cycle",
+  COMPARISON: "comparison",
+  FUNNEL: "funnel",
 } as const satisfies Record<VisualType, VisualKind>;
 
 export function isVisualKind(value: unknown): value is VisualKind {
@@ -161,6 +194,13 @@ export function isNodeShape(value: unknown): value is NodeShape {
   return (
     typeof value === "string" &&
     (NODE_SHAPES as readonly string[]).includes(value)
+  );
+}
+
+export function isEdgeStyle(value: unknown): value is EdgeStyle {
+  return (
+    typeof value === "string" &&
+    (EDGE_STYLES as readonly string[]).includes(value)
   );
 }
 
@@ -257,6 +297,13 @@ function validateNode(input: unknown, index: number): VisualNode {
     node.textColor = input.textColor;
   }
 
+  // Icons are forgiving: a non-string or unknown catalog name is silently
+  // dropped (treated as no icon) rather than failing validation, so garbled
+  // AI output can't break an otherwise-valid visual.
+  if (typeof input.icon === "string" && isKnownIcon(input.icon)) {
+    node.icon = input.icon;
+  }
+
   return node;
 }
 
@@ -299,6 +346,13 @@ function validateEdge(
       throw new VisualValidationError(`${context}.directed must be a boolean`);
     }
     edge.directed = input.directed;
+  }
+
+  // Connector style is forgiving: an unknown/non-string value is silently
+  // dropped (treated as the default "straight") so garbled AI output can't
+  // break an otherwise-valid visual, matching how node icons/styling behave.
+  if (isEdgeStyle(input.style)) {
+    edge.style = input.style;
   }
 
   return edge;

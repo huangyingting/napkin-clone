@@ -1,0 +1,108 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { REDACTED, buildErrorLog, isSensitiveKey, logError } from "@/lib/log";
+
+test("buildErrorLog redacts configured sensitive context keys", () => {
+  const record = buildErrorLog("api.generate", new Error("boom"), {
+    requestId: "req-1",
+    reason: "generation-failed",
+    text: "raw user input that must never be logged",
+    input: "another raw input",
+    prompt: "system prompt",
+    apiKey: "sk-super-secret",
+    api_key: "sk-also-secret",
+    AUTH_SECRET: "top-secret",
+    password: "hunter2",
+    passwordHash: "$2a$12$abc",
+    Authorization: "Bearer xyz",
+    cookie: "session=abc",
+    accessToken: "tok-123",
+  });
+
+  for (const key of [
+    "text",
+    "input",
+    "prompt",
+    "apiKey",
+    "api_key",
+    "AUTH_SECRET",
+    "password",
+    "passwordHash",
+    "Authorization",
+    "cookie",
+    "accessToken",
+  ]) {
+    assert.equal(record[key], REDACTED, `expected ${key} to be redacted`);
+  }
+
+  // Non-sensitive correlation/diagnostic fields are preserved.
+  assert.equal(record.requestId, "req-1");
+  assert.equal(record.reason, "generation-failed");
+});
+
+test("buildErrorLog keeps reserved fields authoritative", () => {
+  const record = buildErrorLog("my.scope", new Error("kaboom"), {
+    level: "info",
+    scope: "spoofed",
+    message: "spoofed message",
+  });
+
+  assert.equal(record.level, "error");
+  assert.equal(record.scope, "my.scope");
+  assert.equal(record.message, "kaboom");
+  assert.equal(record.errorName, "Error");
+  assert.equal(typeof record.timestamp, "string");
+});
+
+test("buildErrorLog normalizes non-Error values", () => {
+  assert.equal(buildErrorLog("s", "just a string").message, "just a string");
+  assert.equal(buildErrorLog("s", { code: 7 }).message, '{"code":7}');
+  assert.equal(buildErrorLog("s", "x").errorName, "Error");
+});
+
+test("isSensitiveKey matches secrets and raw-input keys, not safe ones", () => {
+  for (const key of [
+    "text",
+    "input",
+    "prompt",
+    "apiKey",
+    "api_key",
+    "AUTH_SECRET",
+    "password",
+    "passwordHash",
+    "authorization",
+    "cookie",
+    "refreshToken",
+  ]) {
+    assert.equal(isSensitiveKey(key), true, `${key} should be sensitive`);
+  }
+  for (const key of ["requestId", "reason", "scope", "status", "durationMs"]) {
+    assert.equal(isSensitiveKey(key), false, `${key} should be safe`);
+  }
+});
+
+test("logError emits a single JSON line with no raw newline", () => {
+  const original = console.error;
+  const lines: string[] = [];
+  console.error = (...args: unknown[]) => {
+    lines.push(args.map(String).join(" "));
+  };
+  try {
+    logError("api.generate", new Error("with\nnewline\nstack"), {
+      requestId: "abc",
+      apiKey: "secret",
+    });
+  } finally {
+    console.error = original;
+  }
+
+  assert.equal(lines.length, 1);
+  const [line] = lines;
+  assert.ok(!line.includes("\n"), "log line must not contain a raw newline");
+  const parsed = JSON.parse(line) as Record<string, unknown>;
+  assert.equal(parsed.level, "error");
+  assert.equal(parsed.scope, "api.generate");
+  assert.equal(parsed.requestId, "abc");
+  assert.equal(parsed.apiKey, REDACTED);
+});

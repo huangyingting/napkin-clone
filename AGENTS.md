@@ -123,7 +123,10 @@ in `public/`, configs (`next.config.ts`, `tsconfig.json`, `eslint.config.mjs`,
   stay **identical to the canonical `prisma/schema.prisma` except
   `provider = "sqlite"`**; `Json` validates on SQLite in Prisma 7 (it maps to
   TEXT). Run CLI commands with the matching env, e.g.
-  `DB_PROVIDER=postgres npx prisma validate`.
+  `DB_PROVIDER=postgres npx prisma validate`. **Gotcha:** on a fresh clone with no
+  `DATABASE_URL`, Postgres Prisma CLI commands still need an explicit
+  `postgresql://...` URL; otherwise `prisma.config.ts` only has the SQLite fallback
+  and Prisma errors with `P1013`.
 - **`schema.sqlite.prisma` is GENERATED — don't hand-edit it (US-004).** It's
   derived from the canonical `prisma/schema.prisma` by
   `scripts/gen-sqlite-schema.mjs` (run `npm run db:schema:sqlite`), which copies
@@ -349,6 +352,10 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   (`MarkdownPreview`, directive-free so it's reusable in server views) — **never
   `dangerouslySetInnerHTML`**, so there's no HTML-injection surface. Reuse these
   for the read-only public page (US-017) instead of adding a Markdown dep.
+- **`parseMarkdown()` now assigns stable `block.id`s** from each block's normalized
+  signature plus per-signature occurrence count. When wiring inline UI/visual
+  anchors, key off `block.id` instead of array indexes so unchanged blocks keep the
+  same identity across re-parses while edited blocks get new ids.
 - **Autosave = debounced (800ms) server actions**, not a form submit:
   `src/app/app/documents/[id]/actions.ts` exports `saveDocumentTitle` /
   `saveDocumentContent`, both `"use server"`, `requireUser()` + owner-scoped
@@ -393,6 +400,13 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   `from`/`to` reference existing nodes) but are **forgiving about styling**
   (missing/partial `style`, `width`/`height` are merged with `DEFAULT_STYLE` /
   canvas defaults). Reuse these to reject garbled LLM output in US-010.
+- **Optional per-node `icon?: string`** (parity-gaps US-002) holds an icon
+  **catalog name** (`src/lib/icons/catalog.ts`). `validateNode` validates it with
+  `isKnownIcon` and **silently drops** a non-string or unknown name (treated as no
+  icon, never a hard failure) — mirroring the "forgiving about styling" rule, so
+  garbled AI output can't break a valid visual. `schema.ts` imports `isKnownIcon`
+  from `@/lib/icons/catalog` (no cycle; catalog.ts is React/lucide-free). Validator
+  coverage lives in `src/lib/visual/schema.test.ts`.
 - **Renderer `src/components/visual/visual-renderer.tsx` (`VisualRenderer`) is
   directive-free** (no `"use client"`, no hooks) so it renders in **both** server
   components (gallery, US-017 read-only pages) and client ones (US-011/013
@@ -466,18 +480,23 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   the main canvas, and persists it via the `attachVisual` server action. Errors are
   **non-blocking + retryable** (inline `role="alert"` + "Try again"; canvas/candidates
   state is preserved). Test hooks: `aria-label="Generate visual"`, thumbnail
-  `aria-label="Select <Kind> option <n>"`, save `role="status"` text "Visual saved".
-- **One active visual per document.** `attachVisual(id, input)`
-  (`src/app/app/documents/[id]/actions.ts`, `"use server"`) re-validates the payload
-  with `validateVisual` (never trust the client), owner-scopes the document
-  (`findFirst { id, ownerId }`), then **create-or-updates the document's single `Visual`
-  row** (find the earliest by `createdAt`, else create). The full `Visual` JSON is stored
-  in `Visual.data` (cast `as unknown as Prisma.InputJsonValue`, importing `Prisma` from
-  `@/generated/prisma/client`); `type` maps via `VISUAL_KIND_TO_PRISMA`. The editor
-  **page** loads that visual (`visuals: { orderBy: { createdAt: "asc" }, take: 1 }`),
-  `safeParseVisual`s it, and passes `initialVisual: Visual | null` to `DocumentEditor` →
-  `VisualPanel` (so it renders on load and survives reload). US-012/013/014 build on this
-  single-visual-per-document model.
+  `aria-label="Select variation <n> of <m>"` (parity-gaps US-011 relabel), save
+  `role="status"` text "Visual saved".
+- **Visuals are upserted per anchor block (parity-gaps US-008).** `attachVisual(id,
+  input, anchorBlockId?)` (`src/app/app/documents/[id]/actions.ts`, `"use server"`)
+  re-validates the payload with `validateVisual` (never trust the client),
+  **access-scopes** the document via `getAccessibleDocument(user.id, id)` (owner OR
+  workspace member — no longer owner-only `findFirst`), then **create-or-updates the
+  `Visual` row keyed by `(documentId, anchorBlockId)`**: it `findFirst`s the earliest
+  row for that anchor (else creates one). A **`null` anchor targets the legacy
+  document-level visual** (backward compatible: existing callers pass no anchor → one
+  document-level row, updated in place). Anchored ids let multiple visuals coexist in
+  one document. The full `Visual` JSON is stored in `Visual.data` (cast `as unknown as
+  Prisma.InputJsonValue`, importing `Prisma` from `@/generated/prisma/client`); `type`
+  maps via `VISUAL_KIND_TO_PRISMA`. The editor **page** still loads only the earliest
+  visual (`visuals: { orderBy: { createdAt: "asc" }, take: 1 }`), `safeParseVisual`s
+  it, and passes `initialVisual: Visual | null` to `DocumentEditor` → `VisualPanel`
+  (rendering all anchored visuals inline is US-010).
 - **Browser-testing generation locally:** Azure isn't configured in dev, so the real
   endpoint returns **503**. dev-browser's `page.route` interception is **unreliable in
   the QuickJS sandbox** (the fulfilled fetch hangs and unrelated requests fail with
@@ -738,3 +757,1357 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   `onFocus` sets the selection, which is all the anchor needs. Verify cross-user
   visibility with **two separate dev-browser instances** (owner + a workspace member)
   reading the same access-scoped action.
+
+## Napkin Parity Gaps (branch `ralph/napkin-parity-gaps`)
+
+> A second PRD (`scripts/prd.json`, doc `tasks/prd-napkin-parity-gaps.md`) that
+> **reuses US-001.. numbering** — these stories are distinct from the original
+> Napkin Clone stories above. Disambiguate by branch/section when referencing.
+
+### Offline icon catalog (parity-gaps US-001)
+
+- **Bundled icon source is `lucide-react`** (installed; v1.x). It ships every icon
+  as a named PascalCase React component (`import { ArrowRight } from "lucide-react"`)
+  and is fully offline (no runtime network calls). Resolve a catalog name to a
+  component via a named/`* as Icons` import; prefer explicit named imports in a
+  curated map to stay tree-shakeable.
+- **Catalog + search live in `src/lib/icons/catalog.ts`** and the module is
+  deliberately **framework-free** (no React import) so it unit-tests under
+  `node --test` + `tsx`. Shape: `IconEntry { name: string; keywords: string[] }`,
+  exported `ICON_CATALOG: IconEntry[]`. `name` is the **canonical lucide component
+  name** (PascalCase) so later stories (render US-003, picker US-004, AI suggest
+  US-005) can resolve/validate against it directly.
+- **`searchIcons(query, limit = 30)` is pure + deterministic**: case-insensitive,
+  ranks name matches above keyword matches (exact > prefix > substring), ties break
+  alphabetically by name. **Empty/whitespace query returns a curated default set**
+  (`DEFAULT_ICON_NAMES`), `limit <= 0` returns `[]`, and an unmatched query returns
+  `[]`. Helpers `isKnownIcon(name)` / `getIconEntry(name)` are the single source of
+  truth for validating icon names (reuse them in US-002/US-005 instead of
+  re-deriving a name set).
+- **Tests** sit next to the module (`src/lib/icons/catalog.test.ts`), matching the
+  repo convention (`*.test.ts` beside source, run via `npm test`).
+
+### Render icons inside nodes (parity-gaps US-003)
+
+- **Name → component resolution lives in `src/components/visual/icon-registry.ts`**
+  (`resolveIconComponent(name) => LucideIcon | undefined`). It's the **React-aware**
+  consumer of the framework-free catalog: it **explicitly named-imports** every
+  `ICON_CATALOG` name from `lucide-react` (not `import * as Icons`) so the bundler
+  tree-shakes to only the ~120 icons we ship. Keep it in sync with the catalog
+  (`isKnownIcon` validates names; this map renders them). The file was generated
+  from `ICON_CATALOG` to avoid typos — if you extend the catalog, regenerate/extend
+  this map too.
+- **GOTCHA — never `new Map(...)` in the registry.** One catalog icon is named
+  **`Map`**, and `import { Map } from "lucide-react"` **shadows the global `Map`
+  constructor** in that module (TS error "lacks a construct signature"). The
+  registry uses a plain `Record<string, LucideIcon>` object literal with a
+  `Object.prototype.hasOwnProperty` guard on lookup instead.
+- **lucide icons are RSC-safe.** Individual icon components and `createLucideIcon`
+  carry **no `"use client"`** (only the dynamic `Icon`/`DynamicIcon`/`context` do),
+  so the registry — and thus the directive-free `VisualRenderer` — render in both
+  server (gallery `/visuals`, `/share`) and client (editor) components. Don't import
+  the dynamic `Icon`/`DynamicIcon`.
+- **Render an icon as a nested, scaled `<svg>`** (helper `IconGlyph` in
+  `visual-renderer.tsx`): `<Icon x={cx-size/2} y={cy-size/2} width height color
+  aria-hidden="true" />`. lucide spreads `width`/`height`/`x`/`y` onto its root svg
+  (overriding its `size` default) and its `viewBox="0 0 24 24"` scales the glyph to
+  fit; `color` drives the stroke. This stays deterministic (no `<marker>`/id
+  concerns), matching the renderer's arrowhead approach.
+- **Icon color follows the node's text/theme color** (pass the same color used for
+  the label: `node.textColor ?? <theme/role color>`). **No layout shift when
+  `node.icon` is absent or unresolved** — resolve first, and only reserve space /
+  re-center when a component comes back (NodeEl stacks icon-above-label and keeps
+  the block centered; an absent icon centers the label exactly as before).
+- **Per-kind placement** (all share `IconGlyph`): boxed nodes (flowchart/mindmap/
+  concept, via `NodeEl`) = icon **above** the label; `list` = icon **left** of the
+  label (after the number badge, shifting only that card's text); `chart` = icon
+  **below** the category label (within `marginBottom`, so no clipping). Hit-boxes in
+  `layout.ts` are unchanged (icons live inside the existing node box).
+- **Fixtures demonstrate icons** (`src/lib/visual/fixtures.ts`): the `flowchart` and
+  `list` fixtures carry `icon` fields, so `/visuals` shows them. `prisma/seed.ts`
+  seeds `FIXTURES.flowchart` and round-trips through `safeParseVisual`, which keeps
+  known icons — adding `icon` to a fixture is safe.
+
+### Icon picker in the style panel (parity-gaps US-004)
+
+- **Node icon editing lives in the selected-element section of
+  `src/app/app/documents/[id]/style-panel.tsx`.** Keep icon writes aligned with the
+  existing per-node style helpers: update `visual.nodes` immutably, pass the next
+  `Visual` to the panel's `onChange`, and let `visual-panel.tsx`'s existing
+  debounced `attachVisual` path persist it.
+- **`src/app/app/documents/[id]/icon-picker.tsx` is intentionally presentational.**
+  It sources results from the offline `searchIcons` catalog and resolves preview
+  components with `resolveIconComponent`, but it does not save anything itself —
+  parents own persistence.
+- **Node-label suggestions are a pure catalog helper, not UI state.**
+  `suggestIconsForLabel(label, limit)` lives in `src/lib/icons/catalog.ts`; it
+  searches the full label first, then individual words as fallbacks, and
+  de-duplicates in discovery order. Reuse it anywhere the app needs "best icon
+  guesses" from text so the ranking logic stays consistent with `searchIcons`.
+- **React hooks lint gotcha:** when rendering a dynamically chosen lucide icon in a
+  client component, resolve the component first and pass it into a tiny child
+  component (`IconThumb`) rather than defining/rendering ad hoc components in the
+  main render body; this keeps `react-hooks/static-components` happy.
+- **Browser QA path:** select a node first (e.g. the overlay exposes `Edit <label>`
+  buttons / `[data-node-id]` hotspots), then the style panel reveals the icon
+  control. The results grid uses `aria-label="Search icons"` on the input and
+  `aria-label="Icon: <Name>"` on each option, which are the intended stable test
+  hooks. For SVG overlay hotspots, `page.domCua.getVisibleDom()` + `domCua.click`
+  is more reliable than Playwright locators because the editor exposes the
+  node-selection targets as `<rect aria-label="Edit <label>">`.
+
+### AI icon suggestions (parity-gaps US-005)
+
+- **`src/lib/ai/prompt.ts` now enumerates the bundled icon catalog.** The system
+  prompt lists the allowed `node.icon` names from `ICON_CATALOG`, tells the model
+  to include an icon only when it clearly reinforces the node label, and to omit
+  `icon` otherwise. If you add/rename catalog entries, this prompt stays in sync
+  automatically because it derives names from the catalog module.
+- **Invalid AI icon names must stay non-fatal.** Generation still validates
+  returned visuals through `safeParseVisual`, so a bad `icon` is silently dropped
+  while the rest of the candidate remains usable. Keep that forgiving path intact
+  for AI-facing features instead of rejecting the whole visual.
+
+### Anchored visuals in attachVisual (parity-gaps US-008)
+
+- **`attachVisual(id, input, anchorBlockId: string | null = null)`** now upserts a
+  visual keyed by **`(documentId, anchorBlockId)`** instead of overwriting the single
+  document-level row. A non-empty trimmed `anchorBlockId` (clamped to 200 chars, via
+  `normalizeAnchorBlockId`) anchors the visual to a Markdown block id (US-007's
+  `block.id`); **`null` = the legacy document-level visual** (existing callers pass no
+  third arg → unchanged behavior). The third param is positional + optional, so
+  `attachVisual(documentId, visual)` keeps working.
+- **Access is owner/member-scoped** via `getAccessibleDocument(userId, documentId)`
+  from `@/lib/documents` (owner OR any-role workspace member), replacing the prior
+  owner-only `findFirst`. Reuse that helper for any document write so workspace
+  collaborators (US-009/010) can attach visuals. Server-side `validateVisual`
+  re-validation is retained — never trust the client payload.
+- **Upsert pattern (no unique constraint yet):** `findFirst({ where: { documentId,
+  anchorBlockId } })` then `update` (keep the row's id/anchor) or `create` (set
+  `anchorBlockId`). Prisma's `anchorBlockId: null` where-clause maps to `IS NULL`, so
+  the null/document-level row is matched and updated in place (verified on SQLite:
+  null + per-block rows coexist; same-anchor re-attach updates, new anchor creates).
+  `orderIndex` stays at its schema default (0) until US-010 needs document ordering.
+
+### Generate a visual from a selected block (parity-gaps US-009)
+
+- **Per-block "spark" lives in the editor's Preview tab**, not the Write tab — the
+  Write tab is a single `<textarea>` with no per-block DOM, so gutter-hover
+  affordances aren't possible there. `document-editor.tsx` renders
+  `BlockVisualGenerator` (the interactive preview) in the Preview tab;
+  `MarkdownPreview` (directive-free) stays for read-only/share views.
+- **`BlockContent({ block })` was extracted from `markdown-preview.tsx`** (still
+  directive-free) so a single-block renderer is reused by both the server preview
+  and the client `block-visual-generator.tsx`. Don't duplicate block→element
+  rendering; import `BlockContent`.
+- **`blockText(block)` in `src/lib/markdown.ts`** is the canonical "text to send to
+  `/api/generate` for one block": paragraph/heading → `text`, bullets → items
+  rejoined as `- item` lines. Reuse it for any block-scoped generation.
+- **`block-visual-generator.tsx` (`"use client"`)**: each parsed block gets a gutter
+  spark `button[data-block-id=<id>][aria-label="Generate visual for this block"]`
+  (revealed on `group-hover`/focus). Click → POST `{ text: blockText(block) }` →
+  inline picker scoped to that block (candidate thumbnails
+  `button[aria-label="Select <Kind> option <n>"]`, same hooks as `VisualPanel`) →
+  `attachVisual(documentId, candidate, block.id)`. Only **one** picker open at a
+  time (`openId`); chosen visuals are kept per-block in session state (loading every
+  persisted inline visual on mount + in the reader is US-010). Generation/save
+  errors are non-blocking + retryable (`role="alert"` + "Try again"). The whole
+  thing is gated on `editable` (canEdit && collab `ready`) — when not editable it
+  renders plain blocks (no sparks), like `MarkdownPreview`.
+- **Editor page loads ALL visuals (US-010).** `page.tsx` selects
+  `visuals: { orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }], select: {
+  anchorBlockId: true, data: true } }`, then splits them: the first `anchorBlockId
+  = null` row → `initialVisual` (document-level, right `VisualPanel`); the rest →
+  `initialBlockVisuals` (a `Record<blockId, Visual>` for the inline preview). Each
+  row is `safeParseVisual`'d (garbled rows skipped). The document-level vs anchored
+  split (anchor `null` vs block id) is the key invariant — keep it when touching the
+  editor or share visual queries so block visuals don't leak into the doc-level
+  panel and vice-versa.
+- **Browser QA (mock-Azure):** the spark→picker→save flow needs `/api/generate`
+  working, so run the local mock Azure server. GOTCHA: the mock's candidate
+  **edges must include a non-empty `id`** (`validateEdge` requires it) — edges with
+  only `from`/`to` fail `safeParseVisual`, dropping every edged candidate so
+  `generateVisuals` can't reach `MIN_CANDIDATES` (3) → 502. Also: the editor only
+  shows sparks once collab is `ready`; **poll for the Document-text textarea being
+  `:not([disabled])`** as the ready signal before switching to Preview and clicking
+  a spark. Verify the DB end state with a throwaway `tsx` script: two blocks →
+  two `Visual` rows with distinct non-null `anchorBlockId`s (no overwriting).
+
+### Display multiple inline visuals in editor and reader (parity-gaps US-010)
+
+- **Inline anchored visuals render near their source block in both the editor
+  preview and the read-only reader, in document order.** The legacy
+  document-level visual (anchor `null`) still shows in the right-hand `VisualPanel`
+  (editor) / Visual panel (share page). Document-order falls out for free because
+  blocks are parsed in order and the visual is rendered right after each block.
+- **Editor (`block-visual-generator.tsx`):** seed the per-block `saved` state once
+  from a new `initialVisuals?: Record<blockId, Visual>` prop
+  (`useState(() => initialVisuals ?? {})` — seed-once, don't reflect the prop back
+  after mount, same rule as title/content). The chosen visual renders inline in a
+  `[data-block-visual="<blockId>"]` card below the block (`<VisualRenderer
+  className="h-auto w-full" />`). When `editable`, the card also shows **Replace**
+  (`aria-label="Replace this block's visual"`, reopens the generator) and
+  **Remove** (`aria-label="Remove this block's visual"`). Non-editable viewers see
+  the inline visual with no controls. `document-editor.tsx` forwards
+  `initialBlockVisuals` (from `page.tsx`) → `BlockVisualGenerator`.
+- **Reader (`markdown-preview.tsx`):** `MarkdownPreview` now takes an optional
+  `visuals?: Record<blockId, Visual>` map and renders the matching visual in a
+  `[data-block-visual]` card after each `BlockContent`. It stays **directive-free**
+  (imports the directive-free `VisualRenderer`), so the server-rendered share page
+  reuses it with no Markdown dep / no `dangerouslySetInnerHTML`. The share
+  `page.tsx` loads all visuals, splits doc-level (right panel) vs a `blockVisuals`
+  map (passed as `visuals=`), each `safeParseVisual`'d.
+- **Delete = `detachVisual(documentId, anchorBlockId)`** (`actions.ts`,
+  `"use server"`): `getAccessibleDocument` scope → `prisma.visual.deleteMany({
+  where: { documentId, anchorBlockId } })` (deleteMany so a foreign id / missing
+  visual is a no-op). Keyed by `(documentId, anchorBlockId)` so it removes **only**
+  that block's visual; the doc-level row (`anchorBlockId: null`) and other anchors
+  are untouched. The editor removes optimistically (drop the one `saved` key) and
+  restores it on failure.
+- **Browser QA:** inline visuals are server-rendered, so the share page can be
+  asserted from SSR HTML (`curl` + `grep data-block-visual`) before a full browser
+  pass. For the editor, log in (credentials `button:has-text("Log in")`), wait for
+  `textarea[aria-label="Document text"]:not([disabled])` (collab ready), switch to
+  Preview, then assert `[data-block-visual]` ids. Delete-only-one: click
+  `[data-block-visual="<id>"] button[aria-label="Remove this block's visual"]`,
+  assert the other id remains + the doc-level `svg[role="img"]` (not inside a
+  `[data-block-visual]`) is still present, then `page.reload()` to confirm the
+  delete persisted. Seed anchored visuals directly with a throwaway in-repo `tsx`
+  script (relative-import won't resolve `@/`/node_modules from the session dir, so
+  put it at the repo root and delete before committing) — content blocks must be
+  **blank-line separated** or `parseMarkdown` joins consecutive lines into one
+  paragraph. No horizontal overflow at 1280/768/375.
+
+### Browse multiple generated variations (parity-gaps US-011)
+
+- **The main `VisualPanel` candidate picker is the "variations gallery."** The
+  returned candidates (already 3–6 from `/api/generate`, capped at `MAX_CANDIDATES`
+  = 6) render as a labeled grid: a header `Variations (N)` and each tile shows
+  **`Variation <n> of <m>`** (visible caption + `aria-label="Select variation <n>
+  of <m>"`); the visual kind/title moved to the tile's `title` attribute. The
+  block-level picker (`block-visual-generator.tsx`, US-009) is a SEPARATE picker
+  and **still uses `aria-label="Select <Kind> option <n>"`** — don't conflate them.
+- **"More variations" re-roll** is a `button[aria-label="More variations"]` in the
+  gallery header that calls the same `runGenerate()` (no `type`) for a fresh batch.
+  KEY invariant: re-rolling must **not lose the current selection until the user
+  picks a new one** — `runGenerate()` (no-type branch) never touches `selected`, and
+  the old `candidates` stay rendered until the new batch replaces them, so the main
+  canvas keeps showing the chosen visual throughout loading.
+- **Loading is non-blocking when a selection exists.** The full-canvas spinner now
+  only shows on the *first* generation (`status === "loading" && !selected &&
+  candidates.length === 0`); otherwise loading feedback is inline (the "More
+  variations" button spins + a `role="status"` "Generating fresh variations…" line)
+  while the canvas keeps the current visual. This also smooths the US-012 type-switch
+  (canvas no longer flashes empty mid-switch).
+- **Session-scoped variation HISTORY (step back to an earlier batch) is a separate
+  story (parity-gaps US-012)** — US-011 only browses the *current* batch + re-rolls.
+- **Browser QA (mock-Azure):** have the mock return a batch-numbered title each call
+  (e.g. `Batch N · Flowchart`) so a re-roll is detectable. Assert: gallery tiles
+  `aria-label^="Select variation"`, header `Variations (N)`; select tile 1 → wait
+  `role="status"` "Visual saved" → record the main canvas text (the `<svg>` whose
+  `.closest("li")` is null); click `[aria-label="More variations"]` → the canvas text
+  is **unchanged** (selection preserved) while the gallery's first tile caption flips
+  to the new batch; then choosing a new tile updates the canvas and `page.reload()`
+  confirms `attachVisual` persisted it. Pre-existing: the editor header's save-status
+  span (`document-editor.tsx`, `shrink-0`) overflows slightly at 375px — unrelated to
+  this gallery.
+
+### Session-scoped variation history (parity-gaps US-012)
+
+- **`VisualPanel` keeps a client-only `history: Visual[]`** of the last
+  `MAX_HISTORY` (10) **generated** candidates, newest first. It's appended in
+  `runGenerate` right after the batch is validated (`setHistory((prev) =>
+  [...valid, ...prev].slice(0, MAX_HISTORY))`) — so BOTH plain re-rolls and
+  type-switch generations feed it. It's never persisted (no DB/schema change), so a
+  full reload clears it. **Don't** seed it from `initialVisual` (that's the saved
+  visual, not session-generated history) — seeding it would survive reload and break
+  the "clears on reload" AC.
+- **The "Recent" strip renders `history.filter((item) => !candidates.includes(item))`** —
+  i.e. previously generated candidates NOT in the *current* batch — so it's empty
+  after the first generation and only appears once you re-roll (its purpose:
+  "don't lose a good option after re-rolling"). Reference identity works because each
+  `runGenerate` parses fresh `Visual` objects, so the current `candidates` array holds
+  the exact references that are also at the head of `history`. Re-selecting a Recent
+  tile calls the same `select()` → `attachVisual` (re-validated + persisted), and
+  `item === selected` drives `aria-pressed`.
+- **Test hooks:** the strip is `ul[role="group"][aria-label="Recent variations"]`;
+  each tile is `button[aria-label="Re-select recent variation <n> of <m>"]`. Distinct
+  from the US-011 gallery (`Select variation <n> of <m>`) and the US-009 block picker
+  (`Select <Kind> option <n>`). The strip uses `overflow-x-auto`, so it adds **zero**
+  document-level horizontal overflow (verified: `scrollWidth` is identical with and
+  without the strip at 375px — the lone 375px offender is still the pre-existing
+  editor-header save-status span).
+- **Browser QA (mock-Azure, batch-numbered labels):** generate → no Recent strip yet;
+  select a tile + wait `role="status"` "Visual saved"; click `[aria-label="More
+  variations"]` → Recent strip appears with the prior batch (4 items) AND the main
+  canvas (the `svg[role="img"]` whose `.closest("li")` is null) is **unchanged**
+  (selection preserved); pick a new-batch tile (canvas changes) then click
+  `[aria-label="Re-select recent variation 1 of 4"]` to step BACK (canvas returns to
+  the earlier signature) + "Visual saved"; `page.reload()` → Recent strip gone (history
+  cleared) while the last-saved visual persists from the DB.
+
+### Add a new visual kind (timeline & cycle, parity-gaps US-013)
+
+- **Adding a `VisualKind` touches a fixed checklist** (TypeScript's exhaustive
+  `Record<VisualKind, …>` maps will fail typecheck until ALL are updated — that's
+  the safety net, lean on it):
+  1. `src/lib/visual/schema.ts`: append to `VISUAL_KINDS`, `VISUAL_TYPES`
+     (uppercase), and **both** `VISUAL_KIND_TO_PRISMA` / `PRISMA_TO_VISUAL_KIND`.
+     `Visual.type` is a **String** column, so new kinds need **no DB migration**.
+  2. `src/components/visual/layout.ts`: add a `<kind>Layout(visual)` geometry
+     helper (single source of truth) **and** a branch in `nodeBoxes()` — otherwise
+     the kind falls through to the list hit-boxes and the editor overlay misaligns.
+     New kinds that compute positions from order/index (like chart/list) should NOT
+     be added to `POSITIONED_KINDS` (that set is only for x/y-draggable kinds).
+  3. `src/components/visual/visual-renderer.tsx`: add a sub-renderer + a `case` in
+     `VisualBody`. Reuse `NodeEl` for boxed nodes by passing a synthetic node with
+     computed `x/y/width/height` (gets icon+label wrapping for free); reuse
+     `boundaryPoint`/`arrowHead` for directed connectors. Consume the layout helper
+     so hit-boxes never drift from the drawing.
+  4. `src/lib/visual/fixtures.ts`: add a fixture (auto-appears on `/visuals` via
+     `FIXTURE_LIST`).
+  5. The **exhaustive label/guidance maps**: `KIND_LABEL` in `src/app/visuals/page.tsx`,
+     `src/app/app/documents/[id]/visual-panel.tsx`, and
+     `src/app/app/documents/[id]/block-visual-generator.tsx`, plus `KIND_GUIDANCE`
+     in `src/lib/ai/prompt.ts`. The visual-panel type-switcher pills + the generation
+     prompt both `.map(VISUAL_KINDS)`, so a new kind becomes selectable/generatable
+     **automatically** once these maps compile.
+- **timeline** = ordered horizontal steps along a centered axis (`timelineLayout`):
+  numbered badge per step on the axis, label cards alternating above/below via a
+  stem; positions derived from order (`x/y` ignored). **cycle** = nodes evenly
+  spaced around a ring (`cycleLayout`, start top / clockwise, radius reserves the
+  max node box so nothing clips), with **auto-generated directed arcs** `i → (i+1)
+  % n` (`RingArrow`, quadratic Bézier bulged outward from the ring center). cycle
+  **ignores `visual.edges`** (the ring connectors ARE the directed edges), so its
+  fixture keeps `edges: []`.
+- **Browser QA (`/visuals`, headless):** `dev-browser` here has no X server — pass
+  `--headless`. Assert each `section[data-visual-type="<kind>"] svg` has the right
+  `viewBox` + real geometry (cycle ⇒ `polygon` arrowheads + `path` arcs; timeline ⇒
+  `line` axis/stems + `circle` badges + `rect` cards), no horizontal overflow at
+  1280/768/375 (`scrollWidth <= clientWidth`), and that every element's `getBBox`
+  stays within the viewBox (nothing clipped).
+
+### Comparison & funnel visual types (parity-gaps US-014)
+
+- Followed the same "Add a new visual kind" checklist as US-013 (schema unions +
+  both prisma maps, `layout.ts` helper + `nodeBoxes()` branch, renderer
+  sub-component + `VisualBody` case, fixture, `KIND_LABEL`/`KIND_GUIDANCE`). Both
+  are computed-layout kinds (like chart/list/timeline/cycle) → **not** in
+  `POSITIONED_KINDS` (edit/delete but no drag) and they **ignore `visual.edges`**
+  (fixtures keep `edges: []`).
+- **comparison** = N side-by-side columns of grouped item cards
+  (`comparisonLayout`). Grouping reuses the existing `node.value` field as a
+  **column index** (rounded, default 0); columns are ordered by **first
+  appearance** of their key (so author/AI order wins over numeric value). The
+  **first node in each column is a filled header card** (palette color, white
+  text); the rest are light item cards. Reuses `NodeEl` with a synthetic
+  computed-position node (free icon + label wrapping). Renderer iterates
+  `layout.cells` (flat, node order) and branches on `cell.header`.
+- **funnel** = vertically stacked trapezoid bands in node order (`funnelLayout`),
+  width driven by `node.value` (fallback: decreasing by order, `count - index`).
+  A **running minimum** of the width fraction (`minFrac` floor 0.16) guarantees
+  monotonic narrowing even if values aren't strictly decreasing; bands tile
+  seamlessly (band `i` bottom width = band `i+1` top width; last band tapers to
+  60%). Bands are `<polygon>` trapezoids (not `NodeEl`) with a centered white
+  `MultilineText` label; the numeric `value` is appended as an extra label line.
+- **Browser QA (`/visuals`, headless):** comparison ⇒ bg `rect` + one rounded
+  `rect` per node (12 in the fixture) + per-node `text` + nested icon `<svg>` for
+  header icons; funnel ⇒ bg `rect` + one `polygon` per band (5) + per-band `text`.
+  When counting a kind's own geometry, skip nested icon svgs with
+  `el.closest("svg") === outerSvg`. Verified 0 clipped (getBBox within viewBox) and
+  no horizontal overflow at 1280/768/375.
+
+### Select and edit a connector (parity-gaps US-016)
+
+- **Edge/connector geometry lives in `layout.ts`** (single source of truth, same
+  rule as node hit-boxes). US-016 **moved** `Point`/`nodeCenter`/`nodeHalf`/
+  `boundaryPoint` out of `visual-renderer.tsx` into `layout.ts` and added
+  `edgeSegments(visual): Map<edgeId, { start, end, mid }>`. The renderer now
+  **imports** those helpers (it kept only `arrowHead`, which returns JSX). So the
+  editor overlay's edge hit-areas can never drift from the drawn connectors —
+  if you change edge endpoint math, change it **only** in `layout.ts`.
+- **Only positioned kinds draw `visual.edges`** (flowchart/mindmap/concept — the
+  `EdgeEl` consumers). `edgeSegments` returns an **empty map** for every other kind
+  (chart/list/timeline/cycle/comparison/funnel render their own connectors or none),
+  so the overlay shows edge hit-areas only where edges are actually drawn.
+- **Editor overlay (`visual-editor.tsx`) renders edge hit-areas FIRST, then node
+  hit-rects, then the node delete button / node input, then the selected-edge
+  toolbar LAST.** Order matters: nodes paint after edges so node hit-boxes win
+  pointer precedence near a node boundary; the toolbar paints last so it's fully
+  clickable. Each edge hit-area is a transparent `<line>` (`strokeWidth` 14,
+  `pointerEvents="stroke"`) with `data-edge-id`, `role="button"`, `tabIndex={0}`,
+  `aria-label="Edit connector <label>"`, plus a visible indigo highlight line when
+  hovered/selected.
+- **Selecting/editing a connector mirrors the node inline-edit pattern.** Selecting
+  an edge clears node edit/selection (and vice-versa) and opens a `<foreignObject>`
+  HTML toolbar at the edge **midpoint** (`seg.mid`, clamped into the canvas)
+  containing: an inline `input[aria-label="Connector label"]` (live `onChange` →
+  `setEdgeLabel` → base re-renders immediately; Enter closes, Escape restores a
+  stashed `editStartEdgeLabel`), a **flip** `button[aria-label="Flip connector
+  direction"]` (swaps `edge.from`/`edge.to`), and an **arrowhead** toggle
+  `button[aria-label={directed ? "Hide" : "Show"} arrowhead]` (`aria-pressed`,
+  toggles `edge.directed`; default shown = `directed !== false`). Toolbar buttons use
+  `onPointerDown={(e)=>e.preventDefault()}` to keep the input focused (same trick as
+  the markdown toolbar). All edits flow through the existing `onChange` →
+  `handleEditChange` → debounced `attachVisual` (no new persistence path; server
+  re-validates with `validateVisual`).
+- **Browser QA gotcha:** the edge hit `<line>` has `stroke="transparent"`, so
+  Playwright treats it as **not visible** — `.click()` times out. **Select it the
+  way the node hotspots are documented**: `locator('[data-edge-id="e1"]').focus()`
+  then `keyboard.press("Enter")` (the line's `onKeyDown` calls `selectEdge`). The
+  foreignObject HTML toolbar controls (input/buttons) ARE normal visible elements,
+  so click/fill them directly. Verify arrowhead toggle by counting
+  `svg[role="img"] polygon` (arrowheads); verify flip + `directed` at the DB level
+  (`Visual.data.edges`) since direction isn't obvious in the rendered SVG.
+
+### Connector line style — straight / curved (parity-gaps US-017)
+
+- **Per-edge `style?: "straight" | "curved"` (default straight) on `VisualEdge`**
+  (`src/lib/visual/schema.ts`, with `EDGE_STYLES`/`EdgeStyle`/`isEdgeStyle`).
+  Validation is **forgiving** (like node `icon`): an unknown/non-string value is
+  silently dropped (→ default straight) so garbled AI output can't break a visual.
+  No DB migration — it lives inside `Visual.data` Json. `prompt.ts` advertises it on
+  the edge schema line so the AI can emit it.
+- **`EdgeEl` (`visual-renderer.tsx`) already had a per-renderer-kind `curved` prop**
+  (MindMap passes `curved`, Flowchart/Concept don't). US-017 made the **per-edge
+  field override the kind default**: `const isCurved = edge.style !== undefined ?
+  edge.style === "curved" : curved;`. So existing visuals (no `edge.style`) render
+  exactly as before (backward compatible), and a per-edge override wins. Curved =
+  a cubic `<path>` (controls `(midX,start.y)`/`(midX,end.y)`); the arrowhead uses
+  `{x:midX,y:end.y}` as its "from" so it stays correct at the target boundary.
+- **`edgeSegments`/hit-areas are unchanged** — the overlay edge hit-area stays the
+  straight segment between boundary points even for a curved edge (the cubic is
+  gentle and overlaps it near endpoints/midpoint); don't curve the hit-area.
+- **Editor toggle:** a 3rd button in the same selected-edge toolbar
+  (`visual-editor.tsx`, `renderEdgeToolbar`), `aria-label` = `Use curved connector`
+  / `Use straight connector` (toggles), `aria-pressed` = curved-on. `toggleEdgeStyle`
+  maps `edge.style === "curved" ? "straight" : "curved"` (undefined → curved).
+  Adding the button required widening `EDGE_TOOLBAR_WIDTH` (232 → 268). Persists via
+  the existing `onChange` → debounced `attachVisual`.
+- **Browser QA:** select e1 (`[data-edge-id="e1"].focus()` + Enter), click the
+  visible `[aria-label="Use curved connector"]` button, then assert the base canvas
+  (`svg[role="img"]` whose `.closest("li")` is null) flips one `<line>` → one
+  `<path>` (arrowhead `<polygon>` count unchanged), wait for the `role="status"`
+  "Visual saved", `page.reload()` to confirm persistence, and DB-check
+  `Visual.data.edges[i].style === "curved"` (only the selected edge changes).
+
+### Public embed route (parity-gaps US-018)
+
+- **`/embed/[shareId]`** (`src/app/embed/[shareId]/page.tsx`) is a minimal,
+  chrome-free page for iframing a shared document's **visual(s)** on another site.
+  It's a server component that mirrors `/share/[shareId]` scoping —
+  `prisma.document.findFirst({ where: { shareId, isShared: true } })` then
+  `notFound()` when null (a private/non-shared `shareId` 404s). It loads **all**
+  visuals (`visuals: { orderBy: [{ orderIndex }, { createdAt }], select: {
+  anchorBlockId, data } }`), `safeParseVisual`s each, and renders them with the
+  directive-free **`VisualRenderer`** (doc-level `anchorBlockId === null` first,
+  then anchored, in document order). No text panel, no markdown, no session widgets.
+- **No app chrome via `HeaderGate` (`src/components/header-gate.tsx`, `"use
+  client"`).** The root `layout.tsx` always renders `<SiteHeader />`; to suppress it
+  on embed without a multi-root-layout refactor, the layout now wraps it:
+  `<HeaderGate><SiteHeader /></HeaderGate>`. HeaderGate calls `usePathname()` and
+  returns `null` (rendering nothing) when the path starts with `/embed`.
+  `usePathname()` **resolves during SSR** in the App Router, so the header is absent
+  from the very first HTML (verified: `<header>`/`<nav>` count 0 in SSR DOM — no
+  flash inside an iframe). Caveat: SiteHeader is still rendered on the server (its
+  output lands in the discarded RSC flight payload) so `getCurrentUser()` runs for
+  embed too — harmless (auth cookies are SameSite=Lax so they aren't sent to a
+  cross-site iframe anyway), and the embed **DOM** contains no auth/session widget.
+- **Safe to frame by default.** Next.js/the NextAuth proxy set **no**
+  `X-Frame-Options` / CSP `frame-ancestors`, so embedding isn't blocked — don't add
+  such headers. The proxy matcher already lets `/embed/*` through (`authorized`
+  returns `true` for non-`/app`, non-auth paths). Verified end-to-end: the route
+  loads inside a **cross-origin** iframe and renders the visuals.
+- **Browser QA (`dev-browser --headless`, no X server here):** assert `goto` status
+  200 for a shared id and **404** for a non-shared/unknown id (`resp.status()`);
+  assert `document.querySelectorAll('header').length === 0` and no `Log in`/`Sign
+  up`/`Napkin Clone` **anchor** elements (the strings appear only in RSC `<script>`
+  flight data, not as DOM `<a>`s — count `<a>` elements, not `innerHTML`); assert
+  `svg[role="img"]` count matches the doc's visuals; check no horizontal overflow at
+  1280/768/375. Framing: `page.setContent('<iframe src=".../embed/<id>">')`, wait,
+  then `page.frames().find(f => f.url().includes("/embed/")).evaluate(...)` (Playwright
+  reads cross-origin frames). Seed a shared doc + visuals with a throwaway root-level
+  `tsx` script (the documented SQLite `PrismaBetterSqlite3` pattern); delete it +
+  the test rows before committing.
+
+### Copy embed code from the share UI (parity-gaps US-019)
+
+- **The share UI is the client `ShareButton`** (`src/app/app/documents/[id]/share-button.tsx`),
+  a dropdown rendered in the editor header. US-019 added an **Embed** section below
+  the share-link section, gated on `shareState.isShared && embedSnippet` (so it only
+  shows when sharing is enabled). It renders a **read-only `<textarea aria-label="Embed
+  code">`** holding an `<iframe>` snippet + a **Copy** button + a `<p role="status"
+  aria-live="polite">` that flips to `"Embed code copied to clipboard."` on copy
+  (otherwise a hint). The snippet points at the chrome-free `/embed/[shareId]` route
+  (US-018).
+- **Derive the embed URL from `shareState.shareUrl`** (`shareUrl.replace("/share/",
+  "/embed/")`) rather than rebuilding from origin+shareId — `shareUrl` is the canonical
+  displayed link and is already set from the server action (`process.env.NEXT_PUBLIC_APP_URL
+  || "http://localhost:3000"` + `/share/<shareId>`), so the embed link keeps the same
+  origin as the visible share link. Format is always `<origin>/share/<shareId>`, so the
+  single `.replace` is safe.
+- **GOTCHA (fixed here) — the share dropdown closed on EVERY in-menu click.** The
+  outside-click handler used `document.addEventListener("click", () => setShowMenu(false))`
+  and the menu relied on `onClick={(e) => e.stopPropagation()}` to stay open. In the
+  **App Router, React delegates events to `document`**, so a manual `document` click
+  listener fires on the **same target** as React's delegation — `stopPropagation()` does
+  **not** stop a same-element sibling listener — so toggling sharing / clicking Copy
+  closed the menu (the `role="status"` confirmation was never visible). Fix = the
+  standard **ref-based containment check**: put a `ref` on the menu div and
+  `if (menuRef.current && !menuRef.current.contains(e.target as Node)) setShowMenu(false)`.
+  This keeps the menu open for all in-menu controls. Use this pattern for any
+  click-outside dropdown in this app instead of `stopPropagation`.
+- **Browser QA (headless, prod `next start`):** sign up a fresh `*@test.dev` user
+  (clear cookies first — a stale auth cookie bounces `/signup`→`/app` so the form's
+  `input[name=email]` never appears), create a doc, open Share, toggle on. Grant
+  clipboard perms via `page.context().grantPermissions(["clipboard-read",
+  "clipboard-write"], { origin })` — localhost is a secure context so
+  `navigator.clipboard` works headless, and `readText()` confirms the exact snippet
+  landed. Target the embed copy button as `textarea[aria-label="Embed code"] + button`
+  and scope the status to `div.absolute p[role="status"]` (the editor also has a
+  save-status `role="status"`). Delete the throwaway user from `prisma/dev.db` after
+  (root-level `tsx` cleanup script using `PrismaBetterSqlite3`, then remove it).
+
+## Napkin Product Maturity (branch `ralph/napkin-product-maturity`)
+
+> A third PRD (`scripts/prd.json`, doc `tasks/prd-napkin-product-maturity.md`) that
+> **reuses US-001.. numbering** — distinct from the original Napkin Clone and the
+> Napkin Parity Gaps stories above. Disambiguate by branch/section when referencing.
+> Branched from `ralph/napkin-parity-gaps` (it matures the product "beyond visual
+> parity"), so all parity-gaps features (icons, extra visual kinds, embed, connector
+> editing) are present.
+
+### Delete a document (US-001)
+
+- **`deleteDocument(id)` lives in `src/app/app/actions.ts`** (`"use server"`),
+  alongside `createDocument`. It access-gates with `getAccessibleDocument(user.id,
+  id)` from `@/lib/documents` (owner OR any-role workspace member); a non-accessible
+  id **returns early (silent no-op)** so existence never leaks, then deletes via
+  `prisma.document.deleteMany({ where: { id } })` (deleteMany, not delete, so a
+  concurrent removal is a no-op rather than a `P2025` throw). The document's `Visual`
+  and `Comment` rows are removed automatically by the existing `onDelete: Cascade`
+  FKs (verified in both migration histories) — no manual child deletes. Ends with
+  `revalidatePath("/app")`. Reuse this gate-then-`deleteMany`/`updateMany` shape for
+  the other dashboard mutations (rename/duplicate/favorite/soft-delete).
+- Server actions in this repo are **not** unit-tested (they need prisma + a session);
+  "Tests pass" for these stories means the existing `npm test` suite stays green.
+  Validate DB-level behavior (e.g. cascade) with a throwaway root-level `tsx` script
+  using the documented `PrismaBetterSqlite3` adapter, then delete it before committing.
+  GOTCHA: a standalone `tsx` script can't use **top-level await** here (esbuild emits
+  CJS → "Top-level await is currently not supported"); wrap the body in an
+  `async function main(){…}; main();`.
+
+### Dashboard document card + overflow menu (US-002)
+
+- **Each dashboard card is the client component `src/app/app/document-card.tsx`**
+  (`DocumentCard`), rendering the whole `<li>`. `page.tsx` (server) stays the data
+  source: it maps documents → `<DocumentCard id title editedLabel workspaceName />`
+  (pass the **preformatted** `editedLabel` string, not a `Date`). The shared
+  `DocumentThumbnail` moved here. Extend THIS menu for the other card actions
+  (rename US-004, duplicate US-005, favorite US-007) instead of adding new components.
+- **Kebab must NOT navigate:** the overflow button + dropdown are a **sibling of the
+  `<Link>`** (absolutely positioned `right-2 top-2 z-10` over the card), never a child
+  of it — clicking them can't trigger the card's navigation. The card title gets
+  `pr-7` so a long title doesn't slide under the kebab.
+- **Click-outside = ref-containment, NEVER `stopPropagation`** (per the share-dropdown
+  rule): wrap BOTH the toggle button and the menu in one `menuRef` div, attach the
+  `document` click listener only while `menuOpen`, and close only when
+  `menuRef.current && !menuRef.current.contains(e.target)`. Because the toggle lives
+  inside `menuRef`, no `stopPropagation` is needed and in-menu clicks don't self-close.
+- **Confirm dialog is `createPortal(..., document.body)`** (same pattern as
+  `comments-panel`): a `fixed inset-0 z-50` overlay with a `role="dialog"
+  aria-modal="true"` panel that **names the document** in its body, a backdrop-click +
+  Escape-key cancel, and Cancel/Delete buttons. The dashboard `<main>` has no
+  backdrop-blur ancestor, but portaling keeps it robust against the card's
+  `relative`/absolute stacking context.
+- **Removal is optimistic + revalidated:** confirming sets a local `deleted` state
+  (card returns `null`) **and** calls `deleteDocument(id)` inside `useTransition`; the
+  action's `revalidatePath("/app")` reconciles the server list. Cancel just closes the
+  dialog (no state change).
+- **Browser QA:** kebab = `[aria-label="Actions for <title>"]`; menu items are
+  `[role="menuitem"]`; dialog is `[role="dialog"]`. Assert the kebab click leaves
+  `page.url()` on `/app` (no nav), the dialog text includes the document title, Cancel
+  keeps both cards, and Delete drops only the targeted card (then `page.reload()` to
+  confirm persistence). Count cards via `ul li span.font-medium` inner texts.
+
+### Soft-delete with undo (US-003)
+
+- **`Document.deletedAt DateTime?` is the soft-delete tombstone** (nullable, indexed,
+  migrations in BOTH histories: `prisma/migrations*/2026..._add_document_soft_delete`).
+  After editing `prisma/schema.prisma`, the drill is: `npm run db:schema:sqlite` →
+  `DB_PROVIDER=postgres DATABASE_URL=postgresql://napkin:napkin@localhost:5432/napkin?schema=public npx prisma migrate dev --name …`
+  → `DB_PROVIDER=sqlite DATABASE_URL="file:./prisma/dev.db" npx prisma migrate dev --name …`.
+  **GOTCHA: run the SQLite migrate LAST and then `npm run db:generate`** — `migrate dev`
+  regenerates the client for whatever provider it ran under, and the local gate needs the
+  **sqlite** client (else `next build`/typecheck see a stale Document type with no
+  `deletedAt`). Verify with `grep activeProvider src/generated/prisma/internal/class.ts`.
+- **EVERY document read excludes soft-deleted rows** with `deletedAt: null`. The shared
+  gate `getAccessibleDocument` (in `@/lib/documents`) adds it, so all its callers
+  (attachVisual/detachVisual/comments/delete) inherit the exclusion for free. The
+  remaining direct reads each got `deletedAt: null`: dashboard lists (`app/page.tsx`),
+  editor detail (`app/documents/[id]/page.tsx`), `share/[shareId]`, `embed/[shareId]`,
+  workspace list (`workspaces/[id]/actions.ts`). **When you add a new `prisma.document.find*`,
+  add `deletedAt: null`** or soft-deleted docs leak. (Seed find-or-create is exempt.)
+- **`documentAccessOr(userId)` was extracted** from `getAccessibleDocument` (exported from
+  `@/lib/documents`, typed `NonNullable<Prisma.DocumentWhereInput["OR"]>`). Reuse it when
+  an action must scope access but can't use `getAccessibleDocument` because it needs the
+  soft-deleted row — e.g. `restoreDocument` does `updateMany({ where: { id, deletedAt:
+  { not: null }, OR: documentAccessOr(user.id) }, data: { deletedAt: null } })` (the access
+  scope lives in the where-clause → a foreign id is a 0-row no-op, no existence leak).
+- **Three actions in `app/actions.ts`:** `deleteDocument` now SOFT-deletes
+  (`updateMany set deletedAt = now()`; still gated by `getAccessibleDocument`, which
+  excludes already-deleted rows so double-delete is a no-op — children are NOT touched
+  until purge); `restoreDocument(id)` clears it; `purgeDeletedDocuments()` hard-deletes
+  rows `deletedAt < now-30d` (`SOFT_DELETE_RETENTION_MS`), cascading to Visual/Comment.
+  Purge is **global (not user-scoped)** and invoked opportunistically at the top of the
+  dashboard server component (`app/page.tsx` `await purgeDeletedDocuments()`) — documented
+  choice; the indexed old-cutoff filter matches few rows. **Soft-delete/restore bump
+  `updatedAt` (`@updatedAt`), so a restored doc jumps to the top of "Last edited"** — fine,
+  and the optimistic UI prepends to match.
+- **Deletion ownership moved UP from the card to `app/document-list.tsx` (`DocumentList`)**
+  — this SUPERSEDES the US-002 "card owns its own `deleted` state" note. `DocumentCard` no
+  longer imports `deleteDocument`; its confirm dialog calls `onDelete(data:
+  DocumentCardData)` (full card data, so the parent can re-insert on undo). `page.tsx`
+  renders `<DocumentList documents={…}>` (the empty-state + grid live inside it now).
+- **Undo needs an optimistic STASH, not just an un-hide.** By the time Undo is clicked, the
+  delete's `revalidatePath("/app")` already dropped the doc from the `documents` prop, so
+  removing its id from a `removedIds` set won't bring it back. `DocumentList` keeps the
+  deleted doc's data in `undo` (also the toast payload) and, on undo, pushes it into a
+  `restored: DocumentCardData[]` list; `visible = [...extra, ...base]` where `base =
+  documents − removedIds` and `extra = restored not already in base` (dup-guarded). The
+  card reappears instantly, then the `restoreDocument` revalidation re-adds it to
+  `documents` and the dup-guard drops the local copy. Toast = `createPortal` bottom-center
+  `role="status"` with an **Undo** button, auto-dismiss after `UNDO_DURATION_MS` (6000ms,
+  ≥ the required 5s) via a `timerRef`.
+- **React 19 lint:** don't call `startTransition` (or other setState) inside a setState
+  updater (the AGENTS comments-panel rule). `handleUndo` reads `undo` via the callback's
+  dep array (`useCallback(…, [undo, clearTimer])`) and calls the setters/transition at the
+  top level, not inside `setUndo(updater)`.
+- **Browser QA:** toast is `[role="status"]` containing `button:has-text("Undo")`. Verify:
+  delete drops the card (count `ul li span.font-medium`), toast still present at ~5.2s,
+  Undo brings the card back **without a reload** then `page.reload()` confirms it persisted,
+  and a second delete left to auto-dismiss (>6.5s) stays gone after reload. A soft-deleted
+  doc's editor URL returns **404** (`resp.status()`). Re-seeding changes the user id →
+  clear cookies + log in again. Validate purge+cascade with a root-level `tsx` script
+  (`PrismaBetterSqlite3`): one doc `deletedAt = now-31d` (with a Visual+Comment) + one
+  `deletedAt = now` → load `/app` → old row + children gone, recent survives.
+
+### Rename a document from the dashboard (US-004)
+
+- **`renameDocument(id, rawTitle)` (`src/app/app/actions.ts`, `"use server"`)** follows the
+  house mutation shape: `requireUser()` → `getAccessibleDocument(user.id, id)` (owner OR
+  member; non-accessible = silent no-op) → `prisma.document.updateMany({ where: { id }, data:
+  { title } })` → `revalidatePath("/app")`. Title is normalized exactly like the editor's
+  `saveDocumentTitle`: `rawTitle.trim().slice(0, MAX_TITLE_LENGTH) || "Untitled"` (empty →
+  `"Untitled"`). It **returns `{ title }`** (the normalized value) for parity, though the UI
+  doesn't depend on the return (revalidation provides truth).
+- **Rename is owned by the CARD** (`document-card.tsx`), not lifted to `DocumentList` like
+  delete — it needs no cross-card affordance (no toast). The overflow menu gained a
+  **Rename** item (above Delete) opening a `createPortal` `RenameDialog` (a `<form
+  role="dialog" aria-modal>`) pre-filled with the current title, autofocus+select,
+  Enter/Rename submits, Escape/backdrop/Cancel dismisses.
+- **Optimistic title = React 19 `useOptimistic(title)`**, NOT a manual effect. Display the
+  card title, aria-labels, and dialogs from `optimisticTitle`. On submit:
+  `startTransition(async () => { setOptimisticTitle(normalize(next)); await
+  renameDocument(id, next); })`. `useOptimistic`'s base is the `title` prop, so when the
+  action's `revalidatePath` updates the prop the optimistic value snaps to the (equal) real
+  value seamlessly — no `useEffect`/prevTitle dance, sidestepping
+  `react-hooks/set-state-in-effect`. (Calling the `useOptimistic` setter must be inside the
+  transition/action.) Normalize client-side with the same `trim().slice(0,200) || "Untitled"`
+  so the optimistic value matches the server. `handleConfirmDelete` now passes
+  `optimisticTitle` to `onDelete` so a rename-then-delete restores the renamed title.
+- **Browser QA (mock-free, no Azure needed):** sign up a fresh `*@test.dev` user (wait for
+  `button:has-text("Create account"):not([disabled])` before filling — clicking pre-hydration
+  silently no-ops and the redirect never fires, leaving you on `/signup`), create a doc, then
+  on `/app`: `button[aria-label="Actions for <title>"]` opens the kebab WITHOUT navigating
+  (assert `page.url()` stays `/app`); `[role="menuitem"]:has-text("Rename")` → dialog
+  `input[aria-label="Document title"]` (assert `inputValue` == current title); fill + click
+  `button:has-text("Rename")` → title updates immediately (`waitForFunction` on `ul li
+  span.font-medium`) and survives `page.reload()`. Also covered: Cancel makes no change, a
+  whitespace-only title persists as `"Untitled"`, no horizontal overflow at 1280/768/375.
+
+### Duplicate a document (US-005)
+
+- **`duplicateDocument(id)` (`src/app/app/actions.ts`, `"use server"`)** is a
+  create-from-read mutation, so it can't use the usual `getAccessibleDocument` gate (that
+  returns only `{ id, ownerId, workspaceId }`). Instead it scopes the READ directly:
+  `prisma.document.findFirst({ where: { id, deletedAt: null, OR: documentAccessOr(user.id)
+  }, select: { title, content, visuals: {...} } })` (a non-accessible/soft-deleted id matches
+  nothing → silent no-op, never leaks existence). Reuse this **`documentAccessOr`-in-the-read**
+  shape for any action that must read an access-scoped row's contents (vs. just gate).
+- **The copy is a fresh PERSONAL document owned by the current user** (`ownerId: user.id`,
+  **`workspaceId` omitted** → null), titled `` `${source.title} (copy)` ``, with the source
+  `content`, created via a single `prisma.document.create` with a **nested
+  `visuals.create`** deep-copying every Visual row (`anchorBlockId`, `orderIndex`, `type`,
+  `title`, `data`). The `Json` `data` is cast **`as unknown as Prisma.InputJsonValue`** (read
+  type `JsonValue` isn't assignable to the create input — same cast `attachVisual` uses).
+  Import `Prisma` from `@/generated/prisma/client`.
+- **Share state and comments are NOT copied by construction:** `isShared` defaults to false,
+  `shareId` stays null (both omitted), and only `visuals` are nested-created (no `comments`).
+  Because the copy is created fresh, its `createdAt`/`updatedAt` are "now", so it sorts to the
+  **top** of the dashboard's `updatedAt: desc` ordering automatically — no optimistic insert
+  needed; `revalidatePath("/app")` surfaces the new top card.
+- **Duplicate is owned by the CARD** (like Rename, not lifted to `DocumentList`): a
+  `[role="menuitem"]` "Duplicate" between Rename and Delete calls `duplicateDocument(id)` in
+  the card's existing `startTransition` and closes the menu; the new card appears via
+  revalidation (no client-side new id, so no optimistic synthesis).
+- **Browser QA:** sign up a fresh `*@test.dev` user, create a doc, set title/content; on
+  `/app` open `button[aria-label="Actions for <title>"]` → `[role="menuitem"]:has-text("Duplicate")`;
+  assert `ul li span.font-medium`[0] === `"<title> (copy)"`, original still present, and it
+  survives `page.reload()`. Validate the deep copy at the DB level with a throwaway root-level
+  `tsx` script (`PrismaBetterSqlite3`): copy has the same content, all visuals with NEW ids +
+  round-tripped `data`, `isShared=false`/`shareId=null`, and **0 comments**. GOTCHA: a
+  doc-level visual seeded straight into the DB does **not** render its `svg[role="img"]` canvas
+  on editor load in this env (the same is true for the source doc — a pre-existing
+  collab/VisualPanel quirk, US-019's `ystate` observe, **not** a duplicate bug); don't chase it
+  under US-005. The 375px editor-header overflow is the known US-021 issue (the **dashboard**
+  has no overflow at 1280/768/375).
+
+### Search and sort documents on the dashboard (US-006)
+
+- **The dashboard toolbar (search + sort) lives in `DocumentList`**
+  (`src/app/app/document-list.tsx`), the existing client wrapper that already owns the
+  grid + soft-delete/undo. `page.tsx` (server) stays the data source; it now also
+  selects `createdAt` and passes raw sort keys (`createdAtMs`, `updatedAtMs` — numbers,
+  not Dates) on each item. The list-item type is the exported
+  `DashboardDocument = DocumentCardData & { createdAtMs; updatedAtMs }`; `DocumentCard`
+  still receives only `DocumentCardData` (id/title/editedLabel/workspaceName).
+- **Search is client-side + local state** (`useState`), case-insensitive substring on
+  `title` (`title.toLowerCase().includes(query.trim().toLowerCase())`). It is NOT
+  persisted in the URL (the AC only requires *sort* to persist). Sorting/filtering all
+  happen on the already-loaded list — no refetch.
+- **Sort persists in the URL via the History API, not `router.replace`.** Derive the
+  current key from `useSearchParams().get("sort")` (coerced by `parseSort`, default
+  `"edited"`) and write changes with `window.history.replaceState(null, "", url)`
+  (drop the param entirely for the default so `/app` stays clean). In the App Router
+  `useSearchParams()` **reactively reflects `history.replaceState`**, so the control
+  re-sorts instantly with **no server round-trip** (verified: re-sort is immediate and
+  the value/order survive `page.reload()`). Prefer this over `router.replace` for
+  purely client-side view state — `router.replace` would re-run the dynamic server
+  component (re-query + re-`purgeDeletedDocuments`). The page is dynamic (cookies via
+  `requireUser`), so `useSearchParams` needs **no** Suspense boundary; the build stays
+  `ƒ (Dynamic)`.
+- **Sort keys:** `edited` (updatedAtMs desc, default), `title` (`localeCompare`,
+  `sensitivity: "base"`), `created` (createdAtMs desc). `sortDocuments(docs, key)`
+  returns a **copy** (never mutate the prop). The undo/restore stash is now a
+  `DashboardDocument` (looked up from the `documents` prop, preserving any optimistic
+  title) so a restored card still sorts correctly until revalidation reconciles.
+- **Two distinct empty states:** truly-empty (`combined.length === 0`, no docs at all)
+  → the original "No documents yet" + create button, toolbar hidden; docs exist but the
+  search matches none → a "No documents match your search" `<h2>` with the toolbar still
+  shown. Don't conflate them — the toolbar must remain so the user can clear the query.
+- **Browser QA:** seed a user + ≥4 docs with **distinct `createdAt` AND `updatedAt`**
+  (Prisma *does* respect explicit `createdAt`/`updatedAt` passed to `create`, even
+  though `updatedAt` is `@updatedAt`) so the three orderings are all observable. Hooks:
+  `input[aria-label="Search documents"]`, `select[aria-label="Sort documents"]`
+  (`selectOption` by value `edited`/`title`/`created`), cards via
+  `ul li span.font-medium`. Assert order per key, `?sort=` in `page.url()`, persistence
+  after `page.reload()` (select `.value` + order), the no-match `<h2>`, and no
+  horizontal overflow at 1280/768/375. The dashboard has no overflow; the lone 375px
+  offender remains the editor-header save-status span (US-021).
+
+### Favorite (star) a document (US-007)
+
+- **`Document.favorite Boolean @default(false)`** is the star flag (no index — the
+  full dashboard list is already loaded, and US-008 filters favorites client-side).
+  Followed the DUAL-MIGRATION DRILL (`prisma/migrations*/2026..._add_document_favorite`
+  in both histories). SQLite's `migrate dev` does a table-rebuild (RedefineTables) to
+  add the column — expected, not a problem.
+- **`toggleFavorite(id)` (`src/app/app/actions.ts`, `"use server"`) reads-then-flips.**
+  Because the signature is just `(id)` (no desired-state arg) it must read the current
+  value first: a `findFirst` scoped by `documentAccessOr(user.id)` + `deletedAt: null`
+  (a non-accessible/soft-deleted id matches nothing → silent no-op), then
+  `updateMany({ where: { id }, data: { favorite: !current } })`, `revalidatePath("/app")`,
+  and returns `{ favorite }`. This is the house mutation shape adapted for a flip — the
+  read selects ONLY `favorite`, not the whole row.
+- **`favorite` flows through the existing card data plumbing:** added to
+  `DocumentCardData` (so `DashboardDocument` inherits it and the undo-stash carries it);
+  `page.tsx` selects `favorite: true` for both personal AND workspace doc queries and
+  maps it onto each card; `DocumentList` passes `favorite={document.favorite}`.
+- **The star toggle is a SIBLING of the card `<Link>`** (a separate
+  `absolute left-2 top-2 z-10` div — the kebab is `right-2 top-2`), so clicking it never
+  navigates (verified: URL stays `/app`). Optimistic state via **`useOptimistic(favorite)`**
+  inside the card's existing `startTransition` (same pattern as the optimistic title):
+  `startTransition(async () => { setOptimisticFavorite(!optimisticFavorite); await
+  toggleFavorite(id); })`. The optimistic base is the `favorite` prop, so the action's
+  revalidation snaps the optimistic value to the real one with no effect/reset dance.
+- **Test hooks:** the star is `button[aria-label="Favorite <title>"]` (off) /
+  `"Unfavorite <title>"` (on) with `aria-pressed` reflecting state; the filled vs outline
+  SVG is driven by `fill={active ? "currentColor" : "none"}` (amber when on).
+- **Browser QA:** sign up a fresh `*@test.dev` user, create a doc, then on `/app`: click
+  the star → `aria-pressed` flips to `"true"` immediately while `page.url()` stays `/app`;
+  `page.reload()` confirms persistence; toggle off + reload confirms off persists; no
+  horizontal overflow at 1280/768/375. **dev-browser gotcha:** its QuickJS sandbox passes
+  a **string** (not a `URL`) to `waitForURL(predicate)` — use `String(url).includes(...)`,
+  not `url.pathname`.
+
+### Filter the dashboard to favorites (US-008)
+
+- **The favorites filter lives entirely in `DocumentList`** (`src/app/app/document-list.tsx`,
+  the existing client wrapper). No server/schema change — it filters the already-loaded
+  list, like search/sort. It persists in the URL `view` search param (value `favorites`;
+  dropped for the default "all") using the SAME History-API pattern as `sort`
+  (`window.history.replaceState` + `useSearchParams`, instant re-render, no server round
+  trip). Both writers now go through a small `updateParams(mutate)` helper.
+- **Toggle hook:** `button[aria-label="Show favorites only"]` with `aria-pressed`
+  reflecting state; clicking flips `view` between `all`/`favorites`. It's a pill in the
+  toolbar's right group (now `flex flex-wrap` so the extra control can wrap instead of
+  overflowing at 375px — verified `scrollWidth <= clientWidth` at 1280/768/375).
+- **Chosen "favorites-first" behavior (the AC's optional bit):** when the filter is OFF
+  (all view), starred docs FLOAT to the top of the grid while the chosen sort still
+  orders within the favorite and non-favorite groups. Implemented by sorting normally
+  then partitioning (`Array.prototype.sort` is stable, partition preserves order);
+  `sortDocuments(docs, sort, favoritesFirst)` gained the 3rd arg, passed `!viewFavorites`.
+  When the filter is ON, all shown are favorites so the float is a no-op.
+- **THREE empty states now** (precedence matters): truly-empty (no docs at all → "No
+  documents yet" + create, toolbar hidden) > favorites-on-but-none (`viewFavorites &&
+  favFiltered.length === 0` → "No favorite documents yet", toolbar STILL shown so the user
+  can toggle off) > search-yields-nothing ("No documents match your search"). Filter order
+  in render: `combined` → favorites filter (`favFiltered`) → search filter → sort.
+- **Unfavoriting in the favorites view** removes the card only after the card's
+  `toggleFavorite` revalidation updates the `favorite` prop (the parent filters on the
+  prop, not the card's optimistic state) — so the card lingers one tick then drops; reaching
+  zero shows the favorites empty state. This is the expected revalidation flow, not a bug.
+- **Browser QA:** seed a user + 3 docs (2 favorite) with distinct `updatedAt` so
+  favorites-first is observable (a non-favorite newest doc must sort BELOW older
+  favorites). Assert: all-view order favorites-first; `?view=favorites` shows only
+  favorites + `aria-pressed=true`; `page.reload()` persists titles/pressed/URL; toggle off
+  drops the param + shows all; unstar all favorites → "No favorite documents yet". Read card
+  titles via `ul li span.font-medium` `allInnerTexts()`.
+
+### Account settings page — edit display name (US-009)
+
+- **The protected settings route is `/app/settings`** (`src/app/app/settings/page.tsx`, a
+  server component under `/app/*` so the proxy + a server-side `requireUser()` both guard
+  it). It reads the user **fresh from the DB** (`prisma.user.findUnique({ where: { id:
+  sessionUser.id }, select: { name, email } })`) and renders the client `ProfileForm`
+  (`profile-form.tsx`, `useActionState`) with `initialName`/`email`. The name `<input
+  aria-label="Display name">` is **uncontrolled** (`defaultValue`) so it keeps the typed
+  value after save; email shows in a disabled `<input aria-label="Email">`. Success/error
+  surface via `role="status"` ("Profile updated.") / `role="alert"`.
+- **`updateProfile(prev, formData)` (`settings/actions.ts`, `"use server"`)** is scoped to
+  the current user by keying the write on the **session `user.id`** (never a client id), so
+  it can only change the caller's own profile — a plain `prisma.user.update` is fine here
+  (unlike document mutations, the id isn't client-supplied). Trims + clamps the name to 100
+  chars; **empty → `null`** so the header/menu falls back to the email. Returns a typed
+  `ProfileFormState` discriminated union (`idle`/`success`/`error`).
+- **GOTCHA — the JWT session token holds the name captured at SIGN-IN; updating
+  `User.name` in the DB does NOT update `session.user.name`** (it stays stale even across
+  reloads, since the `jwt` callback returns the token unchanged on subsequent requests). So
+  anything that must reflect a just-saved name reads it **fresh from the DB**, not from
+  `getCurrentUser()`. `SiteHeader` now does `getCurrentUser()` → `prisma.user.findUnique`
+  by `sessionUser.id` for `{ name, email }`. `updateProfile` calls `revalidatePath("/",
+  "layout")` so the header (root layout) refreshes across the cached Router tree; the
+  action's automatic route refresh already updates the header on the settings page itself
+  without a reload. (Alternative: refresh the JWT via Auth.js `update()` — not used; the
+  DB read is simpler and bulletproof for "persists after reload".)
+- **The header user menu is `src/components/user-menu.tsx` (`UserMenu`, `"use client"`)** —
+  a dropdown using the ref-containment click-outside pattern (toggle + panel in one
+  `menuRef`, document listener, **never `stopPropagation`**). It shows the name (falling
+  back to email) + an avatar initial; the panel has the name+email, a `Settings`
+  `<Link href="/app/settings" role="menuitem">`, and the sign-out control. **The
+  `SignOutButton` (server component, inline `signOut` action) is passed as `children`** so
+  the server action stays server-side (the standard "server component into a client
+  component via children/props" pattern); it gained optional `className`/`role` props to
+  render as a full-width menu item. `SiteHeader` renders the authed nav based on the **DB
+  user** (not the raw session), so a stale JWT pointing at a deleted user falls back to the
+  signed-out header.
+- **Responsive header (avoid 375px overflow):** the always-visible name pill is wider than
+  the old `hidden sm:inline` email span, so the trigger **collapses to avatar-only on
+  mobile** — name span is `hidden ... sm:inline`, button padding `p-1 sm:pr-3` (a ~36px
+  circle < 640px, full pill at `sm`+). Matches the original email span's `hidden sm:inline`
+  so the site header stays within 375/768/1280 (`scrollWidth <= clientWidth`). The dropdown
+  body still shows the full name/email at every width.
+- **Browser QA:** sign up a fresh `*@test.dev` user (leave name blank → header shows the
+  email). Hooks: `[aria-label="User menu"]` (trigger), `[role="menu"]` + `a[href="/app/settings"]`,
+  `input[aria-label="Display name"]`, `button:has-text("Save changes")`,
+  `[role="status"]:has-text("Profile updated.")`. The trigger's **`innerText` hides the name
+  below 640px** (the `sm:inline` collapse) — set the viewport to 1280 before asserting the
+  name is visible, or assert via `textContent` (which includes `display:none` text) in a
+  `waitForFunction`. Verify the header updates after save WITHOUT reload, then `page.reload()`
+  to confirm both the header and the settings input persist; check no overflow at 375.
+
+### Change password (US-010)
+
+- **Pure password rules live in `src/lib/auth/password.ts`** (framework-free: no
+  bcrypt/Prisma/React) so they unit-test under `node --test` + `tsx`
+  (`password.test.ts` beside it). It exports `MIN_PASSWORD_LENGTH` (8) and
+  `validatePasswordChange({ newPassword, confirmPassword })` →
+  `{ ok: true } | { ok: false; message }` — **length check runs before the match
+  check**. bcrypt/DB verification stays in the server action, NOT here, to keep it
+  pure. (Sign-up still has its own `MIN_PASSWORD_LENGTH` in
+  `src/app/signup/actions.ts` — left untouched to keep the change focused; both are 8.)
+- **`changePassword(prev, formData)` (`src/app/app/settings/actions.ts`,
+  `"use server"`)** is scoped to the SESSION `user.id` (never client-supplied), reads
+  `passwordHash` fresh from the DB, runs `validatePasswordChange`, and — when the
+  account already has a hash — requires the current password (`bcrypt.compare`,
+  generic "Your current password is incorrect." so nothing leaks) and rejects
+  reusing the same password. On success it `bcrypt.hash(newPassword, 12)` (cost
+  matches sign-up) and `prisma.user.update`. Returns the `PasswordFormState`
+  discriminated union (`idle`/`success`/`error`). **Google-only accounts (no
+  `passwordHash`) can SET a password without a current one** — the same action skips
+  the current-password check when `passwordHash` is null.
+- **`PasswordForm` (`password-form.tsx`, `"use client"`, `useActionState`)** takes a
+  `hasPassword` boolean: when true it shows the Current-password field + "Update
+  password"; when false it hides it, shows a "You signed in with Google…" note, and
+  labels the button "Set password". A `useEffect` on `state` calls
+  `formRef.current?.reset()` on success to clear the typed secrets from the DOM
+  (ref-DOM-call in an effect is fine; it's not a `setState`). The page
+  (`settings/page.tsx`) selects `passwordHash`, computes `hasPassword =
+  Boolean(user.passwordHash)`, and renders the password `<section>` below Profile.
+- **Test hooks:** `input[aria-label="Current password"]` / `"New password"` /
+  `"Confirm new password"`; submit `button:has-text("Update password")` (or
+  `"Set password"`); success `[role=status]` ("Password updated." / "Password set."),
+  errors `[role=alert]`. **Browser QA gotcha for the Google-only variant:** you can't
+  log in as a passwordless user via credentials, so sign up a normal user (gets a
+  valid JWT session), null their `passwordHash` with a root-level `tsx`
+  (`PrismaBetterSqlite3`) script, then RELOAD `/app/settings` (the page reads
+  `passwordHash` fresh, so the session stays valid and the form flips to the
+  set-a-password variant). Verify a change by clearing cookies and logging in with
+  the new password (and confirming the old one now fails). Settings page has no
+  horizontal overflow at 1280/768/375. Clean up `*@test.dev` users after.
+
+### Delete account (US-011)
+
+- **No schema change needed — every `User` relation already cascades.**
+  `documents` (`Document.owner` `onDelete: Cascade`), `ownedWorkspaces`
+  (`Workspace.owner` Cascade), `memberships` (`WorkspaceMember.user` Cascade), and
+  authored `comments` (`Comment.author` Cascade) are all set in BOTH migration
+  histories, so `prisma.user.delete({ where: { id } })` removes the account and
+  fans out automatically: owned docs → their visuals + comments; owned workspaces →
+  their members + invite links; the user's memberships in OTHER workspaces; and
+  comments they authored on others' docs. Documents that live in a deleted
+  workspace but are owned by someone else are NOT deleted — `Document.workspace` is
+  `onDelete: SetNull`, so they survive with `workspaceId = null` (verified with a
+  throwaway root `tsx` cascade script).
+- **`deleteAccount(prev, formData)` (`src/app/app/settings/actions.ts`,
+  `"use server"`)** is scoped to the SESSION `user.id` (never client-supplied — the
+  account-write rule from US-009). The caller must confirm by typing their exact
+  email (case-insensitive, compared against the DB email) OR the literal word
+  `"DELETE"`; a mismatch returns a `DeleteAccountState` error (no leak). On success
+  it `prisma.user.delete` then **`await signOut({ redirectTo: "/" })`** — `signOut`
+  performs the redirect by THROWING (`NEXT_REDIRECT`), so it MUST run last and stay
+  OUTSIDE any try/catch (the trailing `return { status: "idle" }` is unreachable but
+  satisfies the return type). Import `signOut` from `@/auth` (same call the
+  `SignOutButton` uses; JWT sessions mean signOut just clears the cookie, so it
+  works fine even after the user row is gone).
+- **`DeleteAccountForm` (`delete-account-form.tsx`, `"use client"`,
+  `useActionState`)** renders a red "Delete account" button that opens a
+  `createPortal` confirm dialog (per AGENTS.md — escapes the settings card's
+  stacking context). The dialog's submit button is guarded client-side
+  (`disabled` until the typed value matches the email or `"DELETE"`) AND the server
+  re-validates. The page (`settings/page.tsx`) renders a Danger-zone `<section>`
+  (red border) below the password section, passing `email={user.email}`. Because
+  the action redirects on success, the form just unmounts — the state type only
+  needs `idle`/`error` (no success branch).
+- **Test hooks:** trigger `button:has-text("Delete account")`; dialog `[role="dialog"]`;
+  input `input[aria-label="Confirm account deletion"]`; submit is the dialog-scoped
+  `[role="dialog"] button:has-text("Delete account")` (`"Deleting…"` while pending).
+  **Browser QA:** sign up a fresh `*@test.dev` user, open `/app/settings`, assert the
+  confirm button is disabled initially + after wrong text + enabled after the exact
+  email; submit → `waitForURL` off `/app/settings` to `/` (signed out); then `/app`
+  bounces to `/login` and logging in with the old creds fails (account truly gone).
+  The delete flow self-cleans the test user (no cleanup script needed). Both the
+  email and the `"DELETE"` keyword paths were verified end-to-end.
+
+### First-run sample document (US-012)
+
+- **`src/lib/onboarding.ts` `seedSampleDocument(userId)`** seeds exactly one
+  first-run document for a brand-new user. It is **best-effort** (wrapped in
+  `try/catch` + `console.error`) so a seeding hiccup can NEVER block sign-up /
+  first login, and **idempotent/guarded**: it `findFirst`s any document owned by
+  the user (NO `deletedAt` filter, so a user who deleted the sample isn't
+  re-seeded) and returns early if one exists. It creates the Document with a
+  **nested `visuals.create`** (document-level, `anchorBlockId: null`) reusing
+  `FIXTURES.flowchart` + `VISUAL_KIND_TO_PRISMA`, casting `data` to
+  `Prisma.InputJsonValue` (same pattern as `attachVisual`/`seed.ts`). It's a
+  plain server helper (NOT a `"use server"` action), imported by the two
+  account-creation paths.
+- **Wire into BOTH sign-up paths:**
+  - Credentials `register` (`src/app/signup/actions.ts`): capture the created
+    user (`const createdUser = await prisma.user.create(...)`) and call
+    `await seedSampleDocument(createdUser.id)` **BEFORE** `signIn(...)`. GOTCHA:
+    `signIn` THROWS `NEXT_REDIRECT` on success, so anything after it never runs —
+    seed first.
+  - Google first-login (`src/auth.ts` `jwt` callback): Prisma `upsert` can't tell
+    create-vs-update, so it was converted to **find-then-create/update**
+    (`const existing = await prisma.user.findUnique(...)` → `existing ? update :
+    create`) and `seedSampleDocument(dbUser.id)` runs only when `!existing`. The
+    `jwt` callback only carries `account` on the initial sign-in, so this fires
+    exactly once per new Google user (and the internal guard double-protects).
+- **A DB-seeded doc-level visual DOES render in the editor** — the US-005
+  "doesn't render on load" note was stale-collab-room/test-env flakiness, NOT a
+  real bug. For a brand-new doc the collab room is fresh: `VisualPanel` mounts
+  with `selected = initialVisual` (renders immediately) and the editor's `seed()`
+  mirrors the DB visual into `ystate` under `SEED_ORIGIN`, which the panel's
+  observer (origin ≠ `localOrigin`) re-applies via `setSelected`. Verified in
+  browser: fresh signup → exactly one "Welcome to Napkin Clone" card → editor
+  canvas paints the flowchart fixture (5 nodes / 5 edges → 6 rects, 5 lines, 9
+  paths, 6 polygons). Idempotency verified with a throwaway root `tsx` script
+  importing the real `seedSampleDocument` (tsx resolves the `@/` alias): two calls
+  for one user → exactly 1 doc + 1 visual.
+
+### Template catalog (US-013)
+
+- **`src/lib/templates/catalog.ts` is a framework-free data module** (only a
+  `import type { VisualKind }` — type-only, erased at compile, so `node --test` +
+  `tsx` never load React/Prisma). It exports `TemplateEntry` (`{ id; name;
+  description; content: string; visualKind?: VisualKind }`), `TEMPLATE_CATALOG`
+  (Blank, Process / Flowchart, Mind Map, Comparison — ≥4), `BLANK_TEMPLATE_ID =
+  "blank"`, `getTemplate(id)`, and `getTemplateOrBlank(id)` (unknown/null/undefined
+  → Blank). US-014 ("create from template") consumes `getTemplateOrBlank` for its
+  graceful fallback and seeds a new doc's `content` from the entry.
+- **Each template `content` must parse to ≥1 block** via `parseMarkdown`, so even
+  "Blank" carries minimal seed content (`"# Untitled\n"` → one heading), never an
+  empty string (which parses to 0 blocks and fails the catalog test). Multi-block
+  templates **blank-line separate** their blocks (per the `parseMarkdown` rule) or
+  consecutive lines collapse into one paragraph.
+- **`visualKind` (optional) must be a member of `VISUAL_KINDS`** — the colocated
+  `catalog.test.ts` asserts this against the schema's `VISUAL_KINDS`, so adding a
+  template with a bad kind fails tests. Mirrors the icon-catalog convention
+  (`*.test.ts` beside the module, run via `npm test`).
+
+### Create a document from a template (US-014)
+
+- **`createDocument()` was REPLACED by `createDocumentFromTemplate(templateId:
+  string)`** in `src/app/app/actions.ts` (`"use server"`). It resolves the id via
+  `getTemplateOrBlank(templateId)` (so an unknown/missing id gracefully falls back
+  to Blank), seeds the new `Document.content` from the entry, then
+  `revalidatePath("/app")` + `redirect(\`/app/documents/${id}\`)` (redirect THROWS
+  `NEXT_REDIRECT`, so it stays last/outside try/catch). **No AI call here** — it's
+  pure template content. Blank intentionally seeds **empty** content (`template.id
+  === BLANK_TEMPLATE_ID ? "" : template.content`) to mirror the prior
+  from-scratch-document behavior (the catalog's `"# Untitled\n"` is only there to
+  satisfy the "parses to ≥1 block" test).
+- **`NewDocumentButton` (`new-document-button.tsx`, `"use client"`) now opens a
+  `TemplatePicker` modal** instead of being a `<form action={createDocument}>`
+  submit button. It keeps the SAME `className`/`children` props so both call sites
+  (`page.tsx` header + `document-list.tsx` empty state) are unchanged. The modal is
+  `createPortal(..., document.body)` (per the app's modal rule), lists
+  `TEMPLATE_CATALOG` as `button[aria-label="<name> template"]` tiles (name +
+  description, Blank first), and runs `createDocumentFromTemplate(id)` in a
+  `useTransition` with a per-tile "Creating…" state. Closes on Escape / backdrop /
+  Cancel.
+- **Browser QA (prod `next start`):** sign up a fresh `*@test.dev` user, on `/app`
+  click `button:has-text("New document")` → assert the `[role="dialog"]`
+  (`#template-picker-title` = "Start a new document") lists the 4
+  `button[aria-label$="template"]` options; click a template → `waitForFunction`
+  the URL matches `/app/documents/<id>`, then read
+  `textarea[aria-label="Document text"]:not([disabled])` (wait for collab-ready) and
+  assert it contains the template's Markdown (Blank → empty string). Unknown-id
+  fallback is covered by the `getTemplateOrBlank` unit tests, not the browser.
+
+### Persist visual revisions on save (US-015)
+
+- **`VisualRevision` model** (`prisma/schema.prisma`): `id`, `visualId`, `data Json`,
+  `type String`, `title String?`, `createdAt`, with `@@index([visualId])` and
+  **`onDelete: Cascade`** from `Visual` (so deleting a visual drops its history; a
+  deleted Document → cascaded Visuals → cascaded VisualRevisions). New model + a
+  `revisions VisualRevision[]` back-relation on `Visual` → both migrations are a clean
+  `CREATE TABLE` (no SQLite RedefineTables). Followed the DUAL-MIGRATION DRILL
+  (`add_visual_revision` in both histories, sqlite last, then `db:generate`).
+- **`attachVisual` snapshots the PREVIOUS row before overwriting it** — the upsert's
+  `existing` query now also selects `data/type/title`, and the **update branch** calls
+  the new `snapshotVisualRevision(previous)` helper first; the **create branch records
+  nothing** (no prior data → satisfies "skip when there is no prior data"). The public
+  signature/return/`revalidatePath` are unchanged (AC: "no change for callers").
+- **Prune-to-10 in the same action:** `snapshotVisualRevision` creates the snapshot,
+  then `findMany({ orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip:
+  MAX_VISUAL_REVISIONS(10), select: { id } })` returns the rows BEYOND the newest 10
+  and `deleteMany`s them. The `id` tiebreaker makes pruning deterministic even if two
+  snapshots share a `createdAt` ms (real saves are debounced ≥600ms apart, so they
+  don't, but belt-and-suspenders). Reading a non-null `Visual.data` (`Prisma.JsonValue`)
+  back into a create input needs `as unknown as Prisma.InputJsonValue` (JsonValue
+  includes null, InputJsonValue doesn't) — same cast as the deep-copy path.
+- **Validation:** server actions aren't unit-tested (need prisma+session), so "Tests
+  pass" = the existing `npm test` stays green; DB behavior (skip-on-create,
+  snapshot-previous, prune newest-10 V2..V11, cascade-on-visual-delete) verified with a
+  throwaway root `tsx` script mirroring the helper (`PrismaBetterSqlite3`), deleted
+  before committing. US-016 (browse/restore) consumes this history.
+
+### Browse and restore a previous visual version (US-016)
+
+- **Two new server actions in `src/app/app/documents/[id]/actions.ts`** consume the
+  US-015 `VisualRevision` history:
+  - `listVisualRevisions(documentId, anchorBlockId = null)` → access-scoped
+    (`getAccessibleDocument`), resolves the `Visual` for `(documentId, anchorBlockId)`
+    (null = the doc-level visual the `VisualPanel` manages), then `findMany` its
+    revisions `orderBy [{ createdAt: "desc" }, { id: "desc" }]`. Each row's `data` is
+    re-parsed with `safeParseVisual` (garbled rows skipped) and `createdAt` serialized
+    to ISO. Returns the exported `VisualRevisionSummary[]` (`{ id; createdAt; visual }`).
+    Empty list when the visual has no history.
+  - `restoreVisualRevision(revisionId)` → resolves revision → its `visual.documentId` /
+    `visual.anchorBlockId`, access-scopes the parent doc, `validateVisual`s the stored
+    snapshot, then **writes it back through `attachVisual(documentId, visual, anchorBlockId)`**.
+    Going through `attachVisual` means the CURRENT state is itself snapshotted first
+    (US-015), so a restore is recorded in history and therefore undoable. Returns
+    `{ visual }` so the client updates the canvas live. (Verified end-to-end: restoring
+    the oldest of 2 revisions made history grow to 3, the prior "current" on top.)
+- **History UI lives in the existing `VisualPanel`** (no new component). A `History`
+  pill (`aria-label="Visual history"`, `aria-expanded`) in the panel header shows when
+  `selected`; toggling open fetches `listVisualRevisions(documentId)` (doc-level, anchor
+  null). A "Version history" section renders newest-first thumbnails (`<VisualRenderer>`
+  + a formatted timestamp) as `button[aria-label="Restore version from <time>"]`,
+  `disabled` unless `editable`. Restore calls `restoreVisualRevision`, then
+  `setSelected`/`pushVisual` (live canvas + collab) and a **silent** `loadRevisions(true)`
+  refresh. States: loading (`role=status`), error (`role=alert` + Try again), empty, and
+  a manual Refresh button. `loadRevisions(silent?)` skips the loading flash for the
+  post-restore refresh.
+- **React 19 lint:** `toggleHistory` reads `historyOpen` from closure and calls the
+  fetch OUTSIDE the `setState` updater (`const next = !historyOpen; setHistoryOpen(next);
+  if (next) void loadRevisions();`) — never call setState/`loadRevisions` inside a
+  `setHistoryOpen(updater)` (the documented set-state-in-updater rule).
+- **Browser QA (SQLite, fresh dev server):** seed a user + doc + a doc-level `Visual`
+  (`anchorBlockId: null`) + ≥2 `VisualRevision`s with DISTINCT `createdAt` (a root-level
+  `tsx` script using `validateVisual` to build canonical `data` + `PrismaBetterSqlite3`).
+  GOTCHA — **a dev server started BEFORE editing a server action serves stale code and
+  the new action throws** ("Couldn't load history"); kill + restart `next dev` after
+  adding/editing actions. Read the main canvas as the `svg[role="img"]` whose
+  `.closest("li")` is null (thumbnails are inside `<li>`); assert restore updates it live
+  then `page.reload()` to confirm persistence. The post-restore in-browser list can read
+  stale for a tick (the silent refresh is awaited AFTER `setSaveState("saved")`) — confirm
+  the new snapshot via the DB or a short wait. The 375px editor-header overflow is the
+  pre-existing US-021 span (identical with History open/closed) — not from this section.
+
+### CI workflow protecting main (US-017)
+
+- **`.github/workflows/ci.yml`** mirrors the local quality gate on **Node 22** against
+  **SQLite + a `file:` `DATABASE_URL`** (so it needs no Postgres/external service). It
+  triggers on `pull_request` (gates merges into main) and `push` to `main` (catches
+  direct pushes). One `quality-gate` job sets job-level `env` (`DB_PROVIDER: sqlite`,
+  `DATABASE_URL: "file:./prisma/dev.db"`, a throwaway `AUTH_SECRET`) then runs, in the
+  PRD-specified order: `actions/checkout@v4` → `actions/setup-node@v4`
+  (`node-version: 22`, `cache: npm`) → `npm ci` → `npm run db:generate` → `npm test` →
+  `npm run typecheck` → `npm run lint` → `npm run format:check` → `npm run build`.
+- **GOTCHA — `.github/workflows/*.yml` is NOT in `.prettierignore`**, so Prettier (and
+  thus the gate's own `npm run format:check`, run both locally AND inside this workflow)
+  formats the YAML. A hand-written workflow that isn't Prettier-clean will **fail the
+  local gate on its own format:check step**. After adding/editing any workflow, run
+  `npx prettier --check .github/workflows/<file>.yml` (or `npm run format`) before
+  committing.
+- **CI needs no migrated DB.** `npm ci`'s `postinstall` (`prisma generate`) and
+  `npm run db:generate` only generate the client (no DB connection), and **every
+  prisma-reading page is `ƒ (Dynamic)`** (reads cookies via `SiteHeader`/route params),
+  so `next build` never queries the DB at build time. Verified by building against a
+  non-existent `file:` DB — no DB file was created, build passed. Setting
+  `DB_PROVIDER=sqlite` at the job level makes BOTH `postinstall` and `db:generate`
+  emit the **sqlite** client (provider-specific; must match the runtime adapter).
+- **`AUTH_SECRET` is only read at request time** (`/api/generate`), not at build/module
+  load, so the build doesn't strictly need it — but Auth.js wants one and signing in
+  requires it, so the workflow supplies a throwaway value to keep the env realistic.
+
+### Database-backed AI rate limiting (US-018)
+
+- **The authenticated rate limiter in `/api/generate` now reads/writes a shared
+  `RateLimitHit` DB row instead of a per-instance in-memory `Map`** (so the limit holds
+  across instances in production). The anonymous signed-cookie trial quota is **unchanged**
+  — only the `if (user)` branch moved to the DB.
+- **`RateLimitHit` model** (`prisma/schema.prisma`): `subject String @id`, `count Int
+  @default(0)`, `resetAt DateTime`, `updatedAt DateTime @updatedAt`. **One row per subject**
+  (an authenticated user id) — the faithful translation of the old `Map<string,
+  RateLimitWindow>` (the row IS the value `{ count, resetAt }`). The window is
+  **first-request-anchored** (`resetAt = first hit + windowMs`), preserving the exact
+  in-memory semantics; that's why it's keyed by `subject` alone (the row carries the window
+  via `resetAt`) rather than a `(subject, windowStart)` composite, which would accumulate
+  rows. New model → plain `CREATE TABLE` in BOTH histories (dual-migration drill, sqlite
+  last + `db:generate`).
+- **`src/lib/ai/quota.ts` stays pure + unit-tested.** Extracted `computeRateLimit(existing,
+  opts) => { result, next }` (the whole fixed-window DECISION, `next: null` on block so the
+  stored window is left untouched). `checkRateLimit` (sync, `Map`) and the new
+  `checkRateLimitWithStore` (async) both just call `computeRateLimit` then persist `next` —
+  so the two paths behave identically and the existing `Map` tests are untouched. The route
+  consumes the async one via a small **`RateLimitStore` interface** (`get(key) =>
+  Promise<RateLimitWindow | undefined>`, `set(key, window) => Promise<void>`); the route
+  backs it with `prisma.rateLimitHit` (`findUnique`/`upsert`, mapping `resetAt` ↔
+  `Date.getTime()`), tests back it with an in-memory fake. **Pattern for "swap an in-memory
+  store for a DB one while keeping logic unit-tested": extract the pure decision, define a
+  tiny async store interface, test the interface with a fake, implement it with Prisma in
+  the route.**
+- **Trade-off (documented in the code):** the store does read-modify-write, so two
+  instances racing the same window can each over-allow by one hit — acceptable for a soft
+  quota; a shared store still enforces globally vs. per-instance memory.
+- **Validation:** server/route code isn't unit-tested here; beyond the `node --test` store
+  tests, verify the real model with a throwaway root `tsx` script (`@/` alias resolves
+  under tsx; wrap in `async main(){…}; main()` — no top-level await) that runs
+  `checkRateLimitWithStore` against a prisma-backed store, then a SECOND fresh store object
+  reading the SAME row to prove cross-instance enforcement (it sees the persisted count and
+  blocks). Delete the script before committing. NOTE: in dev without Azure, the authed HTTP
+  path returns **503 (config) BEFORE quota**, so the endpoint can't exercise the limiter
+  without mock-Azure — the tsx script is the practical check.
+
+### Structured error logging for the AI endpoint (US-019)
+
+- **`src/lib/log.ts` is the structured logger.** `logError(scope, error, context?)`
+  emits exactly ONE JSON line to `stderr` via `console.error(JSON.stringify(...))` and
+  **never throws** (wrapped in try/catch — logging must not break request handling). It's
+  framework-free (only `console`) so it's safe server-side AND unit-testable. The pure
+  record builder **`buildErrorLog(scope, error, context?)`** is exported for tests (builds
+  the object without writing). Reserved fields (`level:"error"`, `scope`, `timestamp`,
+  `errorName`, `message`, `stack`) are spread LAST so a context key can't clobber them.
+- **PII redaction is built-in (defense in depth).** Callers must never pass raw input or
+  secrets, but `isSensitiveKey(key)` redacts them anyway (→ `REDACTED` = `"[redacted]"`):
+  it normalizes the key (`toLowerCase().replace(/[^a-z0-9]/g,"")`) then matches a
+  substring set (`secret`/`password`/`token`/`apikey`/`authorization`/`cookie`/
+  `credential`/`privatekey` — so `AUTH_SECRET`→`authsecret`✓, `api_key`→`apikey`✓,
+  `passwordHash`✓) OR an exact raw-input set (`text`/`input`/`inputtext`/`prompt`/
+  `messages`/`key`). Correlation/diagnostic keys (`requestId`/`reason`/`status`) are kept.
+  `JSON.stringify` escapes the error `stack`'s newlines, so the output stays ONE physical
+  line. Tests live beside it (`src/lib/log.test.ts`) and assert redaction + single-line.
+- **`/api/generate` wiring:** a per-request correlation id `requestId = randomUUID()`
+  (from `node:crypto`) is created at the top of `POST` and passed to every `logError`
+  call. Logged paths (HTTP responses UNCHANGED — logging is side-effect only): missing
+  `AUTH_SECRET` 500 (`reason:"missing-auth-secret"`), `AzureConfigError` 503
+  (`reason:"azure-config"`) + the re-thrown non-config error (`reason:
+  "azure-config-unexpected"`), `GenerationError` 502 (`reason:"generation-failed"`), and
+  the catch-all unexpected 500 (`reason:"unexpected"`). `InputTooLongError` (413) is an
+  expected client error → NOT logged. Reuse `logError(scope, error, { requestId, reason,
+  status })` for any other server route that needs diagnosable, PII-safe error logs.
+
+### Collab-server deployment & scaling docs (US-020)
+
+- **Documentation-only story** (no app/behavior change). The collab server
+  (`scripts/collab-server.mjs`) holds room state (`Y.Doc`s) in a **process-local
+  `Map`** — purely in-memory, never persisted, never shared across processes — so it
+  is single-instance: multiple instances behind a LB don't share rooms, and a restart
+  drops all rooms (masked by the editor's DB autosave, which is the durable source of
+  truth). `docs/collab-deployment.md` documents running it in prod (process manager +
+  `GET /health` probe + TLS at a reverse proxy → `wss://`), the env reference
+  (`COLLAB_PORT`/`COLLAB_HOST` for the server, `NEXT_PUBLIC_COLLAB_WS_URL` for the
+  client — a `NEXT_PUBLIC_*` var **inlined at build time**), the 2.5 s
+  (`DEGRADED_TIMEOUT_MS`) local-only graceful-degradation fallback, and three scaling
+  options with trade-offs: sticky routing (A, no new dep), Redis pub/sub backplane (B),
+  and a Yjs persistence adapter (C — `y-redis` for scale+durability, `y-leveldb` for a
+  single durable node). README links to it from a new "Real-time collaboration" section.
+- **GOTCHA — `docs/**` and `README.md` are NOT in `.prettierignore`**, so Prettier (and
+  thus `format:check` in the local gate + CI) formats them. After editing any
+  doc/README, run `npm run format` (or `npx prettier --check docs/<f>.md README.md`)
+  before committing — Prettier **realigns Markdown table columns**, so hand-aligned
+  tables will fail `format:check` until normalized. (`proseWrap` defaults to `preserve`,
+  so prose line breaks are left as written — only tables/code get reflowed.) This mirrors
+  the US-017 note that workflow YAML is also Prettier-checked.
+
+### Fix editor-header overflow at 375px (US-021)
+
+- **RESOLVED — the long-standing 375px editor-header overflow is fixed** (the
+  "known/pre-existing US-021 issue" called out across earlier sections is no longer
+  present). The offender was the editor header's **controls row** in
+  `src/app/app/documents/[id]/document-editor.tsx`: a non-wrapping `flex items-center
+  gap-3` holding `Presence` + `ShareButton` + `CommentsPanel` + a `shrink-0`
+  save-status `span`. Below the `sm` breakpoint the header is a `flex-col`, so that
+  row got the full content width (~327px at 375); its items don't shrink and the
+  `shrink-0` span ("All changes saved" ≈ 110px) forced ~82px of horizontal overflow
+  on `document.documentElement`.
+- **Fix = let the controls row wrap + let the save-status shrink, instead of forcing
+  width.** Controls container: `flex items-center gap-3` → `flex min-w-0 flex-wrap
+  items-center justify-end gap-3` (wrap so items flow onto a second line on narrow
+  screens; `justify-end` keeps the wrapped controls hugging the right, matching the
+  header's `sm:justify-between` intent). Save-status span: `shrink-0 text-xs …` →
+  `min-w-0 truncate text-xs …` (drop `shrink-0`, add `min-w-0 truncate` so it can
+  shrink/truncate if ever constrained; on its own wrapped line it has full width and
+  shows in full — verified `scrollWidth === clientWidth`, not ellipsis-clipped).
+- **Why this is regression-safe at 768/1280:** wrapping/shrinking can only ever
+  *reduce* a flex row's width, never increase it, so wider breakpoints (which already
+  had `overflow=0` and enough room to keep everything on one line) are unchanged. No
+  `justify`/layout change is visible there because the controls already fit.
+- **Browser QA (dev-browser, headless):** measure
+  `document.documentElement.scrollWidth - clientWidth` at 1280/768/375 — all 0 after
+  the fix (was 82 at 375 before). The previous "worst overflowing element" probe
+  (find any `el.getBoundingClientRect().right > clientWidth`) named the
+  `span.shrink-0 text-xs … "All changes saved"` as the sole offender, which is the
+  precise thing this change neutralizes. Reuse that "widest element past the viewport"
+  probe to pinpoint any future overflow regression. (No DB/Azure needed; just sign up
+  a `*@test.dev` user, create a doc via the New-document template picker → Blank, wait
+  for `textarea[aria-label="Document text"]:not([disabled])`, then measure.)
+
+### Core keyboard shortcuts (US-022)
+
+- **Shortcuts live in a small framework split** under `src/lib/shortcuts/`:
+  - `catalog.ts` — framework-free data (`SHORTCUTS`, `SHORTCUT_SCOPES`,
+    `shortcutsForScope`) consumed by the help dialog. No React import.
+  - `match.ts` — **pure, unit-tested matchers** (`isEditableTagName`,
+    `isHelpShortcut`, `isNewDocumentShortcut`, `isTogglePreviewShortcut`) taking a
+    `KeyEventLike` (the `KeyboardEvent` subset). A real `KeyboardEvent` is
+    structurally a `KeyEventLike`, so the DOM hook passes the event straight in.
+    Colocated `match.test.ts` (the "pure logic + colocated test" rule). US-022 has
+    NO unit-test AC, but extracting the matchers keeps `npm test` meaningful.
+  - `use-keyboard-shortcuts.ts` — `"use client"` `useKeyboardShortcut(handler,
+    { enabled?, allowInInput? })` + DOM `isEditableTarget`. It keeps `handler` in a
+    ref **updated inside a `useEffect`** (NEVER `ref.current = x` during render — the
+    `react-hooks/refs` rule) so the `document` keydown listener never churns or goes
+    stale; the listener effect deps are only `[enabled, allowInInput]`. `enabled:
+    false` registers nothing; `allowInInput: false` (default) ignores events from
+    INPUT/TEXTAREA/SELECT/contentEditable so typing is never hijacked.
+- **Bare-key shortcuts must be scoped to ONE mounted instance.** `NewDocumentButton`
+  renders in BOTH the dashboard header AND the empty-state, so the `n` shortcut is
+  gated by an `enableShortcut` prop that ONLY the always-present header instance
+  (`page.tsx`) passes — otherwise two listeners would both open the picker. Pattern
+  for any bare-key shortcut on a component that can mount more than once: add an
+  `enableShortcut`/`enabled` prop and turn it on for exactly one instance.
+- **Modifier shortcuts that work WHILE typing pass `allowInInput: true`.** The editor's
+  `Ctrl/⌘+E` (toggle Write/Preview, in `document-editor.tsx`) uses it because the user
+  is usually in the textarea; `event.preventDefault()` stops the browser default
+  (Ctrl+E focuses the address/search bar) and the modifier means it never inserts text.
+  `isTogglePreviewShortcut` accepts ctrl OR meta (cross-platform).
+- **The `?` help is global via the SiteHeader.** `src/components/keyboard-shortcuts.tsx`
+  (`KeyboardShortcuts`, `"use client"`) is mounted in `SiteHeader`'s logged-in nav, so
+  the `?` listener + `createPortal` dialog (grouped by `SHORTCUT_SCOPES`, `<kbd>` chips,
+  Escape/backdrop close) are available on every app page without an app-level layout.
+  The visible "?" button is `hidden sm:flex` to avoid 375px header overflow — the
+  component stays MOUNTED at all widths (`hidden` is just `display:none`), so the **`?`
+  keyboard shortcut still works at 375px** even though the button is hidden (mobile has
+  no physical keyboard anyway). GOTCHA: adding any item to the SiteHeader nav (`flex
+  items-center gap-3`) can push it past 375px — re-run the overflow probe and prefer
+  `hidden sm:flex` for non-essential affordances.
+- **Browser QA (dev-browser, headless):** press keys with `page.keyboard.press` —
+  `"Shift+Slash"` yields `event.key === "?"`, `"n"` is bare, `"Control+e"` toggles.
+  Move focus off inputs first (`locator('h1').click()` or `evaluate(()=>document
+  .activeElement?.blur())`) since the listener guards editable targets. Assert the
+  dialogs by `[role="dialog"][aria-labelledby="shortcuts-title"]` /
+  `#template-picker-title`. Preview-vs-Write is detectable because the `textarea[aria
+  -label="Document text"]` is conditionally rendered (present only in Write). Verify
+  "ignored while typing" by focusing the dashboard search (`input[aria-label="Search
+  documents"]`, present once ≥1 doc exists — US-012 seeds one on signup) and typing
+  `n`/`?`: no dialog opens and the chars land in the field.
+
+### Global error boundary & not-found page (US-023)
+
+- **`src/app/error.tsx` is the root App-Router error boundary** (`"use client"` —
+  error boundaries MUST be client components). It catches runtime errors in every
+  segment BELOW the root layout, so the root `SiteHeader` (rendered by `layout.tsx`,
+  ABOVE the boundary) stays visible around the fallback. To handle an error in the
+  root layout itself you'd need `global-error.tsx` (must declare its own `<html>`/
+  `<body>`) — not required by this story. The error/not-found UIs are
+  `<main className="flex flex-1 …">` so they fill the space under the persistent
+  header, matching the login/home page layout pattern.
+- **Props for `error.tsx`:** `{ error: Error & { digest?: string }; reset: () => void }`.
+  In Next 16 the boundary actually receives `error`, `reset`, AND `unstable_retry`
+  (see `node_modules/next/dist/client/components/error-boundary.d.ts` `ErrorInfo`);
+  `unstable_retry` is the docs-preferred recovery (re-fetch + re-render) but **`reset`
+  is the stable API** and matches the AC's "Try again reset action" — use `reset`. Log
+  the error in a `useEffect(() => console.error(error), [error])`; show `error.digest`
+  (a safe hash, handy for matching server logs) only when present.
+- **GOTCHA — Next's App typegen does NOT validate `error.tsx`/`not-found.tsx` props.**
+  `next-types-plugin` only emits `.next/types` guard files for `page.*` and `route.*`
+  in the app dir (`if (isApp && !/[/\\](?:page|route)\.[^.]+$/.test(filePath)) return;`),
+  so error/not-found default-export prop types are free — declare the `ErrorInfo`
+  subset you use without a "must extend PageProps" typecheck failure. (Pages/layouts
+  ARE validated against `PageProps`/`LayoutProps`, so their props can't have extra
+  required fields.)
+- **`src/app/not-found.tsx` is a Server Component** (no interactivity) — so it CAN
+  `export const metadata` (title), unlike the client `error.tsx`. It renders for
+  unmatched routes (`/_not-found`, HTTP 404) and whenever a segment calls
+  `notFound()`. Style both with the app's zinc card pattern + `dark:` variants
+  (`bg-white dark:bg-zinc-950`, `border-black/[.06] dark:border-white/[.08]`) and the
+  pill buttons from `page.tsx` (primary `bg-zinc-900 … dark:bg-white`, secondary
+  `border …`). The app honors `prefers-color-scheme` (no class toggle), so `dark:`
+  variants are all that's needed for light/dark correctness.
+- **Browser QA (dev-browser, headless — no X server here):** trigger the boundary with
+  a TEMPORARY throwing route (`src/app/<x>/page.tsx` `"use client"` that `throw`s),
+  navigate to it, assert the fallback text + a `button` reading "Try again" + a "Go
+  home" `<a href="/">`, then DELETE the temp route. Hit any unmatched path (e.g.
+  `/no-such-route`) for the 404. Verify both modes by `page.emulateMedia({ colorScheme
+  })` and asserting `getComputedStyle(document.body).backgroundColor` (light → `rgb(255,
+  255, 255)`, dark → `rgb(10, 10, 10)`); confirm `documentElement.scrollWidth -
+  clientWidth === 0`. HTTP status is checkable server-side too (`/boom` → 500,
+  `/no-such-route` → 404) via a `node -e "fetch(...)"` probe.
+

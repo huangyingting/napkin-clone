@@ -4,6 +4,7 @@ import { AuthError } from "next-auth";
 import bcrypt from "bcryptjs";
 
 import { signIn } from "@/auth";
+import { seedSampleDocument } from "@/lib/onboarding";
 import { prisma } from "@/lib/prisma";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -33,13 +34,17 @@ export async function register(
 
   const passwordHash = await bcrypt.hash(password, 12);
 
+  let createdUser;
   try {
-    await prisma.user.create({
+    createdUser = await prisma.user.create({
       data: { email, name: name || null, passwordHash },
     });
   } catch {
     return "Could not create your account. Please try again.";
   }
+
+  // First-run experience: seed a sample document before sign-in redirects.
+  await seedSampleDocument(createdUser.id);
 
   try {
     await signIn("credentials", { email, password, redirectTo: "/" });

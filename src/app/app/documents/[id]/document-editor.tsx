@@ -10,12 +10,14 @@ import {
   useYText,
 } from "@/lib/collab/use-collaboration";
 import { applyBlockType, type BlockType } from "@/lib/markdown";
+import { isTogglePreviewShortcut } from "@/lib/shortcuts/match";
+import { useKeyboardShortcut } from "@/lib/shortcuts/use-keyboard-shortcuts";
 import type { Visual } from "@/lib/visual/schema";
 
 import { saveDocumentContent, saveDocumentTitle } from "./actions";
+import { BlockVisualGenerator } from "./block-visual-generator";
 import { CommentsPanel, type AnchorNode } from "./comments-panel";
 import type { CommentThread } from "./comments-actions";
-import { MarkdownPreview } from "./markdown-preview";
 import { Presence } from "./presence";
 import { ShareButton } from "./share-button";
 import { VisualPanel } from "./visual-panel";
@@ -52,6 +54,7 @@ export function DocumentEditor({
   initialTitle,
   initialContent,
   initialVisual,
+  initialBlockVisuals,
   initialIsShared,
   initialShareId,
   canEdit = true,
@@ -64,6 +67,7 @@ export function DocumentEditor({
   initialTitle: string;
   initialContent: string;
   initialVisual: Visual | null;
+  initialBlockVisuals: Record<string, Visual>;
   initialIsShared: boolean;
   initialShareId: string | null;
   canEdit?: boolean;
@@ -142,6 +146,18 @@ export function DocumentEditor({
   });
 
   const [tab, setTab] = useState<"write" | "preview">("write");
+
+  // Ctrl/⌘+E toggles Write/Preview. `allowInInput` is true because the user is
+  // usually typing in the textarea; the modifier means it never inserts text.
+  useKeyboardShortcut(
+    (event) => {
+      if (isTogglePreviewShortcut(event)) {
+        event.preventDefault();
+        setTab((current) => (current === "write" ? "preview" : "write"));
+      }
+    },
+    { allowInInput: true },
+  );
 
   // Seed shared state from the database once collaboration is ready.
   useEffect(() => {
@@ -230,7 +246,7 @@ export function DocumentEditor({
             className="w-full rounded-md bg-transparent text-xl font-semibold tracking-tight text-zinc-900 outline-none placeholder:text-zinc-400 focus:bg-zinc-100/60 focus:px-2 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-50 dark:placeholder:text-zinc-600 dark:focus:bg-zinc-800/60"
           />
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
           <Presence peers={peers} status={status} />
           <ShareButton
             id={id}
@@ -247,7 +263,7 @@ export function DocumentEditor({
           <span
             role="status"
             aria-live="polite"
-            className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400"
+            className="min-w-0 truncate text-xs text-zinc-500 dark:text-zinc-400"
           >
             {STATUS_LABEL[saveStatus]}
           </span>
@@ -278,6 +294,7 @@ export function DocumentEditor({
               <button
                 type="button"
                 onClick={() => setTab("write")}
+                title="Write (Ctrl/⌘+E to toggle)"
                 className={tabClass(tab === "write")}
               >
                 Write
@@ -285,6 +302,7 @@ export function DocumentEditor({
               <button
                 type="button"
                 onClick={() => setTab("preview")}
+                title="Preview (Ctrl/⌘+E to toggle)"
                 className={tabClass(tab === "preview")}
               >
                 Preview
@@ -309,7 +327,12 @@ export function DocumentEditor({
             />
           ) : (
             <div className="flex-1 overflow-auto p-6">
-              <MarkdownPreview source={content.value} />
+              <BlockVisualGenerator
+                documentId={id}
+                source={content.value}
+                editable={editable}
+                initialVisuals={initialBlockVisuals}
+              />
             </div>
           )}
         </section>

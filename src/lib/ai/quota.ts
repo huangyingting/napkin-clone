@@ -10,8 +10,10 @@
  *     by cookie id, never by IP.
  *
  *  2. Authenticated per-user rate limit — a fixed-window limiter keyed by user
- *     id. The window store is provided by the caller (a module-level Map in the
- *     route) so the logic itself stays pure and testable.
+ *     id. The window store is supplied by the caller via an abstraction: the
+ *     route backs it with a `RateLimitHit` table (shared across instances) while
+ *     tests use an in-memory fake. The decision logic itself stays pure and
+ *     testable.
  */
 
 import crypto from "node:crypto";
@@ -141,41 +143,105 @@ export interface RateLimitResult {
 }
 
 /**
- * Fixed-window rate limiter. Mutates `store[key]` to record the request when
- * allowed. The window resets once `now >= resetAt`.
+ * Pure fixed-window decision. Given the current window for a subject (or
+ * `undefined` when there is none), returns the {@link RateLimitResult} plus the
+ * window that should be persisted (`next`) — or `null` when nothing should be
+ * written (the request was blocked, so the stored window is left untouched).
+ *
+ * The window is first-request-anchored: the first hit sets
+ * `resetAt = now + windowMs`, and the window resets once `now >= resetAt`. This
+ * logic is shared by the in-memory {@link checkRateLimit} and the async,
+ * store-backed {@link checkRateLimitWithStore} so both behave identically.
  */
-export function checkRateLimit(
-  store: Map<string, RateLimitWindow>,
-  key: string,
+export function computeRateLimit(
+  existing: RateLimitWindow | undefined,
   { limit, windowMs, now }: RateLimitOptions,
-): RateLimitResult {
-  const existing = store.get(key);
-
+): { result: RateLimitResult; next: RateLimitWindow | null } {
   if (!existing || now >= existing.resetAt) {
-    const window: RateLimitWindow = { count: 1, resetAt: now + windowMs };
-    store.set(key, window);
+    const next: RateLimitWindow = { count: 1, resetAt: now + windowMs };
     return {
-      allowed: true,
-      remaining: Math.max(0, limit - 1),
-      limit,
-      resetAt: window.resetAt,
+      result: {
+        allowed: true,
+        remaining: Math.max(0, limit - 1),
+        limit,
+        resetAt: next.resetAt,
+      },
+      next,
     };
   }
 
   if (existing.count >= limit) {
     return {
-      allowed: false,
-      remaining: 0,
-      limit,
-      resetAt: existing.resetAt,
+      result: {
+        allowed: false,
+        remaining: 0,
+        limit,
+        resetAt: existing.resetAt,
+      },
+      next: null,
     };
   }
 
-  existing.count += 1;
-  return {
-    allowed: true,
-    remaining: Math.max(0, limit - existing.count),
-    limit,
+  const next: RateLimitWindow = {
+    count: existing.count + 1,
     resetAt: existing.resetAt,
   };
+  return {
+    result: {
+      allowed: true,
+      remaining: Math.max(0, limit - next.count),
+      limit,
+      resetAt: existing.resetAt,
+    },
+    next,
+  };
+}
+
+/**
+ * Fixed-window rate limiter backed by an in-memory `Map`. Records the request
+ * in `store[key]` when allowed; the window resets once `now >= resetAt`.
+ */
+export function checkRateLimit(
+  store: Map<string, RateLimitWindow>,
+  key: string,
+  options: RateLimitOptions,
+): RateLimitResult {
+  const { result, next } = computeRateLimit(store.get(key), options);
+  if (next) {
+    store.set(key, next);
+  }
+  return result;
+}
+
+/**
+ * Async store abstraction for the fixed-window limiter. The route backs this
+ * with a `RateLimitHit` table so the limit is shared across instances; tests
+ * back it with an in-memory fake. `get` returns the subject's current window
+ * (or `undefined`); `set` persists a window for the subject.
+ */
+export interface RateLimitStore {
+  get(key: string): Promise<RateLimitWindow | undefined>;
+  set(key: string, window: RateLimitWindow): Promise<void>;
+}
+
+/**
+ * Store-backed counterpart of {@link checkRateLimit}. Reads the current window
+ * from `store`, applies the same {@link computeRateLimit} decision, and
+ * persists the next window when the request is allowed.
+ *
+ * Read-modify-write across instances has a small race under high concurrency
+ * (two instances may both read the same window and each allow one extra hit);
+ * this is acceptable for a soft quota and preserves the existing semantics. A
+ * shared store still enforces the limit globally rather than per instance.
+ */
+export async function checkRateLimitWithStore(
+  store: RateLimitStore,
+  key: string,
+  options: RateLimitOptions,
+): Promise<RateLimitResult> {
+  const { result, next } = computeRateLimit(await store.get(key), options);
+  if (next) {
+    await store.set(key, next);
+  }
+  return result;
 }

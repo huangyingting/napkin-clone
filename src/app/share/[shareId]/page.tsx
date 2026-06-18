@@ -19,7 +19,7 @@ export default async function SharedDocumentPage({
 
   // Find the document by shareId and verify it's actually shared.
   const document = await prisma.document.findFirst({
-    where: { shareId, isShared: true },
+    where: { shareId, isShared: true, deletedAt: null },
     select: {
       id: true,
       title: true,
@@ -30,11 +30,11 @@ export default async function SharedDocumentPage({
           email: true,
         },
       },
-      // Get the active visual.
+      // All visuals: the document-level one (anchorBlockId = null) shows in the
+      // Visual panel; block-anchored visuals render inline in document order.
       visuals: {
-        orderBy: { createdAt: "asc" },
-        take: 1,
-        select: { data: true },
+        orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }],
+        select: { anchorBlockId: true, data: true },
       },
     },
   });
@@ -43,10 +43,21 @@ export default async function SharedDocumentPage({
     notFound();
   }
 
-  // Parse the visual if present.
-  const stored = document.visuals[0]?.data;
-  const parsed = stored !== undefined ? safeParseVisual(stored) : null;
-  const visual: Visual | null = parsed && parsed.success ? parsed.data : null;
+  // Parse stored visuals, tolerating legacy/garbled data. Split the
+  // document-level visual (anchorBlockId = null) from block-anchored ones.
+  let visual: Visual | null = null;
+  const blockVisuals: Record<string, Visual> = {};
+  for (const row of document.visuals) {
+    const parsed = safeParseVisual(row.data);
+    if (!parsed.success) {
+      continue;
+    }
+    if (row.anchorBlockId === null) {
+      visual ??= parsed.data;
+    } else if (!(row.anchorBlockId in blockVisuals)) {
+      blockVisuals[row.anchorBlockId] = parsed.data;
+    }
+  }
 
   const ownerName = document.owner.name || document.owner.email.split("@")[0];
 
@@ -78,7 +89,10 @@ export default async function SharedDocumentPage({
               Text
             </h2>
             {document.content.trim() ? (
-              <MarkdownPreview source={document.content} />
+              <MarkdownPreview
+                source={document.content}
+                visuals={blockVisuals}
+              />
             ) : (
               <p className="text-sm text-zinc-400 dark:text-zinc-600">
                 No content yet.
