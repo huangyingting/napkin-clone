@@ -2413,3 +2413,45 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   + node-label edit + theme both persist across a hard `page.reload()`; "More
   variations" shows 3 candidates; clicking the body textarea dismisses the tools;
   Done dismisses; zero horizontal overflow at 1280/768/375 in edit mode.
+
+### Selection/format floating toolbar (US-008)
+
+- **The fixed block-type toolbar was REPLACED by a floating one in
+  `content-editor.tsx`.** US-003's in-flow `role="toolbar" aria-label="Text
+  formatting"` div (between title and textarea) is gone; the same selector now
+  refers to a **`fixed inset-x-0 bottom-6 mx-auto w-fit` bottom-center pill**
+  rendered as a direct child of `<main>` (NOT inside the `backdrop-blur` header,
+  which would become the containing block for a `fixed` descendant). It keeps the
+  same `TOOLBAR_BUTTONS` (H1/H2/H3, bullet, paragraph) calling the existing
+  `applyType` → `applyBlockType`, so formatting still flows through the
+  collab/autosave path unchanged.
+- **Show on body focus, dismiss on body blur — minimal + robust.** The textarea's
+  `onFocus` sets `formatToolbarOpen=true`; `onBlur` flushes the content saver AND
+  sets it false ("editing surface" = the body textarea; the title input does NOT
+  reveal it). The toolbar is **always mounted** and toggled with the existing
+  spark-style class pattern (`opacity-100 translate-y-0 pointer-events-auto` vs
+  `opacity-0 translate-y-2 pointer-events-none`) so it's ready to animate in/out for
+  US-011; it also carries `aria-hidden={!open}` and the buttons get
+  `tabIndex={open ? 0 : -1}` so the hidden bar is inert.
+- **Buttons keep the caret/selection via `onPointerDown` preventDefault** (the
+  documented pattern, also on the container) so a mouse click never blurs the
+  textarea → the bar stays open and `applyType` reads the live
+  `selectionStart/End`. The existing `pendingSelection` ref + no-deps `useEffect`
+  then restores focus + selection after the re-render (e.g. H1 on "First line"
+  yields value `"# First line"` with selection `{0,12}`, textarea still
+  `document.activeElement`).
+- **Caret-anchored (Medium-style) positioning was deliberately NOT used.** A
+  `<textarea>` has no selection rectangle, and an absolute toolbar that follows the
+  caret over a tall auto-growing textarea inevitably overlaps earlier lines
+  ("above the line" sits over previous text). A fixed bottom-center bar sidesteps
+  all of it (no caret math / mirror-div, no scroll/resize listeners, no body-text
+  overlap) and is `fixed` → zero layout shift. `w-fit max-w-[calc(100vw-1rem)]` +
+  `flex-wrap` → no horizontal overflow at 1280/768/375.
+- **Browser QA (build + `next start` + collab, headless):** the toolbar is one
+  element matched by `[role="toolbar"][aria-label="Text formatting"]`; assert
+  `getComputedStyle(el).opacity` is `"0"`/`pointer-events:none` by default, `"1"`/
+  `pointer-events:auto` after `click('textarea[aria-label="Document text"]')`, and
+  `"0"` again after focusing the title input. Apply formatting by `el.focus()` +
+  `el.setSelectionRange(...)` in `evaluate`, then Playwright-`.click()` the visible
+  `button[aria-label="Heading 1"]` etc. (the pill is `fixed` and visible, so a real
+  click works), and read back `value`/`selectionStart`/`selectionEnd`/`activeElement`.

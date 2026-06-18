@@ -112,7 +112,20 @@ const TOOLBAR_BUTTONS: { type: BlockType; label: string; aria: string }[] = [
 ];
 
 const toolbarButtonClass =
-  "rounded-md px-2.5 py-1 text-xs font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100";
+  "rounded-full px-2.5 py-1 text-xs font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100";
+
+// Floating selection/format toolbar: a fixed, bottom-center pill that floats in
+// while the body text has focus and slides out when focus leaves the editing
+// surface (US-008). It overlays content (fixed → no layout shift) and stays
+// mounted so it can animate in/out (US-011).
+function formatToolbarClass(visible: boolean): string {
+  return [
+    "fixed inset-x-0 bottom-6 z-30 mx-auto flex w-fit max-w-[calc(100vw-1rem)] flex-wrap items-center justify-center gap-1 rounded-full border border-black/[.08] bg-white/95 p-1 shadow-lg backdrop-blur transition duration-150 dark:border-white/[.12] dark:bg-zinc-900/95",
+    visible
+      ? "pointer-events-auto translate-y-0 opacity-100"
+      : "pointer-events-none translate-y-2 opacity-0",
+  ].join(" ");
+}
 
 function sparkButtonClass(visible: boolean, active: boolean): string {
   return [
@@ -195,6 +208,10 @@ export function ContentEditor({
   // Only one picker is open at a time (US-005).
   const [openSparkId, setOpenSparkId] = useState<string | null>(null);
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
+
+  // Whether the floating selection/format toolbar is shown. It floats in while
+  // the body textarea has focus and is dismissed when focus leaves it (US-008).
+  const [formatToolbarOpen, setFormatToolbarOpen] = useState(false);
 
   // Generation flow state for the currently-open block (US-005).
   const [genStatus, setGenStatus] = useState<GenStatus>("idle");
@@ -554,42 +571,22 @@ export function ContentEditor({
             className="w-full rounded-md bg-transparent text-3xl font-bold tracking-tight text-zinc-900 outline-none placeholder:text-zinc-300 disabled:cursor-not-allowed disabled:opacity-60 sm:text-4xl dark:text-zinc-50 dark:placeholder:text-zinc-700"
           />
 
-          {canEdit ? (
-            <div
-              role="toolbar"
-              aria-label="Text formatting"
-              className="mt-6 flex flex-wrap items-center gap-1 rounded-lg border border-black/[.06] bg-white/70 p-1 dark:border-white/[.08] dark:bg-zinc-900/50"
-            >
-              {TOOLBAR_BUTTONS.map((button) => (
-                <button
-                  key={button.type}
-                  type="button"
-                  aria-label={button.aria}
-                  title={button.aria}
-                  // Keep the textarea focused/selected when clicking the toolbar.
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => applyType(button.type)}
-                  className={toolbarButtonClass}
-                  disabled={!editable}
-                >
-                  {button.label}
-                </button>
-              ))}
-            </div>
-          ) : null}
-
           <textarea
             ref={textareaRef}
             aria-label="Document text"
             value={content.value}
             onChange={(event) => content.onChange(event.target.value)}
             onSelect={captureSelection}
-            onBlur={contentSaver.flush}
+            onFocus={() => setFormatToolbarOpen(true)}
+            onBlur={() => {
+              contentSaver.flush();
+              setFormatToolbarOpen(false);
+            }}
             spellCheck
             disabled={!editable}
             rows={1}
             placeholder="Start writing…"
-            className={`${canEdit ? "mt-4" : "mt-6"} block w-full resize-none overflow-hidden bg-transparent text-[15px] leading-7 text-zinc-800 outline-none placeholder:text-zinc-400 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200 dark:placeholder:text-zinc-600`}
+            className={`mt-6 block w-full resize-none overflow-hidden bg-transparent text-[15px] leading-7 text-zinc-800 outline-none placeholder:text-zinc-400 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200 dark:placeholder:text-zinc-600`}
           />
 
           {hasCanvasFlow ? (
@@ -865,6 +862,33 @@ export function ContentEditor({
           ) : null}
         </div>
       </div>
+
+      {canEdit ? (
+        <div
+          role="toolbar"
+          aria-label="Text formatting"
+          aria-hidden={!formatToolbarOpen}
+          // Keep the textarea focused/selected when pressing a toolbar button.
+          onPointerDown={(event) => event.preventDefault()}
+          className={formatToolbarClass(formatToolbarOpen)}
+        >
+          {TOOLBAR_BUTTONS.map((button) => (
+            <button
+              key={button.type}
+              type="button"
+              aria-label={button.aria}
+              title={button.aria}
+              tabIndex={formatToolbarOpen ? 0 : -1}
+              onPointerDown={(event) => event.preventDefault()}
+              onClick={() => applyType(button.type)}
+              className={toolbarButtonClass}
+              disabled={!editable}
+            >
+              {button.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </main>
   );
 }
