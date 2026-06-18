@@ -60,6 +60,11 @@ export const NODE_SHAPES = [
 
 export type NodeShape = (typeof NODE_SHAPES)[number];
 
+/** Connector line styles. `straight` is the default. */
+export const EDGE_STYLES = ["straight", "curved"] as const;
+
+export type EdgeStyle = (typeof EDGE_STYLES)[number];
+
 /** A single node. `x`/`y` are the node **center** in canvas coordinates. */
 export interface VisualNode {
   id: string;
@@ -97,6 +102,8 @@ export interface VisualEdge {
   label?: string;
   /** Defaults to `true`; set `false` to omit the arrowhead. */
   directed?: boolean;
+  /** Connector line style. Defaults to `"straight"`. */
+  style?: EdgeStyle;
 }
 
 export interface VisualStyle {
@@ -187,6 +194,13 @@ export function isNodeShape(value: unknown): value is NodeShape {
   return (
     typeof value === "string" &&
     (NODE_SHAPES as readonly string[]).includes(value)
+  );
+}
+
+export function isEdgeStyle(value: unknown): value is EdgeStyle {
+  return (
+    typeof value === "string" &&
+    (EDGE_STYLES as readonly string[]).includes(value)
   );
 }
 
@@ -332,6 +346,13 @@ function validateEdge(
       throw new VisualValidationError(`${context}.directed must be a boolean`);
     }
     edge.directed = input.directed;
+  }
+
+  // Connector style is forgiving: an unknown/non-string value is silently
+  // dropped (treated as the default "straight") so garbled AI output can't
+  // break an otherwise-valid visual, matching how node icons/styling behave.
+  if (isEdgeStyle(input.style)) {
+    edge.style = input.style;
   }
 
   return edge;

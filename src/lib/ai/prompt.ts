@@ -80,7 +80,7 @@ function schemaDescription(): string {
     `    }`,
     `  ],`,
     `  "edges": [`,
-    `    { "id": unique string, "from": node id, "to": node id, "label": string (optional), "directed": boolean (optional) }`,
+    `    { "id": unique string, "from": node id, "to": node id, "label": string (optional), "directed": boolean (optional), "style": "straight" | "curved" (optional) }`,
     `  ],`,
     `  "style": {`,
     `    "palette": [hex colors], "background": hex, "nodeFill": hex, "nodeStroke": hex,`,

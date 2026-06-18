@@ -15,8 +15,8 @@ import type { Visual, VisualEdge, VisualNode } from "@/lib/visual/schema";
 /** Pointer travel (px) under which a press counts as a click, not a drag. */
 const CLICK_THRESHOLD = 4;
 const INPUT_HEIGHT = 34;
-/** Edge toolbar (inline label input + flip / arrowhead controls) size. */
-const EDGE_TOOLBAR_WIDTH = 232;
+/** Edge toolbar (inline label input + flip / arrowhead / curve controls) size. */
+const EDGE_TOOLBAR_WIDTH = 268;
 const EDGE_TOOLBAR_HEIGHT = 40;
 /** Stroke width of the invisible, clickable hit-area drawn over each edge. */
 const EDGE_HIT_WIDTH = 14;
@@ -82,6 +82,18 @@ function toggleEdgeDirected(visual: Visual, id: string): Visual {
     ...visual,
     edges: visual.edges.map((edge) =>
       edge.id === id ? { ...edge, directed: edge.directed === false } : edge,
+    ),
+  };
+}
+
+/** Toggles a connector between curved and straight (default straight). */
+function toggleEdgeStyle(visual: Visual, id: string): Visual {
+  return {
+    ...visual,
+    edges: visual.edges.map((edge) =>
+      edge.id === id
+        ? { ...edge, style: edge.style === "curved" ? "straight" : "curved" }
+        : edge,
     ),
   };
 }
@@ -537,6 +549,7 @@ export function VisualEditor({
       Math.max(4, visual.height - EDGE_TOOLBAR_HEIGHT - 4),
     );
     const directedOn = edge.directed !== false;
+    const curvedOn = edge.style === "curved";
     return (
       <foreignObject
         x={fx}
@@ -583,6 +596,23 @@ export function VisualEditor({
             }`}
           >
             →
+          </button>
+          <button
+            type="button"
+            aria-label={
+              curvedOn ? "Use straight connector" : "Use curved connector"
+            }
+            aria-pressed={curvedOn}
+            title={curvedOn ? "Straight line" : "Curved line"}
+            onPointerDown={(event) => event.preventDefault()}
+            onClick={() => onChange(toggleEdgeStyle(visual, edge.id))}
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-base hover:opacity-90 ${
+              curvedOn
+                ? "border-indigo-500 bg-indigo-500 text-white"
+                : "border-black/10 text-zinc-700 dark:border-white/15 dark:text-zinc-200"
+            }`}
+          >
+            ⌒
           </button>
         </div>
       </foreignObject>

@@ -382,10 +382,12 @@ function EdgeEl({
   const showArrow = arrow && edge.directed !== false;
   const midX = (start.x + end.x) / 2;
   const midY = (start.y + end.y) / 2;
+  // A per-edge `style` (US-017) overrides the renderer-kind default `curved`.
+  const isCurved = edge.style !== undefined ? edge.style === "curved" : curved;
 
   return (
     <g>
-      {curved ? (
+      {isCurved ? (
         <path
           d={`M ${start.x} ${start.y} C ${midX} ${start.y}, ${midX} ${end.y}, ${end.x} ${end.y}`}
           fill="none"
@@ -405,7 +407,7 @@ function EdgeEl({
         />
       )}
       {showArrow
-        ? arrowHead(end, curved ? { x: midX, y: end.y } : start, stroke)
+        ? arrowHead(end, isCurved ? { x: midX, y: end.y } : start, stroke)
         : null}
       {edge.label ? (
         <EdgeLabel x={midX} y={midY} text={edge.label} style={style} />

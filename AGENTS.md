@@ -1159,3 +1159,34 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   so click/fill them directly. Verify arrowhead toggle by counting
   `svg[role="img"] polygon` (arrowheads); verify flip + `directed` at the DB level
   (`Visual.data.edges`) since direction isn't obvious in the rendered SVG.
+
+### Connector line style — straight / curved (parity-gaps US-017)
+
+- **Per-edge `style?: "straight" | "curved"` (default straight) on `VisualEdge`**
+  (`src/lib/visual/schema.ts`, with `EDGE_STYLES`/`EdgeStyle`/`isEdgeStyle`).
+  Validation is **forgiving** (like node `icon`): an unknown/non-string value is
+  silently dropped (→ default straight) so garbled AI output can't break a visual.
+  No DB migration — it lives inside `Visual.data` Json. `prompt.ts` advertises it on
+  the edge schema line so the AI can emit it.
+- **`EdgeEl` (`visual-renderer.tsx`) already had a per-renderer-kind `curved` prop**
+  (MindMap passes `curved`, Flowchart/Concept don't). US-017 made the **per-edge
+  field override the kind default**: `const isCurved = edge.style !== undefined ?
+  edge.style === "curved" : curved;`. So existing visuals (no `edge.style`) render
+  exactly as before (backward compatible), and a per-edge override wins. Curved =
+  a cubic `<path>` (controls `(midX,start.y)`/`(midX,end.y)`); the arrowhead uses
+  `{x:midX,y:end.y}` as its "from" so it stays correct at the target boundary.
+- **`edgeSegments`/hit-areas are unchanged** — the overlay edge hit-area stays the
+  straight segment between boundary points even for a curved edge (the cubic is
+  gentle and overlaps it near endpoints/midpoint); don't curve the hit-area.
+- **Editor toggle:** a 3rd button in the same selected-edge toolbar
+  (`visual-editor.tsx`, `renderEdgeToolbar`), `aria-label` = `Use curved connector`
+  / `Use straight connector` (toggles), `aria-pressed` = curved-on. `toggleEdgeStyle`
+  maps `edge.style === "curved" ? "straight" : "curved"` (undefined → curved).
+  Adding the button required widening `EDGE_TOOLBAR_WIDTH` (232 → 268). Persists via
+  the existing `onChange` → debounced `attachVisual`.
+- **Browser QA:** select e1 (`[data-edge-id="e1"].focus()` + Enter), click the
+  visible `[aria-label="Use curved connector"]` button, then assert the base canvas
+  (`svg[role="img"]` whose `.closest("li")` is null) flips one `<line>` → one
+  `<path>` (arrowhead `<polygon>` count unchanged), wait for the `role="status"`
+  "Visual saved", `page.reload()` to confirm persistence, and DB-check
+  `Visual.data.edges[i].style === "curved"` (only the selected edge changes).

@@ -59,3 +59,54 @@ test("accepts a mix of nodes with and without icons", () => {
   assert.equal(visual.nodes[0].icon, "Brain");
   assert.equal(visual.nodes[1].icon, undefined);
 });
+
+function visualWithEdge(
+  edge: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    ...baseVisual([
+      { id: "a", label: "Alpha" },
+      { id: "b", label: "Beta" },
+    ]),
+    edges: [edge],
+  };
+}
+
+test("keeps a curved connector style", () => {
+  const visual = validateVisual(
+    visualWithEdge({ id: "e1", from: "a", to: "b", style: "curved" }),
+  );
+  assert.equal(visual.edges[0].style, "curved");
+});
+
+test("keeps a straight connector style", () => {
+  const visual = validateVisual(
+    visualWithEdge({ id: "e1", from: "a", to: "b", style: "straight" }),
+  );
+  assert.equal(visual.edges[0].style, "straight");
+});
+
+test("defaults to no style when omitted (backward compatible)", () => {
+  const visual = validateVisual(
+    visualWithEdge({ id: "e1", from: "a", to: "b" }),
+  );
+  assert.equal(visual.edges[0].style, undefined);
+});
+
+test("drops an unknown connector style gracefully", () => {
+  const result = safeParseVisual(
+    visualWithEdge({ id: "e1", from: "a", to: "b", style: "zigzag" }),
+  );
+  assert.equal(result.success, true);
+  const data = (result as { success: true; data: Visual }).data;
+  assert.equal(data.edges[0].style, undefined);
+});
+
+test("ignores a non-string connector style without throwing", () => {
+  const result = safeParseVisual(
+    visualWithEdge({ id: "e1", from: "a", to: "b", style: 7 }),
+  );
+  assert.equal(result.success, true);
+  const data = (result as { success: true; data: Visual }).data;
+  assert.equal(data.edges[0].style, undefined);
+});
