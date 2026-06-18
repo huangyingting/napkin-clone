@@ -2111,3 +2111,35 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   clientWidth === 0`. HTTP status is checkable server-side too (`/boom` → 500,
   `/no-such-route` → 404) via a `node -e "fetch(...)"` probe.
 
+
+## Ghost Platform (branch `ralph/ghost-platform`)
+
+> A PRD (`scripts/prd.json`, `tasks/`) that **reuses US-001.. numbering** — distinct
+> from the earlier Napkin/Parity/Maturity/Content-First stories above. Branched from
+> **`origin/main`** (which still has the legacy textarea/tabs editor:
+> `document-editor.tsx`, `visual-panel.tsx`, `block-visual-generator.tsx`). It brings
+> the app toward Ghost: a **Lexical (Koenig-style) block editor** plus Casper-style
+> theme/publishing polish, while keeping the text-to-visuals feature. Disambiguate by
+> branch/section when referencing.
+
+### Lexical editor shell (US-001)
+
+- **Lexical deps are at `^0.45.0`**: `lexical`, `@lexical/react`, `@lexical/list`,
+  `@lexical/rich-text`, `@lexical/link`, `@lexical/utils`. Lexical is React-19 / Next-16
+  compatible.
+- **The new editor lives at `src/app/app/documents/[id]/lexical-editor.tsx`**
+  (`LexicalEditor`, `"use client"`) — a minimal `LexicalComposer` + `RichTextPlugin` +
+  `HistoryPlugin` + `ContentEditable` (`aria-label="Document body"`). Theme classes are
+  Tailwind strings on an `EditorThemeClasses` (paragraph/text bold/italic/etc.). It is
+  the foundation for ALL later editor stories (blocks, "+"/"/" menus, floating toolbar,
+  Visual decorator node) — extend it, don't fork it. US-018 swaps it into the document
+  editor and retires the textarea.
+- **It mounts behind a flag/route during the migration: `/app/lexical-preview`**
+  (`src/app/app/lexical-preview/page.tsx`, protected via `requireUser`). It does NOT yet
+  replace `DocumentEditor`.
+- **`LexicalErrorBoundary` import:** `import { LexicalErrorBoundary } from
+  "@lexical/react/LexicalErrorBoundary"`, passed as `ErrorBoundary={LexicalErrorBoundary}`
+  to `RichTextPlugin`.
+- **Browser QA:** the seed user `demo@napkin.test` has no password — sign up a fresh
+  `*@test.dev` user (signup → `/`), then `goto('/app/lexical-preview')`. Verify typing
+  produces real `<p>` blocks, `Control+z`/`Control+y` undo/redo, and zero console errors.
