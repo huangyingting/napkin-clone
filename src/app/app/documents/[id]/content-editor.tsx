@@ -211,6 +211,32 @@ function blockWrapperClass(active: boolean, editable: boolean): string {
   ].join(" ");
 }
 
+// Exit-animation duration (ms) for a removed inline visual; must match
+// `.napkin-visual-out` in globals.css so the card unmounts as the fade completes.
+const VISUAL_EXIT_MS = 180;
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+// Mount/unmount animation class for an inline visual card (US-012). A session
+// added visual fades/scales in; a removing one fades/scales out (and is made
+// inert) until it unmounts. Under reduced motion the classes resolve to no rule,
+// so there is no motion. Initially-loaded visuals get no enter animation.
+function visualMountClass(exiting: boolean, entering: boolean): string {
+  if (exiting) {
+    return "napkin-visual-out pointer-events-none";
+  }
+  if (entering) {
+    return "napkin-visual-in";
+  }
+  return "";
+}
+
 /**
  * Content-first, single-canvas document editor.
  *
@@ -296,6 +322,21 @@ export function ContentEditor({
   const [selectedVisualKey, setSelectedVisualKey] = useState<string | null>(
     null,
   );
+
+  // The block whose inline visual is animating out before unmounting (US-012).
+  // The card stays rendered (its entry is kept in `blockVisuals`) until the exit
+  // animation finishes, then it is dropped.
+  const [exitingBlockId, setExitingBlockId] = useState<string | null>(null);
+
+  // Block ids that already had a persisted visual on first load. Their cards
+  // should NOT play the enter animation (only session-added visuals animate in).
+  // Held in lazy state (read during render) rather than a ref.
+  const [initialBlockIds] = useState<Set<string>>(
+    () => new Set(Object.keys(initialBlockVisuals)),
+  );
+  // Pending exit-finalize timers, keyed by block id, so a failed removal can
+  // cancel the scheduled unmount and restore the card.
+  const exitTimers = useRef<Map<string, number>>(new Map());
 
   // Whether the user has dismissed the one-time spark onboarding hint (US-010).
   const sparkHintDismissed = useSparkHintDismissed();
@@ -417,6 +458,18 @@ export function ContentEditor({
     }
   });
 
+  // Clear any pending visual exit-animation timers on unmount so they can't fire
+  // a state update after the editor is gone.
+  useEffect(() => {
+    const timers = exitTimers.current;
+    return () => {
+      for (const timer of timers.values()) {
+        window.clearTimeout(timer);
+      }
+      timers.clear();
+    };
+  }, []);
+
   // Close the open generation picker, clearing its transient candidate/error
   // state (the already-saved inline visual is kept).
   const closePicker = useCallback(() => {
@@ -522,30 +575,59 @@ export function ContentEditor({
     [id, blockVisuals],
   );
 
-  // Remove a block's visual: optimistically drop only this block's card (others
-  // are untouched), close its picker if open, and persist via `detachVisual`.
-  // Restore the card on failure so the user can retry (US-006).
+  // Remove a block's visual (US-006) with an exit animation (US-012). The card
+  // is animated out first: we mark the block as exiting (swapping the card to the
+  // fade-out class) but keep it in `blockVisuals` so it stays mounted, then drop
+  // it once the animation finishes. The deletion is persisted in parallel; on
+  // failure we cancel the pending unmount and restore the card so the user can
+  // retry. Under reduced motion the finalize delay is 0 (no motion, immediate).
+  const finalizeRemoval = useCallback((blockId: string) => {
+    exitTimers.current.delete(blockId);
+    setBlockVisuals((prev) => {
+      if (!(blockId in prev)) {
+        return prev;
+      }
+      const next = { ...prev };
+      delete next[blockId];
+      return next;
+    });
+    setExitingBlockId((current) => (current === blockId ? null : current));
+  }, []);
+
   const removeVisual = useCallback(
     async (blockId: string) => {
       const previous = blockVisuals[blockId];
       if (!previous) {
         return;
       }
-      setBlockVisuals((prev) => {
-        const next = { ...prev };
-        delete next[blockId];
-        return next;
-      });
       if (openSparkId === blockId) {
         closePicker();
       }
+
+      // Start the exit animation; the card stays mounted until it completes.
+      setExitingBlockId(blockId);
+      const delay = prefersReducedMotion() ? 0 : VISUAL_EXIT_MS;
+      const existingTimer = exitTimers.current.get(blockId);
+      if (existingTimer !== undefined) {
+        window.clearTimeout(existingTimer);
+      }
+      const timer = window.setTimeout(() => finalizeRemoval(blockId), delay);
+      exitTimers.current.set(blockId, timer);
+
       try {
         await detachVisual(id, blockId);
       } catch {
+        // Cancel the scheduled unmount and restore the card to retry.
+        const pending = exitTimers.current.get(blockId);
+        if (pending !== undefined) {
+          window.clearTimeout(pending);
+          exitTimers.current.delete(blockId);
+        }
+        setExitingBlockId((current) => (current === blockId ? null : current));
         setBlockVisuals((prev) => ({ ...prev, [blockId]: previous }));
       }
     },
-    [id, blockVisuals, openSparkId, closePicker],
+    [id, blockVisuals, openSparkId, closePicker, finalizeRemoval],
   );
 
   // Toggle a block's spark: open + generate when closed, close when open.
@@ -760,6 +842,10 @@ export function ContentEditor({
                 const open = openSparkId === block.id;
                 const active = activeBlockId === block.id || open;
                 const showSpark = editable && active;
+                // US-012: animate the card in only when added this session, and
+                // out while it is being removed.
+                const exiting = exitingBlockId === block.id;
+                const entering = !initialBlockIds.has(block.id);
                 return (
                   <div
                     key={block.id}
@@ -809,7 +895,11 @@ export function ContentEditor({
                         >
                           <Sparkles
                             aria-hidden="true"
-                            className="h-3.5 w-3.5"
+                            className={`h-3.5 w-3.5${
+                              open && genStatus === "loading"
+                                ? " animate-pulse motion-reduce:animate-none"
+                                : ""
+                            }`}
                           />
                         </button>
                       </div>
@@ -820,7 +910,7 @@ export function ContentEditor({
                       {visual ? (
                         <div
                           data-block-visual={block.id}
-                          className="rounded-xl border border-black/[.06] bg-white p-3 dark:border-white/[.08] dark:bg-zinc-950"
+                          className={`rounded-xl border border-black/[.06] bg-white p-3 dark:border-white/[.08] dark:bg-zinc-950 ${visualMountClass(exiting, entering)}`}
                         >
                           <div className="mb-2 flex items-center justify-between gap-2">
                             <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
@@ -916,13 +1006,32 @@ export function ContentEditor({
                           </div>
 
                           {genStatus === "loading" ? (
-                            <div
-                              role="status"
-                              aria-live="polite"
-                              className="flex items-center gap-2 py-4 text-sm text-zinc-500 dark:text-zinc-400"
-                            >
-                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-900 dark:border-zinc-700 dark:border-t-zinc-100" />
-                              Generating a visual…
+                            <div role="status" aria-live="polite">
+                              <div className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+                                <Sparkles
+                                  aria-hidden="true"
+                                  className="h-4 w-4 animate-pulse text-zinc-400 motion-reduce:animate-none dark:text-zinc-500"
+                                />
+                                Generating a visual…
+                              </div>
+                              {/* Subtle pulsing skeletons where the candidate
+                                  thumbnails will appear — the inline "thinking"
+                                  indicator (US-012, CSS only, reduced-motion
+                                  aware via motion-reduce:animate-none). */}
+                              <div
+                                aria-hidden="true"
+                                className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3"
+                              >
+                                {[0, 1, 2].map((skeleton) => (
+                                  <span
+                                    key={skeleton}
+                                    className="aspect-[4/3] w-full animate-pulse rounded-md bg-zinc-200/70 motion-reduce:animate-none dark:bg-zinc-800/60"
+                                    style={{
+                                      animationDelay: `${skeleton * 150}ms`,
+                                    }}
+                                  />
+                                ))}
+                              </div>
                             </div>
                           ) : genError ? (
                             <div

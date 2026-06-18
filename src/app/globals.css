@@ -47,4 +47,44 @@ body {
   .napkin-pop-in {
     animation: napkin-pop-in 160ms ease-out;
   }
+
+  /*
+   * Inline visual mount/unmount (US-012). A newly added visual scales + fades in;
+   * a removed visual scales + fades out (with `forwards` so it holds the faded
+   * state until React unmounts it). Transform/opacity only → no layout shift; the
+   * surrounding gap only collapses on the final unmount, not during the animation.
+   * Under reduced motion these classes have no rule at all (they live inside the
+   * no-preference query), so the visual appears/disappears with no motion.
+   */
+  @keyframes napkin-visual-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem) scale(0.96);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .napkin-visual-in {
+    animation: napkin-visual-in 200ms ease-out;
+  }
+
+  @keyframes napkin-visual-out {
+    from {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    to {
+      opacity: 0;
+      transform: translateY(0.25rem) scale(0.96);
+    }
+  }
+
+  .napkin-visual-out {
+    animation: napkin-visual-out 180ms ease-in forwards;
+  }
 }

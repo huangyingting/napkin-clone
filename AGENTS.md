@@ -2582,3 +2582,62 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   `{ reducedMotion: "reduce" }` + reload, all three report `none` (toolbars
   `transitionProperty: none`, editor `animationName: none`). 0 horizontal overflow at
   1280/768/375.
+
+### Visual mount/unmount and generation thinking animation (US-012)
+
+- **Two new CSS-only keyframes live in the same `@media (prefers-reduced-motion:
+  no-preference)` block in `src/app/globals.css`** as `napkin-pop-in`:
+  `napkin-visual-in` (opacity 0→1 + `translateY(0.5rem) scale(0.96)`→identity,
+  200ms) for an added inline visual and `napkin-visual-out` (reverse, 180ms,
+  **`forwards`** so it holds the faded state until React unmounts) for a removed
+  one. Both are transform/opacity ONLY (no height) → no layout shift; the
+  surrounding gap collapses only on the final unmount, not during the animation.
+  Because the classes live inside the no-preference query, **under `reduce` they
+  have no rule at all** → the visual appears/disappears with zero motion (same
+  trick as `napkin-pop-in`). `VISUAL_EXIT_MS = 180` in `content-editor.tsx` MUST
+  match `.napkin-visual-out`'s duration.
+- **Enter animation is gated to SESSION-ADDED visuals only.** `content-editor.tsx`
+  seeds a lazy `const [initialBlockIds] = useState(() => new Set(Object.keys(
+  initialBlockVisuals)))` (lazy STATE, not a ref — reading `ref.current` during
+  render is a `react-hooks/refs` ERROR here; reading state during render is fine).
+  A block visual card gets `napkin-visual-in` only when `!initialBlockIds.has(
+  block.id)`, so server-seeded visuals never flash/animate on page load — only
+  ones generated this session. The CSS animation plays once on mount and never
+  replays on re-render (static class), so per-keystroke edits don't re-trigger it.
+- **Exit = defer-unmount, NOT immediate drop.** `removeVisual` keeps the card in
+  `blockVisuals` (so it stays mounted), sets `exitingBlockId` (swaps the card to
+  `napkin-visual-out pointer-events-none` via the `visualMountClass(exiting,
+  entering)` helper), and schedules a `window.setTimeout(finalize, prefersReduced
+  Motion() ? 0 : VISUAL_EXIT_MS)` to drop it from `blockVisuals` after the fade.
+  `detachVisual` runs in parallel; on FAILURE it `clearTimeout`s the pending
+  finalize (tracked in an `exitTimers` ref `Map<blockId, timerId>`) AND restores
+  the card so the user can retry — the timer-cancel is essential or a late finalize
+  would drop a just-restored card. A cleanup `useEffect(() => () => clear all
+  timers, [])` prevents a post-unmount setState. Under reduced motion the 0ms delay
+  makes removal effectively instant (no motion).
+- **Thinking indicator = pulsing, CSS-only, reduced-motion aware** (replaced the
+  old `animate-spin` border spinner in the picker). While `genStatus === "loading"`
+  the picker shows a pulsing `Sparkles` + "Generating a visual…" plus a
+  `grid grid-cols-2 sm:grid-cols-3` of 3 skeleton `<span class="aspect-[4/3]
+  animate-pulse … motion-reduce:animate-none">` with staggered `animationDelay`
+  (`${i * 150}ms`) where the candidate thumbnails will land; the **gutter spark
+  icon also pulses** (`open && genStatus === "loading"` → `animate-pulse
+  motion-reduce:animate-none`). Tailwind's `animate-pulse` computes to
+  `animationName: "pulse"`; `motion-reduce:animate-none` → `"none"`. Reuse
+  `animate-pulse motion-reduce:animate-none` for any new "thinking"/skeleton state
+  instead of `animate-spin` (which has no built-in reduced-motion guard).
+- **Browser QA (mock-Azure with a ~1.8s delay so the in-flight UI is observable +
+  collab + build/`next start`, headless) = deterministic computed-style checks.**
+  Click a spark PROGRAMMATICALLY (`page.evaluate(() => document.querySelector(
+  '[data-block-id="<id>"]').click())` — the spark is `pointer-events-none` until
+  hover-active). Mid-flight (`waitForTimeout(500)`): assert a `[role="status"]`
+  "Generating a visual…", 3 `span.animate-pulse` whose `getComputedStyle().
+  animationName === "pulse"`, and the spark `svg` animationName `"pulse"`. After
+  selecting `[aria-label="Select Flowchart option 1"]`: the new
+  `[data-block-visual="<id>"]` card's `animationName === "napkin-visual-in"`
+  (0.2s). Click `[aria-label="Remove this block\u0027s visual"]` (escape the
+  apostrophe — the QuickJS selector parser chokes on a raw `'`) then within ~50ms
+  read the card's `animationName === "napkin-visual-out"` (0.18s, pointer-events
+  none) before it detaches. Repeat under `emulateMedia({ reducedMotion: "reduce" })`
+  → every animationName is `"none"` and removal is instant (the exit card is
+  already `"gone"` at 30ms). 0 horizontal overflow at 1280/768/375.
