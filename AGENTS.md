@@ -2259,3 +2259,28 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   `{0, 12}` (covers `"# First line"`) with the textarea still `document.activeElement`;
   save-status reaches "All changes saved" and the edit survives `page.reload()`. Two
   `[role="status"]` nodes exist (Presence pill + save status) — match by text.
+
+### Per-paragraph hover gutter affordance (US-004)
+
+- **`ContentEditor`'s spark affordance is anchored to a focusable block wrapper, not
+  the textarea itself.** The editor maps `parseMarkdown(content.value)` to wrapper
+  `div`s with `tabIndex={editable ? 0 : undefined}` and absolute gutter chrome. Keep
+  per-block UI attached to those wrappers — the textarea remains the write surface,
+  while the parsed blocks own hover/focus affordances.
+- **Use one active block id and `relatedTarget` containment to keep only one gutter
+  toolbar visible.** `activeBlockId` is driven by `onMouseEnter` / `onMouseLeave` and
+  `onFocusCapture` / `onBlurCapture`; blur clears only when
+  `!currentTarget.contains(relatedTarget)`, so focus can move from the wrapper onto
+  the spark button without hiding it. Reuse this pattern for future per-block floating
+  controls.
+- **Hide the spark with transforms/opacity, not layout changes.** The wrapper reserves
+  gutter space with `pl-12`, the spark lives at `absolute left-2 top-3`, and the
+  hidden state uses `opacity-0 -translate-x-1 pointer-events-none`. That keeps the
+  affordance invisible by default, reveals it without shifting text, and makes the
+  hidden button non-interactive.
+- **Browser QA is more reliable against `next start` than `next dev` here.** In
+  headless `dev-browser`, the dev server's HMR websocket can fail its handshake and
+  leave the collab-ready gate stuck disabled even though the page renders. For
+  content-first editor checks that depend on `editable = canEdit && ready`, prefer:
+  `npm run build` → `NEXT_PUBLIC_COLLAB_WS_URL=ws://127.0.0.1:1234 npm run start` →
+  wait until `textarea[aria-label="Document text"]` is enabled.

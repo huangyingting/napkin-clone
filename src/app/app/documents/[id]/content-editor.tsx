@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef } from "react";
+import { Sparkles } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   combineSaveStatus,
@@ -38,6 +39,30 @@ const TOOLBAR_BUTTONS: { type: BlockType; label: string; aria: string }[] = [
 
 const toolbarButtonClass =
   "rounded-md px-2.5 py-1 text-xs font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100";
+
+function sparkButtonClass(visible: boolean, active: boolean): string {
+  return [
+    "flex h-7 w-7 items-center justify-center rounded-md border border-black/[.08] bg-white text-zinc-500 shadow-sm transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[.12] dark:bg-zinc-900 dark:text-zinc-400 dark:hover:border-white/30 dark:hover:text-zinc-100 dark:focus-visible:ring-zinc-500",
+    visible
+      ? "pointer-events-auto translate-x-0 opacity-100"
+      : "pointer-events-none -translate-x-1 opacity-0",
+    active
+      ? "border-zinc-300 text-zinc-900 dark:border-white/30 dark:text-zinc-100"
+      : "hover:border-zinc-300 hover:text-zinc-900",
+  ].join(" ");
+}
+
+function blockWrapperClass(active: boolean, editable: boolean): string {
+  return [
+    "group relative rounded-xl py-3 pr-4 pl-12 transition-colors",
+    active
+      ? "bg-zinc-100/80 dark:bg-zinc-900/50"
+      : "hover:bg-black/[.025] dark:hover:bg-white/[.03]",
+    editable
+      ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300/80 dark:focus-visible:ring-zinc-700/80"
+      : "",
+  ].join(" ");
+}
 
 /**
  * Content-first, single-canvas document editor.
@@ -91,6 +116,11 @@ export function ContentEditor({
   // (synced, or a degraded local-only fallback), so we never edit before the
   // room is seeded from the database.
   const editable = canEdit && ready;
+
+  // The block whose gutter spark is "active" (clicked). US-005 will hang the
+  // generation picker off this state.
+  const [openSparkId, setOpenSparkId] = useState<string | null>(null);
+  const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
@@ -213,9 +243,7 @@ export function ContentEditor({
   // render beneath its source block (US-002). Block ids are derived from the
   // content, matching the keys the server computed for `initialBlockVisuals`.
   const blocks = parseMarkdown(content.value);
-  const hasInlineVisuals =
-    initialVisual !== null ||
-    blocks.some((block) => initialBlockVisuals[block.id] !== undefined);
+  const hasCanvasFlow = initialVisual !== null || blocks.length > 0;
 
   return (
     <main className="flex flex-1 flex-col bg-zinc-50 dark:bg-black">
@@ -323,9 +351,9 @@ export function ContentEditor({
             className={`${canEdit ? "mt-4" : "mt-6"} block w-full resize-none overflow-hidden bg-transparent text-[15px] leading-7 text-zinc-800 outline-none placeholder:text-zinc-400 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200 dark:placeholder:text-zinc-600`}
           />
 
-          {hasInlineVisuals ? (
+          {hasCanvasFlow ? (
             <section
-              aria-label="Document visuals"
+              aria-label="Document canvas"
               className="mt-10 flex flex-col gap-6 border-t border-black/[.06] pt-8 dark:border-white/[.08]"
             >
               {initialVisual ? (
@@ -344,20 +372,82 @@ export function ContentEditor({
 
               {blocks.map((block) => {
                 const visual = initialBlockVisuals[block.id];
-                if (!visual) {
-                  return null;
-                }
+                const active =
+                  activeBlockId === block.id || openSparkId === block.id;
+                const showSpark = editable && active;
                 return (
-                  <div key={block.id} className="flex flex-col gap-3">
-                    <BlockContent block={block} />
-                    <div
-                      data-block-visual={block.id}
-                      className="overflow-hidden rounded-xl border border-black/[.06] bg-white dark:border-white/[.08] dark:bg-zinc-950"
-                    >
-                      <VisualRenderer
-                        visual={visual}
-                        className="h-auto w-full"
-                      />
+                  <div
+                    key={block.id}
+                    className={blockWrapperClass(active, editable)}
+                    tabIndex={editable ? 0 : undefined}
+                    onMouseEnter={
+                      editable ? () => setActiveBlockId(block.id) : undefined
+                    }
+                    onMouseLeave={
+                      editable
+                        ? () =>
+                            setActiveBlockId((current) =>
+                              current === block.id ? null : current,
+                            )
+                        : undefined
+                    }
+                    onFocusCapture={
+                      editable ? () => setActiveBlockId(block.id) : undefined
+                    }
+                    onBlurCapture={
+                      editable
+                        ? (event) => {
+                            const nextTarget = event.relatedTarget;
+                            if (
+                              !nextTarget ||
+                              !event.currentTarget.contains(nextTarget)
+                            ) {
+                              setActiveBlockId((current) =>
+                                current === block.id ? null : current,
+                              );
+                            }
+                          }
+                        : undefined
+                    }
+                  >
+                    {editable ? (
+                      <div className="absolute top-3 left-2 flex items-center">
+                        <button
+                          type="button"
+                          aria-label="Generate visual for this block"
+                          aria-pressed={openSparkId === block.id}
+                          title="Generate visual for this block"
+                          onClick={() =>
+                            setOpenSparkId((current) =>
+                              current === block.id ? null : block.id,
+                            )
+                          }
+                          className={sparkButtonClass(
+                            showSpark,
+                            openSparkId === block.id,
+                          )}
+                        >
+                          <Sparkles
+                            aria-hidden="true"
+                            className="h-3.5 w-3.5"
+                          />
+                        </button>
+                      </div>
+                    ) : null}
+
+                    <div className="flex flex-col gap-3">
+                      <BlockContent block={block} />
+                      {visual ? (
+                        <div
+                          data-block-visual={block.id}
+                          className="overflow-hidden rounded-xl border border-black/[.06] bg-white dark:border-white/[.08] dark:bg-zinc-950"
+                        >
+                          <VisualRenderer
+                            visual={visual}
+                            className="h-auto w-full"
+                          />
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 );
