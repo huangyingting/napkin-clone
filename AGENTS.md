@@ -2225,3 +2225,37 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   `[data-block-visual]`; `hasWriteTab === false`; no horizontal overflow at
   1280/768/375. Delete the script + screenshot artifacts before committing (the
   seeded SQLite rows are git-ignored).
+
+### Inline editing of prose on the single canvas (US-003)
+
+- **`ContentEditor`'s body textarea now has a block-type formatting toolbar**
+  (`role="toolbar" aria-label="Text formatting"`, rendered between the title and
+  the textarea). Buttons (`aria-label`s `Heading 1`/`Heading 2`/`Heading 3`/`Bullet
+  list`/`Paragraph`) call the SAME `applyBlockType(value, selStart, selEnd, type)`
+  from `@/lib/markdown` the legacy `DocumentEditor` used, then `content.onChange(...)`
+  — so formatting flows through the existing collab/autosave path (syncs + autosaves,
+  no new action). US-008 later converts this **fixed** toolbar into a floating
+  selection toolbar (its AC literally says "the fixed block-type toolbar is replaced").
+- **Caret/selection restore = the legacy `pendingSelection` ref + a no-deps
+  `useEffect`** (focus + `setSelectionRange` after the edit re-renders). This coexists
+  cleanly with `useYText`'s remote-caret `useLayoutEffect`: that one ONLY sets
+  `pendingCursor` for **non-local** (`transaction.origin !== localOrigin`) edits, and a
+  toolbar edit is local, so the two never fight over the caret. Toolbar buttons use
+  `onMouseDown={(e) => e.preventDefault()}` to keep the textarea focused/selected
+  through the click (so `selectionStart/End` are still valid when `applyType` reads
+  them).
+- **Toolbar is gated on `canEdit`** (editors only; read-only viewers never see it) and
+  its buttons are additionally `disabled` until `editable` (collab ready). The
+  textarea's top margin is conditional (`canEdit ? "mt-4" : "mt-6"`) so the
+  title→body gap stays consistent whether or not the toolbar is rendered.
+- **Browser QA (dev-browser --headless, collab server running):** sign up a fresh
+  `*@test.dev` user (signup → `/`; US-012 seeds a "Welcome to Napkin Clone" doc), open
+  it, wait for `textarea[aria-label="Document text"]:not([disabled])`. `page.fill` the
+  textarea (a controlled React textarea picks up the `input` event → `content.onChange`),
+  set the caret with `el.setSelectionRange(...)` in `evaluate`, then `page.click` the
+  toolbar button. Verified: `# `/`## `/`### `/`- ` prefixes apply to the caret's line and
+  REPLACE any existing prefix; a full-selection bullet prefixes BOTH lines; `Paragraph`
+  strips the prefix from only the caret's line; after H1 the selection is restored to
+  `{0, 12}` (covers `"# First line"`) with the textarea still `document.activeElement`;
+  save-status reaches "All changes saved" and the edit survives `page.reload()`. Two
+  `[role="status"]` nodes exist (Presence pill + save status) — match by text.

@@ -9,7 +9,7 @@ import {
   useDebouncedSave,
   useYText,
 } from "@/lib/collab/use-collaboration";
-import { parseMarkdown } from "@/lib/markdown";
+import { applyBlockType, parseMarkdown, type BlockType } from "@/lib/markdown";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import type { Visual } from "@/lib/visual/schema";
 
@@ -27,6 +27,17 @@ const STATUS_LABEL: Record<SaveStatus, string> = {
   pending: "Unsaved changes…",
   saving: "Saving…",
 };
+
+const TOOLBAR_BUTTONS: { type: BlockType; label: string; aria: string }[] = [
+  { type: "h1", label: "H1", aria: "Heading 1" },
+  { type: "h2", label: "H2", aria: "Heading 2" },
+  { type: "h3", label: "H3", aria: "Heading 3" },
+  { type: "bullet", label: "• List", aria: "Bullet list" },
+  { type: "paragraph", label: "Text", aria: "Paragraph" },
+];
+
+const toolbarButtonClass =
+  "rounded-md px-2.5 py-1 text-xs font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100";
 
 /**
  * Content-first, single-canvas document editor.
@@ -83,6 +94,7 @@ export function ContentEditor({
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingSelection = useRef<{ start: number; end: number } | null>(null);
 
   // Last non-empty text selection, used to anchor a comment to selected text.
   const lastSelection = useRef<string>("");
@@ -162,6 +174,41 @@ export function ContentEditor({
 
   const saveStatus = combineSaveStatus(titleSaver.status, contentSaver.status);
 
+  // Apply a block type (heading / bullet list / paragraph) to the line(s)
+  // spanned by the current selection or caret. The edit flows through the same
+  // collaborative `content.onChange` path as typing, so it syncs and autosaves.
+  const applyType = useCallback(
+    (type: BlockType) => {
+      const textarea = textareaRef.current;
+      if (!textarea) {
+        return;
+      }
+      const result = applyBlockType(
+        content.value,
+        textarea.selectionStart,
+        textarea.selectionEnd,
+        type,
+      );
+      pendingSelection.current = {
+        start: result.selectionStart,
+        end: result.selectionEnd,
+      };
+      content.onChange(result.value);
+    },
+    [content],
+  );
+
+  // Restore the caret/selection after a toolbar edit re-renders the textarea so
+  // the user keeps editing exactly where they were.
+  useEffect(() => {
+    const selection = pendingSelection.current;
+    if (selection && textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.setSelectionRange(selection.start, selection.end);
+      pendingSelection.current = null;
+    }
+  });
+
   // Parse the live content into ordered blocks so each block-anchored visual can
   // render beneath its source block (US-002). Block ids are derived from the
   // content, matching the keys the server computed for `initialBlockVisuals`.
@@ -238,6 +285,30 @@ export function ContentEditor({
             className="w-full rounded-md bg-transparent text-3xl font-bold tracking-tight text-zinc-900 outline-none placeholder:text-zinc-300 disabled:cursor-not-allowed disabled:opacity-60 sm:text-4xl dark:text-zinc-50 dark:placeholder:text-zinc-700"
           />
 
+          {canEdit ? (
+            <div
+              role="toolbar"
+              aria-label="Text formatting"
+              className="mt-6 flex flex-wrap items-center gap-1 rounded-lg border border-black/[.06] bg-white/70 p-1 dark:border-white/[.08] dark:bg-zinc-900/50"
+            >
+              {TOOLBAR_BUTTONS.map((button) => (
+                <button
+                  key={button.type}
+                  type="button"
+                  aria-label={button.aria}
+                  title={button.aria}
+                  // Keep the textarea focused/selected when clicking the toolbar.
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => applyType(button.type)}
+                  className={toolbarButtonClass}
+                  disabled={!editable}
+                >
+                  {button.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
           <textarea
             ref={textareaRef}
             aria-label="Document text"
@@ -249,7 +320,7 @@ export function ContentEditor({
             disabled={!editable}
             rows={1}
             placeholder="Start writing…"
-            className="mt-6 block w-full resize-none overflow-hidden bg-transparent text-[15px] leading-7 text-zinc-800 outline-none placeholder:text-zinc-400 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200 dark:placeholder:text-zinc-600"
+            className={`${canEdit ? "mt-4" : "mt-6"} block w-full resize-none overflow-hidden bg-transparent text-[15px] leading-7 text-zinc-800 outline-none placeholder:text-zinc-400 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200 dark:placeholder:text-zinc-600`}
           />
 
           {hasInlineVisuals ? (
