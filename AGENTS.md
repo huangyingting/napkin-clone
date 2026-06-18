@@ -2669,3 +2669,43 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   `opacity: 0` → visible after block focus, the keyboard-focused spark gets a real
   ring (`box-shadow` non-none), and `page.emulateMedia({ reducedMotion: "reduce" })`
   makes the Share / spark / toolbar buttons report `transitionProperty: none`.
+
+### Preserve comments, sharing, presence, and shortcuts in the new editor (US-014)
+
+- **The content-first `ContentEditor` was missing the `ystate` (visual collab)
+  channel entirely** — the US-001 scaffold only ported text collab (`useYText` over
+  `ycontent`/`ytitle`). US-014 restored **document-level visual sync** to match the
+  legacy `DocumentEditor`/`VisualPanel`: destructure `ystate` from
+  `useCollaboration`, add `pushDocVisual(visual)` (writes `JSON.stringify(visual)`
+  under the `ystate` `"visual"` key inside `ystate.doc.transact(apply, localOrigin)`
+  so our own observer skips it), and a `ystate.observe` effect that mirrors **remote**
+  `"visual"` changes (`tr.origin !== localOrigin`) into `setDocVisual`. Route the
+  doc-level `InlineVisualEditor.onChange` through `handleDocVisualChange` (=
+  `setDocVisual` + `pushDocVisual`). `seed()` already loads the initial visual into
+  `ystate`. **Only the doc-level visual syncs live — block-anchored visuals don't**
+  (parity with the legacy editor; they persist via the DB and reappear on reload).
+- **Comment-to-visual-node anchoring** (a legacy `VisualPanel` feature) was wired
+  back: `InlineVisualEditor` got an optional `onSelectNode?: (node: {id,label}|null)
+  => void` + an effect over `[working, selectedNodeId]` that reports the selected
+  node up; `ContentEditor` holds `anchorNode` state and passes it to `CommentsPanel`
+  (was hardcoded `null`). **GOTCHA: the editing popover dismisses on the SAME outside
+  `mousedown` that opens the comments drawer**, so `deselectVisual` must NOT clear
+  `anchorNode` (keep it like the text `lastSelection` ref) or "Attach selected
+  element" never shows. Clear it only in `selectVisual` (a different visual is opened)
+  or via the comments panel's "Clear anchor".
+- **The Ctrl/⌘+E "toggle Write/Preview" shortcut is obsolete** in the content-first
+  editor (no tabs) — left in place; removing the catalog entry + `isTogglePreviewShortcut`
+  belongs to US-015. The global `?` shortcut works in the editor because it lives in
+  `SiteHeader`'s `KeyboardShortcuts` (root layout), not the editor component.
+- **Browser QA (two-browser collab):** run `npm run collab` + a prod `next start`;
+  use TWO SEPARATE `dev-browser --headless --browser <name>` instances (no shared
+  BroadcastChannel) so presence "2 peers", a typed text marker, AND a doc-level node-
+  label edit all propagate through the WS server and survive a hard `page.reload()`
+  (DB autosave). Seed owner + a workspace **VIEWER** member (root-level `*.mts` tsx,
+  `PrismaBetterSqlite3`, `data: visual as unknown as object`, `type:
+  VISUAL_KIND_TO_PRISMA[v.type]`); the VIEWER sees no sparks / Edit-visual / Replace /
+  Remove / `[role="toolbar"][aria-label="Text formatting"]`, only inline
+  `svg[role="img"]`. Select a visual node by `el.focus()` on its `[data-node-id]`
+  hotspot; a Playwright `locator.click()` (real `mousedown`) on the Comments button
+  exercises the "editor closes but anchor persists" path, whereas a programmatic
+  `element.click()` does NOT fire `mousedown`.

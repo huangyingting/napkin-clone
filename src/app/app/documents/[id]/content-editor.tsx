@@ -9,6 +9,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import type * as Y from "yjs";
 
 import {
   combineSaveStatus,
@@ -36,7 +37,7 @@ import {
   saveDocumentContent,
   saveDocumentTitle,
 } from "./actions";
-import { CommentsPanel } from "./comments-panel";
+import { CommentsPanel, type AnchorNode } from "./comments-panel";
 import type { CommentThread } from "./comments-actions";
 import {
   CONTROL_FOCUS_RING,
@@ -300,7 +301,8 @@ export function ContentEditor({
   initialComments: CommentThread[];
 }) {
   const collab = useCollaboration({ room: id, userName });
-  const { ycontent, ytitle, status, ready, peers, localOrigin, seed } = collab;
+  const { ycontent, ytitle, ystate, status, ready, peers, localOrigin, seed } =
+    collab;
 
   // Editing is enabled only with permission AND once collaboration is ready
   // (synced, or a degraded local-only fallback), so we never edit before the
@@ -339,6 +341,11 @@ export function ContentEditor({
   const [selectedVisualKey, setSelectedVisualKey] = useState<string | null>(
     null,
   );
+  // The selected node of the currently-edited inline visual (if any), so a
+  // comment can be anchored to a specific visual element (US-014). Persists
+  // after the editing tools close (so the comments drawer can still attach it);
+  // replaced when another visual is opened or cleared from the comments panel.
+  const [anchorNode, setAnchorNode] = useState<AnchorNode | null>(null);
 
   // The block whose inline visual is animating out before unmounting (US-012).
   // The card stays rendered (its entry is kept in `blockVisuals`) until the exit
@@ -428,6 +435,57 @@ export function ContentEditor({
     }
   }, [ready, seed, initialContent, initialTitle, initialVisual]);
 
+  // Publish the document-level visual to the shared collaboration state so other
+  // editors see edits live (US-014, matching the legacy editor's behavior).
+  // Tagged with `localOrigin` so our own observer ignores it, avoiding a
+  // feedback loop. Block-anchored visuals are not synced (parity with legacy).
+  const pushDocVisual = useCallback(
+    (visual: Visual | null) => {
+      const json = visual ? JSON.stringify(visual) : null;
+      const doc = ystate.doc;
+      const apply = () => {
+        if (json === null) {
+          if (ystate.has("visual")) {
+            ystate.delete("visual");
+          }
+        } else if (ystate.get("visual") !== json) {
+          ystate.set("visual", json);
+        }
+      };
+      if (doc) {
+        doc.transact(apply, localOrigin);
+      } else {
+        apply();
+      }
+    },
+    [ystate, localOrigin],
+  );
+
+  // Mirror remote document-level visual changes (from other collaborators) into
+  // the inline canvas. Our own writes carry `localOrigin` and are ignored.
+  useEffect(() => {
+    const observer = (event: Y.YMapEvent<unknown>, tr: Y.Transaction) => {
+      if (!event.keysChanged.has("visual") || tr.origin === localOrigin) {
+        return;
+      }
+      const raw = ystate.get("visual");
+      if (typeof raw !== "string") {
+        setDocVisual(null);
+        return;
+      }
+      try {
+        const result = safeParseVisual(JSON.parse(raw));
+        if (result.success) {
+          setDocVisual(result.data);
+        }
+      } catch {
+        // Ignore malformed remote payloads.
+      }
+    };
+    ystate.observe(observer);
+    return () => ystate.unobserve(observer);
+  }, [ystate, localOrigin]);
+
   // Grow the body to fit its content so the column reads top-to-bottom like a
   // blog (the page scrolls, not the textarea).
   useEffect(() => {
@@ -498,17 +556,34 @@ export function ContentEditor({
 
   // Open an inline visual's contextual editing tools (US-007). Editing and the
   // generation picker are mutually exclusive, so opening one closes the other.
+  // Clear any stale comment anchor; the newly-mounted editor reports its own.
   const selectVisual = useCallback(
     (key: string) => {
       closePicker();
       setSelectedVisualKey(key);
+      setAnchorNode(null);
     },
     [closePicker],
   );
 
   const deselectVisual = useCallback(() => {
     setSelectedVisualKey(null);
+    // Keep `anchorNode` so the just-selected element stays available to anchor a
+    // comment even after the editor closes (the editing popover dismisses on the
+    // same outside click that opens the comments drawer). It is replaced when a
+    // different visual is opened or cleared from the comments panel.
   }, []);
+
+  // Update the document-level visual locally and publish it to collaborators so
+  // visual edits sync across browsers (US-014). The persistence to the database
+  // is handled by the InlineVisualEditor's debounced `attachVisual` path.
+  const handleDocVisualChange = useCallback(
+    (next: Visual) => {
+      setDocVisual(next);
+      pushDocVisual(next);
+    },
+    [pushDocVisual],
+  );
 
   // Send a single block's text to `/api/generate` and show the returned
   // candidate visuals inline near the block. Errors are non-blocking and
@@ -735,7 +810,7 @@ export function ContentEditor({
             currentUserId={currentUserId}
             initialComments={initialComments}
             getTextSelection={getTextSelection}
-            anchorNode={null}
+            anchorNode={anchorNode}
           />
         </div>
       </header>
@@ -826,7 +901,8 @@ export function ContentEditor({
                       anchorBlockId={null}
                       text={content.value}
                       visual={docVisual}
-                      onChange={setDocVisual}
+                      onChange={handleDocVisualChange}
+                      onSelectNode={setAnchorNode}
                       onClose={deselectVisual}
                     />
                   ) : (
@@ -966,6 +1042,7 @@ export function ContentEditor({
                                   [block.id]: next,
                                 }))
                               }
+                              onSelectNode={setAnchorNode}
                               onClose={deselectVisual}
                             />
                           ) : editable ? (

@@ -107,6 +107,7 @@ export function InlineVisualEditor({
   text,
   visual,
   onChange,
+  onSelectNode,
   onClose,
 }: {
   documentId: string;
@@ -114,6 +115,7 @@ export function InlineVisualEditor({
   text: string;
   visual: Visual;
   onChange: (visual: Visual) => void;
+  onSelectNode?: (node: { id: string; label: string } | null) => void;
   onClose: () => void;
 }) {
   // Working copy of the visual, seeded once from the prop. While the editor is
@@ -158,6 +160,19 @@ export function InlineVisualEditor({
       }
     };
   }, []);
+
+  // Surface the selected node (id + label) to the parent so a comment can be
+  // anchored to a specific visual element (US-014). Reports `null` when nothing
+  // is selected; the label stays fresh as the node is relabeled.
+  useEffect(() => {
+    if (!onSelectNode) {
+      return;
+    }
+    const node = selectedNodeId
+      ? working.nodes.find((candidate) => candidate.id === selectedNodeId)
+      : undefined;
+    onSelectNode(node ? { id: node.id, label: node.label } : null);
+  }, [working, selectedNodeId, onSelectNode]);
 
   // Persists the latest visual; stays "saving" if a newer edit is queued.
   const persist = useCallback(
