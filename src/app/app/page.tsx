@@ -30,7 +30,13 @@ export default async function DashboardPage() {
   const personalDocuments = await prisma.document.findMany({
     where: { ownerId: user.id, workspaceId: null, deletedAt: null },
     orderBy: { updatedAt: "desc" },
-    select: { id: true, title: true, createdAt: true, updatedAt: true },
+    select: {
+      id: true,
+      title: true,
+      favorite: true,
+      createdAt: true,
+      updatedAt: true,
+    },
   });
 
   // Get documents from workspaces the user has access to
@@ -46,6 +52,7 @@ export default async function DashboardPage() {
     select: {
       id: true,
       title: true,
+      favorite: true,
       createdAt: true,
       updatedAt: true,
       workspace: { select: { name: true } },
@@ -60,6 +67,7 @@ export default async function DashboardPage() {
   const documents = allDocuments.map((document) => ({
     id: document.id,
     title: document.title,
+    favorite: document.favorite,
     editedLabel: dateFormatter.format(document.updatedAt),
     workspaceName: document.workspace?.name ?? null,
     createdAtMs: document.createdAt.getTime(),

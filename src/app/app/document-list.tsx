@@ -278,6 +278,7 @@ export function DocumentList({
                   key={document.id}
                   id={document.id}
                   title={document.title}
+                  favorite={document.favorite}
                   editedLabel={document.editedLabel}
                   workspaceName={document.workspaceName}
                   onDelete={handleDelete}

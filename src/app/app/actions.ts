@@ -129,6 +129,46 @@ export async function duplicateDocument(id: string): Promise<void> {
 }
 
 /**
+ * Toggles the `favorite` flag on a document the current user may access (owner
+ * or workspace member).
+ *
+ * The current value is read under the same access scope as the dashboard
+ * (`documentAccessOr`, excluding soft-deleted rows) so a non-accessible id
+ * simply matches nothing — a silent no-op that never leaks existence. The write
+ * uses `updateMany` keyed by id (per the house mutation rule) so a concurrent
+ * change is a harmless no-op rather than a throw. Returns the new flag so the
+ * caller can reconcile its optimistic state.
+ */
+export async function toggleFavorite(
+  id: string,
+): Promise<{ favorite: boolean }> {
+  const user = await requireUser();
+
+  const document = await prisma.document.findFirst({
+    where: {
+      id,
+      deletedAt: null,
+      OR: documentAccessOr(user.id),
+    },
+    select: { favorite: true },
+  });
+
+  if (!document) {
+    return { favorite: false };
+  }
+
+  const favorite = !document.favorite;
+
+  await prisma.document.updateMany({
+    where: { id },
+    data: { favorite },
+  });
+
+  revalidatePath("/app");
+  return { favorite };
+}
+
+/**
  * Soft-deletes a document the current user may access (owner or workspace
  * member) by stamping `deletedAt`. The row is retained so the delete can be
  * undone (see `restoreDocument`); every document list/detail/share/embed query

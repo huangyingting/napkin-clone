@@ -10,7 +10,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-import { duplicateDocument, renameDocument } from "./actions";
+import { duplicateDocument, renameDocument, toggleFavorite } from "./actions";
 
 /** Maximum document title length (mirrors the server action's clamp). */
 const MAX_TITLE_LENGTH = 200;
@@ -23,6 +23,7 @@ function normalizeTitle(value: string): string {
 export type DocumentCardData = {
   id: string;
   title: string;
+  favorite: boolean;
   editedLabel: string;
   workspaceName: string | null;
 };
@@ -50,6 +51,48 @@ function DocumentThumbnail() {
         <path d="M9 17h4" />
       </svg>
     </div>
+  );
+}
+
+/**
+ * A star toggle that marks a document as a favorite. It lives in a sibling of
+ * the card `<Link>` (not inside it), so clicking it never triggers navigation.
+ * The filled state reflects `active`; `aria-pressed` exposes it for testing.
+ */
+function StarButton({
+  active,
+  title,
+  onToggle,
+}: {
+  active: boolean;
+  title: string;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={active ? `Unfavorite ${title}` : `Favorite ${title}`}
+      aria-pressed={active}
+      onClick={onToggle}
+      className={`flex h-7 w-7 items-center justify-center rounded-full shadow-sm backdrop-blur transition ${
+        active
+          ? "bg-white/80 text-amber-500 hover:bg-white dark:bg-black/40 dark:text-amber-400 dark:hover:bg-black/70"
+          : "bg-white/80 text-zinc-500 hover:bg-white hover:text-amber-500 dark:bg-black/40 dark:text-zinc-300 dark:hover:bg-black/70 dark:hover:text-amber-400"
+      }`}
+    >
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        fill={active ? "currentColor" : "none"}
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="h-4 w-4"
+      >
+        <path d="M12 17.27 6.18 21l1.64-7.03L2 9.24l7.19-.61L12 2l2.81 6.63 7.19.61-5.82 4.73L17.82 21z" />
+      </svg>
+    </button>
   );
 }
 
@@ -231,6 +274,7 @@ function RenameDialog({
 export function DocumentCard({
   id,
   title,
+  favorite,
   editedLabel,
   workspaceName,
   onDelete,
@@ -239,6 +283,7 @@ export function DocumentCard({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [optimisticTitle, setOptimisticTitle] = useOptimistic(title);
+  const [optimisticFavorite, setOptimisticFavorite] = useOptimistic(favorite);
   const [, startTransition] = useTransition();
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -257,7 +302,20 @@ export function DocumentCard({
 
   const handleConfirmDelete = () => {
     setConfirmOpen(false);
-    onDelete({ id, title: optimisticTitle, editedLabel, workspaceName });
+    onDelete({
+      id,
+      title: optimisticTitle,
+      favorite: optimisticFavorite,
+      editedLabel,
+      workspaceName,
+    });
+  };
+
+  const handleToggleFavorite = () => {
+    startTransition(async () => {
+      setOptimisticFavorite(!optimisticFavorite);
+      await toggleFavorite(id);
+    });
   };
 
   const handleRename = (nextTitle: string) => {
@@ -307,6 +365,14 @@ export function DocumentCard({
           </div>
         </div>
       </Link>
+
+      <div className="absolute left-2 top-2 z-10">
+        <StarButton
+          active={optimisticFavorite}
+          title={optimisticTitle}
+          onToggle={handleToggleFavorite}
+        />
+      </div>
 
       <div ref={menuRef} className="absolute right-2 top-2 z-10">
         <button

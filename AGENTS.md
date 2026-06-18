@@ -1505,3 +1505,38 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   after `page.reload()` (select `.value` + order), the no-match `<h2>`, and no
   horizontal overflow at 1280/768/375. The dashboard has no overflow; the lone 375px
   offender remains the editor-header save-status span (US-021).
+
+### Favorite (star) a document (US-007)
+
+- **`Document.favorite Boolean @default(false)`** is the star flag (no index — the
+  full dashboard list is already loaded, and US-008 filters favorites client-side).
+  Followed the DUAL-MIGRATION DRILL (`prisma/migrations*/2026..._add_document_favorite`
+  in both histories). SQLite's `migrate dev` does a table-rebuild (RedefineTables) to
+  add the column — expected, not a problem.
+- **`toggleFavorite(id)` (`src/app/app/actions.ts`, `"use server"`) reads-then-flips.**
+  Because the signature is just `(id)` (no desired-state arg) it must read the current
+  value first: a `findFirst` scoped by `documentAccessOr(user.id)` + `deletedAt: null`
+  (a non-accessible/soft-deleted id matches nothing → silent no-op), then
+  `updateMany({ where: { id }, data: { favorite: !current } })`, `revalidatePath("/app")`,
+  and returns `{ favorite }`. This is the house mutation shape adapted for a flip — the
+  read selects ONLY `favorite`, not the whole row.
+- **`favorite` flows through the existing card data plumbing:** added to
+  `DocumentCardData` (so `DashboardDocument` inherits it and the undo-stash carries it);
+  `page.tsx` selects `favorite: true` for both personal AND workspace doc queries and
+  maps it onto each card; `DocumentList` passes `favorite={document.favorite}`.
+- **The star toggle is a SIBLING of the card `<Link>`** (a separate
+  `absolute left-2 top-2 z-10` div — the kebab is `right-2 top-2`), so clicking it never
+  navigates (verified: URL stays `/app`). Optimistic state via **`useOptimistic(favorite)`**
+  inside the card's existing `startTransition` (same pattern as the optimistic title):
+  `startTransition(async () => { setOptimisticFavorite(!optimisticFavorite); await
+  toggleFavorite(id); })`. The optimistic base is the `favorite` prop, so the action's
+  revalidation snaps the optimistic value to the real one with no effect/reset dance.
+- **Test hooks:** the star is `button[aria-label="Favorite <title>"]` (off) /
+  `"Unfavorite <title>"` (on) with `aria-pressed` reflecting state; the filled vs outline
+  SVG is driven by `fill={active ? "currentColor" : "none"}` (amber when on).
+- **Browser QA:** sign up a fresh `*@test.dev` user, create a doc, then on `/app`: click
+  the star → `aria-pressed` flips to `"true"` immediately while `page.url()` stays `/app`;
+  `page.reload()` confirms persistence; toggle off + reload confirms off persists; no
+  horizontal overflow at 1280/768/375. **dev-browser gotcha:** its QuickJS sandbox passes
+  a **string** (not a `URL`) to `waitForURL(predicate)` — use `String(url).includes(...)`,
+  not `url.pathname`.
