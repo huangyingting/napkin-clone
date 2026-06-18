@@ -460,7 +460,7 @@ export function VisualPanel({
             />
             <p className="text-center text-xs text-zinc-400 dark:text-zinc-500">
               {isPositionedKind(selected.type)
-                ? "Click a node to edit its text, drag to move it, or ✕ to delete."
+                ? "Click a node to edit or drag it, ✕ to delete, or a connector to relabel / flip it."
                 : "Click a node to edit its text, or ✕ to delete it."}
             </p>
           </div>

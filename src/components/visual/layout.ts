@@ -26,6 +26,47 @@ export interface NodeBox {
   height: number;
 }
 
+export interface Point {
+  x: number;
+  y: number;
+}
+
+/** A node's center point in canvas coordinates. */
+export function nodeCenter(node: VisualNode): Point {
+  return { x: node.x ?? 0, y: node.y ?? 0 };
+}
+
+/** A node's half-width / half-height (its bounding-box radii). */
+export function nodeHalf(node: VisualNode): { hw: number; hh: number } {
+  return {
+    hw: (node.width ?? DEFAULT_NODE_WIDTH) / 2,
+    hh: (node.height ?? DEFAULT_NODE_HEIGHT) / 2,
+  };
+}
+
+/**
+ * Point where the line from `from` toward a target box (centered at `to`,
+ * half-extent `hw`/`hh`) meets the target's bounding box — used to stop edges
+ * at the node boundary. Shared by the renderer and the editor overlay so edge
+ * hit-areas always line up with the drawn connectors.
+ */
+export function boundaryPoint(
+  from: Point,
+  to: Point,
+  hw: number,
+  hh: number,
+): Point {
+  const dx = from.x - to.x;
+  const dy = from.y - to.y;
+  if (dx === 0 && dy === 0) {
+    return { x: to.x, y: to.y };
+  }
+  const adx = Math.max(Math.abs(dx), 1e-6);
+  const ady = Math.max(Math.abs(dy), 1e-6);
+  const scale = Math.min(hw / adx, hh / ady);
+  return { x: to.x + dx * scale, y: to.y + dy * scale };
+}
+
 /** Visual kinds whose nodes are freely positioned via `node.x`/`node.y`. */
 const POSITIONED_KINDS = new Set<VisualKind>([
   "flowchart",
@@ -589,4 +630,46 @@ export function nodeBoxes(visual: Visual): Map<string, NodeBox> {
     });
   }
   return boxes;
+}
+
+export interface EdgeSegment {
+  /** Connector start point (at the source node boundary). */
+  start: Point;
+  /** Connector end point (at the target node boundary). */
+  end: Point;
+  /** Midpoint of the connector (where labels/controls anchor). */
+  mid: Point;
+}
+
+/**
+ * Endpoints (at the node boundaries) for each drawn connector, keyed by edge id.
+ * Only positioned kinds (flowchart/mindmap/concept) draw `visual.edges`, so
+ * other kinds yield an empty map. Mirrors `EdgeEl` in the renderer so the
+ * editor overlay's edge hit-areas line up with the drawn connectors.
+ */
+export function edgeSegments(visual: Visual): Map<string, EdgeSegment> {
+  const segments = new Map<string, EdgeSegment>();
+  if (!isPositionedKind(visual.type)) {
+    return segments;
+  }
+  const nodeById = new Map(visual.nodes.map((node) => [node.id, node]));
+  for (const edge of visual.edges) {
+    const from = nodeById.get(edge.from);
+    const to = nodeById.get(edge.to);
+    if (!from || !to) {
+      continue;
+    }
+    const fromCenter = nodeCenter(from);
+    const toCenter = nodeCenter(to);
+    const fromHalf = nodeHalf(from);
+    const toHalf = nodeHalf(to);
+    const start = boundaryPoint(toCenter, fromCenter, fromHalf.hw, fromHalf.hh);
+    const end = boundaryPoint(fromCenter, toCenter, toHalf.hw, toHalf.hh);
+    segments.set(edge.id, {
+      start,
+      end,
+      mid: { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 },
+    });
+  }
+  return segments;
 }

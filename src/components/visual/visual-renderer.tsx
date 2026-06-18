@@ -3,13 +3,17 @@ import type { LucideIcon } from "lucide-react";
 
 import { resolveIconComponent } from "@/components/visual/icon-registry";
 import {
+  boundaryPoint,
   chartLayout,
   comparisonLayout,
   cycleLayout,
   funnelLayout,
   listLayout,
+  nodeCenter,
+  nodeHalf,
   timelineLayout,
   type CycleNodePlacement,
+  type Point,
 } from "@/components/visual/layout";
 import {
   DEFAULT_NODE_HEIGHT,
@@ -28,22 +32,6 @@ import {
  * alike. Output is deterministic — arrowheads are drawn as explicit polygons
  * rather than `<marker>`s so there are no id collisions or hydration concerns.
  */
-
-interface Point {
-  x: number;
-  y: number;
-}
-
-function nodeCenter(node: VisualNode): Point {
-  return { x: node.x ?? 0, y: node.y ?? 0 };
-}
-
-function nodeHalf(node: VisualNode): { hw: number; hh: number } {
-  return {
-    hw: (node.width ?? DEFAULT_NODE_WIDTH) / 2,
-    hh: (node.height ?? DEFAULT_NODE_HEIGHT) / 2,
-  };
-}
 
 function pick(palette: string[], index: number): string {
   return palette[((index % palette.length) + palette.length) % palette.length];
@@ -85,20 +73,7 @@ function IconGlyph({
   );
 }
 
-/** Point where the line from `from` to a target (centered at `to`) meets the
- * target's bounding box — used to stop edges at the node boundary. */
-function boundaryPoint(from: Point, to: Point, hw: number, hh: number): Point {
-  const dx = from.x - to.x;
-  const dy = from.y - to.y;
-  if (dx === 0 && dy === 0) {
-    return { x: to.x, y: to.y };
-  }
-  const adx = Math.max(Math.abs(dx), 1e-6);
-  const ady = Math.max(Math.abs(dy), 1e-6);
-  const scale = Math.min(hw / adx, hh / ady);
-  return { x: to.x + dx * scale, y: to.y + dy * scale };
-}
-
+/** A small filled triangle (arrowhead) pointing from `from` toward `tip`. */
 function arrowHead(
   tip: Point,
   from: Point,

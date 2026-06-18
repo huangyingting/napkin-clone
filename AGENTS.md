@@ -1116,3 +1116,46 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   When counting a kind's own geometry, skip nested icon svgs with
   `el.closest("svg") === outerSvg`. Verified 0 clipped (getBBox within viewBox) and
   no horizontal overflow at 1280/768/375.
+
+### Select and edit a connector (parity-gaps US-016)
+
+- **Edge/connector geometry lives in `layout.ts`** (single source of truth, same
+  rule as node hit-boxes). US-016 **moved** `Point`/`nodeCenter`/`nodeHalf`/
+  `boundaryPoint` out of `visual-renderer.tsx` into `layout.ts` and added
+  `edgeSegments(visual): Map<edgeId, { start, end, mid }>`. The renderer now
+  **imports** those helpers (it kept only `arrowHead`, which returns JSX). So the
+  editor overlay's edge hit-areas can never drift from the drawn connectors —
+  if you change edge endpoint math, change it **only** in `layout.ts`.
+- **Only positioned kinds draw `visual.edges`** (flowchart/mindmap/concept — the
+  `EdgeEl` consumers). `edgeSegments` returns an **empty map** for every other kind
+  (chart/list/timeline/cycle/comparison/funnel render their own connectors or none),
+  so the overlay shows edge hit-areas only where edges are actually drawn.
+- **Editor overlay (`visual-editor.tsx`) renders edge hit-areas FIRST, then node
+  hit-rects, then the node delete button / node input, then the selected-edge
+  toolbar LAST.** Order matters: nodes paint after edges so node hit-boxes win
+  pointer precedence near a node boundary; the toolbar paints last so it's fully
+  clickable. Each edge hit-area is a transparent `<line>` (`strokeWidth` 14,
+  `pointerEvents="stroke"`) with `data-edge-id`, `role="button"`, `tabIndex={0}`,
+  `aria-label="Edit connector <label>"`, plus a visible indigo highlight line when
+  hovered/selected.
+- **Selecting/editing a connector mirrors the node inline-edit pattern.** Selecting
+  an edge clears node edit/selection (and vice-versa) and opens a `<foreignObject>`
+  HTML toolbar at the edge **midpoint** (`seg.mid`, clamped into the canvas)
+  containing: an inline `input[aria-label="Connector label"]` (live `onChange` →
+  `setEdgeLabel` → base re-renders immediately; Enter closes, Escape restores a
+  stashed `editStartEdgeLabel`), a **flip** `button[aria-label="Flip connector
+  direction"]` (swaps `edge.from`/`edge.to`), and an **arrowhead** toggle
+  `button[aria-label={directed ? "Hide" : "Show"} arrowhead]` (`aria-pressed`,
+  toggles `edge.directed`; default shown = `directed !== false`). Toolbar buttons use
+  `onPointerDown={(e)=>e.preventDefault()}` to keep the input focused (same trick as
+  the markdown toolbar). All edits flow through the existing `onChange` →
+  `handleEditChange` → debounced `attachVisual` (no new persistence path; server
+  re-validates with `validateVisual`).
+- **Browser QA gotcha:** the edge hit `<line>` has `stroke="transparent"`, so
+  Playwright treats it as **not visible** — `.click()` times out. **Select it the
+  way the node hotspots are documented**: `locator('[data-edge-id="e1"]').focus()`
+  then `keyboard.press("Enter")` (the line's `onKeyDown` calls `selectEdge`). The
+  foreignObject HTML toolbar controls (input/buttons) ARE normal visible elements,
+  so click/fill them directly. Verify arrowhead toggle by counting
+  `svg[role="img"] polygon` (arrowheads); verify flip + `directed` at the DB level
+  (`Visual.data.edges`) since direction isn't obvious in the rendered SVG.

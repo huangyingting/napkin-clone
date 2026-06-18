@@ -4,15 +4,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import {
+  edgeSegments,
   isPositionedKind,
   nodeBoxes,
+  type EdgeSegment,
   type NodeBox,
 } from "@/components/visual/layout";
-import type { Visual, VisualNode } from "@/lib/visual/schema";
+import type { Visual, VisualEdge, VisualNode } from "@/lib/visual/schema";
 
 /** Pointer travel (px) under which a press counts as a click, not a drag. */
 const CLICK_THRESHOLD = 4;
 const INPUT_HEIGHT = 34;
+/** Edge toolbar (inline label input + flip / arrowhead controls) size. */
+const EDGE_TOOLBAR_WIDTH = 232;
+const EDGE_TOOLBAR_HEIGHT = 40;
+/** Stroke width of the invisible, clickable hit-area drawn over each edge. */
+const EDGE_HIT_WIDTH = 14;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
@@ -47,6 +54,35 @@ function deleteNode(visual: Visual, id: string): Visual {
     ...visual,
     nodes: visual.nodes.filter((node) => node.id !== id),
     edges: visual.edges.filter((edge) => edge.from !== id && edge.to !== id),
+  };
+}
+
+function setEdgeLabel(visual: Visual, id: string, label: string): Visual {
+  return {
+    ...visual,
+    edges: visual.edges.map((edge) =>
+      edge.id === id ? { ...edge, label } : edge,
+    ),
+  };
+}
+
+/** Flips a connector's direction by swapping its `from`/`to` endpoints. */
+function flipEdge(visual: Visual, id: string): Visual {
+  return {
+    ...visual,
+    edges: visual.edges.map((edge) =>
+      edge.id === id ? { ...edge, from: edge.to, to: edge.from } : edge,
+    ),
+  };
+}
+
+/** Toggles a connector's arrowhead (the `directed` flag; default shown). */
+function toggleEdgeDirected(visual: Visual, id: string): Visual {
+  return {
+    ...visual,
+    edges: visual.edges.map((edge) =>
+      edge.id === id ? { ...edge, directed: edge.directed === false } : edge,
+    ),
   };
 }
 
@@ -89,8 +125,10 @@ export function VisualEditor({
 }) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const edgeInputRef = useRef<HTMLInputElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const editStartLabel = useRef<string>("");
+  const editStartEdgeLabel = useRef<string>("");
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -98,11 +136,19 @@ export function VisualEditor({
   // The node explicitly picked for styling (US-014). Distinct from `activeId`
   // (which also tracks hover) so the style panel targets a stable selection.
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // The connector (edge) selected for inline label/direction editing (US-016).
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const [hoverEdgeId, setHoverEdgeId] = useState<string | null>(null);
 
   const positioned = isPositionedKind(visual.type);
   const boxes = useMemo(() => nodeBoxes(visual), [visual]);
+  const segments = useMemo(() => edgeSegments(visual), [visual]);
   const nodeById = useMemo(
     () => new Map(visual.nodes.map((node) => [node.id, node])),
+    [visual],
+  );
+  const edgeById = useMemo(
+    () => new Map(visual.edges.map((edge) => [edge.id, edge])),
     [visual],
   );
   const canDelete = visual.nodes.length > 1;
@@ -110,6 +156,13 @@ export function VisualEditor({
   // Stale ids (after a regeneration swaps the visual) resolve to nothing.
   const editingNode = editingId ? nodeById.get(editingId) : undefined;
   const deletableId = !editingId && canDelete ? (hoverId ?? activeId) : null;
+  // The selected connector resolves to nothing if its id went stale.
+  const selectedEdge = selectedEdgeId
+    ? edgeById.get(selectedEdgeId)
+    : undefined;
+  const selectedEdgeSeg = selectedEdgeId
+    ? segments.get(selectedEdgeId)
+    : undefined;
 
   // Report the current selection so the parent's style panel can target it.
   // A stale id (after a regeneration) reports as no selection.
@@ -124,6 +177,16 @@ export function VisualEditor({
     }
   }, [editingNode]);
 
+  // Focus the connector's label field when an edge is freshly selected so it can
+  // be typed immediately (mirrors the node inline-edit pattern). Keyed on the id
+  // only, so it doesn't steal focus on every keystroke / control click.
+  useEffect(() => {
+    if (selectedEdgeId && edgeInputRef.current) {
+      edgeInputRef.current.focus();
+      edgeInputRef.current.select();
+    }
+  }, [selectedEdgeId]);
+
   const beginEdit = useCallback(
     (id: string) => {
       if (!canEdit) {
@@ -134,10 +197,30 @@ export function VisualEditor({
         return;
       }
       editStartLabel.current = node.label;
+      setSelectedEdgeId(null);
       setActiveId(id);
       setEditingId(id);
     },
     [canEdit, nodeById],
+  );
+
+  // Selecting a connector opens its inline toolbar and clears any node edit.
+  const selectEdge = useCallback(
+    (id: string) => {
+      if (!canEdit) {
+        return;
+      }
+      const edge = edgeById.get(id);
+      if (!edge) {
+        return;
+      }
+      editStartEdgeLabel.current = edge.label ?? "";
+      setEditingId(null);
+      setActiveId(null);
+      setSelectedId(null);
+      setSelectedEdgeId(id);
+    },
+    [canEdit, edgeById],
   );
 
   const removeNode = useCallback(
@@ -167,6 +250,7 @@ export function VisualEditor({
       event.preventDefault();
       setActiveId(node.id);
       setSelectedId(node.id);
+      setSelectedEdgeId(null);
       const box = boxes.get(node.id);
       if (!box) {
         return;
@@ -262,12 +346,41 @@ export function VisualEditor({
     [beginEdit, canDelete, removeNode],
   );
 
+  const onEdgeInputKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        setSelectedEdgeId(null);
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        if (selectedEdgeId) {
+          onChange(
+            setEdgeLabel(visual, selectedEdgeId, editStartEdgeLabel.current),
+          );
+        }
+        setSelectedEdgeId(null);
+      }
+    },
+    [onChange, selectedEdgeId, visual],
+  );
+
+  const onEdgeKeyDown = useCallback(
+    (event: React.KeyboardEvent, id: string) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        selectEdge(id);
+      }
+    },
+    [selectEdge],
+  );
+
   // Clicking the empty canvas commits any inline edit and clears selection.
   const onBackgroundPointerDown = useCallback((event: React.PointerEvent) => {
     if (event.target === event.currentTarget) {
       setActiveId(null);
       setEditingId(null);
       setSelectedId(null);
+      setSelectedEdgeId(null);
     }
   }, []);
 
@@ -353,6 +466,129 @@ export function VisualEditor({
     );
   }
 
+  function renderEdgeHitAreas() {
+    return visual.edges.map((edge) => {
+      const seg = segments.get(edge.id);
+      if (!seg) {
+        return null;
+      }
+      const isActive = selectedEdgeId === edge.id || hoverEdgeId === edge.id;
+      return (
+        <g key={edge.id}>
+          {isActive ? (
+            <line
+              x1={seg.start.x}
+              y1={seg.start.y}
+              x2={seg.end.x}
+              y2={seg.end.y}
+              stroke="#6366f1"
+              strokeWidth={3}
+              strokeLinecap="round"
+              pointerEvents="none"
+            />
+          ) : null}
+          <line
+            data-edge-id={edge.id}
+            role="button"
+            aria-label={`Edit connector ${edge.label || "connector"}`}
+            tabIndex={0}
+            x1={seg.start.x}
+            y1={seg.start.y}
+            x2={seg.end.x}
+            y2={seg.end.y}
+            stroke="transparent"
+            strokeWidth={EDGE_HIT_WIDTH}
+            strokeLinecap="round"
+            pointerEvents="stroke"
+            className="cursor-pointer outline-none"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              selectEdge(edge.id);
+            }}
+            onPointerEnter={() => setHoverEdgeId(edge.id)}
+            onPointerLeave={() =>
+              setHoverEdgeId((current) =>
+                current === edge.id ? null : current,
+              )
+            }
+            onFocus={() => setHoverEdgeId(edge.id)}
+            onBlur={() =>
+              setHoverEdgeId((current) =>
+                current === edge.id ? null : current,
+              )
+            }
+            onKeyDown={(event) => onEdgeKeyDown(event, edge.id)}
+          />
+        </g>
+      );
+    });
+  }
+
+  function renderEdgeToolbar(edge: VisualEdge, seg: EdgeSegment) {
+    const fx = clamp(
+      seg.mid.x - EDGE_TOOLBAR_WIDTH / 2,
+      4,
+      Math.max(4, visual.width - EDGE_TOOLBAR_WIDTH - 4),
+    );
+    const fy = clamp(
+      seg.mid.y - EDGE_TOOLBAR_HEIGHT / 2,
+      4,
+      Math.max(4, visual.height - EDGE_TOOLBAR_HEIGHT - 4),
+    );
+    const directedOn = edge.directed !== false;
+    return (
+      <foreignObject
+        x={fx}
+        y={fy}
+        width={EDGE_TOOLBAR_WIDTH}
+        height={EDGE_TOOLBAR_HEIGHT}
+      >
+        <div
+          className="flex h-full w-full items-center gap-1 rounded-lg border border-black/10 bg-white px-1.5 shadow-md dark:border-white/15 dark:bg-zinc-900"
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <input
+            ref={edgeInputRef}
+            aria-label="Connector label"
+            placeholder="Label"
+            value={edge.label ?? ""}
+            onChange={(event) =>
+              onChange(setEdgeLabel(visual, edge.id, event.target.value))
+            }
+            onKeyDown={onEdgeInputKeyDown}
+            className="h-7 min-w-0 flex-1 rounded-md border border-zinc-900/40 bg-white px-2 text-sm text-zinc-900 outline-none dark:border-white/40 dark:bg-zinc-900 dark:text-zinc-100"
+          />
+          <button
+            type="button"
+            aria-label="Flip connector direction"
+            title="Flip direction"
+            onPointerDown={(event) => event.preventDefault()}
+            onClick={() => onChange(flipEdge(visual, edge.id))}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-black/10 text-base text-zinc-700 hover:bg-zinc-100 dark:border-white/15 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            ⇄
+          </button>
+          <button
+            type="button"
+            aria-label={directedOn ? "Hide arrowhead" : "Show arrowhead"}
+            aria-pressed={directedOn}
+            title={directedOn ? "Hide arrowhead" : "Show arrowhead"}
+            onPointerDown={(event) => event.preventDefault()}
+            onClick={() => onChange(toggleEdgeDirected(visual, edge.id))}
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-base hover:opacity-90 ${
+              directedOn
+                ? "border-indigo-500 bg-indigo-500 text-white"
+                : "border-black/10 text-zinc-700 dark:border-white/15 dark:text-zinc-200"
+            }`}
+          >
+            →
+          </button>
+        </div>
+      </foreignObject>
+    );
+  }
+
   return (
     <div className="relative w-full max-w-3xl">
       <VisualRenderer
@@ -372,6 +608,10 @@ export function VisualEditor({
         onPointerUp={onPointerUp}
         onPointerCancel={endDrag}
       >
+        {/* Edge hit-areas render first so node hit-boxes take pointer
+            precedence wherever they overlap near a node boundary. */}
+        {renderEdgeHitAreas()}
+
         {visual.nodes.map((node) => {
           const box = boxes.get(node.id);
           if (!box) {
@@ -421,6 +661,12 @@ export function VisualEditor({
 
         {editingNode && boxes.get(editingNode.id)
           ? renderEditingInput(editingNode, boxes.get(editingNode.id)!)
+          : null}
+
+        {/* The selected connector's inline toolbar renders last so it sits
+            above every hit-area and is fully clickable. */}
+        {selectedEdge && selectedEdgeSeg
+          ? renderEdgeToolbar(selectedEdge, selectedEdgeSeg)
           : null}
       </svg>
     </div>
