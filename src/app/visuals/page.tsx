@@ -7,7 +7,7 @@ import type { VisualKind } from "@/lib/visual/schema";
 export const metadata: Metadata = {
   title: "Visual gallery — Napkin Clone",
   description:
-    "Sample renderings of every visual type the engine supports: flowchart, mind map, list/scene, chart, and concept diagram.",
+    "Sample renderings of every visual type the engine supports: flowchart, mind map, list/scene, chart, concept diagram, timeline, and cycle.",
 };
 
 const KIND_LABEL: Record<VisualKind, string> = {
@@ -16,6 +16,8 @@ const KIND_LABEL: Record<VisualKind, string> = {
   list: "List / scene",
   chart: "Chart",
   concept: "Concept diagram",
+  timeline: "Timeline",
+  cycle: "Cycle",
 };
 
 export default function VisualGalleryPage() {
@@ -31,7 +33,7 @@ export default function VisualGalleryPage() {
         <p className="max-w-2xl text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
           Each card is a sample fixture rendered straight from the typed visual
           schema (nodes + edges + style) by the SVG renderer. The engine
-          supports five visual types.
+          supports seven visual types.
         </p>
       </header>
 

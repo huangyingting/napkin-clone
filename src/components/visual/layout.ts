@@ -171,6 +171,148 @@ export function listLayout(visual: Visual): ListLayout {
   };
 }
 
+export interface TimelineStep {
+  node: VisualNode;
+  index: number;
+  /** Marker/badge center X on the axis. */
+  centerX: number;
+  /** Whether the label card sits above the axis. */
+  above: boolean;
+  /** Card left edge X. */
+  cardX: number;
+  /** Card top edge Y. */
+  cardY: number;
+  /** Card center X. */
+  cardCenterX: number;
+  /** Card center Y. */
+  cardCenterY: number;
+}
+
+export interface TimelineLayout {
+  marginX: number;
+  /** Vertical position of the horizontal axis. */
+  axisY: number;
+  /** Horizontal space allotted to each step. */
+  slot: number;
+  badgeRadius: number;
+  /** Gap between the axis badge and the label card. */
+  stemLength: number;
+  cardWidth: number;
+  cardHeight: number;
+  firstCenterX: number;
+  lastCenterX: number;
+  steps: TimelineStep[];
+}
+
+/**
+ * Timeline geometry — ordered horizontal steps along a centered axis, with
+ * label cards alternating above/below. Positions are derived from node order
+ * (x/y are ignored), mirroring `Timeline` in the renderer exactly.
+ */
+export function timelineLayout(visual: Visual): TimelineLayout {
+  const marginX = 40;
+  const axisY = visual.height / 2;
+  const count = Math.max(visual.nodes.length, 1);
+  const slot = (visual.width - marginX * 2) / count;
+  const badgeRadius = 15;
+  const stemLength = 34;
+  const cardWidth = Math.min(Math.max(slot - 20, 96), 200);
+  const cardHeight = 60;
+
+  const centerXFor = (index: number) => marginX + slot * index + slot / 2;
+
+  const steps: TimelineStep[] = visual.nodes.map((node, index) => {
+    const centerX = centerXFor(index);
+    const above = index % 2 === 0;
+    const cardCenterY = above
+      ? axisY - badgeRadius - stemLength - cardHeight / 2
+      : axisY + badgeRadius + stemLength + cardHeight / 2;
+    return {
+      node,
+      index,
+      centerX,
+      above,
+      cardX: centerX - cardWidth / 2,
+      cardY: cardCenterY - cardHeight / 2,
+      cardCenterX: centerX,
+      cardCenterY,
+    };
+  });
+
+  return {
+    marginX,
+    axisY,
+    slot,
+    badgeRadius,
+    stemLength,
+    cardWidth,
+    cardHeight,
+    firstCenterX: centerXFor(0),
+    lastCenterX: centerXFor(Math.max(visual.nodes.length - 1, 0)),
+    steps,
+  };
+}
+
+export interface CycleNodePlacement {
+  node: VisualNode;
+  index: number;
+  /** Center X. */
+  x: number;
+  /** Center Y. */
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface CycleLayout {
+  /** Ring center X. */
+  cx: number;
+  /** Ring center Y. */
+  cy: number;
+  radius: number;
+  placements: CycleNodePlacement[];
+}
+
+/**
+ * Cycle geometry — nodes evenly spaced around a ring (starting at the top,
+ * going clockwise). Positions are derived from node order/count (x/y are
+ * ignored), mirroring `CycleScene` in the renderer exactly.
+ */
+export function cycleLayout(visual: Visual): CycleLayout {
+  const cx = visual.width / 2;
+  const cy = visual.height / 2;
+  const count = Math.max(visual.nodes.length, 1);
+
+  // Reserve room for the node boxes so they never clip the canvas edge.
+  const maxNodeWidth = Math.max(
+    ...visual.nodes.map((node) => node.width ?? DEFAULT_NODE_WIDTH),
+    DEFAULT_NODE_WIDTH,
+  );
+  const maxNodeHeight = Math.max(
+    ...visual.nodes.map((node) => node.height ?? DEFAULT_NODE_HEIGHT),
+    DEFAULT_NODE_HEIGHT,
+  );
+  const margin = 24;
+  const radius = Math.max(
+    Math.min(cx - maxNodeWidth / 2 - margin, cy - maxNodeHeight / 2 - margin),
+    40,
+  );
+
+  const placements: CycleNodePlacement[] = visual.nodes.map((node, index) => {
+    const angle = -Math.PI / 2 + (index / count) * Math.PI * 2;
+    return {
+      node,
+      index,
+      x: cx + radius * Math.cos(angle),
+      y: cy + radius * Math.sin(angle),
+      width: node.width ?? DEFAULT_NODE_WIDTH,
+      height: node.height ?? DEFAULT_NODE_HEIGHT,
+    };
+  });
+
+  return { cx, cy, radius, placements };
+}
+
 /**
  * Hit-box per node id for the interactive editor's overlay. For positioned
  * kinds it's the node's shape box; for charts it's the full bar column; for
@@ -197,6 +339,32 @@ export function nodeBoxes(visual: Visual): Map<string, NodeBox> {
         y: (boxTop + boxBottom) / 2,
         width: columnWidth,
         height: boxBottom - boxTop,
+      });
+    }
+    return boxes;
+  }
+
+  if (visual.type === "timeline") {
+    const layout = timelineLayout(visual);
+    for (const step of layout.steps) {
+      boxes.set(step.node.id, {
+        x: step.cardCenterX,
+        y: step.cardCenterY,
+        width: layout.cardWidth,
+        height: layout.cardHeight,
+      });
+    }
+    return boxes;
+  }
+
+  if (visual.type === "cycle") {
+    const layout = cycleLayout(visual);
+    for (const placement of layout.placements) {
+      boxes.set(placement.node.id, {
+        x: placement.x,
+        y: placement.y,
+        width: placement.width,
+        height: placement.height,
       });
     }
     return boxes;

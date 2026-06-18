@@ -21,6 +21,8 @@ export const VISUAL_KINDS = [
   "list",
   "chart",
   "concept",
+  "timeline",
+  "cycle",
 ] as const;
 
 export type VisualKind = (typeof VISUAL_KINDS)[number];
@@ -37,6 +39,8 @@ export const VISUAL_TYPES = [
   "LIST",
   "CHART",
   "CONCEPT",
+  "TIMELINE",
+  "CYCLE",
 ] as const;
 
 export type VisualType = (typeof VISUAL_TYPES)[number];
@@ -146,6 +150,8 @@ export const VISUAL_KIND_TO_PRISMA = {
   list: "LIST",
   chart: "CHART",
   concept: "CONCEPT",
+  timeline: "TIMELINE",
+  cycle: "CYCLE",
 } as const satisfies Record<VisualKind, VisualType>;
 
 /** Maps a persisted `VisualType` (DB `Visual.type`) back to the schema `VisualKind`. */
@@ -155,6 +161,8 @@ export const PRISMA_TO_VISUAL_KIND = {
   LIST: "list",
   CHART: "chart",
   CONCEPT: "concept",
+  TIMELINE: "timeline",
+  CYCLE: "cycle",
 } as const satisfies Record<VisualType, VisualKind>;
 
 export function isVisualKind(value: unknown): value is VisualKind {

@@ -1045,3 +1045,44 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   `[aria-label="Re-select recent variation 1 of 4"]` to step BACK (canvas returns to
   the earlier signature) + "Visual saved"; `page.reload()` → Recent strip gone (history
   cleared) while the last-saved visual persists from the DB.
+
+### Add a new visual kind (timeline & cycle, parity-gaps US-013)
+
+- **Adding a `VisualKind` touches a fixed checklist** (TypeScript's exhaustive
+  `Record<VisualKind, …>` maps will fail typecheck until ALL are updated — that's
+  the safety net, lean on it):
+  1. `src/lib/visual/schema.ts`: append to `VISUAL_KINDS`, `VISUAL_TYPES`
+     (uppercase), and **both** `VISUAL_KIND_TO_PRISMA` / `PRISMA_TO_VISUAL_KIND`.
+     `Visual.type` is a **String** column, so new kinds need **no DB migration**.
+  2. `src/components/visual/layout.ts`: add a `<kind>Layout(visual)` geometry
+     helper (single source of truth) **and** a branch in `nodeBoxes()` — otherwise
+     the kind falls through to the list hit-boxes and the editor overlay misaligns.
+     New kinds that compute positions from order/index (like chart/list) should NOT
+     be added to `POSITIONED_KINDS` (that set is only for x/y-draggable kinds).
+  3. `src/components/visual/visual-renderer.tsx`: add a sub-renderer + a `case` in
+     `VisualBody`. Reuse `NodeEl` for boxed nodes by passing a synthetic node with
+     computed `x/y/width/height` (gets icon+label wrapping for free); reuse
+     `boundaryPoint`/`arrowHead` for directed connectors. Consume the layout helper
+     so hit-boxes never drift from the drawing.
+  4. `src/lib/visual/fixtures.ts`: add a fixture (auto-appears on `/visuals` via
+     `FIXTURE_LIST`).
+  5. The **exhaustive label/guidance maps**: `KIND_LABEL` in `src/app/visuals/page.tsx`,
+     `src/app/app/documents/[id]/visual-panel.tsx`, and
+     `src/app/app/documents/[id]/block-visual-generator.tsx`, plus `KIND_GUIDANCE`
+     in `src/lib/ai/prompt.ts`. The visual-panel type-switcher pills + the generation
+     prompt both `.map(VISUAL_KINDS)`, so a new kind becomes selectable/generatable
+     **automatically** once these maps compile.
+- **timeline** = ordered horizontal steps along a centered axis (`timelineLayout`):
+  numbered badge per step on the axis, label cards alternating above/below via a
+  stem; positions derived from order (`x/y` ignored). **cycle** = nodes evenly
+  spaced around a ring (`cycleLayout`, start top / clockwise, radius reserves the
+  max node box so nothing clips), with **auto-generated directed arcs** `i → (i+1)
+  % n` (`RingArrow`, quadratic Bézier bulged outward from the ring center). cycle
+  **ignores `visual.edges`** (the ring connectors ARE the directed edges), so its
+  fixture keeps `edges: []`.
+- **Browser QA (`/visuals`, headless):** `dev-browser` here has no X server — pass
+  `--headless`. Assert each `section[data-visual-type="<kind>"] svg` has the right
+  `viewBox` + real geometry (cycle ⇒ `polygon` arrowheads + `path` arcs; timeline ⇒
+  `line` axis/stems + `circle` badges + `rect` cards), no horizontal overflow at
+  1280/768/375 (`scrollWidth <= clientWidth`), and that every element's `getBBox`
+  stays within the viewBox (nothing clipped).

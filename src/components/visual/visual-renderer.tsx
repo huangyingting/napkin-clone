@@ -2,7 +2,13 @@ import { forwardRef, Fragment, type JSX } from "react";
 import type { LucideIcon } from "lucide-react";
 
 import { resolveIconComponent } from "@/components/visual/icon-registry";
-import { chartLayout, listLayout } from "@/components/visual/layout";
+import {
+  chartLayout,
+  cycleLayout,
+  listLayout,
+  timelineLayout,
+  type CycleNodePlacement,
+} from "@/components/visual/layout";
 import {
   DEFAULT_NODE_HEIGHT,
   DEFAULT_NODE_WIDTH,
@@ -685,6 +691,187 @@ function ConceptMap({ visual }: { visual: Visual }): JSX.Element {
   );
 }
 
+function Timeline({ visual }: { visual: Visual }): JSX.Element {
+  const { style } = visual;
+  const layout = timelineLayout(visual);
+  const { axisY, badgeRadius, cardHeight } = layout;
+
+  return (
+    <Fragment>
+      {visual.nodes.length > 1 ? (
+        <line
+          x1={layout.firstCenterX}
+          y1={axisY}
+          x2={layout.lastCenterX}
+          y2={axisY}
+          stroke={style.edgeColor}
+          strokeWidth={2}
+        />
+      ) : null}
+      {layout.steps.map((step, index) => {
+        const accent = step.node.color ?? pick(style.palette, index);
+        const cardEdgeY = step.above ? step.cardY + cardHeight : step.cardY;
+        return (
+          <g key={step.node.id}>
+            <line
+              x1={step.centerX}
+              y1={axisY}
+              x2={step.centerX}
+              y2={cardEdgeY}
+              stroke={style.edgeColor}
+              strokeWidth={1.5}
+            />
+            <NodeEl
+              node={{
+                ...step.node,
+                x: step.cardCenterX,
+                y: step.cardCenterY,
+                width: layout.cardWidth,
+                height: cardHeight,
+                shape: "rounded",
+              }}
+              fill={style.nodeFill}
+              stroke={step.node.stroke ?? style.nodeStroke}
+              text={step.node.textColor ?? style.nodeText}
+              style={style}
+              fontSize={style.fontSize}
+              fontWeight={style.fontWeight}
+            />
+            <circle
+              cx={step.centerX}
+              cy={axisY}
+              r={badgeRadius}
+              fill={accent}
+            />
+            <text
+              x={step.centerX}
+              y={axisY}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fill="#ffffff"
+              fontFamily={style.fontFamily}
+              fontSize={style.fontSize}
+              fontWeight={700}
+            >
+              {index + 1}
+            </text>
+          </g>
+        );
+      })}
+    </Fragment>
+  );
+}
+
+/**
+ * Directed arrow arcing along the ring from one node to the next. The control
+ * point bulges outward from the ring center so consecutive arrows follow the
+ * circle instead of cutting straight across it.
+ */
+function RingArrow({
+  from,
+  to,
+  cx,
+  cy,
+  color,
+}: {
+  from: CycleNodePlacement;
+  to: CycleNodePlacement;
+  cx: number;
+  cy: number;
+  color: string;
+}): JSX.Element {
+  const fromCenter = { x: from.x, y: from.y };
+  const toCenter = { x: to.x, y: to.y };
+  const start = boundaryPoint(
+    toCenter,
+    fromCenter,
+    from.width / 2,
+    from.height / 2,
+  );
+  const end = boundaryPoint(fromCenter, toCenter, to.width / 2, to.height / 2);
+  const mid = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
+
+  let ox = mid.x - cx;
+  let oy = mid.y - cy;
+  let len = Math.hypot(ox, oy);
+  if (len < 1e-3) {
+    ox = -(end.y - start.y);
+    oy = end.x - start.x;
+    len = Math.hypot(ox, oy) || 1;
+  }
+  const bulge = 28;
+  const control = {
+    x: mid.x + (ox / len) * bulge,
+    y: mid.y + (oy / len) * bulge,
+  };
+
+  return (
+    <g>
+      <path
+        d={`M ${start.x} ${start.y} Q ${control.x} ${control.y} ${end.x} ${end.y}`}
+        fill="none"
+        stroke={color}
+        strokeWidth={2.5}
+        strokeLinecap="round"
+      />
+      {arrowHead(end, control, color)}
+    </g>
+  );
+}
+
+function CycleScene({ visual }: { visual: Visual }): JSX.Element {
+  const { style } = visual;
+  const layout = cycleLayout(visual);
+  const { cx, cy, placements } = layout;
+  const count = placements.length;
+
+  return (
+    <Fragment>
+      {count > 1
+        ? placements.map((from, index) => {
+            const to = placements[(index + 1) % count];
+            if (from === to) {
+              return null;
+            }
+            return (
+              <RingArrow
+                key={`ring-${from.node.id}`}
+                from={from}
+                to={to}
+                cx={cx}
+                cy={cy}
+                color={pick(style.palette, index)}
+              />
+            );
+          })
+        : null}
+      {placements.map((placement, index) => {
+        const accent = placement.node.color ?? pick(style.palette, index);
+        return (
+          <NodeEl
+            key={placement.node.id}
+            node={{
+              ...placement.node,
+              x: placement.x,
+              y: placement.y,
+              width: placement.width,
+              height: placement.height,
+              shape: placement.node.shape ?? "pill",
+            }}
+            fill={accent}
+            stroke={placement.node.stroke ?? accent}
+            text={placement.node.textColor ?? "#ffffff"}
+            style={style}
+            fontSize={style.fontSize}
+            fontWeight={style.fontWeight}
+            strokeWidth={0}
+          />
+        );
+      })}
+    </Fragment>
+  );
+}
+
 function VisualBody({ visual }: { visual: Visual }): JSX.Element | null {
   switch (visual.type) {
     case "flowchart":
@@ -697,6 +884,10 @@ function VisualBody({ visual }: { visual: Visual }): JSX.Element | null {
       return <BarChart visual={visual} />;
     case "concept":
       return <ConceptMap visual={visual} />;
+    case "timeline":
+      return <Timeline visual={visual} />;
+    case "cycle":
+      return <CycleScene visual={visual} />;
     default:
       return null;
   }

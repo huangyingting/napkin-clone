@@ -267,6 +267,52 @@ const concept: Visual = {
   ],
 };
 
+const timeline: Visual = {
+  version: VISUAL_SCHEMA_VERSION,
+  type: "timeline",
+  title: "Product launch timeline",
+  width: 820,
+  height: 300,
+  style: { ...DEFAULT_STYLE },
+  nodes: [
+    { id: "research", label: "Research", icon: "Search" },
+    { id: "design", label: "Design & prototype", icon: "Sparkles" },
+    { id: "build", label: "Build MVP", icon: "Hammer" },
+    { id: "beta", label: "Private beta", icon: "Flag" },
+    { id: "launch", label: "Public launch", icon: "Rocket" },
+  ],
+  edges: [],
+};
+
+const cycle: Visual = {
+  version: VISUAL_SCHEMA_VERSION,
+  type: "cycle",
+  title: "Continuous improvement loop",
+  width: 620,
+  height: 560,
+  style: { ...DEFAULT_STYLE },
+  nodes: [
+    {
+      id: "plan",
+      label: "Plan",
+      width: 140,
+      height: 56,
+      icon: "ClipboardList",
+    },
+    { id: "build", label: "Build", width: 140, height: 56, icon: "Hammer" },
+    { id: "ship", label: "Ship", width: 140, height: 56, icon: "Rocket" },
+    {
+      id: "measure",
+      label: "Measure",
+      width: 140,
+      height: 56,
+      icon: "BarChart",
+    },
+    { id: "learn", label: "Learn", width: 140, height: 56, icon: "RefreshCw" },
+  ],
+  edges: [],
+};
+
 /** All sample fixtures keyed by visual kind. */
 export const FIXTURES: Record<VisualKind, Visual> = {
   flowchart,
@@ -274,6 +320,8 @@ export const FIXTURES: Record<VisualKind, Visual> = {
   list,
   chart,
   concept,
+  timeline,
+  cycle,
 };
 
 /** Sample fixtures in the canonical {@link VISUAL_KINDS} order. */

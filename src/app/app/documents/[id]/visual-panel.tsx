@@ -32,6 +32,8 @@ const KIND_LABEL: Record<VisualKind, string> = {
   list: "List",
   chart: "Chart",
   concept: "Concept",
+  timeline: "Timeline",
+  cycle: "Cycle",
 };
 
 const generateButtonClass =

@@ -42,6 +42,10 @@ const KIND_GUIDANCE: Record<VisualKind, string> = {
     "chart: a bar chart; every node needs a numeric `value`; x/y may be omitted (bars are laid out from value + index).",
   concept:
     "concept: a non-linear graph of related ideas connected by labeled edges; set x/y to spread nodes out.",
+  timeline:
+    "timeline: an ordered sequence of steps along a horizontal axis; order nodes chronologically; x/y may be omitted (steps are laid out from order).",
+  cycle:
+    "cycle: a repeating loop of stages; order nodes in the direction of the cycle; x/y and edges may be omitted (nodes are arranged around a ring with directed arrows).",
 };
 
 const ICON_NAMES = ICON_CATALOG.map((entry) => entry.name);
