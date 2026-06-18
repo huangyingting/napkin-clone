@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/session";
 
 import { ProfileForm } from "./profile-form";
 import { PasswordForm } from "./password-form";
+import { DeleteAccountForm } from "./delete-account-form";
 
 export const metadata: Metadata = {
   title: "Settings — Napkin Clone",
@@ -64,6 +65,18 @@ export default async function SettingsPage() {
             </p>
           </div>
           <PasswordForm hasPassword={hasPassword} />
+        </section>
+
+        <section className="flex flex-col gap-4 rounded-2xl border border-red-600/20 bg-white p-6 dark:border-red-500/20 dark:bg-zinc-950">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-base font-semibold text-red-600 dark:text-red-400">
+              Danger zone
+            </h2>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              Irreversible actions for your account.
+            </p>
+          </div>
+          <DeleteAccountForm email={user.email} />
         </section>
 
         <Link

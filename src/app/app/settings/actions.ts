@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 
+import { signOut } from "@/auth";
 import { validatePasswordChange } from "@/lib/auth/password";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
@@ -16,6 +17,12 @@ const BCRYPT_COST = 12;
 /** Generic fallback so a failed change never leaks account state. */
 const GENERIC_PASSWORD_ERROR =
   "Could not change your password. Please try again.";
+
+/** Literal keyword accepted as a confirmation alternative to the email. */
+const DELETE_CONFIRMATION_KEYWORD = "DELETE";
+
+/** Generic fallback so a failed deletion never leaks account state. */
+const GENERIC_DELETE_ERROR = "Could not delete your account. Please try again.";
 
 export type ProfileFormState =
   | { status: "idle" }
@@ -125,4 +132,62 @@ export async function changePassword(
   });
 
   return { status: "success" };
+}
+
+export type DeleteAccountState =
+  | { status: "idle" }
+  | { status: "error"; message: string };
+
+/**
+ * Permanently deletes the current user's account.
+ *
+ * Scoped to the authenticated user by keying the delete on the session
+ * `user.id` (never a client-supplied id), so a caller can only delete their own
+ * account. As a guard against accidents the caller must confirm by typing their
+ * exact email address (case-insensitive) or the literal word "DELETE".
+ *
+ * Deleting the `User` row cascades — via the schema's `onDelete: Cascade`
+ * relations — to the user's owned documents (and each document's visuals and
+ * comments), owned workspaces (and their memberships and invite links), their
+ * workspace memberships, and the comments they authored on other documents.
+ *
+ * On success the session cookie is cleared and the user is sent to the marketing
+ * home. `signOut` performs that redirect by throwing, so it must run last and
+ * stay outside any try/catch (the trailing return is unreachable but satisfies
+ * the action's return type).
+ */
+export async function deleteAccount(
+  _prevState: DeleteAccountState,
+  formData: FormData,
+): Promise<DeleteAccountState> {
+  const user = await requireUser();
+
+  const confirmation = String(formData.get("confirmation") ?? "").trim();
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { email: true },
+  });
+  if (!dbUser) {
+    return { status: "error", message: GENERIC_DELETE_ERROR };
+  }
+
+  const matchesEmail =
+    confirmation.toLowerCase() === dbUser.email.trim().toLowerCase();
+  const matchesKeyword = confirmation === DELETE_CONFIRMATION_KEYWORD;
+  if (!matchesEmail && !matchesKeyword) {
+    return {
+      status: "error",
+      message: `Type your email or "${DELETE_CONFIRMATION_KEYWORD}" to confirm.`,
+    };
+  }
+
+  try {
+    await prisma.user.delete({ where: { id: user.id } });
+  } catch {
+    return { status: "error", message: GENERIC_DELETE_ERROR };
+  }
+
+  await signOut({ redirectTo: "/" });
+  return { status: "idle" };
 }

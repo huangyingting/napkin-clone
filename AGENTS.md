@@ -1666,3 +1666,46 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   set-a-password variant). Verify a change by clearing cookies and logging in with
   the new password (and confirming the old one now fails). Settings page has no
   horizontal overflow at 1280/768/375. Clean up `*@test.dev` users after.
+
+### Delete account (US-011)
+
+- **No schema change needed — every `User` relation already cascades.**
+  `documents` (`Document.owner` `onDelete: Cascade`), `ownedWorkspaces`
+  (`Workspace.owner` Cascade), `memberships` (`WorkspaceMember.user` Cascade), and
+  authored `comments` (`Comment.author` Cascade) are all set in BOTH migration
+  histories, so `prisma.user.delete({ where: { id } })` removes the account and
+  fans out automatically: owned docs → their visuals + comments; owned workspaces →
+  their members + invite links; the user's memberships in OTHER workspaces; and
+  comments they authored on others' docs. Documents that live in a deleted
+  workspace but are owned by someone else are NOT deleted — `Document.workspace` is
+  `onDelete: SetNull`, so they survive with `workspaceId = null` (verified with a
+  throwaway root `tsx` cascade script).
+- **`deleteAccount(prev, formData)` (`src/app/app/settings/actions.ts`,
+  `"use server"`)** is scoped to the SESSION `user.id` (never client-supplied — the
+  account-write rule from US-009). The caller must confirm by typing their exact
+  email (case-insensitive, compared against the DB email) OR the literal word
+  `"DELETE"`; a mismatch returns a `DeleteAccountState` error (no leak). On success
+  it `prisma.user.delete` then **`await signOut({ redirectTo: "/" })`** — `signOut`
+  performs the redirect by THROWING (`NEXT_REDIRECT`), so it MUST run last and stay
+  OUTSIDE any try/catch (the trailing `return { status: "idle" }` is unreachable but
+  satisfies the return type). Import `signOut` from `@/auth` (same call the
+  `SignOutButton` uses; JWT sessions mean signOut just clears the cookie, so it
+  works fine even after the user row is gone).
+- **`DeleteAccountForm` (`delete-account-form.tsx`, `"use client"`,
+  `useActionState`)** renders a red "Delete account" button that opens a
+  `createPortal` confirm dialog (per AGENTS.md — escapes the settings card's
+  stacking context). The dialog's submit button is guarded client-side
+  (`disabled` until the typed value matches the email or `"DELETE"`) AND the server
+  re-validates. The page (`settings/page.tsx`) renders a Danger-zone `<section>`
+  (red border) below the password section, passing `email={user.email}`. Because
+  the action redirects on success, the form just unmounts — the state type only
+  needs `idle`/`error` (no success branch).
+- **Test hooks:** trigger `button:has-text("Delete account")`; dialog `[role="dialog"]`;
+  input `input[aria-label="Confirm account deletion"]`; submit is the dialog-scoped
+  `[role="dialog"] button:has-text("Delete account")` (`"Deleting…"` while pending).
+  **Browser QA:** sign up a fresh `*@test.dev` user, open `/app/settings`, assert the
+  confirm button is disabled initially + after wrong text + enabled after the exact
+  email; submit → `waitForURL` off `/app/settings` to `/` (signed out); then `/app`
+  bounces to `/login` and logging in with the old creds fails (account truly gone).
+  The delete flow self-cleans the test user (no cleanup script needed). Both the
+  email and the `"DELETE"` keyword paths were verified end-to-end.
