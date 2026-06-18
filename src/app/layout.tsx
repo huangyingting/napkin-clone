@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { HeaderGate } from "@/components/header-gate";
 import { SiteHeader } from "@/components/site-header";
 import { Providers } from "./providers";
 
@@ -32,7 +33,9 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <Providers>
-          <SiteHeader />
+          <HeaderGate>
+            <SiteHeader />
+          </HeaderGate>
           {children}
         </Providers>
       </body>

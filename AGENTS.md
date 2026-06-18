@@ -1190,3 +1190,42 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   `<path>` (arrowhead `<polygon>` count unchanged), wait for the `role="status"`
   "Visual saved", `page.reload()` to confirm persistence, and DB-check
   `Visual.data.edges[i].style === "curved"` (only the selected edge changes).
+
+### Public embed route (parity-gaps US-018)
+
+- **`/embed/[shareId]`** (`src/app/embed/[shareId]/page.tsx`) is a minimal,
+  chrome-free page for iframing a shared document's **visual(s)** on another site.
+  It's a server component that mirrors `/share/[shareId]` scoping —
+  `prisma.document.findFirst({ where: { shareId, isShared: true } })` then
+  `notFound()` when null (a private/non-shared `shareId` 404s). It loads **all**
+  visuals (`visuals: { orderBy: [{ orderIndex }, { createdAt }], select: {
+  anchorBlockId, data } }`), `safeParseVisual`s each, and renders them with the
+  directive-free **`VisualRenderer`** (doc-level `anchorBlockId === null` first,
+  then anchored, in document order). No text panel, no markdown, no session widgets.
+- **No app chrome via `HeaderGate` (`src/components/header-gate.tsx`, `"use
+  client"`).** The root `layout.tsx` always renders `<SiteHeader />`; to suppress it
+  on embed without a multi-root-layout refactor, the layout now wraps it:
+  `<HeaderGate><SiteHeader /></HeaderGate>`. HeaderGate calls `usePathname()` and
+  returns `null` (rendering nothing) when the path starts with `/embed`.
+  `usePathname()` **resolves during SSR** in the App Router, so the header is absent
+  from the very first HTML (verified: `<header>`/`<nav>` count 0 in SSR DOM — no
+  flash inside an iframe). Caveat: SiteHeader is still rendered on the server (its
+  output lands in the discarded RSC flight payload) so `getCurrentUser()` runs for
+  embed too — harmless (auth cookies are SameSite=Lax so they aren't sent to a
+  cross-site iframe anyway), and the embed **DOM** contains no auth/session widget.
+- **Safe to frame by default.** Next.js/the NextAuth proxy set **no**
+  `X-Frame-Options` / CSP `frame-ancestors`, so embedding isn't blocked — don't add
+  such headers. The proxy matcher already lets `/embed/*` through (`authorized`
+  returns `true` for non-`/app`, non-auth paths). Verified end-to-end: the route
+  loads inside a **cross-origin** iframe and renders the visuals.
+- **Browser QA (`dev-browser --headless`, no X server here):** assert `goto` status
+  200 for a shared id and **404** for a non-shared/unknown id (`resp.status()`);
+  assert `document.querySelectorAll('header').length === 0` and no `Log in`/`Sign
+  up`/`Napkin Clone` **anchor** elements (the strings appear only in RSC `<script>`
+  flight data, not as DOM `<a>`s — count `<a>` elements, not `innerHTML`); assert
+  `svg[role="img"]` count matches the doc's visuals; check no horizontal overflow at
+  1280/768/375. Framing: `page.setContent('<iframe src=".../embed/<id>">')`, wait,
+  then `page.frames().find(f => f.url().includes("/embed/")).evaluate(...)` (Playwright
+  reads cross-origin frames). Seed a shared doc + visuals with a throwaway root-level
+  `tsx` script (the documented SQLite `PrismaBetterSqlite3` pattern); delete it +
+  the test rows before committing.
