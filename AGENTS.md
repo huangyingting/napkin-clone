@@ -2111,3 +2111,70 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   clientWidth === 0`. HTTP status is checkable server-side too (`/boom` → 500,
   `/no-such-route` → 404) via a `node -e "fetch(...)"` probe.
 
+
+## Content-First UI redesign (branch `ralph/content-first-ui`)
+
+> A fourth PRD (`scripts/prd.json`, doc `tasks/prd-content-first-ui.md`) that
+> **reuses US-001.. numbering** — distinct from the original Napkin Clone, Parity
+> Gaps, and Product Maturity stories above. Disambiguate by branch/section.
+> Branched from `main` (post product-maturity merge). It is a **pure
+> front-end/UX redesign**: the editor becomes a content-first, Napkin-style
+> single canvas (write prose like a blog, per-paragraph hover "spark" to generate
+> a visual, inline visuals beneath their source paragraph, floating contextual
+> toolbars + one mini-toolbar, CSS-only micro-interactions). It **reuses ALL
+> existing backend unchanged** — server actions (`attachVisual`/`detachVisual`/
+> `saveDocumentContent`/`saveDocumentTitle`), `/api/generate`, the visual schema,
+> collaboration hooks, and the directive-free `VisualRenderer`/`VisualEditor`/
+> `StylePanel`/`ExportMenu`. NO schema, migration, action, or endpoint changes.
+
+### Editor layout scaffold (US-001)
+
+- **The editor page now renders `ContentEditor`** (`src/app/app/documents/[id]/
+  content-editor.tsx`, `"use client"`), NOT the legacy `DocumentEditor`
+  (`document-editor.tsx`). The old tab/two-panel component is **dead code kept on
+  purpose until US-015 deletes it** (the PRD sequences its removal there); it's no
+  longer imported by any route, still typechecks, and isn't bundled. Don't re-wire
+  the page back to `DocumentEditor`.
+- **`ContentEditor` is the single canvas all later content-first stories build
+  on.** US-001 is just the scaffold: a single centered **`max-w-3xl` (768px)**
+  blog-width column inside a scrollable area — an inline **title `<input
+  aria-label="Document title">`** at top and an **auto-growing body `<textarea
+  aria-label="Document text">`** below (grow via a `useEffect` on `content.value`
+  setting `height = scrollHeight`; the page scrolls, not the textarea). **No
+  Write/Preview tabs, no always-on right `VisualPanel`.** Inline visuals (US-002),
+  inline prose formatting (US-003), per-paragraph sparks (US-004/005), contextual
+  visual controls (US-007), and floating format toolbar (US-008) get layered on
+  later — keep the single-column structure.
+- **Reuse the EXISTING collab/autosave wiring verbatim** (copied from
+  `document-editor.tsx`): `useCollaboration({ room: id, userName })` →
+  `useYText(ytitle/ycontent, { initial, ready, editable, localOrigin, elementRef,
+  onLocalChange })` + `useDebouncedSave(saveDocumentTitle/Content)` +
+  `combineSaveStatus`. **`editable = canEdit && ready`** (gate editing until collab
+  is synced or the 2.5s degraded fallback) — the textarea/title are `disabled`
+  until then, so browser tests must **wait for `textarea[aria-label="Document
+  text"]:not([disabled])`** as the ready signal. Seed shared state once on `ready`
+  via `seed({ content, title, visual: initialVisual ? JSON.stringify(...) : null })`.
+- **Two `[role="status"]` elements coexist** in the editor header: the **Presence**
+  connection pill ("Live"/"Connecting…"/"Offline") AND the **save-status** span
+  ("All changes saved"/"Saving…"/"Unsaved changes…"). When asserting save status in
+  browser QA, read **all** `[role="status"]` and match the text, not the first node.
+- **Presence/Share/Comments are kept in a top header bar** in US-001 (not dropped)
+  so collaboration features never regress; US-009 refines this into a compact
+  "mini-toolbar" and US-014 verifies. `CommentsPanel` gets `getTextSelection`
+  (reads the body textarea selection) and `anchorNode={null}` for now (inline visual
+  selection arrives with US-007).
+- **Page `initialVisual` extraction was trimmed to the doc-level visual only**
+  (first `anchorBlockId === null` row); the block-anchored visuals map
+  (`initialBlockVisuals`) is reintroduced by US-002 when it renders inline visuals.
+  This keeps US-001 free of unused props/vars (the repo's
+  `@typescript-eslint/no-unused-vars` is only `warn`, but keep it clean).
+- **Browser QA (dev-browser, headless — no X server here):** signup redirects to
+  **`/`** (home), not `/app` (`src/app/signup/actions.ts` uses `redirectTo: "/"`),
+  so after `button:has-text("Create account")` wait for the URL to leave `/signup`
+  then `goto('/app')`. US-012 seeds a "Welcome to Napkin Clone" sample doc on
+  signup, so a fresh `*@test.dev` user already has a document to open. Verified:
+  768px column, title+body present, no Write/Preview buttons, no `[aria-label=
+  "Generate visual"]` right panel, editing enabled after ready, save-status →
+  "All changes saved", edit persists across `page.reload()`, `scrollWidth ==
+  clientWidth` (no overflow). The pre-existing `scroll-behavior: smooth` console
+  note is unrelated.

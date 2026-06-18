@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/session";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
 import { listComments } from "./comments-actions";
-import { DocumentEditor } from "./document-editor";
+import { ContentEditor } from "./content-editor";
 
 export const metadata: Metadata = {
   title: "Editor — Napkin Clone",
@@ -56,8 +56,8 @@ export default async function DocumentEditorPage({
         },
       },
       // All visuals for this document: the document-level one (anchorBlockId =
-      // null) renders in the right panel; block-anchored visuals (US-009) are
-      // shown inline near their source block in the preview (US-010).
+      // null) seeds the editor; block-anchored visuals render inline near their
+      // source block (added back to the content-first editor in US-002).
       visuals: {
         orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }],
         select: { anchorBlockId: true, data: true },
@@ -75,20 +75,18 @@ export default async function DocumentEditorPage({
   const canEdit =
     isOwner || workspaceRole === "OWNER" || workspaceRole === "EDITOR";
 
-  // Tolerate legacy/garbled stored data: only pass through valid visuals.
-  // Split into the document-level visual (anchorBlockId = null) and a map of
-  // block-anchored visuals keyed by their anchor block id.
+  // Tolerate legacy/garbled stored data: only pass through valid visuals. The
+  // content-first scaffold (US-001) seeds the document-level visual
+  // (anchorBlockId = null); block-anchored visuals are rendered inline in US-002.
   let initialVisual: Visual | null = null;
-  const initialBlockVisuals: Record<string, Visual> = {};
   for (const row of document.visuals) {
-    const parsed = safeParseVisual(row.data);
-    if (!parsed.success) {
+    if (row.anchorBlockId !== null) {
       continue;
     }
-    if (row.anchorBlockId === null) {
-      initialVisual ??= parsed.data;
-    } else if (!(row.anchorBlockId in initialBlockVisuals)) {
-      initialBlockVisuals[row.anchorBlockId] = parsed.data;
+    const parsed = safeParseVisual(row.data);
+    if (parsed.success) {
+      initialVisual = parsed.data;
+      break;
     }
   }
 
@@ -96,12 +94,11 @@ export default async function DocumentEditorPage({
   const initialComments = await listComments(document.id);
 
   return (
-    <DocumentEditor
+    <ContentEditor
       id={document.id}
       initialTitle={document.title}
       initialContent={document.content}
       initialVisual={initialVisual}
-      initialBlockVisuals={initialBlockVisuals}
       initialIsShared={document.isShared}
       initialShareId={document.shareId}
       canEdit={canEdit}
