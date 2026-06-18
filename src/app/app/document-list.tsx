@@ -31,23 +31,47 @@ function parseSort(value: string | null): SortKey {
   return SORT_KEYS.includes(value as SortKey) ? (value as SortKey) : "edited";
 }
 
-/** Returns a new array sorted by the chosen key (does not mutate the input). */
+type ViewKey = "all" | "favorites";
+
+/** Coerces a raw URL value to a known view, defaulting to "all". */
+function parseView(value: string | null): ViewKey {
+  return value === "favorites" ? "favorites" : "all";
+}
+
+/**
+ * Returns a new array sorted by the chosen key (does not mutate the input).
+ *
+ * When `favoritesFirst` is set, starred documents float to the top of the grid
+ * while preserving the chosen sort within the favorite and non-favorite groups
+ * (`Array.prototype.sort` is stable, and the partition keeps relative order).
+ */
 function sortDocuments(
   docs: DashboardDocument[],
   sort: SortKey,
+  favoritesFirst: boolean,
 ): DashboardDocument[] {
   const copy = [...docs];
   switch (sort) {
     case "title":
-      return copy.sort((a, b) =>
+      copy.sort((a, b) =>
         a.title.localeCompare(b.title, undefined, { sensitivity: "base" }),
       );
+      break;
     case "created":
-      return copy.sort((a, b) => b.createdAtMs - a.createdAtMs);
+      copy.sort((a, b) => b.createdAtMs - a.createdAtMs);
+      break;
     case "edited":
     default:
-      return copy.sort((a, b) => b.updatedAtMs - a.updatedAtMs);
+      copy.sort((a, b) => b.updatedAtMs - a.updatedAtMs);
+      break;
   }
+  if (favoritesFirst) {
+    return [
+      ...copy.filter((document) => document.favorite),
+      ...copy.filter((document) => !document.favorite),
+    ];
+  }
+  return copy;
 }
 
 const primaryButtonClass =
@@ -98,10 +122,12 @@ function UndoToast({ title, onUndo }: { title: string; onUndo: () => void }) {
  * `restoreDocument` revalidation brings it back into `documents` (at which point
  * the duplicate guard drops the local copy).
  *
- * The toolbar adds a case-insensitive title search (client-side, local state)
- * and a sort control (Last edited / Title A–Z / Date created) whose selection
- * persists in the URL `sort` search param via the History API (kept in sync with
- * `useSearchParams`, so no server round-trip is needed to re-sort).
+ * The toolbar adds a case-insensitive title search (client-side, local state),
+ * a sort control (Last edited / Title A–Z / Date created), and a Favorites
+ * filter. The sort and favorites selections persist in the URL (`sort` / `view`
+ * search params) via the History API (kept in sync with `useSearchParams`, so no
+ * server round-trip is needed); the search query is local-only. When the
+ * Favorites filter is off, starred documents float to the top of the grid.
  */
 export function DocumentList({
   documents,
@@ -118,16 +144,37 @@ export function DocumentList({
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const sort = parseSort(searchParams.get("sort"));
+  const view = parseView(searchParams.get("view"));
+  const viewFavorites = view === "favorites";
 
-  const setSort = (next: SortKey) => {
+  // Persists a view-state param in the URL (dropping it for its default value)
+  // via the History API. `useSearchParams` reflects this without a server round
+  // trip, so the list re-renders instantly while the value survives reloads.
+  const updateParams = (mutate: (params: URLSearchParams) => void) => {
     const params = new URLSearchParams(Array.from(searchParams.entries()));
-    if (next === "edited") {
-      params.delete("sort");
-    } else {
-      params.set("sort", next);
-    }
+    mutate(params);
     const qs = params.toString();
     window.history.replaceState(null, "", qs ? `${pathname}?${qs}` : pathname);
+  };
+
+  const setSort = (next: SortKey) => {
+    updateParams((params) => {
+      if (next === "edited") {
+        params.delete("sort");
+      } else {
+        params.set("sort", next);
+      }
+    });
+  };
+
+  const setView = (next: ViewKey) => {
+    updateParams((params) => {
+      if (next === "all") {
+        params.delete("view");
+      } else {
+        params.set("view", next);
+      }
+    });
   };
 
   const clearTimer = useCallback(() => {
@@ -187,15 +234,20 @@ export function DocumentList({
   );
   const combined = [...extra, ...base];
 
+  const favFiltered = viewFavorites
+    ? combined.filter((document) => document.favorite)
+    : combined;
+
   const trimmedQuery = query.trim().toLowerCase();
   const filtered = trimmedQuery
-    ? combined.filter((document) =>
+    ? favFiltered.filter((document) =>
         document.title.toLowerCase().includes(trimmedQuery),
       )
-    : combined;
-  const visible = sortDocuments(filtered, sort);
+    : favFiltered;
+  const visible = sortDocuments(filtered, sort, !viewFavorites);
 
   const hasDocuments = combined.length > 0;
+  const noFavorites = viewFavorites && favFiltered.length === 0;
 
   return (
     <>
@@ -239,7 +291,32 @@ export function DocumentList({
                 className="h-10 w-full rounded-full border border-black/[.08] bg-white pl-9 pr-4 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200 dark:border-white/[.12] dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-500 dark:focus:ring-zinc-700"
               />
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                aria-label="Show favorites only"
+                aria-pressed={viewFavorites}
+                onClick={() => setView(viewFavorites ? "all" : "favorites")}
+                className={`flex h-10 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition ${
+                  viewFavorites
+                    ? "border-transparent bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
+                    : "border-black/[.08] bg-white text-zinc-600 hover:text-zinc-900 dark:border-white/[.12] dark:bg-zinc-950 dark:text-zinc-300 dark:hover:text-zinc-100"
+                }`}
+              >
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  fill={viewFavorites ? "currentColor" : "none"}
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4 text-amber-400"
+                >
+                  <path d="M12 17.27 6.18 21l1.64-7.03L2 9.24l7.19-.61L12 2l2.81 6.63 7.19.61-5.82 4.73L17.82 21z" />
+                </svg>
+                Favorites
+              </button>
               <label
                 htmlFor="sort-documents"
                 className="text-sm text-zinc-500 dark:text-zinc-400"
@@ -262,7 +339,16 @@ export function DocumentList({
             </div>
           </div>
 
-          {visible.length === 0 ? (
+          {noFavorites ? (
+            <div className="flex flex-col items-center gap-1 rounded-2xl border border-dashed border-black/10 bg-white px-6 py-16 text-center dark:border-white/15 dark:bg-zinc-950">
+              <h2 className="text-base font-medium text-zinc-900 dark:text-zinc-100">
+                No favorite documents yet
+              </h2>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                Star a document to keep it here for quick access.
+              </p>
+            </div>
+          ) : visible.length === 0 ? (
             <div className="flex flex-col items-center gap-1 rounded-2xl border border-dashed border-black/10 bg-white px-6 py-16 text-center dark:border-white/15 dark:bg-zinc-950">
               <h2 className="text-base font-medium text-zinc-900 dark:text-zinc-100">
                 No documents match your search

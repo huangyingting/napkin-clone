@@ -1540,3 +1540,38 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   horizontal overflow at 1280/768/375. **dev-browser gotcha:** its QuickJS sandbox passes
   a **string** (not a `URL`) to `waitForURL(predicate)` — use `String(url).includes(...)`,
   not `url.pathname`.
+
+### Filter the dashboard to favorites (US-008)
+
+- **The favorites filter lives entirely in `DocumentList`** (`src/app/app/document-list.tsx`,
+  the existing client wrapper). No server/schema change — it filters the already-loaded
+  list, like search/sort. It persists in the URL `view` search param (value `favorites`;
+  dropped for the default "all") using the SAME History-API pattern as `sort`
+  (`window.history.replaceState` + `useSearchParams`, instant re-render, no server round
+  trip). Both writers now go through a small `updateParams(mutate)` helper.
+- **Toggle hook:** `button[aria-label="Show favorites only"]` with `aria-pressed`
+  reflecting state; clicking flips `view` between `all`/`favorites`. It's a pill in the
+  toolbar's right group (now `flex flex-wrap` so the extra control can wrap instead of
+  overflowing at 375px — verified `scrollWidth <= clientWidth` at 1280/768/375).
+- **Chosen "favorites-first" behavior (the AC's optional bit):** when the filter is OFF
+  (all view), starred docs FLOAT to the top of the grid while the chosen sort still
+  orders within the favorite and non-favorite groups. Implemented by sorting normally
+  then partitioning (`Array.prototype.sort` is stable, partition preserves order);
+  `sortDocuments(docs, sort, favoritesFirst)` gained the 3rd arg, passed `!viewFavorites`.
+  When the filter is ON, all shown are favorites so the float is a no-op.
+- **THREE empty states now** (precedence matters): truly-empty (no docs at all → "No
+  documents yet" + create, toolbar hidden) > favorites-on-but-none (`viewFavorites &&
+  favFiltered.length === 0` → "No favorite documents yet", toolbar STILL shown so the user
+  can toggle off) > search-yields-nothing ("No documents match your search"). Filter order
+  in render: `combined` → favorites filter (`favFiltered`) → search filter → sort.
+- **Unfavoriting in the favorites view** removes the card only after the card's
+  `toggleFavorite` revalidation updates the `favorite` prop (the parent filters on the
+  prop, not the card's optimistic state) — so the card lingers one tick then drops; reaching
+  zero shows the favorites empty state. This is the expected revalidation flow, not a bug.
+- **Browser QA:** seed a user + 3 docs (2 favorite) with distinct `updatedAt` so
+  favorites-first is observable (a non-favorite newest doc must sort BELOW older
+  favorites). Assert: all-view order favorites-first; `?view=favorites` shows only
+  favorites + `aria-pressed=true`; `page.reload()` persists titles/pressed/URL; toggle off
+  drops the param + shows all; unstar all favorites → "No favorite documents yet". Read card
+  titles via `ul li span.font-medium` `allInnerTexts()`.
+
