@@ -2641,3 +2641,31 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   none) before it detaches. Repeat under `emulateMedia({ reducedMotion: "reduce" })`
   → every animationName is `"none"` and removal is instant (the exit card is
   already `"gone"` at 30ms). 0 horizontal overflow at 1280/768/375.
+
+### Button and control hover/press micro-interactions (US-013)
+
+- **Shared control micro-interactions live in
+  `src/app/app/documents/[id]/control-styles.ts`.** Reuse its
+  `CONTROL_TRANSITION`, `CONTROL_FOCUS_RING`, `CONTROL_PRESS`, and
+  `PILL_CONTROL_CLASS` exports for any content-first editor button that should match
+  the spark / floating-toolbar / mini-toolbar behavior. This keeps the hover/press
+  feedback consistent and ensures `motion-reduce:transition-none` is applied
+  everywhere from one place.
+- **The spark and floating format toolbar keep their own shape/layout helpers, but
+  layer the shared control tokens on top.** In `content-editor.tsx`,
+  `sparkButtonClass(...)` and `toolbarButtonClass` compose those shared exports with
+  their visibility/state-specific classes, so future control tweaks should happen in
+  `control-styles.ts` first, then in the local helper only when the spark/toolbar
+  needs unique geometry.
+- **Share/comments trigger buttons should use the same pill class, and the share
+  dropdown keeps the ref-containment click-outside pattern.** `CommentsPanel`
+  prepends layout classes to `PILL_CONTROL_CLASS`; `ShareButton` uses the pill class
+  directly and puts `menuRef` on the wrapper containing BOTH trigger + menu, never
+  `stopPropagation`, so in-menu clicks don't collapse the panel.
+- **Browser QA:** a good deterministic check is computed styles + live interaction,
+  not screenshots alone. With `dev-browser --headless` against `npm run build &&
+  NEXT_PUBLIC_COLLAB_WS_URL=ws://127.0.0.1:1234 npm run start`, verify the Share and
+  Comments buttons still open from the mini-toolbar, the spark goes from
+  `opacity: 0` → visible after block focus, the keyboard-focused spark gets a real
+  ring (`box-shadow` non-none), and `page.emulateMedia({ reducedMotion: "reduce" })`
+  makes the Share / spark / toolbar buttons report `transitionProperty: none`.

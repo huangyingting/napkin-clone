@@ -38,6 +38,11 @@ import {
 } from "./actions";
 import { CommentsPanel } from "./comments-panel";
 import type { CommentThread } from "./comments-actions";
+import {
+  CONTROL_FOCUS_RING,
+  CONTROL_PRESS,
+  CONTROL_TRANSITION,
+} from "./control-styles";
 import { InlineVisualEditor } from "./inline-visual-editor";
 import { BlockContent } from "./markdown-preview";
 import { Presence } from "./presence";
@@ -171,8 +176,15 @@ const TOOLBAR_BUTTONS: { type: BlockType; label: string; aria: string }[] = [
   { type: "paragraph", label: "Text", aria: "Paragraph" },
 ];
 
-const toolbarButtonClass =
-  "rounded-full px-2.5 py-1 text-xs font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100";
+const toolbarButtonClass = [
+  "rounded-full px-2.5 py-1 text-xs font-medium text-zinc-600",
+  CONTROL_TRANSITION,
+  CONTROL_PRESS,
+  "hover:bg-zinc-100 hover:text-zinc-900 active:bg-zinc-200 active:text-zinc-900",
+  CONTROL_FOCUS_RING,
+  "disabled:cursor-not-allowed disabled:opacity-50",
+  "dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 dark:active:bg-zinc-700",
+].join(" ");
 
 // Floating selection/format toolbar: a fixed, bottom-center pill that floats in
 // while the body text has focus and slides out when focus leaves the editing
@@ -189,7 +201,12 @@ function formatToolbarClass(visible: boolean): string {
 
 function sparkButtonClass(visible: boolean, active: boolean): string {
   return [
-    "flex h-7 w-7 items-center justify-center rounded-md border border-black/[.08] bg-white text-zinc-500 shadow-sm transition duration-150 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[.12] dark:bg-zinc-900 dark:text-zinc-400 dark:hover:border-white/30 dark:hover:text-zinc-100 dark:focus-visible:ring-zinc-500",
+    "flex h-7 w-7 items-center justify-center rounded-md border border-black/[.08] bg-white text-zinc-500 shadow-sm",
+    CONTROL_TRANSITION,
+    CONTROL_PRESS,
+    CONTROL_FOCUS_RING,
+    "active:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50",
+    "dark:border-white/[.12] dark:bg-zinc-900 dark:text-zinc-400 dark:hover:border-white/30 dark:hover:text-zinc-100 dark:active:bg-zinc-800",
     visible
       ? "pointer-events-auto translate-x-0 opacity-100"
       : "pointer-events-none -translate-x-1 opacity-0",
