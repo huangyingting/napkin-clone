@@ -52,6 +52,7 @@ export function DocumentEditor({
   initialTitle,
   initialContent,
   initialVisual,
+  initialBlockVisuals,
   initialIsShared,
   initialShareId,
   canEdit = true,
@@ -64,6 +65,7 @@ export function DocumentEditor({
   initialTitle: string;
   initialContent: string;
   initialVisual: Visual | null;
+  initialBlockVisuals: Record<string, Visual>;
   initialIsShared: boolean;
   initialShareId: string | null;
   canEdit?: boolean;
@@ -313,6 +315,7 @@ export function DocumentEditor({
                 documentId={id}
                 source={content.value}
                 editable={editable}
+                initialVisuals={initialBlockVisuals}
               />
             </div>
           )}

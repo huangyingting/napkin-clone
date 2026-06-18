@@ -1,4 +1,6 @@
+import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { parseMarkdown, type MarkdownBlock } from "@/lib/markdown";
+import type { Visual } from "@/lib/visual/schema";
 
 /**
  * Renders a single Markdown block (heading, bullet list, or paragraph) as a
@@ -49,9 +51,19 @@ export function BlockContent({ block }: { block: MarkdownBlock }) {
 /**
  * Renders Markdown text as structured blocks (headings, bullet lists,
  * paragraphs) using plain React elements. Shared between the editor preview and
- * (later) read-only document views, so it is intentionally directive-free.
+ * read-only document/share views, so it is intentionally directive-free.
+ *
+ * When a `visuals` map is supplied (block id → Visual), each block's anchored
+ * visual is rendered inline directly beneath its source block, so anchored
+ * visuals appear in document order (US-010).
  */
-export function MarkdownPreview({ source }: { source: string }) {
+export function MarkdownPreview({
+  source,
+  visuals,
+}: {
+  source: string;
+  visuals?: Record<string, Visual>;
+}) {
   const blocks = parseMarkdown(source);
 
   if (blocks.length === 0) {
@@ -64,9 +76,22 @@ export function MarkdownPreview({ source }: { source: string }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {blocks.map((block) => (
-        <BlockContent key={block.id} block={block} />
-      ))}
+      {blocks.map((block) => {
+        const visual = visuals?.[block.id];
+        return (
+          <div key={block.id} className="flex flex-col gap-3">
+            <BlockContent block={block} />
+            {visual ? (
+              <div
+                data-block-visual={block.id}
+                className="overflow-hidden rounded-lg border border-black/[.06] bg-white dark:border-white/[.08] dark:bg-zinc-950"
+              >
+                <VisualRenderer visual={visual} className="h-auto w-full" />
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
     </div>
   );
 }

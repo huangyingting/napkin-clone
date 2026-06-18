@@ -11,7 +11,7 @@ import {
   type VisualKind,
 } from "@/lib/visual/schema";
 
-import { attachVisual } from "./actions";
+import { attachVisual, detachVisual } from "./actions";
 import { BlockContent } from "./markdown-preview";
 
 const KIND_LABEL: Record<VisualKind, string> = {
@@ -73,16 +73,19 @@ function thumbButtonClass(active: boolean): string {
  * Visual row without overwriting other blocks' visuals.
  *
  * When `editable` is false (read-only viewers, or before collaboration is
- * ready) it renders the plain blocks with no spark, identical to MarkdownPreview.
+ * ready) it renders the plain blocks with no spark, but persisted inline
+ * visuals are still shown beneath their block.
  */
 export function BlockVisualGenerator({
   documentId,
   source,
   editable = true,
+  initialVisuals,
 }: {
   documentId: string;
   source: string;
   editable?: boolean;
+  initialVisuals?: Record<string, Visual>;
 }) {
   const blocks = parseMarkdown(source);
 
@@ -91,9 +94,12 @@ export function BlockVisualGenerator({
   const [status, setStatus] = useState<GenStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<Visual[]>([]);
-  // The chosen visual per block id, shown inline for this session. US-010 will
-  // load and display every persisted inline visual on mount and in the reader.
-  const [saved, setSaved] = useState<Record<string, Visual>>({});
+  // The chosen visual per block id, shown inline near its source block. Seeded
+  // once from the persisted block-anchored visuals (US-010) and then updated as
+  // the user generates/replaces/removes visuals this session.
+  const [saved, setSaved] = useState<Record<string, Visual>>(
+    () => initialVisuals ?? {},
+  );
   const [saveState, setSaveState] = useState<SaveState>("idle");
 
   const generateFor = useCallback(async (block: MarkdownBlock) => {
@@ -166,6 +172,30 @@ export function BlockVisualGenerator({
     setError(null);
     setSaveState("idle");
   }, []);
+
+  const removeVisual = useCallback(
+    async (blockId: string) => {
+      // Optimistically drop only this block's visual; others are untouched.
+      const previous = saved[blockId];
+      setSaved((prev) => {
+        const next = { ...prev };
+        delete next[blockId];
+        return next;
+      });
+      if (openId === blockId) {
+        close();
+      }
+      try {
+        await detachVisual(documentId, blockId);
+      } catch {
+        // Restore on failure so the user can retry.
+        if (previous) {
+          setSaved((prev) => ({ ...prev, [blockId]: previous }));
+        }
+      }
+    },
+    [documentId, saved, openId, close],
+  );
 
   if (blocks.length === 0) {
     return (
@@ -295,19 +325,39 @@ export function BlockVisualGenerator({
                 ) : null}
               </div>
             ) : chosen ? (
-              <button
-                type="button"
-                onClick={() => void generateFor(block)}
-                aria-label="Edit this block's visual"
-                className="mt-2 flex w-full max-w-xs items-center gap-2 overflow-hidden rounded-lg border border-black/[.08] bg-white p-1.5 text-left transition hover:border-black/20 dark:border-white/[.10] dark:bg-zinc-950 dark:hover:border-white/25"
+              <div
+                data-block-visual={block.id}
+                className="mt-3 rounded-xl border border-black/[.08] bg-white p-3 dark:border-white/[.10] dark:bg-zinc-950"
               >
-                <span className="aspect-[4/3] w-20 shrink-0 overflow-hidden rounded bg-white dark:bg-zinc-950">
-                  <VisualRenderer visual={chosen} className="h-full w-full" />
-                </span>
-                <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                  {KIND_LABEL[chosen.type]} added
-                </span>
-              </button>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                    {KIND_LABEL[chosen.type]}
+                  </span>
+                  {editable ? (
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => void generateFor(block)}
+                        aria-label="Replace this block's visual"
+                        className="rounded-md px-2 py-1 text-xs font-medium text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                      >
+                        Replace
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void removeVisual(block.id)}
+                        aria-label="Remove this block's visual"
+                        className="rounded-md px-2 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="overflow-hidden rounded-lg border border-black/[.06] bg-white dark:border-white/[.08] dark:bg-zinc-950">
+                  <VisualRenderer visual={chosen} className="h-auto w-full" />
+                </div>
+              </div>
             ) : null}
           </div>
         );

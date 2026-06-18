@@ -913,10 +913,15 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   errors are non-blocking + retryable (`role="alert"` + "Try again"). The whole
   thing is gated on `editable` (canEdit && collab `ready`) — when not editable it
   renders plain blocks (no sparks), like `MarkdownPreview`.
-- **Editor page loads only the document-level visual** (`visuals: { where: {
-  anchorBlockId: null }, take: 1 }` in `page.tsx`) so block-anchored visuals from
-  US-009 don't leak into the right-hand document-level `VisualPanel`. Keep that
-  `anchorBlockId: null` filter when touching the editor page's visual query.
+- **Editor page loads ALL visuals (US-010).** `page.tsx` selects
+  `visuals: { orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }], select: {
+  anchorBlockId: true, data: true } }`, then splits them: the first `anchorBlockId
+  = null` row → `initialVisual` (document-level, right `VisualPanel`); the rest →
+  `initialBlockVisuals` (a `Record<blockId, Visual>` for the inline preview). Each
+  row is `safeParseVisual`'d (garbled rows skipped). The document-level vs anchored
+  split (anchor `null` vs block id) is the key invariant — keep it when touching the
+  editor or share visual queries so block visuals don't leak into the doc-level
+  panel and vice-versa.
 - **Browser QA (mock-Azure):** the spark→picker→save flow needs `/api/generate`
   working, so run the local mock Azure server. GOTCHA: the mock's candidate
   **edges must include a non-empty `id`** (`validateEdge` requires it) — edges with
@@ -926,3 +931,48 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   `:not([disabled])`** as the ready signal before switching to Preview and clicking
   a spark. Verify the DB end state with a throwaway `tsx` script: two blocks →
   two `Visual` rows with distinct non-null `anchorBlockId`s (no overwriting).
+
+### Display multiple inline visuals in editor and reader (parity-gaps US-010)
+
+- **Inline anchored visuals render near their source block in both the editor
+  preview and the read-only reader, in document order.** The legacy
+  document-level visual (anchor `null`) still shows in the right-hand `VisualPanel`
+  (editor) / Visual panel (share page). Document-order falls out for free because
+  blocks are parsed in order and the visual is rendered right after each block.
+- **Editor (`block-visual-generator.tsx`):** seed the per-block `saved` state once
+  from a new `initialVisuals?: Record<blockId, Visual>` prop
+  (`useState(() => initialVisuals ?? {})` — seed-once, don't reflect the prop back
+  after mount, same rule as title/content). The chosen visual renders inline in a
+  `[data-block-visual="<blockId>"]` card below the block (`<VisualRenderer
+  className="h-auto w-full" />`). When `editable`, the card also shows **Replace**
+  (`aria-label="Replace this block's visual"`, reopens the generator) and
+  **Remove** (`aria-label="Remove this block's visual"`). Non-editable viewers see
+  the inline visual with no controls. `document-editor.tsx` forwards
+  `initialBlockVisuals` (from `page.tsx`) → `BlockVisualGenerator`.
+- **Reader (`markdown-preview.tsx`):** `MarkdownPreview` now takes an optional
+  `visuals?: Record<blockId, Visual>` map and renders the matching visual in a
+  `[data-block-visual]` card after each `BlockContent`. It stays **directive-free**
+  (imports the directive-free `VisualRenderer`), so the server-rendered share page
+  reuses it with no Markdown dep / no `dangerouslySetInnerHTML`. The share
+  `page.tsx` loads all visuals, splits doc-level (right panel) vs a `blockVisuals`
+  map (passed as `visuals=`), each `safeParseVisual`'d.
+- **Delete = `detachVisual(documentId, anchorBlockId)`** (`actions.ts`,
+  `"use server"`): `getAccessibleDocument` scope → `prisma.visual.deleteMany({
+  where: { documentId, anchorBlockId } })` (deleteMany so a foreign id / missing
+  visual is a no-op). Keyed by `(documentId, anchorBlockId)` so it removes **only**
+  that block's visual; the doc-level row (`anchorBlockId: null`) and other anchors
+  are untouched. The editor removes optimistically (drop the one `saved` key) and
+  restores it on failure.
+- **Browser QA:** inline visuals are server-rendered, so the share page can be
+  asserted from SSR HTML (`curl` + `grep data-block-visual`) before a full browser
+  pass. For the editor, log in (credentials `button:has-text("Log in")`), wait for
+  `textarea[aria-label="Document text"]:not([disabled])` (collab ready), switch to
+  Preview, then assert `[data-block-visual]` ids. Delete-only-one: click
+  `[data-block-visual="<id>"] button[aria-label="Remove this block's visual"]`,
+  assert the other id remains + the doc-level `svg[role="img"]` (not inside a
+  `[data-block-visual]`) is still present, then `page.reload()` to confirm the
+  delete persisted. Seed anchored visuals directly with a throwaway in-repo `tsx`
+  script (relative-import won't resolve `@/`/node_modules from the session dir, so
+  put it at the repo root and delete before committing) — content blocks must be
+  **blank-line separated** or `parseMarkdown` joins consecutive lines into one
+  paragraph. No horizontal overflow at 1280/768/375.

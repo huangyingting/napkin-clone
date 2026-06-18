@@ -54,13 +54,12 @@ export default async function DocumentEditorPage({
           },
         },
       },
-      // The document's single document-level visual (anchorBlockId = null).
-      // Block-anchored visuals (US-009) are loaded/displayed separately (US-010).
+      // All visuals for this document: the document-level one (anchorBlockId =
+      // null) renders in the right panel; block-anchored visuals (US-009) are
+      // shown inline near their source block in the preview (US-010).
       visuals: {
-        where: { anchorBlockId: null },
-        orderBy: { createdAt: "asc" },
-        take: 1,
-        select: { data: true },
+        orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }],
+        select: { anchorBlockId: true, data: true },
       },
     },
   });
@@ -75,11 +74,22 @@ export default async function DocumentEditorPage({
   const canEdit =
     isOwner || workspaceRole === "OWNER" || workspaceRole === "EDITOR";
 
-  // Tolerate legacy/garbled stored data: only pass through a valid visual.
-  const stored = document.visuals[0]?.data;
-  const parsed = stored !== undefined ? safeParseVisual(stored) : null;
-  const initialVisual: Visual | null =
-    parsed && parsed.success ? parsed.data : null;
+  // Tolerate legacy/garbled stored data: only pass through valid visuals.
+  // Split into the document-level visual (anchorBlockId = null) and a map of
+  // block-anchored visuals keyed by their anchor block id.
+  let initialVisual: Visual | null = null;
+  const initialBlockVisuals: Record<string, Visual> = {};
+  for (const row of document.visuals) {
+    const parsed = safeParseVisual(row.data);
+    if (!parsed.success) {
+      continue;
+    }
+    if (row.anchorBlockId === null) {
+      initialVisual ??= parsed.data;
+    } else if (!(row.anchorBlockId in initialBlockVisuals)) {
+      initialBlockVisuals[row.anchorBlockId] = parsed.data;
+    }
+  }
 
   // Comment threads for everyone with access (owner + workspace members).
   const initialComments = await listComments(document.id);
@@ -90,6 +100,7 @@ export default async function DocumentEditorPage({
       initialTitle={document.title}
       initialContent={document.content}
       initialVisual={initialVisual}
+      initialBlockVisuals={initialBlockVisuals}
       initialIsShared={document.isShared}
       initialShareId={document.shareId}
       canEdit={canEdit}

@@ -141,6 +141,36 @@ export async function attachVisual(
 }
 
 /**
+ * Removes a single anchored visual from a document.
+ *
+ * Deletes the `Visual` row keyed by `(documentId, anchorBlockId)` so removing
+ * one block's visual never touches the others (or the legacy document-level
+ * visual unless `anchorBlockId` is `null`). The document is owner/member
+ * access-scoped first, then `deleteMany` is used so a foreign/forbidden id or a
+ * block with no visual is a harmless no-op rather than a throw or cross-user
+ * delete.
+ */
+export async function detachVisual(
+  id: string,
+  anchorBlockId: string | null = null,
+): Promise<void> {
+  const user = await requireUser();
+
+  const document = await getAccessibleDocument(user.id, id);
+  if (!document) {
+    throw new Error("Document not found.");
+  }
+
+  const anchor = normalizeAnchorBlockId(anchorBlockId);
+
+  await prisma.visual.deleteMany({
+    where: { documentId: id, anchorBlockId: anchor },
+  });
+
+  revalidatePath(`/app/documents/${id}`);
+}
+
+/**
  * Toggles sharing for a document owned by the current user.
  *
  * - When enabling sharing (isShared: true), generates a unique shareId.
