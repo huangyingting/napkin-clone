@@ -1425,3 +1425,40 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   `button:has-text("Rename")` → title updates immediately (`waitForFunction` on `ul li
   span.font-medium`) and survives `page.reload()`. Also covered: Cancel makes no change, a
   whitespace-only title persists as `"Untitled"`, no horizontal overflow at 1280/768/375.
+
+### Duplicate a document (US-005)
+
+- **`duplicateDocument(id)` (`src/app/app/actions.ts`, `"use server"`)** is a
+  create-from-read mutation, so it can't use the usual `getAccessibleDocument` gate (that
+  returns only `{ id, ownerId, workspaceId }`). Instead it scopes the READ directly:
+  `prisma.document.findFirst({ where: { id, deletedAt: null, OR: documentAccessOr(user.id)
+  }, select: { title, content, visuals: {...} } })` (a non-accessible/soft-deleted id matches
+  nothing → silent no-op, never leaks existence). Reuse this **`documentAccessOr`-in-the-read**
+  shape for any action that must read an access-scoped row's contents (vs. just gate).
+- **The copy is a fresh PERSONAL document owned by the current user** (`ownerId: user.id`,
+  **`workspaceId` omitted** → null), titled `` `${source.title} (copy)` ``, with the source
+  `content`, created via a single `prisma.document.create` with a **nested
+  `visuals.create`** deep-copying every Visual row (`anchorBlockId`, `orderIndex`, `type`,
+  `title`, `data`). The `Json` `data` is cast **`as unknown as Prisma.InputJsonValue`** (read
+  type `JsonValue` isn't assignable to the create input — same cast `attachVisual` uses).
+  Import `Prisma` from `@/generated/prisma/client`.
+- **Share state and comments are NOT copied by construction:** `isShared` defaults to false,
+  `shareId` stays null (both omitted), and only `visuals` are nested-created (no `comments`).
+  Because the copy is created fresh, its `createdAt`/`updatedAt` are "now", so it sorts to the
+  **top** of the dashboard's `updatedAt: desc` ordering automatically — no optimistic insert
+  needed; `revalidatePath("/app")` surfaces the new top card.
+- **Duplicate is owned by the CARD** (like Rename, not lifted to `DocumentList`): a
+  `[role="menuitem"]` "Duplicate" between Rename and Delete calls `duplicateDocument(id)` in
+  the card's existing `startTransition` and closes the menu; the new card appears via
+  revalidation (no client-side new id, so no optimistic synthesis).
+- **Browser QA:** sign up a fresh `*@test.dev` user, create a doc, set title/content; on
+  `/app` open `button[aria-label="Actions for <title>"]` → `[role="menuitem"]:has-text("Duplicate")`;
+  assert `ul li span.font-medium`[0] === `"<title> (copy)"`, original still present, and it
+  survives `page.reload()`. Validate the deep copy at the DB level with a throwaway root-level
+  `tsx` script (`PrismaBetterSqlite3`): copy has the same content, all visuals with NEW ids +
+  round-tripped `data`, `isShared=false`/`shareId=null`, and **0 comments**. GOTCHA: a
+  doc-level visual seeded straight into the DB does **not** render its `svg[role="img"]` canvas
+  on editor load in this env (the same is true for the source doc — a pre-existing
+  collab/VisualPanel quirk, US-019's `ystate` observe, **not** a duplicate bug); don't chase it
+  under US-005. The 375px editor-header overflow is the known US-021 issue (the **dashboard**
+  has no overflow at 1280/768/375).

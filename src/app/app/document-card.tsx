@@ -10,7 +10,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-import { renameDocument } from "./actions";
+import { duplicateDocument, renameDocument } from "./actions";
 
 /** Maximum document title length (mirrors the server action's clamp). */
 const MAX_TITLE_LENGTH = 200;
@@ -221,10 +221,12 @@ function RenameDialog({
  * `stopPropagation`, which would be unreliable under the App Router's delegated
  * events.
  *
- * Rename is owned here (optimistic via `useOptimistic` + `renameDocument`).
- * Deletion is owned by the parent `DocumentList` (which manages optimistic
- * removal and the transient undo affordance): confirming the dialog calls the
- * `onDelete(data)` callback rather than deleting here.
+ * Rename and Duplicate are owned here (each runs its server action in a
+ * transition; the dashboard reconciles via `revalidatePath("/app")` — a
+ * duplicate appears at the top as the most-recent document). Deletion is owned
+ * by the parent `DocumentList` (which manages optimistic removal and the
+ * transient undo affordance): confirming the dialog calls the `onDelete(data)`
+ * callback rather than deleting here.
  */
 export function DocumentCard({
   id,
@@ -267,6 +269,13 @@ export function DocumentCard({
     startTransition(async () => {
       setOptimisticTitle(normalized);
       await renameDocument(id, nextTitle);
+    });
+  };
+
+  const handleDuplicate = () => {
+    setMenuOpen(false);
+    startTransition(async () => {
+      await duplicateDocument(id);
     });
   };
 
@@ -335,6 +344,14 @@ export function DocumentCard({
               className="flex w-full items-center px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
             >
               Rename
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={handleDuplicate}
+              className="flex w-full items-center px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              Duplicate
             </button>
             <button
               type="button"

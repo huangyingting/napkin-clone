@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
+import { Prisma } from "@/generated/prisma/client";
 import { documentAccessOr, getAccessibleDocument } from "@/lib/documents";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
@@ -60,6 +61,71 @@ export async function renameDocument(
 
   revalidatePath("/app");
   return { title };
+}
+
+/**
+ * Duplicates a document the current user may access (owner or workspace member)
+ * into a fresh personal document owned by the current user.
+ *
+ * Access is scoped directly in the read's `where` via `documentAccessOr` (a
+ * non-accessible or soft-deleted id simply matches nothing — a silent no-op that
+ * never leaks existence). The copy reuses the source title (suffixed " (copy)")
+ * and content and deep-copies every `Visual` row (anchorBlockId, orderIndex,
+ * type, title, data) via a nested create in a single statement.
+ *
+ * Comments and share state are intentionally NOT copied: the new document is
+ * private (`isShared` defaults to false, `shareId` stays null) and starts with
+ * no comments. The copy is created fresh, so its `createdAt`/`updatedAt` are
+ * "now" and it sorts to the top of the dashboard's most-recent ordering.
+ */
+export async function duplicateDocument(id: string): Promise<void> {
+  const user = await requireUser();
+
+  const source = await prisma.document.findFirst({
+    where: {
+      id,
+      deletedAt: null,
+      OR: documentAccessOr(user.id),
+    },
+    select: {
+      title: true,
+      content: true,
+      visuals: {
+        orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }],
+        select: {
+          anchorBlockId: true,
+          orderIndex: true,
+          type: true,
+          title: true,
+          data: true,
+        },
+      },
+    },
+  });
+
+  if (!source) {
+    return;
+  }
+
+  await prisma.document.create({
+    data: {
+      ownerId: user.id,
+      title: `${source.title} (copy)`,
+      content: source.content,
+      visuals: {
+        create: source.visuals.map((visual) => ({
+          anchorBlockId: visual.anchorBlockId,
+          orderIndex: visual.orderIndex,
+          type: visual.type,
+          title: visual.title,
+          data: visual.data as unknown as Prisma.InputJsonValue,
+        })),
+      },
+    },
+    select: { id: true },
+  });
+
+  revalidatePath("/app");
 }
 
 /**
