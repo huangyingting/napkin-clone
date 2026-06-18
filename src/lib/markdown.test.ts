@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseMarkdown } from "@/lib/markdown";
+import { blockText, parseMarkdown } from "@/lib/markdown";
 
 test("parseMarkdown returns stable block ids for unchanged content", () => {
   const source = [
@@ -54,4 +54,25 @@ test("editing one block changes only that block's id", () => {
   assert.equal(before[1]?.id, after[1]?.id);
   assert.notEqual(before[2]?.id, after[2]?.id);
   assert.equal(before[3]?.id, after[3]?.id);
+});
+
+test("blockText returns a heading's text", () => {
+  const [heading] = parseMarkdown("# Strategy");
+  assert.equal(heading?.kind, "heading");
+  assert.equal(blockText(heading!), "Strategy");
+});
+
+test("blockText returns a paragraph's text", () => {
+  const [paragraph] = parseMarkdown("Map the launch sequence clearly.");
+  assert.equal(paragraph?.kind, "paragraph");
+  assert.equal(blockText(paragraph!), "Map the launch sequence clearly.");
+});
+
+test("blockText rejoins bullets as Markdown list lines", () => {
+  const [bullets] = parseMarkdown("- Outline milestones\n- Validate messaging");
+  assert.equal(bullets?.kind, "bullets");
+  assert.equal(
+    blockText(bullets!),
+    "- Outline milestones\n- Validate messaging",
+  );
 });

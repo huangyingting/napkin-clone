@@ -54,8 +54,10 @@ export default async function DocumentEditorPage({
           },
         },
       },
-      // The document's single active visual (most recently created).
+      // The document's single document-level visual (anchorBlockId = null).
+      // Block-anchored visuals (US-009) are loaded/displayed separately (US-010).
       visuals: {
+        where: { anchorBlockId: null },
         orderBy: { createdAt: "asc" },
         take: 1,
         select: { data: true },

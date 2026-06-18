@@ -13,9 +13,9 @@ import { applyBlockType, type BlockType } from "@/lib/markdown";
 import type { Visual } from "@/lib/visual/schema";
 
 import { saveDocumentContent, saveDocumentTitle } from "./actions";
+import { BlockVisualGenerator } from "./block-visual-generator";
 import { CommentsPanel, type AnchorNode } from "./comments-panel";
 import type { CommentThread } from "./comments-actions";
-import { MarkdownPreview } from "./markdown-preview";
 import { Presence } from "./presence";
 import { ShareButton } from "./share-button";
 import { VisualPanel } from "./visual-panel";
@@ -309,7 +309,11 @@ export function DocumentEditor({
             />
           ) : (
             <div className="flex-1 overflow-auto p-6">
-              <MarkdownPreview source={content.value} />
+              <BlockVisualGenerator
+                documentId={id}
+                source={content.value}
+                editable={editable}
+              />
             </div>
           )}
         </section>

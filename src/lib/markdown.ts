@@ -116,6 +116,18 @@ export function parseMarkdown(source: string): MarkdownBlock[] {
   return blocks;
 }
 
+/**
+ * Returns the plain text of a single block, suitable for sending to
+ * `/api/generate` when illustrating just that block (US-009). Bullet lists are
+ * rejoined as Markdown-style list lines so the model keeps the list structure.
+ */
+export function blockText(block: MarkdownBlock): string {
+  if (block.kind === "bullets") {
+    return block.items.map((item) => `- ${item}`).join("\n");
+  }
+  return block.text;
+}
+
 export type BlockType = "h1" | "h2" | "h3" | "bullet" | "paragraph";
 
 const BLOCK_PREFIX: Record<BlockType, string> = {

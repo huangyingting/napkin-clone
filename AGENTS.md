@@ -887,3 +887,42 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   the null/document-level row is matched and updated in place (verified on SQLite:
   null + per-block rows coexist; same-anchor re-attach updates, new anchor creates).
   `orderIndex` stays at its schema default (0) until US-010 needs document ordering.
+
+### Generate a visual from a selected block (parity-gaps US-009)
+
+- **Per-block "spark" lives in the editor's Preview tab**, not the Write tab — the
+  Write tab is a single `<textarea>` with no per-block DOM, so gutter-hover
+  affordances aren't possible there. `document-editor.tsx` renders
+  `BlockVisualGenerator` (the interactive preview) in the Preview tab;
+  `MarkdownPreview` (directive-free) stays for read-only/share views.
+- **`BlockContent({ block })` was extracted from `markdown-preview.tsx`** (still
+  directive-free) so a single-block renderer is reused by both the server preview
+  and the client `block-visual-generator.tsx`. Don't duplicate block→element
+  rendering; import `BlockContent`.
+- **`blockText(block)` in `src/lib/markdown.ts`** is the canonical "text to send to
+  `/api/generate` for one block": paragraph/heading → `text`, bullets → items
+  rejoined as `- item` lines. Reuse it for any block-scoped generation.
+- **`block-visual-generator.tsx` (`"use client"`)**: each parsed block gets a gutter
+  spark `button[data-block-id=<id>][aria-label="Generate visual for this block"]`
+  (revealed on `group-hover`/focus). Click → POST `{ text: blockText(block) }` →
+  inline picker scoped to that block (candidate thumbnails
+  `button[aria-label="Select <Kind> option <n>"]`, same hooks as `VisualPanel`) →
+  `attachVisual(documentId, candidate, block.id)`. Only **one** picker open at a
+  time (`openId`); chosen visuals are kept per-block in session state (loading every
+  persisted inline visual on mount + in the reader is US-010). Generation/save
+  errors are non-blocking + retryable (`role="alert"` + "Try again"). The whole
+  thing is gated on `editable` (canEdit && collab `ready`) — when not editable it
+  renders plain blocks (no sparks), like `MarkdownPreview`.
+- **Editor page loads only the document-level visual** (`visuals: { where: {
+  anchorBlockId: null }, take: 1 }` in `page.tsx`) so block-anchored visuals from
+  US-009 don't leak into the right-hand document-level `VisualPanel`. Keep that
+  `anchorBlockId: null` filter when touching the editor page's visual query.
+- **Browser QA (mock-Azure):** the spark→picker→save flow needs `/api/generate`
+  working, so run the local mock Azure server. GOTCHA: the mock's candidate
+  **edges must include a non-empty `id`** (`validateEdge` requires it) — edges with
+  only `from`/`to` fail `safeParseVisual`, dropping every edged candidate so
+  `generateVisuals` can't reach `MIN_CANDIDATES` (3) → 502. Also: the editor only
+  shows sparks once collab is `ready`; **poll for the Document-text textarea being
+  `:not([disabled])`** as the ready signal before switching to Preview and clicking
+  a spark. Verify the DB end state with a throwaway `tsx` script: two blocks →
+  two `Visual` rows with distinct non-null `anchorBlockId`s (no overwriting).
