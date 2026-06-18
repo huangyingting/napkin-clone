@@ -1086,3 +1086,33 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   `line` axis/stems + `circle` badges + `rect` cards), no horizontal overflow at
   1280/768/375 (`scrollWidth <= clientWidth`), and that every element's `getBBox`
   stays within the viewBox (nothing clipped).
+
+### Comparison & funnel visual types (parity-gaps US-014)
+
+- Followed the same "Add a new visual kind" checklist as US-013 (schema unions +
+  both prisma maps, `layout.ts` helper + `nodeBoxes()` branch, renderer
+  sub-component + `VisualBody` case, fixture, `KIND_LABEL`/`KIND_GUIDANCE`). Both
+  are computed-layout kinds (like chart/list/timeline/cycle) → **not** in
+  `POSITIONED_KINDS` (edit/delete but no drag) and they **ignore `visual.edges`**
+  (fixtures keep `edges: []`).
+- **comparison** = N side-by-side columns of grouped item cards
+  (`comparisonLayout`). Grouping reuses the existing `node.value` field as a
+  **column index** (rounded, default 0); columns are ordered by **first
+  appearance** of their key (so author/AI order wins over numeric value). The
+  **first node in each column is a filled header card** (palette color, white
+  text); the rest are light item cards. Reuses `NodeEl` with a synthetic
+  computed-position node (free icon + label wrapping). Renderer iterates
+  `layout.cells` (flat, node order) and branches on `cell.header`.
+- **funnel** = vertically stacked trapezoid bands in node order (`funnelLayout`),
+  width driven by `node.value` (fallback: decreasing by order, `count - index`).
+  A **running minimum** of the width fraction (`minFrac` floor 0.16) guarantees
+  monotonic narrowing even if values aren't strictly decreasing; bands tile
+  seamlessly (band `i` bottom width = band `i+1` top width; last band tapers to
+  60%). Bands are `<polygon>` trapezoids (not `NodeEl`) with a centered white
+  `MultilineText` label; the numeric `value` is appended as an extra label line.
+- **Browser QA (`/visuals`, headless):** comparison ⇒ bg `rect` + one rounded
+  `rect` per node (12 in the fixture) + per-node `text` + nested icon `<svg>` for
+  header icons; funnel ⇒ bg `rect` + one `polygon` per band (5) + per-band `text`.
+  When counting a kind's own geometry, skip nested icon svgs with
+  `el.closest("svg") === outerSvg`. Verified 0 clipped (getBBox within viewBox) and
+  no horizontal overflow at 1280/768/375.

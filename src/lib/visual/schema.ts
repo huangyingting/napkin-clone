@@ -23,6 +23,8 @@ export const VISUAL_KINDS = [
   "concept",
   "timeline",
   "cycle",
+  "comparison",
+  "funnel",
 ] as const;
 
 export type VisualKind = (typeof VISUAL_KINDS)[number];
@@ -41,6 +43,8 @@ export const VISUAL_TYPES = [
   "CONCEPT",
   "TIMELINE",
   "CYCLE",
+  "COMPARISON",
+  "FUNNEL",
 ] as const;
 
 export type VisualType = (typeof VISUAL_TYPES)[number];
@@ -67,7 +71,10 @@ export interface VisualNode {
   width?: number;
   height?: number;
   shape?: NodeShape;
-  /** Numeric value used by chart bars. */
+  /**
+   * Numeric value. Drives chart bar heights and funnel band widths, and is
+   * used as the column index (rounded) for comparison visuals.
+   */
   value?: number;
   /** Optional per-node fill/accent color override (any CSS color string). */
   color?: string;
@@ -152,6 +159,8 @@ export const VISUAL_KIND_TO_PRISMA = {
   concept: "CONCEPT",
   timeline: "TIMELINE",
   cycle: "CYCLE",
+  comparison: "COMPARISON",
+  funnel: "FUNNEL",
 } as const satisfies Record<VisualKind, VisualType>;
 
 /** Maps a persisted `VisualType` (DB `Visual.type`) back to the schema `VisualKind`. */
@@ -163,6 +172,8 @@ export const PRISMA_TO_VISUAL_KIND = {
   CONCEPT: "concept",
   TIMELINE: "timeline",
   CYCLE: "cycle",
+  COMPARISON: "comparison",
+  FUNNEL: "funnel",
 } as const satisfies Record<VisualType, VisualKind>;
 
 export function isVisualKind(value: unknown): value is VisualKind {

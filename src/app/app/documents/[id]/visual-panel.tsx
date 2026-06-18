@@ -34,6 +34,8 @@ const KIND_LABEL: Record<VisualKind, string> = {
   concept: "Concept",
   timeline: "Timeline",
   cycle: "Cycle",
+  comparison: "Comparison",
+  funnel: "Funnel",
 };
 
 const generateButtonClass =

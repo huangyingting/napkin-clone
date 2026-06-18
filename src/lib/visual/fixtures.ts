@@ -313,6 +313,47 @@ const cycle: Visual = {
   edges: [],
 };
 
+const comparison: Visual = {
+  version: VISUAL_SCHEMA_VERSION,
+  type: "comparison",
+  title: "Plan comparison",
+  width: 760,
+  height: 340,
+  style: { ...DEFAULT_STYLE },
+  nodes: [
+    { id: "free", label: "Free", value: 0, icon: "Sparkles" },
+    { id: "free-1", label: "1 workspace", value: 0 },
+    { id: "free-2", label: "Community support", value: 0 },
+    { id: "free-3", label: "Basic exports", value: 0 },
+    { id: "pro", label: "Pro", value: 1, icon: "Rocket" },
+    { id: "pro-1", label: "Unlimited workspaces", value: 1 },
+    { id: "pro-2", label: "Priority support", value: 1 },
+    { id: "pro-3", label: "PNG & SVG export", value: 1 },
+    { id: "ent", label: "Enterprise", value: 2, icon: "Crown" },
+    { id: "ent-1", label: "SSO & SAML", value: 2 },
+    { id: "ent-2", label: "Dedicated manager", value: 2 },
+    { id: "ent-3", label: "Audit logs", value: 2 },
+  ],
+  edges: [],
+};
+
+const funnel: Visual = {
+  version: VISUAL_SCHEMA_VERSION,
+  type: "funnel",
+  title: "Marketing funnel",
+  width: 640,
+  height: 420,
+  style: { ...DEFAULT_STYLE },
+  nodes: [
+    { id: "visitors", label: "Visitors", value: 12000 },
+    { id: "signups", label: "Signups", value: 5200 },
+    { id: "trials", label: "Active trials", value: 2100 },
+    { id: "paid", label: "Paid customers", value: 760 },
+    { id: "advocates", label: "Advocates", value: 180 },
+  ],
+  edges: [],
+};
+
 /** All sample fixtures keyed by visual kind. */
 export const FIXTURES: Record<VisualKind, Visual> = {
   flowchart,
@@ -322,6 +363,8 @@ export const FIXTURES: Record<VisualKind, Visual> = {
   concept,
   timeline,
   cycle,
+  comparison,
+  funnel,
 };
 
 /** Sample fixtures in the canonical {@link VISUAL_KINDS} order. */

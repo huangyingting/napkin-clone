@@ -313,6 +313,188 @@ export function cycleLayout(visual: Visual): CycleLayout {
   return { cx, cy, radius, placements };
 }
 
+export interface ComparisonCell {
+  node: VisualNode;
+  /** Zero-based column index (left to right). */
+  column: number;
+  /** Whether this is the column's header (the first node in the column). */
+  header: boolean;
+  /** Card center X. */
+  x: number;
+  /** Card top edge Y. */
+  cardY: number;
+  /** Card center Y. */
+  centerY: number;
+  width: number;
+  height: number;
+}
+
+export interface ComparisonColumn {
+  /** Grouping key (rounded `node.value`, default 0). */
+  key: number;
+  /** Column center X. */
+  centerX: number;
+  cells: ComparisonCell[];
+}
+
+export interface ComparisonLayout {
+  marginX: number;
+  top: number;
+  columnGap: number;
+  columnWidth: number;
+  headerHeight: number;
+  itemHeight: number;
+  cardGap: number;
+  columns: ComparisonColumn[];
+  /** All cells flattened, in node order. */
+  cells: ComparisonCell[];
+}
+
+/**
+ * Comparison geometry — N side-by-side columns of grouped item cards. Nodes are
+ * grouped into columns by their rounded `node.value` (default 0), with columns
+ * ordered by first appearance. The first node in each column is the column
+ * header; the rest are stacked items. Mirrors `Comparison` in the renderer.
+ */
+export function comparisonLayout(visual: Visual): ComparisonLayout {
+  const marginX = 28;
+  const top = 28;
+  const columnGap = 18;
+  const cardGap = 12;
+  const headerHeight = 54;
+  const itemHeight = 46;
+
+  const order: number[] = [];
+  const groups = new Map<number, VisualNode[]>();
+  for (const node of visual.nodes) {
+    const key = Math.max(0, Math.round(node.value ?? 0));
+    let bucket = groups.get(key);
+    if (!bucket) {
+      bucket = [];
+      groups.set(key, bucket);
+      order.push(key);
+    }
+    bucket.push(node);
+  }
+
+  const columnCount = Math.max(order.length, 1);
+  const totalGap = columnGap * (columnCount - 1);
+  const columnWidth = (visual.width - marginX * 2 - totalGap) / columnCount;
+
+  const cells: ComparisonCell[] = [];
+  const columns: ComparisonColumn[] = order.map((key, columnIndex) => {
+    const left = marginX + columnIndex * (columnWidth + columnGap);
+    const centerX = left + columnWidth / 2;
+    let y = top;
+    const columnCells: ComparisonCell[] = (groups.get(key) ?? []).map(
+      (node, rowIndex) => {
+        const header = rowIndex === 0;
+        const height = header ? headerHeight : itemHeight;
+        const cell: ComparisonCell = {
+          node,
+          column: columnIndex,
+          header,
+          x: centerX,
+          cardY: y,
+          centerY: y + height / 2,
+          width: columnWidth,
+          height,
+        };
+        y += height + cardGap;
+        return cell;
+      },
+    );
+    cells.push(...columnCells);
+    return { key, centerX, cells: columnCells };
+  });
+
+  return {
+    marginX,
+    top,
+    columnGap,
+    columnWidth,
+    headerHeight,
+    itemHeight,
+    cardGap,
+    columns,
+    cells,
+  };
+}
+
+export interface FunnelBand {
+  node: VisualNode;
+  index: number;
+  value: number;
+  /** Band center X (the canvas center). */
+  cx: number;
+  /** Band top edge Y. */
+  bandY: number;
+  /** Band center Y. */
+  centerY: number;
+  bandHeight: number;
+  /** Width at the band's top edge. */
+  topWidth: number;
+  /** Width at the band's bottom edge. */
+  bottomWidth: number;
+}
+
+export interface FunnelLayout {
+  marginX: number;
+  top: number;
+  cx: number;
+  bandHeight: number;
+  bandGap: number;
+  bands: FunnelBand[];
+}
+
+/**
+ * Funnel geometry — bands stacked top-to-bottom in node order, each a trapezoid
+ * whose width is driven by `node.value` (falling back to a decreasing sequence
+ * by order). A running minimum of the width fraction keeps the funnel
+ * monotonically narrowing even when the values aren't strictly decreasing.
+ * Mirrors `Funnel` in the renderer exactly.
+ */
+export function funnelLayout(visual: Visual): FunnelLayout {
+  const marginX = 44;
+  const top = 28;
+  const bottom = 28;
+  const bandGap = 8;
+  const minFrac = 0.16;
+  const cx = visual.width / 2;
+  const count = Math.max(visual.nodes.length, 1);
+  const plotWidth = visual.width - marginX * 2;
+  const plotHeight = visual.height - top - bottom;
+  const bandHeight = (plotHeight - bandGap * (count - 1)) / count;
+
+  const values = visual.nodes.map((node, index) => node.value ?? count - index);
+  const maxValue = Math.max(...values, 1);
+  const effFrac: number[] = [];
+  for (let i = 0; i < values.length; i++) {
+    const raw = Math.min(Math.max(values[i] / maxValue, minFrac), 1);
+    effFrac[i] = i === 0 ? raw : Math.min(effFrac[i - 1], raw);
+  }
+
+  const bands: FunnelBand[] = visual.nodes.map((node, index) => {
+    const topWidth = effFrac[index] * plotWidth;
+    const nextFrac =
+      index < values.length - 1 ? effFrac[index + 1] : effFrac[index] * 0.6;
+    const bandY = top + index * (bandHeight + bandGap);
+    return {
+      node,
+      index,
+      value: values[index],
+      cx,
+      bandY,
+      centerY: bandY + bandHeight / 2,
+      bandHeight,
+      topWidth,
+      bottomWidth: nextFrac * plotWidth,
+    };
+  });
+
+  return { marginX, top, cx, bandHeight, bandGap, bands };
+}
+
 /**
  * Hit-box per node id for the interactive editor's overlay. For positioned
  * kinds it's the node's shape box; for charts it's the full bar column; for
@@ -365,6 +547,32 @@ export function nodeBoxes(visual: Visual): Map<string, NodeBox> {
         y: placement.y,
         width: placement.width,
         height: placement.height,
+      });
+    }
+    return boxes;
+  }
+
+  if (visual.type === "comparison") {
+    const layout = comparisonLayout(visual);
+    for (const cell of layout.cells) {
+      boxes.set(cell.node.id, {
+        x: cell.x,
+        y: cell.centerY,
+        width: cell.width,
+        height: cell.height,
+      });
+    }
+    return boxes;
+  }
+
+  if (visual.type === "funnel") {
+    const layout = funnelLayout(visual);
+    for (const band of layout.bands) {
+      boxes.set(band.node.id, {
+        x: band.cx,
+        y: band.centerY,
+        width: Math.max(band.topWidth, band.bottomWidth),
+        height: band.bandHeight,
       });
     }
     return boxes;

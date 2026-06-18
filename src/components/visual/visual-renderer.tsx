@@ -4,7 +4,9 @@ import type { LucideIcon } from "lucide-react";
 import { resolveIconComponent } from "@/components/visual/icon-registry";
 import {
   chartLayout,
+  comparisonLayout,
   cycleLayout,
+  funnelLayout,
   listLayout,
   timelineLayout,
   type CycleNodePlacement,
@@ -872,6 +874,100 @@ function CycleScene({ visual }: { visual: Visual }): JSX.Element {
   );
 }
 
+function Comparison({ visual }: { visual: Visual }): JSX.Element {
+  const { style } = visual;
+  const layout = comparisonLayout(visual);
+
+  return (
+    <Fragment>
+      {layout.cells.map((cell) => {
+        const paletteColor = pick(style.palette, cell.column);
+        const node = {
+          ...cell.node,
+          x: cell.x,
+          y: cell.centerY,
+          width: cell.width,
+          height: cell.height,
+          shape: "rounded" as const,
+        };
+        if (cell.header) {
+          return (
+            <NodeEl
+              key={cell.node.id}
+              node={node}
+              fill={cell.node.color ?? paletteColor}
+              stroke={cell.node.stroke ?? cell.node.color ?? paletteColor}
+              text={cell.node.textColor ?? "#ffffff"}
+              style={style}
+              fontSize={style.fontSize + 1}
+              fontWeight={Math.min(style.fontWeight + 100, 900)}
+              strokeWidth={0}
+            />
+          );
+        }
+        return (
+          <NodeEl
+            key={cell.node.id}
+            node={node}
+            fill={cell.node.color ?? style.nodeFill}
+            stroke={cell.node.stroke ?? paletteColor}
+            text={cell.node.textColor ?? style.nodeText}
+            style={style}
+            fontSize={style.fontSize}
+            fontWeight={style.fontWeight}
+            strokeWidth={1.5}
+          />
+        );
+      })}
+    </Fragment>
+  );
+}
+
+function Funnel({ visual }: { visual: Visual }): JSX.Element {
+  const { style } = visual;
+  const layout = funnelLayout(visual);
+
+  return (
+    <Fragment>
+      {layout.bands.map((band, index) => {
+        const accent = band.node.color ?? pick(style.palette, index);
+        const text = band.node.textColor ?? "#ffffff";
+        const { cx, bandY, bandHeight, topWidth, bottomWidth } = band;
+        const points = [
+          `${cx - topWidth / 2},${bandY}`,
+          `${cx + topWidth / 2},${bandY}`,
+          `${cx + bottomWidth / 2},${bandY + bandHeight}`,
+          `${cx - bottomWidth / 2},${bandY + bandHeight}`,
+        ].join(" ");
+        const innerWidth = Math.max(Math.min(topWidth, bottomWidth), 48);
+        const labelLines = wrapLabel(
+          band.node.label,
+          maxCharsForWidth(innerWidth, style.fontSize),
+          2,
+        );
+        const lines =
+          band.node.value !== undefined
+            ? [...labelLines, String(band.node.value)]
+            : labelLines;
+        return (
+          <g key={band.node.id}>
+            <polygon points={points} fill={accent} />
+            <MultilineText
+              cx={cx}
+              cy={band.centerY}
+              lines={lines}
+              color={text}
+              style={style}
+              fontSize={style.fontSize}
+              fontWeight={style.fontWeight}
+            />
+          </g>
+        );
+      })}
+    </Fragment>
+  );
+}
+
 function VisualBody({ visual }: { visual: Visual }): JSX.Element | null {
   switch (visual.type) {
     case "flowchart":
@@ -888,6 +984,10 @@ function VisualBody({ visual }: { visual: Visual }): JSX.Element | null {
       return <Timeline visual={visual} />;
     case "cycle":
       return <CycleScene visual={visual} />;
+    case "comparison":
+      return <Comparison visual={visual} />;
+    case "funnel":
+      return <Funnel visual={visual} />;
     default:
       return null;
   }

@@ -22,6 +22,8 @@ const KIND_LABEL: Record<VisualKind, string> = {
   concept: "Concept",
   timeline: "Timeline",
   cycle: "Cycle",
+  comparison: "Comparison",
+  funnel: "Funnel",
 };
 
 type GenStatus = "idle" | "loading";

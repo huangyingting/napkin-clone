@@ -46,6 +46,10 @@ const KIND_GUIDANCE: Record<VisualKind, string> = {
     "timeline: an ordered sequence of steps along a horizontal axis; order nodes chronologically; x/y may be omitted (steps are laid out from order).",
   cycle:
     "cycle: a repeating loop of stages; order nodes in the direction of the cycle; x/y and edges may be omitted (nodes are arranged around a ring with directed arrows).",
+  comparison:
+    "comparison: side-by-side columns of grouped items; set each node's `value` to its column index (0, 1, 2, …) to group nodes into columns; the FIRST node in each column is the column title and the rest are its items; x/y and edges may be omitted.",
+  funnel:
+    "funnel: stacked stages that narrow downward; order nodes from widest (top) to narrowest (bottom) and give each a decreasing numeric `value` that drives its band width; x/y and edges may be omitted.",
 };
 
 const ICON_NAMES = ICON_CATALOG.map((entry) => entry.name);
