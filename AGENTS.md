@@ -1895,3 +1895,42 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
 - **`AUTH_SECRET` is only read at request time** (`/api/generate`), not at build/module
   load, so the build doesn't strictly need it — but Auth.js wants one and signing in
   requires it, so the workflow supplies a throwaway value to keep the env realistic.
+
+### Database-backed AI rate limiting (US-018)
+
+- **The authenticated rate limiter in `/api/generate` now reads/writes a shared
+  `RateLimitHit` DB row instead of a per-instance in-memory `Map`** (so the limit holds
+  across instances in production). The anonymous signed-cookie trial quota is **unchanged**
+  — only the `if (user)` branch moved to the DB.
+- **`RateLimitHit` model** (`prisma/schema.prisma`): `subject String @id`, `count Int
+  @default(0)`, `resetAt DateTime`, `updatedAt DateTime @updatedAt`. **One row per subject**
+  (an authenticated user id) — the faithful translation of the old `Map<string,
+  RateLimitWindow>` (the row IS the value `{ count, resetAt }`). The window is
+  **first-request-anchored** (`resetAt = first hit + windowMs`), preserving the exact
+  in-memory semantics; that's why it's keyed by `subject` alone (the row carries the window
+  via `resetAt`) rather than a `(subject, windowStart)` composite, which would accumulate
+  rows. New model → plain `CREATE TABLE` in BOTH histories (dual-migration drill, sqlite
+  last + `db:generate`).
+- **`src/lib/ai/quota.ts` stays pure + unit-tested.** Extracted `computeRateLimit(existing,
+  opts) => { result, next }` (the whole fixed-window DECISION, `next: null` on block so the
+  stored window is left untouched). `checkRateLimit` (sync, `Map`) and the new
+  `checkRateLimitWithStore` (async) both just call `computeRateLimit` then persist `next` —
+  so the two paths behave identically and the existing `Map` tests are untouched. The route
+  consumes the async one via a small **`RateLimitStore` interface** (`get(key) =>
+  Promise<RateLimitWindow | undefined>`, `set(key, window) => Promise<void>`); the route
+  backs it with `prisma.rateLimitHit` (`findUnique`/`upsert`, mapping `resetAt` ↔
+  `Date.getTime()`), tests back it with an in-memory fake. **Pattern for "swap an in-memory
+  store for a DB one while keeping logic unit-tested": extract the pure decision, define a
+  tiny async store interface, test the interface with a fake, implement it with Prisma in
+  the route.**
+- **Trade-off (documented in the code):** the store does read-modify-write, so two
+  instances racing the same window can each over-allow by one hit — acceptable for a soft
+  quota; a shared store still enforces globally vs. per-instance memory.
+- **Validation:** server/route code isn't unit-tested here; beyond the `node --test` store
+  tests, verify the real model with a throwaway root `tsx` script (`@/` alias resolves
+  under tsx; wrap in `async main(){…}; main()` — no top-level await) that runs
+  `checkRateLimitWithStore` against a prisma-backed store, then a SECOND fresh store object
+  reading the SAME row to prove cross-instance enforcement (it sees the persisted count and
+  blocks). Delete the script before committing. NOTE: in dev without Azure, the authed HTTP
+  path returns **503 (config) BEFORE quota**, so the endpoint can't exercise the limiter
+  without mock-Azure — the tsx script is the practical check.

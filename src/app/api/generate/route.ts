@@ -26,14 +26,16 @@ import {
 import {
   ANON_COOKIE_NAME,
   anonTrialLimit,
-  checkRateLimit,
+  checkRateLimitWithStore,
   newAnonState,
   parseAnonCookie,
   signAnonState,
   userRateLimit,
   userRateWindowMs,
+  type RateLimitStore,
   type RateLimitWindow,
 } from "@/lib/ai/quota";
+import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import {
   VISUAL_KINDS,
@@ -44,8 +46,30 @@ import {
 // Use the Node.js runtime: the Azure call and node:crypto signing need it.
 export const runtime = "nodejs";
 
-/** Module-level store for the per-user fixed-window rate limiter. */
-const userRateStore = new Map<string, RateLimitWindow>();
+/**
+ * Shared, DB-backed store for the per-user fixed-window rate limiter. Persisting
+ * the window in a `RateLimitHit` row (instead of a per-instance Map) makes the
+ * limit hold across instances in production.
+ */
+const userRateStore: RateLimitStore = {
+  async get(key) {
+    const row = await prisma.rateLimitHit.findUnique({
+      where: { subject: key },
+    });
+    if (!row) {
+      return undefined;
+    }
+    return { count: row.count, resetAt: row.resetAt.getTime() };
+  },
+  async set(key, window: RateLimitWindow) {
+    const resetAt = new Date(window.resetAt);
+    await prisma.rateLimitHit.upsert({
+      where: { subject: key },
+      create: { subject: key, count: window.count, resetAt },
+      update: { count: window.count, resetAt },
+    });
+  },
+};
 
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
@@ -120,7 +144,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   let setAnonCookie: string | null = null;
 
   if (user) {
-    const result = checkRateLimit(userRateStore, user.id, {
+    const result = await checkRateLimitWithStore(userRateStore, user.id, {
       limit: userRateLimit(),
       windowMs: userRateWindowMs(),
       now: Date.now(),

@@ -148,3 +148,16 @@ model InviteLink {
   @@index([workspaceId])
   @@index([token])
 }
+
+// Shared, DB-backed fixed-window rate-limit state for the AI generation
+// endpoint (US-018). One row per subject (an authenticated user id); the row
+// holds the current window's hit count and its reset instant. Persisting this
+// instead of a per-instance in-memory Map lets the limit hold across instances
+// in production. The window is first-request-anchored (resetAt = first hit +
+// window), preserving the existing in-memory semantics.
+model RateLimitHit {
+  subject   String   @id
+  count     Int      @default(0)
+  resetAt   DateTime
+  updatedAt DateTime @updatedAt
+}
