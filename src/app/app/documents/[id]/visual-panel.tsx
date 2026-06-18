@@ -20,6 +20,9 @@ import { VisualEditor } from "./visual-editor";
 /** Debounce (ms) before persisting an in-canvas edit (drag/label/delete). */
 const EDIT_SAVE_DELAY = 600;
 
+/** Max generated candidates kept in the session-scoped variation history. */
+const MAX_HISTORY = 10;
+
 type GenStatus = "idle" | "loading";
 type SaveState = "idle" | "saving" | "saved" | "error";
 
@@ -62,7 +65,10 @@ function typePillClass(active: boolean): string {
  * with a "More variations" re-roll, renders the selected one in the main canvas,
  * and persists it to the document via the `attachVisual` action. Re-rolling
  * requests a fresh batch without losing the current selection until the user
- * picks a new one. Generation/save errors are non-blocking and retryable.
+ * picks a new one. A session-scoped "Recent" strip keeps the last 10 generated
+ * candidates so the user can step back to an earlier variation after re-rolling
+ * (client-only state; cleared on a full reload). Generation/save errors are
+ * non-blocking and retryable.
  */
 export function VisualPanel({
   documentId,
@@ -86,6 +92,9 @@ export function VisualPanel({
   const [status, setStatus] = useState<GenStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<Visual[]>([]);
+  // Session-scoped history of the last MAX_HISTORY generated candidates (newest
+  // first). Client-only — never persisted, so it clears on a full reload.
+  const [history, setHistory] = useState<Visual[]>([]);
   const [selected, setSelected] = useState<Visual | null>(initialVisual);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [pendingType, setPendingType] = useState<VisualKind | null>(null);
@@ -180,6 +189,11 @@ export function VisualPanel({
 
   const hasText = text.trim().length > 0;
   const canGenerate = hasText && status !== "loading";
+
+  // The "Recent" strip surfaces previously generated candidates that aren't in
+  // the current batch, so the user can step back to an earlier option after a
+  // re-roll without losing it.
+  const recent = history.filter((item) => !candidates.includes(item));
 
   // Renders a candidate in the main canvas and persists it as the document's
   // single active visual (re-validated server-side by `attachVisual`).
@@ -297,6 +311,7 @@ export function VisualPanel({
         }
 
         setCandidates(valid);
+        setHistory((prev) => [...valid, ...prev].slice(0, MAX_HISTORY));
 
         // Type switch: drop the regenerated visual straight onto the canvas.
         if (type) {
@@ -532,6 +547,39 @@ export function VisualPanel({
               })}
             </ul>
           ) : null}
+        </div>
+      ) : null}
+
+      {recent.length > 0 ? (
+        <div className="border-t border-black/[.06] px-4 py-3 dark:border-white/[.08]">
+          <p className="mb-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            Recent
+          </p>
+          <ul
+            role="group"
+            aria-label="Recent variations"
+            className="flex gap-3 overflow-x-auto pb-1"
+          >
+            {recent.map((item, index) => {
+              const active = item === selected;
+              return (
+                <li key={index} className="shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => select(item)}
+                    aria-pressed={active}
+                    aria-label={`Re-select recent variation ${index + 1} of ${recent.length}`}
+                    title={item.title ?? KIND_LABEL[item.type]}
+                    className={thumbButtonClass(active)}
+                  >
+                    <span className="block aspect-[4/3] w-24 overflow-hidden rounded-md bg-white dark:bg-zinc-950">
+                      <VisualRenderer visual={item} className="h-full w-full" />
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       ) : null}
     </section>

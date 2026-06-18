@@ -1011,3 +1011,37 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   confirms `attachVisual` persisted it. Pre-existing: the editor header's save-status
   span (`document-editor.tsx`, `shrink-0`) overflows slightly at 375px — unrelated to
   this gallery.
+
+### Session-scoped variation history (parity-gaps US-012)
+
+- **`VisualPanel` keeps a client-only `history: Visual[]`** of the last
+  `MAX_HISTORY` (10) **generated** candidates, newest first. It's appended in
+  `runGenerate` right after the batch is validated (`setHistory((prev) =>
+  [...valid, ...prev].slice(0, MAX_HISTORY))`) — so BOTH plain re-rolls and
+  type-switch generations feed it. It's never persisted (no DB/schema change), so a
+  full reload clears it. **Don't** seed it from `initialVisual` (that's the saved
+  visual, not session-generated history) — seeding it would survive reload and break
+  the "clears on reload" AC.
+- **The "Recent" strip renders `history.filter((item) => !candidates.includes(item))`** —
+  i.e. previously generated candidates NOT in the *current* batch — so it's empty
+  after the first generation and only appears once you re-roll (its purpose:
+  "don't lose a good option after re-rolling"). Reference identity works because each
+  `runGenerate` parses fresh `Visual` objects, so the current `candidates` array holds
+  the exact references that are also at the head of `history`. Re-selecting a Recent
+  tile calls the same `select()` → `attachVisual` (re-validated + persisted), and
+  `item === selected` drives `aria-pressed`.
+- **Test hooks:** the strip is `ul[role="group"][aria-label="Recent variations"]`;
+  each tile is `button[aria-label="Re-select recent variation <n> of <m>"]`. Distinct
+  from the US-011 gallery (`Select variation <n> of <m>`) and the US-009 block picker
+  (`Select <Kind> option <n>`). The strip uses `overflow-x-auto`, so it adds **zero**
+  document-level horizontal overflow (verified: `scrollWidth` is identical with and
+  without the strip at 375px — the lone 375px offender is still the pre-existing
+  editor-header save-status span).
+- **Browser QA (mock-Azure, batch-numbered labels):** generate → no Recent strip yet;
+  select a tile + wait `role="status"` "Visual saved"; click `[aria-label="More
+  variations"]` → Recent strip appears with the prior batch (4 items) AND the main
+  canvas (the `svg[role="img"]` whose `.closest("li")` is null) is **unchanged**
+  (selection preserved); pick a new-batch tile (canvas changes) then click
+  `[aria-label="Re-select recent variation 1 of 4"]` to step BACK (canvas returns to
+  the earlier signature) + "Visual saved"; `page.reload()` → Recent strip gone (history
+  cleared) while the last-saved visual persists from the DB.
