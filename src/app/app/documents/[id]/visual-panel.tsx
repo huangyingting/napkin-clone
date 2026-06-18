@@ -34,6 +34,9 @@ const KIND_LABEL: Record<VisualKind, string> = {
 const generateButtonClass =
   "flex h-9 items-center justify-center rounded-full bg-zinc-900 px-4 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200";
 
+const moreVariationsButtonClass =
+  "flex items-center gap-1.5 rounded-full border border-black/[.08] px-3 py-1 text-xs font-medium text-zinc-600 transition hover:border-black/20 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[.12] dark:text-zinc-300 dark:hover:border-white/30 dark:hover:text-zinc-100";
+
 function thumbButtonClass(active: boolean): string {
   return [
     "group flex flex-col gap-1 overflow-hidden rounded-lg border bg-white p-1.5 text-left transition dark:bg-zinc-950",
@@ -55,9 +58,11 @@ function typePillClass(active: boolean): string {
 /**
  * Right-hand panel of the document editor: turns the current text into AI
  * visuals. It POSTs to `/api/generate`, shows a loading state, lists the
- * returned candidates as selectable thumbnails, renders the selected one in the
- * main canvas, and persists it to the document via the `attachVisual` action.
- * Generation/save errors are non-blocking and retryable.
+ * returned candidates as a browsable variations gallery ("Variation N of M")
+ * with a "More variations" re-roll, renders the selected one in the main canvas,
+ * and persists it to the document via the `attachVisual` action. Re-rolling
+ * requests a fresh batch without losing the current selection until the user
+ * picks a new one. Generation/save errors are non-blocking and retryable.
  */
 export function VisualPanel({
   documentId,
@@ -414,7 +419,7 @@ export function VisualPanel({
       ) : null}
 
       <div className="flex flex-1 items-center justify-center p-6">
-        {status === "loading" ? (
+        {status === "loading" && !selected && candidates.length === 0 ? (
           <div
             role="status"
             aria-live="polite"
@@ -462,37 +467,71 @@ export function VisualPanel({
         />
       ) : null}
 
-      {candidates.length > 0 ? (
+      {candidates.length > 0 || (status === "loading" && selected) ? (
         <div className="border-t border-black/[.06] px-4 py-3 dark:border-white/[.08]">
-          <p className="mb-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
-            Choose a visual
-          </p>
-          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {candidates.map((candidate, index) => {
-              const active = candidate === selected;
-              return (
-                <li key={index}>
-                  <button
-                    type="button"
-                    onClick={() => select(candidate)}
-                    aria-pressed={active}
-                    aria-label={`Select ${KIND_LABEL[candidate.type]} option ${index + 1}`}
-                    className={thumbButtonClass(active)}
-                  >
-                    <span className="aspect-[4/3] w-full overflow-hidden rounded-md bg-white dark:bg-zinc-950">
-                      <VisualRenderer
-                        visual={candidate}
-                        className="h-full w-full"
-                      />
-                    </span>
-                    <span className="px-1 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-                      {candidate.title ?? KIND_LABEL[candidate.type]}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              {candidates.length > 0
+                ? `Variations (${candidates.length})`
+                : "Variations"}
+            </p>
+            <button
+              type="button"
+              onClick={() => runGenerate()}
+              disabled={!editable || !hasText || status === "loading"}
+              aria-label="More variations"
+              title="Generate a fresh batch of variations"
+              className={moreVariationsButtonClass}
+            >
+              {status === "loading" ? (
+                <span
+                  aria-hidden="true"
+                  className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+                />
+              ) : null}
+              More variations
+            </button>
+          </div>
+
+          {status === "loading" ? (
+            <p
+              role="status"
+              aria-live="polite"
+              className="mb-2 text-xs text-zinc-400 dark:text-zinc-500"
+            >
+              Generating fresh variations…
+            </p>
+          ) : null}
+
+          {candidates.length > 0 ? (
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {candidates.map((candidate, index) => {
+                const active = candidate === selected;
+                return (
+                  <li key={index}>
+                    <button
+                      type="button"
+                      onClick={() => select(candidate)}
+                      aria-pressed={active}
+                      aria-label={`Select variation ${index + 1} of ${candidates.length}`}
+                      title={candidate.title ?? KIND_LABEL[candidate.type]}
+                      className={thumbButtonClass(active)}
+                    >
+                      <span className="aspect-[4/3] w-full overflow-hidden rounded-md bg-white dark:bg-zinc-950">
+                        <VisualRenderer
+                          visual={candidate}
+                          className="h-full w-full"
+                        />
+                      </span>
+                      <span className="px-1 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                        Variation {index + 1} of {candidates.length}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
         </div>
       ) : null}
     </section>

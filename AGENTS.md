@@ -480,7 +480,8 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   the main canvas, and persists it via the `attachVisual` server action. Errors are
   **non-blocking + retryable** (inline `role="alert"` + "Try again"; canvas/candidates
   state is preserved). Test hooks: `aria-label="Generate visual"`, thumbnail
-  `aria-label="Select <Kind> option <n>"`, save `role="status"` text "Visual saved".
+  `aria-label="Select variation <n> of <m>"` (parity-gaps US-011 relabel), save
+  `role="status"` text "Visual saved".
 - **Visuals are upserted per anchor block (parity-gaps US-008).** `attachVisual(id,
   input, anchorBlockId?)` (`src/app/app/documents/[id]/actions.ts`, `"use server"`)
   re-validates the payload with `validateVisual` (never trust the client),
@@ -976,3 +977,37 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   put it at the repo root and delete before committing) — content blocks must be
   **blank-line separated** or `parseMarkdown` joins consecutive lines into one
   paragraph. No horizontal overflow at 1280/768/375.
+
+### Browse multiple generated variations (parity-gaps US-011)
+
+- **The main `VisualPanel` candidate picker is the "variations gallery."** The
+  returned candidates (already 3–6 from `/api/generate`, capped at `MAX_CANDIDATES`
+  = 6) render as a labeled grid: a header `Variations (N)` and each tile shows
+  **`Variation <n> of <m>`** (visible caption + `aria-label="Select variation <n>
+  of <m>"`); the visual kind/title moved to the tile's `title` attribute. The
+  block-level picker (`block-visual-generator.tsx`, US-009) is a SEPARATE picker
+  and **still uses `aria-label="Select <Kind> option <n>"`** — don't conflate them.
+- **"More variations" re-roll** is a `button[aria-label="More variations"]` in the
+  gallery header that calls the same `runGenerate()` (no `type`) for a fresh batch.
+  KEY invariant: re-rolling must **not lose the current selection until the user
+  picks a new one** — `runGenerate()` (no-type branch) never touches `selected`, and
+  the old `candidates` stay rendered until the new batch replaces them, so the main
+  canvas keeps showing the chosen visual throughout loading.
+- **Loading is non-blocking when a selection exists.** The full-canvas spinner now
+  only shows on the *first* generation (`status === "loading" && !selected &&
+  candidates.length === 0`); otherwise loading feedback is inline (the "More
+  variations" button spins + a `role="status"` "Generating fresh variations…" line)
+  while the canvas keeps the current visual. This also smooths the US-012 type-switch
+  (canvas no longer flashes empty mid-switch).
+- **Session-scoped variation HISTORY (step back to an earlier batch) is a separate
+  story (parity-gaps US-012)** — US-011 only browses the *current* batch + re-rolls.
+- **Browser QA (mock-Azure):** have the mock return a batch-numbered title each call
+  (e.g. `Batch N · Flowchart`) so a re-roll is detectable. Assert: gallery tiles
+  `aria-label^="Select variation"`, header `Variations (N)`; select tile 1 → wait
+  `role="status"` "Visual saved" → record the main canvas text (the `<svg>` whose
+  `.closest("li")` is null); click `[aria-label="More variations"]` → the canvas text
+  is **unchanged** (selection preserved) while the gallery's first tile caption flips
+  to the new batch; then choosing a new tile updates the canvas and `page.reload()`
+  confirms `attachVisual` persisted it. Pre-existing: the editor header's save-status
+  span (`document-editor.tsx`, `shrink-0`) overflows slightly at 375px — unrelated to
+  this gallery.
