@@ -4,6 +4,7 @@ import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 
 import { authConfig } from "@/auth.config";
+import { seedSampleDocument } from "@/lib/onboarding";
 import { prisma } from "@/lib/prisma";
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
@@ -71,21 +72,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user, account }) {
       if (account?.provider === "google" && user?.email) {
         // First Google login creates the user; a returning email links to the
-        // existing account that shares the (Google-verified) email address.
+        // existing account that shares the (Google-verified) email address. We
+        // find-then-create/update (instead of upsert) so we can detect a
+        // brand-new user and seed their first-run sample document exactly once.
         const email = user.email.toLowerCase();
-        const dbUser = await prisma.user.upsert({
-          where: { email },
-          update: {
-            name: user.name ?? undefined,
-            image: user.image ?? undefined,
-          },
-          create: {
-            email,
-            name: user.name ?? null,
-            image: user.image ?? null,
-          },
-        });
+        const existing = await prisma.user.findUnique({ where: { email } });
+        const dbUser = existing
+          ? await prisma.user.update({
+              where: { email },
+              data: {
+                name: user.name ?? undefined,
+                image: user.image ?? undefined,
+              },
+            })
+          : await prisma.user.create({
+              data: {
+                email,
+                name: user.name ?? null,
+                image: user.image ?? null,
+              },
+            });
         token.id = dbUser.id;
+        if (!existing) {
+          await seedSampleDocument(dbUser.id);
+        }
       } else if (user) {
         token.id = user.id;
       }

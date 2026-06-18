@@ -1709,3 +1709,40 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   bounces to `/login` and logging in with the old creds fails (account truly gone).
   The delete flow self-cleans the test user (no cleanup script needed). Both the
   email and the `"DELETE"` keyword paths were verified end-to-end.
+
+### First-run sample document (US-012)
+
+- **`src/lib/onboarding.ts` `seedSampleDocument(userId)`** seeds exactly one
+  first-run document for a brand-new user. It is **best-effort** (wrapped in
+  `try/catch` + `console.error`) so a seeding hiccup can NEVER block sign-up /
+  first login, and **idempotent/guarded**: it `findFirst`s any document owned by
+  the user (NO `deletedAt` filter, so a user who deleted the sample isn't
+  re-seeded) and returns early if one exists. It creates the Document with a
+  **nested `visuals.create`** (document-level, `anchorBlockId: null`) reusing
+  `FIXTURES.flowchart` + `VISUAL_KIND_TO_PRISMA`, casting `data` to
+  `Prisma.InputJsonValue` (same pattern as `attachVisual`/`seed.ts`). It's a
+  plain server helper (NOT a `"use server"` action), imported by the two
+  account-creation paths.
+- **Wire into BOTH sign-up paths:**
+  - Credentials `register` (`src/app/signup/actions.ts`): capture the created
+    user (`const createdUser = await prisma.user.create(...)`) and call
+    `await seedSampleDocument(createdUser.id)` **BEFORE** `signIn(...)`. GOTCHA:
+    `signIn` THROWS `NEXT_REDIRECT` on success, so anything after it never runs —
+    seed first.
+  - Google first-login (`src/auth.ts` `jwt` callback): Prisma `upsert` can't tell
+    create-vs-update, so it was converted to **find-then-create/update**
+    (`const existing = await prisma.user.findUnique(...)` → `existing ? update :
+    create`) and `seedSampleDocument(dbUser.id)` runs only when `!existing`. The
+    `jwt` callback only carries `account` on the initial sign-in, so this fires
+    exactly once per new Google user (and the internal guard double-protects).
+- **A DB-seeded doc-level visual DOES render in the editor** — the US-005
+  "doesn't render on load" note was stale-collab-room/test-env flakiness, NOT a
+  real bug. For a brand-new doc the collab room is fresh: `VisualPanel` mounts
+  with `selected = initialVisual` (renders immediately) and the editor's `seed()`
+  mirrors the DB visual into `ystate` under `SEED_ORIGIN`, which the panel's
+  observer (origin ≠ `localOrigin`) re-applies via `setSelected`. Verified in
+  browser: fresh signup → exactly one "Welcome to Napkin Clone" card → editor
+  canvas paints the flowchart fixture (5 nodes / 5 edges → 6 rects, 5 lines, 9
+  paths, 6 polygons). Idempotency verified with a throwaway root `tsx` script
+  importing the real `seedSampleDocument` (tsx resolves the `@/` alias): two calls
+  for one user → exactly 1 doc + 1 visual.
