@@ -2496,3 +2496,47 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   click the `button[aria-label="Comments"]` → `[role="dialog"][aria-label="Comments"]`
   opens (with `[aria-label="New comment"]`) and closes via `[aria-label="Close
   comments"]`. Confirm 0 horizontal overflow at all three widths.
+
+### Empty-state and onboarding hints on the canvas (US-010)
+
+- **Two non-blocking, in-normal-flow hints live in `content-editor.tsx`, rendered
+  right below the body `<textarea>` (before the `hasCanvasFlow` canvas section).**
+  They are **mutually exclusive** via one ternary so they never stack: an
+  **empty-state placeholder** (a dashed-border `div` reading "Start writing your
+  document" + a spark tip) when `canEdit && content.value.trim() === ""`, else a
+  **one-line dismissible spark hint** (`role="note"`, "Hover any paragraph and click
+  the spark to generate a visual for it." + an `[aria-label="Dismiss hint"]` ✕)
+  when `editable && blocks.length > 0 && !sparkHintDismissed`. Because both sit in
+  normal flow under the textarea, they are inherently non-overlapping (no
+  absolute/fixed) and the empty-state auto-hides as soon as prose is typed.
+  Empty-state is gated on `canEdit` (read-only viewers never see "start writing");
+  the spark hint is gated on `editable` (sparks only exist when editable).
+- **GOTCHA — persist a dismissible hint with `useSyncExternalStore`, NOT a
+  localStorage-read `useEffect`.** `react-hooks/set-state-in-effect` is an **error**
+  in this repo (see the strict React 19 rules), so reading `localStorage` in an
+  effect and `setState`-ing the result fails lint. Instead, back the dismissal with a
+  tiny module-level external store (a `Set` of listeners + `localStorage` read/write,
+  all `try/catch`-guarded for private mode) and read it via
+  `useSyncExternalStore(subscribe, () => localStorage.getItem(KEY) === "1", () =>
+  false)`. The third **server snapshot** arg returns `false` so SSR renders "not
+  dismissed" and React adopts the client value post-hydration with **no hydration
+  mismatch** and no setState-in-effect. `getSnapshot` returns a **boolean primitive**
+  (compared by `Object.is`), so it's stable — no "getSnapshot should be cached" loop.
+  `dismissSparkHint()` writes `"1"` then notifies listeners (the in-tab `storage`
+  event doesn't fire for the writing tab, so the manual notify is what re-renders).
+  Reuse this pattern for any persisted, dismissible client-only UI flag.
+- **US-011 (animations) is a SEPARATE story** — US-010 keeps the hints simple
+  (subtle `transition` on the dismiss button hover is fine); don't add enter/exit
+  motion or `prefers-reduced-motion` handling here.
+- **Browser QA (build + `next start` + collab, headless):** the welcome doc (US-012
+  seed) has content, so opening it shows the spark `[role="note"]` (assert its text +
+  `[aria-label="Dismiss hint"]`); click dismiss → note gone; `page.reload()` → still
+  gone and `localStorage.getItem("napkin:spark-hint-dismissed") === "1"`. For the
+  empty-state, create a **Blank** doc (New document → `button[aria-label="Blank
+  template"]`), wait for `textarea[aria-label="Document text"]:not([disabled])`, then
+  assert a `div.border-dashed` reading "Start writing your document" exists, the spark
+  `[role="note"]` does NOT (empty → 0 blocks), and the hint's `getBoundingClientRect`
+  is below the textarea + inside the viewport. 0 horizontal overflow at 1280/768/375.
+  When checking placement, target the **specific** hint element (`div.border-dashed`
+  / `[role="note"]`), not "any div containing the text" — an ancestor wrapper also
+  contains it and gives a false "above the textarea" reading.

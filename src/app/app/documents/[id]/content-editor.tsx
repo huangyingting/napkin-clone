@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { Sparkles, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import {
   combineSaveStatus,
@@ -73,6 +79,60 @@ const VISUAL_SAVE_LABEL: Record<VisualSaveState, string | null> = {
  * never collides with this null-byte-prefixed string.
  */
 const DOC_VISUAL_KEY = "\u0000doc-visual";
+
+/**
+ * Onboarding hint dismissal (US-010).
+ *
+ * The spark hint is a one-time, dismissible helper. We persist its dismissal in
+ * `localStorage` and expose it through a `useSyncExternalStore` so the read is
+ * SSR-safe (the server snapshot is always "not dismissed", avoiding a hydration
+ * mismatch) without ever calling `setState` inside an effect (which the
+ * `react-hooks/set-state-in-effect` rule forbids).
+ */
+const SPARK_HINT_KEY = "napkin:spark-hint-dismissed";
+const sparkHintListeners = new Set<() => void>();
+
+function readSparkHintDismissed(): boolean {
+  try {
+    return window.localStorage.getItem(SPARK_HINT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function dismissSparkHint(): void {
+  try {
+    window.localStorage.setItem(SPARK_HINT_KEY, "1");
+  } catch {
+    // Storage may be unavailable (private mode); the in-memory notify below
+    // still hides the hint for the current session.
+  }
+  for (const listener of sparkHintListeners) {
+    listener();
+  }
+}
+
+function subscribeSparkHint(onChange: () => void): () => void {
+  sparkHintListeners.add(onChange);
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === SPARK_HINT_KEY) {
+      onChange();
+    }
+  };
+  window.addEventListener("storage", onStorage);
+  return () => {
+    sparkHintListeners.delete(onChange);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+
+function useSparkHintDismissed(): boolean {
+  return useSyncExternalStore(
+    subscribeSparkHint,
+    readSparkHintDismissed,
+    () => false,
+  );
+}
 
 function messageFrom(payload: unknown, fallback: string): string {
   if (payload && typeof payload === "object" && "error" in payload) {
@@ -236,6 +296,9 @@ export function ContentEditor({
   const [selectedVisualKey, setSelectedVisualKey] = useState<string | null>(
     null,
   );
+
+  // Whether the user has dismissed the one-time spark onboarding hint (US-010).
+  const sparkHintDismissed = useSparkHintDismissed();
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
@@ -503,6 +566,14 @@ export function ContentEditor({
   const blocks = parseMarkdown(content.value);
   const hasCanvasFlow = docVisual !== null || blocks.length > 0;
 
+  // US-010 onboarding hints. The empty-state placeholder prompts a writer to
+  // start; once there is prose, a one-line dismissible helper teaches the
+  // hover-to-generate spark interaction. They are mutually exclusive and both
+  // sit in normal flow below the body so they never overlap content.
+  const isEmptyDoc = content.value.trim().length === 0;
+  const showEmptyStateHint = canEdit && isEmptyDoc;
+  const showSparkHint = editable && blocks.length > 0 && !sparkHintDismissed;
+
   return (
     <main className="flex flex-1 flex-col bg-zinc-50 dark:bg-black">
       <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 bg-zinc-50/80 px-4 py-2.5 backdrop-blur sm:px-6 dark:bg-black/50">
@@ -600,6 +671,45 @@ export function ContentEditor({
             placeholder="Start writing…"
             className={`mt-6 block w-full resize-none overflow-hidden bg-transparent text-[15px] leading-7 text-zinc-800 outline-none placeholder:text-zinc-400 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200 dark:placeholder:text-zinc-600`}
           />
+
+          {/* US-010: gentle onboarding hints. Both sit in normal flow beneath
+              the body so they are non-blocking and never overlap content. The
+              empty-state placeholder invites writing; the dismissible spark hint
+              teaches the hover-to-generate interaction once prose exists. */}
+          {showEmptyStateHint ? (
+            <div className="mt-8 rounded-xl border border-dashed border-black/[.10] px-5 py-6 dark:border-white/[.12]">
+              <p className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                <Sparkles aria-hidden="true" className="h-4 w-4" />
+                Start writing your document
+              </p>
+              <p className="mt-1.5 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
+                Write naturally — one idea per paragraph. Hover any paragraph
+                and click the spark to turn it into a visual.
+              </p>
+            </div>
+          ) : showSparkHint ? (
+            <div
+              role="note"
+              className="mt-8 flex items-center gap-2 rounded-lg border border-black/[.06] bg-white/60 px-3 py-2 text-xs text-zinc-600 dark:border-white/[.08] dark:bg-zinc-900/40 dark:text-zinc-300"
+            >
+              <Sparkles
+                aria-hidden="true"
+                className="h-3.5 w-3.5 shrink-0 text-zinc-400 dark:text-zinc-500"
+              />
+              <span className="min-w-0 flex-1">
+                Hover any paragraph and click the spark to generate a visual for
+                it.
+              </span>
+              <button
+                type="button"
+                onClick={dismissSparkHint}
+                aria-label="Dismiss hint"
+                className="shrink-0 rounded-md p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              >
+                <X aria-hidden="true" className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : null}
 
           {hasCanvasFlow ? (
             <section
