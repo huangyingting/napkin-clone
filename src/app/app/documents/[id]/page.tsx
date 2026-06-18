@@ -24,6 +24,7 @@ export default async function DocumentEditorPage({
   const document = await prisma.document.findFirst({
     where: {
       id,
+      deletedAt: null,
       OR: [
         { ownerId: user.id },
         {

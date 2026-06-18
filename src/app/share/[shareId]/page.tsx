@@ -19,7 +19,7 @@ export default async function SharedDocumentPage({
 
   // Find the document by shareId and verify it's actually shared.
   const document = await prisma.document.findFirst({
-    where: { shareId, isShared: true },
+    where: { shareId, isShared: true, deletedAt: null },
     select: {
       id: true,
       title: true,

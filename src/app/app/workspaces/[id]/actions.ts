@@ -108,7 +108,7 @@ export async function getWorkspaceDocuments(
   }
 
   const documents = await prisma.document.findMany({
-    where: { workspaceId },
+    where: { workspaceId, deletedAt: null },
     orderBy: { updatedAt: "desc" },
     select: { id: true, title: true, updatedAt: true },
   });

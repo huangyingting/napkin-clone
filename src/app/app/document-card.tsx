@@ -1,16 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { deleteDocument } from "./actions";
-
-type DocumentCardProps = {
+export type DocumentCardData = {
   id: string;
   title: string;
   editedLabel: string;
   workspaceName: string | null;
+};
+
+type DocumentCardProps = DocumentCardData & {
+  onDelete: (data: DocumentCardData) => void;
 };
 
 function DocumentThumbnail() {
@@ -37,12 +39,10 @@ function DocumentThumbnail() {
 
 function DeleteConfirmDialog({
   title,
-  pending,
   onCancel,
   onConfirm,
 }: {
   title: string;
-  pending: boolean;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -79,7 +79,7 @@ function DeleteConfirmDialog({
           <span className="font-medium text-zinc-900 dark:text-zinc-100">
             “{title}”
           </span>{" "}
-          will be permanently deleted. This can’t be undone.
+          will be moved to the trash. You can undo this right after.
         </p>
         <div className="mt-6 flex justify-end gap-3">
           <button
@@ -92,10 +92,9 @@ function DeleteConfirmDialog({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={pending}
             className="flex h-9 items-center justify-center rounded-full bg-red-600 px-4 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-60"
           >
-            {pending ? "Deleting…" : "Delete"}
+            Delete
           </button>
         </div>
       </div>
@@ -114,17 +113,20 @@ function DeleteConfirmDialog({
  * listener closes the menu only for clicks outside that container — no
  * `stopPropagation`, which would be unreliable under the App Router's delegated
  * events.
+ *
+ * Deletion is owned by the parent `DocumentList` (which manages optimistic
+ * removal and the transient undo affordance): confirming the dialog calls the
+ * `onDelete(id, title)` callback rather than deleting here.
  */
 export function DocumentCard({
   id,
   title,
   editedLabel,
   workspaceName,
+  onDelete,
 }: DocumentCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [deleted, setDeleted] = useState(false);
-  const [isPending, startTransition] = useTransition();
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -140,15 +142,9 @@ export function DocumentCard({
     return () => document.removeEventListener("click", onDocClick);
   }, [menuOpen]);
 
-  if (deleted) {
-    return null;
-  }
-
   const handleConfirmDelete = () => {
-    setDeleted(true);
-    startTransition(async () => {
-      await deleteDocument(id);
-    });
+    setConfirmOpen(false);
+    onDelete({ id, title, editedLabel, workspaceName });
   };
 
   return (
@@ -224,7 +220,6 @@ export function DocumentCard({
       {confirmOpen && (
         <DeleteConfirmDialog
           title={title}
-          pending={isPending}
           onCancel={() => setConfirmOpen(false)}
           onConfirm={handleConfirmDelete}
         />

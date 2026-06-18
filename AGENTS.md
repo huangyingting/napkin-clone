@@ -1329,3 +1329,66 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   `page.url()` on `/app` (no nav), the dialog text includes the document title, Cancel
   keeps both cards, and Delete drops only the targeted card (then `page.reload()` to
   confirm persistence). Count cards via `ul li span.font-medium` inner texts.
+
+### Soft-delete with undo (US-003)
+
+- **`Document.deletedAt DateTime?` is the soft-delete tombstone** (nullable, indexed,
+  migrations in BOTH histories: `prisma/migrations*/2026..._add_document_soft_delete`).
+  After editing `prisma/schema.prisma`, the drill is: `npm run db:schema:sqlite` →
+  `DB_PROVIDER=postgres DATABASE_URL=postgresql://napkin:napkin@localhost:5432/napkin?schema=public npx prisma migrate dev --name …`
+  → `DB_PROVIDER=sqlite DATABASE_URL="file:./prisma/dev.db" npx prisma migrate dev --name …`.
+  **GOTCHA: run the SQLite migrate LAST and then `npm run db:generate`** — `migrate dev`
+  regenerates the client for whatever provider it ran under, and the local gate needs the
+  **sqlite** client (else `next build`/typecheck see a stale Document type with no
+  `deletedAt`). Verify with `grep activeProvider src/generated/prisma/internal/class.ts`.
+- **EVERY document read excludes soft-deleted rows** with `deletedAt: null`. The shared
+  gate `getAccessibleDocument` (in `@/lib/documents`) adds it, so all its callers
+  (attachVisual/detachVisual/comments/delete) inherit the exclusion for free. The
+  remaining direct reads each got `deletedAt: null`: dashboard lists (`app/page.tsx`),
+  editor detail (`app/documents/[id]/page.tsx`), `share/[shareId]`, `embed/[shareId]`,
+  workspace list (`workspaces/[id]/actions.ts`). **When you add a new `prisma.document.find*`,
+  add `deletedAt: null`** or soft-deleted docs leak. (Seed find-or-create is exempt.)
+- **`documentAccessOr(userId)` was extracted** from `getAccessibleDocument` (exported from
+  `@/lib/documents`, typed `NonNullable<Prisma.DocumentWhereInput["OR"]>`). Reuse it when
+  an action must scope access but can't use `getAccessibleDocument` because it needs the
+  soft-deleted row — e.g. `restoreDocument` does `updateMany({ where: { id, deletedAt:
+  { not: null }, OR: documentAccessOr(user.id) }, data: { deletedAt: null } })` (the access
+  scope lives in the where-clause → a foreign id is a 0-row no-op, no existence leak).
+- **Three actions in `app/actions.ts`:** `deleteDocument` now SOFT-deletes
+  (`updateMany set deletedAt = now()`; still gated by `getAccessibleDocument`, which
+  excludes already-deleted rows so double-delete is a no-op — children are NOT touched
+  until purge); `restoreDocument(id)` clears it; `purgeDeletedDocuments()` hard-deletes
+  rows `deletedAt < now-30d` (`SOFT_DELETE_RETENTION_MS`), cascading to Visual/Comment.
+  Purge is **global (not user-scoped)** and invoked opportunistically at the top of the
+  dashboard server component (`app/page.tsx` `await purgeDeletedDocuments()`) — documented
+  choice; the indexed old-cutoff filter matches few rows. **Soft-delete/restore bump
+  `updatedAt` (`@updatedAt`), so a restored doc jumps to the top of "Last edited"** — fine,
+  and the optimistic UI prepends to match.
+- **Deletion ownership moved UP from the card to `app/document-list.tsx` (`DocumentList`)**
+  — this SUPERSEDES the US-002 "card owns its own `deleted` state" note. `DocumentCard` no
+  longer imports `deleteDocument`; its confirm dialog calls `onDelete(data:
+  DocumentCardData)` (full card data, so the parent can re-insert on undo). `page.tsx`
+  renders `<DocumentList documents={…}>` (the empty-state + grid live inside it now).
+- **Undo needs an optimistic STASH, not just an un-hide.** By the time Undo is clicked, the
+  delete's `revalidatePath("/app")` already dropped the doc from the `documents` prop, so
+  removing its id from a `removedIds` set won't bring it back. `DocumentList` keeps the
+  deleted doc's data in `undo` (also the toast payload) and, on undo, pushes it into a
+  `restored: DocumentCardData[]` list; `visible = [...extra, ...base]` where `base =
+  documents − removedIds` and `extra = restored not already in base` (dup-guarded). The
+  card reappears instantly, then the `restoreDocument` revalidation re-adds it to
+  `documents` and the dup-guard drops the local copy. Toast = `createPortal` bottom-center
+  `role="status"` with an **Undo** button, auto-dismiss after `UNDO_DURATION_MS` (6000ms,
+  ≥ the required 5s) via a `timerRef`.
+- **React 19 lint:** don't call `startTransition` (or other setState) inside a setState
+  updater (the AGENTS comments-panel rule). `handleUndo` reads `undo` via the callback's
+  dep array (`useCallback(…, [undo, clearTimer])`) and calls the setters/transition at the
+  top level, not inside `setUndo(updater)`.
+- **Browser QA:** toast is `[role="status"]` containing `button:has-text("Undo")`. Verify:
+  delete drops the card (count `ul li span.font-medium`), toast still present at ~5.2s,
+  Undo brings the card back **without a reload** then `page.reload()` confirms it persisted,
+  and a second delete left to auto-dismiss (>6.5s) stays gone after reload. A soft-deleted
+  doc's editor URL returns **404** (`resp.status()`). Re-seeding changes the user id →
+  clear cookies + log in again. Validate purge+cascade with a root-level `tsx` script
+  (`PrismaBetterSqlite3`): one doc `deletedAt = now-31d` (with a Visual+Comment) + one
+  `deletedAt = now` → load `/app` → old row + children gone, recent survives.
+

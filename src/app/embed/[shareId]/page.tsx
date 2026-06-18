@@ -27,7 +27,7 @@ export default async function EmbedPage({
   // Resolve the document by shareId and verify it is actually shared (same
   // scoping as the read-only share page).
   const document = await prisma.document.findFirst({
-    where: { shareId, isShared: true },
+    where: { shareId, isShared: true, deletedAt: null },
     select: {
       title: true,
       // All visuals in document order: the document-level one (anchorBlockId =
