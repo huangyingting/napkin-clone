@@ -505,7 +505,7 @@ export function ContentEditor({
 
   return (
     <main className="flex flex-1 flex-col bg-zinc-50 dark:bg-black">
-      <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-black/[.06] bg-white/80 px-4 py-3 backdrop-blur sm:px-6 dark:border-white/[.08] dark:bg-black/40">
+      <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 bg-zinc-50/80 px-4 py-2.5 backdrop-blur sm:px-6 dark:bg-black/50">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Link
             href="/app"
@@ -534,7 +534,26 @@ export function ContentEditor({
             </>
           )}
         </div>
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+        {/* US-009: one compact, unobtrusive mini-toolbar grouping the
+            always-needed actions (save status, presence, share, comments) into a
+            single pill so the canvas stays content-first. flex-wrap + max-w-full
+            keeps it from causing horizontal overflow at 375/768/1280. */}
+        <div
+          role="toolbar"
+          aria-label="Document actions"
+          className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-x-2 gap-y-1 rounded-full border border-black/[.06] bg-white/70 px-2.5 py-1 shadow-sm dark:border-white/[.08] dark:bg-zinc-900/60"
+        >
+          <span
+            role="status"
+            aria-live="polite"
+            className="min-w-0 truncate px-1 text-xs text-zinc-500 dark:text-zinc-400"
+          >
+            {STATUS_LABEL[saveStatus]}
+          </span>
+          <span
+            aria-hidden="true"
+            className="hidden h-4 w-px bg-black/[.08] sm:block dark:bg-white/[.12]"
+          />
           <Presence peers={peers} status={status} />
           <ShareButton
             id={id}
@@ -548,13 +567,6 @@ export function ContentEditor({
             getTextSelection={getTextSelection}
             anchorNode={null}
           />
-          <span
-            role="status"
-            aria-live="polite"
-            className="min-w-0 truncate text-xs text-zinc-500 dark:text-zinc-400"
-          >
-            {STATUS_LABEL[saveStatus]}
-          </span>
         </div>
       </header>
 

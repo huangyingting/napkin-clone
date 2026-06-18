@@ -2455,3 +2455,44 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   `el.setSelectionRange(...)` in `evaluate`, then Playwright-`.click()` the visible
   `button[aria-label="Heading 1"]` etc. (the pill is `fixed` and visible, so a real
   click works), and read back `value`/`selectionStart`/`selectionEnd`/`activeElement`.
+
+### Persistent mini-toolbar for always-needed actions (US-009)
+
+- **The four always-needed controls (save status, `Presence`, `ShareButton`,
+  `CommentsPanel`) are grouped into ONE compact mini-toolbar pill in the
+  `content-editor.tsx` header.** It's a `role="toolbar" aria-label="Document
+  actions"` `<div>` (rounded-full, subtle border + `bg-white/70` / `shadow-sm`,
+  `dark:bg-zinc-900/60`) on the header's right; the back-link/workspace/read-only
+  context stays on the left. The save-status span (the `STATUS_LABEL[saveStatus]`
+  `role="status"`) moved INTO this pill as the first item, followed by a `sm:`-only
+  divider, then `Presence`/`ShareButton`/`CommentsPanel`. The components are reused
+  **as-is** (no restyle) — just regrouped — so all existing functionality (share
+  menu, comments drawer, presence avatars/Live pill, save indicator) works unchanged.
+- **The editor now has TWO `role="toolbar"` nodes** — `aria-label="Document actions"`
+  (this mini-toolbar) and `aria-label="Text formatting"` (the US-008 bottom-center
+  format pill) — and **TWO `role="status"` nodes live INSIDE the mini-toolbar** (the
+  save-status span + Presence's "Live"/"Connecting…"/"Offline" pill). In browser QA,
+  scope to `[role="toolbar"][aria-label="Document actions"]` and match status text
+  (don't assume the first `role="status"`).
+- **No-overflow strategy = `flex-wrap` + `max-w-full`, NOT fixed positioning.** The
+  pill stays inside the **sticky** header (which reserves vertical space, so it never
+  overlaps the canvas the way a `fixed` top-right element would on narrow screens) and
+  wraps its items instead of growing past the viewport. Verified
+  `document.documentElement.scrollWidth - clientWidth === 0` at 1280/768/375. The
+  header itself was slimmed/blended (`bg-zinc-50/80 backdrop-blur`, no hard `border-b`,
+  `py-2.5`) so the pill reads as the distinct toolbar over a clean canvas.
+- **Don't make the mini-toolbar `fixed`/floating here.** A `fixed top-right` pill
+  overlaps the full-width title at 375px and risks horizontal overflow; the
+  sticky-header pill avoids both while still being "top-right". (The bottom-center
+  format toolbar IS `fixed` because it must overlay mid-canvas text — different need.)
+  Don't put `overflow-hidden` on the pill: `ShareButton`'s dropdown is an
+  `absolute` child and would be clipped (`CommentsPanel`'s drawer is portaled, so
+  it's unaffected either way).
+- **Browser QA (build + `next start` + collab, headless):** assert the pill exists
+  and contains `Share` + `Comments` buttons, a save `role="status"` and a Live
+  `role="status"`, and a `[aria-label="People here"]` region; click
+  `[role="toolbar"][aria-label="Document actions"] button:has-text("Share")` → the
+  `text=Share this document` panel shows and closes on click-away (title input);
+  click the `button[aria-label="Comments"]` → `[role="dialog"][aria-label="Comments"]`
+  opens (with `[aria-label="New comment"]`) and closes via `[aria-label="Close
+  comments"]`. Confirm 0 horizontal overflow at all three widths.
