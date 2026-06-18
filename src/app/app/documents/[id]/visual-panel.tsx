@@ -13,7 +13,12 @@ import {
   type VisualKind,
 } from "@/lib/visual/schema";
 
-import { attachVisual } from "./actions";
+import {
+  attachVisual,
+  listVisualRevisions,
+  restoreVisualRevision,
+  type VisualRevisionSummary,
+} from "./actions";
 import { StylePanel } from "./style-panel";
 import { VisualEditor } from "./visual-editor";
 
@@ -25,6 +30,7 @@ const MAX_HISTORY = 10;
 
 type GenStatus = "idle" | "loading";
 type SaveState = "idle" | "saving" | "saved" | "error";
+type HistoryStatus = "idle" | "loading" | "error";
 
 const KIND_LABEL: Record<VisualKind, string> = {
   flowchart: "Flowchart",
@@ -60,6 +66,22 @@ function typePillClass(active: boolean): string {
       ? "border-zinc-900 bg-zinc-900 text-white dark:border-white dark:bg-white dark:text-zinc-900"
       : "border-black/[.08] text-zinc-600 hover:border-black/20 hover:text-zinc-900 dark:border-white/[.12] dark:text-zinc-300 dark:hover:border-white/30 dark:hover:text-zinc-100",
   ].join(" ");
+}
+
+const revisionTimeFormatter = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+/** Formats a revision's ISO timestamp for display in the history list. */
+function formatRevisionTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return "Earlier version";
+  }
+  return revisionTimeFormatter.format(date);
 }
 
 /**
@@ -105,6 +127,12 @@ export function VisualPanel({
   const [saveState, setSaveState] = useState<SaveState>(
     initialVisual ? "saved" : "idle",
   );
+
+  // Version history (US-016): browsable previous versions of the active visual.
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [revisions, setRevisions] = useState<VisualRevisionSummary[]>([]);
+  const [historyStatus, setHistoryStatus] = useState<HistoryStatus>("idle");
+  const [restoringId, setRestoringId] = useState<string | null>(null);
 
   // Editing requires permission AND a ready collaboration session.
   const editable = canEdit && ready;
@@ -258,6 +286,60 @@ export function VisualPanel({
     [persistEdit, pushVisual],
   );
 
+  // Loads the active visual's revision history. `silent` skips the loading
+  // state for background refreshes (e.g. right after a restore).
+  const loadRevisions = useCallback(
+    async (silent = false) => {
+      if (!silent) {
+        setHistoryStatus("loading");
+      }
+      try {
+        const list = await listVisualRevisions(documentId);
+        setRevisions(list);
+        setHistoryStatus("idle");
+      } catch {
+        setHistoryStatus("error");
+      }
+    },
+    [documentId],
+  );
+
+  // Toggles the history section, fetching a fresh list whenever it opens.
+  const toggleHistory = useCallback(() => {
+    const next = !historyOpen;
+    setHistoryOpen(next);
+    if (next) {
+      void loadRevisions();
+    }
+  }, [historyOpen, loadRevisions]);
+
+  // Restores a previous version: writes it back (snapshotting the current state
+  // so the restore is undoable), updates the canvas live, and refreshes history.
+  const restore = useCallback(
+    async (revision: VisualRevisionSummary) => {
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+        saveTimer.current = null;
+      }
+      setRestoringId(revision.id);
+      setSaveState("saving");
+      try {
+        const result = await restoreVisualRevision(revision.id);
+        latestVisual.current = result.visual;
+        setSelected(result.visual);
+        setSelectedNodeId(null);
+        pushVisual(result.visual);
+        setSaveState("saved");
+        await loadRevisions(true);
+      } catch {
+        setSaveState("error");
+      } finally {
+        setRestoringId(null);
+      }
+    },
+    [pushVisual, loadRevisions],
+  );
+
   /**
    * Generates visuals from the current text. With no `type`, returns varied
    * candidates for the user to choose from (US-011). With a `type`, regenerates
@@ -364,6 +446,19 @@ export function VisualPanel({
           ) : null}
         </div>
         <div className="flex items-center gap-2">
+          {selected ? (
+            <button
+              type="button"
+              onClick={toggleHistory}
+              aria-label="Visual history"
+              aria-expanded={historyOpen}
+              aria-pressed={historyOpen}
+              title="Browse and restore previous versions"
+              className={moreVariationsButtonClass}
+            >
+              History
+            </button>
+          ) : null}
           {selected ? (
             <ExportMenu
               getSvgElement={() => rendererRef.current}
@@ -477,6 +572,88 @@ export function VisualPanel({
           </div>
         )}
       </div>
+
+      {selected && historyOpen ? (
+        <div className="border-t border-black/[.06] px-4 py-3 dark:border-white/[.08]">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              Version history
+            </p>
+            <button
+              type="button"
+              onClick={() => void loadRevisions()}
+              disabled={historyStatus === "loading"}
+              aria-label="Refresh version history"
+              className={moreVariationsButtonClass}
+            >
+              {historyStatus === "loading" ? (
+                <span
+                  aria-hidden="true"
+                  className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+                />
+              ) : null}
+              Refresh
+            </button>
+          </div>
+
+          {historyStatus === "loading" ? (
+            <p
+              role="status"
+              aria-live="polite"
+              className="text-xs text-zinc-400 dark:text-zinc-500"
+            >
+              Loading version history…
+            </p>
+          ) : historyStatus === "error" ? (
+            <div
+              role="alert"
+              className="flex flex-wrap items-center justify-between gap-2 text-xs text-red-600 dark:text-red-400"
+            >
+              <span>Couldn&apos;t load history.</span>
+              <button
+                type="button"
+                onClick={() => void loadRevisions()}
+                className="rounded-md px-2 py-1 font-semibold underline-offset-2 hover:underline"
+              >
+                Try again
+              </button>
+            </div>
+          ) : revisions.length === 0 ? (
+            <p className="text-xs text-zinc-400 dark:text-zinc-500">
+              No previous versions yet. Each edit or regeneration is saved here
+              so you can roll back.
+            </p>
+          ) : (
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {revisions.map((revision) => {
+                const label = formatRevisionTime(revision.createdAt);
+                return (
+                  <li key={revision.id}>
+                    <button
+                      type="button"
+                      onClick={() => void restore(revision)}
+                      disabled={!editable || restoringId !== null}
+                      aria-label={`Restore version from ${label}`}
+                      title={`Restore version from ${label}`}
+                      className={thumbButtonClass(false)}
+                    >
+                      <span className="aspect-[4/3] w-full overflow-hidden rounded-md bg-white dark:bg-zinc-950">
+                        <VisualRenderer
+                          visual={revision.visual}
+                          className="h-full w-full"
+                        />
+                      </span>
+                      <span className="px-1 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                        {restoringId === revision.id ? "Restoring…" : label}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      ) : null}
 
       {selected && status !== "loading" && editable ? (
         <StylePanel

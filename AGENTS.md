@@ -1824,3 +1824,47 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   snapshot-previous, prune newest-10 V2..V11, cascade-on-visual-delete) verified with a
   throwaway root `tsx` script mirroring the helper (`PrismaBetterSqlite3`), deleted
   before committing. US-016 (browse/restore) consumes this history.
+
+### Browse and restore a previous visual version (US-016)
+
+- **Two new server actions in `src/app/app/documents/[id]/actions.ts`** consume the
+  US-015 `VisualRevision` history:
+  - `listVisualRevisions(documentId, anchorBlockId = null)` → access-scoped
+    (`getAccessibleDocument`), resolves the `Visual` for `(documentId, anchorBlockId)`
+    (null = the doc-level visual the `VisualPanel` manages), then `findMany` its
+    revisions `orderBy [{ createdAt: "desc" }, { id: "desc" }]`. Each row's `data` is
+    re-parsed with `safeParseVisual` (garbled rows skipped) and `createdAt` serialized
+    to ISO. Returns the exported `VisualRevisionSummary[]` (`{ id; createdAt; visual }`).
+    Empty list when the visual has no history.
+  - `restoreVisualRevision(revisionId)` → resolves revision → its `visual.documentId` /
+    `visual.anchorBlockId`, access-scopes the parent doc, `validateVisual`s the stored
+    snapshot, then **writes it back through `attachVisual(documentId, visual, anchorBlockId)`**.
+    Going through `attachVisual` means the CURRENT state is itself snapshotted first
+    (US-015), so a restore is recorded in history and therefore undoable. Returns
+    `{ visual }` so the client updates the canvas live. (Verified end-to-end: restoring
+    the oldest of 2 revisions made history grow to 3, the prior "current" on top.)
+- **History UI lives in the existing `VisualPanel`** (no new component). A `History`
+  pill (`aria-label="Visual history"`, `aria-expanded`) in the panel header shows when
+  `selected`; toggling open fetches `listVisualRevisions(documentId)` (doc-level, anchor
+  null). A "Version history" section renders newest-first thumbnails (`<VisualRenderer>`
+  + a formatted timestamp) as `button[aria-label="Restore version from <time>"]`,
+  `disabled` unless `editable`. Restore calls `restoreVisualRevision`, then
+  `setSelected`/`pushVisual` (live canvas + collab) and a **silent** `loadRevisions(true)`
+  refresh. States: loading (`role=status`), error (`role=alert` + Try again), empty, and
+  a manual Refresh button. `loadRevisions(silent?)` skips the loading flash for the
+  post-restore refresh.
+- **React 19 lint:** `toggleHistory` reads `historyOpen` from closure and calls the
+  fetch OUTSIDE the `setState` updater (`const next = !historyOpen; setHistoryOpen(next);
+  if (next) void loadRevisions();`) — never call setState/`loadRevisions` inside a
+  `setHistoryOpen(updater)` (the documented set-state-in-updater rule).
+- **Browser QA (SQLite, fresh dev server):** seed a user + doc + a doc-level `Visual`
+  (`anchorBlockId: null`) + ≥2 `VisualRevision`s with DISTINCT `createdAt` (a root-level
+  `tsx` script using `validateVisual` to build canonical `data` + `PrismaBetterSqlite3`).
+  GOTCHA — **a dev server started BEFORE editing a server action serves stale code and
+  the new action throws** ("Couldn't load history"); kill + restart `next dev` after
+  adding/editing actions. Read the main canvas as the `svg[role="img"]` whose
+  `.closest("li")` is null (thumbnails are inside `<li>`); assert restore updates it live
+  then `page.reload()` to confirm persistence. The post-restore in-browser list can read
+  stale for a tick (the silent refresh is awaited AFTER `setSaveState("saved")`) — confirm
+  the new snapshot via the DB or a short wait. The 375px editor-header overflow is the
+  pre-existing US-021 span (identical with History open/closed) — not from this section.

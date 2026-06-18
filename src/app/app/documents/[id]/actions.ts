@@ -7,7 +7,12 @@ import { Prisma } from "@/generated/prisma/client";
 import { getAccessibleDocument } from "@/lib/documents";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
-import { VISUAL_KIND_TO_PRISMA, validateVisual } from "@/lib/visual/schema";
+import {
+  VISUAL_KIND_TO_PRISMA,
+  safeParseVisual,
+  validateVisual,
+  type Visual,
+} from "@/lib/visual/schema";
 
 // URL-safe share ID generator (no ambiguous chars: 0/O, 1/l/I)
 const generateShareId = customAlphabet(
@@ -187,6 +192,113 @@ export async function attachVisual(
 
   revalidatePath(`/app/documents/${id}`);
   return { visualId: saved.id };
+}
+
+/** A previous version of a visual, ready to render as a history thumbnail. */
+export type VisualRevisionSummary = {
+  id: string;
+  createdAt: string;
+  visual: Visual;
+};
+
+/**
+ * Lists the recent revision history for the visual at `(documentId,
+ * anchorBlockId)`, newest first, for any user who can access the document
+ * (owner or workspace member). Each revision's stored JSON is re-parsed with
+ * `safeParseVisual` so only renderable snapshots are returned (garbled rows are
+ * skipped); the `createdAt` is serialized to an ISO string for the client.
+ * Returns an empty list when the visual has no history yet. Throws when the
+ * document isn't accessible.
+ */
+export async function listVisualRevisions(
+  documentId: string,
+  anchorBlockId: string | null = null,
+): Promise<VisualRevisionSummary[]> {
+  const user = await requireUser();
+
+  const document = await getAccessibleDocument(user.id, documentId);
+  if (!document) {
+    throw new Error("Document not found.");
+  }
+
+  const anchor = normalizeAnchorBlockId(anchorBlockId);
+
+  // Resolve the visual row for this (document, anchor) — its id keys the history.
+  const visual = await prisma.visual.findFirst({
+    where: { documentId, anchorBlockId: anchor },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+  if (!visual) {
+    return [];
+  }
+
+  const revisions = await prisma.visualRevision.findMany({
+    where: { visualId: visual.id },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    select: { id: true, data: true, createdAt: true },
+  });
+
+  const summaries: VisualRevisionSummary[] = [];
+  for (const revision of revisions) {
+    const parsed = safeParseVisual(revision.data);
+    if (parsed.success) {
+      summaries.push({
+        id: revision.id,
+        createdAt: revision.createdAt.toISOString(),
+        visual: parsed.data,
+      });
+    }
+  }
+  return summaries;
+}
+
+/**
+ * Restores a previous visual version.
+ *
+ * The revision is resolved to its parent visual and document, the document is
+ * access-scoped (owner or workspace member), and the snapshot is re-validated
+ * with `validateVisual` before being written back through `attachVisual`. Going
+ * through `attachVisual` means the *current* state is itself snapshotted into
+ * history first, so a restore is recorded and therefore undoable. Returns the
+ * restored visual so the caller can update the canvas live.
+ */
+export async function restoreVisualRevision(
+  revisionId: string,
+): Promise<{ visual: Visual }> {
+  const user = await requireUser();
+
+  const revision = await prisma.visualRevision.findUnique({
+    where: { id: revisionId },
+    select: {
+      data: true,
+      visual: { select: { documentId: true, anchorBlockId: true } },
+    },
+  });
+  if (!revision) {
+    throw new Error("Revision not found.");
+  }
+
+  // Access-scope the parent document so a foreign revision id can't be probed
+  // or restored by a user without access.
+  const document = await getAccessibleDocument(
+    user.id,
+    revision.visual.documentId,
+  );
+  if (!document) {
+    throw new Error("Document not found.");
+  }
+
+  // Re-validate the stored snapshot before writing it back.
+  const visual = validateVisual(revision.data);
+
+  await attachVisual(
+    revision.visual.documentId,
+    visual,
+    revision.visual.anchorBlockId,
+  );
+
+  return { visual };
 }
 
 /**
