@@ -1229,3 +1229,41 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   reads cross-origin frames). Seed a shared doc + visuals with a throwaway root-level
   `tsx` script (the documented SQLite `PrismaBetterSqlite3` pattern); delete it +
   the test rows before committing.
+
+### Copy embed code from the share UI (parity-gaps US-019)
+
+- **The share UI is the client `ShareButton`** (`src/app/app/documents/[id]/share-button.tsx`),
+  a dropdown rendered in the editor header. US-019 added an **Embed** section below
+  the share-link section, gated on `shareState.isShared && embedSnippet` (so it only
+  shows when sharing is enabled). It renders a **read-only `<textarea aria-label="Embed
+  code">`** holding an `<iframe>` snippet + a **Copy** button + a `<p role="status"
+  aria-live="polite">` that flips to `"Embed code copied to clipboard."` on copy
+  (otherwise a hint). The snippet points at the chrome-free `/embed/[shareId]` route
+  (US-018).
+- **Derive the embed URL from `shareState.shareUrl`** (`shareUrl.replace("/share/",
+  "/embed/")`) rather than rebuilding from origin+shareId — `shareUrl` is the canonical
+  displayed link and is already set from the server action (`process.env.NEXT_PUBLIC_APP_URL
+  || "http://localhost:3000"` + `/share/<shareId>`), so the embed link keeps the same
+  origin as the visible share link. Format is always `<origin>/share/<shareId>`, so the
+  single `.replace` is safe.
+- **GOTCHA (fixed here) — the share dropdown closed on EVERY in-menu click.** The
+  outside-click handler used `document.addEventListener("click", () => setShowMenu(false))`
+  and the menu relied on `onClick={(e) => e.stopPropagation()}` to stay open. In the
+  **App Router, React delegates events to `document`**, so a manual `document` click
+  listener fires on the **same target** as React's delegation — `stopPropagation()` does
+  **not** stop a same-element sibling listener — so toggling sharing / clicking Copy
+  closed the menu (the `role="status"` confirmation was never visible). Fix = the
+  standard **ref-based containment check**: put a `ref` on the menu div and
+  `if (menuRef.current && !menuRef.current.contains(e.target as Node)) setShowMenu(false)`.
+  This keeps the menu open for all in-menu controls. Use this pattern for any
+  click-outside dropdown in this app instead of `stopPropagation`.
+- **Browser QA (headless, prod `next start`):** sign up a fresh `*@test.dev` user
+  (clear cookies first — a stale auth cookie bounces `/signup`→`/app` so the form's
+  `input[name=email]` never appears), create a doc, open Share, toggle on. Grant
+  clipboard perms via `page.context().grantPermissions(["clipboard-read",
+  "clipboard-write"], { origin })` — localhost is a secure context so
+  `navigator.clipboard` works headless, and `readText()` confirms the exact snippet
+  landed. Target the embed copy button as `textarea[aria-label="Embed code"] + button`
+  and scope the status to `div.absolute p[role="status"]` (the editor also has a
+  save-status `role="status"`). Delete the throwaway user from `prisma/dev.db` after
+  (root-level `tsx` cleanup script using `PrismaBetterSqlite3`, then remove it).
