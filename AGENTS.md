@@ -2129,12 +2129,14 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
 
 ### Editor layout scaffold (US-001)
 
-- **The editor page now renders `ContentEditor`** (`src/app/app/documents/[id]/
-  content-editor.tsx`, `"use client"`), NOT the legacy `DocumentEditor`
-  (`document-editor.tsx`). The old tab/two-panel component is **dead code kept on
-  purpose until US-015 deletes it** (the PRD sequences its removal there); it's no
-  longer imported by any route, still typechecks, and isn't bundled. Don't re-wire
-  the page back to `DocumentEditor`.
+- **The editor page renders `ContentEditor`** (`src/app/app/documents/[id]/
+  content-editor.tsx`, `"use client"`). The legacy `DocumentEditor`
+  (`document-editor.tsx`), the right-panel `VisualPanel` (`visual-panel.tsx`), and
+  the Preview-tab `BlockVisualGenerator` (`block-visual-generator.tsx`) were
+  **DELETED in US-015** — they no longer exist. The content-first
+  `ContentEditor`/`InlineVisualEditor` chain is the only editor. (`markdown-preview.tsx`,
+  `visual-editor.tsx`, `style-panel.tsx`, `icon-picker.tsx`, `export-menu.tsx` are
+  still live — reused by the new chain and the share view.)
 - **`ContentEditor` is the single canvas all later content-first stories build
   on.** US-001 is just the scaffold: a single centered **`max-w-3xl` (768px)**
   blog-width column inside a scrollable area — an inline **title `<input
@@ -2709,3 +2711,46 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   hotspot; a Playwright `locator.click()` (real `mousedown`) on the Comments button
   exercises the "editor closes but anchor persists" path, whereas a programmatic
   `element.click()` does NOT fire `mousedown`.
+
+### Retire the tab/two-panel editor & reconcile share/read views (US-015)
+
+- **The legacy editor is GONE.** US-015 `git rm`'d three now-dead files:
+  `document-editor.tsx` (was unimported once `page.tsx` switched to `ContentEditor`
+  in US-001), and its only-consumers `visual-panel.tsx` (`VisualPanel`) and
+  `block-visual-generator.tsx` (`BlockVisualGenerator`). Before deleting a
+  "legacy/dead" component, confirm the dead-code CHAIN: grep every export of each
+  file repo-wide and only delete a dependency once its sole importer is also being
+  deleted (here: VisualPanel/BlockVisualGenerator were imported *only* by
+  DocumentEditor). `markdown-preview.tsx` survived because `BlockContent` is used by
+  `content-editor.tsx` and `MarkdownPreview` by the share page; `visual-editor.tsx`/
+  `style-panel.tsx`/`icon-picker.tsx`/`export-menu.tsx` survived via the
+  `InlineVisualEditor` chain. No other file imported the deleted exports (only
+  `page.tsx`'s unrelated `DocumentEditorPage` shares the "DocumentEditor" substring).
+- **The share page (`src/app/share/[shareId]/page.tsx`) was redesigned from a
+  two-column grid (Text | Visual) to the content-first single column.** It's a
+  server component matching the editor's read view: a `max-w-3xl` blog-width column,
+  header (Read-only badge + "Shared by" + `text-3xl/sm:text-4xl font-bold` title),
+  then the **document-level visual in its own inline slot** (a "Document visual"
+  labelled card, an `svg[role="img"]` NOT inside any `[data-block-visual]`), then
+  `MarkdownPreview source={content} visuals={blockVisuals}` which renders prose with
+  each anchored visual inline beneath its source block (`[data-block-visual="<id>"]`).
+  Same doc-level-vs-anchored split as before (one pass over the single `visuals`
+  query, `safeParseVisual` each). No new query, no backend change.
+- **The embed page (`/embed/[shareId]`) was left visual-only on purpose** — it's the
+  chrome-free iframe widget (US-018): no header/nav/prose, just every visual
+  (doc-level first, then anchored, in document order) via the directive-free
+  `VisualRenderer`. That already IS "consistent with the content-first layout"
+  (visuals in document order, same renderer); adding prose would regress its
+  documented embedding purpose. Don't add `MarkdownPreview` to embed.
+- **Browser QA (prod `next start`, `dev-browser --headless`):** the share/embed
+  pages are public (no auth/collab needed) — seed a shared doc + a doc-level visual +
+  ≥3 block-anchored visuals (root-level `*.mts` tsx, `PrismaBetterSqlite3`,
+  `data: v as unknown as object`, `type: VISUAL_KIND_TO_PRISMA[v.type]`; content
+  blocks **blank-line separated** so `parseMarkdown` yields distinct blocks; anchor
+  ids come from `parseMarkdown(content)`). Verified: share = 4 `svg[role="img"]`
+  (1 doc-level outside `[data-block-visual]` + 3 inline cards), single column (no
+  `lg:grid-cols-2`), "Document visual"/"Read-only" labels, NO editing affordances
+  (`[aria-label="Generate visual for this block"]`, `[role="toolbar"][aria-label=
+  "Text formatting"]`, `textarea[aria-label="Document text"]` all 0); embed = 4
+  `svg[role="img"]`, 0 `<header>`/`<nav>`/`<a>`; both 404 on unknown/non-shared id;
+  zero horizontal overflow (`scrollWidth - clientWidth === 0`) at 375/768/1280.
