@@ -32,6 +32,7 @@ import {
 } from "./actions";
 import { CommentsPanel } from "./comments-panel";
 import type { CommentThread } from "./comments-actions";
+import { InlineVisualEditor } from "./inline-visual-editor";
 import { BlockContent } from "./markdown-preview";
 import { Presence } from "./presence";
 import { ShareButton } from "./share-button";
@@ -65,6 +66,13 @@ const VISUAL_SAVE_LABEL: Record<VisualSaveState, string | null> = {
   saved: "Visual saved",
   error: "Couldn't save visual",
 };
+
+/**
+ * Sentinel key for the document-level visual (anchor `null`) in the
+ * `selectedVisualKey` state. Block-anchored visuals use their `block.id`, which
+ * never collides with this null-byte-prefixed string.
+ */
+const DOC_VISUAL_KEY = "\u0000doc-visual";
 
 function messageFrom(payload: unknown, fallback: string): string {
   if (payload && typeof payload === "object" && "error" in payload) {
@@ -200,6 +208,17 @@ export function ContentEditor({
   const [blockVisuals, setBlockVisuals] = useState<Record<string, Visual>>(
     () => initialBlockVisuals,
   );
+  // The document-level visual (anchor `null`), seeded once from the persisted
+  // value and kept in state so contextual edits (US-007) re-render it live.
+  const [docVisual, setDocVisual] = useState<Visual | null>(
+    () => initialVisual,
+  );
+  // Which inline visual (if any) is selected for contextual editing (US-007):
+  // `DOC_VISUAL_KEY` for the document visual or a `block.id` for a block visual.
+  // Only one visual's editing tools are open at a time.
+  const [selectedVisualKey, setSelectedVisualKey] = useState<string | null>(
+    null,
+  );
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
@@ -327,6 +346,20 @@ export function ContentEditor({
     setVisualSaveState("idle");
   }, []);
 
+  // Open an inline visual's contextual editing tools (US-007). Editing and the
+  // generation picker are mutually exclusive, so opening one closes the other.
+  const selectVisual = useCallback(
+    (key: string) => {
+      closePicker();
+      setSelectedVisualKey(key);
+    },
+    [closePicker],
+  );
+
+  const deselectVisual = useCallback(() => {
+    setSelectedVisualKey(null);
+  }, []);
+
   // Send a single block's text to `/api/generate` and show the returned
   // candidate visuals inline near the block. Errors are non-blocking and
   // retryable; the open picker stays open so the user can retry or pick.
@@ -335,6 +368,8 @@ export function ContentEditor({
     if (text.length === 0) {
       return;
     }
+    // Opening the generation picker exits any active editing session.
+    setSelectedVisualKey(null);
     setOpenSparkId(block.id);
     setGenStatus("loading");
     setGenError(null);
@@ -449,7 +484,7 @@ export function ContentEditor({
   // render beneath its source block (US-002). Block ids are derived from the
   // content, matching the keys the server computed for `initialBlockVisuals`.
   const blocks = parseMarkdown(content.value);
-  const hasCanvasFlow = initialVisual !== null || blocks.length > 0;
+  const hasCanvasFlow = docVisual !== null || blocks.length > 0;
 
   return (
     <main className="flex flex-1 flex-col bg-zinc-50 dark:bg-black">
@@ -562,17 +597,42 @@ export function ContentEditor({
               aria-label="Document canvas"
               className="mt-10 flex flex-col gap-6 border-t border-black/[.06] pt-8 dark:border-white/[.08]"
             >
-              {initialVisual ? (
+              {docVisual ? (
                 <div className="flex flex-col gap-2">
                   <span className="text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
                     Document visual
                   </span>
-                  <div className="overflow-hidden rounded-xl border border-black/[.06] bg-white dark:border-white/[.08] dark:bg-zinc-950">
-                    <VisualRenderer
-                      visual={initialVisual}
-                      className="h-auto w-full"
+                  {editable && selectedVisualKey === DOC_VISUAL_KEY ? (
+                    <InlineVisualEditor
+                      documentId={id}
+                      anchorBlockId={null}
+                      text={content.value}
+                      visual={docVisual}
+                      onChange={setDocVisual}
+                      onClose={deselectVisual}
                     />
-                  </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={
+                        editable
+                          ? () => selectVisual(DOC_VISUAL_KEY)
+                          : undefined
+                      }
+                      aria-label={editable ? "Edit document visual" : undefined}
+                      disabled={!editable}
+                      className={`block w-full overflow-hidden rounded-xl border border-black/[.06] bg-white text-left transition dark:border-white/[.08] dark:bg-zinc-950 ${
+                        editable
+                          ? "cursor-pointer hover:border-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:hover:border-white/25"
+                          : "cursor-default"
+                      }`}
+                    >
+                      <VisualRenderer
+                        visual={docVisual}
+                        className="h-auto w-full"
+                      />
+                    </button>
+                  )}
                 </div>
               ) : null}
 
@@ -668,12 +728,40 @@ export function ContentEditor({
                               </div>
                             ) : null}
                           </div>
-                          <div className="overflow-hidden rounded-lg border border-black/[.06] bg-white dark:border-white/[.08] dark:bg-zinc-950">
-                            <VisualRenderer
+                          {editable && selectedVisualKey === block.id ? (
+                            <InlineVisualEditor
+                              documentId={id}
+                              anchorBlockId={block.id}
+                              text={blockText(block)}
                               visual={visual}
-                              className="h-auto w-full"
+                              onChange={(next) =>
+                                setBlockVisuals((prev) => ({
+                                  ...prev,
+                                  [block.id]: next,
+                                }))
+                              }
+                              onClose={deselectVisual}
                             />
-                          </div>
+                          ) : editable ? (
+                            <button
+                              type="button"
+                              onClick={() => selectVisual(block.id)}
+                              aria-label="Edit this block's visual"
+                              className="block w-full overflow-hidden rounded-lg border border-black/[.06] bg-white text-left transition hover:border-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:border-white/[.08] dark:bg-zinc-950 dark:hover:border-white/25"
+                            >
+                              <VisualRenderer
+                                visual={visual}
+                                className="h-auto w-full"
+                              />
+                            </button>
+                          ) : (
+                            <div className="overflow-hidden rounded-lg border border-black/[.06] bg-white dark:border-white/[.08] dark:bg-zinc-950">
+                              <VisualRenderer
+                                visual={visual}
+                                className="h-auto w-full"
+                              />
+                            </div>
+                          )}
                         </div>
                       ) : null}
 

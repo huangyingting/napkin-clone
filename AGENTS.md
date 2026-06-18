@@ -2359,3 +2359,57 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   across `page.reload()`; Replace regenerates (3 candidates via mock) and selecting a
   different kind flips the card header label (Flowchart→List) + "Visual saved" and
   persists; zero horizontal overflow.
+
+### Open visual editing tools contextually for an inline visual (US-007)
+
+- **Contextual editing lives in a new `inline-visual-editor.tsx`
+  (`InlineVisualEditor`), rendered IN PLACE of the read-only `VisualRenderer`
+  when its visual is selected — not a permanent right panel.** It bundles the
+  existing building blocks (`VisualEditor` node/edge canvas, `StylePanel`
+  theme/color, the 9 type-switch pills, a "More variations" candidate gallery, and
+  `ExportMenu`) for ONE visual, parameterized by `anchorBlockId` (`null` =
+  doc-level, a `block.id` = block-anchored). Don't reuse the legacy `VisualPanel`
+  for this — it's hardwired to the doc-level ystate and a full-height right panel.
+- **All persistence reuses the existing `attachVisual(documentId, visual,
+  anchorBlockId)` path** — debounced (600ms) for canvas/style edits via
+  `handleEditChange`, immediate for discrete choices (candidate select / type
+  switch) via `commit`. No backend/schema/action change. Type switching reuses
+  `/api/generate` with an optional `type` (auto-selects the regenerated result);
+  "More variations" reuses it with no `type` (browsable candidates). The working
+  visual is seeded ONCE (`useState(() => visual)`); the parent's copy is kept in
+  sync via `onChange` so the read-only render is current after the editor closes.
+- **`ContentEditor` owns the selection:** `docVisual` state (seeded from
+  `initialVisual`, so the doc-level visual is editable + re-renders live) +
+  `selectedVisualKey: string | null` (the constant `DOC_VISUAL_KEY` =
+  `"\u0000doc-visual"` for the doc-level visual, else a `block.id`). Only ONE
+  visual's tools open at a time. Read-only visuals are click-to-edit buttons
+  (`aria-label="Edit document visual"` / `"Edit this block's visual"`), gated on
+  `editable` (read-only viewers get a plain `<div>`, no edit affordance). Editing
+  and the spark generation picker are **mutually exclusive** — `selectVisual`
+  calls `closePicker()`, and `generateFor` clears `selectedVisualKey`.
+- **Click-away dismissal is self-contained in `InlineVisualEditor`** via a
+  `document` `mousedown` listener + ref containment (`!containerRef.current
+  .contains(target) → onClose()`), NEVER `stopPropagation` (the house rule).
+  `mousedown` fires before a sibling visual's click, so clicking a different visual
+  naturally closes the current editor first, then selects the new one. The US-006
+  block header (Replace/Remove) sits OUTSIDE the editor container, so clicking it
+  dismisses-then-acts (works correctly).
+- **Test hooks:** the editor is `[role="group"][aria-label="Visual editing tools"]`;
+  type pills `[aria-label="Switch to <Label>"]` (`aria-pressed` = active matches
+  `working.type`); node hotspots `[data-node-id]` (scope to inside the group);
+  `[aria-label="More variations"]` → gallery `[aria-label="Select variation <n> of
+  <m>"]`; `[aria-label="Export visual"]`; `[aria-label="Done editing visual"]`;
+  StylePanel `[aria-label="Style"]` / `[aria-label="Theme <name>"]`. The
+  per-editor save-status is a `role="status"` "Visual saved" INSIDE the group —
+  match it scoped to the group (the page also has Presence + header save-status
+  `role="status"` nodes).
+- **Browser QA (mock-Azure + collab + `next start`, headless):** seed a doc with a
+  doc-level visual + 2 block-anchored visuals (root `*.mts` tsx,
+  `PrismaBetterSqlite3`, `data: v as unknown as object`,
+  `type: VISUAL_KIND_TO_PRISMA[v.type]`). To edit a node label, click the
+  `[data-node-id]` hotspot CENTER with `page.mouse` down/up (no move) → inline
+  `input[aria-label="Node label"]`. Verified end-to-end: click-to-edit reveals the
+  9 pills + 5/7 node hotspots + style/export/done; type switch (Flowchart→Mind map)
+  + node-label edit + theme both persist across a hard `page.reload()`; "More
+  variations" shows 3 candidates; clicking the body textarea dismisses the tools;
+  Done dismisses; zero horizontal overflow at 1280/768/375 in edit mode.
