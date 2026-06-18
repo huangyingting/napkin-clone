@@ -2323,3 +2323,39 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   generate → 3 candidates → select → inline `svg[role="img"]` + "Visual saved" → hard
   `page.reload()` persists it; one picker open at a time (single `openSparkId`); zero
   horizontal overflow at 1280/768/375.
+
+### Replace or remove a paragraph's visual from the spark toolbar (US-006)
+
+- **Replace/Remove controls live ON the inline `[data-block-visual="<blockId>"]` card
+  in `ContentEditor`** (not a new component), ported from the legacy
+  `block-visual-generator.tsx` pattern. The card now has a small header row (kind
+  `KIND_LABEL[visual.type]` on the left) and, **gated on `editable`**, a
+  `button[aria-label="Replace this block's visual"]` + a
+  `button[aria-label="Remove this block's visual"]` on the right. Read-only viewers
+  see the card with NO controls.
+- **Replace just calls the existing `generateFor(block)`** — it reopens the same
+  generation picker (sets `openSparkId`), so choosing a candidate flows through the
+  existing `choose` → `attachVisual(id, visual, blockId)` and updates
+  `blockVisuals[blockId]` inline. The current visual stays rendered above the picker
+  until a new candidate is chosen. No new save path.
+- **Remove = a new `removeVisual(blockId)` callback** mirroring the legacy one:
+  optimistically `delete blockVisuals[blockId]` (only that block), `closePicker()` if
+  its picker is open, then `await detachVisual(id, blockId)` (the existing action,
+  signature `(id, anchorBlockId = null)`), restoring the previous visual on failure.
+  Keyed by `(documentId, blockId)` so it removes ONLY that block's visual — the
+  doc-level visual (anchor `null`) and other anchors are untouched.
+- **GOTCHA — wrapping the renderer card: don't put `overflow-hidden` on the OUTER
+  `[data-block-visual]` card** once it has a header (it would clip the header/buttons).
+  Follow the legacy shape: outer card `rounded-xl border … p-3` (no overflow-hidden),
+  header row, then an INNER `overflow-hidden rounded-lg border …` wrapper around
+  `<VisualRenderer className="h-auto w-full" />`. Still exactly one `svg[role="img"]`
+  per card (US-002's assertion holds).
+- **Browser QA (mock-Azure + collab + `next start`, headless):** seed a doc with TWO
+  block-anchored visuals (root-level `*.mts` tsx, `PrismaBetterSqlite3`,
+  `data: visual as unknown as object`, `type: VISUAL_KIND_TO_PRISMA[v.type]`) to prove
+  Remove drops only one. QuickJS gotcha: an apostrophe in the `aria-label` selector
+  breaks the sandbox parser — write it as `"Remove this block\u0027s visual"`. Verified
+  end-to-end: Remove drops only block 1 (other card + doc-level intact) and persists
+  across `page.reload()`; Replace regenerates (3 candidates via mock) and selecting a
+  different kind flips the card header label (Flowchart→List) + "Visual saved" and
+  persists; zero horizontal overflow.

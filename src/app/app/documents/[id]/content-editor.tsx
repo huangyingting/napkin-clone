@@ -26,6 +26,7 @@ import {
 
 import {
   attachVisual,
+  detachVisual,
   saveDocumentContent,
   saveDocumentTitle,
 } from "./actions";
@@ -406,6 +407,32 @@ export function ContentEditor({
     [id, blockVisuals],
   );
 
+  // Remove a block's visual: optimistically drop only this block's card (others
+  // are untouched), close its picker if open, and persist via `detachVisual`.
+  // Restore the card on failure so the user can retry (US-006).
+  const removeVisual = useCallback(
+    async (blockId: string) => {
+      const previous = blockVisuals[blockId];
+      if (!previous) {
+        return;
+      }
+      setBlockVisuals((prev) => {
+        const next = { ...prev };
+        delete next[blockId];
+        return next;
+      });
+      if (openSparkId === blockId) {
+        closePicker();
+      }
+      try {
+        await detachVisual(id, blockId);
+      } catch {
+        setBlockVisuals((prev) => ({ ...prev, [blockId]: previous }));
+      }
+    },
+    [id, blockVisuals, openSparkId, closePicker],
+  );
+
   // Toggle a block's spark: open + generate when closed, close when open.
   const toggleSpark = useCallback(
     (block: MarkdownBlock) => {
@@ -614,12 +641,39 @@ export function ContentEditor({
                       {visual ? (
                         <div
                           data-block-visual={block.id}
-                          className="overflow-hidden rounded-xl border border-black/[.06] bg-white dark:border-white/[.08] dark:bg-zinc-950"
+                          className="rounded-xl border border-black/[.06] bg-white p-3 dark:border-white/[.08] dark:bg-zinc-950"
                         >
-                          <VisualRenderer
-                            visual={visual}
-                            className="h-auto w-full"
-                          />
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                              {KIND_LABEL[visual.type]}
+                            </span>
+                            {editable ? (
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => void generateFor(block)}
+                                  aria-label="Replace this block's visual"
+                                  className="rounded-md px-2 py-1 text-xs font-medium text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                                >
+                                  Replace
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void removeVisual(block.id)}
+                                  aria-label="Remove this block's visual"
+                                  className="rounded-md px-2 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 dark:text-red-400 dark:hover:bg-red-950/40"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
+                          <div className="overflow-hidden rounded-lg border border-black/[.06] bg-white dark:border-white/[.08] dark:bg-zinc-950">
+                            <VisualRenderer
+                              visual={visual}
+                              className="h-auto w-full"
+                            />
+                          </div>
                         </div>
                       ) : null}
 
