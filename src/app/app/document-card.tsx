@@ -1,8 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useOptimistic,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { createPortal } from "react-dom";
+
+import { renameDocument } from "./actions";
+
+/** Maximum document title length (mirrors the server action's clamp). */
+const MAX_TITLE_LENGTH = 200;
+
+/** Normalizes a title the same way `renameDocument` does, for optimistic UI. */
+function normalizeTitle(value: string): string {
+  return value.trim().slice(0, MAX_TITLE_LENGTH) || "Untitled";
+}
 
 export type DocumentCardData = {
   id: string;
@@ -104,6 +120,97 @@ function DeleteConfirmDialog({
 }
 
 /**
+ * A modal for renaming a document, pre-filled with the current title. Submits on
+ * Enter or the Rename button; cancels on Escape, backdrop click, or Cancel.
+ */
+function RenameDialog({
+  initialTitle,
+  onCancel,
+  onSubmit,
+}: {
+  initialTitle: string;
+  onCancel: () => void;
+  onSubmit: (title: string) => void;
+}) {
+  const [value, setValue] = useState(initialTitle);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onCancel();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onCancel]);
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/40"
+        aria-hidden="true"
+        onClick={onCancel}
+      />
+      <form
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rename-document-title"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit(value);
+        }}
+        className="relative z-10 w-full max-w-sm rounded-2xl border border-black/[.06] bg-white p-6 shadow-xl dark:border-white/[.08] dark:bg-zinc-950"
+      >
+        <h2
+          id="rename-document-title"
+          className="text-base font-semibold text-zinc-900 dark:text-zinc-50"
+        >
+          Rename document
+        </h2>
+        <label
+          htmlFor="rename-document-input"
+          className="mt-4 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+        >
+          Title
+        </label>
+        <input
+          id="rename-document-input"
+          ref={inputRef}
+          type="text"
+          value={value}
+          maxLength={MAX_TITLE_LENGTH}
+          aria-label="Document title"
+          onChange={(event) => setValue(event.target.value)}
+          className="mt-1.5 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200 dark:border-white/15 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-500 dark:focus:ring-zinc-700"
+        />
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex h-9 items-center justify-center rounded-full border border-black/[.06] px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-white/[.08] dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="flex h-9 items-center justify-center rounded-full bg-zinc-900 px-4 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:opacity-60 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+          >
+            Rename
+          </button>
+        </div>
+      </form>
+    </div>,
+    document.body,
+  );
+}
+
+/**
  * A dashboard document card: a navigable link plus an overflow (kebab) menu for
  * per-document actions. The kebab button and its dropdown live in a sibling of
  * the `<Link>` (not inside it) so opening the menu never triggers navigation.
@@ -114,9 +221,10 @@ function DeleteConfirmDialog({
  * `stopPropagation`, which would be unreliable under the App Router's delegated
  * events.
  *
+ * Rename is owned here (optimistic via `useOptimistic` + `renameDocument`).
  * Deletion is owned by the parent `DocumentList` (which manages optimistic
  * removal and the transient undo affordance): confirming the dialog calls the
- * `onDelete(id, title)` callback rather than deleting here.
+ * `onDelete(data)` callback rather than deleting here.
  */
 export function DocumentCard({
   id,
@@ -127,6 +235,9 @@ export function DocumentCard({
 }: DocumentCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [optimisticTitle, setOptimisticTitle] = useOptimistic(title);
+  const [, startTransition] = useTransition();
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -144,7 +255,19 @@ export function DocumentCard({
 
   const handleConfirmDelete = () => {
     setConfirmOpen(false);
-    onDelete({ id, title, editedLabel, workspaceName });
+    onDelete({ id, title: optimisticTitle, editedLabel, workspaceName });
+  };
+
+  const handleRename = (nextTitle: string) => {
+    setRenameOpen(false);
+    const normalized = normalizeTitle(nextTitle);
+    if (normalized === optimisticTitle) {
+      return;
+    }
+    startTransition(async () => {
+      setOptimisticTitle(normalized);
+      await renameDocument(id, nextTitle);
+    });
   };
 
   return (
@@ -156,7 +279,7 @@ export function DocumentCard({
         <DocumentThumbnail />
         <div className="flex flex-col gap-1 p-4">
           <span className="truncate pr-7 text-sm font-medium text-zinc-900 dark:text-zinc-100">
-            {title}
+            {optimisticTitle}
           </span>
           <div className="flex items-center gap-2">
             <span className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -179,7 +302,7 @@ export function DocumentCard({
       <div ref={menuRef} className="absolute right-2 top-2 z-10">
         <button
           type="button"
-          aria-label={`Actions for ${title}`}
+          aria-label={`Actions for ${optimisticTitle}`}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen((open) => !open)}
@@ -207,6 +330,17 @@ export function DocumentCard({
               role="menuitem"
               onClick={() => {
                 setMenuOpen(false);
+                setRenameOpen(true);
+              }}
+              className="flex w-full items-center px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              Rename
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMenuOpen(false);
                 setConfirmOpen(true);
               }}
               className="flex w-full items-center px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
@@ -217,9 +351,17 @@ export function DocumentCard({
         )}
       </div>
 
+      {renameOpen && (
+        <RenameDialog
+          initialTitle={optimisticTitle}
+          onCancel={() => setRenameOpen(false)}
+          onSubmit={handleRename}
+        />
+      )}
+
       {confirmOpen && (
         <DeleteConfirmDialog
-          title={title}
+          title={optimisticTitle}
           onCancel={() => setConfirmOpen(false)}
           onConfirm={handleConfirmDelete}
         />

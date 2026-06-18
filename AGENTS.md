@@ -1392,3 +1392,36 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   (`PrismaBetterSqlite3`): one doc `deletedAt = now-31d` (with a Visual+Comment) + one
   `deletedAt = now` → load `/app` → old row + children gone, recent survives.
 
+### Rename a document from the dashboard (US-004)
+
+- **`renameDocument(id, rawTitle)` (`src/app/app/actions.ts`, `"use server"`)** follows the
+  house mutation shape: `requireUser()` → `getAccessibleDocument(user.id, id)` (owner OR
+  member; non-accessible = silent no-op) → `prisma.document.updateMany({ where: { id }, data:
+  { title } })` → `revalidatePath("/app")`. Title is normalized exactly like the editor's
+  `saveDocumentTitle`: `rawTitle.trim().slice(0, MAX_TITLE_LENGTH) || "Untitled"` (empty →
+  `"Untitled"`). It **returns `{ title }`** (the normalized value) for parity, though the UI
+  doesn't depend on the return (revalidation provides truth).
+- **Rename is owned by the CARD** (`document-card.tsx`), not lifted to `DocumentList` like
+  delete — it needs no cross-card affordance (no toast). The overflow menu gained a
+  **Rename** item (above Delete) opening a `createPortal` `RenameDialog` (a `<form
+  role="dialog" aria-modal>`) pre-filled with the current title, autofocus+select,
+  Enter/Rename submits, Escape/backdrop/Cancel dismisses.
+- **Optimistic title = React 19 `useOptimistic(title)`**, NOT a manual effect. Display the
+  card title, aria-labels, and dialogs from `optimisticTitle`. On submit:
+  `startTransition(async () => { setOptimisticTitle(normalize(next)); await
+  renameDocument(id, next); })`. `useOptimistic`'s base is the `title` prop, so when the
+  action's `revalidatePath` updates the prop the optimistic value snaps to the (equal) real
+  value seamlessly — no `useEffect`/prevTitle dance, sidestepping
+  `react-hooks/set-state-in-effect`. (Calling the `useOptimistic` setter must be inside the
+  transition/action.) Normalize client-side with the same `trim().slice(0,200) || "Untitled"`
+  so the optimistic value matches the server. `handleConfirmDelete` now passes
+  `optimisticTitle` to `onDelete` so a rename-then-delete restores the renamed title.
+- **Browser QA (mock-free, no Azure needed):** sign up a fresh `*@test.dev` user (wait for
+  `button:has-text("Create account"):not([disabled])` before filling — clicking pre-hydration
+  silently no-ops and the redirect never fires, leaving you on `/signup`), create a doc, then
+  on `/app`: `button[aria-label="Actions for <title>"]` opens the kebab WITHOUT navigating
+  (assert `page.url()` stays `/app`); `[role="menuitem"]:has-text("Rename")` → dialog
+  `input[aria-label="Document title"]` (assert `inputValue` == current title); fill + click
+  `button:has-text("Rename")` → title updates immediately (`waitForFunction` on `ul li
+  span.font-medium`) and survives `page.reload()`. Also covered: Cancel makes no change, a
+  whitespace-only title persists as `"Untitled"`, no horizontal overflow at 1280/768/375.
