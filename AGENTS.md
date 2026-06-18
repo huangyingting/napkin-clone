@@ -1868,3 +1868,30 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   stale for a tick (the silent refresh is awaited AFTER `setSaveState("saved")`) — confirm
   the new snapshot via the DB or a short wait. The 375px editor-header overflow is the
   pre-existing US-021 span (identical with History open/closed) — not from this section.
+
+### CI workflow protecting main (US-017)
+
+- **`.github/workflows/ci.yml`** mirrors the local quality gate on **Node 22** against
+  **SQLite + a `file:` `DATABASE_URL`** (so it needs no Postgres/external service). It
+  triggers on `pull_request` (gates merges into main) and `push` to `main` (catches
+  direct pushes). One `quality-gate` job sets job-level `env` (`DB_PROVIDER: sqlite`,
+  `DATABASE_URL: "file:./prisma/dev.db"`, a throwaway `AUTH_SECRET`) then runs, in the
+  PRD-specified order: `actions/checkout@v4` → `actions/setup-node@v4`
+  (`node-version: 22`, `cache: npm`) → `npm ci` → `npm run db:generate` → `npm test` →
+  `npm run typecheck` → `npm run lint` → `npm run format:check` → `npm run build`.
+- **GOTCHA — `.github/workflows/*.yml` is NOT in `.prettierignore`**, so Prettier (and
+  thus the gate's own `npm run format:check`, run both locally AND inside this workflow)
+  formats the YAML. A hand-written workflow that isn't Prettier-clean will **fail the
+  local gate on its own format:check step**. After adding/editing any workflow, run
+  `npx prettier --check .github/workflows/<file>.yml` (or `npm run format`) before
+  committing.
+- **CI needs no migrated DB.** `npm ci`'s `postinstall` (`prisma generate`) and
+  `npm run db:generate` only generate the client (no DB connection), and **every
+  prisma-reading page is `ƒ (Dynamic)`** (reads cookies via `SiteHeader`/route params),
+  so `next build` never queries the DB at build time. Verified by building against a
+  non-existent `file:` DB — no DB file was created, build passed. Setting
+  `DB_PROVIDER=sqlite` at the job level makes BOTH `postinstall` and `db:generate`
+  emit the **sqlite** client (provider-specific; must match the runtime adapter).
+- **`AUTH_SECRET` is only read at request time** (`/api/generate`), not at build/module
+  load, so the build doesn't strictly need it — but Auth.js wants one and signing in
+  requires it, so the workflow supplies a throwaway value to keep the env realistic.
