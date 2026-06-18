@@ -9,6 +9,8 @@
  * cookie; authenticated callers are rate limited per user.
  */
 
+import { randomUUID } from "node:crypto";
+
 import { NextResponse, type NextRequest } from "next/server";
 
 import {
@@ -37,6 +39,7 @@ import {
 } from "@/lib/ai/quota";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
+import { logError } from "@/lib/log";
 import {
   VISUAL_KINDS,
   isVisualKind,
@@ -73,6 +76,9 @@ const userRateStore: RateLimitStore = {
 
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
+/** Scope tag for structured error logs from this route. */
+const LOG_SCOPE = "api.generate";
+
 function errorResponse(
   status: number,
   message: string,
@@ -86,6 +92,10 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  // Correlation id shared by every structured log line for this request so an
+  // operator can trace a single generation across log entries.
+  const requestId = randomUUID();
+
   let body: unknown;
   try {
     body = await request.json();
@@ -121,6 +131,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const secret = process.env.AUTH_SECRET;
   if (!secret) {
+    logError(LOG_SCOPE, new Error("Missing AUTH_SECRET"), {
+      requestId,
+      reason: "missing-auth-secret",
+      status: 500,
+    });
     return errorResponse(500, "Server is misconfigured (missing AUTH_SECRET).");
   }
 
@@ -132,8 +147,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     complete = (messages) => azureChatComplete(messages, { config });
   } catch (error) {
     if (error instanceof AzureConfigError) {
+      logError(LOG_SCOPE, error, {
+        requestId,
+        reason: "azure-config",
+        status: 503,
+      });
       return errorResponse(503, "AI generation is not configured.");
     }
+    logError(LOG_SCOPE, error, {
+      requestId,
+      reason: "azure-config-unexpected",
+      status: 500,
+    });
     throw error;
   }
 
@@ -198,11 +223,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return errorResponse(413, error.message);
     }
     if (error instanceof GenerationError) {
+      logError(LOG_SCOPE, error, {
+        requestId,
+        reason: "generation-failed",
+        status: 502,
+      });
       return errorResponse(
         502,
         "We couldn't generate visuals from that text. Please try again.",
       );
     }
+    logError(LOG_SCOPE, error, {
+      requestId,
+      reason: "unexpected",
+      status: 500,
+    });
     return errorResponse(500, "Unexpected error while generating visuals.");
   }
 }

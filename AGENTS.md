@@ -1934,3 +1934,32 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   blocks). Delete the script before committing. NOTE: in dev without Azure, the authed HTTP
   path returns **503 (config) BEFORE quota**, so the endpoint can't exercise the limiter
   without mock-Azure — the tsx script is the practical check.
+
+### Structured error logging for the AI endpoint (US-019)
+
+- **`src/lib/log.ts` is the structured logger.** `logError(scope, error, context?)`
+  emits exactly ONE JSON line to `stderr` via `console.error(JSON.stringify(...))` and
+  **never throws** (wrapped in try/catch — logging must not break request handling). It's
+  framework-free (only `console`) so it's safe server-side AND unit-testable. The pure
+  record builder **`buildErrorLog(scope, error, context?)`** is exported for tests (builds
+  the object without writing). Reserved fields (`level:"error"`, `scope`, `timestamp`,
+  `errorName`, `message`, `stack`) are spread LAST so a context key can't clobber them.
+- **PII redaction is built-in (defense in depth).** Callers must never pass raw input or
+  secrets, but `isSensitiveKey(key)` redacts them anyway (→ `REDACTED` = `"[redacted]"`):
+  it normalizes the key (`toLowerCase().replace(/[^a-z0-9]/g,"")`) then matches a
+  substring set (`secret`/`password`/`token`/`apikey`/`authorization`/`cookie`/
+  `credential`/`privatekey` — so `AUTH_SECRET`→`authsecret`✓, `api_key`→`apikey`✓,
+  `passwordHash`✓) OR an exact raw-input set (`text`/`input`/`inputtext`/`prompt`/
+  `messages`/`key`). Correlation/diagnostic keys (`requestId`/`reason`/`status`) are kept.
+  `JSON.stringify` escapes the error `stack`'s newlines, so the output stays ONE physical
+  line. Tests live beside it (`src/lib/log.test.ts`) and assert redaction + single-line.
+- **`/api/generate` wiring:** a per-request correlation id `requestId = randomUUID()`
+  (from `node:crypto`) is created at the top of `POST` and passed to every `logError`
+  call. Logged paths (HTTP responses UNCHANGED — logging is side-effect only): missing
+  `AUTH_SECRET` 500 (`reason:"missing-auth-secret"`), `AzureConfigError` 503
+  (`reason:"azure-config"`) + the re-thrown non-config error (`reason:
+  "azure-config-unexpected"`), `GenerationError` 502 (`reason:"generation-failed"`), and
+  the catch-all unexpected 500 (`reason:"unexpected"`). `InputTooLongError` (413) is an
+  expected client error → NOT logged. Reuse `logError(scope, error, { requestId, reason,
+  status })` for any other server route that needs diagnosable, PII-safe error logs.
+
