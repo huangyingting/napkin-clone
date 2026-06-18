@@ -2069,3 +2069,45 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   documents"]`, present once ≥1 doc exists — US-012 seeds one on signup) and typing
   `n`/`?`: no dialog opens and the chars land in the field.
 
+### Global error boundary & not-found page (US-023)
+
+- **`src/app/error.tsx` is the root App-Router error boundary** (`"use client"` —
+  error boundaries MUST be client components). It catches runtime errors in every
+  segment BELOW the root layout, so the root `SiteHeader` (rendered by `layout.tsx`,
+  ABOVE the boundary) stays visible around the fallback. To handle an error in the
+  root layout itself you'd need `global-error.tsx` (must declare its own `<html>`/
+  `<body>`) — not required by this story. The error/not-found UIs are
+  `<main className="flex flex-1 …">` so they fill the space under the persistent
+  header, matching the login/home page layout pattern.
+- **Props for `error.tsx`:** `{ error: Error & { digest?: string }; reset: () => void }`.
+  In Next 16 the boundary actually receives `error`, `reset`, AND `unstable_retry`
+  (see `node_modules/next/dist/client/components/error-boundary.d.ts` `ErrorInfo`);
+  `unstable_retry` is the docs-preferred recovery (re-fetch + re-render) but **`reset`
+  is the stable API** and matches the AC's "Try again reset action" — use `reset`. Log
+  the error in a `useEffect(() => console.error(error), [error])`; show `error.digest`
+  (a safe hash, handy for matching server logs) only when present.
+- **GOTCHA — Next's App typegen does NOT validate `error.tsx`/`not-found.tsx` props.**
+  `next-types-plugin` only emits `.next/types` guard files for `page.*` and `route.*`
+  in the app dir (`if (isApp && !/[/\\](?:page|route)\.[^.]+$/.test(filePath)) return;`),
+  so error/not-found default-export prop types are free — declare the `ErrorInfo`
+  subset you use without a "must extend PageProps" typecheck failure. (Pages/layouts
+  ARE validated against `PageProps`/`LayoutProps`, so their props can't have extra
+  required fields.)
+- **`src/app/not-found.tsx` is a Server Component** (no interactivity) — so it CAN
+  `export const metadata` (title), unlike the client `error.tsx`. It renders for
+  unmatched routes (`/_not-found`, HTTP 404) and whenever a segment calls
+  `notFound()`. Style both with the app's zinc card pattern + `dark:` variants
+  (`bg-white dark:bg-zinc-950`, `border-black/[.06] dark:border-white/[.08]`) and the
+  pill buttons from `page.tsx` (primary `bg-zinc-900 … dark:bg-white`, secondary
+  `border …`). The app honors `prefers-color-scheme` (no class toggle), so `dark:`
+  variants are all that's needed for light/dark correctness.
+- **Browser QA (dev-browser, headless — no X server here):** trigger the boundary with
+  a TEMPORARY throwing route (`src/app/<x>/page.tsx` `"use client"` that `throw`s),
+  navigate to it, assert the fallback text + a `button` reading "Try again" + a "Go
+  home" `<a href="/">`, then DELETE the temp route. Hit any unmatched path (e.g.
+  `/no-such-route`) for the 404. Verify both modes by `page.emulateMedia({ colorScheme
+  })` and asserting `getComputedStyle(document.body).backgroundColor` (light → `rgb(255,
+  255, 255)`, dark → `rgb(10, 10, 10)`); confirm `documentElement.scrollWidth -
+  clientWidth === 0`. HTTP status is checkable server-side too (`/boom` → 500,
+  `/no-such-route` → 404) via a `node -e "fetch(...)"` probe.
+
