@@ -2284,3 +2284,42 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   content-first editor checks that depend on `editable = canEdit && ready`, prefer:
   `npm run build` → `NEXT_PUBLIC_COLLAB_WS_URL=ws://127.0.0.1:1234 npm run start` →
   wait until `textarea[aria-label="Document text"]` is enabled.
+
+### Generate a visual for a paragraph from the spark toolbar (US-005)
+
+- **The spark wiring lives ON `ContentEditor`, ported from `block-visual-generator.tsx`
+  (don't add a new component).** US-004 left the spark toggling `openSparkId`; US-005
+  makes it functional. `toggleSpark(block)` = open+`generateFor` when closed, `closePicker`
+  when open. `generateFor` POSTs `{ text: blockText(block) }` to `/api/generate`,
+  `safeParseVisual`s each `candidates[]` entry (drops garbled ones), and renders the
+  survivors as a thumbnail grid inline **inside the block wrapper** (below `BlockContent`
+  + any existing inline visual). `choose(blockId, visual)` optimistically sets
+  `blockVisuals[blockId]` → `attachVisual(id, visual, blockId)` → "Visual saved"; on
+  failure it restores the previous entry. The thumbnail hooks match the legacy block
+  picker exactly: `button[aria-label="Select <Kind> option <n>"]`, plus a
+  `data-block-id` + `aria-expanded` spark and a `[data-block-visual="<blockId>"]` card.
+- **`blockVisuals` is the single render source for inline block visuals** — seed it ONCE
+  from the `initialBlockVisuals` prop (`useState(() => initialBlockVisuals)`), then render
+  `blockVisuals[block.id]` (NOT the prop). US-002's direct-prop read is superseded. Keep
+  the seed-once rule (don't reflect the prop back after mount), same as title/content.
+- **The hidden gutter spark is `pointer-events-none` until its block is hover/focus-active,
+  so a Playwright `.click()` is intercepted.** In browser QA, fire a **programmatic DOM
+  click** instead: `page.evaluate(() => document.querySelector('[data-block-id="<id>"]').click())`
+  — a real `element.click()` bubbles to React's delegated handler regardless of
+  `pointer-events`, with no need to first hover/focus the wrapper.
+- **Mock-Azure setup (per US-009/011 notes) — REQUIRED for this story.** Run a tiny local
+  HTTP server returning `{ choices:[{ message:{ content: JSON.stringify({ visuals:[…3+…] }) } }] }`
+  and start `next start` with `AZURE_OPENAI_ENDPOINT=http://127.0.0.1:<port>
+  AZURE_OPENAI_API_KEY=test` as **process env** (Next doesn't override already-set env).
+  GOTCHA (reconfirmed): each mock candidate **edge must carry a non-empty `id`** or
+  `safeParseVisual` drops it → can't reach `MIN_CANDIDATES` (3) → 502. Drive the 502 error
+  UI by returning 500 for a sentinel input (mock checks `body.includes("TRIGGER_ERROR")`);
+  add a `\n\nTRIGGER_ERROR …` block to the textarea and generate on it.
+- **Browser QA gotcha — scope the error assertion.** dev-tools inject a transient empty
+  `[role="alert"]`, so `document.querySelector('[role="alert"]')` can hit the wrong one.
+  Find the app alert by its **"Try again" button** (`alerts.find(a => …button text ===
+  "Try again")`), not the first match. The picker stays open on error (non-blocking) and
+  any already-saved inline visual on other blocks is preserved. Verified end-to-end:
+  generate → 3 candidates → select → inline `svg[role="img"]` + "Visual saved" → hard
+  `page.reload()` persists it; one picker open at a time (single `openSparkId`); zero
+  horizontal overflow at 1280/768/375.

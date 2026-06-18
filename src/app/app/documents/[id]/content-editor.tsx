@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
+import { Sparkles, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -10,11 +10,25 @@ import {
   useDebouncedSave,
   useYText,
 } from "@/lib/collab/use-collaboration";
-import { applyBlockType, parseMarkdown, type BlockType } from "@/lib/markdown";
+import {
+  applyBlockType,
+  blockText,
+  parseMarkdown,
+  type BlockType,
+  type MarkdownBlock,
+} from "@/lib/markdown";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
-import type { Visual } from "@/lib/visual/schema";
+import {
+  safeParseVisual,
+  type Visual,
+  type VisualKind,
+} from "@/lib/visual/schema";
 
-import { saveDocumentContent, saveDocumentTitle } from "./actions";
+import {
+  attachVisual,
+  saveDocumentContent,
+  saveDocumentTitle,
+} from "./actions";
 import { CommentsPanel } from "./comments-panel";
 import type { CommentThread } from "./comments-actions";
 import { BlockContent } from "./markdown-preview";
@@ -28,6 +42,57 @@ const STATUS_LABEL: Record<SaveStatus, string> = {
   pending: "Unsaved changes…",
   saving: "Saving…",
 };
+
+const KIND_LABEL: Record<VisualKind, string> = {
+  flowchart: "Flowchart",
+  mindmap: "Mind map",
+  list: "List",
+  chart: "Chart",
+  concept: "Concept",
+  timeline: "Timeline",
+  cycle: "Cycle",
+  comparison: "Comparison",
+  funnel: "Funnel",
+};
+
+type GenStatus = "idle" | "loading";
+type VisualSaveState = "idle" | "saving" | "saved" | "error";
+
+const VISUAL_SAVE_LABEL: Record<VisualSaveState, string | null> = {
+  idle: null,
+  saving: "Saving visual…",
+  saved: "Visual saved",
+  error: "Couldn't save visual",
+};
+
+function messageFrom(payload: unknown, fallback: string): string {
+  if (payload && typeof payload === "object" && "error" in payload) {
+    const error = (payload as { error: unknown }).error;
+    if (typeof error === "string") {
+      return error;
+    }
+  }
+  return fallback;
+}
+
+function candidatesFrom(payload: unknown): unknown[] {
+  if (payload && typeof payload === "object" && "candidates" in payload) {
+    const candidates = (payload as { candidates: unknown }).candidates;
+    if (Array.isArray(candidates)) {
+      return candidates;
+    }
+  }
+  return [];
+}
+
+function thumbButtonClass(active: boolean): string {
+  return [
+    "flex flex-col gap-1 overflow-hidden rounded-lg border bg-white p-1.5 text-left transition dark:bg-zinc-950",
+    active
+      ? "border-zinc-900 ring-2 ring-zinc-900/20 dark:border-white dark:ring-white/30"
+      : "border-black/[.08] hover:border-black/20 dark:border-white/[.10] dark:hover:border-white/25",
+  ].join(" ");
+}
 
 const TOOLBAR_BUTTONS: { type: BlockType; label: string; aria: string }[] = [
   { type: "h1", label: "H1", aria: "Heading 1" },
@@ -117,10 +182,23 @@ export function ContentEditor({
   // room is seeded from the database.
   const editable = canEdit && ready;
 
-  // The block whose gutter spark is "active" (clicked). US-005 will hang the
-  // generation picker off this state.
+  // The block whose gutter spark is "active": its generation picker is open.
+  // Only one picker is open at a time (US-005).
   const [openSparkId, setOpenSparkId] = useState<string | null>(null);
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
+
+  // Generation flow state for the currently-open block (US-005).
+  const [genStatus, setGenStatus] = useState<GenStatus>("idle");
+  const [genError, setGenError] = useState<string | null>(null);
+  const [candidates, setCandidates] = useState<Visual[]>([]);
+  const [visualSaveState, setVisualSaveState] =
+    useState<VisualSaveState>("idle");
+  // The chosen visual per block id, rendered inline beneath its source block.
+  // Seeded once from the persisted block-anchored visuals and then updated as
+  // the user generates/selects visuals this session.
+  const [blockVisuals, setBlockVisuals] = useState<Record<string, Visual>>(
+    () => initialBlockVisuals,
+  );
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
@@ -238,6 +316,107 @@ export function ContentEditor({
       pendingSelection.current = null;
     }
   });
+
+  // Close the open generation picker, clearing its transient candidate/error
+  // state (the already-saved inline visual is kept).
+  const closePicker = useCallback(() => {
+    setOpenSparkId(null);
+    setCandidates([]);
+    setGenError(null);
+    setVisualSaveState("idle");
+  }, []);
+
+  // Send a single block's text to `/api/generate` and show the returned
+  // candidate visuals inline near the block. Errors are non-blocking and
+  // retryable; the open picker stays open so the user can retry or pick.
+  const generateFor = useCallback(async (block: MarkdownBlock) => {
+    const text = blockText(block).trim();
+    if (text.length === 0) {
+      return;
+    }
+    setOpenSparkId(block.id);
+    setGenStatus("loading");
+    setGenError(null);
+    setCandidates([]);
+    setVisualSaveState("idle");
+    try {
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const payload: unknown = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        setGenError(
+          messageFrom(
+            payload,
+            "We couldn't generate a visual. Please try again.",
+          ),
+        );
+        return;
+      }
+
+      const valid: Visual[] = [];
+      for (const item of candidatesFrom(payload)) {
+        const result = safeParseVisual(item);
+        if (result.success) {
+          valid.push(result.data);
+        }
+      }
+
+      if (valid.length === 0) {
+        setGenError("No usable visuals came back. Please try again.");
+        return;
+      }
+
+      setCandidates(valid);
+    } catch {
+      setGenError(
+        "Couldn't reach the generator. Check your connection and try again.",
+      );
+    } finally {
+      setGenStatus("idle");
+    }
+  }, []);
+
+  // Persist a chosen candidate as this block's visual and render it inline
+  // beneath the block. The optimistic update is restored on save failure.
+  const choose = useCallback(
+    async (blockId: string, visual: Visual) => {
+      const previous = blockVisuals[blockId];
+      setBlockVisuals((prev) => ({ ...prev, [blockId]: visual }));
+      setVisualSaveState("saving");
+      try {
+        await attachVisual(id, visual, blockId);
+        setVisualSaveState("saved");
+      } catch {
+        setVisualSaveState("error");
+        setBlockVisuals((prev) => {
+          const next = { ...prev };
+          if (previous) {
+            next[blockId] = previous;
+          } else {
+            delete next[blockId];
+          }
+          return next;
+        });
+      }
+    },
+    [id, blockVisuals],
+  );
+
+  // Toggle a block's spark: open + generate when closed, close when open.
+  const toggleSpark = useCallback(
+    (block: MarkdownBlock) => {
+      if (openSparkId === block.id) {
+        closePicker();
+      } else {
+        void generateFor(block);
+      }
+    },
+    [openSparkId, closePicker, generateFor],
+  );
 
   // Parse the live content into ordered blocks so each block-anchored visual can
   // render beneath its source block (US-002). Block ids are derived from the
@@ -371,9 +550,9 @@ export function ContentEditor({
               ) : null}
 
               {blocks.map((block) => {
-                const visual = initialBlockVisuals[block.id];
-                const active =
-                  activeBlockId === block.id || openSparkId === block.id;
+                const visual = blockVisuals[block.id];
+                const open = openSparkId === block.id;
+                const active = activeBlockId === block.id || open;
                 const showSpark = editable && active;
                 return (
                   <div
@@ -414,18 +593,13 @@ export function ContentEditor({
                       <div className="absolute top-3 left-2 flex items-center">
                         <button
                           type="button"
+                          data-block-id={block.id}
                           aria-label="Generate visual for this block"
-                          aria-pressed={openSparkId === block.id}
+                          aria-expanded={open}
                           title="Generate visual for this block"
-                          onClick={() =>
-                            setOpenSparkId((current) =>
-                              current === block.id ? null : block.id,
-                            )
-                          }
-                          className={sparkButtonClass(
-                            showSpark,
-                            openSparkId === block.id,
-                          )}
+                          disabled={genStatus === "loading" && !open}
+                          onClick={() => toggleSpark(block)}
+                          className={sparkButtonClass(showSpark, open)}
                         >
                           <Sparkles
                             aria-hidden="true"
@@ -446,6 +620,99 @@ export function ContentEditor({
                             visual={visual}
                             className="h-auto w-full"
                           />
+                        </div>
+                      ) : null}
+
+                      {open ? (
+                        <div className="rounded-xl border border-black/[.08] bg-zinc-50/80 p-3 dark:border-white/[.10] dark:bg-zinc-900/40">
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                                Visual for this block
+                              </span>
+                              {VISUAL_SAVE_LABEL[visualSaveState] ? (
+                                <span
+                                  role="status"
+                                  aria-live="polite"
+                                  className={
+                                    visualSaveState === "error"
+                                      ? "text-xs text-red-600 dark:text-red-400"
+                                      : "text-xs text-zinc-400 dark:text-zinc-500"
+                                  }
+                                >
+                                  {VISUAL_SAVE_LABEL[visualSaveState]}
+                                </span>
+                              ) : null}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={closePicker}
+                              aria-label="Close visual picker"
+                              className="flex h-6 w-6 items-center justify-center rounded-md text-zinc-400 transition hover:bg-zinc-200/60 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                            >
+                              <X aria-hidden="true" className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+
+                          {genStatus === "loading" ? (
+                            <div
+                              role="status"
+                              aria-live="polite"
+                              className="flex items-center gap-2 py-4 text-sm text-zinc-500 dark:text-zinc-400"
+                            >
+                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-900 dark:border-zinc-700 dark:border-t-zinc-100" />
+                              Generating a visual…
+                            </div>
+                          ) : genError ? (
+                            <div
+                              role="alert"
+                              className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300"
+                            >
+                              <span className="min-w-0">{genError}</span>
+                              <button
+                                type="button"
+                                onClick={() => void generateFor(block)}
+                                className="shrink-0 rounded-md px-2 py-1 text-xs font-semibold underline-offset-2 transition hover:underline"
+                              >
+                                Try again
+                              </button>
+                            </div>
+                          ) : candidates.length > 0 ? (
+                            <>
+                              <p className="mb-2 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                                Choose a visual
+                              </p>
+                              <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                {candidates.map((candidate, index) => {
+                                  const selected = visual === candidate;
+                                  return (
+                                    <li key={index}>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          void choose(block.id, candidate)
+                                        }
+                                        aria-pressed={selected}
+                                        aria-label={`Select ${KIND_LABEL[candidate.type]} option ${index + 1}`}
+                                        className={thumbButtonClass(selected)}
+                                      >
+                                        <span className="aspect-[4/3] w-full overflow-hidden rounded-md bg-white dark:bg-zinc-950">
+                                          <VisualRenderer
+                                            visual={candidate}
+                                            className="h-full w-full"
+                                          />
+                                        </span>
+                                        <span className="px-1 text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                                          {candidate.title ??
+                                            KIND_LABEL[candidate.type]}
+                                        </span>
+                                      </button>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </>
+                          ) : null}
                         </div>
                       ) : null}
                     </div>
