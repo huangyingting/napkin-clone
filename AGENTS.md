@@ -1746,3 +1746,23 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   paths, 6 polygons). Idempotency verified with a throwaway root `tsx` script
   importing the real `seedSampleDocument` (tsx resolves the `@/` alias): two calls
   for one user → exactly 1 doc + 1 visual.
+
+### Template catalog (US-013)
+
+- **`src/lib/templates/catalog.ts` is a framework-free data module** (only a
+  `import type { VisualKind }` — type-only, erased at compile, so `node --test` +
+  `tsx` never load React/Prisma). It exports `TemplateEntry` (`{ id; name;
+  description; content: string; visualKind?: VisualKind }`), `TEMPLATE_CATALOG`
+  (Blank, Process / Flowchart, Mind Map, Comparison — ≥4), `BLANK_TEMPLATE_ID =
+  "blank"`, `getTemplate(id)`, and `getTemplateOrBlank(id)` (unknown/null/undefined
+  → Blank). US-014 ("create from template") consumes `getTemplateOrBlank` for its
+  graceful fallback and seeds a new doc's `content` from the entry.
+- **Each template `content` must parse to ≥1 block** via `parseMarkdown`, so even
+  "Blank" carries minimal seed content (`"# Untitled\n"` → one heading), never an
+  empty string (which parses to 0 blocks and fails the catalog test). Multi-block
+  templates **blank-line separate** their blocks (per the `parseMarkdown` rule) or
+  consecutive lines collapse into one paragraph.
+- **`visualKind` (optional) must be a member of `VISUAL_KINDS`** — the colocated
+  `catalog.test.ts` asserts this against the schema's `VISUAL_KINDS`, so adding a
+  template with a bad kind fails tests. Mirrors the icon-catalog convention
+  (`*.test.ts` beside the module, run via `npm test`).
