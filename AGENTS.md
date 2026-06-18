@@ -1293,3 +1293,39 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   "Tests pass" for these stories means the existing `npm test` suite stays green.
   Validate DB-level behavior (e.g. cascade) with a throwaway root-level `tsx` script
   using the documented `PrismaBetterSqlite3` adapter, then delete it before committing.
+  GOTCHA: a standalone `tsx` script can't use **top-level await** here (esbuild emits
+  CJS → "Top-level await is currently not supported"); wrap the body in an
+  `async function main(){…}; main();`.
+
+### Dashboard document card + overflow menu (US-002)
+
+- **Each dashboard card is the client component `src/app/app/document-card.tsx`**
+  (`DocumentCard`), rendering the whole `<li>`. `page.tsx` (server) stays the data
+  source: it maps documents → `<DocumentCard id title editedLabel workspaceName />`
+  (pass the **preformatted** `editedLabel` string, not a `Date`). The shared
+  `DocumentThumbnail` moved here. Extend THIS menu for the other card actions
+  (rename US-004, duplicate US-005, favorite US-007) instead of adding new components.
+- **Kebab must NOT navigate:** the overflow button + dropdown are a **sibling of the
+  `<Link>`** (absolutely positioned `right-2 top-2 z-10` over the card), never a child
+  of it — clicking them can't trigger the card's navigation. The card title gets
+  `pr-7` so a long title doesn't slide under the kebab.
+- **Click-outside = ref-containment, NEVER `stopPropagation`** (per the share-dropdown
+  rule): wrap BOTH the toggle button and the menu in one `menuRef` div, attach the
+  `document` click listener only while `menuOpen`, and close only when
+  `menuRef.current && !menuRef.current.contains(e.target)`. Because the toggle lives
+  inside `menuRef`, no `stopPropagation` is needed and in-menu clicks don't self-close.
+- **Confirm dialog is `createPortal(..., document.body)`** (same pattern as
+  `comments-panel`): a `fixed inset-0 z-50` overlay with a `role="dialog"
+  aria-modal="true"` panel that **names the document** in its body, a backdrop-click +
+  Escape-key cancel, and Cancel/Delete buttons. The dashboard `<main>` has no
+  backdrop-blur ancestor, but portaling keeps it robust against the card's
+  `relative`/absolute stacking context.
+- **Removal is optimistic + revalidated:** confirming sets a local `deleted` state
+  (card returns `null`) **and** calls `deleteDocument(id)` inside `useTransition`; the
+  action's `revalidatePath("/app")` reconciles the server list. Cancel just closes the
+  dialog (no state change).
+- **Browser QA:** kebab = `[aria-label="Actions for <title>"]`; menu items are
+  `[role="menuitem"]`; dialog is `[role="dialog"]`. Assert the kebab click leaves
+  `page.url()` on `/app` (no nav), the dialog text includes the document title, Cancel
+  keeps both cards, and Delete drops only the targeted card (then `page.reload()` to
+  confirm persistence). Count cards via `ul li span.font-medium` inner texts.
