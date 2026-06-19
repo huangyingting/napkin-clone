@@ -3,24 +3,60 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Ghost theme color tokens — light mode */
+  --ghost-text: #15171a;
+  --ghost-secondary: #54666d;
+  --ghost-border: #dde1e5;
+  --ghost-wash: #f4f8fb;
+  --ghost-bg: #ffffff;
+  --ghost-green: #a4d037;
+  --ghost-yellow: #fecd35;
+  --ghost-red: #f05230;
+
+  /* Single configurable accent — defaults to the app's existing indigo brand */
+  --ghost-accent-color: #4f46e5;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+
+  /* Ghost font system: only Inter is self-hosted; serif/mono use system stacks */
+  --font-sans:
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+  --font-serif: Georgia, Times, "Times New Roman", serif;
+  --font-mono: Menlo, "Courier New", Courier, monospace;
+
+  /* Ghost colors exposed as Tailwind color utilities (ghost-*) */
+  --color-ghost-text: var(--ghost-text);
+  --color-ghost-secondary: var(--ghost-secondary);
+  --color-ghost-border: var(--ghost-border);
+  --color-ghost-wash: var(--ghost-wash);
+  --color-ghost-bg: var(--ghost-bg);
+  --color-ghost-green: var(--ghost-green);
+  --color-ghost-yellow: var(--ghost-yellow);
+  --color-ghost-red: var(--ghost-red);
+  --color-ghost-accent: var(--ghost-accent-color);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+
+    /* Ghost theme color tokens — dark mode */
+    --ghost-text: #f5f6f6;
+    --ghost-secondary: #98a0a6;
+    --ghost-border: #2a2d31;
+    --ghost-wash: #16181c;
+    --ghost-bg: #0a0a0a;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
 }

@@ -69,6 +69,22 @@ in `public/`, configs (`next.config.ts`, `tsconfig.json`, `eslint.config.mjs`,
   the app honors `prefers-color-scheme` (see `globals.css`). Match existing component
   styling (rounded-full pill buttons, `border-black/[.06]` / `dark:border-white/[.08]`
   card borders).
+- **Ghost theme tokens (Ghost US-019)** live in `globals.css`. Fonts: `--font-sans`
+  (self-hosted **Inter** via `next/font/google` in `layout.tsx`, wired through
+  `--font-inter`; only Inter downloads), `--font-serif` (Georgia stack), `--font-mono`
+  (Menlo stack). Ghost colors are CSS vars on `:root` (light) + the
+  `prefers-color-scheme: dark` block: `--ghost-text`, `--ghost-secondary`,
+  `--ghost-border`, `--ghost-wash`, `--ghost-bg`, `--ghost-green`/`-yellow`/`-red`, and a
+  single configurable `--ghost-accent-color` (defaults to indigo `#4f46e5`). They're
+  re-exported in `@theme inline` as `--color-ghost-*` so `text-ghost-accent`,
+  `bg-ghost-wash`, `border-ghost-border`, `font-serif`, etc. are usable utilities.
+  GOTCHA: `@theme inline` **inlines** the resolved value into each generated utility and
+  **tree-shakes** unused theme vars from the `:root` output — only color vars (used via
+  raw `var(--ghost-*)`) and `--font-sans` (used by `body`) appear on `:root`;
+  `--font-serif`/`--font-mono` only materialize inside `.font-serif`/`.font-mono` rules
+  when those classes are actually present in source. After editing `globals.css`, the
+  dev server can serve **stale CSS** — `rm -rf .next` and restart `next dev` to see token
+  changes.
 - **Responsive grids:** the house pattern is `grid-cols-1 sm:grid-cols-2
   lg:grid-cols-4` (Tailwind `md` = 768px). Verify no horizontal overflow by asserting
   `documentElement.scrollWidth <= clientWidth` at 768px/375px in dev-browser.
