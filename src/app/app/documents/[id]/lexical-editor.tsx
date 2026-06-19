@@ -1,22 +1,29 @@
 "use client";
 
 import { ListItemNode, ListNode } from "@lexical/list";
+import { CollaborationPlugin } from "@lexical/react/LexicalCollaborationPlugin";
+import { LexicalCollaboration } from "@lexical/react/LexicalCollaborationContext";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
+import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
-import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
-import type {
-  EditorState,
-  EditorThemeClasses,
-  Klass,
-  LexicalNode,
+import {
+  COLLABORATION_TAG,
+  HISTORIC_TAG,
+  type EditorState,
+  type EditorThemeClasses,
+  type Klass,
+  type LexicalNode,
 } from "lexical";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useLexicalCollaboration } from "@/lib/collab/use-lexical-collaboration";
+
 import { saveDocumentLexical } from "./actions";
+import { Presence } from "./presence";
 
 const theme: EditorThemeClasses = {
   paragraph: "mb-3 leading-7",
@@ -66,19 +73,39 @@ const STATUS_LABEL: Record<SaveStatus, string> = {
 const SAVE_DEBOUNCE_MS = 800;
 
 /**
- * Minimal Lexical rich-text editor shell bound to a document. It loads the
- * serialized `contentJson` as its initial state (when present) and persists
- * edits via the debounced `saveDocumentLexical` action, surfacing a save-status
- * indicator. Later stories build blocks, the "+"/"/" menus, the floating
- * toolbar, and visual decorator nodes on top of this.
+ * Mirrors the collaboration ready-gate onto the Lexical editor: editing stays
+ * disabled until the room has synced (or the degraded fallback fires), so no one
+ * types before the shared document is bootstrapped from the database.
+ */
+function EditableGate({ editable }: { editable: boolean }) {
+  const [editor] = useLexicalComposerContext();
+  useEffect(() => {
+    editor.setEditable(editable);
+  }, [editor, editable]);
+  return null;
+}
+
+/**
+ * Minimal Lexical rich-text editor shell bound to a document with real-time
+ * collaboration. Content lives in a shared Yjs document synced over the collab
+ * websocket server; the `CollaborationPlugin` bootstraps it from the serialized
+ * `initialStateJson` (the DB is the durable source of truth — the collab server
+ * holds no persistent state). Local edits are persisted via the debounced
+ * `saveDocumentLexical` action; remote/CRDT merges do not re-save (only the
+ * originator writes). Later stories build blocks, the "+"/"/" menus, the
+ * floating toolbar, and visual decorator nodes on top of this.
  */
 export function LexicalEditor({
   documentId,
   initialStateJson = null,
+  userName,
 }: {
   documentId: string;
   initialStateJson?: string | null;
+  userName: string;
 }) {
+  const collab = useLexicalCollaboration({ room: documentId, userName });
+
   const [status, setStatus] = useState<SaveStatus>("saved");
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -103,7 +130,12 @@ export function LexicalEditor({
   }, [documentId]);
 
   const handleChange = useCallback(
-    (editorState: EditorState) => {
+    (editorState: EditorState, _editor: unknown, tags: Set<string>) => {
+      // Remote CRDT merges (and collaborative undo) are tagged; only the client
+      // that made a local edit persists it to the database (US-003).
+      if (tags.has(COLLABORATION_TAG) || tags.has(HISTORIC_TAG)) {
+        return;
+      }
       latestJsonRef.current = JSON.stringify(editorState.toJSON());
       setStatus("pending");
       if (timerRef.current) {
@@ -130,42 +162,58 @@ export function LexicalEditor({
     theme,
     nodes: NODES,
     onError,
-    editorState: initialStateJson ?? undefined,
+    // Collaboration provides the document state (bootstrapped from the DB), and
+    // editing is gated until the room is ready.
+    editorState: null,
+    editable: false,
   };
 
   return (
-    <LexicalComposer initialConfig={initialConfig}>
-      <div className="flex flex-col gap-3">
-        <div className="relative rounded-2xl border border-black/[.06] bg-white p-6 dark:border-white/[.08] dark:bg-zinc-950">
-          <RichTextPlugin
-            contentEditable={
-              <ContentEditable
-                aria-label="Document body"
-                className="min-h-[16rem] text-base text-zinc-900 outline-none dark:text-zinc-100"
-              />
-            }
-            placeholder={
-              <div className="pointer-events-none absolute left-6 top-6 text-base text-zinc-400 dark:text-zinc-500">
-                Start writing…
-              </div>
-            }
-            ErrorBoundary={LexicalErrorBoundary}
-          />
-          <HistoryPlugin />
-          <OnChangePlugin
-            onChange={handleChange}
-            ignoreSelectionChange
-            ignoreHistoryMergeTagChange
-          />
+    <LexicalCollaboration>
+      <LexicalComposer initialConfig={initialConfig}>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-end">
+            <Presence peers={collab.peers} status={collab.status} />
+          </div>
+          <div className="relative rounded-2xl border border-black/[.06] bg-white p-6 dark:border-white/[.08] dark:bg-zinc-950">
+            <RichTextPlugin
+              contentEditable={
+                <ContentEditable
+                  aria-label="Document body"
+                  className="min-h-[16rem] text-base text-zinc-900 outline-none dark:text-zinc-100"
+                />
+              }
+              placeholder={
+                <div className="pointer-events-none absolute left-6 top-6 text-base text-zinc-400 dark:text-zinc-500">
+                  {collab.ready ? "Start writing…" : "Connecting…"}
+                </div>
+              }
+              ErrorBoundary={LexicalErrorBoundary}
+            />
+            <CollaborationPlugin
+              id={documentId}
+              providerFactory={collab.providerFactory}
+              shouldBootstrap
+              initialEditorState={initialStateJson ?? null}
+              username={userName}
+              cursorColor={collab.cursorColor}
+            />
+            <EditableGate editable={collab.ready} />
+            <OnChangePlugin
+              onChange={handleChange}
+              ignoreSelectionChange
+              ignoreHistoryMergeTagChange
+            />
+          </div>
+          <div
+            role="status"
+            aria-live="polite"
+            className="text-xs text-zinc-500 dark:text-zinc-400"
+          >
+            {STATUS_LABEL[status]}
+          </div>
         </div>
-        <div
-          role="status"
-          aria-live="polite"
-          className="text-xs text-zinc-500 dark:text-zinc-400"
-        >
-          {STATUS_LABEL[status]}
-        </div>
-      </div>
-    </LexicalComposer>
+      </LexicalComposer>
+    </LexicalCollaboration>
   );
 }

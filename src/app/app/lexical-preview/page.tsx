@@ -67,6 +67,7 @@ export default async function LexicalPreviewPage() {
         <LexicalEditor
           documentId={document.id}
           initialStateJson={initialStateJson}
+          userName={user.name ?? user.email ?? "Anonymous"}
         />
       </div>
     </main>

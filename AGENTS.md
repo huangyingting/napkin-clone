@@ -2219,3 +2219,58 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   `/` route compiles) into short steps; the credentials signup action completes even if the
   Playwright `click` appears to hang on the redirect, and the session cookie is set, so a
   follow-up `goto` in the SAME named browser is already authenticated.
+
+### Real-time collaboration on the Lexical document (US-005)
+
+- **The Lexical editor now collaborates via `@lexical/yjs`'s `CollaborationPlugin`**,
+  fully replacing the old `useYText`/`Y.Text` binding for content. `@lexical/yjs` was
+  added as a direct dep (`^0.45.0`; it was already a transitive dep of `@lexical/react`).
+  `y-protocols`/`lib0` come transitively via `y-websocket` — no need to declare them.
+- **`CollaborationPlugin` MUST be wrapped in the `LexicalCollaboration` context
+  provider** (`@lexical/react/LexicalCollaborationContext`) — otherwise it throws
+  `useCollaborationContext: no context provider found` (a 500 caught by the app error
+  boundary). Wrap the WHOLE `LexicalComposer` in `<LexicalCollaboration>…</LexicalCollaboration>`.
+- **When collaborating, do NOT pass `initialConfig.editorState`** (the doc state comes
+  from Yjs). Set `editorState: null` and pass the serialized DB state to the plugin as
+  `initialEditorState={initialStateJson}` + `shouldBootstrap` — the first client to a
+  fresh room bootstraps it into the shared doc. The DB is the durable source of truth
+  (the collab server holds no persistent state), so this replaces the old manual
+  `seed()`. Also **drop `HistoryPlugin`** with collaboration (Yjs manages history;
+  mixing them is the documented footgun).
+- **`src/lib/collab/use-lexical-collaboration.ts` owns the `y-websocket` provider** for
+  one room and returns `{ providerFactory, status, ready, peers, cursorColor }`. Create
+  the `WebsocketProvider` with **`{ connect: false }`** (the plugin drives
+  `connect()`/`disconnect()`); this also keeps construction SSR-safe (no socket/
+  BroadcastChannel opened during the server render — Node 22 has a global `WebSocket`).
+  The `providerFactory(id, yjsDocMap)` registers the owned `Y.Doc` into the plugin's map
+  and returns the owned provider (cast `as unknown as Provider`). We keep our own
+  `status`/`sync`/`awareness` listeners + the 2.5s degraded fallback for the ready gate
+  and presence; destroy the provider+doc on unmount (the plugin only disconnects).
+- **Presence shape differs from the textarea binding.** `@lexical/yjs`'s `initLocalState`
+  sets awareness at the TOP level (`{ name, color, anchorPos, focusPos, focusing }`),
+  NOT nested under `user` like `useCollaboration`. So `computePeers` here reads
+  `state.name`/`state.color` directly. The plugin manages local awareness itself (from
+  its `username`/`cursorColor` props) — do NOT also call `setLocalStateField("user", …)`
+  (the plugin's `setLocalState` would wipe it). The existing `Presence` component is
+  reused unchanged.
+- **Ready gate:** `editable` is gated until `ready` (synced || degraded) via a tiny
+  `EditableGate` plugin that calls `editor.setEditable(ready)` (start with
+  `initialConfig.editable: false`).
+- **DB save (US-003) only on LOCAL edits.** `OnChangePlugin`'s `onChange(editorState,
+  editor, tags)` fires for remote merges too; skip the debounced `saveDocumentLexical`
+  when `tags.has(COLLABORATION_TAG) || tags.has(HISTORIC_TAG)` (import both from
+  `lexical`) so only the originator persists.
+- **Browser QA — two SEPARATE browser instances, SAME user.** The preview route binds to
+  a per-user scratch doc, so to share a room (`room = documentId`) log the SAME user into
+  two `dev-browser --browser <name>` instances (separate Chromium → no shared
+  BroadcastChannel → sync only via the WS server). GOTCHAS: (1) start `npm run collab`
+  (port 1234) before testing. (2) **The credentials form button click HANGS** in
+  dev-browser (actionability/“stable” never settles); submit via
+  `page.locator('input[name="password"]').press("Enter")` and POLL
+  `page.context().cookies()` for `authjs.session-token` instead of `waitForURL`. (3) The
+  ContentEditable `.click()` also hangs on “stable”; focus it with
+  `page.evaluate(() => el.focus())` (or `click({ force: true })`) then
+  `page.keyboard.type(...)`. (4) Presence settles a beat after connect — `waitForFunction`
+  on `[aria-label="People here"] > span` count `>= 2`. Verified: cross-instance text CRDT
+  merge (Alice types → Bob's separate browser receives it live, appends, Alice live-
+  receives without reload), both show 2 peers, status pill "Live", and "All changes saved".

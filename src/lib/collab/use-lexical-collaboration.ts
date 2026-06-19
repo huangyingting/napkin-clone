@@ -1,0 +1,137 @@
+"use client";
+
+import type { Provider } from "@lexical/yjs";
+import { useCallback, useEffect, useState } from "react";
+import { WebsocketProvider } from "y-websocket";
+import * as Y from "yjs";
+
+import type { CollabStatus, Peer } from "./use-collaboration";
+import { colorFromId } from "./y-text";
+
+const DEFAULT_WS_URL = "ws://localhost:1234";
+
+/** Falls back to ready (local-only) mode if the server never syncs. */
+const DEGRADED_TIMEOUT_MS = 2500;
+
+type Awareness = WebsocketProvider["awareness"];
+
+/**
+ * Lexical's `@lexical/yjs` binding stores presence at the top level of each
+ * awareness state (`{ name, color, ... }`), unlike our textarea binding which
+ * nested it under `user`. Read peers from that shape.
+ */
+function computePeers(awareness: Awareness): Peer[] {
+  const self = awareness.clientID;
+  const peers: Peer[] = [];
+  awareness.getStates().forEach((state, clientId) => {
+    const s = state as { name?: string; color?: string };
+    if (typeof s.name === "string") {
+      peers.push({
+        clientId,
+        name: s.name,
+        color: s.color ?? colorFromId(clientId),
+        self: clientId === self,
+      });
+    }
+  });
+  // Stable order: self first, then by join order (clientId).
+  peers.sort((a, b) => {
+    if (a.self !== b.self) {
+      return a.self ? -1 : 1;
+    }
+    return a.clientId - b.clientId;
+  });
+  return peers;
+}
+
+export type LexicalCollaboration = {
+  /** Factory the `CollaborationPlugin` calls to obtain the Yjs provider. */
+  providerFactory: (id: string, yjsDocMap: Map<string, Y.Doc>) => Provider;
+  status: CollabStatus;
+  /** True once the initial server sync (or degraded fallback) has happened. */
+  ready: boolean;
+  peers: Peer[];
+  /** This client's presence/cursor color. */
+  cursorColor: string;
+};
+
+/**
+ * Owns a `y-websocket` provider for one document "room" and exposes everything
+ * the Lexical `CollaborationPlugin` and the presence UI need. The provider is
+ * created with `connect: false` so the plugin drives `connect()`/`disconnect()`;
+ * we keep it for status, the ready gate, and presence.
+ */
+export function useLexicalCollaboration(opts: {
+  room: string;
+  userName: string;
+}): LexicalCollaboration {
+  const { room } = opts;
+
+  // Created once per mount. `connect: false` keeps construction SSR-safe (no
+  // socket/BroadcastChannel) and lets the CollaborationPlugin own connection.
+  const [doc] = useState(() => new Y.Doc());
+  const [provider] = useState(() => {
+    const wsUrl = process.env.NEXT_PUBLIC_COLLAB_WS_URL || DEFAULT_WS_URL;
+    return new WebsocketProvider(wsUrl, room, doc, { connect: false });
+  });
+
+  const [status, setStatus] = useState<CollabStatus>("connecting");
+  const [synced, setSynced] = useState(false);
+  const [degraded, setDegraded] = useState(false);
+  const [peers, setPeers] = useState<Peer[]>([]);
+
+  useEffect(() => {
+    const awareness = provider.awareness;
+
+    const onStatus = (event: { status: CollabStatus }) => {
+      setStatus(event.status);
+    };
+    const onSync = (isSynced: boolean) => {
+      if (isSynced) {
+        setSynced(true);
+      }
+    };
+    const onAwareness = () => {
+      setPeers(computePeers(awareness));
+    };
+
+    provider.on("status", onStatus);
+    provider.on("sync", onSync);
+    awareness.on("change", onAwareness);
+
+    const degradeTimer = setTimeout(
+      () => setDegraded(true),
+      DEGRADED_TIMEOUT_MS,
+    );
+
+    return () => {
+      clearTimeout(degradeTimer);
+      provider.off("status", onStatus);
+      provider.off("sync", onSync);
+      awareness.off("change", onAwareness);
+    };
+  }, [provider]);
+
+  // The plugin only disconnects on unmount; fully tear down the provider/doc.
+  useEffect(() => {
+    return () => {
+      provider.destroy();
+      doc.destroy();
+    };
+  }, [provider, doc]);
+
+  const providerFactory = useCallback(
+    (id: string, yjsDocMap: Map<string, Y.Doc>) => {
+      if (!yjsDocMap.has(id)) {
+        yjsDocMap.set(id, doc);
+      }
+      return provider as unknown as Provider;
+    },
+    [doc, provider],
+  );
+
+  const cursorColor = colorFromId(provider.awareness.clientID);
+  const ready = synced || degraded;
+
+  return { providerFactory, status, ready, peers, cursorColor };
+}
