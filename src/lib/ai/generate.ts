@@ -21,6 +21,7 @@ import {
   type Visual,
   type VisualKind,
 } from "@/lib/visual/schema";
+import type { DetailLevel, Orientation } from "@/lib/ai/prompt";
 
 /** Maximum accepted input length; longer text is rejected before any LLM call. */
 export const MAX_INPUT_CHARS = 10_000;
@@ -73,6 +74,17 @@ export interface GenerateInput {
   type?: VisualKind;
   /** Override the minimum number of candidates requested. */
   count?: number;
+  /** Layout orientation hint. `"auto"` (or omitted) = today's behavior. */
+  orientation?: Orientation;
+  /**
+   * `"detailed"` expands the text; `"summary"` produces a compact output.
+   * Omitting reproduces today's behavior.
+   */
+  detailLevel?: DetailLevel;
+  /**
+   * When `true`, instructs the model to preserve original wording in labels.
+   */
+  stayCloserToText?: boolean;
 }
 
 export interface GenerateDeps {
@@ -191,6 +203,9 @@ export async function generateVisuals(
       type: input.type,
       count: requested,
       retryReason: attempt > 0 ? lastReason : undefined,
+      orientation: input.orientation,
+      detailLevel: input.detailLevel,
+      stayCloserToText: input.stayCloserToText,
     });
 
     let raw: string;

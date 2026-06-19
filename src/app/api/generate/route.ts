@@ -26,6 +26,14 @@ import {
   type CompleteFn,
 } from "@/lib/ai/generate";
 import {
+  DETAIL_LEVELS,
+  ORIENTATIONS,
+  isDetailLevel,
+  isOrientation,
+  type DetailLevel,
+  type Orientation,
+} from "@/lib/ai/prompt";
+import {
   ANON_COOKIE_NAME,
   anonTrialLimit,
   checkRateLimitWithStore,
@@ -129,6 +137,30 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     type = body.type;
   }
 
+  let orientation: Orientation | undefined;
+  if (body.orientation !== undefined && body.orientation !== null) {
+    if (!isOrientation(body.orientation)) {
+      return errorResponse(
+        400,
+        `\`orientation\` must be one of: ${ORIENTATIONS.join(", ")}.`,
+      );
+    }
+    orientation = body.orientation;
+  }
+
+  let detailLevel: DetailLevel | undefined;
+  if (body.detailLevel !== undefined && body.detailLevel !== null) {
+    if (!isDetailLevel(body.detailLevel)) {
+      return errorResponse(
+        400,
+        `\`detailLevel\` must be one of: ${DETAIL_LEVELS.join(", ")}.`,
+      );
+    }
+    detailLevel = body.detailLevel;
+  }
+
+  const stayCloserToText = body.stayCloserToText === true ? true : undefined;
+
   const secret = process.env.AUTH_SECRET;
   if (!secret) {
     logError(LOG_SCOPE, new Error("Missing AUTH_SECRET"), {
@@ -204,7 +236,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   // Generate.
   try {
-    const candidates = await generateVisuals({ text, type }, { complete });
+    const candidates = await generateVisuals(
+      { text, type, orientation, detailLevel, stayCloserToText },
+      { complete },
+    );
     commitAnonUsage?.();
 
     const response = NextResponse.json({ candidates });

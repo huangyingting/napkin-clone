@@ -6,7 +6,14 @@ import {
   $getNodeByKey,
   $isElementNode,
 } from "lexical";
-import { Sparkles, X } from "lucide-react";
+import {
+  AlignCenter,
+  AlignHorizontalSpaceAround,
+  AlignVerticalSpaceAround,
+  Maximize2,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
@@ -15,6 +22,7 @@ import { FOCUS_RING, GUTTER_BUTTON } from "@/components/motion/control-styles";
 import { usePopMotion } from "@/components/motion/reveal";
 import { ThinkingIndicator } from "@/components/motion/thinking-indicator";
 import { Button, Divider, FloatingSurface, IconButton } from "@/components/ui";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { cx } from "@/components/ui/tokens";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { INSERT_VISUAL_COMMAND } from "@/lib/lexical/commands";
@@ -25,6 +33,7 @@ import {
   type Visual,
   type VisualKind,
 } from "@/lib/visual/schema";
+import { type Orientation, type DetailLevel } from "@/lib/ai/prompt";
 
 import { $createVisualNode } from "./visual-node";
 
@@ -45,6 +54,57 @@ type BlockInfo = {
 };
 
 type GenStatus = "idle" | "loading";
+
+/** Generation options surfaced in the spark panel. */
+interface GenOptions {
+  type: VisualKind | "auto";
+  orientation: Orientation;
+  detailLevel: DetailLevel | "auto";
+  stayCloserToText: boolean;
+}
+
+const DEFAULT_GEN_OPTIONS: GenOptions = {
+  type: "auto",
+  orientation: "auto",
+  detailLevel: "auto",
+  stayCloserToText: false,
+};
+
+const ORIENTATION_OPTIONS: ReadonlyArray<{
+  value: Orientation;
+  label: string;
+  icon?: React.ReactNode;
+}> = [
+  {
+    value: "auto",
+    label: "Auto",
+    icon: <Maximize2 aria-hidden="true" className="h-3 w-3" />,
+  },
+  {
+    value: "vertical",
+    label: "Vertical",
+    icon: <AlignVerticalSpaceAround aria-hidden="true" className="h-3 w-3" />,
+  },
+  {
+    value: "horizontal",
+    label: "Horizontal",
+    icon: <AlignHorizontalSpaceAround aria-hidden="true" className="h-3 w-3" />,
+  },
+  {
+    value: "square",
+    label: "Square",
+    icon: <AlignCenter aria-hidden="true" className="h-3 w-3" />,
+  },
+];
+
+const DETAIL_LEVEL_OPTIONS: ReadonlyArray<{
+  value: DetailLevel | "auto";
+  label: string;
+}> = [
+  { value: "auto", label: "Default" },
+  { value: "summary", label: "Summary" },
+  { value: "detailed", label: "Detailed" },
+];
 
 function messageFrom(payload: unknown, fallback: string): string {
   if (payload && typeof payload === "object" && "error" in payload) {
@@ -88,6 +148,7 @@ export function BlockSparkPlugin() {
   const [status, setStatus] = useState<GenStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<Visual[]>([]);
+  const [genOptions, setGenOptions] = useState<GenOptions>(DEFAULT_GEN_OPTIONS);
   const popMotion = usePopMotion();
 
   // Keeps the gutter button alive while the pointer travels from the block to
@@ -223,18 +284,25 @@ export function BlockSparkPlugin() {
     setError(null);
     setStatus("idle");
     keepRef.current = false;
+    setGenOptions(DEFAULT_GEN_OPTIONS);
   }, []);
 
-  const generate = useCallback(async (target: BlockInfo) => {
+  const generate = useCallback(async (target: BlockInfo, opts: GenOptions) => {
     setOpenKey(target.key);
     setStatus("loading");
     setError(null);
     setCandidates([]);
     try {
+      const body: Record<string, unknown> = { text: target.text };
+      if (opts.type !== "auto") body.type = opts.type;
+      if (opts.orientation !== "auto") body.orientation = opts.orientation;
+      if (opts.detailLevel !== "auto") body.detailLevel = opts.detailLevel;
+      if (opts.stayCloserToText) body.stayCloserToText = true;
+
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ text: target.text }),
+        body: JSON.stringify(body),
       });
       const payload: unknown = await response.json().catch(() => null);
 
@@ -329,7 +397,9 @@ export function BlockSparkPlugin() {
                 keepRef.current = false;
               }}
               onClick={() =>
-                openKey === block.key ? closePanel() : void generate(block)
+                openKey === block.key
+                  ? closePanel()
+                  : void generate(block, genOptions)
               }
               initial={popMotion.initial}
               animate={popMotion.animate}
@@ -364,7 +434,7 @@ export function BlockSparkPlugin() {
       >
         <div
           onMouseEnter={keepAlive}
-          className="max-h-[26rem] w-80 overflow-auto p-3"
+          className="max-h-[36rem] w-80 overflow-auto p-3"
         >
           <div className="mb-2 flex items-center justify-between gap-2">
             <span className="text-xs font-medium text-[var(--ds-text-muted,#52525b)]">
@@ -373,6 +443,111 @@ export function BlockSparkPlugin() {
             <IconButton aria-label="Close" size="sm" onClick={closePanel}>
               <X aria-hidden="true" className="h-4 w-4" />
             </IconButton>
+          </div>
+
+          {/* Generation controls */}
+          <div className="mb-3 space-y-2 rounded-[var(--ds-radius-md,10px)] bg-[var(--ds-surface-raised,#f4f4f5)] p-2.5">
+            {/* Visual type picker */}
+            <div>
+              <div className="mb-1 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)]">
+                Type
+              </div>
+              <div className="flex flex-wrap gap-1">
+                <button
+                  type="button"
+                  aria-pressed={genOptions.type === "auto"}
+                  onClick={() => setGenOptions((o) => ({ ...o, type: "auto" }))}
+                  className={cx(
+                    "inline-flex h-6 items-center rounded-[var(--ds-radius-sm,8px)] px-2 text-[0.6875rem] font-medium transition-colors",
+                    genOptions.type === "auto"
+                      ? "bg-[var(--ds-accent,#6366f1)] text-[var(--ds-text-on-accent,#ffffff)]"
+                      : "bg-[var(--ds-surface,#ffffff)] text-[var(--ds-text-secondary,#52525b)] hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.05))]",
+                    FOCUS_RING,
+                  )}
+                >
+                  Auto
+                </button>
+                {VISUAL_KINDS.map((kind) => {
+                  const meta = VISUAL_KIND_META[kind];
+                  const Icon = meta.icon;
+                  return (
+                    <button
+                      key={kind}
+                      type="button"
+                      aria-pressed={genOptions.type === kind}
+                      onClick={() =>
+                        setGenOptions((o) => ({ ...o, type: kind }))
+                      }
+                      className={cx(
+                        "inline-flex h-6 items-center gap-1 rounded-[var(--ds-radius-sm,8px)] px-2 text-[0.6875rem] font-medium transition-colors",
+                        genOptions.type === kind
+                          ? "bg-[var(--ds-accent,#6366f1)] text-[var(--ds-text-on-accent,#ffffff)]"
+                          : "bg-[var(--ds-surface,#ffffff)] text-[var(--ds-text-secondary,#52525b)] hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.05))]",
+                        FOCUS_RING,
+                      )}
+                    >
+                      <Icon aria-hidden="true" className="h-3 w-3" />
+                      {meta.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Orientation picker */}
+            <div>
+              <div className="mb-1 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)]">
+                Orientation
+              </div>
+              <SegmentedControl
+                aria-label="Visual orientation"
+                size="sm"
+                options={ORIENTATION_OPTIONS}
+                value={genOptions.orientation}
+                onChange={(v) =>
+                  setGenOptions((o) => ({ ...o, orientation: v }))
+                }
+                className="w-full"
+              />
+            </div>
+
+            {/* Detail level picker */}
+            <div>
+              <div className="mb-1 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)]">
+                Detail level
+              </div>
+              <SegmentedControl
+                aria-label="Detail level"
+                size="sm"
+                options={DETAIL_LEVEL_OPTIONS}
+                value={genOptions.detailLevel}
+                onChange={(v) =>
+                  setGenOptions((o) => ({ ...o, detailLevel: v }))
+                }
+                className="w-full"
+              />
+            </div>
+
+            {/* Stay closer to text toggle */}
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                checked={genOptions.stayCloserToText}
+                onChange={(e) =>
+                  setGenOptions((o) => ({
+                    ...o,
+                    stayCloserToText: e.target.checked,
+                  }))
+                }
+                className={cx(
+                  "h-3.5 w-3.5 cursor-pointer rounded accent-[var(--ds-accent,#6366f1)]",
+                  FOCUS_RING,
+                )}
+              />
+              <span className="select-none text-[0.6875rem] text-[var(--ds-text-secondary,#52525b)]">
+                Stay closer to my text
+              </span>
+            </label>
           </div>
 
           <div className="mb-1 text-[0.6875rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)]">
@@ -393,7 +568,9 @@ export function BlockSparkPlugin() {
                 size="sm"
                 variant="subtle"
                 onClick={() =>
-                  panelTarget !== null ? void generate(panelTarget) : undefined
+                  panelTarget !== null
+                    ? void generate(panelTarget, genOptions)
+                    : undefined
                 }
               >
                 Try again
@@ -420,7 +597,23 @@ export function BlockSparkPlugin() {
                 </li>
               ))}
             </ul>
-          ) : null}
+          ) : (
+            <Button
+              size="sm"
+              variant="solid"
+              leadingIcon={
+                <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
+              }
+              onClick={() =>
+                panelTarget !== null
+                  ? void generate(panelTarget, genOptions)
+                  : undefined
+              }
+              className="w-full"
+            >
+              Generate
+            </Button>
+          )}
 
           <Divider orientation="horizontal" className="my-3" />
 
