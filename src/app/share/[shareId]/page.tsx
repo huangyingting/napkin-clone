@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 
 import { LexicalReadOnly } from "@/components/lexical/lexical-read-only";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
+
+import { ShareLightbox } from "./share-lightbox";
 import { excerpt } from "@/lib/document-stats";
 import { prisma } from "@/lib/prisma";
 import { buildShareSegment, shareIdFromParam } from "@/lib/slug";
@@ -156,36 +158,38 @@ export default async function SharedDocumentPage({
 
       {/* Content */}
       <div className="mx-auto max-w-3xl px-6 py-8">
-        <article className="rounded-lg border border-black/[.06] bg-white p-6 dark:border-white/[.08] dark:bg-zinc-950">
-          {hasLexical ? (
-            <LexicalReadOnly state={document.contentJson} />
-          ) : (
-            <>
-              <LexicalReadOnly fallbackMarkdown={document.content} />
-              {Object.keys(blockVisuals).length > 0 ? (
-                <div className="mt-6 flex flex-col gap-4">
-                  {Object.entries(blockVisuals).map(([id, blockVisual]) => (
-                    <div
-                      key={id}
-                      data-block-visual={id}
-                      className="overflow-hidden rounded-lg border border-black/[.06] bg-white dark:border-white/[.08] dark:bg-zinc-950"
-                    >
-                      <VisualRenderer
-                        visual={blockVisual}
-                        className="h-auto w-full"
-                      />
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-              {visual ? (
-                <div className="mt-6 overflow-hidden rounded-lg border border-black/[.06] bg-white dark:border-white/[.08] dark:bg-zinc-950">
-                  <VisualRenderer visual={visual} className="h-auto w-full" />
-                </div>
-              ) : null}
-            </>
-          )}
-        </article>
+        <ShareLightbox>
+          <article className="rounded-lg border border-black/[.06] bg-white p-6 dark:border-white/[.08] dark:bg-zinc-950">
+            {hasLexical ? (
+              <LexicalReadOnly state={document.contentJson} />
+            ) : (
+              <>
+                <LexicalReadOnly fallbackMarkdown={document.content} />
+                {Object.keys(blockVisuals).length > 0 ? (
+                  <div className="mt-6 flex flex-col gap-4">
+                    {Object.entries(blockVisuals).map(([id, blockVisual]) => (
+                      <div
+                        key={id}
+                        data-block-visual={id}
+                        className="overflow-hidden rounded-lg border border-black/[.06] bg-white dark:border-white/[.08] dark:bg-zinc-950"
+                      >
+                        <VisualRenderer
+                          visual={blockVisual}
+                          className="h-auto w-full"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {visual ? (
+                  <div className="mt-6 overflow-hidden rounded-lg border border-black/[.06] bg-white dark:border-white/[.08] dark:bg-zinc-950">
+                    <VisualRenderer visual={visual} className="h-auto w-full" />
+                  </div>
+                ) : null}
+              </>
+            )}
+          </article>
+        </ShareLightbox>
       </div>
     </main>
   );
