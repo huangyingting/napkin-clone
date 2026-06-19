@@ -2970,3 +2970,35 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   here (no hand-authored SQL / `migrate diff` workaround needed). Followed the
   DUAL-MIGRATION DRILL (postgres `migrate dev` then sqlite `migrate dev` LAST, then
   `DB_PROVIDER=sqlite npm run db:generate`).
+
+### Add and remove tags on a document (Ghost US-033)
+
+- **Tag mutations live in `src/app/app/documents/[id]/tags-actions.ts`** (`"use server"`):
+  `addTag(documentId, rawName)` and `removeTag(documentId, tagId)`, both **access-scoped**
+  via `getAccessibleDocument(user.id, documentId)` (inaccessible → return `[]` no-op) and
+  **both return the document's refreshed `DocumentTag[]`** (`{ id, name, slug }`, ordered
+  by name) so the client can render server truth. Exported `DocumentTag` type is reused by
+  the UI. `addTag` normalizes the name (trim, collapse whitespace, clamp 50 chars; blank →
+  no-op) and **find-or-creates the tag owned by the ACTING `user.id`** (not the doc owner)
+  — keyed by `(ownerId, name)`; the slug is `slugify(name) || "tag"`, with a P2002/empty
+  fallback that appends a `Date.now().toString(36)` discriminator (handles the
+  `@@unique([ownerId, slug])` collision when two different names slugify the same). Connect
+  with `prisma.document.update({ data: { tags: { connect: { id } } } })`; remove with
+  `{ disconnect: { id } }` (the Tag row itself is NOT deleted). Both `revalidatePath("/app")`
+  so the dashboard (US-034 filter) refreshes.
+- **`src/app/app/documents/[id]/tag-control.tsx` (`TagControl`, `"use client"`)** renders in
+  the editor header below the title: tag chips + an add `<input aria-label="Add a tag">`
+  (Enter or blur commits) with a `<datalist>` autocomplete of the user's tags **not already
+  on the doc** (`useId()` for the list id). Remove buttons are `aria-label="Remove tag
+  <name>"`. It's optimistic via local `useState`/`useTransition` seeded from `initialTags`,
+  and `editable={canEdit}` (VIEWERs see chips, no input). Tags are NOT collab-synced (CRDT
+  is for body/title) — freshness comes from the action return + reload, which is enough.
+- **Wiring:** the editor page (`page.tsx`) selects `document.tags` (`{ id, name, slug }`)
+  and queries the acting user's tags (`prisma.tag.findMany({ where: { ownerId: user.id } })`)
+  for suggestions, passing `initialTags`/`allTags` to `LexicalEditor` → `TagControl`.
+- **Browser QA (dev-browser, headless + collab server):** sign up a fresh `*@test.dev` user
+  (clear cookies first — a stale JWT pointing at a wiped user makes `createDocument*` throw
+  a `Foreign key constraint violated` on `ownerId`), open the signup-seeded doc, then add via
+  `[aria-label="Add a tag"]` + Enter, assert `[aria-label="Remove tag <name>"]` chips,
+  `page.reload()` to confirm persistence, and click a remove button + reload to confirm the
+  drop persisted. Read chips via `[aria-label="Tags"] > span` textContent (strip the `×`).

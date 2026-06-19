@@ -48,6 +48,10 @@ export default async function DocumentEditorPage({
       slug: true,
       ownerId: true,
       workspaceId: true,
+      tags: {
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, slug: true },
+      },
       workspace: {
         select: {
           name: true,
@@ -82,6 +86,13 @@ export default async function DocumentEditorPage({
   // Comment threads for everyone with access (owner + workspace members).
   const initialComments = await listComments(document.id);
 
+  // The acting user's tags, for the add-tag autocomplete suggestions.
+  const userTags = await prisma.tag.findMany({
+    where: { ownerId: user.id },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, slug: true },
+  });
+
   return (
     <LexicalEditor
       documentId={document.id}
@@ -95,6 +106,8 @@ export default async function DocumentEditorPage({
       userName={user.name ?? user.email ?? "Anonymous"}
       currentUserId={user.id}
       initialComments={initialComments}
+      initialTags={document.tags}
+      allTags={userTags}
     />
   );
 }

@@ -42,6 +42,8 @@ import { CommentsPanel, type AnchorNode } from "./comments-panel";
 import { FloatingToolbarPlugin } from "./floating-toolbar";
 import { Presence } from "./presence";
 import { ShareButton } from "./share-button";
+import { TagControl } from "./tag-control";
+import type { DocumentTag } from "./tags-actions";
 import { VisualAnchorProvider } from "./visual-anchor-context";
 import { VisualNode } from "./visual-node";
 
@@ -189,6 +191,8 @@ export function LexicalEditor({
   initialIsShared = false,
   initialShareId = null,
   initialSlug = null,
+  initialTags = [],
+  allTags = [],
 }: {
   documentId: string;
   initialTitle: string;
@@ -201,6 +205,8 @@ export function LexicalEditor({
   initialIsShared?: boolean;
   initialShareId?: string | null;
   initialSlug?: string | null;
+  initialTags?: DocumentTag[];
+  allTags?: DocumentTag[];
 }) {
   const collab = useLexicalCollaboration({ room: documentId, userName });
 
@@ -379,6 +385,12 @@ export function LexicalEditor({
                   placeholder="Untitled"
                   disabled={!editable}
                   className="w-full rounded-md bg-transparent text-xl font-semibold tracking-tight text-zinc-900 outline-none placeholder:text-zinc-400 focus:bg-zinc-100/60 focus:px-2 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-50 dark:placeholder:text-zinc-600 dark:focus:bg-zinc-800/60"
+                />
+                <TagControl
+                  documentId={documentId}
+                  initialTags={initialTags}
+                  allTags={allTags}
+                  editable={canEdit}
                 />
               </div>
               <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
