@@ -32,6 +32,7 @@ import {
 } from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { VISUAL_DISPLAY_STYLES } from "@/lib/visual/display-styles";
+import { elasticLayout } from "@/components/visual/elastic-layout";
 
 /** Per-node color override fields the selected-element controls can set. */
 export type NodeStyleField = "color" | "stroke" | "textColor";
@@ -530,6 +531,11 @@ export function setVisualKind(visual: Visual, kind: VisualKind): Visual {
       break;
   }
 
+  // If auto-layout is enabled, re-flow after the kind switch.
+  if (next.autoLayout) {
+    return applyElasticLayout(next);
+  }
+
   return next;
 }
 
@@ -643,4 +649,43 @@ export function isSourceStale(visual: Visual, currentText: string): boolean {
     return false;
   }
   return stored !== current;
+}
+
+/**
+ * Enables or disables the elastic auto-layout flag on a visual. When `enabled`
+ * is `true`, immediately runs an elastic layout pass so the canvas grows to fit
+ * the current content. When `false`, the flag is cleared (falling back to
+ * manual positioning).
+ *
+ * Pure, non-mutating, schema-valid output.
+ */
+export function setAutoLayout(visual: Visual, enabled: boolean): Visual {
+  const next = cloneVisual(visual);
+  if (!enabled) {
+    delete next.autoLayout;
+    return next;
+  }
+  next.autoLayout = true;
+  return applyElasticLayout(next);
+}
+
+/**
+ * Applies the elastic layout pass to a visual that has `autoLayout: true`,
+ * re-sizing nodes to their labels and growing the canvas to fit all content.
+ * If the visual is not a positioned kind or `autoLayout` is not set, returns
+ * an unchanged clone. Safe to call unconditionally — non-positioned kinds and
+ * manuals are no-ops.
+ *
+ * Pure, non-mutating, schema-valid output.
+ */
+export function applyElasticLayout(visual: Visual): Visual {
+  if (!visual.autoLayout) {
+    return cloneVisual(visual);
+  }
+  const result = elasticLayout(visual);
+  const next = cloneVisual(visual);
+  next.nodes = result.nodes.map((n) => ({ ...n }));
+  next.width = result.width;
+  next.height = result.height;
+  return next;
 }

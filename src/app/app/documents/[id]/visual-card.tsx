@@ -15,6 +15,7 @@ import {
   exportPNG,
   downloadBlob,
 } from "@/lib/visual/export";
+import { applyElasticLayout } from "@/lib/visual/transforms";
 
 import { useRegisterVisualSvg } from "@/components/editor/visual-svg-registry";
 
@@ -162,13 +163,15 @@ export function VisualCard({
 
   // Writes a new payload back to the node. This is a local edit, so the editor's
   // OnChangePlugin debounce-saves it into `contentJson` (US-003) and the save
-  // action mirrors it to the `Visual` row (US-011).
+  // action mirrors it to the `Visual` row (US-011). When `autoLayout` is on,
+  // elastic layout is re-applied here so the canvas always grows to fit content.
   const updateVisual = useCallback(
     (next: Visual) => {
+      const toSave = applyElasticLayout(next);
       editor.update(() => {
         const node = $getNodeByKey(nodeKey);
         if ($isVisualNode(node)) {
-          node.setVisual(next);
+          node.setVisual(toSave);
         }
       });
     },

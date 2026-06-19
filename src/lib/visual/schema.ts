@@ -198,6 +198,15 @@ export interface Visual {
    * Derived from `sourceText` at insert time; optional for the same reason.
    */
   sourceTextHash?: string;
+  /**
+   * When `true`, the elastic auto-layout engine re-flows the canvas whenever
+   * nodes are added, removed, or their labels change — sizing each node to its
+   * text and expanding the viewBox so nothing clips. Defaults to `false`
+   * (manual positioning) for backward compatibility with existing visuals.
+   * Only meaningful for positioned kinds (flowchart/mindmap/concept/orgchart);
+   * other kinds are always derived-layout and ignore this flag.
+   */
+  autoLayout?: boolean;
 }
 
 export const DEFAULT_NODE_WIDTH = 150;
@@ -648,6 +657,10 @@ export function validateVisual(input: unknown): Visual {
       : {}),
     ...(typeof input.sourceTextHash === "string"
       ? { sourceTextHash: input.sourceTextHash }
+      : {}),
+    // Optional elastic auto-layout flag — forgiving (non-booleans silently dropped).
+    ...(typeof input.autoLayout === "boolean"
+      ? { autoLayout: input.autoLayout }
       : {}),
   };
 }

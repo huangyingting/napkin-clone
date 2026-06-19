@@ -152,7 +152,7 @@ export function VisualEditor({
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [hoverEdgeId, setHoverEdgeId] = useState<string | null>(null);
 
-  const positioned = isPositionedKind(visual.type);
+  const positioned = isPositionedKind(visual.type) && !visual.autoLayout;
   const boxes = useMemo(() => nodeBoxes(visual), [visual]);
   const segments = useMemo(() => edgeSegments(visual), [visual]);
   const nodeById = useMemo(
