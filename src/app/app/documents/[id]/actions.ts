@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { Prisma } from "@/generated/prisma/client";
 import { getAccessibleDocument } from "@/lib/documents";
+import { collectVisualNodes } from "@/lib/lexical/visual-nodes";
 import { lexicalStateToPlainText } from "@/lib/lexical/plain-text";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
@@ -128,6 +129,91 @@ export async function saveDocumentContent(
 }
 
 /**
+ * Mirrors every {@link VisualNode} in a serialized Lexical state to a `Visual`
+ * database row so that share/embed pages, dashboard thumbnails, and version
+ * history keep working — `contentJson` remains the editor's source of truth, and
+ * these rows are a derived projection of it.
+ *
+ * Each node is keyed by its stable `visualId` (stored as the row's
+ * `anchorBlockId`) and its document-order index is written to `orderIndex`. A
+ * row is created when missing, and only updated when the validated payload (or
+ * its order) actually changed — so a save that doesn't touch a visual records no
+ * spurious `VisualRevision` snapshot. Invalid payloads are skipped (never
+ * persisted). The document is assumed already access-scoped by the caller.
+ */
+async function mirrorVisualNodes(
+  documentId: string,
+  parsedState: unknown,
+): Promise<void> {
+  const nodes = collectVisualNodes(parsedState);
+
+  for (let index = 0; index < nodes.length; index += 1) {
+    const node = nodes[index];
+
+    const anchor = normalizeAnchorBlockId(node.visualId);
+    if (!anchor) {
+      continue;
+    }
+
+    // Re-validate so a tampered/garbled payload can never be persisted.
+    const result = safeParseVisual(node.visual);
+    if (!result.success) {
+      continue;
+    }
+    const visual = result.data;
+    const type = VISUAL_KIND_TO_PRISMA[visual.type];
+    const title = visual.title ?? null;
+    const data = visual as unknown as Prisma.InputJsonValue;
+
+    const existing = await prisma.visual.findFirst({
+      where: { documentId, anchorBlockId: anchor },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        data: true,
+        type: true,
+        title: true,
+        orderIndex: true,
+      },
+    });
+
+    if (!existing) {
+      await prisma.visual.create({
+        data: {
+          documentId,
+          anchorBlockId: anchor,
+          orderIndex: index,
+          type,
+          title,
+          data,
+        },
+      });
+      continue;
+    }
+
+    // Only snapshot + rewrite the payload when it actually changed; compare via
+    // the normalized (re-validated) form so key-order differences don't count.
+    const previous = safeParseVisual(existing.data);
+    const payloadChanged =
+      !previous.success ||
+      JSON.stringify(previous.data) !== JSON.stringify(visual);
+
+    if (payloadChanged) {
+      await snapshotVisualRevision(existing);
+      await prisma.visual.update({
+        where: { id: existing.id },
+        data: { type, title, data, orderIndex: index },
+      });
+    } else if (existing.orderIndex !== index) {
+      await prisma.visual.update({
+        where: { id: existing.id },
+        data: { orderIndex: index },
+      });
+    }
+  }
+}
+
+/**
  * Saves the serialized Lexical editor state for a document.
  *
  * `stateJson` is the stringified `editorState.toJSON()` from the client. The
@@ -170,6 +256,11 @@ export async function saveDocumentLexical(
       content,
     },
   });
+
+  // Mirror embedded visual blocks to Visual rows so share/embed, dashboard
+  // thumbnails, and version history keep working off the editor's source of
+  // truth (contentJson).
+  await mirrorVisualNodes(id, parsed);
 
   revalidatePath("/app");
 }

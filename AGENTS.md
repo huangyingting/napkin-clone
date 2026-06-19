@@ -2441,3 +2441,39 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
 - **Test glob note:** `npm test` (`src/**/*.test.ts`) DOES match files under the literal
   `[id]/` route dir (verified — the brackets in the filesystem path are matched literally,
   not as a glob class), so a colocated `visual-node.test.ts` runs fine.
+
+### Persist and reload visual cards — contentJson → Visual rows (US-011)
+
+- **`contentJson` is the editor's source of truth; `Visual` rows are a DERIVED
+  mirror.** `VisualNode`s already round-trip through `contentJson` (US-003 save/load +
+  US-009 node registration), so they re-render on reload in document order with no extra
+  work. US-011's job is keeping the legacy `Visual` table in sync so share/embed,
+  dashboard thumbnails, and version history (which all read `Visual` rows) keep working.
+- **`saveDocumentLexical` mirrors on every save** via the private `mirrorVisualNodes(
+  documentId, parsedState)` helper (`src/app/app/documents/[id]/actions.ts`), called
+  AFTER the `document.updateMany` (access already scoped). It walks the parsed state for
+  `VisualNode`s and upserts a `Visual` row per node **keyed by the node's stable
+  `visualId` stored in `anchorBlockId`** (reusing the existing `(documentId,
+  anchorBlockId)` upsert shape from `attachVisual`), writing the node's document-order
+  index to `orderIndex` so share/embed render in order.
+- **Avoid `VisualRevision` spam on text edits:** the debounced save fires on EVERY
+  keystroke, so `mirrorVisualNodes` only snapshots + rewrites a row when the validated
+  payload actually changed — compare the NORMALIZED forms
+  (`JSON.stringify(safeParseVisual(existing.data).data) !==
+  JSON.stringify(safeParseVisual(node.visual).data)`) so key-order differences don't
+  count as a change. When only the order changed, update `orderIndex` without a snapshot;
+  when nothing changed, skip the write entirely. Do NOT just call `attachVisual` in a
+  loop here — it snapshots on every update and would flood history.
+- **Extraction is a pure, framework-free helper:** `src/lib/lexical/visual-nodes.ts`
+  `collectVisualNodes(state)` (JSON string or parsed object → `{ visualId, visual }[]` in
+  document order, de-duped by `visualId`, never throws). Type-only `import type { Visual }`
+  keeps it React/Prisma-free so it unit-tests under `node --test` + `tsx` (colocated
+  `visual-nodes.test.ts`) — same pattern as `plain-text.ts`. Reuse it for any
+  server-side "what visuals are in this doc" need (US-012/013/014).
+- **Browser QA (mock-Azure + collab server):** at `/app/lexical-preview`, hover a
+  paragraph → `[aria-label="Generate visual for this block"]` spark → 4
+  `[aria-label^="Insert variation"]` candidates → insert → wait for `[role="status"]`
+  "All changes saved" → `page.reload()` and assert the `svg[role="img"]` re-renders in
+  order (`["p","div:visual"]`). Verify the mirror with a root-level `tsx` script
+  (`PrismaBetterSqlite3`): the doc has one `Visual` row whose `anchorBlockId` equals a
+  `visualId` found in `contentJson`, with `orderIndex` matching document position.
