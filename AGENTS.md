@@ -2576,3 +2576,41 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   preserved; `page.reload()` confirms persistence; a root-level `tsx` DB check
   (`PrismaBetterSqlite3`) shows the doc's `Visual` rows are now `[]` and `contentJson`
   block types dropped the `visual` node (only `["paragraph"]` remains).
+### Render Lexical read-only on share & embed (US-014)
+
+- **`src/components/lexical/lexical-read-only.tsx` (`LexicalReadOnly`) is a
+  directive-free, server-renderable read-only renderer for a serialized Lexical
+  state.** It walks the `{ root: { children } }` JSON that
+  `editorState.toJSON()` produces and emits plain React elements — NO
+  `LexicalComposer`, no `"use client"`, no `dangerouslySetInnerHTML` — so it runs in
+  server components (`/share/[shareId]`, `/embed/[shareId]`). Inline `visual` nodes
+  render through the directive-free `VisualRenderer` (payload validated with
+  `safeParseVisual`, degrading to a "could not be displayed" placeholder on garbled
+  data, mirroring the editor's `VisualCard`). It mirrors the editor `theme` classes
+  (`lexical-editor.tsx`) so read views match the editor.
+- **Text formatting is a bitmask** on serialized `text` nodes (bold=1, italic=2,
+  strikethrough=4, underline=8, code=16, sub=32, sup=64) — AND the flags, wrap in
+  `<strong>/<em>/<code>/<sub>/<sup>`/decoration spans. Block types handled: `heading`
+  (tag h1–h3), `paragraph`, `quote`, `list` (`listType`/`tag` → `ul`/`ol`) with nested
+  lists, `listitem`, `horizontalrule`, `link`/`autolink`, `linebreak`, `tab`, `visual`.
+- **Legacy fallback (convert-on-read):** pass `fallbackMarkdown={document.content}`.
+  When `state` (the `contentJson`) is null/empty, `LexicalReadOnly` converts the
+  Markdown via the US-004 `markdownToLexicalStateObject` so unmigrated documents still
+  render. The share/embed pages branch on `hasLexical = document.contentJson != null`:
+  Lexical docs render `state={contentJson}` (visuals inline); legacy docs render
+  `fallbackMarkdown` PLUS their stored `Visual` rows (doc-level + block-anchored)
+  appended below (since Markdown conversion has no inline visuals).
+- **Read-only = no editing affordances by construction** (it's not the editor): no
+  spark, no "+"/slash menu, no contextual controls — verified `0` matches for
+  `aria-label="Generate visual"|"Insert block"|"Edit visual"|"Document body"` /
+  `contenteditable` in the share HTML.
+- **Browser QA:** seed a shared doc directly (root-level `tsx` + `PrismaBetterSqlite3`)
+  with a hand-built Lexical `contentJson` (heading/paragraph-with-bold/list/quote/
+  `visual` node/`horizontalrule`) + `isShared: true` + a `shareId`, and a legacy doc
+  (Markdown `content`, null `contentJson`, a doc-level `Visual` row). `curl` the
+  `/share/<id>` HTML and grep for `<strong>`/`<em>`/`<li>`/`<blockquote>`/`<hr `/
+  `data-block-visual`/`role="img"`; assert `svg[role="img"]` count and 0 editing
+  affordances. Check `documentElement.scrollWidth - clientWidth === 0` at 375/768/1280
+  for both `/share` and `/embed` (dev-browser `--headless`; no X server here). The
+  share/embed pages use a single-column `max-w-3xl` article (not the old two-panel
+  grid) since Lexical visuals are inline.
