@@ -2947,3 +2947,26 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   `page.evaluate(() => button.click())` (real DOM click → React onClick fires). Verify
   both `/share/<slug>-<id>` and the bare `/share/<id>` curl to 200; an arbitrary slug
   in front of the real id also resolves (200); unknown id → 404.
+
+### Tag model & Document-Tag relation (Ghost US-032)
+
+- **`Tag` is a flat, owner-scoped model** (`prisma/schema.prisma`): `id`, `name`,
+  `slug`, `ownerId`, timestamps, with `@@unique([ownerId, name])` +
+  `@@unique([ownerId, slug])` (names/slugs unique PER owner, not globally) and
+  `@@index([ownerId])`. `owner User @relation(... onDelete: Cascade)` (deleting a
+  user drops their tags). The slug derives from `slugify(name)` (US-027,
+  `@/lib/slug`) — compute it in the addTag action (US-033), the column has no
+  default.
+- **Document↔Tag is an IMPLICIT many-to-many** (`tags Tag[] @relation("DocumentTags")`
+  on both `Document` and `Tag`; also `tags Tag[]` back-relation on `User`). Prisma
+  generates the join table `_DocumentTags` (`A`=Document, `B`=Tag, both FKs
+  `onDelete: Cascade`) automatically on BOTH providers — no explicit join model
+  needed. Connect/disconnect with `document.update({ data: { tags: { connect: [{id}] }}})`
+  / `{ disconnect: [{id}] }`. A plain `CREATE TABLE` migration (no SQLite
+  RedefineTables) since they're new tables.
+- **A new model with `@@unique` constraints does NOT trigger the interactive
+  migrate-dev warning** that an `@unique` column on an EXISTING table does (US-027) —
+  so `prisma migrate dev --name add_tags` runs non-interactively for both providers
+  here (no hand-authored SQL / `migrate diff` workaround needed). Followed the
+  DUAL-MIGRATION DRILL (postgres `migrate dev` then sqlite `migrate dev` LAST, then
+  `DB_PROVIDER=sqlite npm run db:generate`).
