@@ -1,6 +1,6 @@
 "use client";
 
-import { RefreshCw, Sparkles, Trash2, X } from "lucide-react";
+import { Palette, RefreshCw, Sparkles, Trash2, X } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -66,6 +66,9 @@ import {
   type CanvasStyle,
   ASPECT_RATIO_PRESETS,
 } from "@/lib/visual/schema";
+import { applyBrand, brandPreviewStyle } from "@/lib/brand/transforms";
+import type { BrandStyle } from "@/lib/brand/schema";
+import { BRAND_WEB_FONTS } from "@/lib/brand/schema";
 
 import { IconPicker } from "./icon-picker";
 
@@ -297,6 +300,122 @@ function StyleGallery({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Brand Studio integration
+// ---------------------------------------------------------------------------
+
+/** Fetch the current user's saved brands (client-side, on demand). */
+function useBrands() {
+  const [brands, setBrands] = useState<BrandStyle[]>([]);
+  const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
+
+  const load = useCallback(async () => {
+    if (status !== "idle") return;
+    setStatus("loading");
+    try {
+      const res = await fetch("/api/brand");
+      if (!res.ok) return;
+      const json = (await res.json()) as { brands?: unknown };
+      if (Array.isArray(json.brands)) {
+        setBrands(json.brands as BrandStyle[]);
+      }
+    } catch {
+      // Best-effort; ignore errors
+    } finally {
+      setStatus("done");
+    }
+  }, [status]);
+
+  return { brands, status, load };
+}
+
+/** Injects a Google Font link tag for the brand's font family if needed. */
+function useBrandFont(fontFamily: string | null | undefined) {
+  useEffect(() => {
+    if (!fontFamily) return;
+    const match = BRAND_WEB_FONTS.find((f) => f.cssFamily === fontFamily);
+    if (!match) return;
+    const id = `gfont-brand-${match.id}`;
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href = match.url;
+    document.head.appendChild(link);
+  }, [fontFamily]);
+}
+
+/** A brand preview chip for the visual context popover. */
+function BrandChip({
+  brand,
+  active,
+  onApply,
+  onApplyAll,
+}: {
+  brand: BrandStyle;
+  active: boolean;
+  onApply: () => void;
+  onApplyAll: () => void;
+}) {
+  useBrandFont(brand.fontFamily);
+  const preview = brandPreviewStyle(brand);
+
+  return (
+    <div
+      className={cx(
+        "group flex flex-col gap-1 rounded-[var(--ds-radius-md,10px)] border p-1.5 transition",
+        active
+          ? "border-transparent ring-2 ring-[var(--ds-accent,#6366f1)]"
+          : "border-[var(--ds-border,rgba(0,0,0,0.1))] hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
+        FOCUS_RING,
+      )}
+    >
+      {/* Palette preview */}
+      <button
+        type="button"
+        aria-label={`Apply brand ${brand.name}`}
+        aria-pressed={active}
+        title={brand.name}
+        onClick={onApply}
+        className="flex flex-col gap-1"
+      >
+        <span
+          className="flex h-8 items-end justify-center gap-1 rounded-[var(--ds-radius-sm,8px)] border p-1.5"
+          style={{
+            backgroundColor: preview.nodeFill,
+            borderColor: preview.nodeStroke,
+          }}
+        >
+          {preview.palette.slice(0, 3).map((color, i) => (
+            <span
+              key={i}
+              aria-hidden="true"
+              className="h-1.5 w-1.5 rounded-full"
+              style={{ backgroundColor: color }}
+            />
+          ))}
+        </span>
+        <span className="truncate text-center text-[10px] font-medium text-[var(--ds-text-muted,#6f7d83)]">
+          {brand.name}
+        </span>
+      </button>
+      {/* Apply to all */}
+      <button
+        type="button"
+        aria-label={`Apply brand ${brand.name} to all visuals`}
+        title="Apply to all visuals"
+        onClick={onApplyAll}
+        className={cx(
+          "hidden w-full rounded-[var(--ds-radius-sm,8px)] px-1 py-0.5 text-[9px] font-medium text-[var(--ds-text-muted)] hover:text-[var(--ds-accent)] group-hover:flex",
+          FOCUS_RING,
+        )}
+      >
+        Apply to all
+      </button>
+    </div>
+  );
+}
+
 export type VisualContextPopoverProps = {
   visual: Visual;
   selectedNodeId: string | null;
@@ -314,6 +433,11 @@ export type VisualContextPopoverProps = {
    * indicator is shown and "Sync to text" uses this text for re-generation.
    */
   currentSourceText?: string;
+  /**
+   * Applies a brand to ALL visuals in the document via `editor.update()`.
+   * Provided by `VisualCard` which owns the Lexical editor context.
+   */
+  onApplyBrandToAll?: (brand: BrandStyle) => void;
 };
 
 /**
@@ -338,6 +462,7 @@ export function VisualContextPopover({
   getSvgElement,
   anchorRef,
   currentSourceText,
+  onApplyBrandToAll,
 }: VisualContextPopoverProps) {
   const measureRef = useRef<HTMLDivElement | null>(null);
 
@@ -346,6 +471,10 @@ export function VisualContextPopover({
     left: -1000,
   });
   const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [brandsOpen, setBrandsOpen] = useState(false);
+
+  // Brands (lazy-loaded when the section opens)
+  const { brands, status: brandsStatus, load: loadBrands } = useBrands();
 
   // AI "variations" state (the /api/generate path).
   const [genStatus, setGenStatus] = useState<"idle" | "loading">("idle");
@@ -579,6 +708,13 @@ export function VisualContextPopover({
     [onChange, visual],
   );
 
+  const applyBrandToThis = useCallback(
+    (brand: BrandStyle) => {
+      onChange(applyBrand(visual, brand));
+    },
+    [onChange, visual],
+  );
+
   return (
     <FloatingSurface
       open
@@ -771,6 +907,94 @@ export function VisualContextPopover({
         <div className="my-3 space-y-1.5">
           <SectionLabel>Style</SectionLabel>
           <StyleGallery visual={visual} onSelect={applyDisplayStyleById} />
+        </div>
+
+        <Divider orientation="horizontal" />
+
+        {/* Brand Studio — saved brand styles */}
+        <div className="my-3">
+          <button
+            type="button"
+            aria-expanded={brandsOpen}
+            onClick={() => {
+              setBrandsOpen((v) => !v);
+              if (!brandsOpen) void loadBrands();
+            }}
+            className={cx(
+              "flex w-full items-center justify-between rounded-[var(--ds-radius-md,10px)] px-1 py-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#6f7d83)] transition hover:text-[var(--ds-text,#18181b)]",
+              FOCUS_RING,
+            )}
+          >
+            <span className="flex items-center gap-1.5">
+              <Palette aria-hidden="true" className="h-3 w-3" />
+              Brand styles
+            </span>
+            <svg
+              viewBox="0 0 16 16"
+              aria-hidden="true"
+              className={cx(
+                "h-3.5 w-3.5 transition-transform",
+                brandsOpen ? "rotate-180" : "",
+              )}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M4 6l4 4 4-4" />
+            </svg>
+          </button>
+
+          {brandsOpen ? (
+            <div className="mt-2">
+              {brandsStatus === "loading" ? (
+                <p className="text-[11px] text-[var(--ds-text-muted)]">
+                  Loading…
+                </p>
+              ) : brands.length === 0 ? (
+                <p className="text-[11px] text-[var(--ds-text-muted)]">
+                  No brands yet.{" "}
+                  <a
+                    href="/app/brands"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-[var(--ds-accent)]"
+                  >
+                    Create one in Brand Studio
+                  </a>
+                  .
+                </p>
+              ) : (
+                <div
+                  role="group"
+                  aria-label="Brand styles"
+                  className="grid grid-cols-3 gap-1.5"
+                >
+                  {brands.map((brand) => (
+                    <BrandChip
+                      key={brand.id}
+                      brand={brand}
+                      active={false}
+                      onApply={() => applyBrandToThis(brand)}
+                      onApplyAll={() => onApplyBrandToAll?.(brand)}
+                    />
+                  ))}
+                </div>
+              )}
+              <a
+                href="/app/brands"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cx(
+                  "mt-2 block rounded-[var(--ds-radius-sm)] px-1 py-0.5 text-[10px] font-medium text-[var(--ds-text-muted)] underline-offset-2 hover:text-[var(--ds-accent)] hover:underline",
+                  FOCUS_RING,
+                )}
+              >
+                Manage brands →
+              </a>
+            </div>
+          ) : null}
         </div>
 
         <Divider orientation="horizontal" />

@@ -25,6 +25,7 @@ model User {
   memberships     WorkspaceMember[]
   comments        Comment[]
   tags            Tag[]
+  brands          Brand[]           @relation("BrandOwner")
 }
 
 model Workspace {
@@ -183,4 +184,32 @@ model RateLimitHit {
   count     Int      @default(0)
   resetAt   DateTime
   updatedAt DateTime @updatedAt
+}
+
+// A saved brand style owned by one user (US-007 — Brand Studio).
+// All color fields are optional so a brand can hold a partial palette
+// and defaults fall through to the visual DEFAULT_STYLE. `logoUrl` is
+// the public URL of an uploaded logo asset. `fontFamily` overrides the
+// visual's font when the brand is applied.
+model Brand {
+  id           String   @id @default(cuid())
+  name         String
+  ownerId      String
+  // Color fields (all optional — null means "keep visual default")
+  palette      Json?
+  background   String?
+  nodeFill     String?
+  nodeStroke   String?
+  nodeText     String?
+  edgeColor    String?
+  // Typography
+  fontFamily   String?
+  // Asset (logo stored as a data-URL or public path, max 2 MB)
+  logoUrl      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  owner User @relation("BrandOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
 }

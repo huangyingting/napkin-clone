@@ -44,6 +44,12 @@ export async function SiteHeader() {
             >
               Workspaces
             </Link>
+            <Link
+              href="/app/brands"
+              className="flex h-9 items-center justify-center rounded-full px-4 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+            >
+              Brands
+            </Link>
             <KeyboardShortcuts />
             <UserMenu name={account.name} email={account.email}>
               <SignOutButton
