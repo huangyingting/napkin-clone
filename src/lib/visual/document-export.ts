@@ -37,6 +37,61 @@ import {
 } from "@/lib/visual/pptx-shapes";
 
 // ---------------------------------------------------------------------------
+// Page-break helpers (pure, browser-free)
+// ---------------------------------------------------------------------------
+
+/**
+ * Named page sizes for document export pagination.
+ *
+ * - `"a4"` — ISO A4 portrait (210 × 297 mm)
+ * - `"letter"` — US Letter portrait (215.9 × 279.4 mm)
+ * - `"16:9"` — Widescreen slide (960 × 540 px at 96 dpi)
+ */
+export type PageSize = "a4" | "letter" | "16:9";
+
+/**
+ * Physical dimensions (in millimetres) for each named page size, plus the
+ * equivalent pixel height at 96 dpi for use in editor-side indicators.
+ */
+export const PAGE_SIZE_DIMENSIONS: Record<
+  PageSize,
+  { widthMM: number; heightMM: number; heightPx: number; widthPx: number }
+> = {
+  a4: { widthMM: 210, heightMM: 297, widthPx: 794, heightPx: 1123 },
+  letter: { widthMM: 215.9, heightMM: 279.4, widthPx: 816, heightPx: 1056 },
+  "16:9": { widthMM: 338.7, heightMM: 190.5, widthPx: 1280, heightPx: 720 },
+};
+
+/**
+ * Compute the pixel offsets at which page breaks occur for a given content
+ * height and page size. The offsets are measured from the top of the content
+ * area (y = 0) and represent the top edge of each page boundary after the
+ * first. Empty content (`contentHeightPx <= 0`) returns an empty array.
+ *
+ * This is a pure function — no DOM or browser APIs required — so it can be
+ * unit-tested under `node --test`.
+ *
+ * @param contentHeightPx  Total content height in CSS pixels.
+ * @param pageSize         Named page size to paginate against.
+ * @returns                Sorted array of break offsets (px), one per split.
+ */
+export function computePageBreaks(
+  contentHeightPx: number,
+  pageSize: PageSize,
+): number[] {
+  const { heightPx } = PAGE_SIZE_DIMENSIONS[pageSize];
+  if (contentHeightPx <= 0 || heightPx <= 0) return [];
+
+  const breaks: number[] = [];
+  let offset = heightPx;
+  while (offset < contentHeightPx) {
+    breaks.push(offset);
+    offset += heightPx;
+  }
+  return breaks;
+}
+
+// ---------------------------------------------------------------------------
 // Block types
 // ---------------------------------------------------------------------------
 

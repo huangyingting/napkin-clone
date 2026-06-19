@@ -19,6 +19,8 @@ import {
   DEFAULT_NODE_HEIGHT,
   DEFAULT_NODE_WIDTH,
   type ArrowStyle,
+  type AspectRatioPreset,
+  type CanvasStyle,
   type FillStyle,
   type LineStyle,
   type TextAlign,
@@ -528,5 +530,36 @@ export function setVisualKind(visual: Visual, kind: VisualKind): Visual {
       break;
   }
 
+  return next;
+}
+
+/**
+ * Sets the aspect-ratio export preset on a visual. Use `"auto"` (or omit the
+ * field) to let the natural canvas dimensions drive the export size.
+ */
+export function setAspectRatio(
+  visual: Visual,
+  preset: AspectRatioPreset,
+): Visual {
+  const next = cloneVisual(visual);
+  if (preset === "auto") {
+    delete next.aspectRatio;
+  } else {
+    next.aspectRatio = preset;
+  }
+  return next;
+}
+
+/**
+ * Sets the canvas background style. `"blank"` (default) renders a solid fill;
+ * `"ruled"` adds horizontal guide lines; `"dot-grid"` adds a dot-matrix grid.
+ */
+export function setCanvasStyle(visual: Visual, style: CanvasStyle): Visual {
+  const next = cloneVisual(visual);
+  if (style === "blank") {
+    delete next.canvasStyle;
+  } else {
+    next.canvasStyle = style;
+  }
   return next;
 }

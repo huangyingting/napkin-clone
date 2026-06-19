@@ -1338,6 +1338,47 @@ function GradientDefs({
   );
 }
 
+/** SVG pattern for ruled (horizontal lines) canvas style. */
+function RuledPattern({
+  id,
+  strokeColor,
+}: {
+  id: string;
+  strokeColor: string;
+}) {
+  return (
+    <pattern id={id} width="100%" height="24" patternUnits="userSpaceOnUse">
+      <line
+        x1="0"
+        y1="23.5"
+        x2="100%"
+        y2="23.5"
+        stroke={strokeColor}
+        strokeWidth="0.5"
+        strokeOpacity="0.25"
+      />
+    </pattern>
+  );
+}
+
+/** SVG pattern for dot-grid canvas style. */
+function DotGridPattern({
+  id,
+  strokeColor,
+}: {
+  id: string;
+  strokeColor: string;
+}) {
+  return (
+    <pattern id={id} width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="0" cy="0" r="1" fill={strokeColor} fillOpacity="0.3" />
+      <circle cx="24" cy="0" r="1" fill={strokeColor} fillOpacity="0.3" />
+      <circle cx="0" cy="24" r="1" fill={strokeColor} fillOpacity="0.3" />
+      <circle cx="24" cy="24" r="1" fill={strokeColor} fillOpacity="0.3" />
+    </pattern>
+  );
+}
+
 export const VisualRenderer = forwardRef<
   SVGSVGElement,
   {
@@ -1357,6 +1398,14 @@ export const VisualRenderer = forwardRef<
       visual.style.nodeFill;
     fillMap.set(node.id, fill);
   }
+
+  const canvasStyle = visual.canvasStyle ?? "blank";
+  // Use a stable id based on whether a pattern is needed (no collab conflict).
+  const patternId = `__canvas_pattern__`;
+  // Determine a contrasting pattern colour: use edge/stroke colour so it
+  // harmonises with the theme rather than hard-coding a grey.
+  const patternStroke = visual.style.edgeColor;
+
   return (
     <svg
       ref={ref}
@@ -1368,6 +1417,16 @@ export const VisualRenderer = forwardRef<
       aria-label={label}
     >
       <GradientDefs nodes={visual.nodes} fills={fillMap} />
+      {canvasStyle !== "blank" && (
+        <defs>
+          {canvasStyle === "ruled" && (
+            <RuledPattern id={patternId} strokeColor={patternStroke} />
+          )}
+          {canvasStyle === "dot-grid" && (
+            <DotGridPattern id={patternId} strokeColor={patternStroke} />
+          )}
+        </defs>
+      )}
       <rect
         x={0}
         y={0}
@@ -1375,6 +1434,15 @@ export const VisualRenderer = forwardRef<
         height={visual.height}
         fill={visual.style.background}
       />
+      {canvasStyle !== "blank" && (
+        <rect
+          x={0}
+          y={0}
+          width={visual.width}
+          height={visual.height}
+          fill={`url(#${patternId})`}
+        />
+      )}
       <VisualBody visual={visual} />
     </svg>
   );

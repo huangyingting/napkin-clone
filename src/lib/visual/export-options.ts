@@ -6,6 +6,11 @@
  * lives in export.ts and consumes the transformed strings produced here.
  */
 
+import type { AspectRatioPreset } from "@/lib/visual/schema";
+
+// Re-export for convenience — callers can get both types from one place.
+export type { AspectRatioPreset };
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -29,6 +34,12 @@ export interface ExportOptions {
   colorMode: ColorMode;
   /** Pixel-density multiplier (1 / 2 / 3 …). Defaults to `2`. */
   scale: number;
+  /**
+   * Aspect-ratio preset. When set (and not `"auto"`), the export canvas is
+   * letterboxed/pillarboxed to the requested ratio while the visual content is
+   * centred. Defaults to `undefined` / `"auto"` (natural dimensions).
+   */
+  aspectRatio?: AspectRatioPreset;
 }
 
 /** Sensible defaults — keeps existing callers working unchanged. */
@@ -59,6 +70,143 @@ export function computeExportDimensions(
 }
 
 // ---------------------------------------------------------------------------
+// Aspect-ratio letterbox helpers
+// ---------------------------------------------------------------------------
+
+/** The numeric ratio (width/height) for each named preset. */
+export const ASPECT_RATIO_VALUES: Record<
+  Exclude<AspectRatioPreset, "auto">,
+  number
+> = {
+  "16:9": 16 / 9,
+  "1:1": 1,
+  "4:5": 4 / 5,
+};
+
+/**
+ * Computes the letterbox/pillarbox geometry needed to fit a `viewBox` into the
+ * requested `preset` aspect ratio, keeping the content at its natural size and
+ * centering it within the larger canvas.
+ *
+ * Returns the canvas dimensions and the content offset — all in the same units
+ * as `viewBox`. For `"auto"` the content fills the canvas (offset = 0).
+ */
+export function computeLetterboxedDimensions(
+  viewBox: ViewBoxLike,
+  preset: AspectRatioPreset | undefined,
+): {
+  canvasW: number;
+  canvasH: number;
+  offsetX: number;
+  offsetY: number;
+} {
+  if (!preset || preset === "auto") {
+    return {
+      canvasW: viewBox.width,
+      canvasH: viewBox.height,
+      offsetX: 0,
+      offsetY: 0,
+    };
+  }
+
+  const targetRatio = ASPECT_RATIO_VALUES[preset];
+  const naturalRatio = viewBox.width / viewBox.height;
+
+  let canvasW: number;
+  let canvasH: number;
+
+  if (naturalRatio > targetRatio) {
+    // Content is wider than target → pillarbox: extend height
+    canvasW = viewBox.width;
+    canvasH = viewBox.width / targetRatio;
+  } else if (naturalRatio < targetRatio) {
+    // Content is taller than target → letterbox: extend width
+    canvasH = viewBox.height;
+    canvasW = viewBox.height * targetRatio;
+  } else {
+    // Already correct ratio
+    canvasW = viewBox.width;
+    canvasH = viewBox.height;
+  }
+
+  return {
+    canvasW,
+    canvasH,
+    offsetX: (canvasW - viewBox.width) / 2,
+    offsetY: (canvasH - viewBox.height) / 2,
+  };
+}
+
+/**
+ * Apply aspect-ratio letterboxing to a raw SVG string. When `preset` is
+ * `"auto"` or `undefined`, the SVG is returned unchanged.
+ *
+ * Transforms applied:
+ * 1. The `viewBox` attribute is expanded to the letterboxed canvas size.
+ * 2. A background rect covering the full letterbox area is injected (using the
+ *    existing background colour extracted from the SVG, defaulting to white).
+ * 3. All existing SVG content is wrapped in a `<g>` that translates it to the
+ *    correct centred position within the new canvas.
+ */
+export function applyAspectRatioToSvg(
+  svgString: string,
+  preset: AspectRatioPreset | undefined,
+): string {
+  if (!preset || preset === "auto") {
+    return svgString;
+  }
+
+  // Extract viewBox dimensions
+  const vbMatch = svgString.match(
+    /viewBox=["']\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)["']/,
+  );
+  if (!vbMatch) {
+    return svgString;
+  }
+
+  const vbX = parseFloat(vbMatch[1]);
+  const vbY = parseFloat(vbMatch[2]);
+  const vbW = parseFloat(vbMatch[3]);
+  const vbH = parseFloat(vbMatch[4]);
+
+  const { canvasW, canvasH, offsetX, offsetY } = computeLetterboxedDimensions(
+    { width: vbW, height: vbH },
+    preset,
+  );
+
+  // No change needed when already the correct ratio
+  if (offsetX === 0 && offsetY === 0) {
+    return svgString;
+  }
+
+  // Try to extract a background fill colour from the first solid-colour rect
+  // (the visual background rect that comes right after the opening <svg> tag).
+  // Fall back to white when none is found.
+  const bgMatch = svgString.match(
+    /<rect\b[^>]*\bfill=["']([^"']+)["'][^>]*\bwidth=["'][^"']*["'][^>]*\bheight=["'][^"']*["']/,
+  );
+  const bgFill = bgMatch ? bgMatch[1] : "#ffffff";
+
+  // Update the viewBox attribute to the new canvas size
+  let svg = svgString.replace(
+    /viewBox=["']\s*[\d.]+\s+[\d.]+\s+[\d.]+\s+[\d.]+["']/,
+    `viewBox="${vbX} ${vbY} ${canvasW} ${canvasH}"`,
+  );
+
+  // Wrap all content inside a translate group and prepend the letterbox rect
+  svg = svg.replace(
+    /(<svg\b[^>]*>)([\s\S]*)(<\/svg>)/,
+    (_, open, inner, close) =>
+      `${open}` +
+      `<rect x="${vbX}" y="${vbY}" width="${canvasW}" height="${canvasH}" fill="${bgFill}" data-letterbox="true"/>` +
+      `<g transform="translate(${offsetX},${offsetY})">${inner}</g>` +
+      `${close}`,
+  );
+
+  return svg;
+}
+
+// ---------------------------------------------------------------------------
 // SVG string transforms
 // ---------------------------------------------------------------------------
 
@@ -85,6 +233,8 @@ function buildMonoFilterDef(): string {
  *    the requested fill colour *before* all existing children.
  * 3. **Mono colour mode** — injects a greyscale `<filter>` in `<defs>` and
  *    wraps all existing content in a `<g filter="url(#__export_mono__)">`.
+ * 4. **Aspect ratio** — letterboxes/pillarboxes the canvas to the requested
+ *    ratio by expanding the viewBox and centering the content.
  *
  * All transforms are pure string operations so they work in Node without a DOM.
  */
@@ -148,6 +298,11 @@ export function applyExportOptionsToSvg(
       (_, open, inner, close) =>
         `${open}<g filter="url(#__export_mono__)">${inner}</g>${close}`,
     );
+  }
+
+  // ── aspect ratio ─────────────────────────────────────────────────────────
+  if (options.aspectRatio && options.aspectRatio !== "auto") {
+    svg = applyAspectRatioToSvg(svg, options.aspectRatio);
   }
 
   return svg;

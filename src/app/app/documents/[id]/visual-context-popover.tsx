@@ -43,6 +43,8 @@ import {
   applyDisplayStyle,
   isDisplayStyleActive,
   setAllEdgesStyle,
+  setAspectRatio,
+  setCanvasStyle,
 } from "@/lib/visual/transforms";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { VISUAL_DISPLAY_STYLES } from "@/lib/visual/display-styles";
@@ -55,6 +57,9 @@ import {
   type LineStyle,
   type FillStyle,
   type TextAlign,
+  type AspectRatioPreset,
+  type CanvasStyle,
+  ASPECT_RATIO_PRESETS,
 } from "@/lib/visual/schema";
 
 import { IconPicker } from "./icon-picker";
@@ -100,6 +105,18 @@ const TEXT_ALIGN_OPTIONS: SegmentedOption<TextAlign>[] = [
 ];
 
 const BORDER_STYLE_OPTIONS: SegmentedOption<LineStyle>[] = LINE_STYLE_OPTIONS;
+
+const ASPECT_RATIO_OPTIONS: SegmentedOption<AspectRatioPreset>[] =
+  ASPECT_RATIO_PRESETS.map((preset) => ({
+    value: preset,
+    label: preset === "auto" ? "Auto" : preset,
+  }));
+
+const CANVAS_STYLE_OPTIONS: SegmentedOption<CanvasStyle>[] = [
+  { value: "blank", label: "Blank" },
+  { value: "ruled", label: "Ruled" },
+  { value: "dot-grid", label: "Dots" },
+];
 
 const LINE_WIDTH_MIN = 0.5;
 const LINE_WIDTH_MAX = 6;
@@ -769,6 +786,41 @@ export function VisualContextPopover({
                 onChange(setVisualStyle(visual, { fontWeight: Number(value) }))
               }
             />
+          </div>
+        </div>
+
+        <Divider orientation="horizontal" />
+
+        {/* Frame & Canvas settings */}
+        <div className="my-3 space-y-2">
+          <SectionLabel>Frame &amp; Canvas</SectionLabel>
+          <div className="space-y-1">
+            <span className="text-[11px] text-[var(--ds-text-muted,#6f7d83)]">
+              Export ratio
+            </span>
+            <div className="overflow-x-auto">
+              <SegmentedControl<AspectRatioPreset>
+                aria-label="Export aspect ratio"
+                size="sm"
+                options={ASPECT_RATIO_OPTIONS}
+                value={visual.aspectRatio ?? "auto"}
+                onChange={(preset) => onChange(setAspectRatio(visual, preset))}
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <span className="text-[11px] text-[var(--ds-text-muted,#6f7d83)]">
+              Canvas style
+            </span>
+            <div className="overflow-x-auto">
+              <SegmentedControl<CanvasStyle>
+                aria-label="Canvas style"
+                size="sm"
+                options={CANVAS_STYLE_OPTIONS}
+                value={visual.canvasStyle ?? "blank"}
+                onChange={(cs) => onChange(setCanvasStyle(visual, cs))}
+              />
+            </div>
           </div>
         </div>
 
