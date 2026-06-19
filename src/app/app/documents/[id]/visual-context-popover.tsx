@@ -47,9 +47,11 @@ import {
   setAllEdgesStyle,
   setAspectRatio,
   setCanvasStyle,
+  setAutoLayout,
 } from "@/lib/visual/transforms";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { VISUAL_DISPLAY_STYLES } from "@/lib/visual/display-styles";
+import { isPositionedKind } from "@/components/visual/layout";
 import {
   hashSourceText,
   VISUAL_KINDS,
@@ -554,10 +556,12 @@ export function VisualContextPopover({
 
   const chooseCandidate = useCallback(
     (candidate: Visual) => {
-      onChange(candidate);
+      // Preserve the autoLayout flag from the current visual so the user's
+      // layout preference survives switching to an AI-generated variation.
+      onChange({ ...candidate, autoLayout: visual.autoLayout });
       setCandidates([]);
     },
-    [onChange],
+    [onChange, visual],
   );
 
   const applyThemeById = useCallback(
@@ -964,6 +968,46 @@ export function VisualContextPopover({
               />
             </div>
           </div>
+          {isPositionedKind(visual.type) ? (
+            <div className="flex items-center justify-between gap-2 pt-0.5">
+              <span className="text-[11px] text-[var(--ds-text-muted,#6f7d83)]">
+                Auto layout
+              </span>
+              <Tooltip
+                label={
+                  visual.autoLayout
+                    ? "Auto layout on — canvas grows to fit labels"
+                    : "Enable to auto-size nodes and grow canvas"
+                }
+              >
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={visual.autoLayout ?? false}
+                  aria-label="Toggle auto layout"
+                  onClick={() =>
+                    onChange(
+                      setAutoLayout(visual, !(visual.autoLayout ?? false)),
+                    )
+                  }
+                  className={cx(
+                    "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-accent,#6366f1)] focus-visible:ring-offset-1",
+                    visual.autoLayout
+                      ? "bg-[var(--ds-accent,#6366f1)]"
+                      : "bg-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
+                  )}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={cx(
+                      "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                      visual.autoLayout ? "translate-x-4" : "translate-x-0",
+                    )}
+                  />
+                </button>
+              </Tooltip>
+            </div>
+          ) : null}
         </div>
 
         {/* Selected element (only when a node is selected on the canvas) */}
