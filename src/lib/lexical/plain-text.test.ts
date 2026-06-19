@@ -56,6 +56,36 @@ test("recurses through nested list items", () => {
   assert.equal(lexicalStateToPlainText(json), "one\ntwo");
 });
 
+test("projects every core block type in document order", () => {
+  const json = state([
+    { type: "heading", tag: "h2", children: [{ type: "text", text: "Title" }] },
+    paragraph("Intro paragraph"),
+    {
+      type: "list",
+      listType: "bullet",
+      children: [
+        { type: "listitem", children: [{ type: "text", text: "first" }] },
+        { type: "listitem", children: [{ type: "text", text: "second" }] },
+      ],
+    },
+    {
+      type: "list",
+      listType: "number",
+      children: [
+        { type: "listitem", children: [{ type: "text", text: "step one" }] },
+        { type: "listitem", children: [{ type: "text", text: "step two" }] },
+      ],
+    },
+    { type: "quote", children: [{ type: "text", text: "A wise quote" }] },
+    { type: "horizontalrule" },
+    paragraph("After the divider"),
+  ]);
+  assert.equal(
+    lexicalStateToPlainText(json),
+    "Title\nIntro paragraph\nfirst\nsecond\nstep one\nstep two\nA wise quote\n\nAfter the divider",
+  );
+});
+
 test("accepts an already-parsed object", () => {
   const obj = { root: { type: "root", children: [paragraph("Parsed")] } };
   assert.equal(lexicalStateToPlainText(obj), "Parsed");

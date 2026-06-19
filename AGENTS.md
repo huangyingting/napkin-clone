@@ -2346,9 +2346,18 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
 - **`applyBlock(itemKey, blockKey?)`**: inside one `editor.update`, resolve the target
   top-level element (by `blockKey` for plus mode, else from the current selection for slash
   mode), **`top.replace($createParagraphNode())` + `.select()`** (this both clears any
-  "/filter" trigger text AND gives `$setBlocksType` a clean range selection), then
-  H2/H3/quote via `$setBlocksType`; lists/divider via `dispatchCommand` AFTER the update.
-  Finish with `closeMenu()` + `editor.focus()` (returns focus to the editor per AC).
+  "/filter" trigger text AND gives the block transforms a clean range selection), then do
+  ALL conversions **inside that same update**: H2/H3/quote via `$setBlocksType`, lists via
+  **`$insertList("bullet"|"number")`** (from `@lexical/list`), divider via
+  **`selection.insertNodes([$createHorizontalRuleNode()])`**. Finish with `closeMenu()` +
+  `editor.focus()`. **GOTCHA (fixed in US-008): do NOT dispatch the list/HR commands
+  (`INSERT_UNORDERED/ORDERED_LIST_COMMAND` / `INSERT_HORIZONTAL_RULE_COMMAND`) AFTER the
+  `editor.update`** — on a just-replaced+selected empty paragraph the cross-update
+  selection doesn't carry over, so the list command silently no-ops (block stays a `<p>`)
+  and the HR command inserts the rule but LEAVES the "/divider" trigger paragraph behind.
+  Running `$insertList`/`insertNodes` inside the same update (where the empty paragraph is
+  the live selection) is reliable. The floating toolbar's `dispatchCommand` list path is
+  fine because it operates on a real text-range selection, not a freshly-created block.
 - **`aria-selected` is invalid on `role="menuitem"`** (eslint `jsx-a11y` warning) — use
   `role="listbox"` + `role="option"` with `aria-selected` for the roving-highlight menu
   (we don't move DOM focus among items, so listbox/option fits better than menu/menuitem).
@@ -2363,3 +2372,37 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   inserts `<hr>` and refocuses the editor; the `<hr>` persists across reload with 0 console
   errors. The collab server (`npm run collab`) must be running or the editor never becomes
   editable.
+
+### Core block nodes render and round-trip (US-008)
+
+- **All six block types (H2, H3, bullet list, numbered list, blockquote, divider) were
+  already wired by US-006/US-007** — the nodes are registered in
+  `lexical-editor.tsx`'s `initialConfig.nodes` (`HeadingNode`, `QuoteNode`, `ListNode`,
+  `ListItemNode`, `HorizontalRuleNode`) and themed with `dark:` variants
+  (`theme.heading.h2/h3`, `theme.quote` `dark:border-zinc-700`, `theme.hr`
+  `dark:border-zinc-800`, `theme.list.ul/ol/listitem`). US-008's real work was **fixing
+  the slash-menu list/divider insertion bug** (see the `applyBlock` GOTCHA above): lists
+  silently no-op'd and divider left a "/divider" paragraph because the commands were
+  dispatched AFTER `editor.update` on a freshly-selected empty block. Moving them inside
+  the update (`$insertList` / `selection.insertNodes([$createHorizontalRuleNode()])`)
+  fixed both.
+- **Round-trip path:** blocks persist via the collaborative `contentJson` (US-003/US-005)
+  — local edits debounce-save `editorState.toJSON()` through `saveDocumentLexical`, which
+  also writes the **plain-text projection** to `Document.content` via
+  `lexicalStateToPlainText` (US-003). That projection already emits one line per top-level
+  block in document order and recurses list items; a divider (`horizontalrule`, no
+  text/children) contributes an empty string, so it doesn't add a text line. Verified the
+  DB `content` for a doc with every block type reads
+  `"Heading Two\nHeading Three\nBullet one\nBullet two\nStep one\nStep two\nA wise quote\n…"`
+  in order.
+- **Browser QA (dev-browser, headless):** the scratch collab room (`/app/lexical-preview`)
+  persists in the collab server's memory AND in each connected client's local `Y.Doc`, so
+  stale block state can bleed across test runs (e.g. a leftover `<h2>` first block). For a
+  clean slate: null the scratch doc's `contentJson`/`content` in the DB (root-level `tsx`
+  + `PrismaBetterSqlite3`), restart `npm run collab`, AND open a FRESH named page
+  (`browser.closePage(...)` then a new `getPage`) so no client re-seeds the room from a
+  stale local doc. Build each block via the slash menu (type `/h2`, wait, Enter), then
+  reload and assert tag counts (`h2/h3/ul/ol/li/blockquote/hr`) + the `dark:` classes +
+  0 console errors. The 30s QuickJS script cap can cut off a trailing
+  `waitForFunction("All changes saved")` even though the save completes — split the
+  build and the reload-verify into separate `dev-browser` invocations.

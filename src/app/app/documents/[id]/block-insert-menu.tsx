@@ -1,10 +1,7 @@
 "use client";
 
-import { INSERT_HORIZONTAL_RULE_COMMAND } from "@lexical/react/LexicalHorizontalRuleNode";
-import {
-  INSERT_ORDERED_LIST_COMMAND,
-  INSERT_UNORDERED_LIST_COMMAND,
-} from "@lexical/list";
+import { $createHorizontalRuleNode } from "@lexical/react/LexicalHorizontalRuleNode";
+import { $insertList } from "@lexical/list";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import {
   $createHeadingNode,
@@ -190,16 +187,14 @@ export function BlockInsertMenuPlugin() {
           $setBlocksType(selection, () => $createHeadingNode(tag));
         } else if (itemKey === "quote") {
           $setBlocksType(selection, () => $createQuoteNode());
+        } else if (itemKey === "bullet") {
+          $insertList("bullet");
+        } else if (itemKey === "number") {
+          $insertList("number");
+        } else if (itemKey === "divider") {
+          selection.insertNodes([$createHorizontalRuleNode()]);
         }
       });
-
-      if (itemKey === "bullet") {
-        editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined);
-      } else if (itemKey === "number") {
-        editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined);
-      } else if (itemKey === "divider") {
-        editor.dispatchCommand(INSERT_HORIZONTAL_RULE_COMMAND, undefined);
-      }
 
       closeMenu();
       editor.focus();
