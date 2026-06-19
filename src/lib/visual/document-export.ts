@@ -194,9 +194,7 @@ const MARGIN_MM = 20;
 const BODY_W_MM = PAGE_W_MM - MARGIN_MM * 2;
 
 /** Convert SVG element → PNG data-URL at 2× scale for quality. */
-async function svgToPngDataUrl(
-  svg: SVGSVGElement,
-): Promise<string | null> {
+async function svgToPngDataUrl(svg: SVGSVGElement): Promise<string | null> {
   const pngBlob = await exportPNG(svg, 2);
   if (!pngBlob) return null;
   return new Promise<string>((resolve) => {
@@ -265,7 +263,11 @@ export async function exportDocumentAsPDF(
   getSvg: (visualId: string) => SVGSVGElement | null,
 ): Promise<Blob | null> {
   try {
-    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    });
 
     let curY = MARGIN_MM;
 

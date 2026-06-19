@@ -134,7 +134,13 @@ export class VisualNode extends DecoratorNode<JSX.Element> {
   }
 
   decorate(): JSX.Element {
-    return <VisualCard nodeKey={this.getKey()} visual={this.__visual} visualId={this.__visualId} />;
+    return (
+      <VisualCard
+        nodeKey={this.getKey()}
+        visual={this.__visual}
+        visualId={this.__visualId}
+      />
+    );
   }
 }
 

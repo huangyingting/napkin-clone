@@ -80,7 +80,9 @@ export function DocumentExportButton({
         setStatus("error");
         return;
       }
-      const safe = (documentTitle || "document").replace(/[^\w\s-]/g, "").trim();
+      const safe = (documentTitle || "document")
+        .replace(/[^\w\s-]/g, "")
+        .trim();
       downloadBlob(blob, `${safe || "document"}.pdf`);
       setStatus("idle");
     } catch {
@@ -105,7 +107,9 @@ export function DocumentExportButton({
         setStatus("error");
         return;
       }
-      const safe = (documentTitle || "document").replace(/[^\w\s-]/g, "").trim();
+      const safe = (documentTitle || "document")
+        .replace(/[^\w\s-]/g, "")
+        .trim();
       downloadBlob(blob, `${safe || "document"}.pptx`);
       setStatus("idle");
     } catch {

@@ -408,140 +408,141 @@ export function LexicalEditor({
       <LexicalCollaboration>
         <LexicalComposer initialConfig={initialConfig}>
           <VisualSvgRegistryProvider>
-          <VisualAnchorProvider value={visualAnchorValue}>
-            <div className="flex flex-col gap-3 border-b border-black/[.06] bg-white/80 px-6 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between dark:border-white/[.08] dark:bg-black/40">
-              <div className="flex min-w-0 flex-col gap-1">
-                <div className="flex items-center gap-2">
-                  <Link
-                    href="/app"
-                    className="w-fit text-xs font-medium text-zinc-500 transition hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+            <VisualAnchorProvider value={visualAnchorValue}>
+              <div className="flex flex-col gap-3 border-b border-black/[.06] bg-white/80 px-6 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between dark:border-white/[.08] dark:bg-black/40">
+                <div className="flex min-w-0 flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href="/app"
+                      className="w-fit text-xs font-medium text-zinc-500 transition hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                    >
+                      ← Back to documents
+                    </Link>
+                    {workspaceName && (
+                      <>
+                        <span className="text-xs text-zinc-300 dark:text-zinc-600">
+                          ·
+                        </span>
+                        <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                          {workspaceName}
+                        </span>
+                      </>
+                    )}
+                    {!canEdit && (
+                      <>
+                        <span className="text-xs text-zinc-300 dark:text-zinc-600">
+                          ·
+                        </span>
+                        <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                          Read-only
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <input
+                    ref={titleInputRef}
+                    aria-label="Document title"
+                    value={title.value}
+                    onChange={(event) => title.onChange(event.target.value)}
+                    onBlur={titleSaver.flush}
+                    placeholder="Untitled"
+                    disabled={!editable}
+                    className="w-full rounded-md bg-transparent text-xl font-semibold tracking-tight text-zinc-900 outline-none placeholder:text-zinc-400 focus:bg-zinc-100/60 focus:px-2 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-50 dark:placeholder:text-zinc-600 dark:focus:bg-zinc-800/60"
+                  />
+                  <TagControl
+                    documentId={documentId}
+                    initialTags={initialTags}
+                    allTags={allTags}
+                    editable={canEdit}
+                  />
+                </div>
+                <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
+                  <Presence peers={collab.peers} status={collab.status} />
+                  <DocumentExportButton documentTitle={title.value} />
+                  <ShareButton
+                    id={documentId}
+                    initialIsShared={initialIsShared}
+                    initialShareId={initialShareId}
+                    initialSlug={initialSlug}
+                  />
+                  <CommentsPanel
+                    documentId={documentId}
+                    currentUserId={currentUserId}
+                    initialComments={initialComments}
+                    getTextSelection={getTextSelection}
+                    anchorNode={anchorNode}
+                  />
+                  <span
+                    aria-label="Document statistics"
+                    className="min-w-0 shrink truncate text-xs text-zinc-500 dark:text-zinc-400"
                   >
-                    ← Back to documents
-                  </Link>
-                  {workspaceName && (
-                    <>
-                      <span className="text-xs text-zinc-300 dark:text-zinc-600">
-                        ·
-                      </span>
-                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                        {workspaceName}
-                      </span>
-                    </>
-                  )}
-                  {!canEdit && (
-                    <>
-                      <span className="text-xs text-zinc-300 dark:text-zinc-600">
-                        ·
-                      </span>
-                      <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                        Read-only
-                      </span>
-                    </>
-                  )}
+                    {minutes} min read · {words}{" "}
+                    {words === 1 ? "word" : "words"}
+                  </span>
+                  <span
+                    role="status"
+                    aria-live="polite"
+                    className="min-w-0 truncate text-xs text-zinc-500 dark:text-zinc-400"
+                  >
+                    {STATUS_LABEL[saveStatus]}
+                  </span>
                 </div>
-                <input
-                  ref={titleInputRef}
-                  aria-label="Document title"
-                  value={title.value}
-                  onChange={(event) => title.onChange(event.target.value)}
-                  onBlur={titleSaver.flush}
-                  placeholder="Untitled"
-                  disabled={!editable}
-                  className="w-full rounded-md bg-transparent text-xl font-semibold tracking-tight text-zinc-900 outline-none placeholder:text-zinc-400 focus:bg-zinc-100/60 focus:px-2 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-50 dark:placeholder:text-zinc-600 dark:focus:bg-zinc-800/60"
-                />
-                <TagControl
-                  documentId={documentId}
-                  initialTags={initialTags}
-                  allTags={allTags}
-                  editable={canEdit}
-                />
               </div>
-              <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
-                <Presence peers={collab.peers} status={collab.status} />
-                <DocumentExportButton documentTitle={title.value} />
-                <ShareButton
-                  id={documentId}
-                  initialIsShared={initialIsShared}
-                  initialShareId={initialShareId}
-                  initialSlug={initialSlug}
-                />
-                <CommentsPanel
-                  documentId={documentId}
-                  currentUserId={currentUserId}
-                  initialComments={initialComments}
-                  getTextSelection={getTextSelection}
-                  anchorNode={anchorNode}
-                />
-                <span
-                  aria-label="Document statistics"
-                  className="min-w-0 shrink truncate text-xs text-zinc-500 dark:text-zinc-400"
-                >
-                  {minutes} min read · {words} {words === 1 ? "word" : "words"}
-                </span>
-                <span
-                  role="status"
-                  aria-live="polite"
-                  className="min-w-0 truncate text-xs text-zinc-500 dark:text-zinc-400"
-                >
-                  {STATUS_LABEL[saveStatus]}
-                </span>
-              </div>
-            </div>
 
-            <div className="flex flex-1 justify-center px-6 py-8">
-              <div className="w-full max-w-3xl">
-                <div className="relative rounded-2xl border border-black/[.06] bg-white p-6 dark:border-white/[.08] dark:bg-zinc-950">
-                  <EditorContextProvider>
-                    <RichTextPlugin
-                      contentEditable={
-                        <ContentEditable
-                          aria-label="Document body"
-                          className="ghost-prose min-h-[16rem] outline-none"
-                        />
-                      }
-                      placeholder={
-                        <div className="pointer-events-none absolute left-6 top-6 text-base text-zinc-400 dark:text-zinc-500">
-                          {collab.ready ? "Start writing…" : "Connecting…"}
-                        </div>
-                      }
-                      ErrorBoundary={LexicalErrorBoundary}
-                    />
-                    <CollaborationPlugin
-                      id={documentId}
-                      providerFactory={collab.providerFactory}
-                      shouldBootstrap
-                      initialEditorState={initialStateJson ?? null}
-                      username={userName}
-                      cursorColor={collab.cursorColor}
-                    />
-                    <EditableGate editable={editable} />
-                    <LocalFallbackSeedPlugin
-                      initialStateJson={initialStateJson}
-                      degraded={collab.degraded}
-                      synced={collab.synced}
-                    />
-                    <CaptureSelectionPlugin
-                      editorRef={editorRef}
-                      selectionRef={selectionRef}
-                    />
-                    <DocumentStatsPlugin onText={handleStatsText} />
-                    <ListPlugin />
-                    <LinkPlugin />
-                    <HorizontalRulePlugin />
-                    <InsertMenuPlugin />
-                    <BlockSparkPlugin />
-                    <InsertVisualPlugin />
-                    <FloatingTextToolbar />
-                    <OnChangePlugin
-                      onChange={handleChange}
-                      ignoreSelectionChange
-                      ignoreHistoryMergeTagChange
-                    />
-                  </EditorContextProvider>
+              <div className="flex flex-1 justify-center px-6 py-8">
+                <div className="w-full max-w-3xl">
+                  <div className="relative rounded-2xl border border-black/[.06] bg-white p-6 dark:border-white/[.08] dark:bg-zinc-950">
+                    <EditorContextProvider>
+                      <RichTextPlugin
+                        contentEditable={
+                          <ContentEditable
+                            aria-label="Document body"
+                            className="ghost-prose min-h-[16rem] outline-none"
+                          />
+                        }
+                        placeholder={
+                          <div className="pointer-events-none absolute left-6 top-6 text-base text-zinc-400 dark:text-zinc-500">
+                            {collab.ready ? "Start writing…" : "Connecting…"}
+                          </div>
+                        }
+                        ErrorBoundary={LexicalErrorBoundary}
+                      />
+                      <CollaborationPlugin
+                        id={documentId}
+                        providerFactory={collab.providerFactory}
+                        shouldBootstrap
+                        initialEditorState={initialStateJson ?? null}
+                        username={userName}
+                        cursorColor={collab.cursorColor}
+                      />
+                      <EditableGate editable={editable} />
+                      <LocalFallbackSeedPlugin
+                        initialStateJson={initialStateJson}
+                        degraded={collab.degraded}
+                        synced={collab.synced}
+                      />
+                      <CaptureSelectionPlugin
+                        editorRef={editorRef}
+                        selectionRef={selectionRef}
+                      />
+                      <DocumentStatsPlugin onText={handleStatsText} />
+                      <ListPlugin />
+                      <LinkPlugin />
+                      <HorizontalRulePlugin />
+                      <InsertMenuPlugin />
+                      <BlockSparkPlugin />
+                      <InsertVisualPlugin />
+                      <FloatingTextToolbar />
+                      <OnChangePlugin
+                        onChange={handleChange}
+                        ignoreSelectionChange
+                        ignoreHistoryMergeTagChange
+                      />
+                    </EditorContextProvider>
+                  </div>
                 </div>
               </div>
-            </div>
-          </VisualAnchorProvider>
+            </VisualAnchorProvider>
           </VisualSvgRegistryProvider>
         </LexicalComposer>
       </LexicalCollaboration>

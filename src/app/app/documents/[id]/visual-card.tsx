@@ -221,7 +221,11 @@ export function VisualCard({
         </button>
       ) : (
         <div className={cardClass}>
-          <VisualRenderer ref={rendererRef} visual={data} className="block h-auto w-full" />
+          <VisualRenderer
+            ref={rendererRef}
+            visual={data}
+            className="block h-auto w-full"
+          />
         </div>
       )}
 
