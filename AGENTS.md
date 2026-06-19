@@ -2866,3 +2866,20 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   directly for a reliable reading. Sign-up form button `.click()` hangs (per the
   dev-browser gotcha) — submit via `input[name=password].press("Enter")` + poll
   cookies for `authjs.session-token`; signup seeds a sample doc so `/app` has a card.
+
+### Editor reading-time / word-count stats (Ghost US-024)
+
+- **Live editor stats reuse the US-023 helpers** (`wordCount`/`readingTimeMinutes`
+  from `@/lib/document-stats`) fed by the editor's LIVE plain text, not the saved
+  `content` projection. `lexical-editor.tsx`'s `DocumentStatsPlugin` registers
+  `editor.registerUpdateListener` and, inside `editorState.read()`, reports
+  `$getRoot().getTextContent()` to the editor via an `onText` callback. It fires on
+  EVERY update (local AND remote/collab), so the count stays in sync as collaborators
+  type — unlike `handleChange` (US-003 save), which intentionally skips
+  `COLLABORATION_TAG`/`HISTORIC_TAG`. Compute `wordCount`/`readingTimeMinutes` in
+  render from the reported text. Pattern for any "live derived stat from the doc":
+  an update-listener plugin + `$getRoot().getTextContent()`, never the debounced save.
+- The stats span (`aria-label="Document statistics"`, text `"<n> min read · <n>
+  words"`) lives in the header controls row, which is `flex-wrap` + each control is
+  `min-w-0 shrink truncate`, so it wraps instead of overflowing at 375px (verified
+  `scrollWidth - clientWidth === 0` at 375/768/1280).

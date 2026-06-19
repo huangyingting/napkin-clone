@@ -16,6 +16,7 @@ import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import {
+  $getRoot,
   $getSelection,
   $isRangeSelection,
   COLLABORATION_TAG,
@@ -31,6 +32,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useLexicalCollaboration } from "@/lib/collab/use-lexical-collaboration";
 import { useDebouncedSave, useYText } from "@/lib/collab/use-collaboration";
+import { readingTimeMinutes, wordCount } from "@/lib/document-stats";
 
 import { saveDocumentLexical, saveDocumentTitle } from "./actions";
 import { BlockInsertMenuPlugin } from "./block-insert-menu";
@@ -141,6 +143,28 @@ function CaptureSelectionPlugin({
 }
 
 /**
+ * Reports the document's live plain-text content (across local *and* remote
+ * edits) so the editor can show reading time and word count (US-024). Uses the
+ * editor's text content directly and fires on every update, so the stats stay in
+ * sync as collaborators type.
+ */
+function DocumentStatsPlugin({ onText }: { onText: (text: string) => void }) {
+  const [editor] = useLexicalComposerContext();
+  useEffect(() => {
+    const read = (state: EditorState) => {
+      state.read(() => {
+        onText($getRoot().getTextContent());
+      });
+    };
+    read(editor.getEditorState());
+    return editor.registerUpdateListener(({ editorState }) => {
+      read(editorState);
+    });
+  }, [editor, onText]);
+  return null;
+}
+
+/**
  * The document editor: a Lexical block editor bound to a document with real-time
  * collaboration. Content lives in a shared Yjs document synced over the collab
  * websocket server; the `CollaborationPlugin` bootstraps it from the serialized
@@ -219,6 +243,13 @@ export function LexicalEditor({
   const editorRef = useRef<LexicalEditorInstance | null>(null);
   const selectionRef = useRef<string>("");
   const [anchorNode, setAnchorNode] = useState<AnchorNode | null>(null);
+
+  // Live document text, for reading time / word count (US-024). Updated on every
+  // editor change (local and remote) by `DocumentStatsPlugin`.
+  const [statsText, setStatsText] = useState("");
+  const handleStatsText = useCallback((text: string) => setStatsText(text), []);
+  const words = wordCount(statsText);
+  const minutes = readingTimeMinutes(statsText);
 
   const getTextSelection = useCallback(() => {
     const editor = editorRef.current;
@@ -363,6 +394,12 @@ export function LexicalEditor({
                   anchorNode={anchorNode}
                 />
                 <span
+                  aria-label="Document statistics"
+                  className="min-w-0 shrink truncate text-xs text-zinc-500 dark:text-zinc-400"
+                >
+                  {minutes} min read · {words} {words === 1 ? "word" : "words"}
+                </span>
+                <span
                   role="status"
                   aria-live="polite"
                   className="min-w-0 truncate text-xs text-zinc-500 dark:text-zinc-400"
@@ -402,6 +439,7 @@ export function LexicalEditor({
                     editorRef={editorRef}
                     selectionRef={selectionRef}
                   />
+                  <DocumentStatsPlugin onText={handleStatsText} />
                   <ListPlugin />
                   <LinkPlugin />
                   <HorizontalRulePlugin />
