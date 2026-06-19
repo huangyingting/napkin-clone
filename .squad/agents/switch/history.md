@@ -70,3 +70,7 @@ Extended `EditorContextSnapshot` (read-only) with `elementFormat`/`textColor`/
 `highlightColor`. Toolbar groups by section with dividers; color/highlight open a
 `ColorPicker` popover (new `icon`/`onReset`/`preserveSelection` props keep the
 anchored selection alive). typecheck/lint clean, 181 tests pass, build green.
+
+## 2026-06-19T18-13-23Z — Ship-and-merge session: 9 features, 18 PRs
+
+Shipped frontends for #6 (style gallery), #8 (visual catalog), #17 (export options), #18 (element styling), #16 (frame/canvas), #14 (text-visual sync), #15 (elastic layout), #12 (mobile viewing), #9 (i18n). All 18 PRs passed full CI quality gate (test/typecheck/lint/format:check/build). Key learning: `npm run format:check` must pass before push; .squad/.copilot are tooling-ignored in eslint + prettier configs.
