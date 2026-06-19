@@ -265,7 +265,9 @@ export function VisualContextPopover({
       EDGE_INSET,
       Math.min(left, window.innerWidth - POPOVER_WIDTH - EDGE_INSET),
     );
-    setCoords({ top, left });
+    setCoords((prev) =>
+      prev.top === top && prev.left === left ? prev : { top, left },
+    );
   }, [anchorRef]);
 
   useLayoutEffect(() => {

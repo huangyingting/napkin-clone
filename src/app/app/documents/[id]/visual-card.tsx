@@ -2,7 +2,7 @@
 
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { $getNodeByKey } from "lexical";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 
 import { useCardMotion } from "@/components/motion/reveal";
@@ -148,7 +148,12 @@ export function VisualCard({
     setOpen(false);
   }, []);
 
-  const parsed = safeParseVisual(visual);
+  // Parse once per `visual` identity. An unmemoized parse returns a fresh object
+  // (and `nodes` array) every render, which would make every downstream consumer
+  // that depends on it (the anchor-reporting effect here, the popover's
+  // `selectedNode`/reposition effect) re-run on every render and loop with their
+  // own setState calls.
+  const parsed = useMemo(() => safeParseVisual(visual), [visual]);
   if (!parsed.success) {
     return (
       <div

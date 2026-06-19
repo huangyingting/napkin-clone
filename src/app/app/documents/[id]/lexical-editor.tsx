@@ -28,7 +28,7 @@ import {
   type LexicalNode,
 } from "lexical";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useLexicalCollaboration } from "@/lib/collab/use-lexical-collaboration";
 import { useDebouncedSave, useYText } from "@/lib/collab/use-collaboration";
@@ -304,6 +304,14 @@ export function LexicalEditor({
   const selectionRef = useRef<string>("");
   const [anchorNode, setAnchorNode] = useState<AnchorNode | null>(null);
 
+  // Stable context value so a consuming `VisualCard` doesn't re-run its
+  // anchor-reporting effect on every render (that effect performs a setState and
+  // would otherwise loop). `setAnchorNode` is referentially stable across renders.
+  const visualAnchorValue = useMemo(
+    () => ({ setVisualAnchor: setAnchorNode }),
+    [setAnchorNode],
+  );
+
   // Live document text, for reading time / word count (US-024). Updated on every
   // editor change (local and remote) by `DocumentStatsPlugin`.
   const [statsText, setStatsText] = useState("");
@@ -397,7 +405,7 @@ export function LexicalEditor({
     <main className="flex flex-1 flex-col bg-zinc-50 dark:bg-black">
       <LexicalCollaboration>
         <LexicalComposer initialConfig={initialConfig}>
-          <VisualAnchorProvider value={{ setVisualAnchor: setAnchorNode }}>
+          <VisualAnchorProvider value={visualAnchorValue}>
             <div className="flex flex-col gap-3 border-b border-black/[.06] bg-white/80 px-6 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between dark:border-white/[.08] dark:bg-black/40">
               <div className="flex min-w-0 flex-col gap-1">
                 <div className="flex items-center gap-2">
