@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/session";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
 import { listComments } from "./comments-actions";
-import { DocumentEditor } from "./document-editor";
+import { ContentEditor } from "./content-editor";
 
 export const metadata: Metadata = {
   title: "Editor — Napkin Clone",
@@ -56,8 +56,8 @@ export default async function DocumentEditorPage({
         },
       },
       // All visuals for this document: the document-level one (anchorBlockId =
-      // null) renders in the right panel; block-anchored visuals (US-009) are
-      // shown inline near their source block in the preview (US-010).
+      // null) renders in its own inline slot; block-anchored visuals render
+      // inline beneath their source block in the content-first editor (US-002).
       visuals: {
         orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }],
         select: { anchorBlockId: true, data: true },
@@ -75,9 +75,10 @@ export default async function DocumentEditorPage({
   const canEdit =
     isOwner || workspaceRole === "OWNER" || workspaceRole === "EDITOR";
 
-  // Tolerate legacy/garbled stored data: only pass through valid visuals.
-  // Split into the document-level visual (anchorBlockId = null) and a map of
-  // block-anchored visuals keyed by their anchor block id.
+  // Tolerate legacy/garbled stored data: only pass through valid visuals. Split
+  // the document-level visual (anchorBlockId = null) — shown in its own inline
+  // slot — from block-anchored visuals, which render inline beneath their source
+  // block in document order (US-002). No new query: both come from the same rows.
   let initialVisual: Visual | null = null;
   const initialBlockVisuals: Record<string, Visual> = {};
   for (const row of document.visuals) {
@@ -96,7 +97,7 @@ export default async function DocumentEditorPage({
   const initialComments = await listComments(document.id);
 
   return (
-    <DocumentEditor
+    <ContentEditor
       id={document.id}
       initialTitle={document.title}
       initialContent={document.content}

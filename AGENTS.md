@@ -2111,3 +2111,646 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   clientWidth === 0`. HTTP status is checkable server-side too (`/boom` → 500,
   `/no-such-route` → 404) via a `node -e "fetch(...)"` probe.
 
+
+## Content-First UI redesign (branch `ralph/content-first-ui`)
+
+> A fourth PRD (`scripts/prd.json`, doc `tasks/prd-content-first-ui.md`) that
+> **reuses US-001.. numbering** — distinct from the original Napkin Clone, Parity
+> Gaps, and Product Maturity stories above. Disambiguate by branch/section.
+> Branched from `main` (post product-maturity merge). It is a **pure
+> front-end/UX redesign**: the editor becomes a content-first, Napkin-style
+> single canvas (write prose like a blog, per-paragraph hover "spark" to generate
+> a visual, inline visuals beneath their source paragraph, floating contextual
+> toolbars + one mini-toolbar, CSS-only micro-interactions). It **reuses ALL
+> existing backend unchanged** — server actions (`attachVisual`/`detachVisual`/
+> `saveDocumentContent`/`saveDocumentTitle`), `/api/generate`, the visual schema,
+> collaboration hooks, and the directive-free `VisualRenderer`/`VisualEditor`/
+> `StylePanel`/`ExportMenu`. NO schema, migration, action, or endpoint changes.
+
+### Editor layout scaffold (US-001)
+
+- **The editor page renders `ContentEditor`** (`src/app/app/documents/[id]/
+  content-editor.tsx`, `"use client"`). The legacy `DocumentEditor`
+  (`document-editor.tsx`), the right-panel `VisualPanel` (`visual-panel.tsx`), and
+  the Preview-tab `BlockVisualGenerator` (`block-visual-generator.tsx`) were
+  **DELETED in US-015** — they no longer exist. The content-first
+  `ContentEditor`/`InlineVisualEditor` chain is the only editor. (`markdown-preview.tsx`,
+  `visual-editor.tsx`, `style-panel.tsx`, `icon-picker.tsx`, `export-menu.tsx` are
+  still live — reused by the new chain and the share view.)
+- **`ContentEditor` is the single canvas all later content-first stories build
+  on.** US-001 is just the scaffold: a single centered **`max-w-3xl` (768px)**
+  blog-width column inside a scrollable area — an inline **title `<input
+  aria-label="Document title">`** at top and an **auto-growing body `<textarea
+  aria-label="Document text">`** below (grow via a `useEffect` on `content.value`
+  setting `height = scrollHeight`; the page scrolls, not the textarea). **No
+  Write/Preview tabs, no always-on right `VisualPanel`.** Inline visuals (US-002),
+  inline prose formatting (US-003), per-paragraph sparks (US-004/005), contextual
+  visual controls (US-007), and floating format toolbar (US-008) get layered on
+  later — keep the single-column structure.
+- **Reuse the EXISTING collab/autosave wiring verbatim** (copied from
+  `document-editor.tsx`): `useCollaboration({ room: id, userName })` →
+  `useYText(ytitle/ycontent, { initial, ready, editable, localOrigin, elementRef,
+  onLocalChange })` + `useDebouncedSave(saveDocumentTitle/Content)` +
+  `combineSaveStatus`. **`editable = canEdit && ready`** (gate editing until collab
+  is synced or the 2.5s degraded fallback) — the textarea/title are `disabled`
+  until then, so browser tests must **wait for `textarea[aria-label="Document
+  text"]:not([disabled])`** as the ready signal. Seed shared state once on `ready`
+  via `seed({ content, title, visual: initialVisual ? JSON.stringify(...) : null })`.
+- **Two `[role="status"]` elements coexist** in the editor header: the **Presence**
+  connection pill ("Live"/"Connecting…"/"Offline") AND the **save-status** span
+  ("All changes saved"/"Saving…"/"Unsaved changes…"). When asserting save status in
+  browser QA, read **all** `[role="status"]` and match the text, not the first node.
+- **Presence/Share/Comments are kept in a top header bar** in US-001 (not dropped)
+  so collaboration features never regress; US-009 refines this into a compact
+  "mini-toolbar" and US-014 verifies. `CommentsPanel` gets `getTextSelection`
+  (reads the body textarea selection) and `anchorNode={null}` for now (inline visual
+  selection arrives with US-007).
+- **Page `initialVisual` extraction was trimmed to the doc-level visual only**
+  (first `anchorBlockId === null` row); the block-anchored visuals map
+  (`initialBlockVisuals`) is reintroduced by US-002 when it renders inline visuals.
+  This keeps US-001 free of unused props/vars (the repo's
+  `@typescript-eslint/no-unused-vars` is only `warn`, but keep it clean).
+- **Browser QA (dev-browser, headless — no X server here):** signup redirects to
+  **`/`** (home), not `/app` (`src/app/signup/actions.ts` uses `redirectTo: "/"`),
+  so after `button:has-text("Create account")` wait for the URL to leave `/signup`
+  then `goto('/app')`. US-012 seeds a "Welcome to Napkin Clone" sample doc on
+  signup, so a fresh `*@test.dev` user already has a document to open. Verified:
+  768px column, title+body present, no Write/Preview buttons, no `[aria-label=
+  "Generate visual"]` right panel, editing enabled after ready, save-status →
+  "All changes saved", edit persists across `page.reload()`, `scrollWidth ==
+  clientWidth` (no overflow). The pre-existing `scroll-behavior: smooth` console
+  note is unrelated.
+
+### Inline visuals beneath their source paragraph (US-002)
+
+- **`ContentEditor` now renders inline visuals in the single column.** It takes a
+  new `initialBlockVisuals: Record<blockId, Visual>` prop alongside the existing
+  `initialVisual: Visual | null`. Below the editable body textarea it renders a
+  `section[aria-label="Document visuals"]`: the **document-level visual** (anchor
+  `null`) in its own slot at the top, then each **block-anchored visual** in
+  document order. Each block visual reuses the existing inline pattern —
+  `BlockContent` (the directive-free block renderer from `./markdown-preview`)
+  above a `[data-block-visual="<blockId>"]` card wrapping a directive-free
+  `VisualRenderer` (`h-auto w-full`). The doc-level slot is a plain card (NOT a
+  `[data-block-visual]`) so it matches the repo convention of "doc-level visual =
+  `svg[role="img"]` not inside `[data-block-visual]`".
+- **Block ids come from `parseMarkdown(content.value)` at render time** and are
+  looked up against `initialBlockVisuals` keys — the SAME content-derived ids the
+  page computed server-side. As long as the live content matches the seed (it does
+  on first render, and the textarea stays the writing surface), the keys align; if
+  the prose is edited so a block's signature changes, its id drifts and the visual
+  drops out of the inline list (the pre-existing content-derived-id limitation,
+  consistent with `MarkdownPreview`/`BlockVisualGenerator`). Live collab sync /
+  editing of these visuals is **US-007**; US-002 renders the **static props only**
+  (no `ystate` read, no new query).
+- **The page splits the single `visuals` query into doc-level vs block-anchored**
+  (mirrors the share page exactly): iterate rows once, `safeParseVisual` each, put
+  `anchorBlockId === null` → `initialVisual` (first valid) and the rest →
+  `initialBlockVisuals[anchorBlockId]` (first per anchor). No extra query — both
+  derive from the one `visuals: { orderBy:[{orderIndex},{createdAt}], select:
+  {anchorBlockId,data} }` select the page already had.
+- **The US-001 textarea stays the writing surface.** Inline visuals render in a
+  section BELOW it (a single `<textarea>` can't interleave React-rendered visuals
+  between paragraphs), so blocks-with-visuals show their `BlockContent` caption
+  above the diagram. US-003 (inline editing) unifies write+read; US-004/005 attach
+  per-block sparks; US-015 retires the legacy editor and reconciles share/embed.
+- **Browser QA:** seed a fresh user + doc + visuals with a throwaway ROOT-level
+  `*.mts` tsx script (`PrismaBetterSqlite3({ url: "file:./prisma/dev.db" })`,
+  `PrismaClient` from `@/generated/prisma/client`; `@/` alias resolves under tsx).
+  Content blocks must be **blank-line separated** (else `parseMarkdown` joins
+  lines). Compute anchor ids via `parseMarkdown(content)` and store visuals with
+  `type: VISUAL_KIND_TO_PRISMA[v.type]`, `data: v as unknown as object`. Log in
+  (`button:has-text("Log in")`), open `/app/documents/<id>`, wait for
+  `textarea[aria-label="Document text"]:not([disabled])`, then assert: 3
+  `[data-block-visual]` cards in document order, each with one `svg[role="img"]`;
+  the doc-level `svg[role="img"]` is the one in the section NOT inside any
+  `[data-block-visual]`; `hasWriteTab === false`; no horizontal overflow at
+  1280/768/375. Delete the script + screenshot artifacts before committing (the
+  seeded SQLite rows are git-ignored).
+
+### Inline editing of prose on the single canvas (US-003)
+
+- **`ContentEditor`'s body textarea now has a block-type formatting toolbar**
+  (`role="toolbar" aria-label="Text formatting"`, rendered between the title and
+  the textarea). Buttons (`aria-label`s `Heading 1`/`Heading 2`/`Heading 3`/`Bullet
+  list`/`Paragraph`) call the SAME `applyBlockType(value, selStart, selEnd, type)`
+  from `@/lib/markdown` the legacy `DocumentEditor` used, then `content.onChange(...)`
+  — so formatting flows through the existing collab/autosave path (syncs + autosaves,
+  no new action). US-008 later converts this **fixed** toolbar into a floating
+  selection toolbar (its AC literally says "the fixed block-type toolbar is replaced").
+- **Caret/selection restore = the legacy `pendingSelection` ref + a no-deps
+  `useEffect`** (focus + `setSelectionRange` after the edit re-renders). This coexists
+  cleanly with `useYText`'s remote-caret `useLayoutEffect`: that one ONLY sets
+  `pendingCursor` for **non-local** (`transaction.origin !== localOrigin`) edits, and a
+  toolbar edit is local, so the two never fight over the caret. Toolbar buttons use
+  `onMouseDown={(e) => e.preventDefault()}` to keep the textarea focused/selected
+  through the click (so `selectionStart/End` are still valid when `applyType` reads
+  them).
+- **Toolbar is gated on `canEdit`** (editors only; read-only viewers never see it) and
+  its buttons are additionally `disabled` until `editable` (collab ready). The
+  textarea's top margin is conditional (`canEdit ? "mt-4" : "mt-6"`) so the
+  title→body gap stays consistent whether or not the toolbar is rendered.
+- **Browser QA (dev-browser --headless, collab server running):** sign up a fresh
+  `*@test.dev` user (signup → `/`; US-012 seeds a "Welcome to Napkin Clone" doc), open
+  it, wait for `textarea[aria-label="Document text"]:not([disabled])`. `page.fill` the
+  textarea (a controlled React textarea picks up the `input` event → `content.onChange`),
+  set the caret with `el.setSelectionRange(...)` in `evaluate`, then `page.click` the
+  toolbar button. Verified: `# `/`## `/`### `/`- ` prefixes apply to the caret's line and
+  REPLACE any existing prefix; a full-selection bullet prefixes BOTH lines; `Paragraph`
+  strips the prefix from only the caret's line; after H1 the selection is restored to
+  `{0, 12}` (covers `"# First line"`) with the textarea still `document.activeElement`;
+  save-status reaches "All changes saved" and the edit survives `page.reload()`. Two
+  `[role="status"]` nodes exist (Presence pill + save status) — match by text.
+
+### Per-paragraph hover gutter affordance (US-004)
+
+- **`ContentEditor`'s spark affordance is anchored to a focusable block wrapper, not
+  the textarea itself.** The editor maps `parseMarkdown(content.value)` to wrapper
+  `div`s with `tabIndex={editable ? 0 : undefined}` and absolute gutter chrome. Keep
+  per-block UI attached to those wrappers — the textarea remains the write surface,
+  while the parsed blocks own hover/focus affordances.
+- **Use one active block id and `relatedTarget` containment to keep only one gutter
+  toolbar visible.** `activeBlockId` is driven by `onMouseEnter` / `onMouseLeave` and
+  `onFocusCapture` / `onBlurCapture`; blur clears only when
+  `!currentTarget.contains(relatedTarget)`, so focus can move from the wrapper onto
+  the spark button without hiding it. Reuse this pattern for future per-block floating
+  controls.
+- **Hide the spark with transforms/opacity, not layout changes.** The wrapper reserves
+  gutter space with `pl-12`, the spark lives at `absolute left-2 top-3`, and the
+  hidden state uses `opacity-0 -translate-x-1 pointer-events-none`. That keeps the
+  affordance invisible by default, reveals it without shifting text, and makes the
+  hidden button non-interactive.
+- **Browser QA is more reliable against `next start` than `next dev` here.** In
+  headless `dev-browser`, the dev server's HMR websocket can fail its handshake and
+  leave the collab-ready gate stuck disabled even though the page renders. For
+  content-first editor checks that depend on `editable = canEdit && ready`, prefer:
+  `npm run build` → `NEXT_PUBLIC_COLLAB_WS_URL=ws://127.0.0.1:1234 npm run start` →
+  wait until `textarea[aria-label="Document text"]` is enabled.
+
+### Generate a visual for a paragraph from the spark toolbar (US-005)
+
+- **The spark wiring lives ON `ContentEditor`, ported from `block-visual-generator.tsx`
+  (don't add a new component).** US-004 left the spark toggling `openSparkId`; US-005
+  makes it functional. `toggleSpark(block)` = open+`generateFor` when closed, `closePicker`
+  when open. `generateFor` POSTs `{ text: blockText(block) }` to `/api/generate`,
+  `safeParseVisual`s each `candidates[]` entry (drops garbled ones), and renders the
+  survivors as a thumbnail grid inline **inside the block wrapper** (below `BlockContent`
+  + any existing inline visual). `choose(blockId, visual)` optimistically sets
+  `blockVisuals[blockId]` → `attachVisual(id, visual, blockId)` → "Visual saved"; on
+  failure it restores the previous entry. The thumbnail hooks match the legacy block
+  picker exactly: `button[aria-label="Select <Kind> option <n>"]`, plus a
+  `data-block-id` + `aria-expanded` spark and a `[data-block-visual="<blockId>"]` card.
+- **`blockVisuals` is the single render source for inline block visuals** — seed it ONCE
+  from the `initialBlockVisuals` prop (`useState(() => initialBlockVisuals)`), then render
+  `blockVisuals[block.id]` (NOT the prop). US-002's direct-prop read is superseded. Keep
+  the seed-once rule (don't reflect the prop back after mount), same as title/content.
+- **The hidden gutter spark is `pointer-events-none` until its block is hover/focus-active,
+  so a Playwright `.click()` is intercepted.** In browser QA, fire a **programmatic DOM
+  click** instead: `page.evaluate(() => document.querySelector('[data-block-id="<id>"]').click())`
+  — a real `element.click()` bubbles to React's delegated handler regardless of
+  `pointer-events`, with no need to first hover/focus the wrapper.
+- **Mock-Azure setup (per US-009/011 notes) — REQUIRED for this story.** Run a tiny local
+  HTTP server returning `{ choices:[{ message:{ content: JSON.stringify({ visuals:[…3+…] }) } }] }`
+  and start `next start` with `AZURE_OPENAI_ENDPOINT=http://127.0.0.1:<port>
+  AZURE_OPENAI_API_KEY=test` as **process env** (Next doesn't override already-set env).
+  GOTCHA (reconfirmed): each mock candidate **edge must carry a non-empty `id`** or
+  `safeParseVisual` drops it → can't reach `MIN_CANDIDATES` (3) → 502. Drive the 502 error
+  UI by returning 500 for a sentinel input (mock checks `body.includes("TRIGGER_ERROR")`);
+  add a `\n\nTRIGGER_ERROR …` block to the textarea and generate on it.
+- **Browser QA gotcha — scope the error assertion.** dev-tools inject a transient empty
+  `[role="alert"]`, so `document.querySelector('[role="alert"]')` can hit the wrong one.
+  Find the app alert by its **"Try again" button** (`alerts.find(a => …button text ===
+  "Try again")`), not the first match. The picker stays open on error (non-blocking) and
+  any already-saved inline visual on other blocks is preserved. Verified end-to-end:
+  generate → 3 candidates → select → inline `svg[role="img"]` + "Visual saved" → hard
+  `page.reload()` persists it; one picker open at a time (single `openSparkId`); zero
+  horizontal overflow at 1280/768/375.
+
+### Replace or remove a paragraph's visual from the spark toolbar (US-006)
+
+- **Replace/Remove controls live ON the inline `[data-block-visual="<blockId>"]` card
+  in `ContentEditor`** (not a new component), ported from the legacy
+  `block-visual-generator.tsx` pattern. The card now has a small header row (kind
+  `KIND_LABEL[visual.type]` on the left) and, **gated on `editable`**, a
+  `button[aria-label="Replace this block's visual"]` + a
+  `button[aria-label="Remove this block's visual"]` on the right. Read-only viewers
+  see the card with NO controls.
+- **Replace just calls the existing `generateFor(block)`** — it reopens the same
+  generation picker (sets `openSparkId`), so choosing a candidate flows through the
+  existing `choose` → `attachVisual(id, visual, blockId)` and updates
+  `blockVisuals[blockId]` inline. The current visual stays rendered above the picker
+  until a new candidate is chosen. No new save path.
+- **Remove = a new `removeVisual(blockId)` callback** mirroring the legacy one:
+  optimistically `delete blockVisuals[blockId]` (only that block), `closePicker()` if
+  its picker is open, then `await detachVisual(id, blockId)` (the existing action,
+  signature `(id, anchorBlockId = null)`), restoring the previous visual on failure.
+  Keyed by `(documentId, blockId)` so it removes ONLY that block's visual — the
+  doc-level visual (anchor `null`) and other anchors are untouched.
+- **GOTCHA — wrapping the renderer card: don't put `overflow-hidden` on the OUTER
+  `[data-block-visual]` card** once it has a header (it would clip the header/buttons).
+  Follow the legacy shape: outer card `rounded-xl border … p-3` (no overflow-hidden),
+  header row, then an INNER `overflow-hidden rounded-lg border …` wrapper around
+  `<VisualRenderer className="h-auto w-full" />`. Still exactly one `svg[role="img"]`
+  per card (US-002's assertion holds).
+- **Browser QA (mock-Azure + collab + `next start`, headless):** seed a doc with TWO
+  block-anchored visuals (root-level `*.mts` tsx, `PrismaBetterSqlite3`,
+  `data: visual as unknown as object`, `type: VISUAL_KIND_TO_PRISMA[v.type]`) to prove
+  Remove drops only one. QuickJS gotcha: an apostrophe in the `aria-label` selector
+  breaks the sandbox parser — write it as `"Remove this block\u0027s visual"`. Verified
+  end-to-end: Remove drops only block 1 (other card + doc-level intact) and persists
+  across `page.reload()`; Replace regenerates (3 candidates via mock) and selecting a
+  different kind flips the card header label (Flowchart→List) + "Visual saved" and
+  persists; zero horizontal overflow.
+
+### Open visual editing tools contextually for an inline visual (US-007)
+
+- **Contextual editing lives in a new `inline-visual-editor.tsx`
+  (`InlineVisualEditor`), rendered IN PLACE of the read-only `VisualRenderer`
+  when its visual is selected — not a permanent right panel.** It bundles the
+  existing building blocks (`VisualEditor` node/edge canvas, `StylePanel`
+  theme/color, the 9 type-switch pills, a "More variations" candidate gallery, and
+  `ExportMenu`) for ONE visual, parameterized by `anchorBlockId` (`null` =
+  doc-level, a `block.id` = block-anchored). Don't reuse the legacy `VisualPanel`
+  for this — it's hardwired to the doc-level ystate and a full-height right panel.
+- **All persistence reuses the existing `attachVisual(documentId, visual,
+  anchorBlockId)` path** — debounced (600ms) for canvas/style edits via
+  `handleEditChange`, immediate for discrete choices (candidate select / type
+  switch) via `commit`. No backend/schema/action change. Type switching reuses
+  `/api/generate` with an optional `type` (auto-selects the regenerated result);
+  "More variations" reuses it with no `type` (browsable candidates). The working
+  visual is seeded ONCE (`useState(() => visual)`); the parent's copy is kept in
+  sync via `onChange` so the read-only render is current after the editor closes.
+- **`ContentEditor` owns the selection:** `docVisual` state (seeded from
+  `initialVisual`, so the doc-level visual is editable + re-renders live) +
+  `selectedVisualKey: string | null` (the constant `DOC_VISUAL_KEY` =
+  `"\u0000doc-visual"` for the doc-level visual, else a `block.id`). Only ONE
+  visual's tools open at a time. Read-only visuals are click-to-edit buttons
+  (`aria-label="Edit document visual"` / `"Edit this block's visual"`), gated on
+  `editable` (read-only viewers get a plain `<div>`, no edit affordance). Editing
+  and the spark generation picker are **mutually exclusive** — `selectVisual`
+  calls `closePicker()`, and `generateFor` clears `selectedVisualKey`.
+- **Click-away dismissal is self-contained in `InlineVisualEditor`** via a
+  `document` `mousedown` listener + ref containment (`!containerRef.current
+  .contains(target) → onClose()`), NEVER `stopPropagation` (the house rule).
+  `mousedown` fires before a sibling visual's click, so clicking a different visual
+  naturally closes the current editor first, then selects the new one. The US-006
+  block header (Replace/Remove) sits OUTSIDE the editor container, so clicking it
+  dismisses-then-acts (works correctly).
+- **Test hooks:** the editor is `[role="group"][aria-label="Visual editing tools"]`;
+  type pills `[aria-label="Switch to <Label>"]` (`aria-pressed` = active matches
+  `working.type`); node hotspots `[data-node-id]` (scope to inside the group);
+  `[aria-label="More variations"]` → gallery `[aria-label="Select variation <n> of
+  <m>"]`; `[aria-label="Export visual"]`; `[aria-label="Done editing visual"]`;
+  StylePanel `[aria-label="Style"]` / `[aria-label="Theme <name>"]`. The
+  per-editor save-status is a `role="status"` "Visual saved" INSIDE the group —
+  match it scoped to the group (the page also has Presence + header save-status
+  `role="status"` nodes).
+- **Browser QA (mock-Azure + collab + `next start`, headless):** seed a doc with a
+  doc-level visual + 2 block-anchored visuals (root `*.mts` tsx,
+  `PrismaBetterSqlite3`, `data: v as unknown as object`,
+  `type: VISUAL_KIND_TO_PRISMA[v.type]`). To edit a node label, click the
+  `[data-node-id]` hotspot CENTER with `page.mouse` down/up (no move) → inline
+  `input[aria-label="Node label"]`. Verified end-to-end: click-to-edit reveals the
+  9 pills + 5/7 node hotspots + style/export/done; type switch (Flowchart→Mind map)
+  + node-label edit + theme both persist across a hard `page.reload()`; "More
+  variations" shows 3 candidates; clicking the body textarea dismisses the tools;
+  Done dismisses; zero horizontal overflow at 1280/768/375 in edit mode.
+
+### Selection/format floating toolbar (US-008)
+
+- **The fixed block-type toolbar was REPLACED by a floating one in
+  `content-editor.tsx`.** US-003's in-flow `role="toolbar" aria-label="Text
+  formatting"` div (between title and textarea) is gone; the same selector now
+  refers to a **`fixed inset-x-0 bottom-6 mx-auto w-fit` bottom-center pill**
+  rendered as a direct child of `<main>` (NOT inside the `backdrop-blur` header,
+  which would become the containing block for a `fixed` descendant). It keeps the
+  same `TOOLBAR_BUTTONS` (H1/H2/H3, bullet, paragraph) calling the existing
+  `applyType` → `applyBlockType`, so formatting still flows through the
+  collab/autosave path unchanged.
+- **Show on body focus, dismiss on body blur — minimal + robust.** The textarea's
+  `onFocus` sets `formatToolbarOpen=true`; `onBlur` flushes the content saver AND
+  sets it false ("editing surface" = the body textarea; the title input does NOT
+  reveal it). The toolbar is **always mounted** and toggled with the existing
+  spark-style class pattern (`opacity-100 translate-y-0 pointer-events-auto` vs
+  `opacity-0 translate-y-2 pointer-events-none`) so it's ready to animate in/out for
+  US-011; it also carries `aria-hidden={!open}` and the buttons get
+  `tabIndex={open ? 0 : -1}` so the hidden bar is inert.
+- **Buttons keep the caret/selection via `onPointerDown` preventDefault** (the
+  documented pattern, also on the container) so a mouse click never blurs the
+  textarea → the bar stays open and `applyType` reads the live
+  `selectionStart/End`. The existing `pendingSelection` ref + no-deps `useEffect`
+  then restores focus + selection after the re-render (e.g. H1 on "First line"
+  yields value `"# First line"` with selection `{0,12}`, textarea still
+  `document.activeElement`).
+- **Caret-anchored (Medium-style) positioning was deliberately NOT used.** A
+  `<textarea>` has no selection rectangle, and an absolute toolbar that follows the
+  caret over a tall auto-growing textarea inevitably overlaps earlier lines
+  ("above the line" sits over previous text). A fixed bottom-center bar sidesteps
+  all of it (no caret math / mirror-div, no scroll/resize listeners, no body-text
+  overlap) and is `fixed` → zero layout shift. `w-fit max-w-[calc(100vw-1rem)]` +
+  `flex-wrap` → no horizontal overflow at 1280/768/375.
+- **Browser QA (build + `next start` + collab, headless):** the toolbar is one
+  element matched by `[role="toolbar"][aria-label="Text formatting"]`; assert
+  `getComputedStyle(el).opacity` is `"0"`/`pointer-events:none` by default, `"1"`/
+  `pointer-events:auto` after `click('textarea[aria-label="Document text"]')`, and
+  `"0"` again after focusing the title input. Apply formatting by `el.focus()` +
+  `el.setSelectionRange(...)` in `evaluate`, then Playwright-`.click()` the visible
+  `button[aria-label="Heading 1"]` etc. (the pill is `fixed` and visible, so a real
+  click works), and read back `value`/`selectionStart`/`selectionEnd`/`activeElement`.
+
+### Persistent mini-toolbar for always-needed actions (US-009)
+
+- **The four always-needed controls (save status, `Presence`, `ShareButton`,
+  `CommentsPanel`) are grouped into ONE compact mini-toolbar pill in the
+  `content-editor.tsx` header.** It's a `role="toolbar" aria-label="Document
+  actions"` `<div>` (rounded-full, subtle border + `bg-white/70` / `shadow-sm`,
+  `dark:bg-zinc-900/60`) on the header's right; the back-link/workspace/read-only
+  context stays on the left. The save-status span (the `STATUS_LABEL[saveStatus]`
+  `role="status"`) moved INTO this pill as the first item, followed by a `sm:`-only
+  divider, then `Presence`/`ShareButton`/`CommentsPanel`. The components are reused
+  **as-is** (no restyle) — just regrouped — so all existing functionality (share
+  menu, comments drawer, presence avatars/Live pill, save indicator) works unchanged.
+- **The editor now has TWO `role="toolbar"` nodes** — `aria-label="Document actions"`
+  (this mini-toolbar) and `aria-label="Text formatting"` (the US-008 bottom-center
+  format pill) — and **TWO `role="status"` nodes live INSIDE the mini-toolbar** (the
+  save-status span + Presence's "Live"/"Connecting…"/"Offline" pill). In browser QA,
+  scope to `[role="toolbar"][aria-label="Document actions"]` and match status text
+  (don't assume the first `role="status"`).
+- **No-overflow strategy = `flex-wrap` + `max-w-full`, NOT fixed positioning.** The
+  pill stays inside the **sticky** header (which reserves vertical space, so it never
+  overlaps the canvas the way a `fixed` top-right element would on narrow screens) and
+  wraps its items instead of growing past the viewport. Verified
+  `document.documentElement.scrollWidth - clientWidth === 0` at 1280/768/375. The
+  header itself was slimmed/blended (`bg-zinc-50/80 backdrop-blur`, no hard `border-b`,
+  `py-2.5`) so the pill reads as the distinct toolbar over a clean canvas.
+- **Don't make the mini-toolbar `fixed`/floating here.** A `fixed top-right` pill
+  overlaps the full-width title at 375px and risks horizontal overflow; the
+  sticky-header pill avoids both while still being "top-right". (The bottom-center
+  format toolbar IS `fixed` because it must overlay mid-canvas text — different need.)
+  Don't put `overflow-hidden` on the pill: `ShareButton`'s dropdown is an
+  `absolute` child and would be clipped (`CommentsPanel`'s drawer is portaled, so
+  it's unaffected either way).
+- **Browser QA (build + `next start` + collab, headless):** assert the pill exists
+  and contains `Share` + `Comments` buttons, a save `role="status"` and a Live
+  `role="status"`, and a `[aria-label="People here"]` region; click
+  `[role="toolbar"][aria-label="Document actions"] button:has-text("Share")` → the
+  `text=Share this document` panel shows and closes on click-away (title input);
+  click the `button[aria-label="Comments"]` → `[role="dialog"][aria-label="Comments"]`
+  opens (with `[aria-label="New comment"]`) and closes via `[aria-label="Close
+  comments"]`. Confirm 0 horizontal overflow at all three widths.
+
+### Empty-state and onboarding hints on the canvas (US-010)
+
+- **Two non-blocking, in-normal-flow hints live in `content-editor.tsx`, rendered
+  right below the body `<textarea>` (before the `hasCanvasFlow` canvas section).**
+  They are **mutually exclusive** via one ternary so they never stack: an
+  **empty-state placeholder** (a dashed-border `div` reading "Start writing your
+  document" + a spark tip) when `canEdit && content.value.trim() === ""`, else a
+  **one-line dismissible spark hint** (`role="note"`, "Hover any paragraph and click
+  the spark to generate a visual for it." + an `[aria-label="Dismiss hint"]` ✕)
+  when `editable && blocks.length > 0 && !sparkHintDismissed`. Because both sit in
+  normal flow under the textarea, they are inherently non-overlapping (no
+  absolute/fixed) and the empty-state auto-hides as soon as prose is typed.
+  Empty-state is gated on `canEdit` (read-only viewers never see "start writing");
+  the spark hint is gated on `editable` (sparks only exist when editable).
+- **GOTCHA — persist a dismissible hint with `useSyncExternalStore`, NOT a
+  localStorage-read `useEffect`.** `react-hooks/set-state-in-effect` is an **error**
+  in this repo (see the strict React 19 rules), so reading `localStorage` in an
+  effect and `setState`-ing the result fails lint. Instead, back the dismissal with a
+  tiny module-level external store (a `Set` of listeners + `localStorage` read/write,
+  all `try/catch`-guarded for private mode) and read it via
+  `useSyncExternalStore(subscribe, () => localStorage.getItem(KEY) === "1", () =>
+  false)`. The third **server snapshot** arg returns `false` so SSR renders "not
+  dismissed" and React adopts the client value post-hydration with **no hydration
+  mismatch** and no setState-in-effect. `getSnapshot` returns a **boolean primitive**
+  (compared by `Object.is`), so it's stable — no "getSnapshot should be cached" loop.
+  `dismissSparkHint()` writes `"1"` then notifies listeners (the in-tab `storage`
+  event doesn't fire for the writing tab, so the manual notify is what re-renders).
+  Reuse this pattern for any persisted, dismissible client-only UI flag.
+- **US-011 (animations) is a SEPARATE story** — US-010 keeps the hints simple
+  (subtle `transition` on the dismiss button hover is fine); don't add enter/exit
+  motion or `prefers-reduced-motion` handling here.
+- **Browser QA (build + `next start` + collab, headless):** the welcome doc (US-012
+  seed) has content, so opening it shows the spark `[role="note"]` (assert its text +
+  `[aria-label="Dismiss hint"]`); click dismiss → note gone; `page.reload()` → still
+  gone and `localStorage.getItem("napkin:spark-hint-dismissed") === "1"`. For the
+  empty-state, create a **Blank** doc (New document → `button[aria-label="Blank
+  template"]`), wait for `textarea[aria-label="Document text"]:not([disabled])`, then
+  assert a `div.border-dashed` reading "Start writing your document" exists, the spark
+  `[role="note"]` does NOT (empty → 0 blocks), and the hint's `getBoundingClientRect`
+  is below the textarea + inside the viewport. 0 horizontal overflow at 1280/768/375.
+  When checking placement, target the **specific** hint element (`div.border-dashed`
+  / `[role="note"]`), not "any div containing the text" — an ancestor wrapper also
+  contains it and gives a false "above the textarea" reading.
+
+### Toolbar and affordance enter/exit animations (US-011)
+
+- **Reduced-motion-aware entrance for the contextual visual controls lives in
+  `src/app/globals.css`.** A single `@media (prefers-reduced-motion: no-preference)`
+  block holds BOTH the `@keyframes napkin-pop-in` (opacity + `translateY(0.375rem)` +
+  `scale(.98)` → identity, i.e. transform/opacity only, no layout shift) AND the
+  `.napkin-pop-in { animation: napkin-pop-in 160ms ease-out }` rule. **Wrapping the
+  class rule itself inside the no-preference media query is the trick** — under
+  `prefers-reduced-motion: reduce` the class has NO rule at all, so the element just
+  appears with zero motion (no JS, no library). Reuse `napkin-pop-in` for any new
+  conditionally-mounted floating control that should fade/slide in.
+- **The two ALWAYS-MOUNTED toolbars (spark gutter `sparkButtonClass`, selection/format
+  `formatToolbarClass` in `content-editor.tsx`) already animate in AND out** via
+  `transition duration-150` + the visible/hidden class toggle (`translate*-0
+  opacity-100` ↔ `translate*-N opacity-0`, transform/opacity only). US-011 only added
+  **`motion-reduce:transition-none`** to each so the show/hide is instant under reduced
+  motion. Note: Tailwind's bare `transition` utility's `transition-property` list
+  INCLUDES `opacity` and `transform`, so those enter/exit animations work; `transition-none`
+  (the `motion-reduce` variant) sets `transition-property: none` and wins by source order.
+- **The contextual visual controls (`InlineVisualEditor`) are conditionally mounted**
+  (`selectedVisualKey` gate), so they get an ENTRANCE animation only (`napkin-pop-in` on
+  the `role="group" aria-label="Visual editing tools"` container) — a CSS-only exit on an
+  unmounting component would need deferred unmount; the spark + format toolbars cover the
+  "in/out" demo. The animation plays once on mount (default `animation-fill-mode: none`
+  ends at identity transform/full opacity), so it never replays on the per-keystroke
+  re-renders during label editing and doesn't disturb the `VisualEditor` SVG overlay.
+- **No animation library** (PRD constraint) — CSS `@keyframes`/transitions only. **No
+  schema/action/endpoint changes** (pure styling). US-012 (visual mount/unmount + a
+  pulsing "thinking" indicator) is a SEPARATE story — don't animate the inline visual
+  card mount or the generation spinner here.
+- **Browser QA (build + `next start` + collab, headless) = deterministic computed-style
+  checks, NOT frame capture.** Open the US-012-seeded welcome doc (it has a doc-level
+  visual), wait for `textarea[aria-label="Document text"]:not([disabled])`. With
+  `page.emulateMedia({ reducedMotion: "no-preference" })`: the format toolbar
+  (`[role="toolbar"][aria-label="Text formatting"]`) and spark
+  (`[aria-label="Generate visual for this block"]`) `getComputedStyle().transitionProperty`
+  includes `opacity`/`transform` at `0.15s`; click `[aria-label="Edit document visual"]`
+  to mount the editor and assert its `animationName === "napkin-pop-in"` (0.16s). With
+  `{ reducedMotion: "reduce" }` + reload, all three report `none` (toolbars
+  `transitionProperty: none`, editor `animationName: none`). 0 horizontal overflow at
+  1280/768/375.
+
+### Visual mount/unmount and generation thinking animation (US-012)
+
+- **Two new CSS-only keyframes live in the same `@media (prefers-reduced-motion:
+  no-preference)` block in `src/app/globals.css`** as `napkin-pop-in`:
+  `napkin-visual-in` (opacity 0→1 + `translateY(0.5rem) scale(0.96)`→identity,
+  200ms) for an added inline visual and `napkin-visual-out` (reverse, 180ms,
+  **`forwards`** so it holds the faded state until React unmounts) for a removed
+  one. Both are transform/opacity ONLY (no height) → no layout shift; the
+  surrounding gap collapses only on the final unmount, not during the animation.
+  Because the classes live inside the no-preference query, **under `reduce` they
+  have no rule at all** → the visual appears/disappears with zero motion (same
+  trick as `napkin-pop-in`). `VISUAL_EXIT_MS = 180` in `content-editor.tsx` MUST
+  match `.napkin-visual-out`'s duration.
+- **Enter animation is gated to SESSION-ADDED visuals only.** `content-editor.tsx`
+  seeds a lazy `const [initialBlockIds] = useState(() => new Set(Object.keys(
+  initialBlockVisuals)))` (lazy STATE, not a ref — reading `ref.current` during
+  render is a `react-hooks/refs` ERROR here; reading state during render is fine).
+  A block visual card gets `napkin-visual-in` only when `!initialBlockIds.has(
+  block.id)`, so server-seeded visuals never flash/animate on page load — only
+  ones generated this session. The CSS animation plays once on mount and never
+  replays on re-render (static class), so per-keystroke edits don't re-trigger it.
+- **Exit = defer-unmount, NOT immediate drop.** `removeVisual` keeps the card in
+  `blockVisuals` (so it stays mounted), sets `exitingBlockId` (swaps the card to
+  `napkin-visual-out pointer-events-none` via the `visualMountClass(exiting,
+  entering)` helper), and schedules a `window.setTimeout(finalize, prefersReduced
+  Motion() ? 0 : VISUAL_EXIT_MS)` to drop it from `blockVisuals` after the fade.
+  `detachVisual` runs in parallel; on FAILURE it `clearTimeout`s the pending
+  finalize (tracked in an `exitTimers` ref `Map<blockId, timerId>`) AND restores
+  the card so the user can retry — the timer-cancel is essential or a late finalize
+  would drop a just-restored card. A cleanup `useEffect(() => () => clear all
+  timers, [])` prevents a post-unmount setState. Under reduced motion the 0ms delay
+  makes removal effectively instant (no motion).
+- **Thinking indicator = pulsing, CSS-only, reduced-motion aware** (replaced the
+  old `animate-spin` border spinner in the picker). While `genStatus === "loading"`
+  the picker shows a pulsing `Sparkles` + "Generating a visual…" plus a
+  `grid grid-cols-2 sm:grid-cols-3` of 3 skeleton `<span class="aspect-[4/3]
+  animate-pulse … motion-reduce:animate-none">` with staggered `animationDelay`
+  (`${i * 150}ms`) where the candidate thumbnails will land; the **gutter spark
+  icon also pulses** (`open && genStatus === "loading"` → `animate-pulse
+  motion-reduce:animate-none`). Tailwind's `animate-pulse` computes to
+  `animationName: "pulse"`; `motion-reduce:animate-none` → `"none"`. Reuse
+  `animate-pulse motion-reduce:animate-none` for any new "thinking"/skeleton state
+  instead of `animate-spin` (which has no built-in reduced-motion guard).
+- **Browser QA (mock-Azure with a ~1.8s delay so the in-flight UI is observable +
+  collab + build/`next start`, headless) = deterministic computed-style checks.**
+  Click a spark PROGRAMMATICALLY (`page.evaluate(() => document.querySelector(
+  '[data-block-id="<id>"]').click())` — the spark is `pointer-events-none` until
+  hover-active). Mid-flight (`waitForTimeout(500)`): assert a `[role="status"]`
+  "Generating a visual…", 3 `span.animate-pulse` whose `getComputedStyle().
+  animationName === "pulse"`, and the spark `svg` animationName `"pulse"`. After
+  selecting `[aria-label="Select Flowchart option 1"]`: the new
+  `[data-block-visual="<id>"]` card's `animationName === "napkin-visual-in"`
+  (0.2s). Click `[aria-label="Remove this block\u0027s visual"]` (escape the
+  apostrophe — the QuickJS selector parser chokes on a raw `'`) then within ~50ms
+  read the card's `animationName === "napkin-visual-out"` (0.18s, pointer-events
+  none) before it detaches. Repeat under `emulateMedia({ reducedMotion: "reduce" })`
+  → every animationName is `"none"` and removal is instant (the exit card is
+  already `"gone"` at 30ms). 0 horizontal overflow at 1280/768/375.
+
+### Button and control hover/press micro-interactions (US-013)
+
+- **Shared control micro-interactions live in
+  `src/app/app/documents/[id]/control-styles.ts`.** Reuse its
+  `CONTROL_TRANSITION`, `CONTROL_FOCUS_RING`, `CONTROL_PRESS`, and
+  `PILL_CONTROL_CLASS` exports for any content-first editor button that should match
+  the spark / floating-toolbar / mini-toolbar behavior. This keeps the hover/press
+  feedback consistent and ensures `motion-reduce:transition-none` is applied
+  everywhere from one place.
+- **The spark and floating format toolbar keep their own shape/layout helpers, but
+  layer the shared control tokens on top.** In `content-editor.tsx`,
+  `sparkButtonClass(...)` and `toolbarButtonClass` compose those shared exports with
+  their visibility/state-specific classes, so future control tweaks should happen in
+  `control-styles.ts` first, then in the local helper only when the spark/toolbar
+  needs unique geometry.
+- **Share/comments trigger buttons should use the same pill class, and the share
+  dropdown keeps the ref-containment click-outside pattern.** `CommentsPanel`
+  prepends layout classes to `PILL_CONTROL_CLASS`; `ShareButton` uses the pill class
+  directly and puts `menuRef` on the wrapper containing BOTH trigger + menu, never
+  `stopPropagation`, so in-menu clicks don't collapse the panel.
+- **Browser QA:** a good deterministic check is computed styles + live interaction,
+  not screenshots alone. With `dev-browser --headless` against `npm run build &&
+  NEXT_PUBLIC_COLLAB_WS_URL=ws://127.0.0.1:1234 npm run start`, verify the Share and
+  Comments buttons still open from the mini-toolbar, the spark goes from
+  `opacity: 0` → visible after block focus, the keyboard-focused spark gets a real
+  ring (`box-shadow` non-none), and `page.emulateMedia({ reducedMotion: "reduce" })`
+  makes the Share / spark / toolbar buttons report `transitionProperty: none`.
+
+### Preserve comments, sharing, presence, and shortcuts in the new editor (US-014)
+
+- **The content-first `ContentEditor` was missing the `ystate` (visual collab)
+  channel entirely** — the US-001 scaffold only ported text collab (`useYText` over
+  `ycontent`/`ytitle`). US-014 restored **document-level visual sync** to match the
+  legacy `DocumentEditor`/`VisualPanel`: destructure `ystate` from
+  `useCollaboration`, add `pushDocVisual(visual)` (writes `JSON.stringify(visual)`
+  under the `ystate` `"visual"` key inside `ystate.doc.transact(apply, localOrigin)`
+  so our own observer skips it), and a `ystate.observe` effect that mirrors **remote**
+  `"visual"` changes (`tr.origin !== localOrigin`) into `setDocVisual`. Route the
+  doc-level `InlineVisualEditor.onChange` through `handleDocVisualChange` (=
+  `setDocVisual` + `pushDocVisual`). `seed()` already loads the initial visual into
+  `ystate`. **Only the doc-level visual syncs live — block-anchored visuals don't**
+  (parity with the legacy editor; they persist via the DB and reappear on reload).
+- **Comment-to-visual-node anchoring** (a legacy `VisualPanel` feature) was wired
+  back: `InlineVisualEditor` got an optional `onSelectNode?: (node: {id,label}|null)
+  => void` + an effect over `[working, selectedNodeId]` that reports the selected
+  node up; `ContentEditor` holds `anchorNode` state and passes it to `CommentsPanel`
+  (was hardcoded `null`). **GOTCHA: the editing popover dismisses on the SAME outside
+  `mousedown` that opens the comments drawer**, so `deselectVisual` must NOT clear
+  `anchorNode` (keep it like the text `lastSelection` ref) or "Attach selected
+  element" never shows. Clear it only in `selectVisual` (a different visual is opened)
+  or via the comments panel's "Clear anchor".
+- **The Ctrl/⌘+E "toggle Write/Preview" shortcut is obsolete** in the content-first
+  editor (no tabs) — left in place; removing the catalog entry + `isTogglePreviewShortcut`
+  belongs to US-015. The global `?` shortcut works in the editor because it lives in
+  `SiteHeader`'s `KeyboardShortcuts` (root layout), not the editor component.
+- **Browser QA (two-browser collab):** run `npm run collab` + a prod `next start`;
+  use TWO SEPARATE `dev-browser --headless --browser <name>` instances (no shared
+  BroadcastChannel) so presence "2 peers", a typed text marker, AND a doc-level node-
+  label edit all propagate through the WS server and survive a hard `page.reload()`
+  (DB autosave). Seed owner + a workspace **VIEWER** member (root-level `*.mts` tsx,
+  `PrismaBetterSqlite3`, `data: visual as unknown as object`, `type:
+  VISUAL_KIND_TO_PRISMA[v.type]`); the VIEWER sees no sparks / Edit-visual / Replace /
+  Remove / `[role="toolbar"][aria-label="Text formatting"]`, only inline
+  `svg[role="img"]`. Select a visual node by `el.focus()` on its `[data-node-id]`
+  hotspot; a Playwright `locator.click()` (real `mousedown`) on the Comments button
+  exercises the "editor closes but anchor persists" path, whereas a programmatic
+  `element.click()` does NOT fire `mousedown`.
+
+### Retire the tab/two-panel editor & reconcile share/read views (US-015)
+
+- **The legacy editor is GONE.** US-015 `git rm`'d three now-dead files:
+  `document-editor.tsx` (was unimported once `page.tsx` switched to `ContentEditor`
+  in US-001), and its only-consumers `visual-panel.tsx` (`VisualPanel`) and
+  `block-visual-generator.tsx` (`BlockVisualGenerator`). Before deleting a
+  "legacy/dead" component, confirm the dead-code CHAIN: grep every export of each
+  file repo-wide and only delete a dependency once its sole importer is also being
+  deleted (here: VisualPanel/BlockVisualGenerator were imported *only* by
+  DocumentEditor). `markdown-preview.tsx` survived because `BlockContent` is used by
+  `content-editor.tsx` and `MarkdownPreview` by the share page; `visual-editor.tsx`/
+  `style-panel.tsx`/`icon-picker.tsx`/`export-menu.tsx` survived via the
+  `InlineVisualEditor` chain. No other file imported the deleted exports (only
+  `page.tsx`'s unrelated `DocumentEditorPage` shares the "DocumentEditor" substring).
+- **The share page (`src/app/share/[shareId]/page.tsx`) was redesigned from a
+  two-column grid (Text | Visual) to the content-first single column.** It's a
+  server component matching the editor's read view: a `max-w-3xl` blog-width column,
+  header (Read-only badge + "Shared by" + `text-3xl/sm:text-4xl font-bold` title),
+  then the **document-level visual in its own inline slot** (a "Document visual"
+  labelled card, an `svg[role="img"]` NOT inside any `[data-block-visual]`), then
+  `MarkdownPreview source={content} visuals={blockVisuals}` which renders prose with
+  each anchored visual inline beneath its source block (`[data-block-visual="<id>"]`).
+  Same doc-level-vs-anchored split as before (one pass over the single `visuals`
+  query, `safeParseVisual` each). No new query, no backend change.
+- **The embed page (`/embed/[shareId]`) was left visual-only on purpose** — it's the
+  chrome-free iframe widget (US-018): no header/nav/prose, just every visual
+  (doc-level first, then anchored, in document order) via the directive-free
+  `VisualRenderer`. That already IS "consistent with the content-first layout"
+  (visuals in document order, same renderer); adding prose would regress its
+  documented embedding purpose. Don't add `MarkdownPreview` to embed.
+- **Browser QA (prod `next start`, `dev-browser --headless`):** the share/embed
+  pages are public (no auth/collab needed) — seed a shared doc + a doc-level visual +
+  ≥3 block-anchored visuals (root-level `*.mts` tsx, `PrismaBetterSqlite3`,
+  `data: v as unknown as object`, `type: VISUAL_KIND_TO_PRISMA[v.type]`; content
+  blocks **blank-line separated** so `parseMarkdown` yields distinct blocks; anchor
+  ids come from `parseMarkdown(content)`). Verified: share = 4 `svg[role="img"]`
+  (1 doc-level outside `[data-block-visual]` + 3 inline cards), single column (no
+  `lg:grid-cols-2`), "Document visual"/"Read-only" labels, NO editing affordances
+  (`[aria-label="Generate visual for this block"]`, `[role="toolbar"][aria-label=
+  "Text formatting"]`, `textarea[aria-label="Document text"]` all 0); embed = 4
+  `svg[role="img"]`, 0 `<header>`/`<nav>`/`<a>`; both 404 on unknown/non-shared id;
+  zero horizontal overflow (`scrollWidth - clientWidth === 0`) at 375/768/1280.

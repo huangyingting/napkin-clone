@@ -30,8 +30,9 @@ export default async function SharedDocumentPage({
           email: true,
         },
       },
-      // All visuals: the document-level one (anchorBlockId = null) shows in the
-      // Visual panel; block-anchored visuals render inline in document order.
+      // All visuals: the document-level one (anchorBlockId = null) renders in its
+      // own inline slot; block-anchored visuals render inline beneath their source
+      // paragraph in document order (content-first read view).
       visuals: {
         orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }],
         select: { anchorBlockId: true, data: true },
@@ -60,12 +61,13 @@ export default async function SharedDocumentPage({
   }
 
   const ownerName = document.owner.name || document.owner.email.split("@")[0];
+  const hasContent = document.content.trim().length > 0;
 
   return (
     <main className="min-h-screen bg-zinc-50 dark:bg-black">
-      {/* Header */}
-      <header className="border-b border-black/[.06] bg-white px-6 py-4 dark:border-white/[.08] dark:bg-zinc-950">
-        <div className="mx-auto max-w-6xl">
+      {/* Header — a single blog-width column, matching the content-first editor. */}
+      <header className="border-b border-black/[.06] bg-white dark:border-white/[.08] dark:bg-zinc-950">
+        <div className="mx-auto w-full max-w-3xl px-6 py-6">
           <div className="mb-2 flex items-center gap-2">
             <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
               Read-only
@@ -74,48 +76,41 @@ export default async function SharedDocumentPage({
               Shared by {ownerName}
             </span>
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+          <h1 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl dark:text-zinc-50">
             {document.title}
           </h1>
         </div>
       </header>
 
-      {/* Content */}
-      <div className="mx-auto max-w-6xl px-6 py-8">
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-          {/* Text Panel */}
-          <section className="rounded-lg border border-black/[.06] bg-white p-6 dark:border-white/[.08] dark:bg-zinc-950">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-              Text
-            </h2>
-            {document.content.trim() ? (
+      {/* Content — one centered content-first canvas: the document-level visual in
+          its own inline slot, then prose with anchored visuals rendered inline
+          beneath their source paragraph (reusing MarkdownPreview + VisualRenderer). */}
+      <div className="mx-auto w-full max-w-3xl px-6 py-10 sm:py-14">
+        {hasContent || visual ? (
+          <div className="flex flex-col gap-6">
+            {visual ? (
+              <div className="flex flex-col gap-2">
+                <span className="text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+                  Document visual
+                </span>
+                <div className="overflow-hidden rounded-xl border border-black/[.06] bg-white dark:border-white/[.08] dark:bg-zinc-950">
+                  <VisualRenderer visual={visual} className="h-auto w-full" />
+                </div>
+              </div>
+            ) : null}
+
+            {hasContent ? (
               <MarkdownPreview
                 source={document.content}
                 visuals={blockVisuals}
               />
-            ) : (
-              <p className="text-sm text-zinc-400 dark:text-zinc-600">
-                No content yet.
-              </p>
-            )}
-          </section>
-
-          {/* Visual Panel */}
-          <section className="rounded-lg border border-black/[.06] bg-white p-6 dark:border-white/[.08] dark:bg-zinc-950">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-              Visual
-            </h2>
-            {visual ? (
-              <div className="flex items-center justify-center">
-                <VisualRenderer visual={visual} />
-              </div>
-            ) : (
-              <p className="text-sm text-zinc-400 dark:text-zinc-600">
-                No visual generated yet.
-              </p>
-            )}
-          </section>
-        </div>
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-sm text-zinc-400 dark:text-zinc-600">
+            This document is empty.
+          </p>
+        )}
       </div>
     </main>
   );

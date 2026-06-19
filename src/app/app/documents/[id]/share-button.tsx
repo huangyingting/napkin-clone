@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { PILL_CONTROL_CLASS } from "./control-styles";
 import { toggleDocumentSharing } from "./actions";
 
 type ShareState = {
@@ -82,24 +83,17 @@ export function ShareButton({
   }, [showMenu]);
 
   return (
-    <div className="relative">
+    <div ref={menuRef} className="relative">
       <button
         type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setShowMenu(!showMenu);
-        }}
-        className="rounded-full border border-black/[.06] px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-white/[.08] dark:text-zinc-300 dark:hover:bg-zinc-800"
+        onClick={() => setShowMenu((value) => !value)}
+        className={PILL_CONTROL_CLASS}
       >
         Share
       </button>
 
       {showMenu && (
-        <div
-          ref={menuRef}
-          onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 top-full z-10 mt-2 w-80 rounded-lg border border-black/[.06] bg-white p-4 shadow-lg dark:border-white/[.08] dark:bg-zinc-900"
-        >
+        <div className="absolute right-0 top-full z-10 mt-2 w-80 rounded-lg border border-black/[.06] bg-white p-4 shadow-lg dark:border-white/[.08] dark:bg-zinc-900">
           <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
             Share this document
           </h3>
