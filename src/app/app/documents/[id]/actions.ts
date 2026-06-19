@@ -9,6 +9,7 @@ import { collectVisualNodes } from "@/lib/lexical/visual-nodes";
 import { lexicalStateToPlainText } from "@/lib/lexical/plain-text";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
+import { buildShareSegment, slugify } from "@/lib/slug";
 import {
   VISUAL_KIND_TO_PRISMA,
   safeParseVisual,
@@ -502,26 +503,72 @@ export async function toggleDocumentSharing(
 ): Promise<{
   isShared: boolean;
   shareId: string | null;
+  slug: string | null;
   shareUrl: string | null;
 }> {
   const user = await requireUser();
 
-  // Generate a new shareId when enabling, clear it when disabling.
+  // Generate a new shareId when enabling, clear it when disabling. When
+  // enabling, also derive a readable (decorative) slug from the document title
+  // for the share URL; clear it when disabling.
   const shareId = isShared ? generateShareId() : null;
+
+  let slug: string | null = null;
+  if (isShared) {
+    const doc = await prisma.document.findFirst({
+      where: { id, ownerId: user.id },
+      select: { title: true },
+    });
+    if (doc) {
+      slug = await generateUniqueSlug(doc.title, id);
+    }
+  }
 
   await prisma.document.updateMany({
     where: { id, ownerId: user.id },
-    data: { isShared, shareId },
+    data: { isShared, shareId, slug },
   });
 
-  // Build the public URL when shared; null otherwise.
+  // Build the public URL when shared; null otherwise. The slug is decorative;
+  // the canonical shareId is always the part after the last hyphen.
   const shareUrl =
     isShared && shareId
-      ? `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/share/${shareId}`
+      ? `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/share/${buildShareSegment(slug, shareId)}`
       : null;
 
   revalidatePath(`/app/documents/${id}`);
   revalidatePath("/app");
 
-  return { isShared, shareId, shareUrl };
+  return { isShared, shareId, slug, shareUrl };
+}
+
+/**
+ * Generates a slug from `title` that is unique across documents (the
+ * `Document.slug` column is `@unique`). Tries the bare slugify result first,
+ * then appends `-2`, `-3`, … until free. Excludes the current document so
+ * re-sharing keeps a stable slug. Returns `null` when the title has no usable
+ * slug characters.
+ */
+async function generateUniqueSlug(
+  title: string,
+  currentDocId: string,
+): Promise<string | null> {
+  const base = slugify(title);
+  if (!base) {
+    return null;
+  }
+
+  let candidate = base;
+  for (let n = 2; n < 1000; n++) {
+    const existing = await prisma.document.findFirst({
+      where: { slug: candidate, NOT: { id: currentDocId } },
+      select: { id: true },
+    });
+    if (!existing) {
+      return candidate;
+    }
+    candidate = `${base}-${n}`;
+  }
+  // Extremely unlikely fallback: leave slug unset rather than loop forever.
+  return null;
 }

@@ -44,3 +44,29 @@ export function slugify(title: string): string {
   const truncated = base.slice(0, MAX_SLUG_LENGTH).replace(/-+$/g, "");
   return truncated;
 }
+
+/**
+ * Builds the URL path segment used in a share/embed link from a (possibly
+ * empty) decorative slug and the canonical shareId.
+ *
+ * - With a slug: `<slug>-<shareId>` (the shareId is always the part after the
+ *   last hyphen, since the shareId alphabet never contains a hyphen).
+ * - Without a slug: just `<shareId>` (legacy/bare form).
+ */
+export function buildShareSegment(
+  slug: string | null | undefined,
+  shareId: string,
+): string {
+  return slug ? `${slug}-${shareId}` : shareId;
+}
+
+/**
+ * Extracts the canonical shareId from a share/embed URL segment that may be
+ * either the legacy bare shareId or the `<slug>-<shareId>` form. Because the
+ * shareId alphabet contains no hyphens, the real id is always the substring
+ * after the last hyphen (or the whole segment when there is none).
+ */
+export function shareIdFromParam(param: string): string {
+  const idx = param.lastIndexOf("-");
+  return idx === -1 ? param : param.slice(idx + 1);
+}

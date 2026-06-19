@@ -2911,3 +2911,39 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   words"`) lives in the header controls row, which is `flex-wrap` + each control is
   `min-w-0 shrink truncate`, so it wraps instead of overflowing at 375px (verified
   `scrollWidth - clientWidth === 0` at 375/768/1280).
+
+### Slug-based readable share/embed URLs (Ghost US-028)
+
+- **Share URLs are `/share/<slug>-<shareId>`** (embed: `/embed/<slug>-<shareId>`).
+  The `<slug>` is decorative (from the title via `slugify`, US-027); the canonical
+  12-char `shareId` is ALWAYS the segment after the **last** hyphen (the shareId
+  alphabet `23456789abc…XYZ` contains NO hyphen, so splitting on the last `-` is
+  always safe). Two pure helpers in `src/lib/slug.ts`: `buildShareSegment(slug,
+  shareId)` (omits an empty/null slug → bare `shareId`) and `shareIdFromParam(param)`
+  (`lastIndexOf("-")`; returns the whole param when there's no hyphen → legacy bare
+  ids still resolve). Both are unit-tested in `slug.test.ts`.
+- **Resolve in the read pages with `shareIdFromParam`:** `/share/[shareId]` and
+  `/embed/[shareId]` (`page.tsx`) do `const resolvedShareId =
+  shareIdFromParam(shareId)` then `findFirst({ where: { shareId: resolvedShareId,
+  isShared: true, deletedAt: null } })`. Handles BOTH the bare and slug forms; an
+  unknown/non-shared id still `notFound()`s. The slug part is never looked up.
+- **`toggleDocumentSharing` (`documents/[id]/actions.ts`) stores a slug when
+  enabling.** `Document.slug` is `@unique` (US-027), so a same-titled doc would
+  collide — `generateUniqueSlug(title, currentDocId)` tries `slugify(title)` then
+  `-2`, `-3`, … excluding the current doc (stable across re-shares), returns `null`
+  when the title has no slug chars. On disable it clears `slug` (and `shareId`). The
+  action now returns `slug` too and builds `shareUrl` via `buildShareSegment`.
+- **Plumb the slug to the displayed URL on initial load:** the editor page selects
+  `slug` and passes `initialSlug` → `LexicalEditor` → `ShareButton`, which seeds its
+  `shareUrl` with `buildShareSegment(initialSlug, initialShareId)` so an
+  already-shared doc shows the slug form before any toggle. The embed snippet derives
+  from `shareUrl.replace("/share/", "/embed/")`, so it inherits the slug form for free.
+- **Browser QA:** open the signup-seeded "Welcome to Napkin Clone" doc, open Share,
+  toggle on — the read-only URL `input[readonly]` value is
+  `/share/welcome-to-napkin-clone-<shareId>` and the `textarea[aria-label="Embed
+  code"]` snippet uses the matching `/embed/...` form. GOTCHA: the editor canvas card
+  overlays the Share dropdown, so Playwright `.click()` (even `{force:true}`) on the
+  in-menu toggle switch is pointer-intercepted — open the menu and flip the toggle via
+  `page.evaluate(() => button.click())` (real DOM click → React onClick fires). Verify
+  both `/share/<slug>-<id>` and the bare `/share/<id>` curl to 200; an arbitrary slug
+  in front of the real id also resolves (200); unknown id → 404.

@@ -2,11 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { buildShareSegment } from "@/lib/slug";
+
 import { toggleDocumentSharing } from "./actions";
 
 type ShareState = {
   isShared: boolean;
   shareId: string | null;
+  slug: string | null;
   shareUrl: string | null;
 };
 
@@ -14,18 +17,21 @@ export function ShareButton({
   id,
   initialIsShared,
   initialShareId,
+  initialSlug = null,
 }: {
   id: string;
   initialIsShared: boolean;
   initialShareId: string | null;
+  initialSlug?: string | null;
 }) {
   const [showMenu, setShowMenu] = useState(false);
   const [shareState, setShareState] = useState<ShareState>({
     isShared: initialIsShared,
     shareId: initialShareId,
+    slug: initialSlug,
     shareUrl:
       initialIsShared && initialShareId
-        ? `${typeof window !== "undefined" ? window.location.origin : ""}/share/${initialShareId}`
+        ? `${typeof window !== "undefined" ? window.location.origin : ""}/share/${buildShareSegment(initialSlug, initialShareId)}`
         : null,
   });
   const [copying, setCopying] = useState(false);

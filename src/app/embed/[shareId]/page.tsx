@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { LexicalReadOnly } from "@/components/lexical/lexical-read-only";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { prisma } from "@/lib/prisma";
+import { shareIdFromParam } from "@/lib/slug";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
 export const metadata: Metadata = {
@@ -28,10 +29,14 @@ export default async function EmbedPage({
 }) {
   const { shareId } = await params;
 
+  // The URL segment may be the legacy bare shareId or the decorative
+  // `<slug>-<shareId>` form; resolve the canonical shareId from it.
+  const resolvedShareId = shareIdFromParam(shareId);
+
   // Resolve the document by shareId and verify it is actually shared (same
   // scoping as the read-only share page).
   const document = await prisma.document.findFirst({
-    where: { shareId, isShared: true, deletedAt: null },
+    where: { shareId: resolvedShareId, isShared: true, deletedAt: null },
     select: {
       title: true,
       content: true,

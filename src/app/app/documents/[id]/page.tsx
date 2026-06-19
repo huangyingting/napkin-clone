@@ -45,6 +45,7 @@ export default async function DocumentEditorPage({
       contentJson: true,
       isShared: true,
       shareId: true,
+      slug: true,
       ownerId: true,
       workspaceId: true,
       workspace: {
@@ -88,6 +89,7 @@ export default async function DocumentEditorPage({
       initialStateJson={initialStateJson}
       initialIsShared={document.isShared}
       initialShareId={document.shareId}
+      initialSlug={document.slug}
       canEdit={canEdit}
       workspaceName={document.workspace?.name}
       userName={user.name ?? user.email ?? "Anonymous"}

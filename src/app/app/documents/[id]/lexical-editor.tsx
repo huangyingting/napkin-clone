@@ -188,6 +188,7 @@ export function LexicalEditor({
   initialComments = [],
   initialIsShared = false,
   initialShareId = null,
+  initialSlug = null,
 }: {
   documentId: string;
   initialTitle: string;
@@ -199,6 +200,7 @@ export function LexicalEditor({
   initialComments?: CommentThread[];
   initialIsShared?: boolean;
   initialShareId?: string | null;
+  initialSlug?: string | null;
 }) {
   const collab = useLexicalCollaboration({ room: documentId, userName });
 
@@ -385,6 +387,7 @@ export function LexicalEditor({
                   id={documentId}
                   initialIsShared={initialIsShared}
                   initialShareId={initialShareId}
+                  initialSlug={initialSlug}
                 />
                 <CommentsPanel
                   documentId={documentId}
