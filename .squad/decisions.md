@@ -969,6 +969,639 @@ build` compiled successfully.
 
 **Why:** Phases 0–4 shipped the redesigned editor (EditorContext, ToolRegistry, deterministic visual insert, theme-first restyle, expanded text capabilities) but the design lived only in `.squad/decisions.md` history. A real engineer extending the system needs one accurate, code-cited doc that makes the invariants explicit and the extension points obvious, so the system stays maintainable and coherent as it grows (Phase 5 hardening and beyond).
 
+# Display styles as holistic presets, not additional theme dimensions
+
+**By:** Switch (Frontend)
+**Issue:** #6 — Visual style gallery
+**Date:** 2026-06-19
+
+## Decision
+
+Introduced `VisualDisplayStyle` as a **holistic presentation preset** (node shape + edge style + font weight + color profile) rather than expanding `VisualStyle` with new optional fields or adding a `displayStyleId` to the schema.
+
+## Rationale
+
+1. **No schema migration needed.** All the fields a display style controls (`shape` per node, `style` per edge, `fontWeight`, colors) already exist in the schema. The pure transform `applyDisplayStyle` writes to these existing fields — it requires no version bump and existing visuals round-trip unchanged.
+
+2. **`isDisplayStyleActive` over persisted ID.** Active-state detection works by comparing current visual values against the preset (like the existing `isThemeActive`), rather than storing a `displayStyleId` in the Visual. This avoids a new persisted field that would drift out of sync after any manual color tweak.
+
+3. **Holistic over compositional.** A display style bundles shape + connector + weight + colors as one aesthetic unit rather than three orthogonal axes. This produces clearly-distinct thumbnail previews (the gallery's purpose) and prevents incoherent combinations (e.g., "bolt" font weight with "soft bubble" shapes).
+
+4. **Shapes applied globally.** `applyDisplayStyle` sets every node to the preset's `nodeShape`, overriding per-node shape differences (e.g., decision diamonds in a flowchart). This is intentional for gallery preview consistency — the user explicitly chose a style. Per-node color overrides are preserved since those are intentional user fine-tuning.
+
+## Trade-offs
+
+- Global shape override may feel heavy for flowcharts with semantic shape-coding (start/end/decision). Users can adjust via kind-switch or per-node overrides after applying a style.
+- `isDisplayStyleActive` returns `false` if any color/shape/edge has been manually tweaked after applying a style. This is correct — "no active preset" is the right signal when the visual diverges from any known preset.
+
+
+# Elastic auto-layout: content-aware, toggleable, per-positioned-kind
+
+**By:** Switch (Frontend)
+**Issue:** #15 — "Elastic designs: content-aware auto-layout"
+**Date:** 2026-06-19
+
+## What
+
+Added a content-aware elastic auto-layout pass for positioned visual kinds
+(flowchart / mindmap / concept / venn / orgchart).
+
+**New module: `src/components/visual/elastic-layout.ts`** — pure, deterministic,
+non-mutating. Key exports:
+- `estimateLabelBox(label, fontSize)` — estimates node bounding box from text
+  length × char-width ratio + padding; no DOM access, unit-testable.
+- `wrapText(text, maxChars)` — mirrors the renderer's greedy word-wrap so
+  estimates match what's drawn.
+- `elasticLayout(visual)` — per-kind layout pass (flowchart → column, mindmap/
+  concept/venn → radial, orgchart → BFS tree); computes grown `width`/`height`
+  so the SVG viewBox expands to contain all nodes + margin.
+- `contentBounds(nodes)` — tight bounding rect over all placed nodes.
+- `rectsOverlap(a, b)` — overlap predicate (used in tests + non-overlap guarantees).
+
+**Schema change (`src/lib/visual/schema.ts`):**
+- Added optional `autoLayout?: boolean` to `Visual`. Defaults `undefined` (= `false`).
+  Backward compatible; `validateVisual` accepts and round-trips it.
+
+**Transforms (`src/lib/visual/transforms.ts`):**
+- `applyElasticLayout(visual)` — no-op when `autoLayout` is falsy; applies elastic
+  layout pass + grows canvas when `autoLayout: true`.
+- `setAutoLayout(visual, enabled)` — toggles the flag and immediately runs the
+  pass when enabling (so the canvas is correct on first enable).
+- `setVisualKind` updated to call `applyElasticLayout` after a kind switch when
+  `autoLayout` is set, so switching to flowchart/mindmap/concept with the flag on
+  produces a properly laid-out result immediately.
+
+**`visual-card.tsx`** wraps `updateVisual` to call `applyElasticLayout(next)` on
+every content change. Because `applyElasticLayout` is a no-op when `autoLayout`
+is falsy, existing visuals are unaffected.
+
+**`visual-editor.tsx`** disables drag (`positioned = isPositionedKind && !autoLayout`)
+when auto-layout is active — manual drag and auto-layout are mutually exclusive by
+design; the user can toggle one off to get the other.
+
+**`visual-context-popover.tsx`** exposes an accessible toggle switch in the
+"Frame & Canvas" section (only visible for positioned kinds). Also preserves the
+`autoLayout` flag when the user applies AI-generated variations, so their
+layout preference survives regeneration.
+
+## Why
+
+Long labels and many nodes on positioned kinds overlap because the static
+initial layout assigns fixed positions at creation time and never revisits them
+as the diagram evolves. The elastic pass re-flows the canvas deterministically on
+any content change (label edit, node delete, type switch), growing the viewBox
+rather than clipping or overlapping.
+
+The opt-in flag (`autoLayout`, default off) means existing visuals and workflows
+that rely on manual positioning are untouched. New-to-auto-layout visuals can
+enable it with one click and get a always-crisp canvas.
+
+## Trade-offs / alternatives considered
+
+- **DOM measurement** (SVGElement.getComputedTextLength) was considered but
+  rejected: it requires a browser context, is async, and breaks server-component
+  render + unit tests. The character-ratio estimate is 2–5% off in practice but
+  adds zero overhead and is fully deterministic.
+- **Running elastic layout on drag** was considered and rejected: drag + auto-
+  layout would fight each other. Instead they are mutually exclusive — auto-layout
+  disables drag, giving the user a clear mental model.
+- **Default auto-layout on for new visuals** was deferred: the task required
+  backward compatibility and the default must "not surprise existing visuals".
+  Users can enable it per-visual via the toggle.
+
+
+# Element Styling: schema-first, forgiving validation, inline SVG defs
+
+**By:** Switch (Frontend Developer)
+**Date:** 2026-06-19
+
+## What
+
+Added `arrowStyle`, `lineStyle`, `lineWidth` to `VisualEdge` and `fillStyle`, `borderStyle`, `borderWidth`, `textAlign` to `VisualNode` as optional, backward-compatible schema fields (PR #30, closes issue #18).
+
+## Key decisions
+
+1. **All new fields are optional and forgiving** — unknown enum values are silently dropped during `validateVisual` (matching the existing pattern for `edge.style`, node `icon`, etc.). Old serialized visuals without any new field continue to validate and render exactly as before. No migration needed.
+
+2. **Gradient fills use inline `<linearGradient>` defs inside the SVG** — `VisualRenderer` now renders a `<GradientDefs>` block before the background rect, generating one `<linearGradient id="grad-{nodeId}">` per gradient node. This keeps the SVG self-contained for SVG export (serializer captures the defs) and PNG/PDF export (canvas rasterizes them). The gradient id is derived from the node id, never a color hash, to avoid collisions.
+
+3. **Arrowhead variants are explicit drawn shapes (not SVG markers)** — continuing the existing pattern in the renderer. Filled triangle (default), open chevron (`<polyline>`), circle (`<circle>`), diamond (`<polygon>`). No `<marker>` elements → no id-collision issues during hydration or multi-instance renders.
+
+4. **Bulk edge controls in the UI** — since the current popover has no per-edge selection, `setAllEdgesStyle` applies connector style changes to all edges simultaneously. Per-edge selection can be added later; the transforms are already per-edge.
+
+5. **`resetNodeExtStyle` is separate from `resetNodeStyle`** — the existing `resetNodeStyle` clears color overrides (color/stroke/textColor). The new `resetNodeExtStyle` clears the ext-style fields (fillStyle/borderStyle/borderWidth/textAlign). The "Reset element" button in the UI chains both to give a full reset.
+
+## Why
+
+Separating the reset functions keeps each transform composable and testable in isolation; the UI can choose to reset only colors or only presentation without the two concerns bleeding into each other.
+
+
+# Decision: Pure string-based SVG transforms for export options
+
+**By:** Switch (Frontend Developer)
+**Date:** 2026-06-19
+**Issue:** #17
+
+## What
+
+The export-options transform layer (`src/lib/visual/export-options.ts`) operates
+entirely on raw SVG strings rather than a DOM API (no `DOMParser`, no `querySelector`).
+This makes all transform logic testable in Node without jsdom or a browser context,
+matching the existing `*.test.ts` pattern (node --test + tsx).
+
+## Why
+
+- The existing test suite runs with `node --test` and has zero browser/DOM dependencies.
+  Keeping transforms DOM-free means the 20 new tests run in the same runner with no setup.
+- SVG string transforms (regex-based rect/filter injection) are sufficient for the
+  three required operations: strip background rect, inject background rect, inject
+  greyscale feColorMatrix filter.
+- The DOM serialization step (`buildTransformedSvgString`) is kept at the
+  browser boundary in export.ts so callers that do have an SVGSVGElement can
+  pass it directly.
+
+## Trade-off
+
+Regex-based SVG manipulation is fragile for deeply nested/complex SVGs.
+The approach is intentionally scoped: we only operate on the outermost `<svg>`
+tag, the first `<defs>` block, and a leading background `<rect>`. Any future
+requirement to inspect/modify interior SVG nodes should move to a DOM-based
+approach (e.g. `DOMParser` in a worker).
+
+
+# Frame & Canvas Settings — Aspect-ratio presets, Canvas style, Page-break indicators
+
+**Date:** 2026-06-19
+**Author:** Switch (Frontend)
+**Issue:** #16
+
+## Decision: Schema-level frame settings on Visual, not a document wrapper
+
+Frame settings (`aspectRatio`, `canvasStyle`) are stored as optional fields directly on the `Visual` schema object rather than in a separate document-level wrapper or a new Prisma column. This keeps the data model flat, preserves backward-compatibility (missing fields default to existing behaviour), and means every existing `validateVisual` caller gets the new fields for free.
+
+## Decision: Letterboxing via pure SVG string transform in export-options.ts
+
+Aspect-ratio recomposition is implemented as a pure string transform (`applyAspectRatioToSvg`) that expands the SVG `viewBox` and wraps the content in a `<g transform="translate(...)">`. This runs *after* background/mono transforms in the pipeline and works for all three export formats (PNG, PDF, PPTX image fallback) without DOM or canvas changes.
+
+## Decision: Canvas style patterns as embedded SVG `<pattern>` defs
+
+Canvas style backgrounds (ruled lines, dot-grid) use SVG `<pattern>` elements in `<defs>` inside the `VisualRenderer` SVG output. Because they are embedded in the SVG itself they are preserved in all export formats — no extra post-processing step needed. Pattern color inherits from `style.edgeColor` so it stays in theme.
+
+## Decision: Page-break indicator is client-side only, default off
+
+The `PageBreakIndicator` component uses a `ResizeObserver` to measure the content area height on the client, which makes it incompatible with SSR. It is mounted conditionally behind a toolbar toggle (default off) to keep the initial page load unaffected. The underlying `computePageBreaks` helper is a pure function tested under `node --test`.
+
+## Decision: One-click download respects aspectRatio from Visual
+
+The hover download button on `VisualCard` reads `visual.aspectRatio` and passes it as an `ExportOptions` field to `exportPNG`, so the downloaded PNG matches what the full export dialog would produce. This ensures the quick-download and the export dialog are consistent without code duplication.
+
+
+# Decision: Hand-rolled i18n via cookie — no external library
+
+**By:** Switch (Frontend Developer)
+**Date:** 2026-06-19
+**Issue:** #9 — Multi-language support
+
+## What
+Implemented the i18n layer as a hand-rolled module (`src/lib/i18n/`) with:
+- A typed `Messages` flat-key catalog (`en` + `es`).
+- `createTranslator(locale)` returning a typed `t(key, ...args)` that interpolates function-type message values.
+- Server-side locale resolution from the `napkin-locale` cookie via `next/headers` (`getLocale()` in `server.ts`).
+- A `setLocaleCookie()` server action (avoids `document.cookie` assignment which trips the `react-hooks/immutability` ESLint rule in next/core-web-vitals).
+- A React context (`LocaleProvider` + `useOptimistic`) seeded from the server-resolved locale for SSR-safe hydration.
+
+## Why
+
+### No library dependency
+The app has no existing i18n library and adding one (next-intl, react-i18next, etc.) would:
+- Add a non-trivial bundle to every page.
+- Require configuring middleware, path-based routing, or additional wrappers that conflict with the existing App Router structure.
+- Lock in conventions that the team hasn't evaluated.
+
+A flat key catalog with a typed accessor covers 100% of the required surface in <150 LoC and is fully tree-shakeable.
+
+### Cookie over URL prefix
+Using a `napkin-locale` cookie instead of `/en/...` URL prefixes avoids:
+- Changing all existing routes and links.
+- Adding a `next.config.js` i18n block that can conflict with the custom `server.mjs`.
+- Redirect loops for existing bookmarks.
+
+The trade-off is that the locale isn't in the URL (less SEO-friendly for multi-locale indexing). This is acceptable for an authenticated productivity app where the marketing pages are the primary SEO surface — if that changes, adding URL prefixes is an incremental migration.
+
+### `useOptimistic` in `LocaleProvider`
+Gives instant UI feedback on language switch without waiting for the server action round-trip + `router.refresh()`. The optimistic value is discarded in favour of the server-confirmed value on next render.
+
+## Follow-up
+- Evaluate whether the marketing home page (`/`) warrants URL-based locale routing for SEO.
+- Add locales incrementally as translations become available; the catalog pattern supports it with zero structural change.
+
+
+# Mobile-Viewing: Pointer-Type Gating Strategy for Editing Affordances
+
+**By:** Switch (Frontend Developer)
+**Date:** 2026-06-19
+**Issue:** #12 — Mobile-optimized viewing for documents and shared links
+
+## Decision
+
+Gate desktop-only hover/mouse editing affordances (`FloatingTextToolbar`, `BlockSparkPlugin` gutter button, `InsertMenuPlugin` gutter `+` button) behind a `useIsPointerFine()` hook rather than CSS breakpoints.
+
+## Rationale
+
+The gutter buttons and floating toolbar are rendered via `createPortal` at fixed/absolute viewport coordinates computed from DOM rect measurements. A CSS `hidden md:block` breakpoint wouldn't reach them (they render outside the component tree). A `@media (pointer: coarse)` CSS rule would require adding a class to the portal elements, which is fragile.
+
+`window.matchMedia('(pointer: fine)')` directly queries the pointing device capability (mouse vs touch) rather than a viewport size proxy. This is the correct signal because:
+- A small tablet with a stylus should still show editing affordances.
+- A phone connected to a Bluetooth mouse should show them too.
+- Resizing a browser window to a narrow width on desktop should NOT hide the affordances.
+
+The `/` slash trigger in `InsertMenuPlugin` is intentionally **not** gated — it fires from text input and works equally well on touch keyboards, so mobile users retain a path to insert blocks/visuals.
+
+## Trade-offs
+
+- SSR renders `true` (all controls shown) and the hook corrects on hydration. This means touch users see a brief flash of controls on mount. Acceptable trade-off to avoid SSR/hydration mismatch.
+- Pointer type can change at runtime (plugging in a mouse). The hook subscribes to `MediaQueryList.change` so it reacts correctly.
+
+## Alternative Considered
+
+CSS `@media (pointer: coarse) { [data-gutter-control] { display: none } }` — rejected because portal elements are attached to `document.body` and don't inherit Tailwind's scoped theme; adding data attributes to each portal is more invasive than a single shared hook.
+
+
+# Text-Visual Sync: source-text persistence + in-place merge
+
+**By:** Switch (Frontend)  
+**Issue:** #14  
+**Date:** 2026-06-19
+
+## What
+
+Added end-to-end text-visual sync: visuals now remember the block text they were generated from and can be resynchronised in-place without losing manual style customisations.
+
+Key decisions:
+
+1. **`sourceText`/`sourceTextHash` on `Visual` schema** — Added as optional fields so all existing visuals remain valid (backward compatible). Set at AI insert time (block-spark); NOT set for blank inserts. `sourceTextHash` is a pure FNV-1a 32-bit hash stored for fast comparison; staleness detection uses string equality directly (trimmed).
+
+2. **`mergeVisualContent(old, new)` pure transform** — Content from `newVisual`, global style from `oldVisual`, per-node overrides re-applied by label match then index fallback. Lives in `transforms.ts` alongside other pure transforms. Does NOT carry over `sourceText`/`sourceTextHash` — the sync handler stamps them after merging.
+
+3. **currentSourceText from preceding sibling** — `VisualCard` reads the immediately preceding Lexical block text on every editor update via `registerUpdateListener`. This is the most pragmatic proxy for "the anchor block" without requiring a persistent anchor id, and it survives the common pattern where a visual is inserted right after its source block.
+
+4. **Auto-apply first candidate on sync** — Unlike "More variations" (which shows a picker), Sync applies the first valid candidate immediately. This keeps the UX instant and consistent with the "update in-place" mental model. A future iteration could show candidates before committing.
+
+5. **Sync path uses existing `/api/generate`** — No new API endpoint; the same quota/rate-limit logic applies. The client-side `runSync` callback is identical in shape to `runGenerate` except it calls `mergeVisualContent` on the result rather than replacing the visual wholesale.
+
+## Why
+
+Storing sourceText on insertion is the minimal addition that makes staleness detection possible without a separate anchor-tracking system. The pure merge function keeps style preservation testable in isolation (21 unit tests, no LLM calls). Using the preceding-sibling heuristic avoids the complexity of persisting a stable anchor id across Yjs sessions.
+
+
+# Visual type catalog: first batch (venn, pyramid, matrix, orgchart)
+
+**Date:** 2026-06-19
+**By:** Switch (Frontend Developer)
+**Issue:** #8
+**PR:** #27
+
+## Decision
+
+Added four new `VisualKind` values to the catalog in a single PR, scoped to the highest-reuse / lowest-risk additions:
+
+- **venn** — positioned kind (x/y/width); renderer draws semi-transparent circles; label at upper-center of each circle
+- **pyramid** — auto-layout kind; bands widen linearly from apex (first node) to base (last node); mirrors funnel shape logic but reversed
+- **matrix** — auto-layout kind; nodes grouped by `value` 0–3 into 2×2 quadrant cells with dashed divider lines; first node per quadrant is the title
+- **orgchart** — positioned kind reusing flowchart/mindmap x/y infrastructure; edges without arrowheads; rectangular nodes
+
+## Key choices
+
+1. **Reuse positioned-node infrastructure for venn and orgchart.** Added both to `POSITIONED_KINDS` so drag support and `edgeSegments` work without new code paths.
+
+2. **Pyramid mirrors funnel layout, not a new engine.** Band widths are derived from position (linear interpolation minFrac→maxFrac), avoiding a `value` field requirement. First node = apex, last = base.
+
+3. **Matrix uses `value` as quadrant index (0–3), matching comparison's `value`-as-column-index convention.** Multiple nodes can share a quadrant (stacked vertically), consistent with how comparison handles multi-item columns.
+
+4. **tool-registry.ts VISUAL_KIND_META kept in sync.** The insert-menu lookup `VISUAL_KINDS.map(kind => VISUAL_KIND_META[kind])` would throw at runtime for any kind without a meta entry — added entries for all four kinds immediately.
+
+## Deferred
+
+table/grid, roadmap/Gantt, advanced infographic callouts, chart/timeline/comparison design variants — explicitly out of scope per issue #8.
+
+
+# Brand Studio: Custom brand styles (US-007)
+
+**By:** Tank (Backend)  
+**Date:** 2026-06-19
+
+## What
+
+Added a `Brand` Prisma model (owner-scoped, palette/colors/fontFamily/logoUrl) with full CRUD server actions, a `/app/brands` page (Brand Studio), and integration into the visual context popover ("Brand Styles" section with apply-to-this + apply-to-all).
+
+## Key decisions
+
+### Font embedding approach
+Custom font uploads return a `data:` URL (base64) that is injected as a `@font-face` style element in the browser at the point of upload/apply. Google Fonts are injected as `<link rel="stylesheet">` tags when a brand is applied. This means:
+- **SVG export**: font is embedded if the SVG is rendered with the `@font-face` style in scope (works in browser download).
+- **PNG export**: works because the canvas rasterizes from the in-page SVG which already has the font loaded.
+- **PDF export**: jsPDF embeds the SVG as an image — font renders if loaded in browser at export time.
+- **PPTX export**: pptxgenjs also uses image-based embedding, so fonts render as rasterized.
+- **Limitation**: data-URL fonts are NOT transferred to the server, so server-side rendering (SSR thumbnails) will fall back to system fonts. Document this clearly.
+
+### Apply-to-all
+Uses `$nodesOfType(VisualNode)` inside `editor.update()` to find all visual nodes and restyle them with the brand. This is Yjs-safe (goes through `node.setVisual()`, a local edit flowing through the Lexical → Yjs binding). The font injection happens before the update so the canvas has the font loaded.
+
+### Logo palette extraction
+Client-side canvas extraction (64×64 downscale, 4-bit quantization, frequency-sorted). Server-side extraction returns an empty array (no image processing deps added). The client-side extraction seeds the palette automatically after logo upload.
+
+### Palette storage
+Postgres: `JSONB`. SQLite: `TEXT` (Prisma serializes JSON to string). The `toBrandStyle` serializer in the actions handles the array coercion.
+
+## Deferred
+
+- **Palette extraction from server side**: would need `sharp` or `jimp`. Currently client-only.
+- **Font persistence**: custom font data-URLs are stored in `fontFamily` field or as a `@font-face` injected client-side; they do NOT survive a hard page refresh unless re-uploaded. A future follow-up could store the font file in object storage and reference it by URL.
+- **Brand → document link**: brands are applied per-session; no DB record of "which brand is applied to document X". Future follow-up.
+
+
+# Tank — Document-level Export Architecture
+
+**Date:** 2026-06-19  
+**By:** Tank (Backend Developer)  
+**Issue:** #5
+
+## Decision
+
+### 1. Block-collection is a pure, headless function
+
+`collectDocumentBlocks(state)` (in `src/lib/visual/document-export.ts`) walks the
+serialised Lexical JSON tree (`{ root: { children } }`) and returns a flat ordered
+array of `DocumentBlock` values — `DocumentTextBlock` (heading / paragraph / quote /
+listitem / hr) or `DocumentVisualBlock` (visualId + Visual payload). It has no browser
+or React dependencies, so it is fully testable under `node --test`.
+
+The PDF/PPTX assembly functions (`exportDocumentAsPDF`, `exportDocumentAsPPTX`) are
+browser-only (they use jsPDF, pptxgenjs, and the canvas API for PNG conversion) and are
+kept in the same module but never imported by test files. This mirrors how
+`collectVisualNodes` / `lexicalStateToPlainText` work in the existing codebase.
+
+### 2. VisualSvgRegistry context for live SVG elements
+
+Each `VisualCard` registers a `getSvg` callback (keyed by `visualId`) in a
+`VisualSvgRegistry` React context (Map<visualId, () => SVGSVGElement | null>).
+This lets the document export button resolve every visual's live, already-rendered
+SVG element without DOM traversal. A stable-ref wrapper in
+`useRegisterVisualSvg` prevents spurious re-registrations.
+
+The registry is populated regardless of whether the card is in read-only or editable
+mode: `VisualRenderer` now receives `ref={rendererRef}` in all three render branches of
+`VisualCard` (editing controls open, clickable button, read-only). This is a small
+additive change with no behaviour impact on the per-visual export path.
+
+### 3. visualId is passed as a prop to VisualCard
+
+`VisualNode.decorate()` now passes `visualId={this.__visualId}` alongside `visual=` and
+`nodeKey=` to `VisualCard`. This is the stable document-level identity that lets the
+export registry match `collectDocumentBlocks` output to the live SVG getter. No NodeKey
+is persisted (consistent with the existing collab contract).
+
+### 4. DocumentExportButton lives inside LexicalComposer
+
+The new `DocumentExportButton` component uses `useLexicalComposerContext` to read the
+current editor state on demand (at export time, not on every keystroke). The
+`VisualSvgRegistryProvider` wraps the `LexicalComposer` subtree so both the button and
+the `VisualCard` decorators share the same registry instance.
+
+### 5. PDF layout: text blocks + visual-per-page
+
+The document PDF uses A4 portrait pages. Text blocks (headings at 18/15/13pt,
+paragraphs/quotes at 11pt, list items at 11pt with bullet prefix) are flowed with
+automatic line-wrapping and page breaks. Each visual gets its own A4 page (landscape if
+`viewBox.width > height`), inset at ~10% margins. Documents with zero visuals produce a
+text-only PDF; documents with no text produce visual-only pages.
+
+### 6. PPTX: one slide per visual; title-only fallback
+
+Each visual produces one 10×7.5" slide. The nearest preceding heading (scanning
+backwards from the visual in the block list) becomes the slide title. If there are no
+visuals, a single title slide is emitted so the deck is never empty/invalid.
+
+### 7. Per-visual export is untouched
+
+`ExportMenu` and `exportPDF` / `exportPPTX` in `src/lib/visual/export.ts` are
+unchanged. The new code reuses `exportPNG` as a shared internal (SVG → PNG conversion)
+to avoid duplication.
+
+
+# Document Import: Server-only parsers + Markdown intermediary
+
+**By:** Tank (Backend Developer)
+**Date:** 2026-06-19
+**Issue:** #4
+
+## Decision
+
+All binary format parsers (DOCX via `mammoth`, PPTX via `jszip` + XML extraction, PDF via `pdf-parse` v2) run **server-side only** inside a dedicated `POST /api/import` route (`runtime = 'nodejs'`). Every parser module imports `server-only` to prevent accidental client bundling.
+
+Markdown and HTML are also processed server-side (in the same route) for consistency, even though they could be handled on the client. This keeps all trust-boundary decisions in one place.
+
+## Intermediary format
+
+All parsers normalize their output to the **Markdown subset** already understood by `parseMarkdown` / `markdownToLexicalState`:
+- Headings H1–H3 → `# / ## / ###`
+- Bullets → `- item`
+- Paragraphs → plain lines
+
+The API route returns `{ markdown: string }`. The client passes this directly to the existing `markdownToLexicalState` path (via `useInsertImportedMarkdown`) so no new Lexical serialization logic was needed — the full markdown→Lexical pipeline already existed.
+
+## PPTX approach
+
+PPTX is a ZIP archive. Rather than pull in a heavy PPTX-specific library, `jszip` extracts `ppt/slides/slide*.xml` files and a targeted regex finds `<a:t>` text runs and `<p:ph type="title">` placeholder shapes (promoted to `## headings`). This covers the common outline/bullet structure a typical presentation has.
+
+## pdf-parse v2
+
+The `pdf-parse` package on npm resolved to v2.x which has a completely redesigned API (`new PDFParse({ data: buffer }).getText()`). This is more modern than the legacy v1 `pdf-parse/lib/pdf-parse.js` workaround and wraps `pdfjs-dist` directly. Tested that `PDFParse` constructor accepts a `Buffer` via the `data` field of `LoadParameters`.
+
+## Import within a document = content replacement
+
+When importing inside an open document, the extracted content replaces the entire editor state (`setEditorState({ tag: HISTORIC_TAG })`). This is appropriate because: the user explicitly triggered the action; `HISTORIC_TAG` is the correct tag for deterministic state replacements that should not be re-saved by remote collaborators; and Lexical's undo stack preserves the pre-import state. A future improvement could offer "append" mode.
+
+
+# 2026-06-19: Generation controls — API contract and prompt injection strategy
+
+**By:** Tank (Backend)
+
+## What
+
+Added `orientation`, `detailLevel`, and `stayCloserToText` to the generation API and prompt builder.
+
+**API contract choices:**
+- `orientation`: `"vertical" | "horizontal" | "square" | "auto"` — `"auto"` is explicit rather than omitted so the UI can display it as a real selection without special-casing `undefined`.
+- `detailLevel`: `"detailed" | "summary"` — omitting reproduces today's behavior; no `"auto"` value because the absent case is indistinguishable from "let the model decide".
+- `stayCloserToText`: plain `boolean`; any non-`true` value is silently treated as absent to keep the API forgiving.
+
+**Prompt injection:**
+- Options add lines to the **user message** (not the system prompt) so they are per-request and do not inflate the fixed system prompt token count on every call.
+- Each option is tested by asserting the presence/absence of a key phrase in the user message content, keeping tests fast and deterministic without a real LLM.
+
+**UI defaults:**
+- `GenOptions` is reset to `DEFAULT_GEN_OPTIONS` on panel close so consecutive generations start fresh.
+- The spark gutter button still triggers generation immediately on click, but the panel now also shows a "Generate" button when no candidates exist, which honors the current option state. This is the primary path for typed/configured generation.
+
+## Why
+
+Threading options into the user message (rather than system) is the lowest-cost approach: no system-prompt cache busting, easy to extend, and trivially testable. The `"auto"` sentinel on orientation gives the UI a clean selected state without optional-chaining everywhere.
+
+
+# Monetization: Billing Abstraction & Credit Metering Design
+
+**By:** Tank (Backend)
+**Date:** 2026-06-19
+
+## Decision: MockBillingProvider as default; Stripe behind env-gate
+
+The app must build, test, and run without Stripe credentials in CI. We adopted a `BillingProvider` interface (`changePlan`, `cancelSubscription`) with two implementations:
+
+- **MockBillingProvider** (default) — mutates the DB directly. Zero external deps. Used in CI and local dev.
+- **StripeBillingProvider** — only instantiated when `STRIPE_SECRET_KEY` is set. Uses a dynamic `import(/* webpackIgnore: true */ "stripe")` to avoid bundling the SDK at build time.
+
+The factory `getBillingProvider()` checks `process.env.STRIPE_SECRET_KEY` and returns the appropriate instance.
+
+## Decision: ~1 credit per word; period-reset on first access
+
+Credit cost = `Math.max(1, text.split(/\s+/).filter(Boolean).length)`. Simple, deterministic, matches the spec "~1 credit per word selected".
+
+Period reset: `getUserCreditState()` checks `now >= periodStart + periodDays * ms`. On first access (null periodStart) or expiry, it resets the balance to `creditsPerPeriod` and stamps the new period start. No cron required — lazy reset on next request.
+
+## Decision: Watermark as pure SVG text element via ExportOptions
+
+Free-tier watermark is a `<text>` element injected before `</svg>` via `applyWatermarkToSvg()`. It's a pure string transform (no DOM), so it runs in Node tests. The `ExportOptions.watermark` boolean is set by the caller from `!removeWatermark` entitlement.
+
+## Follow-up required to go live with Stripe
+1. `npm install stripe`
+2. Create Products + Prices in the Stripe dashboard
+3. Set `STRIPE_SECRET_KEY`, `STRIPE_PLUS_PRICE_ID`, `STRIPE_PRO_PRICE_ID`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_APP_URL`
+4. Wire `entitlements` prop into `ExportDialog` from `visual-card.tsx`
+
+
+# Tank — Native PPTX Shape Export Architecture
+
+**Date:** 2026-06-19
+**By:** Tank (Backend Developer)
+**Issue:** #19
+
+## Decision
+
+### 1. Pure descriptor layer (pptx-shapes.ts)
+
+`visualToNativeSpecs(visual, layout)` (in `src/lib/visual/pptx-shapes.ts`) converts
+a `Visual` into an array of `PptxSpec` descriptors — plain serialisable objects that
+describe each shape to draw (rect, ellipse, diamond, hexagon, line, text, or
+image-fallback). The module has **no PptxGenJS import** and no browser dependency,
+so it is fully testable under `node --test`.
+
+The companion `computeVisualSlideLayout(visual, titleAreaH?)` returns a
+`PptxSlideLayout` (offsetX, offsetY, scale) that maps canvas units to slide inches,
+positioning the visual centred within the available slide area (excluding the optional
+title strip).
+
+### 2. PptxGenJS bridge (pptx-apply.ts)
+
+`applySpecsToSlide(slide, specs)` in `src/lib/visual/pptx-apply.ts` translates
+`PptxSpec` descriptors into PptxGenJS `slide.addShape` / `slide.addText` calls. It is
+the only module that imports PptxGenJS. Keeping it separate from the descriptor layer
+preserves the testability contract.
+
+### 3. Native-vs-fallback mapping
+
+11 of 13 visual kinds export as native editable shapes:
+- **Positioned kinds** (flowchart, mindmap, concept, orgchart, venn): nodes → shapes by
+  `node.shape` (rounded/rect/pill/ellipse/diamond/hexagon); edges → line specs with
+  optional arrowheads.
+- **Layout-driven kinds** (list, chart, timeline, cycle, comparison, matrix): geometry
+  derived from the same layout helpers as the SVG renderer so positions match exactly.
+
+2 kinds fall back to a rasterised PNG image:
+- **funnel** and **pyramid**: their band geometry is trapezoidal, which has no direct
+  PptxGenJS shape equivalent. `visualToNativeSpecs` returns `[{ kind: "image-fallback" }]`
+  for these kinds and callers detect it with `isImageFallback(specs)`.
+
+### 4. Backward-compatible API extensions
+
+`exportPPTX(svgElement, visual?)` gains an optional second argument. When `visual` is
+absent (or the kind falls back), the existing PNG-rasterisation path is used unchanged.
+This keeps the `ExportMenu` → `exportPPTX` call backward-compatible for any caller
+that only has an SVG element.
+
+`ExportMenu` gains an optional `getVisual?: () => Visual | null` prop. It is wired
+from `visual-context-popover.tsx` (which already owns the `visual` object) so the
+live payload flows through without needing context or a new provider.
+
+### 5. Document-level PPTX export shares the same mapper
+
+`addVisualSlide` in `document-export.ts` now accepts the `Visual` payload from the
+`DocumentVisualBlock` (already present in the blocks collected by
+`collectDocumentBlocks`) and calls `visualToNativeSpecs` + `applySpecsToSlide` before
+falling back to the image path. The title-area height is forwarded to
+`computeVisualSlideLayout` so the native shapes respect the slide title strip.
+
+### 6. Coordinate system
+
+Canvas coordinates (px) are converted to slide inches via:
+```
+slideX = offsetX + canvasX * scale
+ptFontSize = canvasFontSize * scale * 72
+```
+where `scale = min(availW / visual.width, availH / visual.height)` and `availW/H` is
+85% of the slide area (margin keeps shapes from touching the slide edge).
+
+
+# Tank decision: provider-aware search filter via runtime type cast
+
+**By:** Tank (Backend Developer)
+**Date:** 2026-06-19
+**Issue:** #11
+
+## Decision
+
+`buildSearchOr` in `src/lib/search.ts` handles SQLite vs Postgres search
+differently at runtime, branching on `DB_PROVIDER`:
+
+- **SQLite** – `{ contains: query }` → Prisma maps to `LIKE '%q%'`, which
+  SQLite evaluates case-insensitively for ASCII (no extra configuration).
+- **Postgres** – `{ contains: query, mode: 'insensitive' }` → Prisma maps
+  to `ILIKE '%q%'`.
+
+## Why a type cast is needed
+
+The project's `prisma generate` step runs against *whichever schema is
+active* (controlled by `DB_PROVIDER`). CI uses `DB_PROVIDER=sqlite`, so
+the generated `StringFilter` type omits `mode` (a Postgres-only field).
+Adding `mode: 'insensitive'` to a filter object therefore fails TypeScript
+when compiled against the SQLite-generated client.
+
+The fix is a `as unknown as Prisma.StringFilter` cast on the Postgres
+branch only, with a JSDoc comment explaining why. This is the minimal
+intervention: the cast is narrowly scoped, clearly documented, and the
+alternative (conditional import of two separate generated clients) would
+be significantly more complex and fragile.
+
+## Considered alternatives
+
+1. **Single-schema approach (Postgres only)** – would break the project's
+   SQLite CI requirement.
+2. **Raw SQL (`prisma.$queryRaw`)** – provider-conditional raw SQL is more
+   verbose, harder to compose with Prisma's `documentAccessOr` helper, and
+   loses type safety entirely.
+3. **Lowercase the query and store content lowercased** – invasive schema
+   change; breaks existing content and requires a migration.
+4. **FTS5 on SQLite** – straightforward to set up but requires raw SQL and
+   a migration, and the task explicitly accepts a LIKE-based first cut.
+
+## Rule going forward
+
+Any new query that needs case-insensitive matching should use
+`buildSearchOr` (or a similar provider-aware helper) rather than
+sprinkling `mode: 'insensitive'` inline. This keeps the SQLite/Postgres
+branching centralized and the cast isolated.
+
+
 ## Governance
 
 - All meaningful changes require team consensus

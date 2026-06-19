@@ -48,3 +48,7 @@ themes.ts exports (Mouse). Verified persistence: setVisual → contentJson
 → mirrorVisualNodes snapshots one VisualRevision per real change; no
 backend change needed. typecheck/lint clean, 167/167 tests pass, build
 green. Decision: .squad/decisions/inbox/tank-phase3-transforms.md.
+
+## 2026-06-19T18-13-23Z — Ship-and-merge session: 7 features, 18 PRs
+
+Shipped backends for #5 (doc export), #13 (generation controls), #4 (doc import), #11 (full-text search), #19 (native PPTX), #7 (Brand Studio), #10 epic (monetization foundation). All 18 PRs passed full CI quality gate (test/typecheck/lint/format:check/build). Key learning: `npm run format:check` must pass before push; .squad/.copilot are tooling-ignored in eslint + prettier configs.
