@@ -23,6 +23,14 @@ import { VisualContextPopover } from "./visual-context-popover";
 import { VisualEditor } from "./visual-editor";
 import { $isVisualNode } from "./visual-node";
 
+// Block types whose text content can serve as a visual's source anchor.
+const SOURCE_TEXT_BLOCK_TYPES = new Set([
+  "paragraph",
+  "heading",
+  "quote",
+  "list",
+]);
+
 /**
  * Interactive card for a {@link Visual} embedded in the Lexical editor (US-012).
  * Read-only by default; clicking it (when the editor is editable) opens the
@@ -66,6 +74,33 @@ export function VisualCard({
   // Whether this card's editing controls are open. Local state (not a Lexical
   // NodeSelection) so it survives collaborative updates — see the component doc.
   const [open, setOpen] = useState(false);
+
+  // Current text content of the immediately preceding block (the likely anchor).
+  // Updated on every editor state change so the popover can detect staleness.
+  const [currentSourceText, setCurrentSourceText] = useState<
+    string | undefined
+  >(undefined);
+
+  useEffect(() => {
+    const readSourceText = () => {
+      editor.read(() => {
+        const node = $getNodeByKey(nodeKey);
+        if (node === null) {
+          setCurrentSourceText(undefined);
+          return;
+        }
+        const prev = node.getPreviousSibling();
+        if (prev !== null && SOURCE_TEXT_BLOCK_TYPES.has(prev.getType())) {
+          const text = prev.getTextContent().trim();
+          setCurrentSourceText(text || undefined);
+        } else {
+          setCurrentSourceText(undefined);
+        }
+      });
+    };
+    readSourceText();
+    return editor.registerUpdateListener(readSourceText);
+  }, [editor, nodeKey]);
 
   const cardMotion = useCardMotion();
 
@@ -280,6 +315,7 @@ export function VisualCard({
           onClose={closeControls}
           getSvgElement={() => rendererRef.current}
           anchorRef={rootRef}
+          currentSourceText={currentSourceText}
         />
       ) : null}
     </motion.div>

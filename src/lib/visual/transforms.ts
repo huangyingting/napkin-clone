@@ -563,3 +563,84 @@ export function setCanvasStyle(visual: Visual, style: CanvasStyle): Visual {
   }
   return next;
 }
+
+/**
+ * Merges a newly-generated {@link Visual} into an existing one, preserving
+ * all manual style customizations while replacing the content.
+ *
+ * Strategy:
+ * - **Content** (nodes, edges, title, type, dimensions) comes from `newVisual`.
+ * - **Global style** (palette, colors, fonts) comes from `oldVisual`, so the
+ *   user's chosen theme/colors survive the sync.
+ * - **Per-node style overrides** (color, stroke, textColor, icon, fillStyle,
+ *   borderStyle, borderWidth, textAlign) are re-applied from `oldVisual` nodes
+ *   onto matching `newVisual` nodes. Matching is attempted first by label
+ *   (case-insensitive trim), then by position index. No override is invented
+ *   for unmatched new nodes.
+ *
+ * Pure, non-mutating, schema-valid output. `sourceText`/`sourceTextHash` on
+ * the result are **not** set here — the caller is responsible for stamping the
+ * new sync metadata after calling this function.
+ */
+export function mergeVisualContent(
+  oldVisual: Visual,
+  newVisual: Visual,
+): Visual {
+  const next = cloneVisual(newVisual);
+
+  // Preserve global style from old visual (theme, colors, typography).
+  next.style = cloneStyle(oldVisual.style);
+
+  // Build a label → old-node map (first occurrence per normalized label wins).
+  const byLabel = new Map<string, VisualNode>();
+  for (const node of oldVisual.nodes) {
+    const key = node.label.toLowerCase().trim();
+    if (!byLabel.has(key)) {
+      byLabel.set(key, node);
+    }
+  }
+
+  // Re-apply per-node style overrides onto new nodes.
+  next.nodes = next.nodes.map((newNode, index) => {
+    const labelKey = newNode.label.toLowerCase().trim();
+    const oldNode: VisualNode | null =
+      byLabel.get(labelKey) ?? oldVisual.nodes[index] ?? null;
+    if (oldNode === null) {
+      return newNode;
+    }
+    const merged: VisualNode = { ...newNode };
+    // Apply only overrides explicitly set on the matched old node.
+    if (oldNode.color !== undefined) merged.color = oldNode.color;
+    if (oldNode.stroke !== undefined) merged.stroke = oldNode.stroke;
+    if (oldNode.textColor !== undefined) merged.textColor = oldNode.textColor;
+    if (oldNode.icon !== undefined) merged.icon = oldNode.icon;
+    if (oldNode.fillStyle !== undefined) merged.fillStyle = oldNode.fillStyle;
+    if (oldNode.borderStyle !== undefined)
+      merged.borderStyle = oldNode.borderStyle;
+    if (oldNode.borderWidth !== undefined)
+      merged.borderWidth = oldNode.borderWidth;
+    if (oldNode.textAlign !== undefined) merged.textAlign = oldNode.textAlign;
+    return merged;
+  });
+
+  // Drop sourceText/sourceTextHash — caller stamps the refreshed values.
+  delete next.sourceText;
+  delete next.sourceTextHash;
+
+  return next;
+}
+
+/**
+ * Returns `true` when the visual's stored source text differs from
+ * `currentText`, indicating the visual may be out of date with its anchor
+ * block. Returns `false` when either value is absent/empty or when they match
+ * (after trimming).
+ */
+export function isSourceStale(visual: Visual, currentText: string): boolean {
+  const stored = visual.sourceText?.trim();
+  const current = currentText.trim();
+  if (!stored || !current) {
+    return false;
+  }
+  return stored !== current;
+}

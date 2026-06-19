@@ -28,6 +28,7 @@ import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { INSERT_VISUAL_COMMAND } from "@/lib/lexical/commands";
 import { VISUAL_KIND_META } from "@/lib/lexical/tool-registry";
 import {
+  hashSourceText,
   safeParseVisual,
   VISUAL_KINDS,
   type Visual,
@@ -157,6 +158,10 @@ export function BlockSparkPlugin() {
   const keepRef = useRef(false);
   const openRef = useRef(false);
   const clearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Captures the block text at the moment generation is triggered, so the
+  // inserted visual can be stamped with the correct sourceText even if the
+  // block state updates before the user picks a candidate.
+  const sourceTextRef = useRef<string>("");
   useEffect(() => {
     openRef.current = openKey !== null;
   });
@@ -289,6 +294,8 @@ export function BlockSparkPlugin() {
 
   const generate = useCallback(async (target: BlockInfo, opts: GenOptions) => {
     setOpenKey(target.key);
+    // Capture source text at generation time so insertVisual can stamp it.
+    sourceTextRef.current = target.text.trim();
     setStatus("loading");
     setError(null);
     setCandidates([]);
@@ -345,12 +352,21 @@ export function BlockSparkPlugin() {
       if (targetKey === null) {
         return;
       }
+      // Stamp sourceText so the visual remembers the text it was generated from.
+      const sourceText = sourceTextRef.current;
+      const toInsert: Visual = sourceText
+        ? {
+            ...visual,
+            sourceText,
+            sourceTextHash: hashSourceText(sourceText),
+          }
+        : visual;
       editor.update(() => {
         const top = $getNodeByKey(targetKey);
         if (top === null || !$isElementNode(top)) {
           return;
         }
-        top.insertAfter($createVisualNode(visual));
+        top.insertAfter($createVisualNode(toInsert));
       });
       closePanel();
       editor.focus();

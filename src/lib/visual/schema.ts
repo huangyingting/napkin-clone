@@ -187,6 +187,17 @@ export interface Visual {
   aspectRatio?: AspectRatioPreset;
   /** Canvas background style. Defaults to `"blank"`. */
   canvasStyle?: CanvasStyle;
+  /**
+   * The trimmed source text this visual was generated from, if any. Used by
+   * "Sync to text" to re-generate from the anchor block and detect staleness.
+   * Optional so existing visuals without it remain fully valid.
+   */
+  sourceText?: string;
+  /**
+   * FNV-1a 32-bit hex hash of `sourceText` for quick staleness comparisons.
+   * Derived from `sourceText` at insert time; optional for the same reason.
+   */
+  sourceTextHash?: string;
 }
 
 export const DEFAULT_NODE_WIDTH = 150;
@@ -631,6 +642,13 @@ export function validateVisual(input: unknown): Visual {
     ...(isCanvasStyle(input.canvasStyle)
       ? { canvasStyle: input.canvasStyle }
       : {}),
+    // Optional text-visual sync metadata — forgiving (non-strings silently dropped).
+    ...(typeof input.sourceText === "string"
+      ? { sourceText: input.sourceText }
+      : {}),
+    ...(typeof input.sourceTextHash === "string"
+      ? { sourceTextHash: input.sourceTextHash }
+      : {}),
   };
 }
 
@@ -647,4 +665,18 @@ export function safeParseVisual(input: unknown): VisualParseResult {
       error instanceof VisualValidationError ? error.message : "Invalid visual";
     return { success: false, error: message };
   }
+}
+
+/**
+ * FNV-1a 32-bit hash of a UTF-16 text string, returned as a zero-padded
+ * lowercase hex string. Pure and environment-agnostic (no Web Crypto / Node
+ * crypto required). Used to detect when a visual's source text has changed
+ * since generation.
+ */
+export function hashSourceText(text: string): string {
+  let h = 2166136261; // FNV-1a offset basis (uint32)
+  for (let i = 0; i < text.length; i++) {
+    h = Math.imul(h ^ text.charCodeAt(i), 16777619) >>> 0;
+  }
+  return h.toString(16).padStart(8, "0");
 }
