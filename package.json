@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 4000",
+    "dev": "node server.mjs",
     "build": "next build",
-    "start": "next start -p 4000",
+    "start": "NODE_ENV=production node server.mjs",
     "collab": "node scripts/collab-server.mjs",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",

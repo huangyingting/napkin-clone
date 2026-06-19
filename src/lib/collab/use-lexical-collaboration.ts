@@ -7,8 +7,7 @@ import * as Y from "yjs";
 
 import type { CollabStatus, Peer } from "./use-collaboration";
 import { colorFromId } from "./y-text";
-
-const DEFAULT_WS_URL = "ws://localhost:1234";
+import { resolveCollabWsUrl } from "./ws-url";
 
 /** Falls back to ready (local-only) mode if the server never syncs. */
 const DEGRADED_TIMEOUT_MS = 2500;
@@ -58,6 +57,15 @@ export type LexicalCollaboration = {
   status: CollabStatus;
   /** True once the initial server sync (or degraded fallback) has happened. */
   ready: boolean;
+  /** True once the collab server has actually synced this room at least once. */
+  synced: boolean;
+  /**
+   * True when the collab server never synced within the timeout, so the editor
+   * is running local-only. In this mode the `CollaborationPlugin` never fires
+   * its DB bootstrap (which is gated on the provider `sync` event), so the
+   * editor must be seeded from the database directly.
+   */
+  degraded: boolean;
   peers: Peer[];
   /** This client's presence/cursor color. */
   cursorColor: string;
@@ -86,7 +94,7 @@ export function useLexicalCollaboration(opts: {
   const [doc] = useState(() => new Y.Doc());
   const ytitle = doc.getText("title");
   const [provider] = useState(() => {
-    const wsUrl = process.env.NEXT_PUBLIC_COLLAB_WS_URL || DEFAULT_WS_URL;
+    const wsUrl = resolveCollabWsUrl();
     return new WebsocketProvider(wsUrl, room, doc, { connect: false });
   });
 
@@ -176,6 +184,8 @@ export function useLexicalCollaboration(opts: {
     providerFactory,
     status,
     ready,
+    synced,
+    degraded,
     peers,
     cursorColor,
     ytitle,

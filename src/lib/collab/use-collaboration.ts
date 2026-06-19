@@ -9,8 +9,7 @@ import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 
 import { adjustIndex, applyTextDiff, colorFromId } from "./y-text";
-
-const DEFAULT_WS_URL = "ws://localhost:1234";
+import { resolveCollabWsUrl } from "./ws-url";
 
 /** Falls back to degraded (local-only) mode if the server never syncs. */
 const DEGRADED_TIMEOUT_MS = 2500;
@@ -100,7 +99,7 @@ export function useCollaboration(opts: {
   const [peers, setPeers] = useState<Peer[]>([]);
 
   useEffect(() => {
-    const wsUrl = process.env.NEXT_PUBLIC_COLLAB_WS_URL || DEFAULT_WS_URL;
+    const wsUrl = resolveCollabWsUrl();
     const provider = new WebsocketProvider(wsUrl, room, doc);
     providerRef.current = provider;
     const awareness = provider.awareness;

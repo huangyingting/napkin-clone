@@ -73,11 +73,19 @@ npm run db:deploy
 
 ## Real-time collaboration
 
-Collaborative editing is powered by a self-hosted Yjs websocket sync server
-(`npm run collab`). The browser editor connects to it via
-`NEXT_PUBLIC_COLLAB_WS_URL` (default `ws://localhost:1234`) and **degrades
-gracefully to local-only editing** after 2.5 s if the server is unreachable, so
-collaboration is never a hard dependency.
+Collaborative editing is powered by a self-hosted Yjs websocket sync server. By
+default the app server (`npm run dev` / `npm start`, via `server.mjs`) hosts that
+socket **on the same port** at the `/collab` path, so the browser derives the
+websocket URL from the page origin — a single forwarded port (e.g. VS Code port
+forwarding or a reverse proxy) carries both the app and collaboration with no
+extra configuration. The editor **degrades gracefully to local-only editing**
+after 2.5 s if the socket is unreachable, and seeds its content from the
+database (the durable source of truth), so collaboration is never a hard
+dependency and the document is never blank.
+
+To run collaboration as a separate process instead, start `npm run collab`
+(default port 1234), set `COLLAB_INLINE=0` on the app server to disable the
+inline socket, and point clients at it with `NEXT_PUBLIC_COLLAB_WS_URL`.
 
 For running the server in production, the single-instance in-memory limitation,
 and concrete scaling/persistence options (sticky routing, a Redis pub/sub

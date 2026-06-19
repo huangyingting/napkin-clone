@@ -117,6 +117,55 @@ function EditableGate({ editable }: { editable: boolean }) {
 }
 
 /**
+ * Seeds the editor from the database when collaboration is unavailable.
+ *
+ * Content normally arrives via the `CollaborationPlugin`, which bootstraps the
+ * shared Yjs document from `initialStateJson` — but only on the provider's
+ * `sync` event. When the collab server can't be reached (e.g. the websocket port
+ * isn't forwarded) the room degrades to local-only mode and that `sync` event
+ * never fires, leaving the editor blank even though the database holds content.
+ * Since the database is the durable source of truth, this fallback parses the
+ * serialized state and loads it directly so the document is never empty. It runs
+ * once, only while degraded and unsynced, and only if the editor is still empty.
+ */
+function LocalFallbackSeedPlugin({
+  initialStateJson,
+  degraded,
+  synced,
+}: {
+  initialStateJson: string | null;
+  degraded: boolean;
+  synced: boolean;
+}) {
+  const [editor] = useLexicalComposerContext();
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (seededRef.current || synced || !degraded || !initialStateJson) {
+      return;
+    }
+    const isEmpty = editor
+      .getEditorState()
+      .read(
+        () =>
+          $getRoot().getTextContent() === "" &&
+          $getRoot().getChildrenSize() <= 1,
+      );
+    if (!isEmpty) {
+      seededRef.current = true;
+      return;
+    }
+    seededRef.current = true;
+    try {
+      const parsed = editor.parseEditorState(initialStateJson);
+      editor.setEditorState(parsed, { tag: HISTORIC_TAG });
+    } catch (error) {
+      console.error("Failed to seed editor from database fallback", error);
+    }
+  }, [editor, initialStateJson, degraded, synced]);
+  return null;
+}
+
+/**
  * Captures the live editor instance and the last non-empty text selection so the
  * comments panel can anchor a comment to selected text. Per US-017 we store the
  * selected text *string* (matching the existing `anchorText` model), not Lexical
@@ -454,6 +503,11 @@ export function LexicalEditor({
                       cursorColor={collab.cursorColor}
                     />
                     <EditableGate editable={editable} />
+                    <LocalFallbackSeedPlugin
+                      initialStateJson={initialStateJson}
+                      degraded={collab.degraded}
+                      synced={collab.synced}
+                    />
                     <CaptureSelectionPlugin
                       editorRef={editorRef}
                       selectionRef={selectionRef}
