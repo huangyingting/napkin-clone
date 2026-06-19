@@ -30,35 +30,33 @@ export default async function SettingsPage() {
   const hasPassword = Boolean(user.passwordHash);
 
   return (
-    <main className="flex flex-1 flex-col items-center bg-zinc-50 px-6 py-12 dark:bg-black">
+    <main className="flex flex-1 flex-col items-center bg-ghost-wash px-6 py-12">
       <div className="flex w-full max-w-2xl flex-col gap-8">
         <header className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+          <h1 className="text-2xl font-semibold tracking-tight text-ghost-text">
             Settings
           </h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="text-sm text-ghost-secondary">
             Manage your account profile.
           </p>
         </header>
 
-        <section className="flex flex-col gap-4 rounded-2xl border border-black/[.06] bg-white p-6 dark:border-white/[.08] dark:bg-zinc-950">
+        <section className="flex flex-col gap-4 rounded-2xl border border-ghost-border bg-ghost-bg p-6">
           <div className="flex flex-col gap-1">
-            <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
-              Profile
-            </h2>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            <h2 className="text-base font-semibold text-ghost-text">Profile</h2>
+            <p className="text-sm text-ghost-secondary">
               Update your display name.
             </p>
           </div>
           <ProfileForm initialName={user.name ?? ""} email={user.email} />
         </section>
 
-        <section className="flex flex-col gap-4 rounded-2xl border border-black/[.06] bg-white p-6 dark:border-white/[.08] dark:bg-zinc-950">
+        <section className="flex flex-col gap-4 rounded-2xl border border-ghost-border bg-ghost-bg p-6">
           <div className="flex flex-col gap-1">
-            <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
+            <h2 className="text-base font-semibold text-ghost-text">
               {hasPassword ? "Change password" : "Set a password"}
             </h2>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="text-sm text-ghost-secondary">
               {hasPassword
                 ? "Update the password you use to sign in."
                 : "Add a password so you can sign in with your email too."}
@@ -67,12 +65,12 @@ export default async function SettingsPage() {
           <PasswordForm hasPassword={hasPassword} />
         </section>
 
-        <section className="flex flex-col gap-4 rounded-2xl border border-red-600/20 bg-white p-6 dark:border-red-500/20 dark:bg-zinc-950">
+        <section className="flex flex-col gap-4 rounded-2xl border border-ghost-red/30 bg-ghost-bg p-6">
           <div className="flex flex-col gap-1">
-            <h2 className="text-base font-semibold text-red-600 dark:text-red-400">
+            <h2 className="text-base font-semibold text-ghost-red">
               Danger zone
             </h2>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="text-sm text-ghost-secondary">
               Irreversible actions for your account.
             </p>
           </div>
@@ -81,7 +79,7 @@ export default async function SettingsPage() {
 
         <Link
           href="/app"
-          className="text-sm font-medium text-zinc-600 underline-offset-4 transition hover:text-zinc-900 hover:underline dark:text-zinc-400 dark:hover:text-zinc-100"
+          className="text-sm font-medium text-ghost-secondary underline-offset-4 transition hover:text-ghost-text hover:underline"
         >
           ← Back to documents
         </Link>

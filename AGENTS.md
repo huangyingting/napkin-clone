@@ -2831,3 +2831,38 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   and `documentElement.scrollWidth - clientWidth === 0` at 375/768/1280. Verify light
   vs dark with `page.emulateMedia({ colorScheme })` — `p` color is `rgb(21,23,26)`
   (#15171a) light / `rgb(245,246,246)` (#f5f6f6) dark.
+
+### Apply Ghost theme to app chrome (Ghost US-021)
+
+- **App chrome (site header/nav, dashboard, document cards + overflow menu,
+  settings, login/signup) now uses the US-019 ghost-token Tailwind utilities
+  instead of ad-hoc zinc + `dark:` pairs.** Because the ghost color tokens flip in
+  the `prefers-color-scheme: dark` block (globals.css), the utilities are
+  light/dark-correct with **NO `dark:` variants** — so themed chrome classes lost
+  all their `dark:zinc-*` siblings. The canonical mapping (reuse it for any new
+  chrome surface): page bg → `bg-ghost-wash`; card/input/menu bg → `bg-ghost-bg`;
+  all borders (`border-black/[.06]`, `border-black/10`, `border-white/15`, …) →
+  `border-ghost-border`; heading/primary text → `text-ghost-text`; secondary/muted
+  text → `text-ghost-secondary`; hover wash → `hover:bg-ghost-wash`; primary/CTA
+  buttons (was `bg-zinc-900 … dark:bg-white`) → `bg-ghost-accent text-white
+  hover:opacity-90` (indigo `#4f46e5` = `rgb(79,70,229)` in both modes); destructive
+  buttons/text → `bg-ghost-red`/`text-ghost-red` (`#f05230`); success → `text-ghost-green`.
+- **Opacity modifiers on ghost token utilities WORK** (`focus:ring-ghost-accent/30`,
+  `border-ghost-accent/40`, `bg-ghost-red/10`, `bg-ghost-bg/80`, `text-ghost-secondary/50`)
+  — Tailwind v4 emits a `color-mix` under `@supports`, so they compile and render.
+  Standard input treatment: `border-ghost-border bg-ghost-bg text-ghost-text
+  focus:border-ghost-accent focus:ring-2 focus:ring-ghost-accent/30`.
+- **Keep `bg-black/40` modal backdrops as-is** (intentional dim overlay, not a
+  themed surface). The dashboard undo toast inverts via `bg-ghost-text text-ghost-bg`.
+- **Browser QA (dev-browser `--headless`, no X server):** verify computed styles, not
+  screenshots — `bg-ghost-wash` = `rgb(244,248,251)` light / `rgb(22,24,28)` dark;
+  `border-ghost-border` = `rgb(221,225,229)` light; primary button bg =
+  `rgb(79,70,229)`; ghost-red = `rgb(240,82,48)`. Assert
+  `documentElement.scrollWidth - clientWidth === 0` at 375/768/1280 for `/login`,
+  `/signup`, `/app`, `/app/settings` in both `colorScheme`s. GOTCHA: selecting a
+  generic `main > div` can grab the wrong node and report a transient transparent/
+  foreground-bordered box mid-navigation — query the actual themed element (e.g.
+  `.bg-ghost-bg`) and read `getComputedStyle(...).backgroundColor`/`borderColor`
+  directly for a reliable reading. Sign-up form button `.click()` hangs (per the
+  dev-browser gotcha) — submit via `input[name=password].press("Enter")` + poll
+  cookies for `authjs.session-token`; signup seeds a sample doc so `/app` has a card.

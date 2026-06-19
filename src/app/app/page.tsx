@@ -18,7 +18,7 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 const primaryButtonClass =
-  "flex h-10 items-center justify-center rounded-full bg-zinc-900 px-5 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:opacity-60 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200";
+  "flex h-10 items-center justify-center rounded-full bg-ghost-accent px-5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-60";
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -75,18 +75,16 @@ export default async function DashboardPage() {
   }));
 
   return (
-    <main className="flex flex-1 flex-col items-center bg-zinc-50 px-6 py-12 dark:bg-black">
+    <main className="flex flex-1 flex-col items-center bg-ghost-wash px-6 py-12">
       <div className="flex w-full max-w-5xl flex-col gap-8">
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+            <h1 className="text-2xl font-semibold tracking-tight text-ghost-text">
               Your documents
             </h1>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="text-sm text-ghost-secondary">
               Signed in as{" "}
-              <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                {user.email}
-              </span>
+              <span className="font-medium text-ghost-text">{user.email}</span>
             </p>
           </div>
           <NewDocumentButton className={primaryButtonClass} enableShortcut />

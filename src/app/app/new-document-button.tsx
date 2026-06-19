@@ -50,17 +50,17 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="template-picker-title"
-        className="relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-black/[.06] bg-white p-6 shadow-xl dark:border-white/[.08] dark:bg-zinc-950"
+        className="relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-ghost-border bg-ghost-bg p-6 shadow-xl"
       >
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2
               id="template-picker-title"
-              className="text-base font-semibold text-zinc-900 dark:text-zinc-50"
+              className="text-base font-semibold text-ghost-text"
             >
               Start a new document
             </h2>
-            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            <p className="mt-1 text-sm text-ghost-secondary">
               Pick a template or start blank.
             </p>
           </div>
@@ -68,7 +68,7 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
             type="button"
             aria-label="Close"
             onClick={onClose}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
           >
             <svg
               aria-hidden="true"
@@ -94,12 +94,12 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
                 aria-label={`${template.name} template`}
                 disabled={isPending}
                 onClick={() => choose(template.id)}
-                className="flex h-full w-full flex-col gap-1 rounded-xl border border-black/[.06] p-4 text-left transition hover:border-black/20 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/[.08] dark:hover:border-white/25 dark:hover:bg-zinc-900"
+                className="flex h-full w-full flex-col gap-1 rounded-xl border border-ghost-border p-4 text-left transition hover:border-ghost-accent/40 hover:bg-ghost-wash disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                <span className="text-sm font-medium text-ghost-text">
                   {pendingId === template.id ? "Creating…" : template.name}
                 </span>
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                <span className="text-xs text-ghost-secondary">
                   {template.description}
                 </span>
               </button>
@@ -111,7 +111,7 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 items-center justify-center rounded-full border border-black/[.06] px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-white/[.08] dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="flex h-9 items-center justify-center rounded-full border border-ghost-border px-4 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
           >
             Cancel
           </button>

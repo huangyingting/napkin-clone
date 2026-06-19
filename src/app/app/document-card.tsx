@@ -34,7 +34,7 @@ type DocumentCardProps = DocumentCardData & {
 
 function DocumentThumbnail() {
   return (
-    <div className="flex aspect-[16/10] items-center justify-center bg-zinc-50 transition group-hover:bg-zinc-100 dark:bg-zinc-900 dark:group-hover:bg-zinc-800">
+    <div className="flex aspect-[16/10] items-center justify-center bg-ghost-wash transition group-hover:bg-ghost-border/40">
       <svg
         aria-hidden="true"
         viewBox="0 0 24 24"
@@ -43,7 +43,7 @@ function DocumentThumbnail() {
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="h-8 w-8 text-zinc-300 dark:text-zinc-600"
+        className="h-8 w-8 text-ghost-secondary/50"
       >
         <path d="M14 3v4a1 1 0 0 0 1 1h4" />
         <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z" />
@@ -76,8 +76,8 @@ function StarButton({
       onClick={onToggle}
       className={`flex h-7 w-7 items-center justify-center rounded-full shadow-sm backdrop-blur transition ${
         active
-          ? "bg-white/80 text-amber-500 hover:bg-white dark:bg-black/40 dark:text-amber-400 dark:hover:bg-black/70"
-          : "bg-white/80 text-zinc-500 hover:bg-white hover:text-amber-500 dark:bg-black/40 dark:text-zinc-300 dark:hover:bg-black/70 dark:hover:text-amber-400"
+          ? "bg-ghost-bg/80 text-amber-500 hover:bg-ghost-bg"
+          : "bg-ghost-bg/80 text-ghost-secondary hover:bg-ghost-bg hover:text-amber-500"
       }`}
     >
       <svg
@@ -126,32 +126,30 @@ function DeleteConfirmDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="delete-document-title"
-        className="relative z-10 w-full max-w-sm rounded-2xl border border-black/[.06] bg-white p-6 shadow-xl dark:border-white/[.08] dark:bg-zinc-950"
+        className="relative z-10 w-full max-w-sm rounded-2xl border border-ghost-border bg-ghost-bg p-6 shadow-xl"
       >
         <h2
           id="delete-document-title"
-          className="text-base font-semibold text-zinc-900 dark:text-zinc-50"
+          className="text-base font-semibold text-ghost-text"
         >
           Delete document?
         </h2>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-          <span className="font-medium text-zinc-900 dark:text-zinc-100">
-            “{title}”
-          </span>{" "}
-          will be moved to the trash. You can undo this right after.
+        <p className="mt-2 text-sm text-ghost-secondary">
+          <span className="font-medium text-ghost-text">“{title}”</span> will be
+          moved to the trash. You can undo this right after.
         </p>
         <div className="mt-6 flex justify-end gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="flex h-9 items-center justify-center rounded-full border border-black/[.06] px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-white/[.08] dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="flex h-9 items-center justify-center rounded-full border border-ghost-border px-4 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="flex h-9 items-center justify-center rounded-full bg-red-600 px-4 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-60"
+            className="flex h-9 items-center justify-center rounded-full bg-ghost-red px-4 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-60"
           >
             Delete
           </button>
@@ -208,17 +206,17 @@ function RenameDialog({
           event.preventDefault();
           onSubmit(value);
         }}
-        className="relative z-10 w-full max-w-sm rounded-2xl border border-black/[.06] bg-white p-6 shadow-xl dark:border-white/[.08] dark:bg-zinc-950"
+        className="relative z-10 w-full max-w-sm rounded-2xl border border-ghost-border bg-ghost-bg p-6 shadow-xl"
       >
         <h2
           id="rename-document-title"
-          className="text-base font-semibold text-zinc-900 dark:text-zinc-50"
+          className="text-base font-semibold text-ghost-text"
         >
           Rename document
         </h2>
         <label
           htmlFor="rename-document-input"
-          className="mt-4 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+          className="mt-4 block text-sm font-medium text-ghost-text"
         >
           Title
         </label>
@@ -230,19 +228,19 @@ function RenameDialog({
           maxLength={MAX_TITLE_LENGTH}
           aria-label="Document title"
           onChange={(event) => setValue(event.target.value)}
-          className="mt-1.5 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200 dark:border-white/15 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-zinc-500 dark:focus:ring-zinc-700"
+          className="mt-1.5 w-full rounded-lg border border-ghost-border bg-ghost-bg px-3 py-2 text-sm text-ghost-text outline-none transition focus:border-ghost-accent focus:ring-2 focus:ring-ghost-accent/30"
         />
         <div className="mt-6 flex justify-end gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="flex h-9 items-center justify-center rounded-full border border-black/[.06] px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-white/[.08] dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="flex h-9 items-center justify-center rounded-full border border-ghost-border px-4 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="flex h-9 items-center justify-center rounded-full bg-zinc-900 px-4 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:opacity-60 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+            className="flex h-9 items-center justify-center rounded-full bg-ghost-accent px-4 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-60"
           >
             Rename
           </button>
@@ -341,23 +339,21 @@ export function DocumentCard({
     <li className="relative">
       <Link
         href={`/app/documents/${id}`}
-        className="group flex flex-col overflow-hidden rounded-xl border border-black/[.06] bg-white transition hover:border-black/15 hover:shadow-sm dark:border-white/[.08] dark:bg-zinc-950 dark:hover:border-white/20"
+        className="group flex flex-col overflow-hidden rounded-xl border border-ghost-border bg-ghost-bg transition hover:border-ghost-accent/40 hover:shadow-sm"
       >
         <DocumentThumbnail />
         <div className="flex flex-col gap-1 p-4">
-          <span className="truncate pr-7 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+          <span className="truncate pr-7 text-sm font-medium text-ghost-text">
             {optimisticTitle}
           </span>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            <span className="text-xs text-ghost-secondary">
               Edited {editedLabel}
             </span>
             {workspaceName && (
               <>
-                <span className="text-xs text-zinc-300 dark:text-zinc-600">
-                  ·
-                </span>
-                <span className="truncate text-xs text-zinc-500 dark:text-zinc-400">
+                <span className="text-xs text-ghost-secondary/60">·</span>
+                <span className="truncate text-xs text-ghost-secondary">
                   {workspaceName}
                 </span>
               </>
@@ -381,7 +377,7 @@ export function DocumentCard({
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen((open) => !open)}
-          className="flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-zinc-600 shadow-sm backdrop-blur transition hover:bg-white hover:text-zinc-900 dark:bg-black/40 dark:text-zinc-300 dark:hover:bg-black/70 dark:hover:text-zinc-50"
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-ghost-bg/80 text-ghost-secondary shadow-sm backdrop-blur transition hover:bg-ghost-bg hover:text-ghost-text"
         >
           <svg
             aria-hidden="true"
@@ -398,7 +394,7 @@ export function DocumentCard({
         {menuOpen && (
           <div
             role="menu"
-            className="absolute right-0 top-full z-20 mt-1 w-40 overflow-hidden rounded-lg border border-black/[.06] bg-white py-1 shadow-lg dark:border-white/[.08] dark:bg-zinc-900"
+            className="absolute right-0 top-full z-20 mt-1 w-40 overflow-hidden rounded-lg border border-ghost-border bg-ghost-bg py-1 shadow-lg"
           >
             <button
               type="button"
@@ -407,7 +403,7 @@ export function DocumentCard({
                 setMenuOpen(false);
                 setRenameOpen(true);
               }}
-              className="flex w-full items-center px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              className="flex w-full items-center px-3 py-2 text-left text-sm text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
             >
               Rename
             </button>
@@ -415,7 +411,7 @@ export function DocumentCard({
               type="button"
               role="menuitem"
               onClick={handleDuplicate}
-              className="flex w-full items-center px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              className="flex w-full items-center px-3 py-2 text-left text-sm text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
             >
               Duplicate
             </button>
@@ -426,7 +422,7 @@ export function DocumentCard({
                 setMenuOpen(false);
                 setConfirmOpen(true);
               }}
-              className="flex w-full items-center px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+              className="flex w-full items-center px-3 py-2 text-left text-sm text-ghost-red transition hover:bg-ghost-red/10"
             >
               Delete
             </button>

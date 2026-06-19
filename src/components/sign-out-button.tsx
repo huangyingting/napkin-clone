@@ -1,7 +1,7 @@
 import { signOut } from "@/auth";
 
 const defaultClass =
-  "flex h-9 items-center justify-center rounded-full border border-black/10 px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-white/15 dark:text-zinc-200 dark:hover:bg-zinc-900";
+  "flex h-9 items-center justify-center rounded-full border border-ghost-border px-4 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text";
 
 /**
  * Signs the current user out and returns to the marketing home. Accepts an
