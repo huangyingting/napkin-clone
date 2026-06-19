@@ -15,6 +15,9 @@ const SOFT_DELETE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 /** Maximum stored document title length (mirrors the editor's title save). */
 const MAX_TITLE_LENGTH = 200;
 
+/** Maximum stored document content length. */
+const MAX_CONTENT_LENGTH = 100_000;
+
 /**
  * Creates a document for the current user seeded from a starter template, then
  * redirects to its editor.
@@ -37,6 +40,35 @@ export async function createDocumentFromTemplate(
 
   const document = await prisma.document.create({
     data: { ownerId: user.id, content },
+    select: { id: true },
+  });
+
+  revalidatePath("/app");
+  redirect(`/app/documents/${document.id}`);
+}
+
+/**
+ * Creates a document from pre-extracted import text and redirects to its editor.
+ *
+ * The `content` is the normalized Markdown returned by `POST /api/import`. The
+ * caller is responsible for ensuring it has already been validated/normalized.
+ * Content is clamped server-side to `MAX_CONTENT_LENGTH` as a final safety net.
+ *
+ * `redirect` throws `NEXT_REDIRECT`, so it must stay outside any try/catch and
+ * run after the document is created.
+ */
+export async function createDocumentFromImport(
+  content: string,
+  rawTitle: string,
+): Promise<void> {
+  const user = await requireUser();
+
+  const title =
+    rawTitle.trim().slice(0, MAX_TITLE_LENGTH) || "Imported document";
+  const safeContent = content.slice(0, MAX_CONTENT_LENGTH);
+
+  const document = await prisma.document.create({
+    data: { ownerId: user.id, title, content: safeContent },
     select: { id: true },
   });
 
