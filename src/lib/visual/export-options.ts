@@ -40,6 +40,12 @@ export interface ExportOptions {
    * centred. Defaults to `undefined` / `"auto"` (natural dimensions).
    */
   aspectRatio?: AspectRatioPreset;
+  /**
+   * When `true`, a "Napkin Clone" watermark text is stamped in the bottom-right
+   * corner of the exported image. Set by the route / export handler based on the
+   * user's plan (`!removeWatermark` entitlement). Defaults to `false`.
+   */
+  watermark?: boolean;
 }
 
 /** Sensible defaults — keeps existing callers working unchanged. */
@@ -305,7 +311,45 @@ export function applyExportOptionsToSvg(
     svg = applyAspectRatioToSvg(svg, options.aspectRatio);
   }
 
+  // ── watermark ────────────────────────────────────────────────────────────
+  if (options.watermark) {
+    svg = applyWatermarkToSvg(svg);
+  }
+
   return svg;
+}
+
+/**
+ * Inject a "Napkin Clone" watermark text into the bottom-right corner of the
+ * SVG. Uses a semi-transparent text element so it is legible on both light and
+ * dark backgrounds. The text is placed relative to the viewBox dimensions so
+ * it scales correctly at any export resolution.
+ */
+export function applyWatermarkToSvg(svgString: string): string {
+  const vbMatch = svgString.match(
+    /viewBox=["']\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)["']/,
+  );
+  if (!vbMatch) return svgString;
+
+  const vbW = parseFloat(vbMatch[3]);
+  const vbH = parseFloat(vbMatch[4]);
+  const fontSize = Math.max(8, Math.round(vbH * 0.035));
+  const padding = Math.round(fontSize * 0.8);
+  const x = vbW - padding;
+  const y = vbH - padding;
+
+  const watermarkEl =
+    `<text ` +
+    `x="${x}" y="${y}" ` +
+    `text-anchor="end" ` +
+    `font-family="sans-serif" ` +
+    `font-size="${fontSize}" ` +
+    `fill="rgba(100,100,100,0.45)" ` +
+    `data-watermark="true" ` +
+    `style="pointer-events:none;user-select:none;"` +
+    `>Napkin Clone</text>`;
+
+  return svgString.replace(/(<\/svg>)$/, `${watermarkEl}$1`);
 }
 
 /**
