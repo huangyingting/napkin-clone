@@ -177,7 +177,10 @@ export function clearNodeIcon(visual: Visual, id: string): Visual {
 }
 
 /** The shape used as the default for each positioned kind on a kind switch. */
-const POSITIONED_SHAPE: Record<"flowchart" | "mindmap" | "concept", VisualNode["shape"]> = {
+const POSITIONED_SHAPE: Record<
+  "flowchart" | "mindmap" | "concept",
+  VisualNode["shape"]
+> = {
   flowchart: "rounded",
   mindmap: "pill",
   concept: "ellipse",

@@ -27,7 +27,10 @@ import {
 
 import { FIXTURES } from "@/lib/visual/fixtures";
 
-import { $createVisualNode, VisualNode } from "@/app/app/documents/[id]/visual-node";
+import {
+  $createVisualNode,
+  VisualNode,
+} from "@/app/app/documents/[id]/visual-node";
 
 import {
   readSelectionDescriptor,
@@ -62,10 +65,7 @@ function makeEditor(): LexicalEditor {
  * from the committed editor state (where `$getSelection` resolves the selection
  * that `build` left behind).
  */
-function derive(
-  editor: LexicalEditor,
-  build: () => void,
-): SelectionDescriptor {
+function derive(editor: LexicalEditor, build: () => void): SelectionDescriptor {
   editor.update(build, { discrete: true });
   return editor.getEditorState().read(() => readSelectionDescriptor());
 }
@@ -149,7 +149,10 @@ test("selected visual decorator derives kind 'visual' with stable id + transient
   assert.equal(descriptor.selectedVisualId, "vis-stable-1");
   // selectedVisualNodeKey is the transient Lexical key for the same node.
   assert.equal(descriptor.selectedVisualNodeKey, nodeKey);
-  assert.notEqual(descriptor.selectedVisualId, descriptor.selectedVisualNodeKey);
+  assert.notEqual(
+    descriptor.selectedVisualId,
+    descriptor.selectedVisualNodeKey,
+  );
 });
 
 test("blockType maps headings h1/h2/h3", () => {

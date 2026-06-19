@@ -6,13 +6,13 @@ import { LinkNode } from "@lexical/link";
 import { ListItemNode, ListNode } from "@lexical/list";
 import { HorizontalRuleNode } from "@lexical/react/LexicalHorizontalRuleNode";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
-import {
-  $createParagraphNode,
-  $getRoot,
-  type LexicalEditor,
-} from "lexical";
+import { $createParagraphNode, $getRoot, type LexicalEditor } from "lexical";
 
-import { safeParseVisual, type Visual, type VisualKind } from "@/lib/visual/schema";
+import {
+  safeParseVisual,
+  type Visual,
+  type VisualKind,
+} from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import {
   applyTheme,
@@ -153,9 +153,21 @@ test("applyTheme persists into the node and survives exportJSON/importJSON for e
       true,
       `node Visual should reflect theme ${theme.id} after setVisual`,
     );
-    assert.equal(after.type, "flowchart", "kind/structure preserved across restyle");
-    assert.equal(after.nodes.length, before.nodes.length, "node count preserved");
-    assert.equal(after.edges.length, before.edges.length, "edge count preserved");
+    assert.equal(
+      after.type,
+      "flowchart",
+      "kind/structure preserved across restyle",
+    );
+    assert.equal(
+      after.nodes.length,
+      before.nodes.length,
+      "node count preserved",
+    );
+    assert.equal(
+      after.edges.length,
+      before.edges.length,
+      "edge count preserved",
+    );
     assert.equal(
       safeParseVisual(after).success,
       true,
@@ -209,7 +221,11 @@ test("setVisualKind switches the selected visual's kind and round-trips through 
 
   const { serialized, rehydrated } = roundTripThroughJSON(editor);
   assert.equal(serialized.visual.type, "list");
-  assert.equal(rehydrated.type, "list", "new kind should survive the JSON round-trip");
+  assert.equal(
+    rehydrated.type,
+    "list",
+    "new kind should survive the JSON round-trip",
+  );
   assert.equal(safeParseVisual(serialized.visual).success, true);
 });
 
@@ -221,7 +237,11 @@ test("setVisualKind to a positioned kind assigns fresh coordinates and round-tri
   const after = readVisual(editor);
   assert.equal(after.type, "flowchart");
   for (const node of after.nodes) {
-    assert.equal(typeof node.x, "number", "flowchart nodes get an x coordinate");
+    assert.equal(
+      typeof node.x,
+      "number",
+      "flowchart nodes get an x coordinate",
+    );
     assert.equal(typeof node.y, "number", "flowchart nodes get a y coordinate");
   }
 
@@ -242,7 +262,11 @@ test("setVisualStyle (background) and setNodeStyle (fill/stroke/text) persist th
   });
 
   const after = readVisual(editor);
-  assert.equal(after.style.background, "#101010", "background persists into the node");
+  assert.equal(
+    after.style.background,
+    "#101010",
+    "background persists into the node",
+  );
   const target = after.nodes.find((n) => n.id === targetId);
   assert.ok(target, "target node should still exist");
   assert.equal(target.color, "#ff0000");
@@ -280,9 +304,21 @@ test("transforms + setVisual produce a NEW Visual; the previously-read Visual is
   // The previously-read object must be untouched (no shared-reference mutation
   // leaking back into Yjs/contentJson).
   assert.equal(original.type, originalType, "captured Visual.type unchanged");
-  assert.equal(original.style.background, originalBackground, "captured background unchanged");
-  assert.deepEqual(original.style.palette, originalPalette, "captured palette unchanged");
-  assert.equal(original.nodes[0].color, originalFirstNodeColor, "captured node color unchanged");
+  assert.equal(
+    original.style.background,
+    originalBackground,
+    "captured background unchanged",
+  );
+  assert.deepEqual(
+    original.style.palette,
+    originalPalette,
+    "captured palette unchanged",
+  );
+  assert.equal(
+    original.nodes[0].color,
+    originalFirstNodeColor,
+    "captured node color unchanged",
+  );
 
   // And the node genuinely advanced to the new state.
   const after = readVisual(editor);
