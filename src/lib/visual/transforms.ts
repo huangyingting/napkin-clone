@@ -18,6 +18,10 @@
 import {
   DEFAULT_NODE_HEIGHT,
   DEFAULT_NODE_WIDTH,
+  type ArrowStyle,
+  type FillStyle,
+  type LineStyle,
+  type TextAlign,
   type Visual,
   type VisualEdge,
   type VisualKind,
@@ -29,6 +33,11 @@ import { VISUAL_DISPLAY_STYLES } from "@/lib/visual/display-styles";
 
 /** Per-node color override fields the selected-element controls can set. */
 export type NodeStyleField = "color" | "stroke" | "textColor";
+
+/** Per-node extended style fields (non-color). */
+export type NodeFillStyleField = "fillStyle";
+export type NodeBorderStyleField = "borderStyle";
+export type NodeTextAlignField = "textAlign";
 
 function cloneStyle(style: VisualStyle): VisualStyle {
   return { ...style, palette: [...style.palette] };
@@ -174,6 +183,139 @@ export function clearNodeIcon(visual: Visual, id: string): Visual {
     delete cleared.icon;
     return cleared;
   });
+  return next;
+}
+
+/** Sets the fill style (solid / gradient) on a single node. */
+export function setNodeFillStyle(
+  visual: Visual,
+  id: string,
+  fillStyle: FillStyle,
+): Visual {
+  const next = cloneVisual(visual);
+  next.nodes = next.nodes.map((node) =>
+    node.id === id ? { ...node, fillStyle } : node,
+  );
+  return next;
+}
+
+/** Sets the border (stroke) style on a single node. */
+export function setNodeBorderStyle(
+  visual: Visual,
+  id: string,
+  borderStyle: LineStyle,
+): Visual {
+  const next = cloneVisual(visual);
+  next.nodes = next.nodes.map((node) =>
+    node.id === id ? { ...node, borderStyle } : node,
+  );
+  return next;
+}
+
+/** Sets the border width on a single node. */
+export function setNodeBorderWidth(
+  visual: Visual,
+  id: string,
+  borderWidth: number,
+): Visual {
+  const next = cloneVisual(visual);
+  next.nodes = next.nodes.map((node) =>
+    node.id === id ? { ...node, borderWidth } : node,
+  );
+  return next;
+}
+
+/** Sets the text alignment on a single node. */
+export function setNodeTextAlign(
+  visual: Visual,
+  id: string,
+  textAlign: TextAlign,
+): Visual {
+  const next = cloneVisual(visual);
+  next.nodes = next.nodes.map((node) =>
+    node.id === id ? { ...node, textAlign } : node,
+  );
+  return next;
+}
+
+/**
+ * Clears all extended per-node style overrides (fillStyle, borderStyle,
+ * borderWidth, textAlign), falling back to defaults. Works alongside
+ * {@link resetNodeStyle} (which clears color overrides).
+ */
+export function resetNodeExtStyle(visual: Visual, id: string): Visual {
+  const next = cloneVisual(visual);
+  next.nodes = next.nodes.map((node) => {
+    if (node.id !== id) {
+      return node;
+    }
+    const reset = { ...node };
+    delete reset.fillStyle;
+    delete reset.borderStyle;
+    delete reset.borderWidth;
+    delete reset.textAlign;
+    return reset;
+  });
+  return next;
+}
+
+/**
+ * Sets the arrowhead variant on a single edge.
+ * `arrowStyle: "filled"` (default closed triangle) is the baseline.
+ */
+export function setEdgeArrowStyle(
+  visual: Visual,
+  id: string,
+  arrowStyle: ArrowStyle,
+): Visual {
+  const next = cloneVisual(visual);
+  next.edges = next.edges.map((edge) =>
+    edge.id === id ? { ...edge, arrowStyle } : edge,
+  );
+  return next;
+}
+
+/** Sets the stroke pattern (solid / dashed / dotted) on a single edge. */
+export function setEdgeLineStyle(
+  visual: Visual,
+  id: string,
+  lineStyle: LineStyle,
+): Visual {
+  const next = cloneVisual(visual);
+  next.edges = next.edges.map((edge) =>
+    edge.id === id ? { ...edge, lineStyle } : edge,
+  );
+  return next;
+}
+
+/** Sets the stroke width on a single edge. */
+export function setEdgeLineWidth(
+  visual: Visual,
+  id: string,
+  lineWidth: number,
+): Visual {
+  const next = cloneVisual(visual);
+  next.edges = next.edges.map((edge) =>
+    edge.id === id ? { ...edge, lineWidth } : edge,
+  );
+  return next;
+}
+
+/**
+ * Applies arrowStyle / lineStyle / lineWidth to **all** edges in the visual —
+ * the "global connector style" path in the UI (no edge selection required).
+ * Only the fields present in `patch` are changed; others are left untouched.
+ */
+export function setAllEdgesStyle(
+  visual: Visual,
+  patch: {
+    arrowStyle?: ArrowStyle;
+    lineStyle?: LineStyle;
+    lineWidth?: number;
+  },
+): Visual {
+  const next = cloneVisual(visual);
+  next.edges = next.edges.map((edge) => ({ ...edge, ...patch }));
   return next;
 }
 

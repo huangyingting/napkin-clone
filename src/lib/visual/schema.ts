@@ -73,6 +73,27 @@ export const EDGE_STYLES = ["straight", "curved"] as const;
 
 export type EdgeStyle = (typeof EDGE_STYLES)[number];
 
+/** Arrowhead rendering variants. `filled` is the default closed triangle. */
+export const ARROW_STYLES = ["filled", "open", "circle", "diamond"] as const;
+
+export type ArrowStyle = (typeof ARROW_STYLES)[number];
+
+/** Stroke pattern for edges or node borders. */
+export const LINE_STYLES = ["solid", "dashed", "dotted"] as const;
+
+export type LineStyle = (typeof LINE_STYLES)[number];
+
+/** Node fill rendering mode. `solid` is a flat fill; `gradient` adds a subtle
+ * top-to-bottom highlight derived from the node fill color. */
+export const FILL_STYLES = ["solid", "gradient"] as const;
+
+export type FillStyle = (typeof FILL_STYLES)[number];
+
+/** Horizontal text alignment within a node label. */
+export const TEXT_ALIGNS = ["left", "center", "right"] as const;
+
+export type TextAlign = (typeof TEXT_ALIGNS)[number];
+
 /** A single node. `x`/`y` are the node **center** in canvas coordinates. */
 export interface VisualNode {
   id: string;
@@ -100,6 +121,14 @@ export interface VisualNode {
    * name is dropped during validation (treated as no icon), never a failure.
    */
   icon?: string;
+  /** Fill rendering mode. Defaults to `"solid"`. */
+  fillStyle?: FillStyle;
+  /** Border stroke pattern. Defaults to `"solid"`. */
+  borderStyle?: LineStyle;
+  /** Border stroke width in px. Positive. Defaults to `1.5`. */
+  borderWidth?: number;
+  /** Horizontal text alignment for the label. Defaults to `"center"`. */
+  textAlign?: TextAlign;
 }
 
 /** A directed-by-default connection between two nodes (by id). */
@@ -112,6 +141,12 @@ export interface VisualEdge {
   directed?: boolean;
   /** Connector line style. Defaults to `"straight"`. */
   style?: EdgeStyle;
+  /** Arrowhead variant. Defaults to `"filled"`. */
+  arrowStyle?: ArrowStyle;
+  /** Stroke pattern. Defaults to `"solid"`. */
+  lineStyle?: LineStyle;
+  /** Stroke width in px. Positive. Defaults to `1.6`. */
+  lineWidth?: number;
 }
 
 export interface VisualStyle {
@@ -220,6 +255,34 @@ export function isEdgeStyle(value: unknown): value is EdgeStyle {
   );
 }
 
+export function isArrowStyle(value: unknown): value is ArrowStyle {
+  return (
+    typeof value === "string" &&
+    (ARROW_STYLES as readonly string[]).includes(value)
+  );
+}
+
+export function isLineStyle(value: unknown): value is LineStyle {
+  return (
+    typeof value === "string" &&
+    (LINE_STYLES as readonly string[]).includes(value)
+  );
+}
+
+export function isFillStyle(value: unknown): value is FillStyle {
+  return (
+    typeof value === "string" &&
+    (FILL_STYLES as readonly string[]).includes(value)
+  );
+}
+
+export function isTextAlign(value: unknown): value is TextAlign {
+  return (
+    typeof value === "string" &&
+    (TEXT_ALIGNS as readonly string[]).includes(value)
+  );
+}
+
 export class VisualValidationError extends Error {
   constructor(message: string) {
     super(message);
@@ -320,6 +383,21 @@ function validateNode(input: unknown, index: number): VisualNode {
     node.icon = input.icon;
   }
 
+  // New optional styling fields — forgiving (unknown values silently dropped).
+  if (isFillStyle(input.fillStyle)) {
+    node.fillStyle = input.fillStyle;
+  }
+  if (isLineStyle(input.borderStyle)) {
+    node.borderStyle = input.borderStyle;
+  }
+  const borderWidth = numberField(input, "borderWidth", context, {
+    positive: true,
+  });
+  if (borderWidth !== undefined) node.borderWidth = borderWidth;
+  if (isTextAlign(input.textAlign)) {
+    node.textAlign = input.textAlign;
+  }
+
   return node;
 }
 
@@ -370,6 +448,18 @@ function validateEdge(
   if (isEdgeStyle(input.style)) {
     edge.style = input.style;
   }
+
+  // New optional edge styling fields — forgiving (unknown values silently dropped).
+  if (isArrowStyle(input.arrowStyle)) {
+    edge.arrowStyle = input.arrowStyle;
+  }
+  if (isLineStyle(input.lineStyle)) {
+    edge.lineStyle = input.lineStyle;
+  }
+  const lineWidth = numberField(input, "lineWidth", context, {
+    positive: true,
+  });
+  if (lineWidth !== undefined) edge.lineWidth = lineWidth;
 
   return edge;
 }
