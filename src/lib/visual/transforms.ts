@@ -25,6 +25,7 @@ import {
   type VisualStyle,
 } from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
+import { VISUAL_DISPLAY_STYLES } from "@/lib/visual/display-styles";
 
 /** Per-node color override fields the selected-element controls can set. */
 export type NodeStyleField = "color" | "stroke" | "textColor";
@@ -174,6 +175,74 @@ export function clearNodeIcon(visual: Visual, id: string): Visual {
     return cleared;
   });
   return next;
+}
+
+/**
+ * Applies a named display style (looked up by `styleId` from
+ * {@link VISUAL_DISPLAY_STYLES}) to a visual — the "style gallery" restyle path.
+ *
+ * Changes only presentation: the color profile, font weight, node shapes, and
+ * edge connector styles are replaced with the preset's values while all
+ * node/edge/label content (ids, labels, values, positions, per-node color
+ * overrides, icons) is kept intact. Typography (`fontFamily`/`fontSize`) is
+ * never touched. An unknown `styleId` is a safe no-op clone.
+ */
+export function applyDisplayStyle(visual: Visual, styleId: string): Visual {
+  const next = cloneVisual(visual);
+  const preset = VISUAL_DISPLAY_STYLES.find((s) => s.id === styleId);
+  if (!preset) {
+    return next;
+  }
+  next.style = {
+    ...next.style,
+    ...preset.colors,
+    palette: [...preset.colors.palette],
+    fontWeight: preset.fontWeight,
+  };
+  next.nodes = next.nodes.map((node) => ({
+    ...node,
+    shape: preset.nodeShape,
+  }));
+  next.edges = next.edges.map((edge) => ({
+    ...edge,
+    style: preset.edgeStyle,
+  }));
+  return next;
+}
+
+/**
+ * Whether `visual`'s current presentation matches the display style identified
+ * by `styleId` (so the gallery can highlight the active preset). Compares
+ * colors, font weight, node shapes, and edge styles. An unknown `styleId`
+ * returns `false`.
+ */
+export function isDisplayStyleActive(visual: Visual, styleId: string): boolean {
+  const preset = VISUAL_DISPLAY_STYLES.find((s) => s.id === styleId);
+  if (!preset) {
+    return false;
+  }
+  const { style, nodes, edges } = visual;
+  const c = preset.colors;
+  if (
+    style.background !== c.background ||
+    style.nodeFill !== c.nodeFill ||
+    style.nodeStroke !== c.nodeStroke ||
+    style.nodeText !== c.nodeText ||
+    style.edgeColor !== c.edgeColor ||
+    style.fontWeight !== preset.fontWeight ||
+    style.palette.length !== c.palette.length ||
+    !style.palette.every((color, i) => color === c.palette[i])
+  ) {
+    return false;
+  }
+  if (nodes.some((n) => n.shape !== preset.nodeShape)) {
+    return false;
+  }
+  const expectedEdge = preset.edgeStyle;
+  if (edges.some((e) => (e.style ?? "straight") !== expectedEdge)) {
+    return false;
+  }
+  return true;
 }
 
 /** The shape used as the default for each positioned kind on a kind switch. */
