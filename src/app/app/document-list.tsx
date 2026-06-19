@@ -15,7 +15,11 @@ const UNDO_DURATION_MS = 6000;
 export type DashboardDocument = DocumentCardData & {
   createdAtMs: number;
   updatedAtMs: number;
+  tags: { slug: string; name: string }[];
 };
+
+/** A tag available for filtering the dashboard. */
+export type AvailableTag = { slug: string; name: string };
 
 const SORT_KEYS = ["edited", "title", "created"] as const;
 type SortKey = (typeof SORT_KEYS)[number];
@@ -131,8 +135,10 @@ function UndoToast({ title, onUndo }: { title: string; onUndo: () => void }) {
  */
 export function DocumentList({
   documents,
+  availableTags,
 }: {
   documents: DashboardDocument[];
+  availableTags: AvailableTag[];
 }) {
   const [removedIds, setRemovedIds] = useState<Set<string>>(() => new Set());
   const [restored, setRestored] = useState<DashboardDocument[]>([]);
@@ -146,6 +152,12 @@ export function DocumentList({
   const sort = parseSort(searchParams.get("sort"));
   const view = parseView(searchParams.get("view"));
   const viewFavorites = view === "favorites";
+  const rawTag = searchParams.get("tag");
+  // Only honor a tag slug that actually exists; otherwise treat as "all".
+  const selectedTag =
+    rawTag && availableTags.some((tag) => tag.slug === rawTag) ? rawTag : null;
+  const selectedTagName =
+    availableTags.find((tag) => tag.slug === selectedTag)?.name ?? null;
 
   // Persists a view-state param in the URL (dropping it for its default value)
   // via the History API. `useSearchParams` reflects this without a server round
@@ -177,6 +189,16 @@ export function DocumentList({
     });
   };
 
+  const setTag = (next: string | null) => {
+    updateParams((params) => {
+      if (!next) {
+        params.delete("tag");
+      } else {
+        params.set("tag", next);
+      }
+    });
+  };
+
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
@@ -197,6 +219,7 @@ export function DocumentList({
             ...data,
             createdAtMs: Date.now(),
             updatedAtMs: Date.now(),
+            tags: [],
           };
       setRemovedIds((prev) => new Set(prev).add(data.id));
       setRestored((prev) => prev.filter((item) => item.id !== data.id));
@@ -238,9 +261,15 @@ export function DocumentList({
   );
   const combined = [...extra, ...base];
 
-  const favFiltered = viewFavorites
-    ? combined.filter((document) => document.favorite)
+  const tagFiltered = selectedTag
+    ? combined.filter((document) =>
+        document.tags.some((tag) => tag.slug === selectedTag),
+      )
     : combined;
+
+  const favFiltered = viewFavorites
+    ? tagFiltered.filter((document) => document.favorite)
+    : tagFiltered;
 
   const trimmedQuery = query.trim().toLowerCase();
   const filtered = trimmedQuery
@@ -251,6 +280,7 @@ export function DocumentList({
   const visible = sortDocuments(filtered, sort, !viewFavorites);
 
   const hasDocuments = combined.length > 0;
+  const noTagMatch = selectedTag !== null && tagFiltered.length === 0;
   const noFavorites = viewFavorites && favFiltered.length === 0;
 
   return (
@@ -296,6 +326,30 @@ export function DocumentList({
               />
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              {availableTags.length > 0 && (
+                <>
+                  <label
+                    htmlFor="filter-tag"
+                    className="text-sm text-ghost-secondary"
+                  >
+                    Tag
+                  </label>
+                  <select
+                    id="filter-tag"
+                    value={selectedTag ?? ""}
+                    onChange={(event) => setTag(event.target.value || null)}
+                    aria-label="Filter by tag"
+                    className="h-10 rounded-full border border-ghost-border bg-ghost-bg px-4 text-sm text-ghost-text outline-none transition focus:border-ghost-accent focus:ring-2 focus:ring-ghost-accent/30"
+                  >
+                    <option value="">All tags</option>
+                    {availableTags.map((tag) => (
+                      <option key={tag.slug} value={tag.slug}>
+                        {tag.name}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
               <button
                 type="button"
                 aria-label="Show favorites only"
@@ -343,7 +397,25 @@ export function DocumentList({
             </div>
           </div>
 
-          {noFavorites ? (
+          {noTagMatch ? (
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-ghost-border bg-ghost-bg px-6 py-16 text-center">
+              <div className="flex flex-col gap-1">
+                <h2 className="text-base font-medium text-ghost-text">
+                  No documents tagged “{selectedTagName}”
+                </h2>
+                <p className="text-sm text-ghost-secondary">
+                  Try a different tag or clear the filter.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTag(null)}
+                className="rounded-full border border-ghost-border bg-ghost-bg px-4 py-2 text-sm font-medium text-ghost-text transition hover:bg-ghost-wash"
+              >
+                Clear filter
+              </button>
+            </div>
+          ) : noFavorites ? (
             <div className="flex flex-col items-center gap-1 rounded-2xl border border-dashed border-ghost-border bg-ghost-bg px-6 py-16 text-center">
               <h2 className="text-base font-medium text-ghost-text">
                 No favorite documents yet

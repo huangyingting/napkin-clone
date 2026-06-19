@@ -44,6 +44,10 @@ export default async function DashboardPage() {
         take: 1,
         select: { data: true },
       },
+      tags: {
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, slug: true },
+      },
     },
   });
 
@@ -68,6 +72,10 @@ export default async function DashboardPage() {
         orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }],
         take: 1,
         select: { data: true },
+      },
+      tags: {
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, slug: true },
       },
       workspace: { select: { name: true } },
     },
@@ -99,8 +107,33 @@ export default async function DashboardPage() {
       readingMinutes: readingTimeMinutes(content),
       createdAtMs: document.createdAt.getTime(),
       updatedAtMs: document.updatedAt.getTime(),
+      tags: document.tags.map((tag) => ({ slug: tag.slug, name: tag.name })),
     };
   });
+
+  // The user's own tags, plus any tags present on accessible workspace
+  // documents (which may be owned by collaborators), form the filter control.
+  const ownTags = await prisma.tag.findMany({
+    where: { ownerId: user.id },
+    select: { slug: true, name: true },
+  });
+  const tagMap = new Map<string, string>();
+  for (const tag of ownTags) {
+    tagMap.set(tag.slug, tag.name);
+  }
+  for (const document of documents) {
+    for (const tag of document.tags) {
+      if (!tagMap.has(tag.slug)) {
+        tagMap.set(tag.slug, tag.name);
+      }
+    }
+  }
+  const availableTags = Array.from(tagMap, ([slug, name]) => ({
+    slug,
+    name,
+  })).sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+  );
 
   return (
     <main className="flex flex-1 flex-col items-center bg-ghost-wash px-6 py-12">
@@ -118,7 +151,7 @@ export default async function DashboardPage() {
           <NewDocumentButton className={primaryButtonClass} enableShortcut />
         </header>
 
-        <DocumentList documents={documents} />
+        <DocumentList documents={documents} availableTags={availableTags} />
       </div>
     </main>
   );
