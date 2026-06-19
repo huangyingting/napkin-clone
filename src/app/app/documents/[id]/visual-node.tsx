@@ -11,8 +11,9 @@ import {
 } from "lexical";
 import type { JSX } from "react";
 
-import { VisualRenderer } from "@/components/visual/visual-renderer";
-import { safeParseVisual, type Visual } from "@/lib/visual/schema";
+import type { Visual } from "@/lib/visual/schema";
+
+import { VisualCard } from "./visual-card";
 
 /**
  * Serialized shape persisted into `contentJson`. The `visual` payload is the
@@ -43,26 +44,6 @@ function createVisualId(): string {
  * stored payload is validated with {@link safeParseVisual} at render time so a
  * malformed visual degrades to a placeholder instead of crashing the editor.
  */
-function VisualDecorator({ visual }: { visual: Visual }): JSX.Element {
-  const result = safeParseVisual(visual);
-  if (!result.success) {
-    return (
-      <div
-        role="img"
-        aria-label="Unavailable visual"
-        className="my-4 rounded-2xl border border-dashed border-black/[.12] bg-zinc-50 p-6 text-center text-sm text-zinc-500 dark:border-white/[.12] dark:bg-zinc-900 dark:text-zinc-400"
-      >
-        This visual could not be displayed.
-      </div>
-    );
-  }
-  return (
-    <div className="my-4 overflow-hidden rounded-2xl border border-black/[.06] bg-white p-2 dark:border-white/[.08] dark:bg-zinc-950">
-      <VisualRenderer visual={result.data} className="h-auto w-full" />
-    </div>
-  );
-}
-
 /**
  * A Lexical {@link DecoratorNode} that makes a visual a first-class block in the
  * document. It serializes its payload into `contentJson` via
@@ -153,7 +134,7 @@ export class VisualNode extends DecoratorNode<JSX.Element> {
   }
 
   decorate(): JSX.Element {
-    return <VisualDecorator visual={this.__visual} />;
+    return <VisualCard nodeKey={this.getKey()} visual={this.__visual} />;
   }
 }
 

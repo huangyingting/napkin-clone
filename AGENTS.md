@@ -2477,3 +2477,73 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   order (`["p","div:visual"]`). Verify the mirror with a root-level `tsx` script
   (`PrismaBetterSqlite3`): the doc has one `Visual` row whose `anchorBlockId` equals a
   `visualId` found in `contentJson`, with `orderIndex` matching document position.
+
+### Contextual editing for a selected visual card (US-012)
+
+- **The `VisualNode` decorator renders an interactive `VisualCard`**
+  (`src/app/app/documents/[id]/visual-card.tsx`, `"use client"`), not the inert
+  `VisualRenderer` it used in US-009. `decorate()` now returns
+  `<VisualCard nodeKey={this.getKey()} visual={this.__visual} />` (pass the **node
+  key** so the card can write back). The card computes `editable` itself via
+  `useLexicalComposerContext` + `editor.registerEditableListener` (same as
+  `BlockSparkPlugin`) — no prop drilling from `decorate()`. The malformed-payload
+  placeholder (`safeParseVisual` → "could not be displayed") moved from the node
+  into the card.
+- **A decorator component IS inside the composer's React context**, so
+  `useLexicalComposerContext()` works in `VisualCard`. Lexical re-runs `decorate()`
+  only when THAT node is dirty and **reconciles** the decorator (same React
+  position) so the card keeps its `useState` across re-decorations. This makes the
+  card a **controlled** component: pass the node's current `visual` in,
+  `onChange → updateVisual` writes back. `updateVisual(next)` =
+  `editor.update(() => { const n = $getNodeByKey(nodeKey); if ($isVisualNode(n))
+  n.setVisual(next); })`. A normal `editor.update` carries no COLLABORATION/HISTORIC
+  tag, so `OnChangePlugin` debounce-saves it into `contentJson` (US-003) and
+  `saveDocumentLexical`'s `mirrorVisualNodes` updates the `Visual` row (US-011) — no
+  separate persistence code. No local `visual` state in the card (avoids divergence
+  from the node).
+- **Three render states (no fixed side panel — controls are anchored to the card):**
+  not-editable → plain `<div><VisualRenderer/></div>`; editable+unselected →
+  `<button aria-label="Edit visual">` wrapping the renderer (a button can wrap an
+  SVG; clicking selects); editable+selected → `<div>` with the interactive
+  **`VisualEditor`** (element label/move/delete + edge editing) PLUS an
+  absolutely-positioned **popover** (`[role="dialog"][aria-label="Visual controls"]`,
+  `top-[calc(100%+0.5rem)]`) holding the **type-switch pills**
+  (`[aria-label="Switch to <Label>"]` + `aria-pressed`), **variation browsing**
+  (`[aria-label="More variations"]` → candidate gallery
+  `[aria-label="Select variation n of m"]`), the **`StylePanel`** (fed
+  `selectedNodeId` from `VisualEditor`'s `onSelectNode`), and the **`ExportMenu`**
+  (`getSvgElement={() => rendererRef.current}`, ref forwarded into `VisualEditor` →
+  `VisualRenderer`).
+- **GOTCHA — the inner card div is `overflow-hidden`** (clips the visual to its
+  rounded corners), which would clip an inside popover. Put the popover as a SIBLING
+  of that div inside the `rootRef` wrapper (`relative`, NOT overflow-hidden). The
+  editor container has no `overflow-hidden`, so an absolutely-positioned popover
+  isn't clipped. Keeping the popover inside `rootRef` also makes the **ref-containment
+  outside-click** a single check: `document` `mousedown` → if
+  `!rootRef.current.contains(target)` → `setSelected(false)` (never
+  `stopPropagation`, per the app rule). One card open at a time falls out for free:
+  clicking card B fires card A's outside-mousedown (target ∉ A) → A closes.
+- **Type-switch / variations need a text prompt but a VisualNode has no source
+  block text.** Derive one from the visual itself: `visualPromptText(visual)` =
+  title + node labels joined by `\n`; POST it to `/api/generate` (reuse the
+  `VisualPanel` shape — `{text}` for varied candidates, `{text, type}` for a forced
+  kind that auto-applies via `valid.find(v => v.type === type) ?? valid[0]`). Read
+  the current visual through a `visualRef` updated each render so the generate
+  closure isn't stale.
+- **Importing `ExportMenu` into the node module pulls `jspdf`/`pptxgenjs`** (via
+  `@/lib/visual/export`) through the `visual-node.tsx` import chain. This is fine —
+  `decorate()` (and thus the export deps) aren't exercised by the headless
+  `visual-node.test.ts` serialization tests, and `npm test`/build stay green.
+- **Browser QA (mock-Azure on :5599 + collab server):** at `/app/lexical-preview`,
+  insert a visual via the US-010 spark flow (mousemove over the `<p>` to reveal the
+  spark — `focus()` on the root contenteditable does NOT resolve a block since the
+  focusin target is the root, not the block child), then click
+  `[aria-label="Edit visual"]` → assert `[role="dialog"][aria-label="Visual
+  controls"]`, `[role="group"][aria-label="Visual type"]`, `[aria-label="More
+  variations"]`, `[aria-label="Export visual"]`, and `[data-node-id]` hotspots in the
+  selected card. Click `[aria-label="Switch to Mind map"]`, wait for `aria-pressed`,
+  then a root-level `tsx` DB check (`PrismaBetterSqlite3`) confirms BOTH the
+  `contentJson` visual node `type` AND the mirrored `Visual.type` flipped to
+  mindmap — proving the edit persisted through both paths. `page.mouse.click(5,5)`
+  (outside) dismisses the dialog; reload shows the persisted type and the pill still
+  pressed; no horizontal overflow at the default viewport.
