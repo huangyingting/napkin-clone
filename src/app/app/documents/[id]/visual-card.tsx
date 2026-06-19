@@ -2,7 +2,7 @@
 
 import { Download } from "lucide-react";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { $getNodeByKey } from "lexical";
+import { $getNodeByKey, $nodesOfType } from "lexical";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 
@@ -16,13 +16,16 @@ import {
   downloadBlob,
 } from "@/lib/visual/export";
 import { applyElasticLayout } from "@/lib/visual/transforms";
+import { applyBrand } from "@/lib/brand/transforms";
+import type { BrandStyle } from "@/lib/brand/schema";
+import { BRAND_WEB_FONTS } from "@/lib/brand/schema";
 
 import { useRegisterVisualSvg } from "@/components/editor/visual-svg-registry";
 
 import { useVisualAnchor } from "./visual-anchor-context";
 import { VisualContextPopover } from "./visual-context-popover";
 import { VisualEditor } from "./visual-editor";
-import { $isVisualNode } from "./visual-node";
+import { $isVisualNode, VisualNode } from "./visual-node";
 
 // Block types whose text content can serve as a visual's source anchor.
 const SOURCE_TEXT_BLOCK_TYPES = new Set([
@@ -188,6 +191,45 @@ export function VisualCard({
     });
   }, [editor, nodeKey]);
 
+  /**
+   * Applies a brand to ALL VisualNodes in the document via a single
+   * `editor.update()` call using `$nodesOfType` to find all visual nodes.
+   * Yjs-safe: mutations go through `node.setVisual()` as a local edit.
+   *
+   * Fonts referenced by the brand are injected as <link> tags so they load
+   * immediately in the editor canvas.
+   */
+  const applyBrandToAll = useCallback(
+    (brand: BrandStyle) => {
+      // Inject Google Font if needed
+      if (brand.fontFamily) {
+        const match = BRAND_WEB_FONTS.find(
+          (f) => f.cssFamily === brand.fontFamily,
+        );
+        if (match) {
+          const id = `gfont-brand-${match.id}`;
+          if (!document.getElementById(id)) {
+            const link = document.createElement("link");
+            link.id = id;
+            link.rel = "stylesheet";
+            link.href = match.url;
+            document.head.appendChild(link);
+          }
+        }
+      }
+
+      editor.update(() => {
+        const nodes = $nodesOfType(VisualNode);
+        for (const node of nodes) {
+          node.setVisual(
+            applyElasticLayout(applyBrand(node.getVisual(), brand)),
+          );
+        }
+      });
+    },
+    [editor],
+  );
+
   // Opens this card's editing controls. Visibility is local state; the
   // editor-root click-away above closes any other open visual, giving
   // single-active-visual semantics without a (collab-stripped) NodeSelection.
@@ -319,6 +361,7 @@ export function VisualCard({
           getSvgElement={() => rendererRef.current}
           anchorRef={rootRef}
           currentSourceText={currentSourceText}
+          onApplyBrandToAll={applyBrandToAll}
         />
       ) : null}
     </motion.div>
