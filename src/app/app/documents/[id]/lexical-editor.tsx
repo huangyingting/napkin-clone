@@ -26,11 +26,13 @@ import {
   type LexicalEditor as LexicalEditorInstance,
   type LexicalNode,
 } from "lexical";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useLexicalCollaboration } from "@/lib/collab/use-lexical-collaboration";
+import { useDebouncedSave, useYText } from "@/lib/collab/use-collaboration";
 
-import { saveDocumentLexical } from "./actions";
+import { saveDocumentLexical, saveDocumentTitle } from "./actions";
 import { BlockInsertMenuPlugin } from "./block-insert-menu";
 import { BlockSparkPlugin } from "./block-spark";
 import type { CommentThread } from "./comments-actions";
@@ -139,38 +141,76 @@ function CaptureSelectionPlugin({
 }
 
 /**
- * Minimal Lexical rich-text editor shell bound to a document with real-time
+ * The document editor: a Lexical block editor bound to a document with real-time
  * collaboration. Content lives in a shared Yjs document synced over the collab
  * websocket server; the `CollaborationPlugin` bootstraps it from the serialized
  * `initialStateJson` (the DB is the durable source of truth — the collab server
  * holds no persistent state). Local edits are persisted via the debounced
  * `saveDocumentLexical` action; remote/CRDT merges do not re-save (only the
- * originator writes). Later stories build blocks, the "+"/"/" menus, the
- * floating toolbar, and visual decorator nodes on top of this.
+ * originator writes). The title is a separate collaborative, autosaved input.
+ * It renders the full document chrome (back link, workspace, read-only badge,
+ * presence, sharing, comments) and hosts the "+"/"/" insert menus, the floating
+ * format toolbar, the per-block visual spark, and inline visual cards. This
+ * replaced the legacy textarea/tab editor (US-018).
  */
 export function LexicalEditor({
   documentId,
+  initialTitle,
   initialStateJson = null,
   userName,
   currentUserId,
+  canEdit = true,
+  workspaceName,
   initialComments = [],
   initialIsShared = false,
   initialShareId = null,
 }: {
   documentId: string;
+  initialTitle: string;
   initialStateJson?: string | null;
   userName: string;
   currentUserId: string;
+  canEdit?: boolean;
+  workspaceName?: string;
   initialComments?: CommentThread[];
   initialIsShared?: boolean;
   initialShareId?: string | null;
 }) {
   const collab = useLexicalCollaboration({ room: documentId, userName });
 
+  // Editing is enabled only with permission AND once collaboration is ready
+  // (synced, or a degraded local-only fallback), so no one edits before the
+  // shared document is bootstrapped from the database.
+  const editable = canEdit && collab.ready;
+
   const [status, setStatus] = useState<SaveStatus>("saved");
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestJsonRef = useRef<string | null>(null);
+
+  // Collaborative, autosaved document title (parity with the old editor). The
+  // body is bound by `@lexical/yjs`; the title is a separate shared text bound
+  // via `useYText` and persisted with a debounced save.
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const titleSaver = useDebouncedSave(
+    (value: string) => saveDocumentTitle(documentId, value),
+    initialTitle,
+  );
+  const title = useYText(collab.ytitle, {
+    initial: initialTitle,
+    ready: collab.ready,
+    editable,
+    localOrigin: collab.localOrigin,
+    elementRef: titleInputRef,
+    onLocalChange: titleSaver.schedule,
+  });
+
+  // Seed the title into the shared room from the database once ready.
+  useEffect(() => {
+    if (collab.ready) {
+      collab.seedTitle(initialTitle);
+    }
+  }, [collab, initialTitle]);
 
   // Comment anchoring state. `selectionRef` holds the last non-empty selected
   // text (text anchors); `anchorNode` holds the visual element a `VisualCard`
@@ -251,76 +291,134 @@ export function LexicalEditor({
     editable: false,
   };
 
+  // Combined save indicator across the title (debounced) and body (Lexical)
+  // saves: error wins, then saving, then pending, else saved.
+  const saveStatus: SaveStatus =
+    status === "error"
+      ? "error"
+      : status === "saving" || titleSaver.status === "saving"
+        ? "saving"
+        : status === "pending" || titleSaver.status === "pending"
+          ? "pending"
+          : "saved";
+
   return (
-    <LexicalCollaboration>
-      <LexicalComposer initialConfig={initialConfig}>
-        <VisualAnchorProvider value={{ setVisualAnchor: setAnchorNode }}>
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center justify-end gap-3">
-              <Presence peers={collab.peers} status={collab.status} />
-              <ShareButton
-                id={documentId}
-                initialIsShared={initialIsShared}
-                initialShareId={initialShareId}
-              />
-              <CommentsPanel
-                documentId={documentId}
-                currentUserId={currentUserId}
-                initialComments={initialComments}
-                getTextSelection={getTextSelection}
-                anchorNode={anchorNode}
-              />
+    <main className="flex flex-1 flex-col bg-zinc-50 dark:bg-black">
+      <LexicalCollaboration>
+        <LexicalComposer initialConfig={initialConfig}>
+          <VisualAnchorProvider value={{ setVisualAnchor: setAnchorNode }}>
+            <div className="flex flex-col gap-3 border-b border-black/[.06] bg-white/80 px-6 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between dark:border-white/[.08] dark:bg-black/40">
+              <div className="flex min-w-0 flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <Link
+                    href="/app"
+                    className="w-fit text-xs font-medium text-zinc-500 transition hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                  >
+                    ← Back to documents
+                  </Link>
+                  {workspaceName && (
+                    <>
+                      <span className="text-xs text-zinc-300 dark:text-zinc-600">
+                        ·
+                      </span>
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {workspaceName}
+                      </span>
+                    </>
+                  )}
+                  {!canEdit && (
+                    <>
+                      <span className="text-xs text-zinc-300 dark:text-zinc-600">
+                        ·
+                      </span>
+                      <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                        Read-only
+                      </span>
+                    </>
+                  )}
+                </div>
+                <input
+                  ref={titleInputRef}
+                  aria-label="Document title"
+                  value={title.value}
+                  onChange={(event) => title.onChange(event.target.value)}
+                  onBlur={titleSaver.flush}
+                  placeholder="Untitled"
+                  disabled={!editable}
+                  className="w-full rounded-md bg-transparent text-xl font-semibold tracking-tight text-zinc-900 outline-none placeholder:text-zinc-400 focus:bg-zinc-100/60 focus:px-2 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-50 dark:placeholder:text-zinc-600 dark:focus:bg-zinc-800/60"
+                />
+              </div>
+              <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
+                <Presence peers={collab.peers} status={collab.status} />
+                <ShareButton
+                  id={documentId}
+                  initialIsShared={initialIsShared}
+                  initialShareId={initialShareId}
+                />
+                <CommentsPanel
+                  documentId={documentId}
+                  currentUserId={currentUserId}
+                  initialComments={initialComments}
+                  getTextSelection={getTextSelection}
+                  anchorNode={anchorNode}
+                />
+                <span
+                  role="status"
+                  aria-live="polite"
+                  className="min-w-0 truncate text-xs text-zinc-500 dark:text-zinc-400"
+                >
+                  {STATUS_LABEL[saveStatus]}
+                </span>
+              </div>
             </div>
-            <div className="relative rounded-2xl border border-black/[.06] bg-white p-6 dark:border-white/[.08] dark:bg-zinc-950">
-              <RichTextPlugin
-                contentEditable={
-                  <ContentEditable
-                    aria-label="Document body"
-                    className="min-h-[16rem] text-base text-zinc-900 outline-none dark:text-zinc-100"
+
+            <div className="flex flex-1 justify-center px-6 py-8">
+              <div className="w-full max-w-3xl">
+                <div className="relative rounded-2xl border border-black/[.06] bg-white p-6 dark:border-white/[.08] dark:bg-zinc-950">
+                  <RichTextPlugin
+                    contentEditable={
+                      <ContentEditable
+                        aria-label="Document body"
+                        className="min-h-[16rem] text-base text-zinc-900 outline-none dark:text-zinc-100"
+                      />
+                    }
+                    placeholder={
+                      <div className="pointer-events-none absolute left-6 top-6 text-base text-zinc-400 dark:text-zinc-500">
+                        {collab.ready ? "Start writing…" : "Connecting…"}
+                      </div>
+                    }
+                    ErrorBoundary={LexicalErrorBoundary}
                   />
-                }
-                placeholder={
-                  <div className="pointer-events-none absolute left-6 top-6 text-base text-zinc-400 dark:text-zinc-500">
-                    {collab.ready ? "Start writing…" : "Connecting…"}
-                  </div>
-                }
-                ErrorBoundary={LexicalErrorBoundary}
-              />
-              <CollaborationPlugin
-                id={documentId}
-                providerFactory={collab.providerFactory}
-                shouldBootstrap
-                initialEditorState={initialStateJson ?? null}
-                username={userName}
-                cursorColor={collab.cursorColor}
-              />
-              <EditableGate editable={collab.ready} />
-              <CaptureSelectionPlugin
-                editorRef={editorRef}
-                selectionRef={selectionRef}
-              />
-              <ListPlugin />
-              <LinkPlugin />
-              <HorizontalRulePlugin />
-              <BlockInsertMenuPlugin />
-              <BlockSparkPlugin />
-              <FloatingToolbarPlugin />
-              <OnChangePlugin
-                onChange={handleChange}
-                ignoreSelectionChange
-                ignoreHistoryMergeTagChange
-              />
+                  <CollaborationPlugin
+                    id={documentId}
+                    providerFactory={collab.providerFactory}
+                    shouldBootstrap
+                    initialEditorState={initialStateJson ?? null}
+                    username={userName}
+                    cursorColor={collab.cursorColor}
+                  />
+                  <EditableGate editable={editable} />
+                  <CaptureSelectionPlugin
+                    editorRef={editorRef}
+                    selectionRef={selectionRef}
+                  />
+                  <ListPlugin />
+                  <LinkPlugin />
+                  <HorizontalRulePlugin />
+                  <BlockInsertMenuPlugin />
+                  <BlockSparkPlugin />
+                  <FloatingToolbarPlugin />
+                  <OnChangePlugin
+                    onChange={handleChange}
+                    ignoreSelectionChange
+                    ignoreHistoryMergeTagChange
+                  />
+                </div>
+              </div>
             </div>
-            <div
-              role="status"
-              aria-live="polite"
-              className="text-xs text-zinc-500 dark:text-zinc-400"
-            >
-              {STATUS_LABEL[status]}
-            </div>
-          </div>
-        </VisualAnchorProvider>
-      </LexicalComposer>
-    </LexicalCollaboration>
+          </VisualAnchorProvider>
+        </LexicalComposer>
+      </LexicalCollaboration>
+    </main>
   );
 }

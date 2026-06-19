@@ -1,7 +1,7 @@
 "use client";
 
 import type { Provider } from "@lexical/yjs";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { WebsocketProvider } from "y-websocket";
 import * as Y from "yjs";
 
@@ -12,6 +12,14 @@ const DEFAULT_WS_URL = "ws://localhost:1234";
 
 /** Falls back to ready (local-only) mode if the server never syncs. */
 const DEGRADED_TIMEOUT_MS = 2500;
+
+/**
+ * Transaction origins for the collaborative title `Y.Text`. The document body is
+ * bound by `@lexical/yjs`, but the title is a plain shared text bound via
+ * `useYText`, which classifies changes by transaction origin.
+ */
+const TITLE_LOCAL_ORIGIN = Symbol("napkin-lexical-title-local");
+const TITLE_SEED_ORIGIN = Symbol("napkin-lexical-title-seed");
 
 type Awareness = WebsocketProvider["awareness"];
 
@@ -53,6 +61,12 @@ export type LexicalCollaboration = {
   peers: Peer[];
   /** This client's presence/cursor color. */
   cursorColor: string;
+  /** Shared title text, bound to the editor's title input via `useYText`. */
+  ytitle: Y.Text;
+  /** Transaction origin for local title edits (vs. remote/seed). */
+  localOrigin: symbol;
+  /** Seeds the title from the database once, guarded so peers don't double-seed. */
+  seedTitle: (title: string) => void;
 };
 
 /**
@@ -70,6 +84,7 @@ export function useLexicalCollaboration(opts: {
   // Created once per mount. `connect: false` keeps construction SSR-safe (no
   // socket/BroadcastChannel) and lets the CollaborationPlugin own connection.
   const [doc] = useState(() => new Y.Doc());
+  const ytitle = doc.getText("title");
   const [provider] = useState(() => {
     const wsUrl = process.env.NEXT_PUBLIC_COLLAB_WS_URL || DEFAULT_WS_URL;
     return new WebsocketProvider(wsUrl, room, doc, { connect: false });
@@ -133,5 +148,38 @@ export function useLexicalCollaboration(opts: {
   const cursorColor = colorFromId(provider.awareness.clientID);
   const ready = synced || degraded;
 
-  return { providerFactory, status, ready, peers, cursorColor };
+  // Seed the title into the shared text once, the same way the document body is
+  // bootstrapped from the database. Guarded by a `meta` flag so peers joining a
+  // populated room don't re-insert it.
+  const seededTitleRef = useRef(false);
+  const seedTitle = useCallback(
+    (title: string) => {
+      if (seededTitleRef.current) {
+        return;
+      }
+      seededTitleRef.current = true;
+      const meta = doc.getMap<unknown>("meta");
+      if (meta.get("titleSeeded")) {
+        return;
+      }
+      doc.transact(() => {
+        meta.set("titleSeeded", true);
+        if (ytitle.length === 0 && title) {
+          ytitle.insert(0, title);
+        }
+      }, TITLE_SEED_ORIGIN);
+    },
+    [doc, ytitle],
+  );
+
+  return {
+    providerFactory,
+    status,
+    ready,
+    peers,
+    cursorColor,
+    ytitle,
+    localOrigin: TITLE_LOCAL_ORIGIN,
+    seedTitle,
+  };
 }

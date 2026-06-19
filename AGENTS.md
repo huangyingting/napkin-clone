@@ -2733,3 +2733,46 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   confirm the thread + its text-string anchor persisted (server round-trip). The `?`
   help dialog (`[role="dialog"][aria-labelledby="shortcuts-title"]`) opens after
   blurring the editor.
+
+### Swap in the Lexical editor; retire the textarea/tab editor (Ghost US-018)
+
+- **The document editor page (`src/app/app/documents/[id]/page.tsx`) now renders
+  `LexicalEditor`, not the old `DocumentEditor`.** The legacy two-panel textarea +
+  right `VisualPanel` + `BlockVisualGenerator` editor is gone — `document-editor.tsx`,
+  `visual-panel.tsx`, `block-visual-generator.tsx`, and `markdown-preview.tsx` were
+  DELETED, along with the temporary `/app/lexical-preview` scaffold route. Visuals are
+  now inline `VisualNode` blocks in `contentJson` (single-column `max-w-3xl` layout),
+  not a separate right panel; the page no longer queries the `Visual` table for the
+  editor (the Visual rows remain a derived mirror for share/embed/dashboard).
+- **`LexicalEditor` is now self-contained document chrome** (renders its own
+  `<main>` + header: back link, collaborative title input, workspace name, Read-only
+  badge, Presence/Share/Comments + combined save status). New props vs. the preview
+  shell: `initialTitle`, `canEdit`, `workspaceName`. Editing is gated on
+  `editable = canEdit && collab.ready` (the `EditableGate` plugin), so viewers
+  (workspace VIEWER role) get a read-only editor and the block spark/visual cards
+  inherit it via `editor.isEditable()`.
+- **`initialStateJson` precedence (same as the old preview page):**
+  `contentJson ? JSON.stringify(contentJson) : content ? markdownToLexicalState(content) : null`
+  — legacy Markdown docs convert on first open, the first edit persists `contentJson`.
+  Select `contentJson` (Json) on the editor page query.
+- **Collaborative title parity:** `useLexicalCollaboration` (the Yjs hook) now exposes
+  `ytitle` (a `Y.Text` on the same room doc), `localOrigin`, and `seedTitle(initial)`
+  (guarded by a `meta.titleSeeded` flag). The editor binds the title `<input>` with the
+  existing `useYText` (from `use-collaboration.ts`) + a debounced `saveDocumentTitle`,
+  and calls `seedTitle(initialTitle)` once `collab.ready` — mirroring how the body is
+  bootstrapped. So title edits are real-time-synced AND autosaved, like the old editor.
+  `saveDocumentTitle`/`saveDocumentContent` server actions stay (title still uses the
+  former; `saveDocumentContent` is now only used by legacy/markdown paths).
+- **Browser QA (headless + collab server on 1234, dev on 3000):** sign up a fresh
+  `*@test.dev` user (signup seeds a sample doc, US-012), open it from `/app`
+  (`ul li a[href^="/app/documents/"]`), wait for
+  `[aria-label="Document body"][contenteditable="true"]`. Verify: title input value,
+  Share/Comments/Back-link present, NO `textarea[aria-label="Document text"]`; type +
+  `Control+a`/`Delete` then `page.keyboard.type` (ContentEditable `.click()` hangs —
+  focus via `evaluate(el.focus())`), wait for a `[role="status"]` reading "All changes
+  saved", `page.reload()` and assert the body text persisted (from `contentJson`); edit
+  the title input, blur, reload, assert it persisted; `Control+a` reveals
+  `[role="toolbar"][aria-label="Text formatting"]`; 0 console errors; no horizontal
+  overflow at 1280/768/375. NOTE: a sample doc's doc-level `Visual` TABLE row (US-012)
+  does NOT render inline in the new editor (only `contentJson` `VisualNode`s do) — that's
+  expected legacy-data behavior, not a regression; new visuals come from the inline spark.
