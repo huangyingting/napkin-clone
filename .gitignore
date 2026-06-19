@@ -72,3 +72,7 @@ progress.txt
 .squad/.cache/
 # Squad: SubSquad activation file (local to this machine)
 .squad-workstream
+
+# Squad/Ralph runtime working files (machine-local, not for VCS)
+watch.log
+.squad/ralph-circuit-breaker.json
