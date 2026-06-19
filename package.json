@@ -47,6 +47,7 @@
     "yjs": "^13.6.31"
   },
   "devDependencies": {
+    "@lexical/headless": "^0.45.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pg": "^8.20.0",

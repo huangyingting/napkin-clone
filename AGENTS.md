@@ -2406,3 +2406,38 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   0 console errors. The 30s QuickJS script cap can cut off a trailing
   `waitForFunction("All changes saved")` even though the save completes — split the
   build and the reload-verify into separate `dev-browser` invocations.
+
+### Lexical "Visual" decorator node (US-009)
+
+- **`src/app/app/documents/[id]/visual-node.tsx` (`VisualNode`)** is a Lexical
+  `DecoratorNode<JSX.Element>` that makes a visual a first-class block. It stores the
+  canonical `Visual` JSON (`__visual`) + a stable `__visualId` (auto via
+  `crypto.randomUUID()` when omitted — used to correlate a `Visual` DB row in US-011 and
+  to target the card for contextual edit/replace in US-012/013). `exportJSON`/`importJSON`
+  serialize it into `contentJson`; `decorate()` returns `<VisualRenderer>` wrapped in a
+  card. The node file is NOT `"use client"` (it's a plain module imported by the client
+  editor AND by node tests) — `decorate` returns JSX but the directive lives on the
+  composer. Register it in `lexical-editor.tsx`'s `NODES` array (done) + add a
+  `theme.visual` class, or a saved visual block won't `parseEditorState` on reload.
+- **Graceful invalid-data handling:** `decorate` runs `safeParseVisual(this.__visual)`
+  and renders a "could not be displayed" placeholder on failure, so a malformed payload
+  never crashes the editor (the AC's forgiving-rendering rule). The node STORES the raw
+  payload as-is (round-trip preserves it) and validates only at render time.
+- **v0.45 node API:** follow the `HorizontalRuleNode` shape — `static getType/clone/
+  importJSON`, instance `exportJSON` (spread `super.exportJSON()` then custom fields),
+  and override `updateFromJSON` to copy custom fields. `importJSON` =
+  `$createVisualNode(visual, id).updateFromJSON(serialized)`. `$createVisualNode` wraps
+  `$applyNodeReplacement(new VisualNode(...))`. `createDOM`/`exportDOM` use
+  `document.createElement` (only called in-browser, never in serialization tests).
+- **Node serialization tests use `@lexical/headless`** (added as a dev dep, `^0.45.0`,
+  matching `lexical`): `createHeadlessEditor({ nodes: [VisualNode], onError })`, build a
+  state in `editor.update(fn, { discrete: true })`, `JSON.stringify(getEditorState()
+  .toJSON())`, then `editor2.setEditorState(editor2.parseEditorState(json))` and assert
+  inside `getEditorState().read(...)`. NO DOM needed (`decorate`/`createDOM` aren't
+  invoked). **GOTCHA — don't mutate an outer `let` from inside the `editor.update`
+  closure and then `assert.ok` it**: TS control-flow can't see the closure assignment and
+  narrows the var to `never` → typecheck fails. Read the node back via
+  `getEditorState().read()` + `$getRoot().getChildren().find($isVisualNode)` instead.
+- **Test glob note:** `npm test` (`src/**/*.test.ts`) DOES match files under the literal
+  `[id]/` route dir (verified — the brackets in the filesystem path are matched literally,
+  not as a glob class), so a colocated `visual-node.test.ts` runs fine.

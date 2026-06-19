@@ -31,6 +31,7 @@ import { saveDocumentLexical } from "./actions";
 import { BlockInsertMenuPlugin } from "./block-insert-menu";
 import { FloatingToolbarPlugin } from "./floating-toolbar";
 import { Presence } from "./presence";
+import { VisualNode } from "./visual-node";
 
 const theme: EditorThemeClasses = {
   paragraph: "mb-3 leading-7",
@@ -41,6 +42,7 @@ const theme: EditorThemeClasses = {
   },
   quote: "mb-3 border-l-4 border-zinc-300 pl-4 italic dark:border-zinc-700",
   hr: "my-6 border-0 border-t border-zinc-200 dark:border-zinc-800",
+  visual: "my-2",
   link: "text-indigo-600 underline underline-offset-2 dark:text-indigo-400",
   list: {
     ul: "mb-3 ml-6 list-disc",
@@ -65,6 +67,7 @@ const NODES: Array<Klass<LexicalNode>> = [
   ListItemNode,
   LinkNode,
   HorizontalRuleNode,
+  VisualNode,
 ];
 
 function onError(error: Error) {
