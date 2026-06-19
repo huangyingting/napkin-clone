@@ -17,6 +17,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Prisma Client is generated code — do not lint it.
     "src/generated/**",
+    // .squad/ is Squad orchestration tooling, not app code — do not lint it.
+    ".squad/**",
   ]),
 ]);
 
