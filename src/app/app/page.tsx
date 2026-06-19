@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
+import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
 import { purgeDeletedDocuments } from "./actions";
 import { DocumentList } from "./document-list";
@@ -36,6 +37,11 @@ export default async function DashboardPage() {
       favorite: true,
       createdAt: true,
       updatedAt: true,
+      visuals: {
+        orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }],
+        take: 1,
+        select: { data: true },
+      },
     },
   });
 
@@ -55,6 +61,11 @@ export default async function DashboardPage() {
       favorite: true,
       createdAt: true,
       updatedAt: true,
+      visuals: {
+        orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }],
+        take: 1,
+        select: { data: true },
+      },
       workspace: { select: { name: true } },
     },
   });
@@ -64,15 +75,26 @@ export default async function DashboardPage() {
     ...workspaceDocuments,
   ].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 
-  const documents = allDocuments.map((document) => ({
-    id: document.id,
-    title: document.title,
-    favorite: document.favorite,
-    editedLabel: dateFormatter.format(document.updatedAt),
-    workspaceName: document.workspace?.name ?? null,
-    createdAtMs: document.createdAt.getTime(),
-    updatedAtMs: document.updatedAt.getTime(),
-  }));
+  const documents = allDocuments.map((document) => {
+    const firstVisual = document.visuals[0];
+    let thumbnail: Visual | null = null;
+    if (firstVisual) {
+      const parsed = safeParseVisual(firstVisual.data);
+      if (parsed.success) {
+        thumbnail = parsed.data;
+      }
+    }
+    return {
+      id: document.id,
+      title: document.title,
+      favorite: document.favorite,
+      editedLabel: dateFormatter.format(document.updatedAt),
+      workspaceName: document.workspace?.name ?? null,
+      thumbnail,
+      createdAtMs: document.createdAt.getTime(),
+      updatedAtMs: document.updatedAt.getTime(),
+    };
+  });
 
   return (
     <main className="flex flex-1 flex-col items-center bg-ghost-wash px-6 py-12">

@@ -1321,6 +1321,15 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   (pass the **preformatted** `editedLabel` string, not a `Date`). The shared
   `DocumentThumbnail` moved here. Extend THIS menu for the other card actions
   (rename US-004, duplicate US-005, favorite US-007) instead of adding new components.
+- **Card thumbnail = the doc's first visual (Ghost US-025).** `DocumentThumbnail`
+  takes `{ visual: Visual | null }` and renders the directive-free `VisualRenderer`
+  (`className="h-full w-full"` inside the `overflow-hidden aspect-[16/10]` box) when
+  present, else the generic file-icon SVG. `page.tsx` loads it in the SAME dashboard
+  `findMany` (no N+1) via `visuals: { orderBy: [{ orderIndex }, { createdAt }], take:
+  1, select: { data: true } }` on BOTH the personal + workspace queries, then
+  `safeParseVisual`s the first row into `thumbnail` on each card's data (garbled rows
+  fall back to the icon). `thumbnail` is part of `DocumentCardData`, so `DocumentList`
+  threads it through and the undo stash inherits it via `...data`.
 - **Kebab must NOT navigate:** the overflow button + dropdown are a **sibling of the
   `<Link>`** (absolutely positioned `right-2 top-2 z-10` over the card), never a child
   of it — clicking them can't trigger the card's navigation. The card title gets

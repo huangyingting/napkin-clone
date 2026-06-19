@@ -367,6 +367,7 @@ export function DocumentList({
                   favorite={document.favorite}
                   editedLabel={document.editedLabel}
                   workspaceName={document.workspaceName}
+                  thumbnail={document.thumbnail}
                   onDelete={handleDelete}
                 />
               ))}

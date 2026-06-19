@@ -10,6 +10,9 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
+import { VisualRenderer } from "@/components/visual/visual-renderer";
+import type { Visual } from "@/lib/visual/schema";
+
 import { duplicateDocument, renameDocument, toggleFavorite } from "./actions";
 
 /** Maximum document title length (mirrors the server action's clamp). */
@@ -26,13 +29,26 @@ export type DocumentCardData = {
   favorite: boolean;
   editedLabel: string;
   workspaceName: string | null;
+  thumbnail: Visual | null;
 };
 
 type DocumentCardProps = DocumentCardData & {
   onDelete: (data: DocumentCardData) => void;
 };
 
-function DocumentThumbnail() {
+/**
+ * The card's preview area. When the document has a visual, it renders the first
+ * one via the directive-free {@link VisualRenderer}; otherwise it falls back to
+ * a generic file-icon placeholder.
+ */
+function DocumentThumbnail({ visual }: { visual: Visual | null }) {
+  if (visual) {
+    return (
+      <div className="flex aspect-[16/10] items-center justify-center overflow-hidden bg-ghost-wash p-2 transition group-hover:bg-ghost-border/40">
+        <VisualRenderer visual={visual} className="h-full w-full" />
+      </div>
+    );
+  }
   return (
     <div className="flex aspect-[16/10] items-center justify-center bg-ghost-wash transition group-hover:bg-ghost-border/40">
       <svg
@@ -275,6 +291,7 @@ export function DocumentCard({
   favorite,
   editedLabel,
   workspaceName,
+  thumbnail,
   onDelete,
 }: DocumentCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -306,6 +323,7 @@ export function DocumentCard({
       favorite: optimisticFavorite,
       editedLabel,
       workspaceName,
+      thumbnail,
     });
   };
 
@@ -341,7 +359,7 @@ export function DocumentCard({
         href={`/app/documents/${id}`}
         className="group flex flex-col overflow-hidden rounded-xl border border-ghost-border bg-ghost-bg transition hover:border-ghost-accent/40 hover:shadow-sm"
       >
-        <DocumentThumbnail />
+        <DocumentThumbnail visual={thumbnail} />
         <div className="flex flex-col gap-1 p-4">
           <span className="truncate pr-7 text-sm font-medium text-ghost-text">
             {optimisticTitle}
