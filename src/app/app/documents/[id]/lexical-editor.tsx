@@ -1,18 +1,36 @@
 "use client";
 
+import { ListItemNode, ListNode } from "@lexical/list";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
-import type { EditorState, EditorThemeClasses } from "lexical";
+import { HeadingNode, QuoteNode } from "@lexical/rich-text";
+import type {
+  EditorState,
+  EditorThemeClasses,
+  Klass,
+  LexicalNode,
+} from "lexical";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { saveDocumentLexical } from "./actions";
 
 const theme: EditorThemeClasses = {
   paragraph: "mb-3 leading-7",
+  heading: {
+    h1: "mb-3 mt-2 text-3xl font-semibold tracking-tight",
+    h2: "mb-3 mt-2 text-2xl font-semibold tracking-tight",
+    h3: "mb-2 mt-2 text-xl font-semibold tracking-tight",
+  },
+  quote: "mb-3 border-l-4 border-zinc-300 pl-4 italic dark:border-zinc-700",
+  list: {
+    ul: "mb-3 ml-6 list-disc",
+    ol: "mb-3 ml-6 list-decimal",
+    listitem: "leading-7",
+  },
   text: {
     bold: "font-semibold",
     italic: "italic",
@@ -20,6 +38,16 @@ const theme: EditorThemeClasses = {
     strikethrough: "line-through",
   },
 };
+
+// Nodes the editor can render/parse. Headings and lists are required so that a
+// document migrated from Markdown (US-004) round-trips through Lexical's
+// `parseEditorState`.
+const NODES: Array<Klass<LexicalNode>> = [
+  HeadingNode,
+  QuoteNode,
+  ListNode,
+  ListItemNode,
+];
 
 function onError(error: Error) {
   console.error(error);
@@ -100,6 +128,7 @@ export function LexicalEditor({
   const initialConfig = {
     namespace: "NapkinLexicalEditor",
     theme,
+    nodes: NODES,
     onError,
     editorState: initialStateJson ?? undefined,
   };

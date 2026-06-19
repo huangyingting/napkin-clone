@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { markdownToLexicalState } from "@/lib/lexical/from-markdown";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 
@@ -21,14 +22,14 @@ async function getOrCreateScratchDocument(userId: string) {
   const existing = await prisma.document.findFirst({
     where: { ownerId: userId, deletedAt: null, title: SCRATCH_TITLE },
     orderBy: { createdAt: "asc" },
-    select: { id: true, contentJson: true },
+    select: { id: true, contentJson: true, content: true },
   });
   if (existing) {
     return existing;
   }
   return prisma.document.create({
     data: { ownerId: userId, title: SCRATCH_TITLE },
-    select: { id: true, contentJson: true },
+    select: { id: true, contentJson: true, content: true },
   });
 }
 
@@ -41,9 +42,14 @@ async function getOrCreateScratchDocument(userId: string) {
 export default async function LexicalPreviewPage() {
   const user = await requireUser();
   const document = await getOrCreateScratchDocument(user.id);
+  // Lazy Markdown migration: if the document has no Lexical state yet but has
+  // legacy Markdown `content`, convert it so the editor opens with that content
+  // (the first save then persists `contentJson`).
   const initialStateJson = document.contentJson
     ? JSON.stringify(document.contentJson)
-    : null;
+    : document.content
+      ? markdownToLexicalState(document.content)
+      : null;
 
   return (
     <main className="flex flex-1 flex-col items-center bg-zinc-50 px-6 py-12 dark:bg-black">

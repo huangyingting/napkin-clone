@@ -2179,3 +2179,43 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   to read "All changes saved", then `page.reload()` and assert the typed text is back
   (loaded from `contentJson`). Confirm the `content` projection with a root-level `tsx`
   script (`PrismaBetterSqlite3`) reading the scratch doc.
+
+### Migrate Markdown documents into Lexical on first open (US-004)
+
+- **`src/lib/lexical/from-markdown.ts` is the pure, framework-free Markdown→Lexical
+  converter** (only imports `parseMarkdown` from `@/lib/markdown` — itself pure — so it
+  stays server-safe and unit-testable under `node --test`, like `plain-text.ts`).
+  `markdownToLexicalStateObject(md)` returns a `{ root: { children } }` object;
+  `markdownToLexicalState(md)` is the JSON-string wrapper for Lexical's `editorState`
+  config. It reuses `parseMarkdown` (the SAME block model the textarea editor used:
+  headings H1–H3, bullet lists, paragraphs) and emits the EXACT serialized field shape
+  Lexical's `editorState.toJSON()` produces per node type — derive these from a headless
+  editor (`@lexical/headless` `createHeadlessEditor` + `$create*Node`) if you extend it.
+  Key required fields: paragraph carries `textFormat`/`textStyle`; heading carries
+  `tag:"h{level}"`; list carries `listType`/`start`/`tag:"ul"`; listitem carries an
+  incrementing `value`. Empty/whitespace input → a single empty paragraph (NOT zero
+  children — Lexical roots need ≥1 block).
+- **Registering nodes is MANDATORY for the converted state to parse.** A serialized
+  state containing heading/list nodes only round-trips through `parseEditorState` if the
+  composer registers those node classes. `lexical-editor.tsx`'s `initialConfig.nodes`
+  now lists `[HeadingNode, QuoteNode, ListNode, ListItemNode]` (from `@lexical/rich-text`
+  + `@lexical/list`) and the `theme` gained `heading`/`quote`/`list` class maps. Without
+  the `nodes` entry, loading a migrated document throws in the editor. Verify a converted
+  state parses with a headless editor configured with the SAME `nodes` before trusting it.
+- **Lazy convert at the page boundary, not inside the client editor.** The preview page
+  (`/app/lexical-preview`) selects `content` alongside `contentJson` and computes
+  `initialStateJson = contentJson ? JSON.stringify(contentJson) : content ?
+  markdownToLexicalState(content) : null`. So a legacy doc (Markdown `content`, null
+  `contentJson`) opens converted; the existing debounced save then persists `contentJson`
+  on the first edit (no extra write code needed). US-018 reuses this same precedence when
+  binding the editor to real documents.
+- **Browser QA:** seed a `Lexical preview` doc with Markdown `content` + null
+  `contentJson` for a signed-up `*@test.dev` user (root-level `tsx` + `PrismaBetterSqlite3`),
+  open `/app/lexical-preview`, and assert `[aria-label="Document body"]` renders the
+  expected `h1`/`p`/`ul`>`li` tags with the right text + zero console errors. Then type,
+  wait for `[role="status"]` "All changes saved", and confirm the doc's `contentJson` is
+  no longer null (first-save migration). GOTCHA: dev-browser's QuickJS scripts have a hard
+  ~30s cap — split signup (which is slow because US-012 seeds a sample doc + the post-redirect
+  `/` route compiles) into short steps; the credentials signup action completes even if the
+  Playwright `click` appears to hang on the redirect, and the session cookie is set, so a
+  follow-up `goto` in the SAME named browser is already authenticated.
