@@ -471,6 +471,7 @@ export function VisualContextPopover({
             </Tooltip>
             <ExportMenu
               getSvgElement={getSvgElement}
+              getVisual={() => visual}
               filename={visual.title?.trim() || "visual"}
             />
             <Tooltip label="Remove visual">

@@ -11,6 +11,14 @@
 import { jsPDF } from "jspdf";
 import PptxGenJS from "pptxgenjs";
 
+import type { Visual } from "@/lib/visual/schema";
+import { applySpecsToSlide } from "@/lib/visual/pptx-apply";
+import {
+  computeVisualSlideLayout,
+  isImageFallback,
+  visualToNativeSpecs,
+} from "@/lib/visual/pptx-shapes";
+
 /**
  * Serialize an SVG element to a downloadable SVG file.
  * Returns a Blob with proper MIME type.
@@ -162,16 +170,24 @@ export async function exportPDF(
 }
 
 /**
- * Convert an SVG element to PPTX with the visual on one slide.
- * Returns a Promise that resolves to a Blob, or null on error.
+ * Convert a visual to PPTX with the visual on one slide.
  *
- * @param svgElement - The SVG to embed in the PPTX
+ * **Default (native):** When `visual` is supplied and its kind is natively
+ * supported, the slide is built from native PptxGenJS shapes so the output
+ * is editable in PowerPoint / Google Slides / Keynote (move, recolor, retype).
+ *
+ * **Image fallback:** When `visual` is not supplied, or the kind is
+ * `funnel`/`pyramid` (trapezoid bands), the SVG is rasterized and placed as
+ * a single image (preserving visual fidelity at the cost of editability).
+ *
+ * @param svgElement - The rendered SVG element (used for image fallback)
+ * @param visual     - Optional Visual payload; enables native shape output
  */
 export async function exportPPTX(
   svgElement: SVGSVGElement,
+  visual?: Visual,
 ): Promise<Blob | null> {
   try {
-    // Get the SVG's viewBox to determine dimensions
     const viewBox = svgElement.viewBox.baseVal;
     const width = viewBox.width;
     const height = viewBox.height;
@@ -180,50 +196,57 @@ export async function exportPPTX(
       return null;
     }
 
-    // Convert SVG to PNG at 2x scale for good quality
+    const pptx = new PptxGenJS();
+    const slide = pptx.addSlide();
+
+    const SLIDE_W = 10;
+    const SLIDE_H = 7.5;
+
+    // Attempt native shapes when a Visual payload is available
+    if (visual) {
+      const layout = computeVisualSlideLayout(visual);
+      const specs = visualToNativeSpecs(visual, layout);
+
+      if (!isImageFallback(specs)) {
+        applySpecsToSlide(slide, specs);
+        const arrayBuffer = (await pptx.write({
+          outputType: "arraybuffer",
+        })) as ArrayBuffer;
+        return new Blob([arrayBuffer], {
+          type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        });
+      }
+    }
+
+    // Image fallback: rasterize the SVG
     const pngBlob = await exportPNG(svgElement, 2);
     if (!pngBlob) {
       return null;
     }
 
-    // Convert the PNG blob to a data URL
     const pngDataUrl = await new Promise<string>((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result as string);
       reader.readAsDataURL(pngBlob);
     });
 
-    // Create a new presentation
-    const pptx = new PptxGenJS();
-
-    // Standard slide size is 10" x 7.5" (landscape) or 7.5" x 10" (portrait)
-    // We'll use standard landscape and center the image
-    const slideWidth = 10; // inches
-    const slideHeight = 7.5; // inches
-
-    // Calculate scaling to fit the visual on the slide while preserving aspect ratio
     const visualAspect = width / height;
-    const slideAspect = slideWidth / slideHeight;
+    const slideAspect = SLIDE_W / SLIDE_H;
 
     let imageWidth: number;
     let imageHeight: number;
 
     if (visualAspect > slideAspect) {
-      // Visual is wider relative to slide → fit to width
-      imageWidth = slideWidth * 0.9; // 90% of slide width for padding
+      imageWidth = SLIDE_W * 0.9;
       imageHeight = imageWidth / visualAspect;
     } else {
-      // Visual is taller relative to slide → fit to height
-      imageHeight = slideHeight * 0.9; // 90% of slide height for padding
+      imageHeight = SLIDE_H * 0.9;
       imageWidth = imageHeight * visualAspect;
     }
 
-    // Center the image on the slide
-    const x = (slideWidth - imageWidth) / 2;
-    const y = (slideHeight - imageHeight) / 2;
+    const x = (SLIDE_W - imageWidth) / 2;
+    const y = (SLIDE_H - imageHeight) / 2;
 
-    // Add a slide and the image
-    const slide = pptx.addSlide();
     slide.addImage({
       data: pngDataUrl,
       x,
@@ -232,7 +255,6 @@ export async function exportPPTX(
       h: imageHeight,
     });
 
-    // Generate the PPTX file as a blob
     const arrayBuffer = (await pptx.write({
       outputType: "arraybuffer",
     })) as ArrayBuffer;
