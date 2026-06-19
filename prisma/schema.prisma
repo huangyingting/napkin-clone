@@ -59,6 +59,7 @@ model Document {
   id          String   @id @default(cuid())
   title       String   @default("Untitled")
   content     String   @default("")
+  contentJson Json?
   ownerId     String
   workspaceId String?
   shareId     String?  @unique
