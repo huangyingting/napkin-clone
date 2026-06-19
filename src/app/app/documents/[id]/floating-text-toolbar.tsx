@@ -18,6 +18,7 @@ import {
   Tooltip,
 } from "@/components/ui";
 import { useEditorContext } from "@/lib/lexical/editor-context";
+import { useIsPointerFine } from "@/lib/pointer";
 import {
   formatShortcut,
   isToolActive,
@@ -59,6 +60,7 @@ export function FloatingTextToolbar() {
   const [editor] = useLexicalComposerContext();
   const ctx = useEditorContext();
   const isMac = useIsMac();
+  const isPointerFine = useIsPointerFine();
   const measureRef = useRef<HTMLDivElement | null>(null);
   const [coords, setCoords] = useState<{ top: number; left: number }>({
     top: -1000,
@@ -67,8 +69,13 @@ export function FloatingTextToolbar() {
 
   const tools = useMemo(() => toolsFor("text-format", ctx), [ctx]);
   const selectionRect = ctx.rects.selection;
+  // Hide the floating toolbar on touch/coarse-pointer devices — it requires
+  // a mouse selection to position correctly and clutters small viewports.
   const visible =
-    ctx.kind === "range" && ctx.editable && selectionRect !== null;
+    isPointerFine &&
+    ctx.kind === "range" &&
+    ctx.editable &&
+    selectionRect !== null;
 
   // Roving tabindex (WAI-ARIA toolbar pattern): only one button is tabbable at a
   // time; ArrowLeft/Right (and Up/Down/Home/End) move focus between buttons.

@@ -30,6 +30,7 @@ import { usePopMotion } from "@/components/motion/reveal";
 import { FloatingSurface } from "@/components/ui";
 import { cx } from "@/components/ui/tokens";
 import { useEditorContext } from "@/lib/lexical/editor-context";
+import { useIsPointerFine } from "@/lib/pointer";
 import { toolsFor, type EditorTool } from "@/lib/lexical/tool-registry";
 
 // Gap (px) between the anchored block and the menu / gutter button.
@@ -79,6 +80,7 @@ export function InsertMenuPlugin() {
   const [editor] = useLexicalComposerContext();
   const ctx = useEditorContext();
   const popMotion = usePopMotion();
+  const isPointerFine = useIsPointerFine();
 
   // `plus` is explicit (opened by clicking the gutter button); `slash` is
   // derived from the live snapshot (a "/query" trigger in the active block).
@@ -102,8 +104,9 @@ export function InsertMenuPlugin() {
   }, [ctx.editable, ctx.kind, ctx.blockText]);
 
   // The "+" gutter button shows on an empty paragraph (only when no menu is
-  // open). The "/" trigger can fire from any single block.
+  // open, and only on fine-pointer/desktop devices — it's a hover affordance).
   const showGutter =
+    isPointerFine &&
     ctx.editable &&
     ctx.kind === "empty-block" &&
     blockRect !== null &&
