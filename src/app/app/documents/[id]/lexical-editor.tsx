@@ -39,6 +39,8 @@ import { saveDocumentLexical, saveDocumentTitle } from "./actions";
 import { BlockSparkPlugin } from "./block-spark";
 import type { CommentThread } from "./comments-actions";
 import { CommentsPanel, type AnchorNode } from "./comments-panel";
+import { DocumentExportButton } from "@/components/editor/document-export-button";
+import { VisualSvgRegistryProvider } from "@/components/editor/visual-svg-registry";
 import { FloatingTextToolbar } from "./floating-text-toolbar";
 import { InsertMenuPlugin } from "./insert-menu";
 import { InsertVisualPlugin } from "./insert-visual-plugin";
@@ -405,6 +407,7 @@ export function LexicalEditor({
     <main className="flex flex-1 flex-col bg-zinc-50 dark:bg-black">
       <LexicalCollaboration>
         <LexicalComposer initialConfig={initialConfig}>
+          <VisualSvgRegistryProvider>
           <VisualAnchorProvider value={visualAnchorValue}>
             <div className="flex flex-col gap-3 border-b border-black/[.06] bg-white/80 px-6 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between dark:border-white/[.08] dark:bg-black/40">
               <div className="flex min-w-0 flex-col gap-1">
@@ -455,6 +458,7 @@ export function LexicalEditor({
               </div>
               <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
                 <Presence peers={collab.peers} status={collab.status} />
+                <DocumentExportButton documentTitle={title.value} />
                 <ShareButton
                   id={documentId}
                   initialIsShared={initialIsShared}
@@ -538,6 +542,7 @@ export function LexicalEditor({
               </div>
             </div>
           </VisualAnchorProvider>
+          </VisualSvgRegistryProvider>
         </LexicalComposer>
       </LexicalCollaboration>
     </main>

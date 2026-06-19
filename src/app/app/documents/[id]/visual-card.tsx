@@ -10,6 +10,8 @@ import { FOCUS_RING } from "@/components/motion/control-styles";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
+import { useRegisterVisualSvg } from "@/components/editor/visual-svg-registry";
+
 import { useVisualAnchor } from "./visual-anchor-context";
 import { VisualContextPopover } from "./visual-context-popover";
 import { VisualEditor } from "./visual-editor";
@@ -38,14 +40,20 @@ import { $isVisualNode } from "./visual-node";
 export function VisualCard({
   nodeKey,
   visual,
+  visualId,
 }: {
   nodeKey: string;
   visual: Visual;
+  visualId: string;
 }) {
   const [editor] = useLexicalComposerContext();
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<SVGSVGElement | null>(null);
+
+  // Register this card's SVG getter in the document-level export registry so
+  // the whole-document export can include every visual in reading order.
+  useRegisterVisualSvg(visualId, () => rendererRef.current);
 
   const [editable, setEditable] = useState(() => editor.isEditable());
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -213,7 +221,7 @@ export function VisualCard({
         </button>
       ) : (
         <div className={cardClass}>
-          <VisualRenderer visual={data} className="block h-auto w-full" />
+          <VisualRenderer ref={rendererRef} visual={data} className="block h-auto w-full" />
         </div>
       )}
 
