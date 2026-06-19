@@ -81,6 +81,7 @@ function arrowHead(
   from: Point,
   color: string,
   size = 9,
+  variant: import("@/lib/visual/schema").ArrowStyle = "filled",
 ): JSX.Element {
   const angle = Math.atan2(tip.y - from.y, tip.x - from.x);
   const ux = Math.cos(angle);
@@ -89,6 +90,40 @@ function arrowHead(
   const px = -uy;
   const py = ux;
   const half = size * 0.55;
+
+  if (variant === "circle") {
+    const r = size * 0.42;
+    const cx = tip.x - r * ux;
+    const cy = tip.y - r * uy;
+    return <circle cx={cx} cy={cy} r={r} fill={color} />;
+  }
+  if (variant === "diamond") {
+    const d = size * 0.9;
+    const mid = { x: tip.x - (d / 2) * ux, y: tip.y - (d / 2) * uy };
+    const points = [
+      `${tip.x},${tip.y}`,
+      `${mid.x + px * half * 0.7},${mid.y + py * half * 0.7}`,
+      `${tip.x - d * ux},${tip.y - d * uy}`,
+      `${mid.x - px * half * 0.7},${mid.y - py * half * 0.7}`,
+    ].join(" ");
+    return <polygon points={points} fill={color} />;
+  }
+  if (variant === "open") {
+    const p1 = `${back.x + px * half},${back.y + py * half}`;
+    const p2 = `${tip.x},${tip.y}`;
+    const p3 = `${back.x - px * half},${back.y - py * half}`;
+    return (
+      <polyline
+        points={`${p1} ${p2} ${p3}`}
+        fill="none"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    );
+  }
+  // filled (default)
   const points = [
     `${tip.x},${tip.y}`,
     `${back.x + px * half},${back.y + py * half}`,
@@ -138,6 +173,9 @@ function MultilineText({
   fontSize,
   fontWeight = 600,
   anchor = "middle",
+  textAlign,
+  nodeLeft,
+  nodeRight,
 }: {
   cx: number;
   cy: number;
@@ -147,14 +185,35 @@ function MultilineText({
   fontSize: number;
   fontWeight?: number;
   anchor?: "start" | "middle" | "end";
+  /** When set, overrides `anchor` and `cx` based on alignment within the node. */
+  textAlign?: import("@/lib/visual/schema").TextAlign;
+  /** Left edge of the node (for left-aligned text). */
+  nodeLeft?: number;
+  /** Right edge of the node (for right-aligned text). */
+  nodeRight?: number;
 }): JSX.Element {
+  const PAD = 10;
+  let resolvedAnchor = anchor;
+  let resolvedX = cx;
+  if (textAlign !== undefined) {
+    if (textAlign === "left") {
+      resolvedAnchor = "start";
+      resolvedX = nodeLeft !== undefined ? nodeLeft + PAD : cx;
+    } else if (textAlign === "right") {
+      resolvedAnchor = "end";
+      resolvedX = nodeRight !== undefined ? nodeRight - PAD : cx;
+    } else {
+      resolvedAnchor = "middle";
+      resolvedX = cx;
+    }
+  }
   const lineHeight = fontSize * 1.2;
   const startDy = -((lines.length - 1) / 2) * lineHeight;
   return (
     <text
-      x={cx}
+      x={resolvedX}
       y={cy}
-      textAnchor={anchor}
+      textAnchor={resolvedAnchor}
       dominantBaseline="central"
       fill={color}
       fontFamily={style.fontFamily}
@@ -162,12 +221,25 @@ function MultilineText({
       fontWeight={fontWeight}
     >
       {lines.map((line, index) => (
-        <tspan key={index} x={cx} dy={index === 0 ? startDy : lineHeight}>
+        <tspan
+          key={index}
+          x={resolvedX}
+          dy={index === 0 ? startDy : lineHeight}
+        >
           {line}
         </tspan>
       ))}
     </text>
   );
+}
+
+/** Maps a LineStyle to an SVG stroke-dasharray value. */
+function dashArray(
+  lineStyle: import("@/lib/visual/schema").LineStyle | undefined,
+): string | undefined {
+  if (lineStyle === "dashed") return "8 4";
+  if (lineStyle === "dotted") return "2 4";
+  return undefined;
 }
 
 function ShapeEl({
@@ -187,7 +259,16 @@ function ShapeEl({
   const shape: NodeShape = node.shape ?? "rounded";
   const left = x - w / 2;
   const top = y - h / 2;
-  const common = { fill, stroke, strokeWidth } as const;
+  const sw = node.borderWidth ?? strokeWidth;
+  const strokeDasharray = dashArray(node.borderStyle);
+  const fillId = node.fillStyle === "gradient" ? `grad-${node.id}` : undefined;
+  const resolvedFill = fillId ? `url(#${fillId})` : fill;
+  const common = {
+    fill: resolvedFill,
+    stroke,
+    strokeWidth: sw,
+    ...(strokeDasharray ? { strokeDasharray } : {}),
+  } as const;
 
   switch (shape) {
     case "rectangle":
@@ -304,6 +385,9 @@ function NodeEl({
         style={style}
         fontSize={fontSize}
         fontWeight={fontWeight}
+        textAlign={node.textAlign}
+        nodeLeft={x - w / 2}
+        nodeRight={x + w / 2}
       />
     </g>
   );
@@ -386,6 +470,9 @@ function EdgeEl({
   const midY = (start.y + end.y) / 2;
   // A per-edge `style` (US-017) overrides the renderer-kind default `curved`.
   const isCurved = edge.style !== undefined ? edge.style === "curved" : curved;
+  const strokeWidth = edge.lineWidth ?? width;
+  const strokeDasharray = dashArray(edge.lineStyle);
+  const arrowVariant = edge.arrowStyle ?? "filled";
 
   return (
     <g>
@@ -394,8 +481,9 @@ function EdgeEl({
           d={`M ${start.x} ${start.y} C ${midX} ${start.y}, ${midX} ${end.y}, ${end.x} ${end.y}`}
           fill="none"
           stroke={stroke}
-          strokeWidth={width}
+          strokeWidth={strokeWidth}
           strokeLinecap="round"
+          {...(strokeDasharray ? { strokeDasharray } : {})}
         />
       ) : (
         <line
@@ -404,12 +492,19 @@ function EdgeEl({
           x2={end.x}
           y2={end.y}
           stroke={stroke}
-          strokeWidth={width}
+          strokeWidth={strokeWidth}
           strokeLinecap="round"
+          {...(strokeDasharray ? { strokeDasharray } : {})}
         />
       )}
       {showArrow
-        ? arrowHead(end, isCurved ? { x: midX, y: end.y } : start, stroke)
+        ? arrowHead(
+            end,
+            isCurved ? { x: midX, y: end.y } : start,
+            stroke,
+            9,
+            arrowVariant,
+          )
         : null}
       {edge.label ? (
         <EdgeLabel x={midX} y={midY} text={edge.label} style={style} />
@@ -1193,6 +1288,56 @@ function VisualBody({ visual }: { visual: Visual }): JSX.Element | null {
   }
 }
 
+/** Builds a lighter highlight color for gradient fills. */
+function lightenHex(hex: string): string {
+  const stripped = hex.replace("#", "");
+  if (!/^[0-9a-fA-F]{6}$/.test(stripped)) return hex;
+  const r = parseInt(stripped.slice(0, 2), 16);
+  const g = parseInt(stripped.slice(2, 4), 16);
+  const b = parseInt(stripped.slice(4, 6), 16);
+  const lr = Math.min(255, r + Math.round((255 - r) * 0.55));
+  const lg = Math.min(255, g + Math.round((255 - g) * 0.55));
+  const lb = Math.min(255, b + Math.round((255 - b) * 0.55));
+  return `#${lr.toString(16).padStart(2, "0")}${lg.toString(16).padStart(2, "0")}${lb.toString(16).padStart(2, "0")}`;
+}
+
+/**
+ * Renders `<linearGradient>` defs for any nodes that use `fillStyle:
+ * "gradient"`. The gradient id is `grad-{nodeId}` and goes from a lightened
+ * highlight at the top to the base fill color at the bottom.
+ */
+function GradientDefs({
+  nodes,
+  fills,
+}: {
+  nodes: import("@/lib/visual/schema").VisualNode[];
+  fills: Map<string, string>;
+}): JSX.Element | null {
+  const gradNodes = nodes.filter((n) => n.fillStyle === "gradient");
+  if (gradNodes.length === 0) return null;
+  return (
+    <defs>
+      {gradNodes.map((n) => {
+        const base = fills.get(n.id) ?? "#eef2ff";
+        const light = lightenHex(base);
+        return (
+          <linearGradient
+            key={n.id}
+            id={`grad-${n.id}`}
+            x1="0"
+            y1="0"
+            x2="0"
+            y2="1"
+          >
+            <stop offset="0%" stopColor={light} />
+            <stop offset="100%" stopColor={base} />
+          </linearGradient>
+        );
+      })}
+    </defs>
+  );
+}
+
 export const VisualRenderer = forwardRef<
   SVGSVGElement,
   {
@@ -1202,6 +1347,16 @@ export const VisualRenderer = forwardRef<
   }
 >(function VisualRenderer({ visual, className, title }, ref) {
   const label = title ?? visual.title ?? `${visual.type} visual`;
+  // Build fill map for gradient defs: resolved fill color per node id.
+  const fillMap = new Map<string, string>();
+  for (let i = 0; i < visual.nodes.length; i++) {
+    const node = visual.nodes[i];
+    const fill =
+      node.color ??
+      visual.style.palette[i % visual.style.palette.length] ??
+      visual.style.nodeFill;
+    fillMap.set(node.id, fill);
+  }
   return (
     <svg
       ref={ref}
@@ -1212,6 +1367,7 @@ export const VisualRenderer = forwardRef<
       role="img"
       aria-label={label}
     >
+      <GradientDefs nodes={visual.nodes} fills={fillMap} />
       <rect
         x={0}
         y={0}

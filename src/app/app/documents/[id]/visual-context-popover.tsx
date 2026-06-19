@@ -30,13 +30,19 @@ import {
   applyTheme,
   isThemeActive,
   resetNodeStyle,
+  resetNodeExtStyle,
   setNodeIcon,
   setNodeStyle,
+  setNodeFillStyle,
+  setNodeBorderStyle,
+  setNodeBorderWidth,
+  setNodeTextAlign,
   setVisualKind,
   setVisualStyle,
   clearNodeIcon,
   applyDisplayStyle,
   isDisplayStyleActive,
+  setAllEdgesStyle,
 } from "@/lib/visual/transforms";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { VISUAL_DISPLAY_STYLES } from "@/lib/visual/display-styles";
@@ -45,6 +51,10 @@ import {
   safeParseVisual,
   type Visual,
   type VisualKind,
+  type ArrowStyle,
+  type LineStyle,
+  type FillStyle,
+  type TextAlign,
 } from "@/lib/visual/schema";
 
 import { IconPicker } from "./icon-picker";
@@ -64,6 +74,35 @@ const FONT_WEIGHTS: SegmentedOption<string>[] = [
   { value: "700", label: "Bold" },
   { value: "800", label: "Black" },
 ];
+
+const ARROW_STYLE_OPTIONS: SegmentedOption<ArrowStyle>[] = [
+  { value: "filled", label: "Filled" },
+  { value: "open", label: "Open" },
+  { value: "circle", label: "Circle" },
+  { value: "diamond", label: "Diamond" },
+];
+
+const LINE_STYLE_OPTIONS: SegmentedOption<LineStyle>[] = [
+  { value: "solid", label: "Solid" },
+  { value: "dashed", label: "Dashed" },
+  { value: "dotted", label: "Dotted" },
+];
+
+const FILL_STYLE_OPTIONS: SegmentedOption<FillStyle>[] = [
+  { value: "solid", label: "Flat" },
+  { value: "gradient", label: "Gradient" },
+];
+
+const TEXT_ALIGN_OPTIONS: SegmentedOption<TextAlign>[] = [
+  { value: "left", label: "Left" },
+  { value: "center", label: "Center" },
+  { value: "right", label: "Right" },
+];
+
+const BORDER_STYLE_OPTIONS: SegmentedOption<LineStyle>[] = LINE_STYLE_OPTIONS;
+
+const LINE_WIDTH_MIN = 0.5;
+const LINE_WIDTH_MAX = 6;
 
 const KIND_OPTIONS: SegmentedOption<VisualKind>[] = VISUAL_KINDS.map((kind) => {
   const meta = VISUAL_KIND_META[kind];
@@ -745,9 +784,10 @@ export function VisualContextPopover({
                 <button
                   type="button"
                   aria-label="Reset element style"
-                  onClick={() =>
-                    onChange(resetNodeStyle(visual, selectedNode.id))
-                  }
+                  onClick={() => {
+                    const r1 = resetNodeStyle(visual, selectedNode.id);
+                    onChange(resetNodeExtStyle(r1, selectedNode.id));
+                  }}
                   className={cx(
                     "rounded-md px-1 py-0.5 text-[11px] font-medium text-[var(--ds-text-muted,#6f7d83)] transition hover:text-[var(--ds-text,#18181b)]",
                     FOCUS_RING,
@@ -794,6 +834,205 @@ export function VisualContextPopover({
                   onChange(clearNodeIcon(visual, selectedNode.id))
                 }
               />
+
+              {/* Fill style */}
+              <div className="space-y-1">
+                <span className="text-[11px] text-[var(--ds-text-muted,#6f7d83)]">
+                  Fill style
+                </span>
+                <SegmentedControl<FillStyle>
+                  aria-label="Fill style"
+                  size="sm"
+                  options={FILL_STYLE_OPTIONS}
+                  value={selectedNode.fillStyle ?? "solid"}
+                  onChange={(v) =>
+                    onChange(setNodeFillStyle(visual, selectedNode.id, v))
+                  }
+                />
+              </div>
+
+              {/* Border style & width */}
+              <div className="space-y-1">
+                <span className="text-[11px] text-[var(--ds-text-muted,#6f7d83)]">
+                  Border style
+                </span>
+                <SegmentedControl<LineStyle>
+                  aria-label="Border style"
+                  size="sm"
+                  options={BORDER_STYLE_OPTIONS}
+                  value={selectedNode.borderStyle ?? "solid"}
+                  onChange={(v) =>
+                    onChange(setNodeBorderStyle(visual, selectedNode.id, v))
+                  }
+                />
+              </div>
+              <div className="flex items-center justify-between gap-2 text-xs text-[var(--ds-text,#18181b)]">
+                <span className="text-[var(--ds-text-muted,#6f7d83)]">
+                  Border width
+                </span>
+                <div className="flex items-center gap-1">
+                  <IconButton
+                    aria-label="Decrease border width"
+                    size="sm"
+                    variant="subtle"
+                    disabled={(selectedNode.borderWidth ?? 1.5) <= 0.5}
+                    onClick={() =>
+                      onChange(
+                        setNodeBorderWidth(
+                          visual,
+                          selectedNode.id,
+                          Math.max(
+                            0.5,
+                            Math.round(
+                              ((selectedNode.borderWidth ?? 1.5) - 0.5) * 2,
+                            ) / 2,
+                          ),
+                        ),
+                      )
+                    }
+                  >
+                    <span aria-hidden="true">−</span>
+                  </IconButton>
+                  <span className="w-10 text-center tabular-nums text-[var(--ds-text-muted,#6f7d83)]">
+                    {(selectedNode.borderWidth ?? 1.5).toFixed(1)}px
+                  </span>
+                  <IconButton
+                    aria-label="Increase border width"
+                    size="sm"
+                    variant="subtle"
+                    disabled={(selectedNode.borderWidth ?? 1.5) >= 8}
+                    onClick={() =>
+                      onChange(
+                        setNodeBorderWidth(
+                          visual,
+                          selectedNode.id,
+                          Math.min(
+                            8,
+                            Math.round(
+                              ((selectedNode.borderWidth ?? 1.5) + 0.5) * 2,
+                            ) / 2,
+                          ),
+                        ),
+                      )
+                    }
+                  >
+                    <span aria-hidden="true">+</span>
+                  </IconButton>
+                </div>
+              </div>
+
+              {/* Text alignment */}
+              <div className="space-y-1">
+                <span className="text-[11px] text-[var(--ds-text-muted,#6f7d83)]">
+                  Text align
+                </span>
+                <SegmentedControl<TextAlign>
+                  aria-label="Text alignment"
+                  size="sm"
+                  options={TEXT_ALIGN_OPTIONS}
+                  value={selectedNode.textAlign ?? "center"}
+                  onChange={(v) =>
+                    onChange(setNodeTextAlign(visual, selectedNode.id, v))
+                  }
+                />
+              </div>
+            </div>
+          </>
+        ) : null}
+
+        {/* Connectors — edge line & arrow style (global, applies to all edges) */}
+        {visual.edges.length > 0 ? (
+          <>
+            <Divider orientation="horizontal" />
+            <div className="mt-3 space-y-2">
+              <SectionLabel>Connectors</SectionLabel>
+
+              <div className="space-y-1">
+                <span className="text-[11px] text-[var(--ds-text-muted,#6f7d83)]">
+                  Arrow style
+                </span>
+                <div className="overflow-x-auto">
+                  <SegmentedControl<ArrowStyle>
+                    aria-label="Arrow style"
+                    size="sm"
+                    options={ARROW_STYLE_OPTIONS}
+                    value={visual.edges[0]?.arrowStyle ?? "filled"}
+                    onChange={(v) =>
+                      onChange(setAllEdgesStyle(visual, { arrowStyle: v }))
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-[11px] text-[var(--ds-text-muted,#6f7d83)]">
+                  Line style
+                </span>
+                <SegmentedControl<LineStyle>
+                  aria-label="Line style"
+                  size="sm"
+                  options={LINE_STYLE_OPTIONS}
+                  value={visual.edges[0]?.lineStyle ?? "solid"}
+                  onChange={(v) =>
+                    onChange(setAllEdgesStyle(visual, { lineStyle: v }))
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-2 text-xs text-[var(--ds-text,#18181b)]">
+                <span className="text-[var(--ds-text-muted,#6f7d83)]">
+                  Line width
+                </span>
+                <div className="flex items-center gap-1">
+                  <IconButton
+                    aria-label="Decrease line width"
+                    size="sm"
+                    variant="subtle"
+                    disabled={
+                      (visual.edges[0]?.lineWidth ?? 1.6) <= LINE_WIDTH_MIN
+                    }
+                    onClick={() =>
+                      onChange(
+                        setAllEdgesStyle(visual, {
+                          lineWidth: Math.max(
+                            LINE_WIDTH_MIN,
+                            Math.round(
+                              ((visual.edges[0]?.lineWidth ?? 1.6) - 0.5) * 2,
+                            ) / 2,
+                          ),
+                        }),
+                      )
+                    }
+                  >
+                    <span aria-hidden="true">−</span>
+                  </IconButton>
+                  <span className="w-10 text-center tabular-nums text-[var(--ds-text-muted,#6f7d83)]">
+                    {(visual.edges[0]?.lineWidth ?? 1.6).toFixed(1)}px
+                  </span>
+                  <IconButton
+                    aria-label="Increase line width"
+                    size="sm"
+                    variant="subtle"
+                    disabled={
+                      (visual.edges[0]?.lineWidth ?? 1.6) >= LINE_WIDTH_MAX
+                    }
+                    onClick={() =>
+                      onChange(
+                        setAllEdgesStyle(visual, {
+                          lineWidth: Math.min(
+                            LINE_WIDTH_MAX,
+                            Math.round(
+                              ((visual.edges[0]?.lineWidth ?? 1.6) + 0.5) * 2,
+                            ) / 2,
+                          ),
+                        }),
+                      )
+                    }
+                  >
+                    <span aria-hidden="true">+</span>
+                  </IconButton>
+                </div>
+              </div>
             </div>
           </>
         ) : null}
