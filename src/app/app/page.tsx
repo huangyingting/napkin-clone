@@ -137,7 +137,7 @@ export default async function DashboardPage() {
   );
 
   return (
-    <main className="flex flex-1 flex-col items-center bg-ghost-wash px-6 py-12">
+    <main className="flex flex-1 flex-col items-center bg-ghost-wash px-4 py-8 sm:px-6 sm:py-12">
       <div className="flex w-full max-w-5xl flex-col gap-8">
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1">

@@ -416,7 +416,7 @@ export function LexicalEditor({
         <LexicalComposer initialConfig={initialConfig}>
           <VisualSvgRegistryProvider>
             <VisualAnchorProvider value={visualAnchorValue}>
-              <div className="flex flex-col gap-3 border-b border-black/[.06] bg-white/80 px-6 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between dark:border-white/[.08] dark:bg-black/40">
+              <div className="flex flex-col gap-3 border-b border-black/[.06] bg-white/80 px-4 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6 dark:border-white/[.08] dark:bg-black/40">
                 <div className="flex min-w-0 flex-col gap-1">
                   <div className="flex items-center gap-2">
                     <Link
@@ -531,11 +531,11 @@ export function LexicalEditor({
                 </div>
               </div>
 
-              <div className="flex flex-1 justify-center px-6 py-8">
+              <div className="flex flex-1 justify-center px-4 py-6 sm:px-6 sm:py-8">
                 <div className="w-full max-w-3xl">
                   <div
                     ref={contentAreaRef}
-                    className="relative rounded-2xl border border-black/[.06] bg-white p-6 dark:border-white/[.08] dark:bg-zinc-950"
+                    className="relative rounded-2xl border border-black/[.06] bg-white p-4 sm:p-6 dark:border-white/[.08] dark:bg-zinc-950"
                   >
                     {showPageBreaks && (
                       <PageBreakIndicator

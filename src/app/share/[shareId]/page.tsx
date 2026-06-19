@@ -138,28 +138,28 @@ export default async function SharedDocumentPage({
   }
 
   return (
-    <main className="min-h-screen bg-zinc-50 dark:bg-black">
+    <main className="min-h-screen bg-ds-surface-sunken">
       {/* Header */}
-      <header className="border-b border-black/[.06] bg-white px-6 py-4 dark:border-white/[.08] dark:bg-zinc-950">
+      <header className="border-b border-ds-border-subtle bg-ds-surface-base px-4 py-4 sm:px-6">
         <div className="mx-auto max-w-3xl">
           <div className="mb-2 flex items-center gap-2">
-            <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+            <span className="rounded-full bg-ds-surface-raised px-2.5 py-0.5 text-xs font-medium text-ds-text-secondary">
               Read-only
             </span>
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            <span className="text-xs text-ds-text-muted">
               Shared by {ownerName}
             </span>
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+          <h1 className="text-2xl font-semibold tracking-tight text-ds-text-primary">
             {document.title}
           </h1>
         </div>
       </header>
 
       {/* Content */}
-      <div className="mx-auto max-w-3xl px-6 py-8">
+      <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
         <ShareLightbox>
-          <article className="rounded-lg border border-black/[.06] bg-white p-6 dark:border-white/[.08] dark:bg-zinc-950">
+          <article className="rounded-lg border border-ds-border-subtle bg-ds-surface-base p-4 sm:p-6">
             {hasLexical ? (
               <LexicalReadOnly state={document.contentJson} />
             ) : (
@@ -171,7 +171,7 @@ export default async function SharedDocumentPage({
                       <div
                         key={id}
                         data-block-visual={id}
-                        className="overflow-hidden rounded-lg border border-black/[.06] bg-white dark:border-white/[.08] dark:bg-zinc-950"
+                        className="w-full min-w-0 overflow-hidden rounded-lg border border-ds-border-subtle bg-ds-surface-base"
                       >
                         <VisualRenderer
                           visual={blockVisual}
@@ -182,7 +182,7 @@ export default async function SharedDocumentPage({
                   </div>
                 ) : null}
                 {visual ? (
-                  <div className="mt-6 overflow-hidden rounded-lg border border-black/[.06] bg-white dark:border-white/[.08] dark:bg-zinc-950">
+                  <div className="mt-6 w-full min-w-0 overflow-hidden rounded-lg border border-ds-border-subtle bg-ds-surface-base">
                     <VisualRenderer visual={visual} className="h-auto w-full" />
                   </div>
                 ) : null}

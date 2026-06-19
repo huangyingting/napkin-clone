@@ -35,6 +35,7 @@ import {
   type VisualKind,
 } from "@/lib/visual/schema";
 import { type Orientation, type DetailLevel } from "@/lib/ai/prompt";
+import { useIsPointerFine } from "@/lib/pointer";
 
 import { $createVisualNode } from "./visual-node";
 
@@ -142,6 +143,7 @@ function candidatesFrom(payload: unknown): unknown[] {
  */
 export function BlockSparkPlugin() {
   const [editor] = useLexicalComposerContext();
+  const isPointerFine = useIsPointerFine();
 
   const [editable, setEditable] = useState(() => editor.isEditable());
   const [block, setBlock] = useState<BlockInfo | null>(null);
@@ -400,7 +402,9 @@ export function BlockSparkPlugin() {
     <>
       {createPortal(
         <AnimatePresence>
-          {block !== null ? (
+          {/* Gutter spark button: hidden on touch/coarse-pointer viewports
+              since it relies on hover and is a desktop-only affordance. */}
+          {isPointerFine && block !== null ? (
             <motion.button
               key="block-spark"
               type="button"

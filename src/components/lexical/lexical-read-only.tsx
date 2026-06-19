@@ -45,7 +45,7 @@ function formatText(text: string, format: number): ReactNode {
   let node: ReactNode = text;
   if (format & IS_CODE) {
     node = (
-      <code className="rounded bg-zinc-100 px-1 py-0.5 font-mono text-[0.85em] dark:bg-zinc-800">
+      <code className="rounded-ds-sm border border-ds-border-subtle bg-ds-surface-sunken px-1 py-0.5 font-mono text-[0.85em] text-ds-text-secondary">
         {node}
       </code>
     );
@@ -102,7 +102,7 @@ function renderInline(nodes: unknown[]): ReactNode[] {
           href={url}
           target="_blank"
           rel="noopener noreferrer nofollow"
-          className="text-indigo-600 underline underline-offset-2 dark:text-indigo-400"
+          className="text-ds-accent underline underline-offset-2"
         >
           {renderInline(childrenOf(node))}
         </a>
@@ -155,7 +155,7 @@ function renderBlock(raw: unknown, key: number): ReactNode {
         return (
           <h1
             key={key}
-            className="mb-3 mt-2 text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50"
+            className="mb-3 mt-2 text-3xl font-semibold tracking-tight text-ds-text-primary"
           >
             {inline}
           </h1>
@@ -165,7 +165,7 @@ function renderBlock(raw: unknown, key: number): ReactNode {
         return (
           <h3
             key={key}
-            className="mb-2 mt-2 text-xl font-semibold tracking-tight text-zinc-800 dark:text-zinc-200"
+            className="mb-2 mt-2 text-xl font-semibold tracking-tight text-ds-text-primary"
           >
             {inline}
           </h3>
@@ -174,7 +174,7 @@ function renderBlock(raw: unknown, key: number): ReactNode {
       return (
         <h2
           key={key}
-          className="mb-3 mt-2 text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100"
+          className="mb-3 mt-2 text-2xl font-semibold tracking-tight text-ds-text-primary"
         >
           {inline}
         </h2>
@@ -184,7 +184,7 @@ function renderBlock(raw: unknown, key: number): ReactNode {
       return (
         <blockquote
           key={key}
-          className="mb-3 border-l-4 border-zinc-300 pl-4 italic text-zinc-700 dark:border-zinc-700 dark:text-zinc-300"
+          className="mb-3 border-l-4 border-ds-border-strong pl-4 italic text-ds-text-secondary"
         >
           {renderInline(childrenOf(node))}
         </blockquote>
@@ -198,7 +198,7 @@ function renderBlock(raw: unknown, key: number): ReactNode {
         return (
           <ol
             key={key}
-            className="mb-3 ml-6 list-decimal leading-7 text-zinc-700 dark:text-zinc-300"
+            className="mb-3 ml-6 list-decimal leading-7 text-ds-text-secondary"
           >
             {items}
           </ol>
@@ -207,7 +207,7 @@ function renderBlock(raw: unknown, key: number): ReactNode {
       return (
         <ul
           key={key}
-          className="mb-3 ml-6 list-disc leading-7 text-zinc-700 dark:text-zinc-300"
+          className="mb-3 ml-6 list-disc leading-7 text-ds-text-secondary"
         >
           {items}
         </ul>
@@ -217,7 +217,7 @@ function renderBlock(raw: unknown, key: number): ReactNode {
       return (
         <hr
           key={key}
-          className="my-6 border-0 border-t border-zinc-200 dark:border-zinc-800"
+          className="my-6 border-0 border-t border-ds-border-subtle"
         />
       );
     case "visual": {
@@ -227,7 +227,7 @@ function renderBlock(raw: unknown, key: number): ReactNode {
           <div
             key={key}
             data-block-visual
-            className="my-2 rounded-lg border border-black/[.06] bg-zinc-50 p-4 text-sm text-zinc-400 dark:border-white/[.08] dark:bg-zinc-900 dark:text-zinc-600"
+            className="my-2 rounded-lg border border-ds-border-subtle bg-ds-surface-sunken p-4 text-sm text-ds-text-muted"
           >
             This visual could not be displayed.
           </div>
@@ -237,7 +237,7 @@ function renderBlock(raw: unknown, key: number): ReactNode {
         <div
           key={key}
           data-block-visual
-          className="my-2 overflow-hidden rounded-lg border border-black/[.06] bg-white dark:border-white/[.08] dark:bg-zinc-950"
+          className="my-2 w-full min-w-0 overflow-hidden rounded-lg border border-ds-border-subtle bg-ds-surface-base"
         >
           <VisualRenderer visual={parsed.data} className="h-auto w-full" />
         </div>
@@ -246,20 +246,14 @@ function renderBlock(raw: unknown, key: number): ReactNode {
     case "paragraph": {
       const inline = renderInline(childrenOf(node));
       return (
-        <p
-          key={key}
-          className="mb-3 leading-7 text-zinc-700 dark:text-zinc-300"
-        >
+        <p key={key} className="mb-3 leading-7 text-ds-text-secondary">
           {inline.length > 0 ? inline : <br />}
         </p>
       );
     }
     default:
       return (
-        <div
-          key={key}
-          className="mb-3 leading-7 text-zinc-700 dark:text-zinc-300"
-        >
+        <div key={key} className="mb-3 leading-7 text-ds-text-secondary">
           {renderInline(childrenOf(node))}
         </div>
       );
@@ -311,9 +305,7 @@ export function LexicalReadOnly({
   if (children.length === 0) {
     return (
       <div className={className}>
-        <p className="text-sm text-zinc-400 dark:text-zinc-600">
-          No content yet.
-        </p>
+        <p className="text-sm text-ds-text-muted">No content yet.</p>
       </div>
     );
   }
