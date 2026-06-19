@@ -1,0 +1,22 @@
+{
+  "universe_usage_history": [
+    {
+      "universe": "The Matrix",
+      "assignment_id": "asgn-20260619-napkin-matrix",
+      "used_at": "2026-06-19T05:36:53Z"
+    }
+  ],
+  "assignment_cast_snapshots": {
+    "asgn-20260619-napkin-matrix": {
+      "universe": "The Matrix",
+      "agents": {
+        "lead": "Trinity",
+        "design-ux": "Mouse",
+        "frontend": "Switch",
+        "backend": "Tank",
+        "tester": "Ghost"
+      },
+      "created_at": "2026-06-19T05:36:53Z"
+    }
+  }
+}
