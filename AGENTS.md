@@ -2312,3 +2312,54 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   `keyboard.type`). Assert it appears (8 buttons), each control flips `aria-pressed` +
   mutates the DOM (`strong`/`h2`/`ul li`), and it disappears (`count() === 0`) after
   `ArrowRight` collapses the selection.
+
+### "+" line button and "/" slash menu to insert blocks (US-007)
+
+- **`src/app/app/documents/[id]/block-insert-menu.tsx` (`BlockInsertMenuPlugin`)** is a
+  Lexical plugin (uses `useLexicalComposerContext`) mounted inside the `LexicalComposer`
+  in `lexical-editor.tsx`. It renders two Ghost-style affordances via `createPortal` to
+  `document.body` with `position: fixed` (viewport coords, so the editor card's
+  rounded/overflow never clips them): a "+" gutter button and the shared insert menu.
+- **Divider = `HorizontalRuleNode`** from `@lexical/react/LexicalHorizontalRuleNode`
+  (`INSERT_HORIZONTAL_RULE_COMMAND`, `$createHorizontalRuleNode`) + the
+  `HorizontalRulePlugin` from `@lexical/react/LexicalHorizontalRulePlugin`. BOTH are
+  required: add `HorizontalRuleNode` to `initialConfig.nodes` (else a saved `<hr>` won't
+  parse on reload) AND mount `<HorizontalRulePlugin/>` (registers the command). Style the
+  rule via `theme.hr`. (These exports are `@deprecated` in favor of `@lexical/extension`
+  but are the ones available at `^0.45.0`.)
+- **Two trigger modes, two keyboard paths.** The "+" gutter button shows ONLY on an empty
+  **paragraph** (AC wording); the "/" trigger fires on ANY empty single top-level block
+  (paragraph, heading, quote — `/^\/(\S*)$/` on the block's full text). Don't restrict the
+  slash read to `type === "paragraph"` (that breaks "/" in an empty heading); restrict only
+  the "+" button. Keyboard nav differs by mode:
+  - **Slash mode keeps editor focus** (so typing keeps filtering) and is driven by Lexical
+    **key commands** (`KEY_ARROW_DOWN/UP/ENTER/ESCAPE_COMMAND` at `COMMAND_PRIORITY_HIGH`,
+    returning `true` only when the menu is open so the editor's default Enter/arrows still
+    work otherwise).
+  - **Plus mode focuses the menu** (`role="listbox"`, `tabIndex={-1}`, focused in an effect)
+    and handles nav in a local `onKeyDown`. An outside-`mousedown` listener closes it; the
+    slash menu instead closes via the editor selection listener when the block no longer
+    matches `/…`.
+- **Command handlers capture stale closures** — keep `slashOpen`/`filtered`/`activeIndex`
+  in refs and sync them in a deps-less `useEffect` (assigning `ref.current` during render
+  violates `react-hooks/refs`). Same pattern as the floating toolbar.
+- **`applyBlock(itemKey, blockKey?)`**: inside one `editor.update`, resolve the target
+  top-level element (by `blockKey` for plus mode, else from the current selection for slash
+  mode), **`top.replace($createParagraphNode())` + `.select()`** (this both clears any
+  "/filter" trigger text AND gives `$setBlocksType` a clean range selection), then
+  H2/H3/quote via `$setBlocksType`; lists/divider via `dispatchCommand` AFTER the update.
+  Finish with `closeMenu()` + `editor.focus()` (returns focus to the editor per AC).
+- **`aria-selected` is invalid on `role="menuitem"`** (eslint `jsx-a11y` warning) — use
+  `role="listbox"` + `role="option"` with `aria-selected` for the roving-highlight menu
+  (we don't move DOM focus among items, so listbox/option fits better than menu/menuitem).
+- **Browser QA (dev-browser, headless, `--timeout 90` for reloads):** menu is
+  `[role="listbox"][aria-label="Insert block"]`, items `[role="option"]`, the gutter button
+  `button[aria-label="Insert block"]`. The "/" route recompiles slowly, so a reload + wait
+  for `[aria-label="Document body"][contenteditable="true"]` can exceed the default 30s
+  script cap — bump `--timeout`. To reach an empty paragraph, focus the body
+  (`evaluate(el.focus())`), `Control+a` + `Delete`. Verified: "+" appears on empty para and
+  opens the 6-item menu; ArrowDown+Enter transforms (`<h3>`); "/" opens all 6, "/quote"
+  filters to one, Escape closes (count 0) leaving the "/quote" text, "/divider"+Enter
+  inserts `<hr>` and refocuses the editor; the `<hr>` persists across reload with 0 console
+  errors. The collab server (`npm run collab`) must be running or the editor never becomes
+  editable.
