@@ -2,8 +2,13 @@
  * Shared class strings for the editor's interactive controls (spark button,
  * floating toolbar, "+"/"/" insert menu, and the contextual visual-card
  * controls). Centralizing them keeps hover / active / focus-visible feedback
- * consistent across every control and uses the app's zinc theme palette with
- * `dark:` variants (US-016).
+ * consistent across every control.
+ *
+ * These compose the `--ds-*` design-system chrome tokens (globals.css) via their
+ * Tailwind utilities (`ds-*`). Because those tokens flip in the
+ * prefers-color-scheme dark block, the classes below need no `dark:` variants —
+ * one class is correct in both light and dark. No raw `zinc-*` or
+ * `black/[.0x]` literals remain here.
  *
  * These are plain class-name constants (no React), so they can be composed into
  * any client component's `className`.
@@ -14,14 +19,14 @@
  * shows for keyboard users, matching the rest of the app's affordances.
  */
 export const FOCUS_RING =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-1 focus-visible:ring-offset-white dark:focus-visible:ring-white dark:focus-visible:ring-offset-zinc-900";
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-focus-ring focus-visible:ring-offset-1 focus-visible:ring-offset-ds-focus-offset";
 
 /**
  * Square icon button that floats in the editor gutter (the per-block spark and
  * the "+" insert button). Includes hover, active (pressed), and focus-visible
- * feedback in both light and dark mode.
+ * feedback, all driven by `--ds-*` tokens.
  */
-export const GUTTER_BUTTON = `flex h-7 w-7 items-center justify-center rounded-lg border border-black/[.08] bg-white text-zinc-500 shadow-sm transition-colors hover:bg-black/[.06] hover:text-zinc-900 active:bg-black/[.12] aria-expanded:bg-black/[.06] aria-expanded:text-zinc-900 dark:border-white/[.12] dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-white/[.1] dark:hover:text-zinc-100 dark:active:bg-white/[.16] ${FOCUS_RING}`;
+export const GUTTER_BUTTON = `flex h-7 w-7 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised text-ds-text-muted shadow-ds-raised transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary active:bg-ds-state-active aria-expanded:bg-ds-state-hover aria-expanded:text-ds-text-primary ${FOCUS_RING}`;
 
 /**
  * A compact toolbar/menu control that toggles between an inactive and active
@@ -32,8 +37,8 @@ export function controlToggleClass(active: boolean): string {
   return [
     "transition-colors active:translate-y-0",
     active
-      ? "bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
-      : "text-zinc-700 hover:bg-black/[.05] active:bg-black/[.1] dark:text-zinc-200 dark:hover:bg-white/[.08] dark:active:bg-white/[.14]",
+      ? "bg-ds-control text-ds-control-text hover:bg-ds-control-hover"
+      : "text-ds-text-secondary hover:bg-ds-state-hover active:bg-ds-state-active",
     FOCUS_RING,
   ].join(" ");
 }

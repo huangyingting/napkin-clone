@@ -33,13 +33,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLexicalCollaboration } from "@/lib/collab/use-lexical-collaboration";
 import { useDebouncedSave, useYText } from "@/lib/collab/use-collaboration";
 import { readingTimeMinutes, wordCount } from "@/lib/document-stats";
+import { EditorContextProvider } from "@/lib/lexical/editor-context";
 
 import { saveDocumentLexical, saveDocumentTitle } from "./actions";
-import { BlockInsertMenuPlugin } from "./block-insert-menu";
 import { BlockSparkPlugin } from "./block-spark";
 import type { CommentThread } from "./comments-actions";
 import { CommentsPanel, type AnchorNode } from "./comments-panel";
-import { FloatingToolbarPlugin } from "./floating-toolbar";
+import { FloatingTextToolbar } from "./floating-text-toolbar";
+import { InsertMenuPlugin } from "./insert-menu";
+import { InsertVisualPlugin } from "./insert-visual-plugin";
 import { Presence } from "./presence";
 import { ShareButton } from "./share-button";
 import { TagControl } from "./tag-control";
@@ -68,6 +70,7 @@ const theme: EditorThemeClasses = {
     italic: "italic",
     underline: "underline",
     strikethrough: "line-through",
+    code: "rounded-ds-sm border border-ds-border-subtle bg-ds-surface-sunken px-1 py-0.5 font-mono text-[0.9em] text-ds-text-secondary",
   },
 };
 
@@ -427,45 +430,48 @@ export function LexicalEditor({
             <div className="flex flex-1 justify-center px-6 py-8">
               <div className="w-full max-w-3xl">
                 <div className="relative rounded-2xl border border-black/[.06] bg-white p-6 dark:border-white/[.08] dark:bg-zinc-950">
-                  <RichTextPlugin
-                    contentEditable={
-                      <ContentEditable
-                        aria-label="Document body"
-                        className="ghost-prose min-h-[16rem] outline-none"
-                      />
-                    }
-                    placeholder={
-                      <div className="pointer-events-none absolute left-6 top-6 text-base text-zinc-400 dark:text-zinc-500">
-                        {collab.ready ? "Start writing…" : "Connecting…"}
-                      </div>
-                    }
-                    ErrorBoundary={LexicalErrorBoundary}
-                  />
-                  <CollaborationPlugin
-                    id={documentId}
-                    providerFactory={collab.providerFactory}
-                    shouldBootstrap
-                    initialEditorState={initialStateJson ?? null}
-                    username={userName}
-                    cursorColor={collab.cursorColor}
-                  />
-                  <EditableGate editable={editable} />
-                  <CaptureSelectionPlugin
-                    editorRef={editorRef}
-                    selectionRef={selectionRef}
-                  />
-                  <DocumentStatsPlugin onText={handleStatsText} />
-                  <ListPlugin />
-                  <LinkPlugin />
-                  <HorizontalRulePlugin />
-                  <BlockInsertMenuPlugin />
-                  <BlockSparkPlugin />
-                  <FloatingToolbarPlugin />
-                  <OnChangePlugin
-                    onChange={handleChange}
-                    ignoreSelectionChange
-                    ignoreHistoryMergeTagChange
-                  />
+                  <EditorContextProvider>
+                    <RichTextPlugin
+                      contentEditable={
+                        <ContentEditable
+                          aria-label="Document body"
+                          className="ghost-prose min-h-[16rem] outline-none"
+                        />
+                      }
+                      placeholder={
+                        <div className="pointer-events-none absolute left-6 top-6 text-base text-zinc-400 dark:text-zinc-500">
+                          {collab.ready ? "Start writing…" : "Connecting…"}
+                        </div>
+                      }
+                      ErrorBoundary={LexicalErrorBoundary}
+                    />
+                    <CollaborationPlugin
+                      id={documentId}
+                      providerFactory={collab.providerFactory}
+                      shouldBootstrap
+                      initialEditorState={initialStateJson ?? null}
+                      username={userName}
+                      cursorColor={collab.cursorColor}
+                    />
+                    <EditableGate editable={editable} />
+                    <CaptureSelectionPlugin
+                      editorRef={editorRef}
+                      selectionRef={selectionRef}
+                    />
+                    <DocumentStatsPlugin onText={handleStatsText} />
+                    <ListPlugin />
+                    <LinkPlugin />
+                    <HorizontalRulePlugin />
+                    <InsertMenuPlugin />
+                    <BlockSparkPlugin />
+                    <InsertVisualPlugin />
+                    <FloatingTextToolbar />
+                    <OnChangePlugin
+                      onChange={handleChange}
+                      ignoreSelectionChange
+                      ignoreHistoryMergeTagChange
+                    />
+                  </EditorContextProvider>
                 </div>
               </div>
             </div>

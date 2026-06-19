@@ -91,6 +91,13 @@ src/app/        App Router routes, layout, and global styles
 public/         Static assets
 ```
 
+## Editor architecture
+
+The document editor (Lexical rich text + editable visual blocks, context-aware
+toolbars, and a data-driven tool registry) is documented in
+[docs/editor-architecture.md](docs/editor-architecture.md) — read it before
+adding a formatting tool, a visual kind, or a theme.
+
 ## Notes
 
 This repository also hosts the Ralph autonomous-agent tooling (`scripts/ralph.sh`,

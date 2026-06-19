@@ -1,0 +1,189 @@
+"use client";
+
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
+
+import { usePopMotion } from "@/components/motion/reveal";
+
+import {
+  cx,
+  ELEVATION,
+  RADIUS,
+  SURFACE_BASE,
+  type Elevation,
+  type Radius,
+} from "./tokens";
+
+// Minimum inset (px) kept between a clamped surface and the viewport edges.
+const VIEWPORT_INSET = 8;
+// Coordinates at/below this are treated as an intentional off-screen sentinel
+// (surfaces park here for a frame before their own layout effect measures), so
+// the viewport clamp leaves them alone rather than yanking them into view.
+const OFFSCREEN_SENTINEL = -900;
+
+export type FloatingSurfaceProps = {
+  open: boolean;
+  /** Called on Escape or click-away (when those behaviours are enabled). */
+  onClose?: () => void;
+  /** Fixed-viewport coordinates for the top-left of the surface. */
+  position: { top: number; left: number };
+  children: ReactNode;
+  elevation?: Elevation;
+  radius?: Radius;
+  /** ARIA role for the surface. Defaults to `dialog`. */
+  role?: string;
+  "aria-label"?: string;
+  /** Close when Escape is pressed. Defaults to `true`. */
+  closeOnEscape?: boolean;
+  /** Close on pointer-down outside the surface. Defaults to `true`. */
+  closeOnClickAway?: boolean;
+  /**
+   * Prevent default on pointer-down so the editor text selection survives a
+   * click on the surface (used by selection-anchored toolbars).
+   */
+  keepSelection?: boolean;
+  /**
+   * Clamp the surface within the viewport (minus {@link VIEWPORT_INSET}) after
+   * it renders, as a safety net so menus/popovers never overflow on narrow
+   * widths even when the caller's anchor math doesn't account for the surface's
+   * own size. Defaults to `true`. Off-screen sentinel coordinates are exempt.
+   */
+  clampToViewport?: boolean;
+  className?: string;
+  style?: CSSProperties;
+};
+
+/**
+ * The shared floating container: a portal to `document.body`, fixed
+ * positioning, reduced-motion-aware pop motion (via {@link usePopMotion}),
+ * Escape-to-close, and pointer-down click-away — the logic that the editor's
+ * floating surfaces (the floating text toolbar, the `+`/`/` insert menu, the
+ * per-block spark, and `visual-card.tsx`) would otherwise each duplicate.
+ * Click-away uses ref containment, never `stopPropagation`.
+ */
+export function FloatingSurface({
+  open,
+  onClose,
+  position,
+  children,
+  elevation = "overlay",
+  radius = "lg",
+  role = "dialog",
+  "aria-label": ariaLabel,
+  closeOnEscape = true,
+  closeOnClickAway = true,
+  keepSelection = false,
+  clampToViewport = true,
+  className,
+  style,
+}: FloatingSurfaceProps) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const popMotion = usePopMotion();
+  const [clamped, setClamped] = useState(position);
+  const { top: posTop, left: posLeft } = position;
+
+  // Re-clamp the requested position against the surface's measured size so it
+  // stays on-screen on narrow viewports. `offsetWidth/Height` ignore the pop
+  // motion's scale transform, so the measurement reflects the final box.
+  useLayoutEffect(() => {
+    if (!open) {
+      return;
+    }
+    const el = ref.current;
+    if (
+      !clampToViewport ||
+      el === null ||
+      (posLeft <= OFFSCREEN_SENTINEL && posTop <= OFFSCREEN_SENTINEL)
+    ) {
+      setClamped((prev) =>
+        prev.top === posTop && prev.left === posLeft
+          ? prev
+          : { top: posTop, left: posLeft },
+      );
+      return;
+    }
+    const width = el.offsetWidth;
+    const height = el.offsetHeight;
+    const maxLeft = Math.max(
+      VIEWPORT_INSET,
+      window.innerWidth - width - VIEWPORT_INSET,
+    );
+    const maxTop = Math.max(
+      VIEWPORT_INSET,
+      window.innerHeight - height - VIEWPORT_INSET,
+    );
+    const left = Math.min(Math.max(posLeft, VIEWPORT_INSET), maxLeft);
+    const top = Math.min(Math.max(posTop, VIEWPORT_INSET), maxTop);
+    setClamped((prev) =>
+      prev.top === top && prev.left === left ? prev : { top, left },
+    );
+  }, [open, clampToViewport, posTop, posLeft]);
+
+  useEffect(() => {
+    if (!open || !closeOnClickAway) {
+      return;
+    }
+    const onPointerDown = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        onClose?.();
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [open, closeOnClickAway, onClose]);
+
+  useEffect(() => {
+    if (!open || !closeOnEscape) {
+      return;
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose?.();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, closeOnEscape, onClose]);
+
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(
+    <AnimatePresence>
+      {open ? (
+        <motion.div
+          ref={ref}
+          role={role}
+          aria-label={ariaLabel}
+          onMouseDown={
+            keepSelection ? (event) => event.preventDefault() : undefined
+          }
+          initial={popMotion.initial}
+          animate={popMotion.animate}
+          exit={popMotion.exit}
+          transition={popMotion.transition}
+          style={{ top: clamped.top, left: clamped.left, ...style }}
+          className={cx(
+            "fixed z-50 border",
+            SURFACE_BASE,
+            RADIUS[radius],
+            ELEVATION[elevation],
+            className,
+          )}
+        >
+          {children}
+        </motion.div>
+      ) : null}
+    </AnimatePresence>,
+    document.body,
+  );
+}

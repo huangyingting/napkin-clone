@@ -4,12 +4,97 @@
   --background: #ffffff;
   --foreground: #171717;
 
-  /* Ghost theme color tokens — light mode */
-  --ghost-text: #15171a;
-  --ghost-secondary: #54666d;
-  --ghost-border: #dde1e5;
-  --ghost-wash: #f4f8fb;
-  --ghost-bg: #ffffff;
+  /*
+   * Design-system chrome tokens (`--ds-*`) — light mode.
+   *
+   * One semantic layer for app chrome AND editor controls (floating toolbar,
+   * insert menu, gutter buttons, visual-card surfaces). These are intentionally
+   * SEPARATE from visual-content theming (src/lib/visual/themes.ts) and from the
+   * reading typography (.ghost-prose stays serif on the ghost reading tokens).
+   * Dark values live in the prefers-color-scheme block below; anything that uses
+   * these tokens flips automatically without `dark:` utilities.
+   */
+
+  /* Surfaces */
+  --ds-surface-base: var(--background);
+  --ds-surface-raised: #ffffff;
+  --ds-surface-overlay: #ffffff;
+  --ds-surface-sunken: #f4f8fb;
+
+  /* Text (all ≥4.5:1 on their intended surface) */
+  --ds-text-primary: #15171a;
+  --ds-text-secondary: #54666d;
+  --ds-text-muted: #6f7d83;
+  --ds-text-on-accent: #ffffff;
+
+  /* Borders */
+  --ds-border-subtle: rgba(0, 0, 0, 0.08);
+  --ds-border-strong: #dde1e5;
+
+  /* Accent — derived from the single configurable brand knob */
+  --ds-accent: var(--ghost-accent-color);
+  --ds-accent-hover: #4338ca;
+  --ds-accent-contrast: #ffffff;
+
+  /* Solid control (the pressed/active toggle: dark chip on light, inverted in dark) */
+  --ds-control: #18181b;
+  --ds-control-hover: #27272a;
+  --ds-control-text: #ffffff;
+
+  /* Interaction-state overlays (replace ad-hoc black/[.0x] + white/[.0x]) */
+  --ds-state-hover: rgba(0, 0, 0, 0.06);
+  --ds-state-active: rgba(0, 0, 0, 0.12);
+  --ds-state-selected: rgba(0, 0, 0, 0.08);
+
+  /* SegmentedControl: recessed track + raised active thumb (used by the
+     ContextPopover type switcher and theme-first restyle controls) */
+  --ds-segment-track: var(--ds-surface-sunken);
+  --ds-segment-thumb: var(--ds-surface-raised);
+
+  /* Focus ring */
+  --ds-focus-ring: var(--ds-text-primary);
+  --ds-focus-offset: var(--ds-surface-raised);
+
+  /* Radii scale */
+  --ds-radius-sm: 0.5rem; /* 8px  */
+  --ds-radius-md: 0.625rem; /* 10px */
+  --ds-radius-lg: 0.875rem; /* 14px */
+  --ds-radius-xl: 1.125rem; /* 18px */
+  --ds-radius-pill: 9999px;
+
+  /* Elevation (transient → anchored) */
+  --ds-shadow-flat: none;
+  --ds-shadow-raised: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --ds-shadow-overlay: 0 10px 30px -12px rgb(0 0 0 / 0.25),
+    0 2px 8px -2px rgb(0 0 0 / 0.12);
+  --ds-shadow-popover: 0 16px 48px -16px rgb(0 0 0 / 0.3),
+    0 4px 12px -4px rgb(0 0 0 / 0.15);
+
+  /* Spacing scale (consumed via arbitrary values, kept out of @theme so it
+     doesn't override Tailwind's default spacing multiplier) */
+  --ds-space-1: 0.25rem;
+  --ds-space-2: 0.5rem;
+  --ds-space-3: 0.75rem;
+  --ds-space-4: 1rem;
+  --ds-space-5: 1.5rem;
+  --ds-space-6: 2rem;
+
+  /* Motion */
+  --ds-motion-fast: 120ms;
+  --ds-motion-base: 180ms;
+  --ds-motion-slow: 240ms;
+  --ds-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /*
+   * Ghost reading tokens — re-mapped onto the `--ds-*` layer where they mean the
+   * same thing, so chrome and reading share one material. Resolved values are
+   * unchanged, so .ghost-prose (serif body) looks identical.
+   */
+  --ghost-text: var(--ds-text-primary);
+  --ghost-secondary: var(--ds-text-secondary);
+  --ghost-border: var(--ds-border-strong);
+  --ghost-wash: var(--ds-surface-sunken);
+  --ghost-bg: var(--ds-surface-base);
   --ghost-green: #a4d037;
   --ghost-yellow: #fecd35;
   --ghost-red: #f05230;
@@ -39,6 +124,51 @@
   --color-ghost-yellow: var(--ghost-yellow);
   --color-ghost-red: var(--ghost-red);
   --color-ghost-accent: var(--ghost-accent-color);
+
+  /* Design-system chrome tokens exposed as Tailwind utilities (ds-*) */
+  --color-ds-surface-base: var(--ds-surface-base);
+  --color-ds-surface-raised: var(--ds-surface-raised);
+  --color-ds-surface-overlay: var(--ds-surface-overlay);
+  --color-ds-surface-sunken: var(--ds-surface-sunken);
+
+  --color-ds-text-primary: var(--ds-text-primary);
+  --color-ds-text-secondary: var(--ds-text-secondary);
+  --color-ds-text-muted: var(--ds-text-muted);
+  --color-ds-text-on-accent: var(--ds-text-on-accent);
+
+  --color-ds-border-subtle: var(--ds-border-subtle);
+  --color-ds-border-strong: var(--ds-border-strong);
+
+  --color-ds-accent: var(--ds-accent);
+  --color-ds-accent-hover: var(--ds-accent-hover);
+  --color-ds-accent-contrast: var(--ds-accent-contrast);
+
+  --color-ds-control: var(--ds-control);
+  --color-ds-control-hover: var(--ds-control-hover);
+  --color-ds-control-text: var(--ds-control-text);
+
+  --color-ds-state-hover: var(--ds-state-hover);
+  --color-ds-state-active: var(--ds-state-active);
+  --color-ds-state-selected: var(--ds-state-selected);
+
+  --color-ds-segment-track: var(--ds-segment-track);
+  --color-ds-segment-thumb: var(--ds-segment-thumb);
+
+  --color-ds-focus-ring: var(--ds-focus-ring);
+  --color-ds-focus-offset: var(--ds-focus-offset);
+
+  --radius-ds-sm: var(--ds-radius-sm);
+  --radius-ds-md: var(--ds-radius-md);
+  --radius-ds-lg: var(--ds-radius-lg);
+  --radius-ds-xl: var(--ds-radius-xl);
+  --radius-ds-pill: var(--ds-radius-pill);
+
+  --shadow-ds-flat: var(--ds-shadow-flat);
+  --shadow-ds-raised: var(--ds-shadow-raised);
+  --shadow-ds-overlay: var(--ds-shadow-overlay);
+  --shadow-ds-popover: var(--ds-shadow-popover);
+
+  --ease-ds-standard: var(--ds-ease-standard);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -46,12 +176,27 @@
     --background: #0a0a0a;
     --foreground: #ededed;
 
-    /* Ghost theme color tokens — dark mode */
-    --ghost-text: #f5f6f6;
-    --ghost-secondary: #98a0a6;
-    --ghost-border: #2a2d31;
-    --ghost-wash: #16181c;
-    --ghost-bg: #0a0a0a;
+    /* Design-system chrome tokens — dark mode overrides */
+    --ds-surface-raised: #18181b;
+    --ds-surface-overlay: #18181b;
+    --ds-surface-sunken: #16181c;
+
+    --ds-text-primary: #f5f6f6;
+    --ds-text-secondary: #98a0a6;
+    --ds-text-muted: #828b91;
+
+    --ds-border-subtle: rgba(255, 255, 255, 0.12);
+    --ds-border-strong: #2a2d31;
+
+    --ds-accent-hover: #6366f1;
+
+    --ds-control: #ffffff;
+    --ds-control-hover: #e4e4e7;
+    --ds-control-text: #18181b;
+
+    --ds-state-hover: rgba(255, 255, 255, 0.09);
+    --ds-state-active: rgba(255, 255, 255, 0.16);
+    --ds-state-selected: rgba(255, 255, 255, 0.12);
   }
 }
 

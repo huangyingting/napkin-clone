@@ -6,7 +6,7 @@ import {
   $getNodeByKey,
   $isElementNode,
 } from "lexical";
-import { Sparkles } from "lucide-react";
+import { Sparkles, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
@@ -14,8 +14,17 @@ import { AnimatePresence, motion } from "framer-motion";
 import { FOCUS_RING, GUTTER_BUTTON } from "@/components/motion/control-styles";
 import { usePopMotion } from "@/components/motion/reveal";
 import { ThinkingIndicator } from "@/components/motion/thinking-indicator";
+import { Button, Divider, FloatingSurface, IconButton } from "@/components/ui";
+import { cx } from "@/components/ui/tokens";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
-import { safeParseVisual, type Visual } from "@/lib/visual/schema";
+import { INSERT_VISUAL_COMMAND } from "@/lib/lexical/commands";
+import { VISUAL_KIND_META } from "@/lib/lexical/tool-registry";
+import {
+  safeParseVisual,
+  VISUAL_KINDS,
+  type Visual,
+  type VisualKind,
+} from "@/lib/visual/schema";
 
 import { $createVisualNode } from "./visual-node";
 
@@ -281,6 +290,22 @@ export function BlockSparkPlugin() {
     [editor, openKey, closePanel],
   );
 
+  // Deterministic (non-AI) insert: dispatch INSERT_VISUAL_COMMAND so Tank's
+  // handler builds a blank visual and inserts it AFTER this block. The UI never
+  // creates/persists a VisualNode for this path — it only dispatches.
+  const insertBlank = useCallback(
+    (kind: VisualKind) => {
+      const targetKey = openKey;
+      editor.dispatchCommand(INSERT_VISUAL_COMMAND, {
+        kind,
+        afterNodeKey: targetKey ?? undefined,
+      });
+      closePanel();
+      editor.focus();
+    },
+    [editor, openKey, closePanel],
+  );
+
   if (typeof document === "undefined" || !editable) {
     return null;
   }
@@ -314,7 +339,7 @@ export function BlockSparkPlugin() {
                 top: block.top + block.height / 2 - 14,
                 left: block.left - GUTTER_OFFSET,
               }}
-              className={`fixed z-40 ${GUTTER_BUTTON}`}
+              className={cx("fixed z-40", GUTTER_BUTTON)}
             >
               <Sparkles aria-hidden="true" className="h-4 w-4" />
             </motion.button>
@@ -323,91 +348,107 @@ export function BlockSparkPlugin() {
         document.body,
       )}
 
-      {createPortal(
-        <AnimatePresence>
-          {openKey !== null && panelTarget !== null ? (
-            <motion.div
-              key="block-spark-panel"
-              role="dialog"
-              aria-label="Generate visual for this block"
-              onMouseEnter={keepAlive}
-              initial={popMotion.initial}
-              animate={popMotion.animate}
-              exit={popMotion.exit}
-              transition={popMotion.transition}
-              style={{
-                top: panelTarget.bottom + PANEL_GAP,
-                left: panelTarget.left,
-              }}
-              className="fixed z-50 max-h-[24rem] w-80 overflow-auto rounded-xl border border-black/[.08] bg-white p-3 shadow-lg dark:border-white/[.12] dark:bg-zinc-900"
-            >
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
-                  Visual for this block
-                </span>
-                <button
-                  type="button"
-                  aria-label="Close"
-                  onClick={closePanel}
-                  className={`rounded-md p-1 text-zinc-400 transition-colors hover:bg-black/[.05] hover:text-zinc-700 active:bg-black/[.1] dark:hover:bg-white/[.08] dark:hover:text-zinc-200 dark:active:bg-white/[.14] ${FOCUS_RING}`}
-                >
-                  <svg
-                    viewBox="0 0 16 16"
-                    aria-hidden="true"
-                    className="h-3.5 w-3.5"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.75"
-                    strokeLinecap="round"
-                  >
-                    <path d="M4 4l8 8M12 4l-8 8" />
-                  </svg>
-                </button>
-              </div>
+      <FloatingSurface
+        open={openKey !== null && panelTarget !== null}
+        onClose={closePanel}
+        position={
+          panelTarget !== null
+            ? { top: panelTarget.bottom + PANEL_GAP, left: panelTarget.left }
+            : { top: -1000, left: -1000 }
+        }
+        role="dialog"
+        aria-label="Insert a visual for this block"
+        radius="lg"
+        elevation="overlay"
+        closeOnClickAway={false}
+      >
+        <div
+          onMouseEnter={keepAlive}
+          className="max-h-[26rem] w-80 overflow-auto p-3"
+        >
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="text-xs font-medium text-[var(--ds-text-muted,#52525b)]">
+              Insert a visual
+            </span>
+            <IconButton aria-label="Close" size="sm" onClick={closePanel}>
+              <X aria-hidden="true" className="h-4 w-4" />
+            </IconButton>
+          </div>
 
-              {status === "loading" ? (
-                <ThinkingIndicator
-                  label="Generating…"
-                  className="px-1 py-4 text-sm text-zinc-500 dark:text-zinc-400"
-                />
-              ) : error !== null ? (
-                <div
-                  role="alert"
-                  className="flex flex-col gap-2 px-1 py-2 text-sm text-red-600 dark:text-red-400"
-                >
-                  <span>{error}</span>
+          <div className="mb-1 text-[0.6875rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)]">
+            Generate from this block
+          </div>
+          {status === "loading" ? (
+            <ThinkingIndicator
+              label="Generating…"
+              className="px-1 py-4 text-sm text-[var(--ds-text-muted,#71717a)]"
+            />
+          ) : error !== null ? (
+            <div
+              role="alert"
+              className="flex flex-col items-start gap-2 px-1 py-2 text-sm text-[var(--ds-danger,#dc2626)]"
+            >
+              <span>{error}</span>
+              <Button
+                size="sm"
+                variant="subtle"
+                onClick={() =>
+                  panelTarget !== null ? void generate(panelTarget) : undefined
+                }
+              >
+                Try again
+              </Button>
+            </div>
+          ) : candidates.length > 0 ? (
+            <ul className="grid grid-cols-2 gap-2">
+              {candidates.map((candidate, index) => (
+                <li key={index}>
                   <button
                     type="button"
-                    onClick={() => void generate(panelTarget)}
-                    className={`self-start rounded-md border border-red-300 px-2 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-50 active:bg-red-100 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10 dark:active:bg-red-500/20 ${FOCUS_RING}`}
+                    aria-label={`Insert variation ${index + 1} of ${candidates.length}`}
+                    onClick={() => insertVisual(candidate)}
+                    className={cx(
+                      "group flex w-full flex-col overflow-hidden rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border,rgba(0,0,0,0.08))] bg-[var(--ds-surface,#ffffff)] p-1.5 text-left transition-colors hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
+                      FOCUS_RING,
+                    )}
                   >
-                    Try again
+                    <VisualRenderer
+                      visual={candidate}
+                      className="h-auto w-full"
+                    />
                   </button>
-                </div>
-              ) : candidates.length > 0 ? (
-                <ul className="grid grid-cols-2 gap-2">
-                  {candidates.map((candidate, index) => (
-                    <li key={index}>
-                      <button
-                        type="button"
-                        aria-label={`Insert variation ${index + 1} of ${candidates.length}`}
-                        onClick={() => insertVisual(candidate)}
-                        className={`group flex w-full flex-col overflow-hidden rounded-lg border border-black/[.08] bg-white p-1.5 text-left transition hover:border-black/20 active:border-black/30 dark:border-white/[.10] dark:bg-zinc-950 dark:hover:border-white/25 dark:active:border-white/40 ${FOCUS_RING}`}
-                      >
-                        <VisualRenderer
-                          visual={candidate}
-                          className="h-auto w-full"
-                        />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </motion.div>
+                </li>
+              ))}
+            </ul>
           ) : null}
-        </AnimatePresence>,
-        document.body,
-      )}
+
+          <Divider orientation="horizontal" className="my-3" />
+
+          <div className="mb-1.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)]">
+            Or insert a blank
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {VISUAL_KINDS.map((kind) => {
+              const meta = VISUAL_KIND_META[kind];
+              const Icon = meta.icon;
+              return (
+                <Button
+                  key={kind}
+                  size="sm"
+                  variant="subtle"
+                  leadingIcon={
+                    <Icon aria-hidden="true" className="h-3.5 w-3.5" />
+                  }
+                  onClick={() => insertBlank(kind)}
+                  className="w-full justify-start"
+                >
+                  {meta.label}
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+      </FloatingSurface>
     </>
   );
 }
