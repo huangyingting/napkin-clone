@@ -29,6 +29,12 @@ import PptxGenJS from "pptxgenjs";
 
 import type { Visual } from "@/lib/visual/schema";
 import { exportPNG } from "@/lib/visual/export";
+import { applySpecsToSlide } from "@/lib/visual/pptx-apply";
+import {
+  computeVisualSlideLayout,
+  isImageFallback,
+  visualToNativeSpecs,
+} from "@/lib/visual/pptx-shapes";
 
 // ---------------------------------------------------------------------------
 // Block types
@@ -368,25 +374,23 @@ export async function exportDocumentAsPDF(
 const SLIDE_W = 10; // inches
 const SLIDE_H = 7.5; // inches
 
-/** Adds a single-visual slide to the presentation. */
+/** Adds a single-visual slide to the presentation using native shapes where
+ * supported; falls back to an embedded PNG for visual kinds that cannot be
+ * represented as native PowerPoint shapes (funnel, pyramid). */
 async function addVisualSlide(
   pptx: PptxGenJS,
   svg: SVGSVGElement,
   slideTitle: string | null,
+  visual: Visual | null,
 ): Promise<void> {
   const viewBox = svg.viewBox.baseVal;
   const vw = viewBox.width;
   const vh = viewBox.height;
   if (vw === 0 || vh === 0) return;
 
-  const pngDataUrl = await svgToPngDataUrl(svg);
-  if (!pngDataUrl) return;
-
   const slide = pptx.addSlide();
 
   const titleAreaH = slideTitle ? 0.9 : 0;
-  const contentH = SLIDE_H - titleAreaH - 0.3;
-  const contentW = SLIDE_W * 0.9;
 
   if (slideTitle) {
     slide.addText(slideTitle, {
@@ -400,6 +404,23 @@ async function addVisualSlide(
     });
   }
 
+  // Attempt native shapes when the Visual payload is available
+  if (visual) {
+    const layout = computeVisualSlideLayout(visual, titleAreaH);
+    const specs = visualToNativeSpecs(visual, layout);
+
+    if (!isImageFallback(specs)) {
+      applySpecsToSlide(slide, specs);
+      return;
+    }
+  }
+
+  // Image fallback
+  const pngDataUrl = await svgToPngDataUrl(svg);
+  if (!pngDataUrl) return;
+
+  const contentH = SLIDE_H - titleAreaH - 0.3;
+  const contentW = SLIDE_W * 0.9;
   const ratio = Math.min(contentW / vw, contentH / vh);
   const imgW = vw * ratio;
   const imgH = vh * ratio;
@@ -463,7 +484,7 @@ export async function exportDocumentAsPPTX(
       for (const { block, heading } of entries) {
         const svg = getSvg(block.visualId);
         if (!svg) continue;
-        await addVisualSlide(pptx, svg, heading);
+        await addVisualSlide(pptx, svg, heading, block.visual);
       }
     }
 

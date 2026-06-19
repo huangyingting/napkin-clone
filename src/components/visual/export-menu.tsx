@@ -10,10 +10,16 @@ import {
   exportPPTX,
   exportSVG,
 } from "@/lib/visual/export";
+import type { Visual } from "@/lib/visual/schema";
 
 interface ExportMenuProps {
   /** Ref to the SVG element to export (the main canvas visual, not thumbnails) */
   getSvgElement: () => SVGSVGElement | null;
+  /**
+   * Optional: returns the Visual payload for the current visual.
+   * When provided, PPTX export uses native shapes; omit for image-only export.
+   */
+  getVisual?: () => Visual | null;
   /** Base filename for the exported file (extension will be added) */
   filename: string;
 }
@@ -24,7 +30,11 @@ interface ExportMenuProps {
  * and triggers a browser download. Errors (e.g., failed PNG conversion) show
  * inline and are retryable.
  */
-export function ExportMenu({ getSvgElement, filename }: ExportMenuProps) {
+export function ExportMenu({
+  getSvgElement,
+  getVisual,
+  filename,
+}: ExportMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -116,7 +126,7 @@ export function ExportMenu({ getSvgElement, filename }: ExportMenuProps) {
     }
 
     try {
-      const blob = await exportPPTX(svg);
+      const blob = await exportPPTX(svg, getVisual?.() ?? undefined);
       if (!blob) {
         setError("PPTX conversion failed");
         setExporting(false);
