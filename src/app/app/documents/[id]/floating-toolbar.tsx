@@ -18,6 +18,7 @@ import {
 } from "@lexical/rich-text";
 import { $setBlocksType } from "@lexical/selection";
 import { $getNearestNodeOfType, mergeRegister } from "@lexical/utils";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   $createParagraphNode,
   $getSelection,
@@ -34,6 +35,8 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+
+import { usePopMotion } from "@/components/motion/reveal";
 
 type BlockType = "paragraph" | "h2" | "h3" | "quote" | "bullet" | "number";
 
@@ -95,6 +98,7 @@ export function FloatingToolbarPlugin() {
     left: -1000,
   });
   const [state, setState] = useState<ToolbarState>(INITIAL_STATE);
+  const popMotion = usePopMotion();
 
   const computeVisibility = useCallback(() => {
     const selection = $getSelection();
@@ -254,7 +258,7 @@ export function FloatingToolbarPlugin() {
     );
   }, [editor, state.link]);
 
-  if (!visible || typeof document === "undefined") {
+  if (typeof document === "undefined") {
     return null;
   }
 
@@ -264,69 +268,80 @@ export function FloatingToolbarPlugin() {
   };
 
   return createPortal(
-    <div
-      ref={toolbarRef}
-      role="toolbar"
-      aria-label="Text formatting"
-      onMouseDown={keepSelection}
-      style={{ top: coords.top, left: coords.left }}
-      className="fixed z-50 flex items-center gap-0.5 rounded-xl border border-black/[.08] bg-white p-1 shadow-lg dark:border-white/[.12] dark:bg-zinc-900"
-    >
-      <ToolbarButton
-        label="Bold"
-        active={state.bold}
-        onClick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, "bold")}
-      >
-        <span className="font-bold">B</span>
-      </ToolbarButton>
-      <ToolbarButton
-        label="Italic"
-        active={state.italic}
-        onClick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, "italic")}
-      >
-        <span className="italic">I</span>
-      </ToolbarButton>
-      <ToolbarButton label="Link" active={state.link} onClick={toggleLink}>
-        <span className="underline">Link</span>
-      </ToolbarButton>
-      <Divider />
-      <ToolbarButton
-        label="Heading 2"
-        active={state.block === "h2"}
-        onClick={() => toggleBlock("h2")}
-      >
-        H2
-      </ToolbarButton>
-      <ToolbarButton
-        label="Heading 3"
-        active={state.block === "h3"}
-        onClick={() => toggleBlock("h3")}
-      >
-        H3
-      </ToolbarButton>
-      <ToolbarButton
-        label="Quote"
-        active={state.block === "quote"}
-        onClick={() => toggleBlock("quote")}
-      >
-        &ldquo;
-      </ToolbarButton>
-      <Divider />
-      <ToolbarButton
-        label="Bullet list"
-        active={state.block === "bullet"}
-        onClick={() => toggleList("bullet")}
-      >
-        &bull;
-      </ToolbarButton>
-      <ToolbarButton
-        label="Numbered list"
-        active={state.block === "number"}
-        onClick={() => toggleList("number")}
-      >
-        1.
-      </ToolbarButton>
-    </div>,
+    <AnimatePresence>
+      {visible ? (
+        <motion.div
+          key="floating-toolbar"
+          ref={toolbarRef}
+          role="toolbar"
+          aria-label="Text formatting"
+          onMouseDown={keepSelection}
+          style={{ top: coords.top, left: coords.left }}
+          initial={popMotion.initial}
+          animate={popMotion.animate}
+          exit={popMotion.exit}
+          transition={popMotion.transition}
+          className="fixed z-50 flex items-center gap-0.5 rounded-xl border border-black/[.08] bg-white p-1 shadow-lg dark:border-white/[.12] dark:bg-zinc-900"
+        >
+          <ToolbarButton
+            label="Bold"
+            active={state.bold}
+            onClick={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, "bold")}
+          >
+            <span className="font-bold">B</span>
+          </ToolbarButton>
+          <ToolbarButton
+            label="Italic"
+            active={state.italic}
+            onClick={() =>
+              editor.dispatchCommand(FORMAT_TEXT_COMMAND, "italic")
+            }
+          >
+            <span className="italic">I</span>
+          </ToolbarButton>
+          <ToolbarButton label="Link" active={state.link} onClick={toggleLink}>
+            <span className="underline">Link</span>
+          </ToolbarButton>
+          <Divider />
+          <ToolbarButton
+            label="Heading 2"
+            active={state.block === "h2"}
+            onClick={() => toggleBlock("h2")}
+          >
+            H2
+          </ToolbarButton>
+          <ToolbarButton
+            label="Heading 3"
+            active={state.block === "h3"}
+            onClick={() => toggleBlock("h3")}
+          >
+            H3
+          </ToolbarButton>
+          <ToolbarButton
+            label="Quote"
+            active={state.block === "quote"}
+            onClick={() => toggleBlock("quote")}
+          >
+            &ldquo;
+          </ToolbarButton>
+          <Divider />
+          <ToolbarButton
+            label="Bullet list"
+            active={state.block === "bullet"}
+            onClick={() => toggleList("bullet")}
+          >
+            &bull;
+          </ToolbarButton>
+          <ToolbarButton
+            label="Numbered list"
+            active={state.block === "number"}
+            onClick={() => toggleList("number")}
+          >
+            1.
+          </ToolbarButton>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>,
     document.body,
   );
 }

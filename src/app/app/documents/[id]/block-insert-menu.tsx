@@ -26,6 +26,9 @@ import {
 } from "lexical";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { AnimatePresence, motion } from "framer-motion";
+
+import { usePopMotion } from "@/components/motion/reveal";
 
 type ItemKey = "h2" | "h3" | "bullet" | "number" | "quote" | "divider";
 
@@ -126,6 +129,7 @@ export function BlockInsertMenuPlugin() {
   const [activeIndex, setActiveIndex] = useState(0);
 
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const popMotion = usePopMotion();
 
   const filtered = useMemo(
     () => (menu?.mode === "slash" ? filterItems(query) : ITEMS),
@@ -438,13 +442,19 @@ export function BlockInsertMenuPlugin() {
 
   return (
     <>
-      {block !== null && menu === null
-        ? createPortal(
-            <button
+      {createPortal(
+        <AnimatePresence>
+          {block !== null && menu === null ? (
+            <motion.button
+              key="insert-plus"
               type="button"
               aria-label="Insert block"
               onMouseDown={(event) => event.preventDefault()}
               onClick={openPlusMenu}
+              initial={popMotion.initial}
+              animate={popMotion.animate}
+              exit={popMotion.exit}
+              transition={popMotion.transition}
               style={{
                 top: block.top + block.height / 2 - 14,
                 left: block.left - 34,
@@ -462,20 +472,27 @@ export function BlockInsertMenuPlugin() {
               >
                 <path d="M8 3v10M3 8h10" />
               </svg>
-            </button>,
-            document.body,
-          )
-        : null}
+            </motion.button>
+          ) : null}
+        </AnimatePresence>,
+        document.body,
+      )}
 
-      {menu !== null
-        ? createPortal(
-            <div
+      {createPortal(
+        <AnimatePresence>
+          {menu !== null ? (
+            <motion.div
+              key="insert-menu"
               ref={menuRef}
               role="listbox"
               aria-label="Insert block"
               tabIndex={-1}
               onKeyDown={onMenuKeyDown}
               onMouseDown={(event) => event.preventDefault()}
+              initial={popMotion.initial}
+              animate={popMotion.animate}
+              exit={popMotion.exit}
+              transition={popMotion.transition}
               style={{ top: menu.top, left: menu.left }}
               className="fixed z-50 max-h-72 w-64 overflow-auto rounded-xl border border-black/[.08] bg-white p-1 shadow-lg outline-none dark:border-white/[.12] dark:bg-zinc-900"
             >
@@ -517,10 +534,11 @@ export function BlockInsertMenuPlugin() {
                   </button>
                 ))
               )}
-            </div>,
-            document.body,
-          )
-        : null}
+            </motion.div>
+          ) : null}
+        </AnimatePresence>,
+        document.body,
+      )}
     </>
   );
 }

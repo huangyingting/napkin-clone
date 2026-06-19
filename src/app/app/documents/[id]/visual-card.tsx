@@ -3,7 +3,9 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { $getNodeByKey } from "lexical";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 
+import { useCardMotion, usePopMotion } from "@/components/motion/reveal";
 import { ExportMenu } from "@/components/visual/export-menu";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import {
@@ -120,6 +122,9 @@ export function VisualCard({
   const [genError, setGenError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<Visual[]>([]);
   const [pendingType, setPendingType] = useState<VisualKind | null>(null);
+
+  const cardMotion = useCardMotion();
+  const popMotion = usePopMotion();
 
   useEffect(() => {
     return editor.registerEditableListener((value) => setEditable(value));
@@ -269,7 +274,13 @@ export function VisualCard({
   ].join(" ");
 
   return (
-    <div ref={rootRef} className="relative my-4">
+    <motion.div
+      ref={rootRef}
+      className="relative my-4"
+      initial={cardMotion.initial}
+      animate={cardMotion.animate}
+      transition={cardMotion.transition}
+    >
       {showControls ? (
         <div className={cardClass}>
           <VisualEditor
@@ -299,159 +310,166 @@ export function VisualCard({
         </div>
       )}
 
-      {showControls ? (
-        <div
-          role="dialog"
-          aria-label="Visual controls"
-          className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 max-h-[28rem] overflow-auto rounded-2xl border border-black/[.08] bg-white p-3 shadow-xl dark:border-white/[.12] dark:bg-zinc-900"
-        >
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-              Edit visual
-            </span>
-            <div className="flex items-center gap-2">
+      <AnimatePresence>
+        {showControls ? (
+          <motion.div
+            key="visual-controls"
+            role="dialog"
+            aria-label="Visual controls"
+            initial={popMotion.initial}
+            animate={popMotion.animate}
+            exit={popMotion.exit}
+            transition={popMotion.transition}
+            className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 max-h-[28rem] overflow-auto rounded-2xl border border-black/[.08] bg-white p-3 shadow-xl dark:border-white/[.12] dark:bg-zinc-900"
+          >
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                Edit visual
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  aria-label="Replace visual"
+                  onClick={() => void runGenerate()}
+                  disabled={genStatus === "loading"}
+                  title="Generate a replacement for this visual"
+                  className="rounded-full border border-black/[.08] px-3 py-1 text-xs font-medium text-zinc-600 transition hover:border-black/20 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[.12] dark:text-zinc-300 dark:hover:border-white/30 dark:hover:text-zinc-100"
+                >
+                  Replace
+                </button>
+                <button
+                  type="button"
+                  aria-label="Remove visual"
+                  onClick={removeVisual}
+                  title="Delete this visual"
+                  className="rounded-full border border-red-200 px-3 py-1 text-xs font-medium text-red-600 transition hover:border-red-300 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500/30 dark:text-red-300 dark:hover:border-red-500/50 dark:hover:bg-red-500/10"
+                >
+                  Remove
+                </button>
+                <ExportMenu
+                  getSvgElement={() => rendererRef.current}
+                  filename={data.title?.trim() || "visual"}
+                />
+                <button
+                  type="button"
+                  aria-label="Close visual controls"
+                  onClick={closeControls}
+                  className="rounded-md p-1 text-zinc-400 transition-colors hover:bg-black/[.05] hover:text-zinc-700 dark:hover:bg-white/[.08] dark:hover:text-zinc-200"
+                >
+                  <svg
+                    viewBox="0 0 16 16"
+                    aria-hidden="true"
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                  >
+                    <path d="M4 4l8 8M12 4l-8 8" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div
+              role="group"
+              aria-label="Visual type"
+              className="mb-3 flex flex-wrap gap-1.5"
+            >
+              {VISUAL_KINDS.map((kind) => {
+                const active = data.type === kind;
+                return (
+                  <button
+                    key={kind}
+                    type="button"
+                    onClick={() => void runGenerate(kind)}
+                    disabled={genStatus === "loading"}
+                    aria-pressed={active}
+                    aria-label={`Switch to ${KIND_LABEL[kind]}`}
+                    title={`Regenerate as ${KIND_LABEL[kind]}`}
+                    className={typePillClass(active)}
+                  >
+                    {pendingType === kind ? (
+                      <span
+                        aria-hidden="true"
+                        className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+                      />
+                    ) : null}
+                    {KIND_LABEL[kind]}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mb-3 flex items-center gap-2">
               <button
                 type="button"
-                aria-label="Replace visual"
                 onClick={() => void runGenerate()}
                 disabled={genStatus === "loading"}
-                title="Generate a replacement for this visual"
-                className="rounded-full border border-black/[.08] px-3 py-1 text-xs font-medium text-zinc-600 transition hover:border-black/20 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[.12] dark:text-zinc-300 dark:hover:border-white/30 dark:hover:text-zinc-100"
+                aria-label="More variations"
+                title="Generate a fresh batch of variations"
+                className={moreVariationsButtonClass}
               >
-                Replace
-              </button>
-              <button
-                type="button"
-                aria-label="Remove visual"
-                onClick={removeVisual}
-                title="Delete this visual"
-                className="rounded-full border border-red-200 px-3 py-1 text-xs font-medium text-red-600 transition hover:border-red-300 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500/30 dark:text-red-300 dark:hover:border-red-500/50 dark:hover:bg-red-500/10"
-              >
-                Remove
-              </button>
-              <ExportMenu
-                getSvgElement={() => rendererRef.current}
-                filename={data.title?.trim() || "visual"}
-              />
-              <button
-                type="button"
-                aria-label="Close visual controls"
-                onClick={closeControls}
-                className="rounded-md p-1 text-zinc-400 transition-colors hover:bg-black/[.05] hover:text-zinc-700 dark:hover:bg-white/[.08] dark:hover:text-zinc-200"
-              >
-                <svg
-                  viewBox="0 0 16 16"
-                  aria-hidden="true"
-                  className="h-3.5 w-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                  strokeLinecap="round"
-                >
-                  <path d="M4 4l8 8M12 4l-8 8" />
-                </svg>
+                {genStatus === "loading" && pendingType === null ? (
+                  <span
+                    aria-hidden="true"
+                    className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+                  />
+                ) : null}
+                More variations
               </button>
             </div>
-          </div>
 
-          <div
-            role="group"
-            aria-label="Visual type"
-            className="mb-3 flex flex-wrap gap-1.5"
-          >
-            {VISUAL_KINDS.map((kind) => {
-              const active = data.type === kind;
-              return (
+            {genError !== null ? (
+              <div
+                role="alert"
+                className="mb-3 flex flex-col gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300"
+              >
+                <span>{genError}</span>
                 <button
-                  key={kind}
                   type="button"
-                  onClick={() => void runGenerate(kind)}
-                  disabled={genStatus === "loading"}
-                  aria-pressed={active}
-                  aria-label={`Switch to ${KIND_LABEL[kind]}`}
-                  title={`Regenerate as ${KIND_LABEL[kind]}`}
-                  className={typePillClass(active)}
+                  onClick={() => void runGenerate(pendingType ?? undefined)}
+                  className="self-start rounded-md border border-red-300 px-2 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-100 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/20"
                 >
-                  {pendingType === kind ? (
-                    <span
-                      aria-hidden="true"
-                      className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"
-                    />
-                  ) : null}
-                  {KIND_LABEL[kind]}
+                  Try again
                 </button>
-              );
-            })}
-          </div>
+              </div>
+            ) : null}
 
-          <div className="mb-3 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => void runGenerate()}
-              disabled={genStatus === "loading"}
-              aria-label="More variations"
-              title="Generate a fresh batch of variations"
-              className={moreVariationsButtonClass}
-            >
-              {genStatus === "loading" && pendingType === null ? (
-                <span
-                  aria-hidden="true"
-                  className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"
-                />
-              ) : null}
-              More variations
-            </button>
-          </div>
+            {candidates.length > 0 ? (
+              <div className="mb-3">
+                <span className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                  Variations ({candidates.length})
+                </span>
+                <ul className="grid grid-cols-2 gap-2">
+                  {candidates.map((candidate, index) => (
+                    <li key={index}>
+                      <button
+                        type="button"
+                        aria-label={`Select variation ${index + 1} of ${candidates.length}`}
+                        title={candidate.title ?? KIND_LABEL[candidate.type]}
+                        onClick={() => chooseCandidate(candidate)}
+                        className="group flex w-full flex-col overflow-hidden rounded-lg border border-black/[.08] bg-white p-1.5 text-left transition hover:border-black/20 dark:border-white/[.10] dark:bg-zinc-950 dark:hover:border-white/25"
+                      >
+                        <VisualRenderer
+                          visual={candidate}
+                          className="h-auto w-full"
+                        />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
-          {genError !== null ? (
-            <div
-              role="alert"
-              className="mb-3 flex flex-col gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300"
-            >
-              <span>{genError}</span>
-              <button
-                type="button"
-                onClick={() => void runGenerate(pendingType ?? undefined)}
-                className="self-start rounded-md border border-red-300 px-2 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-100 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/20"
-              >
-                Try again
-              </button>
-            </div>
-          ) : null}
-
-          {candidates.length > 0 ? (
-            <div className="mb-3">
-              <span className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                Variations ({candidates.length})
-              </span>
-              <ul className="grid grid-cols-2 gap-2">
-                {candidates.map((candidate, index) => (
-                  <li key={index}>
-                    <button
-                      type="button"
-                      aria-label={`Select variation ${index + 1} of ${candidates.length}`}
-                      title={candidate.title ?? KIND_LABEL[candidate.type]}
-                      onClick={() => chooseCandidate(candidate)}
-                      className="group flex w-full flex-col overflow-hidden rounded-lg border border-black/[.08] bg-white p-1.5 text-left transition hover:border-black/20 dark:border-white/[.10] dark:bg-zinc-950 dark:hover:border-white/25"
-                    >
-                      <VisualRenderer
-                        visual={candidate}
-                        className="h-auto w-full"
-                      />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          <StylePanel
-            visual={data}
-            selectedNodeId={selectedNodeId}
-            onChange={updateVisual}
-          />
-        </div>
-      ) : null}
-    </div>
+            <StylePanel
+              visual={data}
+              selectedNodeId={selectedNodeId}
+              onChange={updateVisual}
+            />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </motion.div>
   );
 }

@@ -9,7 +9,9 @@ import {
 import { Sparkles } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { AnimatePresence, motion } from "framer-motion";
 
+import { usePopMotion } from "@/components/motion/reveal";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
@@ -75,6 +77,7 @@ export function BlockSparkPlugin() {
   const [status, setStatus] = useState<GenStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<Visual[]>([]);
+  const popMotion = usePopMotion();
 
   // Keeps the gutter button alive while the pointer travels from the block to
   // the button (which lives outside the editable root) or while the panel is
@@ -284,9 +287,11 @@ export function BlockSparkPlugin() {
 
   return (
     <>
-      {block !== null
-        ? createPortal(
-            <button
+      {createPortal(
+        <AnimatePresence>
+          {block !== null ? (
+            <motion.button
+              key="block-spark"
               type="button"
               aria-label="Generate visual for this block"
               aria-expanded={openKey === block.key}
@@ -299,6 +304,10 @@ export function BlockSparkPlugin() {
               onClick={() =>
                 openKey === block.key ? closePanel() : void generate(block)
               }
+              initial={popMotion.initial}
+              animate={popMotion.animate}
+              exit={popMotion.exit}
+              transition={popMotion.transition}
               style={{
                 top: block.top + block.height / 2 - 14,
                 left: block.left - GUTTER_OFFSET,
@@ -306,17 +315,24 @@ export function BlockSparkPlugin() {
               className="fixed z-40 flex h-7 w-7 items-center justify-center rounded-lg border border-black/[.08] bg-white text-zinc-500 shadow-sm transition-colors hover:bg-black/[.04] hover:text-zinc-900 aria-expanded:bg-black/[.04] aria-expanded:text-zinc-900 dark:border-white/[.12] dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-white/[.08] dark:hover:text-zinc-100"
             >
               <Sparkles aria-hidden="true" className="h-4 w-4" />
-            </button>,
-            document.body,
-          )
-        : null}
+            </motion.button>
+          ) : null}
+        </AnimatePresence>,
+        document.body,
+      )}
 
-      {openKey !== null && panelTarget !== null
-        ? createPortal(
-            <div
+      {createPortal(
+        <AnimatePresence>
+          {openKey !== null && panelTarget !== null ? (
+            <motion.div
+              key="block-spark-panel"
               role="dialog"
               aria-label="Generate visual for this block"
               onMouseEnter={keepAlive}
+              initial={popMotion.initial}
+              animate={popMotion.animate}
+              exit={popMotion.exit}
+              transition={popMotion.transition}
               style={{
                 top: panelTarget.bottom + PANEL_GAP,
                 left: panelTarget.left,
@@ -392,10 +408,11 @@ export function BlockSparkPlugin() {
                   ))}
                 </ul>
               ) : null}
-            </div>,
-            document.body,
-          )
-        : null}
+            </motion.div>
+          ) : null}
+        </AnimatePresence>,
+        document.body,
+      )}
     </>
   );
 }

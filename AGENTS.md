@@ -2614,3 +2614,45 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   for both `/share` and `/embed` (dev-browser `--headless`; no X server here). The
   share/embed pages use a single-column `max-w-3xl` article (not the old two-panel
   grid) since Lexical visuals are inline.
+
+### Motion library & block/card transitions (US-015)
+
+- **`framer-motion` (^12, React 19 compatible) is the animation library.** All
+  reveal/transition motion goes through the reduced-motion-aware hooks in
+  `src/components/motion/reveal.ts` (`"use client"`): `usePopMotion()` (overlays:
+  floating toolbar, "+"/"/" insert menu, block spark button+panel, the visual card
+  controls popover) and `useCardMotion()` (visual card mount). Each returns a
+  `RevealMotion` (`initial`/`animate`/`exit` + `transition`) you spread onto a
+  `motion.*` element. Animations are **transform/opacity only** (no layout shift).
+- **Reduced motion = a real no-op, not just shorter.** The hooks call
+  `useReducedMotion()` and return `NO_MOTION` (`initial=animate=exit={opacity:1}`,
+  `duration:0`) when the user prefers reduced motion, so the element simply appears
+  instantly. Prefer this over `MotionConfig reducedMotion="user"` (which still fades
+  opacity) when the AC says "no motion when reduced". Verify with
+  `page.emulateMedia({ reducedMotion: "reduce" })` → the overlay's computed `opacity`
+  is `1` immediately.
+- **Exit animations need the conditional INSIDE `<AnimatePresence>`.** These
+  affordances were `{visible ? createPortal(<div/>) : null}` (returning null before
+  the portal). To animate OUT, always render the portal and put the toggle inside:
+  `createPortal(<AnimatePresence>{visible ? <motion.div key=… {...popMotion}/> : null}</AnimatePresence>, document.body)`.
+  Give each presence child a stable `key`. Call the motion hook BEFORE any early
+  `return null` (hooks rules) — e.g. floating-toolbar's `if (typeof document ===
+  "undefined") return null` and block-spark's `… || !editable) return null` now sit
+  AFTER `usePopMotion()`.
+- **`motion.div`/`motion.button` forward refs and accept all DOM props** (role,
+  aria-*, onMouseDown/onKeyDown, style, className, tabIndex), so swapping
+  `div`→`motion.div` is mechanical. CSS `transform` from the scale animation does
+  NOT change `offsetWidth`/`offsetHeight` (layout size), so the floating toolbar's
+  ref-measured positioning is unaffected.
+- **Decorator (VisualNode) cards animate on MOUNT only.** Lexical owns the
+  decorator's unmount (no parent `<AnimatePresence>` to drive an exit), so
+  `VisualCard`'s root is a `motion.div` with `useCardMotion()` `initial`/`animate`
+  (no exit). The controls popover inside it DOES get full in/out via a nested
+  `<AnimatePresence>`.
+- **Browser QA (dev-browser `--headless`, no X server):** sign up a fresh
+  `*@test.dev` user (collab editor needs auth), `goto('/app/lexical-preview')`, wait
+  for `[aria-label="Document body"][contenteditable="true"]` (collab ready), type +
+  `Control+a` to reveal `[role="toolbar"][aria-label="Text formatting"]` (assert
+  computed `opacity:1`, then `ArrowRight` collapses → toolbar element gone), and type
+  `/` on an empty paragraph to reveal `[role="listbox"][aria-label="Insert block"]`
+  (6 `[role="option"]`s, Escape → gone). Assert zero `console`/`pageerror` events.
