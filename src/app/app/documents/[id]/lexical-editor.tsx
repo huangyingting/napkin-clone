@@ -16,11 +16,14 @@ import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import {
+  $getSelection,
+  $isRangeSelection,
   COLLABORATION_TAG,
   HISTORIC_TAG,
   type EditorState,
   type EditorThemeClasses,
   type Klass,
+  type LexicalEditor as LexicalEditorInstance,
   type LexicalNode,
 } from "lexical";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -30,8 +33,12 @@ import { useLexicalCollaboration } from "@/lib/collab/use-lexical-collaboration"
 import { saveDocumentLexical } from "./actions";
 import { BlockInsertMenuPlugin } from "./block-insert-menu";
 import { BlockSparkPlugin } from "./block-spark";
+import type { CommentThread } from "./comments-actions";
+import { CommentsPanel, type AnchorNode } from "./comments-panel";
 import { FloatingToolbarPlugin } from "./floating-toolbar";
 import { Presence } from "./presence";
+import { ShareButton } from "./share-button";
+import { VisualAnchorProvider } from "./visual-anchor-context";
 import { VisualNode } from "./visual-node";
 
 const theme: EditorThemeClasses = {
@@ -101,6 +108,37 @@ function EditableGate({ editable }: { editable: boolean }) {
 }
 
 /**
+ * Captures the live editor instance and the last non-empty text selection so the
+ * comments panel can anchor a comment to selected text. Per US-017 we store the
+ * selected text *string* (matching the existing `anchorText` model), not Lexical
+ * node keys/offsets, which aren't stable across sessions.
+ */
+function CaptureSelectionPlugin({
+  editorRef,
+  selectionRef,
+}: {
+  editorRef: React.MutableRefObject<LexicalEditorInstance | null>;
+  selectionRef: React.MutableRefObject<string>;
+}) {
+  const [editor] = useLexicalComposerContext();
+  useEffect(() => {
+    editorRef.current = editor;
+    return editor.registerUpdateListener(({ editorState }) => {
+      editorState.read(() => {
+        const selection = $getSelection();
+        if ($isRangeSelection(selection) && !selection.isCollapsed()) {
+          const text = selection.getTextContent().trim();
+          if (text) {
+            selectionRef.current = text;
+          }
+        }
+      });
+    });
+  }, [editor, editorRef, selectionRef]);
+  return null;
+}
+
+/**
  * Minimal Lexical rich-text editor shell bound to a document with real-time
  * collaboration. Content lives in a shared Yjs document synced over the collab
  * websocket server; the `CollaborationPlugin` bootstraps it from the serialized
@@ -114,10 +152,18 @@ export function LexicalEditor({
   documentId,
   initialStateJson = null,
   userName,
+  currentUserId,
+  initialComments = [],
+  initialIsShared = false,
+  initialShareId = null,
 }: {
   documentId: string;
   initialStateJson?: string | null;
   userName: string;
+  currentUserId: string;
+  initialComments?: CommentThread[];
+  initialIsShared?: boolean;
+  initialShareId?: string | null;
 }) {
   const collab = useLexicalCollaboration({ room: documentId, userName });
 
@@ -125,6 +171,28 @@ export function LexicalEditor({
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestJsonRef = useRef<string | null>(null);
+
+  // Comment anchoring state. `selectionRef` holds the last non-empty selected
+  // text (text anchors); `anchorNode` holds the visual element a `VisualCard`
+  // reported as selected (visual anchors). Both store plain strings/ids, never
+  // Lexical node keys.
+  const editorRef = useRef<LexicalEditorInstance | null>(null);
+  const selectionRef = useRef<string>("");
+  const [anchorNode, setAnchorNode] = useState<AnchorNode | null>(null);
+
+  const getTextSelection = useCallback(() => {
+    const editor = editorRef.current;
+    let current = "";
+    if (editor) {
+      editor.getEditorState().read(() => {
+        const selection = $getSelection();
+        if ($isRangeSelection(selection) && !selection.isCollapsed()) {
+          current = selection.getTextContent().trim();
+        }
+      });
+    }
+    return current || selectionRef.current || null;
+  }, []);
 
   const save = useCallback(async () => {
     const json = latestJsonRef.current;
@@ -186,54 +254,72 @@ export function LexicalEditor({
   return (
     <LexicalCollaboration>
       <LexicalComposer initialConfig={initialConfig}>
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-end">
-            <Presence peers={collab.peers} status={collab.status} />
+        <VisualAnchorProvider value={{ setVisualAnchor: setAnchorNode }}>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              <Presence peers={collab.peers} status={collab.status} />
+              <ShareButton
+                id={documentId}
+                initialIsShared={initialIsShared}
+                initialShareId={initialShareId}
+              />
+              <CommentsPanel
+                documentId={documentId}
+                currentUserId={currentUserId}
+                initialComments={initialComments}
+                getTextSelection={getTextSelection}
+                anchorNode={anchorNode}
+              />
+            </div>
+            <div className="relative rounded-2xl border border-black/[.06] bg-white p-6 dark:border-white/[.08] dark:bg-zinc-950">
+              <RichTextPlugin
+                contentEditable={
+                  <ContentEditable
+                    aria-label="Document body"
+                    className="min-h-[16rem] text-base text-zinc-900 outline-none dark:text-zinc-100"
+                  />
+                }
+                placeholder={
+                  <div className="pointer-events-none absolute left-6 top-6 text-base text-zinc-400 dark:text-zinc-500">
+                    {collab.ready ? "Start writing…" : "Connecting…"}
+                  </div>
+                }
+                ErrorBoundary={LexicalErrorBoundary}
+              />
+              <CollaborationPlugin
+                id={documentId}
+                providerFactory={collab.providerFactory}
+                shouldBootstrap
+                initialEditorState={initialStateJson ?? null}
+                username={userName}
+                cursorColor={collab.cursorColor}
+              />
+              <EditableGate editable={collab.ready} />
+              <CaptureSelectionPlugin
+                editorRef={editorRef}
+                selectionRef={selectionRef}
+              />
+              <ListPlugin />
+              <LinkPlugin />
+              <HorizontalRulePlugin />
+              <BlockInsertMenuPlugin />
+              <BlockSparkPlugin />
+              <FloatingToolbarPlugin />
+              <OnChangePlugin
+                onChange={handleChange}
+                ignoreSelectionChange
+                ignoreHistoryMergeTagChange
+              />
+            </div>
+            <div
+              role="status"
+              aria-live="polite"
+              className="text-xs text-zinc-500 dark:text-zinc-400"
+            >
+              {STATUS_LABEL[status]}
+            </div>
           </div>
-          <div className="relative rounded-2xl border border-black/[.06] bg-white p-6 dark:border-white/[.08] dark:bg-zinc-950">
-            <RichTextPlugin
-              contentEditable={
-                <ContentEditable
-                  aria-label="Document body"
-                  className="min-h-[16rem] text-base text-zinc-900 outline-none dark:text-zinc-100"
-                />
-              }
-              placeholder={
-                <div className="pointer-events-none absolute left-6 top-6 text-base text-zinc-400 dark:text-zinc-500">
-                  {collab.ready ? "Start writing…" : "Connecting…"}
-                </div>
-              }
-              ErrorBoundary={LexicalErrorBoundary}
-            />
-            <CollaborationPlugin
-              id={documentId}
-              providerFactory={collab.providerFactory}
-              shouldBootstrap
-              initialEditorState={initialStateJson ?? null}
-              username={userName}
-              cursorColor={collab.cursorColor}
-            />
-            <EditableGate editable={collab.ready} />
-            <ListPlugin />
-            <LinkPlugin />
-            <HorizontalRulePlugin />
-            <BlockInsertMenuPlugin />
-            <BlockSparkPlugin />
-            <FloatingToolbarPlugin />
-            <OnChangePlugin
-              onChange={handleChange}
-              ignoreSelectionChange
-              ignoreHistoryMergeTagChange
-            />
-          </div>
-          <div
-            role="status"
-            aria-live="polite"
-            className="text-xs text-zinc-500 dark:text-zinc-400"
-          >
-            {STATUS_LABEL[status]}
-          </div>
-        </div>
+        </VisualAnchorProvider>
       </LexicalComposer>
     </LexicalCollaboration>
   );

@@ -4,6 +4,7 @@ import { markdownToLexicalState } from "@/lib/lexical/from-markdown";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 
+import { listComments } from "../documents/[id]/comments-actions";
 import { LexicalEditor } from "../documents/[id]/lexical-editor";
 
 export const metadata: Metadata = {
@@ -22,14 +23,26 @@ async function getOrCreateScratchDocument(userId: string) {
   const existing = await prisma.document.findFirst({
     where: { ownerId: userId, deletedAt: null, title: SCRATCH_TITLE },
     orderBy: { createdAt: "asc" },
-    select: { id: true, contentJson: true, content: true },
+    select: {
+      id: true,
+      contentJson: true,
+      content: true,
+      isShared: true,
+      shareId: true,
+    },
   });
   if (existing) {
     return existing;
   }
   return prisma.document.create({
     data: { ownerId: userId, title: SCRATCH_TITLE },
-    select: { id: true, contentJson: true, content: true },
+    select: {
+      id: true,
+      contentJson: true,
+      content: true,
+      isShared: true,
+      shareId: true,
+    },
   });
 }
 
@@ -51,6 +64,8 @@ export default async function LexicalPreviewPage() {
       ? markdownToLexicalState(document.content)
       : null;
 
+  const initialComments = await listComments(document.id);
+
   return (
     <main className="flex flex-1 flex-col items-center bg-zinc-50 px-6 py-12 dark:bg-black">
       <div className="flex w-full max-w-3xl flex-col gap-6">
@@ -68,6 +83,10 @@ export default async function LexicalPreviewPage() {
           documentId={document.id}
           initialStateJson={initialStateJson}
           userName={user.name ?? user.email ?? "Anonymous"}
+          currentUserId={user.id}
+          initialComments={initialComments}
+          initialIsShared={document.isShared}
+          initialShareId={document.shareId}
         />
       </div>
     </main>

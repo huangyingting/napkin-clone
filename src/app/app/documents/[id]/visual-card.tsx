@@ -18,6 +18,7 @@ import {
 } from "@/lib/visual/schema";
 
 import { StylePanel } from "./style-panel";
+import { useVisualAnchor } from "./visual-anchor-context";
 import { VisualEditor } from "./visual-editor";
 import { $isVisualNode } from "./visual-node";
 
@@ -127,6 +128,29 @@ export function VisualCard({
 
   const cardMotion = useCardMotion();
   const popMotion = usePopMotion();
+
+  // Report the selected visual element up to the editor chrome so a comment can
+  // be anchored to it (US-017). We store the node id + label, not a Lexical key.
+  const visualAnchor = useVisualAnchor();
+  const reportedAnchorRef = useRef(false);
+  useEffect(() => {
+    if (!visualAnchor) {
+      return;
+    }
+    if (selected && selectedNodeId) {
+      const node = visualRef.current.nodes.find(
+        (item) => item.id === selectedNodeId,
+      );
+      visualAnchor.setVisualAnchor({
+        id: selectedNodeId,
+        label: node?.label?.trim() || "element",
+      });
+      reportedAnchorRef.current = true;
+    } else if (reportedAnchorRef.current) {
+      visualAnchor.setVisualAnchor(null);
+      reportedAnchorRef.current = false;
+    }
+  }, [visualAnchor, selected, selectedNodeId]);
 
   useEffect(() => {
     return editor.registerEditableListener((value) => setEditable(value));

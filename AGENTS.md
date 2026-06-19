@@ -2690,3 +2690,46 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   `page.mouse.move` over the paragraph rect (focusin on the root does NOT resolve a
   block). Reduced motion: `page.emulateMedia({ reducedMotion: "reduce" })` then assert
   the dot has no animating `translateY` inline style.
+
+### Preserve collaboration chrome in the Lexical editor (Ghost US-017)
+
+- **The Lexical editor (`lexical-editor.tsx`) now hosts the same collaboration
+  chrome as the legacy `document-editor.tsx`:** `Presence` + `ShareButton` +
+  `CommentsPanel` in a wrapping `flex flex-wrap` header, plus the save-status
+  `role="status"`. All of it lives INSIDE `<LexicalComposer>` so the comment
+  text-anchor can read the live Lexical selection. The chrome props
+  (`currentUserId`, `initialComments`, `initialIsShared`, `initialShareId`) are
+  optional with defaults so existing callers (and the preview page) stay simple;
+  US-018 binds them from the real document page.
+- **Comment TEXT anchoring reads the Lexical selection, stored as a STRING — never
+  Lexical node keys/offsets** (those aren't stable across sessions; AC requirement).
+  A `CaptureSelectionPlugin` registers `editor.registerUpdateListener` and, inside
+  `editorState.read()`, captures `$getSelection()`'s `getTextContent().trim()` into a
+  ref when it's a non-collapsed `$isRangeSelection`. `getTextSelection()` (passed to
+  `CommentsPanel`) first tries the editor's *current* selection
+  (`editor.getEditorState().read(...)`), falling back to the captured ref — because
+  clicking the Comments button blurs/collapses the editor selection, so the ref holds
+  the last good one. Reuse `anchorText`/`anchorNodeId` (the existing comment-actions
+  model) unchanged.
+- **Comment VISUAL anchoring uses a React context, not prop drilling through
+  decorator nodes.** `visual-anchor-context.tsx` (`VisualAnchorProvider` +
+  `useVisualAnchor`) lets an embedded `VisualCard` report `{ id, label }` for its
+  selected element up to the editor, which holds `anchorNode` state for
+  `CommentsPanel`. `VisualCard` reports in a `useEffect([selected, selectedNodeId])`
+  (label from `visualRef.current.nodes`), guarded by a `reportedAnchorRef` so it only
+  clears the shared anchor it actually set (minimizes spurious clears; selecting
+  nodes across two cards at once is an accepted rare edge). The id is the visual
+  node id, NOT a Lexical key.
+- **The "Ctrl/⌘+E Toggle Write/Preview" editor shortcut does NOT carry over** — the
+  Lexical editor has no Write/Preview tabs. The global `?` (help) and `N` (new doc)
+  shortcuts keep working because they're mounted in `SiteHeader` (layout-level), not
+  the editor. The catalog entry for Ctrl+E is left for US-018's textarea retirement.
+- **Browser QA (`/app/lexical-preview`, headless + collab server on 1234):** sign up
+  a fresh `*@test.dev` user, wait for `[aria-label="Document body"][contenteditable="true"]`,
+  type → wait `role="status"` "All changes saved", `Control+a` to select, open
+  `button[aria-label="Comments"]`, click `button[aria-label="Attach text selection"]`
+  → the anchor chip (`.bg-indigo-50`) reads `On text:<exact selected string>`. Post
+  via `button[aria-label="Add comment"]`, then `page.reload()` and reopen Comments to
+  confirm the thread + its text-string anchor persisted (server round-trip). The `?`
+  help dialog (`[role="dialog"][aria-labelledby="shortcuts-title"]`) opens after
+  blurring the editor.
