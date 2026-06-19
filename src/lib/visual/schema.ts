@@ -25,6 +25,10 @@ export const VISUAL_KINDS = [
   "cycle",
   "comparison",
   "funnel",
+  "venn",
+  "pyramid",
+  "matrix",
+  "orgchart",
 ] as const;
 
 export type VisualKind = (typeof VISUAL_KINDS)[number];
@@ -45,6 +49,10 @@ export const VISUAL_TYPES = [
   "CYCLE",
   "COMPARISON",
   "FUNNEL",
+  "VENN",
+  "PYRAMID",
+  "MATRIX",
+  "ORGCHART",
 ] as const;
 
 export type VisualType = (typeof VISUAL_TYPES)[number];
@@ -168,6 +176,10 @@ export const VISUAL_KIND_TO_PRISMA = {
   cycle: "CYCLE",
   comparison: "COMPARISON",
   funnel: "FUNNEL",
+  venn: "VENN",
+  pyramid: "PYRAMID",
+  matrix: "MATRIX",
+  orgchart: "ORGCHART",
 } as const satisfies Record<VisualKind, VisualType>;
 
 /** Maps a persisted `VisualType` (DB `Visual.type`) back to the schema `VisualKind`. */
@@ -181,6 +193,10 @@ export const PRISMA_TO_VISUAL_KIND = {
   CYCLE: "cycle",
   COMPARISON: "comparison",
   FUNNEL: "funnel",
+  VENN: "venn",
+  PYRAMID: "pyramid",
+  MATRIX: "matrix",
+  ORGCHART: "orgchart",
 } as const satisfies Record<VisualType, VisualKind>;
 
 export function isVisualKind(value: unknown): value is VisualKind {

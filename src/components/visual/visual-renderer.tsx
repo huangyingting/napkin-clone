@@ -9,8 +9,10 @@ import {
   cycleLayout,
   funnelLayout,
   listLayout,
+  matrixLayout,
   nodeCenter,
   nodeHalf,
+  pyramidLayout,
   timelineLayout,
   type CycleNodePlacement,
   type Point,
@@ -945,6 +947,219 @@ function Funnel({ visual }: { visual: Visual }): JSX.Element {
   );
 }
 
+function VennDiagram({ visual }: { visual: Visual }): JSX.Element {
+  const { style } = visual;
+  return (
+    <Fragment>
+      {visual.nodes.map((node, index) => {
+        const accent = node.color ?? pick(style.palette, index);
+        const cx = node.x ?? visual.width / 2;
+        const cy = node.y ?? visual.height / 2;
+        const r = (node.width ?? 200) / 2;
+        const lines = wrapLabel(
+          node.label,
+          maxCharsForWidth(r * 1.2, style.fontSize),
+          2,
+        );
+        return (
+          <g key={node.id}>
+            <circle
+              cx={cx}
+              cy={cy}
+              r={r}
+              fill={accent}
+              fillOpacity={0.35}
+              stroke={node.stroke ?? accent}
+              strokeWidth={2}
+            />
+            <MultilineText
+              cx={cx}
+              cy={cy - r * 0.45}
+              lines={lines}
+              color={node.textColor ?? style.nodeText}
+              style={style}
+              fontSize={style.fontSize}
+              fontWeight={style.fontWeight}
+            />
+          </g>
+        );
+      })}
+    </Fragment>
+  );
+}
+
+function Pyramid({ visual }: { visual: Visual }): JSX.Element {
+  const { style } = visual;
+  const layout = pyramidLayout(visual);
+
+  return (
+    <Fragment>
+      {layout.bands.map((band, index) => {
+        const accent = band.node.color ?? pick(style.palette, index);
+        const text = band.node.textColor ?? "#ffffff";
+        const { cx, bandY, bandHeight, topWidth, bottomWidth } = band;
+        const points = [
+          `${cx - topWidth / 2},${bandY}`,
+          `${cx + topWidth / 2},${bandY}`,
+          `${cx + bottomWidth / 2},${bandY + bandHeight}`,
+          `${cx - bottomWidth / 2},${bandY + bandHeight}`,
+        ].join(" ");
+        const innerWidth = Math.max(Math.min(topWidth, bottomWidth), 48);
+        const lines = wrapLabel(
+          band.node.label,
+          maxCharsForWidth(innerWidth, style.fontSize),
+          2,
+        );
+        return (
+          <g key={band.node.id}>
+            <polygon
+              points={points}
+              fill={accent}
+              stroke={style.background}
+              strokeWidth={2}
+            />
+            <MultilineText
+              cx={cx}
+              cy={band.centerY}
+              lines={lines}
+              color={text}
+              style={style}
+              fontSize={style.fontSize}
+              fontWeight={style.fontWeight}
+            />
+          </g>
+        );
+      })}
+    </Fragment>
+  );
+}
+
+function MatrixScene({ visual }: { visual: Visual }): JSX.Element {
+  const { style } = visual;
+  const layout = matrixLayout(visual);
+
+  return (
+    <Fragment>
+      {/* Background cell fills */}
+      {layout.quadrants.map((quad) => {
+        const accent = pick(style.palette, quad.quadrant);
+        return (
+          <rect
+            key={`bg-${quad.quadrant}`}
+            x={quad.cellX}
+            y={quad.cellY}
+            width={quad.cellWidth}
+            height={quad.cellHeight}
+            rx={10}
+            fill={accent}
+            fillOpacity={0.12}
+            stroke={accent}
+            strokeWidth={1.5}
+          />
+        );
+      })}
+      {/* Divider lines */}
+      <line
+        x1={layout.dividerX}
+        y1={layout.margin}
+        x2={layout.dividerX}
+        y2={visual.height - layout.margin}
+        stroke={style.edgeColor}
+        strokeWidth={1.5}
+        strokeDasharray="4 3"
+      />
+      <line
+        x1={layout.margin}
+        y1={layout.dividerY}
+        x2={visual.width - layout.margin}
+        y2={layout.dividerY}
+        stroke={style.edgeColor}
+        strokeWidth={1.5}
+        strokeDasharray="4 3"
+      />
+      {/* Quadrant content */}
+      {layout.quadrants.map((quad) => {
+        const accent = pick(style.palette, quad.quadrant);
+        if (quad.nodes.length === 0) {
+          return null;
+        }
+        // Stack nodes vertically within the cell
+        const rowHeight = quad.cellHeight / Math.max(quad.nodes.length, 1);
+        return quad.nodes.map((node, rowIndex) => {
+          const nodeCx = quad.centerX;
+          const nodeCy = quad.cellY + rowHeight * rowIndex + rowHeight / 2;
+          const isFirst = rowIndex === 0;
+          const lines = wrapLabel(
+            node.label,
+            maxCharsForWidth(quad.cellWidth - 24, style.fontSize),
+            2,
+          );
+          return (
+            <g key={node.id}>
+              {isFirst ? (
+                <MultilineText
+                  cx={nodeCx}
+                  cy={nodeCy}
+                  lines={lines}
+                  color={node.textColor ?? accent}
+                  style={style}
+                  fontSize={style.fontSize + 1}
+                  fontWeight={Math.min(style.fontWeight + 100, 900)}
+                />
+              ) : (
+                <MultilineText
+                  cx={nodeCx}
+                  cy={nodeCy}
+                  lines={lines}
+                  color={node.textColor ?? style.nodeText}
+                  style={style}
+                  fontSize={style.fontSize}
+                  fontWeight={style.fontWeight}
+                />
+              )}
+            </g>
+          );
+        });
+      })}
+    </Fragment>
+  );
+}
+
+function OrgChart({ visual }: { visual: Visual }): JSX.Element {
+  const nodes = buildNodeMap(visual.nodes);
+  const { style } = visual;
+  return (
+    <Fragment>
+      {visual.edges.map((edge) => (
+        <EdgeEl
+          key={edge.id}
+          edge={edge}
+          nodes={nodes}
+          style={style}
+          width={1.5}
+          arrow={false}
+        />
+      ))}
+      {visual.nodes.map((node, index) => {
+        const accent = node.color ?? pick(style.palette, index);
+        return (
+          <NodeEl
+            key={node.id}
+            node={{ ...node, shape: node.shape ?? "rounded" }}
+            fill={style.nodeFill}
+            stroke={node.stroke ?? accent}
+            text={node.textColor ?? style.nodeText}
+            style={style}
+            fontSize={style.fontSize}
+            fontWeight={style.fontWeight}
+            strokeWidth={2}
+          />
+        );
+      })}
+    </Fragment>
+  );
+}
+
 function VisualBody({ visual }: { visual: Visual }): JSX.Element | null {
   switch (visual.type) {
     case "flowchart":
@@ -965,6 +1180,14 @@ function VisualBody({ visual }: { visual: Visual }): JSX.Element | null {
       return <Comparison visual={visual} />;
     case "funnel":
       return <Funnel visual={visual} />;
+    case "venn":
+      return <VennDiagram visual={visual} />;
+    case "pyramid":
+      return <Pyramid visual={visual} />;
+    case "matrix":
+      return <MatrixScene visual={visual} />;
+    case "orgchart":
+      return <OrgChart visual={visual} />;
     default:
       return null;
   }
