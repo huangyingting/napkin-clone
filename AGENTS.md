@@ -2143,3 +2143,39 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
 - **Browser QA:** the seed user `demo@napkin.test` has no password — sign up a fresh
   `*@test.dev` user (signup → `/`), then `goto('/app/lexical-preview')`. Verify typing
   produces real `<p>` blocks, `Control+z`/`Control+y` undo/redo, and zero console errors.
+
+### Save and load Lexical editor state (US-003)
+
+- **`LexicalEditor` is now bound to a document** — it takes `documentId` +
+  `initialStateJson: string | null`. The serialized state is loaded via
+  `initialConfig.editorState` (Lexical accepts the stringified `editorState.toJSON()`
+  directly; pass `undefined` when null so it starts empty). Persistence is a debounced
+  (`SAVE_DEBOUNCE_MS` 800ms) `OnChangePlugin` → `JSON.stringify(editorState.toJSON())`
+  → `saveDocumentLexical`, with a `role="status"` indicator (saved/pending/saving/error).
+  Set `OnChangePlugin` `ignoreSelectionChange` + `ignoreHistoryMergeTagChange` (and it
+  already skips the initial mount change) so caret moves / programmatic loads don't
+  trigger saves.
+- **`saveDocumentLexical(documentId, stateJson)` (`documents/[id]/actions.ts`,
+  `"use server"`)** follows the house mutation shape but **access-scopes via
+  `getAccessibleDocument` then `updateMany({ where: { id } })`** (owner OR workspace
+  member — NOT owner-only like `saveDocumentTitle`/`saveDocumentContent`, which key on
+  `ownerId`). It `JSON.parse`s the state (rejects malformed), stores the object in
+  `contentJson` (`as Prisma.InputJsonValue`), AND writes a plain-text projection to the
+  existing `content` column so AI block text / search / read-only fallback keep working
+  off one source. Guarded by `MAX_LEXICAL_STATE_LENGTH` (2 MB) + `MAX_CONTENT_LENGTH`.
+- **The plain-text projection is a framework-free helper:
+  `src/lib/lexical/plain-text.ts` `lexicalStateToPlainText(state)`** — pure, no
+  `lexical`/React import, so it runs server-side and unit-tests under `node --test`
+  (`plain-text.test.ts` beside it). It walks the serialized `{ root: { children } }`
+  tree: top-level blocks → one line each (joined with `\n`), inline text concatenated,
+  `linebreak`→`\n`, `tab`→`\t`, and a `list` container's items joined with `\n`. Accepts
+  a JSON string or already-parsed object; malformed input → `""` (never throws). Reuse it
+  anywhere you need a text view of Lexical state.
+- **The preview route (`/app/lexical-preview`) now find-or-creates a per-user scratch
+  document** (`title: "Lexical preview"`, `deletedAt: null`) and binds the editor to it,
+  so save/load is real without touching the user's other docs. US-018 binds the editor to
+  actual documents and reads `contentJson` on the editor page.
+- **Browser QA:** type into `[aria-label="Document body"]`, wait for `[role="status"]`
+  to read "All changes saved", then `page.reload()` and assert the typed text is back
+  (loaded from `contentJson`). Confirm the `content` projection with a root-level `tsx`
+  script (`PrismaBetterSqlite3`) reading the scratch doc.

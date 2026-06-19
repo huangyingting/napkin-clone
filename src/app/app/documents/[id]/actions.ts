@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { Prisma } from "@/generated/prisma/client";
 import { getAccessibleDocument } from "@/lib/documents";
+import { lexicalStateToPlainText } from "@/lib/lexical/plain-text";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import {
@@ -22,6 +23,7 @@ const generateShareId = customAlphabet(
 
 const MAX_TITLE_LENGTH = 200;
 const MAX_CONTENT_LENGTH = 100_000;
+const MAX_LEXICAL_STATE_LENGTH = 2_000_000;
 const MAX_ANCHOR_BLOCK_ID_LENGTH = 200;
 
 // How many historical snapshots to retain per visual. Older ones are pruned in
@@ -120,6 +122,53 @@ export async function saveDocumentContent(
   await prisma.document.updateMany({
     where: { id, ownerId: user.id },
     data: { content: safeContent },
+  });
+
+  revalidatePath("/app");
+}
+
+/**
+ * Saves the serialized Lexical editor state for a document.
+ *
+ * `stateJson` is the stringified `editorState.toJSON()` from the client. The
+ * document is access-scoped via `getAccessibleDocument` (owner or workspace
+ * member) and written with `updateMany` so a foreign/forbidden id is a harmless
+ * no-op rather than a cross-user write. The parsed state is stored in
+ * `contentJson`, and a plain-text projection is written to `content` so AI block
+ * text, search, and the read-only fallback keep working off the same source.
+ *
+ * Malformed JSON is rejected (the client always sends valid serialized state).
+ */
+export async function saveDocumentLexical(
+  id: string,
+  stateJson: string,
+): Promise<void> {
+  const user = await requireUser();
+
+  if (stateJson.length > MAX_LEXICAL_STATE_LENGTH) {
+    throw new Error("Document is too large to save.");
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stateJson);
+  } catch {
+    throw new Error("Invalid editor state.");
+  }
+
+  const document = await getAccessibleDocument(user.id, id);
+  if (!document) {
+    throw new Error("Document not found.");
+  }
+
+  const content = lexicalStateToPlainText(parsed).slice(0, MAX_CONTENT_LENGTH);
+
+  await prisma.document.updateMany({
+    where: { id },
+    data: {
+      contentJson: parsed as Prisma.InputJsonValue,
+      content,
+    },
   });
 
   revalidatePath("/app");
