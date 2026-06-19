@@ -7,6 +7,7 @@ import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
 import { purgeDeletedDocuments } from "./actions";
 import { DocumentList } from "./document-list";
+import { ImportDocumentButton } from "./import-document-button";
 import { NewDocumentButton } from "./new-document-button";
 
 export const metadata: Metadata = {
@@ -148,7 +149,10 @@ export default async function DashboardPage() {
               <span className="font-medium text-ghost-text">{user.email}</span>
             </p>
           </div>
-          <NewDocumentButton className={primaryButtonClass} enableShortcut />
+          <div className="flex flex-wrap items-center gap-2">
+            <ImportDocumentButton className={`${primaryButtonClass} gap-2`} />
+            <NewDocumentButton className={primaryButtonClass} enableShortcut />
+          </div>
         </header>
 
         <DocumentList documents={documents} availableTags={availableTags} />

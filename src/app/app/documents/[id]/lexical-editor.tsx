@@ -42,6 +42,7 @@ import { CommentsPanel, type AnchorNode } from "./comments-panel";
 import { DocumentExportButton } from "@/components/editor/document-export-button";
 import { VisualSvgRegistryProvider } from "@/components/editor/visual-svg-registry";
 import { FloatingTextToolbar } from "./floating-text-toolbar";
+import { ImportPlugin } from "./import-plugin";
 import { InsertMenuPlugin } from "./insert-menu";
 import { InsertVisualPlugin } from "./insert-visual-plugin";
 import { Presence } from "./presence";
@@ -458,6 +459,7 @@ export function LexicalEditor({
                 </div>
                 <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
                   <Presence peers={collab.peers} status={collab.status} />
+                  {canEdit && <ImportPlugin />}
                   <DocumentExportButton documentTitle={title.value} />
                   <ShareButton
                     id={documentId}
