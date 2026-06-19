@@ -3,7 +3,7 @@
  *
  * These functions take a rendered SVG element and export it in various formats:
  * - SVG: serialize the DOM element directly
- * - PNG: convert to canvas → rasterize at given scale
+ * - PNG: convert to canvas → rasterize at given scale (with optional ExportOptions)
  * - PDF: embed the visual as an image on a properly sized page
  * - PPTX: embed the visual as an image on a single slide
  */
@@ -18,6 +18,16 @@ import {
   isImageFallback,
   visualToNativeSpecs,
 } from "@/lib/visual/pptx-shapes";
+import {
+  buildTransformedSvgString,
+  computeExportDimensions,
+  DEFAULT_EXPORT_OPTIONS,
+  type ExportOptions,
+} from "@/lib/visual/export-options";
+
+// Re-export ExportOptions so callers can import from one place.
+export type { ExportOptions };
+export { DEFAULT_EXPORT_OPTIONS };
 
 /**
  * Serialize an SVG element to a downloadable SVG file.
@@ -34,22 +44,24 @@ export function exportSVG(svgElement: SVGSVGElement): Blob {
 }
 
 /**
- * Convert an SVG element to PNG at the given scale.
+ * Convert an SVG element to PNG applying the given ExportOptions.
  * Returns a Promise that resolves to a Blob, or null on error.
  *
  * @param svgElement - The SVG to rasterize
- * @param scale - Scaling factor (1 = actual size, 2 = 2x, etc.)
+ * @param options    - Export options (background, colorMode, scale). Defaults
+ *                     to DEFAULT_EXPORT_OPTIONS (2x, color, include bg).
  */
 export async function exportPNG(
   svgElement: SVGSVGElement,
-  scale: number,
+  options?: ExportOptions,
 ): Promise<Blob | null> {
+  const opts = options ?? DEFAULT_EXPORT_OPTIONS;
+
   return new Promise((resolve) => {
     try {
       // Get the SVG's viewBox to determine dimensions
       const viewBox = svgElement.viewBox.baseVal;
-      const width = viewBox.width;
-      const height = viewBox.height;
+      const { width, height } = computeExportDimensions(viewBox, opts.scale);
 
       if (width === 0 || height === 0) {
         resolve(null);
@@ -58,8 +70,8 @@ export async function exportPNG(
 
       // Create a canvas at the scaled size
       const canvas = document.createElement("canvas");
-      canvas.width = width * scale;
-      canvas.height = height * scale;
+      canvas.width = width;
+      canvas.height = height;
 
       const ctx = canvas.getContext("2d");
       if (!ctx) {
@@ -67,10 +79,13 @@ export async function exportPNG(
         return;
       }
 
-      // Serialize the SVG to a data URL
-      const serializer = new XMLSerializer();
-      const svgString = serializer.serializeToString(svgElement);
-      const svgBlob = new Blob([svgString], {
+      // When transparent background is requested, keep the canvas context
+      // alpha channel (default). For custom/include we do nothing extra here
+      // because the SVG itself carries the background.
+
+      // Apply export options to SVG before rasterizing
+      const transformedSvg = buildTransformedSvgString(svgElement, opts);
+      const svgBlob = new Blob([transformedSvg], {
         type: "image/svg+xml;charset=utf-8",
       });
       const url = URL.createObjectURL(svgBlob);
@@ -78,7 +93,7 @@ export async function exportPNG(
       // Load into an image and draw to canvas
       const img = new Image();
       img.onload = () => {
-        ctx.scale(scale, scale);
+        ctx.scale(opts.scale, opts.scale);
         ctx.drawImage(img, 0, 0);
         URL.revokeObjectURL(url);
 
@@ -114,16 +129,20 @@ export function downloadBlob(blob: Blob, filename: string): void {
 }
 
 /**
- * Convert an SVG element to PDF.
+ * Convert an SVG element to PDF applying the given ExportOptions.
  * Returns a Promise that resolves to a Blob, or null on error.
  *
  * The PDF page is sized to fit the visual exactly (no margins/letterboxing).
  *
  * @param svgElement - The SVG to embed in the PDF
+ * @param options    - Export options forwarded to the PNG rasterization step
  */
 export async function exportPDF(
   svgElement: SVGSVGElement,
+  options?: ExportOptions,
 ): Promise<Blob | null> {
+  const opts = options ?? DEFAULT_EXPORT_OPTIONS;
+
   try {
     // Get the SVG's viewBox to determine dimensions
     const viewBox = svgElement.viewBox.baseVal;
@@ -134,8 +153,9 @@ export async function exportPDF(
       return null;
     }
 
-    // First convert SVG to PNG at 2x scale for good quality
-    const pngBlob = await exportPNG(svgElement, 2);
+    // Rasterize the SVG at the requested options (2x minimum for PDF quality)
+    const pdfOpts: ExportOptions = { ...opts, scale: Math.max(opts.scale, 2) };
+    const pngBlob = await exportPNG(svgElement, pdfOpts);
     if (!pngBlob) {
       return null;
     }
@@ -182,10 +202,12 @@ export async function exportPDF(
  *
  * @param svgElement - The rendered SVG element (used for image fallback)
  * @param visual     - Optional Visual payload; enables native shape output
+ * @param options    - Export options forwarded to the PNG rasterization step
  */
 export async function exportPPTX(
   svgElement: SVGSVGElement,
   visual?: Visual,
+  options?: ExportOptions,
 ): Promise<Blob | null> {
   try {
     const viewBox = svgElement.viewBox.baseVal;
@@ -218,8 +240,8 @@ export async function exportPPTX(
       }
     }
 
-    // Image fallback: rasterize the SVG
-    const pngBlob = await exportPNG(svgElement, 2);
+    // Image fallback: rasterize the SVG with the requested options
+    const pngBlob = await exportPNG(svgElement, options);
     if (!pngBlob) {
       return null;
     }

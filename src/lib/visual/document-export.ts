@@ -201,7 +201,11 @@ const BODY_W_MM = PAGE_W_MM - MARGIN_MM * 2;
 
 /** Convert SVG element → PNG data-URL at 2× scale for quality. */
 async function svgToPngDataUrl(svg: SVGSVGElement): Promise<string | null> {
-  const pngBlob = await exportPNG(svg, 2);
+  const pngBlob = await exportPNG(svg, {
+    background: "include",
+    colorMode: "color",
+    scale: 2,
+  });
   if (!pngBlob) return null;
   return new Promise<string>((resolve) => {
     const reader = new FileReader();
