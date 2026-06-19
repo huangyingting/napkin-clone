@@ -2792,3 +2792,42 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   overflow at 1280/768/375. NOTE: a sample doc's doc-level `Visual` TABLE row (US-012)
   does NOT render inline in the new editor (only `contentJson` `VisualNode`s do) — that's
   expected legacy-data behavior, not a regression; new visuals come from the inline spark.
+
+### Ghost long-form typography (Ghost US-020)
+
+- **`.ghost-prose` (in `src/app/globals.css`) is the single Ghost reading-typography
+  class for long-form document content** — applied to the Lexical editor surface
+  (`ContentEditable` in `lexical-editor.tsx`) AND the read-only render
+  (`LexicalReadOnly` root div, share/embed). App chrome (header, title input,
+  controls) stays sans by NOT being inside `.ghost-prose`. To restyle reading
+  typography, edit this one class; don't sprinkle per-element font classes.
+- **It is intentionally UNLAYERED CSS** (plain `.ghost-prose h2 { … }` rules, not
+  inside `@layer`/`@theme`). Tailwind v4 puts all utilities in cascade layers, and
+  **unlayered rules beat any layered utility regardless of specificity** — so these
+  descendant rules override the per-element Tailwind classes already on the editor /
+  read-only elements (e.g. `text-zinc-700`, `text-2xl`, `leading-7`) WITHOUT having to
+  remove them. Use this "unlayered wins" trick when you need to override existing
+  utility classes app-wide from globals.css.
+- **Font stacks via `var(--font-*, <literal fallback>)`.** The `@theme inline`
+  font vars (`--font-serif`/`--font-mono`) are tree-shaken from `:root` unless used,
+  so reference them with a literal fallback (`var(--font-serif, Georgia, Times,
+  "Times New Roman", serif)`) — the fallback guarantees resolution. NOTE: referencing
+  `var(--font-serif)` in custom CSS actually DOES cause Tailwind to emit it to `:root`
+  in the build (verified), but keep the fallback for safety. Body/lists/quote = serif,
+  h1–h3 = sans (Inter, `--font-sans` is already on `:root`), code = mono.
+- **Colors use the US-019 ghost tokens** (`--ghost-text`, `--ghost-secondary`,
+  `--ghost-border`, `--ghost-accent-color`) which flip in the `prefers-color-scheme:
+  dark` block — so light/dark "just work" with NO `dark:` variants in the class.
+  Accent-bar blockquote = `border-left: 3px solid var(--ghost-accent-color)`.
+- **Reading measure:** `.ghost-prose` is `max-width: 45rem` (~720px) + `margin-inline:
+  auto`. It sits inside the existing `max-w-3xl` padded card, so content centers at the
+  Ghost ~720px measure (verified `proseWidth` ≈ 670px content, 720 cap).
+- **Browser QA:** seed a shared doc with a hand-built Lexical `contentJson`
+  (heading/paragraph-with-bold+code/quote/list) + `isShared:true` + a `shareId` (root
+  `tsx` + `PrismaBetterSqlite3`, class is lowercase `qlite`), `goto /share/<id>`, and
+  assert computed styles: `.ghost-prose p` fontFamily contains `Georgia`,
+  `.ghost-prose h2` contains `Inter`, blockquote `borderLeftColor` = the accent
+  (`rgb(79, 70, 229)` for default indigo) + `3px`, code fontFamily contains `Menlo`,
+  and `documentElement.scrollWidth - clientWidth === 0` at 375/768/1280. Verify light
+  vs dark with `page.emulateMedia({ colorScheme })` — `p` color is `rgb(21,23,26)`
+  (#15171a) light / `rgb(245,246,246)` (#f5f6f6) dark.

@@ -379,7 +379,7 @@ export function LexicalEditor({
                     contentEditable={
                       <ContentEditable
                         aria-label="Document body"
-                        className="min-h-[16rem] text-base text-zinc-900 outline-none dark:text-zinc-100"
+                        className="ghost-prose min-h-[16rem] outline-none"
                       />
                     }
                     placeholder={

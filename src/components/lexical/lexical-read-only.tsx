@@ -319,7 +319,7 @@ export function LexicalReadOnly({
   }
 
   return (
-    <div className={className}>
+    <div className={["ghost-prose", className].filter(Boolean).join(" ")}>
       {children.map((child, index) => renderBlock(child, index))}
     </div>
   );

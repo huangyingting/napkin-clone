@@ -60,3 +60,108 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
 }
+
+/*
+ * Ghost-style long-form reading typography (US-020).
+ *
+ * Applied to the document content surfaces only — the Lexical editor body and
+ * the read-only share/embed render — so app chrome (header, title, controls)
+ * stays sans. Rules are intentionally unlayered so they win over the per-element
+ * Tailwind utility classes already present in those components, and colors use
+ * the US-019 ghost tokens so light/dark mode follow automatically.
+ *
+ * Font stacks are referenced via `var(--font-*, <literal fallback>)`: the
+ * `@theme inline` font vars are tree-shaken from `:root` unless used, so the
+ * literal fallback guarantees the serif/mono stacks resolve regardless.
+ */
+.ghost-prose {
+  /* Centered ~720px Ghost reading measure. */
+  max-width: 45rem;
+  margin-inline: auto;
+  font-family: var(--font-serif, Georgia, Times, "Times New Roman", serif);
+  font-size: 1.125rem;
+  line-height: 1.7;
+  color: var(--ghost-text);
+}
+
+.ghost-prose p {
+  font-family: var(--font-serif, Georgia, Times, "Times New Roman", serif);
+  color: var(--ghost-text);
+  line-height: 1.7;
+  margin-bottom: 1.2em;
+}
+
+.ghost-prose ul,
+.ghost-prose ol {
+  font-family: var(--font-serif, Georgia, Times, "Times New Roman", serif);
+  color: var(--ghost-text);
+  line-height: 1.7;
+  margin-bottom: 1.2em;
+}
+
+.ghost-prose li {
+  margin-bottom: 0.4em;
+  line-height: 1.7;
+}
+
+.ghost-prose h1,
+.ghost-prose h2,
+.ghost-prose h3 {
+  font-family: var(
+    --font-sans,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif
+  );
+  color: var(--ghost-text);
+  font-weight: 700;
+  letter-spacing: -0.012em;
+  line-height: 1.2;
+}
+
+.ghost-prose h1 {
+  font-size: 2.2rem;
+  margin-top: 0.6em;
+  margin-bottom: 0.4em;
+}
+
+.ghost-prose h2 {
+  font-size: 1.7rem;
+  margin-top: 1.1em;
+  margin-bottom: 0.4em;
+}
+
+.ghost-prose h3 {
+  font-size: 1.35rem;
+  margin-top: 1em;
+  margin-bottom: 0.35em;
+}
+
+.ghost-prose blockquote {
+  font-family: var(--font-serif, Georgia, Times, "Times New Roman", serif);
+  border-left: 3px solid var(--ghost-accent-color);
+  padding-left: 1.2em;
+  margin: 1.2em 0;
+  font-style: italic;
+  color: var(--ghost-secondary);
+}
+
+.ghost-prose code {
+  font-family: var(--font-mono, Menlo, "Courier New", Courier, monospace);
+  font-size: 0.9em;
+}
+
+.ghost-prose a {
+  color: var(--ghost-accent-color);
+}
+
+.ghost-prose hr {
+  border: 0;
+  border-top: 1px solid var(--ghost-border);
+  margin: 2em 0;
+}
