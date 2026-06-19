@@ -1,5 +1,6 @@
 "use client";
 
+import { LinkNode } from "@lexical/link";
 import { ListItemNode, ListNode } from "@lexical/list";
 import { CollaborationPlugin } from "@lexical/react/LexicalCollaborationPlugin";
 import { LexicalCollaboration } from "@lexical/react/LexicalCollaborationContext";
@@ -7,6 +8,8 @@ import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
+import { LinkPlugin } from "@lexical/react/LexicalLinkPlugin";
+import { ListPlugin } from "@lexical/react/LexicalListPlugin";
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
@@ -23,6 +26,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLexicalCollaboration } from "@/lib/collab/use-lexical-collaboration";
 
 import { saveDocumentLexical } from "./actions";
+import { FloatingToolbarPlugin } from "./floating-toolbar";
 import { Presence } from "./presence";
 
 const theme: EditorThemeClasses = {
@@ -33,6 +37,7 @@ const theme: EditorThemeClasses = {
     h3: "mb-2 mt-2 text-xl font-semibold tracking-tight",
   },
   quote: "mb-3 border-l-4 border-zinc-300 pl-4 italic dark:border-zinc-700",
+  link: "text-indigo-600 underline underline-offset-2 dark:text-indigo-400",
   list: {
     ul: "mb-3 ml-6 list-disc",
     ol: "mb-3 ml-6 list-decimal",
@@ -54,6 +59,7 @@ const NODES: Array<Klass<LexicalNode>> = [
   QuoteNode,
   ListNode,
   ListItemNode,
+  LinkNode,
 ];
 
 function onError(error: Error) {
@@ -199,6 +205,9 @@ export function LexicalEditor({
               cursorColor={collab.cursorColor}
             />
             <EditableGate editable={collab.ready} />
+            <ListPlugin />
+            <LinkPlugin />
+            <FloatingToolbarPlugin />
             <OnChangePlugin
               onChange={handleChange}
               ignoreSelectionChange

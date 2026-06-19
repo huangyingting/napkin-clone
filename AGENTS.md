@@ -2274,3 +2274,41 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   on `[aria-label="People here"] > span` count `>= 2`. Verified: cross-instance text CRDT
   merge (Alice types → Bob's separate browser receives it live, appends, Alice live-
   receives without reload), both show 2 peers, status pill "Live", and "All changes saved".
+
+### Floating selection format toolbar (US-006)
+
+- **`src/app/app/documents/[id]/floating-toolbar.tsx` (`FloatingToolbarPlugin`)** is a
+  Lexical plugin (uses `useLexicalComposerContext`) added INSIDE the `LexicalComposer` in
+  `lexical-editor.tsx`. It renders via `createPortal(..., document.body)` with
+  `position: fixed` so the editor card's `overflow`/rounded border never clips it.
+- **Visibility:** recompute on BOTH `editor.registerUpdateListener` + the
+  `SELECTION_CHANGE_COMMAND` AND a `document` `"selectionchange"` listener (the last one
+  catches focus leaving / native selection moving out, which an editor update may not
+  fire). Read state inside `editor.getEditorState().read(...)`. Hide unless the selection
+  is a non-collapsed `$isRangeSelection` whose `nativeSelection.anchorNode` is inside
+  `editor.getRootElement()` and `getTextContent() !== ""`.
+- **Positioning** uses the NATIVE selection rect (`window.getSelection().getRangeAt(0)
+  .getBoundingClientRect()`), placed above the selection (flip below if `top < 8`),
+  horizontally centered + clamped to the viewport. Recompute in a `useLayoutEffect` on
+  visibility/state change AND on `window` `resize`/`scroll` (capture phase).
+- **Block-type detection** (`getSelectedBlockType`, runs inside a `.read`): list via
+  `$getNearestNodeOfType(anchorNode, ListNode)` → `getListType()` (`number`/`bullet`);
+  else the anchor's `getTopLevelElement()` with `$isHeadingNode`(tag h2/h3)/`$isQuoteNode`;
+  else `paragraph`. Inline `bold`/`italic` from `selection.hasFormat(...)`; link by walking
+  `selection.getNodes()` for an `$isLinkNode` node or parent.
+- **Apply:** inline → `FORMAT_TEXT_COMMAND` (`bold`/`italic`). Block H2/H3/quote →
+  `$setBlocksType` to `$createHeadingNode`/`$createQuoteNode`, toggling back to
+  `$createParagraphNode` when already active. Lists → `INSERT_UNORDERED_LIST_COMMAND` /
+  `INSERT_ORDERED_LIST_COMMAND`, or `REMOVE_LIST_COMMAND` when already that list type. Link
+  → `TOGGLE_LINK_COMMAND` (null to remove, else a `window.prompt` URL). Requires
+  `LinkNode` in `initialConfig.nodes` + `<LinkPlugin/>` and `<ListPlugin/>` mounted (both
+  from `@lexical/react`).
+- **Keep selection on click:** every toolbar button (and the toolbar container) uses
+  `onMouseDown={(e) => e.preventDefault()}` so clicking a control doesn't blur/collapse the
+  editor selection. Buttons expose `aria-label` + `aria-pressed` and are keyboard-operable.
+- **Browser QA (dev-browser, headless):** the toolbar is
+  `[role="toolbar"][aria-label="Text formatting"]`; select text with `Control+a` after
+  typing (ContentEditable `.click()` hangs — focus via `evaluate(el.focus())` then
+  `keyboard.type`). Assert it appears (8 buttons), each control flips `aria-pressed` +
+  mutates the DOM (`strong`/`h2`/`ul li`), and it disappears (`count() === 0`) after
+  `ArrowRight` collapses the selection.
