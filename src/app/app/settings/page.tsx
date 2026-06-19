@@ -78,6 +78,13 @@ export default async function SettingsPage() {
         </section>
 
         <Link
+          href="/app/settings/billing"
+          className="text-sm font-medium text-ghost-secondary underline-offset-4 transition hover:text-ghost-text hover:underline"
+        >
+          Billing &amp; Plan →
+        </Link>
+
+        <Link
           href="/app"
           className="text-sm font-medium text-ghost-secondary underline-offset-4 transition hover:text-ghost-text hover:underline"
         >

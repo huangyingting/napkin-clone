@@ -8,22 +8,23 @@ import { createTranslator } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
+import { getEntitlements } from "@/lib/billing/entitlements";
 
 export async function SiteHeader() {
   const sessionUser = await getCurrentUser();
   const locale = await getLocale();
   const t = createTranslator(locale);
 
-  // Read the name/email fresh from the database so a just-saved profile change
-  // (US-009) is reflected immediately and after reload — the JWT session token
-  // still holds the name captured at sign-in. A null result (e.g. a stale JWT
-  // pointing at a deleted user) falls back to the signed-out header.
   const account = sessionUser
     ? await prisma.user.findUnique({
         where: { id: sessionUser.id },
-        select: { name: true, email: true },
+        select: { name: true, email: true, plan: true, creditBalance: true },
       })
     : null;
+
+  const entitlements = account ? getEntitlements(account.plan) : null;
+  const creditBalance = account?.creditBalance ?? 0;
+  const creditsPerPeriod = entitlements?.creditsPerPeriod ?? 0;
 
   return (
     <header className="flex w-full items-center justify-between border-b border-ghost-border bg-ghost-bg/80 px-6 py-3 backdrop-blur">
@@ -55,9 +56,29 @@ export async function SiteHeader() {
             >
               {t("header.nav.brands")}
             </Link>
+
+            {/* Credit usage indicator */}
+            <Link
+              href="/app/settings/billing"
+              title={`${creditBalance} / ${creditsPerPeriod} credits remaining`}
+              className="flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+            >
+              <span className="tabular-nums">
+                {creditBalance.toLocaleString()}
+              </span>
+              <span className="text-ghost-secondary/60">credits</span>
+            </Link>
+
             <KeyboardShortcuts />
             <LanguageSwitcher />
             <UserMenu name={account.name} email={account.email}>
+              <Link
+                href="/app/settings/billing"
+                role="menuitem"
+                className="block w-full px-3 py-2 text-left text-sm text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+              >
+                Billing &amp; Plan
+              </Link>
               <SignOutButton
                 role="menuitem"
                 className="block w-full px-3 py-2 text-left text-sm text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"

@@ -3,10 +3,13 @@
  *
  * Flow: parse → validate (length/type, before any LLM call) → check Azure config
  * → identify the user → enforce quota (anonymous trial cookie) or rate limit
- * (authenticated, per user) → generate via Azure OpenAI → return `{ candidates }`.
+ * (authenticated, per user) + credit metering → generate via Azure OpenAI →
+ * charge credits on success → return `{ candidates }`.
  *
  * Anonymous callers get a NON-resetting lifetime trial tracked by a signed
- * cookie; authenticated callers are rate limited per user.
+ * cookie; authenticated callers are rate limited per user AND have their
+ * credit balance decremented (~1 credit/word). Generation is blocked at zero
+ * credits with a clear 402 error.
  */
 
 import { randomUUID } from "node:crypto";
@@ -45,6 +48,12 @@ import {
   type RateLimitStore,
   type RateLimitWindow,
 } from "@/lib/ai/quota";
+import {
+  computeCreditCost,
+  deductCredits,
+  getUserCreditState,
+  InsufficientCreditsError,
+} from "@/lib/billing/credits";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { logError } from "@/lib/log";
@@ -196,9 +205,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const user = await getCurrentUser();
 
-  // Quota / rate limiting.
+  // Quota / rate limiting + credit metering.
   let commitAnonUsage: (() => void) | null = null;
   let setAnonCookie: string | null = null;
+  // For authenticated users: compute credit cost up-front; deduct after success.
+  let creditCost = 0;
 
   if (user) {
     const result = await checkRateLimitWithStore(userRateStore, user.id, {
@@ -215,6 +226,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         429,
         "Rate limit exceeded. Please wait a moment and try again.",
         { "Retry-After": String(retryAfter) },
+      );
+    }
+
+    // Credit pre-check: ensure period is initialised and balance is sufficient.
+    creditCost = computeCreditCost(text);
+    const creditState = await getUserCreditState(user.id);
+    if (creditState.balance < creditCost) {
+      return errorResponse(
+        402,
+        `Insufficient credits: you need ${creditCost} but have ${creditState.balance}. ` +
+          `Your credits reset on ${creditState.periodEnd.toLocaleDateString()}. ` +
+          `Upgrade your plan or wait for your credits to reset.`,
       );
     }
   } else {
@@ -240,7 +263,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       { text, type, orientation, detailLevel, stayCloserToText },
       { complete },
     );
+
+    // Commit side effects only on success.
     commitAnonUsage?.();
+
+    // Deduct credits for authenticated users (best-effort; mirrors existing
+    // soft-quota semantics — a small TOCTOU race is acceptable).
+    if (user && creditCost > 0) {
+      try {
+        await deductCredits(user.id, creditCost);
+      } catch (err) {
+        if (err instanceof InsufficientCreditsError) {
+          // Balance was depleted by a concurrent request between our pre-check
+          // and now — return the same 402 with updated info.
+          return errorResponse(402, err.message);
+        }
+        // Non-fatal — log but don't fail the generation response.
+        logError(LOG_SCOPE, err, { requestId, reason: "credit-deduct-failed" });
+      }
+    }
 
     const response = NextResponse.json({ candidates });
     if (setAnonCookie) {

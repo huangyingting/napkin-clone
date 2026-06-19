@@ -20,6 +20,7 @@ import {
   FOCUS_RING,
   type SegmentedOption,
 } from "@/components/ui";
+import type { PlanEntitlements } from "@/lib/billing/entitlements";
 import {
   applyExportOptionsToSvg,
   DEFAULT_EXPORT_OPTIONS,
@@ -47,6 +48,11 @@ interface ExportDialogProps {
   getSvgElement: () => SVGSVGElement | null;
   getVisual?: () => Visual | null;
   filename: string;
+  /** Entitlements from the current user's plan. Defaults to free tier limits. */
+  entitlements?: Pick<
+    PlanEntitlements,
+    "svgExport" | "pptxExport" | "removeWatermark"
+  >;
 }
 
 // ---------------------------------------------------------------------------
@@ -178,11 +184,29 @@ export function ExportDialog({
   getSvgElement,
   getVisual,
   filename,
+  entitlements,
 }: ExportDialogProps) {
+  const canSvg = entitlements?.svgExport ?? false;
+  const canPptx = entitlements?.pptxExport ?? false;
+  const removeWatermark = entitlements?.removeWatermark ?? false;
+
   const [format, setFormat] = useState<ExportFormat>("png");
-  const [options, setOptions] = useState<ExportOptions>(DEFAULT_EXPORT_OPTIONS);
+  const [options, setOptions] = useState<ExportOptions>({
+    ...DEFAULT_EXPORT_OPTIONS,
+    watermark: !removeWatermark,
+  });
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Sync watermark option when removeWatermark entitlement changes (e.g. after
+  // plan upgrade without remounting the dialog). Use a ref to avoid triggering
+  // on every render — only update when the entitlement actually flips.
+  const prevRemoveWatermark = useRef(removeWatermark);
+  if (prevRemoveWatermark.current !== removeWatermark) {
+    prevRemoveWatermark.current = removeWatermark;
+    // Inline state update during render (safe: guarded by ref comparison)
+    setOptions((o) => ({ ...o, watermark: !removeWatermark }));
+  }
 
   const previewUrl = useExportPreview(getSvgElement, options, format);
   const popMotion = usePopMotion();
@@ -221,6 +245,18 @@ export function ExportDialog({
   const handleExport = useCallback(async () => {
     setError(null);
     setExporting(true);
+
+    // Entitlement guard
+    if (format === "svg" && !canSvg) {
+      setError("SVG export requires Plus or Pro. Upgrade your plan.");
+      setExporting(false);
+      return;
+    }
+    if (format === "pptx" && !canPptx) {
+      setError("PPTX export requires Plus or Pro. Upgrade your plan.");
+      setExporting(false);
+      return;
+    }
 
     const svg = getSvgElement();
     if (!svg) {
@@ -270,7 +306,16 @@ export function ExportDialog({
     } finally {
       setExporting(false);
     }
-  }, [format, options, getSvgElement, getVisual, filename, onClose]);
+  }, [
+    format,
+    options,
+    getSvgElement,
+    getVisual,
+    filename,
+    onClose,
+    canSvg,
+    canPptx,
+  ]);
 
   // Options that only apply to raster formats
   const isRaster = format === "png" || format === "pdf" || format === "pptx";
@@ -337,10 +382,40 @@ export function ExportDialog({
                     <SegmentedControl
                       options={FORMAT_OPTIONS}
                       value={format}
-                      onChange={setFormat as (v: string) => void}
+                      onChange={(v) => {
+                        const f = v as ExportFormat;
+                        if (f === "svg" && !canSvg) return;
+                        if (f === "pptx" && !canPptx) return;
+                        setFormat(f);
+                      }}
                       aria-label="Export format"
                       size="sm"
                     />
+                    {format === "svg" && !canSvg && (
+                      <p className="mt-1 text-xs text-[var(--ds-danger,#dc2626)]">
+                        SVG export requires Plus or Pro.{" "}
+                        <a href="/app/settings/billing" className="underline">
+                          Upgrade
+                        </a>
+                      </p>
+                    )}
+                    {format === "pptx" && !canPptx && (
+                      <p className="mt-1 text-xs text-[var(--ds-danger,#dc2626)]">
+                        PPTX export requires Plus or Pro.{" "}
+                        <a href="/app/settings/billing" className="underline">
+                          Upgrade
+                        </a>
+                      </p>
+                    )}
+                    {!removeWatermark && (
+                      <p className="mt-1 text-xs text-[var(--ds-text-muted,#6f7d83)]">
+                        Free plan: exports include a watermark.{" "}
+                        <a href="/app/settings/billing" className="underline">
+                          Upgrade
+                        </a>{" "}
+                        to remove.
+                      </p>
+                    )}
                   </ControlField>
 
                   {/* Background (raster/SVG) */}

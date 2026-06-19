@@ -1,0 +1,116 @@
+/**
+ * Unit tests for the billing entitlements map (US-010 epic).
+ *
+ * Tests are pure — no DB, no network.
+ */
+
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+
+import {
+  PLAN_ENTITLEMENTS,
+  getEntitlements,
+  hasEntitlement,
+  isPlan,
+  type Plan,
+} from "@/lib/billing/entitlements";
+
+describe("PLAN_ENTITLEMENTS", () => {
+  it("defines all three tiers", () => {
+    const tiers: Plan[] = ["free", "plus", "pro"];
+    for (const tier of tiers) {
+      assert.ok(PLAN_ENTITLEMENTS[tier], `missing tier: ${tier}`);
+    }
+  });
+
+  it("free tier: 500 credits, 7-day period, no paid features", () => {
+    const e = PLAN_ENTITLEMENTS.free;
+    assert.strictEqual(e.creditsPerPeriod, 500);
+    assert.strictEqual(e.periodDays, 7);
+    assert.strictEqual(e.svgExport, false);
+    assert.strictEqual(e.pptxExport, false);
+    assert.strictEqual(e.brandStyles, false);
+    assert.strictEqual(e.removeWatermark, false);
+    assert.strictEqual(e.fontUpload, false);
+    assert.strictEqual(e.topUps, false);
+  });
+
+  it("plus tier: 10 000 credits, 30-day period, svg/pptx/brand/no-watermark", () => {
+    const e = PLAN_ENTITLEMENTS.plus;
+    assert.strictEqual(e.creditsPerPeriod, 10_000);
+    assert.strictEqual(e.periodDays, 30);
+    assert.strictEqual(e.svgExport, true);
+    assert.strictEqual(e.pptxExport, true);
+    assert.strictEqual(e.brandStyles, true);
+    assert.strictEqual(e.removeWatermark, true);
+    assert.strictEqual(e.fontUpload, false);
+    assert.strictEqual(e.topUps, false);
+  });
+
+  it("pro tier: 30 000 credits, 30-day period, all features", () => {
+    const e = PLAN_ENTITLEMENTS.pro;
+    assert.strictEqual(e.creditsPerPeriod, 30_000);
+    assert.strictEqual(e.periodDays, 30);
+    assert.strictEqual(e.svgExport, true);
+    assert.strictEqual(e.pptxExport, true);
+    assert.strictEqual(e.brandStyles, true);
+    assert.strictEqual(e.removeWatermark, true);
+    assert.strictEqual(e.fontUpload, true);
+    assert.strictEqual(e.topUps, true);
+  });
+});
+
+describe("isPlan", () => {
+  it("accepts valid plan strings", () => {
+    assert.strictEqual(isPlan("free"), true);
+    assert.strictEqual(isPlan("plus"), true);
+    assert.strictEqual(isPlan("pro"), true);
+  });
+
+  it("rejects invalid values", () => {
+    assert.strictEqual(isPlan("starter"), false);
+    assert.strictEqual(isPlan(""), false);
+    assert.strictEqual(isPlan(null), false);
+    assert.strictEqual(isPlan(undefined), false);
+    assert.strictEqual(isPlan(42), false);
+  });
+});
+
+describe("getEntitlements", () => {
+  it("returns correct entitlements for each plan", () => {
+    assert.strictEqual(getEntitlements("free").creditsPerPeriod, 500);
+    assert.strictEqual(getEntitlements("plus").creditsPerPeriod, 10_000);
+    assert.strictEqual(getEntitlements("pro").creditsPerPeriod, 30_000);
+  });
+
+  it("falls back to free tier for unknown plans", () => {
+    assert.deepStrictEqual(
+      getEntitlements("enterprise"),
+      PLAN_ENTITLEMENTS.free,
+    );
+    assert.deepStrictEqual(getEntitlements(null), PLAN_ENTITLEMENTS.free);
+    assert.deepStrictEqual(getEntitlements(undefined), PLAN_ENTITLEMENTS.free);
+  });
+});
+
+describe("hasEntitlement", () => {
+  it("free: svgExport = false", () => {
+    assert.strictEqual(hasEntitlement("free", "svgExport"), false);
+  });
+
+  it("plus: svgExport = true", () => {
+    assert.strictEqual(hasEntitlement("plus", "svgExport"), true);
+  });
+
+  it("pro: fontUpload = true", () => {
+    assert.strictEqual(hasEntitlement("pro", "fontUpload"), true);
+  });
+
+  it("plus: fontUpload = false", () => {
+    assert.strictEqual(hasEntitlement("plus", "fontUpload"), false);
+  });
+
+  it("unknown plan falls back to free (svgExport = false)", () => {
+    assert.strictEqual(hasEntitlement("unknown", "svgExport"), false);
+  });
+});
