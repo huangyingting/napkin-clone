@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { excerpt, readingTimeMinutes } from "@/lib/document-stats";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
@@ -35,6 +36,7 @@ export default async function DashboardPage() {
       id: true,
       title: true,
       favorite: true,
+      content: true,
       createdAt: true,
       updatedAt: true,
       visuals: {
@@ -59,6 +61,7 @@ export default async function DashboardPage() {
       id: true,
       title: true,
       favorite: true,
+      content: true,
       createdAt: true,
       updatedAt: true,
       visuals: {
@@ -84,6 +87,7 @@ export default async function DashboardPage() {
         thumbnail = parsed.data;
       }
     }
+    const content = document.content ?? "";
     return {
       id: document.id,
       title: document.title,
@@ -91,6 +95,8 @@ export default async function DashboardPage() {
       editedLabel: dateFormatter.format(document.updatedAt),
       workspaceName: document.workspace?.name ?? null,
       thumbnail,
+      excerpt: excerpt(content),
+      readingMinutes: readingTimeMinutes(content),
       createdAtMs: document.createdAt.getTime(),
       updatedAtMs: document.updatedAt.getTime(),
     };

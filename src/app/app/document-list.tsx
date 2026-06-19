@@ -193,7 +193,11 @@ export function DocumentList({
       const full = documents.find((document) => document.id === data.id);
       const stash: DashboardDocument = full
         ? { ...full, title: data.title }
-        : { ...data, createdAtMs: Date.now(), updatedAtMs: Date.now() };
+        : {
+            ...data,
+            createdAtMs: Date.now(),
+            updatedAtMs: Date.now(),
+          };
       setRemovedIds((prev) => new Set(prev).add(data.id));
       setRestored((prev) => prev.filter((item) => item.id !== data.id));
       setUndo(stash);
@@ -368,6 +372,8 @@ export function DocumentList({
                   editedLabel={document.editedLabel}
                   workspaceName={document.workspaceName}
                   thumbnail={document.thumbnail}
+                  excerpt={document.excerpt}
+                  readingMinutes={document.readingMinutes}
                   onDelete={handleDelete}
                 />
               ))}

@@ -30,6 +30,8 @@ export type DocumentCardData = {
   editedLabel: string;
   workspaceName: string | null;
   thumbnail: Visual | null;
+  excerpt: string;
+  readingMinutes: number;
 };
 
 type DocumentCardProps = DocumentCardData & {
@@ -292,6 +294,8 @@ export function DocumentCard({
   editedLabel,
   workspaceName,
   thumbnail,
+  excerpt,
+  readingMinutes,
   onDelete,
 }: DocumentCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -324,6 +328,8 @@ export function DocumentCard({
       editedLabel,
       workspaceName,
       thumbnail,
+      excerpt,
+      readingMinutes,
     });
   };
 
@@ -364,10 +370,27 @@ export function DocumentCard({
           <span className="truncate pr-7 text-sm font-medium text-ghost-text">
             {optimisticTitle}
           </span>
-          <div className="flex items-center gap-2">
+          {excerpt ? (
+            <p className="line-clamp-2 text-xs text-ghost-secondary">
+              {excerpt}
+            </p>
+          ) : (
+            <p className="text-xs italic text-ghost-secondary/60">
+              No content yet
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-ghost-secondary">
               Edited {editedLabel}
             </span>
+            {readingMinutes > 0 && (
+              <>
+                <span className="text-xs text-ghost-secondary/60">·</span>
+                <span className="text-xs text-ghost-secondary">
+                  {readingMinutes} min read
+                </span>
+              </>
+            )}
             {workspaceName && (
               <>
                 <span className="text-xs text-ghost-secondary/60">·</span>
