@@ -4,10 +4,13 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { Prisma } from "@/generated/prisma/client";
+import { excerpt, readingTimeMinutes } from "@/lib/document-stats";
 import { documentAccessOr, getAccessibleDocument } from "@/lib/documents";
 import { prisma } from "@/lib/prisma";
+import { buildDocumentSearchWhere, normalizeSearchQuery } from "@/lib/search";
 import { requireUser } from "@/lib/session";
 import { BLANK_TEMPLATE_ID, getTemplateOrBlank } from "@/lib/templates/catalog";
+import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
 /** Documents soft-deleted before this cutoff are eligible for permanent purge. */
 const SOFT_DELETE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
@@ -279,5 +282,97 @@ export async function purgeDeletedDocuments(): Promise<void> {
 
   await prisma.document.deleteMany({
     where: { deletedAt: { lt: cutoff } },
+  });
+}
+
+/** Shape returned by `searchDocuments`, compatible with `DashboardDocument`. */
+export type SearchResult = {
+  id: string;
+  title: string;
+  favorite: boolean;
+  editedLabel: string;
+  workspaceName: string | null;
+  thumbnail: Visual | null;
+  excerpt: string;
+  readingMinutes: number;
+  createdAtMs: number;
+  updatedAtMs: number;
+  tags: { slug: string; name: string }[];
+};
+
+const searchDateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+
+/**
+ * Server-side full-text search across the current user's accessible documents
+ * covering **title** and **content** fields. Returns documents matching the
+ * query, each shaped identically to `DashboardDocument` so the dashboard can
+ * display them directly.
+ *
+ * The query is trimmed and length-clamped before being used in a DB query.
+ * An empty (or whitespace-only) query returns an empty array — the caller
+ * should fall back to the full document list in that case.
+ *
+ * Provider behaviour is handled by {@link buildDocumentSearchWhere}: SQLite
+ * uses LIKE (case-insensitive for ASCII); Postgres uses ILIKE.
+ *
+ * Access is scoped to the current user via `documentAccessOr` — the same gate
+ * used by every other document action.
+ */
+export async function searchDocuments(
+  rawQuery: string,
+): Promise<SearchResult[]> {
+  const user = await requireUser();
+
+  const q = normalizeSearchQuery(rawQuery);
+  if (!q) return [];
+
+  const docs = await prisma.document.findMany({
+    where: buildDocumentSearchWhere(q, documentAccessOr(user.id)),
+    orderBy: { updatedAt: "desc" },
+    select: {
+      id: true,
+      title: true,
+      favorite: true,
+      content: true,
+      createdAt: true,
+      updatedAt: true,
+      visuals: {
+        orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }],
+        take: 1,
+        select: { data: true },
+      },
+      tags: {
+        orderBy: { name: "asc" },
+        select: { slug: true, name: true },
+      },
+      workspace: { select: { name: true } },
+    },
+  });
+
+  return docs.map((doc) => {
+    const firstVisual = doc.visuals[0];
+    let thumbnail: Visual | null = null;
+    if (firstVisual) {
+      const parsed = safeParseVisual(firstVisual.data);
+      if (parsed.success) thumbnail = parsed.data;
+    }
+    const content = doc.content ?? "";
+    return {
+      id: doc.id,
+      title: doc.title,
+      favorite: doc.favorite,
+      editedLabel: searchDateFormatter.format(doc.updatedAt),
+      workspaceName: doc.workspace?.name ?? null,
+      thumbnail,
+      excerpt: excerpt(content),
+      readingMinutes: readingTimeMinutes(content),
+      createdAtMs: doc.createdAt.getTime(),
+      updatedAtMs: doc.updatedAt.getTime(),
+      tags: doc.tags,
+    };
   });
 }
