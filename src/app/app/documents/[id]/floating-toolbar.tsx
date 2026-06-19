@@ -37,6 +37,7 @@ import {
 import { createPortal } from "react-dom";
 
 import { usePopMotion } from "@/components/motion/reveal";
+import { controlToggleClass } from "@/components/motion/control-styles";
 
 type BlockType = "paragraph" | "h2" | "h3" | "quote" | "bullet" | "number";
 
@@ -374,11 +375,9 @@ function ToolbarButton({
       // preventDefault on pointer down keeps the editor selection intact.
       onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
-      className={`flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-sm transition-colors ${
-        active
-          ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
-          : "text-zinc-700 hover:bg-black/[.05] dark:text-zinc-200 dark:hover:bg-white/[.08]"
-      }`}
+      className={`flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-sm ${controlToggleClass(
+        active,
+      )}`}
     >
       {children}
     </button>

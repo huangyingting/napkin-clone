@@ -2656,3 +2656,37 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   computed `opacity:1`, then `ArrowRight` collapses → toolbar element gone), and type
   `/` on an empty paragraph to reveal `[role="listbox"][aria-label="Insert block"]`
   (6 `[role="option"]`s, Escape → gone). Assert zero `console`/`pageerror` events.
+
+### Generation "thinking" state & control micro-interactions (US-016)
+
+- **Shared, reduced-motion-aware "thinking" indicator:
+  `src/components/motion/thinking-indicator.tsx` `ThinkingIndicator`** (`"use client"`).
+  Three framer-motion dots bob/fade in sequence; it calls `useReducedMotion()` and
+  collapses to a STATIC `{opacity:0.6}`/`duration:0` (no transform) when reduced
+  motion is requested — verified in browser: the animated case applies an inline
+  `transform: translateY(...)` to each dot, the reduced case applies no transform.
+  It renders its OWN `role="status" aria-live="polite"`, so don't wrap it in another.
+  Use it for any in-flight generation surface (`BlockSparkPlugin` panel "Generating…",
+  `VisualCard` "More variations" "Thinking…") instead of an ad-hoc pulsing icon.
+- **Consistent control styling lives in
+  `src/components/motion/control-styles.ts`** (plain class-name constants, no React):
+  `FOCUS_RING` (always pair with `focus-visible`, NOT `focus`, so the zinc/white ring
+  only shows for keyboard users), `GUTTER_BUTTON` (the square gutter icon button —
+  spark + "+" insert, includes hover/active/`aria-expanded`/focus-visible), and
+  `controlToggleClass(active)` (toolbar/insert-menu pressed-vs-inactive control).
+  Compose them into a `className`; append layout classes (`fixed z-40 ${GUTTER_BUTTON}`,
+  `... ${FOCUS_RING}`). When adding a new editor control, reuse these so hover/active/
+  focus-visible feedback stays uniform — every interactive editor button now carries a
+  `focus-visible:ring` + an `active:` press state in both light and dark mode.
+- **All busy spinners must respect reduced motion** — use `motion-safe:animate-spin`
+  (Tailwind variant), not bare `animate-spin`, so the ring is static under
+  `prefers-reduced-motion: reduce` (the status text still conveys "busy"). Applied to
+  the visual-card pill/More-variations spinners and `ExportMenu`'s "Exporting…" spinner.
+- **Browser QA (mock-Azure on :5599 with ~1.5s latency + collab server):** the
+  thinking state is brief, so click the spark then POLL tightly (≤60ms) for
+  `[role="dialog"] [role="status"]` rather than a single delayed snapshot — a fixed
+  `waitForTimeout` before reading often misses it. Assert focus-visible by reading a
+  button's `class` and testing `/focus-visible:ring/`; reveal the spark by
+  `page.mouse.move` over the paragraph rect (focusin on the root does NOT resolve a
+  block). Reduced motion: `page.emulateMedia({ reducedMotion: "reduce" })` then assert
+  the dot has no animating `translateY` inline style.

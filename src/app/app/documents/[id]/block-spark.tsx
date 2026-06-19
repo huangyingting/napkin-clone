@@ -11,7 +11,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 
+import { FOCUS_RING, GUTTER_BUTTON } from "@/components/motion/control-styles";
 import { usePopMotion } from "@/components/motion/reveal";
+import { ThinkingIndicator } from "@/components/motion/thinking-indicator";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
@@ -312,7 +314,7 @@ export function BlockSparkPlugin() {
                 top: block.top + block.height / 2 - 14,
                 left: block.left - GUTTER_OFFSET,
               }}
-              className="fixed z-40 flex h-7 w-7 items-center justify-center rounded-lg border border-black/[.08] bg-white text-zinc-500 shadow-sm transition-colors hover:bg-black/[.04] hover:text-zinc-900 aria-expanded:bg-black/[.04] aria-expanded:text-zinc-900 dark:border-white/[.12] dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-white/[.08] dark:hover:text-zinc-100"
+              className={`fixed z-40 ${GUTTER_BUTTON}`}
             >
               <Sparkles aria-hidden="true" className="h-4 w-4" />
             </motion.button>
@@ -347,7 +349,7 @@ export function BlockSparkPlugin() {
                   type="button"
                   aria-label="Close"
                   onClick={closePanel}
-                  className="rounded-md p-1 text-zinc-400 transition-colors hover:bg-black/[.05] hover:text-zinc-700 dark:hover:bg-white/[.08] dark:hover:text-zinc-200"
+                  className={`rounded-md p-1 text-zinc-400 transition-colors hover:bg-black/[.05] hover:text-zinc-700 active:bg-black/[.1] dark:hover:bg-white/[.08] dark:hover:text-zinc-200 dark:active:bg-white/[.14] ${FOCUS_RING}`}
                 >
                   <svg
                     viewBox="0 0 16 16"
@@ -364,17 +366,10 @@ export function BlockSparkPlugin() {
               </div>
 
               {status === "loading" ? (
-                <div
-                  role="status"
-                  aria-live="polite"
-                  className="flex items-center gap-2 px-1 py-4 text-sm text-zinc-500 dark:text-zinc-400"
-                >
-                  <Sparkles
-                    aria-hidden="true"
-                    className="h-4 w-4 animate-pulse"
-                  />
-                  Generating…
-                </div>
+                <ThinkingIndicator
+                  label="Generating…"
+                  className="px-1 py-4 text-sm text-zinc-500 dark:text-zinc-400"
+                />
               ) : error !== null ? (
                 <div
                   role="alert"
@@ -384,7 +379,7 @@ export function BlockSparkPlugin() {
                   <button
                     type="button"
                     onClick={() => void generate(panelTarget)}
-                    className="self-start rounded-md border border-red-300 px-2 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10"
+                    className={`self-start rounded-md border border-red-300 px-2 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-50 active:bg-red-100 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10 dark:active:bg-red-500/20 ${FOCUS_RING}`}
                   >
                     Try again
                   </button>
@@ -397,7 +392,7 @@ export function BlockSparkPlugin() {
                         type="button"
                         aria-label={`Insert variation ${index + 1} of ${candidates.length}`}
                         onClick={() => insertVisual(candidate)}
-                        className="group flex w-full flex-col overflow-hidden rounded-lg border border-black/[.08] bg-white p-1.5 text-left transition hover:border-black/20 dark:border-white/[.10] dark:bg-zinc-950 dark:hover:border-white/25"
+                        className={`group flex w-full flex-col overflow-hidden rounded-lg border border-black/[.08] bg-white p-1.5 text-left transition hover:border-black/20 active:border-black/30 dark:border-white/[.10] dark:bg-zinc-950 dark:hover:border-white/25 dark:active:border-white/40 ${FOCUS_RING}`}
                       >
                         <VisualRenderer
                           visual={candidate}

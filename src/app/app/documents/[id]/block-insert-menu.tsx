@@ -29,6 +29,10 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 
 import { usePopMotion } from "@/components/motion/reveal";
+import {
+  controlToggleClass,
+  GUTTER_BUTTON,
+} from "@/components/motion/control-styles";
 
 type ItemKey = "h2" | "h3" | "bullet" | "number" | "quote" | "divider";
 
@@ -459,7 +463,7 @@ export function BlockInsertMenuPlugin() {
                 top: block.top + block.height / 2 - 14,
                 left: block.left - 34,
               }}
-              className="fixed z-40 flex h-7 w-7 items-center justify-center rounded-lg border border-black/[.08] bg-white text-zinc-500 shadow-sm transition-colors hover:bg-black/[.04] hover:text-zinc-900 dark:border-white/[.12] dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-white/[.08] dark:hover:text-zinc-100"
+              className={`fixed z-40 ${GUTTER_BUTTON}`}
             >
               <svg
                 viewBox="0 0 16 16"
@@ -515,11 +519,9 @@ export function BlockInsertMenuPlugin() {
                         menu.mode === "plus" ? block?.key : undefined,
                       )
                     }
-                    className={`flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left transition-colors ${
-                      index === safeActive
-                        ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
-                        : "text-zinc-700 hover:bg-black/[.05] dark:text-zinc-200 dark:hover:bg-white/[.08]"
-                    }`}
+                    className={`flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left ${controlToggleClass(
+                      index === safeActive,
+                    )}`}
                   >
                     <span className="text-sm font-medium">{item.title}</span>
                     <span

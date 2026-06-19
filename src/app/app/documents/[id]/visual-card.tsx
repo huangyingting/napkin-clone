@@ -6,6 +6,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
 import { useCardMotion, usePopMotion } from "@/components/motion/reveal";
+import { FOCUS_RING } from "@/components/motion/control-styles";
+import { ThinkingIndicator } from "@/components/motion/thinking-indicator";
 import { ExportMenu } from "@/components/visual/export-menu";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import {
@@ -31,15 +33,15 @@ const KIND_LABEL: Record<VisualKind, string> = {
   funnel: "Funnel",
 };
 
-const moreVariationsButtonClass =
-  "flex items-center gap-1.5 rounded-full border border-black/[.08] px-3 py-1 text-xs font-medium text-zinc-600 transition hover:border-black/20 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[.12] dark:text-zinc-300 dark:hover:border-white/30 dark:hover:text-zinc-100";
+const moreVariationsButtonClass = `flex items-center gap-1.5 rounded-full border border-black/[.08] px-3 py-1 text-xs font-medium text-zinc-600 transition hover:border-black/20 hover:text-zinc-900 active:bg-black/[.05] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[.12] dark:text-zinc-300 dark:hover:border-white/30 dark:hover:text-zinc-100 dark:active:bg-white/[.06] ${FOCUS_RING}`;
 
 function typePillClass(active: boolean): string {
   return [
     "flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50",
     active
-      ? "border-zinc-900 bg-zinc-900 text-white dark:border-white dark:bg-white dark:text-zinc-900"
-      : "border-black/[.08] text-zinc-600 hover:border-black/20 hover:text-zinc-900 dark:border-white/[.12] dark:text-zinc-300 dark:hover:border-white/30 dark:hover:text-zinc-100",
+      ? "border-zinc-900 bg-zinc-900 text-white hover:bg-zinc-800 dark:border-white dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+      : "border-black/[.08] text-zinc-600 hover:border-black/20 hover:text-zinc-900 active:bg-black/[.05] dark:border-white/[.12] dark:text-zinc-300 dark:hover:border-white/30 dark:hover:text-zinc-100 dark:active:bg-white/[.06]",
+    FOCUS_RING,
   ].join(" ");
 }
 
@@ -296,7 +298,7 @@ export function VisualCard({
           type="button"
           aria-label="Edit visual"
           onClick={() => setSelected(true)}
-          className={`${cardClass} block w-full cursor-pointer text-left hover:border-black/20 dark:hover:border-white/25`}
+          className={`${cardClass} block w-full cursor-pointer text-left hover:border-black/20 dark:hover:border-white/25 ${FOCUS_RING}`}
         >
           <VisualRenderer
             ref={rendererRef}
@@ -333,7 +335,7 @@ export function VisualCard({
                   onClick={() => void runGenerate()}
                   disabled={genStatus === "loading"}
                   title="Generate a replacement for this visual"
-                  className="rounded-full border border-black/[.08] px-3 py-1 text-xs font-medium text-zinc-600 transition hover:border-black/20 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[.12] dark:text-zinc-300 dark:hover:border-white/30 dark:hover:text-zinc-100"
+                  className={`rounded-full border border-black/[.08] px-3 py-1 text-xs font-medium text-zinc-600 transition hover:border-black/20 hover:text-zinc-900 active:bg-black/[.05] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[.12] dark:text-zinc-300 dark:hover:border-white/30 dark:hover:text-zinc-100 dark:active:bg-white/[.06] ${FOCUS_RING}`}
                 >
                   Replace
                 </button>
@@ -342,7 +344,7 @@ export function VisualCard({
                   aria-label="Remove visual"
                   onClick={removeVisual}
                   title="Delete this visual"
-                  className="rounded-full border border-red-200 px-3 py-1 text-xs font-medium text-red-600 transition hover:border-red-300 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500/30 dark:text-red-300 dark:hover:border-red-500/50 dark:hover:bg-red-500/10"
+                  className={`rounded-full border border-red-200 px-3 py-1 text-xs font-medium text-red-600 transition hover:border-red-300 hover:bg-red-50 active:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500/30 dark:text-red-300 dark:hover:border-red-500/50 dark:hover:bg-red-500/10 dark:active:bg-red-500/20 ${FOCUS_RING}`}
                 >
                   Remove
                 </button>
@@ -354,7 +356,7 @@ export function VisualCard({
                   type="button"
                   aria-label="Close visual controls"
                   onClick={closeControls}
-                  className="rounded-md p-1 text-zinc-400 transition-colors hover:bg-black/[.05] hover:text-zinc-700 dark:hover:bg-white/[.08] dark:hover:text-zinc-200"
+                  className={`rounded-md p-1 text-zinc-400 transition-colors hover:bg-black/[.05] hover:text-zinc-700 active:bg-black/[.1] dark:hover:bg-white/[.08] dark:hover:text-zinc-200 dark:active:bg-white/[.14] ${FOCUS_RING}`}
                 >
                   <svg
                     viewBox="0 0 16 16"
@@ -392,7 +394,7 @@ export function VisualCard({
                     {pendingType === kind ? (
                       <span
                         aria-hidden="true"
-                        className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+                        className="h-3 w-3 motion-safe:animate-spin rounded-full border-2 border-current border-t-transparent"
                       />
                     ) : null}
                     {KIND_LABEL[kind]}
@@ -401,7 +403,7 @@ export function VisualCard({
               })}
             </div>
 
-            <div className="mb-3 flex items-center gap-2">
+            <div className="mb-3 flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => void runGenerate()}
@@ -413,11 +415,17 @@ export function VisualCard({
                 {genStatus === "loading" && pendingType === null ? (
                   <span
                     aria-hidden="true"
-                    className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+                    className="h-3 w-3 motion-safe:animate-spin rounded-full border-2 border-current border-t-transparent"
                   />
                 ) : null}
                 More variations
               </button>
+              {genStatus === "loading" ? (
+                <ThinkingIndicator
+                  label="Thinking…"
+                  className="text-xs text-zinc-500 dark:text-zinc-400"
+                />
+              ) : null}
             </div>
 
             {genError !== null ? (
@@ -429,7 +437,7 @@ export function VisualCard({
                 <button
                   type="button"
                   onClick={() => void runGenerate(pendingType ?? undefined)}
-                  className="self-start rounded-md border border-red-300 px-2 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-100 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/20"
+                  className={`self-start rounded-md border border-red-300 px-2 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-100 active:bg-red-200 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/20 dark:active:bg-red-500/30 ${FOCUS_RING}`}
                 >
                   Try again
                 </button>
@@ -449,7 +457,7 @@ export function VisualCard({
                         aria-label={`Select variation ${index + 1} of ${candidates.length}`}
                         title={candidate.title ?? KIND_LABEL[candidate.type]}
                         onClick={() => chooseCandidate(candidate)}
-                        className="group flex w-full flex-col overflow-hidden rounded-lg border border-black/[.08] bg-white p-1.5 text-left transition hover:border-black/20 dark:border-white/[.10] dark:bg-zinc-950 dark:hover:border-white/25"
+                        className={`group flex w-full flex-col overflow-hidden rounded-lg border border-black/[.08] bg-white p-1.5 text-left transition hover:border-black/20 active:border-black/30 dark:border-white/[.10] dark:bg-zinc-950 dark:hover:border-white/25 dark:active:border-white/40 ${FOCUS_RING}`}
                       >
                         <VisualRenderer
                           visual={candidate}
