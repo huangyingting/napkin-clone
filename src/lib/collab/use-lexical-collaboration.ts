@@ -156,9 +156,17 @@ export function useLexicalCollaboration(opts: {
   const cursorColor = colorFromId(provider.awareness.clientID);
   const ready = synced || degraded;
 
-  // Seed the title into the shared text once, the same way the document body is
-  // bootstrapped from the database. Guarded by a `meta` flag so peers joining a
-  // populated room don't re-insert it.
+  // Seed the title into the shared text from the database (the durable source of
+  // truth) whenever the shared title is empty. The `ytitle.length === 0` guard
+  // alone prevents clobbering a populated (collaboratively edited) title, so a
+  // peer joining a room that already has a title never re-inserts it.
+  //
+  // We deliberately do NOT gate this behind a persistent `meta.titleSeeded`
+  // latch: an in-memory collab room can outlive its title (e.g. it was created
+  // before the title synced, or the title was transiently cleared), and a
+  // one-way "seeded" latch would then strand the field on the empty "Untitled"
+  // placeholder forever even though the database holds the real title. Re-seeding
+  // an empty room from the DB also self-heals such rooms for every collaborator.
   const seededTitleRef = useRef(false);
   const seedTitle = useCallback(
     (title: string) => {
@@ -166,16 +174,15 @@ export function useLexicalCollaboration(opts: {
         return;
       }
       seededTitleRef.current = true;
-      const meta = doc.getMap<unknown>("meta");
-      if (meta.get("titleSeeded")) {
-        return;
+      if (ytitle.length === 0 && title) {
+        doc.transact(() => {
+          // Re-check inside the transaction in case a concurrent sync populated
+          // the title between the guard above and this write.
+          if (ytitle.length === 0) {
+            ytitle.insert(0, title);
+          }
+        }, TITLE_SEED_ORIGIN);
       }
-      doc.transact(() => {
-        meta.set("titleSeeded", true);
-        if (ytitle.length === 0 && title) {
-          ytitle.insert(0, title);
-        }
-      }, TITLE_SEED_ORIGIN);
     },
     [doc, ytitle],
   );
