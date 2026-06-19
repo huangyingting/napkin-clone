@@ -4,12 +4,16 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 
-import { deleteDocument, restoreDocument } from "./actions";
+import { deleteDocument, restoreDocument, searchDocuments } from "./actions";
+import type { SearchResult } from "./actions";
 import { DocumentCard, type DocumentCardData } from "./document-card";
 import { NewDocumentButton } from "./new-document-button";
 
 /** How long the "Document deleted — Undo" affordance stays visible. */
 const UNDO_DURATION_MS = 6000;
+
+/** Debounce delay (ms) before a server-side search fires. */
+const SEARCH_DEBOUNCE_MS = 300;
 
 /** A dashboard document plus the raw timestamps needed for client-side sorting. */
 export type DashboardDocument = DocumentCardData & {
@@ -144,8 +148,15 @@ export function DocumentList({
   const [restored, setRestored] = useState<DashboardDocument[]>([]);
   const [undo, setUndo] = useState<DashboardDocument | null>(null);
   const [query, setQuery] = useState("");
+  // Server-side search results: null = no active search (show all docs).
+  const [searchResults, setSearchResults] = useState<
+    DashboardDocument[] | null
+  >(null);
+  // Separate transition for search so isPending is scoped to search calls only.
+  const [isSearchPending, startSearchTransition] = useTransition();
   const [, startTransition] = useTransition();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -208,6 +219,47 @@ export function DocumentList({
 
   useEffect(() => clearTimer, [clearTimer]);
 
+  // Debounced server-side search: fires SEARCH_DEBOUNCE_MS after the user stops
+  // typing. When query is empty the last results are stale but `activePool`
+  // (below) ignores them — no synchronous setState needed in the effect body.
+  useEffect(() => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+    const trimmed = query.trim();
+    if (!trimmed) {
+      searchDebounceRef.current = null;
+      return;
+    }
+    searchDebounceRef.current = setTimeout(() => {
+      startSearchTransition(async () => {
+        const results = await searchDocuments(trimmed);
+        setSearchResults(
+          results.map((r: SearchResult) => ({
+            id: r.id,
+            title: r.title,
+            favorite: r.favorite,
+            editedLabel: r.editedLabel,
+            workspaceName: r.workspaceName,
+            thumbnail: r.thumbnail,
+            excerpt: r.excerpt,
+            readingMinutes: r.readingMinutes,
+            createdAtMs: r.createdAtMs,
+            updatedAtMs: r.updatedAtMs,
+            tags: r.tags,
+          })),
+        );
+      });
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+        searchDebounceRef.current = null;
+      }
+    };
+  }, [query]); // startSearchTransition is stable; searchDocuments is module-level
+
   const handleDelete = useCallback(
     (data: DocumentCardData) => {
       // Stash the full sortable document (preserving any optimistic/renamed
@@ -261,27 +313,30 @@ export function DocumentList({
   );
   const combined = [...extra, ...base];
 
+  // When a search is active, use server results (filtered by removedIds);
+  // otherwise fall through to the full server-rendered document list.
+  const trimmedQuery = query.trim();
+  const activePool: DashboardDocument[] = trimmedQuery
+    ? (searchResults ?? []).filter((document) => !removedIds.has(document.id))
+    : combined;
+
   const tagFiltered = selectedTag
-    ? combined.filter((document) =>
+    ? activePool.filter((document) =>
         document.tags.some((tag) => tag.slug === selectedTag),
       )
-    : combined;
+    : activePool;
 
   const favFiltered = viewFavorites
     ? tagFiltered.filter((document) => document.favorite)
     : tagFiltered;
 
-  const trimmedQuery = query.trim().toLowerCase();
-  const filtered = trimmedQuery
-    ? favFiltered.filter((document) =>
-        document.title.toLowerCase().includes(trimmedQuery),
-      )
-    : favFiltered;
-  const visible = sortDocuments(filtered, sort, !viewFavorites);
+  const visible = sortDocuments(favFiltered, sort, !viewFavorites);
 
   const hasDocuments = combined.length > 0;
   const noTagMatch = selectedTag !== null && tagFiltered.length === 0;
   const noFavorites = viewFavorites && favFiltered.length === 0;
+  // Spinner shows while the search transition is pending AND the query is active.
+  const isSearching = isSearchPending && Boolean(trimmedQuery);
 
   return (
     <>
@@ -303,19 +358,34 @@ export function DocumentList({
         <div className="flex flex-col gap-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="relative w-full sm:max-w-xs">
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ghost-secondary"
-              >
-                <circle cx="11" cy="11" r="7" />
-                <path d="m21 21-4.3-4.3" />
-              </svg>
+              {isSearching ? (
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-ghost-accent"
+                >
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                </svg>
+              ) : (
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ghost-secondary"
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m21 21-4.3-4.3" />
+                </svg>
+              )}
               <input
                 type="search"
                 value={query}
@@ -430,7 +500,8 @@ export function DocumentList({
                 No documents match your search
               </h2>
               <p className="text-sm text-ghost-secondary">
-                Try a different title or clear the search.
+                Try different keywords or clear the search. Searches cover
+                titles and document content.
               </p>
             </div>
           ) : (
