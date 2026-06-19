@@ -67,3 +67,134 @@ test("each new visual kind can be requested as the generation type", () => {
     );
   }
 });
+
+// ── New controls ────────────────────────────────────────────────────────────
+
+test("orientation=vertical adds a vertical layout instruction to the user message", () => {
+  const user =
+    buildGenerationMessages({
+      text: "Plan the sprint",
+      count: 3,
+      orientation: "vertical",
+    })[1]?.content ?? "";
+
+  assert.match(user, /taller-than-wide/);
+  assert.match(user, /top-to-bottom/);
+});
+
+test("orientation=horizontal adds a horizontal layout instruction to the user message", () => {
+  const user =
+    buildGenerationMessages({
+      text: "Plan the sprint",
+      count: 3,
+      orientation: "horizontal",
+    })[1]?.content ?? "";
+
+  assert.match(user, /wider-than-tall/);
+  assert.match(user, /left-to-right/);
+});
+
+test("orientation=square adds a square layout instruction to the user message", () => {
+  const user =
+    buildGenerationMessages({
+      text: "Plan the sprint",
+      count: 3,
+      orientation: "square",
+    })[1]?.content ?? "";
+
+  assert.match(user, /square canvas/);
+});
+
+test("orientation=auto (or omitted) does NOT add a layout instruction", () => {
+  const noOpt =
+    buildGenerationMessages({ text: "Plan the sprint", count: 3 })[1]
+      ?.content ?? "";
+  const autoOpt =
+    buildGenerationMessages({
+      text: "Plan the sprint",
+      count: 3,
+      orientation: "auto",
+    })[1]?.content ?? "";
+
+  for (const user of [noOpt, autoOpt]) {
+    assert.doesNotMatch(user, /taller-than-wide/);
+    assert.doesNotMatch(user, /wider-than-tall/);
+    assert.doesNotMatch(user, /square canvas/);
+  }
+});
+
+test("detailLevel=detailed adds an expansion instruction to the user message", () => {
+  const user =
+    buildGenerationMessages({
+      text: "Describe the architecture",
+      count: 3,
+      detailLevel: "detailed",
+    })[1]?.content ?? "";
+
+  assert.match(user, /Expand the source text fully/);
+});
+
+test("detailLevel=summary adds a compact instruction to the user message", () => {
+  const user =
+    buildGenerationMessages({
+      text: "Describe the architecture",
+      count: 3,
+      detailLevel: "summary",
+    })[1]?.content ?? "";
+
+  assert.match(user, /Keep the visual compact/);
+});
+
+test("omitting detailLevel does NOT add a detail instruction", () => {
+  const user =
+    buildGenerationMessages({ text: "Describe the architecture", count: 3 })[1]
+      ?.content ?? "";
+
+  assert.doesNotMatch(user, /Expand the source text fully/);
+  assert.doesNotMatch(user, /Keep the visual compact/);
+});
+
+test("stayCloserToText=true adds a wording-preservation instruction", () => {
+  const user =
+    buildGenerationMessages({
+      text: "Use exact phrasing",
+      count: 3,
+      stayCloserToText: true,
+    })[1]?.content ?? "";
+
+  assert.match(user, /Preserve the user's original wording/);
+  assert.match(user, /exact phrases from the source text/);
+});
+
+test("stayCloserToText=false (or omitted) does NOT add a wording instruction", () => {
+  const noOpt =
+    buildGenerationMessages({ text: "Use exact phrasing", count: 3 })[1]
+      ?.content ?? "";
+  const falseOpt =
+    buildGenerationMessages({
+      text: "Use exact phrasing",
+      count: 3,
+      stayCloserToText: false,
+    })[1]?.content ?? "";
+
+  for (const user of [noOpt, falseOpt]) {
+    assert.doesNotMatch(user, /Preserve the user's original wording/);
+  }
+});
+
+test("all three new options can be combined in a single prompt", () => {
+  const user =
+    buildGenerationMessages({
+      text: "Show the product lifecycle",
+      count: 3,
+      type: "timeline",
+      orientation: "horizontal",
+      detailLevel: "detailed",
+      stayCloserToText: true,
+    })[1]?.content ?? "";
+
+  assert.match(user, /All candidates MUST use "type": "timeline"\./);
+  assert.match(user, /wider-than-tall/);
+  assert.match(user, /Expand the source text fully/);
+  assert.match(user, /Preserve the user's original wording/);
+});

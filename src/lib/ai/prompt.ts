@@ -22,6 +22,27 @@ export interface ChatMessage {
   content: string;
 }
 
+/** Layout orientation hint passed to the model. `"auto"` = today's behavior. */
+export const ORIENTATIONS = [
+  "vertical",
+  "horizontal",
+  "square",
+  "auto",
+] as const;
+export type Orientation = (typeof ORIENTATIONS)[number];
+
+/** Controls how much the model expands the source text. Omitted = today's behavior. */
+export const DETAIL_LEVELS = ["detailed", "summary"] as const;
+export type DetailLevel = (typeof DETAIL_LEVELS)[number];
+
+export function isOrientation(value: unknown): value is Orientation {
+  return ORIENTATIONS.includes(value as Orientation);
+}
+
+export function isDetailLevel(value: unknown): value is DetailLevel {
+  return DETAIL_LEVELS.includes(value as DetailLevel);
+}
+
 export interface BuildMessagesOptions {
   text: string;
   /** Optional desired visual type to bias generation toward. */
@@ -30,6 +51,22 @@ export interface BuildMessagesOptions {
   count: number;
   /** Optional reason the previous attempt was rejected (used on retry). */
   retryReason?: string;
+  /**
+   * Layout orientation. `"auto"` (or omitted) reproduces today's behavior:
+   * the model chooses the canvas aspect ratio freely.
+   */
+  orientation?: Orientation;
+  /**
+   * `"detailed"` asks the model to expand the text (more nodes, richer labels).
+   * `"summary"` asks for a compact output (fewer nodes, terse labels).
+   * Omitting the field reproduces today's behavior.
+   */
+  detailLevel?: DetailLevel;
+  /**
+   * When `true`, the model is instructed to preserve the user's original
+   * wording in node labels rather than paraphrasing.
+   */
+  stayCloserToText?: boolean;
 }
 
 const KIND_GUIDANCE: Record<VisualKind, string> = {
@@ -112,6 +149,22 @@ const SYSTEM_PROMPT = [
   "- Return DISTINCT candidates that take different structural approaches.",
 ].join("\n");
 
+const ORIENTATION_GUIDANCE: Record<Exclude<Orientation, "auto">, string> = {
+  vertical:
+    "Lay out each visual with a taller-than-wide canvas (e.g. width 520, height 720). Arrange nodes top-to-bottom.",
+  horizontal:
+    "Lay out each visual with a wider-than-tall canvas (e.g. width 900, height 480). Arrange nodes left-to-right.",
+  square:
+    "Lay out each visual with a roughly square canvas (e.g. width 640, height 640). Spread nodes across both axes.",
+};
+
+const DETAIL_GUIDANCE: Record<DetailLevel, string> = {
+  detailed:
+    "Expand the source text fully: include sub-points, add supporting nodes, and use descriptive multi-word labels.",
+  summary:
+    "Keep the visual compact: use the minimum nodes that capture the core idea, and keep labels to 1–3 words each.",
+};
+
 /**
  * Builds the chat messages for a generation request. The output JSON object must
  * be `{ "visuals": [ ...at least `count` visuals... ] }`.
@@ -119,15 +172,37 @@ const SYSTEM_PROMPT = [
 export function buildGenerationMessages(
   options: BuildMessagesOptions,
 ): ChatMessage[] {
-  const { text, type, count, retryReason } = options;
+  const {
+    text,
+    type,
+    count,
+    retryReason,
+    orientation,
+    detailLevel,
+    stayCloserToText,
+  } = options;
 
   const typeInstruction = type
     ? `All candidates MUST use "type": "${type}".`
     : `Vary the visual "type" across candidates (choose the kinds that best fit the text).`;
 
+  const orientationInstruction =
+    orientation && orientation !== "auto"
+      ? ORIENTATION_GUIDANCE[orientation]
+      : null;
+
+  const detailInstruction = detailLevel ? DETAIL_GUIDANCE[detailLevel] : null;
+
+  const wording = stayCloserToText
+    ? "Preserve the user's original wording in node labels — do not paraphrase or rewrite; use exact phrases from the source text."
+    : null;
+
   const userParts = [
     `Produce a JSON object: { "visuals": [ ... ] } containing at least ${count} candidate visuals.`,
     typeInstruction,
+    orientationInstruction,
+    detailInstruction,
+    wording,
     retryReason
       ? `Your previous attempt was rejected: ${retryReason} Fix it and return valid JSON only.`
       : "",
@@ -136,7 +211,7 @@ export function buildGenerationMessages(
     '"""',
     text,
     '"""',
-  ].filter((part) => part !== "");
+  ].filter((part): part is string => part !== null && part !== "");
 
   return [
     { role: "system", content: SYSTEM_PROMPT },
