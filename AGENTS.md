@@ -1366,6 +1366,25 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   regenerates the client for whatever provider it ran under, and the local gate needs the
   **sqlite** client (else `next build`/typecheck see a stale Document type with no
   `deletedAt`). Verify with `grep activeProvider src/generated/prisma/internal/class.ts`.
+- **GOTCHA: `prisma migrate dev` is INTERACTIVE (and fails non-interactively) when the
+  migration has a warning** — e.g. adding a `@unique` column prints "A unique constraint …
+  will be added" and then errors `Prisma Migrate has detected that the environment is
+  non-interactive`. Even `--create-only` is blocked. Workaround (used for US-027's
+  `slug String? @unique`): write the migration dir yourself and generate the SQL with
+  `npx prisma migrate diff --from-config-datasource prisma.config.ts --to-schema
+  prisma/schema.prisma --script > prisma/migrations/<ts>_<name>/migration.sql` (use
+  `schema.sqlite.prisma` + `prisma/migrations-sqlite/…` for the sqlite history), then
+  apply with `prisma migrate deploy` under the matching `DB_PROVIDER`/`DATABASE_URL`.
+  Note: in this Prisma 7.8, the diff flag is `--to-schema` (NOT the removed
+  `--to-schema-datamodel`), and `--from-config-datasource prisma.config.ts` reads the live
+  DB via the env-resolved URL (plain `--from-schema-datasource prisma/schema.prisma` yields
+  an EMPTY diff because Prisma 7's datasource block has no `url`). Run the sqlite deploy
+  last, then `DB_PROVIDER=sqlite npm run db:generate`.
+- **`slugify(title)` for readable share URLs lives in `src/lib/slug.ts`** (pure,
+  framework-free, unit-tested under `node --test` like `document-stats.ts`): NFKD-normalize
+  + strip diacritics, lowercase, collapse non-alphanumerics to single hyphens, trim edge
+  hyphens, truncate to `MAX_SLUG_LENGTH` (80) on a hyphen boundary. `Document.slug
+  String? @unique` is the column (US-028 generates/resolves it).
 - **EVERY document read excludes soft-deleted rows** with `deletedAt: null`. The shared
   gate `getAccessibleDocument` (in `@/lib/documents`) adds it, so all its callers
   (attachVisual/detachVisual/comments/delete) inherit the exclusion for free. The

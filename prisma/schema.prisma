@@ -63,6 +63,7 @@ model Document {
   ownerId     String
   workspaceId String?
   shareId     String?  @unique
+  slug        String?  @unique
   isShared    Boolean  @default(false)
   favorite    Boolean  @default(false)
   createdAt   DateTime @default(now())
