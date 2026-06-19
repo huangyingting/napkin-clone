@@ -533,7 +533,7 @@ export async function toggleDocumentSharing(
   // the canonical shareId is always the part after the last hyphen.
   const shareUrl =
     isShared && shareId
-      ? `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/share/${buildShareSegment(slug, shareId)}`
+      ? `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:4000"}/share/${buildShareSegment(slug, shareId)}`
       : null;
 
   revalidatePath(`/app/documents/${id}`);

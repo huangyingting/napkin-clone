@@ -19,7 +19,7 @@ npm run db:seed        # loads a demo user, document, and visual
 npm run dev            # start the dev server
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view the app.
+Open [http://localhost:4000](http://localhost:4000) to view the app.
 
 The database steps need no configuration: `DB_PROVIDER` defaults to `sqlite` and
 `DATABASE_URL` defaults to `file:./prisma/dev.db` when unset, so

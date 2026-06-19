@@ -14,7 +14,7 @@ const SITE_NAME = "Napkin Clone";
 
 /** Absolute base URL for canonical/OG links. */
 function siteBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:4000";
 }
 
 /**
