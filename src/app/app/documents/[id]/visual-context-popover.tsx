@@ -35,8 +35,11 @@ import {
   setVisualKind,
   setVisualStyle,
   clearNodeIcon,
+  applyDisplayStyle,
+  isDisplayStyleActive,
 } from "@/lib/visual/transforms";
 import { STYLE_THEMES } from "@/lib/visual/themes";
+import { VISUAL_DISPLAY_STYLES } from "@/lib/visual/display-styles";
 import {
   VISUAL_KINDS,
   safeParseVisual,
@@ -166,6 +169,70 @@ function ThemeChip({
         {themeName}
       </span>
     </button>
+  );
+}
+
+/**
+ * Style gallery: renders the current visual content as thumbnails in each
+ * named display style so the user can pick a clearly-distinct presentation
+ * with a single click (non-destructive — content is preserved).
+ */
+function StyleGallery({
+  visual,
+  onSelect,
+}: {
+  visual: Visual;
+  onSelect: (styleId: string) => void;
+}) {
+  const activeId = useMemo(() => {
+    const match = VISUAL_DISPLAY_STYLES.find((s) =>
+      isDisplayStyleActive(visual, s.id),
+    );
+    return match?.id ?? null;
+  }, [visual]);
+
+  const variants = useMemo(
+    () =>
+      VISUAL_DISPLAY_STYLES.map((preset) => ({
+        preset,
+        styled: applyDisplayStyle(visual, preset.id),
+      })),
+    [visual],
+  );
+
+  return (
+    <ul
+      role="group"
+      aria-label="Style gallery"
+      className="mt-1.5 grid grid-cols-2 gap-2"
+    >
+      {variants.map(({ preset, styled }) => {
+        const active = activeId === preset.id;
+        return (
+          <li key={preset.id}>
+            <button
+              type="button"
+              aria-label={`Apply ${preset.name} style`}
+              aria-pressed={active}
+              title={preset.description}
+              onClick={() => onSelect(preset.id)}
+              className={cx(
+                "group flex w-full flex-col overflow-hidden rounded-[var(--ds-radius-md,10px)] border p-1.5 text-left transition",
+                active
+                  ? "border-transparent ring-2 ring-[var(--ds-accent,#6366f1)]"
+                  : "border-[var(--ds-border,rgba(0,0,0,0.08))] hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
+                FOCUS_RING,
+              )}
+            >
+              <VisualRenderer visual={styled} className="h-auto w-full" />
+              <span className="mt-1 block truncate text-center text-[10px] font-medium text-[var(--ds-text-muted,#6f7d83)]">
+                {preset.name}
+              </span>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -361,6 +428,13 @@ export function VisualContextPopover({
     [onChange, visual],
   );
 
+  const applyDisplayStyleById = useCallback(
+    (styleId: string) => {
+      onChange(applyDisplayStyle(visual, styleId));
+    },
+    [onChange, visual],
+  );
+
   return (
     <FloatingSurface
       open
@@ -486,6 +560,14 @@ export function VisualContextPopover({
               onChange={(kind) => onChange(setVisualKind(visual, kind))}
             />
           </div>
+        </div>
+
+        <Divider orientation="horizontal" />
+
+        {/* Style Gallery */}
+        <div className="my-3 space-y-1.5">
+          <SectionLabel>Style</SectionLabel>
+          <StyleGallery visual={visual} onSelect={applyDisplayStyleById} />
         </div>
 
         <Divider orientation="horizontal" />
