@@ -3,6 +3,8 @@
 import { Upload } from "lucide-react";
 import { useRef, useState, useTransition } from "react";
 
+import { useTranslation } from "@/lib/i18n/locale-context";
+
 import { createDocumentFromImport } from "./actions";
 
 /** Accepted file extensions shown in the file picker. */
@@ -18,6 +20,7 @@ const ACCEPTED_EXTENSIONS = ".md,.html,.htm,.docx,.pptx,.pdf";
  * dashboard header so it sits alongside "New document".
  */
 export function ImportDocumentButton({ className }: { className: string }) {
+  const t = useTranslation();
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [, startTransition] = useTransition();
@@ -89,7 +92,9 @@ export function ImportDocumentButton({ className }: { className: string }) {
         aria-label="Import document"
       >
         <Upload className="h-4 w-4" aria-hidden="true" />
-        {isUploading ? "Importing…" : "Import"}
+        {isUploading
+          ? t("dashboard.action.importing")
+          : t("dashboard.action.import")}
       </button>
       {error && (
         <p role="alert" className="text-xs text-red-600 dark:text-red-400">

@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 
+import { useTranslation } from "@/lib/i18n/locale-context";
 import { isNewDocumentShortcut } from "@/lib/shortcuts/match";
 import { useKeyboardShortcut } from "@/lib/shortcuts/use-keyboard-shortcuts";
 import { TEMPLATE_CATALOG } from "@/lib/templates/catalog";
@@ -19,6 +20,7 @@ import { createDocumentFromTemplate } from "./actions";
  * state. The dialog closes on Escape, a backdrop click, or the Cancel button.
  */
 function TemplatePicker({ onClose }: { onClose: () => void }) {
+  const t = useTranslation();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -58,15 +60,15 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
               id="template-picker-title"
               className="text-base font-semibold text-ghost-text"
             >
-              Start a new document
+              {t("templatePicker.title")}
             </h2>
             <p className="mt-1 text-sm text-ghost-secondary">
-              Pick a template or start blank.
+              {t("templatePicker.subtitle")}
             </p>
           </div>
           <button
             type="button"
-            aria-label="Close"
+            aria-label={t("templatePicker.close")}
             onClick={onClose}
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
           >
@@ -97,7 +99,9 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
                 className="flex h-full w-full flex-col gap-1 rounded-xl border border-ghost-border p-4 text-left transition hover:border-ghost-accent/40 hover:bg-ghost-wash disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <span className="text-sm font-medium text-ghost-text">
-                  {pendingId === template.id ? "Creating…" : template.name}
+                  {pendingId === template.id
+                    ? t("templatePicker.creating")
+                    : template.name}
                 </span>
                 <span className="text-xs text-ghost-secondary">
                   {template.description}
@@ -113,7 +117,7 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
             onClick={onClose}
             className="flex h-9 items-center justify-center rounded-full border border-ghost-border px-4 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
           >
-            Cancel
+            {t("templatePicker.cancel")}
           </button>
         </div>
       </div>

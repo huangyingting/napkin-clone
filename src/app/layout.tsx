@@ -3,6 +3,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { HeaderGate } from "@/components/header-gate";
 import { SiteHeader } from "@/components/site-header";
+import { LocaleProvider } from "@/lib/i18n/locale-context";
+import { getLocale } from "@/lib/i18n/server";
 import { Providers } from "./providers";
 
 // Ghost theme font system: self-host Inter and wire it to --font-sans.
@@ -23,22 +25,26 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
+
   return (
     <html
-      lang="en"
+      lang={locale}
       className={`${inter.variable} h-full scroll-smooth antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <Providers>
-          <HeaderGate>
-            <SiteHeader />
-          </HeaderGate>
-          {children}
+          <LocaleProvider initialLocale={locale}>
+            <HeaderGate>
+              <SiteHeader />
+            </HeaderGate>
+            {children}
+          </LocaleProvider>
         </Providers>
       </body>
     </html>
