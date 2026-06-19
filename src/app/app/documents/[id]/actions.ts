@@ -147,6 +147,10 @@ async function mirrorVisualNodes(
 ): Promise<void> {
   const nodes = collectVisualNodes(parsedState);
 
+  // Track the anchors still present so orphaned rows (e.g. a VisualNode that was
+  // removed from the editor, US-013) can be pruned after the upserts below.
+  const liveAnchors = new Set<string>();
+
   for (let index = 0; index < nodes.length; index += 1) {
     const node = nodes[index];
 
@@ -154,6 +158,7 @@ async function mirrorVisualNodes(
     if (!anchor) {
       continue;
     }
+    liveAnchors.add(anchor);
 
     // Re-validate so a tampered/garbled payload can never be persisted.
     const result = safeParseVisual(node.visual);
@@ -211,6 +216,17 @@ async function mirrorVisualNodes(
       });
     }
   }
+
+  // Prune mirrored rows whose VisualNode no longer exists in the editor state
+  // (US-013: removing a card deletes its mirrored Visual row). Only node-anchored
+  // rows are pruned — the document-level visual (`anchorBlockId` null) is left
+  // untouched, and `notIn` keeps any row whose anchor is still present.
+  await prisma.visual.deleteMany({
+    where: {
+      documentId,
+      anchorBlockId: { not: null, notIn: [...liveAnchors] },
+    },
+  });
 }
 
 /**

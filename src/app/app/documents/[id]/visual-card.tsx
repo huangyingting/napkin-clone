@@ -140,6 +140,18 @@ export function VisualCard({
     [editor, nodeKey],
   );
 
+  // Removes this visual block from the document (US-013). Removing the node from
+  // `contentJson` is a local edit, so the debounced save persists it and
+  // `mirrorVisualNodes` prunes the orphaned `Visual` row.
+  const removeVisual = useCallback(() => {
+    editor.update(() => {
+      const node = $getNodeByKey(nodeKey);
+      if ($isVisualNode(node)) {
+        node.remove();
+      }
+    });
+  }, [editor, nodeKey]);
+
   // Dismiss the controls when clicking anywhere outside the card (ref
   // containment — never stopPropagation). The popover lives inside `rootRef`, so
   // in-control clicks keep it open.
@@ -298,6 +310,25 @@ export function VisualCard({
               Edit visual
             </span>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                aria-label="Replace visual"
+                onClick={() => void runGenerate()}
+                disabled={genStatus === "loading"}
+                title="Generate a replacement for this visual"
+                className="rounded-full border border-black/[.08] px-3 py-1 text-xs font-medium text-zinc-600 transition hover:border-black/20 hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[.12] dark:text-zinc-300 dark:hover:border-white/30 dark:hover:text-zinc-100"
+              >
+                Replace
+              </button>
+              <button
+                type="button"
+                aria-label="Remove visual"
+                onClick={removeVisual}
+                title="Delete this visual"
+                className="rounded-full border border-red-200 px-3 py-1 text-xs font-medium text-red-600 transition hover:border-red-300 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-500/30 dark:text-red-300 dark:hover:border-red-500/50 dark:hover:bg-red-500/10"
+              >
+                Remove
+              </button>
               <ExportMenu
                 getSvgElement={() => rendererRef.current}
                 filename={data.title?.trim() || "visual"}

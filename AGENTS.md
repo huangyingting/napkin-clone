@@ -2547,3 +2547,32 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   mindmap — proving the edit persisted through both paths. `page.mouse.click(5,5)`
   (outside) dismisses the dialog; reload shows the persisted type and the pill still
   pressed; no horizontal overflow at the default viewport.
+
+### Replace or remove a visual card (US-013)
+
+- **The selected `VisualCard` controls header now has Replace + Remove**
+  (`src/app/app/documents/[id]/visual-card.tsx`). **Replace** (`aria-label="Replace
+  visual"`) reuses the existing `runGenerate()` (no type) to reopen the variation
+  gallery so the user can pick a replacement — same generation path as "More
+  variations". **Remove** (`aria-label="Remove visual"`) deletes the node via
+  `editor.update(() => { const n = $getNodeByKey(nodeKey); if ($isVisualNode(n))
+  n.remove(); })`. A node `remove()` is a normal (untagged) local edit, so
+  `OnChangePlugin` debounce-saves the new `contentJson` and the decorator unmounts —
+  no extra client persistence code.
+- **GOTCHA — `mirrorVisualNodes` only created/updated rows, so a removed node left an
+  ORPHAN `Visual` row.** US-013 added a prune step at the END of `mirrorVisualNodes`
+  (`actions.ts`): collect every live node anchor (`liveAnchors`) during the upsert
+  loop, then `prisma.visual.deleteMany({ where: { documentId, anchorBlockId: { not:
+  null, notIn: [...liveAnchors] } } })`. `not: null` protects the document-level visual
+  (`anchorBlockId` null), and `notIn` keeps rows whose anchor is still present — so
+  removing one card deletes ONLY its mirrored row; other content/visuals are untouched.
+  This is the canonical "derived mirror must also delete" pattern: whenever the source
+  of truth (`contentJson`) drops an item, prune its projection in the same save.
+- **Browser QA (mock-Azure :5599 + collab server, headless):** at
+  `/app/lexical-preview` insert a visual via the US-010 spark flow, click
+  `[aria-label="Edit visual"]`, assert `[aria-label="Replace visual"]` +
+  `[aria-label="Remove visual"]` both exist; click Remove → the `[aria-label="Document
+  body"] svg[role="img"]` count drops to 0 and the surrounding paragraph text is
+  preserved; `page.reload()` confirms persistence; a root-level `tsx` DB check
+  (`PrismaBetterSqlite3`) shows the doc's `Visual` rows are now `[]` and `contentJson`
+  block types dropped the `visual` node (only `["paragraph"]` remains).
