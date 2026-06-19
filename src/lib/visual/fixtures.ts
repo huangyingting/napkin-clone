@@ -354,6 +354,147 @@ const funnel: Visual = {
   edges: [],
 };
 
+const venn: Visual = {
+  version: VISUAL_SCHEMA_VERSION,
+  type: "venn",
+  title: "Product overlap",
+  width: 640,
+  height: 480,
+  style: { ...DEFAULT_STYLE },
+  nodes: [
+    {
+      id: "design",
+      label: "Design",
+      x: 240,
+      y: 220,
+      width: 280,
+      height: 280,
+    },
+    {
+      id: "engineering",
+      label: "Engineering",
+      x: 400,
+      y: 220,
+      width: 280,
+      height: 280,
+    },
+    {
+      id: "business",
+      label: "Business",
+      x: 320,
+      y: 320,
+      width: 280,
+      height: 280,
+    },
+  ],
+  edges: [],
+};
+
+const pyramid: Visual = {
+  version: VISUAL_SCHEMA_VERSION,
+  type: "pyramid",
+  title: "Maslow's hierarchy",
+  width: 600,
+  height: 460,
+  style: { ...DEFAULT_STYLE },
+  nodes: [
+    { id: "self", label: "Self-actualisation" },
+    { id: "esteem", label: "Esteem" },
+    { id: "love", label: "Love & belonging" },
+    { id: "safety", label: "Safety" },
+    { id: "phys", label: "Physiological" },
+  ],
+  edges: [],
+};
+
+const matrix: Visual = {
+  version: VISUAL_SCHEMA_VERSION,
+  type: "matrix",
+  title: "BCG growth-share matrix",
+  width: 640,
+  height: 480,
+  style: { ...DEFAULT_STYLE },
+  nodes: [
+    { id: "star", label: "Stars", value: 0 },
+    { id: "question", label: "Question Marks", value: 1 },
+    { id: "cow", label: "Cash Cows", value: 2 },
+    { id: "dog", label: "Dogs", value: 3 },
+  ],
+  edges: [],
+};
+
+const orgchart: Visual = {
+  version: VISUAL_SCHEMA_VERSION,
+  type: "orgchart",
+  title: "Engineering org",
+  width: 720,
+  height: 460,
+  style: { ...DEFAULT_STYLE },
+  nodes: [
+    {
+      id: "ceo",
+      label: "CEO",
+      x: 360,
+      y: 70,
+      width: 150,
+      height: 56,
+      shape: "rounded",
+    },
+    {
+      id: "cto",
+      label: "CTO",
+      x: 180,
+      y: 200,
+      width: 150,
+      height: 56,
+      shape: "rounded",
+    },
+    {
+      id: "cfo",
+      label: "CFO",
+      x: 540,
+      y: 200,
+      width: 150,
+      height: 56,
+      shape: "rounded",
+    },
+    {
+      id: "eng1",
+      label: "Frontend Lead",
+      x: 90,
+      y: 340,
+      width: 150,
+      height: 56,
+      shape: "rounded",
+    },
+    {
+      id: "eng2",
+      label: "Backend Lead",
+      x: 270,
+      y: 340,
+      width: 150,
+      height: 56,
+      shape: "rounded",
+    },
+    {
+      id: "fin1",
+      label: "Controller",
+      x: 540,
+      y: 340,
+      width: 150,
+      height: 56,
+      shape: "rounded",
+    },
+  ],
+  edges: [
+    { id: "o1", from: "ceo", to: "cto" },
+    { id: "o2", from: "ceo", to: "cfo" },
+    { id: "o3", from: "cto", to: "eng1" },
+    { id: "o4", from: "cto", to: "eng2" },
+    { id: "o5", from: "cfo", to: "fin1" },
+  ],
+};
+
 /** All sample fixtures keyed by visual kind. */
 export const FIXTURES: Record<VisualKind, Visual> = {
   flowchart,
@@ -365,6 +506,10 @@ export const FIXTURES: Record<VisualKind, Visual> = {
   cycle,
   comparison,
   funnel,
+  venn,
+  pyramid,
+  matrix,
+  orgchart,
 };
 
 /** Sample fixtures in the canonical {@link VISUAL_KINDS} order. */
@@ -650,6 +795,116 @@ function blankFunnel(): Visual {
   };
 }
 
+function blankVenn(): Visual {
+  return {
+    version: VISUAL_SCHEMA_VERSION,
+    type: "venn",
+    title: "Venn diagram",
+    width: 560,
+    height: 440,
+    style: { ...DEFAULT_STYLE },
+    nodes: [
+      {
+        id: "v1",
+        label: "Set A",
+        x: 210,
+        y: 200,
+        width: 240,
+        height: 240,
+      },
+      {
+        id: "v2",
+        label: "Set B",
+        x: 350,
+        y: 200,
+        width: 240,
+        height: 240,
+      },
+    ],
+    edges: [],
+  };
+}
+
+function blankPyramid(): Visual {
+  return {
+    version: VISUAL_SCHEMA_VERSION,
+    type: "pyramid",
+    title: "Pyramid",
+    width: 560,
+    height: 420,
+    style: { ...DEFAULT_STYLE },
+    nodes: [
+      { id: "p1", label: "Level 1" },
+      { id: "p2", label: "Level 2" },
+      { id: "p3", label: "Level 3" },
+      { id: "p4", label: "Level 4" },
+    ],
+    edges: [],
+  };
+}
+
+function blankMatrix(): Visual {
+  return {
+    version: VISUAL_SCHEMA_VERSION,
+    type: "matrix",
+    title: "2×2 matrix",
+    width: 560,
+    height: 440,
+    style: { ...DEFAULT_STYLE },
+    nodes: [
+      { id: "q0", label: "Quadrant A", value: 0 },
+      { id: "q1", label: "Quadrant B", value: 1 },
+      { id: "q2", label: "Quadrant C", value: 2 },
+      { id: "q3", label: "Quadrant D", value: 3 },
+    ],
+    edges: [],
+  };
+}
+
+function blankOrgchart(): Visual {
+  return {
+    version: VISUAL_SCHEMA_VERSION,
+    type: "orgchart",
+    title: "Org chart",
+    width: 560,
+    height: 380,
+    style: { ...DEFAULT_STYLE },
+    nodes: [
+      {
+        id: "root",
+        label: "Leader",
+        x: 280,
+        y: 70,
+        width: 150,
+        height: 56,
+        shape: "rounded",
+      },
+      {
+        id: "c1",
+        label: "Report A",
+        x: 140,
+        y: 210,
+        width: 150,
+        height: 56,
+        shape: "rounded",
+      },
+      {
+        id: "c2",
+        label: "Report B",
+        x: 420,
+        y: 210,
+        width: 150,
+        height: 56,
+        shape: "rounded",
+      },
+    ],
+    edges: [
+      { id: "o1", from: "root", to: "c1" },
+      { id: "o2", from: "root", to: "c2" },
+    ],
+  };
+}
+
 const BLANK_BUILDERS: Record<VisualKind, () => Visual> = {
   flowchart: blankFlowchart,
   mindmap: blankMindmap,
@@ -660,4 +915,8 @@ const BLANK_BUILDERS: Record<VisualKind, () => Visual> = {
   cycle: blankCycle,
   comparison: blankComparison,
   funnel: blankFunnel,
+  venn: blankVenn,
+  pyramid: blankPyramid,
+  matrix: blankMatrix,
+  orgchart: blankOrgchart,
 };

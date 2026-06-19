@@ -87,6 +87,13 @@ const KIND_GUIDANCE: Record<VisualKind, string> = {
     "comparison: side-by-side columns of grouped items; set each node's `value` to its column index (0, 1, 2, …) to group nodes into columns; the FIRST node in each column is the column title and the rest are its items; x/y and edges may be omitted.",
   funnel:
     "funnel: stacked stages that narrow downward; order nodes from widest (top) to narrowest (bottom) and give each a decreasing numeric `value` that drives its band width; x/y and edges may be omitted.",
+  venn: "venn: 2–3 overlapping sets; set x/y to the center of each circle and `width` to its diameter (circles should partially overlap); no edges needed; 2 circles for simple overlap, 3 for triple overlap.",
+  pyramid:
+    "pyramid: stacked hierarchy levels — apex (top, narrowest) to base (bottom, widest); order nodes from apex to base (first node = top level, last = base level); no x/y or edges needed (widths are derived from position).",
+  matrix:
+    "matrix: 2×2 quadrant grid; set each node's `value` to its quadrant index (0=top-left, 1=top-right, 2=bottom-left, 3=bottom-right); multiple nodes can share a quadrant; x/y and edges may be omitted.",
+  orgchart:
+    "orgchart: hierarchical tree of roles or entities; set node x/y to lay it out top-to-bottom (root at top, leaves at bottom); add edges from each parent to its direct reports; use shape `rounded` for all nodes.",
 };
 
 const ICON_NAMES = ICON_CATALOG.map((entry) => entry.name);

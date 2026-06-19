@@ -72,6 +72,8 @@ const POSITIONED_KINDS = new Set<VisualKind>([
   "flowchart",
   "mindmap",
   "concept",
+  "venn",
+  "orgchart",
 ]);
 
 /** Whether a kind lays out nodes by explicit `x`/`y` (and thus supports drag). */
@@ -536,6 +538,152 @@ export function funnelLayout(visual: Visual): FunnelLayout {
   return { marginX, top, cx, bandHeight, bandGap, bands };
 }
 
+export interface PyramidBand {
+  node: VisualNode;
+  index: number;
+  /** Band center X (the canvas center). */
+  cx: number;
+  /** Band top edge Y. */
+  bandY: number;
+  /** Band center Y. */
+  centerY: number;
+  bandHeight: number;
+  /** Width at the band's top edge. */
+  topWidth: number;
+  /** Width at the band's bottom edge. */
+  bottomWidth: number;
+}
+
+export interface PyramidLayout {
+  marginX: number;
+  top: number;
+  cx: number;
+  bandHeight: number;
+  bandGap: number;
+  bands: PyramidBand[];
+}
+
+/**
+ * Pyramid geometry — bands stacked top-to-bottom in node order, each a
+ * trapezoid whose width widens linearly from apex (first node) to base (last
+ * node). Mirrors `Pyramid` in the renderer exactly.
+ */
+export function pyramidLayout(visual: Visual): PyramidLayout {
+  const marginX = 44;
+  const top = 28;
+  const bottom = 28;
+  const bandGap = 6;
+  const minFrac = 0.12;
+  const maxFrac = 0.96;
+  const cx = visual.width / 2;
+  const count = Math.max(visual.nodes.length, 1);
+  const plotHeight = visual.height - top - bottom;
+  const bandHeight = (plotHeight - bandGap * (count - 1)) / count;
+  const plotWidth = visual.width - marginX * 2;
+
+  const bands: PyramidBand[] = visual.nodes.map((node, index) => {
+    const frac =
+      count === 1
+        ? maxFrac
+        : minFrac + (maxFrac - minFrac) * (index / (count - 1));
+    const nextFrac =
+      count === 1
+        ? maxFrac
+        : index < count - 1
+          ? minFrac + (maxFrac - minFrac) * ((index + 1) / (count - 1))
+          : maxFrac;
+    const bandY = top + index * (bandHeight + bandGap);
+    return {
+      node,
+      index,
+      cx,
+      bandY,
+      centerY: bandY + bandHeight / 2,
+      bandHeight,
+      topWidth: frac * plotWidth,
+      bottomWidth: nextFrac * plotWidth,
+    };
+  });
+
+  return { marginX, top, cx, bandHeight, bandGap, bands };
+}
+
+export interface MatrixQuadrant {
+  /** 0=top-left, 1=top-right, 2=bottom-left, 3=bottom-right */
+  quadrant: number;
+  nodes: VisualNode[];
+  /** Quadrant left edge X. */
+  cellX: number;
+  /** Quadrant top edge Y. */
+  cellY: number;
+  /** Quadrant center X. */
+  centerX: number;
+  /** Quadrant center Y. */
+  centerY: number;
+  cellWidth: number;
+  cellHeight: number;
+}
+
+export interface MatrixLayout {
+  margin: number;
+  /** X coordinate of the vertical divider. */
+  dividerX: number;
+  /** Y coordinate of the horizontal divider. */
+  dividerY: number;
+  cellWidth: number;
+  cellHeight: number;
+  quadrants: MatrixQuadrant[];
+}
+
+/**
+ * Matrix geometry — a 2×2 grid. Nodes are grouped by their rounded `node.value`
+ * (0=top-left, 1=top-right, 2=bottom-left, 3=bottom-right; defaults to 0).
+ * The first node in each occupied quadrant is the quadrant title. Mirrors
+ * `MatrixScene` in the renderer exactly.
+ */
+export function matrixLayout(visual: Visual): MatrixLayout {
+  const margin = 28;
+  const gap = 12;
+  const cellWidth = (visual.width - margin * 2 - gap) / 2;
+  const cellHeight = (visual.height - margin * 2 - gap) / 2;
+  const dividerX = margin + cellWidth + gap / 2;
+  const dividerY = margin + cellHeight + gap / 2;
+
+  const groups = new Map<number, VisualNode[]>([
+    [0, []],
+    [1, []],
+    [2, []],
+    [3, []],
+  ]);
+  for (const node of visual.nodes) {
+    const q = Math.min(3, Math.max(0, Math.round(node.value ?? 0)));
+    groups.get(q)!.push(node);
+  }
+
+  const cellOrigins: [number, number][] = [
+    [margin, margin],
+    [margin + cellWidth + gap, margin],
+    [margin, margin + cellHeight + gap],
+    [margin + cellWidth + gap, margin + cellHeight + gap],
+  ];
+
+  const quadrants: MatrixQuadrant[] = [0, 1, 2, 3].map((q) => {
+    const [cellX, cellY] = cellOrigins[q];
+    return {
+      quadrant: q,
+      nodes: groups.get(q)!,
+      cellX,
+      cellY,
+      centerX: cellX + cellWidth / 2,
+      centerY: cellY + cellHeight / 2,
+      cellWidth,
+      cellHeight,
+    };
+  });
+
+  return { margin, dividerX, dividerY, cellWidth, cellHeight, quadrants };
+}
+
 /**
  * Hit-box per node id for the interactive editor's overlay. For positioned
  * kinds it's the node's shape box; for charts it's the full bar column; for
@@ -615,6 +763,34 @@ export function nodeBoxes(visual: Visual): Map<string, NodeBox> {
         width: Math.max(band.topWidth, band.bottomWidth),
         height: band.bandHeight,
       });
+    }
+    return boxes;
+  }
+
+  if (visual.type === "pyramid") {
+    const layout = pyramidLayout(visual);
+    for (const band of layout.bands) {
+      boxes.set(band.node.id, {
+        x: band.cx,
+        y: band.centerY,
+        width: Math.max(band.topWidth, band.bottomWidth),
+        height: band.bandHeight,
+      });
+    }
+    return boxes;
+  }
+
+  if (visual.type === "matrix") {
+    const layout = matrixLayout(visual);
+    for (const quad of layout.quadrants) {
+      for (const node of quad.nodes) {
+        boxes.set(node.id, {
+          x: quad.centerX,
+          y: quad.centerY,
+          width: quad.cellWidth,
+          height: quad.cellHeight,
+        });
+      }
     }
     return boxes;
   }
