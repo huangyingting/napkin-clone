@@ -29,6 +29,7 @@ import { useLexicalCollaboration } from "@/lib/collab/use-lexical-collaboration"
 
 import { saveDocumentLexical } from "./actions";
 import { BlockInsertMenuPlugin } from "./block-insert-menu";
+import { BlockSparkPlugin } from "./block-spark";
 import { FloatingToolbarPlugin } from "./floating-toolbar";
 import { Presence } from "./presence";
 import { VisualNode } from "./visual-node";
@@ -217,6 +218,7 @@ export function LexicalEditor({
             <LinkPlugin />
             <HorizontalRulePlugin />
             <BlockInsertMenuPlugin />
+            <BlockSparkPlugin />
             <FloatingToolbarPlugin />
             <OnChangePlugin
               onChange={handleChange}
