@@ -40,6 +40,7 @@ import { BlockSparkPlugin } from "./block-spark";
 import type { CommentThread } from "./comments-actions";
 import { CommentsPanel, type AnchorNode } from "./comments-panel";
 import { DocumentExportButton } from "@/components/editor/document-export-button";
+import { PageBreakIndicator } from "@/components/editor/page-break-indicator";
 import { VisualSvgRegistryProvider } from "@/components/editor/visual-svg-registry";
 import { FloatingTextToolbar } from "./floating-text-toolbar";
 import { ImportPlugin } from "./import-plugin";
@@ -275,6 +276,11 @@ export function LexicalEditor({
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestJsonRef = useRef<string | null>(null);
 
+  // Ref for the editor content area — used by PageBreakIndicator.
+  const contentAreaRef = useRef<HTMLDivElement | null>(null);
+  // Page break indicators are shown by default at A4 size and can be toggled off.
+  const [showPageBreaks, setShowPageBreaks] = useState(false);
+
   // Collaborative, autosaved document title (parity with the old editor). The
   // body is bound by `@lexical/yjs`; the title is a separate shared text bound
   // via `useYText` and persisted with a debounced save.
@@ -460,6 +466,40 @@ export function LexicalEditor({
                 <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
                   <Presence peers={collab.peers} status={collab.status} />
                   {canEdit && <ImportPlugin />}
+                  <button
+                    type="button"
+                    title={
+                      showPageBreaks
+                        ? "Hide page-break indicators"
+                        : "Show page-break indicators (A4)"
+                    }
+                    aria-label={
+                      showPageBreaks
+                        ? "Hide page-break indicators"
+                        : "Show page-break indicators"
+                    }
+                    aria-pressed={showPageBreaks}
+                    onClick={() => setShowPageBreaks((v) => !v)}
+                    className={[
+                      "flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs font-medium transition",
+                      showPageBreaks
+                        ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
+                        : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200",
+                    ].join(" ")}
+                  >
+                    <svg
+                      viewBox="0 0 16 16"
+                      aria-hidden="true"
+                      className="h-3.5 w-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                    >
+                      <path d="M2 5h12M2 11h12" />
+                    </svg>
+                    Pages
+                  </button>
                   <DocumentExportButton documentTitle={title.value} />
                   <ShareButton
                     id={documentId}
@@ -493,7 +533,16 @@ export function LexicalEditor({
 
               <div className="flex flex-1 justify-center px-6 py-8">
                 <div className="w-full max-w-3xl">
-                  <div className="relative rounded-2xl border border-black/[.06] bg-white p-6 dark:border-white/[.08] dark:bg-zinc-950">
+                  <div
+                    ref={contentAreaRef}
+                    className="relative rounded-2xl border border-black/[.06] bg-white p-6 dark:border-white/[.08] dark:bg-zinc-950"
+                  >
+                    {showPageBreaks && (
+                      <PageBreakIndicator
+                        contentRef={contentAreaRef}
+                        pageSize="a4"
+                      />
+                    )}
                     <EditorContextProvider>
                       <RichTextPlugin
                         contentEditable={

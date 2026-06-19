@@ -94,6 +94,17 @@ export const TEXT_ALIGNS = ["left", "center", "right"] as const;
 
 export type TextAlign = (typeof TEXT_ALIGNS)[number];
 
+/** Aspect-ratio preset for per-visual export letterboxing. `"auto"` keeps natural dimensions. */
+export const ASPECT_RATIO_PRESETS = ["16:9", "1:1", "4:5", "auto"] as const;
+
+export type AspectRatioPreset = (typeof ASPECT_RATIO_PRESETS)[number];
+
+/** Canvas background style. `"blank"` is a solid fill; `"ruled"` adds horizontal
+ * guide lines; `"dot-grid"` adds a dot-matrix grid. */
+export const CANVAS_STYLES = ["blank", "ruled", "dot-grid"] as const;
+
+export type CanvasStyle = (typeof CANVAS_STYLES)[number];
+
 /** A single node. `x`/`y` are the node **center** in canvas coordinates. */
 export interface VisualNode {
   id: string;
@@ -172,6 +183,10 @@ export interface Visual {
   nodes: VisualNode[];
   edges: VisualEdge[];
   style: VisualStyle;
+  /** Aspect-ratio preset. Controls export canvas letterboxing. Defaults to `"auto"`. */
+  aspectRatio?: AspectRatioPreset;
+  /** Canvas background style. Defaults to `"blank"`. */
+  canvasStyle?: CanvasStyle;
 }
 
 export const DEFAULT_NODE_WIDTH = 150;
@@ -280,6 +295,22 @@ export function isTextAlign(value: unknown): value is TextAlign {
   return (
     typeof value === "string" &&
     (TEXT_ALIGNS as readonly string[]).includes(value)
+  );
+}
+
+export function isAspectRatioPreset(
+  value: unknown,
+): value is AspectRatioPreset {
+  return (
+    typeof value === "string" &&
+    (ASPECT_RATIO_PRESETS as readonly string[]).includes(value)
+  );
+}
+
+export function isCanvasStyle(value: unknown): value is CanvasStyle {
+  return (
+    typeof value === "string" &&
+    (CANVAS_STYLES as readonly string[]).includes(value)
   );
 }
 
@@ -593,6 +624,13 @@ export function validateVisual(input: unknown): Visual {
     nodes,
     edges,
     style: normalizeStyle(input.style),
+    // Optional frame settings — forgiving (unknown values silently dropped).
+    ...(isAspectRatioPreset(input.aspectRatio)
+      ? { aspectRatio: input.aspectRatio }
+      : {}),
+    ...(isCanvasStyle(input.canvasStyle)
+      ? { canvasStyle: input.canvasStyle }
+      : {}),
   };
 }
 

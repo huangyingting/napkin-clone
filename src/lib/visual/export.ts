@@ -21,6 +21,7 @@ import {
 import {
   buildTransformedSvgString,
   computeExportDimensions,
+  computeLetterboxedDimensions,
   DEFAULT_EXPORT_OPTIONS,
   type ExportOptions,
 } from "@/lib/visual/export-options";
@@ -61,7 +62,14 @@ export async function exportPNG(
     try {
       // Get the SVG's viewBox to determine dimensions
       const viewBox = svgElement.viewBox.baseVal;
-      const { width, height } = computeExportDimensions(viewBox, opts.scale);
+      const { canvasW, canvasH } = computeLetterboxedDimensions(
+        viewBox,
+        opts.aspectRatio,
+      );
+      const { width, height } = computeExportDimensions(
+        { width: canvasW, height: canvasH },
+        opts.scale,
+      );
 
       if (width === 0 || height === 0) {
         resolve(null);
@@ -146,8 +154,12 @@ export async function exportPDF(
   try {
     // Get the SVG's viewBox to determine dimensions
     const viewBox = svgElement.viewBox.baseVal;
-    const width = viewBox.width;
-    const height = viewBox.height;
+    const { canvasW, canvasH } = computeLetterboxedDimensions(
+      viewBox,
+      opts.aspectRatio,
+    );
+    const width = canvasW;
+    const height = canvasH;
 
     if (width === 0 || height === 0) {
       return null;

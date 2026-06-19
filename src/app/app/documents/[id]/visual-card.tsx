@@ -1,5 +1,6 @@
 "use client";
 
+import { Download } from "lucide-react";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { $getNodeByKey } from "lexical";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -9,6 +10,11 @@ import { useCardMotion } from "@/components/motion/reveal";
 import { FOCUS_RING } from "@/components/motion/control-styles";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
+import {
+  DEFAULT_EXPORT_OPTIONS,
+  exportPNG,
+  downloadBlob,
+} from "@/lib/visual/export";
 
 import { useRegisterVisualSvg } from "@/components/editor/visual-svg-registry";
 
@@ -162,6 +168,27 @@ export function VisualCard({
   // `selectedNode`/reposition effect) re-run on every render and loop with their
   // own setState calls.
   const parsed = useMemo(() => safeParseVisual(visual), [visual]);
+
+  // Quick-download: export the visual as PNG on the download icon click.
+  const quickDownload = useCallback(
+    async (event: React.MouseEvent) => {
+      event.stopPropagation();
+      const svg = rendererRef.current;
+      if (!svg || !parsed.success) return;
+      const visualData = parsed.data;
+      const opts = {
+        ...DEFAULT_EXPORT_OPTIONS,
+        aspectRatio: visualData.aspectRatio,
+      };
+      const blob = await exportPNG(svg, opts);
+      if (blob) {
+        const filename = (visualData.title?.trim() || "visual") + ".png";
+        downloadBlob(blob, filename);
+      }
+    },
+    [parsed],
+  );
+
   if (!parsed.success) {
     return (
       <div
@@ -203,22 +230,37 @@ export function VisualCard({
           />
         </div>
       ) : editable ? (
-        <button
-          type="button"
-          aria-label="Edit visual"
-          // Prevent the button from grabbing focus from the editor on click
-          // (avoids a focus flash as it unmounts into the editing controls)
-          // while still firing `onClick`; keyboard activation is unaffected.
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={selectVisual}
-          className={`${cardClass} block w-full cursor-pointer text-left hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))] ${FOCUS_RING}`}
-        >
-          <VisualRenderer
-            ref={rendererRef}
-            visual={data}
-            className="pointer-events-none block h-auto w-full"
-          />
-        </button>
+        <div className="group relative">
+          <button
+            type="button"
+            aria-label="Edit visual"
+            // Prevent the button from grabbing focus from the editor on click
+            // (avoids a focus flash as it unmounts into the editing controls)
+            // while still firing `onClick`; keyboard activation is unaffected.
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={selectVisual}
+            className={`${cardClass} block w-full cursor-pointer text-left hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))] ${FOCUS_RING}`}
+          >
+            <VisualRenderer
+              ref={rendererRef}
+              visual={data}
+              className="pointer-events-none block h-auto w-full"
+            />
+          </button>
+          {/* Quick-download button — visible on hover */}
+          <button
+            type="button"
+            aria-label="Download visual as PNG"
+            title="Download PNG"
+            onClick={(e) => void quickDownload(e)}
+            className={[
+              "absolute bottom-3 right-3 flex h-7 w-7 items-center justify-center rounded-full border border-[var(--ds-border,rgba(0,0,0,0.1))] bg-white/90 text-[var(--ds-text-muted,#6f7d83)] opacity-0 shadow-sm backdrop-blur-sm transition hover:text-[var(--ds-text,#18181b)] group-hover:opacity-100",
+              FOCUS_RING,
+            ].join(" ")}
+          >
+            <Download aria-hidden="true" className="h-3.5 w-3.5" />
+          </button>
+        </div>
       ) : (
         <div className={cardClass}>
           <VisualRenderer
