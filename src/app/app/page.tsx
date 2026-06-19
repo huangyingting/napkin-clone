@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 
 import { excerpt, readingTimeMinutes } from "@/lib/document-stats";
+import { createTranslator } from "@/lib/i18n";
+import { getLocale } from "@/lib/i18n/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
@@ -25,6 +27,8 @@ const primaryButtonClass =
 
 export default async function DashboardPage() {
   const user = await requireUser();
+  const locale = await getLocale();
+  const t = createTranslator(locale);
 
   // Opportunistically purge documents soft-deleted beyond the retention window.
   await purgeDeletedDocuments();
@@ -142,16 +146,17 @@ export default async function DashboardPage() {
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1">
             <h1 className="text-2xl font-semibold tracking-tight text-ghost-text">
-              Your documents
+              {t("dashboard.title")}
             </h1>
             <p className="text-sm text-ghost-secondary">
-              Signed in as{" "}
-              <span className="font-medium text-ghost-text">{user.email}</span>
+              {t("dashboard.subtitle", user.email ?? "")}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <ImportDocumentButton className={`${primaryButtonClass} gap-2`} />
-            <NewDocumentButton className={primaryButtonClass} enableShortcut />
+            <NewDocumentButton className={primaryButtonClass} enableShortcut>
+              {t("dashboard.action.newDocument")}
+            </NewDocumentButton>
           </div>
         </header>
 

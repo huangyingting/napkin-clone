@@ -154,6 +154,7 @@ const SYSTEM_PROMPT = [
   "- Lay positioned types out without overlaps; keep all coordinates within width/height.",
   "- If you include `icon`, it MUST be one of the listed catalog names exactly.",
   "- Return DISTINCT candidates that take different structural approaches.",
+  "- LANGUAGE: All node labels, edge labels, and visual titles MUST be written in the SAME LANGUAGE as the source text. Do NOT translate content into English or any other language.",
 ].join("\n");
 
 const ORIENTATION_GUIDANCE: Record<Exclude<Orientation, "auto">, string> = {

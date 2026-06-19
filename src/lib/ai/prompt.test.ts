@@ -198,3 +198,47 @@ test("all three new options can be combined in a single prompt", () => {
   assert.match(user, /Expand the source text fully/);
   assert.match(user, /Preserve the user's original wording/);
 });
+
+// ── Language-preservation (multi-language support) ───────────────────────────
+
+test("system prompt contains language-preservation rule", () => {
+  const system =
+    buildGenerationMessages({ text: "Hola mundo", count: 3 })[0]?.content ?? "";
+
+  assert.match(system, /LANGUAGE:/);
+  assert.match(system, /SAME LANGUAGE as the source text/);
+  assert.match(system, /Do NOT translate/);
+});
+
+test("language-preservation rule is present regardless of builder options", () => {
+  const cases: Parameters<typeof buildGenerationMessages>[0][] = [
+    { text: "Plan the sprint", count: 1 },
+    { text: "计划冲刺", count: 2, type: "flowchart" },
+    {
+      text: "Planifier le sprint",
+      count: 3,
+      orientation: "horizontal",
+      detailLevel: "detailed",
+      stayCloserToText: true,
+    },
+  ];
+
+  for (const opts of cases) {
+    const system = buildGenerationMessages(opts)[0]?.content ?? "";
+    assert.match(
+      system,
+      /SAME LANGUAGE as the source text/,
+      `language rule missing for options: ${JSON.stringify(opts)}`,
+    );
+  }
+});
+
+test("system prompt language rule applies to node labels, edge labels, and titles", () => {
+  const system =
+    buildGenerationMessages({ text: "Bonjour le monde", count: 2 })[0]
+      ?.content ?? "";
+
+  assert.match(system, /node labels/);
+  assert.match(system, /edge labels/);
+  assert.match(system, /visual titles/);
+});
