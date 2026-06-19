@@ -78,9 +78,18 @@ function firstTextNode(editor: LexicalEditor): {
     const text = block.getFirstChild();
     assert.ok(text && $isTextNode(text), "expected a leaf TextNode");
     const formats = new Set<TextFormatType>(
-      (["bold", "italic", "underline", "strikethrough", "code", "subscript", "superscript", "highlight"] as const).filter(
-        (f) => text.hasFormat(f),
-      ),
+      (
+        [
+          "bold",
+          "italic",
+          "underline",
+          "strikethrough",
+          "code",
+          "subscript",
+          "superscript",
+          "highlight",
+        ] as const
+      ).filter((f) => text.hasFormat(f)),
     );
     return { hasFormat: (f) => formats.has(f), style: text.getStyle() };
   });
@@ -123,7 +132,11 @@ test("inline code: formatText('code') marks the selected text node and toggles o
     },
     { discrete: true },
   );
-  assert.equal(firstTextNode(editor).hasFormat("code"), false, "code toggled off");
+  assert.equal(
+    firstTextNode(editor).hasFormat("code"),
+    false,
+    "code toggled off",
+  );
 });
 
 test("inline code: hasFormat('code') survives exportJSON → importJSON", () => {
@@ -244,7 +257,10 @@ test("color + highlight: inline style persists on the TextNode through exportJSO
   );
 
   const style = firstTextNode(editor).style;
-  assert.ok(style.includes("color: #e11d48"), "color present in source-of-truth style");
+  assert.ok(
+    style.includes("color: #e11d48"),
+    "color present in source-of-truth style",
+  );
   assert.ok(
     style.includes("background-color: #fde68a"),
     "highlight present in source-of-truth style",
@@ -282,7 +298,11 @@ test("color + highlight: patching to '' clears the style", () => {
     },
     { discrete: true },
   );
-  assert.notEqual(firstTextNode(editor).style, "", "style applied before clearing");
+  assert.notEqual(
+    firstTextNode(editor).style,
+    "",
+    "style applied before clearing",
+  );
 
   editor.update(
     () => {

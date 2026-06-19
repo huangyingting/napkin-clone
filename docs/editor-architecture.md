@@ -22,7 +22,7 @@ The editor is built around three ideas:
    [`EditorTool`](../src/lib/lexical/tool-registry.ts) entry. Surfaces render
    the subset of tools whose `when()` predicate matches the current snapshot.
 3. **Chrome and content are separate.** App chrome is themed with the `--ds-*`
-   design-system tokens; visual *content* colors live in the `Visual` payload
+   design-system tokens; visual _content_ colors live in the `Visual` payload
    and are independent of the chrome.
 
 The result: adding a formatting tool, a visual kind, or a theme is a small,
@@ -77,23 +77,23 @@ owns all selection derivation.
 
 Key `EditorContextSnapshot` fields:
 
-| Field | Meaning |
-| --- | --- |
-| `kind` | `range` \| `collapsed` \| `empty-block` \| `visual` \| `none` |
-| `editable` | mirrors `editor.isEditable()` |
-| `blockType` | `paragraph`/`h1`/`h2`/`h3`/`quote`/`bullet`/`number` |
-| `activeFormats` | `Set` of active inline formats (bold/italic/…/code) |
-| `elementFormat` | block alignment (`""` = inherited/left) |
-| `textColor` / `highlightColor` | inline color styles (`""` when unset) |
-| `isLink` | selection sits within a link |
-| `blockKey` | **live, transient** key of the active block |
-| `selectedVisualId` | **stable** id of a selected `VisualNode` (safe to persist) |
-| `selectedVisualNodeKey` | **live, transient** key of that node |
-| `rects` | `selection` + `block` `DOMRect` snapshots for positioning |
+| Field                          | Meaning                                                       |
+| ------------------------------ | ------------------------------------------------------------- |
+| `kind`                         | `range` \| `collapsed` \| `empty-block` \| `visual` \| `none` |
+| `editable`                     | mirrors `editor.isEditable()`                                 |
+| `blockType`                    | `paragraph`/`h1`/`h2`/`h3`/`quote`/`bullet`/`number`          |
+| `activeFormats`                | `Set` of active inline formats (bold/italic/…/code)           |
+| `elementFormat`                | block alignment (`""` = inherited/left)                       |
+| `textColor` / `highlightColor` | inline color styles (`""` when unset)                         |
+| `isLink`                       | selection sits within a link                                  |
+| `blockKey`                     | **live, transient** key of the active block                   |
+| `selectedVisualId`             | **stable** id of a selected `VisualNode` (safe to persist)    |
+| `selectedVisualNodeKey`        | **live, transient** key of that node                          |
+| `rects`                        | `selection` + `block` `DOMRect` snapshots for positioning     |
 
 The provider is read-only: it never calls `editor.update()`, never touches Yjs,
 and the only NodeKeys it exposes (`blockKey`, `selectedVisualNodeKey`) are
-*live, transient* keys meant for an immediate `editor.update()` — they are never
+_live, transient_ keys meant for an immediate `editor.update()` — they are never
 stored.
 
 ### ToolRegistry — data-driven tools
@@ -156,8 +156,8 @@ collaboration.
    keys, valid only within the current editor state. Anchor persistence uses the
    **stable** `visualId` instead (stored as a `Visual` row's `anchorBlockId`).
 3. **`contentJson` is the single source of truth.** The serialized Lexical state
-   is authoritative. The `Visual`/`VisualRevision` database rows are a *derived
-   mirror* of the `VisualNode`s inside it (see
+   is authoritative. The `Visual`/`VisualRevision` database rows are a _derived
+   mirror_ of the `VisualNode`s inside it (see
    [Visual lifecycle](#visual-lifecycle)) — used for share/embed pages,
    thumbnails, and history, never read back as primary state.
 4. **`--ds-*` chrome tokens are separate from visual-content `VisualStyle`.** The
@@ -231,7 +231,7 @@ Whole-visual and per-node edits are **pure transforms** in
 through `onChange(transform(visual, …))`:
 
 ```ts
-onChange(setVisualStyle(visual, { background: value }))
+onChange(setVisualStyle(visual, { background: value }));
 ```
 
 `VisualCard` applies the returned `Visual` via `node.setVisual(next)` inside
