@@ -21,10 +21,10 @@ export async function SiteHeader() {
     : null;
 
   return (
-    <header className="flex w-full items-center justify-between border-b border-black/[.06] bg-white/80 px-6 py-3 backdrop-blur dark:border-white/[.08] dark:bg-black/40">
+    <header className="flex w-full items-center justify-between border-b border-ghost-border bg-ghost-bg/80 px-6 py-3 backdrop-blur">
       <Link
         href="/"
-        className="text-base font-semibold tracking-tight text-zinc-900 dark:text-zinc-50"
+        className="text-base font-semibold tracking-tight text-ghost-text"
       >
         Napkin Clone
       </Link>
@@ -34,13 +34,13 @@ export async function SiteHeader() {
           <>
             <Link
               href="/app"
-              className="flex h-9 items-center justify-center rounded-full px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-900"
+              className="flex h-9 items-center justify-center rounded-full px-4 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
             >
               Documents
             </Link>
             <Link
               href="/app/workspaces"
-              className="flex h-9 items-center justify-center rounded-full px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-900"
+              className="flex h-9 items-center justify-center rounded-full px-4 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
             >
               Workspaces
             </Link>
@@ -48,7 +48,7 @@ export async function SiteHeader() {
             <UserMenu name={account.name} email={account.email}>
               <SignOutButton
                 role="menuitem"
-                className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className="block w-full px-3 py-2 text-left text-sm text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
               />
             </UserMenu>
           </>
@@ -56,13 +56,13 @@ export async function SiteHeader() {
           <>
             <Link
               href="/login"
-              className="flex h-9 items-center justify-center rounded-full px-4 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-900"
+              className="flex h-9 items-center justify-center rounded-full px-4 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
             >
               Log in
             </Link>
             <Link
               href="/signup"
-              className="flex h-9 items-center justify-center rounded-full bg-zinc-900 px-4 text-sm font-medium text-white transition hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+              className="flex h-9 items-center justify-center rounded-full bg-ghost-accent px-4 text-sm font-medium text-white transition hover:opacity-90"
             >
               Sign up
             </Link>

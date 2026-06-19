@@ -24,6 +24,7 @@ model User {
   ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
   memberships     WorkspaceMember[]
   comments        Comment[]
+  tags            Tag[]
 }
 
 model Workspace {
@@ -59,9 +60,11 @@ model Document {
   id          String   @id @default(cuid())
   title       String   @default("Untitled")
   content     String   @default("")
+  contentJson Json?
   ownerId     String
   workspaceId String?
   shareId     String?  @unique
+  slug        String?  @unique
   isShared    Boolean  @default(false)
   favorite    Boolean  @default(false)
   createdAt   DateTime @default(now())
@@ -72,11 +75,31 @@ model Document {
   workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   visuals   Visual[]
   comments  Comment[]
+  tags      Tag[]      @relation("DocumentTags")
 
   @@index([ownerId])
   @@index([workspaceId])
   @@index([shareId])
   @@index([deletedAt])
+}
+
+// Flat, owner-scoped tags for organizing documents. Tag names (and slugs) are
+// unique per owner; the many-to-many relation to Document uses an implicit
+// join table (`_DocumentTags`). The slug derives from slugify(name) (US-027).
+model Tag {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String
+  ownerId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner     User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  documents Document[] @relation("DocumentTags")
+
+  @@unique([ownerId, name])
+  @@unique([ownerId, slug])
+  @@index([ownerId])
 }
 
 model Visual {

@@ -5,8 +5,11 @@ import { revalidatePath } from "next/cache";
 
 import { Prisma } from "@/generated/prisma/client";
 import { getAccessibleDocument } from "@/lib/documents";
+import { collectVisualNodes } from "@/lib/lexical/visual-nodes";
+import { lexicalStateToPlainText } from "@/lib/lexical/plain-text";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
+import { buildShareSegment, slugify } from "@/lib/slug";
 import {
   VISUAL_KIND_TO_PRISMA,
   safeParseVisual,
@@ -22,6 +25,7 @@ const generateShareId = customAlphabet(
 
 const MAX_TITLE_LENGTH = 200;
 const MAX_CONTENT_LENGTH = 100_000;
+const MAX_LEXICAL_STATE_LENGTH = 2_000_000;
 const MAX_ANCHOR_BLOCK_ID_LENGTH = 200;
 
 // How many historical snapshots to retain per visual. Older ones are pruned in
@@ -121,6 +125,159 @@ export async function saveDocumentContent(
     where: { id, ownerId: user.id },
     data: { content: safeContent },
   });
+
+  revalidatePath("/app");
+}
+
+/**
+ * Mirrors every {@link VisualNode} in a serialized Lexical state to a `Visual`
+ * database row so that share/embed pages, dashboard thumbnails, and version
+ * history keep working — `contentJson` remains the editor's source of truth, and
+ * these rows are a derived projection of it.
+ *
+ * Each node is keyed by its stable `visualId` (stored as the row's
+ * `anchorBlockId`) and its document-order index is written to `orderIndex`. A
+ * row is created when missing, and only updated when the validated payload (or
+ * its order) actually changed — so a save that doesn't touch a visual records no
+ * spurious `VisualRevision` snapshot. Invalid payloads are skipped (never
+ * persisted). The document is assumed already access-scoped by the caller.
+ */
+async function mirrorVisualNodes(
+  documentId: string,
+  parsedState: unknown,
+): Promise<void> {
+  const nodes = collectVisualNodes(parsedState);
+
+  // Track the anchors still present so orphaned rows (e.g. a VisualNode that was
+  // removed from the editor, US-013) can be pruned after the upserts below.
+  const liveAnchors = new Set<string>();
+
+  for (let index = 0; index < nodes.length; index += 1) {
+    const node = nodes[index];
+
+    const anchor = normalizeAnchorBlockId(node.visualId);
+    if (!anchor) {
+      continue;
+    }
+    liveAnchors.add(anchor);
+
+    // Re-validate so a tampered/garbled payload can never be persisted.
+    const result = safeParseVisual(node.visual);
+    if (!result.success) {
+      continue;
+    }
+    const visual = result.data;
+    const type = VISUAL_KIND_TO_PRISMA[visual.type];
+    const title = visual.title ?? null;
+    const data = visual as unknown as Prisma.InputJsonValue;
+
+    const existing = await prisma.visual.findFirst({
+      where: { documentId, anchorBlockId: anchor },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        data: true,
+        type: true,
+        title: true,
+        orderIndex: true,
+      },
+    });
+
+    if (!existing) {
+      await prisma.visual.create({
+        data: {
+          documentId,
+          anchorBlockId: anchor,
+          orderIndex: index,
+          type,
+          title,
+          data,
+        },
+      });
+      continue;
+    }
+
+    // Only snapshot + rewrite the payload when it actually changed; compare via
+    // the normalized (re-validated) form so key-order differences don't count.
+    const previous = safeParseVisual(existing.data);
+    const payloadChanged =
+      !previous.success ||
+      JSON.stringify(previous.data) !== JSON.stringify(visual);
+
+    if (payloadChanged) {
+      await snapshotVisualRevision(existing);
+      await prisma.visual.update({
+        where: { id: existing.id },
+        data: { type, title, data, orderIndex: index },
+      });
+    } else if (existing.orderIndex !== index) {
+      await prisma.visual.update({
+        where: { id: existing.id },
+        data: { orderIndex: index },
+      });
+    }
+  }
+
+  // Prune mirrored rows whose VisualNode no longer exists in the editor state
+  // (US-013: removing a card deletes its mirrored Visual row). Only node-anchored
+  // rows are pruned — the document-level visual (`anchorBlockId` null) is left
+  // untouched, and `notIn` keeps any row whose anchor is still present.
+  await prisma.visual.deleteMany({
+    where: {
+      documentId,
+      anchorBlockId: { not: null, notIn: [...liveAnchors] },
+    },
+  });
+}
+
+/**
+ * Saves the serialized Lexical editor state for a document.
+ *
+ * `stateJson` is the stringified `editorState.toJSON()` from the client. The
+ * document is access-scoped via `getAccessibleDocument` (owner or workspace
+ * member) and written with `updateMany` so a foreign/forbidden id is a harmless
+ * no-op rather than a cross-user write. The parsed state is stored in
+ * `contentJson`, and a plain-text projection is written to `content` so AI block
+ * text, search, and the read-only fallback keep working off the same source.
+ *
+ * Malformed JSON is rejected (the client always sends valid serialized state).
+ */
+export async function saveDocumentLexical(
+  id: string,
+  stateJson: string,
+): Promise<void> {
+  const user = await requireUser();
+
+  if (stateJson.length > MAX_LEXICAL_STATE_LENGTH) {
+    throw new Error("Document is too large to save.");
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stateJson);
+  } catch {
+    throw new Error("Invalid editor state.");
+  }
+
+  const document = await getAccessibleDocument(user.id, id);
+  if (!document) {
+    throw new Error("Document not found.");
+  }
+
+  const content = lexicalStateToPlainText(parsed).slice(0, MAX_CONTENT_LENGTH);
+
+  await prisma.document.updateMany({
+    where: { id },
+    data: {
+      contentJson: parsed as Prisma.InputJsonValue,
+      content,
+    },
+  });
+
+  // Mirror embedded visual blocks to Visual rows so share/embed, dashboard
+  // thumbnails, and version history keep working off the editor's source of
+  // truth (contentJson).
+  await mirrorVisualNodes(id, parsed);
 
   revalidatePath("/app");
 }
@@ -346,26 +503,72 @@ export async function toggleDocumentSharing(
 ): Promise<{
   isShared: boolean;
   shareId: string | null;
+  slug: string | null;
   shareUrl: string | null;
 }> {
   const user = await requireUser();
 
-  // Generate a new shareId when enabling, clear it when disabling.
+  // Generate a new shareId when enabling, clear it when disabling. When
+  // enabling, also derive a readable (decorative) slug from the document title
+  // for the share URL; clear it when disabling.
   const shareId = isShared ? generateShareId() : null;
+
+  let slug: string | null = null;
+  if (isShared) {
+    const doc = await prisma.document.findFirst({
+      where: { id, ownerId: user.id },
+      select: { title: true },
+    });
+    if (doc) {
+      slug = await generateUniqueSlug(doc.title, id);
+    }
+  }
 
   await prisma.document.updateMany({
     where: { id, ownerId: user.id },
-    data: { isShared, shareId },
+    data: { isShared, shareId, slug },
   });
 
-  // Build the public URL when shared; null otherwise.
+  // Build the public URL when shared; null otherwise. The slug is decorative;
+  // the canonical shareId is always the part after the last hyphen.
   const shareUrl =
     isShared && shareId
-      ? `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/share/${shareId}`
+      ? `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/share/${buildShareSegment(slug, shareId)}`
       : null;
 
   revalidatePath(`/app/documents/${id}`);
   revalidatePath("/app");
 
-  return { isShared, shareId, shareUrl };
+  return { isShared, shareId, slug, shareUrl };
+}
+
+/**
+ * Generates a slug from `title` that is unique across documents (the
+ * `Document.slug` column is `@unique`). Tries the bare slugify result first,
+ * then appends `-2`, `-3`, … until free. Excludes the current document so
+ * re-sharing keeps a stable slug. Returns `null` when the title has no usable
+ * slug characters.
+ */
+async function generateUniqueSlug(
+  title: string,
+  currentDocId: string,
+): Promise<string | null> {
+  const base = slugify(title);
+  if (!base) {
+    return null;
+  }
+
+  let candidate = base;
+  for (let n = 2; n < 1000; n++) {
+    const existing = await prisma.document.findFirst({
+      where: { slug: candidate, NOT: { id: currentDocId } },
+      select: { id: true },
+    });
+    if (!existing) {
+      return candidate;
+    }
+    candidate = `${base}-${n}`;
+  }
+  // Extremely unlikely fallback: leave slug unset rather than loop forever.
+  return null;
 }

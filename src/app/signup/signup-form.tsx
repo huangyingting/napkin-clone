@@ -6,7 +6,7 @@ import { useActionState } from "react";
 import { register } from "./actions";
 
 const fieldClass =
-  "h-11 rounded-lg border border-black/10 bg-white px-3 text-sm text-zinc-900 outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200 dark:border-white/15 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:ring-zinc-800";
+  "h-11 rounded-lg border border-ghost-border bg-ghost-bg px-3 text-sm text-ghost-text outline-none transition focus:border-ghost-accent focus:ring-2 focus:ring-ghost-accent/30";
 
 export function SignupForm() {
   const [errorMessage, formAction, isPending] = useActionState(
@@ -17,11 +17,8 @@ export function SignupForm() {
   return (
     <form action={formAction} className="flex w-full flex-col gap-4">
       <div className="flex flex-col gap-1.5">
-        <label
-          htmlFor="name"
-          className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
-        >
-          Name <span className="text-zinc-400">(optional)</span>
+        <label htmlFor="name" className="text-sm font-medium text-ghost-text">
+          Name <span className="text-ghost-secondary">(optional)</span>
         </label>
         <input
           id="name"
@@ -34,10 +31,7 @@ export function SignupForm() {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label
-          htmlFor="email"
-          className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
-        >
+        <label htmlFor="email" className="text-sm font-medium text-ghost-text">
           Email
         </label>
         <input
@@ -54,7 +48,7 @@ export function SignupForm() {
       <div className="flex flex-col gap-1.5">
         <label
           htmlFor="password"
-          className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
+          className="text-sm font-medium text-ghost-text"
         >
           Password
         </label>
@@ -71,7 +65,7 @@ export function SignupForm() {
       </div>
 
       {errorMessage ? (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="text-sm text-ghost-red">
           {errorMessage}
         </p>
       ) : null}
@@ -79,16 +73,16 @@ export function SignupForm() {
       <button
         type="submit"
         disabled={isPending}
-        className="flex h-11 items-center justify-center rounded-full bg-zinc-900 px-6 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:opacity-60 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+        className="flex h-11 items-center justify-center rounded-full bg-ghost-accent px-6 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-60"
       >
         {isPending ? "Creating account…" : "Create account"}
       </button>
 
-      <p className="text-center text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="text-center text-sm text-ghost-secondary">
         Already have an account?{" "}
         <Link
           href="/login"
-          className="font-medium text-zinc-900 underline-offset-4 hover:underline dark:text-zinc-100"
+          className="font-medium text-ghost-accent underline-offset-4 hover:underline"
         >
           Log in
         </Link>

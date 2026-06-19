@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { markdownToLexicalState } from "@/lib/lexical/from-markdown";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
-import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
 import { listComments } from "./comments-actions";
-import { ContentEditor } from "./content-editor";
+import { LexicalEditor } from "./lexical-editor";
 
 export const metadata: Metadata = {
   title: "Editor — Napkin Clone",
@@ -42,10 +42,16 @@ export default async function DocumentEditorPage({
       id: true,
       title: true,
       content: true,
+      contentJson: true,
       isShared: true,
       shareId: true,
+      slug: true,
       ownerId: true,
       workspaceId: true,
+      tags: {
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, slug: true },
+      },
       workspace: {
         select: {
           name: true,
@@ -54,13 +60,6 @@ export default async function DocumentEditorPage({
             select: { role: true },
           },
         },
-      },
-      // All visuals for this document: the document-level one (anchorBlockId =
-      // null) renders in its own inline slot; block-anchored visuals render
-      // inline beneath their source block in the content-first editor (US-002).
-      visuals: {
-        orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }],
-        select: { anchorBlockId: true, data: true },
       },
     },
   });
@@ -75,41 +74,40 @@ export default async function DocumentEditorPage({
   const canEdit =
     isOwner || workspaceRole === "OWNER" || workspaceRole === "EDITOR";
 
-  // Tolerate legacy/garbled stored data: only pass through valid visuals. Split
-  // the document-level visual (anchorBlockId = null) — shown in its own inline
-  // slot — from block-anchored visuals, which render inline beneath their source
-  // block in document order (US-002). No new query: both come from the same rows.
-  let initialVisual: Visual | null = null;
-  const initialBlockVisuals: Record<string, Visual> = {};
-  for (const row of document.visuals) {
-    const parsed = safeParseVisual(row.data);
-    if (!parsed.success) {
-      continue;
-    }
-    if (row.anchorBlockId === null) {
-      initialVisual ??= parsed.data;
-    } else if (!(row.anchorBlockId in initialBlockVisuals)) {
-      initialBlockVisuals[row.anchorBlockId] = parsed.data;
-    }
-  }
+  // The Lexical editor's content (including inline visual cards) lives in
+  // `contentJson`. Legacy documents that only have Markdown `content` are
+  // converted on first open; the first edit then persists `contentJson`.
+  const initialStateJson = document.contentJson
+    ? JSON.stringify(document.contentJson)
+    : document.content
+      ? markdownToLexicalState(document.content)
+      : null;
 
   // Comment threads for everyone with access (owner + workspace members).
   const initialComments = await listComments(document.id);
 
+  // The acting user's tags, for the add-tag autocomplete suggestions.
+  const userTags = await prisma.tag.findMany({
+    where: { ownerId: user.id },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, slug: true },
+  });
+
   return (
-    <ContentEditor
-      id={document.id}
+    <LexicalEditor
+      documentId={document.id}
       initialTitle={document.title}
-      initialContent={document.content}
-      initialVisual={initialVisual}
-      initialBlockVisuals={initialBlockVisuals}
+      initialStateJson={initialStateJson}
       initialIsShared={document.isShared}
       initialShareId={document.shareId}
+      initialSlug={document.slug}
       canEdit={canEdit}
       workspaceName={document.workspace?.name}
       userName={user.name ?? user.email ?? "Anonymous"}
       currentUserId={user.id}
       initialComments={initialComments}
+      initialTags={document.tags}
+      allTags={userTags}
     />
   );
 }

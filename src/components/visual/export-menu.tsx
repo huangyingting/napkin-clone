@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 
+import { FOCUS_RING } from "@/components/motion/control-styles";
 import {
   downloadBlob,
   exportPDF,
@@ -140,13 +141,13 @@ export function ExportMenu({ getSvgElement, filename }: ExportMenuProps) {
         aria-label="Export visual"
         aria-haspopup="menu"
         aria-expanded={isOpen}
-        className="flex h-9 items-center gap-2 rounded-full border border-black/[.08] bg-white px-4 text-sm font-medium text-zinc-900 transition hover:border-black/20 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[.12] dark:bg-zinc-900 dark:text-white dark:hover:border-white/30 dark:hover:bg-zinc-800"
+        className={`flex h-9 items-center gap-2 rounded-full border border-black/[.08] bg-white px-4 text-sm font-medium text-zinc-900 transition hover:border-black/20 hover:bg-zinc-50 active:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[.12] dark:bg-zinc-900 dark:text-white dark:hover:border-white/30 dark:hover:bg-zinc-800 dark:active:bg-zinc-700 ${FOCUS_RING}`}
       >
         {exporting ? (
           <>
             <span
               aria-hidden="true"
-              className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
+              className="h-3.5 w-3.5 motion-safe:animate-spin rounded-full border-2 border-current border-t-transparent"
             />
             Exporting…
           </>
@@ -169,7 +170,7 @@ export function ExportMenu({ getSvgElement, filename }: ExportMenuProps) {
               type="button"
               role="menuitem"
               onClick={handleExportSVG}
-              className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 active:bg-zinc-200 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:active:bg-zinc-700 ${FOCUS_RING}`}
             >
               <span>SVG</span>
               <span className="text-xs text-zinc-400 dark:text-zinc-500">
@@ -183,7 +184,7 @@ export function ExportMenu({ getSvgElement, filename }: ExportMenuProps) {
               type="button"
               role="menuitem"
               onClick={() => handleExportPNG(1)}
-              className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 active:bg-zinc-200 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:active:bg-zinc-700 ${FOCUS_RING}`}
             >
               <span>PNG</span>
               <span className="text-xs text-zinc-400 dark:text-zinc-500">
@@ -195,7 +196,7 @@ export function ExportMenu({ getSvgElement, filename }: ExportMenuProps) {
               type="button"
               role="menuitem"
               onClick={() => handleExportPNG(2)}
-              className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 active:bg-zinc-200 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:active:bg-zinc-700 ${FOCUS_RING}`}
             >
               <span>PNG</span>
               <span className="text-xs text-zinc-400 dark:text-zinc-500">
@@ -209,7 +210,7 @@ export function ExportMenu({ getSvgElement, filename }: ExportMenuProps) {
               type="button"
               role="menuitem"
               onClick={handleExportPDF}
-              className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 active:bg-zinc-200 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:active:bg-zinc-700 ${FOCUS_RING}`}
             >
               <span>PDF</span>
               <span className="text-xs text-zinc-400 dark:text-zinc-500">
@@ -221,7 +222,7 @@ export function ExportMenu({ getSvgElement, filename }: ExportMenuProps) {
               type="button"
               role="menuitem"
               onClick={handleExportPPTX}
-              className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 active:bg-zinc-200 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:active:bg-zinc-700 ${FOCUS_RING}`}
             >
               <span>PPTX</span>
               <span className="text-xs text-zinc-400 dark:text-zinc-500">

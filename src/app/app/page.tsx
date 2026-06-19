@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 
+import { excerpt, readingTimeMinutes } from "@/lib/document-stats";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
+import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
 import { purgeDeletedDocuments } from "./actions";
 import { DocumentList } from "./document-list";
@@ -18,7 +20,7 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 const primaryButtonClass =
-  "flex h-10 items-center justify-center rounded-full bg-zinc-900 px-5 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:opacity-60 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200";
+  "flex h-10 items-center justify-center rounded-full bg-ghost-accent px-5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-60";
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -34,8 +36,18 @@ export default async function DashboardPage() {
       id: true,
       title: true,
       favorite: true,
+      content: true,
       createdAt: true,
       updatedAt: true,
+      visuals: {
+        orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }],
+        take: 1,
+        select: { data: true },
+      },
+      tags: {
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, slug: true },
+      },
     },
   });
 
@@ -53,8 +65,18 @@ export default async function DashboardPage() {
       id: true,
       title: true,
       favorite: true,
+      content: true,
       createdAt: true,
       updatedAt: true,
+      visuals: {
+        orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }],
+        take: 1,
+        select: { data: true },
+      },
+      tags: {
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, slug: true },
+      },
       workspace: { select: { name: true } },
     },
   });
@@ -64,35 +86,72 @@ export default async function DashboardPage() {
     ...workspaceDocuments,
   ].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 
-  const documents = allDocuments.map((document) => ({
-    id: document.id,
-    title: document.title,
-    favorite: document.favorite,
-    editedLabel: dateFormatter.format(document.updatedAt),
-    workspaceName: document.workspace?.name ?? null,
-    createdAtMs: document.createdAt.getTime(),
-    updatedAtMs: document.updatedAt.getTime(),
-  }));
+  const documents = allDocuments.map((document) => {
+    const firstVisual = document.visuals[0];
+    let thumbnail: Visual | null = null;
+    if (firstVisual) {
+      const parsed = safeParseVisual(firstVisual.data);
+      if (parsed.success) {
+        thumbnail = parsed.data;
+      }
+    }
+    const content = document.content ?? "";
+    return {
+      id: document.id,
+      title: document.title,
+      favorite: document.favorite,
+      editedLabel: dateFormatter.format(document.updatedAt),
+      workspaceName: document.workspace?.name ?? null,
+      thumbnail,
+      excerpt: excerpt(content),
+      readingMinutes: readingTimeMinutes(content),
+      createdAtMs: document.createdAt.getTime(),
+      updatedAtMs: document.updatedAt.getTime(),
+      tags: document.tags.map((tag) => ({ slug: tag.slug, name: tag.name })),
+    };
+  });
+
+  // The user's own tags, plus any tags present on accessible workspace
+  // documents (which may be owned by collaborators), form the filter control.
+  const ownTags = await prisma.tag.findMany({
+    where: { ownerId: user.id },
+    select: { slug: true, name: true },
+  });
+  const tagMap = new Map<string, string>();
+  for (const tag of ownTags) {
+    tagMap.set(tag.slug, tag.name);
+  }
+  for (const document of documents) {
+    for (const tag of document.tags) {
+      if (!tagMap.has(tag.slug)) {
+        tagMap.set(tag.slug, tag.name);
+      }
+    }
+  }
+  const availableTags = Array.from(tagMap, ([slug, name]) => ({
+    slug,
+    name,
+  })).sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+  );
 
   return (
-    <main className="flex flex-1 flex-col items-center bg-zinc-50 px-6 py-12 dark:bg-black">
+    <main className="flex flex-1 flex-col items-center bg-ghost-wash px-6 py-12">
       <div className="flex w-full max-w-5xl flex-col gap-8">
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+            <h1 className="text-2xl font-semibold tracking-tight text-ghost-text">
               Your documents
             </h1>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="text-sm text-ghost-secondary">
               Signed in as{" "}
-              <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                {user.email}
-              </span>
+              <span className="font-medium text-ghost-text">{user.email}</span>
             </p>
           </div>
           <NewDocumentButton className={primaryButtonClass} enableShortcut />
         </header>
 
-        <DocumentList documents={documents} />
+        <DocumentList documents={documents} availableTags={availableTags} />
       </div>
     </main>
   );

@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { PILL_CONTROL_CLASS } from "./control-styles";
+import { buildShareSegment } from "@/lib/slug";
+
 import { toggleDocumentSharing } from "./actions";
 
 type ShareState = {
   isShared: boolean;
   shareId: string | null;
+  slug: string | null;
   shareUrl: string | null;
 };
 
@@ -15,18 +17,21 @@ export function ShareButton({
   id,
   initialIsShared,
   initialShareId,
+  initialSlug = null,
 }: {
   id: string;
   initialIsShared: boolean;
   initialShareId: string | null;
+  initialSlug?: string | null;
 }) {
   const [showMenu, setShowMenu] = useState(false);
   const [shareState, setShareState] = useState<ShareState>({
     isShared: initialIsShared,
     shareId: initialShareId,
+    slug: initialSlug,
     shareUrl:
       initialIsShared && initialShareId
-        ? `${typeof window !== "undefined" ? window.location.origin : ""}/share/${initialShareId}`
+        ? `${typeof window !== "undefined" ? window.location.origin : ""}/share/${buildShareSegment(initialSlug, initialShareId)}`
         : null,
   });
   const [copying, setCopying] = useState(false);
@@ -83,17 +88,24 @@ export function ShareButton({
   }, [showMenu]);
 
   return (
-    <div ref={menuRef} className="relative">
+    <div className="relative">
       <button
         type="button"
-        onClick={() => setShowMenu((value) => !value)}
-        className={PILL_CONTROL_CLASS}
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowMenu(!showMenu);
+        }}
+        className="rounded-full border border-black/[.06] px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-white/[.08] dark:text-zinc-300 dark:hover:bg-zinc-800"
       >
         Share
       </button>
 
       {showMenu && (
-        <div className="absolute right-0 top-full z-10 mt-2 w-80 rounded-lg border border-black/[.06] bg-white p-4 shadow-lg dark:border-white/[.08] dark:bg-zinc-900">
+        <div
+          ref={menuRef}
+          onClick={(e) => e.stopPropagation()}
+          className="absolute right-0 top-full z-10 mt-2 w-80 rounded-lg border border-black/[.06] bg-white p-4 shadow-lg dark:border-white/[.08] dark:bg-zinc-900"
+        >
           <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
             Share this document
           </h3>

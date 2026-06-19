@@ -11,7 +11,6 @@ import {
   type CommentNode,
   type CommentThread,
 } from "./comments-actions";
-import { PILL_CONTROL_CLASS } from "./control-styles";
 
 /** A node currently selected in the visual canvas, used as a comment anchor. */
 export type AnchorNode = { id: string; label: string };
@@ -326,7 +325,7 @@ export function CommentsPanel({
         onClick={toggleOpen}
         aria-label="Comments"
         aria-expanded={open}
-        className={`relative inline-flex items-center gap-1.5 ${PILL_CONTROL_CLASS}`}
+        className="relative inline-flex items-center gap-1.5 rounded-full border border-black/[.06] px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-white/[.08] dark:text-zinc-300 dark:hover:bg-zinc-800"
       >
         Comments
         {unresolvedCount > 0 ? (

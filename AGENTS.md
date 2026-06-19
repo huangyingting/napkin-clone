@@ -69,6 +69,22 @@ in `public/`, configs (`next.config.ts`, `tsconfig.json`, `eslint.config.mjs`,
   the app honors `prefers-color-scheme` (see `globals.css`). Match existing component
   styling (rounded-full pill buttons, `border-black/[.06]` / `dark:border-white/[.08]`
   card borders).
+- **Ghost theme tokens (Ghost US-019)** live in `globals.css`. Fonts: `--font-sans`
+  (self-hosted **Inter** via `next/font/google` in `layout.tsx`, wired through
+  `--font-inter`; only Inter downloads), `--font-serif` (Georgia stack), `--font-mono`
+  (Menlo stack). Ghost colors are CSS vars on `:root` (light) + the
+  `prefers-color-scheme: dark` block: `--ghost-text`, `--ghost-secondary`,
+  `--ghost-border`, `--ghost-wash`, `--ghost-bg`, `--ghost-green`/`-yellow`/`-red`, and a
+  single configurable `--ghost-accent-color` (defaults to indigo `#4f46e5`). They're
+  re-exported in `@theme inline` as `--color-ghost-*` so `text-ghost-accent`,
+  `bg-ghost-wash`, `border-ghost-border`, `font-serif`, etc. are usable utilities.
+  GOTCHA: `@theme inline` **inlines** the resolved value into each generated utility and
+  **tree-shakes** unused theme vars from the `:root` output — only color vars (used via
+  raw `var(--ghost-*)`) and `--font-sans` (used by `body`) appear on `:root`;
+  `--font-serif`/`--font-mono` only materialize inside `.font-serif`/`.font-mono` rules
+  when those classes are actually present in source. After editing `globals.css`, the
+  dev server can serve **stale CSS** — `rm -rf .next` and restart `next dev` to see token
+  changes.
 - **Responsive grids:** the house pattern is `grid-cols-1 sm:grid-cols-2
   lg:grid-cols-4` (Tailwind `md` = 768px). Verify no horizontal overflow by asserting
   `documentElement.scrollWidth <= clientWidth` at 768px/375px in dev-browser.
@@ -1305,6 +1321,15 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   (pass the **preformatted** `editedLabel` string, not a `Date`). The shared
   `DocumentThumbnail` moved here. Extend THIS menu for the other card actions
   (rename US-004, duplicate US-005, favorite US-007) instead of adding new components.
+- **Card thumbnail = the doc's first visual (Ghost US-025).** `DocumentThumbnail`
+  takes `{ visual: Visual | null }` and renders the directive-free `VisualRenderer`
+  (`className="h-full w-full"` inside the `overflow-hidden aspect-[16/10]` box) when
+  present, else the generic file-icon SVG. `page.tsx` loads it in the SAME dashboard
+  `findMany` (no N+1) via `visuals: { orderBy: [{ orderIndex }, { createdAt }], take:
+  1, select: { data: true } }` on BOTH the personal + workspace queries, then
+  `safeParseVisual`s the first row into `thumbnail` on each card's data (garbled rows
+  fall back to the icon). `thumbnail` is part of `DocumentCardData`, so `DocumentList`
+  threads it through and the undo stash inherits it via `...data`.
 - **Kebab must NOT navigate:** the overflow button + dropdown are a **sibling of the
   `<Link>`** (absolutely positioned `right-2 top-2 z-10` over the card), never a child
   of it — clicking them can't trigger the card's navigation. The card title gets
@@ -1341,6 +1366,25 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   regenerates the client for whatever provider it ran under, and the local gate needs the
   **sqlite** client (else `next build`/typecheck see a stale Document type with no
   `deletedAt`). Verify with `grep activeProvider src/generated/prisma/internal/class.ts`.
+- **GOTCHA: `prisma migrate dev` is INTERACTIVE (and fails non-interactively) when the
+  migration has a warning** — e.g. adding a `@unique` column prints "A unique constraint …
+  will be added" and then errors `Prisma Migrate has detected that the environment is
+  non-interactive`. Even `--create-only` is blocked. Workaround (used for US-027's
+  `slug String? @unique`): write the migration dir yourself and generate the SQL with
+  `npx prisma migrate diff --from-config-datasource prisma.config.ts --to-schema
+  prisma/schema.prisma --script > prisma/migrations/<ts>_<name>/migration.sql` (use
+  `schema.sqlite.prisma` + `prisma/migrations-sqlite/…` for the sqlite history), then
+  apply with `prisma migrate deploy` under the matching `DB_PROVIDER`/`DATABASE_URL`.
+  Note: in this Prisma 7.8, the diff flag is `--to-schema` (NOT the removed
+  `--to-schema-datamodel`), and `--from-config-datasource prisma.config.ts` reads the live
+  DB via the env-resolved URL (plain `--from-schema-datasource prisma/schema.prisma` yields
+  an EMPTY diff because Prisma 7's datasource block has no `url`). Run the sqlite deploy
+  last, then `DB_PROVIDER=sqlite npm run db:generate`.
+- **`slugify(title)` for readable share URLs lives in `src/lib/slug.ts`** (pure,
+  framework-free, unit-tested under `node --test` like `document-stats.ts`): NFKD-normalize
+  + strip diacritics, lowercase, collapse non-alphanumerics to single hyphens, trim edge
+  hyphens, truncate to `MAX_SLUG_LENGTH` (80) on a hyphen boundary. `Document.slug
+  String? @unique` is the column (US-028 generates/resolves it).
 - **EVERY document read excludes soft-deleted rows** with `deletedAt: null`. The shared
   gate `getAccessibleDocument` (in `@/lib/documents`) adds it, so all its callers
   (attachVisual/detachVisual/comments/delete) inherit the exclusion for free. The
@@ -2112,645 +2156,849 @@ sudo -u postgres psql -c "CREATE ROLE napkin LOGIN PASSWORD 'napkin' CREATEDB;" 
   `/no-such-route` → 404) via a `node -e "fetch(...)"` probe.
 
 
-## Content-First UI redesign (branch `ralph/content-first-ui`)
+## Ghost Platform (branch `ralph/ghost-platform`)
 
-> A fourth PRD (`scripts/prd.json`, doc `tasks/prd-content-first-ui.md`) that
-> **reuses US-001.. numbering** — distinct from the original Napkin Clone, Parity
-> Gaps, and Product Maturity stories above. Disambiguate by branch/section.
-> Branched from `main` (post product-maturity merge). It is a **pure
-> front-end/UX redesign**: the editor becomes a content-first, Napkin-style
-> single canvas (write prose like a blog, per-paragraph hover "spark" to generate
-> a visual, inline visuals beneath their source paragraph, floating contextual
-> toolbars + one mini-toolbar, CSS-only micro-interactions). It **reuses ALL
-> existing backend unchanged** — server actions (`attachVisual`/`detachVisual`/
-> `saveDocumentContent`/`saveDocumentTitle`), `/api/generate`, the visual schema,
-> collaboration hooks, and the directive-free `VisualRenderer`/`VisualEditor`/
-> `StylePanel`/`ExportMenu`. NO schema, migration, action, or endpoint changes.
+> A PRD (`scripts/prd.json`, `tasks/`) that **reuses US-001.. numbering** — distinct
+> from the earlier Napkin/Parity/Maturity/Content-First stories above. Branched from
+> **`origin/main`** (which still has the legacy textarea/tabs editor:
+> `document-editor.tsx`, `visual-panel.tsx`, `block-visual-generator.tsx`). It brings
+> the app toward Ghost: a **Lexical (Koenig-style) block editor** plus Casper-style
+> theme/publishing polish, while keeping the text-to-visuals feature. Disambiguate by
+> branch/section when referencing.
 
-### Editor layout scaffold (US-001)
+### Lexical editor shell (US-001)
 
-- **The editor page renders `ContentEditor`** (`src/app/app/documents/[id]/
-  content-editor.tsx`, `"use client"`). The legacy `DocumentEditor`
-  (`document-editor.tsx`), the right-panel `VisualPanel` (`visual-panel.tsx`), and
-  the Preview-tab `BlockVisualGenerator` (`block-visual-generator.tsx`) were
-  **DELETED in US-015** — they no longer exist. The content-first
-  `ContentEditor`/`InlineVisualEditor` chain is the only editor. (`markdown-preview.tsx`,
-  `visual-editor.tsx`, `style-panel.tsx`, `icon-picker.tsx`, `export-menu.tsx` are
-  still live — reused by the new chain and the share view.)
-- **`ContentEditor` is the single canvas all later content-first stories build
-  on.** US-001 is just the scaffold: a single centered **`max-w-3xl` (768px)**
-  blog-width column inside a scrollable area — an inline **title `<input
-  aria-label="Document title">`** at top and an **auto-growing body `<textarea
-  aria-label="Document text">`** below (grow via a `useEffect` on `content.value`
-  setting `height = scrollHeight`; the page scrolls, not the textarea). **No
-  Write/Preview tabs, no always-on right `VisualPanel`.** Inline visuals (US-002),
-  inline prose formatting (US-003), per-paragraph sparks (US-004/005), contextual
-  visual controls (US-007), and floating format toolbar (US-008) get layered on
-  later — keep the single-column structure.
-- **Reuse the EXISTING collab/autosave wiring verbatim** (copied from
-  `document-editor.tsx`): `useCollaboration({ room: id, userName })` →
-  `useYText(ytitle/ycontent, { initial, ready, editable, localOrigin, elementRef,
-  onLocalChange })` + `useDebouncedSave(saveDocumentTitle/Content)` +
-  `combineSaveStatus`. **`editable = canEdit && ready`** (gate editing until collab
-  is synced or the 2.5s degraded fallback) — the textarea/title are `disabled`
-  until then, so browser tests must **wait for `textarea[aria-label="Document
-  text"]:not([disabled])`** as the ready signal. Seed shared state once on `ready`
-  via `seed({ content, title, visual: initialVisual ? JSON.stringify(...) : null })`.
-- **Two `[role="status"]` elements coexist** in the editor header: the **Presence**
-  connection pill ("Live"/"Connecting…"/"Offline") AND the **save-status** span
-  ("All changes saved"/"Saving…"/"Unsaved changes…"). When asserting save status in
-  browser QA, read **all** `[role="status"]` and match the text, not the first node.
-- **Presence/Share/Comments are kept in a top header bar** in US-001 (not dropped)
-  so collaboration features never regress; US-009 refines this into a compact
-  "mini-toolbar" and US-014 verifies. `CommentsPanel` gets `getTextSelection`
-  (reads the body textarea selection) and `anchorNode={null}` for now (inline visual
-  selection arrives with US-007).
-- **Page `initialVisual` extraction was trimmed to the doc-level visual only**
-  (first `anchorBlockId === null` row); the block-anchored visuals map
-  (`initialBlockVisuals`) is reintroduced by US-002 when it renders inline visuals.
-  This keeps US-001 free of unused props/vars (the repo's
-  `@typescript-eslint/no-unused-vars` is only `warn`, but keep it clean).
-- **Browser QA (dev-browser, headless — no X server here):** signup redirects to
-  **`/`** (home), not `/app` (`src/app/signup/actions.ts` uses `redirectTo: "/"`),
-  so after `button:has-text("Create account")` wait for the URL to leave `/signup`
-  then `goto('/app')`. US-012 seeds a "Welcome to Napkin Clone" sample doc on
-  signup, so a fresh `*@test.dev` user already has a document to open. Verified:
-  768px column, title+body present, no Write/Preview buttons, no `[aria-label=
-  "Generate visual"]` right panel, editing enabled after ready, save-status →
-  "All changes saved", edit persists across `page.reload()`, `scrollWidth ==
-  clientWidth` (no overflow). The pre-existing `scroll-behavior: smooth` console
-  note is unrelated.
+- **Lexical deps are at `^0.45.0`**: `lexical`, `@lexical/react`, `@lexical/list`,
+  `@lexical/rich-text`, `@lexical/link`, `@lexical/utils`. Lexical is React-19 / Next-16
+  compatible.
+- **The new editor lives at `src/app/app/documents/[id]/lexical-editor.tsx`**
+  (`LexicalEditor`, `"use client"`) — a minimal `LexicalComposer` + `RichTextPlugin` +
+  `HistoryPlugin` + `ContentEditable` (`aria-label="Document body"`). Theme classes are
+  Tailwind strings on an `EditorThemeClasses` (paragraph/text bold/italic/etc.). It is
+  the foundation for ALL later editor stories (blocks, "+"/"/" menus, floating toolbar,
+  Visual decorator node) — extend it, don't fork it. US-018 swaps it into the document
+  editor and retires the textarea.
+- **It mounts behind a flag/route during the migration: `/app/lexical-preview`**
+  (`src/app/app/lexical-preview/page.tsx`, protected via `requireUser`). It does NOT yet
+  replace `DocumentEditor`.
+- **`LexicalErrorBoundary` import:** `import { LexicalErrorBoundary } from
+  "@lexical/react/LexicalErrorBoundary"`, passed as `ErrorBoundary={LexicalErrorBoundary}`
+  to `RichTextPlugin`.
+- **Browser QA:** the seed user `demo@napkin.test` has no password — sign up a fresh
+  `*@test.dev` user (signup → `/`), then `goto('/app/lexical-preview')`. Verify typing
+  produces real `<p>` blocks, `Control+z`/`Control+y` undo/redo, and zero console errors.
 
-### Inline visuals beneath their source paragraph (US-002)
+### Save and load Lexical editor state (US-003)
 
-- **`ContentEditor` now renders inline visuals in the single column.** It takes a
-  new `initialBlockVisuals: Record<blockId, Visual>` prop alongside the existing
-  `initialVisual: Visual | null`. Below the editable body textarea it renders a
-  `section[aria-label="Document visuals"]`: the **document-level visual** (anchor
-  `null`) in its own slot at the top, then each **block-anchored visual** in
-  document order. Each block visual reuses the existing inline pattern —
-  `BlockContent` (the directive-free block renderer from `./markdown-preview`)
-  above a `[data-block-visual="<blockId>"]` card wrapping a directive-free
-  `VisualRenderer` (`h-auto w-full`). The doc-level slot is a plain card (NOT a
-  `[data-block-visual]`) so it matches the repo convention of "doc-level visual =
-  `svg[role="img"]` not inside `[data-block-visual]`".
-- **Block ids come from `parseMarkdown(content.value)` at render time** and are
-  looked up against `initialBlockVisuals` keys — the SAME content-derived ids the
-  page computed server-side. As long as the live content matches the seed (it does
-  on first render, and the textarea stays the writing surface), the keys align; if
-  the prose is edited so a block's signature changes, its id drifts and the visual
-  drops out of the inline list (the pre-existing content-derived-id limitation,
-  consistent with `MarkdownPreview`/`BlockVisualGenerator`). Live collab sync /
-  editing of these visuals is **US-007**; US-002 renders the **static props only**
-  (no `ystate` read, no new query).
-- **The page splits the single `visuals` query into doc-level vs block-anchored**
-  (mirrors the share page exactly): iterate rows once, `safeParseVisual` each, put
-  `anchorBlockId === null` → `initialVisual` (first valid) and the rest →
-  `initialBlockVisuals[anchorBlockId]` (first per anchor). No extra query — both
-  derive from the one `visuals: { orderBy:[{orderIndex},{createdAt}], select:
-  {anchorBlockId,data} }` select the page already had.
-- **The US-001 textarea stays the writing surface.** Inline visuals render in a
-  section BELOW it (a single `<textarea>` can't interleave React-rendered visuals
-  between paragraphs), so blocks-with-visuals show their `BlockContent` caption
-  above the diagram. US-003 (inline editing) unifies write+read; US-004/005 attach
-  per-block sparks; US-015 retires the legacy editor and reconciles share/embed.
-- **Browser QA:** seed a fresh user + doc + visuals with a throwaway ROOT-level
-  `*.mts` tsx script (`PrismaBetterSqlite3({ url: "file:./prisma/dev.db" })`,
-  `PrismaClient` from `@/generated/prisma/client`; `@/` alias resolves under tsx).
-  Content blocks must be **blank-line separated** (else `parseMarkdown` joins
-  lines). Compute anchor ids via `parseMarkdown(content)` and store visuals with
-  `type: VISUAL_KIND_TO_PRISMA[v.type]`, `data: v as unknown as object`. Log in
-  (`button:has-text("Log in")`), open `/app/documents/<id>`, wait for
-  `textarea[aria-label="Document text"]:not([disabled])`, then assert: 3
-  `[data-block-visual]` cards in document order, each with one `svg[role="img"]`;
-  the doc-level `svg[role="img"]` is the one in the section NOT inside any
-  `[data-block-visual]`; `hasWriteTab === false`; no horizontal overflow at
-  1280/768/375. Delete the script + screenshot artifacts before committing (the
-  seeded SQLite rows are git-ignored).
+- **`LexicalEditor` is now bound to a document** — it takes `documentId` +
+  `initialStateJson: string | null`. The serialized state is loaded via
+  `initialConfig.editorState` (Lexical accepts the stringified `editorState.toJSON()`
+  directly; pass `undefined` when null so it starts empty). Persistence is a debounced
+  (`SAVE_DEBOUNCE_MS` 800ms) `OnChangePlugin` → `JSON.stringify(editorState.toJSON())`
+  → `saveDocumentLexical`, with a `role="status"` indicator (saved/pending/saving/error).
+  Set `OnChangePlugin` `ignoreSelectionChange` + `ignoreHistoryMergeTagChange` (and it
+  already skips the initial mount change) so caret moves / programmatic loads don't
+  trigger saves.
+- **`saveDocumentLexical(documentId, stateJson)` (`documents/[id]/actions.ts`,
+  `"use server"`)** follows the house mutation shape but **access-scopes via
+  `getAccessibleDocument` then `updateMany({ where: { id } })`** (owner OR workspace
+  member — NOT owner-only like `saveDocumentTitle`/`saveDocumentContent`, which key on
+  `ownerId`). It `JSON.parse`s the state (rejects malformed), stores the object in
+  `contentJson` (`as Prisma.InputJsonValue`), AND writes a plain-text projection to the
+  existing `content` column so AI block text / search / read-only fallback keep working
+  off one source. Guarded by `MAX_LEXICAL_STATE_LENGTH` (2 MB) + `MAX_CONTENT_LENGTH`.
+- **The plain-text projection is a framework-free helper:
+  `src/lib/lexical/plain-text.ts` `lexicalStateToPlainText(state)`** — pure, no
+  `lexical`/React import, so it runs server-side and unit-tests under `node --test`
+  (`plain-text.test.ts` beside it). It walks the serialized `{ root: { children } }`
+  tree: top-level blocks → one line each (joined with `\n`), inline text concatenated,
+  `linebreak`→`\n`, `tab`→`\t`, and a `list` container's items joined with `\n`. Accepts
+  a JSON string or already-parsed object; malformed input → `""` (never throws). Reuse it
+  anywhere you need a text view of Lexical state.
+- **The preview route (`/app/lexical-preview`) now find-or-creates a per-user scratch
+  document** (`title: "Lexical preview"`, `deletedAt: null`) and binds the editor to it,
+  so save/load is real without touching the user's other docs. US-018 binds the editor to
+  actual documents and reads `contentJson` on the editor page.
+- **Browser QA:** type into `[aria-label="Document body"]`, wait for `[role="status"]`
+  to read "All changes saved", then `page.reload()` and assert the typed text is back
+  (loaded from `contentJson`). Confirm the `content` projection with a root-level `tsx`
+  script (`PrismaBetterSqlite3`) reading the scratch doc.
 
-### Inline editing of prose on the single canvas (US-003)
+### Migrate Markdown documents into Lexical on first open (US-004)
 
-- **`ContentEditor`'s body textarea now has a block-type formatting toolbar**
-  (`role="toolbar" aria-label="Text formatting"`, rendered between the title and
-  the textarea). Buttons (`aria-label`s `Heading 1`/`Heading 2`/`Heading 3`/`Bullet
-  list`/`Paragraph`) call the SAME `applyBlockType(value, selStart, selEnd, type)`
-  from `@/lib/markdown` the legacy `DocumentEditor` used, then `content.onChange(...)`
-  — so formatting flows through the existing collab/autosave path (syncs + autosaves,
-  no new action). US-008 later converts this **fixed** toolbar into a floating
-  selection toolbar (its AC literally says "the fixed block-type toolbar is replaced").
-- **Caret/selection restore = the legacy `pendingSelection` ref + a no-deps
-  `useEffect`** (focus + `setSelectionRange` after the edit re-renders). This coexists
-  cleanly with `useYText`'s remote-caret `useLayoutEffect`: that one ONLY sets
-  `pendingCursor` for **non-local** (`transaction.origin !== localOrigin`) edits, and a
-  toolbar edit is local, so the two never fight over the caret. Toolbar buttons use
-  `onMouseDown={(e) => e.preventDefault()}` to keep the textarea focused/selected
-  through the click (so `selectionStart/End` are still valid when `applyType` reads
-  them).
-- **Toolbar is gated on `canEdit`** (editors only; read-only viewers never see it) and
-  its buttons are additionally `disabled` until `editable` (collab ready). The
-  textarea's top margin is conditional (`canEdit ? "mt-4" : "mt-6"`) so the
-  title→body gap stays consistent whether or not the toolbar is rendered.
-- **Browser QA (dev-browser --headless, collab server running):** sign up a fresh
-  `*@test.dev` user (signup → `/`; US-012 seeds a "Welcome to Napkin Clone" doc), open
-  it, wait for `textarea[aria-label="Document text"]:not([disabled])`. `page.fill` the
-  textarea (a controlled React textarea picks up the `input` event → `content.onChange`),
-  set the caret with `el.setSelectionRange(...)` in `evaluate`, then `page.click` the
-  toolbar button. Verified: `# `/`## `/`### `/`- ` prefixes apply to the caret's line and
-  REPLACE any existing prefix; a full-selection bullet prefixes BOTH lines; `Paragraph`
-  strips the prefix from only the caret's line; after H1 the selection is restored to
-  `{0, 12}` (covers `"# First line"`) with the textarea still `document.activeElement`;
-  save-status reaches "All changes saved" and the edit survives `page.reload()`. Two
-  `[role="status"]` nodes exist (Presence pill + save status) — match by text.
+- **`src/lib/lexical/from-markdown.ts` is the pure, framework-free Markdown→Lexical
+  converter** (only imports `parseMarkdown` from `@/lib/markdown` — itself pure — so it
+  stays server-safe and unit-testable under `node --test`, like `plain-text.ts`).
+  `markdownToLexicalStateObject(md)` returns a `{ root: { children } }` object;
+  `markdownToLexicalState(md)` is the JSON-string wrapper for Lexical's `editorState`
+  config. It reuses `parseMarkdown` (the SAME block model the textarea editor used:
+  headings H1–H3, bullet lists, paragraphs) and emits the EXACT serialized field shape
+  Lexical's `editorState.toJSON()` produces per node type — derive these from a headless
+  editor (`@lexical/headless` `createHeadlessEditor` + `$create*Node`) if you extend it.
+  Key required fields: paragraph carries `textFormat`/`textStyle`; heading carries
+  `tag:"h{level}"`; list carries `listType`/`start`/`tag:"ul"`; listitem carries an
+  incrementing `value`. Empty/whitespace input → a single empty paragraph (NOT zero
+  children — Lexical roots need ≥1 block).
+- **Registering nodes is MANDATORY for the converted state to parse.** A serialized
+  state containing heading/list nodes only round-trips through `parseEditorState` if the
+  composer registers those node classes. `lexical-editor.tsx`'s `initialConfig.nodes`
+  now lists `[HeadingNode, QuoteNode, ListNode, ListItemNode]` (from `@lexical/rich-text`
+  + `@lexical/list`) and the `theme` gained `heading`/`quote`/`list` class maps. Without
+  the `nodes` entry, loading a migrated document throws in the editor. Verify a converted
+  state parses with a headless editor configured with the SAME `nodes` before trusting it.
+- **Lazy convert at the page boundary, not inside the client editor.** The preview page
+  (`/app/lexical-preview`) selects `content` alongside `contentJson` and computes
+  `initialStateJson = contentJson ? JSON.stringify(contentJson) : content ?
+  markdownToLexicalState(content) : null`. So a legacy doc (Markdown `content`, null
+  `contentJson`) opens converted; the existing debounced save then persists `contentJson`
+  on the first edit (no extra write code needed). US-018 reuses this same precedence when
+  binding the editor to real documents.
+- **Browser QA:** seed a `Lexical preview` doc with Markdown `content` + null
+  `contentJson` for a signed-up `*@test.dev` user (root-level `tsx` + `PrismaBetterSqlite3`),
+  open `/app/lexical-preview`, and assert `[aria-label="Document body"]` renders the
+  expected `h1`/`p`/`ul`>`li` tags with the right text + zero console errors. Then type,
+  wait for `[role="status"]` "All changes saved", and confirm the doc's `contentJson` is
+  no longer null (first-save migration). GOTCHA: dev-browser's QuickJS scripts have a hard
+  ~30s cap — split signup (which is slow because US-012 seeds a sample doc + the post-redirect
+  `/` route compiles) into short steps; the credentials signup action completes even if the
+  Playwright `click` appears to hang on the redirect, and the session cookie is set, so a
+  follow-up `goto` in the SAME named browser is already authenticated.
 
-### Per-paragraph hover gutter affordance (US-004)
+### Real-time collaboration on the Lexical document (US-005)
 
-- **`ContentEditor`'s spark affordance is anchored to a focusable block wrapper, not
-  the textarea itself.** The editor maps `parseMarkdown(content.value)` to wrapper
-  `div`s with `tabIndex={editable ? 0 : undefined}` and absolute gutter chrome. Keep
-  per-block UI attached to those wrappers — the textarea remains the write surface,
-  while the parsed blocks own hover/focus affordances.
-- **Use one active block id and `relatedTarget` containment to keep only one gutter
-  toolbar visible.** `activeBlockId` is driven by `onMouseEnter` / `onMouseLeave` and
-  `onFocusCapture` / `onBlurCapture`; blur clears only when
-  `!currentTarget.contains(relatedTarget)`, so focus can move from the wrapper onto
-  the spark button without hiding it. Reuse this pattern for future per-block floating
-  controls.
-- **Hide the spark with transforms/opacity, not layout changes.** The wrapper reserves
-  gutter space with `pl-12`, the spark lives at `absolute left-2 top-3`, and the
-  hidden state uses `opacity-0 -translate-x-1 pointer-events-none`. That keeps the
-  affordance invisible by default, reveals it without shifting text, and makes the
-  hidden button non-interactive.
-- **Browser QA is more reliable against `next start` than `next dev` here.** In
-  headless `dev-browser`, the dev server's HMR websocket can fail its handshake and
-  leave the collab-ready gate stuck disabled even though the page renders. For
-  content-first editor checks that depend on `editable = canEdit && ready`, prefer:
-  `npm run build` → `NEXT_PUBLIC_COLLAB_WS_URL=ws://127.0.0.1:1234 npm run start` →
-  wait until `textarea[aria-label="Document text"]` is enabled.
+- **The Lexical editor now collaborates via `@lexical/yjs`'s `CollaborationPlugin`**,
+  fully replacing the old `useYText`/`Y.Text` binding for content. `@lexical/yjs` was
+  added as a direct dep (`^0.45.0`; it was already a transitive dep of `@lexical/react`).
+  `y-protocols`/`lib0` come transitively via `y-websocket` — no need to declare them.
+- **`CollaborationPlugin` MUST be wrapped in the `LexicalCollaboration` context
+  provider** (`@lexical/react/LexicalCollaborationContext`) — otherwise it throws
+  `useCollaborationContext: no context provider found` (a 500 caught by the app error
+  boundary). Wrap the WHOLE `LexicalComposer` in `<LexicalCollaboration>…</LexicalCollaboration>`.
+- **When collaborating, do NOT pass `initialConfig.editorState`** (the doc state comes
+  from Yjs). Set `editorState: null` and pass the serialized DB state to the plugin as
+  `initialEditorState={initialStateJson}` + `shouldBootstrap` — the first client to a
+  fresh room bootstraps it into the shared doc. The DB is the durable source of truth
+  (the collab server holds no persistent state), so this replaces the old manual
+  `seed()`. Also **drop `HistoryPlugin`** with collaboration (Yjs manages history;
+  mixing them is the documented footgun).
+- **`src/lib/collab/use-lexical-collaboration.ts` owns the `y-websocket` provider** for
+  one room and returns `{ providerFactory, status, ready, peers, cursorColor }`. Create
+  the `WebsocketProvider` with **`{ connect: false }`** (the plugin drives
+  `connect()`/`disconnect()`); this also keeps construction SSR-safe (no socket/
+  BroadcastChannel opened during the server render — Node 22 has a global `WebSocket`).
+  The `providerFactory(id, yjsDocMap)` registers the owned `Y.Doc` into the plugin's map
+  and returns the owned provider (cast `as unknown as Provider`). We keep our own
+  `status`/`sync`/`awareness` listeners + the 2.5s degraded fallback for the ready gate
+  and presence; destroy the provider+doc on unmount (the plugin only disconnects).
+- **Presence shape differs from the textarea binding.** `@lexical/yjs`'s `initLocalState`
+  sets awareness at the TOP level (`{ name, color, anchorPos, focusPos, focusing }`),
+  NOT nested under `user` like `useCollaboration`. So `computePeers` here reads
+  `state.name`/`state.color` directly. The plugin manages local awareness itself (from
+  its `username`/`cursorColor` props) — do NOT also call `setLocalStateField("user", …)`
+  (the plugin's `setLocalState` would wipe it). The existing `Presence` component is
+  reused unchanged.
+- **Ready gate:** `editable` is gated until `ready` (synced || degraded) via a tiny
+  `EditableGate` plugin that calls `editor.setEditable(ready)` (start with
+  `initialConfig.editable: false`).
+- **DB save (US-003) only on LOCAL edits.** `OnChangePlugin`'s `onChange(editorState,
+  editor, tags)` fires for remote merges too; skip the debounced `saveDocumentLexical`
+  when `tags.has(COLLABORATION_TAG) || tags.has(HISTORIC_TAG)` (import both from
+  `lexical`) so only the originator persists.
+- **Browser QA — two SEPARATE browser instances, SAME user.** The preview route binds to
+  a per-user scratch doc, so to share a room (`room = documentId`) log the SAME user into
+  two `dev-browser --browser <name>` instances (separate Chromium → no shared
+  BroadcastChannel → sync only via the WS server). GOTCHAS: (1) start `npm run collab`
+  (port 1234) before testing. (2) **The credentials form button click HANGS** in
+  dev-browser (actionability/“stable” never settles); submit via
+  `page.locator('input[name="password"]').press("Enter")` and POLL
+  `page.context().cookies()` for `authjs.session-token` instead of `waitForURL`. (3) The
+  ContentEditable `.click()` also hangs on “stable”; focus it with
+  `page.evaluate(() => el.focus())` (or `click({ force: true })`) then
+  `page.keyboard.type(...)`. (4) Presence settles a beat after connect — `waitForFunction`
+  on `[aria-label="People here"] > span` count `>= 2`. Verified: cross-instance text CRDT
+  merge (Alice types → Bob's separate browser receives it live, appends, Alice live-
+  receives without reload), both show 2 peers, status pill "Live", and "All changes saved".
 
-### Generate a visual for a paragraph from the spark toolbar (US-005)
+### Floating selection format toolbar (US-006)
 
-- **The spark wiring lives ON `ContentEditor`, ported from `block-visual-generator.tsx`
-  (don't add a new component).** US-004 left the spark toggling `openSparkId`; US-005
-  makes it functional. `toggleSpark(block)` = open+`generateFor` when closed, `closePicker`
-  when open. `generateFor` POSTs `{ text: blockText(block) }` to `/api/generate`,
-  `safeParseVisual`s each `candidates[]` entry (drops garbled ones), and renders the
-  survivors as a thumbnail grid inline **inside the block wrapper** (below `BlockContent`
-  + any existing inline visual). `choose(blockId, visual)` optimistically sets
-  `blockVisuals[blockId]` → `attachVisual(id, visual, blockId)` → "Visual saved"; on
-  failure it restores the previous entry. The thumbnail hooks match the legacy block
-  picker exactly: `button[aria-label="Select <Kind> option <n>"]`, plus a
-  `data-block-id` + `aria-expanded` spark and a `[data-block-visual="<blockId>"]` card.
-- **`blockVisuals` is the single render source for inline block visuals** — seed it ONCE
-  from the `initialBlockVisuals` prop (`useState(() => initialBlockVisuals)`), then render
-  `blockVisuals[block.id]` (NOT the prop). US-002's direct-prop read is superseded. Keep
-  the seed-once rule (don't reflect the prop back after mount), same as title/content.
-- **The hidden gutter spark is `pointer-events-none` until its block is hover/focus-active,
-  so a Playwright `.click()` is intercepted.** In browser QA, fire a **programmatic DOM
-  click** instead: `page.evaluate(() => document.querySelector('[data-block-id="<id>"]').click())`
-  — a real `element.click()` bubbles to React's delegated handler regardless of
-  `pointer-events`, with no need to first hover/focus the wrapper.
-- **Mock-Azure setup (per US-009/011 notes) — REQUIRED for this story.** Run a tiny local
-  HTTP server returning `{ choices:[{ message:{ content: JSON.stringify({ visuals:[…3+…] }) } }] }`
-  and start `next start` with `AZURE_OPENAI_ENDPOINT=http://127.0.0.1:<port>
-  AZURE_OPENAI_API_KEY=test` as **process env** (Next doesn't override already-set env).
-  GOTCHA (reconfirmed): each mock candidate **edge must carry a non-empty `id`** or
-  `safeParseVisual` drops it → can't reach `MIN_CANDIDATES` (3) → 502. Drive the 502 error
-  UI by returning 500 for a sentinel input (mock checks `body.includes("TRIGGER_ERROR")`);
-  add a `\n\nTRIGGER_ERROR …` block to the textarea and generate on it.
-- **Browser QA gotcha — scope the error assertion.** dev-tools inject a transient empty
-  `[role="alert"]`, so `document.querySelector('[role="alert"]')` can hit the wrong one.
-  Find the app alert by its **"Try again" button** (`alerts.find(a => …button text ===
-  "Try again")`), not the first match. The picker stays open on error (non-blocking) and
-  any already-saved inline visual on other blocks is preserved. Verified end-to-end:
-  generate → 3 candidates → select → inline `svg[role="img"]` + "Visual saved" → hard
-  `page.reload()` persists it; one picker open at a time (single `openSparkId`); zero
-  horizontal overflow at 1280/768/375.
+- **`src/app/app/documents/[id]/floating-toolbar.tsx` (`FloatingToolbarPlugin`)** is a
+  Lexical plugin (uses `useLexicalComposerContext`) added INSIDE the `LexicalComposer` in
+  `lexical-editor.tsx`. It renders via `createPortal(..., document.body)` with
+  `position: fixed` so the editor card's `overflow`/rounded border never clips it.
+- **Visibility:** recompute on BOTH `editor.registerUpdateListener` + the
+  `SELECTION_CHANGE_COMMAND` AND a `document` `"selectionchange"` listener (the last one
+  catches focus leaving / native selection moving out, which an editor update may not
+  fire). Read state inside `editor.getEditorState().read(...)`. Hide unless the selection
+  is a non-collapsed `$isRangeSelection` whose `nativeSelection.anchorNode` is inside
+  `editor.getRootElement()` and `getTextContent() !== ""`.
+- **Positioning** uses the NATIVE selection rect (`window.getSelection().getRangeAt(0)
+  .getBoundingClientRect()`), placed above the selection (flip below if `top < 8`),
+  horizontally centered + clamped to the viewport. Recompute in a `useLayoutEffect` on
+  visibility/state change AND on `window` `resize`/`scroll` (capture phase).
+- **Block-type detection** (`getSelectedBlockType`, runs inside a `.read`): list via
+  `$getNearestNodeOfType(anchorNode, ListNode)` → `getListType()` (`number`/`bullet`);
+  else the anchor's `getTopLevelElement()` with `$isHeadingNode`(tag h2/h3)/`$isQuoteNode`;
+  else `paragraph`. Inline `bold`/`italic` from `selection.hasFormat(...)`; link by walking
+  `selection.getNodes()` for an `$isLinkNode` node or parent.
+- **Apply:** inline → `FORMAT_TEXT_COMMAND` (`bold`/`italic`). Block H2/H3/quote →
+  `$setBlocksType` to `$createHeadingNode`/`$createQuoteNode`, toggling back to
+  `$createParagraphNode` when already active. Lists → `INSERT_UNORDERED_LIST_COMMAND` /
+  `INSERT_ORDERED_LIST_COMMAND`, or `REMOVE_LIST_COMMAND` when already that list type. Link
+  → `TOGGLE_LINK_COMMAND` (null to remove, else a `window.prompt` URL). Requires
+  `LinkNode` in `initialConfig.nodes` + `<LinkPlugin/>` and `<ListPlugin/>` mounted (both
+  from `@lexical/react`).
+- **Keep selection on click:** every toolbar button (and the toolbar container) uses
+  `onMouseDown={(e) => e.preventDefault()}` so clicking a control doesn't blur/collapse the
+  editor selection. Buttons expose `aria-label` + `aria-pressed` and are keyboard-operable.
+- **Browser QA (dev-browser, headless):** the toolbar is
+  `[role="toolbar"][aria-label="Text formatting"]`; select text with `Control+a` after
+  typing (ContentEditable `.click()` hangs — focus via `evaluate(el.focus())` then
+  `keyboard.type`). Assert it appears (8 buttons), each control flips `aria-pressed` +
+  mutates the DOM (`strong`/`h2`/`ul li`), and it disappears (`count() === 0`) after
+  `ArrowRight` collapses the selection.
 
-### Replace or remove a paragraph's visual from the spark toolbar (US-006)
+### "+" line button and "/" slash menu to insert blocks (US-007)
 
-- **Replace/Remove controls live ON the inline `[data-block-visual="<blockId>"]` card
-  in `ContentEditor`** (not a new component), ported from the legacy
-  `block-visual-generator.tsx` pattern. The card now has a small header row (kind
-  `KIND_LABEL[visual.type]` on the left) and, **gated on `editable`**, a
-  `button[aria-label="Replace this block's visual"]` + a
-  `button[aria-label="Remove this block's visual"]` on the right. Read-only viewers
-  see the card with NO controls.
-- **Replace just calls the existing `generateFor(block)`** — it reopens the same
-  generation picker (sets `openSparkId`), so choosing a candidate flows through the
-  existing `choose` → `attachVisual(id, visual, blockId)` and updates
-  `blockVisuals[blockId]` inline. The current visual stays rendered above the picker
-  until a new candidate is chosen. No new save path.
-- **Remove = a new `removeVisual(blockId)` callback** mirroring the legacy one:
-  optimistically `delete blockVisuals[blockId]` (only that block), `closePicker()` if
-  its picker is open, then `await detachVisual(id, blockId)` (the existing action,
-  signature `(id, anchorBlockId = null)`), restoring the previous visual on failure.
-  Keyed by `(documentId, blockId)` so it removes ONLY that block's visual — the
-  doc-level visual (anchor `null`) and other anchors are untouched.
-- **GOTCHA — wrapping the renderer card: don't put `overflow-hidden` on the OUTER
-  `[data-block-visual]` card** once it has a header (it would clip the header/buttons).
-  Follow the legacy shape: outer card `rounded-xl border … p-3` (no overflow-hidden),
-  header row, then an INNER `overflow-hidden rounded-lg border …` wrapper around
-  `<VisualRenderer className="h-auto w-full" />`. Still exactly one `svg[role="img"]`
-  per card (US-002's assertion holds).
-- **Browser QA (mock-Azure + collab + `next start`, headless):** seed a doc with TWO
-  block-anchored visuals (root-level `*.mts` tsx, `PrismaBetterSqlite3`,
-  `data: visual as unknown as object`, `type: VISUAL_KIND_TO_PRISMA[v.type]`) to prove
-  Remove drops only one. QuickJS gotcha: an apostrophe in the `aria-label` selector
-  breaks the sandbox parser — write it as `"Remove this block\u0027s visual"`. Verified
-  end-to-end: Remove drops only block 1 (other card + doc-level intact) and persists
-  across `page.reload()`; Replace regenerates (3 candidates via mock) and selecting a
-  different kind flips the card header label (Flowchart→List) + "Visual saved" and
-  persists; zero horizontal overflow.
+- **`src/app/app/documents/[id]/block-insert-menu.tsx` (`BlockInsertMenuPlugin`)** is a
+  Lexical plugin (uses `useLexicalComposerContext`) mounted inside the `LexicalComposer`
+  in `lexical-editor.tsx`. It renders two Ghost-style affordances via `createPortal` to
+  `document.body` with `position: fixed` (viewport coords, so the editor card's
+  rounded/overflow never clips them): a "+" gutter button and the shared insert menu.
+- **Divider = `HorizontalRuleNode`** from `@lexical/react/LexicalHorizontalRuleNode`
+  (`INSERT_HORIZONTAL_RULE_COMMAND`, `$createHorizontalRuleNode`) + the
+  `HorizontalRulePlugin` from `@lexical/react/LexicalHorizontalRulePlugin`. BOTH are
+  required: add `HorizontalRuleNode` to `initialConfig.nodes` (else a saved `<hr>` won't
+  parse on reload) AND mount `<HorizontalRulePlugin/>` (registers the command). Style the
+  rule via `theme.hr`. (These exports are `@deprecated` in favor of `@lexical/extension`
+  but are the ones available at `^0.45.0`.)
+- **Two trigger modes, two keyboard paths.** The "+" gutter button shows ONLY on an empty
+  **paragraph** (AC wording); the "/" trigger fires on ANY empty single top-level block
+  (paragraph, heading, quote — `/^\/(\S*)$/` on the block's full text). Don't restrict the
+  slash read to `type === "paragraph"` (that breaks "/" in an empty heading); restrict only
+  the "+" button. Keyboard nav differs by mode:
+  - **Slash mode keeps editor focus** (so typing keeps filtering) and is driven by Lexical
+    **key commands** (`KEY_ARROW_DOWN/UP/ENTER/ESCAPE_COMMAND` at `COMMAND_PRIORITY_HIGH`,
+    returning `true` only when the menu is open so the editor's default Enter/arrows still
+    work otherwise).
+  - **Plus mode focuses the menu** (`role="listbox"`, `tabIndex={-1}`, focused in an effect)
+    and handles nav in a local `onKeyDown`. An outside-`mousedown` listener closes it; the
+    slash menu instead closes via the editor selection listener when the block no longer
+    matches `/…`.
+- **Command handlers capture stale closures** — keep `slashOpen`/`filtered`/`activeIndex`
+  in refs and sync them in a deps-less `useEffect` (assigning `ref.current` during render
+  violates `react-hooks/refs`). Same pattern as the floating toolbar.
+- **`applyBlock(itemKey, blockKey?)`**: inside one `editor.update`, resolve the target
+  top-level element (by `blockKey` for plus mode, else from the current selection for slash
+  mode), **`top.replace($createParagraphNode())` + `.select()`** (this both clears any
+  "/filter" trigger text AND gives the block transforms a clean range selection), then do
+  ALL conversions **inside that same update**: H2/H3/quote via `$setBlocksType`, lists via
+  **`$insertList("bullet"|"number")`** (from `@lexical/list`), divider via
+  **`selection.insertNodes([$createHorizontalRuleNode()])`**. Finish with `closeMenu()` +
+  `editor.focus()`. **GOTCHA (fixed in US-008): do NOT dispatch the list/HR commands
+  (`INSERT_UNORDERED/ORDERED_LIST_COMMAND` / `INSERT_HORIZONTAL_RULE_COMMAND`) AFTER the
+  `editor.update`** — on a just-replaced+selected empty paragraph the cross-update
+  selection doesn't carry over, so the list command silently no-ops (block stays a `<p>`)
+  and the HR command inserts the rule but LEAVES the "/divider" trigger paragraph behind.
+  Running `$insertList`/`insertNodes` inside the same update (where the empty paragraph is
+  the live selection) is reliable. The floating toolbar's `dispatchCommand` list path is
+  fine because it operates on a real text-range selection, not a freshly-created block.
+- **`aria-selected` is invalid on `role="menuitem"`** (eslint `jsx-a11y` warning) — use
+  `role="listbox"` + `role="option"` with `aria-selected` for the roving-highlight menu
+  (we don't move DOM focus among items, so listbox/option fits better than menu/menuitem).
+- **Browser QA (dev-browser, headless, `--timeout 90` for reloads):** menu is
+  `[role="listbox"][aria-label="Insert block"]`, items `[role="option"]`, the gutter button
+  `button[aria-label="Insert block"]`. The "/" route recompiles slowly, so a reload + wait
+  for `[aria-label="Document body"][contenteditable="true"]` can exceed the default 30s
+  script cap — bump `--timeout`. To reach an empty paragraph, focus the body
+  (`evaluate(el.focus())`), `Control+a` + `Delete`. Verified: "+" appears on empty para and
+  opens the 6-item menu; ArrowDown+Enter transforms (`<h3>`); "/" opens all 6, "/quote"
+  filters to one, Escape closes (count 0) leaving the "/quote" text, "/divider"+Enter
+  inserts `<hr>` and refocuses the editor; the `<hr>` persists across reload with 0 console
+  errors. The collab server (`npm run collab`) must be running or the editor never becomes
+  editable.
 
-### Open visual editing tools contextually for an inline visual (US-007)
+### Core block nodes render and round-trip (US-008)
 
-- **Contextual editing lives in a new `inline-visual-editor.tsx`
-  (`InlineVisualEditor`), rendered IN PLACE of the read-only `VisualRenderer`
-  when its visual is selected — not a permanent right panel.** It bundles the
-  existing building blocks (`VisualEditor` node/edge canvas, `StylePanel`
-  theme/color, the 9 type-switch pills, a "More variations" candidate gallery, and
-  `ExportMenu`) for ONE visual, parameterized by `anchorBlockId` (`null` =
-  doc-level, a `block.id` = block-anchored). Don't reuse the legacy `VisualPanel`
-  for this — it's hardwired to the doc-level ystate and a full-height right panel.
-- **All persistence reuses the existing `attachVisual(documentId, visual,
-  anchorBlockId)` path** — debounced (600ms) for canvas/style edits via
-  `handleEditChange`, immediate for discrete choices (candidate select / type
-  switch) via `commit`. No backend/schema/action change. Type switching reuses
-  `/api/generate` with an optional `type` (auto-selects the regenerated result);
-  "More variations" reuses it with no `type` (browsable candidates). The working
-  visual is seeded ONCE (`useState(() => visual)`); the parent's copy is kept in
-  sync via `onChange` so the read-only render is current after the editor closes.
-- **`ContentEditor` owns the selection:** `docVisual` state (seeded from
-  `initialVisual`, so the doc-level visual is editable + re-renders live) +
-  `selectedVisualKey: string | null` (the constant `DOC_VISUAL_KEY` =
-  `"\u0000doc-visual"` for the doc-level visual, else a `block.id`). Only ONE
-  visual's tools open at a time. Read-only visuals are click-to-edit buttons
-  (`aria-label="Edit document visual"` / `"Edit this block's visual"`), gated on
-  `editable` (read-only viewers get a plain `<div>`, no edit affordance). Editing
-  and the spark generation picker are **mutually exclusive** — `selectVisual`
-  calls `closePicker()`, and `generateFor` clears `selectedVisualKey`.
-- **Click-away dismissal is self-contained in `InlineVisualEditor`** via a
-  `document` `mousedown` listener + ref containment (`!containerRef.current
-  .contains(target) → onClose()`), NEVER `stopPropagation` (the house rule).
-  `mousedown` fires before a sibling visual's click, so clicking a different visual
-  naturally closes the current editor first, then selects the new one. The US-006
-  block header (Replace/Remove) sits OUTSIDE the editor container, so clicking it
-  dismisses-then-acts (works correctly).
-- **Test hooks:** the editor is `[role="group"][aria-label="Visual editing tools"]`;
-  type pills `[aria-label="Switch to <Label>"]` (`aria-pressed` = active matches
-  `working.type`); node hotspots `[data-node-id]` (scope to inside the group);
-  `[aria-label="More variations"]` → gallery `[aria-label="Select variation <n> of
-  <m>"]`; `[aria-label="Export visual"]`; `[aria-label="Done editing visual"]`;
-  StylePanel `[aria-label="Style"]` / `[aria-label="Theme <name>"]`. The
-  per-editor save-status is a `role="status"` "Visual saved" INSIDE the group —
-  match it scoped to the group (the page also has Presence + header save-status
-  `role="status"` nodes).
-- **Browser QA (mock-Azure + collab + `next start`, headless):** seed a doc with a
-  doc-level visual + 2 block-anchored visuals (root `*.mts` tsx,
-  `PrismaBetterSqlite3`, `data: v as unknown as object`,
-  `type: VISUAL_KIND_TO_PRISMA[v.type]`). To edit a node label, click the
-  `[data-node-id]` hotspot CENTER with `page.mouse` down/up (no move) → inline
-  `input[aria-label="Node label"]`. Verified end-to-end: click-to-edit reveals the
-  9 pills + 5/7 node hotspots + style/export/done; type switch (Flowchart→Mind map)
-  + node-label edit + theme both persist across a hard `page.reload()`; "More
-  variations" shows 3 candidates; clicking the body textarea dismisses the tools;
-  Done dismisses; zero horizontal overflow at 1280/768/375 in edit mode.
+- **All six block types (H2, H3, bullet list, numbered list, blockquote, divider) were
+  already wired by US-006/US-007** — the nodes are registered in
+  `lexical-editor.tsx`'s `initialConfig.nodes` (`HeadingNode`, `QuoteNode`, `ListNode`,
+  `ListItemNode`, `HorizontalRuleNode`) and themed with `dark:` variants
+  (`theme.heading.h2/h3`, `theme.quote` `dark:border-zinc-700`, `theme.hr`
+  `dark:border-zinc-800`, `theme.list.ul/ol/listitem`). US-008's real work was **fixing
+  the slash-menu list/divider insertion bug** (see the `applyBlock` GOTCHA above): lists
+  silently no-op'd and divider left a "/divider" paragraph because the commands were
+  dispatched AFTER `editor.update` on a freshly-selected empty block. Moving them inside
+  the update (`$insertList` / `selection.insertNodes([$createHorizontalRuleNode()])`)
+  fixed both.
+- **Round-trip path:** blocks persist via the collaborative `contentJson` (US-003/US-005)
+  — local edits debounce-save `editorState.toJSON()` through `saveDocumentLexical`, which
+  also writes the **plain-text projection** to `Document.content` via
+  `lexicalStateToPlainText` (US-003). That projection already emits one line per top-level
+  block in document order and recurses list items; a divider (`horizontalrule`, no
+  text/children) contributes an empty string, so it doesn't add a text line. Verified the
+  DB `content` for a doc with every block type reads
+  `"Heading Two\nHeading Three\nBullet one\nBullet two\nStep one\nStep two\nA wise quote\n…"`
+  in order.
+- **Browser QA (dev-browser, headless):** the scratch collab room (`/app/lexical-preview`)
+  persists in the collab server's memory AND in each connected client's local `Y.Doc`, so
+  stale block state can bleed across test runs (e.g. a leftover `<h2>` first block). For a
+  clean slate: null the scratch doc's `contentJson`/`content` in the DB (root-level `tsx`
+  + `PrismaBetterSqlite3`), restart `npm run collab`, AND open a FRESH named page
+  (`browser.closePage(...)` then a new `getPage`) so no client re-seeds the room from a
+  stale local doc. Build each block via the slash menu (type `/h2`, wait, Enter), then
+  reload and assert tag counts (`h2/h3/ul/ol/li/blockquote/hr`) + the `dark:` classes +
+  0 console errors. The 30s QuickJS script cap can cut off a trailing
+  `waitForFunction("All changes saved")` even though the save completes — split the
+  build and the reload-verify into separate `dev-browser` invocations.
 
-### Selection/format floating toolbar (US-008)
+### Lexical "Visual" decorator node (US-009)
 
-- **The fixed block-type toolbar was REPLACED by a floating one in
-  `content-editor.tsx`.** US-003's in-flow `role="toolbar" aria-label="Text
-  formatting"` div (between title and textarea) is gone; the same selector now
-  refers to a **`fixed inset-x-0 bottom-6 mx-auto w-fit` bottom-center pill**
-  rendered as a direct child of `<main>` (NOT inside the `backdrop-blur` header,
-  which would become the containing block for a `fixed` descendant). It keeps the
-  same `TOOLBAR_BUTTONS` (H1/H2/H3, bullet, paragraph) calling the existing
-  `applyType` → `applyBlockType`, so formatting still flows through the
-  collab/autosave path unchanged.
-- **Show on body focus, dismiss on body blur — minimal + robust.** The textarea's
-  `onFocus` sets `formatToolbarOpen=true`; `onBlur` flushes the content saver AND
-  sets it false ("editing surface" = the body textarea; the title input does NOT
-  reveal it). The toolbar is **always mounted** and toggled with the existing
-  spark-style class pattern (`opacity-100 translate-y-0 pointer-events-auto` vs
-  `opacity-0 translate-y-2 pointer-events-none`) so it's ready to animate in/out for
-  US-011; it also carries `aria-hidden={!open}` and the buttons get
-  `tabIndex={open ? 0 : -1}` so the hidden bar is inert.
-- **Buttons keep the caret/selection via `onPointerDown` preventDefault** (the
-  documented pattern, also on the container) so a mouse click never blurs the
-  textarea → the bar stays open and `applyType` reads the live
-  `selectionStart/End`. The existing `pendingSelection` ref + no-deps `useEffect`
-  then restores focus + selection after the re-render (e.g. H1 on "First line"
-  yields value `"# First line"` with selection `{0,12}`, textarea still
-  `document.activeElement`).
-- **Caret-anchored (Medium-style) positioning was deliberately NOT used.** A
-  `<textarea>` has no selection rectangle, and an absolute toolbar that follows the
-  caret over a tall auto-growing textarea inevitably overlaps earlier lines
-  ("above the line" sits over previous text). A fixed bottom-center bar sidesteps
-  all of it (no caret math / mirror-div, no scroll/resize listeners, no body-text
-  overlap) and is `fixed` → zero layout shift. `w-fit max-w-[calc(100vw-1rem)]` +
-  `flex-wrap` → no horizontal overflow at 1280/768/375.
-- **Browser QA (build + `next start` + collab, headless):** the toolbar is one
-  element matched by `[role="toolbar"][aria-label="Text formatting"]`; assert
-  `getComputedStyle(el).opacity` is `"0"`/`pointer-events:none` by default, `"1"`/
-  `pointer-events:auto` after `click('textarea[aria-label="Document text"]')`, and
-  `"0"` again after focusing the title input. Apply formatting by `el.focus()` +
-  `el.setSelectionRange(...)` in `evaluate`, then Playwright-`.click()` the visible
-  `button[aria-label="Heading 1"]` etc. (the pill is `fixed` and visible, so a real
-  click works), and read back `value`/`selectionStart`/`selectionEnd`/`activeElement`.
+- **`src/app/app/documents/[id]/visual-node.tsx` (`VisualNode`)** is a Lexical
+  `DecoratorNode<JSX.Element>` that makes a visual a first-class block. It stores the
+  canonical `Visual` JSON (`__visual`) + a stable `__visualId` (auto via
+  `crypto.randomUUID()` when omitted — used to correlate a `Visual` DB row in US-011 and
+  to target the card for contextual edit/replace in US-012/013). `exportJSON`/`importJSON`
+  serialize it into `contentJson`; `decorate()` returns `<VisualRenderer>` wrapped in a
+  card. The node file is NOT `"use client"` (it's a plain module imported by the client
+  editor AND by node tests) — `decorate` returns JSX but the directive lives on the
+  composer. Register it in `lexical-editor.tsx`'s `NODES` array (done) + add a
+  `theme.visual` class, or a saved visual block won't `parseEditorState` on reload.
+- **Graceful invalid-data handling:** `decorate` runs `safeParseVisual(this.__visual)`
+  and renders a "could not be displayed" placeholder on failure, so a malformed payload
+  never crashes the editor (the AC's forgiving-rendering rule). The node STORES the raw
+  payload as-is (round-trip preserves it) and validates only at render time.
+- **v0.45 node API:** follow the `HorizontalRuleNode` shape — `static getType/clone/
+  importJSON`, instance `exportJSON` (spread `super.exportJSON()` then custom fields),
+  and override `updateFromJSON` to copy custom fields. `importJSON` =
+  `$createVisualNode(visual, id).updateFromJSON(serialized)`. `$createVisualNode` wraps
+  `$applyNodeReplacement(new VisualNode(...))`. `createDOM`/`exportDOM` use
+  `document.createElement` (only called in-browser, never in serialization tests).
+- **Node serialization tests use `@lexical/headless`** (added as a dev dep, `^0.45.0`,
+  matching `lexical`): `createHeadlessEditor({ nodes: [VisualNode], onError })`, build a
+  state in `editor.update(fn, { discrete: true })`, `JSON.stringify(getEditorState()
+  .toJSON())`, then `editor2.setEditorState(editor2.parseEditorState(json))` and assert
+  inside `getEditorState().read(...)`. NO DOM needed (`decorate`/`createDOM` aren't
+  invoked). **GOTCHA — don't mutate an outer `let` from inside the `editor.update`
+  closure and then `assert.ok` it**: TS control-flow can't see the closure assignment and
+  narrows the var to `never` → typecheck fails. Read the node back via
+  `getEditorState().read()` + `$getRoot().getChildren().find($isVisualNode)` instead.
+- **Test glob note:** `npm test` (`src/**/*.test.ts`) DOES match files under the literal
+  `[id]/` route dir (verified — the brackets in the filesystem path are matched literally,
+  not as a glob class), so a colocated `visual-node.test.ts` runs fine.
 
-### Persistent mini-toolbar for always-needed actions (US-009)
+### Persist and reload visual cards — contentJson → Visual rows (US-011)
 
-- **The four always-needed controls (save status, `Presence`, `ShareButton`,
-  `CommentsPanel`) are grouped into ONE compact mini-toolbar pill in the
-  `content-editor.tsx` header.** It's a `role="toolbar" aria-label="Document
-  actions"` `<div>` (rounded-full, subtle border + `bg-white/70` / `shadow-sm`,
-  `dark:bg-zinc-900/60`) on the header's right; the back-link/workspace/read-only
-  context stays on the left. The save-status span (the `STATUS_LABEL[saveStatus]`
-  `role="status"`) moved INTO this pill as the first item, followed by a `sm:`-only
-  divider, then `Presence`/`ShareButton`/`CommentsPanel`. The components are reused
-  **as-is** (no restyle) — just regrouped — so all existing functionality (share
-  menu, comments drawer, presence avatars/Live pill, save indicator) works unchanged.
-- **The editor now has TWO `role="toolbar"` nodes** — `aria-label="Document actions"`
-  (this mini-toolbar) and `aria-label="Text formatting"` (the US-008 bottom-center
-  format pill) — and **TWO `role="status"` nodes live INSIDE the mini-toolbar** (the
-  save-status span + Presence's "Live"/"Connecting…"/"Offline" pill). In browser QA,
-  scope to `[role="toolbar"][aria-label="Document actions"]` and match status text
-  (don't assume the first `role="status"`).
-- **No-overflow strategy = `flex-wrap` + `max-w-full`, NOT fixed positioning.** The
-  pill stays inside the **sticky** header (which reserves vertical space, so it never
-  overlaps the canvas the way a `fixed` top-right element would on narrow screens) and
-  wraps its items instead of growing past the viewport. Verified
-  `document.documentElement.scrollWidth - clientWidth === 0` at 1280/768/375. The
-  header itself was slimmed/blended (`bg-zinc-50/80 backdrop-blur`, no hard `border-b`,
-  `py-2.5`) so the pill reads as the distinct toolbar over a clean canvas.
-- **Don't make the mini-toolbar `fixed`/floating here.** A `fixed top-right` pill
-  overlaps the full-width title at 375px and risks horizontal overflow; the
-  sticky-header pill avoids both while still being "top-right". (The bottom-center
-  format toolbar IS `fixed` because it must overlay mid-canvas text — different need.)
-  Don't put `overflow-hidden` on the pill: `ShareButton`'s dropdown is an
-  `absolute` child and would be clipped (`CommentsPanel`'s drawer is portaled, so
-  it's unaffected either way).
-- **Browser QA (build + `next start` + collab, headless):** assert the pill exists
-  and contains `Share` + `Comments` buttons, a save `role="status"` and a Live
-  `role="status"`, and a `[aria-label="People here"]` region; click
-  `[role="toolbar"][aria-label="Document actions"] button:has-text("Share")` → the
-  `text=Share this document` panel shows and closes on click-away (title input);
-  click the `button[aria-label="Comments"]` → `[role="dialog"][aria-label="Comments"]`
-  opens (with `[aria-label="New comment"]`) and closes via `[aria-label="Close
-  comments"]`. Confirm 0 horizontal overflow at all three widths.
+- **`contentJson` is the editor's source of truth; `Visual` rows are a DERIVED
+  mirror.** `VisualNode`s already round-trip through `contentJson` (US-003 save/load +
+  US-009 node registration), so they re-render on reload in document order with no extra
+  work. US-011's job is keeping the legacy `Visual` table in sync so share/embed,
+  dashboard thumbnails, and version history (which all read `Visual` rows) keep working.
+- **`saveDocumentLexical` mirrors on every save** via the private `mirrorVisualNodes(
+  documentId, parsedState)` helper (`src/app/app/documents/[id]/actions.ts`), called
+  AFTER the `document.updateMany` (access already scoped). It walks the parsed state for
+  `VisualNode`s and upserts a `Visual` row per node **keyed by the node's stable
+  `visualId` stored in `anchorBlockId`** (reusing the existing `(documentId,
+  anchorBlockId)` upsert shape from `attachVisual`), writing the node's document-order
+  index to `orderIndex` so share/embed render in order.
+- **Avoid `VisualRevision` spam on text edits:** the debounced save fires on EVERY
+  keystroke, so `mirrorVisualNodes` only snapshots + rewrites a row when the validated
+  payload actually changed — compare the NORMALIZED forms
+  (`JSON.stringify(safeParseVisual(existing.data).data) !==
+  JSON.stringify(safeParseVisual(node.visual).data)`) so key-order differences don't
+  count as a change. When only the order changed, update `orderIndex` without a snapshot;
+  when nothing changed, skip the write entirely. Do NOT just call `attachVisual` in a
+  loop here — it snapshots on every update and would flood history.
+- **Extraction is a pure, framework-free helper:** `src/lib/lexical/visual-nodes.ts`
+  `collectVisualNodes(state)` (JSON string or parsed object → `{ visualId, visual }[]` in
+  document order, de-duped by `visualId`, never throws). Type-only `import type { Visual }`
+  keeps it React/Prisma-free so it unit-tests under `node --test` + `tsx` (colocated
+  `visual-nodes.test.ts`) — same pattern as `plain-text.ts`. Reuse it for any
+  server-side "what visuals are in this doc" need (US-012/013/014).
+- **Browser QA (mock-Azure + collab server):** at `/app/lexical-preview`, hover a
+  paragraph → `[aria-label="Generate visual for this block"]` spark → 4
+  `[aria-label^="Insert variation"]` candidates → insert → wait for `[role="status"]`
+  "All changes saved" → `page.reload()` and assert the `svg[role="img"]` re-renders in
+  order (`["p","div:visual"]`). Verify the mirror with a root-level `tsx` script
+  (`PrismaBetterSqlite3`): the doc has one `Visual` row whose `anchorBlockId` equals a
+  `visualId` found in `contentJson`, with `orderIndex` matching document position.
 
-### Empty-state and onboarding hints on the canvas (US-010)
+### Contextual editing for a selected visual card (US-012)
 
-- **Two non-blocking, in-normal-flow hints live in `content-editor.tsx`, rendered
-  right below the body `<textarea>` (before the `hasCanvasFlow` canvas section).**
-  They are **mutually exclusive** via one ternary so they never stack: an
-  **empty-state placeholder** (a dashed-border `div` reading "Start writing your
-  document" + a spark tip) when `canEdit && content.value.trim() === ""`, else a
-  **one-line dismissible spark hint** (`role="note"`, "Hover any paragraph and click
-  the spark to generate a visual for it." + an `[aria-label="Dismiss hint"]` ✕)
-  when `editable && blocks.length > 0 && !sparkHintDismissed`. Because both sit in
-  normal flow under the textarea, they are inherently non-overlapping (no
-  absolute/fixed) and the empty-state auto-hides as soon as prose is typed.
-  Empty-state is gated on `canEdit` (read-only viewers never see "start writing");
-  the spark hint is gated on `editable` (sparks only exist when editable).
-- **GOTCHA — persist a dismissible hint with `useSyncExternalStore`, NOT a
-  localStorage-read `useEffect`.** `react-hooks/set-state-in-effect` is an **error**
-  in this repo (see the strict React 19 rules), so reading `localStorage` in an
-  effect and `setState`-ing the result fails lint. Instead, back the dismissal with a
-  tiny module-level external store (a `Set` of listeners + `localStorage` read/write,
-  all `try/catch`-guarded for private mode) and read it via
-  `useSyncExternalStore(subscribe, () => localStorage.getItem(KEY) === "1", () =>
-  false)`. The third **server snapshot** arg returns `false` so SSR renders "not
-  dismissed" and React adopts the client value post-hydration with **no hydration
-  mismatch** and no setState-in-effect. `getSnapshot` returns a **boolean primitive**
-  (compared by `Object.is`), so it's stable — no "getSnapshot should be cached" loop.
-  `dismissSparkHint()` writes `"1"` then notifies listeners (the in-tab `storage`
-  event doesn't fire for the writing tab, so the manual notify is what re-renders).
-  Reuse this pattern for any persisted, dismissible client-only UI flag.
-- **US-011 (animations) is a SEPARATE story** — US-010 keeps the hints simple
-  (subtle `transition` on the dismiss button hover is fine); don't add enter/exit
-  motion or `prefers-reduced-motion` handling here.
-- **Browser QA (build + `next start` + collab, headless):** the welcome doc (US-012
-  seed) has content, so opening it shows the spark `[role="note"]` (assert its text +
-  `[aria-label="Dismiss hint"]`); click dismiss → note gone; `page.reload()` → still
-  gone and `localStorage.getItem("napkin:spark-hint-dismissed") === "1"`. For the
-  empty-state, create a **Blank** doc (New document → `button[aria-label="Blank
-  template"]`), wait for `textarea[aria-label="Document text"]:not([disabled])`, then
-  assert a `div.border-dashed` reading "Start writing your document" exists, the spark
-  `[role="note"]` does NOT (empty → 0 blocks), and the hint's `getBoundingClientRect`
-  is below the textarea + inside the viewport. 0 horizontal overflow at 1280/768/375.
-  When checking placement, target the **specific** hint element (`div.border-dashed`
-  / `[role="note"]`), not "any div containing the text" — an ancestor wrapper also
-  contains it and gives a false "above the textarea" reading.
+- **The `VisualNode` decorator renders an interactive `VisualCard`**
+  (`src/app/app/documents/[id]/visual-card.tsx`, `"use client"`), not the inert
+  `VisualRenderer` it used in US-009. `decorate()` now returns
+  `<VisualCard nodeKey={this.getKey()} visual={this.__visual} />` (pass the **node
+  key** so the card can write back). The card computes `editable` itself via
+  `useLexicalComposerContext` + `editor.registerEditableListener` (same as
+  `BlockSparkPlugin`) — no prop drilling from `decorate()`. The malformed-payload
+  placeholder (`safeParseVisual` → "could not be displayed") moved from the node
+  into the card.
+- **A decorator component IS inside the composer's React context**, so
+  `useLexicalComposerContext()` works in `VisualCard`. Lexical re-runs `decorate()`
+  only when THAT node is dirty and **reconciles** the decorator (same React
+  position) so the card keeps its `useState` across re-decorations. This makes the
+  card a **controlled** component: pass the node's current `visual` in,
+  `onChange → updateVisual` writes back. `updateVisual(next)` =
+  `editor.update(() => { const n = $getNodeByKey(nodeKey); if ($isVisualNode(n))
+  n.setVisual(next); })`. A normal `editor.update` carries no COLLABORATION/HISTORIC
+  tag, so `OnChangePlugin` debounce-saves it into `contentJson` (US-003) and
+  `saveDocumentLexical`'s `mirrorVisualNodes` updates the `Visual` row (US-011) — no
+  separate persistence code. No local `visual` state in the card (avoids divergence
+  from the node).
+- **Three render states (no fixed side panel — controls are anchored to the card):**
+  not-editable → plain `<div><VisualRenderer/></div>`; editable+unselected →
+  `<button aria-label="Edit visual">` wrapping the renderer (a button can wrap an
+  SVG; clicking selects); editable+selected → `<div>` with the interactive
+  **`VisualEditor`** (element label/move/delete + edge editing) PLUS an
+  absolutely-positioned **popover** (`[role="dialog"][aria-label="Visual controls"]`,
+  `top-[calc(100%+0.5rem)]`) holding the **type-switch pills**
+  (`[aria-label="Switch to <Label>"]` + `aria-pressed`), **variation browsing**
+  (`[aria-label="More variations"]` → candidate gallery
+  `[aria-label="Select variation n of m"]`), the **`StylePanel`** (fed
+  `selectedNodeId` from `VisualEditor`'s `onSelectNode`), and the **`ExportMenu`**
+  (`getSvgElement={() => rendererRef.current}`, ref forwarded into `VisualEditor` →
+  `VisualRenderer`).
+- **GOTCHA — the inner card div is `overflow-hidden`** (clips the visual to its
+  rounded corners), which would clip an inside popover. Put the popover as a SIBLING
+  of that div inside the `rootRef` wrapper (`relative`, NOT overflow-hidden). The
+  editor container has no `overflow-hidden`, so an absolutely-positioned popover
+  isn't clipped. Keeping the popover inside `rootRef` also makes the **ref-containment
+  outside-click** a single check: `document` `mousedown` → if
+  `!rootRef.current.contains(target)` → `setSelected(false)` (never
+  `stopPropagation`, per the app rule). One card open at a time falls out for free:
+  clicking card B fires card A's outside-mousedown (target ∉ A) → A closes.
+- **Type-switch / variations need a text prompt but a VisualNode has no source
+  block text.** Derive one from the visual itself: `visualPromptText(visual)` =
+  title + node labels joined by `\n`; POST it to `/api/generate` (reuse the
+  `VisualPanel` shape — `{text}` for varied candidates, `{text, type}` for a forced
+  kind that auto-applies via `valid.find(v => v.type === type) ?? valid[0]`). Read
+  the current visual through a `visualRef` updated each render so the generate
+  closure isn't stale.
+- **Importing `ExportMenu` into the node module pulls `jspdf`/`pptxgenjs`** (via
+  `@/lib/visual/export`) through the `visual-node.tsx` import chain. This is fine —
+  `decorate()` (and thus the export deps) aren't exercised by the headless
+  `visual-node.test.ts` serialization tests, and `npm test`/build stay green.
+- **Browser QA (mock-Azure on :5599 + collab server):** at `/app/lexical-preview`,
+  insert a visual via the US-010 spark flow (mousemove over the `<p>` to reveal the
+  spark — `focus()` on the root contenteditable does NOT resolve a block since the
+  focusin target is the root, not the block child), then click
+  `[aria-label="Edit visual"]` → assert `[role="dialog"][aria-label="Visual
+  controls"]`, `[role="group"][aria-label="Visual type"]`, `[aria-label="More
+  variations"]`, `[aria-label="Export visual"]`, and `[data-node-id]` hotspots in the
+  selected card. Click `[aria-label="Switch to Mind map"]`, wait for `aria-pressed`,
+  then a root-level `tsx` DB check (`PrismaBetterSqlite3`) confirms BOTH the
+  `contentJson` visual node `type` AND the mirrored `Visual.type` flipped to
+  mindmap — proving the edit persisted through both paths. `page.mouse.click(5,5)`
+  (outside) dismisses the dialog; reload shows the persisted type and the pill still
+  pressed; no horizontal overflow at the default viewport.
 
-### Toolbar and affordance enter/exit animations (US-011)
+### Replace or remove a visual card (US-013)
 
-- **Reduced-motion-aware entrance for the contextual visual controls lives in
-  `src/app/globals.css`.** A single `@media (prefers-reduced-motion: no-preference)`
-  block holds BOTH the `@keyframes napkin-pop-in` (opacity + `translateY(0.375rem)` +
-  `scale(.98)` → identity, i.e. transform/opacity only, no layout shift) AND the
-  `.napkin-pop-in { animation: napkin-pop-in 160ms ease-out }` rule. **Wrapping the
-  class rule itself inside the no-preference media query is the trick** — under
-  `prefers-reduced-motion: reduce` the class has NO rule at all, so the element just
-  appears with zero motion (no JS, no library). Reuse `napkin-pop-in` for any new
-  conditionally-mounted floating control that should fade/slide in.
-- **The two ALWAYS-MOUNTED toolbars (spark gutter `sparkButtonClass`, selection/format
-  `formatToolbarClass` in `content-editor.tsx`) already animate in AND out** via
-  `transition duration-150` + the visible/hidden class toggle (`translate*-0
-  opacity-100` ↔ `translate*-N opacity-0`, transform/opacity only). US-011 only added
-  **`motion-reduce:transition-none`** to each so the show/hide is instant under reduced
-  motion. Note: Tailwind's bare `transition` utility's `transition-property` list
-  INCLUDES `opacity` and `transform`, so those enter/exit animations work; `transition-none`
-  (the `motion-reduce` variant) sets `transition-property: none` and wins by source order.
-- **The contextual visual controls (`InlineVisualEditor`) are conditionally mounted**
-  (`selectedVisualKey` gate), so they get an ENTRANCE animation only (`napkin-pop-in` on
-  the `role="group" aria-label="Visual editing tools"` container) — a CSS-only exit on an
-  unmounting component would need deferred unmount; the spark + format toolbars cover the
-  "in/out" demo. The animation plays once on mount (default `animation-fill-mode: none`
-  ends at identity transform/full opacity), so it never replays on the per-keystroke
-  re-renders during label editing and doesn't disturb the `VisualEditor` SVG overlay.
-- **No animation library** (PRD constraint) — CSS `@keyframes`/transitions only. **No
-  schema/action/endpoint changes** (pure styling). US-012 (visual mount/unmount + a
-  pulsing "thinking" indicator) is a SEPARATE story — don't animate the inline visual
-  card mount or the generation spinner here.
-- **Browser QA (build + `next start` + collab, headless) = deterministic computed-style
-  checks, NOT frame capture.** Open the US-012-seeded welcome doc (it has a doc-level
-  visual), wait for `textarea[aria-label="Document text"]:not([disabled])`. With
-  `page.emulateMedia({ reducedMotion: "no-preference" })`: the format toolbar
-  (`[role="toolbar"][aria-label="Text formatting"]`) and spark
-  (`[aria-label="Generate visual for this block"]`) `getComputedStyle().transitionProperty`
-  includes `opacity`/`transform` at `0.15s`; click `[aria-label="Edit document visual"]`
-  to mount the editor and assert its `animationName === "napkin-pop-in"` (0.16s). With
-  `{ reducedMotion: "reduce" }` + reload, all three report `none` (toolbars
-  `transitionProperty: none`, editor `animationName: none`). 0 horizontal overflow at
-  1280/768/375.
+- **The selected `VisualCard` controls header now has Replace + Remove**
+  (`src/app/app/documents/[id]/visual-card.tsx`). **Replace** (`aria-label="Replace
+  visual"`) reuses the existing `runGenerate()` (no type) to reopen the variation
+  gallery so the user can pick a replacement — same generation path as "More
+  variations". **Remove** (`aria-label="Remove visual"`) deletes the node via
+  `editor.update(() => { const n = $getNodeByKey(nodeKey); if ($isVisualNode(n))
+  n.remove(); })`. A node `remove()` is a normal (untagged) local edit, so
+  `OnChangePlugin` debounce-saves the new `contentJson` and the decorator unmounts —
+  no extra client persistence code.
+- **GOTCHA — `mirrorVisualNodes` only created/updated rows, so a removed node left an
+  ORPHAN `Visual` row.** US-013 added a prune step at the END of `mirrorVisualNodes`
+  (`actions.ts`): collect every live node anchor (`liveAnchors`) during the upsert
+  loop, then `prisma.visual.deleteMany({ where: { documentId, anchorBlockId: { not:
+  null, notIn: [...liveAnchors] } } })`. `not: null` protects the document-level visual
+  (`anchorBlockId` null), and `notIn` keeps rows whose anchor is still present — so
+  removing one card deletes ONLY its mirrored row; other content/visuals are untouched.
+  This is the canonical "derived mirror must also delete" pattern: whenever the source
+  of truth (`contentJson`) drops an item, prune its projection in the same save.
+- **Browser QA (mock-Azure :5599 + collab server, headless):** at
+  `/app/lexical-preview` insert a visual via the US-010 spark flow, click
+  `[aria-label="Edit visual"]`, assert `[aria-label="Replace visual"]` +
+  `[aria-label="Remove visual"]` both exist; click Remove → the `[aria-label="Document
+  body"] svg[role="img"]` count drops to 0 and the surrounding paragraph text is
+  preserved; `page.reload()` confirms persistence; a root-level `tsx` DB check
+  (`PrismaBetterSqlite3`) shows the doc's `Visual` rows are now `[]` and `contentJson`
+  block types dropped the `visual` node (only `["paragraph"]` remains).
+### Render Lexical read-only on share & embed (US-014)
 
-### Visual mount/unmount and generation thinking animation (US-012)
+- **`src/components/lexical/lexical-read-only.tsx` (`LexicalReadOnly`) is a
+  directive-free, server-renderable read-only renderer for a serialized Lexical
+  state.** It walks the `{ root: { children } }` JSON that
+  `editorState.toJSON()` produces and emits plain React elements — NO
+  `LexicalComposer`, no `"use client"`, no `dangerouslySetInnerHTML` — so it runs in
+  server components (`/share/[shareId]`, `/embed/[shareId]`). Inline `visual` nodes
+  render through the directive-free `VisualRenderer` (payload validated with
+  `safeParseVisual`, degrading to a "could not be displayed" placeholder on garbled
+  data, mirroring the editor's `VisualCard`). It mirrors the editor `theme` classes
+  (`lexical-editor.tsx`) so read views match the editor.
+- **Text formatting is a bitmask** on serialized `text` nodes (bold=1, italic=2,
+  strikethrough=4, underline=8, code=16, sub=32, sup=64) — AND the flags, wrap in
+  `<strong>/<em>/<code>/<sub>/<sup>`/decoration spans. Block types handled: `heading`
+  (tag h1–h3), `paragraph`, `quote`, `list` (`listType`/`tag` → `ul`/`ol`) with nested
+  lists, `listitem`, `horizontalrule`, `link`/`autolink`, `linebreak`, `tab`, `visual`.
+- **Legacy fallback (convert-on-read):** pass `fallbackMarkdown={document.content}`.
+  When `state` (the `contentJson`) is null/empty, `LexicalReadOnly` converts the
+  Markdown via the US-004 `markdownToLexicalStateObject` so unmigrated documents still
+  render. The share/embed pages branch on `hasLexical = document.contentJson != null`:
+  Lexical docs render `state={contentJson}` (visuals inline); legacy docs render
+  `fallbackMarkdown` PLUS their stored `Visual` rows (doc-level + block-anchored)
+  appended below (since Markdown conversion has no inline visuals).
+- **Read-only = no editing affordances by construction** (it's not the editor): no
+  spark, no "+"/slash menu, no contextual controls — verified `0` matches for
+  `aria-label="Generate visual"|"Insert block"|"Edit visual"|"Document body"` /
+  `contenteditable` in the share HTML.
+- **Browser QA:** seed a shared doc directly (root-level `tsx` + `PrismaBetterSqlite3`)
+  with a hand-built Lexical `contentJson` (heading/paragraph-with-bold/list/quote/
+  `visual` node/`horizontalrule`) + `isShared: true` + a `shareId`, and a legacy doc
+  (Markdown `content`, null `contentJson`, a doc-level `Visual` row). `curl` the
+  `/share/<id>` HTML and grep for `<strong>`/`<em>`/`<li>`/`<blockquote>`/`<hr `/
+  `data-block-visual`/`role="img"`; assert `svg[role="img"]` count and 0 editing
+  affordances. Check `documentElement.scrollWidth - clientWidth === 0` at 375/768/1280
+  for both `/share` and `/embed` (dev-browser `--headless`; no X server here). The
+  share/embed pages use a single-column `max-w-3xl` article (not the old two-panel
+  grid) since Lexical visuals are inline.
 
-- **Two new CSS-only keyframes live in the same `@media (prefers-reduced-motion:
-  no-preference)` block in `src/app/globals.css`** as `napkin-pop-in`:
-  `napkin-visual-in` (opacity 0→1 + `translateY(0.5rem) scale(0.96)`→identity,
-  200ms) for an added inline visual and `napkin-visual-out` (reverse, 180ms,
-  **`forwards`** so it holds the faded state until React unmounts) for a removed
-  one. Both are transform/opacity ONLY (no height) → no layout shift; the
-  surrounding gap collapses only on the final unmount, not during the animation.
-  Because the classes live inside the no-preference query, **under `reduce` they
-  have no rule at all** → the visual appears/disappears with zero motion (same
-  trick as `napkin-pop-in`). `VISUAL_EXIT_MS = 180` in `content-editor.tsx` MUST
-  match `.napkin-visual-out`'s duration.
-- **Enter animation is gated to SESSION-ADDED visuals only.** `content-editor.tsx`
-  seeds a lazy `const [initialBlockIds] = useState(() => new Set(Object.keys(
-  initialBlockVisuals)))` (lazy STATE, not a ref — reading `ref.current` during
-  render is a `react-hooks/refs` ERROR here; reading state during render is fine).
-  A block visual card gets `napkin-visual-in` only when `!initialBlockIds.has(
-  block.id)`, so server-seeded visuals never flash/animate on page load — only
-  ones generated this session. The CSS animation plays once on mount and never
-  replays on re-render (static class), so per-keystroke edits don't re-trigger it.
-- **Exit = defer-unmount, NOT immediate drop.** `removeVisual` keeps the card in
-  `blockVisuals` (so it stays mounted), sets `exitingBlockId` (swaps the card to
-  `napkin-visual-out pointer-events-none` via the `visualMountClass(exiting,
-  entering)` helper), and schedules a `window.setTimeout(finalize, prefersReduced
-  Motion() ? 0 : VISUAL_EXIT_MS)` to drop it from `blockVisuals` after the fade.
-  `detachVisual` runs in parallel; on FAILURE it `clearTimeout`s the pending
-  finalize (tracked in an `exitTimers` ref `Map<blockId, timerId>`) AND restores
-  the card so the user can retry — the timer-cancel is essential or a late finalize
-  would drop a just-restored card. A cleanup `useEffect(() => () => clear all
-  timers, [])` prevents a post-unmount setState. Under reduced motion the 0ms delay
-  makes removal effectively instant (no motion).
-- **Thinking indicator = pulsing, CSS-only, reduced-motion aware** (replaced the
-  old `animate-spin` border spinner in the picker). While `genStatus === "loading"`
-  the picker shows a pulsing `Sparkles` + "Generating a visual…" plus a
-  `grid grid-cols-2 sm:grid-cols-3` of 3 skeleton `<span class="aspect-[4/3]
-  animate-pulse … motion-reduce:animate-none">` with staggered `animationDelay`
-  (`${i * 150}ms`) where the candidate thumbnails will land; the **gutter spark
-  icon also pulses** (`open && genStatus === "loading"` → `animate-pulse
-  motion-reduce:animate-none`). Tailwind's `animate-pulse` computes to
-  `animationName: "pulse"`; `motion-reduce:animate-none` → `"none"`. Reuse
-  `animate-pulse motion-reduce:animate-none` for any new "thinking"/skeleton state
-  instead of `animate-spin` (which has no built-in reduced-motion guard).
-- **Browser QA (mock-Azure with a ~1.8s delay so the in-flight UI is observable +
-  collab + build/`next start`, headless) = deterministic computed-style checks.**
-  Click a spark PROGRAMMATICALLY (`page.evaluate(() => document.querySelector(
-  '[data-block-id="<id>"]').click())` — the spark is `pointer-events-none` until
-  hover-active). Mid-flight (`waitForTimeout(500)`): assert a `[role="status"]`
-  "Generating a visual…", 3 `span.animate-pulse` whose `getComputedStyle().
-  animationName === "pulse"`, and the spark `svg` animationName `"pulse"`. After
-  selecting `[aria-label="Select Flowchart option 1"]`: the new
-  `[data-block-visual="<id>"]` card's `animationName === "napkin-visual-in"`
-  (0.2s). Click `[aria-label="Remove this block\u0027s visual"]` (escape the
-  apostrophe — the QuickJS selector parser chokes on a raw `'`) then within ~50ms
-  read the card's `animationName === "napkin-visual-out"` (0.18s, pointer-events
-  none) before it detaches. Repeat under `emulateMedia({ reducedMotion: "reduce" })`
-  → every animationName is `"none"` and removal is instant (the exit card is
-  already `"gone"` at 30ms). 0 horizontal overflow at 1280/768/375.
+### Motion library & block/card transitions (US-015)
 
-### Button and control hover/press micro-interactions (US-013)
+- **`framer-motion` (^12, React 19 compatible) is the animation library.** All
+  reveal/transition motion goes through the reduced-motion-aware hooks in
+  `src/components/motion/reveal.ts` (`"use client"`): `usePopMotion()` (overlays:
+  floating toolbar, "+"/"/" insert menu, block spark button+panel, the visual card
+  controls popover) and `useCardMotion()` (visual card mount). Each returns a
+  `RevealMotion` (`initial`/`animate`/`exit` + `transition`) you spread onto a
+  `motion.*` element. Animations are **transform/opacity only** (no layout shift).
+- **Reduced motion = a real no-op, not just shorter.** The hooks call
+  `useReducedMotion()` and return `NO_MOTION` (`initial=animate=exit={opacity:1}`,
+  `duration:0`) when the user prefers reduced motion, so the element simply appears
+  instantly. Prefer this over `MotionConfig reducedMotion="user"` (which still fades
+  opacity) when the AC says "no motion when reduced". Verify with
+  `page.emulateMedia({ reducedMotion: "reduce" })` → the overlay's computed `opacity`
+  is `1` immediately.
+- **Exit animations need the conditional INSIDE `<AnimatePresence>`.** These
+  affordances were `{visible ? createPortal(<div/>) : null}` (returning null before
+  the portal). To animate OUT, always render the portal and put the toggle inside:
+  `createPortal(<AnimatePresence>{visible ? <motion.div key=… {...popMotion}/> : null}</AnimatePresence>, document.body)`.
+  Give each presence child a stable `key`. Call the motion hook BEFORE any early
+  `return null` (hooks rules) — e.g. floating-toolbar's `if (typeof document ===
+  "undefined") return null` and block-spark's `… || !editable) return null` now sit
+  AFTER `usePopMotion()`.
+- **`motion.div`/`motion.button` forward refs and accept all DOM props** (role,
+  aria-*, onMouseDown/onKeyDown, style, className, tabIndex), so swapping
+  `div`→`motion.div` is mechanical. CSS `transform` from the scale animation does
+  NOT change `offsetWidth`/`offsetHeight` (layout size), so the floating toolbar's
+  ref-measured positioning is unaffected.
+- **Decorator (VisualNode) cards animate on MOUNT only.** Lexical owns the
+  decorator's unmount (no parent `<AnimatePresence>` to drive an exit), so
+  `VisualCard`'s root is a `motion.div` with `useCardMotion()` `initial`/`animate`
+  (no exit). The controls popover inside it DOES get full in/out via a nested
+  `<AnimatePresence>`.
+- **Browser QA (dev-browser `--headless`, no X server):** sign up a fresh
+  `*@test.dev` user (collab editor needs auth), `goto('/app/lexical-preview')`, wait
+  for `[aria-label="Document body"][contenteditable="true"]` (collab ready), type +
+  `Control+a` to reveal `[role="toolbar"][aria-label="Text formatting"]` (assert
+  computed `opacity:1`, then `ArrowRight` collapses → toolbar element gone), and type
+  `/` on an empty paragraph to reveal `[role="listbox"][aria-label="Insert block"]`
+  (6 `[role="option"]`s, Escape → gone). Assert zero `console`/`pageerror` events.
 
-- **Shared control micro-interactions live in
-  `src/app/app/documents/[id]/control-styles.ts`.** Reuse its
-  `CONTROL_TRANSITION`, `CONTROL_FOCUS_RING`, `CONTROL_PRESS`, and
-  `PILL_CONTROL_CLASS` exports for any content-first editor button that should match
-  the spark / floating-toolbar / mini-toolbar behavior. This keeps the hover/press
-  feedback consistent and ensures `motion-reduce:transition-none` is applied
-  everywhere from one place.
-- **The spark and floating format toolbar keep their own shape/layout helpers, but
-  layer the shared control tokens on top.** In `content-editor.tsx`,
-  `sparkButtonClass(...)` and `toolbarButtonClass` compose those shared exports with
-  their visibility/state-specific classes, so future control tweaks should happen in
-  `control-styles.ts` first, then in the local helper only when the spark/toolbar
-  needs unique geometry.
-- **Share/comments trigger buttons should use the same pill class, and the share
-  dropdown keeps the ref-containment click-outside pattern.** `CommentsPanel`
-  prepends layout classes to `PILL_CONTROL_CLASS`; `ShareButton` uses the pill class
-  directly and puts `menuRef` on the wrapper containing BOTH trigger + menu, never
-  `stopPropagation`, so in-menu clicks don't collapse the panel.
-- **Browser QA:** a good deterministic check is computed styles + live interaction,
-  not screenshots alone. With `dev-browser --headless` against `npm run build &&
-  NEXT_PUBLIC_COLLAB_WS_URL=ws://127.0.0.1:1234 npm run start`, verify the Share and
-  Comments buttons still open from the mini-toolbar, the spark goes from
-  `opacity: 0` → visible after block focus, the keyboard-focused spark gets a real
-  ring (`box-shadow` non-none), and `page.emulateMedia({ reducedMotion: "reduce" })`
-  makes the Share / spark / toolbar buttons report `transitionProperty: none`.
+### Generation "thinking" state & control micro-interactions (US-016)
 
-### Preserve comments, sharing, presence, and shortcuts in the new editor (US-014)
+- **Shared, reduced-motion-aware "thinking" indicator:
+  `src/components/motion/thinking-indicator.tsx` `ThinkingIndicator`** (`"use client"`).
+  Three framer-motion dots bob/fade in sequence; it calls `useReducedMotion()` and
+  collapses to a STATIC `{opacity:0.6}`/`duration:0` (no transform) when reduced
+  motion is requested — verified in browser: the animated case applies an inline
+  `transform: translateY(...)` to each dot, the reduced case applies no transform.
+  It renders its OWN `role="status" aria-live="polite"`, so don't wrap it in another.
+  Use it for any in-flight generation surface (`BlockSparkPlugin` panel "Generating…",
+  `VisualCard` "More variations" "Thinking…") instead of an ad-hoc pulsing icon.
+- **Consistent control styling lives in
+  `src/components/motion/control-styles.ts`** (plain class-name constants, no React):
+  `FOCUS_RING` (always pair with `focus-visible`, NOT `focus`, so the zinc/white ring
+  only shows for keyboard users), `GUTTER_BUTTON` (the square gutter icon button —
+  spark + "+" insert, includes hover/active/`aria-expanded`/focus-visible), and
+  `controlToggleClass(active)` (toolbar/insert-menu pressed-vs-inactive control).
+  Compose them into a `className`; append layout classes (`fixed z-40 ${GUTTER_BUTTON}`,
+  `... ${FOCUS_RING}`). When adding a new editor control, reuse these so hover/active/
+  focus-visible feedback stays uniform — every interactive editor button now carries a
+  `focus-visible:ring` + an `active:` press state in both light and dark mode.
+- **All busy spinners must respect reduced motion** — use `motion-safe:animate-spin`
+  (Tailwind variant), not bare `animate-spin`, so the ring is static under
+  `prefers-reduced-motion: reduce` (the status text still conveys "busy"). Applied to
+  the visual-card pill/More-variations spinners and `ExportMenu`'s "Exporting…" spinner.
+- **Browser QA (mock-Azure on :5599 with ~1.5s latency + collab server):** the
+  thinking state is brief, so click the spark then POLL tightly (≤60ms) for
+  `[role="dialog"] [role="status"]` rather than a single delayed snapshot — a fixed
+  `waitForTimeout` before reading often misses it. Assert focus-visible by reading a
+  button's `class` and testing `/focus-visible:ring/`; reveal the spark by
+  `page.mouse.move` over the paragraph rect (focusin on the root does NOT resolve a
+  block). Reduced motion: `page.emulateMedia({ reducedMotion: "reduce" })` then assert
+  the dot has no animating `translateY` inline style.
 
-- **The content-first `ContentEditor` was missing the `ystate` (visual collab)
-  channel entirely** — the US-001 scaffold only ported text collab (`useYText` over
-  `ycontent`/`ytitle`). US-014 restored **document-level visual sync** to match the
-  legacy `DocumentEditor`/`VisualPanel`: destructure `ystate` from
-  `useCollaboration`, add `pushDocVisual(visual)` (writes `JSON.stringify(visual)`
-  under the `ystate` `"visual"` key inside `ystate.doc.transact(apply, localOrigin)`
-  so our own observer skips it), and a `ystate.observe` effect that mirrors **remote**
-  `"visual"` changes (`tr.origin !== localOrigin`) into `setDocVisual`. Route the
-  doc-level `InlineVisualEditor.onChange` through `handleDocVisualChange` (=
-  `setDocVisual` + `pushDocVisual`). `seed()` already loads the initial visual into
-  `ystate`. **Only the doc-level visual syncs live — block-anchored visuals don't**
-  (parity with the legacy editor; they persist via the DB and reappear on reload).
-- **Comment-to-visual-node anchoring** (a legacy `VisualPanel` feature) was wired
-  back: `InlineVisualEditor` got an optional `onSelectNode?: (node: {id,label}|null)
-  => void` + an effect over `[working, selectedNodeId]` that reports the selected
-  node up; `ContentEditor` holds `anchorNode` state and passes it to `CommentsPanel`
-  (was hardcoded `null`). **GOTCHA: the editing popover dismisses on the SAME outside
-  `mousedown` that opens the comments drawer**, so `deselectVisual` must NOT clear
-  `anchorNode` (keep it like the text `lastSelection` ref) or "Attach selected
-  element" never shows. Clear it only in `selectVisual` (a different visual is opened)
-  or via the comments panel's "Clear anchor".
-- **The Ctrl/⌘+E "toggle Write/Preview" shortcut is obsolete** in the content-first
-  editor (no tabs) — left in place; removing the catalog entry + `isTogglePreviewShortcut`
-  belongs to US-015. The global `?` shortcut works in the editor because it lives in
-  `SiteHeader`'s `KeyboardShortcuts` (root layout), not the editor component.
-- **Browser QA (two-browser collab):** run `npm run collab` + a prod `next start`;
-  use TWO SEPARATE `dev-browser --headless --browser <name>` instances (no shared
-  BroadcastChannel) so presence "2 peers", a typed text marker, AND a doc-level node-
-  label edit all propagate through the WS server and survive a hard `page.reload()`
-  (DB autosave). Seed owner + a workspace **VIEWER** member (root-level `*.mts` tsx,
-  `PrismaBetterSqlite3`, `data: visual as unknown as object`, `type:
-  VISUAL_KIND_TO_PRISMA[v.type]`); the VIEWER sees no sparks / Edit-visual / Replace /
-  Remove / `[role="toolbar"][aria-label="Text formatting"]`, only inline
-  `svg[role="img"]`. Select a visual node by `el.focus()` on its `[data-node-id]`
-  hotspot; a Playwright `locator.click()` (real `mousedown`) on the Comments button
-  exercises the "editor closes but anchor persists" path, whereas a programmatic
-  `element.click()` does NOT fire `mousedown`.
+### Preserve collaboration chrome in the Lexical editor (Ghost US-017)
 
-### Retire the tab/two-panel editor & reconcile share/read views (US-015)
+- **The Lexical editor (`lexical-editor.tsx`) now hosts the same collaboration
+  chrome as the legacy `document-editor.tsx`:** `Presence` + `ShareButton` +
+  `CommentsPanel` in a wrapping `flex flex-wrap` header, plus the save-status
+  `role="status"`. All of it lives INSIDE `<LexicalComposer>` so the comment
+  text-anchor can read the live Lexical selection. The chrome props
+  (`currentUserId`, `initialComments`, `initialIsShared`, `initialShareId`) are
+  optional with defaults so existing callers (and the preview page) stay simple;
+  US-018 binds them from the real document page.
+- **Comment TEXT anchoring reads the Lexical selection, stored as a STRING — never
+  Lexical node keys/offsets** (those aren't stable across sessions; AC requirement).
+  A `CaptureSelectionPlugin` registers `editor.registerUpdateListener` and, inside
+  `editorState.read()`, captures `$getSelection()`'s `getTextContent().trim()` into a
+  ref when it's a non-collapsed `$isRangeSelection`. `getTextSelection()` (passed to
+  `CommentsPanel`) first tries the editor's *current* selection
+  (`editor.getEditorState().read(...)`), falling back to the captured ref — because
+  clicking the Comments button blurs/collapses the editor selection, so the ref holds
+  the last good one. Reuse `anchorText`/`anchorNodeId` (the existing comment-actions
+  model) unchanged.
+- **Comment VISUAL anchoring uses a React context, not prop drilling through
+  decorator nodes.** `visual-anchor-context.tsx` (`VisualAnchorProvider` +
+  `useVisualAnchor`) lets an embedded `VisualCard` report `{ id, label }` for its
+  selected element up to the editor, which holds `anchorNode` state for
+  `CommentsPanel`. `VisualCard` reports in a `useEffect([selected, selectedNodeId])`
+  (label from `visualRef.current.nodes`), guarded by a `reportedAnchorRef` so it only
+  clears the shared anchor it actually set (minimizes spurious clears; selecting
+  nodes across two cards at once is an accepted rare edge). The id is the visual
+  node id, NOT a Lexical key.
+- **The "Ctrl/⌘+E Toggle Write/Preview" editor shortcut does NOT carry over** — the
+  Lexical editor has no Write/Preview tabs. The global `?` (help) and `N` (new doc)
+  shortcuts keep working because they're mounted in `SiteHeader` (layout-level), not
+  the editor. The catalog entry for Ctrl+E is left for US-018's textarea retirement.
+- **Browser QA (`/app/lexical-preview`, headless + collab server on 1234):** sign up
+  a fresh `*@test.dev` user, wait for `[aria-label="Document body"][contenteditable="true"]`,
+  type → wait `role="status"` "All changes saved", `Control+a` to select, open
+  `button[aria-label="Comments"]`, click `button[aria-label="Attach text selection"]`
+  → the anchor chip (`.bg-indigo-50`) reads `On text:<exact selected string>`. Post
+  via `button[aria-label="Add comment"]`, then `page.reload()` and reopen Comments to
+  confirm the thread + its text-string anchor persisted (server round-trip). The `?`
+  help dialog (`[role="dialog"][aria-labelledby="shortcuts-title"]`) opens after
+  blurring the editor.
 
-- **The legacy editor is GONE.** US-015 `git rm`'d three now-dead files:
-  `document-editor.tsx` (was unimported once `page.tsx` switched to `ContentEditor`
-  in US-001), and its only-consumers `visual-panel.tsx` (`VisualPanel`) and
-  `block-visual-generator.tsx` (`BlockVisualGenerator`). Before deleting a
-  "legacy/dead" component, confirm the dead-code CHAIN: grep every export of each
-  file repo-wide and only delete a dependency once its sole importer is also being
-  deleted (here: VisualPanel/BlockVisualGenerator were imported *only* by
-  DocumentEditor). `markdown-preview.tsx` survived because `BlockContent` is used by
-  `content-editor.tsx` and `MarkdownPreview` by the share page; `visual-editor.tsx`/
-  `style-panel.tsx`/`icon-picker.tsx`/`export-menu.tsx` survived via the
-  `InlineVisualEditor` chain. No other file imported the deleted exports (only
-  `page.tsx`'s unrelated `DocumentEditorPage` shares the "DocumentEditor" substring).
-- **The share page (`src/app/share/[shareId]/page.tsx`) was redesigned from a
-  two-column grid (Text | Visual) to the content-first single column.** It's a
-  server component matching the editor's read view: a `max-w-3xl` blog-width column,
-  header (Read-only badge + "Shared by" + `text-3xl/sm:text-4xl font-bold` title),
-  then the **document-level visual in its own inline slot** (a "Document visual"
-  labelled card, an `svg[role="img"]` NOT inside any `[data-block-visual]`), then
-  `MarkdownPreview source={content} visuals={blockVisuals}` which renders prose with
-  each anchored visual inline beneath its source block (`[data-block-visual="<id>"]`).
-  Same doc-level-vs-anchored split as before (one pass over the single `visuals`
-  query, `safeParseVisual` each). No new query, no backend change.
-- **The embed page (`/embed/[shareId]`) was left visual-only on purpose** — it's the
-  chrome-free iframe widget (US-018): no header/nav/prose, just every visual
-  (doc-level first, then anchored, in document order) via the directive-free
-  `VisualRenderer`. That already IS "consistent with the content-first layout"
-  (visuals in document order, same renderer); adding prose would regress its
-  documented embedding purpose. Don't add `MarkdownPreview` to embed.
-- **Browser QA (prod `next start`, `dev-browser --headless`):** the share/embed
-  pages are public (no auth/collab needed) — seed a shared doc + a doc-level visual +
-  ≥3 block-anchored visuals (root-level `*.mts` tsx, `PrismaBetterSqlite3`,
-  `data: v as unknown as object`, `type: VISUAL_KIND_TO_PRISMA[v.type]`; content
-  blocks **blank-line separated** so `parseMarkdown` yields distinct blocks; anchor
-  ids come from `parseMarkdown(content)`). Verified: share = 4 `svg[role="img"]`
-  (1 doc-level outside `[data-block-visual]` + 3 inline cards), single column (no
-  `lg:grid-cols-2`), "Document visual"/"Read-only" labels, NO editing affordances
-  (`[aria-label="Generate visual for this block"]`, `[role="toolbar"][aria-label=
-  "Text formatting"]`, `textarea[aria-label="Document text"]` all 0); embed = 4
-  `svg[role="img"]`, 0 `<header>`/`<nav>`/`<a>`; both 404 on unknown/non-shared id;
-  zero horizontal overflow (`scrollWidth - clientWidth === 0`) at 375/768/1280.
+### Swap in the Lexical editor; retire the textarea/tab editor (Ghost US-018)
+
+- **The document editor page (`src/app/app/documents/[id]/page.tsx`) now renders
+  `LexicalEditor`, not the old `DocumentEditor`.** The legacy two-panel textarea +
+  right `VisualPanel` + `BlockVisualGenerator` editor is gone — `document-editor.tsx`,
+  `visual-panel.tsx`, `block-visual-generator.tsx`, and `markdown-preview.tsx` were
+  DELETED, along with the temporary `/app/lexical-preview` scaffold route. Visuals are
+  now inline `VisualNode` blocks in `contentJson` (single-column `max-w-3xl` layout),
+  not a separate right panel; the page no longer queries the `Visual` table for the
+  editor (the Visual rows remain a derived mirror for share/embed/dashboard).
+- **`LexicalEditor` is now self-contained document chrome** (renders its own
+  `<main>` + header: back link, collaborative title input, workspace name, Read-only
+  badge, Presence/Share/Comments + combined save status). New props vs. the preview
+  shell: `initialTitle`, `canEdit`, `workspaceName`. Editing is gated on
+  `editable = canEdit && collab.ready` (the `EditableGate` plugin), so viewers
+  (workspace VIEWER role) get a read-only editor and the block spark/visual cards
+  inherit it via `editor.isEditable()`.
+- **`initialStateJson` precedence (same as the old preview page):**
+  `contentJson ? JSON.stringify(contentJson) : content ? markdownToLexicalState(content) : null`
+  — legacy Markdown docs convert on first open, the first edit persists `contentJson`.
+  Select `contentJson` (Json) on the editor page query.
+- **Collaborative title parity:** `useLexicalCollaboration` (the Yjs hook) now exposes
+  `ytitle` (a `Y.Text` on the same room doc), `localOrigin`, and `seedTitle(initial)`
+  (guarded by a `meta.titleSeeded` flag). The editor binds the title `<input>` with the
+  existing `useYText` (from `use-collaboration.ts`) + a debounced `saveDocumentTitle`,
+  and calls `seedTitle(initialTitle)` once `collab.ready` — mirroring how the body is
+  bootstrapped. So title edits are real-time-synced AND autosaved, like the old editor.
+  `saveDocumentTitle`/`saveDocumentContent` server actions stay (title still uses the
+  former; `saveDocumentContent` is now only used by legacy/markdown paths).
+- **Browser QA (headless + collab server on 1234, dev on 3000):** sign up a fresh
+  `*@test.dev` user (signup seeds a sample doc, US-012), open it from `/app`
+  (`ul li a[href^="/app/documents/"]`), wait for
+  `[aria-label="Document body"][contenteditable="true"]`. Verify: title input value,
+  Share/Comments/Back-link present, NO `textarea[aria-label="Document text"]`; type +
+  `Control+a`/`Delete` then `page.keyboard.type` (ContentEditable `.click()` hangs —
+  focus via `evaluate(el.focus())`), wait for a `[role="status"]` reading "All changes
+  saved", `page.reload()` and assert the body text persisted (from `contentJson`); edit
+  the title input, blur, reload, assert it persisted; `Control+a` reveals
+  `[role="toolbar"][aria-label="Text formatting"]`; 0 console errors; no horizontal
+  overflow at 1280/768/375. NOTE: a sample doc's doc-level `Visual` TABLE row (US-012)
+  does NOT render inline in the new editor (only `contentJson` `VisualNode`s do) — that's
+  expected legacy-data behavior, not a regression; new visuals come from the inline spark.
+
+### Ghost long-form typography (Ghost US-020)
+
+- **`.ghost-prose` (in `src/app/globals.css`) is the single Ghost reading-typography
+  class for long-form document content** — applied to the Lexical editor surface
+  (`ContentEditable` in `lexical-editor.tsx`) AND the read-only render
+  (`LexicalReadOnly` root div, share/embed). App chrome (header, title input,
+  controls) stays sans by NOT being inside `.ghost-prose`. To restyle reading
+  typography, edit this one class; don't sprinkle per-element font classes.
+- **It is intentionally UNLAYERED CSS** (plain `.ghost-prose h2 { … }` rules, not
+  inside `@layer`/`@theme`). Tailwind v4 puts all utilities in cascade layers, and
+  **unlayered rules beat any layered utility regardless of specificity** — so these
+  descendant rules override the per-element Tailwind classes already on the editor /
+  read-only elements (e.g. `text-zinc-700`, `text-2xl`, `leading-7`) WITHOUT having to
+  remove them. Use this "unlayered wins" trick when you need to override existing
+  utility classes app-wide from globals.css.
+- **Font stacks via `var(--font-*, <literal fallback>)`.** The `@theme inline`
+  font vars (`--font-serif`/`--font-mono`) are tree-shaken from `:root` unless used,
+  so reference them with a literal fallback (`var(--font-serif, Georgia, Times,
+  "Times New Roman", serif)`) — the fallback guarantees resolution. NOTE: referencing
+  `var(--font-serif)` in custom CSS actually DOES cause Tailwind to emit it to `:root`
+  in the build (verified), but keep the fallback for safety. Body/lists/quote = serif,
+  h1–h3 = sans (Inter, `--font-sans` is already on `:root`), code = mono.
+- **Colors use the US-019 ghost tokens** (`--ghost-text`, `--ghost-secondary`,
+  `--ghost-border`, `--ghost-accent-color`) which flip in the `prefers-color-scheme:
+  dark` block — so light/dark "just work" with NO `dark:` variants in the class.
+  Accent-bar blockquote = `border-left: 3px solid var(--ghost-accent-color)`.
+- **Reading measure:** `.ghost-prose` is `max-width: 45rem` (~720px) + `margin-inline:
+  auto`. It sits inside the existing `max-w-3xl` padded card, so content centers at the
+  Ghost ~720px measure (verified `proseWidth` ≈ 670px content, 720 cap).
+- **Browser QA:** seed a shared doc with a hand-built Lexical `contentJson`
+  (heading/paragraph-with-bold+code/quote/list) + `isShared:true` + a `shareId` (root
+  `tsx` + `PrismaBetterSqlite3`, class is lowercase `qlite`), `goto /share/<id>`, and
+  assert computed styles: `.ghost-prose p` fontFamily contains `Georgia`,
+  `.ghost-prose h2` contains `Inter`, blockquote `borderLeftColor` = the accent
+  (`rgb(79, 70, 229)` for default indigo) + `3px`, code fontFamily contains `Menlo`,
+  and `documentElement.scrollWidth - clientWidth === 0` at 375/768/1280. Verify light
+  vs dark with `page.emulateMedia({ colorScheme })` — `p` color is `rgb(21,23,26)`
+  (#15171a) light / `rgb(245,246,246)` (#f5f6f6) dark.
+
+### Apply Ghost theme to app chrome (Ghost US-021)
+
+- **App chrome (site header/nav, dashboard, document cards + overflow menu,
+  settings, login/signup) now uses the US-019 ghost-token Tailwind utilities
+  instead of ad-hoc zinc + `dark:` pairs.** Because the ghost color tokens flip in
+  the `prefers-color-scheme: dark` block (globals.css), the utilities are
+  light/dark-correct with **NO `dark:` variants** — so themed chrome classes lost
+  all their `dark:zinc-*` siblings. The canonical mapping (reuse it for any new
+  chrome surface): page bg → `bg-ghost-wash`; card/input/menu bg → `bg-ghost-bg`;
+  all borders (`border-black/[.06]`, `border-black/10`, `border-white/15`, …) →
+  `border-ghost-border`; heading/primary text → `text-ghost-text`; secondary/muted
+  text → `text-ghost-secondary`; hover wash → `hover:bg-ghost-wash`; primary/CTA
+  buttons (was `bg-zinc-900 … dark:bg-white`) → `bg-ghost-accent text-white
+  hover:opacity-90` (indigo `#4f46e5` = `rgb(79,70,229)` in both modes); destructive
+  buttons/text → `bg-ghost-red`/`text-ghost-red` (`#f05230`); success → `text-ghost-green`.
+- **Opacity modifiers on ghost token utilities WORK** (`focus:ring-ghost-accent/30`,
+  `border-ghost-accent/40`, `bg-ghost-red/10`, `bg-ghost-bg/80`, `text-ghost-secondary/50`)
+  — Tailwind v4 emits a `color-mix` under `@supports`, so they compile and render.
+  Standard input treatment: `border-ghost-border bg-ghost-bg text-ghost-text
+  focus:border-ghost-accent focus:ring-2 focus:ring-ghost-accent/30`.
+- **Keep `bg-black/40` modal backdrops as-is** (intentional dim overlay, not a
+  themed surface). The dashboard undo toast inverts via `bg-ghost-text text-ghost-bg`.
+- **Browser QA (dev-browser `--headless`, no X server):** verify computed styles, not
+  screenshots — `bg-ghost-wash` = `rgb(244,248,251)` light / `rgb(22,24,28)` dark;
+  `border-ghost-border` = `rgb(221,225,229)` light; primary button bg =
+  `rgb(79,70,229)`; ghost-red = `rgb(240,82,48)`. Assert
+  `documentElement.scrollWidth - clientWidth === 0` at 375/768/1280 for `/login`,
+  `/signup`, `/app`, `/app/settings` in both `colorScheme`s. GOTCHA: selecting a
+  generic `main > div` can grab the wrong node and report a transient transparent/
+  foreground-bordered box mid-navigation — query the actual themed element (e.g.
+  `.bg-ghost-bg`) and read `getComputedStyle(...).backgroundColor`/`borderColor`
+  directly for a reliable reading. Sign-up form button `.click()` hangs (per the
+  dev-browser gotcha) — submit via `input[name=password].press("Enter")` + poll
+  cookies for `authjs.session-token`; signup seeds a sample doc so `/app` has a card.
+
+### Editor reading-time / word-count stats (Ghost US-024)
+
+- **Live editor stats reuse the US-023 helpers** (`wordCount`/`readingTimeMinutes`
+  from `@/lib/document-stats`) fed by the editor's LIVE plain text, not the saved
+  `content` projection. `lexical-editor.tsx`'s `DocumentStatsPlugin` registers
+  `editor.registerUpdateListener` and, inside `editorState.read()`, reports
+  `$getRoot().getTextContent()` to the editor via an `onText` callback. It fires on
+  EVERY update (local AND remote/collab), so the count stays in sync as collaborators
+  type — unlike `handleChange` (US-003 save), which intentionally skips
+  `COLLABORATION_TAG`/`HISTORIC_TAG`. Compute `wordCount`/`readingTimeMinutes` in
+  render from the reported text. Pattern for any "live derived stat from the doc":
+  an update-listener plugin + `$getRoot().getTextContent()`, never the debounced save.
+- The stats span (`aria-label="Document statistics"`, text `"<n> min read · <n>
+  words"`) lives in the header controls row, which is `flex-wrap` + each control is
+  `min-w-0 shrink truncate`, so it wraps instead of overflowing at 375px (verified
+  `scrollWidth - clientWidth === 0` at 375/768/1280).
+
+### Slug-based readable share/embed URLs (Ghost US-028)
+
+- **Share URLs are `/share/<slug>-<shareId>`** (embed: `/embed/<slug>-<shareId>`).
+  The `<slug>` is decorative (from the title via `slugify`, US-027); the canonical
+  12-char `shareId` is ALWAYS the segment after the **last** hyphen (the shareId
+  alphabet `23456789abc…XYZ` contains NO hyphen, so splitting on the last `-` is
+  always safe). Two pure helpers in `src/lib/slug.ts`: `buildShareSegment(slug,
+  shareId)` (omits an empty/null slug → bare `shareId`) and `shareIdFromParam(param)`
+  (`lastIndexOf("-")`; returns the whole param when there's no hyphen → legacy bare
+  ids still resolve). Both are unit-tested in `slug.test.ts`.
+- **Resolve in the read pages with `shareIdFromParam`:** `/share/[shareId]` and
+  `/embed/[shareId]` (`page.tsx`) do `const resolvedShareId =
+  shareIdFromParam(shareId)` then `findFirst({ where: { shareId: resolvedShareId,
+  isShared: true, deletedAt: null } })`. Handles BOTH the bare and slug forms; an
+  unknown/non-shared id still `notFound()`s. The slug part is never looked up.
+- **`toggleDocumentSharing` (`documents/[id]/actions.ts`) stores a slug when
+  enabling.** `Document.slug` is `@unique` (US-027), so a same-titled doc would
+  collide — `generateUniqueSlug(title, currentDocId)` tries `slugify(title)` then
+  `-2`, `-3`, … excluding the current doc (stable across re-shares), returns `null`
+  when the title has no slug chars. On disable it clears `slug` (and `shareId`). The
+  action now returns `slug` too and builds `shareUrl` via `buildShareSegment`.
+- **Plumb the slug to the displayed URL on initial load:** the editor page selects
+  `slug` and passes `initialSlug` → `LexicalEditor` → `ShareButton`, which seeds its
+  `shareUrl` with `buildShareSegment(initialSlug, initialShareId)` so an
+  already-shared doc shows the slug form before any toggle. The embed snippet derives
+  from `shareUrl.replace("/share/", "/embed/")`, so it inherits the slug form for free.
+- **Browser QA:** open the signup-seeded "Welcome to Napkin Clone" doc, open Share,
+  toggle on — the read-only URL `input[readonly]` value is
+  `/share/welcome-to-napkin-clone-<shareId>` and the `textarea[aria-label="Embed
+  code"]` snippet uses the matching `/embed/...` form. GOTCHA: the editor canvas card
+  overlays the Share dropdown, so Playwright `.click()` (even `{force:true}`) on the
+  in-menu toggle switch is pointer-intercepted — open the menu and flip the toggle via
+  `page.evaluate(() => button.click())` (real DOM click → React onClick fires). Verify
+  both `/share/<slug>-<id>` and the bare `/share/<id>` curl to 200; an arbitrary slug
+  in front of the real id also resolves (200); unknown id → 404.
+
+### Tag model & Document-Tag relation (Ghost US-032)
+
+- **`Tag` is a flat, owner-scoped model** (`prisma/schema.prisma`): `id`, `name`,
+  `slug`, `ownerId`, timestamps, with `@@unique([ownerId, name])` +
+  `@@unique([ownerId, slug])` (names/slugs unique PER owner, not globally) and
+  `@@index([ownerId])`. `owner User @relation(... onDelete: Cascade)` (deleting a
+  user drops their tags). The slug derives from `slugify(name)` (US-027,
+  `@/lib/slug`) — compute it in the addTag action (US-033), the column has no
+  default.
+- **Document↔Tag is an IMPLICIT many-to-many** (`tags Tag[] @relation("DocumentTags")`
+  on both `Document` and `Tag`; also `tags Tag[]` back-relation on `User`). Prisma
+  generates the join table `_DocumentTags` (`A`=Document, `B`=Tag, both FKs
+  `onDelete: Cascade`) automatically on BOTH providers — no explicit join model
+  needed. Connect/disconnect with `document.update({ data: { tags: { connect: [{id}] }}})`
+  / `{ disconnect: [{id}] }`. A plain `CREATE TABLE` migration (no SQLite
+  RedefineTables) since they're new tables.
+- **A new model with `@@unique` constraints does NOT trigger the interactive
+  migrate-dev warning** that an `@unique` column on an EXISTING table does (US-027) —
+  so `prisma migrate dev --name add_tags` runs non-interactively for both providers
+  here (no hand-authored SQL / `migrate diff` workaround needed). Followed the
+  DUAL-MIGRATION DRILL (postgres `migrate dev` then sqlite `migrate dev` LAST, then
+  `DB_PROVIDER=sqlite npm run db:generate`).
+
+### Add and remove tags on a document (Ghost US-033)
+
+- **Tag mutations live in `src/app/app/documents/[id]/tags-actions.ts`** (`"use server"`):
+  `addTag(documentId, rawName)` and `removeTag(documentId, tagId)`, both **access-scoped**
+  via `getAccessibleDocument(user.id, documentId)` (inaccessible → return `[]` no-op) and
+  **both return the document's refreshed `DocumentTag[]`** (`{ id, name, slug }`, ordered
+  by name) so the client can render server truth. Exported `DocumentTag` type is reused by
+  the UI. `addTag` normalizes the name (trim, collapse whitespace, clamp 50 chars; blank →
+  no-op) and **find-or-creates the tag owned by the ACTING `user.id`** (not the doc owner)
+  — keyed by `(ownerId, name)`; the slug is `slugify(name) || "tag"`, with a P2002/empty
+  fallback that appends a `Date.now().toString(36)` discriminator (handles the
+  `@@unique([ownerId, slug])` collision when two different names slugify the same). Connect
+  with `prisma.document.update({ data: { tags: { connect: { id } } } })`; remove with
+  `{ disconnect: { id } }` (the Tag row itself is NOT deleted). Both `revalidatePath("/app")`
+  so the dashboard (US-034 filter) refreshes.
+- **`src/app/app/documents/[id]/tag-control.tsx` (`TagControl`, `"use client"`)** renders in
+  the editor header below the title: tag chips + an add `<input aria-label="Add a tag">`
+  (Enter or blur commits) with a `<datalist>` autocomplete of the user's tags **not already
+  on the doc** (`useId()` for the list id). Remove buttons are `aria-label="Remove tag
+  <name>"`. It's optimistic via local `useState`/`useTransition` seeded from `initialTags`,
+  and `editable={canEdit}` (VIEWERs see chips, no input). Tags are NOT collab-synced (CRDT
+  is for body/title) — freshness comes from the action return + reload, which is enough.
+- **Wiring:** the editor page (`page.tsx`) selects `document.tags` (`{ id, name, slug }`)
+  and queries the acting user's tags (`prisma.tag.findMany({ where: { ownerId: user.id } })`)
+  for suggestions, passing `initialTags`/`allTags` to `LexicalEditor` → `TagControl`.
+- **Browser QA (dev-browser, headless + collab server):** sign up a fresh `*@test.dev` user
+  (clear cookies first — a stale JWT pointing at a wiped user makes `createDocument*` throw
+  a `Foreign key constraint violated` on `ownerId`), open the signup-seeded doc, then add via
+  `[aria-label="Add a tag"]` + Enter, assert `[aria-label="Remove tag <name>"]` chips,
+  `page.reload()` to confirm persistence, and click a remove button + reload to confirm the
+  drop persisted. Read chips via `[aria-label="Tags"] > span` textContent (strip the `×`).

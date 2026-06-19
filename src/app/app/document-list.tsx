@@ -15,7 +15,11 @@ const UNDO_DURATION_MS = 6000;
 export type DashboardDocument = DocumentCardData & {
   createdAtMs: number;
   updatedAtMs: number;
+  tags: { slug: string; name: string }[];
 };
+
+/** A tag available for filtering the dashboard. */
+export type AvailableTag = { slug: string; name: string };
 
 const SORT_KEYS = ["edited", "title", "created"] as const;
 type SortKey = (typeof SORT_KEYS)[number];
@@ -75,7 +79,7 @@ function sortDocuments(
 }
 
 const primaryButtonClass =
-  "flex h-10 items-center justify-center rounded-full bg-zinc-900 px-5 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:opacity-60 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200";
+  "flex h-10 items-center justify-center rounded-full bg-ghost-accent px-5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-60";
 
 function UndoToast({ title, onUndo }: { title: string; onUndo: () => void }) {
   return createPortal(
@@ -83,11 +87,11 @@ function UndoToast({ title, onUndo }: { title: string; onUndo: () => void }) {
       <div
         role="status"
         aria-live="polite"
-        className="pointer-events-auto flex items-center gap-4 rounded-full border border-white/10 bg-zinc-900 px-5 py-3 text-sm text-white shadow-lg dark:border-black/20 dark:bg-zinc-100 dark:text-zinc-900"
+        className="pointer-events-auto flex items-center gap-4 rounded-full border border-ghost-border bg-ghost-text px-5 py-3 text-sm text-ghost-bg shadow-lg"
       >
         <span className="truncate">
           Document deleted
-          <span className="hidden text-zinc-400 sm:inline dark:text-zinc-500">
+          <span className="hidden text-ghost-secondary sm:inline">
             {" "}
             — “{title}”
           </span>
@@ -95,7 +99,7 @@ function UndoToast({ title, onUndo }: { title: string; onUndo: () => void }) {
         <button
           type="button"
           onClick={onUndo}
-          className="shrink-0 rounded-full font-semibold text-indigo-300 underline-offset-2 transition hover:underline dark:text-indigo-600"
+          className="shrink-0 rounded-full font-semibold text-ghost-accent underline-offset-2 transition hover:underline"
         >
           Undo
         </button>
@@ -131,8 +135,10 @@ function UndoToast({ title, onUndo }: { title: string; onUndo: () => void }) {
  */
 export function DocumentList({
   documents,
+  availableTags,
 }: {
   documents: DashboardDocument[];
+  availableTags: AvailableTag[];
 }) {
   const [removedIds, setRemovedIds] = useState<Set<string>>(() => new Set());
   const [restored, setRestored] = useState<DashboardDocument[]>([]);
@@ -146,6 +152,12 @@ export function DocumentList({
   const sort = parseSort(searchParams.get("sort"));
   const view = parseView(searchParams.get("view"));
   const viewFavorites = view === "favorites";
+  const rawTag = searchParams.get("tag");
+  // Only honor a tag slug that actually exists; otherwise treat as "all".
+  const selectedTag =
+    rawTag && availableTags.some((tag) => tag.slug === rawTag) ? rawTag : null;
+  const selectedTagName =
+    availableTags.find((tag) => tag.slug === selectedTag)?.name ?? null;
 
   // Persists a view-state param in the URL (dropping it for its default value)
   // via the History API. `useSearchParams` reflects this without a server round
@@ -177,6 +189,16 @@ export function DocumentList({
     });
   };
 
+  const setTag = (next: string | null) => {
+    updateParams((params) => {
+      if (!next) {
+        params.delete("tag");
+      } else {
+        params.set("tag", next);
+      }
+    });
+  };
+
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
@@ -193,7 +215,12 @@ export function DocumentList({
       const full = documents.find((document) => document.id === data.id);
       const stash: DashboardDocument = full
         ? { ...full, title: data.title }
-        : { ...data, createdAtMs: Date.now(), updatedAtMs: Date.now() };
+        : {
+            ...data,
+            createdAtMs: Date.now(),
+            updatedAtMs: Date.now(),
+            tags: [],
+          };
       setRemovedIds((prev) => new Set(prev).add(data.id));
       setRestored((prev) => prev.filter((item) => item.id !== data.id));
       setUndo(stash);
@@ -234,9 +261,15 @@ export function DocumentList({
   );
   const combined = [...extra, ...base];
 
-  const favFiltered = viewFavorites
-    ? combined.filter((document) => document.favorite)
+  const tagFiltered = selectedTag
+    ? combined.filter((document) =>
+        document.tags.some((tag) => tag.slug === selectedTag),
+      )
     : combined;
+
+  const favFiltered = viewFavorites
+    ? tagFiltered.filter((document) => document.favorite)
+    : tagFiltered;
 
   const trimmedQuery = query.trim().toLowerCase();
   const filtered = trimmedQuery
@@ -247,17 +280,18 @@ export function DocumentList({
   const visible = sortDocuments(filtered, sort, !viewFavorites);
 
   const hasDocuments = combined.length > 0;
+  const noTagMatch = selectedTag !== null && tagFiltered.length === 0;
   const noFavorites = viewFavorites && favFiltered.length === 0;
 
   return (
     <>
       {!hasDocuments ? (
-        <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-black/10 bg-white px-6 py-16 text-center dark:border-white/15 dark:bg-zinc-950">
+        <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-ghost-border bg-ghost-bg px-6 py-16 text-center">
           <div className="flex flex-col gap-1">
-            <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+            <h2 className="text-lg font-medium text-ghost-text">
               No documents yet
             </h2>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            <p className="text-sm text-ghost-secondary">
               Create your first document to start turning text into visuals.
             </p>
           </div>
@@ -277,7 +311,7 @@ export function DocumentList({
                 strokeWidth="1.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400 dark:text-zinc-500"
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ghost-secondary"
               >
                 <circle cx="11" cy="11" r="7" />
                 <path d="m21 21-4.3-4.3" />
@@ -288,10 +322,34 @@ export function DocumentList({
                 onChange={(event) => setQuery(event.target.value)}
                 aria-label="Search documents"
                 placeholder="Search documents"
-                className="h-10 w-full rounded-full border border-black/[.08] bg-white pl-9 pr-4 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200 dark:border-white/[.12] dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-500 dark:focus:ring-zinc-700"
+                className="h-10 w-full rounded-full border border-ghost-border bg-ghost-bg pl-9 pr-4 text-sm text-ghost-text outline-none transition placeholder:text-ghost-secondary focus:border-ghost-accent focus:ring-2 focus:ring-ghost-accent/30"
               />
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              {availableTags.length > 0 && (
+                <>
+                  <label
+                    htmlFor="filter-tag"
+                    className="text-sm text-ghost-secondary"
+                  >
+                    Tag
+                  </label>
+                  <select
+                    id="filter-tag"
+                    value={selectedTag ?? ""}
+                    onChange={(event) => setTag(event.target.value || null)}
+                    aria-label="Filter by tag"
+                    className="h-10 rounded-full border border-ghost-border bg-ghost-bg px-4 text-sm text-ghost-text outline-none transition focus:border-ghost-accent focus:ring-2 focus:ring-ghost-accent/30"
+                  >
+                    <option value="">All tags</option>
+                    {availableTags.map((tag) => (
+                      <option key={tag.slug} value={tag.slug}>
+                        {tag.name}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
               <button
                 type="button"
                 aria-label="Show favorites only"
@@ -299,8 +357,8 @@ export function DocumentList({
                 onClick={() => setView(viewFavorites ? "all" : "favorites")}
                 className={`flex h-10 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition ${
                   viewFavorites
-                    ? "border-transparent bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
-                    : "border-black/[.08] bg-white text-zinc-600 hover:text-zinc-900 dark:border-white/[.12] dark:bg-zinc-950 dark:text-zinc-300 dark:hover:text-zinc-100"
+                    ? "border-transparent bg-ghost-accent text-white"
+                    : "border-ghost-border bg-ghost-bg text-ghost-secondary hover:text-ghost-text"
                 }`}
               >
                 <svg
@@ -319,7 +377,7 @@ export function DocumentList({
               </button>
               <label
                 htmlFor="sort-documents"
-                className="text-sm text-zinc-500 dark:text-zinc-400"
+                className="text-sm text-ghost-secondary"
               >
                 Sort
               </label>
@@ -328,7 +386,7 @@ export function DocumentList({
                 value={sort}
                 onChange={(event) => setSort(event.target.value as SortKey)}
                 aria-label="Sort documents"
-                className="h-10 rounded-full border border-black/[.08] bg-white px-4 text-sm text-zinc-900 outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200 dark:border-white/[.12] dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-zinc-500 dark:focus:ring-zinc-700"
+                className="h-10 rounded-full border border-ghost-border bg-ghost-bg px-4 text-sm text-ghost-text outline-none transition focus:border-ghost-accent focus:ring-2 focus:ring-ghost-accent/30"
               >
                 {SORT_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -339,21 +397,39 @@ export function DocumentList({
             </div>
           </div>
 
-          {noFavorites ? (
-            <div className="flex flex-col items-center gap-1 rounded-2xl border border-dashed border-black/10 bg-white px-6 py-16 text-center dark:border-white/15 dark:bg-zinc-950">
-              <h2 className="text-base font-medium text-zinc-900 dark:text-zinc-100">
+          {noTagMatch ? (
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-ghost-border bg-ghost-bg px-6 py-16 text-center">
+              <div className="flex flex-col gap-1">
+                <h2 className="text-base font-medium text-ghost-text">
+                  No documents tagged “{selectedTagName}”
+                </h2>
+                <p className="text-sm text-ghost-secondary">
+                  Try a different tag or clear the filter.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTag(null)}
+                className="rounded-full border border-ghost-border bg-ghost-bg px-4 py-2 text-sm font-medium text-ghost-text transition hover:bg-ghost-wash"
+              >
+                Clear filter
+              </button>
+            </div>
+          ) : noFavorites ? (
+            <div className="flex flex-col items-center gap-1 rounded-2xl border border-dashed border-ghost-border bg-ghost-bg px-6 py-16 text-center">
+              <h2 className="text-base font-medium text-ghost-text">
                 No favorite documents yet
               </h2>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              <p className="text-sm text-ghost-secondary">
                 Star a document to keep it here for quick access.
               </p>
             </div>
           ) : visible.length === 0 ? (
-            <div className="flex flex-col items-center gap-1 rounded-2xl border border-dashed border-black/10 bg-white px-6 py-16 text-center dark:border-white/15 dark:bg-zinc-950">
-              <h2 className="text-base font-medium text-zinc-900 dark:text-zinc-100">
+            <div className="flex flex-col items-center gap-1 rounded-2xl border border-dashed border-ghost-border bg-ghost-bg px-6 py-16 text-center">
+              <h2 className="text-base font-medium text-ghost-text">
                 No documents match your search
               </h2>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              <p className="text-sm text-ghost-secondary">
                 Try a different title or clear the search.
               </p>
             </div>
@@ -367,6 +443,9 @@ export function DocumentList({
                   favorite={document.favorite}
                   editedLabel={document.editedLabel}
                   workspaceName={document.workspaceName}
+                  thumbnail={document.thumbnail}
+                  excerpt={document.excerpt}
+                  readingMinutes={document.readingMinutes}
                   onDelete={handleDelete}
                 />
               ))}

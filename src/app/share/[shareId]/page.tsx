@@ -1,14 +1,76 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { MarkdownPreview } from "@/app/app/documents/[id]/markdown-preview";
+import { LexicalReadOnly } from "@/components/lexical/lexical-read-only";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
+
+import { ShareLightbox } from "./share-lightbox";
+import { excerpt } from "@/lib/document-stats";
 import { prisma } from "@/lib/prisma";
+import { buildShareSegment, shareIdFromParam } from "@/lib/slug";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
-export const metadata: Metadata = {
-  title: "Shared Document — Napkin Clone",
-};
+const SITE_NAME = "Napkin Clone";
+
+/** Absolute base URL for canonical/OG links. */
+function siteBaseUrl(): string {
+  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+}
+
+/**
+ * SEO + social unfurl metadata for the share page. A shared document yields a
+ * title, excerpt description, canonical URL, and Open Graph / Twitter Card tags
+ * (with an auto-generated OG image, US-030). A non-shared/unknown document
+ * yields safe, no-index defaults so private documents never leak.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ shareId: string }>;
+}): Promise<Metadata> {
+  const { shareId } = await params;
+  const resolvedShareId = shareIdFromParam(shareId);
+
+  const document = await prisma.document.findFirst({
+    where: { shareId: resolvedShareId, isShared: true, deletedAt: null },
+    select: { title: true, content: true, shareId: true, slug: true },
+  });
+
+  // Unknown or non-shared document: safe defaults, no indexing, no leak.
+  if (!document || !document.shareId) {
+    return {
+      title: `Shared Document — ${SITE_NAME}`,
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const base = siteBaseUrl();
+  const segment = buildShareSegment(document.slug, document.shareId);
+  const canonical = `${base}/share/${segment}`;
+  const description = excerpt(document.content);
+  const ogImage = `${base}/share/${segment}/opengraph-image`;
+  const pageTitle = `${document.title} — ${SITE_NAME}`;
+
+  return {
+    title: pageTitle,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title: pageTitle,
+      description,
+      url: canonical,
+      siteName: SITE_NAME,
+      type: "article",
+      images: [{ url: ogImage, width: 1200, height: 630, alt: document.title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: pageTitle,
+      description,
+      images: [ogImage],
+    },
+  };
+}
 
 export default async function SharedDocumentPage({
   params,
@@ -17,22 +79,28 @@ export default async function SharedDocumentPage({
 }) {
   const { shareId } = await params;
 
+  // The URL segment may be the legacy bare shareId or the decorative
+  // `<slug>-<shareId>` form; resolve the canonical shareId from it.
+  const resolvedShareId = shareIdFromParam(shareId);
+
   // Find the document by shareId and verify it's actually shared.
   const document = await prisma.document.findFirst({
-    where: { shareId, isShared: true, deletedAt: null },
+    where: { shareId: resolvedShareId, isShared: true, deletedAt: null },
     select: {
       id: true,
       title: true,
       content: true,
+      contentJson: true,
       owner: {
         select: {
           name: true,
           email: true,
         },
       },
-      // All visuals: the document-level one (anchorBlockId = null) renders in its
-      // own inline slot; block-anchored visuals render inline beneath their source
-      // paragraph in document order (content-first read view).
+      // Legacy visuals: the document-level one (anchorBlockId = null) and
+      // block-anchored ones. Only used for documents that have not yet been
+      // migrated to the Lexical `contentJson` format (where visuals live inline
+      // as VisualNodes).
       visuals: {
         orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }],
         select: { anchorBlockId: true, data: true },
@@ -44,30 +112,36 @@ export default async function SharedDocumentPage({
     notFound();
   }
 
-  // Parse stored visuals, tolerating legacy/garbled data. Split the
-  // document-level visual (anchorBlockId = null) from block-anchored ones.
+  const ownerName = document.owner.name || document.owner.email.split("@")[0];
+
+  // Documents authored in the Lexical editor store their full content (blocks
+  // and inline visuals) in `contentJson`; render it read-only in one column.
+  const hasLexical = document.contentJson != null;
+
+  // For legacy documents (no `contentJson`), parse stored visuals, tolerating
+  // garbled data, and split the document-level visual (anchorBlockId = null)
+  // from block-anchored ones.
   let visual: Visual | null = null;
   const blockVisuals: Record<string, Visual> = {};
-  for (const row of document.visuals) {
-    const parsed = safeParseVisual(row.data);
-    if (!parsed.success) {
-      continue;
-    }
-    if (row.anchorBlockId === null) {
-      visual ??= parsed.data;
-    } else if (!(row.anchorBlockId in blockVisuals)) {
-      blockVisuals[row.anchorBlockId] = parsed.data;
+  if (!hasLexical) {
+    for (const row of document.visuals) {
+      const parsed = safeParseVisual(row.data);
+      if (!parsed.success) {
+        continue;
+      }
+      if (row.anchorBlockId === null) {
+        visual ??= parsed.data;
+      } else if (!(row.anchorBlockId in blockVisuals)) {
+        blockVisuals[row.anchorBlockId] = parsed.data;
+      }
     }
   }
 
-  const ownerName = document.owner.name || document.owner.email.split("@")[0];
-  const hasContent = document.content.trim().length > 0;
-
   return (
     <main className="min-h-screen bg-zinc-50 dark:bg-black">
-      {/* Header — a single blog-width column, matching the content-first editor. */}
-      <header className="border-b border-black/[.06] bg-white dark:border-white/[.08] dark:bg-zinc-950">
-        <div className="mx-auto w-full max-w-3xl px-6 py-6">
+      {/* Header */}
+      <header className="border-b border-black/[.06] bg-white px-6 py-4 dark:border-white/[.08] dark:bg-zinc-950">
+        <div className="mx-auto max-w-3xl">
           <div className="mb-2 flex items-center gap-2">
             <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
               Read-only
@@ -76,41 +150,46 @@ export default async function SharedDocumentPage({
               Shared by {ownerName}
             </span>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl dark:text-zinc-50">
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
             {document.title}
           </h1>
         </div>
       </header>
 
-      {/* Content — one centered content-first canvas: the document-level visual in
-          its own inline slot, then prose with anchored visuals rendered inline
-          beneath their source paragraph (reusing MarkdownPreview + VisualRenderer). */}
-      <div className="mx-auto w-full max-w-3xl px-6 py-10 sm:py-14">
-        {hasContent || visual ? (
-          <div className="flex flex-col gap-6">
-            {visual ? (
-              <div className="flex flex-col gap-2">
-                <span className="text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-                  Document visual
-                </span>
-                <div className="overflow-hidden rounded-xl border border-black/[.06] bg-white dark:border-white/[.08] dark:bg-zinc-950">
-                  <VisualRenderer visual={visual} className="h-auto w-full" />
-                </div>
-              </div>
-            ) : null}
-
-            {hasContent ? (
-              <MarkdownPreview
-                source={document.content}
-                visuals={blockVisuals}
-              />
-            ) : null}
-          </div>
-        ) : (
-          <p className="text-sm text-zinc-400 dark:text-zinc-600">
-            This document is empty.
-          </p>
-        )}
+      {/* Content */}
+      <div className="mx-auto max-w-3xl px-6 py-8">
+        <ShareLightbox>
+          <article className="rounded-lg border border-black/[.06] bg-white p-6 dark:border-white/[.08] dark:bg-zinc-950">
+            {hasLexical ? (
+              <LexicalReadOnly state={document.contentJson} />
+            ) : (
+              <>
+                <LexicalReadOnly fallbackMarkdown={document.content} />
+                {Object.keys(blockVisuals).length > 0 ? (
+                  <div className="mt-6 flex flex-col gap-4">
+                    {Object.entries(blockVisuals).map(([id, blockVisual]) => (
+                      <div
+                        key={id}
+                        data-block-visual={id}
+                        className="overflow-hidden rounded-lg border border-black/[.06] bg-white dark:border-white/[.08] dark:bg-zinc-950"
+                      >
+                        <VisualRenderer
+                          visual={blockVisual}
+                          className="h-auto w-full"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {visual ? (
+                  <div className="mt-6 overflow-hidden rounded-lg border border-black/[.06] bg-white dark:border-white/[.08] dark:bg-zinc-950">
+                    <VisualRenderer visual={visual} className="h-auto w-full" />
+                  </div>
+                ) : null}
+              </>
+            )}
+          </article>
+        </ShareLightbox>
       </div>
     </main>
   );

@@ -1,21 +1,26 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { LexicalReadOnly } from "@/components/lexical/lexical-read-only";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { prisma } from "@/lib/prisma";
+import { shareIdFromParam } from "@/lib/slug";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
 export const metadata: Metadata = {
-  title: "Embedded Visual — Napkin Clone",
+  title: "Embedded Document — Napkin Clone",
 };
 
 /**
- * Minimal, chrome-free page for embedding a shared document's visual(s) in an
- * iframe on another site. It mirrors `/share/[shareId]` scoping — it only
- * resolves when the document `isShared` — but renders no header/nav, no text
- * panel, and no auth/session widgets (the global header is suppressed for
- * `/embed/*` by `HeaderGate`). It sets no framing-blocking headers, so it is
- * safe to embed.
+ * Minimal, chrome-free page for embedding a shared document in an iframe on
+ * another site. It mirrors `/share/[shareId]` scoping — it only resolves when
+ * the document `isShared` — but renders no header/nav and no auth/session
+ * widgets (the global header is suppressed for `/embed/*` by `HeaderGate`). It
+ * sets no framing-blocking headers, so it is safe to embed.
+ *
+ * Documents authored in the Lexical editor render read-only from `contentJson`
+ * (blocks + inline visuals). Legacy documents fall back to their Markdown
+ * `content` plus any stored visuals.
  */
 export default async function EmbedPage({
   params,
@@ -24,14 +29,20 @@ export default async function EmbedPage({
 }) {
   const { shareId } = await params;
 
+  // The URL segment may be the legacy bare shareId or the decorative
+  // `<slug>-<shareId>` form; resolve the canonical shareId from it.
+  const resolvedShareId = shareIdFromParam(shareId);
+
   // Resolve the document by shareId and verify it is actually shared (same
   // scoping as the read-only share page).
   const document = await prisma.document.findFirst({
-    where: { shareId, isShared: true, deletedAt: null },
+    where: { shareId: resolvedShareId, isShared: true, deletedAt: null },
     select: {
       title: true,
-      // All visuals in document order: the document-level one (anchorBlockId =
-      // null) plus every block-anchored visual.
+      content: true,
+      contentJson: true,
+      // Legacy visuals (for documents not yet migrated to Lexical
+      // `contentJson`, where visuals live inline as VisualNodes).
       visuals: {
         orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }],
         select: { anchorBlockId: true, data: true },
@@ -43,40 +54,56 @@ export default async function EmbedPage({
     notFound();
   }
 
-  // Parse stored visuals, tolerating legacy/garbled rows. Document-level
-  // visual(s) first, then block-anchored ones in document order.
-  const docLevel: Visual[] = [];
-  const anchored: Visual[] = [];
-  for (const row of document.visuals) {
-    const parsed = safeParseVisual(row.data);
-    if (!parsed.success) {
-      continue;
+  const hasLexical = document.contentJson != null;
+
+  // For legacy documents, collect stored visuals (document-level first, then
+  // block-anchored ones) in document order.
+  const legacyVisuals: Visual[] = [];
+  if (!hasLexical) {
+    const docLevel: Visual[] = [];
+    const anchored: Visual[] = [];
+    for (const row of document.visuals) {
+      const parsed = safeParseVisual(row.data);
+      if (!parsed.success) {
+        continue;
+      }
+      if (row.anchorBlockId === null) {
+        docLevel.push(parsed.data);
+      } else {
+        anchored.push(parsed.data);
+      }
     }
-    if (row.anchorBlockId === null) {
-      docLevel.push(parsed.data);
-    } else {
-      anchored.push(parsed.data);
-    }
+    legacyVisuals.push(...docLevel, ...anchored);
   }
-  const visuals = [...docLevel, ...anchored];
 
   return (
-    <main className="flex min-h-screen w-full flex-col items-center justify-center gap-6 bg-white p-4 dark:bg-zinc-950">
-      {visuals.length > 0 ? (
-        visuals.map((visual, index) => (
-          <div key={index} className="w-full max-w-5xl">
-            <VisualRenderer
-              visual={visual}
-              title={document.title}
-              className="h-auto w-full"
-            />
-          </div>
-        ))
-      ) : (
-        <p className="text-sm text-zinc-400 dark:text-zinc-600">
-          No visual to display.
-        </p>
-      )}
+    <main className="min-h-screen w-full bg-white p-4 dark:bg-zinc-950">
+      <div className="mx-auto w-full max-w-3xl">
+        {hasLexical ? (
+          <LexicalReadOnly state={document.contentJson} />
+        ) : document.content.trim() || legacyVisuals.length > 0 ? (
+          <>
+            <LexicalReadOnly fallbackMarkdown={document.content} />
+            {legacyVisuals.length > 0 ? (
+              <div className="mt-6 flex flex-col gap-6">
+                {legacyVisuals.map((visual, index) => (
+                  <div key={index} className="w-full">
+                    <VisualRenderer
+                      visual={visual}
+                      title={document.title}
+                      className="h-auto w-full"
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <p className="text-sm text-zinc-400 dark:text-zinc-600">
+            No content to display.
+          </p>
+        )}
+      </div>
     </main>
   );
 }
