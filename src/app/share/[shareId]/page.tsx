@@ -3,13 +3,72 @@ import { notFound } from "next/navigation";
 
 import { LexicalReadOnly } from "@/components/lexical/lexical-read-only";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
+import { excerpt } from "@/lib/document-stats";
 import { prisma } from "@/lib/prisma";
-import { shareIdFromParam } from "@/lib/slug";
+import { buildShareSegment, shareIdFromParam } from "@/lib/slug";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
-export const metadata: Metadata = {
-  title: "Shared Document — Napkin Clone",
-};
+const SITE_NAME = "Napkin Clone";
+
+/** Absolute base URL for canonical/OG links. */
+function siteBaseUrl(): string {
+  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+}
+
+/**
+ * SEO + social unfurl metadata for the share page. A shared document yields a
+ * title, excerpt description, canonical URL, and Open Graph / Twitter Card tags
+ * (with an auto-generated OG image, US-030). A non-shared/unknown document
+ * yields safe, no-index defaults so private documents never leak.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ shareId: string }>;
+}): Promise<Metadata> {
+  const { shareId } = await params;
+  const resolvedShareId = shareIdFromParam(shareId);
+
+  const document = await prisma.document.findFirst({
+    where: { shareId: resolvedShareId, isShared: true, deletedAt: null },
+    select: { title: true, content: true, shareId: true, slug: true },
+  });
+
+  // Unknown or non-shared document: safe defaults, no indexing, no leak.
+  if (!document || !document.shareId) {
+    return {
+      title: `Shared Document — ${SITE_NAME}`,
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const base = siteBaseUrl();
+  const segment = buildShareSegment(document.slug, document.shareId);
+  const canonical = `${base}/share/${segment}`;
+  const description = excerpt(document.content);
+  const ogImage = `${base}/share/${segment}/opengraph-image`;
+  const pageTitle = `${document.title} — ${SITE_NAME}`;
+
+  return {
+    title: pageTitle,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title: pageTitle,
+      description,
+      url: canonical,
+      siteName: SITE_NAME,
+      type: "article",
+      images: [{ url: ogImage, width: 1200, height: 630, alt: document.title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: pageTitle,
+      description,
+      images: [ogImage],
+    },
+  };
+}
 
 export default async function SharedDocumentPage({
   params,
