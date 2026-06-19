@@ -1,6 +1,6 @@
 "use client";
 
-import { Sparkles, Trash2, X } from "lucide-react";
+import { RefreshCw, Sparkles, Trash2, X } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -29,6 +29,8 @@ import { VISUAL_KIND_META } from "@/lib/lexical/tool-registry";
 import {
   applyTheme,
   isThemeActive,
+  isSourceStale,
+  mergeVisualContent,
   resetNodeStyle,
   resetNodeExtStyle,
   setNodeIcon,
@@ -49,6 +51,7 @@ import {
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { VISUAL_DISPLAY_STYLES } from "@/lib/visual/display-styles";
 import {
+  hashSourceText,
   VISUAL_KINDS,
   safeParseVisual,
   type Visual,
@@ -303,6 +306,12 @@ export type VisualContextPopoverProps = {
   getSvgElement: () => SVGSVGElement | null;
   /** The visual card element the popover anchors to (positioning + click-away). */
   anchorRef: React.RefObject<HTMLElement | null>;
+  /**
+   * The current text of the preceding document block (the visual's anchor).
+   * When present and different from `visual.sourceText`, the out-of-date
+   * indicator is shown and "Sync to text" uses this text for re-generation.
+   */
+  currentSourceText?: string;
 };
 
 /**
@@ -326,6 +335,7 @@ export function VisualContextPopover({
   onClose,
   getSvgElement,
   anchorRef,
+  currentSourceText,
 }: VisualContextPopoverProps) {
   const measureRef = useRef<HTMLDivElement | null>(null);
 
@@ -340,6 +350,11 @@ export function VisualContextPopover({
   const [genError, setGenError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<Visual[]>([]);
 
+  // "Sync to text" state — re-generates from the anchor block text and merges
+  // styles in-place so manual customizations are preserved.
+  const [syncStatus, setSyncStatus] = useState<"idle" | "loading">("idle");
+  const [syncError, setSyncError] = useState<string | null>(null);
+
   // The most recently chosen theme this session, so "Reset to theme" after a
   // manual color override reverts to the user's intended palette.
   const [lastThemeId, setLastThemeId] = useState<string | null>(null);
@@ -349,6 +364,9 @@ export function VisualContextPopover({
   useEffect(() => {
     visualRef.current = visual;
   });
+
+  // Whether the anchor block text has changed since the visual was generated.
+  const stale = isSourceStale(visual, currentSourceText ?? "");
 
   const { style } = visual;
 
@@ -401,7 +419,14 @@ export function VisualContextPopover({
       window.removeEventListener("resize", reposition);
       window.removeEventListener("scroll", reposition, true);
     };
-  }, [reposition, customizeOpen, candidates.length, genError, selectedNode]);
+  }, [
+    reposition,
+    customizeOpen,
+    candidates.length,
+    genError,
+    syncError,
+    selectedNode,
+  ]);
 
   // Click-away: dismiss when a pointer-down lands outside any visual chrome
   // (the card, this popover, or a nested DS floating layer like a color picker).
@@ -468,6 +493,65 @@ export function VisualContextPopover({
     }
   }, []);
 
+  /**
+   * "Sync to text" — re-generates from the anchor block's current text (or the
+   * stored sourceText as fallback), then merges the new content into the
+   * existing visual preserving all manual style customizations.
+   */
+  const runSync = useCallback(async () => {
+    const syncText = (
+      currentSourceText ??
+      visualRef.current.sourceText ??
+      ""
+    ).trim();
+    if (!syncText) {
+      setSyncError("No source text to sync from.");
+      return;
+    }
+    setSyncStatus("loading");
+    setSyncError(null);
+    try {
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text: syncText }),
+      });
+      const payload: unknown = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        setSyncError(messageFrom(payload, "Sync failed. Please try again."));
+        return;
+      }
+
+      const valid: Visual[] = [];
+      for (const item of candidatesFrom(payload)) {
+        const result = safeParseVisual(item);
+        if (result.success) {
+          valid.push(result.data);
+        }
+      }
+
+      if (valid.length === 0) {
+        setSyncError("No usable visuals came back. Please try again.");
+        return;
+      }
+
+      // Merge: new content from first candidate, old styles preserved.
+      const merged = mergeVisualContent(visualRef.current, valid[0]);
+      onChange({
+        ...merged,
+        sourceText: syncText,
+        sourceTextHash: hashSourceText(syncText),
+      });
+    } catch {
+      setSyncError(
+        "Couldn't reach the generator. Check your connection and try again.",
+      );
+    } finally {
+      setSyncStatus("idle");
+    }
+  }, [currentSourceText, onChange]);
+
   const chooseCandidate = useCallback(
     (candidate: Visual) => {
       onChange(candidate);
@@ -511,10 +595,44 @@ export function VisualContextPopover({
       >
         {/* Header */}
         <div className="mb-2 flex items-center justify-between gap-2">
-          <span className="text-xs font-medium text-[var(--ds-text-muted,#6f7d83)]">
-            {VISUAL_KIND_META[visual.type].label}
-          </span>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="text-xs font-medium text-[var(--ds-text-muted,#6f7d83)]">
+              {VISUAL_KIND_META[visual.type].label}
+            </span>
+            {stale ? (
+              <Tooltip label="Source text has changed — click Sync to update">
+                <span
+                  aria-label="Visual may be out of date"
+                  className="inline-flex h-2 w-2 flex-shrink-0 rounded-full bg-amber-400"
+                />
+              </Tooltip>
+            ) : null}
+          </div>
           <div className="flex items-center gap-1">
+            {(visual.sourceText ?? currentSourceText) ? (
+              <Tooltip
+                label={
+                  stale
+                    ? "Source text changed — sync to update"
+                    : "Sync to text"
+                }
+              >
+                <IconButton
+                  aria-label="Sync visual to source text"
+                  size="sm"
+                  onClick={() => void runSync()}
+                  disabled={syncStatus === "loading"}
+                >
+                  <RefreshCw
+                    aria-hidden="true"
+                    className={cx(
+                      "h-4 w-4",
+                      syncStatus === "loading" ? "animate-spin" : "",
+                    )}
+                  />
+                </IconButton>
+              </Tooltip>
+            ) : null}
             <Tooltip label="More variations">
               <IconButton
                 aria-label="More variations"
@@ -551,6 +669,30 @@ export function VisualContextPopover({
             </Tooltip>
           </div>
         </div>
+
+        {syncStatus === "loading" ? (
+          <ThinkingIndicator
+            label="Syncing…"
+            className="mb-2 text-xs text-[var(--ds-text-muted,#6f7d83)]"
+          />
+        ) : null}
+
+        {syncError !== null ? (
+          <div
+            role="alert"
+            className="mb-2 flex flex-col gap-2 rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-danger,#dc2626)]/40 bg-[var(--ds-danger,#dc2626)]/10 px-3 py-2 text-xs text-[var(--ds-danger,#b91c1c)]"
+          >
+            <span>{syncError}</span>
+            <Button
+              size="sm"
+              variant="subtle"
+              className="self-start"
+              onClick={() => void runSync()}
+            >
+              Try again
+            </Button>
+          </div>
+        ) : null}
 
         {genStatus === "loading" ? (
           <ThinkingIndicator
