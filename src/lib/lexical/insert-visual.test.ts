@@ -15,7 +15,11 @@ import {
   type LexicalEditor,
 } from "lexical";
 
-import { VISUAL_KINDS, safeParseVisual, type VisualKind } from "@/lib/visual/schema";
+import {
+  VISUAL_KINDS,
+  safeParseVisual,
+  type VisualKind,
+} from "@/lib/visual/schema";
 
 import {
   $createVisualNode,
@@ -51,9 +55,11 @@ function makeEditor(): LexicalEditor {
 
 /** Collects the type tags of the root's children in document order. */
 function rootChildTypes(editor: LexicalEditor): string[] {
-  return editor
-    .getEditorState()
-    .read(() => $getRoot().getChildren().map((node) => node.getType()));
+  return editor.getEditorState().read(() =>
+    $getRoot()
+      .getChildren()
+      .map((node) => node.getType()),
+  );
 }
 
 /** Returns the single VisualNode in the document, asserting there is exactly one. */
@@ -87,7 +93,11 @@ test("inserting a visual creates exactly one schema-valid VisualNode of the requ
   const payload = editor.getEditorState().read(() => visual.getVisual());
 
   const parsed = safeParseVisual(payload);
-  assert.equal(parsed.success, true, "inserted visual payload should be schema-valid");
+  assert.equal(
+    parsed.success,
+    true,
+    "inserted visual payload should be schema-valid",
+  );
   assert.equal(payload.type, "flowchart");
 });
 
@@ -128,7 +138,11 @@ test("with afterNodeKey set, the visual lands immediately after the targeted blo
     const children = $getRoot().getChildren();
     return children.findIndex((node) => $isVisualNode(node));
   });
-  assert.equal(visualIndex, 2, "visual should sit right after the targeted second block");
+  assert.equal(
+    visualIndex,
+    2,
+    "visual should sit right after the targeted second block",
+  );
 });
 
 test("without afterNodeKey, the visual lands after the current selection's block", () => {
@@ -152,7 +166,11 @@ test("without afterNodeKey, the visual lands after the current selection's block
   });
 
   // paragraph(first), visual, paragraph(second)
-  assert.deepEqual(rootChildTypes(editor), ["paragraph", "visual", "paragraph"]);
+  assert.deepEqual(rootChildTypes(editor), [
+    "paragraph",
+    "visual",
+    "paragraph",
+  ]);
 });
 
 test("with no resolvable target, the visual is appended at the document end", () => {
@@ -174,7 +192,11 @@ test("with no resolvable target, the visual is appended at the document end", ()
     discrete: true,
   });
 
-  assert.deepEqual(rootChildTypes(editor), ["paragraph", "paragraph", "visual"]);
+  assert.deepEqual(rootChildTypes(editor), [
+    "paragraph",
+    "paragraph",
+    "visual",
+  ]);
 });
 
 test("the inserted visual is selected as a NodeSelection", () => {
@@ -205,7 +227,11 @@ test("the inserted visual is selected as a NodeSelection", () => {
     };
   });
 
-  assert.equal(result.isNodeSelection, true, "selection should be a NodeSelection");
+  assert.equal(
+    result.isNodeSelection,
+    true,
+    "selection should be a NodeSelection",
+  );
   assert.deepEqual(result.selectedKeys, [result.visualKey]);
 });
 
@@ -273,8 +299,16 @@ test("every VisualKind seeds a schema-valid, kind-matching visual on insert", ()
     const payload = editor.getEditorState().read(() => node.getVisual());
 
     const parsed = safeParseVisual(payload);
-    assert.equal(parsed.success, true, `visual for kind ${kind} should be valid`);
-    assert.equal(payload.type, kind, `inserted visual should match kind ${kind}`);
+    assert.equal(
+      parsed.success,
+      true,
+      `visual for kind ${kind} should be valid`,
+    );
+    assert.equal(
+      payload.type,
+      kind,
+      `inserted visual should match kind ${kind}`,
+    );
   }
 });
 
