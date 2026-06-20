@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { buildShareSegment, shareIdFromParam } from "@/lib/slug";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { buildDeckFromBlocks } from "@/lib/presentation/deck";
-import { collectDocumentBlocks } from "@/lib/visual/document-export";
+import { buildPresentationBlocks } from "@/lib/presentation/present-blocks";
 import type { Visual } from "@/lib/visual/schema";
 const SITE_NAME = "TextIQ";
 
@@ -82,6 +82,7 @@ export default async function PresentPage({
     where: { shareId: resolvedShareId, isShared: true, deletedAt: null },
     select: {
       title: true,
+      content: true,
       contentJson: true,
       deckJson: true,
     },
@@ -91,9 +92,12 @@ export default async function PresentPage({
     notFound();
   }
 
-  // Collect blocks from contentJson so we can build both the visual map and
-  // a fallback deck when no persisted deckJson is available.
-  const blocks = collectDocumentBlocks(document.contentJson ?? "");
+  // Build blocks from contentJson when available; fall back to Markdown content
+  // for legacy/imported documents that have not yet been opened in the editor.
+  const blocks = buildPresentationBlocks(
+    document.contentJson,
+    document.content,
+  );
 
   // Build visual lookup map: visualId → Visual
   const visualsRecord: Record<string, Visual> = {};

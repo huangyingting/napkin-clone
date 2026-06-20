@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { shareIdFromParam } from "@/lib/slug";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { buildDeckFromBlocks } from "@/lib/presentation/deck";
-import { collectDocumentBlocks } from "@/lib/visual/document-export";
+import { buildPresentationBlocks } from "@/lib/presentation/present-blocks";
 import type { Visual } from "@/lib/visual/schema";
 
 export const metadata: Metadata = {
@@ -35,6 +35,7 @@ export default async function PresentEmbedPage({
     where: { shareId: resolvedShareId, isShared: true, deletedAt: null },
     select: {
       title: true,
+      content: true,
       contentJson: true,
       deckJson: true,
     },
@@ -44,7 +45,10 @@ export default async function PresentEmbedPage({
     notFound();
   }
 
-  const blocks = collectDocumentBlocks(document.contentJson ?? "");
+  const blocks = buildPresentationBlocks(
+    document.contentJson,
+    document.content,
+  );
 
   const visualsRecord: Record<string, Visual> = {};
   for (const block of blocks) {
