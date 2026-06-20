@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import type { DocumentBlock } from "@/lib/visual/document-export";
 import { buildDeckFromBlocks, MAX_BULLETS } from "./deck";
+import { safeParseDeck } from "./deck-schema";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -282,4 +283,74 @@ test("complex document: h1 + two h2 sections + visuals", () => {
   const results = deck.slides.find((s) => s.title === "Results")!;
   assert.deepEqual(results.bullets, ["We found X"]);
   assert.deepEqual(results.visualIds, ["fig-2"]);
+});
+
+// ---------------------------------------------------------------------------
+// Notes pipeline: quote→notes, overflow→notes, safeParseDeck round-trip
+// ---------------------------------------------------------------------------
+
+test("multiple quote blocks are joined into notes with newline separator", () => {
+  const deck = buildDeckFromBlocks([
+    h2("Slide"),
+    quote("First note"),
+    quote("Second note"),
+  ]);
+  const s = deck.slides.find((s) => s.title === "Slide")!;
+  assert.ok(s.notes.includes("First note"), "notes contains first quote");
+  assert.ok(s.notes.includes("Second note"), "notes contains second quote");
+});
+
+test("quote notes are preserved through safeParseDeck round-trip", () => {
+  const deck = buildDeckFromBlocks([
+    h2("Slide with notes"),
+    para("bullet"),
+    quote("Speaker note for this slide"),
+  ]);
+  const original = deck.slides.find((s) => s.title === "Slide with notes")!;
+  assert.ok(original.notes.includes("Speaker note for this slide"));
+
+  // Simulate serialise → parse (as done by saveDeckJson / safeParseDeck)
+  const roundTrip = safeParseDeck(JSON.parse(JSON.stringify(deck)));
+  assert.ok(roundTrip.success, "safeParseDeck must succeed");
+  const restored = roundTrip.data.slides.find(
+    (sl) => sl.title === "Slide with notes",
+  )!;
+  assert.equal(
+    restored.notes,
+    original.notes,
+    "notes must survive JSON round-trip through safeParseDeck",
+  );
+});
+
+test("overflow bullets appear in notes and survive safeParseDeck round-trip", () => {
+  const blocks: DocumentBlock[] = [h2("Overflow slide")];
+  for (let i = 1; i <= MAX_BULLETS + 2; i++) blocks.push(para(`item ${i}`));
+  const deck = buildDeckFromBlocks(blocks);
+  const original = deck.slides.find((s) => s.title === "Overflow slide")!;
+  assert.ok(
+    original.notes.includes(`item ${MAX_BULLETS + 1}`),
+    "overflow bullet goes to notes",
+  );
+
+  const roundTrip = safeParseDeck(JSON.parse(JSON.stringify(deck)));
+  assert.ok(roundTrip.success, "safeParseDeck must succeed");
+  const restored = roundTrip.data.slides.find(
+    (sl) => sl.title === "Overflow slide",
+  )!;
+  assert.equal(
+    restored.notes,
+    original.notes,
+    "overflow notes must survive JSON round-trip",
+  );
+});
+
+test("safeParseDeck rejects a slide with missing notes field", () => {
+  const deck = buildDeckFromBlocks([h2("Slide")]);
+  const raw = JSON.parse(JSON.stringify(deck)) as {
+    slides: Array<Record<string, unknown>>;
+  };
+  // Remove notes from first slide to simulate a corrupted/legacy payload
+  delete raw.slides[0].notes;
+  const result = safeParseDeck(raw);
+  assert.equal(result.success, false, "should fail when notes is missing");
 });
