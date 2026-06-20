@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { VisualRenderer } from "@/components/visual/visual-renderer";
+import { resolveIconComponent } from "@/components/visual/icon-registry";
 import {
   edgeSegments,
   isPositionedKind,
@@ -487,7 +488,21 @@ export function VisualEditor({
   function renderEditingInput(node: VisualNode, box: NodeBox) {
     const fx = clamp(box.x - box.width / 2, 0, visual.width);
     const fw = Math.max(40, Math.min(box.width, visual.width - fx));
-    const fy = clamp(box.y - INPUT_HEIGHT / 2, 0, visual.height - INPUT_HEIGHT);
+    // Match the renderer's text centre. When the node has an icon, the label is
+    // stacked below it (not centred on the node), so the input must sit there
+    // too — otherwise the text jumps up when entering edit mode.
+    const fontSize = visual.style.fontSize;
+    const Icon = node.icon ? resolveIconComponent(node.icon) : null;
+    const lineHeight = fontSize * 1.2;
+    const iconSize = Icon
+      ? clamp(Math.min(box.height * 0.4, fontSize * 1.6), 14, 30)
+      : 0;
+    const iconGap = Icon ? Math.max(2, fontSize * 0.2) : 0;
+    const blockTop = box.y - (iconSize + iconGap + lineHeight) / 2;
+    const textCy = Icon
+      ? blockTop + iconSize + iconGap + lineHeight / 2
+      : box.y;
+    const fy = clamp(textCy - INPUT_HEIGHT / 2, 0, visual.height - INPUT_HEIGHT);
     return (
       <foreignObject x={fx} y={fy} width={fw} height={INPUT_HEIGHT}>
         <input
