@@ -32,7 +32,7 @@ afterEach(() => {
 
 test("normalizeSearchQuery trims surrounding whitespace", () => {
   assert.equal(normalizeSearchQuery("  hello world  "), "hello world");
-  assert.equal(normalizeSearchQuery("\t napkin \n"), "napkin");
+  assert.equal(normalizeSearchQuery("\t textiq \n"), "textiq");
 });
 
 test("normalizeSearchQuery returns empty string for blank input", () => {
@@ -136,7 +136,7 @@ test("buildDocumentSearchWhere includes the provided accessOr", () => {
 test("buildDocumentSearchWhere wraps search in AND.OR", () => {
   delete process.env.DB_PROVIDER;
 
-  const where = buildDocumentSearchWhere("napkin", fakeAccessOr);
+  const where = buildDocumentSearchWhere("textiq", fakeAccessOr);
   const andClause = where.AND as { OR: unknown[] };
   assert.ok(Array.isArray(andClause.OR), "AND.OR should be an array");
   assert.equal(andClause.OR.length, 2, "AND.OR should have title + content");

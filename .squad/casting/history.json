@@ -2,12 +2,12 @@
   "universe_usage_history": [
     {
       "universe": "The Matrix",
-      "assignment_id": "asgn-20260619-napkin-matrix",
+      "assignment_id": "asgn-20260619-textiq-matrix",
       "used_at": "2026-06-19T05:36:53Z"
     }
   ],
   "assignment_cast_snapshots": {
-    "asgn-20260619-napkin-matrix": {
+    "asgn-20260619-textiq-matrix": {
       "universe": "The Matrix",
       "agents": {
         "lead": "Trinity",

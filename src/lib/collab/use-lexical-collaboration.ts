@@ -17,8 +17,8 @@ const DEGRADED_TIMEOUT_MS = 2500;
  * bound by `@lexical/yjs`, but the title is a plain shared text bound via
  * `useYText`, which classifies changes by transaction origin.
  */
-const TITLE_LOCAL_ORIGIN = Symbol("napkin-lexical-title-local");
-const TITLE_SEED_ORIGIN = Symbol("napkin-lexical-title-seed");
+const TITLE_LOCAL_ORIGIN = Symbol("textiq-lexical-title-local");
+const TITLE_SEED_ORIGIN = Symbol("textiq-lexical-title-seed");
 
 type Awareness = WebsocketProvider["awareness"];
 

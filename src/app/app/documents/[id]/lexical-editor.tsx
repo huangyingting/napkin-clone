@@ -397,7 +397,7 @@ export function LexicalEditor({
   }, []);
 
   const initialConfig = {
-    namespace: "NapkinLexicalEditor",
+    namespace: "TextIQLexicalEditor",
     theme,
     nodes: NODES,
     onError,

@@ -39,10 +39,10 @@ const prisma = createPrismaClient();
 
 async function main() {
   const demoUser = await prisma.user.upsert({
-    where: { email: "demo@napkin.test" },
+    where: { email: "demo@textiq.test" },
     update: {},
     create: {
-      email: "demo@napkin.test",
+      email: "demo@textiq.test",
       name: "Demo User",
     },
   });

@@ -19,7 +19,7 @@
 import crypto from "node:crypto";
 
 /** Name of the signed anonymous-id cookie. */
-export const ANON_COOKIE_NAME = "napkin_anon";
+export const ANON_COOKIE_NAME = "textiq_anon";
 
 function intFromEnv(name: string, fallback: number): number {
   const raw = process.env[name];

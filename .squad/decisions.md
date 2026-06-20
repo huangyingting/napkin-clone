@@ -30,7 +30,7 @@
 ### 2026-06-19T05:36:53Z: Style editing model — Theme-first, then refine; presets over raw pickers
 **By:** Mouse (Design/UX)
 **What:** Restructure the visual style controls into a hierarchy: **Theme** (palette presets — existing indigo/ocean/forest/sunset/grape, shown as swatch chips) → **Refine** (background/fill/stroke/text/edge via swatch popovers, not bare native inputs) → **Type** (font size/weight) → **Selected element** override. Lead with one-click themes; treat per-color pickers as progressive disclosure.
-**Why:** Napkin's value is "great-looking visual in one move." Most users should restyle by picking a theme, not by tuning five color inputs. Presets first keeps the common path one click while preserving full control for power users.
+**Why:** TextIQ's value is "great-looking visual in one move." Most users should restyle by picking a theme, not by tuning five color inputs. Presets first keeps the common path one click while preserving full control for power users.
 
 ### 2026-06-19T05:36:53Z: Adopt a single context-aware Toolbar Surface system driven by a Tool Registry
 **By:** Trinity (Lead)
@@ -616,7 +616,7 @@ focus ring, motion-fast 120ms). Dark mode cascades automatically via `var()`.
 **3. ContextPopover UX spec** — see below. Theme-first: one click on a theme chip
 is the primary restyle path; raw color pickers are progressive disclosure.
 
-**Why:** Napkin's core value is "great-looking visual in one move." Most users
+**Why:** TextIQ's core value is "great-looking visual in one move." Most users
 should restyle by picking a theme, not tuning five inputs. Cohesive, contrast-safe
 palettes make the one-click path reliably beautiful; the new rose/amber/mono themes
 broaden tone (elegant / optimistic / serious) without diluting the set.
@@ -1166,7 +1166,7 @@ The hover download button on `VisualCard` reads `visual.aspectRatio` and passes 
 Implemented the i18n layer as a hand-rolled module (`src/lib/i18n/`) with:
 - A typed `Messages` flat-key catalog (`en` + `es`).
 - `createTranslator(locale)` returning a typed `t(key, ...args)` that interpolates function-type message values.
-- Server-side locale resolution from the `napkin-locale` cookie via `next/headers` (`getLocale()` in `server.ts`).
+- Server-side locale resolution from the `textiq-locale` cookie via `next/headers` (`getLocale()` in `server.ts`).
 - A `setLocaleCookie()` server action (avoids `document.cookie` assignment which trips the `react-hooks/immutability` ESLint rule in next/core-web-vitals).
 - A React context (`LocaleProvider` + `useOptimistic`) seeded from the server-resolved locale for SSR-safe hydration.
 
@@ -1181,7 +1181,7 @@ The app has no existing i18n library and adding one (next-intl, react-i18next, e
 A flat key catalog with a typed accessor covers 100% of the required surface in <150 LoC and is fully tree-shakeable.
 
 ### Cookie over URL prefix
-Using a `napkin-locale` cookie instead of `/en/...` URL prefixes avoids:
+Using a `textiq-locale` cookie instead of `/en/...` URL prefixes avoids:
 - Changing all existing routes and links.
 - Adding a `next.config.js` i18n block that can conflict with the custom `server.mjs`.
 - Redirect loops for existing bookmarks.

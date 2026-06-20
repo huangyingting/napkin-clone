@@ -67,7 +67,7 @@ Prefix any command with `DB_PROVIDER=postgres` (and a `postgresql://`
 
 ```bash
 DB_PROVIDER=postgres \
-DATABASE_URL="postgresql://user:pass@localhost:5432/napkin?schema=public" \
+DATABASE_URL="postgresql://user:pass@localhost:5432/textiq?schema=public" \
 npm run db:deploy
 ```
 

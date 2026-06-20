@@ -46,7 +46,7 @@ describe("buildTwitterIntent", () => {
   });
 
   test("encodes special characters in text", () => {
-    const text = "Title with spaces & symbols #napkin";
+    const text = "Title with spaces & symbols #textiq";
     const result = buildTwitterIntent("https://example.com", text);
     assert.ok(!result.includes(" "), "spaces in text must be encoded");
     assert.ok(!result.includes("#"), "hash in text must be encoded");
@@ -105,7 +105,7 @@ describe("buildLinkedInIntent", () => {
   });
 
   test("URL structure is correct", () => {
-    const result = buildLinkedInIntent("https://napkin.example.com/share/abc");
+    const result = buildLinkedInIntent("https://textiq.example.com/share/abc");
     const parsed = new URL(result);
     assert.equal(parsed.hostname, "www.linkedin.com");
     assert.equal(parsed.pathname, "/sharing/share-offsite/");
@@ -142,7 +142,7 @@ describe("buildFacebookIntent", () => {
   });
 
   test("URL structure is correct", () => {
-    const result = buildFacebookIntent("https://napkin.example.com/share/abc");
+    const result = buildFacebookIntent("https://textiq.example.com/share/abc");
     const parsed = new URL(result);
     assert.equal(parsed.hostname, "www.facebook.com");
     assert.equal(parsed.pathname, "/sharer/sharer.php");
@@ -155,7 +155,7 @@ describe("buildFacebookIntent", () => {
 // ---------------------------------------------------------------------------
 
 describe("intent URL encoding round-trips", () => {
-  const SHARE_URL = "https://napkin.example.com/share/my-visual-abc123xyz";
+  const SHARE_URL = "https://textiq.example.com/share/my-visual-abc123xyz";
   const TITLE = "My Diagram — Q4 Roadmap (2026) & Beyond";
 
   test("Twitter: decoded params match original values", () => {

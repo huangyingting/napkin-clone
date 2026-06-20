@@ -1,7 +1,7 @@
 /**
  * Server-side locale utilities for the Next.js App Router.
  *
- * Reads the preferred locale from the `napkin-locale` cookie (set by the
+ * Reads the preferred locale from the `textiq-locale` cookie (set by the
  * language-switcher client component) and exposes a `getLocale()` helper for
  * RSC layouts and pages.
  *
@@ -13,12 +13,12 @@ import { cookies } from "next/headers";
 
 import { normaliseLocale, type Locale } from "./index";
 
-export const LOCALE_COOKIE = "napkin-locale";
+export const LOCALE_COOKIE = "textiq-locale";
 
 /**
  * Returns the current locale for the incoming request.
  *
- * Priority: `napkin-locale` cookie → default locale.
+ * Priority: `textiq-locale` cookie → default locale.
  */
 export async function getLocale(): Promise<Locale> {
   const cookieStore = await cookies();
