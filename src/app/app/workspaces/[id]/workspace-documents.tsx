@@ -13,7 +13,7 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
 
 function DocumentThumbnail() {
   return (
-    <div className="flex aspect-[16/10] items-center justify-center bg-zinc-50 transition group-hover:bg-zinc-100 dark:bg-zinc-900 dark:group-hover:bg-zinc-800">
+    <div className="flex aspect-[16/10] items-center justify-center bg-ds-surface-sunken transition group-hover:bg-ds-state-hover">
       <svg
         aria-hidden="true"
         viewBox="0 0 24 24"
@@ -22,7 +22,7 @@ function DocumentThumbnail() {
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="h-8 w-8 text-zinc-300 dark:text-zinc-600"
+        className="h-8 w-8 text-ds-text-muted"
       >
         <path d="M14 3v4a1 1 0 0 0 1 1h4" />
         <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z" />
@@ -51,7 +51,7 @@ export function WorkspaceDocuments({
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-black/[.06] bg-white p-6 text-center text-sm text-zinc-500 dark:border-white/[.08] dark:bg-zinc-950 dark:text-zinc-400">
+      <div className="rounded-xl border border-ds-border-subtle bg-ds-surface-raised p-6 text-center text-sm text-ds-text-muted">
         Loading documents...
       </div>
     );
@@ -59,8 +59,8 @@ export function WorkspaceDocuments({
 
   if (documents.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-black/10 bg-white p-6 text-center dark:border-white/15 dark:bg-zinc-950">
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+      <div className="rounded-xl border border-dashed border-ds-border-strong bg-ds-surface-raised p-6 text-center">
+        <p className="text-sm text-ds-text-muted">
           No documents in this workspace yet.
         </p>
       </div>
@@ -73,14 +73,14 @@ export function WorkspaceDocuments({
         <li key={document.id}>
           <Link
             href={`/app/documents/${document.id}`}
-            className="group flex flex-col overflow-hidden rounded-xl border border-black/[.06] bg-white transition hover:border-black/15 hover:shadow-sm dark:border-white/[.08] dark:bg-zinc-950 dark:hover:border-white/20"
+            className="group flex flex-col overflow-hidden rounded-xl border border-ds-border-subtle bg-ds-surface-raised transition hover:border-ds-border-strong hover:shadow-sm"
           >
             <DocumentThumbnail />
             <div className="flex flex-col gap-1 p-4">
-              <span className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+              <span className="truncate text-sm font-medium text-ds-text-primary">
                 {document.title}
               </span>
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              <span className="text-xs text-ds-text-muted">
                 Edited {dateFormatter.format(new Date(document.updatedAt))}
               </span>
             </div>

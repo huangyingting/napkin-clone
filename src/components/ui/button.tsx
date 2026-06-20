@@ -2,17 +2,17 @@ import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 
 import { cx, FOCUS_RING, RADIUS } from "./tokens";
 
-export type ButtonVariant = "solid" | "subtle" | "ghost" | "danger";
+export type ButtonVariant = "solid" | "subtle" | "plain" | "danger";
 export type ButtonSize = "sm" | "md";
 
 /** Variant → class string. All colors resolve to `--ds-*` tokens. */
 const VARIANT: Record<ButtonVariant, string> = {
   solid:
-    "bg-[var(--ds-accent,#6366f1)] text-[var(--ds-text-on-accent,#ffffff)] hover:bg-[var(--ds-accent-hover,#4f46e5)] active:bg-[var(--ds-accent-active,#4338ca)]",
+    "bg-[var(--ds-accent,#6366f1)] text-[var(--ds-text-on-accent,#ffffff)] hover:bg-[var(--ds-accent-hover,#4f46e5)] active:bg-[var(--ds-accent-hover,#4338ca)]",
   subtle:
-    "border border-[var(--ds-border,rgba(0,0,0,0.08))] bg-[var(--ds-surface-raised,#f4f4f5)] text-[var(--ds-text,#18181b)] hover:bg-[var(--ds-surface-hover,rgba(0,0,0,0.05))] active:bg-[var(--ds-surface-active,rgba(0,0,0,0.1))]",
-  ghost:
-    "bg-transparent text-[var(--ds-text-muted,#52525b)] hover:bg-[var(--ds-surface-hover,rgba(0,0,0,0.05))] hover:text-[var(--ds-text,#18181b)] active:bg-[var(--ds-surface-active,rgba(0,0,0,0.1))]",
+    "border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-raised,#ffffff)] text-[var(--ds-text-primary,#15171a)] hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.06))] active:bg-[var(--ds-state-active,rgba(0,0,0,0.12))]",
+  plain:
+    "bg-transparent text-[var(--ds-text-muted,#6f7d83)] hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.06))] hover:text-[var(--ds-text-primary,#15171a)] active:bg-[var(--ds-state-active,rgba(0,0,0,0.12))]",
   danger:
     "bg-[var(--ds-danger,#dc2626)] text-[var(--ds-text-on-accent,#ffffff)] hover:bg-[var(--ds-danger-hover,#b91c1c)] active:bg-[var(--ds-danger-hover,#991b1b)]",
 };
@@ -34,7 +34,7 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 /**
- * The base text button. Variants: `solid | subtle | ghost | danger`; sizes
+ * The base text button. Variants: `solid | subtle | plain | danger`; sizes
  * `sm` (28px) and `md` (32px). Always typed `button` unless overridden, with a
  * token-driven focus ring.
  */
@@ -94,7 +94,7 @@ const ICON_SIZE: Record<ButtonSize, string> = {
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
   function IconButton(
     {
-      variant = "ghost",
+      variant = "plain",
       size = "md",
       active,
       type,

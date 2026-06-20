@@ -53,7 +53,7 @@ export function LoginForm() {
       </div>
 
       {errorMessage ? (
-        <p role="alert" className="text-sm text-ghost-red">
+        <p role="alert" className="text-sm text-ds-danger">
           {errorMessage}
         </p>
       ) : null}

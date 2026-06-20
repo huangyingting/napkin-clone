@@ -83,12 +83,12 @@ export default async function WorkspacePage({
   }));
 
   return (
-    <main className="flex flex-1 flex-col items-center bg-zinc-50 px-6 py-12 dark:bg-black">
+    <main className="flex flex-1 flex-col items-center bg-ds-surface-sunken px-6 py-12">
       <div className="flex w-full max-w-5xl flex-col gap-8">
         <header className="flex flex-col gap-4">
           <Link
             href="/app/workspaces"
-            className="flex items-center gap-1.5 text-sm text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+            className="flex items-center gap-1.5 text-sm text-ds-text-secondary transition hover:text-ds-text-primary"
           >
             <svg
               viewBox="0 0 16 16"
@@ -101,10 +101,10 @@ export default async function WorkspacePage({
             Back to workspaces
           </Link>
           <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+            <h1 className="text-2xl font-semibold tracking-tight text-ds-text-primary">
               {workspace.name}
             </h1>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="text-sm text-ds-text-secondary">
               {workspace._count.documents} document
               {workspace._count.documents !== 1 ? "s" : ""} ·{" "}
               {workspace.members.length + 1} member
@@ -115,7 +115,7 @@ export default async function WorkspacePage({
 
         <div className="grid gap-6 lg:grid-cols-2">
           <section className="flex flex-col gap-4">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+            <h2 className="text-lg font-semibold text-ds-text-primary">
               Members
             </h2>
             <MembersList
@@ -127,7 +127,7 @@ export default async function WorkspacePage({
 
           {isOwner && (
             <section className="flex flex-col gap-4">
-              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+              <h2 className="text-lg font-semibold text-ds-text-primary">
                 Invite links
               </h2>
               <InviteLinkManager
@@ -139,7 +139,7 @@ export default async function WorkspacePage({
         </div>
 
         <section className="flex flex-col gap-4">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+          <h2 className="text-lg font-semibold text-ds-text-primary">
             Documents
           </h2>
           <WorkspaceDocuments workspaceId={workspace.id} userRole={userRole} />

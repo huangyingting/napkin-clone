@@ -46,24 +46,24 @@ export function MembersList({
   };
 
   return (
-    <ul className="flex flex-col gap-2 rounded-xl border border-black/[.06] bg-white p-4 dark:border-white/[.08] dark:bg-zinc-950">
+    <ul className="flex flex-col gap-2 rounded-xl border border-ds-border-subtle bg-ds-surface-raised p-4">
       {allMembers.map((member) => (
         <li
           key={member.id}
-          className="flex items-center justify-between gap-3 rounded-lg border border-black/[.06] bg-zinc-50 p-3 dark:border-white/[.08] dark:bg-zinc-900"
+          className="flex items-center justify-between gap-3 rounded-lg border border-ds-border-subtle bg-ds-surface-sunken p-3"
         >
           <div className="flex flex-col gap-0.5 overflow-hidden">
-            <span className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+            <span className="truncate text-sm font-medium text-ds-text-primary">
               {member.user.name || member.user.email}
             </span>
             {member.user.name && (
-              <span className="truncate text-xs text-zinc-500 dark:text-zinc-400">
+              <span className="truncate text-xs text-ds-text-muted">
                 {member.user.email}
               </span>
             )}
           </div>
           <div className="flex items-center gap-2">
-            <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+            <span className="rounded-full bg-ds-state-selected px-2 py-0.5 text-xs font-medium text-ds-text-secondary">
               {roleLabels[member.role]}
             </span>
             {isOwner &&
@@ -71,7 +71,7 @@ export function MembersList({
               member.userId !== currentUserId && (
                 <button
                   onClick={() => handleRemove(member.id)}
-                  className="text-xs text-zinc-600 transition hover:text-red-600 dark:text-zinc-400 dark:hover:text-red-400"
+                  className="text-xs text-ds-text-secondary transition hover:text-ds-danger-text"
                   aria-label={`Remove ${member.user.email}`}
                 >
                   Remove

@@ -24,19 +24,19 @@ export default function Error({
   }, [error]);
 
   return (
-    <main className="flex flex-1 items-center justify-center bg-zinc-50 px-6 py-16 dark:bg-black">
-      <div className="flex w-full max-w-md flex-col items-center gap-6 rounded-2xl border border-black/[.06] bg-white p-8 text-center shadow-sm dark:border-white/[.08] dark:bg-zinc-950">
+    <main className="flex flex-1 items-center justify-center bg-ds-surface-sunken px-6 py-16">
+      <div className="flex w-full max-w-md flex-col items-center gap-6 rounded-2xl border border-ds-border-subtle bg-ds-surface-raised p-8 text-center shadow-sm">
         <span
           aria-hidden="true"
-          className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100 text-2xl dark:bg-zinc-900"
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-ds-surface-sunken text-2xl"
         >
           ⚠️
         </span>
         <div className="flex flex-col gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+          <h1 className="text-2xl font-semibold tracking-tight text-ds-text-primary">
             Something went wrong
           </h1>
-          <p className="text-sm leading-6 text-zinc-600 dark:text-zinc-400">
+          <p className="text-sm leading-6 text-ds-text-secondary">
             An unexpected error occurred. You can try again, or head back to the
             home page.
           </p>
@@ -45,19 +45,19 @@ export default function Error({
           <button
             type="button"
             onClick={() => reset()}
-            className="flex h-12 cursor-pointer items-center justify-center rounded-full bg-zinc-900 px-6 text-base font-medium text-white transition hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+            className="flex h-12 cursor-pointer items-center justify-center rounded-full bg-ds-control px-6 text-base font-medium text-ds-control-text transition hover:bg-ds-control-hover"
           >
             Try again
           </button>
           <Link
             href="/"
-            className="flex h-12 items-center justify-center rounded-full border border-black/10 px-6 text-base font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-white/15 dark:text-zinc-200 dark:hover:bg-zinc-900"
+            className="flex h-12 items-center justify-center rounded-full border border-ds-border-subtle px-6 text-base font-medium text-ds-text-secondary transition hover:bg-ds-state-hover hover:text-ds-text-primary"
           >
             Go home
           </Link>
         </div>
         {error.digest ? (
-          <p className="font-mono text-xs text-zinc-400 dark:text-zinc-600">
+          <p className="font-mono text-xs text-ds-text-muted">
             Error ID: {error.digest}
           </p>
         ) : null}

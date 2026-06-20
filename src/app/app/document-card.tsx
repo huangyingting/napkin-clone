@@ -46,13 +46,13 @@ type DocumentCardProps = DocumentCardData & {
 function DocumentThumbnail({ visual }: { visual: Visual | null }) {
   if (visual) {
     return (
-      <div className="flex aspect-[16/10] items-center justify-center overflow-hidden bg-ghost-wash p-2 transition group-hover:bg-ghost-border/40">
+      <div className="flex aspect-[16/10] items-center justify-center overflow-hidden bg-ds-surface-sunken p-2 transition group-hover:bg-ds-border-strong/40">
         <VisualRenderer visual={visual} className="h-full w-full" />
       </div>
     );
   }
   return (
-    <div className="flex aspect-[16/10] items-center justify-center bg-ghost-wash transition group-hover:bg-ghost-border/40">
+    <div className="flex aspect-[16/10] items-center justify-center bg-ds-surface-sunken transition group-hover:bg-ds-border-strong/40">
       <svg
         aria-hidden="true"
         viewBox="0 0 24 24"
@@ -61,7 +61,7 @@ function DocumentThumbnail({ visual }: { visual: Visual | null }) {
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="h-8 w-8 text-ghost-secondary/50"
+        className="h-8 w-8 text-ds-text-secondary/50"
       >
         <path d="M14 3v4a1 1 0 0 0 1 1h4" />
         <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z" />
@@ -94,8 +94,8 @@ function StarButton({
       onClick={onToggle}
       className={`flex h-7 w-7 items-center justify-center rounded-full shadow-sm backdrop-blur transition ${
         active
-          ? "bg-ghost-bg/80 text-amber-500 hover:bg-ghost-bg"
-          : "bg-ghost-bg/80 text-ghost-secondary hover:bg-ghost-bg hover:text-amber-500"
+          ? "bg-ds-surface-base/80 text-ds-warning hover:bg-ds-surface-base"
+          : "bg-ds-surface-base/80 text-ds-text-secondary hover:bg-ds-surface-base hover:text-ds-warning"
       }`}
     >
       <svg
@@ -136,7 +136,7 @@ function DeleteConfirmDialog({
   return createPortal(
     <div className="fixed inset-0 z-modal flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-ds-backdrop"
         aria-hidden="true"
         onClick={onCancel}
       />
@@ -144,30 +144,30 @@ function DeleteConfirmDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="delete-document-title"
-        className="relative z-10 w-full max-w-sm rounded-2xl border border-ghost-border bg-ghost-bg p-6 shadow-xl"
+        className="relative z-10 w-full max-w-sm rounded-2xl border border-ds-border-strong bg-ds-surface-base p-6 shadow-xl"
       >
         <h2
           id="delete-document-title"
-          className="text-base font-semibold text-ghost-text"
+          className="text-base font-semibold text-ds-text-primary"
         >
           Delete document?
         </h2>
-        <p className="mt-2 text-sm text-ghost-secondary">
-          <span className="font-medium text-ghost-text">“{title}”</span> will be
+        <p className="mt-2 text-sm text-ds-text-secondary">
+          <span className="font-medium text-ds-text-primary">“{title}”</span> will be
           moved to the trash. You can undo this right after.
         </p>
         <div className="mt-6 flex justify-end gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="flex h-9 items-center justify-center rounded-full border border-ghost-border px-4 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+            className="flex h-9 items-center justify-center rounded-full border border-ds-border-strong px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="flex h-9 items-center justify-center rounded-full bg-ghost-red px-4 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-60"
+            className="flex h-9 items-center justify-center rounded-full bg-ds-danger px-4 text-sm font-medium text-ds-text-on-accent transition hover:opacity-90 disabled:opacity-60"
           >
             Delete
           </button>
@@ -212,7 +212,7 @@ function RenameDialog({
   return createPortal(
     <div className="fixed inset-0 z-modal flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-ds-backdrop"
         aria-hidden="true"
         onClick={onCancel}
       />
@@ -224,17 +224,17 @@ function RenameDialog({
           event.preventDefault();
           onSubmit(value);
         }}
-        className="relative z-10 w-full max-w-sm rounded-2xl border border-ghost-border bg-ghost-bg p-6 shadow-xl"
+        className="relative z-10 w-full max-w-sm rounded-2xl border border-ds-border-strong bg-ds-surface-base p-6 shadow-xl"
       >
         <h2
           id="rename-document-title"
-          className="text-base font-semibold text-ghost-text"
+          className="text-base font-semibold text-ds-text-primary"
         >
           Rename document
         </h2>
         <label
           htmlFor="rename-document-input"
-          className="mt-4 block text-sm font-medium text-ghost-text"
+          className="mt-4 block text-sm font-medium text-ds-text-primary"
         >
           Title
         </label>
@@ -246,19 +246,19 @@ function RenameDialog({
           maxLength={MAX_TITLE_LENGTH}
           aria-label="Document title"
           onChange={(event) => setValue(event.target.value)}
-          className="mt-1.5 w-full rounded-lg border border-ghost-border bg-ghost-bg px-3 py-2 text-sm text-ghost-text outline-none transition focus:border-ghost-accent focus:ring-2 focus:ring-ghost-accent/30"
+          className="mt-1.5 w-full rounded-lg border border-ds-border-strong bg-ds-surface-base px-3 py-2 text-sm text-ds-text-primary outline-none transition focus:border-ds-accent focus:ring-2 focus:ring-ds-accent/30"
         />
         <div className="mt-6 flex justify-end gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="flex h-9 items-center justify-center rounded-full border border-ghost-border px-4 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+            className="flex h-9 items-center justify-center rounded-full border border-ds-border-strong px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="flex h-9 items-center justify-center rounded-full bg-ghost-accent px-4 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-60"
+            className="flex h-9 items-center justify-center rounded-full bg-ds-accent px-4 text-sm font-medium text-ds-text-on-accent transition hover:opacity-90 disabled:opacity-60"
           >
             Rename
           </button>
@@ -363,38 +363,38 @@ export function DocumentCard({
     <li className="relative">
       <Link
         href={`/app/documents/${id}`}
-        className="group flex flex-col overflow-hidden rounded-xl border border-ghost-border bg-ghost-bg transition hover:border-ghost-accent/40 hover:shadow-sm"
+        className="group flex flex-col overflow-hidden rounded-xl border border-ds-border-strong bg-ds-surface-base transition hover:border-ds-accent/40 hover:shadow-sm"
       >
         <DocumentThumbnail visual={thumbnail} />
         <div className="flex flex-col gap-1 p-4">
-          <span className="truncate pr-7 text-sm font-medium text-ghost-text">
+          <span className="truncate pr-7 text-sm font-medium text-ds-text-primary">
             {optimisticTitle}
           </span>
           {excerpt ? (
-            <p className="line-clamp-2 text-xs text-ghost-secondary">
+            <p className="line-clamp-2 text-xs text-ds-text-secondary">
               {excerpt}
             </p>
           ) : (
-            <p className="text-xs italic text-ghost-secondary/60">
+            <p className="text-xs italic text-ds-text-secondary/60">
               No content yet
             </p>
           )}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-ghost-secondary">
+            <span className="text-xs text-ds-text-secondary">
               Edited {editedLabel}
             </span>
             {readingMinutes > 0 && (
               <>
-                <span className="text-xs text-ghost-secondary/60">·</span>
-                <span className="text-xs text-ghost-secondary">
+                <span className="text-xs text-ds-text-secondary/60">·</span>
+                <span className="text-xs text-ds-text-secondary">
                   {readingMinutes} min read
                 </span>
               </>
             )}
             {workspaceName && (
               <>
-                <span className="text-xs text-ghost-secondary/60">·</span>
-                <span className="truncate text-xs text-ghost-secondary">
+                <span className="text-xs text-ds-text-secondary/60">·</span>
+                <span className="truncate text-xs text-ds-text-secondary">
                   {workspaceName}
                 </span>
               </>
@@ -418,7 +418,7 @@ export function DocumentCard({
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen((open) => !open)}
-          className="flex h-7 w-7 items-center justify-center rounded-full bg-ghost-bg/80 text-ghost-secondary shadow-sm backdrop-blur transition hover:bg-ghost-bg hover:text-ghost-text"
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-ds-surface-base/80 text-ds-text-secondary shadow-sm backdrop-blur transition hover:bg-ds-surface-base hover:text-ds-text-primary"
         >
           <svg
             aria-hidden="true"
@@ -435,7 +435,7 @@ export function DocumentCard({
         {menuOpen && (
           <div
             role="menu"
-            className="absolute right-0 top-full z-20 mt-1 w-40 overflow-hidden rounded-lg border border-ghost-border bg-ghost-bg py-1 shadow-lg"
+            className="absolute right-0 top-full z-20 mt-1 w-40 overflow-hidden rounded-lg border border-ds-border-strong bg-ds-surface-base py-1 shadow-lg"
           >
             <button
               type="button"
@@ -444,7 +444,7 @@ export function DocumentCard({
                 setMenuOpen(false);
                 setRenameOpen(true);
               }}
-              className="flex w-full items-center px-3 py-2 text-left text-sm text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+              className="flex w-full items-center px-3 py-2 text-left text-sm text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
             >
               Rename
             </button>
@@ -452,7 +452,7 @@ export function DocumentCard({
               type="button"
               role="menuitem"
               onClick={handleDuplicate}
-              className="flex w-full items-center px-3 py-2 text-left text-sm text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+              className="flex w-full items-center px-3 py-2 text-left text-sm text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
             >
               Duplicate
             </button>
@@ -463,7 +463,7 @@ export function DocumentCard({
                 setMenuOpen(false);
                 setConfirmOpen(true);
               }}
-              className="flex w-full items-center px-3 py-2 text-left text-sm text-ghost-red transition hover:bg-ghost-red/10"
+              className="flex w-full items-center px-3 py-2 text-left text-sm text-ds-danger transition hover:bg-ds-danger/10"
             >
               Delete
             </button>

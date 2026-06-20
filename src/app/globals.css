@@ -10,9 +10,9 @@
    * One semantic layer for app chrome AND editor controls (floating toolbar,
    * insert menu, gutter buttons, visual-card surfaces). These are intentionally
    * SEPARATE from visual-content theming (src/lib/visual/themes.ts) and from the
-   * reading typography (.ghost-prose stays serif on the ghost reading tokens).
-   * Dark values live in the prefers-color-scheme block below; anything that uses
-   * these tokens flips automatically without `dark:` utilities.
+  * reading typography (.ds-prose stays serif on the same ds material tokens).
+  * Dark values live in the prefers-color-scheme block below; anything that uses
+  * these tokens flips automatically without mode-specific utilities.
    */
 
   /* Surfaces */
@@ -20,6 +20,8 @@
   --ds-surface-raised: #ffffff;
   --ds-surface-overlay: #ffffff;
   --ds-surface-sunken: #f4f8fb;
+  --ds-surface-chrome: rgba(255, 255, 255, 0.8);
+  --ds-surface-glass: rgba(255, 255, 255, 0.9);
 
   /* Text (all ≥4.5:1 on their intended surface) */
   --ds-text-primary: #15171a;
@@ -31,17 +33,55 @@
   --ds-border-subtle: rgba(0, 0, 0, 0.08);
   --ds-border-strong: #dde1e5;
 
-  /* Accent — derived from the single configurable brand knob */
-  --ds-accent: var(--ghost-accent-color);
+  /* Accent — defaults to the app's existing indigo brand */
+  --ds-accent: #4f46e5;
   --ds-accent-hover: #4338ca;
   --ds-accent-contrast: #ffffff;
+  --ds-accent-surface: #eef2ff;
+  --ds-accent-border: rgba(79, 70, 229, 0.24);
+  --ds-accent-text: #4338ca;
+
+  /* Semantic status colors */
+  --ds-success: #6f9f1d;
+  --ds-success-surface: #f1f8e8;
+  --ds-success-border: rgba(111, 159, 29, 0.28);
+  --ds-success-text: #4d7c0f;
+  --ds-warning: #b7791f;
+  --ds-warning-surface: #fff7ed;
+  --ds-warning-border: rgba(183, 121, 31, 0.3);
+  --ds-warning-text: #b45309;
+  --ds-danger: #dc2626;
+  --ds-danger-hover: #b91c1c;
+  --ds-danger-surface: #fef2f2;
+  --ds-danger-border: rgba(220, 38, 38, 0.28);
+  --ds-danger-text: #b91c1c;
+
+  /* Backdrops, inverse overlays, and fullscreen presentation stage chrome */
+  --ds-backdrop: rgba(0, 0, 0, 0.4);
+  --ds-backdrop-strong: rgba(0, 0, 0, 0.8);
+  --ds-inverse-surface: #0a0a0a;
+  --ds-inverse-surface-muted: rgba(0, 0, 0, 0.5);
+  --ds-inverse-control: rgba(0, 0, 0, 0.4);
+  --ds-inverse-control-hover: rgba(0, 0, 0, 0.6);
+  --ds-inverse-text: #ffffff;
+  --ds-inverse-muted: rgba(255, 255, 255, 0.7);
+  --ds-inverse-subtle: rgba(255, 255, 255, 0.6);
+  --ds-inverse-border-subtle: rgba(255, 255, 255, 0.1);
+  --ds-inverse-state-hover: rgba(255, 255, 255, 0.1);
+  --ds-inverse-focus: rgba(255, 255, 255, 0.5);
+  --ds-stage: #09090b;
+  --ds-stage-panel: #18181b;
+  --ds-stage-panel-muted: rgba(24, 24, 27, 0.6);
+  --ds-stage-border: #27272a;
+  --ds-stage-text: #d4d4d8;
+  --ds-stage-muted: #71717a;
 
   /* Solid control (the pressed/active toggle: dark chip on light, inverted in dark) */
   --ds-control: #18181b;
   --ds-control-hover: #27272a;
   --ds-control-text: #ffffff;
 
-  /* Interaction-state overlays (replace ad-hoc black/[.0x] + white/[.0x]) */
+  /* Interaction-state overlays */
   --ds-state-hover: rgba(0, 0, 0, 0.06);
   --ds-state-active: rgba(0, 0, 0, 0.12);
   --ds-state-selected: rgba(0, 0, 0, 0.08);
@@ -85,52 +125,26 @@
   --ds-motion-base: 180ms;
   --ds-motion-slow: 240ms;
   --ds-ease-standard: cubic-bezier(0.2, 0, 0, 1);
-
-  /*
-   * Ghost reading tokens — re-mapped onto the `--ds-*` layer where they mean the
-   * same thing, so chrome and reading share one material. Resolved values are
-   * unchanged, so .ghost-prose (serif body) looks identical.
-   */
-  --ghost-text: var(--ds-text-primary);
-  --ghost-secondary: var(--ds-text-secondary);
-  --ghost-border: var(--ds-border-strong);
-  --ghost-wash: var(--ds-surface-sunken);
-  --ghost-bg: var(--ds-surface-base);
-  --ghost-green: #a4d037;
-  --ghost-yellow: #fecd35;
-  --ghost-red: #f05230;
-
-  /* Single configurable accent — defaults to the app's existing indigo brand */
-  --ghost-accent-color: #4f46e5;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 
-  /* Ghost font system: only Inter is self-hosted; serif/mono use system stacks */
+  /* Font system: only Inter is self-hosted; serif/mono use system stacks */
   --font-sans:
     var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
     Roboto, Helvetica, Arial, sans-serif;
   --font-serif: Georgia, Times, "Times New Roman", serif;
   --font-mono: Menlo, "Courier New", Courier, monospace;
 
-  /* Ghost colors exposed as Tailwind color utilities (ghost-*) */
-  --color-ghost-text: var(--ghost-text);
-  --color-ghost-secondary: var(--ghost-secondary);
-  --color-ghost-border: var(--ghost-border);
-  --color-ghost-wash: var(--ghost-wash);
-  --color-ghost-bg: var(--ghost-bg);
-  --color-ghost-green: var(--ghost-green);
-  --color-ghost-yellow: var(--ghost-yellow);
-  --color-ghost-red: var(--ghost-red);
-  --color-ghost-accent: var(--ghost-accent-color);
-
   /* Design-system chrome tokens exposed as Tailwind utilities (ds-*) */
   --color-ds-surface-base: var(--ds-surface-base);
   --color-ds-surface-raised: var(--ds-surface-raised);
   --color-ds-surface-overlay: var(--ds-surface-overlay);
   --color-ds-surface-sunken: var(--ds-surface-sunken);
+  --color-ds-surface-chrome: var(--ds-surface-chrome);
+  --color-ds-surface-glass: var(--ds-surface-glass);
 
   --color-ds-text-primary: var(--ds-text-primary);
   --color-ds-text-secondary: var(--ds-text-secondary);
@@ -143,6 +157,42 @@
   --color-ds-accent: var(--ds-accent);
   --color-ds-accent-hover: var(--ds-accent-hover);
   --color-ds-accent-contrast: var(--ds-accent-contrast);
+  --color-ds-accent-surface: var(--ds-accent-surface);
+  --color-ds-accent-border: var(--ds-accent-border);
+  --color-ds-accent-text: var(--ds-accent-text);
+
+  --color-ds-success: var(--ds-success);
+  --color-ds-success-surface: var(--ds-success-surface);
+  --color-ds-success-border: var(--ds-success-border);
+  --color-ds-success-text: var(--ds-success-text);
+  --color-ds-warning: var(--ds-warning);
+  --color-ds-warning-surface: var(--ds-warning-surface);
+  --color-ds-warning-border: var(--ds-warning-border);
+  --color-ds-warning-text: var(--ds-warning-text);
+  --color-ds-danger: var(--ds-danger);
+  --color-ds-danger-hover: var(--ds-danger-hover);
+  --color-ds-danger-surface: var(--ds-danger-surface);
+  --color-ds-danger-border: var(--ds-danger-border);
+  --color-ds-danger-text: var(--ds-danger-text);
+
+  --color-ds-backdrop: var(--ds-backdrop);
+  --color-ds-backdrop-strong: var(--ds-backdrop-strong);
+  --color-ds-inverse-surface: var(--ds-inverse-surface);
+  --color-ds-inverse-surface-muted: var(--ds-inverse-surface-muted);
+  --color-ds-inverse-control: var(--ds-inverse-control);
+  --color-ds-inverse-control-hover: var(--ds-inverse-control-hover);
+  --color-ds-inverse-text: var(--ds-inverse-text);
+  --color-ds-inverse-muted: var(--ds-inverse-muted);
+  --color-ds-inverse-subtle: var(--ds-inverse-subtle);
+  --color-ds-inverse-border-subtle: var(--ds-inverse-border-subtle);
+  --color-ds-inverse-state-hover: var(--ds-inverse-state-hover);
+  --color-ds-inverse-focus: var(--ds-inverse-focus);
+  --color-ds-stage: var(--ds-stage);
+  --color-ds-stage-panel: var(--ds-stage-panel);
+  --color-ds-stage-panel-muted: var(--ds-stage-panel-muted);
+  --color-ds-stage-border: var(--ds-stage-border);
+  --color-ds-stage-text: var(--ds-stage-text);
+  --color-ds-stage-muted: var(--ds-stage-muted);
 
   --color-ds-control: var(--ds-control);
   --color-ds-control-hover: var(--ds-control-hover);
@@ -198,6 +248,8 @@
     --ds-surface-raised: #18181b;
     --ds-surface-overlay: #18181b;
     --ds-surface-sunken: #16181c;
+    --ds-surface-chrome: rgba(0, 0, 0, 0.4);
+    --ds-surface-glass: rgba(24, 24, 27, 0.9);
 
     --ds-text-primary: #f5f6f6;
     --ds-text-secondary: #98a0a6;
@@ -207,6 +259,19 @@
     --ds-border-strong: #2a2d31;
 
     --ds-accent-hover: #6366f1;
+    --ds-accent-surface: rgba(79, 70, 229, 0.22);
+    --ds-accent-border: rgba(129, 140, 248, 0.35);
+    --ds-accent-text: #a5b4fc;
+
+    --ds-success-surface: rgba(111, 159, 29, 0.2);
+    --ds-success-border: rgba(132, 204, 22, 0.35);
+    --ds-success-text: #bef264;
+    --ds-warning-surface: rgba(183, 121, 31, 0.2);
+    --ds-warning-border: rgba(251, 191, 36, 0.35);
+    --ds-warning-text: #fbbf24;
+    --ds-danger-surface: rgba(220, 38, 38, 0.18);
+    --ds-danger-border: rgba(248, 113, 113, 0.35);
+    --ds-danger-text: #f87171;
 
     --ds-control: #ffffff;
     --ds-control-hover: #e4e4e7;
@@ -225,51 +290,51 @@ body {
 }
 
 /*
- * Ghost-style long-form reading typography (US-020).
+ * Design-system long-form reading typography (US-020).
  *
  * Applied to the document content surfaces only — the Lexical editor body and
  * the read-only share/embed render — so app chrome (header, title, controls)
  * stays sans. Rules are intentionally unlayered so they win over the per-element
  * Tailwind utility classes already present in those components, and colors use
- * the US-019 ghost tokens so light/dark mode follow automatically.
+ * ds tokens so light/dark mode follow automatically.
  *
  * Font stacks are referenced via `var(--font-*, <literal fallback>)`: the
  * `@theme inline` font vars are tree-shaken from `:root` unless used, so the
  * literal fallback guarantees the serif/mono stacks resolve regardless.
  */
-.ghost-prose {
-  /* Centered ~720px Ghost reading measure. */
+.ds-prose {
+  /* Centered ~720px reading measure. */
   max-width: 45rem;
   margin-inline: auto;
   font-family: var(--font-serif, Georgia, Times, "Times New Roman", serif);
   font-size: 1.125rem;
   line-height: 1.7;
-  color: var(--ghost-text);
+  color: var(--ds-text-primary);
 }
 
-.ghost-prose p {
+.ds-prose p {
   font-family: var(--font-serif, Georgia, Times, "Times New Roman", serif);
-  color: var(--ghost-text);
+  color: var(--ds-text-primary);
   line-height: 1.7;
   margin-bottom: 1.2em;
 }
 
-.ghost-prose ul,
-.ghost-prose ol {
+.ds-prose ul,
+.ds-prose ol {
   font-family: var(--font-serif, Georgia, Times, "Times New Roman", serif);
-  color: var(--ghost-text);
+  color: var(--ds-text-primary);
   line-height: 1.7;
   margin-bottom: 1.2em;
 }
 
-.ghost-prose li {
+.ds-prose li {
   margin-bottom: 0.4em;
   line-height: 1.7;
 }
 
-.ghost-prose h1,
-.ghost-prose h2,
-.ghost-prose h3 {
+.ds-prose h1,
+.ds-prose h2,
+.ds-prose h3 {
   font-family: var(
     --font-sans,
     ui-sans-serif,
@@ -281,50 +346,50 @@ body {
     Arial,
     sans-serif
   );
-  color: var(--ghost-text);
+  color: var(--ds-text-primary);
   font-weight: 700;
   letter-spacing: -0.012em;
   line-height: 1.2;
 }
 
-.ghost-prose h1 {
+.ds-prose h1 {
   font-size: 2.2rem;
   margin-top: 0.6em;
   margin-bottom: 0.4em;
 }
 
-.ghost-prose h2 {
+.ds-prose h2 {
   font-size: 1.7rem;
   margin-top: 1.1em;
   margin-bottom: 0.4em;
 }
 
-.ghost-prose h3 {
+.ds-prose h3 {
   font-size: 1.35rem;
   margin-top: 1em;
   margin-bottom: 0.35em;
 }
 
-.ghost-prose blockquote {
+.ds-prose blockquote {
   font-family: var(--font-serif, Georgia, Times, "Times New Roman", serif);
-  border-left: 3px solid var(--ghost-accent-color);
+  border-left: 3px solid var(--ds-accent);
   padding-left: 1.2em;
   margin: 1.2em 0;
   font-style: italic;
-  color: var(--ghost-secondary);
+  color: var(--ds-text-secondary);
 }
 
-.ghost-prose code {
+.ds-prose code {
   font-family: var(--font-mono, Menlo, "Courier New", Courier, monospace);
   font-size: 0.9em;
 }
 
-.ghost-prose a {
-  color: var(--ghost-accent-color);
+.ds-prose a {
+  color: var(--ds-accent);
 }
 
-.ghost-prose hr {
+.ds-prose hr {
   border: 0;
-  border-top: 1px solid var(--ghost-border);
+  border-top: 1px solid var(--ds-border-strong);
   margin: 2em 0;
 }

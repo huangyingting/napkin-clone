@@ -17,7 +17,7 @@ function KeyCombo({ keys }: { keys: string[] }) {
       {keys.map((token, index) => (
         <kbd
           key={`${token}-${index}`}
-          className="inline-flex h-6 min-w-6 items-center justify-center rounded-md border border-black/[.08] bg-zinc-100 px-1.5 text-xs font-medium text-zinc-700 dark:border-white/[.12] dark:bg-zinc-800 dark:text-zinc-200"
+          className="inline-flex h-6 min-w-6 items-center justify-center rounded-md border border-ds-border-subtle bg-ds-surface-sunken px-1.5 text-xs font-medium text-ds-text-secondary"
         >
           {token}
         </kbd>
@@ -40,7 +40,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
   return createPortal(
     <div className="fixed inset-0 z-modal flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-ds-backdrop"
         aria-hidden="true"
         onClick={onClose}
       />
@@ -48,12 +48,12 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="shortcuts-title"
-        className="relative z-10 flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-black/[.06] bg-white p-6 shadow-xl dark:border-white/[.08] dark:bg-zinc-950"
+        className="relative z-10 flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-ds-border-subtle bg-ds-surface-overlay p-6 shadow-ds-popover"
       >
         <div className="flex items-start justify-between gap-4">
           <h2
             id="shortcuts-title"
-            className="text-base font-semibold text-zinc-900 dark:text-zinc-50"
+            className="text-base font-semibold text-ds-text-primary"
           >
             Keyboard shortcuts
           </h2>
@@ -61,7 +61,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
             type="button"
             aria-label="Close"
             onClick={onClose}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-50"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ds-text-muted transition hover:bg-ds-state-hover hover:text-ds-text-primary"
           >
             <svg
               aria-hidden="true"
@@ -87,7 +87,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
             }
             return (
               <div key={scope} className="flex flex-col gap-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-ds-text-muted">
                   {scope}
                 </h3>
                 <ul className="flex flex-col gap-1.5">
@@ -96,7 +96,7 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
                       key={entry.description}
                       className="flex items-center justify-between gap-4"
                     >
-                      <span className="text-sm text-zinc-700 dark:text-zinc-300">
+                      <span className="text-sm text-ds-text-secondary">
                         {entry.description}
                       </span>
                       <KeyCombo keys={entry.keys} />
@@ -134,7 +134,7 @@ export function KeyboardShortcuts() {
         aria-label="Keyboard shortcuts"
         title="Keyboard shortcuts (?)"
         onClick={() => setOpen(true)}
-        className="hidden h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 sm:flex dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+        className="hidden h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-ds-text-secondary transition hover:bg-ds-state-hover hover:text-ds-text-primary sm:flex"
       >
         ?
       </button>

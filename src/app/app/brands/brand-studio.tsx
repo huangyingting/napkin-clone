@@ -298,8 +298,8 @@ function BrandForm({
           placeholder="e.g. Acme Brand"
           maxLength={80}
           className={cx(
-            "h-9 w-full rounded-[var(--ds-radius-md,10px)] border bg-[var(--ds-surface,#fff)] px-3 text-sm text-[var(--ds-text,#18181b)] placeholder:text-[var(--ds-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-focus,#6366f1)]",
-            "border-[var(--ds-border,rgba(0,0,0,0.08))]",
+            "h-9 w-full rounded-[var(--ds-radius-md,10px)] border bg-[var(--ds-surface-base,#fff)] px-3 text-sm text-[var(--ds-text-primary,#18181b)] placeholder:text-[var(--ds-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-focus-ring,#6366f1)]",
+            "border-[var(--ds-border-subtle,rgba(0,0,0,0.08))]",
           )}
         />
       </div>
@@ -322,7 +322,7 @@ function BrandForm({
                   type="button"
                   aria-label={`Remove palette color ${i + 1}`}
                   onClick={() => removePaletteColor(i)}
-                  className="absolute -right-1.5 -top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[var(--ds-surface-raised)] text-[var(--ds-text-muted)] hover:bg-[var(--ds-danger,#dc2626)] hover:text-white"
+                  className="absolute -right-1.5 -top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[var(--ds-surface-raised)] text-[var(--ds-text-muted)] hover:bg-[var(--ds-danger,#dc2626)] hover:text-[var(--ds-text-on-accent,#ffffff)]"
                 >
                   <X className="h-2 w-2" />
                 </button>
@@ -335,7 +335,7 @@ function BrandForm({
               aria-label="Add palette color"
               onClick={addPaletteColor}
               className={cx(
-                "flex h-7 w-7 items-center justify-center rounded-full border-2 border-dashed border-[var(--ds-border)] text-[var(--ds-text-muted)] hover:border-[var(--ds-accent)] hover:text-[var(--ds-accent)]",
+                "flex h-7 w-7 items-center justify-center rounded-full border-2 border-dashed border-[var(--ds-border-subtle)] text-[var(--ds-text-muted)] hover:border-[var(--ds-accent)] hover:text-[var(--ds-accent)]",
                 FOCUS_RING,
               )}
             >
@@ -380,8 +380,8 @@ function BrandForm({
             setForm((f) => ({ ...f, fontFamily: e.target.value || null }))
           }
           className={cx(
-            "h-9 rounded-[var(--ds-radius-md,10px)] border bg-[var(--ds-surface,#fff)] px-3 text-sm text-[var(--ds-text)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-focus,#6366f1)]",
-            "border-[var(--ds-border,rgba(0,0,0,0.08))]",
+            "h-9 rounded-[var(--ds-radius-md,10px)] border bg-[var(--ds-surface-base,#fff)] px-3 text-sm text-[var(--ds-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-focus-ring,#6366f1)]",
+            "border-[var(--ds-border-subtle,rgba(0,0,0,0.08))]",
           )}
         >
           <option value="">System default</option>
@@ -445,13 +445,13 @@ function BrandForm({
               <img
                 src={form.logoUrl}
                 alt="Brand logo preview"
-                className="h-12 w-12 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] object-contain bg-white"
+                className="h-12 w-12 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border-subtle)] object-contain bg-white"
               />
               <button
                 type="button"
                 aria-label="Remove logo"
                 onClick={() => setForm((f) => ({ ...f, logoUrl: null }))}
-                className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--ds-surface-raised)] border border-[var(--ds-border)] text-[var(--ds-text-muted)] hover:bg-[var(--ds-danger,#dc2626)] hover:text-white"
+                className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--ds-surface-raised)] border border-[var(--ds-border-subtle)] text-[var(--ds-text-muted)] hover:bg-[var(--ds-danger,#dc2626)] hover:text-[var(--ds-text-on-accent,#ffffff)]"
               >
                 <X className="h-2.5 w-2.5" />
               </button>
@@ -499,7 +499,7 @@ function BrandForm({
 
       {/* Actions */}
       <div className="flex justify-end gap-2">
-        <Button variant="ghost" onClick={onCancel} disabled={isPending}>
+        <Button variant="plain" onClick={onCancel} disabled={isPending}>
           Cancel
         </Button>
         <Button
@@ -563,14 +563,14 @@ function BrandCard({
 
   return (
     <article
-      className="flex flex-col overflow-hidden rounded-[var(--ds-radius-lg,14px)] border border-[var(--ds-border)] bg-[var(--ds-surface,#fff)] shadow-[var(--ds-shadow-raised)]"
+      className="flex flex-col overflow-hidden rounded-[var(--ds-radius-lg,14px)] border border-[var(--ds-border-subtle)] bg-[var(--ds-surface-base,#fff)] shadow-[var(--ds-shadow-raised)]"
       aria-label={`Brand: ${brand.name}`}
     >
       {/* Card header */}
       <div className="flex items-center gap-3 px-4 py-3">
         {/* Logo or fallback swatch */}
         <div
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)]"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--ds-radius-sm)] border border-[var(--ds-border-subtle)]"
           style={{ backgroundColor: previewStyle.background }}
         >
           {brand.logoUrl ? (
@@ -588,7 +588,7 @@ function BrandCard({
 
         <div className="min-w-0 flex-1">
           <p
-            className="truncate text-sm font-semibold text-[var(--ds-text)]"
+            className="truncate text-sm font-semibold text-[var(--ds-text-primary)]"
             style={{ fontFamily: previewStyle.fontFamily }}
           >
             {brand.name}
@@ -608,7 +608,7 @@ function BrandCard({
         <div className="flex shrink-0 items-center gap-1">
           <IconButton
             size="sm"
-            variant="ghost"
+            variant="plain"
             aria-label="Edit brand"
             onClick={() => setExpanded((v) => !v)}
           >
@@ -616,7 +616,7 @@ function BrandCard({
           </IconButton>
           <IconButton
             size="sm"
-            variant="ghost"
+            variant="plain"
             aria-label="Delete brand"
             onClick={handleDelete}
             disabled={deleting}
@@ -629,7 +629,7 @@ function BrandCard({
           </IconButton>
           <IconButton
             size="sm"
-            variant="ghost"
+            variant="plain"
             aria-label={expanded ? "Collapse" : "Expand"}
             onClick={() => setExpanded((v) => !v)}
           >
@@ -657,7 +657,7 @@ function BrandCard({
 
       {/* Edit form */}
       {expanded && (
-        <div className="border-t border-[var(--ds-border)] px-4 py-4">
+        <div className="border-t border-[var(--ds-border-subtle)] px-4 py-4">
           <BrandForm
             initial={{
               id: brand.id,
@@ -699,7 +699,7 @@ function CreateBrandPanel({
         type="button"
         onClick={() => setOpen(true)}
         className={cx(
-          "flex w-full items-center justify-center gap-2 rounded-[var(--ds-radius-lg,14px)] border-2 border-dashed border-[var(--ds-border)] py-6 text-sm font-medium text-[var(--ds-text-muted)] transition hover:border-[var(--ds-accent)] hover:text-[var(--ds-accent)]",
+          "flex w-full items-center justify-center gap-2 rounded-[var(--ds-radius-lg,14px)] border-2 border-dashed border-[var(--ds-border-subtle)] py-6 text-sm font-medium text-[var(--ds-text-muted)] transition hover:border-[var(--ds-accent)] hover:text-[var(--ds-accent)]",
           FOCUS_RING,
         )}
       >
@@ -710,14 +710,14 @@ function CreateBrandPanel({
   }
 
   return (
-    <div className="rounded-[var(--ds-radius-lg,14px)] border border-[var(--ds-accent,#6366f1)] bg-[var(--ds-surface,#fff)] p-4 shadow-[var(--ds-shadow-raised)]">
+    <div className="rounded-[var(--ds-radius-lg,14px)] border border-[var(--ds-accent,#6366f1)] bg-[var(--ds-surface-base,#fff)] p-4 shadow-[var(--ds-shadow-raised)]">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-[var(--ds-text)]">
+        <h2 className="text-sm font-semibold text-[var(--ds-text-primary)]">
           New brand style
         </h2>
         <IconButton
           size="sm"
-          variant="ghost"
+          variant="plain"
           aria-label="Close"
           onClick={() => setOpen(false)}
         >

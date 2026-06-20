@@ -36,14 +36,14 @@ export function CreateWorkspaceButton({
 
       <dialog
         ref={dialogRef}
-        className="rounded-2xl border border-black/[.06] bg-white p-0 shadow-lg backdrop:bg-black/50 dark:border-white/[.08] dark:bg-zinc-950"
+        className="rounded-2xl border border-ds-border-subtle bg-ds-surface-overlay p-0 shadow-ds-overlay backdrop:bg-ds-backdrop"
       >
         <form action={action} className="flex w-80 flex-col gap-6 p-6">
           <div className="flex flex-col gap-2">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+            <h2 className="text-lg font-semibold text-ds-text-primary">
               Create workspace
             </h2>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="text-sm text-ds-text-secondary">
               A workspace lets you collaborate with your team on documents.
             </p>
           </div>
@@ -51,7 +51,7 @@ export function CreateWorkspaceButton({
           <div className="flex flex-col gap-2">
             <label
               htmlFor="name"
-              className="text-sm font-medium text-zinc-900 dark:text-zinc-100"
+              className="text-sm font-medium text-ds-text-primary"
             >
               Workspace name
             </label>
@@ -62,12 +62,12 @@ export function CreateWorkspaceButton({
               required
               autoFocus
               placeholder="Marketing team"
-              className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-black/20 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 dark:border-white/15 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-white/25 dark:focus:ring-white/10"
+              className="rounded-lg border border-ds-border-subtle bg-ds-surface-raised px-3 py-2 text-sm text-ds-text-primary placeholder:text-ds-text-muted focus:border-ds-border-strong focus:outline-none focus:ring-2 focus:ring-ds-focus-ring/10"
             />
             {error && typeof error === "string" && !error.startsWith("/") && (
               <p
                 role="alert"
-                className="text-sm text-red-600 dark:text-red-400"
+                className="text-sm text-ds-danger-text"
               >
                 {error}
               </p>
@@ -79,7 +79,7 @@ export function CreateWorkspaceButton({
             <button
               type="button"
               onClick={() => dialogRef.current?.close()}
-              className="flex-1 rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-zinc-50 dark:border-white/15 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+              className="flex-1 rounded-full border border-ds-border-subtle bg-ds-surface-raised px-4 py-2 text-sm font-medium text-ds-text-primary transition hover:bg-ds-state-hover"
             >
               Cancel
             </button>
@@ -96,7 +96,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="flex-1 rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:opacity-60 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+      className="flex-1 rounded-full bg-ds-control px-4 py-2 text-sm font-medium text-ds-control-text transition hover:bg-ds-control-hover disabled:opacity-60"
     >
       {pending ? "Creating..." : "Create"}
     </button>

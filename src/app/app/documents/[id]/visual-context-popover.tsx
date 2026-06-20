@@ -316,7 +316,7 @@ function ColorField({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-2 text-xs text-[var(--ds-text,#18181b)]">
+    <div className="flex items-center justify-between gap-2 text-xs text-[var(--ds-text-primary,#18181b)]">
       <span className="text-[var(--ds-text-muted,#6f7d83)]">{label}</span>
       <ColorPicker color={color} aria-label={label} onChange={onChange} />
     </div>
@@ -350,7 +350,7 @@ function ThemeChip({
         "flex flex-col items-stretch gap-1 rounded-[var(--ds-radius-md,10px)] border p-1.5 transition",
         active
           ? "border-transparent ring-2 ring-[var(--ds-accent,#6366f1)]"
-          : "border-[var(--ds-border,rgba(0,0,0,0.1))] hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
+          : "border-[var(--ds-border-subtle,rgba(0,0,0,0.1))] hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
         FOCUS_RING,
       )}
     >
@@ -425,7 +425,7 @@ function StyleGallery({
                 "group flex w-full flex-col overflow-hidden rounded-[var(--ds-radius-md,10px)] border p-1.5 text-left transition",
                 active
                   ? "border-transparent ring-2 ring-[var(--ds-accent,#6366f1)]"
-                  : "border-[var(--ds-border,rgba(0,0,0,0.08))] hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
+                  : "border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
                 FOCUS_RING,
               )}
             >
@@ -493,7 +493,7 @@ function EffectsPicker({
               "flex items-center justify-center gap-1.5 rounded-[var(--ds-radius-md,10px)] border px-3 py-2 text-[11px] font-medium transition",
               active
                 ? "border-transparent bg-[var(--ds-accent,#6366f1)]/10 text-[var(--ds-accent,#6366f1)] ring-2 ring-[var(--ds-accent,#6366f1)]"
-                : "border-[var(--ds-border,rgba(0,0,0,0.1))] text-[var(--ds-text-muted,#6f7d83)] hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))] hover:text-[var(--ds-text,#18181b)]",
+                : "border-[var(--ds-border-subtle,rgba(0,0,0,0.1))] text-[var(--ds-text-muted,#6f7d83)] hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))] hover:text-[var(--ds-text-primary,#18181b)]",
               FOCUS_RING,
             )}
           >
@@ -589,7 +589,7 @@ function BrandChip({
         "group flex flex-col gap-1 rounded-[var(--ds-radius-md,10px)] border p-1.5 transition",
         active
           ? "border-transparent ring-2 ring-[var(--ds-accent,#6366f1)]"
-          : "border-[var(--ds-border,rgba(0,0,0,0.1))] hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
+          : "border-[var(--ds-border-subtle,rgba(0,0,0,0.1))] hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
         FOCUS_RING,
       )}
     >
@@ -1049,7 +1049,7 @@ export function VisualContextPopover({
             aria-expanded={customizeOpen}
             onClick={() => setCustomizeOpen((o) => !o)}
             className={cx(
-              "flex w-full items-center justify-between rounded-[var(--ds-radius-md,10px)] px-1 py-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#6f7d83)] transition hover:text-[var(--ds-text,#18181b)]",
+              "flex w-full items-center justify-between rounded-[var(--ds-radius-md,10px)] px-1 py-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#6f7d83)] transition hover:text-[var(--ds-text-primary,#18181b)]",
               FOCUS_RING,
             )}
           >
@@ -1112,7 +1112,7 @@ export function VisualContextPopover({
                   type="button"
                   onClick={() => applyThemeById(resetThemeId)}
                   className={cx(
-                    "rounded-md px-1 py-0.5 text-[11px] font-medium text-[var(--ds-text-muted,#6f7d83)] transition hover:text-[var(--ds-text,#18181b)]",
+                    "rounded-md px-1 py-0.5 text-[11px] font-medium text-[var(--ds-text-muted,#6f7d83)] transition hover:text-[var(--ds-text-primary,#18181b)]",
                     FOCUS_RING,
                   )}
                 >
@@ -1140,7 +1140,7 @@ export function VisualContextPopover({
                     onChange(resetNodeExtStyle(r1, selectedNode.id));
                   }}
                   className={cx(
-                    "rounded-md px-1 py-0.5 text-[11px] font-medium text-[var(--ds-text-muted,#6f7d83)] transition hover:text-[var(--ds-text,#18181b)]",
+                    "rounded-md px-1 py-0.5 text-[11px] font-medium text-[var(--ds-text-muted,#6f7d83)] transition hover:text-[var(--ds-text-primary,#18181b)]",
                     FOCUS_RING,
                   )}
                 >
@@ -1289,7 +1289,7 @@ export function VisualContextPopover({
       <div className="space-y-3 py-1">
         <div className="space-y-2">
           <SectionLabel>Type size &amp; weight</SectionLabel>
-          <div className="flex items-center justify-between gap-2 text-xs text-[var(--ds-text,#18181b)]">
+          <div className="flex items-center justify-between gap-2 text-xs text-[var(--ds-text-primary,#18181b)]">
             <span className="text-[var(--ds-text-muted,#6f7d83)]">
               Font size
             </span>
@@ -1359,7 +1359,7 @@ export function VisualContextPopover({
                     setNodeFontFamily(visual, selectedNode.id, e.target.value),
                   )
                 }
-                className="w-full rounded-[var(--ds-radius-sm,8px)] border border-[var(--ds-border,rgba(0,0,0,0.1))] bg-[var(--ds-surface-base,#ffffff)] px-2 py-1.5 text-xs text-[var(--ds-text,#18181b)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-focus-ring,#6366f1)] focus-visible:ring-offset-1"
+                className="w-full rounded-[var(--ds-radius-sm,8px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.1))] bg-[var(--ds-surface-base,#ffffff)] px-2 py-1.5 text-xs text-[var(--ds-text-primary,#18181b)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-focus-ring,#6366f1)] focus-visible:ring-offset-1"
               >
                 {NODE_FONT_FAMILY_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -1620,9 +1620,9 @@ export function VisualContextPopover({
     return (
       <div className="space-y-3 py-1">
         {stale ? (
-          <div className="flex items-center gap-2 rounded-[var(--ds-radius-md,10px)] bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+          <div className="flex items-center gap-2 rounded-[var(--ds-radius-md,10px)] bg-ds-warning-surface px-3 py-2 text-[11px] text-ds-warning-text">
             <span
-              className="inline-flex h-2 w-2 flex-shrink-0 rounded-full bg-amber-400"
+              className="inline-flex h-2 w-2 flex-shrink-0 rounded-full bg-ds-warning"
               aria-hidden="true"
             />
             Source text has changed since this visual was generated.
@@ -1730,9 +1730,9 @@ export function VisualContextPopover({
           </dd>
         </div>
         {stale ? (
-          <div className="flex items-center gap-1.5 text-amber-600">
+          <div className="flex items-center gap-1.5 text-ds-warning-text">
             <span
-              className="inline-flex h-2 w-2 flex-shrink-0 rounded-full bg-amber-400"
+              className="inline-flex h-2 w-2 flex-shrink-0 rounded-full bg-ds-warning"
               aria-hidden="true"
             />
             <span className="text-[10px]">Source text has changed</span>
@@ -1794,7 +1794,7 @@ export function VisualContextPopover({
                     }
                     onClick={() => chooseCandidate(candidate)}
                     className={cx(
-                      "group flex w-full flex-col overflow-hidden rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border,rgba(0,0,0,0.08))] bg-[var(--ds-surface,#ffffff)] p-1.5 text-left transition hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
+                      "group flex w-full flex-col overflow-hidden rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-base,#ffffff)] p-1.5 text-left transition hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
                       FOCUS_RING,
                     )}
                   >
@@ -1857,7 +1857,7 @@ export function VisualContextPopover({
                   {item.id === "sync" && stale ? (
                     <span
                       aria-label="Source changed"
-                      className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-400"
+                      className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-ds-warning"
                     />
                   ) : null}
                 </span>
@@ -1883,7 +1883,7 @@ export function VisualContextPopover({
           </Tooltip>
 
           <span
-            className="mx-0.5 h-5 w-px shrink-0 bg-[var(--ds-border,rgba(0,0,0,0.1))]"
+            className="mx-0.5 h-5 w-px shrink-0 bg-[var(--ds-border-subtle,rgba(0,0,0,0.1))]"
             aria-hidden="true"
           />
 

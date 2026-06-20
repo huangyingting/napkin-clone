@@ -78,7 +78,7 @@ export function BillingActions({
           type="button"
           onClick={handleCancel}
           disabled={isPending}
-          className="w-fit text-sm text-ghost-secondary underline-offset-4 transition hover:text-ghost-red hover:underline disabled:opacity-50"
+          className="w-fit text-sm text-ds-text-secondary underline-offset-4 transition hover:text-ds-danger hover:underline disabled:opacity-50"
         >
           Cancel subscription
         </button>
@@ -88,14 +88,16 @@ export function BillingActions({
       {message && (
         <p
           className={`rounded-lg px-4 py-2 text-sm ${
-            isError ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"
+            isError
+              ? "bg-ds-danger-surface text-ds-danger-text"
+              : "bg-ds-success-surface text-ds-success-text"
           }`}
         >
           {message}
         </p>
       )}
 
-      {isPending && <p className="text-sm text-ghost-secondary">Updating…</p>}
+      {isPending && <p className="text-sm text-ds-text-secondary">Updating…</p>}
     </div>
   );
 }
@@ -122,19 +124,19 @@ function PlanCard({
       disabled={disabled}
       className={`flex flex-col gap-1 rounded-xl border p-4 text-left transition ${
         isCurrent
-          ? "border-ghost-accent bg-ghost-accent/5"
-          : "border-ghost-border bg-ghost-bg hover:border-ghost-accent/50"
+          ? "border-ds-accent bg-ds-accent/5"
+          : "border-ds-border-strong bg-ds-surface-base hover:border-ds-accent/50"
       } disabled:cursor-not-allowed disabled:opacity-60`}
     >
       <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-ghost-text">{label}</span>
+        <span className="text-sm font-semibold text-ds-text-primary">{label}</span>
         {isCurrent && (
-          <span className="text-xs font-medium text-ghost-accent">Current</span>
+          <span className="text-xs font-medium text-ds-accent">Current</span>
         )}
       </div>
-      <span className="text-base font-bold text-ghost-text">{price}</span>
+      <span className="text-base font-bold text-ds-text-primary">{price}</span>
       <span
-        className="text-xs text-ghost-secondary"
+        className="text-xs text-ds-text-secondary"
         dangerouslySetInnerHTML={{ __html: description }}
       />
     </button>

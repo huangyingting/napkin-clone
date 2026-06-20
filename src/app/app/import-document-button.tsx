@@ -97,7 +97,7 @@ export function ImportDocumentButton({ className }: { className: string }) {
           : t("dashboard.action.import")}
       </button>
       {error && (
-        <p role="alert" className="text-xs text-red-600 dark:text-red-400">
+        <p role="alert" className="text-xs text-ds-danger-text">
           {error} —{" "}
           <button
             type="button"

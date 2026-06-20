@@ -428,14 +428,14 @@ export function InsertMenuPlugin() {
                         "flex w-full items-center gap-2.5 rounded-[var(--ds-radius-md,10px)] px-2.5 py-1.5 text-left transition-colors",
                         isActive
                           ? "bg-[var(--ds-accent,#6366f1)] text-[var(--ds-text-on-accent,#ffffff)]"
-                          : "text-[var(--ds-text,#18181b)] hover:bg-[var(--ds-surface-hover,rgba(0,0,0,0.05))]",
+                          : "text-[var(--ds-text-primary,#18181b)] hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.05))]",
                       )}
                     >
                       <span
                         className={cx(
                           "flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--ds-radius-sm,8px)]",
                           isActive
-                            ? "bg-white/15"
+                            ? "bg-ds-inverse-state-hover"
                             : "bg-[var(--ds-surface-raised,#f4f4f5)] text-[var(--ds-text-muted,#71717a)]",
                         )}
                       >
@@ -452,7 +452,7 @@ export function InsertMenuPlugin() {
                             className={cx(
                               "truncate text-xs",
                               isActive
-                                ? "text-white/70"
+                                ? "text-ds-inverse-muted"
                                 : "text-[var(--ds-text-muted,#71717a)]",
                             )}
                           >

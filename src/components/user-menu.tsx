@@ -49,11 +49,11 @@ export function UserMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className="flex h-9 max-w-[12rem] items-center gap-2 rounded-full border border-ghost-border p-1 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text sm:pr-3"
+        className="flex h-9 max-w-[12rem] items-center gap-2 rounded-full border border-ds-border-strong p-1 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary sm:pr-3"
       >
         <span
           aria-hidden="true"
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ghost-accent text-xs font-semibold text-white"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ds-accent text-xs font-semibold text-ds-text-on-accent"
         >
           {displayName.charAt(0).toUpperCase() || "?"}
         </span>
@@ -63,23 +63,23 @@ export function UserMenu({
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 top-full z-dropdown mt-2 w-56 overflow-hidden rounded-xl border border-ghost-border bg-ghost-bg py-1 shadow-lg"
+          className="absolute right-0 top-full z-dropdown mt-2 w-56 overflow-hidden rounded-xl border border-ds-border-strong bg-ds-surface-base py-1 shadow-lg"
         >
-          <div className="border-b border-ghost-border px-3 py-2">
-            <p className="truncate text-sm font-medium text-ghost-text">
+          <div className="border-b border-ds-border-strong px-3 py-2">
+            <p className="truncate text-sm font-medium text-ds-text-primary">
               {trimmedName || "Your account"}
             </p>
-            <p className="truncate text-xs text-ghost-secondary">{email}</p>
+            <p className="truncate text-xs text-ds-text-secondary">{email}</p>
           </div>
           <Link
             href="/app/settings"
             role="menuitem"
             onClick={() => setOpen(false)}
-            className="block px-3 py-2 text-sm text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+            className="block px-3 py-2 text-sm text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
           >
             Settings
           </Link>
-          <div className="border-t border-ghost-border">{children}</div>
+          <div className="border-t border-ds-border-strong">{children}</div>
         </div>
       ) : null}
     </div>

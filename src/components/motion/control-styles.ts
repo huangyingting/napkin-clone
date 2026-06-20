@@ -6,9 +6,9 @@
  *
  * These compose the `--ds-*` design-system chrome tokens (globals.css) via their
  * Tailwind utilities (`ds-*`). Because those tokens flip in the
- * prefers-color-scheme dark block, the classes below need no `dark:` variants —
- * one class is correct in both light and dark. No raw `zinc-*` or
- * `black/[.0x]` literals remain here.
+ * prefers-color-scheme dark block, the classes below need no mode variants —
+ * one class is correct in both light and dark. Raw palette literals stay out of
+ * this shared control vocabulary.
  *
  * These are plain class-name constants (no React), so they can be composed into
  * any client component's `className`.

@@ -398,7 +398,7 @@ export function VisualCard({
       <div
         role="img"
         aria-label="Unavailable visual"
-        className="my-4 rounded-2xl border border-dashed border-[var(--ds-border,rgba(0,0,0,0.12))] bg-[var(--ds-surface-sunken,#f4f4f5)] p-6 text-center text-sm text-[var(--ds-text-muted,#6f7d83)]"
+        className="my-4 rounded-2xl border border-dashed border-[var(--ds-border-subtle,rgba(0,0,0,0.12))] bg-[var(--ds-surface-sunken,#f4f4f5)] p-6 text-center text-sm text-[var(--ds-text-muted,#6f7d83)]"
       >
         This visual could not be displayed.
       </div>
@@ -408,10 +408,10 @@ export function VisualCard({
   const data = parsed.data;
 
   const cardClass = [
-    "overflow-hidden rounded-2xl border bg-[var(--ds-surface,#ffffff)] p-2 transition",
+    "overflow-hidden rounded-2xl border bg-[var(--ds-surface-base,#ffffff)] p-2 transition",
     showControls
       ? "border-[var(--ds-accent,#6366f1)] ring-2 ring-[var(--ds-accent,#6366f1)]/20"
-      : "border-[var(--ds-border,rgba(0,0,0,0.06))]",
+      : "border-[var(--ds-border-subtle,rgba(0,0,0,0.06))]",
   ].join(" ");
 
   return (
@@ -458,7 +458,7 @@ export function VisualCard({
             title="Download PNG"
             onClick={(e) => void quickDownload(e)}
             className={[
-              "absolute bottom-3 right-3 flex h-7 w-7 items-center justify-center rounded-full border border-[var(--ds-border,rgba(0,0,0,0.1))] bg-white/90 text-[var(--ds-text-muted,#6f7d83)] opacity-0 shadow-sm backdrop-blur-sm transition hover:text-[var(--ds-text,#18181b)] group-hover:opacity-100",
+              "absolute bottom-3 right-3 flex h-7 w-7 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-glass text-ds-text-muted opacity-0 shadow-sm backdrop-blur-sm transition hover:text-ds-text-primary group-hover:opacity-100",
               FOCUS_RING,
             ].join(" ")}
           >
@@ -485,7 +485,7 @@ export function VisualCard({
               onClick={(e) => void copyImage(e)}
               disabled={copyImageState === "copying"}
               className={[
-                "absolute bottom-3 right-12 flex h-7 w-7 items-center justify-center rounded-full border border-[var(--ds-border,rgba(0,0,0,0.1))] bg-white/90 text-[var(--ds-text-muted,#6f7d83)] opacity-0 shadow-sm backdrop-blur-sm transition hover:text-[var(--ds-text,#18181b)] group-hover:opacity-100",
+                "absolute bottom-3 right-12 flex h-7 w-7 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-glass text-ds-text-muted opacity-0 shadow-sm backdrop-blur-sm transition hover:text-ds-text-primary group-hover:opacity-100",
                 "disabled:cursor-wait",
                 FOCUS_RING,
               ].join(" ")}
@@ -493,7 +493,7 @@ export function VisualCard({
               {copyImageState === "copied" ? (
                 <Check
                   aria-hidden="true"
-                  className="h-3.5 w-3.5 text-green-600"
+                  className="h-3.5 w-3.5 text-ds-success-text"
                 />
               ) : (
                 <Copy aria-hidden="true" className="h-3.5 w-3.5" />
@@ -508,7 +508,7 @@ export function VisualCard({
               title="Share"
               onClick={(e) => void nativeShare(e)}
               className={[
-                "absolute bottom-3 right-[5.25rem] flex h-7 w-7 items-center justify-center rounded-full border border-[var(--ds-border,rgba(0,0,0,0.1))] bg-white/90 text-[var(--ds-text-muted,#6f7d83)] opacity-0 shadow-sm backdrop-blur-sm transition hover:text-[var(--ds-text,#18181b)] group-hover:opacity-100",
+                "absolute bottom-3 right-[5.25rem] flex h-7 w-7 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-glass text-ds-text-muted opacity-0 shadow-sm backdrop-blur-sm transition hover:text-ds-text-primary group-hover:opacity-100",
                 FOCUS_RING,
               ].join(" ")}
             >

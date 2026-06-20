@@ -129,14 +129,14 @@ export function ImportButton({
         {state.status === "error" ? (
           <div
             role="alert"
-            className="flex items-center gap-2 rounded-[var(--ds-radius-md,10px)] border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-400"
+            className="flex items-center gap-2 rounded-[var(--ds-radius-md,10px)] border border-ds-danger-border bg-ds-danger-surface px-3 py-2 text-xs text-ds-danger-text"
           >
             <span className="flex-1">{state.message}</span>
             <button
               type="button"
               aria-label="Dismiss error"
               onClick={dismiss}
-              className="shrink-0 rounded-full p-0.5 hover:bg-red-100 dark:hover:bg-red-900"
+              className="shrink-0 rounded-full p-0.5 hover:bg-ds-state-hover"
             >
               <X className="h-3 w-3" />
             </button>
@@ -171,14 +171,14 @@ export function ImportButton({
       {state.status === "error" ? (
         <div
           role="alert"
-          className="flex items-start gap-3 rounded-[var(--ds-radius-lg,14px)] border border-red-300 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-400"
+          className="flex items-start gap-3 rounded-[var(--ds-radius-lg,14px)] border border-ds-danger-border bg-ds-danger-surface p-4 text-sm text-ds-danger-text"
         >
           <span className="flex-1">{state.message}</span>
           <div className="flex shrink-0 gap-2">
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              className="rounded-full border border-red-300 px-3 py-1 text-xs font-medium transition hover:bg-red-100 dark:border-red-700 dark:hover:bg-red-900"
+              className="rounded-full border border-ds-danger-border px-3 py-1 text-xs font-medium transition hover:bg-ds-state-hover"
             >
               Try again
             </button>
@@ -186,7 +186,7 @@ export function ImportButton({
               type="button"
               aria-label="Dismiss error"
               onClick={dismiss}
-              className="rounded-full p-1 hover:bg-red-100 dark:hover:bg-red-900"
+              className="rounded-full p-1 hover:bg-ds-state-hover"
             >
               <X className="h-4 w-4" />
             </button>

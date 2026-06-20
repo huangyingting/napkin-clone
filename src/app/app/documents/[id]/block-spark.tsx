@@ -463,7 +463,7 @@ export function BlockSparkPlugin() {
           className="flex max-h-[36rem] w-[26rem] max-w-[calc(100vw-1.5rem)] flex-col"
         >
           {/* Header + tabs (pinned) */}
-          <div className="border-b border-[var(--ds-border,rgba(0,0,0,0.08))] px-3 pt-3">
+          <div className="border-b border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] px-3 pt-3">
             <div className="mb-2 flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-[var(--ds-text-muted,#52525b)]">
                 Insert a visual
@@ -516,7 +516,7 @@ export function BlockSparkPlugin() {
                   "flex w-full items-center justify-center gap-1.5 rounded-[var(--ds-radius-sm,8px)] px-2 py-1.5 text-xs font-medium transition-colors",
                   genOptions.type === "auto"
                     ? "bg-[var(--ds-accent,#6366f1)] text-[var(--ds-text-on-accent,#ffffff)]"
-                    : "bg-[var(--ds-surface,#ffffff)] text-[var(--ds-text-secondary,#52525b)] hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.05))]",
+                    : "bg-[var(--ds-surface-base,#ffffff)] text-[var(--ds-text-secondary,#52525b)] hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.05))]",
                   FOCUS_RING,
                 )}
               >
@@ -540,7 +540,7 @@ export function BlockSparkPlugin() {
                         "flex items-center gap-1.5 rounded-[var(--ds-radius-sm,8px)] px-2 py-1.5 text-xs font-medium transition-colors",
                         active
                           ? "bg-[var(--ds-accent,#6366f1)] text-[var(--ds-text-on-accent,#ffffff)]"
-                          : "bg-[var(--ds-surface,#ffffff)] text-[var(--ds-text-secondary,#52525b)] hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.05))]",
+                          : "bg-[var(--ds-surface-base,#ffffff)] text-[var(--ds-text-secondary,#52525b)] hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.05))]",
                         FOCUS_RING,
                       )}
                     >
@@ -556,7 +556,7 @@ export function BlockSparkPlugin() {
             </div>
 
             {/* Advanced options — collapsed by default to keep the panel short */}
-            <div className="border-t border-[var(--ds-border,rgba(0,0,0,0.08))] pt-2">
+            <div className="border-t border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] pt-2">
               <button
                 type="button"
                 aria-expanded={showOptions}
@@ -722,7 +722,7 @@ export function BlockSparkPlugin() {
                             aria-label={`Insert variation ${index + 1} of ${candidates.length}`}
                             onClick={() => insertVisual(candidate)}
                             className={cx(
-                              "group flex w-full flex-col overflow-hidden rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border,rgba(0,0,0,0.08))] bg-[var(--ds-surface,#ffffff)] p-1.5 text-left transition-colors hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
+                              "group flex w-full flex-col overflow-hidden rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-base,#ffffff)] p-1.5 text-left transition-colors hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
                               FOCUS_RING,
                             )}
                           >

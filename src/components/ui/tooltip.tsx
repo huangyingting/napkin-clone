@@ -73,7 +73,7 @@ export function Tooltip({
             transition={{ duration: reduce ? 0 : 0.12, ease: "easeOut" }}
             className={cx(
               "pointer-events-none absolute left-1/2 z-tooltip -translate-x-1/2 whitespace-nowrap px-2 py-1 text-xs font-medium",
-              "bg-[var(--ds-text,#18181b)] text-[var(--ds-surface,#ffffff)]",
+              "bg-[var(--ds-text-primary,#15171a)] text-[var(--ds-surface-base,#ffffff)]",
               RADIUS.sm,
               ELEVATION.overlay,
               side === "top"

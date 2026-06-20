@@ -47,7 +47,7 @@ function AnchorChip({
 }) {
   const prefix = type === "text" ? "On text" : "On element";
   return (
-    <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-indigo-500/20 bg-indigo-50 px-2 py-0.5 text-[11px] text-indigo-700 dark:border-indigo-400/20 dark:bg-indigo-950/40 dark:text-indigo-300">
+    <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-ds-accent-border bg-ds-accent-surface px-2 py-0.5 text-[11px] text-ds-accent-text">
       <span className="font-medium">{prefix}:</span>
       <span className="truncate">{text}</span>
       {onClear ? (
@@ -55,7 +55,7 @@ function AnchorChip({
           type="button"
           onClick={onClear}
           aria-label="Clear anchor"
-          className="ml-0.5 shrink-0 rounded-full px-1 leading-none hover:bg-indigo-100 dark:hover:bg-indigo-900"
+          className="ml-0.5 shrink-0 rounded-full px-1 leading-none hover:bg-ds-state-hover"
         >
           ×
         </button>
@@ -95,8 +95,8 @@ function Thread({
       className={[
         "rounded-lg border p-3",
         thread.resolved
-          ? "border-black/[.06] bg-zinc-50 dark:border-white/[.06] dark:bg-zinc-900/40"
-          : "border-black/[.08] bg-white dark:border-white/[.10] dark:bg-zinc-900",
+          ? "border-ds-border-subtle bg-ds-surface-sunken"
+          : "border-ds-border-subtle bg-ds-surface-raised",
       ].join(" ")}
     >
       <div className="flex flex-wrap items-center gap-2">
@@ -104,37 +104,37 @@ function Thread({
           <AnchorChip type={thread.anchorType} text={thread.anchorText ?? ""} />
         ) : null}
         {thread.resolved ? (
-          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+          <span className="rounded-full bg-ds-success-surface px-2 py-0.5 text-[11px] font-medium text-ds-success-text">
             Resolved
           </span>
         ) : null}
       </div>
 
       <div className="mt-1.5 flex items-baseline justify-between gap-2">
-        <span className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+        <span className="truncate text-sm font-semibold text-ds-text-primary">
           {authorLabel(thread.author, currentUserId)}
         </span>
-        <time className="shrink-0 text-[11px] text-zinc-400 dark:text-zinc-500">
+        <time className="shrink-0 text-[11px] text-ds-text-muted">
           {formatTime(thread.createdAt)}
         </time>
       </div>
-      <p className="mt-0.5 text-sm whitespace-pre-wrap text-zinc-700 dark:text-zinc-300">
+      <p className="mt-0.5 text-sm whitespace-pre-wrap text-ds-text-secondary">
         {thread.body}
       </p>
 
       {thread.replies.length > 0 ? (
-        <ul className="mt-2 space-y-2 border-l-2 border-black/[.06] pl-3 dark:border-white/[.08]">
+        <ul className="mt-2 space-y-2 border-l-2 border-ds-border-subtle pl-3">
           {thread.replies.map((reply) => (
             <li key={reply.id}>
               <div className="flex items-baseline justify-between gap-2">
-                <span className="truncate text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+                <span className="truncate text-xs font-semibold text-ds-text-primary">
                   {authorLabel(reply.author, currentUserId)}
                 </span>
-                <time className="shrink-0 text-[10px] text-zinc-400 dark:text-zinc-500">
+                <time className="shrink-0 text-[10px] text-ds-text-muted">
                   {formatTime(reply.createdAt)}
                 </time>
               </div>
-              <p className="mt-0.5 text-xs whitespace-pre-wrap text-zinc-600 dark:text-zinc-400">
+              <p className="mt-0.5 text-xs whitespace-pre-wrap text-ds-text-secondary">
                 {reply.body}
               </p>
             </li>
@@ -147,7 +147,7 @@ function Thread({
           type="button"
           onClick={() => setShowReply((value) => !value)}
           disabled={disabled}
-          className="text-xs font-medium text-zinc-500 transition hover:text-zinc-900 disabled:opacity-50 dark:text-zinc-400 dark:hover:text-zinc-100"
+          className="text-xs font-medium text-ds-text-muted transition hover:text-ds-text-primary disabled:opacity-50"
         >
           Reply
         </button>
@@ -158,7 +158,7 @@ function Thread({
           aria-label={
             thread.resolved ? "Reopen comment thread" : "Resolve comment thread"
           }
-          className="text-xs font-medium text-zinc-500 transition hover:text-zinc-900 disabled:opacity-50 dark:text-zinc-400 dark:hover:text-zinc-100"
+          className="text-xs font-medium text-ds-text-muted transition hover:text-ds-text-primary disabled:opacity-50"
         >
           {thread.resolved ? "Reopen" : "Resolve"}
         </button>
@@ -172,14 +172,14 @@ function Thread({
             onChange={(event) => setReply(event.target.value)}
             rows={2}
             placeholder="Write a reply…"
-            className="w-full resize-none rounded-md border border-black/[.08] bg-white px-2 py-1.5 text-sm text-zinc-800 outline-none focus:border-zinc-400 dark:border-white/[.12] dark:bg-zinc-950 dark:text-zinc-200"
+            className="w-full resize-none rounded-md border border-ds-border-subtle bg-ds-surface-raised px-2 py-1.5 text-sm text-ds-text-primary outline-none focus:border-ds-border-strong"
           />
           <div className="flex justify-end">
             <button
               type="button"
               onClick={submitReply}
               disabled={disabled || reply.trim().length === 0}
-              className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-medium text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+              className="rounded-full bg-ds-control px-3 py-1 text-xs font-medium text-ds-control-text transition hover:bg-ds-control-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
               Reply
             </button>
@@ -325,11 +325,11 @@ export function CommentsPanel({
         onClick={toggleOpen}
         aria-label="Comments"
         aria-expanded={open}
-        className="relative inline-flex items-center gap-1.5 rounded-full border border-black/[.06] px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-white/[.08] dark:text-zinc-300 dark:hover:bg-zinc-800"
+        className="relative inline-flex items-center gap-1.5 rounded-full border border-ds-border-subtle px-4 py-2 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-state-hover hover:text-ds-text-primary"
       >
         Comments
         {unresolvedCount > 0 ? (
-          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-zinc-900 px-1 text-[11px] font-semibold text-white dark:bg-white dark:text-zinc-900">
+          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-ds-control px-1 text-[11px] font-semibold text-ds-control-text">
             {unresolvedCount}
           </span>
         ) : null}
@@ -340,10 +340,10 @@ export function CommentsPanel({
             <aside
               role="dialog"
               aria-label="Comments"
-              className="fixed inset-y-0 right-0 z-panel flex w-full max-w-md flex-col border-l border-black/[.08] bg-white shadow-2xl dark:border-white/[.10] dark:bg-zinc-950"
+              className="fixed inset-y-0 right-0 z-panel flex w-full max-w-md flex-col border-l border-ds-border-subtle bg-ds-surface-overlay shadow-ds-popover"
             >
-              <div className="flex items-center justify-between border-b border-black/[.06] px-4 py-3 dark:border-white/[.08]">
-                <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+              <div className="flex items-center justify-between border-b border-ds-border-subtle px-4 py-3">
+                <h2 className="text-sm font-semibold text-ds-text-primary">
                   Comments
                 </h2>
                 <div className="flex items-center gap-2">
@@ -352,7 +352,7 @@ export function CommentsPanel({
                     onClick={refresh}
                     disabled={isPending}
                     aria-label="Refresh comments"
-                    className="rounded-md px-2 py-1 text-xs font-medium text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                    className="rounded-md px-2 py-1 text-xs font-medium text-ds-text-muted transition hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-50"
                   >
                     Refresh
                   </button>
@@ -360,14 +360,14 @@ export function CommentsPanel({
                     type="button"
                     onClick={() => setOpen(false)}
                     aria-label="Close comments"
-                    className="rounded-md px-2 py-1 text-sm text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                    className="rounded-md px-2 py-1 text-sm text-ds-text-muted transition hover:bg-ds-state-hover hover:text-ds-text-primary"
                   >
                     ✕
                   </button>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2 border-b border-black/[.06] px-4 py-3 dark:border-white/[.08]">
+              <div className="flex flex-col gap-2 border-b border-ds-border-subtle px-4 py-3">
                 {anchor ? (
                   <div>
                     <AnchorChip
@@ -383,14 +383,14 @@ export function CommentsPanel({
                   onChange={(event) => setBody(event.target.value)}
                   rows={3}
                   placeholder="Add a comment…"
-                  className="w-full resize-none rounded-md border border-black/[.08] bg-white px-2.5 py-2 text-sm text-zinc-800 outline-none focus:border-zinc-400 dark:border-white/[.12] dark:bg-zinc-950 dark:text-zinc-200"
+                  className="w-full resize-none rounded-md border border-ds-border-subtle bg-ds-surface-raised px-2.5 py-2 text-sm text-ds-text-primary outline-none focus:border-ds-border-strong"
                 />
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={attachTextSelection}
                     aria-label="Attach text selection"
-                    className="rounded-full border border-black/[.08] px-2.5 py-1 text-xs font-medium text-zinc-600 transition hover:border-black/20 hover:text-zinc-900 dark:border-white/[.12] dark:text-zinc-300 dark:hover:border-white/30 dark:hover:text-zinc-100"
+                    className="rounded-full border border-ds-border-subtle px-2.5 py-1 text-xs font-medium text-ds-text-secondary transition hover:border-ds-border-strong hover:text-ds-text-primary"
                   >
                     Attach text selection
                   </button>
@@ -399,7 +399,7 @@ export function CommentsPanel({
                       type="button"
                       onClick={attachSelectedElement}
                       aria-label="Attach selected element"
-                      className="rounded-full border border-black/[.08] px-2.5 py-1 text-xs font-medium text-zinc-600 transition hover:border-black/20 hover:text-zinc-900 dark:border-white/[.12] dark:text-zinc-300 dark:hover:border-white/30 dark:hover:text-zinc-100"
+                      className="rounded-full border border-ds-border-subtle px-2.5 py-1 text-xs font-medium text-ds-text-secondary transition hover:border-ds-border-strong hover:text-ds-text-primary"
                     >
                       Attach “{anchorNode.label || "element"}”
                     </button>
@@ -409,20 +409,20 @@ export function CommentsPanel({
                     onClick={submit}
                     disabled={isPending || body.trim().length === 0}
                     aria-label="Add comment"
-                    className="ml-auto rounded-full bg-zinc-900 px-3.5 py-1.5 text-xs font-medium text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+                    className="ml-auto rounded-full bg-ds-control px-3.5 py-1.5 text-xs font-medium text-ds-control-text transition hover:bg-ds-control-hover disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Comment
                   </button>
                 </div>
                 {hint ? (
-                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                  <p className="text-xs text-ds-warning-text">
                     {hint}
                   </p>
                 ) : null}
                 {error ? (
                   <p
                     role="alert"
-                    className="text-xs text-red-600 dark:text-red-400"
+                    className="text-xs text-ds-danger-text"
                   >
                     {error}
                   </p>
@@ -430,15 +430,15 @@ export function CommentsPanel({
               </div>
 
               <div className="flex items-center justify-between px-4 py-2">
-                <span className="text-xs text-zinc-400 dark:text-zinc-500">
+                <span className="text-xs text-ds-text-muted">
                   {threads.length} {threads.length === 1 ? "thread" : "threads"}
                 </span>
-                <label className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                <label className="flex items-center gap-1.5 text-xs text-ds-text-muted">
                   <input
                     type="checkbox"
                     checked={showResolved}
                     onChange={(event) => setShowResolved(event.target.checked)}
-                    className="h-3.5 w-3.5 rounded border-zinc-300 dark:border-zinc-600"
+                    className="h-3.5 w-3.5 rounded border-ds-border-strong accent-ds-accent"
                   />
                   Show resolved
                 </label>
@@ -446,7 +446,7 @@ export function CommentsPanel({
 
               <div className="min-h-0 flex-1 overflow-auto px-4 pb-4">
                 {visibleThreads.length === 0 ? (
-                  <p className="mt-6 text-center text-sm text-zinc-400 dark:text-zinc-500">
+                  <p className="mt-6 text-center text-sm text-ds-text-muted">
                     {threads.length === 0
                       ? "No comments yet. Select text or an element, then add one."
                       : "No open comments."}

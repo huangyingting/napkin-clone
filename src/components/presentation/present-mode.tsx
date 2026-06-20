@@ -53,19 +53,19 @@ function PresenterPanel({
   visuals: ReadonlyMap<string, Visual>;
 }): JSX.Element {
   return (
-    <div className="flex h-full min-h-0 gap-4 overflow-hidden bg-zinc-950 px-6 py-4">
+    <div className="flex h-full min-h-0 gap-4 overflow-hidden bg-ds-stage px-6 py-4">
       {/* Notes */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ds-stage-muted">
           Speaker notes
         </p>
-        <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-900/60 p-4">
+        <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-ds-stage-border bg-ds-stage-panel-muted p-4">
           {currentSlide.notes ? (
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-300">
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-ds-stage-text">
               {currentSlide.notes}
             </p>
           ) : (
-            <p className="text-sm italic text-zinc-600">No speaker notes.</p>
+            <p className="text-sm italic text-ds-stage-muted">No speaker notes.</p>
           )}
         </div>
       </div>
@@ -73,16 +73,16 @@ function PresenterPanel({
       {/* Next slide preview */}
       {nextSlide && (
         <div className="flex w-56 flex-shrink-0 flex-col">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-zinc-500">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ds-stage-muted">
             Next
           </p>
-          <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-zinc-800">
+          <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-ds-stage-border">
             <div className="h-full w-full scale-100 overflow-hidden">
               <SlideCanvas slide={nextSlide} visuals={visuals} preview />
             </div>
           </div>
           {nextSlide.title && (
-            <p className="mt-1.5 truncate text-xs text-zinc-500">
+            <p className="mt-1.5 truncate text-xs text-ds-stage-muted">
               {nextSlide.title}
             </p>
           )}
@@ -110,7 +110,7 @@ function HudButton({
       type="button"
       aria-label={label}
       onClick={onClick}
-      className={`flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-black/40 text-white/80 transition-colors hover:bg-black/60 hover:text-white ${FOCUS_RING}`}
+      className={`flex h-8 w-8 items-center justify-center rounded-lg border border-ds-inverse-border-subtle bg-ds-inverse-control text-ds-inverse-muted transition-colors hover:bg-ds-inverse-control-hover hover:text-ds-inverse-text ${FOCUS_RING}`}
     >
       {children}
     </button>
@@ -291,7 +291,7 @@ export function PresentMode({
 
   if (!currentSlide) {
     return (
-      <div className="fixed inset-0 z-modal flex items-center justify-center bg-black text-white">
+      <div className="fixed inset-0 z-modal flex items-center justify-center bg-ds-inverse-surface text-ds-inverse-text">
         <p>No slides to present.</p>
         <button type="button" onClick={onClose} className="ml-4 underline">
           Close
@@ -324,7 +324,7 @@ export function PresentMode({
         <div className="pointer-events-auto flex items-center gap-3">
           <span
             aria-label={`Slide ${progress}`}
-            className="rounded-md bg-black/50 px-2 py-1 text-xs font-medium tabular-nums text-white/80 backdrop-blur-sm"
+            className="rounded-md bg-ds-inverse-surface-muted px-2 py-1 text-xs font-medium tabular-nums text-ds-inverse-muted backdrop-blur-sm"
           >
             {progress}
           </span>
@@ -335,7 +335,7 @@ export function PresentMode({
             aria-valuemin={1}
             aria-valuemax={total}
             aria-label="Presentation progress"
-            className="h-1 w-28 overflow-hidden rounded-full bg-white/20"
+            className="h-1 w-28 overflow-hidden rounded-full bg-ds-inverse-border-subtle"
           >
             <div
               className="h-full rounded-full transition-all duration-300"
@@ -393,7 +393,7 @@ export function PresentMode({
           className={`group absolute bottom-0 left-0 top-0 w-1/2 cursor-pointer bg-transparent ${FOCUS_RING} disabled:cursor-default`}
         >
           <span
-            className={`absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1.5 text-white/70 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 ${currentIndex === 0 ? "hidden" : ""}`}
+            className={`absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-ds-inverse-control p-1.5 text-ds-inverse-muted opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 ${currentIndex === 0 ? "hidden" : ""}`}
             aria-hidden="true"
           >
             <ChevronLeft size={20} />
@@ -409,7 +409,7 @@ export function PresentMode({
           className={`group absolute bottom-0 right-0 top-0 w-1/2 cursor-pointer bg-transparent ${FOCUS_RING} disabled:cursor-default`}
         >
           <span
-            className={`absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1.5 text-white/70 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 ${currentIndex === total - 1 ? "hidden" : ""}`}
+            className={`absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-ds-inverse-control p-1.5 text-ds-inverse-muted opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 ${currentIndex === total - 1 ? "hidden" : ""}`}
             aria-hidden="true"
           >
             <ChevronRight size={20} />
@@ -422,7 +422,7 @@ export function PresentMode({
       {/* ------------------------------------------------------------------ */}
       {presenterView && (
         <div
-          className="flex-shrink-0 border-t border-white/10"
+          className="flex-shrink-0 border-t border-ds-inverse-border-subtle"
           style={{ height: "35%" }}
         >
           <PresenterPanel
@@ -439,17 +439,17 @@ export function PresentMode({
       <div
         className={`pointer-events-none absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-3 transition-opacity duration-300 ${hudVisible ? "opacity-100" : "opacity-0"}`}
       >
-        <div className="pointer-events-auto flex items-center gap-2 rounded-xl bg-black/50 px-3 py-2 backdrop-blur-sm">
+        <div className="pointer-events-auto flex items-center gap-2 rounded-xl bg-ds-inverse-surface-muted px-3 py-2 backdrop-blur-sm">
           <button
             type="button"
             aria-label="Previous slide"
             onClick={goPrev}
             disabled={currentIndex === 0}
-            className={`flex h-7 w-7 items-center justify-center rounded-lg text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-30 ${FOCUS_RING}`}
+            className={`flex h-7 w-7 items-center justify-center rounded-lg text-ds-inverse-muted transition-colors hover:bg-ds-inverse-state-hover hover:text-ds-inverse-text disabled:opacity-30 ${FOCUS_RING}`}
           >
             <ChevronLeft size={16} aria-hidden="true" />
           </button>
-          <span className="text-xs font-medium tabular-nums text-white/60">
+          <span className="text-xs font-medium tabular-nums text-ds-inverse-subtle">
             {progress}
           </span>
           <button
@@ -457,7 +457,7 @@ export function PresentMode({
             aria-label="Next slide"
             onClick={goNext}
             disabled={currentIndex === total - 1}
-            className={`flex h-7 w-7 items-center justify-center rounded-lg text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-30 ${FOCUS_RING}`}
+            className={`flex h-7 w-7 items-center justify-center rounded-lg text-ds-inverse-muted transition-colors hover:bg-ds-inverse-state-hover hover:text-ds-inverse-text disabled:opacity-30 ${FOCUS_RING}`}
           >
             <ChevronRight size={16} aria-hidden="true" />
           </button>

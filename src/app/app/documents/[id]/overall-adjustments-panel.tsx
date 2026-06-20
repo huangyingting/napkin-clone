@@ -122,7 +122,7 @@ function ThemeSection() {
               onClick={() => applyThemeToAll(theme.id)}
               className={cx(
                 "flex h-8 w-8 flex-col items-center justify-center gap-0.5 rounded-[var(--ds-radius-sm,8px)] border transition",
-                "border-[var(--ds-border,rgba(0,0,0,0.1))] hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
+                "border-[var(--ds-border-subtle,rgba(0,0,0,0.1))] hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
                 FOCUS_RING,
               )}
               style={{ backgroundColor: theme.colors.nodeFill }}
@@ -212,7 +212,7 @@ function BrandSection() {
                   onClick={() => applyBrandToAll(brand)}
                   className={cx(
                     "flex flex-col items-center gap-1 rounded-[var(--ds-radius-sm,8px)] border p-1.5 transition",
-                    "border-[var(--ds-border,rgba(0,0,0,0.1))] hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
+                    "border-[var(--ds-border-subtle,rgba(0,0,0,0.1))] hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
                     FOCUS_RING,
                   )}
                 >
@@ -268,7 +268,7 @@ function PageLayoutSection({
           "flex w-full items-center justify-between rounded-[var(--ds-radius-sm,8px)] border px-3 py-2 text-sm transition",
           showPageBreaks
             ? "border-[var(--ds-accent,#6366f1)] bg-[var(--ds-accent,#6366f1)]/10 text-[var(--ds-accent,#6366f1)]"
-            : "border-[var(--ds-border,rgba(0,0,0,0.1))] bg-[var(--ds-surface-base,#fff)] text-[var(--ds-text-primary,#111)] hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
+            : "border-[var(--ds-border-subtle,rgba(0,0,0,0.1))] bg-[var(--ds-surface-base,#fff)] text-[var(--ds-text-primary,#111)] hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
           FOCUS_RING,
         )}
       >

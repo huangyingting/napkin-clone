@@ -22,10 +22,10 @@ function IconThumb({ Icon, size }: { Icon: LucideIcon; size: number }) {
 
 function iconButtonClass(active: boolean): string {
   return [
-    "flex aspect-square items-center justify-center rounded-md border text-zinc-700 transition dark:text-zinc-200",
+    "flex aspect-square items-center justify-center rounded-md border text-ds-text-secondary transition",
     active
-      ? "border-zinc-900 bg-zinc-900/5 dark:border-white dark:bg-white/10"
-      : "border-transparent hover:border-black/15 hover:bg-black/[.03] dark:hover:border-white/20 dark:hover:bg-white/[.06]",
+      ? "border-ds-control bg-ds-state-selected text-ds-text-primary"
+      : "border-transparent hover:border-ds-border-strong hover:bg-ds-state-hover",
   ].join(" ");
 }
 
@@ -65,15 +65,15 @@ export function IconPicker({
   return (
     <div>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-zinc-600 dark:text-zinc-300">Icon</span>
+        <span className="text-xs text-ds-text-secondary">Icon</span>
         <div className="flex items-center gap-2">
           {value && CurrentIcon ? (
-            <span className="inline-flex max-w-[8rem] items-center gap-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+            <span className="inline-flex max-w-[8rem] items-center gap-1 text-[11px] text-ds-text-muted">
               <IconThumb Icon={CurrentIcon} size={14} />
               <span className="truncate">{value}</span>
             </span>
           ) : (
-            <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+            <span className="text-[11px] text-ds-text-muted">
               None
             </span>
           )}
@@ -82,7 +82,7 @@ export function IconPicker({
             aria-expanded={open}
             aria-controls={listId}
             onClick={() => setOpen((prev) => !prev)}
-            className="rounded-md px-1.5 py-0.5 text-[11px] font-medium text-zinc-500 transition hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+            className="rounded-md px-1.5 py-0.5 text-[11px] font-medium text-ds-text-muted transition hover:text-ds-text-primary"
           >
             {open ? "Close" : value ? "Change" : "Add"}
           </button>
@@ -90,7 +90,7 @@ export function IconPicker({
       </div>
 
       {open ? (
-        <div className="mt-2 space-y-2 rounded-md border border-black/[.08] bg-black/[.015] p-2 dark:border-white/[.10] dark:bg-white/[.02]">
+        <div className="mt-2 space-y-2 rounded-md border border-ds-border-subtle bg-ds-surface-sunken p-2">
           <input
             type="search"
             aria-label="Search icons"
@@ -98,11 +98,11 @@ export function IconPicker({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             autoFocus
-            className="w-full rounded-md border border-black/[.12] bg-white px-2 py-1 text-xs text-zinc-700 outline-none placeholder:text-zinc-400 focus:border-zinc-400 dark:border-white/20 dark:bg-zinc-900 dark:text-zinc-200 dark:placeholder:text-zinc-500"
+            className="w-full rounded-md border border-ds-border-subtle bg-ds-surface-raised px-2 py-1 text-xs text-ds-text-primary outline-none placeholder:text-ds-text-muted focus:border-ds-border-strong"
           />
           {suggestions.length > 0 ? (
             <div className="space-y-1">
-              <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+              <p className="text-[11px] font-medium text-ds-text-muted">
                 Suggestions
               </p>
               <div className="flex flex-wrap gap-1">
@@ -121,8 +121,8 @@ export function IconPicker({
                       className={[
                         "inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium transition",
                         active
-                          ? "border-zinc-900 bg-zinc-900/5 text-zinc-900 dark:border-white dark:bg-white/10 dark:text-zinc-100"
-                          : "border-black/[.08] text-zinc-600 hover:border-black/20 hover:text-zinc-900 dark:border-white/[.12] dark:text-zinc-300 dark:hover:border-white/30 dark:hover:text-zinc-100",
+                          ? "border-ds-control bg-ds-state-selected text-ds-text-primary"
+                          : "border-ds-border-subtle text-ds-text-secondary hover:border-ds-border-strong hover:text-ds-text-primary",
                       ].join(" ")}
                     >
                       <IconThumb Icon={Icon} size={14} />
@@ -165,7 +165,7 @@ export function IconPicker({
           ) : (
             <p
               id={listId}
-              className="px-1 py-2 text-[11px] text-zinc-400 dark:text-zinc-500"
+              className="px-1 py-2 text-[11px] text-ds-text-muted"
             >
               No icons match “{query.trim()}”.
             </p>
@@ -175,7 +175,7 @@ export function IconPicker({
               type="button"
               aria-label="Remove icon"
               onClick={onRemove}
-              className="w-full rounded-md border border-black/[.08] px-2 py-1 text-[11px] font-medium text-zinc-600 transition hover:border-black/20 hover:text-zinc-900 dark:border-white/[.12] dark:text-zinc-300 dark:hover:border-white/30 dark:hover:text-zinc-100"
+              className="w-full rounded-md border border-ds-border-subtle px-2 py-1 text-[11px] font-medium text-ds-text-secondary transition hover:border-ds-border-strong hover:text-ds-text-primary"
             >
               Remove icon
             </button>

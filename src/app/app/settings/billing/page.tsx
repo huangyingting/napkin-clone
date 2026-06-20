@@ -69,40 +69,40 @@ export default async function BillingPage() {
       : 0;
 
   return (
-    <main className="flex flex-1 flex-col items-center bg-ghost-wash px-6 py-12">
+    <main className="flex flex-1 flex-col items-center bg-ds-surface-sunken px-6 py-12">
       <div className="flex w-full max-w-2xl flex-col gap-8">
         <header className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-ghost-text">
+          <h1 className="text-2xl font-semibold tracking-tight text-ds-text-primary">
             Billing &amp; Plan
           </h1>
-          <p className="text-sm text-ghost-secondary">
+          <p className="text-sm text-ds-text-secondary">
             Manage your subscription and AI credits.
           </p>
         </header>
 
         {/* Current plan */}
-        <section className="flex flex-col gap-4 rounded-2xl border border-ghost-border bg-ghost-bg p-6">
+        <section className="flex flex-col gap-4 rounded-2xl border border-ds-border-strong bg-ds-surface-base p-6">
           <div className="flex items-center justify-between">
             <div className="flex flex-col gap-1">
-              <h2 className="text-base font-semibold text-ghost-text">
+              <h2 className="text-base font-semibold text-ds-text-primary">
                 Current Plan
               </h2>
-              <p className="text-sm text-ghost-secondary">
+              <p className="text-sm text-ds-text-secondary">
                 You are on the{" "}
-                <span className="font-medium text-ghost-text">
+                <span className="font-medium text-ds-text-primary">
                   {PLAN_NAMES[plan]}
                 </span>{" "}
                 plan.
               </p>
             </div>
-            <span className="rounded-full bg-ghost-accent/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-ghost-accent">
+            <span className="rounded-full bg-ds-accent/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-ds-accent">
               {PLAN_NAMES[plan]}
             </span>
           </div>
 
           {/* Subscription status */}
           {user.subscription?.cancelAtPeriodEnd && (
-            <p className="rounded-lg bg-yellow-50 px-4 py-2 text-sm text-yellow-800">
+            <p className="rounded-lg bg-ds-warning-surface px-4 py-2 text-sm text-ds-warning-text">
               Your subscription will be cancelled at the end of the current
               billing period
               {periodEnd ? ` (${periodEnd.toLocaleDateString()}).` : "."}
@@ -110,7 +110,7 @@ export default async function BillingPage() {
           )}
 
           {periodEnd && !user.subscription?.cancelAtPeriodEnd && (
-            <p className="text-sm text-ghost-secondary">
+            <p className="text-sm text-ds-text-secondary">
               Renews on{" "}
               <span className="font-medium">
                 {periodEnd.toLocaleDateString()}
@@ -120,25 +120,25 @@ export default async function BillingPage() {
         </section>
 
         {/* Credit usage */}
-        <section className="flex flex-col gap-4 rounded-2xl border border-ghost-border bg-ghost-bg p-6">
-          <h2 className="text-base font-semibold text-ghost-text">
+        <section className="flex flex-col gap-4 rounded-2xl border border-ds-border-strong bg-ds-surface-base p-6">
+          <h2 className="text-base font-semibold text-ds-text-primary">
             AI Credits
           </h2>
 
           <div className="flex items-end justify-between gap-2">
             <div className="flex flex-col gap-0.5">
-              <span className="text-3xl font-bold tabular-nums text-ghost-text">
+              <span className="text-3xl font-bold tabular-nums text-ds-text-primary">
                 {UNLIMITED_CREDITS
                   ? "Unlimited"
                   : user.creditBalance.toLocaleString()}
               </span>
-              <span className="text-sm text-ghost-secondary">
+              <span className="text-sm text-ds-text-secondary">
                 {UNLIMITED_CREDITS
                   ? "AI credits"
                   : `of ${entitlements.creditsPerPeriod.toLocaleString()} remaining`}
               </span>
             </div>
-            <div className="text-right text-sm text-ghost-secondary">
+            <div className="text-right text-sm text-ds-text-secondary">
               {UNLIMITED_CREDITS ? (
                 "No usage limits"
               ) : (
@@ -147,7 +147,7 @@ export default async function BillingPage() {
                   {periodEnd && (
                     <>
                       {" · resets "}
-                      <span className="font-medium text-ghost-text">
+                      <span className="font-medium text-ds-text-primary">
                         {periodEnd.toLocaleDateString()}
                       </span>
                     </>
@@ -158,14 +158,14 @@ export default async function BillingPage() {
           </div>
 
           {/* Progress bar */}
-          <div className="h-2 w-full overflow-hidden rounded-full bg-ghost-border">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-ds-border-strong">
             <div
-              className="h-full rounded-full bg-ghost-accent transition-all"
+              className="h-full rounded-full bg-ds-accent transition-all"
               style={{ width: `${UNLIMITED_CREDITS ? 100 : usagePct}%` }}
             />
           </div>
 
-          <p className="text-xs text-ghost-secondary">
+          <p className="text-xs text-ds-text-secondary">
             {UNLIMITED_CREDITS
               ? "Unlimited AI generations — no per-word metering."
               : `~1 credit per word selected for generation · ${
@@ -177,8 +177,8 @@ export default async function BillingPage() {
         </section>
 
         {/* Plan features */}
-        <section className="flex flex-col gap-4 rounded-2xl border border-ghost-border bg-ghost-bg p-6">
-          <h2 className="text-base font-semibold text-ghost-text">
+        <section className="flex flex-col gap-4 rounded-2xl border border-ds-border-strong bg-ds-surface-base p-6">
+          <h2 className="text-base font-semibold text-ds-text-primary">
             Your Plan Includes
           </h2>
           <ul className="flex flex-col gap-2 text-sm">
@@ -210,8 +210,8 @@ export default async function BillingPage() {
         </section>
 
         {/* Plan management actions */}
-        <section className="flex flex-col gap-4 rounded-2xl border border-ghost-border bg-ghost-bg p-6">
-          <h2 className="text-base font-semibold text-ghost-text">
+        <section className="flex flex-col gap-4 rounded-2xl border border-ds-border-strong bg-ds-surface-base p-6">
+          <h2 className="text-base font-semibold text-ds-text-primary">
             Change Plan
           </h2>
           <BillingActions
@@ -222,7 +222,7 @@ export default async function BillingPage() {
 
         <Link
           href="/app/settings"
-          className="text-sm font-medium text-ghost-secondary underline-offset-4 transition hover:text-ghost-text hover:underline"
+          className="text-sm font-medium text-ds-text-secondary underline-offset-4 transition hover:text-ds-text-primary hover:underline"
         >
           ← Back to settings
         </Link>
@@ -235,13 +235,13 @@ function FeatureRow({ enabled, label }: { enabled: boolean; label: string }) {
   return (
     <li className="flex items-center gap-2">
       <span
-        className={`text-base ${enabled ? "text-green-500" : "text-ghost-secondary/40"}`}
+        className={`text-base ${enabled ? "text-ds-success-text" : "text-ds-text-secondary/40"}`}
         aria-hidden="true"
       >
         {enabled ? "✓" : "✗"}
       </span>
       <span
-        className={enabled ? "text-ghost-text" : "text-ghost-secondary/60"}
+        className={enabled ? "text-ds-text-primary" : "text-ds-text-secondary/60"}
         dangerouslySetInnerHTML={{ __html: label }}
       />
     </li>

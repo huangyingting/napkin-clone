@@ -204,7 +204,7 @@ export function ShareLightbox({ children }: { children: ReactNode }) {
         ? createPortal(
             <motion.div
               key="share-lightbox"
-              className="fixed inset-0 z-modal flex items-center justify-center overflow-hidden bg-black/80 p-4"
+              className="fixed inset-0 z-modal flex items-center justify-center overflow-hidden bg-ds-backdrop-strong p-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={popMotion.transition}
@@ -216,7 +216,7 @@ export function ShareLightbox({ children }: { children: ReactNode }) {
                 role="dialog"
                 aria-modal="true"
                 aria-label={`${active.label} — enlarged`}
-                className="relative flex h-[85vh] w-[min(92vw,1100px)] items-center justify-center rounded-lg bg-white p-4 shadow-2xl dark:bg-zinc-950"
+                className="relative flex h-[85vh] w-[min(92vw,1100px)] items-center justify-center rounded-lg bg-ds-surface-overlay p-4 shadow-ds-popover"
                 initial={popMotion.initial}
                 animate={popMotion.animate}
                 transition={popMotion.transition}
@@ -226,7 +226,7 @@ export function ShareLightbox({ children }: { children: ReactNode }) {
                   type="button"
                   onClick={close}
                   aria-label="Close enlarged visual"
-                  className="absolute right-2 top-2 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/[.06] bg-white text-zinc-600 shadow-sm transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:border-white/[.08] dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  className="absolute right-2 top-2 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-raised text-ds-text-secondary shadow-sm transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-focus-ring"
                 >
                   <svg
                     viewBox="0 0 24 24"

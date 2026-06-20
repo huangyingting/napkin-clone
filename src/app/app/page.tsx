@@ -23,7 +23,7 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
 });
 
 const primaryButtonClass =
-  "flex h-10 items-center justify-center rounded-full bg-ghost-accent px-5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-60";
+  "flex h-10 items-center justify-center rounded-full bg-ds-accent px-5 text-sm font-medium text-ds-text-on-accent transition hover:opacity-90 disabled:opacity-60";
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -141,14 +141,14 @@ export default async function DashboardPage() {
   );
 
   return (
-    <main className="flex flex-1 flex-col items-center bg-ghost-wash px-4 py-8 sm:px-6 sm:py-12">
+    <main className="flex flex-1 flex-col items-center bg-ds-surface-sunken px-4 py-8 sm:px-6 sm:py-12">
       <div className="flex w-full max-w-5xl flex-col gap-8">
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-semibold tracking-tight text-ghost-text">
+            <h1 className="text-2xl font-semibold tracking-tight text-ds-text-primary">
               {t("dashboard.title")}
             </h1>
-            <p className="text-sm text-ghost-secondary">
+            <p className="text-sm text-ds-text-secondary">
               {t("dashboard.subtitle", user.email ?? "")}
             </p>
           </div>

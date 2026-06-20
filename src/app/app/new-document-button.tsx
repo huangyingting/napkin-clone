@@ -44,7 +44,7 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
   return createPortal(
     <div className="fixed inset-0 z-modal flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-ds-backdrop"
         aria-hidden="true"
         onClick={onClose}
       />
@@ -52,17 +52,17 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="template-picker-title"
-        className="relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-ghost-border bg-ghost-bg p-6 shadow-xl"
+        className="relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-ds-border-strong bg-ds-surface-base p-6 shadow-xl"
       >
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2
               id="template-picker-title"
-              className="text-base font-semibold text-ghost-text"
+              className="text-base font-semibold text-ds-text-primary"
             >
               {t("templatePicker.title")}
             </h2>
-            <p className="mt-1 text-sm text-ghost-secondary">
+            <p className="mt-1 text-sm text-ds-text-secondary">
               {t("templatePicker.subtitle")}
             </p>
           </div>
@@ -70,7 +70,7 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
             type="button"
             aria-label={t("templatePicker.close")}
             onClick={onClose}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
           >
             <svg
               aria-hidden="true"
@@ -96,14 +96,14 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
                 aria-label={`${template.name} template`}
                 disabled={isPending}
                 onClick={() => choose(template.id)}
-                className="flex h-full w-full flex-col gap-1 rounded-xl border border-ghost-border p-4 text-left transition hover:border-ghost-accent/40 hover:bg-ghost-wash disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex h-full w-full flex-col gap-1 rounded-xl border border-ds-border-strong p-4 text-left transition hover:border-ds-accent/40 hover:bg-ds-surface-sunken disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <span className="text-sm font-medium text-ghost-text">
+                <span className="text-sm font-medium text-ds-text-primary">
                   {pendingId === template.id
                     ? t("templatePicker.creating")
                     : template.name}
                 </span>
-                <span className="text-xs text-ghost-secondary">
+                <span className="text-xs text-ds-text-secondary">
                   {template.description}
                 </span>
               </button>
@@ -115,7 +115,7 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
           <button
             type="button"
             onClick={onClose}
-            className="flex h-9 items-center justify-center rounded-full border border-ghost-border px-4 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+            className="flex h-9 items-center justify-center rounded-full border border-ds-border-strong px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
           >
             {t("templatePicker.cancel")}
           </button>

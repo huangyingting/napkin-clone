@@ -7,9 +7,9 @@ import { updateProfile, type ProfileFormState } from "./actions";
 const initialState: ProfileFormState = { status: "idle" };
 
 const fieldClass =
-  "h-11 rounded-lg border border-ghost-border bg-ghost-bg px-3 text-sm text-ghost-text outline-none transition focus:border-ghost-accent focus:ring-2 focus:ring-ghost-accent/30";
+  "h-11 rounded-lg border border-ds-border-strong bg-ds-surface-base px-3 text-sm text-ds-text-primary outline-none transition focus:border-ds-accent focus:ring-2 focus:ring-ds-accent/30";
 
-const labelClass = "text-sm font-medium text-ghost-text";
+const labelClass = "text-sm font-medium text-ds-text-primary";
 
 /**
  * The account profile form: edits the current user's display name via the
@@ -43,9 +43,9 @@ export function ProfileForm({
           readOnly
           disabled
           aria-label="Email"
-          className={`${fieldClass} cursor-not-allowed text-ghost-secondary opacity-70`}
+          className={`${fieldClass} cursor-not-allowed text-ds-text-secondary opacity-70`}
         />
-        <p className="text-xs text-ghost-secondary">
+        <p className="text-xs text-ds-text-secondary">
           Your email address can&apos;t be changed.
         </p>
       </div>
@@ -65,18 +65,18 @@ export function ProfileForm({
           placeholder="Your name"
           className={fieldClass}
         />
-        <p className="text-xs text-ghost-secondary">
+        <p className="text-xs text-ds-text-secondary">
           Shown in the header and across the app. Leave blank to use your email.
         </p>
       </div>
 
       {state.status === "success" ? (
-        <p role="status" className="text-sm text-ghost-green">
+        <p role="status" className="text-sm text-ds-success">
           Profile updated.
         </p>
       ) : null}
       {state.status === "error" ? (
-        <p role="alert" className="text-sm text-ghost-red">
+        <p role="alert" className="text-sm text-ds-danger">
           {state.message}
         </p>
       ) : null}
@@ -85,7 +85,7 @@ export function ProfileForm({
         <button
           type="submit"
           disabled={isPending}
-          className="flex h-11 items-center justify-center rounded-full bg-ghost-accent px-6 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-60"
+          className="flex h-11 items-center justify-center rounded-full bg-ds-accent px-6 text-sm font-medium text-ds-text-on-accent transition hover:opacity-90 disabled:opacity-60"
         >
           {isPending ? "Saving…" : "Save changes"}
         </button>

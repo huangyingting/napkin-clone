@@ -14,14 +14,13 @@ export type SurfaceProps = HTMLAttributes<HTMLDivElement> & {
   elevation?: Elevation;
   /** Radius token (`--ds-radius-*`). Defaults to `lg`. */
   radius?: Radius;
-  /** Render a 1px border using `--ds-border`. Defaults to `true`. */
+  /** Render a 1px border using `--ds-border-subtle`. Defaults to `true`. */
   bordered?: boolean;
 };
 
 /**
- * The base surface shell every panel/popover composes from: a `--ds-surface`
- * fill, optional `--ds-border`, a radii token, and an elevation token. It is a
- * plain styled container — positioning and motion live in
+ * The base surface shell every panel/popover composes from current `--ds-*`
+ * tokens. It is a plain styled container — positioning and motion live in
  * {@link FloatingSurface}.
  */
 export const Surface = forwardRef<HTMLDivElement, SurfaceProps>(

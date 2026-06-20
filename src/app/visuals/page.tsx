@@ -30,13 +30,13 @@ export default function VisualGalleryPage() {
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-12">
       <header className="mb-10 flex flex-col gap-3">
-        <span className="w-fit rounded-full border border-black/[.08] bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-600 dark:border-white/[.12] dark:bg-zinc-900 dark:text-zinc-300">
+        <span className="w-fit rounded-full border border-ds-border-subtle bg-ds-surface-sunken px-3 py-1 text-xs font-medium text-ds-text-secondary">
           Renderer preview
         </span>
-        <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 sm:text-4xl dark:text-zinc-50">
+        <h1 className="text-3xl font-semibold tracking-tight text-ds-text-primary sm:text-4xl">
           Visual gallery
         </h1>
-        <p className="max-w-2xl text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+        <p className="max-w-2xl text-sm leading-relaxed text-ds-text-secondary">
           Each card is a sample fixture rendered straight from the typed visual
           schema (nodes + edges + style) by the SVG renderer. The engine
           supports thirteen visual types.
@@ -49,17 +49,17 @@ export default function VisualGalleryPage() {
             key={visual.type}
             aria-label={KIND_LABEL[visual.type]}
             data-visual-type={visual.type}
-            className="flex flex-col gap-4 rounded-2xl border border-black/[.06] bg-white p-5 dark:border-white/[.08] dark:bg-zinc-950"
+            className="flex flex-col gap-4 rounded-2xl border border-ds-border-subtle bg-ds-surface-raised p-5"
           >
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-base font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+              <h2 className="text-base font-semibold tracking-tight text-ds-text-primary">
                 {visual.title ?? KIND_LABEL[visual.type]}
               </h2>
-              <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+              <span className="rounded-full bg-ds-surface-sunken px-2.5 py-1 text-xs font-medium text-ds-text-secondary">
                 {KIND_LABEL[visual.type]}
               </span>
             </div>
-            <div className="overflow-hidden rounded-xl border border-black/[.06] bg-white dark:border-white/[.08]">
+            <div className="overflow-hidden rounded-xl border border-ds-border-subtle bg-ds-surface-raised">
               <VisualRenderer visual={visual} className="h-auto w-full" />
             </div>
           </section>

@@ -61,12 +61,12 @@ export function TagControl({
   };
 
   const chipClass =
-    "inline-flex items-center gap-1 rounded-full bg-ghost-wash px-2.5 py-0.5 text-xs font-medium text-ghost-secondary";
+    "inline-flex items-center gap-1 rounded-full bg-ds-surface-sunken px-2.5 py-0.5 text-xs font-medium text-ds-text-secondary";
 
   return (
     <div
       aria-label="Tags"
-      className="flex flex-wrap items-center gap-1.5 text-ghost-text"
+      className="flex flex-wrap items-center gap-1.5 text-ds-text-primary"
     >
       {tags.map((tag) => (
         <span key={tag.id} className={chipClass}>
@@ -76,7 +76,7 @@ export function TagControl({
               type="button"
               aria-label={`Remove tag ${tag.name}`}
               onClick={() => handleRemove(tag.id)}
-              className="-mr-0.5 rounded-full px-0.5 text-ghost-secondary transition hover:bg-black/[.06] hover:text-ghost-text dark:hover:bg-white/[.08]"
+              className="-mr-0.5 rounded-full px-0.5 text-ds-text-secondary transition hover:bg-ds-state-hover hover:text-ds-text-primary"
             >
               ×
             </button>
@@ -99,7 +99,7 @@ export function TagControl({
             }}
             onBlur={handleAdd}
             placeholder={tags.length ? "Add tag…" : "Add a tag…"}
-            className="w-24 rounded-full border border-ghost-border bg-transparent px-2.5 py-0.5 text-xs text-ghost-text outline-none placeholder:text-ghost-secondary/70 focus:border-ghost-accent focus:ring-1 focus:ring-ghost-accent/30"
+            className="w-24 rounded-full border border-ds-border-strong bg-transparent px-2.5 py-0.5 text-xs text-ds-text-primary outline-none placeholder:text-ds-text-secondary/70 focus:border-ds-accent focus:ring-1 focus:ring-ds-accent/30"
           />
           <datalist id={listId}>
             {suggestions.map((tag) => (
@@ -110,7 +110,7 @@ export function TagControl({
       )}
 
       {error && (
-        <span role="alert" className="text-xs text-ghost-red">
+        <span role="alert" className="text-xs text-ds-danger">
           {error}
         </span>
       )}

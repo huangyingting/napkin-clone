@@ -34,10 +34,10 @@ export async function SiteHeader() {
     : `${creditBalance} / ${creditsPerPeriod} credits remaining`;
 
   return (
-    <header className="relative z-header flex w-full items-center justify-between overflow-x-clip border-b border-ghost-border bg-ghost-bg/80 px-4 py-3 backdrop-blur sm:px-6">
+    <header className="relative z-header flex w-full items-center justify-between overflow-x-clip border-b border-ds-border-strong bg-ds-surface-base/80 px-4 py-3 backdrop-blur sm:px-6">
       <Link
         href="/"
-        className="shrink-0 text-base font-semibold tracking-tight text-ghost-text"
+        className="shrink-0 text-base font-semibold tracking-tight text-ds-text-primary"
       >
         {t("header.brand")}
       </Link>
@@ -48,19 +48,19 @@ export async function SiteHeader() {
           <>
             <Link
               href="/app"
-              className="flex h-9 items-center justify-center rounded-full px-4 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+              className="flex h-9 items-center justify-center rounded-full px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
             >
               {t("header.nav.documents")}
             </Link>
             <Link
               href="/app/workspaces"
-              className="flex h-9 items-center justify-center rounded-full px-4 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+              className="flex h-9 items-center justify-center rounded-full px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
             >
               {t("header.nav.workspaces")}
             </Link>
             <Link
               href="/app/brands"
-              className="flex h-9 items-center justify-center rounded-full px-4 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+              className="flex h-9 items-center justify-center rounded-full px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
             >
               {t("header.nav.brands")}
             </Link>
@@ -69,10 +69,10 @@ export async function SiteHeader() {
             <Link
               href="/app/settings/billing"
               title={creditTitle}
-              className="flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+              className="flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
             >
               <span className="tabular-nums">{creditCount}</span>
-              <span className="text-ghost-secondary/60">credits</span>
+              <span className="text-ds-text-secondary/60">credits</span>
             </Link>
 
             <KeyboardShortcuts />
@@ -81,13 +81,13 @@ export async function SiteHeader() {
               <Link
                 href="/app/settings/billing"
                 role="menuitem"
-                className="block w-full px-3 py-2 text-left text-sm text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+                className="block w-full px-3 py-2 text-left text-sm text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
               >
                 Billing &amp; Plan
               </Link>
               <SignOutButton
                 role="menuitem"
-                className="block w-full px-3 py-2 text-left text-sm text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+                className="block w-full px-3 py-2 text-left text-sm text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
               />
             </UserMenu>
           </>
@@ -96,13 +96,13 @@ export async function SiteHeader() {
             <LanguageSwitcher />
             <Link
               href="/login"
-              className="flex h-9 items-center justify-center rounded-full px-4 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+              className="flex h-9 items-center justify-center rounded-full px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
             >
               {t("header.nav.login")}
             </Link>
             <Link
               href="/signup"
-              className="flex h-9 items-center justify-center rounded-full bg-ghost-accent px-4 text-sm font-medium text-white transition hover:opacity-90"
+              className="flex h-9 items-center justify-center rounded-full bg-ds-accent px-4 text-sm font-medium text-ds-text-on-accent transition hover:opacity-90"
             >
               {t("header.nav.signup")}
             </Link>
@@ -119,13 +119,13 @@ export async function SiteHeader() {
               <Link
                 href="/app/settings/billing"
                 role="menuitem"
-                className="block w-full px-3 py-2 text-left text-sm text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+                className="block w-full px-3 py-2 text-left text-sm text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
               >
                 Billing &amp; Plan
               </Link>
               <SignOutButton
                 role="menuitem"
-                className="block w-full px-3 py-2 text-left text-sm text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+                className="block w-full px-3 py-2 text-left text-sm text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
               />
             </UserMenu>
 
@@ -133,19 +133,19 @@ export async function SiteHeader() {
             <MobileNavMenu>
               <Link
                 href="/app"
-                className="flex h-10 items-center rounded-lg px-3 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+                className="flex h-10 items-center rounded-lg px-3 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
               >
                 {t("header.nav.documents")}
               </Link>
               <Link
                 href="/app/workspaces"
-                className="flex h-10 items-center rounded-lg px-3 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+                className="flex h-10 items-center rounded-lg px-3 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
               >
                 {t("header.nav.workspaces")}
               </Link>
               <Link
                 href="/app/brands"
-                className="flex h-10 items-center rounded-lg px-3 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+                className="flex h-10 items-center rounded-lg px-3 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
               >
                 {t("header.nav.brands")}
               </Link>
@@ -154,13 +154,13 @@ export async function SiteHeader() {
               <Link
                 href="/app/settings/billing"
                 title={creditTitle}
-                className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+                className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
               >
                 <span className="tabular-nums">{creditCount}</span>
-                <span className="text-ghost-secondary/60">credits</span>
+                <span className="text-ds-text-secondary/60">credits</span>
               </Link>
 
-              <div className="my-2 border-t border-ghost-border" />
+              <div className="my-2 border-t border-ds-border-strong" />
 
               {/* Utilities — prevent the drawer's click-to-close from firing */}
               <MobileNavNonClosing className="flex flex-col gap-0.5">
@@ -175,13 +175,13 @@ export async function SiteHeader() {
             <LanguageSwitcher />
             <Link
               href="/login"
-              className="flex h-9 items-center justify-center rounded-full px-3 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+              className="flex h-9 items-center justify-center rounded-full px-3 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
             >
               {t("header.nav.login")}
             </Link>
             <Link
               href="/signup"
-              className="flex h-9 items-center justify-center rounded-full bg-ghost-accent px-3 text-sm font-medium text-white transition hover:opacity-90"
+              className="flex h-9 items-center justify-center rounded-full bg-ds-accent px-3 text-sm font-medium text-ds-text-on-accent transition hover:opacity-90"
             >
               {t("header.nav.signup")}
             </Link>

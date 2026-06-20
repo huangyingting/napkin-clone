@@ -77,7 +77,7 @@ export default async function EmbedPage({
   }
 
   return (
-    <main className="min-h-screen w-full bg-white p-4 dark:bg-zinc-950">
+    <main className="min-h-screen w-full bg-ds-surface-base p-4">
       <div className="mx-auto w-full max-w-3xl">
         {hasLexical ? (
           <LexicalReadOnly state={document.contentJson} />
@@ -99,7 +99,7 @@ export default async function EmbedPage({
             ) : null}
           </>
         ) : (
-          <p className="text-sm text-zinc-400 dark:text-zinc-600">
+          <p className="text-sm text-ds-text-muted">
             No content to display.
           </p>
         )}

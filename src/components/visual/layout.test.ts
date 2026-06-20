@@ -42,7 +42,7 @@ test("edgeSegments is empty for kinds that don't draw visual.edges", () => {
 
 test("edgeSegments skips edges whose endpoints are missing", () => {
   const visual = makeVisual("flowchart", {
-    edges: [{ id: "ghost", from: "a", to: "missing" }],
+    edges: [{ id: "missing-endpoint", from: "a", to: "missing" }],
   });
   assert.equal(edgeSegments(visual).size, 0);
 });

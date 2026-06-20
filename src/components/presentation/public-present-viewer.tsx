@@ -198,7 +198,7 @@ export function PublicPresentViewer({
 
   if (total === 0 || !slides[0]) {
     return (
-      <div className="flex h-screen items-center justify-center bg-black text-white">
+      <div className="flex h-screen items-center justify-center bg-ds-inverse-surface text-ds-inverse-text">
         <p className="text-sm opacity-60">No slides to display.</p>
       </div>
     );
@@ -232,7 +232,7 @@ export function PublicPresentViewer({
           <div className="pointer-events-auto flex items-center gap-3">
             <span
               aria-label={`Slide ${progress}`}
-              className="rounded-md bg-black/50 px-2 py-1 text-xs font-medium tabular-nums text-white/80 backdrop-blur-sm"
+              className="rounded-md bg-ds-inverse-surface-muted px-2 py-1 text-xs font-medium tabular-nums text-ds-inverse-muted backdrop-blur-sm"
             >
               {progress}
             </span>
@@ -242,7 +242,7 @@ export function PublicPresentViewer({
               aria-valuemin={1}
               aria-valuemax={total}
               aria-label="Presentation progress"
-              className="h-1 w-28 overflow-hidden rounded-full bg-white/20"
+              className="h-1 w-28 overflow-hidden rounded-full bg-ds-inverse-border-subtle"
             >
               <div
                 className="h-full rounded-full transition-all duration-300"
@@ -273,7 +273,7 @@ export function PublicPresentViewer({
           className="group absolute bottom-0 left-0 top-0 w-1/2 cursor-pointer bg-transparent focus-visible:outline-none disabled:cursor-default"
         >
           <span
-            className={`absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1.5 text-white/70 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 ${currentIndex === 0 ? "hidden" : ""}`}
+            className={`absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-ds-inverse-control p-1.5 text-ds-inverse-muted opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 ${currentIndex === 0 ? "hidden" : ""}`}
             aria-hidden="true"
           >
             <ChevronLeft size={20} />
@@ -289,7 +289,7 @@ export function PublicPresentViewer({
           className="group absolute bottom-0 right-0 top-0 w-1/2 cursor-pointer bg-transparent focus-visible:outline-none disabled:cursor-default"
         >
           <span
-            className={`absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1.5 text-white/70 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 ${currentIndex === total - 1 ? "hidden" : ""}`}
+            className={`absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-ds-inverse-control p-1.5 text-ds-inverse-muted opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 ${currentIndex === total - 1 ? "hidden" : ""}`}
             aria-hidden="true"
           >
             <ChevronRight size={20} />
@@ -303,17 +303,17 @@ export function PublicPresentViewer({
       <div
         className={`pointer-events-none absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-3 transition-opacity duration-300 ${!embed && !hudVisible ? "opacity-0" : "opacity-100"}`}
       >
-        <div className="pointer-events-auto flex items-center gap-2 rounded-xl bg-black/50 px-3 py-2 backdrop-blur-sm">
+        <div className="pointer-events-auto flex items-center gap-2 rounded-xl bg-ds-inverse-surface-muted px-3 py-2 backdrop-blur-sm">
           <button
             type="button"
             aria-label="Previous slide"
             onClick={goPrev}
             disabled={currentIndex === 0}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-ds-inverse-muted transition-colors hover:bg-ds-inverse-state-hover hover:text-ds-inverse-text disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-inverse-focus"
           >
             <ChevronLeft size={16} aria-hidden="true" />
           </button>
-          <span className="text-xs font-medium tabular-nums text-white/60">
+          <span className="text-xs font-medium tabular-nums text-ds-inverse-subtle">
             {progress}
           </span>
           <button
@@ -321,7 +321,7 @@ export function PublicPresentViewer({
             aria-label="Next slide"
             onClick={goNext}
             disabled={currentIndex === total - 1}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-ds-inverse-muted transition-colors hover:bg-ds-inverse-state-hover hover:text-ds-inverse-text disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-inverse-focus"
           >
             <ChevronRight size={16} aria-hidden="true" />
           </button>

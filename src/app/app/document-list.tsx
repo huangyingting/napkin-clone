@@ -83,7 +83,7 @@ function sortDocuments(
 }
 
 const primaryButtonClass =
-  "flex h-10 items-center justify-center rounded-full bg-ghost-accent px-5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-60";
+  "flex h-10 items-center justify-center rounded-full bg-ds-accent px-5 text-sm font-medium text-ds-text-on-accent transition hover:opacity-90 disabled:opacity-60";
 
 function UndoToast({ title, onUndo }: { title: string; onUndo: () => void }) {
   return createPortal(
@@ -91,11 +91,11 @@ function UndoToast({ title, onUndo }: { title: string; onUndo: () => void }) {
       <div
         role="status"
         aria-live="polite"
-        className="pointer-events-auto flex items-center gap-4 rounded-full border border-ghost-border bg-ghost-text px-5 py-3 text-sm text-ghost-bg shadow-lg"
+        className="pointer-events-auto flex items-center gap-4 rounded-full border border-ds-border-strong bg-ds-text-primary px-5 py-3 text-sm text-ds-surface-base shadow-lg"
       >
         <span className="truncate">
           Document deleted
-          <span className="hidden text-ghost-secondary sm:inline">
+          <span className="hidden text-ds-text-secondary sm:inline">
             {" "}
             — “{title}”
           </span>
@@ -103,7 +103,7 @@ function UndoToast({ title, onUndo }: { title: string; onUndo: () => void }) {
         <button
           type="button"
           onClick={onUndo}
-          className="shrink-0 rounded-full font-semibold text-ghost-accent underline-offset-2 transition hover:underline"
+          className="shrink-0 rounded-full font-semibold text-ds-accent underline-offset-2 transition hover:underline"
         >
           Undo
         </button>
@@ -341,12 +341,12 @@ export function DocumentList({
   return (
     <>
       {!hasDocuments ? (
-        <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-ghost-border bg-ghost-bg px-6 py-16 text-center">
+        <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-ds-border-strong bg-ds-surface-base px-6 py-16 text-center">
           <div className="flex flex-col gap-1">
-            <h2 className="text-lg font-medium text-ghost-text">
+            <h2 className="text-lg font-medium text-ds-text-primary">
               No documents yet
             </h2>
-            <p className="text-sm text-ghost-secondary">
+            <p className="text-sm text-ds-text-secondary">
               Create your first document to start turning text into visuals.
             </p>
           </div>
@@ -367,7 +367,7 @@ export function DocumentList({
                   strokeWidth="1.5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-ghost-accent"
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-ds-accent"
                 >
                   <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
                 </svg>
@@ -380,7 +380,7 @@ export function DocumentList({
                   strokeWidth="1.5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ghost-secondary"
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ds-text-secondary"
                 >
                   <circle cx="11" cy="11" r="7" />
                   <path d="m21 21-4.3-4.3" />
@@ -392,7 +392,7 @@ export function DocumentList({
                 onChange={(event) => setQuery(event.target.value)}
                 aria-label="Search documents"
                 placeholder="Search documents"
-                className="h-10 w-full rounded-full border border-ghost-border bg-ghost-bg pl-9 pr-4 text-sm text-ghost-text outline-none transition placeholder:text-ghost-secondary focus:border-ghost-accent focus:ring-2 focus:ring-ghost-accent/30"
+                className="h-10 w-full rounded-full border border-ds-border-strong bg-ds-surface-base pl-9 pr-4 text-sm text-ds-text-primary outline-none transition placeholder:text-ds-text-secondary focus:border-ds-accent focus:ring-2 focus:ring-ds-accent/30"
               />
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -400,7 +400,7 @@ export function DocumentList({
                 <>
                   <label
                     htmlFor="filter-tag"
-                    className="text-sm text-ghost-secondary"
+                    className="text-sm text-ds-text-secondary"
                   >
                     Tag
                   </label>
@@ -409,7 +409,7 @@ export function DocumentList({
                     value={selectedTag ?? ""}
                     onChange={(event) => setTag(event.target.value || null)}
                     aria-label="Filter by tag"
-                    className="h-10 rounded-full border border-ghost-border bg-ghost-bg px-4 text-sm text-ghost-text outline-none transition focus:border-ghost-accent focus:ring-2 focus:ring-ghost-accent/30"
+                    className="h-10 rounded-full border border-ds-border-strong bg-ds-surface-base px-4 text-sm text-ds-text-primary outline-none transition focus:border-ds-accent focus:ring-2 focus:ring-ds-accent/30"
                   >
                     <option value="">All tags</option>
                     {availableTags.map((tag) => (
@@ -427,8 +427,8 @@ export function DocumentList({
                 onClick={() => setView(viewFavorites ? "all" : "favorites")}
                 className={`flex h-10 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition ${
                   viewFavorites
-                    ? "border-transparent bg-ghost-accent text-white"
-                    : "border-ghost-border bg-ghost-bg text-ghost-secondary hover:text-ghost-text"
+                    ? "border-transparent bg-ds-accent text-ds-text-on-accent"
+                    : "border-ds-border-strong bg-ds-surface-base text-ds-text-secondary hover:text-ds-text-primary"
                 }`}
               >
                 <svg
@@ -439,7 +439,7 @@ export function DocumentList({
                   strokeWidth="1.6"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="h-4 w-4 text-amber-400"
+                  className="h-4 w-4 text-ds-warning"
                 >
                   <path d="M12 17.27 6.18 21l1.64-7.03L2 9.24l7.19-.61L12 2l2.81 6.63 7.19.61-5.82 4.73L17.82 21z" />
                 </svg>
@@ -447,7 +447,7 @@ export function DocumentList({
               </button>
               <label
                 htmlFor="sort-documents"
-                className="text-sm text-ghost-secondary"
+                className="text-sm text-ds-text-secondary"
               >
                 Sort
               </label>
@@ -456,7 +456,7 @@ export function DocumentList({
                 value={sort}
                 onChange={(event) => setSort(event.target.value as SortKey)}
                 aria-label="Sort documents"
-                className="h-10 rounded-full border border-ghost-border bg-ghost-bg px-4 text-sm text-ghost-text outline-none transition focus:border-ghost-accent focus:ring-2 focus:ring-ghost-accent/30"
+                className="h-10 rounded-full border border-ds-border-strong bg-ds-surface-base px-4 text-sm text-ds-text-primary outline-none transition focus:border-ds-accent focus:ring-2 focus:ring-ds-accent/30"
               >
                 {SORT_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -468,38 +468,38 @@ export function DocumentList({
           </div>
 
           {noTagMatch ? (
-            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-ghost-border bg-ghost-bg px-6 py-16 text-center">
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-ds-border-strong bg-ds-surface-base px-6 py-16 text-center">
               <div className="flex flex-col gap-1">
-                <h2 className="text-base font-medium text-ghost-text">
+                <h2 className="text-base font-medium text-ds-text-primary">
                   No documents tagged “{selectedTagName}”
                 </h2>
-                <p className="text-sm text-ghost-secondary">
+                <p className="text-sm text-ds-text-secondary">
                   Try a different tag or clear the filter.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setTag(null)}
-                className="rounded-full border border-ghost-border bg-ghost-bg px-4 py-2 text-sm font-medium text-ghost-text transition hover:bg-ghost-wash"
+                className="rounded-full border border-ds-border-strong bg-ds-surface-base px-4 py-2 text-sm font-medium text-ds-text-primary transition hover:bg-ds-surface-sunken"
               >
                 Clear filter
               </button>
             </div>
           ) : noFavorites ? (
-            <div className="flex flex-col items-center gap-1 rounded-2xl border border-dashed border-ghost-border bg-ghost-bg px-6 py-16 text-center">
-              <h2 className="text-base font-medium text-ghost-text">
+            <div className="flex flex-col items-center gap-1 rounded-2xl border border-dashed border-ds-border-strong bg-ds-surface-base px-6 py-16 text-center">
+              <h2 className="text-base font-medium text-ds-text-primary">
                 No favorite documents yet
               </h2>
-              <p className="text-sm text-ghost-secondary">
+              <p className="text-sm text-ds-text-secondary">
                 Star a document to keep it here for quick access.
               </p>
             </div>
           ) : visible.length === 0 ? (
-            <div className="flex flex-col items-center gap-1 rounded-2xl border border-dashed border-ghost-border bg-ghost-bg px-6 py-16 text-center">
-              <h2 className="text-base font-medium text-ghost-text">
+            <div className="flex flex-col items-center gap-1 rounded-2xl border border-dashed border-ds-border-strong bg-ds-surface-base px-6 py-16 text-center">
+              <h2 className="text-base font-medium text-ds-text-primary">
                 No documents match your search
               </h2>
-              <p className="text-sm text-ghost-secondary">
+              <p className="text-sm text-ds-text-secondary">
                 Try different keywords or clear the search. Searches cover
                 titles and document content.
               </p>

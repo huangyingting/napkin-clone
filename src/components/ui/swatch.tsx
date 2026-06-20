@@ -26,7 +26,7 @@ export type SwatchProps = Omit<
 
 /**
  * An on-brand color swatch button: a rounded tile filled with `color`, a subtle
- * `--ds-border` outline so light fills stay visible, a token-driven focus ring,
+ * `--ds-border-subtle` outline so light fills stay visible, a token-driven focus ring,
  * and a selected state (accent ring + checkmark). Replaces the raw
  * `<input type=color>` chips in the visual style controls — it is the trigger a
  * {@link ColorPicker} opens from, and the chip a theme grid is built out of.
@@ -46,8 +46,8 @@ export const Swatch = forwardRef<HTMLButtonElement, SwatchProps>(
           SIZE[size],
           RADIUS.md,
           selected
-            ? "border-transparent ring-2 ring-[var(--ds-accent,#6366f1)] ring-offset-1 ring-offset-[var(--ds-surface,#ffffff)]"
-            : "border-[var(--ds-border,rgba(0,0,0,0.12))] hover:ring-2 hover:ring-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
+            ? "border-transparent ring-2 ring-[var(--ds-accent,#6366f1)] ring-offset-1 ring-offset-[var(--ds-focus-offset,#ffffff)]"
+            : "border-[var(--ds-border-subtle,rgba(0,0,0,0.12))] hover:ring-2 hover:ring-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
           FOCUS_RING,
           className,
         )}

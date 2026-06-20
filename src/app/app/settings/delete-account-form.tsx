@@ -68,7 +68,7 @@ export function DeleteAccountForm({ email }: { email: string }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm text-ghost-secondary">
+      <p className="text-sm text-ds-text-secondary">
         Permanently delete your account and everything in it — your documents,
         visuals, comments, and workspaces you own. This can&apos;t be undone.
       </p>
@@ -76,7 +76,7 @@ export function DeleteAccountForm({ email }: { email: string }) {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="flex h-11 items-center justify-center rounded-full border border-ghost-red/40 px-6 text-sm font-medium text-ghost-red transition hover:bg-ghost-red/10"
+          className="flex h-11 items-center justify-center rounded-full border border-ds-danger/40 px-6 text-sm font-medium text-ds-danger transition hover:bg-ds-danger/10"
         >
           Delete account
         </button>
@@ -86,7 +86,7 @@ export function DeleteAccountForm({ email }: { email: string }) {
         createPortal(
           <div className="fixed inset-0 z-modal flex items-center justify-center p-4">
             <div
-              className="absolute inset-0 bg-black/40"
+              className="absolute inset-0 bg-ds-backdrop"
               aria-hidden="true"
               onClick={close}
             />
@@ -95,15 +95,15 @@ export function DeleteAccountForm({ email }: { email: string }) {
               role="dialog"
               aria-modal="true"
               aria-labelledby="delete-account-title"
-              className="relative z-10 flex w-full max-w-md flex-col gap-4 rounded-2xl border border-ghost-border bg-ghost-bg p-6 shadow-xl"
+              className="relative z-10 flex w-full max-w-md flex-col gap-4 rounded-2xl border border-ds-border-strong bg-ds-surface-base p-6 shadow-xl"
             >
               <h2
                 id="delete-account-title"
-                className="text-base font-semibold text-ghost-text"
+                className="text-base font-semibold text-ds-text-primary"
               >
                 Delete account?
               </h2>
-              <p className="text-sm text-ghost-secondary">
+              <p className="text-sm text-ds-text-secondary">
                 This permanently deletes your account and all of your documents,
                 visuals, comments, and owned workspaces. This action cannot be
                 undone.
@@ -112,10 +112,10 @@ export function DeleteAccountForm({ email }: { email: string }) {
               <div className="flex flex-col gap-1.5">
                 <label
                   htmlFor="delete-account-confirm"
-                  className="text-sm font-medium text-ghost-text"
+                  className="text-sm font-medium text-ds-text-primary"
                 >
                   Type{" "}
-                  <span className="font-semibold text-ghost-text">{email}</span>{" "}
+                  <span className="font-semibold text-ds-text-primary">{email}</span>{" "}
                   to confirm
                 </label>
                 <input
@@ -129,12 +129,12 @@ export function DeleteAccountForm({ email }: { email: string }) {
                   value={confirmation}
                   onChange={(event) => setConfirmation(event.target.value)}
                   placeholder={email}
-                  className="h-11 rounded-lg border border-ghost-border bg-ghost-bg px-3 text-sm text-ghost-text outline-none transition focus:border-ghost-accent focus:ring-2 focus:ring-ghost-accent/30"
+                  className="h-11 rounded-lg border border-ds-border-strong bg-ds-surface-base px-3 text-sm text-ds-text-primary outline-none transition focus:border-ds-accent focus:ring-2 focus:ring-ds-accent/30"
                 />
               </div>
 
               {state.status === "error" ? (
-                <p role="alert" className="text-sm text-ghost-red">
+                <p role="alert" className="text-sm text-ds-danger">
                   {state.message}
                 </p>
               ) : null}
@@ -144,14 +144,14 @@ export function DeleteAccountForm({ email }: { email: string }) {
                   type="button"
                   onClick={close}
                   disabled={isPending}
-                  className="flex h-9 items-center justify-center rounded-full border border-ghost-border px-4 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text disabled:opacity-60"
+                  className="flex h-9 items-center justify-center rounded-full border border-ds-border-strong px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary disabled:opacity-60"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={!canSubmit || isPending}
-                  className="flex h-9 items-center justify-center rounded-full bg-ghost-red px-4 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-60"
+                  className="flex h-9 items-center justify-center rounded-full bg-ds-danger px-4 text-sm font-medium text-ds-text-on-accent transition hover:opacity-90 disabled:opacity-60"
                 >
                   {isPending ? "Deleting…" : "Delete account"}
                 </button>

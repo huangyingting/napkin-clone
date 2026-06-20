@@ -51,7 +51,7 @@ export function LanguageSwitcher() {
         aria-expanded={open}
         aria-label={`Language: ${LOCALE_LABELS[locale]}`}
         onClick={() => setOpen((v) => !v)}
-        className="flex h-9 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+        className="flex h-9 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
       >
         <svg
           aria-hidden="true"
@@ -81,17 +81,17 @@ export function LanguageSwitcher() {
           <ul
             role="listbox"
             aria-label="Select language"
-            className="absolute right-0 z-dropdown mt-1 min-w-[9rem] overflow-hidden rounded-xl border border-ghost-border bg-ghost-bg py-1 shadow-lg"
+            className="absolute right-0 z-dropdown mt-1 min-w-[9rem] overflow-hidden rounded-xl border border-ds-border-strong bg-ds-surface-base py-1 shadow-lg"
           >
             {SUPPORTED_LOCALES.map((loc) => (
               <li key={loc} role="option" aria-selected={loc === locale}>
                 <button
                   type="button"
                   onClick={() => switchTo(loc)}
-                  className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition hover:bg-ghost-wash ${
+                  className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition hover:bg-ds-surface-sunken ${
                     loc === locale
-                      ? "font-medium text-ghost-accent"
-                      : "text-ghost-secondary hover:text-ghost-text"
+                      ? "font-medium text-ds-accent"
+                      : "text-ds-text-secondary hover:text-ds-text-primary"
                   }`}
                 >
                   {LOCALE_LABELS[loc]}

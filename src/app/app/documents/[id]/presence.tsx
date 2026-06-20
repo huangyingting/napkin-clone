@@ -9,18 +9,18 @@ const STATUS_META: Record<
 > = {
   connected: {
     label: "Live",
-    dot: "bg-emerald-500",
-    text: "text-emerald-600 dark:text-emerald-400",
+    dot: "bg-ds-success",
+    text: "text-ds-success-text",
   },
   connecting: {
     label: "Connecting…",
-    dot: "bg-amber-500 animate-pulse",
-    text: "text-amber-600 dark:text-amber-400",
+    dot: "bg-ds-warning animate-pulse",
+    text: "text-ds-warning-text",
   },
   disconnected: {
     label: "Offline",
-    dot: "bg-zinc-400",
-    text: "text-zinc-500 dark:text-zinc-400",
+    dot: "bg-ds-text-muted",
+    text: "text-ds-text-muted",
   },
 };
 
@@ -52,10 +52,8 @@ export function Presence({
               title={peer.self ? `${peer.name} (you)` : peer.name}
               aria-label={peer.self ? `${peer.name} (you)` : peer.name}
               className={[
-                "flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold text-white ring-2",
-                peer.self
-                  ? "ring-zinc-900 dark:ring-white"
-                  : "ring-white dark:ring-zinc-950",
+                "flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold text-ds-inverse-text ring-2",
+                peer.self ? "ring-ds-control" : "ring-ds-surface-overlay",
               ].join(" ")}
               style={{ backgroundColor: peer.color }}
             >
@@ -64,7 +62,7 @@ export function Presence({
           ))}
           {overflow > 0 ? (
             <span
-              className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-200 text-[10px] font-semibold text-zinc-700 ring-2 ring-white dark:bg-zinc-700 dark:text-zinc-100 dark:ring-zinc-950"
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-ds-surface-sunken text-[10px] font-semibold text-ds-text-secondary ring-2 ring-ds-surface-overlay"
               title={`${overflow} more`}
               aria-label={`${overflow} more`}
             >

@@ -279,7 +279,7 @@ export function DocumentExportButton({
                   onClick={() => setInfogramWidth(p.key)}
                   className={`rounded-ds-sm border px-2 py-0.5 text-[10px] font-medium transition-colors ${FOCUS_RING} ${
                     infogramWidth === p.key
-                      ? "border-ds-accent bg-ds-accent text-white"
+                      ? "border-ds-accent bg-ds-accent text-ds-text-on-accent"
                       : "border-ds-border-subtle bg-ds-surface-base text-ds-text-secondary hover:border-ds-border-strong"
                   }`}
                 >
@@ -328,7 +328,7 @@ export function DocumentExportButton({
           {errorMsg ? (
             <div
               role="alert"
-              className="border-t border-red-500/20 bg-red-50 px-3 py-2 text-xs text-red-700"
+              className="border-t border-ds-danger-border bg-ds-danger-surface px-3 py-2 text-xs text-ds-danger-text"
             >
               {errorMsg}
             </div>
@@ -337,7 +337,7 @@ export function DocumentExportButton({
       ) : null}
 
       {status === "error" && !isOpen && errorMsg ? (
-        <p role="alert" className="mt-1 text-xs text-red-600">
+        <p role="alert" className="mt-1 text-xs text-ds-danger-text">
           {errorMsg}
         </p>
       ) : null}

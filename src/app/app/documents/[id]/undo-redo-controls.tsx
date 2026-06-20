@@ -85,7 +85,7 @@ export function UndoRedoControls({ editable }: { editable: boolean }) {
         <IconButton
           aria-label={`Undo (${undoShortcut})`}
           size="sm"
-          variant="ghost"
+          variant="plain"
           disabled={!editable || !canUndo}
           onClick={() => editor.dispatchCommand(UNDO_COMMAND, undefined)}
         >
@@ -96,7 +96,7 @@ export function UndoRedoControls({ editable }: { editable: boolean }) {
         <IconButton
           aria-label={`Redo (${redoShortcut})`}
           size="sm"
-          variant="ghost"
+          variant="plain"
           disabled={!editable || !canRedo}
           onClick={() => editor.dispatchCommand(REDO_COMMAND, undefined)}
         >

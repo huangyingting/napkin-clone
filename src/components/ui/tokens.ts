@@ -11,11 +11,11 @@
  */
 
 /**
- * Keyboard focus ring driven by `--ds-focus`. Pair with `focus-visible` so the
- * ring only shows for keyboard users.
+ * Keyboard focus ring driven by `--ds-focus-ring`. Pair with `focus-visible`
+ * so the ring only shows for keyboard users.
  */
 export const FOCUS_RING =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-focus,#6366f1)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--ds-surface,#ffffff)]";
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-focus-ring,#15171a)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--ds-focus-offset,#ffffff)]";
 
 /** Radii scale (`--ds-radius-*`). */
 export const RADIUS = {
@@ -40,7 +40,7 @@ export type Elevation = keyof typeof ELEVATION;
 
 /** Base surface fill, border color, and text color. */
 export const SURFACE_BASE =
-  "bg-[var(--ds-surface,#ffffff)] text-[var(--ds-text,#18181b)] border-[var(--ds-border,rgba(0,0,0,0.08))]";
+  "bg-[var(--ds-surface-base,#ffffff)] text-[var(--ds-text-primary,#15171a)] border-[var(--ds-border-subtle,rgba(0,0,0,0.08))]";
 
 /** Joins truthy class fragments. */
 export function cx(...parts: Array<string | false | null | undefined>): string {

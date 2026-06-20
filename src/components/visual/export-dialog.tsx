@@ -360,7 +360,7 @@ export function ExportDialog({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="fixed inset-0 z-overlay bg-black/30"
+            className="fixed inset-0 z-overlay bg-ds-backdrop"
             aria-hidden="true"
             onClick={onClose}
           />
@@ -384,7 +384,7 @@ export function ExportDialog({
                 </h2>
                 <IconButton
                   aria-label="Close export dialog"
-                  variant="ghost"
+                  variant="plain"
                   size="sm"
                   onClick={onClose}
                 >
@@ -420,7 +420,7 @@ export function ExportDialog({
                               "flex flex-col items-start rounded-[var(--ds-radius-sm,8px)] border px-2.5 py-2 text-left transition-colors",
                               FOCUS_RING,
                               isActive
-                                ? "border-[var(--ds-accent,#6366f1)] bg-[var(--ds-accent-subtle,#eef2ff)] text-[var(--ds-accent,#6366f1)]"
+                                ? "border-[var(--ds-accent,#6366f1)] bg-[var(--ds-state-selected,#eef2ff)] text-[var(--ds-accent,#6366f1)]"
                                 : "border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-raised,#ffffff)] text-[var(--ds-text-primary,#15171a)] hover:border-[var(--ds-border-strong,#dde1e5)]",
                             )}
                           >
@@ -583,7 +583,7 @@ export function ExportDialog({
                   <span />
                 )}
                 <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="sm" onClick={onClose}>
+                  <Button variant="plain" size="sm" onClick={onClose}>
                     Cancel
                   </Button>
                   <Button

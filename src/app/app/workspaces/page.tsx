@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 };
 
 const primaryButtonClass =
-  "flex h-10 items-center justify-center rounded-full bg-zinc-900 px-5 text-sm font-medium text-white transition hover:bg-zinc-700 disabled:opacity-60 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200";
+  "flex h-10 items-center justify-center rounded-full bg-ds-control px-5 text-sm font-medium text-ds-control-text transition hover:bg-ds-control-hover disabled:opacity-60";
 
 export default async function WorkspacesPage() {
   const user = await requireUser();
@@ -60,14 +60,14 @@ export default async function WorkspacesPage() {
   ];
 
   return (
-    <main className="flex flex-1 flex-col items-center bg-zinc-50 px-6 py-12 dark:bg-black">
+    <main className="flex flex-1 flex-col items-center bg-ds-surface-sunken px-6 py-12">
       <div className="flex w-full max-w-5xl flex-col gap-8">
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+            <h1 className="text-2xl font-semibold tracking-tight text-ds-text-primary">
               Workspaces
             </h1>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="text-sm text-ds-text-secondary">
               Shared spaces for team collaboration
             </p>
           </div>
@@ -75,12 +75,12 @@ export default async function WorkspacesPage() {
         </header>
 
         {allWorkspaces.length === 0 ? (
-          <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-black/10 bg-white px-6 py-16 text-center dark:border-white/15 dark:bg-zinc-950">
+          <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-ds-border-strong bg-ds-surface-raised px-6 py-16 text-center">
             <div className="flex flex-col gap-1">
-              <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100">
+              <h2 className="text-lg font-medium text-ds-text-primary">
                 No workspaces yet
               </h2>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              <p className="text-sm text-ds-text-muted">
                 Create a workspace to collaborate with your team.
               </p>
             </div>
@@ -94,18 +94,18 @@ export default async function WorkspacesPage() {
               <li key={workspace.id}>
                 <Link
                   href={`/app/workspaces/${workspace.id}`}
-                  className="group flex flex-col rounded-xl border border-black/[.06] bg-white p-6 transition hover:border-black/15 hover:shadow-sm dark:border-white/[.08] dark:bg-zinc-950 dark:hover:border-white/20"
+                  className="group flex flex-col rounded-xl border border-ds-border-subtle bg-ds-surface-raised p-6 transition hover:border-ds-border-strong hover:shadow-sm"
                 >
                   <div className="flex flex-col gap-3">
                     <div className="flex items-start justify-between">
-                      <h3 className="truncate text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                      <h3 className="truncate text-base font-semibold text-ds-text-primary">
                         {workspace.name}
                       </h3>
-                      <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                      <span className="shrink-0 rounded-full bg-ds-surface-sunken px-2 py-0.5 text-xs font-medium text-ds-text-secondary">
                         {workspace.userRole}
                       </span>
                     </div>
-                    <div className="flex flex-col gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    <div className="flex flex-col gap-1 text-xs text-ds-text-muted">
                       <div>
                         {workspace._count.members + 1} member
                         {workspace._count.members + 1 !== 1 ? "s" : ""}

@@ -66,10 +66,10 @@ const theme: EditorThemeClasses = {
     h2: "mb-3 mt-2 text-2xl font-semibold tracking-tight",
     h3: "mb-2 mt-2 text-xl font-semibold tracking-tight",
   },
-  quote: "mb-3 border-l-4 border-zinc-300 pl-4 italic dark:border-zinc-700",
-  hr: "my-6 border-0 border-t border-zinc-200 dark:border-zinc-800",
+  quote: "mb-3 border-l-4 border-ds-border-strong pl-4 italic",
+  hr: "my-6 border-0 border-t border-ds-border-strong",
   visual: "my-2",
-  link: "text-indigo-600 underline underline-offset-2 dark:text-indigo-400",
+  link: "text-ds-accent-text underline underline-offset-2",
   list: {
     ul: "mb-3 ml-6 list-disc",
     ol: "mb-3 ml-6 list-decimal",
@@ -419,7 +419,7 @@ export function LexicalEditor({
           : "saved";
 
   return (
-    <main className="flex flex-1 flex-col bg-zinc-50 dark:bg-black">
+    <main className="flex flex-1 flex-col bg-ds-surface-sunken">
       <LexicalCollaboration>
         <LexicalComposer initialConfig={initialConfig}>
           <VisualSvgRegistryProvider>
@@ -430,31 +430,31 @@ export function LexicalEditor({
                   header (`z-header`) so the header's user/language menus can open
                   over this bar. The toolbar's own Share/Export menus are children
                   of this stacking context and open downward over the article. */}
-                <div className="relative z-sticky flex flex-col gap-3 border-b border-black/[.06] bg-white/80 px-4 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6 dark:border-white/[.08] dark:bg-black/40">
+                <div className="relative z-sticky flex flex-col gap-3 border-b border-ds-border-subtle bg-ds-surface-chrome px-4 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6">
                   <div className="flex min-w-0 flex-col gap-1">
                     <div className="flex items-center gap-2">
                       <Link
                         href="/app"
-                        className="w-fit text-xs font-medium text-zinc-500 transition hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                        className="w-fit text-xs font-medium text-ds-text-muted transition hover:text-ds-text-primary"
                       >
                         ← Back to documents
                       </Link>
                       {workspaceName && (
                         <>
-                          <span className="text-xs text-zinc-300 dark:text-zinc-600">
+                          <span className="text-xs text-ds-border-strong">
                             ·
                           </span>
-                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                          <span className="text-xs text-ds-text-muted">
                             {workspaceName}
                           </span>
                         </>
                       )}
                       {!canEdit && (
                         <>
-                          <span className="text-xs text-zinc-300 dark:text-zinc-600">
+                          <span className="text-xs text-ds-border-strong">
                             ·
                           </span>
-                          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                          <span className="rounded-full bg-ds-surface-sunken px-2 py-0.5 text-xs font-medium text-ds-text-secondary">
                             Read-only
                           </span>
                         </>
@@ -468,7 +468,7 @@ export function LexicalEditor({
                       onBlur={titleSaver.flush}
                       placeholder="Untitled"
                       disabled={!editable}
-                      className="w-full rounded-md bg-transparent text-xl font-semibold tracking-tight text-zinc-900 outline-none placeholder:text-zinc-400 focus:bg-zinc-100/60 focus:px-2 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-50 dark:placeholder:text-zinc-600 dark:focus:bg-zinc-800/60"
+                      className="w-full rounded-md bg-transparent text-xl font-semibold tracking-tight text-ds-text-primary outline-none placeholder:text-ds-text-muted focus:bg-ds-state-hover focus:px-2 disabled:cursor-not-allowed disabled:opacity-60"
                     />
                     <TagControl
                       documentId={documentId}
@@ -498,8 +498,8 @@ export function LexicalEditor({
                       className={[
                         "flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs font-medium transition",
                         showPageBreaks
-                          ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
-                          : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200",
+                          ? "border-ds-accent-border bg-ds-accent-surface text-ds-accent-text"
+                          : "border-ds-border-subtle bg-ds-surface-raised text-ds-text-secondary hover:border-ds-border-strong hover:text-ds-text-primary",
                       ].join(" ")}
                     >
                       <svg
@@ -539,7 +539,7 @@ export function LexicalEditor({
                     />
                     <span
                       aria-label="Document statistics"
-                      className="min-w-0 shrink truncate text-xs text-zinc-500 dark:text-zinc-400"
+                      className="min-w-0 shrink truncate text-xs text-ds-text-muted"
                     >
                       {minutes} min read · {words}{" "}
                       {words === 1 ? "word" : "words"}
@@ -547,7 +547,7 @@ export function LexicalEditor({
                     <span
                       role="status"
                       aria-live="polite"
-                      className="min-w-0 truncate text-xs text-zinc-500 dark:text-zinc-400"
+                      className="min-w-0 truncate text-xs text-ds-text-muted"
                     >
                       {STATUS_LABEL[saveStatus]}
                     </span>
@@ -567,7 +567,7 @@ export function LexicalEditor({
                         <div className="w-full max-w-5xl lg:w-[75%]">
                           <div
                             ref={contentAreaRef}
-                            className="relative rounded-2xl border border-black/[.06] bg-white p-4 sm:p-6 dark:border-white/[.08] dark:bg-zinc-950"
+                            className="relative rounded-2xl border border-ds-border-subtle bg-ds-surface-raised p-4 sm:p-6"
                           >
                             {showPageBreaks && (
                               <PageBreakIndicator
@@ -579,11 +579,11 @@ export function LexicalEditor({
                               contentEditable={
                                 <ContentEditable
                                   aria-label="Document body"
-                                  className="ghost-prose min-h-[16rem] outline-none"
+                                  className="ds-prose min-h-[16rem] outline-none"
                                 />
                               }
                               placeholder={
-                                <div className="pointer-events-none absolute left-6 top-6 text-base text-zinc-400 dark:text-zinc-500">
+                                <div className="pointer-events-none absolute left-6 top-6 text-base text-ds-text-muted">
                                   {collab.ready
                                     ? "Start writing…"
                                     : "Connecting…"}

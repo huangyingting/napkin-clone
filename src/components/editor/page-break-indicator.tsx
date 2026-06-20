@@ -64,14 +64,14 @@ export function PageBreakIndicator({
           style={{ top: offset }}
           className="pointer-events-none absolute inset-x-0 z-raised flex items-center gap-2"
         >
-          <div className="h-px flex-1 border-t border-dashed border-[var(--ds-border,rgba(0,0,0,0.15))]" />
+          <div className="h-px flex-1 border-t border-dashed border-[var(--ds-border-subtle,rgba(0,0,0,0.15))]" />
           <span
             className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium text-[var(--ds-text-muted,#6f7d83)]"
             style={{ opacity: 0.7 }}
           >
             {label} · {widthPx}px
           </span>
-          <div className="h-px flex-1 border-t border-dashed border-[var(--ds-border,rgba(0,0,0,0.15))]" />
+          <div className="h-px flex-1 border-t border-dashed border-[var(--ds-border-subtle,rgba(0,0,0,0.15))]" />
         </div>
       ))}
     </>

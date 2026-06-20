@@ -79,7 +79,7 @@ export function SegmentedControl<T extends string>({
     <div
       role="radiogroup"
       className={cx(
-        "inline-flex items-center gap-0.5 border border-[var(--ds-border,rgba(0,0,0,0.08))] bg-[var(--ds-surface-raised,#f4f4f5)] p-0.5",
+        "inline-flex items-center gap-0.5 border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-segment-track,#f4f8fb)] p-0.5",
         RADIUS.lg,
         className,
       )}
@@ -109,7 +109,7 @@ export function SegmentedControl<T extends string>({
               RADIUS.md,
               active
                 ? "bg-[var(--ds-accent,#6366f1)] text-[var(--ds-text-on-accent,#ffffff)]"
-                : "text-[var(--ds-text-muted,#52525b)] hover:bg-[var(--ds-surface-hover,rgba(0,0,0,0.05))] hover:text-[var(--ds-text,#18181b)]",
+                : "text-[var(--ds-text-muted,#6f7d83)] hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.06))] hover:text-[var(--ds-text-primary,#15171a)]",
               FOCUS_RING,
             )}
           >

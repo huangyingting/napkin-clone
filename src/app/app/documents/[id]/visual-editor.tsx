@@ -612,7 +612,7 @@ export function VisualEditor({
         height={EDGE_TOOLBAR_HEIGHT}
       >
         <div
-          className="flex h-full w-full items-center gap-1 rounded-lg border border-black/10 bg-white px-1.5 shadow-md dark:border-white/15 dark:bg-zinc-900"
+          className="flex h-full w-full items-center gap-1 rounded-lg border border-ds-border-subtle bg-ds-surface-overlay px-1.5 shadow-ds-raised"
           onPointerDown={(event) => event.stopPropagation()}
         >
           <input
@@ -624,7 +624,7 @@ export function VisualEditor({
               onChange(setEdgeLabel(visual, edge.id, event.target.value))
             }
             onKeyDown={onEdgeInputKeyDown}
-            className="h-7 min-w-0 flex-1 rounded-md border border-zinc-900/40 bg-white px-2 text-sm text-zinc-900 outline-none dark:border-white/40 dark:bg-zinc-900 dark:text-zinc-100"
+            className="h-7 min-w-0 flex-1 rounded-md border border-ds-border-strong bg-ds-surface-raised px-2 text-sm text-ds-text-primary outline-none"
           />
           <button
             type="button"
@@ -632,7 +632,7 @@ export function VisualEditor({
             title="Flip direction"
             onPointerDown={(event) => event.preventDefault()}
             onClick={() => onChange(flipEdge(visual, edge.id))}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-black/10 text-base text-zinc-700 hover:bg-zinc-100 dark:border-white/15 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-ds-border-subtle text-base text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
           >
             ⇄
           </button>
@@ -645,8 +645,8 @@ export function VisualEditor({
             onClick={() => onChange(toggleEdgeDirected(visual, edge.id))}
             className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-base hover:opacity-90 ${
               directedOn
-                ? "border-indigo-500 bg-indigo-500 text-white"
-                : "border-black/10 text-zinc-700 dark:border-white/15 dark:text-zinc-200"
+                ? "border-ds-accent bg-ds-accent text-ds-accent-contrast"
+                : "border-ds-border-subtle text-ds-text-secondary"
             }`}
           >
             →
@@ -662,8 +662,8 @@ export function VisualEditor({
             onClick={() => onChange(toggleEdgeStyle(visual, edge.id))}
             className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-base hover:opacity-90 ${
               curvedOn
-                ? "border-indigo-500 bg-indigo-500 text-white"
-                : "border-black/10 text-zinc-700 dark:border-white/15 dark:text-zinc-200"
+                ? "border-ds-accent bg-ds-accent text-ds-accent-contrast"
+                : "border-ds-border-subtle text-ds-text-secondary"
             }`}
           >
             ⌒

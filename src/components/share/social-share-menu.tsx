@@ -182,7 +182,7 @@ function MenuContent({ shareUrl, title, getSvgElement }: MenuContentProps) {
         <ActionButton
           icon={
             copyState === "copied" ? (
-              <Check className="h-4 w-4 text-green-600" />
+              <Check className="h-4 w-4 text-ds-success-text" />
             ) : (
               <Copy className="h-4 w-4" />
             )
@@ -245,7 +245,7 @@ function MenuContent({ shareUrl, title, getSvgElement }: MenuContentProps) {
           />
         </>
       ) : (
-        <p className="px-1 pt-1 text-xs text-zinc-400 dark:text-zinc-500">
+        <p className="px-1 pt-1 text-xs text-ds-text-muted">
           Enable document sharing to post to social platforms.
         </p>
       )}
@@ -279,12 +279,12 @@ function ActionButton({
       disabled={disabled}
       className={[
         "flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm",
-        "text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800",
+        "text-ds-text-secondary transition hover:bg-ds-state-hover hover:text-ds-text-primary",
         "disabled:cursor-not-allowed disabled:opacity-50",
         FOCUS_RING,
       ].join(" ")}
     >
-      <span className="shrink-0 text-zinc-500 dark:text-zinc-400">{icon}</span>
+      <span className="shrink-0 text-ds-text-muted">{icon}</span>
       <span className="flex-1">{label}</span>
       {trailingIcon && <span className="shrink-0">{trailingIcon}</span>}
     </button>
@@ -351,8 +351,8 @@ export function SocialShareMenu({
           setOpen((v) => !v);
         }}
         className={[
-          "flex items-center gap-1.5 rounded-full border border-black/[.06] px-3 py-1.5 text-sm font-medium",
-          "text-zinc-700 transition hover:bg-zinc-100 dark:border-white/[.08] dark:text-zinc-300 dark:hover:bg-zinc-800",
+          "flex items-center gap-1.5 rounded-full border border-ds-border-subtle px-3 py-1.5 text-sm font-medium",
+          "text-ds-text-secondary transition hover:bg-ds-state-hover hover:text-ds-text-primary",
           FOCUS_RING,
         ].join(" ")}
       >
@@ -363,7 +363,7 @@ export function SocialShareMenu({
       {open && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 top-full z-dropdown mt-2 w-56 rounded-lg border border-black/[.06] bg-white p-2 shadow-lg dark:border-white/[.08] dark:bg-zinc-900"
+          className="absolute right-0 top-full z-dropdown mt-2 w-56 rounded-lg border border-ds-border-subtle bg-ds-surface-overlay p-2 shadow-ds-popover"
         >
           <MenuContent
             shareUrl={shareUrl}

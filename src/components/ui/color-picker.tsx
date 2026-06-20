@@ -236,7 +236,7 @@ export function ColorPicker({
             {icon}
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute bottom-[2px] left-1 right-1 h-[3px] rounded-full border border-[var(--ds-border,rgba(0,0,0,0.12))]"
+              className="pointer-events-none absolute bottom-[2px] left-1 right-1 h-[3px] rounded-full border border-[var(--ds-border-subtle,rgba(0,0,0,0.12))]"
               style={{ backgroundColor: hasColor ? hex : "transparent" }}
             />
           </span>
@@ -273,7 +273,7 @@ export function ColorPicker({
                 setOpen(false);
               }}
               className={cx(
-                "mb-1.5 flex w-full items-center gap-2 px-1.5 py-1 text-left text-xs text-[var(--ds-text,#18181b)] hover:bg-[var(--ds-surface-hover,rgba(0,0,0,0.05))]",
+                "mb-1.5 flex w-full items-center gap-2 px-1.5 py-1 text-left text-xs text-[var(--ds-text-primary,#18181b)] hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.05))]",
                 RADIUS.sm,
                 FOCUS_RING,
               )}
@@ -281,7 +281,7 @@ export function ColorPicker({
               <span
                 aria-hidden="true"
                 className={cx(
-                  "flex h-4 w-4 items-center justify-center overflow-hidden border border-[var(--ds-border,rgba(0,0,0,0.12))]",
+                  "flex h-4 w-4 items-center justify-center overflow-hidden border border-[var(--ds-border-subtle,rgba(0,0,0,0.12))]",
                   RADIUS.sm,
                 )}
               >
@@ -308,14 +308,14 @@ export function ColorPicker({
               />
             ))}
           </div>
-          <label className="mt-2 flex items-center gap-2 border-t border-[var(--ds-border,rgba(0,0,0,0.08))] pt-2 text-[11px] text-[var(--ds-text-muted,#6f7d83)]">
+          <label className="mt-2 flex items-center gap-2 border-t border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] pt-2 text-[11px] text-[var(--ds-text-muted,#6f7d83)]">
             <input
               type="color"
               aria-label={`${ariaLabel} custom value`}
               value={hex}
               onChange={(event) => pick(event.target.value)}
               className={cx(
-                "h-7 w-9 shrink-0 cursor-pointer border border-[var(--ds-border,rgba(0,0,0,0.12))] bg-transparent p-0.5",
+                "h-7 w-9 shrink-0 cursor-pointer border border-[var(--ds-border-subtle,rgba(0,0,0,0.12))] bg-transparent p-0.5",
                 RADIUS.sm,
               )}
             />
@@ -331,7 +331,7 @@ export function ColorPicker({
                 }
               }}
               className={cx(
-                "h-7 w-full min-w-0 border border-[var(--ds-border,rgba(0,0,0,0.12))] bg-[var(--ds-surface,#ffffff)] px-2 font-mono text-xs tabular-nums text-[var(--ds-text,#18181b)] outline-none",
+                "h-7 w-full min-w-0 border border-[var(--ds-border-subtle,rgba(0,0,0,0.12))] bg-[var(--ds-surface-base,#ffffff)] px-2 font-mono text-xs tabular-nums text-[var(--ds-text-primary,#18181b)] outline-none",
                 RADIUS.sm,
                 FOCUS_RING,
               )}

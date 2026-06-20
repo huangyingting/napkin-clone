@@ -530,7 +530,7 @@ function MobileEditingSheet({
           "bg-[var(--ds-accent,#6366f1)] text-[var(--ds-text-on-accent,#ffffff)]",
           "shadow-[var(--ds-shadow-overlay,0_8px_24px_rgba(0,0,0,0.18))]",
           "transition hover:bg-[var(--ds-accent-hover,#4f46e5)] active:scale-95",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-focus,#6366f1)] focus-visible:ring-offset-2",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-focus-ring,#6366f1)] focus-visible:ring-offset-2",
         )}
       >
         <PanelRight aria-hidden="true" className="h-5 w-5" />
@@ -551,7 +551,7 @@ function MobileEditingSheet({
                   exit={backdropMotion.exit}
                   transition={{ duration: 0.18 }}
                   onClick={() => setOpen(false)}
-                  className="fixed inset-0 z-overlay bg-black/30"
+                  className="fixed inset-0 z-overlay bg-ds-backdrop"
                 />
 
                 {/* Sheet */}
@@ -564,14 +564,14 @@ function MobileEditingSheet({
                   animate={sheetMotion.animate}
                   exit={sheetMotion.exit}
                   transition={{ duration: 0.24, ease: "easeOut" }}
-                  className="fixed bottom-0 left-0 right-0 z-panel flex max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl border-t border-[var(--ds-border,rgba(0,0,0,0.08))] bg-[var(--ds-surface,#ffffff)] shadow-[var(--ds-shadow-popover,0_12px_32px_rgba(0,0,0,0.18))]"
+                  className="fixed bottom-0 left-0 right-0 z-panel flex max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl border-t border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-base,#ffffff)] shadow-[var(--ds-shadow-popover,0_12px_32px_rgba(0,0,0,0.18))]"
                 >
                   {/* Sheet header with drag handle + close button */}
                   <div className="flex shrink-0 items-center justify-between px-4 pb-2 pt-3">
                     {/* Visual drag handle */}
                     <div
                       aria-hidden="true"
-                      className="absolute left-1/2 top-2 h-1 w-10 -translate-x-1/2 rounded-full bg-[var(--ds-border,rgba(0,0,0,0.12))]"
+                      className="absolute left-1/2 top-2 h-1 w-10 -translate-x-1/2 rounded-full bg-[var(--ds-border-subtle,rgba(0,0,0,0.12))]"
                     />
                     <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#6f7d83)]">
                       {ctx.kind === "range"
@@ -584,7 +584,7 @@ function MobileEditingSheet({
                       type="button"
                       aria-label="Close editing panel"
                       onClick={() => setOpen(false)}
-                      className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--ds-text-muted,#52525b)] transition hover:bg-[var(--ds-surface-hover,rgba(0,0,0,0.05))]"
+                      className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--ds-text-muted,#52525b)] transition hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.05))]"
                     >
                       <X aria-hidden="true" className="h-4 w-4" />
                     </button>

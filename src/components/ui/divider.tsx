@@ -7,8 +7,9 @@ export type DividerProps = {
 };
 
 /**
- * A 1px separator drawn with `--ds-border`. Vertical by default (for toolbars);
- * horizontal for stacked panel sections. Decorative — hidden from a11y tree.
+ * A 1px separator drawn with `--ds-border-subtle`. Vertical by default (for
+ * toolbars); horizontal for stacked panel sections. Decorative — hidden from
+ * a11y tree.
  */
 export function Divider({ orientation = "vertical", className }: DividerProps) {
   return (
@@ -17,7 +18,7 @@ export function Divider({ orientation = "vertical", className }: DividerProps) {
       role="separator"
       aria-orientation={orientation}
       className={cx(
-        "shrink-0 bg-[var(--ds-border,rgba(0,0,0,0.08))]",
+        "shrink-0 bg-[var(--ds-border-subtle,rgba(0,0,0,0.08))]",
         orientation === "vertical" ? "mx-0.5 h-5 w-px" : "my-1 h-px w-full",
         className,
       )}

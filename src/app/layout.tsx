@@ -6,7 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 import { LocaleProvider } from "@/lib/i18n/locale-context";
 import { getLocale } from "@/lib/i18n/server";
 
-// Ghost theme font system: self-host Inter and wire it to --font-sans.
+// Design-system font setup: self-host Inter and wire it to --font-sans.
 // Serif (Georgia) and mono (Menlo) come from system stacks, so only Inter downloads.
 const inter = Inter({
   variable: "--font-inter",
