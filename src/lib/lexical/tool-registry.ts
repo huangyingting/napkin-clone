@@ -57,6 +57,7 @@ import {
   Filter,
   GitBranch,
   Grid2x2,
+  Heading1,
   Heading2,
   Heading3,
   Highlighter,
@@ -260,7 +261,7 @@ function isAlignmentActive(
 
 function toggleBlock(
   editor: LexicalEditor,
-  target: "h2" | "h3" | "quote",
+  target: "h1" | "h2" | "h3" | "quote",
   ctx: EditorContextSnapshot,
 ): void {
   editor.update(() => {
@@ -391,6 +392,16 @@ const TEXT_FORMAT_TOOLS: readonly EditorTool[] = [
     run: (editor, ctx) => toggleLink(editor, ctx),
   },
   {
+    id: "block-h1",
+    group: "text-format",
+    section: "block",
+    label: "Heading 1",
+    icon: Heading1,
+    when: onRangeSelection,
+    isActive: (ctx) => ctx.blockType === "h1",
+    run: (editor, ctx) => toggleBlock(editor, "h1", ctx),
+  },
+  {
     id: "block-h2",
     group: "text-format",
     section: "block",
@@ -516,7 +527,7 @@ registerTools(TEXT_FORMAT_TOOLS);
 // --- block-insert tool set --------------------------------------------------
 
 /** The block types the `+`/`/` insert menu can transform the current block into. */
-type BlockInsertKind = "h2" | "h3" | "bullet" | "number" | "quote" | "divider";
+type BlockInsertKind = "h1" | "h2" | "h3" | "bullet" | "number" | "quote" | "divider";
 
 /**
  * Transforms the active block into `itemKey`, reusing the exact insertion logic
@@ -557,7 +568,7 @@ function applyBlockInsert(
     if (!$isRangeSelection(selection)) {
       return;
     }
-    if (itemKey === "h2" || itemKey === "h3") {
+    if (itemKey === "h1" || itemKey === "h2" || itemKey === "h3") {
       const tag: HeadingTagType = itemKey;
       $setBlocksType(selection, () => $createHeadingNode(tag));
     } else if (itemKey === "quote") {
@@ -584,6 +595,16 @@ const whenEditable = (ctx: EditorContextSnapshot): boolean => ctx.editable;
  * transform via {@link applyBlockInsert}.
  */
 const BLOCK_INSERT_TOOLS: readonly EditorTool[] = [
+  {
+    id: "insert-h1",
+    group: "block-insert",
+    label: "Heading 1",
+    icon: Heading1,
+    description: "Page title",
+    keywords: ["heading", "h1", "title"],
+    when: whenEditable,
+    run: (editor, ctx) => applyBlockInsert(editor, ctx, "h1"),
+  },
   {
     id: "insert-h2",
     group: "block-insert",

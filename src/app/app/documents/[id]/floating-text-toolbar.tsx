@@ -205,7 +205,7 @@ export function FloatingTextToolbar() {
     >
       <div
         ref={measureRef}
-        className="flex items-center gap-0.5 p-1"
+        className="flex max-w-[20rem] flex-wrap items-center justify-center gap-0.5 p-1"
         onKeyDown={onToolbarKeyDown}
         onFocus={onToolbarFocus}
       >
