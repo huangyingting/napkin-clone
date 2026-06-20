@@ -492,10 +492,7 @@ export function applySocialPresetToOptions(
  * Clears the active social preset, restoring natural-dimensions export.
  * Resets `aspectRatio`, `padding`, and `socialPreset`; keeps everything else.
  */
-export function clearSocialPreset(
-  current: ExportOptions,
-): Omit<ExportOptions, "socialPreset" | "padding" | "aspectRatio"> &
-  Pick<ExportOptions, "background" | "colorMode" | "scale"> {
+export function clearSocialPreset(current: ExportOptions): ExportOptions {
   const next: ExportOptions = { ...current };
   delete next.socialPreset;
   delete next.padding;
