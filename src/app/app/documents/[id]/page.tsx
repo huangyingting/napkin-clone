@@ -43,6 +43,7 @@ export default async function DocumentEditorPage({
       title: true,
       content: true,
       contentJson: true,
+      deckJson: true,
       isShared: true,
       shareId: true,
       slug: true,
@@ -98,6 +99,7 @@ export default async function DocumentEditorPage({
       documentId={document.id}
       initialTitle={document.title}
       initialStateJson={initialStateJson}
+      initialDeckJson={document.deckJson}
       initialIsShared={document.isShared}
       initialShareId={document.shareId}
       initialSlug={document.slug}

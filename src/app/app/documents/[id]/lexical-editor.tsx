@@ -42,6 +42,7 @@ import { CommentsPanel, type AnchorNode } from "./comments-panel";
 import { DocumentExportButton } from "@/components/editor/document-export-button";
 import { PageBreakIndicator } from "@/components/editor/page-break-indicator";
 import { PresentButton } from "@/components/editor/present-button";
+import { SlideEditorButton } from "@/components/editor/slide-editor-button";
 import { VisualSvgRegistryProvider } from "@/components/editor/visual-svg-registry";
 import { EditingRail } from "./editing-rail";
 import { FloatingTextToolbar } from "./floating-text-toolbar";
@@ -242,6 +243,7 @@ export function LexicalEditor({
   documentId,
   initialTitle,
   initialStateJson = null,
+  initialDeckJson = null,
   userName,
   currentUserId,
   canEdit = true,
@@ -256,6 +258,7 @@ export function LexicalEditor({
   documentId: string;
   initialTitle: string;
   initialStateJson?: string | null;
+  initialDeckJson?: unknown;
   userName: string;
   currentUserId: string;
   canEdit?: boolean;
@@ -504,6 +507,12 @@ export function LexicalEditor({
                     Pages
                   </button>
                   <DocumentExportButton documentTitle={title.value} />
+                  {canEdit && (
+                    <SlideEditorButton
+                      documentId={documentId}
+                      initialDeckJson={initialDeckJson}
+                    />
+                  )}
                   <PresentButton documentTitle={title.value} />
                   <ShareButton
                     id={documentId}
