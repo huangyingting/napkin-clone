@@ -41,6 +41,7 @@ import type { CommentThread } from "./comments-actions";
 import { CommentsPanel, type AnchorNode } from "./comments-panel";
 import { DocumentExportButton } from "@/components/editor/document-export-button";
 import { PageBreakIndicator } from "@/components/editor/page-break-indicator";
+import { PresentButton } from "@/components/editor/present-button";
 import { VisualSvgRegistryProvider } from "@/components/editor/visual-svg-registry";
 import { EditingRail } from "./editing-rail";
 import { FloatingTextToolbar } from "./floating-text-toolbar";
@@ -503,6 +504,7 @@ export function LexicalEditor({
                     Pages
                   </button>
                   <DocumentExportButton documentTitle={title.value} />
+                  <PresentButton documentTitle={title.value} />
                   <ShareButton
                     id={documentId}
                     initialIsShared={initialIsShared}
