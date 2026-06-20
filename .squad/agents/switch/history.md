@@ -74,3 +74,7 @@ anchored selection alive). typecheck/lint clean, 181 tests pass, build green.
 ## 2026-06-19T18-13-23Z — Ship-and-merge session: 9 features, 18 PRs
 
 Shipped frontends for #6 (style gallery), #8 (visual catalog), #17 (export options), #18 (element styling), #16 (frame/canvas), #14 (text-visual sync), #15 (elastic layout), #12 (mobile viewing), #9 (i18n). All 18 PRs passed full CI quality gate (test/typecheck/lint/format:check/build). Key learning: `npm run format:check` must pass before push; .squad/.copilot are tooling-ignored in eslint + prettier configs.
+
+## 2026-06-20T00-05-35Z — Backlog clear session: 9 features, 9 PRs merged
+
+Shipped all Switch backlog items: #40 (two-pane layout + docked 320px right rail for desktop), #52 (in-app Present mode with snapshot data model), #53 (persisted `deckJson` column separate from Lexical state), #54 (public `/present/[shareId]` routes + shared `SlideCanvas` primitive), #44 (visual effects array on `Visual`; SVG filters for SHADOW/SKETCH), #42 (per-node font family native select), #45 (categorized menu drill-down + extracted DOM-free `computeVisualInfo` lib), #41 (overall-adjustments toolbox with pure `shouldShowOverallToolbox` predicate), #43 (verified visual edits already tracked by Yjs UndoManager; surfaced as discoverable UI). All 9 PRs (#57–#67) passed 5 CI gates and merged to main. 3 epics closed (#39, #46, #47).
