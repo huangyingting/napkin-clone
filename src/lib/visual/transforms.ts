@@ -247,8 +247,35 @@ export function setNodeTextAlign(
 }
 
 /**
+ * Sets a per-node font family override. Pass an empty string or call
+ * {@link resetNodeExtStyle} to clear the override and fall back to the visual's
+ * global `style.fontFamily`. The value is any CSS font-family string; use the
+ * `cssFamily` from {@link BRAND_WEB_FONTS} for a curated web-font, or `""`
+ * to inherit.
+ */
+export function setNodeFontFamily(
+  visual: Visual,
+  id: string,
+  fontFamily: string,
+): Visual {
+  const next = cloneVisual(visual);
+  next.nodes = next.nodes.map((node) => {
+    if (node.id !== id) {
+      return node;
+    }
+    if (!fontFamily) {
+      const cleared = { ...node };
+      delete cleared.fontFamily;
+      return cleared;
+    }
+    return { ...node, fontFamily };
+  });
+  return next;
+}
+
+/**
  * Clears all extended per-node style overrides (fillStyle, borderStyle,
- * borderWidth, textAlign), falling back to defaults. Works alongside
+ * borderWidth, textAlign, fontFamily), falling back to defaults. Works alongside
  * {@link resetNodeStyle} (which clears color overrides).
  */
 export function resetNodeExtStyle(visual: Visual, id: string): Visual {
@@ -262,6 +289,7 @@ export function resetNodeExtStyle(visual: Visual, id: string): Visual {
     delete reset.borderStyle;
     delete reset.borderWidth;
     delete reset.textAlign;
+    delete reset.fontFamily;
     return reset;
   });
   return next;
@@ -631,6 +659,8 @@ export function mergeVisualContent(
     if (oldNode.borderWidth !== undefined)
       merged.borderWidth = oldNode.borderWidth;
     if (oldNode.textAlign !== undefined) merged.textAlign = oldNode.textAlign;
+    if (oldNode.fontFamily !== undefined)
+      merged.fontFamily = oldNode.fontFamily;
     return merged;
   });
 

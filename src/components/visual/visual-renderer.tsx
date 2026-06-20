@@ -383,7 +383,9 @@ function NodeEl({
         cy={textCy}
         lines={lines}
         color={text}
-        style={style}
+        style={
+          node.fontFamily ? { ...style, fontFamily: node.fontFamily } : style
+        }
         fontSize={fontSize}
         fontWeight={fontWeight}
         textAlign={node.textAlign}

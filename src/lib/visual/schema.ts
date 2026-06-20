@@ -190,6 +190,13 @@ export interface VisualNode {
   borderWidth?: number;
   /** Horizontal text alignment for the label. Defaults to `"center"`. */
   textAlign?: TextAlign;
+  /**
+   * Per-node font family override (any CSS font-family string). When set,
+   * overrides `style.fontFamily` for this node's label in the renderer.
+   * `undefined` / absent means "inherit the visual's global font family".
+   * Backward compatible: existing visuals without this field are unaffected.
+   */
+  fontFamily?: string;
 }
 
 /** A directed-by-default connection between two nodes (by id). */
@@ -504,6 +511,10 @@ function validateNode(input: unknown, index: number): VisualNode {
   if (borderWidth !== undefined) node.borderWidth = borderWidth;
   if (isTextAlign(input.textAlign)) {
     node.textAlign = input.textAlign;
+  }
+  // Per-node font family: forgiving (non-string silently dropped), max 200 chars.
+  if (typeof input.fontFamily === "string" && input.fontFamily.length > 0) {
+    node.fontFamily = input.fontFamily.slice(0, 200);
   }
 
   return node;
