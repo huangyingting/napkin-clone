@@ -1,4 +1,4 @@
-import { forwardRef, Fragment, type JSX } from "react";
+import { forwardRef, Fragment, useId, type JSX } from "react";
 import type { LucideIcon } from "lucide-react";
 
 import { resolveIconComponent } from "@/components/visual/icon-registry";
@@ -23,6 +23,7 @@ import {
   type NodeShape,
   type Visual,
   type VisualEdge,
+  type VisualEffect,
   type VisualNode,
   type VisualStyle,
 } from "@/lib/visual/schema";
@@ -1379,6 +1380,97 @@ function DotGridPattern({
   );
 }
 
+/**
+ * Renders SVG `<filter>` definitions for each active visual effect.
+ * Uses a per-instance unique `uid` prefix so multiple VisualRenderer instances
+ * on the same HTML page don't share filter IDs (inline SVG IDs are doc-scoped).
+ */
+function EffectFilterDefs({
+  effects,
+  uid,
+}: {
+  effects: VisualEffect[];
+  uid: string;
+}): JSX.Element | null {
+  if (effects.length === 0) return null;
+  return (
+    <defs>
+      {effects.map((effect) => {
+        const id = `${uid}fx_${effect.kind}`;
+        if (effect.kind === "shadow") {
+          const dx = effect.dx ?? 4;
+          const dy = effect.dy ?? 4;
+          const blur = effect.blur ?? 4;
+          const color = effect.color ?? "rgba(0,0,0,0.3)";
+          // Expand filter region so the shadow isn't clipped.
+          return (
+            <filter
+              key={id}
+              id={id}
+              x="-20%"
+              y="-20%"
+              width="140%"
+              height="140%"
+            >
+              <feDropShadow
+                dx={dx}
+                dy={dy}
+                stdDeviation={blur}
+                floodColor={color}
+              />
+            </filter>
+          );
+        }
+        if (effect.kind === "sketch") {
+          const frequency = effect.frequency ?? 0.04;
+          const scale = effect.scale ?? 3;
+          return (
+            <filter key={id} id={id} x="-5%" y="-5%" width="110%" height="110%">
+              <feTurbulence
+                type="fractalNoise"
+                baseFrequency={frequency}
+                numOctaves={4}
+                seed={2}
+                result="noise"
+              />
+              <feDisplacementMap
+                in="SourceGraphic"
+                in2="noise"
+                scale={scale}
+                xChannelSelector="R"
+                yChannelSelector="G"
+              />
+            </filter>
+          );
+        }
+        return null;
+      })}
+    </defs>
+  );
+}
+
+/**
+ * Wraps {@link VisualBody} in nested `<g filter="url(#…)">` elements — one per
+ * active effect. Nesting ensures each filter gets an independent pass so that
+ * e.g. shadow + sketch combine correctly without writing a bespoke merged filter.
+ */
+function EffectWrappedBody({
+  visual,
+  effects,
+  uid,
+}: {
+  visual: Visual;
+  effects: VisualEffect[];
+  uid: string;
+}): JSX.Element {
+  let inner: JSX.Element = <VisualBody visual={visual} />;
+  for (const effect of effects) {
+    const filterId = `${uid}fx_${effect.kind}`;
+    inner = <g filter={`url(#${filterId})`}>{inner}</g>;
+  }
+  return inner;
+}
+
 export const VisualRenderer = forwardRef<
   SVGSVGElement,
   {
@@ -1387,6 +1479,7 @@ export const VisualRenderer = forwardRef<
     title?: string;
   }
 >(function VisualRenderer({ visual, className, title }, ref) {
+  const uid = useId().replace(/:/g, "");
   const label = title ?? visual.title ?? `${visual.type} visual`;
   // Build fill map for gradient defs: resolved fill color per node id.
   const fillMap = new Map<string, string>();
@@ -1405,6 +1498,8 @@ export const VisualRenderer = forwardRef<
   // Determine a contrasting pattern colour: use edge/stroke colour so it
   // harmonises with the theme rather than hard-coding a grey.
   const patternStroke = visual.style.edgeColor;
+
+  const effects = visual.effects ?? [];
 
   return (
     <svg
@@ -1427,6 +1522,7 @@ export const VisualRenderer = forwardRef<
           )}
         </defs>
       )}
+      {effects.length > 0 && <EffectFilterDefs effects={effects} uid={uid} />}
       <rect
         x={0}
         y={0}
@@ -1443,7 +1539,7 @@ export const VisualRenderer = forwardRef<
           fill={`url(#${patternId})`}
         />
       )}
-      <VisualBody visual={visual} />
+      <EffectWrappedBody visual={visual} effects={effects} uid={uid} />
     </svg>
   );
 });
