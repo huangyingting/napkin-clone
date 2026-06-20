@@ -19,6 +19,7 @@ import { SlideEditor } from "@/components/presentation/slide-editor";
 import { buildDeckFromBlocks, type Deck } from "@/lib/presentation/deck";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { collectDocumentBlocks } from "@/lib/visual/document-export";
+import { useRightSurface } from "@/app/app/documents/[id]/right-surface-context";
 
 interface SlideEditorButtonProps {
   documentId: string;
@@ -33,6 +34,7 @@ export function SlideEditorButton({
   const [open, setOpen] = useState(false);
   const [deck, setDeck] = useState<Deck | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const { openSlideEditor, closeSlideEditor } = useRightSurface();
 
   const handleOpen = useCallback(() => {
     // Build base deck from current editor state.
@@ -46,12 +48,14 @@ export function SlideEditorButton({
 
     setDeck(startDeck);
     setOpen(true);
-  }, [editor, initialDeckJson]);
+    openSlideEditor();
+  }, [editor, initialDeckJson, openSlideEditor]);
 
   const handleClose = useCallback(() => {
     setOpen(false);
     setDeck(null);
-  }, []);
+    closeSlideEditor();
+  }, [closeSlideEditor]);
 
   const handleSave = useCallback(
     async (updatedDeck: Deck) => {

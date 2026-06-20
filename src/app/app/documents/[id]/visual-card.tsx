@@ -27,6 +27,7 @@ import {
 
 import { useRegisterVisualSvg } from "@/components/editor/visual-svg-registry";
 import { useIsRailActive } from "@/lib/rail-state";
+import { useRightSurface } from "./right-surface-context";
 
 import { useVisualAnchor } from "./visual-anchor-context";
 import { VisualContextPopover } from "./visual-context-popover";
@@ -85,6 +86,12 @@ export function VisualCard({
   // Whether this card's editing controls are open. Local state (not a Lexical
   // NodeSelection) so it survives collaborative updates — see the component doc.
   const [open, setOpen] = useState(false);
+
+  // When the SlideEditor panel is open it occupies the right side (z-40, fixed).
+  // Rendering the floating overlay (z-50) on top of it would show two competing
+  // right-side surfaces. The coordinator suppresses the float while the slide
+  // editor is active; visual editing remains accessible via the docked rail.
+  const { suppressFloatPopover } = useRightSurface();
 
   // Current text content of the immediately preceding block (the likely anchor).
   // Updated on every editor state change so the popover can detect staleness.
@@ -506,10 +513,11 @@ export function VisualCard({
         </div>
       )}
 
-      {/* Float the popover only when the editing rail is not docked. At desktop
-          widths the rail hosts the visual controls instead, so rendering both
-          would duplicate the surface. */}
-      {showControls && !railActive ? (
+      {/* Float the popover only when the editing rail is not docked AND the
+          SlideEditor panel is not open. At desktop widths the rail hosts the
+          visual controls instead; when the slide editor is open its fixed
+          panel (z-40) would be obscured by the float overlay (z-50). */}
+      {showControls && !railActive && !suppressFloatPopover ? (
         <VisualContextPopover
           visual={data}
           selectedNodeId={selectedNodeId}

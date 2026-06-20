@@ -1,0 +1,57 @@
+/**
+ * Pure state logic for the right-surface coordinator.
+ *
+ * DOM-free and React-free — unit-testable headlessly.
+ * The React context ({@link right-surface-context.tsx}) wraps this logic.
+ *
+ * Enforces mutual exclusion between the Slide Editor panel and the floating
+ * VisualContextPopover so both never occupy the right side simultaneously:
+ *
+ *   Rule A — Opening the Slide Editor suppresses the floating
+ *   VisualContextPopover. Closing it restores default behaviour.
+ *   Rule B — Only one of {slide editor, floating visual popover} shows at
+ *   top-right at any given time.
+ */
+
+export type RightSurfaceState = {
+  /** True when the SlideEditor panel is currently open. */
+  slideEditorOpen: boolean;
+};
+
+export const INITIAL_RIGHT_SURFACE_STATE: RightSurfaceState = {
+  slideEditorOpen: false,
+};
+
+export type RightSurfaceAction =
+  | { type: "OPEN_SLIDE_EDITOR" }
+  | { type: "CLOSE_SLIDE_EDITOR" };
+
+/**
+ * Pure reducer for right-surface coordinator state.
+ * Returns a new object — never mutates the input.
+ */
+export function rightSurfaceReducer(
+  state: RightSurfaceState,
+  action: RightSurfaceAction,
+): RightSurfaceState {
+  switch (action.type) {
+    case "OPEN_SLIDE_EDITOR":
+      return { ...state, slideEditorOpen: true };
+    case "CLOSE_SLIDE_EDITOR":
+      return { ...state, slideEditorOpen: false };
+    default:
+      return state;
+  }
+}
+
+/**
+ * Returns `true` when the floating VisualContextPopover should be suppressed.
+ *
+ * When the SlideEditor panel is open (z-40, fixed right), the floating overlay
+ * (z-50) would render on top of it — showing two simultaneous right-side
+ * surfaces. Suppressing the float prevents this stacking while the slide
+ * editor is active; visual editing remains accessible via the docked rail.
+ */
+export function shouldSuppressFloatPopover(state: RightSurfaceState): boolean {
+  return state.slideEditorOpen;
+}
