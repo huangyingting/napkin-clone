@@ -42,6 +42,7 @@ import { CommentsPanel, type AnchorNode } from "./comments-panel";
 import { DocumentExportButton } from "@/components/editor/document-export-button";
 import { PageBreakIndicator } from "@/components/editor/page-break-indicator";
 import { VisualSvgRegistryProvider } from "@/components/editor/visual-svg-registry";
+import { EditingRail } from "./editing-rail";
 import { FloatingTextToolbar } from "./floating-text-toolbar";
 import { ImportPlugin } from "./import-plugin";
 import { InsertMenuPlugin } from "./insert-menu";
@@ -52,6 +53,7 @@ import { TagControl } from "./tag-control";
 import type { DocumentTag } from "./tags-actions";
 import { VisualAnchorProvider } from "./visual-anchor-context";
 import { VisualNode } from "./visual-node";
+import { VisualPanelProvider } from "./visual-panel-context";
 
 const theme: EditorThemeClasses = {
   paragraph: "mb-3 leading-7",
@@ -531,68 +533,81 @@ export function LexicalEditor({
                 </div>
               </div>
 
-              <div className="flex flex-1 justify-center px-4 py-6 sm:px-6 sm:py-8">
-                <div className="w-full max-w-3xl">
-                  <div
-                    ref={contentAreaRef}
-                    className="relative rounded-2xl border border-black/[.06] bg-white p-4 sm:p-6 dark:border-white/[.08] dark:bg-zinc-950"
-                  >
-                    {showPageBreaks && (
-                      <PageBreakIndicator
-                        contentRef={contentAreaRef}
-                        pageSize="a4"
-                      />
-                    )}
-                    <EditorContextProvider>
-                      <RichTextPlugin
-                        contentEditable={
-                          <ContentEditable
-                            aria-label="Document body"
-                            className="ghost-prose min-h-[16rem] outline-none"
+              <EditorContextProvider>
+                <VisualPanelProvider>
+                  {/* Two-column layout: article (flex-1) + editing rail (lg:w-80).
+                      Below lg the rail is hidden; above lg it docks beside the
+                      article so contextual surfaces never overlap the content. */}
+                  <div className="flex flex-1 overflow-hidden">
+                    {/* Article column */}
+                    <div className="flex flex-1 min-w-0 justify-center px-4 py-6 sm:px-6 sm:py-8 lg:pr-3">
+                      <div className="w-full max-w-3xl">
+                        <div
+                          ref={contentAreaRef}
+                          className="relative rounded-2xl border border-black/[.06] bg-white p-4 sm:p-6 dark:border-white/[.08] dark:bg-zinc-950"
+                        >
+                          {showPageBreaks && (
+                            <PageBreakIndicator
+                              contentRef={contentAreaRef}
+                              pageSize="a4"
+                            />
+                          )}
+                          <RichTextPlugin
+                            contentEditable={
+                              <ContentEditable
+                                aria-label="Document body"
+                                className="ghost-prose min-h-[16rem] outline-none"
+                              />
+                            }
+                            placeholder={
+                              <div className="pointer-events-none absolute left-6 top-6 text-base text-zinc-400 dark:text-zinc-500">
+                                {collab.ready
+                                  ? "Start writing…"
+                                  : "Connecting…"}
+                              </div>
+                            }
+                            ErrorBoundary={LexicalErrorBoundary}
                           />
-                        }
-                        placeholder={
-                          <div className="pointer-events-none absolute left-6 top-6 text-base text-zinc-400 dark:text-zinc-500">
-                            {collab.ready ? "Start writing…" : "Connecting…"}
-                          </div>
-                        }
-                        ErrorBoundary={LexicalErrorBoundary}
-                      />
-                      <CollaborationPlugin
-                        id={documentId}
-                        providerFactory={collab.providerFactory}
-                        shouldBootstrap
-                        initialEditorState={initialStateJson ?? null}
-                        username={userName}
-                        cursorColor={collab.cursorColor}
-                      />
-                      <EditableGate editable={editable} />
-                      <LocalFallbackSeedPlugin
-                        initialStateJson={initialStateJson}
-                        degraded={collab.degraded}
-                        synced={collab.synced}
-                      />
-                      <CaptureSelectionPlugin
-                        editorRef={editorRef}
-                        selectionRef={selectionRef}
-                      />
-                      <DocumentStatsPlugin onText={handleStatsText} />
-                      <ListPlugin />
-                      <LinkPlugin />
-                      <HorizontalRulePlugin />
-                      <InsertMenuPlugin />
-                      <BlockSparkPlugin />
-                      <InsertVisualPlugin />
-                      <FloatingTextToolbar />
-                      <OnChangePlugin
-                        onChange={handleChange}
-                        ignoreSelectionChange
-                        ignoreHistoryMergeTagChange
-                      />
-                    </EditorContextProvider>
+                          <CollaborationPlugin
+                            id={documentId}
+                            providerFactory={collab.providerFactory}
+                            shouldBootstrap
+                            initialEditorState={initialStateJson ?? null}
+                            username={userName}
+                            cursorColor={collab.cursorColor}
+                          />
+                          <EditableGate editable={editable} />
+                          <LocalFallbackSeedPlugin
+                            initialStateJson={initialStateJson}
+                            degraded={collab.degraded}
+                            synced={collab.synced}
+                          />
+                          <CaptureSelectionPlugin
+                            editorRef={editorRef}
+                            selectionRef={selectionRef}
+                          />
+                          <DocumentStatsPlugin onText={handleStatsText} />
+                          <ListPlugin />
+                          <LinkPlugin />
+                          <HorizontalRulePlugin />
+                          <InsertMenuPlugin />
+                          <BlockSparkPlugin />
+                          <InsertVisualPlugin />
+                          <FloatingTextToolbar />
+                          <OnChangePlugin
+                            onChange={handleChange}
+                            ignoreSelectionChange
+                            ignoreHistoryMergeTagChange
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Editing rail — docked at lg+, hidden on narrow viewports */}
+                    <EditingRail />
                   </div>
-                </div>
-              </div>
+                </VisualPanelProvider>
+              </EditorContextProvider>
             </VisualAnchorProvider>
           </VisualSvgRegistryProvider>
         </LexicalComposer>
