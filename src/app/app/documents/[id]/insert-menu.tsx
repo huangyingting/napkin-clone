@@ -215,7 +215,8 @@ export function InsertMenuPlugin() {
       if (len === 0) {
         return;
       }
-      setActiveIndex((index) => (index + delta + len) % len);
+      // Clamp at the ends (no wrap) so it behaves like a standard dropdown.
+      setActiveIndex((index) => Math.min(Math.max(index + delta, 0), len - 1));
     };
 
     return mergeRegister(
@@ -282,6 +283,20 @@ export function InsertMenuPlugin() {
     }
   }, [plusOpen]);
 
+  // Keep the highlighted option scrolled into view as the selection moves
+  // (keyboard navigation in both "+" and "/" modes), so the list — which can
+  // be taller than its `max-h` and scroll — follows the active item.
+  const menuOpen = mode !== null && (mode === "plus" || slashHasMatches);
+  useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+    const active = menuRef.current?.querySelector<HTMLElement>(
+      `[id="${listboxId}-opt-${safeActive}"]`,
+    );
+    active?.scrollIntoView({ block: "nearest" });
+  }, [menuOpen, safeActive, listboxId]);
+
   const openPlusMenu = useCallback(() => {
     setActiveIndex(0);
     setPlusOpen(true);
@@ -293,12 +308,12 @@ export function InsertMenuPlugin() {
       if (event.key === "ArrowDown") {
         event.preventDefault();
         if (len > 0) {
-          setActiveIndex((index) => (index + 1) % len);
+          setActiveIndex((index) => Math.min(index + 1, len - 1));
         }
       } else if (event.key === "ArrowUp") {
         event.preventDefault();
         if (len > 0) {
-          setActiveIndex((index) => (index - 1 + len) % len);
+          setActiveIndex((index) => Math.max(index - 1, 0));
         }
       } else if (event.key === "Enter") {
         event.preventDefault();
@@ -319,7 +334,7 @@ export function InsertMenuPlugin() {
     return null;
   }
 
-  const open = mode !== null && (mode === "plus" || slashHasMatches);
+  const open = menuOpen;
   const anchorRect = blockRect;
   const position =
     anchorRect !== null
@@ -382,7 +397,7 @@ export function InsertMenuPlugin() {
           }
           tabIndex={-1}
           onKeyDown={plusOpen ? onMenuKeyDown : undefined}
-          className="max-h-80 w-64 overflow-auto p-1 outline-none"
+          className="h-80 w-64 overflow-auto p-1 outline-none"
         >
           {flatTools.length === 0 ? (
             <div className="px-3 py-2 text-sm text-[var(--ds-text-muted,#71717a)]">
@@ -406,7 +421,7 @@ export function InsertMenuPlugin() {
                       type="button"
                       role="option"
                       aria-selected={isActive}
-                      onMouseEnter={() => setActiveIndex(index)}
+                      onMouseMove={() => setActiveIndex(index)}
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => commit(tool)}
                       className={cx(
