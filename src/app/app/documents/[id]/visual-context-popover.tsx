@@ -1828,11 +1828,7 @@ export function VisualContextPopover({
       <div
         ref={measureRef}
         data-visual-chrome
-        className={
-          mode === "panel"
-            ? "overflow-y-auto p-3"
-            : "p-2"
-        }
+        className={mode === "panel" ? "overflow-y-auto p-3" : "p-2"}
       >
         {/* ── One-line toolbox: every tool as an icon; clicking loads its config below ── */}
         <div

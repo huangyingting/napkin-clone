@@ -153,8 +153,8 @@ function DeleteConfirmDialog({
           Delete document?
         </h2>
         <p className="mt-2 text-sm text-ds-text-secondary">
-          <span className="font-medium text-ds-text-primary">“{title}”</span> will be
-          moved to the trash. You can undo this right after.
+          <span className="font-medium text-ds-text-primary">“{title}”</span>{" "}
+          will be moved to the trash. You can undo this right after.
         </p>
         <div className="mt-6 flex justify-end gap-3">
           <button

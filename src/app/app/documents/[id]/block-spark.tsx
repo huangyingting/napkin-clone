@@ -503,139 +503,141 @@ export function BlockSparkPlugin() {
               <div className="space-y-2.5 px-3 pb-2 pt-3">
                 {/* Generation controls */}
                 <div className="space-y-2.5 rounded-[var(--ds-radius-md,10px)] bg-[var(--ds-surface-raised,#f4f4f5)] p-2.5">
-            {/* Visual type picker */}
-            <div>
-              <div className="mb-1.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)]">
-                Type
-              </div>
-              <button
-                type="button"
-                aria-pressed={genOptions.type === "auto"}
-                onClick={() => setGenOptions((o) => ({ ...o, type: "auto" }))}
-                className={cx(
-                  "flex w-full items-center justify-center gap-1.5 rounded-[var(--ds-radius-sm,8px)] px-2 py-1.5 text-xs font-medium transition-colors",
-                  genOptions.type === "auto"
-                    ? "bg-[var(--ds-accent,#6366f1)] text-[var(--ds-text-on-accent,#ffffff)]"
-                    : "bg-[var(--ds-surface-base,#ffffff)] text-[var(--ds-text-secondary,#52525b)] hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.05))]",
-                  FOCUS_RING,
-                )}
-              >
-                <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
-                Auto
-              </button>
-              <div className="mt-1.5 grid grid-cols-3 gap-1">
-                {VISUAL_KINDS.map((kind) => {
-                  const meta = VISUAL_KIND_META[kind];
-                  const Icon = meta.icon;
-                  const active = genOptions.type === kind;
-                  return (
+                  {/* Visual type picker */}
+                  <div>
+                    <div className="mb-1.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)]">
+                      Type
+                    </div>
                     <button
-                      key={kind}
                       type="button"
-                      aria-pressed={active}
+                      aria-pressed={genOptions.type === "auto"}
                       onClick={() =>
-                        setGenOptions((o) => ({ ...o, type: kind }))
+                        setGenOptions((o) => ({ ...o, type: "auto" }))
                       }
                       className={cx(
-                        "flex items-center gap-1.5 rounded-[var(--ds-radius-sm,8px)] px-2 py-1.5 text-xs font-medium transition-colors",
-                        active
+                        "flex w-full items-center justify-center gap-1.5 rounded-[var(--ds-radius-sm,8px)] px-2 py-1.5 text-xs font-medium transition-colors",
+                        genOptions.type === "auto"
                           ? "bg-[var(--ds-accent,#6366f1)] text-[var(--ds-text-on-accent,#ffffff)]"
                           : "bg-[var(--ds-surface-base,#ffffff)] text-[var(--ds-text-secondary,#52525b)] hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.05))]",
                         FOCUS_RING,
                       )}
                     >
-                      <Icon
-                        aria-hidden="true"
-                        className="h-3.5 w-3.5 shrink-0"
-                      />
-                      <span className="truncate">{meta.label}</span>
+                      <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
+                      Auto
                     </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Advanced options — collapsed by default to keep the panel short */}
-            <div className="border-t border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] pt-2">
-              <button
-                type="button"
-                aria-expanded={showOptions}
-                onClick={() => setShowOptions((v) => !v)}
-                className={cx(
-                  "flex w-full items-center justify-between rounded-[var(--ds-radius-sm,8px)] px-1 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)] transition-colors hover:text-[var(--ds-text-secondary,#52525b)]",
-                  FOCUS_RING,
-                )}
-              >
-                <span>Options</span>
-                <ChevronDown
-                  aria-hidden="true"
-                  className={cx(
-                    "h-3.5 w-3.5 transition-transform",
-                    showOptions ? "rotate-180" : "",
-                  )}
-                />
-              </button>
-
-              {showOptions ? (
-                <div className="mt-2 space-y-2">
-                  {/* Orientation picker */}
-                  <div>
-                    <div className="mb-1 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)]">
-                      Orientation
+                    <div className="mt-1.5 grid grid-cols-3 gap-1">
+                      {VISUAL_KINDS.map((kind) => {
+                        const meta = VISUAL_KIND_META[kind];
+                        const Icon = meta.icon;
+                        const active = genOptions.type === kind;
+                        return (
+                          <button
+                            key={kind}
+                            type="button"
+                            aria-pressed={active}
+                            onClick={() =>
+                              setGenOptions((o) => ({ ...o, type: kind }))
+                            }
+                            className={cx(
+                              "flex items-center gap-1.5 rounded-[var(--ds-radius-sm,8px)] px-2 py-1.5 text-xs font-medium transition-colors",
+                              active
+                                ? "bg-[var(--ds-accent,#6366f1)] text-[var(--ds-text-on-accent,#ffffff)]"
+                                : "bg-[var(--ds-surface-base,#ffffff)] text-[var(--ds-text-secondary,#52525b)] hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.05))]",
+                              FOCUS_RING,
+                            )}
+                          >
+                            <Icon
+                              aria-hidden="true"
+                              className="h-3.5 w-3.5 shrink-0"
+                            />
+                            <span className="truncate">{meta.label}</span>
+                          </button>
+                        );
+                      })}
                     </div>
-                    <SegmentedControl
-                      aria-label="Visual orientation"
-                      size="sm"
-                      options={ORIENTATION_OPTIONS}
-                      value={genOptions.orientation}
-                      onChange={(v) =>
-                        setGenOptions((o) => ({ ...o, orientation: v }))
-                      }
-                      className="w-full"
-                    />
                   </div>
 
-                  {/* Detail level picker */}
-                  <div>
-                    <div className="mb-1 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)]">
-                      Detail level
-                    </div>
-                    <SegmentedControl
-                      aria-label="Detail level"
-                      size="sm"
-                      options={DETAIL_LEVEL_OPTIONS}
-                      value={genOptions.detailLevel}
-                      onChange={(v) =>
-                        setGenOptions((o) => ({ ...o, detailLevel: v }))
-                      }
-                      className="w-full"
-                    />
-                  </div>
-
-                  {/* Stay closer to text toggle */}
-                  <label className="flex cursor-pointer items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={genOptions.stayCloserToText}
-                      onChange={(e) =>
-                        setGenOptions((o) => ({
-                          ...o,
-                          stayCloserToText: e.target.checked,
-                        }))
-                      }
+                  {/* Advanced options — collapsed by default to keep the panel short */}
+                  <div className="border-t border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] pt-2">
+                    <button
+                      type="button"
+                      aria-expanded={showOptions}
+                      onClick={() => setShowOptions((v) => !v)}
                       className={cx(
-                        "h-3.5 w-3.5 cursor-pointer rounded accent-[var(--ds-accent,#6366f1)]",
+                        "flex w-full items-center justify-between rounded-[var(--ds-radius-sm,8px)] px-1 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)] transition-colors hover:text-[var(--ds-text-secondary,#52525b)]",
                         FOCUS_RING,
                       )}
-                    />
-                    <span className="select-none text-[0.6875rem] text-[var(--ds-text-secondary,#52525b)]">
-                      Stay closer to my text
-                    </span>
-                  </label>
+                    >
+                      <span>Options</span>
+                      <ChevronDown
+                        aria-hidden="true"
+                        className={cx(
+                          "h-3.5 w-3.5 transition-transform",
+                          showOptions ? "rotate-180" : "",
+                        )}
+                      />
+                    </button>
+
+                    {showOptions ? (
+                      <div className="mt-2 space-y-2">
+                        {/* Orientation picker */}
+                        <div>
+                          <div className="mb-1 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)]">
+                            Orientation
+                          </div>
+                          <SegmentedControl
+                            aria-label="Visual orientation"
+                            size="sm"
+                            options={ORIENTATION_OPTIONS}
+                            value={genOptions.orientation}
+                            onChange={(v) =>
+                              setGenOptions((o) => ({ ...o, orientation: v }))
+                            }
+                            className="w-full"
+                          />
+                        </div>
+
+                        {/* Detail level picker */}
+                        <div>
+                          <div className="mb-1 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)]">
+                            Detail level
+                          </div>
+                          <SegmentedControl
+                            aria-label="Detail level"
+                            size="sm"
+                            options={DETAIL_LEVEL_OPTIONS}
+                            value={genOptions.detailLevel}
+                            onChange={(v) =>
+                              setGenOptions((o) => ({ ...o, detailLevel: v }))
+                            }
+                            className="w-full"
+                          />
+                        </div>
+
+                        {/* Stay closer to text toggle */}
+                        <label className="flex cursor-pointer items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={genOptions.stayCloserToText}
+                            onChange={(e) =>
+                              setGenOptions((o) => ({
+                                ...o,
+                                stayCloserToText: e.target.checked,
+                              }))
+                            }
+                            className={cx(
+                              "h-3.5 w-3.5 cursor-pointer rounded accent-[var(--ds-accent,#6366f1)]",
+                              FOCUS_RING,
+                            )}
+                          />
+                          <span className="select-none text-[0.6875rem] text-[var(--ds-text-secondary,#52525b)]">
+                            Stay closer to my text
+                          </span>
+                        </label>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
-              ) : null}
-            </div>
-          </div>
 
                 <Button
                   size="sm"

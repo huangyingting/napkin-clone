@@ -74,4 +74,3 @@ export async function getBillingProvider(): Promise<BillingProvider> {
   _provider = new MockBillingProvider();
   return _provider;
 }
-

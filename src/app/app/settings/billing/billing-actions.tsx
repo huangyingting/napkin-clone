@@ -129,7 +129,9 @@ function PlanCard({
       } disabled:cursor-not-allowed disabled:opacity-60`}
     >
       <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-ds-text-primary">{label}</span>
+        <span className="text-sm font-semibold text-ds-text-primary">
+          {label}
+        </span>
         {isCurrent && (
           <span className="text-xs font-medium text-ds-accent">Current</span>
         )}

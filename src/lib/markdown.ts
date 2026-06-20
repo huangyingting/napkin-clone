@@ -127,4 +127,3 @@ export function blockText(block: MarkdownBlock): string {
   }
   return block.text;
 }
-

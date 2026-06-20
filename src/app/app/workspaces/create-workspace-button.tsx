@@ -65,10 +65,7 @@ export function CreateWorkspaceButton({
               className="rounded-lg border border-ds-border-subtle bg-ds-surface-raised px-3 py-2 text-sm text-ds-text-primary placeholder:text-ds-text-muted focus:border-ds-border-strong focus:outline-none focus:ring-2 focus:ring-ds-focus-ring/10"
             />
             {error && typeof error === "string" && !error.startsWith("/") && (
-              <p
-                role="alert"
-                className="text-sm text-ds-danger-text"
-              >
+              <p role="alert" className="text-sm text-ds-danger-text">
                 {error}
               </p>
             )}

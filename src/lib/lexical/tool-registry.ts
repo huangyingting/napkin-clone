@@ -527,7 +527,14 @@ registerTools(TEXT_FORMAT_TOOLS);
 // --- block-insert tool set --------------------------------------------------
 
 /** The block types the `+`/`/` insert menu can transform the current block into. */
-type BlockInsertKind = "h1" | "h2" | "h3" | "bullet" | "number" | "quote" | "divider";
+type BlockInsertKind =
+  | "h1"
+  | "h2"
+  | "h3"
+  | "bullet"
+  | "number"
+  | "quote"
+  | "divider";
 
 /**
  * Transforms the active block into `itemKey`, reusing the exact insertion logic
@@ -773,24 +780,22 @@ export const VISUAL_KIND_META: Record<VisualKind, VisualKindMeta> = {
  * active block) — the UI never builds a `VisualNode` or writes to the DB itself;
  * Tank's command handler owns insertion + selection + persistence.
  */
-const VISUAL_INSERT_TOOLS: readonly EditorTool[] = VISUAL_KINDS.map(
-  (kind) => {
-    const meta = VISUAL_KIND_META[kind];
-    return {
-      id: `insert-visual-${kind}`,
-      group: "visual-insert",
-      label: meta.label,
-      icon: meta.icon,
-      description: meta.description,
-      keywords: meta.keywords,
-      when: whenEditable,
-      run: (editor, ctx) =>
-        editor.dispatchCommand(INSERT_VISUAL_COMMAND, {
-          kind,
-          afterNodeKey: ctx.blockKey,
-        }),
-    } satisfies EditorTool;
-  },
-);
+const VISUAL_INSERT_TOOLS: readonly EditorTool[] = VISUAL_KINDS.map((kind) => {
+  const meta = VISUAL_KIND_META[kind];
+  return {
+    id: `insert-visual-${kind}`,
+    group: "visual-insert",
+    label: meta.label,
+    icon: meta.icon,
+    description: meta.description,
+    keywords: meta.keywords,
+    when: whenEditable,
+    run: (editor, ctx) =>
+      editor.dispatchCommand(INSERT_VISUAL_COMMAND, {
+        kind,
+        afterNodeKey: ctx.blockKey,
+      }),
+  } satisfies EditorTool;
+});
 
 registerTools(VISUAL_INSERT_TOOLS);

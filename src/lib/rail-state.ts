@@ -10,4 +10,3 @@ export const RAIL_BREAKPOINT_PX = 1024;
 export function isRailWidth(viewportWidth: number): boolean {
   return viewportWidth >= RAIL_BREAKPOINT_PX;
 }
-

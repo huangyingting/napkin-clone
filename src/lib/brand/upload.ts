@@ -100,4 +100,3 @@ export function formatUploadError(error: UploadError): string {
   }
   return `Unsupported file type. Accepted: ${error.accepted.join(", ")}.`;
 }
-

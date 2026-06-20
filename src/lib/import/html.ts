@@ -142,4 +142,3 @@ export function htmlToMarkdown(html: string): string {
 
   return lines.join("\n");
 }
-

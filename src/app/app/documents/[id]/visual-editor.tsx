@@ -506,7 +506,11 @@ export function VisualEditor({
     const textCy = Icon
       ? blockTop + iconSize + iconGap + lineHeight / 2
       : box.y;
-    const fy = clamp(textCy - INPUT_HEIGHT / 2, 0, visual.height - INPUT_HEIGHT);
+    const fy = clamp(
+      textCy - INPUT_HEIGHT / 2,
+      0,
+      visual.height - INPUT_HEIGHT,
+    );
     return (
       <foreignObject x={fx} y={fy} width={fw} height={INPUT_HEIGHT}>
         <input

@@ -73,9 +73,7 @@ export function IconPicker({
               <span className="truncate">{value}</span>
             </span>
           ) : (
-            <span className="text-[11px] text-ds-text-muted">
-              None
-            </span>
+            <span className="text-[11px] text-ds-text-muted">None</span>
           )}
           <button
             type="button"
@@ -163,10 +161,7 @@ export function IconPicker({
               })}
             </div>
           ) : (
-            <p
-              id={listId}
-              className="px-1 py-2 text-[11px] text-ds-text-muted"
-            >
+            <p id={listId} className="px-1 py-2 text-[11px] text-ds-text-muted">
               No icons match “{query.trim()}”.
             </p>
           )}
