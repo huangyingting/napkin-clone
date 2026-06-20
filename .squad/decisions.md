@@ -1812,3 +1812,43 @@ The global nav had no responsive handling, causing horizontal overflow and cut-o
 3. **Pure helper function (chosen)** — keeps the seed simple, matches the existing pattern in `from-markdown.ts` (another DOM-free Lexical-state builder), and lets the unit tests run under plain `node --test` with no browser stubs. The helper is placed in `src/lib/lexical/` alongside `from-markdown.ts` and `insert-visual.ts` for cohesion.
 
 **Shipped in:** PR #81 (closes #75)
+
+### 2026-06-20T06:20:00Z: On-canvas quick-action bar — sectionNav prop pattern for external popover navigation
+
+**By:** Switch (via Squad)
+
+**What:**
+Added a `sectionNav: { section: MenuSection | null; seq: number }` prop to `VisualContextPopover` so that the new on-canvas `VisualQuickActionBar` can drive the popover to a named section without lifting `activeSection` all the way out of the popover. The sequence counter (`seq`) allows the same section to be requested twice in a row (e.g. user navigates away inside the popover then clicks the bar button again) — only a `seq` change triggers the `useEffect` that calls `setActiveSection`.
+
+**Why:**
+The popover already owns its own `activeSection` state (plus drill-down, customize-open, brand-load, generate, sync states). Making `activeSection` fully controlled would require surfacing five interconnected state pieces to the parent. The `sectionNav` prop is a minimal, one-directional trigger — a "fire-and-forget" that respects the popover's internal navigation while still letting the bar be the thin overlay affordance the issue describes. The `seq` counter is standard React practice for "push a trigger from props without making state fully controlled."
+
+**Placement decision:**
+The quick-action bar is positioned `absolute top-2 left-1/2 -translate-x-1/2` — centered at the top of the visual card's content area. This keeps it clear of the existing bottom-right hover icons (download/copy/share) and away from the floating popover (which sits below or above the card). It is only rendered when `showControls && isPointerFine`, so touch devices continue using the bottom sheet.
+
+**Shipped in:** PR #85 (closes #84 core; roadmap deferred to #87)
+
+---
+
+## 2026-06-20T06:20:00Z — Session: Ralph triage, CI regression fix, #87 deferred roadmap
+
+### Context
+Ralph processed the open board. Three issues (#82, #83, #84) had their core work ALREADY committed directly to main (commit b58e1d6 + others, outside the squad PR flow). Ralph verified, finished the remaining gap, and fixed a CI regression those direct commits introduced.
+
+### Decisions
+
+**#82 (auth pages → --ds-* design system):** Verified already done on main → CLOSED with confirmation comment.
+
+**#83 (present-mode residual dark overlay → portal + await exitFullscreen + body scroll lock):** Verified already done on main → CLOSED with confirmation comment.
+
+**#84 (inline in-place editing refactor):** Core already on main; Switch implemented the remaining acceptance criterion — the on-canvas quick-action bar for selected visuals (new visual-quick-action-bar.tsx) → PR #85 (merged) → #84 CLOSED.
+
+**CI REGRESSION FOUND + FIXED:** The direct auth commit (b58e1d6) and #85's test were committed without Prettier, so main's CI was RED on format:check. Ralph ran prettier --write on login-form.tsx, signup-form.tsx, visual-quick-action-bar.test.ts → PR #86 (CI green) → merged → main restored to green.
+
+**#87 [Epic] — deferred roadmap:** Captures #84's 5 deferred "future PR" roadmap items (direct manipulation, anchored positioning, unified EditingSurface, docked-mode preference, regression tests), labeled type:epic/p2/backlog/squad:switch/squad:mouse. Intentionally deferred (not rushed this loop).
+
+### Key Learning
+Direct-to-main commits bypassed CI/Prettier checks. Reinforce pre-commit: run `npm run format` before pushing. Code must pass full CI gate (typecheck, tests, lint, format:check, build) before merging.
+
+### Final State
+main is green (typecheck clean, 710 tests pass, build green, format:check clean). Open issues: just #87 (deferred roadmap).

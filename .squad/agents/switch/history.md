@@ -81,4 +81,8 @@ Shipped all Switch backlog items: #40 (two-pane layout + docked 320px right rail
 
 ## 2026-06-20T04:05:00Z — Browser-review backlog clear: 5 p1 + 1 p2 issues, 5 PRs merged
 
-Cleared Ralph's backlog triage findings. Shipped #76 (RightSurfaceCoordinator + z-index discipline for #69/#70/#71), #77 (pt-14 HUD offset for #68), #78 (responsive mobile nav + editing sheet for #72), #79 (VisualRenderer transparentBackground opt-in for #74), #80 (skeleton + staged generation UX for #73). All 5 PRs passed 5 CI gates. 705/705 tests pass. Mobile nav 390px overflow verified fixed. 
+Cleared Ralph's backlog triage findings. Shipped #76 (RightSurfaceCoordinator + z-index discipline for #69/#70/#71), #77 (pt-14 HUD offset for #68), #78 (responsive mobile nav + editing sheet for #72), #79 (VisualRenderer transparentBackground opt-in for #74), #80 (skeleton + staged generation UX for #73). All 5 PRs passed 5 CI gates. 705/705 tests pass. Mobile nav 390px overflow verified fixed.
+
+## 2026-06-20T06:20:00Z — Triage session: #82/#83 verified-done+closed; #84 shipped quick-action bar; CI format fix; #87 roadmap deferred
+
+Ralph processed open board; Switch shipped remaining acceptance criterion for #84 (on-canvas `VisualQuickActionBar` via PR #85). Direct-to-main auth commit lacked Prettier formatting (b58e1d6, PR #85 test); Ralph fixed via PR #86. Final state: main green (710 tests, format:check clean). Roadmap items (5 future PRs) escalated to #87 [Epic] (p2/backlog/squad:switch/squad:mouse). 
