@@ -15,7 +15,7 @@
 
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { FileDown, Image as ImageIcon } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { FOCUS_RING } from "@/components/motion/control-styles";
 import { useVisualSvgRegistry } from "@/components/editor/visual-svg-registry";
@@ -63,6 +63,31 @@ export function DocumentExportButton({
   const menuRef = useRef<HTMLDivElement>(null);
 
   const removeWatermark = entitlements?.removeWatermark ?? false;
+
+  // Close the menu on an outside click or Escape. A focus-based `onBlur` missed
+  // clicks on non-focusable areas (plain page background), which left the menu
+  // stuck open — the document listener with ref-containment is reliable.
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    const onDocClick = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("click", onDocClick);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("click", onDocClick);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isOpen]);
 
   const getBlocks = useCallback(() => {
     return new Promise<ReturnType<typeof collectDocumentBlocks>>((resolve) => {
@@ -205,11 +230,6 @@ export function DocumentExportButton({
           role="menu"
           aria-label="Export document"
           className="absolute right-0 top-full z-dropdown mt-1 min-w-[240px] overflow-hidden rounded-ds-lg border border-ds-border-subtle bg-ds-surface-raised shadow-ds-overlay"
-          onBlur={(e) => {
-            if (!menuRef.current?.contains(e.relatedTarget as Node | null)) {
-              setIsOpen(false);
-            }
-          }}
         >
           {/* ── Standard document formats ────────────────────────────── */}
           <div className="p-1">

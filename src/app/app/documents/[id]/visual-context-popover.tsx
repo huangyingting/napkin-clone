@@ -2,7 +2,7 @@
 
 import {
   ArrowLeft,
-  ChevronRight,
+  Brush,
   Download,
   Info,
   LayoutGrid,
@@ -190,14 +190,14 @@ export type MenuSection =
   | "info"
   | "variations";
 
-interface MenuItemConfig {
+export interface MenuItemConfig {
   id: MenuSection;
   label: string;
   icon: React.ElementType;
   description?: string;
 }
 
-const MENU_ITEMS: MenuItemConfig[] = [
+export const MENU_ITEMS: MenuItemConfig[] = [
   {
     id: "export",
     label: "Export Visual",
@@ -237,7 +237,7 @@ const MENU_ITEMS: MenuItemConfig[] = [
   {
     id: "branding",
     label: "Swap Branding",
-    icon: Palette,
+    icon: Brush,
     description: "Saved brand styles",
   },
   {
@@ -320,54 +320,6 @@ function ColorField({
       <span className="text-[var(--ds-text-muted,#6f7d83)]">{label}</span>
       <ColorPicker color={color} aria-label={label} onChange={onChange} />
     </div>
-  );
-}
-
-/** A row in the categorized main menu. */
-function MenuRow({
-  item,
-  badge,
-  onSelect,
-}: {
-  item: MenuItemConfig;
-  badge?: ReactNode;
-  onSelect: () => void;
-}) {
-  const Icon = item.icon;
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      aria-label={`Open ${item.label}`}
-      className={cx(
-        "group flex w-full items-center gap-3 rounded-[var(--ds-radius-md,10px)] px-2 py-2 text-left transition hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.06))]",
-        FOCUS_RING,
-      )}
-    >
-      <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[var(--ds-radius-sm,8px)] bg-[var(--ds-surface-raised,#f5f5f5)]">
-        <Icon
-          aria-hidden="true"
-          className="h-3.5 w-3.5 text-[var(--ds-text-secondary,#52525b)]"
-        />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1.5">
-          <span className="text-xs font-medium text-[var(--ds-text-primary,#15171a)]">
-            {item.label}
-          </span>
-          {badge}
-        </span>
-        {item.description ? (
-          <span className="block text-[10px] text-[var(--ds-text-muted,#6f7d83)]">
-            {item.description}
-          </span>
-        ) : null}
-      </span>
-      <ChevronRight
-        aria-hidden="true"
-        className="h-3.5 w-3.5 flex-shrink-0 text-[var(--ds-text-muted,#6f7d83)] transition group-hover:translate-x-0.5"
-      />
-    </button>
   );
 }
 
@@ -776,69 +728,6 @@ function PopoverShell({
     >
       {children}
     </FloatingSurface>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Bottom quick-toolbar
-// ---------------------------------------------------------------------------
-
-function BottomQuickToolbar({
-  onSelectSection,
-  onTriggerGenerate,
-  getSvgElement,
-  visual,
-  genLoading,
-}: {
-  onSelectSection: (s: MenuSection) => void;
-  onTriggerGenerate: () => void;
-  getSvgElement: () => SVGSVGElement | null;
-  visual: Visual;
-  genLoading: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-around gap-1 px-2 py-2">
-      <Tooltip label="AI Variations">
-        <IconButton
-          aria-label="Generate AI variations"
-          size="sm"
-          onClick={onTriggerGenerate}
-          disabled={genLoading}
-        >
-          <Sparkles
-            aria-hidden="true"
-            className={cx("h-4 w-4", genLoading ? "animate-pulse" : "")}
-          />
-        </IconButton>
-      </Tooltip>
-      <Tooltip label="Colors">
-        <IconButton
-          aria-label="Open Colors"
-          size="sm"
-          onClick={() => onSelectSection("colors")}
-        >
-          <Palette aria-hidden="true" className="h-4 w-4" />
-        </IconButton>
-      </Tooltip>
-      <Tooltip label="Swap Layout">
-        <IconButton
-          aria-label="Open Swap Layout"
-          size="sm"
-          onClick={() => onSelectSection("layout")}
-        >
-          <LayoutGrid aria-hidden="true" className="h-4 w-4" />
-        </IconButton>
-      </Tooltip>
-      <Tooltip label="Export">
-        <span>
-          <ExportMenu
-            getSvgElement={getSvgElement}
-            getVisual={() => visual}
-            filename={visual.title?.trim() || "visual"}
-          />
-        </span>
-      </Tooltip>
-    </div>
   );
 }
 
@@ -1963,6 +1852,15 @@ export function VisualContextPopover({
   // Render
   // ---------------------------------------------------------------------------
 
+  // In float mode the on-canvas quick-action bar is the toolbar, so this popover
+  // only surfaces a section's detail — render nothing until a section is opened.
+  // The hooks above still run (notably the click-away listener that deselects
+  // the visual), so outside-click dismissal keeps working. The docked panel mode
+  // has no quick-action bar, so it always renders its full toolbox + detail.
+  if (mode === "float" && activeSection === null) {
+    return null;
+  }
+
   return (
     <PopoverShell mode={mode} coords={coords} onClose={onClose}>
       <div
@@ -2017,30 +1915,51 @@ export function VisualContextPopover({
         {/* ── Content: menu list OR active submenu ── */}
         <div className="mt-2">
           {activeSection === null ? (
-            /* ── Main categorized menu ── */
-            <nav aria-label="Visual editing menu">
-              <ul role="list" className="space-y-0.5">
-                {MENU_ITEMS.map((item) => {
-                  // Stale indicator badge for "sync" row
-                  const badge =
-                    item.id === "sync" && stale ? (
-                      <span
-                        aria-label="Source changed"
-                        className="inline-flex h-2 w-2 rounded-full bg-amber-400"
-                      />
-                    ) : undefined;
-                  return (
-                    <li key={item.id}>
-                      <MenuRow
-                        item={item}
-                        badge={badge}
-                        onSelect={() => setActiveSection(item.id)}
-                      />
-                    </li>
-                  );
-                })}
-              </ul>
-            </nav>
+            /* ── Tool strip: one icon per section; click opens its detail ── */
+            <div
+              role="toolbar"
+              aria-label="Visual editing tools"
+              className="flex flex-wrap items-center gap-1"
+            >
+              {MENU_ITEMS.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Tooltip key={item.id} label={item.label}>
+                    <span className="relative inline-flex">
+                      <IconButton
+                        aria-label={`Open ${item.label}`}
+                        size="sm"
+                        onClick={() => setActiveSection(item.id)}
+                      >
+                        <Icon aria-hidden="true" className="h-4 w-4" />
+                      </IconButton>
+                      {item.id === "sync" && stale ? (
+                        <span
+                          aria-label="Source changed"
+                          className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-400"
+                        />
+                      ) : null}
+                    </span>
+                  </Tooltip>
+                );
+              })}
+              <Tooltip label="AI Variations">
+                <IconButton
+                  aria-label="Generate AI variations"
+                  size="sm"
+                  onClick={() => void runGenerate()}
+                  disabled={genStatus === "loading"}
+                >
+                  <Sparkles
+                    aria-hidden="true"
+                    className={cx(
+                      "h-4 w-4",
+                      genStatus === "loading" ? "animate-pulse" : "",
+                    )}
+                  />
+                </IconButton>
+              </Tooltip>
+            </div>
           ) : (
             /* ── Active submenu ── */
             <div>
@@ -2063,20 +1982,6 @@ export function VisualContextPopover({
             </div>
           )}
         </div>
-
-        {/* ── Bottom quick-toolbar (main menu only) ── */}
-        {activeSection === null ? (
-          <>
-            <Divider orientation="horizontal" className="mt-2" />
-            <BottomQuickToolbar
-              onSelectSection={setActiveSection}
-              onTriggerGenerate={() => void runGenerate()}
-              getSvgElement={getSvgElement}
-              visual={visual}
-              genLoading={genStatus === "loading"}
-            />
-          </>
-        ) : null}
       </div>
     </PopoverShell>
   );

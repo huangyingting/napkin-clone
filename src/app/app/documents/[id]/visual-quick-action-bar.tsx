@@ -1,139 +1,128 @@
 "use client";
 
-import {
-  Copy,
-  LayoutGrid,
-  MoreHorizontal,
-  Palette,
-  Trash2,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { Copy, Sparkles, Trash2 } from "lucide-react";
 
 import { IconButton, Tooltip } from "@/components/ui";
 import type { VisualKind } from "@/lib/visual/schema";
 
-// ---------------------------------------------------------------------------
-// Pure helper — DOM-free, unit-testable
-// ---------------------------------------------------------------------------
-
-/** The id of each action shown in the on-canvas quick-action bar. */
-export type QuickActionId =
-  | "colors"
-  | "layout"
-  | "duplicate"
-  | "delete"
-  | "more";
-
-/**
- * Returns the ordered list of quick-action IDs to show for the given visual
- * kind. Currently all kinds share the same set; extracted as a pure function so
- * it can be tested headlessly (no DOM, no React, no Lexical).
- */
-export function getQuickActionIds(kind: VisualKind | string): QuickActionId[] {
-  void kind; // reserved for future kind-specific filtering
-  return ["colors", "layout", "duplicate", "delete", "more"];
-}
-
-// ---------------------------------------------------------------------------
-// Config map (icon + label per action id)
-// ---------------------------------------------------------------------------
-
-interface ActionConfig {
-  icon: LucideIcon;
-  label: string;
-}
-
-const ACTION_CONFIG: Record<QuickActionId, ActionConfig> = {
-  colors: { icon: Palette, label: "Colors" },
-  layout: { icon: LayoutGrid, label: "Swap Layout" },
-  duplicate: { icon: Copy, label: "Duplicate visual" },
-  delete: { icon: Trash2, label: "Remove visual" },
-  more: { icon: MoreHorizontal, label: "More options" },
-};
+import { MENU_ITEMS, type MenuSection } from "./visual-context-popover";
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 export interface VisualQuickActionBarProps {
-  /** The visual kind — used to determine which actions to show. */
+  /** The visual kind (reserved for future kind-specific tool filtering). */
   kind: VisualKind;
-  /** Navigate the already-open VisualContextPopover to the Colors section. */
-  onColors: () => void;
-  /** Navigate the already-open VisualContextPopover to the Swap Layout section. */
-  onLayout: () => void;
+  /** True when the source text changed since this visual was generated. */
+  stale: boolean;
+  /** True while an AI variation request is in flight. */
+  genLoading: boolean;
+  /** Open a section's detail config in the VisualContextPopover. */
+  onSelectSection: (section: MenuSection) => void;
+  /** Open the AI Variations detail. */
+  onGenerate: () => void;
   /** Duplicate this visual node (insert a copy immediately after). */
   onDuplicate: () => void;
   /** Remove this visual node from the document. */
   onDelete: () => void;
-  /** Navigate the already-open VisualContextPopover to the main menu. */
-  onMore: () => void;
 }
 
 /**
- * A compact, horizontally-aligned action bar overlaid on the top edge of the
- * selected visual card. Visible only when a visual is selected and the primary
- * pointer is fine (gated in the parent {@link VisualCard}).
+ * The single on-canvas toolbar overlaid on the top edge of the selected visual
+ * card (fine-pointer only; touch uses the EditingRail bottom sheet). It exposes
+ * every editing tool as an icon: each section tool opens its detail config in
+ * the {@link VisualContextPopover} via `onSelectSection`, while AI variations,
+ * duplicate, and delete are direct actions.
  *
- * Every mutation (duplicate / delete) flows through Lexical commands /
- * `editor.update()` — the callbacks are wired in `VisualCard`. The Colors /
- * Layout / More buttons navigate the already-open {@link VisualContextPopover}
- * via the `sectionNav` prop.
+ * Mutations flow through Lexical commands / `editor.update()` (wired in
+ * {@link VisualCard}) — never Yjs directly. The section tools and the popover
+ * detail are one merged surface: this bar is always visible while selected, and
+ * the popover only appears once a tool is clicked.
  */
 export function VisualQuickActionBar({
   kind,
-  onColors,
-  onLayout,
+  stale,
+  genLoading,
+  onSelectSection,
+  onGenerate,
   onDuplicate,
   onDelete,
-  onMore,
 }: VisualQuickActionBarProps) {
-  const ids = getQuickActionIds(kind);
-
-  const handlers: Record<QuickActionId, () => void> = {
-    colors: onColors,
-    layout: onLayout,
-    duplicate: onDuplicate,
-    delete: onDelete,
-    more: onMore,
-  };
+  void kind; // reserved for future kind-specific tool filtering
 
   return (
     <div
       role="toolbar"
-      aria-label="Quick actions"
-      className="absolute left-1/2 top-2 z-raised flex -translate-x-1/2 items-center gap-0.5 rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border,rgba(0,0,0,0.08))] bg-white/90 px-1 py-1 shadow-sm backdrop-blur-sm"
+      aria-label="Visual tools"
+      className="absolute left-1/2 top-2 z-raised flex max-w-[calc(100%-1rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-0.5 rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border,rgba(0,0,0,0.08))] bg-white/90 px-1 py-1 shadow-sm backdrop-blur-sm"
     >
-      {ids.map((id) => {
-        const { icon: Icon, label } = ACTION_CONFIG[id];
-        const isDanger = id === "delete";
-        const isSeparated = id === "duplicate";
-
+      {MENU_ITEMS.map((item) => {
+        const Icon = item.icon;
         return (
-          <span
-            key={id}
-            className={
-              isSeparated
-                ? "ml-1 flex items-center border-l border-[var(--ds-border,rgba(0,0,0,0.1))] pl-1"
-                : undefined
-            }
-          >
-            <Tooltip label={label}>
+          <Tooltip key={item.id} label={item.label}>
+            <span className="relative inline-flex">
               <IconButton
-                aria-label={label}
+                aria-label={`Open ${item.label}`}
                 size="sm"
-                variant={isDanger ? "danger" : "subtle"}
-                onClick={handlers[id]}
-                // Prevent click from also activating the card's own click
-                // handler (which toggles `open` and would close the controls).
+                variant="subtle"
+                onClick={() => onSelectSection(item.id)}
+                // Prevent the click from also toggling the card's selection.
                 onMouseDown={(e) => e.stopPropagation()}
               >
                 <Icon aria-hidden="true" className="h-4 w-4" />
               </IconButton>
-            </Tooltip>
-          </span>
+              {item.id === "sync" && stale ? (
+                <span
+                  aria-label="Source changed"
+                  className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-400"
+                />
+              ) : null}
+            </span>
+          </Tooltip>
         );
       })}
+
+      <Tooltip label="AI Variations">
+        <IconButton
+          aria-label="Generate AI variations"
+          size="sm"
+          variant="subtle"
+          onClick={onGenerate}
+          disabled={genLoading}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <Sparkles
+            aria-hidden="true"
+            className={`h-4 w-4 ${genLoading ? "animate-pulse" : ""}`}
+          />
+        </IconButton>
+      </Tooltip>
+
+      <span className="ml-1 flex items-center gap-0.5 border-l border-[var(--ds-border,rgba(0,0,0,0.1))] pl-1">
+        <Tooltip label="Duplicate visual">
+          <IconButton
+            aria-label="Duplicate visual"
+            size="sm"
+            variant="subtle"
+            onClick={onDuplicate}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <Copy aria-hidden="true" className="h-4 w-4" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip label="Remove visual">
+          <IconButton
+            aria-label="Remove visual"
+            size="sm"
+            variant="danger"
+            onClick={onDelete}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <Trash2 aria-hidden="true" className="h-4 w-4" />
+          </IconButton>
+        </Tooltip>
+      </span>
     </div>
   );
 }

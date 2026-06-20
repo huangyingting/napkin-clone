@@ -16,7 +16,7 @@ import {
   downloadBlob,
 } from "@/lib/visual/export";
 import { applySocialPresetToOptions } from "@/lib/visual/export-options";
-import { applyElasticLayout } from "@/lib/visual/transforms";
+import { applyElasticLayout, isSourceStale } from "@/lib/visual/transforms";
 import { applyBrand } from "@/lib/brand/transforms";
 import type { BrandStyle } from "@/lib/brand/schema";
 import { BRAND_WEB_FONTS } from "@/lib/brand/schema";
@@ -446,18 +446,19 @@ export function VisualCard({
     >
       {showControls ? (
         <div className={cardClass}>
-          {/* On-canvas quick-action bar — compact overlay at the top of the
+          {/* On-canvas tool bar — the single merged toolbar at the top of the
               selected visual, fine-pointer only (touch uses the bottom sheet).
-              Provides one-click access to Colors, Swap Layout, Duplicate,
-              Delete, and the full popover menu. */}
+              Every section tool opens its detail in the popover below; AI
+              variations, duplicate, and delete are direct actions. */}
           {isPointerFine ? (
             <VisualQuickActionBar
               kind={data.type}
-              onColors={() => navigatePopover("colors")}
-              onLayout={() => navigatePopover("layout")}
+              stale={isSourceStale(data, currentSourceText ?? "")}
+              genLoading={false}
+              onSelectSection={(section) => navigatePopover(section)}
+              onGenerate={() => navigatePopover("variations")}
               onDuplicate={duplicateVisual}
               onDelete={removeVisual}
-              onMore={() => navigatePopover(null)}
             />
           ) : null}
           <VisualEditor
