@@ -15,16 +15,43 @@
  */
 import http from "node:http";
 
-import { createCollabWss, roomCount } from "./collab-core.mjs";
+import { createCollabWss, roomCount, connCount } from "./collab-core.mjs";
 import { createCollabAuthorizer } from "./collab-auth.mjs";
+import { resolveDeploymentConfig } from "./collab-deployment-config.mjs";
 
 const PORT = Number(process.env.COLLAB_PORT || 1234);
 const HOST = process.env.COLLAB_HOST || "0.0.0.0";
 
+// Resolve and validate the deployment configuration at startup.
+const deploymentConfig = resolveDeploymentConfig(process.env);
+
+if (!deploymentConfig.healthy) {
+  for (const warning of deploymentConfig.warnings) {
+    console.error(`[collab] FATAL CONFIG ERROR: ${warning}`);
+  }
+  console.error(
+    "[collab] Refusing to start in a misconfigured multi-instance environment. " +
+      "Fix the configuration and restart.",
+  );
+  process.exit(1);
+}
+
+for (const warning of deploymentConfig.warnings) {
+  console.warn(`[collab] CONFIG WARNING: ${warning}`);
+}
+
 const server = http.createServer((req, res) => {
   if (req.url === "/health") {
+    const summary = {
+      ok: deploymentConfig.healthy,
+      rooms: roomCount(),
+      connections: connCount(),
+      mode: deploymentConfig.mode,
+      warnings: deploymentConfig.warnings,
+      healthy: deploymentConfig.healthy,
+    };
     res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify({ ok: true, rooms: roomCount() }));
+    res.end(JSON.stringify(summary));
     return;
   }
   res.writeHead(200, { "content-type": "text/plain" });
@@ -50,6 +77,7 @@ server.on("upgrade", (req, socket, head) => {
 
 server.listen(PORT, HOST, () => {
   console.log(
-    `[collab] Yjs websocket server listening on ws://${HOST}:${PORT}`,
+    `[collab] Yjs websocket server listening on ws://${HOST}:${PORT} ` +
+      `[mode: ${deploymentConfig.mode}]`,
   );
 });

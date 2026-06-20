@@ -20,8 +20,13 @@ import { parse } from "node:url";
 
 import next from "next";
 
-import { createCollabWss, roomCount } from "./scripts/collab-core.mjs";
+import {
+  createCollabWss,
+  roomCount,
+  connCount,
+} from "./scripts/collab-core.mjs";
 import { createCollabAuthorizer } from "./scripts/collab-auth.mjs";
+import { resolveDeploymentConfig } from "./scripts/collab-deployment-config.mjs";
 
 const dev = process.env.NODE_ENV !== "production";
 const port = Number(process.env.PORT || 4000);
@@ -29,16 +34,42 @@ const hostname = process.env.HOST || "0.0.0.0";
 const inlineCollab = process.env.COLLAB_INLINE !== "0";
 const COLLAB_PATH = "/collab";
 
+// Resolve and validate the deployment configuration at startup.
+const deploymentConfig = resolveDeploymentConfig(process.env);
+
+if (!deploymentConfig.healthy) {
+  for (const warning of deploymentConfig.warnings) {
+    console.error(`[collab] FATAL CONFIG ERROR: ${warning}`);
+  }
+  console.error(
+    "[collab] Refusing to start in a misconfigured multi-instance environment. " +
+      "Fix the configuration and restart.",
+  );
+  process.exit(1);
+}
+
+for (const warning of deploymentConfig.warnings) {
+  console.warn(`[collab] CONFIG WARNING: ${warning}`);
+}
+
 const app = next({ dev, hostname, port, turbopack: dev });
 const handle = app.getRequestHandler();
 
 await app.prepare();
 
 const server = createServer((req, res) => {
-  // Lightweight health endpoint for the inline collab socket.
+  // Health endpoint for the inline collab socket.
   if (req.url === `${COLLAB_PATH}/health`) {
+    const summary = {
+      ok: deploymentConfig.healthy,
+      rooms: roomCount(),
+      connections: connCount(),
+      mode: deploymentConfig.mode,
+      warnings: deploymentConfig.warnings,
+      healthy: deploymentConfig.healthy,
+    };
     res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify({ ok: true, rooms: roomCount() }));
+    res.end(JSON.stringify(summary));
     return;
   }
   const parsedUrl = parse(req.url || "/", true);
@@ -79,6 +110,9 @@ if (inlineCollab) {
 server.listen(port, hostname, () => {
   console.log(`▲ Ready on http://${hostname}:${port}`);
   if (inlineCollab) {
-    console.log(`[collab] inline Yjs websocket mounted at ${COLLAB_PATH}`);
+    console.log(
+      `[collab] inline Yjs websocket mounted at ${COLLAB_PATH} ` +
+        `[mode: ${deploymentConfig.mode}]`,
+    );
   }
 });
