@@ -85,9 +85,6 @@ export const BRAND_WEB_FONTS = [
 
 export type BrandWebFontId = (typeof BRAND_WEB_FONTS)[number]["id"];
 
-/** System / custom font sentinel (fontFamily is a raw CSS string). */
-export const BRAND_FONT_SYSTEM = "system";
-
 export interface BrandStyle {
   id: string;
   name: string;

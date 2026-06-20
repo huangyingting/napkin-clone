@@ -318,10 +318,3 @@ export function SlideCanvas({
   }
 }
 
-// ---------------------------------------------------------------------------
-// Utility: resolve the theme config for a deck
-// ---------------------------------------------------------------------------
-
-export function themeConfigForDeck(deck: Deck): ThemeConfig {
-  return DECK_THEMES[deck.theme] ?? DECK_THEMES.default;
-}

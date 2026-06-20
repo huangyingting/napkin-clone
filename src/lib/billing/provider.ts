@@ -75,7 +75,3 @@ export async function getBillingProvider(): Promise<BillingProvider> {
   return _provider;
 }
 
-/** Reset the cached provider (used in tests). */
-export function resetBillingProviderCache(): void {
-  _provider = null;
-}

@@ -143,5 +143,3 @@ export function htmlToMarkdown(html: string): string {
   return lines.join("\n");
 }
 
-/** Exposed for unit tests — re-exports `htmlToMarkdown`. */
-export { htmlToMarkdown as convertHtmlToMarkdown };

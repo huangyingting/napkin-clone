@@ -31,20 +31,6 @@ export type { ExportOptions };
 export { DEFAULT_EXPORT_OPTIONS };
 
 /**
- * Serialize an SVG element to a downloadable SVG file.
- * Returns a Blob with proper MIME type.
- */
-export function exportSVG(svgElement: SVGSVGElement): Blob {
-  const serializer = new XMLSerializer();
-  const svgString = serializer.serializeToString(svgElement);
-
-  // Add XML declaration for proper standalone SVG
-  const svgData = `<?xml version="1.0" encoding="UTF-8"?>\n${svgString}`;
-
-  return new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
-}
-
-/**
  * Convert an SVG element to PNG applying the given ExportOptions.
  * Returns a Promise that resolves to a Blob, or null on error.
  *

@@ -27,18 +27,3 @@ export const FOCUS_RING =
  * feedback, all driven by `--ds-*` tokens.
  */
 export const GUTTER_BUTTON = `flex h-7 w-7 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised text-ds-text-muted shadow-ds-raised transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary active:bg-ds-state-active aria-expanded:bg-ds-state-hover aria-expanded:text-ds-text-primary ${FOCUS_RING}`;
-
-/**
- * A compact toolbar/menu control that toggles between an inactive and active
- * (pressed) appearance. Used by the floating toolbar and the insert menu so the
- * selected state, hover, active, and focus-visible feedback all match.
- */
-export function controlToggleClass(active: boolean): string {
-  return [
-    "transition-colors active:translate-y-0",
-    active
-      ? "bg-ds-control text-ds-control-text hover:bg-ds-control-hover"
-      : "text-ds-text-secondary hover:bg-ds-state-hover active:bg-ds-state-active",
-    FOCUS_RING,
-  ].join(" ");
-}
