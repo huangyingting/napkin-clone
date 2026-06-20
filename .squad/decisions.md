@@ -1607,3 +1607,103 @@ branching centralized and the cast isolated.
 - All meaningful changes require team consensus
 - Document architectural decisions here
 - Keep history focused on work, decisions focused on direction
+### 2026-06-20T00:05:35Z: Deck model placement and block-type reuse
+**By:** Tank (via Squad)
+**What:** New presentation types (`Deck`, `Slide`, `SlideLayout`, `DeckTheme`) and `buildDeckFromBlocks` transform live in `src/lib/presentation/deck.ts`. Block types are imported from `src/lib/visual/document-export.ts` — no redefinition. Tests are colocated in `src/lib/presentation/deck.test.ts` and run headlessly under `node --test`.
+**Why:** Reusing `DocumentBlock` from `document-export.ts` keeps the two transform layers in sync (same block taxonomy) and avoids a split schema. Colocating the test next to the source matches the existing project convention (`*.test.ts` next to `*.ts`). Keeping the transform pure (no DOM, no React) makes it safe to call from any server action or future API route without environment constraints.
+
+### 2026-06-20T00:05:35Z: Social export presets — padding via effective-viewbox expansion
+**By:** Tank (via Squad)
+**What:** Added safe-area padding to `computeLetterboxedDimensions` by expanding the "effective" content box by `2 * padding` on each axis before letterboxing, rather than post-processing the translated offset. This keeps the existing SVG transform model (a single `<g translate(offsetX,offsetY)>` wrapper) and the aspect-ratio constraint both satisfied simultaneously. Added `"9:16"` to `ASPECT_RATIO_PRESETS` in schema.ts so the value is consistent across the system.
+**Why:** Alternative approaches (CSS padding on a wrapping element, SVG `<clipPath>`, or a second transform pass) would each break the existing pipeline that downstream callers (`exportPNG`, `exportPDF`) depend on. The effective-viewbox approach is purely additive — it changes only the letterbox geometry calculation, not the SVG structure. Social preset branding toggle is gated behind `removeWatermark` entitlement: free users always get the watermark; paid users get a checkbox to opt-in to branding (defaults off).
+
+### 2026-06-20T00:05:35Z: Two-pane editor layout — docked right-side editing rail
+**By:** Switch (via Squad)
+**What:** Replaced the floating-over-article editing surfaces with a persistent right-side editing rail for desktop viewports (≥ 1024 px). The article column stays left; a 320 px `<EditingRail>` docks right inside the same `EditorContextProvider` / `VisualPanelProvider` scope. On narrow screens (< 1024 px) the rail is hidden and the existing floats are the fallback. Key files: `rail-state.ts` (pure helpers + hooks), `editing-rail.tsx` (the rail component), `visual-context-popover.tsx` (added `mode?: "float" | "panel"` prop), `visual-card.tsx` (suppresses float when rail active).
+**Why:** Issue #40: editing surfaces overlapped the centered article column, especially on smaller viewports and with wide popovers. The two-pane approach eliminates overlap at desktop widths while preserving all existing behavior on narrow screens. One-way data flow invariants are preserved: surfaces read `useEditorContext()` and mutate through `editor.update()` only.
+
+### 2026-06-20T00:05:35Z: In-app Present mode — slide rendering, nav, and data flow
+**By:** Switch (via Squad)
+**What:** Built `present-mode.tsx` (fullscreen overlay), `present-button.tsx` (toolbar entry), and `slide-helpers.ts` (pure helpers) for issue #52. The snapshot data model: `PresentButton` reads the Lexical editor state once on click, builds a `Map<string, Visual>` and a `Deck` from `collectDocumentBlocks` + `buildDeckFromBlocks`, then passes both as props to `PresentMode`. `PresentMode` is entirely free of Lexical/Yjs — it operates on plain data. HUD auto-hide with 3s inactivity fade, fullscreen API best-effort on mount, theme colors as inline styles, click zones for navigation (left half = previous, right half = next).
+**Why:** Snapshot model keeps collab-safe, read-only. HUD timer satisfies react-hooks rule by using `scheduleHudHide` (no setState) to start the initial timer, with `resetHudTimer` (which calls `setHudVisible`) used only in event handlers. Fullscreen API is best-effort; CSS overlay works without it. Theme colors via inline styles avoid needing Tailwind to scan all variants.
+
+### 2026-06-20T00:05:35Z: Persist edited deck as `deckJson` on Document, separate from `contentJson`
+**By:** Switch (via Squad)
+**What:** Added `deckJson Json?` column on Document. When a user edits the slide deck in the Slide Editor, the edited Deck (JSON blob) is persisted to this column, validated by `safeParseDeck` before storage. When no `deckJson` is present, the deck is derived on-the-fly from `buildDeckFromBlocks`. Deck edits are a separate persisted artifact — entirely separate from Lexical/Yjs `contentJson` — so collab and autosave are not affected.
+**Why:** Deck layout/theme/reordering is a presentation concern, not a document-content concern. Storing it separately from `contentJson` (the Lexical state) ensures deck mutations never go through Yjs CRDT and cannot corrupt collaborative editing. This mirrors the Trinity decision to keep `contentJson` as the single source of truth for the editor.
+
+### 2026-06-20T00:05:35Z: Public shareable presentation + embed (#54)
+**By:** Switch (via Squad)
+**What:** New `/present/[shareId]` public route — server component loads the document's deck (persisted `deckJson` via `safeParseDeck`, fallback to `buildDeckFromBlocks`) and renders with new `PublicPresentViewer` client component. Sub-route `/present/[shareId]/embed` for `<iframe>` embedding. Extracted shared slide-rendering primitives (`SlideCanvas`, `DECK_THEMES`, layout renderers) from `present-mode.tsx` into `slide-canvas.tsx`. Added `slideIndexFromHash` and `hashFromSlideIndex` helpers for URL hash deep-linking. Updated `HeaderGate` to suppress site header for `/present/*` paths. Added "Presentation link" section in `share-button.tsx`.
+**Why:** Issue #54 / epic #47 requirement: shareable online presentation. Extracting `SlideCanvas` ensures the public viewer and in-app presenter can never visually diverge — one source of truth. `safeParseDeck` fallback matches the strategy used by the slide editor so edited decks are always shown correctly. Routing `/present/[shareId]/embed` as a sub-path keeps the URL structure symmetric with `embed/[shareId]`.
+
+### 2026-06-20T00:05:35Z: Social share — document-level (ShareButton) + per-visual (VisualCard overlay)
+**By:** Tank (via Squad)
+**What:** Pure URL builders (`buildTwitterIntent`, `buildLinkedInIntent`, `buildFacebookIntent`) + capability gates (`canWebShare`, `canCopyImageToClipboard`) live in `src/lib/share/social-intents.ts`. Reusable `SocialShareMenu` component accepts `shareUrl`, `title`, and `getSvgElement`. Document-level: `share-button.tsx` gains a "Share to social" section (inline `SocialShareMenu`). Link-based intents are gated on `isShared`; prompt shown when not shared. Per-visual: `visual-card.tsx` gains two hover-overlay buttons — "Copy image" (clipboard) and "Share" (native Web Share API). Copy image uses the `"square"` social preset (1080×1080) for crisp clipboard image.
+**Why:** `VisualCard` is a Lexical decorator and does not receive document-level props — splitting the surfaces (full social share at document level; image-only at visual level) keeps both clean. Feature-detecting at call time ensures SSR safety and avoids stale capability checks. The "square" preset is most universally supported across social platforms.
+
+### 2026-06-20T00:05:35Z: Infographic export — pure layout engine + browser rasteriser split
+**By:** Tank (via Squad)
+**What:** Implemented `computeInfographicLayout` in `src/lib/visual/infographic-layout.ts` as a fully pure function (no DOM, no browser) that receives `DocumentBlock[]` and an `InfographicConfig` and returns `{ blocks: BlockLayout[], totalHeight, contentWidth }`. Text height estimation uses a calibrated `0.55 × fontSize` average-char-width heuristic (accurate ±15% for sans-serif). The browser-side composer (`exportDocumentAsInfographic` in `document-export.ts`) consumes this layout, draws text blocks with Canvas 2D API, rasterises visual blocks via existing per-visual `exportPNG` path at 2× scale, optionally wraps the resulting PNG in a single-page jsPDF for PDF output. Watermark is applied directly in Canvas. Three width presets (1080 / 800 / 1200 px) exposed as `INFOGRAPHIC_WIDTH_PRESETS` and surfaced in `DocumentExportButton` as chip selectors.
+**Why:** Keeping layout pure was the key constraint — it makes the measurement logic independently unit-testable (32 tests, node --test, no jsdom) and means the rasteriser is a thin browser-only layer that just consumes pre-computed y-offsets. This follows the same pattern as `computePageBreaks` in `document-export.ts`. Watermark is applied via Canvas API (not SVG transform path) because the composed canvas is not an SVG.
+
+### 2026-06-20T00:05:35Z: Visual effects model — effects[] on Visual, not VisualStyle
+**By:** Switch (via Squad)
+**What:** Introduced a `VisualEffect` discriminated union (`ShadowEffect | SketchEffect`) as an optional `effects?: VisualEffect[]` field directly on the `Visual` interface (not inside `VisualStyle`). SHADOW is rendered via SVG `<feDropShadow>`, SKETCH via `<feTurbulence>` + `<feDisplacementMap>`. Effects are on `Visual`, not `VisualStyle`, preserving the clean split between the user's palette/theme system and rendering embellishments. Array model allows combining multiple effects and supports future additions without touching existing data. Unknown effect kinds are silently dropped by `validateVisual`. Using `useId()` for filter IDs prevents filter bleeding when multiple `VisualRenderer` instances appear on the same page. Each active effect wraps the visual body in a separate `<g filter>` element for independent composition. Transforms follow existing pure-transform pattern with `setEffect` / `clearEffect` as pure, immutable, DOM-free functions.
+**Why:** The effects must be presentation-only, baked into the Visual payload, and independent of `--ds-*` chrome tokens. Placing them on `Visual` (not `VisualStyle`) keeps the concern separation clean. The array model and forgiving validation ensure the schema change is strictly additive: all existing visuals remain fully valid.
+
+### 2026-06-20T00:05:35Z: Per-node font family — native select over segmented control
+**By:** Switch (via Squad)
+**What:** Implemented per-node font family override as a native `<select>` in the "Selected element" section of the visual context popover, offering "Default (inherit)" plus all 12 BRAND_WEB_FONTS options. Chose native select over SegmentedControl because 13 options would overflow the 320px popover width. The select is styled with DS tokens (`--ds-border`, `--ds-surface-base`, `--ds-text`, `--ds-focus-ring`). `fontFamily` on `VisualNode` is optional; absent/undefined means "inherit the global `style.fontFamily`". Added `useVisualNodeFonts` hook (analogous to `useBrandFont`) that injects Google Font `<link>` tags for any per-node font families already in the visual. Added a "Click to edit" inline hint text beneath hovered nodes on non-positioned visual kinds in `visual-editor.tsx`.
+**Why:** Issue #42 is an audit/gap-fill, not a redesign. Adding a dropdown consistent with other row-level controls meets the requirement without restructuring the menu IA. Backward compat: `safeParseVisual` silently drops unknown values so existing visuals are unaffected. Transform purity: `setNodeFontFamily("", …)` clears the override; `resetNodeExtStyle` also clears `fontFamily` so the "Reset element" button fully resets all per-node overrides.
+
+### 2026-06-20T00:05:35Z: Drill-down navigation for the categorized visual menu
+**By:** Switch (via Squad)
+**What:** Chose a two-level drill-down navigation pattern (main menu list → focused submenu with back button) over alternatives (accordion/expand-in-place, tab strip, flat scroll) for the categorized visual menu. `activeSection: MenuSection | null` drives which view renders; `null` = main menu, a string key = the active submenu. The `useLayoutEffect` reposition loop now lists `activeSection` as a dependency so the float-mode popover repositions whenever submenu content changes height. The existing Connectors controls (arrow style, line style, line width) are now surfaced inside the **Swap Layout** submenu. Extracted `computeVisualInfo` as a DOM-free lib helper (`src/lib/visual/info.ts`) that derives kind, nodeCount, edgeCount, title, sourceText, effectCount, and fontFamily from a `Visual` payload. 12 unit tests in `info.test.ts` cover all fields with node --test.
+**Why:** The narrow 320 px popover can only show ~3–4 content rows without scrolling. Drill-down keeps each submenu focused and uncluttered, avoids the height jitter of expanding accordions, and maps naturally to the spec. Accordion was rejected because multiple simultaneously-open sections would recreate the original scrolling problem; tab strips were rejected because 9 tabs don't fit at 320 px. Connectors control the *shape* of edge connections — an IA/structure concern — which aligns with Swap Layout (kind switch + style gallery). The Info panel requirement explicitly calls for "DOM-free and UNIT TEST it (node --test, no jsdom)" — extracting it as a lib helper makes it independently testable and reusable.
+
+### 2026-06-20T00:05:35Z: Document-level overall adjustments toolbox — context kind drives rail surface
+**By:** Switch (via Squad)
+**What:** Implemented the overall-adjustments toolbox for issue #41. Three design choices: (1) `shouldShowOverallToolbox(kind)` as a pure export (`src/lib/lexical/overall-toolbox.ts` with co-located `.test.ts`) — the predicate (`kind === "none" || kind === "empty-block"`) lives in a DOM-free, headlessly unit-testable module, consistent with `readSelectionDescriptor()`. (2) Prop drilling over a new React context for page-break state — the existing `[showPageBreaks, setShowPageBreaks]` state stays in `LexicalEditor`. Three props (`documentTitle`, `showPageBreaks`, `onTogglePageBreaks`) are threaded through `EditingRail → OverallAdjustmentsPanel`. (3) Lazy brand load on mount — `OverallAdjustmentsPanel` fetches brands via `/api/brand` at mount time (once, via `useEffect`). The section hides entirely when no brands are found.
+**Why:** The overall toolbox must not interfere with the insert menu (which triggers on `empty-block` cursor placement via BlockSpark/InsertMenu) — it is rendered in the right rail only, never inline. Rendering in the `EditingRail` (which is already `hidden lg:flex`) means it never appears on narrow viewports where the floating surfaces handle interactions. Prop drilling for two-level state passing is simpler and more transparent than adding a React context which would require structural changes. The toolbox is distinct from the insert menu by design and location.
+
+### 2026-06-20T00:05:35Z: Visual edits via setVisual are already tracked by the Yjs UndoManager
+**By:** Switch (via Squad)
+**What:** Verified that `node.setVisual()` mutations (inline label edits, drag/position, style/theme/kind changes) **are already captured by the Yjs UndoManager** without any code changes. The `CollaborationPlugin` calls `useYjsHistory`, which creates an `UndoManager` with `trackedOrigins: new Set([binding, null])`. Every `editor.update()` call goes through `syncLexicalUpdateToYjs` → `syncWithTransaction` → `binding.doc.transact(fn, binding)`, which uses `binding` as the Yjs transaction origin — exactly one of the tracked origins. The `CollabDecoratorNode.syncPropertiesFromLexical` method iterates all non-excluded node properties (including `__visual`) and writes them into the Yjs shared type inside that transaction. The UndoManager captures it. In degraded local-only mode, the Yjs binding and UndoManager still initialise (degradation only affects the websocket sync, not the local Yjs doc). Local edits after the `LocalFallbackSeedPlugin` seed are tracked and undoable. The seed itself uses `HISTORIC_TAG`, which the UndoManager discards, so the first edit post-seed correctly becomes the first undoable action. `UndoRedoControls` simply reflects `canUndo`/`canRedo` truthfully — buttons are disabled until there is history.
+**Why:** The issue (#43) specified "verify visual editing operations are undoable and fix if not". Investigation showed they already are. The only work needed was surfacing the existing UndoManager as discoverable UI (Undo/Redo buttons) and adding a headless test that confirms the undo round-trip. No changes to `trackedOrigins` or `setVisual` were needed. The existing architecture already tracked everything correctly.
+
+
+
+
+### 2026-06-20T03:30:00Z: Browser walkthrough triage — post-epic #39/#46/#47 findings
+
+**By:** Trinity (via Squad)
+
+**What:**
+Triaged 6 findings from a live browser walkthrough of the running app (port 4000). Created 7 GitHub issues:
+
+| # | Title | Labels |
+|---|-------|--------|
+| #68 | Present mode: slide title overlaps top HUD | type:bug, priority:p1, squad:switch |
+| #69 | [Epic] Editor right-side surfaces — collision/z-index/mutual-exclusion | type:epic, priority:p1, squad:switch, squad:mouse |
+| #70 | VisualContextPopover (z-50) over SlideEditor (z-40) — sub of #69 | type:bug, priority:p1, squad:switch |
+| #71 | Share dropdown (z-10) clipped behind SlideEditor (z-40) — sub of #69 | type:bug, priority:p1, squad:switch |
+| #72 | Global nav overflows on mobile (390px) — no responsive collapse | type:bug, priority:p1, squad:switch, squad:mouse |
+| #73 | Visual generation UX: skeleton + staged status + ETA | type:feature, priority:p2, feedback, squad:switch, squad:tank |
+| #74 | Present mode polish: visual white-card contrast + speaker notes | type:feature, priority:p2, squad:switch |
+| #75 | Seed document references visual not embedded in contentJson | type:bug, priority:p2, squad:tank |
+
+**Decisions:**
+
+1. **Finding #2 → epic (#69) + 2 sub-issues (#70, #71)**: The surface collision is architecturally significant (z-index discipline, mutual-exclusion pattern). Filed as an epic with sub-issues to separate the structural fix from the two concrete bugs. Switch owns impl; Mouse owns interaction model definition.
+
+2. **Finding #4 (generation latency)**: Corrected file reference — main generation UX is in `block-spark.tsx` (not `insert-menu.tsx` as cited). `insert-menu.tsx` is the "+" gutter menu and does not call `/api/generate`. Filed against `block-spark.tsx` + `route.ts`. Marked p2/feedback; the existing ThinkingIndicator is functional but insufficient for a ~13s wait.
+
+3. **Finding #5b (speaker notes "No speaker notes")**: Code review shows `buildDeckFromBlocks` notes mapping is correct (quote blocks → `noteLines`, overflow bullets → `noteLines`). The observation is likely a true-negative on the demo content (no quote blocks). Filed as p2 feature/polish with a "verify first" instruction rather than a confirmed bug.
+
+4. **Finding #6 (seed)**: Confirmed the gap — seed creates a `Visual` DB row but never embeds a `VisualNode` in `contentJson`. The document `content` in seed.ts says "Paste your text here..." (not the copy the walkthrough saw), suggesting the live DB was seeded with older code. Filed as p2 bug; either fix the contentJson or update the copy.
+
+**Top-3 priorities:**
+1. **#69 / #70 / #71** — Surface collision/z-index: directly breaks core editor workflows (sharing, slide editing) for every user every day.
+2. **#68** — Present mode HUD overlap: affects every non-title slide on every presentation; small targeted fix.
+3. **#72** — Mobile nav overflow: blocks mobile users from navigating the app at all; accessibility/reach issue.

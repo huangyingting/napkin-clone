@@ -1,4 +1,0 @@
-### 2026-06-20T00:05:35Z: Deck model placement and block-type reuse
-**By:** Tank (via Squad)
-**What:** New presentation types (`Deck`, `Slide`, `SlideLayout`, `DeckTheme`) and `buildDeckFromBlocks` transform live in `src/lib/presentation/deck.ts`. Block types are imported from `src/lib/visual/document-export.ts` — no redefinition. Tests are colocated in `src/lib/presentation/deck.test.ts` and run headlessly under `node --test`.
-**Why:** Reusing `DocumentBlock` from `document-export.ts` keeps the two transform layers in sync (same block taxonomy) and avoids a split schema. Colocating the test next to the source matches the existing project convention (`*.test.ts` next to `*.ts`). Keeping the transform pure (no DOM, no React) makes it safe to call from any server action or future API route without environment constraints.

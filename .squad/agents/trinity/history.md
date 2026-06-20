@@ -17,3 +17,7 @@ Phase 0 landed the additive redesign foundations: Mouse added the `--ds-*` token
 
 Phases 0–3 are complete: foundations; ToolRegistry + text toolbar; unified insert + deterministic visual; and context-aware, theme-first visual editing popover. Verification: typecheck clean, 173/173 tests pass, build green, dev server boots and serves 200s; lint only has pre-existing `ralph-triage.js` errors. Next: Phase 4 capability expansion (inline code, text color, alignment, richer restyle), then Phase 5 polish/a11y/perf.
 
+
+## 2026-06-20T03:30:00Z — Post-ship browser triage
+
+Ran live browser walkthrough of the running app (port 4000) post-phases 0–3. Exercised editor/presentation/export workflows. Triaged 6 findings into 8 GitHub issues (#68–#75): 3 p1 bugs, 1 p1 epic, 2 p2 features, 1 p2 bug. Key architectural finding: z-index + surface mutual-exclusion pattern requires epic-level fix (Switch + Mouse ownership). Top 3 priorities: #69/#70/#71 (surface collision), #68 (present HUD), #72 (mobile nav). Decision logged in .squad/decisions.md; orchestration + session logs created.

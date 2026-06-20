@@ -1,6 +1,8 @@
 "use client";
 
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { PanelRight, X } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -9,6 +11,7 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import { $getNodeByKey, $nodesOfType } from "lexical";
 
 import {
@@ -435,6 +438,196 @@ function VisualContextSection() {
  * {@link useEditorContext} and mutate exclusively via Lexical
  * commands / `editor.update()`.
  */
+
+// ---------------------------------------------------------------------------
+// MobileEditingSheet — FAB + slide-up bottom sheet for sub-lg viewports.
+// ---------------------------------------------------------------------------
+
+/**
+ * Renders a floating action button (visible only below the `lg:` breakpoint)
+ * that opens a bottom sheet containing the same contextual editing panels as
+ * the desktop {@link EditingRail}.
+ *
+ * All panel components (TextFormatSection, VisualContextSection,
+ * OverallAdjustmentsPanel) are reused directly — no control logic is
+ * duplicated. The component must live inside the same Lexical/EditorContext/
+ * VisualPanel provider tree as the rail.
+ */
+function MobileEditingSheet({
+  documentTitle,
+  showPageBreaks,
+  onTogglePageBreaks,
+}: {
+  documentTitle?: string;
+  showPageBreaks?: boolean;
+  onTogglePageBreaks?: () => void;
+}) {
+  const ctx = useEditorContext();
+  const [open, setOpen] = useState(false);
+  const reduceMotion = useReducedMotion();
+
+  // Close on Escape.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  // Lock body scroll while sheet is open.
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [open]);
+
+  const showOverall = shouldShowOverallToolbox(ctx.kind);
+
+  // Choose a context-appropriate label for the FAB.
+  const fabLabel =
+    ctx.kind === "range"
+      ? "Open text formatting"
+      : ctx.kind === "visual"
+        ? "Open visual editing"
+        : "Open document adjustments";
+
+  // Animation: instant when reduced-motion is requested.
+  const sheetMotion = reduceMotion
+    ? {
+        initial: { opacity: 1, y: 0 },
+        animate: { opacity: 1, y: 0 },
+        exit: { opacity: 0, y: 0 },
+      }
+    : { initial: { y: "100%" }, animate: { y: 0 }, exit: { y: "100%" } };
+  const backdropMotion = reduceMotion
+    ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } }
+    : {
+        initial: { opacity: 0 },
+        animate: { opacity: 1 },
+        exit: { opacity: 0 },
+      };
+
+  return (
+    <>
+      {/* FAB — hidden at lg+ where the docked rail takes over */}
+      <button
+        type="button"
+        aria-label={fabLabel}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
+        className={cx(
+          "fixed bottom-6 right-6 z-40 lg:hidden",
+          "flex h-12 w-12 items-center justify-center rounded-full",
+          "bg-[var(--ds-accent,#6366f1)] text-[var(--ds-text-on-accent,#ffffff)]",
+          "shadow-[var(--ds-shadow-overlay,0_8px_24px_rgba(0,0,0,0.18))]",
+          "transition hover:bg-[var(--ds-accent-hover,#4f46e5)] active:scale-95",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-focus,#6366f1)] focus-visible:ring-offset-2",
+        )}
+      >
+        <PanelRight aria-hidden="true" className="h-5 w-5" />
+      </button>
+
+      {/* Bottom-sheet portal — guarded against SSR (no `document` on server) */}
+      {typeof document !== "undefined" &&
+        createPortal(
+          <AnimatePresence>
+            {open && (
+              <>
+                {/* Backdrop */}
+                <motion.div
+                  key="mobile-sheet-backdrop"
+                  aria-hidden="true"
+                  initial={backdropMotion.initial}
+                  animate={backdropMotion.animate}
+                  exit={backdropMotion.exit}
+                  transition={{ duration: 0.18 }}
+                  onClick={() => setOpen(false)}
+                  className="fixed inset-0 z-40 bg-black/30 lg:hidden"
+                />
+
+                {/* Sheet */}
+                <motion.div
+                  key="mobile-sheet"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Editing panel"
+                  initial={sheetMotion.initial}
+                  animate={sheetMotion.animate}
+                  exit={sheetMotion.exit}
+                  transition={{ duration: 0.24, ease: "easeOut" }}
+                  className="fixed bottom-0 left-0 right-0 z-50 flex max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl border-t border-[var(--ds-border,rgba(0,0,0,0.08))] bg-[var(--ds-surface,#ffffff)] shadow-[var(--ds-shadow-popover,0_12px_32px_rgba(0,0,0,0.18))] lg:hidden"
+                >
+                  {/* Sheet header with drag handle + close button */}
+                  <div className="flex shrink-0 items-center justify-between px-4 pb-2 pt-3">
+                    {/* Visual drag handle */}
+                    <div
+                      aria-hidden="true"
+                      className="absolute left-1/2 top-2 h-1 w-10 -translate-x-1/2 rounded-full bg-[var(--ds-border,rgba(0,0,0,0.12))]"
+                    />
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#6f7d83)]">
+                      {ctx.kind === "range"
+                        ? "Text format"
+                        : ctx.kind === "visual"
+                          ? "Visual"
+                          : "Adjustments"}
+                    </p>
+                    <button
+                      type="button"
+                      aria-label="Close editing panel"
+                      onClick={() => setOpen(false)}
+                      className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--ds-text-muted,#52525b)] transition hover:bg-[var(--ds-surface-hover,rgba(0,0,0,0.05))]"
+                    >
+                      <X aria-hidden="true" className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {/* Scrollable panel content — reuses the same sections as the rail */}
+                  <div className="flex-1 overflow-y-auto">
+                    {ctx.kind === "range" && (
+                      <Surface elevation="flat" radius="sm" bordered={false}>
+                        <TextFormatSection />
+                      </Surface>
+                    )}
+                    {ctx.kind === "visual" && (
+                      <Surface elevation="flat" radius="sm" bordered={false}>
+                        <VisualContextSection />
+                      </Surface>
+                    )}
+                    {showOverall && (
+                      <OverallAdjustmentsPanel
+                        documentTitle={documentTitle}
+                        showPageBreaks={showPageBreaks ?? false}
+                        onTogglePageBreaks={
+                          onTogglePageBreaks ?? (() => undefined)
+                        }
+                      />
+                    )}
+                    {ctx.kind !== "range" &&
+                      ctx.kind !== "visual" &&
+                      !showOverall && (
+                        <div className="p-4 text-[12px] text-[var(--ds-text-muted,#6f7d83)]">
+                          Select text or a visual to see editing options.
+                        </div>
+                      )}
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>,
+          document.body,
+        )}
+    </>
+  );
+}
+
 export function EditingRail({
   documentTitle,
   showPageBreaks,
@@ -451,51 +644,61 @@ export function EditingRail({
     ctx.kind === "range" || ctx.kind === "visual" || showOverall;
 
   return (
-    <aside
-      aria-label="Editing panel"
-      // Hidden below lg (floats handle narrow viewports); at lg+ this becomes a
-      // sticky column beside the article. `self-start` + `sticky top-0` keep it
-      // anchored to the viewport top while the article scrolls freely.
-      className={cx(
-        "hidden lg:flex w-[320px] flex-shrink-0 flex-col self-start sticky top-0 max-h-screen overflow-y-auto",
-        "border-l border-[var(--ds-border,rgba(0,0,0,0.06))] dark:border-[rgba(255,255,255,0.06)]",
-      )}
-    >
-      {hasContent ? (
-        <>
-          {ctx.kind === "range" && (
-            <Surface
-              elevation="flat"
-              radius="sm"
-              bordered={false}
-              className="flex-1"
-            >
-              <TextFormatSection />
-            </Surface>
-          )}
-          {ctx.kind === "visual" && (
-            <Surface
-              elevation="flat"
-              radius="sm"
-              bordered={false}
-              className="flex-1"
-            >
-              <VisualContextSection />
-            </Surface>
-          )}
-          {showOverall && (
-            <OverallAdjustmentsPanel
-              documentTitle={documentTitle}
-              showPageBreaks={showPageBreaks ?? false}
-              onTogglePageBreaks={onTogglePageBreaks ?? (() => undefined)}
-            />
-          )}
-        </>
-      ) : (
-        <div className="p-4 text-[12px] text-[var(--ds-text-muted,#6f7d83)]">
-          Select text or a visual to see editing options.
-        </div>
-      )}
-    </aside>
+    <>
+      {/* Desktop rail — docked at lg+, hidden on narrow viewports */}
+      <aside
+        aria-label="Editing panel"
+        // Hidden below lg (floats handle narrow viewports); at lg+ this becomes a
+        // sticky column beside the article. `self-start` + `sticky top-0` keep it
+        // anchored to the viewport top while the article scrolls freely.
+        className={cx(
+          "hidden lg:flex w-[320px] flex-shrink-0 flex-col self-start sticky top-0 max-h-screen overflow-y-auto",
+          "border-l border-[var(--ds-border,rgba(0,0,0,0.06))] dark:border-[rgba(255,255,255,0.06)]",
+        )}
+      >
+        {hasContent ? (
+          <>
+            {ctx.kind === "range" && (
+              <Surface
+                elevation="flat"
+                radius="sm"
+                bordered={false}
+                className="flex-1"
+              >
+                <TextFormatSection />
+              </Surface>
+            )}
+            {ctx.kind === "visual" && (
+              <Surface
+                elevation="flat"
+                radius="sm"
+                bordered={false}
+                className="flex-1"
+              >
+                <VisualContextSection />
+              </Surface>
+            )}
+            {showOverall && (
+              <OverallAdjustmentsPanel
+                documentTitle={documentTitle}
+                showPageBreaks={showPageBreaks ?? false}
+                onTogglePageBreaks={onTogglePageBreaks ?? (() => undefined)}
+              />
+            )}
+          </>
+        ) : (
+          <div className="p-4 text-[12px] text-[var(--ds-text-muted,#6f7d83)]">
+            Select text or a visual to see editing options.
+          </div>
+        )}
+      </aside>
+
+      {/* Mobile bottom sheet — visible below lg only */}
+      <MobileEditingSheet
+        documentTitle={documentTitle}
+        showPageBreaks={showPageBreaks}
+        onTogglePageBreaks={onTogglePageBreaks}
+      />
+    </>
   );
 }
