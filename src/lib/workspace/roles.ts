@@ -8,13 +8,13 @@
  * a known role (least-privilege fallback: `VIEWER`).
  */
 
-export const WORKSPACE_ROLES = ["OWNER", "EDITOR", "VIEWER"] as const;
+const WORKSPACE_ROLES = ["OWNER", "EDITOR", "VIEWER"] as const;
 
 export type WorkspaceRole = (typeof WORKSPACE_ROLES)[number];
 
-export const DEFAULT_WORKSPACE_ROLE: WorkspaceRole = "VIEWER";
+const DEFAULT_WORKSPACE_ROLE: WorkspaceRole = "VIEWER";
 
-export function isWorkspaceRole(value: unknown): value is WorkspaceRole {
+function isWorkspaceRole(value: unknown): value is WorkspaceRole {
   return (
     typeof value === "string" &&
     (WORKSPACE_ROLES as readonly string[]).includes(value)

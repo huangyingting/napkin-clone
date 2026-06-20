@@ -127,7 +127,7 @@ export function parsePalette(raw: unknown): string[] | null {
 }
 
 /** Clamps a brand name to reasonable bounds. */
-export function validateBrandName(name: unknown): string | null {
+function validateBrandName(name: unknown): string | null {
   if (typeof name !== "string") return null;
   const trimmed = name.trim().slice(0, 80);
   if (trimmed.length < 1) return null;

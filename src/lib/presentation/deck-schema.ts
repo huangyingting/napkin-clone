@@ -26,7 +26,7 @@ const SLIDE_LAYOUTS: readonly SlideLayout[] = [
   "blank",
 ];
 
-export class DeckValidationError extends Error {
+class DeckValidationError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "DeckValidationError";
@@ -106,7 +106,7 @@ function validateSlide(input: unknown, index: number): Slide {
  * populated `Deck` or throwing a `DeckValidationError` describing the first
  * problem found. A missing top-level `theme` defaults to `"default"`.
  */
-export function validateDeck(input: unknown): Deck {
+function validateDeck(input: unknown): Deck {
   if (!isPlainObject(input)) {
     throw new DeckValidationError("Deck must be an object");
   }

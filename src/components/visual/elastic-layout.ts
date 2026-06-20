@@ -59,7 +59,7 @@ const V_GAP = 28;
  * Estimates the rendered width of a single line of text (in canvas px) given
  * the font size. Derived from `CHAR_WIDTH_RATIO` — no DOM access required.
  */
-export function estimateLineWidth(text: string, fontSize: number): number {
+function estimateLineWidth(text: string, fontSize: number): number {
   return text.length * fontSize * CHAR_WIDTH_RATIO;
 }
 

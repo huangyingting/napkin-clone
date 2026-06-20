@@ -82,7 +82,7 @@ export function isPositionedKind(kind: VisualKind): boolean {
 }
 
 /** Box for a positioned node (flowchart/mindmap/concept). */
-export function positionedBox(node: VisualNode): NodeBox {
+function positionedBox(node: VisualNode): NodeBox {
   return {
     x: node.x ?? 0,
     y: node.y ?? 0,

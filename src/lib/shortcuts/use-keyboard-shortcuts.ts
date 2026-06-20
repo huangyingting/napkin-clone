@@ -8,7 +8,7 @@ import { isEditableTagName } from "./match";
  * Whether the event target is a text-entry element, so bare-key shortcuts are
  * ignored while the user is typing.
  */
-export function isEditableTarget(target: EventTarget | null): boolean {
+function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) {
     return false;
   }

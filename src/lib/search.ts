@@ -18,7 +18,7 @@ export function normalizeSearchQuery(raw: string): string {
  * Returns `true` when the current runtime database provider is Postgres.
  * Mirrors the check in `src/lib/prisma.ts`.
  */
-export function isPostgresProvider(): boolean {
+function isPostgresProvider(): boolean {
   return process.env.DB_PROVIDER === "postgres";
 }
 

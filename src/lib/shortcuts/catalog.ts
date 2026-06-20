@@ -24,7 +24,7 @@ export const SHORTCUT_SCOPES: ShortcutScope[] = [
   "Editor",
 ];
 
-export const SHORTCUTS: ShortcutEntry[] = [
+const SHORTCUTS: ShortcutEntry[] = [
   { keys: ["?"], description: "Show keyboard shortcuts", scope: "Global" },
   { keys: ["N"], description: "Create a new document", scope: "Dashboard" },
   {

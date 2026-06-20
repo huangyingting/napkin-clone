@@ -69,28 +69,28 @@ export const NODE_SHAPES = [
 export type NodeShape = (typeof NODE_SHAPES)[number];
 
 /** Connector line styles. `straight` is the default. */
-export const EDGE_STYLES = ["straight", "curved"] as const;
+const EDGE_STYLES = ["straight", "curved"] as const;
 
 export type EdgeStyle = (typeof EDGE_STYLES)[number];
 
 /** Arrowhead rendering variants. `filled` is the default closed triangle. */
-export const ARROW_STYLES = ["filled", "open", "circle", "diamond"] as const;
+const ARROW_STYLES = ["filled", "open", "circle", "diamond"] as const;
 
 export type ArrowStyle = (typeof ARROW_STYLES)[number];
 
 /** Stroke pattern for edges or node borders. */
-export const LINE_STYLES = ["solid", "dashed", "dotted"] as const;
+const LINE_STYLES = ["solid", "dashed", "dotted"] as const;
 
 export type LineStyle = (typeof LINE_STYLES)[number];
 
 /** Node fill rendering mode. `solid` is a flat fill; `gradient` adds a subtle
  * top-to-bottom highlight derived from the node fill color. */
-export const FILL_STYLES = ["solid", "gradient"] as const;
+const FILL_STYLES = ["solid", "gradient"] as const;
 
 export type FillStyle = (typeof FILL_STYLES)[number];
 
 /** Horizontal text alignment within a node label. */
-export const TEXT_ALIGNS = ["left", "center", "right"] as const;
+const TEXT_ALIGNS = ["left", "center", "right"] as const;
 
 export type TextAlign = (typeof TEXT_ALIGNS)[number];
 
@@ -107,7 +107,7 @@ export type AspectRatioPreset = (typeof ASPECT_RATIO_PRESETS)[number];
 
 /** Canvas background style. `"blank"` is a solid fill; `"ruled"` adds horizontal
  * guide lines; `"dot-grid"` adds a dot-matrix grid. */
-export const CANVAS_STYLES = ["blank", "ruled", "dot-grid"] as const;
+const CANVAS_STYLES = ["blank", "ruled", "dot-grid"] as const;
 
 export type CanvasStyle = (typeof CANVAS_STYLES)[number];
 
@@ -116,7 +116,7 @@ export type CanvasStyle = (typeof CANVAS_STYLES)[number];
 // ---------------------------------------------------------------------------
 
 /** The supported visual effect kinds. Designed to be extended (texture, glow, etc.). */
-export const EFFECT_KINDS = ["shadow", "sketch"] as const;
+const EFFECT_KINDS = ["shadow", "sketch"] as const;
 
 export type EffectKind = (typeof EFFECT_KINDS)[number];
 
@@ -148,7 +148,7 @@ export interface SketchEffect {
 /** A discriminated union of all supported visual effects. */
 export type VisualEffect = ShadowEffect | SketchEffect;
 
-export function isEffectKind(value: unknown): value is EffectKind {
+function isEffectKind(value: unknown): value is EffectKind {
   return (
     typeof value === "string" &&
     (EFFECT_KINDS as readonly string[]).includes(value)
@@ -275,8 +275,8 @@ export interface Visual {
 
 export const DEFAULT_NODE_WIDTH = 150;
 export const DEFAULT_NODE_HEIGHT = 56;
-export const DEFAULT_CANVAS_WIDTH = 760;
-export const DEFAULT_CANVAS_HEIGHT = 480;
+const DEFAULT_CANVAS_WIDTH = 760;
+const DEFAULT_CANVAS_HEIGHT = 480;
 
 export const DEFAULT_PALETTE = [
   "#6366f1", // indigo
@@ -340,49 +340,49 @@ export function isVisualKind(value: unknown): value is VisualKind {
   );
 }
 
-export function isNodeShape(value: unknown): value is NodeShape {
+function isNodeShape(value: unknown): value is NodeShape {
   return (
     typeof value === "string" &&
     (NODE_SHAPES as readonly string[]).includes(value)
   );
 }
 
-export function isEdgeStyle(value: unknown): value is EdgeStyle {
+function isEdgeStyle(value: unknown): value is EdgeStyle {
   return (
     typeof value === "string" &&
     (EDGE_STYLES as readonly string[]).includes(value)
   );
 }
 
-export function isArrowStyle(value: unknown): value is ArrowStyle {
+function isArrowStyle(value: unknown): value is ArrowStyle {
   return (
     typeof value === "string" &&
     (ARROW_STYLES as readonly string[]).includes(value)
   );
 }
 
-export function isLineStyle(value: unknown): value is LineStyle {
+function isLineStyle(value: unknown): value is LineStyle {
   return (
     typeof value === "string" &&
     (LINE_STYLES as readonly string[]).includes(value)
   );
 }
 
-export function isFillStyle(value: unknown): value is FillStyle {
+function isFillStyle(value: unknown): value is FillStyle {
   return (
     typeof value === "string" &&
     (FILL_STYLES as readonly string[]).includes(value)
   );
 }
 
-export function isTextAlign(value: unknown): value is TextAlign {
+function isTextAlign(value: unknown): value is TextAlign {
   return (
     typeof value === "string" &&
     (TEXT_ALIGNS as readonly string[]).includes(value)
   );
 }
 
-export function isAspectRatioPreset(
+function isAspectRatioPreset(
   value: unknown,
 ): value is AspectRatioPreset {
   return (
@@ -391,14 +391,14 @@ export function isAspectRatioPreset(
   );
 }
 
-export function isCanvasStyle(value: unknown): value is CanvasStyle {
+function isCanvasStyle(value: unknown): value is CanvasStyle {
   return (
     typeof value === "string" &&
     (CANVAS_STYLES as readonly string[]).includes(value)
   );
 }
 
-export class VisualValidationError extends Error {
+class VisualValidationError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "VisualValidationError";

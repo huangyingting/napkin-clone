@@ -6,7 +6,7 @@
  */
 
 /** Accepted font MIME types. */
-export const FONT_ACCEPTED_TYPES = [
+const FONT_ACCEPTED_TYPES = [
   "font/ttf",
   "font/otf",
   "font/woff",
@@ -20,7 +20,7 @@ export const FONT_ACCEPTED_TYPES = [
 ] as const;
 
 /** Accepted image MIME types for logos. */
-export const LOGO_ACCEPTED_TYPES = [
+const LOGO_ACCEPTED_TYPES = [
   "image/png",
   "image/jpeg",
   "image/svg+xml",

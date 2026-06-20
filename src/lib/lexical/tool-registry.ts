@@ -161,7 +161,7 @@ const registry = new Map<string, EditorTool>();
 const order: string[] = [];
 
 /** Register (or replace) a single tool, preserving first-seen ordering. */
-export function registerTool(tool: EditorTool): void {
+function registerTool(tool: EditorTool): void {
   if (!registry.has(tool.id)) {
     order.push(tool.id);
   }
@@ -169,14 +169,14 @@ export function registerTool(tool: EditorTool): void {
 }
 
 /** Register many tools at once. */
-export function registerTools(tools: readonly EditorTool[]): void {
+function registerTools(tools: readonly EditorTool[]): void {
   for (const tool of tools) {
     registerTool(tool);
   }
 }
 
 /** All registered tools, in registration order. */
-export function getTools(): EditorTool[] {
+function getTools(): EditorTool[] {
   return order.map((id) => registry.get(id) as EditorTool);
 }
 
@@ -325,7 +325,7 @@ const onRangeSelection = (ctx: EditorContextSnapshot): boolean =>
  * surfaced too — the editor already applies them — so this exposes existing
  * capability rather than inventing new formatting.
  */
-export const TEXT_FORMAT_TOOLS: readonly EditorTool[] = [
+const TEXT_FORMAT_TOOLS: readonly EditorTool[] = [
   {
     id: "format-bold",
     group: "text-format",
@@ -583,7 +583,7 @@ const whenEditable = (ctx: EditorContextSnapshot): boolean => ctx.editable;
  * bullet/numbered list, quote, divider). Each `run` reuses that menu's block
  * transform via {@link applyBlockInsert}.
  */
-export const BLOCK_INSERT_TOOLS: readonly EditorTool[] = [
+const BLOCK_INSERT_TOOLS: readonly EditorTool[] = [
   {
     id: "insert-h2",
     group: "block-insert",
@@ -752,7 +752,7 @@ export const VISUAL_KIND_META: Record<VisualKind, VisualKindMeta> = {
  * active block) — the UI never builds a `VisualNode` or writes to the DB itself;
  * Tank's command handler owns insertion + selection + persistence.
  */
-export const VISUAL_INSERT_TOOLS: readonly EditorTool[] = VISUAL_KINDS.map(
+const VISUAL_INSERT_TOOLS: readonly EditorTool[] = VISUAL_KINDS.map(
   (kind) => {
     const meta = VISUAL_KIND_META[kind];
     return {

@@ -4,7 +4,7 @@ import { FIXTURES } from "@/lib/visual/fixtures";
 import { VISUAL_KIND_TO_PRISMA } from "@/lib/visual/schema";
 
 /** Title of the first-run sample document seeded for new users. */
-export const SAMPLE_DOCUMENT_TITLE = "Welcome to Napkin Clone";
+const SAMPLE_DOCUMENT_TITLE = "Welcome to Napkin Clone";
 
 /**
  * Example Markdown for the first-run sample document. Uses only the block kinds

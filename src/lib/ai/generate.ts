@@ -30,10 +30,10 @@ export const MAX_INPUT_CHARS = 10_000;
 export const MIN_CANDIDATES = 3;
 
 /** Upper bound on returned candidates to keep responses small. */
-export const MAX_CANDIDATES = 6;
+const MAX_CANDIDATES = 6;
 
 /** Default number of LLM attempts (the first try plus retries). */
-export const DEFAULT_MAX_ATTEMPTS = 2;
+const DEFAULT_MAX_ATTEMPTS = 2;
 
 /** Thrown when the input text is empty/blank. */
 export class EmptyInputError extends Error {

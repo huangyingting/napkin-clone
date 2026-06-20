@@ -153,7 +153,7 @@ export interface RateLimitResult {
  * logic is shared by the in-memory {@link checkRateLimit} and the async,
  * store-backed {@link checkRateLimitWithStore} so both behave identically.
  */
-export function computeRateLimit(
+function computeRateLimit(
   existing: RateLimitWindow | undefined,
   { limit, windowMs, now }: RateLimitOptions,
 ): { result: RateLimitResult; next: RateLimitWindow | null } {

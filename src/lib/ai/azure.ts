@@ -17,10 +17,10 @@
 import type { ChatMessage } from "@/lib/ai/prompt";
 
 /** Default deployment, per the PRD (targets gpt-5.5). Overridable via env. */
-export const DEFAULT_AZURE_DEPLOYMENT = "gpt-5.5";
+const DEFAULT_AZURE_DEPLOYMENT = "gpt-5.5";
 
 /** Default to the latest stable (GA) REST API version. Overridable via env. */
-export const DEFAULT_AZURE_API_VERSION = "2024-10-21";
+const DEFAULT_AZURE_API_VERSION = "2024-10-21";
 
 export interface AzureConfig {
   endpoint: string;
@@ -38,7 +38,7 @@ export class AzureConfigError extends Error {
 }
 
 /** Thrown when Azure OpenAI returns an error or an unusable response. */
-export class AzureRequestError extends Error {
+class AzureRequestError extends Error {
   readonly status?: number;
   constructor(message: string, status?: number) {
     super(message);

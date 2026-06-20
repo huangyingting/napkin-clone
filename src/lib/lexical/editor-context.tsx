@@ -121,7 +121,7 @@ export type EditorContextSnapshot = {
   rects: EditorContextRects;
 };
 
-export const EMPTY_EDITOR_CONTEXT: EditorContextSnapshot = {
+const EMPTY_EDITOR_CONTEXT: EditorContextSnapshot = {
   kind: "none",
   editable: false,
   isCollapsed: true,
