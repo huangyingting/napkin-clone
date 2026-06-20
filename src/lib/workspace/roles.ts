@@ -14,6 +14,26 @@ export type WorkspaceRole = (typeof WORKSPACE_ROLES)[number];
 
 const DEFAULT_WORKSPACE_ROLE: WorkspaceRole = "VIEWER";
 
+/**
+ * Roles that may legitimately be granted via a workspace invite link. `OWNER`
+ * is intentionally excluded — ownership is established at creation and cannot be
+ * handed out through an invite. Invite creation and acceptance both validate the
+ * requested role against this allowlist server-side (issue #103).
+ */
+export const INVITABLE_WORKSPACE_ROLES = ["EDITOR", "VIEWER"] as const;
+
+export type InvitableWorkspaceRole = (typeof INVITABLE_WORKSPACE_ROLES)[number];
+
+/** Whether `value` is a role that an invite link is allowed to grant. */
+export function isInvitableWorkspaceRole(
+  value: unknown,
+): value is InvitableWorkspaceRole {
+  return (
+    typeof value === "string" &&
+    (INVITABLE_WORKSPACE_ROLES as readonly string[]).includes(value)
+  );
+}
+
 function isWorkspaceRole(value: unknown): value is WorkspaceRole {
   return (
     typeof value === "string" &&

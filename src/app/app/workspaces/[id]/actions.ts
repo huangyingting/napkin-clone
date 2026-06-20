@@ -7,7 +7,11 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { BLANK_TEMPLATE_ID, getTemplateOrBlank } from "@/lib/templates/catalog";
-import { asWorkspaceRole, type WorkspaceRole } from "@/lib/workspace/roles";
+import {
+  asWorkspaceRole,
+  isInvitableWorkspaceRole,
+  type WorkspaceRole,
+} from "@/lib/workspace/roles";
 
 /** Maximum stored document title length (mirrors the editor's title save). */
 const MAX_TITLE_LENGTH = 200;
@@ -47,6 +51,21 @@ export type InviteLink = {
   token: string;
   role: WorkspaceRole;
   createdAt: Date;
+  expiresAt: Date | null;
+  maxUses: number | null;
+  useCount: number;
+};
+
+/** Options accepted when creating an invite link (issue #103). */
+export type CreateInviteLinkOptions = {
+  /**
+   * Days until the link expires. `null`/omitted = never expires. Expiry is
+   * computed server-side from the current time so the client clock is never
+   * trusted.
+   */
+  expiresInDays?: number | null;
+  /** Maximum accepted joins. `null`/omitted = unlimited. */
+  maxUses?: number | null;
 };
 
 export type WorkspaceDocument = {
@@ -55,11 +74,27 @@ export type WorkspaceDocument = {
   updatedAt: Date;
 };
 
+const MILLIS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/** Largest accepted expiry window, guarding against overflow/typos. */
+const MAX_EXPIRY_DAYS = 365;
+
+/** Largest accepted usage cap. */
+const MAX_USES_LIMIT = 10_000;
+
 export async function createInviteLink(
   workspaceId: string,
   role: WorkspaceRole,
+  options: CreateInviteLinkOptions = {},
 ): Promise<InviteLink> {
   const user = await requireUser();
+
+  // Validate the requested role SERVER-SIDE against the invitable roles; never
+  // trust the client to send a permissible value (issue #103). OWNER and any
+  // unknown value are rejected here rather than persisted.
+  if (!isInvitableWorkspaceRole(role)) {
+    throw new Error(`Invalid invite role: ${String(role)}.`);
+  }
 
   // Verify user is the workspace owner
   const workspace = await prisma.workspace.findFirst({
@@ -70,18 +105,57 @@ export async function createInviteLink(
     throw new Error("Workspace not found or unauthorized.");
   }
 
+  const expiresAt = normalizeExpiry(options.expiresInDays);
+  const maxUses = normalizeMaxUses(options.maxUses);
+
   const inviteLink = await prisma.inviteLink.create({
     data: {
       workspaceId,
       token: nanoid(16),
       role,
       createdById: user.id,
+      expiresAt,
+      maxUses,
     },
-    select: { id: true, token: true, role: true, createdAt: true },
+    select: {
+      id: true,
+      token: true,
+      role: true,
+      createdAt: true,
+      expiresAt: true,
+      maxUses: true,
+      useCount: true,
+    },
   });
 
   revalidatePath(`/app/workspaces/${workspaceId}`);
   return { ...inviteLink, role: asWorkspaceRole(inviteLink.role) };
+}
+
+/** Converts an optional expiry window in days to an absolute timestamp. */
+function normalizeExpiry(expiresInDays?: number | null): Date | null {
+  if (expiresInDays === null || expiresInDays === undefined) {
+    return null;
+  }
+  if (
+    !Number.isFinite(expiresInDays) ||
+    expiresInDays <= 0 ||
+    expiresInDays > MAX_EXPIRY_DAYS
+  ) {
+    throw new Error(`Invalid invite expiry: ${String(expiresInDays)} days.`);
+  }
+  return new Date(Date.now() + expiresInDays * MILLIS_PER_DAY);
+}
+
+/** Validates an optional usage cap. */
+function normalizeMaxUses(maxUses?: number | null): number | null {
+  if (maxUses === null || maxUses === undefined) {
+    return null;
+  }
+  if (!Number.isInteger(maxUses) || maxUses <= 0 || maxUses > MAX_USES_LIMIT) {
+    throw new Error(`Invalid invite usage limit: ${String(maxUses)}.`);
+  }
+  return maxUses;
 }
 
 export async function revokeInviteLink(linkId: string): Promise<void> {
