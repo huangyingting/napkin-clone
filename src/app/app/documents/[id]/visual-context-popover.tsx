@@ -178,7 +178,7 @@ const KIND_OPTIONS: SegmentedOption<VisualKind>[] = VISUAL_KINDS.map((kind) => {
 // Section navigation
 // ---------------------------------------------------------------------------
 
-type MenuSection =
+export type MenuSection =
   | "export"
   | "effects"
   | "colors"
@@ -739,6 +739,14 @@ export type VisualContextPopoverProps = {
    *   overlay/portal, suitable for hosting inside the docked {@link EditingRail}.
    */
   mode?: "float" | "panel";
+  /**
+   * External navigation trigger from the on-canvas quick-action bar.
+   * When `seq` increments the popover jumps to `section` (or back to the main
+   * menu when `section` is `null`). Using a sequence counter lets the same
+   * section be requested twice in a row (e.g. user navigates away inside the
+   * popover, then clicks the bar button again).
+   */
+  sectionNav?: { section: MenuSection | null; seq: number };
 };
 
 function PopoverShell({
@@ -860,6 +868,7 @@ export function VisualContextPopover({
   currentSourceText,
   onApplyBrandToAll,
   mode = "float",
+  sectionNav,
 }: VisualContextPopoverProps) {
   const measureRef = useRef<HTMLDivElement | null>(null);
 
@@ -870,6 +879,16 @@ export function VisualContextPopover({
 
   // Drill-down navigation: null = main menu, string = active submenu section
   const [activeSection, setActiveSection] = useState<MenuSection | null>(null);
+
+  // External navigation trigger from the on-canvas quick-action bar.
+  // Tracks the last processed sequence number to detect new requests.
+  const sectionNavSeq = useRef(-1);
+  useEffect(() => {
+    if (sectionNav && sectionNav.seq !== sectionNavSeq.current) {
+      sectionNavSeq.current = sectionNav.seq;
+      setActiveSection(sectionNav.section);
+    }
+  }, [sectionNav]);
 
   // Colors submenu: progressive disclosure for per-color overrides
   const [customizeOpen, setCustomizeOpen] = useState(false);
