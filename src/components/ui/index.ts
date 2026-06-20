@@ -44,6 +44,9 @@ export type { PopoverProps } from "./popover";
 export { Switch } from "./switch";
 export type { SwitchProps } from "./switch";
 
+export { Skeleton, LoadingRegion } from "./skeleton";
+export type { LoadingRegionProps } from "./skeleton";
+
 export {
   dialogReducer,
   getTabbableElements,
