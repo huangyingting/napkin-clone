@@ -7,7 +7,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { countWords, computeCreditCost } from "@/lib/billing/credits";
+import {
+  countWords,
+  computeCreditCost,
+  hasSufficientCredits,
+} from "@/lib/billing/credits";
 
 describe("countWords", () => {
   it("counts whitespace-delimited tokens", () => {
@@ -54,6 +58,21 @@ describe("computeCreditCost", () => {
   it("scales linearly with word count", () => {
     const words = Array.from({ length: 50 }, (_, i) => `word${i}`).join(" ");
     assert.strictEqual(computeCreditCost(words), 50);
+  });
+});
+
+describe("hasSufficientCredits", () => {
+  it("allows when balance exceeds cost", () => {
+    assert.strictEqual(hasSufficientCredits(100, 10), true);
+  });
+
+  it("allows when balance exactly equals cost (boundary)", () => {
+    assert.strictEqual(hasSufficientCredits(10, 10), true);
+  });
+
+  it("denies when balance is below cost (insufficient credits)", () => {
+    assert.strictEqual(hasSufficientCredits(9, 10), false);
+    assert.strictEqual(hasSufficientCredits(0, 1), false);
   });
 });
 

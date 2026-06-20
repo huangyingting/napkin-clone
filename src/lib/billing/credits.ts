@@ -35,6 +35,15 @@ export function computeCreditCost(text: string): number {
   return countWords(text);
 }
 
+/**
+ * Pure decision: does `balance` cover `cost`? Returns `true` when the user can
+ * afford the request (i.e. the balance is at least the cost). Extracted so the
+ * insufficient-credit gate can be unit-tested without a DB.
+ */
+export function hasSufficientCredits(balance: number, cost: number): boolean {
+  return balance >= cost;
+}
+
 // ---------------------------------------------------------------------------
 // DB helpers (server-only)
 // ---------------------------------------------------------------------------
@@ -131,7 +140,7 @@ export async function deductCredits(
     select: { creditBalance: true },
   });
 
-  if (user.creditBalance < cost) {
+  if (!hasSufficientCredits(user.creditBalance, cost)) {
     throw new InsufficientCreditsError(user.creditBalance, cost);
   }
 

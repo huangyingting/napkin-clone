@@ -12,6 +12,9 @@ import {
   getEntitlements,
   hasEntitlement,
   isPlan,
+  isUnlimitedCreditsEnabled,
+  parseBillingFlag,
+  BILLING_UNLIMITED_CREDITS_ENV,
   type Plan,
 } from "@/lib/billing/entitlements";
 
@@ -112,5 +115,51 @@ describe("hasEntitlement", () => {
 
   it("unknown plan falls back to free (svgExport = false)", () => {
     assert.strictEqual(hasEntitlement("unknown", "svgExport"), false);
+  });
+});
+
+describe("parseBillingFlag", () => {
+  it("treats 1/true/yes/on (any case) as true", () => {
+    for (const v of ["1", "true", "TRUE", "Yes", "on", "  on  "]) {
+      assert.strictEqual(parseBillingFlag(v), true, `expected true for ${v}`);
+    }
+  });
+
+  it("treats everything else as false", () => {
+    for (const v of ["0", "false", "no", "off", "", "maybe", undefined, null]) {
+      assert.strictEqual(
+        parseBillingFlag(v),
+        false,
+        `expected false for ${String(v)}`,
+      );
+    }
+  });
+});
+
+describe("isUnlimitedCreditsEnabled", () => {
+  it("defaults to false (production-safe) when the flag is unset", () => {
+    assert.strictEqual(isUnlimitedCreditsEnabled({}), false);
+  });
+
+  it("is enabled only when the env flag is explicitly truthy", () => {
+    assert.strictEqual(
+      isUnlimitedCreditsEnabled({ [BILLING_UNLIMITED_CREDITS_ENV]: "true" }),
+      true,
+    );
+    assert.strictEqual(
+      isUnlimitedCreditsEnabled({ [BILLING_UNLIMITED_CREDITS_ENV]: "1" }),
+      true,
+    );
+    assert.strictEqual(
+      isUnlimitedCreditsEnabled({ [BILLING_UNLIMITED_CREDITS_ENV]: "false" }),
+      false,
+    );
+  });
+
+  it("is NOT unlimited by default in production", () => {
+    assert.strictEqual(
+      isUnlimitedCreditsEnabled({ NODE_ENV: "production" }),
+      false,
+    );
   });
 });

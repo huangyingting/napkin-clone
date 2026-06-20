@@ -31,7 +31,11 @@ export interface PlanEntitlements {
   removeWatermark: boolean;
   /** Allow uploading custom fonts. */
   fontUpload: boolean;
-  /** Allow purchasing credit top-ups. */
+  /**
+   * Plan metadata flag for future credit top-up purchases. NOTE: top-up
+   * purchasing is not yet implemented, so this flag is intentionally not
+   * surfaced as a purchasable affordance in the UI (see issue #97).
+   */
   topUps: boolean;
 }
 
@@ -79,11 +83,38 @@ export const PLAN_NAMES: Record<Plan, string> = {
 };
 
 /**
- * When `true`, authenticated users are never metered: AI credits are unlimited.
- * Credit pre-checks and deductions are skipped and usage is shown as
- * "Unlimited" in the UI. Anonymous trial users remain rate-limited.
+ * Environment variable that gates the "unlimited credits" behaviour. When set
+ * to a truthy value (`1`, `true`, `yes`, `on`) authenticated users are never
+ * metered. It defaults to OFF, so production is metered unless an operator
+ * explicitly opts in.
  */
-export const UNLIMITED_CREDITS = true;
+export const BILLING_UNLIMITED_CREDITS_ENV = "BILLING_UNLIMITED_CREDITS";
+
+/**
+ * Parses a boolean-ish environment flag. Recognises `1/true/yes/on` (any case)
+ * as `true`; everything else (including `undefined`) is `false`.
+ */
+export function parseBillingFlag(value: string | null | undefined): boolean {
+  if (!value) return false;
+  return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
+}
+
+/**
+ * Returns whether unlimited AI credits are enabled for the current environment.
+ *
+ * Driven entirely by {@link BILLING_UNLIMITED_CREDITS_ENV}. The default is
+ * `false` (production-safe): users are metered unless an operator explicitly
+ * opts into unlimited credits. When `true`, credit pre-checks and deductions
+ * are skipped and usage is shown as "Unlimited" in the UI. Anonymous trial
+ * users remain rate-limited regardless.
+ *
+ * Pure: pass an explicit `env` in tests; defaults to `process.env`.
+ */
+export function isUnlimitedCreditsEnabled(
+  env: Record<string, string | undefined> = process.env,
+): boolean {
+  return parseBillingFlag(env[BILLING_UNLIMITED_CREDITS_ENV]);
+}
 
 // ---------------------------------------------------------------------------
 // Helpers

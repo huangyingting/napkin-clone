@@ -12,7 +12,10 @@ import { createTranslator } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
-import { getEntitlements, UNLIMITED_CREDITS } from "@/lib/billing/entitlements";
+import {
+  getEntitlements,
+  isUnlimitedCreditsEnabled,
+} from "@/lib/billing/entitlements";
 
 export async function SiteHeader() {
   const sessionUser = await getCurrentUser();
@@ -29,10 +32,11 @@ export async function SiteHeader() {
   const entitlements = account ? getEntitlements(account.plan) : null;
   const creditBalance = account?.creditBalance ?? 0;
   const creditsPerPeriod = entitlements?.creditsPerPeriod ?? 0;
-  const creditCount = UNLIMITED_CREDITS
+  const unlimitedCredits = isUnlimitedCreditsEnabled();
+  const creditCount = unlimitedCredits
     ? "Unlimited"
     : creditBalance.toLocaleString();
-  const creditTitle = UNLIMITED_CREDITS
+  const creditTitle = unlimitedCredits
     ? "Unlimited credits"
     : `${creditBalance} / ${creditsPerPeriod} credits remaining`;
 

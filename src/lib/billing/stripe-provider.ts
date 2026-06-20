@@ -92,9 +92,10 @@ export class StripeBillingProvider implements BillingProvider {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
     const stripe = await loadStripe();
 
-    // Look up or create a Stripe customer
+    // Look up or create a Stripe customer (reuse the stored customer id; it can
+    // outlive any single subscription).
     const sub = await prisma.subscription.findUnique({ where: { userId } });
-    let customerId: string | undefined = sub?.externalId ?? undefined;
+    let customerId: string | undefined = sub?.stripeCustomerId ?? undefined;
 
     if (!customerId) {
       const customer = await stripe.customers.create({
@@ -102,6 +103,27 @@ export class StripeBillingProvider implements BillingProvider {
         metadata: { userId },
       });
       customerId = customer.id;
+
+      // Persist the customer id immediately so a retried checkout doesn't create
+      // a duplicate Stripe customer.
+      const now = new Date();
+      const entitlements = getEntitlements(targetPlan);
+      const periodEnd = new Date(
+        now.getTime() + entitlements.periodDays * 24 * 60 * 60 * 1000,
+      );
+      await prisma.subscription.upsert({
+        where: { userId },
+        create: {
+          userId,
+          plan: sub?.plan ?? "free",
+          status: sub?.status ?? "inactive",
+          stripeCustomerId: customerId,
+          currentPeriodStart: now,
+          currentPeriodEnd: periodEnd,
+          cancelAtPeriodEnd: false,
+        },
+        update: { stripeCustomerId: customerId },
+      });
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -123,7 +145,7 @@ export class StripeBillingProvider implements BillingProvider {
 
   async cancelSubscription(userId: string): Promise<ChangePlanResult> {
     const sub = await prisma.subscription.findUnique({ where: { userId } });
-    if (!sub?.externalId) {
+    if (!sub?.stripeSubscriptionId) {
       // No Stripe subscription on record — downgrade locally
       await this._applyFreePlan(userId);
       return {
@@ -134,7 +156,7 @@ export class StripeBillingProvider implements BillingProvider {
     }
 
     const stripe = await loadStripe();
-    await stripe.subscriptions.update(sub.externalId, {
+    await stripe.subscriptions.update(sub.stripeSubscriptionId, {
       cancel_at_period_end: true,
     });
 
@@ -191,6 +213,101 @@ export class StripeBillingProvider implements BillingProvider {
 // Webhook event handler (shared with /api/billing/webhook)
 // ---------------------------------------------------------------------------
 
+/** Minimal shape of the Stripe Subscription object fields we consume. */
+export interface StripeSubscriptionLike {
+  id?: string;
+  status?: string;
+  cancel_at_period_end?: boolean;
+  /** Unix seconds. */
+  current_period_start?: number;
+  /** Unix seconds. */
+  current_period_end?: number;
+  items?: { data?: Array<{ price?: { id?: string } }> };
+}
+
+/** The subset of subscription state a webhook event resolves to. */
+export interface ReducedSubscriptionState {
+  status: string;
+  cancelAtPeriodEnd: boolean;
+  plan?: Plan;
+  currentPeriodStart?: Date;
+  currentPeriodEnd?: Date;
+}
+
+/**
+ * Maps a Stripe subscription `status` to our internal status vocabulary
+ * (`active` | `past_due` | `cancelled` | `inactive`). Pure.
+ */
+export function mapStripeSubscriptionStatus(
+  status: string | undefined,
+): string {
+  switch (status) {
+    case "active":
+    case "trialing":
+      return "active";
+    case "past_due":
+    case "unpaid":
+      return "past_due";
+    case "canceled":
+    case "incomplete_expired":
+      return "cancelled";
+    default:
+      return "inactive";
+  }
+}
+
+/**
+ * Resolves a Stripe Price id to one of our plans using the configured price-id
+ * env vars. Returns `null` when the price is unknown. Pure.
+ */
+export function planFromPriceId(
+  priceId: string | undefined | null,
+  env: Record<string, string | undefined> = process.env,
+): Plan | null {
+  if (!priceId) return null;
+  if (priceId === env.STRIPE_PLUS_PRICE_ID) return "plus";
+  if (priceId === env.STRIPE_PRO_PRICE_ID) return "pro";
+  return null;
+}
+
+/**
+ * Pure reducer: maps a Stripe subscription event to the subscription state we
+ * persist. Handles update / delete / cancel reliably:
+ *
+ * - `customer.subscription.deleted` → cancelled + free plan.
+ * - `customer.subscription.updated` (and created) → mapped status, period
+ *   window, cancellation intent, and (when resolvable) the plan from the line
+ *   item price id.
+ *
+ * No DB or network access — unit-tested directly.
+ */
+export function reduceStripeSubscriptionEvent(
+  eventType: string,
+  sub: StripeSubscriptionLike,
+  env: Record<string, string | undefined> = process.env,
+): ReducedSubscriptionState {
+  if (eventType === "customer.subscription.deleted") {
+    return { status: "cancelled", cancelAtPeriodEnd: false, plan: "free" };
+  }
+
+  const state: ReducedSubscriptionState = {
+    status: mapStripeSubscriptionStatus(sub.status),
+    cancelAtPeriodEnd: Boolean(sub.cancel_at_period_end),
+  };
+
+  if (typeof sub.current_period_start === "number") {
+    state.currentPeriodStart = new Date(sub.current_period_start * 1000);
+  }
+  if (typeof sub.current_period_end === "number") {
+    state.currentPeriodEnd = new Date(sub.current_period_end * 1000);
+  }
+
+  const plan = planFromPriceId(sub.items?.data?.[0]?.price?.id, env);
+  if (plan) state.plan = plan;
+
+  return state;
+}
+
 export async function handleStripeWebhookEvent(
   rawBody: string,
   signature: string,
@@ -220,10 +337,12 @@ export async function handleStripeWebhookEvent(
         const periodEnd = new Date(
           now.getTime() + entitlements.periodDays * 24 * 60 * 60 * 1000,
         );
-        const externalSubId =
+        const stripeSubscriptionId =
           typeof session.subscription === "string"
             ? session.subscription
             : undefined;
+        const stripeCustomerId =
+          typeof session.customer === "string" ? session.customer : undefined;
 
         await prisma.$transaction([
           prisma.user.update({
@@ -240,7 +359,8 @@ export async function handleStripeWebhookEvent(
               userId,
               plan,
               status: "active",
-              externalId: externalSubId,
+              stripeCustomerId,
+              stripeSubscriptionId,
               currentPeriodStart: now,
               currentPeriodEnd: periodEnd,
               cancelAtPeriodEnd: false,
@@ -248,7 +368,8 @@ export async function handleStripeWebhookEvent(
             update: {
               plan,
               status: "active",
-              externalId: externalSubId,
+              stripeCustomerId,
+              stripeSubscriptionId,
               currentPeriodStart: now,
               currentPeriodEnd: periodEnd,
               cancelAtPeriodEnd: false,
@@ -260,30 +381,48 @@ export async function handleStripeWebhookEvent(
     }
 
     case "customer.subscription.updated": {
-      const stripeSub = event.data.object;
-      const externalId = stripeSub.id as string;
+      const stripeSub = event.data.object as StripeSubscriptionLike;
+      const stripeSubscriptionId = stripeSub.id;
+      if (!stripeSubscriptionId) break;
       const sub = await prisma.subscription.findUnique({
-        where: { externalId },
+        where: { stripeSubscriptionId },
       });
       if (sub) {
-        const status =
-          (stripeSub.status as string) === "active" ? "active" : "past_due";
-        const cancelAtPeriodEnd = Boolean(stripeSub.cancel_at_period_end);
+        const next = reduceStripeSubscriptionEvent(event.type, stripeSub);
         await prisma.subscription.update({
-          where: { externalId },
-          data: { status, cancelAtPeriodEnd },
+          where: { stripeSubscriptionId },
+          data: {
+            status: next.status,
+            cancelAtPeriodEnd: next.cancelAtPeriodEnd,
+            ...(next.plan ? { plan: next.plan } : {}),
+            ...(next.currentPeriodStart
+              ? { currentPeriodStart: next.currentPeriodStart }
+              : {}),
+            ...(next.currentPeriodEnd
+              ? { currentPeriodEnd: next.currentPeriodEnd }
+              : {}),
+          },
         });
+        // Keep the user's plan in sync when the subscription's plan changes.
+        if (next.plan) {
+          await prisma.user.update({
+            where: { id: sub.userId },
+            data: { plan: next.plan },
+          });
+        }
       }
       break;
     }
 
     case "customer.subscription.deleted": {
-      const stripeSub = event.data.object;
-      const externalId = stripeSub.id as string;
+      const stripeSub = event.data.object as StripeSubscriptionLike;
+      const stripeSubscriptionId = stripeSub.id;
+      if (!stripeSubscriptionId) break;
       const sub = await prisma.subscription.findUnique({
-        where: { externalId },
+        where: { stripeSubscriptionId },
       });
       if (sub) {
+        const next = reduceStripeSubscriptionEvent(event.type, stripeSub);
         const entitlements = getEntitlements("free");
         const now = new Date();
         await prisma.$transaction([
@@ -296,13 +435,13 @@ export async function handleStripeWebhookEvent(
             },
           }),
           prisma.subscription.update({
-            where: { externalId },
+            where: { stripeSubscriptionId },
             data: {
-              plan: "free",
-              status: "cancelled",
+              plan: next.plan ?? "free",
+              status: next.status,
               currentPeriodEnd: now,
               currentPeriodStart: now,
-              cancelAtPeriodEnd: false,
+              cancelAtPeriodEnd: next.cancelAtPeriodEnd,
             },
           }),
         ]);
