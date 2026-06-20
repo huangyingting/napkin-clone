@@ -51,6 +51,7 @@ import { InsertMenuPlugin } from "./insert-menu";
 import { InsertVisualPlugin } from "./insert-visual-plugin";
 import { Presence } from "./presence";
 import { ShareButton } from "./share-button";
+import { UndoRedoControls } from "./undo-redo-controls";
 import { TagControl } from "./tag-control";
 import type { DocumentTag } from "./tags-actions";
 import { VisualAnchorProvider } from "./visual-anchor-context";
@@ -472,6 +473,7 @@ export function LexicalEditor({
                 <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
                   <Presence peers={collab.peers} status={collab.status} />
                   {canEdit && <ImportPlugin />}
+                  {canEdit && <UndoRedoControls editable={editable} />}
                   <button
                     type="button"
                     title={
