@@ -1,18 +1,33 @@
+import { redirect } from "next/navigation";
+
 import { signIn } from "@/auth";
 import { safeCallbackUrl } from "@/lib/auth/callback-url";
 
 export function GoogleSignInButton({
   label = "Continue with Google",
   callbackUrl,
+  errorRedirectPath = "/login",
 }: {
   label?: string;
   callbackUrl?: string;
+  errorRedirectPath?: string;
 }) {
   return (
     <form
       action={async () => {
         "use server";
-        await signIn("google", { redirectTo: safeCallbackUrl(callbackUrl) });
+        try {
+          await signIn("google", { redirectTo: safeCallbackUrl(callbackUrl) });
+        } catch (error) {
+          // Re-throw Next.js redirect signals so the router can handle them.
+          if (
+            error instanceof Error &&
+            (error as { digest?: string }).digest?.startsWith("NEXT_REDIRECT")
+          ) {
+            throw error;
+          }
+          redirect(`${errorRedirectPath}?error=OAuthError`);
+        }
       }}
     >
       <button
