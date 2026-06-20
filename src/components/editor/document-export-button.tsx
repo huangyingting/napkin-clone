@@ -29,12 +29,10 @@ import {
 } from "@/lib/visual/document-export";
 import { DEFAULT_INFOGRAPHIC_CONFIG } from "@/lib/visual/infographic-layout";
 import { downloadBlob } from "@/lib/visual/export";
-import type { PlanEntitlements } from "@/lib/billing/entitlements";
+import { useUserEntitlements } from "@/lib/billing/use-user-entitlements";
 
 interface DocumentExportButtonProps {
   documentTitle: string;
-  /** Entitlements for the current user. Defaults to free-tier limits. */
-  entitlements?: Pick<PlanEntitlements, "removeWatermark">;
 }
 
 type ExportStatus = "idle" | "exporting" | "error";
@@ -48,10 +46,13 @@ const WIDTH_PRESET_LIST = (
  * A dropdown button placed in the editor header that exports the whole
  * document as a PDF, PPTX deck, or infographic PNG/PDF.
  * Uses `--ds-*` semantic tokens so it matches the surrounding app chrome.
+ *
+ * Fetches the current user's plan entitlements via /api/user/entitlements so
+ * that PPTX export and watermark removal are gated correctly for free, Plus,
+ * and Pro users (issue #93).
  */
 export function DocumentExportButton({
   documentTitle,
-  entitlements,
 }: DocumentExportButtonProps) {
   const [editor] = useLexicalComposerContext();
   const registry = useVisualSvgRegistry();
@@ -62,7 +63,9 @@ export function DocumentExportButton({
     useState<InfographicWidthPreset>("1080");
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const removeWatermark = entitlements?.removeWatermark ?? false;
+  const entitlements = useUserEntitlements();
+  const removeWatermark = entitlements.removeWatermark;
+  const canPptx = entitlements.pptxExport;
 
   // Close the menu on an outside click or Escape. A focus-based `onBlur` missed
   // clicks on non-focusable areas (plain page background), which left the menu
@@ -137,6 +140,7 @@ export function DocumentExportButton({
   };
 
   const handleExportPPTX = async () => {
+    if (!canPptx) return;
     setErrorMsg(null);
     setStatus("exporting");
     setIsOpen(false);
@@ -253,13 +257,28 @@ export function DocumentExportButton({
               type="button"
               role="menuitem"
               onClick={() => void handleExportPPTX()}
-              className={`flex w-full items-center justify-between rounded-ds-sm px-3 py-2 text-left text-sm text-ds-text-primary transition-colors hover:bg-ds-state-hover active:bg-ds-state-active ${FOCUS_RING}`}
+              disabled={!canPptx}
+              aria-disabled={!canPptx}
+              className={`flex w-full items-center justify-between rounded-ds-sm px-3 py-2 text-left text-sm transition-colors ${canPptx ? `text-ds-text-primary hover:bg-ds-state-hover active:bg-ds-state-active ${FOCUS_RING}` : "cursor-not-allowed text-ds-text-muted"}`}
             >
               <span>PPTX deck</span>
               <span className="text-xs text-ds-text-muted">
-                One slide per visual
+                {canPptx ? "One slide per visual" : "Plus / Pro"}
               </span>
             </button>
+            {!canPptx && (
+              <p className="px-3 pb-2 text-[10px] text-ds-text-muted">
+                PPTX export requires Plus or Pro.{" "}
+                <a
+                  href="/app/settings/billing"
+                  className="underline"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Upgrade
+                </a>{" "}
+                to unlock.
+              </p>
+            )}
           </div>
 
           {/* ── Infographic section ───────────────────────────────────── */}

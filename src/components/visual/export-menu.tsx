@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { FOCUS_RING } from "@/components/motion/control-styles";
 import { ExportDialog } from "@/components/visual/export-dialog";
+import { useUserEntitlements } from "@/lib/billing/use-user-entitlements";
 import type { Visual } from "@/lib/visual/schema";
 
 interface ExportMenuProps {
@@ -22,6 +23,10 @@ interface ExportMenuProps {
  * Export button that opens the advanced export dialog. Replaces the previous
  * inline dropdown — all export configuration (background, color mode,
  * resolution, format) happens inside the dialog with a live preview.
+ *
+ * Fetches the current user's plan entitlements via /api/user/entitlements so
+ * that SVG/PPTX format options and watermark removal are gated correctly for
+ * free, Plus, and Pro users (issue #93).
  */
 export function ExportMenu({
   getSvgElement,
@@ -29,6 +34,7 @@ export function ExportMenu({
   filename,
 }: ExportMenuProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const entitlements = useUserEntitlements();
 
   return (
     <>
@@ -48,6 +54,7 @@ export function ExportMenu({
         getSvgElement={getSvgElement}
         getVisual={getVisual}
         filename={filename}
+        entitlements={entitlements}
       />
     </>
   );
