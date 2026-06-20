@@ -94,6 +94,8 @@ export interface BrandStyle {
   nodeText: string | null;
   edgeColor: string | null;
   fontFamily: string | null;
+  /** Durable `data:` URL for an uploaded custom font (mirrors `logoUrl`). */
+  fontDataUrl: string | null;
   logoUrl: string | null;
   createdAt: string;
   updatedAt: string;
@@ -109,6 +111,8 @@ export interface BrandInput {
   nodeText?: string | null;
   edgeColor?: string | null;
   fontFamily?: string | null;
+  /** Durable `data:` URL for an uploaded custom font (mirrors `logoUrl`). */
+  fontDataUrl?: string | null;
   logoUrl?: string | null;
 }
 
@@ -184,6 +188,12 @@ export function validateBrandInput(
   const fontFamily =
     typeof r.fontFamily === "string" ? r.fontFamily.slice(0, 200) : null;
 
+  // fontDataUrl can be a large base64 data-URL (up to ~3 MB text for a 2 MB font).
+  const fontDataUrl =
+    typeof r.fontDataUrl === "string"
+      ? r.fontDataUrl.slice(0, 3 * 1024 * 1024)
+      : null;
+
   const logoUrl =
     typeof r.logoUrl === "string" ? r.logoUrl.slice(0, 2048) : null;
 
@@ -198,6 +208,7 @@ export function validateBrandInput(
       nodeText: optionalColor("nodeText") ?? null,
       edgeColor: optionalColor("edgeColor") ?? null,
       fontFamily,
+      fontDataUrl,
       logoUrl,
     },
   };

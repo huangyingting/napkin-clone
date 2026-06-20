@@ -53,6 +53,7 @@ const FULL_BRAND = {
   nodeText: "#881337",
   edgeColor: "#fda4af",
   fontFamily: "'Inter', sans-serif",
+  fontDataUrl: null,
   logoUrl: null,
   createdAt: "2024-01-01T00:00:00.000Z",
   updatedAt: "2024-01-01T00:00:00.000Z",
