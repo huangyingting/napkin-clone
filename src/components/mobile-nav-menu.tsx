@@ -120,3 +120,26 @@ export function MobileNavMenu({ children }: { children: ReactNode }) {
     </>
   );
 }
+
+/**
+ * Wrapper for drawer items that should NOT close the drawer when clicked
+ * (e.g. dropdown toggles). Stops the click from reaching the drawer's
+ * click-to-close handler. Exported so server components can compose it.
+ */
+export function MobileNavNonClosing({
+  className,
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className={className}
+      onClick={(event) => event.stopPropagation()}
+      role="presentation"
+    >
+      {children}
+    </div>
+  );
+}

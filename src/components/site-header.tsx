@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
 import { LanguageSwitcher } from "@/components/language-switcher";
-import { MobileNavMenu } from "@/components/mobile-nav-menu";
+import { MobileNavMenu, MobileNavNonClosing } from "@/components/mobile-nav-menu";
 import { SignOutButton } from "@/components/sign-out-button";
 import { UserMenu } from "@/components/user-menu";
 import { createTranslator } from "@/lib/i18n";
@@ -161,14 +161,10 @@ export async function SiteHeader() {
               <div className="my-2 border-t border-ghost-border" />
 
               {/* Utilities — prevent the drawer's click-to-close from firing */}
-              <div
-                className="flex flex-col gap-0.5"
-                onClick={(e) => e.stopPropagation()}
-                role="presentation"
-              >
+              <MobileNavNonClosing className="flex flex-col gap-0.5">
                 <LanguageSwitcher />
                 <KeyboardShortcuts />
-              </div>
+              </MobileNavNonClosing>
             </MobileNavMenu>
           </>
         ) : (
