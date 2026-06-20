@@ -19,8 +19,11 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 
 import { FOCUS_RING, GUTTER_BUTTON } from "@/components/motion/control-styles";
+import {
+  GeneratingIndicator,
+  VisualSkeleton,
+} from "@/components/motion/generation-status";
 import { usePopMotion } from "@/components/motion/reveal";
-import { ThinkingIndicator } from "@/components/motion/thinking-indicator";
 import { Button, Divider, FloatingSurface, IconButton } from "@/components/ui";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { cx } from "@/components/ui/tokens";
@@ -573,67 +576,106 @@ export function BlockSparkPlugin() {
           <div className="mb-1 text-[0.6875rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)]">
             Generate from this block
           </div>
-          {status === "loading" ? (
-            <ThinkingIndicator
-              label="Generating…"
-              className="px-1 py-4 text-sm text-[var(--ds-text-muted,#71717a)]"
-            />
-          ) : error !== null ? (
-            <div
-              role="alert"
-              className="flex flex-col items-start gap-2 px-1 py-2 text-sm text-[var(--ds-danger,#dc2626)]"
-            >
-              <span>{error}</span>
-              <Button
-                size="sm"
-                variant="subtle"
-                onClick={() =>
-                  panelTarget !== null
-                    ? void generate(panelTarget, genOptions)
-                    : undefined
-                }
+          <AnimatePresence mode="wait">
+            {status === "loading" ? (
+              <motion.div
+                key="loading"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="space-y-2"
               >
-                Try again
-              </Button>
-            </div>
-          ) : candidates.length > 0 ? (
-            <ul className="grid grid-cols-2 gap-2">
-              {candidates.map((candidate, index) => (
-                <li key={index}>
-                  <button
-                    type="button"
-                    aria-label={`Insert variation ${index + 1} of ${candidates.length}`}
-                    onClick={() => insertVisual(candidate)}
-                    className={cx(
-                      "group flex w-full flex-col overflow-hidden rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border,rgba(0,0,0,0.08))] bg-[var(--ds-surface,#ffffff)] p-1.5 text-left transition-colors hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
-                      FOCUS_RING,
-                    )}
-                  >
-                    <VisualRenderer
-                      visual={candidate}
-                      className="h-auto w-full"
-                    />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <Button
-              size="sm"
-              variant="solid"
-              leadingIcon={
-                <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
-              }
-              onClick={() =>
-                panelTarget !== null
-                  ? void generate(panelTarget, genOptions)
-                  : undefined
-              }
-              className="w-full"
-            >
-              Generate
-            </Button>
-          )}
+                {/* Skeleton candidates: stabilise the panel layout immediately */}
+                <ul className="grid grid-cols-2 gap-2">
+                  {[0, 1].map((i) => (
+                    <li key={i}>
+                      <VisualSkeleton />
+                    </li>
+                  ))}
+                </ul>
+                <GeneratingIndicator
+                  isLoading
+                  className="px-1 py-1 text-sm text-[var(--ds-text-muted,#71717a)]"
+                />
+              </motion.div>
+            ) : error !== null ? (
+              <motion.div
+                key="error"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                role="alert"
+                className="flex flex-col items-start gap-2 px-1 py-2 text-sm text-[var(--ds-danger,#dc2626)]"
+              >
+                <span>{error}</span>
+                <Button
+                  size="sm"
+                  variant="subtle"
+                  onClick={() =>
+                    panelTarget !== null
+                      ? void generate(panelTarget, genOptions)
+                      : undefined
+                  }
+                >
+                  Try again
+                </Button>
+              </motion.div>
+            ) : candidates.length > 0 ? (
+              <motion.ul
+                key="candidates"
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="grid grid-cols-2 gap-2"
+              >
+                {candidates.map((candidate, index) => (
+                  <li key={index}>
+                    <button
+                      type="button"
+                      aria-label={`Insert variation ${index + 1} of ${candidates.length}`}
+                      onClick={() => insertVisual(candidate)}
+                      className={cx(
+                        "group flex w-full flex-col overflow-hidden rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border,rgba(0,0,0,0.08))] bg-[var(--ds-surface,#ffffff)] p-1.5 text-left transition-colors hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
+                        FOCUS_RING,
+                      )}
+                    >
+                      <VisualRenderer
+                        visual={candidate}
+                        className="h-auto w-full"
+                      />
+                    </button>
+                  </li>
+                ))}
+              </motion.ul>
+            ) : (
+              <motion.div
+                key="idle"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+              >
+                <Button
+                  size="sm"
+                  variant="solid"
+                  leadingIcon={
+                    <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
+                  }
+                  onClick={() =>
+                    panelTarget !== null
+                      ? void generate(panelTarget, genOptions)
+                      : undefined
+                  }
+                  className="w-full"
+                >
+                  Generate
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <Divider orientation="horizontal" className="my-3" />
 
