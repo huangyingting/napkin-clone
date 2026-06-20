@@ -20,6 +20,7 @@ import {
   cx,
 } from "@/components/ui";
 import { useEditorContext } from "@/lib/lexical/editor-context";
+import { shouldShowOverallToolbox } from "@/lib/lexical/overall-toolbox";
 import {
   formatShortcut,
   isToolActive,
@@ -36,6 +37,7 @@ import { useVisualSvgRegistry } from "@/components/editor/visual-svg-registry";
 import { $isVisualNode, VisualNode } from "./visual-node";
 import { VisualContextPopover } from "./visual-context-popover";
 import { useVisualPanel } from "./visual-panel-context";
+import { OverallAdjustmentsPanel } from "./overall-adjustments-panel";
 
 // Block types from which a visual can derive source text (mirrors VisualCard).
 const SOURCE_TEXT_BLOCK_TYPES = new Set([
@@ -423,6 +425,8 @@ function VisualContextSection() {
  * - `kind === "range"` → text-format toolbar
  * - `kind === "visual"` → visual editing controls (VisualContextPopover in
  *   panel mode, reading node data directly from the Lexical editor state)
+ * - `kind === "none" | "empty-block"` → document-level overall adjustments
+ *   toolbox (theme/brand to all visuals, A4 toggle, export)
  *
  * At narrower viewports the `lg:flex` class hides the rail; the existing
  * floating surfaces handle those widths unchanged.
@@ -431,10 +435,20 @@ function VisualContextSection() {
  * {@link useEditorContext} and mutate exclusively via Lexical
  * commands / `editor.update()`.
  */
-export function EditingRail() {
+export function EditingRail({
+  documentTitle,
+  showPageBreaks,
+  onTogglePageBreaks,
+}: {
+  documentTitle?: string;
+  showPageBreaks?: boolean;
+  onTogglePageBreaks?: () => void;
+}) {
   const ctx = useEditorContext();
 
-  const hasContent = ctx.kind === "range" || ctx.kind === "visual";
+  const showOverall = shouldShowOverallToolbox(ctx.kind);
+  const hasContent =
+    ctx.kind === "range" || ctx.kind === "visual" || showOverall;
 
   return (
     <aside
@@ -448,15 +462,35 @@ export function EditingRail() {
       )}
     >
       {hasContent ? (
-        <Surface
-          elevation="flat"
-          radius="sm"
-          bordered={false}
-          className="flex-1"
-        >
-          {ctx.kind === "range" && <TextFormatSection />}
-          {ctx.kind === "visual" && <VisualContextSection />}
-        </Surface>
+        <>
+          {ctx.kind === "range" && (
+            <Surface
+              elevation="flat"
+              radius="sm"
+              bordered={false}
+              className="flex-1"
+            >
+              <TextFormatSection />
+            </Surface>
+          )}
+          {ctx.kind === "visual" && (
+            <Surface
+              elevation="flat"
+              radius="sm"
+              bordered={false}
+              className="flex-1"
+            >
+              <VisualContextSection />
+            </Surface>
+          )}
+          {showOverall && (
+            <OverallAdjustmentsPanel
+              documentTitle={documentTitle}
+              showPageBreaks={showPageBreaks ?? false}
+              onTogglePageBreaks={onTogglePageBreaks ?? (() => undefined)}
+            />
+          )}
+        </>
       ) : (
         <div className="p-4 text-[12px] text-[var(--ds-text-muted,#6f7d83)]">
           Select text or a visual to see editing options.
