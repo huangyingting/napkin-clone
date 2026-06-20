@@ -246,6 +246,15 @@ const setupConnection = (conn, roomName, readOnly = false) => {
 /** Number of in-memory rooms, exposed for health checks. */
 export const roomCount = () => docs.size;
 
+/** Total number of active WebSocket connections across all rooms. */
+export const connCount = () => {
+  let total = 0;
+  for (const doc of docs.values()) {
+    total += doc.conns.size;
+  }
+  return total;
+};
+
 /**
  * Writes a minimal HTTP error response to a raw upgrade socket and destroys it,
  * so an unauthorized/forbidden upgrade is refused with a real status code

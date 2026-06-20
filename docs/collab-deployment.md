@@ -6,8 +6,10 @@ merges) is powered by a self-hosted Yjs websocket sync server,
 connects to it through the [`useCollaboration`](../src/lib/collab/use-collaboration.ts)
 hook.
 
-This document describes how to run that server in production, its current
-single-instance limitation, and concrete options for scaling and persistence.
+This document describes how to run that server in production, the **required
+single-instance operational constraint**, what happens to live rooms on restart
+or deploy, and the upgrade paths for when you need horizontal scale or durable
+collab state.
 
 > **No application change is required to read this document.** It explains the
 > existing behavior and the upgrade paths; the app already degrades gracefully to
@@ -23,45 +25,187 @@ single-instance limitation, and concrete options for scaling and persistence.
 - Holds **one in-memory `Y.Doc` ("room") per document id**. Clients connect to
   `ws://host:port/<documentId>` — the path segment is the room name.
 - Tracks presence (awareness) per room and relays it to the other clients.
-- Exposes a plain-HTTP `GET /health` endpoint returning
-  `{ "ok": true, "rooms": <number> }` for liveness/readiness probes.
+- Exposes a plain-HTTP `GET /health` endpoint (see [Health endpoint](#health-endpoint))
+  for liveness/readiness probes and operational visibility.
 - Keeps a room in memory after its last client disconnects, so a reconnecting
   client re-syncs without a round-trip to the database.
 
 It is **runtime tooling, not part of the Next.js bundle** — it runs as its own
 Node process alongside the web app.
 
+## Required operational constraint: single instance
+
+> **You MUST run exactly one instance of the collaboration server.** Running
+> multiple instances without sticky routing will cause silent edit divergence and
+> is actively blocked by the startup guard (see below).
+
+The server stores every room's `Y.Doc` in a **process-local `Map`** that is
+never shared with other processes. If you run more than one instance behind a
+load balancer without sticky routing, two clients editing the same document but
+routed to different instances each get a separate in-memory room — **they will
+not see each other's edits or presence**, and Yjs cannot merge across the gap.
+This is data-correctness corruption, not just a performance issue.
+
+### Declaring single-instance mode
+
+Set `COLLAB_SINGLE_INSTANCE=1` in your production environment to explicitly
+declare that you are running a single instance. The server will log
+`[mode: single-instance]` at startup and the `/health` endpoint will report
+`"mode": "single-instance"` with no warnings.
+
+```bash
+COLLAB_SINGLE_INSTANCE=1 COLLAB_PORT=1234 npm run collab
+```
+
+Without this flag the server starts with an advisory warning reminding you to
+set it. The server is still **healthy** in this case (a single unannounced
+instance is fine), but the warning is logged on every start to prompt
+intentional configuration.
+
+### Multi-instance with sticky routing (stopgap only)
+
+If you must run multiple instances for capacity, you MUST configure sticky
+routing at your load balancer and set `COLLAB_STICKY_ROUTING=1`. The startup
+guard uses these two variables together:
+
+- `COLLAB_INSTANCE_COUNT=N` + no `COLLAB_STICKY_ROUTING=1` → **startup aborts**
+  with a fatal error. This is the data-divergence case; the server refuses to
+  start.
+- `COLLAB_INSTANCE_COUNT=N` + `COLLAB_STICKY_ROUTING=1` → startup succeeds.
+  The health endpoint reports `"mode": "unconfigured"` (not single-instance) but
+  no warnings.
+
+Sticky routing is a stopgap, not a recommendation. See [Scaling options](#scaling-and-persistence-options)
+for a durable horizontal-scale path.
+
+### Startup guard behaviour
+
+The startup guard runs before the server accepts any connections. It is
+implemented in [`scripts/collab-deployment-config.mjs`](../scripts/collab-deployment-config.mjs)
+(plain ESM, used by both entry points) with a TypeScript-tested mirror in
+[`src/lib/collab/deployment-config.ts`](../src/lib/collab/deployment-config.ts).
+
+| Env configuration                                          | Startup result    | Health `mode`     | `healthy` |
+| ---------------------------------------------------------- | ----------------- | ----------------- | --------- |
+| `COLLAB_SINGLE_INSTANCE=1`                                 | ✅ starts cleanly | `single-instance` | `true`    |
+| `COLLAB_INSTANCE_COUNT=N` (N>1), no sticky                 | ❌ fatal exit(1)  | —                 | `false`   |
+| `COLLAB_INSTANCE_COUNT=N` (N>1), `COLLAB_STICKY_ROUTING=1` | ✅ starts cleanly | `unconfigured`    | `true`    |
+| Nothing set (default)                                      | ⚠ advisory warn   | `unconfigured`    | `true`    |
+
 ## Running it in production
 
 ```bash
 # From the repo root, with production env vars set:
-COLLAB_PORT=1234 npm run collab
+COLLAB_SINGLE_INSTANCE=1 COLLAB_PORT=1234 npm run collab
 # (equivalent to: node scripts/collab-server.mjs)
 ```
 
 Recommended production setup:
 
-1. **Run it under a process manager** (systemd, pm2, or a container) so it
+1. **Set `COLLAB_SINGLE_INSTANCE=1`** to explicitly declare single-instance mode
+   and suppress the advisory warning.
+2. **Run it under a process manager** (systemd, pm2, or a container) so it
    restarts on crash. Use `GET /health` as the liveness/readiness check.
-2. **Terminate TLS at a reverse proxy.** The server speaks plain `ws://`; put it
+3. **Terminate TLS at a reverse proxy.** The server speaks plain `ws://`; put it
    behind nginx / Caddy / a cloud load balancer that upgrades the connection and
    serves `wss://`. Browsers on an HTTPS page **must** use a `wss://` URL.
-3. **Point the app at it** with `NEXT_PUBLIC_COLLAB_WS_URL` (see the table below).
+4. **Point the app at it** with `NEXT_PUBLIC_COLLAB_WS_URL` (see the table below).
    Because it is a `NEXT_PUBLIC_*` variable, it is inlined into the client bundle
    **at build time** — set it before `npm run build`, not just at runtime.
 
 ### Environment reference
 
-| Variable                    | Read by                 | Default               | Description                                                                                                |
-| --------------------------- | ----------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `COLLAB_PORT`               | collab server           | `1234`                | TCP port the websocket + `/health` HTTP server listens on.                                                 |
-| `COLLAB_HOST`               | collab server           | `0.0.0.0`             | Bind address. Keep `0.0.0.0` behind a reverse proxy; narrow it if the proxy is on the same host.           |
-| `NEXT_PUBLIC_COLLAB_WS_URL` | browser editor (client) | `ws://localhost:1234` | WebSocket URL the editor connects to. Use `wss://collab.example.com` in production. Inlined at build time. |
+| Variable                    | Read by                 | Default               | Description                                                                                                                              |
+| --------------------------- | ----------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `COLLAB_SINGLE_INSTANCE`    | collab server           | _(unset)_             | Set to `1` or `true` to declare single-instance mode. Suppresses the startup advisory and sets `"mode": "single-instance"` in `/health`. |
+| `COLLAB_INSTANCE_COUNT`     | collab server           | `1`                   | Number of collab instances behind the load balancer. Set >1 only with `COLLAB_STICKY_ROUTING=1`; otherwise the server refuses to start.  |
+| `COLLAB_STICKY_ROUTING`     | collab server           | _(unset)_             | Set to `1` or `true` to declare that sticky routing is configured at the load balancer. Required when `COLLAB_INSTANCE_COUNT>1`.         |
+| `COLLAB_PORT`               | collab server           | `1234`                | TCP port the websocket + `/health` HTTP server listens on.                                                                               |
+| `COLLAB_HOST`               | collab server           | `0.0.0.0`             | Bind address. Keep `0.0.0.0` behind a reverse proxy; narrow it if the proxy is on the same host.                                         |
+| `NEXT_PUBLIC_COLLAB_WS_URL` | browser editor (client) | `ws://localhost:1234` | WebSocket URL the editor connects to. Use `wss://collab.example.com` in production. Inlined at build time.                               |
 
 `COLLAB_PORT` / `COLLAB_HOST` configure the server process;
 `NEXT_PUBLIC_COLLAB_WS_URL` configures the client. In production they describe
 the two ends of the **same** endpoint (the public `wss://` URL terminates at the
 proxy, which forwards to `COLLAB_HOST:COLLAB_PORT`).
+
+## Health endpoint
+
+Both the standalone server (`GET /health`) and the inline collab socket
+(`GET /collab/health`) return a JSON health summary:
+
+```json
+{
+  "ok": true,
+  "rooms": 3,
+  "connections": 7,
+  "mode": "single-instance",
+  "warnings": [],
+  "healthy": true
+}
+```
+
+| Field         | Type       | Description                                                                                               |
+| ------------- | ---------- | --------------------------------------------------------------------------------------------------------- |
+| `ok`          | `boolean`  | `true` when the configuration is healthy. Use this for liveness/readiness checks.                         |
+| `rooms`       | `number`   | In-memory rooms currently alive (documents with at least one connected client, or recently disconnected). |
+| `connections` | `number`   | Total active WebSocket connections across all rooms.                                                      |
+| `mode`        | `string`   | `"single-instance"` (explicitly declared) or `"unconfigured"`.                                            |
+| `warnings`    | `string[]` | Advisory or error messages from the deployment-config check.                                              |
+| `healthy`     | `boolean`  | Mirrors `ok`; `false` means the configuration is actively harmful.                                        |
+
+## Restart and deploy behavior
+
+### What happens to live rooms on restart/deploy
+
+When the collaboration server restarts (crash, deploy, rolling update, or manual
+restart):
+
+1. **All in-memory `Y.Doc` rooms are dropped immediately.** There is no graceful
+   drain — rooms cannot be serialised to disk and restored.
+2. **Active WebSocket connections are closed.** Clients receive a close event and
+   the browser y-websocket provider begins its reconnect backoff.
+3. **Clients reconnect and re-seed the room from the database.** The editor's
+   autosave writes the document content to the app database through debounced
+   server actions. On reconnect, the first client to join re-seeds the in-memory
+   room from the DB snapshot; subsequent clients receive the full document through
+   the normal Yjs sync step.
+4. **Awareness (presence) is lost and rebuilt.** Live cursors and user-presence
+   states are not persisted. They reappear as clients reconnect and re-announce
+   their presence.
+
+This process is transparent to users in most cases: the editor degrades to
+local-only mode during the restart window and automatically recovers when the
+server comes back.
+
+### Debounce-window data-loss risk
+
+The editor autosaves through a **debounced server action** (configurable, default
+roughly 1–2 s). If the collab server restarts while edits are still in the
+debounce window:
+
+- Edits already flushed to the database are safe — they will be in the re-seeded
+  room after reconnect.
+- Edits in the **last debounce window** that have not yet been flushed to the
+  database will be **lost from the collaborative state** after restart. The
+  in-memory Yjs update that was pending flush is gone, and the DB snapshot does
+  not contain it.
+- Each reconnecting client will re-seed the room from the DB, so the loss is the
+  same for all clients — there is no silent divergence, just a short rollback
+  to the last persisted state.
+
+**Mitigation:** deploy during low-traffic windows and keep the autosave debounce
+as short as acceptable for your write throughput. The CRDT ensures that after the
+rollback all clients converge on the same (slightly older) document state.
+
+### Rolling deploys
+
+A **rolling deploy** (two versions of the collab server running simultaneously)
+is **not safe** without sticky routing. If the old and new instances have
+different in-memory rooms, a client that reconnects to a different instance will
+get an empty or stale room. Always use a **stop-old / start-new** (blue-green or
+restart-in-place) deploy strategy for the collab server, or use sticky routing
+so each document's clients always reach the same instance.
 
 ## Graceful degradation
 
@@ -91,15 +235,15 @@ The server stores every room's `Y.Doc` in a **process-local `Map`** (`const docs
 processes. Two consequences follow:
 
 1. **It does not scale horizontally as-is.** If you run more than one instance
-   behind a load balancer, two clients editing the **same** document but
-   connected to **different** instances each get a separate in-memory room and
-   will **not** see each other's edits or presence. A single hot document is
-   capped at the throughput of one instance.
+   behind a load balancer without sticky routing, two clients editing the
+   **same** document but connected to **different** instances each get a separate
+   in-memory room and will **not** see each other's edits or presence. The
+   startup guard prevents this misconfiguration by exiting with an error when
+   `COLLAB_INSTANCE_COUNT>1` without `COLLAB_STICKY_ROUTING=1`.
 2. **Room state is volatile.** A restart, crash, or deploy drops all in-memory
    rooms. This is largely masked by the app's database autosave (a fresh client
    re-seeds the room from the DB), but any edits still inside the last debounce
-   window and all live presence are lost on restart, and clients cannot merge
-   through the server while a room is being rebuilt.
+   window and all live presence are lost on restart.
 
 For a single instance these limits are usually fine — a vertically-scaled node
 plus the DB autosave safety net covers typical team usage. They only bite when
@@ -116,7 +260,8 @@ scale, durability, or both.
 Route every websocket connection for a given room to the **same** instance, using
 the load balancer's consistent hashing on the document id in the URL path (or
 sticky sessions). One instance owns a room, so the existing in-memory sync keeps
-working across a fleet.
+working across a fleet. Set both `COLLAB_INSTANCE_COUNT=N` and
+`COLLAB_STICKY_ROUTING=1` so the startup guard accepts the configuration.
 
 - **Pros:** zero code change and no new infrastructure; immediate way to run more
   than one instance for capacity.
@@ -168,7 +313,7 @@ across instances:
   dependency.
 - **Single durable node:** **`y-leveldb`** (Option C) is the lightest upgrade.
 - **Quick multi-instance stopgap:** **sticky routing** (Option A) needs no new
-  dependency.
+  dependency; remember to set `COLLAB_STICKY_ROUTING=1`.
 
 In every option the **application database remains the canonical content store**
 (via the editor's autosave). The Yjs layer is a low-latency, conflict-free
