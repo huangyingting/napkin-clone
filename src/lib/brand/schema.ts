@@ -83,8 +83,6 @@ export const BRAND_WEB_FONTS = [
   },
 ] as const;
 
-export type BrandWebFontId = (typeof BRAND_WEB_FONTS)[number]["id"];
-
 export interface BrandStyle {
   id: string;
   name: string;

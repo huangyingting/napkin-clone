@@ -39,11 +39,6 @@ import { elasticLayout } from "@/components/visual/elastic-layout";
 /** Per-node color override fields the selected-element controls can set. */
 export type NodeStyleField = "color" | "stroke" | "textColor";
 
-/** Per-node extended style fields (non-color). */
-export type NodeFillStyleField = "fillStyle";
-export type NodeBorderStyleField = "borderStyle";
-export type NodeTextAlignField = "textAlign";
-
 function cloneStyle(style: VisualStyle): VisualStyle {
   return { ...style, palette: [...style.palette] };
 }
