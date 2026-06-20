@@ -388,7 +388,21 @@ export function EditorContextProvider({ children }: { children: ReactNode }) {
       let selectionRect: RectSnapshot | null = null;
       if (descriptor.kind === "range") {
         const nativeSelection = window.getSelection();
-        if (nativeSelection && nativeSelection.rangeCount > 0) {
+        const rootElement = editor.getRootElement();
+        // Only surface a selection rect when the *native* DOM selection is a
+        // visible, non-collapsed range inside the editor. Lexical keeps its
+        // internal range selection after the editor blurs (so toolbars can
+        // still apply formatting), but clicking outside the editor collapses
+        // the DOM selection — without this guard the floating toolbar would
+        // linger over an invisible/absent selection.
+        if (
+          nativeSelection &&
+          nativeSelection.rangeCount > 0 &&
+          !nativeSelection.isCollapsed &&
+          rootElement !== null &&
+          nativeSelection.anchorNode !== null &&
+          rootElement.contains(nativeSelection.anchorNode)
+        ) {
           selectionRect = rectFromDOMRect(
             nativeSelection.getRangeAt(0).getBoundingClientRect(),
           );
