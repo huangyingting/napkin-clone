@@ -36,6 +36,7 @@ export function ShareButton({
   });
   const [copying, setCopying] = useState(false);
   const [embedCopied, setEmbedCopied] = useState(false);
+  const [presentCopied, setPresentCopied] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // The embed URL points at the chrome-free /embed/[shareId] route. Derive it
@@ -45,6 +46,11 @@ export function ShareButton({
     : null;
   const embedSnippet = embedUrl
     ? `<iframe src="${embedUrl}" width="800" height="600" style="border:0" title="Napkin Clone embed" loading="lazy"></iframe>`
+    : null;
+
+  // The presentation URL points at the /present/[shareId] route.
+  const presentUrl = shareState.shareUrl
+    ? shareState.shareUrl.replace("/share/", "/present/")
     : null;
 
   const handleToggle = async (enable: boolean) => {
@@ -68,6 +74,15 @@ export function ShareButton({
     await navigator.clipboard.writeText(embedSnippet);
     setEmbedCopied(true);
     setTimeout(() => setEmbedCopied(false), 2000);
+  };
+
+  const copyPresentLink = async () => {
+    if (!presentUrl) {
+      return;
+    }
+    await navigator.clipboard.writeText(presentUrl);
+    setPresentCopied(true);
+    setTimeout(() => setPresentCopied(false), 2000);
   };
 
   // Close the menu only when clicking outside of it. A containment check is used
@@ -182,6 +197,38 @@ export function ShareButton({
                 {embedCopied
                   ? "Embed code copied to clipboard."
                   : "Paste this snippet into any webpage to embed the read-only visual."}
+              </p>
+            </div>
+          )}
+
+          {shareState.isShared && presentUrl && (
+            <div className="mt-4 border-t border-black/[.06] pt-3 dark:border-white/[.08]">
+              <h4 className="mb-2 text-xs font-semibold text-zinc-900 dark:text-zinc-50">
+                Presentation link
+              </h4>
+              <div className="mb-2 flex items-center gap-2 rounded-md border border-black/[.06] bg-zinc-50 px-3 py-2 dark:border-white/[.08] dark:bg-zinc-800">
+                <input
+                  readOnly
+                  value={presentUrl}
+                  aria-label="Presentation link"
+                  className="flex-1 bg-transparent text-xs text-zinc-600 outline-none dark:text-zinc-400"
+                />
+                <button
+                  type="button"
+                  onClick={copyPresentLink}
+                  className="shrink-0 rounded px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                >
+                  {presentCopied ? "Copied!" : "Copy"}
+                </button>
+              </div>
+              <p
+                role="status"
+                aria-live="polite"
+                className="text-xs text-zinc-500 dark:text-zinc-400"
+              >
+                {presentCopied
+                  ? "Presentation link copied."
+                  : "Share a full-screen slideshow of this document."}
               </p>
             </div>
           )}

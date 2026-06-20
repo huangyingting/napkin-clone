@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { clampSlideIndex, formatProgress } from "./slide-helpers";
+import {
+  clampSlideIndex,
+  formatProgress,
+  hashFromSlideIndex,
+  slideIndexFromHash,
+} from "./slide-helpers";
 
 // ---------------------------------------------------------------------------
 // clampSlideIndex
@@ -70,4 +75,68 @@ test("formatProgress: out-of-range index is clamped before formatting", () => {
 
 test("formatProgress: single slide deck is '1 / 1'", () => {
   assert.equal(formatProgress(0, 1), "1 / 1");
+});
+
+// ---------------------------------------------------------------------------
+// slideIndexFromHash
+// ---------------------------------------------------------------------------
+
+test("slideIndexFromHash: '#1' returns 0 (first slide)", () => {
+  assert.equal(slideIndexFromHash("#1", 5), 0);
+});
+
+test("slideIndexFromHash: '#3' returns 2", () => {
+  assert.equal(slideIndexFromHash("#3", 5), 2);
+});
+
+test("slideIndexFromHash: '#5' returns 4 (last slide)", () => {
+  assert.equal(slideIndexFromHash("#5", 5), 4);
+});
+
+test("slideIndexFromHash: out-of-range hash is clamped to last slide", () => {
+  assert.equal(slideIndexFromHash("#99", 5), 4);
+});
+
+test("slideIndexFromHash: '#0' returns 0 (clamp non-positive)", () => {
+  assert.equal(slideIndexFromHash("#0", 5), 0);
+});
+
+test("slideIndexFromHash: negative hash returns 0", () => {
+  assert.equal(slideIndexFromHash("#-2", 5), 0);
+});
+
+test("slideIndexFromHash: non-numeric hash returns 0", () => {
+  assert.equal(slideIndexFromHash("#abc", 5), 0);
+});
+
+test("slideIndexFromHash: empty string returns 0", () => {
+  assert.equal(slideIndexFromHash("", 5), 0);
+});
+
+test("slideIndexFromHash: missing '#' prefix still parses correctly", () => {
+  assert.equal(slideIndexFromHash("3", 5), 2);
+});
+
+test("slideIndexFromHash: total 0 always returns 0", () => {
+  assert.equal(slideIndexFromHash("#1", 0), 0);
+});
+
+// ---------------------------------------------------------------------------
+// hashFromSlideIndex
+// ---------------------------------------------------------------------------
+
+test("hashFromSlideIndex: index 0 returns '#1'", () => {
+  assert.equal(hashFromSlideIndex(0), "#1");
+});
+
+test("hashFromSlideIndex: index 2 returns '#3'", () => {
+  assert.equal(hashFromSlideIndex(2), "#3");
+});
+
+test("hashFromSlideIndex: negative index returns '#1' (clamped)", () => {
+  assert.equal(hashFromSlideIndex(-1), "#1");
+});
+
+test("hashFromSlideIndex: fractional index is floored", () => {
+  assert.equal(hashFromSlideIndex(2.9), "#3");
 });
