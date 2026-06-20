@@ -26,6 +26,7 @@ import {
   setNodeBorderStyle,
   setNodeBorderWidth,
   setNodeTextAlign,
+  setNodeFontFamily,
   setEdgeArrowStyle,
   setEdgeLineStyle,
   setEdgeLineWidth,
@@ -903,4 +904,92 @@ test("setEffect / clearEffect immutability — input never mutated", () => {
     beforeClear,
     "input untouched after clearEffect",
   );
+});
+
+// ---------------------------------------------------------------------------
+// setNodeFontFamily
+// ---------------------------------------------------------------------------
+
+test("setNodeFontFamily sets the fontFamily on the target node only", () => {
+  const source = sourceFor("flowchart");
+  const targetId = source.nodes[0].id;
+  const family = "'Inter', sans-serif";
+  const result = setNodeFontFamily(source, targetId, family);
+  assert.equal(result.nodes[0].fontFamily, family);
+  // Other nodes are unaffected
+  for (const node of result.nodes.slice(1)) {
+    assert.equal(node.fontFamily, undefined);
+  }
+});
+
+test("setNodeFontFamily is immutable (input never mutated)", () => {
+  const source = sourceFor("mindmap");
+  const before = JSON.stringify(source);
+  setNodeFontFamily(source, source.nodes[0].id, "'Roboto', sans-serif");
+  assert.equal(JSON.stringify(source), before, "input must not be mutated");
+});
+
+test("setNodeFontFamily with empty string clears the override", () => {
+  const source = sourceFor("flowchart");
+  const id = source.nodes[0].id;
+  const withFamily = setNodeFontFamily(source, id, "'Inter', sans-serif");
+  assert.equal(withFamily.nodes[0].fontFamily, "'Inter', sans-serif");
+  const cleared = setNodeFontFamily(withFamily, id, "");
+  assert.equal(cleared.nodes[0].fontFamily, undefined, "override cleared");
+});
+
+test("setNodeFontFamily on unknown id is a safe no-op clone", () => {
+  const source = sourceFor("concept");
+  const before = JSON.stringify(source);
+  const result = setNodeFontFamily(
+    source,
+    "nonexistent-id",
+    "'Inter', sans-serif",
+  );
+  assert.notEqual(result, source);
+  // Nodes unchanged
+  assert.equal(JSON.stringify(result.nodes), JSON.stringify(source.nodes));
+  assert.equal(JSON.stringify(source), before, "input untouched");
+});
+
+test("setNodeFontFamily result round-trips through safeParseVisual", () => {
+  for (const kind of VISUAL_KINDS) {
+    const source = sourceFor(kind);
+    const id = source.nodes[0].id;
+    const result = setNodeFontFamily(source, id, "'Inter', sans-serif");
+    const parsed = safeParseVisual(result);
+    assert.ok(parsed.success, `${kind}: round-trip`);
+    if (parsed.success) {
+      assert.equal(parsed.data.nodes[0].fontFamily, "'Inter', sans-serif");
+    }
+  }
+});
+
+test("resetNodeExtStyle also clears per-node fontFamily", () => {
+  const source = sourceFor("flowchart");
+  const id = source.nodes[0].id;
+  const withFamily = setNodeFontFamily(source, id, "'Playfair Display', serif");
+  assert.equal(withFamily.nodes[0].fontFamily, "'Playfair Display', serif");
+  const reset = resetNodeExtStyle(withFamily, id);
+  assert.equal(
+    reset.nodes[0].fontFamily,
+    undefined,
+    "fontFamily cleared by reset",
+  );
+  assert.ok(safeParseVisual(reset).success);
+});
+
+test("existing visuals without per-node fontFamily still parse successfully", () => {
+  for (const kind of VISUAL_KINDS) {
+    const source = sourceFor(kind);
+    for (const node of source.nodes) {
+      assert.equal(
+        node.fontFamily,
+        undefined,
+        `${kind}: no fontFamily by default`,
+      );
+    }
+    const result = safeParseVisual(source);
+    assert.ok(result.success, `${kind}: parses without fontFamily`);
+  }
 });

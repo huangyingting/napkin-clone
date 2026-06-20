@@ -652,38 +652,56 @@ export function VisualEditor({
             hoverId === node.id ||
             selectedId === node.id;
           const isEditing = editingId === node.id;
+          const isHovered = hoverId === node.id && !isEditing;
           return (
-            <rect
-              key={node.id}
-              data-node-id={node.id}
-              role="button"
-              aria-label={`Edit ${node.label || "node"}`}
-              tabIndex={0}
-              x={box.x - box.width / 2}
-              y={box.y - box.height / 2}
-              width={box.width}
-              height={box.height}
-              rx={10}
-              fill="transparent"
-              stroke={isActive && !isEditing ? "#6366f1" : "transparent"}
-              strokeWidth={1.5}
-              strokeDasharray="4 3"
-              pointerEvents="all"
-              className={positioned ? "cursor-move" : "cursor-text"}
-              onPointerDown={(event) => onNodePointerDown(event, node)}
-              onPointerEnter={() => {
-                setHoverId(node.id);
-                setActiveId(node.id);
-              }}
-              onFocus={() => {
-                setActiveId(node.id);
-                setSelectedId(node.id);
-              }}
-              onPointerLeave={() =>
-                setHoverId((current) => (current === node.id ? null : current))
-              }
-              onKeyDown={(event) => onNodeKeyDown(event, node)}
-            />
+            <g key={node.id}>
+              <rect
+                data-node-id={node.id}
+                role="button"
+                aria-label={`Edit ${node.label || "node"}`}
+                tabIndex={0}
+                x={box.x - box.width / 2}
+                y={box.y - box.height / 2}
+                width={box.width}
+                height={box.height}
+                rx={10}
+                fill="transparent"
+                stroke={isActive && !isEditing ? "#6366f1" : "transparent"}
+                strokeWidth={1.5}
+                strokeDasharray="4 3"
+                pointerEvents="all"
+                className={positioned ? "cursor-move" : "cursor-text"}
+                onPointerDown={(event) => onNodePointerDown(event, node)}
+                onPointerEnter={() => {
+                  setHoverId(node.id);
+                  setActiveId(node.id);
+                }}
+                onFocus={() => {
+                  setActiveId(node.id);
+                  setSelectedId(node.id);
+                }}
+                onPointerLeave={() =>
+                  setHoverId((current) =>
+                    current === node.id ? null : current,
+                  )
+                }
+                onKeyDown={(event) => onNodeKeyDown(event, node)}
+              />
+              {/* Inline-edit hint: shown on hover when not editing or dragging */}
+              {isHovered && canEdit && !positioned ? (
+                <text
+                  x={box.x}
+                  y={box.y + box.height / 2 + 13}
+                  textAnchor="middle"
+                  fontSize={10}
+                  fill="#6366f1"
+                  pointerEvents="none"
+                  aria-hidden="true"
+                >
+                  Click to edit
+                </text>
+              ) : null}
+            </g>
           );
         })}
 

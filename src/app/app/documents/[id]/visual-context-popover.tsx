@@ -40,6 +40,7 @@ import {
   setNodeBorderStyle,
   setNodeBorderWidth,
   setNodeTextAlign,
+  setNodeFontFamily,
   setVisualKind,
   setVisualStyle,
   clearNodeIcon,
@@ -117,6 +118,16 @@ const TEXT_ALIGN_OPTIONS: SegmentedOption<TextAlign>[] = [
 ];
 
 const BORDER_STYLE_OPTIONS: SegmentedOption<LineStyle>[] = LINE_STYLE_OPTIONS;
+
+/**
+ * Per-node font family options: a "default (inherit)" sentinel plus every
+ * curated web font from {@link BRAND_WEB_FONTS}. The empty string sentinel
+ * means "use the visual's global font family" (clears any node override).
+ */
+const NODE_FONT_FAMILY_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "Default" },
+  ...BRAND_WEB_FONTS.map((f) => ({ value: f.cssFamily, label: f.name })),
+];
 
 const ASPECT_RATIO_OPTIONS: SegmentedOption<AspectRatioPreset>[] =
   ASPECT_RATIO_PRESETS.map((preset) => ({
@@ -426,6 +437,33 @@ function useBrandFont(fontFamily: string | null | undefined) {
   }, [fontFamily]);
 }
 
+/**
+ * Injects Google Font link tags for all per-node font family overrides used in
+ * a visual, so they are available when the renderer paints. Runs whenever the
+ * visual's nodes change. Uses the same id scheme as {@link useBrandFont} so
+ * a font loaded by either hook is not duplicated.
+ */
+function useVisualNodeFonts(visual: Visual) {
+  useEffect(() => {
+    const seen = new Set<string>();
+    for (const node of visual.nodes) {
+      if (!node.fontFamily) continue;
+      const match = BRAND_WEB_FONTS.find(
+        (f) => f.cssFamily === node.fontFamily,
+      );
+      if (!match || seen.has(match.id)) continue;
+      seen.add(match.id);
+      const id = `gfont-brand-${match.id}`;
+      if (document.getElementById(id)) continue;
+      const link = document.createElement("link");
+      link.id = id;
+      link.rel = "stylesheet";
+      link.href = match.url;
+      document.head.appendChild(link);
+    }
+  }, [visual.nodes]);
+}
+
 /** A brand preview chip for the visual context popover. */
 function BrandChip({
   brand,
@@ -598,6 +636,9 @@ export function VisualContextPopover({
 
   // Brands (lazy-loaded when the section opens)
   const { brands, status: brandsStatus, load: loadBrands } = useBrands();
+
+  // Load any Google Fonts used as per-node font family overrides.
+  useVisualNodeFonts(visual);
 
   // AI "variations" state (the /api/generate path).
   const [genStatus, setGenStatus] = useState<"idle" | "loading">("idle");
@@ -1525,6 +1566,33 @@ export function VisualContextPopover({
                     onChange(setNodeTextAlign(visual, selectedNode.id, v))
                   }
                 />
+              </div>
+
+              {/* Per-element font family */}
+              <div className="space-y-1">
+                <span className="text-[11px] text-[var(--ds-text-muted,#6f7d83)]">
+                  Font family
+                </span>
+                <select
+                  aria-label="Element font family"
+                  value={selectedNode.fontFamily ?? ""}
+                  onChange={(e) =>
+                    onChange(
+                      setNodeFontFamily(
+                        visual,
+                        selectedNode.id,
+                        e.target.value,
+                      ),
+                    )
+                  }
+                  className="w-full rounded-[var(--ds-radius-sm,8px)] border border-[var(--ds-border,rgba(0,0,0,0.1))] bg-[var(--ds-surface-base,#ffffff)] px-2 py-1.5 text-xs text-[var(--ds-text,#18181b)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-focus-ring,#6366f1)] focus-visible:ring-offset-1"
+                >
+                  {NODE_FONT_FAMILY_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </>
