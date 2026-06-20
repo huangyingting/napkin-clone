@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
+import { Popover } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
 import { buildShareSegment } from "@/lib/slug";
 import { SocialShareMenu } from "@/components/share/social-share-menu";
 
@@ -40,7 +42,6 @@ export function ShareButton({
   const [copying, setCopying] = useState(false);
   const [embedCopied, setEmbedCopied] = useState(false);
   const [presentCopied, setPresentCopied] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   // The embed URL points at the chrome-free /embed/[shareId] route. Derive it
   // from shareUrl so it shares the same origin as the displayed share link.
@@ -88,171 +89,143 @@ export function ShareButton({
     setTimeout(() => setPresentCopied(false), 2000);
   };
 
-  // Close the menu only when clicking outside of it. A containment check is used
-  // instead of relying on stopPropagation because the App Router delegates React
-  // events to `document`, where the same-target manual listener still fires — so
-  // clicks on in-menu controls (toggle, copy buttons) must not close the menu.
-  useEffect(() => {
-    if (!showMenu) {
-      return;
-    }
-    const onDocClick = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setShowMenu(false);
-      }
-    };
-    document.addEventListener("click", onDocClick);
-    return () => document.removeEventListener("click", onDocClick);
-  }, [showMenu]);
-
   return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setShowMenu(!showMenu);
-        }}
-        className="rounded-full border border-ds-border-subtle px-4 py-2 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-state-hover hover:text-ds-text-primary"
-      >
-        Share
-      </button>
-
-      {showMenu && (
-        <div
-          ref={menuRef}
-          onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 top-full z-dropdown mt-2 w-80 rounded-lg border border-ds-border-subtle bg-ds-surface-overlay p-4 shadow-ds-popover"
+    <Popover
+      open={showMenu}
+      onClose={() => setShowMenu(false)}
+      aria-label="Share this document"
+      trigger={
+        <button
+          type="button"
+          onClick={() => setShowMenu(!showMenu)}
+          className="rounded-full border border-ds-border-subtle px-4 py-2 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-state-hover hover:text-ds-text-primary"
         >
-          <h3 className="mb-3 text-sm font-semibold text-ds-text-primary">
-            Share this document
-          </h3>
+          Share
+        </button>
+      }
+    >
+      <h3 className="mb-3 text-sm font-semibold text-ds-text-primary">
+        Share this document
+      </h3>
 
-          <div className="mb-3 flex items-center justify-between">
-            <span className="text-sm text-ds-text-secondary">
-              {shareState.isShared ? "Public link enabled" : "Private"}
-            </span>
+      <div className="mb-3 flex items-center justify-between">
+        <span
+          className="text-sm text-ds-text-secondary"
+          id="share-toggle-label"
+        >
+          {shareState.isShared ? "Public link enabled" : "Private"}
+        </span>
+        <Switch
+          checked={shareState.isShared}
+          onCheckedChange={handleToggle}
+          aria-labelledby="share-toggle-label"
+        />
+      </div>
+
+      {shareState.isShared && shareState.shareUrl && (
+        <div>
+          <div className="mb-2 flex items-center gap-2 rounded-md border border-ds-border-subtle bg-ds-surface-sunken px-3 py-2">
+            <input
+              readOnly
+              value={shareState.shareUrl}
+              className="flex-1 bg-transparent text-xs text-ds-text-secondary outline-none"
+            />
             <button
               type="button"
-              onClick={() => handleToggle(!shareState.isShared)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
-                shareState.isShared ? "bg-ds-control" : "bg-ds-state-active"
-              }`}
+              onClick={copyLink}
+              className="shrink-0 rounded px-2 py-1 text-xs font-medium text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
             >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-ds-control-text transition ${
-                  shareState.isShared ? "translate-x-6" : "translate-x-1"
-                }`}
-              />
+              {copying ? "Copied!" : "Copy"}
             </button>
           </div>
-
-          {shareState.isShared && shareState.shareUrl && (
-            <div>
-              <div className="mb-2 flex items-center gap-2 rounded-md border border-ds-border-subtle bg-ds-surface-sunken px-3 py-2">
-                <input
-                  readOnly
-                  value={shareState.shareUrl}
-                  className="flex-1 bg-transparent text-xs text-ds-text-secondary outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={copyLink}
-                  className="shrink-0 rounded px-2 py-1 text-xs font-medium text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
-                >
-                  {copying ? "Copied!" : "Copy"}
-                </button>
-              </div>
-              <p className="text-xs text-ds-text-muted">
-                Anyone with this link can view your document (read-only).
-              </p>
-            </div>
-          )}
-
-          {shareState.isShared && embedSnippet && (
-            <div className="mt-4 border-t border-ds-border-subtle pt-3">
-              <h4 className="mb-2 text-xs font-semibold text-ds-text-primary">
-                Embed
-              </h4>
-              <div className="mb-2 flex items-start gap-2 rounded-md border border-ds-border-subtle bg-ds-surface-sunken px-3 py-2">
-                <textarea
-                  readOnly
-                  rows={3}
-                  value={embedSnippet}
-                  aria-label="Embed code"
-                  className="flex-1 resize-none bg-transparent font-mono text-xs text-ds-text-secondary outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={copyEmbed}
-                  className="shrink-0 rounded px-2 py-1 text-xs font-medium text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
-                >
-                  {embedCopied ? "Copied!" : "Copy"}
-                </button>
-              </div>
-              <p
-                role="status"
-                aria-live="polite"
-                className="text-xs text-ds-text-muted"
-              >
-                {embedCopied
-                  ? "Embed code copied to clipboard."
-                  : "Paste this snippet into any webpage to embed the read-only visual."}
-              </p>
-            </div>
-          )}
-
-          {shareState.isShared && presentUrl && (
-            <div className="mt-4 border-t border-ds-border-subtle pt-3">
-              <h4 className="mb-2 text-xs font-semibold text-ds-text-primary">
-                Presentation link
-              </h4>
-              <div className="mb-2 flex items-center gap-2 rounded-md border border-ds-border-subtle bg-ds-surface-sunken px-3 py-2">
-                <input
-                  readOnly
-                  value={presentUrl}
-                  aria-label="Presentation link"
-                  className="flex-1 bg-transparent text-xs text-ds-text-secondary outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={copyPresentLink}
-                  className="shrink-0 rounded px-2 py-1 text-xs font-medium text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
-                >
-                  {presentCopied ? "Copied!" : "Copy"}
-                </button>
-              </div>
-              <p
-                role="status"
-                aria-live="polite"
-                className="text-xs text-ds-text-muted"
-              >
-                {presentCopied
-                  ? "Presentation link copied."
-                  : "Share a full-screen slideshow of this document."}
-              </p>
-            </div>
-          )}
-
-          {!shareState.isShared && (
-            <p className="text-xs text-ds-text-muted">
-              Enable sharing to create a public read-only link.
-            </p>
-          )}
-
-          {/* Social share — always visible; link-based options gated on isShared */}
-          <div className="mt-4 border-t border-ds-border-subtle pt-3">
-            <h4 className="mb-2 text-xs font-semibold text-ds-text-primary">
-              Share to social
-            </h4>
-            <SocialShareMenu
-              inline
-              shareUrl={shareState.shareUrl}
-              title={documentTitle}
-            />
-          </div>
+          <p className="text-xs text-ds-text-muted">
+            Anyone with this link can view your document (read-only).
+          </p>
         </div>
       )}
-    </div>
+
+      {shareState.isShared && embedSnippet && (
+        <div className="mt-4 border-t border-ds-border-subtle pt-3">
+          <h4 className="mb-2 text-xs font-semibold text-ds-text-primary">
+            Embed
+          </h4>
+          <div className="mb-2 flex items-start gap-2 rounded-md border border-ds-border-subtle bg-ds-surface-sunken px-3 py-2">
+            <textarea
+              readOnly
+              rows={3}
+              value={embedSnippet}
+              aria-label="Embed code"
+              className="flex-1 resize-none bg-transparent font-mono text-xs text-ds-text-secondary outline-none"
+            />
+            <button
+              type="button"
+              onClick={copyEmbed}
+              className="shrink-0 rounded px-2 py-1 text-xs font-medium text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+            >
+              {embedCopied ? "Copied!" : "Copy"}
+            </button>
+          </div>
+          <p
+            role="status"
+            aria-live="polite"
+            className="text-xs text-ds-text-muted"
+          >
+            {embedCopied
+              ? "Embed code copied to clipboard."
+              : "Paste this snippet into any webpage to embed the read-only visual."}
+          </p>
+        </div>
+      )}
+
+      {shareState.isShared && presentUrl && (
+        <div className="mt-4 border-t border-ds-border-subtle pt-3">
+          <h4 className="mb-2 text-xs font-semibold text-ds-text-primary">
+            Presentation link
+          </h4>
+          <div className="mb-2 flex items-center gap-2 rounded-md border border-ds-border-subtle bg-ds-surface-sunken px-3 py-2">
+            <input
+              readOnly
+              value={presentUrl}
+              aria-label="Presentation link"
+              className="flex-1 bg-transparent text-xs text-ds-text-secondary outline-none"
+            />
+            <button
+              type="button"
+              onClick={copyPresentLink}
+              className="shrink-0 rounded px-2 py-1 text-xs font-medium text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+            >
+              {presentCopied ? "Copied!" : "Copy"}
+            </button>
+          </div>
+          <p
+            role="status"
+            aria-live="polite"
+            className="text-xs text-ds-text-muted"
+          >
+            {presentCopied
+              ? "Presentation link copied."
+              : "Share a full-screen slideshow of this document."}
+          </p>
+        </div>
+      )}
+
+      {!shareState.isShared && (
+        <p className="text-xs text-ds-text-muted">
+          Enable sharing to create a public read-only link.
+        </p>
+      )}
+
+      {/* Social share — always visible; link-based options gated on isShared */}
+      <div className="mt-4 border-t border-ds-border-subtle pt-3">
+        <h4 className="mb-2 text-xs font-semibold text-ds-text-primary">
+          Share to social
+        </h4>
+        <SocialShareMenu
+          inline
+          shareUrl={shareState.shareUrl}
+          title={documentTitle}
+        />
+      </div>
+    </Popover>
   );
 }

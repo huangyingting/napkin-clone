@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
-import { createPortal } from "react-dom";
+import { useState, useTransition } from "react";
 
+import { Dialog } from "@/components/ui/dialog";
 import { useTranslation } from "@/lib/i18n/locale-context";
 import { isNewDocumentShortcut } from "@/lib/shortcuts/match";
 import { useKeyboardShortcut } from "@/lib/shortcuts/use-keyboard-shortcuts";
@@ -24,16 +24,6 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
-
   const choose = (id: string) => {
     setPendingId(id);
     startTransition(async () => {
@@ -41,88 +31,80 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
     });
   };
 
-  return createPortal(
-    <div className="fixed inset-0 z-modal flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-ds-backdrop"
-        aria-hidden="true"
-        onClick={onClose}
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="template-picker-title"
-        className="relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-ds-border-strong bg-ds-surface-base p-6 shadow-xl"
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2
-              id="template-picker-title"
-              className="text-base font-semibold text-ds-text-primary"
-            >
-              {t("templatePicker.title")}
-            </h2>
-            <p className="mt-1 text-sm text-ds-text-secondary">
-              {t("templatePicker.subtitle")}
-            </p>
-          </div>
-          <button
-            type="button"
-            aria-label={t("templatePicker.close")}
-            onClick={onClose}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      aria-labelledby="template-picker-title"
+      className="flex max-h-[85vh] flex-col overflow-hidden"
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2
+            id="template-picker-title"
+            className="text-base font-semibold text-ds-text-primary"
           >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-4 w-4"
-            >
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
-          </button>
+            {t("templatePicker.title")}
+          </h2>
+          <p className="mt-1 text-sm text-ds-text-secondary">
+            {t("templatePicker.subtitle")}
+          </p>
         </div>
-
-        <ul className="mt-4 grid grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2">
-          {TEMPLATE_CATALOG.map((template) => (
-            <li key={template.id}>
-              <button
-                type="button"
-                aria-label={`${template.name} template`}
-                disabled={isPending}
-                onClick={() => choose(template.id)}
-                className="flex h-full w-full flex-col gap-1 rounded-xl border border-ds-border-strong p-4 text-left transition hover:border-ds-accent/40 hover:bg-ds-surface-sunken disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <span className="text-sm font-medium text-ds-text-primary">
-                  {pendingId === template.id
-                    ? t("templatePicker.creating")
-                    : template.name}
-                </span>
-                <span className="text-xs text-ds-text-secondary">
-                  {template.description}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-
-        <div className="mt-6 flex justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-9 items-center justify-center rounded-full border border-ds-border-strong px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
+        <button
+          type="button"
+          aria-label={t("templatePicker.close")}
+          onClick={onClose}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
+        >
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-4 w-4"
           >
-            {t("templatePicker.cancel")}
-          </button>
-        </div>
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+        </button>
       </div>
-    </div>,
-    document.body,
+
+      <ul className="mt-4 grid grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2">
+        {TEMPLATE_CATALOG.map((template) => (
+          <li key={template.id}>
+            <button
+              type="button"
+              aria-label={`${template.name} template`}
+              disabled={isPending}
+              onClick={() => choose(template.id)}
+              className="flex h-full w-full flex-col gap-1 rounded-xl border border-ds-border-strong p-4 text-left transition hover:border-ds-accent/40 hover:bg-ds-surface-sunken disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <span className="text-sm font-medium text-ds-text-primary">
+                {pendingId === template.id
+                  ? t("templatePicker.creating")
+                  : template.name}
+              </span>
+              <span className="text-xs text-ds-text-secondary">
+                {template.description}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      <div className="mt-6 flex justify-end">
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex h-9 items-center justify-center rounded-full border border-ds-border-strong px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
+        >
+          {t("templatePicker.cancel")}
+        </button>
+      </div>
+    </Dialog>
   );
 }
 

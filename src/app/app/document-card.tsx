@@ -8,8 +8,8 @@ import {
   useState,
   useTransition,
 } from "react";
-import { createPortal } from "react-dom";
 
+import { Dialog } from "@/components/ui/dialog";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import type { Visual } from "@/lib/visual/schema";
 
@@ -125,58 +125,42 @@ function DeleteConfirmDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onCancel();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onCancel]);
-
-  return createPortal(
-    <div className="fixed inset-0 z-modal flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-ds-backdrop"
-        aria-hidden="true"
-        onClick={onCancel}
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="delete-document-title"
-        className="relative z-10 w-full max-w-sm rounded-2xl border border-ds-border-strong bg-ds-surface-base p-6 shadow-xl"
+  return (
+    <Dialog
+      open
+      onClose={onCancel}
+      aria-labelledby="delete-document-title"
+      className="max-w-sm"
+    >
+      <h2
+        id="delete-document-title"
+        className="text-base font-semibold text-ds-text-primary"
       >
-        <h2
-          id="delete-document-title"
-          className="text-base font-semibold text-ds-text-primary"
+        Delete document?
+      </h2>
+      <p className="mt-2 text-sm text-ds-text-secondary">
+        <span className="font-medium text-ds-text-primary">
+          &ldquo;{title}&rdquo;
+        </span>{" "}
+        will be moved to the trash. You can undo this right after.
+      </p>
+      <div className="mt-6 flex justify-end gap-3">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex h-9 items-center justify-center rounded-full border border-ds-border-strong px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
         >
-          Delete document?
-        </h2>
-        <p className="mt-2 text-sm text-ds-text-secondary">
-          <span className="font-medium text-ds-text-primary">“{title}”</span>{" "}
-          will be moved to the trash. You can undo this right after.
-        </p>
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="flex h-9 items-center justify-center rounded-full border border-ds-border-strong px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            className="flex h-9 items-center justify-center rounded-full bg-ds-danger px-4 text-sm font-medium text-ds-text-on-accent transition hover:opacity-90 disabled:opacity-60"
-          >
-            Delete
-          </button>
-        </div>
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={onConfirm}
+          className="flex h-9 items-center justify-center rounded-full bg-ds-danger px-4 text-sm font-medium text-ds-text-on-accent transition hover:opacity-90 disabled:opacity-60"
+        >
+          Delete
+        </button>
       </div>
-    </div>,
-    document.body,
+    </Dialog>
   );
 }
 
@@ -194,46 +178,26 @@ function RenameDialog({
   onSubmit: (title: string) => void;
 }) {
   const [value, setValue] = useState(initialTitle);
-  const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    inputRef.current?.focus();
-    inputRef.current?.select();
-  }, []);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onCancel();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onCancel]);
-
-  return createPortal(
-    <div className="fixed inset-0 z-modal flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-ds-backdrop"
-        aria-hidden="true"
-        onClick={onCancel}
-      />
+  return (
+    <Dialog
+      open
+      onClose={onCancel}
+      aria-labelledby="rename-document-title"
+      className="max-w-sm"
+    >
+      <h2
+        id="rename-document-title"
+        className="text-base font-semibold text-ds-text-primary"
+      >
+        Rename document
+      </h2>
       <form
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="rename-document-title"
         onSubmit={(event) => {
           event.preventDefault();
           onSubmit(value);
         }}
-        className="relative z-10 w-full max-w-sm rounded-2xl border border-ds-border-strong bg-ds-surface-base p-6 shadow-xl"
       >
-        <h2
-          id="rename-document-title"
-          className="text-base font-semibold text-ds-text-primary"
-        >
-          Rename document
-        </h2>
         <label
           htmlFor="rename-document-input"
           className="mt-4 block text-sm font-medium text-ds-text-primary"
@@ -242,7 +206,6 @@ function RenameDialog({
         </label>
         <input
           id="rename-document-input"
-          ref={inputRef}
           type="text"
           value={value}
           maxLength={MAX_TITLE_LENGTH}
@@ -266,8 +229,7 @@ function RenameDialog({
           </button>
         </div>
       </form>
-    </div>,
-    document.body,
+    </Dialog>
   );
 }
 
