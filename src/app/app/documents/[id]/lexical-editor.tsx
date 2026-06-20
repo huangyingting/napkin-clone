@@ -519,6 +519,7 @@ export function LexicalEditor({
                     initialIsShared={initialIsShared}
                     initialShareId={initialShareId}
                     initialSlug={initialSlug}
+                    documentTitle={title.value}
                   />
                   <CommentsPanel
                     documentId={documentId}
