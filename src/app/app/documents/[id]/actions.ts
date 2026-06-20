@@ -105,7 +105,11 @@ export async function saveDocumentTitle(
     data: { title },
   });
 
+  // Revalidate both the dashboard list and this document's own route — without
+  // the latter, reopening the same document serves a cached page that re-seeds
+  // the stale title.
   revalidatePath("/app");
+  revalidatePath(`/app/documents/${id}`);
   return { title };
 }
 

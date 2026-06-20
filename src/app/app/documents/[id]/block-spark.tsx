@@ -10,6 +10,7 @@ import {
   AlignCenter,
   AlignHorizontalSpaceAround,
   AlignVerticalSpaceAround,
+  ChevronDown,
   Maximize2,
   Sparkles,
   X,
@@ -24,7 +25,7 @@ import {
   VisualSkeleton,
 } from "@/components/motion/generation-status";
 import { usePopMotion } from "@/components/motion/reveal";
-import { Button, Divider, FloatingSurface, IconButton } from "@/components/ui";
+import { Button, FloatingSurface, IconButton } from "@/components/ui";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { cx } from "@/components/ui/tokens";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
@@ -155,6 +156,8 @@ export function BlockSparkPlugin() {
   const [error, setError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<Visual[]>([]);
   const [genOptions, setGenOptions] = useState<GenOptions>(DEFAULT_GEN_OPTIONS);
+  const [showOptions, setShowOptions] = useState(false);
+  const [tab, setTab] = useState<"generate" | "blank">("generate");
   const popMotion = usePopMotion();
 
   // Keeps the gutter button alive while the pointer travels from the block to
@@ -457,207 +460,183 @@ export function BlockSparkPlugin() {
       >
         <div
           onMouseEnter={keepAlive}
-          className="max-h-[36rem] w-80 overflow-auto p-3"
+          className="flex max-h-[36rem] w-[26rem] max-w-[calc(100vw-1.5rem)] flex-col"
         >
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <span className="text-xs font-medium text-[var(--ds-text-muted,#52525b)]">
-              Insert a visual
-            </span>
-            <IconButton aria-label="Close" size="sm" onClick={closePanel}>
-              <X aria-hidden="true" className="h-4 w-4" />
-            </IconButton>
+          {/* Header + tabs (pinned) */}
+          <div className="border-b border-[var(--ds-border,rgba(0,0,0,0.08))] px-3 pt-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-xs font-medium text-[var(--ds-text-muted,#52525b)]">
+                Insert a visual
+              </span>
+              <IconButton aria-label="Close" size="sm" onClick={closePanel}>
+                <X aria-hidden="true" className="h-4 w-4" />
+              </IconButton>
+            </div>
+            <div role="tablist" aria-label="Insert mode" className="flex gap-4">
+              {(["generate", "blank"] as const).map((t) => {
+                const active = tab === t;
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setTab(t)}
+                    className={cx(
+                      "-mb-px border-b-2 px-0.5 pb-2 text-xs font-medium transition-colors",
+                      active
+                        ? "border-[var(--ds-accent,#6366f1)] text-[var(--ds-text-primary,#15171a)]"
+                        : "border-transparent text-[var(--ds-text-muted,#a1a1aa)] hover:text-[var(--ds-text-secondary,#52525b)]",
+                      FOCUS_RING,
+                    )}
+                  >
+                    {t === "generate" ? "Generate" : "Blank"}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Generation controls */}
-          <div className="mb-3 space-y-2 rounded-[var(--ds-radius-md,10px)] bg-[var(--ds-surface-raised,#f4f4f5)] p-2.5">
+          {tab === "generate" ? (
+            <div className="flex min-h-0 flex-1 flex-col">
+              {/* Controls + Generate (pinned) */}
+              <div className="space-y-2.5 px-3 pb-2 pt-3">
+                {/* Generation controls */}
+                <div className="space-y-2.5 rounded-[var(--ds-radius-md,10px)] bg-[var(--ds-surface-raised,#f4f4f5)] p-2.5">
             {/* Visual type picker */}
             <div>
-              <div className="mb-1 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)]">
+              <div className="mb-1.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)]">
                 Type
               </div>
-              <div className="flex flex-wrap gap-1">
-                <button
-                  type="button"
-                  aria-pressed={genOptions.type === "auto"}
-                  onClick={() => setGenOptions((o) => ({ ...o, type: "auto" }))}
-                  className={cx(
-                    "inline-flex h-6 items-center rounded-[var(--ds-radius-sm,8px)] px-2 text-[0.6875rem] font-medium transition-colors",
-                    genOptions.type === "auto"
-                      ? "bg-[var(--ds-accent,#6366f1)] text-[var(--ds-text-on-accent,#ffffff)]"
-                      : "bg-[var(--ds-surface,#ffffff)] text-[var(--ds-text-secondary,#52525b)] hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.05))]",
-                    FOCUS_RING,
-                  )}
-                >
-                  Auto
-                </button>
+              <button
+                type="button"
+                aria-pressed={genOptions.type === "auto"}
+                onClick={() => setGenOptions((o) => ({ ...o, type: "auto" }))}
+                className={cx(
+                  "flex w-full items-center justify-center gap-1.5 rounded-[var(--ds-radius-sm,8px)] px-2 py-1.5 text-xs font-medium transition-colors",
+                  genOptions.type === "auto"
+                    ? "bg-[var(--ds-accent,#6366f1)] text-[var(--ds-text-on-accent,#ffffff)]"
+                    : "bg-[var(--ds-surface,#ffffff)] text-[var(--ds-text-secondary,#52525b)] hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.05))]",
+                  FOCUS_RING,
+                )}
+              >
+                <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
+                Auto
+              </button>
+              <div className="mt-1.5 grid grid-cols-3 gap-1">
                 {VISUAL_KINDS.map((kind) => {
                   const meta = VISUAL_KIND_META[kind];
                   const Icon = meta.icon;
+                  const active = genOptions.type === kind;
                   return (
                     <button
                       key={kind}
                       type="button"
-                      aria-pressed={genOptions.type === kind}
+                      aria-pressed={active}
                       onClick={() =>
                         setGenOptions((o) => ({ ...o, type: kind }))
                       }
                       className={cx(
-                        "inline-flex h-6 items-center gap-1 rounded-[var(--ds-radius-sm,8px)] px-2 text-[0.6875rem] font-medium transition-colors",
-                        genOptions.type === kind
+                        "flex items-center gap-1.5 rounded-[var(--ds-radius-sm,8px)] px-2 py-1.5 text-xs font-medium transition-colors",
+                        active
                           ? "bg-[var(--ds-accent,#6366f1)] text-[var(--ds-text-on-accent,#ffffff)]"
                           : "bg-[var(--ds-surface,#ffffff)] text-[var(--ds-text-secondary,#52525b)] hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.05))]",
                         FOCUS_RING,
                       )}
                     >
-                      <Icon aria-hidden="true" className="h-3 w-3" />
-                      {meta.label}
+                      <Icon
+                        aria-hidden="true"
+                        className="h-3.5 w-3.5 shrink-0"
+                      />
+                      <span className="truncate">{meta.label}</span>
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* Orientation picker */}
-            <div>
-              <div className="mb-1 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)]">
-                Orientation
-              </div>
-              <SegmentedControl
-                aria-label="Visual orientation"
-                size="sm"
-                options={ORIENTATION_OPTIONS}
-                value={genOptions.orientation}
-                onChange={(v) =>
-                  setGenOptions((o) => ({ ...o, orientation: v }))
-                }
-                className="w-full"
-              />
-            </div>
-
-            {/* Detail level picker */}
-            <div>
-              <div className="mb-1 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)]">
-                Detail level
-              </div>
-              <SegmentedControl
-                aria-label="Detail level"
-                size="sm"
-                options={DETAIL_LEVEL_OPTIONS}
-                value={genOptions.detailLevel}
-                onChange={(v) =>
-                  setGenOptions((o) => ({ ...o, detailLevel: v }))
-                }
-                className="w-full"
-              />
-            </div>
-
-            {/* Stay closer to text toggle */}
-            <label className="flex cursor-pointer items-center gap-2">
-              <input
-                type="checkbox"
-                checked={genOptions.stayCloserToText}
-                onChange={(e) =>
-                  setGenOptions((o) => ({
-                    ...o,
-                    stayCloserToText: e.target.checked,
-                  }))
-                }
+            {/* Advanced options — collapsed by default to keep the panel short */}
+            <div className="border-t border-[var(--ds-border,rgba(0,0,0,0.08))] pt-2">
+              <button
+                type="button"
+                aria-expanded={showOptions}
+                onClick={() => setShowOptions((v) => !v)}
                 className={cx(
-                  "h-3.5 w-3.5 cursor-pointer rounded accent-[var(--ds-accent,#6366f1)]",
+                  "flex w-full items-center justify-between rounded-[var(--ds-radius-sm,8px)] px-1 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)] transition-colors hover:text-[var(--ds-text-secondary,#52525b)]",
                   FOCUS_RING,
                 )}
-              />
-              <span className="select-none text-[0.6875rem] text-[var(--ds-text-secondary,#52525b)]">
-                Stay closer to my text
-              </span>
-            </label>
-          </div>
-
-          <div className="mb-1 text-[0.6875rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)]">
-            Generate from this block
-          </div>
-          <AnimatePresence mode="wait">
-            {status === "loading" ? (
-              <motion.div
-                key="loading"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
-                className="space-y-2"
               >
-                {/* Skeleton candidates: stabilise the panel layout immediately */}
-                <ul className="grid grid-cols-2 gap-2">
-                  {[0, 1].map((i) => (
-                    <li key={i}>
-                      <VisualSkeleton />
-                    </li>
-                  ))}
-                </ul>
-                <GeneratingIndicator
-                  isLoading
-                  className="px-1 py-1 text-sm text-[var(--ds-text-muted,#71717a)]"
+                <span>Options</span>
+                <ChevronDown
+                  aria-hidden="true"
+                  className={cx(
+                    "h-3.5 w-3.5 transition-transform",
+                    showOptions ? "rotate-180" : "",
+                  )}
                 />
-              </motion.div>
-            ) : error !== null ? (
-              <motion.div
-                key="error"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
-                role="alert"
-                className="flex flex-col items-start gap-2 px-1 py-2 text-sm text-[var(--ds-danger,#dc2626)]"
-              >
-                <span>{error}</span>
-                <Button
-                  size="sm"
-                  variant="subtle"
-                  onClick={() =>
-                    panelTarget !== null
-                      ? void generate(panelTarget, genOptions)
-                      : undefined
-                  }
-                >
-                  Try again
-                </Button>
-              </motion.div>
-            ) : candidates.length > 0 ? (
-              <motion.ul
-                key="candidates"
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="grid grid-cols-2 gap-2"
-              >
-                {candidates.map((candidate, index) => (
-                  <li key={index}>
-                    <button
-                      type="button"
-                      aria-label={`Insert variation ${index + 1} of ${candidates.length}`}
-                      onClick={() => insertVisual(candidate)}
+              </button>
+
+              {showOptions ? (
+                <div className="mt-2 space-y-2">
+                  {/* Orientation picker */}
+                  <div>
+                    <div className="mb-1 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)]">
+                      Orientation
+                    </div>
+                    <SegmentedControl
+                      aria-label="Visual orientation"
+                      size="sm"
+                      options={ORIENTATION_OPTIONS}
+                      value={genOptions.orientation}
+                      onChange={(v) =>
+                        setGenOptions((o) => ({ ...o, orientation: v }))
+                      }
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* Detail level picker */}
+                  <div>
+                    <div className="mb-1 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)]">
+                      Detail level
+                    </div>
+                    <SegmentedControl
+                      aria-label="Detail level"
+                      size="sm"
+                      options={DETAIL_LEVEL_OPTIONS}
+                      value={genOptions.detailLevel}
+                      onChange={(v) =>
+                        setGenOptions((o) => ({ ...o, detailLevel: v }))
+                      }
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* Stay closer to text toggle */}
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={genOptions.stayCloserToText}
+                      onChange={(e) =>
+                        setGenOptions((o) => ({
+                          ...o,
+                          stayCloserToText: e.target.checked,
+                        }))
+                      }
                       className={cx(
-                        "group flex w-full flex-col overflow-hidden rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border,rgba(0,0,0,0.08))] bg-[var(--ds-surface,#ffffff)] p-1.5 text-left transition-colors hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
+                        "h-3.5 w-3.5 cursor-pointer rounded accent-[var(--ds-accent,#6366f1)]",
                         FOCUS_RING,
                       )}
-                    >
-                      <VisualRenderer
-                        visual={candidate}
-                        className="h-auto w-full"
-                      />
-                    </button>
-                  </li>
-                ))}
-              </motion.ul>
-            ) : (
-              <motion.div
-                key="idle"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
-              >
+                    />
+                    <span className="select-none text-[0.6875rem] text-[var(--ds-text-secondary,#52525b)]">
+                      Stay closer to my text
+                    </span>
+                  </label>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
                 <Button
                   size="sm"
                   variant="solid"
@@ -669,39 +648,131 @@ export function BlockSparkPlugin() {
                       ? void generate(panelTarget, genOptions)
                       : undefined
                   }
+                  disabled={status === "loading"}
                   className="w-full"
                 >
-                  Generate
+                  {status === "loading"
+                    ? "Generating…"
+                    : candidates.length > 0
+                      ? "Regenerate"
+                      : "Generate"}
                 </Button>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              </div>
 
-          <Divider orientation="horizontal" className="my-3" />
-
-          <div className="mb-1.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)]">
-            Or insert a blank
-          </div>
-          <div className="grid grid-cols-2 gap-1.5">
-            {VISUAL_KINDS.map((kind) => {
-              const meta = VISUAL_KIND_META[kind];
-              const Icon = meta.icon;
-              return (
-                <Button
-                  key={kind}
-                  size="sm"
-                  variant="subtle"
-                  leadingIcon={
-                    <Icon aria-hidden="true" className="h-3.5 w-3.5" />
-                  }
-                  onClick={() => insertBlank(kind)}
-                  className="w-full justify-start"
-                >
-                  {meta.label}
-                </Button>
-              );
-            })}
-          </div>
+              {/* Results — the only scrolling region */}
+              <div className="min-h-0 flex-1 overflow-auto px-3 pb-3">
+                <AnimatePresence mode="wait">
+                  {status === "loading" ? (
+                    <motion.div
+                      key="loading"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                      className="space-y-2"
+                    >
+                      <ul className="grid grid-cols-2 gap-2">
+                        {[0, 1].map((i) => (
+                          <li key={i}>
+                            <VisualSkeleton />
+                          </li>
+                        ))}
+                      </ul>
+                      <GeneratingIndicator
+                        isLoading
+                        className="px-1 py-1 text-sm text-[var(--ds-text-muted,#71717a)]"
+                      />
+                    </motion.div>
+                  ) : error !== null ? (
+                    <motion.div
+                      key="error"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                      role="alert"
+                      className="flex flex-col items-start gap-2 px-1 py-2 text-sm text-[var(--ds-danger,#dc2626)]"
+                    >
+                      <span>{error}</span>
+                      <Button
+                        size="sm"
+                        variant="subtle"
+                        onClick={() =>
+                          panelTarget !== null
+                            ? void generate(panelTarget, genOptions)
+                            : undefined
+                        }
+                      >
+                        Try again
+                      </Button>
+                    </motion.div>
+                  ) : candidates.length > 0 ? (
+                    <motion.ul
+                      key="candidates"
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="grid grid-cols-2 gap-2"
+                    >
+                      {candidates.map((candidate, index) => (
+                        <li key={index}>
+                          <button
+                            type="button"
+                            aria-label={`Insert variation ${index + 1} of ${candidates.length}`}
+                            onClick={() => insertVisual(candidate)}
+                            className={cx(
+                              "group flex w-full flex-col overflow-hidden rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border,rgba(0,0,0,0.08))] bg-[var(--ds-surface,#ffffff)] p-1.5 text-left transition-colors hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
+                              FOCUS_RING,
+                            )}
+                          >
+                            <VisualRenderer
+                              visual={candidate}
+                              className="h-auto w-full"
+                            />
+                          </button>
+                        </li>
+                      ))}
+                    </motion.ul>
+                  ) : (
+                    <motion.p
+                      key="empty"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                      className="px-1 py-6 text-center text-xs text-[var(--ds-text-muted,#a1a1aa)]"
+                    >
+                      Pick a type, then Generate to see options.
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          ) : (
+            <div className="min-h-0 flex-1 overflow-auto p-3">
+              <div className="grid grid-cols-3 gap-1.5">
+                {VISUAL_KINDS.map((kind) => {
+                  const meta = VISUAL_KIND_META[kind];
+                  const Icon = meta.icon;
+                  return (
+                    <Button
+                      key={kind}
+                      size="sm"
+                      variant="subtle"
+                      leadingIcon={
+                        <Icon aria-hidden="true" className="h-3.5 w-3.5" />
+                      }
+                      onClick={() => insertBlank(kind)}
+                      className="w-full justify-start"
+                    >
+                      {meta.label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </FloatingSurface>
     </>
