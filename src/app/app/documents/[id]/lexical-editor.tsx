@@ -616,7 +616,11 @@ export function LexicalEditor({
                     </div>
 
                     {/* Editing rail — docked at lg+, hidden on narrow viewports */}
-                    <EditingRail />
+                    <EditingRail
+                      documentTitle={title.value}
+                      showPageBreaks={showPageBreaks}
+                      onTogglePageBreaks={() => setShowPageBreaks((v) => !v)}
+                    />
                   </div>
                 </VisualPanelProvider>
               </EditorContextProvider>
