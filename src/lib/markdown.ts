@@ -128,13 +128,3 @@ export function blockText(block: MarkdownBlock): string {
   return block.text;
 }
 
-export type BlockType = "h1" | "h2" | "h3" | "bullet" | "paragraph";
-
-const BLOCK_PREFIX: Record<BlockType, string> = {
-  h1: "# ",
-  h2: "## ",
-  h3: "### ",
-  bullet: "- ",
-  paragraph: "",
-};
-

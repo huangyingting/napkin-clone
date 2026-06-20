@@ -14,8 +14,6 @@ import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import {
   VISUAL_KIND_TO_PRISMA,
   safeParseVisual,
-  validateVisual,
-  type Visual,
 } from "@/lib/visual/schema";
 
 // URL-safe share ID generator (no ambiguous chars: 0/O, 1/l/I)
@@ -109,26 +107,6 @@ export async function saveDocumentTitle(
 
   revalidatePath("/app");
   return { title };
-}
-
-/**
- * Saves document text content for the current user. Owner-scoped via
- * `updateMany` so it never writes to another user's document. Content is
- * clamped to a sane maximum length.
- */
-export async function saveDocumentContent(
-  id: string,
-  content: string,
-): Promise<void> {
-  const user = await requireUser();
-  const safeContent = content.slice(0, MAX_CONTENT_LENGTH);
-
-  await prisma.document.updateMany({
-    where: { id, ownerId: user.id },
-    data: { content: safeContent },
-  });
-
-  revalidatePath("/app");
 }
 
 /**
@@ -285,212 +263,6 @@ export async function saveDocumentLexical(
 }
 
 /**
- * Attaches a generated visual to a document, keyed by anchor block.
- *
- * The selected candidate is re-validated server-side (never trust the client)
- * and the document is owner/member access-scoped before any write. The visual
- * is upserted by `(documentId, anchorBlockId)` so multiple visuals can coexist
- * in one document: each Markdown block keeps its own visual, and a `null`
- * `anchorBlockId` targets the legacy document-level visual row (backward
- * compatible). The full validated `Visual` JSON is stored in `Visual.data`; its
- * kind maps to the Prisma `VisualType` for queryability. When an existing visual
- * is overwritten, its previous state is first snapshotted into the
- * `VisualRevision` history (newest 10 retained) so the edit is restorable;
- * creating a brand-new visual records no snapshot (no prior data).
- *
- * Returns the persisted visual id. Throws when the visual is invalid or the
- * document isn't accessible to the current user (the caller surfaces a
- * transient, retryable message).
- */
-export async function attachVisual(
-  id: string,
-  input: unknown,
-  anchorBlockId: string | null = null,
-): Promise<{ visualId: string }> {
-  const user = await requireUser();
-
-  // Re-validate so a tampered/garbled payload can never be persisted.
-  const visual = validateVisual(input);
-
-  // Access-scope first (owner or workspace member) so a foreign/forbidden
-  // document id can't be written to or probed.
-  const document = await getAccessibleDocument(user.id, id);
-  if (!document) {
-    throw new Error("Document not found.");
-  }
-
-  const anchor = normalizeAnchorBlockId(anchorBlockId);
-  const type = VISUAL_KIND_TO_PRISMA[visual.type];
-  const title = visual.title ?? null;
-  const data = visual as unknown as Prisma.InputJsonValue;
-
-  // One visual per (document, anchor block): update the existing row for this
-  // anchor, else create it. A null anchor maps to the document-level visual.
-  const existing = await prisma.visual.findFirst({
-    where: { documentId: id, anchorBlockId: anchor },
-    orderBy: { createdAt: "asc" },
-    select: { id: true, data: true, type: true, title: true },
-  });
-
-  let saved: { id: string };
-  if (existing) {
-    // Snapshot the previous state before overwriting it (skipped on create — a
-    // brand-new visual has no prior data to record).
-    await snapshotVisualRevision(existing);
-    saved = await prisma.visual.update({
-      where: { id: existing.id },
-      data: { type, title, data },
-      select: { id: true },
-    });
-  } else {
-    saved = await prisma.visual.create({
-      data: { documentId: id, anchorBlockId: anchor, type, title, data },
-      select: { id: true },
-    });
-  }
-
-  revalidatePath(`/app/documents/${id}`);
-  return { visualId: saved.id };
-}
-
-/** A previous version of a visual, ready to render as a history thumbnail. */
-export type VisualRevisionSummary = {
-  id: string;
-  createdAt: string;
-  visual: Visual;
-};
-
-/**
- * Lists the recent revision history for the visual at `(documentId,
- * anchorBlockId)`, newest first, for any user who can access the document
- * (owner or workspace member). Each revision's stored JSON is re-parsed with
- * `safeParseVisual` so only renderable snapshots are returned (garbled rows are
- * skipped); the `createdAt` is serialized to an ISO string for the client.
- * Returns an empty list when the visual has no history yet. Throws when the
- * document isn't accessible.
- */
-export async function listVisualRevisions(
-  documentId: string,
-  anchorBlockId: string | null = null,
-): Promise<VisualRevisionSummary[]> {
-  const user = await requireUser();
-
-  const document = await getAccessibleDocument(user.id, documentId);
-  if (!document) {
-    throw new Error("Document not found.");
-  }
-
-  const anchor = normalizeAnchorBlockId(anchorBlockId);
-
-  // Resolve the visual row for this (document, anchor) — its id keys the history.
-  const visual = await prisma.visual.findFirst({
-    where: { documentId, anchorBlockId: anchor },
-    orderBy: { createdAt: "asc" },
-    select: { id: true },
-  });
-  if (!visual) {
-    return [];
-  }
-
-  const revisions = await prisma.visualRevision.findMany({
-    where: { visualId: visual.id },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    select: { id: true, data: true, createdAt: true },
-  });
-
-  const summaries: VisualRevisionSummary[] = [];
-  for (const revision of revisions) {
-    const parsed = safeParseVisual(revision.data);
-    if (parsed.success) {
-      summaries.push({
-        id: revision.id,
-        createdAt: revision.createdAt.toISOString(),
-        visual: parsed.data,
-      });
-    }
-  }
-  return summaries;
-}
-
-/**
- * Restores a previous visual version.
- *
- * The revision is resolved to its parent visual and document, the document is
- * access-scoped (owner or workspace member), and the snapshot is re-validated
- * with `validateVisual` before being written back through `attachVisual`. Going
- * through `attachVisual` means the *current* state is itself snapshotted into
- * history first, so a restore is recorded and therefore undoable. Returns the
- * restored visual so the caller can update the canvas live.
- */
-export async function restoreVisualRevision(
-  revisionId: string,
-): Promise<{ visual: Visual }> {
-  const user = await requireUser();
-
-  const revision = await prisma.visualRevision.findUnique({
-    where: { id: revisionId },
-    select: {
-      data: true,
-      visual: { select: { documentId: true, anchorBlockId: true } },
-    },
-  });
-  if (!revision) {
-    throw new Error("Revision not found.");
-  }
-
-  // Access-scope the parent document so a foreign revision id can't be probed
-  // or restored by a user without access.
-  const document = await getAccessibleDocument(
-    user.id,
-    revision.visual.documentId,
-  );
-  if (!document) {
-    throw new Error("Document not found.");
-  }
-
-  // Re-validate the stored snapshot before writing it back.
-  const visual = validateVisual(revision.data);
-
-  await attachVisual(
-    revision.visual.documentId,
-    visual,
-    revision.visual.anchorBlockId,
-  );
-
-  return { visual };
-}
-
-/**
- * Removes a single anchored visual from a document.
- *
- * Deletes the `Visual` row keyed by `(documentId, anchorBlockId)` so removing
- * one block's visual never touches the others (or the legacy document-level
- * visual unless `anchorBlockId` is `null`). The document is owner/member
- * access-scoped first, then `deleteMany` is used so a foreign/forbidden id or a
- * block with no visual is a harmless no-op rather than a throw or cross-user
- * delete.
- */
-export async function detachVisual(
-  id: string,
-  anchorBlockId: string | null = null,
-): Promise<void> {
-  const user = await requireUser();
-
-  const document = await getAccessibleDocument(user.id, id);
-  if (!document) {
-    throw new Error("Document not found.");
-  }
-
-  const anchor = normalizeAnchorBlockId(anchorBlockId);
-
-  await prisma.visual.deleteMany({
-    where: { documentId: id, anchorBlockId: anchor },
-  });
-
-  revalidatePath(`/app/documents/${id}`);
-}
-
-/**
  * Toggles sharing for a document owned by the current user.
  *
  * - When enabling sharing (isShared: true), generates a unique shareId.
@@ -606,23 +378,6 @@ export async function saveDeckJson(
   await prisma.document.updateMany({
     where: { id, ownerId: user.id },
     data: { deckJson: result.data as unknown as Prisma.InputJsonValue },
-  });
-
-  revalidatePath(`/app/documents/${id}`);
-}
-
-/**
- * Clears the persisted deck for a document (reverts to the auto-derived deck).
- * Owner-scoped.
- */
-export async function clearDeckJson(id: string): Promise<void> {
-  const user = await requireUser();
-  const document = await getAccessibleDocument(user.id, id);
-  if (!document) throw new Error("Document not found.");
-
-  await prisma.document.updateMany({
-    where: { id, ownerId: user.id },
-    data: { deckJson: Prisma.DbNull },
   });
 
   revalidatePath(`/app/documents/${id}`);

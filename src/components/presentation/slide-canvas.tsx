@@ -10,7 +10,7 @@
 
 import type { JSX } from "react";
 
-import type { Deck, DeckTheme, Slide } from "@/lib/presentation/deck";
+import type { DeckTheme, Slide } from "@/lib/presentation/deck";
 import type { Visual } from "@/lib/visual/schema";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 

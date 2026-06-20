@@ -6,17 +6,8 @@ import {
   useState,
 } from "react";
 import * as Y from "yjs";
-import { WebsocketProvider } from "y-websocket";
 
-import { adjustIndex, applyTextDiff, colorFromId } from "./y-text";
-import { resolveCollabWsUrl } from "./ws-url";
-
-/** Falls back to degraded (local-only) mode if the server never syncs. */
-const DEGRADED_TIMEOUT_MS = 2500;
-
-/** Transaction origin tags so observers can classify the source of a change. */
-const LOCAL_ORIGIN = Symbol("napkin-local");
-const SEED_ORIGIN = Symbol("napkin-seed");
+import { adjustIndex, applyTextDiff } from "./y-text";
 
 export type CollabStatus = "connecting" | "connected" | "disconnected";
 
@@ -26,8 +17,6 @@ export type Peer = {
   color: string;
   self: boolean;
 };
-
-type Awareness = WebsocketProvider["awareness"];
 
 export type Collaboration = {
   doc: Y.Doc;
