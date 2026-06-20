@@ -19,6 +19,7 @@ export default async function BrandsPage() {
     select: { plan: true },
   });
   const canUseBrandStyles = hasEntitlement(dbUser?.plan, "brandStyles");
+  const canUploadFont = hasEntitlement(dbUser?.plan, "fontUpload");
 
   const brands = await listBrands();
 
@@ -43,7 +44,7 @@ export default async function BrandsPage() {
         </header>
 
         {canUseBrandStyles ? (
-          <BrandStudio initialBrands={brands} />
+          <BrandStudio initialBrands={brands} canFontUpload={canUploadFont} />
         ) : (
           <div className="flex flex-col items-center gap-4 rounded-2xl border border-ds-border-strong bg-ds-surface-base p-10 text-center">
             <p className="text-base font-semibold text-ds-text-primary">

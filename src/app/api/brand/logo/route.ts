@@ -13,6 +13,10 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { getCurrentUser } from "@/lib/session";
 import { validateLogoUpload, formatUploadError } from "@/lib/brand/upload";
+import {
+  resolveBrandEntitlements,
+  BRAND_STYLES_UPGRADE_MESSAGE,
+} from "@/lib/billing/brand-entitlements";
 
 export const runtime = "nodejs";
 
@@ -32,6 +36,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  const entitlements = await resolveBrandEntitlements(user.id);
+  if (!entitlements.canBrand) {
+    return NextResponse.json(
+      { error: BRAND_STYLES_UPGRADE_MESSAGE },
+      { status: 403 },
+    );
   }
 
   let formData: FormData;
