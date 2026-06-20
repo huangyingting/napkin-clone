@@ -169,18 +169,41 @@ model Comment {
 }
 
 model InviteLink {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   workspaceId String
-  token       String   @unique
-  role        String   @default("VIEWER")
-  isRevoked   Boolean  @default(false)
+  token       String    @unique
+  role        String    @default("VIEWER")
+  isRevoked   Boolean   @default(false)
+  // Hardening (issue #103): optional expiry and usage cap. `expiresAt` null =
+  // never expires; `maxUses` null = unlimited uses; `useCount` tracks accepted
+  // joins so a capped link can be denied once exhausted.
+  expiresAt   DateTime?
+  maxUses     Int?
+  useCount    Int       @default(0)
   createdById String
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  uses      InviteLinkUse[]
 
   @@index([workspaceId])
   @@index([token])
+}
+
+// Per-join audit trail for workspace invite links (issue #103). One row is
+// written for every successful join, capturing who joined, with which role,
+// and when — so usage can be reviewed and `InviteLink.useCount` reconciled.
+model InviteLinkUse {
+  id           String   @id @default(cuid())
+  inviteLinkId String
+  userId       String
+  role         String
+  usedAt       DateTime @default(now())
+
+  inviteLink InviteLink @relation(fields: [inviteLinkId], references: [id], onDelete: Cascade)
+
+  @@index([inviteLinkId])
+  @@index([userId])
 }
 
 // Shared, DB-backed fixed-window rate-limit state for the AI generation

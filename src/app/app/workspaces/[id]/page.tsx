@@ -45,7 +45,15 @@ export default async function WorkspacePage({
       },
       inviteLinks: {
         where: { isRevoked: false },
-        select: { id: true, token: true, role: true, createdAt: true },
+        select: {
+          id: true,
+          token: true,
+          role: true,
+          createdAt: true,
+          expiresAt: true,
+          maxUses: true,
+          useCount: true,
+        },
         orderBy: { createdAt: "desc" },
       },
       _count: { select: { documents: true } },
