@@ -340,7 +340,7 @@ export function CommentsPanel({
             <aside
               role="dialog"
               aria-label="Comments"
-              className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l border-black/[.08] bg-white shadow-2xl dark:border-white/[.10] dark:bg-zinc-950"
+              className="fixed inset-y-0 right-0 z-panel flex w-full max-w-md flex-col border-l border-black/[.08] bg-white shadow-2xl dark:border-white/[.10] dark:bg-zinc-950"
             >
               <div className="flex items-center justify-between border-b border-black/[.06] px-4 py-3 dark:border-white/[.08]">
                 <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">

@@ -102,7 +102,7 @@ export function VisualQuickActionBar({
     <div
       role="toolbar"
       aria-label="Quick actions"
-      className="absolute left-1/2 top-2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border,rgba(0,0,0,0.08))] bg-white/90 px-1 py-1 shadow-sm backdrop-blur-sm"
+      className="absolute left-1/2 top-2 z-raised flex -translate-x-1/2 items-center gap-0.5 rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border,rgba(0,0,0,0.08))] bg-white/90 px-1 py-1 shadow-sm backdrop-blur-sm"
     >
       {ids.map((id) => {
         const { icon: Icon, label } = ACTION_CONFIG[id];

@@ -73,7 +73,7 @@ export function MobileNavMenu({ children }: { children: ReactNode }) {
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.18 }}
                   onClick={() => setOpen(false)}
-                  className="fixed inset-0 z-40 bg-black/30 md:hidden"
+                  className="fixed inset-0 z-overlay bg-black/30 md:hidden"
                 />
 
                 {/* Slide-in drawer */}
@@ -86,7 +86,7 @@ export function MobileNavMenu({ children }: { children: ReactNode }) {
                   animate={{ x: 0 }}
                   exit={{ x: "100%" }}
                   transition={{ duration: 0.22, ease: "easeOut" }}
-                  className="fixed right-0 top-0 z-50 flex h-full w-72 max-w-[85vw] flex-col overflow-y-auto border-l border-ghost-border bg-ghost-bg shadow-xl md:hidden"
+                  className="fixed right-0 top-0 z-panel flex h-full w-72 max-w-[85vw] flex-col overflow-y-auto border-l border-ghost-border bg-ghost-bg shadow-xl md:hidden"
                 >
                   {/* Drawer header */}
                   <div className="flex h-14 shrink-0 items-center justify-between border-b border-ghost-border px-4">

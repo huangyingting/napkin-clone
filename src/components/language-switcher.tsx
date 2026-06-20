@@ -74,14 +74,14 @@ export function LanguageSwitcher() {
         <>
           {/* Invisible backdrop to close on outside click */}
           <div
-            className="fixed inset-0 z-40"
+            className="fixed inset-0 z-dropdown"
             aria-hidden="true"
             onClick={() => setOpen(false)}
           />
           <ul
             role="listbox"
             aria-label="Select language"
-            className="absolute right-0 z-50 mt-1 min-w-[9rem] overflow-hidden rounded-xl border border-ghost-border bg-ghost-bg py-1 shadow-lg"
+            className="absolute right-0 z-dropdown mt-1 min-w-[9rem] overflow-hidden rounded-xl border border-ghost-border bg-ghost-bg py-1 shadow-lg"
           >
             {SUPPORTED_LOCALES.map((loc) => (
               <li key={loc} role="option" aria-selected={loc === locale}>

@@ -160,7 +160,7 @@ export function SlideEditor({
     <div
       role="dialog"
       aria-label="Slide editor"
-      className="fixed inset-y-0 right-0 z-40 flex w-[420px] max-w-full flex-col border-l border-ds-border-subtle bg-ds-surface-raised shadow-ds-raised dark:bg-zinc-900"
+      className="fixed inset-y-0 right-0 z-panel flex w-[420px] max-w-full flex-col border-l border-ds-border-subtle bg-ds-surface-raised shadow-ds-raised dark:bg-zinc-900"
     >
       {/* Header */}
       <div className="flex items-center justify-between gap-2 border-b border-ds-border-subtle px-4 py-3">

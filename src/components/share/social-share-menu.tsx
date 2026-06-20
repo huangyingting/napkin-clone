@@ -363,7 +363,7 @@ export function SocialShareMenu({
       {open && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 top-full z-20 mt-2 w-56 rounded-lg border border-black/[.06] bg-white p-2 shadow-lg dark:border-white/[.08] dark:bg-zinc-900"
+          className="absolute right-0 top-full z-dropdown mt-2 w-56 rounded-lg border border-black/[.06] bg-white p-2 shadow-lg dark:border-white/[.08] dark:bg-zinc-900"
         >
           <MenuContent
             shareUrl={shareUrl}

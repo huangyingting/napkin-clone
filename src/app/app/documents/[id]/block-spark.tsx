@@ -432,7 +432,7 @@ export function BlockSparkPlugin() {
                 top: block.top + block.height / 2 - 14,
                 left: block.left - GUTTER_OFFSET,
               }}
-              className={cx("fixed z-40", GUTTER_BUTTON)}
+              className={cx("fixed z-raised", GUTTER_BUTTON)}
             >
               <Sparkles aria-hidden="true" className="h-4 w-4" />
             </motion.button>

@@ -291,7 +291,7 @@ export function PresentMode({
 
   if (!currentSlide) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black text-white">
+      <div className="fixed inset-0 z-modal flex items-center justify-center bg-black text-white">
         <p>No slides to present.</p>
         <button type="button" onClick={onClose} className="ml-4 underline">
           Close
@@ -309,7 +309,7 @@ export function PresentMode({
       aria-label="Presentation"
       aria-live="polite"
       aria-atomic="true"
-      className="fixed inset-0 z-50 flex flex-col select-none outline-none"
+      className="fixed inset-0 z-modal flex flex-col select-none outline-none"
       style={{ backgroundColor: tc.bgColor }}
       tabIndex={-1}
     >

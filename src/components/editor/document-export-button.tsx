@@ -204,7 +204,7 @@ export function DocumentExportButton({
         <div
           role="menu"
           aria-label="Export document"
-          className="absolute right-0 top-full z-[60] mt-1 min-w-[240px] overflow-hidden rounded-ds-lg border border-ds-border-subtle bg-ds-surface-raised shadow-ds-overlay"
+          className="absolute right-0 top-full z-dropdown mt-1 min-w-[240px] overflow-hidden rounded-ds-lg border border-ds-border-subtle bg-ds-surface-raised shadow-ds-overlay"
           onBlur={(e) => {
             if (!menuRef.current?.contains(e.relatedTarget as Node | null)) {
               setIsOpen(false);

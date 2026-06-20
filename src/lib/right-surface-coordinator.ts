@@ -47,10 +47,11 @@ export function rightSurfaceReducer(
 /**
  * Returns `true` when the floating VisualContextPopover should be suppressed.
  *
- * When the SlideEditor panel is open (z-40, fixed right), the floating overlay
- * (z-50) would render on top of it — showing two simultaneous right-side
- * surfaces. Suppressing the float prevents this stacking while the slide
- * editor is active; visual editing remains accessible via the docked rail.
+ * When the SlideEditor panel is open (z-panel, fixed right), showing the
+ * floating VisualContextPopover (z-dropdown) at the same time would mean two
+ * simultaneous right-side surfaces. Suppressing the float keeps a single right
+ * surface while the slide editor is active; visual editing remains accessible
+ * via the docked rail.
  */
 export function shouldSuppressFloatPopover(state: RightSurfaceState): boolean {
   return state.slideEditorOpen;

@@ -348,7 +348,7 @@ export function InsertMenuPlugin() {
                 top: blockRect.top + blockRect.height / 2 - 14,
                 left: blockRect.left - GUTTER_OFFSET,
               }}
-              className={cx("fixed z-40", GUTTER_BUTTON)}
+              className={cx("fixed z-raised", GUTTER_BUTTON)}
             >
               <Plus aria-hidden="true" className="h-4 w-4" />
             </motion.button>

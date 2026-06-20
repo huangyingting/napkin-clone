@@ -360,7 +360,7 @@ export function ExportDialog({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="fixed inset-0 z-40 bg-black/30"
+            className="fixed inset-0 z-overlay bg-black/30"
             aria-hidden="true"
             onClick={onClose}
           />
@@ -371,7 +371,7 @@ export function ExportDialog({
             aria-modal="true"
             aria-label="Export visual"
             {...popMotion}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 z-modal flex items-center justify-center p-4"
           >
             <div
               className="relative flex w-full max-w-2xl flex-col overflow-hidden rounded-[var(--ds-radius-xl,18px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-raised,#ffffff)] shadow-[var(--ds-shadow-popover,0_12px_32px_rgba(0,0,0,0.18))]"

@@ -173,7 +173,7 @@ export function FloatingSurface({
           transition={popMotion.transition}
           style={{ top: clamped.top, left: clamped.left, ...style }}
           className={cx(
-            "fixed z-50 border",
+            "fixed z-dropdown border",
             SURFACE_BASE,
             RADIUS[radius],
             ELEVATION[elevation],

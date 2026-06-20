@@ -425,12 +425,12 @@ export function LexicalEditor({
           <VisualSvgRegistryProvider>
             <VisualAnchorProvider value={visualAnchorValue}>
               <RightSurfaceProvider>
-                {/* `relative z-30` lifts the header's stacking context above the
-                  article column below it. The header uses `backdrop-blur`, which
-                  creates a stacking context that would otherwise trap header
-                  dropdowns (Share / Export menus) beneath the later-painted
-                  content area. */}
-                <div className="relative z-30 flex flex-col gap-3 border-b border-black/[.06] bg-white/80 px-4 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6 dark:border-white/[.08] dark:bg-black/40">
+                {/* `z-sticky` keeps this in-page toolbar above the article column
+                  below it (which is z-base), while staying below the global site
+                  header (`z-header`) so the header's user/language menus can open
+                  over this bar. The toolbar's own Share/Export menus are children
+                  of this stacking context and open downward over the article. */}
+                <div className="relative z-sticky flex flex-col gap-3 border-b border-black/[.06] bg-white/80 px-4 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6 dark:border-white/[.08] dark:bg-black/40">
                   <div className="flex min-w-0 flex-col gap-1">
                     <div className="flex items-center gap-2">
                       <Link

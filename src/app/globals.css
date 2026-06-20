@@ -169,6 +169,23 @@
   --shadow-ds-overlay: var(--ds-shadow-overlay);
   --shadow-ds-popover: var(--ds-shadow-popover);
 
+  /*
+   * Z-index scale (semantic layering) — one ordered stack so every overlay has a
+   * single predictable home. Anything in the article/content flow stays below
+   * `header`; anything that must cover the app chrome (drawers, dialogs, toasts,
+   * tooltips) stays above it. Always use the named utility (z-header, z-modal, …)
+   * — never a raw z-<number> — so the ordering stays globally consistent.
+   */
+  --z-index-raised: 10; /* in-content floating controls (badges, HUDs, gutter) */
+  --z-index-sticky: 20; /* sticky in-page toolbars / editor controls */
+  --z-index-header: 30; /* global site header */
+  --z-index-dropdown: 40; /* header/toolbar-anchored menus & popovers */
+  --z-index-overlay: 50; /* full-screen scrims behind drawers/sheets */
+  --z-index-panel: 60; /* drawers & side panels (slide editor, comments, nav) */
+  --z-index-modal: 70; /* centered dialogs (self-scrim) & fullscreen present */
+  --z-index-toast: 80; /* transient toasts / notifications */
+  --z-index-tooltip: 90; /* tooltips — always on top */
+
   --ease-ds-standard: var(--ds-ease-standard);
 }
 

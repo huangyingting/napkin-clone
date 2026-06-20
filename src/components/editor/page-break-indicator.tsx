@@ -62,7 +62,7 @@ export function PageBreakIndicator({
           key={offset}
           aria-hidden="true"
           style={{ top: offset }}
-          className="pointer-events-none absolute inset-x-0 z-10 flex items-center gap-2"
+          className="pointer-events-none absolute inset-x-0 z-raised flex items-center gap-2"
         >
           <div className="h-px flex-1 border-t border-dashed border-[var(--ds-border,rgba(0,0,0,0.15))]" />
           <span

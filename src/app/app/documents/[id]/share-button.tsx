@@ -122,7 +122,7 @@ export function ShareButton({
         <div
           ref={menuRef}
           onClick={(e) => e.stopPropagation()}
-          className="absolute right-0 top-full z-[60] mt-2 w-80 rounded-lg border border-black/[.06] bg-white p-4 shadow-lg dark:border-white/[.08] dark:bg-zinc-900"
+          className="absolute right-0 top-full z-dropdown mt-2 w-80 rounded-lg border border-black/[.06] bg-white p-4 shadow-lg dark:border-white/[.08] dark:bg-zinc-900"
         >
           <h3 className="mb-3 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
             Share this document

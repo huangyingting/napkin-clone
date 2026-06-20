@@ -28,7 +28,7 @@ export async function SiteHeader() {
   const creditsPerPeriod = entitlements?.creditsPerPeriod ?? 0;
 
   return (
-    <header className="flex w-full items-center justify-between overflow-x-clip border-b border-ghost-border bg-ghost-bg/80 px-4 py-3 backdrop-blur sm:px-6">
+    <header className="relative z-header flex w-full items-center justify-between overflow-x-clip border-b border-ghost-border bg-ghost-bg/80 px-4 py-3 backdrop-blur sm:px-6">
       <Link
         href="/"
         className="shrink-0 text-base font-semibold tracking-tight text-ghost-text"

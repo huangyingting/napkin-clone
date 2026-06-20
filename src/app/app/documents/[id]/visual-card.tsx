@@ -107,10 +107,11 @@ export function VisualCard({
     setSectionNav((prev) => ({ section, seq: prev.seq + 1 }));
   }, []);
 
-  // When the SlideEditor panel is open it occupies the right side (z-40, fixed).
-  // Rendering the floating overlay (z-50) on top of it would show two competing
-  // right-side surfaces. The coordinator suppresses the float while the slide
-  // editor is active; visual editing remains accessible via the docked rail.
+  // When the SlideEditor panel is open it occupies the right side (z-panel,
+  // fixed). Showing the floating overlay (z-dropdown) at the same time would put
+  // two competing right-side surfaces on screen. The coordinator suppresses the
+  // float while the slide editor is active; visual editing remains accessible
+  // via the docked rail.
   const { suppressFloatPopover } = useRightSurface();
 
   // Current text content of the immediately preceding block (the likely anchor).
@@ -563,8 +564,8 @@ export function VisualCard({
 
       {/* Float the visual editing popover inline beside the selected visual so
           its properties can be adjusted in place. Suppressed only while the
-          SlideEditor panel is open (its fixed z-40 panel would be obscured by
-          the float overlay). */}
+          SlideEditor panel is open, so the two right-side surfaces never appear
+          at once. */}
       {showControls && !suppressFloatPopover ? (
         <VisualContextPopover
           visual={data}
