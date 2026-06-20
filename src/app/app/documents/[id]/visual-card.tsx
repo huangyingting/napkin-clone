@@ -24,15 +24,18 @@ import {
   canCopyImageToClipboard,
   canWebShare,
 } from "@/lib/share/social-intents";
+import { useIsPointerFine } from "@/lib/pointer";
 
 import { useRegisterVisualSvg } from "@/components/editor/visual-svg-registry";
 import { useRightSurface } from "./right-surface-context";
 
 import { useVisualAnchor } from "./visual-anchor-context";
 import { VisualContextPopover } from "./visual-context-popover";
+import type { MenuSection } from "./visual-context-popover";
 import { VisualEditor } from "./visual-editor";
-import { $isVisualNode, VisualNode } from "./visual-node";
+import { $isVisualNode, $createVisualNode, VisualNode } from "./visual-node";
 import { useVisualPanel } from "./visual-panel-context";
+import { VisualQuickActionBar } from "./visual-quick-action-bar";
 
 // Block types whose text content can serve as a visual's source anchor.
 const SOURCE_TEXT_BLOCK_TYPES = new Set([
@@ -85,6 +88,24 @@ export function VisualCard({
   // Whether this card's editing controls are open. Local state (not a Lexical
   // NodeSelection) so it survives collaborative updates — see the component doc.
   const [open, setOpen] = useState(false);
+
+  // True when the primary pointer is fine (mouse/trackpad). Touch devices keep
+  // using the bottom sheet; the quick-action bar and float popover are
+  // pointer-fine only.
+  const isPointerFine = useIsPointerFine();
+
+  // External navigation trigger for the VisualContextPopover driven by the
+  // on-canvas quick-action bar. Incrementing `seq` lets the same section be
+  // requested twice in a row (user navigates away inside the popover, then
+  // clicks the bar button again).
+  const [sectionNav, setSectionNav] = useState<{
+    section: MenuSection | null;
+    seq: number;
+  }>({ section: null, seq: 0 });
+
+  const navigatePopover = useCallback((section: MenuSection | null) => {
+    setSectionNav((prev) => ({ section, seq: prev.seq + 1 }));
+  }, []);
 
   // When the SlideEditor panel is open it occupies the right side (z-40, fixed).
   // Rendering the floating overlay (z-50) on top of it would show two competing
@@ -200,6 +221,20 @@ export function VisualCard({
       const node = $getNodeByKey(nodeKey);
       if ($isVisualNode(node)) {
         node.remove();
+      }
+    });
+  }, [editor, nodeKey]);
+
+  // Duplicates this visual block by inserting a new VisualNode with the same
+  // payload immediately after the current node. A fresh visualId is generated
+  // by $createVisualNode so the duplicate is tracked independently. Collab-safe:
+  // the mutation goes through editor.update() → node.insertAfter().
+  const duplicateVisual = useCallback(() => {
+    editor.update(() => {
+      const node = $getNodeByKey(nodeKey);
+      if ($isVisualNode(node)) {
+        const copy = $createVisualNode(node.getVisual());
+        node.insertAfter(copy);
       }
     });
   }, [editor, nodeKey]);
@@ -411,6 +446,20 @@ export function VisualCard({
     >
       {showControls ? (
         <div className={cardClass}>
+          {/* On-canvas quick-action bar — compact overlay at the top of the
+              selected visual, fine-pointer only (touch uses the bottom sheet).
+              Provides one-click access to Colors, Swap Layout, Duplicate,
+              Delete, and the full popover menu. */}
+          {isPointerFine ? (
+            <VisualQuickActionBar
+              kind={data.type}
+              onColors={() => navigatePopover("colors")}
+              onLayout={() => navigatePopover("layout")}
+              onDuplicate={duplicateVisual}
+              onDelete={removeVisual}
+              onMore={() => navigatePopover(null)}
+            />
+          ) : null}
           <VisualEditor
             visual={data}
             onChange={updateVisual}
@@ -527,6 +576,7 @@ export function VisualCard({
           anchorRef={rootRef}
           currentSourceText={currentSourceText}
           onApplyBrandToAll={applyBrandToAll}
+          sectionNav={sectionNav}
         />
       ) : null}
     </motion.div>

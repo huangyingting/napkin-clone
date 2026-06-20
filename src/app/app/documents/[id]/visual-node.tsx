@@ -2,6 +2,8 @@ import { addClassNamesToElement } from "@lexical/utils";
 import {
   $applyNodeReplacement,
   DecoratorNode,
+  type DOMConversionMap,
+  type DOMConversionOutput,
   type DOMExportOutput,
   type EditorConfig,
   type LexicalUpdateJSON,
@@ -11,7 +13,7 @@ import {
 } from "lexical";
 import type { JSX } from "react";
 
-import type { Visual } from "@/lib/visual/schema";
+import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
 import { VisualCard } from "./visual-card";
 
@@ -69,6 +71,27 @@ export class VisualNode extends DecoratorNode<JSX.Element> {
     ).updateFromJSON(serializedNode);
   }
 
+  /**
+   * Pairs with {@link exportDOM} so HTML copy/paste round-trips. Lexical warns
+   * when a node defines a custom `exportDOM` without a matching `importDOM`,
+   * because pasted HTML would otherwise fail to reconstruct the node. We match
+   * the `<div data-lexical-visual-id>` emitted by `exportDOM` and rebuild a
+   * `VisualNode` from the embedded, schema-validated payload.
+   */
+  static importDOM(): DOMConversionMap | null {
+    return {
+      div: (domNode: HTMLElement) => {
+        if (!domNode.hasAttribute("data-lexical-visual-id")) {
+          return null;
+        }
+        return {
+          conversion: $convertVisualElement,
+          priority: 2,
+        };
+      },
+    };
+  }
+
   constructor(visual: Visual, visualId?: string, key?: NodeKey) {
     super(key);
     this.__visual = visual;
@@ -108,6 +131,9 @@ export class VisualNode extends DecoratorNode<JSX.Element> {
   exportDOM(): DOMExportOutput {
     const element = document.createElement("div");
     element.setAttribute("data-lexical-visual-id", this.__visualId);
+    // Embed the full payload so the matching importDOM can rebuild the visual on
+    // paste (the id alone can't reconstruct the content).
+    element.setAttribute("data-lexical-visual", JSON.stringify(this.__visual));
     return { element };
   }
 
@@ -149,6 +175,34 @@ export function $createVisualNode(
   visualId?: string,
 ): VisualNode {
   return $applyNodeReplacement(new VisualNode(visual, visualId));
+}
+
+/**
+ * Rebuilds a {@link VisualNode} from the `<div data-lexical-visual>` produced by
+ * {@link VisualNode.exportDOM}. The payload is re-validated with
+ * {@link safeParseVisual}; an invalid/absent payload skips the conversion so
+ * pasted markup degrades to its default handling instead of crashing. A fresh
+ * visualId is minted (the constructor default) so a pasted copy never collides
+ * with the source node's id in the mirrored `Visual` rows.
+ */
+function $convertVisualElement(
+  domNode: HTMLElement,
+): DOMConversionOutput | null {
+  const raw = domNode.getAttribute("data-lexical-visual");
+  if (!raw) {
+    return null;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  const result = safeParseVisual(parsed);
+  if (!result.success) {
+    return null;
+  }
+  return { node: $createVisualNode(result.data) };
 }
 
 export function $isVisualNode(node: unknown): node is VisualNode {
