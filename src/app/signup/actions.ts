@@ -4,6 +4,7 @@ import { AuthError } from "next-auth";
 import bcrypt from "bcryptjs";
 
 import { signIn } from "@/auth";
+import { safeCallbackUrl } from "@/lib/auth/callback-url";
 import { seedSampleDocument } from "@/lib/onboarding";
 import { prisma } from "@/lib/prisma";
 
@@ -47,7 +48,11 @@ export async function register(
   await seedSampleDocument(createdUser.id);
 
   try {
-    await signIn("credentials", { email, password, redirectTo: "/" });
+    await signIn("credentials", {
+      email,
+      password,
+      redirectTo: safeCallbackUrl(formData.get("callbackUrl")),
+    });
   } catch (error) {
     if (error instanceof AuthError) {
       return "Account created, but automatic sign-in failed. Please log in.";
