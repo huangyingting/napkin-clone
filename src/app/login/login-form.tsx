@@ -17,7 +17,10 @@ export function LoginForm() {
   return (
     <form action={formAction} className="flex w-full flex-col gap-4">
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="email" className="text-sm font-medium text-ds-text-primary">
+        <label
+          htmlFor="email"
+          className="text-sm font-medium text-ds-text-primary"
+        >
           Email
         </label>
         <input
