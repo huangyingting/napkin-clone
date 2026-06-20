@@ -1,6 +1,12 @@
 "use client";
 
-import { Copy, LayoutGrid, MoreHorizontal, Palette, Trash2 } from "lucide-react";
+import {
+  Copy,
+  LayoutGrid,
+  MoreHorizontal,
+  Palette,
+  Trash2,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { IconButton, Tooltip } from "@/components/ui";
@@ -23,7 +29,8 @@ export type QuickActionId =
  * kind. Currently all kinds share the same set; extracted as a pure function so
  * it can be tested headlessly (no DOM, no React, no Lexical).
  */
-export function getQuickActionIds(_kind: VisualKind | string): QuickActionId[] {
+export function getQuickActionIds(kind: VisualKind | string): QuickActionId[] {
+  void kind; // reserved for future kind-specific filtering
   return ["colors", "layout", "duplicate", "delete", "more"];
 }
 
@@ -97,7 +104,7 @@ export function VisualQuickActionBar({
       aria-label="Quick actions"
       className="absolute left-1/2 top-2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border,rgba(0,0,0,0.08))] bg-white/90 px-1 py-1 shadow-sm backdrop-blur-sm"
     >
-      {ids.map((id, index) => {
+      {ids.map((id) => {
         const { icon: Icon, label } = ACTION_CONFIG[id];
         const isDanger = id === "delete";
         const isSeparated = id === "duplicate";
