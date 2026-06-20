@@ -1,6 +1,6 @@
 "use client";
 
-import { Download } from "lucide-react";
+import { Check, Copy, Download, Share2 } from "lucide-react";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { $getNodeByKey, $nodesOfType } from "lexical";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -15,10 +15,15 @@ import {
   exportPNG,
   downloadBlob,
 } from "@/lib/visual/export";
+import { applySocialPresetToOptions } from "@/lib/visual/export-options";
 import { applyElasticLayout } from "@/lib/visual/transforms";
 import { applyBrand } from "@/lib/brand/transforms";
 import type { BrandStyle } from "@/lib/brand/schema";
 import { BRAND_WEB_FONTS } from "@/lib/brand/schema";
+import {
+  canCopyImageToClipboard,
+  canWebShare,
+} from "@/lib/share/social-intents";
 
 import { useRegisterVisualSvg } from "@/components/editor/visual-svg-registry";
 import { useIsRailActive } from "@/lib/rail-state";
@@ -296,6 +301,78 @@ export function VisualCard({
     [parsed],
   );
 
+  // Copy image to clipboard.
+  const [copyImageState, setCopyImageState] = useState<
+    "idle" | "copying" | "copied" | "error"
+  >("idle");
+  const copyImageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (copyImageTimerRef.current !== null)
+        clearTimeout(copyImageTimerRef.current);
+    };
+  }, []);
+
+  const copyImage = useCallback(async (event: React.MouseEvent) => {
+    event.stopPropagation();
+    const svg = rendererRef.current;
+    if (!svg) return;
+    setCopyImageState("copying");
+    try {
+      const opts = applySocialPresetToOptions("square", DEFAULT_EXPORT_OPTIONS);
+      const blob = await exportPNG(svg, opts);
+      if (!blob) throw new Error("exportPNG returned null");
+      await navigator.clipboard.write([
+        new ClipboardItem({ "image/png": blob }),
+      ]);
+      setCopyImageState("copied");
+      copyImageTimerRef.current = setTimeout(
+        () => setCopyImageState("idle"),
+        2500,
+      );
+    } catch {
+      setCopyImageState("error");
+      copyImageTimerRef.current = setTimeout(
+        () => setCopyImageState("idle"),
+        2500,
+      );
+    }
+  }, []);
+
+  // Native share: share visual image via Web Share API when available.
+  const nativeShare = useCallback(
+    async (event: React.MouseEvent) => {
+      event.stopPropagation();
+      const svg = rendererRef.current;
+      if (!svg || !parsed.success) return;
+      const visualData = parsed.data;
+      const name = visualData.title?.trim() || "visual";
+      try {
+        const opts = applySocialPresetToOptions(
+          "square",
+          DEFAULT_EXPORT_OPTIONS,
+        );
+        const blob = await exportPNG(svg, opts);
+        if (blob) {
+          const file = new File([blob], `${name}.png`, { type: "image/png" });
+          if (canWebShare(file)) {
+            await navigator.share({ files: [file], title: name });
+            return;
+          }
+        }
+        if (canWebShare()) {
+          await navigator.share({ title: name });
+        }
+      } catch (err) {
+        // Ignore user-initiated cancellations
+        if (!(err instanceof Error && err.name === "AbortError")) {
+          console.error("[SocialShare] native share failed:", err);
+        }
+      }
+    },
+    [parsed],
+  );
+
   if (!parsed.success) {
     return (
       <div
@@ -367,6 +444,57 @@ export function VisualCard({
           >
             <Download aria-hidden="true" className="h-3.5 w-3.5" />
           </button>
+          {/* Copy image to clipboard — only when Clipboard API is available */}
+          {canCopyImageToClipboard() && (
+            <button
+              type="button"
+              aria-label={
+                copyImageState === "copied"
+                  ? "Image copied!"
+                  : copyImageState === "error"
+                    ? "Copy failed"
+                    : "Copy image to clipboard"
+              }
+              title={
+                copyImageState === "copied"
+                  ? "Copied!"
+                  : copyImageState === "error"
+                    ? "Failed"
+                    : "Copy image"
+              }
+              onClick={(e) => void copyImage(e)}
+              disabled={copyImageState === "copying"}
+              className={[
+                "absolute bottom-3 right-12 flex h-7 w-7 items-center justify-center rounded-full border border-[var(--ds-border,rgba(0,0,0,0.1))] bg-white/90 text-[var(--ds-text-muted,#6f7d83)] opacity-0 shadow-sm backdrop-blur-sm transition hover:text-[var(--ds-text,#18181b)] group-hover:opacity-100",
+                "disabled:cursor-wait",
+                FOCUS_RING,
+              ].join(" ")}
+            >
+              {copyImageState === "copied" ? (
+                <Check
+                  aria-hidden="true"
+                  className="h-3.5 w-3.5 text-green-600"
+                />
+              ) : (
+                <Copy aria-hidden="true" className="h-3.5 w-3.5" />
+              )}
+            </button>
+          )}
+          {/* Native share — only on devices that support Web Share API */}
+          {canWebShare() && (
+            <button
+              type="button"
+              aria-label="Share visual"
+              title="Share"
+              onClick={(e) => void nativeShare(e)}
+              className={[
+                "absolute bottom-3 right-[5.25rem] flex h-7 w-7 items-center justify-center rounded-full border border-[var(--ds-border,rgba(0,0,0,0.1))] bg-white/90 text-[var(--ds-text-muted,#6f7d83)] opacity-0 shadow-sm backdrop-blur-sm transition hover:text-[var(--ds-text,#18181b)] group-hover:opacity-100",
+                FOCUS_RING,
+              ].join(" ")}
+            >
+              <Share2 aria-hidden="true" className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       ) : (
         <div className={cardClass}>

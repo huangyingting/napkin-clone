@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { buildShareSegment } from "@/lib/slug";
+import { SocialShareMenu } from "@/components/share/social-share-menu";
 
 import { toggleDocumentSharing } from "./actions";
 
@@ -18,11 +19,13 @@ export function ShareButton({
   initialIsShared,
   initialShareId,
   initialSlug = null,
+  documentTitle = "Untitled",
 }: {
   id: string;
   initialIsShared: boolean;
   initialShareId: string | null;
   initialSlug?: string | null;
+  documentTitle?: string;
 }) {
   const [showMenu, setShowMenu] = useState(false);
   const [shareState, setShareState] = useState<ShareState>({
@@ -238,6 +241,18 @@ export function ShareButton({
               Enable sharing to create a public read-only link.
             </p>
           )}
+
+          {/* Social share — always visible; link-based options gated on isShared */}
+          <div className="mt-4 border-t border-black/[.06] pt-3 dark:border-white/[.08]">
+            <h4 className="mb-2 text-xs font-semibold text-zinc-900 dark:text-zinc-50">
+              Share to social
+            </h4>
+            <SocialShareMenu
+              inline
+              shareUrl={shareState.shareUrl}
+              title={documentTitle}
+            />
+          </div>
         </div>
       )}
     </div>
