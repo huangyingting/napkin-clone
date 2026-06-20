@@ -4,8 +4,12 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { Prisma } from "@/generated/prisma/client";
+import {
+  documentCapabilities,
+  requireDocumentCapability,
+} from "@/lib/auth/document-permissions";
 import { excerpt, readingTimeMinutes } from "@/lib/document-stats";
-import { documentAccessOr, getAccessibleDocument } from "@/lib/documents";
+import { documentAccessOr } from "@/lib/documents";
 import { prisma } from "@/lib/prisma";
 import { buildDocumentSearchWhere, normalizeSearchQuery } from "@/lib/search";
 import { requireUser } from "@/lib/session";
@@ -80,14 +84,13 @@ export async function createDocumentFromImport(
 }
 
 /**
- * Renames a document the current user may access (owner or workspace member).
- *
- * Access is gated by `getAccessibleDocument` (a non-accessible id is a silent
- * no-op so the action never leaks whether a document exists), and the write uses
- * `updateMany` so a concurrent change is a harmless no-op rather than a throw.
- * The title is trimmed and length-clamped, falling back to "Untitled" when empty
- * (mirroring `saveDocumentTitle`). Returns the normalized title so the caller can
- * reflect any trimming/fallback.
+ * Renames a document. Requires edit access (owner or workspace editor); a
+ * viewer or unrelated user is rejected with a clear error via
+ * `requireDocumentCapability` (issue #89). The write uses `updateMany` so a
+ * concurrent change is a harmless no-op rather than a throw. The title is
+ * trimmed and length-clamped, falling back to "Untitled" when empty (mirroring
+ * `saveDocumentTitle`). Returns the normalized title so the caller can reflect
+ * any trimming/fallback.
  */
 export async function renameDocument(
   id: string,
@@ -97,10 +100,7 @@ export async function renameDocument(
 
   const title = rawTitle.trim().slice(0, MAX_TITLE_LENGTH) || "Untitled";
 
-  const document = await getAccessibleDocument(user.id, id);
-  if (!document) {
-    return { title };
-  }
+  await requireDocumentCapability(user.id, id, "edit");
 
   await prisma.document.updateMany({
     where: { id },
@@ -112,14 +112,14 @@ export async function renameDocument(
 }
 
 /**
- * Duplicates a document the current user may access (owner or workspace member)
- * into a fresh personal document owned by the current user.
+ * Duplicates a document the current user may view (owner or any workspace
+ * member) into a fresh personal document owned by the current user.
  *
- * Access is scoped directly in the read's `where` via `documentAccessOr` (a
- * non-accessible or soft-deleted id simply matches nothing — a silent no-op that
- * never leaks existence). The copy reuses the source title (suffixed " (copy)")
- * and content and deep-copies every `Visual` row (anchorBlockId, orderIndex,
- * type, title, data) via a nested create in a single statement.
+ * View access is authorized via `requireDocumentCapability` (a non-accessible
+ * id throws a clear "Document not found." error). The copy reuses the source
+ * title (suffixed " (copy)") and content and deep-copies every `Visual` row
+ * (anchorBlockId, orderIndex, type, title, data) via a nested create in a
+ * single statement.
  *
  * Comments and share state are intentionally NOT copied: the new document is
  * private (`isShared` defaults to false, `shareId` stays null) and starts with
@@ -129,11 +129,12 @@ export async function renameDocument(
 export async function duplicateDocument(id: string): Promise<void> {
   const user = await requireUser();
 
+  await requireDocumentCapability(user.id, id, "view");
+
   const source = await prisma.document.findFirst({
     where: {
       id,
       deletedAt: null,
-      OR: documentAccessOr(user.id),
     },
     select: {
       title: true,
@@ -177,27 +178,24 @@ export async function duplicateDocument(id: string): Promise<void> {
 }
 
 /**
- * Toggles the `favorite` flag on a document the current user may access (owner
- * or workspace member).
+ * Toggles the `favorite` flag on a document the current user may edit (owner or
+ * workspace editor).
  *
- * The current value is read under the same access scope as the dashboard
- * (`documentAccessOr`, excluding soft-deleted rows) so a non-accessible id
- * simply matches nothing — a silent no-op that never leaks existence. The write
- * uses `updateMany` keyed by id (per the house mutation rule) so a concurrent
- * change is a harmless no-op rather than a throw. Returns the new flag so the
- * caller can reconcile its optimistic state.
+ * Edit access is authorized via `requireDocumentCapability`; a viewer or
+ * unrelated user is rejected with a clear error (issue #89). The current value
+ * is read by id and the write uses `updateMany` keyed by id (per the house
+ * mutation rule) so a concurrent change is a harmless no-op rather than a throw.
+ * Returns the new flag so the caller can reconcile its optimistic state.
  */
 export async function toggleFavorite(
   id: string,
 ): Promise<{ favorite: boolean }> {
   const user = await requireUser();
 
+  await requireDocumentCapability(user.id, id, "edit");
+
   const document = await prisma.document.findFirst({
-    where: {
-      id,
-      deletedAt: null,
-      OR: documentAccessOr(user.id),
-    },
+    where: { id, deletedAt: null },
     select: { favorite: true },
   });
 
@@ -217,25 +215,23 @@ export async function toggleFavorite(
 }
 
 /**
- * Soft-deletes a document the current user may access (owner or workspace
- * member) by stamping `deletedAt`. The row is retained so the delete can be
- * undone (see `restoreDocument`); every document list/detail/share/embed query
- * excludes `deletedAt != null`, so a soft-deleted document is invisible.
+ * Soft-deletes a document by stamping `deletedAt`. Requires manage access
+ * (owner-level); a viewer, editor, or unrelated user is rejected with a clear
+ * error via `requireDocumentCapability` (issue #89). The row is retained so the
+ * delete can be undone (see `restoreDocument`); every document
+ * list/detail/share/embed query excludes `deletedAt != null`, so a soft-deleted
+ * document is invisible.
  *
- * Access is gated by `getAccessibleDocument` (which itself excludes already
- * soft-deleted rows, so a double-delete is a no-op); a non-accessible id is a
- * silent no-op so the action never leaks whether a document exists. The update
- * uses `updateMany` so a concurrent change is a harmless no-op rather than a
- * throw. The document's `Visual`/`Comment` rows are left intact and only
- * removed when the row is eventually purged (see `purgeDeletedDocuments`).
+ * The capability check excludes already soft-deleted rows (a double-delete is a
+ * clean "Document not found."), and the update uses `updateMany` so a concurrent
+ * change is a harmless no-op rather than a throw. The document's
+ * `Visual`/`Comment` rows are left intact and only removed when the row is
+ * eventually purged (see `purgeDeletedDocuments`).
  */
 export async function deleteDocument(id: string): Promise<void> {
   const user = await requireUser();
 
-  const document = await getAccessibleDocument(user.id, id);
-  if (!document) {
-    return;
-  }
+  await requireDocumentCapability(user.id, id, "manage");
 
   await prisma.document.updateMany({
     where: { id },
@@ -247,20 +243,20 @@ export async function deleteDocument(id: string): Promise<void> {
 
 /**
  * Restores a soft-deleted document by clearing `deletedAt`, reversing
- * `deleteDocument`. We can't reuse `getAccessibleDocument` here (it excludes
- * soft-deleted rows), so the authorization scope is applied directly in the
- * `updateMany` where-clause via `documentAccessOr`: a foreign/forbidden id
- * simply matches zero rows (a silent no-op that never leaks existence).
+ * `deleteDocument`. Requires manage access (owner-level), authorized via
+ * `requireDocumentCapability` with `includeDeleted` so the soft-deleted row is
+ * visible to the check; an unauthorized user is rejected with a clear error.
+ * The write uses `updateMany` so a concurrent change is a harmless no-op.
  */
 export async function restoreDocument(id: string): Promise<void> {
   const user = await requireUser();
 
+  await requireDocumentCapability(user.id, id, "manage", {
+    includeDeleted: true,
+  });
+
   await prisma.document.updateMany({
-    where: {
-      id,
-      deletedAt: { not: null },
-      OR: documentAccessOr(user.id),
-    },
+    where: { id, deletedAt: { not: null } },
     data: { deletedAt: null },
   });
 
@@ -297,6 +293,8 @@ export type SearchResult = {
   readingMinutes: number;
   createdAtMs: number;
   updatedAtMs: number;
+  canEdit: boolean;
+  canManage: boolean;
   tags: { slug: string; name: string }[];
 };
 
@@ -340,6 +338,8 @@ export async function searchDocuments(
       content: true,
       createdAt: true,
       updatedAt: true,
+      ownerId: true,
+      workspaceId: true,
       visuals: {
         orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }],
         take: 1,
@@ -349,7 +349,16 @@ export async function searchDocuments(
         orderBy: { name: "asc" },
         select: { slug: true, name: true },
       },
-      workspace: { select: { name: true } },
+      workspace: {
+        select: {
+          name: true,
+          ownerId: true,
+          members: {
+            where: { userId: user.id },
+            select: { userId: true, role: true },
+          },
+        },
+      },
     },
   });
 
@@ -361,6 +370,7 @@ export async function searchDocuments(
       if (parsed.success) thumbnail = parsed.data;
     }
     const content = doc.content ?? "";
+    const { canEdit, canManage } = documentCapabilities(doc, user.id);
     return {
       id: doc.id,
       title: doc.title,
@@ -372,6 +382,8 @@ export async function searchDocuments(
       readingMinutes: readingTimeMinutes(content),
       createdAtMs: doc.createdAt.getTime(),
       updatedAtMs: doc.updatedAt.getTime(),
+      canEdit,
+      canManage,
       tags: doc.tags,
     };
   });

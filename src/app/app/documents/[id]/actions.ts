@@ -4,7 +4,7 @@ import { customAlphabet } from "nanoid";
 import { revalidatePath } from "next/cache";
 
 import { Prisma } from "@/generated/prisma/client";
-import { getAccessibleDocument } from "@/lib/documents";
+import { requireDocumentCapability } from "@/lib/auth/document-permissions";
 import { collectVisualNodes } from "@/lib/lexical/visual-nodes";
 import { lexicalStateToPlainText } from "@/lib/lexical/plain-text";
 import { prisma } from "@/lib/prisma";
@@ -85,10 +85,12 @@ function normalizeAnchorBlockId(
 }
 
 /**
- * Saves a document title for the current user. Owner-scoped via `updateMany`
- * (`where: { id, ownerId }`) so a foreign id is a no-op rather than a
- * cross-user write. Returns the normalized title so the client can reflect any
- * trimming/fallback. Empty titles fall back to "Untitled".
+ * Saves a document title. Requires edit access (owner or workspace editor),
+ * authorized via `requireDocumentCapability` so a viewer or unrelated user is
+ * rejected with a clear error (issue #89). The write uses `updateMany` keyed by
+ * id so a concurrent change is a harmless no-op. Returns the normalized title so
+ * the client can reflect any trimming/fallback. Empty titles fall back to
+ * "Untitled".
  */
 export async function saveDocumentTitle(
   id: string,
@@ -97,8 +99,10 @@ export async function saveDocumentTitle(
   const user = await requireUser();
   const title = rawTitle.trim().slice(0, MAX_TITLE_LENGTH) || "Untitled";
 
+  await requireDocumentCapability(user.id, id, "edit");
+
   await prisma.document.updateMany({
-    where: { id, ownerId: user.id },
+    where: { id },
     data: { title },
   });
 
@@ -214,10 +218,11 @@ async function mirrorVisualNodes(
 /**
  * Saves the serialized Lexical editor state for a document.
  *
- * `stateJson` is the stringified `editorState.toJSON()` from the client. The
- * document is access-scoped via `getAccessibleDocument` (owner or workspace
- * member) and written with `updateMany` so a foreign/forbidden id is a harmless
- * no-op rather than a cross-user write. The parsed state is stored in
+ * `stateJson` is the stringified `editorState.toJSON()` from the client. Edit
+ * access (owner or workspace editor) is authorized via
+ * `requireDocumentCapability` — a viewer or unrelated user is rejected with a
+ * clear error (issue #89) — and the write uses `updateMany` keyed by id so a
+ * concurrent change is a harmless no-op. The parsed state is stored in
  * `contentJson`, and a plain-text projection is written to `content` so AI block
  * text, search, and the read-only fallback keep working off the same source.
  *
@@ -240,10 +245,7 @@ export async function saveDocumentLexical(
     throw new Error("Invalid editor state.");
   }
 
-  const document = await getAccessibleDocument(user.id, id);
-  if (!document) {
-    throw new Error("Document not found.");
-  }
+  await requireDocumentCapability(user.id, id, "edit");
 
   const content = lexicalStateToPlainText(parsed).slice(0, MAX_CONTENT_LENGTH);
 
@@ -270,7 +272,9 @@ export async function saveDocumentLexical(
  * - When disabling sharing (isShared: false), clears the shareId.
  * - Returns the current share state: { isShared, shareId?, shareUrl? }.
  *
- * Owner-scoped so it never modifies another user's document.
+ * Requires manage access (owner-level); a viewer, editor, or unrelated user is
+ * rejected with a clear error via `requireDocumentCapability` (issue #89) so it
+ * never modifies a document the user may not manage.
  */
 export async function toggleDocumentSharing(
   id: string,
@@ -283,6 +287,8 @@ export async function toggleDocumentSharing(
 }> {
   const user = await requireUser();
 
+  await requireDocumentCapability(user.id, id, "manage");
+
   // Generate a new shareId when enabling, clear it when disabling. When
   // enabling, also derive a readable (decorative) slug from the document title
   // for the share URL; clear it when disabling.
@@ -291,7 +297,7 @@ export async function toggleDocumentSharing(
   let slug: string | null = null;
   if (isShared) {
     const doc = await prisma.document.findFirst({
-      where: { id, ownerId: user.id },
+      where: { id },
       select: { title: true },
     });
     if (doc) {
@@ -300,7 +306,7 @@ export async function toggleDocumentSharing(
   }
 
   await prisma.document.updateMany({
-    where: { id, ownerId: user.id },
+    where: { id },
     data: { isShared, shareId, slug },
   });
 
@@ -349,7 +355,9 @@ async function generateUniqueSlug(
 }
 
 /**
- * Persists an edited Deck for a document. Owner-scoped. The deck JSON is
+ * Persists an edited Deck for a document. Requires edit access (owner or
+ * workspace editor), authorized via `requireDocumentCapability` so a viewer or
+ * unrelated user is rejected with a clear error (issue #89). The deck JSON is
  * validated with `safeParseDeck` before storing, and rejected when it exceeds a
  * sane serialized size. Stored in `Document.deckJson`, separate from the
  * Lexical `contentJson` so deck edits never touch collaborative editing state.
@@ -371,13 +379,10 @@ export async function saveDeckJson(
     throw new Error("Deck is too large to save.");
   }
 
-  const document = await getAccessibleDocument(user.id, id);
-  if (!document) {
-    throw new Error("Document not found.");
-  }
+  await requireDocumentCapability(user.id, id, "edit");
 
   await prisma.document.updateMany({
-    where: { id, ownerId: user.id },
+    where: { id },
     data: { deckJson: result.data as unknown as Prisma.InputJsonValue },
   });
 

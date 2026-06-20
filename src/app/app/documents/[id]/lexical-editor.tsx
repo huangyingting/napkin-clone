@@ -249,6 +249,7 @@ export function LexicalEditor({
   userName,
   currentUserId,
   canEdit = true,
+  canManage = false,
   workspaceName,
   initialComments = [],
   initialIsShared = false,
@@ -264,6 +265,7 @@ export function LexicalEditor({
   userName: string;
   currentUserId: string;
   canEdit?: boolean;
+  canManage?: boolean;
   workspaceName?: string;
   initialComments?: CommentThread[];
   initialIsShared?: boolean;
@@ -523,13 +525,15 @@ export function LexicalEditor({
                       />
                     )}
                     <PresentButton documentTitle={title.value} />
-                    <ShareButton
-                      id={documentId}
-                      initialIsShared={initialIsShared}
-                      initialShareId={initialShareId}
-                      initialSlug={initialSlug}
-                      documentTitle={title.value}
-                    />
+                    {canManage && (
+                      <ShareButton
+                        id={documentId}
+                        initialIsShared={initialIsShared}
+                        initialShareId={initialShareId}
+                        initialSlug={initialSlug}
+                        documentTitle={title.value}
+                      />
+                    )}
                     <CommentsPanel
                       documentId={documentId}
                       currentUserId={currentUserId}

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { documentCapabilities } from "@/lib/auth/document-permissions";
 import { markdownToLexicalState } from "@/lib/lexical/from-markdown";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
@@ -56,9 +57,10 @@ export default async function DocumentEditorPage({
       workspace: {
         select: {
           name: true,
+          ownerId: true,
           members: {
             where: { userId: user.id },
-            select: { role: true },
+            select: { userId: true, role: true },
           },
         },
       },
@@ -69,11 +71,9 @@ export default async function DocumentEditorPage({
     notFound();
   }
 
-  // Determine user's role for this document
-  const isOwner = document.ownerId === user.id;
-  const workspaceRole = document.workspace?.members[0]?.role;
-  const canEdit =
-    isOwner || workspaceRole === "OWNER" || workspaceRole === "EDITOR";
+  // Derive the acting user's capabilities from the single role-aware helper so
+  // the UI and the server actions agree on what this user may do (issue #89).
+  const { canEdit, canManage } = documentCapabilities(document, user.id);
 
   // The Lexical editor's content (including inline visual cards) lives in
   // `contentJson`. Legacy documents that only have Markdown `content` are
@@ -104,6 +104,7 @@ export default async function DocumentEditorPage({
       initialShareId={document.shareId}
       initialSlug={document.slug}
       canEdit={canEdit}
+      canManage={canManage}
       workspaceName={document.workspace?.name}
       userName={user.name ?? user.email ?? "Anonymous"}
       currentUserId={user.id}
