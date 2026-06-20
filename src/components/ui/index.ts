@@ -35,6 +35,23 @@ export type { SwatchProps, SwatchSize } from "./swatch";
 export { Tooltip } from "./tooltip";
 export type { TooltipProps } from "./tooltip";
 
+export { Dialog } from "./dialog";
+export type { DialogProps } from "./dialog";
+
+export { Popover } from "./popover";
+export type { PopoverProps } from "./popover";
+
+export { Switch } from "./switch";
+export type { SwitchProps } from "./switch";
+
+export {
+  dialogReducer,
+  getTabbableElements,
+  nextFocusIndex,
+  TABBABLE_SELECTOR,
+} from "./focus-helpers";
+export type { DialogAction } from "./focus-helpers";
+
 export {
   cx,
   ELEVATION,
