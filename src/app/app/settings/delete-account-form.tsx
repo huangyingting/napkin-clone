@@ -115,7 +115,9 @@ export function DeleteAccountForm({ email }: { email: string }) {
                   className="text-sm font-medium text-ds-text-primary"
                 >
                   Type{" "}
-                  <span className="font-semibold text-ds-text-primary">{email}</span>{" "}
+                  <span className="font-semibold text-ds-text-primary">
+                    {email}
+                  </span>{" "}
                   to confirm
                 </label>
                 <input

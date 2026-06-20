@@ -99,9 +99,7 @@ export default async function EmbedPage({
             ) : null}
           </>
         ) : (
-          <p className="text-sm text-ds-text-muted">
-            No content to display.
-          </p>
+          <p className="text-sm text-ds-text-muted">No content to display.</p>
         )}
       </div>
     </main>

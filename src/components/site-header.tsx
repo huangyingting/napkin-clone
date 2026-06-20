@@ -2,7 +2,10 @@ import Link from "next/link";
 
 import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
 import { LanguageSwitcher } from "@/components/language-switcher";
-import { MobileNavMenu, MobileNavNonClosing } from "@/components/mobile-nav-menu";
+import {
+  MobileNavMenu,
+  MobileNavNonClosing,
+} from "@/components/mobile-nav-menu";
 import { SignOutButton } from "@/components/sign-out-button";
 import { UserMenu } from "@/components/user-menu";
 import { createTranslator } from "@/lib/i18n";

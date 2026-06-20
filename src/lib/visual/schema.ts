@@ -382,9 +382,7 @@ function isTextAlign(value: unknown): value is TextAlign {
   );
 }
 
-function isAspectRatioPreset(
-  value: unknown,
-): value is AspectRatioPreset {
+function isAspectRatioPreset(value: unknown): value is AspectRatioPreset {
   return (
     typeof value === "string" &&
     (ASPECT_RATIO_PRESETS as readonly string[]).includes(value)

@@ -65,7 +65,9 @@ function PresenterPanel({
               {currentSlide.notes}
             </p>
           ) : (
-            <p className="text-sm italic text-ds-stage-muted">No speaker notes.</p>
+            <p className="text-sm italic text-ds-stage-muted">
+              No speaker notes.
+            </p>
           )}
         </div>
       </div>

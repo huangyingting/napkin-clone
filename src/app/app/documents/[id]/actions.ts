@@ -11,10 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { buildShareSegment, slugify } from "@/lib/slug";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
-import {
-  VISUAL_KIND_TO_PRISMA,
-  safeParseVisual,
-} from "@/lib/visual/schema";
+import { VISUAL_KIND_TO_PRISMA, safeParseVisual } from "@/lib/visual/schema";
 
 // URL-safe share ID generator (no ambiguous chars: 0/O, 1/l/I)
 const generateShareId = customAlphabet(

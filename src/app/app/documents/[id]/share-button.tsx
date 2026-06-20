@@ -136,9 +136,7 @@ export function ShareButton({
               type="button"
               onClick={() => handleToggle(!shareState.isShared)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
-                shareState.isShared
-                  ? "bg-ds-control"
-                  : "bg-ds-state-active"
+                shareState.isShared ? "bg-ds-control" : "bg-ds-state-active"
               }`}
             >
               <span

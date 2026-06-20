@@ -317,4 +317,3 @@ export function SlideCanvas({
       return <BlankSlideLayout {...props} />;
   }
 }
-

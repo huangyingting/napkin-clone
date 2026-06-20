@@ -43,7 +43,9 @@ export default async function SettingsPage() {
 
         <section className="flex flex-col gap-4 rounded-2xl border border-ds-border-strong bg-ds-surface-base p-6">
           <div className="flex flex-col gap-1">
-            <h2 className="text-base font-semibold text-ds-text-primary">Profile</h2>
+            <h2 className="text-base font-semibold text-ds-text-primary">
+              Profile
+            </h2>
             <p className="text-sm text-ds-text-secondary">
               Update your display name.
             </p>

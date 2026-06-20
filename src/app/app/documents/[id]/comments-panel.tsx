@@ -415,15 +415,10 @@ export function CommentsPanel({
                   </button>
                 </div>
                 {hint ? (
-                  <p className="text-xs text-ds-warning-text">
-                    {hint}
-                  </p>
+                  <p className="text-xs text-ds-warning-text">{hint}</p>
                 ) : null}
                 {error ? (
-                  <p
-                    role="alert"
-                    className="text-xs text-ds-danger-text"
-                  >
+                  <p role="alert" className="text-xs text-ds-danger-text">
                     {error}
                   </p>
                 ) : null}
