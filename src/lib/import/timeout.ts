@@ -23,8 +23,8 @@ export class ParseTimeoutError extends Error {
 
 /**
  * Runs `factory()` but rejects with {@link ParseTimeoutError} if it has not
- * settled within `timeoutMs`. The timer is always cleared so a fast resolution
- * never leaves the event loop pinned by a dangling timeout.
+ * settled within `timeoutMs`. The timer is always cleared on settle so a fast
+ * resolution never leaves the event loop pinned by a dangling timeout.
  */
 export function withTimeout<T>(
   factory: () => Promise<T>,
@@ -37,10 +37,6 @@ export function withTimeout<T>(
       settled = true;
       reject(new ParseTimeoutError(timeoutMs));
     }, timeoutMs);
-    // Don't let a pending parse timeout keep the process alive on its own.
-    if (typeof timer.unref === "function") {
-      timer.unref();
-    }
 
     factory().then(
       (value) => {
