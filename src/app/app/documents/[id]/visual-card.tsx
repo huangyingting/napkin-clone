@@ -21,11 +21,13 @@ import type { BrandStyle } from "@/lib/brand/schema";
 import { BRAND_WEB_FONTS } from "@/lib/brand/schema";
 
 import { useRegisterVisualSvg } from "@/components/editor/visual-svg-registry";
+import { useIsRailActive } from "@/lib/rail-state";
 
 import { useVisualAnchor } from "./visual-anchor-context";
 import { VisualContextPopover } from "./visual-context-popover";
 import { VisualEditor } from "./visual-editor";
 import { $isVisualNode, VisualNode } from "./visual-node";
+import { useVisualPanel } from "./visual-panel-context";
 
 // Block types whose text content can serve as a visual's source anchor.
 const SOURCE_TEXT_BLOCK_TYPES = new Set([
@@ -242,6 +244,31 @@ export function VisualCard({
     setOpen(false);
   }, []);
 
+  // Sync the close callback and selected-node id with the editing rail so it
+  // can render the visual controls and forward close events.
+  const { setOnClose, setSelectedNodeId: setPanelSelectedNodeId } =
+    useVisualPanel();
+  const railActive = useIsRailActive();
+
+  useEffect(() => {
+    if (showControls) {
+      setOnClose(closeControls);
+      setPanelSelectedNodeId(selectedNodeId);
+      return () => {
+        setOnClose(null);
+        setPanelSelectedNodeId(null);
+      };
+    }
+    setOnClose(null);
+    setPanelSelectedNodeId(null);
+  }, [
+    showControls,
+    closeControls,
+    selectedNodeId,
+    setOnClose,
+    setPanelSelectedNodeId,
+  ]);
+
   // Parse once per `visual` identity. An unmemoized parse returns a fresh object
   // (and `nodes` array) every render, which would make every downstream consumer
   // that depends on it (the anchor-reporting effect here, the popover's
@@ -351,7 +378,10 @@ export function VisualCard({
         </div>
       )}
 
-      {showControls ? (
+      {/* Float the popover only when the editing rail is not docked. At desktop
+          widths the rail hosts the visual controls instead, so rendering both
+          would duplicate the surface. */}
+      {showControls && !railActive ? (
         <VisualContextPopover
           visual={data}
           selectedNodeId={selectedNodeId}

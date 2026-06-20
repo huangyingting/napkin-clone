@@ -8,6 +8,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 
 import { ThinkingIndicator } from "@/components/motion/thinking-indicator";
@@ -438,7 +439,48 @@ export type VisualContextPopoverProps = {
    * Provided by `VisualCard` which owns the Lexical editor context.
    */
   onApplyBrandToAll?: (brand: BrandStyle) => void;
+  /**
+   * Rendering mode:
+   * - `"float"` (default) — wrapped in a {@link FloatingSurface} anchored to
+   *   `anchorRef`; positioning and click-away are active.
+   * - `"panel"` — renders the content directly as a plain `<div>` without any
+   *   overlay/portal, suitable for hosting inside the docked {@link EditingRail}.
+   */
+  mode?: "float" | "panel";
 };
+
+/** Internal wrapper: FloatingSurface in float mode, transparent in panel mode. */
+function PopoverShell({
+  mode,
+  coords,
+  onClose,
+  children,
+}: {
+  mode: "float" | "panel";
+  coords: { top: number; left: number };
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  if (mode === "panel") {
+    return <>{children}</>;
+  }
+  return (
+    <FloatingSurface
+      open
+      position={coords}
+      role="region"
+      aria-label="Visual controls"
+      elevation="popover"
+      radius="lg"
+      closeOnEscape
+      closeOnClickAway={false}
+      onClose={onClose}
+      style={{ width: POPOVER_WIDTH }}
+    >
+      {children}
+    </FloatingSurface>
+  );
+}
 
 /**
  * The context-aware visual editing surface (Phase 3). Rendered in a
@@ -463,6 +505,7 @@ export function VisualContextPopover({
   anchorRef,
   currentSourceText,
   onApplyBrandToAll,
+  mode = "float",
 }: VisualContextPopoverProps) {
   const measureRef = useRef<HTMLDivElement | null>(null);
 
@@ -517,7 +560,9 @@ export function VisualContextPopover({
   );
 
   // Position below the card, flipping above when it would clip the viewport.
+  // Only active in float mode — panel mode doesn't need absolute positioning.
   const reposition = useCallback(() => {
+    if (mode !== "float") return;
     const anchor = anchorRef.current;
     const el = measureRef.current;
     if (!anchor || !el) {
@@ -540,9 +585,10 @@ export function VisualContextPopover({
     setCoords((prev) =>
       prev.top === top && prev.left === left ? prev : { top, left },
     );
-  }, [anchorRef]);
+  }, [anchorRef, mode]);
 
   useLayoutEffect(() => {
+    if (mode !== "float") return;
     reposition();
     window.addEventListener("resize", reposition);
     window.addEventListener("scroll", reposition, true);
@@ -551,6 +597,7 @@ export function VisualContextPopover({
       window.removeEventListener("scroll", reposition, true);
     };
   }, [
+    mode,
     reposition,
     customizeOpen,
     candidates.length,
@@ -561,9 +608,9 @@ export function VisualContextPopover({
 
   // Click-away: dismiss when a pointer-down lands outside any visual chrome
   // (the card, this popover, or a nested DS floating layer like a color picker).
-  // Replaces the per-card outside-click state machine; selection still clears
-  // through the editor when the user clicks into text.
+  // Only active in float mode — panel mode has no outside-click boundary.
   useEffect(() => {
+    if (mode !== "float") return;
     const onPointerDown = (event: MouseEvent) => {
       const target = event.target as Element | null;
       if (
@@ -576,7 +623,7 @@ export function VisualContextPopover({
     };
     document.addEventListener("mousedown", onPointerDown);
     return () => document.removeEventListener("mousedown", onPointerDown);
-  }, [onClose]);
+  }, [mode, onClose]);
 
   const runGenerate = useCallback(async () => {
     const promptText = visualPromptText(visualRef.current);
@@ -716,22 +763,15 @@ export function VisualContextPopover({
   );
 
   return (
-    <FloatingSurface
-      open
-      position={coords}
-      role="region"
-      aria-label="Visual controls"
-      elevation="popover"
-      radius="lg"
-      closeOnEscape
-      closeOnClickAway={false}
-      onClose={onClose}
-      style={{ width: POPOVER_WIDTH }}
-    >
+    <PopoverShell mode={mode} coords={coords} onClose={onClose}>
       <div
         ref={measureRef}
         data-visual-chrome
-        className="max-h-[30rem] overflow-y-auto p-3"
+        className={
+          mode === "panel"
+            ? "overflow-y-auto p-3"
+            : "max-h-[30rem] overflow-y-auto p-3"
+        }
       >
         {/* Header */}
         <div className="mb-2 flex items-center justify-between gap-2">
@@ -1499,7 +1539,7 @@ export function VisualContextPopover({
           </>
         ) : null}
       </div>
-    </FloatingSurface>
+    </PopoverShell>
   );
 }
 
