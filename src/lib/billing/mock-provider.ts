@@ -17,6 +17,22 @@
 import { prisma } from "@/lib/prisma";
 import { getEntitlements, isPlan, type Plan } from "@/lib/billing/entitlements";
 import type { BillingProvider, ChangePlanResult } from "@/lib/billing/provider";
+import { isProductionEnv } from "@/lib/billing/provider";
+
+/**
+ * Pure guard: may the mock provider grant `targetPlan` in the given env?
+ *
+ * The mock writes paid plans straight to the DB without taking payment, so it
+ * must NEVER grant a paid plan (plus/pro) in production. Downgrades to `free`
+ * are always allowed (no money involved). Non-production may grant anything.
+ */
+export function isMockPlanChangeAllowed(
+  targetPlan: Plan,
+  env: Record<string, string | undefined> = process.env,
+): boolean {
+  if (targetPlan === "free") return true;
+  return !isProductionEnv(env);
+}
 
 export class MockBillingProvider implements BillingProvider {
   async changePlan(
@@ -28,6 +44,16 @@ export class MockBillingProvider implements BillingProvider {
         success: false,
         plan: "free",
         message: `Unknown plan: ${targetPlan}.`,
+      };
+    }
+
+    if (!isMockPlanChangeAllowed(targetPlan)) {
+      return {
+        success: false,
+        plan: "free",
+        message:
+          "Mock billing cannot grant paid plans in production. Configure " +
+          "Stripe (STRIPE_SECRET_KEY) to enable real payments.",
       };
     }
 

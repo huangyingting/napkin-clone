@@ -65,7 +65,7 @@ export function BillingActions({
         <PlanCard
           label="Pro"
           price="$29/mo"
-          description="30k credits/mo · Fonts · Top-ups"
+          description="30k credits/mo · SVG &amp; PPTX · Custom fonts"
           isCurrent={currentPlan === "pro"}
           onSelect={() => handleChange("pro")}
           disabled={isPending || currentPlan === "pro"}

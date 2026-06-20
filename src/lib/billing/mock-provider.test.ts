@@ -26,7 +26,8 @@ interface FakeSub {
   userId: string;
   plan: string;
   status: string;
-  externalId: string | null;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
   currentPeriodStart: Date;
   currentPeriodEnd: Date;
   cancelAtPeriodEnd: boolean;
@@ -57,13 +58,14 @@ function makeFakeDb() {
       findUnique({
         where,
       }: {
-        where: { userId?: string; externalId?: string };
+        where: { userId?: string; stripeSubscriptionId?: string };
       }) {
         if (where.userId)
           return Promise.resolve(subs.get(where.userId) ?? null);
-        if (where.externalId) {
+        if (where.stripeSubscriptionId) {
           for (const s of subs.values()) {
-            if (s.externalId === where.externalId) return Promise.resolve(s);
+            if (s.stripeSubscriptionId === where.stripeSubscriptionId)
+              return Promise.resolve(s);
           }
         }
         return Promise.resolve(null);
@@ -89,13 +91,13 @@ function makeFakeDb() {
         where,
         data,
       }: {
-        where: { userId?: string; externalId?: string };
+        where: { userId?: string; stripeSubscriptionId?: string };
         data: Partial<FakeSub>;
       }) {
         const sub = where.userId
           ? subs.get(where.userId)
           : Array.from(subs.values()).find(
-              (s) => s.externalId === where.externalId,
+              (s) => s.stripeSubscriptionId === where.stripeSubscriptionId,
             );
         if (!sub) throw new Error("Subscription not found");
         Object.assign(sub, data);
@@ -149,7 +151,8 @@ function makeMockProvider(db: ReturnType<typeof makeFakeDb>) {
             userId,
             plan: targetPlan,
             status: "active",
-            externalId: null,
+            stripeCustomerId: null,
+            stripeSubscriptionId: null,
             currentPeriodStart: now,
             currentPeriodEnd: periodEnd,
             cancelAtPeriodEnd: false,

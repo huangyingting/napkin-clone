@@ -61,9 +61,10 @@ import {
   computeCreditCost,
   deductCredits,
   getUserCreditState,
+  hasSufficientCredits,
   InsufficientCreditsError,
 } from "@/lib/billing/credits";
-import { UNLIMITED_CREDITS } from "@/lib/billing/entitlements";
+import { isUnlimitedCreditsEnabled } from "@/lib/billing/entitlements";
 import { getCurrentUser } from "@/lib/session";
 import { logError } from "@/lib/log";
 import {
@@ -220,10 +221,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Credit pre-check: ensure period is initialised and balance is sufficient.
     // Skipped entirely when credits are unlimited (creditCost stays 0, so the
     // deduction below is also a no-op).
-    if (!UNLIMITED_CREDITS) {
+    if (!isUnlimitedCreditsEnabled()) {
       creditCost = computeCreditCost(text);
       const creditState = await getUserCreditState(user.id);
-      if (creditState.balance < creditCost) {
+      if (!hasSufficientCredits(creditState.balance, creditCost)) {
         return errorResponse(
           402,
           `Insufficient credits: you need ${creditCost} but have ${creditState.balance}. ` +

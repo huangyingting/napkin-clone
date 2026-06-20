@@ -8,7 +8,7 @@ import {
   getEntitlements,
   PLAN_NAMES,
   isPlan,
-  UNLIMITED_CREDITS,
+  isUnlimitedCreditsEnabled,
 } from "@/lib/billing/entitlements";
 
 import { BillingActions } from "./billing-actions";
@@ -42,6 +42,7 @@ export default async function BillingPage() {
 
   const plan = isPlan(user.plan) ? user.plan : "free";
   const entitlements = getEntitlements(plan);
+  const unlimitedCredits = isUnlimitedCreditsEnabled();
 
   // Compute period end from creditPeriodStart or subscription row
   let periodEnd: Date | null = null;
@@ -128,18 +129,18 @@ export default async function BillingPage() {
           <div className="flex items-end justify-between gap-2">
             <div className="flex flex-col gap-0.5">
               <span className="text-3xl font-bold tabular-nums text-ds-text-primary">
-                {UNLIMITED_CREDITS
+                {unlimitedCredits
                   ? "Unlimited"
                   : user.creditBalance.toLocaleString()}
               </span>
               <span className="text-sm text-ds-text-secondary">
-                {UNLIMITED_CREDITS
+                {unlimitedCredits
                   ? "AI credits"
                   : `of ${entitlements.creditsPerPeriod.toLocaleString()} remaining`}
               </span>
             </div>
             <div className="text-right text-sm text-ds-text-secondary">
-              {UNLIMITED_CREDITS ? (
+              {unlimitedCredits ? (
                 "No usage limits"
               ) : (
                 <>
@@ -161,12 +162,12 @@ export default async function BillingPage() {
           <div className="h-2 w-full overflow-hidden rounded-full bg-ds-border-strong">
             <div
               className="h-full rounded-full bg-ds-accent transition-all"
-              style={{ width: `${UNLIMITED_CREDITS ? 100 : usagePct}%` }}
+              style={{ width: `${unlimitedCredits ? 100 : usagePct}%` }}
             />
           </div>
 
           <p className="text-xs text-ds-text-secondary">
-            {UNLIMITED_CREDITS
+            {unlimitedCredits
               ? "Unlimited AI generations — no per-word metering."
               : `~1 credit per word selected for generation · ${
                   entitlements.periodDays === 7
@@ -185,7 +186,7 @@ export default async function BillingPage() {
             <FeatureRow
               enabled={true}
               label={
-                UNLIMITED_CREDITS
+                unlimitedCredits
                   ? "Unlimited AI credits"
                   : `${entitlements.creditsPerPeriod.toLocaleString()} AI credits / ${entitlements.periodDays === 7 ? "week" : "month"}`
               }
@@ -205,7 +206,6 @@ export default async function BillingPage() {
               enabled={entitlements.fontUpload}
               label="Custom font upload"
             />
-            <FeatureRow enabled={entitlements.topUps} label="Credit top-ups" />
           </ul>
         </section>
 
