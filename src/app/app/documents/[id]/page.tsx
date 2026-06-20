@@ -48,6 +48,9 @@ export default async function DocumentEditorPage({
       isShared: true,
       shareId: true,
       slug: true,
+      shareExpiresAt: true,
+      shareEmbedEnabled: true,
+      sharePresentEnabled: true,
       ownerId: true,
       workspaceId: true,
       tags: {
@@ -103,6 +106,11 @@ export default async function DocumentEditorPage({
       initialIsShared={document.isShared}
       initialShareId={document.shareId}
       initialSlug={document.slug}
+      initialShareExpiresAt={
+        document.shareExpiresAt ? document.shareExpiresAt.toISOString() : null
+      }
+      initialShareEmbedEnabled={document.shareEmbedEnabled}
+      initialSharePresentEnabled={document.sharePresentEnabled}
       canEdit={canEdit}
       canManage={canManage}
       workspaceName={document.workspace?.name}

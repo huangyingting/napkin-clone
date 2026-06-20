@@ -7,26 +7,81 @@ import { Switch } from "@/components/ui/switch";
 import { buildShareSegment } from "@/lib/slug";
 import { SocialShareMenu } from "@/components/share/social-share-menu";
 
-import { toggleDocumentSharing } from "./actions";
+import {
+  regenerateShareLink,
+  toggleDocumentSharing,
+  updateSharePolicy,
+  type ShareSettings,
+} from "./actions";
 
 type ShareState = {
   isShared: boolean;
   shareId: string | null;
   slug: string | null;
   shareUrl: string | null;
+  expiresAt: string | null;
+  embedEnabled: boolean;
+  presentEnabled: boolean;
 };
+
+/** Builds the displayed share URL from the current origin + shareId/slug. */
+function shareUrlFor(
+  shareId: string | null,
+  slug: string | null,
+): string | null {
+  if (!shareId) {
+    return null;
+  }
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  return `${origin}/share/${buildShareSegment(slug, shareId)}`;
+}
+
+/** Maps the server {@link ShareSettings} into the client-rendered state. */
+function toShareState(settings: ShareSettings): ShareState {
+  return {
+    isShared: settings.isShared,
+    shareId: settings.shareId,
+    slug: settings.slug,
+    shareUrl: shareUrlFor(settings.shareId, settings.slug),
+    expiresAt: settings.expiresAt,
+    embedEnabled: settings.embedEnabled,
+    presentEnabled: settings.presentEnabled,
+  };
+}
+
+/**
+ * Converts an ISO-8601 instant to the `YYYY-MM-DDTHH:mm` value a
+ * `datetime-local` input expects (in the visitor's local time zone).
+ */
+function isoToLocalInput(iso: string | null): string {
+  if (!iso) {
+    return "";
+  }
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  const offsetMs = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
 
 export function ShareButton({
   id,
   initialIsShared,
   initialShareId,
   initialSlug = null,
+  initialExpiresAt = null,
+  initialEmbedEnabled = true,
+  initialPresentEnabled = true,
   documentTitle = "Untitled",
 }: {
   id: string;
   initialIsShared: boolean;
   initialShareId: string | null;
   initialSlug?: string | null;
+  initialExpiresAt?: string | null;
+  initialEmbedEnabled?: boolean;
+  initialPresentEnabled?: boolean;
   documentTitle?: string;
 }) {
   const [showMenu, setShowMenu] = useState(false);
@@ -34,14 +89,15 @@ export function ShareButton({
     isShared: initialIsShared,
     shareId: initialShareId,
     slug: initialSlug,
-    shareUrl:
-      initialIsShared && initialShareId
-        ? `${typeof window !== "undefined" ? window.location.origin : ""}/share/${buildShareSegment(initialSlug, initialShareId)}`
-        : null,
+    shareUrl: initialIsShared ? shareUrlFor(initialShareId, initialSlug) : null,
+    expiresAt: initialExpiresAt,
+    embedEnabled: initialEmbedEnabled,
+    presentEnabled: initialPresentEnabled,
   });
   const [copying, setCopying] = useState(false);
   const [embedCopied, setEmbedCopied] = useState(false);
   const [presentCopied, setPresentCopied] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
 
   // The embed URL points at the chrome-free /embed/[shareId] route. Derive it
   // from shareUrl so it shares the same origin as the displayed share link.
@@ -59,7 +115,35 @@ export function ShareButton({
 
   const handleToggle = async (enable: boolean) => {
     const result = await toggleDocumentSharing(id, enable);
-    setShareState(result);
+    setShareState(toShareState(result));
+  };
+
+  const handleRegenerate = async () => {
+    setRegenerating(true);
+    try {
+      const result = await regenerateShareLink(id);
+      setShareState(toShareState(result));
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
+  const handleExpiryChange = async (value: string) => {
+    // datetime-local gives a local wall-clock string; convert to an ISO instant
+    // (or null when cleared) for the server policy.
+    const expiresAt = value ? new Date(value).toISOString() : null;
+    const result = await updateSharePolicy(id, { expiresAt });
+    setShareState(toShareState(result));
+  };
+
+  const handleEmbedEnabledChange = async (enabled: boolean) => {
+    const result = await updateSharePolicy(id, { embedEnabled: enabled });
+    setShareState(toShareState(result));
+  };
+
+  const handlePresentEnabledChange = async (enabled: boolean) => {
+    const result = await updateSharePolicy(id, { presentEnabled: enabled });
+    setShareState(toShareState(result));
   };
 
   const copyLink = async () => {
@@ -138,13 +222,92 @@ export function ShareButton({
               {copying ? "Copied!" : "Copy"}
             </button>
           </div>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs text-ds-text-muted">
+              Anyone with this link can view your document (read-only).
+            </p>
+            <button
+              type="button"
+              onClick={handleRegenerate}
+              disabled={regenerating}
+              className="shrink-0 rounded px-2 py-1 text-xs font-medium text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-50"
+            >
+              {regenerating ? "Regenerating…" : "Regenerate link"}
+            </button>
+          </div>
           <p className="text-xs text-ds-text-muted">
-            Anyone with this link can view your document (read-only).
+            Regenerating creates a new link and immediately disables the old
+            one.
           </p>
         </div>
       )}
 
-      {shareState.isShared && embedSnippet && (
+      {shareState.isShared && (
+        <div className="mt-4 border-t border-ds-border-subtle pt-3">
+          <h4 className="mb-2 text-xs font-semibold text-ds-text-primary">
+            Link expiry
+          </h4>
+          <div className="flex items-center gap-2">
+            <input
+              type="datetime-local"
+              aria-label="Link expiry date and time"
+              value={isoToLocalInput(shareState.expiresAt)}
+              onChange={(event) => handleExpiryChange(event.target.value)}
+              className="flex-1 rounded-md border border-ds-border-subtle bg-ds-surface-sunken px-2 py-1 text-xs text-ds-text-secondary outline-none"
+            />
+            {shareState.expiresAt && (
+              <button
+                type="button"
+                onClick={() => handleExpiryChange("")}
+                className="shrink-0 rounded px-2 py-1 text-xs font-medium text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-ds-text-muted">
+            {shareState.expiresAt
+              ? "After this time the link stops working everywhere."
+              : "No expiry — the link works until disabled or regenerated."}
+          </p>
+        </div>
+      )}
+
+      {shareState.isShared && (
+        <div className="mt-4 border-t border-ds-border-subtle pt-3">
+          <h4 className="mb-2 text-xs font-semibold text-ds-text-primary">
+            Access
+          </h4>
+          <div className="mb-2 flex items-center justify-between">
+            <span
+              className="text-xs text-ds-text-secondary"
+              id="share-embed-allow-label"
+            >
+              Allow embedding
+            </span>
+            <Switch
+              checked={shareState.embedEnabled}
+              onCheckedChange={handleEmbedEnabledChange}
+              aria-labelledby="share-embed-allow-label"
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <span
+              className="text-xs text-ds-text-secondary"
+              id="share-present-allow-label"
+            >
+              Allow presentation
+            </span>
+            <Switch
+              checked={shareState.presentEnabled}
+              onCheckedChange={handlePresentEnabledChange}
+              aria-labelledby="share-present-allow-label"
+            />
+          </div>
+        </div>
+      )}
+
+      {shareState.isShared && shareState.embedEnabled && embedSnippet && (
         <div className="mt-4 border-t border-ds-border-subtle pt-3">
           <h4 className="mb-2 text-xs font-semibold text-ds-text-primary">
             Embed
@@ -177,7 +340,7 @@ export function ShareButton({
         </div>
       )}
 
-      {shareState.isShared && presentUrl && (
+      {shareState.isShared && shareState.presentEnabled && presentUrl && (
         <div className="mt-4 border-t border-ds-border-subtle pt-3">
           <h4 className="mb-2 text-xs font-semibold text-ds-text-primary">
             Presentation link

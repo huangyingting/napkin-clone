@@ -3,6 +3,11 @@ import { ImageResponse } from "next/og";
 import { excerpt } from "@/lib/document-stats";
 import { prisma } from "@/lib/prisma";
 import { shareIdFromParam } from "@/lib/slug";
+import {
+  evaluateShareAccess,
+  SHARE_ACCESS_SELECT,
+  toShareAccessInput,
+} from "@/lib/share-access";
 
 // Prisma access requires the Node.js runtime (not the default edge runtime).
 export const runtime = "nodejs";
@@ -33,10 +38,19 @@ export default async function Image({
   const { shareId } = await params;
   const resolvedShareId = shareIdFromParam(shareId);
 
-  const document = await prisma.document.findFirst({
-    where: { shareId: resolvedShareId, isShared: true, deletedAt: null },
-    select: { title: true, content: true },
+  const row = await prisma.document.findFirst({
+    where: { shareId: resolvedShareId },
+    select: { title: true, content: true, ...SHARE_ACCESS_SELECT },
   });
+
+  // Share-gated: only an actively-valid link yields its content; an unknown,
+  // disabled, expired, regenerated, or deleted link falls back to a safe,
+  // generic branded card so private documents never leak (issue #101 AC #4).
+  const document =
+    row &&
+    evaluateShareAccess(toShareAccessInput(row, resolvedShareId, "view")).allow
+      ? row
+      : null;
 
   const title = document?.title?.trim() || "Shared document";
   const description = document ? excerpt(document.content, 180) : "";

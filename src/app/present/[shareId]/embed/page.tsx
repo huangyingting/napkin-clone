@@ -4,6 +4,11 @@ import { notFound } from "next/navigation";
 import { PublicPresentViewer } from "@/components/presentation/public-present-viewer";
 import { prisma } from "@/lib/prisma";
 import { shareIdFromParam } from "@/lib/slug";
+import {
+  evaluateShareAccess,
+  SHARE_ACCESS_SELECT,
+  toShareAccessInput,
+} from "@/lib/share-access";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { buildDeckFromBlocks } from "@/lib/presentation/deck";
 import { buildPresentationBlocks } from "@/lib/presentation/present-blocks";
@@ -32,16 +37,22 @@ export default async function PresentEmbedPage({
   const resolvedShareId = shareIdFromParam(shareId);
 
   const document = await prisma.document.findFirst({
-    where: { shareId: resolvedShareId, isShared: true, deletedAt: null },
+    where: { shareId: resolvedShareId },
     select: {
       title: true,
       content: true,
       contentJson: true,
       deckJson: true,
+      ...SHARE_ACCESS_SELECT,
     },
   });
 
-  if (!document) {
+  if (
+    !document ||
+    !evaluateShareAccess(
+      toShareAccessInput(document, resolvedShareId, "present"),
+    ).allow
+  ) {
     notFound();
   }
 

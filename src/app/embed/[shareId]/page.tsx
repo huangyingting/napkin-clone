@@ -5,6 +5,11 @@ import { LexicalReadOnly } from "@/components/lexical/lexical-read-only";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { prisma } from "@/lib/prisma";
 import { shareIdFromParam } from "@/lib/slug";
+import {
+  evaluateShareAccess,
+  SHARE_ACCESS_SELECT,
+  toShareAccessInput,
+} from "@/lib/share-access";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
 export const metadata: Metadata = {
@@ -33,14 +38,16 @@ export default async function EmbedPage({
   // `<slug>-<shareId>` form; resolve the canonical shareId from it.
   const resolvedShareId = shareIdFromParam(shareId);
 
-  // Resolve the document by shareId and verify it is actually shared (same
-  // scoping as the read-only share page).
+  // Resolve the document by shareId and apply the share-access policy. Embed
+  // mode is additionally gated by `shareEmbedEnabled`; a disabled/expired/
+  // regenerated link resolves to a safe 404 (issue #101 AC #4).
   const document = await prisma.document.findFirst({
-    where: { shareId: resolvedShareId, isShared: true, deletedAt: null },
+    where: { shareId: resolvedShareId },
     select: {
       title: true,
       content: true,
       contentJson: true,
+      ...SHARE_ACCESS_SELECT,
       // Legacy visuals (for documents not yet migrated to Lexical
       // `contentJson`, where visuals live inline as VisualNodes).
       visuals: {
@@ -50,7 +57,11 @@ export default async function EmbedPage({
     },
   });
 
-  if (!document) {
+  if (
+    !document ||
+    !evaluateShareAccess(toShareAccessInput(document, resolvedShareId, "embed"))
+      .allow
+  ) {
     notFound();
   }
 
