@@ -6,7 +6,7 @@ import { useActionState } from "react";
 import { authenticate } from "./actions";
 
 const fieldClass =
-  "h-11 rounded-lg border border-ghost-border bg-ghost-bg px-3 text-sm text-ghost-text outline-none transition focus:border-ghost-accent focus:ring-2 focus:ring-ghost-accent/30";
+  "h-11 rounded-ds-md border border-ds-border-strong bg-ds-surface-base px-3 text-sm text-ds-text-primary outline-none transition placeholder:text-ds-text-muted focus:border-ds-accent focus:ring-2 focus:ring-ds-accent/30";
 
 export function LoginForm() {
   const [errorMessage, formAction, isPending] = useActionState(
@@ -17,7 +17,7 @@ export function LoginForm() {
   return (
     <form action={formAction} className="flex w-full flex-col gap-4">
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="email" className="text-sm font-medium text-ghost-text">
+        <label htmlFor="email" className="text-sm font-medium text-ds-text-primary">
           Email
         </label>
         <input
@@ -34,7 +34,7 @@ export function LoginForm() {
       <div className="flex flex-col gap-1.5">
         <label
           htmlFor="password"
-          className="text-sm font-medium text-ghost-text"
+          className="text-sm font-medium text-ds-text-primary"
         >
           Password
         </label>
@@ -58,16 +58,16 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={isPending}
-        className="flex h-11 items-center justify-center rounded-full bg-ghost-accent px-6 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-60"
+        className="flex h-11 items-center justify-center rounded-ds-pill bg-ds-accent px-6 text-sm font-medium text-ds-text-on-accent transition hover:bg-ds-accent-hover disabled:opacity-60"
       >
         {isPending ? "Signing in…" : "Log in"}
       </button>
 
-      <p className="text-center text-sm text-ghost-secondary">
+      <p className="text-center text-sm text-ds-text-secondary">
         Don&apos;t have an account?{" "}
         <Link
           href="/signup"
-          className="font-medium text-ghost-accent underline-offset-4 hover:underline"
+          className="font-medium text-ds-accent underline-offset-4 hover:underline"
         >
           Sign up
         </Link>

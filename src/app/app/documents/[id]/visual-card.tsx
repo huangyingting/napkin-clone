@@ -26,7 +26,6 @@ import {
 } from "@/lib/share/social-intents";
 
 import { useRegisterVisualSvg } from "@/components/editor/visual-svg-registry";
-import { useIsRailActive } from "@/lib/rail-state";
 import { useRightSurface } from "./right-surface-context";
 
 import { useVisualAnchor } from "./visual-anchor-context";
@@ -256,11 +255,11 @@ export function VisualCard({
     setOpen(false);
   }, []);
 
-  // Sync the close callback and selected-node id with the editing rail so it
-  // can render the visual controls and forward close events.
+  // Sync the close callback and selected-node id with the editing bottom-sheet
+  // (touch fallback) so it can render the visual controls and forward close
+  // events.
   const { setOnClose, setSelectedNodeId: setPanelSelectedNodeId } =
     useVisualPanel();
-  const railActive = useIsRailActive();
 
   useEffect(() => {
     if (showControls) {
@@ -513,11 +512,11 @@ export function VisualCard({
         </div>
       )}
 
-      {/* Float the popover only when the editing rail is not docked AND the
-          SlideEditor panel is not open. At desktop widths the rail hosts the
-          visual controls instead; when the slide editor is open its fixed
-          panel (z-40) would be obscured by the float overlay (z-50). */}
-      {showControls && !railActive && !suppressFloatPopover ? (
+      {/* Float the visual editing popover inline beside the selected visual so
+          its properties can be adjusted in place. Suppressed only while the
+          SlideEditor panel is open (its fixed z-40 panel would be obscured by
+          the float overlay). */}
+      {showControls && !suppressFloatPopover ? (
         <VisualContextPopover
           visual={data}
           selectedNodeId={selectedNodeId}

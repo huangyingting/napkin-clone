@@ -23,6 +23,7 @@ import {
   cx,
 } from "@/components/ui";
 import { useEditorContext } from "@/lib/lexical/editor-context";
+import { useIsPointerFine } from "@/lib/pointer";
 import { shouldShowOverallToolbox } from "@/lib/lexical/overall-toolbox";
 import {
   formatShortcut,
@@ -524,7 +525,7 @@ function MobileEditingSheet({
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
         className={cx(
-          "fixed bottom-6 right-6 z-40 lg:hidden",
+          "fixed bottom-6 right-6 z-40",
           "flex h-12 w-12 items-center justify-center rounded-full",
           "bg-[var(--ds-accent,#6366f1)] text-[var(--ds-text-on-accent,#ffffff)]",
           "shadow-[var(--ds-shadow-overlay,0_8px_24px_rgba(0,0,0,0.18))]",
@@ -550,7 +551,7 @@ function MobileEditingSheet({
                   exit={backdropMotion.exit}
                   transition={{ duration: 0.18 }}
                   onClick={() => setOpen(false)}
-                  className="fixed inset-0 z-40 bg-black/30 lg:hidden"
+                  className="fixed inset-0 z-40 bg-black/30"
                 />
 
                 {/* Sheet */}
@@ -563,7 +564,7 @@ function MobileEditingSheet({
                   animate={sheetMotion.animate}
                   exit={sheetMotion.exit}
                   transition={{ duration: 0.24, ease: "easeOut" }}
-                  className="fixed bottom-0 left-0 right-0 z-50 flex max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl border-t border-[var(--ds-border,rgba(0,0,0,0.08))] bg-[var(--ds-surface,#ffffff)] shadow-[var(--ds-shadow-popover,0_12px_32px_rgba(0,0,0,0.18))] lg:hidden"
+                  className="fixed bottom-0 left-0 right-0 z-50 flex max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl border-t border-[var(--ds-border,rgba(0,0,0,0.08))] bg-[var(--ds-surface,#ffffff)] shadow-[var(--ds-shadow-popover,0_12px_32px_rgba(0,0,0,0.18))]"
                 >
                   {/* Sheet header with drag handle + close button */}
                   <div className="flex shrink-0 items-center justify-between px-4 pb-2 pt-3">
@@ -637,68 +638,21 @@ export function EditingRail({
   showPageBreaks?: boolean;
   onTogglePageBreaks?: () => void;
 }) {
-  const ctx = useEditorContext();
-
-  const showOverall = shouldShowOverallToolbox(ctx.kind);
-  const hasContent =
-    ctx.kind === "range" || ctx.kind === "visual" || showOverall;
+  // Inline floating surfaces are the primary editing affordance on pointer-fine
+  // devices: the floating text toolbar pops up over a selection and the visual
+  // context popover floats beside the selected visual — both adjusted in place,
+  // with no docked side rail. The bottom sheet remains only as the touch
+  // fallback (coarse pointer), since floats require a fine pointer.
+  const pointerFine = useIsPointerFine();
+  if (pointerFine) {
+    return null;
+  }
 
   return (
-    <>
-      {/* Desktop rail — docked at lg+, hidden on narrow viewports */}
-      <aside
-        aria-label="Editing panel"
-        // Hidden below lg (floats handle narrow viewports); at lg+ this becomes a
-        // sticky column beside the article. `self-start` + `sticky top-0` keep it
-        // anchored to the viewport top while the article scrolls freely.
-        className={cx(
-          "hidden lg:flex w-[320px] flex-shrink-0 flex-col self-start sticky top-0 max-h-screen overflow-y-auto",
-          "border-l border-[var(--ds-border,rgba(0,0,0,0.06))] dark:border-[rgba(255,255,255,0.06)]",
-        )}
-      >
-        {hasContent ? (
-          <>
-            {ctx.kind === "range" && (
-              <Surface
-                elevation="flat"
-                radius="sm"
-                bordered={false}
-                className="flex-1"
-              >
-                <TextFormatSection />
-              </Surface>
-            )}
-            {ctx.kind === "visual" && (
-              <Surface
-                elevation="flat"
-                radius="sm"
-                bordered={false}
-                className="flex-1"
-              >
-                <VisualContextSection />
-              </Surface>
-            )}
-            {showOverall && (
-              <OverallAdjustmentsPanel
-                documentTitle={documentTitle}
-                showPageBreaks={showPageBreaks ?? false}
-                onTogglePageBreaks={onTogglePageBreaks ?? (() => undefined)}
-              />
-            )}
-          </>
-        ) : (
-          <div className="p-4 text-[12px] text-[var(--ds-text-muted,#6f7d83)]">
-            Select text or a visual to see editing options.
-          </div>
-        )}
-      </aside>
-
-      {/* Mobile bottom sheet — visible below lg only */}
-      <MobileEditingSheet
-        documentTitle={documentTitle}
-        showPageBreaks={showPageBreaks}
-        onTogglePageBreaks={onTogglePageBreaks}
-      />
-    </>
+    <MobileEditingSheet
+      documentTitle={documentTitle}
+      showPageBreaks={showPageBreaks}
+      onTogglePageBreaks={onTogglePageBreaks}
+    />
   );
 }

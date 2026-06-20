@@ -17,6 +17,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type JSX } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   ChevronLeft,
@@ -169,9 +170,16 @@ export function PresentMode({
     setCurrentIndex((i) => clampSlideIndex(i - 1, total));
   }, [total]);
 
-  const handleClose = useCallback(() => {
+  const handleClose = useCallback(async () => {
+    // Await the fullscreen exit before unmounting so the browser finishes the
+    // transition while the overlay is still mounted — otherwise the last painted
+    // frame can linger as a stray dark band after the overlay is gone.
     if (document.fullscreenElement) {
-      void document.exitFullscreen().catch(() => null);
+      try {
+        await document.exitFullscreen();
+      } catch {
+        // Fullscreen API not supported / already exiting — ignore.
+      }
     }
     onClose();
   }, [onClose]);
@@ -202,6 +210,16 @@ export function PresentMode({
   useEffect(() => {
     void toggleFullscreen();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Lock body scroll while presenting so the page underneath can't peek through
+  // or shift; restore the previous value on unmount.
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
   }, []);
 
   // Keyboard navigation.
@@ -284,7 +302,7 @@ export function PresentMode({
 
   const tc = DECK_THEMES[currentSlide.theme] ?? DECK_THEMES.default;
 
-  return (
+  const overlay = (
     <div
       ref={containerRef}
       role="region"
@@ -454,4 +472,10 @@ export function PresentMode({
       </div>
     </div>
   );
+
+  // Portal to <body> so the fixed overlay escapes the editor's stacking/transform
+  // context — this is what prevents a stray dark band lingering after exit.
+  return typeof document !== "undefined"
+    ? createPortal(overlay, document.body)
+    : overlay;
 }

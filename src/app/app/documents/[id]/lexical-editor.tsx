@@ -551,13 +551,15 @@ export function LexicalEditor({
 
                 <EditorContextProvider>
                   <VisualPanelProvider>
-                    {/* Two-column layout: article (flex-1) + editing rail (lg:w-80).
-                      Below lg the rail is hidden; above lg it docks beside the
-                      article so contextual surfaces never overlap the content. */}
+                    {/* Single-column reading layout. Inline floating surfaces
+                      (text toolbar + per-visual popover) are the editing chrome
+                      on pointer-fine devices; the EditingRail renders only a
+                      touch bottom-sheet fallback (no docked column). The article
+                      spans ~75% of the viewport on desktop for a roomier canvas. */}
                     <div className="flex flex-1 overflow-hidden">
                       {/* Article column */}
-                      <div className="flex flex-1 min-w-0 justify-center px-4 py-6 sm:px-6 sm:py-8 lg:pr-3">
-                        <div className="w-full max-w-3xl">
+                      <div className="flex flex-1 min-w-0 justify-center px-4 py-6 sm:px-6 sm:py-8">
+                        <div className="w-full max-w-5xl lg:w-[75%]">
                           <div
                             ref={contentAreaRef}
                             className="relative rounded-2xl border border-black/[.06] bg-white p-4 sm:p-6 dark:border-white/[.08] dark:bg-zinc-950"

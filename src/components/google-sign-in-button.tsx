@@ -14,7 +14,7 @@ export function GoogleSignInButton({
     >
       <button
         type="submit"
-        className="flex h-11 w-full items-center justify-center gap-3 rounded-full border border-ghost-border bg-ghost-bg px-6 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
+        className="flex h-11 w-full items-center justify-center gap-3 rounded-ds-pill border border-ds-border-strong bg-ds-surface-base px-6 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-state-hover hover:text-ds-text-primary"
       >
         <GoogleIcon />
         {label}
@@ -26,11 +26,11 @@ export function GoogleSignInButton({
 export function OrDivider() {
   return (
     <div className="flex items-center gap-3">
-      <span className="h-px flex-1 bg-ghost-border" />
-      <span className="text-xs uppercase tracking-wide text-ghost-secondary">
+      <span className="h-px flex-1 bg-ds-border-subtle" />
+      <span className="text-xs uppercase tracking-wide text-ds-text-muted">
         or
       </span>
-      <span className="h-px flex-1 bg-ghost-border" />
+      <span className="h-px flex-1 bg-ds-border-subtle" />
     </div>
   );
 }

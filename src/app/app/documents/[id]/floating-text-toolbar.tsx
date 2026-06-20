@@ -19,7 +19,6 @@ import {
 } from "@/components/ui";
 import { useEditorContext } from "@/lib/lexical/editor-context";
 import { useIsPointerFine } from "@/lib/pointer";
-import { useIsRailActive } from "@/lib/rail-state";
 import {
   formatShortcut,
   isToolActive,
@@ -70,13 +69,12 @@ export function FloatingTextToolbar() {
 
   const tools = useMemo(() => toolsFor("text-format", ctx), [ctx]);
   const selectionRect = ctx.rects.selection;
-  const isRailActive = useIsRailActive();
-  // Suppress the floating toolbar when the editing rail is docked — it renders
-  // the same text-format tools at desktop widths, and the float would overlap.
-  // On narrow viewports (rail hidden) the float is the primary affordance.
+  // The floating toolbar is the primary inline text-format surface at every
+  // pointer-fine width — it pops up right above the selection so formatting can
+  // be adjusted in place (no docked rail). Touch devices fall back to the
+  // editing bottom-sheet.
   const visible =
     isPointerFine &&
-    !isRailActive &&
     ctx.kind === "range" &&
     ctx.editable &&
     selectionRect !== null;
