@@ -21,11 +21,13 @@ import {
   type ArrowStyle,
   type AspectRatioPreset,
   type CanvasStyle,
+  type EffectKind,
   type FillStyle,
   type LineStyle,
   type TextAlign,
   type Visual,
   type VisualEdge,
+  type VisualEffect,
   type VisualKind,
   type VisualNode,
   type VisualStyle,
@@ -65,6 +67,9 @@ function cloneVisual(visual: Visual): Visual {
     style: cloneStyle(visual.style),
     nodes: visual.nodes.map(cloneNode),
     edges: visual.edges.map(cloneEdge),
+    ...(visual.effects
+      ? { effects: visual.effects.map((e) => ({ ...e })) }
+      : {}),
   };
 }
 
@@ -687,5 +692,50 @@ export function applyElasticLayout(visual: Visual): Visual {
   next.nodes = result.nodes.map((n) => ({ ...n }));
   next.width = result.width;
   next.height = result.height;
+  return next;
+}
+
+/**
+ * Sets (or replaces) a single visual effect on a visual. If an effect with
+ * the same `kind` is already present, it is replaced in-place; otherwise the
+ * new effect is appended. Returns a new `Visual` — the input is never mutated.
+ *
+ * Pure, non-mutating, schema-valid output.
+ */
+export function setEffect(visual: Visual, effect: VisualEffect): Visual {
+  const next = cloneVisual(visual);
+  const existing: VisualEffect[] = next.effects ?? [];
+  const idx = existing.findIndex((e) => e.kind === effect.kind);
+  if (idx >= 0) {
+    next.effects = [
+      ...existing.slice(0, idx),
+      { ...effect },
+      ...existing.slice(idx + 1),
+    ];
+  } else {
+    next.effects = [...existing, { ...effect }];
+  }
+  return next;
+}
+
+/**
+ * Removes a single visual effect by its `kind`. Returns an unchanged clone
+ * when no effect of that kind exists. When the effects list becomes empty
+ * after the removal, the `effects` field is omitted from the result (keeping
+ * the payload minimal and equal to a fresh default visual).
+ *
+ * Pure, non-mutating, schema-valid output.
+ */
+export function clearEffect(visual: Visual, kind: EffectKind): Visual {
+  const next = cloneVisual(visual);
+  if (!next.effects || next.effects.length === 0) {
+    return next;
+  }
+  const filtered = next.effects.filter((e) => e.kind !== kind);
+  if (filtered.length > 0) {
+    next.effects = filtered;
+  } else {
+    delete next.effects;
+  }
   return next;
 }

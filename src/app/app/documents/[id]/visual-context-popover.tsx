@@ -1,6 +1,6 @@
 "use client";
 
-import { Palette, RefreshCw, Sparkles, Trash2, X } from "lucide-react";
+import { Palette, RefreshCw, Sparkles, Trash2, Wand2, X } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -49,6 +49,8 @@ import {
   setAspectRatio,
   setCanvasStyle,
   setAutoLayout,
+  setEffect,
+  clearEffect,
 } from "@/lib/visual/transforms";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { VISUAL_DISPLAY_STYLES } from "@/lib/visual/display-styles";
@@ -66,6 +68,7 @@ import {
   type AspectRatioPreset,
   type CanvasStyle,
   ASPECT_RATIO_PRESETS,
+  type EffectKind,
 } from "@/lib/visual/schema";
 import { applyBrand, brandPreviewStyle } from "@/lib/brand/transforms";
 import type { BrandStyle } from "@/lib/brand/schema";
@@ -298,6 +301,83 @@ function StyleGallery({
         );
       })}
     </ul>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Effects picker
+// ---------------------------------------------------------------------------
+
+/** Human-readable metadata for each effect preset shown in the Effects section. */
+const EFFECT_PRESETS: {
+  kind: EffectKind;
+  label: string;
+  description: string;
+}[] = [
+  {
+    kind: "shadow",
+    label: "Shadow",
+    description: "Soft drop shadow beneath the visual content",
+  },
+  {
+    kind: "sketch",
+    label: "Sketch",
+    description: "Hand-drawn / rough-stroke appearance",
+  },
+];
+
+/**
+ * A minimal toggle gallery for visual effects. Each preset is shown as a
+ * labelled pill button that is toggled on/off. Active effects display a
+ * ring highlight (matching the theme-chip convention). Toggling an already-
+ * active effect calls {@link clearEffect}; toggling an inactive one calls
+ * {@link setEffect} with default parameters.
+ */
+function EffectsPicker({
+  visual,
+  onChange,
+}: {
+  visual: Visual;
+  onChange: (next: Visual) => void;
+}) {
+  const activeKinds = new Set((visual.effects ?? []).map((e) => e.kind));
+
+  return (
+    <div
+      role="group"
+      aria-label="Visual effects"
+      className="mt-1.5 grid grid-cols-2 gap-2"
+    >
+      {EFFECT_PRESETS.map(({ kind, label, description }) => {
+        const active = activeKinds.has(kind);
+        return (
+          <button
+            key={kind}
+            type="button"
+            aria-label={`${active ? "Remove" : "Apply"} ${label} effect`}
+            aria-pressed={active}
+            title={description}
+            onClick={() => {
+              if (active) {
+                onChange(clearEffect(visual, kind));
+              } else {
+                onChange(setEffect(visual, { kind }));
+              }
+            }}
+            className={cx(
+              "flex items-center justify-center gap-1.5 rounded-[var(--ds-radius-md,10px)] border px-3 py-2 text-[11px] font-medium transition",
+              active
+                ? "border-transparent bg-[var(--ds-accent,#6366f1)]/10 text-[var(--ds-accent,#6366f1)] ring-2 ring-[var(--ds-accent,#6366f1)]"
+                : "border-[var(--ds-border,rgba(0,0,0,0.1))] text-[var(--ds-text-muted,#6f7d83)] hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))] hover:text-[var(--ds-text,#18181b)]",
+              FOCUS_RING,
+            )}
+          >
+            <Wand2 aria-hidden="true" className="h-3 w-3 flex-shrink-0" />
+            {label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -947,6 +1027,14 @@ export function VisualContextPopover({
         <div className="my-3 space-y-1.5">
           <SectionLabel>Style</SectionLabel>
           <StyleGallery visual={visual} onSelect={applyDisplayStyleById} />
+        </div>
+
+        <Divider orientation="horizontal" />
+
+        {/* Effects gallery */}
+        <div className="my-3 space-y-1.5">
+          <SectionLabel>Effects</SectionLabel>
+          <EffectsPicker visual={visual} onChange={onChange} />
         </div>
 
         <Divider orientation="horizontal" />

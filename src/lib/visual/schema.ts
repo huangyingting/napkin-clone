@@ -111,6 +111,50 @@ export const CANVAS_STYLES = ["blank", "ruled", "dot-grid"] as const;
 
 export type CanvasStyle = (typeof CANVAS_STYLES)[number];
 
+// ---------------------------------------------------------------------------
+// Visual Effects
+// ---------------------------------------------------------------------------
+
+/** The supported visual effect kinds. Designed to be extended (texture, glow, etc.). */
+export const EFFECT_KINDS = ["shadow", "sketch"] as const;
+
+export type EffectKind = (typeof EFFECT_KINDS)[number];
+
+/** A drop-shadow effect rendered via SVG `<feDropShadow>`. */
+export interface ShadowEffect {
+  kind: "shadow";
+  /** Horizontal shadow offset in canvas units. Default 4. */
+  dx?: number;
+  /** Vertical shadow offset in canvas units. Default 4. */
+  dy?: number;
+  /** Blur standard deviation. Default 4. */
+  blur?: number;
+  /** CSS color for the shadow. Default `"rgba(0,0,0,0.3)"`. */
+  color?: string;
+}
+
+/**
+ * A hand-drawn / sketch look rendered via SVG `<feTurbulence>` +
+ * `<feDisplacementMap>`. Applies a subtle jitter to all strokes and fills.
+ */
+export interface SketchEffect {
+  kind: "sketch";
+  /** `feTurbulence` baseFrequency. Controls the coarseness of the jitter. Default 0.04. */
+  frequency?: number;
+  /** `feDisplacementMap` scale. Controls the amplitude of the jitter. Default 3. */
+  scale?: number;
+}
+
+/** A discriminated union of all supported visual effects. */
+export type VisualEffect = ShadowEffect | SketchEffect;
+
+export function isEffectKind(value: unknown): value is EffectKind {
+  return (
+    typeof value === "string" &&
+    (EFFECT_KINDS as readonly string[]).includes(value)
+  );
+}
+
 /** A single node. `x`/`y` are the node **center** in canvas coordinates. */
 export interface VisualNode {
   id: string;
@@ -213,6 +257,13 @@ export interface Visual {
    * other kinds are always derived-layout and ignore this flag.
    */
   autoLayout?: boolean;
+  /**
+   * Optional presentation effects (drop shadow, sketch/hand-drawn, etc.).
+   * Effects are additive; an absent or empty array means no effects are
+   * applied. Defaults to `undefined` (no effects) for full backward
+   * compatibility — existing visuals without this field are unaffected.
+   */
+  effects?: VisualEffect[];
 }
 
 export const DEFAULT_NODE_WIDTH = 150;
@@ -584,6 +635,41 @@ function normalizeStyle(input: unknown): VisualStyle {
 }
 
 /**
+ * Attempts to parse a single effect entry from an unknown value. Returns
+ * the parsed {@link VisualEffect} or `null` if the entry is malformed or
+ * has an unrecognised kind (so unknown future effects are silently skipped).
+ */
+function parseEffect(item: unknown): VisualEffect | null {
+  if (!isPlainObject(item)) return null;
+  const { kind } = item;
+  if (!isEffectKind(kind)) return null;
+
+  if (kind === "shadow") {
+    const effect: ShadowEffect = { kind };
+    const dx = item.dx;
+    if (isFiniteNumber(dx)) effect.dx = dx;
+    const dy = item.dy;
+    if (isFiniteNumber(dy)) effect.dy = dy;
+    const blur = item.blur;
+    if (isFiniteNumber(blur) && blur >= 0) effect.blur = blur;
+    if (typeof item.color === "string") effect.color = item.color;
+    return effect;
+  }
+
+  if (kind === "sketch") {
+    const effect: SketchEffect = { kind };
+    const frequency = item.frequency;
+    if (isFiniteNumber(frequency) && frequency > 0)
+      effect.frequency = frequency;
+    const scale = item.scale;
+    if (isFiniteNumber(scale) && scale >= 0) effect.scale = scale;
+    return effect;
+  }
+
+  return null;
+}
+
+/**
  * Validates an unknown value against the visual schema, returning a fully
  * populated `Visual` (style/width/height defaulted) or throwing a
  * `VisualValidationError` describing the first problem found.
@@ -668,6 +754,16 @@ export function validateVisual(input: unknown): Visual {
     ...(typeof input.autoLayout === "boolean"
       ? { autoLayout: input.autoLayout }
       : {}),
+    // Optional effects array — forgiving: unrecognised kinds are silently dropped.
+    ...(() => {
+      if (!Array.isArray(input.effects)) return {};
+      const effects: VisualEffect[] = [];
+      for (const item of input.effects) {
+        const parsed = parseEffect(item);
+        if (parsed) effects.push(parsed);
+      }
+      return effects.length > 0 ? { effects } : {};
+    })(),
   };
 }
 
