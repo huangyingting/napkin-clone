@@ -65,6 +65,7 @@ export async function exportPNG(
       const { canvasW, canvasH } = computeLetterboxedDimensions(
         viewBox,
         opts.aspectRatio,
+        opts.padding ?? 0,
       );
       const { width, height } = computeExportDimensions(
         { width: canvasW, height: canvasH },
@@ -157,6 +158,7 @@ export async function exportPDF(
     const { canvasW, canvasH } = computeLetterboxedDimensions(
       viewBox,
       opts.aspectRatio,
+      opts.padding ?? 0,
     );
     const width = canvasW;
     const height = canvasH;
