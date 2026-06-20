@@ -6,6 +6,7 @@ import {
   OrDivider,
 } from "@/components/google-sign-in-button";
 import { safeCallbackUrl } from "@/lib/auth/callback-url";
+import { isGoogleAuthConfigured } from "@/lib/auth/google-provider";
 import { getCurrentUser } from "@/lib/session";
 
 import { LoginForm } from "./login-form";
@@ -17,16 +18,17 @@ export const metadata: Metadata = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ callbackUrl?: string | string[] }>;
+  searchParams: Promise<{ callbackUrl?: string | string[]; error?: string }>;
 }) {
   if (await getCurrentUser()) {
     redirect("/app");
   }
 
-  const { callbackUrl: rawCallbackUrl } = await searchParams;
+  const { callbackUrl: rawCallbackUrl, error } = await searchParams;
   const callbackUrl = safeCallbackUrl(
     Array.isArray(rawCallbackUrl) ? rawCallbackUrl[0] : rawCallbackUrl,
   );
+  const googleAvailable = isGoogleAuthConfigured();
 
   return (
     <main className="flex flex-1 items-center justify-center bg-ds-surface-sunken px-6 py-16">
@@ -40,8 +42,20 @@ export default async function LoginPage({
           </p>
         </div>
         <div className="flex flex-col gap-6">
-          <GoogleSignInButton callbackUrl={callbackUrl} />
-          <OrDivider />
+          {error === "OAuthError" ? (
+            <p role="alert" className="text-sm text-ds-danger">
+              Google sign-in failed. Please try again or use email and password.
+            </p>
+          ) : null}
+          {googleAvailable ? (
+            <>
+              <GoogleSignInButton
+                callbackUrl={callbackUrl}
+                errorRedirectPath="/login"
+              />
+              <OrDivider />
+            </>
+          ) : null}
           <LoginForm callbackUrl={callbackUrl} />
         </div>
       </div>
