@@ -25,7 +25,10 @@ import {
   type ReactNode,
 } from "react";
 
-import { ThinkingIndicator } from "@/components/motion/thinking-indicator";
+import {
+  GeneratingIndicator,
+  VisualSkeleton,
+} from "@/components/motion/generation-status";
 import { ExportMenu } from "@/components/visual/export-menu";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import {
@@ -1753,8 +1756,8 @@ export function VisualContextPopover({
           </p>
         ) : null}
         {syncStatus === "loading" ? (
-          <ThinkingIndicator
-            label="Syncing…"
+          <GeneratingIndicator
+            isLoading
             className="text-xs text-[var(--ds-text-muted,#6f7d83)]"
           />
         ) : null}
@@ -1864,10 +1867,20 @@ export function VisualContextPopover({
     return (
       <div className="space-y-3 py-1">
         {genStatus === "loading" ? (
-          <ThinkingIndicator
-            label="Thinking…"
-            className="text-xs text-[var(--ds-text-muted,#6f7d83)]"
-          />
+          <>
+            {/* Skeleton cards stabilise the panel layout while generation runs */}
+            <ul className="grid grid-cols-2 gap-2">
+              {[0, 1].map((i) => (
+                <li key={i}>
+                  <VisualSkeleton />
+                </li>
+              ))}
+            </ul>
+            <GeneratingIndicator
+              isLoading
+              className="text-xs text-[var(--ds-text-muted,#6f7d83)]"
+            />
+          </>
         ) : null}
         {genError !== null ? (
           <div
