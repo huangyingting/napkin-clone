@@ -1,5 +1,5 @@
 /**
- * Pure helpers for the in-app Present mode.
+ * Pure helpers for the in-app Present mode and the public presentation viewer.
  *
  * Intentionally free of DOM/React so they can be unit-tested under
  * `node --test`.
@@ -23,4 +23,35 @@ export function formatProgress(current: number, total: number): string {
   if (total <= 0) return "0 / 0";
   const display = clampSlideIndex(current, total) + 1;
   return `${display} / ${total}`;
+}
+
+/**
+ * Parses a 1-based slide index from a URL hash string (e.g. `"#3"` → `2`).
+ *
+ * The hash convention is 1-based so that `#1` is the first slide (index 0).
+ * The `#` prefix is optional — both `"#3"` and `"3"` are accepted.
+ * Non-numeric or out-of-range hashes return 0 (first slide).
+ *
+ * @param hash   URL hash value, e.g. from `window.location.hash`.
+ * @param total  Total number of slides in the deck.
+ * @returns      0-based slide index, clamped to [0, total − 1].
+ */
+export function slideIndexFromHash(hash: string, total: number): number {
+  const stripped = hash.startsWith("#") ? hash.slice(1) : hash;
+  const n = parseInt(stripped, 10);
+  if (!Number.isFinite(n) || n < 1) return 0;
+  return clampSlideIndex(n - 1, total);
+}
+
+/**
+ * Builds a 1-based URL hash string for the given 0-based slide index.
+ *
+ * - Index 0 → `"#1"`
+ * - Index 2 → `"#3"`
+ *
+ * @param index  0-based slide index.
+ * @returns      Hash string with leading `"#"`.
+ */
+export function hashFromSlideIndex(index: number): string {
+  return `#${Math.max(0, Math.floor(index)) + 1}`;
 }
