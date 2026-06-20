@@ -1,5 +1,5 @@
 /**
- * Unit tests for the four new visual kinds added in issue #8:
+ * Unit tests for the four extended visual kinds (issue #8):
  * venn, pyramid, matrix, orgchart.
  *
  * Mirrors the conventions in fixtures.test.ts and schema.test.ts.
