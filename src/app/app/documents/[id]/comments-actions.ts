@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getAccessibleDocument } from "@/lib/documents";
+import { requireDocumentCapability } from "@/lib/auth/document-permissions";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 
@@ -60,10 +60,7 @@ export async function listComments(
 ): Promise<CommentThread[]> {
   const user = await requireUser();
 
-  const document = await getAccessibleDocument(user.id, documentId);
-  if (!document) {
-    throw new Error("Document not found.");
-  }
+  await requireDocumentCapability(user.id, documentId, "view");
 
   const roots = await prisma.comment.findMany({
     where: { documentId, parentId: null },
@@ -119,10 +116,7 @@ export async function createComment(
 ): Promise<CommentThread[]> {
   const user = await requireUser();
 
-  const document = await getAccessibleDocument(user.id, documentId);
-  if (!document) {
-    throw new Error("Document not found.");
-  }
+  await requireDocumentCapability(user.id, documentId, "view");
 
   const body = input.body.trim().slice(0, MAX_BODY_LENGTH);
   if (body.length === 0) {
@@ -191,10 +185,7 @@ export async function setCommentResolved(
     throw new Error("Comment not found.");
   }
 
-  const document = await getAccessibleDocument(user.id, comment.documentId);
-  if (!document) {
-    throw new Error("Document not found.");
-  }
+  await requireDocumentCapability(user.id, comment.documentId, "view");
 
   await prisma.comment.update({
     where: { id: commentId },

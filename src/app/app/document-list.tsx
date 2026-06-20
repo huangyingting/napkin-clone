@@ -246,6 +246,8 @@ export function DocumentList({
             readingMinutes: r.readingMinutes,
             createdAtMs: r.createdAtMs,
             updatedAtMs: r.updatedAtMs,
+            canEdit: r.canEdit,
+            canManage: r.canManage,
             tags: r.tags,
           })),
         );
@@ -517,6 +519,8 @@ export function DocumentList({
                   thumbnail={document.thumbnail}
                   excerpt={document.excerpt}
                   readingMinutes={document.readingMinutes}
+                  canEdit={document.canEdit}
+                  canManage={document.canManage}
                   onDelete={handleDelete}
                 />
               ))}

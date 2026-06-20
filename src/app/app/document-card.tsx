@@ -32,6 +32,8 @@ export type DocumentCardData = {
   thumbnail: Visual | null;
   excerpt: string;
   readingMinutes: number;
+  canEdit: boolean;
+  canManage: boolean;
 };
 
 type DocumentCardProps = DocumentCardData & {
@@ -296,6 +298,8 @@ export function DocumentCard({
   thumbnail,
   excerpt,
   readingMinutes,
+  canEdit,
+  canManage,
   onDelete,
 }: DocumentCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -330,6 +334,8 @@ export function DocumentCard({
       thumbnail,
       excerpt,
       readingMinutes,
+      canEdit,
+      canManage,
     });
   };
 
@@ -404,11 +410,13 @@ export function DocumentCard({
       </Link>
 
       <div className="absolute left-2 top-2 z-10">
-        <StarButton
-          active={optimisticFavorite}
-          title={optimisticTitle}
-          onToggle={handleToggleFavorite}
-        />
+        {canEdit && (
+          <StarButton
+            active={optimisticFavorite}
+            title={optimisticTitle}
+            onToggle={handleToggleFavorite}
+          />
+        )}
       </div>
 
       <div ref={menuRef} className="absolute right-2 top-2 z-10">
@@ -437,17 +445,19 @@ export function DocumentCard({
             role="menu"
             className="absolute right-0 top-full z-20 mt-1 w-40 overflow-hidden rounded-lg border border-ds-border-strong bg-ds-surface-base py-1 shadow-lg"
           >
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setMenuOpen(false);
-                setRenameOpen(true);
-              }}
-              className="flex w-full items-center px-3 py-2 text-left text-sm text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
-            >
-              Rename
-            </button>
+            {canEdit && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setRenameOpen(true);
+                }}
+                className="flex w-full items-center px-3 py-2 text-left text-sm text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
+              >
+                Rename
+              </button>
+            )}
             <button
               type="button"
               role="menuitem"
@@ -456,17 +466,19 @@ export function DocumentCard({
             >
               Duplicate
             </button>
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setMenuOpen(false);
-                setConfirmOpen(true);
-              }}
-              className="flex w-full items-center px-3 py-2 text-left text-sm text-ds-danger transition hover:bg-ds-danger/10"
-            >
-              Delete
-            </button>
+            {canManage && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setConfirmOpen(true);
+                }}
+                className="flex w-full items-center px-3 py-2 text-left text-sm text-ds-danger transition hover:bg-ds-danger/10"
+              >
+                Delete
+              </button>
+            )}
           </div>
         )}
       </div>

@@ -1,0 +1,303 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import {
+  assertCapability,
+  capabilitiesForRole,
+  deriveDocumentRole,
+  documentCapabilities,
+  DocumentPermissionError,
+  type Capability,
+  type DocumentRole,
+  type DocumentRoleInput,
+} from "./document-permissions";
+
+// ---------------------------------------------------------------------------
+// Fixtures: four canonical actors against one workspace document.
+// ---------------------------------------------------------------------------
+
+const OWNER = "user-owner";
+const WS_OWNER = "user-ws-owner";
+const EDITOR = "user-editor";
+const VIEWER = "user-viewer";
+const STRANGER = "user-stranger";
+
+/** A workspace document owned by OWNER, in a workspace owned by WS_OWNER. */
+function workspaceDoc(): DocumentRoleInput {
+  return {
+    ownerId: OWNER,
+    workspaceId: "ws-1",
+    workspace: {
+      ownerId: WS_OWNER,
+      members: [
+        { userId: EDITOR, role: "EDITOR" },
+        { userId: VIEWER, role: "VIEWER" },
+      ],
+    },
+  };
+}
+
+/** A personal document (no workspace) owned by OWNER. */
+function personalDoc(): DocumentRoleInput {
+  return { ownerId: OWNER, workspaceId: null, workspace: null };
+}
+
+// ---------------------------------------------------------------------------
+// deriveDocumentRole
+// ---------------------------------------------------------------------------
+
+test("deriveDocumentRole: document owner is owner", () => {
+  assert.equal(deriveDocumentRole(workspaceDoc(), OWNER), "owner");
+  assert.equal(deriveDocumentRole(personalDoc(), OWNER), "owner");
+});
+
+test("deriveDocumentRole: workspace owner is owner", () => {
+  assert.equal(deriveDocumentRole(workspaceDoc(), WS_OWNER), "owner");
+});
+
+test("deriveDocumentRole: EDITOR member is editor", () => {
+  assert.equal(deriveDocumentRole(workspaceDoc(), EDITOR), "editor");
+});
+
+test("deriveDocumentRole: VIEWER member is viewer", () => {
+  assert.equal(deriveDocumentRole(workspaceDoc(), VIEWER), "viewer");
+});
+
+test("deriveDocumentRole: unrelated user has no role", () => {
+  assert.equal(deriveDocumentRole(workspaceDoc(), STRANGER), "none");
+  assert.equal(deriveDocumentRole(personalDoc(), STRANGER), "none");
+});
+
+test("deriveDocumentRole: OWNER-role member is treated as owner", () => {
+  const doc: DocumentRoleInput = {
+    ownerId: OWNER,
+    workspaceId: "ws-1",
+    workspace: {
+      ownerId: WS_OWNER,
+      members: [{ userId: "user-admin", role: "OWNER" }],
+    },
+  };
+  assert.equal(deriveDocumentRole(doc, "user-admin"), "owner");
+});
+
+test("deriveDocumentRole: unknown role string falls back to viewer", () => {
+  const doc: DocumentRoleInput = {
+    ownerId: OWNER,
+    workspaceId: "ws-1",
+    workspace: {
+      ownerId: WS_OWNER,
+      members: [{ userId: "user-x", role: "SUPERUSER" }],
+    },
+  };
+  assert.equal(deriveDocumentRole(doc, "user-x"), "viewer");
+});
+
+test("deriveDocumentRole: workspaceId set but workspace null yields none for non-owner", () => {
+  const doc: DocumentRoleInput = {
+    ownerId: OWNER,
+    workspaceId: "ws-1",
+    workspace: null,
+  };
+  assert.equal(deriveDocumentRole(doc, STRANGER), "none");
+  assert.equal(deriveDocumentRole(doc, OWNER), "owner");
+});
+
+// ---------------------------------------------------------------------------
+// capabilitiesForRole
+// ---------------------------------------------------------------------------
+
+test("capabilitiesForRole: owner can view/edit/manage", () => {
+  assert.deepEqual(capabilitiesForRole("owner"), {
+    role: "owner",
+    canView: true,
+    canEdit: true,
+    canManage: true,
+  });
+});
+
+test("capabilitiesForRole: editor can view/edit but not manage", () => {
+  assert.deepEqual(capabilitiesForRole("editor"), {
+    role: "editor",
+    canView: true,
+    canEdit: true,
+    canManage: false,
+  });
+});
+
+test("capabilitiesForRole: viewer can only view", () => {
+  assert.deepEqual(capabilitiesForRole("viewer"), {
+    role: "viewer",
+    canView: true,
+    canEdit: false,
+    canManage: false,
+  });
+});
+
+test("capabilitiesForRole: none can do nothing", () => {
+  assert.deepEqual(capabilitiesForRole("none"), {
+    role: "none",
+    canView: false,
+    canEdit: false,
+    canManage: false,
+  });
+});
+
+// ---------------------------------------------------------------------------
+// documentCapabilities — end-to-end role → capabilities matrix.
+// ---------------------------------------------------------------------------
+
+const EXPECTED: Record<
+  string,
+  { role: DocumentRole; canView: boolean; canEdit: boolean; canManage: boolean }
+> = {
+  [OWNER]: { role: "owner", canView: true, canEdit: true, canManage: true },
+  [WS_OWNER]: { role: "owner", canView: true, canEdit: true, canManage: true },
+  [EDITOR]: { role: "editor", canView: true, canEdit: true, canManage: false },
+  [VIEWER]: { role: "viewer", canView: true, canEdit: false, canManage: false },
+  [STRANGER]: {
+    role: "none",
+    canView: false,
+    canEdit: false,
+    canManage: false,
+  },
+};
+
+for (const [userId, expected] of Object.entries(EXPECTED)) {
+  test(`documentCapabilities: ${userId} → ${expected.role}`, () => {
+    assert.deepEqual(documentCapabilities(workspaceDoc(), userId), expected);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// assertCapability — every (role, capability) combination.
+// ---------------------------------------------------------------------------
+
+type Allowed = { view: boolean; edit: boolean; manage: boolean };
+
+const ALLOWED: Record<DocumentRole, Allowed> = {
+  owner: { view: true, edit: true, manage: true },
+  editor: { view: true, edit: true, manage: false },
+  viewer: { view: true, edit: false, manage: false },
+  none: { view: false, edit: false, manage: false },
+};
+
+const CAPABILITIES: Capability[] = ["view", "edit", "manage"];
+
+for (const role of Object.keys(ALLOWED) as DocumentRole[]) {
+  for (const capability of CAPABILITIES) {
+    const allowed = ALLOWED[role][capability];
+    test(`assertCapability: ${role} ${allowed ? "may" : "may not"} ${capability}`, () => {
+      const caps = capabilitiesForRole(role);
+      if (allowed) {
+        assert.doesNotThrow(() => assertCapability(caps, capability));
+      } else {
+        assert.throws(
+          () => assertCapability(caps, capability),
+          DocumentPermissionError,
+        );
+      }
+    });
+  }
+}
+
+test("assertCapability: no-access errors say 'Document not found.' with null capability", () => {
+  const caps = capabilitiesForRole("none");
+  try {
+    assertCapability(caps, "view");
+    assert.fail("expected throw");
+  } catch (error) {
+    assert.ok(error instanceof DocumentPermissionError);
+    assert.equal(error.message, "Document not found.");
+    assert.equal(error.capability, null);
+  }
+});
+
+test("assertCapability: viewer edit denial carries a clear permission message", () => {
+  const caps = capabilitiesForRole("viewer");
+  try {
+    assertCapability(caps, "edit");
+    assert.fail("expected throw");
+  } catch (error) {
+    assert.ok(error instanceof DocumentPermissionError);
+    assert.match(error.message, /permission to edit/);
+    assert.equal(error.capability, "edit");
+  }
+});
+
+test("assertCapability: editor manage denial carries a clear permission message", () => {
+  const caps = capabilitiesForRole("editor");
+  try {
+    assertCapability(caps, "manage");
+    assert.fail("expected throw");
+  } catch (error) {
+    assert.ok(error instanceof DocumentPermissionError);
+    assert.match(error.message, /permission to manage/);
+    assert.equal(error.capability, "manage");
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Action → capability contract: encode each mutating document action's required
+// capability and assert that the four canonical actors are gated correctly.
+// This is the regression guard for issue #89 AC #2/#3/#4.
+// ---------------------------------------------------------------------------
+
+const ACTION_CAPABILITY: Record<string, Capability> = {
+  // Dashboard (src/app/app/actions.ts)
+  renameDocument: "edit",
+  toggleFavorite: "edit",
+  duplicateDocument: "view",
+  deleteDocument: "manage",
+  restoreDocument: "manage",
+  // Editor (src/app/app/documents/[id]/actions.ts)
+  saveDocumentTitle: "edit",
+  saveDocumentLexical: "edit",
+  saveDeckJson: "edit",
+  toggleDocumentSharing: "manage",
+  // Tags (src/app/app/documents/[id]/tags-actions.ts)
+  addTag: "edit",
+  removeTag: "edit",
+  // Comments (src/app/app/documents/[id]/comments-actions.ts)
+  listComments: "view",
+  createComment: "view",
+  setCommentResolved: "view",
+};
+
+for (const [action, capability] of Object.entries(ACTION_CAPABILITY)) {
+  test(`${action} (requires ${capability}): owner & editor/viewer gating`, () => {
+    const caps = documentCapabilities(workspaceDoc(), OWNER);
+    // Owner is allowed every action.
+    assert.doesNotThrow(() => assertCapability(caps, capability));
+
+    // Editor is allowed everything except manage actions.
+    const editorCaps = documentCapabilities(workspaceDoc(), EDITOR);
+    if (capability === "manage") {
+      assert.throws(
+        () => assertCapability(editorCaps, capability),
+        DocumentPermissionError,
+      );
+    } else {
+      assert.doesNotThrow(() => assertCapability(editorCaps, capability));
+    }
+
+    // Viewer is allowed only view actions.
+    const viewerCaps = documentCapabilities(workspaceDoc(), VIEWER);
+    if (capability === "view") {
+      assert.doesNotThrow(() => assertCapability(viewerCaps, capability));
+    } else {
+      assert.throws(
+        () => assertCapability(viewerCaps, capability),
+        DocumentPermissionError,
+      );
+    }
+
+    // Unrelated user is denied every action with "Document not found."
+    const strangerCaps = documentCapabilities(workspaceDoc(), STRANGER);
+    assert.throws(
+      () => assertCapability(strangerCaps, capability),
+      (error: unknown) =>
+        error instanceof DocumentPermissionError &&
+        error.message === "Document not found.",
+    );
+  });
+}

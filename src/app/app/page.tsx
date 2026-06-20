@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { documentCapabilities } from "@/lib/auth/document-permissions";
 import { excerpt, readingTimeMinutes } from "@/lib/document-stats";
 import { createTranslator } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n/server";
@@ -44,6 +45,8 @@ export default async function DashboardPage() {
       content: true,
       createdAt: true,
       updatedAt: true,
+      ownerId: true,
+      workspaceId: true,
       visuals: {
         orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }],
         take: 1,
@@ -73,6 +76,8 @@ export default async function DashboardPage() {
       content: true,
       createdAt: true,
       updatedAt: true,
+      ownerId: true,
+      workspaceId: true,
       visuals: {
         orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }],
         take: 1,
@@ -82,7 +87,16 @@ export default async function DashboardPage() {
         orderBy: { name: "asc" },
         select: { id: true, name: true, slug: true },
       },
-      workspace: { select: { name: true } },
+      workspace: {
+        select: {
+          name: true,
+          ownerId: true,
+          members: {
+            where: { userId: user.id },
+            select: { userId: true, role: true },
+          },
+        },
+      },
     },
   });
 
@@ -101,6 +115,7 @@ export default async function DashboardPage() {
       }
     }
     const content = document.content ?? "";
+    const { canEdit, canManage } = documentCapabilities(document, user.id);
     return {
       id: document.id,
       title: document.title,
@@ -112,6 +127,8 @@ export default async function DashboardPage() {
       readingMinutes: readingTimeMinutes(content),
       createdAtMs: document.createdAt.getTime(),
       updatedAtMs: document.updatedAt.getTime(),
+      canEdit,
+      canManage,
       tags: document.tags.map((tag) => ({ slug: tag.slug, name: tag.name })),
     };
   });

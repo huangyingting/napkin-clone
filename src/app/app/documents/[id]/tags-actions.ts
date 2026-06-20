@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getAccessibleDocument } from "@/lib/documents";
+import { requireDocumentCapability } from "@/lib/auth/document-permissions";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { slugify } from "@/lib/slug";
@@ -85,19 +85,18 @@ async function findOrCreateTag(
 }
 
 /**
- * Adds a tag (creating it if new) to a document the user can access, and
- * returns the document's updated tag list. A blank name or an inaccessible
- * document is a no-op that returns the current tags.
+ * Adds a tag (creating it if new) to a document the user may edit, and returns
+ * the document's updated tag list. Requires edit access (owner or workspace
+ * editor) via `requireDocumentCapability` — a viewer or unrelated user is
+ * rejected with a clear error (issue #89). A blank name is a no-op that returns
+ * the current tags.
  */
 export async function addTag(
   documentId: string,
   rawName: string,
 ): Promise<DocumentTag[]> {
   const user = await requireUser();
-  const doc = await getAccessibleDocument(user.id, documentId);
-  if (!doc) {
-    return [];
-  }
+  await requireDocumentCapability(user.id, documentId, "edit");
 
   const name = normalizeTagName(rawName);
   if (!name) {
@@ -115,18 +114,17 @@ export async function addTag(
 }
 
 /**
- * Removes a tag from a document the user can access (the tag itself is not
- * deleted) and returns the document's updated tag list.
+ * Removes a tag from a document the user may edit (the tag itself is not
+ * deleted) and returns the document's updated tag list. Requires edit access
+ * (owner or workspace editor) via `requireDocumentCapability` — a viewer or
+ * unrelated user is rejected with a clear error (issue #89).
  */
 export async function removeTag(
   documentId: string,
   tagId: string,
 ): Promise<DocumentTag[]> {
   const user = await requireUser();
-  const doc = await getAccessibleDocument(user.id, documentId);
-  if (!doc) {
-    return [];
-  }
+  await requireDocumentCapability(user.id, documentId, "edit");
 
   await prisma.document.update({
     where: { id: documentId },
