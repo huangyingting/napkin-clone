@@ -2,11 +2,17 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { createHeadlessEditor } from "@lexical/headless";
+import { createEmptyHistoryState, registerHistory } from "@lexical/history";
 import { LinkNode } from "@lexical/link";
 import { ListItemNode, ListNode } from "@lexical/list";
 import { HorizontalRuleNode } from "@lexical/react/LexicalHorizontalRuleNode";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
-import { $createParagraphNode, $getRoot, type LexicalEditor } from "lexical";
+import {
+  $createParagraphNode,
+  $getRoot,
+  UNDO_COMMAND,
+  type LexicalEditor,
+} from "lexical";
 
 import {
   safeParseVisual,
@@ -325,4 +331,94 @@ test("transforms + setVisual produce a NEW Visual; the previously-read Visual is
   assert.equal(after.type, "list");
   assert.equal(isThemeActive(after, "grape"), true);
   assert.notEqual(after, original, "node now holds a different Visual object");
+});
+
+/**
+ * Verifies that visual edits (setVisual) are undoable at sensible granularity.
+ *
+ * In the live editor the Yjs UndoManager handles undo; here we use
+ * `@lexical/history` as the undo mechanism (no Yjs in headless tests) to verify
+ * that:
+ *  1. A visual edit via `node.setVisual()` is captured by a history listener.
+ *  2. Dispatching `UNDO_COMMAND` synchronously reverts the visual to its
+ *     pre-edit payload.
+ *  3. The `VisualNode.__visual` property is properly stored in the Lexical editor
+ *     state snapshot that the undo mechanism restores.
+ *
+ * The production constraint "do not add HistoryPlugin alongside the Yjs
+ * UndoManager" applies only to the live collaborative editor.  Using
+ * `registerHistory` here is correct: there is no Yjs binding in headless tests.
+ */
+test("visual edit → UNDO_COMMAND reverts the visual to its pre-edit state", () => {
+  // Register history BEFORE seeding so the initial document updates are
+  // captured as history entries — making the pre-edit state undoable.
+  const editor = makeEditor();
+  const historyState = createEmptyHistoryState();
+  const unregister = registerHistory(editor, historyState, 0);
+
+  // Seed the document (two discrete updates so each gets its own history entry).
+  editor.update(
+    () => {
+      const paragraph = $createParagraphNode();
+      $getRoot().clear().append(paragraph);
+      paragraph.selectStart();
+    },
+    { discrete: true },
+  );
+  editor.update(
+    () => {
+      $insertBlankVisualAfter({ kind: "flowchart" });
+    },
+    { discrete: true },
+  );
+
+  // The seeded state is now the top of the undo stack as `current`.
+  const baseline = readVisual(editor);
+
+  // Apply a theme edit — marks the VisualNode dirty, history captures it and
+  // pushes the seeded state onto the undoStack.
+  editor.update(
+    () => {
+      const node = onlyVisual(editor);
+      node.setVisual(applyTheme(node.getVisual(), "ocean"));
+    },
+    { discrete: true },
+  );
+
+  const after = readVisual(editor);
+  assert.notEqual(
+    after.style.background,
+    baseline.style.background,
+    "theme edit should change the visual background",
+  );
+  assert.ok(
+    historyState.undoStack.length > 0,
+    "undoStack should have an entry after the visual edit",
+  );
+
+  // Dispatch UNDO_COMMAND — handled synchronously by registerHistory, which
+  // calls editor.setEditorState(prevState, { tag: HISTORIC_TAG }).
+  // In headless tests without a DOM, the state restore is queued as a pending
+  // update; a subsequent discrete update flushes it synchronously.
+  editor.dispatchCommand(UNDO_COMMAND, undefined);
+  editor.update(() => {}, { discrete: true });
+
+  const reverted = readVisual(editor);
+  assert.equal(
+    reverted.style.background,
+    baseline.style.background,
+    "undo should revert the visual background to the pre-edit value",
+  );
+  assert.equal(
+    reverted.type,
+    baseline.type,
+    "undo should preserve the visual kind",
+  );
+  assert.equal(
+    reverted.nodes.length,
+    baseline.nodes.length,
+    "undo should preserve node count",
+  );
+
+  unregister();
 });
