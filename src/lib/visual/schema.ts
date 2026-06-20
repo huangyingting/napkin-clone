@@ -95,7 +95,13 @@ export const TEXT_ALIGNS = ["left", "center", "right"] as const;
 export type TextAlign = (typeof TEXT_ALIGNS)[number];
 
 /** Aspect-ratio preset for per-visual export letterboxing. `"auto"` keeps natural dimensions. */
-export const ASPECT_RATIO_PRESETS = ["16:9", "1:1", "4:5", "auto"] as const;
+export const ASPECT_RATIO_PRESETS = [
+  "16:9",
+  "1:1",
+  "4:5",
+  "9:16",
+  "auto",
+] as const;
 
 export type AspectRatioPreset = (typeof ASPECT_RATIO_PRESETS)[number];
 

@@ -21,6 +21,82 @@ export type BackgroundMode = "include" | "transparent" | "custom";
 /** Whether colours are exported as-is or converted to greyscale. */
 export type ColorMode = "color" | "mono";
 
+/**
+ * Named social-media export format. Each maps to a canonical aspect ratio,
+ * safe-area padding, background colour, and minimum export scale.
+ */
+export type SocialPreset = "square" | "portrait" | "landscape" | "story";
+
+/** Full configuration for a social export preset. */
+export interface SocialPresetConfig {
+  /** Preset identifier. */
+  id: SocialPreset;
+  /** Human-readable label shown in the UI. */
+  label: string;
+  /** Canonical pixel dimensions (reference; actual output depends on scale). */
+  canonicalWidth: number;
+  canonicalHeight: number;
+  /** Aspect ratio applied when letterboxing the SVG canvas. */
+  aspectRatio: Exclude<AspectRatioPreset, "auto">;
+  /**
+   * Safe-area padding in SVG canvas units. The content is inset from the
+   * canvas edge by this many units on every side.
+   */
+  padding: number;
+  /** Default background fill color as a CSS colour string. */
+  background: string;
+  /** Minimum export scale recommended for crisp output at the canonical size. */
+  minScale: number;
+}
+
+/**
+ * All four social export presets covering the most common social-media formats.
+ * Padding values assume a typical SVG canvas width of ~800 units; they produce
+ * ≈ 5–8 % breathing room on each side.
+ */
+export const SOCIAL_PRESET_CONFIGS: Record<SocialPreset, SocialPresetConfig> = {
+  square: {
+    id: "square",
+    label: "Square 1:1",
+    canonicalWidth: 1080,
+    canonicalHeight: 1080,
+    aspectRatio: "1:1",
+    padding: 48,
+    background: "#ffffff",
+    minScale: 2,
+  },
+  portrait: {
+    id: "portrait",
+    label: "Portrait 4:5",
+    canonicalWidth: 1080,
+    canonicalHeight: 1350,
+    aspectRatio: "4:5",
+    padding: 48,
+    background: "#ffffff",
+    minScale: 2,
+  },
+  landscape: {
+    id: "landscape",
+    label: "Landscape 16:9",
+    canonicalWidth: 1200,
+    canonicalHeight: 675,
+    aspectRatio: "16:9",
+    padding: 36,
+    background: "#ffffff",
+    minScale: 2,
+  },
+  story: {
+    id: "story",
+    label: "Story/Reel 9:16",
+    canonicalWidth: 1080,
+    canonicalHeight: 1920,
+    aspectRatio: "9:16",
+    padding: 64,
+    background: "#000000",
+    minScale: 2,
+  },
+};
+
 /** Controls applied when producing the exported file. */
 export interface ExportOptions {
   /** Background treatment. Defaults to `"include"`. */
@@ -40,6 +116,19 @@ export interface ExportOptions {
    * centred. Defaults to `undefined` / `"auto"` (natural dimensions).
    */
   aspectRatio?: AspectRatioPreset;
+  /**
+   * Safe-area padding in SVG canvas units. When set, the content is inset from
+   * the canvas edge by this many units on every side — ensuring breathing room
+   * for social platforms that crop or overlay UI chrome near the edges.
+   * Defaults to `0` (no padding).
+   */
+  padding?: number;
+  /**
+   * Social export preset selected in the dialog. Drives aspectRatio, padding,
+   * background, and minScale. Does not affect the SVG transform directly —
+   * use the resolved ExportOptions fields for that.
+   */
+  socialPreset?: SocialPreset;
   /**
    * When `true`, a "Napkin Clone" watermark text is stamped in the bottom-right
    * corner of the exported image. Set by the route / export handler based on the
@@ -87,6 +176,7 @@ export const ASPECT_RATIO_VALUES: Record<
   "16:9": 16 / 9,
   "1:1": 1,
   "4:5": 4 / 5,
+  "9:16": 9 / 16,
 };
 
 /**
@@ -94,12 +184,18 @@ export const ASPECT_RATIO_VALUES: Record<
  * requested `preset` aspect ratio, keeping the content at its natural size and
  * centering it within the larger canvas.
  *
+ * When `padding` is provided (SVG canvas units), the content is treated as
+ * `width + 2*padding` × `height + 2*padding` for the letterbox calculation so
+ * the final canvas always has at least `padding` units of breathing room on
+ * every side (safe-area padding for social export).
+ *
  * Returns the canvas dimensions and the content offset — all in the same units
  * as `viewBox`. For `"auto"` the content fills the canvas (offset = 0).
  */
 export function computeLetterboxedDimensions(
   viewBox: ViewBoxLike,
   preset: AspectRatioPreset | undefined,
+  padding = 0,
 ): {
   canvasW: number;
   canvasH: number;
@@ -116,23 +212,27 @@ export function computeLetterboxedDimensions(
   }
 
   const targetRatio = ASPECT_RATIO_VALUES[preset];
-  const naturalRatio = viewBox.width / viewBox.height;
+  // Expand the "effective" content size by padding so the letterbox canvas
+  // respects the safe-area margin on all sides.
+  const effectiveW = viewBox.width + 2 * padding;
+  const effectiveH = viewBox.height + 2 * padding;
+  const naturalRatio = effectiveW / effectiveH;
 
   let canvasW: number;
   let canvasH: number;
 
   if (naturalRatio > targetRatio) {
     // Content is wider than target → pillarbox: extend height
-    canvasW = viewBox.width;
-    canvasH = viewBox.width / targetRatio;
+    canvasW = effectiveW;
+    canvasH = effectiveW / targetRatio;
   } else if (naturalRatio < targetRatio) {
     // Content is taller than target → letterbox: extend width
-    canvasH = viewBox.height;
-    canvasW = viewBox.height * targetRatio;
+    canvasH = effectiveH;
+    canvasW = effectiveH * targetRatio;
   } else {
     // Already correct ratio
-    canvasW = viewBox.width;
-    canvasH = viewBox.height;
+    canvasW = effectiveW;
+    canvasH = effectiveH;
   }
 
   return {
@@ -153,10 +253,14 @@ export function computeLetterboxedDimensions(
  *    existing background colour extracted from the SVG, defaulting to white).
  * 3. All existing SVG content is wrapped in a `<g>` that translates it to the
  *    correct centred position within the new canvas.
+ *
+ * When `padding` is provided (SVG canvas units), the content is inset from the
+ * canvas edge by that amount on every side (safe-area padding).
  */
 export function applyAspectRatioToSvg(
   svgString: string,
   preset: AspectRatioPreset | undefined,
+  padding = 0,
 ): string {
   if (!preset || preset === "auto") {
     return svgString;
@@ -178,9 +282,10 @@ export function applyAspectRatioToSvg(
   const { canvasW, canvasH, offsetX, offsetY } = computeLetterboxedDimensions(
     { width: vbW, height: vbH },
     preset,
+    padding,
   );
 
-  // No change needed when already the correct ratio
+  // No change needed when already the correct ratio and no padding
   if (offsetX === 0 && offsetY === 0) {
     return svgString;
   }
@@ -308,7 +413,7 @@ export function applyExportOptionsToSvg(
 
   // ── aspect ratio ─────────────────────────────────────────────────────────
   if (options.aspectRatio && options.aspectRatio !== "auto") {
-    svg = applyAspectRatioToSvg(svg, options.aspectRatio);
+    svg = applyAspectRatioToSvg(svg, options.aspectRatio, options.padding ?? 0);
   }
 
   // ── watermark ────────────────────────────────────────────────────────────
@@ -350,6 +455,52 @@ export function applyWatermarkToSvg(svgString: string): string {
     `>Napkin Clone</text>`;
 
   return svgString.replace(/(<\/svg>)$/, `${watermarkEl}$1`);
+}
+
+// ---------------------------------------------------------------------------
+// Social preset helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Merges a {@link SocialPreset} configuration into existing {@link ExportOptions},
+ * returning a new options object ready for the export pipeline.
+ *
+ * Rules applied:
+ * - `aspectRatio` and `padding` are taken from the preset config.
+ * - `background` is forced to `"custom"` with the preset's fill color.
+ * - `scale` is raised to the preset's `minScale` if the current value is lower.
+ * - `socialPreset` is recorded so the dialog can reflect the active preset.
+ * - All other options (colorMode, watermark, …) are preserved from `current`.
+ */
+export function applySocialPresetToOptions(
+  preset: SocialPreset,
+  current: ExportOptions,
+): ExportOptions {
+  const config = SOCIAL_PRESET_CONFIGS[preset];
+  return {
+    ...current,
+    socialPreset: preset,
+    aspectRatio: config.aspectRatio,
+    padding: config.padding,
+    background: "custom",
+    customBackground: config.background,
+    scale: Math.max(current.scale, config.minScale),
+  };
+}
+
+/**
+ * Clears the active social preset, restoring natural-dimensions export.
+ * Resets `aspectRatio`, `padding`, and `socialPreset`; keeps everything else.
+ */
+export function clearSocialPreset(
+  current: ExportOptions,
+): Omit<ExportOptions, "socialPreset" | "padding" | "aspectRatio"> &
+  Pick<ExportOptions, "background" | "colorMode" | "scale"> {
+  const next: ExportOptions = { ...current };
+  delete next.socialPreset;
+  delete next.padding;
+  delete next.aspectRatio;
+  return next;
 }
 
 /**

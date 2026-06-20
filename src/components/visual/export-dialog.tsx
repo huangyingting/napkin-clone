@@ -22,11 +22,15 @@ import {
 } from "@/components/ui";
 import type { PlanEntitlements } from "@/lib/billing/entitlements";
 import {
+  applySocialPresetToOptions,
+  clearSocialPreset,
   applyExportOptionsToSvg,
   DEFAULT_EXPORT_OPTIONS,
+  SOCIAL_PRESET_CONFIGS,
   type BackgroundMode,
   type ColorMode,
   type ExportOptions,
+  type SocialPreset,
 } from "@/lib/visual/export-options";
 import {
   downloadBlob,
@@ -75,6 +79,14 @@ const SCALE_OPTIONS: SegmentedOption<string>[] = [
   { value: "2", label: "2×" },
   { value: "3", label: "3×" },
 ];
+
+/** Ordered list of social presets shown in the dialog. */
+const SOCIAL_PRESET_LIST = [
+  SOCIAL_PRESET_CONFIGS.square,
+  SOCIAL_PRESET_CONFIGS.portrait,
+  SOCIAL_PRESET_CONFIGS.landscape,
+  SOCIAL_PRESET_CONFIGS.story,
+] as const;
 
 const FORMAT_OPTIONS: SegmentedOption<ExportFormat>[] = [
   { value: "png", label: "PNG" },
@@ -222,7 +234,8 @@ export function ExportDialog({
   }, [open, onClose]);
 
   const setBackground = useCallback(
-    (bg: BackgroundMode) => setOptions((o) => ({ ...o, background: bg })),
+    (bg: BackgroundMode) =>
+      setOptions((o) => ({ ...o, background: bg, socialPreset: undefined })),
     [],
   );
 
@@ -233,6 +246,21 @@ export function ExportDialog({
 
   const setScale = useCallback(
     (s: string) => setOptions((o) => ({ ...o, scale: Number(s) })),
+    [],
+  );
+
+  const selectSocialPreset = useCallback(
+    (preset: SocialPreset) =>
+      setOptions((o) =>
+        o.socialPreset === preset
+          ? clearSocialPreset(o)
+          : applySocialPresetToOptions(preset, o),
+      ),
+    [],
+  );
+
+  const toggleBranding = useCallback(
+    () => setOptions((o) => ({ ...o, watermark: !o.watermark })),
     [],
   );
 
@@ -377,6 +405,42 @@ export function ExportDialog({
 
                 {/* Controls panel */}
                 <div className="flex w-full flex-col gap-4 border-t border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] p-5 sm:w-[260px] sm:border-l sm:border-t-0">
+                  {/* Social presets */}
+                  <ControlField label="Social preset">
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {SOCIAL_PRESET_LIST.map((preset) => {
+                        const isActive = options.socialPreset === preset.id;
+                        return (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            aria-pressed={isActive}
+                            onClick={() => selectSocialPreset(preset.id)}
+                            className={cx(
+                              "flex flex-col items-start rounded-[var(--ds-radius-sm,8px)] border px-2.5 py-2 text-left transition-colors",
+                              FOCUS_RING,
+                              isActive
+                                ? "border-[var(--ds-accent,#6366f1)] bg-[var(--ds-accent-subtle,#eef2ff)] text-[var(--ds-accent,#6366f1)]"
+                                : "border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-raised,#ffffff)] text-[var(--ds-text-primary,#15171a)] hover:border-[var(--ds-border-strong,#dde1e5)]",
+                            )}
+                          >
+                            <span className="text-[11px] font-semibold leading-tight">
+                              {preset.label}
+                            </span>
+                            <span className="mt-0.5 text-[10px] leading-tight opacity-60">
+                              {preset.canonicalWidth}×{preset.canonicalHeight}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {options.socialPreset && (
+                      <p className="mt-1 text-xs text-[var(--ds-text-muted,#6f7d83)]">
+                        Click again to clear preset.
+                      </p>
+                    )}
+                  </ControlField>
+
                   {/* Format */}
                   <ControlField label="Format">
                     <SegmentedControl
@@ -472,9 +536,30 @@ export function ExportDialog({
                       <p className="mt-1 text-xs text-[var(--ds-text-muted,#6f7d83)]">
                         <ExportDimensions
                           getSvgElement={getSvgElement}
-                          scale={options.scale}
+                          options={options}
                         />
                       </p>
+                    </ControlField>
+                  )}
+
+                  {/* Branding toggle (paid plans only) */}
+                  {removeWatermark && (
+                    <ControlField label="Branding">
+                      <label className="flex cursor-pointer items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={options.watermark ?? false}
+                          onChange={toggleBranding}
+                          aria-label="Include Napkin Clone branding"
+                          className={cx(
+                            "h-4 w-4 cursor-pointer rounded border border-[var(--ds-border-strong,#dde1e5)]",
+                            FOCUS_RING,
+                          )}
+                        />
+                        <span className="text-xs text-[var(--ds-text-secondary,#54666d)]">
+                          Include Napkin Clone branding
+                        </span>
+                      </label>
                     </ControlField>
                   )}
 
@@ -604,17 +689,49 @@ function PreviewThumbnail({
 
 function ExportDimensions({
   getSvgElement,
-  scale,
+  options,
 }: {
   getSvgElement: () => SVGSVGElement | null;
-  scale: number;
+  options: ExportOptions;
 }) {
   const svg = getSvgElement();
   if (!svg) return null;
   const vb = svg.viewBox.baseVal;
   if (vb.width === 0 || vb.height === 0) return null;
-  const w = Math.round(vb.width * scale);
-  const h = Math.round(vb.height * scale);
+  // Import lazily to avoid bundling compute in the component tree — values are
+  // already computed server-side; here we just need the dimensions for display.
+  const { canvasW, canvasH } = (() => {
+    const pad = options.padding ?? 0;
+    const ar = options.aspectRatio;
+    if (!ar || ar === "auto") {
+      return { canvasW: vb.width, canvasH: vb.height };
+    }
+    const RATIO: Record<string, number> = {
+      "16:9": 16 / 9,
+      "1:1": 1,
+      "4:5": 4 / 5,
+      "9:16": 9 / 16,
+    };
+    const targetRatio = RATIO[ar];
+    if (!targetRatio) return { canvasW: vb.width, canvasH: vb.height };
+    const effectiveW = vb.width + 2 * pad;
+    const effectiveH = vb.height + 2 * pad;
+    const naturalRatio = effectiveW / effectiveH;
+    let cW: number, cH: number;
+    if (naturalRatio > targetRatio) {
+      cW = effectiveW;
+      cH = effectiveW / targetRatio;
+    } else if (naturalRatio < targetRatio) {
+      cH = effectiveH;
+      cW = effectiveH * targetRatio;
+    } else {
+      cW = effectiveW;
+      cH = effectiveH;
+    }
+    return { canvasW: cW, canvasH: cH };
+  })();
+  const w = Math.round(canvasW * options.scale);
+  const h = Math.round(canvasH * options.scale);
   return (
     <>
       {w} × {h} px
