@@ -14,10 +14,8 @@ import { prisma } from "@/lib/prisma";
 import { buildDocumentSearchWhere, normalizeSearchQuery } from "@/lib/search";
 import { requireUser } from "@/lib/session";
 import { BLANK_TEMPLATE_ID, getTemplateOrBlank } from "@/lib/templates/catalog";
+import { SOFT_DELETE_RETENTION_MS } from "@/lib/trash";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
-
-/** Documents soft-deleted before this cutoff are eligible for permanent purge. */
-const SOFT_DELETE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 /** Maximum stored document title length (mirrors the editor's title save). */
 const MAX_TITLE_LENGTH = 200;

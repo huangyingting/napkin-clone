@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { documentCapabilities } from "@/lib/auth/document-permissions";
 import { excerpt, readingTimeMinutes } from "@/lib/document-stats";
@@ -170,6 +171,12 @@ export default async function DashboardPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/app/trash"
+              className="flex h-10 items-center justify-center rounded-full border border-ds-border-strong px-5 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
+            >
+              Trash
+            </Link>
             <ImportDocumentButton className={`${primaryButtonClass} gap-2`} />
             <NewDocumentButton className={primaryButtonClass} enableShortcut>
               {t("dashboard.action.newDocument")}
