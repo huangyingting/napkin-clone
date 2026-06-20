@@ -1,16 +1,21 @@
 "use client";
 
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { HISTORIC_TAG } from "lexical";
 import { useCallback } from "react";
 
 import { markdownToLexicalState } from "@/lib/lexical/from-markdown";
+import { IMPORT_TAG } from "@/lib/lexical/import-persistence";
 
 /**
  * Returns a stable `insertImportedMarkdown` callback that parses a Markdown
  * string into a Lexical editor state and loads it into the editor via
- * `setEditorState` (tagged as `HISTORIC_TAG` so collaboration and undo treat
- * it as a normal content replacement rather than a remote merge).
+ * `setEditorState`, tagged as `IMPORT_TAG`.
+ *
+ * The import is a user-initiated content replacement, so it must both persist
+ * to the database and sync to collaborators. Tagging it `IMPORT_TAG` (rather
+ * than `HISTORIC_TAG`, which the autosave handler and the Yjs binding both
+ * skip) ensures the autosave path processes it and the change propagates to the
+ * shared room.
  *
  * The callback replaces the editor's entire content — suitable for the
  * "import into this document" use-case where the user has explicitly chosen to
@@ -25,7 +30,7 @@ export function useInsertImportedMarkdown(): (markdown: string) => void {
       try {
         const stateJson = markdownToLexicalState(markdown);
         const parsed = editor.parseEditorState(stateJson);
-        editor.setEditorState(parsed, { tag: HISTORIC_TAG });
+        editor.setEditorState(parsed, { tag: IMPORT_TAG });
       } catch (error) {
         console.error("Failed to insert imported content into editor", error);
       }

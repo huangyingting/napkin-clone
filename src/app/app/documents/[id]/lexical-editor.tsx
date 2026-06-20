@@ -19,7 +19,6 @@ import {
   $getRoot,
   $getSelection,
   $isRangeSelection,
-  COLLABORATION_TAG,
   HISTORIC_TAG,
   type EditorState,
   type EditorThemeClasses,
@@ -34,6 +33,7 @@ import { useLexicalCollaboration } from "@/lib/collab/use-lexical-collaboration"
 import { useDebouncedSave, useYText } from "@/lib/collab/use-collaboration";
 import { readingTimeMinutes, wordCount } from "@/lib/document-stats";
 import { EditorContextProvider } from "@/lib/lexical/editor-context";
+import { shouldAutosaveUpdate } from "@/lib/lexical/import-persistence";
 
 import { saveDocumentLexical, saveDocumentTitle } from "./actions";
 import { BlockSparkPlugin } from "./block-spark";
@@ -372,9 +372,12 @@ export function LexicalEditor({
 
   const handleChange = useCallback(
     (editorState: EditorState, _editor: unknown, tags: Set<string>) => {
-      // Remote CRDT merges (and collaborative undo) are tagged; only the client
-      // that made a local edit persists it to the database (US-003).
-      if (tags.has(COLLABORATION_TAG) || tags.has(HISTORIC_TAG)) {
+      // Remote CRDT merges and collaborative undo are tagged and skipped; only
+      // the client that made a local edit persists it to the database (US-003).
+      // Explicit imports (IMPORT_TAG) are user-initiated replacements that must
+      // persist even though they replace the whole document — see
+      // `shouldAutosaveUpdate`.
+      if (!shouldAutosaveUpdate(tags)) {
         return;
       }
       latestJsonRef.current = JSON.stringify(editorState.toJSON());
