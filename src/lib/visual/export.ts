@@ -30,6 +30,20 @@ import {
 export type { ExportOptions };
 export { DEFAULT_EXPORT_OPTIONS };
 
+function sizeSvgForRasterization(
+  svgString: string,
+  width: number,
+  height: number,
+): string {
+  return svgString.replace(/<svg\b([^>]*)>/, (_, attrs: string) => {
+    const cleanedAttrs = attrs.replace(
+      /\s(?:width|height)=["'][^"']*["']/g,
+      "",
+    );
+    return `<svg${cleanedAttrs} width="${width}" height="${height}">`;
+  });
+}
+
 /**
  * Convert an SVG element to PNG applying the given ExportOptions.
  * Returns a Promise that resolves to a Blob, or null on error.
@@ -79,7 +93,11 @@ export async function exportPNG(
       // because the SVG itself carries the background.
 
       // Apply export options to SVG before rasterizing
-      const transformedSvg = buildTransformedSvgString(svgElement, opts);
+      const transformedSvg = sizeSvgForRasterization(
+        buildTransformedSvgString(svgElement, opts),
+        canvasW,
+        canvasH,
+      );
       const svgBlob = new Blob([transformedSvg], {
         type: "image/svg+xml;charset=utf-8",
       });
@@ -89,7 +107,7 @@ export async function exportPNG(
       const img = new Image();
       img.onload = () => {
         ctx.scale(opts.scale, opts.scale);
-        ctx.drawImage(img, 0, 0);
+        ctx.drawImage(img, 0, 0, canvasW, canvasH);
         URL.revokeObjectURL(url);
 
         canvas.toBlob((blob) => {

@@ -292,21 +292,21 @@ async function addVisualPage(
   pdf: jsPDF,
   svg: SVGSVGElement,
   addPage: boolean,
-): Promise<void> {
+): Promise<boolean> {
   const viewBox = svg.viewBox.baseVal;
   const vw = viewBox.width;
   const vh = viewBox.height;
-  if (vw === 0 || vh === 0) return;
+  if (vw === 0 || vh === 0) return false;
 
   const pngDataUrl = await svgToPngDataUrl(svg);
-  if (!pngDataUrl) return;
+  if (!pngDataUrl) return false;
 
   const landscape = vw > vh;
   const pgW = landscape ? PAGE_H_MM : PAGE_W_MM;
   const pgH = landscape ? PAGE_W_MM : PAGE_H_MM;
 
   if (addPage) {
-    pdf.addPage(landscape ? "landscape" : "portrait");
+    pdf.addPage("a4", landscape ? "landscape" : "portrait");
   }
 
   // Fit image within 80 % of page area
@@ -319,6 +319,7 @@ async function addVisualPage(
   const y = (pgH - imgH) / 2;
 
   pdf.addImage(pngDataUrl, "PNG", x, y, imgW, imgH);
+  return true;
 }
 
 /**
@@ -380,15 +381,28 @@ export async function exportDocumentAsPDF(
     }
 
     let onFirstPage = true;
+    let needsTextPageAfterVisual = false;
+
+    const ensureTextPageAfterVisual = () => {
+      if (!needsTextPageAfterVisual) {
+        return;
+      }
+      pdf.addPage("a4", "portrait");
+      curY = MARGIN_MM;
+      needsTextPageAfterVisual = false;
+    };
 
     for (const block of blocks) {
       if (block.kind === "visual") {
         const svg = getSvg(block.visualId);
         if (!svg) continue;
-        await addVisualPage(pdf, svg, /* addPage= */ true);
+        const visualAdded = await addVisualPage(pdf, svg, /* addPage= */ true);
+        if (!visualAdded) continue;
         onFirstPage = false;
-        // After a visual page, reset Y to top-margin for any subsequent text
+        // A visual owns the whole current page. If text follows, it must start
+        // on a new portrait page rather than being drawn over the visual.
         curY = MARGIN_MM;
+        needsTextPageAfterVisual = true;
         continue;
       }
 
@@ -396,6 +410,7 @@ export async function exportDocumentAsPDF(
       const { blockType, text, level } = block;
 
       if (blockType === "hr") {
+        ensureTextPageAfterVisual();
         if (!onFirstPage) {
           curY += 4;
           if (curY + 1 > PAGE_H_MM - MARGIN_MM) {
@@ -410,6 +425,7 @@ export async function exportDocumentAsPDF(
       }
 
       if (!text.trim()) continue;
+      ensureTextPageAfterVisual();
 
       switch (blockType) {
         case "heading": {

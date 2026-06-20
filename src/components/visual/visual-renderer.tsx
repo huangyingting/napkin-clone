@@ -6,6 +6,7 @@ import {
   boundaryPoint,
   chartLayout,
   comparisonLayout,
+  contentViewBox,
   cycleLayout,
   funnelLayout,
   listLayout,
@@ -1516,11 +1517,15 @@ export const VisualRenderer = forwardRef<
 
   const effects = visual.effects ?? [];
 
+  // viewBox that encloses any positioned-node content overflowing the authored
+  // canvas (no-op for well-fitted visuals and for auto-laid-out kinds).
+  const vb = contentViewBox(visual);
+
   return (
     <svg
       ref={ref}
       xmlns="http://www.w3.org/2000/svg"
-      viewBox={`0 0 ${visual.width} ${visual.height}`}
+      viewBox={`${vb.x} ${vb.y} ${vb.width} ${vb.height}`}
       preserveAspectRatio="xMidYMid meet"
       className={className}
       role="img"
@@ -1540,19 +1545,19 @@ export const VisualRenderer = forwardRef<
       {effects.length > 0 && <EffectFilterDefs effects={effects} uid={uid} />}
       {!transparentBackground && (
         <rect
-          x={0}
-          y={0}
-          width={visual.width}
-          height={visual.height}
+          x={vb.x}
+          y={vb.y}
+          width={vb.width}
+          height={vb.height}
           fill={visual.style.background}
         />
       )}
       {canvasStyle !== "blank" && !transparentBackground && (
         <rect
-          x={0}
-          y={0}
-          width={visual.width}
-          height={visual.height}
+          x={vb.x}
+          y={vb.y}
+          width={vb.width}
+          height={vb.height}
           fill={`url(#${patternId})`}
         />
       )}

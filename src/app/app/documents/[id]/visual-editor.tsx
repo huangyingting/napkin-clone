@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { resolveIconComponent } from "@/components/visual/icon-registry";
 import {
+  contentViewBox,
   edgeSegments,
   isPositionedKind,
   nodeBoxes,
@@ -158,6 +159,9 @@ export function VisualEditor({
 
   const positioned = isPositionedKind(visual.type) && !visual.autoLayout;
   const boxes = useMemo(() => nodeBoxes(visual), [visual]);
+  // Keep the interactive overlay's coordinate system identical to the renderer
+  // (which expands the viewBox to enclose any nodes overflowing the canvas).
+  const overlayViewBox = useMemo(() => contentViewBox(visual), [visual]);
 
   // While editing a node, blank its label in the read-only render so the live
   // text isn't drawn behind the inline input (node sizes are label-independent,
@@ -679,7 +683,7 @@ export function VisualEditor({
       <svg
         ref={svgRef}
         xmlns="http://www.w3.org/2000/svg"
-        viewBox={`0 0 ${visual.width} ${visual.height}`}
+        viewBox={`${overlayViewBox.x} ${overlayViewBox.y} ${overlayViewBox.width} ${overlayViewBox.height}`}
         preserveAspectRatio="xMidYMid meet"
         className="absolute inset-0 h-full w-full"
         style={{ touchAction: "none" }}

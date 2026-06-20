@@ -44,6 +44,55 @@ export function nodeHalf(node: VisualNode): { hw: number; hh: number } {
   };
 }
 
+/** Padding (canvas units) added on sides where node content overflows. */
+const CONTENT_VIEWBOX_PAD = 12;
+
+/**
+ * The SVG `viewBox` that fully encloses a visual's content.
+ *
+ * For freely-positioned kinds (flowchart/mindmap/concept/venn/orgchart), AI- or
+ * user-placed nodes can land past the authored `width`/`height`; the root `<svg>`
+ * clips to its viewport, so such nodes would be cut off in the editor, the
+ * share/embed view, and every export. This expands the viewBox to include any
+ * overflow (only on the sides that overflow, so well-fitted visuals keep their
+ * exact authored framing).
+ *
+ * Auto-laid-out kinds (chart, timeline, cycle, …) do not store node `x`/`y` —
+ * their geometry comes from dedicated layout functions that stay within the
+ * canvas — so they always return `0 0 width height` unchanged.
+ *
+ * Shared by the static renderer and the interactive editor overlay so their
+ * coordinate systems always line up.
+ */
+export function contentViewBox(visual: Visual): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} {
+  let minX = 0;
+  let minY = 0;
+  let maxX = visual.width;
+  let maxY = visual.height;
+
+  if (isPositionedKind(visual.type)) {
+    for (const node of visual.nodes) {
+      const { x, y } = nodeCenter(node);
+      const { hw, hh } = nodeHalf(node);
+      minX = Math.min(minX, x - hw);
+      minY = Math.min(minY, y - hh);
+      maxX = Math.max(maxX, x + hw);
+      maxY = Math.max(maxY, y + hh);
+    }
+    if (minX < 0) minX -= CONTENT_VIEWBOX_PAD;
+    if (minY < 0) minY -= CONTENT_VIEWBOX_PAD;
+    if (maxX > visual.width) maxX += CONTENT_VIEWBOX_PAD;
+    if (maxY > visual.height) maxY += CONTENT_VIEWBOX_PAD;
+  }
+
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
 /**
  * Point where the line from `from` toward a target box (centered at `to`,
  * half-extent `hw`/`hh`) meets the target's bounding box — used to stop edges

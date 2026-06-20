@@ -19,6 +19,16 @@ import type {
 } from "@/lib/visual/pptx-shapes";
 
 type Slide = ReturnType<PptxGenJS["addSlide"]>;
+type ShapeName = Parameters<Slide["addShape"]>[0];
+
+const SHAPES = {
+  rect: "rect",
+  roundRect: "roundRect",
+  ellipse: "ellipse",
+  diamond: "diamond",
+  hexagon: "hexagon",
+  line: "line",
+} satisfies Record<string, ShapeName>;
 
 function applyRect(slide: Slide, spec: PptxRectSpec): void {
   const fill: PptxGenJS.ShapeFillProps =
@@ -37,7 +47,7 @@ function applyRect(slide: Slide, spec: PptxRectSpec): void {
       : { color: spec.stroke, width: spec.strokeWidth };
 
   if (spec.cornerRadius !== undefined && spec.cornerRadius > 0) {
-    slide.addShape(PptxGenJS.ShapeType.roundRect, {
+    slide.addShape(SHAPES.roundRect, {
       x: spec.x,
       y: spec.y,
       w: spec.w,
@@ -47,7 +57,7 @@ function applyRect(slide: Slide, spec: PptxRectSpec): void {
       rectRadius: spec.cornerRadius,
     });
   } else {
-    slide.addShape(PptxGenJS.ShapeType.rect, {
+    slide.addShape(SHAPES.rect, {
       x: spec.x,
       y: spec.y,
       w: spec.w,
@@ -69,7 +79,7 @@ function applyEllipse(slide: Slide, spec: PptxEllipseSpec): void {
             : {}),
         };
 
-  slide.addShape(PptxGenJS.ShapeType.ellipse, {
+  slide.addShape(SHAPES.ellipse, {
     x: spec.x,
     y: spec.y,
     w: spec.w,
@@ -80,7 +90,7 @@ function applyEllipse(slide: Slide, spec: PptxEllipseSpec): void {
 }
 
 function applyDiamond(slide: Slide, spec: PptxDiamondSpec): void {
-  slide.addShape(PptxGenJS.ShapeType.diamond, {
+  slide.addShape(SHAPES.diamond, {
     x: spec.x,
     y: spec.y,
     w: spec.w,
@@ -91,7 +101,7 @@ function applyDiamond(slide: Slide, spec: PptxDiamondSpec): void {
 }
 
 function applyHexagon(slide: Slide, spec: PptxHexagonSpec): void {
-  slide.addShape(PptxGenJS.ShapeType.hexagon, {
+  slide.addShape(SHAPES.hexagon, {
     x: spec.x,
     y: spec.y,
     w: spec.w,
@@ -106,7 +116,7 @@ function applyLine(slide: Slide, spec: PptxLineSpec): void {
   const w = spec.x2 - spec.x1;
   const h = spec.y2 - spec.y1;
 
-  slide.addShape(PptxGenJS.ShapeType.line, {
+  slide.addShape(SHAPES.line, {
     x: spec.x1,
     y: spec.y1,
     w,
