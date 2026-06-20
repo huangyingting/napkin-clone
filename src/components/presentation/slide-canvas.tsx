@@ -212,6 +212,7 @@ function ContentSlideLayout({
             <VisualRenderer
               visual={visual}
               className="h-auto max-h-full w-full object-contain"
+              transparentBackground
             />
           </div>
         )}
@@ -248,6 +249,7 @@ function MediaSlideLayout({
           <VisualRenderer
             visual={visual}
             className="h-auto max-h-full w-full max-w-4xl object-contain"
+            transparentBackground
           />
         </div>
       ) : (

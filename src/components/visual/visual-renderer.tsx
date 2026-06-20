@@ -1479,8 +1479,21 @@ export const VisualRenderer = forwardRef<
     visual: Visual;
     className?: string;
     title?: string;
+    /**
+     * When `true`, the SVG background `<rect>` (and canvas-style pattern
+     * overlay) is suppressed so the visual sits directly on whatever surface
+     * contains it (e.g. a dark slide theme in present mode).
+     *
+     * Defaults to `false`. Only set this in presentation-slide rendering;
+     * leave it unset in the editor, share/embed, and export paths so the
+     * visual keeps its own authored background colour.
+     */
+    transparentBackground?: boolean;
   }
->(function VisualRenderer({ visual, className, title }, ref) {
+>(function VisualRenderer(
+  { visual, className, title, transparentBackground = false },
+  ref,
+) {
   const uid = useId().replace(/:/g, "");
   const label = title ?? visual.title ?? `${visual.type} visual`;
   // Build fill map for gradient defs: resolved fill color per node id.
@@ -1525,14 +1538,16 @@ export const VisualRenderer = forwardRef<
         </defs>
       )}
       {effects.length > 0 && <EffectFilterDefs effects={effects} uid={uid} />}
-      <rect
-        x={0}
-        y={0}
-        width={visual.width}
-        height={visual.height}
-        fill={visual.style.background}
-      />
-      {canvasStyle !== "blank" && (
+      {!transparentBackground && (
+        <rect
+          x={0}
+          y={0}
+          width={visual.width}
+          height={visual.height}
+          fill={visual.style.background}
+        />
+      )}
+      {canvasStyle !== "blank" && !transparentBackground && (
         <rect
           x={0}
           y={0}

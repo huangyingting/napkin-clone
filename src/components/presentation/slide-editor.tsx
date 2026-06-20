@@ -351,6 +351,13 @@ export function SlideEditor({
             <span className="mb-1 block text-xs font-medium text-ds-text-secondary">
               Notes
             </span>
+            <p className="mb-1.5 text-xs text-ds-text-muted">
+              Tip: add a{" "}
+              <code className="rounded bg-ds-surface px-1 font-mono text-ds-text-secondary">
+                &gt; blockquote
+              </code>{" "}
+              in the document for speaker notes.
+            </p>
             <textarea
               value={selectedSlide.notes}
               onChange={(event) =>
