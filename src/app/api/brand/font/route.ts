@@ -1,16 +1,18 @@
 /**
  * POST /api/brand/font — upload a custom font file and get back a data-URL.
  *
- * The font is validated (type + size), base64-encoded, and returned as a
- * `data:` URL that callers can inject as a `@font-face src` in the browser.
- * We do NOT persist fonts server-side in this slice — they live in the
- * brand.fontFamily field as a CSS font-family string, with the data-URL
- * optionally stored in brand.logoUrl (see notes in the PR).
+ * The font is validated (type + size ≤ 2 MB), base64-encoded, and returned
+ * as a `data:` URL.  The caller stores this durable URL in `Brand.fontDataUrl`
+ * so the font survives page reloads and other sessions.  Rehydration injects a
+ * `@font-face` rule from the stored URL wherever the brand is rendered.
  *
- * Limitation: data-URLs are not portable to PDF/PPTX export from a server
- * context (no DOM canvas). SVG export embeds the @font-face so it renders
- * in browsers. PNG export works at rasterization time (canvas has the font
- * if it was loaded via the injected <link>). See PR for full export notes.
+ * Export notes:
+ * - SVG/PNG: the browser has the font loaded (via @font-face data-URL), so
+ *   canvas rasterization renders correctly at export time.
+ * - PDF: same as PNG (goes through PNG rasterization).
+ * - PPTX: native shapes reference the fontFamily string only; custom fonts are
+ *   NOT embedded in the .pptx file.  Viewers without the font will fall back to
+ *   system defaults.  Full font embedding in PPTX is out of scope for this PR.
  */
 
 import { NextResponse, type NextRequest } from "next/server";

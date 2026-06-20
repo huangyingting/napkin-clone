@@ -27,6 +27,7 @@ import {
   type BrandInput,
 } from "@/lib/brand/schema";
 import { brandPreviewStyle } from "@/lib/brand/transforms";
+import { injectBrandFontFace } from "@/lib/brand/font-face";
 import {
   validateLogoUpload,
   validateFontUpload,
@@ -58,6 +59,7 @@ function emptyInput(): BrandInput & { id?: string } {
     nodeText: "#312e81",
     edgeColor: "#a5b4fc",
     fontFamily: null,
+    fontDataUrl: null,
     logoUrl: null,
   };
 }
@@ -241,12 +243,18 @@ function BrandForm({
         setError(json.error ?? "Font upload failed.");
         return;
       }
-      // Inject @font-face immediately so the name works in the editor
+      // Inject @font-face immediately so the name works in the current editor
       const family = json.familyName!;
       const styleEl = document.createElement("style");
       styleEl.textContent = `@font-face { font-family: '${family}'; src: url('${json.dataUrl}'); }`;
       document.head.appendChild(styleEl);
-      setForm((f) => ({ ...f, fontFamily: `'${family}', sans-serif` }));
+      // Persist both the CSS family name and the durable data-URL so the font
+      // survives save → reload (rehydration done in BrandCard useEffect).
+      setForm((f) => ({
+        ...f,
+        fontFamily: `'${family}', sans-serif`,
+        fontDataUrl: json.dataUrl!,
+      }));
     } catch {
       setError("Font upload failed. Please try again.");
     } finally {
@@ -266,6 +274,7 @@ function BrandForm({
         nodeText: form.nodeText,
         edgeColor: form.edgeColor,
         fontFamily: form.fontFamily,
+        fontDataUrl: form.fontDataUrl,
         logoUrl: form.logoUrl,
       };
       const result = form.id
@@ -542,19 +551,25 @@ function BrandCard({
   const [expanded, setExpanded] = useState(false);
   const [deleting, startDelete] = useTransition();
 
-  // Inject any Google Font link when the brand uses one
+  // Inject any Google Font link when the brand uses one; inject @font-face for
+  // custom uploaded fonts from the stored durable data-URL (rehydration path).
   useEffect(() => {
     if (!brand.fontFamily) return;
     const match = BRAND_WEB_FONTS.find((f) => f.cssFamily === brand.fontFamily);
-    if (!match) return;
-    const id = `gfont-${match.id}`;
-    if (document.getElementById(id)) return;
-    const link = document.createElement("link");
-    link.id = id;
-    link.rel = "stylesheet";
-    link.href = match.url;
-    document.head.appendChild(link);
-  }, [brand.fontFamily]);
+    if (match) {
+      const id = `gfont-${match.id}`;
+      if (document.getElementById(id)) return;
+      const link = document.createElement("link");
+      link.id = id;
+      link.rel = "stylesheet";
+      link.href = match.url;
+      document.head.appendChild(link);
+    } else if (brand.fontDataUrl) {
+      // Custom uploaded font: rehydrate @font-face from the durable data-URL
+      // so the brand's font renders after reload or in a different session.
+      injectBrandFontFace(brand.id, brand.fontFamily, brand.fontDataUrl);
+    }
+  }, [brand.id, brand.fontFamily, brand.fontDataUrl]);
 
   const previewStyle = brandPreviewStyle(brand);
 
@@ -675,6 +690,7 @@ function BrandCard({
               nodeText: brand.nodeText,
               edgeColor: brand.edgeColor,
               fontFamily: brand.fontFamily,
+              fontDataUrl: brand.fontDataUrl,
               logoUrl: brand.logoUrl,
             }}
             onSave={(saved) => {

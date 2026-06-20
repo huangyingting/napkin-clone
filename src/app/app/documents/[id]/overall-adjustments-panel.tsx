@@ -28,6 +28,7 @@ import { DocumentExportButton } from "@/components/editor/document-export-button
 import type { BrandStyle } from "@/lib/brand/schema";
 import { BRAND_WEB_FONTS } from "@/lib/brand/schema";
 import { applyBrand, brandPreviewStyle } from "@/lib/brand/transforms";
+import { injectBrandFontFace } from "@/lib/brand/font-face";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { applyTheme } from "@/lib/visual/transforms";
 import { applyElasticLayout } from "@/lib/visual/transforms";
@@ -174,6 +175,9 @@ function BrandSection() {
             link.href = match.url;
             document.head.appendChild(link);
           }
+        } else if (brand.fontDataUrl) {
+          // Custom uploaded font: rehydrate @font-face from durable data-URL.
+          injectBrandFontFace(brand.id, brand.fontFamily, brand.fontDataUrl);
         }
       }
       editor.update(() => {

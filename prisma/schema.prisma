@@ -210,6 +210,8 @@ model Brand {
   edgeColor    String?
   // Typography
   fontFamily   String?
+  // Font asset (durable data-URL for uploaded custom fonts, mirrors logoUrl)
+  fontDataUrl  String?
   // Asset (logo stored as a data-URL or public path, max 2 MB)
   logoUrl      String?
   createdAt    DateTime @default(now())

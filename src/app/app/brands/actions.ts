@@ -24,6 +24,7 @@ function toBrandStyle(row: {
   nodeText: string | null;
   edgeColor: string | null;
   fontFamily: string | null;
+  fontDataUrl: string | null;
   logoUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -43,6 +44,7 @@ function toBrandStyle(row: {
     nodeText: row.nodeText,
     edgeColor: row.edgeColor,
     fontFamily: row.fontFamily,
+    fontDataUrl: row.fontDataUrl,
     logoUrl: row.logoUrl,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -60,6 +62,7 @@ const BRAND_SELECT = {
   nodeText: true,
   edgeColor: true,
   fontFamily: true,
+  fontDataUrl: true,
   logoUrl: true,
   createdAt: true,
   updatedAt: true,
@@ -106,6 +109,7 @@ export async function createBrand(
       nodeText: data.nodeText ?? undefined,
       edgeColor: data.edgeColor ?? undefined,
       fontFamily: data.fontFamily ?? undefined,
+      fontDataUrl: data.fontDataUrl ?? undefined,
       logoUrl: data.logoUrl ?? undefined,
     },
     select: BRAND_SELECT,
@@ -153,6 +157,7 @@ export async function updateBrand(
       nodeText: data.nodeText,
       edgeColor: data.edgeColor,
       fontFamily: data.fontFamily,
+      fontDataUrl: data.fontDataUrl,
       logoUrl: data.logoUrl,
     },
     select: BRAND_SELECT,
