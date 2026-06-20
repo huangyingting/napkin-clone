@@ -57,6 +57,7 @@ import type { DocumentTag } from "./tags-actions";
 import { VisualAnchorProvider } from "./visual-anchor-context";
 import { VisualNode } from "./visual-node";
 import { VisualPanelProvider } from "./visual-panel-context";
+import { RightSurfaceProvider } from "./right-surface-context";
 
 const theme: EditorThemeClasses = {
   paragraph: "mb-3 leading-7",
@@ -423,209 +424,211 @@ export function LexicalEditor({
         <LexicalComposer initialConfig={initialConfig}>
           <VisualSvgRegistryProvider>
             <VisualAnchorProvider value={visualAnchorValue}>
-              <div className="flex flex-col gap-3 border-b border-black/[.06] bg-white/80 px-4 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6 dark:border-white/[.08] dark:bg-black/40">
-                <div className="flex min-w-0 flex-col gap-1">
-                  <div className="flex items-center gap-2">
-                    <Link
-                      href="/app"
-                      className="w-fit text-xs font-medium text-zinc-500 transition hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-                    >
-                      ← Back to documents
-                    </Link>
-                    {workspaceName && (
-                      <>
-                        <span className="text-xs text-zinc-300 dark:text-zinc-600">
-                          ·
-                        </span>
-                        <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                          {workspaceName}
-                        </span>
-                      </>
-                    )}
-                    {!canEdit && (
-                      <>
-                        <span className="text-xs text-zinc-300 dark:text-zinc-600">
-                          ·
-                        </span>
-                        <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                          Read-only
-                        </span>
-                      </>
-                    )}
-                  </div>
-                  <input
-                    ref={titleInputRef}
-                    aria-label="Document title"
-                    value={title.value}
-                    onChange={(event) => title.onChange(event.target.value)}
-                    onBlur={titleSaver.flush}
-                    placeholder="Untitled"
-                    disabled={!editable}
-                    className="w-full rounded-md bg-transparent text-xl font-semibold tracking-tight text-zinc-900 outline-none placeholder:text-zinc-400 focus:bg-zinc-100/60 focus:px-2 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-50 dark:placeholder:text-zinc-600 dark:focus:bg-zinc-800/60"
-                  />
-                  <TagControl
-                    documentId={documentId}
-                    initialTags={initialTags}
-                    allTags={allTags}
-                    editable={canEdit}
-                  />
-                </div>
-                <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
-                  <Presence peers={collab.peers} status={collab.status} />
-                  {canEdit && <ImportPlugin />}
-                  {canEdit && <UndoRedoControls editable={editable} />}
-                  <button
-                    type="button"
-                    title={
-                      showPageBreaks
-                        ? "Hide page-break indicators"
-                        : "Show page-break indicators (A4)"
-                    }
-                    aria-label={
-                      showPageBreaks
-                        ? "Hide page-break indicators"
-                        : "Show page-break indicators"
-                    }
-                    aria-pressed={showPageBreaks}
-                    onClick={() => setShowPageBreaks((v) => !v)}
-                    className={[
-                      "flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs font-medium transition",
-                      showPageBreaks
-                        ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
-                        : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200",
-                    ].join(" ")}
-                  >
-                    <svg
-                      viewBox="0 0 16 16"
-                      aria-hidden="true"
-                      className="h-3.5 w-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                    >
-                      <path d="M2 5h12M2 11h12" />
-                    </svg>
-                    Pages
-                  </button>
-                  <DocumentExportButton documentTitle={title.value} />
-                  {canEdit && (
-                    <SlideEditorButton
-                      documentId={documentId}
-                      initialDeckJson={initialDeckJson}
+              <RightSurfaceProvider>
+                <div className="flex flex-col gap-3 border-b border-black/[.06] bg-white/80 px-4 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6 dark:border-white/[.08] dark:bg-black/40">
+                  <div className="flex min-w-0 flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href="/app"
+                        className="w-fit text-xs font-medium text-zinc-500 transition hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                      >
+                        ← Back to documents
+                      </Link>
+                      {workspaceName && (
+                        <>
+                          <span className="text-xs text-zinc-300 dark:text-zinc-600">
+                            ·
+                          </span>
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                            {workspaceName}
+                          </span>
+                        </>
+                      )}
+                      {!canEdit && (
+                        <>
+                          <span className="text-xs text-zinc-300 dark:text-zinc-600">
+                            ·
+                          </span>
+                          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                            Read-only
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <input
+                      ref={titleInputRef}
+                      aria-label="Document title"
+                      value={title.value}
+                      onChange={(event) => title.onChange(event.target.value)}
+                      onBlur={titleSaver.flush}
+                      placeholder="Untitled"
+                      disabled={!editable}
+                      className="w-full rounded-md bg-transparent text-xl font-semibold tracking-tight text-zinc-900 outline-none placeholder:text-zinc-400 focus:bg-zinc-100/60 focus:px-2 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-50 dark:placeholder:text-zinc-600 dark:focus:bg-zinc-800/60"
                     />
-                  )}
-                  <PresentButton documentTitle={title.value} />
-                  <ShareButton
-                    id={documentId}
-                    initialIsShared={initialIsShared}
-                    initialShareId={initialShareId}
-                    initialSlug={initialSlug}
-                    documentTitle={title.value}
-                  />
-                  <CommentsPanel
-                    documentId={documentId}
-                    currentUserId={currentUserId}
-                    initialComments={initialComments}
-                    getTextSelection={getTextSelection}
-                    anchorNode={anchorNode}
-                  />
-                  <span
-                    aria-label="Document statistics"
-                    className="min-w-0 shrink truncate text-xs text-zinc-500 dark:text-zinc-400"
-                  >
-                    {minutes} min read · {words}{" "}
-                    {words === 1 ? "word" : "words"}
-                  </span>
-                  <span
-                    role="status"
-                    aria-live="polite"
-                    className="min-w-0 truncate text-xs text-zinc-500 dark:text-zinc-400"
-                  >
-                    {STATUS_LABEL[saveStatus]}
-                  </span>
+                    <TagControl
+                      documentId={documentId}
+                      initialTags={initialTags}
+                      allTags={allTags}
+                      editable={canEdit}
+                    />
+                  </div>
+                  <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
+                    <Presence peers={collab.peers} status={collab.status} />
+                    {canEdit && <ImportPlugin />}
+                    {canEdit && <UndoRedoControls editable={editable} />}
+                    <button
+                      type="button"
+                      title={
+                        showPageBreaks
+                          ? "Hide page-break indicators"
+                          : "Show page-break indicators (A4)"
+                      }
+                      aria-label={
+                        showPageBreaks
+                          ? "Hide page-break indicators"
+                          : "Show page-break indicators"
+                      }
+                      aria-pressed={showPageBreaks}
+                      onClick={() => setShowPageBreaks((v) => !v)}
+                      className={[
+                        "flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs font-medium transition",
+                        showPageBreaks
+                          ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
+                          : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200",
+                      ].join(" ")}
+                    >
+                      <svg
+                        viewBox="0 0 16 16"
+                        aria-hidden="true"
+                        className="h-3.5 w-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      >
+                        <path d="M2 5h12M2 11h12" />
+                      </svg>
+                      Pages
+                    </button>
+                    <DocumentExportButton documentTitle={title.value} />
+                    {canEdit && (
+                      <SlideEditorButton
+                        documentId={documentId}
+                        initialDeckJson={initialDeckJson}
+                      />
+                    )}
+                    <PresentButton documentTitle={title.value} />
+                    <ShareButton
+                      id={documentId}
+                      initialIsShared={initialIsShared}
+                      initialShareId={initialShareId}
+                      initialSlug={initialSlug}
+                      documentTitle={title.value}
+                    />
+                    <CommentsPanel
+                      documentId={documentId}
+                      currentUserId={currentUserId}
+                      initialComments={initialComments}
+                      getTextSelection={getTextSelection}
+                      anchorNode={anchorNode}
+                    />
+                    <span
+                      aria-label="Document statistics"
+                      className="min-w-0 shrink truncate text-xs text-zinc-500 dark:text-zinc-400"
+                    >
+                      {minutes} min read · {words}{" "}
+                      {words === 1 ? "word" : "words"}
+                    </span>
+                    <span
+                      role="status"
+                      aria-live="polite"
+                      className="min-w-0 truncate text-xs text-zinc-500 dark:text-zinc-400"
+                    >
+                      {STATUS_LABEL[saveStatus]}
+                    </span>
+                  </div>
                 </div>
-              </div>
 
-              <EditorContextProvider>
-                <VisualPanelProvider>
-                  {/* Two-column layout: article (flex-1) + editing rail (lg:w-80).
+                <EditorContextProvider>
+                  <VisualPanelProvider>
+                    {/* Two-column layout: article (flex-1) + editing rail (lg:w-80).
                       Below lg the rail is hidden; above lg it docks beside the
                       article so contextual surfaces never overlap the content. */}
-                  <div className="flex flex-1 overflow-hidden">
-                    {/* Article column */}
-                    <div className="flex flex-1 min-w-0 justify-center px-4 py-6 sm:px-6 sm:py-8 lg:pr-3">
-                      <div className="w-full max-w-3xl">
-                        <div
-                          ref={contentAreaRef}
-                          className="relative rounded-2xl border border-black/[.06] bg-white p-4 sm:p-6 dark:border-white/[.08] dark:bg-zinc-950"
-                        >
-                          {showPageBreaks && (
-                            <PageBreakIndicator
-                              contentRef={contentAreaRef}
-                              pageSize="a4"
-                            />
-                          )}
-                          <RichTextPlugin
-                            contentEditable={
-                              <ContentEditable
-                                aria-label="Document body"
-                                className="ghost-prose min-h-[16rem] outline-none"
+                    <div className="flex flex-1 overflow-hidden">
+                      {/* Article column */}
+                      <div className="flex flex-1 min-w-0 justify-center px-4 py-6 sm:px-6 sm:py-8 lg:pr-3">
+                        <div className="w-full max-w-3xl">
+                          <div
+                            ref={contentAreaRef}
+                            className="relative rounded-2xl border border-black/[.06] bg-white p-4 sm:p-6 dark:border-white/[.08] dark:bg-zinc-950"
+                          >
+                            {showPageBreaks && (
+                              <PageBreakIndicator
+                                contentRef={contentAreaRef}
+                                pageSize="a4"
                               />
-                            }
-                            placeholder={
-                              <div className="pointer-events-none absolute left-6 top-6 text-base text-zinc-400 dark:text-zinc-500">
-                                {collab.ready
-                                  ? "Start writing…"
-                                  : "Connecting…"}
-                              </div>
-                            }
-                            ErrorBoundary={LexicalErrorBoundary}
-                          />
-                          <CollaborationPlugin
-                            id={documentId}
-                            providerFactory={collab.providerFactory}
-                            shouldBootstrap
-                            initialEditorState={initialStateJson ?? null}
-                            username={userName}
-                            cursorColor={collab.cursorColor}
-                          />
-                          <EditableGate editable={editable} />
-                          <LocalFallbackSeedPlugin
-                            initialStateJson={initialStateJson}
-                            degraded={collab.degraded}
-                            synced={collab.synced}
-                          />
-                          <CaptureSelectionPlugin
-                            editorRef={editorRef}
-                            selectionRef={selectionRef}
-                          />
-                          <DocumentStatsPlugin onText={handleStatsText} />
-                          <ListPlugin />
-                          <LinkPlugin />
-                          <HorizontalRulePlugin />
-                          <InsertMenuPlugin />
-                          <BlockSparkPlugin />
-                          <InsertVisualPlugin />
-                          <FloatingTextToolbar />
-                          <OnChangePlugin
-                            onChange={handleChange}
-                            ignoreSelectionChange
-                            ignoreHistoryMergeTagChange
-                          />
+                            )}
+                            <RichTextPlugin
+                              contentEditable={
+                                <ContentEditable
+                                  aria-label="Document body"
+                                  className="ghost-prose min-h-[16rem] outline-none"
+                                />
+                              }
+                              placeholder={
+                                <div className="pointer-events-none absolute left-6 top-6 text-base text-zinc-400 dark:text-zinc-500">
+                                  {collab.ready
+                                    ? "Start writing…"
+                                    : "Connecting…"}
+                                </div>
+                              }
+                              ErrorBoundary={LexicalErrorBoundary}
+                            />
+                            <CollaborationPlugin
+                              id={documentId}
+                              providerFactory={collab.providerFactory}
+                              shouldBootstrap
+                              initialEditorState={initialStateJson ?? null}
+                              username={userName}
+                              cursorColor={collab.cursorColor}
+                            />
+                            <EditableGate editable={editable} />
+                            <LocalFallbackSeedPlugin
+                              initialStateJson={initialStateJson}
+                              degraded={collab.degraded}
+                              synced={collab.synced}
+                            />
+                            <CaptureSelectionPlugin
+                              editorRef={editorRef}
+                              selectionRef={selectionRef}
+                            />
+                            <DocumentStatsPlugin onText={handleStatsText} />
+                            <ListPlugin />
+                            <LinkPlugin />
+                            <HorizontalRulePlugin />
+                            <InsertMenuPlugin />
+                            <BlockSparkPlugin />
+                            <InsertVisualPlugin />
+                            <FloatingTextToolbar />
+                            <OnChangePlugin
+                              onChange={handleChange}
+                              ignoreSelectionChange
+                              ignoreHistoryMergeTagChange
+                            />
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Editing rail — docked at lg+, hidden on narrow viewports */}
-                    <EditingRail
-                      documentTitle={title.value}
-                      showPageBreaks={showPageBreaks}
-                      onTogglePageBreaks={() => setShowPageBreaks((v) => !v)}
-                    />
-                  </div>
-                </VisualPanelProvider>
-              </EditorContextProvider>
+                      {/* Editing rail — docked at lg+, hidden on narrow viewports */}
+                      <EditingRail
+                        documentTitle={title.value}
+                        showPageBreaks={showPageBreaks}
+                        onTogglePageBreaks={() => setShowPageBreaks((v) => !v)}
+                      />
+                    </div>
+                  </VisualPanelProvider>
+                </EditorContextProvider>
+              </RightSurfaceProvider>
             </VisualAnchorProvider>
           </VisualSvgRegistryProvider>
         </LexicalComposer>
