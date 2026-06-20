@@ -5,6 +5,7 @@ import {
   ACCEPTED_MIME_TYPES,
   MAX_UPLOAD_BYTES,
   formatValidationError,
+  maxBytesForMime,
   resolveImportMime,
   validateImportFile,
 } from "./validate";
@@ -98,8 +99,42 @@ test("validateImportFile rejects oversized files", () => {
 });
 
 test("validateImportFile rejects exactly at the limit (allowed)", () => {
-  const result = validateImportFile("text/plain", "ok.md", MAX_UPLOAD_BYTES);
+  const result = validateImportFile(
+    "application/pdf",
+    "ok.pdf",
+    MAX_UPLOAD_BYTES,
+  );
   assert.equal(result.ok, true);
+});
+
+test("validateImportFile enforces the tighter per-type limit for text formats", () => {
+  const textMax = maxBytesForMime("text/plain");
+  assert.ok(textMax < MAX_UPLOAD_BYTES);
+
+  const atLimit = validateImportFile("text/plain", "ok.md", textMax);
+  assert.equal(atLimit.ok, true);
+
+  const overLimit = validateImportFile("text/markdown", "big.md", textMax + 1);
+  assert.equal(overLimit.ok, false);
+  if (!overLimit.ok) {
+    assert.equal(overLimit.error.code, "file_too_large");
+    if (overLimit.error.code === "file_too_large") {
+      assert.equal(overLimit.error.maxBytes, textMax);
+    }
+  }
+});
+
+test("validateImportFile reports unsupported_type before checking size", () => {
+  // An unsupported type that is also oversized is reported as unsupported.
+  const result = validateImportFile(
+    "image/jpeg",
+    "huge.jpg",
+    MAX_UPLOAD_BYTES * 2,
+  );
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.error.code, "unsupported_type");
+  }
 });
 
 test("validateImportFile rejects unsupported MIME type with no matching extension", () => {

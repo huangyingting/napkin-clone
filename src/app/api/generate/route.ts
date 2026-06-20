@@ -7,9 +7,11 @@
  * charge credits on success → return `{ candidates }`.
  *
  * Anonymous callers get a NON-resetting lifetime trial tracked by a signed
- * cookie; authenticated callers are rate limited per user AND have their
- * credit balance decremented (~1 credit/word). Generation is blocked at zero
- * credits with a clear 402 error.
+ * cookie AND a server-side fixed-window throttle keyed by hashed client IP, so
+ * clearing the cookie does not grant unlimited generations; authenticated
+ * callers are rate limited per user AND have their credit balance decremented
+ * (~1 credit/word). Generation is blocked at zero credits with a clear 402
+ * error, and exceeded limits return 429 with a `Retry-After` header.
  */
 
 import { randomUUID } from "node:crypto";
@@ -45,9 +47,16 @@ import {
   signAnonState,
   userRateLimit,
   userRateWindowMs,
-  type RateLimitStore,
-  type RateLimitWindow,
 } from "@/lib/ai/quota";
+import {
+  anonIpRateLimit,
+  anonIpRateWindowMs,
+  getClientIp,
+  hashIdentifier,
+  prismaRateLimitStore,
+  rateLimitSubject,
+  retryAfterSeconds,
+} from "@/lib/rate-limit";
 import {
   computeCreditCost,
   deductCredits,
@@ -55,7 +64,6 @@ import {
   InsufficientCreditsError,
 } from "@/lib/billing/credits";
 import { UNLIMITED_CREDITS } from "@/lib/billing/entitlements";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { logError } from "@/lib/log";
 import {
@@ -66,31 +74,6 @@ import {
 
 // Use the Node.js runtime: the Azure call and node:crypto signing need it.
 export const runtime = "nodejs";
-
-/**
- * Shared, DB-backed store for the per-user fixed-window rate limiter. Persisting
- * the window in a `RateLimitHit` row (instead of a per-instance Map) makes the
- * limit hold across instances in production.
- */
-const userRateStore: RateLimitStore = {
-  async get(key) {
-    const row = await prisma.rateLimitHit.findUnique({
-      where: { subject: key },
-    });
-    if (!row) {
-      return undefined;
-    }
-    return { count: row.count, resetAt: row.resetAt.getTime() };
-  },
-  async set(key, window: RateLimitWindow) {
-    const resetAt = new Date(window.resetAt);
-    await prisma.rateLimitHit.upsert({
-      where: { subject: key },
-      create: { subject: key, count: window.count, resetAt },
-      update: { count: window.count, resetAt },
-    });
-  },
-};
 
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
@@ -213,11 +196,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   let creditCost = 0;
 
   if (user) {
-    const result = await checkRateLimitWithStore(userRateStore, user.id, {
-      limit: userRateLimit(),
-      windowMs: userRateWindowMs(),
-      now: Date.now(),
-    });
+    const result = await checkRateLimitWithStore(
+      prismaRateLimitStore,
+      rateLimitSubject("gen-user", user.id),
+      {
+        limit: userRateLimit(),
+        windowMs: userRateWindowMs(),
+        now: Date.now(),
+      },
+    );
     if (!result.allowed) {
       const retryAfter = Math.max(
         1,
@@ -246,6 +233,33 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     }
   } else {
+    // Server-side throttle keyed by hashed client IP (#96, criterion 2). This
+    // backs the signed cookie trial: because the window is persisted in the
+    // shared store keyed by IP, clearing the cookie does NOT reset it, so it is
+    // materially harder to reset than the local cookie alone.
+    const clientIp = getClientIp(request.headers) ?? "unknown";
+    const ipKey = rateLimitSubject(
+      "gen-anon-ip",
+      hashIdentifier(clientIp, secret),
+    );
+    const now = Date.now();
+    const ipResult = await checkRateLimitWithStore(
+      prismaRateLimitStore,
+      ipKey,
+      {
+        limit: anonIpRateLimit(),
+        windowMs: anonIpRateWindowMs(),
+        now,
+      },
+    );
+    if (!ipResult.allowed) {
+      return errorResponse(
+        429,
+        "Too many anonymous generations from your network. Please wait and try again, or sign in.",
+        { "Retry-After": String(retryAfterSeconds(ipResult.resetAt, now)) },
+      );
+    }
+
     const state =
       parseAnonCookie(request.cookies.get(ANON_COOKIE_NAME)?.value, secret) ??
       newAnonState();
