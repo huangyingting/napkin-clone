@@ -43,6 +43,7 @@ import {
   FOCUS_RING,
   type SegmentedOption,
 } from "@/components/ui";
+import { computeAnchoredPosition } from "@/lib/anchored-position";
 import { VISUAL_KIND_META } from "@/lib/lexical/tool-registry";
 import {
   applyTheme,
@@ -795,7 +796,10 @@ export function VisualContextPopover({
     [visual.nodes, selectedNodeId],
   );
 
-  // Position below the card, flipping above when it would clip the viewport.
+  // Position above the visual card via the shared anchored-positioning helper
+  // (auto-flip below when there isn't room above, cross-axis clamp to the
+  // viewport, and anchor-collision avoidance so the toolbox never covers the
+  // visual).
   const reposition = useCallback(() => {
     if (mode !== "float") return;
     const anchor = anchorRef.current;
@@ -804,22 +808,21 @@ export function VisualContextPopover({
     const rect = anchor.getBoundingClientRect();
     const width = el.offsetWidth;
     const height = el.offsetHeight;
-    // Sit just above the visual's top edge, horizontally centred over it, so the
-    // toolbox never covers the visual. Fall back to inside the top edge only
-    // when there isn't room above (visual near the top of the viewport).
-    let top = rect.top - height - POPOVER_GAP;
-    if (top < EDGE_INSET) {
-      top = rect.top + POPOVER_GAP;
-    }
-    top = Math.max(
-      EDGE_INSET,
-      Math.min(top, window.innerHeight - height - EDGE_INSET),
-    );
-    let left = rect.left + rect.width / 2 - width / 2;
-    left = Math.max(
-      EDGE_INSET,
-      Math.min(left, window.innerWidth - width - EDGE_INSET),
-    );
+    const { top, left } = computeAnchoredPosition({
+      anchor: {
+        top: rect.top,
+        left: rect.left,
+        right: rect.right,
+        bottom: rect.bottom,
+        width: rect.width,
+        height: rect.height,
+      },
+      float: { width, height },
+      viewport: { width: window.innerWidth, height: window.innerHeight },
+      placement: "top",
+      gap: POPOVER_GAP,
+      padding: EDGE_INSET,
+    });
     setCoords((prev) =>
       prev.top === top && prev.left === left ? prev : { top, left },
     );

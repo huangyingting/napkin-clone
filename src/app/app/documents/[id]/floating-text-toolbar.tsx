@@ -17,6 +17,7 @@ import {
   IconButton,
   Tooltip,
 } from "@/components/ui";
+import { computeAnchoredPosition } from "@/lib/anchored-position";
 import { useEditorContext } from "@/lib/lexical/editor-context";
 import { useIsPointerFine } from "@/lib/pointer";
 import {
@@ -164,10 +165,12 @@ export function FloatingTextToolbar() {
     [getItems],
   );
 
-  // Position over the selection rect, flipping below it when there isn't room
-  // above. Re-runs whenever the rect moves (the EditorContext refreshes rects on
-  // scroll/resize) or the visible tool set changes. We measure the inner content
-  // wrapper and add the surface's 1px border on each side.
+  // Position over the selection rect via the shared anchored-positioning helper
+  // (auto-flip below near the top edge, cross-axis clamp to the viewport, and
+  // anchor-collision avoidance). Re-runs whenever the rect moves (the
+  // EditorContext refreshes rects on scroll/resize) or the visible tool set
+  // changes. We measure the inner content wrapper and add the surface's 1px
+  // border on each side.
   useLayoutEffect(() => {
     if (!visible || selectionRect === null) {
       return;
@@ -178,16 +181,14 @@ export function FloatingTextToolbar() {
     }
     const width = el.offsetWidth + 2;
     const height = el.offsetHeight + 2;
-    let top = selectionRect.top - height - TOOLBAR_GAP;
-    if (top < EDGE_INSET) {
-      // Not enough room above the selection — flip below it.
-      top = selectionRect.bottom + TOOLBAR_GAP;
-    }
-    let left = selectionRect.left + selectionRect.width / 2 - width / 2;
-    left = Math.max(
-      EDGE_INSET,
-      Math.min(left, window.innerWidth - width - EDGE_INSET),
-    );
+    const { top, left } = computeAnchoredPosition({
+      anchor: selectionRect,
+      float: { width, height },
+      viewport: { width: window.innerWidth, height: window.innerHeight },
+      placement: "top",
+      gap: TOOLBAR_GAP,
+      padding: EDGE_INSET,
+    });
     setCoords({ top, left });
   }, [visible, selectionRect, tools.length]);
 
