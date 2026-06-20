@@ -4,6 +4,7 @@ import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 import { Prisma, PrismaClient } from "../src/generated/prisma/client";
+import { buildSeedContentJson } from "../src/lib/lexical/seed-content";
 import { FIXTURES } from "../src/lib/visual/fixtures";
 import {
   VISUAL_KIND_TO_PRISMA,
@@ -101,8 +102,24 @@ async function main() {
     throw new Error(`Seeded visual failed to read back: ${parsed.error}`);
   }
 
+  // Embed the demo visual as a VisualNode decorator in the document's Lexical
+  // editor state so first-run users see the flowchart inline immediately.
+  // Always update so the contentJson stays in sync with the Visual row even on
+  // repeated `migrate reset` runs (idempotent by design).
+  const contentJsonValue = buildSeedContentJson(
+    "Welcome! Here is a sample flowchart — click it to edit, restyle, or regenerate.",
+    parsed.data,
+    demoVisual.id,
+  ) as unknown as Prisma.InputJsonValue;
+
+  await prisma.document.update({
+    where: { id: demoDocument.id },
+    data: { contentJson: contentJsonValue },
+  });
+
   console.log(
-    `Seeded user "${demoUser.email}", document "${demoDocument.title}", ` +
+    `Seeded user "${demoUser.email}", document "${demoDocument.title}" ` +
+      `(contentJson includes VisualNode for visual ${demoVisual.id}), ` +
       `and ${readBack.type} visual ("${parsed.data.type}", ` +
       `${parsed.data.nodes.length} nodes).`,
   );
