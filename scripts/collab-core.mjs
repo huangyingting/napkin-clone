@@ -83,20 +83,34 @@ const getYDoc = (docName) =>
     return doc;
   });
 
-const messageListener = (conn, doc, message) => {
+const messageListener = (conn, doc, message, readOnly) => {
   try {
     const encoder = encoding.createEncoder();
     const decoder = decoding.createDecoder(message);
     const messageType = decoding.readVarUint(decoder);
     switch (messageType) {
-      case messageSync:
+      case messageSync: {
         encoding.writeVarUint(encoder, messageSync);
-        syncProtocol.readSyncMessage(decoder, encoder, doc, conn);
+        // For read-only (viewer) connections we still answer sync-step-1 (the
+        // client asking for the current state) so viewers receive the document
+        // and all subsequent updates, but we drop sync-step-2 / update messages
+        // so they can never mutate the shared doc (issue #88 AC #3).
+        const syncMessageType = decoding.readVarUint(decoder);
+        if (syncMessageType === syncProtocol.messageYjsSyncStep1) {
+          syncProtocol.readSyncStep1(decoder, encoder, doc);
+        } else if (!readOnly) {
+          if (syncMessageType === syncProtocol.messageYjsSyncStep2) {
+            syncProtocol.readSyncStep2(decoder, doc, conn);
+          } else if (syncMessageType === syncProtocol.messageYjsUpdate) {
+            syncProtocol.readUpdate(decoder, doc, conn);
+          }
+        }
         // If the reply has more than just the message-type header, send it.
         if (encoding.length(encoder) > 1) {
           send(doc, conn, encoding.toUint8Array(encoder));
         }
         break;
+      }
       case messageAwareness:
         awarenessProtocol.applyAwarenessUpdate(
           doc.awareness,
@@ -171,13 +185,13 @@ const send = (doc, conn, message) => {
  * both `ws://host:port/<room>` (standalone) and `wss://host/<prefix>/<room>`
  * (mounted on the app server) shapes.
  */
-const setupConnection = (conn, roomName) => {
+const setupConnection = (conn, roomName, readOnly = false) => {
   conn.binaryType = "arraybuffer";
   const doc = getYDoc(roomName || "default");
   doc.conns.set(conn, new Set());
 
   conn.on("message", (message) =>
-    messageListener(conn, doc, new Uint8Array(message)),
+    messageListener(conn, doc, new Uint8Array(message), readOnly),
   );
 
   let pongReceived = true;
@@ -233,23 +247,72 @@ const setupConnection = (conn, roomName) => {
 export const roomCount = () => docs.size;
 
 /**
+ * Writes a minimal HTTP error response to a raw upgrade socket and destroys it,
+ * so an unauthorized/forbidden upgrade is refused with a real status code
+ * (issue #88 AC #1 / #4) instead of completing the WebSocket handshake.
+ */
+const refuseUpgrade = (socket, status) => {
+  const reason =
+    { 401: "Unauthorized", 403: "Forbidden", 500: "Internal Server Error" }[
+      status
+    ] || "Bad Request";
+  try {
+    socket.write(
+      `HTTP/1.1 ${status} ${reason}\r\n` +
+        "Connection: close\r\n" +
+        "Content-Length: 0\r\n" +
+        "\r\n",
+    );
+  } catch {
+    // ignore — socket may already be gone
+  }
+  try {
+    socket.destroy();
+  } catch {
+    // ignore
+  }
+};
+
+/**
  * Creates a `noServer` WebSocketServer and a `handleUpgrade` you can attach to
  * any Node HTTP server's `upgrade` event. `roomFromUrl` maps a request URL to a
  * room name so the same core works at the host root (standalone) or under a
  * path prefix (mounted on the app server).
+ *
+ * `options.authorize(req, room)` authenticates and authorizes the upgrade before
+ * the handshake completes (issue #88). It must resolve to
+ * `{ ok, status, readOnly? }`: when `ok` is false the upgrade is refused with the
+ * given status (401 unauthenticated / 403 no access); when `ok` is true the
+ * connection is wired, read-only for viewers (`readOnly: true`). When no
+ * authorizer is supplied every upgrade is allowed (legacy/un-secured mode).
  */
-export function createCollabWss(roomFromUrl) {
+export function createCollabWss(roomFromUrl, options = {}) {
   const wss = new WebSocketServer({ noServer: true });
+  const authorize = options.authorize;
   const toRoom =
     roomFromUrl ?? ((url) => (url || "/").slice(1).split("?")[0] || "default");
 
-  wss.on("connection", (conn, req) => {
-    setupConnection(conn, toRoom(req.url || "/"));
+  wss.on("connection", (conn, req, decision) => {
+    setupConnection(conn, toRoom(req.url || "/"), Boolean(decision?.readOnly));
   });
 
-  const handleUpgrade = (req, socket, head) => {
+  const handleUpgrade = async (req, socket, head) => {
+    let decision = { ok: true, readOnly: false };
+    if (authorize) {
+      try {
+        decision = await authorize(req, toRoom(req.url || "/"));
+      } catch (err) {
+        console.error("[collab] authorization error", err);
+        decision = { ok: false, status: 500 };
+      }
+      if (!decision || !decision.ok) {
+        refuseUpgrade(socket, decision?.status || 403);
+        return;
+      }
+    }
+
     wss.handleUpgrade(req, socket, head, (ws) => {
-      wss.emit("connection", ws, req);
+      wss.emit("connection", ws, req, decision);
     });
   };
 

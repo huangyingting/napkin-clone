@@ -21,6 +21,7 @@ import { parse } from "node:url";
 import next from "next";
 
 import { createCollabWss, roomCount } from "./scripts/collab-core.mjs";
+import { createCollabAuthorizer } from "./scripts/collab-auth.mjs";
 
 const dev = process.env.NODE_ENV !== "production";
 const port = Number(process.env.PORT || 4000);
@@ -45,12 +46,22 @@ const server = createServer((req, res) => {
 });
 
 if (inlineCollab) {
-  // Room name is the path after `/collab/` (`/collab/<documentId>`).
-  const { handleUpgrade: handleCollabUpgrade } = createCollabWss((url) => {
-    const pathname = (url || "/").split("?")[0];
-    const room = pathname.slice(COLLAB_PATH.length).replace(/^\/+/, "");
-    return room || "default";
+  // Authenticate + authorize each upgrade against the app's permission rules by
+  // forwarding the request cookies to the `/api/collab/authorize` route on this
+  // same server (issue #88). Unauthenticated/forbidden upgrades are refused.
+  const authorize = createCollabAuthorizer({
+    authorizeUrl: `http://127.0.0.1:${port}/api/collab/authorize`,
   });
+
+  // Room name is the path after `/collab/` (`/collab/<documentId>`).
+  const { handleUpgrade: handleCollabUpgrade } = createCollabWss(
+    (url) => {
+      const pathname = (url || "/").split("?")[0];
+      const room = pathname.slice(COLLAB_PATH.length).replace(/^\/+/, "");
+      return room || "default";
+    },
+    { authorize },
+  );
 
   const handleNextUpgrade = app.getUpgradeHandler();
 

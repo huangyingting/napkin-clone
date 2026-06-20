@@ -16,6 +16,7 @@
 import http from "node:http";
 
 import { createCollabWss, roomCount } from "./collab-core.mjs";
+import { createCollabAuthorizer } from "./collab-auth.mjs";
 
 const PORT = Number(process.env.COLLAB_PORT || 1234);
 const HOST = process.env.COLLAB_HOST || "0.0.0.0";
@@ -30,8 +31,19 @@ const server = http.createServer((req, res) => {
   res.end("TextIQ collaboration server\n");
 });
 
-// Standalone: the room is the whole path (`/<documentId>`).
-const { handleUpgrade } = createCollabWss();
+// Standalone: the room is the whole path (`/<documentId>`). Each upgrade is
+// authenticated + authorized against the app's `/api/collab/authorize` route by
+// forwarding the request cookies (issue #88). Point at the app with
+// COLLAB_AUTHORIZE_URL (defaults to AUTH_URL or http://127.0.0.1:4000).
+const appBaseUrl = (process.env.AUTH_URL || "http://127.0.0.1:4000").replace(
+  /\/+$/,
+  "",
+);
+const authorize = createCollabAuthorizer({
+  authorizeUrl:
+    process.env.COLLAB_AUTHORIZE_URL || `${appBaseUrl}/api/collab/authorize`,
+});
+const { handleUpgrade } = createCollabWss(undefined, { authorize });
 server.on("upgrade", (req, socket, head) => {
   handleUpgrade(req, socket, head);
 });
