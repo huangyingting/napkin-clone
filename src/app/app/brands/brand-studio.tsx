@@ -113,10 +113,12 @@ function BrandForm({
   initial,
   onSave,
   onCancel,
+  canFontUpload,
 }: {
   initial: BrandInput & { id?: string };
   onSave: (saved: BrandStyle) => void;
   onCancel: () => void;
+  canFontUpload: boolean;
 }) {
   const [form, setForm] = useState<BrandInput & { id?: string }>(initial);
   const [error, setError] = useState<string | null>(null);
@@ -396,41 +398,43 @@ function BrandForm({
             )}
         </select>
 
-        {/* Custom font upload */}
-        <div className="flex items-center gap-2">
-          <input
-            ref={fontInputRef}
-            type="file"
-            accept=".ttf,.otf,.woff,.woff2"
-            className="sr-only"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleFontUpload(file);
-              e.target.value = "";
-            }}
-          />
-          <Button
-            size="sm"
-            variant="subtle"
-            leadingIcon={
-              uploadingFont ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Upload className="h-3.5 w-3.5" />
-              )
-            }
-            onClick={() => fontInputRef.current?.click()}
-            disabled={uploadingFont}
-          >
-            Upload font (TTF/OTF/WOFF)
-          </Button>
-          {form.fontFamily &&
-            !BRAND_WEB_FONTS.some((f) => f.cssFamily === form.fontFamily) && (
-              <span className="truncate text-xs text-[var(--ds-text-muted)]">
-                {form.fontFamily}
-              </span>
-            )}
-        </div>
+        {/* Custom font upload — Pro-only (fontUpload entitlement) */}
+        {canFontUpload && (
+          <div className="flex items-center gap-2">
+            <input
+              ref={fontInputRef}
+              type="file"
+              accept=".ttf,.otf,.woff,.woff2"
+              className="sr-only"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFontUpload(file);
+                e.target.value = "";
+              }}
+            />
+            <Button
+              size="sm"
+              variant="subtle"
+              leadingIcon={
+                uploadingFont ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Upload className="h-3.5 w-3.5" />
+                )
+              }
+              onClick={() => fontInputRef.current?.click()}
+              disabled={uploadingFont}
+            >
+              Upload font (TTF/OTF/WOFF)
+            </Button>
+            {form.fontFamily &&
+              !BRAND_WEB_FONTS.some((f) => f.cssFamily === form.fontFamily) && (
+                <span className="truncate text-xs text-[var(--ds-text-muted)]">
+                  {form.fontFamily}
+                </span>
+              )}
+          </div>
+        )}
       </div>
 
       {/* Logo */}
@@ -528,10 +532,12 @@ function BrandCard({
   brand,
   onUpdated,
   onDeleted,
+  canFontUpload,
 }: {
   brand: BrandStyle;
   onUpdated: (b: BrandStyle) => void;
   onDeleted: (id: string) => void;
+  canFontUpload: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [deleting, startDelete] = useTransition();
@@ -676,6 +682,7 @@ function BrandCard({
               setExpanded(false);
             }}
             onCancel={() => setExpanded(false)}
+            canFontUpload={canFontUpload}
           />
         </div>
       )}
@@ -688,8 +695,10 @@ function BrandCard({
 // ---------------------------------------------------------------------------
 function CreateBrandPanel({
   onCreated,
+  canFontUpload,
 }: {
   onCreated: (b: BrandStyle) => void;
+  canFontUpload: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -731,6 +740,7 @@ function CreateBrandPanel({
           setOpen(false);
         }}
         onCancel={() => setOpen(false)}
+        canFontUpload={canFontUpload}
       />
     </div>
   );
@@ -741,8 +751,10 @@ function CreateBrandPanel({
 // ---------------------------------------------------------------------------
 export function BrandStudio({
   initialBrands,
+  canFontUpload,
 }: {
   initialBrands: BrandStyle[];
+  canFontUpload: boolean;
 }) {
   const [brands, setBrands] = useState<BrandStyle[]>(initialBrands);
 
@@ -772,10 +784,14 @@ export function BrandStudio({
           brand={brand}
           onUpdated={handleUpdated}
           onDeleted={handleDeleted}
+          canFontUpload={canFontUpload}
         />
       ))}
 
-      <CreateBrandPanel onCreated={handleCreated} />
+      <CreateBrandPanel
+        onCreated={handleCreated}
+        canFontUpload={canFontUpload}
+      />
     </div>
   );
 }

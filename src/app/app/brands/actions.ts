@@ -5,6 +5,12 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { validateBrandInput, type BrandStyle } from "@/lib/brand/schema";
+import {
+  resolveBrandEntitlements,
+  isCustomFontFamily,
+  BRAND_STYLES_UPGRADE_MESSAGE,
+  FONT_UPLOAD_UPGRADE_MESSAGE,
+} from "@/lib/billing/brand-entitlements";
 
 /** Serializes a Prisma Brand row to the client-safe `BrandStyle` shape. */
 function toBrandStyle(row: {
@@ -75,11 +81,19 @@ export async function createBrand(
   raw: unknown,
 ): Promise<{ ok: true; data: BrandStyle } | { ok: false; error: string }> {
   const user = await requireUser();
+  const entitlements = await resolveBrandEntitlements(user.id);
+  if (!entitlements.canBrand) {
+    return { ok: false, error: BRAND_STYLES_UPGRADE_MESSAGE };
+  }
   const validation = validateBrandInput(raw);
   if (!validation.ok) {
     return { ok: false, error: validation.error };
   }
   const { data } = validation;
+
+  if (isCustomFontFamily(data.fontFamily) && !entitlements.canFontUpload) {
+    return { ok: false, error: FONT_UPLOAD_UPGRADE_MESSAGE };
+  }
 
   const row = await prisma.brand.create({
     data: {
@@ -107,6 +121,10 @@ export async function updateBrand(
   raw: unknown,
 ): Promise<{ ok: true; data: BrandStyle } | { ok: false; error: string }> {
   const user = await requireUser();
+  const entitlements = await resolveBrandEntitlements(user.id);
+  if (!entitlements.canBrand) {
+    return { ok: false, error: BRAND_STYLES_UPGRADE_MESSAGE };
+  }
 
   const existing = await prisma.brand.findUnique({
     where: { id },
@@ -119,6 +137,10 @@ export async function updateBrand(
   const validation = validateBrandInput(raw);
   if (!validation.ok) return { ok: false, error: validation.error };
   const { data } = validation;
+
+  if (isCustomFontFamily(data.fontFamily) && !entitlements.canFontUpload) {
+    return { ok: false, error: FONT_UPLOAD_UPGRADE_MESSAGE };
+  }
 
   const row = await prisma.brand.update({
     where: { id },
@@ -145,6 +167,10 @@ export async function deleteBrand(
   id: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const user = await requireUser();
+  const entitlements = await resolveBrandEntitlements(user.id);
+  if (!entitlements.canBrand) {
+    return { ok: false, error: BRAND_STYLES_UPGRADE_MESSAGE };
+  }
 
   const existing = await prisma.brand.findUnique({
     where: { id },
