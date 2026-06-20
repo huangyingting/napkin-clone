@@ -10,6 +10,7 @@ import { lexicalStateToPlainText } from "@/lib/lexical/plain-text";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { buildShareSegment, slugify } from "@/lib/slug";
+import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import {
   VISUAL_KIND_TO_PRISMA,
   safeParseVisual,
@@ -27,6 +28,7 @@ const MAX_TITLE_LENGTH = 200;
 const MAX_CONTENT_LENGTH = 100_000;
 const MAX_LEXICAL_STATE_LENGTH = 2_000_000;
 const MAX_ANCHOR_BLOCK_ID_LENGTH = 200;
+const MAX_DECK_JSON_LENGTH = 500_000;
 
 // How many historical snapshots to retain per visual. Older ones are pruned in
 // the same save so the history table can't grow without bound.
@@ -571,4 +573,57 @@ async function generateUniqueSlug(
   }
   // Extremely unlikely fallback: leave slug unset rather than loop forever.
   return null;
+}
+
+/**
+ * Persists an edited Deck for a document. Owner-scoped. The deck JSON is
+ * validated with `safeParseDeck` before storing, and rejected when it exceeds a
+ * sane serialized size. Stored in `Document.deckJson`, separate from the
+ * Lexical `contentJson` so deck edits never touch collaborative editing state.
+ */
+export async function saveDeckJson(
+  id: string,
+  deckJson: unknown,
+): Promise<void> {
+  const user = await requireUser();
+
+  const result = safeParseDeck(deckJson);
+  if (!result.success) {
+    throw new Error(`Invalid deck: ${result.error}`);
+  }
+
+  // Serialize and check size
+  const serialized = JSON.stringify(result.data);
+  if (serialized.length > MAX_DECK_JSON_LENGTH) {
+    throw new Error("Deck is too large to save.");
+  }
+
+  const document = await getAccessibleDocument(user.id, id);
+  if (!document) {
+    throw new Error("Document not found.");
+  }
+
+  await prisma.document.updateMany({
+    where: { id, ownerId: user.id },
+    data: { deckJson: result.data as unknown as Prisma.InputJsonValue },
+  });
+
+  revalidatePath(`/app/documents/${id}`);
+}
+
+/**
+ * Clears the persisted deck for a document (reverts to the auto-derived deck).
+ * Owner-scoped.
+ */
+export async function clearDeckJson(id: string): Promise<void> {
+  const user = await requireUser();
+  const document = await getAccessibleDocument(user.id, id);
+  if (!document) throw new Error("Document not found.");
+
+  await prisma.document.updateMany({
+    where: { id, ownerId: user.id },
+    data: { deckJson: Prisma.DbNull },
+  });
+
+  revalidatePath(`/app/documents/${id}`);
 }

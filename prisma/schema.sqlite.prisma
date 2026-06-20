@@ -67,6 +67,7 @@ model Document {
   title       String   @default("Untitled")
   content     String   @default("")
   contentJson Json?
+  deckJson    Json?
   ownerId     String
   workspaceId String?
   shareId     String?  @unique
