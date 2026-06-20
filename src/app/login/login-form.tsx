@@ -8,7 +8,7 @@ import { authenticate } from "./actions";
 const fieldClass =
   "h-11 rounded-ds-md border border-ds-border-strong bg-ds-surface-base px-3 text-sm text-ds-text-primary outline-none transition placeholder:text-ds-text-muted focus:border-ds-accent focus:ring-2 focus:ring-ds-accent/30";
 
-export function LoginForm() {
+export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
   const [errorMessage, formAction, isPending] = useActionState(
     authenticate,
     undefined,
@@ -16,6 +16,7 @@ export function LoginForm() {
 
   return (
     <form action={formAction} className="flex w-full flex-col gap-4">
+      <input type="hidden" name="callbackUrl" value={callbackUrl} />
       <div className="flex flex-col gap-1.5">
         <label
           htmlFor="email"

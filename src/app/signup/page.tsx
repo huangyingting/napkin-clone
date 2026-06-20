@@ -5,6 +5,7 @@ import {
   GoogleSignInButton,
   OrDivider,
 } from "@/components/google-sign-in-button";
+import { safeCallbackUrl } from "@/lib/auth/callback-url";
 import { getCurrentUser } from "@/lib/session";
 
 import { SignupForm } from "./signup-form";
@@ -13,10 +14,19 @@ export const metadata: Metadata = {
   title: "Sign up — TextIQ",
 };
 
-export default async function SignupPage() {
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ callbackUrl?: string | string[] }>;
+}) {
   if (await getCurrentUser()) {
     redirect("/app");
   }
+
+  const { callbackUrl: rawCallbackUrl } = await searchParams;
+  const callbackUrl = safeCallbackUrl(
+    Array.isArray(rawCallbackUrl) ? rawCallbackUrl[0] : rawCallbackUrl,
+  );
 
   return (
     <main className="flex flex-1 items-center justify-center bg-ds-surface-sunken px-6 py-16">
@@ -30,9 +40,9 @@ export default async function SignupPage() {
           </p>
         </div>
         <div className="flex flex-col gap-6">
-          <GoogleSignInButton />
+          <GoogleSignInButton callbackUrl={callbackUrl} />
           <OrDivider />
-          <SignupForm />
+          <SignupForm callbackUrl={callbackUrl} />
         </div>
       </div>
     </main>

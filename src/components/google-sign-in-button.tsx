@@ -1,15 +1,18 @@
 import { signIn } from "@/auth";
+import { safeCallbackUrl } from "@/lib/auth/callback-url";
 
 export function GoogleSignInButton({
   label = "Continue with Google",
+  callbackUrl,
 }: {
   label?: string;
+  callbackUrl?: string;
 }) {
   return (
     <form
       action={async () => {
         "use server";
-        await signIn("google", { redirectTo: "/" });
+        await signIn("google", { redirectTo: safeCallbackUrl(callbackUrl) });
       }}
     >
       <button
