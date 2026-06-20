@@ -139,6 +139,9 @@ export function VisualEditor({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const edgeInputRef = useRef<HTMLInputElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
+  // Tracks the last click-release for manual double-click detection (native
+  // dblclick is unreliable here because the node uses pointer capture).
+  const lastClickRef = useRef<{ id: string; time: number } | null>(null);
   const editStartLabel = useRef<string>("");
   const editStartEdgeLabel = useRef<string>("");
 
@@ -154,6 +157,19 @@ export function VisualEditor({
 
   const positioned = isPositionedKind(visual.type) && !visual.autoLayout;
   const boxes = useMemo(() => nodeBoxes(visual), [visual]);
+
+  // While editing a node, blank its label in the read-only render so the live
+  // text isn't drawn behind the inline input (node sizes are label-independent,
+  // so positions/layout stay identical — only the text disappears).
+  const displayVisual = useMemo(() => {
+    if (!editingId) return visual;
+    return {
+      ...visual,
+      nodes: visual.nodes.map((node) =>
+        node.id === editingId ? { ...node, label: "" } : node,
+      ),
+    };
+  }, [visual, editingId]);
   const segments = useMemo(() => edgeSegments(visual), [visual]);
   const nodeById = useMemo(
     () => new Map(visual.nodes.map((node) => [node.id, node])),
@@ -322,8 +338,17 @@ export function VisualEditor({
     (event: React.PointerEvent) => {
       const drag = dragRef.current;
       endDrag(event);
+      // A plain click only selects. A second click on the same node within the
+      // double-click window opens inline editing.
       if (drag && !drag.moved) {
-        beginEdit(drag.id);
+        const now = Date.now();
+        const last = lastClickRef.current;
+        if (last && last.id === drag.id && now - last.time < 350) {
+          lastClickRef.current = null;
+          beginEdit(drag.id);
+        } else {
+          lastClickRef.current = { id: drag.id, time: now };
+        }
       }
     },
     [beginEdit, endDrag],
@@ -475,7 +500,14 @@ export function VisualEditor({
           onKeyDown={onInputKeyDown}
           onBlur={() => setEditingId(null)}
           onPointerDown={(event) => event.stopPropagation()}
-          className="h-full w-full rounded-md border border-zinc-900/50 bg-white px-2 text-center text-sm text-zinc-900 shadow-sm outline-none dark:border-white/50 dark:bg-zinc-900 dark:text-zinc-100"
+          className="h-full w-full border-0 bg-transparent p-0 leading-none caret-current outline-none"
+          style={{
+            color: node.textColor ?? visual.style.nodeText,
+            fontSize: visual.style.fontSize,
+            fontWeight: visual.style.fontWeight,
+            fontFamily: node.fontFamily ?? visual.style.fontFamily,
+            textAlign: node.textAlign ?? "center",
+          }}
         />
       </foreignObject>
     );
@@ -626,7 +658,7 @@ export function VisualEditor({
     <div className="relative w-full max-w-3xl">
       <VisualRenderer
         ref={rendererRef}
-        visual={visual}
+        visual={displayVisual}
         className="block h-auto w-full select-none"
       />
       <svg
@@ -655,7 +687,6 @@ export function VisualEditor({
             hoverId === node.id ||
             selectedId === node.id;
           const isEditing = editingId === node.id;
-          const isHovered = hoverId === node.id && !isEditing;
           return (
             <g key={node.id}>
               <rect
@@ -690,20 +721,6 @@ export function VisualEditor({
                 }
                 onKeyDown={(event) => onNodeKeyDown(event, node)}
               />
-              {/* Inline-edit hint: shown on hover when not editing or dragging */}
-              {isHovered && canEdit && !positioned ? (
-                <text
-                  x={box.x}
-                  y={box.y + box.height / 2 + 13}
-                  textAnchor="middle"
-                  fontSize={10}
-                  fill="#6366f1"
-                  pointerEvents="none"
-                  aria-hidden="true"
-                >
-                  Click to edit
-                </text>
-              ) : null}
             </g>
           );
         })}

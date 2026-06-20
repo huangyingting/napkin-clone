@@ -5,7 +5,6 @@ import { HeaderGate } from "@/components/header-gate";
 import { SiteHeader } from "@/components/site-header";
 import { LocaleProvider } from "@/lib/i18n/locale-context";
 import { getLocale } from "@/lib/i18n/server";
-import { Providers } from "./providers";
 
 // Ghost theme font system: self-host Inter and wire it to --font-sans.
 // Serif (Georgia) and mono (Menlo) come from system stacks, so only Inter downloads.
@@ -39,14 +38,12 @@ export default async function RootLayout({
       className={`${inter.variable} h-full scroll-smooth antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <Providers>
-          <LocaleProvider initialLocale={locale}>
-            <HeaderGate>
-              <SiteHeader />
-            </HeaderGate>
-            {children}
-          </LocaleProvider>
-        </Providers>
+        <LocaleProvider initialLocale={locale}>
+          <HeaderGate>
+            <SiteHeader />
+          </HeaderGate>
+          {children}
+        </LocaleProvider>
       </body>
     </html>
   );

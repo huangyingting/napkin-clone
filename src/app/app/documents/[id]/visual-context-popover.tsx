@@ -804,10 +804,13 @@ export function VisualContextPopover({
     const rect = anchor.getBoundingClientRect();
     const width = el.offsetWidth;
     const height = el.offsetHeight;
-    // Sit where the old quick-action bar did: pinned near the card's top edge,
-    // horizontally centred over it. Clamp to the viewport so it stays usable
-    // when the config below makes the panel tall.
-    let top = rect.top + POPOVER_GAP;
+    // Sit just above the visual's top edge, horizontally centred over it, so the
+    // toolbox never covers the visual. Fall back to inside the top edge only
+    // when there isn't room above (visual near the top of the viewport).
+    let top = rect.top - height - POPOVER_GAP;
+    if (top < EDGE_INSET) {
+      top = rect.top + POPOVER_GAP;
+    }
     top = Math.max(
       EDGE_INSET,
       Math.min(top, window.innerHeight - height - EDGE_INSET),
