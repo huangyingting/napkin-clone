@@ -107,11 +107,10 @@ export function VisualCard({
     setSectionNav((prev) => ({ section, seq: prev.seq + 1 }));
   }, []);
 
-  // When the SlideEditor panel is open it occupies the right side (z-panel,
-  // fixed). Showing the floating overlay (z-dropdown) at the same time would put
-  // two competing right-side surfaces on screen. The coordinator suppresses the
-  // float while the slide editor is active; visual editing remains accessible
-  // via the docked rail.
+  // When the full-page SlideEditor is open it covers the whole screen, so the
+  // inline floating overlay would be hidden behind it. The coordinator
+  // suppresses the float while the slide editor is active; visual editing
+  // remains accessible via the docked rail.
   const { suppressFloatPopover } = useRightSurface();
 
   // Current text content of the immediately preceding block (the likely anchor).

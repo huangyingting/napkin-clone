@@ -24,9 +24,9 @@ type RightSurfaceContextValue = {
   closeSlideEditor: () => void;
   /**
    * True when the floating VisualContextPopover must be suppressed because the
-   * SlideEditor panel is currently occupying the right side (z-panel). Both are
-   * right-side surfaces, so the coordinator shows only one at a time rather than
-   * layering them — this flag prevents that.
+   * full-page SlideEditor is currently open. The editor covers the whole screen,
+   * so the inline float would be hidden behind it anyway — this flag stops it
+   * from rendering while the editor is active.
    */
   suppressFloatPopover: boolean;
 };
