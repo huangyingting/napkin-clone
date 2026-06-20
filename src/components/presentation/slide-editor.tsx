@@ -14,6 +14,7 @@
 
 import { Copy, GripVertical, Plus, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { FOCUS_RING } from "@/components/motion/control-styles";
 import type { Deck, DeckTheme, SlideLayout } from "@/lib/presentation/deck";
@@ -156,7 +157,7 @@ export function SlideEditor({
     void onSave(deck);
   }, [deck, onSave]);
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-label="Slide editor"
@@ -391,6 +392,7 @@ export function SlideEditor({
           </label>
         </div>
       ) : null}
-    </div>
+    </div>,
+    document.body,
   );
 }
