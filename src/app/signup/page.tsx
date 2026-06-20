@@ -10,7 +10,7 @@ import { getCurrentUser } from "@/lib/session";
 import { SignupForm } from "./signup-form";
 
 export const metadata: Metadata = {
-  title: "Sign up — Napkin Clone",
+  title: "Sign up — TextIQ",
 };
 
 export default async function SignupPage() {

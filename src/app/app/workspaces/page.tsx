@@ -7,7 +7,7 @@ import { requireUser } from "@/lib/session";
 import { CreateWorkspaceButton } from "./create-workspace-button";
 
 export const metadata: Metadata = {
-  title: "Workspaces — Napkin Clone",
+  title: "Workspaces — TextIQ",
 };
 
 const primaryButtonClass =

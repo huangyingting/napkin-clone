@@ -47,7 +47,7 @@ export default function Home() {
     <main className="flex flex-1 flex-col bg-ghost-wash">
       <section className="flex w-full flex-col items-center gap-6 px-6 py-20 text-center sm:py-28">
         <span className="rounded-full border border-ghost-border px-3 py-1 text-sm font-medium text-ghost-secondary">
-          Napkin Clone — Text to Visuals
+          TextIQ — Text to Visuals
         </span>
         <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-ghost-text sm:text-5xl lg:text-6xl">
           Turn text into visuals in seconds
@@ -165,7 +165,7 @@ export default function Home() {
       </section>
 
       <footer className="w-full border-t border-ghost-border px-6 py-8 text-center text-sm text-ghost-secondary">
-        © {new Date().getFullYear()} Napkin Clone. Turn text into visuals.
+        © {new Date().getFullYear()} TextIQ. Turn text into visuals.
       </footer>
     </main>
   );

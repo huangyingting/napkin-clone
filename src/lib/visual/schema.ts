@@ -1,5 +1,5 @@
 /**
- * Versioned visual schema for the Napkin Clone app.
+ * Versioned visual schema for the TextIQ app.
  *
  * A "visual" is a JSON document made of **nodes + edges + style**. It is the
  * canonical, renderer-agnostic format produced by AI generation (US-010/011) and

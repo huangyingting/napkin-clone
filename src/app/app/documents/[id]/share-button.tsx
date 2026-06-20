@@ -48,7 +48,7 @@ export function ShareButton({
     ? shareState.shareUrl.replace("/share/", "/embed/")
     : null;
   const embedSnippet = embedUrl
-    ? `<iframe src="${embedUrl}" width="800" height="600" style="border:0" title="Napkin Clone embed" loading="lazy"></iframe>`
+    ? `<iframe src="${embedUrl}" width="800" height="600" style="border:0" title="TextIQ embed" loading="lazy"></iframe>`
     : null;
 
   // The presentation URL points at the /present/[shareId] route.

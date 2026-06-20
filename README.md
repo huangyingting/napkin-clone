@@ -1,4 +1,4 @@
-# Napkin Clone — Text-to-Visuals Platform
+# TextIQ — Text-to-Visuals Platform
 
 Turn plain text into AI-generated, editable visuals (flowcharts, mind maps,
 infographics, charts, and concept diagrams) with accounts, cloud documents,

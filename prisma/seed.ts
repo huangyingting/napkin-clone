@@ -48,14 +48,14 @@ async function main() {
   });
 
   const existingDocument = await prisma.document.findFirst({
-    where: { ownerId: demoUser.id, title: "Welcome to Napkin Clone" },
+    where: { ownerId: demoUser.id, title: "Welcome to TextIQ" },
   });
 
   const demoDocument =
     existingDocument ??
     (await prisma.document.create({
       data: {
-        title: "Welcome to Napkin Clone",
+        title: "Welcome to TextIQ",
         content:
           "Paste your text here, then generate a flowchart, mind map, or chart.",
         ownerId: demoUser.id,

@@ -1,5 +1,5 @@
 /**
- * Message catalog for the Napkin Clone UI.
+ * Message catalog for the TextIQ UI.
  *
  * Structure: flat key → string (or a function for interpolation).
  * Add new keys to `en` first, then translate to each additional locale.
@@ -38,7 +38,7 @@ export type Messages = {
 };
 
 const en: Messages = {
-  "header.brand": "Napkin Clone",
+  "header.brand": "TextIQ",
   "header.nav.documents": "Documents",
   "header.nav.workspaces": "Workspaces",
   "header.nav.brands": "Brands",
@@ -61,7 +61,7 @@ const en: Messages = {
 };
 
 const es: Messages = {
-  "header.brand": "Napkin Clone",
+  "header.brand": "TextIQ",
   "header.nav.documents": "Documentos",
   "header.nav.workspaces": "Espacios de trabajo",
   "header.nav.brands": "Marcas",

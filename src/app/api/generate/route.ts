@@ -54,6 +54,7 @@ import {
   getUserCreditState,
   InsufficientCreditsError,
 } from "@/lib/billing/credits";
+import { UNLIMITED_CREDITS } from "@/lib/billing/entitlements";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { logError } from "@/lib/log";
@@ -230,15 +231,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Credit pre-check: ensure period is initialised and balance is sufficient.
-    creditCost = computeCreditCost(text);
-    const creditState = await getUserCreditState(user.id);
-    if (creditState.balance < creditCost) {
-      return errorResponse(
-        402,
-        `Insufficient credits: you need ${creditCost} but have ${creditState.balance}. ` +
-          `Your credits reset on ${creditState.periodEnd.toLocaleDateString()}. ` +
-          `Upgrade your plan or wait for your credits to reset.`,
-      );
+    // Skipped entirely when credits are unlimited (creditCost stays 0, so the
+    // deduction below is also a no-op).
+    if (!UNLIMITED_CREDITS) {
+      creditCost = computeCreditCost(text);
+      const creditState = await getUserCreditState(user.id);
+      if (creditState.balance < creditCost) {
+        return errorResponse(
+          402,
+          `Insufficient credits: you need ${creditCost} but have ${creditState.balance}. ` +
+            `Your credits reset on ${creditState.periodEnd.toLocaleDateString()}. ` +
+            `Upgrade your plan or wait for your credits to reset.`,
+        );
+      }
     }
   } else {
     const state =

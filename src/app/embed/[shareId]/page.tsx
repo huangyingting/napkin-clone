@@ -8,7 +8,7 @@ import { shareIdFromParam } from "@/lib/slug";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
 export const metadata: Metadata = {
-  title: "Embedded Document — Napkin Clone",
+  title: "Embedded Document — TextIQ",
 };
 
 /**

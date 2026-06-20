@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Self-hosted Yjs websocket sync server for Napkin Clone real-time collaboration
+ * Self-hosted Yjs websocket sync server for TextIQ real-time collaboration
  * (US-019).
  *
  * Hosts the shared sync logic from `collab-core.mjs` as a standalone process on
@@ -27,7 +27,7 @@ const server = http.createServer((req, res) => {
     return;
   }
   res.writeHead(200, { "content-type": "text/plain" });
-  res.end("Napkin Clone collaboration server\n");
+  res.end("TextIQ collaboration server\n");
 });
 
 // Standalone: the room is the whole path (`/<documentId>`).

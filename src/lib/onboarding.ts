@@ -4,16 +4,16 @@ import { FIXTURES } from "@/lib/visual/fixtures";
 import { VISUAL_KIND_TO_PRISMA } from "@/lib/visual/schema";
 
 /** Title of the first-run sample document seeded for new users. */
-const SAMPLE_DOCUMENT_TITLE = "Welcome to Napkin Clone";
+const SAMPLE_DOCUMENT_TITLE = "Welcome to TextIQ";
 
 /**
  * Example Markdown for the first-run sample document. Uses only the block kinds
  * the editor supports (headings, bullet lists, paragraphs) and keeps blocks
  * blank-line separated so {@link parseMarkdown} renders them distinctly.
  */
-const SAMPLE_DOCUMENT_CONTENT = `# Welcome to Napkin Clone 👋
+const SAMPLE_DOCUMENT_CONTENT = `# Welcome to TextIQ 👋
 
-This is your first document. Napkin Clone turns plain text into clean, shareable visuals — no design tools required.
+This is your first document. TextIQ turns plain text into clean, shareable visuals — no design tools required.
 
 ## How it works
 

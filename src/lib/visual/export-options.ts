@@ -130,7 +130,7 @@ export interface ExportOptions {
    */
   socialPreset?: SocialPreset;
   /**
-   * When `true`, a "Napkin Clone" watermark text is stamped in the bottom-right
+   * When `true`, a "TextIQ" watermark text is stamped in the bottom-right
    * corner of the exported image. Set by the route / export handler based on the
    * user's plan (`!removeWatermark` entitlement). Defaults to `false`.
    */
@@ -425,7 +425,7 @@ export function applyExportOptionsToSvg(
 }
 
 /**
- * Inject a "Napkin Clone" watermark text into the bottom-right corner of the
+ * Inject a "TextIQ" watermark text into the bottom-right corner of the
  * SVG. Uses a semi-transparent text element so it is legible on both light and
  * dark backgrounds. The text is placed relative to the viewBox dimensions so
  * it scales correctly at any export resolution.
@@ -452,7 +452,7 @@ export function applyWatermarkToSvg(svgString: string): string {
     `fill="rgba(100,100,100,0.45)" ` +
     `data-watermark="true" ` +
     `style="pointer-events:none;user-select:none;"` +
-    `>Napkin Clone</text>`;
+    `>TextIQ</text>`;
 
   return svgString.replace(/(<\/svg>)$/, `${watermarkEl}$1`);
 }

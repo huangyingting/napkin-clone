@@ -27,7 +27,7 @@ export interface PlanEntitlements {
   pptxExport: boolean;
   /** Allow saving and applying Brand Styles. */
   brandStyles: boolean;
-  /** Remove the "Napkin Clone" watermark from exports. */
+  /** Remove the "TextIQ" watermark from exports. */
   removeWatermark: boolean;
   /** Allow uploading custom fonts. */
   fontUpload: boolean;
@@ -77,6 +77,13 @@ export const PLAN_NAMES: Record<Plan, string> = {
   plus: "Plus",
   pro: "Pro",
 };
+
+/**
+ * When `true`, authenticated users are never metered: AI credits are unlimited.
+ * Credit pre-checks and deductions are skipped and usage is shown as
+ * "Unlimited" in the UI. Anonymous trial users remain rate-limited.
+ */
+export const UNLIMITED_CREDITS = true;
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -10,7 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { buildShareSegment, shareIdFromParam } from "@/lib/slug";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
-const SITE_NAME = "Napkin Clone";
+const SITE_NAME = "TextIQ";
 
 /** Absolute base URL for canonical/OG links. */
 function siteBaseUrl(): string {

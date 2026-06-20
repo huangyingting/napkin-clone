@@ -10,7 +10,7 @@ import { collectDocumentBlocks } from "@/lib/visual/document-export";
 import type { Visual } from "@/lib/visual/schema";
 
 export const metadata: Metadata = {
-  title: "Presentation — Napkin Clone",
+  title: "Presentation — TextIQ",
 };
 
 /**

@@ -13,7 +13,7 @@ import { ImportDocumentButton } from "./import-document-button";
 import { NewDocumentButton } from "./new-document-button";
 
 export const metadata: Metadata = {
-  title: "Dashboard — Napkin Clone",
+  title: "Dashboard — TextIQ",
 };
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {

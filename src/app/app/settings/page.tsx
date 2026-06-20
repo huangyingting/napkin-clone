@@ -10,7 +10,7 @@ import { PasswordForm } from "./password-form";
 import { DeleteAccountForm } from "./delete-account-form";
 
 export const metadata: Metadata = {
-  title: "Settings — Napkin Clone",
+  title: "Settings — TextIQ",
 };
 
 export default async function SettingsPage() {

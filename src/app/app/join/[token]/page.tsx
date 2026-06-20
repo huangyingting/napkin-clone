@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 
 export const metadata: Metadata = {
-  title: "Join Workspace — Napkin Clone",
+  title: "Join Workspace — TextIQ",
 };
 
 export default async function JoinWorkspacePage({

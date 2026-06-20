@@ -18,7 +18,7 @@ const SAMPLE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300
 describe("applyWatermarkToSvg", () => {
   it("injects a watermark text element before </svg>", () => {
     const result = applyWatermarkToSvg(SAMPLE_SVG);
-    assert.ok(result.includes("Napkin Clone"), "should contain watermark text");
+    assert.ok(result.includes("TextIQ"), "should contain watermark text");
     assert.ok(
       result.includes('data-watermark="true"'),
       "should have data-watermark attribute",
@@ -27,7 +27,7 @@ describe("applyWatermarkToSvg", () => {
 
   it("places watermark element just before </svg>", () => {
     const result = applyWatermarkToSvg(SAMPLE_SVG);
-    const watermarkIdx = result.indexOf("Napkin Clone");
+    const watermarkIdx = result.indexOf("TextIQ");
     const closingIdx = result.indexOf("</svg>");
     assert.ok(
       watermarkIdx < closingIdx,
@@ -61,7 +61,7 @@ describe("applyExportOptionsToSvg with watermark", () => {
       ...DEFAULT_EXPORT_OPTIONS,
       watermark: true,
     });
-    assert.ok(result.includes("Napkin Clone"), "should contain watermark text");
+    assert.ok(result.includes("TextIQ"), "should contain watermark text");
     assert.ok(
       result.includes('data-watermark="true"'),
       "should have data-watermark attribute",
@@ -74,7 +74,7 @@ describe("applyExportOptionsToSvg with watermark", () => {
       colorMode: "mono",
       watermark: true,
     });
-    assert.ok(result.includes("Napkin Clone"), "should contain watermark");
+    assert.ok(result.includes("TextIQ"), "should contain watermark");
     assert.ok(result.includes("__export_mono__"), "should contain mono filter");
   });
 });

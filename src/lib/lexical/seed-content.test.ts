@@ -52,7 +52,7 @@ test("embedded visual kind matches the fixture kind", () => {
 });
 
 test("intro paragraph renders the supplied text as a text child", () => {
-  const text = "Welcome to Napkin Clone — here is the sample flowchart.";
+  const text = "Welcome to TextIQ — here is the sample flowchart.";
   const state = buildSeedContentJson(text, sampleVisual, DEMO_VISUAL_ID);
   const para = state.root.children[0] as {
     type: string;

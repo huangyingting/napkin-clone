@@ -1,5 +1,5 @@
 /**
- * Core Yjs websocket sync logic for Napkin Clone real-time collaboration
+ * Core Yjs websocket sync logic for TextIQ real-time collaboration
  * (US-019), factored out of the standalone server so it can be hosted either as
  * its own process (`scripts/collab-server.mjs`) or mounted on the Next.js HTTP
  * server (`server.mjs`) at a path. Mounting it on the app server lets a single

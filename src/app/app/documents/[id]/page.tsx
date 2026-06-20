@@ -9,7 +9,7 @@ import { listComments } from "./comments-actions";
 import { LexicalEditor } from "./lexical-editor";
 
 export const metadata: Metadata = {
-  title: "Editor — Napkin Clone",
+  title: "Editor — TextIQ",
 };
 
 export default async function DocumentEditorPage({

@@ -14,7 +14,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Napkin Clone — Text to Visuals",
+  title: "TextIQ — Text to Visuals",
   description:
     "Turn plain text into AI-generated, editable visuals: flowcharts, mind maps, infographics, charts, and concept diagrams.",
 };

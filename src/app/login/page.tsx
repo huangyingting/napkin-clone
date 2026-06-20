@@ -10,7 +10,7 @@ import { getCurrentUser } from "@/lib/session";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = {
-  title: "Log in — Napkin Clone",
+  title: "Log in — TextIQ",
 };
 
 export default async function LoginPage() {
@@ -26,7 +26,7 @@ export default async function LoginPage() {
             Welcome back
           </h1>
           <p className="text-sm text-ds-text-secondary">
-            Log in to your Napkin Clone account.
+            Log in to your TextIQ account.
           </p>
         </div>
         <div className="flex flex-col gap-6">

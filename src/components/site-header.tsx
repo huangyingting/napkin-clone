@@ -9,7 +9,7 @@ import { createTranslator } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
-import { getEntitlements } from "@/lib/billing/entitlements";
+import { getEntitlements, UNLIMITED_CREDITS } from "@/lib/billing/entitlements";
 
 export async function SiteHeader() {
   const sessionUser = await getCurrentUser();
@@ -26,6 +26,12 @@ export async function SiteHeader() {
   const entitlements = account ? getEntitlements(account.plan) : null;
   const creditBalance = account?.creditBalance ?? 0;
   const creditsPerPeriod = entitlements?.creditsPerPeriod ?? 0;
+  const creditCount = UNLIMITED_CREDITS
+    ? "Unlimited"
+    : creditBalance.toLocaleString();
+  const creditTitle = UNLIMITED_CREDITS
+    ? "Unlimited credits"
+    : `${creditBalance} / ${creditsPerPeriod} credits remaining`;
 
   return (
     <header className="relative z-header flex w-full items-center justify-between overflow-x-clip border-b border-ghost-border bg-ghost-bg/80 px-4 py-3 backdrop-blur sm:px-6">
@@ -62,12 +68,10 @@ export async function SiteHeader() {
             {/* Credit usage indicator */}
             <Link
               href="/app/settings/billing"
-              title={`${creditBalance} / ${creditsPerPeriod} credits remaining`}
+              title={creditTitle}
               className="flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
             >
-              <span className="tabular-nums">
-                {creditBalance.toLocaleString()}
-              </span>
+              <span className="tabular-nums">{creditCount}</span>
               <span className="text-ghost-secondary/60">credits</span>
             </Link>
 
@@ -149,12 +153,10 @@ export async function SiteHeader() {
               {/* Credits */}
               <Link
                 href="/app/settings/billing"
-                title={`${creditBalance} / ${creditsPerPeriod} credits remaining`}
+                title={creditTitle}
                 className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium text-ghost-secondary transition hover:bg-ghost-wash hover:text-ghost-text"
               >
-                <span className="tabular-nums">
-                  {creditBalance.toLocaleString()}
-                </span>
+                <span className="tabular-nums">{creditCount}</span>
                 <span className="text-ghost-secondary/60">credits</span>
               </Link>
 

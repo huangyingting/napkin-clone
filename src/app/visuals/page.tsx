@@ -5,7 +5,7 @@ import { FIXTURE_LIST } from "@/lib/visual/fixtures";
 import type { VisualKind } from "@/lib/visual/schema";
 
 export const metadata: Metadata = {
-  title: "Visual gallery — Napkin Clone",
+  title: "Visual gallery — TextIQ",
   description:
     "Sample renderings of every visual type the engine supports: flowchart, mind map, list/scene, chart, concept diagram, timeline, cycle, comparison, funnel, venn, pyramid, matrix, and org chart.",
 };

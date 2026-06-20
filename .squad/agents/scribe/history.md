@@ -1,6 +1,6 @@
 # Project Context
 
-- **Project:** Napkin-Clone
+- **Project:** TextIQ
 - **Created:** 2026-06-19
 
 ## Core Context

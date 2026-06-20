@@ -9,7 +9,7 @@ import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { buildDeckFromBlocks } from "@/lib/presentation/deck";
 import { collectDocumentBlocks } from "@/lib/visual/document-export";
 import type { Visual } from "@/lib/visual/schema";
-const SITE_NAME = "Napkin Clone";
+const SITE_NAME = "TextIQ";
 
 function siteBaseUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:4000";

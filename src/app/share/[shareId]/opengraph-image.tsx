@@ -7,7 +7,7 @@ import { shareIdFromParam } from "@/lib/slug";
 // Prisma access requires the Node.js runtime (not the default edge runtime).
 export const runtime = "nodejs";
 
-const SITE_NAME = "Napkin Clone";
+const SITE_NAME = "TextIQ";
 
 export const alt = "Shared document preview";
 export const size = { width: 1200, height: 630 };

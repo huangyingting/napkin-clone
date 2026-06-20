@@ -550,14 +550,14 @@ export function ExportDialog({
                           type="checkbox"
                           checked={options.watermark ?? false}
                           onChange={toggleBranding}
-                          aria-label="Include Napkin Clone branding"
+                          aria-label="Include TextIQ branding"
                           className={cx(
                             "h-4 w-4 cursor-pointer rounded border border-[var(--ds-border-strong,#dde1e5)]",
                             FOCUS_RING,
                           )}
                         />
                         <span className="text-xs text-[var(--ds-text-secondary,#54666d)]">
-                          Include Napkin Clone branding
+                          Include TextIQ branding
                         </span>
                       </label>
                     </ControlField>

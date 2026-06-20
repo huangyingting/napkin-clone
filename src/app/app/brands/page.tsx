@@ -8,7 +8,7 @@ import { listBrands } from "./actions";
 import { BrandStudio } from "./brand-studio";
 
 export const metadata: Metadata = {
-  title: "Brand Studio — Napkin Clone",
+  title: "Brand Studio — TextIQ",
 };
 
 export default async function BrandsPage() {

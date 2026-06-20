@@ -1,4 +1,4 @@
-// Prisma schema for the Napkin Clone app.
+// Prisma schema for the TextIQ app.
 // The datasource URL is supplied via prisma.config.ts (env DATABASE_URL).
 // Docs: https://pris.ly/d/prisma-schema
 

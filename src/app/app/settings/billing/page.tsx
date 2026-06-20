@@ -8,12 +8,13 @@ import {
   getEntitlements,
   PLAN_NAMES,
   isPlan,
+  UNLIMITED_CREDITS,
 } from "@/lib/billing/entitlements";
 
 import { BillingActions } from "./billing-actions";
 
 export const metadata: Metadata = {
-  title: "Billing & Plan — Napkin Clone",
+  title: "Billing & Plan — TextIQ",
 };
 
 export default async function BillingPage() {
@@ -127,20 +128,30 @@ export default async function BillingPage() {
           <div className="flex items-end justify-between gap-2">
             <div className="flex flex-col gap-0.5">
               <span className="text-3xl font-bold tabular-nums text-ghost-text">
-                {user.creditBalance.toLocaleString()}
+                {UNLIMITED_CREDITS
+                  ? "Unlimited"
+                  : user.creditBalance.toLocaleString()}
               </span>
               <span className="text-sm text-ghost-secondary">
-                of {entitlements.creditsPerPeriod.toLocaleString()} remaining
+                {UNLIMITED_CREDITS
+                  ? "AI credits"
+                  : `of ${entitlements.creditsPerPeriod.toLocaleString()} remaining`}
               </span>
             </div>
             <div className="text-right text-sm text-ghost-secondary">
-              {creditsUsed.toLocaleString()} used
-              {periodEnd && (
+              {UNLIMITED_CREDITS ? (
+                "No usage limits"
+              ) : (
                 <>
-                  {" · resets "}
-                  <span className="font-medium text-ghost-text">
-                    {periodEnd.toLocaleDateString()}
-                  </span>
+                  {creditsUsed.toLocaleString()} used
+                  {periodEnd && (
+                    <>
+                      {" · resets "}
+                      <span className="font-medium text-ghost-text">
+                        {periodEnd.toLocaleDateString()}
+                      </span>
+                    </>
+                  )}
                 </>
               )}
             </div>
@@ -150,13 +161,18 @@ export default async function BillingPage() {
           <div className="h-2 w-full overflow-hidden rounded-full bg-ghost-border">
             <div
               className="h-full rounded-full bg-ghost-accent transition-all"
-              style={{ width: `${usagePct}%` }}
+              style={{ width: `${UNLIMITED_CREDITS ? 100 : usagePct}%` }}
             />
           </div>
 
           <p className="text-xs text-ghost-secondary">
-            ~1 credit per word selected for generation ·{" "}
-            {entitlements.periodDays === 7 ? "resets weekly" : "resets monthly"}
+            {UNLIMITED_CREDITS
+              ? "Unlimited AI generations — no per-word metering."
+              : `~1 credit per word selected for generation · ${
+                  entitlements.periodDays === 7
+                    ? "resets weekly"
+                    : "resets monthly"
+                }`}
           </p>
         </section>
 
@@ -168,7 +184,11 @@ export default async function BillingPage() {
           <ul className="flex flex-col gap-2 text-sm">
             <FeatureRow
               enabled={true}
-              label={`${entitlements.creditsPerPeriod.toLocaleString()} AI credits / ${entitlements.periodDays === 7 ? "week" : "month"}`}
+              label={
+                UNLIMITED_CREDITS
+                  ? "Unlimited AI credits"
+                  : `${entitlements.creditsPerPeriod.toLocaleString()} AI credits / ${entitlements.periodDays === 7 ? "week" : "month"}`
+              }
             />
             <FeatureRow enabled={true} label="PNG &amp; PDF export" />
             <FeatureRow enabled={entitlements.svgExport} label="SVG export" />

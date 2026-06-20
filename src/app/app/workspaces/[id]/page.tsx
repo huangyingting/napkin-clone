@@ -11,7 +11,7 @@ import { MembersList } from "./members-list";
 import { WorkspaceDocuments } from "./workspace-documents";
 
 export const metadata: Metadata = {
-  title: "Workspace — Napkin Clone",
+  title: "Workspace — TextIQ",
 };
 
 export default async function WorkspacePage({

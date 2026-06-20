@@ -591,7 +591,7 @@ export interface InfographicExportOptions {
    */
   config?: InfographicConfig;
   /**
-   * When `true`, stamp a "Napkin Clone" watermark on the finished image.
+   * When `true`, stamp a "TextIQ" watermark on the finished image.
    * Defaults to `false`. Callers should set this to `!removeWatermark` based
    * on the user's plan entitlements.
    */
@@ -672,7 +672,7 @@ function blobToImage(blob: Blob): Promise<HTMLImageElement> {
  *   and drawn onto the composed canvas at the computed y-offset.
  * - The full layout geometry is computed by the pure
  *   {@link computeInfographicLayout} function before any drawing occurs.
- * - A "Napkin Clone" watermark is stamped in the bottom-right corner when
+ * - A "TextIQ" watermark is stamped in the bottom-right corner when
  *   `options.watermark` is `true` (apply for free-tier users).
  *
  * @param blocks        Output of {@link collectDocumentBlocks}
@@ -868,7 +868,7 @@ export async function exportDocumentAsInfographic(
       ctx.font = `${wFontSize}px sans-serif`;
       ctx.fillStyle = "rgba(100,100,100,0.45)";
       ctx.textAlign = "right";
-      ctx.fillText("Napkin Clone", config.width - wPad, totalHeight - wPad);
+      ctx.fillText("TextIQ", config.width - wPad, totalHeight - wPad);
       ctx.restore();
     }
 
