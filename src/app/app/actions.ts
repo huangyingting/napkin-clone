@@ -386,3 +386,21 @@ export async function searchDocuments(
     };
   });
 }
+
+/**
+ * Permanently dismisses first-run onboarding for the current user.
+ *
+ * Sets `onboardingDismissed = true` on the User row so the checklist is never
+ * shown again, regardless of device or session. This is a write-once action:
+ * calling it again on an already-dismissed user is a harmless no-op.
+ */
+export async function dismissOnboarding(): Promise<void> {
+  const user = await requireUser();
+
+  await prisma.user.updateMany({
+    where: { id: user.id },
+    data: { onboardingDismissed: true },
+  });
+
+  revalidatePath("/app");
+}

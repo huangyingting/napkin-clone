@@ -5,6 +5,7 @@ import { documentCapabilities } from "@/lib/auth/document-permissions";
 import { excerpt, readingTimeMinutes } from "@/lib/document-stats";
 import { createTranslator } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n/server";
+import { computeOnboardingState } from "@/lib/onboarding/checklist";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
@@ -13,6 +14,7 @@ import { purgeDeletedDocuments } from "./actions";
 import { DocumentList } from "./document-list";
 import { ImportDocumentButton } from "./import-document-button";
 import { NewDocumentButton } from "./new-document-button";
+import { OnboardingChecklist } from "./onboarding-checklist";
 
 export const metadata: Metadata = {
   title: "Dashboard — TextIQ",
@@ -34,6 +36,12 @@ export default async function DashboardPage() {
 
   // Opportunistically purge documents soft-deleted beyond the retention window.
   await purgeDeletedDocuments();
+
+  // Fetch onboarding dismissal flag for this user.
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { onboardingDismissed: true },
+  });
 
   // Get user's personal documents (soft-deleted ones are excluded).
   const personalDocuments = await prisma.document.findMany({
@@ -158,6 +166,34 @@ export default async function DashboardPage() {
     a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
   );
 
+  // Compute onboarding state: check if the user has any visuals across
+  // their accessible documents (a lightweight count query).
+  const hasVisuals =
+    (await prisma.visual.count({
+      where: {
+        document: {
+          deletedAt: null,
+          OR: [
+            { ownerId: user.id },
+            {
+              workspace: {
+                OR: [
+                  { ownerId: user.id },
+                  { members: { some: { userId: user.id } } },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    })) > 0;
+
+  const onboarding = computeOnboardingState({
+    dismissed: dbUser?.onboardingDismissed ?? false,
+    hasDocuments: allDocuments.length > 0,
+    hasVisuals,
+  });
+
   return (
     <main className="flex flex-1 flex-col items-center bg-ds-surface-sunken px-4 py-8 sm:px-6 sm:py-12">
       <div className="flex w-full max-w-5xl flex-col gap-8">
@@ -183,6 +219,8 @@ export default async function DashboardPage() {
             </NewDocumentButton>
           </div>
         </header>
+
+        {onboarding.show && <OnboardingChecklist steps={onboarding.steps} />}
 
         <DocumentList documents={documents} availableTags={availableTags} />
       </div>

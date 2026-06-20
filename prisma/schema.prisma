@@ -23,6 +23,8 @@ model User {
   plan              String    @default("free")
   creditBalance     Int       @default(0)
   creditPeriodStart DateTime?
+  // Onboarding: once dismissed (or completed), the checklist is never shown again
+  onboardingDismissed Boolean @default(false)
 
   documents       Document[]        @relation("DocumentOwner")
   ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
