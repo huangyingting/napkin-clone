@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { test, describe } from "node:test";
 
-import { getQuickActionIds, type QuickActionId } from "./visual-quick-action-bar";
+import {
+  getQuickActionIds,
+  type QuickActionId,
+} from "./visual-quick-action-bar";
 
 const ALL_ACTION_IDS: QuickActionId[] = [
   "colors",
