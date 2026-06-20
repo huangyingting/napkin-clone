@@ -78,3 +78,7 @@ Shipped frontends for #6 (style gallery), #8 (visual catalog), #17 (export optio
 ## 2026-06-20T00-05-35Z — Backlog clear session: 9 features, 9 PRs merged
 
 Shipped all Switch backlog items: #40 (two-pane layout + docked 320px right rail for desktop), #52 (in-app Present mode with snapshot data model), #53 (persisted `deckJson` column separate from Lexical state), #54 (public `/present/[shareId]` routes + shared `SlideCanvas` primitive), #44 (visual effects array on `Visual`; SVG filters for SHADOW/SKETCH), #42 (per-node font family native select), #45 (categorized menu drill-down + extracted DOM-free `computeVisualInfo` lib), #41 (overall-adjustments toolbox with pure `shouldShowOverallToolbox` predicate), #43 (verified visual edits already tracked by Yjs UndoManager; surfaced as discoverable UI). All 9 PRs (#57–#67) passed 5 CI gates and merged to main. 3 epics closed (#39, #46, #47).
+
+## 2026-06-20T04:05:00Z — Browser-review backlog clear: 5 p1 + 1 p2 issues, 5 PRs merged
+
+Cleared Ralph's backlog triage findings. Shipped #76 (RightSurfaceCoordinator + z-index discipline for #69/#70/#71), #77 (pt-14 HUD offset for #68), #78 (responsive mobile nav + editing sheet for #72), #79 (VisualRenderer transparentBackground opt-in for #74), #80 (skeleton + staged generation UX for #73). All 5 PRs passed 5 CI gates. 705/705 tests pass. Mobile nav 390px overflow verified fixed. 

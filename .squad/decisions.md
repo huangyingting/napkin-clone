@@ -1707,3 +1707,108 @@ Triaged 6 findings from a live browser walkthrough of the running app (port 4000
 1. **#69 / #70 / #71** — Surface collision/z-index: directly breaks core editor workflows (sharing, slide editing) for every user every day.
 2. **#68** — Present mode HUD overlap: affects every non-title slide on every presentation; small targeted fix.
 3. **#72** — Mobile nav overflow: blocks mobile users from navigating the app at all; accessibility/reach issue.
+
+## 2026-06-20T04:05:00Z: Ralph's backlog clearance — 5 p1 issues + 3 p2, shipped across 6 PRs
+
+### 2026-06-20T03:55:00Z: Right-Surface Coordinator — mutual exclusion + z-index discipline
+
+**By:** Switch (via Squad)
+
+**What:**
+Introduced a `RightSurfaceContext` / `RightSurfaceProvider` at the editor root
+(placed inside `LexicalComposer` > `VisualAnchorProvider`), backed by a
+DOM-free pure reducer in `src/lib/right-surface-coordinator.ts`.
+
+- **Mutual exclusion (Rule A + B):** When `SlideEditorButton` opens the
+  `SlideEditor` panel (z-40, fixed right), it calls `openSlideEditor()` on
+  the coordinator. `VisualCard` reads `suppressFloatPopover` and suppresses
+  its floating `VisualContextPopover` (z-50) for the duration. Closing the
+  slide editor calls `closeSlideEditor()` and restores the float.
+
+- **UX decision — re-select while slide editor is open:** At `lg+` viewport
+  (editing rail active), selecting a visual while the slide editor is open
+  updates the docked rail's panel view (behind the slide editor overlay).
+  At `< lg`, the float is suppressed entirely — no controls render — because
+  the slide editor occupies the right side. This keeps the UX clean: the slide
+  editor takes priority, and visual editing is deferred until it is closed.
+
+- **Z-index discipline:** Top-toolbar dropdowns (Share → `z-[60]`, Export →
+  `z-[60]`) are now above `FloatingSurface` (z-50) and the slide editor panel
+  (z-40). Comments panel is already z-50 (fixed) and was not changed.
+
+**Why:**
+The floating visual popover (z-50) was rendering on top of the slide editor
+panel (z-40) whenever a visual was selected while the slide editor was open
+(issue #70). The share and export dropdowns (z-10 / z-20) were clipped behind
+the slide editor (z-40) and unclickable (issue #71). Trinity's architectural
+direction in epic #69 called for a single coordinator context rather than
+ad-hoc guards in individual components. The pure reducer approach lets the
+mutual-exclusion logic be unit-tested without a browser.
+
+**Shipped in:** PR #76 (closes #69, #70, #71)
+
+### 2026-06-20T03:55:00Z: Present-mode HUD title overlap fix — pt-14 offset on slide layouts
+
+**By:** Switch (via Squad)
+
+**What:** Applied padding-top offset (`pt-14`) to content/section/blank layouts in `slide-canvas.tsx` to prevent slide titles from overlapping the present-mode HUD. The preview layout (used by PresentationSidebar) was explicitly excluded to preserve its compact preview appearance.
+
+**Why:** In present mode, slide titles were overlapping the top HUD (status bar showing current slide / pause state). The HUD is fixed at the top with z-index. Adding consistent top padding to the three primary slide content layouts (`ContentSlideLayout`, `SectionSlideLayout`, `BlankSlideLayout`) provides breathing room below the HUD for any title text without affecting the export/share rendering paths or preview sidebar.
+
+**Shipped in:** PR #77 (closes #68)
+
+### 2026-06-20T03:55:00Z: Mobile-first responsive nav (hamburger) + mobile editing bottom sheet
+
+**By:** Switch (via Squad)
+
+**What:**
+1. `src/components/site-header.tsx` — added `overflow-hidden` to the header to prevent horizontal scroll. Below `md:` the full nav is hidden (`hidden md:flex`); replaced with a `md:hidden` section showing the condensed `UserMenu` (avatar only at 390px, per existing `sm:` responsive class) and a `MobileNavMenu` hamburger button. All primary nav links (Documents, Workspaces, Brands, Credits, Language Switcher, Keyboard Shortcuts) land inside the slide-in drawer.
+
+2. `src/components/mobile-nav-menu.tsx` (new) — `"use client"` component that renders the hamburger toggle + a `framer-motion` right-side slide-in drawer via `createPortal`. Closes on Escape, backdrop click, or any nav link tap. Guards the portal with `typeof document !== "undefined"` (same pattern as `FloatingSurface`) to avoid SSR mismatch.
+
+3. `src/app/app/documents/[id]/editing-rail.tsx` — `EditingRail` now returns a React fragment: the existing desktop rail (`hidden lg:flex`, unchanged) + a new `MobileEditingSheet` component that is `lg:hidden`. The sheet is a fixed FAB (bottom-right, z-40) that opens a `framer-motion` slide-up bottom-sheet portal. The same `TextFormatSection`, `VisualContextSection`, and `OverallAdjustmentsPanel` components are reused inside the sheet — no control logic is duplicated.
+
+**Why:**
+The global nav had no responsive handling, causing horizontal overflow and cut-off at 390px (verified via issue #72). The editing rail was unconditionally `hidden lg:flex` with no mobile replacement, making all editing tools unreachable on phones. Both fixes follow the existing codebase patterns: `framer-motion` + `createPortal` (already used by `FloatingSurface`), `ghost-*` design tokens for nav chrome, `--ds-*` tokens for the editor sheet. No new runtime dependencies added.
+
+**Shipped in:** PR #78 (closes #72)
+
+### 2026-06-20T03:55:00Z: Present-mode polish — `transparentBackground` prop for VisualRenderer
+
+**By:** Switch (via Squad)
+
+**What:** Added an opt-in `transparentBackground?: boolean` prop to `VisualRenderer`. When `true`, the SVG background `<rect fill={visual.style.background}>` and any canvas-style pattern overlay rect are suppressed (not rendered), so the visual's content elements sit directly on the containing surface. The prop defaults to `false`, preserving the existing behaviour everywhere. `SlideCanvas` (used by both `PresentMode` and `PublicPresentViewer`) always passes `transparentBackground` to `VisualRenderer` in `ContentSlideLayout` and `MediaSlideLayout`.
+
+**Why:** Visual slides in present mode showed a jarring white/light card background from the visual's theme clashing with the dark slide theme (`tc.bgColor`). The VisualRenderer is shared across the editor, export/share pages, embed pages, and presentation surfaces — we cannot change the default behaviour globally. A single opt-in prop keeps the change surgical and safe: editor, share/embed, and export paths pass no prop (default `false`) and are completely unaffected. Only the slide-canvas presentation path opts in, blending the visual seamlessly with the slide's dark background.
+
+**Shipped in:** PR #79 (closes #74)
+
+### 2026-06-20T03:55:00Z: Skeleton + staged status for AI generation (issue #73)
+
+**By:** Switch (via Squad)
+
+**What:** Added three client-side improvements to the `/api/generate` (~13 s) UX:
+1. `generation-stages.ts` — pure deterministic stage module (`getStageLabel(elapsedMs)`) with stages: Analysing text… → Building structure… → Finishing…; unit-tested with `node --test`.
+2. `use-generation-status.ts` — `useGenerationStatus(isLoading)` hook using `useReducer` (not multiple `useState` calls) to avoid the `react-hooks/set-state-in-effect` lint rule; cycles labels via `setInterval`; tracks first-generation ETA flag in a module-level variable.
+3. `generation-status.tsx` — `GeneratingIndicator` (staged label + ETA hint) and `VisualSkeleton` (shimmer card) components shared across both call sites.
+4. Skeleton approach: render shimmer skeleton cards **in the panel UI** (not as Lexical VisualNodes) to avoid autosave/collab side-effects while still stabilising panel layout. AnimatePresence transitions idle↔loading↔candidates↔error states.
+
+**Why:** Inserting a real VisualNode as a skeleton would be saved by the 800 ms autosave debounce, synced to other collaborators via Yjs, and pollute the DB with transient loading state. Keeping the skeleton purely in React/portal UI is Yjs-safe, collab-safe, and matches the existing pattern where candidates are shown in the panel before the user picks one to insert. The `useReducer` refactor avoids ESLint `react-hooks/set-state-in-effect` errors (Next.js lint config flags synchronous `setState` in effect bodies).
+
+**Shipped in:** PR #80 (closes #73)
+
+### 2026-06-20T03:55:00Z: Seed visual — extract `buildSeedContentJson` pure helper
+
+**By:** Tank (via Squad)
+
+**What:** Introduced `src/lib/lexical/seed-content.ts` — a pure, DOM-free function that builds a minimal Lexical editor-state JSON (paragraph + VisualNode block) for use by the seed script. The function mirrors the exact serialized shapes from `from-markdown.ts` (paragraph nodes) and `VisualNode.exportJSON()` (decorator blocks), and is covered by 6 unit tests. Embeds a flowchart VisualNode in the Welcome document contentJson; verified DB embed.
+
+**Why:** Three alternatives were considered:
+
+1. **Inline the JSON object directly in `seed.ts`** — rejected because it duplicates the serialized node shapes and would silently drift if `VisualNode` or the paragraph format ever changes.
+
+2. **Use a headless Lexical editor inside the seed** — rejected because it pulls in `@lexical/headless` as a direct seed dependency, adds startup cost, and is harder to unit-test without a DOM-like environment.
+
+3. **Pure helper function (chosen)** — keeps the seed simple, matches the existing pattern in `from-markdown.ts` (another DOM-free Lexical-state builder), and lets the unit tests run under plain `node --test` with no browser stubs. The helper is placed in `src/lib/lexical/` alongside `from-markdown.ts` and `insert-visual.ts` for cohesion.
+
+**Shipped in:** PR #81 (closes #75)

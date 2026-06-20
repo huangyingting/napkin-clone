@@ -56,3 +56,7 @@ Shipped backends for #5 (doc export), #13 (generation controls), #4 (doc import)
 ## 2026-06-20T00-05-35Z — Backlog clear session: 4 features, 4 PRs merged
 
 Shipped all Tank backlog items: #51 (Deck model + block-type reuse in `deck.ts`), #48 (social export presets with effective-viewbox padding; added `"9:16"` preset), #49 (social share via pure URL builders + `SocialShareMenu` component), #50 (infographic export with pure `computeInfographicLayout` lib + browser rasteriser split). All 4 PRs (#55, #56, #57, #62) passed 5 CI gates and merged. Key lesson: PR #56 needed 1 coordinator CI typecheck fix — local `tsc --noEmit` can pass on stale incremental cache while CI catches errors; agents should delete `tsconfig.tsbuildinfo` before typecheck.
+
+## 2026-06-20T04:05:00Z — Seed visual embedding: pure Lexical helper + unit tests
+
+Shipped #81 for #75 (seed visual). Extracted `buildSeedContentJson()` pure helper in `src/lib/lexical/seed-content.ts` (6 unit tests; node --test). Seed now embeds VisualNode in contentJson (not just DB row). Verified DB persistence. PR #81 passed 5 CI gates. 705/705 tests pass (19 net new).
