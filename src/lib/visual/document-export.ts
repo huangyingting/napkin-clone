@@ -1,7 +1,7 @@
 /**
  * Document-level export utilities.
  *
- * Provides two public capabilities:
+ * Provides three public capabilities:
  *  1. `collectDocumentBlocks` — pure, headless walk of a serialised Lexical
  *     editor state that yields all text blocks (headings, paragraphs, quotes,
  *     lists, horizontal rules) and visual blocks in reading order. Testable
@@ -9,6 +9,9 @@
  *  2. `exportDocumentAsPDF` / `exportDocumentAsPPTX` — browser-only assembly
  *     functions that take the block list and a callback to resolve each
  *     visual's live SVG element, then produce a single Blob.
+ *  3. `exportDocumentAsInfographic` — browser-only function that composes all
+ *     blocks (text + visuals) vertically into one tall PNG (or optionally a
+ *     single-page PDF) using the pure layout engine from infographic-layout.ts.
  *
  * Design notes
  * - Text blocks are laid out in the PDF with jsPDF's text API. Headings use
@@ -19,6 +22,9 @@
  *   the slide title), matching the per-visual `exportPPTX` contract. When
  *   there are no visuals a title-only slide is emitted so the deck is never
  *   empty.
+ * - The infographic composer uses `computeInfographicLayout` for the pure
+ *   measurement pass, then draws each block onto an HTML Canvas. Visuals are
+ *   rasterised via the existing per-visual `exportPNG` path.
  * - The `getSvgForVisual` callback is intentionally thin: callers supply it
  *   by reading from the `VisualSvgRegistry` context (visual-svg-registry.tsx).
  *   This keeps the export logic free of React and independently testable.
@@ -35,6 +41,15 @@ import {
   isImageFallback,
   visualToNativeSpecs,
 } from "@/lib/visual/pptx-shapes";
+import {
+  computeInfographicLayout,
+  DEFAULT_INFOGRAPHIC_CONFIG,
+  type InfographicConfig,
+} from "@/lib/visual/infographic-layout";
+
+// Re-export so callers can configure the infographic from a single import.
+export type { InfographicConfig };
+export { DEFAULT_INFOGRAPHIC_CONFIG };
 
 // ---------------------------------------------------------------------------
 // Page-break helpers (pure, browser-free)
@@ -558,3 +573,340 @@ export async function exportDocumentAsPPTX(
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Infographic export (browser-only)
+// ---------------------------------------------------------------------------
+
+/**
+ * Options for the infographic composer.
+ *
+ * Most callers will only need to adjust `width` and `watermark`; the rest of
+ * the visual design is controlled by {@link InfographicConfig}.
+ */
+export interface InfographicExportOptions {
+  /**
+   * Layout + typography configuration. Defaults to
+   * {@link DEFAULT_INFOGRAPHIC_CONFIG} (1080 px, white background).
+   */
+  config?: InfographicConfig;
+  /**
+   * When `true`, stamp a "Napkin Clone" watermark on the finished image.
+   * Defaults to `false`. Callers should set this to `!removeWatermark` based
+   * on the user's plan entitlements.
+   */
+  watermark?: boolean;
+  /**
+   * When `"pdf"`, wrap the finished PNG in a single-page PDF whose dimensions
+   * match the image exactly. Defaults to `"png"`.
+   */
+  outputFormat?: "png" | "pdf";
+}
+
+/**
+ * Draws a string onto the canvas context with automatic word-wrapping.
+ *
+ * Returns the number of lines drawn (useful for callers that need to advance
+ * the y cursor by the actual rendered height).
+ */
+function canvasWrapText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number,
+): number {
+  const words = text.split(" ");
+  let line = "";
+  let lineCount = 0;
+  let curY = y;
+
+  for (let i = 0; i < words.length; i++) {
+    const testLine = line + (line ? " " : "") + words[i];
+    const { width } = ctx.measureText(testLine);
+    if (width > maxWidth && line !== "") {
+      ctx.fillText(line, x, curY);
+      line = words[i];
+      curY += lineHeight;
+      lineCount++;
+    } else {
+      line = testLine;
+    }
+  }
+  if (line) {
+    ctx.fillText(line, x, curY);
+    lineCount++;
+  }
+  return lineCount;
+}
+
+/**
+ * Converts a PNG Blob to an HTMLImageElement (browser-only).
+ */
+function blobToImage(blob: Blob): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Image load failed"));
+    };
+    img.src = url;
+  });
+}
+
+/**
+ * Composes all document blocks (text + visuals) into one tall PNG — and
+ * optionally wraps it in a single-page PDF.
+ *
+ * Layout:
+ * - Blocks are stacked vertically in document reading order.
+ * - Text blocks (headings, paragraphs, quotes, list items, HR) are drawn with
+ *   the Canvas 2D text API using the font sizes in `config`.
+ * - Visual blocks are rasterised via the existing per-visual `exportPNG` path
+ *   and drawn onto the composed canvas at the computed y-offset.
+ * - The full layout geometry is computed by the pure
+ *   {@link computeInfographicLayout} function before any drawing occurs.
+ * - A "Napkin Clone" watermark is stamped in the bottom-right corner when
+ *   `options.watermark` is `true` (apply for free-tier users).
+ *
+ * @param blocks        Output of {@link collectDocumentBlocks}
+ * @param title         Document title — informational; callers may prepend it
+ *                      as an H1 block in `blocks` before calling.
+ * @param getSvg        Callback to resolve a live SVGSVGElement by `visualId`
+ * @param options       Composer options (config, watermark, output format)
+ */
+export async function exportDocumentAsInfographic(
+  blocks: DocumentBlock[],
+  title: string,
+  getSvg: (visualId: string) => SVGSVGElement | null,
+  options: InfographicExportOptions = {},
+): Promise<Blob | null> {
+  // title is retained in the signature for future use (e.g., metadata)
+  void title;
+
+  try {
+    const config: InfographicConfig =
+      options.config ?? DEFAULT_INFOGRAPHIC_CONFIG;
+    const addWatermark = options.watermark ?? false;
+    const outputFormat = options.outputFormat ?? "png";
+
+    // ── 1. Collect visual dimensions from live SVG viewBoxes ──────────────
+    const visualDimensions: Record<string, { width: number; height: number }> =
+      {};
+    for (const block of blocks) {
+      if (block.kind === "visual") {
+        const svg = getSvg(block.visualId);
+        if (svg) {
+          const vb = svg.viewBox.baseVal;
+          if (vb.width > 0 && vb.height > 0) {
+            visualDimensions[block.visualId] = {
+              width: vb.width,
+              height: vb.height,
+            };
+          }
+        }
+      }
+    }
+
+    // ── 2. Compute layout ─────────────────────────────────────────────────
+    const layoutConfig: InfographicConfig = { ...config, visualDimensions };
+    const layout = computeInfographicLayout(blocks, layoutConfig);
+    const { contentWidth, totalHeight } = layout;
+
+    // ── 3. Create canvas ──────────────────────────────────────────────────
+    const canvas = document.createElement("canvas");
+    canvas.width = config.width;
+    canvas.height = totalHeight;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    // Background fill
+    ctx.fillStyle = config.background ?? "#ffffff";
+    ctx.fillRect(0, 0, config.width, totalHeight);
+
+    // ── 4. Draw each block ────────────────────────────────────────────────
+    for (let i = 0; i < blocks.length; i++) {
+      const block = blocks[i];
+      const bl = layout.blocks[i];
+      const x = config.paddingX;
+      const y = bl.y;
+
+      if (block.kind === "visual") {
+        const svg = getSvg(block.visualId);
+        if (!svg) continue;
+
+        const pngBlob = await exportPNG(svg, {
+          background: "include",
+          colorMode: "color",
+          scale: 2,
+        });
+        if (!pngBlob) continue;
+
+        try {
+          const img = await blobToImage(pngBlob);
+          ctx.drawImage(img, x, y, contentWidth, bl.height);
+        } catch {
+          // Skip this visual if rendering fails
+        }
+        continue;
+      }
+
+      // Text block
+      const { blockType, text, level } = block;
+
+      if (blockType === "hr") {
+        ctx.save();
+        ctx.strokeStyle = config.mutedColor ?? "#54666d";
+        ctx.globalAlpha = 0.3;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, y + 0.5);
+        ctx.lineTo(x + contentWidth, y + 0.5);
+        ctx.stroke();
+        ctx.restore();
+        continue;
+      }
+
+      if (!text.trim()) continue;
+
+      if (blockType === "heading") {
+        const fs =
+          level === 1
+            ? config.fontH1
+            : level === 2
+              ? config.fontH2
+              : config.fontH3;
+        ctx.save();
+        ctx.font = `bold ${fs}px sans-serif`;
+        ctx.fillStyle = config.headingColor ?? "#1a1a2e";
+        canvasWrapText(
+          ctx,
+          text,
+          x,
+          y + fs,
+          contentWidth,
+          fs * config.lineHeight,
+        );
+        ctx.restore();
+      } else if (blockType === "quote") {
+        const indent = Math.round(config.paddingX * 0.25);
+        const quoteW = contentWidth - Math.round(config.paddingX * 0.5);
+        const fs = config.fontBody;
+        ctx.save();
+        // Left accent bar
+        ctx.fillStyle = config.headingColor ?? "#1a1a2e";
+        ctx.globalAlpha = 0.25;
+        ctx.fillRect(x, y, 4, bl.height);
+        ctx.globalAlpha = 1;
+        ctx.font = `italic ${fs}px sans-serif`;
+        ctx.fillStyle = config.mutedColor ?? "#54666d";
+        canvasWrapText(
+          ctx,
+          text,
+          x + indent,
+          y + fs,
+          quoteW - indent,
+          fs * config.lineHeight,
+        );
+        ctx.restore();
+      } else if (blockType === "listitem") {
+        const bulletIndent = 32;
+        const fs = config.fontBody;
+        ctx.save();
+        ctx.font = `${fs}px sans-serif`;
+        ctx.fillStyle = config.textColor ?? "#15171a";
+        // Bullet dot
+        ctx.beginPath();
+        const dotR = Math.max(3, fs * 0.15);
+        ctx.arc(
+          x + dotR + 2,
+          y + fs * config.lineHeight * 0.5,
+          dotR,
+          0,
+          Math.PI * 2,
+        );
+        ctx.fill();
+        canvasWrapText(
+          ctx,
+          text,
+          x + bulletIndent,
+          y + fs,
+          contentWidth - bulletIndent,
+          fs * config.lineHeight,
+        );
+        ctx.restore();
+      } else {
+        // paragraph (default)
+        const fs = config.fontBody;
+        ctx.save();
+        ctx.font = `${fs}px sans-serif`;
+        ctx.fillStyle = config.textColor ?? "#15171a";
+        canvasWrapText(
+          ctx,
+          text,
+          x,
+          y + fs,
+          contentWidth,
+          fs * config.lineHeight,
+        );
+        ctx.restore();
+      }
+    }
+
+    // ── 5. Watermark ──────────────────────────────────────────────────────
+    if (addWatermark) {
+      const wFontSize = Math.max(14, Math.round(config.fontBody * 0.7));
+      const wPad = Math.round(wFontSize * 0.8);
+      ctx.save();
+      ctx.font = `${wFontSize}px sans-serif`;
+      ctx.fillStyle = "rgba(100,100,100,0.45)";
+      ctx.textAlign = "right";
+      ctx.fillText("Napkin Clone", config.width - wPad, totalHeight - wPad);
+      ctx.restore();
+    }
+
+    // ── 6. Produce output blob ────────────────────────────────────────────
+    const pngBlob: Blob | null = await new Promise((resolve) => {
+      canvas.toBlob((b) => resolve(b), "image/png");
+    });
+
+    if (!pngBlob) return null;
+
+    if (outputFormat === "pdf") {
+      // Wrap the PNG in a single-page PDF sized to the image.
+      const pngDataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(pngBlob);
+      });
+
+      const widthMM = (config.width * 25.4) / 96;
+      const heightMM = (totalHeight * 25.4) / 96;
+
+      const pdf = new jsPDF({
+        orientation: config.width >= totalHeight ? "landscape" : "portrait",
+        unit: "mm",
+        format: [widthMM, heightMM],
+      });
+      pdf.addImage(pngDataUrl, "PNG", 0, 0, widthMM, heightMM);
+      return pdf.output("blob");
+    }
+
+    return pngBlob;
+  } catch {
+    return null;
+  }
+}
+
+// Re-export layout helpers so downstream UI can build width-preset controls.
+export {
+  INFOGRAPHIC_WIDTH_PRESETS,
+  type InfographicWidthPreset,
+} from "@/lib/visual/infographic-layout";
