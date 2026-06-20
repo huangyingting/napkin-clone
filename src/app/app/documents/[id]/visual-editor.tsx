@@ -182,12 +182,15 @@ export function VisualEditor({
     onSelectNode?.(selectedId && nodeById.has(selectedId) ? selectedId : null);
   }, [selectedId, nodeById, onSelectNode]);
 
+  // Focus the node's label field when editing begins. Keyed on the id only, so
+  // it doesn't re-`select()` on every keystroke — which selected all text and
+  // made each typed character replace the previous one.
   useEffect(() => {
-    if (editingNode && inputRef.current) {
+    if (editingId && inputRef.current) {
       inputRef.current.focus();
       inputRef.current.select();
     }
-  }, [editingNode]);
+  }, [editingId]);
 
   // Focus the connector's label field when an edge is freshly selected so it can
   // be typed immediately (mirrors the node inline-edit pattern). Keyed on the id
