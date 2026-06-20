@@ -129,7 +129,7 @@ function SectionSlideLayout({ slide, tc, preview }: SlideProps): JSX.Element {
 
   return (
     <div
-      className="flex h-full flex-col items-center justify-center px-12 py-16 text-center"
+      className={`flex h-full flex-col items-center justify-center px-12 py-16 text-center${!preview ? " pt-14" : ""}`}
       style={{ backgroundColor: tc.bgColor }}
     >
       <p
@@ -164,7 +164,7 @@ function ContentSlideLayout({
 
   return (
     <div
-      className="flex h-full flex-col"
+      className={`flex h-full flex-col${!preview ? " pt-14" : ""}`}
       style={{ backgroundColor: tc.bgColor }}
     >
       {/* Title bar */}
@@ -259,10 +259,10 @@ function MediaSlideLayout({
   );
 }
 
-function BlankSlideLayout({ slide, tc }: SlideProps): JSX.Element {
+function BlankSlideLayout({ slide, tc, preview }: SlideProps): JSX.Element {
   return (
     <div
-      className="flex h-full flex-col items-center justify-center px-12"
+      className={`flex h-full flex-col items-center justify-center px-12${!preview ? " pt-14" : ""}`}
       style={{ backgroundColor: tc.bgColor }}
     >
       {slide.title && (
