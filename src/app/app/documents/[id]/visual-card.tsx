@@ -16,7 +16,7 @@ import {
   downloadBlob,
 } from "@/lib/visual/export";
 import { applySocialPresetToOptions } from "@/lib/visual/export-options";
-import { applyElasticLayout, isSourceStale } from "@/lib/visual/transforms";
+import { applyElasticLayout } from "@/lib/visual/transforms";
 import { applyBrand } from "@/lib/brand/transforms";
 import type { BrandStyle } from "@/lib/brand/schema";
 import { BRAND_WEB_FONTS } from "@/lib/brand/schema";
@@ -24,18 +24,15 @@ import {
   canCopyImageToClipboard,
   canWebShare,
 } from "@/lib/share/social-intents";
-import { useIsPointerFine } from "@/lib/pointer";
 
 import { useRegisterVisualSvg } from "@/components/editor/visual-svg-registry";
 import { useRightSurface } from "./right-surface-context";
 
 import { useVisualAnchor } from "./visual-anchor-context";
 import { VisualContextPopover } from "./visual-context-popover";
-import type { MenuSection } from "./visual-context-popover";
 import { VisualEditor } from "./visual-editor";
 import { $isVisualNode, $createVisualNode, VisualNode } from "./visual-node";
 import { useVisualPanel } from "./visual-panel-context";
-import { VisualQuickActionBar } from "./visual-quick-action-bar";
 
 // Block types whose text content can serve as a visual's source anchor.
 const SOURCE_TEXT_BLOCK_TYPES = new Set([
@@ -88,24 +85,6 @@ export function VisualCard({
   // Whether this card's editing controls are open. Local state (not a Lexical
   // NodeSelection) so it survives collaborative updates — see the component doc.
   const [open, setOpen] = useState(false);
-
-  // True when the primary pointer is fine (mouse/trackpad). Touch devices keep
-  // using the bottom sheet; the quick-action bar and float popover are
-  // pointer-fine only.
-  const isPointerFine = useIsPointerFine();
-
-  // External navigation trigger for the VisualContextPopover driven by the
-  // on-canvas quick-action bar. Incrementing `seq` lets the same section be
-  // requested twice in a row (user navigates away inside the popover, then
-  // clicks the bar button again).
-  const [sectionNav, setSectionNav] = useState<{
-    section: MenuSection | null;
-    seq: number;
-  }>({ section: null, seq: 0 });
-
-  const navigatePopover = useCallback((section: MenuSection | null) => {
-    setSectionNav((prev) => ({ section, seq: prev.seq + 1 }));
-  }, []);
 
   // When the full-page SlideEditor is open it covers the whole screen, so the
   // inline floating overlay would be hidden behind it. The coordinator
@@ -446,21 +425,6 @@ export function VisualCard({
     >
       {showControls ? (
         <div className={cardClass}>
-          {/* On-canvas tool bar — the single merged toolbar at the top of the
-              selected visual, fine-pointer only (touch uses the bottom sheet).
-              Every section tool opens its detail in the popover below; AI
-              variations, duplicate, and delete are direct actions. */}
-          {isPointerFine ? (
-            <VisualQuickActionBar
-              kind={data.type}
-              stale={isSourceStale(data, currentSourceText ?? "")}
-              genLoading={false}
-              onSelectSection={(section) => navigatePopover(section)}
-              onGenerate={() => navigatePopover("variations")}
-              onDuplicate={duplicateVisual}
-              onDelete={removeVisual}
-            />
-          ) : null}
           <VisualEditor
             visual={data}
             onChange={updateVisual}
@@ -577,7 +541,7 @@ export function VisualCard({
           anchorRef={rootRef}
           currentSourceText={currentSourceText}
           onApplyBrandToAll={applyBrandToAll}
-          sectionNav={sectionNav}
+          onDuplicate={duplicateVisual}
         />
       ) : null}
     </motion.div>

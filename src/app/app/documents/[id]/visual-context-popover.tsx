@@ -1,8 +1,8 @@
 "use client";
 
 import {
-  ArrowLeft,
   Brush,
+  Copy,
   Download,
   Info,
   LayoutGrid,
@@ -101,7 +101,7 @@ import { IconPicker } from "./icon-picker";
 
 const POPOVER_GAP = 8;
 const EDGE_INSET = 8;
-const POPOVER_WIDTH = 320;
+const POPOVER_WIDTH = 400;
 
 const FONT_SIZE_MIN = 10;
 const FONT_SIZE_MAX = 28;
@@ -190,14 +190,14 @@ export type MenuSection =
   | "info"
   | "variations";
 
-export interface MenuItemConfig {
+interface MenuItemConfig {
   id: MenuSection;
   label: string;
   icon: React.ElementType;
   description?: string;
 }
 
-export const MENU_ITEMS: MenuItemConfig[] = [
+const MENU_ITEMS: MenuItemConfig[] = [
   {
     id: "export",
     label: "Export Visual",
@@ -319,26 +319,6 @@ function ColorField({
     <div className="flex items-center justify-between gap-2 text-xs text-[var(--ds-text,#18181b)]">
       <span className="text-[var(--ds-text-muted,#6f7d83)]">{label}</span>
       <ColorPicker color={color} aria-label={label} onChange={onChange} />
-    </div>
-  );
-}
-
-/** Back button + title header for submenu views. */
-function SubMenuHeader({
-  title,
-  onBack,
-}: {
-  title: string;
-  onBack: () => void;
-}) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <IconButton aria-label="Back to menu" size="sm" onClick={onBack}>
-        <ArrowLeft aria-hidden="true" className="h-4 w-4" />
-      </IconButton>
-      <span className="text-xs font-semibold text-[var(--ds-text-primary,#15171a)]">
-        {title}
-      </span>
     </div>
   );
 }
@@ -691,14 +671,8 @@ export type VisualContextPopoverProps = {
    *   overlay/portal, suitable for hosting inside the docked {@link EditingRail}.
    */
   mode?: "float" | "panel";
-  /**
-   * External navigation trigger from the on-canvas quick-action bar.
-   * When `seq` increments the popover jumps to `section` (or back to the main
-   * menu when `section` is `null`). Using a sequence counter lets the same
-   * section be requested twice in a row (e.g. user navigates away inside the
-   * popover, then clicks the bar button again).
-   */
-  sectionNav?: { section: MenuSection | null; seq: number };
+  /** Duplicate this visual node (shown in the toolbar header). */
+  onDuplicate?: () => void;
 };
 
 function PopoverShell({
@@ -757,7 +731,7 @@ export function VisualContextPopover({
   currentSourceText,
   onApplyBrandToAll,
   mode = "float",
-  sectionNav,
+  onDuplicate,
 }: VisualContextPopoverProps) {
   const measureRef = useRef<HTMLDivElement | null>(null);
 
@@ -768,16 +742,6 @@ export function VisualContextPopover({
 
   // Drill-down navigation: null = main menu, string = active submenu section
   const [activeSection, setActiveSection] = useState<MenuSection | null>(null);
-
-  // External navigation trigger from the on-canvas quick-action bar.
-  // Tracks the last processed sequence number to detect new requests.
-  const sectionNavSeq = useRef(-1);
-  useEffect(() => {
-    if (sectionNav && sectionNav.seq !== sectionNavSeq.current) {
-      sectionNavSeq.current = sectionNav.seq;
-      setActiveSection(sectionNav.section);
-    }
-  }, [sectionNav]);
 
   // Colors submenu: progressive disclosure for per-color overrides
   const [customizeOpen, setCustomizeOpen] = useState(false);
@@ -838,16 +802,20 @@ export function VisualContextPopover({
     const el = measureRef.current;
     if (!anchor || !el) return;
     const rect = anchor.getBoundingClientRect();
-    const height = el.offsetHeight + 2;
-    let top = rect.bottom + POPOVER_GAP;
-    if (top + height > window.innerHeight - EDGE_INSET) {
-      const above = rect.top - height - POPOVER_GAP;
-      if (above >= EDGE_INSET) top = above;
-    }
-    let left = rect.left;
+    const width = el.offsetWidth;
+    const height = el.offsetHeight;
+    // Sit where the old quick-action bar did: pinned near the card's top edge,
+    // horizontally centred over it. Clamp to the viewport so it stays usable
+    // when the config below makes the panel tall.
+    let top = rect.top + POPOVER_GAP;
+    top = Math.max(
+      EDGE_INSET,
+      Math.min(top, window.innerHeight - height - EDGE_INSET),
+    );
+    let left = rect.left + rect.width / 2 - width / 2;
     left = Math.max(
       EDGE_INSET,
-      Math.min(left, window.innerWidth - POPOVER_WIDTH - EDGE_INSET),
+      Math.min(left, window.innerWidth - width - EDGE_INSET),
     );
     setCoords((prev) =>
       prev.top === top && prev.left === left ? prev : { top, left },
@@ -1852,15 +1820,6 @@ export function VisualContextPopover({
   // Render
   // ---------------------------------------------------------------------------
 
-  // In float mode the on-canvas quick-action bar is the toolbar, so this popover
-  // only surfaces a section's detail — render nothing until a section is opened.
-  // The hooks above still run (notably the click-away listener that deselects
-  // the visual), so outside-click dismissal keeps working. The docked panel mode
-  // has no quick-action bar, so it always renders its full toolbox + detail.
-  if (mode === "float" && activeSection === null) {
-    return null;
-  }
-
   return (
     <PopoverShell mode={mode} coords={coords} onClose={onClose}>
       <div
@@ -1869,119 +1828,115 @@ export function VisualContextPopover({
         className={
           mode === "panel"
             ? "overflow-y-auto p-3"
-            : "max-h-[32rem] overflow-y-auto p-3"
+            : "p-2"
         }
       >
-        {/* ── Persistent header ── */}
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <span className="text-xs font-medium text-[var(--ds-text-muted,#6f7d83)]">
-              {VISUAL_KIND_META[visual.type].label}
-            </span>
-            {stale ? (
-              <Tooltip label="Source text has changed — click Sync to update">
-                <span
-                  aria-label="Visual may be out of date"
-                  className="inline-flex h-2 w-2 flex-shrink-0 rounded-full bg-amber-400"
-                />
+        {/* ── One-line toolbox: every tool as an icon; clicking loads its config below ── */}
+        <div
+          role="toolbar"
+          aria-label="Visual tools"
+          className="flex items-center gap-0.5"
+        >
+          {MENU_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const active = activeSection === item.id;
+            return (
+              <Tooltip key={item.id} label={item.label}>
+                <span className="relative inline-flex">
+                  <IconButton
+                    aria-label={`${active ? "Hide" : "Show"} ${item.label}`}
+                    size="sm"
+                    active={active}
+                    onClick={() => setActiveSection(active ? null : item.id)}
+                  >
+                    <Icon aria-hidden="true" className="h-4 w-4" />
+                  </IconButton>
+                  {item.id === "sync" && stale ? (
+                    <span
+                      aria-label="Source changed"
+                      className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-400"
+                    />
+                  ) : null}
+                </span>
               </Tooltip>
-            ) : null}
-          </div>
-          <div className="flex items-center gap-1">
-            <Tooltip label="Remove visual">
-              <IconButton
-                aria-label="Remove visual"
-                size="sm"
-                variant="danger"
-                onClick={onRemove}
-              >
-                <Trash2 aria-hidden="true" className="h-4 w-4" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip label="Close">
-              <IconButton
-                aria-label="Close visual controls"
-                size="sm"
-                onClick={onClose}
-              >
-                <X aria-hidden="true" className="h-4 w-4" />
-              </IconButton>
-            </Tooltip>
-          </div>
-        </div>
-
-        <Divider orientation="horizontal" />
-
-        {/* ── Content: menu list OR active submenu ── */}
-        <div className="mt-2">
-          {activeSection === null ? (
-            /* ── Tool strip: one icon per section; click opens its detail ── */
-            <div
-              role="toolbar"
-              aria-label="Visual editing tools"
-              className="flex flex-wrap items-center gap-1"
+            );
+          })}
+          <Tooltip label="AI Variations">
+            <IconButton
+              aria-label="Generate AI variations"
+              size="sm"
+              active={activeSection === "variations"}
+              onClick={() => void runGenerate()}
+              disabled={genStatus === "loading"}
             >
-              {MENU_ITEMS.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Tooltip key={item.id} label={item.label}>
-                    <span className="relative inline-flex">
-                      <IconButton
-                        aria-label={`Open ${item.label}`}
-                        size="sm"
-                        onClick={() => setActiveSection(item.id)}
-                      >
-                        <Icon aria-hidden="true" className="h-4 w-4" />
-                      </IconButton>
-                      {item.id === "sync" && stale ? (
-                        <span
-                          aria-label="Source changed"
-                          className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-400"
-                        />
-                      ) : null}
-                    </span>
-                  </Tooltip>
-                );
-              })}
-              <Tooltip label="AI Variations">
-                <IconButton
-                  aria-label="Generate AI variations"
-                  size="sm"
-                  onClick={() => void runGenerate()}
-                  disabled={genStatus === "loading"}
-                >
-                  <Sparkles
-                    aria-hidden="true"
-                    className={cx(
-                      "h-4 w-4",
-                      genStatus === "loading" ? "animate-pulse" : "",
-                    )}
-                  />
-                </IconButton>
-              </Tooltip>
-            </div>
-          ) : (
-            /* ── Active submenu ── */
-            <div>
-              <SubMenuHeader
-                title={SECTION_LABELS[activeSection]}
-                onBack={() => setActiveSection(null)}
+              <Sparkles
+                aria-hidden="true"
+                className={cx(
+                  "h-4 w-4",
+                  genStatus === "loading" ? "animate-pulse" : "",
+                )}
               />
-              <div className="mt-3">
-                {activeSection === "export" && renderExportSection()}
-                {activeSection === "effects" && renderEffectsSection()}
-                {activeSection === "colors" && renderColorsSection()}
-                {activeSection === "fonts" && renderFontsSection()}
-                {activeSection === "size" && renderSizeSection()}
-                {activeSection === "layout" && renderLayoutSection()}
-                {activeSection === "branding" && renderBrandingSection()}
-                {activeSection === "sync" && renderSyncSection()}
-                {activeSection === "info" && renderInfoSection()}
-                {activeSection === "variations" && renderVariationsSection()}
-              </div>
-            </div>
-          )}
+            </IconButton>
+          </Tooltip>
+
+          <span
+            className="mx-0.5 h-5 w-px shrink-0 bg-[var(--ds-border,rgba(0,0,0,0.1))]"
+            aria-hidden="true"
+          />
+
+          {onDuplicate ? (
+            <Tooltip label="Duplicate visual">
+              <IconButton
+                aria-label="Duplicate visual"
+                size="sm"
+                onClick={onDuplicate}
+              >
+                <Copy aria-hidden="true" className="h-4 w-4" />
+              </IconButton>
+            </Tooltip>
+          ) : null}
+          <Tooltip label="Remove visual">
+            <IconButton
+              aria-label="Remove visual"
+              size="sm"
+              variant="danger"
+              onClick={onRemove}
+            >
+              <Trash2 aria-hidden="true" className="h-4 w-4" />
+            </IconButton>
+          </Tooltip>
         </div>
+
+        {/* ── Config: dynamically loaded below the toolbar ── */}
+        {activeSection !== null ? (
+          <div className="mt-2 max-h-[26rem] overflow-y-auto">
+            <Divider orientation="horizontal" />
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-[var(--ds-text-primary,#15171a)]">
+                {SECTION_LABELS[activeSection]}
+              </span>
+              <IconButton
+                aria-label="Close section"
+                size="sm"
+                onClick={() => setActiveSection(null)}
+              >
+                <X aria-hidden="true" className="h-3.5 w-3.5" />
+              </IconButton>
+            </div>
+            <div className="mt-3">
+              {activeSection === "export" && renderExportSection()}
+              {activeSection === "effects" && renderEffectsSection()}
+              {activeSection === "colors" && renderColorsSection()}
+              {activeSection === "fonts" && renderFontsSection()}
+              {activeSection === "size" && renderSizeSection()}
+              {activeSection === "layout" && renderLayoutSection()}
+              {activeSection === "branding" && renderBrandingSection()}
+              {activeSection === "sync" && renderSyncSection()}
+              {activeSection === "info" && renderInfoSection()}
+              {activeSection === "variations" && renderVariationsSection()}
+            </div>
+          </div>
+        ) : null}
       </div>
     </PopoverShell>
   );
