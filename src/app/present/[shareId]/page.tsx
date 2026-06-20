@@ -5,6 +5,11 @@ import { PublicPresentViewer } from "@/components/presentation/public-present-vi
 import { excerpt } from "@/lib/document-stats";
 import { prisma } from "@/lib/prisma";
 import { buildShareSegment, shareIdFromParam } from "@/lib/slug";
+import {
+  evaluateShareAccess,
+  SHARE_ACCESS_SELECT,
+  toShareAccessInput,
+} from "@/lib/share-access";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { buildDeckFromBlocks } from "@/lib/presentation/deck";
 import { buildPresentationBlocks } from "@/lib/presentation/present-blocks";
@@ -28,11 +33,21 @@ export async function generateMetadata({
   const resolvedShareId = shareIdFromParam(shareId);
 
   const document = await prisma.document.findFirst({
-    where: { shareId: resolvedShareId, isShared: true, deletedAt: null },
-    select: { title: true, content: true, shareId: true, slug: true },
+    where: { shareId: resolvedShareId },
+    select: {
+      title: true,
+      content: true,
+      slug: true,
+      ...SHARE_ACCESS_SELECT,
+    },
   });
 
-  if (!document || !document.shareId) {
+  if (
+    !document ||
+    !evaluateShareAccess(
+      toShareAccessInput(document, resolvedShareId, "present"),
+    ).allow
+  ) {
     return {
       title: `Presentation — ${SITE_NAME}`,
       robots: { index: false, follow: false },
@@ -40,7 +55,7 @@ export async function generateMetadata({
   }
 
   const base = siteBaseUrl();
-  const segment = buildShareSegment(document.slug, document.shareId);
+  const segment = buildShareSegment(document.slug, resolvedShareId);
   const canonical = `${base}/present/${segment}`;
   const shareCanonical = `${base}/share/${segment}`;
   const description = excerpt(document.content);
@@ -79,16 +94,22 @@ export default async function PresentPage({
   const resolvedShareId = shareIdFromParam(shareId);
 
   const document = await prisma.document.findFirst({
-    where: { shareId: resolvedShareId, isShared: true, deletedAt: null },
+    where: { shareId: resolvedShareId },
     select: {
       title: true,
       content: true,
       contentJson: true,
       deckJson: true,
+      ...SHARE_ACCESS_SELECT,
     },
   });
 
-  if (!document) {
+  if (
+    !document ||
+    !evaluateShareAccess(
+      toShareAccessInput(document, resolvedShareId, "present"),
+    ).allow
+  ) {
     notFound();
   }
 

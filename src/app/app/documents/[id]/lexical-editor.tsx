@@ -255,6 +255,9 @@ export function LexicalEditor({
   initialIsShared = false,
   initialShareId = null,
   initialSlug = null,
+  initialShareExpiresAt = null,
+  initialShareEmbedEnabled = true,
+  initialSharePresentEnabled = true,
   initialTags = [],
   allTags = [],
 }: {
@@ -271,6 +274,9 @@ export function LexicalEditor({
   initialIsShared?: boolean;
   initialShareId?: string | null;
   initialSlug?: string | null;
+  initialShareExpiresAt?: string | null;
+  initialShareEmbedEnabled?: boolean;
+  initialSharePresentEnabled?: boolean;
   initialTags?: DocumentTag[];
   allTags?: DocumentTag[];
 }) {
@@ -534,6 +540,9 @@ export function LexicalEditor({
                         initialIsShared={initialIsShared}
                         initialShareId={initialShareId}
                         initialSlug={initialSlug}
+                        initialExpiresAt={initialShareExpiresAt}
+                        initialEmbedEnabled={initialShareEmbedEnabled}
+                        initialPresentEnabled={initialSharePresentEnabled}
                         documentTitle={title.value}
                       />
                     )}

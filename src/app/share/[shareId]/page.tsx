@@ -8,6 +8,11 @@ import { ShareLightbox } from "./share-lightbox";
 import { excerpt } from "@/lib/document-stats";
 import { prisma } from "@/lib/prisma";
 import { buildShareSegment, shareIdFromParam } from "@/lib/slug";
+import {
+  evaluateShareAccess,
+  SHARE_ACCESS_SELECT,
+  toShareAccessInput,
+} from "@/lib/share-access";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
 const SITE_NAME = "TextIQ";
@@ -32,12 +37,22 @@ export async function generateMetadata({
   const resolvedShareId = shareIdFromParam(shareId);
 
   const document = await prisma.document.findFirst({
-    where: { shareId: resolvedShareId, isShared: true, deletedAt: null },
-    select: { title: true, content: true, shareId: true, slug: true },
+    where: { shareId: resolvedShareId },
+    select: {
+      title: true,
+      content: true,
+      slug: true,
+      ...SHARE_ACCESS_SELECT,
+    },
   });
 
-  // Unknown or non-shared document: safe defaults, no indexing, no leak.
-  if (!document || !document.shareId) {
+  // Unknown, non-shared, expired, regenerated, or deleted link: safe defaults,
+  // no indexing, no leak (issue #101 AC #4).
+  if (
+    !document ||
+    !evaluateShareAccess(toShareAccessInput(document, resolvedShareId, "view"))
+      .allow
+  ) {
     return {
       title: `Shared Document — ${SITE_NAME}`,
       robots: { index: false, follow: false },
@@ -45,7 +60,7 @@ export async function generateMetadata({
   }
 
   const base = siteBaseUrl();
-  const segment = buildShareSegment(document.slug, document.shareId);
+  const segment = buildShareSegment(document.slug, resolvedShareId);
   const canonical = `${base}/share/${segment}`;
   const description = excerpt(document.content);
   const ogImage = `${base}/share/${segment}/opengraph-image`;
@@ -83,14 +98,16 @@ export default async function SharedDocumentPage({
   // `<slug>-<shareId>` form; resolve the canonical shareId from it.
   const resolvedShareId = shareIdFromParam(shareId);
 
-  // Find the document by shareId and verify it's actually shared.
+  // Find the document by shareId and apply the share-access policy (shared,
+  // not expired/regenerated/deleted) via the centralized pure decision.
   const document = await prisma.document.findFirst({
-    where: { shareId: resolvedShareId, isShared: true, deletedAt: null },
+    where: { shareId: resolvedShareId },
     select: {
       id: true,
       title: true,
       content: true,
       contentJson: true,
+      ...SHARE_ACCESS_SELECT,
       owner: {
         select: {
           name: true,
@@ -108,7 +125,11 @@ export default async function SharedDocumentPage({
     },
   });
 
-  if (!document) {
+  if (
+    !document ||
+    !evaluateShareAccess(toShareAccessInput(document, resolvedShareId, "view"))
+      .allow
+  ) {
     notFound();
   }
 

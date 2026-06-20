@@ -73,6 +73,10 @@ model Document {
   shareId     String?  @unique
   slug        String?  @unique
   isShared    Boolean  @default(false)
+  // Share-link lifecycle & access policy (issue #101).
+  shareExpiresAt      DateTime?
+  shareEmbedEnabled   Boolean  @default(true)
+  sharePresentEnabled Boolean  @default(true)
   favorite    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
