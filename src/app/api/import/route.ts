@@ -8,7 +8,9 @@
  * server-side only; they never touch the client bundle.
  *
  * Validation errors are returned as `{ error: string }` with an appropriate
- * HTTP status so the client can surface a friendly, retryable message.
+ * HTTP status so the client can surface a friendly, retryable message. The
+ * route is public, so it is throttled per client IP (429 + `Retry-After` on
+ * exceed) and each parse runs under a timeout to bound abuse (#96).
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -19,6 +21,17 @@ import {
   parseImportedFile,
   validateImportFile,
 } from "@/lib/import";
+import { ParseTimeoutError, withTimeout } from "@/lib/import/timeout";
+import { checkRateLimitWithStore } from "@/lib/ai/quota";
+import {
+  getClientIp,
+  hashIdentifier,
+  importRateLimit,
+  importRateWindowMs,
+  prismaRateLimitStore,
+  rateLimitSubject,
+  retryAfterSeconds,
+} from "@/lib/rate-limit";
 
 // Node.js runtime: the parsers (mammoth, jszip, pdfjs) require it.
 export const runtime = "nodejs";
@@ -26,6 +39,42 @@ export const runtime = "nodejs";
 const LOG_SCOPE = "api.import";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  // Abuse control (#96): the import route is public and runs heavy parsers, so
+  // throttle by client IP. A missing/forged secret is a server misconfig, and a
+  // missing client IP is treated as a single shared bucket so the limit can
+  // never be bypassed by stripping the forwarding header.
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) {
+    logError(LOG_SCOPE, new Error("Missing AUTH_SECRET"), {
+      reason: "missing-auth-secret",
+      status: 500,
+    });
+    return NextResponse.json(
+      { error: "Server is misconfigured (missing AUTH_SECRET)." },
+      { status: 500 },
+    );
+  }
+
+  const clientIp = getClientIp(request.headers) ?? "unknown";
+  const rateKey = rateLimitSubject("import", hashIdentifier(clientIp, secret));
+  const now = Date.now();
+  const limit = await checkRateLimitWithStore(prismaRateLimitStore, rateKey, {
+    limit: importRateLimit(),
+    windowMs: importRateWindowMs(),
+    now,
+  });
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Too many imports. Please wait a moment and try again." },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(retryAfterSeconds(limit.resetAt, now)),
+        },
+      },
+    );
+  }
+
   let formData: FormData;
   try {
     formData = await request.formData();
@@ -65,10 +114,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const markdown = await parseImportedFile(
-      validation.mime,
-      buffer,
-      file.name,
+    const markdown = await withTimeout(() =>
+      parseImportedFile(validation.mime, buffer, file.name),
     );
 
     if (!markdown.trim()) {
@@ -80,6 +127,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ markdown });
   } catch (error) {
+    if (error instanceof ParseTimeoutError) {
+      logError(LOG_SCOPE, error, { reason: "parse-timeout", status: 422 });
+      return NextResponse.json(
+        {
+          error:
+            "The file took too long to parse. Try a smaller or simpler document.",
+        },
+        { status: 422 },
+      );
+    }
     logError(LOG_SCOPE, error, { reason: "parse-failed", status: 422 });
     return NextResponse.json(
       {

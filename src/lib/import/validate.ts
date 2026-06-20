@@ -5,7 +5,7 @@
  * (server) and unit tests without any framework dependency.
  */
 
-/** Maximum accepted upload size in bytes (20 MB). */
+/** Absolute ceiling for any accepted upload, in bytes (20 MB). */
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
 /** Accepted file MIME types (canonical names used in HTTP Content-Type). */
@@ -20,6 +20,29 @@ export const ACCEPTED_MIME_TYPES = [
 ] as const;
 
 export type AcceptedMimeType = (typeof ACCEPTED_MIME_TYPES)[number];
+
+/**
+ * Per-type upload ceilings, in bytes (#96, criterion 3). Plain-text formats are
+ * cheap to store but expensive to abuse with multi-megabyte payloads, so they
+ * get a tighter limit than the binary office/PDF formats whose useful documents
+ * are legitimately larger. Every value stays at or below {@link MAX_UPLOAD_BYTES}.
+ */
+export const MAX_BYTES_BY_MIME: Record<AcceptedMimeType, number> = {
+  "text/markdown": 5 * 1024 * 1024,
+  "text/x-markdown": 5 * 1024 * 1024,
+  "text/plain": 5 * 1024 * 1024,
+  "text/html": 5 * 1024 * 1024,
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+    MAX_UPLOAD_BYTES,
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+    MAX_UPLOAD_BYTES,
+  "application/pdf": MAX_UPLOAD_BYTES,
+};
+
+/** Returns the per-type upload ceiling for a resolved MIME type. */
+export function maxBytesForMime(mime: AcceptedMimeType): number {
+  return MAX_BYTES_BY_MIME[mime];
+}
 
 /**
  * File extensions that map to a supported import format even when the browser
@@ -69,29 +92,32 @@ export type ValidationResult =
 
 /**
  * Validates that a file's MIME type is supported and its byte size is within
- * the allowed limit. Returns the resolved MIME type on success.
+ * the per-type limit. Returns the resolved MIME type on success. The MIME type
+ * is resolved first so the size limit applied is the one for the actual format
+ * (#96, criterion 3).
  */
 export function validateImportFile(
   mimeType: string,
   filename: string,
   byteSize: number,
 ): ValidationResult {
-  if (byteSize > MAX_UPLOAD_BYTES) {
-    return {
-      ok: false,
-      error: {
-        code: "file_too_large",
-        maxBytes: MAX_UPLOAD_BYTES,
-        actualBytes: byteSize,
-      },
-    };
-  }
-
   const mime = resolveImportMime(mimeType, filename);
   if (!mime) {
     return {
       ok: false,
       error: { code: "unsupported_type", accepted: ACCEPTED_MIME_TYPES },
+    };
+  }
+
+  const maxBytes = maxBytesForMime(mime);
+  if (byteSize > maxBytes) {
+    return {
+      ok: false,
+      error: {
+        code: "file_too_large",
+        maxBytes,
+        actualBytes: byteSize,
+      },
     };
   }
 
