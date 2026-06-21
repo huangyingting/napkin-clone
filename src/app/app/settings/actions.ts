@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 
 import { signOut } from "@/auth";
+import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 import { validatePasswordChange } from "@/lib/auth/password";
 import {
   deliverVerificationEmail,
@@ -38,10 +39,7 @@ const DELETE_CONFIRMATION_KEYWORD = "DELETE";
 /** Generic fallback so a failed deletion never leaks account state. */
 const GENERIC_DELETE_ERROR = "Could not delete your account. Please try again.";
 
-export type ProfileFormState =
-  | { status: "idle" }
-  | { status: "success"; name: string }
-  | { status: "error"; message: string };
+export type ProfileResult = ActionResult<{ name: string }>;
 
 /**
  * Updates the current user's display name.
@@ -57,9 +55,9 @@ export type ProfileFormState =
  * name captured at sign-in).
  */
 export async function updateProfile(
-  _prevState: ProfileFormState,
+  _prevState: ProfileResult | null,
   formData: FormData,
-): Promise<ProfileFormState> {
+): Promise<ProfileResult> {
   const user = await requireUser();
 
   const name = String(formData.get("name") ?? "")
@@ -74,13 +72,10 @@ export async function updateProfile(
   revalidatePath("/app/settings");
   revalidatePath("/", "layout");
 
-  return { status: "success", name };
+  return actionOk({ name });
 }
 
-export type PasswordFormState =
-  | { status: "idle" }
-  | { status: "success" }
-  | { status: "error"; message: string };
+export type PasswordResult = ActionResult;
 
 /**
  * Changes (or sets) the current user's password.
@@ -94,9 +89,9 @@ export type PasswordFormState =
  * generic message so nothing about the account is leaked.
  */
 export async function changePassword(
-  _prevState: PasswordFormState,
+  _prevState: PasswordResult | null,
   formData: FormData,
-): Promise<PasswordFormState> {
+): Promise<PasswordResult> {
   const user = await requireUser();
 
   const currentPassword = String(formData.get("currentPassword") ?? "");
@@ -108,12 +103,12 @@ export async function changePassword(
     select: { passwordHash: true },
   });
   if (!dbUser) {
-    return { status: "error", message: GENERIC_PASSWORD_ERROR };
+    return actionError(GENERIC_PASSWORD_ERROR);
   }
 
   const validation = validatePasswordChange({ newPassword, confirmPassword });
   if (!validation.ok) {
-    return { status: "error", message: validation.message };
+    return actionError(validation.message);
   }
 
   if (dbUser.passwordHash) {
@@ -121,10 +116,7 @@ export async function changePassword(
       currentPassword.length > 0 &&
       (await bcrypt.compare(currentPassword, dbUser.passwordHash));
     if (!currentMatches) {
-      return {
-        status: "error",
-        message: "Your current password is incorrect.",
-      };
+      return actionError("Your current password is incorrect.");
     }
 
     const sameAsCurrent = await bcrypt.compare(
@@ -132,10 +124,9 @@ export async function changePassword(
       dbUser.passwordHash,
     );
     if (sameAsCurrent) {
-      return {
-        status: "error",
-        message: "New password must be different from your current password.",
-      };
+      return actionError(
+        "New password must be different from your current password.",
+      );
     }
   }
 
@@ -145,12 +136,10 @@ export async function changePassword(
     data: { passwordHash },
   });
 
-  return { status: "success" };
+  return actionOk();
 }
 
-export type DeleteAccountState =
-  | { status: "idle" }
-  | { status: "error"; message: string };
+export type DeleteAccountResult = ActionResult;
 
 /**
  * Permanently deletes the current user's account.
@@ -171,9 +160,9 @@ export type DeleteAccountState =
  * the action's return type).
  */
 export async function deleteAccount(
-  _prevState: DeleteAccountState,
+  _prevState: DeleteAccountResult | null,
   formData: FormData,
-): Promise<DeleteAccountState> {
+): Promise<DeleteAccountResult> {
   const user = await requireUser();
 
   const confirmation = String(formData.get("confirmation") ?? "").trim();
@@ -183,17 +172,16 @@ export async function deleteAccount(
     select: { email: true },
   });
   if (!dbUser) {
-    return { status: "error", message: GENERIC_DELETE_ERROR };
+    return actionError(GENERIC_DELETE_ERROR);
   }
 
   const matchesEmail =
     confirmation.toLowerCase() === dbUser.email.trim().toLowerCase();
   const matchesKeyword = confirmation === DELETE_CONFIRMATION_KEYWORD;
   if (!matchesEmail && !matchesKeyword) {
-    return {
-      status: "error",
-      message: `Type your email or "${DELETE_CONFIRMATION_KEYWORD}" to confirm.`,
-    };
+    return actionError(
+      `Type your email or "${DELETE_CONFIRMATION_KEYWORD}" to confirm.`,
+    );
   }
 
   try {
@@ -218,11 +206,13 @@ export async function deleteAccount(
 
     await prisma.user.delete({ where: { id: user.id } });
   } catch {
-    return { status: "error", message: GENERIC_DELETE_ERROR };
+    return actionError(GENERIC_DELETE_ERROR);
   }
 
   await signOut({ redirectTo: "/" });
-  return { status: "idle" };
+  // Unreachable: signOut redirects by throwing. Returned only to satisfy the
+  // action's return type.
+  return actionOk();
 }
 
 /** Builds the absolute, ready-to-click email-verification URL with the token. */
@@ -235,11 +225,13 @@ function buildVerifyUrl(rawToken: string): string {
 const GENERIC_VERIFICATION_ERROR =
   "Could not send a verification email. Please try again.";
 
-export type VerifyEmailState =
-  | { status: "idle" }
-  | { status: "sent" }
-  | { status: "already_verified" }
-  | { status: "error"; message: string };
+/**
+ * Success payload for {@link requestEmailVerification}: distinguishes a freshly
+ * sent link from a short-circuit when the address was already verified.
+ */
+export type VerifyEmailResult = ActionResult<{
+  status: "sent" | "already_verified";
+}>;
 
 /**
  * Sends an email-verification link to the current user's own address (#162).
@@ -253,9 +245,9 @@ export type VerifyEmailState =
  * verification tokens, and hands the raw-token link to the delivery seam.
  */
 export async function requestEmailVerification(
-  _prevState: VerifyEmailState,
+  _prevState: VerifyEmailResult | null,
   _formData: FormData,
-): Promise<VerifyEmailState> {
+): Promise<VerifyEmailResult> {
   const user = await requireUser();
 
   try {
@@ -264,10 +256,10 @@ export async function requestEmailVerification(
       select: { email: true, emailVerified: true },
     });
     if (!dbUser) {
-      return { status: "error", message: GENERIC_VERIFICATION_ERROR };
+      return actionError(GENERIC_VERIFICATION_ERROR);
     }
     if (dbUser.emailVerified) {
-      return { status: "already_verified" };
+      return actionOk({ status: "already_verified" });
     }
 
     const rawToken = generateVerificationToken();
@@ -290,9 +282,9 @@ export async function requestEmailVerification(
     };
     await deliverVerificationEmail(message);
 
-    return { status: "sent" };
+    return actionOk({ status: "sent" });
   } catch (error) {
     logError("email-verification", error);
-    return { status: "error", message: GENERIC_VERIFICATION_ERROR };
+    return actionError(GENERIC_VERIFICATION_ERROR);
   }
 }

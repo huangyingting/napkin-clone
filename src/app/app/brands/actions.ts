@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { validateBrandInput, type BrandStyle } from "@/lib/brand/schema";
@@ -82,20 +83,20 @@ export async function listBrands(): Promise<BrandStyle[]> {
 /** Creates a new brand for the current user. Returns the created brand. */
 export async function createBrand(
   raw: unknown,
-): Promise<{ ok: true; data: BrandStyle } | { ok: false; error: string }> {
+): Promise<ActionResult<BrandStyle>> {
   const user = await requireUser();
   const entitlements = await resolveBrandEntitlements(user.id);
   if (!entitlements.canBrand) {
-    return { ok: false, error: BRAND_STYLES_UPGRADE_MESSAGE };
+    return actionError(BRAND_STYLES_UPGRADE_MESSAGE);
   }
   const validation = validateBrandInput(raw);
   if (!validation.ok) {
-    return { ok: false, error: validation.error };
+    return actionError(validation.error);
   }
   const { data } = validation;
 
   if (isCustomFontFamily(data.fontFamily) && !entitlements.canFontUpload) {
-    return { ok: false, error: FONT_UPLOAD_UPGRADE_MESSAGE };
+    return actionError(FONT_UPLOAD_UPGRADE_MESSAGE);
   }
 
   const row = await prisma.brand.create({
@@ -116,34 +117,33 @@ export async function createBrand(
   });
 
   revalidatePath("/app/brands");
-  return { ok: true, data: toBrandStyle(row) };
+  return actionOk(toBrandStyle(row));
 }
 
 /** Updates a brand owned by the current user. */
 export async function updateBrand(
   id: string,
   raw: unknown,
-): Promise<{ ok: true; data: BrandStyle } | { ok: false; error: string }> {
+): Promise<ActionResult<BrandStyle>> {
   const user = await requireUser();
   const entitlements = await resolveBrandEntitlements(user.id);
   if (!entitlements.canBrand) {
-    return { ok: false, error: BRAND_STYLES_UPGRADE_MESSAGE };
+    return actionError(BRAND_STYLES_UPGRADE_MESSAGE);
   }
 
   const existing = await prisma.brand.findUnique({
     where: { id },
     select: { ownerId: true },
   });
-  if (!existing) return { ok: false, error: "Brand not found." };
-  if (existing.ownerId !== user.id)
-    return { ok: false, error: "Not authorized." };
+  if (!existing) return actionError("Brand not found.");
+  if (existing.ownerId !== user.id) return actionError("Not authorized.");
 
   const validation = validateBrandInput(raw);
-  if (!validation.ok) return { ok: false, error: validation.error };
+  if (!validation.ok) return actionError(validation.error);
   const { data } = validation;
 
   if (isCustomFontFamily(data.fontFamily) && !entitlements.canFontUpload) {
-    return { ok: false, error: FONT_UPLOAD_UPGRADE_MESSAGE };
+    return actionError(FONT_UPLOAD_UPGRADE_MESSAGE);
   }
 
   const row = await prisma.brand.update({
@@ -164,28 +164,25 @@ export async function updateBrand(
   });
 
   revalidatePath("/app/brands");
-  return { ok: true, data: toBrandStyle(row) };
+  return actionOk(toBrandStyle(row));
 }
 
 /** Deletes a brand owned by the current user. */
-export async function deleteBrand(
-  id: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function deleteBrand(id: string): Promise<ActionResult> {
   const user = await requireUser();
   const entitlements = await resolveBrandEntitlements(user.id);
   if (!entitlements.canBrand) {
-    return { ok: false, error: BRAND_STYLES_UPGRADE_MESSAGE };
+    return actionError(BRAND_STYLES_UPGRADE_MESSAGE);
   }
 
   const existing = await prisma.brand.findUnique({
     where: { id },
     select: { ownerId: true },
   });
-  if (!existing) return { ok: false, error: "Brand not found." };
-  if (existing.ownerId !== user.id)
-    return { ok: false, error: "Not authorized." };
+  if (!existing) return actionError("Brand not found.");
+  if (existing.ownerId !== user.id) return actionError("Not authorized.");
 
   await prisma.brand.delete({ where: { id } });
   revalidatePath("/app/brands");
-  return { ok: true };
+  return actionOk();
 }

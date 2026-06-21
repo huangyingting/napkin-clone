@@ -3,9 +3,9 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { deleteAccount, type DeleteAccountState } from "./actions";
+import { deleteAccount, type DeleteAccountResult } from "./actions";
 
-const initialState: DeleteAccountState = { status: "idle" };
+const initialState: DeleteAccountResult | null = null;
 
 /** Literal keyword accepted as a confirmation alternative to the email. */
 const DELETE_KEYWORD = "DELETE";
@@ -135,9 +135,9 @@ export function DeleteAccountForm({ email }: { email: string }) {
                 />
               </div>
 
-              {state.status === "error" ? (
+              {state && !state.ok ? (
                 <p role="alert" className="text-sm text-ds-danger">
-                  {state.message}
+                  {state.error}
                 </p>
               ) : null}
 

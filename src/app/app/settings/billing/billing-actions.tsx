@@ -23,12 +23,17 @@ export function BillingActions({
     setIsError(false);
     startTransition(async () => {
       const result = await changePlanAction(targetPlan);
-      if (result.redirectUrl) {
-        window.location.href = result.redirectUrl;
+      if (!result.ok) {
+        setMessage(result.error);
+        setIsError(true);
         return;
       }
-      setMessage(result.message);
-      setIsError(!result.success);
+      if (result.data.redirectUrl) {
+        window.location.href = result.data.redirectUrl;
+        return;
+      }
+      setMessage(result.data.message);
+      setIsError(false);
     });
   }
 
@@ -37,8 +42,13 @@ export function BillingActions({
     setIsError(false);
     startTransition(async () => {
       const result = await cancelSubscriptionAction();
-      setMessage(result.message);
-      setIsError(!result.success);
+      if (!result.ok) {
+        setMessage(result.error);
+        setIsError(true);
+        return;
+      }
+      setMessage(result.data.message);
+      setIsError(false);
     });
   }
 

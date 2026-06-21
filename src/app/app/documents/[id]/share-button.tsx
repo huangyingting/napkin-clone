@@ -98,6 +98,7 @@ export function ShareButton({
   const [embedCopied, setEmbedCopied] = useState(false);
   const [presentCopied, setPresentCopied] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // The embed URL points at the chrome-free /embed/[shareId] route. Derive it
   // from shareUrl so it shares the same origin as the displayed share link.
@@ -115,14 +116,24 @@ export function ShareButton({
 
   const handleToggle = async (enable: boolean) => {
     const result = await toggleDocumentSharing(id, enable);
-    setShareState(toShareState(result));
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setError(null);
+    setShareState(toShareState(result.data));
   };
 
   const handleRegenerate = async () => {
     setRegenerating(true);
     try {
       const result = await regenerateShareLink(id);
-      setShareState(toShareState(result));
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setError(null);
+      setShareState(toShareState(result.data));
     } finally {
       setRegenerating(false);
     }
@@ -133,17 +144,32 @@ export function ShareButton({
     // (or null when cleared) for the server policy.
     const expiresAt = value ? new Date(value).toISOString() : null;
     const result = await updateSharePolicy(id, { expiresAt });
-    setShareState(toShareState(result));
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setError(null);
+    setShareState(toShareState(result.data));
   };
 
   const handleEmbedEnabledChange = async (enabled: boolean) => {
     const result = await updateSharePolicy(id, { embedEnabled: enabled });
-    setShareState(toShareState(result));
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setError(null);
+    setShareState(toShareState(result.data));
   };
 
   const handlePresentEnabledChange = async (enabled: boolean) => {
     const result = await updateSharePolicy(id, { presentEnabled: enabled });
-    setShareState(toShareState(result));
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setError(null);
+    setShareState(toShareState(result.data));
   };
 
   const copyLink = async () => {
@@ -205,6 +231,12 @@ export function ShareButton({
           aria-labelledby="share-toggle-label"
         />
       </div>
+
+      {error && (
+        <p role="alert" className="mb-3 text-xs text-ds-danger">
+          {error}
+        </p>
+      )}
 
       {shareState.isShared && shareState.shareUrl && (
         <div>

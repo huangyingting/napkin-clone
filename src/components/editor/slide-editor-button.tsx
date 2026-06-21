@@ -91,7 +91,11 @@ export function SlideEditorButton({
     async (updatedDeck: Deck) => {
       setIsSaving(true);
       try {
-        await saveDeckJson(documentId, updatedDeck);
+        const res = await saveDeckJson(documentId, updatedDeck);
+        if (!res.ok) {
+          console.error(res.error);
+          return;
+        }
         // Keep lastSavedRef current so subsequent opens don't regress.
         lastSavedRef.current = updatedDeck;
       } finally {

@@ -2,9 +2,9 @@
 
 import { useActionState } from "react";
 
-import { requestEmailVerification, type VerifyEmailState } from "./actions";
+import { requestEmailVerification, type VerifyEmailResult } from "./actions";
 
-const initialState: VerifyEmailState = { status: "idle" };
+const initialState: VerifyEmailResult | null = null;
 
 /**
  * The "Verify email" affordance: an unverified user requests a verification
@@ -29,19 +29,19 @@ export function EmailVerificationForm() {
         </button>
       </div>
 
-      {state.status === "sent" ? (
+      {state?.ok && state.data.status === "sent" ? (
         <p role="status" className="text-sm text-ds-success">
           Verification email sent. Check your inbox for the link.
         </p>
       ) : null}
-      {state.status === "already_verified" ? (
+      {state?.ok && state.data.status === "already_verified" ? (
         <p role="status" className="text-sm text-ds-success">
           Your email is already verified.
         </p>
       ) : null}
-      {state.status === "error" ? (
+      {state && !state.ok ? (
         <p role="alert" className="text-sm text-ds-danger">
-          {state.message}
+          {state.error}
         </p>
       ) : null}
     </form>
