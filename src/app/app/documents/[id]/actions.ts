@@ -128,7 +128,7 @@ async function snapshotDocumentVersion(
       where: { id: documentId },
       select: { contentJson: true, deckJson: true },
     });
-    if (!doc) {
+    if (!doc || doc.contentJson == null) {
       return;
     }
 
@@ -363,6 +363,10 @@ export async function saveDocumentLexical(
 
   const content = lexicalStateToPlainText(parsed).slice(0, MAX_CONTENT_LENGTH);
 
+  // Snapshot the state that is about to be overwritten. Capturing after the
+  // write would make history restore the current save, which feels broken.
+  await snapshotDocumentVersion(id, { userId: user.id });
+
   await prisma.document.updateMany({
     where: { id },
     data: {
@@ -375,10 +379,6 @@ export async function saveDocumentLexical(
   // thumbnails, and version history keep working off the editor's source of
   // truth (contentJson).
   await mirrorVisualNodes(id, parsed);
-
-  // Capture a throttled version snapshot of the just-saved state so an earlier
-  // version can be viewed/restored after the tab closes (issue #158).
-  await snapshotDocumentVersion(id, { userId: user.id });
 
   revalidatePath("/app");
   return actionOk();
@@ -716,13 +716,13 @@ export async function saveDeckJson(
 
   await requireDocumentCapability(user.id, id, "edit");
 
+  // Snapshot the previous editable state before overwriting the deck.
+  await snapshotDocumentVersion(id, { userId: user.id });
+
   await prisma.document.updateMany({
     where: { id },
     data: { deckJson: result.data as unknown as Prisma.InputJsonValue },
   });
-
-  // Capture a throttled version snapshot so deck edits are restorable too (#158).
-  await snapshotDocumentVersion(id, { userId: user.id });
 
   revalidatePath(`/app/documents/${id}`);
   return actionOk();

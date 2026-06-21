@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 
 import { useCardMotion } from "@/components/motion/reveal";
 import { FOCUS_RING } from "@/components/motion/control-styles";
+import { contentViewBox, nodeBoxes } from "@/components/visual/layout";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 import {
@@ -265,7 +266,8 @@ export function VisualCard({
   // Opens this card's editing controls. Visibility is local state; the
   // editor-root click-away above closes any other open visual, giving
   // single-active-visual semantics without a (collab-stripped) NodeSelection.
-  const selectVisual = useCallback(() => {
+  const selectVisual = useCallback((nodeId?: string | null) => {
+    setSelectedNodeId(nodeId ?? null);
     setOpen(true);
   }, []);
 
@@ -420,6 +422,8 @@ export function VisualCard({
   }
 
   const data = parsed.data;
+  const previewNodeBoxes = nodeBoxes(data);
+  const previewViewBox = contentViewBox(data);
 
   const cardClass = [
     "overflow-hidden rounded-2xl border bg-[var(--ds-surface-base,#ffffff)] p-2 transition",
@@ -443,20 +447,28 @@ export function VisualCard({
             visual={data}
             onChange={updateVisual}
             onSelectNode={setSelectedNodeId}
+            initialSelectedNodeId={selectedNodeId}
             rendererRef={rendererRef}
             canEdit
           />
         </div>
       ) : editable ? (
         <div className="group relative">
-          <button
-            type="button"
+          <div
+            role="button"
+            tabIndex={0}
             aria-label="Edit visual"
             // Prevent the button from grabbing focus from the editor on click
             // (avoids a focus flash as it unmounts into the editing controls)
             // while still firing `onClick`; keyboard activation is unaffected.
             onMouseDown={(event) => event.preventDefault()}
-            onClick={selectVisual}
+            onClick={() => selectVisual(null)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                selectVisual(null);
+              }
+            }}
             className={`${cardClass} block w-full cursor-pointer text-left hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))] ${FOCUS_RING}`}
           >
             <VisualRenderer
@@ -464,7 +476,39 @@ export function VisualCard({
               visual={data}
               className="pointer-events-none block h-auto w-full"
             />
-          </button>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox={`${previewViewBox.x} ${previewViewBox.y} ${previewViewBox.width} ${previewViewBox.height}`}
+              preserveAspectRatio="xMidYMid meet"
+              className="absolute inset-2 h-[calc(100%-1rem)] w-[calc(100%-1rem)]"
+              aria-hidden="true"
+            >
+              {data.nodes.map((node) => {
+                const box = previewNodeBoxes.get(node.id);
+                if (!box) {
+                  return null;
+                }
+                return (
+                  <rect
+                    key={node.id}
+                    x={box.x - box.width / 2}
+                    y={box.y - box.height / 2}
+                    width={box.width}
+                    height={box.height}
+                    rx={10}
+                    fill="transparent"
+                    pointerEvents="all"
+                    className="cursor-pointer"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      selectVisual(node.id);
+                    }}
+                  />
+                );
+              })}
+            </svg>
+          </div>
           {/* Quick-download button — visible on hover */}
           <button
             type="button"

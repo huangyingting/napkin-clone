@@ -163,12 +163,14 @@ export function VisualEditor({
   visual,
   onChange,
   onSelectNode,
+  initialSelectedNodeId = null,
   rendererRef,
   canEdit = true,
 }: {
   visual: Visual;
   onChange: (next: Visual) => void;
   onSelectNode?: (id: string | null) => void;
+  initialSelectedNodeId?: string | null;
   /** Optional ref to the rendered SVG (for exports). */
   rendererRef?: React.RefObject<SVGSVGElement | null>;
   canEdit?: boolean;
@@ -189,7 +191,9 @@ export function VisualEditor({
   const [hoverId, setHoverId] = useState<string | null>(null);
   // The node explicitly picked for styling (US-014). Distinct from `activeId`
   // (which also tracks hover) so the style panel targets a stable selection.
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialSelectedNodeId,
+  );
   // The connector (edge) selected for inline label/direction editing (US-016).
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [hoverEdgeId, setHoverEdgeId] = useState<string | null>(null);
