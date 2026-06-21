@@ -92,7 +92,7 @@ test("success: returns a safeParseDeck-valid deck from fixture JSON", async () =
     ]),
   );
 
-  const deck = await runDeckGeneration({
+  const { deck } = await runDeckGeneration({
     contentJson: DOC_WITH_VISUAL,
     visuals: new Map([["v1", visual("v1")]]),
     complete,
@@ -160,7 +160,7 @@ test("no visuals: the generated deck contains no visual elements", async () => {
     ]),
   );
 
-  const deck = await runDeckGeneration({
+  const { deck } = await runDeckGeneration({
     contentJson: DOC_NO_VISUAL,
     visuals: new Map(),
     complete,
@@ -171,4 +171,38 @@ test("no visuals: the generated deck contains no visual elements", async () => {
     (slide.elements ?? []).filter((element) => element.kind === "visual"),
   );
   assert.equal(visualElements.length, 0);
+});
+
+test("threads truncated=false through for a small document", async () => {
+  const complete = constantComplete(deckJson([{ title: "X" }]));
+
+  const result = await runDeckGeneration({
+    contentJson: DOC_NO_VISUAL,
+    visuals: new Map(),
+    complete,
+  });
+
+  assert.equal(result.truncated, false);
+  assert.ok(safeParseDeck(result.deck).success);
+});
+
+test("threads truncated=true through for a huge document", async () => {
+  // A document large enough to blow past MAX_INPUT_CHARS, so buildDeckSource
+  // trims detail and the run reports truncation.
+  const children: unknown[] = [heading(1, "Top")];
+  for (let i = 0; i < 2000; i++) {
+    children.push({
+      type: "paragraph",
+      children: [text(`para ${i} ` + "x".repeat(200))],
+    });
+  }
+  const complete = constantComplete(deckJson([{ title: "X" }]));
+
+  const result = await runDeckGeneration({
+    contentJson: state(children),
+    visuals: new Map(),
+    complete,
+  });
+
+  assert.equal(result.truncated, true);
 });

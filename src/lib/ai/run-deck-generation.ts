@@ -40,15 +40,27 @@ export interface RunDeckGenerationInput {
 }
 
 /**
+ * The result of a deck-generation run: the normalized {@link Deck} plus whether
+ * the source outline was deterministically truncated to fit the input budget,
+ * so callers can surface a "content truncated" notice to the user.
+ */
+export interface RunDeckGenerationResult {
+  deck: Deck;
+  /** True when {@link buildDeckSource} trimmed the outline to fit the budget. */
+  truncated: boolean;
+}
+
+/**
  * Builds the deck source from `contentJson` + `visuals` and generates a
  * normalized {@link Deck}. Pure with respect to I/O: all network access happens
- * inside the injected `complete`.
+ * inside the injected `complete`. Returns the deck together with the source's
+ * `truncated` flag.
  */
 export async function runDeckGeneration(
   input: RunDeckGenerationInput,
-): Promise<Deck> {
+): Promise<RunDeckGenerationResult> {
   const source = buildDeckSource(input.contentJson, input.visuals);
-  return generateDeck(
+  const deck = await generateDeck(
     {
       outline: source.outline,
       visualInventory: source.visualInventory,
@@ -61,4 +73,5 @@ export async function runDeckGeneration(
         : {}),
     },
   );
+  return { deck, truncated: source.truncated };
 }

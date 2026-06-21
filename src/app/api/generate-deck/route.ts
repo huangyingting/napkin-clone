@@ -5,8 +5,9 @@
  * validate (outline length/shape, before any LLM call) → check Azure config →
  * identify the user → enforce quota (anonymous trial cookie + hashed-IP
  * throttle) or per-user rate limit + credit metering → generate via Azure
- * OpenAI (wrapped in the abort deadline) → charge credits on success → return
- * `{ deck }`.
+ * OpenAI (wrapped in the abort deadline, with an output-token budget) → charge
+ * credits on success → return `{ deck, truncated }` (the `truncated` flag tells
+ * the UI when the source outline was trimmed to fit the input budget).
  *
  * Request contract
  * ----------------
@@ -52,6 +53,7 @@ import {
   type CompleteFn,
 } from "@/lib/ai/generate";
 import type { DeckGenerationOptions } from "@/lib/ai/generate-deck";
+import { DECK_OUTPUT_TOKEN_BUDGET } from "@/lib/ai/generate-deck";
 import { runDeckGeneration } from "@/lib/ai/run-deck-generation";
 import {
   ANON_COOKIE_NAME,
@@ -214,7 +216,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // (and price) it BEFORE any LLM call. Visuals come from the embedded payloads.
   const blocks = collectDocumentBlocks(body.contentJson);
   const visuals = visualsFromContent(blocks);
-  const { outline } = buildDeckSource(body.contentJson, visuals);
+  const { outline, truncated } = buildDeckSource(body.contentJson, visuals);
 
   if (outline.trim().length === 0) {
     return errorResponse(
@@ -247,7 +249,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const config = getAzureConfig();
     complete = (messages) =>
       withAbortDeadline(
-        (signal) => azureChatComplete(messages, { config, signal }),
+        (signal) =>
+          azureChatComplete(messages, {
+            config,
+            signal,
+            maxOutputTokens: DECK_OUTPUT_TOKEN_BUDGET,
+          }),
         GENERATE_TIMEOUT_MS,
       );
   } catch (error) {
@@ -358,7 +365,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   // Generate.
   try {
-    const deck = await runDeckGeneration({
+    const { deck } = await runDeckGeneration({
       contentJson: body.contentJson,
       visuals,
       complete,
@@ -384,7 +391,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     }
 
-    const response = NextResponse.json({ deck });
+    const response = NextResponse.json({ deck, truncated });
     if (setAnonCookie) {
       response.cookies.set(ANON_COOKIE_NAME, setAnonCookie, {
         httpOnly: true,

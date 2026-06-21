@@ -36,8 +36,23 @@ import type { Visual } from "@/lib/visual/schema";
 /** One entry in the inventory the model may reference (mirrors generateDeck). */
 type DeckVisualInventoryItem = GenerateDeckInput["visualInventory"][number];
 
-/** The structured source `generateDeck` consumes. */
-export type DeckSource = Pick<GenerateDeckInput, "outline" | "visualInventory">;
+/**
+ * The structured source `generateDeck` consumes, plus truncation metadata so
+ * callers (the route, the UI) can notify the user when the document outline was
+ * deterministically trimmed to fit {@link MAX_INPUT_CHARS}. `generateDeck`
+ * itself only reads `outline` + `visualInventory` and ignores the rest.
+ */
+export interface DeckSource extends Pick<
+  GenerateDeckInput,
+  "outline" | "visualInventory"
+> {
+  /** True when the outline was trimmed to fit the input budget. */
+  truncated: boolean;
+  /** Length (chars) of the full serialised outline before truncation. */
+  originalChars: number;
+  /** Length (chars) of the outline actually kept (`outline.length`). */
+  keptChars: number;
+}
 
 /** Upper bound on a visual inventory `summary` (ids/titles are never cut). */
 const MAX_SUMMARY_CHARS = 120;
@@ -123,6 +138,13 @@ function lineCost(line: string): number {
   return line.length + 1;
 }
 
+interface BuiltOutline {
+  outline: string;
+  truncated: boolean;
+  originalChars: number;
+  keptChars: number;
+}
+
 /**
  * Folds the blocks into a single outline string no longer than
  * {@link MAX_INPUT_CHARS}. The heading skeleton is treated as mandatory
@@ -130,15 +152,24 @@ function lineCost(line: string): number {
  * blocks in reading order, so trailing detail is dropped first while every
  * heading survives (until headings alone would blow the budget, an extreme case
  * in which trailing headings are dropped too). Output is fully deterministic.
+ *
+ * Returns the kept outline alongside truncation metadata: `originalChars` is the
+ * length the outline would have had with every block retained, `keptChars` is
+ * the length actually emitted, and `truncated` is true whenever any block line
+ * was dropped to honour the budget.
  */
-function buildOutline(blocks: ReadonlyArray<DocumentBlock>): string {
+function buildOutline(blocks: ReadonlyArray<DocumentBlock>): BuiltOutline {
   const items: OutlineItem[] = [];
   for (const block of blocks) {
     const line = serializeBlock(block);
     if (line === null) continue;
     items.push({ line, heading: isHeadingBlock(block) });
   }
-  if (items.length === 0) return "";
+  if (items.length === 0) {
+    return { outline: "", truncated: false, originalChars: 0, keptChars: 0 };
+  }
+
+  const originalChars = items.map((item) => item.line).join("\n").length;
 
   let headingBudget = 0;
   for (const item of items) {
@@ -149,6 +180,7 @@ function buildOutline(blocks: ReadonlyArray<DocumentBlock>): string {
   const lines: string[] = [];
   let used = 0;
   let detailUsed = 0;
+  let dropped = false;
 
   for (const item of items) {
     const cost = lineCost(item.line);
@@ -156,6 +188,8 @@ function buildOutline(blocks: ReadonlyArray<DocumentBlock>): string {
       if (used + cost <= MAX_INPUT_CHARS) {
         lines.push(item.line);
         used += cost;
+      } else {
+        dropped = true;
       }
       continue;
     }
@@ -163,10 +197,18 @@ function buildOutline(blocks: ReadonlyArray<DocumentBlock>): string {
       lines.push(item.line);
       used += cost;
       detailUsed += cost;
+    } else {
+      dropped = true;
     }
   }
 
-  return lines.join("\n");
+  const outline = lines.join("\n");
+  return {
+    outline,
+    truncated: dropped,
+    originalChars,
+    keptChars: outline.length,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -243,8 +285,10 @@ function buildInventory(
 
 /**
  * Extracts the structured `{ outline, visualInventory }` deck source from a
- * serialised Lexical document and its visuals. Pure and headless. Never throws:
- * an empty/malformed document yields `{ outline: "", visualInventory: [] }`.
+ * serialised Lexical document and its visuals, plus truncation metadata
+ * (`truncated`, `originalChars`, `keptChars`). Pure and headless. Never throws:
+ * an empty/malformed document yields `{ outline: "", visualInventory: [],
+ * truncated: false, originalChars: 0, keptChars: 0 }`.
  *
  * @param contentJson  Serialised Lexical editor state (string or pre-parsed).
  * @param visuals      The document's visuals, keyed by visual id.
@@ -254,8 +298,12 @@ export function buildDeckSource(
   visuals: ReadonlyMap<string, Visual>,
 ): DeckSource {
   const blocks = collectDocumentBlocks(contentJson);
+  const outline = buildOutline(blocks);
   return {
-    outline: buildOutline(blocks),
+    outline: outline.outline,
     visualInventory: buildInventory(blocks, visuals),
+    truncated: outline.truncated,
+    originalChars: outline.originalChars,
+    keptChars: outline.keptChars,
   };
 }

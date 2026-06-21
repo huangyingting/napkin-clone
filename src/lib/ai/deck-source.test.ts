@@ -242,12 +242,14 @@ test("huge document is truncated to MAX_INPUT_CHARS while retaining headings", (
     children.push(paragraph(text(`detail ${i} ` + "x".repeat(200))));
   }
 
-  const { outline } = buildDeckSource(state(children), visualMap());
+  const { outline, truncated } = buildDeckSource(state(children), visualMap());
 
   assert.ok(
     outline.length <= MAX_INPUT_CHARS,
     `outline length ${outline.length} exceeds ${MAX_INPUT_CHARS}`,
   );
+
+  assert.equal(truncated, true, "huge document must report truncated=true");
 
   // Every heading must survive, in order, even though detail was dropped.
   const headingLines = outline
@@ -274,13 +276,39 @@ test("truncation is deterministic and never alters leading content", () => {
   assert.ok(a.length <= MAX_INPUT_CHARS);
 });
 
+test("small document reports truncated=false and keeps all content", () => {
+  const children: unknown[] = [
+    heading(1, "Top"),
+    paragraph(text("A short paragraph.")),
+    heading(2, "Next"),
+    paragraph(text("Another short paragraph.")),
+  ];
+
+  const { outline, truncated, originalChars, keptChars } = buildDeckSource(
+    state(children),
+    visualMap(),
+  );
+
+  assert.equal(truncated, false, "small document must report truncated=false");
+  assert.equal(keptChars, outline.length);
+  assert.equal(originalChars, keptChars);
+  assert.ok(outline.includes("A short paragraph."));
+  assert.ok(outline.includes("Another short paragraph."));
+});
+
 // ---------------------------------------------------------------------------
 // Empty / malformed — never throws
 // ---------------------------------------------------------------------------
 
 test("empty document returns a minimal valid source without throwing", () => {
   const result = buildDeckSource(state([]), visualMap());
-  assert.deepEqual(result, { outline: "", visualInventory: [] });
+  assert.deepEqual(result, {
+    outline: "",
+    visualInventory: [],
+    truncated: false,
+    originalChars: 0,
+    keptChars: 0,
+  });
 });
 
 test("malformed input does not throw", () => {
