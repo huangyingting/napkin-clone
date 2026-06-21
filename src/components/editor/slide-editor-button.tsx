@@ -4,20 +4,22 @@
  * Toolbar button that opens the SlideEditor panel for the current document.
  *
  * Reads the current Lexical editor state to derive a base deck via
- * buildDeckFromBlocks, then merges the persisted deckJson (if any) as the
- * starting deck. Mutations flow back through React state; saves go through the
- * owner-scoped `saveDeckJson` server action.
+ * buildDeckFromBlocks, then seeds the editor from the freshest available deck:
+ * 1. Re-fetches deckJson from the server on every open (catches remote edits).
+ * 2. Falls back to the last locally-saved deck (updated after each save).
+ * 3. Falls back to the base deck derived from the Lexical editor state.
+ * Saves go through the owner-scoped `saveDeckJson` server action.
  */
 
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { LayoutPanelLeft } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
-import { saveDeckJson } from "@/app/app/documents/[id]/actions";
+import { fetchDeckJson, saveDeckJson } from "@/app/app/documents/[id]/actions";
 import { FOCUS_RING } from "@/components/motion/control-styles";
 import { SlideEditor } from "@/components/presentation/slide-editor";
 import { buildDeckFromBlocks, type Deck } from "@/lib/presentation/deck";
-import { safeParseDeck } from "@/lib/presentation/deck-schema";
+import { pickFreshestDeck } from "@/lib/presentation/fresh-deck";
 import { collectDocumentBlocks } from "@/lib/visual/document-export";
 import type { Visual } from "@/lib/visual/schema";
 import { useRightSurface } from "@/app/app/documents/[id]/right-surface-context";
@@ -40,7 +42,11 @@ export function SlideEditorButton({
   const [isSaving, setIsSaving] = useState(false);
   const { openSlideEditor, closeSlideEditor } = useRightSurface();
 
-  const handleOpen = useCallback(() => {
+  // Tracks the most recently saved deck so subsequent opens use fresh data
+  // even without a server round-trip succeeding (e.g. offline).
+  const lastSavedRef = useRef<unknown>(initialDeckJson);
+
+  const handleOpen = useCallback(async () => {
     // Build base deck from current editor state.
     const json = JSON.stringify(editor.getEditorState().toJSON());
     const blocks = collectDocumentBlocks(json);
@@ -55,15 +61,25 @@ export function SlideEditorButton({
       }
     }
 
-    // If there's a persisted deck, use it; else use the derived deck.
-    const parsed = safeParseDeck(initialDeckJson);
-    const startDeck = parsed.success ? parsed.data : baseDeck;
+    // Fetch the freshest deckJson from the server; fall back gracefully.
+    let fetchedRaw: unknown = null;
+    try {
+      fetchedRaw = await fetchDeckJson(documentId);
+    } catch {
+      // Network/auth error — proceed with lastSavedRef as fallback.
+    }
+
+    const startDeck = pickFreshestDeck(
+      fetchedRaw,
+      lastSavedRef.current,
+      baseDeck,
+    );
 
     setVisuals(visualMap);
     setDeck(startDeck);
     setOpen(true);
     openSlideEditor();
-  }, [editor, initialDeckJson, openSlideEditor]);
+  }, [editor, documentId, openSlideEditor]);
 
   const handleClose = useCallback(() => {
     setOpen(false);
@@ -76,6 +92,8 @@ export function SlideEditorButton({
       setIsSaving(true);
       try {
         await saveDeckJson(documentId, updatedDeck);
+        // Keep lastSavedRef current so subsequent opens don't regress.
+        lastSavedRef.current = updatedDeck;
       } finally {
         setIsSaving(false);
       }
