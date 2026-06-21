@@ -137,6 +137,8 @@ export async function duplicateDocument(id: string): Promise<void> {
     select: {
       title: true,
       content: true,
+      contentJson: true,
+      deckJson: true,
       visuals: {
         orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }],
         select: {
@@ -159,6 +161,12 @@ export async function duplicateDocument(id: string): Promise<void> {
       ownerId: user.id,
       title: `${source.title} (copy)`,
       content: source.content,
+      ...(source.contentJson != null && {
+        contentJson: source.contentJson as Prisma.InputJsonValue,
+      }),
+      ...(source.deckJson != null && {
+        deckJson: source.deckJson as Prisma.InputJsonValue,
+      }),
       visuals: {
         create: source.visuals.map((visual) => ({
           anchorBlockId: visual.anchorBlockId,
