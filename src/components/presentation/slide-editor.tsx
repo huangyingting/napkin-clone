@@ -24,6 +24,9 @@
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
+  Copy,
   GripVertical,
   Image as ImageIcon,
   LayoutPanelLeft,
@@ -33,6 +36,7 @@ import {
   RefreshCw,
   Shapes,
   Sparkles,
+  Trash2,
   Type,
   Undo2,
   X,
@@ -87,10 +91,12 @@ import {
 } from "@/lib/presentation/save-status";
 import {
   addElement,
+  addSlide,
   bringElementToFront,
   duplicateSlide,
   insertSlide,
   materializeSlide,
+  moveSlide,
   removeElement,
   removeSlide,
   reorderSlides,
@@ -103,6 +109,7 @@ import {
   type DistributiveOmit,
   type ElementPatch,
 } from "@/lib/presentation/deck-mutations";
+import { deriveSlideTitle } from "@/lib/presentation/slide-title";
 import { useDeckHistory } from "@/lib/presentation/use-deck-history";
 
 interface SlideEditorProps {
@@ -451,6 +458,27 @@ export function SlideEditor({
     [deck, onDeckChange],
   );
 
+  const handleAddSlide = useCallback(
+    (afterIndex: number) => {
+      const next = addSlide(deck, afterIndex);
+      onDeckChange(next);
+      setSelectedIndex(Math.min(afterIndex + 1, next.slides.length - 1));
+    },
+    [deck, onDeckChange],
+  );
+
+  const handleMove = useCallback(
+    (index: number, direction: number) => {
+      const next = moveSlide(deck, index, direction);
+      if (next === deck) {
+        return;
+      }
+      onDeckChange(next);
+      setSelectedIndex(index + (direction > 0 ? 1 : -1));
+    },
+    [deck, onDeckChange],
+  );
+
   const handleDuplicate = useCallback(
     (index: number) => {
       onDeckChange(duplicateSlide(deck, index));
@@ -526,6 +554,30 @@ export function SlideEditor({
         return;
       }
 
+      // Slide-management shortcuts (mod = Ctrl/⌘). The `typing` guard above keeps
+      // these from firing while editing a field, and they all require the
+      // modifier so they never collide with the element Delete/Backspace or the
+      // bare ArrowLeft/Right paging below. Each routes through the same handlers
+      // as the rail buttons, so every action lands on the undo/redo `commit`.
+      if (mod && !event.shiftKey && !event.altKey) {
+        const key = event.key.toLowerCase();
+        if (key === "d") {
+          event.preventDefault();
+          handleDuplicate(safeSelected);
+          return;
+        }
+        if (key === "n") {
+          event.preventDefault();
+          handleAddSlide(safeSelected);
+          return;
+        }
+        if (event.key === "Backspace" || event.key === "Delete") {
+          event.preventDefault();
+          handleRemove(safeSelected);
+          return;
+        }
+      }
+
       // With an element selected, arrow keys nudge it and Delete removes it.
       const slide = deck.slides[safeSelected];
       const selected =
@@ -579,6 +631,9 @@ export function SlideEditor({
     onDeckChange,
     undo,
     redo,
+    handleDuplicate,
+    handleRemove,
+    handleAddSlide,
   ]);
 
   const handleBulletsChange = useCallback(
@@ -934,6 +989,8 @@ export function SlideEditor({
                 const selected = index === safeSelected;
                 const dropTarget =
                   dragOverIndex === index && dragIndex !== index;
+                const title = deriveSlideTitle(slide, index);
+                const canDelete = deck.slides.length > 1;
                 return (
                   <li
                     key={index}
@@ -951,7 +1008,7 @@ export function SlideEditor({
                       event.preventDefault();
                       handleDrop(index);
                     }}
-                    className="group"
+                    className="group relative"
                   >
                     <button
                       type="button"
@@ -959,26 +1016,67 @@ export function SlideEditor({
                         setVisualPickerOpen(false);
                         setSelectedIndex(index);
                       }}
-                      aria-label={`Slide ${index + 1}`}
+                      aria-label={`Slide ${index + 1}: ${title}`}
                       aria-current={selected}
-                      className={`flex w-full items-center gap-2 rounded-ds-md border p-1.5 text-left transition-colors ${
+                      className={`flex w-full flex-col gap-1 rounded-ds-md border p-1.5 text-left transition-colors ${
                         selected
                           ? "border-ds-control bg-ds-state-hover"
                           : "border-transparent hover:bg-ds-state-hover"
                       } ${dropTarget ? "border-ds-control" : ""} ${FOCUS_RING}`}
                     >
-                      <span className="flex w-4 shrink-0 flex-col items-center gap-1 text-xs tabular-nums text-ds-text-muted">
-                        {index + 1}
-                        <GripVertical
-                          size={12}
-                          aria-hidden="true"
-                          className="cursor-grab opacity-0 transition-opacity group-hover:opacity-100"
-                        />
+                      <span className="flex items-center gap-2">
+                        <span className="flex w-4 shrink-0 flex-col items-center gap-1 text-xs tabular-nums text-ds-text-muted">
+                          {index + 1}
+                          <GripVertical
+                            size={12}
+                            aria-hidden="true"
+                            className="cursor-grab opacity-0 transition-opacity group-hover:opacity-100"
+                          />
+                        </span>
+                        <span className="pointer-events-none block aspect-video min-w-0 flex-1 overflow-hidden rounded-ds-sm border border-ds-border-subtle">
+                          <SlideCanvas
+                            slide={slide}
+                            visuals={visuals}
+                            preview
+                          />
+                        </span>
                       </span>
-                      <span className="pointer-events-none block aspect-video min-w-0 flex-1 overflow-hidden rounded-ds-sm border border-ds-border-subtle">
-                        <SlideCanvas slide={slide} visuals={visuals} preview />
+                      <span
+                        className="block truncate pl-6 text-xs text-ds-text-secondary"
+                        title={title}
+                      >
+                        {title}
                       </span>
                     </button>
+
+                    {/* Hover/focus action cluster — reveals on group hover or
+                        keyboard focus so the rail stays clean but every action
+                        is keyboard-reachable (issue #212). */}
+                    <div className="absolute right-1 top-1 flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                      <ThumbnailAction
+                        icon={<ChevronUp size={13} aria-hidden="true" />}
+                        label={`Move slide ${index + 1} up`}
+                        disabled={index === 0}
+                        onClick={() => handleMove(index, -1)}
+                      />
+                      <ThumbnailAction
+                        icon={<ChevronDown size={13} aria-hidden="true" />}
+                        label={`Move slide ${index + 1} down`}
+                        disabled={index === deck.slides.length - 1}
+                        onClick={() => handleMove(index, 1)}
+                      />
+                      <ThumbnailAction
+                        icon={<Copy size={13} aria-hidden="true" />}
+                        label={`Duplicate slide ${index + 1}`}
+                        onClick={() => handleDuplicate(index)}
+                      />
+                      <ThumbnailAction
+                        icon={<Trash2 size={13} aria-hidden="true" />}
+                        label={`Delete slide ${index + 1}`}
+                        disabled={!canDelete}
+                        onClick={() => handleRemove(index)}
+                      />
+                    </div>
                   </li>
                 );
               })}
@@ -1238,6 +1336,41 @@ function StageAddButton({
     >
       {icon}
       {label}
+    </button>
+  );
+}
+
+/**
+ * A single icon button in a thumbnail's hover/focus action cluster
+ * (move ↑/↓, duplicate, delete). Reuses the `VisualCard` hover-action pattern —
+ * a round glass button revealed on group hover — but each is a real `<button>`
+ * with an `aria-label` and a focus-visible ring so the rail's slide-management
+ * actions are fully keyboard-accessible (issue #212).
+ */
+function ThumbnailAction({
+  icon,
+  label,
+  onClick,
+  disabled,
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+      className={`flex h-6 w-6 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-glass text-ds-text-muted shadow-sm backdrop-blur-sm transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:pointer-events-none disabled:opacity-40 ${FOCUS_RING}`}
+    >
+      {icon}
     </button>
   );
 }
