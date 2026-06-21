@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   evaluateInviteAccess,
   isInviteAccessAllowed,
+  isUnderUseCap,
   toInviteAccessInput,
   type InviteAccessFields,
   type InviteAccessInput,
@@ -161,4 +162,28 @@ test("toInviteAccessInput: maps a selected row and threads the clock", () => {
     useCount: 1,
     now: NOW,
   });
+});
+
+// ---------------------------------------------------------------------------
+// isUnderUseCap — atomic conditional-update predicate
+// ---------------------------------------------------------------------------
+
+test("isUnderUseCap: null maxUses → always under cap (unlimited)", () => {
+  assert.equal(isUnderUseCap(null, 0), true);
+  assert.equal(isUnderUseCap(null, 9999), true);
+});
+
+test("isUnderUseCap: useCount strictly below maxUses → under cap", () => {
+  assert.equal(isUnderUseCap(1, 0), true);
+  assert.equal(isUnderUseCap(5, 4), true);
+});
+
+test("isUnderUseCap: useCount === maxUses → at cap, not under", () => {
+  assert.equal(isUnderUseCap(1, 1), false);
+  assert.equal(isUnderUseCap(5, 5), false);
+});
+
+test("isUnderUseCap: useCount > maxUses → over cap, not under", () => {
+  assert.equal(isUnderUseCap(1, 2), false);
+  assert.equal(isUnderUseCap(3, 10), false);
 });
