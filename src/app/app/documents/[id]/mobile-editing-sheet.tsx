@@ -416,6 +416,7 @@ function VisualContextSection() {
   return (
     <VisualContextPopover
       mode="panel"
+      visualId={visualData.visualId}
       visual={visualData.visual}
       selectedNodeId={selectedNodeId}
       onChange={updateVisual}

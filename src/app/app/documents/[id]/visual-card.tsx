@@ -8,7 +8,11 @@ import { motion } from "framer-motion";
 
 import { useCardMotion } from "@/components/motion/reveal";
 import { FOCUS_RING } from "@/components/motion/control-styles";
-import { contentViewBox, nodeBoxes } from "@/components/visual/layout";
+import {
+  contentViewBox,
+  edgeSegments,
+  nodeBoxes,
+} from "@/components/visual/layout";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 import {
@@ -86,6 +90,7 @@ export function VisualCard({
 
   const [editable, setEditable] = useState(() => editor.isEditable());
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   // Whether this card's editing controls are open. Local state (not a Lexical
   // NodeSelection) so it survives collaborative updates — see the component doc.
   const [open, setOpen] = useState(false);
@@ -211,6 +216,33 @@ export function VisualCard({
     });
   }, [editor, nodeKey]);
 
+  const removeSelectedNode = useCallback(() => {
+    const id = selectedNodeId;
+    if (!id) {
+      return;
+    }
+    editor.update(() => {
+      const node = $getNodeByKey(nodeKey);
+      if (!$isVisualNode(node)) {
+        return;
+      }
+      const current = node.getVisual();
+      if (current.nodes.length <= 1) {
+        return;
+      }
+      node.setVisual(
+        applyElasticLayout({
+          ...current,
+          nodes: current.nodes.filter((item) => item.id !== id),
+          edges: current.edges.filter(
+            (edge) => edge.from !== id && edge.to !== id,
+          ),
+        }),
+      );
+    });
+    setSelectedNodeId(null);
+  }, [editor, nodeKey, selectedNodeId]);
+
   // Duplicates this visual block by inserting a new VisualNode with the same
   // payload immediately after the current node. A fresh visualId is generated
   // by $createVisualNode so the duplicate is tracked independently. Collab-safe:
@@ -269,22 +301,33 @@ export function VisualCard({
   // single-active-visual semantics without a (collab-stripped) NodeSelection.
   const selectVisual = useCallback((nodeId?: string | null) => {
     setSelectedNodeId(nodeId ?? null);
+    setSelectedEdgeId(null);
     setOpen(true);
   }, []);
 
-  const selectPreviewNode = useCallback(
+  const selectPreviewEdge = useCallback((edgeId: string) => {
+    setSelectedNodeId(null);
+    setSelectedEdgeId(edgeId);
+    setOpen(true);
+  }, []);
+
+  const selectPreviewElement = useCallback(
     (event: React.PointerEvent<HTMLElement>) => {
       const target = event.target as Element | null;
       const nodeId = target?.getAttribute("data-preview-node-id");
-      if (!nodeId) {
-        return;
+      const edgeId = target?.getAttribute("data-preview-edge-id");
+      if (nodeId || edgeId) {
+        event.preventDefault();
+        event.stopPropagation();
+        suppressPreviewClickRef.current = true;
       }
-      event.preventDefault();
-      event.stopPropagation();
-      suppressPreviewClickRef.current = true;
-      selectVisual(nodeId);
+      if (nodeId) {
+        selectVisual(nodeId);
+      } else if (edgeId) {
+        selectPreviewEdge(edgeId);
+      }
     },
-    [selectVisual],
+    [selectPreviewEdge, selectVisual],
   );
 
   // Closes the controls (Escape / × / click-away).
@@ -439,6 +482,7 @@ export function VisualCard({
 
   const data = parsed.data;
   const previewNodeBoxes = nodeBoxes(data);
+  const previewEdgeSegments = edgeSegments(data);
   const previewViewBox = contentViewBox(data);
 
   const cardClass = [
@@ -463,7 +507,9 @@ export function VisualCard({
             visual={data}
             onChange={updateVisual}
             onSelectNode={setSelectedNodeId}
+            onSelectEdge={setSelectedEdgeId}
             initialSelectedNodeId={selectedNodeId}
+            initialSelectedEdgeId={selectedEdgeId}
             rendererRef={rendererRef}
             canEdit
           />
@@ -477,7 +523,7 @@ export function VisualCard({
             // Prevent the button from grabbing focus from the editor on click
             // (avoids a focus flash as it unmounts into the editing controls)
             // while still firing `onClick`; keyboard activation is unaffected.
-            onPointerDownCapture={selectPreviewNode}
+            onPointerDownCapture={selectPreviewElement}
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => {
               if (suppressPreviewClickRef.current) {
@@ -506,6 +552,27 @@ export function VisualCard({
               className="absolute inset-2 h-[calc(100%-1rem)] w-[calc(100%-1rem)]"
               aria-hidden="true"
             >
+              {data.edges.map((edge) => {
+                const segment = previewEdgeSegments.get(edge.id);
+                if (!segment) {
+                  return null;
+                }
+                return (
+                  <line
+                    key={edge.id}
+                    data-preview-edge-id={edge.id}
+                    x1={segment.start.x}
+                    y1={segment.start.y}
+                    x2={segment.end.x}
+                    y2={segment.end.y}
+                    stroke="transparent"
+                    strokeWidth={14}
+                    strokeLinecap="round"
+                    pointerEvents="stroke"
+                    className="cursor-pointer"
+                  />
+                );
+              })}
               {data.nodes.map((node) => {
                 const box = previewNodeBoxes.get(node.id);
                 if (!box) {
@@ -608,12 +675,15 @@ export function VisualCard({
           SlideEditor panel is open so large editor overlays do not compete. */}
       {showControls &&
       !suppressFloatPopover &&
+      selectedEdgeId === null &&
       editingSurface.mode === "float" ? (
         <VisualContextPopover
+          visualId={visualId}
           visual={data}
           selectedNodeId={selectedNodeId}
           onChange={updateVisual}
           onRemove={removeVisual}
+          onRemoveSelectedNode={selectedNodeId ? removeSelectedNode : undefined}
           onClose={closeControls}
           getSvgElement={() => rendererRef.current}
           anchorRef={rootRef}

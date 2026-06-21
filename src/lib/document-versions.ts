@@ -11,15 +11,15 @@
 /**
  * Minimum time that must elapse since the most recent snapshot before another
  * one is recorded. Throttling avoids a new version on every keystroke/autosave
- * while still capturing the document's evolution over a session (~5 minutes).
+ * while still capturing the document's evolution over a session (~10 minutes).
  */
-export const SNAPSHOT_MIN_INTERVAL_MS = 5 * 60 * 1000;
+export const SNAPSHOT_MIN_INTERVAL_MS = 10 * 60 * 1000;
 
 /**
  * How many snapshots to retain per document. Older snapshots beyond this count
  * are pruned in the same save so the history table can't grow without bound.
  */
-export const MAX_DOCUMENT_VERSIONS = 30;
+export const MAX_DOCUMENT_VERSIONS = 15;
 
 /**
  * Decides whether a new snapshot should be taken for a document.

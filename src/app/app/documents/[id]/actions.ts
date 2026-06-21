@@ -44,6 +44,24 @@ const MAX_DECK_JSON_LENGTH = 500_000;
 // the same save so the history table can't grow without bound.
 const MAX_VISUAL_REVISIONS = 10;
 
+function stableJsonString(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map(stableJsonString).join(",")}]`;
+  }
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${stableJsonString(record[key])}`)
+    .join(",")}}`;
+}
+
+function jsonEqual(a: unknown, b: unknown): boolean {
+  return stableJsonString(a) === stableJsonString(b);
+}
+
 /**
  * Records a snapshot of a visual's current persisted state into the
  * `VisualRevision` history, then prunes that visual's history to the most recent
@@ -110,7 +128,7 @@ async function snapshotDocumentVersion(
     const last = await prisma.documentVersion.findFirst({
       where: { documentId },
       orderBy: { createdAt: "desc" },
-      select: { createdAt: true },
+      select: { createdAt: true, contentJson: true, deckJson: true },
     });
 
     if (
@@ -129,6 +147,15 @@ async function snapshotDocumentVersion(
       select: { contentJson: true, deckJson: true },
     });
     if (!doc || doc.contentJson == null) {
+      return;
+    }
+
+    if (
+      !(options.force ?? false) &&
+      last &&
+      jsonEqual(doc.contentJson, last.contentJson) &&
+      jsonEqual(doc.deckJson, last.deckJson)
+    ) {
       return;
     }
 

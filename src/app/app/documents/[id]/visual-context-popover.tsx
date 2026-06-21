@@ -694,11 +694,13 @@ function BrandChip({
 // ---------------------------------------------------------------------------
 
 export type VisualContextPopoverProps = {
+  visualId: string;
   visual: Visual;
   selectedNodeId: string | null;
   /** Applies a transformed visual back to the document (via `node.setVisual`). */
   onChange: (next: Visual) => void;
   onRemove: () => void;
+  onRemoveSelectedNode?: () => void;
   onClose: () => void;
   /** The selected SVG canvas, for exports. */
   getSvgElement: () => SVGSVGElement | null;
@@ -779,10 +781,12 @@ function PopoverShell({
  * → `editor.update()` — never Yjs directly.
  */
 export function VisualContextPopover({
+  visualId,
   visual,
   selectedNodeId,
   onChange,
   onRemove,
+  onRemoveSelectedNode,
   onClose,
   getSvgElement,
   anchorRef,
@@ -801,6 +805,9 @@ export function VisualContextPopover({
 
   // Drill-down navigation: null = main menu, string = active submenu section
   const [activeSection, setActiveSection] = useState<MenuSection | null>(null);
+  const [selectionContextKey, setSelectionContextKey] = useState(
+    `${visualId}:${selectedNodeId ?? "visual"}`,
+  );
   const [nodeFontPickerOpen, setNodeFontPickerOpen] = useState(false);
 
   // Colors submenu: progressive disclosure for per-color overrides
@@ -854,6 +861,16 @@ export function VisualContextPopover({
         : null,
     [visual.nodes, selectedNodeId],
   );
+  const nextSelectionContextKey = `${visualId}:${selectedNodeId ?? "visual"}`;
+  if (nextSelectionContextKey !== selectionContextKey) {
+    setSelectionContextKey(nextSelectionContextKey);
+    setActiveSection(null);
+    setNodeFontPickerOpen(false);
+    setCustomizeOpen(false);
+    setCandidates([]);
+    setGenError(null);
+    setSyncError(null);
+  }
   const componentContext = selectedNode !== null;
   const effectiveActiveSection: MenuSection | null =
     componentContext &&
@@ -899,7 +916,7 @@ export function VisualContextPopover({
       },
       float: { width, height },
       viewport: { width: window.innerWidth, height: window.innerHeight },
-      placement: "top",
+      placement: componentContext ? "right" : "top",
       gap: POPOVER_GAP,
       padding: EDGE_INSET,
     });
@@ -2037,6 +2054,18 @@ export function VisualContextPopover({
                   <RefreshCw aria-hidden="true" className="h-4 w-4" />
                 </IconButton>
               </Tooltip>
+              {onRemoveSelectedNode ? (
+                <Tooltip label="Delete element">
+                  <IconButton
+                    aria-label="Delete element"
+                    size="sm"
+                    variant="danger"
+                    onClick={onRemoveSelectedNode}
+                  >
+                    <Trash2 aria-hidden="true" className="h-4 w-4" />
+                  </IconButton>
+                </Tooltip>
+              ) : null}
             </div>
 
             {effectiveActiveSection !== null ? (
@@ -2045,7 +2074,7 @@ export function VisualContextPopover({
                   orientation="vertical"
                   className="mx-0 h-auto self-stretch"
                 />
-                <div className="min-w-0 flex-1 overflow-y-auto max-h-[22rem] pr-1">
+                <div className="max-h-[22rem] min-w-0 flex-1 overflow-y-auto pr-1">
                   {sectionContent}
                 </div>
               </>

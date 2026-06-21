@@ -172,14 +172,18 @@ export function VisualEditor({
   visual,
   onChange,
   onSelectNode,
+  onSelectEdge,
   initialSelectedNodeId = null,
+  initialSelectedEdgeId = null,
   rendererRef,
   canEdit = true,
 }: {
   visual: Visual;
   onChange: (next: Visual) => void;
   onSelectNode?: (id: string | null) => void;
+  onSelectEdge?: (id: string | null) => void;
   initialSelectedNodeId?: string | null;
+  initialSelectedEdgeId?: string | null;
   /** Optional ref to the rendered SVG (for exports). */
   rendererRef?: React.RefObject<SVGSVGElement | null>;
   canEdit?: boolean;
@@ -205,7 +209,9 @@ export function VisualEditor({
     initialSelectedNodeId,
   );
   // The connector (edge) selected for inline label/direction editing (US-016).
-  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(
+    initialSelectedEdgeId,
+  );
   const [hoverEdgeId, setHoverEdgeId] = useState<string | null>(null);
 
   const positioned = isPositionedKind(visual.type) && !visual.autoLayout;
@@ -240,7 +246,6 @@ export function VisualEditor({
 
   // Stale ids (after a regeneration swaps the visual) resolve to nothing.
   const editingNode = editingId ? nodeById.get(editingId) : undefined;
-  const deletableId = !editingId && canDelete ? (hoverId ?? activeId) : null;
   // The selected connector resolves to nothing if its id went stale.
   const selectedEdge = selectedEdgeId
     ? edgeById.get(selectedEdgeId)
@@ -254,6 +259,12 @@ export function VisualEditor({
   useEffect(() => {
     onSelectNode?.(selectedId && nodeById.has(selectedId) ? selectedId : null);
   }, [selectedId, nodeById, onSelectNode]);
+
+  useEffect(() => {
+    onSelectEdge?.(
+      selectedEdgeId && edgeById.has(selectedEdgeId) ? selectedEdgeId : null,
+    );
+  }, [edgeById, onSelectEdge, selectedEdgeId]);
 
   // Focus the node's label field when editing begins. Keyed on the id only, so
   // it doesn't re-`select()` on every keystroke — which selected all text and
@@ -605,66 +616,6 @@ export function VisualEditor({
     }
   }, []);
 
-  function renderDeleteButton(id: string) {
-    const box = boxes.get(id);
-    const node = nodeById.get(id);
-    if (!box || !node) {
-      return null;
-    }
-    const cx = clamp(box.x + box.width / 2, 12, visual.width - 12);
-    const cy = clamp(box.y - box.height / 2, 12, visual.height - 12);
-    const r = 11;
-    return (
-      <g
-        role="button"
-        aria-label={`Delete ${node.label || "node"}`}
-        tabIndex={0}
-        className="cursor-pointer"
-        onPointerDown={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-        }}
-        onClick={(event) => {
-          event.stopPropagation();
-          removeNode(id);
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            removeNode(id);
-          }
-        }}
-      >
-        <circle
-          cx={cx}
-          cy={cy}
-          r={r}
-          fill="#ef4444"
-          stroke="#ffffff"
-          strokeWidth={1.5}
-        />
-        <line
-          x1={cx - 4}
-          y1={cy - 4}
-          x2={cx + 4}
-          y2={cy + 4}
-          stroke="#ffffff"
-          strokeWidth={1.8}
-          strokeLinecap="round"
-        />
-        <line
-          x1={cx + 4}
-          y1={cy - 4}
-          x2={cx - 4}
-          y2={cy + 4}
-          stroke="#ffffff"
-          strokeWidth={1.8}
-          strokeLinecap="round"
-        />
-      </g>
-    );
-  }
-
   /**
    * The four corner resize handles for the selected positioned node. Only
    * rendered on fine pointers (mouse/trackpad); hidden on touch so drag-move
@@ -983,8 +934,6 @@ export function VisualEditor({
             </g>
           );
         })}
-
-        {deletableId ? renderDeleteButton(deletableId) : null}
 
         {/* Corner resize handles for the selected positioned node (mouse only;
             hidden on coarse/touch pointers where drag-move stays the gesture). */}

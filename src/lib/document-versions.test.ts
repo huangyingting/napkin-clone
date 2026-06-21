@@ -72,3 +72,8 @@ test("staleVersionIds: default keep is MAX_DOCUMENT_VERSIONS", () => {
     String(MAX_DOCUMENT_VERSIONS + 1),
   ]);
 });
+
+test("policy defaults: 10 minute cadence, 15 retained versions", () => {
+  assert.equal(SNAPSHOT_MIN_INTERVAL_MS, 10 * 60 * 1000);
+  assert.equal(MAX_DOCUMENT_VERSIONS, 15);
+});
