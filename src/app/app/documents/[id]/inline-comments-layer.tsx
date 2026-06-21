@@ -36,7 +36,7 @@ function normalizeAnchorText(value: string): string {
 }
 
 function isTextBlock(element: HTMLElement): boolean {
-  if (element.closest("[data-visual-chrome]")) {
+  if (element.closest("[data-visual-chrome],[data-lexical-visual-id]")) {
     return false;
   }
   return normalizeAnchorText(element.textContent ?? "").length > 0;
@@ -44,14 +44,16 @@ function isTextBlock(element: HTMLElement): boolean {
 
 function blockAtY(root: HTMLElement, clientY: number): HTMLElement | null {
   const blocks = Array.from(root.children).filter(
-    (child): child is HTMLElement =>
-      child instanceof HTMLElement && isTextBlock(child),
+    (child): child is HTMLElement => child instanceof HTMLElement,
   );
   let nearest: { block: HTMLElement; distance: number } | null = null;
   for (const block of blocks) {
     const rect = block.getBoundingClientRect();
     if (clientY >= rect.top && clientY <= rect.bottom) {
-      return block;
+      return isTextBlock(block) ? block : null;
+    }
+    if (!isTextBlock(block)) {
+      continue;
     }
     const distance = Math.min(
       Math.abs(clientY - rect.top),
@@ -171,36 +173,19 @@ export function InlineCommentsLayer({
   }, [refreshPositions, threads]);
 
   useEffect(() => {
-    let rootElement: HTMLElement | null = null;
     let cleanupRoot: (() => void) | null = null;
 
-    const updateActiveAnchorPosition = () => {
-      const root = rootElement;
-      if (!activeAnchor || !root) {
-        return;
-      }
-      const block = Array.from(root.children).find(
-        (child): child is HTMLElement =>
-          child instanceof HTMLElement &&
-          normalizeAnchorText(child.textContent ?? "") === activeAnchor.text,
-      );
-      if (block) {
-        const next = positionForBlock(block, root);
-        if (next) {
-          setActiveAnchor(next);
-        }
-      }
-    };
-
     const onScrollOrResize = () => {
+      setHoverAnchor(null);
+      setActiveAnchor(null);
+      setBody("");
+      setError(null);
       refreshPositions();
-      updateActiveAnchorPosition();
     };
 
     const detachRoot = () => {
       cleanupRoot?.();
       cleanupRoot = null;
-      rootElement = null;
     };
 
     const unregisterRoot = editor.registerRootListener((root, prevRoot) => {
@@ -211,7 +196,6 @@ export function InlineCommentsLayer({
         return;
       }
 
-      rootElement = root;
       const onMouseMove = (event: MouseEvent) => {
         if (activeAnchor) return;
         if (!isInRightCommentGutter(root, event.clientX)) {
@@ -290,13 +274,13 @@ export function InlineCommentsLayer({
           type="button"
           aria-label="Add comment to this paragraph"
           onClick={() => setActiveAnchor(iconAnchor)}
-          className="pointer-events-auto absolute flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-overlay text-ds-text-muted shadow-sm transition hover:text-ds-text-primary"
+          className="pointer-events-auto absolute flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-overlay text-ds-text-muted shadow-sm transition hover:text-ds-text-primary"
           style={{
             top: iconAnchor.top,
             left: iconAnchor.iconLeft,
           }}
         >
-          <MessageSquare aria-hidden="true" className="h-4 w-4" />
+          <MessageSquare aria-hidden="true" className="h-5 w-5" />
         </button>
       ) : null}
 

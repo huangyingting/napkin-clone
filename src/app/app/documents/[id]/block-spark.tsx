@@ -463,6 +463,22 @@ export function BlockSparkPlugin() {
     setVisualQuery("");
   }, [rememberChoices]);
 
+  useEffect(() => {
+    const dismissSpark = () => {
+      cancelClear();
+      keepRef.current = false;
+      setBlock(null);
+      closePanel();
+    };
+
+    window.addEventListener("scroll", dismissSpark, true);
+    window.addEventListener("resize", dismissSpark);
+    return () => {
+      window.removeEventListener("scroll", dismissSpark, true);
+      window.removeEventListener("resize", dismissSpark);
+    };
+  }, [cancelClear, closePanel]);
+
   const toggleVisualCategory = useCallback((categoryId: string) => {
     setExpandedVisualCategories((current) => ({
       ...current,
@@ -689,7 +705,7 @@ export function BlockSparkPlugin() {
               }}
               className={cx("fixed z-raised", GUTTER_BUTTON)}
             >
-              <Sparkles aria-hidden="true" className="h-5 w-5" />
+              <Sparkles aria-hidden="true" className="h-6 w-6" />
             </motion.button>
           ) : null}
         </AnimatePresence>,

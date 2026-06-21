@@ -3,7 +3,7 @@ type HorizontalRect = {
   right: number;
 };
 
-export const DOCUMENT_GUTTER_BUTTON_SIZE = 32;
+export const DOCUMENT_GUTTER_BUTTON_SIZE = 36;
 export const DOCUMENT_GUTTER_DOT_SIZE = 12;
 export const DOCUMENT_GUTTER_GAP = 8;
 export const DOCUMENT_GUTTER_OFFSET =
