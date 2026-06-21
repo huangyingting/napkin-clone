@@ -25,11 +25,13 @@
  *  2. Place a referenced document visual into a prominent box for slides whose
  *     layout implies a visual (`media`). Only ids present in the supplied
  *     inventory are used; orphaned references are dropped.
- *  3. Stamp the deck theme uniformly on every slide. A missing/invalid deck
- *     theme falls back to {@link FALLBACK_THEME} — we do NOT call
- *     {@link inferDeckTheme} here because it needs the document's
- *     {@link DocumentBlock}s, which this layer does not have. Text styles are
- *     normalized so title vs body hierarchy stays clear.
+ *  3. Stamp the deck theme uniformly on every slide. The model is biased to
+ *     return a vibrant theme, but when it returns `"default"` (reserved for
+ *     dark/embed contexts) or a missing/invalid theme, substitute a vibrant one
+ *     (issue #281): the caller-supplied document-derived `preferredTheme` (from
+ *     {@link inferDeckTheme}) when available, otherwise {@link FALLBACK_THEME}.
+ *     An explicit NON-default vibrant theme the model chose is preserved. Text
+ *     styles are normalized so title vs body hierarchy stays clear.
  *  4. Slides are stamped `elementsDerived = false` (authored). The user chose AI
  *     generation, so the output is treated like hand-authored content and a
  *     later "Sync from document" (issue #221) PRESERVES it instead of clobbering
@@ -264,8 +266,22 @@ function normalizeSlide(
   };
 }
 
-function resolveTheme(deck: Deck): DeckTheme {
-  return DECK_THEMES.includes(deck.theme) ? deck.theme : FALLBACK_THEME;
+function resolveTheme(deck: Deck, preferredTheme?: DeckTheme): DeckTheme {
+  // Preserve an explicit, valid NON-default vibrant theme the model chose.
+  if (deck.theme !== "default" && DECK_THEMES.includes(deck.theme)) {
+    return deck.theme;
+  }
+  // The model returned "default", or a missing/invalid theme. Substitute a
+  // vibrant one (issue #281): prefer a document-derived theme when supplied,
+  // otherwise the brand-aligned indigo — never the bleak "default".
+  if (
+    preferredTheme &&
+    preferredTheme !== "default" &&
+    DECK_THEMES.includes(preferredTheme)
+  ) {
+    return preferredTheme;
+  }
+  return FALLBACK_THEME;
 }
 
 /**
@@ -278,13 +294,19 @@ function resolveTheme(deck: Deck): DeckTheme {
  * @param inventory  Visuals the deck may reference, as a set of ids or any
  *                   array of `{ id }` carriers. Visuals not present here are
  *                   dropped. Omit for "no known visuals".
+ * @param preferredTheme  A document-derived vibrant theme (from
+ *                   {@link inferDeckTheme}) used when the model returns
+ *                   `"default"` or a missing/invalid theme (issue #281). An
+ *                   explicit NON-default vibrant theme the model chose is always
+ *                   preserved. Falls back to {@link FALLBACK_THEME} when omitted.
  */
 export function normalizeGeneratedDeck(
   deck: Deck,
   inventory?: VisualInventory,
+  preferredTheme?: DeckTheme,
 ): Deck {
   const knownIds = toKnownIds(inventory);
-  const theme = resolveTheme(deck);
+  const theme = resolveTheme(deck, preferredTheme);
   const slides = deck.slides.map((slide, index) =>
     normalizeSlide(slide, index, theme, knownIds),
   );

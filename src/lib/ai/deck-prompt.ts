@@ -15,6 +15,16 @@
 import type { ChatMessage } from "@/lib/ai/prompt";
 import { DECK_THEMES, SLIDE_LAYOUTS } from "@/lib/presentation/deck";
 
+/**
+ * The vibrant, content-appropriate themes the model should choose from for
+ * strong visual impact (issue #281). Derived from {@link DECK_THEMES} so it
+ * stays in sync with the validator: every theme EXCEPT `default`, which is
+ * reserved for explicitly dark / embed contexts.
+ */
+const VIBRANT_THEMES: readonly string[] = DECK_THEMES.filter(
+  (theme) => theme !== "default",
+);
+
 /** A single visual the model may reference (and ONLY these) by `id`. */
 export interface DeckVisualInventoryItem {
   id: string;
@@ -57,7 +67,7 @@ function deckSchemaDescription(): string {
   return [
     "Return ONE JSON object describing a presentation Deck with this exact shape:",
     "{",
-    `  "theme": one of ${DECK_THEMES.map((t) => `"${t}"`).join(" | ")} (optional; defaults to "default"),`,
+    `  "theme": one of ${DECK_THEMES.map((t) => `"${t}"`).join(" | ")} (choose a vibrant one — see Theme rules below),`,
     '  "slides": [',
     "    {",
     '      "title": short slide heading string (optional),',
@@ -94,6 +104,11 @@ const SYSTEM_PROMPT = [
   "- You may reference a visual on a slide ONLY via an `elements` entry of kind `visual` whose `visualId` is one of the provided inventory ids.",
   "- HARD RULE: every `visualId` MUST exactly match an id from the visual inventory. NEVER invent, guess, or modify a visual id. If no inventory visual fits a slide, omit visuals from that slide.",
   "- If the inventory is empty, do not include any `visual` elements at all.",
+  "",
+  "Theme rules:",
+  `- ALWAYS choose a VIBRANT theme (${VIBRANT_THEMES.map((t) => `"${t}"`).join(" | ")}) that fits the content's mood/subject, for strong visual impact.`,
+  "- Pick the single theme whose palette best matches the content and apply it to the whole deck via the top-level `theme` field.",
+  '- Reserve "default" ONLY for explicitly dark or embed contexts (e.g. the content is about a dark UI, a terminal, or asks for a muted/dark look). Do NOT use "default" as a generic fallback — a vibrant theme is always preferred.',
   "",
   "Output rules:",
   "- Output the JSON object ONLY — no surrounding prose, no markdown, no code fences.",

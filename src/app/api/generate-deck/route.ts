@@ -91,6 +91,7 @@ import {
   collectDocumentBlocks,
   type DocumentBlock,
 } from "@/lib/visual/document-export";
+import { inferDeckTheme } from "@/lib/presentation/infer-theme";
 import type { Visual } from "@/lib/visual/schema";
 import { auth as authEnv } from "@/lib/env";
 
@@ -217,6 +218,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const blocks = collectDocumentBlocks(body.contentJson);
   const visuals = visualsFromContent(blocks);
   const { outline, truncated } = buildDeckSource(body.contentJson, visuals);
+  // Derive a vibrant theme from the document's visuals so a model that returns
+  // the bleak "default" theme is upgraded to a document-appropriate one (#281).
+  const preferredTheme = inferDeckTheme(blocks);
 
   if (outline.trim().length === 0) {
     return errorResponse(
@@ -370,6 +374,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       visuals,
       complete,
       options,
+      preferredTheme,
     });
 
     // Commit side effects only on success.

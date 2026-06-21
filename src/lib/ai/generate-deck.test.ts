@@ -224,13 +224,39 @@ test("regenerates duplicate element ids within a slide", async () => {
   assert.equal(new Set(ids).size, ids.length);
 });
 
-test("defaults an invalid theme to 'default'", async () => {
+test("upgrades an invalid/default theme to a vibrant theme (#281)", async () => {
   const { complete } = sequence([deck({ theme: "neon" })]);
   const result = await generateDeck(
     { outline: "outline", visualInventory: INVENTORY },
     { complete },
   );
-  assert.equal(result.theme, "default");
+  assert.equal(result.theme, "indigo");
+});
+
+test("honors preferredTheme when the model returns 'default' (#281)", async () => {
+  const { complete } = sequence([deck({ theme: "default" })]);
+  const result = await generateDeck(
+    {
+      outline: "outline",
+      visualInventory: INVENTORY,
+      preferredTheme: "ocean",
+    },
+    { complete },
+  );
+  assert.equal(result.theme, "ocean");
+});
+
+test("preserves an explicit vibrant theme over preferredTheme (#281)", async () => {
+  const { complete } = sequence([deck({ theme: "forest" })]);
+  const result = await generateDeck(
+    {
+      outline: "outline",
+      visualInventory: INVENTORY,
+      preferredTheme: "ocean",
+    },
+    { complete },
+  );
+  assert.equal(result.theme, "forest");
 });
 
 test("caps the deck to MAX_DECK_SLIDES slides", async () => {

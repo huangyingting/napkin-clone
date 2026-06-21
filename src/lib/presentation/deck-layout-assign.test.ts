@@ -224,6 +224,61 @@ test("falls back to indigo when the deck theme is missing/invalid", () => {
   assert.equal(result.slides[0].theme, FALLBACK_THEME);
 });
 
+test("upgrades a model 'default' theme to preferredTheme (#281)", () => {
+  const input = deck([slide({ title: "A" })], "default");
+
+  const result = normalizeGeneratedDeck(input, KNOWN, "ocean");
+
+  assert.equal(result.theme, "ocean");
+  for (const s of result.slides) {
+    assert.equal(s.theme, "ocean");
+  }
+  assert.ok(safeParseDeck(result).success);
+});
+
+test("upgrades a model 'default' theme to indigo when no preferred (#281)", () => {
+  const input = deck([slide({ title: "A" })], "default");
+
+  const result = normalizeGeneratedDeck(input, KNOWN);
+
+  assert.equal(result.theme, FALLBACK_THEME);
+  assert.notEqual(result.theme, "default");
+  assert.ok(safeParseDeck(result).success);
+});
+
+test("preserves an explicit vibrant theme over preferredTheme (#281)", () => {
+  const input = deck([slide({ title: "A", theme: "forest" })], "forest");
+
+  const result = normalizeGeneratedDeck(input, KNOWN, "ocean");
+
+  assert.equal(result.theme, "forest");
+  for (const s of result.slides) {
+    assert.equal(s.theme, "forest");
+  }
+  assert.ok(safeParseDeck(result).success);
+});
+
+test("uses preferredTheme when the deck theme is missing/invalid (#281)", () => {
+  const bad = {
+    theme: "neon" as unknown as Deck["theme"],
+    slides: [slide({ title: "A" })],
+  } as Deck;
+
+  const result = normalizeGeneratedDeck(bad, KNOWN, "grape");
+
+  assert.equal(result.theme, "grape");
+  assert.ok(safeParseDeck(result).success);
+});
+
+test("normalization with preferredTheme does not mutate the input deck (#281)", () => {
+  const input = deck([slide({ title: "A" })], "default");
+  const snapshot = JSON.parse(JSON.stringify(input));
+
+  normalizeGeneratedDeck(input, KNOWN, "sunset");
+
+  assert.deepEqual(JSON.parse(JSON.stringify(input)), snapshot);
+});
+
 test("marks every slide elementsDerived=false (authored)", () => {
   const input = deck([
     slide({ title: "A", bullets: ["x"] }),
