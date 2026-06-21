@@ -1,66 +1,22 @@
 /**
  * `src/components/ui/` — the shared design-system primitives consumed by the
- * editor's contextual surfaces. All consume the `--ds-*` token layer
- * (owned by Mouse). Additive in Phase 0: not yet swapped into the live editor.
+ * editor's contextual surfaces. All consume the `--ds-*` token layer.
  */
 export { Button, IconButton } from "./button";
-export type {
-  ButtonProps,
-  ButtonSize,
-  ButtonVariant,
-  IconButtonProps,
-} from "./button";
 
 export { ColorPicker } from "./color-picker";
-export type { ColorPickerProps } from "./color-picker";
 
 export { Divider } from "./divider";
-export type { DividerProps } from "./divider";
 
 export { FloatingSurface } from "./floating-surface";
-export type { FloatingSurfaceProps } from "./floating-surface";
 
 export { SegmentedControl } from "./segmented-control";
-export type {
-  SegmentedControlProps,
-  SegmentedOption,
-} from "./segmented-control";
+export type { SegmentedOption } from "./segmented-control";
 
 export { Surface } from "./surface";
-export type { SurfaceProps } from "./surface";
-
-export { Swatch } from "./swatch";
-export type { SwatchProps, SwatchSize } from "./swatch";
 
 export { Tooltip } from "./tooltip";
-export type { TooltipProps } from "./tooltip";
-
-export { Dialog } from "./dialog";
-export type { DialogProps } from "./dialog";
 
 export { Popover } from "./popover";
-export type { PopoverProps } from "./popover";
 
-export { Switch } from "./switch";
-export type { SwitchProps } from "./switch";
-
-export { Skeleton, LoadingRegion } from "./skeleton";
-export type { LoadingRegionProps } from "./skeleton";
-
-export {
-  dialogReducer,
-  getTabbableElements,
-  nextFocusIndex,
-  TABBABLE_SELECTOR,
-} from "./focus-helpers";
-export type { DialogAction } from "./focus-helpers";
-
-export {
-  cx,
-  ELEVATION,
-  FOCUS_RING,
-  RADIUS,
-  SURFACE_BASE,
-  type Elevation,
-  type Radius,
-} from "./tokens";
+export { cx, FOCUS_RING } from "./tokens";

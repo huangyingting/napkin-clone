@@ -23,8 +23,8 @@
  *   defaults and the existing "feature configured?" checks so dev/test keep
  *   working with just `AUTH_SECRET` + the SQLite defaults.
  * - **DB is delegated, not duplicated.** Database resolution stays in
- *   `@/lib/db-provider` (the single source of truth from #147); `env.db`
- *   simply re-exposes it under the unified surface.
+ *   `@/lib/db-provider` (the single source of truth from #147); the `db`
+ *   export simply re-exposes it under the unified surface.
  * - **NEXT_PUBLIC_* vars.** Only *server-side* reads are centralized here.
  *   Client components must keep statically referencing
  *   `process.env.NEXT_PUBLIC_*` so Next can inline them into the client bundle.
@@ -201,14 +201,4 @@ export const app = {
   url(fallback: string = DEFAULT_APP_URL): string {
     return readOptional("NEXT_PUBLIC_APP_URL") ?? fallback;
   },
-} as const;
-
-/** The full, grouped environment surface. */
-export const env = {
-  auth,
-  db,
-  stripe,
-  azure,
-  google,
-  app,
 } as const;

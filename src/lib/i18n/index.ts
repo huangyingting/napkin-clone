@@ -1,5 +1,5 @@
 /**
- * Core i18n utilities: locale validation, normalisation, and typed `t()` accessor.
+ * Core i18n utilities: locale validation, normalisation, and typed translators.
  *
  * This module is pure (no React, no Next.js) so it can be used in both RSC and
  * client components, as well as in unit tests.
@@ -78,12 +78,6 @@ export function createTranslator(locale: Locale) {
 
   return t;
 }
-
-/**
- * Convenience `t()` that always uses the default locale.
- * Useful during incremental migration of existing components.
- */
-export const t = createTranslator(DEFAULT_LOCALE);
 
 /**
  * Returns `true` only when the `I18N_SWITCHER_ENABLED` environment variable is
