@@ -23,6 +23,7 @@ import type {
 } from "@/lib/presentation/deck";
 import type { Visual } from "@/lib/visual/schema";
 import { applyTheme } from "@/lib/visual/transforms";
+import { isEmptyImageSrc } from "@/lib/presentation/image-element";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 
 // ---------------------------------------------------------------------------
@@ -477,7 +478,64 @@ function VisualElementView({
   );
 }
 
-function ImageElementView({ element }: { element: ImageElement }): JSX.Element {
+function ImageElementView({
+  element,
+  editable = false,
+}: {
+  element: ImageElement;
+  /**
+   * True only on the editing stage. Controls how an empty-source image renders:
+   * editor shows an "Add image" dropzone affordance; present / public / preview
+   * surfaces render a neutral box so they never show a broken image (#226).
+   */
+  editable?: boolean;
+}): JSX.Element {
+  // Never emit `<img src="">` — it shows a broken-image box and can re-request
+  // the current page. Branch on the empty-source predicate instead.
+  if (isEmptyImageSrc(element.src)) {
+    return (
+      <div
+        style={{
+          ...boxStyle(element),
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "0.5em",
+          overflow: "hidden",
+          ...(editable
+            ? {
+                color: "rgba(113, 113, 122, 0.9)",
+                border: "1px dashed rgba(113, 113, 122, 0.5)",
+                borderRadius: "0.5em",
+                backgroundColor: "rgba(113, 113, 122, 0.06)",
+                fontSize: "3.5cqh",
+              }
+            : {}),
+        }}
+      >
+        {editable ? (
+          <>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ height: "8cqh", width: "8cqh" }}
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="9" cy="9" r="2" />
+              <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+            </svg>
+            <span>Add image</span>
+          </>
+        ) : null}
+      </div>
+    );
+  }
   return (
     <div
       style={{
@@ -538,11 +596,13 @@ function SlideElementView({
   tc,
   accent,
   visuals,
+  editable,
 }: {
   element: SlideElement;
   tc: ThemeConfig;
   accent: string;
   visuals: ReadonlyMap<string, Visual>;
+  editable?: boolean;
 }): JSX.Element | null {
   switch (element.kind) {
     case "text":
@@ -552,7 +612,7 @@ function SlideElementView({
     case "visual":
       return <VisualElementView element={element} visuals={visuals} />;
     case "image":
-      return <ImageElementView element={element} />;
+      return <ImageElementView element={element} editable={editable} />;
     case "shape":
       return <ShapeElementView element={element} />;
     default:
@@ -565,11 +625,13 @@ function ElementsSlideLayout({
   tc,
   visuals,
   hiddenElementIds,
+  editable,
 }: {
   slide: Slide;
   tc: ThemeConfig;
   visuals: ReadonlyMap<string, Visual>;
   hiddenElementIds?: ReadonlySet<string>;
+  editable?: boolean;
 }): JSX.Element {
   const background = slide.background ?? tc.bgColor;
   const accent = slide.accent ?? tc.accentColor;
@@ -594,6 +656,7 @@ function ElementsSlideLayout({
           tc={tc}
           accent={accent}
           visuals={visuals}
+          editable={editable}
         />
       ))}
     </div>
@@ -615,6 +678,13 @@ export interface SlideCanvasProps {
    * set by Present / public surfaces.
    */
   hiddenElementIds?: ReadonlySet<string>;
+  /**
+   * True only on the interactive editing stage. Lets empty-source image
+   * elements render an "Add image" dropzone affordance; Present / public /
+   * preview surfaces leave this off so an unfilled image is a neutral box
+   * rather than an editing prompt or a broken `<img>` (#226).
+   */
+  editable?: boolean;
 }
 
 /**
@@ -628,6 +698,7 @@ export function SlideCanvas({
   visuals,
   preview = false,
   hiddenElementIds,
+  editable = false,
 }: SlideCanvasProps): JSX.Element {
   const tc = DECK_THEMES[slide.theme] ?? DECK_THEMES.default;
 
@@ -639,6 +710,7 @@ export function SlideCanvas({
         tc={tc}
         visuals={visuals}
         hiddenElementIds={hiddenElementIds}
+        editable={editable}
       />
     );
   }

@@ -25,8 +25,9 @@ import {
   Sparkles,
   Trash2,
   Type,
+  Upload,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { FOCUS_RING } from "@/components/motion/control-styles";
 import { DECK_THEMES } from "@/components/presentation/slide-canvas";
@@ -35,12 +36,17 @@ import { VisualPicker } from "@/components/presentation/visual-picker";
 import { Swatch, Tooltip } from "@/components/ui";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import type {
+  ImageElement,
   ShapeKind,
   Slide,
   SlideElement,
   SlideLayout,
 } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
+import {
+  isEmptyImageSrc,
+  validateImageFile,
+} from "@/lib/presentation/image-element";
 import { themeSwatchColors } from "@/lib/presentation/text-style";
 import type { Visual } from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
@@ -138,6 +144,103 @@ function elementLabel(element: SlideElement): string {
   }
 }
 
+/**
+ * Content editor for an {@link ImageElement}. Offers three ways to set a source,
+ * all routed through `onUpdateElement` (the undoable + autosaving commit path):
+ *
+ *  - **Upload** — a file picker reads the chosen image to a base64 data URL via
+ *    {@link FileReader}. Files are validated for type and size first so a stray
+ *    non-image or an oversized file never bloats `deckJson` (#226).
+ *  - **URL / data URL** — the existing text field still accepts a pasted source.
+ *  - **Alt text** — accessible description, unchanged.
+ */
+function ImageElementEditor({
+  element,
+  onUpdateElement,
+}: {
+  element: ImageElement;
+  onUpdateElement: SlideInspectorProps["onUpdateElement"];
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function handleFile(file: File | undefined) {
+    if (!file) return;
+    const validation = validateImageFile(file);
+    if (!validation.ok) {
+      setError(validation.reason);
+      return;
+    }
+    setError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === "string") {
+        onUpdateElement(element.id, { src: result });
+      }
+    };
+    reader.onerror = () => setError("Could not read that file.");
+    reader.readAsDataURL(file);
+  }
+
+  const hasSource = !isEmptyImageSrc(element.src);
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <span className={LABEL_CLASS}>Image</span>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className={`flex w-full items-center justify-center gap-2 rounded-ds-md border border-dashed border-ds-border-subtle bg-ds-surface px-2 py-2 text-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover ${FOCUS_RING}`}
+        >
+          <Upload size={14} aria-hidden="true" />
+          {hasSource ? "Replace image" : "Upload image"}
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(event) => {
+            handleFile(event.target.files?.[0]);
+            // Reset so re-selecting the same file fires onChange again.
+            event.target.value = "";
+          }}
+        />
+        {error ? (
+          <p role="alert" className="mt-1 text-xs text-ds-danger-text">
+            {error}
+          </p>
+        ) : null}
+      </div>
+      <label className="block">
+        <span className={LABEL_CLASS}>Image URL</span>
+        <input
+          type="text"
+          value={element.src}
+          onChange={(event) =>
+            onUpdateElement(element.id, { src: event.target.value })
+          }
+          placeholder="https://… or data:image/…"
+          className={`${FIELD_CLASS} ${FOCUS_RING}`}
+        />
+      </label>
+      <label className="block">
+        <span className={LABEL_CLASS}>Alt text</span>
+        <input
+          type="text"
+          value={element.alt ?? ""}
+          onChange={(event) =>
+            onUpdateElement(element.id, { alt: event.target.value })
+          }
+          className={`${FIELD_CLASS} ${FOCUS_RING}`}
+        />
+      </label>
+    </div>
+  );
+}
+
 function ElementEditor({
   element,
   visuals,
@@ -201,31 +304,10 @@ function ElementEditor({
       );
     case "image":
       return (
-        <div className="flex flex-col gap-3">
-          <label className="block">
-            <span className={LABEL_CLASS}>Image URL</span>
-            <input
-              type="text"
-              value={element.src}
-              onChange={(event) =>
-                onUpdateElement(element.id, { src: event.target.value })
-              }
-              placeholder="https://… or data:image/…"
-              className={`${FIELD_CLASS} ${FOCUS_RING}`}
-            />
-          </label>
-          <label className="block">
-            <span className={LABEL_CLASS}>Alt text</span>
-            <input
-              type="text"
-              value={element.alt ?? ""}
-              onChange={(event) =>
-                onUpdateElement(element.id, { alt: event.target.value })
-              }
-              className={`${FIELD_CLASS} ${FOCUS_RING}`}
-            />
-          </label>
-        </div>
+        <ImageElementEditor
+          element={element}
+          onUpdateElement={onUpdateElement}
+        />
       );
     case "shape":
       return (

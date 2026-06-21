@@ -281,6 +281,44 @@ test("all five element kinds each emit at least one op", () => {
   assert.ok(ofKind(spec.ops, "image").length >= 1, "image op emitted");
 });
 
+test("an image element with an empty src emits no image op (skips broken image)", () => {
+  const empty: ImageElement = {
+    id: "im-empty",
+    kind: "image",
+    src: "",
+    zIndex: 1,
+    box: { x: 10, y: 10, w: 30, h: 30 },
+  };
+  const deck: Deck = {
+    theme: "default",
+    slides: [freeFormSlide(0, [empty])],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  assert.equal(
+    ofKind(spec.ops, "image").length,
+    0,
+    "empty-src image must not emit an image op",
+  );
+});
+
+test("a whitespace-only image src is treated as empty and skipped", () => {
+  const blank: ImageElement = {
+    id: "im-blank",
+    kind: "image",
+    src: "   ",
+    zIndex: 1,
+    box: { x: 10, y: 10, w: 30, h: 30 },
+  };
+  const deck: Deck = {
+    theme: "default",
+    slides: [freeFormSlide(0, [blank])],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  assert.equal(ofKind(spec.ops, "image").length, 0);
+});
+
 test("per-slide background and accent overrides are applied", () => {
   const deck: Deck = {
     theme: "indigo",
