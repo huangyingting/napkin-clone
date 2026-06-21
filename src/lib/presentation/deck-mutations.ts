@@ -70,6 +70,25 @@ export function reorderSlides(
   return { ...deck, slides: reindex(slides) };
 }
 
+/**
+ * Moves the slide at `index` one position toward the start (`direction < 0`) or
+ * end (`direction > 0`) of the deck, clamping at both ends — a move that would
+ * fall off either edge is a no-op that returns the same deck reference. Only the
+ * sign of `direction` is used. Delegates to {@link reorderSlides} so re-indexing
+ * stays in one place; powers the thumbnail rail's keyboard-accessible ↑/↓
+ * reorder buttons.
+ */
+export function moveSlide(deck: Deck, index: number, direction: number): Deck {
+  if (index < 0 || index >= deck.slides.length || direction === 0) {
+    return deck;
+  }
+  const target = index + (direction > 0 ? 1 : -1);
+  if (target < 0 || target >= deck.slides.length) {
+    return deck;
+  }
+  return reorderSlides(deck, index, target);
+}
+
 /** Adds a blank slide after `afterIndex` (`-1` prepends). */
 export function addSlide(deck: Deck, afterIndex: number): Deck {
   const slides = [...deck.slides];

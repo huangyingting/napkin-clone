@@ -13,6 +13,7 @@ import {
   removeElement,
   removeSlide,
   reorderSlides,
+  moveSlide,
   sendElementToBack,
   setDeckTheme,
   setSlideAccent,
@@ -70,6 +71,49 @@ test("reorderSlides ignores out-of-range / no-op moves", () => {
   assert.equal(reorderSlides(deck, 1, 1), deck);
   assert.equal(reorderSlides(deck, -1, 0), deck);
   assert.equal(reorderSlides(deck, 0, 5), deck);
+});
+
+// ---------------------------------------------------------------------------
+// moveSlide
+// ---------------------------------------------------------------------------
+
+test("moveSlide moves a slide down by one and re-indexes", () => {
+  const deck = makeDeck(["A", "B", "C"]);
+  const next = moveSlide(deck, 0, 1);
+  assert.deepEqual(
+    next.slides.map((s) => s.title),
+    ["B", "A", "C"],
+  );
+  assert.deepEqual(
+    next.slides.map((s) => s.index),
+    [0, 1, 2],
+  );
+});
+
+test("moveSlide moves a slide up by one", () => {
+  const deck = makeDeck(["A", "B", "C"]);
+  const next = moveSlide(deck, 2, -1);
+  assert.deepEqual(
+    next.slides.map((s) => s.title),
+    ["A", "C", "B"],
+  );
+});
+
+test("moveSlide clamps at both ends (no-op returns same deck)", () => {
+  const deck = makeDeck(["A", "B", "C"]);
+  assert.equal(moveSlide(deck, 0, -1), deck);
+  assert.equal(moveSlide(deck, 2, 1), deck);
+  assert.equal(moveSlide(deck, 1, 0), deck);
+  assert.equal(moveSlide(deck, -1, 1), deck);
+  assert.equal(moveSlide(deck, 3, -1), deck);
+});
+
+test("moveSlide uses only the sign of direction", () => {
+  const deck = makeDeck(["A", "B", "C"]);
+  assert.deepEqual(
+    moveSlide(deck, 0, 5).slides.map((s) => s.title),
+    ["B", "A", "C"],
+  );
 });
 
 // ---------------------------------------------------------------------------
