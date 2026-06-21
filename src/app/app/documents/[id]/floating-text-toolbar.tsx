@@ -19,13 +19,14 @@ import {
 } from "@/components/ui";
 import { computeAnchoredPosition } from "@/lib/anchored-position";
 import { useEditorContext } from "@/lib/lexical/editor-context";
-import { useIsPointerFine } from "@/lib/pointer";
 import {
   formatShortcut,
   isToolActive,
   toolsFor,
   type EditorTool,
 } from "@/lib/lexical/tool-registry";
+
+import { useEditingSurface } from "./use-editing-surface";
 
 // Gap (px) between the text selection and the floating toolbar.
 const TOOLBAR_GAP = 10;
@@ -61,7 +62,7 @@ export function FloatingTextToolbar() {
   const [editor] = useLexicalComposerContext();
   const ctx = useEditorContext();
   const isMac = useIsMac();
-  const isPointerFine = useIsPointerFine();
+  const surface = useEditingSurface();
   const measureRef = useRef<HTMLDivElement | null>(null);
   const [coords, setCoords] = useState<{ top: number; left: number }>({
     top: -1000,
@@ -70,13 +71,16 @@ export function FloatingTextToolbar() {
 
   const tools = useMemo(() => toolsFor("text-format", ctx), [ctx]);
   const selectionRect = ctx.rects.selection;
-  // The floating toolbar is the primary inline text-format surface at every
-  // pointer-fine width — it pops up right above the selection so formatting can
-  // be adjusted in place (no docked rail). Touch devices fall back to the
-  // editing bottom-sheet.
+  // Visibility is now derived from the single unified decision source
+  // (resolveEditingSurface via useEditingSurface): the floating text toolbar
+  // shows exactly when the resolver puts the text-format group into "float"
+  // mode. With dockedPreference defaulting to "off" this is byte-for-byte
+  // equivalent to the previous `isPointerFine && kind === "range"` check —
+  // range floats only on fine pointers. The positioning gates (editable + a
+  // measured selection rect) remain as additional render guards.
   const visible =
-    isPointerFine &&
-    ctx.kind === "range" &&
+    surface.mode === "float" &&
+    surface.group === "text-format" &&
     ctx.editable &&
     selectionRect !== null;
 

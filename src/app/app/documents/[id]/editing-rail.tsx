@@ -42,6 +42,7 @@ import { $isVisualNode, VisualNode } from "./visual-node";
 import { VisualContextPopover } from "./visual-context-popover";
 import { useVisualPanel } from "./visual-panel-context";
 import { OverallAdjustmentsPanel } from "./overall-adjustments-panel";
+import { useEditingSurface } from "./use-editing-surface";
 
 // Block types from which a visual can derive source text (mirrors VisualCard).
 const SOURCE_TEXT_BLOCK_TYPES = new Set([
@@ -464,6 +465,7 @@ function MobileEditingSheet({
   onTogglePageBreaks?: () => void;
 }) {
   const ctx = useEditorContext();
+  const surface = useEditingSurface();
   const [open, setOpen] = useState(false);
   const reduceMotion = useReducedMotion();
 
@@ -491,11 +493,19 @@ function MobileEditingSheet({
 
   const showOverall = shouldShowOverallToolbox(ctx.kind);
 
+  // The content group hosted by the sheet comes from the unified resolver
+  // (selection-derived): "text-format" ⟺ range, "visual-edit" ⟺ visual,
+  // "overall" ⟺ no element selection. This is byte-for-byte equivalent to the
+  // previous direct `ctx.kind` checks. The overall group still distinguishes
+  // the document toolbox (shouldShowOverallToolbox) from a bare collapsed caret
+  // (empty hint), which the coarser group alone cannot express.
+  const { group } = surface;
+
   // Choose a context-appropriate label for the FAB.
   const fabLabel =
-    ctx.kind === "range"
+    group === "text-format"
       ? "Open text formatting"
-      : ctx.kind === "visual"
+      : group === "visual-edit"
         ? "Open visual editing"
         : "Open document adjustments";
 
@@ -574,9 +584,9 @@ function MobileEditingSheet({
                       className="absolute left-1/2 top-2 h-1 w-10 -translate-x-1/2 rounded-full bg-[var(--ds-border-subtle,rgba(0,0,0,0.12))]"
                     />
                     <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#6f7d83)]">
-                      {ctx.kind === "range"
+                      {group === "text-format"
                         ? "Text format"
-                        : ctx.kind === "visual"
+                        : group === "visual-edit"
                           ? "Visual"
                           : "Adjustments"}
                     </p>
@@ -592,17 +602,17 @@ function MobileEditingSheet({
 
                   {/* Scrollable panel content — reuses the same sections as the rail */}
                   <div className="flex-1 overflow-y-auto">
-                    {ctx.kind === "range" && (
+                    {group === "text-format" && (
                       <Surface elevation="flat" radius="sm" bordered={false}>
                         <TextFormatSection />
                       </Surface>
                     )}
-                    {ctx.kind === "visual" && (
+                    {group === "visual-edit" && (
                       <Surface elevation="flat" radius="sm" bordered={false}>
                         <VisualContextSection />
                       </Surface>
                     )}
-                    {showOverall && (
+                    {group === "overall" && showOverall && (
                       <OverallAdjustmentsPanel
                         documentTitle={documentTitle}
                         showPageBreaks={showPageBreaks ?? false}
@@ -611,13 +621,11 @@ function MobileEditingSheet({
                         }
                       />
                     )}
-                    {ctx.kind !== "range" &&
-                      ctx.kind !== "visual" &&
-                      !showOverall && (
-                        <div className="p-4 text-[12px] text-[var(--ds-text-muted,#6f7d83)]">
-                          Select text or a visual to see editing options.
-                        </div>
-                      )}
+                    {group === "overall" && !showOverall && (
+                      <div className="p-4 text-[12px] text-[var(--ds-text-muted,#6f7d83)]">
+                        Select text or a visual to see editing options.
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               </>
@@ -638,11 +646,21 @@ export function EditingRail({
   showPageBreaks?: boolean;
   onTogglePageBreaks?: () => void;
 }) {
-  // Inline floating surfaces are the primary editing affordance on pointer-fine
-  // devices: the floating text toolbar pops up over a selection and the visual
-  // context popover floats beside the selected visual — both adjusted in place,
-  // with no docked side rail. The bottom sheet remains only as the touch
-  // fallback (coarse pointer), since floats require a fine pointer.
+  // The host surface for the bottom sheet is gated on pointer fineness, the
+  // coarse-pointer host. Under the unified resolver this corresponds to the
+  // "sheet" mode (coarse + selection) and the coarse "overall" fallback; the
+  // sheet's *content* is selected by the resolver group (see MobileEditingSheet).
+  //
+  // ── DOCKED-RAIL SEAM (epic #87) ───────────────────────────────────────────
+  // The resolver also defines a "docked" mode (dockedPreference === "on" at
+  // ≥ lg, plus the overall toolbox at ≥ lg). No docked host is mounted yet:
+  // there is no UI to set dockedPreference to "on" (a sibling PR adds the
+  // PanelRight toggle + localStorage persistence). With the preference
+  // defaulting to "off", floats remain the primary fine-pointer affordance and
+  // nothing docks — so on fine pointers this renders nothing, byte-for-byte
+  // with the prior behaviour. That sibling PR mounts the docked-rail host here
+  // (keyed off useEditingSurface().mode === "docked") without re-wiring any
+  // surface content.
   const pointerFine = useIsPointerFine();
   if (pointerFine) {
     return null;
