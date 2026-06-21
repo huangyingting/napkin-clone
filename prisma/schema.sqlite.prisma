@@ -129,6 +129,7 @@ model Visual {
   document  Document         @relation(fields: [documentId], references: [id], onDelete: Cascade)
   revisions VisualRevision[]
 
+  @@unique([documentId, anchorBlockId])
   @@index([documentId])
 }
 

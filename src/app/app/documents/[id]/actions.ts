@@ -12,6 +12,10 @@ import { requireUser } from "@/lib/session";
 import { buildShareSegment, slugify } from "@/lib/slug";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { VISUAL_KIND_TO_PRISMA, safeParseVisual } from "@/lib/visual/schema";
+import {
+  diffVisualMirror,
+  type LiveVisualNode,
+} from "@/lib/visual/mirror-diff";
 
 // URL-safe share ID generator (no ambiguous chars: 0/O, 1/l/I)
 const generateShareId = customAlphabet(
@@ -35,13 +39,16 @@ const MAX_VISUAL_REVISIONS = 10;
  * `MAX_VISUAL_REVISIONS` entries. Called with the *previous* row before it is
  * overwritten, so each edit/regeneration is restorable (US-016).
  */
-async function snapshotVisualRevision(previous: {
-  id: string;
-  data: Prisma.JsonValue;
-  type: string;
-  title: string | null;
-}): Promise<void> {
-  await prisma.visualRevision.create({
+async function snapshotVisualRevision(
+  tx: Prisma.TransactionClient,
+  previous: {
+    id: string;
+    data: Prisma.JsonValue;
+    type: string;
+    title: string | null;
+  },
+): Promise<void> {
+  await tx.visualRevision.create({
     data: {
       visualId: previous.id,
       data: previous.data as unknown as Prisma.InputJsonValue,
@@ -51,7 +58,7 @@ async function snapshotVisualRevision(previous: {
   });
 
   // Keep only the newest snapshots; delete anything beyond the retention limit.
-  const stale = await prisma.visualRevision.findMany({
+  const stale = await tx.visualRevision.findMany({
     where: { visualId: previous.id },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     skip: MAX_VISUAL_REVISIONS,
@@ -59,7 +66,7 @@ async function snapshotVisualRevision(previous: {
   });
 
   if (stale.length > 0) {
-    await prisma.visualRevision.deleteMany({
+    await tx.visualRevision.deleteMany({
       where: { id: { in: stale.map((revision) => revision.id) } },
     });
   }
@@ -133,9 +140,11 @@ async function mirrorVisualNodes(
 ): Promise<void> {
   const nodes = collectVisualNodes(parsedState);
 
-  // Track the anchors still present so orphaned rows (e.g. a VisualNode that was
-  // removed from the editor, US-013) can be pruned after the upserts below.
+  // Track every anchor present in the editor — including nodes whose payload
+  // fails validation, so an unparseable card keeps its row alive (it just isn't
+  // re-persisted) rather than being pruned (US-013).
   const liveAnchors = new Set<string>();
+  const liveNodes: Array<LiveVisualNode<Prisma.InputJsonValue>> = [];
 
   for (let index = 0; index < nodes.length; index += 1) {
     const node = nodes[index];
@@ -152,66 +161,107 @@ async function mirrorVisualNodes(
       continue;
     }
     const visual = result.data;
-    const type = VISUAL_KIND_TO_PRISMA[visual.type];
-    const title = visual.title ?? null;
-    const data = visual as unknown as Prisma.InputJsonValue;
+    liveNodes.push({
+      anchorBlockId: anchor,
+      orderIndex: index,
+      type: VISUAL_KIND_TO_PRISMA[visual.type],
+      title: visual.title ?? null,
+      data: visual as unknown as Prisma.InputJsonValue,
+      // Compare against the row's normalized payload so key-order differences
+      // don't count as a change.
+      dataKey: JSON.stringify(visual),
+    });
+  }
 
-    const existing = await prisma.visual.findFirst({
-      where: { documentId, anchorBlockId: anchor },
-      orderBy: { createdAt: "asc" },
+  // One batched read replaces the previous per-node findFirst (N+1). The diff,
+  // upserts, and prune all run inside a single transaction so two concurrent
+  // saves can't both miss-and-create — and the unique (documentId, anchorBlockId)
+  // constraint is the hard guarantee against duplicates.
+  await prisma.$transaction(async (tx) => {
+    const existingRows = await tx.visual.findMany({
+      where: { documentId },
       select: {
         id: true,
+        anchorBlockId: true,
+        orderIndex: true,
         data: true,
         type: true,
         title: true,
-        orderIndex: true,
+        createdAt: true,
       },
     });
 
-    if (!existing) {
-      await prisma.visual.create({
-        data: {
+    const existingById = new Map(existingRows.map((row) => [row.id, row]));
+
+    const { toCreate, toUpdate, toDelete } =
+      diffVisualMirror<Prisma.InputJsonValue>({
+        existingRows: existingRows.map((row) => {
+          const parsed = safeParseVisual(row.data);
+          return {
+            id: row.id,
+            anchorBlockId: row.anchorBlockId,
+            orderIndex: row.orderIndex,
+            dataKey: parsed.success ? JSON.stringify(parsed.data) : null,
+            createdAt: row.createdAt.getTime(),
+          };
+        }),
+        liveNodes,
+        liveAnchors,
+      });
+
+    // Upsert on the unique key so a row created by a racing transaction is
+    // updated in place instead of triggering a duplicate insert.
+    for (const create of toCreate) {
+      await tx.visual.upsert({
+        where: {
+          documentId_anchorBlockId: {
+            documentId,
+            anchorBlockId: create.anchorBlockId,
+          },
+        },
+        create: {
           documentId,
-          anchorBlockId: anchor,
-          orderIndex: index,
-          type,
-          title,
-          data,
+          anchorBlockId: create.anchorBlockId,
+          orderIndex: create.orderIndex,
+          type: create.type,
+          title: create.title,
+          data: create.data,
+        },
+        update: {
+          orderIndex: create.orderIndex,
+          type: create.type,
+          title: create.title,
+          data: create.data,
         },
       });
-      continue;
     }
 
-    // Only snapshot + rewrite the payload when it actually changed; compare via
-    // the normalized (re-validated) form so key-order differences don't count.
-    const previous = safeParseVisual(existing.data);
-    const payloadChanged =
-      !previous.success ||
-      JSON.stringify(previous.data) !== JSON.stringify(visual);
-
-    if (payloadChanged) {
-      await snapshotVisualRevision(existing);
-      await prisma.visual.update({
-        where: { id: existing.id },
-        data: { type, title, data, orderIndex: index },
-      });
-    } else if (existing.orderIndex !== index) {
-      await prisma.visual.update({
-        where: { id: existing.id },
-        data: { orderIndex: index },
-      });
+    for (const update of toUpdate) {
+      if (update.payloadChanged) {
+        const previous = existingById.get(update.id);
+        if (previous) {
+          await snapshotVisualRevision(tx, previous);
+        }
+        await tx.visual.update({
+          where: { id: update.id },
+          data: {
+            type: update.type,
+            title: update.title,
+            data: update.data,
+            orderIndex: update.orderIndex,
+          },
+        });
+      } else {
+        await tx.visual.update({
+          where: { id: update.id },
+          data: { orderIndex: update.orderIndex },
+        });
+      }
     }
-  }
 
-  // Prune mirrored rows whose VisualNode no longer exists in the editor state
-  // (US-013: removing a card deletes its mirrored Visual row). Only node-anchored
-  // rows are pruned — the document-level visual (`anchorBlockId` null) is left
-  // untouched, and `notIn` keeps any row whose anchor is still present.
-  await prisma.visual.deleteMany({
-    where: {
-      documentId,
-      anchorBlockId: { not: null, notIn: [...liveAnchors] },
-    },
+    if (toDelete.length > 0) {
+      await tx.visual.deleteMany({ where: { id: { in: toDelete } } });
+    }
   });
 }
 
