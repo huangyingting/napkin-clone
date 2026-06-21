@@ -23,7 +23,7 @@ import {
   generateDeck,
   type DeckGenerationOptions,
 } from "@/lib/ai/generate-deck";
-import type { Deck } from "@/lib/presentation/deck";
+import type { Deck, DeckTheme } from "@/lib/presentation/deck";
 import type { Visual } from "@/lib/visual/schema";
 
 export interface RunDeckGenerationInput {
@@ -37,6 +37,12 @@ export interface RunDeckGenerationInput {
   options?: DeckGenerationOptions;
   /** First attempt + retries; forwarded to {@link generateDeck}. */
   maxAttempts?: number;
+  /**
+   * Optional document-derived vibrant theme (from `inferDeckTheme`) forwarded to
+   * {@link generateDeck} → {@link normalizeGeneratedDeck} so a model `"default"`
+   * (or missing/invalid) theme is replaced with a vibrant one (issue #281).
+   */
+  preferredTheme?: DeckTheme;
 }
 
 /**
@@ -65,6 +71,9 @@ export async function runDeckGeneration(
       outline: source.outline,
       visualInventory: source.visualInventory,
       ...(input.options !== undefined ? { options: input.options } : {}),
+      ...(input.preferredTheme !== undefined
+        ? { preferredTheme: input.preferredTheme }
+        : {}),
     },
     {
       complete: input.complete,

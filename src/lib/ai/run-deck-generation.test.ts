@@ -173,6 +173,43 @@ test("no visuals: the generated deck contains no visual elements", async () => {
   assert.equal(visualElements.length, 0);
 });
 
+test("threads preferredTheme through to upgrade a model 'default' (#281)", async () => {
+  const complete = constantComplete(
+    JSON.stringify({
+      theme: "default",
+      slides: [{ title: "Welcome", layout: "title" }],
+    }),
+  );
+
+  const { deck } = await runDeckGeneration({
+    contentJson: DOC_NO_VISUAL,
+    visuals: new Map(),
+    complete,
+    preferredTheme: "ocean",
+  });
+
+  assert.ok(safeParseDeck(deck).success);
+  assert.equal(deck.theme, "ocean");
+});
+
+test("preferredTheme does not override an explicit vibrant model theme (#281)", async () => {
+  const complete = constantComplete(
+    JSON.stringify({
+      theme: "forest",
+      slides: [{ title: "Welcome", layout: "title" }],
+    }),
+  );
+
+  const { deck } = await runDeckGeneration({
+    contentJson: DOC_NO_VISUAL,
+    visuals: new Map(),
+    complete,
+    preferredTheme: "ocean",
+  });
+
+  assert.equal(deck.theme, "forest");
+});
+
 test("threads truncated=false through for a small document", async () => {
   const complete = constantComplete(deckJson([{ title: "X" }]));
 

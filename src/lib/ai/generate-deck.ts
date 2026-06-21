@@ -79,6 +79,12 @@ export interface GenerateDeckInput {
   visualInventory: ReadonlyArray<DeckVisualInventoryItem>;
   /** Optional length/tone/audience tuning. */
   options?: DeckGenerationOptions;
+  /**
+   * Optional document-derived vibrant theme (from `inferDeckTheme`) used by
+   * {@link normalizeGeneratedDeck} when the model returns `"default"` or a
+   * missing/invalid theme (issue #281).
+   */
+  preferredTheme?: DeckTheme;
 }
 
 export interface GenerateDeckDeps {
@@ -331,6 +337,7 @@ export async function generateDeck(
     return normalizeGeneratedDeck(
       stripOrphanedVisuals(repaired, knownVisualIds),
       knownVisualIds,
+      input.preferredTheme,
     );
   }
 
