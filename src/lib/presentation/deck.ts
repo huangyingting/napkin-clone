@@ -178,6 +178,21 @@ export interface Slide {
    */
   elements?: SlideElement[];
 
+  /**
+   * Editor-merge provenance flag (issue #221). `true` means `elements[]` was
+   * produced purely by {@link materializeSlideElements} from the legacy
+   * `title`/`bullets`/`visualIds` and has not been hand-edited since. Any
+   * genuine element edit (move/resize/text/style/add/delete) clears it to
+   * `false`, marking the slide as hand-authored.
+   *
+   * "Sync from document" uses this to decide whether to re-materialize a slide's
+   * `elements[]` from refreshed document content (when still derived) or to
+   * preserve them verbatim (when hand-edited). Absent → treated as hand-edited
+   * so legacy/persisted decks with `elements[]` are never clobbered. Renderers
+   * ignore this field; it is pure editor-merge metadata.
+   */
+  elementsDerived?: boolean;
+
   /** Optional per-slide background color (hex), overriding the theme bg. */
   background?: string;
 
