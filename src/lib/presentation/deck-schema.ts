@@ -312,7 +312,18 @@ function validateDeck(input: unknown): Deck {
 
   const slides = input.slides.map(validateSlide);
 
-  return { slides, theme };
+  const deck: Deck = { slides, theme };
+
+  if (input.deckContentHash !== undefined) {
+    if (typeof input.deckContentHash !== "string") {
+      throw new DeckValidationError("Deck.deckContentHash must be a string");
+    }
+    if (input.deckContentHash.length > 0) {
+      deck.deckContentHash = input.deckContentHash;
+    }
+  }
+
+  return deck;
 }
 
 export type DeckParseResult =

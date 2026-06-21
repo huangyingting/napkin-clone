@@ -19,6 +19,11 @@ import { fetchDeckJson, saveDeckJson } from "@/app/app/documents/[id]/actions";
 import { SlideEditor } from "@/components/presentation/slide-editor";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { buildDeckFromBlocks, type Deck } from "@/lib/presentation/deck";
+import {
+  computeDeckContentHash,
+  isDeckStale,
+  stampDeckContentHash,
+} from "@/lib/presentation/deck-hash";
 import { pickFreshestDeck } from "@/lib/presentation/fresh-deck";
 import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
 import { collectDocumentBlocks } from "@/lib/visual/document-export";
@@ -39,6 +44,11 @@ export function SlideEditorButton({
   const [editor] = useLexicalComposerContext();
   const [open, setOpen] = useState(false);
   const [deck, setDeck] = useState<Deck | null>(null);
+  // The freshly-derived deck and its content hash, captured at open from the
+  // live Lexical state. Drives the "Sync from document" merge and the
+  // staleness banner without ever reaching back into Lexical from the editor.
+  const [freshDeck, setFreshDeck] = useState<Deck | null>(null);
+  const [stale, setStale] = useState(false);
   const [visuals, setVisuals] = useState<ReadonlyMap<string, Visual>>(
     () => new Map(),
   );
@@ -53,7 +63,11 @@ export function SlideEditorButton({
     // Build base deck from current editor state.
     const json = JSON.stringify(editor.getEditorState().toJSON());
     const blocks = collectDocumentBlocks(json);
-    const baseDeck = buildDeckFromBlocks(blocks);
+    // Stamp the freshly-derived deck with the *current* document content hash so
+    // a deck saved from it is never falsely flagged as stale on reopen.
+    const derived = buildDeckFromBlocks(blocks);
+    const currentContentHash = computeDeckContentHash(derived);
+    const baseDeck = stampDeckContentHash(derived, currentContentHash);
 
     // Map every embedded visual so the slide previews can render real content
     // without ever reaching back into Lexical/Yjs state.
@@ -72,13 +86,18 @@ export function SlideEditorButton({
       // Network/auth error — proceed with lastSavedRef as fallback.
     }
 
+    const knownVisualIds = new Set(visualMap.keys());
     const startDeck = stripOrphanedVisuals(
       pickFreshestDeck(fetchedRaw, lastSavedRef.current, baseDeck),
-      new Set(visualMap.keys()),
+      knownVisualIds,
     );
 
     setVisuals(visualMap);
     setDeck(startDeck);
+    // freshDeck (current document) drives the merge; strip orphans so synced
+    // visualIds always resolve to a renderable visual.
+    setFreshDeck(stripOrphanedVisuals(baseDeck, knownVisualIds));
+    setStale(isDeckStale(startDeck, currentContentHash));
     setOpen(true);
     openSlideEditor();
   }, [editor, documentId, openSlideEditor]);
@@ -86,6 +105,8 @@ export function SlideEditorButton({
   const handleClose = useCallback(() => {
     setOpen(false);
     setDeck(null);
+    setFreshDeck(null);
+    setStale(false);
     closeSlideEditor();
   }, [closeSlideEditor]);
 
@@ -126,6 +147,8 @@ export function SlideEditorButton({
           onClose={handleClose}
           onSave={handleSave}
           isSaving={isSaving}
+          freshDeck={freshDeck}
+          isDeckStale={stale}
         />
       ) : null}
     </>

@@ -25,6 +25,7 @@ import {
   List,
   Plus,
   Redo2,
+  RefreshCw,
   Shapes,
   Sparkles,
   Type,
@@ -62,6 +63,10 @@ import {
   type SlideElement,
   type SlideLayout,
 } from "@/lib/presentation/deck";
+import {
+  mergeDeckFromDocument,
+  type MergeSummary,
+} from "@/lib/presentation/deck-merge";
 import type { Visual } from "@/lib/visual/schema";
 import {
   addElement,
@@ -91,6 +96,15 @@ interface SlideEditorProps {
   onClose: () => void;
   onSave: (deck: Deck) => Promise<void>;
   isSaving?: boolean;
+  /**
+   * The deck freshly derived from the live document (`buildDeckFromBlocks`),
+   * carrying the current document content hash. Drives the "Sync from document"
+   * merge. Absent when the document state is unavailable — the sync action is
+   * then hidden.
+   */
+  freshDeck?: Deck | null;
+  /** Whether the document changed since this deck was last built/synced. */
+  isDeckStale?: boolean;
 }
 
 const THEME_OPTIONS: { value: DeckTheme; label: string; color: string }[] = [
@@ -179,6 +193,8 @@ export function SlideEditor({
   onClose,
   onSave,
   isSaving = false,
+  freshDeck = null,
+  isDeckStale = false,
 }: SlideEditorProps) {
   // Snapshot-based undo/redo over the plain Deck object. Every mutation routes
   // through `onDeckChange` (the history `commit`), which records the previous
@@ -202,6 +218,15 @@ export function SlideEditor({
   );
   // Whether the stage "Add → Visual" picker popover is open.
   const [visualPickerOpen, setVisualPickerOpen] = useState(false);
+  // Pending sync from the live document: a computed merge awaiting the user's
+  // confirmation. `null` when no merge dialog is open.
+  const [mergePreview, setMergePreview] = useState<{
+    deck: Deck;
+    summary: MergeSummary;
+  } | null>(null);
+  // Whether the staleness banner has been resolved (synced or dismissed) for
+  // this editing session, so it does not keep nagging after the user acts.
+  const [staleResolved, setStaleResolved] = useState(false);
   // Slide indices the user has interacted with this session. Drives the subtle
   // "click to start editing" hint, which is hidden once a slide is touched.
   const [touchedSlides, setTouchedSlides] = useState<ReadonlySet<number>>(
@@ -465,6 +490,41 @@ export function SlideEditor({
     void onSave(deck);
   }, [deck, onSave]);
 
+  // The document deck is available to merge from when the host provided it.
+  const canSyncFromDocument = freshDeck != null;
+  const showStaleBanner = isDeckStale && !staleResolved && canSyncFromDocument;
+
+  // Compute the merge and open the summary dialog. The merge preserves each
+  // slide's free-form elements; nothing is applied until the user confirms. The
+  // merged deck adopts the live document's content hash so, once applied and
+  // saved, it is no longer flagged as stale on reopen.
+  const handleRequestSync = useCallback(() => {
+    if (!freshDeck) return;
+    const result = mergeDeckFromDocument(deck, freshDeck);
+    const syncedDeck: Deck = {
+      ...result.deck,
+      ...(freshDeck.deckContentHash !== undefined
+        ? { deckContentHash: freshDeck.deckContentHash }
+        : {}),
+    };
+    setMergePreview({ deck: syncedDeck, summary: result.summary });
+  }, [deck, freshDeck]);
+
+  const handleCancelSync = useCallback(() => {
+    setMergePreview(null);
+  }, []);
+
+  const handleApplySync = useCallback(() => {
+    if (!mergePreview) return;
+    onDeckChange(mergePreview.deck);
+    setMergePreview(null);
+    setStaleResolved(true);
+  }, [mergePreview, onDeckChange]);
+
+  const handleDismissStale = useCallback(() => {
+    setStaleResolved(true);
+  }, []);
+
   const goPrev = useCallback(() => {
     setVisualPickerOpen(false);
     setSelectedIndex((i) => Math.max(0, i - 1));
@@ -648,6 +708,23 @@ export function SlideEditor({
             aria-hidden="true"
           />
 
+          {canSyncFromDocument ? (
+            <Tooltip label="Re-sync slides from the document" side="bottom">
+              <button
+                type="button"
+                onClick={handleRequestSync}
+                className={`flex h-8 items-center gap-1.5 rounded-ds-md border px-2.5 text-sm font-medium transition-colors ${
+                  showStaleBanner
+                    ? "border-ds-warning-border bg-ds-warning-surface text-ds-warning-text hover:opacity-90"
+                    : "border-ds-border-subtle text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+                } ${FOCUS_RING}`}
+              >
+                <RefreshCw aria-hidden className="h-3.5 w-3.5" />
+                <span className="hidden md:inline">Sync from document</span>
+              </button>
+            </Tooltip>
+          ) : null}
+
           <button
             type="button"
             onClick={handleSave}
@@ -666,6 +743,43 @@ export function SlideEditor({
           </button>
         </div>
       </header>
+
+      {/* ── Staleness banner (non-blocking) ──────────────────────────────── */}
+      {showStaleBanner ? (
+        <div
+          role="status"
+          className="flex items-center gap-3 border-b border-ds-warning-border bg-ds-warning-surface px-4 py-2 text-sm text-ds-warning-text"
+        >
+          <RefreshCw aria-hidden className="h-4 w-4 shrink-0" />
+          <span className="min-w-0 flex-1">
+            Document changed since this deck was built.
+          </span>
+          <button
+            type="button"
+            onClick={handleRequestSync}
+            className={`shrink-0 rounded-ds-md border border-ds-warning-border bg-ds-surface-base px-2.5 py-1 text-xs font-semibold text-ds-warning-text transition-opacity hover:opacity-90 ${FOCUS_RING}`}
+          >
+            Refresh from document
+          </button>
+          <button
+            type="button"
+            onClick={handleDismissStale}
+            aria-label="Dismiss"
+            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-ds-md text-ds-warning-text transition-opacity hover:opacity-80 ${FOCUS_RING}`}
+          >
+            <X size={14} aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
+
+      {/* ── Merge summary dialog (before applying a sync) ────────────────── */}
+      {mergePreview ? (
+        <MergeSummaryDialog
+          summary={mergePreview.summary}
+          onApply={handleApplySync}
+          onCancel={handleCancelSync}
+        />
+      ) : null}
 
       {/* ── Body: thumbnail rail · stage · inspector ────────────────────── */}
       <div className="flex min-h-0 flex-1">
@@ -910,5 +1024,116 @@ function StageAddButton({
       {icon}
       {label}
     </button>
+  );
+}
+
+/**
+ * Modal summary shown before a "Sync from document" merge is applied. Lists the
+ * per-slide before/after effect (updated / appended / preserved) so the user
+ * sees exactly what will change — and that no manual element work is discarded —
+ * before confirming. Pure presentation: all merge logic lives in `deck-merge`.
+ */
+function MergeSummaryDialog({
+  summary,
+  onApply,
+  onCancel,
+}: {
+  summary: MergeSummary;
+  onApply: () => void;
+  onCancel: () => void;
+}) {
+  const KIND_LABEL: Record<string, string> = {
+    updated: "Updated",
+    appended: "New",
+    preserved: "Kept",
+  };
+  const hasChanges = summary.updatedCount > 0 || summary.appendedCount > 0;
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Sync from document"
+      className="fixed inset-0 z-modal flex items-center justify-center bg-ds-backdrop p-4"
+    >
+      <div className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-ds-lg border border-ds-border-subtle bg-ds-surface-base shadow-lg">
+        <div className="flex items-center justify-between border-b border-ds-border-subtle px-5 py-4">
+          <h3 className="text-sm font-semibold text-ds-text-primary">
+            Sync from document
+          </h3>
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Cancel sync"
+            className={`flex h-7 w-7 items-center justify-center rounded-ds-md text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+          >
+            <X size={15} aria-hidden="true" />
+          </button>
+        </div>
+
+        <div className="border-b border-ds-border-subtle px-5 py-3 text-xs text-ds-text-secondary">
+          <p>
+            {summary.updatedCount} updated · {summary.appendedCount} new ·{" "}
+            {summary.preservedCount} kept · {summary.preservedElementCount}{" "}
+            element{summary.preservedElementCount === 1 ? "" : "s"} preserved
+          </p>
+          {!hasChanges ? (
+            <p className="mt-1 text-ds-text-muted">
+              This deck already matches the document.
+            </p>
+          ) : null}
+        </div>
+
+        <ul className="min-h-0 flex-1 divide-y divide-ds-border-subtle overflow-y-auto px-5 py-2 text-xs">
+          {summary.changes.map((change) => (
+            <li
+              key={`${change.kind}-${change.index}`}
+              className="flex items-center gap-3 py-2"
+            >
+              <span
+                className={`shrink-0 rounded-ds-sm px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                  change.kind === "updated"
+                    ? "bg-ds-warning-surface text-ds-warning-text"
+                    : change.kind === "appended"
+                      ? "bg-ds-success-surface text-ds-success-text"
+                      : "bg-ds-state-hover text-ds-text-muted"
+                }`}
+              >
+                {KIND_LABEL[change.kind]}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-ds-text-primary">
+                {change.after.title || "(untitled slide)"}
+              </span>
+              <span className="shrink-0 text-ds-text-muted">
+                {change.after.bulletCount} bullet
+                {change.after.bulletCount === 1 ? "" : "s"}
+                {change.elementsPreserved > 0
+                  ? ` · ${change.elementsPreserved} kept`
+                  : ""}
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        <div className="flex items-center justify-end gap-2 border-t border-ds-border-subtle px-5 py-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className={`flex h-8 items-center rounded-ds-md border border-ds-border-subtle px-3 text-sm font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onApply}
+            disabled={!hasChanges}
+            className={`flex h-8 items-center rounded-ds-md bg-ds-control px-3 text-sm font-medium text-ds-control-text transition-colors hover:bg-ds-control-hover disabled:opacity-60 ${FOCUS_RING}`}
+          >
+            Apply changes
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }

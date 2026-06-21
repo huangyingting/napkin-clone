@@ -1,0 +1,104 @@
+/**
+ * Pure, DOM-free staleness signal for a {@link Deck}.
+ *
+ * The deck is a one-time snapshot taken from the Lexical document at open time
+ * (decisions.md #53 keeps `deckJson` intentionally separate from `contentJson`).
+ * To detect when the document has drifted away from the deck WITHOUT a schema
+ * change, we embed a stable hash of the document-derived content inside the deck
+ * JSON itself (`Deck.deckContentHash`, option (a)). On open the editor recomputes
+ * the live content hash from the freshly-derived base deck and compares it
+ * against the stored value — a mismatch means the document changed since the
+ * deck was last built/synced.
+ *
+ * The hash is computed over the *content signature* of a deck (titles, bullets,
+ * visual ids, notes, layout, theme) — the legacy fields produced by
+ * `buildDeckFromBlocks` — and deliberately ignores free-form `elements[]`,
+ * per-slide colors and element ids. That way the signal tracks document edits,
+ * not manual deck styling: re-deriving the same document always yields the same
+ * hash, so a deck synced against the current document is never falsely flagged.
+ *
+ * Implemented with a tiny FNV-1a string hash rather than `node:crypto` so the
+ * exact same function runs in the browser (the slide-editor button computes the
+ * live hash client-side) and under `node --test`.
+ */
+
+import type { Deck, Slide } from "./deck";
+
+/**
+ * FNV-1a 32-bit string hash, returned as an 8-char zero-padded hex string.
+ * Deterministic and dependency-free so it is identical in the browser and Node.
+ */
+export function fnv1aHex(input: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    // hash * 16777619 with 32-bit overflow via Math.imul.
+    hash = Math.imul(hash, 0x01000193);
+  }
+  // Coerce to unsigned 32-bit then hex.
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+/** Normalizes a title for matching/hashing: trimmed and lower-cased. */
+export function normalizeTitle(title: string): string {
+  return title.trim().toLowerCase();
+}
+
+/**
+ * Builds a canonical, deterministic string capturing only the document-derived
+ * content of a slide (the legacy `buildDeckFromBlocks` fields). Free-form
+ * `elements[]`, element ids, background/accent and the slide `index` are
+ * intentionally excluded so manual deck editing never shifts the signature.
+ */
+function slideContentSignature(slide: Slide): string {
+  const parts = [
+    `t:${slide.title.trim()}`,
+    `l:${slide.layout}`,
+    `b:${slide.bullets.map((bullet) => bullet.trim()).join("\u0001")}`,
+    `v:${slide.visualIds.join("\u0001")}`,
+    `n:${slide.notes.trim()}`,
+  ];
+  return parts.join("\u0002");
+}
+
+/**
+ * Builds the canonical content signature string for a whole deck: theme plus
+ * every slide's {@link slideContentSignature}, in order.
+ */
+export function deckContentSignature(deck: Deck): string {
+  return [
+    `theme:${deck.theme}`,
+    ...deck.slides.map(slideContentSignature),
+  ].join("\u0003");
+}
+
+/**
+ * Computes the stable content hash for a deck — the value stored as
+ * `Deck.deckContentHash`. Compute it from a freshly-derived base deck
+ * (`buildDeckFromBlocks`) to obtain the *current* document hash.
+ */
+export function computeDeckContentHash(deck: Deck): string {
+  return fnv1aHex(deckContentSignature(deck));
+}
+
+/**
+ * Returns a copy of `deck` stamped with the given content hash. Pure and
+ * immutable — the input deck is never mutated.
+ */
+export function stampDeckContentHash(deck: Deck, contentHash: string): Deck {
+  return { ...deck, deckContentHash: contentHash };
+}
+
+/**
+ * Returns `true` when the deck's stored `deckContentHash` differs from the
+ * current document content hash — i.e. the document was edited after the deck
+ * was last built/synced. Returns `false` when the deck carries no stored hash
+ * (legacy deck — staleness cannot be determined; the manual sync action stays
+ * available regardless).
+ */
+export function isDeckStale(deck: Deck, currentContentHash: string): boolean {
+  if (deck.deckContentHash == null || deck.deckContentHash === "") {
+    return false;
+  }
+  return deck.deckContentHash !== currentContentHash;
+}
