@@ -880,12 +880,29 @@ export function VisualContextPopover({
     if (mode !== "float") return;
     reposition();
     window.addEventListener("resize", reposition);
-    window.addEventListener("scroll", reposition, true);
     return () => {
       window.removeEventListener("resize", reposition);
-      window.removeEventListener("scroll", reposition, true);
     };
   }, [mode, reposition]);
+
+  // Dismiss floating visual/component toolbars on document scroll. Internal
+  // scrolling inside the popover (for long menus/pickers) should remain usable.
+  useEffect(() => {
+    if (mode !== "float") return;
+    const onScroll = (event: Event) => {
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        (target.closest("[data-visual-chrome]") ||
+          target.closest("[data-ds-floating]"))
+      ) {
+        return;
+      }
+      onClose();
+    };
+    window.addEventListener("scroll", onScroll, true);
+    return () => window.removeEventListener("scroll", onScroll, true);
+  }, [mode, onClose]);
 
   // Click-away: dismiss when a pointer-down lands outside any visual chrome.
   // Only active in float mode.

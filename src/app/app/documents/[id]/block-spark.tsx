@@ -194,6 +194,21 @@ function visualResultSectionForType(
   return VISUAL_KIND_CATEGORY[type] ?? "more";
 }
 
+function elementFromNode(target: Node | null): Element | null {
+  if (target instanceof Element) {
+    return target;
+  }
+  return target?.parentElement ?? null;
+}
+
+function isVisualChromeTarget(target: Node | null): boolean {
+  return (
+    elementFromNode(target)?.closest(
+      "[data-visual-chrome],[data-lexical-visual-id]",
+    ) !== null
+  );
+}
+
 /**
  * Per-block "spark" affordance for the Lexical editor (US-010). Hovering or
  * focusing a text block reveals a gutter button that generates a visual for
@@ -226,6 +241,7 @@ export function BlockSparkPlugin() {
   >({});
   const [genOptions, setGenOptions] = useState<GenOptions>(DEFAULT_GEN_OPTIONS);
   const [showOptions, setShowOptions] = useState(false);
+  const [hoveringVisual, setHoveringVisual] = useState(false);
   const [visualQuery, setVisualQuery] = useState("");
   const [rememberChoices, setRememberChoices] = useState(false);
   const [expandedVisualCategories, setExpandedVisualCategories] = useState<
@@ -325,10 +341,23 @@ export function BlockSparkPlugin() {
   // soon as it mounts (it may be null on first render).
   useEffect(() => {
     const onPointer = (event: Event) => {
-      if (!editor.isEditable() || openRef.current) {
+      if (!editor.isEditable()) {
         return;
       }
-      const next = resolveBlock(event.target as Node | null);
+      const target = event.target as Node | null;
+      if (isVisualChromeTarget(target)) {
+        cancelClear();
+        setHoveringVisual(true);
+        if (!openRef.current) {
+          setBlock(null);
+        }
+        return;
+      }
+      setHoveringVisual(false);
+      if (openRef.current) {
+        return;
+      }
+      const next = resolveBlock(target);
       if (next !== null) {
         cancelClear();
         setBlock(next);
@@ -345,6 +374,7 @@ export function BlockSparkPlugin() {
         return;
       }
       cancelClear();
+      setHoveringVisual(false);
       clearTimer.current = setTimeout(() => {
         if (!keepRef.current && !openRef.current) {
           setBlock(null);
@@ -355,11 +385,13 @@ export function BlockSparkPlugin() {
     return editor.registerRootListener((root, prevRoot) => {
       if (prevRoot !== null) {
         prevRoot.removeEventListener("mousemove", onPointer);
+        prevRoot.removeEventListener("pointerover", onPointer);
         prevRoot.removeEventListener("focusin", onPointer);
         prevRoot.removeEventListener("mouseleave", onLeave);
       }
       if (root !== null) {
         root.addEventListener("mousemove", onPointer);
+        root.addEventListener("pointerover", onPointer);
         root.addEventListener("focusin", onPointer);
         root.addEventListener("mouseleave", onLeave);
       }
@@ -374,6 +406,7 @@ export function BlockSparkPlugin() {
     setStatus("idle");
     setActiveGenerationSection(null);
     keepRef.current = false;
+    setHoveringVisual(false);
     if (!rememberChoices) {
       setGenOptions(DEFAULT_GEN_OPTIONS);
     }
@@ -553,7 +586,7 @@ export function BlockSparkPlugin() {
         <AnimatePresence>
           {/* Gutter spark button: hidden on touch/coarse-pointer viewports
               since it relies on hover and is a desktop-only affordance. */}
-          {isPointerFine && block !== null ? (
+          {isPointerFine && block !== null && !hoveringVisual ? (
             <motion.button
               key="block-spark"
               type="button"
