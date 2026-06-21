@@ -260,6 +260,39 @@ test("rejects an empty outline before any LLM call", async () => {
   assert.equal(called, false);
 });
 
+test("normalizes generateDeck output: every slide has authored elements", async () => {
+  const payload = JSON.stringify({
+    theme: "indigo",
+    slides: [
+      { title: "Welcome", layout: "title" },
+      { title: "Details", bullets: ["One", "Two"], layout: "content" },
+      { title: "Picture", visualIds: ["vis-1"], layout: "media" },
+    ],
+  });
+  const { complete } = sequence([payload]);
+  const result = await generateDeck(
+    { outline: "outline", visualInventory: INVENTORY },
+    { complete },
+  );
+
+  assert.ok(safeParseDeck(result).success);
+  for (const slide of result.slides) {
+    assert.ok(
+      slide.elements && slide.elements.length > 0,
+      "slide has positioned elements",
+    );
+    assert.equal(slide.elementsDerived, false, "AI slides are authored");
+    assert.equal(slide.theme, "indigo", "theme stamped uniformly");
+  }
+
+  // The media slide places its document visual prominently.
+  const media = result.slides[2];
+  const visual = media.elements?.find((el) => el.kind === "visual");
+  assert.ok(visual && visual.kind === "visual");
+  assert.equal(visual.visualId, "vis-1");
+  assert.ok(visual.box.w * visual.box.h >= 50 * 50, "prominent visual box");
+});
+
 test("rejects an oversized outline before any LLM call", async () => {
   let called = false;
   const complete = async (): Promise<string> => {
