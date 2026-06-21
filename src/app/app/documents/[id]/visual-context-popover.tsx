@@ -2,6 +2,8 @@
 
 import {
   Brush,
+  Check,
+  ChevronDown,
   Copy,
   Download,
   Info,
@@ -787,6 +789,7 @@ export function VisualContextPopover({
 
   // Drill-down navigation: null = main menu, string = active submenu section
   const [activeSection, setActiveSection] = useState<MenuSection | null>(null);
+  const [nodeFontPickerOpen, setNodeFontPickerOpen] = useState(false);
 
   // Colors submenu: progressive disclosure for per-color overrides
   const [customizeOpen, setCustomizeOpen] = useState(false);
@@ -1345,28 +1348,82 @@ export function VisualContextPopover({
 
   function renderFontsSection() {
     if (selectedNode) {
+      const currentFont =
+        NODE_FONT_FAMILY_OPTIONS.find(
+          (option) => option.value === (selectedNode.fontFamily ?? ""),
+        ) ?? NODE_FONT_FAMILY_OPTIONS[0];
       return (
-        <div className="space-y-2 py-1">
-          <SectionLabel>
-            {(selectedNode.label?.trim() || "Selected element") +
-              " — font family"}
-          </SectionLabel>
-          <select
+        <div className="space-y-1.5 py-0.5">
+          <div className="flex items-center justify-between gap-2">
+            <SectionLabel>Font family</SectionLabel>
+            <span className="max-w-[8rem] truncate text-[11px] text-[var(--ds-text-muted,#6f7d83)]">
+              {selectedNode.label?.trim() || "Selected element"}
+            </span>
+          </div>
+          <button
+            type="button"
             aria-label="Element font family"
-            value={selectedNode.fontFamily ?? ""}
-            onChange={(e) =>
-              onChange(
-                setNodeFontFamily(visual, selectedNode.id, e.target.value),
-              )
-            }
-            className="w-full rounded-[var(--ds-radius-sm,8px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.1))] bg-[var(--ds-surface-base,#ffffff)] px-2 py-1.5 text-xs text-[var(--ds-text-primary,#18181b)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-focus-ring,#6366f1)] focus-visible:ring-offset-1"
+            aria-expanded={nodeFontPickerOpen}
+            onClick={() => setNodeFontPickerOpen((open) => !open)}
+            className={cx(
+              "flex h-8 w-full items-center justify-between gap-2 rounded-[var(--ds-radius-md,8px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-base,#ffffff)] px-2 text-xs font-medium text-[var(--ds-text-primary,#15171a)] transition hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.06))]",
+              FOCUS_RING,
+            )}
           >
-            {NODE_FONT_FAMILY_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+            <span className="truncate">{currentFont.label}</span>
+            <ChevronDown
+              aria-hidden="true"
+              className={cx(
+                "h-3.5 w-3.5 shrink-0 text-[var(--ds-text-muted,#6f7d83)] transition-transform",
+                nodeFontPickerOpen ? "rotate-180" : "",
+              )}
+            />
+          </button>
+
+          {nodeFontPickerOpen ? (
+            <div
+              role="listbox"
+              aria-label="Font families"
+              className="max-h-48 overflow-y-auto rounded-[var(--ds-radius-md,8px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-base,#ffffff)] p-1 shadow-[var(--ds-shadow-raised,0_10px_30px_rgba(15,23,42,0.12))]"
+            >
+              {NODE_FONT_FAMILY_OPTIONS.map((option) => {
+                const active = option.value === (selectedNode.fontFamily ?? "");
+                return (
+                  <button
+                    key={option.value || "default"}
+                    type="button"
+                    role="option"
+                    aria-selected={active}
+                    onClick={() => {
+                      onChange(
+                        setNodeFontFamily(
+                          visual,
+                          selectedNode.id,
+                          option.value,
+                        ),
+                      );
+                      setNodeFontPickerOpen(false);
+                    }}
+                    className={cx(
+                      "flex w-full items-center justify-between gap-2 rounded-[var(--ds-radius-sm,6px)] px-2 py-1.5 text-left text-xs transition",
+                      active
+                        ? "bg-[var(--ds-accent,#6366f1)] text-[var(--ds-text-on-accent,#ffffff)]"
+                        : "text-[var(--ds-text-secondary,#52525b)] hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.06))] hover:text-[var(--ds-text-primary,#15171a)]",
+                      FOCUS_RING,
+                    )}
+                    style={
+                      option.value ? { fontFamily: option.value } : undefined
+                    }
+                  >
+                    <span className="truncate">{option.label}</span>
+                    {active ? (
+                      <Check aria-hidden="true" className="h-3.5 w-3.5" />
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
       );
     }
