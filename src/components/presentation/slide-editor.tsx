@@ -73,7 +73,6 @@ import {
   addSlide,
   bringElementToFront,
   duplicateSlide,
-  materializeDeck,
   materializeSlide,
   removeElement,
   removeSlide,
@@ -295,23 +294,10 @@ export function SlideEditor({
     return () => observer.disconnect();
   }, []);
 
-  // Auto-materialize derived (legacy) slides once when the editor opens so every
-  // slide is directly editable with zero extra clicks — no "Customize layout"
-  // gate. This routes through the history `commit` (so the change is undoable and
-  // the parent stays in sync) and runs a single time: `materializeDeck` returns
-  // the same reference when nothing needs materializing (a no-op commit), and the
-  // ref guard prevents an undo back to legacy from being instantly re-applied.
-  const didAutoMaterialize = useRef(false);
-  useEffect(() => {
-    if (didAutoMaterialize.current) {
-      return;
-    }
-    didAutoMaterialize.current = true;
-    const materialized = materializeDeck(deck);
-    if (materialized !== deck) {
-      onDeckChange(materialized);
-    }
-  }, [deck, onDeckChange]);
+  // Auto-materialization of legacy slides happens BEFORE the deck reaches this
+  // editor (in SlideEditorButton, before useDeckHistory), so the materialized
+  // deck is the history baseline: `canUndo` stays false until the user edits and
+  // the first undo never reverts to the legacy form.
 
   const handleThemeChange = useCallback(
     (theme: DeckTheme) => {

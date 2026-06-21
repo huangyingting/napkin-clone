@@ -39,6 +39,7 @@ import { materializeSlideElements } from "@/lib/presentation/deck";
 import type { Visual } from "@/lib/visual/schema";
 import { exportPNG } from "@/lib/visual/export";
 import { applySpecsToSlide } from "@/lib/visual/pptx-apply";
+import { applyTheme } from "@/lib/visual/transforms";
 import {
   isImageFallback,
   toHex,
@@ -318,8 +319,14 @@ function buildSlideSpec(
       case "visual": {
         const visual = visuals.get(element.visualId);
         if (!visual) break;
-        const layout = layoutWithinBox(visual, box);
-        const specs = visualToNativeSpecs(visual, layout);
+        // Honor the optional per-element restyle, mirroring the shared renderer
+        // (slide-canvas VisualElementView) so the export matches what the editor
+        // and present/public viewers draw. applyTheme is pure and node-safe.
+        const styled = element.styleThemeId
+          ? applyTheme(visual, element.styleThemeId)
+          : visual;
+        const layout = layoutWithinBox(styled, box);
+        const specs = visualToNativeSpecs(styled, layout);
         if (isImageFallback(specs)) {
           ops.push({
             kind: "visual-fallback",
