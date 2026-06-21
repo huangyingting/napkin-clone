@@ -21,6 +21,43 @@
  *     the current slide and starts a new one carrying the previous section title.
  *  6. Blocks that arrive before any heading are collected onto a preamble slide
  *     with an empty title.
+ *
+ * ---------------------------------------------------------------------------
+ * Dual-track slide schema (legacy ⇄ free-form) and the migration path
+ * ---------------------------------------------------------------------------
+ *
+ * A {@link Slide} carries content in one of two tracks:
+ *
+ *  - **Legacy track** — the flat `title` / `titleRuns` / `bullets` /
+ *    `bulletRuns` / `visualIds` / `layout` fields produced by
+ *    {@link buildDeckFromBlocks}. Rendered through the fixed {@link SlideLayout}
+ *    templates. This is what every deck authored before the free-form editor
+ *    looks like, and what a freshly derived deck always starts as.
+ *
+ *  - **Free-form track** — the optional `elements[]` array of positioned
+ *    {@link SlideElement}s. When present and non-empty it is the **authoritative**
+ *    slide content: renderers and exporters read `elements[]` and ignore the
+ *    legacy fields entirely.
+ *
+ * A slide is migrated from legacy → free-form exactly once, via the audited
+ * {@link migrateSlideToFreeForm} wrapper over {@link materializeSlideElements}.
+ * Migration is:
+ *
+ *  - **One-way and explicit.** The editor calls it on the upgrade path (open /
+ *    first element edit) — there is no implicit lazy mutation of persisted data,
+ *    and no free-form → legacy downgrade.
+ *  - **Idempotent.** A slide that already has `elements[]` is returned
+ *    unchanged, so it is safe to call repeatedly.
+ *  - **Provenance-stamped.** It sets `elementsDerived = true` (issue #221) so a
+ *    later "Sync from document" knows the elements were machine-derived (and may
+ *    be re-materialized) versus hand-edited (preserved verbatim). Any genuine
+ *    element edit clears the flag — see {@link Slide.elementsDerived}.
+ *
+ * Once a slide is on the free-form track, its legacy fields are frozen: mutation
+ * helpers (`updateSlide`) refuse to patch them so a slide can never hold
+ * conflicting legacy + free-form content. The legacy fields remain on disk only
+ * as a render fallback for any consumer that has not been taught about
+ * `elements[]`.
  */
 
 import type { DocumentBlock } from "@/lib/visual/document-export";
@@ -287,13 +324,28 @@ export const MAX_BULLETS = 5;
 // Element helpers
 // ---------------------------------------------------------------------------
 
-let elementIdCounter = 0;
-
-/** Generates a stable-enough unique id for a new slide element. */
+/**
+ * Generates a unique id for a new slide element.
+ *
+ * **Stateless and SSR-safe by design.** It holds no module-level mutable
+ * counter, so concurrent server renders, HMR reloads, and multiple decks in one
+ * process can never collide or interfere — every call derives its uniqueness
+ * purely from `crypto.randomUUID()` (when available in both Node and the
+ * browser) or, as a fallback for non-secure browser contexts, a timestamp plus
+ * a random suffix. The `el-` prefix keeps ids visually identifiable and stable
+ * in shape.
+ *
+ * Ids only need to be unique within a deck and stable once assigned — they are
+ * persisted into `deckJson` (never recomputed on every render), so dropping the
+ * old monotonic counter does not affect any code that relies on element
+ * identity across renders.
+ */
 export function makeElementId(): string {
-  elementIdCounter += 1;
-  const rand = Math.random().toString(36).slice(2, 8);
-  return `el-${Date.now().toString(36)}-${elementIdCounter}-${rand}`;
+  const uuid = globalThis.crypto?.randomUUID?.();
+  if (uuid) {
+    return `el-${uuid}`;
+  }
+  return `el-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 /**
@@ -428,9 +480,36 @@ export function materializeSlideElements(slide: Slide): SlideElement[] {
   return elements;
 }
 
-// ---------------------------------------------------------------------------
-// Internal builder helpers
-// ---------------------------------------------------------------------------
+/**
+ * Migrates a single {@link Slide} from the legacy track to the free-form track.
+ *
+ * This is the **one** audited entry point for the legacy → free-form upgrade: a
+ * thin, idempotent wrapper over {@link materializeSlideElements} that stamps the
+ * result so provenance is never lost.
+ *
+ *  - **Idempotent.** When the slide already has a non-empty `elements[]` it is
+ *    returned unchanged (same reference), so callers may invoke it freely on
+ *    open, on first edit, or in a loop.
+ *  - **Provenance.** Sets `elementsDerived = true` (issue #221) on the migrated
+ *    slide, marking `elements[]` as machine-derived from the legacy fields and
+ *    not yet hand-edited. Element-editing mutations later clear this flag.
+ *  - **Non-destructive.** The legacy `title`/`bullets`/`visualIds` are left on
+ *    the slide as a render fallback; `elements[]` becomes authoritative.
+ *
+ * Pure and DOM-free except for the generated element ids. Prefer this over
+ * calling {@link materializeSlideElements} directly on any explicit upgrade
+ * path so the `elementsDerived` semantics stay consistent across the editor.
+ */
+export function migrateSlideToFreeForm(slide: Slide): Slide {
+  if (slide.elements && slide.elements.length > 0) {
+    return slide;
+  }
+  return {
+    ...slide,
+    elements: materializeSlideElements(slide),
+    elementsDerived: true,
+  };
+}
 
 interface SlideBuilder {
   title: string;

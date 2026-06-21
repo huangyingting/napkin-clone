@@ -202,6 +202,54 @@ test("updateSlide applies a patch to title and bullets", () => {
   assert.equal(deck.slides[1].title, "B");
 });
 
+test("updateSlide ignores legacy-field patches once elements are authoritative", () => {
+  const deck = materializeSlide(makeDeck(["A", "B"]), 0);
+  const before = deck.slides[0];
+  const next = updateSlide(deck, 0, {
+    title: "HACKED",
+    bullets: ["zzz"],
+    visualIds: ["v9"],
+    layout: "media",
+  });
+
+  // Legacy content fields are frozen on a free-form slide — no desync.
+  assert.equal(next.slides[0].title, before.title);
+  assert.deepEqual(next.slides[0].bullets, before.bullets);
+  assert.deepEqual(next.slides[0].visualIds, before.visualIds);
+  assert.equal(next.slides[0].layout, before.layout);
+  // elements stay authoritative and intact
+  assert.equal(next.slides[0].elements, before.elements);
+});
+
+test("updateSlide still applies non-legacy fields on a free-form slide", () => {
+  const deck = materializeSlide(makeDeck(["A", "B"]), 0);
+  const next = updateSlide(deck, 0, {
+    title: "ignored",
+    notes: "new notes",
+    background: "#123456",
+  });
+
+  assert.equal(next.slides[0].notes, "new notes");
+  assert.equal(next.slides[0].background, "#123456");
+  // legacy title patch still ignored
+  assert.equal(next.slides[0].title, deck.slides[0].title);
+});
+
+test("updateSlide applies the full patch on a legacy slide (no elements)", () => {
+  const deck = makeDeck(["A", "B"]);
+  const next = updateSlide(deck, 0, {
+    title: "A2",
+    bullets: ["p"],
+    visualIds: ["v1"],
+    layout: "media",
+  });
+
+  assert.equal(next.slides[0].title, "A2");
+  assert.deepEqual(next.slides[0].bullets, ["p"]);
+  assert.deepEqual(next.slides[0].visualIds, ["v1"]);
+  assert.equal(next.slides[0].layout, "media");
+});
+
 // ---------------------------------------------------------------------------
 // setDeckTheme
 // ---------------------------------------------------------------------------
