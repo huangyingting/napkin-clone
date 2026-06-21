@@ -11,13 +11,18 @@ import {
   type TemplateEntry,
 } from "@/lib/templates/catalog";
 
-test("catalog has at least four templates including the expected set", () => {
-  assert.ok(TEMPLATE_CATALOG.length >= 4);
+test("catalog has at least nine templates including the expected set", () => {
+  assert.ok(TEMPLATE_CATALOG.length >= 9);
   const names = TEMPLATE_CATALOG.map((entry) => entry.name);
   assert.ok(names.includes("Blank"));
   assert.ok(names.includes("Process / Flowchart"));
   assert.ok(names.includes("Mind Map"));
   assert.ok(names.includes("Comparison"));
+  assert.ok(names.includes("How It Works"));
+  assert.ok(names.includes("Timeline / Roadmap"));
+  assert.ok(names.includes("Org / Team"));
+  assert.ok(names.includes("Pros & Cons"));
+  assert.ok(names.includes("Cycle / Loop"));
 });
 
 test("entries are well-formed with unique ids", () => {
