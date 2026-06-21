@@ -30,6 +30,7 @@ import {
   VisualSkeleton,
 } from "@/components/motion/generation-status";
 import { ExportMenu } from "@/components/visual/export-menu";
+import { sanitizeFilename } from "@/lib/visual/export";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import {
   Button,
@@ -1008,7 +1009,7 @@ export function VisualContextPopover({
         <ExportMenu
           getSvgElement={getSvgElement}
           getVisual={() => visual}
-          filename={visual.title?.trim() || "visual"}
+          filename={sanitizeFilename(visual.title ?? "")}
         />
       </div>
     );

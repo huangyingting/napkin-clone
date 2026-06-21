@@ -28,7 +28,7 @@ import {
   type InfographicWidthPreset,
 } from "@/lib/visual/document-export";
 import { DEFAULT_INFOGRAPHIC_CONFIG } from "@/lib/visual/infographic-layout";
-import { downloadBlob } from "@/lib/visual/export";
+import { downloadBlob, sanitizeFilename } from "@/lib/visual/export";
 import { useUserEntitlements } from "@/lib/billing/use-user-entitlements";
 
 interface DocumentExportButtonProps {
@@ -111,8 +111,7 @@ export function DocumentExportButton({
   );
 
   const safeFilename = (ext: string) => {
-    const safe = (documentTitle || "document").replace(/[^\w\s-]/g, "").trim();
-    return `${safe || "document"}.${ext}`;
+    return `${sanitizeFilename(documentTitle, "document")}.${ext}`;
   };
 
   const handleExportPDF = async () => {
