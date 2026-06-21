@@ -48,7 +48,10 @@ import { type Orientation, type DetailLevel } from "@/lib/ai/prompt";
 import Link from "next/link";
 import { useIsPointerFine } from "@/lib/pointer";
 
-import { leftGutterButtonLeft } from "./document-gutter";
+import {
+  DOCUMENT_GUTTER_BUTTON_SIZE,
+  leftGutterButtonLeft,
+} from "./document-gutter";
 import { $createVisualNode } from "./visual-node";
 
 // Top-level block types that carry text worth turning into a visual.
@@ -650,12 +653,14 @@ export function BlockSparkPlugin() {
               transition={popMotion.transition}
               style={{
                 top:
-                  displayTarget.anchorTop + displayTarget.anchorHeight / 2 - 14,
+                  displayTarget.anchorTop +
+                  displayTarget.anchorHeight / 2 -
+                  DOCUMENT_GUTTER_BUTTON_SIZE / 2,
                 left: displayTarget.gutterLeft,
               }}
               className={cx("fixed z-raised", GUTTER_BUTTON)}
             >
-              <Sparkles aria-hidden="true" className="h-4 w-4" />
+              <Sparkles aria-hidden="true" className="h-5 w-5" />
             </motion.button>
           ) : null}
         </AnimatePresence>,

@@ -26,4 +26,4 @@ export const FOCUS_RING =
  * the "+" insert button). Includes hover, active (pressed), and focus-visible
  * feedback, all driven by `--ds-*` tokens.
  */
-export const GUTTER_BUTTON = `flex h-7 w-7 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised text-ds-text-muted shadow-ds-raised transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary active:bg-ds-state-active aria-expanded:bg-ds-state-hover aria-expanded:text-ds-text-primary ${FOCUS_RING}`;
+export const GUTTER_BUTTON = `flex h-8 w-8 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised text-ds-text-muted shadow-ds-raised transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary active:bg-ds-state-active aria-expanded:bg-ds-state-hover aria-expanded:text-ds-text-primary ${FOCUS_RING}`;

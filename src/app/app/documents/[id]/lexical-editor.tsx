@@ -46,7 +46,7 @@ import {
   EditorToolbarGroup,
 } from "@/components/editor/toolbar-button";
 import { VisualSvgRegistryProvider } from "@/components/editor/visual-svg-registry";
-import { Popover } from "@/components/ui";
+import { Popover, cx } from "@/components/ui";
 import { FloatingTextToolbar } from "./floating-text-toolbar";
 import { ImportPlugin } from "./import-plugin";
 import { InsertMenuPlugin } from "./insert-menu";
@@ -267,6 +267,30 @@ function PageGuidesButton({
   );
 }
 
+type EditorHeaderMode = "full" | "compact" | "stacked";
+
+function useEditorHeaderMode() {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [mode, setMode] = useState<EditorHeaderMode>("stacked");
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) {
+      return;
+    }
+    const update = () => {
+      const width = element.getBoundingClientRect().width;
+      setMode(width >= 980 ? "full" : width >= 680 ? "compact" : "stacked");
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  return { ref, mode };
+}
+
 /**
  * The document editor: a Lexical block editor bound to a document with real-time
  * collaboration. Content lives in a shared Yjs document synced over the collab
@@ -434,6 +458,11 @@ export function LexicalEditor({
         : status === "pending"
           ? "pending"
           : "saved";
+  const { ref: editorHeaderRef, mode: editorHeaderMode } =
+    useEditorHeaderMode();
+  const toolbarLabels = editorHeaderMode === "full" ? "show" : "hide";
+  const headerStacked = editorHeaderMode === "stacked";
+  const headerFull = editorHeaderMode === "full";
 
   return (
     <main className="flex flex-1 flex-col bg-ds-surface-sunken">
@@ -446,34 +475,64 @@ export function LexicalEditor({
                 header (`z-header`) so the header's user/language menus can open
                 over this bar. The toolbar's own Share/Export menus are children
                 of this stacking context and open downward over the article. */}
-              <div className="relative z-sticky flex flex-wrap items-center justify-between gap-2 border-b border-ds-border-subtle bg-ds-surface-chrome px-4 py-2 backdrop-blur sm:px-6">
-                <div className="flex min-w-0 items-center gap-2">
-                  <Link
-                    href="/app"
-                    className="w-fit text-xs font-medium text-ds-text-muted transition hover:text-ds-text-primary"
-                  >
-                    ← Back
-                  </Link>
-                  {workspaceName && (
-                    <>
-                      <span className="text-xs text-ds-border-strong">·</span>
-                      <span className="truncate text-xs text-ds-text-muted">
-                        {workspaceName}
-                      </span>
-                    </>
+              <div
+                ref={editorHeaderRef}
+                data-toolbar-labels={toolbarLabels}
+                className={cx(
+                  "relative z-sticky flex gap-2 border-b border-ds-border-subtle bg-ds-surface-chrome px-3 py-2 backdrop-blur sm:px-6",
+                  headerStacked
+                    ? "flex-col"
+                    : "flex-row items-center justify-between",
+                )}
+              >
+                <div
+                  className={cx(
+                    "flex shrink-0 items-center gap-3",
+                    headerStacked
+                      ? "w-full justify-between"
+                      : "w-auto justify-start",
                   )}
-                  {!canEdit && (
-                    <>
-                      <span className="text-xs text-ds-border-strong">·</span>
-                      <span className="rounded-full bg-ds-surface-sunken px-2 py-0.5 text-xs font-medium text-ds-text-secondary">
-                        Read-only
-                      </span>
-                    </>
-                  )}
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Link
+                      href="/app"
+                      className="w-fit shrink-0 text-xs font-medium text-ds-text-muted transition hover:text-ds-text-primary"
+                    >
+                      ← Back
+                    </Link>
+                    {workspaceName && (
+                      <>
+                        <span className="text-xs text-ds-border-strong">·</span>
+                        <span className="max-w-36 truncate text-xs text-ds-text-muted">
+                          {workspaceName}
+                        </span>
+                      </>
+                    )}
+                    {!canEdit && (
+                      <>
+                        <span className="text-xs text-ds-border-strong">·</span>
+                        <span className="rounded-full bg-ds-surface-sunken px-2 py-0.5 text-xs font-medium text-ds-text-secondary">
+                          Read-only
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <div className={cx("shrink-0", !headerStacked && "hidden")}>
+                    <Presence peers={collab.peers} status={collab.status} />
+                  </div>
                 </div>
 
-                <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-                  <Presence peers={collab.peers} status={collab.status} />
+                <div
+                  className={cx(
+                    "flex min-w-0 flex-1 items-center gap-1 overscroll-x-contain whitespace-nowrap py-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+                    headerFull
+                      ? "justify-end gap-2 overflow-visible"
+                      : "justify-start overflow-x-auto",
+                  )}
+                >
+                  <div className={cx("shrink-0", headerStacked && "hidden")}>
+                    <Presence peers={collab.peers} status={collab.status} />
+                  </div>
                   {canEdit && (
                     <EditorToolbarGroup label="Edit document">
                       <ImportPlugin />

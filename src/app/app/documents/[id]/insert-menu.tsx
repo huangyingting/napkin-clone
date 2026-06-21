@@ -33,7 +33,10 @@ import { useEditorContext } from "@/lib/lexical/editor-context";
 import { useIsPointerFine } from "@/lib/pointer";
 import { toolsFor, type EditorTool } from "@/lib/lexical/tool-registry";
 
-import { leftGutterButtonLeft } from "./document-gutter";
+import {
+  DOCUMENT_GUTTER_BUTTON_SIZE,
+  leftGutterButtonLeft,
+} from "./document-gutter";
 
 // Gap (px) between the anchored block and the menu / gutter button.
 const MENU_GAP = 6;
@@ -368,7 +371,10 @@ export function InsertMenuPlugin() {
               exit={popMotion.exit}
               transition={popMotion.transition}
               style={{
-                top: blockRect.top + blockRect.height / 2 - 14,
+                top:
+                  blockRect.top +
+                  blockRect.height / 2 -
+                  DOCUMENT_GUTTER_BUTTON_SIZE / 2,
                 left: gutterLeft,
               }}
               className={cx("fixed z-raised", GUTTER_BUTTON)}

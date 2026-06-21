@@ -13,6 +13,8 @@ import { createPortal } from "react-dom";
 
 import { createComment, type CommentThread } from "./comments-actions";
 import {
+  DOCUMENT_GUTTER_BUTTON_SIZE,
+  DOCUMENT_GUTTER_GAP,
   rightGutterButtonLeft,
   rightGutterDotLeft,
   rightGutterPanelLeft,
@@ -33,32 +35,11 @@ function normalizeAnchorText(value: string): string {
   return value.replace(/\s+/g, " ").trim().slice(0, MAX_ANCHOR_TEXT_LENGTH);
 }
 
-function elementFromTarget(target: EventTarget | null): HTMLElement | null {
-  if (target instanceof HTMLElement) {
-    return target;
-  }
-  if (target instanceof Node) {
-    return target.parentElement;
-  }
-  return null;
-}
-
 function isTextBlock(element: HTMLElement): boolean {
   if (element.closest("[data-visual-chrome]")) {
     return false;
   }
   return normalizeAnchorText(element.textContent ?? "").length > 0;
-}
-
-function topLevelBlockForTarget(
-  root: HTMLElement,
-  target: EventTarget | null,
-): HTMLElement | null {
-  let element = elementFromTarget(target);
-  while (element && element.parentElement !== root) {
-    element = element.parentElement;
-  }
-  return element && isTextBlock(element) ? element : null;
 }
 
 function blockAtY(root: HTMLElement, clientY: number): HTMLElement | null {
@@ -81,6 +62,18 @@ function blockAtY(root: HTMLElement, clientY: number): HTMLElement | null {
     }
   }
   return nearest && nearest.distance <= 32 ? nearest.block : null;
+}
+
+function isInRightCommentGutter(root: HTMLElement, clientX: number): boolean {
+  const rootRect = root.getBoundingClientRect();
+  const buttonLeft = rightGutterButtonLeft(rootRect);
+  if (buttonLeft === null || buttonLeft < rootRect.right) {
+    return false;
+  }
+  return (
+    clientX >= rootRect.right &&
+    clientX <= buttonLeft + DOCUMENT_GUTTER_BUTTON_SIZE + DOCUMENT_GUTTER_GAP
+  );
 }
 
 function positionForBlock(
@@ -221,16 +214,18 @@ export function InlineCommentsLayer({
       rootElement = root;
       const onMouseMove = (event: MouseEvent) => {
         if (activeAnchor) return;
-        const block =
-          topLevelBlockForTarget(root, event.target) ??
-          blockAtY(root, event.clientY);
+        if (!isInRightCommentGutter(root, event.clientX)) {
+          setHoverAnchor(null);
+          return;
+        }
+        const block = blockAtY(root, event.clientY);
         setHoverAnchor(block ? positionForBlock(block, root) : null);
       };
-      root.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mousemove", onMouseMove);
       const frame = requestAnimationFrame(refreshPositions);
       cleanupRoot = () => {
         cancelAnimationFrame(frame);
-        root.removeEventListener("mousemove", onMouseMove);
+        window.removeEventListener("mousemove", onMouseMove);
       };
     });
 
@@ -295,13 +290,13 @@ export function InlineCommentsLayer({
           type="button"
           aria-label="Add comment to this paragraph"
           onClick={() => setActiveAnchor(iconAnchor)}
-          className="pointer-events-auto absolute flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-overlay text-ds-text-muted shadow-sm transition hover:text-ds-text-primary"
+          className="pointer-events-auto absolute flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-overlay text-ds-text-muted shadow-sm transition hover:text-ds-text-primary"
           style={{
             top: iconAnchor.top,
             left: iconAnchor.iconLeft,
           }}
         >
-          <MessageSquare aria-hidden="true" className="h-3.5 w-3.5" />
+          <MessageSquare aria-hidden="true" className="h-4 w-4" />
         </button>
       ) : null}
 

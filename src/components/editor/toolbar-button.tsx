@@ -16,7 +16,7 @@ export function EditorToolbarGroup({
     <div
       role="group"
       aria-label={label}
-      className="flex min-w-0 flex-wrap items-center gap-1"
+      className="flex min-w-0 shrink-0 items-center gap-1"
     >
       {children}
     </div>
@@ -43,7 +43,9 @@ function editorToolbarButtonClass({
 } = {}) {
   return cx(
     "inline-flex h-8 items-center justify-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised text-sm font-medium text-ds-text-primary shadow-ds-raised transition-colors hover:bg-ds-state-hover active:bg-ds-state-active disabled:cursor-not-allowed disabled:opacity-50",
-    iconOnly ? "w-8 px-0" : "px-3",
+    iconOnly
+      ? "w-8 px-0"
+      : "w-8 px-0 [[data-toolbar-labels='show']_&]:w-auto [[data-toolbar-labels='show']_&]:px-3",
     active &&
       "border-ds-accent-border bg-ds-accent-surface text-ds-accent-text",
     FOCUS_RING,
@@ -93,7 +95,15 @@ export const EditorToolbarButton = forwardRef<
       {children ?? (
         <>
           {icon}
-          <span className={iconOnly ? "sr-only" : undefined}>{label}</span>
+          <span
+            className={
+              iconOnly
+                ? "sr-only"
+                : "hidden [[data-toolbar-labels='show']_&]:inline"
+            }
+          >
+            {label}
+          </span>
         </>
       )}
     </button>
