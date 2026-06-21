@@ -3,9 +3,9 @@
 /**
  * Present button rendered in the document editor toolbar.
  *
- * Reads the current Lexical editor state, builds a {@link Deck} via
- * {@link buildDeckFromBlocks}, assembles a `visualId → Visual` map from the
- * same block list, and opens {@link PresentMode} as a fullscreen overlay.
+ * Reads the current Lexical editor state, builds a fallback {@link Deck} via
+ * {@link buildDeckFromBlocks}, then prefers the freshest saved `deckJson` so
+ * the toolbar presentation matches the Slides editor and public present route.
  *
  * The present mode is READ-ONLY — it never mutates Lexical/Yjs state.
  */
@@ -14,13 +14,17 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { MonitorPlay } from "lucide-react";
 import { useCallback, useState } from "react";
 
+import { fetchDeckJson } from "@/app/app/documents/[id]/actions";
 import { PresentMode } from "@/components/presentation/present-mode";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { buildDeckFromBlocks, type Deck } from "@/lib/presentation/deck";
+import { pickFreshestDeck } from "@/lib/presentation/fresh-deck";
 import type { Visual } from "@/lib/visual/schema";
 import { collectDocumentBlocks } from "@/lib/visual/document-export";
 
 interface PresentButtonProps {
+  documentId: string;
+  initialDeckJson: unknown;
   documentTitle?: string;
   iconOnly?: boolean;
 }
@@ -33,18 +37,21 @@ type PresentData = {
 /**
  * A toolbar button that opens the in-app Present mode for the current document.
  *
- * Placed in the editor header alongside Export and Share. On click it
- * synchronously reads the Lexical editor state, derives a {@link Deck} from the
- * block list, and renders {@link PresentMode} as a fixed fullscreen overlay.
+ * Placed in the editor header alongside Export and Share. On click it reads the
+ * current Lexical editor state for live visuals and a generated fallback deck,
+ * then prefers the saved deck JSON before rendering {@link PresentMode}.
  */
 export function PresentButton({
+  documentId,
+  initialDeckJson,
   documentTitle,
   iconOnly = false,
 }: PresentButtonProps) {
   const [editor] = useLexicalComposerContext();
   const [presentData, setPresentData] = useState<PresentData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handlePresent = useCallback(() => {
+  const handlePresent = useCallback(async () => {
     const json = JSON.stringify(editor.getEditorState().toJSON());
     const blocks = collectDocumentBlocks(json);
 
@@ -56,10 +63,20 @@ export function PresentButton({
       }
     }
 
-    // Build the deck (pure, synchronous) and open the overlay.
-    const deck = buildDeckFromBlocks(blocks);
+    const baseDeck = buildDeckFromBlocks(blocks);
+    let fetchedRaw: unknown = null;
+    setIsLoading(true);
+    try {
+      fetchedRaw = await fetchDeckJson(documentId);
+    } catch {
+      // Network/auth error — fall back to page-load deckJson, then live blocks.
+    } finally {
+      setIsLoading(false);
+    }
+
+    const deck = pickFreshestDeck(fetchedRaw, initialDeckJson, baseDeck);
     setPresentData({ deck, visuals: visualMap });
-  }, [editor]);
+  }, [documentId, editor, initialDeckJson]);
 
   const handleClose = useCallback(() => {
     setPresentData(null);
@@ -73,6 +90,7 @@ export function PresentButton({
         icon={<MonitorPlay size={15} aria-hidden="true" />}
         iconOnly={iconOnly}
         onClick={handlePresent}
+        disabled={isLoading}
         aria-label={`Present ${documentTitle ?? "document"}`}
       />
 

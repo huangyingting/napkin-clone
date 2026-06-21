@@ -26,11 +26,14 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { FOCUS_RING } from "@/components/motion/control-styles";
-import { SlideCanvas } from "@/components/presentation/slide-canvas";
+import {
+  DECK_THEMES,
+  SlideCanvas,
+} from "@/components/presentation/slide-canvas";
 import { Tooltip } from "@/components/ui";
 import type { Deck, DeckTheme, SlideLayout } from "@/lib/presentation/deck";
 import type { Visual } from "@/lib/visual/schema";
@@ -69,6 +72,33 @@ const LAYOUT_OPTIONS: SlideLayout[] = [
   "blank",
 ];
 
+type Size = { width: number; height: number };
+
+const DEFAULT_SCREEN_SIZE: Size = { width: 16, height: 9 };
+
+function getViewportSize(): Size {
+  if (typeof window === "undefined") {
+    return DEFAULT_SCREEN_SIZE;
+  }
+  return {
+    width: Math.max(1, window.innerWidth),
+    height: Math.max(1, window.innerHeight),
+  };
+}
+
+function fitAspectRatio(bounds: Size, aspectRatio: number): Size {
+  if (bounds.width <= 0 || bounds.height <= 0) {
+    return DEFAULT_SCREEN_SIZE;
+  }
+
+  const boundsAspect = bounds.width / bounds.height;
+  if (boundsAspect > aspectRatio) {
+    return { width: bounds.height * aspectRatio, height: bounds.height };
+  }
+
+  return { width: bounds.width, height: bounds.width / aspectRatio };
+}
+
 export function SlideEditor({
   deck,
   visuals,
@@ -80,10 +110,47 @@ export function SlideEditor({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [viewportSize, setViewportSize] = useState<Size>(getViewportSize);
+  const [stageBounds, setStageBounds] = useState<Size>(DEFAULT_SCREEN_SIZE);
+  const stageRef = useRef<HTMLDivElement>(null);
 
   // Keep the selection within bounds as slides are added/removed.
   const safeSelected = Math.min(selectedIndex, deck.slides.length - 1);
   const selectedSlide = deck.slides[safeSelected];
+  const selectedTheme = selectedSlide
+    ? (DECK_THEMES[selectedSlide.theme] ?? DECK_THEMES.default)
+    : DECK_THEMES.default;
+  const viewportAspectRatio = viewportSize.width / viewportSize.height;
+  const fittedStageSize = fitAspectRatio(stageBounds, viewportAspectRatio);
+
+  useEffect(() => {
+    function onResize() {
+      setViewportSize(getViewportSize());
+    }
+
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
+    const node = stageRef.current;
+    if (!node) {
+      return;
+    }
+
+    const updateBounds = () => {
+      const rect = node.getBoundingClientRect();
+      setStageBounds({
+        width: Math.max(1, rect.width),
+        height: Math.max(1, rect.height),
+      });
+    };
+
+    updateBounds();
+    const observer = new ResizeObserver(updateBounds);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -344,9 +411,21 @@ export function SlideEditor({
         </aside>
 
         {/* Stage — large live preview of the selected slide */}
-        <main className="flex min-w-0 flex-1 flex-col bg-ds-surface-sunken">
-          <div className="flex min-h-0 flex-1 items-center justify-center p-6 sm:p-10">
-            <div className="aspect-video w-full max-w-4xl overflow-hidden rounded-xl shadow-ds-overlay ring-1 ring-ds-border-subtle">
+        <main
+          className="flex min-w-0 flex-1 flex-col"
+          style={{ backgroundColor: selectedTheme.bgColor }}
+        >
+          <div
+            ref={stageRef}
+            className="flex min-h-0 flex-1 items-center justify-center p-4 sm:p-6"
+          >
+            <div
+              className="overflow-hidden"
+              style={{
+                width: fittedStageSize.width,
+                height: fittedStageSize.height,
+              }}
+            >
               {selectedSlide ? (
                 <SlideCanvas slide={selectedSlide} visuals={visuals} />
               ) : null}
@@ -354,7 +433,7 @@ export function SlideEditor({
           </div>
 
           {/* Slide navigation */}
-          <div className="flex items-center justify-center gap-4 border-t border-ds-border-subtle px-4 py-2">
+          <div className="flex items-center justify-center gap-4 border-t border-ds-border-subtle bg-ds-surface-base px-4 py-2">
             <button
               type="button"
               onClick={goPrev}
