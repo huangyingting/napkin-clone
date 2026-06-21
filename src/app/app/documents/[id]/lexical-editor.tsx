@@ -58,6 +58,7 @@ import { ShareButton } from "./share-button";
 import { UndoRedoControls } from "./undo-redo-controls";
 import { TagControl } from "./tag-control";
 import type { DocumentTag } from "./tags-actions";
+import { VersionHistoryPanel } from "./version-history-panel";
 import { VisualAnchorProvider } from "./visual-anchor-context";
 import { VisualNode } from "./visual-node";
 import { VisualPanelProvider } from "./visual-panel-context";
@@ -565,6 +566,10 @@ export function LexicalEditor({
                         initialComments={initialComments}
                         getTextSelection={getTextSelection}
                         anchorNode={anchorNode}
+                      />
+                      <VersionHistoryPanel
+                        documentId={documentId}
+                        canEdit={canEdit}
                       />
                       <span
                         aria-label="Document statistics"
