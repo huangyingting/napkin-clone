@@ -87,29 +87,64 @@ export default async function JoinWorkspacePage({
     return <InviteInvalid reason={decision.reason} />;
   }
 
-  // Accept the invite atomically: grant membership with the server-validated
-  // role, increment the usage counter, and write the audit row in one
-  // transaction so a successful join is always fully recorded.
-  await prisma.$transaction(async (tx) => {
-    await tx.workspaceMember.create({
-      data: {
-        workspaceId: inviteLink.workspaceId,
-        userId: user.id,
-        role: decision.role,
-      },
+  // Sentinel errors used to communicate outcomes from inside the transaction.
+  class CapExhaustedError extends Error {}
+  class AlreadyMemberError extends Error {}
+
+  // Accept the invite atomically: re-verify the usage cap with a conditional
+  // updateMany (increments useCount only when still under the cap), grant
+  // membership, and write the audit row — all in one transaction so a
+  // successful join is always fully recorded and races cannot bypass maxUses.
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Atomically check + increment: WHERE id = ? AND (maxUses IS NULL OR useCount < maxUses).
+      // If concurrent requests already filled the cap this returns count = 0.
+      const capUpdate = await tx.inviteLink.updateMany({
+        where:
+          inviteLink.maxUses === null
+            ? { id: inviteLink.id }
+            : { id: inviteLink.id, useCount: { lt: inviteLink.maxUses } },
+        data: { useCount: { increment: 1 } },
+      });
+
+      if (capUpdate.count === 0) {
+        throw new CapExhaustedError();
+      }
+
+      try {
+        await tx.workspaceMember.create({
+          data: {
+            workspaceId: inviteLink.workspaceId,
+            userId: user.id,
+            role: decision.role,
+          },
+        });
+      } catch (err) {
+        // P2002: unique constraint on (workspaceId, userId) — user was already
+        // added by a concurrent request; treat as a successful join.
+        if ((err as { code?: string }).code === "P2002") {
+          throw new AlreadyMemberError();
+        }
+        throw err;
+      }
+
+      await tx.inviteLinkUse.create({
+        data: {
+          inviteLinkId: inviteLink.id,
+          userId: user.id,
+          role: decision.role,
+        },
+      });
     });
-    await tx.inviteLink.update({
-      where: { id: inviteLink.id },
-      data: { useCount: { increment: 1 } },
-    });
-    await tx.inviteLinkUse.create({
-      data: {
-        inviteLinkId: inviteLink.id,
-        userId: user.id,
-        role: decision.role,
-      },
-    });
-  });
+  } catch (err) {
+    if (err instanceof CapExhaustedError) {
+      return <InviteInvalid reason="exhausted" />;
+    }
+    if (err instanceof AlreadyMemberError) {
+      redirect(`/app/workspaces/${inviteLink.workspaceId}`);
+    }
+    throw err;
+  }
 
   redirect(`/app/workspaces/${inviteLink.workspaceId}`);
 }

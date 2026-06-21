@@ -146,3 +146,19 @@ export function toInviteAccessInput(
     now,
   };
 }
+
+/**
+ * Returns `true` when the current `useCount` has not yet reached `maxUses`,
+ * meaning a new use of the invite link should be counted.
+ *
+ * When `maxUses` is `null` the link is unlimited and this always returns
+ * `true`. This predicate mirrors the WHERE clause used by the atomic
+ * conditional `updateMany` inside the join transaction, keeping the cap
+ * logic in one testable, DB-free place.
+ */
+export function isUnderUseCap(
+  maxUses: number | null,
+  useCount: number,
+): boolean {
+  return maxUses === null || useCount < maxUses;
+}
