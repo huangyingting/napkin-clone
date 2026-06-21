@@ -75,6 +75,26 @@ export function addSlide(deck: Deck, afterIndex: number): Deck {
   return { ...deck, slides: reindex(slides) };
 }
 
+/**
+ * Inserts a fully-formed `slide` after `afterIndex` (`-1` prepends), then
+ * re-indexes. Unlike {@link addSlide} (which always appends a blank slide), this
+ * places a caller-built slide — e.g. one produced by `buildTemplateSlide` — so
+ * the editor's template picker can route an authored slide through the same
+ * undo/redo `commit` path. The slide is taken as-is; its `theme`/`elements` are
+ * preserved verbatim.
+ */
+export function insertSlide(
+  deck: Deck,
+  afterIndex: number,
+  slide: Slide,
+): Deck {
+  const slides = [...deck.slides];
+  const insertAt = Math.max(0, Math.min(afterIndex + 1, slides.length));
+  slides.splice(insertAt, 0, slide);
+
+  return { ...deck, slides: reindex(slides) };
+}
+
 /** Duplicates the slide at `index`, inserting the copy right after it. */
 export function duplicateSlide(deck: Deck, index: number): Deck {
   if (index < 0 || index >= deck.slides.length) {

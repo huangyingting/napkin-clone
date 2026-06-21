@@ -7,6 +7,7 @@ import {
   addSlide,
   bringElementToFront,
   duplicateSlide,
+  insertSlide,
   materializeDeck,
   materializeSlide,
   removeElement,
@@ -92,6 +93,50 @@ test("addSlide with -1 prepends", () => {
   const deck = makeDeck(["A"]);
   const next = addSlide(deck, -1);
   assert.equal(next.slides[0].layout, "blank");
+  assert.equal(next.slides[1].title, "A");
+});
+
+// ---------------------------------------------------------------------------
+// insertSlide
+// ---------------------------------------------------------------------------
+
+test("insertSlide places a caller-built slide and re-indexes", () => {
+  const deck = makeDeck(["A", "B"]);
+  const authored: Slide = {
+    index: 0,
+    title: "",
+    bullets: [],
+    visualIds: [],
+    layout: "content",
+    notes: "",
+    theme: deck.theme,
+    elements: [],
+    elementsDerived: false,
+  };
+  const next = insertSlide(deck, 0, authored);
+
+  assert.equal(next.slides.length, 3);
+  assert.equal(next.slides[1].index, 1);
+  assert.equal(next.slides[1].elementsDerived, false);
+  assert.deepEqual(
+    next.slides.map((s) => s.index),
+    [0, 1, 2],
+  );
+});
+
+test("insertSlide with -1 prepends the slide", () => {
+  const deck = makeDeck(["A"]);
+  const authored: Slide = {
+    index: 0,
+    title: "First",
+    bullets: [],
+    visualIds: [],
+    layout: "title",
+    notes: "",
+    theme: deck.theme,
+  };
+  const next = insertSlide(deck, -1, authored);
+  assert.equal(next.slides[0].title, "First");
   assert.equal(next.slides[1].title, "A");
 });
 
