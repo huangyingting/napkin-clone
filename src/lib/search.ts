@@ -1,4 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
+import { caseInsensitiveContains } from "@/lib/db-provider";
 
 /**
  * Maximum length of a user-supplied search query accepted by the server.
@@ -23,43 +24,19 @@ export function normalizeSearchQuery(raw: string): string {
 }
 
 /**
- * Returns `true` when the current runtime database provider is Postgres.
- * Mirrors the check in `src/lib/prisma.ts`.
- */
-function isPostgresProvider(): boolean {
-  return process.env.DB_PROVIDER === "postgres";
-}
-
-/**
  * Builds the `OR` array for a full-text search across document `title` and
  * `content` fields. The returned conditions are intended to be nested under an
  * `AND` clause so they compose with the existing access-scope `OR`.
  *
- * Provider behaviour:
- * - **SQLite** – `LIKE '%query%'`. SQLite's LIKE operator is case-insensitive
- *   for ASCII characters by default, which is acceptable for the SQLite CI path.
- * - **Postgres** – `ILIKE '%query%'` (case-insensitive). `mode: 'insensitive'`
- *   is added at runtime via a type cast because the SQLite-generated Prisma
- *   client types do not expose `mode` on `StringFilter`, while the Postgres
- *   schema does. The cast is safe: Prisma passes the field through to the DB
- *   driver unchanged, and the Postgres adapter honours `mode:'insensitive'`.
+ * Case-sensitivity behaviour is encapsulated in `caseInsensitiveContains`
+ * (see `src/lib/db-provider.ts`): Postgres uses `mode:'insensitive'` (ILIKE),
+ * SQLite omits it (LIKE is already case-insensitive for ASCII).
  *
  * @param query – pre-normalised, non-empty search string.
  */
 export function buildSearchOr(query: string): Prisma.DocumentWhereInput[] {
-  if (isPostgresProvider()) {
-    // `mode: 'insensitive'` maps to ILIKE in Postgres. The cast is necessary
-    // because the Prisma client is generated from the SQLite schema in CI,
-    // where StringFilter does not include the `mode` field.
-    const filter = {
-      contains: query,
-      mode: "insensitive",
-    } as unknown as Prisma.StringFilter;
-    return [{ title: filter }, { content: filter }];
-  }
-
-  // SQLite: `contains` maps to LIKE which is case-insensitive for ASCII.
-  return [{ title: { contains: query } }, { content: { contains: query } }];
+  const filter = caseInsensitiveContains(query);
+  return [{ title: filter }, { content: filter }];
 }
 
 /**
