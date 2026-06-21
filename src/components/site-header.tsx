@@ -8,7 +8,7 @@ import {
 } from "@/components/mobile-nav-menu";
 import { SignOutButton } from "@/components/sign-out-button";
 import { UserMenu } from "@/components/user-menu";
-import { createTranslator } from "@/lib/i18n";
+import { createTranslator, isLanguageSwitcherEnabled } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
@@ -21,6 +21,7 @@ export async function SiteHeader() {
   const sessionUser = await getCurrentUser();
   const locale = await getLocale();
   const t = createTranslator(locale);
+  const showLanguageSwitcher = isLanguageSwitcherEnabled();
 
   const account = sessionUser
     ? await prisma.user.findUnique({
@@ -83,7 +84,7 @@ export async function SiteHeader() {
             </Link>
 
             <KeyboardShortcuts />
-            <LanguageSwitcher />
+            {showLanguageSwitcher && <LanguageSwitcher />}
             <UserMenu name={account.name} email={account.email}>
               <Link
                 href="/app/settings/billing"
@@ -100,7 +101,7 @@ export async function SiteHeader() {
           </>
         ) : (
           <>
-            <LanguageSwitcher />
+            {showLanguageSwitcher && <LanguageSwitcher />}
             <Link
               href="/login"
               className="flex h-9 items-center justify-center rounded-full px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
@@ -171,7 +172,7 @@ export async function SiteHeader() {
 
               {/* Utilities — prevent the drawer's click-to-close from firing */}
               <MobileNavNonClosing className="flex flex-col gap-0.5">
-                <LanguageSwitcher />
+                {showLanguageSwitcher && <LanguageSwitcher />}
                 <KeyboardShortcuts />
               </MobileNavNonClosing>
             </MobileNavMenu>
@@ -179,7 +180,7 @@ export async function SiteHeader() {
         ) : (
           /* Logged-out: 3 compact items always fit at 390px */
           <>
-            <LanguageSwitcher />
+            {showLanguageSwitcher && <LanguageSwitcher />}
             <Link
               href="/login"
               className="flex h-9 items-center justify-center rounded-full px-3 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
