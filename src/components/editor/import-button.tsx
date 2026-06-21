@@ -3,6 +3,8 @@
 import { Upload, X } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 
+import { Tooltip } from "@/components/ui";
+
 /** Accepted file extensions shown in the file picker and error messages. */
 const ACCEPTED_EXTENSIONS = ".md,.html,.htm,.docx,.pptx,.pdf";
 
@@ -145,22 +147,23 @@ export function ImportButton({
             </button>
           </div>
         ) : (
-          <button
-            type="button"
-            disabled={isUploading}
-            onClick={() => inputRef.current?.click()}
-            title={label}
-            className={[
-              "flex h-8 items-center justify-center gap-1.5 rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.06))] bg-[var(--ds-surface-base,#fff)] text-xs font-medium text-[var(--ds-text-secondary,#52525b)] transition hover:bg-[var(--ds-surface-raised,#f4f4f5)] hover:text-[var(--ds-text-primary,#18181b)] disabled:cursor-not-allowed disabled:opacity-60",
-              iconOnly ? "w-8 px-0" : "px-3",
-            ].join(" ")}
-            aria-label={label}
-          >
-            <Upload className="h-3.5 w-3.5" aria-hidden="true" />
-            <span className={iconOnly ? "sr-only" : undefined}>
-              {isUploading ? "Importing…" : label}
-            </span>
-          </button>
+          <Tooltip label={label} side="bottom">
+            <button
+              type="button"
+              disabled={isUploading}
+              onClick={() => inputRef.current?.click()}
+              className={[
+                "flex h-8 items-center justify-center gap-1.5 rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.06))] bg-[var(--ds-surface-base,#fff)] text-xs font-medium text-[var(--ds-text-secondary,#52525b)] transition hover:bg-[var(--ds-surface-raised,#f4f4f5)] hover:text-[var(--ds-text-primary,#18181b)] disabled:cursor-not-allowed disabled:opacity-60",
+                iconOnly ? "w-8 px-0" : "px-3",
+              ].join(" ")}
+              aria-label={label}
+            >
+              <Upload className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className={iconOnly ? "sr-only" : undefined}>
+                {isUploading ? "Importing…" : label}
+              </span>
+            </button>
+          </Tooltip>
         )}
       </>
     );

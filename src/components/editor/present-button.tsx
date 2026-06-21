@@ -16,6 +16,7 @@ import { useCallback, useState } from "react";
 
 import { FOCUS_RING } from "@/components/motion/control-styles";
 import { PresentMode } from "@/components/presentation/present-mode";
+import { Tooltip } from "@/components/ui";
 import { buildDeckFromBlocks, type Deck } from "@/lib/presentation/deck";
 import type { Visual } from "@/lib/visual/schema";
 import { collectDocumentBlocks } from "@/lib/visual/document-export";
@@ -67,16 +68,17 @@ export function PresentButton({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={handlePresent}
-        aria-label={`Present ${documentTitle ?? "document"}`}
-        title="Present (fullscreen)"
-        className={`flex h-8 items-center justify-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised text-sm font-medium text-ds-text-primary shadow-ds-raised transition-colors hover:bg-ds-state-hover active:bg-ds-state-active ${iconOnly ? "w-8 px-0" : "px-3"} ${FOCUS_RING}`}
-      >
-        <MonitorPlay size={15} aria-hidden="true" />
-        <span className={iconOnly ? "sr-only" : undefined}>Present</span>
-      </button>
+      <Tooltip label="Present fullscreen" side="bottom">
+        <button
+          type="button"
+          onClick={handlePresent}
+          aria-label={`Present ${documentTitle ?? "document"}`}
+          className={`flex h-8 items-center justify-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised text-sm font-medium text-ds-text-primary shadow-ds-raised transition-colors hover:bg-ds-state-hover active:bg-ds-state-active ${iconOnly ? "w-8 px-0" : "px-3"} ${FOCUS_RING}`}
+        >
+          <MonitorPlay size={15} aria-hidden="true" />
+          <span className={iconOnly ? "sr-only" : undefined}>Present</span>
+        </button>
+      </Tooltip>
 
       {presentData ? (
         <PresentMode

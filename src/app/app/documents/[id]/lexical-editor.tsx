@@ -45,7 +45,7 @@ import { PageBreakIndicator } from "@/components/editor/page-break-indicator";
 import { PresentButton } from "@/components/editor/present-button";
 import { SlideEditorButton } from "@/components/editor/slide-editor-button";
 import { VisualSvgRegistryProvider } from "@/components/editor/visual-svg-registry";
-import { Popover } from "@/components/ui";
+import { Popover, Tooltip } from "@/components/ui";
 import { EditingRail } from "./editing-rail";
 import { FloatingTextToolbar } from "./floating-text-toolbar";
 import { ImportPlugin } from "./import-plugin";
@@ -269,19 +269,20 @@ function DocumentStyleButton({ disabled }: { disabled: boolean }) {
       aria-label="Document style"
       className="w-80 overflow-hidden p-0"
       trigger={
-        <button
-          type="button"
-          title="Document style"
-          aria-label="Document style"
-          aria-expanded={open}
-          aria-haspopup="dialog"
-          disabled={disabled}
-          onClick={() => setOpen((value) => !value)}
-          className="flex h-8 items-center justify-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised px-3 text-sm font-medium text-ds-text-primary shadow-ds-raised transition hover:bg-ds-state-hover active:bg-ds-state-active disabled:pointer-events-none disabled:opacity-50"
-        >
-          <SlidersHorizontal aria-hidden="true" className="h-3.5 w-3.5" />
-          <span>Style</span>
-        </button>
+        <Tooltip label="Document style" side="bottom">
+          <button
+            type="button"
+            aria-label="Document style"
+            aria-expanded={open}
+            aria-haspopup="dialog"
+            disabled={disabled}
+            onClick={() => setOpen((value) => !value)}
+            className="flex h-8 items-center justify-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised px-3 text-sm font-medium text-ds-text-primary shadow-ds-raised transition hover:bg-ds-state-hover active:bg-ds-state-active disabled:pointer-events-none disabled:opacity-50"
+          >
+            <SlidersHorizontal aria-hidden="true" className="h-3.5 w-3.5" />
+            <span>Style</span>
+          </button>
+        </Tooltip>
       }
     >
       <OverallAdjustmentsPanel />
@@ -297,38 +298,42 @@ function PageGuidesButton({
   onToggle: () => void;
 }) {
   return (
-    <button
-      type="button"
-      title={
+    <Tooltip
+      label={
         showPageBreaks
           ? "Hide page-break guides"
           : "Show page-break guides (A4)"
       }
-      aria-label={
-        showPageBreaks ? "Hide page-break guides" : "Show page-break guides"
-      }
-      aria-pressed={showPageBreaks}
-      onClick={onToggle}
-      className={[
-        "flex h-8 items-center justify-center gap-1.5 rounded-ds-md border px-3 text-sm font-medium text-ds-text-primary shadow-ds-raised transition",
-        showPageBreaks
-          ? "border-ds-accent-border bg-ds-accent-surface text-ds-accent-text"
-          : "border-ds-border-subtle bg-ds-surface-raised text-ds-text-secondary hover:border-ds-border-strong hover:text-ds-text-primary",
-      ].join(" ")}
+      side="bottom"
     >
-      <svg
-        viewBox="0 0 16 16"
-        aria-hidden="true"
-        className="h-3.5 w-3.5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
+      <button
+        type="button"
+        aria-label={
+          showPageBreaks ? "Hide page-break guides" : "Show page-break guides"
+        }
+        aria-pressed={showPageBreaks}
+        onClick={onToggle}
+        className={[
+          "flex h-8 items-center justify-center gap-1.5 rounded-ds-md border px-3 text-sm font-medium text-ds-text-primary shadow-ds-raised transition",
+          showPageBreaks
+            ? "border-ds-accent-border bg-ds-accent-surface text-ds-accent-text"
+            : "border-ds-border-subtle bg-ds-surface-raised text-ds-text-secondary hover:border-ds-border-strong hover:text-ds-text-primary",
+        ].join(" ")}
       >
-        <path d="M2 5h12M2 11h12" />
-      </svg>
-      <span>Page guides</span>
-    </button>
+        <svg
+          viewBox="0 0 16 16"
+          aria-hidden="true"
+          className="h-3.5 w-3.5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        >
+          <path d="M2 5h12M2 11h12" />
+        </svg>
+        <span>Page guides</span>
+      </button>
+    </Tooltip>
   );
 }
 

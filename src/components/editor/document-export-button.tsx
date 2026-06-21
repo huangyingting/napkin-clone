@@ -18,6 +18,7 @@ import { FileDown, Image as ImageIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { FOCUS_RING } from "@/components/motion/control-styles";
+import { Tooltip } from "@/components/ui";
 import { useVisualSvgRegistry } from "@/components/editor/visual-svg-registry";
 import {
   collectDocumentBlocks,
@@ -202,34 +203,37 @@ export function DocumentExportButton({
 
   return (
     <div className="relative" ref={menuRef}>
-      <button
-        type="button"
-        onClick={() => {
-          setErrorMsg(null);
-          setIsOpen((o) => !o);
-        }}
-        disabled={isExporting}
-        aria-label="Export document"
-        title="Export"
-        aria-haspopup="menu"
-        aria-expanded={isOpen}
-        className={`flex h-8 items-center justify-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised text-sm font-medium text-ds-text-primary shadow-ds-raised transition-colors hover:bg-ds-state-hover active:bg-ds-state-active disabled:cursor-not-allowed disabled:opacity-50 ${iconOnly ? "w-8 px-0" : "px-3"} ${FOCUS_RING}`}
-      >
-        {isExporting ? (
-          <>
-            <span
-              aria-hidden="true"
-              className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
-            />
-            <span className={iconOnly ? "sr-only" : undefined}>Exporting…</span>
-          </>
-        ) : (
-          <>
-            <FileDown size={15} aria-hidden="true" />
-            <span className={iconOnly ? "sr-only" : undefined}>Export</span>
-          </>
-        )}
-      </button>
+      <Tooltip label="Export document" side="bottom">
+        <button
+          type="button"
+          onClick={() => {
+            setErrorMsg(null);
+            setIsOpen((o) => !o);
+          }}
+          disabled={isExporting}
+          aria-label="Export document"
+          aria-haspopup="menu"
+          aria-expanded={isOpen}
+          className={`flex h-8 items-center justify-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised text-sm font-medium text-ds-text-primary shadow-ds-raised transition-colors hover:bg-ds-state-hover active:bg-ds-state-active disabled:cursor-not-allowed disabled:opacity-50 ${iconOnly ? "w-8 px-0" : "px-3"} ${FOCUS_RING}`}
+        >
+          {isExporting ? (
+            <>
+              <span
+                aria-hidden="true"
+                className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
+              />
+              <span className={iconOnly ? "sr-only" : undefined}>
+                Exporting…
+              </span>
+            </>
+          ) : (
+            <>
+              <FileDown size={15} aria-hidden="true" />
+              <span className={iconOnly ? "sr-only" : undefined}>Export</span>
+            </>
+          )}
+        </button>
+      </Tooltip>
 
       {isOpen && !isExporting ? (
         <div

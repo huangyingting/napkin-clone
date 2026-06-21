@@ -4,6 +4,8 @@ import { History as HistoryIcon } from "lucide-react";
 import { useCallback, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 
+import { Tooltip } from "@/components/ui";
+
 import {
   listDocumentVersions,
   restoreDocumentVersion,
@@ -86,20 +88,21 @@ export function VersionHistoryPanel({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={toggleOpen}
-        aria-label="Version history"
-        title="Version history"
-        aria-expanded={open}
-        className={[
-          "relative inline-flex h-8 items-center justify-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised text-sm font-medium text-ds-text-primary shadow-ds-raised transition hover:bg-ds-state-hover active:bg-ds-state-active",
-          iconOnly ? "w-8 px-0" : "px-3",
-        ].join(" ")}
-      >
-        <HistoryIcon aria-hidden="true" className="h-3.5 w-3.5" />
-        <span className={iconOnly ? "sr-only" : undefined}>History</span>
-      </button>
+      <Tooltip label="Version history" side="bottom">
+        <button
+          type="button"
+          onClick={toggleOpen}
+          aria-label="Version history"
+          aria-expanded={open}
+          className={[
+            "relative inline-flex h-8 items-center justify-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised text-sm font-medium text-ds-text-primary shadow-ds-raised transition hover:bg-ds-state-hover active:bg-ds-state-active",
+            iconOnly ? "w-8 px-0" : "px-3",
+          ].join(" ")}
+        >
+          <HistoryIcon aria-hidden="true" className="h-3.5 w-3.5" />
+          <span className={iconOnly ? "sr-only" : undefined}>History</span>
+        </button>
+      </Tooltip>
 
       {open
         ? createPortal(

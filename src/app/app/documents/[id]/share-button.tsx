@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { Popover } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
+import { Tooltip } from "@/components/ui/tooltip";
 import { buildShareSegment } from "@/lib/slug";
 import { SocialShareMenu } from "@/components/share/social-share-menu";
 
@@ -208,19 +209,20 @@ export function ShareButton({
       onClose={() => setShowMenu(false)}
       aria-label="Share this document"
       trigger={
-        <button
-          type="button"
-          onClick={() => setShowMenu(!showMenu)}
-          title="Share"
-          aria-label="Share"
-          className={[
-            "inline-flex h-8 items-center justify-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised text-sm font-medium text-ds-text-primary shadow-ds-raised transition hover:bg-ds-state-hover active:bg-ds-state-active",
-            iconOnly ? "w-8 px-0" : "px-3",
-          ].join(" ")}
-        >
-          <Share2 aria-hidden="true" className="h-3.5 w-3.5" />
-          <span className={iconOnly ? "sr-only" : undefined}>Share</span>
-        </button>
+        <Tooltip label="Share document" side="bottom">
+          <button
+            type="button"
+            onClick={() => setShowMenu(!showMenu)}
+            aria-label="Share"
+            className={[
+              "inline-flex h-8 items-center justify-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised text-sm font-medium text-ds-text-primary shadow-ds-raised transition hover:bg-ds-state-hover active:bg-ds-state-active",
+              iconOnly ? "w-8 px-0" : "px-3",
+            ].join(" ")}
+          >
+            <Share2 aria-hidden="true" className="h-3.5 w-3.5" />
+            <span className={iconOnly ? "sr-only" : undefined}>Share</span>
+          </button>
+        </Tooltip>
       }
     >
       <h3 className="mb-3 text-sm font-semibold text-ds-text-primary">

@@ -4,6 +4,8 @@ import { MessageSquare } from "lucide-react";
 import { useCallback, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 
+import { Tooltip } from "@/components/ui";
+
 import {
   createComment,
   deleteComment,
@@ -481,33 +483,34 @@ export function CommentsPanel({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={toggleOpen}
-        aria-label={
-          unreadCount > 0 ? `Comments, ${unreadCount} unread` : "Comments"
-        }
-        title="Comments"
-        aria-expanded={open}
-        className={[
-          "relative inline-flex h-8 items-center justify-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised text-sm font-medium text-ds-text-primary shadow-ds-raised transition hover:bg-ds-state-hover active:bg-ds-state-active",
-          iconOnly ? "w-8 px-0" : "px-3",
-        ].join(" ")}
-      >
-        <MessageSquare aria-hidden="true" className="h-3.5 w-3.5" />
-        <span className={iconOnly ? "sr-only" : undefined}>Comments</span>
-        {unresolvedCount > 0 ? (
-          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-ds-control px-1 text-[11px] font-semibold text-ds-control-text">
-            {unresolvedCount}
-          </span>
-        ) : null}
-        {unreadCount > 0 ? (
-          <span
-            aria-hidden="true"
-            className="absolute -right-0.5 -top-0.5 inline-flex h-2.5 w-2.5 rounded-full bg-ds-accent ring-2 ring-ds-surface-overlay"
-          />
-        ) : null}
-      </button>
+      <Tooltip label="Comments" side="bottom">
+        <button
+          type="button"
+          onClick={toggleOpen}
+          aria-label={
+            unreadCount > 0 ? `Comments, ${unreadCount} unread` : "Comments"
+          }
+          aria-expanded={open}
+          className={[
+            "relative inline-flex h-8 items-center justify-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised text-sm font-medium text-ds-text-primary shadow-ds-raised transition hover:bg-ds-state-hover active:bg-ds-state-active",
+            iconOnly ? "w-8 px-0" : "px-3",
+          ].join(" ")}
+        >
+          <MessageSquare aria-hidden="true" className="h-3.5 w-3.5" />
+          <span className={iconOnly ? "sr-only" : undefined}>Comments</span>
+          {unresolvedCount > 0 ? (
+            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-ds-control px-1 text-[11px] font-semibold text-ds-control-text">
+              {unresolvedCount}
+            </span>
+          ) : null}
+          {unreadCount > 0 ? (
+            <span
+              aria-hidden="true"
+              className="absolute -right-0.5 -top-0.5 inline-flex h-2.5 w-2.5 rounded-full bg-ds-accent ring-2 ring-ds-surface-overlay"
+            />
+          ) : null}
+        </button>
+      </Tooltip>
 
       {open
         ? createPortal(
