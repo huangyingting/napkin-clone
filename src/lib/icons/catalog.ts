@@ -401,6 +401,150 @@ export const ICON_CATALOG: IconEntry[] = [
     name: "Anchor",
     keywords: ["anchor", "stable", "foundation", "fixed", "base"],
   },
+
+  // People & HR (extended)
+  {
+    name: "UserCheck",
+    keywords: ["approved", "verified", "hired", "confirm", "onboard"],
+  },
+  {
+    name: "UserPlus",
+    keywords: ["add", "invite", "hire", "new user", "onboard"],
+  },
+  {
+    name: "UserCog",
+    keywords: ["admin", "manage", "role", "permission", "settings"],
+  },
+  {
+    name: "Contact",
+    keywords: ["contact", "profile", "card", "person", "details"],
+  },
+  {
+    name: "Group",
+    keywords: ["group", "team", "cluster", "segment", "squad"],
+  },
+
+  // Communication & media
+  {
+    name: "Video",
+    keywords: ["video", "call", "meeting", "record", "stream"],
+  },
+  {
+    name: "Mic",
+    keywords: ["microphone", "audio", "voice", "speak", "record"],
+  },
+  {
+    name: "Share2",
+    keywords: ["share", "distribute", "network", "publish", "spread"],
+  },
+  {
+    name: "Camera",
+    keywords: ["photo", "image", "capture", "picture", "shoot"],
+  },
+
+  // Design & creative
+  {
+    name: "Palette",
+    keywords: ["design", "color", "art", "creative", "brand"],
+  },
+  {
+    name: "Pen",
+    keywords: ["write", "edit", "create", "author", "annotate"],
+  },
+  {
+    name: "PenLine",
+    keywords: ["write", "signature", "note", "edit", "author"],
+  },
+  {
+    name: "Image",
+    keywords: ["image", "picture", "photo", "media", "asset"],
+  },
+  {
+    name: "Wand2",
+    keywords: ["magic", "transform", "auto", "generate", "ai"],
+  },
+  {
+    name: "Shapes",
+    keywords: ["shapes", "design", "elements", "visuals", "diagram"],
+  },
+
+  // Time & scheduling (extended)
+  {
+    name: "Timer",
+    keywords: ["timer", "countdown", "duration", "stopwatch", "time"],
+  },
+  {
+    name: "AlarmClock",
+    keywords: ["alarm", "reminder", "schedule", "wake", "deadline"],
+  },
+
+  // Dashboard & layout
+  {
+    name: "LayoutDashboard",
+    keywords: ["dashboard", "overview", "home", "layout", "panel"],
+  },
+  {
+    name: "Kanban",
+    keywords: ["kanban", "board", "agile", "tasks", "sprint"],
+  },
+  {
+    name: "SlidersHorizontal",
+    keywords: ["settings", "filter", "tune", "configure", "adjust"],
+  },
+  {
+    name: "Cog",
+    keywords: ["settings", "configure", "system", "gear", "options"],
+  },
+
+  // Education & science
+  {
+    name: "FlaskConical",
+    keywords: ["experiment", "science", "lab", "test", "research"],
+  },
+  {
+    name: "Atom",
+    keywords: ["science", "physics", "element", "molecular", "research"],
+  },
+  {
+    name: "Microscope",
+    keywords: ["research", "science", "analyze", "lab", "detail"],
+  },
+  {
+    name: "BookMarked",
+    keywords: ["bookmark", "saved", "reference", "study", "curriculum"],
+  },
+
+  // Health & wellness
+  {
+    name: "HeartPulse",
+    keywords: ["health", "vital", "monitor", "fitness", "pulse"],
+  },
+  {
+    name: "Dumbbell",
+    keywords: ["fitness", "strength", "training", "exercise", "health"],
+  },
+
+  // Files & transfers
+  {
+    name: "Download",
+    keywords: ["download", "save", "export", "receive", "get"],
+  },
+  {
+    name: "Upload",
+    keywords: ["upload", "import", "submit", "publish", "send"],
+  },
+  {
+    name: "ExternalLink",
+    keywords: ["link", "open", "external", "navigate", "redirect"],
+  },
+  {
+    name: "ClipboardCheck",
+    keywords: ["checklist", "done", "review", "audit", "confirm"],
+  },
+  {
+    name: "FileCheck",
+    keywords: ["file", "approved", "verified", "document", "done"],
+  },
 ];
 
 const ICON_NAME_SET: ReadonlySet<string> = new Set(
