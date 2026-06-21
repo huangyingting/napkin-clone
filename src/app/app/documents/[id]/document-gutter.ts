@@ -4,7 +4,6 @@ type HorizontalRect = {
 };
 
 export const DOCUMENT_GUTTER_BUTTON_SIZE = 36;
-export const DOCUMENT_GUTTER_DOT_SIZE = 12;
 export const DOCUMENT_GUTTER_GAP = 8;
 export const DOCUMENT_GUTTER_OFFSET =
   DOCUMENT_GUTTER_BUTTON_SIZE + DOCUMENT_GUTTER_GAP;
@@ -27,16 +26,6 @@ export function rightGutterButtonLeft(
     return preferred;
   }
   return leftGutterButtonLeft(rect);
-}
-
-export function rightGutterDotLeft(
-  rect: HorizontalRect,
-  viewportWidth = window.innerWidth,
-): number | null {
-  const buttonLeft = rightGutterButtonLeft(rect, viewportWidth);
-  return buttonLeft === null
-    ? null
-    : buttonLeft + (DOCUMENT_GUTTER_BUTTON_SIZE - DOCUMENT_GUTTER_DOT_SIZE) / 2;
 }
 
 export function rightGutterPanelLeft(

@@ -1,35 +1,67 @@
 "use client";
 
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { MessageSquare, Send, X } from "lucide-react";
+import {
+  MessageCircle,
+  MessageSquare,
+  MessagesSquare,
+  Send,
+  UserRound,
+  X,
+} from "lucide-react";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
+  useSyncExternalStore,
   useTransition,
 } from "react";
 import { createPortal } from "react-dom";
+
+import { GUTTER_BUTTON } from "@/components/motion/control-styles";
+import { Button, IconButton } from "@/components/ui";
+import { cx, FIELD_CONTROL, RADIUS } from "@/components/ui/tokens";
 
 import { createComment, type CommentThread } from "./comments-actions";
 import {
   DOCUMENT_GUTTER_BUTTON_SIZE,
   DOCUMENT_GUTTER_GAP,
   rightGutterButtonLeft,
-  rightGutterDotLeft,
-  rightGutterPanelLeft,
 } from "./document-gutter";
 
 const MAX_ANCHOR_TEXT_LENGTH = 280;
-const COMMENT_CARD_WIDTH = 288;
+const COMMENT_CARD_WIDTH = 240;
+const COMMENT_CARD_VIEWPORT_BLOCK_GAP = 10;
+const COMMENT_CARD_VIEWPORT_INLINE_GAP = 36;
 
 type AnchorPosition = {
   text: string;
   top: number;
   iconLeft: number;
-  dotLeft: number;
-  cardLeft: number;
+  markerLeft: number;
 };
+
+type CommentCardPosition = {
+  anchorText: string;
+  top: number;
+  left: number;
+  maxHeight: number;
+};
+
+function subscribeToHydrationStore(): () => void {
+  return () => {};
+}
+
+function getClientSnapshot(): boolean {
+  return true;
+}
+
+function getServerSnapshot(): boolean {
+  return false;
+}
 
 function normalizeAnchorText(value: string): string {
   return value.replace(/\s+/g, " ").trim().slice(0, MAX_ANCHOR_TEXT_LENGTH);
@@ -95,17 +127,19 @@ function positionForBlock(
   const blockRect = block.getBoundingClientRect();
   const rootRect = root.getBoundingClientRect();
   const iconLeft = rightGutterButtonLeft(rootRect);
-  const dotLeft = rightGutterDotLeft(rootRect);
-  if (iconLeft === null || dotLeft === null) {
+  if (iconLeft === null) {
     return null;
   }
   return {
     text,
     top: blockRect.top + blockRect.height / 2,
     iconLeft,
-    dotLeft,
-    cardLeft: rightGutterPanelLeft(rootRect, COMMENT_CARD_WIDTH),
+    markerLeft: iconLeft,
   };
+}
+
+function preferredRightSideCardLeft(anchor: AnchorPosition): number {
+  return anchor.iconLeft + DOCUMENT_GUTTER_BUTTON_SIZE + DOCUMENT_GUTTER_GAP;
 }
 
 function threadsByTextAnchor(
@@ -132,14 +166,29 @@ export function InlineCommentsLayer({
   initialComments: CommentThread[];
 }) {
   const [editor] = useLexicalComposerContext();
+  const canUsePortal = useSyncExternalStore(
+    subscribeToHydrationStore,
+    getClientSnapshot,
+    getServerSnapshot,
+  );
   const [threads, setThreads] = useState(initialComments);
   const [hoverAnchor, setHoverAnchor] = useState<AnchorPosition | null>(null);
   const [activeAnchor, setActiveAnchor] = useState<AnchorPosition | null>(null);
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [cardPosition, setCardPosition] = useState<CommentCardPosition | null>(
+    null,
+  );
+  const cardRef = useRef<HTMLDivElement | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const byAnchor = useMemo(() => threadsByTextAnchor(threads), [threads]);
+
+  const closeDialog = useCallback(() => {
+    setActiveAnchor(null);
+    setBody("");
+    setError(null);
+  }, []);
 
   const computeCommentDots = useCallback(() => {
     const root = editor.getRootElement();
@@ -183,11 +232,18 @@ export function InlineCommentsLayer({
   useEffect(() => {
     let cleanupRoot: (() => void) | null = null;
 
-    const onScrollOrResize = () => {
+    const onScrollOrResize = (event: Event) => {
+      const card = cardRef.current;
+      if (
+        event.type === "scroll" &&
+        card !== null &&
+        event.target instanceof Node &&
+        card.contains(event.target)
+      ) {
+        return;
+      }
       setHoverAnchor(null);
-      setActiveAnchor(null);
-      setBody("");
-      setError(null);
+      closeDialog();
       refreshPositions();
     };
 
@@ -229,7 +285,25 @@ export function InlineCommentsLayer({
       window.removeEventListener("scroll", onScrollOrResize, true);
       window.removeEventListener("resize", onScrollOrResize);
     };
-  }, [activeAnchor, editor, refreshPositions]);
+  }, [activeAnchor, closeDialog, editor, refreshPositions]);
+
+  useEffect(() => {
+    if (!activeAnchor) {
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      closeDialog();
+    };
+
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [activeAnchor, closeDialog]);
 
   const submit = useCallback(() => {
     const anchor = activeAnchor;
@@ -256,9 +330,82 @@ export function InlineCommentsLayer({
   const activeThreads = activeAnchor
     ? (byAnchor.get(activeAnchor.text) ?? [])
     : [];
-  const iconAnchor = activeAnchor ?? hoverAnchor;
+  const visibleHoverAnchor =
+    hoverAnchor &&
+    (byAnchor.get(hoverAnchor.text) ?? []).some((thread) => !thread.resolved)
+      ? null
+      : hoverAnchor;
+  const iconAnchor = activeAnchor ?? visibleHoverAnchor;
 
-  if (typeof document === "undefined") {
+  useLayoutEffect(() => {
+    if (!activeAnchor) {
+      return;
+    }
+
+    const card = cardRef.current;
+    const maxHeight = Math.max(
+      180,
+      window.innerHeight - COMMENT_CARD_VIEWPORT_BLOCK_GAP * 2,
+    );
+
+    const updateCardPosition = () => {
+      const maxWidth = Math.max(
+        180,
+        window.innerWidth - COMMENT_CARD_VIEWPORT_INLINE_GAP * 2,
+      );
+      const measuredWidth = Math.min(card?.offsetWidth ?? 0, maxWidth);
+      const cardWidth = measuredWidth > 0 ? measuredWidth : COMMENT_CARD_WIDTH;
+      const measuredHeight = Math.min(card?.offsetHeight ?? 0, maxHeight);
+      const cardHeight = measuredHeight > 0 ? measuredHeight : 240;
+      const preferredTop = activeAnchor.top - COMMENT_CARD_VIEWPORT_BLOCK_GAP;
+      const preferredLeft = preferredRightSideCardLeft(activeAnchor);
+      const maxLeft = Math.max(
+        COMMENT_CARD_VIEWPORT_INLINE_GAP,
+        window.innerWidth - cardWidth - COMMENT_CARD_VIEWPORT_INLINE_GAP,
+      );
+      const nextLeft = Math.min(
+        Math.max(preferredLeft, COMMENT_CARD_VIEWPORT_INLINE_GAP),
+        maxLeft,
+      );
+      const maxTop = Math.max(
+        COMMENT_CARD_VIEWPORT_BLOCK_GAP,
+        window.innerHeight - cardHeight - COMMENT_CARD_VIEWPORT_BLOCK_GAP,
+      );
+      const nextTop = Math.min(
+        Math.max(preferredTop, COMMENT_CARD_VIEWPORT_BLOCK_GAP),
+        maxTop,
+      );
+
+      setCardPosition((current) =>
+        current?.anchorText === activeAnchor.text &&
+        Math.abs(current.top - nextTop) < 0.5 &&
+        Math.abs(current.left - nextLeft) < 0.5 &&
+        current.maxHeight === maxHeight
+          ? current
+          : {
+              anchorText: activeAnchor.text,
+              top: nextTop,
+              left: nextLeft,
+              maxHeight,
+            },
+      );
+    };
+
+    updateCardPosition();
+
+    if (!card) {
+      return;
+    }
+
+    const observer = new ResizeObserver(updateCardPosition);
+    observer.observe(card);
+    return () => observer.disconnect();
+  }, [activeAnchor, activeThreads.length, body, error]);
+
+  const measuredCardPosition =
+    cardPosition?.anchorText === activeAnchor?.text ? cardPosition : null;
+
+  if (!canUsePortal) {
     return null;
   }
 
@@ -270,9 +417,18 @@ export function InlineCommentsLayer({
           type="button"
           aria-label={`${dot.count} comment${dot.count === 1 ? "" : "s"}`}
           onClick={() => setActiveAnchor(dot)}
-          className="pointer-events-auto absolute flex h-3 w-3 -translate-y-1/2 items-center justify-center rounded-full bg-ds-warning shadow-sm ring-2 ring-ds-surface-raised"
-          style={{ top: dot.top, left: dot.dotLeft }}
+          className={cx(
+            "pointer-events-auto absolute -translate-y-1/2",
+            GUTTER_BUTTON,
+          )}
+          style={{ top: dot.top, left: dot.markerLeft }}
         >
+          <MessagesSquare aria-hidden="true" className="h-5 w-5" />
+          {dot.count > 1 ? (
+            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-ds-warning px-1 text-[10px] font-semibold leading-none text-ds-surface-base ring-1 ring-ds-surface-base">
+              {dot.count > 9 ? "9+" : dot.count}
+            </span>
+          ) : null}
           <span className="sr-only">Open comments</span>
         </button>
       ))}
@@ -282,7 +438,10 @@ export function InlineCommentsLayer({
           type="button"
           aria-label="Add comment to this paragraph"
           onClick={() => setActiveAnchor(iconAnchor)}
-          className="pointer-events-auto absolute flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-overlay text-ds-text-muted shadow-sm transition hover:text-ds-text-primary"
+          className={cx(
+            "pointer-events-auto absolute -translate-y-1/2",
+            GUTTER_BUTTON,
+          )}
           style={{
             top: iconAnchor.top,
             left: iconAnchor.iconLeft,
@@ -294,80 +453,113 @@ export function InlineCommentsLayer({
 
       {activeAnchor ? (
         <div
-          className="pointer-events-auto absolute w-72 -translate-y-2 rounded-xl border border-ds-border-subtle bg-ds-surface-overlay p-3 shadow-ds-popover"
+          ref={cardRef}
+          className={cx(
+            "pointer-events-auto absolute flex w-[15rem] max-w-[calc(100vw-4.5rem)] flex-col overflow-hidden border border-ds-border-subtle bg-ds-surface-overlay text-ds-text-primary",
+            RADIUS.lg,
+          )}
           style={{
-            top: activeAnchor.top,
-            left: activeAnchor.cardLeft,
+            top:
+              measuredCardPosition?.top ??
+              activeAnchor.top - COMMENT_CARD_VIEWPORT_BLOCK_GAP,
+            left:
+              measuredCardPosition?.left ??
+              preferredRightSideCardLeft(activeAnchor),
+            maxHeight: measuredCardPosition
+              ? `${measuredCardPosition.maxHeight}px`
+              : `calc(100vh - ${COMMENT_CARD_VIEWPORT_BLOCK_GAP * 2}px)`,
           }}
         >
-          <div className="mb-2 flex items-start justify-between gap-2">
-            <p className="line-clamp-2 text-xs font-medium text-ds-text-secondary">
-              {activeAnchor.text}
-            </p>
-            <button
-              type="button"
-              aria-label="Close inline comment"
-              onClick={() => {
-                setActiveAnchor(null);
-                setBody("");
-                setError(null);
-              }}
-              className="shrink-0 rounded-md p-1 text-ds-text-muted transition hover:bg-ds-state-hover hover:text-ds-text-primary"
-            >
-              <X aria-hidden="true" className="h-3.5 w-3.5" />
-            </button>
+          <div className="shrink-0 border-b border-ds-border-subtle bg-ds-surface-raised/70 px-2 py-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-overlay text-ds-text-muted">
+                  <MessagesSquare aria-hidden="true" className="h-3 w-3" />
+                </span>
+                <div className="min-w-0">
+                  <div className="truncate text-xs font-semibold text-ds-text-primary">
+                    Comment
+                  </div>
+                  {activeThreads.length > 0 ? (
+                    <div className="text-[10px] font-medium leading-3 text-ds-text-muted">
+                      {activeThreads.length} open
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+              <IconButton
+                aria-label="Close inline comment"
+                size="sm"
+                onClick={closeDialog}
+                className="shrink-0"
+              >
+                <X aria-hidden="true" className="h-3.5 w-3.5" />
+              </IconButton>
+            </div>
           </div>
 
-          {activeThreads.length > 0 ? (
-            <ul className="mb-2 max-h-32 space-y-1.5 overflow-y-auto border-l-2 border-ds-warning pl-2">
-              {activeThreads.map((thread) => (
-                <li key={thread.id} className="text-xs">
-                  <span className="font-medium text-ds-text-primary">
-                    {thread.author.name}
-                  </span>
-                  <p className="whitespace-pre-wrap text-ds-text-secondary">
-                    {thread.body}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          ) : null}
+          <div className="min-h-0 flex-1 overflow-hidden px-2 py-2">
+            {activeThreads.length > 0 ? (
+              <ul className="mb-2 max-h-40 space-y-1.5 overflow-y-auto pr-1">
+                {activeThreads.map((thread) => (
+                  <li
+                    key={thread.id}
+                    className="flex gap-2 rounded-md bg-ds-surface-raised px-2 py-1.5 text-xs"
+                  >
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ds-surface-overlay text-ds-text-muted ring-1 ring-ds-border-subtle">
+                      <UserRound aria-hidden="true" className="h-3 w-3" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <span className="font-medium text-ds-text-primary">
+                        {thread.author.name}
+                      </span>
+                      <p className="mt-0.5 whitespace-pre-wrap leading-5 text-ds-text-secondary">
+                        {thread.body}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
 
-          <textarea
-            aria-label="Inline comment"
-            value={body}
-            onChange={(event) => setBody(event.target.value)}
-            rows={3}
-            placeholder="Add a few words here"
-            className="w-full resize-none rounded-md border border-ds-border-subtle bg-ds-surface-raised px-2 py-1.5 text-sm text-ds-text-primary outline-none placeholder:text-ds-text-muted focus:border-ds-border-strong"
-            autoFocus
-          />
-          {error ? (
-            <p role="alert" className="mt-1 text-xs text-ds-danger-text">
-              {error}
-            </p>
-          ) : null}
-          <div className="mt-2 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveAnchor(null);
-                setBody("");
-                setError(null);
-              }}
-              className="rounded-full border border-ds-border-subtle px-3 py-1 text-xs font-medium text-ds-text-muted transition hover:bg-ds-state-hover hover:text-ds-text-primary"
-            >
+            <div className="rounded-md bg-ds-surface-base p-1.5">
+              <div className="mb-1 flex items-center gap-1.5 px-0.5 text-[11px] font-semibold text-ds-text-muted">
+                <MessageCircle aria-hidden="true" className="h-3 w-3" />
+                Reply
+              </div>
+              <textarea
+                aria-label="Inline comment"
+                value={body}
+                onChange={(event) => setBody(event.target.value)}
+                rows={2}
+                placeholder="Add a few words here"
+                className={cx(
+                  "min-h-16 w-full resize-none px-2 py-1.5",
+                  FIELD_CONTROL,
+                )}
+                autoFocus
+              />
+            </div>
+            {error ? (
+              <p role="alert" className="mt-2 text-xs text-ds-danger-text">
+                {error}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="flex shrink-0 justify-end gap-1.5 border-t border-ds-border-subtle bg-ds-surface-raised/60 px-2 py-1.5">
+            <Button size="sm" variant="plain" onClick={closeDialog}>
               Cancel
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              size="sm"
+              variant="solid"
+              leadingIcon={<Send aria-hidden="true" className="h-3.5 w-3.5" />}
               onClick={submit}
               disabled={isPending || body.trim().length === 0}
-              className="inline-flex items-center gap-1 rounded-full bg-ds-control px-3 py-1 text-xs font-medium text-ds-control-text transition hover:bg-ds-control-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Send aria-hidden="true" className="h-3 w-3" />
               Comment
-            </button>
+            </Button>
           </div>
         </div>
       ) : null}
