@@ -26,6 +26,7 @@ import {
   stampDeckContentHash,
 } from "@/lib/presentation/deck-hash";
 import { pickFreshestDeck } from "@/lib/presentation/fresh-deck";
+import { inferDeckTheme } from "@/lib/presentation/infer-theme";
 import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
 import { collectDocumentBlocks } from "@/lib/visual/document-export";
 import type { Visual } from "@/lib/visual/schema";
@@ -65,8 +66,10 @@ export function SlideEditorButton({
     const json = JSON.stringify(editor.getEditorState().toJSON());
     const blocks = collectDocumentBlocks(json);
     // Stamp the freshly-derived deck with the *current* document content hash so
-    // a deck saved from it is never falsely flagged as stale on reopen.
-    const derived = buildDeckFromBlocks(blocks);
+    // a deck saved from it is never falsely flagged as stale on reopen. A fresh
+    // derivation inherits the document's dominant visual theme (or `indigo` when
+    // none); a saved deckJson keeps its explicit theme via pickFreshestDeck.
+    const derived = buildDeckFromBlocks(blocks, inferDeckTheme(blocks));
     const currentContentHash = computeDeckContentHash(derived);
     const baseDeck = stampDeckContentHash(derived, currentContentHash);
 
