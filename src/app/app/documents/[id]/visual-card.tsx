@@ -78,6 +78,7 @@ export function VisualCard({
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<SVGSVGElement | null>(null);
+  const suppressPreviewClickRef = useRef(false);
 
   // Register this card's SVG getter in the document-level export registry so
   // the whole-document export can include every visual in reading order.
@@ -271,6 +272,21 @@ export function VisualCard({
     setOpen(true);
   }, []);
 
+  const selectPreviewNode = useCallback(
+    (event: React.PointerEvent<HTMLElement>) => {
+      const target = event.target as Element | null;
+      const nodeId = target?.getAttribute("data-preview-node-id");
+      if (!nodeId) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      suppressPreviewClickRef.current = true;
+      selectVisual(nodeId);
+    },
+    [selectVisual],
+  );
+
   // Closes the controls (Escape / × / click-away).
   const closeControls = useCallback(() => {
     setOpen(false);
@@ -461,8 +477,15 @@ export function VisualCard({
             // Prevent the button from grabbing focus from the editor on click
             // (avoids a focus flash as it unmounts into the editing controls)
             // while still firing `onClick`; keyboard activation is unaffected.
+            onPointerDownCapture={selectPreviewNode}
             onMouseDown={(event) => event.preventDefault()}
-            onClick={() => selectVisual(null)}
+            onClick={() => {
+              if (suppressPreviewClickRef.current) {
+                suppressPreviewClickRef.current = false;
+                return;
+              }
+              selectVisual(null);
+            }}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
@@ -491,6 +514,7 @@ export function VisualCard({
                 return (
                   <rect
                     key={node.id}
+                    data-preview-node-id={node.id}
                     x={box.x - box.width / 2}
                     y={box.y - box.height / 2}
                     width={box.width}
@@ -499,11 +523,6 @@ export function VisualCard({
                     fill="transparent"
                     pointerEvents="all"
                     className="cursor-pointer"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      selectVisual(node.id);
-                    }}
                   />
                 );
               })}

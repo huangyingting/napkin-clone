@@ -135,6 +135,7 @@ interface DragState {
   startCenterY: number;
   positioned: boolean;
   moved: boolean;
+  wasSelected: boolean;
 }
 
 /** Active corner-resize gesture state (canvas-unit math via resizeNodeBox). */
@@ -370,10 +371,11 @@ export function VisualEditor({
         startCenterY: box.y,
         positioned,
         moved: false,
+        wasSelected: selectedId === node.id,
       };
       svgRef.current?.setPointerCapture?.(event.pointerId);
     },
-    [boxes, canEdit, editingId, positioned],
+    [boxes, canEdit, editingId, positioned, selectedId],
   );
 
   const onPointerMove = useCallback(
@@ -442,6 +444,11 @@ export function VisualEditor({
       // A plain click only selects. A second click on the same node within the
       // double-click window opens inline editing.
       if (drag && !drag.moved) {
+        if (drag.wasSelected) {
+          lastClickRef.current = null;
+          beginEdit(drag.id);
+          return;
+        }
         const now = Date.now();
         const last = lastClickRef.current;
         if (last && last.id === drag.id && now - last.time < 350) {
@@ -921,7 +928,12 @@ export function VisualEditor({
                 strokeWidth={1.5}
                 strokeDasharray="4 3"
                 pointerEvents="all"
-                className={positioned ? "cursor-move" : "cursor-text"}
+                className={
+                  positioned
+                    ? "cursor-move outline-none"
+                    : "cursor-text outline-none"
+                }
+                style={{ outline: "none" }}
                 onPointerDown={(event) => onNodePointerDown(event, node)}
                 onPointerEnter={() => {
                   setHoverId(node.id);
