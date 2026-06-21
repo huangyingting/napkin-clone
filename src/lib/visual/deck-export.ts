@@ -34,6 +34,7 @@ import type {
   ElementAlign,
   ElementBox,
   Slide,
+  TextRun,
 } from "@/lib/presentation/deck";
 import { materializeSlideElements } from "@/lib/presentation/deck";
 import type { Visual } from "@/lib/visual/schema";
@@ -130,6 +131,12 @@ interface InchBox {
 export interface DeckTextOp extends InchBox {
   kind: "text";
   text: string;
+  /**
+   * Optional rich-text runs for `text`. When present, the applier emits
+   * run-level bold/italic/code/color formatting; absent → the plain `text`
+   * string with the op-level defaults below.
+   */
+  runs?: TextRun[];
   /** Hex color without leading `#`. */
   color: string;
   /** Font size in points. */
@@ -143,6 +150,13 @@ export interface DeckTextOp extends InchBox {
 export interface DeckBulletsOp extends InchBox {
   kind: "bullets";
   items: string[];
+  /**
+   * Optional rich-text runs, parallel to `items`: `itemRuns[i]` holds the
+   * formatted spans for bullet line `i`. When an entry is present and non-empty
+   * the applier emits run-level formatting for that line; otherwise it falls
+   * back to the plain `items[i]` string.
+   */
+  itemRuns?: TextRun[][];
   color: string;
   fontSize: number;
   bold: boolean;
@@ -282,6 +296,9 @@ function buildSlideSpec(
           kind: "text",
           ...box,
           text: element.text,
+          ...(element.runs && element.runs.length > 0
+            ? { runs: element.runs }
+            : {}),
           color: toHex(element.style.color ?? defaultColor),
           fontSize: fontSizePt(element.style.fontSize),
           bold: element.style.bold,
@@ -295,6 +312,9 @@ function buildSlideSpec(
           kind: "bullets",
           ...box,
           items: [...element.bullets],
+          ...(element.bulletRuns && element.bulletRuns.length > 0
+            ? { itemRuns: element.bulletRuns }
+            : {}),
           color: toHex(element.style.color ?? colors.body),
           fontSize: fontSizePt(element.style.fontSize),
           bold: element.style.bold,
@@ -372,8 +392,24 @@ async function svgToPngDataUrl(svg: SVGSVGElement): Promise<string | null> {
   });
 }
 
+/** Monospace font face used to render inline-code runs in PPTX. */
+const CODE_FONT_FACE = "Courier New";
+
+/** Per-run PptxGenJS text options derived from a {@link TextRun}'s formatting. */
+function runToOptions(run: TextRun): Record<string, unknown> {
+  const options: Record<string, unknown> = {};
+  if (run.bold) options.bold = true;
+  if (run.italic) options.italic = true;
+  if (run.code) options.fontFace = CODE_FONT_FACE;
+  if (run.color) options.color = toHex(run.color);
+  if (run.link) options.hyperlink = { url: run.link };
+  return options;
+}
+
+type PptxTextRun = { text: string; options: Record<string, unknown> };
+
 function applyTextOp(slide: PptxSlide, op: DeckTextOp): void {
-  slide.addText(op.text, {
+  const shared = {
     x: op.x,
     y: op.y,
     w: op.w,
@@ -383,17 +419,25 @@ function applyTextOp(slide: PptxSlide, op: DeckTextOp): void {
     bold: op.bold,
     italic: op.italic,
     align: op.align,
-    valign: "middle",
+    valign: "middle" as const,
     wrap: true,
-  });
+  };
+
+  if (op.runs && op.runs.length > 0) {
+    const runs: PptxTextRun[] = op.runs.map((run) =>
+      run.text === "\n"
+        ? { text: "", options: { breakLine: true } }
+        : { text: run.text, options: runToOptions(run) },
+    );
+    slide.addText(runs, shared);
+    return;
+  }
+
+  slide.addText(op.text, shared);
 }
 
 function applyBulletsOp(slide: PptxSlide, op: DeckBulletsOp): void {
-  const runs = op.items.map((text, i) => ({
-    text,
-    options: { bullet: true, breakLine: i < op.items.length - 1 },
-  }));
-  slide.addText(runs, {
+  const shared = {
     x: op.x,
     y: op.y,
     w: op.w,
@@ -403,9 +447,47 @@ function applyBulletsOp(slide: PptxSlide, op: DeckBulletsOp): void {
     bold: op.bold,
     italic: op.italic,
     align: op.align,
-    valign: "middle",
+    valign: "middle" as const,
     wrap: true,
+  };
+
+  const hasRuns =
+    op.itemRuns !== undefined &&
+    op.itemRuns.some((runs) => runs && runs.length > 0);
+
+  if (!hasRuns) {
+    const runs = op.items.map((text, i) => ({
+      text,
+      options: { bullet: true, breakLine: i < op.items.length - 1 },
+    }));
+    slide.addText(runs, shared);
+    return;
+  }
+
+  const runs: PptxTextRun[] = [];
+  op.items.forEach((text, i) => {
+    const isLastLine = i === op.items.length - 1;
+    const lineRuns = op.itemRuns?.[i];
+    if (lineRuns && lineRuns.length > 0) {
+      lineRuns.forEach((run, j) => {
+        const isLastRun = j === lineRuns.length - 1;
+        runs.push({
+          text: run.text === "\n" ? "" : run.text,
+          options: {
+            ...runToOptions(run),
+            ...(j === 0 ? { bullet: true } : {}),
+            ...(isLastRun && !isLastLine ? { breakLine: true } : {}),
+          },
+        });
+      });
+    } else {
+      runs.push({
+        text,
+        options: { bullet: true, breakLine: !isLastLine },
+      });
+    }
   });
+  slide.addText(runs, shared);
 }
 
 function applyShapeOp(slide: PptxSlide, op: DeckShapeOp): void {

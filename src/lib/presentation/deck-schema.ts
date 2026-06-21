@@ -17,6 +17,7 @@ import type {
   SlideElement,
   SlideLayout,
   TextElementStyle,
+  TextRun,
 } from "./deck";
 
 const DECK_THEMES: readonly DeckTheme[] = [
@@ -119,6 +120,46 @@ function validateTextStyle(input: unknown, context: string): TextElementStyle {
   };
 }
 
+function validateTextRun(input: unknown, context: string): TextRun {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  if (typeof input.text !== "string") {
+    throw new DeckValidationError(`${context}.text must be a string`);
+  }
+  if (input.color !== undefined && !isHexColor(input.color)) {
+    throw new DeckValidationError(`${context}.color must be a hex color`);
+  }
+  if (input.link !== undefined && typeof input.link !== "string") {
+    throw new DeckValidationError(`${context}.link must be a string`);
+  }
+  const run: TextRun = { text: input.text };
+  if (input.bold !== undefined) run.bold = Boolean(input.bold);
+  if (input.italic !== undefined) run.italic = Boolean(input.italic);
+  if (input.code !== undefined) run.code = Boolean(input.code);
+  if (input.color !== undefined) run.color = input.color as string;
+  if (input.link !== undefined) run.link = input.link as string;
+  return run;
+}
+
+function validateTextRuns(value: unknown, context: string): TextRun[] {
+  if (!Array.isArray(value)) {
+    throw new DeckValidationError(`${context} must be an array`);
+  }
+  return value.map((run, index) =>
+    validateTextRun(run, `${context}[${index}]`),
+  );
+}
+
+function validateBulletRuns(value: unknown, context: string): TextRun[][] {
+  if (!Array.isArray(value)) {
+    throw new DeckValidationError(`${context} must be an array`);
+  }
+  return value.map((runs, index) =>
+    validateTextRuns(runs, `${context}[${index}]`),
+  );
+}
+
 function validateElement(input: unknown, context: string): SlideElement {
   if (!isPlainObject(input)) {
     throw new DeckValidationError(`${context} must be an object`);
@@ -145,6 +186,9 @@ function validateElement(input: unknown, context: string): SlideElement {
         kind: "text",
         text: input.text,
         role: input.role,
+        ...(input.runs !== undefined
+          ? { runs: validateTextRuns(input.runs, `${context}.runs`) }
+          : {}),
         style: validateTextStyle(input.style, `${context}.style`),
       };
     }
@@ -153,6 +197,14 @@ function validateElement(input: unknown, context: string): SlideElement {
         ...base,
         kind: "bullets",
         bullets: validateStringArray(input.bullets, `${context}.bullets`),
+        ...(input.bulletRuns !== undefined
+          ? {
+              bulletRuns: validateBulletRuns(
+                input.bulletRuns,
+                `${context}.bulletRuns`,
+              ),
+            }
+          : {}),
         style: validateTextStyle(input.style, `${context}.style`),
       };
     case "visual": {
@@ -234,6 +286,14 @@ function validateSlide(input: unknown, index: number): Slide {
     throw new DeckValidationError(`${context}.title must be a string`);
   }
   const bullets = validateStringArray(input.bullets, `${context}.bullets`);
+  const titleRuns =
+    input.titleRuns !== undefined
+      ? validateTextRuns(input.titleRuns, `${context}.titleRuns`)
+      : undefined;
+  const bulletRuns =
+    input.bulletRuns !== undefined
+      ? validateBulletRuns(input.bulletRuns, `${context}.bulletRuns`)
+      : undefined;
   const visualIds = validateStringArray(
     input.visualIds,
     `${context}.visualIds`,
@@ -280,7 +340,9 @@ function validateSlide(input: unknown, index: number): Slide {
   return {
     index: input.index,
     title: input.title,
+    ...(titleRuns !== undefined ? { titleRuns } : {}),
     bullets,
+    ...(bulletRuns !== undefined ? { bulletRuns } : {}),
     visualIds,
     layout: input.layout,
     notes: input.notes,

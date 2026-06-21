@@ -18,6 +18,7 @@ import type {
   Slide,
   SlideElement,
   TextElement,
+  TextRun,
   VisualElement,
 } from "@/lib/presentation/deck";
 import type { Visual } from "@/lib/visual/schema";
@@ -304,6 +305,48 @@ function boxStyle(element: SlideElement): React.CSSProperties {
   };
 }
 
+/**
+ * Renders rich-text {@link TextRun}s as inline spans, applying per-run
+ * bold/italic/code/color/link styling. Line-break runs (`text === "\n"`) become
+ * `<br>` so multi-line emphasis survives. Used by the text and bullets views
+ * when an element carries `runs`; callers fall back to the plain string when it
+ * does not.
+ */
+function renderRuns(runs: TextRun[]): JSX.Element[] {
+  return runs.map((run, i) => {
+    if (run.text === "\n") return <br key={i} />;
+    const style: React.CSSProperties = {};
+    if (run.bold) style.fontWeight = 700;
+    if (run.italic) style.fontStyle = "italic";
+    if (run.color) style.color = run.color;
+    if (run.code) {
+      style.fontFamily =
+        "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+      style.backgroundColor = "rgba(127, 127, 127, 0.18)";
+      style.padding = "0 0.2em";
+      style.borderRadius = "0.2em";
+    }
+    if (run.link) {
+      return (
+        <a
+          key={i}
+          href={run.link}
+          target="_blank"
+          rel="noreferrer"
+          style={{ ...style, textDecoration: "underline", color: run.color }}
+        >
+          {run.text}
+        </a>
+      );
+    }
+    return (
+      <span key={i} style={style}>
+        {run.text}
+      </span>
+    );
+  });
+}
+
 function TextElementView({
   element,
   tc,
@@ -317,6 +360,7 @@ function TextElementView({
   const color =
     element.style.color ??
     (element.role === "title" ? tc.titleColor : tc.bodyColor);
+  const hasRuns = element.runs !== undefined && element.runs.length > 0;
   return (
     <div
       style={{
@@ -334,7 +378,7 @@ function TextElementView({
         wordBreak: "break-word",
       }}
     >
-      {element.text || "\u00a0"}
+      {hasRuns ? renderRuns(element.runs!) : element.text || "\u00a0"}
     </div>
   );
 }
@@ -349,6 +393,7 @@ function BulletsElementView({
   accent: string;
 }): JSX.Element {
   const color = element.style.color ?? tc.bodyColor;
+  const bulletRuns = element.bulletRuns;
   return (
     <ul
       style={{
@@ -369,25 +414,30 @@ function BulletsElementView({
         listStyle: "none",
       }}
     >
-      {element.bullets.map((bullet, i) => (
-        <li
-          key={i}
-          style={{ display: "flex", alignItems: "flex-start", gap: "0.5em" }}
-        >
-          <span
-            aria-hidden="true"
-            style={{
-              marginTop: "0.45em",
-              height: "0.35em",
-              width: "0.35em",
-              flexShrink: 0,
-              borderRadius: "9999px",
-              backgroundColor: accent,
-            }}
-          />
-          <span style={{ minWidth: 0 }}>{bullet}</span>
-        </li>
-      ))}
+      {element.bullets.map((bullet, i) => {
+        const runs = bulletRuns?.[i];
+        return (
+          <li
+            key={i}
+            style={{ display: "flex", alignItems: "flex-start", gap: "0.5em" }}
+          >
+            <span
+              aria-hidden="true"
+              style={{
+                marginTop: "0.45em",
+                height: "0.35em",
+                width: "0.35em",
+                flexShrink: 0,
+                borderRadius: "9999px",
+                backgroundColor: accent,
+              }}
+            />
+            <span style={{ minWidth: 0 }}>
+              {runs && runs.length > 0 ? renderRuns(runs) : bullet}
+            </span>
+          </li>
+        );
+      })}
     </ul>
   );
 }

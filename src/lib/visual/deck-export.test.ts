@@ -393,3 +393,68 @@ test("a visual without styleThemeId is mapped unchanged", () => {
   );
   assert.ok(!json.includes("E0F2FE"), "no ocean restyle leaked in");
 });
+
+// ---------------------------------------------------------------------------
+// Rich-text runs (issue #210)
+// ---------------------------------------------------------------------------
+
+test("text op carries runs when the element has them", () => {
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [
+      freeFormSlide(0, [
+        textEl("t1", "Bold Title", {
+          runs: [
+            { text: "Bold " },
+            { text: "Title", bold: true, color: "#ff0000" },
+          ],
+        }),
+      ]),
+    ],
+  };
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const text = ofKind(spec.ops, "text")[0] as DeckTextOp;
+  assert.equal(text.text, "Bold Title");
+  assert.deepEqual(text.runs, [
+    { text: "Bold " },
+    { text: "Title", bold: true, color: "#ff0000" },
+  ]);
+});
+
+test("text op omits runs when the element has none (plain fallback)", () => {
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [freeFormSlide(0, [textEl("t1", "Plain")])],
+  };
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const text = ofKind(spec.ops, "text")[0] as DeckTextOp;
+  assert.equal(text.text, "Plain");
+  assert.equal(text.runs, undefined);
+});
+
+test("bullets op carries parallel itemRuns when present", () => {
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [
+      freeFormSlide(0, [
+        bulletsEl("b1", ["one", "two"], {
+          bulletRuns: [[], [{ text: "two", italic: true }]],
+        }),
+      ]),
+    ],
+  };
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const bullets = ofKind(spec.ops, "bullets")[0] as DeckBulletsOp;
+  assert.deepEqual(bullets.items, ["one", "two"]);
+  assert.deepEqual(bullets.itemRuns, [[], [{ text: "two", italic: true }]]);
+});
+
+test("bullets op omits itemRuns when absent", () => {
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [freeFormSlide(0, [bulletsEl("b1", ["one", "two"])])],
+  };
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const bullets = ofKind(spec.ops, "bullets")[0] as DeckBulletsOp;
+  assert.equal(bullets.itemRuns, undefined);
+});
