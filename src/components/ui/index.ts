@@ -17,6 +17,9 @@ export type { SegmentedOption } from "./segmented-control";
 
 export { Surface } from "./surface";
 
+export { Swatch } from "./swatch";
+export type { SwatchSize } from "./swatch";
+
 export { Tooltip } from "./tooltip";
 
 export { Popover } from "./popover";

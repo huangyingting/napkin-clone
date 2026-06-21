@@ -18,10 +18,8 @@
 import {
   ArrowDownToLine,
   ArrowUpToLine,
-  Bold,
   Copy,
   Image as ImageIcon,
-  Italic,
   List,
   Shapes,
   Sparkles,
@@ -31,18 +29,19 @@ import {
 import { useState } from "react";
 
 import { FOCUS_RING } from "@/components/motion/control-styles";
+import { DECK_THEMES } from "@/components/presentation/slide-canvas";
+import { TextStyleBar } from "@/components/presentation/text-style-bar";
 import { VisualPicker } from "@/components/presentation/visual-picker";
-import { Tooltip } from "@/components/ui";
+import { Swatch, Tooltip } from "@/components/ui";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import type {
-  ElementAlign,
   ShapeKind,
   Slide,
   SlideElement,
   SlideLayout,
-  TextElementStyle,
 } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
+import { themeSwatchColors } from "@/lib/presentation/text-style";
 import type { Visual } from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { applyTheme, isThemeActive } from "@/lib/visual/transforms";
@@ -55,8 +54,10 @@ const LAYOUT_OPTIONS: SlideLayout[] = [
   "blank",
 ];
 
-const ALIGN_OPTIONS: ElementAlign[] = ["left", "center", "right"];
 const SHAPE_OPTIONS: ShapeKind[] = ["rect", "ellipse", "line"];
+
+const THEME_BACKGROUND_SWATCHES = themeSwatchColors(DECK_THEMES, "bgColor");
+const THEME_ACCENT_SWATCHES = themeSwatchColors(DECK_THEMES, "accentColor");
 
 type Tab = "content" | "style" | "notes";
 
@@ -137,116 +138,15 @@ function elementLabel(element: SlideElement): string {
   }
 }
 
-function TextStyleControls({
-  style,
-  onChange,
-}: {
-  style: TextElementStyle;
-  onChange: (style: TextElementStyle) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <Tooltip label="Bold" side="bottom">
-          <button
-            type="button"
-            aria-pressed={style.bold}
-            onClick={() => onChange({ ...style, bold: !style.bold })}
-            className={`flex h-7 w-7 items-center justify-center rounded-ds-sm border border-ds-border-subtle transition-colors ${
-              style.bold
-                ? "bg-ds-control text-ds-control-text"
-                : "text-ds-text-secondary hover:bg-ds-state-hover"
-            } ${FOCUS_RING}`}
-          >
-            <Bold size={14} aria-hidden="true" />
-          </button>
-        </Tooltip>
-        <Tooltip label="Italic" side="bottom">
-          <button
-            type="button"
-            aria-pressed={style.italic}
-            onClick={() => onChange({ ...style, italic: !style.italic })}
-            className={`flex h-7 w-7 items-center justify-center rounded-ds-sm border border-ds-border-subtle transition-colors ${
-              style.italic
-                ? "bg-ds-control text-ds-control-text"
-                : "text-ds-text-secondary hover:bg-ds-state-hover"
-            } ${FOCUS_RING}`}
-          >
-            <Italic size={14} aria-hidden="true" />
-          </button>
-        </Tooltip>
-        <div className="ml-1 flex items-center overflow-hidden rounded-ds-sm border border-ds-border-subtle">
-          {ALIGN_OPTIONS.map((align) => (
-            <button
-              key={align}
-              type="button"
-              aria-pressed={style.align === align}
-              onClick={() => onChange({ ...style, align })}
-              className={`px-2 py-1 text-xs capitalize transition-colors ${
-                style.align === align
-                  ? "bg-ds-control text-ds-control-text"
-                  : "text-ds-text-secondary hover:bg-ds-state-hover"
-              }`}
-            >
-              {align}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <label className="block">
-        <span className={LABEL_CLASS}>Font size ({style.fontSize}%)</span>
-        <input
-          type="range"
-          min={2}
-          max={20}
-          step={0.5}
-          value={style.fontSize}
-          onChange={(event) =>
-            onChange({ ...style, fontSize: Number(event.target.value) })
-          }
-          className="w-full"
-        />
-      </label>
-
-      <label className="flex items-center justify-between gap-2">
-        <span className={LABEL_CLASS + " mb-0"}>Color</span>
-        <div className="flex items-center gap-2">
-          <input
-            type="color"
-            value={style.color ?? "#ffffff"}
-            onChange={(event) =>
-              onChange({ ...style, color: event.target.value })
-            }
-            className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
-            aria-label="Text color"
-          />
-          {style.color !== undefined ? (
-            <button
-              type="button"
-              onClick={() => {
-                const next = { ...style };
-                delete next.color;
-                onChange(next);
-              }}
-              className={`text-xs text-ds-text-muted underline hover:text-ds-text-primary ${FOCUS_RING}`}
-            >
-              Theme
-            </button>
-          ) : null}
-        </div>
-      </label>
-    </div>
-  );
-}
-
 function ElementEditor({
   element,
   visuals,
+  textColorPresets,
   onUpdateElement,
 }: {
   element: SlideElement;
   visuals: ReadonlyMap<string, Visual>;
+  textColorPresets: readonly string[];
   onUpdateElement: SlideInspectorProps["onUpdateElement"];
 }) {
   switch (element.kind) {
@@ -264,8 +164,10 @@ function ElementEditor({
               className={`${FIELD_CLASS} resize-y ${FOCUS_RING}`}
             />
           </label>
-          <TextStyleControls
+          <TextStyleBar
+            variant="labeled"
             style={element.style}
+            colorPresets={textColorPresets}
             onChange={(style) => onUpdateElement(element.id, { style })}
           />
         </div>
@@ -289,8 +191,10 @@ function ElementEditor({
               className={`${FIELD_CLASS} resize-y ${FOCUS_RING}`}
             />
           </label>
-          <TextStyleControls
+          <TextStyleBar
+            variant="labeled"
             style={element.style}
+            colorPresets={textColorPresets}
             onChange={(style) => onUpdateElement(element.id, { style })}
           />
         </div>
@@ -491,6 +395,16 @@ export function SlideInspector({
     elements.find((element) => element.id === selectedElementId) ?? null;
   const orderedElements = [...elements].sort((a, b) => b.zIndex - a.zIndex);
 
+  const themeConfig = DECK_THEMES[slide.theme] ?? DECK_THEMES.default;
+  const textColorPresets = [
+    themeConfig.titleColor,
+    themeConfig.bodyColor,
+    themeConfig.mutedColor,
+    themeConfig.accentColor,
+    "#ffffff",
+    "#000000",
+  ];
+
   return (
     <aside className="flex w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle">
       <div className="flex items-center justify-between border-b border-ds-border-subtle px-4 py-3">
@@ -652,6 +566,7 @@ export function SlideInspector({
                   <ElementEditor
                     element={selectedElement}
                     visuals={visuals}
+                    textColorPresets={textColorPresets}
                     onUpdateElement={onUpdateElement}
                   />
                 </div>
@@ -720,18 +635,20 @@ export function SlideInspector({
             <ColorOverride
               label="Background"
               value={slide.background}
-              fallback="#000000"
+              fallback={themeConfig.bgColor}
+              presets={THEME_BACKGROUND_SWATCHES}
               onChange={onBackgroundChange}
             />
             <ColorOverride
               label="Accent"
               value={slide.accent}
-              fallback="#818cf8"
+              fallback={themeConfig.accentColor}
+              presets={THEME_ACCENT_SWATCHES}
               onChange={onAccentChange}
             />
             <p className="text-xs text-ds-text-muted">
-              Overrides apply to this slide only. Use “Theme” to fall back to
-              the deck theme.
+              Overrides apply to this slide only. Pick a theme swatch, or use
+              “Custom…” for any color. “Theme” clears the override.
             </p>
           </div>
         ) : null}
@@ -782,30 +699,39 @@ function AddButton({
   );
 }
 
+/**
+ * Per-slide color override. The deck-theme preset swatches are the primary
+ * interaction; the raw `<input type=color>` is hidden behind a "Custom…"
+ * progressive-disclosure toggle so the token-driven theme colors stay
+ * front-and-centre. "Theme" clears the override entirely.
+ */
 function ColorOverride({
   label,
   value,
   fallback,
+  presets,
   onChange,
 }: {
   label: string;
   value: string | undefined;
   fallback: string;
+  presets: readonly string[];
   onChange: (color: string | undefined) => void;
 }) {
+  const normalized = value?.toLowerCase();
+  const matchesPreset =
+    normalized !== undefined &&
+    presets.some((preset) => preset.toLowerCase() === normalized);
+  const [showCustom, setShowCustom] = useState(
+    value !== undefined && !matchesPreset,
+  );
+
   return (
-    <label className="flex items-center justify-between gap-2">
-      <span className="text-xs font-medium text-ds-text-secondary">
-        {label}
-      </span>
-      <div className="flex items-center gap-2">
-        <input
-          type="color"
-          value={value ?? fallback}
-          onChange={(event) => onChange(event.target.value)}
-          className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
-          aria-label={`${label} color`}
-        />
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium text-ds-text-secondary">
+          {label}
+        </span>
         {value !== undefined ? (
           <button
             type="button"
@@ -816,6 +742,40 @@ function ColorOverride({
           </button>
         ) : null}
       </div>
-    </label>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {presets.map((preset) => (
+          <Swatch
+            key={preset}
+            color={preset}
+            size="md"
+            selected={normalized === preset.toLowerCase()}
+            aria-label={`${label} ${preset}`}
+            onClick={() => onChange(preset)}
+          />
+        ))}
+        <button
+          type="button"
+          onClick={() => setShowCustom((open) => !open)}
+          aria-expanded={showCustom}
+          className={`ml-0.5 text-xs text-ds-text-muted underline hover:text-ds-text-primary ${FOCUS_RING}`}
+        >
+          Custom…
+        </button>
+      </div>
+      {showCustom ? (
+        <label className="flex items-center gap-2">
+          <input
+            type="color"
+            value={value ?? fallback}
+            onChange={(event) => onChange(event.target.value)}
+            className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
+            aria-label={`${label} custom color`}
+          />
+          <span className="font-mono text-xs tabular-nums text-ds-text-secondary">
+            {(value ?? fallback).toLowerCase()}
+          </span>
+        </label>
+      ) : null}
+    </div>
   );
 }
