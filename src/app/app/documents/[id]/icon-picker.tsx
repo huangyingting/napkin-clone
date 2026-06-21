@@ -45,15 +45,18 @@ export function IconPicker({
   value,
   onSelect,
   onRemove,
+  expanded = false,
 }: {
   nodeLabel: string;
   value?: string;
   onSelect: (name: string) => void;
   onRemove: () => void;
+  expanded?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const listId = useId();
+  const showPicker = expanded || open;
 
   const results = useMemo(() => searchIcons(query, RESULT_LIMIT), [query]);
   const suggestions = useMemo(
@@ -64,40 +67,49 @@ export function IconPicker({
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-ds-text-secondary">Icon</span>
-        <div className="flex items-center gap-2">
-          {value && CurrentIcon ? (
-            <span className="inline-flex max-w-[8rem] items-center gap-1 text-[11px] text-ds-text-muted">
-              <IconThumb Icon={CurrentIcon} size={14} />
-              <span className="truncate">{value}</span>
-            </span>
-          ) : (
-            <span className="text-[11px] text-ds-text-muted">None</span>
-          )}
-          <button
-            type="button"
-            aria-expanded={open}
-            aria-controls={listId}
-            onClick={() => setOpen((prev) => !prev)}
-            className="rounded-md px-1.5 py-0.5 text-[11px] font-medium text-ds-text-muted transition hover:text-ds-text-primary"
-          >
-            {open ? "Close" : value ? "Change" : "Add"}
-          </button>
+      {expanded ? null : (
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs text-ds-text-secondary">Icon</span>
+          <div className="flex items-center gap-2">
+            {value && CurrentIcon ? (
+              <span className="inline-flex max-w-[8rem] items-center gap-1 text-[11px] text-ds-text-muted">
+                <IconThumb Icon={CurrentIcon} size={14} />
+                <span className="truncate">{value}</span>
+              </span>
+            ) : (
+              <span className="text-[11px] text-ds-text-muted">None</span>
+            )}
+            <button
+              type="button"
+              aria-expanded={open}
+              aria-controls={listId}
+              onClick={() => setOpen((prev) => !prev)}
+              className="rounded-md px-1.5 py-0.5 text-[11px] font-medium text-ds-text-muted transition hover:text-ds-text-primary"
+            >
+              {open ? "Close" : value ? "Change" : "Add"}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {open ? (
-        <div className="mt-2 space-y-2 rounded-md border border-ds-border-subtle bg-ds-surface-sunken p-2">
-          <input
-            type="search"
-            aria-label="Search icons"
-            placeholder="Search icons…"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            autoFocus
-            className="w-full rounded-md border border-ds-border-subtle bg-ds-surface-raised px-2 py-1 text-xs text-ds-text-primary outline-none placeholder:text-ds-text-muted focus:border-ds-border-strong"
-          />
+      {showPicker ? (
+        <div
+          className={[
+            "space-y-2 rounded-md border border-ds-border-subtle bg-ds-surface-sunken p-2",
+            expanded ? "" : "mt-2",
+          ].join(" ")}
+        >
+          {expanded ? null : (
+            <input
+              type="search"
+              aria-label="Search icons"
+              placeholder="Search icons…"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              autoFocus
+              className="w-full rounded-md border border-ds-border-subtle bg-ds-surface-raised px-2 py-1 text-xs text-ds-text-primary outline-none placeholder:text-ds-text-muted focus:border-ds-border-strong"
+            />
+          )}
           {suggestions.length > 0 ? (
             <div className="space-y-1">
               <p className="text-[11px] font-medium text-ds-text-muted">
@@ -131,7 +143,7 @@ export function IconPicker({
               </div>
             </div>
           ) : null}
-          {results.length > 0 ? (
+          {!expanded && results.length > 0 ? (
             <div
               id={listId}
               role="listbox"
@@ -160,11 +172,11 @@ export function IconPicker({
                 );
               })}
             </div>
-          ) : (
+          ) : !expanded ? (
             <p id={listId} className="px-1 py-2 text-[11px] text-ds-text-muted">
               No icons match “{query.trim()}”.
             </p>
-          )}
+          ) : null}
           {value ? (
             <button
               type="button"

@@ -6,6 +6,7 @@ import {
   ChevronDown,
   Copy,
   Download,
+  Image,
   Info,
   LayoutGrid,
   Maximize2,
@@ -106,7 +107,7 @@ import { IconPicker } from "./icon-picker";
 const POPOVER_GAP = 8;
 const EDGE_INSET = 8;
 const POPOVER_WIDTH = 400;
-const COMPONENT_POPOVER_WIDTH = 260;
+const COMPONENT_POPOVER_WIDTH = 300;
 
 const FONT_SIZE_MIN = 10;
 const FONT_SIZE_MAX = 28;
@@ -188,6 +189,7 @@ export type MenuSection =
   | "effects"
   | "colors"
   | "fonts"
+  | "icon"
   | "size"
   | "layout"
   | "branding"
@@ -266,6 +268,12 @@ const COMPONENT_MENU_ITEMS: MenuItemConfig[] = [
     label: "Font",
     icon: Type,
     description: "Family override",
+  },
+  {
+    id: "icon",
+    label: "Icon",
+    icon: Image,
+    description: "Icon picker",
   },
 ];
 
@@ -725,12 +733,14 @@ function PopoverShell({
   coords,
   onClose,
   width,
+  freezePosition,
   children,
 }: {
   mode: "float" | "panel";
   coords: { top: number; left: number };
   onClose: () => void;
   width: CSSProperties["width"];
+  freezePosition?: boolean;
   children: ReactNode;
 }) {
   if (mode === "panel") return <>{children}</>;
@@ -744,6 +754,7 @@ function PopoverShell({
       radius="lg"
       closeOnEscape
       closeOnClickAway={false}
+      clampToViewport={!freezePosition}
       onClose={onClose}
       style={{ width }}
     >
@@ -781,6 +792,7 @@ export function VisualContextPopover({
   onDuplicate,
 }: VisualContextPopoverProps) {
   const measureRef = useRef<HTMLDivElement | null>(null);
+  const toolbarRef = useRef<HTMLDivElement | null>(null);
 
   const [coords, setCoords] = useState<{ top: number; left: number }>({
     top: -1000,
@@ -843,6 +855,14 @@ export function VisualContextPopover({
     [visual.nodes, selectedNodeId],
   );
   const componentContext = selectedNode !== null;
+  const effectiveActiveSection: MenuSection | null =
+    componentContext &&
+    activeSection !== "colors" &&
+    activeSection !== "fonts" &&
+    activeSection !== "icon"
+      ? null
+      : activeSection;
+  const popoverExpanded = effectiveActiveSection !== null;
 
   // Position above the visual card via the shared anchored-positioning helper
   // (auto-flip below when there isn't room above, cross-axis clamp to the
@@ -853,13 +873,22 @@ export function VisualContextPopover({
     const anchor = anchorRef.current;
     const el = measureRef.current;
     if (!anchor || !el) return;
+    const toolbar = toolbarRef.current;
     const componentAnchor = componentContext
       ? findVisualNodeElement(anchor, selectedNodeId)
       : null;
     const rect = (componentAnchor ?? anchor).getBoundingClientRect();
-    const width = el.offsetWidth;
-    const height = el.offsetHeight;
-    const { top, left } = computeAnchoredPosition({
+    const elRect = el.getBoundingClientRect();
+    const toolbarRect = toolbar?.getBoundingClientRect();
+    const toolbarOffset = toolbarRect
+      ? {
+          top: toolbarRect.top - elRect.top,
+          left: toolbarRect.left - elRect.left,
+        }
+      : { top: 0, left: 0 };
+    const width = toolbarRect?.width ?? el.offsetWidth;
+    const height = toolbarRect?.height ?? el.offsetHeight;
+    const positionedToolbar = computeAnchoredPosition({
       anchor: {
         top: rect.top,
         left: rect.left,
@@ -874,6 +903,8 @@ export function VisualContextPopover({
       gap: POPOVER_GAP,
       padding: EDGE_INSET,
     });
+    const top = positionedToolbar.top - toolbarOffset.top;
+    const left = positionedToolbar.left - toolbarOffset.left;
     setCoords((prev) =>
       prev.top === top && prev.left === left ? prev : { top, left },
     );
@@ -901,11 +932,15 @@ export function VisualContextPopover({
       ) {
         return;
       }
+      if (popoverExpanded) {
+        reposition();
+        return;
+      }
       onClose();
     };
     window.addEventListener("scroll", onScroll, true);
     return () => window.removeEventListener("scroll", onScroll, true);
-  }, [mode, onClose]);
+  }, [mode, onClose, popoverExpanded, reposition]);
 
   // Click-away: dismiss when a pointer-down lands outside any visual chrome.
   // Only active in float mode.
@@ -1085,48 +1120,32 @@ export function VisualContextPopover({
     if (selectedNode) {
       return (
         <div className="space-y-2 py-0.5">
-          <div className="flex items-center justify-between gap-2">
-            <SectionLabel>
-              {selectedNode.label?.trim() || "Selected element"}
-            </SectionLabel>
-            <button
-              type="button"
-              aria-label="Reset element style"
-              onClick={() => {
-                const r1 = resetNodeStyle(visual, selectedNode.id);
-                onChange(resetNodeExtStyle(r1, selectedNode.id));
-              }}
-              className={cx(
-                "rounded-md px-1 py-0.5 text-[11px] font-medium text-[var(--ds-text-muted,#6f7d83)] transition hover:text-[var(--ds-text-primary,#18181b)]",
-                FOCUS_RING,
-              )}
-            >
-              Reset
-            </button>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 rounded-[var(--ds-radius-md,10px)] bg-[var(--ds-surface-raised,#f4f4f5)] px-2 py-1.5">
-            <CompactColorField
-              label="Fill"
-              color={selectedNode.color ?? style.nodeFill}
-              onChange={(v) =>
-                onChange(setNodeStyle(visual, selectedNode.id, "color", v))
-              }
-            />
-            <CompactColorField
-              label="Stroke"
-              color={selectedNode.stroke ?? style.nodeStroke}
-              onChange={(v) =>
-                onChange(setNodeStyle(visual, selectedNode.id, "stroke", v))
-              }
-            />
-            <CompactColorField
-              label="Text"
-              color={selectedNode.textColor ?? style.nodeText}
-              onChange={(v) =>
-                onChange(setNodeStyle(visual, selectedNode.id, "textColor", v))
-              }
-            />
+          <div className="space-y-1.5 rounded-[var(--ds-radius-md,10px)] bg-[var(--ds-surface-raised,#f4f4f5)] px-2 py-1.5">
+            <div className="grid grid-cols-3 gap-2">
+              <CompactColorField
+                label="Fill"
+                color={selectedNode.color ?? style.nodeFill}
+                onChange={(v) =>
+                  onChange(setNodeStyle(visual, selectedNode.id, "color", v))
+                }
+              />
+              <CompactColorField
+                label="Stroke"
+                color={selectedNode.stroke ?? style.nodeStroke}
+                onChange={(v) =>
+                  onChange(setNodeStyle(visual, selectedNode.id, "stroke", v))
+                }
+              />
+              <CompactColorField
+                label="Text"
+                color={selectedNode.textColor ?? style.nodeText}
+                onChange={(v) =>
+                  onChange(
+                    setNodeStyle(visual, selectedNode.id, "textColor", v),
+                  )
+                }
+              />
+            </div>
           </div>
 
           <div className="flex items-center justify-between gap-2 text-xs">
@@ -1226,16 +1245,6 @@ export function VisualContextPopover({
               }
             />
           </div>
-
-          <IconPicker
-            key={selectedNode.id}
-            nodeLabel={selectedNode.label}
-            value={selectedNode.icon}
-            onSelect={(name) =>
-              onChange(setNodeIcon(visual, selectedNode.id, name))
-            }
-            onRemove={() => onChange(clearNodeIcon(visual, selectedNode.id))}
-          />
         </div>
       );
     }
@@ -1354,12 +1363,7 @@ export function VisualContextPopover({
         ) ?? NODE_FONT_FAMILY_OPTIONS[0];
       return (
         <div className="space-y-1.5 py-0.5">
-          <div className="flex items-center justify-between gap-2">
-            <SectionLabel>Font family</SectionLabel>
-            <span className="max-w-[8rem] truncate text-[11px] text-[var(--ds-text-muted,#6f7d83)]">
-              {selectedNode.label?.trim() || "Selected element"}
-            </span>
-          </div>
+          <SectionLabel>Font family</SectionLabel>
           <button
             type="button"
             aria-label="Element font family"
@@ -1484,6 +1488,26 @@ export function VisualContextPopover({
             />
           </div>
         </div>
+      </div>
+    );
+  }
+
+  function renderIconSection() {
+    if (!selectedNode) {
+      return null;
+    }
+    return (
+      <div className="py-0.5">
+        <IconPicker
+          key={selectedNode.id}
+          expanded
+          nodeLabel={selectedNode.label}
+          value={selectedNode.icon}
+          onSelect={(name) =>
+            onChange(setNodeIcon(visual, selectedNode.id, name))
+          }
+          onRemove={() => onChange(clearNodeIcon(visual, selectedNode.id))}
+        />
       </div>
     );
   }
@@ -1938,21 +1962,28 @@ export function VisualContextPopover({
   // ---------------------------------------------------------------------------
 
   const visibleMenuItems = componentContext ? COMPONENT_MENU_ITEMS : MENU_ITEMS;
-  const effectiveActiveSection: MenuSection | null =
-    componentContext && activeSection !== "colors" && activeSection !== "fonts"
-      ? null
-      : activeSection;
   const popoverWidth = componentContext
     ? effectiveActiveSection
       ? COMPONENT_POPOVER_WIDTH
       : "max-content"
     : POPOVER_WIDTH;
   const contentClassName =
-    mode === "panel"
-      ? "overflow-y-auto p-3"
-      : componentContext && effectiveActiveSection === null
-        ? "p-1"
-        : "p-2";
+    mode === "panel" ? "overflow-y-auto p-3" : componentContext ? "p-1" : "p-2";
+  const sectionContent = (
+    <>
+      {effectiveActiveSection === "export" && renderExportSection()}
+      {effectiveActiveSection === "effects" && renderEffectsSection()}
+      {effectiveActiveSection === "colors" && renderColorsSection()}
+      {effectiveActiveSection === "fonts" && renderFontsSection()}
+      {effectiveActiveSection === "icon" && renderIconSection()}
+      {effectiveActiveSection === "size" && renderSizeSection()}
+      {effectiveActiveSection === "layout" && renderLayoutSection()}
+      {effectiveActiveSection === "branding" && renderBrandingSection()}
+      {effectiveActiveSection === "sync" && renderSyncSection()}
+      {effectiveActiveSection === "info" && renderInfoSection()}
+      {effectiveActiveSection === "variations" && renderVariationsSection()}
+    </>
+  );
 
   return (
     <PopoverShell
@@ -1960,44 +1991,102 @@ export function VisualContextPopover({
       coords={coords}
       onClose={onClose}
       width={popoverWidth}
+      freezePosition={popoverExpanded}
     >
       <div ref={measureRef} data-visual-chrome className={contentClassName}>
-        {/* ── One-line toolbox: every tool as an icon; clicking loads its config below ── */}
-        <div
-          role="toolbar"
-          aria-label={componentContext ? "Element tools" : "Visual tools"}
-          className={cx(
-            "flex items-center gap-0.5",
-            componentContext ? "w-max" : "",
-          )}
-        >
-          {visibleMenuItems.map((item) => {
-            const Icon = item.icon;
-            const active = effectiveActiveSection === item.id;
-            return (
-              <Tooltip key={item.id} label={item.label}>
-                <span className="relative inline-flex">
-                  <IconButton
-                    aria-label={`${active ? "Hide" : "Show"} ${item.label}`}
-                    size="sm"
-                    active={active}
-                    onClick={() => setActiveSection(active ? null : item.id)}
-                  >
-                    <Icon aria-hidden="true" className="h-4 w-4" />
-                  </IconButton>
-                  {item.id === "sync" && stale ? (
-                    <span
-                      aria-label="Source changed"
-                      className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-ds-warning"
-                    />
-                  ) : null}
-                </span>
+        {componentContext ? (
+          <div className="flex items-start gap-1.5">
+            <div
+              ref={toolbarRef}
+              role="toolbar"
+              aria-label="Element tools"
+              aria-orientation="vertical"
+              className="flex w-max flex-col items-center gap-0.5"
+            >
+              {visibleMenuItems.map((item) => {
+                const Icon = item.icon;
+                const active = effectiveActiveSection === item.id;
+                return (
+                  <Tooltip key={item.id} label={item.label}>
+                    <span className="relative inline-flex">
+                      <IconButton
+                        aria-label={`${active ? "Hide" : "Show"} ${item.label}`}
+                        size="sm"
+                        active={active}
+                        onClick={() =>
+                          setActiveSection(active ? null : item.id)
+                        }
+                      >
+                        <Icon aria-hidden="true" className="h-4 w-4" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                );
+              })}
+              <Divider orientation="horizontal" className="my-0.5 w-6" />
+              <Tooltip label="Reset element style">
+                <IconButton
+                  aria-label="Reset element style"
+                  size="sm"
+                  onClick={() => {
+                    if (!selectedNode) return;
+                    const r1 = resetNodeStyle(visual, selectedNode.id);
+                    onChange(resetNodeExtStyle(r1, selectedNode.id));
+                  }}
+                >
+                  <RefreshCw aria-hidden="true" className="h-4 w-4" />
+                </IconButton>
               </Tooltip>
-            );
-          })}
+            </div>
 
-          {componentContext ? null : (
-            <>
+            {effectiveActiveSection !== null ? (
+              <>
+                <Divider
+                  orientation="vertical"
+                  className="mx-0 h-auto self-stretch"
+                />
+                <div className="min-w-0 flex-1 overflow-y-auto max-h-[22rem] pr-1">
+                  {sectionContent}
+                </div>
+              </>
+            ) : null}
+          </div>
+        ) : (
+          <>
+            {/* ── One-line toolbox: every tool as an icon; clicking loads its config below ── */}
+            <div
+              ref={toolbarRef}
+              role="toolbar"
+              aria-label="Visual tools"
+              className="flex items-center gap-0.5"
+            >
+              {visibleMenuItems.map((item) => {
+                const Icon = item.icon;
+                const active = effectiveActiveSection === item.id;
+                return (
+                  <Tooltip key={item.id} label={item.label}>
+                    <span className="relative inline-flex">
+                      <IconButton
+                        aria-label={`${active ? "Hide" : "Show"} ${item.label}`}
+                        size="sm"
+                        active={active}
+                        onClick={() =>
+                          setActiveSection(active ? null : item.id)
+                        }
+                      >
+                        <Icon aria-hidden="true" className="h-4 w-4" />
+                      </IconButton>
+                      {item.id === "sync" && stale ? (
+                        <span
+                          aria-label="Source changed"
+                          className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-ds-warning"
+                        />
+                      ) : null}
+                    </span>
+                  </Tooltip>
+                );
+              })}
+
               <Tooltip label="AI Variations">
                 <IconButton
                   aria-label="Generate AI variations"
@@ -2042,34 +2131,17 @@ export function VisualContextPopover({
                   <Trash2 aria-hidden="true" className="h-4 w-4" />
                 </IconButton>
               </Tooltip>
-            </>
-          )}
-        </div>
-
-        {/* ── Config: dynamically loaded below the toolbar ── */}
-        {effectiveActiveSection !== null ? (
-          <div
-            className={cx(
-              "overflow-y-auto",
-              componentContext ? "mt-1.5 max-h-[22rem]" : "mt-2 max-h-[26rem]",
-            )}
-          >
-            <Divider orientation="horizontal" />
-            <div className="mt-2">
-              {effectiveActiveSection === "export" && renderExportSection()}
-              {effectiveActiveSection === "effects" && renderEffectsSection()}
-              {effectiveActiveSection === "colors" && renderColorsSection()}
-              {effectiveActiveSection === "fonts" && renderFontsSection()}
-              {effectiveActiveSection === "size" && renderSizeSection()}
-              {effectiveActiveSection === "layout" && renderLayoutSection()}
-              {effectiveActiveSection === "branding" && renderBrandingSection()}
-              {effectiveActiveSection === "sync" && renderSyncSection()}
-              {effectiveActiveSection === "info" && renderInfoSection()}
-              {effectiveActiveSection === "variations" &&
-                renderVariationsSection()}
             </div>
-          </div>
-        ) : null}
+
+            {/* ── Config: dynamically loaded below the toolbar ── */}
+            {effectiveActiveSection !== null ? (
+              <div className="mt-2 max-h-[26rem] overflow-y-auto">
+                <Divider orientation="horizontal" />
+                <div className="mt-2">{sectionContent}</div>
+              </div>
+            ) : null}
+          </>
+        )}
       </div>
     </PopoverShell>
   );
