@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { documentCapabilities } from "@/lib/auth/document-permissions";
 import { excerpt, readingTimeMinutes } from "@/lib/document-stats";
+import { DOCUMENT_LIST_LIMIT, capList } from "@/lib/documents";
 import { createTranslator } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n/server";
 import { computeOnboardingState } from "@/lib/onboarding/checklist";
@@ -43,10 +44,12 @@ export default async function DashboardPage() {
     select: { onboardingDismissed: true },
   });
 
-  // Get user's personal documents (soft-deleted ones are excluded).
-  const personalDocuments = await prisma.document.findMany({
+  // Get user's personal documents (soft-deleted ones are excluded). Capped at
+  // DOCUMENT_LIST_LIMIT (one extra row requested so we can flag `hasMore`).
+  const personalRows = await prisma.document.findMany({
     where: { ownerId: user.id, workspaceId: null, deletedAt: null },
     orderBy: { updatedAt: "desc" },
+    take: DOCUMENT_LIST_LIMIT + 1,
     select: {
       id: true,
       title: true,
@@ -68,8 +71,8 @@ export default async function DashboardPage() {
     },
   });
 
-  // Get documents from workspaces the user has access to
-  const workspaceDocuments = await prisma.document.findMany({
+  // Get documents from workspaces the user has access to. Capped the same way.
+  const workspaceRows = await prisma.document.findMany({
     where: {
       workspaceId: { not: null },
       deletedAt: null,
@@ -78,6 +81,7 @@ export default async function DashboardPage() {
       },
     },
     orderBy: { updatedAt: "desc" },
+    take: DOCUMENT_LIST_LIMIT + 1,
     select: {
       id: true,
       title: true,
@@ -109,9 +113,14 @@ export default async function DashboardPage() {
     },
   });
 
+  const personal = capList(personalRows, DOCUMENT_LIST_LIMIT);
+  const workspace = capList(workspaceRows, DOCUMENT_LIST_LIMIT);
+  // Either list hitting its cap means the dashboard is showing a partial set.
+  const listCapped = personal.hasMore || workspace.hasMore;
+
   const allDocuments = [
-    ...personalDocuments.map((d) => ({ ...d, workspace: null })),
-    ...workspaceDocuments,
+    ...personal.items.map((d) => ({ ...d, workspace: null })),
+    ...workspace.items,
   ].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 
   const documents = allDocuments.map((document) => {
@@ -222,7 +231,11 @@ export default async function DashboardPage() {
 
         {onboarding.show && <OnboardingChecklist steps={onboarding.steps} />}
 
-        <DocumentList documents={documents} availableTags={availableTags} />
+        <DocumentList
+          documents={documents}
+          availableTags={availableTags}
+          listCapped={listCapped}
+        />
       </div>
     </main>
   );

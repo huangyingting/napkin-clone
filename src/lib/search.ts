@@ -7,6 +7,14 @@ import type { Prisma } from "@/generated/prisma/client";
 export const MAX_SEARCH_QUERY_LENGTH = 200;
 
 /**
+ * Maximum number of documents returned by a single `searchDocuments` call.
+ * The query fires on every debounce tick and a one-character query can match
+ * the entire corpus, so the result set is capped; the UI surfaces a "showing
+ * first N" hint when the cap is hit so users know to narrow their search.
+ */
+export const SEARCH_RESULT_LIMIT = 100;
+
+/**
  * Trims and length-clamps a raw search query string.
  * Returns an empty string when the input is blank so callers can short-circuit.
  */

@@ -9,9 +9,13 @@ import {
   requireDocumentCapability,
 } from "@/lib/auth/document-permissions";
 import { excerpt, readingTimeMinutes } from "@/lib/document-stats";
-import { documentAccessOr } from "@/lib/documents";
+import { capList, documentAccessOr } from "@/lib/documents";
 import { prisma } from "@/lib/prisma";
-import { buildDocumentSearchWhere, normalizeSearchQuery } from "@/lib/search";
+import {
+  buildDocumentSearchWhere,
+  normalizeSearchQuery,
+  SEARCH_RESULT_LIMIT,
+} from "@/lib/search";
 import { requireUser } from "@/lib/session";
 import { BLANK_TEMPLATE_ID, getTemplateOrBlank } from "@/lib/templates/catalog";
 import { SOFT_DELETE_RETENTION_MS } from "@/lib/trash";
@@ -304,6 +308,16 @@ export type SearchResult = {
   tags: { slug: string; name: string }[];
 };
 
+/**
+ * Result of a `searchDocuments` call: the (capped) matches plus `hasMore`,
+ * which is `true` when the query hit {@link SEARCH_RESULT_LIMIT} and additional
+ * matches were dropped. Callers surface `hasMore` as a "narrow your search" hint.
+ */
+export type SearchResults = {
+  results: SearchResult[];
+  hasMore: boolean;
+};
+
 const searchDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
@@ -317,8 +331,13 @@ const searchDateFormatter = new Intl.DateTimeFormat("en-US", {
  * display them directly.
  *
  * The query is trimmed and length-clamped before being used in a DB query.
- * An empty (or whitespace-only) query returns an empty array — the caller
+ * An empty (or whitespace-only) query returns an empty result — the caller
  * should fall back to the full document list in that case.
+ *
+ * Results are capped at {@link SEARCH_RESULT_LIMIT} (a one-character query can
+ * otherwise match the entire corpus on every debounce tick). One extra row is
+ * requested so `hasMore` can flag when matches were dropped, and the UI shows a
+ * "narrow your search" hint.
  *
  * Provider behaviour is handled by {@link buildDocumentSearchWhere}: SQLite
  * uses LIKE (case-insensitive for ASCII); Postgres uses ILIKE.
@@ -328,15 +347,16 @@ const searchDateFormatter = new Intl.DateTimeFormat("en-US", {
  */
 export async function searchDocuments(
   rawQuery: string,
-): Promise<SearchResult[]> {
+): Promise<SearchResults> {
   const user = await requireUser();
 
   const q = normalizeSearchQuery(rawQuery);
-  if (!q) return [];
+  if (!q) return { results: [], hasMore: false };
 
-  const docs = await prisma.document.findMany({
+  const rows = await prisma.document.findMany({
     where: buildDocumentSearchWhere(q, documentAccessOr(user.id)),
     orderBy: { updatedAt: "desc" },
+    take: SEARCH_RESULT_LIMIT + 1,
     select: {
       id: true,
       title: true,
@@ -368,7 +388,9 @@ export async function searchDocuments(
     },
   });
 
-  return docs.map((doc) => {
+  const { items, hasMore } = capList(rows, SEARCH_RESULT_LIMIT);
+
+  const results = items.map((doc) => {
     const firstVisual = doc.visuals[0];
     let thumbnail: Visual | null = null;
     if (firstVisual) {
@@ -393,6 +415,8 @@ export async function searchDocuments(
       tags: doc.tags,
     };
   });
+
+  return { results, hasMore };
 }
 
 /**
