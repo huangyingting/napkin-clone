@@ -170,12 +170,21 @@ function LocalFallbackSeedPlugin({
       return;
     }
     seededRef.current = true;
-    try {
-      const parsed = editor.parseEditorState(initialStateJson);
-      editor.setEditorState(parsed, { tag: HISTORIC_TAG });
-    } catch (error) {
-      console.error("Failed to seed editor from database fallback", error);
-    }
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) {
+        return;
+      }
+      try {
+        const parsed = editor.parseEditorState(initialStateJson);
+        editor.setEditorState(parsed, { tag: HISTORIC_TAG });
+      } catch (error) {
+        console.error("Failed to seed editor from database fallback", error);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [editor, initialStateJson, degraded, synced]);
   return null;
 }
