@@ -9,6 +9,7 @@ import { asWorkspaceRole } from "@/lib/workspace/roles";
 import { InviteLinkManager } from "./invite-link-manager";
 import { MembersList } from "./members-list";
 import { WorkspaceDocuments } from "./workspace-documents";
+import { WorkspaceSettings } from "./workspace-settings";
 
 export const metadata: Metadata = {
   title: "Workspace — TextIQ",
@@ -151,6 +152,17 @@ export default async function WorkspacePage({
             Documents
           </h2>
           <WorkspaceDocuments workspaceId={workspace.id} userRole={userRole} />
+        </section>
+
+        <section className="flex flex-col gap-4">
+          <h2 className="text-lg font-semibold text-ds-text-primary">
+            {isOwner ? "Workspace settings" : "Membership"}
+          </h2>
+          <WorkspaceSettings
+            workspaceId={workspace.id}
+            name={workspace.name}
+            isOwner={isOwner}
+          />
         </section>
       </div>
     </main>
