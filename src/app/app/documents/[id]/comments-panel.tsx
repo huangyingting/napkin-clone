@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 
 import {
   createComment,
+  deleteComment,
+  editComment,
   listComments,
   setCommentResolved,
   type CommentAnchorType,
@@ -70,15 +72,39 @@ function Thread({
   disabled,
   onReply,
   onToggleResolved,
+  onEdit,
+  onDelete,
 }: {
   thread: CommentThread;
   currentUserId: string;
   disabled: boolean;
   onReply: (threadId: string, body: string) => Promise<void>;
   onToggleResolved: (threadId: string, resolved: boolean) => Promise<void>;
+  onEdit: (commentId: string, newBody: string) => Promise<void>;
+  onDelete: (commentId: string) => Promise<void>;
 }) {
   const [reply, setReply] = useState("");
   const [showReply, setShowReply] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editBody, setEditBody] = useState("");
+
+  const startEdit = (id: string, currentBody: string) => {
+    setEditingId(id);
+    setEditBody(currentBody);
+  };
+
+  const submitEdit = async (id: string) => {
+    const body = editBody.trim();
+    if (!body) return;
+    await onEdit(id, body);
+    setEditingId(null);
+    setEditBody("");
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditBody("");
+  };
 
   const submitReply = async () => {
     const body = reply.trim();
@@ -118,25 +144,105 @@ function Thread({
           {formatTime(thread.createdAt)}
         </time>
       </div>
-      <p className="mt-0.5 text-sm whitespace-pre-wrap text-ds-text-secondary">
-        {thread.body}
-      </p>
+      {editingId === thread.id ? (
+        <div className="mt-1 flex flex-col gap-2">
+          <textarea
+            aria-label="Edit comment"
+            value={editBody}
+            onChange={(e) => setEditBody(e.target.value)}
+            rows={3}
+            className="w-full resize-none rounded-md border border-ds-border-subtle bg-ds-surface-raised px-2 py-1.5 text-sm text-ds-text-primary outline-none focus:border-ds-border-strong"
+          />
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={cancelEdit}
+              className="rounded-full border border-ds-border-subtle px-3 py-1 text-xs font-medium text-ds-text-muted transition hover:bg-ds-state-hover"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => submitEdit(thread.id)}
+              disabled={disabled || editBody.trim().length === 0}
+              className="rounded-full bg-ds-control px-3 py-1 text-xs font-medium text-ds-control-text transition hover:bg-ds-control-hover disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className="mt-0.5 text-sm whitespace-pre-wrap text-ds-text-secondary">
+          {thread.body}
+        </p>
+      )}
 
       {thread.replies.length > 0 ? (
         <ul className="mt-2 space-y-2 border-l-2 border-ds-border-subtle pl-3">
-          {thread.replies.map((reply) => (
-            <li key={reply.id}>
+          {thread.replies.map((replyItem) => (
+            <li key={replyItem.id}>
               <div className="flex items-baseline justify-between gap-2">
                 <span className="truncate text-xs font-semibold text-ds-text-primary">
-                  {authorLabel(reply.author, currentUserId)}
+                  {authorLabel(replyItem.author, currentUserId)}
                 </span>
                 <time className="shrink-0 text-[10px] text-ds-text-muted">
-                  {formatTime(reply.createdAt)}
+                  {formatTime(replyItem.createdAt)}
                 </time>
               </div>
-              <p className="mt-0.5 text-xs whitespace-pre-wrap text-ds-text-secondary">
-                {reply.body}
-              </p>
+              {editingId === replyItem.id ? (
+                <div className="mt-1 flex flex-col gap-2">
+                  <textarea
+                    aria-label="Edit reply"
+                    value={editBody}
+                    onChange={(e) => setEditBody(e.target.value)}
+                    rows={2}
+                    className="w-full resize-none rounded-md border border-ds-border-subtle bg-ds-surface-raised px-2 py-1.5 text-xs text-ds-text-primary outline-none focus:border-ds-border-strong"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={cancelEdit}
+                      className="rounded-full border border-ds-border-subtle px-3 py-1 text-[11px] font-medium text-ds-text-muted transition hover:bg-ds-state-hover"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => submitEdit(replyItem.id)}
+                      disabled={disabled || editBody.trim().length === 0}
+                      className="rounded-full bg-ds-control px-3 py-1 text-[11px] font-medium text-ds-control-text transition hover:bg-ds-control-hover disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p className="mt-0.5 text-xs whitespace-pre-wrap text-ds-text-secondary">
+                    {replyItem.body}
+                  </p>
+                  {replyItem.author.id === currentUserId ? (
+                    <div className="mt-1 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => startEdit(replyItem.id, replyItem.body)}
+                        disabled={disabled}
+                        className="text-[11px] font-medium text-ds-text-muted transition hover:text-ds-text-primary disabled:opacity-50"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDelete(replyItem.id)}
+                        disabled={disabled}
+                        className="text-[11px] font-medium text-ds-danger-text transition hover:opacity-80 disabled:opacity-50"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
+                </>
+              )}
             </li>
           ))}
         </ul>
@@ -162,6 +268,26 @@ function Thread({
         >
           {thread.resolved ? "Reopen" : "Resolve"}
         </button>
+        {thread.author.id === currentUserId ? (
+          <>
+            <button
+              type="button"
+              onClick={() => startEdit(thread.id, thread.body)}
+              disabled={disabled || editingId === thread.id}
+              className="text-xs font-medium text-ds-text-muted transition hover:text-ds-text-primary disabled:opacity-50"
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(thread.id)}
+              disabled={disabled}
+              className="text-xs font-medium text-ds-danger-text transition hover:opacity-80 disabled:opacity-50"
+            >
+              Delete
+            </button>
+          </>
+        ) : null}
       </div>
 
       {showReply ? (
@@ -318,6 +444,24 @@ export function CommentsPanel({
     [],
   );
 
+  const edit = useCallback(async (commentId: string, newBody: string) => {
+    setError(null);
+    try {
+      setThreads(await editComment(commentId, newBody));
+    } catch {
+      setError("Couldn't edit the comment. Please try again.");
+    }
+  }, []);
+
+  const remove = useCallback(async (commentId: string) => {
+    setError(null);
+    try {
+      setThreads(await deleteComment(commentId));
+    } catch {
+      setError("Couldn't delete the comment. Please try again.");
+    }
+  }, []);
+
   return (
     <>
       <button
@@ -456,6 +600,8 @@ export function CommentsPanel({
                         disabled={isPending}
                         onReply={reply}
                         onToggleResolved={toggleResolved}
+                        onEdit={edit}
+                        onDelete={remove}
                       />
                     ))}
                   </ul>
