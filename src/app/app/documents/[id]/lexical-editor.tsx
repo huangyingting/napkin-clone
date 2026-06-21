@@ -17,18 +17,15 @@ import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import {
   $getRoot,
-  $getSelection,
-  $isRangeSelection,
   HISTORIC_TAG,
   type EditorState,
   type EditorThemeClasses,
   type Klass,
-  type LexicalEditor as LexicalEditorInstance,
   type LexicalNode,
 } from "lexical";
 import { SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useLexicalCollaboration } from "@/lib/collab/use-lexical-collaboration";
 import { useYText } from "@/lib/collab/use-collaboration";
@@ -39,7 +36,6 @@ import { shouldAutosaveUpdate } from "@/lib/lexical/import-persistence";
 import { saveDocumentLexical } from "./actions";
 import { BlockSparkPlugin } from "./block-spark";
 import type { CommentThread } from "./comments-actions";
-import { CommentsPanel, type AnchorNode } from "./comments-panel";
 import { DocumentExportButton } from "@/components/editor/document-export-button";
 import { PageBreakIndicator } from "@/components/editor/page-break-indicator";
 import { PresentButton } from "@/components/editor/present-button";
@@ -55,6 +51,7 @@ import { FloatingTextToolbar } from "./floating-text-toolbar";
 import { ImportPlugin } from "./import-plugin";
 import { InsertMenuPlugin } from "./insert-menu";
 import { InsertVisualPlugin } from "./insert-visual-plugin";
+import { InlineCommentsLayer } from "./inline-comments-layer";
 import { MobileEditingSheetHost } from "./mobile-editing-sheet";
 import { Presence } from "./presence";
 import { OverallAdjustmentsPanel } from "./overall-adjustments-panel";
@@ -63,7 +60,6 @@ import { TagControl } from "./tag-control";
 import type { DocumentTag } from "./tags-actions";
 import { UndoRedoControls } from "./undo-redo-controls";
 import { VersionHistoryPanel } from "./version-history-panel";
-import { VisualAnchorProvider } from "./visual-anchor-context";
 import { VisualNode } from "./visual-node";
 import { VisualPanelProvider } from "./visual-panel-context";
 import { RightSurfaceProvider } from "./right-surface-context";
@@ -185,37 +181,6 @@ function LocalFallbackSeedPlugin({
 }
 
 /**
- * Captures the live editor instance and the last non-empty text selection so the
- * comments panel can anchor a comment to selected text. Per US-017 we store the
- * selected text *string* (matching the existing `anchorText` model), not Lexical
- * node keys/offsets, which aren't stable across sessions.
- */
-function CaptureSelectionPlugin({
-  editorRef,
-  selectionRef,
-}: {
-  editorRef: React.MutableRefObject<LexicalEditorInstance | null>;
-  selectionRef: React.MutableRefObject<string>;
-}) {
-  const [editor] = useLexicalComposerContext();
-  useEffect(() => {
-    editorRef.current = editor;
-    return editor.registerUpdateListener(({ editorState }) => {
-      editorState.read(() => {
-        const selection = $getSelection();
-        if ($isRangeSelection(selection) && !selection.isCollapsed()) {
-          const text = selection.getTextContent().trim();
-          if (text) {
-            selectionRef.current = text;
-          }
-        }
-      });
-    });
-  }, [editor, editorRef, selectionRef]);
-  return null;
-}
-
-/**
  * Reports the document's live plain-text content (across local *and* remote
  * edits) so the editor can show reading time and word count (US-024). Uses the
  * editor's text content directly and fires on every update, so the stats stay in
@@ -311,7 +276,7 @@ function PageGuidesButton({
  * `saveDocumentLexical` action; remote/CRDT merges do not re-save (only the
  * originator writes). The title is a separate collaborative, autosaved input.
  * It renders the full document chrome (back link, workspace, read-only badge,
- * presence, sharing, comments) and hosts the "+"/"/" insert menus, the floating
+ * presence, sharing, inline comments) and hosts the "+"/"/" insert menus, the floating
  * format toolbar, the per-block visual spark, and inline visual cards. This
  * replaced the legacy textarea/tab editor (US-018).
  */
@@ -321,12 +286,10 @@ export function LexicalEditor({
   initialStateJson = null,
   initialDeckJson = null,
   userName,
-  currentUserId,
   canEdit = true,
   canManage = false,
   workspaceName,
   initialComments = [],
-  initialUnreadCommentCount = 0,
   initialIsShared = false,
   initialShareId = null,
   initialSlug = null,
@@ -341,12 +304,10 @@ export function LexicalEditor({
   initialStateJson?: string | null;
   initialDeckJson?: unknown;
   userName: string;
-  currentUserId: string;
   canEdit?: boolean;
   canManage?: boolean;
   workspaceName?: string;
   initialComments?: CommentThread[];
-  initialUnreadCommentCount?: number;
   initialIsShared?: boolean;
   initialShareId?: string | null;
   initialSlug?: string | null;
@@ -392,42 +353,12 @@ export function LexicalEditor({
     }
   }, [collab, initialTitle]);
 
-  // Comment anchoring state. `selectionRef` holds the last non-empty selected
-  // text (text anchors); `anchorNode` holds the visual element a `VisualCard`
-  // reported as selected (visual anchors). Both store plain strings/ids, never
-  // Lexical node keys.
-  const editorRef = useRef<LexicalEditorInstance | null>(null);
-  const selectionRef = useRef<string>("");
-  const [anchorNode, setAnchorNode] = useState<AnchorNode | null>(null);
-
-  // Stable context value so a consuming `VisualCard` doesn't re-run its
-  // anchor-reporting effect on every render (that effect performs a setState and
-  // would otherwise loop). `setAnchorNode` is referentially stable across renders.
-  const visualAnchorValue = useMemo(
-    () => ({ setVisualAnchor: setAnchorNode }),
-    [setAnchorNode],
-  );
-
   // Live document text, for reading time / word count (US-024). Updated on every
   // editor change (local and remote) by `DocumentStatsPlugin`.
   const [statsText, setStatsText] = useState("");
   const handleStatsText = useCallback((text: string) => setStatsText(text), []);
   const words = wordCount(statsText);
   const minutes = readingTimeMinutes(statsText);
-
-  const getTextSelection = useCallback(() => {
-    const editor = editorRef.current;
-    let current = "";
-    if (editor) {
-      editor.getEditorState().read(() => {
-        const selection = $getSelection();
-        if ($isRangeSelection(selection) && !selection.isCollapsed()) {
-          current = selection.getTextContent().trim();
-        }
-      });
-    }
-    return current || selectionRef.current || null;
-  }, []);
 
   const save = useCallback(async () => {
     const json = latestJsonRef.current;
@@ -509,197 +440,188 @@ export function LexicalEditor({
       <LexicalCollaboration>
         <LexicalComposer initialConfig={initialConfig}>
           <VisualSvgRegistryProvider>
-            <VisualAnchorProvider value={visualAnchorValue}>
-              <RightSurfaceProvider>
-                {/* `z-sticky` keeps this in-page toolbar above the article column
+            <RightSurfaceProvider>
+              {/* `z-sticky` keeps this in-page toolbar above the article column
                 below it (which is z-base), while staying below the global site
                 header (`z-header`) so the header's user/language menus can open
                 over this bar. The toolbar's own Share/Export menus are children
                 of this stacking context and open downward over the article. */}
-                <div className="relative z-sticky flex flex-wrap items-center justify-between gap-2 border-b border-ds-border-subtle bg-ds-surface-chrome px-4 py-2 backdrop-blur sm:px-6">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <Link
-                      href="/app"
-                      className="w-fit text-xs font-medium text-ds-text-muted transition hover:text-ds-text-primary"
-                    >
-                      ← Back
-                    </Link>
-                    {workspaceName && (
-                      <>
-                        <span className="text-xs text-ds-border-strong">·</span>
-                        <span className="truncate text-xs text-ds-text-muted">
-                          {workspaceName}
-                        </span>
-                      </>
-                    )}
-                    {!canEdit && (
-                      <>
-                        <span className="text-xs text-ds-border-strong">·</span>
-                        <span className="rounded-full bg-ds-surface-sunken px-2 py-0.5 text-xs font-medium text-ds-text-secondary">
-                          Read-only
-                        </span>
-                      </>
-                    )}
-                  </div>
-
-                  <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-                    <Presence peers={collab.peers} status={collab.status} />
-                    {canEdit && (
-                      <EditorToolbarGroup label="Edit document">
-                        <ImportPlugin />
-                        <UndoRedoControls editable={editable} />
-                      </EditorToolbarGroup>
-                    )}
-
-                    {canEdit && <EditorToolbarDivider />}
-
-                    <EditorToolbarGroup label="Document style and page guides">
-                      {canEdit && <DocumentStyleButton disabled={!editable} />}
-                      <PageGuidesButton
-                        showPageBreaks={showPageBreaks}
-                        onToggle={() => setShowPageBreaks((v) => !v)}
-                      />
-                    </EditorToolbarGroup>
-
-                    <EditorToolbarDivider />
-
-                    <EditorToolbarGroup label="Create and present">
-                      {canEdit && (
-                        <SlideEditorButton
-                          documentId={documentId}
-                          initialDeckJson={initialDeckJson}
-                        />
-                      )}
-                      <PresentButton documentTitle={title.value} />
-                      <DocumentExportButton documentTitle={title.value} />
-                    </EditorToolbarGroup>
-
-                    <EditorToolbarDivider />
-
-                    <EditorToolbarGroup label="Collaborate and review">
-                      {canManage && (
-                        <ShareButton
-                          id={documentId}
-                          initialIsShared={initialIsShared}
-                          initialShareId={initialShareId}
-                          initialSlug={initialSlug}
-                          initialExpiresAt={initialShareExpiresAt}
-                          initialEmbedEnabled={initialShareEmbedEnabled}
-                          initialPresentEnabled={initialSharePresentEnabled}
-                          documentTitle={title.value}
-                        />
-                      )}
-                      <CommentsPanel
-                        documentId={documentId}
-                        currentUserId={currentUserId}
-                        initialComments={initialComments}
-                        initialUnreadCount={initialUnreadCommentCount}
-                        getTextSelection={getTextSelection}
-                        anchorNode={anchorNode}
-                      />
-                      <VersionHistoryPanel
-                        documentId={documentId}
-                        canEdit={canEdit}
-                      />
-                    </EditorToolbarGroup>
-                  </div>
+              <div className="relative z-sticky flex flex-wrap items-center justify-between gap-2 border-b border-ds-border-subtle bg-ds-surface-chrome px-4 py-2 backdrop-blur sm:px-6">
+                <div className="flex min-w-0 items-center gap-2">
+                  <Link
+                    href="/app"
+                    className="w-fit text-xs font-medium text-ds-text-muted transition hover:text-ds-text-primary"
+                  >
+                    ← Back
+                  </Link>
+                  {workspaceName && (
+                    <>
+                      <span className="text-xs text-ds-border-strong">·</span>
+                      <span className="truncate text-xs text-ds-text-muted">
+                        {workspaceName}
+                      </span>
+                    </>
+                  )}
+                  {!canEdit && (
+                    <>
+                      <span className="text-xs text-ds-border-strong">·</span>
+                      <span className="rounded-full bg-ds-surface-sunken px-2 py-0.5 text-xs font-medium text-ds-text-secondary">
+                        Read-only
+                      </span>
+                    </>
+                  )}
                 </div>
 
-                <EditorContextProvider>
-                  <VisualPanelProvider>
-                    {/* Reading layout with context-aware floating toolboxes on
+                <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+                  <Presence peers={collab.peers} status={collab.status} />
+                  {canEdit && (
+                    <EditorToolbarGroup label="Edit document">
+                      <ImportPlugin />
+                      <UndoRedoControls editable={editable} />
+                    </EditorToolbarGroup>
+                  )}
+
+                  {canEdit && <EditorToolbarDivider />}
+
+                  <EditorToolbarGroup label="Document style and page guides">
+                    {canEdit && <DocumentStyleButton disabled={!editable} />}
+                    <PageGuidesButton
+                      showPageBreaks={showPageBreaks}
+                      onToggle={() => setShowPageBreaks((v) => !v)}
+                    />
+                  </EditorToolbarGroup>
+
+                  <EditorToolbarDivider />
+
+                  <EditorToolbarGroup label="Create and present">
+                    {canEdit && (
+                      <SlideEditorButton
+                        documentId={documentId}
+                        initialDeckJson={initialDeckJson}
+                      />
+                    )}
+                    <PresentButton documentTitle={title.value} />
+                    <DocumentExportButton documentTitle={title.value} />
+                  </EditorToolbarGroup>
+
+                  <EditorToolbarDivider />
+
+                  <EditorToolbarGroup label="Collaborate and review">
+                    {canManage && (
+                      <ShareButton
+                        id={documentId}
+                        initialIsShared={initialIsShared}
+                        initialShareId={initialShareId}
+                        initialSlug={initialSlug}
+                        initialExpiresAt={initialShareExpiresAt}
+                        initialEmbedEnabled={initialShareEmbedEnabled}
+                        initialPresentEnabled={initialSharePresentEnabled}
+                        documentTitle={title.value}
+                      />
+                    )}
+                    <VersionHistoryPanel
+                      documentId={documentId}
+                      canEdit={canEdit}
+                    />
+                  </EditorToolbarGroup>
+                </div>
+              </div>
+
+              <EditorContextProvider>
+                <VisualPanelProvider>
+                  {/* Reading layout with context-aware floating toolboxes on
                       fine pointers and a bottom-sheet fallback on coarse pointers. */}
-                    <div className="flex flex-1 overflow-hidden">
-                      {/* Article column */}
-                      <div className="flex flex-1 min-w-0 justify-center px-4 py-6 sm:px-6 sm:py-8">
-                        <div className="w-full max-w-5xl">
-                          <div
-                            ref={contentAreaRef}
-                            className="relative rounded-2xl border border-ds-border-subtle bg-ds-surface-raised p-4 sm:p-6"
-                          >
-                            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-ds-border-subtle pb-3">
-                              <TagControl
-                                documentId={documentId}
-                                initialTags={initialTags}
-                                allTags={allTags}
-                                editable={canEdit}
-                              />
-                              <div className="flex flex-wrap items-center gap-3 text-xs text-ds-text-muted">
-                                <span aria-label="Document statistics">
-                                  {minutes} min read · {words}{" "}
-                                  {words === 1 ? "word" : "words"}
-                                </span>
-                                <span role="status" aria-live="polite">
-                                  {STATUS_LABEL[saveStatus]}
-                                </span>
-                              </div>
+                  <div className="flex flex-1 overflow-hidden">
+                    {/* Article column */}
+                    <div className="flex flex-1 min-w-0 justify-center px-4 py-6 sm:px-6 sm:py-8">
+                      <div className="w-full max-w-5xl">
+                        <div
+                          ref={contentAreaRef}
+                          className="relative rounded-2xl border border-ds-border-subtle bg-ds-surface-raised p-4 sm:p-6"
+                        >
+                          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-ds-border-subtle pb-3">
+                            <TagControl
+                              documentId={documentId}
+                              initialTags={initialTags}
+                              allTags={allTags}
+                              editable={canEdit}
+                            />
+                            <div className="flex flex-wrap items-center gap-3 text-xs text-ds-text-muted">
+                              <span aria-label="Document statistics">
+                                {minutes} min read · {words}{" "}
+                                {words === 1 ? "word" : "words"}
+                              </span>
+                              <span role="status" aria-live="polite">
+                                {STATUS_LABEL[saveStatus]}
+                              </span>
                             </div>
-                            {showPageBreaks && (
-                              <PageBreakIndicator
-                                contentRef={contentAreaRef}
-                                pageSize="a4"
-                              />
-                            )}
-                            <div className="relative">
-                              <RichTextPlugin
-                                contentEditable={
-                                  <ContentEditable
-                                    aria-label="Document body"
-                                    className="ds-prose min-h-[16rem] outline-none"
-                                  />
-                                }
-                                placeholder={
-                                  <div className="pointer-events-none absolute left-0 top-0 text-base text-ds-text-muted">
-                                    {collab.ready
-                                      ? "Start writing…"
-                                      : "Connecting…"}
-                                  </div>
-                                }
-                                ErrorBoundary={LexicalErrorBoundary}
-                              />
-                            </div>
-                            <CollaborationPlugin
-                              id={documentId}
-                              providerFactory={collab.providerFactory}
-                              shouldBootstrap
-                              initialEditorState={initialStateJson ?? null}
-                              username={userName}
-                              cursorColor={collab.cursorColor}
+                          </div>
+                          {showPageBreaks && (
+                            <PageBreakIndicator
+                              contentRef={contentAreaRef}
+                              pageSize="a4"
                             />
-                            <EditableGate editable={editable} />
-                            <LocalFallbackSeedPlugin
-                              initialStateJson={initialStateJson}
-                              degraded={collab.degraded}
-                              synced={collab.synced}
-                            />
-                            <CaptureSelectionPlugin
-                              editorRef={editorRef}
-                              selectionRef={selectionRef}
-                            />
-                            <DocumentStatsPlugin onText={handleStatsText} />
-                            <ListPlugin />
-                            <LinkPlugin />
-                            <HorizontalRulePlugin />
-                            <InsertMenuPlugin />
-                            <BlockSparkPlugin />
-                            <InsertVisualPlugin />
-                            <FloatingTextToolbar />
-                            <OnChangePlugin
-                              onChange={handleChange}
-                              ignoreSelectionChange
-                              ignoreHistoryMergeTagChange
+                          )}
+                          <div className="relative">
+                            <RichTextPlugin
+                              contentEditable={
+                                <ContentEditable
+                                  aria-label="Document body"
+                                  className="ds-prose min-h-[16rem] outline-none"
+                                />
+                              }
+                              placeholder={
+                                <div className="pointer-events-none absolute left-0 top-0 text-base text-ds-text-muted">
+                                  {collab.ready
+                                    ? "Start writing…"
+                                    : "Connecting…"}
+                                </div>
+                              }
+                              ErrorBoundary={LexicalErrorBoundary}
                             />
                           </div>
+                          <CollaborationPlugin
+                            id={documentId}
+                            providerFactory={collab.providerFactory}
+                            shouldBootstrap
+                            initialEditorState={initialStateJson ?? null}
+                            username={userName}
+                            cursorColor={collab.cursorColor}
+                          />
+                          <EditableGate editable={editable} />
+                          <LocalFallbackSeedPlugin
+                            initialStateJson={initialStateJson}
+                            degraded={collab.degraded}
+                            synced={collab.synced}
+                          />
+                          <DocumentStatsPlugin onText={handleStatsText} />
+                          <ListPlugin />
+                          <LinkPlugin />
+                          <HorizontalRulePlugin />
+                          <InsertMenuPlugin />
+                          <BlockSparkPlugin />
+                          <InsertVisualPlugin />
+                          <FloatingTextToolbar />
+                          <OnChangePlugin
+                            onChange={handleChange}
+                            ignoreSelectionChange
+                            ignoreHistoryMergeTagChange
+                          />
+                          <InlineCommentsLayer
+                            documentId={documentId}
+                            initialComments={initialComments}
+                            contentRef={contentAreaRef}
+                          />
                         </div>
                       </div>
-
-                      {/* Context toolbox host — visual/text popovers on fine pointers, sheet on coarse pointers */}
-                      <MobileEditingSheetHost editable={editable} />
                     </div>
-                  </VisualPanelProvider>
-                </EditorContextProvider>
-              </RightSurfaceProvider>
-            </VisualAnchorProvider>
+
+                    {/* Context toolbox host — visual/text popovers on fine pointers, sheet on coarse pointers */}
+                    <MobileEditingSheetHost editable={editable} />
+                  </div>
+                </VisualPanelProvider>
+              </EditorContextProvider>
+            </RightSurfaceProvider>
           </VisualSvgRegistryProvider>
         </LexicalComposer>
       </LexicalCollaboration>

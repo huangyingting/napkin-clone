@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { normalizeDeckRaw } from "@/lib/presentation/fresh-deck";
 import { requireUser } from "@/lib/session";
 
-import { getUnreadCommentCount, listComments } from "./comments-actions";
+import { listComments } from "./comments-actions";
 import { LexicalEditor } from "./lexical-editor";
 
 export const metadata: Metadata = {
@@ -91,9 +91,6 @@ export default async function DocumentEditorPage({
   // Comment threads for everyone with access (owner + workspace members).
   const initialComments = await listComments(document.id);
 
-  // How many of those comments the acting user hasn't seen yet (#160).
-  const initialUnreadCommentCount = await getUnreadCommentCount(document.id);
-
   // The acting user's tags, for the document metadata tag editor.
   const userTags = await prisma.tag.findMany({
     where: { ownerId: user.id },
@@ -119,9 +116,7 @@ export default async function DocumentEditorPage({
       canManage={canManage}
       workspaceName={document.workspace?.name}
       userName={user.name ?? user.email ?? "Anonymous"}
-      currentUserId={user.id}
       initialComments={initialComments}
-      initialUnreadCommentCount={initialUnreadCommentCount}
       initialTags={document.tags}
       allTags={userTags}
     />

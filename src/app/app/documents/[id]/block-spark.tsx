@@ -52,18 +52,73 @@ import { $createVisualNode } from "./visual-node";
 // Top-level block types that carry text worth turning into a visual.
 const TEXT_BLOCK_TYPES = new Set(["paragraph", "heading", "quote", "list"]);
 
-// Gap (px) between the anchored block and the spark button / candidate panel.
-const GUTTER_OFFSET = 34;
+const GUTTER_BUTTON_SIZE = 28;
+const GUTTER_GAP = 8;
+const GUTTER_OFFSET = GUTTER_BUTTON_SIZE + GUTTER_GAP;
 const PANEL_GAP = 8;
 
 type BlockInfo = {
   key: string;
-  top: number;
-  left: number;
-  bottom: number;
-  height: number;
+  anchorTop: number;
+  anchorLeft: number;
+  anchorHeight: number;
   text: string;
 };
+
+function textStartLeft(element: HTMLElement): number | null {
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) {
+    const textNode = walker.currentNode;
+    const text = textNode.textContent ?? "";
+    const firstContentOffset = text.search(/\S/);
+    if (firstContentOffset < 0) {
+      continue;
+    }
+    const range = document.createRange();
+    range.setStart(textNode, firstContentOffset);
+    range.setEnd(textNode, Math.min(firstContentOffset + 1, text.length));
+    const rect = range.getBoundingClientRect();
+    range.detach();
+    if (rect.width > 0 || rect.height > 0) {
+      return rect.left;
+    }
+  }
+  return null;
+}
+
+function closestListItem(
+  target: HTMLElement,
+  listRoot: HTMLElement,
+): HTMLElement | null {
+  const listItem = target.closest("li");
+  return listItem instanceof HTMLElement && listRoot.contains(listItem)
+    ? listItem
+    : null;
+}
+
+function resolveAnchorRect(
+  blockElement: HTMLElement,
+  targetElement: HTMLElement,
+  blockType: string,
+): { left: number; top: number; height: number } {
+  const blockRect = blockElement.getBoundingClientRect();
+  if (blockType === "list") {
+    const rowRect = (
+      closestListItem(targetElement, blockElement) ?? blockElement
+    ).getBoundingClientRect();
+    return {
+      left: blockRect.left,
+      top: rowRect.top,
+      height: rowRect.height,
+    };
+  }
+
+  return {
+    left: textStartLeft(blockElement) ?? blockRect.left,
+    top: blockRect.top,
+    height: blockRect.height,
+  };
+}
 
 type GenStatus = "idle" | "loading";
 type VisualResultSectionId = "ai" | VisualKindCategoryId;
@@ -295,12 +350,13 @@ export function BlockSparkPlugin() {
         return null;
       }
       // Walk up to the direct child of the editable root.
-      let el: HTMLElement | null =
+      const targetElement =
         target instanceof HTMLElement ? target : target.parentElement;
+      let el: HTMLElement | null = targetElement;
       while (el && el.parentElement !== root) {
         el = el.parentElement;
       }
-      if (!el || el.parentElement !== root) {
+      if (!targetElement || !el || el.parentElement !== root) {
         return null;
       }
       const domEl = el;
@@ -317,19 +373,18 @@ export function BlockSparkPlugin() {
         if (text === "") {
           return null;
         }
-        return { key: top.getKey(), text };
+        return { key: top.getKey(), text, type: top.getType() };
       });
       if (info === null) {
         return null;
       }
-      const rect = domEl.getBoundingClientRect();
+      const anchor = resolveAnchorRect(domEl, targetElement, info.type);
       return {
         key: info.key,
         text: info.text,
-        top: rect.top,
-        left: rect.left,
-        bottom: rect.bottom,
-        height: rect.height,
+        anchorTop: anchor.top,
+        anchorLeft: anchor.left,
+        anchorHeight: anchor.height,
       };
     },
     [editor],
@@ -608,8 +663,8 @@ export function BlockSparkPlugin() {
               exit={popMotion.exit}
               transition={popMotion.transition}
               style={{
-                top: block.top + block.height / 2 - 14,
-                left: block.left - GUTTER_OFFSET,
+                top: block.anchorTop + block.anchorHeight / 2 - 14,
+                left: block.anchorLeft - GUTTER_OFFSET,
               }}
               className={cx("fixed z-raised", GUTTER_BUTTON)}
             >

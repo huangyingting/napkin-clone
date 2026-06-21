@@ -35,7 +35,6 @@ import { useRegisterVisualSvg } from "@/components/editor/visual-svg-registry";
 import { useRightSurface } from "./right-surface-context";
 
 import { useEditingSurface } from "./use-editing-surface";
-import { useVisualAnchor } from "./visual-anchor-context";
 import { VisualContextPopover } from "./visual-context-popover";
 import { VisualEditor } from "./visual-editor";
 import { $isVisualNode, $createVisualNode, VisualNode } from "./visual-node";
@@ -134,27 +133,6 @@ export function VisualCard({
   const cardMotion = useCardMotion();
 
   const showControls = open && editable;
-
-  // Report the selected visual element up to the editor chrome so a comment can
-  // be anchored to it (US-017). We store the node id + label, not a Lexical key.
-  const visualAnchor = useVisualAnchor();
-  const reportedAnchorRef = useRef(false);
-  useEffect(() => {
-    if (!visualAnchor) {
-      return;
-    }
-    if (showControls && selectedNodeId) {
-      const node = visual.nodes.find((item) => item.id === selectedNodeId);
-      visualAnchor.setVisualAnchor({
-        id: selectedNodeId,
-        label: node?.label?.trim() || "element",
-      });
-      reportedAnchorRef.current = true;
-    } else if (reportedAnchorRef.current) {
-      visualAnchor.setVisualAnchor(null);
-      reportedAnchorRef.current = false;
-    }
-  }, [visualAnchor, showControls, selectedNodeId, visual.nodes]);
 
   useEffect(() => {
     return editor.registerEditableListener((value) => {
