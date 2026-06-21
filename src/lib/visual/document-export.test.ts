@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Visual } from "@/lib/visual/schema";
-import { collectDocumentBlocks } from "./document-export";
+import { blockRichText, collectDocumentBlocks } from "./document-export";
 
 // ---------------------------------------------------------------------------
 // Helpers matching the Lexical serialised JSON shapes the editor emits
@@ -217,4 +217,109 @@ test("text+visual mixed document: blocks maintain exact reading order", () => {
   assert.equal(blocks[7].kind, "visual");
   if (blocks[4].kind === "visual") assert.equal(blocks[4].visualId, "vis-1");
   if (blocks[7].kind === "visual") assert.equal(blocks[7].visualId, "vis-2");
+});
+
+// ---------------------------------------------------------------------------
+// blockRichText — rich-text run derivation
+// ---------------------------------------------------------------------------
+
+function richText(
+  text: string,
+  opts: { format?: number; style?: string } = {},
+) {
+  return {
+    type: "text",
+    text,
+    format: opts.format ?? 0,
+    style: opts.style ?? "",
+  };
+}
+
+function richParagraph(children: unknown[]) {
+  return { type: "paragraph", children };
+}
+
+test("blockRichText derives bold/italic/code flags from format bitmask", () => {
+  const block = richParagraph([
+    richText("plain "),
+    richText("bold", { format: 1 }),
+    richText(" "),
+    richText("italic", { format: 2 }),
+    richText(" "),
+    richText("code", { format: 16 }),
+  ]);
+  const runs = blockRichText(block);
+  assert.deepEqual(runs, [
+    { text: "plain " },
+    { text: "bold", bold: true },
+    { text: " " },
+    { text: "italic", italic: true },
+    { text: " " },
+    { text: "code", code: true },
+  ]);
+});
+
+test("blockRichText combines bold+italic and reads color from style", () => {
+  const block = richParagraph([
+    richText("strong", { format: 3 }),
+    richText(" red", { style: "color: #ff0000;" }),
+  ]);
+  const runs = blockRichText(block);
+  assert.deepEqual(runs, [
+    { text: "strong", bold: true, italic: true },
+    { text: " red", color: "#ff0000" },
+  ]);
+});
+
+test("blockRichText preserves links and their inner formatting", () => {
+  const block = richParagraph([
+    richText("see "),
+    {
+      type: "link",
+      url: "https://example.com",
+      children: [richText("here", { format: 1 })],
+    },
+  ]);
+  const runs = blockRichText(block);
+  assert.deepEqual(runs, [
+    { text: "see " },
+    { text: "here", bold: true, link: "https://example.com" },
+  ]);
+});
+
+test("blockRichText emits a newline run for linebreaks", () => {
+  const block = richParagraph([
+    richText("line one"),
+    { type: "linebreak" },
+    richText("line two", { format: 1 }),
+  ]);
+  const runs = blockRichText(block);
+  assert.deepEqual(runs, [
+    { text: "line one" },
+    { text: "\n" },
+    { text: "line two", bold: true },
+  ]);
+});
+
+test("collectDocumentBlocks attaches runs only when formatting is present", () => {
+  const blocks = collectDocumentBlocks(
+    state([
+      richParagraph([richText("all plain text")]),
+      richParagraph([richText("has "), richText("bold", { format: 1 })]),
+    ]),
+  );
+  assert.equal(blocks.length, 2);
+  // Plain paragraph carries no runs (identical to legacy shape).
+  if (blocks[0].kind === "text") {
+    assert.equal(blocks[0].runs, undefined);
+    assert.equal(blocks[0].text, "all plain text");
+  }
+  // Formatted paragraph carries runs and a matching plain-text fallback.
+  if (blocks[1].kind === "text") {
+    assert.equal(blocks[1].text, "has bold");
+    assert.deepEqual(blocks[1].runs, [
+      { text: "has " },
+      { text: "bold", bold: true },
+    ]);
+  }
 });

@@ -541,3 +541,95 @@ test("safeParseDeck: omits styleThemeId when absent", () => {
   assert.ok(element && element.kind === "visual");
   assert.ok(!("styleThemeId" in element));
 });
+
+// ---------------------------------------------------------------------------
+// Rich-text runs (issue #210)
+// ---------------------------------------------------------------------------
+
+function h2Rich(text: string, runs: import("./deck").TextRun[]): DocumentBlock {
+  return { kind: "text", blockType: "heading", level: 2, text, runs };
+}
+
+function paraRich(
+  text: string,
+  runs: import("./deck").TextRun[],
+): DocumentBlock {
+  return { kind: "text", blockType: "paragraph", text, runs };
+}
+
+test("buildDeckFromBlocks threads title runs onto the slide", () => {
+  const deck = buildDeckFromBlocks([
+    h2Rich("Bold Title", [{ text: "Bold Title", bold: true }]),
+    para("plain body"),
+  ]);
+  const slide = deck.slides[0];
+  assert.equal(slide.title, "Bold Title");
+  assert.deepEqual(slide.titleRuns, [{ text: "Bold Title", bold: true }]);
+});
+
+test("buildDeckFromBlocks keeps bulletRuns parallel to bullets", () => {
+  const deck = buildDeckFromBlocks([
+    h2("Section"),
+    para("plain one"),
+    paraRich("rich two", [{ text: "rich " }, { text: "two", italic: true }]),
+  ]);
+  const slide = deck.slides[0];
+  assert.deepEqual(slide.bullets, ["plain one", "rich two"]);
+  assert.ok(slide.bulletRuns);
+  assert.equal(slide.bulletRuns?.length, 2);
+  // Plain bullet has an empty runs entry (falls back to the string).
+  assert.deepEqual(slide.bulletRuns?.[0], []);
+  assert.deepEqual(slide.bulletRuns?.[1], [
+    { text: "rich " },
+    { text: "two", italic: true },
+  ]);
+});
+
+test("buildDeckFromBlocks omits runs entirely for a plain document", () => {
+  const deck = buildDeckFromBlocks([h2("Plain"), para("a"), para("b")]);
+  const slide = deck.slides[0];
+  assert.equal(slide.titleRuns, undefined);
+  assert.equal(slide.bulletRuns, undefined);
+});
+
+test("materializeSlideElements copies titleRuns and bulletRuns to elements", async () => {
+  const { materializeSlideElements } = await import("./deck");
+  const elements = materializeSlideElements({
+    index: 0,
+    title: "Title",
+    titleRuns: [{ text: "Title", bold: true }],
+    bullets: ["one", "two"],
+    bulletRuns: [[], [{ text: "two", italic: true }]],
+    visualIds: [],
+    layout: "content",
+    notes: "",
+    theme: "default",
+  });
+  const title = elements.find((e) => e.kind === "text");
+  assert.ok(title && title.kind === "text");
+  if (title.kind === "text") {
+    assert.deepEqual(title.runs, [{ text: "Title", bold: true }]);
+  }
+  const bullets = elements.find((e) => e.kind === "bullets");
+  assert.ok(bullets && bullets.kind === "bullets");
+  if (bullets.kind === "bullets") {
+    assert.deepEqual(bullets.bulletRuns, [[], [{ text: "two", italic: true }]]);
+  }
+});
+
+test("a deck with runs round-trips through the schema", () => {
+  const deck = buildDeckFromBlocks([
+    h2Rich("Rich", [{ text: "Rich", bold: true }]),
+    paraRich("body", [{ text: "body", italic: true }]),
+  ]);
+  const parsed = safeParseDeck(deck);
+  assert.ok(parsed.success);
+  if (parsed.success) {
+    assert.deepEqual(parsed.data.slides[0].titleRuns, [
+      { text: "Rich", bold: true },
+    ]);
+    assert.deepEqual(parsed.data.slides[0].bulletRuns?.[0], [
+      { text: "body", italic: true },
+    ]);
+  }
+});

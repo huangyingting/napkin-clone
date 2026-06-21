@@ -71,6 +71,29 @@ export interface ElementBox {
 
 export type ElementAlign = "left" | "center" | "right";
 
+/**
+ * A formatted span of text within a line. Produced by `blockRichText()` from a
+ * serialised Lexical block so document emphasis survives into slide derivation.
+ *
+ * Every field except `text` is optional and only set when the span actually
+ * carries that formatting, keeping runs compact and additive. A run with no
+ * formatting flags is equivalent to plain text.
+ */
+export interface TextRun {
+  /** The literal text of this span. */
+  text: string;
+  /** Bold emphasis. */
+  bold?: boolean;
+  /** Italic emphasis. */
+  italic?: boolean;
+  /** Inline (monospace) code. */
+  code?: boolean;
+  /** Hex color (e.g. `#ff0000`) carried by the span, if any. */
+  color?: string;
+  /** Destination URL when the span is a hyperlink. */
+  link?: string;
+}
+
 /** Text styling shared by `text` and `bullets` elements. */
 export interface TextElementStyle {
   /** Font size as a percent of slide height (rendered via `cqh`). */
@@ -96,6 +119,14 @@ interface BaseElement {
 export interface TextElement extends BaseElement {
   kind: "text";
   text: string;
+  /**
+   * Optional rich-text runs for `text`. When present and non-empty, renderers
+   * and exporters use these formatted spans (bold/italic/code/color/link) and
+   * fall back to the plain `text` string when absent. The concatenation of
+   * run `text` values equals `text`, so the plain field always stays a valid
+   * fallback and no migration is needed.
+   */
+  runs?: TextRun[];
   style: TextElementStyle;
   /** Theming hint for the default color when `style.color` is unset. */
   role: "title" | "body";
@@ -104,6 +135,14 @@ export interface TextElement extends BaseElement {
 export interface BulletsElement extends BaseElement {
   kind: "bullets";
   bullets: string[];
+  /**
+   * Optional rich-text runs, parallel to `bullets`: `bulletRuns[i]` holds the
+   * formatted spans for bullet line `i`. When present and non-empty, renderers
+   * and exporters use the runs for that line and fall back to the plain
+   * `bullets[i]` string otherwise. The array may be shorter than `bullets`;
+   * any bullet without a matching entry renders from its plain string.
+   */
+  bulletRuns?: TextRun[][];
   style: TextElementStyle;
 }
 
@@ -150,10 +189,26 @@ export interface Slide {
   title: string;
 
   /**
+   * Optional rich-text runs for `title`, captured from the document heading so
+   * emphasis (bold/italic/code/color/link) survives derivation. Additive: when
+   * absent the title renders from the plain `title` string. Threaded into the
+   * title {@link TextElement}'s `runs` by {@link materializeSlideElements}.
+   */
+  titleRuns?: TextRun[];
+
+  /**
    * Body bullet strings — truncated to at most `MAX_BULLETS` items.
    * Surplus text is moved to `notes`.
    */
   bullets: string[];
+
+  /**
+   * Optional rich-text runs, parallel to `bullets`: `bulletRuns[i]` holds the
+   * formatted spans for visible bullet line `i`. Additive — absent entries fall
+   * back to the plain `bullets[i]` string. Threaded into the
+   * {@link BulletsElement}'s `bulletRuns` by {@link materializeSlideElements}.
+   */
+  bulletRuns?: TextRun[][];
 
   /**
    * Stable visual IDs attached to this slide.  Usually one entry; empty when
@@ -304,6 +359,9 @@ export function materializeSlideElements(slide: Slide): SlideElement[] {
       kind: "text",
       role: "title",
       text: slide.title,
+      ...(slide.titleRuns && slide.titleRuns.length > 0
+        ? { runs: slide.titleRuns }
+        : {}),
       zIndex: z++,
       box: isBigTitle
         ? { x: 8, y: 36, w: 84, h: 28 }
@@ -316,11 +374,15 @@ export function materializeSlideElements(slide: Slide): SlideElement[] {
     });
   }
 
+  const bulletRuns =
+    slide.bulletRuns && slide.bulletRuns.length > 0 ? slide.bulletRuns : null;
+
   if (hasVisual && hasBullets) {
     elements.push({
       id: makeElementId(),
       kind: "bullets",
       bullets: [...bullets],
+      ...(bulletRuns ? { bulletRuns } : {}),
       zIndex: z++,
       box: { x: 6, y: 26, w: 46, h: 66 },
       style: textStyle(4.5, "left", false),
@@ -345,6 +407,7 @@ export function materializeSlideElements(slide: Slide): SlideElement[] {
       id: makeElementId(),
       kind: "bullets",
       bullets: [...bullets],
+      ...(bulletRuns ? { bulletRuns } : {}),
       zIndex: z++,
       box: { x: 6, y: 26, w: 88, h: 66 },
       style: textStyle(4.5, "left", false),
@@ -371,7 +434,9 @@ export function materializeSlideElements(slide: Slide): SlideElement[] {
 
 interface SlideBuilder {
   title: string;
+  titleRuns?: TextRun[];
   bullets: string[];
+  bulletRuns: TextRun[][];
   visualIds: string[];
   noteLines: string[];
   layout: SlideLayout;
@@ -380,8 +445,17 @@ interface SlideBuilder {
 function freshSlide(
   title: string,
   layout: SlideLayout = "content",
+  titleRuns?: TextRun[],
 ): SlideBuilder {
-  return { title, bullets: [], visualIds: [], noteLines: [], layout };
+  return {
+    title,
+    ...(titleRuns ? { titleRuns } : {}),
+    bullets: [],
+    bulletRuns: [],
+    visualIds: [],
+    noteLines: [],
+    layout,
+  };
 }
 
 function resolveLayout(builder: SlideBuilder): SlideLayout {
@@ -408,10 +482,15 @@ function finaliseSlide(
   index: number,
   theme: DeckTheme,
 ): Slide {
+  const hasBulletRuns = builder.bulletRuns.some((runs) => runs.length > 0);
   return {
     index,
     title: builder.title,
+    ...(builder.titleRuns && builder.titleRuns.length > 0
+      ? { titleRuns: builder.titleRuns }
+      : {}),
     bullets: builder.bullets,
+    ...(hasBulletRuns ? { bulletRuns: builder.bulletRuns } : {}),
     visualIds: builder.visualIds,
     layout: resolveLayout(builder),
     notes: builder.noteLines.join("\n").trim(),
@@ -469,14 +548,18 @@ export function buildDeckFromBlocks(
           // h1 → flush current, open title/section slide
           flush();
           sectionTitle = trimmed;
-          current = freshSlide(trimmed, hasContent ? "section" : "title");
+          current = freshSlide(
+            trimmed,
+            hasContent ? "section" : "title",
+            block.runs,
+          );
           hasContent = true;
           continue;
         }
 
         // h2 / h3 → flush current, open content slide carrying section title
         flush();
-        current = freshSlide(trimmed, "content");
+        current = freshSlide(trimmed, "content", block.runs);
         if (!hasContent) hasContent = true;
         continue;
       }
@@ -500,6 +583,7 @@ export function buildDeckFromBlocks(
       // paragraph / listitem
       if (current.bullets.length < MAX_BULLETS) {
         current.bullets.push(trimmed);
+        current.bulletRuns.push(block.runs ?? []);
       } else {
         current.noteLines.push(trimmed);
       }

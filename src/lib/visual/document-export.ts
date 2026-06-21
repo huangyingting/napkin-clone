@@ -34,6 +34,7 @@ import { jsPDF } from "jspdf";
 import PptxGenJS from "pptxgenjs";
 
 import type { Visual } from "@/lib/visual/schema";
+import type { TextRun } from "@/lib/presentation/deck";
 import { exportPNG } from "@/lib/visual/export";
 import { applySpecsToSlide } from "@/lib/visual/pptx-apply";
 import {
@@ -115,6 +116,13 @@ type DocumentTextBlock = {
   level?: 1 | 2 | 3;
   /** Plain text for the block (empty string for "hr") */
   text: string;
+  /**
+   * Optional rich-text runs for `text`, present only when the block carries
+   * inline formatting (bold/italic/code/color/link). Plain blocks omit this so
+   * formatting-free documents derive identical decks to before. `text` always
+   * equals the concatenation of run `text` values and remains the fallback.
+   */
+  runs?: TextRun[];
 };
 
 type DocumentVisualBlock = {
@@ -148,6 +156,111 @@ function blockText(node: Record<string, unknown>): string {
   return typeof node.text === "string" ? node.text : "";
 }
 
+// ---------------------------------------------------------------------------
+// blockRichText — formatting-preserving inline walk
+// ---------------------------------------------------------------------------
+
+/**
+ * Lexical `TextNode.format` bit flags (a bitmask on the serialised node). Only
+ * the emphases we preserve into slide runs are decoded here.
+ */
+const FORMAT_BOLD = 1;
+const FORMAT_ITALIC = 2;
+const FORMAT_CODE = 16;
+
+/** Inline context inherited from ancestor element nodes (e.g. links). */
+interface RunContext {
+  link?: string;
+}
+
+/** Extracts a `color: …` value from a Lexical inline `style` string. */
+function colorFromStyle(style: unknown): string | undefined {
+  if (typeof style !== "string") return undefined;
+  const match = style.match(/(?:^|;)\s*color:\s*([^;]+)/i);
+  if (!match) return undefined;
+  const color = match[1].trim();
+  return color.length > 0 ? color : undefined;
+}
+
+/** Builds a {@link TextRun} from a serialised Lexical text node. */
+function textNodeToRun(
+  node: Record<string, unknown>,
+  ctx: RunContext,
+): TextRun | null {
+  const text = typeof node.text === "string" ? node.text : "";
+  if (text === "") return null;
+  const format = typeof node.format === "number" ? node.format : 0;
+  const run: TextRun = { text };
+  if (format & FORMAT_BOLD) run.bold = true;
+  if (format & FORMAT_ITALIC) run.italic = true;
+  if (format & FORMAT_CODE) run.code = true;
+  const color = colorFromStyle(node.style);
+  if (color) run.color = color;
+  if (ctx.link) run.link = ctx.link;
+  return run;
+}
+
+function collectRuns(
+  node: Record<string, unknown>,
+  out: TextRun[],
+  ctx: RunContext,
+): void {
+  if (Array.isArray(node.children)) {
+    for (const child of node.children as unknown[]) {
+      if (!isRecord(child)) continue;
+      if (child.type === "linebreak") {
+        out.push({ text: "\n" });
+        continue;
+      }
+      if (typeof child.text === "string") {
+        const run = textNodeToRun(child, ctx);
+        if (run) out.push(run);
+        continue;
+      }
+      if (child.type === "link") {
+        const url = typeof child.url === "string" ? child.url : ctx.link;
+        collectRuns(child, out, { ...ctx, link: url });
+        continue;
+      }
+      collectRuns(child, out, ctx);
+    }
+    return;
+  }
+  if (typeof node.text === "string") {
+    const run = textNodeToRun(node, ctx);
+    if (run) out.push(run);
+  }
+}
+
+/**
+ * Captures the inline spans under a serialised Lexical block node as a
+ * {@link TextRun} array, preserving bold/italic/inline-code/color/link that the
+ * plain {@link blockText} discards. Pure and browser-free (testable under
+ * `node --test`). Callers that only need a plain string should keep using
+ * {@link blockText}.
+ */
+export function blockRichText(node: Record<string, unknown>): TextRun[] {
+  const out: TextRun[] = [];
+  collectRuns(node, out, {});
+  return out;
+}
+
+/** True when any run carries formatting worth preserving over plain text. */
+function runsHaveFormatting(runs: TextRun[]): boolean {
+  return runs.some(
+    (run) => run.bold || run.italic || run.code || run.color || run.link,
+  );
+}
+
+/**
+ * Returns the block's rich runs only when they carry formatting; plain blocks
+ * yield `undefined` so formatting-free documents derive identical blocks.
+ */
+function formattedRuns(node: Record<string, unknown>): TextRun[] | undefined {
+  const runs = blockRichText(node);
+  return runsHaveFormatting(runs) ? runs : undefined;
+}
+
 function walkBlocks(node: unknown, out: DocumentBlock[]): void {
   if (!isRecord(node)) return;
 
@@ -173,22 +286,36 @@ function walkBlocks(node: unknown, out: DocumentBlock[]): void {
     const level = (
       tag === "h1" ? 1 : tag === "h2" ? 2 : tag === "h3" ? 3 : 2
     ) as 1 | 2 | 3;
+    const runs = formattedRuns(node);
     out.push({
       kind: "text",
       blockType: "heading",
       level,
       text: blockText(node),
+      ...(runs ? { runs } : {}),
     });
     return;
   }
 
   if (type === "paragraph") {
-    out.push({ kind: "text", blockType: "paragraph", text: blockText(node) });
+    const runs = formattedRuns(node);
+    out.push({
+      kind: "text",
+      blockType: "paragraph",
+      text: blockText(node),
+      ...(runs ? { runs } : {}),
+    });
     return;
   }
 
   if (type === "quote") {
-    out.push({ kind: "text", blockType: "quote", text: blockText(node) });
+    const runs = formattedRuns(node);
+    out.push({
+      kind: "text",
+      blockType: "quote",
+      text: blockText(node),
+      ...(runs ? { runs } : {}),
+    });
     return;
   }
 
@@ -202,10 +329,12 @@ function walkBlocks(node: unknown, out: DocumentBlock[]): void {
     for (const child of node.children as unknown[]) {
       if (!isRecord(child)) continue;
       if (child.type === "listitem") {
+        const runs = formattedRuns(child);
         out.push({
           kind: "text",
           blockType: "listitem",
           text: blockText(child),
+          ...(runs ? { runs } : {}),
         });
       } else {
         walkBlocks(child, out);
