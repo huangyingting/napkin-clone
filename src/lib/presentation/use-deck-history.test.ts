@@ -167,3 +167,56 @@ test("redo eviction also respects the cap", () => {
   assert.equal(state.past.length, DECK_HISTORY_LIMIT);
   assert.equal(state.present.slides[0].title, `slide-${DECK_HISTORY_LIMIT}`);
 });
+
+// ---------------------------------------------------------------------------
+// Immutability — the history stack must only ever touch the Deck object it is
+// handed; it must never mutate a committed deck in place. (The editor's
+// contentJson / Yjs document live outside this reducer; pushing onto the undo
+// stack is a pure Deck-snapshot operation, so a committed deck stays frozen.)
+// ---------------------------------------------------------------------------
+
+function deepFreeze<T>(value: T): T {
+  if (value && typeof value === "object") {
+    for (const key of Object.keys(value as Record<string, unknown>)) {
+      deepFreeze((value as Record<string, unknown>)[key]);
+    }
+    Object.freeze(value);
+  }
+  return value;
+}
+
+test("push / undo / redo never mutate committed decks in place", () => {
+  const d0 = deepFreeze(deck(0));
+  const d1 = deepFreeze(deck(1));
+  const d2 = deepFreeze(deck(2));
+
+  // None of these operations are allowed to write back into a frozen deck;
+  // if they tried, the strict-mode assignment would throw here.
+  let state = initDeckHistory(d0);
+  state = pushDeckHistory(state, d1);
+  state = pushDeckHistory(state, d2);
+  state = undoDeckHistory(state);
+  state = undoDeckHistory(state);
+  state = redoDeckHistory(state);
+
+  // The reducer preserves snapshot references verbatim (structural sharing),
+  // proving it banks the very deck it was given rather than a mutated copy.
+  assert.equal(state.present, d1);
+  assert.equal(state.past[0], d0);
+  assert.equal(state.future[0], d2);
+  assert.equal(state.present.slides[0].title, "slide-1");
+});
+
+test("history snapshots stay isolated as the working deck moves on", () => {
+  // Simulate the editor mutating a *new* deck object on each edit (the real
+  // flow always replaces the deck reference) and committing it.
+  const committed = deck(0);
+  let state = initDeckHistory(committed);
+  const edited = deck(1);
+  state = pushDeckHistory(state, edited);
+
+  // The banked snapshot is the original object, untouched by the later commit.
+  assert.equal(state.past[0], committed);
+  assert.equal(state.past[0].slides[0].title, "slide-0");
+  assert.equal(state.present.slides[0].title, "slide-1");
+});
