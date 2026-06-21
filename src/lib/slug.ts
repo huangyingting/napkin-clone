@@ -46,6 +46,27 @@ export function slugify(title: string): string {
 }
 
 /**
+ * Builds a slug candidate from a title plus an optional random suffix.
+ *
+ * The suffix is appended after a hyphen so the result stays within
+ * MAX_SLUG_LENGTH. When the title has no usable characters the suffix alone
+ * is returned (empty string when both are absent).
+ *
+ * Keeping the suffix as a caller-supplied parameter makes this function pure
+ * and unit-testable without any randomness dependency.
+ */
+export function buildSlugCandidate(title: string, suffix?: string): string {
+  const base = slugify(title);
+  if (!suffix) return base;
+  if (!base) return suffix;
+
+  // Reserve room for the hyphen separator and the suffix.
+  const room = MAX_SLUG_LENGTH - 1 - suffix.length;
+  const trimmedBase = room > 0 ? base.slice(0, room).replace(/-+$/, "") : "";
+  return trimmedBase ? `${trimmedBase}-${suffix}` : suffix;
+}
+
+/**
  * Builds the URL path segment used in a share/embed link from a (possibly
  * empty) decorative slug and the canonical shareId.
  *

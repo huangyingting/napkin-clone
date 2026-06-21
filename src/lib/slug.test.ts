@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   MAX_SLUG_LENGTH,
   buildShareSegment,
+  buildSlugCandidate,
   shareIdFromParam,
   slugify,
 } from "./slug";
@@ -74,5 +75,48 @@ test("shareIdFromParam resolves both bare and slug-prefixed forms", () => {
   assert.equal(
     shareIdFromParam(buildShareSegment("hello-world", "Zz9Qm2pK")),
     "Zz9Qm2pK",
+  );
+});
+
+test("buildSlugCandidate with no suffix returns the bare slug", () => {
+  assert.equal(buildSlugCandidate("Hello World"), "hello-world");
+  assert.equal(buildSlugCandidate("  !!!  "), "");
+});
+
+test("buildSlugCandidate appends suffix with a hyphen", () => {
+  assert.equal(buildSlugCandidate("Hello World", "ab3x"), "hello-world-ab3x");
+});
+
+test("buildSlugCandidate returns suffix alone when title has no usable chars", () => {
+  assert.equal(buildSlugCandidate("!!!", "ab3x"), "ab3x");
+  assert.equal(buildSlugCandidate("", "ab3x"), "ab3x");
+});
+
+test("buildSlugCandidate result stays within MAX_SLUG_LENGTH", () => {
+  const longTitle = "word ".repeat(60).trim();
+  const suffix = "ab3x";
+  const result = buildSlugCandidate(longTitle, suffix);
+  assert.ok(
+    result.length <= MAX_SLUG_LENGTH,
+    `length ${result.length} exceeds MAX_SLUG_LENGTH`,
+  );
+  assert.ok(result.endsWith(`-${suffix}`), "should end with hyphen + suffix");
+});
+
+test("buildSlugCandidate result never ends with a bare hyphen", () => {
+  // Title that truncates right at a word boundary before the suffix gap
+  const title = "a".repeat(MAX_SLUG_LENGTH);
+  const suffix = "zzzz";
+  const result = buildSlugCandidate(title, suffix);
+  assert.ok(
+    !result.endsWith("-") || result === suffix,
+    "must not end with trailing hyphen",
+  );
+});
+
+test("buildSlugCandidate with undefined suffix behaves like no suffix", () => {
+  assert.equal(
+    buildSlugCandidate("My Doc"),
+    buildSlugCandidate("My Doc", undefined),
   );
 });
