@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { DocumentBlock } from "@/lib/visual/document-export";
-import { buildDeckFromBlocks, MAX_BULLETS } from "./deck";
+import {
+  buildDeckFromBlocks,
+  buildVisualElement,
+  DEFAULT_VISUAL_BOX,
+  MAX_BULLETS,
+} from "./deck";
 import { safeParseDeck } from "./deck-schema";
 
 // ---------------------------------------------------------------------------
@@ -416,4 +421,123 @@ test("materializeSlideElements returns existing elements unchanged", async () =>
     elements: existing,
   });
   assert.equal(elements, existing);
+});
+
+// ---------------------------------------------------------------------------
+// buildVisualElement — centered visual insert for the "Insert visual" picker
+// ---------------------------------------------------------------------------
+
+test("buildVisualElement: centered box, kind, and visualId; no zIndex", () => {
+  const element = buildVisualElement("vis-1");
+  assert.equal(element.kind, "visual");
+  assert.equal(element.visualId, "vis-1");
+  assert.deepEqual(element.box, DEFAULT_VISUAL_BOX);
+  assert.ok(typeof element.id === "string" && element.id.length > 0);
+  // zIndex is assigned by addElement, so it must not be baked in here.
+  assert.ok(!("zIndex" in element));
+  // No restyle by default — the visual renders in its document style.
+  assert.ok(!("styleThemeId" in element));
+});
+
+test("buildVisualElement: default box is fully on-slide (0–100, fits)", () => {
+  const { x, y, w, h } = DEFAULT_VISUAL_BOX;
+  assert.ok(x >= 0 && y >= 0);
+  assert.ok(w > 0 && h > 0);
+  assert.ok(x + w <= 100);
+  assert.ok(y + h <= 100);
+});
+
+test("buildVisualElement: default box is horizontally and vertically centered", () => {
+  const { x, w, y, h } = DEFAULT_VISUAL_BOX;
+  // Equal left/right and top/bottom margins → centered placement.
+  assert.equal(x, 100 - (x + w));
+  assert.equal(y, 100 - (y + h));
+});
+
+test("buildVisualElement: honors explicit id, box, and styleThemeId", () => {
+  const box = { x: 10, y: 10, w: 20, h: 20 };
+  const element = buildVisualElement("vis-2", {
+    id: "fixed-id",
+    box,
+    styleThemeId: "ocean",
+  });
+  assert.equal(element.id, "fixed-id");
+  assert.deepEqual(element.box, box);
+  assert.equal(element.styleThemeId, "ocean");
+});
+
+test("buildVisualElement: generates unique ids across calls", () => {
+  const a = buildVisualElement("vis");
+  const b = buildVisualElement("vis");
+  assert.notEqual(a.id, b.id);
+});
+
+// ---------------------------------------------------------------------------
+// Visual element styleThemeId survives schema validation (render parity)
+// ---------------------------------------------------------------------------
+
+test("safeParseDeck: preserves a visual element's styleThemeId", () => {
+  const deck = {
+    theme: "default" as const,
+    slides: [
+      {
+        index: 0,
+        title: "",
+        bullets: [],
+        visualIds: [],
+        layout: "blank" as const,
+        notes: "",
+        theme: "default" as const,
+        elements: [
+          {
+            id: "v1",
+            kind: "visual" as const,
+            visualId: "vis-1",
+            styleThemeId: "forest",
+            zIndex: 0,
+            box: { x: 25, y: 18, w: 50, h: 64 },
+          },
+        ],
+      },
+    ],
+  };
+  const parsed = safeParseDeck(deck);
+  assert.ok(parsed.success);
+  const element = parsed.data.slides[0].elements?.[0];
+  assert.ok(element && element.kind === "visual");
+  assert.equal(
+    element.kind === "visual" ? element.styleThemeId : undefined,
+    "forest",
+  );
+});
+
+test("safeParseDeck: omits styleThemeId when absent", () => {
+  const deck = {
+    theme: "default" as const,
+    slides: [
+      {
+        index: 0,
+        title: "",
+        bullets: [],
+        visualIds: [],
+        layout: "blank" as const,
+        notes: "",
+        theme: "default" as const,
+        elements: [
+          {
+            id: "v1",
+            kind: "visual" as const,
+            visualId: "vis-1",
+            zIndex: 0,
+            box: { x: 25, y: 18, w: 50, h: 64 },
+          },
+        ],
+      },
+    ],
+  };
+  const parsed = safeParseDeck(deck);
+  assert.ok(parsed.success);
+  const element = parsed.data.slides[0].elements?.[0];
+  assert.ok(element && element.kind === "visual");
+  assert.ok(!("styleThemeId" in element));
 });

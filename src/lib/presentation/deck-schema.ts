@@ -161,7 +161,23 @@ function validateElement(input: unknown, context: string): SlideElement {
           `${context}.visualId must be a non-empty string`,
         );
       }
-      return { ...base, kind: "visual", visualId: input.visualId };
+      if (
+        input.styleThemeId !== undefined &&
+        typeof input.styleThemeId !== "string"
+      ) {
+        throw new DeckValidationError(
+          `${context}.styleThemeId must be a string`,
+        );
+      }
+      return {
+        ...base,
+        kind: "visual",
+        visualId: input.visualId,
+        ...(typeof input.styleThemeId === "string" &&
+        input.styleThemeId.length > 0
+          ? { styleThemeId: input.styleThemeId }
+          : {}),
+      };
     }
     case "image": {
       if (typeof input.src !== "string" || input.src.length === 0) {

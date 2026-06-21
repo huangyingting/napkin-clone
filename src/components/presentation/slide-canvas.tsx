@@ -21,6 +21,7 @@ import type {
   VisualElement,
 } from "@/lib/presentation/deck";
 import type { Visual } from "@/lib/visual/schema";
+import { applyTheme } from "@/lib/visual/transforms";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 
 // ---------------------------------------------------------------------------
@@ -402,6 +403,11 @@ function VisualElementView({
   if (!visual) {
     return null;
   }
+  // Apply the optional per-element restyle here, in the one shared renderer, so
+  // editor / present / public viewer all draw the visual identically.
+  const styled = element.styleThemeId
+    ? applyTheme(visual, element.styleThemeId)
+    : visual;
   return (
     <div
       style={{
@@ -413,7 +419,7 @@ function VisualElementView({
       }}
     >
       <VisualRenderer
-        visual={visual}
+        visual={styled}
         className="h-full w-full object-contain"
         transparentBackground
       />
