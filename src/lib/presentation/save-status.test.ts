@@ -6,6 +6,7 @@ import {
   SAVE_STATUS_LABEL,
   SLIDE_SAVE_DEBOUNCE_MS,
   resolveSaveStatus,
+  shouldPersist,
   shouldScheduleAutosave,
   type SaveStatus,
 } from "./save-status";
@@ -100,4 +101,23 @@ test("shouldScheduleAutosave: a new deck reference is a real edit", () => {
 
 test("SLIDE_SAVE_DEBOUNCE_MS is a positive debounce window", () => {
   assert.ok(SLIDE_SAVE_DEBOUNCE_MS > 0);
+});
+
+// ---------------------------------------------------------------------------
+// shouldPersist — the no-op autosave suppression (issue #247)
+// ---------------------------------------------------------------------------
+
+test("shouldPersist: nothing saved yet (null) always persists", () => {
+  assert.equal(shouldPersist(null, '{"theme":"default","slides":[]}'), true);
+});
+
+test("shouldPersist: an identical serialization is suppressed", () => {
+  const payload = '{"theme":"default","slides":[]}';
+  assert.equal(shouldPersist(payload, payload), false);
+});
+
+test("shouldPersist: a changed serialization persists", () => {
+  const prev = '{"theme":"default","slides":[]}';
+  const next = '{"theme":"midnight","slides":[]}';
+  assert.equal(shouldPersist(prev, next), true);
 });

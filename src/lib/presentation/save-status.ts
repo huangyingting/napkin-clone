@@ -96,3 +96,25 @@ export function shouldScheduleAutosave({
   }
   return current !== lastSeen;
 }
+
+/**
+ * Decides whether a flushed save should actually hit the network.
+ *
+ * The deck changes reference on every action (mutation, undo, redo, applied
+ * sync), but some of those produce an identical serialization to what was last
+ * persisted — e.g. an edit followed by an undo back to the saved state. Because
+ * autosave re-serializes and POSTs the *entire* deck (including inlined base64
+ * images, issue #247), suppressing these no-op writes avoids repeated multi-MB
+ * network writes that change nothing.
+ *
+ * Returns `true` only when `nextSerialized` differs from `prevSerialized` (the
+ * last successfully saved payload). A `null` `prevSerialized` means nothing has
+ * been saved yet, so the change must be persisted. This never suppresses a real
+ * edit: any genuine content change alters the serialization.
+ */
+export function shouldPersist(
+  prevSerialized: string | null,
+  nextSerialized: string,
+): boolean {
+  return prevSerialized !== nextSerialized;
+}

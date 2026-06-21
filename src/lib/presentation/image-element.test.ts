@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import type { Deck, ImageElement, Slide, SlideElement } from "./deck";
 import {
   MAX_IMAGE_UPLOAD_BYTES,
+  TOTAL_IMAGE_BUDGET_BYTES,
+  canAddImage,
+  dataUrlByteSize,
   isEmptyImageSrc,
+  totalInlineImageBytes,
   validateImageFile,
 } from "./image-element";
 
@@ -64,4 +69,106 @@ test("validateImageFile: honors a custom maxBytes override", () => {
   assert.deepEqual(accepted, { ok: true });
   const rejected = validateImageFile({ type: "image/webp", size: 150 }, 100);
   assert.equal(rejected.ok, false);
+});
+
+// ---------------------------------------------------------------------------
+// Total inlined-image budget (issue #247)
+// ---------------------------------------------------------------------------
+
+/** Builds a data URL whose string length is `bytes` (ASCII → 1 char = 1 byte). */
+function dataUrlOfBytes(bytes: number): string {
+  const prefix = "data:image/png;base64,";
+  return prefix + "A".repeat(Math.max(0, bytes - prefix.length));
+}
+
+function imageElement(src: string, id = "img"): ImageElement {
+  return {
+    id,
+    kind: "image",
+    src,
+    box: { x: 0, y: 0, w: 10, h: 10 },
+    zIndex: 0,
+  };
+}
+
+function deckWithElements(elements: SlideElement[]): Deck {
+  const slide: Slide = {
+    index: 0,
+    title: "Slide",
+    bullets: [],
+    visualIds: [],
+    layout: "blank",
+    notes: "",
+    theme: "default",
+    elements,
+  };
+  return { theme: "default", slides: [slide] };
+}
+
+test("dataUrlByteSize: a data URL is sized by its string length", () => {
+  const url = dataUrlOfBytes(1000);
+  assert.equal(dataUrlByteSize(url), 1000);
+});
+
+test("dataUrlByteSize: external URLs and empty/missing sources cost ~0", () => {
+  assert.equal(dataUrlByteSize("https://example.com/a.png"), 0);
+  assert.equal(dataUrlByteSize("/local/a.png"), 0);
+  assert.equal(dataUrlByteSize(""), 0);
+  assert.equal(dataUrlByteSize(null), 0);
+  assert.equal(dataUrlByteSize(undefined), 0);
+});
+
+test("totalInlineImageBytes: sums only inlined image data URLs", () => {
+  const deck = deckWithElements([
+    imageElement(dataUrlOfBytes(1000), "a"),
+    imageElement(dataUrlOfBytes(2000), "b"),
+    imageElement("https://example.com/remote.png", "c"),
+    {
+      id: "t",
+      kind: "text",
+      text: "hi",
+      box: { x: 0, y: 0, w: 10, h: 10 },
+      zIndex: 0,
+      style: { fontSize: 16, align: "left", bold: false, italic: false },
+      role: "body",
+    },
+  ]);
+  assert.equal(totalInlineImageBytes(deck), 3000);
+});
+
+test("totalInlineImageBytes: a deck with no elements is 0", () => {
+  assert.equal(totalInlineImageBytes({ theme: "default", slides: [] }), 0);
+  assert.equal(totalInlineImageBytes(deckWithElements([])), 0);
+});
+
+test("canAddImage: under budget is ok and reports the projected total", () => {
+  const deck = deckWithElements([imageElement(dataUrlOfBytes(1000))]);
+  const check = canAddImage(deck, 500, 5000);
+  assert.deepEqual(check, { ok: true, totalBytes: 1500, budget: 5000 });
+});
+
+test("canAddImage: exactly at budget is ok (inclusive)", () => {
+  const deck = deckWithElements([imageElement(dataUrlOfBytes(1000))]);
+  assert.equal(canAddImage(deck, 4000, 5000).ok, true);
+});
+
+test("canAddImage: over budget is rejected", () => {
+  const deck = deckWithElements([imageElement(dataUrlOfBytes(1000))]);
+  const check = canAddImage(deck, 4001, 5000);
+  assert.equal(check.ok, false);
+  assert.equal(check.totalBytes, 5001);
+});
+
+test("canAddImage: a non-positive net change never exceeds the budget", () => {
+  // An already-over-budget deck: a like-for-like or shrinking replacement
+  // (net <= 0) keeps the total from growing past the prior value.
+  const deck = deckWithElements([imageElement(dataUrlOfBytes(6000))]);
+  assert.equal(canAddImage(deck, 0, 5000).totalBytes, 6000);
+  assert.equal(canAddImage(deck, -1000, 5000).totalBytes, 5000);
+});
+
+test("canAddImage: defaults to TOTAL_IMAGE_BUDGET_BYTES", () => {
+  const deck = deckWithElements([]);
+  assert.equal(canAddImage(deck, TOTAL_IMAGE_BUDGET_BYTES).ok, true);
+  assert.equal(canAddImage(deck, TOTAL_IMAGE_BUDGET_BYTES + 1).ok, false);
 });

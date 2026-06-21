@@ -94,6 +94,7 @@ import {
   SAVE_STATUS_LABEL,
   SLIDE_SAVE_DEBOUNCE_MS,
   resolveSaveStatus,
+  shouldPersist,
   shouldScheduleAutosave,
 } from "@/lib/presentation/save-status";
 import {
@@ -311,6 +312,10 @@ export function SlideEditor({
   // The last deck reference the autosave effect observed. `null` until the
   // initial deck is seen, so the first render is never autosaved.
   const lastSeenDeckRef = useRef<Deck | null>(null);
+  // The serialized payload of the last deck successfully persisted, or `null`
+  // before anything has been saved. Lets `flushSave` skip redundant network
+  // writes when an edit serializes identically to what is already saved (#247).
+  const lastSavedSerializedRef = useRef<string | null>(null);
 
   // Persists the latest deck immediately, cancelling any pending debounce. Both
   // the autosave timer and the manual Save / Retry buttons route through here so
@@ -321,11 +326,23 @@ export function SlideEditor({
       autosaveTimerRef.current = null;
     }
     const deckToSave = latestDeckRef.current;
+    // Re-serializing and POSTing the whole deck (incl. inlined base64 images)
+    // is expensive, so skip the write entirely when nothing changed since the
+    // last successful save — e.g. an edit undone back to the saved state (#247).
+    const serialized = JSON.stringify(deckToSave);
+    if (!shouldPersist(lastSavedSerializedRef.current, serialized)) {
+      if (latestDeckRef.current === deckToSave) {
+        setIsDirty(false);
+      }
+      setHasSaveError(false);
+      return;
+    }
     setIsSaving(true);
     setHasSaveError(false);
     try {
       const res = await onSave(deckToSave);
       if (res.ok) {
+        lastSavedSerializedRef.current = serialized;
         // Only clear the dirty flag if no newer edit was queued mid-save.
         if (latestDeckRef.current === deckToSave) {
           setIsDirty(false);
@@ -1037,6 +1054,7 @@ export function SlideEditor({
     ? {
         slide: selectedSlide,
         slideIndex: safeSelected,
+        deck,
         visuals,
         selectedElementId: effectiveSelectedElementId,
         onSelectElement: handleSelectElement,

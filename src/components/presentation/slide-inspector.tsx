@@ -36,6 +36,7 @@ import { VisualPicker } from "@/components/presentation/visual-picker";
 import { Swatch, Tooltip } from "@/components/ui";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import type {
+  Deck,
   ImageElement,
   ShapeKind,
   Slide,
@@ -44,6 +45,8 @@ import type {
 } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import {
+  canAddImage,
+  dataUrlByteSize,
   isEmptyImageSrc,
   validateImageFile,
 } from "@/lib/presentation/image-element";
@@ -77,6 +80,11 @@ export type AddElementKind = "text" | "bullets" | "image" | "shape";
 export interface SlideInspectorProps {
   slide: Slide;
   slideIndex: number;
+  /**
+   * The whole deck — used only to enforce the total inlined-image budget on the
+   * upload path (issue #247). The inspector never mutates it.
+   */
+  deck: Deck;
   visuals: ReadonlyMap<string, Visual>;
   selectedElementId: string | null;
   onSelectElement: (id: string | null) => void;
@@ -156,15 +164,19 @@ function elementLabel(element: SlideElement): string {
  *
  *  - **Upload** — a file picker reads the chosen image to a base64 data URL via
  *    {@link FileReader}. Files are validated for type and size first so a stray
- *    non-image or an oversized file never bloats `deckJson` (#226).
+ *    non-image or an oversized file never bloats `deckJson` (#226), and the new
+ *    image is rejected if it would push the deck past the total inlined-image
+ *    budget so autosave stays cheap (#247).
  *  - **URL / data URL** — the existing text field still accepts a pasted source.
  *  - **Alt text** — accessible description, unchanged.
  */
 function ImageElementEditor({
   element,
+  deck,
   onUpdateElement,
 }: {
   element: ImageElement;
+  deck: Deck;
   onUpdateElement: SlideInspectorProps["onUpdateElement"];
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -181,9 +193,24 @@ function ImageElementEditor({
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result;
-      if (typeof result === "string") {
-        onUpdateElement(element.id, { src: result });
+      if (typeof result !== "string") {
+        return;
       }
+      // Net change in inlined bytes: replacing this element's current image
+      // only costs the difference, so a like-for-like swap is never rejected.
+      const addedBytes = dataUrlByteSize(result) - dataUrlByteSize(element.src);
+      const budget = canAddImage(deck, addedBytes);
+      // Only block genuine growth past the budget; a non-increasing change
+      // (shrinking or replacing) always passes, so decks already over budget
+      // stay editable.
+      if (addedBytes > 0 && !budget.ok) {
+        const usedMb = (budget.totalBytes / (1024 * 1024)).toFixed(1);
+        setError(
+          `Deck image storage is full (${usedMb} MB). Remove an image or use a smaller file.`,
+        );
+        return;
+      }
+      onUpdateElement(element.id, { src: result });
     };
     reader.onerror = () => setError("Could not read that file.");
     reader.readAsDataURL(file);
@@ -249,11 +276,13 @@ function ImageElementEditor({
 
 function ElementEditor({
   element,
+  deck,
   visuals,
   textColorPresets,
   onUpdateElement,
 }: {
   element: SlideElement;
+  deck: Deck;
   visuals: ReadonlyMap<string, Visual>;
   textColorPresets: readonly string[];
   onUpdateElement: SlideInspectorProps["onUpdateElement"];
@@ -312,6 +341,7 @@ function ElementEditor({
       return (
         <ImageElementEditor
           element={element}
+          deck={deck}
           onUpdateElement={onUpdateElement}
         />
       );
@@ -454,6 +484,7 @@ function VisualElementEditor({
 export function SlideInspector({
   slide,
   slideIndex,
+  deck,
   visuals,
   selectedElementId,
   onSelectElement,
@@ -654,6 +685,7 @@ export function SlideInspector({
                   </p>
                   <ElementEditor
                     element={selectedElement}
+                    deck={deck}
                     visuals={visuals}
                     textColorPresets={textColorPresets}
                     onUpdateElement={onUpdateElement}
