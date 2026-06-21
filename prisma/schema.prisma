@@ -33,6 +33,25 @@ model User {
   tags            Tag[]
   brands          Brand[]           @relation("BrandOwner")
   subscription    Subscription?
+  passwordResetTokens PasswordResetToken[]
+}
+
+// A single-use, time-boxed credential for the self-serve password reset flow
+// (#140). Only a HASH of the emailed token is stored (`tokenHash`), never the
+// raw token, so a database leak cannot be replayed to reset an account. A token
+// is valid only while `usedAt` is null and `now < expiresAt`; completing a reset
+// stamps `usedAt` and invalidates the user's other outstanding tokens.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Workspace {
