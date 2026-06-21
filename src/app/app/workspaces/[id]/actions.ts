@@ -20,6 +20,33 @@ const MAX_TITLE_LENGTH = 200;
 /** Maximum stored document content length. */
 const MAX_CONTENT_LENGTH = 100_000;
 
+/** Maximum stored workspace name length. */
+const MAX_WORKSPACE_NAME_LENGTH = 100;
+
+/**
+ * Ensures the current user is the workspace OWNER and returns the workspace id.
+ * Throws if the user is not the owner or the workspace does not exist. This is
+ * the server-side enforcement gate for owner-only lifecycle actions (rename,
+ * delete, transfer ownership).
+ */
+async function requireWorkspaceOwner(
+  userId: string,
+  workspaceId: string,
+): Promise<{ id: string }> {
+  const workspace = await prisma.workspace.findFirst({
+    where: { id: workspaceId, ownerId: userId },
+    select: { id: true },
+  });
+
+  if (!workspace) {
+    throw new Error(
+      "Unauthorized: only the workspace owner may perform this action.",
+    );
+  }
+
+  return workspace;
+}
+
 /**
  * Ensures the current user is a workspace OWNER or EDITOR. Throws if the user
  * is a VIEWER, not a member, or the workspace does not exist. This check is the
@@ -199,11 +226,167 @@ export async function removeMember(memberId: string): Promise<void> {
     throw new Error("Member not found or unauthorized.");
   }
 
-  await prisma.workspaceMember.delete({
-    where: { id: memberId },
+  // Document handoff: move documents the removed member owns within this
+  // workspace back to their personal space (workspaceId = null). This preserves
+  // the member's authorship and access to their own content rather than handing
+  // it to the workspace owner (privacy-preserving), and avoids stranding docs in
+  // a workspace the member can no longer reach.
+  await prisma.$transaction([
+    prisma.document.updateMany({
+      where: { workspaceId: member.workspaceId, ownerId: member.userId },
+      data: { workspaceId: null },
+    }),
+    prisma.workspaceMember.delete({ where: { id: memberId } }),
+  ]);
+
+  revalidatePath("/app");
+  revalidatePath(`/app/workspaces/${member.workspaceId}`);
+}
+
+/**
+ * Renames a workspace. OWNER-only: the server re-checks ownership against
+ * `Workspace.ownerId` and never trusts the client. The name is trimmed and
+ * length-capped; an empty name is rejected.
+ */
+export async function renameWorkspace(
+  workspaceId: string,
+  rawName: string,
+): Promise<void> {
+  const user = await requireUser();
+  await requireWorkspaceOwner(user.id, workspaceId);
+
+  const name = rawName.trim().slice(0, MAX_WORKSPACE_NAME_LENGTH);
+  if (name === "") {
+    throw new Error("Workspace name is required.");
+  }
+
+  await prisma.workspace.update({
+    where: { id: workspaceId },
+    data: { name },
   });
 
-  revalidatePath(`/app/workspaces/${member.workspaceId}`);
+  revalidatePath("/app/workspaces");
+  revalidatePath(`/app/workspaces/${workspaceId}`);
+}
+
+/**
+ * Deletes a workspace. OWNER-only.
+ *
+ * Document handoff: before deletion, every document still attached to the
+ * workspace is reassigned to its owner's personal space (`workspaceId = null`).
+ * No document is ever deleted — each survives in the personal space of whoever
+ * authored it. (The schema's `onDelete: SetNull` on the document→workspace
+ * relation would null these out anyway; doing it explicitly keeps the behavior
+ * intentional and self-documenting.) Members and invite links cascade-delete
+ * with the workspace.
+ */
+export async function deleteWorkspace(workspaceId: string): Promise<void> {
+  const user = await requireUser();
+  await requireWorkspaceOwner(user.id, workspaceId);
+
+  await prisma.$transaction([
+    prisma.document.updateMany({
+      where: { workspaceId },
+      data: { workspaceId: null },
+    }),
+    prisma.workspace.delete({ where: { id: workspaceId } }),
+  ]);
+
+  revalidatePath("/app");
+  revalidatePath("/app/workspaces");
+  redirect("/app/workspaces");
+}
+
+/**
+ * Lets the current user leave a workspace by deleting their own membership.
+ *
+ * Any non-owner member (EDITOR or VIEWER) may leave. The OWNER cannot leave —
+ * doing so would orphan the workspace — so they receive a clear error directing
+ * them to transfer ownership first. Documents the leaving member authored keep
+ * their `ownerId`, so they remain accessible to that member in their personal
+ * lists; only the membership row is removed.
+ */
+export async function leaveWorkspace(workspaceId: string): Promise<void> {
+  const user = await requireUser();
+
+  const workspace = await prisma.workspace.findFirst({
+    where: { id: workspaceId },
+    select: { ownerId: true },
+  });
+
+  if (!workspace) {
+    throw new Error("Workspace not found or unauthorized.");
+  }
+
+  if (workspace.ownerId === user.id) {
+    throw new Error(
+      "The workspace owner cannot leave. Transfer ownership to another member first.",
+    );
+  }
+
+  const membership = await prisma.workspaceMember.findFirst({
+    where: { workspaceId, userId: user.id },
+    select: { id: true },
+  });
+
+  if (!membership) {
+    throw new Error("You are not a member of this workspace.");
+  }
+
+  await prisma.workspaceMember.delete({ where: { id: membership.id } });
+
+  revalidatePath("/app");
+  revalidatePath("/app/workspaces");
+  redirect("/app/workspaces");
+}
+
+/**
+ * Transfers workspace ownership to another existing member. OWNER-only.
+ *
+ * Ownership is modeled by `Workspace.ownerId` (the owner is not a
+ * `WorkspaceMember` row), so the transfer, run atomically:
+ *   1. promotes `newOwnerUserId` by setting `Workspace.ownerId`,
+ *   2. removes the new owner's now-redundant membership row, and
+ *   3. demotes the previous owner into an EDITOR membership row,
+ * preserving the invariant "the owner has no member row; everyone else does."
+ * The target must already be a member of the workspace.
+ */
+export async function transferOwnership(
+  workspaceId: string,
+  newOwnerUserId: string,
+): Promise<void> {
+  const user = await requireUser();
+  await requireWorkspaceOwner(user.id, workspaceId);
+
+  if (newOwnerUserId === user.id) {
+    throw new Error("You already own this workspace.");
+  }
+
+  const newOwnerMembership = await prisma.workspaceMember.findFirst({
+    where: { workspaceId, userId: newOwnerUserId },
+    select: { id: true },
+  });
+
+  if (!newOwnerMembership) {
+    throw new Error("New owner must be an existing member of the workspace.");
+  }
+
+  await prisma.$transaction([
+    prisma.workspace.update({
+      where: { id: workspaceId },
+      data: { ownerId: newOwnerUserId },
+    }),
+    prisma.workspaceMember.delete({ where: { id: newOwnerMembership.id } }),
+    prisma.workspaceMember.upsert({
+      where: { workspaceId_userId: { workspaceId, userId: user.id } },
+      create: { workspaceId, userId: user.id, role: "EDITOR" },
+      update: { role: "EDITOR" },
+    }),
+  ]);
+
+  revalidatePath("/app");
+  revalidatePath("/app/workspaces");
+  revalidatePath(`/app/workspaces/${workspaceId}`);
 }
 
 export async function getWorkspaceDocuments(
