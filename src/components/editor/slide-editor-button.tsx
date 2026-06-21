@@ -17,6 +17,7 @@ import { useCallback, useRef, useState } from "react";
 
 import { fetchDeckJson, saveDeckJson } from "@/app/app/documents/[id]/actions";
 import { SlideEditor } from "@/components/presentation/slide-editor";
+import type { ActionResult } from "@/lib/action-result";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { buildDeckFromBlocks, type Deck } from "@/lib/presentation/deck";
 import { materializeDeck } from "@/lib/presentation/deck-mutations";
@@ -54,7 +55,6 @@ export function SlideEditorButton({
   const [visuals, setVisuals] = useState<ReadonlyMap<string, Visual>>(
     () => new Map(),
   );
-  const [isSaving, setIsSaving] = useState(false);
   const { openSlideEditor, closeSlideEditor } = useRightSurface();
 
   // Tracks the most recently saved deck so subsequent opens use fresh data
@@ -123,19 +123,15 @@ export function SlideEditorButton({
   }, [closeSlideEditor]);
 
   const handleSave = useCallback(
-    async (updatedDeck: Deck) => {
-      setIsSaving(true);
-      try {
-        const res = await saveDeckJson(documentId, updatedDeck);
-        if (!res.ok) {
-          console.error(res.error);
-          return;
-        }
+    async (updatedDeck: Deck): Promise<ActionResult> => {
+      const res = await saveDeckJson(documentId, updatedDeck);
+      if (res.ok) {
         // Keep lastSavedRef current so subsequent opens don't regress.
         lastSavedRef.current = updatedDeck;
-      } finally {
-        setIsSaving(false);
       }
+      // Surface the result so the editor can show the save-status badge and a
+      // working Retry action instead of silently swallowing failures.
+      return res;
     },
     [documentId],
   );
@@ -158,7 +154,6 @@ export function SlideEditorButton({
           onDeckChange={setDeck}
           onClose={handleClose}
           onSave={handleSave}
-          isSaving={isSaving}
           freshDeck={freshDeck}
           isDeckStale={stale}
         />
