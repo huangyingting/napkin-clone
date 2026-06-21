@@ -49,6 +49,12 @@ export interface SlideEditorOpenDialogProps {
   /** Serialised Lexical document state captured when the chooser opened. */
   contentJson: string;
   /**
+   * True when the document is genuinely empty (issue #280): the AI generate
+   * option is replaced with a friendly "add content first" message, while the
+   * deterministic derive remains available.
+   */
+  isEmptyDocument?: boolean;
+  /**
    * Hand a successfully generated deck to the parent (it owns how it opens —
    * issue #269 routes this through a preview/diff before opening the editor).
    * Includes the `truncated` flag and the `options` used so the preview can
@@ -67,6 +73,7 @@ export interface SlideEditorOpenDialogProps {
 
 export function SlideEditorOpenDialog({
   contentJson,
+  isEmptyDocument = false,
   onApply,
   onDerive,
   onClose,
@@ -75,6 +82,10 @@ export function SlideEditorOpenDialog({
   const [length, setLength] = useState<DeckLength>("medium");
   const [tone, setTone] = useState("");
   const [audience, setAudience] = useState("");
+  // Set when the document has no usable content: either detected up-front
+  // (isEmptyDocument) or surfaced by an empty-outline 400 from a race where the
+  // editor was still seeding at request time (issue #280).
+  const [noContent, setNoContent] = useState(isEmptyDocument);
   const { generate, status, stage, showEta, etaHint, reset } =
     useDeckGeneration();
 
@@ -89,15 +100,22 @@ export function SlideEditorOpenDialog({
     const opts: DeckGenerationOptions = { length, tone, audience };
     const result = await generate(contentJson, opts);
     // On success hand the proposal (plus truncation + options) to the parent,
-    // which presents the preview/diff (issue #269). Any failure
-    // (error/timeout/credit/flag-off/404) drops straight to the deterministic
-    // derive so the user is never blocked.
+    // which presents the preview/diff (issue #269).
     if (result.ok) {
       onApply({
         deck: result.deck,
         truncated: result.truncated,
         options: opts,
       });
+      return;
+    }
+    // An empty-outline 400 (the editor was still seeding at request time) is
+    // shown as a friendly "add content first" notice rather than silently
+    // deriving (issue #280). Any other failure
+    // (error/timeout/credit/flag-off/404) drops straight to the deterministic
+    // derive so the user is never blocked.
+    if (result.errorKind === "empty") {
+      setNoContent(true);
     } else {
       onDerive();
     }
@@ -154,6 +172,26 @@ export function SlideEditorOpenDialog({
             </Button>
           </div>
         </div>
+      ) : noContent ? (
+        <>
+          <div
+            role="status"
+            className="rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised p-4 text-sm text-ds-text-secondary"
+          >
+            Add some content to your document first, then we can generate or
+            derive slides from it.
+          </div>
+          <div className="mt-1 flex flex-col gap-2">
+            <Button
+              variant="subtle"
+              size="md"
+              onClick={handleDerive}
+              className="w-full"
+            >
+              Derive from document
+            </Button>
+          </div>
+        </>
       ) : (
         <>
           <fieldset className="flex flex-col gap-3">

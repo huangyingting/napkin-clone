@@ -568,6 +568,7 @@ export function LexicalEditor({
                       <SlideEditorButton
                         documentId={documentId}
                         initialDeckJson={initialDeckJson}
+                        initialContentJson={initialStateJson}
                       />
                     )}
                     <PresentButton
