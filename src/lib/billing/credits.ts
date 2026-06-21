@@ -64,8 +64,9 @@ export interface UserCreditState {
  */
 export async function getUserCreditState(
   userId: string,
+  client: typeof prisma = prisma,
 ): Promise<UserCreditState> {
-  const user = await prisma.user.findUniqueOrThrow({
+  const user = await client.user.findUniqueOrThrow({
     where: { id: userId },
     select: {
       plan: true,
@@ -85,7 +86,7 @@ export async function getUserCreditState(
     // First access — initialise period
     periodStart = now;
     balance = entitlements.creditsPerPeriod;
-    await prisma.user.update({
+    await client.user.update({
       where: { id: userId },
       data: {
         creditBalance: balance,
@@ -98,7 +99,7 @@ export async function getUserCreditState(
       // Period has rolled over — reset balance
       periodStart = now;
       balance = entitlements.creditsPerPeriod;
-      await prisma.user.update({
+      await client.user.update({
         where: { id: userId },
         data: {
           creditBalance: balance,
@@ -126,27 +127,47 @@ export async function getUserCreditState(
  * Atomically deducts `cost` credits from `userId`'s balance. Returns the new
  * balance. Throws `InsufficientCreditsError` when the balance would go below 0.
  *
- * Uses a DB-level `decrement` with a guard so concurrent requests don't over-
- * deduct (best-effort; consistent with the existing soft-quota semantics).
+ * The deduction is a single conditional `updateMany` guarded by
+ * `creditBalance >= cost`, so the read-check-decrement is collapsed into one
+ * atomic DB write: concurrent generations can never both pass and drive the
+ * balance negative. When no row matches the guard (`count === 0`) the balance
+ * is insufficient and we surface the same `InsufficientCreditsError` callers
+ * already expect.
+ *
+ * A non-positive `cost` (the unlimited-credits gate, #97) is a no-op: the
+ * current balance is returned without any write.
  */
 export async function deductCredits(
   userId: string,
   cost: number,
+  client: typeof prisma = prisma,
 ): Promise<number> {
-  // Re-read fresh balance (after any period reset that already happened via
-  // getUserCreditState) to minimise TOCTOU window.
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id: userId },
-    select: { creditBalance: true },
+  if (cost <= 0) {
+    const user = await client.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { creditBalance: true },
+    });
+    return user.creditBalance;
+  }
+
+  // Atomic conditional decrement: only update the row while it still covers the
+  // cost. `count === 0` means the guard failed (insufficient balance).
+  const result = await client.user.updateMany({
+    where: { id: userId, creditBalance: { gte: cost } },
+    data: { creditBalance: { decrement: cost } },
   });
 
-  if (!hasSufficientCredits(user.creditBalance, cost)) {
+  if (result.count === 0) {
+    // Re-read the actual balance to report it accurately in the error.
+    const user = await client.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { creditBalance: true },
+    });
     throw new InsufficientCreditsError(user.creditBalance, cost);
   }
 
-  const updated = await prisma.user.update({
+  const updated = await client.user.findUniqueOrThrow({
     where: { id: userId },
-    data: { creditBalance: { decrement: cost } },
     select: { creditBalance: true },
   });
 

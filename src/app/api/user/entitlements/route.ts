@@ -11,8 +11,8 @@
 import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/session";
-import { prisma } from "@/lib/prisma";
 import { getEntitlements } from "@/lib/billing/entitlements";
+import { getUserCreditState } from "@/lib/billing/credits";
 
 export const runtime = "nodejs";
 
@@ -22,17 +22,15 @@ export async function GET(): Promise<NextResponse> {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const dbUser = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { plan: true, creditBalance: true, creditPeriodStart: true },
-  });
-
-  const plan = dbUser?.plan ?? "free";
-  const entitlements = getEntitlements(plan);
+  // Derive the balance from getUserCreditState so the period-rollover reset is
+  // applied here too; otherwise this endpoint reports a stale raw balance that
+  // disagrees with the generate API until the next generation resets it.
+  const creditState = await getUserCreditState(user.id);
+  const entitlements = getEntitlements(creditState.plan);
 
   return NextResponse.json({
-    plan,
-    creditBalance: dbUser?.creditBalance ?? 0,
+    plan: creditState.plan,
+    creditBalance: creditState.balance,
     entitlements,
   });
 }
