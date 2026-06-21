@@ -44,6 +44,8 @@ export interface GenerateSelection {
   kind: string;
   blockKey?: string;
   blockText?: string;
+  selectionText?: string;
+  selectionEndBlockKey?: string;
 }
 
 /** A resolved generation target: which block to anchor under and the text to send. */
@@ -117,9 +119,8 @@ export function canGenerateFromText(text: string | undefined | null): boolean {
 /**
  * Resolve the block a touch-surface generation should target, or `null` when the
  * selection can't drive a generation. Generation is offered for a live text
- * selection (`range`) or a caret inside a non-empty block (`collapsed`) that has
- * a live block key and non-empty text — matching the per-block spark, which
- * always operates on the whole anchored block's text.
+ * selection (`range`) with selected text or a caret inside a non-empty block
+ * (`collapsed`) that has a live block key and non-empty block text.
  */
 export function generateTargetForContext(
   ctx: GenerateSelection,
@@ -127,11 +128,18 @@ export function generateTargetForContext(
   if (ctx.kind !== "range" && ctx.kind !== "collapsed") {
     return null;
   }
-  const text = ctx.blockText?.trim() ?? "";
-  if (text === "" || !ctx.blockKey) {
+  const text =
+    ctx.kind === "range"
+      ? (ctx.selectionText?.trim() ?? "")
+      : (ctx.blockText?.trim() ?? "");
+  const blockKey =
+    ctx.kind === "range"
+      ? (ctx.selectionEndBlockKey ?? ctx.blockKey)
+      : ctx.blockKey;
+  if (text === "" || !blockKey) {
     return null;
   }
-  return { blockKey: ctx.blockKey, text };
+  return { blockKey, text };
 }
 
 /** Whether a "Generate visual" affordance should be enabled for this selection. */

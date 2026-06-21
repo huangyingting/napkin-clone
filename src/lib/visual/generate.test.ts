@@ -116,13 +116,27 @@ test("generateTargetForContext resolves a range selection with text", () => {
   const ctx: GenerateSelection = {
     kind: "range",
     blockKey: "k1",
-    blockText: "  Some text  ",
+    blockText: "Whole block text",
+    selectionText: "  Selected text  ",
+    selectionEndBlockKey: "k2",
+  };
+  assert.deepEqual(generateTargetForContext(ctx), {
+    blockKey: "k2",
+    text: "Selected text",
+  });
+  assert.equal(canGenerateForSelection(ctx), true);
+});
+
+test("generateTargetForContext falls back to the active block key for range selections", () => {
+  const ctx: GenerateSelection = {
+    kind: "range",
+    blockKey: "k1",
+    selectionText: "Selected text",
   };
   assert.deepEqual(generateTargetForContext(ctx), {
     blockKey: "k1",
-    text: "Some text",
+    text: "Selected text",
   });
-  assert.equal(canGenerateForSelection(ctx), true);
 });
 
 test("generateTargetForContext resolves a collapsed caret in a non-empty block", () => {
@@ -157,7 +171,7 @@ test("generateTargetForContext rejects unusable selections", () => {
     generateTargetForContext({
       kind: "range",
       blockKey: "k",
-      blockText: "   ",
+      selectionText: "   ",
     }),
     null,
   );

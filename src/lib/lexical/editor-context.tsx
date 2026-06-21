@@ -111,6 +111,10 @@ export type EditorContextSnapshot = {
   blockKey?: string;
   /** Plain-text content of the active top-level block. */
   blockText?: string;
+  /** Plain-text content of the active native/Lexical text selection. */
+  selectionText?: string;
+  /** Live Lexical key of the last top-level block touched by a range selection. */
+  selectionEndBlockKey?: string;
   /** True when the active block is an empty paragraph. */
   isEmptyBlock: boolean;
   /** Stable `visualId` of the selected VisualNode (safe to persist/anchor). */
@@ -189,6 +193,8 @@ export type SelectionDescriptor = Pick<
   | "isLink"
   | "blockKey"
   | "blockText"
+  | "selectionText"
+  | "selectionEndBlockKey"
   | "isEmptyBlock"
   | "selectedVisualId"
   | "selectedVisualNodeKey"
@@ -267,6 +273,11 @@ export function readSelectionDescriptor(): SelectionDescriptor {
   const blockType = getBlockType(anchorNode);
   const blockKey = topLevel?.getKey();
   const blockText = topLevel?.getTextContent() ?? "";
+  const selectionText = selection.getTextContent();
+  const selectedNodes = selection.getNodes();
+  const selectionEndBlock =
+    selectedNodes[selectedNodes.length - 1]?.getTopLevelElement() ?? topLevel;
+  const selectionEndBlockKey = selectionEndBlock?.getKey();
   const isCollapsed = selection.isCollapsed();
   const isEmptyBlock =
     isCollapsed && blockType === "paragraph" && blockText.trim() === "";
@@ -283,7 +294,7 @@ export function readSelectionDescriptor(): SelectionDescriptor {
   );
 
   let kind: EditorContextKind;
-  if (!isCollapsed && selection.getTextContent() !== "") {
+  if (!isCollapsed && selectionText.trim() !== "") {
     kind = "range";
   } else if (isEmptyBlock) {
     kind = "empty-block";
@@ -304,6 +315,8 @@ export function readSelectionDescriptor(): SelectionDescriptor {
     isLink,
     blockKey,
     blockText,
+    selectionText,
+    selectionEndBlockKey,
     isEmptyBlock,
   };
 }
@@ -346,6 +359,8 @@ function snapshotsEqual(
     a.isLink === b.isLink &&
     a.blockKey === b.blockKey &&
     a.blockText === b.blockText &&
+    a.selectionText === b.selectionText &&
+    a.selectionEndBlockKey === b.selectionEndBlockKey &&
     a.isEmptyBlock === b.isEmptyBlock &&
     a.selectedVisualId === b.selectedVisualId &&
     a.selectedVisualNodeKey === b.selectedVisualNodeKey &&

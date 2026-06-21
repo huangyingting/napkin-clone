@@ -32,6 +32,7 @@ import { Button, FloatingSurface, IconButton } from "@/components/ui";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { cx } from "@/components/ui/tokens";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
+import { useEditorContext } from "@/lib/lexical/editor-context";
 import { VISUAL_KIND_META } from "@/lib/lexical/tool-registry";
 import {
   VISUAL_KINDS,
@@ -219,12 +220,12 @@ function isVisualChromeTarget(target: Node | null): boolean {
 }
 
 /**
- * Per-block "spark" affordance for the Lexical editor (US-010). Hovering or
- * focusing a text block reveals a gutter button that generates a visual for
- * just that block: clicking it POSTs the block's text to `/api/generate` and
- * shows candidate variations in a panel anchored beneath the block. Choosing a
- * candidate inserts a {@link VisualNode} (US-009) directly AFTER the source
- * block, so it serializes into `contentJson` and re-renders on reload.
+ * Text-to-visual "spark" affordance for the Lexical editor (US-010). Selecting
+ * text or hovering/focusing a text block reveals a gutter button that POSTs the
+ * selected/block text to `/api/generate` and shows candidate variations in a
+ * panel. Choosing a candidate inserts a {@link VisualNode} (US-009) directly
+ * AFTER the selection end block or source block, so it serializes into
+ * `contentJson` and re-renders on reload.
  *
  * The control is gated on the editor being editable (which mirrors
  * canEdit && collab-ready via the editor's `EditableGate`), shows one block at a
@@ -233,10 +234,12 @@ function isVisualChromeTarget(target: Node | null): boolean {
  */
 export function BlockSparkPlugin() {
   const [editor] = useLexicalComposerContext();
+  const ctx = useEditorContext();
   const isPointerFine = useIsPointerFine();
 
   const [editable, setEditable] = useState(() => editor.isEditable());
   const [block, setBlock] = useState<BlockInfo | null>(null);
+  const [openTarget, setOpenTarget] = useState<BlockInfo | null>(null);
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [status, setStatus] = useState<GenStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -412,6 +415,7 @@ export function BlockSparkPlugin() {
   }, [editor, resolveBlock, cancelClear]);
 
   const closePanel = useCallback(() => {
+    setOpenTarget(null);
     setOpenKey(null);
     setGeneratedVisualsBySection({});
     setError(null);
@@ -436,6 +440,7 @@ export function BlockSparkPlugin() {
 
   const generate = useCallback(async (target: BlockInfo, opts: GenOptions) => {
     const section = visualResultSectionForType(opts.type);
+    setOpenTarget(target);
     setOpenKey(target.key);
     setExpandedVisualCategories((current) => ({
       ...current,
@@ -498,7 +503,27 @@ export function BlockSparkPlugin() {
     return null;
   }
 
-  const panelTarget = openKey !== null ? block : null;
+  const selectionText =
+    ctx.kind === "range" ? (ctx.selectionText?.trim() ?? "") : "";
+  const selectionRect = ctx.rects.selection;
+  const selectionInsertKey = ctx.selectionEndBlockKey ?? ctx.blockKey;
+  const rootRect = editor.getRootElement()?.getBoundingClientRect() ?? null;
+  const selectionGutterLeft = rootRect ? leftGutterButtonLeft(rootRect) : null;
+  const selectionTarget: BlockInfo | null =
+    selectionText !== "" &&
+    selectionRect !== null &&
+    selectionInsertKey !== undefined &&
+    selectionGutterLeft !== null
+      ? {
+          key: selectionInsertKey,
+          text: selectionText,
+          anchorTop: selectionRect.top,
+          anchorHeight: selectionRect.height,
+          gutterLeft: selectionGutterLeft,
+        }
+      : null;
+  const displayTarget = selectionTarget ?? block;
+  const panelTarget = openKey !== null ? openTarget : null;
   const normalizedVisualQuery = visualQuery.trim().toLowerCase();
   const showAutoType =
     normalizedVisualQuery === "" ||
@@ -599,30 +624,39 @@ export function BlockSparkPlugin() {
         <AnimatePresence>
           {/* Gutter spark button: hidden on touch/coarse-pointer viewports
               since it relies on hover and is a desktop-only affordance. */}
-          {isPointerFine && block !== null && !hoveringVisual ? (
+          {isPointerFine && displayTarget !== null && !hoveringVisual ? (
             <motion.button
               key="block-spark"
               type="button"
-              aria-label="Generate visual for this block"
-              aria-expanded={openKey === block.key}
-              title="Generate visual for this block"
+              aria-label={
+                selectionTarget !== null
+                  ? "Generate visual for selected text"
+                  : "Generate visual for this block"
+              }
+              aria-expanded={openKey === displayTarget.key}
+              title={
+                selectionTarget !== null
+                  ? "Generate visual for selected text"
+                  : "Generate visual for this block"
+              }
               onMouseDown={(event) => event.preventDefault()}
               onMouseEnter={keepAlive}
               onMouseLeave={() => {
                 keepRef.current = false;
               }}
               onClick={() =>
-                openKey === block.key
+                openKey === displayTarget.key
                   ? closePanel()
-                  : void generate(block, genOptions)
+                  : void generate(displayTarget, genOptions)
               }
               initial={popMotion.initial}
               animate={popMotion.animate}
               exit={popMotion.exit}
               transition={popMotion.transition}
               style={{
-                top: block.anchorTop + block.anchorHeight / 2 - 14,
-                left: block.gutterLeft,
+                top:
+                  displayTarget.anchorTop + displayTarget.anchorHeight / 2 - 14,
+                left: displayTarget.gutterLeft,
               }}
               className={cx("fixed z-raised", GUTTER_BUTTON)}
             >

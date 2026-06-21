@@ -450,7 +450,8 @@ function VisualContextSection() {
  * Invariants (#84/#87): the selection target is derived only from
  * {@link useEditorContext} (through the pure {@link generateTargetForContext}),
  * and the generated visual is inserted exclusively via `editor.update()`,
- * anchored AFTER the active block so it serialises into `contentJson`.
+ * anchored AFTER the selection end block or active block so it serialises into
+ * `contentJson`.
  */
 function GenerateVisualSection() {
   const [editor] = useLexicalComposerContext();

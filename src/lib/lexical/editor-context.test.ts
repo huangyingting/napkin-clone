@@ -19,6 +19,7 @@ import {
 import {
   $createNodeSelection,
   $createParagraphNode,
+  $createRangeSelection,
   $createTextNode,
   $getRoot,
   $setSelection,
@@ -115,6 +116,32 @@ test("non-collapsed text selection derives kind 'range'", () => {
   assert.equal(descriptor.kind, "range");
   assert.equal(descriptor.isCollapsed, false);
   assert.equal(descriptor.isEmptyBlock, false);
+  assert.equal(descriptor.selectionText, "Hello");
+  assert.equal(descriptor.selectionEndBlockKey, descriptor.blockKey);
+});
+
+test("cross-block text selection records the selected text and end block key", () => {
+  const editor = makeEditor();
+  let secondBlockKey = "";
+  const descriptor = derive(editor, () => {
+    const first = $createParagraphNode();
+    const firstText = $createTextNode("First paragraph");
+    first.append(firstText);
+    const second = $createParagraphNode();
+    const secondText = $createTextNode("Second paragraph");
+    second.append(secondText);
+    $getRoot().clear().append(first, second);
+    secondBlockKey = second.getKey();
+
+    const selection = $createRangeSelection();
+    selection.anchor.set(firstText.getKey(), 6, "text");
+    selection.focus.set(secondText.getKey(), 6, "text");
+    $setSelection(selection);
+  });
+
+  assert.equal(descriptor.kind, "range");
+  assert.equal(descriptor.selectionText, "paragraph\nSecond");
+  assert.equal(descriptor.selectionEndBlockKey, secondBlockKey);
 });
 
 test("no selection (blurred editor) derives kind 'none'", () => {
