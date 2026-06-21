@@ -26,6 +26,7 @@ import {
   Plus,
   Redo2,
   Shapes,
+  Sparkles,
   Type,
   Undo2,
   X,
@@ -36,6 +37,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ComponentPropsWithoutRef,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
@@ -50,8 +52,10 @@ import {
   type AddElementKind,
 } from "@/components/presentation/slide-inspector";
 import { SlideStageEditor } from "@/components/presentation/slide-stage-editor";
+import { VisualPicker } from "@/components/presentation/visual-picker";
 import { IconButton, Tooltip } from "@/components/ui";
 import {
+  buildVisualElement,
   makeElementId,
   type Deck,
   type DeckTheme,
@@ -196,6 +200,8 @@ export function SlideEditor({
   const [selectedElementId, setSelectedElementId] = useState<string | null>(
     null,
   );
+  // Whether the stage "Add → Visual" picker popover is open.
+  const [visualPickerOpen, setVisualPickerOpen] = useState(false);
   // Slide indices the user has interacted with this session. Drives the subtle
   // "click to start editing" hint, which is hidden once a slide is touched.
   const [touchedSlides, setTouchedSlides] = useState<ReadonlySet<number>>(
@@ -460,10 +466,12 @@ export function SlideEditor({
   }, [deck, onSave]);
 
   const goPrev = useCallback(() => {
+    setVisualPickerOpen(false);
     setSelectedIndex((i) => Math.max(0, i - 1));
   }, []);
 
   const goNext = useCallback(() => {
+    setVisualPickerOpen(false);
     setSelectedIndex((i) => Math.min(deck.slides.length - 1, i + 1));
   }, [deck.slides.length]);
 
@@ -527,6 +535,16 @@ export function SlideEditor({
       handleSelectElement(id);
     },
     [accentForSelected, deck, handleSelectElement, onDeckChange, safeSelected],
+  );
+
+  const handleAddVisual = useCallback(
+    (visualId: string) => {
+      const element = buildVisualElement(visualId);
+      onDeckChange(addElement(deck, safeSelected, element));
+      handleSelectElement(element.id);
+      setVisualPickerOpen(false);
+    },
+    [deck, handleSelectElement, onDeckChange, safeSelected],
   );
 
   const handleBackgroundChange = useCallback(
@@ -680,7 +698,10 @@ export function SlideEditor({
                   >
                     <button
                       type="button"
-                      onClick={() => setSelectedIndex(index)}
+                      onClick={() => {
+                        setVisualPickerOpen(false);
+                        setSelectedIndex(index);
+                      }}
                       aria-label={`Slide ${index + 1}`}
                       aria-current={selected}
                       className={`flex w-full items-center gap-2 rounded-ds-md border p-1.5 text-left transition-colors ${
@@ -748,6 +769,24 @@ export function SlideEditor({
                 label="Shape"
                 onClick={() => handleAddElement("shape")}
               />
+              <div className="relative">
+                <StageAddButton
+                  icon={<Sparkles size={14} aria-hidden="true" />}
+                  label="Visual"
+                  aria-haspopup="dialog"
+                  aria-expanded={visualPickerOpen}
+                  onClick={() => setVisualPickerOpen((open) => !open)}
+                />
+                {visualPickerOpen ? (
+                  <div className="absolute left-0 top-full z-modal mt-1">
+                    <VisualPicker
+                      visuals={visuals}
+                      onPick={handleAddVisual}
+                      onClose={() => setVisualPickerOpen(false)}
+                    />
+                  </div>
+                ) : null}
+              </div>
               <div
                 className="mx-1 hidden h-5 w-px bg-ds-border-subtle sm:block"
                 aria-hidden="true"
@@ -835,6 +874,7 @@ export function SlideEditor({
             }
             onMaterialize={handleMaterialize}
             onAddElement={handleAddElement}
+            onAddVisual={handleAddVisual}
             onUpdateElement={handleUpdateElement}
             onRemoveElement={handleRemoveElement}
             onBringToFront={handleBringToFront}
@@ -854,16 +894,18 @@ function StageAddButton({
   icon,
   label,
   onClick,
+  ...rest
 }: {
   icon: ReactNode;
   label: string;
   onClick: () => void;
-}) {
+} & Omit<ComponentPropsWithoutRef<"button">, "onClick" | "children">) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={`flex items-center gap-1 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 py-1 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+      {...rest}
     >
       {icon}
       {label}

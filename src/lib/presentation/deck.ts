@@ -110,6 +110,14 @@ export interface BulletsElement extends BaseElement {
 export interface VisualElement extends BaseElement {
   kind: "visual";
   visualId: string;
+  /**
+   * Optional restyle applied over the referenced document visual at render
+   * time — a {@link StyleTheme} id (see `@/lib/visual/themes`). When set, every
+   * renderer re-tints the visual via `applyTheme` before drawing, so editor,
+   * present and the public viewer stay identical. Absent → the visual renders
+   * in its original document style.
+   */
+  styleThemeId?: string;
 }
 
 export interface ImageElement extends BaseElement {
@@ -204,6 +212,34 @@ export function makeElementId(): string {
   elementIdCounter += 1;
   const rand = Math.random().toString(36).slice(2, 8);
   return `el-${Date.now().toString(36)}-${elementIdCounter}-${rand}`;
+}
+
+/**
+ * Default centered box for a freshly inserted visual element, in percent units.
+ * Wide and tall enough to read on a blank slide while leaving a margin so the
+ * insert never butts against the slide edge. Kept as a named constant so the
+ * "Insert visual" picker and tests share one source of truth.
+ */
+export const DEFAULT_VISUAL_BOX: ElementBox = { x: 25, y: 18, w: 50, h: 64 };
+
+/**
+ * Builds a {@link VisualElement} (sans `zIndex`) for the given document visual,
+ * positioned at a default centered {@link ElementBox}. Pure and DOM-free: the
+ * "Insert document visual" picker routes the result through
+ * `addElement`/`onDeckChange` so the insert is undoable. `zIndex` is assigned by
+ * `addElement`, so it is intentionally omitted here.
+ */
+export function buildVisualElement(
+  visualId: string,
+  options: { id?: string; box?: ElementBox; styleThemeId?: string } = {},
+): Omit<VisualElement, "zIndex"> & { id: string } {
+  return {
+    id: options.id ?? makeElementId(),
+    kind: "visual",
+    visualId,
+    box: options.box ?? { ...DEFAULT_VISUAL_BOX },
+    ...(options.styleThemeId ? { styleThemeId: options.styleThemeId } : {}),
+  };
 }
 
 /**

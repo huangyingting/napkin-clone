@@ -24,13 +24,16 @@ import {
   Italic,
   List,
   Shapes,
+  Sparkles,
   Trash2,
   Type,
 } from "lucide-react";
 import { useState } from "react";
 
 import { FOCUS_RING } from "@/components/motion/control-styles";
+import { VisualPicker } from "@/components/presentation/visual-picker";
 import { Tooltip } from "@/components/ui";
+import { VisualRenderer } from "@/components/visual/visual-renderer";
 import type {
   ElementAlign,
   ShapeKind,
@@ -41,6 +44,8 @@ import type {
 } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import type { Visual } from "@/lib/visual/schema";
+import { STYLE_THEMES } from "@/lib/visual/themes";
+import { applyTheme, isThemeActive } from "@/lib/visual/transforms";
 
 const LAYOUT_OPTIONS: SlideLayout[] = [
   "title",
@@ -78,6 +83,7 @@ export interface SlideInspectorProps {
   onMaterialize: () => void;
   // Element editing
   onAddElement: (kind: AddElementKind) => void;
+  onAddVisual: (visualId: string) => void;
   onUpdateElement: (id: string, patch: ElementPatch) => void;
   onRemoveElement: (id: string) => void;
   onBringToFront: (id: string) => void;
@@ -236,9 +242,11 @@ function TextStyleControls({
 
 function ElementEditor({
   element,
+  visuals,
   onUpdateElement,
 }: {
   element: SlideElement;
+  visuals: ReadonlyMap<string, Visual>;
   onUpdateElement: SlideInspectorProps["onUpdateElement"];
 }) {
   switch (element.kind) {
@@ -352,13 +360,103 @@ function ElementEditor({
       );
     case "visual":
       return (
-        <p className="text-xs text-ds-text-muted">
-          Visual from the document. Drag to move or resize on the slide.
-        </p>
+        <VisualElementEditor
+          element={element}
+          visuals={visuals}
+          onUpdateElement={onUpdateElement}
+        />
       );
     default:
       return null;
   }
+}
+
+/**
+ * Inspector controls for a selected visual element: a live thumbnail preview of
+ * the referenced document visual (reflecting any restyle) plus a "Restyle" row
+ * of theme presets. Selecting a theme stores `styleThemeId` on the element; the
+ * shared `VisualElementView` re-tints the visual via `applyTheme` so the editor,
+ * present mode and public viewer stay identical. "Original" clears the override.
+ */
+function VisualElementEditor({
+  element,
+  visuals,
+  onUpdateElement,
+}: {
+  element: Extract<SlideElement, { kind: "visual" }>;
+  visuals: ReadonlyMap<string, Visual>;
+  onUpdateElement: SlideInspectorProps["onUpdateElement"];
+}) {
+  const visual = visuals.get(element.visualId);
+
+  if (!visual) {
+    return (
+      <p className="text-xs text-ds-text-muted">
+        This visual is no longer in the document. Delete it or pick another from
+        the Add menu.
+      </p>
+    );
+  }
+
+  const preview = element.styleThemeId
+    ? applyTheme(visual, element.styleThemeId)
+    : visual;
+  const usingOriginal = !element.styleThemeId;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <span className="flex aspect-video items-center justify-center overflow-hidden rounded-ds-sm border border-ds-border-subtle bg-ds-surface-base">
+        <VisualRenderer
+          visual={preview}
+          className="h-full w-full object-contain"
+          transparentBackground
+        />
+      </span>
+
+      <div>
+        <span className={LABEL_CLASS}>Restyle</span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            aria-pressed={usingOriginal}
+            onClick={() =>
+              onUpdateElement(element.id, { styleThemeId: undefined })
+            }
+            className={`rounded-ds-sm border px-2 py-1 text-xs font-medium transition-colors ${
+              usingOriginal
+                ? "border-ds-control bg-ds-control text-ds-control-text"
+                : "border-ds-border-subtle text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+            } ${FOCUS_RING}`}
+          >
+            Original
+          </button>
+          {STYLE_THEMES.map((theme) => {
+            const active =
+              element.styleThemeId === theme.id ||
+              (usingOriginal && isThemeActive(visual, theme.id));
+            return (
+              <Tooltip key={theme.id} label={theme.name} side="bottom">
+                <button
+                  type="button"
+                  aria-pressed={active}
+                  aria-label={`Restyle as ${theme.name}`}
+                  onClick={() =>
+                    onUpdateElement(element.id, { styleThemeId: theme.id })
+                  }
+                  className={`flex h-7 w-7 items-center justify-center rounded-ds-sm border transition-shadow ${
+                    active
+                      ? "ring-2 ring-ds-focus-ring ring-offset-1 ring-offset-ds-focus-offset"
+                      : "border-ds-border-subtle"
+                  } ${FOCUS_RING}`}
+                  style={{ backgroundColor: theme.colors.nodeStroke }}
+                />
+              </Tooltip>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function SlideInspector({
@@ -375,6 +473,7 @@ export function SlideInspector({
   onBulletsChange,
   onMaterialize,
   onAddElement,
+  onAddVisual,
   onUpdateElement,
   onRemoveElement,
   onBringToFront,
@@ -384,7 +483,7 @@ export function SlideInspector({
   onNotesChange,
 }: SlideInspectorProps) {
   const [tab, setTab] = useState<Tab>("content");
-  void visuals;
+  const [visualPickerOpen, setVisualPickerOpen] = useState(false);
 
   const elements = slide.elements ?? [];
   const hasElements = elements.length > 0;
@@ -468,7 +567,26 @@ export function SlideInspector({
                   label="Shape"
                   onClick={() => onAddElement("shape")}
                 />
+                <AddButton
+                  icon={<Sparkles size={13} aria-hidden="true" />}
+                  label="Visual"
+                  aria-haspopup="dialog"
+                  aria-expanded={visualPickerOpen}
+                  onClick={() => setVisualPickerOpen((open) => !open)}
+                />
               </div>
+
+              {visualPickerOpen ? (
+                <VisualPicker
+                  className="w-full"
+                  visuals={visuals}
+                  onPick={(visualId) => {
+                    onAddVisual(visualId);
+                    setVisualPickerOpen(false);
+                  }}
+                  onClose={() => setVisualPickerOpen(false)}
+                />
+              ) : null}
 
               {/* Element list */}
               <div className="flex flex-col gap-1">
@@ -533,6 +651,7 @@ export function SlideInspector({
                   </p>
                   <ElementEditor
                     element={selectedElement}
+                    visuals={visuals}
                     onUpdateElement={onUpdateElement}
                   />
                 </div>
@@ -644,16 +763,18 @@ function AddButton({
   icon,
   label,
   onClick,
+  ...rest
 }: {
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
-}) {
+} & Omit<React.ComponentPropsWithoutRef<"button">, "onClick" | "children">) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={`flex items-center gap-1 rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+      {...rest}
     >
       {icon}
       {label}
