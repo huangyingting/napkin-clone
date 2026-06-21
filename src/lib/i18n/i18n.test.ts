@@ -5,6 +5,7 @@ import {
   createTranslator,
   DEFAULT_LOCALE,
   getMessages,
+  isLanguageSwitcherEnabled,
   isSupportedLocale,
   normaliseLocale,
   SUPPORTED_LOCALES,
@@ -141,5 +142,48 @@ test("t() returns a non-empty string for every key in every locale", () => {
         `locale "${locale}" key "${key}" produced empty result`,
       );
     }
+  }
+});
+
+// ── isLanguageSwitcherEnabled ─────────────────────────────────────────────────
+
+test("isLanguageSwitcherEnabled returns false when env var is absent", () => {
+  const saved = process.env.I18N_SWITCHER_ENABLED;
+  delete process.env.I18N_SWITCHER_ENABLED;
+  try {
+    assert.equal(isLanguageSwitcherEnabled(), false);
+  } finally {
+    if (saved !== undefined) process.env.I18N_SWITCHER_ENABLED = saved;
+  }
+});
+
+test('isLanguageSwitcherEnabled returns true when env var is "true"', () => {
+  const saved = process.env.I18N_SWITCHER_ENABLED;
+  process.env.I18N_SWITCHER_ENABLED = "true";
+  try {
+    assert.equal(isLanguageSwitcherEnabled(), true);
+  } finally {
+    if (saved !== undefined) {
+      process.env.I18N_SWITCHER_ENABLED = saved;
+    } else {
+      delete process.env.I18N_SWITCHER_ENABLED;
+    }
+  }
+});
+
+test("isLanguageSwitcherEnabled returns false for truthy non-exact values", () => {
+  const saved = process.env.I18N_SWITCHER_ENABLED;
+  for (const val of ["1", "yes", "TRUE", "True", "on"]) {
+    process.env.I18N_SWITCHER_ENABLED = val;
+    assert.equal(
+      isLanguageSwitcherEnabled(),
+      false,
+      `expected false for I18N_SWITCHER_ENABLED="${val}"`,
+    );
+  }
+  if (saved !== undefined) {
+    process.env.I18N_SWITCHER_ENABLED = saved;
+  } else {
+    delete process.env.I18N_SWITCHER_ENABLED;
   }
 });
