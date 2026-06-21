@@ -66,17 +66,28 @@ import type { DocumentBlock } from "@/lib/visual/document-export";
 // Deck / Slide types
 // ---------------------------------------------------------------------------
 
+/**
+ * Canonical presentation theme names — mirrors the Visual theme palette names.
+ * Exported as a `const` array so it is the single source of truth for both the
+ * {@link DeckTheme} type and any code (validators, AI prompts) that needs to
+ * enumerate the allowed values at runtime.
+ */
+export const DECK_THEMES = [
+  "indigo",
+  "ocean",
+  "forest",
+  "sunset",
+  "grape",
+  "default",
+] as const;
+
 /** Presentation themes — mirrors the Visual theme palette names. */
-export type DeckTheme =
-  | "indigo"
-  | "ocean"
-  | "forest"
-  | "sunset"
-  | "grape"
-  | "default";
+export type DeckTheme = (typeof DECK_THEMES)[number];
 
 /**
- * Slide layout hint used by a future renderer.
+ * Canonical slide layout hints. Exported as a `const` array so it is the single
+ * source of truth for both the {@link SlideLayout} type and any code
+ * (validators, AI prompts) that needs to enumerate the allowed values.
  *
  * - `"title"` — large centred title, optional subtitle; no bullets.
  * - `"section"` — section divider (h1 mid-deck).
@@ -84,7 +95,16 @@ export type DeckTheme =
  * - `"media"` — visual occupies most of the slide; optional caption.
  * - `"blank"` — fallback for unusual combinations.
  */
-export type SlideLayout = "title" | "section" | "content" | "media" | "blank";
+export const SLIDE_LAYOUTS = [
+  "title",
+  "section",
+  "content",
+  "media",
+  "blank",
+] as const;
+
+/** Slide layout hint used by a future renderer. */
+export type SlideLayout = (typeof SLIDE_LAYOUTS)[number];
 
 // ---------------------------------------------------------------------------
 // Free-form slide elements (additive, backward compatible)
