@@ -17,6 +17,9 @@ model User {
   name              String?
   image             String?
   passwordHash      String?
+  // Email verification (#162): null until the user confirms ownership of their
+  // address via a verification link; stamped with the confirmation time.
+  emailVerified     DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   // Monetization: tier + credit balance
@@ -34,7 +37,27 @@ model User {
   brands          Brand[]           @relation("BrandOwner")
   subscription    Subscription?
   passwordResetTokens PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
   documentVersions    DocumentVersion[]
+}
+
+// A single-use, time-boxed credential for confirming a user owns their email
+// address (#162). Mirrors PasswordResetToken: only a HASH of the emailed token
+// is stored (`tokenHash`), never the raw token, so a database leak cannot be
+// replayed. A token is valid only while `usedAt` is null and `now < expiresAt`;
+// completing verification stamps `usedAt` (and the user's `emailVerified`) and
+// invalidates the user's other outstanding verification tokens.
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 // A single-use, time-boxed credential for the self-serve password reset flow
