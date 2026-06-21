@@ -7,7 +7,7 @@
  * testable under `node --test`.
  */
 
-import type { Deck, DeckTheme, Slide, SlideElement } from "./deck";
+import type { Deck, DeckTheme, ElementBox, Slide, SlideElement } from "./deck";
 import {
   makeElementId,
   materializeSlideElements,
@@ -361,6 +361,80 @@ export function updateElement(
       ),
     });
   });
+}
+
+/**
+ * Default offset (percent of slide) applied to a duplicated element so the copy
+ * is visibly nudged off its original and immediately grabbable.
+ */
+export const DUPLICATE_ELEMENT_OFFSET_PCT = 2;
+
+/** Result of {@link duplicateElement}: the next deck and the new copy's id. */
+export interface DuplicateElementResult {
+  /** The deck with the clone appended (or the original deck on a no-op). */
+  deck: Deck;
+  /**
+   * Id of the freshly created copy so the caller can select it, or `null` when
+   * the duplicate was a no-op (slide/element not found, or no `elements[]`).
+   */
+  newElementId: string | null;
+}
+
+/** Offsets a box by `delta` percent on both axes, clamped within the slide. */
+function offsetBox(box: ElementBox, delta: number): ElementBox {
+  return {
+    ...box,
+    x: Math.max(0, Math.min(100 - box.w, box.x + delta)),
+    y: Math.max(0, Math.min(100 - box.h, box.y + delta)),
+  };
+}
+
+/**
+ * Clones the element `elementId` on the slide at `index`, appending the copy
+ * with a fresh {@link makeElementId} id, a small {@link
+ * DUPLICATE_ELEMENT_OFFSET_PCT} offset, and the next z-index above all others so
+ * it sits on top. Pure and immutable: the original element and deck are left
+ * untouched. Returns the next deck plus the new copy's id so the caller can
+ * select it; a no-op (bad index, missing element, or a slide with no
+ * `elements[]`) returns the same deck and a `null` id.
+ *
+ * Like every element mutation this clears `elementsDerived` so the slide is
+ * treated as hand-edited.
+ */
+export function duplicateElement(
+  deck: Deck,
+  index: number,
+  elementId: string,
+): DuplicateElementResult {
+  if (index < 0 || index >= deck.slides.length) {
+    return { deck, newElementId: null };
+  }
+  const slide = deck.slides[index];
+  if (!slide.elements) {
+    return { deck, newElementId: null };
+  }
+  const original = slide.elements.find((element) => element.id === elementId);
+  if (!original) {
+    return { deck, newElementId: null };
+  }
+
+  const newElementId = makeElementId();
+  const copy: SlideElement = {
+    ...original,
+    id: newElementId,
+    zIndex: nextZIndex(slide.elements),
+    box: offsetBox(original.box, DUPLICATE_ELEMENT_OFFSET_PCT),
+  };
+
+  const nextSlide = markElementsEdited({
+    ...slide,
+    elements: [...slide.elements, copy],
+  });
+  const slides = deck.slides.map((current, i) =>
+    i === index ? nextSlide : current,
+  );
+
+  return { deck: { ...deck, slides }, newElementId };
 }
 
 /** Removes an element from a slide by id. */
