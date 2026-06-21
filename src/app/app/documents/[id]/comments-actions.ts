@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 
 import { canDeleteComment, canEditComment } from "./comment-permissions";
+import { unreadCommentCount } from "./comment-unread";
 
 export type CommentAnchorType = "text" | "visual";
 
@@ -238,9 +239,54 @@ export async function deleteComment(
 }
 
 /**
- * Marks a top-level comment resolved/unresolved. Access is checked against the
- * comment's document so only members can resolve. Returns the refreshed list.
+ * Marks the document's comment thread as read for the current user, stamping
+ * `lastReadAt` to now. Called when the user opens the comments panel so the
+ * unread indicator clears. Requires view access; safe to call repeatedly.
  */
+export async function markCommentsRead(documentId: string): Promise<void> {
+  const user = await requireUser();
+
+  await requireDocumentCapability(user.id, documentId, "view");
+
+  const now = new Date();
+  await prisma.commentRead.upsert({
+    where: { userId_documentId: { userId: user.id, documentId } },
+    create: { userId: user.id, documentId, lastReadAt: now },
+    update: { lastReadAt: now },
+  });
+
+  revalidatePath(`/app/documents/${documentId}`);
+}
+
+/**
+ * Computes how many comments on a document are unread for the current user:
+ * comments created after the user's `lastReadAt` (all of them if the user has
+ * never opened the panel), excluding the user's own. Requires view access.
+ */
+export async function getUnreadCommentCount(
+  documentId: string,
+): Promise<number> {
+  const user = await requireUser();
+
+  await requireDocumentCapability(user.id, documentId, "view");
+
+  const [read, comments] = await Promise.all([
+    prisma.commentRead.findUnique({
+      where: { userId_documentId: { userId: user.id, documentId } },
+      select: { lastReadAt: true },
+    }),
+    prisma.comment.findMany({
+      where: { documentId },
+      select: { createdAt: true, authorId: true },
+    }),
+  ]);
+
+  return unreadCommentCount({
+    comments,
+    lastReadAt: read?.lastReadAt ?? null,
+    currentUserId: user.id,
+  });
+}
 export async function setCommentResolved(
   commentId: string,
   resolved: boolean,

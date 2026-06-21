@@ -8,6 +8,7 @@ import {
   deleteComment,
   editComment,
   listComments,
+  markCommentsRead,
   setCommentResolved,
   type CommentAnchorType,
   type CommentNode,
@@ -328,17 +329,20 @@ export function CommentsPanel({
   documentId,
   currentUserId,
   initialComments,
+  initialUnreadCount = 0,
   getTextSelection,
   anchorNode,
 }: {
   documentId: string;
   currentUserId: string;
   initialComments: CommentThread[];
+  initialUnreadCount?: number;
   getTextSelection: () => string | null;
   anchorNode: AnchorNode | null;
 }) {
   const [open, setOpen] = useState(false);
   const [threads, setThreads] = useState<CommentThread[]>(initialComments);
+  const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
   const [body, setBody] = useState("");
   const [anchor, setAnchor] = useState<DraftAnchor | null>(null);
   const [hint, setHint] = useState<string | null>(null);
@@ -369,6 +373,16 @@ export function CommentsPanel({
     }
     setOpen(true);
     refresh();
+    // Opening the panel means the user has seen the current comments: clear the
+    // unread indicator optimistically and persist the read marker server-side.
+    setUnreadCount(0);
+    startTransition(async () => {
+      try {
+        await markCommentsRead(documentId);
+      } catch {
+        // Non-fatal: the indicator still clears for this session.
+      }
+    });
   };
 
   const attachTextSelection = () => {
@@ -467,7 +481,9 @@ export function CommentsPanel({
       <button
         type="button"
         onClick={toggleOpen}
-        aria-label="Comments"
+        aria-label={
+          unreadCount > 0 ? `Comments, ${unreadCount} unread` : "Comments"
+        }
         aria-expanded={open}
         className="relative inline-flex items-center gap-1.5 rounded-full border border-ds-border-subtle px-4 py-2 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-state-hover hover:text-ds-text-primary"
       >
@@ -476,6 +492,12 @@ export function CommentsPanel({
           <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-ds-control px-1 text-[11px] font-semibold text-ds-control-text">
             {unresolvedCount}
           </span>
+        ) : null}
+        {unreadCount > 0 ? (
+          <span
+            aria-hidden="true"
+            className="absolute -right-0.5 -top-0.5 inline-flex h-2.5 w-2.5 rounded-full bg-ds-accent ring-2 ring-ds-surface-overlay"
+          />
         ) : null}
       </button>
 

@@ -39,6 +39,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
   documentVersions    DocumentVersion[]
+  commentReads        CommentRead[]
 }
 
 // A single-use, time-boxed credential for confirming a user owns their email
@@ -133,6 +134,7 @@ model Document {
   comments  Comment[]
   tags      Tag[]      @relation("DocumentTags")
   versions  DocumentVersion[]
+  commentReads CommentRead[]
 
   @@index([ownerId])
   @@index([workspaceId])
@@ -233,6 +235,25 @@ model Comment {
   @@index([documentId])
   @@index([authorId])
   @@index([parentId])
+}
+
+// Per-user read state for a document's comment thread (issue #160). One row per
+// (user, document): `lastReadAt` is stamped to now() whenever the user opens the
+// comments panel. The unread count for a user is the number of comments on the
+// document created after `lastReadAt` (or all of them when no row exists yet),
+// excluding the user's own comments. This powers the in-app unread indicator on
+// the comments entry point. Only members with view access read/write a row.
+model CommentRead {
+  id         String   @id @default(cuid())
+  userId     String
+  documentId String
+  lastReadAt DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, documentId])
+  @@index([documentId])
 }
 
 model InviteLink {

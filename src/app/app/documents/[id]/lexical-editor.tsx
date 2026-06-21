@@ -257,6 +257,7 @@ export function LexicalEditor({
   canManage = false,
   workspaceName,
   initialComments = [],
+  initialUnreadCommentCount = 0,
   initialIsShared = false,
   initialShareId = null,
   initialSlug = null,
@@ -276,6 +277,7 @@ export function LexicalEditor({
   canManage?: boolean;
   workspaceName?: string;
   initialComments?: CommentThread[];
+  initialUnreadCommentCount?: number;
   initialIsShared?: boolean;
   initialShareId?: string | null;
   initialSlug?: string | null;
@@ -564,6 +566,7 @@ export function LexicalEditor({
                         documentId={documentId}
                         currentUserId={currentUserId}
                         initialComments={initialComments}
+                        initialUnreadCount={initialUnreadCommentCount}
                         getTextSelection={getTextSelection}
                         anchorNode={anchorNode}
                       />
