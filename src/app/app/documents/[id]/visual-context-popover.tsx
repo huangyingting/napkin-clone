@@ -1909,7 +1909,10 @@ export function VisualContextPopover({
         <div
           role="toolbar"
           aria-label={componentContext ? "Element tools" : "Visual tools"}
-          className="flex items-center gap-0.5"
+          className={cx(
+            "flex items-center gap-0.5",
+            componentContext ? "w-max" : "",
+          )}
         >
           {visibleMenuItems.map((item) => {
             const Icon = item.icon;
