@@ -24,9 +24,11 @@ import { useCallback, useRef, useState } from "react";
 import { fetchDeckJson, saveDeckJson } from "@/app/app/documents/[id]/actions";
 import { SlideEditor } from "@/components/presentation/slide-editor";
 import { SlideEditorOpenDialog } from "@/components/editor/slide-editor-open-dialog";
+import { DeckGenerationPreview } from "@/components/presentation/deck-generation-preview";
 import type { ActionResult } from "@/lib/action-result";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { isAiDeckGenClientEnabled } from "@/lib/ai/ai-deck-gen-flag";
+import type { DeckGenerationOptions } from "@/lib/ai/use-deck-generation";
 import { buildDeckFromBlocks, type Deck } from "@/lib/presentation/deck";
 import { materializeDeck } from "@/lib/presentation/deck-mutations";
 import {
@@ -55,6 +57,22 @@ interface OpenContext {
   knownVisualIds: Set<string>;
 }
 
+/** State backing the AI deck preview/diff surface (issue #269). */
+interface AiPreviewState {
+  /** The AI-generated deck under review. */
+  proposedDeck: Deck;
+  /** The deck the editor would otherwise open — the diff baseline. */
+  baselineDeck: Deck;
+  /** Embedded visuals so the preview thumbnails render real content. */
+  visuals: ReadonlyMap<string, Visual>;
+  /** Whether the source outline was trimmed to fit the input budget. */
+  truncated: boolean;
+  /** Generation options, re-sent verbatim on Regenerate. */
+  options: DeckGenerationOptions;
+  /** The document snapshot, re-sent verbatim on Regenerate / used on apply. */
+  contentJson: string;
+}
+
 export function SlideEditorButton({
   documentId,
   initialDeckJson,
@@ -66,6 +84,11 @@ export function SlideEditorButton({
   // holds the document content captured at chooser-open time so the choice
   // (generate vs derive) operates on a consistent snapshot.
   const [pendingJson, setPendingJson] = useState<string | null>(null);
+  // The AI deck preview/diff (issue #269). Set after a successful generation so
+  // the user reviews the proposed deck (against the baseline the editor would
+  // otherwise open) BEFORE it opens — opening is non-destructive and only
+  // happens on "Apply". `null` whenever no proposal is under review.
+  const [aiPreview, setAiPreview] = useState<AiPreviewState | null>(null);
   const [deck, setDeck] = useState<Deck | null>(null);
   // The freshly-derived deck and its content hash, captured at open from the
   // live Lexical state. Drives the "Sync from document" merge and the
@@ -120,6 +143,7 @@ export function SlideEditorButton({
       setFreshDeck(stripOrphanedVisuals(ctx.baseDeck, ctx.knownVisualIds));
       setStale(isDeckStale(startDeck, ctx.currentContentHash));
       setPendingJson(null);
+      setAiPreview(null);
       setOpen(true);
       openSlideEditor();
     },
@@ -128,8 +152,12 @@ export function SlideEditorButton({
 
   // Deterministic open path (the default and the universal fallback). Seeds from
   // the freshest of server deckJson / last saved / freshly-derived base deck.
-  const openDerived = useCallback(
-    async (json: string) => {
+  // Prepare the deterministic baseline the editor would otherwise open: the
+  // freshest of server deckJson / last saved / freshly-derived base deck,
+  // materialized so it is element-first. Shared by the derive open path and the
+  // AI preview (which diffs the proposal against this baseline).
+  const prepareOpen = useCallback(
+    async (json: string): Promise<{ startDeck: Deck; ctx: OpenContext }> => {
       const ctx = buildOpenContext(json);
 
       // Fetch the freshest deckJson from the server; fall back gracefully.
@@ -149,16 +177,27 @@ export function SlideEditorButton({
           ctx.knownVisualIds,
         ),
       );
+      return { startDeck, ctx };
+    },
+    [buildOpenContext, documentId],
+  );
+
+  // Deterministic open path (the default and the universal fallback).
+  const openDerived = useCallback(
+    async (json: string) => {
+      const { startDeck, ctx } = await prepareOpen(json);
       finishOpen(startDeck, ctx);
     },
-    [buildOpenContext, finishOpen, documentId],
+    [prepareOpen, finishOpen],
   );
 
   // AI open path: a freshly generated deck (already normalized +
   // safeParseDeck-valid + elementsDerived=false) is stamped with the current
   // document hash so it isn't falsely flagged stale, then flowed through the
-  // SAME materialize + strip-orphans pipeline as a derived deck. The seam for
-  // issue #269 is here: a preview/diff can sit between generation and this call.
+  // SAME materialize + strip-orphans pipeline as a derived deck. This is the
+  // APPLY point of issue #269: it runs only after the user reviews the preview
+  // and presses "Apply", and remains non-destructive (the AI deck becomes the
+  // editor's history baseline; nothing is persisted until the first edit/save).
   const openWithAiDeck = useCallback(
     (aiDeck: Deck, json: string) => {
       const ctx = buildOpenContext(json);
@@ -166,9 +205,34 @@ export function SlideEditorButton({
       const startDeck = materializeDeck(
         stripOrphanedVisuals(stamped, ctx.knownVisualIds),
       );
+      setAiPreview(null);
       finishOpen(startDeck, ctx);
     },
     [buildOpenContext, finishOpen],
+  );
+
+  // A successful AI generation lands here (issue #269): instead of auto-opening
+  // the editor, compute the deterministic baseline and present the preview/diff.
+  // The user reviews, then Applies (→ openWithAiDeck) or falls back to derive.
+  const showAiPreview = useCallback(
+    async (
+      proposedDeck: Deck,
+      truncated: boolean,
+      options: DeckGenerationOptions,
+      json: string,
+    ) => {
+      const { startDeck, ctx } = await prepareOpen(json);
+      setPendingJson(null);
+      setAiPreview({
+        proposedDeck,
+        baselineDeck: startDeck,
+        visuals: ctx.visualMap,
+        truncated,
+        options,
+        contentJson: json,
+      });
+    },
+    [prepareOpen],
   );
 
   const handleOpen = useCallback(async () => {
@@ -187,6 +251,7 @@ export function SlideEditorButton({
     setFreshDeck(null);
     setStale(false);
     setPendingJson(null);
+    setAiPreview(null);
     closeSlideEditor();
   }, [closeSlideEditor]);
 
@@ -218,11 +283,29 @@ export function SlideEditorButton({
       {aiEnabled && pendingJson && !open ? (
         <SlideEditorOpenDialog
           contentJson={pendingJson}
-          onApply={(generated) => openWithAiDeck(generated, pendingJson)}
+          onApply={({ deck: generated, truncated, options }) => {
+            void showAiPreview(generated, truncated, options, pendingJson);
+          }}
           onDerive={() => {
             void openDerived(pendingJson);
           }}
           onClose={() => setPendingJson(null)}
+        />
+      ) : null}
+
+      {aiPreview && !open ? (
+        <DeckGenerationPreview
+          proposedDeck={aiPreview.proposedDeck}
+          baselineDeck={aiPreview.baselineDeck}
+          visuals={aiPreview.visuals}
+          truncated={aiPreview.truncated}
+          contentJson={aiPreview.contentJson}
+          options={aiPreview.options}
+          onApply={(applied) => openWithAiDeck(applied, aiPreview.contentJson)}
+          onDerive={() => {
+            void openDerived(aiPreview.contentJson);
+          }}
+          onCancel={() => setAiPreview(null)}
         />
       ) : null}
 

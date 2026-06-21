@@ -48,8 +48,17 @@ const FIELD_CLASS =
 export interface SlideEditorOpenDialogProps {
   /** Serialised Lexical document state captured when the chooser opened. */
   contentJson: string;
-  /** Hand a successfully generated deck to the parent (it owns how it opens). */
-  onApply: (deck: Deck) => void;
+  /**
+   * Hand a successfully generated deck to the parent (it owns how it opens —
+   * issue #269 routes this through a preview/diff before opening the editor).
+   * Includes the `truncated` flag and the `options` used so the preview can
+   * surface a truncation notice and re-invoke generation on Regenerate.
+   */
+  onApply: (result: {
+    deck: Deck;
+    truncated: boolean;
+    options: DeckGenerationOptions;
+  }) => void;
   /** Run the deterministic derive (default and fallback for every failure). */
   onDerive: () => void;
   /** Dismiss the chooser without opening anything. */
@@ -77,11 +86,18 @@ export function SlideEditorOpenDialog({
   };
 
   const handleGenerate = async () => {
-    const result = await generate(contentJson, { length, tone, audience });
-    // Transparent fallback: any failure (error/timeout/credit/flag-off/404)
-    // drops straight to the deterministic derive so the user is never blocked.
+    const opts: DeckGenerationOptions = { length, tone, audience };
+    const result = await generate(contentJson, opts);
+    // On success hand the proposal (plus truncation + options) to the parent,
+    // which presents the preview/diff (issue #269). Any failure
+    // (error/timeout/credit/flag-off/404) drops straight to the deterministic
+    // derive so the user is never blocked.
     if (result.ok) {
-      onApply(result.deck);
+      onApply({
+        deck: result.deck,
+        truncated: result.truncated,
+        options: opts,
+      });
     } else {
       onDerive();
     }
