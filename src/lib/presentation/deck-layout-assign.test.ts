@@ -1,0 +1,304 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  FALLBACK_THEME,
+  normalizeGeneratedDeck,
+} from "@/lib/presentation/deck-layout-assign";
+import { safeParseDeck } from "@/lib/presentation/deck-schema";
+import type { Deck, Slide, SlideElement } from "@/lib/presentation/deck";
+
+const KNOWN = new Set(["vis-1", "vis-2"]);
+
+function slide(overrides: Partial<Slide> = {}): Slide {
+  return {
+    index: 0,
+    title: "Slide",
+    bullets: [],
+    visualIds: [],
+    layout: "content",
+    notes: "",
+    theme: "indigo",
+    ...overrides,
+  };
+}
+
+function deck(slides: Slide[], theme = "indigo"): Deck {
+  const parsed = safeParseDeck({ theme, slides });
+  assert.ok(parsed.success, parsed.success ? "" : parsed.error);
+  return parsed.data;
+}
+
+function area(el: Extract<SlideElement, { box: unknown }>): number {
+  return el.box.w * el.box.h;
+}
+
+test("every slide gets template-conformant positioned elements", () => {
+  const input = deck([
+    slide({ index: 0, title: "Title", layout: "title" }),
+    slide({
+      index: 1,
+      title: "Content",
+      bullets: ["a", "b"],
+      layout: "content",
+    }),
+    slide({
+      index: 2,
+      title: "Visual",
+      visualIds: ["vis-1"],
+      layout: "media",
+    }),
+  ]);
+
+  const result = normalizeGeneratedDeck(input, KNOWN);
+
+  for (const s of result.slides) {
+    assert.ok(s.elements && s.elements.length > 0, "slide has elements");
+    for (const el of s.elements) {
+      assert.ok(el.id.length > 0, "element has id");
+      const { x, y, w, h } = el.box;
+      for (const v of [x, y, w, h]) {
+        assert.ok(v >= 0 && v <= 100, `coord ${v} in range`);
+      }
+      assert.equal(typeof el.zIndex, "number");
+    }
+    const ids = s.elements.map((e) => e.id);
+    assert.equal(new Set(ids).size, ids.length, "unique ids");
+  }
+
+  // Layout-appropriate kinds are present.
+  assert.ok(result.slides[0].elements?.some((e) => e.kind === "text"));
+  assert.ok(result.slides[1].elements?.some((e) => e.kind === "bullets"));
+  assert.ok(result.slides[2].elements?.some((e) => e.kind === "visual"));
+});
+
+test("a media slide places its chosen visual in a prominent box", () => {
+  const input = deck([
+    slide({ title: "Spotlight", visualIds: ["vis-1"], layout: "media" }),
+  ]);
+
+  const result = normalizeGeneratedDeck(input, KNOWN);
+  const visual = result.slides[0].elements?.find((e) => e.kind === "visual");
+  assert.ok(visual && visual.kind === "visual");
+  assert.equal(visual.visualId, "vis-1");
+  // Prominent: occupies a large share of the slide.
+  assert.ok(area(visual) >= 50 * 50, "visual box is prominent");
+});
+
+test("injects a prominent visual when a media slide's elements lack one", () => {
+  // Model-authored elements declare media layout but only carry a caption.
+  const input = deck([
+    slide({
+      title: "Spotlight",
+      visualIds: ["vis-2"],
+      layout: "media",
+      elements: [
+        {
+          id: "cap",
+          kind: "text",
+          role: "body",
+          text: "Caption",
+          zIndex: 0,
+          box: { x: 6, y: 82, w: 88, h: 12 },
+          style: { fontSize: 4.5, bold: false, italic: false, align: "center" },
+        },
+      ],
+    }),
+  ]);
+
+  const result = normalizeGeneratedDeck(input, KNOWN);
+  const visual = result.slides[0].elements?.find((e) => e.kind === "visual");
+  assert.ok(visual && visual.kind === "visual");
+  assert.equal(visual.visualId, "vis-2");
+  assert.ok(area(visual) >= 50 * 50);
+});
+
+test("re-scaffolds elements that do not match the declared layout", () => {
+  // A media slide whose only element is a stray bullets list gets re-scaffolded.
+  const input = deck([
+    slide({
+      title: "Mismatch",
+      bullets: ["x"],
+      visualIds: ["vis-1"],
+      layout: "media",
+      elements: [
+        {
+          id: "b",
+          kind: "bullets",
+          bullets: ["x"],
+          zIndex: 0,
+          box: { x: 6, y: 26, w: 88, h: 66 },
+          style: { fontSize: 4.5, bold: false, italic: false, align: "left" },
+        },
+      ],
+    }),
+  ]);
+
+  const result = normalizeGeneratedDeck(input, KNOWN);
+  assert.ok(result.slides[0].elements?.some((e) => e.kind === "visual"));
+});
+
+test("keeps and cleans model elements that match the layout", () => {
+  const input = deck([
+    slide({
+      title: "Authored",
+      layout: "content",
+      elements: [
+        {
+          id: "t",
+          kind: "text",
+          role: "title",
+          text: "My Title",
+          zIndex: 0,
+          box: { x: 6, y: 6, w: 88, h: 16 },
+          style: { fontSize: 6, bold: true, italic: false, align: "left" },
+        },
+        {
+          id: "b",
+          kind: "bullets",
+          bullets: ["one", "two"],
+          zIndex: 1,
+          box: { x: 6, y: 26, w: 88, h: 66 },
+          style: { fontSize: 4.5, bold: false, italic: false, align: "left" },
+        },
+      ],
+    }),
+  ]);
+
+  const result = normalizeGeneratedDeck(input, KNOWN);
+  const els = result.slides[0].elements ?? [];
+  const title = els.find((e) => e.kind === "text");
+  assert.ok(title && title.kind === "text" && title.text === "My Title");
+  assert.ok(els.some((e) => e.kind === "bullets"));
+});
+
+test("title text is forced bold for clear hierarchy", () => {
+  const input = deck([
+    slide({
+      title: "Hierarchy",
+      layout: "content",
+      elements: [
+        {
+          id: "t",
+          kind: "text",
+          role: "title",
+          text: "Heading",
+          zIndex: 0,
+          box: { x: 6, y: 6, w: 88, h: 16 },
+          style: { fontSize: 6, bold: false, italic: false, align: "left" },
+        },
+      ],
+    }),
+  ]);
+
+  const result = normalizeGeneratedDeck(input, KNOWN);
+  const title = result.slides[0].elements?.find((e) => e.kind === "text");
+  assert.ok(title && title.kind === "text" && title.style.bold === true);
+});
+
+test("stamps the deck theme uniformly across all slides", () => {
+  const input = deck(
+    [
+      slide({ index: 0, theme: "ocean", title: "A" }),
+      slide({ index: 1, theme: "ocean", title: "B", bullets: ["x"] }),
+    ],
+    "ocean",
+  );
+
+  const result = normalizeGeneratedDeck(input, KNOWN);
+  assert.equal(result.theme, "ocean");
+  for (const s of result.slides) {
+    assert.equal(s.theme, "ocean");
+  }
+});
+
+test("falls back to indigo when the deck theme is missing/invalid", () => {
+  // Construct a deck object with an invalid theme at runtime (bypasses parse).
+  const bad = {
+    theme: "neon" as unknown as Deck["theme"],
+    slides: [slide({ title: "A" })],
+  } as Deck;
+
+  const result = normalizeGeneratedDeck(bad, KNOWN);
+  assert.equal(result.theme, FALLBACK_THEME);
+  assert.equal(result.slides[0].theme, FALLBACK_THEME);
+});
+
+test("marks every slide elementsDerived=false (authored)", () => {
+  const input = deck([
+    slide({ title: "A", bullets: ["x"] }),
+    slide({ index: 1, title: "B", visualIds: ["vis-1"], layout: "media" }),
+  ]);
+
+  const result = normalizeGeneratedDeck(input, KNOWN);
+  for (const s of result.slides) {
+    assert.equal(s.elementsDerived, false);
+  }
+});
+
+test("drops visual references that are not in the inventory", () => {
+  const input = deck([
+    slide({
+      title: "Orphan",
+      visualIds: ["vis-1", "ghost"],
+      layout: "media",
+    }),
+  ]);
+
+  const result = normalizeGeneratedDeck(input, KNOWN);
+  assert.deepEqual(result.slides[0].visualIds, ["vis-1"]);
+  const visualIds = (result.slides[0].elements ?? [])
+    .filter((e) => e.kind === "visual")
+    .map((e) => (e.kind === "visual" ? e.visualId : ""));
+  assert.ok(!visualIds.includes("ghost"));
+});
+
+test("edge case: slide with no visual yields no visual element", () => {
+  const input = deck([
+    slide({ title: "Text only", bullets: ["a", "b"], layout: "content" }),
+  ]);
+
+  const result = normalizeGeneratedDeck(input, KNOWN);
+  assert.ok(!result.slides[0].elements?.some((e) => e.kind === "visual"));
+  assert.ok(result.slides[0].elements?.some((e) => e.kind === "bullets"));
+});
+
+test("edge case: slide with multiple visuals keeps every known visual", () => {
+  const input = deck([
+    slide({
+      title: "Gallery",
+      visualIds: ["vis-1", "vis-2"],
+      layout: "media",
+    }),
+  ]);
+
+  const result = normalizeGeneratedDeck(input, KNOWN);
+  const ids = (result.slides[0].elements ?? [])
+    .filter((e) => e.kind === "visual")
+    .map((e) => (e.kind === "visual" ? e.visualId : ""));
+  assert.deepEqual(new Set(ids), new Set(["vis-1", "vis-2"]));
+});
+
+test("output is safeParseDeck-valid", () => {
+  const input = deck([
+    slide({ index: 0, title: "T", layout: "title" }),
+    slide({ index: 1, title: "C", bullets: ["a"], layout: "content" }),
+    slide({ index: 2, title: "M", visualIds: ["vis-1"], layout: "media" }),
+    slide({ index: 3, title: "", layout: "blank" }),
+  ]);
+
+  const result = normalizeGeneratedDeck(input, KNOWN);
+  assert.ok(safeParseDeck(result).success);
+});
+
+test("works with an array inventory of { id } carriers", () => {
+  const input = deck([
+    slide({ title: "M", visualIds: ["vis-1"], layout: "media" }),
+  ]);
+
+  const inventory = [
+    { id: "vis-1", title: "Chart", type: "chart", summary: "" },
+  ];
+  const result = normalizeGeneratedDeck(input, inventory);
+  assert.ok(result.slides[0].elements?.some((e) => e.kind === "visual"));
+});

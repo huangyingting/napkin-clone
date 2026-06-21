@@ -15,6 +15,10 @@
  *   - REPAIR the model output (clamp boxes, fix layouts/themes/ids, cap slides)
  *     so it stays {@link safeParseDeck}-valid,
  *   - strip any visual the model invented that is not in the inventory,
+ *   - NORMALIZE the repaired deck (issue #264) via
+ *     {@link normalizeGeneratedDeck} as the final step so every slide snaps to a
+ *     template-conformant, theme-stamped, hierarchy-aware `elements[]` — the
+ *     route therefore always returns layout-normalized output,
  *   - retry once on garbled output and, when retries are exhausted, throw a
  *     {@link GenerationError} with a clear message.
  */
@@ -44,6 +48,7 @@ import {
   type SlideLayout,
   type TextElementStyle,
 } from "@/lib/presentation/deck";
+import { normalizeGeneratedDeck } from "@/lib/presentation/deck-layout-assign";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
 
@@ -315,7 +320,10 @@ export async function generateDeck(
       continue;
     }
 
-    return stripOrphanedVisuals(repaired, knownVisualIds);
+    return normalizeGeneratedDeck(
+      stripOrphanedVisuals(repaired, knownVisualIds),
+      knownVisualIds,
+    );
   }
 
   throw new GenerationError(
