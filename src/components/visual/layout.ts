@@ -140,6 +140,111 @@ function positionedBox(node: VisualNode): NodeBox {
   };
 }
 
+/** The four corner handles of a node box. */
+export type ResizeHandle = "nw" | "ne" | "se" | "sw";
+
+export interface ResizeNodeBoxArgs {
+  /** The node box (center `x`/`y` + `width`/`height`) at drag start. */
+  start: NodeBox;
+  /** Which corner is being dragged. */
+  handle: ResizeHandle;
+  /** Pointer delta from drag start, in canvas units. */
+  dx: number;
+  dy: number;
+  /** When true, preserve the start box's aspect ratio. */
+  lockAspect: boolean;
+  /** Minimum width / height in canvas units. */
+  min: { w: number; h: number };
+  /** Canvas bounds; the result is clamped inside `[0, width] × [0, height]`. */
+  bounds: { width: number; height: number };
+}
+
+/**
+ * Pure resize transform for a center-based {@link NodeBox}. Dragging a corner
+ * handle pins the OPPOSITE corner, recomputes `width`/`height` from the moved
+ * corner, and re-derives the center `x`/`y` so the pinned corner stays put.
+ *
+ * Rules (applied in order): optional aspect-ratio lock to the start box, a
+ * minimum-size floor (clamp, never reject/flip), then a canvas-bounds ceiling so
+ * the box never escapes `[0, bounds.width] × [0, bounds.height]`. DOM-free.
+ */
+export function resizeNodeBox({
+  start,
+  handle,
+  dx,
+  dy,
+  lockAspect,
+  min,
+  bounds,
+}: ResizeNodeBoxArgs): NodeBox {
+  const left = start.x - start.width / 2;
+  const right = start.x + start.width / 2;
+  const top = start.y - start.height / 2;
+  const bottom = start.y + start.height / 2;
+
+  // The moving corner sits on the left/top for these handles; the opposite
+  // (pinned) corner is therefore on the right/bottom.
+  const growLeft = handle === "nw" || handle === "sw";
+  const growUp = handle === "nw" || handle === "ne";
+  const anchorX = growLeft ? right : left;
+  const anchorY = growUp ? bottom : top;
+
+  // Signed dimensions from the pinned corner to the dragged (moved) corner.
+  let w = growLeft ? start.width - dx : start.width + dx;
+  let h = growUp ? start.height - dy : start.height + dy;
+
+  const aspect = start.width / start.height;
+
+  if (lockAspect && aspect > 0) {
+    // Honor whichever axis yields the larger box so the corner tracks naturally.
+    const hFromW = w / aspect;
+    if (hFromW >= h) {
+      h = hFromW;
+    } else {
+      w = h * aspect;
+    }
+  }
+
+  // Minimum-size floor.
+  if (lockAspect && aspect > 0) {
+    if (w < min.w) {
+      w = min.w;
+      h = w / aspect;
+    }
+    if (h < min.h) {
+      h = min.h;
+      w = h * aspect;
+    }
+  } else {
+    w = Math.max(w, min.w);
+    h = Math.max(h, min.h);
+  }
+
+  // Canvas-bounds ceiling: available room from the pinned corner outward.
+  const maxW = growLeft ? anchorX : bounds.width - anchorX;
+  const maxH = growUp ? anchorY : bounds.height - anchorY;
+  if (lockAspect && aspect > 0) {
+    let scale = 1;
+    if (w > maxW && maxW > 0) scale = Math.min(scale, maxW / w);
+    if (h > maxH && maxH > 0) scale = Math.min(scale, maxH / h);
+    w *= scale;
+    h *= scale;
+  } else {
+    if (maxW > 0) w = Math.min(w, maxW);
+    if (maxH > 0) h = Math.min(h, maxH);
+  }
+
+  // Re-derive the center so the pinned corner stays fixed.
+  const newLeft = growLeft ? anchorX - w : anchorX;
+  const newTop = growUp ? anchorY - h : anchorY;
+  return {
+    x: newLeft + w / 2,
+    y: newTop + h / 2,
+    width: w,
+    height: h,
+  };
+}
+
 export interface ChartBar {
   node: VisualNode;
   value: number;

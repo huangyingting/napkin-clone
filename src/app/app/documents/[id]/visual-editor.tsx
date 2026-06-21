@@ -9,13 +9,21 @@ import {
   edgeSegments,
   isPositionedKind,
   nodeBoxes,
+  resizeNodeBox,
   type EdgeSegment,
   type NodeBox,
+  type ResizeHandle,
 } from "@/components/visual/layout";
+import { useIsPointerFine } from "@/lib/pointer";
 import type { Visual, VisualEdge, VisualNode } from "@/lib/visual/schema";
 
 /** Pointer travel (px) under which a press counts as a click, not a drag. */
 const CLICK_THRESHOLD = 4;
+/** Minimum node box size (canvas units) enforced while resizing. */
+const MIN_NODE_WIDTH = 40;
+const MIN_NODE_HEIGHT = 24;
+/** The four corner handles, in render order (NW, NE, SE, SW). */
+const RESIZE_HANDLES: readonly ResizeHandle[] = ["nw", "ne", "se", "sw"];
 const INPUT_HEIGHT = 34;
 /** Edge toolbar (inline label input + flip / arrowhead / curve controls) size. */
 const EDGE_TOOLBAR_WIDTH = 268;
@@ -46,6 +54,24 @@ function setNodePosition(
     ...visual,
     nodes: visual.nodes.map((node) =>
       node.id === id ? { ...node, x, y } : node,
+    ),
+  };
+}
+
+/** Commits a resized node's center and dimensions (mirrors setNodePosition). */
+function setNodeSize(visual: Visual, id: string, box: NodeBox): Visual {
+  return {
+    ...visual,
+    nodes: visual.nodes.map((node) =>
+      node.id === id
+        ? {
+            ...node,
+            x: box.x,
+            y: box.y,
+            width: box.width,
+            height: box.height,
+          }
+        : node,
     ),
   };
 }
@@ -110,6 +136,15 @@ interface DragState {
   moved: boolean;
 }
 
+/** Active corner-resize gesture state (canvas-unit math via resizeNodeBox). */
+interface ResizeState {
+  id: string;
+  handle: ResizeHandle;
+  startClientX: number;
+  startClientY: number;
+  startBox: NodeBox;
+}
+
 /**
  * Interactive editing layer for a {@link Visual}. It renders the canonical
  * {@link VisualRenderer} as the visible base (so it always reflects the current
@@ -141,6 +176,7 @@ export function VisualEditor({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const edgeInputRef = useRef<HTMLInputElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
+  const resizeRef = useRef<ResizeState | null>(null);
   // Tracks the last click-release for manual double-click detection (native
   // dblclick is unreliable here because the node uses pointer capture).
   const lastClickRef = useRef<{ id: string; time: number } | null>(null);
@@ -158,6 +194,7 @@ export function VisualEditor({
   const [hoverEdgeId, setHoverEdgeId] = useState<string | null>(null);
 
   const positioned = isPositionedKind(visual.type) && !visual.autoLayout;
+  const pointerFine = useIsPointerFine();
   const boxes = useMemo(() => nodeBoxes(visual), [visual]);
   // Keep the interactive overlay's coordinate system identical to the renderer
   // (which expands the viewBox to enclose any nodes overflowing the canvas).
@@ -275,8 +312,37 @@ export function VisualEditor({
 
   const endDrag = useCallback((event: React.PointerEvent) => {
     dragRef.current = null;
+    resizeRef.current = null;
     svgRef.current?.releasePointerCapture?.(event.pointerId);
   }, []);
+
+  // Begins a corner-resize gesture. Stops propagation so the underlying node
+  // hit-box never starts a drag-move from the same press.
+  const onHandlePointerDown = useCallback(
+    (event: React.PointerEvent, node: VisualNode, handle: ResizeHandle) => {
+      if (!canEdit || editingId || !positioned) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      const box = boxes.get(node.id);
+      if (!box) {
+        return;
+      }
+      setActiveId(node.id);
+      setSelectedId(node.id);
+      setSelectedEdgeId(null);
+      resizeRef.current = {
+        id: node.id,
+        handle,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startBox: box,
+      };
+      svgRef.current?.setPointerCapture?.(event.pointerId);
+    },
+    [boxes, canEdit, editingId, positioned],
+  );
 
   const onNodePointerDown = useCallback(
     (event: React.PointerEvent, node: VisualNode) => {
@@ -307,9 +373,34 @@ export function VisualEditor({
 
   const onPointerMove = useCallback(
     (event: React.PointerEvent) => {
-      const drag = dragRef.current;
       const svg = svgRef.current;
-      if (!drag || !svg) {
+      if (!svg) {
+        return;
+      }
+      const resize = resizeRef.current;
+      if (resize) {
+        const rect = svg.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) {
+          return;
+        }
+        const dx =
+          (event.clientX - resize.startClientX) * (visual.width / rect.width);
+        const dy =
+          (event.clientY - resize.startClientY) * (visual.height / rect.height);
+        const next = resizeNodeBox({
+          start: resize.startBox,
+          handle: resize.handle,
+          dx,
+          dy,
+          lockAspect: event.shiftKey,
+          min: { w: MIN_NODE_WIDTH, h: MIN_NODE_HEIGHT },
+          bounds: { width: visual.width, height: visual.height },
+        });
+        onChange(setNodeSize(visual, resize.id, next));
+        return;
+      }
+      const drag = dragRef.current;
+      if (!drag) {
         return;
       }
       const dxClient = event.clientX - drag.startClientX;
@@ -386,9 +477,52 @@ export function VisualEditor({
       ) {
         event.preventDefault();
         removeNode(node.id);
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        setActiveId((current) => (current === node.id ? null : current));
+        setSelectedId((current) => (current === node.id ? null : current));
+        (event.currentTarget as SVGElement).blur?.();
+      } else if (
+        positioned &&
+        canEdit &&
+        (event.key === "ArrowLeft" ||
+          event.key === "ArrowRight" ||
+          event.key === "ArrowUp" ||
+          event.key === "ArrowDown")
+      ) {
+        event.preventDefault();
+        const box = boxes.get(node.id);
+        if (!box) {
+          return;
+        }
+        const step = event.shiftKey ? 10 : 1;
+        const dx =
+          event.key === "ArrowLeft"
+            ? -step
+            : event.key === "ArrowRight"
+              ? step
+              : 0;
+        const dy =
+          event.key === "ArrowUp"
+            ? -step
+            : event.key === "ArrowDown"
+              ? step
+              : 0;
+        const nextX = clamp(box.x + dx, 0, visual.width);
+        const nextY = clamp(box.y + dy, 0, visual.height);
+        onChange(setNodePosition(visual, node.id, nextX, nextY));
       }
     },
-    [beginEdit, canDelete, removeNode],
+    [
+      beginEdit,
+      boxes,
+      canDelete,
+      canEdit,
+      onChange,
+      positioned,
+      removeNode,
+      visual,
+    ],
   );
 
   const onEdgeInputKeyDown = useCallback(
@@ -485,6 +619,59 @@ export function VisualEditor({
           strokeWidth={1.8}
           strokeLinecap="round"
         />
+      </g>
+    );
+  }
+
+  /**
+   * The four corner resize handles for the selected positioned node. Only
+   * rendered on fine pointers (mouse/trackpad); hidden on touch so drag-move
+   * stays the sole gesture. Each handle pins the opposite corner via
+   * {@link resizeNodeBox}; hold Shift while dragging to lock the aspect ratio.
+   */
+  function renderResizeHandles(node: VisualNode, box: NodeBox) {
+    const left = box.x - box.width / 2;
+    const right = box.x + box.width / 2;
+    const top = box.y - box.height / 2;
+    const bottom = box.y + box.height / 2;
+    const points: Record<ResizeHandle, { x: number; y: number }> = {
+      nw: { x: left, y: top },
+      ne: { x: right, y: top },
+      se: { x: right, y: bottom },
+      sw: { x: left, y: bottom },
+    };
+    const cursors: Record<ResizeHandle, string> = {
+      nw: "nwse-resize",
+      ne: "nesw-resize",
+      se: "nwse-resize",
+      sw: "nesw-resize",
+    };
+    const size = 9;
+    return (
+      <g>
+        {RESIZE_HANDLES.map((handle) => {
+          const p = points[handle];
+          return (
+            <rect
+              key={handle}
+              data-resize-handle={handle}
+              role="button"
+              aria-label={`Resize ${node.label || "node"} ${handle}`}
+              x={p.x - size / 2}
+              y={p.y - size / 2}
+              width={size}
+              height={size}
+              rx={2}
+              fill="#ffffff"
+              stroke="#6366f1"
+              strokeWidth={1.5}
+              style={{ cursor: cursors[handle] }}
+              onPointerDown={(event) =>
+                onHandlePointerDown(event, node, handle)
+              }
+            />
+          );
+        })}
       </g>
     );
   }
@@ -749,6 +936,21 @@ export function VisualEditor({
         })}
 
         {deletableId ? renderDeleteButton(deletableId) : null}
+
+        {/* Corner resize handles for the selected positioned node (mouse only;
+            hidden on coarse/touch pointers where drag-move stays the gesture). */}
+        {positioned &&
+        pointerFine &&
+        canEdit &&
+        selectedId &&
+        !editingId &&
+        nodeById.get(selectedId) &&
+        boxes.get(selectedId)
+          ? renderResizeHandles(
+              nodeById.get(selectedId)!,
+              boxes.get(selectedId)!,
+            )
+          : null}
 
         {editingNode && boxes.get(editingNode.id)
           ? renderEditingInput(editingNode, boxes.get(editingNode.id)!)
