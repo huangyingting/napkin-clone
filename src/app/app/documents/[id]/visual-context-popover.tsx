@@ -13,7 +13,6 @@ import {
   Trash2,
   Type,
   Wand2,
-  X,
 } from "lucide-react";
 import {
   useCallback,
@@ -22,6 +21,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from "react";
 
@@ -104,6 +104,7 @@ import { IconPicker } from "./icon-picker";
 const POPOVER_GAP = 8;
 const EDGE_INSET = 8;
 const POPOVER_WIDTH = 400;
+const COMPONENT_POPOVER_WIDTH = 260;
 
 const FONT_SIZE_MIN = 10;
 const FONT_SIZE_MAX = 28;
@@ -251,18 +252,20 @@ const MENU_ITEMS: MenuItemConfig[] = [
   { id: "info", label: "Info", icon: Info, description: "Visual metadata" },
 ];
 
-const SECTION_LABELS: Record<MenuSection, string> = {
-  export: "Export Visual",
-  effects: "Effects",
-  colors: "Colors",
-  fonts: "Fonts",
-  size: "Size",
-  layout: "Swap Layout",
-  branding: "Swap Branding",
-  sync: "Sync with Text",
-  info: "Info",
-  variations: "AI Variations",
-};
+const COMPONENT_MENU_ITEMS: MenuItemConfig[] = [
+  {
+    id: "colors",
+    label: "Colors",
+    icon: Palette,
+    description: "Fill, stroke, text",
+  },
+  {
+    id: "fonts",
+    label: "Font",
+    icon: Type,
+    description: "Family override",
+  },
+];
 
 // ---------------------------------------------------------------------------
 // Utility helpers
@@ -295,6 +298,19 @@ function visualPromptText(visual: Visual): string {
   return parts.join("\n");
 }
 
+function findVisualNodeElement(
+  root: HTMLElement,
+  nodeId: string | null,
+): Element | null {
+  if (!nodeId) return null;
+  for (const element of root.querySelectorAll("[data-node-id]")) {
+    if (element.getAttribute("data-node-id") === nodeId) {
+      return element;
+    }
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Shared small UI atoms
 // ---------------------------------------------------------------------------
@@ -321,6 +337,30 @@ function ColorField({
     <div className="flex items-center justify-between gap-2 text-xs text-[var(--ds-text-primary,#18181b)]">
       <span className="text-[var(--ds-text-muted,#6f7d83)]">{label}</span>
       <ColorPicker color={color} aria-label={label} onChange={onChange} />
+    </div>
+  );
+}
+
+function CompactColorField({
+  label,
+  color,
+  onChange,
+}: {
+  label: string;
+  color: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col items-center gap-1">
+      <ColorPicker
+        color={color}
+        aria-label={label}
+        onChange={onChange}
+        size="sm"
+      />
+      <span className="max-w-full truncate text-[10px] text-[var(--ds-text-muted,#6f7d83)]">
+        {label}
+      </span>
     </div>
   );
 }
@@ -682,11 +722,13 @@ function PopoverShell({
   mode,
   coords,
   onClose,
+  width,
   children,
 }: {
   mode: "float" | "panel";
   coords: { top: number; left: number };
   onClose: () => void;
+  width: CSSProperties["width"];
   children: ReactNode;
 }) {
   if (mode === "panel") return <>{children}</>;
@@ -701,7 +743,7 @@ function PopoverShell({
       closeOnEscape
       closeOnClickAway={false}
       onClose={onClose}
-      style={{ width: POPOVER_WIDTH }}
+      style={{ width }}
     >
       {children}
     </FloatingSurface>
@@ -797,6 +839,7 @@ export function VisualContextPopover({
         : null,
     [visual.nodes, selectedNodeId],
   );
+  const componentContext = selectedNode !== null;
 
   // Position above the visual card via the shared anchored-positioning helper
   // (auto-flip below when there isn't room above, cross-axis clamp to the
@@ -807,7 +850,10 @@ export function VisualContextPopover({
     const anchor = anchorRef.current;
     const el = measureRef.current;
     if (!anchor || !el) return;
-    const rect = anchor.getBoundingClientRect();
+    const componentAnchor = componentContext
+      ? findVisualNodeElement(anchor, selectedNodeId)
+      : null;
+    const rect = (componentAnchor ?? anchor).getBoundingClientRect();
     const width = el.offsetWidth;
     const height = el.offsetHeight;
     const { top, left } = computeAnchoredPosition({
@@ -828,7 +874,7 @@ export function VisualContextPopover({
     setCoords((prev) =>
       prev.top === top && prev.left === left ? prev : { top, left },
     );
-  }, [anchorRef, mode]);
+  }, [anchorRef, componentContext, mode, selectedNodeId]);
 
   useLayoutEffect(() => {
     if (mode !== "float") return;
@@ -839,16 +885,7 @@ export function VisualContextPopover({
       window.removeEventListener("resize", reposition);
       window.removeEventListener("scroll", reposition, true);
     };
-  }, [
-    mode,
-    reposition,
-    activeSection,
-    customizeOpen,
-    candidates.length,
-    genError,
-    syncError,
-    selectedNode,
-  ]);
+  }, [mode, reposition]);
 
   // Click-away: dismiss when a pointer-down lands outside any visual chrome.
   // Only active in float mode.
@@ -1025,6 +1062,164 @@ export function VisualContextPopover({
   }
 
   function renderColorsSection() {
+    if (selectedNode) {
+      return (
+        <div className="space-y-2 py-0.5">
+          <div className="flex items-center justify-between gap-2">
+            <SectionLabel>
+              {selectedNode.label?.trim() || "Selected element"}
+            </SectionLabel>
+            <button
+              type="button"
+              aria-label="Reset element style"
+              onClick={() => {
+                const r1 = resetNodeStyle(visual, selectedNode.id);
+                onChange(resetNodeExtStyle(r1, selectedNode.id));
+              }}
+              className={cx(
+                "rounded-md px-1 py-0.5 text-[11px] font-medium text-[var(--ds-text-muted,#6f7d83)] transition hover:text-[var(--ds-text-primary,#18181b)]",
+                FOCUS_RING,
+              )}
+            >
+              Reset
+            </button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 rounded-[var(--ds-radius-md,10px)] bg-[var(--ds-surface-raised,#f4f4f5)] px-2 py-1.5">
+            <CompactColorField
+              label="Fill"
+              color={selectedNode.color ?? style.nodeFill}
+              onChange={(v) =>
+                onChange(setNodeStyle(visual, selectedNode.id, "color", v))
+              }
+            />
+            <CompactColorField
+              label="Stroke"
+              color={selectedNode.stroke ?? style.nodeStroke}
+              onChange={(v) =>
+                onChange(setNodeStyle(visual, selectedNode.id, "stroke", v))
+              }
+            />
+            <CompactColorField
+              label="Text"
+              color={selectedNode.textColor ?? style.nodeText}
+              onChange={(v) =>
+                onChange(setNodeStyle(visual, selectedNode.id, "textColor", v))
+              }
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="shrink-0 text-[var(--ds-text-muted,#6f7d83)]">
+              Fill
+            </span>
+            <SegmentedControl<FillStyle>
+              aria-label="Fill style"
+              size="sm"
+              options={FILL_STYLE_OPTIONS}
+              value={selectedNode.fillStyle ?? "solid"}
+              onChange={(v) =>
+                onChange(setNodeFillStyle(visual, selectedNode.id, v))
+              }
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="shrink-0 text-[var(--ds-text-muted,#6f7d83)]">
+              Border
+            </span>
+            <SegmentedControl<LineStyle>
+              aria-label="Border style"
+              size="sm"
+              options={BORDER_STYLE_OPTIONS}
+              value={selectedNode.borderStyle ?? "solid"}
+              onChange={(v) =>
+                onChange(setNodeBorderStyle(visual, selectedNode.id, v))
+              }
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="text-[var(--ds-text-muted,#6f7d83)]">Width</span>
+            <div className="flex items-center gap-1">
+              <IconButton
+                aria-label="Decrease border width"
+                size="sm"
+                variant="subtle"
+                disabled={(selectedNode.borderWidth ?? 1.5) <= 0.5}
+                onClick={() =>
+                  onChange(
+                    setNodeBorderWidth(
+                      visual,
+                      selectedNode.id,
+                      Math.max(
+                        0.5,
+                        Math.round(
+                          ((selectedNode.borderWidth ?? 1.5) - 0.5) * 2,
+                        ) / 2,
+                      ),
+                    ),
+                  )
+                }
+              >
+                <span aria-hidden="true">−</span>
+              </IconButton>
+              <span className="w-10 text-center tabular-nums text-[var(--ds-text-muted,#6f7d83)]">
+                {(selectedNode.borderWidth ?? 1.5).toFixed(1)}px
+              </span>
+              <IconButton
+                aria-label="Increase border width"
+                size="sm"
+                variant="subtle"
+                disabled={(selectedNode.borderWidth ?? 1.5) >= 8}
+                onClick={() =>
+                  onChange(
+                    setNodeBorderWidth(
+                      visual,
+                      selectedNode.id,
+                      Math.min(
+                        8,
+                        Math.round(
+                          ((selectedNode.borderWidth ?? 1.5) + 0.5) * 2,
+                        ) / 2,
+                      ),
+                    ),
+                  )
+                }
+              >
+                <span aria-hidden="true">+</span>
+              </IconButton>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="shrink-0 text-[var(--ds-text-muted,#6f7d83)]">
+              Align
+            </span>
+            <SegmentedControl<TextAlign>
+              aria-label="Text alignment"
+              size="sm"
+              options={TEXT_ALIGN_OPTIONS}
+              value={selectedNode.textAlign ?? "center"}
+              onChange={(v) =>
+                onChange(setNodeTextAlign(visual, selectedNode.id, v))
+              }
+            />
+          </div>
+
+          <IconPicker
+            key={selectedNode.id}
+            nodeLabel={selectedNode.label}
+            value={selectedNode.icon}
+            onSelect={(name) =>
+              onChange(setNodeIcon(visual, selectedNode.id, name))
+            }
+            onRemove={() => onChange(clearNodeIcon(visual, selectedNode.id))}
+          />
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-3 py-1">
         {/* Theme grid — primary path */}
@@ -1127,169 +1322,38 @@ export function VisualContextPopover({
             </div>
           ) : null}
         </div>
-
-        {/* Per-element colors — only when a node is selected */}
-        {selectedNode ? (
-          <>
-            <Divider orientation="horizontal" />
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <SectionLabel>
-                  {selectedNode.label?.trim() || "Selected element"}
-                </SectionLabel>
-                <button
-                  type="button"
-                  aria-label="Reset element style"
-                  onClick={() => {
-                    const r1 = resetNodeStyle(visual, selectedNode.id);
-                    onChange(resetNodeExtStyle(r1, selectedNode.id));
-                  }}
-                  className={cx(
-                    "rounded-md px-1 py-0.5 text-[11px] font-medium text-[var(--ds-text-muted,#6f7d83)] transition hover:text-[var(--ds-text-primary,#18181b)]",
-                    FOCUS_RING,
-                  )}
-                >
-                  Reset element
-                </button>
-              </div>
-              <ColorField
-                label="Element fill"
-                color={selectedNode.color ?? style.nodeFill}
-                onChange={(v) =>
-                  onChange(setNodeStyle(visual, selectedNode.id, "color", v))
-                }
-              />
-              <ColorField
-                label="Element stroke"
-                color={selectedNode.stroke ?? style.nodeStroke}
-                onChange={(v) =>
-                  onChange(setNodeStyle(visual, selectedNode.id, "stroke", v))
-                }
-              />
-              <ColorField
-                label="Element text"
-                color={selectedNode.textColor ?? style.nodeText}
-                onChange={(v) =>
-                  onChange(
-                    setNodeStyle(visual, selectedNode.id, "textColor", v),
-                  )
-                }
-              />
-              <div className="space-y-1">
-                <span className="text-[11px] text-[var(--ds-text-muted,#6f7d83)]">
-                  Fill style
-                </span>
-                <SegmentedControl<FillStyle>
-                  aria-label="Fill style"
-                  size="sm"
-                  options={FILL_STYLE_OPTIONS}
-                  value={selectedNode.fillStyle ?? "solid"}
-                  onChange={(v) =>
-                    onChange(setNodeFillStyle(visual, selectedNode.id, v))
-                  }
-                />
-              </div>
-              <div className="space-y-1">
-                <span className="text-[11px] text-[var(--ds-text-muted,#6f7d83)]">
-                  Border style
-                </span>
-                <SegmentedControl<LineStyle>
-                  aria-label="Border style"
-                  size="sm"
-                  options={BORDER_STYLE_OPTIONS}
-                  value={selectedNode.borderStyle ?? "solid"}
-                  onChange={(v) =>
-                    onChange(setNodeBorderStyle(visual, selectedNode.id, v))
-                  }
-                />
-              </div>
-              <div className="flex items-center justify-between gap-2 text-xs">
-                <span className="text-[var(--ds-text-muted,#6f7d83)]">
-                  Border width
-                </span>
-                <div className="flex items-center gap-1">
-                  <IconButton
-                    aria-label="Decrease border width"
-                    size="sm"
-                    variant="subtle"
-                    disabled={(selectedNode.borderWidth ?? 1.5) <= 0.5}
-                    onClick={() =>
-                      onChange(
-                        setNodeBorderWidth(
-                          visual,
-                          selectedNode.id,
-                          Math.max(
-                            0.5,
-                            Math.round(
-                              ((selectedNode.borderWidth ?? 1.5) - 0.5) * 2,
-                            ) / 2,
-                          ),
-                        ),
-                      )
-                    }
-                  >
-                    <span aria-hidden="true">−</span>
-                  </IconButton>
-                  <span className="w-10 text-center tabular-nums text-[var(--ds-text-muted,#6f7d83)]">
-                    {(selectedNode.borderWidth ?? 1.5).toFixed(1)}px
-                  </span>
-                  <IconButton
-                    aria-label="Increase border width"
-                    size="sm"
-                    variant="subtle"
-                    disabled={(selectedNode.borderWidth ?? 1.5) >= 8}
-                    onClick={() =>
-                      onChange(
-                        setNodeBorderWidth(
-                          visual,
-                          selectedNode.id,
-                          Math.min(
-                            8,
-                            Math.round(
-                              ((selectedNode.borderWidth ?? 1.5) + 0.5) * 2,
-                            ) / 2,
-                          ),
-                        ),
-                      )
-                    }
-                  >
-                    <span aria-hidden="true">+</span>
-                  </IconButton>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <span className="text-[11px] text-[var(--ds-text-muted,#6f7d83)]">
-                  Text align
-                </span>
-                <SegmentedControl<TextAlign>
-                  aria-label="Text alignment"
-                  size="sm"
-                  options={TEXT_ALIGN_OPTIONS}
-                  value={selectedNode.textAlign ?? "center"}
-                  onChange={(v) =>
-                    onChange(setNodeTextAlign(visual, selectedNode.id, v))
-                  }
-                />
-              </div>
-              <IconPicker
-                key={selectedNode.id}
-                nodeLabel={selectedNode.label}
-                value={selectedNode.icon}
-                onSelect={(name) =>
-                  onChange(setNodeIcon(visual, selectedNode.id, name))
-                }
-                onRemove={() =>
-                  onChange(clearNodeIcon(visual, selectedNode.id))
-                }
-              />
-            </div>
-          </>
-        ) : null}
       </div>
     );
   }
 
   function renderFontsSection() {
+    if (selectedNode) {
+      return (
+        <div className="space-y-2 py-1">
+          <SectionLabel>
+            {(selectedNode.label?.trim() || "Selected element") +
+              " — font family"}
+          </SectionLabel>
+          <select
+            aria-label="Element font family"
+            value={selectedNode.fontFamily ?? ""}
+            onChange={(e) =>
+              onChange(
+                setNodeFontFamily(visual, selectedNode.id, e.target.value),
+              )
+            }
+            className="w-full rounded-[var(--ds-radius-sm,8px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.1))] bg-[var(--ds-surface-base,#ffffff)] px-2 py-1.5 text-xs text-[var(--ds-text-primary,#18181b)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-focus-ring,#6366f1)] focus-visible:ring-offset-1"
+          >
+            {NODE_FONT_FAMILY_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-3 py-1">
         <div className="space-y-2">
@@ -1346,35 +1410,6 @@ export function VisualContextPopover({
             />
           </div>
         </div>
-
-        {/* Per-element font family — only when a node is selected */}
-        {selectedNode ? (
-          <>
-            <Divider orientation="horizontal" />
-            <div className="space-y-1">
-              <SectionLabel>
-                {(selectedNode.label?.trim() || "Selected element") +
-                  " — font family"}
-              </SectionLabel>
-              <select
-                aria-label="Element font family"
-                value={selectedNode.fontFamily ?? ""}
-                onChange={(e) =>
-                  onChange(
-                    setNodeFontFamily(visual, selectedNode.id, e.target.value),
-                  )
-                }
-                className="w-full rounded-[var(--ds-radius-sm,8px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.1))] bg-[var(--ds-surface-base,#ffffff)] px-2 py-1.5 text-xs text-[var(--ds-text-primary,#18181b)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-focus-ring,#6366f1)] focus-visible:ring-offset-1"
-              >
-                {NODE_FONT_FAMILY_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </>
-        ) : null}
       </div>
     );
   }
@@ -1828,22 +1863,40 @@ export function VisualContextPopover({
   // Render
   // ---------------------------------------------------------------------------
 
+  const visibleMenuItems = componentContext ? COMPONENT_MENU_ITEMS : MENU_ITEMS;
+  const effectiveActiveSection: MenuSection | null =
+    componentContext && activeSection !== "colors" && activeSection !== "fonts"
+      ? null
+      : activeSection;
+  const popoverWidth = componentContext
+    ? effectiveActiveSection
+      ? COMPONENT_POPOVER_WIDTH
+      : "max-content"
+    : POPOVER_WIDTH;
+  const contentClassName =
+    mode === "panel"
+      ? "overflow-y-auto p-3"
+      : componentContext && effectiveActiveSection === null
+        ? "p-1"
+        : "p-2";
+
   return (
-    <PopoverShell mode={mode} coords={coords} onClose={onClose}>
-      <div
-        ref={measureRef}
-        data-visual-chrome
-        className={mode === "panel" ? "overflow-y-auto p-3" : "p-2"}
-      >
+    <PopoverShell
+      mode={mode}
+      coords={coords}
+      onClose={onClose}
+      width={popoverWidth}
+    >
+      <div ref={measureRef} data-visual-chrome className={contentClassName}>
         {/* ── One-line toolbox: every tool as an icon; clicking loads its config below ── */}
         <div
           role="toolbar"
-          aria-label="Visual tools"
+          aria-label={componentContext ? "Element tools" : "Visual tools"}
           className="flex items-center gap-0.5"
         >
-          {MENU_ITEMS.map((item) => {
+          {visibleMenuItems.map((item) => {
             const Icon = item.icon;
-            const active = activeSection === item.id;
+            const active = effectiveActiveSection === item.id;
             return (
               <Tooltip key={item.id} label={item.label}>
                 <span className="relative inline-flex">
@@ -1865,79 +1918,78 @@ export function VisualContextPopover({
               </Tooltip>
             );
           })}
-          <Tooltip label="AI Variations">
-            <IconButton
-              aria-label="Generate AI variations"
-              size="sm"
-              active={activeSection === "variations"}
-              onClick={() => void runGenerate()}
-              disabled={genStatus === "loading"}
-            >
-              <Sparkles
+
+          {componentContext ? null : (
+            <>
+              <Tooltip label="AI Variations">
+                <IconButton
+                  aria-label="Generate AI variations"
+                  size="sm"
+                  active={effectiveActiveSection === "variations"}
+                  onClick={() => void runGenerate()}
+                  disabled={genStatus === "loading"}
+                >
+                  <Sparkles
+                    aria-hidden="true"
+                    className={cx(
+                      "h-4 w-4",
+                      genStatus === "loading" ? "animate-pulse" : "",
+                    )}
+                  />
+                </IconButton>
+              </Tooltip>
+
+              <span
+                className="mx-0.5 h-5 w-px shrink-0 bg-[var(--ds-border-subtle,rgba(0,0,0,0.1))]"
                 aria-hidden="true"
-                className={cx(
-                  "h-4 w-4",
-                  genStatus === "loading" ? "animate-pulse" : "",
-                )}
               />
-            </IconButton>
-          </Tooltip>
 
-          <span
-            className="mx-0.5 h-5 w-px shrink-0 bg-[var(--ds-border-subtle,rgba(0,0,0,0.1))]"
-            aria-hidden="true"
-          />
-
-          {onDuplicate ? (
-            <Tooltip label="Duplicate visual">
-              <IconButton
-                aria-label="Duplicate visual"
-                size="sm"
-                onClick={onDuplicate}
-              >
-                <Copy aria-hidden="true" className="h-4 w-4" />
-              </IconButton>
-            </Tooltip>
-          ) : null}
-          <Tooltip label="Remove visual">
-            <IconButton
-              aria-label="Remove visual"
-              size="sm"
-              variant="danger"
-              onClick={onRemove}
-            >
-              <Trash2 aria-hidden="true" className="h-4 w-4" />
-            </IconButton>
-          </Tooltip>
+              {onDuplicate ? (
+                <Tooltip label="Duplicate visual">
+                  <IconButton
+                    aria-label="Duplicate visual"
+                    size="sm"
+                    onClick={onDuplicate}
+                  >
+                    <Copy aria-hidden="true" className="h-4 w-4" />
+                  </IconButton>
+                </Tooltip>
+              ) : null}
+              <Tooltip label="Remove visual">
+                <IconButton
+                  aria-label="Remove visual"
+                  size="sm"
+                  variant="danger"
+                  onClick={onRemove}
+                >
+                  <Trash2 aria-hidden="true" className="h-4 w-4" />
+                </IconButton>
+              </Tooltip>
+            </>
+          )}
         </div>
 
         {/* ── Config: dynamically loaded below the toolbar ── */}
-        {activeSection !== null ? (
-          <div className="mt-2 max-h-[26rem] overflow-y-auto">
+        {effectiveActiveSection !== null ? (
+          <div
+            className={cx(
+              "overflow-y-auto",
+              componentContext ? "mt-1.5 max-h-[22rem]" : "mt-2 max-h-[26rem]",
+            )}
+          >
             <Divider orientation="horizontal" />
-            <div className="mt-2 flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold text-[var(--ds-text-primary,#15171a)]">
-                {SECTION_LABELS[activeSection]}
-              </span>
-              <IconButton
-                aria-label="Close section"
-                size="sm"
-                onClick={() => setActiveSection(null)}
-              >
-                <X aria-hidden="true" className="h-3.5 w-3.5" />
-              </IconButton>
-            </div>
-            <div className="mt-3">
-              {activeSection === "export" && renderExportSection()}
-              {activeSection === "effects" && renderEffectsSection()}
-              {activeSection === "colors" && renderColorsSection()}
-              {activeSection === "fonts" && renderFontsSection()}
-              {activeSection === "size" && renderSizeSection()}
-              {activeSection === "layout" && renderLayoutSection()}
-              {activeSection === "branding" && renderBrandingSection()}
-              {activeSection === "sync" && renderSyncSection()}
-              {activeSection === "info" && renderInfoSection()}
-              {activeSection === "variations" && renderVariationsSection()}
+            <div className="mt-2">
+              {effectiveActiveSection === "export" && renderExportSection()}
+              {effectiveActiveSection === "effects" && renderEffectsSection()}
+              {effectiveActiveSection === "colors" && renderColorsSection()}
+              {effectiveActiveSection === "fonts" && renderFontsSection()}
+              {effectiveActiveSection === "size" && renderSizeSection()}
+              {effectiveActiveSection === "layout" && renderLayoutSection()}
+              {effectiveActiveSection === "branding" && renderBrandingSection()}
+              {effectiveActiveSection === "sync" && renderSyncSection()}
+              {effectiveActiveSection === "info" && renderInfoSection()}
+              {effectiveActiveSection === "variations" &&
+                renderVariationsSection()}
             </div>
           </div>
         ) : null}

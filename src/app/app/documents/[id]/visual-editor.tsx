@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowRight, FlipHorizontal2, Spline } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { VisualRenderer } from "@/components/visual/visual-renderer";
@@ -26,8 +27,8 @@ const MIN_NODE_HEIGHT = 24;
 const RESIZE_HANDLES: readonly ResizeHandle[] = ["nw", "ne", "se", "sw"];
 const INPUT_HEIGHT = 34;
 /** Edge toolbar (inline label input + flip / arrowhead / curve controls) size. */
-const EDGE_TOOLBAR_WIDTH = 268;
-const EDGE_TOOLBAR_HEIGHT = 40;
+const EDGE_TOOLBAR_WIDTH = 236;
+const EDGE_TOOLBAR_HEIGHT = 36;
 /** Stroke width of the invisible, clickable hit-area drawn over each edge. */
 const EDGE_HIT_WIDTH = 14;
 
@@ -803,6 +804,8 @@ export function VisualEditor({
         height={EDGE_TOOLBAR_HEIGHT}
       >
         <div
+          role="toolbar"
+          aria-label="Connector tools"
           className="flex h-full w-full items-center gap-1 rounded-lg border border-ds-border-subtle bg-ds-surface-overlay px-1.5 shadow-ds-raised"
           onPointerDown={(event) => event.stopPropagation()}
         >
@@ -815,7 +818,7 @@ export function VisualEditor({
               onChange(setEdgeLabel(visual, edge.id, event.target.value))
             }
             onKeyDown={onEdgeInputKeyDown}
-            className="h-7 min-w-0 flex-1 rounded-md border border-ds-border-strong bg-ds-surface-raised px-2 text-sm text-ds-text-primary outline-none"
+            className="h-6 min-w-0 flex-1 rounded-md border border-ds-border-strong bg-ds-surface-raised px-2 text-xs text-ds-text-primary outline-none focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-1"
           />
           <button
             type="button"
@@ -823,9 +826,9 @@ export function VisualEditor({
             title="Flip direction"
             onPointerDown={(event) => event.preventDefault()}
             onClick={() => onChange(flipEdge(visual, edge.id))}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-ds-border-subtle text-base text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-ds-border-subtle text-ds-text-secondary transition hover:bg-ds-state-hover hover:text-ds-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-1"
           >
-            ⇄
+            <FlipHorizontal2 aria-hidden="true" className="h-3.5 w-3.5" />
           </button>
           <button
             type="button"
@@ -834,13 +837,13 @@ export function VisualEditor({
             title={directedOn ? "Hide arrowhead" : "Show arrowhead"}
             onPointerDown={(event) => event.preventDefault()}
             onClick={() => onChange(toggleEdgeDirected(visual, edge.id))}
-            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-base hover:opacity-90 ${
+            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-1 ${
               directedOn
                 ? "border-ds-accent bg-ds-accent text-ds-accent-contrast"
                 : "border-ds-border-subtle text-ds-text-secondary"
             }`}
           >
-            →
+            <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
           </button>
           <button
             type="button"
@@ -851,13 +854,13 @@ export function VisualEditor({
             title={curvedOn ? "Straight line" : "Curved line"}
             onPointerDown={(event) => event.preventDefault()}
             onClick={() => onChange(toggleEdgeStyle(visual, edge.id))}
-            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-base hover:opacity-90 ${
+            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-1 ${
               curvedOn
                 ? "border-ds-accent bg-ds-accent text-ds-accent-contrast"
                 : "border-ds-border-subtle text-ds-text-secondary"
             }`}
           >
-            ⌒
+            <Spline aria-hidden="true" className="h-3.5 w-3.5" />
           </button>
         </div>
       </foreignObject>
