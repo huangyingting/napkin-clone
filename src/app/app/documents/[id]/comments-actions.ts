@@ -6,6 +6,8 @@ import { requireDocumentCapability } from "@/lib/auth/document-permissions";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 
+import { canDeleteComment, canEditComment } from "./comment-permissions";
+
 export type CommentAnchorType = "text" | "visual";
 
 export type CommentAuthor = {
@@ -165,6 +167,74 @@ export async function createComment(
 
   revalidatePath(`/app/documents/${documentId}`);
   return listComments(documentId);
+}
+
+/**
+ * Edits the body of a comment. Only the comment's author may edit; document
+ * view access is also required. Returns the refreshed thread list.
+ */
+export async function editComment(
+  commentId: string,
+  newBody: string,
+): Promise<CommentThread[]> {
+  const user = await requireUser();
+
+  const comment = await prisma.comment.findUnique({
+    where: { id: commentId },
+    select: { id: true, documentId: true, authorId: true },
+  });
+  if (!comment) {
+    throw new Error("Comment not found.");
+  }
+
+  await requireDocumentCapability(user.id, comment.documentId, "view");
+
+  if (!canEditComment(user.id, comment)) {
+    throw new Error("You can only edit your own comments.");
+  }
+
+  const body = newBody.trim().slice(0, MAX_BODY_LENGTH);
+  if (body.length === 0) {
+    throw new Error("Comment cannot be empty.");
+  }
+
+  await prisma.comment.update({
+    where: { id: commentId },
+    data: { body },
+  });
+
+  revalidatePath(`/app/documents/${comment.documentId}`);
+  return listComments(comment.documentId);
+}
+
+/**
+ * Deletes a comment (and its replies via cascade). Only the comment's author
+ * may delete; document view access is also required. Returns the refreshed
+ * thread list.
+ */
+export async function deleteComment(
+  commentId: string,
+): Promise<CommentThread[]> {
+  const user = await requireUser();
+
+  const comment = await prisma.comment.findUnique({
+    where: { id: commentId },
+    select: { id: true, documentId: true, authorId: true },
+  });
+  if (!comment) {
+    throw new Error("Comment not found.");
+  }
+
+  await requireDocumentCapability(user.id, comment.documentId, "view");
+
+  if (!canDeleteComment(user.id, comment)) {
+    throw new Error("You can only delete your own comments.");
+  }
+
+  await prisma.comment.delete({ where: { id: commentId } });
+
+  revalidatePath(`/app/documents/${comment.documentId}`);
+  return listComments(comment.documentId);
 }
 
 /**
