@@ -41,6 +41,7 @@ import {
   Type,
   Undo2,
   X,
+  Palette,
 } from "lucide-react";
 import {
   useCallback,
@@ -69,6 +70,7 @@ import {
 } from "@/components/presentation/slide-stage-editor";
 import { VisualPicker } from "@/components/presentation/visual-picker";
 import { IconButton, Tooltip } from "@/components/ui";
+import { Popover } from "@/components/ui/popover";
 import type { AlignMode } from "@/lib/presentation/element-align";
 import {
   buildVisualElement,
@@ -266,6 +268,8 @@ export function SlideEditor({
   const [visualPickerOpen, setVisualPickerOpen] = useState(false);
   // Whether the thumbnail rail "+ Add slide" template picker popover is open.
   const [addTemplateOpen, setAddTemplateOpen] = useState(false);
+  // Whether the collapsed theme-swatch popover is open (shown below `lg`).
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   // Pending sync from the live document: a computed merge awaiting the user's
   // confirmation. `null` when no merge dialog is open.
   const [mergePreview, setMergePreview] = useState<{
@@ -489,6 +493,35 @@ export function SlideEditor({
       onDeckChange(setDeckTheme(deck, theme));
     },
     [deck, onDeckChange],
+  );
+
+  // Shared renderer for a single theme swatch button, reused by the inline
+  // swatch row (lg+) and the collapsed theme popover (below lg) so the two
+  // presentations never drift. `onSelected` lets the popover close on pick.
+  const renderThemeSwatch = useCallback(
+    (option: (typeof THEME_OPTIONS)[number], onSelected?: () => void) => {
+      const active = deck.theme === option.value;
+      return (
+        <Tooltip key={option.value} label={option.label} side="bottom">
+          <button
+            type="button"
+            onClick={() => {
+              handleThemeChange(option.value);
+              onSelected?.();
+            }}
+            aria-label={`${option.label} theme`}
+            aria-pressed={active}
+            className={`h-6 w-6 rounded-full border transition-shadow ${
+              active
+                ? "ring-2 ring-ds-focus-ring ring-offset-1 ring-offset-ds-focus-offset"
+                : "border-ds-border-subtle"
+            } ${FOCUS_RING}`}
+            style={{ backgroundColor: option.color }}
+          />
+        </Tooltip>
+      );
+    },
+    [deck.theme, handleThemeChange],
   );
 
   const handleAddTemplate = useCallback(
@@ -1045,15 +1078,15 @@ export function SlideEditor({
             aria-hidden="true"
             className="shrink-0 text-ds-text-secondary"
           />
-          <h2 className="text-sm font-semibold text-ds-text-primary">
+          <h2 className="truncate text-sm font-semibold text-ds-text-primary">
             Slide editor
           </h2>
-          <span className="text-xs text-ds-text-muted">
+          <span className="shrink-0 text-xs text-ds-text-muted">
             {deck.slides.length} {deck.slides.length === 1 ? "slide" : "slides"}
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-3">
           {/* Undo / redo deck history */}
           <div
             role="group"
@@ -1089,27 +1122,38 @@ export function SlideEditor({
             aria-hidden="true"
           />
 
-          {/* Theme swatches */}
-          <div className="hidden items-center gap-1.5 sm:flex">
-            {THEME_OPTIONS.map((option) => {
-              const active = deck.theme === option.value;
-              return (
-                <Tooltip key={option.value} label={option.label} side="bottom">
-                  <button
-                    type="button"
-                    onClick={() => handleThemeChange(option.value)}
-                    aria-label={`${option.label} theme`}
-                    aria-pressed={active}
-                    className={`h-6 w-6 rounded-full border transition-shadow ${
-                      active
-                        ? "ring-2 ring-ds-focus-ring ring-offset-1 ring-offset-ds-focus-offset"
-                        : "border-ds-border-subtle"
-                    } ${FOCUS_RING}`}
-                    style={{ backgroundColor: option.color }}
-                  />
+          {/* Theme swatches: inline row at lg+, collapsed into a popover below */}
+          <div className="hidden items-center gap-1.5 lg:flex">
+            {THEME_OPTIONS.map((option) => renderThemeSwatch(option))}
+          </div>
+
+          <div className="hidden sm:block lg:hidden">
+            <Popover
+              open={themeMenuOpen}
+              onClose={() => setThemeMenuOpen(false)}
+              aria-label="Choose a theme"
+              className="w-auto p-3"
+              trigger={
+                <Tooltip label="Theme" side="bottom">
+                  <IconButton
+                    aria-label="Choose a theme"
+                    aria-haspopup="dialog"
+                    aria-expanded={themeMenuOpen}
+                    size="sm"
+                    variant="plain"
+                    onClick={() => setThemeMenuOpen((open) => !open)}
+                  >
+                    <Palette aria-hidden className="h-3.5 w-3.5" />
+                  </IconButton>
                 </Tooltip>
-              );
-            })}
+              }
+            >
+              <div className="flex items-center gap-1.5">
+                {THEME_OPTIONS.map((option) =>
+                  renderThemeSwatch(option, () => setThemeMenuOpen(false)),
+                )}
+              </div>
+            </Popover>
           </div>
 
           <div
@@ -1156,7 +1200,7 @@ export function SlideEditor({
             type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className={`flex h-8 items-center rounded-ds-md bg-ds-control px-3 text-sm font-medium text-ds-control-text transition-colors hover:bg-ds-control-hover disabled:opacity-60 ${FOCUS_RING}`}
+            className={`flex h-8 shrink-0 items-center rounded-ds-md bg-ds-control px-3 text-sm font-medium text-ds-control-text transition-colors hover:bg-ds-control-hover disabled:opacity-60 ${FOCUS_RING}`}
           >
             {isSaving ? "Saving…" : "Save"}
           </button>
@@ -1164,7 +1208,7 @@ export function SlideEditor({
             type="button"
             onClick={handleRequestClose}
             aria-label="Close slide editor"
-            className={`flex h-8 w-8 items-center justify-center rounded-ds-md border border-ds-border-subtle text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-ds-md border border-ds-border-subtle text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
           >
             <X size={16} aria-hidden="true" />
           </button>
