@@ -63,32 +63,11 @@ type BlockInfo = {
   text: string;
 };
 
-function closestListItem(
-  target: HTMLElement,
-  listRoot: HTMLElement,
-): HTMLElement | null {
-  const listItem = target.closest("li");
-  return listItem instanceof HTMLElement && listRoot.contains(listItem)
-    ? listItem
-    : null;
-}
-
-function resolveAnchorRect(
-  blockElement: HTMLElement,
-  targetElement: HTMLElement,
-  blockType: string,
-): { top: number; height: number } {
+function resolveAnchorRect(blockElement: HTMLElement): {
+  top: number;
+  height: number;
+} {
   const blockRect = blockElement.getBoundingClientRect();
-  if (blockType === "list") {
-    const rowRect = (
-      closestListItem(targetElement, blockElement) ?? blockElement
-    ).getBoundingClientRect();
-    return {
-      top: rowRect.top,
-      height: rowRect.height,
-    };
-  }
-
   return {
     top: blockRect.top,
     height: blockRect.height,
@@ -348,7 +327,7 @@ export function BlockSparkPlugin() {
         if (text === "") {
           return null;
         }
-        return { key: top.getKey(), text, type: top.getType() };
+        return { key: top.getKey(), text };
       });
       if (info === null) {
         return null;
@@ -357,7 +336,7 @@ export function BlockSparkPlugin() {
       if (gutterLeft === null) {
         return null;
       }
-      const anchor = resolveAnchorRect(domEl, targetElement, info.type);
+      const anchor = resolveAnchorRect(domEl);
       return {
         key: info.key,
         text: info.text,
