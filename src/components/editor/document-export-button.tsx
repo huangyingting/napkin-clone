@@ -33,6 +33,7 @@ import { useUserEntitlements } from "@/lib/billing/use-user-entitlements";
 
 interface DocumentExportButtonProps {
   documentTitle: string;
+  iconOnly?: boolean;
 }
 
 type ExportStatus = "idle" | "exporting" | "error";
@@ -53,6 +54,7 @@ const WIDTH_PRESET_LIST = (
  */
 export function DocumentExportButton({
   documentTitle,
+  iconOnly = false,
 }: DocumentExportButtonProps) {
   const [editor] = useLexicalComposerContext();
   const registry = useVisualSvgRegistry();
@@ -208,9 +210,10 @@ export function DocumentExportButton({
         }}
         disabled={isExporting}
         aria-label="Export document"
+        title="Export"
         aria-haspopup="menu"
         aria-expanded={isOpen}
-        className={`flex h-9 items-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised px-3 text-sm font-medium text-ds-text-primary shadow-ds-raised transition-colors hover:bg-ds-state-hover active:bg-ds-state-active disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
+        className={`flex h-8 items-center justify-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised text-sm font-medium text-ds-text-primary shadow-ds-raised transition-colors hover:bg-ds-state-hover active:bg-ds-state-active disabled:cursor-not-allowed disabled:opacity-50 ${iconOnly ? "w-8 px-0" : "px-3"} ${FOCUS_RING}`}
       >
         {isExporting ? (
           <>
@@ -218,12 +221,12 @@ export function DocumentExportButton({
               aria-hidden="true"
               className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
             />
-            Exporting…
+            <span className={iconOnly ? "sr-only" : undefined}>Exporting…</span>
           </>
         ) : (
           <>
             <FileDown size={15} aria-hidden="true" />
-            Export
+            <span className={iconOnly ? "sr-only" : undefined}>Export</span>
           </>
         )}
       </button>

@@ -86,7 +86,7 @@ function ImportConfirmDialog({
  * import itself is tagged so autosave persists it — see
  * `useInsertImportedMarkdown`.
  */
-export function ImportPlugin() {
+export function ImportPlugin({ iconOnly = false }: { iconOnly?: boolean }) {
   const [editor] = useLexicalComposerContext();
   const insertMarkdown = useInsertImportedMarkdown();
   const [pendingMarkdown, setPendingMarkdown] = useState<string | null>(null);
@@ -125,7 +125,12 @@ export function ImportPlugin() {
 
   return (
     <>
-      <ImportButton onImport={handleImport} label="Import" compact />
+      <ImportButton
+        onImport={handleImport}
+        label="Import"
+        compact
+        iconOnly={iconOnly}
+      />
       {pendingMarkdown !== null && (
         <ImportConfirmDialog
           onCancel={cancelImport}

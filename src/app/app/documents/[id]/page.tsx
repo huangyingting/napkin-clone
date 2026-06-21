@@ -94,7 +94,7 @@ export default async function DocumentEditorPage({
   // How many of those comments the acting user hasn't seen yet (#160).
   const initialUnreadCommentCount = await getUnreadCommentCount(document.id);
 
-  // The acting user's tags, for the add-tag autocomplete suggestions.
+  // The acting user's tags, for the document metadata tag editor.
   const userTags = await prisma.tag.findMany({
     where: { ownerId: user.id },
     orderBy: { name: "asc" },

@@ -1,5 +1,6 @@
 "use client";
 
+import { Share2 } from "lucide-react";
 import { useState } from "react";
 
 import { Popover } from "@/components/ui/popover";
@@ -74,6 +75,7 @@ export function ShareButton({
   initialEmbedEnabled = true,
   initialPresentEnabled = true,
   documentTitle = "Untitled",
+  iconOnly = false,
 }: {
   id: string;
   initialIsShared: boolean;
@@ -83,6 +85,7 @@ export function ShareButton({
   initialEmbedEnabled?: boolean;
   initialPresentEnabled?: boolean;
   documentTitle?: string;
+  iconOnly?: boolean;
 }) {
   const [showMenu, setShowMenu] = useState(false);
   const [shareState, setShareState] = useState<ShareState>({
@@ -208,9 +211,15 @@ export function ShareButton({
         <button
           type="button"
           onClick={() => setShowMenu(!showMenu)}
-          className="rounded-full border border-ds-border-subtle px-4 py-2 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-state-hover hover:text-ds-text-primary"
+          title="Share"
+          aria-label="Share"
+          className={[
+            "inline-flex h-8 items-center justify-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised text-sm font-medium text-ds-text-primary shadow-ds-raised transition hover:bg-ds-state-hover active:bg-ds-state-active",
+            iconOnly ? "w-8 px-0" : "px-3",
+          ].join(" ")}
         >
-          Share
+          <Share2 aria-hidden="true" className="h-3.5 w-3.5" />
+          <span className={iconOnly ? "sr-only" : undefined}>Share</span>
         </button>
       }
     >

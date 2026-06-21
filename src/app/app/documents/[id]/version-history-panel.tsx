@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { History as HistoryIcon } from "lucide-react";
+import { useCallback, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 
 import {
@@ -32,9 +33,11 @@ function formatTime(iso: string): string {
 export function VersionHistoryPanel({
   documentId,
   canEdit,
+  iconOnly = false,
 }: {
   documentId: string;
   canEdit: boolean;
+  iconOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [versions, setVersions] = useState<DocumentVersionSummary[]>([]);
@@ -56,13 +59,10 @@ export function VersionHistoryPanel({
   }, [documentId]);
 
   const toggleOpen = useCallback(() => {
-    setOpen((prev) => !prev);
-  }, []);
-
-  useEffect(() => {
-    if (open && !loaded) {
+    if (!open && !loaded) {
       refresh();
     }
+    setOpen((prev) => !prev);
   }, [loaded, open, refresh]);
 
   const restore = useCallback((versionId: string) => {
@@ -90,10 +90,15 @@ export function VersionHistoryPanel({
         type="button"
         onClick={toggleOpen}
         aria-label="Version history"
+        title="Version history"
         aria-expanded={open}
-        className="relative inline-flex items-center gap-1.5 rounded-full border border-ds-border-subtle px-4 py-2 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-state-hover hover:text-ds-text-primary"
+        className={[
+          "relative inline-flex h-8 items-center justify-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised text-sm font-medium text-ds-text-primary shadow-ds-raised transition hover:bg-ds-state-hover active:bg-ds-state-active",
+          iconOnly ? "w-8 px-0" : "px-3",
+        ].join(" ")}
       >
-        History
+        <HistoryIcon aria-hidden="true" className="h-3.5 w-3.5" />
+        <span className={iconOnly ? "sr-only" : undefined}>History</span>
       </button>
 
       {open

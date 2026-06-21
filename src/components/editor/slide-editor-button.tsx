@@ -27,11 +27,13 @@ import { useRightSurface } from "@/app/app/documents/[id]/right-surface-context"
 interface SlideEditorButtonProps {
   documentId: string;
   initialDeckJson: unknown;
+  iconOnly?: boolean;
 }
 
 export function SlideEditorButton({
   documentId,
   initialDeckJson,
+  iconOnly = false,
 }: SlideEditorButtonProps) {
   const [editor] = useLexicalComposerContext();
   const [open, setOpen] = useState(false);
@@ -112,10 +114,10 @@ export function SlideEditorButton({
         onClick={handleOpen}
         aria-label="Open slide editor"
         title="Edit slides"
-        className={`flex h-9 items-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised px-3 text-sm font-medium text-ds-text-primary shadow-ds-raised transition-colors hover:bg-ds-state-hover active:bg-ds-state-active ${FOCUS_RING}`}
+        className={`flex h-8 items-center justify-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised text-sm font-medium text-ds-text-primary shadow-ds-raised transition-colors hover:bg-ds-state-hover active:bg-ds-state-active ${iconOnly ? "w-8 px-0" : "px-3"} ${FOCUS_RING}`}
       >
         <LayoutPanelLeft size={15} aria-hidden="true" />
-        Slides
+        <span className={iconOnly ? "sr-only" : undefined}>Slides</span>
       </button>
 
       {open && deck ? (

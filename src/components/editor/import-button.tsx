@@ -28,6 +28,7 @@ export function ImportButton({
   onImport,
   label = "Import document",
   compact = false,
+  iconOnly = false,
 }: {
   /** Called with the extracted Markdown text when parsing succeeds. */
   onImport: (markdown: string) => void;
@@ -35,6 +36,8 @@ export function ImportButton({
   label?: string;
   /** When true, renders a smaller inline button instead of the drop-zone card. */
   compact?: boolean;
+  /** When true with compact, renders only the icon while keeping the label accessible. */
+  iconOnly?: boolean;
 }) {
   const [state, setState] = useState<ImportState>({ status: "idle" });
   const [isDragging, setIsDragging] = useState(false);
@@ -146,11 +149,17 @@ export function ImportButton({
             type="button"
             disabled={isUploading}
             onClick={() => inputRef.current?.click()}
-            className="flex h-8 items-center gap-1.5 rounded-[var(--ds-radius-pill,9999px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.06))] bg-[var(--ds-surface-base,#fff)] px-3 text-xs font-medium text-[var(--ds-text-secondary,#52525b)] transition hover:bg-[var(--ds-surface-raised,#f4f4f5)] hover:text-[var(--ds-text-primary,#18181b)] disabled:cursor-not-allowed disabled:opacity-60"
+            title={label}
+            className={[
+              "flex h-8 items-center justify-center gap-1.5 rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.06))] bg-[var(--ds-surface-base,#fff)] text-xs font-medium text-[var(--ds-text-secondary,#52525b)] transition hover:bg-[var(--ds-surface-raised,#f4f4f5)] hover:text-[var(--ds-text-primary,#18181b)] disabled:cursor-not-allowed disabled:opacity-60",
+              iconOnly ? "w-8 px-0" : "px-3",
+            ].join(" ")}
             aria-label={label}
           >
             <Upload className="h-3.5 w-3.5" aria-hidden="true" />
-            {isUploading ? "Importing…" : label}
+            <span className={iconOnly ? "sr-only" : undefined}>
+              {isUploading ? "Importing…" : label}
+            </span>
           </button>
         )}
       </>

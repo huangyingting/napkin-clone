@@ -31,12 +31,12 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useLexicalCollaboration } from "@/lib/collab/use-lexical-collaboration";
-import { useDebouncedSave, useYText } from "@/lib/collab/use-collaboration";
+import { useYText } from "@/lib/collab/use-collaboration";
 import { readingTimeMinutes, wordCount } from "@/lib/document-stats";
 import { EditorContextProvider } from "@/lib/lexical/editor-context";
 import { shouldAutosaveUpdate } from "@/lib/lexical/import-persistence";
 
-import { saveDocumentLexical, saveDocumentTitle } from "./actions";
+import { saveDocumentLexical } from "./actions";
 import { BlockSparkPlugin } from "./block-spark";
 import type { CommentThread } from "./comments-actions";
 import { CommentsPanel, type AnchorNode } from "./comments-panel";
@@ -54,9 +54,9 @@ import { InsertVisualPlugin } from "./insert-visual-plugin";
 import { Presence } from "./presence";
 import { OverallAdjustmentsPanel } from "./overall-adjustments-panel";
 import { ShareButton } from "./share-button";
-import { UndoRedoControls } from "./undo-redo-controls";
 import { TagControl } from "./tag-control";
 import type { DocumentTag } from "./tags-actions";
+import { UndoRedoControls } from "./undo-redo-controls";
 import { VersionHistoryPanel } from "./version-history-panel";
 import { VisualAnchorProvider } from "./visual-anchor-context";
 import { VisualNode } from "./visual-node";
@@ -232,33 +232,103 @@ function DocumentStatsPlugin({ onText }: { onText: (text: string) => void }) {
   return null;
 }
 
-function DocumentAdjustmentsButton({ disabled }: { disabled: boolean }) {
+function ToolbarGroup({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label={label}
+      className="flex min-w-0 flex-wrap items-center gap-1"
+    >
+      {children}
+    </div>
+  );
+}
+
+function ToolbarDivider() {
+  return (
+    <div
+      aria-hidden="true"
+      className="hidden h-7 w-px shrink-0 bg-ds-border-subtle md:block"
+    />
+  );
+}
+
+function DocumentStyleButton({ disabled }: { disabled: boolean }) {
   const [open, setOpen] = useState(false);
 
   return (
     <Popover
       open={open}
       onClose={() => setOpen(false)}
-      aria-label="Document adjustments"
+      aria-label="Document style"
       className="w-80 overflow-hidden p-0"
       trigger={
         <button
           type="button"
-          title="Document adjustments"
-          aria-label="Document adjustments"
+          title="Document style"
+          aria-label="Document style"
           aria-expanded={open}
           aria-haspopup="dialog"
           disabled={disabled}
           onClick={() => setOpen((value) => !value)}
-          className="flex h-7 items-center gap-1.5 rounded-md border border-ds-border-subtle bg-ds-surface-raised px-2 text-xs font-medium text-ds-text-secondary transition hover:border-ds-border-strong hover:text-ds-text-primary disabled:pointer-events-none disabled:opacity-50"
+          className="flex h-8 items-center justify-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised px-3 text-sm font-medium text-ds-text-primary shadow-ds-raised transition hover:bg-ds-state-hover active:bg-ds-state-active disabled:pointer-events-none disabled:opacity-50"
         >
           <SlidersHorizontal aria-hidden="true" className="h-3.5 w-3.5" />
-          Adjustments
+          <span>Style</span>
         </button>
       }
     >
       <OverallAdjustmentsPanel />
     </Popover>
+  );
+}
+
+function PageGuidesButton({
+  showPageBreaks,
+  onToggle,
+}: {
+  showPageBreaks: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      title={
+        showPageBreaks
+          ? "Hide page-break guides"
+          : "Show page-break guides (A4)"
+      }
+      aria-label={
+        showPageBreaks ? "Hide page-break guides" : "Show page-break guides"
+      }
+      aria-pressed={showPageBreaks}
+      onClick={onToggle}
+      className={[
+        "flex h-8 items-center justify-center gap-1.5 rounded-ds-md border px-3 text-sm font-medium text-ds-text-primary shadow-ds-raised transition",
+        showPageBreaks
+          ? "border-ds-accent-border bg-ds-accent-surface text-ds-accent-text"
+          : "border-ds-border-subtle bg-ds-surface-raised text-ds-text-secondary hover:border-ds-border-strong hover:text-ds-text-primary",
+      ].join(" ")}
+    >
+      <svg
+        viewBox="0 0 16 16"
+        aria-hidden="true"
+        className="h-3.5 w-3.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      >
+        <path d="M2 5h12M2 11h12" />
+      </svg>
+      <span>Page guides</span>
+    </button>
   );
 }
 
@@ -333,21 +403,16 @@ export function LexicalEditor({
   // Page break indicators are shown by default at A4 size and can be toggled off.
   const [showPageBreaks, setShowPageBreaks] = useState(false);
 
-  // Collaborative, autosaved document title (parity with the old editor). The
-  // body is bound by `@lexical/yjs`; the title is a separate shared text bound
-  // via `useYText` and persisted with a debounced save.
+  // Collaborative document title. The editor chrome consumes it as compact
+  // identity; renaming is handled from the document-level surfaces outside this
+  // editor, so the header does not expose a second title editor.
   const titleInputRef = useRef<HTMLInputElement | null>(null);
-  const titleSaver = useDebouncedSave(
-    (value: string) => saveDocumentTitle(documentId, value),
-    initialTitle,
-  );
   const title = useYText(collab.ytitle, {
     initial: initialTitle,
     ready: collab.ready,
-    editable,
+    editable: false,
     localOrigin: collab.localOrigin,
     elementRef: titleInputRef,
-    onLocalChange: titleSaver.schedule,
   });
 
   // Seed the title into the shared room from the database once ready.
@@ -459,14 +524,13 @@ export function LexicalEditor({
     editable: false,
   };
 
-  // Combined save indicator across the title (debounced) and body (Lexical)
-  // saves: error wins, then saving, then pending, else saved.
+  // Body save indicator: error wins, then saving, then pending, else saved.
   const saveStatus: SaveStatus =
     status === "error"
       ? "error"
-      : status === "saving" || titleSaver.status === "saving"
+      : status === "saving"
         ? "saving"
-        : status === "pending" || titleSaver.status === "pending"
+        : status === "pending"
           ? "pending"
           : "saved";
 
@@ -482,140 +546,92 @@ export function LexicalEditor({
                 header (`z-header`) so the header's user/language menus can open
                 over this bar. The toolbar's own Share/Export menus are children
                 of this stacking context and open downward over the article. */}
-                <div className="relative z-sticky flex flex-col gap-3 border-b border-ds-border-subtle bg-ds-surface-chrome px-4 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                  <div className="flex min-w-0 flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <Link
-                        href="/app"
-                        className="w-fit text-xs font-medium text-ds-text-muted transition hover:text-ds-text-primary"
-                      >
-                        ← Back to documents
-                      </Link>
-                      {workspaceName && (
-                        <>
-                          <span className="text-xs text-ds-border-strong">
-                            ·
-                          </span>
-                          <span className="text-xs text-ds-text-muted">
-                            {workspaceName}
-                          </span>
-                        </>
-                      )}
-                      {!canEdit && (
-                        <>
-                          <span className="text-xs text-ds-border-strong">
-                            ·
-                          </span>
-                          <span className="rounded-full bg-ds-surface-sunken px-2 py-0.5 text-xs font-medium text-ds-text-secondary">
-                            Read-only
-                          </span>
-                        </>
-                      )}
-                    </div>
-                    <input
-                      ref={titleInputRef}
-                      aria-label="Document title"
-                      value={title.value}
-                      onChange={(event) => title.onChange(event.target.value)}
-                      onBlur={titleSaver.flush}
-                      placeholder="Untitled"
-                      disabled={!editable}
-                      className="w-full rounded-md bg-transparent text-xl font-semibold tracking-tight text-ds-text-primary outline-none placeholder:text-ds-text-muted focus:bg-ds-state-hover focus:px-2 disabled:cursor-not-allowed disabled:opacity-60"
-                    />
-                    <TagControl
-                      documentId={documentId}
-                      initialTags={initialTags}
-                      allTags={allTags}
-                      editable={canEdit}
-                    />
+                <div className="relative z-sticky flex flex-wrap items-center justify-between gap-2 border-b border-ds-border-subtle bg-ds-surface-chrome px-4 py-2 backdrop-blur sm:px-6">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Link
+                      href="/app"
+                      className="w-fit text-xs font-medium text-ds-text-muted transition hover:text-ds-text-primary"
+                    >
+                      ← Back
+                    </Link>
+                    {workspaceName && (
+                      <>
+                        <span className="text-xs text-ds-border-strong">·</span>
+                        <span className="truncate text-xs text-ds-text-muted">
+                          {workspaceName}
+                        </span>
+                      </>
+                    )}
+                    {!canEdit && (
+                      <>
+                        <span className="text-xs text-ds-border-strong">·</span>
+                        <span className="rounded-full bg-ds-surface-sunken px-2 py-0.5 text-xs font-medium text-ds-text-secondary">
+                          Read-only
+                        </span>
+                      </>
+                    )}
                   </div>
-                  <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
+
+                  <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
                     <Presence peers={collab.peers} status={collab.status} />
-                    {canEdit && <ImportPlugin />}
-                    {canEdit && <UndoRedoControls editable={editable} />}
                     {canEdit && (
-                      <DocumentAdjustmentsButton disabled={!editable} />
+                      <ToolbarGroup label="Edit document">
+                        <ImportPlugin />
+                        <UndoRedoControls editable={editable} />
+                      </ToolbarGroup>
                     )}
-                    <button
-                      type="button"
-                      title={
-                        showPageBreaks
-                          ? "Hide page-break indicators"
-                          : "Show page-break indicators (A4)"
-                      }
-                      aria-label={
-                        showPageBreaks
-                          ? "Hide page-break indicators"
-                          : "Show page-break indicators"
-                      }
-                      aria-pressed={showPageBreaks}
-                      onClick={() => setShowPageBreaks((v) => !v)}
-                      className={[
-                        "flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs font-medium transition",
-                        showPageBreaks
-                          ? "border-ds-accent-border bg-ds-accent-surface text-ds-accent-text"
-                          : "border-ds-border-subtle bg-ds-surface-raised text-ds-text-secondary hover:border-ds-border-strong hover:text-ds-text-primary",
-                      ].join(" ")}
-                    >
-                      <svg
-                        viewBox="0 0 16 16"
-                        aria-hidden="true"
-                        className="h-3.5 w-3.5"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                      >
-                        <path d="M2 5h12M2 11h12" />
-                      </svg>
-                      Pages
-                    </button>
-                    <DocumentExportButton documentTitle={title.value} />
-                    {canEdit && (
-                      <SlideEditorButton
+
+                    {canEdit && <ToolbarDivider />}
+
+                    <ToolbarGroup label="Document style and page guides">
+                      {canEdit && <DocumentStyleButton disabled={!editable} />}
+                      <PageGuidesButton
+                        showPageBreaks={showPageBreaks}
+                        onToggle={() => setShowPageBreaks((v) => !v)}
+                      />
+                    </ToolbarGroup>
+
+                    <ToolbarDivider />
+
+                    <ToolbarGroup label="Create and present">
+                      {canEdit && (
+                        <SlideEditorButton
+                          documentId={documentId}
+                          initialDeckJson={initialDeckJson}
+                        />
+                      )}
+                      <PresentButton documentTitle={title.value} />
+                      <DocumentExportButton documentTitle={title.value} />
+                    </ToolbarGroup>
+
+                    <ToolbarDivider />
+
+                    <ToolbarGroup label="Collaborate and review">
+                      {canManage && (
+                        <ShareButton
+                          id={documentId}
+                          initialIsShared={initialIsShared}
+                          initialShareId={initialShareId}
+                          initialSlug={initialSlug}
+                          initialExpiresAt={initialShareExpiresAt}
+                          initialEmbedEnabled={initialShareEmbedEnabled}
+                          initialPresentEnabled={initialSharePresentEnabled}
+                          documentTitle={title.value}
+                        />
+                      )}
+                      <CommentsPanel
                         documentId={documentId}
-                        initialDeckJson={initialDeckJson}
+                        currentUserId={currentUserId}
+                        initialComments={initialComments}
+                        initialUnreadCount={initialUnreadCommentCount}
+                        getTextSelection={getTextSelection}
+                        anchorNode={anchorNode}
                       />
-                    )}
-                    <PresentButton documentTitle={title.value} />
-                    {canManage && (
-                      <ShareButton
-                        id={documentId}
-                        initialIsShared={initialIsShared}
-                        initialShareId={initialShareId}
-                        initialSlug={initialSlug}
-                        initialExpiresAt={initialShareExpiresAt}
-                        initialEmbedEnabled={initialShareEmbedEnabled}
-                        initialPresentEnabled={initialSharePresentEnabled}
-                        documentTitle={title.value}
+                      <VersionHistoryPanel
+                        documentId={documentId}
+                        canEdit={canEdit}
                       />
-                    )}
-                    <CommentsPanel
-                      documentId={documentId}
-                      currentUserId={currentUserId}
-                      initialComments={initialComments}
-                      initialUnreadCount={initialUnreadCommentCount}
-                      getTextSelection={getTextSelection}
-                      anchorNode={anchorNode}
-                    />
-                    <VersionHistoryPanel
-                      documentId={documentId}
-                      canEdit={canEdit}
-                    />
-                    <span
-                      aria-label="Document statistics"
-                      className="min-w-0 shrink truncate text-xs text-ds-text-muted"
-                    >
-                      {minutes} min read · {words}{" "}
-                      {words === 1 ? "word" : "words"}
-                    </span>
-                    <span
-                      role="status"
-                      aria-live="polite"
-                      className="min-w-0 truncate text-xs text-ds-text-muted"
-                    >
-                      {STATUS_LABEL[saveStatus]}
-                    </span>
+                    </ToolbarGroup>
                   </div>
                 </div>
 
@@ -631,28 +647,47 @@ export function LexicalEditor({
                             ref={contentAreaRef}
                             className="relative rounded-2xl border border-ds-border-subtle bg-ds-surface-raised p-4 sm:p-6"
                           >
+                            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-ds-border-subtle pb-3">
+                              <TagControl
+                                documentId={documentId}
+                                initialTags={initialTags}
+                                allTags={allTags}
+                                editable={canEdit}
+                              />
+                              <div className="flex flex-wrap items-center gap-3 text-xs text-ds-text-muted">
+                                <span aria-label="Document statistics">
+                                  {minutes} min read · {words}{" "}
+                                  {words === 1 ? "word" : "words"}
+                                </span>
+                                <span role="status" aria-live="polite">
+                                  {STATUS_LABEL[saveStatus]}
+                                </span>
+                              </div>
+                            </div>
                             {showPageBreaks && (
                               <PageBreakIndicator
                                 contentRef={contentAreaRef}
                                 pageSize="a4"
                               />
                             )}
-                            <RichTextPlugin
-                              contentEditable={
-                                <ContentEditable
-                                  aria-label="Document body"
-                                  className="ds-prose min-h-[16rem] outline-none"
-                                />
-                              }
-                              placeholder={
-                                <div className="pointer-events-none absolute left-6 top-6 text-base text-ds-text-muted">
-                                  {collab.ready
-                                    ? "Start writing…"
-                                    : "Connecting…"}
-                                </div>
-                              }
-                              ErrorBoundary={LexicalErrorBoundary}
-                            />
+                            <div className="relative">
+                              <RichTextPlugin
+                                contentEditable={
+                                  <ContentEditable
+                                    aria-label="Document body"
+                                    className="ds-prose min-h-[16rem] outline-none"
+                                  />
+                                }
+                                placeholder={
+                                  <div className="pointer-events-none absolute left-0 top-0 text-base text-ds-text-muted">
+                                    {collab.ready
+                                      ? "Start writing…"
+                                      : "Connecting…"}
+                                  </div>
+                                }
+                                ErrorBoundary={LexicalErrorBoundary}
+                              />
+                            </div>
                             <CollaborationPlugin
                               id={documentId}
                               providerFactory={collab.providerFactory}
