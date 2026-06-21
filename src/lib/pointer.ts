@@ -39,3 +39,45 @@ export function useIsPointerFine(): boolean {
 
   return fine;
 }
+
+// The viewport width tier breakpoint — Tailwind's `lg` (1024px). Surfaces dock
+// at/above this width and fall back to floats/sheet below it.
+const WIDE_VIEWPORT_QUERY = "(min-width: 1024px)";
+
+/**
+ * Queries whether the viewport is "wide" (≥ 1024px / Tailwind `lg`) using the
+ * supplied `matchMedia` implementation. Pass a custom implementation in tests.
+ *
+ * Defaults to `window.matchMedia` in the browser; returns `true` on the server
+ * (SSR) so the initial render matches the desktop layout (progressive
+ * enhancement — it narrows in a subsequent client render on small screens).
+ */
+export function queryIsWideViewport(
+  matchMedia: (query: string) => { matches: boolean } = typeof window !==
+  "undefined"
+    ? (q) => window.matchMedia(q)
+    : () => ({ matches: true }),
+): boolean {
+  return matchMedia(WIDE_VIEWPORT_QUERY).matches;
+}
+
+/**
+ * Returns `true` when the viewport is at least `lg` wide (≥ 1024px) and `false`
+ * below it. Reacts to changes so resizing across the breakpoint gives an
+ * accurate result.
+ *
+ * SSR default is `true` (desktop-first; narrows on the client after mount).
+ * Mirrors {@link useIsPointerFine}.
+ */
+export function useIsWideViewport(): boolean {
+  const [wide, setWide] = useState(() => queryIsWideViewport());
+
+  useEffect(() => {
+    const mql = window.matchMedia(WIDE_VIEWPORT_QUERY);
+    const handler = (event: MediaQueryListEvent) => setWide(event.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, []);
+
+  return wide;
+}
