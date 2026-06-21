@@ -77,6 +77,7 @@ import {
   isVisualKind,
   type VisualKind,
 } from "@/lib/visual/schema";
+import { auth as authEnv } from "@/lib/env";
 
 // Use the Node.js runtime: the Azure call and node:crypto signing need it.
 export const runtime = "nodejs";
@@ -160,7 +161,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const stayCloserToText = body.stayCloserToText === true ? true : undefined;
 
-  const secret = process.env.AUTH_SECRET;
+  const secret = authEnv.secret();
   if (!secret) {
     logError(LOG_SCOPE, new Error("Missing AUTH_SECRET"), {
       requestId,

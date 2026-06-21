@@ -16,10 +16,11 @@ import { buildPresentationBlocks } from "@/lib/presentation/present-blocks";
 import { normalizeDeckRaw } from "@/lib/presentation/fresh-deck";
 import type { Visual } from "@/lib/visual/schema";
 import { shouldShowAttribution } from "@/lib/billing/attribution";
+import { app as appEnv } from "@/lib/env";
 const SITE_NAME = "TextIQ";
 
 function siteBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:4000";
+  return appEnv.url();
 }
 
 /**

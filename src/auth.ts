@@ -4,6 +4,7 @@ import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 
 import { authConfig } from "@/auth.config";
+import { google } from "@/lib/env";
 import { isGoogleAuthConfigured } from "@/lib/auth/google-provider";
 import { seedSampleDocument } from "@/lib/onboarding";
 import { prisma } from "@/lib/prisma";
@@ -52,8 +53,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     ...(isGoogleAuthConfigured()
       ? [
           Google({
-            clientId: process.env.GOOGLE_CLIENT_ID!,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+            clientId: google.clientId(),
+            clientSecret: google.clientSecret(),
           }),
         ]
       : []),

@@ -1,11 +1,11 @@
+import { google } from "@/lib/env";
+
 /**
  * Returns true when the Google OAuth provider is fully configured.
  *
- * Mirrors the exact guard used in src/auth.ts so both places share a single
- * source of truth rather than duplicating the env-var check.
+ * Delegates to the centralized env module (`@/lib/env`) so the "is Google
+ * configured?" check has a single source of truth shared with src/auth.ts.
  */
 export function isGoogleAuthConfigured(): boolean {
-  return Boolean(
-    process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET,
-  );
+  return google.isConfigured();
 }
