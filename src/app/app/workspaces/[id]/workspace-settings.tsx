@@ -2,7 +2,13 @@
 
 import { useState, useTransition } from "react";
 
-import { Dialog } from "@/components/ui/dialog";
+import {
+  Button,
+  Dialog,
+  FIELD_CONTROL,
+  PANEL_CHROME,
+  cx,
+} from "@/components/ui";
 
 import { deleteWorkspace, leaveWorkspace, renameWorkspace } from "./actions";
 
@@ -63,7 +69,7 @@ export function WorkspaceSettings({
   };
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-ds-border-subtle bg-ds-surface-raised p-6">
+    <div className={cx("flex flex-col gap-4 p-6", PANEL_CHROME)}>
       {isOwner && (
         <div className="flex flex-col gap-2">
           <label
@@ -78,16 +84,16 @@ export function WorkspaceSettings({
               value={nameValue}
               maxLength={100}
               onChange={(e) => setNameValue(e.target.value)}
-              className="flex-1 rounded-lg border border-ds-border-subtle bg-ds-surface-raised px-3 py-2 text-sm text-ds-text-primary focus:border-ds-border-strong focus:outline-none focus:ring-2 focus:ring-ds-focus-ring/10"
+              className={cx("h-10 min-w-0 flex-1 px-3", FIELD_CONTROL)}
             />
-            <button
-              type="button"
+            <Button
+              variant="solid"
+              size="lg"
               onClick={handleRename}
               disabled={renameDisabled}
-              className="rounded-full bg-ds-control px-4 py-2 text-sm font-medium text-ds-control-text transition hover:bg-ds-control-hover disabled:cursor-not-allowed disabled:opacity-60"
             >
               Save
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -105,16 +111,17 @@ export function WorkspaceSettings({
               : "You'll lose access. Documents you authored stay with you."}
           </span>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="danger"
+          size="lg"
           onClick={() => {
             setError(null);
             setConfirmOpen(true);
           }}
-          className="shrink-0 rounded-full border border-ds-danger/30 px-4 py-2 text-sm font-medium text-ds-danger transition hover:bg-ds-danger/10"
+          className="shrink-0"
         >
           {isOwner ? "Delete" : "Leave"}
-        </button>
+        </Button>
       </div>
 
       <Dialog
@@ -135,21 +142,21 @@ export function WorkspaceSettings({
             : "You'll be removed from this workspace and lose access to its shared documents. Documents you authored remain yours."}
         </p>
         <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
+          <Button
+            variant="plain"
+            size="lg"
             onClick={() => setConfirmOpen(false)}
-            className="rounded-full px-4 py-2 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken"
           >
             Cancel
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="danger"
+            size="lg"
             onClick={handleDestructive}
             disabled={isPending}
-            className="rounded-full bg-ds-danger px-4 py-2 text-sm font-medium text-ds-text-on-accent transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isOwner ? "Delete workspace" : "Leave workspace"}
-          </button>
+          </Button>
         </div>
       </Dialog>
     </div>

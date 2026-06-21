@@ -3,6 +3,7 @@
 import { useId, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 
+import { Tooltip } from "@/components/ui";
 import { resolveIconComponent } from "@/components/visual/icon-registry";
 import { searchIcons, suggestIconsForLabel } from "@/lib/icons/catalog";
 
@@ -157,18 +158,18 @@ export function IconPicker({
                 }
                 const active = entry.name === value;
                 return (
-                  <button
-                    key={entry.name}
-                    type="button"
-                    role="option"
-                    aria-selected={active}
-                    aria-label={`Icon: ${entry.name}`}
-                    title={entry.name}
-                    onClick={() => onSelect(entry.name)}
-                    className={iconButtonClass(active)}
-                  >
-                    <IconThumb Icon={Icon} size={18} />
-                  </button>
+                  <Tooltip key={entry.name} label={entry.name} side="bottom">
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={active}
+                      aria-label={`Icon: ${entry.name}`}
+                      onClick={() => onSelect(entry.name)}
+                      className={iconButtonClass(active)}
+                    >
+                      <IconThumb Icon={Icon} size={18} />
+                    </button>
+                  </Tooltip>
                 );
               })}
             </div>

@@ -7,7 +7,7 @@ import { createPortal } from "react-dom";
 import { usePopMotion } from "@/components/motion/reveal";
 
 import { getTabbableElements, nextFocusIndex } from "./focus-helpers";
-import { cx } from "./tokens";
+import { cx, ELEVATION, RADIUS, SURFACE_BASE } from "./tokens";
 
 export type DialogProps = {
   /** Controls visibility. The caller owns the open/close state. */
@@ -125,7 +125,10 @@ export function Dialog({
             transition={popMotion.transition}
             className={cx(
               "relative z-10 w-full max-w-lg",
-              "rounded-2xl border border-ds-border-strong bg-ds-surface-base p-6 shadow-xl",
+              "border p-6",
+              SURFACE_BASE,
+              RADIUS.lg,
+              ELEVATION.popover,
               "outline-none",
               className,
             )}

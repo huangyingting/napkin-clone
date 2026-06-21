@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 
-import { Dialog } from "@/components/ui/dialog";
+import { Button, Dialog, PANEL_CHROME, cx } from "@/components/ui";
 
 import { removeMember, transferOwnership } from "./actions";
 
@@ -77,7 +77,7 @@ export function MembersList({
   };
 
   return (
-    <ul className="flex flex-col gap-2 rounded-xl border border-ds-border-subtle bg-ds-surface-raised p-4">
+    <ul className={cx("flex flex-col gap-2 p-4", PANEL_CHROME)}>
       {error && <li className="text-xs text-ds-danger-text">{error}</li>}
       {allMembers.map((member) => (
         <li
@@ -145,21 +145,21 @@ export function MembersList({
           longer rename, delete, or manage members.
         </p>
         <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
+          <Button
+            variant="plain"
+            size="lg"
             onClick={() => setTransferTarget(null)}
-            className="rounded-full px-4 py-2 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken"
           >
             Cancel
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="solid"
+            size="lg"
             onClick={handleTransfer}
             disabled={isPending}
-            className="rounded-full bg-ds-control px-4 py-2 text-sm font-medium text-ds-control-text transition hover:bg-ds-control-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
             Transfer ownership
-          </button>
+          </Button>
         </div>
       </Dialog>
     </ul>

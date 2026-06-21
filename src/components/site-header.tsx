@@ -7,6 +7,7 @@ import {
   MobileNavNonClosing,
 } from "@/components/mobile-nav-menu";
 import { SignOutButton } from "@/components/sign-out-button";
+import { MENU_ITEM, Tooltip } from "@/components/ui";
 import { UserMenu } from "@/components/user-menu";
 import { createTranslator, isLanguageSwitcherEnabled } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n/server";
@@ -74,14 +75,16 @@ export async function SiteHeader() {
             </Link>
 
             {/* Credit usage indicator */}
-            <Link
-              href="/app/settings/billing"
-              title={creditTitle}
-              className="flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
-            >
-              <span className="tabular-nums">{creditCount}</span>
-              <span className="text-ds-text-secondary/60">credits</span>
-            </Link>
+            <Tooltip label={creditTitle} side="bottom">
+              <Link
+                href="/app/settings/billing"
+                aria-label={creditTitle}
+                className="flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
+              >
+                <span className="tabular-nums">{creditCount}</span>
+                <span className="text-ds-text-secondary/60">credits</span>
+              </Link>
+            </Tooltip>
 
             <KeyboardShortcuts />
             {showLanguageSwitcher && <LanguageSwitcher />}
@@ -89,14 +92,11 @@ export async function SiteHeader() {
               <Link
                 href="/app/settings/billing"
                 role="menuitem"
-                className="block w-full px-3 py-2 text-left text-sm text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
+                className={MENU_ITEM}
               >
                 Billing &amp; Plan
               </Link>
-              <SignOutButton
-                role="menuitem"
-                className="block w-full px-3 py-2 text-left text-sm text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
-              />
+              <SignOutButton role="menuitem" className={MENU_ITEM} />
             </UserMenu>
           </>
         ) : (
@@ -127,14 +127,11 @@ export async function SiteHeader() {
               <Link
                 href="/app/settings/billing"
                 role="menuitem"
-                className="block w-full px-3 py-2 text-left text-sm text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
+                className={MENU_ITEM}
               >
                 Billing &amp; Plan
               </Link>
-              <SignOutButton
-                role="menuitem"
-                className="block w-full px-3 py-2 text-left text-sm text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
-              />
+              <SignOutButton role="menuitem" className={MENU_ITEM} />
             </UserMenu>
 
             {/* Hamburger — slides in a drawer with all nav links + utilities */}
@@ -161,7 +158,7 @@ export async function SiteHeader() {
               {/* Credits */}
               <Link
                 href="/app/settings/billing"
-                title={creditTitle}
+                aria-label={creditTitle}
                 className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
               >
                 <span className="tabular-nums">{creditCount}</span>

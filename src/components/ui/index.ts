@@ -8,6 +8,8 @@ export { ColorPicker } from "./color-picker";
 
 export { Divider } from "./divider";
 
+export { Dialog } from "./dialog";
+
 export { FloatingSurface } from "./floating-surface";
 
 export { SegmentedControl } from "./segmented-control";
@@ -19,4 +21,12 @@ export { Tooltip } from "./tooltip";
 
 export { Popover } from "./popover";
 
-export { cx, FOCUS_RING } from "./tokens";
+export {
+  cx,
+  EMPTY_STATE_CHROME,
+  FIELD_CONTROL,
+  FOCUS_RING,
+  MENU_CHROME,
+  MENU_ITEM,
+  PANEL_CHROME,
+} from "./tokens";

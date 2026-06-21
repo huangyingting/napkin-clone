@@ -31,6 +31,7 @@ import { createPortal } from "react-dom";
 
 import { FOCUS_RING } from "@/components/motion/control-styles";
 import { SlideCanvas } from "@/components/presentation/slide-canvas";
+import { Tooltip } from "@/components/ui";
 import type { Deck, DeckTheme, SlideLayout } from "@/lib/presentation/deck";
 import type { Visual } from "@/lib/visual/schema";
 import {
@@ -232,20 +233,20 @@ export function SlideEditor({
             {THEME_OPTIONS.map((option) => {
               const active = deck.theme === option.value;
               return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => handleThemeChange(option.value)}
-                  aria-label={`${option.label} theme`}
-                  aria-pressed={active}
-                  title={option.label}
-                  className={`h-6 w-6 rounded-full border transition-shadow ${
-                    active
-                      ? "ring-2 ring-ds-focus-ring ring-offset-1 ring-offset-ds-focus-offset"
-                      : "border-ds-border-subtle"
-                  } ${FOCUS_RING}`}
-                  style={{ backgroundColor: option.color }}
-                />
+                <Tooltip key={option.value} label={option.label} side="bottom">
+                  <button
+                    type="button"
+                    onClick={() => handleThemeChange(option.value)}
+                    aria-label={`${option.label} theme`}
+                    aria-pressed={active}
+                    className={`h-6 w-6 rounded-full border transition-shadow ${
+                      active
+                        ? "ring-2 ring-ds-focus-ring ring-offset-1 ring-offset-ds-focus-offset"
+                        : "border-ds-border-subtle"
+                    } ${FOCUS_RING}`}
+                    style={{ backgroundColor: option.color }}
+                  />
+                </Tooltip>
               );
             })}
           </div>
@@ -386,25 +387,27 @@ export function SlideEditor({
                 Editing slide {safeSelected + 1}
               </p>
               <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => handleDuplicate(safeSelected)}
-                  aria-label="Duplicate slide"
-                  title="Duplicate slide"
-                  className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-muted transition-colors hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
-                >
-                  <Copy size={14} aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleRemove(safeSelected)}
-                  disabled={deck.slides.length <= 1}
-                  aria-label="Delete slide"
-                  title="Delete slide"
-                  className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-muted transition-colors hover:bg-ds-state-active hover:text-ds-text-primary disabled:opacity-40 ${FOCUS_RING}`}
-                >
-                  <Trash2 size={14} aria-hidden="true" />
-                </button>
+                <Tooltip label="Duplicate slide" side="bottom">
+                  <button
+                    type="button"
+                    onClick={() => handleDuplicate(safeSelected)}
+                    aria-label="Duplicate slide"
+                    className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-muted transition-colors hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
+                  >
+                    <Copy size={14} aria-hidden="true" />
+                  </button>
+                </Tooltip>
+                <Tooltip label="Delete slide" side="bottom">
+                  <button
+                    type="button"
+                    onClick={() => handleRemove(safeSelected)}
+                    disabled={deck.slides.length <= 1}
+                    aria-label="Delete slide"
+                    className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-muted transition-colors hover:bg-ds-state-active hover:text-ds-text-primary disabled:opacity-40 ${FOCUS_RING}`}
+                  >
+                    <Trash2 size={14} aria-hidden="true" />
+                  </button>
+                </Tooltip>
               </div>
             </div>
 

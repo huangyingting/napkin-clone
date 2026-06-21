@@ -2,8 +2,16 @@
 
 import { useState, useEffect, useRef, useTransition } from "react";
 import Link from "next/link";
+import { FileText, Plus, Upload, X } from "lucide-react";
 
-import { Dialog } from "@/components/ui/dialog";
+import {
+  Button,
+  Dialog,
+  EMPTY_STATE_CHROME,
+  IconButton,
+  PANEL_CHROME,
+  cx,
+} from "@/components/ui";
 import { TEMPLATE_CATALOG } from "@/lib/templates/catalog";
 import {
   canCreateInWorkspace,
@@ -26,21 +34,7 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
 function DocumentThumbnail() {
   return (
     <div className="flex aspect-[16/10] items-center justify-center bg-ds-surface-sunken transition group-hover:bg-ds-state-hover">
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="h-8 w-8 text-ds-text-muted"
-      >
-        <path d="M14 3v4a1 1 0 0 0 1 1h4" />
-        <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z" />
-        <path d="M9 13h6" />
-        <path d="M9 17h4" />
-      </svg>
+      <FileText aria-hidden="true" className="h-8 w-8 text-ds-text-muted" />
     </div>
   );
 }
@@ -85,26 +79,14 @@ function WorkspaceTemplatePicker({
             Choose a template to get started.
           </p>
         </div>
-        <button
-          type="button"
+        <IconButton
           aria-label="Close"
           onClick={onClose}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
+          size="md"
+          className="shrink-0"
         >
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-4 w-4"
-          >
-            <path d="M18 6 6 18" />
-            <path d="m6 6 12 12" />
-          </svg>
-        </button>
+          <X aria-hidden="true" className="h-4 w-4" />
+        </IconButton>
       </div>
 
       <ul className="mt-4 grid grid-cols-1 gap-2 overflow-y-auto sm:grid-cols-2">
@@ -115,7 +97,10 @@ function WorkspaceTemplatePicker({
               aria-label={`${template.name} template`}
               disabled={isPending}
               onClick={() => choose(template.id)}
-              className="flex h-full w-full flex-col gap-1 rounded-xl border border-ds-border-strong p-4 text-left transition hover:border-ds-accent/40 hover:bg-ds-surface-sunken disabled:cursor-not-allowed disabled:opacity-60"
+              className={cx(
+                "flex h-full w-full flex-col gap-1 p-4 text-left transition hover:border-ds-accent-border hover:bg-ds-surface-sunken disabled:cursor-not-allowed disabled:opacity-60",
+                PANEL_CHROME,
+              )}
             >
               <span className="text-sm font-medium text-ds-text-primary">
                 {pendingId === template.id ? "Creating…" : template.name}
@@ -129,13 +114,9 @@ function WorkspaceTemplatePicker({
       </ul>
 
       <div className="mt-6 flex justify-end">
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex h-9 items-center justify-center rounded-full border border-ds-border-strong px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
-        >
+        <Button variant="subtle" size="lg" onClick={onClose}>
           Cancel
-        </button>
+        </Button>
       </div>
     </Dialog>
   );
@@ -202,25 +183,14 @@ function WorkspaceDocumentActions({
   return (
     <div className="flex flex-wrap items-center gap-2">
       {canCreate && (
-        <button
-          type="button"
+        <Button
+          variant="solid"
+          size="lg"
+          leadingIcon={<Plus aria-hidden="true" className="h-4 w-4" />}
           onClick={() => setCreateOpen(true)}
-          className="flex h-9 items-center gap-2 rounded-full bg-ds-accent px-4 text-sm font-medium text-white transition hover:opacity-90"
         >
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="h-4 w-4"
-          >
-            <path d="M12 5v14M5 12h14" />
-          </svg>
           New document
-        </button>
+        </Button>
       )}
 
       {canImport && (
@@ -237,32 +207,19 @@ function WorkspaceDocumentActions({
             className="sr-only"
             aria-label="Import a document file into workspace"
           />
-          <button
-            type="button"
+          <Button
+            variant="subtle"
+            size="lg"
             disabled={isUploading}
             onClick={() => {
               setImportError(null);
               inputRef.current?.click();
             }}
-            className="flex h-9 items-center gap-2 rounded-full border border-ds-border-strong px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary disabled:cursor-not-allowed disabled:opacity-60"
             aria-label="Import document"
+            leadingIcon={<Upload aria-hidden="true" className="h-4 w-4" />}
           >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-4 w-4"
-            >
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" y1="3" x2="12" y2="15" />
-            </svg>
             {isUploading ? "Importing…" : "Import"}
-          </button>
+          </Button>
           {importError && (
             <p role="alert" className="text-xs text-ds-danger-text">
               {importError} —{" "}
@@ -338,7 +295,10 @@ export function WorkspaceDocuments({
       <div
         role="status"
         aria-live="polite"
-        className="rounded-xl border border-ds-border-subtle bg-ds-surface-raised p-6 text-center text-sm text-ds-text-muted"
+        className={cx(
+          "p-6 text-center text-sm text-ds-text-muted",
+          PANEL_CHROME,
+        )}
       >
         Loading documents...
       </div>
@@ -349,16 +309,20 @@ export function WorkspaceDocuments({
     return (
       <div
         role="alert"
-        className="rounded-xl border border-ds-border-subtle bg-ds-surface-raised p-6 text-center text-sm text-ds-text-muted"
+        className={cx(
+          "p-6 text-center text-sm text-ds-text-muted",
+          PANEL_CHROME,
+        )}
       >
         <p>{error}</p>
-        <button
-          type="button"
+        <Button
+          variant="subtle"
+          size="lg"
           onClick={retry}
-          className="mt-3 flex h-9 items-center justify-center rounded-full border border-ds-border-strong px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary mx-auto"
+          className="mx-auto mt-3"
         >
           Retry
-        </button>
+        </Button>
       </div>
     );
   }
@@ -371,7 +335,7 @@ export function WorkspaceDocuments({
           canCreate={canCreate}
           canImport={canImport}
         />
-        <div className="rounded-xl border border-dashed border-ds-border-strong bg-ds-surface-raised p-6 text-center">
+        <div className={cx("p-6", EMPTY_STATE_CHROME)}>
           <p className="text-sm text-ds-text-muted">
             No documents in this workspace yet.
             {canCreate && " Create or import one to get started."}
@@ -393,7 +357,10 @@ export function WorkspaceDocuments({
           <li key={document.id}>
             <Link
               href={`/app/documents/${document.id}`}
-              className="group flex flex-col overflow-hidden rounded-xl border border-ds-border-subtle bg-ds-surface-raised transition hover:border-ds-border-strong hover:shadow-sm"
+              className={cx(
+                "group flex flex-col overflow-hidden transition hover:border-ds-border-strong hover:shadow-ds-raised",
+                PANEL_CHROME,
+              )}
             >
               <DocumentThumbnail />
               <div className="flex flex-col gap-1 p-4">

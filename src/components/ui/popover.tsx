@@ -5,7 +5,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 
 import { usePopMotion } from "@/components/motion/reveal";
 
-import { cx } from "./tokens";
+import { cx, MENU_CHROME } from "./tokens";
 
 export type PopoverProps = {
   /** Controls panel visibility. The caller owns the open/close state. */
@@ -90,7 +90,8 @@ export function Popover({
             transition={popMotion.transition}
             className={cx(
               "absolute right-0 top-full z-dropdown mt-2",
-              "w-80 rounded-lg border border-ds-border-subtle bg-ds-surface-overlay p-4 shadow-ds-popover",
+              "w-80 p-4",
+              MENU_CHROME,
               className,
             )}
           >

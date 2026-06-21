@@ -1,4 +1,5 @@
 import { LoadingRegion, Skeleton } from "@/components/ui/skeleton";
+import { PANEL_CHROME, cx } from "@/components/ui/tokens";
 
 export default function WorkspacesLoading() {
   return (
@@ -22,10 +23,7 @@ export default function WorkspacesLoading() {
           aria-hidden="true"
         >
           {Array.from({ length: 6 }).map((_, i) => (
-            <li
-              key={i}
-              className="flex flex-col gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-raised p-6"
-            >
+            <li key={i} className={cx("flex flex-col gap-3 p-6", PANEL_CHROME)}>
               <div className="flex items-start justify-between gap-2">
                 <Skeleton className="h-5 w-32" />
                 <Skeleton className="h-5 w-14 rounded-full" />

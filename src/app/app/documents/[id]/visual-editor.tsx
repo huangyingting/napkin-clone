@@ -3,6 +3,7 @@
 import { ArrowRight, FlipHorizontal2, Spline } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { Tooltip } from "@/components/ui";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { resolveIconComponent } from "@/components/visual/icon-registry";
 import {
@@ -812,48 +813,57 @@ export function VisualEditor({
             onKeyDown={onEdgeInputKeyDown}
             className="h-6 min-w-0 flex-1 rounded-md border border-ds-border-strong bg-ds-surface-raised px-2 text-xs text-ds-text-primary outline-none focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-1"
           />
-          <button
-            type="button"
-            aria-label="Flip connector direction"
-            title="Flip direction"
-            onPointerDown={(event) => event.preventDefault()}
-            onClick={() => onChange(flipEdge(visual, edge.id))}
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-ds-border-subtle text-ds-text-secondary transition hover:bg-ds-state-hover hover:text-ds-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-1"
+          <Tooltip label="Flip direction" side="bottom">
+            <button
+              type="button"
+              aria-label="Flip connector direction"
+              onPointerDown={(event) => event.preventDefault()}
+              onClick={() => onChange(flipEdge(visual, edge.id))}
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-ds-border-subtle text-ds-text-secondary transition hover:bg-ds-state-hover hover:text-ds-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-1"
+            >
+              <FlipHorizontal2 aria-hidden="true" className="h-3.5 w-3.5" />
+            </button>
+          </Tooltip>
+          <Tooltip
+            label={directedOn ? "Hide arrowhead" : "Show arrowhead"}
+            side="bottom"
           >
-            <FlipHorizontal2 aria-hidden="true" className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            aria-label={directedOn ? "Hide arrowhead" : "Show arrowhead"}
-            aria-pressed={directedOn}
-            title={directedOn ? "Hide arrowhead" : "Show arrowhead"}
-            onPointerDown={(event) => event.preventDefault()}
-            onClick={() => onChange(toggleEdgeDirected(visual, edge.id))}
-            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-1 ${
-              directedOn
-                ? "border-ds-accent bg-ds-accent text-ds-accent-contrast"
-                : "border-ds-border-subtle text-ds-text-secondary"
-            }`}
+            <button
+              type="button"
+              aria-label={directedOn ? "Hide arrowhead" : "Show arrowhead"}
+              aria-pressed={directedOn}
+              onPointerDown={(event) => event.preventDefault()}
+              onClick={() => onChange(toggleEdgeDirected(visual, edge.id))}
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-1 ${
+                directedOn
+                  ? "border-ds-accent bg-ds-accent text-ds-accent-contrast"
+                  : "border-ds-border-subtle text-ds-text-secondary"
+              }`}
+            >
+              <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
+            </button>
+          </Tooltip>
+          <Tooltip
+            label={curvedOn ? "Straight line" : "Curved line"}
+            side="bottom"
           >
-            <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            aria-label={
-              curvedOn ? "Use straight connector" : "Use curved connector"
-            }
-            aria-pressed={curvedOn}
-            title={curvedOn ? "Straight line" : "Curved line"}
-            onPointerDown={(event) => event.preventDefault()}
-            onClick={() => onChange(toggleEdgeStyle(visual, edge.id))}
-            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-1 ${
-              curvedOn
-                ? "border-ds-accent bg-ds-accent text-ds-accent-contrast"
-                : "border-ds-border-subtle text-ds-text-secondary"
-            }`}
-          >
-            <Spline aria-hidden="true" className="h-3.5 w-3.5" />
-          </button>
+            <button
+              type="button"
+              aria-label={
+                curvedOn ? "Use straight connector" : "Use curved connector"
+              }
+              aria-pressed={curvedOn}
+              onPointerDown={(event) => event.preventDefault()}
+              onClick={() => onChange(toggleEdgeStyle(visual, edge.id))}
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-1 ${
+                curvedOn
+                  ? "border-ds-accent bg-ds-accent text-ds-accent-contrast"
+                  : "border-ds-border-subtle text-ds-text-secondary"
+              }`}
+            >
+              <Spline aria-hidden="true" className="h-3.5 w-3.5" />
+            </button>
+          </Tooltip>
         </div>
       </foreignObject>
     );

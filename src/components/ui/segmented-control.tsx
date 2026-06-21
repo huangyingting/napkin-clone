@@ -27,6 +27,7 @@ export type SegmentedControlProps<T extends string> = {
 const SIZE: Record<ButtonSize, string> = {
   sm: "h-7 gap-1 px-2.5 text-xs",
   md: "h-8 gap-1.5 px-3 text-sm",
+  lg: "h-10 gap-2 px-4 text-sm",
 };
 
 /**

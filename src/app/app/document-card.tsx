@@ -9,7 +9,7 @@ import {
   useTransition,
 } from "react";
 
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, MENU_CHROME, MENU_ITEM, cx } from "@/components/ui";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import type { Visual } from "@/lib/visual/schema";
 
@@ -405,7 +405,10 @@ export function DocumentCard({
         {menuOpen && (
           <div
             role="menu"
-            className="absolute right-0 top-full z-20 mt-1 w-40 overflow-hidden rounded-lg border border-ds-border-strong bg-ds-surface-base py-1 shadow-lg"
+            className={cx(
+              "absolute right-0 top-full z-dropdown mt-1 w-40",
+              MENU_CHROME,
+            )}
           >
             {canEdit && (
               <button
@@ -415,7 +418,7 @@ export function DocumentCard({
                   setMenuOpen(false);
                   setRenameOpen(true);
                 }}
-                className="flex w-full items-center px-3 py-2 text-left text-sm text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
+                className={MENU_ITEM}
               >
                 Rename
               </button>
@@ -424,7 +427,7 @@ export function DocumentCard({
               type="button"
               role="menuitem"
               onClick={handleDuplicate}
-              className="flex w-full items-center px-3 py-2 text-left text-sm text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
+              className={MENU_ITEM}
             >
               Duplicate
             </button>
@@ -436,7 +439,10 @@ export function DocumentCard({
                   setMenuOpen(false);
                   setConfirmOpen(true);
                 }}
-                className="flex w-full items-center px-3 py-2 text-left text-sm text-ds-danger transition hover:bg-ds-danger/10"
+                className={cx(
+                  MENU_ITEM,
+                  "text-ds-danger hover:bg-ds-danger-surface hover:text-ds-danger-text",
+                )}
               >
                 Delete
               </button>

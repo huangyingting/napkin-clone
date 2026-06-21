@@ -3,7 +3,7 @@ import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { cx, FOCUS_RING, RADIUS } from "./tokens";
 
 type ButtonVariant = "solid" | "subtle" | "plain" | "danger";
-export type ButtonSize = "sm" | "md";
+export type ButtonSize = "sm" | "md" | "lg";
 
 /** Variant → class string. All colors resolve to `--ds-*` tokens. */
 const VARIANT: Record<ButtonVariant, string> = {
@@ -21,6 +21,7 @@ const VARIANT: Record<ButtonVariant, string> = {
 const SIZE: Record<ButtonSize, string> = {
   sm: "h-7 gap-1.5 px-2.5 text-xs",
   md: "h-8 gap-2 px-3 text-sm",
+  lg: "h-10 gap-2 px-5 text-sm",
 };
 
 const BASE =
@@ -85,6 +86,7 @@ export type IconButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 const ICON_SIZE: Record<ButtonSize, string> = {
   sm: "h-7 w-7",
   md: "h-8 w-8",
+  lg: "h-9 w-9",
 };
 
 /**

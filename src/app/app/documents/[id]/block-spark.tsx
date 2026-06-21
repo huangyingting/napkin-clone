@@ -28,7 +28,7 @@ import {
   VisualSkeleton,
 } from "@/components/motion/generation-status";
 import { usePopMotion } from "@/components/motion/reveal";
-import { Button, FloatingSurface, IconButton } from "@/components/ui";
+import { Button, FloatingSurface, IconButton, Tooltip } from "@/components/ui";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { cx } from "@/components/ui/tokens";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
@@ -634,11 +634,6 @@ export function BlockSparkPlugin() {
                   : "Generate visual for this block"
               }
               aria-expanded={openKey === displayTarget.key}
-              title={
-                selectionTarget !== null
-                  ? "Generate visual for selected text"
-                  : "Generate visual for this block"
-              }
               onMouseDown={(event) => event.preventDefault()}
               onMouseEnter={keepAlive}
               onMouseLeave={() => {
@@ -868,35 +863,36 @@ export function BlockSparkPlugin() {
                               aria-label="AI generated visual types"
                               className="mt-1.5 flex flex-wrap gap-1.5"
                             >
-                              <button
-                                type="button"
-                                role="radio"
-                                aria-checked={genOptions.type === "auto"}
-                                aria-label="Auto visual type"
-                                title="Auto"
-                                onClick={() => {
-                                  const next: GenOptions = {
-                                    ...genOptions,
-                                    type: "auto",
-                                  };
-                                  setGenOptions(next);
-                                  if (panelTarget !== null) {
-                                    void generate(panelTarget, next);
-                                  }
-                                }}
-                                className={cx(
-                                  "flex h-9 w-9 items-center justify-center rounded-[var(--ds-radius-md,8px)] text-[var(--ds-text-muted,#6f7d83)] transition-colors",
-                                  genOptions.type === "auto"
-                                    ? "bg-[var(--ds-accent,#6366f1)] text-[var(--ds-text-on-accent,#ffffff)]"
-                                    : "hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.06))] hover:text-[var(--ds-text-primary,#15171a)]",
-                                  FOCUS_RING,
-                                )}
-                              >
-                                <Sparkles
-                                  aria-hidden="true"
-                                  className="h-4 w-4"
-                                />
-                              </button>
+                              <Tooltip label="Auto" side="bottom">
+                                <button
+                                  type="button"
+                                  role="radio"
+                                  aria-checked={genOptions.type === "auto"}
+                                  aria-label="Auto visual type"
+                                  onClick={() => {
+                                    const next: GenOptions = {
+                                      ...genOptions,
+                                      type: "auto",
+                                    };
+                                    setGenOptions(next);
+                                    if (panelTarget !== null) {
+                                      void generate(panelTarget, next);
+                                    }
+                                  }}
+                                  className={cx(
+                                    "flex h-9 w-9 items-center justify-center rounded-[var(--ds-radius-md,8px)] text-[var(--ds-text-muted,#6f7d83)] transition-colors",
+                                    genOptions.type === "auto"
+                                      ? "bg-[var(--ds-accent,#6366f1)] text-[var(--ds-text-on-accent,#ffffff)]"
+                                      : "hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.06))] hover:text-[var(--ds-text-primary,#15171a)]",
+                                    FOCUS_RING,
+                                  )}
+                                >
+                                  <Sparkles
+                                    aria-hidden="true"
+                                    className="h-4 w-4"
+                                  />
+                                </button>
+                              </Tooltip>
                             </div>
                           </>
                         ) : null}
@@ -945,36 +941,40 @@ export function BlockSparkPlugin() {
                                   const Icon = meta.icon;
                                   const active = genOptions.type === kind;
                                   return (
-                                    <button
+                                    <Tooltip
                                       key={kind}
-                                      type="button"
-                                      role="radio"
-                                      aria-checked={active}
-                                      aria-label={meta.label}
-                                      title={meta.label}
-                                      onClick={() => {
-                                        const next = {
-                                          ...genOptions,
-                                          type: kind,
-                                        };
-                                        setGenOptions(next);
-                                        if (panelTarget !== null) {
-                                          void generate(panelTarget, next);
-                                        }
-                                      }}
-                                      className={cx(
-                                        "flex h-9 w-9 items-center justify-center rounded-[var(--ds-radius-md,8px)] text-[var(--ds-text-muted,#6f7d83)] transition-colors",
-                                        active
-                                          ? "bg-[var(--ds-accent,#6366f1)] text-[var(--ds-text-on-accent,#ffffff)]"
-                                          : "hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.06))] hover:text-[var(--ds-text-primary,#15171a)]",
-                                        FOCUS_RING,
-                                      )}
+                                      label={meta.label}
+                                      side="bottom"
                                     >
-                                      <Icon
-                                        aria-hidden="true"
-                                        className="h-4 w-4"
-                                      />
-                                    </button>
+                                      <button
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={active}
+                                        aria-label={meta.label}
+                                        onClick={() => {
+                                          const next = {
+                                            ...genOptions,
+                                            type: kind,
+                                          };
+                                          setGenOptions(next);
+                                          if (panelTarget !== null) {
+                                            void generate(panelTarget, next);
+                                          }
+                                        }}
+                                        className={cx(
+                                          "flex h-9 w-9 items-center justify-center rounded-[var(--ds-radius-md,8px)] text-[var(--ds-text-muted,#6f7d83)] transition-colors",
+                                          active
+                                            ? "bg-[var(--ds-accent,#6366f1)] text-[var(--ds-text-on-accent,#ffffff)]"
+                                            : "hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.06))] hover:text-[var(--ds-text-primary,#15171a)]",
+                                          FOCUS_RING,
+                                        )}
+                                      >
+                                        <Icon
+                                          aria-hidden="true"
+                                          className="h-4 w-4"
+                                        />
+                                      </button>
+                                    </Tooltip>
                                   );
                                 })}
                               </div>

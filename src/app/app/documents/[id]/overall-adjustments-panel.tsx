@@ -121,7 +121,6 @@ function ThemeSection() {
                 FOCUS_RING,
               )}
               style={{ backgroundColor: theme.colors.nodeFill }}
-              title={theme.name}
             >
               <span
                 aria-hidden="true"

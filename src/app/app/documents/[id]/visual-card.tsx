@@ -577,7 +577,6 @@ export function VisualCard({
           <button
             type="button"
             aria-label="Download visual as PNG"
-            title="Download PNG"
             onClick={(e) => void quickDownload(e)}
             className={[
               "absolute bottom-3 right-3 flex h-7 w-7 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-glass text-ds-text-muted opacity-0 shadow-sm backdrop-blur-sm transition hover:text-ds-text-primary group-hover:opacity-100",
@@ -596,13 +595,6 @@ export function VisualCard({
                   : copyImageState === "error"
                     ? "Copy failed"
                     : "Copy image to clipboard"
-              }
-              title={
-                copyImageState === "copied"
-                  ? "Copied!"
-                  : copyImageState === "error"
-                    ? "Failed"
-                    : "Copy image"
               }
               onClick={(e) => void copyImage(e)}
               disabled={copyImageState === "copying"}
@@ -627,7 +619,6 @@ export function VisualCard({
             <button
               type="button"
               aria-label="Share visual"
-              title="Share"
               onClick={(e) => void nativeShare(e)}
               className={[
                 "absolute bottom-3 right-[5.25rem] flex h-7 w-7 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-glass text-ds-text-muted opacity-0 shadow-sm backdrop-blur-sm transition hover:text-ds-text-primary group-hover:opacity-100",

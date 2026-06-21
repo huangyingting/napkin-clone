@@ -13,6 +13,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 
+import { MENU_CHROME, MENU_ITEM, cx } from "@/components/ui";
 import { SUPPORTED_LOCALES, type Locale } from "@/lib/i18n";
 import { setLocaleCookie } from "@/lib/i18n/actions";
 import { useLocale, useSetLocaleOptimistic } from "@/lib/i18n/locale-context";
@@ -81,18 +82,23 @@ export function LanguageSwitcher() {
           <ul
             role="listbox"
             aria-label="Select language"
-            className="absolute right-0 z-dropdown mt-1 min-w-[9rem] overflow-hidden rounded-xl border border-ds-border-strong bg-ds-surface-base py-1 shadow-lg"
+            className={cx(
+              "absolute right-0 z-dropdown mt-1 min-w-[9rem]",
+              MENU_CHROME,
+            )}
           >
             {SUPPORTED_LOCALES.map((loc) => (
               <li key={loc} role="option" aria-selected={loc === locale}>
                 <button
                   type="button"
                   onClick={() => switchTo(loc)}
-                  className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition hover:bg-ds-surface-sunken ${
+                  className={cx(
+                    MENU_ITEM,
+                    "gap-2 px-4",
                     loc === locale
-                      ? "font-medium text-ds-accent"
-                      : "text-ds-text-secondary hover:text-ds-text-primary"
-                  }`}
+                      ? "font-medium text-ds-accent hover:text-ds-accent"
+                      : undefined,
+                  )}
                 >
                   {LOCALE_LABELS[loc]}
                   {loc === locale && (

@@ -1,4 +1,5 @@
 import { LoadingRegion, Skeleton } from "@/components/ui/skeleton";
+import { PANEL_CHROME, cx } from "@/components/ui/tokens";
 
 export default function WorkspaceDetailLoading() {
   return (
@@ -20,7 +21,7 @@ export default function WorkspaceDetailLoading() {
         <div className="grid gap-6 lg:grid-cols-2" aria-hidden="true">
           <div className="flex flex-col gap-4">
             <Skeleton className="h-6 w-24" />
-            <div className="flex flex-col gap-3 rounded-2xl border border-ds-border-subtle bg-ds-surface-raised p-4">
+            <div className={cx("flex flex-col gap-3 p-4", PANEL_CHROME)}>
               {Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-3">
                   <Skeleton className="h-8 w-8 rounded-full" />
@@ -36,7 +37,7 @@ export default function WorkspaceDetailLoading() {
 
           <div className="flex flex-col gap-4">
             <Skeleton className="h-6 w-28" />
-            <div className="flex flex-col gap-3 rounded-2xl border border-ds-border-subtle bg-ds-surface-raised p-4">
+            <div className={cx("flex flex-col gap-3 p-4", PANEL_CHROME)}>
               {Array.from({ length: 2 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-3">
                   <Skeleton className="h-4 flex-1 rounded" />
@@ -54,7 +55,7 @@ export default function WorkspaceDetailLoading() {
             {Array.from({ length: 3 }).map((_, i) => (
               <div
                 key={i}
-                className="flex flex-col gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-raised p-5"
+                className={cx("flex flex-col gap-3 p-5", PANEL_CHROME)}
               >
                 <Skeleton className="h-24 w-full rounded-lg" />
                 <Skeleton className="h-5 w-3/4" />

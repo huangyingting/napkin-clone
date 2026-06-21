@@ -392,40 +392,41 @@ function ThemeChip({
   onSelect: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      aria-pressed={active}
-      aria-label={`Theme ${themeName}`}
-      title={themeName}
-      className={cx(
-        "flex flex-col items-stretch gap-1 rounded-[var(--ds-radius-md,10px)] border p-1.5 transition",
-        active
-          ? "border-transparent ring-2 ring-[var(--ds-accent,#6366f1)]"
-          : "border-[var(--ds-border-subtle,rgba(0,0,0,0.1))] hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
-        FOCUS_RING,
-      )}
-    >
-      <span
-        className="flex h-8 items-end justify-center gap-1 rounded-[var(--ds-radius-sm,8px)] border p-1.5"
-        style={{
-          backgroundColor: colors.nodeFill,
-          borderColor: colors.nodeStroke,
-        }}
+    <Tooltip label={themeName} side="bottom">
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-pressed={active}
+        aria-label={`Theme ${themeName}`}
+        className={cx(
+          "flex flex-col items-stretch gap-1 rounded-[var(--ds-radius-md,10px)] border p-1.5 transition",
+          active
+            ? "border-transparent ring-2 ring-[var(--ds-accent,#6366f1)]"
+            : "border-[var(--ds-border-subtle,rgba(0,0,0,0.1))] hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
+          FOCUS_RING,
+        )}
       >
-        {colors.palette.slice(0, 3).map((color, index) => (
-          <span
-            key={`${color}-${index}`}
-            aria-hidden="true"
-            className="h-1.5 w-1.5 rounded-full"
-            style={{ backgroundColor: color }}
-          />
-        ))}
-      </span>
-      <span className="truncate text-center text-[10px] font-medium text-[var(--ds-text-muted,#6f7d83)]">
-        {themeName}
-      </span>
-    </button>
+        <span
+          className="flex h-8 items-end justify-center gap-1 rounded-[var(--ds-radius-sm,8px)] border p-1.5"
+          style={{
+            backgroundColor: colors.nodeFill,
+            borderColor: colors.nodeStroke,
+          }}
+        >
+          {colors.palette.slice(0, 3).map((color, index) => (
+            <span
+              key={`${color}-${index}`}
+              aria-hidden="true"
+              className="h-1.5 w-1.5 rounded-full"
+              style={{ backgroundColor: color }}
+            />
+          ))}
+        </span>
+        <span className="truncate text-center text-[10px] font-medium text-[var(--ds-text-muted,#6f7d83)]">
+          {themeName}
+        </span>
+      </button>
+    </Tooltip>
   );
 }
 
@@ -467,25 +468,26 @@ function StyleGallery({
         const active = activeId === preset.id;
         return (
           <li key={preset.id}>
-            <button
-              type="button"
-              aria-label={`Apply ${preset.name} style`}
-              aria-pressed={active}
-              title={preset.description}
-              onClick={() => onSelect(preset.id)}
-              className={cx(
-                "group flex w-full flex-col overflow-hidden rounded-[var(--ds-radius-md,10px)] border p-1.5 text-left transition",
-                active
-                  ? "border-transparent ring-2 ring-[var(--ds-accent,#6366f1)]"
-                  : "border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
-                FOCUS_RING,
-              )}
-            >
-              <VisualRenderer visual={styled} className="h-auto w-full" />
-              <span className="mt-1 block truncate text-center text-[10px] font-medium text-[var(--ds-text-muted,#6f7d83)]">
-                {preset.name}
-              </span>
-            </button>
+            <Tooltip label={preset.description} side="bottom">
+              <button
+                type="button"
+                aria-label={`Apply ${preset.name} style`}
+                aria-pressed={active}
+                onClick={() => onSelect(preset.id)}
+                className={cx(
+                  "group flex w-full flex-col overflow-hidden rounded-[var(--ds-radius-md,10px)] border p-1.5 text-left transition",
+                  active
+                    ? "border-transparent ring-2 ring-[var(--ds-accent,#6366f1)]"
+                    : "border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
+                  FOCUS_RING,
+                )}
+              >
+                <VisualRenderer visual={styled} className="h-auto w-full" />
+                <span className="mt-1 block truncate text-center text-[10px] font-medium text-[var(--ds-text-muted,#6f7d83)]">
+                  {preset.name}
+                </span>
+              </button>
+            </Tooltip>
           </li>
         );
       })}
@@ -528,30 +530,30 @@ function EffectsPicker({
       {EFFECT_PRESETS.map(({ kind, label, description }) => {
         const active = activeKinds.has(kind);
         return (
-          <button
-            key={kind}
-            type="button"
-            aria-label={`${active ? "Remove" : "Apply"} ${label} effect`}
-            aria-pressed={active}
-            title={description}
-            onClick={() => {
-              if (active) {
-                onChange(clearEffect(visual, kind));
-              } else {
-                onChange(setEffect(visual, { kind }));
-              }
-            }}
-            className={cx(
-              "flex items-center justify-center gap-1.5 rounded-[var(--ds-radius-md,10px)] border px-3 py-2 text-[11px] font-medium transition",
-              active
-                ? "border-transparent bg-[var(--ds-accent,#6366f1)]/10 text-[var(--ds-accent,#6366f1)] ring-2 ring-[var(--ds-accent,#6366f1)]"
-                : "border-[var(--ds-border-subtle,rgba(0,0,0,0.1))] text-[var(--ds-text-muted,#6f7d83)] hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))] hover:text-[var(--ds-text-primary,#18181b)]",
-              FOCUS_RING,
-            )}
-          >
-            <Wand2 aria-hidden="true" className="h-3 w-3 flex-shrink-0" />
-            {label}
-          </button>
+          <Tooltip key={kind} label={description} side="bottom">
+            <button
+              type="button"
+              aria-label={`${active ? "Remove" : "Apply"} ${label} effect`}
+              aria-pressed={active}
+              onClick={() => {
+                if (active) {
+                  onChange(clearEffect(visual, kind));
+                } else {
+                  onChange(setEffect(visual, { kind }));
+                }
+              }}
+              className={cx(
+                "flex items-center justify-center gap-1.5 rounded-[var(--ds-radius-md,10px)] border px-3 py-2 text-[11px] font-medium transition",
+                active
+                  ? "border-transparent bg-[var(--ds-accent,#6366f1)]/10 text-[var(--ds-accent,#6366f1)] ring-2 ring-[var(--ds-accent,#6366f1)]"
+                  : "border-[var(--ds-border-subtle,rgba(0,0,0,0.1))] text-[var(--ds-text-muted,#6f7d83)] hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))] hover:text-[var(--ds-text-primary,#18181b)]",
+                FOCUS_RING,
+              )}
+            >
+              <Wand2 aria-hidden="true" className="h-3 w-3 flex-shrink-0" />
+              {label}
+            </button>
+          </Tooltip>
         );
       })}
     </div>
@@ -645,46 +647,48 @@ function BrandChip({
         FOCUS_RING,
       )}
     >
-      <button
-        type="button"
-        aria-label={`Apply brand ${brand.name}`}
-        aria-pressed={active}
-        title={brand.name}
-        onClick={onApply}
-        className="flex flex-col gap-1"
-      >
-        <span
-          className="flex h-8 items-end justify-center gap-1 rounded-[var(--ds-radius-sm,8px)] border p-1.5"
-          style={{
-            backgroundColor: preview.nodeFill,
-            borderColor: preview.nodeStroke,
-          }}
+      <Tooltip label={brand.name} side="bottom">
+        <button
+          type="button"
+          aria-label={`Apply brand ${brand.name}`}
+          aria-pressed={active}
+          onClick={onApply}
+          className="flex flex-col gap-1"
         >
-          {preview.palette.slice(0, 3).map((color, i) => (
-            <span
-              key={i}
-              aria-hidden="true"
-              className="h-1.5 w-1.5 rounded-full"
-              style={{ backgroundColor: color }}
-            />
-          ))}
-        </span>
-        <span className="truncate text-center text-[10px] font-medium text-[var(--ds-text-muted,#6f7d83)]">
-          {brand.name}
-        </span>
-      </button>
-      <button
-        type="button"
-        aria-label={`Apply brand ${brand.name} to all visuals`}
-        title="Apply to all visuals"
-        onClick={onApplyAll}
-        className={cx(
-          "hidden w-full rounded-[var(--ds-radius-sm,8px)] px-1 py-0.5 text-[9px] font-medium text-[var(--ds-text-muted)] hover:text-[var(--ds-accent)] group-hover:flex",
-          FOCUS_RING,
-        )}
-      >
-        Apply to all
-      </button>
+          <span
+            className="flex h-8 items-end justify-center gap-1 rounded-[var(--ds-radius-sm,8px)] border p-1.5"
+            style={{
+              backgroundColor: preview.nodeFill,
+              borderColor: preview.nodeStroke,
+            }}
+          >
+            {preview.palette.slice(0, 3).map((color, i) => (
+              <span
+                key={i}
+                aria-hidden="true"
+                className="h-1.5 w-1.5 rounded-full"
+                style={{ backgroundColor: color }}
+              />
+            ))}
+          </span>
+          <span className="truncate text-center text-[10px] font-medium text-[var(--ds-text-muted,#6f7d83)]">
+            {brand.name}
+          </span>
+        </button>
+      </Tooltip>
+      <Tooltip label="Apply to all visuals" side="bottom">
+        <button
+          type="button"
+          aria-label={`Apply brand ${brand.name} to all visuals`}
+          onClick={onApplyAll}
+          className={cx(
+            "hidden w-full rounded-[var(--ds-radius-sm,8px)] px-1 py-0.5 text-[9px] font-medium text-[var(--ds-text-muted)] hover:text-[var(--ds-accent)] group-hover:flex",
+            FOCUS_RING,
+          )}
+        >
+          Apply to all
+        </button>
+      </Tooltip>
     </div>
   );
 }
@@ -1941,23 +1945,27 @@ export function VisualContextPopover({
             <ul className="grid grid-cols-2 gap-2">
               {candidates.map((candidate, index) => (
                 <li key={index}>
-                  <button
-                    type="button"
-                    aria-label={`Select variation ${index + 1} of ${candidates.length}`}
-                    title={
+                  <Tooltip
+                    label={
                       candidate.title ?? VISUAL_KIND_META[candidate.type].label
                     }
-                    onClick={() => chooseCandidate(candidate)}
-                    className={cx(
-                      "group flex w-full flex-col overflow-hidden rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-base,#ffffff)] p-1.5 text-left transition hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
-                      FOCUS_RING,
-                    )}
+                    side="bottom"
                   >
-                    <VisualRenderer
-                      visual={candidate}
-                      className="h-auto w-full"
-                    />
-                  </button>
+                    <button
+                      type="button"
+                      aria-label={`Select variation ${index + 1} of ${candidates.length}`}
+                      onClick={() => chooseCandidate(candidate)}
+                      className={cx(
+                        "group flex w-full flex-col overflow-hidden rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-base,#ffffff)] p-1.5 text-left transition hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
+                        FOCUS_RING,
+                      )}
+                    >
+                      <VisualRenderer
+                        visual={candidate}
+                        className="h-auto w-full"
+                      />
+                    </button>
+                  </Tooltip>
                 </li>
               ))}
             </ul>

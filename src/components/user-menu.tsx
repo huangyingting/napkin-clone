@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
+import { MENU_CHROME, MENU_ITEM, cx } from "@/components/ui";
+
 /**
  * The header user menu: a dropdown showing the current user's name + email with
  * a link to account settings and a sign-out control (passed as `children` so the
@@ -63,7 +65,10 @@ export function UserMenu({
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 top-full z-dropdown mt-2 w-56 overflow-hidden rounded-xl border border-ds-border-strong bg-ds-surface-base py-1 shadow-lg"
+          className={cx(
+            "absolute right-0 top-full z-dropdown mt-2 w-56",
+            MENU_CHROME,
+          )}
         >
           <div className="border-b border-ds-border-strong px-3 py-2">
             <p className="truncate text-sm font-medium text-ds-text-primary">
@@ -75,7 +80,7 @@ export function UserMenu({
             href="/app/settings"
             role="menuitem"
             onClick={() => setOpen(false)}
-            className="block px-3 py-2 text-sm text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
+            className={MENU_ITEM}
           >
             Settings
           </Link>

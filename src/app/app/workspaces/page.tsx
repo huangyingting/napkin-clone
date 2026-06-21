@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { EMPTY_STATE_CHROME, PANEL_CHROME, cx } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 
@@ -9,9 +10,6 @@ import { CreateWorkspaceButton } from "./create-workspace-button";
 export const metadata: Metadata = {
   title: "Workspaces — TextIQ",
 };
-
-const primaryButtonClass =
-  "flex h-10 items-center justify-center rounded-full bg-ds-control px-5 text-sm font-medium text-ds-control-text transition hover:bg-ds-control-hover disabled:opacity-60";
 
 export default async function WorkspacesPage() {
   const user = await requireUser();
@@ -71,11 +69,16 @@ export default async function WorkspacesPage() {
               Shared spaces for team collaboration
             </p>
           </div>
-          <CreateWorkspaceButton className={primaryButtonClass} />
+          <CreateWorkspaceButton />
         </header>
 
         {allWorkspaces.length === 0 ? (
-          <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-ds-border-strong bg-ds-surface-raised px-6 py-16 text-center">
+          <div
+            className={cx(
+              "flex flex-col items-center gap-4 px-6 py-16",
+              EMPTY_STATE_CHROME,
+            )}
+          >
             <div className="flex flex-col gap-1">
               <h2 className="text-lg font-medium text-ds-text-primary">
                 No workspaces yet
@@ -84,7 +87,7 @@ export default async function WorkspacesPage() {
                 Create a workspace to collaborate with your team.
               </p>
             </div>
-            <CreateWorkspaceButton className={primaryButtonClass}>
+            <CreateWorkspaceButton>
               Create your first workspace
             </CreateWorkspaceButton>
           </div>
@@ -94,7 +97,10 @@ export default async function WorkspacesPage() {
               <li key={workspace.id}>
                 <Link
                   href={`/app/workspaces/${workspace.id}`}
-                  className="group flex flex-col rounded-xl border border-ds-border-subtle bg-ds-surface-raised p-6 transition hover:border-ds-border-strong hover:shadow-sm"
+                  className={cx(
+                    "group flex flex-col p-6 transition hover:border-ds-border-strong hover:shadow-ds-raised",
+                    PANEL_CHROME,
+                  )}
                 >
                   <div className="flex flex-col gap-3">
                     <div className="flex items-start justify-between">

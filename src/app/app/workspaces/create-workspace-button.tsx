@@ -1,8 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
+
+import { Button, Dialog, FIELD_CONTROL } from "@/components/ui";
 
 import { createWorkspace } from "./actions";
 
@@ -10,37 +12,42 @@ export function CreateWorkspaceButton({
   className,
   children = "New workspace",
 }: {
-  className: string;
+  className?: string;
   children?: React.ReactNode;
 }) {
   const router = useRouter();
   const [error, action] = useActionState(createWorkspace, null);
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     if (error && error.startsWith("/app/workspaces/")) {
-      dialogRef.current?.close();
       router.push(error);
     }
   }, [error, router]);
 
   return (
     <>
-      <button
-        type="button"
+      <Button
+        variant="solid"
+        size="lg"
         className={className}
-        onClick={() => dialogRef.current?.showModal()}
+        onClick={() => setOpen(true)}
       >
         {children}
-      </button>
+      </Button>
 
-      <dialog
-        ref={dialogRef}
-        className="rounded-2xl border border-ds-border-subtle bg-ds-surface-overlay p-0 shadow-ds-overlay backdrop:bg-ds-backdrop"
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        aria-labelledby="create-workspace-title"
+        className="max-w-sm"
       >
-        <form action={action} className="flex w-80 flex-col gap-6 p-6">
+        <form action={action} className="flex flex-col gap-6">
           <div className="flex flex-col gap-2">
-            <h2 className="text-lg font-semibold text-ds-text-primary">
+            <h2
+              id="create-workspace-title"
+              className="text-lg font-semibold text-ds-text-primary"
+            >
               Create workspace
             </h2>
             <p className="text-sm text-ds-text-secondary">
@@ -62,7 +69,7 @@ export function CreateWorkspaceButton({
               required
               autoFocus
               placeholder="Marketing team"
-              className="rounded-lg border border-ds-border-subtle bg-ds-surface-raised px-3 py-2 text-sm text-ds-text-primary placeholder:text-ds-text-muted focus:border-ds-border-strong focus:outline-none focus:ring-2 focus:ring-ds-focus-ring/10"
+              className={`${FIELD_CONTROL} h-10 px-3`}
             />
             {error && typeof error === "string" && !error.startsWith("/") && (
               <p role="alert" className="text-sm text-ds-danger-text">
@@ -73,16 +80,17 @@ export function CreateWorkspaceButton({
 
           <div className="flex gap-2">
             <SubmitButton />
-            <button
-              type="button"
-              onClick={() => dialogRef.current?.close()}
-              className="flex-1 rounded-full border border-ds-border-subtle bg-ds-surface-raised px-4 py-2 text-sm font-medium text-ds-text-primary transition hover:bg-ds-state-hover"
+            <Button
+              variant="subtle"
+              size="lg"
+              onClick={() => setOpen(false)}
+              className="flex-1"
             >
               Cancel
-            </button>
+            </Button>
           </div>
         </form>
-      </dialog>
+      </Dialog>
     </>
   );
 }
@@ -90,12 +98,14 @@ export function CreateWorkspaceButton({
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <button
+    <Button
       type="submit"
       disabled={pending}
-      className="flex-1 rounded-full bg-ds-control px-4 py-2 text-sm font-medium text-ds-control-text transition hover:bg-ds-control-hover disabled:opacity-60"
+      variant="solid"
+      size="lg"
+      className="flex-1"
     >
       {pending ? "Creating..." : "Create"}
-    </button>
+    </Button>
   );
 }

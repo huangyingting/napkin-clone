@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, IconButton, Tooltip } from "@/components/ui";
 import {
   SHORTCUT_SCOPES,
   shortcutsForScope,
@@ -111,15 +111,16 @@ export function KeyboardShortcuts() {
 
   return (
     <>
-      <button
-        type="button"
-        aria-label="Keyboard shortcuts"
-        title="Keyboard shortcuts (?)"
-        onClick={() => setOpen(true)}
-        className="hidden h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-ds-text-secondary transition hover:bg-ds-state-hover hover:text-ds-text-primary sm:flex"
-      >
-        ?
-      </button>
+      <Tooltip label="Keyboard shortcuts (?)" side="bottom">
+        <IconButton
+          aria-label="Keyboard shortcuts"
+          size="lg"
+          onClick={() => setOpen(true)}
+          className="hidden text-sm font-semibold sm:flex"
+        >
+          ?
+        </IconButton>
+      </Tooltip>
       {open && <ShortcutsDialog onClose={() => setOpen(false)} />}
     </>
   );

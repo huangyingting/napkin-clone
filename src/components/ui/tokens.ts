@@ -42,6 +42,36 @@ export type Elevation = keyof typeof ELEVATION;
 export const SURFACE_BASE =
   "bg-[var(--ds-surface-base,#ffffff)] text-[var(--ds-text-primary,#15171a)] border-[var(--ds-border-subtle,rgba(0,0,0,0.08))]";
 
+/** Shared form field chrome for inputs, selects, and textareas. */
+export const FIELD_CONTROL = cx(
+  "border border-ds-border-subtle bg-ds-surface-raised text-sm text-ds-text-primary placeholder:text-ds-text-muted",
+  "focus:border-ds-border-strong focus:outline-none focus:ring-2 focus:ring-ds-focus-ring/10",
+  RADIUS.md,
+);
+
+/** Shared page card/panel shell. */
+export const PANEL_CHROME = cx(
+  "border border-ds-border-subtle bg-ds-surface-raised text-ds-text-primary",
+  RADIUS.lg,
+);
+
+/** Shared empty-state shell. */
+export const EMPTY_STATE_CHROME = cx(
+  "border border-dashed border-ds-border-strong bg-ds-surface-raised text-center",
+  RADIUS.lg,
+);
+
+/** Shared dropdown/menu shell. */
+export const MENU_CHROME = cx(
+  "overflow-hidden border border-ds-border-subtle bg-ds-surface-overlay py-1",
+  RADIUS.md,
+  ELEVATION.popover,
+);
+
+/** Shared menu item row. */
+export const MENU_ITEM =
+  "flex w-full items-center px-3 py-2 text-left text-sm text-ds-text-secondary transition hover:bg-ds-state-hover hover:text-ds-text-primary";
+
 /** Joins truthy class fragments. */
 export function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");

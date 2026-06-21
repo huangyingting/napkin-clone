@@ -1,5 +1,6 @@
 "use client";
 
+import { Tooltip } from "@/components/ui";
 import { type CollabStatus, type Peer } from "@/lib/collab/use-collaboration";
 import { initialsOf } from "@/lib/collab/y-text";
 
@@ -46,28 +47,32 @@ export function Presence({
     <div className="flex items-center gap-3">
       {peers.length > 0 ? (
         <div className="flex items-center -space-x-2" aria-label="People here">
-          {shown.map((peer) => (
-            <span
-              key={peer.clientId}
-              title={peer.self ? `${peer.name} (you)` : peer.name}
-              aria-label={peer.self ? `${peer.name} (you)` : peer.name}
-              className={[
-                "flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold text-ds-inverse-text ring-2",
-                peer.self ? "ring-ds-control" : "ring-ds-surface-overlay",
-              ].join(" ")}
-              style={{ backgroundColor: peer.color }}
-            >
-              {initialsOf(peer.name)}
-            </span>
-          ))}
+          {shown.map((peer) => {
+            const label = peer.self ? `${peer.name} (you)` : peer.name;
+            return (
+              <Tooltip key={peer.clientId} label={label} side="bottom">
+                <span
+                  aria-label={label}
+                  className={[
+                    "flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold text-ds-inverse-text ring-2",
+                    peer.self ? "ring-ds-control" : "ring-ds-surface-overlay",
+                  ].join(" ")}
+                  style={{ backgroundColor: peer.color }}
+                >
+                  {initialsOf(peer.name)}
+                </span>
+              </Tooltip>
+            );
+          })}
           {overflow > 0 ? (
-            <span
-              className="flex h-7 w-7 items-center justify-center rounded-full bg-ds-surface-sunken text-[10px] font-semibold text-ds-text-secondary ring-2 ring-ds-surface-overlay"
-              title={`${overflow} more`}
-              aria-label={`${overflow} more`}
-            >
-              +{overflow}
-            </span>
+            <Tooltip label={`${overflow} more`} side="bottom">
+              <span
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-ds-surface-sunken text-[10px] font-semibold text-ds-text-secondary ring-2 ring-ds-surface-overlay"
+                aria-label={`${overflow} more`}
+              >
+                +{overflow}
+              </span>
+            </Tooltip>
           ) : null}
         </div>
       ) : null}

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { Button, FIELD_CONTROL, PANEL_CHROME, cx } from "@/components/ui";
+
 import { createInviteLink, revokeInviteLink, type InviteLink } from "./actions";
 
 const roleLabels = {
@@ -56,7 +58,7 @@ export function InviteLinkManager({
   };
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-ds-border-subtle bg-ds-surface-raised p-6">
+    <div className={cx("flex flex-col gap-4 p-6", PANEL_CHROME)}>
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <select
@@ -64,7 +66,7 @@ export function InviteLinkManager({
             onChange={(e) =>
               setSelectedRole(e.target.value as "EDITOR" | "VIEWER")
             }
-            className="flex-1 rounded-lg border border-ds-border-subtle bg-ds-surface-raised px-3 py-2 text-sm text-ds-text-primary focus:border-ds-border-strong focus:outline-none focus:ring-2 focus:ring-ds-focus-ring/10"
+            className={cx("h-10 flex-1 px-3", FIELD_CONTROL)}
           >
             <option value="EDITOR">Editor</option>
             <option value="VIEWER">Viewer</option>
@@ -72,7 +74,7 @@ export function InviteLinkManager({
           <select
             value={expiryDays}
             onChange={(e) => setExpiryDays(e.target.value)}
-            className="flex-1 rounded-lg border border-ds-border-subtle bg-ds-surface-raised px-3 py-2 text-sm text-ds-text-primary focus:border-ds-border-strong focus:outline-none focus:ring-2 focus:ring-ds-focus-ring/10"
+            className={cx("h-10 flex-1 px-3", FIELD_CONTROL)}
             aria-label="Invite link expiry"
           >
             {expiryOptions.map((option) => (
@@ -88,14 +90,11 @@ export function InviteLinkManager({
             onChange={(e) => setMaxUses(e.target.value)}
             placeholder="Max uses"
             aria-label="Maximum uses (leave blank for unlimited)"
-            className="w-28 rounded-lg border border-ds-border-subtle bg-ds-surface-raised px-3 py-2 text-sm text-ds-text-primary focus:border-ds-border-strong focus:outline-none focus:ring-2 focus:ring-ds-focus-ring/10"
+            className={cx("h-10 w-28 px-3", FIELD_CONTROL)}
           />
-          <button
-            onClick={handleCreate}
-            className="rounded-full bg-ds-control px-4 py-2 text-sm font-medium text-ds-control-text transition hover:bg-ds-control-hover"
-          >
+          <Button variant="solid" size="lg" onClick={handleCreate}>
             Create invite link
-          </button>
+          </Button>
         </div>
         <p className="text-xs text-ds-text-muted">
           Anyone with the link can join this workspace with the selected role,
@@ -146,16 +145,21 @@ export function InviteLinkManager({
                       e.currentTarget.select();
                       navigator.clipboard.writeText(e.currentTarget.value);
                     }}
-                    className="mt-2 w-full cursor-pointer truncate rounded border border-ds-border-subtle bg-ds-surface-raised px-2 py-1 text-xs font-mono text-ds-text-secondary"
+                    className={cx(
+                      "mt-2 h-8 w-full cursor-pointer truncate px-2 font-mono text-xs text-ds-text-secondary",
+                      FIELD_CONTROL,
+                    )}
                   />
                 </div>
-                <button
+                <Button
+                  variant="plain"
+                  size="sm"
                   onClick={() => handleRevoke(link.id)}
                   className="shrink-0 text-sm text-ds-text-secondary transition hover:text-ds-danger-text"
                   aria-label="Revoke invite link"
                 >
                   Revoke
-                </button>
+                </Button>
               </div>
             </li>
           ))}
