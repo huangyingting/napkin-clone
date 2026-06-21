@@ -7,35 +7,20 @@
  * testable under `node --test`.
  */
 
-import type {
-  Deck,
-  DeckTheme,
-  ElementAlign,
-  ElementBox,
-  ShapeKind,
-  Slide,
-  SlideElement,
-  SlideLayout,
-  TextElementStyle,
-  TextRun,
+import {
+  DECK_THEMES,
+  SLIDE_LAYOUTS,
+  type Deck,
+  type DeckTheme,
+  type ElementAlign,
+  type ElementBox,
+  type ShapeKind,
+  type Slide,
+  type SlideElement,
+  type SlideLayout,
+  type TextElementStyle,
+  type TextRun,
 } from "./deck";
-
-const DECK_THEMES: readonly DeckTheme[] = [
-  "indigo",
-  "ocean",
-  "forest",
-  "sunset",
-  "grape",
-  "default",
-];
-
-const SLIDE_LAYOUTS: readonly SlideLayout[] = [
-  "title",
-  "section",
-  "content",
-  "media",
-  "blank",
-];
 
 class DeckValidationError extends Error {
   constructor(message: string) {
