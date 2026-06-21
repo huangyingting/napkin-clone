@@ -13,6 +13,7 @@ import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { buildDeckFromBlocks } from "@/lib/presentation/deck";
 import { buildPresentationBlocks } from "@/lib/presentation/present-blocks";
 import { normalizeDeckRaw } from "@/lib/presentation/fresh-deck";
+import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
 import type { Visual } from "@/lib/visual/schema";
 import { shouldShowAttribution } from "@/lib/billing/attribution";
 
@@ -75,8 +76,10 @@ export default async function PresentEmbedPage({
 
   const normalized = normalizeDeckRaw(document.deckJson);
   const parsed = normalized ? safeParseDeck(normalized) : null;
-  const deck =
-    parsed && parsed.success ? parsed.data : buildDeckFromBlocks(blocks);
+  const deck = stripOrphanedVisuals(
+    parsed && parsed.success ? parsed.data : buildDeckFromBlocks(blocks),
+    new Set(Object.keys(visualsRecord)),
+  );
   const showAttribution = shouldShowAttribution(document.owner.plan);
 
   return (

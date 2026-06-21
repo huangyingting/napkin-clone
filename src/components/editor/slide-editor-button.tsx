@@ -20,6 +20,7 @@ import { SlideEditor } from "@/components/presentation/slide-editor";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { buildDeckFromBlocks, type Deck } from "@/lib/presentation/deck";
 import { pickFreshestDeck } from "@/lib/presentation/fresh-deck";
+import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
 import { collectDocumentBlocks } from "@/lib/visual/document-export";
 import type { Visual } from "@/lib/visual/schema";
 import { useRightSurface } from "@/app/app/documents/[id]/right-surface-context";
@@ -71,10 +72,9 @@ export function SlideEditorButton({
       // Network/auth error — proceed with lastSavedRef as fallback.
     }
 
-    const startDeck = pickFreshestDeck(
-      fetchedRaw,
-      lastSavedRef.current,
-      baseDeck,
+    const startDeck = stripOrphanedVisuals(
+      pickFreshestDeck(fetchedRaw, lastSavedRef.current, baseDeck),
+      new Set(visualMap.keys()),
     );
 
     setVisuals(visualMap);
