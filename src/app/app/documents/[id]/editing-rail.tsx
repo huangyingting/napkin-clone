@@ -2,7 +2,7 @@
 
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { PanelRight, X } from "lucide-react";
+import { PanelRight, Sparkles, X } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -12,9 +12,10 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { createPortal } from "react-dom";
-import { $getNodeByKey, $nodesOfType } from "lexical";
+import { $getNodeByKey, $isElementNode, $nodesOfType } from "lexical";
 
 import {
+  Button,
   ColorPicker,
   Divider,
   IconButton,
@@ -22,8 +23,20 @@ import {
   Tooltip,
   cx,
 } from "@/components/ui";
+import {
+  GeneratingIndicator,
+  VisualSkeleton,
+} from "@/components/motion/generation-status";
+import { VisualRenderer } from "@/components/visual/visual-renderer";
+import { FOCUS_RING } from "@/components/motion/control-styles";
 import { useEditorContext } from "@/lib/lexical/editor-context";
 import { useIsPointerFine } from "@/lib/pointer";
+import {
+  canGenerateForSelection,
+  generateTargetForContext,
+  requestVisualCandidates,
+  stampSourceText,
+} from "@/lib/visual/generate";
 import { shouldShowOverallToolbox } from "@/lib/lexical/overall-toolbox";
 import {
   formatShortcut,
@@ -38,7 +51,7 @@ import { BRAND_WEB_FONTS } from "@/lib/brand/schema";
 import { applyBrand } from "@/lib/brand/transforms";
 import { useVisualSvgRegistry } from "@/components/editor/visual-svg-registry";
 
-import { $isVisualNode, VisualNode } from "./visual-node";
+import { $createVisualNode, $isVisualNode, VisualNode } from "./visual-node";
 import { VisualContextPopover } from "./visual-context-popover";
 import { useVisualPanel } from "./visual-panel-context";
 import { OverallAdjustmentsPanel } from "./overall-adjustments-panel";
@@ -446,6 +459,170 @@ function VisualContextSection() {
  */
 
 // ---------------------------------------------------------------------------
+// GenerateVisualSection — touch-reachable "turn text into a visual" affordance.
+// ---------------------------------------------------------------------------
+
+/**
+ * The AI text→visual generation affordance for coarse-pointer surfaces. The
+ * per-block "spark" (block-spark.tsx) is hover-driven and hidden on touch, so
+ * mobile/tablet users had no way to reach the product's headline feature. This
+ * section, hosted in the bottom sheet's `text-format` group, exposes a
+ * "Generate visual" button wired to the SAME generation path the spark uses
+ * (via the shared {@link requestVisualCandidates}/{@link stampSourceText}
+ * helpers — no fetch/credit logic is duplicated).
+ *
+ * Invariants (#84/#87): the selection target is derived only from
+ * {@link useEditorContext} (through the pure {@link generateTargetForContext}),
+ * and the generated visual is inserted exclusively via `editor.update()`,
+ * anchored AFTER the active block so it serialises into `contentJson`.
+ */
+function GenerateVisualSection() {
+  const [editor] = useLexicalComposerContext();
+  const ctx = useEditorContext();
+  const target = useMemo(() => generateTargetForContext(ctx), [ctx]);
+
+  const [status, setStatus] = useState<"idle" | "loading">("idle");
+  const [error, setError] = useState<string | null>(null);
+  const [candidates, setCandidates] = useState<Visual[]>([]);
+  // Source text captured at generation time so the inserted visual is stamped
+  // with the text it was derived from even if the selection moves afterwards.
+  const sourceTextRef = useRef<string>("");
+
+  const generate = useCallback(async () => {
+    if (!target) return;
+    sourceTextRef.current = target.text;
+    setStatus("loading");
+    setError(null);
+    setCandidates([]);
+
+    const result = await requestVisualCandidates(target.text);
+
+    setStatus("idle");
+    if (result.ok) {
+      setCandidates(result.candidates);
+    } else {
+      setError(result.error);
+    }
+  }, [target]);
+
+  const insertVisual = useCallback(
+    (visual: Visual) => {
+      if (!target) return;
+      const toInsert = stampSourceText(visual, sourceTextRef.current);
+      editor.update(() => {
+        const top = $getNodeByKey(target.blockKey);
+        if (top === null || !$isElementNode(top)) {
+          return;
+        }
+        top.insertAfter($createVisualNode(toInsert));
+      });
+      setCandidates([]);
+      editor.focus();
+    },
+    [editor, target],
+  );
+
+  if (!target) return null;
+
+  return (
+    <div className="border-b border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] p-3">
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#6f7d83)]">
+        Turn text into a visual
+      </p>
+
+      <Button
+        size="sm"
+        variant="solid"
+        leadingIcon={<Sparkles aria-hidden="true" className="h-3.5 w-3.5" />}
+        onClick={() => void generate()}
+        disabled={status === "loading"}
+        className="w-full"
+      >
+        {status === "loading"
+          ? "Generating…"
+          : candidates.length > 0
+            ? "Regenerate"
+            : "Generate visual"}
+      </Button>
+
+      <div className="mt-2">
+        <AnimatePresence mode="wait">
+          {status === "loading" ? (
+            <motion.div
+              key="loading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="space-y-2"
+            >
+              <ul className="grid grid-cols-2 gap-2">
+                {[0, 1].map((i) => (
+                  <li key={i}>
+                    <VisualSkeleton />
+                  </li>
+                ))}
+              </ul>
+              <GeneratingIndicator
+                isLoading
+                className="px-1 py-1 text-sm text-[var(--ds-text-muted,#71717a)]"
+              />
+            </motion.div>
+          ) : error !== null ? (
+            <motion.div
+              key="error"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              role="alert"
+              className="flex flex-col items-start gap-2 px-1 py-2 text-sm text-[var(--ds-danger,#dc2626)]"
+            >
+              <span>{error}</span>
+              <Button
+                size="sm"
+                variant="subtle"
+                onClick={() => void generate()}
+              >
+                Try again
+              </Button>
+            </motion.div>
+          ) : candidates.length > 0 ? (
+            <motion.ul
+              key="candidates"
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="grid grid-cols-2 gap-2"
+            >
+              {candidates.map((candidate, index) => (
+                <li key={index}>
+                  <button
+                    type="button"
+                    aria-label={`Insert variation ${index + 1} of ${candidates.length}`}
+                    onClick={() => insertVisual(candidate)}
+                    className={cx(
+                      "group flex w-full flex-col overflow-hidden rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-base,#ffffff)] p-1.5 text-left transition-colors hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
+                      FOCUS_RING,
+                    )}
+                  >
+                    <VisualRenderer
+                      visual={candidate}
+                      className="h-auto w-full"
+                    />
+                  </button>
+                </li>
+              ))}
+            </motion.ul>
+          ) : null}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // MobileEditingSheet — FAB + slide-up bottom sheet for sub-lg viewports.
 // ---------------------------------------------------------------------------
 
@@ -496,6 +673,7 @@ function MobileEditingSheet({
   }, [open]);
 
   const showOverall = shouldShowOverallToolbox(ctx.kind);
+  const canGenerate = canGenerateForSelection(ctx);
 
   // The content group hosted by the sheet comes from the unified resolver
   // (selection-derived): "text-format" ⟺ range, "visual-edit" ⟺ visual,
@@ -608,6 +786,7 @@ function MobileEditingSheet({
                   <div className="flex-1 overflow-y-auto">
                     {group === "text-format" && (
                       <Surface elevation="flat" radius="sm" bordered={false}>
+                        <GenerateVisualSection />
                         <TextFormatSection />
                       </Surface>
                     )}
@@ -626,9 +805,14 @@ function MobileEditingSheet({
                       />
                     )}
                     {group === "overall" && !showOverall && (
-                      <div className="p-4 text-[12px] text-[var(--ds-text-muted,#6f7d83)]">
-                        Select text or a visual to see editing options.
-                      </div>
+                      <>
+                        <GenerateVisualSection />
+                        {!canGenerate && (
+                          <div className="p-4 text-[12px] text-[var(--ds-text-muted,#6f7d83)]">
+                            Select text or a visual to see editing options.
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </motion.div>

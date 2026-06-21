@@ -32,12 +32,14 @@ import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { INSERT_VISUAL_COMMAND } from "@/lib/lexical/commands";
 import { VISUAL_KIND_META } from "@/lib/lexical/tool-registry";
 import {
-  hashSourceText,
-  safeParseVisual,
   VISUAL_KINDS,
   type Visual,
   type VisualKind,
 } from "@/lib/visual/schema";
+import {
+  requestVisualCandidates,
+  stampSourceText,
+} from "@/lib/visual/generate";
 import { type Orientation, type DetailLevel } from "@/lib/ai/prompt";
 import { useIsPointerFine } from "@/lib/pointer";
 
@@ -111,26 +113,6 @@ const DETAIL_LEVEL_OPTIONS: ReadonlyArray<{
   { value: "summary", label: "Summary" },
   { value: "detailed", label: "Detailed" },
 ];
-
-function messageFrom(payload: unknown, fallback: string): string {
-  if (payload && typeof payload === "object" && "error" in payload) {
-    const error = (payload as { error: unknown }).error;
-    if (typeof error === "string") {
-      return error;
-    }
-  }
-  return fallback;
-}
-
-function candidatesFrom(payload: unknown): unknown[] {
-  if (payload && typeof payload === "object" && "candidates" in payload) {
-    const candidates = (payload as { candidates: unknown }).candidates;
-    if (Array.isArray(candidates)) {
-      return candidates;
-    }
-  }
-  return [];
-}
 
 /**
  * Per-block "spark" affordance for the Lexical editor (US-010). Hovering or
@@ -307,50 +289,19 @@ export function BlockSparkPlugin() {
     setStatus("loading");
     setError(null);
     setCandidates([]);
-    try {
-      const body: Record<string, unknown> = { text: target.text };
-      if (opts.type !== "auto") body.type = opts.type;
-      if (opts.orientation !== "auto") body.orientation = opts.orientation;
-      if (opts.detailLevel !== "auto") body.detailLevel = opts.detailLevel;
-      if (opts.stayCloserToText) body.stayCloserToText = true;
 
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const payload: unknown = await response.json().catch(() => null);
+    const result = await requestVisualCandidates(target.text, {
+      type: opts.type,
+      orientation: opts.orientation,
+      detailLevel: opts.detailLevel,
+      stayCloserToText: opts.stayCloserToText,
+    });
 
-      if (!response.ok) {
-        setError(
-          messageFrom(
-            payload,
-            "We couldn't generate a visual. Please try again.",
-          ),
-        );
-        return;
-      }
-
-      const valid: Visual[] = [];
-      for (const item of candidatesFrom(payload)) {
-        const result = safeParseVisual(item);
-        if (result.success) {
-          valid.push(result.data);
-        }
-      }
-
-      if (valid.length === 0) {
-        setError("No usable visuals came back. Please try again.");
-        return;
-      }
-
-      setCandidates(valid);
-    } catch {
-      setError(
-        "Couldn't reach the generator. Check your connection and try again.",
-      );
-    } finally {
-      setStatus("idle");
+    setStatus("idle");
+    if (result.ok) {
+      setCandidates(result.candidates);
+    } else {
+      setError(result.error);
     }
   }, []);
 
@@ -361,14 +312,7 @@ export function BlockSparkPlugin() {
         return;
       }
       // Stamp sourceText so the visual remembers the text it was generated from.
-      const sourceText = sourceTextRef.current;
-      const toInsert: Visual = sourceText
-        ? {
-            ...visual,
-            sourceText,
-            sourceTextHash: hashSourceText(sourceText),
-          }
-        : visual;
+      const toInsert = stampSourceText(visual, sourceTextRef.current);
       editor.update(() => {
         const top = $getNodeByKey(targetKey);
         if (top === null || !$isElementNode(top)) {
