@@ -32,6 +32,13 @@ const EDGE_TOOLBAR_HEIGHT = 36;
 /** Stroke width of the invisible, clickable hit-area drawn over each edge. */
 const EDGE_HIT_WIDTH = 14;
 
+function caretIndexFromRatio(label: string, ratio: number): number {
+  if (label.length === 0) {
+    return 0;
+  }
+  return clamp(Math.round(label.length * ratio), 0, label.length);
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
@@ -131,6 +138,7 @@ interface DragState {
   id: string;
   startClientX: number;
   startClientY: number;
+  startRatioX: number;
   startCenterX: number;
   startCenterY: number;
   positioned: boolean;
@@ -186,6 +194,7 @@ export function VisualEditor({
   const lastClickRef = useRef<{ id: string; time: number } | null>(null);
   const editStartLabel = useRef<string>("");
   const editStartEdgeLabel = useRef<string>("");
+  const editStartCaretIndex = useRef<number | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -251,8 +260,15 @@ export function VisualEditor({
   // made each typed character replace the previous one.
   useEffect(() => {
     if (editingId && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
+      const input = inputRef.current;
+      input.focus();
+      const caretIndex = editStartCaretIndex.current;
+      editStartCaretIndex.current = null;
+      const index = Math.min(
+        Math.max(caretIndex ?? input.value.length, 0),
+        input.value.length,
+      );
+      input.setSelectionRange(index, index);
     }
   }, [editingId]);
 
@@ -367,6 +383,12 @@ export function VisualEditor({
         id: node.id,
         startClientX: event.clientX,
         startClientY: event.clientY,
+        startRatioX: clamp(
+          (event.clientX - event.currentTarget.getBoundingClientRect().left) /
+            Math.max(1, event.currentTarget.getBoundingClientRect().width),
+          0,
+          1,
+        ),
         startCenterX: box.x,
         startCenterY: box.y,
         positioned,
@@ -446,6 +468,10 @@ export function VisualEditor({
       if (drag && !drag.moved) {
         if (drag.wasSelected) {
           lastClickRef.current = null;
+          const node = nodeById.get(drag.id);
+          editStartCaretIndex.current = node
+            ? caretIndexFromRatio(node.label, drag.startRatioX)
+            : null;
           beginEdit(drag.id);
           return;
         }
@@ -453,13 +479,17 @@ export function VisualEditor({
         const last = lastClickRef.current;
         if (last && last.id === drag.id && now - last.time < 350) {
           lastClickRef.current = null;
+          const node = nodeById.get(drag.id);
+          editStartCaretIndex.current = node
+            ? caretIndexFromRatio(node.label, drag.startRatioX)
+            : null;
           beginEdit(drag.id);
         } else {
           lastClickRef.current = { id: drag.id, time: now };
         }
       }
     },
-    [beginEdit, endDrag],
+    [beginEdit, endDrag, nodeById],
   );
 
   const onInputKeyDown = useCallback(
