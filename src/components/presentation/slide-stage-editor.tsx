@@ -45,6 +45,7 @@ import type { ElementBox, Slide, SlideElement } from "@/lib/presentation/deck";
 import type { AlignMode } from "@/lib/presentation/element-align";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import { type SnapGuide, snapBox } from "@/lib/presentation/element-snap";
+import { clampToolbarLeft } from "@/lib/presentation/toolbar-position";
 import type { Visual } from "@/lib/visual/schema";
 
 type Handle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
@@ -735,7 +736,7 @@ function AlignToolbar({
     ? ((bounds.y + bounds.h) / 100) * height + 8
     : topPxRaw - 8;
   const leftPx = ((bounds.x + bounds.w / 2) / 100) * width;
-  const clampedLeft = Math.max(120, Math.min(width - 120, leftPx));
+  const clampedLeft = clampToolbarLeft(leftPx, width, 120);
 
   return (
     <div
@@ -800,7 +801,7 @@ function ElementToolbar({
     ? ((element.box.y + element.box.h) / 100) * height + 8
     : elTopPx - 8;
   const leftPx = ((element.box.x + element.box.w / 2) / 100) * width;
-  const clampedLeft = Math.max(90, Math.min(width - 90, leftPx));
+  const clampedLeft = clampToolbarLeft(leftPx, width, 90);
 
   return (
     <div
