@@ -301,22 +301,64 @@ export function WorkspaceDocuments({
   const [documents, setDocuments] = useState<WorkspaceDocument[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [loadKey, setLoadKey] = useState(0);
 
   const canCreate = canCreateInWorkspace(userRole);
   const canImport = canImportInWorkspace(userRole);
 
+  const retry = () => {
+    setError(null);
+    setLoading(true);
+    setLoadKey((k) => k + 1);
+  };
+
   useEffect(() => {
-    getWorkspaceDocuments(workspaceId).then((result) => {
-      setDocuments(result.documents);
-      setHasMore(result.hasMore);
-      setLoading(false);
-    });
-  }, [workspaceId]);
+    let cancelled = false;
+    getWorkspaceDocuments(workspaceId)
+      .then((result) => {
+        if (cancelled) return;
+        setDocuments(result.documents);
+        setHasMore(result.hasMore);
+        setLoading(false);
+        setError(null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setError("Could not load documents. Please try again.");
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId, loadKey]);
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-ds-border-subtle bg-ds-surface-raised p-6 text-center text-sm text-ds-text-muted">
+      <div
+        role="status"
+        aria-live="polite"
+        className="rounded-xl border border-ds-border-subtle bg-ds-surface-raised p-6 text-center text-sm text-ds-text-muted"
+      >
         Loading documents...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div
+        role="alert"
+        className="rounded-xl border border-ds-border-subtle bg-ds-surface-raised p-6 text-center text-sm text-ds-text-muted"
+      >
+        <p>{error}</p>
+        <button
+          type="button"
+          onClick={retry}
+          className="mt-3 flex h-9 items-center justify-center rounded-full border border-ds-border-strong px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary mx-auto"
+        >
+          Retry
+        </button>
       </div>
     );
   }
