@@ -44,8 +44,13 @@ import { DocumentExportButton } from "@/components/editor/document-export-button
 import { PageBreakIndicator } from "@/components/editor/page-break-indicator";
 import { PresentButton } from "@/components/editor/present-button";
 import { SlideEditorButton } from "@/components/editor/slide-editor-button";
+import {
+  EditorToolbarButton,
+  EditorToolbarDivider,
+  EditorToolbarGroup,
+} from "@/components/editor/toolbar-button";
 import { VisualSvgRegistryProvider } from "@/components/editor/visual-svg-registry";
-import { Popover, Tooltip } from "@/components/ui";
+import { Popover } from "@/components/ui";
 import { EditingRail } from "./editing-rail";
 import { FloatingTextToolbar } from "./floating-text-toolbar";
 import { ImportPlugin } from "./import-plugin";
@@ -232,33 +237,6 @@ function DocumentStatsPlugin({ onText }: { onText: (text: string) => void }) {
   return null;
 }
 
-function ToolbarGroup({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      role="group"
-      aria-label={label}
-      className="flex min-w-0 flex-wrap items-center gap-1"
-    >
-      {children}
-    </div>
-  );
-}
-
-function ToolbarDivider() {
-  return (
-    <div
-      aria-hidden="true"
-      className="hidden h-7 w-px shrink-0 bg-ds-border-subtle md:block"
-    />
-  );
-}
-
 function DocumentStyleButton({ disabled }: { disabled: boolean }) {
   const [open, setOpen] = useState(false);
 
@@ -269,20 +247,17 @@ function DocumentStyleButton({ disabled }: { disabled: boolean }) {
       aria-label="Document style"
       className="w-80 overflow-hidden p-0"
       trigger={
-        <Tooltip label="Document style" side="bottom">
-          <button
-            type="button"
-            aria-label="Document style"
-            aria-expanded={open}
-            aria-haspopup="dialog"
-            disabled={disabled}
-            onClick={() => setOpen((value) => !value)}
-            className="flex h-8 items-center justify-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised px-3 text-sm font-medium text-ds-text-primary shadow-ds-raised transition hover:bg-ds-state-hover active:bg-ds-state-active disabled:pointer-events-none disabled:opacity-50"
-          >
+        <EditorToolbarButton
+          label="Style"
+          tooltip="Document style"
+          icon={
             <SlidersHorizontal aria-hidden="true" className="h-3.5 w-3.5" />
-            <span>Style</span>
-          </button>
-        </Tooltip>
+          }
+          aria-expanded={open}
+          aria-haspopup="dialog"
+          disabled={disabled}
+          onClick={() => setOpen((value) => !value)}
+        />
       }
     >
       <OverallAdjustmentsPanel />
@@ -297,29 +272,20 @@ function PageGuidesButton({
   showPageBreaks: boolean;
   onToggle: () => void;
 }) {
+  const label = showPageBreaks ? "Hide page-break guides" : "Page guides";
+
   return (
-    <Tooltip
-      label={
+    <EditorToolbarButton
+      label={label}
+      tooltip={
         showPageBreaks
           ? "Hide page-break guides"
           : "Show page-break guides (A4)"
       }
-      side="bottom"
-    >
-      <button
-        type="button"
-        aria-label={
-          showPageBreaks ? "Hide page-break guides" : "Show page-break guides"
-        }
-        aria-pressed={showPageBreaks}
-        onClick={onToggle}
-        className={[
-          "flex h-8 items-center justify-center gap-1.5 rounded-ds-md border px-3 text-sm font-medium text-ds-text-primary shadow-ds-raised transition",
-          showPageBreaks
-            ? "border-ds-accent-border bg-ds-accent-surface text-ds-accent-text"
-            : "border-ds-border-subtle bg-ds-surface-raised text-ds-text-secondary hover:border-ds-border-strong hover:text-ds-text-primary",
-        ].join(" ")}
-      >
+      active={showPageBreaks}
+      aria-pressed={showPageBreaks}
+      onClick={onToggle}
+      icon={
         <svg
           viewBox="0 0 16 16"
           aria-hidden="true"
@@ -331,9 +297,8 @@ function PageGuidesButton({
         >
           <path d="M2 5h12M2 11h12" />
         </svg>
-        <span>Page guides</span>
-      </button>
-    </Tooltip>
+      }
+    />
   );
 }
 
@@ -580,25 +545,25 @@ export function LexicalEditor({
                   <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
                     <Presence peers={collab.peers} status={collab.status} />
                     {canEdit && (
-                      <ToolbarGroup label="Edit document">
+                      <EditorToolbarGroup label="Edit document">
                         <ImportPlugin />
                         <UndoRedoControls editable={editable} />
-                      </ToolbarGroup>
+                      </EditorToolbarGroup>
                     )}
 
-                    {canEdit && <ToolbarDivider />}
+                    {canEdit && <EditorToolbarDivider />}
 
-                    <ToolbarGroup label="Document style and page guides">
+                    <EditorToolbarGroup label="Document style and page guides">
                       {canEdit && <DocumentStyleButton disabled={!editable} />}
                       <PageGuidesButton
                         showPageBreaks={showPageBreaks}
                         onToggle={() => setShowPageBreaks((v) => !v)}
                       />
-                    </ToolbarGroup>
+                    </EditorToolbarGroup>
 
-                    <ToolbarDivider />
+                    <EditorToolbarDivider />
 
-                    <ToolbarGroup label="Create and present">
+                    <EditorToolbarGroup label="Create and present">
                       {canEdit && (
                         <SlideEditorButton
                           documentId={documentId}
@@ -607,11 +572,11 @@ export function LexicalEditor({
                       )}
                       <PresentButton documentTitle={title.value} />
                       <DocumentExportButton documentTitle={title.value} />
-                    </ToolbarGroup>
+                    </EditorToolbarGroup>
 
-                    <ToolbarDivider />
+                    <EditorToolbarDivider />
 
-                    <ToolbarGroup label="Collaborate and review">
+                    <EditorToolbarGroup label="Collaborate and review">
                       {canManage && (
                         <ShareButton
                           id={documentId}
@@ -636,7 +601,7 @@ export function LexicalEditor({
                         documentId={documentId}
                         canEdit={canEdit}
                       />
-                    </ToolbarGroup>
+                    </EditorToolbarGroup>
                   </div>
                 </div>
 

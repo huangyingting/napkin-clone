@@ -2,9 +2,12 @@
 
 import { MessageSquare } from "lucide-react";
 import { useCallback, useState, useTransition } from "react";
-import { createPortal } from "react-dom";
 
-import { Tooltip } from "@/components/ui";
+import {
+  EditorSidePanel,
+  EditorSidePanelHeaderButton,
+} from "@/components/editor/side-panel";
+import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 
 import {
   createComment,
@@ -483,167 +486,152 @@ export function CommentsPanel({
 
   return (
     <>
-      <Tooltip label="Comments" side="bottom">
-        <button
-          type="button"
-          onClick={toggleOpen}
-          aria-label={
-            unreadCount > 0 ? `Comments, ${unreadCount} unread` : "Comments"
+      <EditorToolbarButton
+        label="Comments"
+        tooltip="Comments"
+        iconOnly={iconOnly}
+        onClick={toggleOpen}
+        aria-label={
+          unreadCount > 0 ? `Comments, ${unreadCount} unread` : "Comments"
+        }
+        aria-expanded={open}
+      >
+        <MessageSquare aria-hidden="true" className="h-3.5 w-3.5" />
+        <span className={iconOnly ? "sr-only" : undefined}>Comments</span>
+        {unresolvedCount > 0 ? (
+          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-ds-control px-1 text-[11px] font-semibold text-ds-control-text">
+            {unresolvedCount}
+          </span>
+        ) : null}
+        {unreadCount > 0 ? (
+          <span
+            aria-hidden="true"
+            className="absolute -right-0.5 -top-0.5 inline-flex h-2.5 w-2.5 rounded-full bg-ds-accent ring-2 ring-ds-surface-overlay"
+          />
+        ) : null}
+      </EditorToolbarButton>
+
+      {open ? (
+        <EditorSidePanel
+          label="Comments"
+          title="Comments"
+          actions={
+            <>
+              <EditorSidePanelHeaderButton
+                onClick={refresh}
+                disabled={isPending}
+                aria-label="Refresh comments"
+              >
+                Refresh
+              </EditorSidePanelHeaderButton>
+              <EditorSidePanelHeaderButton
+                onClick={() => setOpen(false)}
+                aria-label="Close comments"
+                className="text-sm"
+              >
+                ✕
+              </EditorSidePanelHeaderButton>
+            </>
           }
-          aria-expanded={open}
-          className={[
-            "relative inline-flex h-8 items-center justify-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised text-sm font-medium text-ds-text-primary shadow-ds-raised transition hover:bg-ds-state-hover active:bg-ds-state-active",
-            iconOnly ? "w-8 px-0" : "px-3",
-          ].join(" ")}
         >
-          <MessageSquare aria-hidden="true" className="h-3.5 w-3.5" />
-          <span className={iconOnly ? "sr-only" : undefined}>Comments</span>
-          {unresolvedCount > 0 ? (
-            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-ds-control px-1 text-[11px] font-semibold text-ds-control-text">
-              {unresolvedCount}
-            </span>
-          ) : null}
-          {unreadCount > 0 ? (
-            <span
-              aria-hidden="true"
-              className="absolute -right-0.5 -top-0.5 inline-flex h-2.5 w-2.5 rounded-full bg-ds-accent ring-2 ring-ds-surface-overlay"
-            />
-          ) : null}
-        </button>
-      </Tooltip>
-
-      {open
-        ? createPortal(
-            <aside
-              role="dialog"
-              aria-label="Comments"
-              className="fixed inset-y-0 right-0 z-panel flex w-full max-w-md flex-col border-l border-ds-border-subtle bg-ds-surface-overlay shadow-ds-popover"
-            >
-              <div className="flex items-center justify-between border-b border-ds-border-subtle px-4 py-3">
-                <h2 className="text-sm font-semibold text-ds-text-primary">
-                  Comments
-                </h2>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={refresh}
-                    disabled={isPending}
-                    aria-label="Refresh comments"
-                    className="rounded-md px-2 py-1 text-xs font-medium text-ds-text-muted transition hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-50"
-                  >
-                    Refresh
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setOpen(false)}
-                    aria-label="Close comments"
-                    className="rounded-md px-2 py-1 text-sm text-ds-text-muted transition hover:bg-ds-state-hover hover:text-ds-text-primary"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2 border-b border-ds-border-subtle px-4 py-3">
-                {anchor ? (
-                  <div>
-                    <AnchorChip
-                      type={anchor.type}
-                      text={anchor.text}
-                      onClear={() => setAnchor(null)}
-                    />
-                  </div>
-                ) : null}
-                <textarea
-                  aria-label="New comment"
-                  value={body}
-                  onChange={(event) => setBody(event.target.value)}
-                  rows={3}
-                  placeholder="Add a comment…"
-                  className="w-full resize-none rounded-md border border-ds-border-subtle bg-ds-surface-raised px-2.5 py-2 text-sm text-ds-text-primary outline-none focus:border-ds-border-strong"
+          <div className="flex flex-col gap-2 border-b border-ds-border-subtle px-4 py-3">
+            {anchor ? (
+              <div>
+                <AnchorChip
+                  type={anchor.type}
+                  text={anchor.text}
+                  onClear={() => setAnchor(null)}
                 />
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={attachTextSelection}
-                    aria-label="Attach text selection"
-                    className="rounded-full border border-ds-border-subtle px-2.5 py-1 text-xs font-medium text-ds-text-secondary transition hover:border-ds-border-strong hover:text-ds-text-primary"
-                  >
-                    Attach text selection
-                  </button>
-                  {anchorNode ? (
-                    <button
-                      type="button"
-                      onClick={attachSelectedElement}
-                      aria-label="Attach selected element"
-                      className="rounded-full border border-ds-border-subtle px-2.5 py-1 text-xs font-medium text-ds-text-secondary transition hover:border-ds-border-strong hover:text-ds-text-primary"
-                    >
-                      Attach “{anchorNode.label || "element"}”
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={submit}
-                    disabled={isPending || body.trim().length === 0}
-                    aria-label="Add comment"
-                    className="ml-auto rounded-full bg-ds-control px-3.5 py-1.5 text-xs font-medium text-ds-control-text transition hover:bg-ds-control-hover disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Comment
-                  </button>
-                </div>
-                {hint ? (
-                  <p className="text-xs text-ds-warning-text">{hint}</p>
-                ) : null}
-                {error ? (
-                  <p role="alert" className="text-xs text-ds-danger-text">
-                    {error}
-                  </p>
-                ) : null}
               </div>
+            ) : null}
+            <textarea
+              aria-label="New comment"
+              value={body}
+              onChange={(event) => setBody(event.target.value)}
+              rows={3}
+              placeholder="Add a comment…"
+              className="w-full resize-none rounded-md border border-ds-border-subtle bg-ds-surface-raised px-2.5 py-2 text-sm text-ds-text-primary outline-none focus:border-ds-border-strong"
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={attachTextSelection}
+                aria-label="Attach text selection"
+                className="rounded-full border border-ds-border-subtle px-2.5 py-1 text-xs font-medium text-ds-text-secondary transition hover:border-ds-border-strong hover:text-ds-text-primary"
+              >
+                Attach text selection
+              </button>
+              {anchorNode ? (
+                <button
+                  type="button"
+                  onClick={attachSelectedElement}
+                  aria-label="Attach selected element"
+                  className="rounded-full border border-ds-border-subtle px-2.5 py-1 text-xs font-medium text-ds-text-secondary transition hover:border-ds-border-strong hover:text-ds-text-primary"
+                >
+                  Attach “{anchorNode.label || "element"}”
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={submit}
+                disabled={isPending || body.trim().length === 0}
+                aria-label="Add comment"
+                className="ml-auto rounded-full bg-ds-control px-3.5 py-1.5 text-xs font-medium text-ds-control-text transition hover:bg-ds-control-hover disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Comment
+              </button>
+            </div>
+            {hint ? (
+              <p className="text-xs text-ds-warning-text">{hint}</p>
+            ) : null}
+            {error ? (
+              <p role="alert" className="text-xs text-ds-danger-text">
+                {error}
+              </p>
+            ) : null}
+          </div>
 
-              <div className="flex items-center justify-between px-4 py-2">
-                <span className="text-xs text-ds-text-muted">
-                  {threads.length} {threads.length === 1 ? "thread" : "threads"}
-                </span>
-                <label className="flex items-center gap-1.5 text-xs text-ds-text-muted">
-                  <input
-                    type="checkbox"
-                    checked={showResolved}
-                    onChange={(event) => setShowResolved(event.target.checked)}
-                    className="h-3.5 w-3.5 rounded border-ds-border-strong accent-ds-accent"
+          <div className="flex items-center justify-between px-4 py-2">
+            <span className="text-xs text-ds-text-muted">
+              {threads.length} {threads.length === 1 ? "thread" : "threads"}
+            </span>
+            <label className="flex items-center gap-1.5 text-xs text-ds-text-muted">
+              <input
+                type="checkbox"
+                checked={showResolved}
+                onChange={(event) => setShowResolved(event.target.checked)}
+                className="h-3.5 w-3.5 rounded border-ds-border-strong accent-ds-accent"
+              />
+              Show resolved
+            </label>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-auto px-4 pb-4">
+            {visibleThreads.length === 0 ? (
+              <p className="mt-6 text-center text-sm text-ds-text-muted">
+                {threads.length === 0
+                  ? "No comments yet. Select text or an element, then add one."
+                  : "No open comments."}
+              </p>
+            ) : (
+              <ul className="space-y-3">
+                {visibleThreads.map((thread) => (
+                  <Thread
+                    key={thread.id}
+                    thread={thread}
+                    currentUserId={currentUserId}
+                    disabled={isPending}
+                    onReply={reply}
+                    onToggleResolved={toggleResolved}
+                    onEdit={edit}
+                    onDelete={remove}
                   />
-                  Show resolved
-                </label>
-              </div>
-
-              <div className="min-h-0 flex-1 overflow-auto px-4 pb-4">
-                {visibleThreads.length === 0 ? (
-                  <p className="mt-6 text-center text-sm text-ds-text-muted">
-                    {threads.length === 0
-                      ? "No comments yet. Select text or an element, then add one."
-                      : "No open comments."}
-                  </p>
-                ) : (
-                  <ul className="space-y-3">
-                    {visibleThreads.map((thread) => (
-                      <Thread
-                        key={thread.id}
-                        thread={thread}
-                        currentUserId={currentUserId}
-                        disabled={isPending}
-                        onReply={reply}
-                        onToggleResolved={toggleResolved}
-                        onEdit={edit}
-                        onDelete={remove}
-                      />
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </aside>,
-            document.body,
-          )
-        : null}
+                ))}
+              </ul>
+            )}
+          </div>
+        </EditorSidePanel>
+      ) : null}
     </>
   );
 }

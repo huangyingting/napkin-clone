@@ -16,9 +16,8 @@ import { LayoutPanelLeft } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 
 import { fetchDeckJson, saveDeckJson } from "@/app/app/documents/[id]/actions";
-import { FOCUS_RING } from "@/components/motion/control-styles";
 import { SlideEditor } from "@/components/presentation/slide-editor";
-import { Tooltip } from "@/components/ui";
+import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { buildDeckFromBlocks, type Deck } from "@/lib/presentation/deck";
 import { pickFreshestDeck } from "@/lib/presentation/fresh-deck";
 import { collectDocumentBlocks } from "@/lib/visual/document-export";
@@ -110,17 +109,14 @@ export function SlideEditorButton({
 
   return (
     <>
-      <Tooltip label="Edit slides" side="bottom">
-        <button
-          type="button"
-          onClick={handleOpen}
-          aria-label="Open slide editor"
-          className={`flex h-8 items-center justify-center gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised text-sm font-medium text-ds-text-primary shadow-ds-raised transition-colors hover:bg-ds-state-hover active:bg-ds-state-active ${iconOnly ? "w-8 px-0" : "px-3"} ${FOCUS_RING}`}
-        >
-          <LayoutPanelLeft size={15} aria-hidden="true" />
-          <span className={iconOnly ? "sr-only" : undefined}>Slides</span>
-        </button>
-      </Tooltip>
+      <EditorToolbarButton
+        label="Slides"
+        tooltip="Edit slides"
+        icon={<LayoutPanelLeft size={15} aria-hidden="true" />}
+        iconOnly={iconOnly}
+        onClick={handleOpen}
+        aria-label="Open slide editor"
+      />
 
       {open && deck ? (
         <SlideEditor
