@@ -13,6 +13,7 @@ import {
   mapStripeSubscriptionStatus,
   planFromPriceId,
   reduceStripeSubscriptionEvent,
+  shouldApplySubscriptionUpdate,
   type StripeSubscriptionLike,
 } from "@/lib/billing/stripe-provider";
 
@@ -132,5 +133,32 @@ describe("reduceStripeSubscriptionEvent — deleted", () => {
     assert.strictEqual(state.status, "cancelled");
     assert.strictEqual(state.plan, "free");
     assert.strictEqual(state.cancelAtPeriodEnd, false);
+  });
+});
+
+describe("shouldApplySubscriptionUpdate — ordering guard", () => {
+  const older = new Date("2026-06-01T00:00:00.000Z");
+  const newer = new Date("2026-07-01T00:00:00.000Z");
+
+  it("applies when there is no stored period yet", () => {
+    assert.strictEqual(shouldApplySubscriptionUpdate(null, newer), true);
+    assert.strictEqual(shouldApplySubscriptionUpdate(undefined, older), true);
+  });
+
+  it("applies a newer incoming period", () => {
+    assert.strictEqual(shouldApplySubscriptionUpdate(older, newer), true);
+  });
+
+  it("applies an equal incoming period (idempotent retry of same state)", () => {
+    assert.strictEqual(shouldApplySubscriptionUpdate(newer, newer), true);
+  });
+
+  it("ignores an older incoming period (out-of-order redelivery)", () => {
+    assert.strictEqual(shouldApplySubscriptionUpdate(newer, older), false);
+  });
+
+  it("ignores an update with no incoming period when one is stored", () => {
+    assert.strictEqual(shouldApplySubscriptionUpdate(newer, null), false);
+    assert.strictEqual(shouldApplySubscriptionUpdate(newer, undefined), false);
   });
 });

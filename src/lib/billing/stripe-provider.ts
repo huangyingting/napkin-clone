@@ -308,6 +308,24 @@ export function reduceStripeSubscriptionEvent(
   return state;
 }
 
+/**
+ * Pure ordering guard for `customer.subscription.updated`.
+ *
+ * Stripe can redeliver and reorder webhooks, so a stale event may carry an
+ * older billing period than the one we already persisted. Returns `true` only
+ * when the incoming period is at least as new as the stored one (or when we
+ * have no period to compare against), so out-of-order events are ignored
+ * instead of reverting newer subscription state.
+ */
+export function shouldApplySubscriptionUpdate(
+  storedPeriodEnd: Date | null | undefined,
+  incomingPeriodEnd: Date | null | undefined,
+): boolean {
+  if (!storedPeriodEnd) return true;
+  if (!incomingPeriodEnd) return false;
+  return incomingPeriodEnd.getTime() >= storedPeriodEnd.getTime();
+}
+
 export async function handleStripeWebhookEvent(
   rawBody: string,
   signature: string,
@@ -319,11 +337,33 @@ export async function handleStripeWebhookEvent(
 
   const stripe = await loadStripe();
 
-  let event: { type: string; data: { object: Record<string, unknown> } };
+  let event: {
+    id: string;
+    type: string;
+    data: { object: Record<string, unknown> };
+  };
   try {
     event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
   } catch {
     return { status: 400, message: "Webhook signature verification failed" };
+  }
+
+  // Idempotency: record the event id before applying it. A duplicate id (Stripe
+  // retry/redelivery) fails the unique constraint (P2002), so we short-circuit
+  // as an already-processed no-op instead of re-applying state.
+  try {
+    await prisma.stripeWebhookEvent.create({
+      data: { id: event.id, type: event.type },
+    });
+  } catch (err) {
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      (err as { code?: string }).code === "P2002"
+    ) {
+      return { status: 200, message: "duplicate event ignored" };
+    }
+    throw err;
   }
 
   switch (event.type) {
@@ -389,6 +429,17 @@ export async function handleStripeWebhookEvent(
       });
       if (sub) {
         const next = reduceStripeSubscriptionEvent(event.type, stripeSub);
+        // Ordering guard: ignore redeliveries that carry an older billing
+        // period than the one we already persisted, so out-of-order events
+        // cannot revert newer subscription state.
+        if (
+          !shouldApplySubscriptionUpdate(
+            sub.currentPeriodEnd,
+            next.currentPeriodEnd,
+          )
+        ) {
+          return { status: 200, message: "stale subscription update ignored" };
+        }
         await prisma.subscription.update({
           where: { stripeSubscriptionId },
           data: {
