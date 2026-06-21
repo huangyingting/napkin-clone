@@ -4,24 +4,32 @@
  * Extracted from SlideEditorButton so the logic is DOM-free and fully
  * testable under `node --test`.
  *
- * NOTE: #141 (later wave) will centralise deckJson normalisation — keep this
- * minimal and compatible; do not add new normalisation concerns here.
+ * `normalizeDeckRaw` is the **single canonical helper** for coercing a raw
+ * deckJson DB value before it is passed to `safeParseDeck`. All read paths
+ * (editor, present, embed) must go through this function (#141).
  */
 
 import type { Deck } from "./deck";
 import { safeParseDeck } from "./deck-schema";
 
 /**
- * Normalises a raw deckJson value as it may arrive from the DB or a prop.
- * Prisma can return JSON columns as a parsed object or, on some providers, as
- * a serialised JSON string. Mirrors the pattern used in the present/embed pages.
+ * Canonical coercion helper for raw deckJson values as they arrive from the
+ * DB or a prop. Prisma can return JSON columns as a parsed object or, on some
+ * providers (SQLite/legacy), as a serialised JSON string.
+ *
+ * - `object` (non-string)  → returned unchanged
+ * - valid JSON string       → parsed and returned as an object
+ * - invalid/empty string   → `null` (safe fallback; callers should treat null
+ *                            as "no persisted deck")
+ * - `null` / `undefined`   → returned unchanged
  */
 export function normalizeDeckRaw(raw: unknown): unknown {
   if (typeof raw === "string") {
+    if (raw === "") return null;
     try {
       return JSON.parse(raw);
     } catch {
-      return raw;
+      return null;
     }
   }
   return raw;
