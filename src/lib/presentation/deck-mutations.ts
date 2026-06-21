@@ -13,6 +13,7 @@ import {
   materializeSlideElements,
   migrateSlideToFreeForm,
 } from "./deck";
+import { type AlignMode, alignBoxes } from "./element-align";
 
 /**
  * `Omit` that distributes over a discriminated union, preserving each member's
@@ -359,6 +360,48 @@ export function updateElement(
             } as SlideElement)
           : element,
       ),
+    });
+  });
+}
+
+/**
+ * Aligns the elements named by `elementIds` on the slide at `index` to a shared
+ * edge/center, computed from their selection bounding box via the pure
+ * {@link alignBoxes} math (issue #237). Only the listed elements move; every
+ * other element is left untouched. Pure and immutable — the input deck is never
+ * mutated.
+ *
+ * Like every element mutation this clears `elementsDerived` so the slide is
+ * treated as hand-edited. A no-op (bad index, no `elements[]`, or none of the
+ * ids present) returns the same slide.
+ */
+export function alignElements(
+  deck: Deck,
+  index: number,
+  elementIds: readonly string[],
+  mode: AlignMode,
+): Deck {
+  const ids = new Set(elementIds);
+  return mapSlide(deck, index, (slide) => {
+    if (!slide.elements) {
+      return slide;
+    }
+    const targets = slide.elements.filter((element) => ids.has(element.id));
+    if (targets.length === 0) {
+      return slide;
+    }
+    const aligned = alignBoxes(
+      targets.map((element) => element.box),
+      mode,
+    );
+    const boxById = new Map<string, ElementBox>();
+    targets.forEach((element, i) => boxById.set(element.id, aligned[i]));
+    return markElementsEdited({
+      ...slide,
+      elements: slide.elements.map((element) => {
+        const box = boxById.get(element.id);
+        return box ? { ...element, box } : element;
+      }),
     });
   });
 }
