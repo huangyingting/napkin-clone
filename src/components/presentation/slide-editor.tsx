@@ -11,7 +11,12 @@
  * keys page between slides (unless a field is focused), Escape closes.
  *
  * Every change flows through the pure `deck-mutations` helpers and is reported
- * via `onDeckChange`; persistence is triggered by the Save button (`onSave`).
+ * via `onDeckChange`; edits are persisted automatically by a debounced autosave
+ * (~1.5s after the last change) and the explicit Save button flushes them
+ * immediately. A status badge in the top bar mirrors the document editor's
+ * save-status feedback ("All changes saved" / "Saving…" / "Unsaved changes…" /
+ * "Couldn't save — Retry"), and closing while there are unsaved edits prompts
+ * for confirmation so work is never lost silently.
  *
  * Read/write only of the deck prop — it never touches Lexical/Yjs state.
  */
@@ -44,6 +49,7 @@ import {
 import { createPortal } from "react-dom";
 
 import { FOCUS_RING } from "@/components/motion/control-styles";
+import type { ActionResult } from "@/lib/action-result";
 import {
   DECK_THEMES,
   SlideCanvas,
@@ -74,6 +80,12 @@ import {
   type SlideTemplateKind,
 } from "@/lib/presentation/slide-templates";
 import {
+  SAVE_STATUS_LABEL,
+  SLIDE_SAVE_DEBOUNCE_MS,
+  resolveSaveStatus,
+  shouldScheduleAutosave,
+} from "@/lib/presentation/save-status";
+import {
   addElement,
   bringElementToFront,
   duplicateSlide,
@@ -98,8 +110,13 @@ interface SlideEditorProps {
   visuals: ReadonlyMap<string, Visual>;
   onDeckChange: (deck: Deck) => void;
   onClose: () => void;
-  onSave: (deck: Deck) => Promise<void>;
-  isSaving?: boolean;
+  /**
+   * Persists the deck through the owner-scoped save action. Returns the
+   * {@link ActionResult} so the editor can surface success/failure in its
+   * save-status badge and offer a working Retry on error. Used by both the
+   * debounced autosave and the explicit Save button (a single save path).
+   */
+  onSave: (deck: Deck) => Promise<ActionResult>;
   /**
    * The deck freshly derived from the live document (`buildDeckFromBlocks`),
    * carrying the current document content hash. Drives the "Sync from document"
@@ -196,7 +213,6 @@ export function SlideEditor({
   onDeckChange: onDeckChangeProp,
   onClose,
   onSave,
-  isSaving = false,
   freshDeck = null,
   isDeckStale = false,
 }: SlideEditorProps) {
@@ -239,6 +255,117 @@ export function SlideEditor({
     () => new Set(),
   );
   const stageRef = useRef<HTMLDivElement>(null);
+
+  // ── Autosave + save-status feedback (issue #208) ───────────────────────────
+  // Mirrors the document editor: a debounced autosave persists deck edits a
+  // short while after the user stops editing, the Save button flushes
+  // immediately, and a badge reflects the current persistence state.
+  const [isDirty, setIsDirty] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasSaveError, setHasSaveError] = useState(false);
+
+  // Pending autosave debounce timer.
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The freshest deck to persist; a save in flight reads this so a flush always
+  // writes the newest edits, not a stale snapshot captured when it was queued.
+  const latestDeckRef = useRef<Deck>(deck);
+  // The last deck reference the autosave effect observed. `null` until the
+  // initial deck is seen, so the first render is never autosaved.
+  const lastSeenDeckRef = useRef<Deck | null>(null);
+
+  // Persists the latest deck immediately, cancelling any pending debounce. Both
+  // the autosave timer and the manual Save / Retry buttons route through here so
+  // there is a single save path.
+  const flushSave = useCallback(async () => {
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+    const deckToSave = latestDeckRef.current;
+    setIsSaving(true);
+    setHasSaveError(false);
+    try {
+      const res = await onSave(deckToSave);
+      if (res.ok) {
+        // Only clear the dirty flag if no newer edit was queued mid-save.
+        if (latestDeckRef.current === deckToSave) {
+          setIsDirty(false);
+        }
+      } else {
+        setHasSaveError(true);
+      }
+    } catch {
+      setHasSaveError(true);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [onSave]);
+
+  // Schedule a debounced autosave on each real user edit. The present deck only
+  // changes reference on a genuine action (mutation / undo / redo / applied
+  // sync); the initial load, legacy materialization (done before this editor)
+  // and the staleness banner never reach here, so no spurious autosave fires.
+  useEffect(() => {
+    latestDeckRef.current = deck;
+    const lastSeen = lastSeenDeckRef.current;
+    lastSeenDeckRef.current = deck;
+    if (!shouldScheduleAutosave({ current: deck, lastSeen })) {
+      return;
+    }
+    setIsDirty(true);
+    setHasSaveError(false);
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+    }
+    autosaveTimerRef.current = setTimeout(() => {
+      void flushSave();
+    }, SLIDE_SAVE_DEBOUNCE_MS);
+  }, [deck, flushSave]);
+
+  // Clear any pending autosave timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+      }
+    };
+  }, []);
+
+  const saveStatus = resolveSaveStatus({
+    isDirty,
+    isSaving,
+    hasError: hasSaveError,
+  });
+  // There are edits at risk of being lost while not fully saved.
+  const hasUnsavedWork = isDirty || isSaving || hasSaveError;
+
+  // Confirm before closing with unsaved work so edits are never lost silently.
+  const handleRequestClose = useCallback(() => {
+    if (
+      hasUnsavedWork &&
+      typeof window !== "undefined" &&
+      !window.confirm(
+        "You have unsaved slide changes. Close the editor and discard them?",
+      )
+    ) {
+      return;
+    }
+    onClose();
+  }, [hasUnsavedWork, onClose]);
+
+  // Native beforeunload guard: warn before a full page unload while edits are
+  // still in flight or unsaved, mirroring the close confirmation.
+  useEffect(() => {
+    if (!hasUnsavedWork) {
+      return;
+    }
+    function onBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [hasUnsavedWork]);
 
   const isMac = useMemo(() => {
     if (typeof navigator === "undefined") {
@@ -371,7 +498,7 @@ export function SlideEditor({
         if (effectiveSelectedElementId) {
           setSelectedElementId(null);
         } else {
-          onClose();
+          handleRequestClose();
         }
         return;
       }
@@ -445,7 +572,7 @@ export function SlideEditor({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
-    onClose,
+    handleRequestClose,
     deck,
     safeSelected,
     effectiveSelectedElementId,
@@ -485,8 +612,8 @@ export function SlideEditor({
   );
 
   const handleSave = useCallback(() => {
-    void onSave(deck);
-  }, [deck, onSave]);
+    void flushSave();
+  }, [flushSave]);
 
   // The document deck is available to merge from when the host provided it.
   const canSyncFromDocument = freshDeck != null;
@@ -723,6 +850,24 @@ export function SlideEditor({
             </Tooltip>
           ) : null}
 
+          <span
+            role="status"
+            aria-live="polite"
+            className="hidden text-xs text-ds-text-muted sm:inline"
+          >
+            {saveStatus !== "error" ? SAVE_STATUS_LABEL[saveStatus] : null}
+          </span>
+
+          {saveStatus === "error" ? (
+            <button
+              type="button"
+              onClick={handleSave}
+              className={`flex h-8 items-center rounded-ds-md border border-ds-danger-border bg-ds-danger-surface px-2.5 text-sm font-medium text-ds-danger-text transition-opacity hover:opacity-90 ${FOCUS_RING}`}
+            >
+              {SAVE_STATUS_LABEL.error}
+            </button>
+          ) : null}
+
           <button
             type="button"
             onClick={handleSave}
@@ -733,7 +878,7 @@ export function SlideEditor({
           </button>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleRequestClose}
             aria-label="Close slide editor"
             className={`flex h-8 w-8 items-center justify-center rounded-ds-md border border-ds-border-subtle text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
           >
