@@ -15,19 +15,35 @@ import { COLLABORATION_TAG, HISTORIC_TAG } from "lexical";
 export const IMPORT_TAG = "import";
 
 /**
+ * Custom Lexical update tag applied when restoring from document version
+ * history. The server action has already written the restored state to the
+ * database, so autosave must skip this local replacement. We intentionally do
+ * NOT use {@link HISTORIC_TAG}: the Yjs binding treats that as non-syncing, but
+ * restore must update the live collaboration room so stale in-memory state does
+ * not overwrite the restored database state on reconnect.
+ */
+export const RESTORE_TAG = "restore";
+
+/**
  * Decides whether an editor update should trigger an autosave to the database.
  *
  * Remote CRDT merges (`COLLABORATION_TAG`) and history replays / programmatic
  * historic replacements (`HISTORIC_TAG`) are skipped: only the client that made
  * a local edit persists it, and undo/redo/remote merges must not write. An
  * explicit import (`IMPORT_TAG`) is a user-initiated replacement that must
- * persist, so it overrides the skip.
+ * persist, so it overrides the skip. Version restores (`RESTORE_TAG`) are
+ * skipped because the restore server action has already persisted the restored
+ * state; the local editor update exists to refresh/sync the live room.
  */
 export function shouldAutosaveUpdate(tags: ReadonlySet<string>): boolean {
   if (tags.has(IMPORT_TAG)) {
     return true;
   }
-  if (tags.has(COLLABORATION_TAG) || tags.has(HISTORIC_TAG)) {
+  if (
+    tags.has(COLLABORATION_TAG) ||
+    tags.has(HISTORIC_TAG) ||
+    tags.has(RESTORE_TAG)
+  ) {
     return false;
   }
   return true;

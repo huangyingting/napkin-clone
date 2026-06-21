@@ -1,5 +1,6 @@
 "use client";
 
+import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { History as HistoryIcon } from "lucide-react";
 import { useCallback, useState, useTransition } from "react";
 
@@ -14,6 +15,7 @@ import {
   restoreDocumentVersion,
   type DocumentVersionSummary,
 } from "./actions";
+import { RESTORE_TAG } from "@/lib/lexical/import-persistence";
 
 function formatTime(iso: string): string {
   const date = new Date(iso);
@@ -44,6 +46,7 @@ export function VersionHistoryPanel({
   canEdit: boolean;
   iconOnly?: boolean;
 }) {
+  const [editor] = useLexicalComposerContext();
   const [open, setOpen] = useState(false);
   const [versions, setVersions] = useState<DocumentVersionSummary[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -70,24 +73,31 @@ export function VersionHistoryPanel({
     setOpen((prev) => !prev);
   }, [loaded, open, refresh]);
 
-  const restore = useCallback((versionId: string) => {
-    setError(null);
-    startTransition(async () => {
-      try {
-        const res = await restoreDocumentVersion(versionId);
-        if (!res.ok) {
-          setError(res.error);
+  const restore = useCallback(
+    (versionId: string) => {
+      setError(null);
+      startTransition(async () => {
+        try {
+          const res = await restoreDocumentVersion(versionId);
+          if (!res.ok) {
+            setError(res.error);
+            setConfirmId(null);
+            return;
+          }
+          const restoredState = editor.parseEditorState(
+            JSON.stringify(res.data.contentJson),
+          );
+          editor.setEditorState(restoredState, { tag: RESTORE_TAG });
           setConfirmId(null);
-          return;
+          setOpen(false);
+        } catch {
+          setError("Couldn't restore this version. Please try again.");
+          setConfirmId(null);
         }
-        // Reload so the collaborative editor re-seeds from restored content.
-        window.location.reload();
-      } catch {
-        setError("Couldn't restore this version. Please try again.");
-        setConfirmId(null);
-      }
-    });
-  }, []);
+      });
+    },
+    [editor],
+  );
 
   return (
     <>

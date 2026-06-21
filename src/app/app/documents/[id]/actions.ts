@@ -739,6 +739,11 @@ export type DocumentVersionSummary = {
   hasDeck: boolean;
 };
 
+export type RestoredDocumentVersion = {
+  documentId: string;
+  contentJson: unknown;
+};
+
 /**
  * Lists a document's version-history snapshots, newest first. Requires view
  * access (owner, workspace member, or otherwise permitted), authorized via
@@ -785,7 +790,7 @@ export async function listDocumentVersions(
  */
 export async function restoreDocumentVersion(
   versionId: string,
-): Promise<ActionResult> {
+): Promise<ActionResult<RestoredDocumentVersion>> {
   const user = await requireUser();
 
   const version = await prisma.documentVersion.findUnique({
@@ -835,5 +840,5 @@ export async function restoreDocumentVersion(
 
   revalidatePath(`/app/documents/${documentId}`);
   revalidatePath("/app");
-  return actionOk();
+  return actionOk({ documentId, contentJson: restoredContent });
 }

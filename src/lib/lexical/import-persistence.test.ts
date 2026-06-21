@@ -5,6 +5,7 @@ import { COLLABORATION_TAG, HISTORIC_TAG } from "lexical";
 
 import {
   IMPORT_TAG,
+  RESTORE_TAG,
   importRequiresConfirmation,
   resolveImportStep,
   shouldAutosaveUpdate,
@@ -28,6 +29,10 @@ test("accepted import persists even though it is a content replacement", () => {
   assert.equal(shouldAutosaveUpdate(new Set([IMPORT_TAG])), true);
   // IMPORT_TAG overrides the HISTORIC_TAG skip if both are ever present.
   assert.equal(shouldAutosaveUpdate(new Set([IMPORT_TAG, HISTORIC_TAG])), true);
+});
+
+test("restoring a version updates the live room without autosaving again", () => {
+  assert.equal(shouldAutosaveUpdate(new Set([RESTORE_TAG])), false);
 });
 
 test("import into an empty document does not require confirmation", () => {
