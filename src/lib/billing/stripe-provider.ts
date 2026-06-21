@@ -24,23 +24,18 @@
 import { prisma } from "@/lib/prisma";
 import { getEntitlements, isPlan, type Plan } from "@/lib/billing/entitlements";
 import type { BillingProvider, ChangePlanResult } from "@/lib/billing/provider";
+import { stripe as stripeEnv, app as appEnv } from "@/lib/env";
 
 function getStripeKey(): string {
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) throw new Error("STRIPE_SECRET_KEY is not set");
-  return key;
+  return stripeEnv.secretKey();
 }
 
 function getPriceId(plan: Plan): string {
   if (plan === "plus") {
-    const id = process.env.STRIPE_PLUS_PRICE_ID;
-    if (!id) throw new Error("STRIPE_PLUS_PRICE_ID is not set");
-    return id;
+    return stripeEnv.plusPriceId();
   }
   if (plan === "pro") {
-    const id = process.env.STRIPE_PRO_PRICE_ID;
-    if (!id) throw new Error("STRIPE_PRO_PRICE_ID is not set");
-    return id;
+    return stripeEnv.proPriceId();
   }
   throw new Error(`No Stripe price for plan: ${plan}`);
 }
@@ -89,7 +84,7 @@ export class StripeBillingProvider implements BillingProvider {
       select: { email: true },
     });
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const appUrl = appEnv.url("http://localhost:3000");
     const stripe = await loadStripe();
 
     // Look up or create a Stripe customer (reuse the stored customer id; it can
@@ -338,7 +333,7 @@ export async function handleStripeWebhookEvent(
   rawBody: string,
   signature: string,
 ): Promise<{ status: number; message: string }> {
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const webhookSecret = stripeEnv.webhookSecret();
   if (!webhookSecret) {
     return { status: 500, message: "STRIPE_WEBHOOK_SECRET not configured" };
   }

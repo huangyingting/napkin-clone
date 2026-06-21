@@ -18,10 +18,12 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 
+import { stripe as stripeEnv } from "@/lib/env";
+
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  if (!process.env.STRIPE_SECRET_KEY) {
+  if (!stripeEnv.isConfigured()) {
     // Stripe not configured — accept and ignore the request gracefully
     return NextResponse.json({ message: "ok" }, { status: 200 });
   }

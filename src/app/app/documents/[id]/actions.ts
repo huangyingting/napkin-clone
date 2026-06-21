@@ -14,6 +14,7 @@ import {
   staleVersionIds,
 } from "@/lib/document-versions";
 import { prisma } from "@/lib/prisma";
+import { app as appEnv } from "@/lib/env";
 import { requireUser } from "@/lib/session";
 import { buildShareSegment, buildSlugCandidate } from "@/lib/slug";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
@@ -433,7 +434,7 @@ export type ShareSettings = {
 
 /** Builds the canonical public share URL (or `null` when not shared). */
 function buildShareUrl(slug: string | null, shareId: string | null): string {
-  const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:4000";
+  const base = appEnv.url();
   return `${base}/share/${buildShareSegment(slug, shareId ?? "")}`;
 }
 

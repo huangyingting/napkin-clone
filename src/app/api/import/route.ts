@@ -32,6 +32,7 @@ import {
   rateLimitSubject,
   retryAfterSeconds,
 } from "@/lib/rate-limit";
+import { auth as authEnv } from "@/lib/env";
 
 // Node.js runtime: the parsers (mammoth, jszip, pdfjs) require it.
 export const runtime = "nodejs";
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // throttle by client IP. A missing/forged secret is a server misconfig, and a
   // missing client IP is treated as a single shared bucket so the limit can
   // never be bypassed by stripping the forwarding header.
-  const secret = process.env.AUTH_SECRET;
+  const secret = authEnv.secret();
   if (!secret) {
     logError(LOG_SCOPE, new Error("Missing AUTH_SECRET"), {
       reason: "missing-auth-secret",

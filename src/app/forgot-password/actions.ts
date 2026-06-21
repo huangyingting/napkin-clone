@@ -11,6 +11,7 @@ import {
 } from "@/lib/auth/reset-token";
 import { logError } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
+import { app as appEnv } from "@/lib/env";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -30,7 +31,7 @@ export type ForgotPasswordState =
 
 /** Builds the absolute, ready-to-click reset URL carrying the raw token. */
 function buildResetUrl(rawToken: string): string {
-  const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:4000";
+  const base = appEnv.url();
   return `${base.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(rawToken)}`;
 }
 

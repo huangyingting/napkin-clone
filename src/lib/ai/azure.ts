@@ -15,6 +15,7 @@
  */
 
 import type { ChatMessage } from "@/lib/ai/prompt";
+import { azure as azureEnv } from "@/lib/env";
 
 /** Default deployment, per the PRD (targets gpt-5.5). Overridable via env. */
 const DEFAULT_AZURE_DEPLOYMENT = "gpt-5.5";
@@ -52,12 +53,10 @@ class AzureRequestError extends Error {
  * Throws {@link AzureConfigError} if the endpoint or API key are missing.
  */
 export function getAzureConfig(): AzureConfig {
-  const endpoint = process.env.AZURE_OPENAI_ENDPOINT?.trim();
-  const apiKey = process.env.AZURE_OPENAI_API_KEY?.trim();
-  const deployment =
-    process.env.AZURE_OPENAI_DEPLOYMENT?.trim() || DEFAULT_AZURE_DEPLOYMENT;
-  const apiVersion =
-    process.env.AZURE_OPENAI_API_VERSION?.trim() || DEFAULT_AZURE_API_VERSION;
+  const endpoint = azureEnv.endpoint();
+  const apiKey = azureEnv.apiKey();
+  const deployment = azureEnv.deployment() ?? DEFAULT_AZURE_DEPLOYMENT;
+  const apiVersion = azureEnv.apiVersion() ?? DEFAULT_AZURE_API_VERSION;
 
   if (!endpoint || !apiKey) {
     throw new AzureConfigError(

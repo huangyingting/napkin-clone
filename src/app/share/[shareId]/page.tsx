@@ -16,12 +16,13 @@ import {
   toShareAccessInput,
 } from "@/lib/share-access";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
+import { app as appEnv } from "@/lib/env";
 
 const SITE_NAME = "TextIQ";
 
 /** Absolute base URL for canonical/OG links. */
 function siteBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:4000";
+  return appEnv.url();
 }
 
 /**
