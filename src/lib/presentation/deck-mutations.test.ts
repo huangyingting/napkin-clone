@@ -7,6 +7,7 @@ import {
   addSlide,
   bringElementToFront,
   duplicateSlide,
+  materializeDeck,
   materializeSlide,
   removeElement,
   removeSlide,
@@ -15,6 +16,7 @@ import {
   setDeckTheme,
   setSlideAccent,
   setSlideBackground,
+  slideNeedsMaterialization,
   updateElement,
   updateSlide,
 } from "./deck-mutations";
@@ -192,6 +194,93 @@ test("materializeSlide is a no-op when elements already exist", () => {
   const deck = materializeSlide(deckWithBullets(), 0);
   const again = materializeSlide(deck, 0);
   assert.equal(again.slides[0].elements, deck.slides[0].elements);
+});
+
+test("slideNeedsMaterialization flags legacy content but not blanks", () => {
+  // Legacy slide with a title + bullets.
+  assert.equal(slideNeedsMaterialization(slide(0, "A")), true);
+
+  // Slide with only a title.
+  assert.equal(
+    slideNeedsMaterialization({
+      index: 0,
+      title: "Just a title",
+      bullets: [],
+      visualIds: [],
+      layout: "title",
+      notes: "",
+      theme: "default",
+    }),
+    true,
+  );
+
+  // Slide with only a visual.
+  assert.equal(
+    slideNeedsMaterialization({
+      index: 0,
+      title: "",
+      bullets: [],
+      visualIds: ["v1"],
+      layout: "media",
+      notes: "",
+      theme: "default",
+    }),
+    true,
+  );
+
+  // Empty / blank slide — nothing to derive.
+  assert.equal(
+    slideNeedsMaterialization({
+      index: 0,
+      title: "",
+      bullets: [],
+      visualIds: [],
+      layout: "blank",
+      notes: "",
+      theme: "default",
+    }),
+    false,
+  );
+
+  // Already materialized slide.
+  const materialized = materializeSlide(deckWithBullets(), 0).slides[0];
+  assert.equal(slideNeedsMaterialization(materialized), false);
+});
+
+test("materializeDeck materializes every legacy slide", () => {
+  const deck = makeDeck(["A", "B"]);
+  const next = materializeDeck(deck);
+
+  assert.ok((next.slides[0].elements?.length ?? 0) > 0);
+  assert.ok((next.slides[1].elements?.length ?? 0) > 0);
+  // Original deck untouched (immutability).
+  assert.equal(deck.slides[0].elements, undefined);
+  assert.equal(deck.slides[1].elements, undefined);
+});
+
+test("materializeDeck leaves blank slides legacy and returns same ref when no-op", () => {
+  const blank: Slide = {
+    index: 0,
+    title: "",
+    bullets: [],
+    visualIds: [],
+    layout: "blank",
+    notes: "",
+    theme: "default",
+  };
+  const deck: Deck = { theme: "default", slides: [blank] };
+  const next = materializeDeck(deck);
+
+  // Nothing to materialize → exact same reference (so a history commit is a no-op).
+  assert.equal(next, deck);
+  assert.equal(next.slides[0].elements, undefined);
+});
+
+test("materializeDeck preserves already-materialized slides untouched", () => {
+  const base = materializeDeck(makeDeck(["A", "B"]));
+  const again = materializeDeck(base);
+  // No legacy slides remain → same reference back.
+  assert.equal(again, base);
 });
 
 test("addElement materializes then appends with a generated id and top z", () => {

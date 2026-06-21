@@ -28,7 +28,6 @@ import {
   Shapes,
   Type,
   Undo2,
-  Wand2,
   X,
 } from "lucide-react";
 import {
@@ -65,6 +64,7 @@ import {
   addSlide,
   bringElementToFront,
   duplicateSlide,
+  materializeDeck,
   materializeSlide,
   removeElement,
   removeSlide,
@@ -196,6 +196,11 @@ export function SlideEditor({
   const [selectedElementId, setSelectedElementId] = useState<string | null>(
     null,
   );
+  // Slide indices the user has interacted with this session. Drives the subtle
+  // "click to start editing" hint, which is hidden once a slide is touched.
+  const [touchedSlides, setTouchedSlides] = useState<ReadonlySet<number>>(
+    () => new Set(),
+  );
   const stageRef = useRef<HTMLDivElement>(null);
 
   const isMac = useMemo(() => {
@@ -258,6 +263,24 @@ export function SlideEditor({
     observer.observe(node);
     return () => observer.disconnect();
   }, []);
+
+  // Auto-materialize derived (legacy) slides once when the editor opens so every
+  // slide is directly editable with zero extra clicks — no "Customize layout"
+  // gate. This routes through the history `commit` (so the change is undoable and
+  // the parent stays in sync) and runs a single time: `materializeDeck` returns
+  // the same reference when nothing needs materializing (a no-op commit), and the
+  // ref guard prevents an undo back to legacy from being instantly re-applied.
+  const didAutoMaterialize = useRef(false);
+  useEffect(() => {
+    if (didAutoMaterialize.current) {
+      return;
+    }
+    didAutoMaterialize.current = true;
+    const materialized = materializeDeck(deck);
+    if (materialized !== deck) {
+      onDeckChange(materialized);
+    }
+  }, [deck, onDeckChange]);
 
   const handleThemeChange = useCallback(
     (theme: DeckTheme) => {
@@ -446,6 +469,23 @@ export function SlideEditor({
 
   const accentForSelected = selectedSlide?.accent ?? selectedTheme.accentColor;
 
+  const handleSelectElement = useCallback(
+    (id: string | null) => {
+      setSelectedElementId(id);
+      if (id != null) {
+        setTouchedSlides((current) => {
+          if (current.has(safeSelected)) {
+            return current;
+          }
+          const next = new Set(current);
+          next.add(safeSelected);
+          return next;
+        });
+      }
+    },
+    [safeSelected],
+  );
+
   const handleUpdateElement = useCallback(
     (id: string, patch: ElementPatch) => {
       onDeckChange(updateElement(deck, safeSelected, id, patch));
@@ -484,9 +524,9 @@ export function SlideEditor({
       const id = makeElementId();
       const element = buildDefaultElement(kind, accentForSelected, id);
       onDeckChange(addElement(deck, safeSelected, element));
-      setSelectedElementId(id);
+      handleSelectElement(id);
     },
-    [accentForSelected, deck, onDeckChange, safeSelected],
+    [accentForSelected, deck, handleSelectElement, onDeckChange, safeSelected],
   );
 
   const handleBackgroundChange = useCallback(
@@ -685,60 +725,42 @@ export function SlideEditor({
           {/* On-stage element toolbar */}
           {selectedSlide ? (
             <div className="flex flex-wrap items-center gap-1.5 border-b border-ds-border-subtle bg-ds-surface-base px-3 py-2">
-              {selectedSlide.elements && selectedSlide.elements.length > 0 ? (
-                <>
-                  <span className="mr-0.5 text-xs font-medium text-ds-text-muted">
-                    Add
-                  </span>
-                  <StageAddButton
-                    icon={<Type size={14} aria-hidden="true" />}
-                    label="Text"
-                    onClick={() => handleAddElement("text")}
-                  />
-                  <StageAddButton
-                    icon={<List size={14} aria-hidden="true" />}
-                    label="Bullets"
-                    onClick={() => handleAddElement("bullets")}
-                  />
-                  <StageAddButton
-                    icon={<ImageIcon size={14} aria-hidden="true" />}
-                    label="Image"
-                    onClick={() => handleAddElement("image")}
-                  />
-                  <StageAddButton
-                    icon={<Shapes size={14} aria-hidden="true" />}
-                    label="Shape"
-                    onClick={() => handleAddElement("shape")}
-                  />
-                  <div
-                    className="mx-1 hidden h-5 w-px bg-ds-border-subtle sm:block"
-                    aria-hidden="true"
-                  />
-                  <span className="hidden text-xs text-ds-text-muted lg:inline">
-                    Double-click text to edit · drag to move · handles to resize
-                  </span>
-                </>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleMaterialize}
-                    className={`flex items-center gap-1.5 rounded-ds-md bg-ds-control px-3 py-1.5 text-sm font-medium text-ds-control-text transition-colors hover:bg-ds-control-hover ${FOCUS_RING}`}
-                  >
-                    <Wand2 size={14} aria-hidden="true" />
-                    Customize layout
-                  </button>
-                  <span className="text-xs text-ds-text-muted">
-                    Unlock drag-and-drop text, images, and shapes on this slide.
-                  </span>
-                </>
-              )}
+              <span className="mr-0.5 text-xs font-medium text-ds-text-muted">
+                Add
+              </span>
+              <StageAddButton
+                icon={<Type size={14} aria-hidden="true" />}
+                label="Text"
+                onClick={() => handleAddElement("text")}
+              />
+              <StageAddButton
+                icon={<List size={14} aria-hidden="true" />}
+                label="Bullets"
+                onClick={() => handleAddElement("bullets")}
+              />
+              <StageAddButton
+                icon={<ImageIcon size={14} aria-hidden="true" />}
+                label="Image"
+                onClick={() => handleAddElement("image")}
+              />
+              <StageAddButton
+                icon={<Shapes size={14} aria-hidden="true" />}
+                label="Shape"
+                onClick={() => handleAddElement("shape")}
+              />
+              <div
+                className="mx-1 hidden h-5 w-px bg-ds-border-subtle sm:block"
+                aria-hidden="true"
+              />
+              <span className="hidden text-xs text-ds-text-muted lg:inline">
+                Double-click text to edit · drag to move · handles to resize
+              </span>
             </div>
           ) : null}
 
           <div
             ref={stageRef}
-            className="flex min-h-0 flex-1 items-center justify-center p-4 sm:p-6"
+            className="relative flex min-h-0 flex-1 items-center justify-center p-4 sm:p-6"
           >
             {selectedSlide ? (
               <SlideStageEditor
@@ -747,12 +769,23 @@ export function SlideEditor({
                 width={fittedStageSize.width}
                 height={fittedStageSize.height}
                 selectedElementId={effectiveSelectedElementId}
-                onSelectElement={setSelectedElementId}
+                onSelectElement={handleSelectElement}
                 onUpdateElement={handleUpdateElement}
                 onRemoveElement={handleRemoveElement}
                 onBringToFront={handleBringToFront}
                 onSendToBack={handleSendToBack}
               />
+            ) : null}
+            {selectedSlide &&
+            (selectedSlide.elements?.length ?? 0) > 0 &&
+            !effectiveSelectedElementId &&
+            !touchedSlides.has(safeSelected) ? (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-ds-inverse-surface/80 px-3 py-1 text-xs font-medium text-ds-inverse-text shadow"
+              >
+                Click any element to start editing
+              </div>
             ) : null}
           </div>
 
@@ -789,7 +822,7 @@ export function SlideEditor({
             slideIndex={safeSelected}
             visuals={visuals}
             selectedElementId={effectiveSelectedElementId}
-            onSelectElement={setSelectedElementId}
+            onSelectElement={handleSelectElement}
             canDelete={deck.slides.length > 1}
             onDuplicateSlide={() => handleDuplicate(safeSelected)}
             onRemoveSlide={() => handleRemove(safeSelected)}
