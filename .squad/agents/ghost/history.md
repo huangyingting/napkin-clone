@@ -40,3 +40,8 @@ clear), and a combined bold+code+color round-trip. Findings: range selections
 don't persist across separate `editor.update()` calls (re-select each time);
 `$patchStyleText(sel,{color:''})` leaves an empty `color: ;` declaration, so
 assert cleared via the empty read-back value. Suite now 181/181.
+
+
+## 2026-06-21T20:35:42+08:00 — Slides editing review backlog
+
+Slides editing review produced epic #199 and child issues #200–#214. Ghost owns #214 (regression tests for editor/sync/export).

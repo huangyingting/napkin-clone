@@ -20,3 +20,8 @@ Phase 2 landed: the `+`/`/` insert menu and gutter now share `FloatingSurface`/U
 ## 2026-06-19T09:44:56Z — Phase 5 token carry-forward
 
 Phase 5 hardening left one design-token follow-up for Mouse: add `--ds-state-on-accent` (subtle on-accent overlay) and `--ds-text-on-accent-muted` (muted text over accent) so Switch can replace the selected insert-menu item's remaining `bg-white/15` and `text-white/70` literals with semantic tokens.
+
+
+## 2026-06-21T20:35:42+08:00 — Slides editing review backlog
+
+Slides editing review produced epic #199 and child issues #200–#214. Mouse owns #206 (document-derived default theme), #207 (theme-first preset color controls), and #211 (slide templates on add).

@@ -21,3 +21,8 @@ Phases 0–3 are complete: foundations; ToolRegistry + text toolbar; unified ins
 ## 2026-06-20T03:30:00Z — Post-ship browser triage
 
 Ran live browser walkthrough of the running app (port 4000) post-phases 0–3. Exercised editor/presentation/export workflows. Triaged 6 findings into 8 GitHub issues (#68–#75): 3 p1 bugs, 1 p1 epic, 2 p2 features, 1 p2 bug. Key architectural finding: z-index + surface mutual-exclusion pattern requires epic-level fix (Switch + Mouse ownership). Top 3 priorities: #69/#70/#71 (surface collision), #68 (present HUD), #72 (mobile nav). Decision logged in .squad/decisions.md; orchestration + session logs created.
+
+
+## 2026-06-21T20:35:42+08:00 — Slides editing review backlog
+
+Slides editing review produced epic #199 and child issues #200–#214. Trinity owns #205 (doc↔deck merge-sync + staleness) and authored the cross-discipline balance narrative for the backlog.

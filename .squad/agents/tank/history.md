@@ -60,3 +60,8 @@ Shipped all Tank backlog items: #51 (Deck model + block-type reuse in `deck.ts`)
 ## 2026-06-20T04:05:00Z — Seed visual embedding: pure Lexical helper + unit tests
 
 Shipped #81 for #75 (seed visual). Extracted `buildSeedContentJson()` pure helper in `src/lib/lexical/seed-content.ts` (6 unit tests; node --test). Seed now embeds VisualNode in contentJson (not just DB row). Verified DB persistence. PR #81 passed 5 CI gates. 705/705 tests pass (19 net new).
+
+
+## 2026-06-21T20:35:42+08:00 — Slides editing review backlog
+
+Slides editing review produced epic #199 and child issues #200–#214. Tank owns #203 (deck→PPTX honoring deckJson), #204 (orphan-visual guard), #210 (rich-text preservation in derivation), and #213 (schema hygiene: SSR-safe IDs + legacy→free-form migration).

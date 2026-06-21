@@ -1852,3 +1852,27 @@ Direct-to-main commits bypassed CI/Prettier checks. Reinforce pre-commit: run `n
 
 ### Final State
 main is green (typecheck clean, 710 tests pass, build green, format:check clean). Open issues: just #87 (deferred roadmap).
+
+
+### 2026-06-21T20:35:42+08:00: Slides editing review → epic #199 (#200–#214)
+**By:** Scribe, from Switch / Mouse / Tank / Trinity reviews
+
+**Session:** Complete review of slides editing implementation; create GitHub issues.
+
+**Balance narrative:** Auto-derive a presentation-ready deck from the document's text + visuals by default (fast, low-effort), while making high-value manual edits quick and safe, and keeping the deck in sync with the document without clobbering manual edits. Today the automation layer is strong (`buildDeckFromBlocks` creates structurally correct decks and attaches visuals), but manual editing is laborious/unsafe (materialization gate, no undo/redo, no visual picker, raw color pickers, weak default theme), and the document↔deck link is severed after first save (no staleness signal, silent orphan visuals, PPTX export re-derives raw blocks and drops edits). Target state: editable immediately, document-derived theme, quick/safe manual edits, merge-based re-sync that preserves free-form `elements[]`, and export of the edited `deckJson` with orphan-visual protection.
+
+**Architectural decisions:**
+- Slide-editor undo is snapshot-based over the plain `Deck` object; do not use Lexical/Yjs/`YUndoManager`.
+- Materialization should be implicit: auto-materialize legacy slides on editor open or first interaction; remove the primary "Customize layout" gate.
+- Re-sync is a merge, never a full re-derive: refresh derived title/bullets/visualIds from live blocks while preserving free-form `elements[]`; add staleness tracking via content hash/synced timestamp.
+- Add document visual insertion as a first-class slide element using the existing `visuals` map; no new server data path is required.
+- Deck→PPTX requires a new `exportDeckAsPPTX(deck, visuals, getSvg)` path that honors saved `deckJson` instead of re-deriving from `contentJson`.
+- Protect against orphan visual references with a pure `stripOrphanedVisuals(deck, knownVisualIds)` helper applied in editor and public present load paths.
+- Style controls should stay theme-first: shared text/style controls, deck swatches before raw color pickers, and document-derived default theme.
+
+**Created backlog:** Epic #199 with child issues #200–#214.
+- **P0:** #200 undo/redo (Switch); #201 auto-materialize/remove gate (Switch); #202 insert+restyle document visuals (Switch); #203 deck→PPTX honoring deckJson (Tank); #204 orphan-visual guard (Tank); #205 doc↔deck merge-sync + staleness (Trinity).
+- **P1:** #206 document-derived default theme (Mouse); #207 theme-first preset color controls (Mouse); #208 save-status + autosave + close guard (Switch); #209 responsive/touch editor (Switch); #210 rich-text preservation in derivation (Tank); #211 slide templates on add (Mouse).
+- **P2:** #212 thumbnail rail hover/titles/shortcuts (Switch); #213 schema hygiene: SSR-safe IDs + legacy→free-form migration (Tank); #214 regression tests for editor/sync/export (Ghost).
+
+**Dedup notes:** ~33 reviewer ideas were merged into 15 issues. Undo/redo → #200; materialization gate → #201; document visual insertion + restyle dead-end → #202; deck→PPTX + export fidelity + element assembly → #203; orphan visuals + version restore inconsistency → #204; sync button + staleness tracking → #205; color/style unification → #207; save status + autosave/close guard → #208; responsive/touch + reorder/present swipe → #209; SSR-safe IDs + migration docs → #213; test additions → #214. Deferred/out-of-scope for now: PPTX-import fidelity, image URL→file picker, and `useDeckEditor`/context refactor unless they block the above.

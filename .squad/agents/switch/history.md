@@ -86,3 +86,8 @@ Cleared Ralph's backlog triage findings. Shipped #76 (RightSurfaceCoordinator + 
 ## 2026-06-20T06:20:00Z — Triage session: #82/#83 verified-done+closed; #84 shipped quick-action bar; CI format fix; #87 roadmap deferred
 
 Ralph processed open board; Switch shipped remaining acceptance criterion for #84 (on-canvas `VisualQuickActionBar` via PR #85). Direct-to-main auth commit lacked Prettier formatting (b58e1d6, PR #85 test); Ralph fixed via PR #86. Final state: main green (710 tests, format:check clean). Roadmap items (5 future PRs) escalated to #87 [Epic] (p2/backlog/squad:switch/squad:mouse). 
+
+
+## 2026-06-21T20:35:42+08:00 — Slides editing review backlog
+
+Slides editing review produced epic #199 and child issues #200–#214. Switch owns #200 (undo/redo), #201 (auto-materialize/remove gate), #202 (insert+restyle document visuals), #208 (save-status/autosave/close guard), #209 (responsive/touch editor), and #212 (thumbnail rail polish).
