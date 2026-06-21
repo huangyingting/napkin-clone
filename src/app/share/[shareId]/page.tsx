@@ -5,7 +5,9 @@ import { LexicalReadOnly } from "@/components/lexical/lexical-read-only";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 
 import { ShareLightbox } from "./share-lightbox";
+import { MadeWithBadge } from "@/components/made-with-badge";
 import { excerpt } from "@/lib/document-stats";
+import { shouldShowAttribution } from "@/lib/billing/attribution";
 import { prisma } from "@/lib/prisma";
 import { buildShareSegment, shareIdFromParam } from "@/lib/slug";
 import {
@@ -112,6 +114,7 @@ export default async function SharedDocumentPage({
         select: {
           name: true,
           email: true,
+          plan: true,
         },
       },
       // Legacy visuals: the document-level one (anchorBlockId = null) and
@@ -134,6 +137,7 @@ export default async function SharedDocumentPage({
   }
 
   const ownerName = document.owner.name || document.owner.email.split("@")[0];
+  const showAttribution = shouldShowAttribution(document.owner.plan);
 
   // Documents authored in the Lexical editor store their full content (blocks
   // and inline visuals) in `contentJson`; render it read-only in one column.
@@ -212,6 +216,7 @@ export default async function SharedDocumentPage({
           </article>
         </ShareLightbox>
       </div>
+      <MadeWithBadge show={showAttribution} />
     </main>
   );
 }
