@@ -2,16 +2,11 @@ import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "@/generated/prisma/client";
-
-// Mirror prisma.config.ts: anything other than the exact string "postgres"
-// selects SQLite, the zero-setup default for local dev/test.
-function resolveProvider(): "postgres" | "sqlite" {
-  return process.env.DB_PROVIDER === "postgres" ? "postgres" : "sqlite";
-}
+import { resolveProvider, resolveUrl } from "@/lib/db-provider";
 
 function createPrismaClient() {
   if (resolveProvider() === "postgres") {
-    const connectionString = process.env.DATABASE_URL;
+    const connectionString = resolveUrl();
 
     if (!connectionString) {
       throw new Error("DATABASE_URL environment variable is not set.");
@@ -22,9 +17,8 @@ function createPrismaClient() {
     return new PrismaClient({ adapter });
   }
 
-  // SQLite: DATABASE_URL wins when set; otherwise fall back to a local file so a
-  // fresh clone works with no configuration.
-  const url = process.env.DATABASE_URL ?? "file:./prisma/dev.db";
+  // SQLite: resolveUrl() returns DATABASE_URL when set, else the local-file default.
+  const url = resolveUrl()!;
 
   const adapter = new PrismaBetterSqlite3({ url });
 
