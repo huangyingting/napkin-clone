@@ -7,7 +7,21 @@
  * testable under `node --test`.
  */
 
-import type { Deck, DeckTheme, Slide } from "./deck";
+import type { Deck, DeckTheme, Slide, SlideElement } from "./deck";
+import { makeElementId, materializeSlideElements } from "./deck";
+
+/**
+ * `Omit` that distributes over a discriminated union, preserving each member's
+ * own fields (the built-in `Omit` collapses a union to its common keys).
+ */
+export type DistributiveOmit<T, K extends PropertyKey> = T extends unknown
+  ? Omit<T, K>
+  : never;
+
+/** A partial patch for a single element, distributing over the union. */
+export type ElementPatch = Partial<
+  DistributiveOmit<SlideElement, "id" | "kind">
+>;
 
 /** Re-stamps each slide's `index` to match its position in the array. */
 function reindex(slides: Slide[]): Slide[] {
@@ -72,6 +86,9 @@ export function duplicateSlide(deck: Deck, index: number): Deck {
     ...original,
     bullets: [...original.bullets],
     visualIds: [...original.visualIds],
+    ...(original.elements
+      ? { elements: original.elements.map((element) => ({ ...element })) }
+      : {}),
   };
 
   const slides = [...deck.slides];
@@ -120,4 +137,187 @@ export function setDeckTheme(deck: Deck, theme: DeckTheme): Deck {
       slide.theme === theme ? slide : { ...slide, theme },
     ),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Free-form element mutations
+// ---------------------------------------------------------------------------
+
+/** Maps a single slide by index, leaving the rest of the deck untouched. */
+function mapSlide(
+  deck: Deck,
+  index: number,
+  fn: (slide: Slide) => Slide,
+): Deck {
+  if (index < 0 || index >= deck.slides.length) {
+    return deck;
+  }
+  const slides = deck.slides.map((slide, i) =>
+    i === index ? fn(slide) : slide,
+  );
+  return { ...deck, slides };
+}
+
+/**
+ * Materializes a slide's legacy content into free-form elements (no-op when the
+ * slide already has elements). After this the slide is edited element-first.
+ */
+export function materializeSlide(deck: Deck, index: number): Deck {
+  return mapSlide(deck, index, (slide) =>
+    slide.elements && slide.elements.length > 0
+      ? slide
+      : { ...slide, elements: materializeSlideElements(slide) },
+  );
+}
+
+/** Returns the next z-index above the current maximum on a slide. */
+function nextZIndex(elements: readonly SlideElement[]): number {
+  return (
+    elements.reduce((max, element) => Math.max(max, element.zIndex), -1) + 1
+  );
+}
+
+/** Appends a new element to a slide, materializing legacy content first. */
+export function addElement(
+  deck: Deck,
+  index: number,
+  element: DistributiveOmit<SlideElement, "id" | "zIndex"> & {
+    id?: string;
+    zIndex?: number;
+  },
+): Deck {
+  return mapSlide(deck, index, (slide) => {
+    const existing =
+      slide.elements && slide.elements.length > 0
+        ? slide.elements
+        : materializeSlideElements(slide);
+    const next: SlideElement = {
+      ...element,
+      id: element.id ?? makeElementId(),
+      zIndex: element.zIndex ?? nextZIndex(existing),
+    } as SlideElement;
+    return { ...slide, elements: [...existing, next] };
+  });
+}
+
+/** Patches a single element on a slide by id (cannot change `id`/`kind`). */
+export function updateElement(
+  deck: Deck,
+  index: number,
+  elementId: string,
+  patch: ElementPatch,
+): Deck {
+  return mapSlide(deck, index, (slide) => {
+    if (!slide.elements) {
+      return slide;
+    }
+    return {
+      ...slide,
+      elements: slide.elements.map((element) =>
+        element.id === elementId
+          ? ({
+              ...element,
+              ...patch,
+              id: element.id,
+              kind: element.kind,
+            } as SlideElement)
+          : element,
+      ),
+    };
+  });
+}
+
+/** Removes an element from a slide by id. */
+export function removeElement(
+  deck: Deck,
+  index: number,
+  elementId: string,
+): Deck {
+  return mapSlide(deck, index, (slide) => {
+    if (!slide.elements) {
+      return slide;
+    }
+    return {
+      ...slide,
+      elements: slide.elements.filter((element) => element.id !== elementId),
+    };
+  });
+}
+
+/** Raises an element above all others on its slide. */
+export function bringElementToFront(
+  deck: Deck,
+  index: number,
+  elementId: string,
+): Deck {
+  return mapSlide(deck, index, (slide) => {
+    if (!slide.elements) {
+      return slide;
+    }
+    const top = nextZIndex(slide.elements);
+    return {
+      ...slide,
+      elements: slide.elements.map((element) =>
+        element.id === elementId ? { ...element, zIndex: top } : element,
+      ),
+    };
+  });
+}
+
+/** Lowers an element beneath all others on its slide. */
+export function sendElementToBack(
+  deck: Deck,
+  index: number,
+  elementId: string,
+): Deck {
+  return mapSlide(deck, index, (slide) => {
+    if (!slide.elements) {
+      return slide;
+    }
+    const bottom =
+      slide.elements.reduce(
+        (min, element) => Math.min(min, element.zIndex),
+        Number.POSITIVE_INFINITY,
+      ) - 1;
+    return {
+      ...slide,
+      elements: slide.elements.map((element) =>
+        element.id === elementId ? { ...element, zIndex: bottom } : element,
+      ),
+    };
+  });
+}
+
+/** Sets (or clears, with `undefined`) a slide's background color override. */
+export function setSlideBackground(
+  deck: Deck,
+  index: number,
+  background: string | undefined,
+): Deck {
+  return mapSlide(deck, index, (slide) => {
+    const next = { ...slide };
+    if (background === undefined) {
+      delete next.background;
+    } else {
+      next.background = background;
+    }
+    return next;
+  });
+}
+
+/** Sets (or clears, with `undefined`) a slide's accent color override. */
+export function setSlideAccent(
+  deck: Deck,
+  index: number,
+  accent: string | undefined,
+): Deck {
+  return mapSlide(deck, index, (slide) => {
+    const next = { ...slide };
+    if (accent === undefined) {
+      delete next.accent;
+    } else {
+      next.accent = accent;
+    }
+    return next;
+  });
 }

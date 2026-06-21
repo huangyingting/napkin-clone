@@ -19,11 +19,9 @@
 import {
   ChevronLeft,
   ChevronRight,
-  Copy,
   GripVertical,
   LayoutPanelLeft,
   Plus,
-  Trash2,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -34,16 +32,38 @@ import {
   DECK_THEMES,
   SlideCanvas,
 } from "@/components/presentation/slide-canvas";
+import {
+  SlideInspector,
+  type AddElementKind,
+} from "@/components/presentation/slide-inspector";
+import { SlideStageEditor } from "@/components/presentation/slide-stage-editor";
 import { Tooltip } from "@/components/ui";
-import type { Deck, DeckTheme, SlideLayout } from "@/lib/presentation/deck";
+import {
+  makeElementId,
+  type Deck,
+  type DeckTheme,
+  type ElementBox,
+  type SlideElement,
+  type SlideLayout,
+} from "@/lib/presentation/deck";
 import type { Visual } from "@/lib/visual/schema";
 import {
+  addElement,
   addSlide,
+  bringElementToFront,
   duplicateSlide,
+  materializeSlide,
+  removeElement,
   removeSlide,
   reorderSlides,
+  sendElementToBack,
   setDeckTheme,
+  setSlideAccent,
+  setSlideBackground,
+  updateElement,
   updateSlide,
+  type DistributiveOmit,
+  type ElementPatch,
 } from "@/lib/presentation/deck-mutations";
 
 interface SlideEditorProps {
@@ -62,14 +82,6 @@ const THEME_OPTIONS: { value: DeckTheme; label: string; color: string }[] = [
   { value: "sunset", label: "Sunset", color: "#fb923c" },
   { value: "grape", label: "Grape", color: "#c084fc" },
   { value: "default", label: "Default", color: "#a1a1aa" },
-];
-
-const LAYOUT_OPTIONS: SlideLayout[] = [
-  "title",
-  "section",
-  "content",
-  "media",
-  "blank",
 ];
 
 type Size = { width: number; height: number };
@@ -99,6 +111,49 @@ function fitAspectRatio(bounds: Size, aspectRatio: number): Size {
   return { width: bounds.width, height: bounds.width / aspectRatio };
 }
 
+/** Builds a freshly-positioned element for the "Add" buttons. */
+function buildDefaultElement(
+  kind: AddElementKind,
+  accent: string,
+  id: string,
+): DistributiveOmit<SlideElement, "id" | "zIndex"> & { id: string } {
+  switch (kind) {
+    case "text":
+      return {
+        id,
+        kind: "text",
+        role: "body",
+        text: "New text",
+        box: { x: 20, y: 40, w: 60, h: 16 },
+        style: { fontSize: 5, bold: false, italic: false, align: "left" },
+      };
+    case "bullets":
+      return {
+        id,
+        kind: "bullets",
+        bullets: ["First point", "Second point"],
+        box: { x: 14, y: 28, w: 72, h: 48 },
+        style: { fontSize: 4.5, bold: false, italic: false, align: "left" },
+      };
+    case "image":
+      return {
+        id,
+        kind: "image",
+        src: "",
+        alt: "",
+        box: { x: 25, y: 22, w: 50, h: 56 },
+      };
+    case "shape":
+      return {
+        id,
+        kind: "shape",
+        shape: "rect",
+        color: accent,
+        box: { x: 30, y: 34, w: 40, h: 32 },
+      };
+  }
+}
+
 export function SlideEditor({
   deck,
   visuals,
@@ -112,6 +167,9 @@ export function SlideEditor({
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [viewportSize, setViewportSize] = useState<Size>(getViewportSize);
   const [stageBounds, setStageBounds] = useState<Size>(DEFAULT_SCREEN_SIZE);
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(
+    null,
+  );
   const stageRef = useRef<HTMLDivElement>(null);
 
   // Keep the selection within bounds as slides are added/removed.
@@ -120,6 +178,15 @@ export function SlideEditor({
   const selectedTheme = selectedSlide
     ? (DECK_THEMES[selectedSlide.theme] ?? DECK_THEMES.default)
     : DECK_THEMES.default;
+  // A selection is only valid while its element exists on the active slide, so
+  // switching slides (or deleting an element) implicitly clears it — no effect
+  // needed.
+  const effectiveSelectedElementId =
+    selectedElementId != null &&
+    (selectedSlide?.elements?.some((el) => el.id === selectedElementId) ??
+      false)
+      ? selectedElementId
+      : null;
   const viewportAspectRatio = viewportSize.width / viewportSize.height;
   const fittedStageSize = fitAspectRatio(stageBounds, viewportAspectRatio);
 
@@ -151,38 +218,6 @@ export function SlideEditor({
     observer.observe(node);
     return () => observer.disconnect();
   }, []);
-
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-        return;
-      }
-
-      // Arrow keys page through slides, but never while the user is typing in a
-      // field (so editing a title/bullet isn't hijacked).
-      const target = event.target as HTMLElement | null;
-      const typing =
-        !!target &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.tagName === "SELECT" ||
-          target.isContentEditable);
-      if (typing) {
-        return;
-      }
-      if (event.key === "ArrowLeft") {
-        event.preventDefault();
-        setSelectedIndex((i) => Math.max(0, i - 1));
-      } else if (event.key === "ArrowRight") {
-        event.preventDefault();
-        setSelectedIndex((i) => Math.min(deck.slides.length - 1, i + 1));
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose, deck.slides.length]);
 
   const handleThemeChange = useCallback(
     (theme: DeckTheme) => {
@@ -229,6 +264,77 @@ export function SlideEditor({
     [deck, onDeckChange],
   );
 
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      const typing =
+        !!target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable);
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        if (effectiveSelectedElementId) {
+          setSelectedElementId(null);
+        } else {
+          onClose();
+        }
+        return;
+      }
+
+      if (typing) {
+        return;
+      }
+
+      // With an element selected, arrow keys nudge it and Delete removes it.
+      const slide = deck.slides[safeSelected];
+      const selected =
+        effectiveSelectedElementId && slide?.elements
+          ? slide.elements.find((el) => el.id === effectiveSelectedElementId)
+          : undefined;
+
+      if (selected) {
+        if (event.key === "Delete" || event.key === "Backspace") {
+          event.preventDefault();
+          onDeckChange(removeElement(deck, safeSelected, selected.id));
+          setSelectedElementId(null);
+          return;
+        }
+        const step = event.shiftKey ? 5 : 1;
+        let dx = 0;
+        let dy = 0;
+        if (event.key === "ArrowLeft") dx = -step;
+        else if (event.key === "ArrowRight") dx = step;
+        else if (event.key === "ArrowUp") dy = -step;
+        else if (event.key === "ArrowDown") dy = step;
+        if (dx !== 0 || dy !== 0) {
+          event.preventDefault();
+          const { w, h } = selected.box;
+          const x = Math.max(0, Math.min(100 - w, selected.box.x + dx));
+          const y = Math.max(0, Math.min(100 - h, selected.box.y + dy));
+          onDeckChange(
+            updateElement(deck, safeSelected, selected.id, {
+              box: { ...selected.box, x, y },
+            }),
+          );
+          return;
+        }
+      }
+
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        setSelectedIndex((i) => Math.max(0, i - 1));
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        setSelectedIndex((i) => Math.min(deck.slides.length - 1, i + 1));
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose, deck, safeSelected, effectiveSelectedElementId, onDeckChange]);
+
   const handleBulletsChange = useCallback(
     (index: number, value: string) => {
       const bullets = value
@@ -270,6 +376,72 @@ export function SlideEditor({
   const goNext = useCallback(() => {
     setSelectedIndex((i) => Math.min(deck.slides.length - 1, i + 1));
   }, [deck.slides.length]);
+
+  const accentForSelected = selectedSlide?.accent ?? selectedTheme.accentColor;
+
+  const handleElementBox = useCallback(
+    (id: string, box: ElementBox) => {
+      onDeckChange(updateElement(deck, safeSelected, id, { box }));
+    },
+    [deck, onDeckChange, safeSelected],
+  );
+
+  const handleUpdateElement = useCallback(
+    (id: string, patch: ElementPatch) => {
+      onDeckChange(updateElement(deck, safeSelected, id, patch));
+    },
+    [deck, onDeckChange, safeSelected],
+  );
+
+  const handleRemoveElement = useCallback(
+    (id: string) => {
+      onDeckChange(removeElement(deck, safeSelected, id));
+      setSelectedElementId((current) => (current === id ? null : current));
+    },
+    [deck, onDeckChange, safeSelected],
+  );
+
+  const handleBringToFront = useCallback(
+    (id: string) => {
+      onDeckChange(bringElementToFront(deck, safeSelected, id));
+    },
+    [deck, onDeckChange, safeSelected],
+  );
+
+  const handleSendToBack = useCallback(
+    (id: string) => {
+      onDeckChange(sendElementToBack(deck, safeSelected, id));
+    },
+    [deck, onDeckChange, safeSelected],
+  );
+
+  const handleMaterialize = useCallback(() => {
+    onDeckChange(materializeSlide(deck, safeSelected));
+  }, [deck, onDeckChange, safeSelected]);
+
+  const handleAddElement = useCallback(
+    (kind: AddElementKind) => {
+      const id = makeElementId();
+      const element = buildDefaultElement(kind, accentForSelected, id);
+      onDeckChange(addElement(deck, safeSelected, element));
+      setSelectedElementId(id);
+    },
+    [accentForSelected, deck, onDeckChange, safeSelected],
+  );
+
+  const handleBackgroundChange = useCallback(
+    (color: string | undefined) => {
+      onDeckChange(setSlideBackground(deck, safeSelected, color));
+    },
+    [deck, onDeckChange, safeSelected],
+  );
+
+  const handleAccentChange = useCallback(
+    (color: string | undefined) => {
+      onDeckChange(setSlideAccent(deck, safeSelected, color));
+    },
+    [deck, onDeckChange, safeSelected],
+  );
 
   return createPortal(
     <div
@@ -419,17 +591,17 @@ export function SlideEditor({
             ref={stageRef}
             className="flex min-h-0 flex-1 items-center justify-center p-4 sm:p-6"
           >
-            <div
-              className="overflow-hidden"
-              style={{
-                width: fittedStageSize.width,
-                height: fittedStageSize.height,
-              }}
-            >
-              {selectedSlide ? (
-                <SlideCanvas slide={selectedSlide} visuals={visuals} />
-              ) : null}
-            </div>
+            {selectedSlide ? (
+              <SlideStageEditor
+                slide={selectedSlide}
+                visuals={visuals}
+                width={fittedStageSize.width}
+                height={fittedStageSize.height}
+                selectedElementId={effectiveSelectedElementId}
+                onSelectElement={setSelectedElementId}
+                onElementChange={handleElementBox}
+              />
+            ) : null}
           </div>
 
           {/* Slide navigation */}
@@ -460,110 +632,32 @@ export function SlideEditor({
 
         {/* Inspector — edit the selected slide */}
         {selectedSlide ? (
-          <aside className="flex w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle">
-            <div className="flex items-center justify-between border-b border-ds-border-subtle px-4 py-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-ds-text-muted">
-                Editing slide {safeSelected + 1}
-              </p>
-              <div className="flex items-center gap-1">
-                <Tooltip label="Duplicate slide" side="bottom">
-                  <button
-                    type="button"
-                    onClick={() => handleDuplicate(safeSelected)}
-                    aria-label="Duplicate slide"
-                    className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-muted transition-colors hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
-                  >
-                    <Copy size={14} aria-hidden="true" />
-                  </button>
-                </Tooltip>
-                <Tooltip label="Delete slide" side="bottom">
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(safeSelected)}
-                    disabled={deck.slides.length <= 1}
-                    aria-label="Delete slide"
-                    className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-muted transition-colors hover:bg-ds-state-active hover:text-ds-text-primary disabled:opacity-40 ${FOCUS_RING}`}
-                  >
-                    <Trash2 size={14} aria-hidden="true" />
-                  </button>
-                </Tooltip>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-4 px-4 py-4">
-              <label className="block">
-                <span className="mb-1 block text-xs font-medium text-ds-text-secondary">
-                  Title
-                </span>
-                <input
-                  type="text"
-                  value={selectedSlide.title}
-                  onChange={(event) =>
-                    handleTitleChange(safeSelected, event.target.value)
-                  }
-                  placeholder="Untitled slide"
-                  className={`w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-sm text-ds-text-primary outline-none ${FOCUS_RING}`}
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block text-xs font-medium text-ds-text-secondary">
-                  Layout
-                </span>
-                <select
-                  value={selectedSlide.layout}
-                  onChange={(event) =>
-                    handleLayoutChange(
-                      safeSelected,
-                      event.target.value as SlideLayout,
-                    )
-                  }
-                  className={`w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-sm text-ds-text-primary outline-none ${FOCUS_RING}`}
-                >
-                  {LAYOUT_OPTIONS.map((layout) => (
-                    <option key={layout} value={layout}>
-                      {layout}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block text-xs font-medium text-ds-text-secondary">
-                  Bullets (one per line)
-                </span>
-                <textarea
-                  value={selectedSlide.bullets.join("\n")}
-                  onChange={(event) =>
-                    handleBulletsChange(safeSelected, event.target.value)
-                  }
-                  rows={5}
-                  className={`w-full resize-y rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-sm text-ds-text-primary outline-none ${FOCUS_RING}`}
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block text-xs font-medium text-ds-text-secondary">
-                  Notes
-                </span>
-                <p className="mb-1.5 text-xs text-ds-text-muted">
-                  Tip: add a{" "}
-                  <code className="rounded bg-ds-surface px-1 font-mono text-ds-text-secondary">
-                    &gt; blockquote
-                  </code>{" "}
-                  in the document for speaker notes.
-                </p>
-                <textarea
-                  value={selectedSlide.notes}
-                  onChange={(event) =>
-                    handleNotesChange(safeSelected, event.target.value)
-                  }
-                  rows={4}
-                  className={`w-full resize-y rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-sm text-ds-text-primary outline-none ${FOCUS_RING}`}
-                />
-              </label>
-            </div>
-          </aside>
+          <SlideInspector
+            slide={selectedSlide}
+            slideIndex={safeSelected}
+            visuals={visuals}
+            selectedElementId={effectiveSelectedElementId}
+            onSelectElement={setSelectedElementId}
+            canDelete={deck.slides.length > 1}
+            onDuplicateSlide={() => handleDuplicate(safeSelected)}
+            onRemoveSlide={() => handleRemove(safeSelected)}
+            onTitleChange={(title) => handleTitleChange(safeSelected, title)}
+            onLayoutChange={(layout) =>
+              handleLayoutChange(safeSelected, layout)
+            }
+            onBulletsChange={(value) =>
+              handleBulletsChange(safeSelected, value)
+            }
+            onMaterialize={handleMaterialize}
+            onAddElement={handleAddElement}
+            onUpdateElement={handleUpdateElement}
+            onRemoveElement={handleRemoveElement}
+            onBringToFront={handleBringToFront}
+            onSendToBack={handleSendToBack}
+            onBackgroundChange={handleBackgroundChange}
+            onAccentChange={handleAccentChange}
+            onNotesChange={(notes) => handleNotesChange(safeSelected, notes)}
+          />
         ) : null}
       </div>
     </div>,

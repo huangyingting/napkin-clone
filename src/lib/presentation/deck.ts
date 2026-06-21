@@ -49,6 +49,90 @@ export type DeckTheme =
  */
 export type SlideLayout = "title" | "section" | "content" | "media" | "blank";
 
+// ---------------------------------------------------------------------------
+// Free-form slide elements (additive, backward compatible)
+// ---------------------------------------------------------------------------
+
+/**
+ * Positioned box for a free-form element, expressed in **percentages** of the
+ * slide (0–100). Percentage units keep slides resolution- and aspect-ratio
+ * independent so the same deck renders identically at any size.
+ */
+export interface ElementBox {
+  /** Left edge, percent of slide width. */
+  x: number;
+  /** Top edge, percent of slide height. */
+  y: number;
+  /** Width, percent of slide width. */
+  w: number;
+  /** Height, percent of slide height. */
+  h: number;
+}
+
+export type ElementAlign = "left" | "center" | "right";
+
+/** Text styling shared by `text` and `bullets` elements. */
+export interface TextElementStyle {
+  /** Font size as a percent of slide height (rendered via `cqh`). */
+  fontSize: number;
+  bold: boolean;
+  italic: boolean;
+  align: ElementAlign;
+  /** Optional hex color override; falls back to the theme color when unset. */
+  color?: string;
+}
+
+export type ShapeKind = "rect" | "ellipse" | "line";
+
+interface BaseElement {
+  /** Stable identifier, unique within a slide. */
+  id: string;
+  /** Positioned box in percent units. */
+  box: ElementBox;
+  /** Stacking order — higher renders on top. */
+  zIndex: number;
+}
+
+export interface TextElement extends BaseElement {
+  kind: "text";
+  text: string;
+  style: TextElementStyle;
+  /** Theming hint for the default color when `style.color` is unset. */
+  role: "title" | "body";
+}
+
+export interface BulletsElement extends BaseElement {
+  kind: "bullets";
+  bullets: string[];
+  style: TextElementStyle;
+}
+
+export interface VisualElement extends BaseElement {
+  kind: "visual";
+  visualId: string;
+}
+
+export interface ImageElement extends BaseElement {
+  kind: "image";
+  src: string;
+  alt?: string;
+}
+
+export interface ShapeElement extends BaseElement {
+  kind: "shape";
+  shape: ShapeKind;
+  /** Hex fill (rect/ellipse) or stroke (line) color. */
+  color: string;
+}
+
+/** Discriminated union of every free-form slide element. */
+export type SlideElement =
+  | TextElement
+  | BulletsElement
+  | VisualElement
+  | ImageElement
+  | ShapeElement;
+
 /** A single slide in the presentation deck. */
 export interface Slide {
   /** Zero-based position in the deck. */
@@ -77,6 +161,20 @@ export interface Slide {
 
   /** Presentation theme applied to the deck (copied from `Deck.theme`). */
   theme: DeckTheme;
+
+  /**
+   * Free-form positioned elements. When present and non-empty, this is the
+   * **authoritative** slide content and renderers ignore the legacy
+   * `title`/`bullets`/`visualIds`/`layout` fields. Absent for decks authored
+   * before the free-form editor — those still render via the legacy layouts.
+   */
+  elements?: SlideElement[];
+
+  /** Optional per-slide background color (hex), overriding the theme bg. */
+  background?: string;
+
+  /** Optional per-slide accent color (hex), overriding the theme accent. */
+  accent?: string;
 }
 
 /** A complete presentation deck derived from a document's block structure. */
@@ -94,6 +192,115 @@ export interface Deck {
 
 /** Maximum visible bullets per content slide before text overflows to notes. */
 export const MAX_BULLETS = 5;
+
+// ---------------------------------------------------------------------------
+// Element helpers
+// ---------------------------------------------------------------------------
+
+let elementIdCounter = 0;
+
+/** Generates a stable-enough unique id for a new slide element. */
+export function makeElementId(): string {
+  elementIdCounter += 1;
+  const rand = Math.random().toString(36).slice(2, 8);
+  return `el-${Date.now().toString(36)}-${elementIdCounter}-${rand}`;
+}
+
+/**
+ * Returns the slide's free-form elements, deriving them from the legacy
+ * `title` / `bullets` / `visualIds` fields when the slide has none yet.
+ *
+ * Pure and deterministic except for generated element ids. Used by the editor
+ * to "materialize" a legacy slide into editable elements on demand, and by
+ * tests. Renderers should prefer an existing `slide.elements` and only call
+ * this when they explicitly want a derived element list.
+ */
+export function materializeSlideElements(slide: Slide): SlideElement[] {
+  if (slide.elements && slide.elements.length > 0) {
+    return slide.elements;
+  }
+
+  const elements: SlideElement[] = [];
+  let z = 0;
+
+  const visualIds = slide.visualIds ?? [];
+  const bullets = slide.bullets ?? [];
+  const hasVisual = visualIds.length > 0;
+  const hasBullets = bullets.length > 0;
+  const isBigTitle = slide.layout === "title" || slide.layout === "section";
+
+  const textStyle = (
+    fontSize: number,
+    align: ElementAlign,
+    bold: boolean,
+  ): TextElementStyle => ({ fontSize, align, bold, italic: false });
+
+  if (slide.title) {
+    elements.push({
+      id: makeElementId(),
+      kind: "text",
+      role: "title",
+      text: slide.title,
+      zIndex: z++,
+      box: isBigTitle
+        ? { x: 8, y: 36, w: 84, h: 28 }
+        : { x: 6, y: 6, w: 88, h: 16 },
+      style: textStyle(
+        isBigTitle ? 9 : 6,
+        isBigTitle ? "center" : "left",
+        true,
+      ),
+    });
+  }
+
+  if (hasVisual && hasBullets) {
+    elements.push({
+      id: makeElementId(),
+      kind: "bullets",
+      bullets: [...bullets],
+      zIndex: z++,
+      box: { x: 6, y: 26, w: 46, h: 66 },
+      style: textStyle(4.5, "left", false),
+    });
+    elements.push({
+      id: makeElementId(),
+      kind: "visual",
+      visualId: visualIds[0],
+      zIndex: z++,
+      box: { x: 54, y: 26, w: 40, h: 66 },
+    });
+  } else if (hasVisual) {
+    elements.push({
+      id: makeElementId(),
+      kind: "visual",
+      visualId: visualIds[0],
+      zIndex: z++,
+      box: { x: 8, y: 24, w: 84, h: 68 },
+    });
+  } else if (hasBullets) {
+    elements.push({
+      id: makeElementId(),
+      kind: "bullets",
+      bullets: [...bullets],
+      zIndex: z++,
+      box: { x: 6, y: 26, w: 88, h: 66 },
+      style: textStyle(4.5, "left", false),
+    });
+  }
+
+  // Stack any additional visuals beyond the first as cascaded tiles.
+  for (let i = 1; i < visualIds.length; i++) {
+    elements.push({
+      id: makeElementId(),
+      kind: "visual",
+      visualId: visualIds[i],
+      zIndex: z++,
+      box: { x: 12 + i * 4, y: 30 + i * 4, w: 38, h: 38 },
+    });
+  }
+
+  return elements;
+}
 
 // ---------------------------------------------------------------------------
 // Internal builder helpers

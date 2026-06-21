@@ -10,7 +10,16 @@
 
 import type { JSX } from "react";
 
-import type { DeckTheme, Slide } from "@/lib/presentation/deck";
+import type {
+  BulletsElement,
+  DeckTheme,
+  ImageElement,
+  ShapeElement,
+  Slide,
+  SlideElement,
+  TextElement,
+  VisualElement,
+} from "@/lib/presentation/deck";
 import type { Visual } from "@/lib/visual/schema";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 
@@ -280,6 +289,260 @@ function BlankSlideLayout({ slide, tc, preview }: SlideProps): JSX.Element {
 }
 
 // ---------------------------------------------------------------------------
+// Free-form element rendering (shared by editor, present, and public viewer)
+// ---------------------------------------------------------------------------
+
+function boxStyle(element: SlideElement): React.CSSProperties {
+  return {
+    position: "absolute",
+    left: `${element.box.x}%`,
+    top: `${element.box.y}%`,
+    width: `${element.box.w}%`,
+    height: `${element.box.h}%`,
+    zIndex: element.zIndex,
+  };
+}
+
+function TextElementView({
+  element,
+  tc,
+  accent,
+}: {
+  element: TextElement;
+  tc: ThemeConfig;
+  accent: string;
+}): JSX.Element {
+  void accent;
+  const color =
+    element.style.color ??
+    (element.role === "title" ? tc.titleColor : tc.bodyColor);
+  return (
+    <div
+      style={{
+        ...boxStyle(element),
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        textAlign: element.style.align,
+        color,
+        fontSize: `${element.style.fontSize}cqh`,
+        fontWeight: element.style.bold ? 700 : 400,
+        fontStyle: element.style.italic ? "italic" : "normal",
+        lineHeight: 1.15,
+        overflow: "hidden",
+        wordBreak: "break-word",
+      }}
+    >
+      {element.text || "\u00a0"}
+    </div>
+  );
+}
+
+function BulletsElementView({
+  element,
+  tc,
+  accent,
+}: {
+  element: BulletsElement;
+  tc: ThemeConfig;
+  accent: string;
+}): JSX.Element {
+  const color = element.style.color ?? tc.bodyColor;
+  return (
+    <ul
+      style={{
+        ...boxStyle(element),
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        gap: "0.6em",
+        color,
+        fontSize: `${element.style.fontSize}cqh`,
+        fontWeight: element.style.bold ? 700 : 400,
+        fontStyle: element.style.italic ? "italic" : "normal",
+        textAlign: element.style.align,
+        lineHeight: 1.2,
+        overflow: "hidden",
+        margin: 0,
+        padding: 0,
+        listStyle: "none",
+      }}
+    >
+      {element.bullets.map((bullet, i) => (
+        <li
+          key={i}
+          style={{ display: "flex", alignItems: "flex-start", gap: "0.5em" }}
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              marginTop: "0.45em",
+              height: "0.35em",
+              width: "0.35em",
+              flexShrink: 0,
+              borderRadius: "9999px",
+              backgroundColor: accent,
+            }}
+          />
+          <span style={{ minWidth: 0 }}>{bullet}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function VisualElementView({
+  element,
+  visuals,
+}: {
+  element: VisualElement;
+  visuals: ReadonlyMap<string, Visual>;
+}): JSX.Element | null {
+  const visual = visuals.get(element.visualId);
+  if (!visual) {
+    return null;
+  }
+  return (
+    <div
+      style={{
+        ...boxStyle(element),
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        overflow: "hidden",
+      }}
+    >
+      <VisualRenderer
+        visual={visual}
+        className="h-full w-full object-contain"
+        transparentBackground
+      />
+    </div>
+  );
+}
+
+function ImageElementView({ element }: { element: ImageElement }): JSX.Element {
+  return (
+    <div
+      style={{
+        ...boxStyle(element),
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        overflow: "hidden",
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={element.src}
+        alt={element.alt ?? ""}
+        style={{
+          height: "100%",
+          width: "100%",
+          objectFit: "contain",
+        }}
+      />
+    </div>
+  );
+}
+
+function ShapeElementView({ element }: { element: ShapeElement }): JSX.Element {
+  if (element.shape === "line") {
+    return (
+      <div
+        style={{
+          ...boxStyle(element),
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
+        <div
+          style={{
+            height: "2px",
+            width: "100%",
+            backgroundColor: element.color,
+          }}
+        />
+      </div>
+    );
+  }
+  return (
+    <div
+      style={{
+        ...boxStyle(element),
+        backgroundColor: element.color,
+        borderRadius: element.shape === "ellipse" ? "9999px" : "0.25rem",
+      }}
+    />
+  );
+}
+
+function SlideElementView({
+  element,
+  tc,
+  accent,
+  visuals,
+}: {
+  element: SlideElement;
+  tc: ThemeConfig;
+  accent: string;
+  visuals: ReadonlyMap<string, Visual>;
+}): JSX.Element | null {
+  switch (element.kind) {
+    case "text":
+      return <TextElementView element={element} tc={tc} accent={accent} />;
+    case "bullets":
+      return <BulletsElementView element={element} tc={tc} accent={accent} />;
+    case "visual":
+      return <VisualElementView element={element} visuals={visuals} />;
+    case "image":
+      return <ImageElementView element={element} />;
+    case "shape":
+      return <ShapeElementView element={element} />;
+    default:
+      return null;
+  }
+}
+
+function ElementsSlideLayout({
+  slide,
+  tc,
+  visuals,
+}: {
+  slide: Slide;
+  tc: ThemeConfig;
+  visuals: ReadonlyMap<string, Visual>;
+}): JSX.Element {
+  const background = slide.background ?? tc.bgColor;
+  const accent = slide.accent ?? tc.accentColor;
+  const ordered = [...(slide.elements ?? [])].sort(
+    (a, b) => a.zIndex - b.zIndex,
+  );
+  return (
+    <div
+      style={{
+        position: "relative",
+        height: "100%",
+        width: "100%",
+        overflow: "hidden",
+        backgroundColor: background,
+        containerType: "size",
+      }}
+    >
+      {ordered.map((element) => (
+        <SlideElementView
+          key={element.id}
+          element={element}
+          tc={tc}
+          accent={accent}
+          visuals={visuals}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // SlideCanvas — selects the right layout renderer for a slide
 // ---------------------------------------------------------------------------
 
@@ -302,6 +565,12 @@ export function SlideCanvas({
   preview = false,
 }: SlideCanvasProps): JSX.Element {
   const tc = DECK_THEMES[slide.theme] ?? DECK_THEMES.default;
+
+  // Free-form elements are authoritative when present.
+  if (slide.elements && slide.elements.length > 0) {
+    return <ElementsSlideLayout slide={slide} tc={tc} visuals={visuals} />;
+  }
+
   const props: SlideProps = { slide, tc, visuals, preview };
 
   switch (slide.layout) {

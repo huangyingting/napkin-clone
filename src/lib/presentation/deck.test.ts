@@ -354,3 +354,66 @@ test("safeParseDeck rejects a slide with missing notes field", () => {
   const result = safeParseDeck(raw);
   assert.equal(result.success, false, "should fail when notes is missing");
 });
+
+// ---------------------------------------------------------------------------
+// materializeSlideElements
+// ---------------------------------------------------------------------------
+
+test("materializeSlideElements builds a title element from the slide title", async () => {
+  const { materializeSlideElements } = await import("./deck");
+  const elements = materializeSlideElements({
+    index: 0,
+    title: "Hello",
+    bullets: [],
+    visualIds: [],
+    layout: "title",
+    notes: "",
+    theme: "default",
+  });
+  const title = elements.find((e) => e.kind === "text");
+  assert.ok(title);
+  if (title?.kind === "text") {
+    assert.equal(title.text, "Hello");
+    assert.equal(title.role, "title");
+  }
+});
+
+test("materializeSlideElements pairs bullets and a visual side by side", async () => {
+  const { materializeSlideElements } = await import("./deck");
+  const elements = materializeSlideElements({
+    index: 0,
+    title: "T",
+    bullets: ["a", "b"],
+    visualIds: ["vis-1"],
+    layout: "content",
+    notes: "",
+    theme: "default",
+  });
+  assert.ok(elements.some((e) => e.kind === "bullets"));
+  assert.ok(elements.some((e) => e.kind === "visual"));
+});
+
+test("materializeSlideElements returns existing elements unchanged", async () => {
+  const { materializeSlideElements } = await import("./deck");
+  const existing = [
+    {
+      id: "keep",
+      kind: "shape" as const,
+      shape: "rect" as const,
+      color: "#000000",
+      zIndex: 0,
+      box: { x: 0, y: 0, w: 1, h: 1 },
+    },
+  ];
+  const elements = materializeSlideElements({
+    index: 0,
+    title: "T",
+    bullets: ["a"],
+    visualIds: [],
+    layout: "content",
+    notes: "",
+    theme: "default",
+    elements: existing,
+  });
+  assert.equal(elements, existing);
+});
