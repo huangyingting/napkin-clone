@@ -20,11 +20,22 @@ import {
   ChevronLeft,
   ChevronRight,
   GripVertical,
+  Image as ImageIcon,
   LayoutPanelLeft,
+  List,
   Plus,
+  Shapes,
+  Type,
+  Wand2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 
 import { FOCUS_RING } from "@/components/motion/control-styles";
@@ -42,7 +53,6 @@ import {
   makeElementId,
   type Deck,
   type DeckTheme,
-  type ElementBox,
   type SlideElement,
   type SlideLayout,
 } from "@/lib/presentation/deck";
@@ -379,13 +389,6 @@ export function SlideEditor({
 
   const accentForSelected = selectedSlide?.accent ?? selectedTheme.accentColor;
 
-  const handleElementBox = useCallback(
-    (id: string, box: ElementBox) => {
-      onDeckChange(updateElement(deck, safeSelected, id, { box }));
-    },
-    [deck, onDeckChange, safeSelected],
-  );
-
   const handleUpdateElement = useCallback(
     (id: string, patch: ElementPatch) => {
       onDeckChange(updateElement(deck, safeSelected, id, patch));
@@ -587,6 +590,60 @@ export function SlideEditor({
           className="flex min-w-0 flex-1 flex-col"
           style={{ backgroundColor: selectedTheme.bgColor }}
         >
+          {/* On-stage element toolbar */}
+          {selectedSlide ? (
+            <div className="flex flex-wrap items-center gap-1.5 border-b border-ds-border-subtle bg-ds-surface-base px-3 py-2">
+              {selectedSlide.elements && selectedSlide.elements.length > 0 ? (
+                <>
+                  <span className="mr-0.5 text-xs font-medium text-ds-text-muted">
+                    Add
+                  </span>
+                  <StageAddButton
+                    icon={<Type size={14} aria-hidden="true" />}
+                    label="Text"
+                    onClick={() => handleAddElement("text")}
+                  />
+                  <StageAddButton
+                    icon={<List size={14} aria-hidden="true" />}
+                    label="Bullets"
+                    onClick={() => handleAddElement("bullets")}
+                  />
+                  <StageAddButton
+                    icon={<ImageIcon size={14} aria-hidden="true" />}
+                    label="Image"
+                    onClick={() => handleAddElement("image")}
+                  />
+                  <StageAddButton
+                    icon={<Shapes size={14} aria-hidden="true" />}
+                    label="Shape"
+                    onClick={() => handleAddElement("shape")}
+                  />
+                  <div
+                    className="mx-1 hidden h-5 w-px bg-ds-border-subtle sm:block"
+                    aria-hidden="true"
+                  />
+                  <span className="hidden text-xs text-ds-text-muted lg:inline">
+                    Double-click text to edit · drag to move · handles to resize
+                  </span>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleMaterialize}
+                    className={`flex items-center gap-1.5 rounded-ds-md bg-ds-control px-3 py-1.5 text-sm font-medium text-ds-control-text transition-colors hover:bg-ds-control-hover ${FOCUS_RING}`}
+                  >
+                    <Wand2 size={14} aria-hidden="true" />
+                    Customize layout
+                  </button>
+                  <span className="text-xs text-ds-text-muted">
+                    Unlock drag-and-drop text, images, and shapes on this slide.
+                  </span>
+                </>
+              )}
+            </div>
+          ) : null}
+
           <div
             ref={stageRef}
             className="flex min-h-0 flex-1 items-center justify-center p-4 sm:p-6"
@@ -599,7 +656,10 @@ export function SlideEditor({
                 height={fittedStageSize.height}
                 selectedElementId={effectiveSelectedElementId}
                 onSelectElement={setSelectedElementId}
-                onElementChange={handleElementBox}
+                onUpdateElement={handleUpdateElement}
+                onRemoveElement={handleRemoveElement}
+                onBringToFront={handleBringToFront}
+                onSendToBack={handleSendToBack}
               />
             ) : null}
           </div>
@@ -662,5 +722,26 @@ export function SlideEditor({
       </div>
     </div>,
     document.body,
+  );
+}
+
+function StageAddButton({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center gap-1 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 py-1 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }

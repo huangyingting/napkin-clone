@@ -508,16 +508,18 @@ function ElementsSlideLayout({
   slide,
   tc,
   visuals,
+  hiddenElementIds,
 }: {
   slide: Slide;
   tc: ThemeConfig;
   visuals: ReadonlyMap<string, Visual>;
+  hiddenElementIds?: ReadonlySet<string>;
 }): JSX.Element {
   const background = slide.background ?? tc.bgColor;
   const accent = slide.accent ?? tc.accentColor;
-  const ordered = [...(slide.elements ?? [])].sort(
-    (a, b) => a.zIndex - b.zIndex,
-  );
+  const ordered = [...(slide.elements ?? [])]
+    .filter((element) => !hiddenElementIds?.has(element.id))
+    .sort((a, b) => a.zIndex - b.zIndex);
   return (
     <div
       style={{
@@ -551,6 +553,12 @@ export interface SlideCanvasProps {
   visuals: ReadonlyMap<string, Visual>;
   /** True when rendered at reduced size (e.g. presenter next-slide preview). */
   preview?: boolean;
+  /**
+   * Element ids to skip rendering. Used by the editor to hide an element while
+   * it is being inline-edited (the editable overlay renders it instead). Never
+   * set by Present / public surfaces.
+   */
+  hiddenElementIds?: ReadonlySet<string>;
 }
 
 /**
@@ -563,12 +571,20 @@ export function SlideCanvas({
   slide,
   visuals,
   preview = false,
+  hiddenElementIds,
 }: SlideCanvasProps): JSX.Element {
   const tc = DECK_THEMES[slide.theme] ?? DECK_THEMES.default;
 
   // Free-form elements are authoritative when present.
   if (slide.elements && slide.elements.length > 0) {
-    return <ElementsSlideLayout slide={slide} tc={tc} visuals={visuals} />;
+    return (
+      <ElementsSlideLayout
+        slide={slide}
+        tc={tc}
+        visuals={visuals}
+        hiddenElementIds={hiddenElementIds}
+      />
+    );
   }
 
   const props: SlideProps = { slide, tc, visuals, preview };
