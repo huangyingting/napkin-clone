@@ -13,6 +13,7 @@ import {
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { buildDeckFromBlocks } from "@/lib/presentation/deck";
 import { buildPresentationBlocks } from "@/lib/presentation/present-blocks";
+import { normalizeDeckRaw } from "@/lib/presentation/fresh-deck";
 import type { Visual } from "@/lib/visual/schema";
 import { shouldShowAttribution } from "@/lib/billing/attribution";
 const SITE_NAME = "TextIQ";
@@ -133,19 +134,8 @@ export default async function PresentPage({
   }
 
   // Prefer the persisted (edited) deck; fall back to the auto-generated one.
-  let deckJson: unknown = undefined;
-  if (document.deckJson) {
-    try {
-      deckJson =
-        typeof document.deckJson === "string"
-          ? JSON.parse(document.deckJson)
-          : document.deckJson;
-    } catch {
-      // malformed JSON — fall through to buildDeckFromBlocks
-    }
-  }
-
-  const parsed = deckJson ? safeParseDeck(deckJson) : null;
+  const normalized = normalizeDeckRaw(document.deckJson);
+  const parsed = normalized ? safeParseDeck(normalized) : null;
   const deck =
     parsed && parsed.success ? parsed.data : buildDeckFromBlocks(blocks);
   const showAttribution = shouldShowAttribution(document.owner.plan);

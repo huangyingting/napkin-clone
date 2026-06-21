@@ -68,10 +68,13 @@ test("normalizeDeckRaw — parses valid JSON string", () => {
   assert.deepStrictEqual(result, FETCHED_DECK);
 });
 
-test("normalizeDeckRaw — returns invalid JSON string as-is (not throwing)", () => {
-  const bad = "not-json{{{";
-  const result = normalizeDeckRaw(bad);
-  assert.strictEqual(result, bad);
+test("normalizeDeckRaw — returns null for invalid JSON string", () => {
+  const result = normalizeDeckRaw("not-json{{{");
+  assert.strictEqual(result, null);
+});
+
+test("normalizeDeckRaw — returns null for empty string", () => {
+  assert.strictEqual(normalizeDeckRaw(""), null);
 });
 
 test("normalizeDeckRaw — returns null unchanged", () => {
