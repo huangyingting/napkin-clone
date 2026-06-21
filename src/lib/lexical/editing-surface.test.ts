@@ -5,9 +5,7 @@ import {
   groupForSelectionKind,
   resolveEditingSurface,
   selectionKindFromContext,
-  type DockedPreference,
   type EditingSurfaceSelectionKind,
-  type EditingSurfaceWidthTier,
   type ResolvedEditingSurface,
 } from "./editing-surface";
 
@@ -52,276 +50,126 @@ test("groupForSelectionKind maps none → overall", () => {
 });
 
 // ---------------------------------------------------------------------------
-// resolveEditingSurface — the full 2 × 2 × 3 × 2 = 24-row decision matrix.
-// One explicit assertion per row, in the exact order of the design contract.
+// resolveEditingSurface — the full 2 × 3 = 6-row decision matrix.
 // ---------------------------------------------------------------------------
 
 function expectSurface(
   pointerFine: boolean,
-  widthTier: EditingSurfaceWidthTier,
   selectionKind: EditingSurfaceSelectionKind,
-  dockedPreference: DockedPreference,
   expected: ResolvedEditingSurface,
 ) {
   assert.deepEqual(
     resolveEditingSurface({
       pointerFine,
-      widthTier,
       selectionKind,
-      dockedPreference,
     }),
     expected,
   );
 }
 
-// --- pointerFine = true, dockedPreference = off -----------------------------
+// --- pointerFine = true -----------------------------------------------------
 
-test("T,>=lg,range,off → float(text-format)", () => {
-  expectSurface(true, ">=lg", "range", "off", {
+test("T,range → float(text-format)", () => {
+  expectSurface(true, "range", {
     mode: "float",
     group: "text-format",
   });
 });
 
-test("T,>=lg,visual,off → float(visual-edit)", () => {
-  expectSurface(true, ">=lg", "visual", "off", {
+test("T,visual → float(visual-edit)", () => {
+  expectSurface(true, "visual", {
     mode: "float",
     group: "visual-edit",
   });
 });
 
-test("T,>=lg,none,off → docked(overall)", () => {
-  expectSurface(true, ">=lg", "none", "off", {
-    mode: "docked",
-    group: "overall",
-  });
-});
-
-// --- pointerFine = true, dockedPreference = on ------------------------------
-
-test("T,>=lg,range,on → docked(text-format)", () => {
-  expectSurface(true, ">=lg", "range", "on", {
-    mode: "docked",
-    group: "text-format",
-  });
-});
-
-test("T,>=lg,visual,on → docked(visual-edit)", () => {
-  expectSurface(true, ">=lg", "visual", "on", {
-    mode: "docked",
-    group: "visual-edit",
-  });
-});
-
-test("T,>=lg,none,on → docked(overall)", () => {
-  expectSurface(true, ">=lg", "none", "on", {
-    mode: "docked",
-    group: "overall",
-  });
-});
-
-// --- pointerFine = true, <lg, dockedPreference = off ------------------------
-
-test("T,<lg,range,off → float(text-format)", () => {
-  expectSurface(true, "<lg", "range", "off", {
-    mode: "float",
-    group: "text-format",
-  });
-});
-
-test("T,<lg,visual,off → float(visual-edit)", () => {
-  expectSurface(true, "<lg", "visual", "off", {
-    mode: "float",
-    group: "visual-edit",
-  });
-});
-
-test("T,<lg,none,off → none(overall)", () => {
-  expectSurface(true, "<lg", "none", "off", {
+test("T,none → none(overall)", () => {
+  expectSurface(true, "none", {
     mode: "none",
     group: "overall",
   });
 });
 
-// --- pointerFine = true, <lg, dockedPreference = on (R2: preference ignored) -
+// --- pointerFine = false ----------------------------------------------------
 
-test("T,<lg,range,on → float(text-format)", () => {
-  expectSurface(true, "<lg", "range", "on", {
-    mode: "float",
-    group: "text-format",
-  });
-});
-
-test("T,<lg,visual,on → float(visual-edit)", () => {
-  expectSurface(true, "<lg", "visual", "on", {
-    mode: "float",
-    group: "visual-edit",
-  });
-});
-
-test("T,<lg,none,on → none(overall)", () => {
-  expectSurface(true, "<lg", "none", "on", {
-    mode: "none",
-    group: "overall",
-  });
-});
-
-// --- pointerFine = false, >=lg, dockedPreference = off ----------------------
-
-test("F,>=lg,range,off → sheet(text-format)", () => {
-  expectSurface(false, ">=lg", "range", "off", {
+test("F,range → sheet(text-format)", () => {
+  expectSurface(false, "range", {
     mode: "sheet",
     group: "text-format",
   });
 });
 
-test("F,>=lg,visual,off → sheet(visual-edit)", () => {
-  expectSurface(false, ">=lg", "visual", "off", {
+test("F,visual → sheet(visual-edit)", () => {
+  expectSurface(false, "visual", {
     mode: "sheet",
     group: "visual-edit",
   });
 });
 
-test("F,>=lg,none,off → docked(overall)", () => {
-  expectSurface(false, ">=lg", "none", "off", {
-    mode: "docked",
-    group: "overall",
-  });
-});
-
-// --- pointerFine = false, >=lg, dockedPreference = on -----------------------
-
-test("F,>=lg,range,on → docked(text-format)", () => {
-  expectSurface(false, ">=lg", "range", "on", {
-    mode: "docked",
-    group: "text-format",
-  });
-});
-
-test("F,>=lg,visual,on → docked(visual-edit)", () => {
-  expectSurface(false, ">=lg", "visual", "on", {
-    mode: "docked",
-    group: "visual-edit",
-  });
-});
-
-test("F,>=lg,none,on → docked(overall)", () => {
-  expectSurface(false, ">=lg", "none", "on", {
-    mode: "docked",
-    group: "overall",
-  });
-});
-
-// --- pointerFine = false, <lg, dockedPreference = off -----------------------
-
-test("F,<lg,range,off → sheet(text-format)", () => {
-  expectSurface(false, "<lg", "range", "off", {
-    mode: "sheet",
-    group: "text-format",
-  });
-});
-
-test("F,<lg,visual,off → sheet(visual-edit)", () => {
-  expectSurface(false, "<lg", "visual", "off", {
-    mode: "sheet",
-    group: "visual-edit",
-  });
-});
-
-test("F,<lg,none,off → none(overall)", () => {
-  expectSurface(false, "<lg", "none", "off", {
-    mode: "none",
-    group: "overall",
-  });
-});
-
-// --- pointerFine = false, <lg, dockedPreference = on (R2: preference ignored) -
-
-test("F,<lg,range,on → sheet(text-format)", () => {
-  expectSurface(false, "<lg", "range", "on", {
-    mode: "sheet",
-    group: "text-format",
-  });
-});
-
-test("F,<lg,visual,on → sheet(visual-edit)", () => {
-  expectSurface(false, "<lg", "visual", "on", {
-    mode: "sheet",
-    group: "visual-edit",
-  });
-});
-
-test("F,<lg,none,on → none(overall)", () => {
-  expectSurface(false, "<lg", "none", "on", {
+test("F,none → none(overall)", () => {
+  expectSurface(false, "none", {
     mode: "none",
     group: "overall",
   });
 });
 
 // ---------------------------------------------------------------------------
-// Totality — the resolver returns a value for every one of the 24 inputs and
-// the group is always selection-derived (even when mode === "none").
+// Totality — the resolver returns a value for every one of the 6 inputs and
+// the group is always selection-derived.
 // ---------------------------------------------------------------------------
 
-test("resolveEditingSurface is total over all 24 input combinations", () => {
+test("resolveEditingSurface is total over all 6 input combinations", () => {
   const pointerFines = [true, false];
-  const widthTiers: EditingSurfaceWidthTier[] = [">=lg", "<lg"];
   const selectionKinds: EditingSurfaceSelectionKind[] = [
     "range",
     "visual",
     "none",
   ];
-  const dockedPrefs: DockedPreference[] = ["on", "off"];
 
   let count = 0;
   for (const pointerFine of pointerFines) {
-    for (const widthTier of widthTiers) {
-      for (const selectionKind of selectionKinds) {
-        for (const dockedPreference of dockedPrefs) {
-          const result = resolveEditingSurface({
-            pointerFine,
-            widthTier,
-            selectionKind,
-            dockedPreference,
-          });
-          // Mode is always one of the four valid modes.
-          assert.ok(["float", "sheet", "docked", "none"].includes(result.mode));
-          // Group is always selection-derived, regardless of mode.
-          assert.equal(result.group, groupForSelectionKind(selectionKind));
-          count += 1;
-        }
-      }
+    for (const selectionKind of selectionKinds) {
+      const result = resolveEditingSurface({
+        pointerFine,
+        selectionKind,
+      });
+      assert.ok(["float", "sheet", "none"].includes(result.mode));
+      assert.equal(result.group, groupForSelectionKind(selectionKind));
+      count += 1;
     }
   }
-  assert.equal(count, 24);
+  assert.equal(count, 6);
 });
 
-// ---------------------------------------------------------------------------
-// Surface-visibility regression rule (epic #87, item 5): a "collapse to none"
-// helper for the wiring — when the registry yields no tools for the resolved
-// group, the surface collapses to mode "none" (but the group is preserved).
-// This pins the contract the wiring relies on (see use-editing-surface.ts).
-// ---------------------------------------------------------------------------
-
-test("default-off behaviour matches today: fine pointer + range → float", () => {
-  // The canonical 'today' float case for the inline text toolbar.
-  expectSurface(true, ">=lg", "range", "off", {
+test("fine pointer text and visual contexts use popovers", () => {
+  expectSurface(true, "range", {
     mode: "float",
     group: "text-format",
   });
-  expectSurface(true, "<lg", "range", "off", {
+  expectSurface(true, "visual", {
     mode: "float",
-    group: "text-format",
+    group: "visual-edit",
   });
 });
 
-test("default-off behaviour matches today: coarse pointer + selection → sheet", () => {
-  expectSurface(false, ">=lg", "range", "off", {
+test("coarse pointer text and visual contexts use the sheet toolbox", () => {
+  expectSurface(false, "range", {
     mode: "sheet",
     group: "text-format",
   });
-  expectSurface(false, "<lg", "visual", "off", {
+  expectSurface(false, "visual", {
     mode: "sheet",
     group: "visual-edit",
+  });
+});
+
+test("document context has no contextual surface", () => {
+  expectSurface(true, "none", {
+    mode: "none",
+    group: "overall",
+  });
+  expectSurface(false, "none", {
+    mode: "none",
+    group: "overall",
   });
 });

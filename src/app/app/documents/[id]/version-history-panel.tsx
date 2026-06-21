@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 
 import {
@@ -56,14 +56,14 @@ export function VersionHistoryPanel({
   }, [documentId]);
 
   const toggleOpen = useCallback(() => {
-    setOpen((prev) => {
-      const next = !prev;
-      if (next && !loaded) {
-        refresh();
-      }
-      return next;
-    });
-  }, [loaded, refresh]);
+    setOpen((prev) => !prev);
+  }, []);
+
+  useEffect(() => {
+    if (open && !loaded) {
+      refresh();
+    }
+  }, [loaded, open, refresh]);
 
   const restore = useCallback((versionId: string) => {
     setError(null);

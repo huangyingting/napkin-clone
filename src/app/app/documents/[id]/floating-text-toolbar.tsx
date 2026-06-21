@@ -71,13 +71,11 @@ export function FloatingTextToolbar() {
 
   const tools = useMemo(() => toolsFor("text-format", ctx), [ctx]);
   const selectionRect = ctx.rects.selection;
-  // Visibility is now derived from the single unified decision source
-  // (resolveEditingSurface via useEditingSurface): the floating text toolbar
-  // shows exactly when the resolver puts the text-format group into "float"
-  // mode. With dockedPreference defaulting to "off" this is byte-for-byte
-  // equivalent to the previous `isPointerFine && kind === "range"` check —
-  // range floats only on fine pointers. The positioning gates (editable + a
-  // measured selection rect) remain as additional render guards.
+  // Visibility is derived from the single unified decision source
+  // (resolveEditingSurface via useEditingSurface): desktop text selections use
+  // the right toolbox, while smaller fine-pointer viewports keep this anchored
+  // float. The positioning gates (editable + a measured selection rect) remain
+  // as additional render guards.
   const visible =
     surface.mode === "float" &&
     surface.group === "text-format" &&

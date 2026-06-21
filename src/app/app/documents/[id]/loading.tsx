@@ -23,7 +23,7 @@ export default function EditorLoading() {
       <div className="flex flex-1 overflow-hidden">
         {/* Main editor area */}
         <div className="flex flex-1 flex-col items-center overflow-y-auto bg-ds-surface-sunken px-4 py-10 sm:px-8">
-          <div className="flex w-full max-w-3xl flex-col gap-6">
+          <div className="flex w-full max-w-5xl flex-col gap-6">
             {/* Document title */}
             <Skeleton className="h-10 w-3/4" />
             {/* Content blocks */}
@@ -40,16 +40,6 @@ export default function EditorLoading() {
               <Skeleton className="h-5 w-5/6" />
             </div>
             <Skeleton className="h-32 w-full rounded-xl" />
-          </div>
-        </div>
-
-        {/* Right panel (visual rail) — hidden on mobile */}
-        <div className="hidden w-72 shrink-0 flex-col gap-4 border-l border-ds-border-subtle bg-ds-surface-base p-4 lg:flex">
-          <Skeleton className="h-5 w-24" />
-          <div className="flex flex-col gap-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-28 w-full rounded-xl" />
-            ))}
           </div>
         </div>
       </div>

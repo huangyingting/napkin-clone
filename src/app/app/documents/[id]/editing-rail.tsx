@@ -33,13 +33,11 @@ import { FOCUS_RING } from "@/components/motion/control-styles";
 import { useEditorContext } from "@/lib/lexical/editor-context";
 import { useIsPointerFine } from "@/lib/pointer";
 import {
-  canGenerateForSelection,
   generateTargetForContext,
   isCreditError,
   requestVisualCandidates,
   stampSourceText,
 } from "@/lib/visual/generate";
-import { shouldShowOverallToolbox } from "@/lib/lexical/overall-toolbox";
 import {
   formatShortcut,
   isToolActive,
@@ -56,12 +54,7 @@ import { useVisualSvgRegistry } from "@/components/editor/visual-svg-registry";
 import { $createVisualNode, $isVisualNode, VisualNode } from "./visual-node";
 import { VisualContextPopover } from "./visual-context-popover";
 import { useVisualPanel } from "./visual-panel-context";
-import { OverallAdjustmentsPanel } from "./overall-adjustments-panel";
 import { useEditingSurface } from "./use-editing-surface";
-import {
-  useDockedPreference,
-  useToggleDockedPreference,
-} from "./docked-preference";
 
 // Block types from which a visual can derive source text (mirrors VisualCard).
 const SOURCE_TEXT_BLOCK_TYPES = new Set([
@@ -301,7 +294,7 @@ function TextFormatSection() {
 function VisualContextSection() {
   const [editor] = useLexicalComposerContext();
   const ctx = useEditorContext();
-  const { onClose, selectedNodeId } = useVisualPanel();
+  const { activeVisual, onClose, selectedNodeId } = useVisualPanel();
   const svgRegistry = useVisualSvgRegistry();
 
   // Merge visual data + source text into a single state object so we never
@@ -313,8 +306,8 @@ function VisualContextSection() {
     currentSourceText: string | undefined;
   } | null>(null);
 
-  const nodeKey = ctx.selectedVisualNodeKey;
-  const visualId = ctx.selectedVisualId;
+  const nodeKey = activeVisual?.nodeKey ?? ctx.selectedVisualNodeKey;
+  const visualId = activeVisual?.visualId ?? ctx.selectedVisualId;
 
   // Read the VisualNode payload whenever the selection or the editor state
   // changes. All setState calls happen inside editor.read() callbacks, which
@@ -438,27 +431,8 @@ function VisualContextSection() {
 }
 
 // ---------------------------------------------------------------------------
-// EditingRail — the docked right-side editing panel.
+// Context toolbox host — popover on fine pointers, sheet on coarse pointers.
 // ---------------------------------------------------------------------------
-
-/**
- * A persistent right-side editing rail that hosts contextual editing surfaces
- * at desktop widths (≥ 1024 px / Tailwind `lg:`). It reads
- * {@link useEditorContext} to determine what to show:
- *
- * - `kind === "range"` → text-format toolbar
- * - `kind === "visual"` → visual editing controls (VisualContextPopover in
- *   panel mode, reading node data directly from the Lexical editor state)
- * - `kind === "none" | "empty-block"` → document-level overall adjustments
- *   toolbox (theme/brand to all visuals, A4 toggle, export)
- *
- * At narrower viewports the `lg:flex` class hides the rail; the existing
- * floating surfaces handle those widths unchanged.
- *
- * Data flow invariants are preserved: surfaces read only through
- * {@link useEditorContext} and mutate exclusively via Lexical
- * commands / `editor.update()`.
- */
 
 // ---------------------------------------------------------------------------
 // GenerateVisualSection — touch-reachable "turn text into a visual" affordance.
@@ -641,25 +615,14 @@ function GenerateVisualSection() {
 // ---------------------------------------------------------------------------
 
 /**
- * Renders a floating action button (visible only below the `lg:` breakpoint)
- * that opens a bottom sheet containing the same contextual editing panels as
- * the desktop {@link EditingRail}.
+ * Renders a floating action button for coarse-pointer viewports that opens a
+ * bottom sheet containing contextual text/visual editing sections.
  *
- * All panel components (TextFormatSection, VisualContextSection,
- * OverallAdjustmentsPanel) are reused directly — no control logic is
- * duplicated. The component must live inside the same Lexical/EditorContext/
- * VisualPanel provider tree as the rail.
+ * TextFormatSection and VisualContextSection are reused directly — no control
+ * logic is duplicated. The component must live inside the same Lexical/
+ * EditorContext/VisualPanel provider tree as the popover surfaces.
  */
-function MobileEditingSheet({
-  documentTitle,
-  showPageBreaks,
-  onTogglePageBreaks,
-}: {
-  documentTitle?: string;
-  showPageBreaks?: boolean;
-  onTogglePageBreaks?: () => void;
-}) {
-  const ctx = useEditorContext();
+function MobileEditingSheet() {
   const surface = useEditingSurface();
   const [open, setOpen] = useState(false);
   const reduceMotion = useReducedMotion();
@@ -686,24 +649,15 @@ function MobileEditingSheet({
     };
   }, [open]);
 
-  const showOverall = shouldShowOverallToolbox(ctx.kind);
-  const canGenerate = canGenerateForSelection(ctx);
-
   // The content group hosted by the sheet comes from the unified resolver
-  // (selection-derived): "text-format" ⟺ range, "visual-edit" ⟺ visual,
-  // "overall" ⟺ no element selection. This is byte-for-byte equivalent to the
-  // previous direct `ctx.kind` checks. The overall group still distinguishes
-  // the document toolbox (shouldShowOverallToolbox) from a bare collapsed caret
-  // (empty hint), which the coarser group alone cannot express.
+  // (selection-derived): "text-format" ⟺ range, "visual-edit" ⟺ visual.
   const { group } = surface;
+
+  if (surface.mode !== "sheet") return null;
 
   // Choose a context-appropriate label for the FAB.
   const fabLabel =
-    group === "text-format"
-      ? "Open text formatting"
-      : group === "visual-edit"
-        ? "Open visual editing"
-        : "Open document adjustments";
+    group === "text-format" ? "Open text formatting" : "Open visual editing";
 
   // Animation: instant when reduced-motion is requested.
   const sheetMotion = reduceMotion
@@ -723,7 +677,7 @@ function MobileEditingSheet({
 
   return (
     <>
-      {/* FAB — hidden at lg+ where the docked rail takes over */}
+      {/* FAB — coarse-pointer fallback for the contextual toolbox */}
       <button
         type="button"
         aria-label={fabLabel}
@@ -780,11 +734,7 @@ function MobileEditingSheet({
                       className="absolute left-1/2 top-2 h-1 w-10 -translate-x-1/2 rounded-full bg-[var(--ds-border-subtle,rgba(0,0,0,0.12))]"
                     />
                     <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#6f7d83)]">
-                      {group === "text-format"
-                        ? "Text format"
-                        : group === "visual-edit"
-                          ? "Visual"
-                          : "Adjustments"}
+                      {group === "text-format" ? "Text format" : "Visual"}
                     </p>
                     <button
                       type="button"
@@ -796,7 +746,7 @@ function MobileEditingSheet({
                     </button>
                   </div>
 
-                  {/* Scrollable panel content — reuses the same sections as the rail */}
+                  {/* Scrollable panel content — reuses the same sections as the popover */}
                   <div className="flex-1 overflow-y-auto">
                     {group === "text-format" && (
                       <Surface elevation="flat" radius="sm" bordered={false}>
@@ -808,25 +758,6 @@ function MobileEditingSheet({
                       <Surface elevation="flat" radius="sm" bordered={false}>
                         <VisualContextSection />
                       </Surface>
-                    )}
-                    {group === "overall" && showOverall && (
-                      <OverallAdjustmentsPanel
-                        documentTitle={documentTitle}
-                        showPageBreaks={showPageBreaks ?? false}
-                        onTogglePageBreaks={
-                          onTogglePageBreaks ?? (() => undefined)
-                        }
-                      />
-                    )}
-                    {group === "overall" && !showOverall && (
-                      <>
-                        <GenerateVisualSection />
-                        {!canGenerate && (
-                          <div className="p-4 text-[12px] text-[var(--ds-text-muted,#6f7d83)]">
-                            Select text or a visual to see editing options.
-                          </div>
-                        )}
-                      </>
                     )}
                   </div>
                 </motion.div>
@@ -840,172 +771,16 @@ function MobileEditingSheet({
 }
 
 // ---------------------------------------------------------------------------
-// DockedPreferenceToggle — the "Keep panel open" switch (≥ lg only).
-// ---------------------------------------------------------------------------
-
-/**
- * A `PanelRight` toggle that flips {@link useDockedPreference} between
- * `"on"`/`"off"`. Visible only at ≥ lg (`hidden lg:inline-flex`), where docking
- * is possible; below lg the preference is a resolver no-op so the control is
- * hidden. Rendered both in the document toolbar (the opt-in entry point that
- * stays reachable while the preference is OFF) and in the docked rail header.
- */
-export function DockedPreferenceToggle({ className }: { className?: string }) {
-  const preference = useDockedPreference();
-  const toggle = useToggleDockedPreference();
-  const on = preference === "on";
-
-  return (
-    <Tooltip label="Keep panel open">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={on}
-        aria-label="Keep panel open"
-        onClick={toggle}
-        className={cx(
-          "hidden h-7 items-center gap-1.5 rounded-md border px-2 text-xs font-medium transition lg:inline-flex",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-focus-ring,#6366f1)] focus-visible:ring-offset-1",
-          on
-            ? "border-ds-accent-border bg-ds-accent-surface text-ds-accent-text"
-            : "border-ds-border-subtle bg-ds-surface-raised text-ds-text-secondary hover:border-ds-border-strong hover:text-ds-text-primary",
-          className,
-        )}
-      >
-        <PanelRight aria-hidden="true" className="h-3.5 w-3.5" />
-        Keep panel open
-      </button>
-    </Tooltip>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// DockedRail — the persistent right-side docked panel (≥ lg, opt-in).
-// ---------------------------------------------------------------------------
-
-/**
- * The persistent docked rail mounted when the user opts in
- * (dockedPreference === "on") and the resolver puts us in `"docked"` mode
- * (≥ lg). Its content is selected by the resolver `group`, reusing the exact
- * section components the bottom sheet uses so controls render identically:
- *   - `text-format` → {@link TextFormatSection}
- *   - `visual-edit` → {@link VisualContextSection} ({@link VisualContextPopover}
- *      panel mode)
- *   - `overall`     → {@link OverallAdjustmentsPanel}
- *
- * The header carries the {@link DockedPreferenceToggle} so the rail can be
- * dismissed from within. Data-flow invariants (#84) are preserved: sections
- * read only via {@link useEditorContext} and mutate exclusively through Lexical.
- */
-function DockedRail({
-  documentTitle,
-  showPageBreaks,
-  onTogglePageBreaks,
-}: {
-  documentTitle?: string;
-  showPageBreaks?: boolean;
-  onTogglePageBreaks?: () => void;
-}) {
-  const ctx = useEditorContext();
-  const { group } = useEditingSurface();
-  const showOverall = shouldShowOverallToolbox(ctx.kind);
-
-  const title =
-    group === "text-format"
-      ? "Text format"
-      : group === "visual-edit"
-        ? "Visual"
-        : "Adjustments";
-
-  return (
-    <aside
-      role="region"
-      aria-label="Editing panel"
-      className="hidden w-80 shrink-0 flex-col overflow-hidden border-l border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-base,#ffffff)] lg:flex"
-    >
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] px-3 py-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#6f7d83)]">
-          {title}
-        </p>
-        <DockedPreferenceToggle />
-      </div>
-
-      {/* Scrollable panel content — reuses the same sections as the sheet. */}
-      <div className="flex-1 overflow-y-auto">
-        {group === "text-format" && (
-          <Surface elevation="flat" radius="sm" bordered={false}>
-            <TextFormatSection />
-          </Surface>
-        )}
-        {group === "visual-edit" && (
-          <Surface elevation="flat" radius="sm" bordered={false}>
-            <VisualContextSection />
-          </Surface>
-        )}
-        {group === "overall" && showOverall && (
-          <OverallAdjustmentsPanel
-            documentTitle={documentTitle}
-            showPageBreaks={showPageBreaks ?? false}
-            onTogglePageBreaks={onTogglePageBreaks ?? (() => undefined)}
-          />
-        )}
-        {group === "overall" && !showOverall && (
-          <div className="p-4 text-[12px] text-[var(--ds-text-muted,#6f7d83)]">
-            Select text or a visual to see editing options.
-          </div>
-        )}
-      </div>
-    </aside>
-  );
-}
-
-export function EditingRail({
-  documentTitle,
-  showPageBreaks,
-  onTogglePageBreaks,
-}: {
-  documentTitle?: string;
-  showPageBreaks?: boolean;
-  onTogglePageBreaks?: () => void;
-}) {
-  // The single unified resolver decides which host renders (see
-  // resolveEditingSurface). Three outcomes matter here:
-  //
-  //   1. mode === "docked" AND the user explicitly opted in
-  //      (dockedPreference === "on") → mount the persistent right-side rail
-  //      below. This only happens at ≥ lg (R1).
-  //   2. coarse pointer, not docked → the bottom-sheet fallback.
-  //   3. fine pointer, not docked → nothing (floats are the affordance).
-  //
-  // Gating the rail on dockedPreference === "on" (not merely mode === "docked")
-  // is deliberate: at ≥ lg with no selection the resolver returns
-  // "docked"(overall) even when the preference is OFF (R4), but current main
-  // never mounted an overall rail on fine pointers. Requiring an explicit
-  // opt-in keeps the preference-OFF, fine-pointer output byte-for-byte with
-  // main (floats + nothing docked).
-  const surface = useEditingSurface();
-  const dockedPreference = useDockedPreference();
+export function EditingRail({ editable = true }: { editable?: boolean }) {
   const pointerFine = useIsPointerFine();
 
-  if (surface.mode === "docked" && dockedPreference === "on") {
-    return (
-      <DockedRail
-        documentTitle={documentTitle}
-        showPageBreaks={showPageBreaks}
-        onTogglePageBreaks={onTogglePageBreaks}
-      />
-    );
+  if (!editable) {
+    return null;
   }
 
   if (pointerFine) {
     return null;
   }
 
-  return (
-    <MobileEditingSheet
-      documentTitle={documentTitle}
-      showPageBreaks={showPageBreaks}
-      onTogglePageBreaks={onTogglePageBreaks}
-    />
-  );
+  return <MobileEditingSheet />;
 }

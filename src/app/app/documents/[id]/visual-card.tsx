@@ -30,7 +30,6 @@ import { useRegisterVisualSvg } from "@/components/editor/visual-svg-registry";
 import { useRightSurface } from "./right-surface-context";
 
 import { useEditingSurface } from "./use-editing-surface";
-import { useDockedPreference } from "./docked-preference";
 import { useVisualAnchor } from "./visual-anchor-context";
 import { VisualContextPopover } from "./visual-context-popover";
 import { VisualEditor } from "./visual-editor";
@@ -91,22 +90,12 @@ export function VisualCard({
 
   // When the full-page SlideEditor is open it covers the whole screen, so the
   // inline floating overlay would be hidden behind it. The coordinator
-  // suppresses the float while the slide editor is active; visual editing
-  // remains accessible via the docked rail.
+  // suppresses the visual popover while the slide editor is active.
   const { suppressFloatPopover } = useRightSurface();
 
-  // When the user has opted into the docked rail (dockedPreference === "on")
-  // and the resolver puts us in "docked" mode (≥ lg), the visual-edit controls
-  // render in the rail instead. Suppress the inline float here so a visual is
-  // never edited in two surfaces at once. Gating on the preference (not merely
-  // mode === "docked") is essential for byte-for-byte safety: with the
-  // preference OFF the resolver can still return "docked"(overall) for the
-  // no-selection case at ≥ lg (R4), but the rail is not mounted then, so the
-  // float must keep showing exactly as on main.
+  // Visual/component controls render as an anchored popover on fine pointers
+  // and in the sheet on coarse pointers.
   const editingSurface = useEditingSurface();
-  const dockedPreference = useDockedPreference();
-  const dockedActive =
-    editingSurface.mode === "docked" && dockedPreference === "on";
 
   // Current text content of the immediately preceding block (the likely anchor).
   // Updated on every editor state change so the popover can detect staleness.
@@ -288,26 +277,35 @@ export function VisualCard({
   // Sync the close callback and selected-node id with the editing bottom-sheet
   // (touch fallback) so it can render the visual controls and forward close
   // events.
-  const { setOnClose, setSelectedNodeId: setPanelSelectedNodeId } =
-    useVisualPanel();
+  const {
+    setActiveVisual,
+    setOnClose,
+    setSelectedNodeId: setPanelSelectedNodeId,
+  } = useVisualPanel();
 
   useEffect(() => {
     if (showControls) {
+      setActiveVisual({ nodeKey, visualId });
       setOnClose(closeControls);
       setPanelSelectedNodeId(selectedNodeId);
       return () => {
+        setActiveVisual(null);
         setOnClose(null);
         setPanelSelectedNodeId(null);
       };
     }
+    setActiveVisual(null);
     setOnClose(null);
     setPanelSelectedNodeId(null);
   }, [
     showControls,
     closeControls,
+    nodeKey,
     selectedNodeId,
+    setActiveVisual,
     setOnClose,
     setPanelSelectedNodeId,
+    visualId,
   ]);
 
   // Parse once per `visual` identity. An unmemoized parse returns a fresh object
@@ -543,10 +541,11 @@ export function VisualCard({
       )}
 
       {/* Float the visual editing popover inline beside the selected visual so
-          its properties can be adjusted in place. Suppressed only while the
-          SlideEditor panel is open, so the two right-side surfaces never appear
-          at once. */}
-      {showControls && !suppressFloatPopover && !dockedActive ? (
+          its properties can be adjusted in place. Suppressed while the
+          SlideEditor panel is open so large editor overlays do not compete. */}
+      {showControls &&
+      !suppressFloatPopover &&
+      editingSurface.mode === "float" ? (
         <VisualContextPopover
           visual={data}
           selectedNodeId={selectedNodeId}

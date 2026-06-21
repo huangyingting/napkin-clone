@@ -670,7 +670,8 @@ export type VisualContextPopoverProps = {
    * - `"float"` (default) — wrapped in a {@link FloatingSurface} anchored to
    *   `anchorRef`; positioning and click-away are active.
    * - `"panel"` — renders the content directly as a plain `<div>` without any
-   *   overlay/portal, suitable for hosting inside the docked {@link EditingRail}.
+   *   overlay/portal, suitable for hosting inside sheets or other embedded
+   *   toolbox surfaces.
    */
   mode?: "float" | "panel";
   /** Duplicate this visual node (shown in the toolbar header). */
@@ -717,7 +718,7 @@ function PopoverShell({
  * Replaces the old flat scrollable popover with a CATEGORIZED MENU where each
  * row opens a focused submenu (drill-down navigation). A compact bottom
  * quick-toolbar exposes the four highest-frequency actions. Works in both
- * "float" (anchored overlay) and "panel" (docked rail) modes.
+ * "float" (anchored overlay) and "panel" (embedded toolbox) modes.
  *
  * Every mutation flows through `onChange(transform(visual, …))` → `node.setVisual()`
  * → `editor.update()` — never Yjs directly.

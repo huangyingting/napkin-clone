@@ -4,14 +4,14 @@
  *
  * DOM-free and React-free, so it can be exercised headlessly under
  * `node --test`. The React bridge ({@link use-editing-surface.ts}) gathers the
- * runtime inputs (pointer fineness, viewport width tier, the selection kind from
- * {@link useEditorContext}, and the docked preference) and feeds them here; every
- * surface then renders from the returned `{ mode, group }` instead of running
- * its own ad-hoc visibility checks. This keeps the #84 invariant intact: there
- * is exactly one place that turns "what is selected + where are we" into "which
- * surface shows which content".
+ * runtime inputs (pointer fineness and the selection kind from
+ * {@link useEditorContext}) and feeds them here; contextual surfaces then render
+ * from the returned `{ mode, group }` instead of running their own ad-hoc
+ * visibility checks. This keeps the #84 invariant intact: there is exactly one
+ * place that turns "what is selected" into "which contextual surface shows
+ * which content".
  *
- * The function is TOTAL over its 2 × 2 × 3 × 2 = 24 input combinations and is
+ * The function is TOTAL over its 2 × 3 = 6 input combinations and is
  * exhaustively pinned by {@link editing-surface.test.ts}.
  */
 
@@ -19,15 +19,13 @@ import type { EditorContextKind } from "./editor-context";
 
 /**
  * How the contextual editing content is presented:
- * - `"float"` — an anchored {@link FloatingSurface} popped over the selection
- *   (fine pointers). Keeps the #124 anchored-position math.
+ * - `"float"` — an anchored {@link FloatingSurface} popped near the active
+ *   document, text, visual, or component context on fine pointers.
  * - `"sheet"` — the slide-up bottom sheet (coarse pointers).
- * - `"docked"` — a persistent right-side rail (desktop width + docked
- *   preference; also hosts the document-level overall toolbox at ≥ lg).
- * - `"none"` — nothing is shown (the `group` is still returned so callers know
- *   what *would* render).
+ * - `"none"` — no contextual surface is shown (document-wide adjustments live
+ *   in the top toolbar, not near the caret/canvas).
  */
-export type EditingSurfaceMode = "float" | "sheet" | "docked" | "none";
+export type EditingSurfaceMode = "float" | "sheet" | "none";
 
 /**
  * Which content group a surface should host. This is purely selection-derived
@@ -41,21 +39,9 @@ export type EditingSurfaceGroup = "text-format" | "visual-edit" | "overall";
 /** The selection kinds the resolver distinguishes (a projection of {@link EditorContextKind}). */
 export type EditingSurfaceSelectionKind = "range" | "visual" | "none";
 
-/** The viewport width tier (matchMedia `(min-width: 1024px)` — Tailwind `lg`). */
-export type EditingSurfaceWidthTier = ">=lg" | "<lg";
-
-/**
- * Whether the user prefers the persistent docked rail. Defaults to `"off"`
- * until a sibling PR adds the toggle UI + localStorage persistence; with
- * `"off"` the resolver reproduces today's float/sheet behaviour exactly.
- */
-export type DockedPreference = "on" | "off";
-
 export type ResolveEditingSurfaceInput = {
   pointerFine: boolean;
-  widthTier: EditingSurfaceWidthTier;
   selectionKind: EditingSurfaceSelectionKind;
-  dockedPreference: DockedPreference;
 };
 
 export type ResolvedEditingSurface = {
@@ -95,40 +81,26 @@ export function groupForSelectionKind(
 }
 
 /**
- * The single decision: given the pointer, width tier, selection kind, and
- * docked preference, return which surface `mode` hosts which content `group`.
+ * The single decision: given the pointer and selection kind, return which
+ * surface `mode` hosts which content `group`.
  *
  * Precedence (encoded in this exact order):
- * - **R1**: `dockedPreference === "on"` AND `widthTier === ">=lg"` → `"docked"`
- *   for ALL selection kinds.
- * - **R2**: `dockedPreference === "on"` AND `widthTier === "<lg"` → the
- *   preference is ignored; fall through to R3/R4.
- * - **R3**: `selectionKind ∈ {range, visual}` → `pointerFine ? "float" : "sheet"`.
- * - **R4**: `selectionKind === "none"` → `widthTier === ">=lg" ? "docked" : "none"`.
+ * - **R1**: document context (`selectionKind === "none"`) → `"none"`.
+ * - **R2**: fine pointer text/visual context → `"float"`.
+ * - **R3**: coarse pointer text/visual context → `"sheet"`.
  *
  * The `group` is always returned (even when `mode === "none"`) so callers know
  * what would render.
  */
 export function resolveEditingSurface({
   pointerFine,
-  widthTier,
   selectionKind,
-  dockedPreference,
 }: ResolveEditingSurfaceInput): ResolvedEditingSurface {
   const group = groupForSelectionKind(selectionKind);
 
-  // R1 — docked preference wins at desktop width, for every selection kind.
-  if (dockedPreference === "on" && widthTier === ">=lg") {
-    return { mode: "docked", group };
+  if (selectionKind === "none") {
+    return { mode: "none", group };
   }
 
-  // R2 — docked preference below lg is ignored; fall through to R3/R4.
-
-  // R3 — an element selection floats (fine pointer) or sheets (coarse pointer).
-  if (selectionKind === "range" || selectionKind === "visual") {
-    return { mode: pointerFine ? "float" : "sheet", group };
-  }
-
-  // R4 — no element selection: the overall toolbox docks at ≥ lg, else nothing.
-  return { mode: widthTier === ">=lg" ? "docked" : "none", group };
+  return { mode: pointerFine ? "float" : "sheet", group };
 }

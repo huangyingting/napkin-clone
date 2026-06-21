@@ -1,30 +1,24 @@
 "use client";
 
 /**
- * OverallAdjustmentsPanel — document-level toolbox rendered in the right rail.
- *
- * Appears when the editor context kind is "none" or "empty-block" (i.e. the
- * user clicked empty canvas space, not on a visual or a non-empty text block).
+ * OverallAdjustmentsPanel — document-level styling controls rendered from the
+ * top editor chrome.
  *
  * Controls:
  *  • Apply a theme to ALL visuals  (applyTheme + $nodesOfType)
  *  • Apply a brand to ALL visuals  (applyBrand + $nodesOfType)
- *  • A4 / page-break indicator toggle  (via PageBreakContext)
- *  • Export document entry point  (DocumentExportButton)
- *
  * Every mutation goes through editor.update() — never touches Yjs directly —
  * satisfying the collab-safe invariant from the architecture decision log.
  */
 
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { $nodesOfType } from "lexical";
-import { FileDown, LayoutTemplate, Palette, Rows3 } from "lucide-react";
+import { LayoutTemplate, Palette } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { Divider, Surface, Tooltip } from "@/components/ui";
 import { cx } from "@/components/ui/tokens";
 import { FOCUS_RING } from "@/components/motion/control-styles";
-import { DocumentExportButton } from "@/components/editor/document-export-button";
 import type { BrandStyle } from "@/lib/brand/schema";
 import { BRAND_WEB_FONTS } from "@/lib/brand/schema";
 import { applyBrand, brandPreviewStyle } from "@/lib/brand/transforms";
@@ -250,108 +244,17 @@ function BrandSection() {
 }
 
 // ---------------------------------------------------------------------------
-// PageLayoutSection — A4 page-break indicator toggle
-// ---------------------------------------------------------------------------
-
-function PageLayoutSection({
-  showPageBreaks,
-  onTogglePageBreaks,
-}: {
-  showPageBreaks: boolean;
-  onTogglePageBreaks: () => void;
-}) {
-  return (
-    <div className="p-3">
-      <SectionLabel icon={<Rows3 />}>Page layout</SectionLabel>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={showPageBreaks}
-        onClick={onTogglePageBreaks}
-        className={cx(
-          "flex w-full items-center justify-between rounded-[var(--ds-radius-sm,8px)] border px-3 py-2 text-sm transition",
-          showPageBreaks
-            ? "border-[var(--ds-accent,#6366f1)] bg-[var(--ds-accent,#6366f1)]/10 text-[var(--ds-accent,#6366f1)]"
-            : "border-[var(--ds-border-subtle,rgba(0,0,0,0.1))] bg-[var(--ds-surface-base,#fff)] text-[var(--ds-text-primary,#111)] hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
-          FOCUS_RING,
-        )}
-      >
-        <span className="flex items-center gap-2">
-          <svg
-            viewBox="0 0 16 16"
-            aria-hidden="true"
-            className="h-3.5 w-3.5 flex-shrink-0"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          >
-            <path d="M2 5h12M2 11h12" />
-          </svg>
-          A4 page breaks
-        </span>
-        <span
-          className={cx(
-            "h-4 w-7 rounded-full transition",
-            showPageBreaks
-              ? "bg-[var(--ds-accent,#6366f1)]"
-              : "bg-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
-          )}
-          aria-hidden="true"
-        >
-          <span
-            className={cx(
-              "block h-3 w-3 translate-y-0.5 rounded-full bg-white shadow transition-transform",
-              showPageBreaks ? "translate-x-3.5" : "translate-x-0.5",
-            )}
-          />
-        </span>
-      </button>
-      <p className="mt-1.5 text-[10px] text-[var(--ds-text-muted,#6f7d83)]">
-        Show where A4 page boundaries fall.
-      </p>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// ExportSection
-// ---------------------------------------------------------------------------
-
-function ExportSection({ documentTitle }: { documentTitle?: string }) {
-  return (
-    <div className="p-3">
-      <SectionLabel icon={<FileDown />}>Export document</SectionLabel>
-      <DocumentExportButton documentTitle={documentTitle ?? "Untitled"} />
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // OverallAdjustmentsPanel — the root component
 // ---------------------------------------------------------------------------
 
-export interface OverallAdjustmentsPanelProps {
-  /** The document title — passed to DocumentExportButton. */
-  documentTitle?: string;
-  /** Whether A4 page-break indicators are currently shown. */
-  showPageBreaks: boolean;
-  /** Toggle the A4 page-break indicator on/off. */
-  onTogglePageBreaks: () => void;
-}
-
 /**
- * Document-level overall-adjustments toolbox.  Rendered in the editing rail
- * whenever the editor context kind is "none" or "empty-block".
+ * Document-level visual styling toolbox. Page layout and export remain separate
+ * top-toolbar commands, so this popover does not duplicate them.
  *
  * Distinct from the +// insert menu (BlockSpark / InsertMenu), which handles
  * inserting new blocks.  This panel surfaces document-wide adjustments.
  */
-export function OverallAdjustmentsPanel({
-  documentTitle,
-  showPageBreaks,
-  onTogglePageBreaks,
-}: OverallAdjustmentsPanelProps) {
+export function OverallAdjustmentsPanel() {
   return (
     <Surface elevation="flat" radius="sm" bordered={false} className="flex-1">
       <div className="px-3 pb-1 pt-3">
@@ -363,13 +266,6 @@ export function OverallAdjustmentsPanel({
       <ThemeSection />
       <Divider />
       <BrandSection />
-      <Divider />
-      <PageLayoutSection
-        showPageBreaks={showPageBreaks}
-        onTogglePageBreaks={onTogglePageBreaks}
-      />
-      <Divider />
-      <ExportSection documentTitle={documentTitle} />
     </Surface>
   );
 }
