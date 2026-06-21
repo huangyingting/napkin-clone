@@ -319,6 +319,39 @@ test("a whitespace-only image src is treated as empty and skipped", () => {
   assert.equal(ofKind(spec.ops, "image").length, 0);
 });
 
+test("a visual element whose id is not in the visuals map emits no op", () => {
+  // The pure-level analogue of "an unknown visualId renders null safely": the
+  // editor/renderer draws null for an orphaned reference, and the exporter
+  // likewise skips it rather than emitting a broken native/fallback op.
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [freeFormSlide(0, [visualEl("v", "missing-visual")])],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  assert.equal(ofKind(spec.ops, "visual-native").length, 0);
+  assert.equal(ofKind(spec.ops, "visual-fallback").length, 0);
+  assert.equal(spec.ops.length, 0);
+});
+
+test("a known visual survives alongside an unknown one (only the orphan drops)", () => {
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [
+      freeFormSlide(0, [
+        visualEl("v-ok", "vis-known"),
+        { ...visualEl("v-bad", "vis-missing"), zIndex: 3 },
+      ]),
+    ],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map([["vis-known", flowchart()]]));
+  const visualOps =
+    ofKind(spec.ops, "visual-native").length +
+    ofKind(spec.ops, "visual-fallback").length;
+  assert.equal(visualOps, 1, "only the resolvable visual emits an op");
+});
+
 test("per-slide background and accent overrides are applied", () => {
   const deck: Deck = {
     theme: "indigo",

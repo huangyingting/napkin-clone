@@ -424,6 +424,77 @@ test("materializeSlideElements returns existing elements unchanged", async () =>
   assert.equal(elements, existing);
 });
 
+test("materializeSlideElements cascades 3+ visuals into offset tiles", async () => {
+  const { materializeSlideElements } = await import("./deck");
+  const elements = materializeSlideElements({
+    index: 0,
+    title: "",
+    bullets: [],
+    visualIds: ["vis-a", "vis-b", "vis-c"],
+    layout: "media",
+    notes: "",
+    theme: "default",
+  });
+
+  const visuals = elements.filter((e) => e.kind === "visual");
+  // One element per source visual, in source order (no dedupe, no drop).
+  assert.equal(visuals.length, 3);
+  assert.deepEqual(
+    visuals.map((e) => (e.kind === "visual" ? e.visualId : null)),
+    ["vis-a", "vis-b", "vis-c"],
+  );
+
+  // The first visual is the hero box; the rest tile with a growing offset so
+  // they remain individually grabbable rather than perfectly overlapping.
+  const [hero, second, third] = visuals;
+  assert.ok(second.box.x > hero.box.x);
+  assert.ok(third.box.x > second.box.x);
+  assert.ok(third.box.y > second.box.y);
+
+  // zIndices are unique and strictly increasing in paint order.
+  const zs = elements.map((e) => e.zIndex);
+  assert.deepEqual(
+    zs,
+    [...zs].sort((a, b) => a - b),
+  );
+  assert.equal(new Set(zs).size, zs.length);
+
+  // ids are unique across the cascade.
+  const ids = elements.map((e) => e.id);
+  assert.equal(new Set(ids).size, ids.length);
+
+  // Every tile stays within the 0–100 percent slide bounds.
+  for (const v of visuals) {
+    assert.ok(v.box.x >= 0 && v.box.x + v.box.w <= 100);
+    assert.ok(v.box.y >= 0 && v.box.y + v.box.h <= 100);
+  }
+});
+
+test("materializeSlideElements tiles extra visuals alongside bullets", async () => {
+  const { materializeSlideElements } = await import("./deck");
+  const elements = materializeSlideElements({
+    index: 0,
+    title: "T",
+    bullets: ["a", "b"],
+    visualIds: ["vis-1", "vis-2", "vis-3"],
+    layout: "content",
+    notes: "",
+    theme: "default",
+  });
+
+  // The bullets keep their pane; every visual still materializes (1 paired +
+  // 2 cascaded), preserving source order.
+  assert.equal(elements.filter((e) => e.kind === "bullets").length, 1);
+  const visuals = elements.filter((e) => e.kind === "visual");
+  assert.deepEqual(
+    visuals.map((e) => (e.kind === "visual" ? e.visualId : null)),
+    ["vis-1", "vis-2", "vis-3"],
+  );
+
+  const zs = elements.map((e) => e.zIndex);
+  assert.equal(new Set(zs).size, zs.length);
+});
+
 // ---------------------------------------------------------------------------
 // buildVisualElement — centered visual insert for the "Insert visual" picker
 // ---------------------------------------------------------------------------
