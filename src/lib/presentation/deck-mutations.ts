@@ -480,6 +480,69 @@ export function duplicateElement(
   return { deck: { ...deck, slides }, newElementId };
 }
 
+/** Result of {@link duplicateElements}: the next deck and the new copies' ids. */
+export interface DuplicateElementsResult {
+  /** The deck with the clones appended (or the original deck on a no-op). */
+  deck: Deck;
+  /**
+   * Ids of the freshly created copies, in the same order as the originals were
+   * found on the slide, so the caller can select the new copies. Empty on a
+   * no-op (slide/element not found, or no `elements[]`).
+   */
+  newElementIds: string[];
+}
+
+/**
+ * Clones every element named in `elementIds` on the slide at `index` in a single
+ * mutation — the multi-select counterpart of {@link duplicateElement} (issue
+ * #245). Each copy gets a fresh {@link makeElementId} id, the same small
+ * {@link DUPLICATE_ELEMENT_OFFSET_PCT} offset, and a z-index above all existing
+ * elements (copies keep their relative stacking order). Routing the whole group
+ * through one mutation keeps it a single undo/redo `commit`. Pure and immutable;
+ * clears `elementsDerived`. A no-op returns the same deck and an empty id list.
+ */
+export function duplicateElements(
+  deck: Deck,
+  index: number,
+  elementIds: readonly string[],
+): DuplicateElementsResult {
+  if (index < 0 || index >= deck.slides.length) {
+    return { deck, newElementIds: [] };
+  }
+  const slide = deck.slides[index];
+  if (!slide.elements) {
+    return { deck, newElementIds: [] };
+  }
+  const ids = new Set(elementIds);
+  const originals = slide.elements.filter((element) => ids.has(element.id));
+  if (originals.length === 0) {
+    return { deck, newElementIds: [] };
+  }
+
+  let z = nextZIndex(slide.elements);
+  const newElementIds: string[] = [];
+  const copies: SlideElement[] = originals.map((original) => {
+    const newElementId = makeElementId();
+    newElementIds.push(newElementId);
+    return {
+      ...original,
+      id: newElementId,
+      zIndex: z++,
+      box: offsetBox(original.box, DUPLICATE_ELEMENT_OFFSET_PCT),
+    };
+  });
+
+  const nextSlide = markElementsEdited({
+    ...slide,
+    elements: [...slide.elements, ...copies],
+  });
+  const slides = deck.slides.map((current, i) =>
+    i === index ? nextSlide : current,
+  );
+
+  return { deck: { ...deck, slides }, newElementIds };
+}
+
 /** Removes an element from a slide by id. */
 export function removeElement(
   deck: Deck,
@@ -494,6 +557,80 @@ export function removeElement(
       ...slide,
       elements: slide.elements.filter((element) => element.id !== elementId),
     });
+  });
+}
+
+/**
+ * Removes every element named in `elementIds` from the slide at `index` in a
+ * single mutation — the multi-select counterpart of {@link removeElement}
+ * (issue #245). Routing a multi-delete through one mutation keeps it a single
+ * undo/redo `commit` (the caller never chains per-element removes). Pure and
+ * immutable; like every element mutation it clears `elementsDerived`. A no-op
+ * (empty `elementIds`, bad index, no `elements[]`, or no id present) returns the
+ * same slide reference so a `commit` of the result is skipped.
+ */
+export function removeElements(
+  deck: Deck,
+  index: number,
+  elementIds: readonly string[],
+): Deck {
+  const ids = new Set(elementIds);
+  if (ids.size === 0) {
+    return deck;
+  }
+  return mapSlide(deck, index, (slide) => {
+    if (!slide.elements) {
+      return slide;
+    }
+    const next = slide.elements.filter((element) => !ids.has(element.id));
+    if (next.length === slide.elements.length) {
+      return slide;
+    }
+    return markElementsEdited({ ...slide, elements: next });
+  });
+}
+
+/**
+ * Nudges every element named in `elementIds` on the slide at `index` by the same
+ * `dx`/`dy` delta (percent of slide), clamping each box so it stays within the
+ * slide (issue #245). Powers the keyboard arrow-nudge across a multi-selection;
+ * sizes are never changed and elements not in `elementIds` are left untouched.
+ * Pure and immutable; clears `elementsDerived`. A no-op (empty `elementIds`,
+ * zero delta, bad index, no `elements[]`, or no id present) returns the same
+ * slide reference.
+ */
+export function nudgeElements(
+  deck: Deck,
+  index: number,
+  elementIds: readonly string[],
+  dx: number,
+  dy: number,
+): Deck {
+  const ids = new Set(elementIds);
+  if (ids.size === 0 || (dx === 0 && dy === 0)) {
+    return deck;
+  }
+  return mapSlide(deck, index, (slide) => {
+    if (!slide.elements) {
+      return slide;
+    }
+    let changed = false;
+    const elements = slide.elements.map((element) => {
+      if (!ids.has(element.id)) {
+        return element;
+      }
+      changed = true;
+      const { box } = element;
+      return {
+        ...element,
+        box: {
+          ...box,
+          x: Math.max(0, Math.min(100 - box.w, box.x + dx)),
+          y: Math.max(0, Math.min(100 - box.h, box.y + dy)),
+        },
+      };
+    });
+    return changed ? markElementsEdited({ ...slide, elements }) : slide;
   });
 }
 

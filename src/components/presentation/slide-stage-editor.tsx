@@ -46,6 +46,11 @@ import type { AlignMode } from "@/lib/presentation/element-align";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import { type SnapGuide, snapBox } from "@/lib/presentation/element-snap";
 import { clampToolbarLeft } from "@/lib/presentation/toolbar-position";
+import {
+  boxesIntersectingRect,
+  normalizeRect,
+  type MarqueeRect,
+} from "@/lib/presentation/marquee-select";
 import type { Visual } from "@/lib/visual/schema";
 
 type Handle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
@@ -60,6 +65,27 @@ interface DragState {
   /** Coalesce key for the whole gesture so it forms one undo step (#242). */
   coalesceKey: string;
 }
+
+/**
+ * In-flight marquee (rubber-band) selection (issue #245). Records where on the
+ * stage (in percent) the band started and whether the gesture is additive
+ * (shift/ctrl/cmd held at pointer-down, so the result unions with the existing
+ * selection). The live rectangle is tracked separately for rendering.
+ */
+interface MarqueeState {
+  startXPct: number;
+  startYPct: number;
+  additive: boolean;
+  /** True once the band has grown past {@link MARQUEE_THRESHOLD_PCT}. */
+  moved: boolean;
+}
+
+/**
+ * Minimum band size (percent of the slide) before a stage-background drag is
+ * treated as a marquee rather than a plain click. Keeps a small jitter on tap
+ * from clearing — or worse, reselecting — the current selection.
+ */
+const MARQUEE_THRESHOLD_PCT = 1;
 
 const MIN_SIZE_PCT = 4;
 
@@ -197,6 +223,12 @@ interface SlideStageEditorProps {
   selectedElementId: string | null;
   selectedElementIds: ReadonlySet<string>;
   onSelectElement: (id: string | null, mode?: SelectionMode) => void;
+  /**
+   * Replaces the multi-selection with the given ids (issue #245). `additive`
+   * unions with the current selection instead (shift/ctrl/cmd marquee). Used by
+   * the marquee; the first id becomes the primary.
+   */
+  onSelectElements: (ids: string[], additive?: boolean) => void;
   onAlignElements: (mode: AlignMode) => void;
   onUpdateElement: (
     id: string,
@@ -217,6 +249,7 @@ export function SlideStageEditor({
   selectedElementId,
   selectedElementIds,
   onSelectElement,
+  onSelectElements,
   onAlignElements,
   onUpdateElement,
   onRemoveElement,
@@ -227,6 +260,13 @@ export function SlideStageEditor({
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
   const [activeDrag, setActiveDrag] = useState<DragMode | null>(null);
+  // In-flight marquee selection (issue #245). The ref drives the pointer math;
+  // `marqueeRect` mirrors it for rendering the band; `marqueeRectRef` holds the
+  // latest normalized rect so pointer-up can resolve the selection even when the
+  // final move and the up arrive in the same frame.
+  const marqueeRef = useRef<MarqueeState | null>(null);
+  const marqueeRectRef = useRef<MarqueeRect | null>(null);
+  const [marqueeRect, setMarqueeRect] = useState<MarqueeRect | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
   // Monotonic gesture counter (issue #242). Each drag / resize / inline-edit
@@ -292,13 +332,42 @@ export function SlideStageEditor({
 
   const handlePointerMove = useCallback(
     (event: PointerEvent) => {
-      const drag = dragRef.current;
       const container = containerRef.current;
-      if (!drag || !container) {
+      if (!container) {
         return;
       }
       const rect = container.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) {
+        return;
+      }
+
+      // Marquee selection takes precedence: while a band is being drawn there is
+      // no element drag in flight (the two start from mutually exclusive
+      // pointer-downs). Issue #245.
+      const marquee = marqueeRef.current;
+      if (marquee) {
+        const curX = ((event.clientX - rect.left) / rect.width) * 100;
+        const curY = ((event.clientY - rect.top) / rect.height) * 100;
+        const raw: MarqueeRect = {
+          x: marquee.startXPct,
+          y: marquee.startYPct,
+          w: curX - marquee.startXPct,
+          h: curY - marquee.startYPct,
+        };
+        const norm = normalizeRect(raw);
+        if (
+          norm.w >= MARQUEE_THRESHOLD_PCT ||
+          norm.h >= MARQUEE_THRESHOLD_PCT
+        ) {
+          marquee.moved = true;
+        }
+        marqueeRectRef.current = norm;
+        setMarqueeRect(norm);
+        return;
+      }
+
+      const drag = dragRef.current;
+      if (!drag) {
         return;
       }
       const dxPct = ((event.clientX - drag.startClientX) / rect.width) * 100;
@@ -326,10 +395,33 @@ export function SlideStageEditor({
   );
 
   const endDrag = useCallback(() => {
+    // Resolve a marquee gesture: a band that grew past the threshold selects
+    // every intersecting element (additive when shift/ctrl/cmd was held);
+    // otherwise the gesture was a bare click on empty stage and clears the
+    // selection. Issue #245.
+    const marquee = marqueeRef.current;
+    if (marquee) {
+      const finalRect = marqueeRectRef.current;
+      marqueeRef.current = null;
+      marqueeRectRef.current = null;
+      setMarqueeRect(null);
+      if (marquee.moved && finalRect) {
+        const ids = boxesIntersectingRect(
+          elementsRef.current.map((element) => ({
+            id: element.id,
+            box: element.box,
+          })),
+          finalRect,
+        );
+        onSelectElements(ids, marquee.additive);
+      } else if (!marquee.additive) {
+        onSelectElement(null);
+      }
+    }
     dragRef.current = null;
     setActiveDrag(null);
     setSnapGuides([]);
-  }, []);
+  }, [onSelectElement, onSelectElements]);
 
   useEffect(() => {
     window.addEventListener("pointermove", handlePointerMove);
@@ -384,6 +476,37 @@ export function SlideStageEditor({
     setEditCoalesceKey(null);
   }, []);
 
+  // Pointer-down on the empty stage background starts a marquee (issue #245).
+  // Element pointer-downs stop propagation (they begin a drag or a shift-toggle)
+  // so this only fires on bare background. Skipped while inline-editing and for
+  // non-primary mouse buttons. The selection is not cleared here — that is
+  // deferred to pointer-up so a true drag can build a selection first.
+  const handleStagePointerDown = useCallback(
+    (event: React.PointerEvent) => {
+      if (activeEditingId || event.button !== 0) {
+        return;
+      }
+      const container = containerRef.current;
+      if (!container) {
+        return;
+      }
+      const rect = container.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        return;
+      }
+      const xPct = ((event.clientX - rect.left) / rect.width) * 100;
+      const yPct = ((event.clientY - rect.top) / rect.height) * 100;
+      marqueeRef.current = {
+        startXPct: xPct,
+        startYPct: yPct,
+        additive: event.shiftKey || event.metaKey || event.ctrlKey,
+        moved: false,
+      };
+      marqueeRectRef.current = { x: xPct, y: yPct, w: 0, h: 0 };
+    },
+    [activeEditingId],
+  );
+
   const badge =
     activeDrag && selectedElement
       ? formatBadge(activeDrag, selectedElement.box)
@@ -392,13 +515,9 @@ export function SlideStageEditor({
   return (
     <div
       ref={containerRef}
-      className="relative overflow-hidden"
+      className="relative touch-none overflow-hidden"
       style={{ width, height }}
-      onPointerDown={() => {
-        if (!activeEditingId) {
-          onSelectElement(null);
-        }
-      }}
+      onPointerDown={handleStagePointerDown}
     >
       <div className="pointer-events-none absolute inset-0">
         <SlideCanvas
@@ -508,6 +627,23 @@ export function SlideStageEditor({
             </div>
           );
         })}
+
+        {/* Marquee (rubber-band) selection rectangle — issue #245. */}
+        {marqueeRect &&
+        (marqueeRect.w >= MARQUEE_THRESHOLD_PCT ||
+          marqueeRect.h >= MARQUEE_THRESHOLD_PCT) ? (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute border border-ds-control bg-ds-control/10"
+            style={{
+              left: `${marqueeRect.x}%`,
+              top: `${marqueeRect.y}%`,
+              width: `${marqueeRect.w}%`,
+              height: `${marqueeRect.h}%`,
+              zIndex: 1450,
+            }}
+          />
+        ) : null}
 
         {/* Snap alignment guides — thin lines shown while dragging an element. */}
         {activeDrag === "move" && snapGuides.length > 0

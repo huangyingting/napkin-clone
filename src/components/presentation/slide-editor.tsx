@@ -103,11 +103,14 @@ import {
   alignElements,
   bringElementToFront,
   duplicateElement,
+  duplicateElements,
   duplicateSlide,
   insertSlide,
   materializeSlide,
   moveSlide,
   removeElement,
+  removeElements,
+  nudgeElements,
   removeSlide,
   reorderSlides,
   sendElementToBack,
@@ -661,18 +664,24 @@ export function SlideEditor({
         if (key === "d") {
           event.preventDefault();
           // Element-duplicate takes precedence when an element is selected;
-          // otherwise fall back to slide-duplicate (#212). Inlined (not via
-          // `handleDuplicateElement`) so this effect needs no extra dep and
-          // avoids a temporal-dead-zone with handlers declared further down.
+          // otherwise fall back to slide-duplicate (#212). Duplicates the whole
+          // multi-selection (offset copies) and selects them (#245). Inlined
+          // (not via `handleDuplicateElement`) so this effect needs no extra dep
+          // and avoids a temporal-dead-zone with handlers declared further down.
           if (effectiveSelectedElementId) {
-            const { deck: nextDeck, newElementId } = duplicateElement(
+            const ids =
+              effectiveSelectedElementIds.size > 0
+                ? [...effectiveSelectedElementIds]
+                : [effectiveSelectedElementId];
+            const { deck: nextDeck, newElementIds } = duplicateElements(
               deck,
               safeSelected,
-              effectiveSelectedElementId,
+              ids,
             );
-            if (newElementId != null) {
+            if (newElementIds.length > 0) {
               onDeckChange(nextDeck);
-              setSelectedElementId(newElementId);
+              setSelectedElementId(newElementIds[0]);
+              setSelectedElementIds(new Set(newElementIds));
             }
           } else {
             handleDuplicate(safeSelected);
@@ -699,9 +708,17 @@ export function SlideEditor({
           : undefined;
 
       if (selected) {
+        // Apply Delete and arrow-nudge to the whole multi-selection (#245),
+        // falling back to the primary alone when the set is somehow empty. A
+        // multi-delete / multi-nudge routes through one pure mutation so it is a
+        // single undo step.
+        const selectedIds =
+          effectiveSelectedElementIds.size > 0
+            ? [...effectiveSelectedElementIds]
+            : [selected.id];
         if (event.key === "Delete" || event.key === "Backspace") {
           event.preventDefault();
-          onDeckChange(removeElement(deck, safeSelected, selected.id));
+          onDeckChange(removeElements(deck, safeSelected, selectedIds));
           setSelectedElementId(null);
           setSelectedElementIds(new Set());
           return;
@@ -715,14 +732,7 @@ export function SlideEditor({
         else if (event.key === "ArrowDown") dy = step;
         if (dx !== 0 || dy !== 0) {
           event.preventDefault();
-          const { w, h } = selected.box;
-          const x = Math.max(0, Math.min(100 - w, selected.box.x + dx));
-          const y = Math.max(0, Math.min(100 - h, selected.box.y + dy));
-          onDeckChange(
-            updateElement(deck, safeSelected, selected.id, {
-              box: { ...selected.box, x, y },
-            }),
-          );
+          onDeckChange(nudgeElements(deck, safeSelected, selectedIds, dx, dy));
           return;
         }
       }
@@ -742,6 +752,7 @@ export function SlideEditor({
     deck,
     safeSelected,
     effectiveSelectedElementId,
+    effectiveSelectedElementIds,
     inspectorSheetOpen,
     onDeckChange,
     undo,
@@ -937,6 +948,32 @@ export function SlideEditor({
         const next = new Set(current);
         next.add(safeSelected);
         return next;
+      });
+    },
+    [safeSelected, selectedElementIds],
+  );
+
+  // Replaces (or, when `additive`, unions) the multi-selection with `ids` — used
+  // by the marquee/rubber-band selection (issue #245). The primary stays put
+  // when it is still in the resulting set, otherwise the first id becomes
+  // primary (or the selection clears when `ids` is empty).
+  const handleSelectElements = useCallback(
+    (ids: string[], additive = false) => {
+      const next = additive ? new Set(selectedElementIds) : new Set<string>();
+      for (const id of ids) {
+        next.add(id);
+      }
+      setSelectedElementIds(next);
+      setSelectedElementId((primary) =>
+        primary && next.has(primary) ? primary : ([...next][0] ?? null),
+      );
+      setTouchedSlides((current) => {
+        if (current.has(safeSelected)) {
+          return current;
+        }
+        const updated = new Set(current);
+        updated.add(safeSelected);
+        return updated;
       });
     },
     [safeSelected, selectedElementIds],
@@ -1468,6 +1505,7 @@ export function SlideEditor({
                 selectedElementId={effectiveSelectedElementId}
                 selectedElementIds={effectiveSelectedElementIds}
                 onSelectElement={handleSelectElement}
+                onSelectElements={handleSelectElements}
                 onAlignElements={handleAlignElements}
                 onUpdateElement={handleUpdateElement}
                 onRemoveElement={handleRemoveElement}
