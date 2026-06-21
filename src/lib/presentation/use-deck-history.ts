@@ -13,6 +13,18 @@
  *
  * A new mutation (`commit`) pushes the previous present onto `past` and clears
  * `future`, so any pending redo branch is discarded the moment the user edits.
+ *
+ * Gesture coalescing (issue #242): a commit may carry an optional
+ * `coalesceKey`. When a commit arrives with the SAME key as the immediately
+ * preceding commit, the present is REPLACED in place rather than pushing a new
+ * `past` snapshot. This collapses a continuous gesture — a pointer drag/resize
+ * (dozens of `pointermove` commits) or an inline typing session (one commit per
+ * keystroke) — into a single undo step, with the pre-gesture snapshot retained
+ * as the single undo target. A commit with no key (or a different key) pushes
+ * normally, so discrete operations (add slide, theme change, align, delete) are
+ * unchanged. Each gesture must use a key unique to that gesture instance so two
+ * back-to-back gestures of the same kind do not merge; undo/redo reset the
+ * tracked key so the next commit always starts a fresh entry.
  */
 
 import { useCallback, useEffect, useReducer, useRef } from "react";
@@ -30,17 +42,24 @@ export interface DeckHistory {
   present: Deck;
   /** Undone snapshots, next-to-redo last; the last entry is restored by redo. */
   future: Deck[];
+  /**
+   * Coalesce key of the commit that produced the current `present`, if any
+   * (issue #242). The next commit carrying this same key replaces the present
+   * in place instead of pushing a new `past` snapshot. `undefined` after a
+   * keyless commit, an undo, or a redo.
+   */
+  lastCoalesceKey?: string;
 }
 
 /** Actions accepted by {@link deckHistoryReducer}. */
 export type DeckHistoryAction =
-  | { type: "commit"; deck: Deck }
+  | { type: "commit"; deck: Deck; coalesceKey?: string }
   | { type: "undo" }
   | { type: "redo" };
 
 /** Builds the initial history for a freshly-opened deck. */
 export function initDeckHistory(present: Deck): DeckHistory {
-  return { past: [], present, future: [] };
+  return { past: [], present, future: [], lastCoalesceKey: undefined };
 }
 
 /** True when there is at least one snapshot to undo to. */
@@ -54,19 +73,35 @@ export function canRedo(state: DeckHistory): boolean {
 }
 
 /**
- * Records a new present: pushes the previous present onto `past` (evicting the
- * oldest entry beyond the cap) and clears `future`. Committing a deck identical
- * (by reference) to the current present is a no-op.
+ * Records a new present. With no `coalesceKey` (or a key differing from the
+ * previous commit's), pushes the previous present onto `past` (evicting the
+ * oldest entry beyond the cap) and clears `future`. When `coalesceKey` matches
+ * the key of the commit that produced the current present, the present is
+ * REPLACED in place — `past` is untouched — so a continuous gesture collapses
+ * to a single undo step (issue #242). Committing a deck identical (by
+ * reference) to the current present is a no-op.
  */
-export function pushDeckHistory(state: DeckHistory, deck: Deck): DeckHistory {
+export function pushDeckHistory(
+  state: DeckHistory,
+  deck: Deck,
+  coalesceKey?: string,
+): DeckHistory {
   if (deck === state.present) {
     return state;
+  }
+  if (coalesceKey !== undefined && coalesceKey === state.lastCoalesceKey) {
+    return {
+      past: state.past,
+      present: deck,
+      future: [],
+      lastCoalesceKey: coalesceKey,
+    };
   }
   const past = [...state.past, state.present];
   if (past.length > DECK_HISTORY_LIMIT) {
     past.splice(0, past.length - DECK_HISTORY_LIMIT);
   }
-  return { past, present: deck, future: [] };
+  return { past, present: deck, future: [], lastCoalesceKey: coalesceKey };
 }
 
 /** Restores the most recent `past` snapshot, banking the present onto `future`. */
@@ -79,6 +114,7 @@ export function undoDeckHistory(state: DeckHistory): DeckHistory {
     past: state.past.slice(0, -1),
     present: previous,
     future: [state.present, ...state.future],
+    lastCoalesceKey: undefined,
   };
 }
 
@@ -92,7 +128,7 @@ export function redoDeckHistory(state: DeckHistory): DeckHistory {
   if (past.length > DECK_HISTORY_LIMIT) {
     past.splice(0, past.length - DECK_HISTORY_LIMIT);
   }
-  return { past, present: next, future: rest };
+  return { past, present: next, future: rest, lastCoalesceKey: undefined };
 }
 
 /** Pure reducer combining the snapshot helpers above. */
@@ -102,7 +138,7 @@ export function deckHistoryReducer(
 ): DeckHistory {
   switch (action.type) {
     case "commit":
-      return pushDeckHistory(state, action.deck);
+      return pushDeckHistory(state, action.deck, action.coalesceKey);
     case "undo":
       return undoDeckHistory(state);
     case "redo":
@@ -118,8 +154,13 @@ export interface UseDeckHistory {
   canUndo: boolean;
   /** Whether a redo is available. */
   canRedo: boolean;
-  /** Records a new deck, clearing any pending redo branch. */
-  commit: (deck: Deck) => void;
+  /**
+   * Records a new deck, clearing any pending redo branch. Pass
+   * `{ coalesceKey }` to merge a continuous gesture (drag / resize / typing)
+   * into a single undo step: consecutive commits sharing the same key replace
+   * the present in place rather than pushing new snapshots (issue #242).
+   */
+  commit: (deck: Deck, opts?: { coalesceKey?: string }) => void;
   /** Reverts to the previous snapshot, if any. */
   undo: () => void;
   /** Re-applies the next undone snapshot, if any. */
@@ -156,8 +197,8 @@ export function useDeckHistory(
     }
   }, [state.present]);
 
-  const commit = useCallback((deck: Deck) => {
-    dispatch({ type: "commit", deck });
+  const commit = useCallback((deck: Deck, opts?: { coalesceKey?: string }) => {
+    dispatch({ type: "commit", deck, coalesceKey: opts?.coalesceKey });
   }, []);
 
   const undo = useCallback(() => {
