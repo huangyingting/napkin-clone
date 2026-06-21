@@ -349,3 +349,47 @@ test("text/bullets boxes convert percentages to inches within slide bounds", () 
   assert.ok(Math.abs(text.w - 13.333) < 1e-6, "full width in inches");
   assert.ok(Math.abs(text.h - 3.75) < 1e-6, "half height in inches");
 });
+
+test("a visual with styleThemeId is restyled before mapping to native specs", () => {
+  // The indigo flowchart fixture has nodeFill "#eef2ff" (→ "EEF2FF"). Applying
+  // the "ocean" theme restyles nodeFill to "#e0f2fe" (→ "E0F2FE"). The export
+  // must mirror the shared renderer's per-element restyle, so the native specs
+  // should reflect the ocean color, not the original indigo one.
+  const visuals = new Map<string, Visual>([["v1", flowchart()]]);
+  const restyled: VisualElement = {
+    ...visualEl("ve", "v1"),
+    styleThemeId: "ocean",
+  };
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [freeFormSlide(0, [restyled])],
+  };
+
+  const [spec] = buildDeckSpecs(deck, visuals);
+  const native = ofKind(spec.ops, "visual-native");
+  assert.equal(native.length, 1, "exactly one native-visual op");
+  const json = JSON.stringify(native[0].specs);
+  assert.ok(json.includes("E0F2FE"), "ocean nodeFill is present after restyle");
+  assert.ok(
+    !json.includes("EEF2FF"),
+    "original indigo nodeFill is gone after restyle",
+  );
+});
+
+test("a visual without styleThemeId is mapped unchanged", () => {
+  const visuals = new Map<string, Visual>([["v1", flowchart()]]);
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [freeFormSlide(0, [visualEl("ve", "v1")])],
+  };
+
+  const [spec] = buildDeckSpecs(deck, visuals);
+  const native = ofKind(spec.ops, "visual-native");
+  assert.equal(native.length, 1, "exactly one native-visual op");
+  const json = JSON.stringify(native[0].specs);
+  assert.ok(
+    json.includes("EEF2FF"),
+    "original indigo nodeFill is preserved with no restyle",
+  );
+  assert.ok(!json.includes("E0F2FE"), "no ocean restyle leaked in");
+});

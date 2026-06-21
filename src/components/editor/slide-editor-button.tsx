@@ -19,6 +19,7 @@ import { fetchDeckJson, saveDeckJson } from "@/app/app/documents/[id]/actions";
 import { SlideEditor } from "@/components/presentation/slide-editor";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { buildDeckFromBlocks, type Deck } from "@/lib/presentation/deck";
+import { materializeDeck } from "@/lib/presentation/deck-mutations";
 import {
   computeDeckContentHash,
   isDeckStale,
@@ -87,9 +88,17 @@ export function SlideEditorButton({
     }
 
     const knownVisualIds = new Set(visualMap.keys());
-    const startDeck = stripOrphanedVisuals(
-      pickFreshestDeck(fetchedRaw, lastSavedRef.current, baseDeck),
-      knownVisualIds,
+    // Materialize legacy slides up-front so the editor opens fully element-first
+    // and the materialized deck becomes the history BASELINE (empty `past`).
+    // Doing it here — before the deck reaches useDeckHistory — keeps `canUndo`
+    // false until the user actually edits, so the first Ctrl+Z never reverts to
+    // the legacy form. materializeDeck returns the same reference for already-
+    // materialized decks, so this is a no-op in that case.
+    const startDeck = materializeDeck(
+      stripOrphanedVisuals(
+        pickFreshestDeck(fetchedRaw, lastSavedRef.current, baseDeck),
+        knownVisualIds,
+      ),
     );
 
     setVisuals(visualMap);

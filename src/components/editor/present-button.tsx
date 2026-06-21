@@ -19,6 +19,7 @@ import { PresentMode } from "@/components/presentation/present-mode";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { buildDeckFromBlocks, type Deck } from "@/lib/presentation/deck";
 import { pickFreshestDeck } from "@/lib/presentation/fresh-deck";
+import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
 import type { Visual } from "@/lib/visual/schema";
 import { collectDocumentBlocks } from "@/lib/visual/document-export";
 
@@ -74,7 +75,11 @@ export function PresentButton({
       setIsLoading(false);
     }
 
-    const deck = pickFreshestDeck(fetchedRaw, initialDeckJson, baseDeck);
+    const knownVisualIds = new Set(visualMap.keys());
+    const deck = stripOrphanedVisuals(
+      pickFreshestDeck(fetchedRaw, initialDeckJson, baseDeck),
+      knownVisualIds,
+    );
     setPresentData({ deck, visuals: visualMap });
   }, [documentId, editor, initialDeckJson]);
 
