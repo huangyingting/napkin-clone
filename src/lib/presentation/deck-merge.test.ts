@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { Deck, Slide, SlideElement } from "./deck";
+import type { Deck, Slide, SlideElement, TextRun } from "./deck";
 import { mergeDeckFromDocument } from "./deck-merge";
 
 function element(id: string): SlideElement {
@@ -366,4 +366,190 @@ test("slide with elements but no provenance flag is treated as hand-edited", () 
     merged.slides[0].elements?.map((e) => e.id),
     ["legacy-el"],
   );
+});
+
+// ---------------------------------------------------------------------------
+// Rich-text run refresh on derived slides (issue #254)
+// ---------------------------------------------------------------------------
+
+/** The title element's runs, or undefined. */
+function titleElementRuns(s: Slide): TextRun[] | undefined {
+  const el = (s.elements ?? []).find(
+    (e) => e.kind === "text" && e.role === "title",
+  );
+  return el && el.kind === "text" ? el.runs : undefined;
+}
+
+/** The bullets element's per-line runs, or undefined. */
+function bulletElementRuns(s: Slide): TextRun[][] | undefined {
+  const el = (s.elements ?? []).find((e) => e.kind === "bullets");
+  return el && el.kind === "bullets" ? el.bulletRuns : undefined;
+}
+
+test("derived slide: document run text change reaches re-materialized elements", () => {
+  // Stale derived slide: its element runs carry the OLD document content.
+  const existing = deck([
+    slide({
+      title: "Intro",
+      titleRuns: [{ text: "Intro" }],
+      bullets: ["old bullet"],
+      bulletRuns: [[{ text: "old bullet", bold: true }]],
+      elements: [
+        {
+          id: "title",
+          kind: "text",
+          role: "title",
+          text: "Intro",
+          runs: [{ text: "Intro" }],
+          zIndex: 0,
+          box: { x: 6, y: 6, w: 88, h: 16 },
+          style: { fontSize: 6, bold: true, italic: false, align: "left" },
+        },
+        {
+          id: "body",
+          kind: "bullets",
+          bullets: ["old bullet"],
+          bulletRuns: [[{ text: "old bullet", bold: true }]],
+          zIndex: 1,
+          box: { x: 6, y: 26, w: 88, h: 66 },
+          style: { fontSize: 4.5, bold: false, italic: false, align: "left" },
+        },
+      ],
+      elementsDerived: true,
+    }),
+  ]);
+  const fresh = deck([
+    slide({
+      title: "Intro",
+      bullets: ["new bullet"],
+      bulletRuns: [[{ text: "new bullet", bold: true }]],
+    }),
+  ]);
+
+  const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
+  const s = merged.slides[0];
+
+  // Re-materialized element RUNS (preferred by renderer/exporter) reflect the
+  // fresh document, not the stale "old bullet" runs.
+  assert.deepEqual(bulletElementRuns(s), [
+    [{ text: "new bullet", bold: true }],
+  ]);
+  // The bullets element runs must not carry the stale content.
+  assert.ok(
+    !JSON.stringify(bulletElementRuns(s)).includes("old bullet"),
+    "stale bullet runs leaked into re-materialized elements",
+  );
+  // Legacy plain bullets refreshed too.
+  assert.deepEqual(s.bullets, ["new bullet"]);
+  assert.equal(s.elementsDerived, true);
+  assert.equal(summary.updatedCount, 1);
+});
+
+test("derived slide: stale title runs dropped when fresh has none", () => {
+  const existing = deck([
+    slide({
+      title: "Intro",
+      titleRuns: [{ text: "Intro", bold: true }],
+      bullets: ["body"],
+      elements: [
+        {
+          id: "title",
+          kind: "text",
+          role: "title",
+          text: "Intro",
+          runs: [{ text: "Intro", bold: true }],
+          zIndex: 0,
+          box: { x: 6, y: 6, w: 88, h: 16 },
+          style: { fontSize: 6, bold: true, italic: false, align: "left" },
+        },
+      ],
+      elementsDerived: true,
+    }),
+  ]);
+  // Fresh document keeps the matching title but drops the bold formatting
+  // (no titleRuns) — a formatting-only change on the title.
+  const fresh = deck([slide({ title: "Intro", bullets: ["body"] })]);
+
+  const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
+  const s = merged.slides[0];
+
+  // Stale bold title runs must NOT be carried onto the re-materialized element;
+  // the renderer/exporter then falls back to the plain (unformatted) title.
+  assert.equal(titleElementRuns(s), undefined);
+  assert.ok(elementText(s).includes("Intro"));
+  assert.equal(summary.updatedCount, 1);
+});
+
+test("formatting-only document edit (same text, new runs) is detected as changed", () => {
+  // Identical plain text, only the bold flag in the runs changed.
+  const existing = deck([
+    slide({
+      title: "Intro",
+      bullets: ["point"],
+      bulletRuns: [[{ text: "point" }]],
+      elements: [
+        {
+          id: "body",
+          kind: "bullets",
+          bullets: ["point"],
+          bulletRuns: [[{ text: "point" }]],
+          zIndex: 0,
+          box: { x: 6, y: 26, w: 88, h: 66 },
+          style: { fontSize: 4.5, bold: false, italic: false, align: "left" },
+        },
+      ],
+      elementsDerived: true,
+    }),
+  ]);
+  const fresh = deck([
+    slide({
+      title: "Intro",
+      bullets: ["point"],
+      bulletRuns: [[{ text: "point", bold: true }]],
+    }),
+  ]);
+
+  const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
+  const s = merged.slides[0];
+
+  // sameContent must classify this as changed → updated, not unchanged.
+  assert.equal(summary.updatedCount, 1);
+  assert.equal(summary.unchangedCount, 0);
+  // Re-materialized runs carry the new formatting.
+  assert.deepEqual(bulletElementRuns(s), [[{ text: "point", bold: true }]]);
+});
+
+test("hand-edited slide: run refresh never clobbers verbatim elements", () => {
+  const existing = deck([
+    slide({
+      title: "Intro",
+      bullets: ["old bullet"],
+      titleRuns: [{ text: "Intro", bold: true }],
+      bulletRuns: [[{ text: "old bullet" }]],
+      elements: [element("manual-1"), element("manual-2")],
+      elementsDerived: false,
+    }),
+  ]);
+  const fresh = deck([
+    slide({
+      title: "Intro",
+      bullets: ["new bullet"],
+      bulletRuns: [[{ text: "new bullet", bold: true }]],
+    }),
+  ]);
+
+  const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
+  const s = merged.slides[0];
+
+  // Hand-authored elements preserved verbatim — runs are only a legacy fallback.
+  assert.deepEqual(
+    s.elements?.map((e) => e.id),
+    ["manual-1", "manual-2"],
+  );
+  assert.equal(s.elementsDerived, false);
+  // Legacy fields (incl. runs) still refreshed for the fallback path.
+  assert.deepEqual(s.bullets, ["new bullet"]);
+  assert.deepEqual(s.bulletRuns, [[{ text: "new bullet", bold: true }]]);
+  assert.equal(summary.updatedCount, 1);
+  assert.equal(summary.preservedElementCount, 2);
 });

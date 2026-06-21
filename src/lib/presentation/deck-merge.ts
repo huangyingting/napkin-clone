@@ -24,7 +24,7 @@
  * Pure and headless — fully testable under `node --test`.
  */
 
-import type { Deck, Slide } from "./deck";
+import type { Deck, Slide, TextRun } from "./deck";
 import { materializeSlideElements } from "./deck";
 import { normalizeTitle } from "./deck-hash";
 import { slideEffectiveTitle } from "./slide-title";
@@ -104,7 +104,48 @@ function sameContent(existing: Slide, fresh: Slide): boolean {
     existing.bullets.length === fresh.bullets.length &&
     existing.bullets.every((bullet, i) => bullet === fresh.bullets[i]) &&
     existing.visualIds.length === fresh.visualIds.length &&
-    existing.visualIds.every((id, i) => id === fresh.visualIds[i])
+    existing.visualIds.every((id, i) => id === fresh.visualIds[i]) &&
+    sameRunList(existing.titleRuns, fresh.titleRuns) &&
+    sameBulletRuns(existing.bulletRuns, fresh.bulletRuns)
+  );
+}
+
+/** Field-wise equality of two rich-text runs. */
+function sameTextRun(a: TextRun, b: TextRun): boolean {
+  return (
+    a.text === b.text &&
+    a.bold === b.bold &&
+    a.italic === b.italic &&
+    a.code === b.code &&
+    a.color === b.color &&
+    a.link === b.link
+  );
+}
+
+/**
+ * Length-then-elementwise equality of two run lists, treating `undefined` as an
+ * empty list — consistent with how {@link sameContent} compares bullets/visualIds.
+ */
+function sameRunList(
+  a: TextRun[] | undefined,
+  b: TextRun[] | undefined,
+): boolean {
+  const aa = a ?? [];
+  const bb = b ?? [];
+  return (
+    aa.length === bb.length && aa.every((run, i) => sameTextRun(run, bb[i]))
+  );
+}
+
+/** Length-then-elementwise equality of two parallel per-bullet run lists. */
+function sameBulletRuns(
+  a: TextRun[][] | undefined,
+  b: TextRun[][] | undefined,
+): boolean {
+  const aa = a ?? [];
+  const bb = b ?? [];
+  return (
+    aa.length === bb.length && aa.every((runs, i) => sameRunList(runs, bb[i]))
   );
 }
 
@@ -140,6 +181,17 @@ function mergeSlide(existing: Slide, fresh: Slide): Slide {
     layout: fresh.layout,
     notes: fresh.notes,
   };
+
+  // Refresh the rich-text runs alongside their plain-text fields. `...existing`
+  // carries the STALE existing.titleRuns/bulletRuns; if we leave them in place
+  // a re-materialized derived slide reads old runs onto the new plain text
+  // (issue #254), and SlideCanvas/exporter both prefer runs over text. So when
+  // the document supplies fresh runs we adopt them; otherwise we drop the key so
+  // materialization falls back to the fresh plain text instead of stale runs.
+  if (fresh.titleRuns) refreshed.titleRuns = fresh.titleRuns;
+  else delete refreshed.titleRuns;
+  if (fresh.bulletRuns) refreshed.bulletRuns = fresh.bulletRuns;
+  else delete refreshed.bulletRuns;
 
   if (!elementsArePurelyDerived(existing)) {
     return refreshed;
