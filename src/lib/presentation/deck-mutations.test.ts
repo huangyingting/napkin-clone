@@ -383,3 +383,70 @@ test("duplicateSlide deep-copies elements", () => {
     next.slides[1].elements?.map((e) => e.kind),
   );
 });
+
+// ---------------------------------------------------------------------------
+// Provenance flag (issue #221): elementsDerived stamping / clearing
+// ---------------------------------------------------------------------------
+
+test("materializeSlide stamps elementsDerived=true on the derived slide", () => {
+  const next = materializeSlide(deckWithBullets(), 0);
+  assert.equal(next.slides[0].elementsDerived, true);
+  // Untouched slide carries no flag.
+  assert.equal(next.slides[1].elementsDerived, undefined);
+});
+
+test("materializeDeck stamps elementsDerived=true on every derived slide", () => {
+  const next = materializeDeck(deckWithBullets());
+  assert.ok(next.slides.length >= 1);
+  for (const slide of next.slides) {
+    assert.equal(slide.elementsDerived, true);
+  }
+});
+
+test("addElement clears elementsDerived (hand-edit) on the slide", () => {
+  const derived = materializeDeck(deckWithBullets());
+  assert.equal(derived.slides[0].elementsDerived, true);
+  const next = addElement(derived, 0, {
+    kind: "shape",
+    shape: "rect",
+    color: "#112233",
+    box: { x: 10, y: 10, w: 20, h: 20 },
+  });
+  assert.equal(next.slides[0].elementsDerived, false);
+  // Other slide unaffected.
+  assert.equal(next.slides[1].elementsDerived, true);
+});
+
+test("updateElement clears elementsDerived on the slide", () => {
+  const derived = materializeDeck(deckWithBullets());
+  const elementId = derived.slides[0].elements![0].id;
+  const next = updateElement(derived, 0, elementId, {
+    box: { x: 5, y: 5, w: 30, h: 30 },
+  });
+  assert.equal(next.slides[0].elementsDerived, false);
+});
+
+test("removeElement / bringElementToFront / sendElementToBack clear elementsDerived", () => {
+  const derived = materializeDeck(deckWithBullets());
+  const elementId = derived.slides[0].elements![0].id;
+
+  assert.equal(
+    removeElement(derived, 0, elementId).slides[0].elementsDerived,
+    false,
+  );
+  assert.equal(
+    bringElementToFront(derived, 0, elementId).slides[0].elementsDerived,
+    false,
+  );
+  assert.equal(
+    sendElementToBack(derived, 0, elementId).slides[0].elementsDerived,
+    false,
+  );
+});
+
+test("duplicateSlide carries the elementsDerived flag onto the copy", () => {
+  const derived = materializeDeck(deckWithBullets());
+  const next = duplicateSlide(derived, 0);
+  assert.equal(next.slides[0].elementsDerived, true);
+  assert.equal(next.slides[1].elementsDerived, true);
+});

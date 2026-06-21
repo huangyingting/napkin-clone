@@ -166,7 +166,11 @@ export function materializeSlide(deck: Deck, index: number): Deck {
   return mapSlide(deck, index, (slide) =>
     slide.elements && slide.elements.length > 0
       ? slide
-      : { ...slide, elements: materializeSlideElements(slide) },
+      : {
+          ...slide,
+          elements: materializeSlideElements(slide),
+          elementsDerived: true,
+        },
   );
 }
 
@@ -207,7 +211,11 @@ export function materializeDeck(deck: Deck): Deck {
       return slide;
     }
     changed = true;
-    return { ...slide, elements: materializeSlideElements(slide) };
+    return {
+      ...slide,
+      elements: materializeSlideElements(slide),
+      elementsDerived: true,
+    };
   });
   return changed ? { ...deck, slides } : deck;
 }
@@ -217,6 +225,18 @@ function nextZIndex(elements: readonly SlideElement[]): number {
   return (
     elements.reduce((max, element) => Math.max(max, element.zIndex), -1) + 1
   );
+}
+
+/**
+ * Marks a slide's `elements[]` as hand-edited (issue #221): clears the
+ * `elementsDerived` provenance flag so "Sync from document" preserves the
+ * elements verbatim instead of re-materializing them from document content.
+ * Applied by every element-editing mutation (add/update/remove/reorder).
+ */
+function markElementsEdited(slide: Slide): Slide {
+  return slide.elementsDerived === false
+    ? slide
+    : { ...slide, elementsDerived: false };
 }
 
 /** Appends a new element to a slide, materializing legacy content first. */
@@ -238,7 +258,7 @@ export function addElement(
       id: element.id ?? makeElementId(),
       zIndex: element.zIndex ?? nextZIndex(existing),
     } as SlideElement;
-    return { ...slide, elements: [...existing, next] };
+    return markElementsEdited({ ...slide, elements: [...existing, next] });
   });
 }
 
@@ -253,7 +273,7 @@ export function updateElement(
     if (!slide.elements) {
       return slide;
     }
-    return {
+    return markElementsEdited({
       ...slide,
       elements: slide.elements.map((element) =>
         element.id === elementId
@@ -265,7 +285,7 @@ export function updateElement(
             } as SlideElement)
           : element,
       ),
-    };
+    });
   });
 }
 
@@ -279,10 +299,10 @@ export function removeElement(
     if (!slide.elements) {
       return slide;
     }
-    return {
+    return markElementsEdited({
       ...slide,
       elements: slide.elements.filter((element) => element.id !== elementId),
-    };
+    });
   });
 }
 
@@ -297,12 +317,12 @@ export function bringElementToFront(
       return slide;
     }
     const top = nextZIndex(slide.elements);
-    return {
+    return markElementsEdited({
       ...slide,
       elements: slide.elements.map((element) =>
         element.id === elementId ? { ...element, zIndex: top } : element,
       ),
-    };
+    });
   });
 }
 
@@ -321,12 +341,12 @@ export function sendElementToBack(
         (min, element) => Math.min(min, element.zIndex),
         Number.POSITIVE_INFINITY,
       ) - 1;
-    return {
+    return markElementsEdited({
       ...slide,
       elements: slide.elements.map((element) =>
         element.id === elementId ? { ...element, zIndex: bottom } : element,
       ),
-    };
+    });
   });
 }
 

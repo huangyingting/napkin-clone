@@ -5,10 +5,14 @@
  * A naive full re-derive (`buildDeckFromBlocks`) would clobber every free-form
  * element the user positioned by hand. Instead this merges the refreshed
  * document content (title / bullets / visualIds / notes / layout) into matching
- * slides while PRESERVING each slide's `elements[]`, `background`, `accent` and
- * theme. Slides in the fresh deck with no match are optionally appended; slides
- * in the existing deck with no fresh match (orphans) are always kept — manual
- * work is never silently discarded.
+ * slides. For slides whose `elements[]` are still purely auto-derived
+ * (`elementsDerived === true`, or no elements yet) the elements are
+ * RE-MATERIALIZED from the refreshed content so the rendered slide actually
+ * updates (issue #221). For hand-edited slides (`elementsDerived === false`)
+ * each slide's `elements[]`, `background`, `accent` and theme are PRESERVED
+ * verbatim. Slides in the fresh deck with no match are optionally appended;
+ * slides in the existing deck with no fresh match (orphans) are always kept —
+ * manual work is never silently discarded.
  *
  * Matching is two-pass and deterministic:
  *   1. by normalized title (trimmed, lower-cased) for non-empty titles, and
@@ -21,6 +25,7 @@
  */
 
 import type { Deck, Slide } from "./deck";
+import { materializeSlideElements } from "./deck";
 import { normalizeTitle } from "./deck-hash";
 
 /** How a single resulting slide was affected by a sync. */
@@ -103,12 +108,30 @@ function sameContent(existing: Slide, fresh: Slide): boolean {
 }
 
 /**
- * Produces a merged slide: refreshed document content from `fresh`, but every
+ * True when a slide's `elements[]` are still purely auto-derived from its
+ * legacy `title`/`bullets`/`visualIds` (issue #221) and may therefore be
+ * safely re-materialized from refreshed document content:
+ *   - `elementsDerived === true` — explicitly stamped by materialization and
+ *     never hand-edited since, OR
+ *   - the slide has no `elements[]` yet — nothing hand-authored to protect.
+ *
+ * A slide with `elements[]` but no flag is treated as hand-edited (preserved),
+ * so legacy/persisted decks are never clobbered.
+ */
+function elementsArePurelyDerived(slide: Slide): boolean {
+  return slide.elementsDerived === true || (slide.elements?.length ?? 0) === 0;
+}
+
+/**
+ * Produces a merged slide: refreshed document content from `fresh`. For slides
+ * whose `elements[]` are still purely derived, the elements are RE-MATERIALIZED
+ * from the freshly-derived content so the rendered slide actually updates
+ * (issue #221). For hand-edited slides (`elementsDerived === false`), every
  * manual aspect of `existing` (free-form `elements[]`, `background`, `accent`,
- * theme) preserved.
+ * theme) is preserved verbatim.
  */
 function mergeSlide(existing: Slide, fresh: Slide): Slide {
-  return {
+  const refreshed: Slide = {
     ...existing,
     title: fresh.title,
     bullets: [...fresh.bullets],
@@ -116,6 +139,18 @@ function mergeSlide(existing: Slide, fresh: Slide): Slide {
     layout: fresh.layout,
     notes: fresh.notes,
   };
+
+  if (!elementsArePurelyDerived(existing)) {
+    return refreshed;
+  }
+
+  // Derive a clean element list from the refreshed legacy fields. Clearing
+  // `elements` first forces materialization to rebuild from the fresh content.
+  const elements = materializeSlideElements({
+    ...refreshed,
+    elements: undefined,
+  });
+  return { ...refreshed, elements, elementsDerived: true };
 }
 
 /**
@@ -206,13 +241,19 @@ export function mergeDeckFromDocument(
       : existingSlide;
     if (changed) updatedCount += 1;
     else unchangedCount += 1;
-    preservedElementCount += elementCount(existingSlide);
+    // Derived slides are re-materialized (their elements regenerated), so no
+    // hand-authored elements are "preserved" for them; only hand-edited slides
+    // carry their elements through verbatim.
+    const preserved = elementsArePurelyDerived(existingSlide)
+      ? 0
+      : elementCount(existingSlide);
+    preservedElementCount += preserved;
     changes.push({
       index: i,
       kind: "updated",
       before: snapshot(existingSlide),
       after: snapshot(merged),
-      elementsPreserved: elementCount(existingSlide),
+      elementsPreserved: preserved,
       contentChanged: changed,
     });
     return merged;

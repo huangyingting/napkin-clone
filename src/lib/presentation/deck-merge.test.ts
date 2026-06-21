@@ -213,3 +213,119 @@ test("merge is immutable — inputs untouched", () => {
 
   assert.deepEqual(existing, existingCopy);
 });
+
+// ---------------------------------------------------------------------------
+// Provenance-aware re-materialization (issue #221)
+// ---------------------------------------------------------------------------
+
+/** Returns the rendered text of every text/bullets element on a slide. */
+function elementText(s: Slide): string[] {
+  return (s.elements ?? []).flatMap((el) => {
+    if (el.kind === "text") return [el.text];
+    if (el.kind === "bullets") return el.bullets;
+    return [];
+  });
+}
+
+test("derived slide: sync re-materializes elements so document edits render", () => {
+  // An auto-materialized slide (elementsDerived=true) whose elements were
+  // derived purely from the legacy title/bullets.
+  const existing = deck([
+    slide({
+      title: "Intro",
+      bullets: ["old bullet"],
+      elements: [
+        {
+          id: "title",
+          kind: "text",
+          role: "title",
+          text: "Intro",
+          zIndex: 0,
+          box: { x: 6, y: 6, w: 88, h: 16 },
+          style: { fontSize: 6, bold: true, italic: false, align: "left" },
+        },
+        {
+          id: "body",
+          kind: "bullets",
+          bullets: ["old bullet"],
+          zIndex: 1,
+          box: { x: 6, y: 26, w: 88, h: 66 },
+          style: { fontSize: 4.5, bold: false, italic: false, align: "left" },
+        },
+      ],
+      elementsDerived: true,
+    }),
+  ]);
+  const fresh = deck([slide({ title: "Intro", bullets: ["new bullet"] })]);
+
+  const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
+
+  const s = merged.slides[0];
+  // Legacy fields refreshed.
+  assert.deepEqual(s.bullets, ["new bullet"]);
+  // The RENDERED elements text now reflects the document edit.
+  assert.ok(elementText(s).includes("new bullet"));
+  assert.ok(!elementText(s).includes("old bullet"));
+  // Still flagged derived so future syncs keep refreshing.
+  assert.equal(s.elementsDerived, true);
+  assert.equal(summary.updatedCount, 1);
+  // Re-materialized elements are regenerated, not preserved.
+  assert.equal(summary.preservedElementCount, 0);
+});
+
+test("hand-edited slide: sync preserves elements verbatim", () => {
+  const existing = deck([
+    slide({
+      title: "Intro",
+      bullets: ["old bullet"],
+      elements: [element("manual-1"), element("manual-2")],
+      elementsDerived: false,
+    }),
+  ]);
+  const fresh = deck([slide({ title: "Intro", bullets: ["new bullet"] })]);
+
+  const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
+
+  const s = merged.slides[0];
+  // Legacy fields still refreshed.
+  assert.deepEqual(s.bullets, ["new bullet"]);
+  // Hand-authored elements preserved untouched.
+  assert.deepEqual(
+    s.elements?.map((e) => e.id),
+    ["manual-1", "manual-2"],
+  );
+  assert.equal(s.elementsDerived, false);
+  assert.equal(summary.updatedCount, 1);
+  assert.equal(summary.preservedElementCount, 2);
+});
+
+test("legacy slide with no elements: sync materializes fresh elements", () => {
+  const existing = deck([slide({ title: "Intro", bullets: ["old"] })]);
+  const fresh = deck([slide({ title: "Intro", bullets: ["brand new"] })]);
+
+  const { deck: merged } = mergeDeckFromDocument(existing, fresh);
+
+  const s = merged.slides[0];
+  assert.ok((s.elements?.length ?? 0) > 0);
+  assert.ok(elementText(s).includes("brand new"));
+  assert.equal(s.elementsDerived, true);
+});
+
+test("slide with elements but no provenance flag is treated as hand-edited", () => {
+  const existing = deck([
+    slide({
+      title: "Intro",
+      bullets: ["old"],
+      elements: [element("legacy-el")],
+    }),
+  ]);
+  const fresh = deck([slide({ title: "Intro", bullets: ["new"] })]);
+
+  const { deck: merged } = mergeDeckFromDocument(existing, fresh);
+
+  // No flag → preserved verbatim (never clobber unknown decks).
+  assert.deepEqual(
+    merged.slides[0].elements?.map((e) => e.id),
+    ["legacy-el"],
+  );
+});

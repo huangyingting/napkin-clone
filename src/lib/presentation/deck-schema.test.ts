@@ -206,3 +206,58 @@ test("safeParseDeck rejects a non-string deckContentHash", () => {
   });
   assert.equal(result.success, false);
 });
+
+// ---------------------------------------------------------------------------
+// elementsDerived provenance flag (issue #221)
+// ---------------------------------------------------------------------------
+
+test("safeParseDeck round-trips the elementsDerived flag", () => {
+  const withTrue = safeParseDeck({
+    ...(legacyDeck() as { slides: { [k: string]: unknown }[] }),
+    slides: [
+      {
+        ...(legacyDeck() as { slides: object[] }).slides[0],
+        elementsDerived: true,
+      },
+    ],
+  });
+  assert.equal(withTrue.success, true);
+  if (withTrue.success) {
+    assert.equal(withTrue.data.slides[0].elementsDerived, true);
+  }
+
+  const withFalse = safeParseDeck({
+    ...(legacyDeck() as { slides: object[] }),
+    slides: [
+      {
+        ...(legacyDeck() as { slides: object[] }).slides[0],
+        elementsDerived: false,
+      },
+    ],
+  });
+  assert.equal(withFalse.success, true);
+  if (withFalse.success) {
+    assert.equal(withFalse.data.slides[0].elementsDerived, false);
+  }
+});
+
+test("safeParseDeck omits elementsDerived when absent", () => {
+  const result = safeParseDeck(legacyDeck());
+  assert.equal(result.success, true);
+  if (result.success) {
+    assert.equal(result.data.slides[0].elementsDerived, undefined);
+  }
+});
+
+test("safeParseDeck rejects a non-boolean elementsDerived", () => {
+  const result = safeParseDeck({
+    ...(legacyDeck() as { slides: object[] }),
+    slides: [
+      {
+        ...(legacyDeck() as { slides: object[] }).slides[0],
+        elementsDerived: "yes",
+      },
+    ],
+  });
+  assert.equal(result.success, false);
+});

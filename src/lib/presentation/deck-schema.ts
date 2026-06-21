@@ -268,6 +268,14 @@ function validateSlide(input: unknown, index: number): Slide {
   if (input.accent !== undefined && !isHexColor(input.accent)) {
     throw new DeckValidationError(`${context}.accent must be a hex color`);
   }
+  if (
+    input.elementsDerived !== undefined &&
+    typeof input.elementsDerived !== "boolean"
+  ) {
+    throw new DeckValidationError(
+      `${context}.elementsDerived must be a boolean`,
+    );
+  }
 
   return {
     index: input.index,
@@ -278,6 +286,9 @@ function validateSlide(input: unknown, index: number): Slide {
     notes: input.notes,
     theme: input.theme,
     ...(elements !== undefined ? { elements } : {}),
+    ...(input.elementsDerived !== undefined
+      ? { elementsDerived: input.elementsDerived as boolean }
+      : {}),
     ...(input.background !== undefined
       ? { background: input.background as string }
       : {}),
