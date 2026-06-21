@@ -57,6 +57,14 @@ export type { DeckGenerationOptions } from "@/lib/ai/deck-prompt";
 /** Upper bound on slides in a generated deck; surplus slides are dropped. */
 export const MAX_DECK_SLIDES = 40;
 
+/**
+ * Soft cap on the model's output tokens for a deck generation, sized to hold a
+ * full {@link MAX_DECK_SLIDES}-slide deck of compact JSON with headroom. Routes
+ * pass this to the Azure client (`maxOutputTokens`) to keep responses within
+ * model limits and predictably fast for long documents.
+ */
+export const DECK_OUTPUT_TOKEN_BUDGET = 16000;
+
 /** Default number of LLM attempts (the first try plus retries). */
 const DEFAULT_MAX_ATTEMPTS = 2;
 
