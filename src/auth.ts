@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 import { authConfig } from "@/auth.config";
 import { google } from "@/lib/env";
 import { isGoogleAuthConfigured } from "@/lib/auth/google-provider";
-import { seedSampleDocument } from "@/lib/onboarding";
+import { seedSampleDocument } from "@/lib/onboarding/seed-sample-document";
 import { prisma } from "@/lib/prisma";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({

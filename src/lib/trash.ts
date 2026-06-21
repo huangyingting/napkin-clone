@@ -3,7 +3,7 @@
  *
  * RECOVERY WINDOW: Documents are soft-deleted by stamping `deletedAt`. They
  * remain restorable for SOFT_DELETE_RETENTION_MS (30 days). After that window
- * they are eligible for permanent purge by `purgeDeletedDocuments`.
+ * they are eligible for permanent purge by the maintenance sweep.
  *
  * Eligibility rules:
  *   - deletedAt === null          → not in trash; getTrashStatus returns null

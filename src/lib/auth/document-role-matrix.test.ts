@@ -63,13 +63,7 @@ const SURFACES: SurfaceContract[] = [
   {
     surface: "title",
     capability: "edit",
-    actions: [
-      {
-        name: "saveDocumentTitle",
-        file: "src/app/app/documents/[id]/actions.ts",
-      },
-      { name: "renameDocument", file: "src/app/app/actions.ts" },
-    ],
+    actions: [{ name: "renameDocument", file: "src/app/app/actions.ts" }],
   },
   {
     surface: "body (lexical)",

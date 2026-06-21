@@ -27,7 +27,7 @@ export type AcceptedMimeType = (typeof ACCEPTED_MIME_TYPES)[number];
  * get a tighter limit than the binary office/PDF formats whose useful documents
  * are legitimately larger. Every value stays at or below {@link MAX_UPLOAD_BYTES}.
  */
-export const MAX_BYTES_BY_MIME: Record<AcceptedMimeType, number> = {
+const MAX_BYTES_BY_MIME: Record<AcceptedMimeType, number> = {
   "text/markdown": 5 * 1024 * 1024,
   "text/x-markdown": 5 * 1024 * 1024,
   "text/plain": 5 * 1024 * 1024,

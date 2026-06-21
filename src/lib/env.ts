@@ -182,7 +182,7 @@ export const google = {
 } as const;
 
 /** Default canonical app origin used when `NEXT_PUBLIC_APP_URL` is unset. */
-export const DEFAULT_APP_URL = "http://localhost:4000";
+const DEFAULT_APP_URL = "http://localhost:4000";
 
 /**
  * Public app origin configuration.

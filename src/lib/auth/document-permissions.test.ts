@@ -250,7 +250,6 @@ const ACTION_CAPABILITY: Record<string, Capability> = {
   deleteDocument: "manage",
   restoreDocument: "manage",
   // Editor (src/app/app/documents/[id]/actions.ts)
-  saveDocumentTitle: "edit",
   saveDocumentLexical: "edit",
   saveDeckJson: "edit",
   toggleDocumentSharing: "manage",

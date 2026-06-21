@@ -11,7 +11,7 @@ export type {
   IconButtonProps,
 } from "./button";
 
-export { ColorPicker, DEFAULT_SWATCH_PRESETS } from "./color-picker";
+export { ColorPicker } from "./color-picker";
 export type { ColorPickerProps } from "./color-picker";
 
 export { Divider } from "./divider";

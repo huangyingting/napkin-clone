@@ -40,8 +40,8 @@ async function fetchTrashDocuments(userId: string) {
  *
  * Lists the current user's soft-deleted documents that are still within the
  * 30-day recovery window (SOFT_DELETE_RETENTION_MS). Documents past the window
- * are excluded here — they will be purged opportunistically by
- * `purgeDeletedDocuments` on the next dashboard load.
+ * are excluded here — they will be purged opportunistically by the maintenance
+ * sweep on the next dashboard load.
  *
  * Each row shows the deletion date and remaining recovery time computed via
  * `getTrashStatus`. The user can Restore (clears deletedAt) or permanently

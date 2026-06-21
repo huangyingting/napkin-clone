@@ -39,7 +39,7 @@ export type VisualKind = (typeof VISUAL_KINDS)[number];
  * This is the uppercase form of `VisualKind` and replaces the generated Prisma
  * `VisualType` enum so the schema stays portable across Postgres and SQLite.
  */
-export const VISUAL_TYPES = [
+const VISUAL_TYPES = [
   "FLOWCHART",
   "MINDMAP",
   "LIST",
@@ -278,7 +278,7 @@ export const DEFAULT_NODE_HEIGHT = 56;
 const DEFAULT_CANVAS_WIDTH = 760;
 const DEFAULT_CANVAS_HEIGHT = 480;
 
-export const DEFAULT_PALETTE = [
+const DEFAULT_PALETTE = [
   "#6366f1", // indigo
   "#0ea5e9", // sky
   "#10b981", // emerald

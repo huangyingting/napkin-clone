@@ -21,7 +21,7 @@ import { cx, FOCUS_RING, RADIUS } from "./tokens";
  * grayscale ramp. Callers can override via {@link ColorPickerProps.presets}
  * (e.g. to surface the active visual's theme palette first).
  */
-export const DEFAULT_SWATCH_PRESETS: readonly string[] = [
+const DEFAULT_SWATCH_PRESETS: readonly string[] = [
   "#ffffff",
   "#f1f5f9",
   "#cbd5e1",

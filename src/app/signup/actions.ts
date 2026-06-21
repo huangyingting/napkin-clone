@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 
 import { signIn } from "@/auth";
 import { safeCallbackUrl } from "@/lib/auth/callback-url";
-import { seedSampleDocument } from "@/lib/onboarding";
+import { seedSampleDocument } from "@/lib/onboarding/seed-sample-document";
 import { prisma } from "@/lib/prisma";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

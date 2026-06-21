@@ -60,24 +60,3 @@ export function queryIsWideViewport(
 ): boolean {
   return matchMedia(WIDE_VIEWPORT_QUERY).matches;
 }
-
-/**
- * Returns `true` when the viewport is at least `lg` wide (≥ 1024px) and `false`
- * below it. Reacts to changes so resizing across the breakpoint gives an
- * accurate result.
- *
- * SSR default is `true` (desktop-first; narrows on the client after mount).
- * Mirrors {@link useIsPointerFine}.
- */
-export function useIsWideViewport(): boolean {
-  const [wide, setWide] = useState(() => queryIsWideViewport());
-
-  useEffect(() => {
-    const mql = window.matchMedia(WIDE_VIEWPORT_QUERY);
-    const handler = (event: MediaQueryListEvent) => setWide(event.matches);
-    mql.addEventListener("change", handler);
-    return () => mql.removeEventListener("change", handler);
-  }, []);
-
-  return wide;
-}

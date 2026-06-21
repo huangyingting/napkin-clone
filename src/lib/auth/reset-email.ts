@@ -21,7 +21,7 @@ export interface PasswordResetEmail {
   resetUrl: string;
 }
 
-export interface PasswordResetMailer {
+interface PasswordResetMailer {
   /** Delivers the reset link. Resolves on success; rejects on transport error. */
   send(email: PasswordResetEmail): Promise<void>;
 }
@@ -54,7 +54,7 @@ const devConsoleMailer: PasswordResetMailer = {
  * real {@link PasswordResetMailer} here (e.g. behind an env check for an API
  * key) and the rest of the flow is unchanged.
  */
-export function getPasswordResetMailer(): PasswordResetMailer {
+function getPasswordResetMailer(): PasswordResetMailer {
   // When a real transport is added, construct and return it here, e.g.:
   //   if (process.env.RESEND_API_KEY) return createResendMailer(...);
   return devConsoleMailer;

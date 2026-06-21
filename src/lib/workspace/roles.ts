@@ -20,7 +20,7 @@ const DEFAULT_WORKSPACE_ROLE: WorkspaceRole = "VIEWER";
  * handed out through an invite. Invite creation and acceptance both validate the
  * requested role against this allowlist server-side (issue #103).
  */
-export const INVITABLE_WORKSPACE_ROLES = ["EDITOR", "VIEWER"] as const;
+const INVITABLE_WORKSPACE_ROLES = ["EDITOR", "VIEWER"] as const;
 
 export type InvitableWorkspaceRole = (typeof INVITABLE_WORKSPACE_ROLES)[number];
 

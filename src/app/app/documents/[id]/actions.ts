@@ -35,7 +35,6 @@ const generateShareId = customAlphabet(
 // collisions vanishingly unlikely (4 lowercase alphanumeric chars).
 const generateSlugSuffix = customAlphabet("23456789abcdefghjkmnpqrstuvwxyz", 4);
 
-const MAX_TITLE_LENGTH = 200;
 const MAX_CONTENT_LENGTH = 100_000;
 const MAX_LEXICAL_STATE_LENGTH = 2_000_000;
 const MAX_ANCHOR_BLOCK_ID_LENGTH = 200;
@@ -184,36 +183,6 @@ function normalizeAnchorBlockId(
     return null;
   }
   return trimmed.slice(0, MAX_ANCHOR_BLOCK_ID_LENGTH);
-}
-
-/**
- * Saves a document title. Requires edit access (owner or workspace editor),
- * authorized via `requireDocumentCapability` so a viewer or unrelated user is
- * rejected with a clear error (issue #89). The write uses `updateMany` keyed by
- * id so a concurrent change is a harmless no-op. Returns the normalized title so
- * the client can reflect any trimming/fallback. Empty titles fall back to
- * "Untitled".
- */
-export async function saveDocumentTitle(
-  id: string,
-  rawTitle: string,
-): Promise<{ title: string }> {
-  const user = await requireUser();
-  const title = rawTitle.trim().slice(0, MAX_TITLE_LENGTH) || "Untitled";
-
-  await requireDocumentCapability(user.id, id, "edit");
-
-  await prisma.document.updateMany({
-    where: { id },
-    data: { title },
-  });
-
-  // Revalidate both the dashboard list and this document's own route — without
-  // the latter, reopening the same document serves a cached page that re-seeds
-  // the stale title.
-  revalidatePath("/app");
-  revalidatePath(`/app/documents/${id}`);
-  return { title };
 }
 
 /**

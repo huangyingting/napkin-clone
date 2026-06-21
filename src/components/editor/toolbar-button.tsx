@@ -32,7 +32,7 @@ export function EditorToolbarDivider() {
   );
 }
 
-export function editorToolbarButtonClass({
+function editorToolbarButtonClass({
   active = false,
   iconOnly = false,
   className,

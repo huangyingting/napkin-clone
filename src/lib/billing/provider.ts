@@ -170,8 +170,3 @@ export async function getBillingProvider(): Promise<BillingProvider> {
   _provider = new MockBillingProvider();
   return _provider;
 }
-
-/** Test-only: resets the memoised provider so env changes take effect. */
-export function resetBillingProviderForTests(): void {
-  _provider = null;
-}

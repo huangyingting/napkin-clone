@@ -17,13 +17,7 @@ import { parseDocx } from "./docx";
 import { parsePptx } from "./pptx";
 import { parsePdf } from "./pdf";
 
-export {
-  validateImportFile,
-  formatValidationError,
-  MAX_UPLOAD_BYTES,
-  ACCEPTED_MIME_TYPES,
-} from "./validate";
-export { normalizeImportedText } from "./normalize";
+export { validateImportFile, formatValidationError } from "./validate";
 
 /**
  * Parses an uploaded file buffer and returns the extracted text, normalized

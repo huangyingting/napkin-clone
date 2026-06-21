@@ -22,7 +22,7 @@ import { acquirePurgeLock, INVITE_LINK_RETENTION_MS } from "@/lib/maintenance";
 import { SOFT_DELETE_RETENTION_MS } from "@/lib/trash";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
-/** Maximum stored document title length (mirrors the editor's title save). */
+/** Maximum stored document title length. */
 const MAX_TITLE_LENGTH = 200;
 
 /** Maximum stored document content length. */
@@ -91,9 +91,8 @@ export async function createDocumentFromImport(
  * viewer or unrelated user is rejected with a clear error via
  * `requireDocumentCapability` (issue #89). The write uses `updateMany` so a
  * concurrent change is a harmless no-op rather than a throw. The title is
- * trimmed and length-clamped, falling back to "Untitled" when empty (mirroring
- * `saveDocumentTitle`). Returns the normalized title so the caller can reflect
- * any trimming/fallback.
+ * trimmed and length-clamped, falling back to "Untitled" when empty. Returns
+ * the normalized title so the caller can reflect any trimming/fallback.
  */
 export async function renameDocument(
   id: string,
@@ -236,8 +235,8 @@ export async function toggleFavorite(
  * The capability check excludes already soft-deleted rows (a double-delete is a
  * clean "Document not found."), and the update uses `updateMany` so a concurrent
  * change is a harmless no-op rather than a throw. The document's
- * `Visual`/`Comment` rows are left intact and only removed when the row is
- * eventually purged (see `purgeDeletedDocuments`).
+ * `Visual`/`Comment` rows are left intact and only removed by the maintenance
+ * sweep once the recovery window has elapsed.
  */
 export async function deleteDocument(id: string): Promise<void> {
   const user = await requireUser();
@@ -321,14 +320,6 @@ export async function runMaintenance(): Promise<void> {
         )
     `,
   ]);
-}
-
-/**
- * @deprecated Use {@link runMaintenance} instead. Kept for backwards
- * compatibility; delegates to the throttled sweep.
- */
-export async function purgeDeletedDocuments(): Promise<void> {
-  await runMaintenance();
 }
 
 /** Shape returned by `searchDocuments`, compatible with `DashboardDocument`. */

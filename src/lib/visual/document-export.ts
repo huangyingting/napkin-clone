@@ -47,9 +47,7 @@ import {
   type InfographicConfig,
 } from "@/lib/visual/infographic-layout";
 
-// Re-export so callers can configure the infographic from a single import.
 export type { InfographicConfig };
-export { DEFAULT_INFOGRAPHIC_CONFIG };
 
 // ---------------------------------------------------------------------------
 // Page-break helpers (pure, browser-free)

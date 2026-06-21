@@ -21,7 +21,7 @@ export interface VerificationEmail {
   verifyUrl: string;
 }
 
-export interface VerificationMailer {
+interface VerificationMailer {
   /** Delivers the verification link. Resolves on success; rejects on error. */
   send(email: VerificationEmail): Promise<void>;
 }
@@ -52,7 +52,7 @@ const devConsoleMailer: VerificationMailer = {
  * real {@link VerificationMailer} here (e.g. behind an env check for an API key)
  * and the rest of the flow is unchanged.
  */
-export function getVerificationMailer(): VerificationMailer {
+function getVerificationMailer(): VerificationMailer {
   // When a real transport is added, construct and return it here, e.g.:
   //   if (process.env.RESEND_API_KEY) return createResendMailer(...);
   return devConsoleMailer;
