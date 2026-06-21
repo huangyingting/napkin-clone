@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Slide, SlideElement, TextElementStyle } from "./deck";
-import { deriveSlideTitle } from "./slide-title";
+import { deriveSlideTitle, slideEffectiveTitle } from "./slide-title";
 
 const STYLE: TextElementStyle = {
   fontSize: 4,
@@ -76,4 +76,28 @@ test("deriveSlideTitle ignores blank text elements", () => {
 test("deriveSlideTitle falls back to 'Slide N' (1-based) when empty", () => {
   assert.equal(deriveSlideTitle(baseSlide(), 0), "Slide 1");
   assert.equal(deriveSlideTitle(baseSlide({ index: 4 }), 4), "Slide 5");
+});
+
+test("slideEffectiveTitle reads the edited title element over a stale slide.title (#244)", () => {
+  const slide = baseSlide({
+    title: "Stale legacy title",
+    elements: [textElement("a", "Renamed on stage", "title", 0)],
+  });
+  assert.equal(slideEffectiveTitle(slide), "Renamed on stage");
+  assert.equal(deriveSlideTitle(slide, 0), "Renamed on stage");
+});
+
+test("slideEffectiveTitle falls back to legacy slide.title with no title element (#244)", () => {
+  const slide = baseSlide({
+    title: "Legacy title",
+    elements: [textElement("a", "Body copy", "body", 0)],
+  });
+  assert.equal(slideEffectiveTitle(slide), "Legacy title");
+});
+
+test("slideEffectiveTitle keeps legacy (no elements) behavior using slide.title (#244)", () => {
+  const slide = baseSlide({ title: "  Plain legacy  " });
+  assert.equal(slideEffectiveTitle(slide), "Plain legacy");
+  const blank = baseSlide();
+  assert.equal(slideEffectiveTitle(blank), "");
 });

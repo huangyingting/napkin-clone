@@ -592,7 +592,7 @@ function InlineTextEditor({
         .split("\n")
         .map((line) => line.replace(/\s+$/, ""))
         .filter((line) => line.length > 0);
-      onChange({ bullets: lines });
+      onChange({ bullets: lines, bulletRuns: undefined });
     }
     onCommit();
   }, [element.kind, onChange, onCommit]);
@@ -606,9 +606,12 @@ function InlineTextEditor({
       onPointerDown={(event) => event.stopPropagation()}
       onChange={(event) => {
         if (element.kind === "text") {
-          onChange({ text: event.target.value });
+          onChange({ text: event.target.value, runs: undefined });
         } else {
-          onChange({ bullets: event.target.value.split("\n") });
+          onChange({
+            bullets: event.target.value.split("\n"),
+            bulletRuns: undefined,
+          });
         }
       }}
       onBlur={commit}

@@ -2,31 +2,60 @@
  * Pure, DOM-free helper for labelling a slide in the thumbnail rail and other
  * chrome. Derivation order:
  *
- *  1. the slide's explicit `title` (trimmed), when non-empty;
- *  2. otherwise the first non-empty `text` element — preferring a title-role
- *     element, then any text element — so free-form slides (which keep their
- *     content in `elements[]`, not the legacy `title`) still get a real label;
- *  3. otherwise the positional fallback `"Slide N"` (1-based).
+ *  1. when `slide.elements` is present (free-form / element-authoritative), the
+ *     `role: "title"` text element's text — so on-stage title edits drive the
+ *     label and the sync matching key instead of a stale legacy `slide.title`;
+ *  2. otherwise the slide's explicit legacy `title` (trimmed), when non-empty;
+ *  3. otherwise the first non-empty `text` element (free-form slides that keep
+ *     their content in `elements[]` but have no dedicated title element);
+ *  4. otherwise the positional fallback `"Slide N"` (1-based).
  *
  * No React, no DOM — fully testable under `node --test`.
  */
 
 import type { Slide, TextElement } from "./deck";
 
+/**
+ * The slide's effective title (without any positional fallback). When the slide
+ * carries `elements[]`, the title is read from the `role: "title"` text element
+ * so on-stage edits stay the single source of truth; otherwise the legacy
+ * `slide.title` is used. Returns `""` when neither yields a non-empty title.
+ *
+ * Shared by {@link deriveSlideTitle} (rail label) and `deck-merge` (sync
+ * matching key) so the displayed title and the matching key never drift apart —
+ * a renamed title element matches its slide instead of orphaning it.
+ */
+export function slideEffectiveTitle(slide: Slide): string {
+  const elements = slide.elements ?? [];
+  if (elements.length > 0) {
+    const titleElement = elements.find(
+      (element): element is TextElement =>
+        element.kind === "text" &&
+        element.role === "title" &&
+        element.text.trim().length > 0,
+    );
+    if (titleElement) {
+      return titleElement.text.trim();
+    }
+  }
+  return slide.title?.trim() ?? "";
+}
+
 /** Derives a human-readable title for `slide` at zero-based `index`. */
 export function deriveSlideTitle(slide: Slide, index: number): string {
-  const explicit = slide.title?.trim();
-  if (explicit) {
-    return explicit;
+  const effective = slideEffectiveTitle(slide);
+  if (effective) {
+    return effective;
   }
 
+  // Labelling-only fallback: a free-form slide with body text but no title
+  // element or legacy title still gets a real label rather than "Slide N".
   const texts = (slide.elements ?? []).filter(
     (element): element is TextElement =>
       element.kind === "text" && element.text.trim().length > 0,
   );
-  const chosen = texts.find((element) => element.role === "title") ?? texts[0];
-  if (chosen) {
-    return chosen.text.trim();
+  if (texts[0]) {
+    return texts[0].text.trim();
   }
 
   return `Slide ${index + 1}`;
