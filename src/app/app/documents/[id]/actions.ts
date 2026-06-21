@@ -7,6 +7,12 @@ import { Prisma } from "@/generated/prisma/client";
 import { requireDocumentCapability } from "@/lib/auth/document-permissions";
 import { collectVisualNodes } from "@/lib/lexical/visual-nodes";
 import { lexicalStateToPlainText } from "@/lib/lexical/plain-text";
+import {
+  MAX_DOCUMENT_VERSIONS,
+  SNAPSHOT_MIN_INTERVAL_MS,
+  shouldSnapshot,
+  staleVersionIds,
+} from "@/lib/document-versions";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { buildShareSegment, buildSlugCandidate } from "@/lib/slug";
@@ -73,6 +79,89 @@ async function snapshotVisualRevision(
     await tx.visualRevision.deleteMany({
       where: { id: { in: stale.map((revision) => revision.id) } },
     });
+  }
+}
+
+/**
+ * Records a point-in-time snapshot of a document's current persisted editable
+ * state into `DocumentVersion`, then prunes that document's history to the most
+ * recent {@link MAX_DOCUMENT_VERSIONS} entries (issue #158).
+ *
+ * Snapshots are throttled by {@link shouldSnapshot}: a new version is only
+ * created when the document's most recent snapshot is older than
+ * {@link SNAPSHOT_MIN_INTERVAL_MS}, unless `force` is set for a meaningful event
+ * (e.g. a pre-restore checkpoint) that must always be captured. Callers invoke
+ * this only after passing the edit-permission check, so authorization is
+ * inherited from the save path. Failures are intentionally swallowed: a missed
+ * snapshot must never break the user's save.
+ */
+async function snapshotDocumentVersion(
+  documentId: string,
+  options: {
+    userId?: string | null;
+    force?: boolean;
+    label?: string | null;
+  } = {},
+): Promise<void> {
+  try {
+    const now = new Date();
+
+    const last = await prisma.documentVersion.findFirst({
+      where: { documentId },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    });
+
+    if (
+      !shouldSnapshot(
+        last?.createdAt ?? null,
+        now,
+        SNAPSHOT_MIN_INTERVAL_MS,
+        options.force ?? false,
+      )
+    ) {
+      return;
+    }
+
+    const doc = await prisma.document.findUnique({
+      where: { id: documentId },
+      select: { contentJson: true, deckJson: true },
+    });
+    if (!doc) {
+      return;
+    }
+
+    await prisma.documentVersion.create({
+      data: {
+        documentId,
+        contentJson: (doc.contentJson ??
+          Prisma.JsonNull) as Prisma.InputJsonValue,
+        deckJson:
+          doc.deckJson == null
+            ? Prisma.DbNull
+            : (doc.deckJson as Prisma.InputJsonValue),
+        label: options.label ?? null,
+        createdById: options.userId ?? null,
+      },
+    });
+
+    // Prune anything beyond the retention window so history can't grow unbounded.
+    const existing = await prisma.documentVersion.findMany({
+      where: { documentId },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: { id: true },
+    });
+    const stale = staleVersionIds(
+      existing.map((version) => version.id),
+      MAX_DOCUMENT_VERSIONS,
+    );
+    if (stale.length > 0) {
+      await prisma.documentVersion.deleteMany({
+        where: { id: { in: stale } },
+      });
+    }
+  } catch {
+    // A failed snapshot should never surface to the caller's save.
   }
 }
 
@@ -315,6 +404,10 @@ export async function saveDocumentLexical(
   // thumbnails, and version history keep working off the editor's source of
   // truth (contentJson).
   await mirrorVisualNodes(id, parsed);
+
+  // Capture a throttled version snapshot of the just-saved state so an earlier
+  // version can be viewed/restored after the tab closes (issue #158).
+  await snapshotDocumentVersion(id, { userId: user.id });
 
   revalidatePath("/app");
 }
@@ -654,5 +747,115 @@ export async function saveDeckJson(
     data: { deckJson: result.data as unknown as Prisma.InputJsonValue },
   });
 
+  // Capture a throttled version snapshot so deck edits are restorable too (#158).
+  await snapshotDocumentVersion(id, { userId: user.id });
+
   revalidatePath(`/app/documents/${id}`);
+}
+
+/** A version-history entry surfaced to the editor's Version History panel. */
+export type DocumentVersionSummary = {
+  id: string;
+  createdAt: string;
+  label: string | null;
+  /** Display name of the user who triggered the snapshot, when known. */
+  authorName: string | null;
+  /** Whether this snapshot carries a presentation deck alongside the document. */
+  hasDeck: boolean;
+};
+
+/**
+ * Lists a document's version-history snapshots, newest first. Requires view
+ * access (owner, workspace member, or otherwise permitted), authorized via
+ * `requireDocumentCapability` so an unrelated user is rejected (issue #158).
+ */
+export async function listDocumentVersions(
+  documentId: string,
+): Promise<DocumentVersionSummary[]> {
+  const user = await requireUser();
+  await requireDocumentCapability(user.id, documentId, "view");
+
+  const versions = await prisma.documentVersion.findMany({
+    where: { documentId },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    select: {
+      id: true,
+      createdAt: true,
+      label: true,
+      deckJson: true,
+      createdBy: { select: { name: true, email: true } },
+    },
+  });
+
+  return versions.map((version) => ({
+    id: version.id,
+    createdAt: version.createdAt.toISOString(),
+    label: version.label,
+    authorName: version.createdBy
+      ? (version.createdBy.name ?? version.createdBy.email ?? null)
+      : null,
+    hasDeck: version.deckJson != null,
+  }));
+}
+
+/**
+ * Restores a document to an earlier snapshot, writing that version's
+ * `contentJson`/`deckJson` (and derived plain-text `content`) back as the
+ * current document state. Requires edit access (issue #158).
+ *
+ * Before overwriting, a forced snapshot of the *pre-restore* state is captured
+ * (labelled so it's recognizable in the history), so a restore is itself
+ * reversible. The mirrored Visual rows are rebuilt from the restored content so
+ * share/embed and dashboard thumbnails stay consistent.
+ */
+export async function restoreDocumentVersion(versionId: string): Promise<void> {
+  const user = await requireUser();
+
+  const version = await prisma.documentVersion.findUnique({
+    where: { id: versionId },
+    select: {
+      documentId: true,
+      contentJson: true,
+      deckJson: true,
+      createdAt: true,
+    },
+  });
+  if (!version) {
+    throw new Error("Version not found.");
+  }
+
+  const { documentId } = version;
+  await requireDocumentCapability(user.id, documentId, "edit");
+
+  // Checkpoint the current state first so the restore can itself be undone.
+  await snapshotDocumentVersion(documentId, {
+    userId: user.id,
+    force: true,
+    label: "Before restore",
+  });
+
+  const restoredContent = version.contentJson;
+  const content = lexicalStateToPlainText(restoredContent).slice(
+    0,
+    MAX_CONTENT_LENGTH,
+  );
+
+  await prisma.document.updateMany({
+    where: { id: documentId },
+    data: {
+      contentJson: restoredContent as Prisma.InputJsonValue,
+      content,
+      deckJson:
+        version.deckJson == null
+          ? Prisma.DbNull
+          : (version.deckJson as Prisma.InputJsonValue),
+    },
+  });
+
+  // Rebuild mirrored Visual rows from the restored content so embeds/thumbnails
+  // reflect the restored version (mirrors the saveDocumentLexical save path).
+  await mirrorVisualNodes(documentId, restoredContent);
+
+  revalidatePath(`/app/documents/${documentId}`);
+  revalidatePath("/app");
 }
