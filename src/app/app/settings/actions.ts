@@ -6,9 +6,19 @@ import bcrypt from "bcryptjs";
 import { signOut } from "@/auth";
 import { validatePasswordChange } from "@/lib/auth/password";
 import {
+  deliverVerificationEmail,
+  type VerificationEmail,
+} from "@/lib/auth/verification-email";
+import {
+  VERIFICATION_TOKEN_TTL_MS,
+  generateVerificationToken,
+  hashVerificationToken,
+} from "@/lib/auth/verification-token";
+import {
   getBillingProvider,
   shouldCancelSubscription,
 } from "@/lib/billing/provider";
+import { logError } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 
@@ -213,4 +223,76 @@ export async function deleteAccount(
 
   await signOut({ redirectTo: "/" });
   return { status: "idle" };
+}
+
+/** Builds the absolute, ready-to-click email-verification URL with the token. */
+function buildVerifyUrl(rawToken: string): string {
+  const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:4000";
+  return `${base.replace(/\/$/, "")}/verify-email/${encodeURIComponent(rawToken)}`;
+}
+
+/** Generic fallback so a failed verification request stays uninformative. */
+const GENERIC_VERIFICATION_ERROR =
+  "Could not send a verification email. Please try again.";
+
+export type VerifyEmailState =
+  | { status: "idle" }
+  | { status: "sent" }
+  | { status: "already_verified" }
+  | { status: "error"; message: string };
+
+/**
+ * Sends an email-verification link to the current user's own address (#162).
+ *
+ * Scoped to the authenticated user by keying on the session `user.id` (never a
+ * client-supplied id). There is no user-enumeration concern — the recipient is
+ * the logged-in user's own, already-known email — so this returns specific
+ * states. If the address is already verified it short-circuits. Otherwise it
+ * generates a high-entropy token, stores only its HASH with a short expiry (so a
+ * database leak can't be replayed), invalidates the user's other outstanding
+ * verification tokens, and hands the raw-token link to the delivery seam.
+ */
+export async function requestEmailVerification(
+  _prevState: VerifyEmailState,
+  _formData: FormData,
+): Promise<VerifyEmailState> {
+  const user = await requireUser();
+
+  try {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { email: true, emailVerified: true },
+    });
+    if (!dbUser) {
+      return { status: "error", message: GENERIC_VERIFICATION_ERROR };
+    }
+    if (dbUser.emailVerified) {
+      return { status: "already_verified" };
+    }
+
+    const rawToken = generateVerificationToken();
+    const tokenHash = hashVerificationToken(rawToken);
+    const expiresAt = new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS);
+
+    await prisma.$transaction([
+      prisma.emailVerificationToken.updateMany({
+        where: { userId: user.id, usedAt: null },
+        data: { usedAt: new Date() },
+      }),
+      prisma.emailVerificationToken.create({
+        data: { userId: user.id, tokenHash, expiresAt },
+      }),
+    ]);
+
+    const message: VerificationEmail = {
+      to: dbUser.email,
+      verifyUrl: buildVerifyUrl(rawToken),
+    };
+    await deliverVerificationEmail(message);
+
+    return { status: "sent" };
+  } catch (error) {
+    logError("email-verification", error);
+    return { status: "error", message: GENERIC_VERIFICATION_ERROR };
+  }
 }
