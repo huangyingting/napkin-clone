@@ -24,14 +24,17 @@ import {
   LayoutPanelLeft,
   List,
   Plus,
+  Redo2,
   Shapes,
   Type,
+  Undo2,
   Wand2,
   X,
 } from "lucide-react";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -48,7 +51,7 @@ import {
   type AddElementKind,
 } from "@/components/presentation/slide-inspector";
 import { SlideStageEditor } from "@/components/presentation/slide-stage-editor";
-import { Tooltip } from "@/components/ui";
+import { IconButton, Tooltip } from "@/components/ui";
 import {
   makeElementId,
   type Deck,
@@ -75,6 +78,7 @@ import {
   type DistributiveOmit,
   type ElementPatch,
 } from "@/lib/presentation/deck-mutations";
+import { useDeckHistory } from "@/lib/presentation/use-deck-history";
 
 interface SlideEditorProps {
   deck: Deck;
@@ -165,13 +169,25 @@ function buildDefaultElement(
 }
 
 export function SlideEditor({
-  deck,
+  deck: deckProp,
   visuals,
-  onDeckChange,
+  onDeckChange: onDeckChangeProp,
   onClose,
   onSave,
   isSaving = false,
 }: SlideEditorProps) {
+  // Snapshot-based undo/redo over the plain Deck object. Every mutation routes
+  // through `onDeckChange` (the history `commit`), which records the previous
+  // present and notifies the parent. This never touches contentJson / Yjs state.
+  const {
+    present: deck,
+    commit: onDeckChange,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useDeckHistory(deckProp, onDeckChangeProp);
+
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -181,6 +197,20 @@ export function SlideEditor({
     null,
   );
   const stageRef = useRef<HTMLDivElement>(null);
+
+  const isMac = useMemo(() => {
+    if (typeof navigator === "undefined") {
+      return false;
+    }
+    const platform =
+      (navigator as Navigator & { userAgentData?: { platform?: string } })
+        .userAgentData?.platform ??
+      navigator.platform ??
+      navigator.userAgent;
+    return /mac|iphone|ipad|ipod/i.test(platform);
+  }, []);
+  const undoShortcut = isMac ? "⌘Z" : "Ctrl+Z";
+  const redoShortcut = isMac ? "⌘⇧Z" : "Ctrl+Shift+Z";
 
   // Keep the selection within bounds as slides are added/removed.
   const safeSelected = Math.min(selectedIndex, deck.slides.length - 1);
@@ -298,6 +328,25 @@ export function SlideEditor({
         return;
       }
 
+      // Undo / redo over deck history. Ctrl/⌘+Z = undo,
+      // Ctrl/⌘+Shift+Z (or Ctrl+Y) = redo. The `typing` guard above keeps
+      // these from hijacking field-level undo while editing text.
+      const mod = event.metaKey || event.ctrlKey;
+      if (mod && (event.key === "z" || event.key === "Z")) {
+        event.preventDefault();
+        if (event.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+        return;
+      }
+      if (mod && !event.shiftKey && (event.key === "y" || event.key === "Y")) {
+        event.preventDefault();
+        redo();
+        return;
+      }
+
       // With an element selected, arrow keys nudge it and Delete removes it.
       const slide = deck.slides[safeSelected];
       const selected =
@@ -343,7 +392,15 @@ export function SlideEditor({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose, deck, safeSelected, effectiveSelectedElementId, onDeckChange]);
+  }, [
+    onClose,
+    deck,
+    safeSelected,
+    effectiveSelectedElementId,
+    onDeckChange,
+    undo,
+    redo,
+  ]);
 
   const handleBulletsChange = useCallback(
     (index: number, value: string) => {
@@ -470,6 +527,41 @@ export function SlideEditor({
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Undo / redo deck history */}
+          <div
+            role="group"
+            aria-label="Undo and redo"
+            className="flex items-center"
+          >
+            <Tooltip label={`Undo (${undoShortcut})`} side="bottom">
+              <IconButton
+                aria-label={`Undo (${undoShortcut})`}
+                size="sm"
+                variant="plain"
+                disabled={!canUndo}
+                onClick={undo}
+              >
+                <Undo2 aria-hidden className="h-3.5 w-3.5" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip label={`Redo (${redoShortcut})`} side="bottom">
+              <IconButton
+                aria-label={`Redo (${redoShortcut})`}
+                size="sm"
+                variant="plain"
+                disabled={!canRedo}
+                onClick={redo}
+              >
+                <Redo2 aria-hidden className="h-3.5 w-3.5" />
+              </IconButton>
+            </Tooltip>
+          </div>
+
+          <div
+            className="hidden h-5 w-px bg-ds-border-subtle sm:block"
+            aria-hidden="true"
+          />
+
           {/* Theme swatches */}
           <div className="hidden items-center gap-1.5 sm:flex">
             {THEME_OPTIONS.map((option) => {
