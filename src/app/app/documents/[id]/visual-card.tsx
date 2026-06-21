@@ -28,6 +28,8 @@ import {
 import { useRegisterVisualSvg } from "@/components/editor/visual-svg-registry";
 import { useRightSurface } from "./right-surface-context";
 
+import { useEditingSurface } from "./use-editing-surface";
+import { useDockedPreference } from "./docked-preference";
 import { useVisualAnchor } from "./visual-anchor-context";
 import { VisualContextPopover } from "./visual-context-popover";
 import { VisualEditor } from "./visual-editor";
@@ -91,6 +93,19 @@ export function VisualCard({
   // suppresses the float while the slide editor is active; visual editing
   // remains accessible via the docked rail.
   const { suppressFloatPopover } = useRightSurface();
+
+  // When the user has opted into the docked rail (dockedPreference === "on")
+  // and the resolver puts us in "docked" mode (≥ lg), the visual-edit controls
+  // render in the rail instead. Suppress the inline float here so a visual is
+  // never edited in two surfaces at once. Gating on the preference (not merely
+  // mode === "docked") is essential for byte-for-byte safety: with the
+  // preference OFF the resolver can still return "docked"(overall) for the
+  // no-selection case at ≥ lg (R4), but the rail is not mounted then, so the
+  // float must keep showing exactly as on main.
+  const editingSurface = useEditingSurface();
+  const dockedPreference = useDockedPreference();
+  const dockedActive =
+    editingSurface.mode === "docked" && dockedPreference === "on";
 
   // Current text content of the immediately preceding block (the likely anchor).
   // Updated on every editor state change so the popover can detect staleness.
@@ -530,7 +545,7 @@ export function VisualCard({
           its properties can be adjusted in place. Suppressed only while the
           SlideEditor panel is open, so the two right-side surfaces never appear
           at once. */}
-      {showControls && !suppressFloatPopover ? (
+      {showControls && !suppressFloatPopover && !dockedActive ? (
         <VisualContextPopover
           visual={data}
           selectedNodeId={selectedNodeId}
