@@ -33,10 +33,10 @@ import { useEditorContext } from "@/lib/lexical/editor-context";
 import { useIsPointerFine } from "@/lib/pointer";
 import { toolsFor, type EditorTool } from "@/lib/lexical/tool-registry";
 
+import { leftGutterButtonLeft } from "./document-gutter";
+
 // Gap (px) between the anchored block and the menu / gutter button.
 const MENU_GAP = 6;
-// Horizontal offset (px) of the gutter "+" button from the block's left edge.
-const GUTTER_OFFSET = 34;
 
 type MenuMode = "plus" | "slash";
 
@@ -336,9 +336,17 @@ export function InsertMenuPlugin() {
 
   const open = menuOpen;
   const anchorRect = blockRect;
+  const rootRect = editor.getRootElement()?.getBoundingClientRect() ?? null;
+  const gutterLeft = rootRect ? leftGutterButtonLeft(rootRect) : null;
   const position =
     anchorRect !== null
-      ? { top: anchorRect.bottom + MENU_GAP, left: anchorRect.left }
+      ? {
+          top: anchorRect.bottom + MENU_GAP,
+          left:
+            mode === "plus" && rootRect !== null
+              ? rootRect.left
+              : anchorRect.left,
+        }
       : { top: -1000, left: -1000 };
 
   // Running index across sections, so keyboard selection lines up with render.
@@ -348,7 +356,7 @@ export function InsertMenuPlugin() {
     <>
       {createPortal(
         <AnimatePresence>
-          {showGutter && blockRect !== null ? (
+          {showGutter && blockRect !== null && gutterLeft !== null ? (
             <motion.button
               key="insert-plus"
               type="button"
@@ -361,7 +369,7 @@ export function InsertMenuPlugin() {
               transition={popMotion.transition}
               style={{
                 top: blockRect.top + blockRect.height / 2 - 14,
-                left: blockRect.left - GUTTER_OFFSET,
+                left: gutterLeft,
               }}
               className={cx("fixed z-raised", GUTTER_BUTTON)}
             >

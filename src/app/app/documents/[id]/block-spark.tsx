@@ -47,44 +47,21 @@ import { type Orientation, type DetailLevel } from "@/lib/ai/prompt";
 import Link from "next/link";
 import { useIsPointerFine } from "@/lib/pointer";
 
+import { leftGutterButtonLeft } from "./document-gutter";
 import { $createVisualNode } from "./visual-node";
 
 // Top-level block types that carry text worth turning into a visual.
 const TEXT_BLOCK_TYPES = new Set(["paragraph", "heading", "quote", "list"]);
 
-const GUTTER_BUTTON_SIZE = 28;
-const GUTTER_GAP = 8;
-const GUTTER_OFFSET = GUTTER_BUTTON_SIZE + GUTTER_GAP;
 const PANEL_GAP = 8;
 
 type BlockInfo = {
   key: string;
   anchorTop: number;
-  anchorLeft: number;
   anchorHeight: number;
+  gutterLeft: number;
   text: string;
 };
-
-function textStartLeft(element: HTMLElement): number | null {
-  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-  while (walker.nextNode()) {
-    const textNode = walker.currentNode;
-    const text = textNode.textContent ?? "";
-    const firstContentOffset = text.search(/\S/);
-    if (firstContentOffset < 0) {
-      continue;
-    }
-    const range = document.createRange();
-    range.setStart(textNode, firstContentOffset);
-    range.setEnd(textNode, Math.min(firstContentOffset + 1, text.length));
-    const rect = range.getBoundingClientRect();
-    range.detach();
-    if (rect.width > 0 || rect.height > 0) {
-      return rect.left;
-    }
-  }
-  return null;
-}
 
 function closestListItem(
   target: HTMLElement,
@@ -100,21 +77,19 @@ function resolveAnchorRect(
   blockElement: HTMLElement,
   targetElement: HTMLElement,
   blockType: string,
-): { left: number; top: number; height: number } {
+): { top: number; height: number } {
   const blockRect = blockElement.getBoundingClientRect();
   if (blockType === "list") {
     const rowRect = (
       closestListItem(targetElement, blockElement) ?? blockElement
     ).getBoundingClientRect();
     return {
-      left: blockRect.left,
       top: rowRect.top,
       height: rowRect.height,
     };
   }
 
   return {
-    left: textStartLeft(blockElement) ?? blockRect.left,
     top: blockRect.top,
     height: blockRect.height,
   };
@@ -378,13 +353,17 @@ export function BlockSparkPlugin() {
       if (info === null) {
         return null;
       }
+      const gutterLeft = leftGutterButtonLeft(root.getBoundingClientRect());
+      if (gutterLeft === null) {
+        return null;
+      }
       const anchor = resolveAnchorRect(domEl, targetElement, info.type);
       return {
         key: info.key,
         text: info.text,
         anchorTop: anchor.top,
-        anchorLeft: anchor.left,
         anchorHeight: anchor.height,
+        gutterLeft,
       };
     },
     [editor],
@@ -664,7 +643,7 @@ export function BlockSparkPlugin() {
               transition={popMotion.transition}
               style={{
                 top: block.anchorTop + block.anchorHeight / 2 - 14,
-                left: block.anchorLeft - GUTTER_OFFSET,
+                left: block.gutterLeft,
               }}
               className={cx("fixed z-raised", GUTTER_BUTTON)}
             >

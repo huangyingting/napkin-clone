@@ -610,7 +610,6 @@ export function LexicalEditor({
                           <InlineCommentsLayer
                             documentId={documentId}
                             initialComments={initialComments}
-                            contentRef={contentAreaRef}
                           />
                         </div>
                       </div>

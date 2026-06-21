@@ -8,34 +8,26 @@ import {
   useMemo,
   useState,
   useTransition,
-  type RefObject,
 } from "react";
+import { createPortal } from "react-dom";
 
 import { createComment, type CommentThread } from "./comments-actions";
+import {
+  rightGutterButtonLeft,
+  rightGutterDotLeft,
+  rightGutterPanelLeft,
+} from "./document-gutter";
 
 const MAX_ANCHOR_TEXT_LENGTH = 280;
-const COMMENT_ICON_SIZE = 28;
-const COMMENT_GUTTER_GAP = 8;
-const COMMENT_DOT_GAP = 20;
-const COMMENT_CARD_GAP = 42;
 const COMMENT_CARD_WIDTH = 288;
 
 type AnchorPosition = {
   text: string;
   top: number;
-  right: number;
+  iconLeft: number;
+  dotLeft: number;
+  cardLeft: number;
 };
-
-function commentIconLeft(right: number): number {
-  return right + COMMENT_GUTTER_GAP;
-}
-
-function commentCardLeft(right: number): number {
-  return Math.min(
-    right + COMMENT_CARD_GAP,
-    window.innerWidth - COMMENT_CARD_WIDTH - COMMENT_GUTTER_GAP,
-  );
-}
 
 function normalizeAnchorText(value: string): string {
   return value.replace(/\s+/g, " ").trim().slice(0, MAX_ANCHOR_TEXT_LENGTH);
@@ -93,16 +85,23 @@ function blockAtY(root: HTMLElement, clientY: number): HTMLElement | null {
 
 function positionForBlock(
   block: HTMLElement,
-  container: HTMLElement,
+  root: HTMLElement,
 ): AnchorPosition | null {
   const text = normalizeAnchorText(block.textContent ?? "");
   if (!text) return null;
   const blockRect = block.getBoundingClientRect();
-  const containerRect = container.getBoundingClientRect();
+  const rootRect = root.getBoundingClientRect();
+  const iconLeft = rightGutterButtonLeft(rootRect);
+  const dotLeft = rightGutterDotLeft(rootRect);
+  if (iconLeft === null || dotLeft === null) {
+    return null;
+  }
   return {
     text,
-    top: blockRect.top - containerRect.top + blockRect.height / 2,
-    right: blockRect.right - containerRect.left,
+    top: blockRect.top + blockRect.height / 2,
+    iconLeft,
+    dotLeft,
+    cardLeft: rightGutterPanelLeft(rootRect, COMMENT_CARD_WIDTH),
   };
 }
 
@@ -125,11 +124,9 @@ function threadsByTextAnchor(
 export function InlineCommentsLayer({
   documentId,
   initialComments,
-  contentRef,
 }: {
   documentId: string;
   initialComments: CommentThread[];
-  contentRef: RefObject<HTMLElement | null>;
 }) {
   const [editor] = useLexicalComposerContext();
   const [threads, setThreads] = useState(initialComments);
@@ -142,9 +139,8 @@ export function InlineCommentsLayer({
   const byAnchor = useMemo(() => threadsByTextAnchor(threads), [threads]);
 
   const computeCommentDots = useCallback(() => {
-    const container = contentRef.current;
     const root = editor.getRootElement();
-    if (!container || !root) {
+    if (!root) {
       return [] as Array<AnchorPosition & { count: number }>;
     }
     const seen = new Set<string>();
@@ -153,7 +149,7 @@ export function InlineCommentsLayer({
       if (!(child instanceof HTMLElement) || !isTextBlock(child)) {
         continue;
       }
-      const position = positionForBlock(child, container);
+      const position = positionForBlock(child, root);
       if (!position || seen.has(position.text)) {
         continue;
       }
@@ -166,7 +162,7 @@ export function InlineCommentsLayer({
       }
     }
     return dots;
-  }, [byAnchor, contentRef, editor]);
+  }, [byAnchor, editor]);
 
   const [commentDots, setCommentDots] = useState<
     Array<AnchorPosition & { count: number }>
@@ -186,9 +182,8 @@ export function InlineCommentsLayer({
     let cleanupRoot: (() => void) | null = null;
 
     const updateActiveAnchorPosition = () => {
-      const container = contentRef.current;
       const root = rootElement;
-      if (!activeAnchor || !container || !root) {
+      if (!activeAnchor || !root) {
         return;
       }
       const block = Array.from(root.children).find(
@@ -197,7 +192,10 @@ export function InlineCommentsLayer({
           normalizeAnchorText(child.textContent ?? "") === activeAnchor.text,
       );
       if (block) {
-        setActiveAnchor(positionForBlock(block, container));
+        const next = positionForBlock(block, root);
+        if (next) {
+          setActiveAnchor(next);
+        }
       }
     };
 
@@ -222,12 +220,11 @@ export function InlineCommentsLayer({
 
       rootElement = root;
       const onMouseMove = (event: MouseEvent) => {
-        const container = contentRef.current;
-        if (!container || activeAnchor) return;
+        if (activeAnchor) return;
         const block =
           topLevelBlockForTarget(root, event.target) ??
           blockAtY(root, event.clientY);
-        setHoverAnchor(block ? positionForBlock(block, container) : null);
+        setHoverAnchor(block ? positionForBlock(block, root) : null);
       };
       root.addEventListener("mousemove", onMouseMove);
       const frame = requestAnimationFrame(refreshPositions);
@@ -245,7 +242,7 @@ export function InlineCommentsLayer({
       window.removeEventListener("scroll", onScrollOrResize, true);
       window.removeEventListener("resize", onScrollOrResize);
     };
-  }, [activeAnchor, contentRef, editor, refreshPositions]);
+  }, [activeAnchor, editor, refreshPositions]);
 
   const submit = useCallback(() => {
     const anchor = activeAnchor;
@@ -274,8 +271,12 @@ export function InlineCommentsLayer({
     : [];
   const iconAnchor = activeAnchor ?? hoverAnchor;
 
-  return (
-    <div className="pointer-events-none absolute inset-0 z-raised">
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(
+    <div className="pointer-events-none fixed inset-0 z-raised">
       {commentDots.map((dot) => (
         <button
           key={dot.text}
@@ -283,7 +284,7 @@ export function InlineCommentsLayer({
           aria-label={`${dot.count} comment${dot.count === 1 ? "" : "s"}`}
           onClick={() => setActiveAnchor(dot)}
           className="pointer-events-auto absolute flex h-3 w-3 -translate-y-1/2 items-center justify-center rounded-full bg-ds-warning shadow-sm ring-2 ring-ds-surface-raised"
-          style={{ top: dot.top, left: dot.right + COMMENT_DOT_GAP }}
+          style={{ top: dot.top, left: dot.dotLeft }}
         >
           <span className="sr-only">Open comments</span>
         </button>
@@ -297,10 +298,7 @@ export function InlineCommentsLayer({
           className="pointer-events-auto absolute flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-overlay text-ds-text-muted shadow-sm transition hover:text-ds-text-primary"
           style={{
             top: iconAnchor.top,
-            left: Math.min(
-              commentIconLeft(iconAnchor.right),
-              window.innerWidth - COMMENT_ICON_SIZE - COMMENT_GUTTER_GAP,
-            ),
+            left: iconAnchor.iconLeft,
           }}
         >
           <MessageSquare aria-hidden="true" className="h-3.5 w-3.5" />
@@ -312,7 +310,7 @@ export function InlineCommentsLayer({
           className="pointer-events-auto absolute w-72 -translate-y-2 rounded-xl border border-ds-border-subtle bg-ds-surface-overlay p-3 shadow-ds-popover"
           style={{
             top: activeAnchor.top,
-            left: commentCardLeft(activeAnchor.right),
+            left: activeAnchor.cardLeft,
           }}
         >
           <div className="mb-2 flex items-start justify-between gap-2">
@@ -386,6 +384,7 @@ export function InlineCommentsLayer({
           </div>
         </div>
       ) : null}
-    </div>
+    </div>,
+    document.body,
   );
 }
