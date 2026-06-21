@@ -10,7 +10,7 @@
  * logic for the server scripts that run as plain Node.js without tsx.
  */
 
-export type CollabDeploymentMode = "single-instance" | "unconfigured";
+type CollabDeploymentMode = "single-instance" | "unconfigured";
 
 export interface CollabDeploymentConfig {
   /** Explicitly declared mode, or 'unconfigured' if no declaration was made. */

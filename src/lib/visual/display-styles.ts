@@ -20,7 +20,7 @@
 import type { EdgeStyle, NodeShape, VisualStyle } from "@/lib/visual/schema";
 
 /** The color profile controlled by a display style. */
-export type DisplayStyleColors = Pick<
+type DisplayStyleColors = Pick<
   VisualStyle,
   | "palette"
   | "background"

@@ -31,7 +31,6 @@ import {
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { FOCUS_RING } from "@/components/motion/control-styles";
 import { useEditorContext } from "@/lib/lexical/editor-context";
-import { useIsPointerFine } from "@/lib/pointer";
 import {
   generateTargetForContext,
   isCreditError,
@@ -80,7 +79,7 @@ function useIsMac(): boolean {
 // Text-format toolbar content (inline, no floating/position logic).
 // ---------------------------------------------------------------------------
 
-function RailToolButton({
+function SheetToolButton({
   tool,
   active,
   shortcut,
@@ -125,7 +124,7 @@ function RailToolButton({
   );
 }
 
-function RailColorToolButton({
+function SheetColorToolButton({
   tool,
   active,
   value,
@@ -260,7 +259,7 @@ function TextFormatSection() {
             previous !== undefined && previous.section !== tool.section;
           if (tool.control === "color") {
             return (
-              <RailColorToolButton
+              <SheetColorToolButton
                 key={tool.id}
                 tool={tool}
                 active={isToolActive(tool, ctx)}
@@ -272,7 +271,7 @@ function TextFormatSection() {
             );
           }
           return (
-            <RailToolButton
+            <SheetToolButton
               key={tool.id}
               tool={tool}
               active={isToolActive(tool, ctx)}
@@ -611,7 +610,7 @@ function GenerateVisualSection() {
 }
 
 // ---------------------------------------------------------------------------
-// MobileEditingSheet — FAB + slide-up bottom sheet for sub-lg viewports.
+// MobileEditingSheet — FAB + slide-up bottom sheet for coarse pointers.
 // ---------------------------------------------------------------------------
 
 /**
@@ -771,14 +770,12 @@ function MobileEditingSheet() {
 }
 
 // ---------------------------------------------------------------------------
-export function EditingRail({ editable = true }: { editable?: boolean }) {
-  const pointerFine = useIsPointerFine();
-
+export function MobileEditingSheetHost({
+  editable = true,
+}: {
+  editable?: boolean;
+}) {
   if (!editable) {
-    return null;
-  }
-
-  if (pointerFine) {
     return null;
   }
 

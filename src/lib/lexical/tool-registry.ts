@@ -97,7 +97,7 @@ export type EditorToolGroup =
  * between related clusters of tools (e.g. inline formats vs. block types vs.
  * lists in the text toolbar). Purely presentational.
  */
-export type EditorToolSection = string;
+type EditorToolSection = string;
 
 /**
  * How a tool renders in its surface. Most tools are `"button"` (a single
@@ -105,7 +105,7 @@ export type EditorToolSection = string;
  * (text color / highlight) — they read their value from the snapshot and write
  * an inline style on the selection.
  */
-export type EditorToolControl = "button" | "color";
+type EditorToolControl = "button" | "color";
 
 export type EditorTool = {
   /** Stable, unique id (also used as the React key). */

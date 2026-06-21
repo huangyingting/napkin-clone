@@ -26,19 +26,19 @@ export type AnchorRect = {
 };
 
 /** The measured size of the floating element. */
-export type FloatSize = {
+type FloatSize = {
   width: number;
   height: number;
 };
 
 /** The size of the viewport the float must stay within. */
-export type ViewportSize = {
+type ViewportSize = {
   width: number;
   height: number;
 };
 
 /** Which side of the anchor the float prefers to sit on. */
-export type Placement = "top" | "bottom" | "left" | "right";
+type Placement = "top" | "bottom" | "left" | "right";
 
 export type AnchoredPositionInput = {
   /** Rect of the anchor (e.g. the text selection or the visual card). */

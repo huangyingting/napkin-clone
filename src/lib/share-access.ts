@@ -25,7 +25,7 @@
 export type ShareMode = "view" | "embed" | "present";
 
 /** Structured reason a share request was denied (for logging/observability). */
-export type ShareDenyReason =
+type ShareDenyReason =
   | "not-shared"
   | "revoked"
   | "deleted"

@@ -27,7 +27,7 @@ export interface GenerateOptions {
 }
 
 /** Distinguishes credit/quota errors from generic generation errors. */
-export type GenerateErrorKind = "credit" | "other";
+type GenerateErrorKind = "credit" | "other";
 
 /** Result of a generation request: either usable candidates or a user-facing error. */
 export type GenerateResult =

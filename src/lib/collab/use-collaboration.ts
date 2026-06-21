@@ -18,26 +18,6 @@ export type Peer = {
   self: boolean;
 };
 
-export type Collaboration = {
-  doc: Y.Doc;
-  ycontent: Y.Text;
-  ytitle: Y.Text;
-  ystate: Y.Map<unknown>;
-  status: CollabStatus;
-  /** True once the initial server sync (or degraded fallback) has happened. */
-  ready: boolean;
-  /** True specifically when connected and synced (not degraded). */
-  synced: boolean;
-  peers: Peer[];
-  localOrigin: symbol;
-  /** Seeds shared state from the DB once, guarded so peers don't double-seed. */
-  seed: (values: {
-    content: string;
-    title: string;
-    visual: string | null;
-  }) => void;
-};
-
 type EditableElement = HTMLTextAreaElement | HTMLInputElement;
 
 /**

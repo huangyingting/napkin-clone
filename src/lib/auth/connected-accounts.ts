@@ -35,7 +35,7 @@ export function isGoogleLinkedImage(image: string | null | undefined): boolean {
 }
 
 /** A sign-in method we can surface in settings. */
-export type ConnectedAccountProvider = "password" | "google";
+type ConnectedAccountProvider = "password" | "google";
 
 export interface ConnectedAccount {
   provider: ConnectedAccountProvider;

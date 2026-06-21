@@ -20,7 +20,7 @@ export interface ExportUserInput {
   createdAt: Date;
 }
 
-export interface ExportVisualInput {
+interface ExportVisualInput {
   id: string;
   type: string;
   title: string | null;

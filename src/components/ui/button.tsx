@@ -2,7 +2,7 @@ import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 
 import { cx, FOCUS_RING, RADIUS } from "./tokens";
 
-export type ButtonVariant = "solid" | "subtle" | "plain" | "danger";
+type ButtonVariant = "solid" | "subtle" | "plain" | "danger";
 export type ButtonSize = "sm" | "md";
 
 /** Variant → class string. All colors resolve to `--ds-*` tokens. */

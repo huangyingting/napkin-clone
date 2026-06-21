@@ -121,7 +121,7 @@ export const INFOGRAPHIC_WIDTH_PRESETS: Record<
 // ---------------------------------------------------------------------------
 
 /** Layout geometry for a single block. */
-export interface BlockLayout {
+interface BlockLayout {
   /** Index of the source block in the original `blocks` array. */
   blockIndex: number;
   /** Y-offset of the block's top edge from the canvas top, in px. */

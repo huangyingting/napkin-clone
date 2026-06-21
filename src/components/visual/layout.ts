@@ -245,7 +245,7 @@ export function resizeNodeBox({
   };
 }
 
-export interface ChartBar {
+interface ChartBar {
   node: VisualNode;
   value: number;
   /** Bar column center X. */
@@ -312,7 +312,7 @@ export function chartLayout(visual: Visual): ChartLayout {
   };
 }
 
-export interface ListCard {
+interface ListCard {
   node: VisualNode;
   /** Card top edge Y. */
   cardY: number;
@@ -368,7 +368,7 @@ export function listLayout(visual: Visual): ListLayout {
   };
 }
 
-export interface TimelineStep {
+interface TimelineStep {
   node: VisualNode;
   index: number;
   /** Marker/badge center X on the axis. */
@@ -510,7 +510,7 @@ export function cycleLayout(visual: Visual): CycleLayout {
   return { cx, cy, radius, placements };
 }
 
-export interface ComparisonCell {
+interface ComparisonCell {
   node: VisualNode;
   /** Zero-based column index (left to right). */
   column: number;
@@ -526,7 +526,7 @@ export interface ComparisonCell {
   height: number;
 }
 
-export interface ComparisonColumn {
+interface ComparisonColumn {
   /** Grouping key (rounded `node.value`, default 0). */
   key: number;
   /** Column center X. */
@@ -618,7 +618,7 @@ export function comparisonLayout(visual: Visual): ComparisonLayout {
   };
 }
 
-export interface FunnelBand {
+interface FunnelBand {
   node: VisualNode;
   index: number;
   value: number;
@@ -692,7 +692,7 @@ export function funnelLayout(visual: Visual): FunnelLayout {
   return { marginX, top, cx, bandHeight, bandGap, bands };
 }
 
-export interface PyramidBand {
+interface PyramidBand {
   node: VisualNode;
   index: number;
   /** Band center X (the canvas center). */
@@ -762,7 +762,7 @@ export function pyramidLayout(visual: Visual): PyramidLayout {
   return { marginX, top, cx, bandHeight, bandGap, bands };
 }
 
-export interface MatrixQuadrant {
+interface MatrixQuadrant {
   /** 0=top-left, 1=top-right, 2=bottom-left, 3=bottom-right */
   quadrant: number;
   nodes: VisualNode[];

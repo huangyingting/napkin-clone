@@ -47,8 +47,6 @@ import {
   type InfographicConfig,
 } from "@/lib/visual/infographic-layout";
 
-export type { InfographicConfig };
-
 // ---------------------------------------------------------------------------
 // Page-break helpers (pure, browser-free)
 // ---------------------------------------------------------------------------
@@ -108,14 +106,9 @@ export function computePageBreaks(
 // Block types
 // ---------------------------------------------------------------------------
 
-export type TextBlockKind =
-  | "paragraph"
-  | "heading"
-  | "quote"
-  | "listitem"
-  | "hr";
+type TextBlockKind = "paragraph" | "heading" | "quote" | "listitem" | "hr";
 
-export type DocumentTextBlock = {
+type DocumentTextBlock = {
   kind: "text";
   blockType: TextBlockKind;
   /** Heading level (1–3) — only present when blockType === "heading" */
@@ -124,7 +117,7 @@ export type DocumentTextBlock = {
   text: string;
 };
 
-export type DocumentVisualBlock = {
+type DocumentVisualBlock = {
   kind: "visual";
   visualId: string;
   visual: Visual;

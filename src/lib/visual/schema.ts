@@ -39,23 +39,7 @@ export type VisualKind = (typeof VISUAL_KINDS)[number];
  * This is the uppercase form of `VisualKind` and replaces the generated Prisma
  * `VisualType` enum so the schema stays portable across Postgres and SQLite.
  */
-const VISUAL_TYPES = [
-  "FLOWCHART",
-  "MINDMAP",
-  "LIST",
-  "CHART",
-  "CONCEPT",
-  "TIMELINE",
-  "CYCLE",
-  "COMPARISON",
-  "FUNNEL",
-  "VENN",
-  "PYRAMID",
-  "MATRIX",
-  "ORGCHART",
-] as const;
-
-export type VisualType = (typeof VISUAL_TYPES)[number];
+export type VisualType = Uppercase<VisualKind>;
 
 export const NODE_SHAPES = [
   "rectangle",
@@ -121,7 +105,7 @@ const EFFECT_KINDS = ["shadow", "sketch"] as const;
 export type EffectKind = (typeof EFFECT_KINDS)[number];
 
 /** A drop-shadow effect rendered via SVG `<feDropShadow>`. */
-export interface ShadowEffect {
+interface ShadowEffect {
   kind: "shadow";
   /** Horizontal shadow offset in canvas units. Default 4. */
   dx?: number;
@@ -137,7 +121,7 @@ export interface ShadowEffect {
  * A hand-drawn / sketch look rendered via SVG `<feTurbulence>` +
  * `<feDisplacementMap>`. Applies a subtle jitter to all strokes and fills.
  */
-export interface SketchEffect {
+interface SketchEffect {
   kind: "sketch";
   /** `feTurbulence` baseFrequency. Controls the coarseness of the jitter. Default 0.04. */
   frequency?: number;

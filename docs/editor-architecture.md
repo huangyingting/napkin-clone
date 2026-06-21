@@ -2,9 +2,9 @@
 
 The document editor pairs a Lexical rich-text surface with **visual blocks**
 (flowcharts, mind maps, charts, …) and a set of **context-aware surfaces**
-(a floating text toolbar, a mobile bottom sheet, a docked side rail, a `+`/`/`
-insert menu, and a per-visual editing popover). This document explains how those
-pieces fit together and how to extend them safely.
+(a floating text toolbar, a mobile bottom sheet, a `+`/`/` insert menu, and a
+per-visual editing popover). This document explains how those pieces fit
+together and how to extend them safely.
 
 ## Overview & goals
 
@@ -36,11 +36,10 @@ flowchart TD
   state -->|"read-only derivation"| ctx["EditorContextProvider<br/>readSelectionDescriptor()"]
 
   ctx -->|"useEditorContext() snapshot"| resolver["useEditingSurface()<br/>resolveEditingSurface()<br/>→ { mode, group }"]
-  inputs["pointer · widthTier · dockedPreference"] -->|runtime inputs| resolver
+  inputs["pointer · selection"] -->|runtime inputs| resolver
 
   resolver -->|"mode=float"| toolbar["FloatingTextToolbar"]
   resolver -->|"mode=sheet"| sheet["MobileEditingSheet"]
-  resolver -->|"mode=docked"| rail["DockedRail"]
 
   ctx -->|snapshot| menu["Insert menu (+ / /)"]
   ctx -->|snapshot| vpop["VisualContextPopover"]
@@ -48,19 +47,16 @@ flowchart TD
   registry["ToolRegistry<br/>toolsFor(group, ctx)"]
   registry --> toolbar
   registry --> sheet
-  registry --> rail
   registry --> menu
 
   toolbar -->|"tool.run(editor, ctx)"| cmds["Lexical commands / editor.update()"]
   sheet -->|"tool.run(editor, ctx)"| cmds
-  rail -->|"tool.run(editor, ctx)"| cmds
   menu -->|"tool.run(editor, ctx)"| cmds
   vpop -->|"transform(visual) → node.setVisual()"| cmds
   cmds --> state
 
   ui["src/components/ui/ primitives<br/>(Surface, Button, FloatingSurface, …)"] -.renders.-> toolbar
   ui -.renders.-> sheet
-  ui -.renders.-> rail
   ui -.renders.-> menu
   ui -.renders.-> vpop
 ```
@@ -148,19 +144,17 @@ per-surface ad-hoc visibility checks that previously lived in
 
 #### Inputs
 
-The resolver takes four inputs — all gathered by the React bridge
+The resolver takes two inputs — both gathered by the React bridge
 [`useEditingSurface()`](../src/app/app/documents/%5Bid%5D/use-editing-surface.ts):
 
-| Input              | Source                                                            | Values                              |
-| ------------------ | ----------------------------------------------------------------- | ----------------------------------- |
-| `pointerFine`      | `useIsPointerFine()` — `matchMedia("(pointer: fine)")`            | `true` \| `false`                   |
-| `widthTier`        | `useIsWideViewport()` — `matchMedia("(min-width: 1024px)")`       | `">=lg"` \| `"<lg"`                 |
-| `selectionKind`    | `selectionKindFromContext(useEditorContext().kind)`               | `"range"` \| `"visual"` \| `"none"` |
-| `dockedPreference` | `useDockedPreference()` — localStorage via `useSyncExternalStore` | `"on"` \| `"off"`                   |
+| Input           | Source                                                 | Values                              |
+| --------------- | ------------------------------------------------------ | ----------------------------------- |
+| `pointerFine`   | `useIsPointerFine()` — `matchMedia("(pointer: fine)")` | `true` \| `false`                   |
+| `selectionKind` | `selectionKindFromContext(useEditorContext().kind)`    | `"range"` \| `"visual"` \| `"none"` |
 
-Both `useIsPointerFine` and `useIsWideViewport` default to `true` on the server
-(SSR) so the initial render is always fully populated; they resolve the real
-value on the first client render (progressive enhancement).
+`useIsPointerFine` defaults to `true` on the server (SSR) so the initial render
+is fully populated; it resolves the real value on the first client render
+(progressive enhancement).
 
 #### Group
 
@@ -182,53 +176,42 @@ everything else (`"none"`, `"empty-block"`, `"collapsed"`) → `"none"`.
 
 #### Modes
 
-`resolveEditingSurface()` returns one of four modes:
+`resolveEditingSurface()` returns one of three modes:
 
-| Mode       | Where it renders                                                            |
-| ---------- | --------------------------------------------------------------------------- |
-| `"float"`  | `FloatingTextToolbar` — anchored popover above the text selection           |
-| `"sheet"`  | `MobileEditingSheet` — FAB + slide-up bottom sheet (coarse pointer, sub-lg) |
-| `"docked"` | `DockedRail` — persistent 320 px right-side panel (opt-in, ≥ lg)            |
-| `"none"`   | Nothing shown (group is still returned)                                     |
+| Mode      | Where it renders                                                      |
+| --------- | --------------------------------------------------------------------- |
+| `"float"` | Anchored popover for text selections or selected visuals              |
+| `"sheet"` | Slide-up bottom sheet for text selections or selected visuals         |
+| `"none"`  | No contextual surface; document-level controls live in the top chrome |
 
-#### Precedence rules (R1 → R4)
+#### Precedence rules (R1 → R3)
 
-The resolver applies four rules in strict order, short-circuiting on the first
+The resolver applies three rules in strict order, short-circuiting on the first
 match:
 
-| Rule   | Condition                                              | Result                                     |
-| ------ | ------------------------------------------------------ | ------------------------------------------ |
-| **R1** | `dockedPreference === "on"` AND `widthTier === ">=lg"` | `"docked"` for **all** selection kinds     |
-| **R2** | `dockedPreference === "on"` AND `widthTier === "<lg"`  | ignored — fall through to R3/R4            |
-| **R3** | `selectionKind ∈ {range, visual}`                      | `pointerFine ? "float" : "sheet"`          |
-| **R4** | `selectionKind === "none"`                             | `widthTier === ">=lg" ? "docked" : "none"` |
+| Rule   | Condition                            | Result    |
+| ------ | ------------------------------------ | --------- |
+| **R1** | `selectionKind === "none"`           | `"none"`  |
+| **R2** | text/visual context + fine pointer   | `"float"` |
+| **R3** | text/visual context + coarse pointer | `"sheet"` |
 
-R4 means the docked panel appears at desktop width even when nothing is
-selected (showing `OverallAdjustmentsPanel`). On mobile with nothing selected,
-mode is `"none"` and no surface renders.
+Document-level adjustments are intentionally excluded from contextual surfaces;
+they are opened from the top toolbar.
 
-The function is total over its 2 × 2 × 3 × 2 = 24 input combinations and is
+The function is total over its 2 × 3 = 6 input combinations and is
 exhaustively covered by
 [`editing-surface.test.ts`](../src/lib/lexical/editing-surface.test.ts).
 
-#### Docked preference
-
-[`src/app/app/documents/[id]/docked-preference.tsx`](../src/app/app/documents/%5Bid%5D/docked-preference.tsx)
-persists the user's choice in `localStorage` via `useSyncExternalStore`. The
-SSR default is `"off"`, which makes `resolveEditingSurface` reproduce the
-classic float/sheet behaviour exactly — no change in the initial render.
-`DockedPreferenceToggle` (exported from
-[`editing-rail.tsx`](../src/app/app/documents/%5Bid%5D/editing-rail.tsx)) is
-the UI control that flips the preference; it is mounted in the `DockedRail`
-header and at ≥ lg breakpoint only.
-
 ### Shared UI primitives
 
-[`src/components/ui/`](../src/components/ui/) (re-exported from
-[`index.ts`](../src/components/ui/index.ts)) holds the surface primitives —
-`Surface`, `Button`/`IconButton`, `SegmentedControl`, `FloatingSurface`,
-`Tooltip`, `Divider`, `Swatch`, `ColorPicker`. They consume the `--ds-*` chrome
-tokens, so every surface looks like one system in both light and dark mode.
+[`src/components/ui/`](../src/components/ui/) holds the surface primitives.
+The barrel [`index.ts`](../src/components/ui/index.ts) exports the primitives
+used as shared editor chrome (`Surface`, `Button`/`IconButton`,
+`SegmentedControl`, `FloatingSurface`, `Tooltip`, `Divider`, `Popover`,
+`ColorPicker`, and token helpers); route-specific primitives such as `Dialog`,
+`Switch`, `Skeleton`, and `Swatch` are imported directly from their files. They
+consume the `--ds-*` chrome tokens, so every surface looks like one system in
+both light and dark mode.
 
 Shared control class strings (focus ring, gutter button, toggle states) live in
 [`src/components/motion/control-styles.ts`](../src/components/motion/control-styles.ts)

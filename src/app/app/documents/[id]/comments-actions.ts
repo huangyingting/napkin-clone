@@ -11,7 +11,7 @@ import { unreadCommentCount } from "./comment-unread";
 
 export type CommentAnchorType = "text" | "visual";
 
-export type CommentAuthor = {
+type CommentAuthor = {
   id: string;
   name: string;
 };

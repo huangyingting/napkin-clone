@@ -25,7 +25,7 @@ import type { EditorContextKind } from "./editor-context";
  * - `"none"` — no contextual surface is shown (document-wide adjustments live
  *   in the top toolbar, not near the caret/canvas).
  */
-export type EditingSurfaceMode = "float" | "sheet" | "none";
+type EditingSurfaceMode = "float" | "sheet" | "none";
 
 /**
  * Which content group a surface should host. This is purely selection-derived

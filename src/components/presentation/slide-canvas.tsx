@@ -75,7 +75,7 @@ export const DECK_THEMES: Record<DeckTheme, ThemeConfig> = {
 // Slide layout components
 // ---------------------------------------------------------------------------
 
-export interface SlideProps {
+interface SlideProps {
   slide: Slide;
   tc: ThemeConfig;
   visuals: ReadonlyMap<string, Visual>;

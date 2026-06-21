@@ -51,11 +51,11 @@ import {
 } from "@/components/editor/toolbar-button";
 import { VisualSvgRegistryProvider } from "@/components/editor/visual-svg-registry";
 import { Popover } from "@/components/ui";
-import { EditingRail } from "./editing-rail";
 import { FloatingTextToolbar } from "./floating-text-toolbar";
 import { ImportPlugin } from "./import-plugin";
 import { InsertMenuPlugin } from "./insert-menu";
 import { InsertVisualPlugin } from "./insert-visual-plugin";
+import { MobileEditingSheetHost } from "./mobile-editing-sheet";
 import { Presence } from "./presence";
 import { OverallAdjustmentsPanel } from "./overall-adjustments-panel";
 import { ShareButton } from "./share-button";
@@ -694,7 +694,7 @@ export function LexicalEditor({
                       </div>
 
                       {/* Context toolbox host — visual/text popovers on fine pointers, sheet on coarse pointers */}
-                      <EditingRail editable={editable} />
+                      <MobileEditingSheetHost editable={editable} />
                     </div>
                   </VisualPanelProvider>
                 </EditorContextProvider>

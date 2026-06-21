@@ -36,7 +36,7 @@ export type LiveVisualNode<TData = unknown> = {
   dataKey: string;
 };
 
-export type VisualCreate<TData = unknown> = {
+type VisualCreate<TData = unknown> = {
   anchorBlockId: string;
   orderIndex: number;
   type: string;
@@ -44,7 +44,7 @@ export type VisualCreate<TData = unknown> = {
   data: TData;
 };
 
-export type VisualUpdate<TData = unknown> = {
+type VisualUpdate<TData = unknown> = {
   id: string;
   orderIndex: number;
   type: string;

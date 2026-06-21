@@ -128,7 +128,7 @@ export type PptxTextSpec = {
  * Returned when the visual kind cannot be reasonably represented as native
  * PowerPoint shapes (currently: funnel, pyramid).
  */
-export type PptxImageFallbackSpec = {
+type PptxImageFallbackSpec = {
   kind: "image-fallback";
 };
 

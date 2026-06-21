@@ -51,8 +51,8 @@ export type EditorContextKind =
   | "visual" // a VisualNode (decorator) is selected
   | "none"; // no usable selection / editor blurred
 
-/** Top-level block type, matching what `floating-toolbar.tsx` derives today. */
-export type EditorBlockType =
+/** Top-level block type, matching what `floating-text-toolbar.tsx` derives today. */
+type EditorBlockType =
   | "paragraph"
   | "h1"
   | "h2"
@@ -62,7 +62,7 @@ export type EditorBlockType =
   | "number";
 
 /** Inline text formats tracked on the active selection. */
-export type EditorTextFormat =
+type EditorTextFormat =
   | "bold"
   | "italic"
   | "underline"
@@ -79,7 +79,7 @@ export type RectSnapshot = {
   height: number;
 };
 
-export type EditorContextRects = {
+type EditorContextRects = {
   /** Bounding rect of the native text selection range (floating toolbar). */
   selection: RectSnapshot | null;
   /** Bounding rect of the active top-level block element (gutter / menus). */

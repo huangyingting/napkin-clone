@@ -8,7 +8,7 @@
 import type { VisualStyle } from "@/lib/visual/schema";
 
 /** The style fields a theme controls (colors only — typography is preserved). */
-export type ThemeColors = Pick<
+type ThemeColors = Pick<
   VisualStyle,
   | "palette"
   | "background"
