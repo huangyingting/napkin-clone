@@ -36,6 +36,7 @@ import {
 import {
   clampSlideIndex,
   formatProgress,
+  resolveSwipeNavigation,
 } from "@/lib/presentation/slide-helpers";
 import { FOCUS_RING } from "@/components/motion/control-styles";
 
@@ -171,6 +172,26 @@ export function PresentMode({
   const goPrev = useCallback(() => {
     setCurrentIndex((i) => clampSlideIndex(i - 1, total));
   }, [total]);
+
+  // Touch / swipe navigation — mirrors the public viewer so in-app present
+  // supports the same left/right swipe gesture (issue #209).
+  const touchStartXRef = useRef<number | null>(null);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+  }, []);
+
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      if (touchStartXRef.current === null) return;
+      const dx = e.changedTouches[0].clientX - touchStartXRef.current;
+      touchStartXRef.current = null;
+      const intent = resolveSwipeNavigation(dx);
+      if (intent === "next") goNext();
+      else if (intent === "prev") goPrev();
+    },
+    [goNext, goPrev],
+  );
 
   const handleClose = useCallback(async () => {
     // Await the fullscreen exit before unmounting so the browser finishes the
@@ -314,6 +335,8 @@ export function PresentMode({
       className="fixed inset-0 z-modal flex flex-col select-none outline-none"
       style={{ backgroundColor: tc.bgColor }}
       tabIndex={-1}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       {/* ------------------------------------------------------------------ */}
       {/* HUD — top bar (progress + controls)                                  */}

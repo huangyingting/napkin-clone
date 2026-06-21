@@ -55,3 +55,28 @@ export function slideIndexFromHash(hash: string, total: number): number {
 export function hashFromSlideIndex(index: number): string {
   return `#${Math.max(0, Math.floor(index)) + 1}`;
 }
+
+/** Minimum horizontal travel (px) for a swipe to count as a navigation. */
+export const SWIPE_THRESHOLD_PX = 50;
+
+/**
+ * Resolves a horizontal swipe into a slide-navigation intent, mirroring the
+ * public viewer's gesture: a left swipe advances, a right swipe goes back, and
+ * anything shorter than `threshold` is ignored as an incidental touch.
+ *
+ * Pure and DOM-free so both the public viewer and in-app Present mode can share
+ * the same swipe semantics under unit test.
+ *
+ * @param deltaX     Horizontal travel: end clientX minus start clientX.
+ * @param threshold  Minimum absolute travel to register (defaults to
+ *                   {@link SWIPE_THRESHOLD_PX}).
+ * @returns `"next"` for a left swipe, `"prev"` for a right swipe, or `null`
+ *          when the gesture is too short to be intentional.
+ */
+export function resolveSwipeNavigation(
+  deltaX: number,
+  threshold: number = SWIPE_THRESHOLD_PX,
+): "next" | "prev" | null {
+  if (Math.abs(deltaX) < threshold) return null;
+  return deltaX < 0 ? "next" : "prev";
+}

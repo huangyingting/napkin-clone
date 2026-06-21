@@ -31,6 +31,7 @@ import {
   Image as ImageIcon,
   LayoutPanelLeft,
   List,
+  PanelRight,
   Plus,
   Redo2,
   RefreshCw,
@@ -111,6 +112,7 @@ import {
   type ElementPatch,
 } from "@/lib/presentation/deck-mutations";
 import { deriveSlideTitle } from "@/lib/presentation/slide-title";
+import { reorderTargetIndex } from "@/lib/presentation/slide-reorder";
 import { useDeckHistory } from "@/lib/presentation/use-deck-history";
 
 interface SlideEditorProps {
@@ -239,6 +241,9 @@ export function SlideEditor({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  // Whether the mobile inspector bottom sheet is open (below `lg`; the inspector
+  // is a fixed side pane at `lg+`). Issue #209.
+  const [inspectorSheetOpen, setInspectorSheetOpen] = useState(false);
   const [viewportSize, setViewportSize] = useState<Size>(getViewportSize);
   const [stageBounds, setStageBounds] = useState<Size>(DEFAULT_SCREEN_SIZE);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(
@@ -263,6 +268,15 @@ export function SlideEditor({
     () => new Set(),
   );
   const stageRef = useRef<HTMLDivElement>(null);
+  // Thumbnail rail list element — measured during a pointer reorder to map the
+  // pointer position to a drop target (works for both the vertical rail and the
+  // horizontal mobile strip). Issue #209.
+  const railListRef = useRef<HTMLUListElement>(null);
+  // Live reorder drag, tracked in a ref so the window pointer listeners always
+  // read the latest source/target without re-subscribing on every move.
+  const reorderRef = useRef<{ fromIndex: number; overIndex: number } | null>(
+    null,
+  );
 
   // ── Autosave + save-status feedback (issue #208) ───────────────────────────
   // Mirrors the document editor: a debounced autosave persists deck edits a
@@ -524,7 +538,9 @@ export function SlideEditor({
 
       if (event.key === "Escape") {
         event.preventDefault();
-        if (effectiveSelectedElementId) {
+        if (inspectorSheetOpen) {
+          setInspectorSheetOpen(false);
+        } else if (effectiveSelectedElementId) {
           setSelectedElementId(null);
         } else {
           handleRequestClose();
@@ -645,6 +661,7 @@ export function SlideEditor({
     deck,
     safeSelected,
     effectiveSelectedElementId,
+    inspectorSheetOpen,
     onDeckChange,
     undo,
     redo,
@@ -671,17 +688,80 @@ export function SlideEditor({
     [deck, onDeckChange],
   );
 
-  const handleDrop = useCallback(
-    (toIndex: number) => {
-      if (dragIndex !== null && dragIndex !== toIndex) {
-        onDeckChange(reorderSlides(deck, dragIndex, toIndex));
-        setSelectedIndex(toIndex);
+  // ── Pointer-based thumbnail reorder (issue #209) ───────────────────────────
+  // Migrated from HTML5 drag-and-drop (no touch support) to the Pointer API used
+  // by the stage editor, so reordering works with touch. Keyboard ↑/↓ reorder
+  // (the move buttons, issue #212) and the reorderSlides mutation are unchanged.
+  const beginReorder = useCallback(
+    (event: React.PointerEvent, index: number) => {
+      // Only react to the primary button / a touch or pen contact.
+      if (event.button != null && event.button !== 0) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      reorderRef.current = { fromIndex: index, overIndex: index };
+      setDragIndex(index);
+      setDragOverIndex(index);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (dragIndex === null) {
+      return;
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const list = railListRef.current;
+      const drag = reorderRef.current;
+      if (!list || !drag) {
+        return;
+      }
+      const items = Array.from(
+        list.querySelectorAll<HTMLElement>("[data-slide-thumb]"),
+      );
+      if (items.length === 0) {
+        return;
+      }
+      const rects = items.map((item) => item.getBoundingClientRect());
+      // The rail is vertical (desktop/tablet) or a horizontal strip (phone);
+      // pick the axis from how the first two thumbnails are laid out.
+      const vertical =
+        rects.length < 2 ||
+        Math.abs(rects[1].top - rects[0].top) >=
+          Math.abs(rects[1].left - rects[0].left);
+      const pointer = vertical ? event.clientY : event.clientX;
+      const extents = rects.map((rect) =>
+        vertical
+          ? { start: rect.top, end: rect.bottom }
+          : { start: rect.left, end: rect.right },
+      );
+      const target = reorderTargetIndex(pointer, extents);
+      drag.overIndex = target;
+      setDragOverIndex(target);
+    };
+
+    const handlePointerUp = () => {
+      const drag = reorderRef.current;
+      reorderRef.current = null;
+      if (drag && drag.overIndex !== drag.fromIndex) {
+        onDeckChange(reorderSlides(deck, drag.fromIndex, drag.overIndex));
+        setSelectedIndex(drag.overIndex);
       }
       setDragIndex(null);
       setDragOverIndex(null);
-    },
-    [deck, dragIndex, onDeckChange],
-  );
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
+  }, [dragIndex, deck, onDeckChange]);
 
   const handleSave = useCallback(() => {
     void flushSave();
@@ -833,6 +913,39 @@ export function SlideEditor({
     },
     [deck, onDeckChange, safeSelected],
   );
+
+  // Shared inspector props, rendered into the desktop side pane (`lg+`) and the
+  // mobile bottom sheet (below `lg`) so both surfaces edit the same slide with
+  // identical behaviour. Issue #209.
+  const inspectorProps = selectedSlide
+    ? {
+        slide: selectedSlide,
+        slideIndex: safeSelected,
+        visuals,
+        selectedElementId: effectiveSelectedElementId,
+        onSelectElement: handleSelectElement,
+        canDelete: deck.slides.length > 1,
+        onDuplicateSlide: () => handleDuplicate(safeSelected),
+        onRemoveSlide: () => handleRemove(safeSelected),
+        onTitleChange: (title: string) =>
+          handleTitleChange(safeSelected, title),
+        onLayoutChange: (layout: SlideLayout) =>
+          handleLayoutChange(safeSelected, layout),
+        onBulletsChange: (value: string) =>
+          handleBulletsChange(safeSelected, value),
+        onMaterialize: handleMaterialize,
+        onAddElement: handleAddElement,
+        onAddVisual: handleAddVisual,
+        onUpdateElement: handleUpdateElement,
+        onRemoveElement: handleRemoveElement,
+        onBringToFront: handleBringToFront,
+        onSendToBack: handleSendToBack,
+        onBackgroundChange: handleBackgroundChange,
+        onAccentChange: handleAccentChange,
+        onNotesChange: (notes: string) =>
+          handleNotesChange(safeSelected, notes),
+      }
+    : null;
 
   return createPortal(
     <div
@@ -1013,35 +1126,28 @@ export function SlideEditor({
       ) : null}
 
       {/* ── Body: thumbnail rail · stage · inspector ────────────────────── */}
-      <div className="flex min-h-0 flex-1">
-        {/* Slide thumbnail rail */}
-        <aside className="flex w-56 shrink-0 flex-col border-r border-ds-border-subtle">
-          <div className="min-h-0 flex-1 overflow-y-auto p-3">
-            <ul className="flex flex-col gap-2">
+      {/* Stacks vertically on phones (rail becomes a top strip), three-pane row
+          from `sm` up. Issue #209. */}
+      <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
+        {/* Slide thumbnail rail — vertical column from `sm`, horizontal scrolling
+            strip below `sm`. */}
+        <aside className="flex w-full shrink-0 flex-col border-b border-ds-border-subtle sm:w-56 sm:border-b-0 sm:border-r">
+          <div className="flex min-h-0 flex-1 gap-2 overflow-x-auto p-3 sm:block sm:gap-0 sm:overflow-x-visible sm:overflow-y-auto">
+            <ul ref={railListRef} className="flex flex-row gap-2 sm:flex-col">
               {deck.slides.map((slide, index) => {
                 const selected = index === safeSelected;
                 const dropTarget =
                   dragOverIndex === index && dragIndex !== index;
+                const dragging = dragIndex === index;
                 const title = deriveSlideTitle(slide, index);
                 const canDelete = deck.slides.length > 1;
                 return (
                   <li
                     key={index}
-                    draggable
-                    onDragStart={() => setDragIndex(index)}
-                    onDragOver={(event) => {
-                      event.preventDefault();
-                      setDragOverIndex(index);
-                    }}
-                    onDragEnd={() => {
-                      setDragIndex(null);
-                      setDragOverIndex(null);
-                    }}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      handleDrop(index);
-                    }}
-                    className="group relative"
+                    data-slide-thumb
+                    className={`group relative w-40 shrink-0 sm:w-auto ${
+                      dragging ? "opacity-60" : ""
+                    }`}
                   >
                     <button
                       type="button"
@@ -1060,11 +1166,6 @@ export function SlideEditor({
                       <span className="flex items-center gap-2">
                         <span className="flex w-4 shrink-0 flex-col items-center gap-1 text-xs tabular-nums text-ds-text-muted">
                           {index + 1}
-                          <GripVertical
-                            size={12}
-                            aria-hidden="true"
-                            className="cursor-grab opacity-0 transition-opacity group-hover:opacity-100"
-                          />
                         </span>
                         <span className="pointer-events-none block aspect-video min-w-0 flex-1 overflow-hidden rounded-ds-sm border border-ds-border-subtle">
                           <SlideCanvas
@@ -1081,6 +1182,20 @@ export function SlideEditor({
                         {title}
                       </span>
                     </button>
+
+                    {/* Drag handle — pointer-based reorder (touch friendly).
+                        A ~44px transparent hit area centred on the slide number
+                        gutter; the grip icon is the only visible affordance and
+                        reveals on hover. `touch-none` keeps a touch drag from
+                        scrolling the rail. Issue #209. */}
+                    <span
+                      role="presentation"
+                      aria-hidden="true"
+                      onPointerDown={(event) => beginReorder(event, index)}
+                      className="absolute left-0 top-0 flex h-11 w-11 cursor-grab touch-none items-center justify-center text-ds-text-muted opacity-0 transition-opacity group-hover:opacity-100"
+                    >
+                      <GripVertical size={14} aria-hidden="true" />
+                    </span>
 
                     {/* Hover/focus action cluster — reveals on group hover or
                         keyboard focus so the rail stays clean but every action
@@ -1115,13 +1230,13 @@ export function SlideEditor({
               })}
             </ul>
 
-            <div className="relative mt-3">
+            <div className="relative shrink-0 self-center sm:mt-3 sm:self-auto">
               <button
                 type="button"
                 aria-haspopup="menu"
                 aria-expanded={addTemplateOpen}
                 onClick={() => setAddTemplateOpen((open) => !open)}
-                className={`flex w-full items-center justify-center gap-1.5 rounded-ds-md border border-dashed border-ds-border-subtle px-3 py-2 text-sm font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                className={`flex w-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-ds-md border border-dashed border-ds-border-subtle px-3 py-2 text-sm font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary sm:w-full ${FOCUS_RING}`}
               >
                 <Plus size={15} aria-hidden="true" />
                 Add slide
@@ -1253,37 +1368,72 @@ export function SlideEditor({
           </div>
         </main>
 
-        {/* Inspector — edit the selected slide */}
-        {selectedSlide ? (
+        {/* Inspector — desktop side pane (`lg+`). Below `lg` it is hidden and
+            instead opened as a bottom sheet via the FAB below. Issue #209. */}
+        {inspectorProps ? (
           <SlideInspector
-            slide={selectedSlide}
-            slideIndex={safeSelected}
-            visuals={visuals}
-            selectedElementId={effectiveSelectedElementId}
-            onSelectElement={handleSelectElement}
-            canDelete={deck.slides.length > 1}
-            onDuplicateSlide={() => handleDuplicate(safeSelected)}
-            onRemoveSlide={() => handleRemove(safeSelected)}
-            onTitleChange={(title) => handleTitleChange(safeSelected, title)}
-            onLayoutChange={(layout) =>
-              handleLayoutChange(safeSelected, layout)
-            }
-            onBulletsChange={(value) =>
-              handleBulletsChange(safeSelected, value)
-            }
-            onMaterialize={handleMaterialize}
-            onAddElement={handleAddElement}
-            onAddVisual={handleAddVisual}
-            onUpdateElement={handleUpdateElement}
-            onRemoveElement={handleRemoveElement}
-            onBringToFront={handleBringToFront}
-            onSendToBack={handleSendToBack}
-            onBackgroundChange={handleBackgroundChange}
-            onAccentChange={handleAccentChange}
-            onNotesChange={(notes) => handleNotesChange(safeSelected, notes)}
+            {...inspectorProps}
+            className="hidden w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle lg:flex"
           />
         ) : null}
       </div>
+
+      {/* ── Mobile inspector bottom sheet (below `lg`) ───────────────────── */}
+      {/* Reuses the document editor's MobileEditingSheet pattern: a FAB toggles
+          a bottom sheet that hosts the same inspector. Hidden at `lg+` where the
+          inspector is a permanent side pane. Issue #209. */}
+      {inspectorProps ? (
+        <div className="lg:hidden">
+          <button
+            type="button"
+            aria-label="Edit slide"
+            aria-haspopup="dialog"
+            aria-expanded={inspectorSheetOpen}
+            onClick={() => setInspectorSheetOpen(true)}
+            className={`fixed bottom-6 right-6 z-modal flex h-12 w-12 items-center justify-center rounded-full bg-ds-control text-ds-control-text shadow-ds-overlay transition-colors hover:bg-ds-control-hover ${FOCUS_RING}`}
+          >
+            <PanelRight aria-hidden="true" className="h-5 w-5" />
+          </button>
+
+          {inspectorSheetOpen ? (
+            <>
+              <div
+                aria-hidden="true"
+                onClick={() => setInspectorSheetOpen(false)}
+                className="fixed inset-0 z-modal bg-ds-backdrop"
+              />
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-label="Slide inspector"
+                className="fixed inset-x-0 bottom-0 z-modal flex max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl border-t border-ds-border-subtle bg-ds-surface-base shadow-ds-popover"
+              >
+                <div className="relative flex shrink-0 items-center justify-between px-4 pb-2 pt-4">
+                  <span
+                    aria-hidden="true"
+                    className="absolute left-1/2 top-2 h-1 w-10 -translate-x-1/2 rounded-full bg-ds-border-subtle"
+                  />
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ds-text-muted">
+                    Edit slide
+                  </p>
+                  <button
+                    type="button"
+                    aria-label="Close slide inspector"
+                    onClick={() => setInspectorSheetOpen(false)}
+                    className={`flex h-7 w-7 items-center justify-center rounded-full text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                  >
+                    <X size={16} aria-hidden="true" />
+                  </button>
+                </div>
+                <SlideInspector
+                  {...inspectorProps}
+                  className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto"
+                />
+              </div>
+            </>
+          ) : null}
+        </div>
+      ) : null}
     </div>,
     document.body,
   );

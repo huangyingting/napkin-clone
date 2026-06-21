@@ -100,6 +100,12 @@ export interface SlideInspectorProps {
   onAccentChange: (color: string | undefined) => void;
   // Notes
   onNotesChange: (notes: string) => void;
+  /**
+   * Overrides the root container classes so the host can place the inspector in
+   * the desktop side pane or a mobile bottom sheet (issue #209). Defaults to the
+   * desktop three-pane column.
+   */
+  className?: string;
 }
 
 function TabButton({
@@ -467,6 +473,7 @@ export function SlideInspector({
   onBackgroundChange,
   onAccentChange,
   onNotesChange,
+  className = "flex w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle",
 }: SlideInspectorProps) {
   const [tab, setTab] = useState<Tab>("content");
   const [visualPickerOpen, setVisualPickerOpen] = useState(false);
@@ -488,7 +495,7 @@ export function SlideInspector({
   ];
 
   return (
-    <aside className="flex w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle">
+    <aside className={className}>
       <div className="flex items-center justify-between border-b border-ds-border-subtle px-4 py-3">
         <p className="text-xs font-medium uppercase tracking-wide text-ds-text-muted">
           Slide {slideIndex + 1}

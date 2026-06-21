@@ -5,6 +5,8 @@ import {
   clampSlideIndex,
   formatProgress,
   hashFromSlideIndex,
+  resolveSwipeNavigation,
+  SWIPE_THRESHOLD_PX,
   slideIndexFromHash,
 } from "./slide-helpers";
 
@@ -139,4 +141,33 @@ test("hashFromSlideIndex: negative index returns '#1' (clamped)", () => {
 
 test("hashFromSlideIndex: fractional index is floored", () => {
   assert.equal(hashFromSlideIndex(2.9), "#3");
+});
+
+// ---------------------------------------------------------------------------
+// resolveSwipeNavigation
+// ---------------------------------------------------------------------------
+
+test("resolveSwipeNavigation: a left swipe past the threshold advances", () => {
+  assert.equal(resolveSwipeNavigation(-80), "next");
+});
+
+test("resolveSwipeNavigation: a right swipe past the threshold goes back", () => {
+  assert.equal(resolveSwipeNavigation(80), "prev");
+});
+
+test("resolveSwipeNavigation: travel shorter than the threshold is ignored", () => {
+  assert.equal(resolveSwipeNavigation(49), null);
+  assert.equal(resolveSwipeNavigation(-49), null);
+  assert.equal(resolveSwipeNavigation(0), null);
+});
+
+test("resolveSwipeNavigation: travel exactly at the threshold registers", () => {
+  assert.equal(resolveSwipeNavigation(SWIPE_THRESHOLD_PX), "prev");
+  assert.equal(resolveSwipeNavigation(-SWIPE_THRESHOLD_PX), "next");
+});
+
+test("resolveSwipeNavigation: a custom threshold is honoured", () => {
+  assert.equal(resolveSwipeNavigation(30, 20), "prev");
+  assert.equal(resolveSwipeNavigation(-30, 20), "next");
+  assert.equal(resolveSwipeNavigation(30, 40), null);
 });

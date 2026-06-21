@@ -34,6 +34,7 @@ import {
   clampSlideIndex,
   formatProgress,
   hashFromSlideIndex,
+  resolveSwipeNavigation,
   slideIndexFromHash,
 } from "@/lib/presentation/slide-helpers";
 import { MadeWithBadge } from "@/components/made-with-badge";
@@ -160,9 +161,9 @@ export function PublicPresentViewer({
       if (touchStartXRef.current === null) return;
       const dx = e.changedTouches[0].clientX - touchStartXRef.current;
       touchStartXRef.current = null;
-      if (Math.abs(dx) < 50) return; // too short to be intentional
-      if (dx < 0) goNext();
-      else goPrev();
+      const intent = resolveSwipeNavigation(dx);
+      if (intent === "next") goNext();
+      else if (intent === "prev") goPrev();
     },
     [goNext, goPrev],
   );
