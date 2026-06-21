@@ -12,6 +12,7 @@ import assert from "node:assert/strict";
 import {
   decideBillingProvider,
   isProductionEnv,
+  shouldCancelSubscription,
   BillingMisconfiguredError,
 } from "@/lib/billing/provider";
 import { isMockPlanChangeAllowed } from "@/lib/billing/mock-provider";
@@ -88,6 +89,67 @@ describe("isMockPlanChangeAllowed", () => {
     assert.strictEqual(
       isMockPlanChangeAllowed("pro", { NODE_ENV: "production" }),
       false,
+    );
+  });
+});
+
+describe("shouldCancelSubscription", () => {
+  it("returns false for null/undefined subscription", () => {
+    assert.strictEqual(shouldCancelSubscription(null), false);
+    assert.strictEqual(shouldCancelSubscription(undefined), false);
+  });
+
+  it("returns false when stripeSubscriptionId is absent", () => {
+    assert.strictEqual(
+      shouldCancelSubscription({
+        stripeSubscriptionId: null,
+        status: "active",
+      }),
+      false,
+    );
+    assert.strictEqual(
+      shouldCancelSubscription({ stripeSubscriptionId: "", status: "active" }),
+      false,
+    );
+  });
+
+  it("returns true for active subscription with a stripeSubscriptionId", () => {
+    assert.strictEqual(
+      shouldCancelSubscription({
+        stripeSubscriptionId: "sub_123",
+        status: "active",
+      }),
+      true,
+    );
+  });
+
+  it("returns true for past_due subscription with a stripeSubscriptionId", () => {
+    assert.strictEqual(
+      shouldCancelSubscription({
+        stripeSubscriptionId: "sub_123",
+        status: "past_due",
+      }),
+      true,
+    );
+  });
+
+  it("returns false for already-cancelled subscription", () => {
+    assert.strictEqual(
+      shouldCancelSubscription({
+        stripeSubscriptionId: "sub_123",
+        status: "cancelled",
+      }),
+      false,
+    );
+  });
+
+  it("returns true for inactive subscription with a stripeSubscriptionId", () => {
+    assert.strictEqual(
+      shouldCancelSubscription({
+        stripeSubscriptionId: "sub_123",
+        status: "inactive",
+      }),
+      true,
     );
   });
 });

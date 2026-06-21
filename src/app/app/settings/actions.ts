@@ -5,6 +5,10 @@ import bcrypt from "bcryptjs";
 
 import { signOut } from "@/auth";
 import { validatePasswordChange } from "@/lib/auth/password";
+import {
+  getBillingProvider,
+  shouldCancelSubscription,
+} from "@/lib/billing/provider";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 
@@ -183,6 +187,25 @@ export async function deleteAccount(
   }
 
   try {
+    const sub = await prisma.subscription.findUnique({
+      where: { userId: user.id },
+      select: { stripeSubscriptionId: true, status: true },
+    });
+
+    if (shouldCancelSubscription(sub)) {
+      try {
+        const billing = await getBillingProvider();
+        await billing.cancelSubscriptionImmediately(user.id);
+      } catch (err) {
+        // Fail-safe: log the Stripe error but allow account deletion to proceed
+        // so a billing issue never traps a user who wants to leave.
+        console.error(
+          "[deleteAccount] Failed to cancel Stripe subscription — proceeding with deletion:",
+          err,
+        );
+      }
+    }
+
     await prisma.user.delete({ where: { id: user.id } });
   } catch {
     return { status: "error", message: GENERIC_DELETE_ERROR };
