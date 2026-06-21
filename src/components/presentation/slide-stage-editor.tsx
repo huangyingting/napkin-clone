@@ -19,18 +19,7 @@
  * independent. The component is controlled: it never mutates the deck.
  */
 
-import {
-  AlignCenter,
-  AlignLeft,
-  AlignRight,
-  ArrowDownToLine,
-  ArrowUpToLine,
-  Bold,
-  Italic,
-  Minus,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { ArrowDownToLine, ArrowUpToLine, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { FOCUS_RING } from "@/components/motion/control-styles";
@@ -39,13 +28,9 @@ import {
   SlideCanvas,
   type ThemeConfig,
 } from "@/components/presentation/slide-canvas";
-import type {
-  ElementAlign,
-  ElementBox,
-  Slide,
-  SlideElement,
-  TextElementStyle,
-} from "@/lib/presentation/deck";
+import { TextStyleBar } from "@/components/presentation/text-style-bar";
+import { ColorPicker } from "@/components/ui";
+import type { ElementBox, Slide, SlideElement } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import type { Visual } from "@/lib/visual/schema";
 
@@ -61,8 +46,6 @@ interface DragState {
 }
 
 const MIN_SIZE_PCT = 4;
-const FONT_MIN = 2;
-const FONT_MAX = 24;
 
 function clampBox(box: ElementBox): ElementBox {
   const w = Math.max(MIN_SIZE_PCT, Math.min(100, box.w));
@@ -168,6 +151,14 @@ export function SlideStageEditor({
 
   const elements = slide.elements ?? [];
   const tc = DECK_THEMES[slide.theme] ?? DECK_THEMES.default;
+  const textColorPresets = [
+    tc.titleColor,
+    tc.bodyColor,
+    tc.mutedColor,
+    tc.accentColor,
+    "#ffffff",
+    "#000000",
+  ];
 
   const selectedElement =
     elements.find((element) => element.id === selectedElementId) ?? null;
@@ -387,6 +378,7 @@ export function SlideStageEditor({
             element={selectedElement}
             width={width}
             height={height}
+            textColorPresets={textColorPresets}
             onUpdateElement={onUpdateElement}
             onRemove={onRemoveElement}
             onBringToFront={onBringToFront}
@@ -487,18 +479,6 @@ function InlineTextEditor({
 // Contextual toolbar — floats above the selected element.
 // ---------------------------------------------------------------------------
 
-const NEXT_ALIGN: Record<ElementAlign, ElementAlign> = {
-  left: "center",
-  center: "right",
-  right: "left",
-};
-
-const ALIGN_ICON: Record<ElementAlign, typeof AlignLeft> = {
-  left: AlignLeft,
-  center: AlignCenter,
-  right: AlignRight,
-};
-
 function ToolbarButton({
   label,
   active = false,
@@ -532,6 +512,7 @@ function ElementToolbar({
   element,
   width,
   height,
+  textColorPresets,
   onUpdateElement,
   onRemove,
   onBringToFront,
@@ -541,6 +522,7 @@ function ElementToolbar({
   element: SlideElement;
   width: number;
   height: number;
+  textColorPresets: readonly string[];
   onUpdateElement: (id: string, patch: ElementPatch) => void;
   onRemove: (id: string) => void;
   onBringToFront: (id: string) => void;
@@ -559,29 +541,6 @@ function ElementToolbar({
   const leftPx = ((element.box.x + element.box.w / 2) / 100) * width;
   const clampedLeft = Math.max(90, Math.min(width - 90, leftPx));
 
-  const setStyle = (patch: Partial<TextElementStyle>) => {
-    if (style) {
-      onUpdateElement(element.id, { style: { ...style, ...patch } });
-    }
-  };
-
-  const bumpFont = (delta: number) => {
-    if (style) {
-      const fontSize = Math.max(
-        FONT_MIN,
-        Math.min(FONT_MAX, Math.round((style.fontSize + delta) * 2) / 2),
-      );
-      setStyle({ fontSize });
-    }
-  };
-
-  const AlignIcon = style ? ALIGN_ICON[style.align] : AlignLeft;
-  const colorValue = isText
-    ? (style?.color ?? "#ffffff")
-    : element.kind === "shape"
-      ? element.color
-      : "#ffffff";
-
   return (
     <div
       onPointerDown={(event) => event.stopPropagation()}
@@ -595,69 +554,22 @@ function ElementToolbar({
     >
       {isText && style ? (
         <>
-          <ToolbarButton
-            label="Decrease font size"
-            onClick={() => bumpFont(-0.5)}
-          >
-            <Minus size={14} aria-hidden="true" />
-          </ToolbarButton>
-          <span className="w-7 text-center text-[11px] tabular-nums text-ds-text-secondary">
-            {style.fontSize}
-          </span>
-          <ToolbarButton
-            label="Increase font size"
-            onClick={() => bumpFont(0.5)}
-          >
-            <Plus size={14} aria-hidden="true" />
-          </ToolbarButton>
-          <Divider />
-          <ToolbarButton
-            label="Bold"
-            active={style.bold}
-            onClick={() => setStyle({ bold: !style.bold })}
-          >
-            <Bold size={14} aria-hidden="true" />
-          </ToolbarButton>
-          <ToolbarButton
-            label="Italic"
-            active={style.italic}
-            onClick={() => setStyle({ italic: !style.italic })}
-          >
-            <Italic size={14} aria-hidden="true" />
-          </ToolbarButton>
-          <ToolbarButton
-            label={`Align ${style.align}`}
-            onClick={() => setStyle({ align: NEXT_ALIGN[style.align] })}
-          >
-            <AlignIcon size={14} aria-hidden="true" />
-          </ToolbarButton>
+          <TextStyleBar
+            variant="compact"
+            style={style}
+            colorPresets={textColorPresets}
+            onChange={(next) => onUpdateElement(element.id, { style: next })}
+          />
           <Divider />
         </>
       ) : null}
 
-      {isText || element.kind === "shape" ? (
-        <label
-          className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded-ds-sm hover:bg-ds-state-hover ${FOCUS_RING}`}
-          title="Color"
-        >
-          <span
-            className="h-4 w-4 rounded-full border border-ds-border-subtle"
-            style={{ backgroundColor: colorValue }}
-          />
-          <input
-            type="color"
-            value={colorValue}
-            onChange={(event) => {
-              if (isText) {
-                setStyle({ color: event.target.value });
-              } else if (element.kind === "shape") {
-                onUpdateElement(element.id, { color: event.target.value });
-              }
-            }}
-            className="sr-only"
-            aria-label="Color"
-          />
-        </label>
+      {element.kind === "shape" ? (
+        <ColorPicker
+          color={element.color}
+          aria-label="Shape color"
+          onChange={(hex) => onUpdateElement(element.id, { color: hex })}
+        />
       ) : null}
 
       {isText ? (
