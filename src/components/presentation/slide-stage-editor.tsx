@@ -19,7 +19,7 @@
  * independent. The component is controlled: it never mutates the deck.
  */
 
-import { ArrowDownToLine, ArrowUpToLine, Trash2 } from "lucide-react";
+import { ArrowDownToLine, ArrowUpToLine, Copy, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { FOCUS_RING } from "@/components/motion/control-styles";
@@ -32,6 +32,7 @@ import { TextStyleBar } from "@/components/presentation/text-style-bar";
 import { ColorPicker } from "@/components/ui";
 import type { ElementBox, Slide, SlideElement } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
+import { type SnapGuide, snapBox } from "@/lib/presentation/element-snap";
 import type { Visual } from "@/lib/visual/schema";
 
 type Handle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
@@ -46,6 +47,12 @@ interface DragState {
 }
 
 const MIN_SIZE_PCT = 4;
+
+/**
+ * Snap threshold in percent of the slide dimension (issue #225). Kept small so
+ * snapping is a subtle assist and never fights a deliberate drag.
+ */
+const SNAP_THRESHOLD_PCT = 1.5;
 
 function clampBox(box: ElementBox): ElementBox {
   const w = Math.max(MIN_SIZE_PCT, Math.min(100, box.w));
@@ -128,6 +135,7 @@ interface SlideStageEditorProps {
   onSelectElement: (id: string | null) => void;
   onUpdateElement: (id: string, patch: ElementPatch) => void;
   onRemoveElement: (id: string) => void;
+  onDuplicateElement: (id: string) => void;
   onBringToFront: (id: string) => void;
   onSendToBack: (id: string) => void;
 }
@@ -141,6 +149,7 @@ export function SlideStageEditor({
   onSelectElement,
   onUpdateElement,
   onRemoveElement,
+  onDuplicateElement,
   onBringToFront,
   onSendToBack,
 }: SlideStageEditorProps) {
@@ -148,8 +157,16 @@ export function SlideStageEditor({
   const dragRef = useRef<DragState | null>(null);
   const [activeDrag, setActiveDrag] = useState<DragMode | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
 
-  const elements = slide.elements ?? [];
+  const elements = useMemo(() => slide.elements ?? [], [slide.elements]);
+  // Live element list for the global pointer-move handler (which is memoized on
+  // a stable identity and must not re-subscribe on every element change). The
+  // ref is synced from an effect so it is never written during render.
+  const elementsRef = useRef(elements);
+  useEffect(() => {
+    elementsRef.current = elements;
+  }, [elements]);
   const tc = DECK_THEMES[slide.theme] ?? DECK_THEMES.default;
   const textColorPresets = [
     tc.titleColor,
@@ -193,15 +210,22 @@ export function SlideStageEditor({
       const dxPct = ((event.clientX - drag.startClientX) / rect.width) * 100;
       const dyPct = ((event.clientY - drag.startClientY) / rect.height) * 100;
 
-      const next =
-        drag.mode === "move"
-          ? {
-              ...drag.startBox,
-              x: drag.startBox.x + dxPct,
-              y: drag.startBox.y + dyPct,
-            }
-          : applyResize(drag.startBox, drag.mode, dxPct, dyPct);
+      if (drag.mode === "move") {
+        const moved = clampBox({
+          ...drag.startBox,
+          x: drag.startBox.x + dxPct,
+          y: drag.startBox.y + dyPct,
+        });
+        const others = elementsRef.current
+          .filter((element) => element.id !== drag.id)
+          .map((element) => element.box);
+        const { box, guides } = snapBox(moved, others, SNAP_THRESHOLD_PCT);
+        setSnapGuides(guides);
+        onUpdateElement(drag.id, { box });
+        return;
+      }
 
+      const next = applyResize(drag.startBox, drag.mode, dxPct, dyPct);
       onUpdateElement(drag.id, { box: clampBox(next) });
     },
     [onUpdateElement],
@@ -210,6 +234,7 @@ export function SlideStageEditor({
   const endDrag = useCallback(() => {
     dragRef.current = null;
     setActiveDrag(null);
+    setSnapGuides([]);
   }, []);
 
   useEffect(() => {
@@ -357,6 +382,27 @@ export function SlideStageEditor({
           );
         })}
 
+        {/* Snap alignment guides — thin lines shown while dragging an element. */}
+        {activeDrag === "move" && snapGuides.length > 0
+          ? snapGuides.map((guide) =>
+              guide.axis === "x" ? (
+                <div
+                  key={`x-${guide.position}`}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-0 bottom-0 w-px bg-ds-control"
+                  style={{ left: `${guide.position}%`, zIndex: 1400 }}
+                />
+              ) : (
+                <div
+                  key={`y-${guide.position}`}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-0 right-0 h-px bg-ds-control"
+                  style={{ top: `${guide.position}%`, zIndex: 1400 }}
+                />
+              ),
+            )
+          : null}
+
         {/* Live position / size badge */}
         {badge ? (
           <div
@@ -381,6 +427,7 @@ export function SlideStageEditor({
             textColorPresets={textColorPresets}
             onUpdateElement={onUpdateElement}
             onRemove={onRemoveElement}
+            onDuplicate={onDuplicateElement}
             onBringToFront={onBringToFront}
             onSendToBack={onSendToBack}
             onEdit={() => startEditing(selectedElement)}
@@ -515,6 +562,7 @@ function ElementToolbar({
   textColorPresets,
   onUpdateElement,
   onRemove,
+  onDuplicate,
   onBringToFront,
   onSendToBack,
   onEdit,
@@ -525,6 +573,7 @@ function ElementToolbar({
   textColorPresets: readonly string[];
   onUpdateElement: (id: string, patch: ElementPatch) => void;
   onRemove: (id: string) => void;
+  onDuplicate: (id: string) => void;
   onBringToFront: (id: string) => void;
   onSendToBack: (id: string) => void;
   onEdit: () => void;
@@ -579,6 +628,12 @@ function ElementToolbar({
       ) : null}
 
       <Divider />
+      <ToolbarButton
+        label="Duplicate element"
+        onClick={() => onDuplicate(element.id)}
+      >
+        <Copy size={14} aria-hidden="true" />
+      </ToolbarButton>
       <ToolbarButton
         label="Bring to front"
         onClick={() => onBringToFront(element.id)}

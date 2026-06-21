@@ -93,6 +93,7 @@ import {
   addElement,
   addSlide,
   bringElementToFront,
+  duplicateElement,
   duplicateSlide,
   insertSlide,
   materializeSlide,
@@ -563,7 +564,23 @@ export function SlideEditor({
         const key = event.key.toLowerCase();
         if (key === "d") {
           event.preventDefault();
-          handleDuplicate(safeSelected);
+          // Element-duplicate takes precedence when an element is selected;
+          // otherwise fall back to slide-duplicate (#212). Inlined (not via
+          // `handleDuplicateElement`) so this effect needs no extra dep and
+          // avoids a temporal-dead-zone with handlers declared further down.
+          if (effectiveSelectedElementId) {
+            const { deck: nextDeck, newElementId } = duplicateElement(
+              deck,
+              safeSelected,
+              effectiveSelectedElementId,
+            );
+            if (newElementId != null) {
+              onDeckChange(nextDeck);
+              setSelectedElementId(newElementId);
+            }
+          } else {
+            handleDuplicate(safeSelected);
+          }
           return;
         }
         if (key === "n") {
@@ -747,6 +764,22 @@ export function SlideEditor({
       setSelectedElementId((current) => (current === id ? null : current));
     },
     [deck, onDeckChange, safeSelected],
+  );
+
+  const handleDuplicateElement = useCallback(
+    (id: string) => {
+      const { deck: next, newElementId } = duplicateElement(
+        deck,
+        safeSelected,
+        id,
+      );
+      if (newElementId == null) {
+        return;
+      }
+      onDeckChange(next);
+      handleSelectElement(newElementId);
+    },
+    [deck, onDeckChange, safeSelected, handleSelectElement],
   );
 
   const handleBringToFront = useCallback(
@@ -1176,6 +1209,7 @@ export function SlideEditor({
                 onSelectElement={handleSelectElement}
                 onUpdateElement={handleUpdateElement}
                 onRemoveElement={handleRemoveElement}
+                onDuplicateElement={handleDuplicateElement}
                 onBringToFront={handleBringToFront}
                 onSendToBack={handleSendToBack}
               />

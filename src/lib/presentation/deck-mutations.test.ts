@@ -6,6 +6,7 @@ import {
   addElement,
   addSlide,
   bringElementToFront,
+  duplicateElement,
   duplicateSlide,
   insertSlide,
   materializeDeck,
@@ -586,4 +587,81 @@ test("duplicateSlide carries the elementsDerived flag onto the copy", () => {
   const next = duplicateSlide(derived, 0);
   assert.equal(next.slides[0].elementsDerived, true);
   assert.equal(next.slides[1].elementsDerived, true);
+});
+
+// ---------------------------------------------------------------------------
+// duplicateElement (issue #225)
+// ---------------------------------------------------------------------------
+
+test("duplicateElement clones with a new id, offset, and returns the copy id", () => {
+  const deck = materializeSlide(deckWithBullets(), 0);
+  const original = deck.slides[0].elements![0];
+  const { deck: next, newElementId } = duplicateElement(deck, 0, original.id);
+
+  // A new element was appended with a fresh id reported back as the selection.
+  assert.equal(
+    next.slides[0].elements!.length,
+    deck.slides[0].elements!.length + 1,
+  );
+  assert.ok(newElementId);
+  assert.notEqual(newElementId, original.id);
+  const copy = next.slides[0].elements!.find((e) => e.id === newElementId)!;
+  assert.ok(copy);
+
+  // Offset by +2% on both axes (clamped within the slide).
+  assert.equal(copy.box.x, original.box.x + 2);
+  assert.equal(copy.box.y, original.box.y + 2);
+  assert.equal(copy.box.w, original.box.w);
+  assert.equal(copy.box.h, original.box.h);
+
+  // Same kind; sits on top (highest z-index).
+  assert.equal(copy.kind, original.kind);
+  const maxZ = Math.max(...deck.slides[0].elements!.map((e) => e.zIndex));
+  assert.ok(copy.zIndex > maxZ);
+
+  // Original element and original deck untouched.
+  assert.equal(
+    deck.slides[0].elements!.length,
+    deck.slides[0].elements!.length,
+  );
+  assert.equal(next.slides[0].elements![0].box.x, original.box.x);
+});
+
+test("duplicateElement clears elementsDerived on the slide", () => {
+  const derived = materializeDeck(deckWithBullets());
+  assert.equal(derived.slides[0].elementsDerived, true);
+  const id = derived.slides[0].elements![0].id;
+  const { deck: next } = duplicateElement(derived, 0, id);
+  assert.equal(next.slides[0].elementsDerived, false);
+});
+
+test("duplicateElement is a no-op for a bad index or missing element", () => {
+  const deck = materializeSlide(deckWithBullets(), 0);
+  const id = deck.slides[0].elements![0].id;
+
+  const badIndex = duplicateElement(deck, 9, id);
+  assert.equal(badIndex.deck, deck);
+  assert.equal(badIndex.newElementId, null);
+
+  const missing = duplicateElement(deck, 0, "el-does-not-exist");
+  assert.equal(missing.deck, deck);
+  assert.equal(missing.newElementId, null);
+
+  // Legacy slide (no elements) is also a no-op.
+  const legacy = duplicateElement(deck, 1, id);
+  assert.equal(legacy.deck, deck);
+  assert.equal(legacy.newElementId, null);
+});
+
+test("duplicateElement clamps the offset so the copy stays on the slide", () => {
+  const deck = materializeSlide(deckWithBullets(), 0);
+  const id = deck.slides[0].elements![0].id;
+  // Push the original hard against the bottom-right corner.
+  const pinned = updateElement(deck, 0, id, {
+    box: { x: 100 - 20, y: 100 - 15, w: 20, h: 15 },
+  });
+  const { deck: next, newElementId } = duplicateElement(pinned, 0, id);
+  const copy = next.slides[0].elements!.find((e) => e.id === newElementId)!;
+  assert.equal(copy.box.x, 80);
+  assert.equal(copy.box.y, 85);
 });
