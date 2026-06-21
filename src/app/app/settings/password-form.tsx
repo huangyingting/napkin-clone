@@ -2,9 +2,9 @@
 
 import { useActionState, useEffect, useRef } from "react";
 
-import { changePassword, type PasswordFormState } from "./actions";
+import { changePassword, type PasswordResult } from "./actions";
 
-const initialState: PasswordFormState = { status: "idle" };
+const initialState: PasswordResult | null = null;
 
 const fieldClass =
   "h-11 rounded-lg border border-ds-border-strong bg-ds-surface-base px-3 text-sm text-ds-text-primary outline-none transition focus:border-ds-accent focus:ring-2 focus:ring-ds-accent/30";
@@ -28,7 +28,7 @@ export function PasswordForm({ hasPassword }: { hasPassword: boolean }) {
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
-    if (state.status === "success") {
+    if (state?.ok) {
       formRef.current?.reset();
     }
   }, [state]);
@@ -93,14 +93,14 @@ export function PasswordForm({ hasPassword }: { hasPassword: boolean }) {
         />
       </div>
 
-      {state.status === "success" ? (
+      {state?.ok ? (
         <p role="status" className="text-sm text-ds-success">
           {hasPassword ? "Password updated." : "Password set."}
         </p>
       ) : null}
-      {state.status === "error" ? (
+      {state && !state.ok ? (
         <p role="alert" className="text-sm text-ds-danger">
-          {state.message}
+          {state.error}
         </p>
       ) : null}
 

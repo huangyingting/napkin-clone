@@ -2,9 +2,9 @@
 
 import { useActionState } from "react";
 
-import { updateProfile, type ProfileFormState } from "./actions";
+import { updateProfile, type ProfileResult } from "./actions";
 
-const initialState: ProfileFormState = { status: "idle" };
+const initialState: ProfileResult | null = null;
 
 const fieldClass =
   "h-11 rounded-lg border border-ds-border-strong bg-ds-surface-base px-3 text-sm text-ds-text-primary outline-none transition focus:border-ds-accent focus:ring-2 focus:ring-ds-accent/30";
@@ -70,14 +70,14 @@ export function ProfileForm({
         </p>
       </div>
 
-      {state.status === "success" ? (
+      {state?.ok ? (
         <p role="status" className="text-sm text-ds-success">
           Profile updated.
         </p>
       ) : null}
-      {state.status === "error" ? (
+      {state && !state.ok ? (
         <p role="alert" className="text-sm text-ds-danger">
-          {state.message}
+          {state.error}
         </p>
       ) : null}
 

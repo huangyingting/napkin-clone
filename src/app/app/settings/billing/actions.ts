@@ -8,12 +8,13 @@
 
 import { revalidatePath } from "next/cache";
 
+import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 import { requireUser } from "@/lib/session";
 import { getBillingProvider } from "@/lib/billing/provider";
 import { isPlan, type Plan } from "@/lib/billing/entitlements";
 
-export interface BillingActionResult {
-  success: boolean;
+/** Payload returned to the client when a plan change/cancel succeeds. */
+export interface BillingActionData {
   message: string;
   redirectUrl?: string;
 }
@@ -21,39 +22,41 @@ export interface BillingActionResult {
 /** Change the current user's plan (upgrade or downgrade). */
 export async function changePlanAction(
   targetPlan: string,
-): Promise<BillingActionResult> {
+): Promise<ActionResult<BillingActionData>> {
   const user = await requireUser();
 
   if (!isPlan(targetPlan)) {
-    return { success: false, message: `Invalid plan: ${targetPlan}.` };
+    return actionError(`Invalid plan: ${targetPlan}.`);
   }
 
   const provider = await getBillingProvider();
   const result = await provider.changePlan(user.id, targetPlan as Plan);
 
-  if (result.success) {
-    revalidatePath("/app/settings/billing");
-    revalidatePath("/app/settings");
+  if (!result.success) {
+    return actionError(result.message);
   }
 
-  return {
-    success: result.success,
-    message: result.message,
-    redirectUrl: result.redirectUrl,
-  };
+  revalidatePath("/app/settings/billing");
+  revalidatePath("/app/settings");
+
+  return actionOk({ message: result.message, redirectUrl: result.redirectUrl });
 }
 
 /** Cancel the current user's subscription. */
-export async function cancelSubscriptionAction(): Promise<BillingActionResult> {
+export async function cancelSubscriptionAction(): Promise<
+  ActionResult<BillingActionData>
+> {
   const user = await requireUser();
 
   const provider = await getBillingProvider();
   const result = await provider.cancelSubscription(user.id);
 
-  if (result.success) {
-    revalidatePath("/app/settings/billing");
-    revalidatePath("/app/settings");
+  if (!result.success) {
+    return actionError(result.message);
   }
 
-  return { success: result.success, message: result.message };
+  revalidatePath("/app/settings/billing");
+  revalidatePath("/app/settings");
+
+  return actionOk({ message: result.message });
 }

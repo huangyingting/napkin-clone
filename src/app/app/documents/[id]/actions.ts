@@ -4,6 +4,7 @@ import { customAlphabet } from "nanoid";
 import { revalidatePath } from "next/cache";
 
 import { Prisma } from "@/generated/prisma/client";
+import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 import { requireDocumentCapability } from "@/lib/auth/document-permissions";
 import { collectVisualNodes } from "@/lib/lexical/visual-nodes";
 import { lexicalStateToPlainText } from "@/lib/lexical/plain-text";
@@ -375,18 +376,18 @@ async function mirrorVisualNodes(
 export async function saveDocumentLexical(
   id: string,
   stateJson: string,
-): Promise<void> {
+): Promise<ActionResult> {
   const user = await requireUser();
 
   if (stateJson.length > MAX_LEXICAL_STATE_LENGTH) {
-    throw new Error("Document is too large to save.");
+    return actionError("Document is too large to save.");
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(stateJson);
   } catch {
-    throw new Error("Invalid editor state.");
+    return actionError("Invalid editor state.");
   }
 
   await requireDocumentCapability(user.id, id, "edit");
@@ -411,6 +412,7 @@ export async function saveDocumentLexical(
   await snapshotDocumentVersion(id, { userId: user.id });
 
   revalidatePath("/app");
+  return actionOk();
 }
 
 // Furthest-out expiry a caller may set, guarding against absurd dates.
@@ -479,7 +481,7 @@ function toShareSettings(row: {
 export async function toggleDocumentSharing(
   id: string,
   isShared: boolean,
-): Promise<ShareSettings> {
+): Promise<ActionResult<ShareSettings>> {
   const user = await requireUser();
 
   await requireDocumentCapability(user.id, id, "manage");
@@ -503,7 +505,7 @@ export async function toggleDocumentSharing(
   revalidatePath(`/app/documents/${id}`);
   revalidatePath("/app");
 
-  return toShareSettings(updated);
+  return actionOk(toShareSettings(updated));
 }
 
 /**
@@ -514,7 +516,9 @@ export async function toggleDocumentSharing(
  *
  * Requires manage access (owner-level) via `requireDocumentCapability`.
  */
-export async function regenerateShareLink(id: string): Promise<ShareSettings> {
+export async function regenerateShareLink(
+  id: string,
+): Promise<ActionResult<ShareSettings>> {
   const user = await requireUser();
 
   await requireDocumentCapability(user.id, id, "manage");
@@ -525,7 +529,7 @@ export async function regenerateShareLink(id: string): Promise<ShareSettings> {
   });
 
   if (!doc || !doc.isShared) {
-    throw new Error("Enable sharing before regenerating the link.");
+    return actionError("Enable sharing before regenerating the link.");
   }
 
   const shareId = generateShareId();
@@ -534,7 +538,7 @@ export async function regenerateShareLink(id: string): Promise<ShareSettings> {
   revalidatePath(`/app/documents/${id}`);
   revalidatePath("/app");
 
-  return toShareSettings(updated);
+  return actionOk(toShareSettings(updated));
 }
 
 /**
@@ -555,7 +559,7 @@ export async function updateSharePolicy(
     embedEnabled?: boolean;
     presentEnabled?: boolean;
   },
-): Promise<ShareSettings> {
+): Promise<ActionResult<ShareSettings>> {
   const user = await requireUser();
 
   await requireDocumentCapability(user.id, id, "manage");
@@ -572,10 +576,10 @@ export async function updateSharePolicy(
     } else {
       const parsed = new Date(policy.expiresAt as string);
       if (Number.isNaN(parsed.getTime())) {
-        throw new Error("Invalid expiry date.");
+        return actionError("Invalid expiry date.");
       }
       if (parsed.getTime() - Date.now() > MAX_SHARE_EXPIRY_MS) {
-        throw new Error("Expiry date is too far in the future.");
+        return actionError("Expiry date is too far in the future.");
       }
       data.shareExpiresAt = parsed;
     }
@@ -604,7 +608,7 @@ export async function updateSharePolicy(
   revalidatePath(`/app/documents/${id}`);
   revalidatePath("/app");
 
-  return toShareSettings(updated);
+  return actionOk(toShareSettings(updated));
 }
 
 /**
@@ -727,18 +731,18 @@ export async function fetchDeckJson(id: string): Promise<unknown> {
 export async function saveDeckJson(
   id: string,
   deckJson: unknown,
-): Promise<void> {
+): Promise<ActionResult> {
   const user = await requireUser();
 
   const result = safeParseDeck(deckJson);
   if (!result.success) {
-    throw new Error(`Invalid deck: ${result.error}`);
+    return actionError(`Invalid deck: ${result.error}`);
   }
 
   // Serialize and check size
   const serialized = JSON.stringify(result.data);
   if (serialized.length > MAX_DECK_JSON_LENGTH) {
-    throw new Error("Deck is too large to save.");
+    return actionError("Deck is too large to save.");
   }
 
   await requireDocumentCapability(user.id, id, "edit");
@@ -752,6 +756,7 @@ export async function saveDeckJson(
   await snapshotDocumentVersion(id, { userId: user.id });
 
   revalidatePath(`/app/documents/${id}`);
+  return actionOk();
 }
 
 /** A version-history entry surfaced to the editor's Version History panel. */
@@ -809,7 +814,9 @@ export async function listDocumentVersions(
  * reversible. The mirrored Visual rows are rebuilt from the restored content so
  * share/embed and dashboard thumbnails stay consistent.
  */
-export async function restoreDocumentVersion(versionId: string): Promise<void> {
+export async function restoreDocumentVersion(
+  versionId: string,
+): Promise<ActionResult> {
   const user = await requireUser();
 
   const version = await prisma.documentVersion.findUnique({
@@ -822,7 +829,7 @@ export async function restoreDocumentVersion(versionId: string): Promise<void> {
     },
   });
   if (!version) {
-    throw new Error("Version not found.");
+    return actionError("Version not found.");
   }
 
   const { documentId } = version;
@@ -859,4 +866,5 @@ export async function restoreDocumentVersion(versionId: string): Promise<void> {
 
   revalidatePath(`/app/documents/${documentId}`);
   revalidatePath("/app");
+  return actionOk();
 }

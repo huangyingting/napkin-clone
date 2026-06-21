@@ -374,7 +374,12 @@ export function LexicalEditor({
     }
     setStatus("saving");
     try {
-      await saveDocumentLexical(documentId, json);
+      const res = await saveDocumentLexical(documentId, json);
+      if (!res.ok) {
+        console.error(res.error);
+        setStatus("error");
+        return;
+      }
       // Only flip to "saved" if nothing newer was queued while saving.
       if (latestJsonRef.current === json) {
         setStatus("saved");

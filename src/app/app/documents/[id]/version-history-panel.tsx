@@ -69,7 +69,12 @@ export function VersionHistoryPanel({
     setError(null);
     startTransition(async () => {
       try {
-        await restoreDocumentVersion(versionId);
+        const res = await restoreDocumentVersion(versionId);
+        if (!res.ok) {
+          setError(res.error);
+          setConfirmId(null);
+          return;
+        }
         // Reload so the collaborative editor re-seeds from restored content.
         window.location.reload();
       } catch {
