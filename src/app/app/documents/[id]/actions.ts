@@ -603,6 +603,26 @@ async function writeShareData(
 }
 
 /**
+ * Returns the current `deckJson` for a document so the slide editor can seed
+ * itself from the freshest server state rather than the stale page-load prop
+ * (issue #155). Requires at least view access; returns `null` when no deck has
+ * been saved yet.
+ */
+export async function fetchDeckJson(id: string): Promise<unknown> {
+  const user = await requireUser();
+  await requireDocumentCapability(user.id, id, "view");
+
+  const document = await prisma.document.findUniqueOrThrow({
+    where: { id },
+    select: { deckJson: true },
+  });
+
+  const raw = document.deckJson;
+  // Normalise: some DB providers serialise JSON columns as strings.
+  return typeof raw === "string" ? JSON.parse(raw) : raw;
+}
+
+/**
  * Persists an edited Deck for a document. Requires edit access (owner or
  * workspace editor), authorized via `requireDocumentCapability` so a viewer or
  * unrelated user is rejected with a clear error (issue #89). The deck JSON is
