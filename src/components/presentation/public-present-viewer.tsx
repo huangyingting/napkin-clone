@@ -36,6 +36,7 @@ import {
   hashFromSlideIndex,
   slideIndexFromHash,
 } from "@/lib/presentation/slide-helpers";
+import { MadeWithBadge } from "@/components/made-with-badge";
 
 // ---------------------------------------------------------------------------
 // PublicPresentViewer
@@ -52,6 +53,8 @@ export interface PublicPresentViewerProps {
   title: string;
   /** When true, suppresses the top-bar HUD for chrome-free iframe embedding. */
   embed?: boolean;
+  /** When true, shows the "Made with TextIQ" attribution badge. */
+  showAttribution?: boolean;
 }
 
 /**
@@ -65,6 +68,7 @@ export function PublicPresentViewer({
   visuals: visualsRecord,
   title,
   embed = false,
+  showAttribution = false,
 }: PublicPresentViewerProps): JSX.Element {
   const slides = deck.slides;
   const total = slides.length;
@@ -327,6 +331,7 @@ export function PublicPresentViewer({
           </button>
         </div>
       </div>
+      <MadeWithBadge show={showAttribution} />
     </div>
   );
 }

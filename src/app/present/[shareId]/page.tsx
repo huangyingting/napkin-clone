@@ -14,6 +14,7 @@ import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { buildDeckFromBlocks } from "@/lib/presentation/deck";
 import { buildPresentationBlocks } from "@/lib/presentation/present-blocks";
 import type { Visual } from "@/lib/visual/schema";
+import { shouldShowAttribution } from "@/lib/billing/attribution";
 const SITE_NAME = "TextIQ";
 
 function siteBaseUrl(): string {
@@ -101,6 +102,9 @@ export default async function PresentPage({
       contentJson: true,
       deckJson: true,
       ...SHARE_ACCESS_SELECT,
+      owner: {
+        select: { plan: true },
+      },
     },
   });
 
@@ -144,12 +148,14 @@ export default async function PresentPage({
   const parsed = deckJson ? safeParseDeck(deckJson) : null;
   const deck =
     parsed && parsed.success ? parsed.data : buildDeckFromBlocks(blocks);
+  const showAttribution = shouldShowAttribution(document.owner.plan);
 
   return (
     <PublicPresentViewer
       deck={deck}
       visuals={visualsRecord}
       title={document.title}
+      showAttribution={showAttribution}
     />
   );
 }

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { LexicalReadOnly } from "@/components/lexical/lexical-read-only";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
+import { MadeWithBadge } from "@/components/made-with-badge";
 import { prisma } from "@/lib/prisma";
 import { shareIdFromParam } from "@/lib/slug";
 import {
@@ -11,6 +12,7 @@ import {
   toShareAccessInput,
 } from "@/lib/share-access";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
+import { shouldShowAttribution } from "@/lib/billing/attribution";
 
 export const metadata: Metadata = {
   title: "Embedded Document — TextIQ",
@@ -48,6 +50,9 @@ export default async function EmbedPage({
       content: true,
       contentJson: true,
       ...SHARE_ACCESS_SELECT,
+      owner: {
+        select: { plan: true },
+      },
       // Legacy visuals (for documents not yet migrated to Lexical
       // `contentJson`, where visuals live inline as VisualNodes).
       visuals: {
@@ -66,6 +71,7 @@ export default async function EmbedPage({
   }
 
   const hasLexical = document.contentJson != null;
+  const showAttribution = shouldShowAttribution(document.owner.plan);
 
   // For legacy documents, collect stored visuals (document-level first, then
   // block-anchored ones) in document order.
@@ -113,6 +119,7 @@ export default async function EmbedPage({
           <p className="text-sm text-ds-text-muted">No content to display.</p>
         )}
       </div>
+      <MadeWithBadge show={showAttribution} />
     </main>
   );
 }
