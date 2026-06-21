@@ -34,6 +34,8 @@ import {
   formatUploadError,
 } from "@/lib/brand/upload";
 import { DEFAULT_STYLE } from "@/lib/visual/schema";
+import { buildSampleBrandedVisual } from "@/lib/brand/sample-visual";
+import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { createBrand, updateBrand, deleteBrand } from "./actions";
 
 // ---------------------------------------------------------------------------
@@ -502,6 +504,38 @@ function BrandForm({
             Palette extracted automatically from the logo.
           </p>
         )}
+      </div>
+
+      {/* Live sample preview — updates reactively as the form changes */}
+      <div className="flex flex-col gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#6f7d83)]">
+          Preview
+        </span>
+        <div
+          className="overflow-hidden rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border-subtle)]"
+          aria-label="Live brand preview on sample visual"
+        >
+          <VisualRenderer
+            visual={buildSampleBrandedVisual({
+              id: form.id ?? "__preview__",
+              name: form.name || "Preview",
+              ownerId: "",
+              palette: form.palette ?? DEFAULT_PALETTE,
+              background: form.background ?? null,
+              nodeFill: form.nodeFill ?? null,
+              nodeStroke: form.nodeStroke ?? null,
+              nodeText: form.nodeText ?? null,
+              edgeColor: form.edgeColor ?? null,
+              fontFamily: form.fontFamily ?? null,
+              fontDataUrl: form.fontDataUrl ?? null,
+              logoUrl: form.logoUrl ?? null,
+              createdAt: "",
+              updatedAt: "",
+            })}
+            className="h-auto w-full"
+            title="Brand preview on sample visual"
+          />
+        </div>
       </div>
 
       {error && (
