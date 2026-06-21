@@ -8,7 +8,11 @@
  */
 
 import type { Deck, DeckTheme, Slide, SlideElement } from "./deck";
-import { makeElementId, materializeSlideElements } from "./deck";
+import {
+  makeElementId,
+  materializeSlideElements,
+  migrateSlideToFreeForm,
+} from "./deck";
 
 /**
  * `Omit` that distributes over a discriminated union, preserving each member's
@@ -129,7 +133,31 @@ export function removeSlide(deck: Deck, index: number): Deck {
   return { ...deck, slides: reindex(slides) };
 }
 
-/** Updates a slide's field(s) and re-indexes the deck. */
+/**
+ * Legacy slide fields that the free-form `elements[]` track makes authoritative.
+ * Once a slide has elements, renderers ignore these, so {@link updateSlide}
+ * refuses to patch them to avoid leaving conflicting legacy + free-form content.
+ */
+const LEGACY_CONTENT_FIELDS = [
+  "title",
+  "titleRuns",
+  "bullets",
+  "bulletRuns",
+  "visualIds",
+  "layout",
+] as const satisfies readonly (keyof Slide)[];
+
+/**
+ * Updates a slide's field(s) and re-indexes the deck.
+ *
+ * **Free-form guard:** when the target slide already has authoritative
+ * `elements[]`, patches to the legacy content fields (`title`, `titleRuns`,
+ * `bullets`, `bulletRuns`, `visualIds`, `layout`) are ignored — renderers read
+ * only `elements[]`, so honoring such a patch would silently desync the legacy
+ * fallback from the visible slide. All other fields (e.g. `notes`, `background`,
+ * `accent`, `elements`, `elementsDerived`) still apply. Legacy slides (no
+ * `elements[]`) accept the full patch unchanged.
+ */
 export function updateSlide(
   deck: Deck,
   index: number,
@@ -139,13 +167,28 @@ export function updateSlide(
     return deck;
   }
 
+  const target = deck.slides[index];
+  const hasElements = Boolean(target.elements && target.elements.length > 0);
+  const effectivePatch = hasElements ? stripLegacyContentFields(patch) : patch;
+
   const slides = deck.slides.map((slide, i) =>
     i === index
-      ? { ...slide, ...patch, index: slide.index, theme: slide.theme }
+      ? { ...slide, ...effectivePatch, index: slide.index, theme: slide.theme }
       : slide,
   );
 
   return { ...deck, slides: reindex(slides) };
+}
+
+/** Drops legacy content keys from a slide patch (free-form guard helper). */
+function stripLegacyContentFields(
+  patch: Partial<Omit<Slide, "index" | "theme">>,
+): Partial<Omit<Slide, "index" | "theme">> {
+  const next = { ...patch };
+  for (const field of LEGACY_CONTENT_FIELDS) {
+    delete next[field];
+  }
+  return next;
 }
 
 /** Changes the deck theme, copying it onto every slide. */
@@ -181,17 +224,13 @@ function mapSlide(
 /**
  * Materializes a slide's legacy content into free-form elements (no-op when the
  * slide already has elements). After this the slide is edited element-first.
+ *
+ * Delegates to {@link migrateSlideToFreeForm} — the single audited legacy →
+ * free-form upgrade — so the `elementsDerived` provenance (issue #221) stays
+ * consistent with every other upgrade path.
  */
 export function materializeSlide(deck: Deck, index: number): Deck {
-  return mapSlide(deck, index, (slide) =>
-    slide.elements && slide.elements.length > 0
-      ? slide
-      : {
-          ...slide,
-          elements: materializeSlideElements(slide),
-          elementsDerived: true,
-        },
-  );
+  return mapSlide(deck, index, migrateSlideToFreeForm);
 }
 
 /**
@@ -231,11 +270,7 @@ export function materializeDeck(deck: Deck): Deck {
       return slide;
     }
     changed = true;
-    return {
-      ...slide,
-      elements: materializeSlideElements(slide),
-      elementsDerived: true,
-    };
+    return migrateSlideToFreeForm(slide);
   });
   return changed ? { ...deck, slides } : deck;
 }

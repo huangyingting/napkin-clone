@@ -8,6 +8,7 @@ import {
   DEFAULT_VISUAL_BOX,
   MAX_BULLETS,
 } from "./deck";
+import type { Slide } from "./deck";
 import { safeParseDeck } from "./deck-schema";
 
 // ---------------------------------------------------------------------------
@@ -632,4 +633,104 @@ test("a deck with runs round-trips through the schema", () => {
       { text: "body", italic: true },
     ]);
   }
+});
+
+// ---------------------------------------------------------------------------
+// makeElementId — stateless, SSR-safe unique id generator
+// ---------------------------------------------------------------------------
+
+test("makeElementId returns an id with the el- shape", async () => {
+  const { makeElementId } = await import("./deck");
+  const id = makeElementId();
+  assert.equal(typeof id, "string");
+  assert.ok(id.startsWith("el-"));
+  // Some unique payload follows the prefix.
+  assert.ok(id.length > "el-".length);
+});
+
+test("makeElementId returns unique ids across many calls", async () => {
+  const { makeElementId } = await import("./deck");
+  const ids = new Set<string>();
+  for (let i = 0; i < 10_000; i++) {
+    ids.add(makeElementId());
+  }
+  assert.equal(ids.size, 10_000);
+});
+
+test("makeElementId holds no module-level state (order-independent)", async () => {
+  // Re-importing must not reset or rely on a shared counter: two ids generated
+  // back-to-back are simply distinct, never a predictable sequence like el-0/el-1.
+  const { makeElementId } = await import("./deck");
+  const a = makeElementId();
+  const b = makeElementId();
+  assert.notEqual(a, b);
+  assert.ok(!/^el-0$/.test(a));
+  assert.ok(!/^el-1$/.test(b));
+});
+
+// ---------------------------------------------------------------------------
+// migrateSlideToFreeForm — audited legacy → free-form upgrade
+// ---------------------------------------------------------------------------
+
+function legacySlide(overrides: Partial<Slide> = {}): Slide {
+  return {
+    index: 0,
+    title: "Title",
+    bullets: ["a", "b"],
+    visualIds: [] as string[],
+    layout: "content" as const,
+    notes: "",
+    theme: "default" as const,
+    ...overrides,
+  };
+}
+
+test("migrateSlideToFreeForm derives elements[] from legacy content", async () => {
+  const { migrateSlideToFreeForm } = await import("./deck");
+  const migrated = migrateSlideToFreeForm(legacySlide());
+  assert.ok(migrated.elements && migrated.elements.length > 0);
+  assert.ok(migrated.elements?.some((e) => e.kind === "text"));
+  assert.ok(migrated.elements?.some((e) => e.kind === "bullets"));
+});
+
+test("migrateSlideToFreeForm stamps elementsDerived=true", async () => {
+  const { migrateSlideToFreeForm } = await import("./deck");
+  const migrated = migrateSlideToFreeForm(legacySlide());
+  assert.equal(migrated.elementsDerived, true);
+});
+
+test("migrateSlideToFreeForm preserves the legacy fields as a fallback", async () => {
+  const { migrateSlideToFreeForm } = await import("./deck");
+  const migrated = migrateSlideToFreeForm(legacySlide());
+  assert.equal(migrated.title, "Title");
+  assert.deepEqual(migrated.bullets, ["a", "b"]);
+});
+
+test("migrateSlideToFreeForm is idempotent on an already free-form slide", async () => {
+  const { migrateSlideToFreeForm } = await import("./deck");
+  const once = migrateSlideToFreeForm(legacySlide());
+  const twice = migrateSlideToFreeForm(once);
+  // Same reference returned — no re-derivation, ids unchanged.
+  assert.equal(twice, once);
+  assert.equal(twice.elementsDerived, true);
+});
+
+test("migrateSlideToFreeForm does not clobber a hand-edited free-form slide", async () => {
+  const { migrateSlideToFreeForm } = await import("./deck");
+  const handEdited = legacySlide({
+    elements: [
+      {
+        id: "keep",
+        kind: "shape",
+        shape: "rect",
+        color: "#000000",
+        zIndex: 0,
+        box: { x: 0, y: 0, w: 1, h: 1 },
+      },
+    ],
+    elementsDerived: false,
+  });
+  const result = migrateSlideToFreeForm(handEdited);
+  assert.equal(result, handEdited);
+  assert.equal(result.elementsDerived, false);
 });
