@@ -18,6 +18,7 @@ import {
 } from "@/lib/search";
 import { requireUser } from "@/lib/session";
 import { BLANK_TEMPLATE_ID, getTemplateOrBlank } from "@/lib/templates/catalog";
+import { acquirePurgeLock, INVITE_LINK_RETENTION_MS } from "@/lib/maintenance";
 import { SOFT_DELETE_RETENTION_MS } from "@/lib/trash";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
@@ -274,21 +275,60 @@ export async function restoreDocument(id: string): Promise<void> {
 }
 
 /**
- * Permanently removes documents soft-deleted longer than the retention window
- * (30 days). Their `Visual`/`Comment` rows cascade away via the existing
- * `onDelete: Cascade` relations.
+ * Opportunistic maintenance sweep invoked on dashboard load.
  *
- * This is a lightweight, global maintenance task invoked opportunistically on
- * dashboard load (an indexed `deletedAt` filter keyed by an old cutoff matches
- * few rows). It is intentionally not user-scoped — expired soft-deletes are
- * purged regardless of owner — and never throws on an empty match.
+ * A module-level timestamp guard (acquirePurgeLock) ensures the global
+ * deleteMany operations run at most once per PURGE_MIN_INTERVAL_MS (5 min)
+ * across concurrent requests within the same process, avoiding redundant
+ * contending writes on every page render.
+ *
+ * When the throttle allows a sweep the function:
+ *   1. Permanently removes documents soft-deleted beyond the 30-day retention
+ *      window (Visual/Comment rows cascade via onDelete: Cascade).
+ *   2. Permanently removes InviteLink rows that are dead (revoked, expired, or
+ *      exhausted) and older than the 7-day invite retention window.
+ *      InviteLinkUse audit rows cascade via onDelete: Cascade.
+ *
+ * When the throttle suppresses the sweep the function returns immediately so
+ * the dashboard load is not slowed.
+ */
+export async function runMaintenance(): Promise<void> {
+  if (!acquirePurgeLock()) return;
+
+  const now = new Date();
+  const docCutoff = new Date(now.getTime() - SOFT_DELETE_RETENTION_MS);
+  const inviteCutoff = new Date(now.getTime() - INVITE_LINK_RETENTION_MS);
+
+  await Promise.all([
+    // Purge hard-expired soft-deleted documents (all owners).
+    prisma.document.deleteMany({
+      where: { deletedAt: { lt: docCutoff } },
+    }),
+
+    // Purge dead InviteLink rows past the retention window.
+    // "Dead" = revoked, OR expired (expiresAt ≤ now), OR exhausted
+    // (useCount >= maxUses — a column comparison requiring raw SQL).
+    // The createdAt anchor guards against purging recently-created dead links,
+    // giving workspace owners a 7-day audit window.
+    // InviteLinkUse rows cascade via onDelete: Cascade.
+    prisma.$executeRaw`
+      DELETE FROM "InviteLink"
+      WHERE "createdAt" < ${inviteCutoff}
+        AND (
+          "isRevoked" = ${true}
+          OR ("expiresAt" IS NOT NULL AND "expiresAt" < ${inviteCutoff})
+          OR ("maxUses" IS NOT NULL AND "useCount" >= "maxUses")
+        )
+    `,
+  ]);
+}
+
+/**
+ * @deprecated Use {@link runMaintenance} instead. Kept for backwards
+ * compatibility; delegates to the throttled sweep.
  */
 export async function purgeDeletedDocuments(): Promise<void> {
-  const cutoff = new Date(Date.now() - SOFT_DELETE_RETENTION_MS);
-
-  await prisma.document.deleteMany({
-    where: { deletedAt: { lt: cutoff } },
-  });
+  await runMaintenance();
 }
 
 /** Shape returned by `searchDocuments`, compatible with `DashboardDocument`. */

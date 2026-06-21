@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
-import { purgeDeletedDocuments } from "./actions";
+import { runMaintenance } from "./actions";
 import { DocumentList } from "./document-list";
 import { ImportDocumentButton } from "./import-document-button";
 import { NewDocumentButton } from "./new-document-button";
@@ -35,8 +35,9 @@ export default async function DashboardPage() {
   const locale = await getLocale();
   const t = createTranslator(locale);
 
-  // Opportunistically purge documents soft-deleted beyond the retention window.
-  await purgeDeletedDocuments();
+  // Opportunistically run the maintenance sweep (throttled — at most once per
+  // 5 min across concurrent requests; returns immediately when suppressed).
+  await runMaintenance();
 
   // Fetch onboarding dismissal flag for this user.
   const dbUser = await prisma.user.findUnique({
