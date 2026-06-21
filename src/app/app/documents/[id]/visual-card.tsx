@@ -14,6 +14,7 @@ import {
   DEFAULT_EXPORT_OPTIONS,
   exportPNG,
   downloadBlob,
+  sanitizeFilename,
 } from "@/lib/visual/export";
 import { applySocialPresetToOptions } from "@/lib/visual/export-options";
 import { applyElasticLayout } from "@/lib/visual/transforms";
@@ -329,7 +330,7 @@ export function VisualCard({
       };
       const blob = await exportPNG(svg, opts);
       if (blob) {
-        const filename = (visualData.title?.trim() || "visual") + ".png";
+        const filename = sanitizeFilename(visualData.title ?? "") + ".png";
         downloadBlob(blob, filename);
       }
     },
