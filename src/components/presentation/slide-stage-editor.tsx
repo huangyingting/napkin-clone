@@ -82,34 +82,56 @@ function applyResize(
   return { x, y, w, h };
 }
 
+// Each resize handle renders a ~44px transparent hit area (touch target, issue
+// #209) centred on its edge/corner, with a small visible dot drawn at its
+// centre. The −22 offsets are half of that 44px box so the box's centre lands
+// exactly on the element's edge/corner regardless of the dot's visual size.
+const HANDLE_EDGE = -22;
+
 const HANDLES: {
   handle: Handle;
   cursor: string;
   style: React.CSSProperties;
 }[] = [
-  { handle: "nw", cursor: "nwse-resize", style: { left: -5, top: -5 } },
+  {
+    handle: "nw",
+    cursor: "nwse-resize",
+    style: { left: HANDLE_EDGE, top: HANDLE_EDGE },
+  },
   {
     handle: "n",
     cursor: "ns-resize",
-    style: { left: "50%", top: -5, transform: "translateX(-50%)" },
+    style: { left: "50%", top: HANDLE_EDGE, transform: "translateX(-50%)" },
   },
-  { handle: "ne", cursor: "nesw-resize", style: { right: -5, top: -5 } },
+  {
+    handle: "ne",
+    cursor: "nesw-resize",
+    style: { right: HANDLE_EDGE, top: HANDLE_EDGE },
+  },
   {
     handle: "e",
     cursor: "ew-resize",
-    style: { right: -5, top: "50%", transform: "translateY(-50%)" },
+    style: { right: HANDLE_EDGE, top: "50%", transform: "translateY(-50%)" },
   },
-  { handle: "se", cursor: "nwse-resize", style: { right: -5, bottom: -5 } },
+  {
+    handle: "se",
+    cursor: "nwse-resize",
+    style: { right: HANDLE_EDGE, bottom: HANDLE_EDGE },
+  },
   {
     handle: "s",
     cursor: "ns-resize",
-    style: { left: "50%", bottom: -5, transform: "translateX(-50%)" },
+    style: { left: "50%", bottom: HANDLE_EDGE, transform: "translateX(-50%)" },
   },
-  { handle: "sw", cursor: "nesw-resize", style: { left: -5, bottom: -5 } },
+  {
+    handle: "sw",
+    cursor: "nesw-resize",
+    style: { left: HANDLE_EDGE, bottom: HANDLE_EDGE },
+  },
   {
     handle: "w",
     cursor: "ew-resize",
-    style: { left: -5, top: "50%", transform: "translateY(-50%)" },
+    style: { left: HANDLE_EDGE, top: "50%", transform: "translateY(-50%)" },
   },
 ];
 
@@ -374,9 +396,12 @@ export function SlideStageEditor({
                       onPointerDown={(event) =>
                         beginDrag(event, element.id, handle, element.box)
                       }
-                      className="absolute h-2.5 w-2.5 rounded-full border border-white bg-ds-control shadow"
+                      aria-hidden="true"
+                      className="absolute flex h-11 w-11 touch-none items-center justify-center"
                       style={{ ...style, cursor }}
-                    />
+                    >
+                      <span className="h-2.5 w-2.5 rounded-full border border-white bg-ds-control shadow" />
+                    </span>
                   ))
                 : null}
             </div>
