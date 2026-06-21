@@ -170,6 +170,48 @@ export function materializeSlide(deck: Deck, index: number): Deck {
   );
 }
 
+/**
+ * True when a slide still holds legacy content (title / bullets / visuals) that
+ * has not yet been materialized into free-form `elements`. A blank slide with
+ * no legacy content returns `false` — there is nothing to derive.
+ *
+ * Pure and deterministic: mirrors the element-producing branches of
+ * {@link materializeSlideElements} without generating any ids, so it is safe to
+ * call repeatedly (e.g. from the editor on open, or from tests).
+ */
+export function slideNeedsMaterialization(slide: Slide): boolean {
+  if (slide.elements && slide.elements.length > 0) {
+    return false;
+  }
+  return Boolean(
+    slide.title ||
+    (slide.bullets?.length ?? 0) > 0 ||
+    (slide.visualIds?.length ?? 0) > 0,
+  );
+}
+
+/**
+ * Materializes every legacy slide in the deck so each one is directly editable
+ * element-first. Slides that already have elements — or that are blank with no
+ * legacy content — are left untouched.
+ *
+ * Returns the *same* deck reference when nothing needs materializing, so a
+ * history `commit` of the result is a no-op (the snapshot reducer skips
+ * reference-equal decks) and the editor can call this on open without polluting
+ * undo history for already-materialized decks.
+ */
+export function materializeDeck(deck: Deck): Deck {
+  let changed = false;
+  const slides = deck.slides.map((slide) => {
+    if (!slideNeedsMaterialization(slide)) {
+      return slide;
+    }
+    changed = true;
+    return { ...slide, elements: materializeSlideElements(slide) };
+  });
+  return changed ? { ...deck, slides } : deck;
+}
+
 /** Returns the next z-index above the current maximum on a slide. */
 function nextZIndex(elements: readonly SlideElement[]): number {
   return (
