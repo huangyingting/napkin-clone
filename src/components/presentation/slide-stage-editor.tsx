@@ -19,7 +19,18 @@
  * independent. The component is controlled: it never mutates the deck.
  */
 
-import { ArrowDownToLine, ArrowUpToLine, Copy, Trash2 } from "lucide-react";
+import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
+  AlignVerticalJustifyCenter,
+  AlignVerticalJustifyEnd,
+  AlignVerticalJustifyStart,
+  ArrowDownToLine,
+  ArrowUpToLine,
+  Copy,
+  Trash2,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { FOCUS_RING } from "@/components/motion/control-styles";
@@ -29,8 +40,9 @@ import {
   type ThemeConfig,
 } from "@/components/presentation/slide-canvas";
 import { TextStyleBar } from "@/components/presentation/text-style-bar";
-import { ColorPicker } from "@/components/ui";
+import { ColorPicker, IconButton } from "@/components/ui";
 import type { ElementBox, Slide, SlideElement } from "@/lib/presentation/deck";
+import type { AlignMode } from "@/lib/presentation/element-align";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import { type SnapGuide, snapBox } from "@/lib/presentation/element-snap";
 import type { Visual } from "@/lib/visual/schema";
@@ -60,6 +72,23 @@ function clampBox(box: ElementBox): ElementBox {
   const x = Math.max(0, Math.min(100 - w, box.x));
   const y = Math.max(0, Math.min(100 - h, box.y));
   return { x, y, w, h };
+}
+
+interface SelectionBounds {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Tight bounding box (percent) enclosing every box. Used to place the align
+ * toolbar over a multi-selection. */
+function boundsOf(boxes: ElementBox[]): SelectionBounds {
+  const minX = Math.min(...boxes.map((b) => b.x));
+  const minY = Math.min(...boxes.map((b) => b.y));
+  const maxX = Math.max(...boxes.map((b) => b.x + b.w));
+  const maxY = Math.max(...boxes.map((b) => b.y + b.h));
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
 function applyResize(
@@ -148,13 +177,24 @@ function resolveTextColor(
   return element.style.color ?? tc.bodyColor;
 }
 
+/**
+ * How a selection request should fold into the current selection. `"replace"`
+ * (the default, plain click) selects just the one element; `"toggle"`
+ * (shift/ctrl/cmd-click) adds or removes it from a multi-selection; `"keep"`
+ * makes it the primary without disturbing an existing multi-selection (used when
+ * starting a drag on an already-selected element). Issue #237.
+ */
+export type SelectionMode = "replace" | "toggle" | "keep";
+
 interface SlideStageEditorProps {
   slide: Slide;
   visuals: ReadonlyMap<string, Visual>;
   width: number;
   height: number;
   selectedElementId: string | null;
-  onSelectElement: (id: string | null) => void;
+  selectedElementIds: ReadonlySet<string>;
+  onSelectElement: (id: string | null, mode?: SelectionMode) => void;
+  onAlignElements: (mode: AlignMode) => void;
   onUpdateElement: (id: string, patch: ElementPatch) => void;
   onRemoveElement: (id: string) => void;
   onDuplicateElement: (id: string) => void;
@@ -168,7 +208,9 @@ export function SlideStageEditor({
   width,
   height,
   selectedElementId,
+  selectedElementIds,
   onSelectElement,
+  onAlignElements,
   onUpdateElement,
   onRemoveElement,
   onDuplicateElement,
@@ -201,6 +243,18 @@ export function SlideStageEditor({
 
   const selectedElement =
     elements.find((element) => element.id === selectedElementId) ?? null;
+  // Elements in the multi-selection that still exist on this slide, plus a
+  // convenience flag for "2+ selected" (issue #237). The single-select path is
+  // unchanged: a 1-element selection behaves exactly as before.
+  const selectedElements = useMemo(
+    () => elements.filter((element) => selectedElementIds.has(element.id)),
+    [elements, selectedElementIds],
+  );
+  const isMultiSelect = selectedElements.length >= 2;
+  const selectionBounds = useMemo(
+    () => (isMultiSelect ? boundsOf(selectedElements.map((e) => e.box)) : null),
+    [isMultiSelect, selectedElements],
+  );
   // Editing is only active while the edited element is also the selection, so
   // changing slides or selecting another element implicitly exits edit mode
   // (no effect / setState needed).
@@ -278,7 +332,11 @@ export function SlideStageEditor({
       box: ElementBox,
     ) => {
       event.stopPropagation();
-      onSelectElement(id);
+      // Dragging an element that is already part of a multi-selection keeps that
+      // selection (and makes the dragged element primary) so the user can still
+      // align it; otherwise a plain drag collapses to a single selection. Group
+      // move is intentionally not implemented — only the dragged element moves.
+      onSelectElement(id, selectedElementIds.has(id) ? "keep" : "replace");
       dragRef.current = {
         id,
         mode,
@@ -288,7 +346,7 @@ export function SlideStageEditor({
       };
       setActiveDrag(mode);
     },
-    [onSelectElement],
+    [onSelectElement, selectedElementIds],
   );
 
   const startEditing = useCallback(
@@ -333,18 +391,31 @@ export function SlideStageEditor({
       {/* Interaction layer */}
       <div className="absolute inset-0">
         {elements.map((element) => {
-          const selected = element.id === selectedElementId;
+          const isPrimary = element.id === selectedElementId;
+          const inSelection = selectedElementIds.has(element.id);
+          const selected = isPrimary || inSelection;
           const isEditing = element.id === activeEditingId;
           const editable =
             element.kind === "text" || element.kind === "bullets";
+          // Resize handles only attach to a single (primary) selection — they
+          // would be ambiguous across a multi-selection. Issue #237.
+          const showHandles = isPrimary && !isEditing && !isMultiSelect;
           return (
             <div
               key={element.id}
               role="button"
               tabIndex={0}
               aria-label={`${element.kind} element`}
+              aria-pressed={selected}
               onPointerDown={(event) => {
                 if (isEditing) {
+                  return;
+                }
+                // Shift / Ctrl / Cmd-click toggles the element in the
+                // multi-selection without starting a drag. Issue #237.
+                if (event.shiftKey || event.metaKey || event.ctrlKey) {
+                  event.stopPropagation();
+                  onSelectElement(element.id, "toggle");
                   return;
                 }
                 beginDrag(event, element.id, "move", element.box);
@@ -361,7 +432,10 @@ export function SlideStageEditor({
                   startEditing(element);
                 } else if (event.key === " ") {
                   event.preventDefault();
-                  onSelectElement(element.id);
+                  onSelectElement(
+                    element.id,
+                    event.shiftKey ? "toggle" : "replace",
+                  );
                 }
               }}
               className={`absolute outline-none transition-colors ${
@@ -389,7 +463,7 @@ export function SlideStageEditor({
                 />
               ) : null}
 
-              {selected && !isEditing
+              {showHandles
                 ? HANDLES.map(({ handle, cursor, style }) => (
                     <span
                       key={handle}
@@ -444,8 +518,8 @@ export function SlideStageEditor({
           </div>
         ) : null}
 
-        {/* Contextual toolbar */}
-        {selectedElement && !activeEditingId ? (
+        {/* Contextual toolbar — single (primary) selection only. */}
+        {selectedElement && !activeEditingId && !isMultiSelect ? (
           <ElementToolbar
             element={selectedElement}
             width={width}
@@ -457,6 +531,17 @@ export function SlideStageEditor({
             onBringToFront={onBringToFront}
             onSendToBack={onSendToBack}
             onEdit={() => startEditing(selectedElement)}
+          />
+        ) : null}
+
+        {/* Align toolbar — shown above the selection bounding box when 2+
+            elements are selected (issue #237). */}
+        {isMultiSelect && selectionBounds && !activeEditingId ? (
+          <AlignToolbar
+            bounds={selectionBounds}
+            width={width}
+            height={height}
+            onAlign={onAlignElements}
           />
         ) : null}
       </div>
@@ -578,6 +663,78 @@ function ToolbarButton({
     >
       {children}
     </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Align toolbar — floats above a multi-selection's bounding box (issue #237).
+// ---------------------------------------------------------------------------
+
+const ALIGN_ACTIONS: {
+  mode: AlignMode;
+  label: string;
+  Icon: typeof AlignLeft;
+}[] = [
+  { mode: "left", label: "Align left", Icon: AlignLeft },
+  { mode: "hcenter", label: "Align horizontal centers", Icon: AlignCenter },
+  { mode: "right", label: "Align right", Icon: AlignRight },
+  { mode: "top", label: "Align top", Icon: AlignVerticalJustifyStart },
+  {
+    mode: "vmiddle",
+    label: "Align vertical centers",
+    Icon: AlignVerticalJustifyCenter,
+  },
+  { mode: "bottom", label: "Align bottom", Icon: AlignVerticalJustifyEnd },
+];
+
+function AlignToolbar({
+  bounds,
+  width,
+  height,
+  onAlign,
+}: {
+  bounds: SelectionBounds;
+  width: number;
+  height: number;
+  onAlign: (mode: AlignMode) => void;
+}) {
+  // Position: centered above the selection bounding box, flipping below when it
+  // is near the top edge (mirrors {@link ElementToolbar}).
+  const topPxRaw = (bounds.y / 100) * height;
+  const placeBelow = topPxRaw < 44;
+  const topPx = placeBelow
+    ? ((bounds.y + bounds.h) / 100) * height + 8
+    : topPxRaw - 8;
+  const leftPx = ((bounds.x + bounds.w / 2) / 100) * width;
+  const clampedLeft = Math.max(120, Math.min(width - 120, leftPx));
+
+  return (
+    <div
+      role="toolbar"
+      aria-label="Align selected elements"
+      onPointerDown={(event) => event.stopPropagation()}
+      className="absolute flex items-center gap-0.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised px-1 py-1 shadow-ds-overlay"
+      style={{
+        left: clampedLeft,
+        top: topPx,
+        transform: placeBelow ? "translateX(-50%)" : "translate(-50%, -100%)",
+        zIndex: 2000,
+      }}
+    >
+      {ALIGN_ACTIONS.map(({ mode, label, Icon }, i) => (
+        <span key={mode} className="flex items-center">
+          {i === 3 ? <Divider /> : null}
+          <IconButton
+            size="sm"
+            aria-label={label}
+            title={label}
+            onClick={() => onAlign(mode)}
+          >
+            <Icon size={14} aria-hidden="true" />
+          </IconButton>
+        </span>
+      ))}
+    </div>
   );
 }
 

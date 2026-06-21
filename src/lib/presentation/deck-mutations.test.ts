@@ -5,6 +5,7 @@ import type { Deck, Slide } from "./deck";
 import {
   addElement,
   addSlide,
+  alignElements,
   bringElementToFront,
   duplicateElement,
   duplicateSlide,
@@ -664,4 +665,68 @@ test("duplicateElement clamps the offset so the copy stays on the slide", () => 
   const copy = next.slides[0].elements!.find((e) => e.id === newElementId)!;
   assert.equal(copy.box.x, 80);
   assert.equal(copy.box.y, 85);
+});
+
+// ---------------------------------------------------------------------------
+// alignElements (issue #237)
+// ---------------------------------------------------------------------------
+
+// A free-form slide with three positioned shapes plus one untouched control.
+function deckWithBoxes(): Deck {
+  let deck: Deck = makeDeck(["A"]);
+  deck = addElement(deck, 0, {
+    id: "a",
+    kind: "shape",
+    shape: "rect",
+    color: "#111111",
+    box: { x: 10, y: 5, w: 20, h: 10 },
+  });
+  deck = addElement(deck, 0, {
+    id: "b",
+    kind: "shape",
+    shape: "rect",
+    color: "#222222",
+    box: { x: 30, y: 20, w: 40, h: 20 },
+  });
+  deck = addElement(deck, 0, {
+    id: "c",
+    kind: "shape",
+    shape: "rect",
+    color: "#333333",
+    box: { x: 50, y: 50, w: 15, h: 10 },
+  });
+  return deck;
+}
+
+test("alignElements aligns only the named ids and leaves others untouched", () => {
+  const deck = deckWithBoxes();
+  const before = deck.slides[0].elements!;
+  const next = alignElements(deck, 0, ["a", "b"], "left");
+
+  const byId = (d: Deck, id: string) =>
+    d.slides[0].elements!.find((e) => e.id === id)!;
+  // a and b snap to the selection's left edge (minX = 10).
+  assert.equal(byId(next, "a").box.x, 10);
+  assert.equal(byId(next, "b").box.x, 10);
+  // c is not in the selection → unchanged reference.
+  assert.equal(byId(next, "c"), byId(deck, "c"));
+  // Original deck untouched.
+  assert.equal(deck.slides[0].elements, before);
+  assert.equal(byId(deck, "b").box.x, 30);
+});
+
+test("alignElements clears elementsDerived and returns a new deck", () => {
+  const deck = materializeSlide(makeDeck(["A"]), 0);
+  assert.equal(deck.slides[0].elementsDerived, true);
+  const ids = deck.slides[0].elements!.slice(0, 2).map((e) => e.id);
+  const next = alignElements(deck, 0, ids, "top");
+
+  assert.notEqual(next, deck);
+  assert.equal(next.slides[0].elementsDerived, false);
+});
+
+test("alignElements is a no-op when no named ids are present", () => {
+  const deck = deckWithBoxes();
+  const next = alignElements(deck, 0, ["nope"], "left");
+  assert.equal(next.slides[0].elements, deck.slides[0].elements);
 });

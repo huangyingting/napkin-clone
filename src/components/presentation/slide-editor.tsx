@@ -63,9 +63,13 @@ import {
   SlideInspector,
   type AddElementKind,
 } from "@/components/presentation/slide-inspector";
-import { SlideStageEditor } from "@/components/presentation/slide-stage-editor";
+import {
+  SlideStageEditor,
+  type SelectionMode,
+} from "@/components/presentation/slide-stage-editor";
 import { VisualPicker } from "@/components/presentation/visual-picker";
 import { IconButton, Tooltip } from "@/components/ui";
+import type { AlignMode } from "@/lib/presentation/element-align";
 import {
   buildVisualElement,
   makeElementId,
@@ -93,6 +97,7 @@ import {
 import {
   addElement,
   addSlide,
+  alignElements,
   bringElementToFront,
   duplicateElement,
   duplicateSlide,
@@ -248,6 +253,14 @@ export function SlideEditor({
   const [stageBounds, setStageBounds] = useState<Size>(DEFAULT_SCREEN_SIZE);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(
     null,
+  );
+  // The full multi-selection (issue #237). `selectedElementId` is the primary
+  // (anchor) element used for single-element operations — move, resize, inline
+  // edit, the contextual toolbar, keyboard nudge/delete — and is always a member
+  // of this set when non-empty. A 1-element selection is the common path and
+  // behaves exactly as before.
+  const [selectedElementIds, setSelectedElementIds] = useState<Set<string>>(
+    () => new Set(),
   );
   // Whether the stage "Add → Visual" picker popover is open.
   const [visualPickerOpen, setVisualPickerOpen] = useState(false);
@@ -418,6 +431,22 @@ export function SlideEditor({
       false)
       ? selectedElementId
       : null;
+  // The multi-selection narrowed to elements that still exist on the active
+  // slide (issue #237). Switching slides or deleting elements implicitly prunes
+  // the selection — no effect needed, mirroring `effectiveSelectedElementId`.
+  const effectiveSelectedElementIds = useMemo(() => {
+    const existing = selectedSlide?.elements;
+    if (!existing || selectedElementIds.size === 0) {
+      return new Set<string>();
+    }
+    const next = new Set<string>();
+    for (const el of existing) {
+      if (selectedElementIds.has(el.id)) {
+        next.add(el.id);
+      }
+    }
+    return next;
+  }, [selectedSlide?.elements, selectedElementIds]);
   const viewportAspectRatio = viewportSize.width / viewportSize.height;
   const fittedStageSize = fitAspectRatio(stageBounds, viewportAspectRatio);
 
@@ -542,6 +571,7 @@ export function SlideEditor({
           setInspectorSheetOpen(false);
         } else if (effectiveSelectedElementId) {
           setSelectedElementId(null);
+          setSelectedElementIds(new Set());
         } else {
           handleRequestClose();
         }
@@ -623,6 +653,7 @@ export function SlideEditor({
           event.preventDefault();
           onDeckChange(removeElement(deck, safeSelected, selected.id));
           setSelectedElementId(null);
+          setSelectedElementIds(new Set());
           return;
         }
         const step = event.shiftKey ? 5 : 1;
@@ -815,20 +846,50 @@ export function SlideEditor({
   const accentForSelected = selectedSlide?.accent ?? selectedTheme.accentColor;
 
   const handleSelectElement = useCallback(
-    (id: string | null) => {
-      setSelectedElementId(id);
-      if (id != null) {
-        setTouchedSlides((current) => {
-          if (current.has(safeSelected)) {
-            return current;
-          }
-          const next = new Set(current);
-          next.add(safeSelected);
-          return next;
-        });
+    (id: string | null, mode: SelectionMode = "replace") => {
+      if (id == null) {
+        setSelectedElementId(null);
+        setSelectedElementIds((current) =>
+          current.size === 0 ? current : new Set(),
+        );
+        return;
       }
+      if (mode === "toggle") {
+        // Add/remove from the multi-selection. Removing the primary promotes
+        // another remaining member (or clears the primary when none remain).
+        const next = new Set(selectedElementIds);
+        if (next.has(id)) {
+          next.delete(id);
+          setSelectedElementId((primary) =>
+            primary === id ? ([...next][0] ?? null) : primary,
+          );
+        } else {
+          next.add(id);
+          setSelectedElementId(id);
+        }
+        setSelectedElementIds(next);
+      } else if (mode === "keep") {
+        // Make `id` the primary without disturbing an existing multi-selection
+        // (used when starting a drag on an already-selected element).
+        setSelectedElementId(id);
+        setSelectedElementIds((current) =>
+          current.has(id) ? current : new Set([id]),
+        );
+      } else {
+        // "replace": plain single selection.
+        setSelectedElementId(id);
+        setSelectedElementIds(new Set([id]));
+      }
+      setTouchedSlides((current) => {
+        if (current.has(safeSelected)) {
+          return current;
+        }
+        const next = new Set(current);
+        next.add(safeSelected);
+        return next;
+      });
     },
-    [safeSelected],
+    [safeSelected, selectedElementIds],
   );
 
   const handleUpdateElement = useCallback(
@@ -842,6 +903,14 @@ export function SlideEditor({
     (id: string) => {
       onDeckChange(removeElement(deck, safeSelected, id));
       setSelectedElementId((current) => (current === id ? null : current));
+      setSelectedElementIds((current) => {
+        if (!current.has(id)) {
+          return current;
+        }
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
     },
     [deck, onDeckChange, safeSelected],
   );
@@ -874,6 +943,17 @@ export function SlideEditor({
       onDeckChange(sendElementToBack(deck, safeSelected, id));
     },
     [deck, onDeckChange, safeSelected],
+  );
+
+  const handleAlignElements = useCallback(
+    (mode: AlignMode) => {
+      const ids = [...effectiveSelectedElementIds];
+      if (ids.length < 2) {
+        return;
+      }
+      onDeckChange(alignElements(deck, safeSelected, ids, mode));
+    },
+    [deck, onDeckChange, safeSelected, effectiveSelectedElementIds],
   );
 
   const handleMaterialize = useCallback(() => {
@@ -1321,7 +1401,9 @@ export function SlideEditor({
                 width={fittedStageSize.width}
                 height={fittedStageSize.height}
                 selectedElementId={effectiveSelectedElementId}
+                selectedElementIds={effectiveSelectedElementIds}
                 onSelectElement={handleSelectElement}
+                onAlignElements={handleAlignElements}
                 onUpdateElement={handleUpdateElement}
                 onRemoveElement={handleRemoveElement}
                 onDuplicateElement={handleDuplicateElement}
