@@ -13,6 +13,9 @@ import {
   materializeDeck,
   materializeSlide,
   removeElement,
+  removeElements,
+  nudgeElements,
+  duplicateElements,
   removeSlide,
   reorderSlides,
   moveSlide,
@@ -516,6 +519,148 @@ test("removeElement deletes an element by id", () => {
   });
   const next = removeElement(base, 0, "gone");
   assert.ok(!next.slides[0].elements?.some((e) => e.id === "gone"));
+});
+
+// ---------------------------------------------------------------------------
+// Multi-select mutations (issue #245)
+// ---------------------------------------------------------------------------
+
+/** A deck whose slide 0 carries exactly three shapes with ids e1/e2/e3. */
+function deckWithThreeElements(): Deck {
+  const base = makeDeck(["A", "B"]);
+  const elements = [
+    { id: "e1", x: 0 },
+    { id: "e2", x: 30 },
+    { id: "e3", x: 60 },
+  ].map(({ id, x }, i) => ({
+    id,
+    kind: "shape" as const,
+    shape: "rect" as const,
+    color: "#112233",
+    zIndex: i,
+    box: { x, y: 10, w: 10, h: 10 },
+  }));
+  return {
+    ...base,
+    slides: base.slides.map((s, i) => (i === 0 ? { ...s, elements } : s)),
+  };
+}
+
+test("removeElements deletes only the named ids", () => {
+  const base = deckWithThreeElements();
+  const next = removeElements(base, 0, ["e1", "e3"]);
+  assert.deepEqual(
+    next.slides[0].elements?.map((e) => e.id),
+    ["e2"],
+  );
+});
+
+test("removeElements clears elementsDerived and is immutable", () => {
+  const base = materializeDeck(deckWithThreeElements());
+  // materializeDeck marks the slide as derived; addElement already cleared it,
+  // so re-stamp it true to prove removeElements clears it.
+  const stamped: Deck = {
+    ...base,
+    slides: base.slides.map((s, i) =>
+      i === 0 ? { ...s, elementsDerived: true } : s,
+    ),
+  };
+  const beforeIds = stamped.slides[0].elements?.map((e) => e.id);
+  const next = removeElements(stamped, 0, ["e2"]);
+  assert.equal(next.slides[0].elementsDerived, false);
+  // Original deck untouched.
+  assert.notEqual(next, stamped);
+  assert.notEqual(next.slides[0], stamped.slides[0]);
+  assert.deepEqual(
+    stamped.slides[0].elements?.map((e) => e.id),
+    beforeIds,
+  );
+});
+
+test("removeElements is a no-op (same ref) when no id matches or list is empty", () => {
+  const base = deckWithThreeElements();
+  assert.equal(removeElements(base, 0, []), base);
+  assert.equal(removeElements(base, 0, ["nope"]).slides[0], base.slides[0]);
+});
+
+test("nudgeElements moves only the named ids by the same delta", () => {
+  const base = deckWithThreeElements();
+  const next = nudgeElements(base, 0, ["e1", "e3"], 5, -3);
+  const byId = (id: string) =>
+    next.slides[0].elements?.find((e) => e.id === id)?.box;
+  assert.deepEqual(byId("e1"), { x: 5, y: 7, w: 10, h: 10 });
+  assert.deepEqual(byId("e3"), { x: 65, y: 7, w: 10, h: 10 });
+  // e2 untouched.
+  assert.deepEqual(byId("e2"), { x: 30, y: 10, w: 10, h: 10 });
+});
+
+test("nudgeElements clamps each box within the slide", () => {
+  const base = deckWithThreeElements();
+  // Push e1 (x=0,y=10) up/left past the edge — should clamp to 0,0.
+  const next = nudgeElements(base, 0, ["e1"], -50, -50);
+  const e1 = next.slides[0].elements?.find((e) => e.id === "e1")?.box;
+  assert.deepEqual(e1, { x: 0, y: 0, w: 10, h: 10 });
+});
+
+test("nudgeElements clears elementsDerived and is immutable", () => {
+  const base = materializeDeck(deckWithThreeElements());
+  const stamped: Deck = {
+    ...base,
+    slides: base.slides.map((s, i) =>
+      i === 0 ? { ...s, elementsDerived: true } : s,
+    ),
+  };
+  const next = nudgeElements(stamped, 0, ["e1"], 2, 2);
+  assert.equal(next.slides[0].elementsDerived, false);
+  assert.notEqual(next, stamped);
+  // Original box untouched.
+  assert.deepEqual(
+    stamped.slides[0].elements?.find((e) => e.id === "e1")?.box,
+    { x: 0, y: 10, w: 10, h: 10 },
+  );
+});
+
+test("nudgeElements is a no-op (same ref) on zero delta / empty / no match", () => {
+  const base = deckWithThreeElements();
+  assert.equal(nudgeElements(base, 0, ["e1"], 0, 0), base);
+  assert.equal(nudgeElements(base, 0, [], 5, 5), base);
+  assert.equal(
+    nudgeElements(base, 0, ["nope"], 5, 5).slides[0],
+    base.slides[0],
+  );
+});
+
+test("duplicateElements clones every named id, offset and on top", () => {
+  const base = deckWithThreeElements();
+  const { deck: next, newElementIds } = duplicateElements(base, 0, [
+    "e1",
+    "e3",
+  ]);
+  assert.equal(newElementIds.length, 2);
+  const elements = next.slides[0].elements ?? [];
+  // Originals still present; two copies appended.
+  assert.equal(elements.length, 5);
+  const maxOriginalZ = Math.max(
+    ...["e1", "e2", "e3"].map(
+      (id) => elements.find((e) => e.id === id)!.zIndex,
+    ),
+  );
+  for (const id of newElementIds) {
+    const copy = elements.find((e) => e.id === id)!;
+    assert.ok(copy.zIndex > maxOriginalZ);
+  }
+  // First copy is e1 offset by the standard amount.
+  const e1 = elements.find((e) => e.id === "e1")!;
+  const copy1 = elements.find((e) => e.id === newElementIds[0])!;
+  assert.equal(copy1.box.x, e1.box.x + 2);
+  assert.equal(copy1.box.y, e1.box.y + 2);
+});
+
+test("duplicateElements is a no-op when nothing matches", () => {
+  const base = deckWithThreeElements();
+  const { deck: next, newElementIds } = duplicateElements(base, 0, ["nope"]);
+  assert.equal(next, base);
+  assert.deepEqual(newElementIds, []);
 });
 
 test("bringElementToFront / sendElementToBack reorder z-index", () => {
