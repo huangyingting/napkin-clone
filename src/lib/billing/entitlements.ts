@@ -91,6 +91,14 @@ export const PLAN_NAMES: Record<Plan, string> = {
 export const BILLING_UNLIMITED_CREDITS_ENV = "BILLING_UNLIMITED_CREDITS";
 
 /**
+ * Environment variable that gates the AI deck-generation feature (issue #265).
+ * When set to a truthy value (`1`, `true`, `yes`, `on`) the
+ * `POST /api/generate-deck` route is enabled. It defaults to OFF, so the route
+ * stays disabled (returns 404) unless an operator explicitly opts in.
+ */
+export const AI_DECK_GEN_ENABLED_ENV = "AI_DECK_GEN_ENABLED";
+
+/**
  * Parses a boolean-ish environment flag. Recognises `1/true/yes/on` (any case)
  * as `true`; everything else (including `undefined`) is `false`.
  */
@@ -114,6 +122,24 @@ export function isUnlimitedCreditsEnabled(
   env: Record<string, string | undefined> = process.env,
 ): boolean {
   return parseBillingFlag(env[BILLING_UNLIMITED_CREDITS_ENV]);
+}
+
+/**
+ * Returns whether the AI deck-generation route is enabled for the current
+ * environment.
+ *
+ * Driven entirely by {@link AI_DECK_GEN_ENABLED_ENV}. The default is `false`
+ * (production-safe): the `POST /api/generate-deck` route stays disabled (404)
+ * unless an operator explicitly opts in. When `true`, the route accepts deck
+ * generation requests (still subject to quota, credits, and the abort deadline).
+ *
+ * Pure: pass an explicit `env` in tests; defaults to `process.env`. Read at call
+ * time so the flag can be toggled without restarting.
+ */
+export function isAiDeckGenEnabled(
+  env: Record<string, string | undefined> = process.env,
+): boolean {
+  return parseBillingFlag(env[AI_DECK_GEN_ENABLED_ENV]);
 }
 
 // ---------------------------------------------------------------------------
