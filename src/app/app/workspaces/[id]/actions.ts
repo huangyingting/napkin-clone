@@ -4,6 +4,7 @@ import { nanoid } from "nanoid";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
+import { DOCUMENT_LIST_LIMIT, capList } from "@/lib/documents";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { BLANK_TEMPLATE_ID, getTemplateOrBlank } from "@/lib/templates/catalog";
@@ -72,6 +73,12 @@ export type WorkspaceDocument = {
   id: string;
   title: string;
   updatedAt: Date;
+};
+
+/** Result of {@link getWorkspaceDocuments}: capped documents plus `hasMore`. */
+export type WorkspaceDocumentsResult = {
+  documents: WorkspaceDocument[];
+  hasMore: boolean;
 };
 
 const MILLIS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -201,7 +208,7 @@ export async function removeMember(memberId: string): Promise<void> {
 
 export async function getWorkspaceDocuments(
   workspaceId: string,
-): Promise<WorkspaceDocument[]> {
+): Promise<WorkspaceDocumentsResult> {
   const user = await requireUser();
 
   // Verify user has access to the workspace
@@ -216,13 +223,16 @@ export async function getWorkspaceDocuments(
     throw new Error("Workspace not found or unauthorized.");
   }
 
-  const documents = await prisma.document.findMany({
+  // Cap the list at DOCUMENT_LIST_LIMIT (one extra row flags `hasMore`).
+  const rows = await prisma.document.findMany({
     where: { workspaceId, deletedAt: null },
     orderBy: { updatedAt: "desc" },
+    take: DOCUMENT_LIST_LIMIT + 1,
     select: { id: true, title: true, updatedAt: true },
   });
 
-  return documents;
+  const { items, hasMore } = capList(rows, DOCUMENT_LIST_LIMIT);
+  return { documents: items, hasMore };
 }
 
 /**

@@ -140,9 +140,11 @@ function UndoToast({ title, onUndo }: { title: string; onUndo: () => void }) {
 export function DocumentList({
   documents,
   availableTags,
+  listCapped = false,
 }: {
   documents: DashboardDocument[];
   availableTags: AvailableTag[];
+  listCapped?: boolean;
 }) {
   const [removedIds, setRemovedIds] = useState<Set<string>>(() => new Set());
   const [restored, setRestored] = useState<DashboardDocument[]>([]);
@@ -152,6 +154,8 @@ export function DocumentList({
   const [searchResults, setSearchResults] = useState<
     DashboardDocument[] | null
   >(null);
+  // True when the last search hit the server cap (more matches were dropped).
+  const [searchCapped, setSearchCapped] = useState(false);
   // Separate transition for search so isPending is scoped to search calls only.
   const [isSearchPending, startSearchTransition] = useTransition();
   const [, startTransition] = useTransition();
@@ -233,7 +237,8 @@ export function DocumentList({
     }
     searchDebounceRef.current = setTimeout(() => {
       startSearchTransition(async () => {
-        const results = await searchDocuments(trimmed);
+        const { results, hasMore } = await searchDocuments(trimmed);
+        setSearchCapped(hasMore);
         setSearchResults(
           results.map((r: SearchResult) => ({
             id: r.id,
@@ -339,6 +344,11 @@ export function DocumentList({
   const noFavorites = viewFavorites && favFiltered.length === 0;
   // Spinner shows while the search transition is pending AND the query is active.
   const isSearching = isSearchPending && Boolean(trimmedQuery);
+  // A capped notice appears when the active result set was truncated server-side
+  // (search hit its cap, or the dashboard list itself is partial) and we have
+  // something to show. It nudges the user to narrow their search.
+  const capActive = trimmedQuery ? searchCapped : listCapped;
+  const showCapNotice = capActive && visible.length > 0;
 
   return (
     <>
@@ -468,6 +478,17 @@ export function DocumentList({
               </select>
             </div>
           </div>
+
+          {showCapNotice && (
+            <p
+              role="status"
+              aria-live="polite"
+              className="rounded-lg border border-ds-border-subtle bg-ds-surface-sunken px-4 py-2 text-sm text-ds-text-secondary"
+            >
+              Showing the first {visible.length} documents — narrow your search
+              to see more.
+            </p>
+          )}
 
           {noTagMatch ? (
             <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-ds-border-strong bg-ds-surface-base px-6 py-16 text-center">

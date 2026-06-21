@@ -299,14 +299,16 @@ export function WorkspaceDocuments({
   userRole: "OWNER" | "EDITOR" | "VIEWER";
 }) {
   const [documents, setDocuments] = useState<WorkspaceDocument[]>([]);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const canCreate = canCreateInWorkspace(userRole);
   const canImport = canImportInWorkspace(userRole);
 
   useEffect(() => {
-    getWorkspaceDocuments(workspaceId).then((docs) => {
-      setDocuments(docs);
+    getWorkspaceDocuments(workspaceId).then((result) => {
+      setDocuments(result.documents);
+      setHasMore(result.hasMore);
       setLoading(false);
     });
   }, [workspaceId]);
@@ -364,6 +366,15 @@ export function WorkspaceDocuments({
           </li>
         ))}
       </ul>
+      {hasMore && (
+        <p
+          role="status"
+          aria-live="polite"
+          className="text-center text-xs text-ds-text-muted"
+        >
+          Showing the first {documents.length} documents in this workspace.
+        </p>
+      )}
     </div>
   );
 }
