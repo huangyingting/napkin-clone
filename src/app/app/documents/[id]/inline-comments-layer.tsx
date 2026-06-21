@@ -35,8 +35,16 @@ function normalizeAnchorText(value: string): string {
   return value.replace(/\s+/g, " ").trim().slice(0, MAX_ANCHOR_TEXT_LENGTH);
 }
 
+function isVisualBlock(element: HTMLElement): boolean {
+  return (
+    element.closest("[data-visual-chrome],[data-lexical-visual-id]") !== null ||
+    element.querySelector("[data-visual-chrome],[data-lexical-visual-id]") !==
+      null
+  );
+}
+
 function isTextBlock(element: HTMLElement): boolean {
-  if (element.closest("[data-visual-chrome],[data-lexical-visual-id]")) {
+  if (isVisualBlock(element)) {
     return false;
   }
   return normalizeAnchorText(element.textContent ?? "").length > 0;
