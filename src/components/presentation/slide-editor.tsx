@@ -73,6 +73,12 @@ import { IconButton, Tooltip } from "@/components/ui";
 import { Popover } from "@/components/ui/popover";
 import type { AlignMode } from "@/lib/presentation/element-align";
 import {
+  DEFAULT_SCREEN_SIZE,
+  SLIDE_ASPECT_RATIO,
+  fitAspectRatio,
+  type Size,
+} from "@/lib/presentation/stage-fit";
+import {
   buildVisualElement,
   makeElementId,
   type Deck,
@@ -158,33 +164,6 @@ const THEME_OPTIONS: { value: DeckTheme; label: string; color: string }[] = [
   { value: "default", label: "Default", color: "#a1a1aa" },
 ];
 
-type Size = { width: number; height: number };
-
-const DEFAULT_SCREEN_SIZE: Size = { width: 16, height: 9 };
-
-function getViewportSize(): Size {
-  if (typeof window === "undefined") {
-    return DEFAULT_SCREEN_SIZE;
-  }
-  return {
-    width: Math.max(1, window.innerWidth),
-    height: Math.max(1, window.innerHeight),
-  };
-}
-
-function fitAspectRatio(bounds: Size, aspectRatio: number): Size {
-  if (bounds.width <= 0 || bounds.height <= 0) {
-    return DEFAULT_SCREEN_SIZE;
-  }
-
-  const boundsAspect = bounds.width / bounds.height;
-  if (boundsAspect > aspectRatio) {
-    return { width: bounds.height * aspectRatio, height: bounds.height };
-  }
-
-  return { width: bounds.width, height: bounds.width / aspectRatio };
-}
-
 /** Builds a freshly-positioned element for the "Add" buttons. */
 function buildDefaultElement(
   kind: AddElementKind,
@@ -255,7 +234,6 @@ export function SlideEditor({
   // Whether the mobile inspector bottom sheet is open (below `lg`; the inspector
   // is a fixed side pane at `lg+`). Issue #209.
   const [inspectorSheetOpen, setInspectorSheetOpen] = useState(false);
-  const [viewportSize, setViewportSize] = useState<Size>(getViewportSize);
   const [stageBounds, setStageBounds] = useState<Size>(DEFAULT_SCREEN_SIZE);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(
     null,
@@ -471,17 +449,9 @@ export function SlideEditor({
     }
     return next;
   }, [selectedSlide?.elements, selectedElementIds]);
-  const viewportAspectRatio = viewportSize.width / viewportSize.height;
-  const fittedStageSize = fitAspectRatio(stageBounds, viewportAspectRatio);
-
-  useEffect(() => {
-    function onResize() {
-      setViewportSize(getViewportSize());
-    }
-
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
+  // Fit the stage to the slide's FIXED 16:9 aspect ratio (issue #256) — not the
+  // viewport's — so cqh-sized slide text never overflows on portrait phones.
+  const fittedStageSize = fitAspectRatio(stageBounds, SLIDE_ASPECT_RATIO);
 
   useEffect(() => {
     const node = stageRef.current;
