@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/session";
 import { hasEntitlement } from "@/lib/billing/entitlements";
 import { listBrands } from "./actions";
 import { BrandStudio } from "./brand-studio";
+import { BrandStudioTeaser } from "./brand-studio-teaser";
 
 export const metadata: Metadata = {
   title: "Brand Studio — TextIQ",
@@ -46,21 +47,7 @@ export default async function BrandsPage() {
         {canUseBrandStyles ? (
           <BrandStudio initialBrands={brands} canFontUpload={canUploadFont} />
         ) : (
-          <div className="flex flex-col items-center gap-4 rounded-2xl border border-ds-border-strong bg-ds-surface-base p-10 text-center">
-            <p className="text-base font-semibold text-ds-text-primary">
-              Brand Styles require Plus or Pro
-            </p>
-            <p className="text-sm text-ds-text-secondary">
-              Upgrade your plan to save and apply custom brand styles to your
-              visuals.
-            </p>
-            <Link
-              href="/app/settings/billing"
-              className="rounded-full bg-ds-accent px-5 py-2 text-sm font-medium text-ds-text-on-accent transition hover:opacity-90"
-            >
-              Upgrade plan
-            </Link>
-          </div>
+          <BrandStudioTeaser />
         )}
       </div>
     </main>
