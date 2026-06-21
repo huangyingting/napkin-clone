@@ -7,6 +7,7 @@ import {
   canGenerateFromText,
   candidatesFrom,
   generateTargetForContext,
+  isCreditError,
   messageFrom,
   parseCandidates,
   requestVisualCandidates,
@@ -249,5 +250,84 @@ test("requestVisualCandidates returns a network error when fetch throws", async 
   assert.equal(result.ok, false);
   if (!result.ok) {
     assert.match(result.error, /Couldn't reach the generator/);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// isCreditError — pure error-kind classification.
+// ---------------------------------------------------------------------------
+
+test("isCreditError returns true for a 402 credit error result", () => {
+  assert.equal(
+    isCreditError({
+      ok: false,
+      error: "Insufficient credits",
+      errorKind: "credit",
+    }),
+    true,
+  );
+});
+
+test("isCreditError returns false for a non-credit error result", () => {
+  assert.equal(
+    isCreditError({
+      ok: false,
+      error: "Something went wrong",
+      errorKind: "other",
+    }),
+    false,
+  );
+});
+
+test("isCreditError returns false for a successful result", () => {
+  assert.equal(isCreditError({ ok: true, candidates: [] }), false);
+});
+
+test("requestVisualCandidates sets errorKind=credit on 402 response", async () => {
+  const fetchImpl = (async () =>
+    jsonResponse(
+      { error: "Insufficient credits" },
+      false,
+      402,
+    )) as unknown as typeof fetch;
+  const result = await requestVisualCandidates("hi", {}, fetchImpl);
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.errorKind, "credit");
+  }
+});
+
+test("requestVisualCandidates sets errorKind=other on non-402 error response", async () => {
+  const fetchImpl = (async () =>
+    jsonResponse(
+      { error: "Server error" },
+      false,
+      500,
+    )) as unknown as typeof fetch;
+  const result = await requestVisualCandidates("hi", {}, fetchImpl);
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.errorKind, "other");
+  }
+});
+
+test("requestVisualCandidates sets errorKind=other when no usable candidates", async () => {
+  const fetchImpl = (async () =>
+    jsonResponse({ candidates: [{ bogus: true }] })) as unknown as typeof fetch;
+  const result = await requestVisualCandidates("hi", {}, fetchImpl);
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.errorKind, "other");
+  }
+});
+
+test("requestVisualCandidates sets errorKind=other on network failure", async () => {
+  const fetchImpl = (async () => {
+    throw new Error("offline");
+  }) as unknown as typeof fetch;
+  const result = await requestVisualCandidates("hi", {}, fetchImpl);
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.errorKind, "other");
   }
 });

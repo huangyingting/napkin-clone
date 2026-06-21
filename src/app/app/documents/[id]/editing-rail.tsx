@@ -3,6 +3,7 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { PanelRight, Sparkles, X } from "lucide-react";
+import Link from "next/link";
 import {
   useCallback,
   useEffect,
@@ -34,6 +35,7 @@ import { useIsPointerFine } from "@/lib/pointer";
 import {
   canGenerateForSelection,
   generateTargetForContext,
+  isCreditError,
   requestVisualCandidates,
   stampSourceText,
 } from "@/lib/visual/generate";
@@ -483,6 +485,7 @@ function GenerateVisualSection() {
 
   const [status, setStatus] = useState<"idle" | "loading">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [creditError, setCreditError] = useState(false);
   const [candidates, setCandidates] = useState<Visual[]>([]);
   // Source text captured at generation time so the inserted visual is stamped
   // with the text it was derived from even if the selection moves afterwards.
@@ -493,6 +496,7 @@ function GenerateVisualSection() {
     sourceTextRef.current = target.text;
     setStatus("loading");
     setError(null);
+    setCreditError(false);
     setCandidates([]);
 
     const result = await requestVisualCandidates(target.text);
@@ -502,6 +506,7 @@ function GenerateVisualSection() {
       setCandidates(result.candidates);
     } else {
       setError(result.error);
+      setCreditError(isCreditError(result));
     }
   }, [target]);
 
@@ -579,13 +584,22 @@ function GenerateVisualSection() {
               className="flex flex-col items-start gap-2 px-1 py-2 text-sm text-[var(--ds-danger,#dc2626)]"
             >
               <span>{error}</span>
-              <Button
-                size="sm"
-                variant="subtle"
-                onClick={() => void generate()}
-              >
-                Try again
-              </Button>
+              {creditError ? (
+                <Link
+                  href="/app/settings/billing"
+                  className="inline-flex items-center rounded-[var(--ds-radius-sm,6px)] bg-[var(--ds-accent,#6366f1)] px-3 py-1.5 text-sm font-medium text-[var(--ds-text-on-accent,#fff)] transition hover:opacity-90"
+                >
+                  Upgrade
+                </Link>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="subtle"
+                  onClick={() => void generate()}
+                >
+                  Try again
+                </Button>
+              )}
             </motion.div>
           ) : candidates.length > 0 ? (
             <motion.ul
