@@ -37,10 +37,12 @@ import {
   type VisualKind,
 } from "@/lib/visual/schema";
 import {
+  isCreditError,
   requestVisualCandidates,
   stampSourceText,
 } from "@/lib/visual/generate";
 import { type Orientation, type DetailLevel } from "@/lib/ai/prompt";
+import Link from "next/link";
 import { useIsPointerFine } from "@/lib/pointer";
 
 import { $createVisualNode } from "./visual-node";
@@ -136,6 +138,7 @@ export function BlockSparkPlugin() {
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [status, setStatus] = useState<GenStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [creditError, setCreditError] = useState(false);
   const [candidates, setCandidates] = useState<Visual[]>([]);
   const [genOptions, setGenOptions] = useState<GenOptions>(DEFAULT_GEN_OPTIONS);
   const [showOptions, setShowOptions] = useState(false);
@@ -288,6 +291,7 @@ export function BlockSparkPlugin() {
     sourceTextRef.current = target.text.trim();
     setStatus("loading");
     setError(null);
+    setCreditError(false);
     setCandidates([]);
 
     const result = await requestVisualCandidates(target.text, {
@@ -302,6 +306,7 @@ export function BlockSparkPlugin() {
       setCandidates(result.candidates);
     } else {
       setError(result.error);
+      setCreditError(isCreditError(result));
     }
   }, []);
 
@@ -640,17 +645,26 @@ export function BlockSparkPlugin() {
                       className="flex flex-col items-start gap-2 px-1 py-2 text-sm text-[var(--ds-danger,#dc2626)]"
                     >
                       <span>{error}</span>
-                      <Button
-                        size="sm"
-                        variant="subtle"
-                        onClick={() =>
-                          panelTarget !== null
-                            ? void generate(panelTarget, genOptions)
-                            : undefined
-                        }
-                      >
-                        Try again
-                      </Button>
+                      {creditError ? (
+                        <Link
+                          href="/app/settings/billing"
+                          className="inline-flex items-center rounded-[var(--ds-radius-sm,6px)] bg-[var(--ds-accent,#6366f1)] px-3 py-1.5 text-sm font-medium text-[var(--ds-text-on-accent,#fff)] transition hover:opacity-90"
+                        >
+                          Upgrade
+                        </Link>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="subtle"
+                          onClick={() =>
+                            panelTarget !== null
+                              ? void generate(panelTarget, genOptions)
+                              : undefined
+                          }
+                        >
+                          Try again
+                        </Button>
+                      )}
                     </motion.div>
                   ) : candidates.length > 0 ? (
                     <motion.ul

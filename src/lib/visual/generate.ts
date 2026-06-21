@@ -26,10 +26,18 @@ export interface GenerateOptions {
   stayCloserToText?: boolean;
 }
 
+/** Distinguishes credit/quota errors from generic generation errors. */
+export type GenerateErrorKind = "credit" | "other";
+
 /** Result of a generation request: either usable candidates or a user-facing error. */
 export type GenerateResult =
   | { ok: true; candidates: Visual[] }
-  | { ok: false; error: string };
+  | { ok: false; error: string; errorKind: GenerateErrorKind };
+
+/** Returns true when a failed {@link GenerateResult} is a credit/quota error. */
+export function isCreditError(result: GenerateResult): boolean {
+  return !result.ok && result.errorKind === "credit";
+}
 
 /** The minimal selection projection generation needs (a subset of EditorContextSnapshot). */
 export interface GenerateSelection {
@@ -169,16 +177,20 @@ export async function requestVisualCandidates(
     const payload: unknown = await response.json().catch(() => null);
 
     if (!response.ok) {
-      return { ok: false, error: messageFrom(payload, FALLBACK_REQUEST_ERROR) };
+      return {
+        ok: false,
+        error: messageFrom(payload, FALLBACK_REQUEST_ERROR),
+        errorKind: response.status === 402 ? "credit" : "other",
+      };
     }
 
     const candidates = parseCandidates(payload);
     if (candidates.length === 0) {
-      return { ok: false, error: EMPTY_CANDIDATES_ERROR };
+      return { ok: false, error: EMPTY_CANDIDATES_ERROR, errorKind: "other" };
     }
 
     return { ok: true, candidates };
   } catch {
-    return { ok: false, error: NETWORK_ERROR };
+    return { ok: false, error: NETWORK_ERROR, errorKind: "other" };
   }
 }
