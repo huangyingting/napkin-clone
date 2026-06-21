@@ -270,3 +270,13 @@ model Subscription {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+// Idempotency ledger for processed Stripe webhook events.
+// One row per Stripe `event.id`. The handler records the id before applying
+// an event and short-circuits when the id already exists, so retries and
+// out-of-order redeliveries are no-ops instead of double-applying state.
+model StripeWebhookEvent {
+  id        String   @id
+  type      String
+  createdAt DateTime @default(now())
+}
