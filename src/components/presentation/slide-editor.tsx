@@ -69,10 +69,15 @@ import {
 } from "@/lib/presentation/deck-merge";
 import type { Visual } from "@/lib/visual/schema";
 import {
+  buildTemplateSlide,
+  SLIDE_TEMPLATES,
+  type SlideTemplateKind,
+} from "@/lib/presentation/slide-templates";
+import {
   addElement,
-  addSlide,
   bringElementToFront,
   duplicateSlide,
+  insertSlide,
   materializeSlide,
   removeElement,
   removeSlide,
@@ -217,6 +222,8 @@ export function SlideEditor({
   );
   // Whether the stage "Add → Visual" picker popover is open.
   const [visualPickerOpen, setVisualPickerOpen] = useState(false);
+  // Whether the thumbnail rail "+ Add slide" template picker popover is open.
+  const [addTemplateOpen, setAddTemplateOpen] = useState(false);
   // Pending sync from the live document: a computed merge awaiting the user's
   // confirmation. `null` when no merge dialog is open.
   const [mergePreview, setMergePreview] = useState<{
@@ -306,11 +313,16 @@ export function SlideEditor({
     [deck, onDeckChange],
   );
 
-  const handleAdd = useCallback(() => {
-    const next = addSlide(deck, deck.slides.length - 1);
-    onDeckChange(next);
-    setSelectedIndex(next.slides.length - 1);
-  }, [deck, onDeckChange]);
+  const handleAddTemplate = useCallback(
+    (kind: SlideTemplateKind) => {
+      const slide = buildTemplateSlide(kind, { theme: deck.theme });
+      const next = insertSlide(deck, deck.slides.length - 1, slide);
+      onDeckChange(next);
+      setSelectedIndex(next.slides.length - 1);
+      setAddTemplateOpen(false);
+    },
+    [deck, onDeckChange],
+  );
 
   const handleDuplicate = useCallback(
     (index: number) => {
@@ -827,14 +839,24 @@ export function SlideEditor({
               })}
             </ul>
 
-            <button
-              type="button"
-              onClick={handleAdd}
-              className={`mt-3 flex w-full items-center justify-center gap-1.5 rounded-ds-md border border-dashed border-ds-border-subtle px-3 py-2 text-sm font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-            >
-              <Plus size={15} aria-hidden="true" />
-              Add slide
-            </button>
+            <div className="relative mt-3">
+              <button
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={addTemplateOpen}
+                onClick={() => setAddTemplateOpen((open) => !open)}
+                className={`flex w-full items-center justify-center gap-1.5 rounded-ds-md border border-dashed border-ds-border-subtle px-3 py-2 text-sm font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+              >
+                <Plus size={15} aria-hidden="true" />
+                Add slide
+              </button>
+              {addTemplateOpen ? (
+                <SlideTemplatePicker
+                  onPick={handleAddTemplate}
+                  onClose={() => setAddTemplateOpen(false)}
+                />
+              ) : null}
+            </div>
           </div>
         </aside>
 
@@ -987,6 +1009,68 @@ export function SlideEditor({
       </div>
     </div>,
     document.body,
+  );
+}
+
+/**
+ * Template picker popover shown by the thumbnail rail's "+ Add slide" button.
+ * Lists each {@link SLIDE_TEMPLATES} option; picking one inserts an authored
+ * slide via the caller (routed through the undo/redo `commit` path). Closes on
+ * Escape or outside click so it behaves like the other editor popovers.
+ */
+function SlideTemplatePicker({
+  onPick,
+  onClose,
+}: {
+  onPick: (kind: SlideTemplateKind) => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onPointerDown(event: PointerEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        onClose();
+      }
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        onClose();
+      }
+    }
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown, true);
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      ref={ref}
+      role="menu"
+      aria-label="Slide templates"
+      className="absolute bottom-full left-0 right-0 z-modal mb-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised p-1 shadow-lg"
+    >
+      {SLIDE_TEMPLATES.map((template) => (
+        <button
+          key={template.kind}
+          type="button"
+          role="menuitem"
+          onClick={() => onPick(template.kind)}
+          className={`flex w-full flex-col items-start gap-0.5 rounded-ds-sm px-2.5 py-1.5 text-left transition-colors hover:bg-ds-state-hover ${FOCUS_RING}`}
+        >
+          <span className="text-sm font-medium text-ds-text-primary">
+            {template.label}
+          </span>
+          <span className="text-[11px] text-ds-text-muted">
+            {template.description}
+          </span>
+        </button>
+      ))}
+    </div>
   );
 }
 
