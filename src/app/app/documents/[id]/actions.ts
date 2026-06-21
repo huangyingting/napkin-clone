@@ -9,7 +9,7 @@ import { collectVisualNodes } from "@/lib/lexical/visual-nodes";
 import { lexicalStateToPlainText } from "@/lib/lexical/plain-text";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
-import { buildShareSegment, slugify } from "@/lib/slug";
+import { buildShareSegment, buildSlugCandidate } from "@/lib/slug";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { VISUAL_KIND_TO_PRISMA, safeParseVisual } from "@/lib/visual/schema";
 import {
@@ -22,6 +22,10 @@ const generateShareId = customAlphabet(
   "23456789abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ",
   12,
 );
+
+// Short random suffix appended to slug candidates to make same-title
+// collisions vanishingly unlikely (4 lowercase alphanumeric chars).
+const generateSlugSuffix = customAlphabet("23456789abcdefghjkmnpqrstuvwxyz", 4);
 
 const MAX_TITLE_LENGTH = 200;
 const MAX_CONTENT_LENGTH = 100_000;
@@ -391,34 +395,16 @@ export async function toggleDocumentSharing(
   // for the share URL; clear it when disabling.
   const shareId = isShared ? generateShareId() : null;
 
-  let slug: string | null = null;
+  let docTitle: string | null = null;
   if (isShared) {
     const doc = await prisma.document.findFirst({
       where: { id },
       select: { title: true },
     });
-    if (doc) {
-      slug = await generateUniqueSlug(doc.title, id);
-    }
+    if (doc) docTitle = doc.title;
   }
 
-  const updated = await prisma.document.update({
-    where: { id },
-    // Disabling clears the expiry so a later re-share doesn't resurrect a stale
-    // (possibly already-past) expiry; the embed/present flags are left as the
-    // owner configured them.
-    data: isShared
-      ? { isShared, shareId, slug }
-      : { isShared, shareId, slug, shareExpiresAt: null },
-    select: {
-      isShared: true,
-      shareId: true,
-      slug: true,
-      shareExpiresAt: true,
-      shareEmbedEnabled: true,
-      sharePresentEnabled: true,
-    },
-  });
+  const updated = await writeShareData(id, isShared, shareId, docTitle);
 
   revalidatePath(`/app/documents/${id}`);
   revalidatePath("/app");
@@ -449,20 +435,7 @@ export async function regenerateShareLink(id: string): Promise<ShareSettings> {
   }
 
   const shareId = generateShareId();
-  const slug = await generateUniqueSlug(doc.title, id);
-
-  const updated = await prisma.document.update({
-    where: { id },
-    data: { shareId, slug },
-    select: {
-      isShared: true,
-      shareId: true,
-      slug: true,
-      shareExpiresAt: true,
-      shareEmbedEnabled: true,
-      sharePresentEnabled: true,
-    },
-  });
+  const updated = await writeShareData(id, true, shareId, doc.title);
 
   revalidatePath(`/app/documents/${id}`);
   revalidatePath("/app");
@@ -541,34 +514,92 @@ export async function updateSharePolicy(
 }
 
 /**
- * Generates a slug from `title` that is unique across documents (the
- * `Document.slug` column is `@unique`). Tries the bare slugify result first,
- * then appends `-2`, `-3`, … until free. Excludes the current document so
- * re-sharing keeps a stable slug. Returns `null` when the title has no usable
- * slug characters.
+ * Generates a slug candidate from `title` by slugifying it and appending a
+ * short random suffix (4 chars). The suffix makes same-titled concurrent
+ * shares vanishingly unlikely to collide without sacrificing readability.
+ * Returns `null` when the title has no usable slug characters and the suffix
+ * alone would not form a meaningful slug.
+ *
+ * Note: uniqueness is enforced at write-time via P2002 retry in callers rather
+ * than by the check-then-write pattern, which has an inherent race window.
  */
-async function generateUniqueSlug(
-  title: string,
-  currentDocId: string,
-): Promise<string | null> {
-  const base = slugify(title);
-  if (!base) {
-    return null;
+function generateSlugCandidate(title: string): string | null {
+  const suffix = generateSlugSuffix();
+  const candidate = buildSlugCandidate(title, suffix);
+  return candidate || null;
+}
+
+const MAX_SLUG_WRITE_ATTEMPTS = 5;
+
+/**
+ * Writes share enable/disable data for a document, retrying on slug unique
+ * constraint violations (Prisma P2002). Each retry generates a fresh random
+ * slug candidate so the window for a second collision shrinks rapidly.
+ *
+ * When `isShared` is false the slug is cleared and no retry is needed.
+ */
+async function writeShareData(
+  id: string,
+  isShared: boolean,
+  shareId: string | null,
+  title: string | null,
+): Promise<{
+  isShared: boolean;
+  shareId: string | null;
+  slug: string | null;
+  shareExpiresAt: Date | null;
+  shareEmbedEnabled: boolean;
+  sharePresentEnabled: boolean;
+}> {
+  if (!isShared) {
+    // Disabling share: clear slug/shareId/expiry — no uniqueness concern.
+    return prisma.document.update({
+      where: { id },
+      data: { isShared, shareId: null, slug: null, shareExpiresAt: null },
+      select: {
+        isShared: true,
+        shareId: true,
+        slug: true,
+        shareExpiresAt: true,
+        shareEmbedEnabled: true,
+        sharePresentEnabled: true,
+      },
+    });
   }
 
-  let candidate = base;
-  for (let n = 2; n < 1000; n++) {
-    const existing = await prisma.document.findFirst({
-      where: { slug: candidate, NOT: { id: currentDocId } },
-      select: { id: true },
-    });
-    if (!existing) {
-      return candidate;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < MAX_SLUG_WRITE_ATTEMPTS; attempt++) {
+    const slug = title ? generateSlugCandidate(title) : null;
+    try {
+      return await prisma.document.update({
+        where: { id },
+        data: { isShared, shareId, slug },
+        select: {
+          isShared: true,
+          shareId: true,
+          slug: true,
+          shareExpiresAt: true,
+          shareEmbedEnabled: true,
+          sharePresentEnabled: true,
+        },
+      });
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2002"
+      ) {
+        // Slug collision (unique constraint): regenerate and retry.
+        lastError = err;
+        continue;
+      }
+      throw err;
     }
-    candidate = `${base}-${n}`;
   }
-  // Extremely unlikely fallback: leave slug unset rather than loop forever.
-  return null;
+
+  throw new Error(
+    `Failed to generate a unique share slug after ${MAX_SLUG_WRITE_ATTEMPTS} attempts. Please try again.`,
+    { cause: lastError },
+  );
 }
 
 /**
