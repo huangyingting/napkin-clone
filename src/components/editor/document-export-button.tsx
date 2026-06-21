@@ -6,24 +6,32 @@
  * Distinct from the per-visual `ExportMenu` (which exports one visual to
  * SVG/PNG/PDF/PPTX). This button exports the *entire* document:
  *   – "Export as PDF"        → multi-page PDF (text + every visual in reading order)
- *   – "Export as PPTX"       → one slide per visual (with nearest heading as title)
+ *   – "Export as PPTX"       → the edited deck (honoring `deckJson`: slide order,
+ *                              retitling, free-form elements, per-slide theming)
  *   – "Infographic PNG/PDF"  → one tall composed image (text + visuals in order)
  *
  * It reads the current Lexical editor state to traverse the document blocks
- * and resolves each visual's live SVG element via the `VisualSvgRegistry`.
+ * and resolves each visual's live SVG element via the `VisualSvgRegistry`. The
+ * PPTX path additionally prefers the freshest saved `deckJson` (re-fetched on
+ * export, then the page-load prop) so it reflects slide-editor changes, falling
+ * back to a deck derived from the live editor blocks.
  */
 
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { FileDown, Image as ImageIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { fetchDeckJson } from "@/app/app/documents/[id]/actions";
 import { FOCUS_RING } from "@/components/motion/control-styles";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { useVisualSvgRegistry } from "@/components/editor/visual-svg-registry";
+import { buildDeckFromBlocks } from "@/lib/presentation/deck";
+import { pickFreshestDeck } from "@/lib/presentation/fresh-deck";
+import type { Visual } from "@/lib/visual/schema";
+import { exportDeckAsPPTX } from "@/lib/visual/deck-export";
 import {
   collectDocumentBlocks,
   exportDocumentAsPDF,
-  exportDocumentAsPPTX,
   exportDocumentAsInfographic,
   INFOGRAPHIC_WIDTH_PRESETS,
   type InfographicWidthPreset,
@@ -34,6 +42,10 @@ import { useUserEntitlements } from "@/lib/billing/use-user-entitlements";
 
 interface DocumentExportButtonProps {
   documentTitle: string;
+  /** Document id — used to re-fetch the freshest saved deck for PPTX export. */
+  documentId: string;
+  /** Page-load `deckJson`, used as a fallback when the re-fetch is unavailable. */
+  initialDeckJson?: unknown;
   iconOnly?: boolean;
 }
 
@@ -55,6 +67,8 @@ const WIDTH_PRESET_LIST = (
  */
 export function DocumentExportButton({
   documentTitle,
+  documentId,
+  initialDeckJson = null,
   iconOnly = false,
 }: DocumentExportButtonProps) {
   const [editor] = useLexicalComposerContext();
@@ -148,11 +162,28 @@ export function DocumentExportButton({
     setIsOpen(false);
     try {
       const blocks = await getBlocks();
-      const blob = await exportDocumentAsPPTX(
-        blocks,
-        documentTitle || "Untitled",
-        getSvg,
-      );
+
+      // Build a visual lookup and a fallback deck from the live editor blocks.
+      const visuals = new Map<string, Visual>();
+      for (const block of blocks) {
+        if (block.kind === "visual") {
+          visuals.set(block.visualId, block.visual);
+        }
+      }
+      const baseDeck = buildDeckFromBlocks(blocks);
+
+      // Prefer the freshest saved deck so edits (reorder, retitle, free-form
+      // elements, per-slide theming) are honored. Fall back to the page-load
+      // deckJson, then the deck derived from live blocks.
+      let fetchedRaw: unknown = null;
+      try {
+        fetchedRaw = await fetchDeckJson(documentId);
+      } catch {
+        // Network/auth error — fall back to page-load deckJson, then live blocks.
+      }
+      const deck = pickFreshestDeck(fetchedRaw, initialDeckJson, baseDeck);
+
+      const blob = await exportDeckAsPPTX(deck, visuals, getSvg);
       if (!blob) {
         setErrorMsg("PPTX export failed");
         setStatus("error");
@@ -261,7 +292,7 @@ export function DocumentExportButton({
             >
               <span>PPTX deck</span>
               <span className="text-xs text-ds-text-muted">
-                {canPptx ? "One slide per visual" : "Plus / Pro"}
+                {canPptx ? "Your edited deck" : "Plus / Pro"}
               </span>
             </button>
             {!canPptx && (

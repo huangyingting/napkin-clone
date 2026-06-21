@@ -566,7 +566,11 @@ export function LexicalEditor({
                       initialDeckJson={initialDeckJson}
                       documentTitle={title.value}
                     />
-                    <DocumentExportButton documentTitle={title.value} />
+                    <DocumentExportButton
+                      documentTitle={title.value}
+                      documentId={documentId}
+                      initialDeckJson={initialDeckJson}
+                    />
                   </EditorToolbarGroup>
 
                   <EditorToolbarDivider />
