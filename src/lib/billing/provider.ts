@@ -41,6 +41,14 @@ export interface BillingProvider {
    * of the current billing period (`cancelAtPeriodEnd = true`).
    */
   cancelSubscription(userId: string): Promise<ChangePlanResult>;
+
+  /**
+   * Immediately cancel the user's Stripe subscription (no period-end grace).
+   *
+   * Used during account deletion so billing stops right away. The mock
+   * provider is a no-op because it has no real Stripe subscription to cancel.
+   */
+  cancelSubscriptionImmediately(userId: string): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -88,6 +96,30 @@ export function decideBillingProvider(
   }
 
   return "mock";
+}
+
+// ---------------------------------------------------------------------------
+// Pure helpers (unit-tested)
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns `true` when an account-deletion flow should attempt to cancel the
+ * user's Stripe subscription before deleting the user row.
+ *
+ * Conditions:
+ * - The subscription row exists and has a `stripeSubscriptionId` (i.e. a real
+ *   Stripe subscription was created for this user).
+ * - The subscription is not already in a terminal `cancelled` state (calling
+ *   Stripe on a cancelled subscription is unnecessary and may throw).
+ */
+export function shouldCancelSubscription(
+  sub:
+    | { stripeSubscriptionId: string | null; status: string }
+    | null
+    | undefined,
+): boolean {
+  if (!sub?.stripeSubscriptionId) return false;
+  return sub.status !== "cancelled";
 }
 
 // ---------------------------------------------------------------------------

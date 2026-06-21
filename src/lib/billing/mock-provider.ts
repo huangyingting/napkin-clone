@@ -99,6 +99,9 @@ export class MockBillingProvider implements BillingProvider {
     };
   }
 
+  // No real Stripe subscription exists in the mock — nothing to cancel.
+  async cancelSubscriptionImmediately(_userId: string): Promise<void> {}
+
   async cancelSubscription(userId: string): Promise<ChangePlanResult> {
     const sub = await prisma.subscription.findUnique({ where: { userId } });
 

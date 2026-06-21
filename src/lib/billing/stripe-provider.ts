@@ -143,6 +143,14 @@ export class StripeBillingProvider implements BillingProvider {
     };
   }
 
+  async cancelSubscriptionImmediately(userId: string): Promise<void> {
+    const sub = await prisma.subscription.findUnique({ where: { userId } });
+    if (!sub?.stripeSubscriptionId) return;
+
+    const stripe = await loadStripe();
+    await stripe.subscriptions.cancel(sub.stripeSubscriptionId);
+  }
+
   async cancelSubscription(userId: string): Promise<ChangePlanResult> {
     const sub = await prisma.subscription.findUnique({ where: { userId } });
     if (!sub?.stripeSubscriptionId) {
