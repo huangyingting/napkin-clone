@@ -78,6 +78,27 @@ function resolveAnchorRect(blockElement: HTMLElement): {
   };
 }
 
+function textBlockAtY(root: HTMLElement, clientY: number): HTMLElement | null {
+  const blocks = Array.from(root.children).filter(
+    (child): child is HTMLElement => child instanceof HTMLElement,
+  );
+  let nearest: { element: HTMLElement; distance: number } | null = null;
+  for (const element of blocks) {
+    const rect = element.getBoundingClientRect();
+    if (clientY >= rect.top && clientY <= rect.bottom) {
+      return element;
+    }
+    const distance = Math.min(
+      Math.abs(clientY - rect.top),
+      Math.abs(clientY - rect.bottom),
+    );
+    if (!nearest || distance < nearest.distance) {
+      nearest = { element, distance };
+    }
+  }
+  return nearest && nearest.distance <= 24 ? nearest.element : null;
+}
+
 type GenStatus = "idle" | "loading";
 type VisualResultSectionId = "ai" | VisualKindCategoryId;
 
@@ -304,7 +325,7 @@ export function BlockSparkPlugin() {
 
   // Resolve the top-level text block under a DOM target and capture its rect.
   const resolveBlock = useCallback(
-    (target: Node | null): BlockInfo | null => {
+    (target: Node | null, clientY?: number): BlockInfo | null => {
       const root = editor.getRootElement();
       if (!root || !(target instanceof Node)) {
         return null;
@@ -317,6 +338,11 @@ export function BlockSparkPlugin() {
         el = el.parentElement;
       }
       if (!targetElement || !el || el.parentElement !== root) {
+        if (typeof clientY === "number") {
+          el = textBlockAtY(root, clientY);
+        }
+      }
+      if (!el || el.parentElement !== root) {
         return null;
       }
       const domEl = el;
@@ -376,7 +402,10 @@ export function BlockSparkPlugin() {
       if (openRef.current) {
         return;
       }
-      const next = resolveBlock(target);
+      const next = resolveBlock(
+        target,
+        event instanceof MouseEvent ? event.clientY : undefined,
+      );
       if (next !== null) {
         cancelClear();
         setBlock(next);

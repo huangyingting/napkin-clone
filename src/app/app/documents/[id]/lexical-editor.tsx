@@ -527,7 +527,9 @@ export function LexicalEditor({
                     "flex min-w-0 flex-1 items-center gap-1 overscroll-x-contain whitespace-nowrap py-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
                     headerFull
                       ? "justify-end gap-2 overflow-visible"
-                      : "justify-start overflow-x-auto",
+                      : headerStacked
+                        ? "justify-end overflow-x-auto"
+                        : "justify-end overflow-x-auto",
                   )}
                 >
                   <div className={cx("shrink-0", headerStacked && "hidden")}>
