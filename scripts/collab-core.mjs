@@ -21,6 +21,16 @@ import { WebSocketServer } from "ws";
 
 const PING_TIMEOUT = 30000;
 
+/**
+ * How long (ms) an empty room stays in memory after the last connection closes
+ * before being evicted. A reconnecting client within this window reuses the
+ * live Y.Doc; after eviction the DB is re-read on the next connection.
+ */
+export const ROOM_IDLE_TTL_MS = 60_000;
+
+/** @type {Map<string, ReturnType<typeof setTimeout>>} room name → pending eviction timer */
+const evictTimers = new Map();
+
 const wsReadyStateConnecting = 0;
 const wsReadyStateOpen = 1;
 
@@ -74,6 +84,42 @@ const updateHandler = (update, _origin, doc) => {
   syncProtocol.writeUpdate(encoder, update);
   const message = encoding.toUint8Array(encoder);
   doc.conns.forEach((_, conn) => send(doc, conn, message));
+};
+
+/** Returns true when a room with the given active-connection count should be evicted. */
+export const shouldEvict = (connCount) => connCount === 0;
+
+/** Tear down a room's awareness + doc and remove it from the in-memory map. */
+const evictRoom = (doc, roomName) => {
+  doc.awareness.destroy();
+  doc.off("update", updateHandler);
+  doc.destroy();
+  docs.delete(roomName);
+};
+
+/**
+ * Schedule eviction of an empty room after `ttlMs` milliseconds.
+ * Re-calling before the timer fires resets it (safe to call multiple times).
+ */
+const scheduleEviction = (roomName, ttlMs = ROOM_IDLE_TTL_MS) => {
+  cancelEviction(roomName);
+  const timer = setTimeout(() => {
+    evictTimers.delete(roomName);
+    const doc = docs.get(roomName);
+    if (doc && doc.conns.size === 0) {
+      evictRoom(doc, roomName);
+    }
+  }, ttlMs);
+  evictTimers.set(roomName, timer);
+};
+
+/** Cancel a pending eviction timer (called when a new connection arrives). */
+const cancelEviction = (roomName) => {
+  const timer = evictTimers.get(roomName);
+  if (timer !== undefined) {
+    clearTimeout(timer);
+    evictTimers.delete(roomName);
+  }
 };
 
 const getYDoc = (docName) =>
@@ -149,8 +195,9 @@ const closeConn = (doc, conn) => {
       null,
     );
     if (doc.conns.size === 0) {
-      // Keep the doc in memory so a reconnecting client re-syncs without data
-      // loss; the DB remains the durable source of truth via app autosave.
+      // Room is empty — schedule eviction after the idle grace period.
+      // The DB is the durable source of truth, so eviction is safe.
+      scheduleEviction(doc.name);
     }
   }
   try {
@@ -188,6 +235,8 @@ const send = (doc, conn, message) => {
 const setupConnection = (conn, roomName, readOnly = false) => {
   conn.binaryType = "arraybuffer";
   const doc = getYDoc(roomName || "default");
+  // Cancel any pending eviction — this connection revives the room.
+  cancelEviction(roomName || "default");
   doc.conns.set(conn, new Set());
 
   conn.on("message", (message) =>
@@ -253,6 +302,19 @@ export const connCount = () => {
     total += doc.conns.size;
   }
   return total;
+};
+
+/**
+ * Test-only helpers — not part of the public API.
+ * Allows unit tests to inspect eviction state and trigger eviction with a
+ * custom TTL without needing real WebSocket connections.
+ */
+export const _testOnly = {
+  docs,
+  evictTimers,
+  scheduleEviction,
+  cancelEviction,
+  evictRoom,
 };
 
 /**
