@@ -110,6 +110,44 @@ test("index match used when titles differ/empty", () => {
   assert.equal(summary.updatedCount, 1);
 });
 
+function titleElement(id: string, text: string): SlideElement {
+  return {
+    id,
+    kind: "text",
+    role: "title",
+    text,
+    zIndex: 1,
+    box: { x: 6, y: 6, w: 88, h: 16 },
+    style: { fontSize: 6, bold: true, italic: false, align: "left" },
+  };
+}
+
+test("renamed title element matches its slide instead of appending a duplicate (#244)", () => {
+  // Existing slide was renamed on stage: the title element holds the new name
+  // while the legacy slide.title is stale. Sync brings a doc slide using the
+  // new name — it must match the renamed slide, not orphan it + append a dupe.
+  const existing = deck([
+    slide({
+      title: "Old Name",
+      bullets: ["kept"],
+      elements: [titleElement("t1", "New Name"), element("b1")],
+    }),
+  ]);
+  const fresh = deck([slide({ title: "New Name", bullets: ["fresh"] })]);
+
+  const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
+
+  assert.equal(merged.slides.length, 1);
+  assert.deepEqual(merged.slides[0].bullets, ["fresh"]);
+  assert.deepEqual(
+    merged.slides[0].elements?.map((e) => e.id),
+    ["t1", "b1"],
+  );
+  assert.equal(summary.updatedCount, 1);
+  assert.equal(summary.appendedCount, 0);
+  assert.equal(summary.preservedCount, 0);
+});
+
 test("appends new slides with no match", () => {
   const existing = deck([slide({ title: "Intro", elements: [element("a")] })]);
   const fresh = deck([

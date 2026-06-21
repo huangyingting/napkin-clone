@@ -27,6 +27,7 @@
 import type { Deck, Slide } from "./deck";
 import { materializeSlideElements } from "./deck";
 import { normalizeTitle } from "./deck-hash";
+import { slideEffectiveTitle } from "./slide-title";
 
 /** How a single resulting slide was affected by a sync. */
 export type MergeChangeKind = "updated" | "appended" | "preserved";
@@ -173,7 +174,7 @@ export function mergeDeckFromDocument(
   // Pass 1 — match by normalized non-empty title (first unconsumed wins).
   const existingByTitle = new Map<string, number[]>();
   existing.slides.forEach((slide, i) => {
-    const key = normalizeTitle(slide.title);
+    const key = normalizeTitle(slideEffectiveTitle(slide));
     if (key === "") return;
     const bucket = existingByTitle.get(key);
     if (bucket) bucket.push(i);
@@ -181,7 +182,7 @@ export function mergeDeckFromDocument(
   });
 
   fresh.slides.forEach((slide, freshIndex) => {
-    const key = normalizeTitle(slide.title);
+    const key = normalizeTitle(slideEffectiveTitle(slide));
     if (key === "") return;
     const bucket = existingByTitle.get(key);
     if (!bucket) return;
@@ -199,11 +200,14 @@ export function mergeDeckFromDocument(
   // same position: those stay a clean append + preserved-orphan pair instead.
   fresh.slides.forEach((slide, freshIndex) => {
     if (matchedFresh.has(freshIndex)) return;
-    if (normalizeTitle(slide.title) !== "") return;
+    if (normalizeTitle(slideEffectiveTitle(slide)) !== "") return;
     const existingIndex = freshIndex;
     if (existingIndex >= existing.slides.length) return;
     if (consumedExisting.has(existingIndex)) return;
-    if (normalizeTitle(existing.slides[existingIndex].title) !== "") return;
+    if (
+      normalizeTitle(slideEffectiveTitle(existing.slides[existingIndex])) !== ""
+    )
+      return;
     consumedExisting.add(existingIndex);
     matchedFresh.add(freshIndex);
     pairedExistingToFresh.set(existingIndex, freshIndex);

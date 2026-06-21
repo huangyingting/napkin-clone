@@ -471,6 +471,41 @@ test("updateElement patches a single element by id", () => {
   assert.equal(el?.kind, "text");
 });
 
+test("updateElement clears stale runs when an inline plain-text edit commits (#243)", () => {
+  const base = addElement(deckWithBullets(), 0, {
+    id: "t1",
+    kind: "text",
+    role: "body",
+    text: "Old",
+    runs: [{ text: "Old", bold: true }],
+    box: { x: 0, y: 0, w: 10, h: 10 },
+    style: { fontSize: 5, bold: false, italic: false, align: "left" },
+  });
+  const next = updateElement(base, 0, "t1", { text: "New", runs: undefined });
+  const el = next.slides[0].elements?.find((e) => e.id === "t1");
+  assert.equal(el?.kind === "text" && el.text, "New");
+  // Stale formatted runs must be dropped so the renderer/exporter show "New".
+  assert.equal(el?.kind === "text" && el.runs, undefined);
+});
+
+test("updateElement clears stale bulletRuns when an inline bullets edit commits (#243)", () => {
+  const base = addElement(deckWithBullets(), 0, {
+    id: "b1",
+    kind: "bullets",
+    bullets: ["Old"],
+    bulletRuns: [[{ text: "Old", italic: true }]],
+    box: { x: 0, y: 0, w: 10, h: 10 },
+    style: { fontSize: 5, bold: false, italic: false, align: "left" },
+  });
+  const next = updateElement(base, 0, "b1", {
+    bullets: ["New", "Extra"],
+    bulletRuns: undefined,
+  });
+  const el = next.slides[0].elements?.find((e) => e.id === "b1");
+  assert.deepEqual(el?.kind === "bullets" && el.bullets, ["New", "Extra"]);
+  assert.equal(el?.kind === "bullets" && el.bulletRuns, undefined);
+});
+
 test("removeElement deletes an element by id", () => {
   const base = addElement(deckWithBullets(), 0, {
     id: "gone",
