@@ -220,3 +220,123 @@ test("history snapshots stay isolated as the working deck moves on", () => {
   assert.equal(state.past[0].slides[0].title, "slide-0");
   assert.equal(state.present.slides[0].title, "slide-1");
 });
+
+// ---------------------------------------------------------------------------
+// Gesture coalescing (issue #242)
+// ---------------------------------------------------------------------------
+
+test("commits sharing a coalesceKey produce ONE past entry and one undo step", () => {
+  let state = initDeckHistory(deck(0));
+  // A drag emitting many pointermove commits, all under the same gesture key.
+  for (let n = 1; n <= 30; n += 1) {
+    state = pushDeckHistory(state, deck(n), "move:el1#1");
+  }
+  // Only the pre-gesture snapshot is retained; the gesture is one step.
+  assert.equal(state.past.length, 1);
+  assert.equal(state.past[0].slides[0].title, "slide-0");
+  assert.equal(state.present.slides[0].title, "slide-30");
+
+  state = undoDeckHistory(state);
+  assert.equal(state.present.slides[0].title, "slide-0");
+  assert.equal(canUndo(state), false);
+});
+
+test("a coalesced commit replaces the present without touching past", () => {
+  const start = initDeckHistory(deck(0));
+  const afterFirst = pushDeckHistory(start, deck(1), "move:el1#1");
+  const afterSecond = pushDeckHistory(afterFirst, deck(2), "move:el1#1");
+  // The `past` array reference is preserved across the in-place replace.
+  assert.equal(afterSecond.past, afterFirst.past);
+  assert.equal(afterSecond.present.slides[0].title, "slide-2");
+});
+
+test("the coalesce action routes through the reducer", () => {
+  let state = initDeckHistory(deck(0));
+  state = deckHistoryReducer(state, {
+    type: "commit",
+    deck: deck(1),
+    coalesceKey: "move:el1#1",
+  });
+  state = deckHistoryReducer(state, {
+    type: "commit",
+    deck: deck(2),
+    coalesceKey: "move:el1#1",
+  });
+  assert.equal(state.past.length, 1);
+  assert.equal(state.present.slides[0].title, "slide-2");
+});
+
+test("commits with different keys push separately (each its own step)", () => {
+  let state = initDeckHistory(deck(0));
+  state = pushDeckHistory(state, deck(1), "move:el1#1");
+  state = pushDeckHistory(state, deck(2), "move:el1#2"); // new gesture instance
+  state = pushDeckHistory(state, deck(3), "resize:el1#3"); // different gesture
+  assert.equal(state.past.length, 3);
+  state = undoDeckHistory(state);
+  assert.equal(state.present.slides[0].title, "slide-2");
+  state = undoDeckHistory(state);
+  assert.equal(state.present.slides[0].title, "slide-1");
+  state = undoDeckHistory(state);
+  assert.equal(state.present.slides[0].title, "slide-0");
+});
+
+test("keyless commits push separately, exactly as before", () => {
+  let state = initDeckHistory(deck(0));
+  state = pushDeckHistory(state, deck(1));
+  state = pushDeckHistory(state, deck(2));
+  assert.equal(state.past.length, 2);
+  assert.equal(state.lastCoalesceKey, undefined);
+});
+
+test("a keyed gesture then a plain commit is two undo steps", () => {
+  let state = initDeckHistory(deck(0));
+  // Gesture: many commits collapse to one entry ending at slide-2.
+  state = pushDeckHistory(state, deck(1), "edit-text:el1#1");
+  state = pushDeckHistory(state, deck(2), "edit-text:el1#1");
+  // Discrete keyless edit afterwards.
+  state = pushDeckHistory(state, deck(3));
+  assert.equal(state.past.length, 2);
+
+  state = undoDeckHistory(state);
+  assert.equal(state.present.slides[0].title, "slide-2"); // gesture result
+  state = undoDeckHistory(state);
+  assert.equal(state.present.slides[0].title, "slide-0"); // pre-gesture
+  assert.equal(canUndo(state), false);
+});
+
+test("undo resets the coalesce key so the next matching commit pushes fresh", () => {
+  let state = initDeckHistory(deck(0));
+  state = pushDeckHistory(state, deck(1), "move:el1#1");
+  state = undoDeckHistory(state);
+  assert.equal(state.lastCoalesceKey, undefined);
+  // Same string key after an undo must not coalesce into the prior entry.
+  state = pushDeckHistory(state, deck(2), "move:el1#1");
+  assert.equal(state.past.length, 1);
+  assert.equal(state.past[0].slides[0].title, "slide-0");
+});
+
+test("a keyed gesture clears any pending redo branch on its first commit", () => {
+  let state = initDeckHistory(deck(0));
+  state = pushDeckHistory(state, deck(1));
+  state = undoDeckHistory(state);
+  assert.equal(canRedo(state), true);
+  // Starting a gesture is still a mutation: it discards the redo branch.
+  state = pushDeckHistory(state, deck(5), "move:el1#1");
+  state = pushDeckHistory(state, deck(6), "move:el1#1");
+  assert.equal(canRedo(state), false);
+  assert.equal(state.future.length, 0);
+});
+
+test("coalesced gestures still respect the cap", () => {
+  let state = initDeckHistory(deck(0));
+  // DECK_HISTORY_LIMIT + 5 distinct gestures, each emitting two commits. Only
+  // the first (pre-gesture) commit of each gesture pushes a snapshot.
+  let n = 0;
+  for (let g = 1; g <= DECK_HISTORY_LIMIT + 5; g += 1) {
+    n += 1;
+    state = pushDeckHistory(state, deck(n), `move:el1#${g}`);
+    n += 1;
+    state = pushDeckHistory(state, deck(n), `move:el1#${g}`);
+  }
+  assert.equal(state.past.length, DECK_HISTORY_LIMIT);
+});

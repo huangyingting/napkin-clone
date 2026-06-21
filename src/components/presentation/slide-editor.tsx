@@ -893,8 +893,11 @@ export function SlideEditor({
   );
 
   const handleUpdateElement = useCallback(
-    (id: string, patch: ElementPatch) => {
-      onDeckChange(updateElement(deck, safeSelected, id, patch));
+    (id: string, patch: ElementPatch, coalesceKey?: string) => {
+      onDeckChange(
+        updateElement(deck, safeSelected, id, patch),
+        coalesceKey !== undefined ? { coalesceKey } : undefined,
+      );
     },
     [deck, onDeckChange, safeSelected],
   );

@@ -56,6 +56,8 @@ interface DragState {
   startClientX: number;
   startClientY: number;
   startBox: ElementBox;
+  /** Coalesce key for the whole gesture so it forms one undo step (#242). */
+  coalesceKey: string;
 }
 
 const MIN_SIZE_PCT = 4;
@@ -195,7 +197,11 @@ interface SlideStageEditorProps {
   selectedElementIds: ReadonlySet<string>;
   onSelectElement: (id: string | null, mode?: SelectionMode) => void;
   onAlignElements: (mode: AlignMode) => void;
-  onUpdateElement: (id: string, patch: ElementPatch) => void;
+  onUpdateElement: (
+    id: string,
+    patch: ElementPatch,
+    coalesceKey?: string,
+  ) => void;
   onRemoveElement: (id: string) => void;
   onDuplicateElement: (id: string) => void;
   onBringToFront: (id: string) => void;
@@ -222,6 +228,17 @@ export function SlideStageEditor({
   const [activeDrag, setActiveDrag] = useState<DragMode | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
+  // Monotonic gesture counter (issue #242). Each drag / resize / inline-edit
+  // gesture derives a coalesce key with a unique suffix so consecutive gestures
+  // of the same kind on the same element never merge into one undo step.
+  const gestureSeqRef = useRef(0);
+  const nextGestureKey = useCallback((prefix: string, id: string) => {
+    gestureSeqRef.current += 1;
+    return `${prefix}:${id}#${gestureSeqRef.current}`;
+  }, []);
+  // Coalesce key for the active inline-text typing session, or null when not
+  // editing — the whole session collapses to one undo step (issue #242).
+  const [editCoalesceKey, setEditCoalesceKey] = useState<string | null>(null);
 
   const elements = useMemo(() => slide.elements ?? [], [slide.elements]);
   // Live element list for the global pointer-move handler (which is memoized on
@@ -297,12 +314,12 @@ export function SlideStageEditor({
           .map((element) => element.box);
         const { box, guides } = snapBox(moved, others, SNAP_THRESHOLD_PCT);
         setSnapGuides(guides);
-        onUpdateElement(drag.id, { box });
+        onUpdateElement(drag.id, { box }, drag.coalesceKey);
         return;
       }
 
       const next = applyResize(drag.startBox, drag.mode, dxPct, dyPct);
-      onUpdateElement(drag.id, { box: clampBox(next) });
+      onUpdateElement(drag.id, { box: clampBox(next) }, drag.coalesceKey);
     },
     [onUpdateElement],
   );
@@ -343,10 +360,11 @@ export function SlideStageEditor({
         startClientX: event.clientX,
         startClientY: event.clientY,
         startBox: box,
+        coalesceKey: nextGestureKey(mode === "move" ? "move" : "resize", id),
       };
       setActiveDrag(mode);
     },
-    [onSelectElement, selectedElementIds],
+    [nextGestureKey, onSelectElement, selectedElementIds],
   );
 
   const startEditing = useCallback(
@@ -354,13 +372,15 @@ export function SlideStageEditor({
       if (element.kind === "text" || element.kind === "bullets") {
         onSelectElement(element.id);
         setEditingId(element.id);
+        setEditCoalesceKey(nextGestureKey("edit-text", element.id));
       }
     },
-    [onSelectElement],
+    [nextGestureKey, onSelectElement],
   );
 
   const stopEditing = useCallback(() => {
     setEditingId(null);
+    setEditCoalesceKey(null);
   }, []);
 
   const badge =
@@ -458,7 +478,13 @@ export function SlideStageEditor({
                   element={element}
                   color={resolveTextColor(element, tc)}
                   stageHeight={height}
-                  onChange={(patch) => onUpdateElement(element.id, patch)}
+                  onChange={(patch) =>
+                    onUpdateElement(
+                      element.id,
+                      patch,
+                      editCoalesceKey ?? undefined,
+                    )
+                  }
                   onCommit={stopEditing}
                 />
               ) : null}
