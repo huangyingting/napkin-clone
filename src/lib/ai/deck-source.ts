@@ -1,0 +1,261 @@
+/**
+ * Deck-source extraction (issue #263).
+ *
+ * Turns a serialised Lexical document (`contentJson`) plus the document's
+ * visuals into the exact `{ outline, visualInventory }` shape that
+ * {@link generateDeck} consumes. The route handler can therefore do:
+ *
+ *   generateDeck(buildDeckSource(contentJson, visuals), { complete });
+ *
+ * Responsibilities:
+ *   - reuse the pure {@link collectDocumentBlocks} walk (and the rich-text runs
+ *     it already attaches) rather than re-walking Lexical,
+ *   - fold the blocks into a compact, deterministic OUTLINE string that keeps
+ *     heading levels, bullet lists, quotes, hr boundaries, inline emphasis and
+ *     inline `[visual: <id>]` reference markers,
+ *   - build a VISUAL INVENTORY of `{ id, title, type, summary }` entries for the
+ *     real document visual ids (in reading order, deduplicated),
+ *   - truncate the serialised outline to {@link MAX_INPUT_CHARS} deterministically
+ *     while always keeping the heading skeleton.
+ *
+ * Like its siblings under `@/lib/ai`, this module is intentionally free of any
+ * network, DOM, or React dependencies so it can be unit tested under
+ * `node --test`. It never throws on malformed/empty input — the empty-outline
+ * concern belongs to {@link generateDeck}.
+ */
+
+import type { GenerateDeckInput } from "@/lib/ai/generate-deck";
+import { MAX_INPUT_CHARS } from "@/lib/ai/generate";
+import type { TextRun } from "@/lib/presentation/deck";
+import {
+  collectDocumentBlocks,
+  type DocumentBlock,
+} from "@/lib/visual/document-export";
+import type { Visual } from "@/lib/visual/schema";
+
+/** One entry in the inventory the model may reference (mirrors generateDeck). */
+type DeckVisualInventoryItem = GenerateDeckInput["visualInventory"][number];
+
+/** The structured source `generateDeck` consumes. */
+export type DeckSource = Pick<GenerateDeckInput, "outline" | "visualInventory">;
+
+/** Upper bound on a visual inventory `summary` (ids/titles are never cut). */
+const MAX_SUMMARY_CHARS = 120;
+
+// ---------------------------------------------------------------------------
+// Inline / block serialisation
+// ---------------------------------------------------------------------------
+
+/**
+ * Renders inline rich-text runs to terse markdown-ish text, preserving the
+ * cheap emphases (`**bold**`, `*italic*`, `` `code` ``). Linebreak runs and
+ * empty spans pass through untouched.
+ */
+function renderRuns(runs: ReadonlyArray<TextRun>): string {
+  return runs
+    .map((run) => {
+      let text = run.text;
+      if (text === "" || text === "\n") return text;
+      if (run.code) text = `\`${text}\``;
+      if (run.bold) text = `**${text}**`;
+      if (run.italic) text = `*${text}*`;
+      return text;
+    })
+    .join("");
+}
+
+/** Plain or emphasis-preserving text for a text block. */
+function blockContent(block: Extract<DocumentBlock, { kind: "text" }>): string {
+  if (block.runs && block.runs.length > 0) {
+    return renderRuns(block.runs);
+  }
+  return block.text;
+}
+
+/**
+ * Serialises one document block into a single terse outline line, or `null`
+ * when it carries no content worth emitting. Headings keep their level via a
+ * `#` prefix; bullets use `- `; quotes use `> `; hr is `---`; visuals appear
+ * inline as `[visual: <id>]` reference markers.
+ */
+function serializeBlock(block: DocumentBlock): string | null {
+  if (block.kind === "visual") {
+    return `[visual: ${block.visualId}]`;
+  }
+
+  if (block.blockType === "hr") {
+    return "---";
+  }
+
+  const content = blockContent(block).trim();
+
+  switch (block.blockType) {
+    case "heading": {
+      const level = block.level ?? 2;
+      return `${"#".repeat(level)} ${content}`.trimEnd();
+    }
+    case "listitem":
+      return content === "" ? null : `- ${content}`;
+    case "quote":
+      return content === "" ? null : `> ${content}`;
+    case "paragraph":
+      return content === "" ? null : content;
+    default:
+      return content === "" ? null : content;
+  }
+}
+
+function isHeadingBlock(block: DocumentBlock): boolean {
+  return block.kind === "text" && block.blockType === "heading";
+}
+
+// ---------------------------------------------------------------------------
+// Outline assembly + deterministic truncation
+// ---------------------------------------------------------------------------
+
+interface OutlineItem {
+  line: string;
+  heading: boolean;
+}
+
+/** Upper-bound cost of a line once joined with `\n` (over-counts by one total). */
+function lineCost(line: string): number {
+  return line.length + 1;
+}
+
+/**
+ * Folds the blocks into a single outline string no longer than
+ * {@link MAX_INPUT_CHARS}. The heading skeleton is treated as mandatory
+ * structure and reserved first; the remaining budget is then filled with DETAIL
+ * blocks in reading order, so trailing detail is dropped first while every
+ * heading survives (until headings alone would blow the budget, an extreme case
+ * in which trailing headings are dropped too). Output is fully deterministic.
+ */
+function buildOutline(blocks: ReadonlyArray<DocumentBlock>): string {
+  const items: OutlineItem[] = [];
+  for (const block of blocks) {
+    const line = serializeBlock(block);
+    if (line === null) continue;
+    items.push({ line, heading: isHeadingBlock(block) });
+  }
+  if (items.length === 0) return "";
+
+  let headingBudget = 0;
+  for (const item of items) {
+    if (item.heading) headingBudget += lineCost(item.line);
+  }
+  const detailCap = Math.max(0, MAX_INPUT_CHARS - headingBudget);
+
+  const lines: string[] = [];
+  let used = 0;
+  let detailUsed = 0;
+
+  for (const item of items) {
+    const cost = lineCost(item.line);
+    if (item.heading) {
+      if (used + cost <= MAX_INPUT_CHARS) {
+        lines.push(item.line);
+        used += cost;
+      }
+      continue;
+    }
+    if (detailUsed + cost <= detailCap && used + cost <= MAX_INPUT_CHARS) {
+      lines.push(item.line);
+      used += cost;
+      detailUsed += cost;
+    }
+  }
+
+  return lines.join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Visual inventory
+// ---------------------------------------------------------------------------
+
+function truncate(text: string, max: number): string {
+  if (text.length <= max) return text;
+  return `${text.slice(0, max - 1).trimEnd()}…`;
+}
+
+/** Human-readable fallback title derived from the visual kind. */
+function titleFromType(type: string): string {
+  if (type.length === 0) return "Untitled visual";
+  return type.charAt(0).toUpperCase() + type.slice(1);
+}
+
+/** Short, ≤{@link MAX_SUMMARY_CHARS} description from the visual's node labels. */
+function summarizeVisual(visual: Visual): string {
+  const labels = Array.isArray(visual.nodes)
+    ? visual.nodes
+        .map((node) =>
+          typeof node?.label === "string" ? node.label.trim() : "",
+        )
+        .filter((label) => label.length > 0)
+    : [];
+  return truncate(labels.join(", "), MAX_SUMMARY_CHARS);
+}
+
+function toInventoryItem(
+  visualId: string,
+  visual: Visual,
+): DeckVisualInventoryItem {
+  const title =
+    typeof visual.title === "string" && visual.title.trim().length > 0
+      ? visual.title.trim()
+      : titleFromType(String(visual.type ?? ""));
+  return {
+    id: visualId,
+    title,
+    type: String(visual.type ?? ""),
+    summary: summarizeVisual(visual),
+  };
+}
+
+/**
+ * Builds the inventory for the REAL document visual ids, in reading order and
+ * deduplicated. The authoritative {@link Visual} is taken from the `visuals`
+ * map when present, otherwise the copy embedded in the document block. Visuals
+ * present only in the map (not referenced by the document) are excluded.
+ */
+function buildInventory(
+  blocks: ReadonlyArray<DocumentBlock>,
+  visuals: ReadonlyMap<string, Visual>,
+): DeckVisualInventoryItem[] {
+  const inventory: DeckVisualInventoryItem[] = [];
+  const seen = new Set<string>();
+
+  for (const block of blocks) {
+    if (block.kind !== "visual") continue;
+    if (seen.has(block.visualId)) continue;
+    seen.add(block.visualId);
+
+    const visual = visuals.get(block.visualId) ?? block.visual;
+    inventory.push(toInventoryItem(block.visualId, visual));
+  }
+
+  return inventory;
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+/**
+ * Extracts the structured `{ outline, visualInventory }` deck source from a
+ * serialised Lexical document and its visuals. Pure and headless. Never throws:
+ * an empty/malformed document yields `{ outline: "", visualInventory: [] }`.
+ *
+ * @param contentJson  Serialised Lexical editor state (string or pre-parsed).
+ * @param visuals      The document's visuals, keyed by visual id.
+ */
+export function buildDeckSource(
+  contentJson: unknown,
+  visuals: ReadonlyMap<string, Visual>,
+): DeckSource {
+  const blocks = collectDocumentBlocks(contentJson);
+  return {
+    outline: buildOutline(blocks),
+    visualInventory: buildInventory(blocks, visuals),
+  };
+}
