@@ -192,6 +192,18 @@ export interface Deck {
 
   /** Theme applied uniformly to all slides. */
   theme: DeckTheme;
+
+  /**
+   * Stable hash of the document content this deck was last derived/synced
+   * against (see `deck-hash.ts`). Embedded in the persisted deck JSON — NO
+   * schema change — so staleness can be detected without a separate column:
+   * on open the editor recomputes the live content hash and compares it against
+   * this value to surface `isDeckStale`. Absent for decks authored before this
+   * signal existed (legacy) — those are treated as "staleness unknown" and the
+   * banner stays hidden, while the manual "Sync from document" action remains
+   * available.
+   */
+  deckContentHash?: string;
 }
 
 // ---------------------------------------------------------------------------

@@ -166,3 +166,43 @@ test("validated elements preserve a stable shape", () => {
     }
   }
 });
+
+// ---------------------------------------------------------------------------
+// deckContentHash round-trips (issue #205 — staleness signal in deck JSON)
+// ---------------------------------------------------------------------------
+
+test("safeParseDeck preserves a deckContentHash when present", () => {
+  const result = safeParseDeck({
+    ...(legacyDeck() as object),
+    deckContentHash: "abc12345",
+  });
+  assert.equal(result.success, true);
+  if (result.success) {
+    assert.equal(result.data.deckContentHash, "abc12345");
+  }
+});
+
+test("safeParseDeck omits deckContentHash when absent or empty", () => {
+  const absent = safeParseDeck(legacyDeck());
+  assert.equal(absent.success, true);
+  if (absent.success) {
+    assert.equal(absent.data.deckContentHash, undefined);
+  }
+
+  const empty = safeParseDeck({
+    ...(legacyDeck() as object),
+    deckContentHash: "",
+  });
+  assert.equal(empty.success, true);
+  if (empty.success) {
+    assert.equal(empty.data.deckContentHash, undefined);
+  }
+});
+
+test("safeParseDeck rejects a non-string deckContentHash", () => {
+  const result = safeParseDeck({
+    ...(legacyDeck() as object),
+    deckContentHash: 42,
+  });
+  assert.equal(result.success, false);
+});
