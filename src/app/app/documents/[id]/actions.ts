@@ -19,6 +19,8 @@ import { app as appEnv } from "@/lib/env";
 import { requireUser } from "@/lib/session";
 import { buildShareSegment, buildSlugCandidate } from "@/lib/slug";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
+import { normalizeDeckRaw } from "@/lib/presentation/fresh-deck";
+import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
 import { VISUAL_KIND_TO_PRISMA, safeParseVisual } from "@/lib/visual/schema";
 import {
   diffVisualMirror,
@@ -806,6 +808,33 @@ export async function listDocumentVersions(
 }
 
 /**
+ * Sanitizes a restored snapshot's `deckJson` against its restored content,
+ * returning a Prisma-writable value. Orphaned visual references (ids the
+ * restored content no longer provides) are stripped so a restore can never
+ * re-introduce silently blank slides. Returns `Prisma.DbNull` when there is no
+ * deck, and falls back to the raw value when it cannot be parsed/normalized.
+ */
+function sanitizeRestoredDeck(
+  rawDeckJson: Prisma.JsonValue | null,
+  restoredContent: unknown,
+): Prisma.InputJsonValue | typeof Prisma.DbNull {
+  if (rawDeckJson == null) {
+    return Prisma.DbNull;
+  }
+
+  const parsed = safeParseDeck(normalizeDeckRaw(rawDeckJson));
+  if (!parsed.success) {
+    return rawDeckJson as Prisma.InputJsonValue;
+  }
+
+  const knownVisualIds = new Set(
+    collectVisualNodes(restoredContent).map((node) => node.visualId),
+  );
+  const sanitized = stripOrphanedVisuals(parsed.data, knownVisualIds);
+  return sanitized as unknown as Prisma.InputJsonValue;
+}
+
+/**
  * Restores a document to an earlier snapshot, writing that version's
  * `contentJson`/`deckJson` (and derived plain-text `content`) back as the
  * current document state. Requires edit access (issue #158).
@@ -849,15 +878,18 @@ export async function restoreDocumentVersion(
     MAX_CONTENT_LENGTH,
   );
 
+  // Sanitize the restored deck against the restored content: a snapshot can
+  // pair a deck with content whose visuals have since changed, which would
+  // re-introduce orphaned visual references (silent blank slides). Strip any
+  // visualId the restored content no longer provides before persisting.
+  const restoredDeck = sanitizeRestoredDeck(version.deckJson, restoredContent);
+
   await prisma.document.updateMany({
     where: { id: documentId },
     data: {
       contentJson: restoredContent as Prisma.InputJsonValue,
       content,
-      deckJson:
-        version.deckJson == null
-          ? Prisma.DbNull
-          : (version.deckJson as Prisma.InputJsonValue),
+      deckJson: restoredDeck,
     },
   });
 
