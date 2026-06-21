@@ -304,6 +304,7 @@ export function SlideStageEditor({
           slide={slide}
           visuals={visuals}
           hiddenElementIds={hiddenElementIds}
+          editable
         />
       </div>
 

@@ -37,6 +37,7 @@ import type {
   TextRun,
 } from "@/lib/presentation/deck";
 import { materializeSlideElements } from "@/lib/presentation/deck";
+import { isEmptyImageSrc } from "@/lib/presentation/image-element";
 import type { Visual } from "@/lib/visual/schema";
 import { exportPNG } from "@/lib/visual/export";
 import { applySpecsToSlide } from "@/lib/visual/pptx-apply";
@@ -333,6 +334,10 @@ function buildSlideSpec(
         break;
       }
       case "image": {
+        // An image element with no source (e.g. one just added but never
+        // filled in) must not emit an op — pptxgenjs would otherwise try to
+        // load an empty path and break the export. Skip it instead.
+        if (isEmptyImageSrc(element.src)) break;
         ops.push({ kind: "image", ...box, src: element.src });
         break;
       }
