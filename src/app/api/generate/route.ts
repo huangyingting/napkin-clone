@@ -24,6 +24,11 @@ import {
   getAzureConfig,
 } from "@/lib/ai/azure";
 import {
+  GENERATE_TIMEOUT_MS,
+  GenerateTimeoutError,
+  withAbortDeadline,
+} from "@/lib/ai/deadline";
+import {
   GenerationError,
   InputTooLongError,
   MAX_INPUT_CHARS,
@@ -170,7 +175,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   let complete: CompleteFn;
   try {
     const config = getAzureConfig();
-    complete = (messages) => azureChatComplete(messages, { config });
+    complete = (messages) =>
+      withAbortDeadline(
+        (signal) => azureChatComplete(messages, { config, signal }),
+        GENERATE_TIMEOUT_MS,
+      );
   } catch (error) {
     if (error instanceof AzureConfigError) {
       logError(LOG_SCOPE, error, {
@@ -315,6 +324,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
     return response;
   } catch (error) {
+    if (error instanceof GenerateTimeoutError) {
+      logError(LOG_SCOPE, error, {
+        requestId,
+        reason: "timeout",
+        status: 504,
+      });
+      return errorResponse(
+        504,
+        "The AI took too long to respond. Please try again.",
+      );
+    }
     if (error instanceof InputTooLongError) {
       return errorResponse(413, error.message);
     }
