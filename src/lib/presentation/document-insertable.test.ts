@@ -9,6 +9,7 @@ import type { Visual } from "@/lib/visual/schema";
 
 import {
   buildInsertables,
+  buildSourceRefFromBlock,
   insertableTextElement,
   type Insertable,
 } from "./document-insertable";
@@ -169,4 +170,164 @@ test("passes runs through to the built element only when present", () => {
   const [plain] = textItems(buildInsertables([para("Plain")]));
   assert.deepEqual(insertableTextElement(withRuns).runs, runs);
   assert.equal(insertableTextElement(plain).runs, undefined);
+});
+
+// ---------------------------------------------------------------------------
+// contentHash and blockId on Insertable (issue #377)
+// ---------------------------------------------------------------------------
+
+test("text insertables always carry a contentHash string", () => {
+  const items = textItems(buildInsertables([para("Body"), heading("H1", 1)]));
+  for (const item of items) {
+    assert.equal(typeof item.contentHash, "string");
+    assert.ok(item.contentHash.length > 0);
+  }
+});
+
+test("contentHash is deterministic: same block same hash", () => {
+  const [a] = textItems(buildInsertables([para("Stable")]));
+  const [b] = textItems(buildInsertables([para("Stable")]));
+  assert.equal(a.contentHash, b.contentHash);
+});
+
+test("contentHash differs for different block text", () => {
+  const [a] = textItems(buildInsertables([para("Alpha")]));
+  const [b] = textItems(buildInsertables([para("Beta")]));
+  assert.notEqual(a.contentHash, b.contentHash);
+});
+
+test("contentHash differs for heading vs paragraph with same text", () => {
+  const [h] = textItems(buildInsertables([heading("Intro", 1)]));
+  const [p] = textItems(buildInsertables([para("Intro")]));
+  assert.notEqual(h.contentHash, p.contentHash);
+});
+
+test("blockId is absent when block has no blockId", () => {
+  const [item] = textItems(buildInsertables([para("No id")]));
+  assert.equal(item.blockId, undefined);
+});
+
+test("blockId is carried through when block has a blockId", () => {
+  const block: DocumentTextBlock = {
+    kind: "text",
+    blockType: "paragraph",
+    text: "With id",
+    blockId: "block-abc-123",
+  };
+  const [item] = textItems(buildInsertables([block]));
+  assert.equal(item.blockId, "block-abc-123");
+});
+
+// ---------------------------------------------------------------------------
+// buildSourceRefFromBlock
+// ---------------------------------------------------------------------------
+
+test("buildSourceRefFromBlock returns a valid SourceRef", () => {
+  const ref = buildSourceRefFromBlock(
+    "doc-1",
+    "block-42",
+    "a1b2c3d4",
+    "2026-01-01T00:00:00.000Z",
+  );
+  assert.equal(ref.documentId, "doc-1");
+  assert.equal(ref.blockId, "block-42");
+  assert.equal(ref.contentHash, "a1b2c3d4");
+  assert.equal(ref.linkedAt, "2026-01-01T00:00:00.000Z");
+  assert.equal(ref.unlinked, undefined);
+});
+
+// ---------------------------------------------------------------------------
+// insertableTextElement sourceRef stamping (issue #377)
+// ---------------------------------------------------------------------------
+
+test("insertableTextElement omits sourceRef when documentId is absent", () => {
+  const block: DocumentTextBlock = {
+    kind: "text",
+    blockType: "paragraph",
+    text: "No doc id",
+    blockId: "blk-1",
+  };
+  const [item] = textItems(buildInsertables([block]));
+  const el = insertableTextElement(item);
+  assert.equal(el.sourceRef, undefined);
+});
+
+test("insertableTextElement omits sourceRef when blockId is absent even with documentId", () => {
+  const [item] = textItems(buildInsertables([para("No block id")]));
+  const el = insertableTextElement(item, {
+    documentId: "doc-1",
+    linkedAt: "2026-01-01T00:00:00.000Z",
+  });
+  assert.equal(el.sourceRef, undefined);
+});
+
+test("insertableTextElement stamps sourceRef when documentId and blockId are both provided", () => {
+  const block: DocumentTextBlock = {
+    kind: "text",
+    blockType: "paragraph",
+    text: "Linked text",
+    blockId: "blk-linked",
+  };
+  const [item] = textItems(buildInsertables([block]));
+  const el = insertableTextElement(item, {
+    documentId: "doc-xyz",
+    linkedAt: "2026-06-01T12:00:00.000Z",
+  });
+  assert.ok(el.sourceRef !== undefined, "sourceRef should be set");
+  assert.equal(el.sourceRef!.documentId, "doc-xyz");
+  assert.equal(el.sourceRef!.blockId, "blk-linked");
+  assert.equal(el.sourceRef!.linkedAt, "2026-06-01T12:00:00.000Z");
+  assert.equal(typeof el.sourceRef!.contentHash, "string");
+  assert.ok(el.sourceRef!.contentHash!.length > 0);
+  assert.equal(el.sourceRef!.unlinked, undefined);
+});
+
+test("insertableTextElement sourceRef contentHash matches block contentHash", () => {
+  const block: DocumentTextBlock = {
+    kind: "text",
+    blockType: "paragraph",
+    text: "Consistent hash",
+    blockId: "blk-hash",
+  };
+  const [item] = textItems(buildInsertables([block]));
+  const el = insertableTextElement(item, {
+    documentId: "doc-1",
+    linkedAt: "2026-01-01T00:00:00.000Z",
+  });
+  assert.equal(el.sourceRef!.contentHash, item.contentHash);
+});
+
+test("insertableTextElement defaults linkedAt to now when documentId set but linkedAt omitted", () => {
+  const block: DocumentTextBlock = {
+    kind: "text",
+    blockType: "paragraph",
+    text: "Auto time",
+    blockId: "blk-auto",
+  };
+  const before = Date.now();
+  const [item] = textItems(buildInsertables([block]));
+  const el = insertableTextElement(item, { documentId: "doc-1" });
+  const after = Date.now();
+  assert.ok(el.sourceRef !== undefined);
+  const ts = Date.parse(el.sourceRef!.linkedAt);
+  assert.ok(ts >= before && ts <= after, "linkedAt should be near now");
+});
+
+test("insertableTextElement heading stamps sourceRef when both ids present", () => {
+  const block: DocumentTextBlock = {
+    kind: "text",
+    blockType: "heading",
+    level: 2,
+    text: "Section Title",
+    blockId: "blk-h2",
+  };
+  const [item] = textItems(buildInsertables([block]));
+  const el = insertableTextElement(item, {
+    documentId: "doc-2",
+    linkedAt: "2026-06-01T00:00:00.000Z",
+  });
+  assert.equal(el.sourceRef!.documentId, "doc-2");
+  assert.equal(el.sourceRef!.blockId, "blk-h2");
+  assert.equal(el.role, "body");
+  assert.equal(el.style.bold, true);
 });

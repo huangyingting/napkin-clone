@@ -128,6 +128,13 @@ export type DocumentTextBlock = {
    * equals the concatenation of run `text` values and remains the fallback.
    */
   runs?: TextRun[];
+  /**
+   * Stable identifier for this block within its source document, used to
+   * anchor `sourceRef` links on inserted slide elements. Set by the Lexical
+   * block collector once the node-key extraction is wired; absent for blocks
+   * collected before that integration lands (issue #377 follow-up).
+   */
+  blockId?: string;
 };
 
 type DocumentVisualBlock = {
