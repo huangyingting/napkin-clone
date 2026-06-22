@@ -9,6 +9,7 @@
 
 import {
   DECK_THEMES,
+  PLACEHOLDER_TYPES,
   SLIDE_LAYOUTS,
   makeSlideId,
   type BulletItem,
@@ -22,10 +23,13 @@ import {
   type DeckTheme,
   type ElementAlign,
   type ElementBox,
+  type PlaceholderElement,
+  type PlaceholderType,
   type ShapeKind,
   type Slide,
   type SlideElement,
-  type SlideLayout,
+  type SlideLayout as DeckLayout,
+  type SlideLayoutHint,
   type TextElementStyle,
   type TextFitMode,
   type TextRun,
@@ -51,9 +55,10 @@ function isDeckTheme(value: unknown): value is DeckTheme {
   return typeof value === "string" && DECK_THEMES.includes(value as DeckTheme);
 }
 
-function isSlideLayout(value: unknown): value is SlideLayout {
+function isSlideLayoutHint(value: unknown): value is SlideLayoutHint {
   return (
-    typeof value === "string" && SLIDE_LAYOUTS.includes(value as SlideLayout)
+    typeof value === "string" &&
+    SLIDE_LAYOUTS.includes(value as SlideLayoutHint)
   );
 }
 
@@ -98,6 +103,18 @@ const TEXT_FIT_MODES: readonly TextFitMode[] = [
   "fixed-box",
   "shrink-to-fit",
 ];
+
+function validatePlaceholderType(
+  value: unknown,
+  context: string,
+): PlaceholderType {
+  if (!PLACEHOLDER_TYPES.includes(value as PlaceholderType)) {
+    throw new DeckValidationError(
+      `${context} must be one of: ${PLACEHOLDER_TYPES.join(", ")}`,
+    );
+  }
+  return value as PlaceholderType;
+}
 
 function validateTextFitMode(
   value: unknown,
@@ -367,7 +384,7 @@ function validateBulletItems(value: unknown, context: string): BulletItem[] {
   );
 }
 
-function validateElement(input: unknown, context: string): SlideElement {
+export function validateElement(input: unknown, context: string): SlideElement {
   if (!isPlainObject(input)) {
     throw new DeckValidationError(`${context} must be an object`);
   }
@@ -400,6 +417,19 @@ function validateElement(input: unknown, context: string): SlideElement {
   };
 
   switch (input.kind) {
+    case "placeholder": {
+      return {
+        ...base,
+        kind: "placeholder",
+        placeholderType: validatePlaceholderType(
+          input.placeholderType,
+          `${context}.placeholderType`,
+        ),
+        ...(typeof input.label === "string" && input.label.trim().length > 0
+          ? { label: input.label }
+          : {}),
+      };
+    }
     case "text": {
       if (typeof input.text !== "string") {
         throw new DeckValidationError(`${context}.text must be a string`);
@@ -654,9 +684,47 @@ function validateElement(input: unknown, context: string): SlideElement {
     }
     default:
       throw new DeckValidationError(
-        `${context}.kind must be one of: text, bullets, visual, image, shape, connector`,
+        `${context}.kind must be one of: placeholder, text, bullets, visual, image, shape, connector`,
       );
   }
+}
+
+function validateLayout(input: unknown, context: string): DeckLayout {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  if (typeof input.id !== "string" || input.id.length === 0) {
+    throw new DeckValidationError(`${context}.id must be a non-empty string`);
+  }
+  if (typeof input.name !== "string" || input.name.length === 0) {
+    throw new DeckValidationError(`${context}.name must be a non-empty string`);
+  }
+  if (!isSlideFormat(input.format)) {
+    throw new DeckValidationError(
+      `${context}.format must be one of: ${SLIDE_FORMATS.join(", ")}`,
+    );
+  }
+  if (!Array.isArray(input.placeholders)) {
+    throw new DeckValidationError(`${context}.placeholders must be an array`);
+  }
+  const placeholders = input.placeholders.map((placeholder, index) => {
+    const validated = validateElement(
+      placeholder,
+      `${context}.placeholders[${index}]`,
+    );
+    if (validated.kind !== "placeholder") {
+      throw new DeckValidationError(
+        `${context}.placeholders[${index}] must be a placeholder element`,
+      );
+    }
+    return validated as PlaceholderElement;
+  });
+  return {
+    id: input.id,
+    name: input.name,
+    format: input.format,
+    placeholders,
+  };
 }
 
 function validateSlide(input: unknown, index: number): Slide {
@@ -691,7 +759,7 @@ function validateSlide(input: unknown, index: number): Slide {
     input.visualIds,
     `${context}.visualIds`,
   );
-  if (!isSlideLayout(input.layout)) {
+  if (!isSlideLayoutHint(input.layout)) {
     throw new DeckValidationError(
       `${context}.layout must be one of: ${SLIDE_LAYOUTS.join(", ")}`,
     );
@@ -773,7 +841,7 @@ function validateSlide(input: unknown, index: number): Slide {
     bullets,
     ...(bulletRuns !== undefined ? { bulletRuns } : {}),
     visualIds,
-    layout: input.layout,
+    layout: input.layout as SlideLayoutHint,
     notes: input.notes,
     theme: input.theme,
     ...(elements !== undefined ? { elements } : {}),
@@ -829,8 +897,22 @@ function validateDeck(input: unknown): Deck {
   }
 
   const slides = input.slides.map(validateSlide);
+  let layouts: DeckLayout[] | undefined;
+  if (input.layouts !== undefined) {
+    if (!Array.isArray(input.layouts)) {
+      throw new DeckValidationError("Deck.layouts must be an array");
+    }
+    layouts = input.layouts.map((layout, index) =>
+      validateLayout(layout, `Deck.layouts[${index}]`),
+    );
+  }
 
-  const deck: Deck = { slides, theme, slideFormat };
+  const deck: Deck = {
+    slides,
+    theme,
+    slideFormat,
+    ...(layouts !== undefined ? { layouts } : {}),
+  };
 
   if (input.deckContentHash !== undefined) {
     if (typeof input.deckContentHash !== "string") {

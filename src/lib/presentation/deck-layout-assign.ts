@@ -5,7 +5,7 @@
  * `safeParseDeck`-valid {@link Deck}, but a repaired deck can still be "thin":
  * the model may emit only legacy `title` / `bullets` / `visualIds` fields, or
  * positioned `elements[]` that do not match the slide's declared {@link
- * SlideLayout}. Hand-authored slides (from {@link buildTemplateSlide}) and
+ * SlideLayoutHint}. Hand-authored slides (from {@link buildTemplateSlide}) and
  * document-derived slides (from {@link materializeSlideElements}) both speak a
  * richer vocabulary: every slide snaps to a layout preset, carries a deck
  * {@link DeckTheme}, and positions title / body / visual elements for clear
@@ -48,7 +48,7 @@ import {
   type ElementBox,
   type Slide,
   type SlideElement,
-  type SlideLayout,
+  type SlideLayoutHint,
   type TextElement,
   type TextElementStyle,
   type VisualElement,
@@ -163,7 +163,7 @@ function isTitleText(element: SlideElement): element is TextElement {
  * `layout` implies, so they can be cleaned in place rather than re-scaffolded.
  */
 function elementsMatchLayout(
-  layout: SlideLayout,
+  layout: SlideLayoutHint,
   elements: readonly SlideElement[],
 ): boolean {
   if (elements.length === 0) return false;

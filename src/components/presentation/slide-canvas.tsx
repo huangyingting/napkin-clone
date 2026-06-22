@@ -16,6 +16,7 @@ import type {
   ConnectorElement,
   DeckTheme,
   ImageElement,
+  PlaceholderElement,
   ShapeElement,
   Slide,
   SlideElement,
@@ -24,7 +25,10 @@ import type {
   TextRun,
   VisualElement,
 } from "@/lib/presentation/deck";
-import { normalizeBulletItems } from "@/lib/presentation/deck";
+import {
+  normalizeBulletItems,
+  PLACEHOLDER_TYPE_LABELS,
+} from "@/lib/presentation/deck";
 import {
   resolveConnectorElementPoints,
   resolveConnectorEndpoint,
@@ -383,6 +387,24 @@ function contrastTextColor(hex: string): string {
   return luminance > 0.58 ? "#18181b" : "#ffffff";
 }
 
+function hexToRgba(hex: string, alpha: number): string {
+  const raw = hex.replace("#", "");
+  const expanded =
+    raw.length === 3
+      ? raw
+          .split("")
+          .map((part) => `${part}${part}`)
+          .join("")
+      : raw;
+  if (expanded.length < 6) {
+    return `rgba(113, 113, 122, ${alpha})`;
+  }
+  const r = Number.parseInt(expanded.slice(0, 2), 16);
+  const g = Number.parseInt(expanded.slice(2, 4), 16);
+  const b = Number.parseInt(expanded.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function ShapeText({ element }: { element: ShapeElement }): JSX.Element | null {
   const text = element.text?.trim();
   if (!text || element.shape === "line") return null;
@@ -421,6 +443,48 @@ function ShapeText({ element }: { element: ShapeElement }): JSX.Element | null {
           ? renderRuns(element.textRuns)
           : element.text}
       </div>
+    </div>
+  );
+}
+
+function PlaceholderElementView({
+  element,
+  tc,
+  accent,
+  editable,
+}: {
+  element: PlaceholderElement;
+  tc: ThemeConfig;
+  accent: string;
+  editable?: boolean;
+}): JSX.Element {
+  const label =
+    element.label?.trim() || PLACEHOLDER_TYPE_LABELS[element.placeholderType];
+  return (
+    <div
+      style={{
+        ...boxStyle(element),
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "1cqmin",
+        overflow: "hidden",
+        borderRadius: "0.6em",
+        border: `1.5px dashed ${hexToRgba(accent, 0.55)}`,
+        backgroundColor: hexToRgba(accent, 0.12),
+        color: tc.mutedColor,
+        fontSize: "3.2cqh",
+        fontWeight: 600,
+        lineHeight: 1.2,
+        textAlign: "center",
+        whiteSpace: "pre-wrap",
+        overflowWrap: "break-word",
+        wordBreak: "normal",
+        userSelect: "none",
+        pointerEvents: editable ? "auto" : "none",
+      }}
+    >
+      <span>{label}</span>
     </div>
   );
 }
@@ -1026,6 +1090,15 @@ function SlideElementView({
   editable?: boolean;
 }): JSX.Element | null {
   switch (element.kind) {
+    case "placeholder":
+      return (
+        <PlaceholderElementView
+          element={element}
+          tc={tc}
+          accent={accent}
+          editable={editable}
+        />
+      );
     case "text":
       return <TextElementView element={element} tc={tc} accent={accent} />;
     case "bullets":

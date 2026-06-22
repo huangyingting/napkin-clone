@@ -45,7 +45,7 @@ import {
   type ElementAlign,
   type ElementBox,
   type SlideElement,
-  type SlideLayout,
+  type SlideLayoutHint,
   type TextElementStyle,
 } from "@/lib/presentation/deck";
 import { normalizeGeneratedDeck } from "@/lib/presentation/deck-layout-assign";
@@ -69,7 +69,7 @@ export const DECK_OUTPUT_TOKEN_BUDGET = 16000;
 const DEFAULT_MAX_ATTEMPTS = 2;
 
 const DEFAULT_THEME: DeckTheme = "default";
-const DEFAULT_LAYOUT: SlideLayout = "blank";
+const DEFAULT_LAYOUT: SlideLayoutHint = "blank";
 const ELEMENT_ALIGNS: readonly ElementAlign[] = ["left", "center", "right"];
 
 export interface GenerateDeckInput {
@@ -210,7 +210,7 @@ interface NormalizedSlide {
   title: string;
   bullets: string[];
   visualIds: string[];
-  layout: SlideLayout;
+  layout: SlideLayoutHint;
   notes: string;
   theme: DeckTheme;
   elements?: SlideElement[];
@@ -223,8 +223,8 @@ function repairSlide(
 ): NormalizedSlide {
   const slide = isPlainObject(input) ? input : {};
 
-  const layout = SLIDE_LAYOUTS.includes(slide.layout as SlideLayout)
-    ? (slide.layout as SlideLayout)
+  const layout = SLIDE_LAYOUTS.includes(slide.layout as SlideLayoutHint)
+    ? (slide.layout as SlideLayoutHint)
     : DEFAULT_LAYOUT;
 
   const normalized: NormalizedSlide = {

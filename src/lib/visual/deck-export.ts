@@ -417,6 +417,9 @@ function buildSlideSpec(
     }
 
     switch (element.kind) {
+      case "placeholder":
+        // Authoring-only scaffold; omit from PPTX export.
+        break;
       case "text": {
         const defaultColor =
           element.role === "title" ? colors.title : colors.body;

@@ -43,7 +43,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { FOCUS_RING } from "@/components/motion/control-styles";
 import { DECK_THEMES } from "@/components/presentation/slide-canvas";
@@ -59,15 +59,21 @@ import type {
   ConnectorEndpoint,
   Deck,
   ImageElement,
+  PlaceholderElement,
+  SlideLayout as ReusableSlideLayout,
+  SlideLayoutHint,
   ShapeKind,
   Slide,
   SlideElement,
-  SlideLayout,
   TextElementStyle,
   TextFitMode,
   TextRun,
 } from "@/lib/presentation/deck";
-import { normalizeBulletItems } from "@/lib/presentation/deck";
+import {
+  defaultLayouts,
+  normalizeBulletItems,
+  PLACEHOLDER_TYPE_LABELS,
+} from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import type {
   AlignMode,
@@ -95,11 +101,12 @@ import {
   themeSwatchColors,
 } from "@/lib/presentation/text-style";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
+import { DEFAULT_SLIDE_FORMAT } from "@/lib/presentation/slide-format";
 import type { Visual } from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { applyTheme, isThemeActive } from "@/lib/visual/transforms";
 
-const LAYOUT_OPTIONS: SlideLayout[] = [
+const LAYOUT_OPTIONS: SlideLayoutHint[] = [
   "title",
   "section",
   "content",
@@ -155,7 +162,9 @@ export interface SlideInspectorProps {
   onRemoveSlide: () => void;
   // Legacy slide editing
   onTitleChange: (title: string) => void;
-  onLayoutChange: (layout: SlideLayout) => void;
+  onLayoutChange: (layout: SlideLayoutHint) => void;
+  onApplyLayout: (layout: ReusableSlideLayout) => void;
+  onResetLayout: (layout: ReusableSlideLayout) => void;
   onBulletsChange: (value: string) => void;
   onMaterialize: () => void;
   // Element editing
@@ -246,6 +255,8 @@ function TabButton({
 
 function elementLabel(element: SlideElement): string {
   switch (element.kind) {
+    case "placeholder":
+      return `Placeholder · ${placeholderDisplayName(element)}`;
     case "text":
       return element.role === "title" ? "Title" : "Text";
     case "bullets":
@@ -261,6 +272,14 @@ function elementLabel(element: SlideElement): string {
     default:
       return "Element";
   }
+}
+
+function placeholderDisplayName(
+  element: Pick<PlaceholderElement, "placeholderType" | "label">,
+): string {
+  return (
+    element.label?.trim() || PLACEHOLDER_TYPE_LABELS[element.placeholderType]
+  );
 }
 
 /**
@@ -876,6 +895,39 @@ function ElementEditor({
   onUpdateElement: SlideInspectorProps["onUpdateElement"];
 }) {
   switch (element.kind) {
+    case "placeholder":
+      return (
+        <div className="flex flex-col gap-3">
+          <label className="block">
+            <span className={LABEL_CLASS}>Placeholder type</span>
+            <div
+              className={`${FIELD_CLASS} cursor-default bg-ds-state-hover text-ds-text-secondary`}
+            >
+              {PLACEHOLDER_TYPE_LABELS[element.placeholderType]}
+            </div>
+          </label>
+          <label className="block">
+            <span className={LABEL_CLASS}>Label</span>
+            <input
+              type="text"
+              value={element.label ?? ""}
+              onChange={(event) =>
+                onUpdateElement(element.id, {
+                  label:
+                    event.target.value.trim().length > 0
+                      ? event.target.value
+                      : undefined,
+                })
+              }
+              placeholder={PLACEHOLDER_TYPE_LABELS[element.placeholderType]}
+              className={`${FIELD_CLASS} ${FOCUS_RING}`}
+            />
+          </label>
+          <p className="text-xs text-ds-text-muted">
+            Shown on-canvas until this slot is replaced with slide content.
+          </p>
+        </div>
+      );
     case "text":
       return (
         <div className="flex flex-col gap-3">
@@ -1991,6 +2043,8 @@ export function SlideInspector({
   onRemoveSlide,
   onTitleChange,
   onLayoutChange,
+  onApplyLayout,
+  onResetLayout,
   onBulletsChange,
   onMaterialize,
   onUpdateElement,
@@ -2017,6 +2071,7 @@ export function SlideInspector({
   showAdvanced = true,
 }: SlideInspectorProps) {
   const [tab, setTab] = useState<Tab>("content");
+  const [selectedLayoutId, setSelectedLayoutId] = useState("");
   const TABS: Tab[] = ["content", "style"];
 
   function handleTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
@@ -2079,6 +2134,18 @@ export function SlideInspector({
   const selectedElement =
     elements.find((element) => element.id === selectedElementId) ?? null;
   const orderedElements = [...elements].sort((a, b) => b.zIndex - a.zIndex);
+  const builtInLayouts = useMemo(() => defaultLayouts(), []);
+  const availableLayouts = useMemo(() => {
+    const source =
+      deck.layouts && deck.layouts.length > 0 ? deck.layouts : builtInLayouts;
+    const format = deck.slideFormat ?? DEFAULT_SLIDE_FORMAT;
+    const filtered = source.filter((layout) => layout.format === format);
+    return filtered.length > 0 ? filtered : source;
+  }, [builtInLayouts, deck.layouts, deck.slideFormat]);
+  const selectedLayout =
+    availableLayouts.find((layout) => layout.id === selectedLayoutId) ??
+    availableLayouts[0] ??
+    null;
 
   const themeConfig = DECK_THEMES[slide.theme] ?? DECK_THEMES.default;
   const textColorPresets = mergeSwatches(brandSwatches, [
@@ -2153,6 +2220,50 @@ export function SlideInspector({
             aria-labelledby="inspector-tab-content"
             className="flex flex-col gap-4"
           >
+            {selectedLayout ? (
+              <div className="rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised p-3">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ds-text-muted">
+                  Reusable layout
+                </p>
+                <label className="block">
+                  <span className={LABEL_CLASS}>Layout</span>
+                  <select
+                    value={selectedLayout.id}
+                    onChange={(event) =>
+                      setSelectedLayoutId(event.target.value)
+                    }
+                    className={`${FIELD_CLASS} ${FOCUS_RING}`}
+                  >
+                    {availableLayouts.map((layout) => (
+                      <option key={layout.id} value={layout.id}>
+                        {layout.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onApplyLayout(selectedLayout)}
+                    className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-3 py-2 text-sm font-medium text-ds-text-primary hover:bg-ds-state-hover ${FOCUS_RING}`}
+                  >
+                    Apply
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onResetLayout(selectedLayout)}
+                    className={`rounded-ds-md border border-ds-danger-border bg-ds-danger-surface px-3 py-2 text-sm font-medium text-ds-danger-text hover:opacity-90 ${FOCUS_RING}`}
+                  >
+                    Reset
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-ds-text-muted">
+                  Apply refreshes placeholders while keeping your other
+                  elements. Reset replaces all placeholders with the layout
+                  defaults.
+                </p>
+              </div>
+            ) : null}
             {hasElements ? (
               <>
                 {/* Element list */}
@@ -2339,7 +2450,7 @@ export function SlideInspector({
                   <select
                     value={slide.layout}
                     onChange={(event) =>
-                      onLayoutChange(event.target.value as SlideLayout)
+                      onLayoutChange(event.target.value as SlideLayoutHint)
                     }
                     className={`${FIELD_CLASS} ${FOCUS_RING}`}
                   >

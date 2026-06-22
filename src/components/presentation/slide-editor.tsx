@@ -92,7 +92,8 @@ import {
   type ElementBox,
   type ShapeKind,
   type SlideElement,
-  type SlideLayout,
+  type SlideLayout as ReusableSlideLayout,
+  type SlideLayoutHint,
 } from "@/lib/presentation/deck";
 import {
   resolveSlideFormat,
@@ -122,6 +123,7 @@ import {
 import {
   addElement,
   addSlide,
+  applySlideLayout,
   alignElements,
   arrangeSelectedElements,
   bringElementToFront,
@@ -139,6 +141,7 @@ import {
   nudgeElements,
   removeSlide,
   reorderSlides,
+  resetSlideLayout,
   sendElementToBack,
   setDeckSlideFormat,
   setDeckTheme,
@@ -281,6 +284,8 @@ function buildDefaultElement(
 
 function slideElementTypeLabel(element: SlideElement): string {
   switch (element.kind) {
+    case "placeholder":
+      return "Placeholder";
     case "text":
       return element.role === "title" ? "Title" : "Text";
     case "bullets":
@@ -761,7 +766,10 @@ export function SlideEditor({
         setSpotlightPickerOpen(true);
         return;
       }
-      const slide = buildTemplateSlide(kind, { theme: deck.theme });
+      const slide = buildTemplateSlide(kind, {
+        theme: deck.theme,
+        slideFormat: deck.slideFormat,
+      });
       const next = insertSlide(deck, deck.slides.length - 1, slide);
       onDeckChange(next);
       setSelectedIndex(next.slides.length - 1);
@@ -774,6 +782,7 @@ export function SlideEditor({
     (visualId: string) => {
       const slide = buildTemplateSlide("visual", {
         theme: deck.theme,
+        slideFormat: deck.slideFormat,
         visualId,
       });
       const next = insertSlide(deck, deck.slides.length - 1, slide);
@@ -831,10 +840,36 @@ export function SlideEditor({
   );
 
   const handleLayoutChange = useCallback(
-    (index: number, layout: SlideLayout) => {
+    (index: number, layout: SlideLayoutHint) => {
       onDeckChange(updateSlide(deck, index, { layout }));
     },
     [deck, onDeckChange],
+  );
+
+  const handleApplyReusableLayout = useCallback(
+    (layout: ReusableSlideLayout) => {
+      onDeckChange(applySlideLayout(deck, safeSelected, layout));
+      setSelectedElementId(null);
+      setSelectedElementIds(new Set());
+    },
+    [deck, onDeckChange, safeSelected],
+  );
+
+  const handleResetReusableLayout = useCallback(
+    (layout: ReusableSlideLayout) => {
+      if (
+        typeof window !== "undefined" &&
+        !window.confirm(
+          `Reset slide to the "${layout.name}" layout? This will remove any custom placeholder positions and labels.`,
+        )
+      ) {
+        return;
+      }
+      onDeckChange(resetSlideLayout(deck, safeSelected, layout));
+      setSelectedElementId(null);
+      setSelectedElementIds(new Set());
+    },
+    [deck, onDeckChange, safeSelected],
   );
 
   // ── Element clipboard (copy / cut / paste), shared by the keyboard handler
@@ -1758,8 +1793,10 @@ export function SlideEditor({
         onRemoveSlide: () => handleRemove(safeSelected),
         onTitleChange: (title: string) =>
           handleTitleChange(safeSelected, title),
-        onLayoutChange: (layout: SlideLayout) =>
+        onLayoutChange: (layout: SlideLayoutHint) =>
           handleLayoutChange(safeSelected, layout),
+        onApplyLayout: handleApplyReusableLayout,
+        onResetLayout: handleResetReusableLayout,
         onBulletsChange: (value: string) =>
           handleBulletsChange(safeSelected, value),
         onMaterialize: handleMaterialize,

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { BulletsElement, ImageElement, TextElement } from "./deck";
+import type { ImageElement, PlaceholderElement } from "./deck";
 import {
   buildTemplateSlide,
   SLIDE_TEMPLATES,
@@ -78,32 +78,52 @@ test("non-blank templates assign unique element ids", () => {
   }
 });
 
-test("title template = hero title text + subtitle text", () => {
-  assert.deepEqual(elementKinds("title"), ["text", "text"]);
+test("title template = title, subtitle, and footer placeholders", () => {
+  assert.deepEqual(elementKinds("title"), [
+    "placeholder",
+    "placeholder",
+    "placeholder",
+  ]);
   const slide = buildTemplateSlide("title", { theme: "indigo" });
   assert.equal(slide.layout, "title");
-  const [title, subtitle] = slide.elements as TextElement[];
-  assert.equal(title.role, "title");
-  assert.equal(title.style.align, "center");
-  assert.equal(subtitle.role, "body");
+  const placeholders = slide.elements as PlaceholderElement[];
+  assert.deepEqual(
+    placeholders.map((element) => element.placeholderType),
+    ["title", "subtitle", "footer"],
+  );
 });
 
-test("content template = title text + bullets", () => {
-  assert.deepEqual(elementKinds("content"), ["text", "bullets"]);
+test("content template = title/body/visual/footer placeholders", () => {
+  assert.deepEqual(elementKinds("content"), [
+    "placeholder",
+    "placeholder",
+    "placeholder",
+    "placeholder",
+  ]);
   const slide = buildTemplateSlide("content", { theme: "indigo" });
   assert.equal(slide.layout, "content");
-  const bullets = slide.elements?.[1] as BulletsElement;
-  assert.ok(bullets.bullets.length >= 1);
+  const placeholders = slide.elements as PlaceholderElement[];
+  assert.deepEqual(
+    placeholders.map((element) => element.placeholderType),
+    ["title", "body", "visual", "footer"],
+  );
 });
 
-test("two-column template = title + two bullet columns", () => {
-  assert.deepEqual(elementKinds("two-column"), ["text", "bullets", "bullets"]);
+test("two-column template = title + two body placeholders + footer", () => {
+  assert.deepEqual(elementKinds("two-column"), [
+    "placeholder",
+    "placeholder",
+    "placeholder",
+    "placeholder",
+  ]);
   const slide = buildTemplateSlide("two-column", { theme: "indigo" });
   const [, left, right] = slide.elements as [
-    TextElement,
-    BulletsElement,
-    BulletsElement,
+    PlaceholderElement,
+    PlaceholderElement,
+    PlaceholderElement,
   ];
+  assert.equal(left.placeholderType, "body");
+  assert.equal(right.placeholderType, "body");
   // Columns sit side by side: the right column starts past the left's edge.
   assert.ok(right.box.x >= left.box.x + left.box.w);
 });
