@@ -24,6 +24,7 @@ import {
   ChevronDown,
   Copy,
   Italic,
+  Link2Off,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -35,6 +36,9 @@ import { TextStyleBar } from "@/components/presentation/text-style-bar";
 import { Swatch, Tooltip } from "@/components/ui";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import type {
+  ConnectorArrow,
+  ConnectorElement,
+  ConnectorEndpoint,
   Deck,
   ImageElement,
   ShapeKind,
@@ -45,6 +49,7 @@ import type {
   TextRun,
 } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
+import { detachConnectorEndpoint } from "@/lib/presentation/connector-lifecycle";
 import {
   canAddImage,
   dataUrlByteSize,
@@ -211,6 +216,8 @@ function elementLabel(element: SlideElement): string {
       return "Image";
     case "shape":
       return `Shape · ${element.shape}`;
+    case "connector":
+      return "Connector";
     default:
       return "Element";
   }
@@ -467,6 +474,7 @@ function ElementEditor({
   visuals,
   textColorPresets,
   showAdvanced,
+  elements,
   onUpdateElement,
 }: {
   element: SlideElement;
@@ -474,6 +482,7 @@ function ElementEditor({
   visuals: ReadonlyMap<string, Visual>;
   textColorPresets: readonly string[];
   showAdvanced: boolean;
+  elements: readonly SlideElement[];
   onUpdateElement: SlideInspectorProps["onUpdateElement"];
 }) {
   switch (element.kind) {
@@ -705,9 +714,204 @@ function ElementEditor({
           onUpdateElement={onUpdateElement}
         />
       );
+    case "connector":
+      return (
+        <ConnectorElementEditor
+          element={element}
+          elements={elements}
+          onUpdateElement={onUpdateElement}
+        />
+      );
     default:
       return null;
   }
+}
+
+const ARROW_OPTIONS: { value: ConnectorArrow; label: string }[] = [
+  { value: "none", label: "None" },
+  { value: "arrow", label: "Open arrow" },
+  { value: "filled", label: "Filled arrow" },
+];
+
+/**
+ * Inspector controls for a selected {@link ConnectorElement} (issue #325).
+ *
+ * Provides:
+ *  - Arrowhead style at start/end (none / open arrow / filled arrow)
+ *  - Dashed line toggle
+ *  - Stroke color + width
+ *  - Detach start / end endpoint (converts bound anchor to free point)
+ */
+function ConnectorElementEditor({
+  element,
+  elements,
+  onUpdateElement,
+}: {
+  element: ConnectorElement;
+  elements: readonly SlideElement[];
+  onUpdateElement: SlideInspectorProps["onUpdateElement"];
+}) {
+  const startBound = "elementId" in element.start;
+  const endBound = "elementId" in element.end;
+  const arrowStart = element.arrowStart ?? "none";
+  const arrowEnd = element.arrowEnd ?? "arrow";
+
+  function detachStart() {
+    if (!startBound) return;
+    const freePoint = detachConnectorEndpoint(
+      element.start as ConnectorEndpoint,
+      elements,
+    );
+    onUpdateElement(element.id, { start: freePoint });
+  }
+
+  function detachEnd() {
+    if (!endBound) return;
+    const freePoint = detachConnectorEndpoint(
+      element.end as ConnectorEndpoint,
+      elements,
+    );
+    onUpdateElement(element.id, { end: freePoint });
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Arrowhead at start */}
+      <label className="block">
+        <span className={LABEL_CLASS}>Arrow at start</span>
+        <select
+          value={arrowStart}
+          onChange={(event) =>
+            onUpdateElement(element.id, {
+              arrowStart: event.target.value as ConnectorArrow,
+            })
+          }
+          className={`${FIELD_CLASS} ${FOCUS_RING}`}
+          aria-label="Arrowhead style at start"
+        >
+          {ARROW_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {/* Arrowhead at end */}
+      <label className="block">
+        <span className={LABEL_CLASS}>Arrow at end</span>
+        <select
+          value={arrowEnd}
+          onChange={(event) =>
+            onUpdateElement(element.id, {
+              arrowEnd: event.target.value as ConnectorArrow,
+            })
+          }
+          className={`${FIELD_CLASS} ${FOCUS_RING}`}
+          aria-label="Arrowhead style at end"
+        >
+          {ARROW_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {/* Dashed line toggle */}
+      <label className="flex items-center justify-between gap-2">
+        <span className={LABEL_CLASS + " mb-0"}>Dashed line</span>
+        <input
+          type="checkbox"
+          checked={element.dash ?? false}
+          onChange={(event) =>
+            onUpdateElement(element.id, { dash: event.target.checked })
+          }
+          className="h-4 w-4 accent-ds-control"
+          aria-label="Toggle dashed line style"
+        />
+      </label>
+
+      {/* Stroke color */}
+      <label className="flex items-center justify-between gap-2">
+        <span className={LABEL_CLASS + " mb-0"}>Stroke color</span>
+        <input
+          type="color"
+          value={element.stroke?.color ?? "#a1a1aa"}
+          onChange={(event) =>
+            onUpdateElement(element.id, {
+              stroke: {
+                color: event.target.value,
+                width: element.stroke?.width ?? 0.4,
+              },
+            })
+          }
+          className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
+          aria-label="Stroke color"
+        />
+      </label>
+
+      {/* Stroke width */}
+      <label className="block">
+        <span className={LABEL_CLASS}>Stroke width</span>
+        <input
+          type="range"
+          min={0.1}
+          max={3}
+          step={0.1}
+          value={element.stroke?.width ?? 0.4}
+          onChange={(event) => {
+            const width = Number(event.target.value);
+            onUpdateElement(element.id, {
+              stroke: {
+                color: element.stroke?.color ?? "#a1a1aa",
+                width,
+              },
+            });
+          }}
+          className="w-full accent-ds-control"
+          aria-label="Stroke width"
+        />
+      </label>
+
+      {/* Detach endpoint buttons — disabled when the endpoint is already free */}
+      <div>
+        <span className={LABEL_CLASS}>Endpoints</span>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={!startBound}
+            onClick={detachStart}
+            aria-label="Detach start endpoint from shape"
+            title={
+              startBound
+                ? "Detach start from its bound shape"
+                : "Start endpoint is already free"
+            }
+            className={`flex flex-1 items-center justify-center gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`}
+          >
+            <Link2Off size={12} aria-hidden="true" />
+            Start
+          </button>
+          <button
+            type="button"
+            disabled={!endBound}
+            onClick={detachEnd}
+            aria-label="Detach end endpoint from shape"
+            title={
+              endBound
+                ? "Detach end from its bound shape"
+                : "End endpoint is already free"
+            }
+            className={`flex flex-1 items-center justify-center gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`}
+          >
+            <Link2Off size={12} aria-hidden="true" />
+            End
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -1374,6 +1578,7 @@ export function SlideInspector({
                       visuals={visuals}
                       textColorPresets={textColorPresets}
                       showAdvanced={showAdvanced}
+                      elements={elements}
                       onUpdateElement={onUpdateElement}
                     />
                     {showAdvanced ? (

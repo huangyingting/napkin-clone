@@ -33,6 +33,8 @@ import {
   ClipboardPaste,
   Copy,
   Group,
+  Link,
+  Link2Off,
   Lock,
   LockOpen,
   Pencil,
@@ -53,12 +55,16 @@ import { ColorPicker, DEFAULT_SWATCH_PRESETS } from "@/components/ui";
 import { FOCUS_RING } from "@/components/motion/control-styles";
 import { cx, MENU_CHROME, MENU_ITEM } from "@/components/ui/tokens";
 import type {
+  ConnectorAnchor,
+  ConnectorElement,
+  ConnectorEndpoint,
   ElementBox,
   Slide,
   SlideElement,
   TextElementStyle,
 } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
+import { detachConnectorEndpoint } from "@/lib/presentation/connector-lifecycle";
 import { elementAccessibleName } from "@/lib/presentation/element-accessible-name";
 import { type SnapGuide, snapBox } from "@/lib/presentation/element-snap";
 import { mergeSwatches } from "@/lib/presentation/text-style";
@@ -79,7 +85,10 @@ import {
   defaultTextBoxAtPoint,
 } from "@/lib/presentation/canvas-helpers";
 import {
+  CONNECTOR_ANCHORS,
+  anchorPoint,
   lineBoxFromEndpoints,
+  resolveConnectorElementPoints,
   resolveLineEndpoints,
   snapLineEndpoint,
 } from "@/lib/presentation/connector-geometry";
@@ -639,6 +648,87 @@ const LINE_HANDLES = HANDLES.filter(
   ({ handle }) => handle === "w" || handle === "e",
 );
 
+/**
+ * Endpoint drag handles for a selected {@link ConnectorElement} (issue #325).
+ *
+ * Renders two touchable dots positioned at the actual start/end screen
+ * coordinates (as %-of-element-box offsets) rather than the element's
+ * bounding-box edges. Bound endpoints receive a blue filled ring; free
+ * endpoints use the default grey dot.
+ */
+function ConnectorEndpointHandles({
+  element,
+  elements,
+  fittedBoxes,
+  onBeginDrag,
+}: {
+  element: ConnectorElement;
+  elements: readonly SlideElement[];
+  fittedBoxes: ReadonlyMap<string, ElementBox>;
+  onBeginDrag: (
+    event: React.PointerEvent,
+    mode: Extract<Handle, "w" | "e">,
+  ) => void;
+}) {
+  const cbox = fittedBoxes.get(element.id) ?? element.box;
+  const { start: startPt, end: endPt } = resolveConnectorElementPoints(
+    element,
+    elements,
+    (el) => fittedBoxes.get(el.id) ?? el.box,
+  );
+  // Convert slide-% coordinates to % relative to the element's bounding box so
+  // the <span> can be positioned with `left/top` inside the container div.
+  const toRel = (ptX: number, ptY: number) => ({
+    left: cbox.w > 0 ? ((ptX - cbox.x) / cbox.w) * 100 : 50,
+    top: cbox.h > 0 ? ((ptY - cbox.y) / cbox.h) * 100 : 50,
+  });
+  const handles: {
+    rel: { left: number; top: number };
+    mode: Extract<Handle, "w" | "e">;
+    bound: boolean;
+    label: string;
+  }[] = [
+    {
+      rel: toRel(startPt.x, startPt.y),
+      mode: "w",
+      bound: "elementId" in element.start,
+      label: "Drag start endpoint",
+    },
+    {
+      rel: toRel(endPt.x, endPt.y),
+      mode: "e",
+      bound: "elementId" in element.end,
+      label: "Drag end endpoint",
+    },
+  ];
+  return (
+    <>
+      {handles.map(({ rel, mode, bound, label }) => (
+        <span
+          key={mode}
+          onPointerDown={(event) => onBeginDrag(event, mode)}
+          aria-label={label}
+          className="absolute flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 touch-none items-center justify-center"
+          style={{
+            left: `${rel.left}%`,
+            top: `${rel.top}%`,
+            cursor: "crosshair",
+          }}
+        >
+          {/* Blue filled = bound to a shape; grey open = free floating */}
+          <span
+            className={`h-3 w-3 rounded-full shadow transition-colors ${
+              bound
+                ? "border-2 border-white bg-[#3b82f6]"
+                : "border border-white bg-[#71717a]"
+            }`}
+          />
+        </span>
+      ))}
+    </>
+  );
+}
+
 function resolveTextColor(
   element: Extract<SlideElement, { kind: "text" | "bullets" | "shape" }>,
   tc: ThemeConfig,
@@ -802,6 +892,11 @@ export function SlideStageEditor({
     y: number;
   } | null>(null);
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
+  // Anchor point preview overlay while dragging a connector endpoint (issue #325).
+  const [anchorPreview, setAnchorPreview] = useState<{
+    elementId: string;
+    hoveredAnchor: ConnectorAnchor | null;
+  } | null>(null);
   // Monotonic gesture counter (issue #242). Each drag / resize / inline-edit
   // gesture derives a coalesce key with a unique suffix so consecutive gestures
   // of the same kind on the same element never merge into one undo step.
@@ -1093,6 +1188,83 @@ export function SlideStageEditor({
             onUpdateElement(drag.id, { box }, drag.coalesceKey);
           }
         } else if (
+          resized?.kind === "connector" &&
+          (drag.mode === "w" || drag.mode === "e")
+        ) {
+          // Connector endpoint drag (issue #325).
+          const currentPoint = {
+            x: Math.max(
+              0,
+              Math.min(100, ((ev.clientX - rect.left) / rect.width) * 100),
+            ),
+            y: Math.max(
+              0,
+              Math.min(100, ((ev.clientY - rect.top) / rect.height) * 100),
+            ),
+          };
+          const resolveBox = (candidate: SlideElement) =>
+            fitElementBoxToContent(
+              candidate,
+              visuals,
+              stageAspect,
+              elementsRef.current,
+            );
+          const snapped = snapLineEndpoint(
+            currentPoint,
+            resized.id,
+            elementsRef.current,
+            resolveBox,
+            stageAspect,
+          );
+          // Update anchor preview state: highlight the snapped anchor, or show
+          // dots on whatever shape the pointer is hovering over.
+          if (snapped.binding) {
+            setAnchorPreview({
+              elementId: snapped.binding.elementId,
+              hoveredAnchor: snapped.binding.anchor,
+            });
+          } else {
+            const hovered = elementsRef.current.find((el) => {
+              if (el.id === resized.id) return false;
+              if (el.kind === "connector") return false;
+              if (el.kind === "shape" && el.shape === "line") return false;
+              const b = resolveBox(el);
+              return (
+                currentPoint.x >= b.x &&
+                currentPoint.x <= b.x + b.w &&
+                currentPoint.y >= b.y &&
+                currentPoint.y <= b.y + b.h
+              );
+            });
+            setAnchorPreview(
+              hovered ? { elementId: hovered.id, hoveredAnchor: null } : null,
+            );
+          }
+          // Resolve current start/end screen positions for bounding box update.
+          const resolvedPts = resolveConnectorElementPoints(
+            resized,
+            elementsRef.current,
+            resolveBox,
+          );
+          const startPt = drag.mode === "w" ? snapped.point : resolvedPts.start;
+          const endPt = drag.mode === "e" ? snapped.point : resolvedPts.end;
+          const newBoundingBox = clampBox({
+            x: Math.min(startPt.x, endPt.x),
+            y: Math.min(startPt.y, endPt.y),
+            w: Math.max(MIN_SIZE_PCT, Math.abs(endPt.x - startPt.x)),
+            h: Math.max(MIN_SIZE_PCT, Math.abs(endPt.y - startPt.y)),
+          });
+          onUpdateElement(
+            drag.id,
+            {
+              box: newBoundingBox,
+              ...(drag.mode === "w"
+                ? { start: snapped.binding ?? snapped.point }
+                : { end: snapped.binding ?? snapped.point }),
+            },
+            drag.coalesceKey,
+          );
+        } else if (
           resized?.kind === "shape" &&
           resized.shape === "line" &&
           (drag.mode === "w" || drag.mode === "e")
@@ -1229,6 +1401,7 @@ export function SlideStageEditor({
     dragRef.current = null;
     setActiveDrag(null);
     setSnapGuides([]);
+    setAnchorPreview(null);
   }, [onSelectElement, onSelectElements, stageAspect, visuals, startEditing]);
 
   useEffect(() => {
@@ -1453,7 +1626,7 @@ export function SlideStageEditor({
               key={element.id}
               role="button"
               tabIndex={0}
-              aria-label={elementAccessibleName(element)}
+              aria-label={elementAccessibleName(element, elements)}
               aria-pressed={selected}
               onPointerDown={(event) => {
                 if (isEditing || element.locked) {
@@ -1538,8 +1711,18 @@ export function SlideStageEditor({
                 />
               ) : null}
 
-              {showHandles
-                ? (element.kind === "shape" && element.shape === "line"
+              {showHandles ? (
+                element.kind === "connector" ? (
+                  /* Connector endpoint handles: positioned at actual start/end coords */ <ConnectorEndpointHandles
+                    element={element}
+                    elements={elements}
+                    fittedBoxes={fittedBoxes}
+                    onBeginDrag={(event, mode) =>
+                      beginDrag(event, element.id, mode, fittedBox)
+                    }
+                  />
+                ) : (
+                  (element.kind === "shape" && element.shape === "line"
                     ? LINE_HANDLES
                     : HANDLES
                   ).map(({ handle, cursor, style }) => (
@@ -1555,7 +1738,8 @@ export function SlideStageEditor({
                       <span className="h-2.5 w-2.5 rounded-full border border-white bg-[#71717a] shadow" />
                     </span>
                   ))
-                : null}
+                )
+              ) : null}
               {showHandles && !isEditing && showAdvanced ? (
                 <span
                   onPointerDown={(event) =>
@@ -1610,6 +1794,36 @@ export function SlideStageEditor({
                 />
               ),
             )
+          : null}
+
+        {/* Connector anchor preview dots — shown while dragging a connector
+            endpoint near a target shape (issue #325). Five anchor points
+            (center, top, bottom, left, right) appear on the hovered shape; the
+            one currently within snap radius is highlighted in blue. */}
+        {anchorPreview
+          ? (() => {
+              const targetEl = elements.find(
+                (el) => el.id === anchorPreview.elementId,
+              );
+              if (!targetEl) return null;
+              const box = fittedBoxes.get(targetEl.id) ?? targetEl.box;
+              return CONNECTOR_ANCHORS.map((anchor) => {
+                const pt = anchorPoint(box, anchor);
+                const isHovered = anchor === anchorPreview.hoveredAnchor;
+                return (
+                  <div
+                    key={anchor}
+                    aria-hidden="true"
+                    className={`pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full transition-transform ${
+                      isHovered
+                        ? "h-3.5 w-3.5 scale-125 border-2 border-white bg-[#3b82f6] shadow-md"
+                        : "h-2.5 w-2.5 border border-white bg-[#71717a]/80 shadow"
+                    }`}
+                    style={{ left: `${pt.x}%`, top: `${pt.y}%`, zIndex: 1350 }}
+                  />
+                );
+              });
+            })()
           : null}
 
         {/* Live position / size badge */}
@@ -1667,6 +1881,28 @@ export function SlideStageEditor({
             onBringToFront={onBringToFront}
             onSendToBack={onSendToBack}
             onToggleLock={(id, locked) => onUpdateElement(id, { locked })}
+            onDetachConnectorStart={() => {
+              const el = elements.find((e) => e.id === contextMenu.elementId);
+              if (el?.kind !== "connector") return;
+              if (!("elementId" in el.start)) return;
+              const free = detachConnectorEndpoint(
+                el.start as ConnectorEndpoint,
+                elements,
+              );
+              onUpdateElement(el.id, { start: free });
+              setContextMenu(null);
+            }}
+            onDetachConnectorEnd={() => {
+              const el = elements.find((e) => e.id === contextMenu.elementId);
+              if (el?.kind !== "connector") return;
+              if (!("elementId" in el.end)) return;
+              const free = detachConnectorEndpoint(
+                el.end as ConnectorEndpoint,
+                elements,
+              );
+              onUpdateElement(el.id, { end: free });
+              setContextMenu(null);
+            }}
             canGroup={selectedElementIds.size >= 2}
             onGroup={() => onGroupElements([...selectedElementIds])}
             onUngroup={onUngroupElements}
@@ -1840,6 +2076,16 @@ function ElementToolbarContent({
           <ToolbarDivider />
         </>
       ) : null}
+      {element.kind === "connector" ? (
+        <>
+          <ToolbarButton
+            icon={element.dash ? Link : Link2Off}
+            label={element.dash ? "Solid line" : "Dashed line"}
+            onClick={() => onUpdateElement(element.id, { dash: !element.dash })}
+          />
+          <ToolbarDivider />
+        </>
+      ) : null}
       <ToolbarButton icon={Copy} label="Duplicate" onClick={onDuplicate} />
       {showAdvanced ? (
         <>
@@ -1875,6 +2121,8 @@ function ElementContextMenu({
   onBringToFront,
   onSendToBack,
   onToggleLock,
+  onDetachConnectorStart,
+  onDetachConnectorEnd,
   canGroup,
   onGroup,
   onUngroup,
@@ -1893,6 +2141,10 @@ function ElementContextMenu({
   onBringToFront: (id: string) => void;
   onSendToBack: (id: string) => void;
   onToggleLock: (id: string, locked: boolean) => void;
+  /** Called when user requests to detach the connector start endpoint. */
+  onDetachConnectorStart: () => void;
+  /** Called when user requests to detach the connector end endpoint. */
+  onDetachConnectorEnd: () => void;
   canGroup: boolean;
   onGroup: () => void;
   onUngroup: (groupId: string) => void;
@@ -1990,6 +2242,14 @@ function ElementContextMenu({
       {item("Copy", Copy, onCopy)}
       {item("Cut", Scissors, onCut)}
       {item("Paste", ClipboardPaste, onPaste)}
+      {/* Connector-specific: detach endpoints (issue #325) */}
+      {element.kind === "connector" ? (
+        <>
+          <div className="my-1 h-px bg-ds-border-subtle" aria-hidden />
+          {item("Detach start", Link2Off, onDetachConnectorStart)}
+          {item("Detach end", Link2Off, onDetachConnectorEnd)}
+        </>
+      ) : null}
       {showAdvanced ? (
         <>
           <div className="my-1 h-px bg-ds-border-subtle" aria-hidden />
