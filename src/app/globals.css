@@ -393,3 +393,31 @@ body {
   border-top: 1px solid var(--ds-border-strong);
   margin: 2em 0;
 }
+
+/*
+ * Inline bullets editor (slide stage). Renders the accent dot + spacing of the
+ * static BulletsElementView via pseudo-elements so the markers never interfere
+ * with the contentEditable caret or run serialization. Each child line is a
+ * block element seeded as a <div>; `--ds-bullet-accent` carries the slide accent.
+ */
+.ds-inline-bullets > * {
+  position: relative;
+  padding-left: 0.85em;
+}
+
+.ds-inline-bullets > * + * {
+  margin-top: 0.6em;
+}
+
+.ds-inline-bullets > *::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.45em;
+  height: 0.35em;
+  width: 0.35em;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background-color: var(--ds-bullet-accent, currentColor);
+}
+

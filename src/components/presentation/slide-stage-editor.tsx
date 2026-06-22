@@ -17,7 +17,14 @@
  * independent. The component is controlled: it never mutates the deck.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 
 import {
   DECK_THEMES,
@@ -32,6 +39,13 @@ import {
   normalizeRect,
   type MarqueeRect,
 } from "@/lib/presentation/marquee-select";
+import {
+  mergeRuns,
+  runsToHtml,
+  serializeRichText,
+  shouldStoreRuns,
+  splitRunsIntoLines,
+} from "@/lib/presentation/rich-text-html";
 import type { Visual } from "@/lib/visual/schema";
 
 type Handle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
@@ -385,6 +399,7 @@ export function SlideStageEditor({
     elementsRef.current = elements;
   }, [elements]);
   const tc = DECK_THEMES[slide.theme] ?? DECK_THEMES.default;
+  const accent = slide.accent ?? tc.accentColor;
   const stageAspect = width / height;
   const fittedBoxes = useMemo(() => {
     const map = new Map<string, ElementBox>();
@@ -696,6 +711,7 @@ export function SlideStageEditor({
                 <InlineTextEditor
                   element={element}
                   color={resolveTextColor(element, tc)}
+                  accent={accent}
                   stageHeight={height}
                   onChange={(patch) =>
                     onUpdateElement(
@@ -792,81 +808,161 @@ function formatBadge(mode: DragMode, box: ElementBox): string {
 }
 
 // ---------------------------------------------------------------------------
-// Inline text editor — a transparent textarea overlay matching the element.
+// Inline text editor — a transparent `contentEditable` overlay that renders the
+// element's rich-text runs in place, so entering edit mode is WYSIWYG (no style
+// jump) and per-run bold / italic / color / link formatting is preserved on
+// every keystroke instead of being flattened to plain text.
 // ---------------------------------------------------------------------------
 
 function InlineTextEditor({
   element,
   color,
+  accent,
   stageHeight,
   onChange,
   onCommit,
 }: {
   element: Extract<SlideElement, { kind: "text" | "bullets" }>;
   color: string;
+  accent: string;
   stageHeight: number;
   onChange: (patch: ElementPatch) => void;
   onCommit: () => void;
 }) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-  const value =
-    element.kind === "text" ? element.text : element.bullets.join("\n");
+  const ref = useRef<HTMLDivElement>(null);
+  // Snapshot the element kind once so the live keystroke handler never depends
+  // on the (changing) element prop — the DOM is the source of truth while the
+  // overlay is mounted and its innerHTML is set exactly once below.
+  const kind = element.kind;
 
+  // Seed the editable surface with the rendered runs, then focus and select all
+  // so a fresh edit replaces the content like the old textarea did. Bullets are
+  // seeded as one `<div>` per line so each is a block the marker CSS can attach
+  // to and so Enter creates a new bullet. Runs only on mount; deck updates flow
+  // out (never back into the DOM) so the caret is never disturbed mid-edit.
   useEffect(() => {
     const node = ref.current;
-    if (node) {
-      node.focus();
-      node.select();
+    if (!node) return;
+    if (kind === "text") {
+      node.innerHTML = runsToHtml(element.runs, element.text);
+    } else {
+      node.innerHTML =
+        element.bullets.length > 0
+          ? element.bullets
+              .map(
+                (bullet, i) =>
+                  `<div>${runsToHtml(element.bulletRuns?.[i], bullet)}</div>`,
+              )
+              .join("")
+          : "<div><br></div>";
     }
+    node.focus();
+    const selection = window.getSelection();
+    if (selection) {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+    // Mount-only: intentionally not re-seeding on element changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const commit = useCallback(() => {
-    if (element.kind === "bullets") {
-      const node = ref.current;
-      const lines = (node?.value ?? "")
-        .split("\n")
-        .map((line) => line.replace(/\s+$/, ""))
-        .filter((line) => line.length > 0);
-      onChange({ bullets: lines, bulletRuns: undefined });
+  const emitChange = useCallback(() => {
+    const node = ref.current;
+    if (!node) return;
+    const { text, runs } = serializeRichText(node);
+    if (kind === "text") {
+      onChange({ text, runs: shouldStoreRuns(runs) ? runs : undefined });
+      return;
     }
+    const lines = splitRunsIntoLines(runs)
+      .map((line) => ({
+        text: line.text.replace(/\s+$/, ""),
+        runs: mergeRuns(line.runs),
+      }))
+      .filter((line) => line.text.length > 0);
+    const hasRichBullets = lines.some((line) => shouldStoreRuns(line.runs));
+    onChange({
+      bullets: lines.map((line) => line.text),
+      bulletRuns: hasRichBullets ? lines.map((line) => line.runs) : undefined,
+    });
+  }, [kind, onChange]);
+
+  const commit = useCallback(() => {
+    emitChange();
     onCommit();
-  }, [element.kind, onChange, onCommit]);
+  }, [emitChange, onCommit]);
 
   const fontSizePx = (element.style.fontSize / 100) * stageHeight;
 
+  // Mirror the static TextElementView / BulletsElementView text styles exactly
+  // so entering edit mode is visually identical — no size / weight / line-height
+  // jump. Vertical centering lives on the wrapper (below) to keep the editable
+  // surface a plain block, which keeps caret / Enter behaviour predictable.
+  const editableStyle = {
+    width: "100%",
+    color,
+    fontSize: `${fontSizePx}px`,
+    fontWeight: element.style.bold ? 700 : 400,
+    fontStyle: element.style.italic ? "italic" : "normal",
+    textAlign: element.style.align,
+    lineHeight: kind === "text" ? 1.15 : 1.2,
+    wordBreak: "break-word",
+  } as CSSProperties & Record<string, string>;
+  if (kind === "bullets") {
+    editableStyle["--ds-bullet-accent"] = accent;
+  }
+
   return (
-    <textarea
-      ref={ref}
-      value={value}
+    <div
+      className="absolute inset-0 flex flex-col justify-center overflow-hidden"
       onPointerDown={(event) => event.stopPropagation()}
-      onChange={(event) => {
-        if (element.kind === "text") {
-          onChange({ text: event.target.value, runs: undefined });
-        } else {
-          onChange({
-            bullets: event.target.value.split("\n"),
-            bulletRuns: undefined,
-          });
-        }
-      }}
-      onBlur={commit}
-      onKeyDown={(event) => {
-        event.stopPropagation();
-        if (event.key === "Escape") {
+      onMouseDown={(event) => {
+        // A click in the padding around the text should still focus the editor
+        // rather than do nothing.
+        if (event.target === event.currentTarget) {
           event.preventDefault();
-          commit();
+          ref.current?.focus();
         }
       }}
-      className="absolute inset-0 h-full w-full resize-none border-0 bg-transparent p-0 outline-none"
-      style={{
-        color,
-        fontSize: `${fontSizePx}px`,
-        fontWeight: element.style.bold ? 700 : 400,
-        fontStyle: element.style.italic ? "italic" : "normal",
-        textAlign: element.style.align,
-        lineHeight: 1.2,
-        overflow: "hidden",
-      }}
-    />
+    >
+      <div
+        ref={ref}
+        role="textbox"
+        aria-label={kind === "text" ? "Edit text" : "Edit bullets"}
+        aria-multiline="true"
+        contentEditable
+        suppressContentEditableWarning
+        className={`outline-none${kind === "bullets" ? " ds-inline-bullets" : ""}`}
+        style={editableStyle}
+        onInput={emitChange}
+        onBlur={commit}
+        onPaste={(event) => {
+          // Paste as plain text so external rich markup never leaks into the
+          // runs; formatting stays under the editor's own controls.
+          event.preventDefault();
+          const text = event.clipboardData.getData("text/plain");
+          document.execCommand("insertText", false, text);
+        }}
+        onKeyDown={(event) => {
+          event.stopPropagation();
+          if (event.key === "Escape") {
+            event.preventDefault();
+            commit();
+            return;
+          }
+          // Inline bold / italic shortcuts; re-serialize so the runs persist.
+          if ((event.metaKey || event.ctrlKey) && !event.altKey) {
+            const key = event.key.toLowerCase();
+            if (key === "b" || key === "i") {
+              event.preventDefault();
+              document.execCommand(key === "b" ? "bold" : "italic");
+              emitChange();
+            }
+          }
+        }}
+      />
+    </div>
   );
 }
