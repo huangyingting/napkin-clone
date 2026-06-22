@@ -33,6 +33,7 @@ import {
   type DeckBulletsOp,
   type DeckConnectorOp,
   deckExportTestHelpers,
+  type DeckImageOp,
   type DeckOp,
   type DeckTextOp,
 } from "@/lib/visual/deck-export";
@@ -125,7 +126,10 @@ function shapeEl(
   };
 }
 
-function imageEl(id: string): ImageElement {
+function imageEl(
+  id: string,
+  overrides: Partial<ImageElement> = {},
+): ImageElement {
   return {
     id,
     kind: "image",
@@ -133,6 +137,7 @@ function imageEl(id: string): ImageElement {
     alt: "pic",
     zIndex: 4,
     box: { x: 70, y: 2, w: 25, h: 20 },
+    ...overrides,
   };
 }
 
@@ -387,6 +392,93 @@ test("all five element kinds each emit at least one op", () => {
   );
   assert.ok(ofKind(spec.ops, "shape").length >= 1, "shape op emitted");
   assert.ok(ofKind(spec.ops, "image").length >= 1, "image op emitted");
+});
+
+test("image ops carry fitMode, maskShape, and crop metadata", () => {
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [
+      freeFormSlide(0, [
+        imageEl("im", {
+          fitMode: "fill",
+          maskShape: "diamond",
+          crop: { top: 0.1, right: 0.2, bottom: 0.05, left: 0.15 },
+        }),
+      ]),
+    ],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const image = ofKind(spec.ops, "image")[0];
+  assert.equal(image?.fitMode, "fill");
+  assert.equal(image?.maskShape, "diamond");
+  assert.deepEqual(image?.crop, {
+    top: 0.1,
+    right: 0.2,
+    bottom: 0.05,
+    left: 0.15,
+  });
+});
+
+test("an image element with fitMode=contain emits op with fitMode=contain", () => {
+  // Verifies that `contain` is forwarded so applyImageOp can pass
+  // `sizing: { type: "contain" }` to PptxGenJS.
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [freeFormSlide(0, [imageEl("im-contain", { fitMode: "contain" })])],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const image = ofKind(spec.ops, "image")[0] as DeckImageOp;
+  assert.equal(image?.fitMode, "contain");
+});
+
+test("an image element with fitMode=cover emits op with fitMode=cover", () => {
+  // Verifies that `cover` is forwarded so applyImageOp can pass
+  // `sizing: { type: "cover" }` to PptxGenJS.
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [freeFormSlide(0, [imageEl("im-cover", { fitMode: "cover" })])],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const image = ofKind(spec.ops, "image")[0] as DeckImageOp;
+  assert.equal(image?.fitMode, "cover");
+});
+
+test("an image element with no fitMode emits op with no fitMode field", () => {
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [freeFormSlide(0, [imageEl("im-plain")])],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const image = ofKind(spec.ops, "image")[0] as DeckImageOp;
+  assert.equal(image?.fitMode, undefined);
+});
+
+test("maskShape is present on op so PDF/image renderers can apply clip (PPTX degrades gracefully)", () => {
+  // The PPTX applier does not support shape clipping, but the op must carry
+  // maskShape so that future PDF/canvas renderers can act on it.
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [freeFormSlide(0, [imageEl("im-circle", { maskShape: "circle" })])],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const image = ofKind(spec.ops, "image")[0] as DeckImageOp;
+  assert.equal(image?.maskShape, "circle");
+});
+
+test("an image element without maskShape emits op with no maskShape field", () => {
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [freeFormSlide(0, [imageEl("im-no-mask")])],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const image = ofKind(spec.ops, "image")[0] as DeckImageOp;
+  assert.equal(image?.maskShape, undefined);
 });
 
 test("an image element with an empty src emits no image op (skips broken image)", () => {
