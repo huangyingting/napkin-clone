@@ -12,8 +12,6 @@ import { memo, type JSX } from "react";
 
 import type {
   BulletsElement,
-  ConnectorAnchor,
-  ConnectorEndpoint,
   DeckTheme,
   ImageElement,
   ShapeElement,
@@ -23,6 +21,7 @@ import type {
   TextRun,
   VisualElement,
 } from "@/lib/presentation/deck";
+import { resolveConnectorEndpoint } from "@/lib/presentation/connector-geometry";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 import type { Visual } from "@/lib/visual/schema";
 import { applyTheme } from "@/lib/visual/transforms";
@@ -419,35 +418,6 @@ function ShapeText({ element }: { element: ShapeElement }): JSX.Element | null {
   );
 }
 
-function connectorAnchorPoint(
-  box: { x: number; y: number; w: number; h: number },
-  anchor: ConnectorAnchor,
-): { x: number; y: number } {
-  switch (anchor) {
-    case "top":
-      return { x: box.x + box.w / 2, y: box.y };
-    case "bottom":
-      return { x: box.x + box.w / 2, y: box.y + box.h };
-    case "left":
-      return { x: box.x, y: box.y + box.h / 2 };
-    case "right":
-      return { x: box.x + box.w, y: box.y + box.h / 2 };
-    case "center":
-    default:
-      return { x: box.x + box.w / 2, y: box.y + box.h / 2 };
-  }
-}
-
-function resolveConnectorPoint(
-  endpoint: ConnectorEndpoint | undefined,
-  elements: readonly SlideElement[],
-): { x: number; y: number } | null {
-  if (!endpoint) return null;
-  const element = elements.find((candidate) => candidate.id === endpoint.elementId);
-  if (!element) return null;
-  return connectorAnchorPoint(element.box, endpoint.anchor);
-}
-
 function TextElementView({
   element,
   tc,
@@ -692,8 +662,16 @@ function ShapeElementView({
   elements: readonly SlideElement[];
 }): JSX.Element {
   if (element.shape === "line") {
-    const start = resolveConnectorPoint(element.connector?.start, elements);
-    const end = resolveConnectorPoint(element.connector?.end, elements);
+    const start = resolveConnectorEndpoint(
+      element.connector?.start,
+      elements,
+      (candidate) => candidate.box,
+    );
+    const end = resolveConnectorEndpoint(
+      element.connector?.end,
+      elements,
+      (candidate) => candidate.box,
+    );
     if (start && end) {
       return (
         <svg

@@ -53,8 +53,6 @@ import { ColorPicker, DEFAULT_SWATCH_PRESETS } from "@/components/ui";
 import { FOCUS_RING } from "@/components/motion/control-styles";
 import { cx, MENU_CHROME, MENU_ITEM } from "@/components/ui/tokens";
 import type {
-  ConnectorAnchor,
-  ConnectorEndpoint,
   ElementBox,
   Slide,
   SlideElement,
@@ -80,6 +78,11 @@ import {
   clientPointToStagePct,
   defaultTextBoxAtPoint,
 } from "@/lib/presentation/canvas-helpers";
+import {
+  lineBoxFromEndpoints,
+  resolveLineEndpoints,
+  snapLineEndpoint,
+} from "@/lib/presentation/connector-geometry";
 import {
   createTextResizeMeasurer,
   textFitPaddingPct,
@@ -532,18 +535,22 @@ function fitElementBoxToContent(
     }
     case "shape":
       if (element.shape !== "line") return element.box;
+      const resolveConnectorBox = (candidate: SlideElement) =>
+        candidate.kind === "shape" && candidate.shape === "line"
+          ? candidate.box
+          : fitElementBoxToContent(candidate, visuals, stageAspect, elements);
       const endpoints = resolveLineEndpoints(
         element,
         elements,
-        visuals,
+        resolveConnectorBox,
         stageAspect,
       );
-      const lineBox = lineBoxFromEndpoints(
+      const lineBox = clampBox(lineBoxFromEndpoints(
         endpoints.start,
         endpoints.end,
         element.box.h,
         stageAspect,
-      ).box;
+      ).box);
       return positionFitWithinBox(
         lineBox,
         { w: lineBox.w, h: SELECTION_MIN_H_PCT },
@@ -571,135 +578,6 @@ function applyResize(
     h -= dyPct;
   }
   return { x, y, w, h };
-}
-
-function lineEndpoints(
-  box: ElementBox,
-  rotation: number | undefined,
-  stageAspect: number,
-): { start: { x: number; y: number }; end: { x: number; y: number } } {
-  const angle = ((rotation ?? 0) * Math.PI) / 180;
-  const centerX = box.x + box.w / 2;
-  const centerY = box.y + box.h / 2;
-  const dx = (Math.cos(angle) * box.w) / 2;
-  const dy = (Math.sin(angle) * box.w * stageAspect) / 2;
-  return {
-    start: { x: centerX - dx, y: centerY - dy },
-    end: { x: centerX + dx, y: centerY + dy },
-  };
-}
-
-function anchorPoint(box: ElementBox, anchor: ConnectorAnchor): { x: number; y: number } {
-  switch (anchor) {
-    case "top":
-      return { x: box.x + box.w / 2, y: box.y };
-    case "bottom":
-      return { x: box.x + box.w / 2, y: box.y + box.h };
-    case "left":
-      return { x: box.x, y: box.y + box.h / 2 };
-    case "right":
-      return { x: box.x + box.w, y: box.y + box.h / 2 };
-    case "center":
-    default:
-      return { x: box.x + box.w / 2, y: box.y + box.h / 2 };
-  }
-}
-
-function resolveConnectorEndpoint(
-  endpoint: ConnectorEndpoint | undefined,
-  elements: readonly SlideElement[],
-  visuals: ReadonlyMap<string, Visual>,
-  stageAspect: number,
-): { x: number; y: number } | null {
-  if (!endpoint) return null;
-  const element = elements.find((item) => item.id === endpoint.elementId);
-  if (!element) return null;
-  return anchorPoint(
-    fitElementBoxToContent(element, visuals, stageAspect, elements),
-    endpoint.anchor,
-  );
-}
-
-function resolveLineEndpoints(
-  element: Extract<SlideElement, { kind: "shape" }>,
-  elements: readonly SlideElement[],
-  visuals: ReadonlyMap<string, Visual>,
-  stageAspect: number,
-): { start: { x: number; y: number }; end: { x: number; y: number } } {
-  const base = lineEndpoints(element.box, element.rotation, stageAspect);
-  if (element.shape !== "line") return base;
-  return {
-    start:
-      resolveConnectorEndpoint(
-        element.connector?.start,
-        elements,
-        visuals,
-        stageAspect,
-      ) ?? base.start,
-    end:
-      resolveConnectorEndpoint(
-        element.connector?.end,
-        elements,
-        visuals,
-        stageAspect,
-      ) ?? base.end,
-  };
-}
-
-function lineBoxFromEndpoints(
-  start: { x: number; y: number },
-  end: { x: number; y: number },
-  heightPct: number,
-  stageAspect: number,
-): { box: ElementBox; rotation?: number } {
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  const width = Math.max(1, Math.sqrt(dx * dx + (dy / stageAspect) ** 2));
-  const centerX = (start.x + end.x) / 2;
-  const centerY = (start.y + end.y) / 2;
-  const rotation = (Math.atan2(dy / stageAspect, dx) * 180) / Math.PI;
-  const box = clampBox({
-    x: centerX - width / 2,
-    y: centerY - heightPct / 2,
-    w: width,
-    h: heightPct,
-  });
-  const normalizedRotation = Math.round(rotation);
-  return {
-    box,
-    rotation: normalizedRotation === 0 ? undefined : normalizedRotation,
-  };
-}
-
-function snapLineEndpoint(
-  point: { x: number; y: number },
-  lineId: string,
-  elements: readonly SlideElement[],
-  visuals: ReadonlyMap<string, Visual>,
-  stageAspect: number,
-): { point: { x: number; y: number }; binding?: ConnectorEndpoint } {
-  const threshold = 5;
-  let bestPoint = point;
-  let bestBinding: ConnectorEndpoint | undefined;
-  let bestDistance = Number.POSITIVE_INFINITY;
-  for (const element of elements) {
-    if (element.id === lineId) continue;
-    if (element.kind === "shape" && element.shape === "line") continue;
-    const box = fitElementBoxToContent(element, visuals, stageAspect, elements);
-    const anchors: ConnectorAnchor[] = ["center", "top", "bottom", "left", "right"];
-    for (const anchor of anchors) {
-      const anchorPosition = anchorPoint(box, anchor);
-      const dx = (anchorPosition.x - point.x) * stageAspect;
-      const dy = anchorPosition.y - point.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      if (distance < bestDistance && distance <= threshold) {
-        bestDistance = distance;
-        bestPoint = anchorPosition;
-        bestBinding = { elementId: element.id, anchor };
-      }
-    }
-  }
-  return { point: bestPoint, ...(bestBinding ? { binding: bestBinding } : {}) };
 }
 
 // Each resize handle renders a ~44px transparent hit area (touch target, issue
@@ -1230,24 +1108,39 @@ export function SlideStageEditor({
           const endpoints = resolveLineEndpoints(
             resized,
             elementsRef.current,
-            visuals,
+            (candidate) =>
+              candidate.kind === "shape" && candidate.shape === "line"
+                ? candidate.box
+                : fitElementBoxToContent(
+                    candidate,
+                    visuals,
+                    stageAspect,
+                    elementsRef.current,
+                  ),
             stageAspect,
           );
           const snapped = snapLineEndpoint(
             currentPoint,
             resized.id,
             elementsRef.current,
-            visuals,
+            (candidate) =>
+              fitElementBoxToContent(
+                candidate,
+                visuals,
+                stageAspect,
+                elementsRef.current,
+              ),
             stageAspect,
           );
           const start = drag.mode === "w" ? snapped.point : endpoints.start;
           const end = drag.mode === "e" ? snapped.point : endpoints.end;
-          const { box, rotation } = lineBoxFromEndpoints(
+          const { box: rawBox, rotation } = lineBoxFromEndpoints(
             start,
             end,
             drag.startBox.h,
             stageAspect,
           );
+          const box = clampBox(rawBox);
           const connector = {
             ...resized.connector,
             ...(drag.mode === "w"

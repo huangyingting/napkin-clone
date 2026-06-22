@@ -29,17 +29,18 @@
 import PptxGenJS from "pptxgenjs";
 
 import type {
-  ConnectorAnchor,
-  ConnectorEndpoint,
   Deck,
   DeckTheme,
   ElementAlign,
   ElementBox,
   ShapeKind,
   Slide,
-  SlideElement,
   TextRun,
 } from "@/lib/presentation/deck";
+import {
+  lineBoxFromEndpoints,
+  resolveConnectorEndpoint,
+} from "@/lib/presentation/connector-geometry";
 import { materializeSlideElements } from "@/lib/presentation/deck";
 import { isEmptyImageSrc } from "@/lib/presentation/image-element";
 import { slideFormatConfig } from "@/lib/presentation/slide-format";
@@ -269,57 +270,6 @@ function fontSizePt(percentOfHeight: number, geometry: DeckGeometry): number {
   return Math.max(6, Math.round((percentOfHeight / 100) * geometry.slideHPt));
 }
 
-function connectorAnchorPoint(
-  box: ElementBox,
-  anchor: ConnectorAnchor,
-): { x: number; y: number } {
-  switch (anchor) {
-    case "top":
-      return { x: box.x + box.w / 2, y: box.y };
-    case "bottom":
-      return { x: box.x + box.w / 2, y: box.y + box.h };
-    case "left":
-      return { x: box.x, y: box.y + box.h / 2 };
-    case "right":
-      return { x: box.x + box.w, y: box.y + box.h / 2 };
-    case "center":
-    default:
-      return { x: box.x + box.w / 2, y: box.y + box.h / 2 };
-  }
-}
-
-function resolveConnectorPoint(
-  endpoint: ConnectorEndpoint | undefined,
-  elements: readonly SlideElement[],
-): { x: number; y: number } | null {
-  if (!endpoint) return null;
-  const element = elements.find((candidate) => candidate.id === endpoint.elementId);
-  return element ? connectorAnchorPoint(element.box, endpoint.anchor) : null;
-}
-
-function lineBoxFromConnectorPoints(
-  start: { x: number; y: number },
-  end: { x: number; y: number },
-  heightPct: number,
-  geometry: DeckGeometry,
-): { box: ElementBox; rotation?: number } {
-  const stageAspect = geometry.slideW / geometry.slideH;
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  const width = Math.max(1, Math.sqrt(dx * dx + (dy / stageAspect) ** 2));
-  const rotation = (Math.atan2(dy / stageAspect, dx) * 180) / Math.PI;
-  const roundedRotation = Math.round(rotation);
-  return {
-    box: {
-      x: (start.x + end.x) / 2 - width / 2,
-      y: (start.y + end.y) / 2 - heightPct / 2,
-      w: width,
-      h: heightPct,
-    },
-    ...(roundedRotation !== 0 ? { rotation: roundedRotation } : {}),
-  };
-}
-
 /**
  * Build a {@link PptxSlideLayout} that fits a visual (in its own canvas units)
  * uniformly inside an inch box, centered. This places a visual element within
@@ -384,14 +334,22 @@ function buildSlideSpec(
     let elementBox = element.box;
     let elementRotation = element.rotation;
     if (element.kind === "shape" && element.shape === "line") {
-      const start = resolveConnectorPoint(element.connector?.start, elements);
-      const end = resolveConnectorPoint(element.connector?.end, elements);
+      const start = resolveConnectorEndpoint(
+        element.connector?.start,
+        elements,
+        (candidate) => candidate.box,
+      );
+      const end = resolveConnectorEndpoint(
+        element.connector?.end,
+        elements,
+        (candidate) => candidate.box,
+      );
       if (start && end) {
-        const resolved = lineBoxFromConnectorPoints(
+        const resolved = lineBoxFromEndpoints(
           start,
           end,
           element.box.h,
-          geometry,
+          geometry.slideW / geometry.slideH,
         );
         elementBox = resolved.box;
         elementRotation = resolved.rotation;
