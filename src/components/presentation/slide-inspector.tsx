@@ -3,13 +3,15 @@
 /**
  * Tabbed inspector for the slide editor.
  *
- * Three tabs:
+ * Two tabs:
  *  - **Content** — edits the selected free-form element (text, bullets, image,
  *    shape, visual), lists all elements with reorder/delete, and adds new ones.
  *    For legacy slides (no elements yet) it shows the classic title / layout /
  *    bullets fields plus a "Customize layout" action that materializes elements.
  *  - **Style** — per-slide background and accent color overrides.
- *  - **Notes** — speaker notes.
+ *
+ * Speaker notes live in a dedicated panel docked at the bottom of the stage
+ * (see `SlideNotesPanel` in the editor), not here.
  *
  * Purely presentational: every change is reported through callbacks; the
  * component never mutates the deck.
@@ -65,7 +67,7 @@ const SHAPE_OPTIONS: ShapeKind[] = ["rect", "ellipse", "line"];
 const THEME_BACKGROUND_SWATCHES = themeSwatchColors(DECK_THEMES, "bgColor");
 const THEME_ACCENT_SWATCHES = themeSwatchColors(DECK_THEMES, "accentColor");
 
-type Tab = "content" | "style" | "notes";
+type Tab = "content" | "style";
 
 const FIELD_CLASS =
   "w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-sm text-ds-text-primary outline-none";
@@ -102,8 +104,6 @@ export interface SlideInspectorProps {
   // Style
   onBackgroundChange: (color: string | undefined) => void;
   onAccentChange: (color: string | undefined) => void;
-  // Notes
-  onNotesChange: (notes: string) => void;
   /**
    * Overrides the root container classes so the host can place the inspector in
    * the desktop side pane or a mobile bottom sheet (issue #209). Defaults to the
@@ -832,7 +832,6 @@ export function SlideInspector({
   onSendToBack,
   onBackgroundChange,
   onAccentChange,
-  onNotesChange,
   className = "flex w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle",
 }: SlideInspectorProps) {
   const [tab, setTab] = useState<Tab>("content");
@@ -895,11 +894,6 @@ export function SlideInspector({
           active={tab === "style"}
           label="Style"
           onClick={() => setTab("style")}
-        />
-        <TabButton
-          active={tab === "notes"}
-          label="Notes"
-          onClick={() => setTab("notes")}
         />
       </div>
 
@@ -1074,25 +1068,6 @@ export function SlideInspector({
               “Custom…” for any color. “Theme” clears the override.
             </p>
           </div>
-        ) : null}
-
-        {tab === "notes" ? (
-          <label className="block">
-            <span className={LABEL_CLASS}>Speaker notes</span>
-            <p className="mb-1.5 text-xs text-ds-text-muted">
-              Tip: add a{" "}
-              <code className="rounded bg-ds-surface px-1 font-mono text-ds-text-secondary">
-                &gt; blockquote
-              </code>{" "}
-              in the document for speaker notes.
-            </p>
-            <textarea
-              value={slide.notes}
-              onChange={(event) => onNotesChange(event.target.value)}
-              rows={6}
-              className={`${FIELD_CLASS} resize-y ${FOCUS_RING}`}
-            />
-          </label>
         ) : null}
       </div>
     </aside>

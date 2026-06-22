@@ -22,8 +22,6 @@
  */
 
 import {
-  ChevronLeft,
-  ChevronRight,
   ChevronUp,
   ChevronDown,
   Copy,
@@ -284,11 +282,6 @@ export function SlideEditor({
   // Whether the staleness banner has been resolved (synced or dismissed) for
   // this editing session, so it does not keep nagging after the user acts.
   const [staleResolved, setStaleResolved] = useState(false);
-  // Slide indices the user has interacted with this session. Drives the subtle
-  // "click to start editing" hint, which is hidden once a slide is touched.
-  const [touchedSlides, setTouchedSlides] = useState<ReadonlySet<number>>(
-    () => new Set(),
-  );
   const stageRef = useRef<HTMLDivElement>(null);
   // Thumbnail rail list element — measured during a pointer reorder to map the
   // pointer position to a drop target (works for both the vertical rail and the
@@ -912,16 +905,6 @@ export function SlideEditor({
     setStaleResolved(true);
   }, []);
 
-  const goPrev = useCallback(() => {
-    setVisualPickerOpen(false);
-    setSelectedIndex((i) => Math.max(0, i - 1));
-  }, []);
-
-  const goNext = useCallback(() => {
-    setVisualPickerOpen(false);
-    setSelectedIndex((i) => Math.min(deck.slides.length - 1, i + 1));
-  }, [deck.slides.length]);
-
   const accentForSelected = selectedSlide?.accent ?? selectedTheme.accentColor;
 
   const handleSelectElement = useCallback(
@@ -959,16 +942,8 @@ export function SlideEditor({
         setSelectedElementId(id);
         setSelectedElementIds(new Set([id]));
       }
-      setTouchedSlides((current) => {
-        if (current.has(safeSelected)) {
-          return current;
-        }
-        const next = new Set(current);
-        next.add(safeSelected);
-        return next;
-      });
     },
-    [safeSelected, selectedElementIds],
+    [selectedElementIds],
   );
 
   // Replaces (or, when `additive`, unions) the multi-selection with `ids` — used
@@ -985,16 +960,8 @@ export function SlideEditor({
       setSelectedElementId((primary) =>
         primary && next.has(primary) ? primary : ([...next][0] ?? null),
       );
-      setTouchedSlides((current) => {
-        if (current.has(safeSelected)) {
-          return current;
-        }
-        const updated = new Set(current);
-        updated.add(safeSelected);
-        return updated;
-      });
     },
-    [safeSelected, selectedElementIds],
+    [selectedElementIds],
   );
 
   const handleUpdateElement = useCallback(
@@ -1121,8 +1088,6 @@ export function SlideEditor({
         onSendToBack: handleSendToBack,
         onBackgroundChange: handleBackgroundChange,
         onAccentChange: handleAccentChange,
-        onNotesChange: (notes: string) =>
-          handleNotesChange(safeSelected, notes),
       }
     : null;
 
@@ -1576,43 +1541,16 @@ export function SlideEditor({
                 onUpdateElement={handleUpdateElement}
               />
             ) : null}
-            {selectedSlide &&
-            (selectedSlide.elements?.length ?? 0) > 0 &&
-            !effectiveSelectedElementId &&
-            !touchedSlides.has(safeSelected) ? (
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-ds-inverse-surface/80 px-3 py-1 text-xs font-medium text-ds-inverse-text shadow"
-              >
-                Click any element to start editing
-              </div>
-            ) : null}
           </div>
 
-          {/* Slide navigation */}
-          <div className="flex items-center justify-center gap-4 border-t border-ds-border-subtle bg-ds-surface-base px-4 py-2">
-            <button
-              type="button"
-              onClick={goPrev}
-              disabled={safeSelected <= 0}
-              aria-label="Previous slide"
-              className={`flex h-8 w-8 items-center justify-center rounded-ds-md text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40 ${FOCUS_RING}`}
-            >
-              <ChevronLeft size={16} aria-hidden="true" />
-            </button>
-            <span className="text-xs tabular-nums text-ds-text-secondary">
-              Slide {safeSelected + 1} of {deck.slides.length}
-            </span>
-            <button
-              type="button"
-              onClick={goNext}
-              disabled={safeSelected >= deck.slides.length - 1}
-              aria-label="Next slide"
-              className={`flex h-8 w-8 items-center justify-center rounded-ds-md text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:opacity-40 ${FOCUS_RING}`}
-            >
-              <ChevronRight size={16} aria-hidden="true" />
-            </button>
-          </div>
+          {/* Speaker notes — always-visible input docked under the slide, like
+              a presentation editor. Replaces the inspector's old "Notes" tab. */}
+          {selectedSlide ? (
+            <SlideNotesPanel
+              notes={selectedSlide.notes}
+              onChange={(value) => handleNotesChange(safeSelected, value)}
+            />
+          ) : null}
         </main>
 
         {/* Inspector — desktop side pane (`lg+`). Below `lg` it is hidden and
@@ -1789,6 +1727,33 @@ function InsertMenuButton({
       {icon}
       <span>{label}</span>
     </button>
+  );
+}
+
+/**
+ * Always-visible speaker-notes input docked at the bottom of the stage,
+ * mirroring the notes area found in dedicated presentation editors. Shows a
+ * “Click to add speaker notes” placeholder until the user types. Pure
+ * presentation — the value and change handler are owned by the editor.
+ */
+function SlideNotesPanel({
+  notes,
+  onChange,
+}: {
+  notes: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="shrink-0 border-t border-ds-border-subtle bg-ds-surface-base px-4 py-2">
+      <textarea
+        value={notes}
+        onChange={(event) => onChange(event.target.value)}
+        rows={4}
+        aria-label="Speaker notes"
+        placeholder="Click to add speaker notes…"
+        className={`w-full resize-y rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-sm text-ds-text-primary placeholder:text-ds-text-muted outline-none ${FOCUS_RING}`}
+      />
+    </div>
   );
 }
 
