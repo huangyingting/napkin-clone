@@ -21,6 +21,7 @@ import {
   ArrowDownToLine,
   ArrowUpToLine,
   Bold,
+  ChevronDown,
   Copy,
   Italic,
   Trash2,
@@ -146,6 +147,12 @@ export interface SlideInspectorProps {
    * desktop three-pane column.
    */
   className?: string;
+  /**
+   * When false (Simple mode) advanced inspector sections are hidden: Arrange,
+   * Opacity, Effects, corner radius, and gradient. Defaults to true so
+   * call-sites that omit the prop preserve today's full behaviour.
+   */
+  showAdvanced?: boolean;
 }
 
 function TabButton({
@@ -323,10 +330,12 @@ function RichTextBox({
 function ImageElementEditor({
   element,
   deck,
+  showAdvanced,
   onUpdateElement,
 }: {
   element: ImageElement;
   deck: Deck;
+  showAdvanced: boolean;
   onUpdateElement: SlideInspectorProps["onUpdateElement"];
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -420,24 +429,26 @@ function ImageElementEditor({
           })}
         </div>
       </div>
-      <label className="block">
-        <span className={LABEL_CLASS}>Corner radius</span>
-        <input
-          type="range"
-          min={0}
-          max={50}
-          step={1}
-          value={element.radius ?? 0}
-          onChange={(event) => {
-            const radius = Number(event.target.value);
-            onUpdateElement(element.id, {
-              radius: radius <= 0 ? undefined : radius,
-            });
-          }}
-          className="w-full accent-ds-control"
-          aria-label="Image corner radius"
-        />
-      </label>
+      {showAdvanced ? (
+        <label className="block">
+          <span className={LABEL_CLASS}>Corner radius</span>
+          <input
+            type="range"
+            min={0}
+            max={50}
+            step={1}
+            value={element.radius ?? 0}
+            onChange={(event) => {
+              const radius = Number(event.target.value);
+              onUpdateElement(element.id, {
+                radius: radius <= 0 ? undefined : radius,
+              });
+            }}
+            className="w-full accent-ds-control"
+            aria-label="Image corner radius"
+          />
+        </label>
+      ) : null}
     </div>
   );
 }
@@ -447,12 +458,14 @@ function ElementEditor({
   deck,
   visuals,
   textColorPresets,
+  showAdvanced,
   onUpdateElement,
 }: {
   element: SlideElement;
   deck: Deck;
   visuals: ReadonlyMap<string, Visual>;
   textColorPresets: readonly string[];
+  showAdvanced: boolean;
   onUpdateElement: SlideInspectorProps["onUpdateElement"];
 }) {
   switch (element.kind) {
@@ -533,6 +546,7 @@ function ElementEditor({
         <ImageElementEditor
           element={element}
           deck={deck}
+          showAdvanced={showAdvanced}
           onUpdateElement={onUpdateElement}
         />
       );
@@ -624,7 +638,7 @@ function ElementEditor({
               </span>
             </label>
           ) : null}
-          {element.shape === "rect" ? (
+          {element.shape === "rect" && showAdvanced ? (
             <label className="block">
               <span className={LABEL_CLASS}>Corner radius</span>
               <input
@@ -749,19 +763,23 @@ function VisualElementEditor({
 
 function ElementActionRow({
   elementId,
+  showAdvanced,
   onDuplicateElement,
   onBringToFront,
   onSendToBack,
   onRemoveElement,
 }: {
   elementId: string;
+  showAdvanced: boolean;
   onDuplicateElement: (id: string) => void;
   onBringToFront: (id: string) => void;
   onSendToBack: (id: string) => void;
   onRemoveElement: (id: string) => void;
 }) {
   return (
-    <div className="mb-3 grid grid-cols-4 gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-1">
+    <div
+      className={`mb-3 grid gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-1 ${showAdvanced ? "grid-cols-4" : "grid-cols-2"}`}
+    >
       <Tooltip label="Duplicate element" side="bottom">
         <button
           type="button"
@@ -772,26 +790,30 @@ function ElementActionRow({
           <Copy size={14} aria-hidden="true" />
         </button>
       </Tooltip>
-      <Tooltip label="Bring to front" side="bottom">
-        <button
-          type="button"
-          onClick={() => onBringToFront(elementId)}
-          aria-label="Bring to front"
-          className={`flex h-7 items-center justify-center rounded-ds-sm text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-        >
-          <ArrowUpToLine size={14} aria-hidden="true" />
-        </button>
-      </Tooltip>
-      <Tooltip label="Send to back" side="bottom">
-        <button
-          type="button"
-          onClick={() => onSendToBack(elementId)}
-          aria-label="Send to back"
-          className={`flex h-7 items-center justify-center rounded-ds-sm text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-        >
-          <ArrowDownToLine size={14} aria-hidden="true" />
-        </button>
-      </Tooltip>
+      {showAdvanced ? (
+        <>
+          <Tooltip label="Bring to front" side="bottom">
+            <button
+              type="button"
+              onClick={() => onBringToFront(elementId)}
+              aria-label="Bring to front"
+              className={`flex h-7 items-center justify-center rounded-ds-sm text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+            >
+              <ArrowUpToLine size={14} aria-hidden="true" />
+            </button>
+          </Tooltip>
+          <Tooltip label="Send to back" side="bottom">
+            <button
+              type="button"
+              onClick={() => onSendToBack(elementId)}
+              aria-label="Send to back"
+              className={`flex h-7 items-center justify-center rounded-ds-sm text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+            >
+              <ArrowDownToLine size={14} aria-hidden="true" />
+            </button>
+          </Tooltip>
+        </>
+      ) : null}
       <Tooltip label="Delete element" side="bottom">
         <button
           type="button"
@@ -1023,6 +1045,43 @@ function FontFamilyControl({
   );
 }
 
+/**
+ * A labelled collapsible section with an accessible toggle button.
+ * Starts collapsed (closed by default) and reveals children when opened.
+ * Used in Advanced mode to group controls that are noise for new users.
+ */
+function CollapsibleSection({
+  id,
+  label,
+  children,
+}: {
+  id: string;
+  label: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const contentId = `${id}-content`;
+  return (
+    <div className="mt-3 border-t border-ds-border-subtle pt-3">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={contentId}
+        onClick={() => setOpen((o) => !o)}
+        className={`flex w-full items-center justify-between text-xs font-medium text-ds-text-secondary transition-colors hover:text-ds-text-primary ${FOCUS_RING}`}
+      >
+        <span>{label}</span>
+        <ChevronDown
+          size={12}
+          aria-hidden="true"
+          className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open ? <div id={contentId}>{children}</div> : null}
+    </div>
+  );
+}
+
 export function SlideInspector({
   slide,
   slideIndex,
@@ -1048,6 +1107,7 @@ export function SlideInspector({
   onAccentChange,
   brandSwatches = [],
   className = "flex w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle",
+  showAdvanced = true,
 }: SlideInspectorProps) {
   const [tab, setTab] = useState<Tab>("content");
   const TABS: Tab[] = ["content", "style"];
@@ -1218,26 +1278,30 @@ export function SlideInspector({
                             <Copy size={12} aria-hidden="true" />
                           </button>
                         </Tooltip>
-                        <Tooltip label="Bring to front" side="bottom">
-                          <button
-                            type="button"
-                            onClick={() => onBringToFront(element.id)}
-                            aria-label="Bring to front"
-                            className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
-                          >
-                            <ArrowUpToLine size={12} aria-hidden="true" />
-                          </button>
-                        </Tooltip>
-                        <Tooltip label="Send to back" side="bottom">
-                          <button
-                            type="button"
-                            onClick={() => onSendToBack(element.id)}
-                            aria-label="Send to back"
-                            className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
-                          >
-                            <ArrowDownToLine size={12} aria-hidden="true" />
-                          </button>
-                        </Tooltip>
+                        {showAdvanced ? (
+                          <>
+                            <Tooltip label="Bring to front" side="bottom">
+                              <button
+                                type="button"
+                                onClick={() => onBringToFront(element.id)}
+                                aria-label="Bring to front"
+                                className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
+                              >
+                                <ArrowUpToLine size={12} aria-hidden="true" />
+                              </button>
+                            </Tooltip>
+                            <Tooltip label="Send to back" side="bottom">
+                              <button
+                                type="button"
+                                onClick={() => onSendToBack(element.id)}
+                                aria-label="Send to back"
+                                className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
+                              >
+                                <ArrowDownToLine size={12} aria-hidden="true" />
+                              </button>
+                            </Tooltip>
+                          </>
+                        ) : null}
                         <Tooltip label="Delete element" side="bottom">
                           <button
                             type="button"
@@ -1261,6 +1325,7 @@ export function SlideInspector({
                     </p>
                     <ElementActionRow
                       elementId={selectedElement.id}
+                      showAdvanced={showAdvanced}
                       onDuplicateElement={onDuplicateElement}
                       onBringToFront={onBringToFront}
                       onSendToBack={onSendToBack}
@@ -1271,20 +1336,31 @@ export function SlideInspector({
                       deck={deck}
                       visuals={visuals}
                       textColorPresets={textColorPresets}
+                      showAdvanced={showAdvanced}
                       onUpdateElement={onUpdateElement}
                     />
-                    <ElementArrangeControl
-                      element={selectedElement}
-                      onUpdateElement={onUpdateElement}
-                    />
-                    <ElementOpacityControl
-                      element={selectedElement}
-                      onUpdateElement={onUpdateElement}
-                    />
-                    <ElementEffectsControl
-                      element={selectedElement}
-                      onUpdateElement={onUpdateElement}
-                    />
+                    {showAdvanced ? (
+                      <>
+                        <CollapsibleSection id="arrange" label="Arrange">
+                          <ElementArrangeControl
+                            element={selectedElement}
+                            onUpdateElement={onUpdateElement}
+                          />
+                        </CollapsibleSection>
+                        <CollapsibleSection id="opacity" label="Opacity">
+                          <ElementOpacityControl
+                            element={selectedElement}
+                            onUpdateElement={onUpdateElement}
+                          />
+                        </CollapsibleSection>
+                        <CollapsibleSection id="effects" label="Effects">
+                          <ElementEffectsControl
+                            element={selectedElement}
+                            onUpdateElement={onUpdateElement}
+                          />
+                        </CollapsibleSection>
+                      </>
+                    ) : null}
                   </div>
                 ) : (
                   <p className="text-xs text-ds-text-muted">
@@ -1368,73 +1444,75 @@ export function SlideInspector({
               presets={mergeSwatches(brandSwatches, THEME_ACCENT_SWATCHES)}
               onChange={onAccentChange}
             />
-            <div className="border-t border-ds-border-subtle pt-3">
-              <span
-                className={`${LABEL_CLASS} flex items-center justify-between`}
-              >
-                <span>Gradient</span>
-                <input
-                  type="checkbox"
-                  checked={slide.backgroundGradient !== undefined}
-                  onChange={(event) =>
-                    onBackgroundGradientChange(
-                      event.target.checked
-                        ? {
-                            from: slide.backgroundGradient?.from ?? "#6366f1",
-                            to: slide.backgroundGradient?.to ?? "#ec4899",
-                            angle: slide.backgroundGradient?.angle ?? 135,
-                          }
-                        : undefined,
-                    )
-                  }
-                  className="accent-ds-control"
-                  aria-label="Enable gradient background"
-                />
-              </span>
-              {slide.backgroundGradient ? (
-                <div className="mt-2 flex items-center gap-2">
+            {showAdvanced ? (
+              <div className="border-t border-ds-border-subtle pt-3">
+                <span
+                  className={`${LABEL_CLASS} flex items-center justify-between`}
+                >
+                  <span>Gradient</span>
                   <input
-                    type="color"
-                    value={slide.backgroundGradient.from}
+                    type="checkbox"
+                    checked={slide.backgroundGradient !== undefined}
                     onChange={(event) =>
-                      onBackgroundGradientChange({
-                        ...slide.backgroundGradient!,
-                        from: event.target.value,
-                      })
+                      onBackgroundGradientChange(
+                        event.target.checked
+                          ? {
+                              from: slide.backgroundGradient?.from ?? "#6366f1",
+                              to: slide.backgroundGradient?.to ?? "#ec4899",
+                              angle: slide.backgroundGradient?.angle ?? 135,
+                            }
+                          : undefined,
+                      )
                     }
-                    className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
-                    aria-label="Gradient start color"
+                    className="accent-ds-control"
+                    aria-label="Enable gradient background"
                   />
-                  <input
-                    type="color"
-                    value={slide.backgroundGradient.to}
-                    onChange={(event) =>
-                      onBackgroundGradientChange({
-                        ...slide.backgroundGradient!,
-                        to: event.target.value,
-                      })
-                    }
-                    className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
-                    aria-label="Gradient end color"
-                  />
-                  <input
-                    type="range"
-                    min={0}
-                    max={360}
-                    step={5}
-                    value={slide.backgroundGradient.angle ?? 135}
-                    onChange={(event) =>
-                      onBackgroundGradientChange({
-                        ...slide.backgroundGradient!,
-                        angle: Number(event.target.value),
-                      })
-                    }
-                    className="flex-1 accent-ds-control"
-                    aria-label="Gradient angle"
-                  />
-                </div>
-              ) : null}
-            </div>
+                </span>
+                {slide.backgroundGradient ? (
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={slide.backgroundGradient.from}
+                      onChange={(event) =>
+                        onBackgroundGradientChange({
+                          ...slide.backgroundGradient!,
+                          from: event.target.value,
+                        })
+                      }
+                      className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
+                      aria-label="Gradient start color"
+                    />
+                    <input
+                      type="color"
+                      value={slide.backgroundGradient.to}
+                      onChange={(event) =>
+                        onBackgroundGradientChange({
+                          ...slide.backgroundGradient!,
+                          to: event.target.value,
+                        })
+                      }
+                      className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
+                      aria-label="Gradient end color"
+                    />
+                    <input
+                      type="range"
+                      min={0}
+                      max={360}
+                      step={5}
+                      value={slide.backgroundGradient.angle ?? 135}
+                      onChange={(event) =>
+                        onBackgroundGradientChange({
+                          ...slide.backgroundGradient!,
+                          angle: Number(event.target.value),
+                        })
+                      }
+                      className="flex-1 accent-ds-control"
+                      aria-label="Gradient angle"
+                    />
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             <div>
               <span className={LABEL_CLASS}>Background image</span>
               <button

@@ -473,6 +473,13 @@ interface SlideStageEditorProps {
    * deck mutation so it lands on the undo stack.
    */
   onAddTextElement?: (box: ElementBox) => string | null;
+  /**
+   * When false (Simple mode) advanced controls are hidden: rotate handle,
+   * bring-to-front / send-to-back in the floating toolbar, and lock / group /
+   * z-order items in the context menu. Defaults to true so existing call-sites
+   * that don't pass the prop keep today's full behaviour.
+   */
+  showAdvanced?: boolean;
 }
 
 export function SlideStageEditor({
@@ -498,6 +505,7 @@ export function SlideStageEditor({
   snapToGrid = false,
   brandSwatches = [],
   onAddTextElement,
+  showAdvanced = true,
 }: SlideStageEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -1171,7 +1179,7 @@ export function SlideStageEditor({
                     </span>
                   ))
                 : null}
-              {showHandles && !isEditing ? (
+              {showHandles && !isEditing && showAdvanced ? (
                 <span
                   onPointerDown={(event) =>
                     beginDrag(event, element.id, "rotate", fittedBox)
@@ -1259,6 +1267,7 @@ export function SlideStageEditor({
               onBringToFront={() => onBringToFront(primaryElement.id)}
               onSendToBack={() => onSendToBack(primaryElement.id)}
               onRemove={() => onRemoveElement(primaryElement.id)}
+              showAdvanced={showAdvanced}
             />
           </FloatingElementToolbar>
         ) : null}
@@ -1284,6 +1293,7 @@ export function SlideStageEditor({
             canGroup={selectedElementIds.size >= 2}
             onGroup={() => onGroupElements([...selectedElementIds])}
             onUngroup={onUngroupElements}
+            showAdvanced={showAdvanced}
           />
         ) : null}
       </div>
@@ -1395,6 +1405,7 @@ function ElementToolbarContent({
   onBringToFront,
   onSendToBack,
   onRemove,
+  showAdvanced,
 }: {
   element: SlideElement;
   tc: ThemeConfig;
@@ -1404,6 +1415,7 @@ function ElementToolbarContent({
   onBringToFront: () => void;
   onSendToBack: () => void;
   onRemove: () => void;
+  showAdvanced: boolean;
 }) {
   const textColorPresets = mergeSwatches(brandSwatches, [
     tc.titleColor,
@@ -1442,16 +1454,20 @@ function ElementToolbarContent({
         </>
       ) : null}
       <ToolbarButton icon={Copy} label="Duplicate" onClick={onDuplicate} />
-      <ToolbarButton
-        icon={ArrowUpToLine}
-        label="Bring to front"
-        onClick={onBringToFront}
-      />
-      <ToolbarButton
-        icon={ArrowDownToLine}
-        label="Send to back"
-        onClick={onSendToBack}
-      />
+      {showAdvanced ? (
+        <>
+          <ToolbarButton
+            icon={ArrowUpToLine}
+            label="Bring to front"
+            onClick={onBringToFront}
+          />
+          <ToolbarButton
+            icon={ArrowDownToLine}
+            label="Send to back"
+            onClick={onSendToBack}
+          />
+        </>
+      ) : null}
       <ToolbarButton icon={Trash2} label="Delete" onClick={onRemove} />
     </>
   );
@@ -1475,6 +1491,7 @@ function ElementContextMenu({
   canGroup,
   onGroup,
   onUngroup,
+  showAdvanced,
 }: {
   x: number;
   y: number;
@@ -1492,6 +1509,7 @@ function ElementContextMenu({
   canGroup: boolean;
   onGroup: () => void;
   onUngroup: (groupId: string) => void;
+  showAdvanced: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ top: y, left: x });
@@ -1585,19 +1603,30 @@ function ElementContextMenu({
       {item("Copy", Copy, onCopy)}
       {item("Cut", Scissors, onCut)}
       {item("Paste", ClipboardPaste, onPaste)}
+      {showAdvanced ? (
+        <>
+          <div className="my-1 h-px bg-ds-border-subtle" aria-hidden />
+          {item("Bring to front", ArrowUpToLine, () =>
+            onBringToFront(element.id),
+          )}
+          {item("Send to back", ArrowDownToLine, () =>
+            onSendToBack(element.id),
+          )}
+          {canGroup ? item("Group", Group, onGroup) : null}
+          {element.groupId
+            ? item("Ungroup", Ungroup, () =>
+                onUngroup(element.groupId as string),
+              )
+            : null}
+          <div className="my-1 h-px bg-ds-border-subtle" aria-hidden />
+          {item(
+            element.locked ? "Unlock" : "Lock",
+            element.locked ? LockOpen : Lock,
+            () => onToggleLock(element.id, !element.locked),
+          )}
+        </>
+      ) : null}
       <div className="my-1 h-px bg-ds-border-subtle" aria-hidden />
-      {item("Bring to front", ArrowUpToLine, () => onBringToFront(element.id))}
-      {item("Send to back", ArrowDownToLine, () => onSendToBack(element.id))}
-      {canGroup ? item("Group", Group, onGroup) : null}
-      {element.groupId
-        ? item("Ungroup", Ungroup, () => onUngroup(element.groupId as string))
-        : null}
-      <div className="my-1 h-px bg-ds-border-subtle" aria-hidden />
-      {item(
-        element.locked ? "Unlock" : "Lock",
-        element.locked ? LockOpen : Lock,
-        () => onToggleLock(element.id, !element.locked),
-      )}
       {item("Delete", Trash2, () => onRemove(element.id))}
     </div>,
     document.body,

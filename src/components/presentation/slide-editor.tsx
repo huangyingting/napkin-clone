@@ -82,6 +82,7 @@ import {
   fitAspectRatio,
   type Size,
 } from "@/lib/presentation/stage-fit";
+import type { EditorMode } from "@/lib/presentation/editor-mode";
 import {
   buildVisualElement,
   DEFAULT_VISUAL_BOX,
@@ -309,6 +310,28 @@ export function SlideEditor({
   const [inspectorSheetOpen, setInspectorSheetOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [snapToGrid, setSnapToGrid] = useState(false);
+  // Simple / Advanced progressive disclosure. Defaults to "simple" and is
+  // persisted in localStorage so the choice survives page reloads.
+  const [editorMode, setEditorModeState] = useState<EditorMode>(() => {
+    if (typeof window === "undefined") return "simple";
+    try {
+      const stored = localStorage.getItem("slide-editor-mode");
+      return stored === "advanced" ? "advanced" : "simple";
+    } catch {
+      return "simple";
+    }
+  });
+  const setEditorMode = useCallback((mode: EditorMode) => {
+    setEditorModeState(mode);
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("slide-editor-mode", mode);
+      }
+    } catch {
+      // Ignore write failures (private-browsing restrictions, storage quota).
+    }
+  }, []);
+  const showAdvanced = editorMode === "advanced";
   const [zoom, setZoom] = useState(1);
   const adjustZoom = useCallback((delta: number) => {
     setZoom((z) =>
@@ -1887,20 +1910,55 @@ export function SlideEditor({
               <PanelRight aria-hidden className="h-3.5 w-3.5" />
             </IconButton>
           </Tooltip>
-          <Tooltip
-            label={snapToGrid ? "Snap to grid: on" : "Snap to grid: off"}
-            side="bottom"
+
+          {/* Simple / Advanced mode toggle */}
+          <div
+            role="group"
+            aria-label="Editor mode"
+            className="flex overflow-hidden rounded-ds-md border border-ds-border-subtle"
           >
-            <IconButton
-              aria-label="Toggle snap to grid"
-              size="sm"
-              variant="plain"
-              active={snapToGrid}
-              onClick={() => setSnapToGrid((on) => !on)}
+            <button
+              type="button"
+              aria-pressed={editorMode === "simple"}
+              onClick={() => setEditorMode("simple")}
+              className={`px-2 py-1 text-xs font-medium transition-colors ${
+                editorMode === "simple"
+                  ? "bg-ds-control text-ds-control-text"
+                  : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+              } ${FOCUS_RING}`}
             >
-              <Grid3x3 aria-hidden className="h-3.5 w-3.5" />
-            </IconButton>
-          </Tooltip>
+              Simple
+            </button>
+            <button
+              type="button"
+              aria-pressed={editorMode === "advanced"}
+              onClick={() => setEditorMode("advanced")}
+              className={`border-l border-ds-border-subtle px-2 py-1 text-xs font-medium transition-colors ${
+                editorMode === "advanced"
+                  ? "bg-ds-control text-ds-control-text"
+                  : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+              } ${FOCUS_RING}`}
+            >
+              Advanced
+            </button>
+          </div>
+
+          {showAdvanced ? (
+            <Tooltip
+              label={snapToGrid ? "Snap to grid: on" : "Snap to grid: off"}
+              side="bottom"
+            >
+              <IconButton
+                aria-label="Toggle snap to grid"
+                size="sm"
+                variant="plain"
+                active={snapToGrid}
+                onClick={() => setSnapToGrid((on) => !on)}
+              >
+                <Grid3x3 aria-hidden className="h-3.5 w-3.5" />
+              </IconButton>
+            </Tooltip>
+          ) : null}
           <button
             type="button"
             onClick={handleRequestClose}
@@ -2118,6 +2176,7 @@ export function SlideEditor({
                 snapToGrid={snapToGrid}
                 brandSwatches={brandSwatches}
                 onAddTextElement={handleAddTextElement}
+                showAdvanced={showAdvanced}
               />
             ) : null}
             {/* Zoom controls — overlaid bottom-right of the stage. */}
@@ -2173,6 +2232,7 @@ export function SlideEditor({
         {inspectorProps && inspectorOpen ? (
           <SlideInspector
             {...inspectorProps}
+            showAdvanced={showAdvanced}
             className="hidden w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle lg:flex"
           />
         ) : null}
@@ -2228,6 +2288,7 @@ export function SlideEditor({
                   </div>
                   <SlideInspector
                     {...inspectorProps}
+                    showAdvanced={showAdvanced}
                     className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto"
                   />
                 </div>
