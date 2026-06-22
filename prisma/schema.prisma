@@ -226,6 +226,13 @@ model Comment {
   anchorType   String?
   anchorText   String?
   anchorNodeId String?
+  // Slide-level anchor fields (Epic #380). All nullable so existing comments
+  // are unaffected. slideId references a Slide.id in the deckJson. elementId
+  // references a SlideElement.id within that slide. anchorGeometry holds an
+  // optional {x,y} point in percent units (0-100) for pin placement.
+  slideId        String?
+  elementId      String?
+  anchorGeometry Json?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
