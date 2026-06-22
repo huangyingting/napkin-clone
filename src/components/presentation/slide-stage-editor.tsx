@@ -79,6 +79,7 @@ import {
 } from "@/lib/presentation/canvas-helpers";
 import {
   createTextResizeMeasurer,
+  textFitPaddingPct,
   type TextResizeMeasurer,
 } from "@/lib/presentation/text-element-fit";
 import type { Visual } from "@/lib/visual/schema";
@@ -207,7 +208,7 @@ function fitTextHeightPct(
 ): number {
   return (
     measurer.measureHeightPct(element, boxWidthPct, fontSizePct) +
-    AUTO_FIT_PADDING_PCT * 2
+    textFitPaddingPct(element, fontSizePct)
   );
 }
 

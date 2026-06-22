@@ -162,9 +162,10 @@ export function createTextResizeMeasurer(
     const node = createMeasuredTextNode(element, fontSizePx, widthPx, mode);
     host.replaceChildren(node);
     const rect = node.getBoundingClientRect();
+    const measuredHeightPx = Math.max(rect.height, node.scrollHeight);
     host.replaceChildren();
     return mode === "height"
-      ? ((rect.height + 1) / stageHeightPx) * 100
+      ? ((measuredHeightPx + 2) / stageHeightPx) * 100
       : ((rect.width + 1) / stageWidthPx) * 100;
   };
   return {
@@ -178,6 +179,17 @@ export function createTextResizeMeasurer(
 }
 
 const AUTO_FIT_PADDING_PCT = 1.2;
+
+export function textFitPaddingPct(
+  element: TextLikeElement,
+  fontSizePct: number = element.style.fontSize,
+): number {
+  // Bullets carry marker rows, flex gaps, and larger descender-heavy line boxes;
+  // a little font-relative slack keeps newly inserted lists from clipping the
+  // top/bottom when rendered with `overflow: hidden` on the slide canvas.
+  const fontSlack = element.kind === "bullets" ? fontSizePct * 0.35 : 0;
+  return AUTO_FIT_PADDING_PCT * 2 + fontSlack;
+}
 
 export function fitNewTextElementBox(
   element: TextLikeElement,
@@ -198,7 +210,7 @@ export function fitNewTextElementBox(
   const height = Math.min(
     100,
     measurer.measureHeightPct(element, width, element.style.fontSize) +
-      AUTO_FIT_PADDING_PCT * 2,
+      textFitPaddingPct(element),
   );
   let x = box.x;
   let y = box.y;
