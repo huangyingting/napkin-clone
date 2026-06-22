@@ -12,7 +12,11 @@ import {
   SLIDE_LAYOUTS,
   makeSlideId,
   type ConnectorAnchor,
+  type ConnectorArrow,
   type ConnectorBinding,
+  type ConnectorElement,
+  type ConnectorPoint,
+  type ConnectorRouting,
   type Deck,
   type DeckTheme,
   type ElementAlign,
@@ -83,6 +87,8 @@ const CONNECTOR_ANCHORS: readonly ConnectorAnchor[] = [
   "left",
   "right",
 ];
+const CONNECTOR_ROUTINGS: readonly ConnectorRouting[] = ["straight", "elbow"];
+const CONNECTOR_ARROWS: readonly ConnectorArrow[] = ["none", "arrow", "filled"];
 
 function isHexColor(value: unknown): value is string {
   return typeof value === "string" && /^#[0-9a-fA-F]{3,8}$/.test(value);
@@ -205,6 +211,39 @@ function validateConnectorBinding(
     ...(endpoint(input.end, `${context}.end`) !== undefined
       ? { end: endpoint(input.end, `${context}.end`) }
       : {}),
+  };
+}
+
+function validateConnectorPoint(
+  input: unknown,
+  context: string,
+): ConnectorPoint {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  // Distinguish bound endpoint (has elementId) from a free point (has x, y).
+  if (input.elementId !== undefined) {
+    if (typeof input.elementId !== "string" || input.elementId.length === 0) {
+      throw new DeckValidationError(
+        `${context}.elementId must be a non-empty string`,
+      );
+    }
+    if (
+      typeof input.anchor !== "string" ||
+      !CONNECTOR_ANCHORS.includes(input.anchor as ConnectorAnchor)
+    ) {
+      throw new DeckValidationError(
+        `${context}.anchor must be one of: ${CONNECTOR_ANCHORS.join(", ")}`,
+      );
+    }
+    return {
+      elementId: input.elementId,
+      anchor: input.anchor as ConnectorAnchor,
+    };
+  }
+  return {
+    x: validateFiniteNumber(input.x, `${context}.x`),
+    y: validateFiniteNumber(input.y, `${context}.y`),
   };
 }
 
@@ -394,10 +433,17 @@ function validateElement(input: unknown, context: string): SlideElement {
         color: input.color,
         ...(typeof input.text === "string" ? { text: input.text } : {}),
         ...(input.textRuns !== undefined
-          ? { textRuns: validateTextRuns(input.textRuns, `${context}.textRuns`) }
+          ? {
+              textRuns: validateTextRuns(input.textRuns, `${context}.textRuns`),
+            }
           : {}),
         ...(input.textStyle !== undefined
-          ? { textStyle: validateTextStyle(input.textStyle, `${context}.textStyle`) }
+          ? {
+              textStyle: validateTextStyle(
+                input.textStyle,
+                `${context}.textStyle`,
+              ),
+            }
           : {}),
         ...(input.connector !== undefined
           ? {
@@ -411,9 +457,61 @@ function validateElement(input: unknown, context: string): SlideElement {
         ...(radius !== undefined ? { radius } : {}),
       };
     }
+    case "connector": {
+      if (!isPlainObject(input.start)) {
+        throw new DeckValidationError(`${context}.start must be an object`);
+      }
+      if (!isPlainObject(input.end)) {
+        throw new DeckValidationError(`${context}.end must be an object`);
+      }
+      const start = validateConnectorPoint(input.start, `${context}.start`);
+      const end = validateConnectorPoint(input.end, `${context}.end`);
+      const connector: ConnectorElement = {
+        ...base,
+        kind: "connector",
+        start,
+        end,
+      };
+      if (input.stroke !== undefined) {
+        if (!isPlainObject(input.stroke) || !isHexColor(input.stroke.color)) {
+          throw new DeckValidationError(
+            `${context}.stroke.color must be a hex color`,
+          );
+        }
+        connector.stroke = {
+          color: input.stroke.color,
+          width: Math.max(
+            0,
+            validateFiniteNumber(input.stroke.width, `${context}.stroke.width`),
+          ),
+        };
+      }
+      if (
+        input.arrowStart !== undefined &&
+        CONNECTOR_ARROWS.includes(input.arrowStart as ConnectorArrow)
+      ) {
+        connector.arrowStart = input.arrowStart as ConnectorArrow;
+      }
+      if (
+        input.arrowEnd !== undefined &&
+        CONNECTOR_ARROWS.includes(input.arrowEnd as ConnectorArrow)
+      ) {
+        connector.arrowEnd = input.arrowEnd as ConnectorArrow;
+      }
+      if (input.dash !== undefined) {
+        connector.dash = Boolean(input.dash);
+      }
+      if (
+        input.routing !== undefined &&
+        CONNECTOR_ROUTINGS.includes(input.routing as ConnectorRouting)
+      ) {
+        connector.routing = input.routing as ConnectorRouting;
+      }
+      return connector;
+    }
     default:
       throw new DeckValidationError(
-        `${context}.kind must be one of: text, bullets, visual, image, shape`,
+        `${context}.kind must be one of: text, bullets, visual, image, shape, connector`,
       );
   }
 }

@@ -280,6 +280,8 @@ function slideElementTypeLabel(element: SlideElement): string {
       return "Shape";
     case "visual":
       return "Visual";
+    case "connector":
+      return "Connector";
   }
 }
 
@@ -652,10 +654,7 @@ export function SlideEditor({
   const fittedStageSize = fitAspectRatio(stageBounds, activeSlideAspectRatio);
 
   const fitInsertedTextElement = useCallback(
-    <T extends TextLikeElement,>(
-      element: T,
-      anchor: "top-left" | "center",
-    ) => {
+    <T extends TextLikeElement>(element: T, anchor: "top-left" | "center") => {
       const stageWidth = fittedStageSize.width * zoom;
       const stageHeight = fittedStageSize.height * zoom;
       if (stageWidth <= 0 || stageHeight <= 0) {
@@ -1499,7 +1498,11 @@ export function SlideEditor({
       if (!selectedSlide) return null;
       const id = makeElementId();
       const element: TextLikeElement = {
-        ...(buildDefaultElement("text", accentForSelected, id) as TextLikeElement),
+        ...(buildDefaultElement(
+          "text",
+          accentForSelected,
+          id,
+        ) as TextLikeElement),
         box,
       };
       const fitted = fitInsertedTextElement(element, "center");
@@ -1549,7 +1552,13 @@ export function SlideEditor({
       onDeckChange(addElement(deck, safeSelected, element));
       handleSelectElement(element.id);
     },
-    [deck, fitInsertedTextElement, handleSelectElement, onDeckChange, safeSelected],
+    [
+      deck,
+      fitInsertedTextElement,
+      handleSelectElement,
+      onDeckChange,
+      safeSelected,
+    ],
   );
 
   // Inserts every document visual onto the current slide in one undoable step,

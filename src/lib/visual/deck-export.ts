@@ -39,6 +39,7 @@ import type {
 } from "@/lib/presentation/deck";
 import {
   lineBoxFromEndpoints,
+  resolveConnectorElementPoints,
   resolveConnectorEndpoint,
 } from "@/lib/presentation/connector-geometry";
 import { materializeSlideElements } from "@/lib/presentation/deck";
@@ -217,6 +218,29 @@ export interface DeckImageOp extends InchBox {
   src: string;
 }
 
+/** A first-class connector element drawn between two absolute inch-space points. */
+export interface DeckConnectorOp {
+  kind: "connector";
+  /** Start point in inches. */
+  x1: number;
+  y1: number;
+  /** End point in inches. */
+  x2: number;
+  y2: number;
+  /** Hex stroke color without leading `#`. */
+  color: string;
+  /** Stroke width in points. */
+  width: number;
+  /** When true the connector is rendered with a dash pattern. */
+  dash?: boolean;
+  /** Arrowhead at the start end of the line. */
+  arrowStart?: "none" | "arrow" | "filled";
+  /** Arrowhead at the end of the line. */
+  arrowEnd?: "none" | "arrow" | "filled";
+  /** Optional opacity in the `[0, 1]` range. */
+  opacity?: number;
+}
+
 /** A visual rendered as native PptxGenJS shapes (no rasterisation needed). */
 export interface DeckVisualNativeOp {
   kind: "visual-native";
@@ -235,7 +259,8 @@ export type DeckOp =
   | DeckShapeOp
   | DeckImageOp
   | DeckVisualNativeOp
-  | DeckVisualFallbackOp;
+  | DeckVisualFallbackOp
+  | DeckConnectorOp;
 
 /** One slide's worth of background + ordered draw operations. */
 export interface DeckSlideSpec {
@@ -413,9 +438,7 @@ function buildSlideSpec(
                 ...(element.textRuns && element.textRuns.length > 0
                   ? { textRuns: element.textRuns }
                   : {}),
-                textColor: toHex(
-                  element.textStyle?.color ?? colors.body,
-                ),
+                textColor: toHex(element.textStyle?.color ?? colors.body),
                 fontSize: fontSizePt(
                   element.textStyle?.fontSize ?? 4,
                   geometry,
@@ -468,6 +491,36 @@ function buildSlideSpec(
         } else {
           ops.push({ kind: "visual-native", specs });
         }
+        break;
+      }
+      case "connector": {
+        const { start: startPct, end: endPct } = resolveConnectorElementPoints(
+          element,
+          elements,
+          (candidate) => candidate.box,
+        );
+        const strokeColor = element.stroke?.color ?? "#a1a1aa";
+        // Width is authored in `cqmin` (percent of shortest slide side); convert to pt.
+        const minInch = Math.min(geometry.slideW, geometry.slideH);
+        const strokeWidthPt = Math.max(
+          1,
+          ((element.stroke?.width ?? 0.4) / 100) * minInch * 72,
+        );
+        ops.push({
+          kind: "connector",
+          x1: (startPct.x / 100) * geometry.slideW,
+          y1: (startPct.y / 100) * geometry.slideH,
+          x2: (endPct.x / 100) * geometry.slideW,
+          y2: (endPct.y / 100) * geometry.slideH,
+          color: toHex(strokeColor),
+          width: strokeWidthPt,
+          ...(element.dash ? { dash: true } : {}),
+          ...(element.arrowStart ? { arrowStart: element.arrowStart } : {}),
+          ...(element.arrowEnd ? { arrowEnd: element.arrowEnd } : {}),
+          ...(element.opacity !== undefined && element.opacity < 1
+            ? { opacity: element.opacity }
+            : {}),
+        });
         break;
       }
     }
@@ -714,6 +767,43 @@ function applyImageOp(slide: PptxSlide, op: DeckImageOp): void {
   });
 }
 
+/**
+ * Renders a {@link DeckConnectorOp} as a PptxGenJS line shape drawn between the
+ * two absolute inch-space endpoints. The shape's bounding box is computed from
+ * the midpoint and hypotenuse length so that a rotation places the endpoints
+ * exactly at (x1, y1) and (x2, y2).
+ */
+function applyConnectorOp(slide: PptxSlide, op: DeckConnectorOp): void {
+  const dx = op.x2 - op.x1;
+  const dy = op.y2 - op.y1;
+  const length = Math.sqrt(dx * dx + dy * dy);
+  if (length < 0.001) return;
+  const angle = Math.round((Math.atan2(dy, dx) * 180) / Math.PI);
+  const cx = (op.x1 + op.x2) / 2;
+  const cy = (op.y1 + op.y2) / 2;
+  slide.addShape(SHAPES.line, {
+    x: cx - length / 2,
+    y: cy,
+    w: length,
+    h: 0,
+    line: {
+      color: op.color,
+      width: op.width,
+      ...(op.dash ? { dashType: "dash" as const } : {}),
+      ...(op.arrowEnd && op.arrowEnd !== "none"
+        ? { endArrowType: "arrow" as const }
+        : {}),
+      ...(op.arrowStart && op.arrowStart !== "none"
+        ? { beginArrowType: "arrow" as const }
+        : {}),
+    },
+    rotate: angle,
+    ...(op.opacity !== undefined
+      ? { transparency: Math.round((1 - op.opacity) * 100) }
+      : {}),
+  });
+}
+
 async function applyVisualFallbackOp(
   slide: PptxSlide,
   op: DeckVisualFallbackOp,
@@ -758,6 +848,9 @@ async function applyDeckOp(
       break;
     case "image":
       applyImageOp(slide, op);
+      break;
+    case "connector":
+      applyConnectorOp(slide, op);
       break;
     case "visual-native":
       applySpecsToSlide(slide, op.specs);

@@ -12,6 +12,7 @@ import { memo, type JSX } from "react";
 
 import type {
   BulletsElement,
+  ConnectorElement,
   DeckTheme,
   ImageElement,
   ShapeElement,
@@ -21,7 +22,10 @@ import type {
   TextRun,
   VisualElement,
 } from "@/lib/presentation/deck";
-import { resolveConnectorEndpoint } from "@/lib/presentation/connector-geometry";
+import {
+  resolveConnectorElementPoints,
+  resolveConnectorEndpoint,
+} from "@/lib/presentation/connector-geometry";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 import type { Visual } from "@/lib/visual/schema";
 import { applyTheme } from "@/lib/visual/transforms";
@@ -766,6 +770,97 @@ function ShapeElementView({
   );
 }
 
+function ConnectorElementView({
+  element,
+  elements,
+}: {
+  element: ConnectorElement;
+  elements: readonly SlideElement[];
+}): JSX.Element {
+  const { start, end } = resolveConnectorElementPoints(
+    element,
+    elements,
+    (el) => el.box,
+  );
+  const strokeColor = element.stroke?.color ?? "#a1a1aa";
+  const strokeWidth = element.stroke?.width ?? 0.4;
+  const arrowEnd = element.arrowEnd ?? "arrow";
+  const arrowStart = element.arrowStart ?? "none";
+  const dash = element.dash ? "4 2" : undefined;
+  const endMarkerId = `conn-end-${element.id}`;
+  const startMarkerId = `conn-start-${element.id}`;
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      style={{
+        position: "absolute",
+        inset: 0,
+        height: "100%",
+        width: "100%",
+        overflow: "visible",
+        zIndex: element.zIndex,
+        ...(element.opacity !== undefined && element.opacity < 1
+          ? { opacity: element.opacity }
+          : {}),
+      }}
+    >
+      <defs>
+        {arrowEnd !== "none" && (
+          <marker
+            id={endMarkerId}
+            markerWidth="8"
+            markerHeight="6"
+            refX="7"
+            refY="3"
+            orient="auto"
+          >
+            <polygon
+              points="0 0, 8 3, 0 6"
+              fill={arrowEnd === "filled" ? strokeColor : "none"}
+              stroke={strokeColor}
+              strokeWidth="0.8"
+            />
+          </marker>
+        )}
+        {arrowStart !== "none" && (
+          <marker
+            id={startMarkerId}
+            markerWidth="8"
+            markerHeight="6"
+            refX="1"
+            refY="3"
+            orient="auto-start-reverse"
+          >
+            <polygon
+              points="0 0, 8 3, 0 6"
+              fill={arrowStart === "filled" ? strokeColor : "none"}
+              stroke={strokeColor}
+              strokeWidth="0.8"
+            />
+          </marker>
+        )}
+      </defs>
+      <line
+        x1={start.x}
+        y1={start.y}
+        x2={end.x}
+        y2={end.y}
+        stroke={strokeColor}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeDasharray={dash}
+        vectorEffect="non-scaling-stroke"
+        markerEnd={arrowEnd !== "none" ? `url(#${endMarkerId})` : undefined}
+        markerStart={
+          arrowStart !== "none" ? `url(#${startMarkerId})` : undefined
+        }
+      />
+    </svg>
+  );
+}
+
 function SlideElementView({
   element,
   elements,
@@ -792,6 +887,8 @@ function SlideElementView({
       return <ImageElementView element={element} editable={editable} />;
     case "shape":
       return <ShapeElementView element={element} elements={elements} />;
+    case "connector":
+      return <ConnectorElementView element={element} elements={elements} />;
     default:
       return null;
   }

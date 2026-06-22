@@ -1,6 +1,8 @@
 import type {
   ConnectorAnchor,
+  ConnectorElement,
   ConnectorEndpoint,
+  ConnectorPoint,
   ElementBox,
   ShapeElement,
   SlideElement,
@@ -21,7 +23,10 @@ export const CONNECTOR_ANCHORS: readonly ConnectorAnchor[] = [
   "right",
 ];
 
-export function anchorPoint(box: ElementBox, anchor: ConnectorAnchor): PointPct {
+export function anchorPoint(
+  box: ElementBox,
+  anchor: ConnectorAnchor,
+): PointPct {
   switch (anchor) {
     case "top":
       return { x: box.x + box.w / 2, y: box.y };
@@ -74,8 +79,11 @@ export function resolveLineEndpoints(
   if (element.shape !== "line") return base;
   return {
     start:
-      resolveConnectorEndpoint(element.connector?.start, elements, resolveBox) ??
-      base.start,
+      resolveConnectorEndpoint(
+        element.connector?.start,
+        elements,
+        resolveBox,
+      ) ?? base.start,
     end:
       resolveConnectorEndpoint(element.connector?.end, elements, resolveBox) ??
       base.end,
@@ -132,4 +140,38 @@ export function snapLineEndpoint(
     }
   }
   return { point: bestPoint, ...(bestBinding ? { binding: bestBinding } : {}) };
+}
+
+/**
+ * Resolves the start and end {@link PointPct} for a {@link ConnectorElement}.
+ *
+ * Each endpoint is either a free slide-percentage coordinate or a bound anchor
+ * on another slide element. When a bound endpoint references a missing element
+ * the fallback is the element's box center (if found) or the origin.
+ */
+export function resolveConnectorElementPoints(
+  element: ConnectorElement,
+  elements: readonly SlideElement[],
+  resolveBox: ConnectorBoxResolver,
+): { start: PointPct; end: PointPct } {
+  function resolve(point: ConnectorPoint): PointPct {
+    if ("elementId" in point) {
+      const resolved = resolveConnectorEndpoint(
+        point as ConnectorEndpoint,
+        elements,
+        resolveBox,
+      );
+      if (resolved) return resolved;
+      const target = elements.find(
+        (el) => el.id === (point as ConnectorEndpoint).elementId,
+      );
+      if (target) {
+        const box = resolveBox(target);
+        return { x: box.x + box.w / 2, y: box.y + box.h / 2 };
+      }
+      return { x: 0, y: 0 };
+    }
+    return point as PointPct;
+  }
+  return { start: resolve(element.start), end: resolve(element.end) };
 }
