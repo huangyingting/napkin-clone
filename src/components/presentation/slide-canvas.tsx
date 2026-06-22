@@ -389,7 +389,8 @@ function TextElementView({
           : {}),
         lineHeight: 1.15,
         overflow: "hidden",
-        wordBreak: "break-word",
+        overflowWrap: "break-word",
+        wordBreak: "normal",
       }}
     >
       {hasRuns ? renderRuns(element.runs!) : element.text || "\u00a0"}
@@ -450,7 +451,13 @@ function BulletsElementView({
                 backgroundColor: accent,
               }}
             />
-            <span style={{ minWidth: 0 }}>
+            <span
+              style={{
+                minWidth: 0,
+                overflowWrap: "break-word",
+                wordBreak: "normal",
+              }}
+            >
               {runs && runs.length > 0 ? renderRuns(runs) : bullet}
             </span>
           </li>

@@ -52,7 +52,12 @@ import { TextStyleBar } from "@/components/presentation/text-style-bar";
 import { ColorPicker, DEFAULT_SWATCH_PRESETS } from "@/components/ui";
 import { FOCUS_RING } from "@/components/motion/control-styles";
 import { cx, MENU_CHROME, MENU_ITEM } from "@/components/ui/tokens";
-import type { ElementBox, Slide, SlideElement } from "@/lib/presentation/deck";
+import type {
+  ElementBox,
+  Slide,
+  SlideElement,
+  TextRun,
+} from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import { elementAccessibleName } from "@/lib/presentation/element-accessible-name";
 import { type SnapGuide, snapBox } from "@/lib/presentation/element-snap";
@@ -136,6 +141,23 @@ const SELECTION_MIN_H_PCT = 4;
 // Font-size bounds (percent of stage height) for corner-handle text scaling.
 const MIN_FONT_PCT = 2;
 const MAX_FONT_PCT = 30;
+// Granularity for drag-to-scale text: the font size snaps to 0.5 steps so the
+// value stays tidy instead of landing on arbitrary fractions.
+const FONT_STEP_PCT = 0.5;
+
+function snapFontSize(value: number): number {
+  return Math.min(
+    MAX_FONT_PCT,
+    Math.max(MIN_FONT_PCT, Math.round(value / FONT_STEP_PCT) * FONT_STEP_PCT),
+  );
+}
+
+function snapFontSizeDown(value: number): number {
+  return Math.min(
+    MAX_FONT_PCT,
+    Math.max(MIN_FONT_PCT, Math.floor(value / FONT_STEP_PCT) * FONT_STEP_PCT),
+  );
+}
 
 function clampBox(box: ElementBox): ElementBox {
   const w = Math.max(MIN_SIZE_PCT, Math.min(100, box.w));
@@ -172,13 +194,150 @@ function positionFitWithinBox(
   return clampBox({ x, y, w: size.w, h: size.h });
 }
 
-function textLineWidthPct(
-  text: string,
-  fontSizePct: number,
-  stageAspect: number,
-): number {
-  const visibleChars = Math.max(1, text.trimEnd().length);
-  return (visibleChars * fontSizePct * 0.56) / stageAspect;
+interface TextResizeMeasurer {
+  measureHeightPct: (
+    element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+    widthPct: number,
+    fontSizePct: number,
+  ) => number;
+  measureMinWidthPct: (
+    element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+    fontSizePct: number,
+  ) => number;
+}
+
+let textMeasureHost: HTMLDivElement | null = null;
+
+function getTextMeasureHost(): HTMLDivElement | null {
+  if (typeof document === "undefined") return null;
+  if (textMeasureHost?.isConnected) return textMeasureHost;
+  const host = document.createElement("div");
+  Object.assign(host.style, {
+    position: "fixed",
+    left: "-100000px",
+    top: "0",
+    visibility: "hidden",
+    pointerEvents: "none",
+    zIndex: "-1",
+    width: "auto",
+    height: "auto",
+    overflow: "visible",
+  });
+  document.body.appendChild(host);
+  textMeasureHost = host;
+  return host;
+}
+
+function applyMeasuredTextStyle(
+  node: HTMLElement,
+  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+  fontSizePx: number,
+  lineHeight: number,
+  mode: "height" | "minWidth",
+) {
+  const style = node.style;
+  style.boxSizing = "border-box";
+  style.color = "black";
+  style.fontSize = `${fontSizePx}px`;
+  style.fontWeight = element.style.bold ? "700" : "400";
+  style.fontStyle = element.style.italic ? "italic" : "normal";
+  style.textAlign = element.style.align;
+  style.lineHeight = String(lineHeight);
+  style.margin = "0";
+  style.padding = "0";
+  style.whiteSpace = "normal";
+  style.overflow = "visible";
+  style.overflowWrap = mode === "height" ? "break-word" : "normal";
+  style.wordBreak = "normal";
+  style.textDecoration = element.style.underline ? "underline" : "";
+  if (element.style.fontFamily) style.fontFamily = element.style.fontFamily;
+}
+
+function fillMeasuredInline(
+  node: HTMLElement,
+  runs: readonly TextRun[] | undefined,
+  fallback: string,
+) {
+  if (runs && runs.length > 0) node.innerHTML = runsToHtml(runs, fallback);
+  else node.textContent = fallback || "\u00a0";
+}
+
+function createMeasuredTextNode(
+  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+  fontSizePx: number,
+  widthPx: number | null,
+  mode: "height" | "minWidth",
+): HTMLElement {
+  if (element.kind === "text") {
+    const node = document.createElement("div");
+    applyMeasuredTextStyle(node, element, fontSizePx, 1.15, mode);
+    node.style.display = "block";
+    node.style.width = widthPx == null ? "min-content" : `${widthPx}px`;
+    node.style.height = "auto";
+    fillMeasuredInline(node, element.runs, element.text || "\u00a0");
+    return node;
+  }
+
+  const list = document.createElement("ul");
+  applyMeasuredTextStyle(list, element, fontSizePx, 1.2, mode);
+  list.style.display = "flex";
+  list.style.flexDirection = "column";
+  list.style.justifyContent = "center";
+  list.style.gap = "0.6em";
+  list.style.listStyle = "none";
+  list.style.width = widthPx == null ? "min-content" : `${widthPx}px`;
+  list.style.height = "auto";
+  const bullets = element.bullets.length > 0 ? element.bullets : [""];
+  bullets.forEach((bullet, index) => {
+    const item = document.createElement("li");
+    item.style.display = "flex";
+    item.style.alignItems = "flex-start";
+    item.style.gap = "0.5em";
+    const marker = document.createElement("span");
+    marker.style.marginTop = "0.45em";
+    marker.style.height = "0.35em";
+    marker.style.width = "0.35em";
+    marker.style.flexShrink = "0";
+    const text = document.createElement("span");
+    text.style.minWidth = mode === "minWidth" ? "min-content" : "0";
+    text.style.overflowWrap = mode === "height" ? "break-word" : "normal";
+    text.style.wordBreak = "normal";
+    fillMeasuredInline(text, element.bulletRuns?.[index], bullet || "\u00a0");
+    item.append(marker, text);
+    list.appendChild(item);
+  });
+  return list;
+}
+
+function createTextResizeMeasurer(
+  stageWidthPx: number,
+  stageHeightPx: number,
+): TextResizeMeasurer {
+  const measure = (
+    element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+    fontSizePct: number,
+    widthPct: number | null,
+    mode: "height" | "minWidth",
+  ): number => {
+    const host = getTextMeasureHost();
+    if (!host || stageWidthPx <= 0 || stageHeightPx <= 0) return 0;
+    const fontSizePx = Math.max(1, (fontSizePct / 100) * stageHeightPx);
+    const widthPx =
+      widthPct == null ? null : Math.max(1, (widthPct / 100) * stageWidthPx);
+    const node = createMeasuredTextNode(element, fontSizePx, widthPx, mode);
+    host.replaceChildren(node);
+    const rect = node.getBoundingClientRect();
+    host.replaceChildren();
+    return mode === "height"
+      ? ((rect.height + 1) / stageHeightPx) * 100
+      : ((rect.width + 1) / stageWidthPx) * 100;
+  };
+  return {
+    measureHeightPct: (element, widthPct, fontSizePct) =>
+      measure(element, fontSizePct, widthPct, "height"),
+    measureMinWidthPct: (element, fontSizePct) =>
+      measure(element, fontSizePct, null, "minWidth"),
+  };
 }
 
 function fitTextElementBox(
@@ -190,30 +349,176 @@ function fitTextElementBox(
   return element.box;
 }
 
-function contentHeightPct(
+function fitTextHeightPct(
   element: Extract<SlideElement, { kind: "text" | "bullets" }>,
   fontSizePct: number,
   boxWidthPct: number,
-  stageAspect: number,
+  measurer: TextResizeMeasurer,
 ): number {
-  const lines =
-    element.kind === "text"
-      ? (element.text || " ").split("\n")
-      : element.bullets.length > 0
-        ? element.bullets
-        : [" "];
-  const minWidth =
-    element.kind === "bullets" ? BULLETS_MIN_W_PCT : TEXT_MIN_W_PCT;
-  const maxWidth = Math.max(minWidth, Math.min(92, boxWidthPct));
-  const wrappedLines = lines.reduce((sum, line) => {
-    const lineWidth = textLineWidthPct(line, fontSizePct, stageAspect);
-    return sum + Math.max(1, Math.ceil(lineWidth / maxWidth));
-  }, 0);
-  let height = wrappedLines * fontSizePct * 1.2;
-  if (element.kind === "bullets") {
-    height += Math.max(0, lines.length - 1) * fontSizePct * 0.6;
+  return (
+    measurer.measureHeightPct(element, boxWidthPct, fontSizePct) +
+    AUTO_FIT_PADDING_PCT * 2
+  );
+}
+
+/**
+ * Smallest frame width (percent) that still fits the widest unbreakable word
+ * without clipping it off the right edge. The renderer can wrap between words
+ * but a single word that is wider than its column overflows (it is clipped by
+ * the element's `overflow: hidden`), so a horizontal resize must not shrink the
+ * frame below this. Bullets add the marker + gap indent to the requirement.
+ */
+function minContentWidthPct(
+  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+  fontSizePct: number,
+  measurer: TextResizeMeasurer,
+): number {
+  return measurer.measureMinWidthPct(element, fontSizePct);
+}
+
+function availableWidthPct(startBox: ElementBox, west: boolean): number {
+  return west ? startBox.x + startBox.w : 100 - startBox.x;
+}
+
+function availableHeightPct(startBox: ElementBox, north: boolean): number {
+  return north ? startBox.y + startBox.h : 100 - startBox.y;
+}
+
+function minWidthForFontPct(
+  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+  fontSizePct: number,
+  maxWidthPct: number,
+  measurer: TextResizeMeasurer,
+): number {
+  return Math.max(
+    element.kind === "bullets" ? BULLETS_MIN_W_PCT : TEXT_MIN_W_PCT,
+    Math.min(maxWidthPct, minContentWidthPct(element, fontSizePct, measurer)),
+  );
+}
+
+function minWidthThatFitsHeightPct(
+  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+  fontSizePct: number,
+  minWidthPct: number,
+  maxWidthPct: number,
+  maxHeightPct: number,
+  measurer: TextResizeMeasurer,
+): number {
+  if (
+    fitTextHeightPct(element, fontSizePct, minWidthPct, measurer) <=
+    maxHeightPct
+  ) {
+    return minWidthPct;
   }
-  return height;
+  if (
+    fitTextHeightPct(element, fontSizePct, maxWidthPct, measurer) >
+    maxHeightPct
+  ) {
+    return maxWidthPct;
+  }
+  let low = minWidthPct;
+  let high = maxWidthPct;
+  for (let i = 0; i < 8; i += 1) {
+    const mid = (low + high) / 2;
+    if (
+      fitTextHeightPct(element, fontSizePct, mid, measurer) <= maxHeightPct
+    ) {
+      high = mid;
+    } else {
+      low = mid;
+    }
+  }
+  return high;
+}
+
+function largestFontForFixedWidthPct(
+  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+  requestedFontPct: number,
+  widthPct: number,
+  maxHeightPct: number,
+  measurer: TextResizeMeasurer,
+): number {
+  const minStep = Math.ceil(MIN_FONT_PCT / FONT_STEP_PCT);
+  const maxStep = Math.floor(
+    Math.min(MAX_FONT_PCT, requestedFontPct) / FONT_STEP_PCT,
+  );
+  let low = minStep;
+  let high = Math.max(minStep, maxStep);
+  let best = MIN_FONT_PCT;
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const fontSize = mid * FONT_STEP_PCT;
+    const widthFits = minContentWidthPct(element, fontSize, measurer) <= widthPct;
+    const heightFits =
+      fitTextHeightPct(element, fontSize, widthPct, measurer) <= maxHeightPct;
+    if (widthFits && heightFits) {
+      best = fontSize;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+  return best;
+}
+
+function cornerWidthForFontPct(
+  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+  startBox: ElementBox,
+  startFontSize: number,
+  fontSizePct: number,
+  maxWidthPct: number,
+  measurer: TextResizeMeasurer,
+): number {
+  const scaledWidth = startBox.w * (fontSizePct / startFontSize);
+  return Math.min(
+    maxWidthPct,
+    Math.max(
+      element.kind === "bullets" ? BULLETS_MIN_W_PCT : TEXT_MIN_W_PCT,
+      scaledWidth,
+      minContentWidthPct(element, fontSizePct, measurer),
+    ),
+  );
+}
+
+function largestFontForCornerPct(
+  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+  startBox: ElementBox,
+  startFontSize: number,
+  requestedFontPct: number,
+  maxWidthPct: number,
+  maxHeightPct: number,
+  measurer: TextResizeMeasurer,
+): number {
+  const minStep = Math.ceil(MIN_FONT_PCT / FONT_STEP_PCT);
+  const maxStep = Math.floor(
+    Math.min(MAX_FONT_PCT, requestedFontPct) / FONT_STEP_PCT,
+  );
+  let low = minStep;
+  let high = Math.max(minStep, maxStep);
+  let best = MIN_FONT_PCT;
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const fontSize = mid * FONT_STEP_PCT;
+    const minWidth = minContentWidthPct(element, fontSize, measurer);
+    const width = cornerWidthForFontPct(
+      element,
+      startBox,
+      startFontSize,
+      fontSize,
+      maxWidthPct,
+      measurer,
+    );
+    const fits =
+      minWidth <= maxWidthPct &&
+      fitTextHeightPct(element, fontSize, width, measurer) <= maxHeightPct;
+    if (fits) {
+      best = fontSize;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+  return best;
 }
 
 /**
@@ -221,12 +526,15 @@ function contentHeightPct(
  *
  * - **Side handles** (`e` / `w`) change the wrap width only; the font is
  *   untouched and the height auto-fits the re-wrapped content.
- * - **Corner handles** scale the font proportionally to the horizontal drag.
- * - **Top / bottom handles** (`n` / `s`) scale the font proportionally to the
- *   vertical drag (width scales with it), so every side has a useful grip.
+ * - **Corner handles** scale the font proportionally to the horizontal drag,
+ *   growing width as needed to satisfy the measured min-content width.
+ * - **Top / bottom handles** (`n` / `s`) scale the font from vertical drag while
+ *   preserving width, stopping when the measured content no longer fits.
  *
  * Height is always derived from the content; the opposite edge / corner is
- * anchored so the frame grows from where the user grabs it.
+ * anchored so the frame grows from where the user grabs it. Text measurement is
+ * delegated to an off-screen DOM node that mirrors the slide renderer, avoiding
+ * canvas/character heuristics and post-render corrections.
  */
 function resizeTextBox(
   element: Extract<SlideElement, { kind: "text" | "bullets" }>,
@@ -235,7 +543,7 @@ function resizeTextBox(
   handle: Handle,
   dxPct: number,
   dyPct: number,
-  stageAspect: number,
+  measurer: TextResizeMeasurer,
 ): { box: ElementBox; fontSize: number } {
   const east = handle.includes("e");
   const west = handle.includes("w");
@@ -243,46 +551,89 @@ function resizeTextBox(
   const south = handle.includes("s");
   const isCorner = handle.length === 2;
   const isVerticalOnly = !isCorner && (north || south);
-  // Keep the frame at least as wide as the wrap-measurement minimum so the
-  // auto-fit height never under-counts wrapped lines and clips text.
-  const minWidth =
-    element.kind === "bullets" ? BULLETS_MIN_W_PCT : TEXT_MIN_W_PCT;
+  const maxWidth = availableWidthPct(startBox, west);
+  const maxHeight = availableHeightPct(startBox, north);
 
   let width = startBox.w;
   let fontSize = startFontSize;
 
   if (isVerticalOnly) {
-    // Vertical handle: proportional font scale driven by the vertical drag.
+    // Top/bottom handles scale font only. The current width is fixed, so the
+    // font stops growing once browser layout says the longest word or total
+    // natural height no longer fits in that width.
     const targetHeight = south ? startBox.h + dyPct : startBox.h - dyPct;
     const rawScale = startBox.h > 0 ? targetHeight / startBox.h : 1;
-    fontSize = Math.min(
-      MAX_FONT_PCT,
-      Math.max(MIN_FONT_PCT, startFontSize * rawScale),
+    fontSize = largestFontForFixedWidthPct(
+      element,
+      snapFontSize(startFontSize * rawScale),
+      width,
+      maxHeight,
+      measurer,
     );
-    const scale = fontSize / startFontSize;
-    width = Math.max(minWidth, Math.min(100, startBox.w * scale));
   } else {
     if (east) width = startBox.w + dxPct;
     else if (west) width = startBox.w - dxPct;
-    width = Math.max(minWidth, Math.min(100, width));
+    width = Math.max(0, Math.min(maxWidth, width));
     if (isCorner) {
       const targetScale = width / startBox.w;
-      fontSize = Math.min(
-        MAX_FONT_PCT,
-        Math.max(MIN_FONT_PCT, startFontSize * targetScale),
+      fontSize = largestFontForCornerPct(
+        element,
+        startBox,
+        startFontSize,
+        snapFontSize(startFontSize * targetScale),
+        maxWidth,
+        maxHeight,
+        measurer,
       );
-      const scale = fontSize / startFontSize;
-      width = Math.max(minWidth, Math.min(100, startBox.w * scale));
+      width = cornerWidthForFontPct(
+        element,
+        startBox,
+        startFontSize,
+        fontSize,
+        maxWidth,
+        measurer,
+      );
     }
   }
 
-  const height =
-    contentHeightPct(element, fontSize, width, stageAspect) +
-    AUTO_FIT_PADDING_PCT * 2;
+  let minWidth = minWidthForFontPct(element, fontSize, maxWidth, measurer);
+  width = Math.min(maxWidth, Math.max(width, minWidth));
+  width = minWidthThatFitsHeightPct(
+    element,
+    fontSize,
+    width,
+    maxWidth,
+    maxHeight,
+    measurer,
+  );
+
+  let height = fitTextHeightPct(element, fontSize, width, measurer);
+  if (height > maxHeight && fontSize > MIN_FONT_PCT) {
+    fontSize = isCorner
+      ? largestFontForCornerPct(
+          element,
+          startBox,
+          startFontSize,
+          fontSize,
+          maxWidth,
+          maxHeight,
+          measurer,
+        )
+      : largestFontForFixedWidthPct(
+          element,
+          fontSize,
+          width,
+          maxHeight,
+          measurer,
+        );
+    minWidth = minWidthForFontPct(element, fontSize, maxWidth, measurer);
+        width = Math.min(maxWidth, Math.max(width, minWidth));
+    height = fitTextHeightPct(element, fontSize, width, measurer);
+  }
+      height = Math.min(maxHeight, height);
 
   let x = startBox.x;
   if (west) x = startBox.x + startBox.w - width;
-  else if (isVerticalOnly) x = startBox.x + (startBox.w - width) / 2;
   let y = startBox.y;
   if (north) y = startBox.y + startBox.h - height;
 
@@ -679,9 +1030,14 @@ export function SlideStageEditor({
           const cyPct = drag.startBox.y + drag.startBox.h / 2;
           const centerX = rect.left + (cxPct / 100) * rect.width;
           const centerY = rect.top + (cyPct / 100) * rect.height;
+          // The rotate handle sits below the element (`top: 100% + 6px`), so a
+          // pointer directly below the center means "no rotation". Offset the
+          // raw pointer angle by -90° to anchor 0° to that bottom position;
+          // using +90 (a top-handle assumption) flips the element by 180° the
+          // instant it is grabbed.
           let deg =
             (Math.atan2(ev.clientY - centerY, ev.clientX - centerX) * 180) /
-              Math.PI +
+              Math.PI -
             90;
           if (ev.shiftKey) deg = Math.round(deg / 15) * 15;
           deg = Math.round(deg);
@@ -773,7 +1129,7 @@ export function SlideStageEditor({
             drag.mode,
             rdx,
             rdy,
-            stageAspect,
+            createTextResizeMeasurer(rect.width, rect.height),
           );
           if (fontSize !== resized.style.fontSize) {
             onUpdateElement(

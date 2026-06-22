@@ -258,10 +258,16 @@ export function PresentMode({
   // Lock body scroll while presenting so the page underneath can't peek through
   // or shift; restore the previous value on unmount.
   useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
+    const root = document.documentElement;
+    const previousRootOverflow = root.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+    // Lock both <html> and <body>: the page scrollbar usually lives on the
+    // documentElement, so hiding only body leaves a stray vertical scrollbar.
+    root.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = previousOverflow;
+      root.style.overflow = previousRootOverflow;
+      document.body.style.overflow = previousBodyOverflow;
     };
   }, []);
 

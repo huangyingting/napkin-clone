@@ -508,6 +508,21 @@ export function SlideEditor({
     };
   }, []);
 
+  // Lock page scroll while the full-screen editor overlay is open so the page
+  // underneath can't peek through or leave a stray scrollbar. The page
+  // scrollbar usually lives on <html>, so lock both it and <body>.
+  useEffect(() => {
+    const root = document.documentElement;
+    const previousRootOverflow = root.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+    root.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    return () => {
+      root.style.overflow = previousRootOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, []);
+
   const saveStatus = resolveSaveStatus({
     isDirty,
     isSaving,
