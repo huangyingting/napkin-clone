@@ -11,9 +11,14 @@ import type { SlideElement } from "./deck";
  * - image          → `alt` when set, otherwise "Image"
  * - visual         → `alt` when set, otherwise "Visual"
  * - shape          → "Shape: <kind>"
+ * - connector      → "Connector from <start> to <end>" when `allElements` is
+ *                    provided and endpoints are bound; "Connector" otherwise.
  * - fallback       → "Element"
  */
-export function elementAccessibleName(element: SlideElement): string {
+export function elementAccessibleName(
+  element: SlideElement,
+  allElements?: readonly SlideElement[],
+): string {
   switch (element.kind) {
     case "text": {
       const raw = element.text?.trim();
@@ -38,7 +43,53 @@ export function elementAccessibleName(element: SlideElement): string {
       if (text) return text.length > 60 ? `${text.slice(0, 60)}…` : text;
       return `Shape: ${element.shape}`;
     }
+    case "connector": {
+      if (!allElements) return "Connector";
+      const start = element.start;
+      const end = element.end;
+      const startEl =
+        "elementId" in start
+          ? allElements.find((el) => el.id === start.elementId)
+          : null;
+      const endEl =
+        "elementId" in end
+          ? allElements.find((el) => el.id === end.elementId)
+          : null;
+      const startName = startEl ? connectorTargetLabel(startEl) : "point";
+      const endName = endEl ? connectorTargetLabel(endEl) : "point";
+      return `Connector from ${startName} to ${endName}`;
+    }
     default:
       return "Element";
+  }
+}
+
+/** Short label for a shape connected to a connector — used in accessible names. */
+function connectorTargetLabel(element: SlideElement): string {
+  switch (element.kind) {
+    case "text": {
+      const text = element.text?.trim();
+      return text
+        ? text.length > 20
+          ? `${text.slice(0, 20)}…`
+          : text
+        : "text";
+    }
+    case "bullets": {
+      const first = element.bullets.find((b) => b.trim() !== "")?.trim();
+      return first
+        ? first.length > 20
+          ? `${first.slice(0, 20)}…`
+          : first
+        : "bullets";
+    }
+    case "image":
+      return element.alt?.trim() || "image";
+    case "visual":
+      return element.alt?.trim() || "visual";
+    case "shape":
+      return element.shape;
+    default:
+      return "element";
   }
 }

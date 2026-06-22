@@ -141,3 +141,77 @@ test("shape element returns 'Shape: ellipse'", () => {
 test("shape element returns 'Shape: line'", () => {
   assert.equal(elementAccessibleName(shapeEl("line")), "Shape: line");
 });
+
+// ---------------------------------------------------------------------------
+// Connector element
+// ---------------------------------------------------------------------------
+
+const SHAPE_ONE: SlideElement = {
+  id: "shape1",
+  box: { x: 0, y: 0, w: 20, h: 20 },
+  zIndex: 0,
+  kind: "shape",
+  shape: "rect",
+  color: "#ff0000",
+};
+
+const SHAPE_TWO: SlideElement = {
+  id: "shape2",
+  box: { x: 80, y: 80, w: 20, h: 20 },
+  zIndex: 0,
+  kind: "shape",
+  shape: "ellipse",
+  color: "#0000ff",
+};
+
+function connectorEl(startBound?: boolean, endBound?: boolean): SlideElement {
+  return {
+    ...BASE,
+    kind: "connector",
+    start: startBound
+      ? { elementId: "shape1", anchor: "center" as const }
+      : { x: 10, y: 20 },
+    end: endBound
+      ? { elementId: "shape2", anchor: "center" as const }
+      : { x: 50, y: 60 },
+  };
+}
+
+test("connector without allElements returns 'Connector'", () => {
+  assert.equal(elementAccessibleName(connectorEl()), "Connector");
+});
+
+test("connector with free endpoints returns point labels", () => {
+  assert.equal(
+    elementAccessibleName(connectorEl(), []),
+    "Connector from point to point",
+  );
+});
+
+test("connector with both endpoints bound returns shape labels", () => {
+  assert.equal(
+    elementAccessibleName(connectorEl(true, true), [SHAPE_ONE, SHAPE_TWO]),
+    "Connector from rect to ellipse",
+  );
+});
+
+test("connector with only start bound", () => {
+  assert.equal(
+    elementAccessibleName(connectorEl(true, false), [SHAPE_ONE, SHAPE_TWO]),
+    "Connector from rect to point",
+  );
+});
+
+test("connector with only end bound", () => {
+  assert.equal(
+    elementAccessibleName(connectorEl(false, true), [SHAPE_ONE, SHAPE_TWO]),
+    "Connector from point to ellipse",
+  );
+});
+
+test("connector bound to missing element falls back to point", () => {
+  assert.equal(
+    elementAccessibleName(connectorEl(true, true), []),
+    "Connector from point to point",
+  );
+});
