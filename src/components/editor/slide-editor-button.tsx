@@ -45,6 +45,7 @@ import { inferDeckTheme } from "@/lib/presentation/infer-theme";
 import { mergeSwatches } from "@/lib/presentation/text-style";
 import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
 import { collectDocumentBlocks } from "@/lib/visual/document-export";
+import type { DocumentTextBlock } from "@/lib/visual/document-export";
 import type { Visual } from "@/lib/visual/schema";
 import { useRightSurface } from "@/app/app/documents/[id]/right-surface-context";
 
@@ -66,6 +67,8 @@ interface OpenContext {
   currentContentHash: string;
   visualMap: Map<string, Visual>;
   knownVisualIds: Set<string>;
+  /** The document's text blocks, for the "From document" quick-insert panel. */
+  documentTextBlocks: DocumentTextBlock[];
 }
 
 /** State backing the AI deck preview/diff surface (issue #269). */
@@ -115,6 +118,11 @@ export function SlideEditorButton({
   const [visuals, setVisuals] = useState<ReadonlyMap<string, Visual>>(
     () => new Map(),
   );
+  // The document's text blocks, surfaced in the editor's "From document"
+  // quick-insert panel so reused document text is one click away.
+  const [documentTextBlocks, setDocumentTextBlocks] = useState<
+    readonly DocumentTextBlock[]
+  >([]);
   // The current user's brand-kit colors, surfaced first in the editor's color
   // pickers. Best-effort: brands are per-user (not document-scoped), loaded
   // once on mount; failures leave the pickers on their default swatches.
@@ -186,6 +194,9 @@ export function SlideEditorButton({
       currentContentHash,
       visualMap,
       knownVisualIds: new Set(visualMap.keys()),
+      documentTextBlocks: blocks.filter(
+        (block): block is DocumentTextBlock => block.kind === "text",
+      ),
     };
   }, []);
 
@@ -193,6 +204,7 @@ export function SlideEditorButton({
   const finishOpen = useCallback(
     (startDeck: Deck, ctx: OpenContext) => {
       setVisuals(ctx.visualMap);
+      setDocumentTextBlocks(ctx.documentTextBlocks);
       setDeck(startDeck);
       // freshDeck (current document) drives the merge; strip orphans so synced
       // visualIds always resolve to a renderable visual.
@@ -419,6 +431,7 @@ export function SlideEditorButton({
         <SlideEditor
           deck={deck}
           visuals={visuals}
+          documentTextBlocks={documentTextBlocks}
           onDeckChange={setDeck}
           onClose={handleClose}
           onSave={handleSave}

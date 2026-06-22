@@ -107,9 +107,14 @@ export function computePageBreaks(
 // Block types
 // ---------------------------------------------------------------------------
 
-type TextBlockKind = "paragraph" | "heading" | "quote" | "listitem" | "hr";
+export type TextBlockKind =
+  | "paragraph"
+  | "heading"
+  | "quote"
+  | "listitem"
+  | "hr";
 
-type DocumentTextBlock = {
+export type DocumentTextBlock = {
   kind: "text";
   blockType: TextBlockKind;
   /** Heading level (1–3) — only present when blockType === "heading" */

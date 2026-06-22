@@ -26,6 +26,7 @@ import {
   ChevronDown,
   Circle,
   Copy,
+  FileText,
   GripVertical,
   Grid3x3,
   Image as ImageIcon,
@@ -71,6 +72,7 @@ import {
   type SelectionMode,
 } from "@/components/presentation/slide-stage-editor";
 import { VisualPicker } from "@/components/presentation/visual-picker";
+import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { IconButton, Tooltip } from "@/components/ui";
 import { Popover } from "@/components/ui/popover";
 import {
@@ -80,6 +82,7 @@ import {
 } from "@/lib/presentation/stage-fit";
 import {
   buildVisualElement,
+  DEFAULT_VISUAL_BOX,
   makeElementId,
   type Deck,
   type DeckTheme,
@@ -145,10 +148,23 @@ import {
 import { deriveSlideTitle } from "@/lib/presentation/slide-title";
 import { reorderTargetIndex } from "@/lib/presentation/slide-reorder";
 import { useDeckHistory } from "@/lib/presentation/use-deck-history";
+import {
+  buildInsertables,
+  insertableTextElement,
+  type Insertable,
+} from "@/lib/presentation/document-insertable";
+import type { DocumentTextBlock } from "@/lib/visual/document-export";
 
 interface SlideEditorProps {
   deck: Deck;
   visuals: ReadonlyMap<string, Visual>;
+  /**
+   * The source document's text blocks, surfaced in the "From document"
+   * quick-insert panel so reused document text is one click away. Optional so
+   * callers without a live document (e.g. tests) keep working — the panel then
+   * shows only visuals (or an empty state).
+   */
+  documentTextBlocks?: readonly DocumentTextBlock[];
   onDeckChange: (deck: Deck) => void;
   onClose: () => void;
   /**
@@ -249,6 +265,7 @@ function slideElementTypeLabel(element: SlideElement): string {
 export function SlideEditor({
   deck: deckProp,
   visuals,
+  documentTextBlocks = [],
   onDeckChange: onDeckChangeProp,
   onClose,
   onSave,
@@ -279,7 +296,9 @@ export function SlideEditor({
   const [snapToGrid, setSnapToGrid] = useState(false);
   const [zoom, setZoom] = useState(1);
   const adjustZoom = useCallback((delta: number) => {
-    setZoom((z) => Math.min(3, Math.max(0.25, Math.round((z + delta) * 100) / 100)));
+    setZoom((z) =>
+      Math.min(3, Math.max(0.25, Math.round((z + delta) * 100) / 100)),
+    );
   }, []);
   const [stageBounds, setStageBounds] = useState<Size>(DEFAULT_SCREEN_SIZE);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(
@@ -296,6 +315,8 @@ export function SlideEditor({
   // Whether the stage "Add → Visual" picker popover is open.
   const [visualPickerOpen, setVisualPickerOpen] = useState(false);
   const [insertMenuOpen, setInsertMenuOpen] = useState(false);
+  // Whether the top-level "From document" quick-insert panel is open.
+  const [fromDocOpen, setFromDocOpen] = useState(false);
   // Whether the thumbnail rail "+ Add slide" template picker popover is open.
   const [addTemplateOpen, setAddTemplateOpen] = useState(false);
   // Whether the collapsed theme-swatch popover is open (shown below `lg`).
@@ -1169,7 +1190,12 @@ export function SlideEditor({
   const handleAddElement = useCallback(
     (kind: AddElementKind, shapeKind?: ShapeKind) => {
       const id = makeElementId();
-      const element = buildDefaultElement(kind, accentForSelected, id, shapeKind);
+      const element = buildDefaultElement(
+        kind,
+        accentForSelected,
+        id,
+        shapeKind,
+      );
       onDeckChange(addElement(deck, safeSelected, element));
       handleSelectElement(id);
       setInsertMenuOpen(false);
@@ -1188,6 +1214,62 @@ export function SlideEditor({
     [deck, handleSelectElement, onDeckChange, safeSelected],
   );
 
+  // "From document" panel inserts. These keep the panel open so the user can
+  // place several items in a row; each insert is a single undoable step.
+  const handleInsertDocumentVisual = useCallback(
+    (visualId: string) => {
+      const element = buildVisualElement(visualId);
+      onDeckChange(addElement(deck, safeSelected, element));
+      handleSelectElement(element.id);
+    },
+    [deck, handleSelectElement, onDeckChange, safeSelected],
+  );
+
+  const handleInsertDocumentText = useCallback(
+    (item: Extract<Insertable, { kind: "text" }>) => {
+      const element = insertableTextElement(item);
+      onDeckChange(addElement(deck, safeSelected, element));
+      handleSelectElement(element.id);
+    },
+    [deck, handleSelectElement, onDeckChange, safeSelected],
+  );
+
+  // Inserts every document visual onto the current slide in one undoable step,
+  // cascading each by a small offset so they don't perfectly stack.
+  const handleAddAllVisuals = useCallback(() => {
+    const ids = [...visuals.keys()];
+    if (ids.length === 0) return;
+    let next = deck;
+    ids.forEach((visualId, i) => {
+      const offset = Math.min(i, 8) * 2;
+      const element = buildVisualElement(visualId, {
+        box: {
+          x: DEFAULT_VISUAL_BOX.x + offset,
+          y: DEFAULT_VISUAL_BOX.y + offset,
+          w: DEFAULT_VISUAL_BOX.w,
+          h: DEFAULT_VISUAL_BOX.h,
+        },
+      });
+      next = addElement(next, safeSelected, element);
+    });
+    onDeckChange(next);
+  }, [deck, onDeckChange, safeSelected, visuals]);
+
+  // Click-to-insert text entries derived from the document's text blocks.
+  const documentTextInsertables = useMemo(
+    () =>
+      buildInsertables(documentTextBlocks as DocumentTextBlock[]).filter(
+        (item): item is Extract<Insertable, { kind: "text" }> =>
+          item.kind === "text",
+      ),
+    [documentTextBlocks],
+  );
+
+  const documentVisualEntries = useMemo(
+    () => [...visuals.entries()],
+    [visuals],
+  );
+
   const handleBackgroundChange = useCallback(
     (color: string | undefined) => {
       onDeckChange(setSlideBackground(deck, safeSelected, color));
@@ -1204,9 +1286,7 @@ export function SlideEditor({
 
   const handleBackgroundGradientChange = useCallback(
     (gradient: { from: string; to: string; angle?: number } | undefined) => {
-      onDeckChange(
-        setSlideBackgroundGradient(deck, safeSelected, gradient),
-      );
+      onDeckChange(setSlideBackgroundGradient(deck, safeSelected, gradient));
     },
     [deck, onDeckChange, safeSelected],
   );
@@ -1376,6 +1456,36 @@ export function SlideEditor({
                   />
                 )}
               </div>
+            </Popover>
+            <Popover
+              open={fromDocOpen}
+              onClose={() => setFromDocOpen(false)}
+              aria-label="Insert from document"
+              className="w-[320px] p-0"
+              trigger={
+                <Tooltip label="Insert from document" side="bottom">
+                  <button
+                    type="button"
+                    aria-label="From document"
+                    aria-haspopup="dialog"
+                    aria-expanded={fromDocOpen}
+                    onClick={() => setFromDocOpen((open) => !open)}
+                    className={`flex h-7 shrink-0 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                  >
+                    <FileText size={14} aria-hidden="true" />
+                    From document
+                  </button>
+                </Tooltip>
+              }
+            >
+              <FromDocumentPanel
+                visuals={documentVisualEntries}
+                textItems={documentTextInsertables}
+                onClose={() => setFromDocOpen(false)}
+                onAddAllVisuals={handleAddAllVisuals}
+                onInsertVisual={handleInsertDocumentVisual}
+                onInsertText={handleInsertDocumentText}
+              />
             </Popover>
             <div
               className="h-5 w-px shrink-0 bg-ds-border-subtle"
@@ -1928,7 +2038,9 @@ function SlideTemplatePicker({
 
 /** Bar used inside {@link TemplatePreview} to mock a line of slide content. */
 function PreviewBar({ className = "" }: { className?: string }) {
-  return <span className={`block rounded-[1px] bg-ds-text-muted/40 ${className}`} />;
+  return (
+    <span className={`block rounded-[1px] bg-ds-text-muted/40 ${className}`} />
+  );
 }
 
 /**
@@ -2026,6 +2138,149 @@ function InsertMenuButton({
       {icon}
       <span>{label}</span>
     </button>
+  );
+}
+
+/** Short accessible label for a document visual card. */
+function fromDocVisualLabel(id: string, visual: Visual): string {
+  const title = visual.title?.trim();
+  if (title) return title;
+  const kind = visual.type
+    ? visual.type.charAt(0).toUpperCase() + visual.type.slice(1)
+    : "Visual";
+  return `${kind} · ${id.slice(0, 6)}`;
+}
+
+/**
+ * The "From document" quick-insert panel (issue #293). Lists the document's
+ * visuals and text as click-to-insert cards plus an "Add all visuals" action.
+ * Each insert is routed through the editor's undoable `addElement` path; the
+ * panel stays open after an insert so several items can be placed in a row.
+ */
+function FromDocumentPanel({
+  visuals,
+  textItems,
+  onClose,
+  onAddAllVisuals,
+  onInsertVisual,
+  onInsertText,
+}: {
+  visuals: readonly (readonly [string, Visual])[];
+  textItems: readonly Extract<Insertable, { kind: "text" }>[];
+  onClose: () => void;
+  onAddAllVisuals: () => void;
+  onInsertVisual: (visualId: string) => void;
+  onInsertText: (item: Extract<Insertable, { kind: "text" }>) => void;
+}) {
+  const hasVisuals = visuals.length > 0;
+  const hasText = textItems.length > 0;
+
+  return (
+    <div className="flex max-h-[70vh] flex-col">
+      <div className="flex items-center justify-between border-b border-ds-border-subtle px-3 py-2">
+        <p className="text-xs font-semibold text-ds-text-primary">
+          From document
+        </p>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close from-document panel"
+          className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+        >
+          <X size={13} aria-hidden="true" />
+        </button>
+      </div>
+
+      {!hasVisuals && !hasText ? (
+        <p className="px-3 py-8 text-center text-xs text-ds-text-muted">
+          This document has no text or visuals yet. Add content in the document
+          to reuse it on a slide.
+        </p>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+          {hasVisuals ? (
+            <section aria-label="Document visuals">
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-[11px] font-medium uppercase tracking-wide text-ds-text-muted">
+                  Visuals
+                </h3>
+                <button
+                  type="button"
+                  onClick={onAddAllVisuals}
+                  className={`flex h-6 items-center gap-1 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 text-[11px] font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                >
+                  <Plus size={12} aria-hidden="true" />
+                  Add all visuals
+                </button>
+              </div>
+              <ul className="grid grid-cols-2 gap-2">
+                {visuals.map(([id, visual]) => (
+                  <li key={id}>
+                    <button
+                      type="button"
+                      onClick={() => onInsertVisual(id)}
+                      aria-label={`Insert ${fromDocVisualLabel(id, visual)}`}
+                      title={fromDocVisualLabel(id, visual)}
+                      className={`group flex w-full flex-col gap-1 rounded-ds-sm border border-ds-border-subtle bg-ds-surface p-1.5 text-left transition-colors hover:border-ds-control hover:bg-ds-state-hover ${FOCUS_RING}`}
+                    >
+                      <span className="flex aspect-video items-center justify-center overflow-hidden rounded-ds-sm bg-ds-surface-base">
+                        <VisualRenderer
+                          visual={visual}
+                          className="h-full w-full object-contain"
+                          transparentBackground
+                        />
+                      </span>
+                      <span className="truncate text-[11px] text-ds-text-muted">
+                        {fromDocVisualLabel(id, visual)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {hasText ? (
+            <section
+              aria-label="Document text"
+              className={hasVisuals ? "mt-4" : ""}
+            >
+              <h3 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-ds-text-muted">
+                Text
+              </h3>
+              <ul className="flex flex-col gap-1">
+                {textItems.map((item, index) => (
+                  <li key={index}>
+                    <button
+                      type="button"
+                      onClick={() => onInsertText(item)}
+                      aria-label={`Insert ${item.heading ? "heading" : "text"}: ${item.label}`}
+                      title={item.text}
+                      className={`flex w-full items-center gap-2 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-left transition-colors hover:border-ds-control hover:bg-ds-state-hover ${FOCUS_RING}`}
+                    >
+                      <Type
+                        size={13}
+                        aria-hidden="true"
+                        className="shrink-0 text-ds-text-muted"
+                      />
+                      <span
+                        className={`min-w-0 flex-1 truncate text-xs ${
+                          item.heading
+                            ? "font-semibold text-ds-text-primary"
+                            : "text-ds-text-secondary"
+                        }`}
+                      >
+                        {item.label}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </div>
+      )}
+    </div>
   );
 }
 
