@@ -853,7 +853,10 @@ test("[AC-7] image op carries src and geometry", () => {
 
   assert.ok(op, "image op emitted");
   assert.equal(op.src, "data:image/png;base64,AAAA");
-  assert.ok(Number.isFinite(op.x) && op.x >= 0, "x is a finite non-negative number");
+  assert.ok(
+    Number.isFinite(op.x) && op.x >= 0,
+    "x is a finite non-negative number",
+  );
   assert.ok(Number.isFinite(op.w) && op.w > 0, "w is a positive number");
 });
 
@@ -918,7 +921,12 @@ test("[AC-7] image with whitespace src is treated as empty and skipped", () => {
 // AC-8 — Visual element rendering
 // ---------------------------------------------------------------------------
 
-function visualNode(id: string, label: string, x: number, y: number): VisualNode {
+function visualNode(
+  id: string,
+  label: string,
+  x: number,
+  y: number,
+): VisualNode {
   return { id, label, x, y, width: 150, height: 56 };
 }
 
@@ -928,7 +936,10 @@ function flowchartVisual(): Visual {
     type: "flowchart",
     width: 760,
     height: 480,
-    nodes: [visualNode("a", "Alpha", 100, 100), visualNode("b", "Beta", 100, 300)],
+    nodes: [
+      visualNode("a", "Alpha", 100, 100),
+      visualNode("b", "Beta", 100, 300),
+    ],
     edges: [{ id: "e1", from: "a", to: "b" }],
     style: {
       palette: ["#6366f1", "#0ea5e9", "#10b981"],
@@ -979,7 +990,11 @@ test("[AC-8] visual with rotation falls back to rasterised image", () => {
   const [spec] = buildDeckSpecs(deck([transformed]), visuals);
 
   assert.equal(ofKind(spec.ops, "visual-native").length, 0, "no native op");
-  assert.equal(ofKind(spec.ops, "visual-fallback").length, 1, "fallback op present");
+  assert.equal(
+    ofKind(spec.ops, "visual-fallback").length,
+    1,
+    "fallback op present",
+  );
 });
 
 test("[AC-8] visual with opacity falls back to rasterised image", () => {
@@ -1030,7 +1045,11 @@ test("[AC-9] placeholder exports as a shape outline plus a label text op", () =>
 
   assert.equal(ofKind(ops, "shape").length, 1, "placeholder outline shape op");
   assert.equal(ofKind(ops, "text").length, 1, "placeholder label text op");
-  assert.equal(ofKind(ops, "text")[0]?.text, "Body", "label shows placeholder type");
+  assert.equal(
+    ofKind(ops, "text")[0]?.text,
+    "Body",
+    "label shows placeholder type",
+  );
 });
 
 test("[AC-9] placeholder with custom label uses that label in the text op", () => {
@@ -1039,7 +1058,11 @@ test("[AC-9] placeholder with custom label uses that label in the text op", () =
   ]);
   const textOp = ofKind(ops, "text")[0];
 
-  assert.equal(textOp?.text, "Custom Heading", "custom label used over type name");
+  assert.equal(
+    textOp?.text,
+    "Custom Heading",
+    "custom label used over type name",
+  );
 });
 
 test("[AC-9] placeholder text op carries correct geometry within slide bounds", () => {
@@ -1054,10 +1077,22 @@ test("[AC-9] placeholder text op carries correct geometry within slide bounds", 
   const expectedY = SLIDE_H * 0.5 * 0.08;
   const expectedW = SLIDE_W * 0.84;
   const expectedH = SLIDE_H * 0.5 * 0.84;
-  assert.ok(Math.abs(textOp.x - expectedX) < 0.01, `x ≈ ${expectedX.toFixed(3)}`);
-  assert.ok(Math.abs(textOp.y - expectedY) < 0.01, `y ≈ ${expectedY.toFixed(3)}`);
-  assert.ok(Math.abs(textOp.w - expectedW) < 0.01, `w ≈ ${expectedW.toFixed(3)}`);
-  assert.ok(Math.abs(textOp.h - expectedH) < 0.01, `h ≈ ${expectedH.toFixed(3)}`);
+  assert.ok(
+    Math.abs(textOp.x - expectedX) < 0.01,
+    `x ≈ ${expectedX.toFixed(3)}`,
+  );
+  assert.ok(
+    Math.abs(textOp.y - expectedY) < 0.01,
+    `y ≈ ${expectedY.toFixed(3)}`,
+  );
+  assert.ok(
+    Math.abs(textOp.w - expectedW) < 0.01,
+    `w ≈ ${expectedW.toFixed(3)}`,
+  );
+  assert.ok(
+    Math.abs(textOp.h - expectedH) < 0.01,
+    `h ≈ ${expectedH.toFixed(3)}`,
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -1087,7 +1122,11 @@ test("[AC-10] hidden shape is dropped while visible shape sibling is kept", () =
     shapeEl("sh-visible", { zIndex: 1 }),
   ]);
 
-  assert.equal(ofKind(ops, "shape").length, 1, "only visible shape produces op");
+  assert.equal(
+    ofKind(ops, "shape").length,
+    1,
+    "only visible shape produces op",
+  );
 });
 
 test("[AC-10] locked=true element exports identically to an unlocked element", () => {
@@ -1130,7 +1169,11 @@ test("[AC-10] grouped shapes each export individually (group membership not merg
     shapeEl("sh2", { groupId: "g1", zIndex: 1 }),
   ]);
 
-  assert.equal(ofKind(ops, "shape").length, 2, "both grouped shapes produce ops");
+  assert.equal(
+    ofKind(ops, "shape").length,
+    2,
+    "both grouped shapes produce ops",
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -1147,7 +1190,11 @@ function deckWith(slideOverrides: Partial<Slide>): Deck {
 test("[AC-11] per-slide background color override is in the spec", () => {
   const [spec] = buildDeckSpecs(deckWith({ background: "#abcdef" }), new Map());
 
-  assert.equal(spec.background, "ABCDEF", "background hex normalised to uppercase");
+  assert.equal(
+    spec.background,
+    "ABCDEF",
+    "background hex normalised to uppercase",
+  );
 });
 
 test("[AC-11] backgroundGradient uses the 'from' stop as the PPTX background color", () => {
@@ -1170,7 +1217,11 @@ test("[AC-11] backgroundImage is forwarded to the slide spec", () => {
     new Map(),
   );
 
-  assert.equal(spec.backgroundImage, dataUrl, "backgroundImage propagated verbatim");
+  assert.equal(
+    spec.backgroundImage,
+    dataUrl,
+    "backgroundImage propagated verbatim",
+  );
 });
 
 test("[AC-11] slide without background overrides falls back to theme defaults", () => {
@@ -1243,7 +1294,11 @@ test("[AC-12] shape with sourceRef exports normally (sourceRef is opaque metadat
     }),
   ]);
 
-  assert.equal(ofKind(ops, "shape").length, 1, "shape op emitted with sourceRef");
+  assert.equal(
+    ofKind(ops, "shape").length,
+    1,
+    "shape op emitted with sourceRef",
+  );
 });
 
 test("[AC-12] unlinked sourceRef (unlinked=true) does not suppress the element", () => {
@@ -1261,4 +1316,3 @@ test("[AC-12] unlinked sourceRef (unlinked=true) does not suppress the element",
   assert.equal(ofKind(ops, "text").length, 1, "unlinked element still exports");
   assert.equal(ofKind(ops, "text")[0]?.text, "Detached text");
 });
-

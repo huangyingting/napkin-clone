@@ -136,7 +136,10 @@ test("background-image has full fidelity on all export targets", () => {
 
 test("getDegradedFeatures for pptx includes the new partial entries", () => {
   const features = getDegradedFeatures("pptx").map((e) => e.feature);
-  assert.ok(features.includes("background-gradient"), "background-gradient partial");
+  assert.ok(
+    features.includes("background-gradient"),
+    "background-gradient partial",
+  );
 });
 
 test("getUnsupportedFeatures for all targets includes hidden-element", () => {

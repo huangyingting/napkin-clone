@@ -122,14 +122,16 @@ export const EXPORT_FIDELITY_MATRIX: FeatureFidelity[] = [
     pptx: "unsupported",
     pdf: "unsupported",
     image: "unsupported",
-    notes: "hidden=true elements are filtered before export; they are not visual targets",
+    notes:
+      "hidden=true elements are filtered before export; they are not visual targets",
   },
   {
     feature: "locked-element",
     pptx: "full",
     pdf: "full",
     image: "full",
-    notes: "locked only affects editor interactivity; locked elements export identically to unlocked ones",
+    notes:
+      "locked only affects editor interactivity; locked elements export identically to unlocked ones",
   },
   {
     feature: "background-solid",
@@ -142,7 +144,8 @@ export const EXPORT_FIDELITY_MATRIX: FeatureFidelity[] = [
     pptx: "partial",
     pdf: "full",
     image: "full",
-    notes: "PPTX uses the gradient 'from' stop as a solid fill; full gradient is preserved for PDF/image renderers",
+    notes:
+      "PPTX uses the gradient 'from' stop as a solid fill; full gradient is preserved for PDF/image renderers",
   },
   {
     feature: "background-image",

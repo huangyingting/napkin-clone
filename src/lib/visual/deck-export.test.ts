@@ -1216,7 +1216,11 @@ test("grouped shapes export in z-order and preserve geometry", () => {
   };
 
   const [spec] = buildDeckSpecs(deck, new Map());
-  assert.equal(ofKind(spec.ops, "shape").length, 2, "both grouped shapes export");
+  assert.equal(
+    ofKind(spec.ops, "shape").length,
+    2,
+    "both grouped shapes export",
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -1270,7 +1274,11 @@ test("backgroundImage is forwarded verbatim to the slide spec", () => {
   };
 
   const [spec] = buildDeckSpecs(deck, new Map());
-  assert.equal(spec.backgroundImage, dataUrl, "backgroundImage verbatim in spec");
+  assert.equal(
+    spec.backgroundImage,
+    dataUrl,
+    "backgroundImage verbatim in spec",
+  );
 });
 
 test("slide without any background override uses the theme default", () => {
@@ -1353,7 +1361,11 @@ test("image element with sourceRef still emits a normal image op", () => {
   };
 
   const [spec] = buildDeckSpecs(deck, new Map());
-  assert.equal(ofKind(spec.ops, "image").length, 1, "image op emitted with sourceRef");
+  assert.equal(
+    ofKind(spec.ops, "image").length,
+    1,
+    "image op emitted with sourceRef",
+  );
 });
 
 test("element with unlinked=true sourceRef exports normally (unlinked is metadata-only)", () => {
@@ -1374,7 +1386,10 @@ test("element with unlinked=true sourceRef exports normally (unlinked is metadat
   };
 
   const [spec] = buildDeckSpecs(deck, new Map());
-  assert.equal(ofKind(spec.ops, "text").length, 1, "unlinked element still exports");
+  assert.equal(
+    ofKind(spec.ops, "text").length,
+    1,
+    "unlinked element still exports",
+  );
   assert.equal(ofKind(spec.ops, "text")[0]?.text, "Detached");
 });
-
