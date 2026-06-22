@@ -366,3 +366,35 @@ model StripeWebhookEvent {
   type      String
   createdAt DateTime @default(now())
 }
+
+// Durable asset record for slide images, background media, and future media
+// types (Epic #374). Each upload is tracked by its storage key so that
+// multiple slide elements can reference the same bytes without duplication.
+// Soft-delete via `deletedAt` preserves the row for version-restore safety;
+// a background cleanup job can permanently remove rows where deletedAt is set
+// and no slide element references the asset.
+model Asset {
+  id           String    @id @default(cuid())
+  // Scope: an asset may be owned by a document, workspace, or both.
+  documentId   String?
+  workspaceId  String?
+  mimeType     String
+  byteSize     Int
+  // Pixel dimensions — null for non-image types (e.g., video, font).
+  widthPx      Int?
+  heightPx     Int?
+  // SHA-256 hex digest of the raw file bytes — used for dedup and integrity.
+  checksum     String
+  // Opaque storage path / object key (e.g., S3 key or local path).
+  storageKey   String    @unique
+  // Optional pre-generated thumbnail object key.
+  thumbnailKey String?
+  // Original client-provided filename for display/download UX.
+  originalName String?
+  createdAt    DateTime  @default(now())
+  deletedAt    DateTime?
+
+  @@index([documentId])
+  @@index([workspaceId])
+  @@index([checksum])
+}
