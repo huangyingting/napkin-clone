@@ -296,6 +296,9 @@ export type SlideElement =
 
 /** A single slide in the presentation deck. */
 export interface Slide {
+  /** Stable unique identifier for the slide — persisted in `deckJson`. */
+  id: string;
+
   /** Zero-based position in the deck. */
   index: number;
 
@@ -438,6 +441,20 @@ export function makeElementId(): string {
     return `el-${uuid}`;
   }
   return `el-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/**
+ * Generates a stable unique id for a new slide (analogous to
+ * {@link makeElementId} for elements). The `sl-` prefix keeps slide ids
+ * visually distinct from element ids. Ids are only required to be unique
+ * within a deck and stable once assigned — they are persisted into `deckJson`.
+ */
+export function makeSlideId(): string {
+  const uuid = globalThis.crypto?.randomUUID?.();
+  if (uuid) {
+    return `sl-${uuid}`;
+  }
+  return `sl-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 /**
@@ -655,6 +672,7 @@ function finaliseSlide(
 ): Slide {
   const hasBulletRuns = builder.bulletRuns.some((runs) => runs.length > 0);
   return {
+    id: makeSlideId(),
     index,
     title: builder.title,
     ...(builder.titleRuns && builder.titleRuns.length > 0
@@ -784,6 +802,7 @@ export function buildDeckFromBlocks(
   // Guard: never return an empty deck
   if (slides.length === 0) {
     slides.push({
+      id: makeSlideId(),
       index: 0,
       title: "",
       bullets: [],

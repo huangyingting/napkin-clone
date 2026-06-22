@@ -13,6 +13,7 @@ const KNOWN = new Set(["vis-1", "vis-2"]);
 
 function slide(overrides: Partial<Slide> = {}): Slide {
   return {
+    id: "test-id",
     index: 0,
     title: "Slide",
     bullets: [],

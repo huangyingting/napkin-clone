@@ -97,6 +97,7 @@ function imageElement(src: string, id = "img"): ImageElement {
 
 function deckWithElements(elements: SlideElement[]): Deck {
   const slide: Slide = {
+    id: "test-id",
     index: 0,
     title: "Slide",
     bullets: [],
@@ -111,6 +112,7 @@ function deckWithElements(elements: SlideElement[]): Deck {
 
 function deckWithBackground(backgroundImage: string | undefined): Deck {
   const slide: Slide = {
+    id: "test-id",
     index: 0,
     title: "Slide",
     bullets: [],
@@ -219,6 +221,7 @@ test("totalInlineImageBytes: background data URL counts toward the total", () =>
     theme: "default",
     slides: [
       {
+        id: "test-id",
         index: 0,
         title: "Slide",
         bullets: [],

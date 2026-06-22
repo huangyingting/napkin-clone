@@ -10,6 +10,7 @@
 import {
   DECK_THEMES,
   SLIDE_LAYOUTS,
+  makeSlideId,
   type Deck,
   type DeckTheme,
   type ElementAlign,
@@ -356,6 +357,13 @@ function validateSlide(input: unknown, index: number): Slide {
     throw new DeckValidationError(`${context} must be an object`);
   }
 
+  // Accept an existing stable id or backfill a fresh one for legacy slides that
+  // were persisted before the `id` field was introduced.
+  const id =
+    typeof input.id === "string" && input.id.length > 0
+      ? input.id
+      : makeSlideId();
+
   if (typeof input.index !== "number" || !Number.isFinite(input.index)) {
     throw new DeckValidationError(`${context}.index must be a number`);
   }
@@ -442,6 +450,7 @@ function validateSlide(input: unknown, index: number): Slide {
   }
 
   return {
+    id,
     index: input.index,
     title: input.title,
     ...(titleRuns !== undefined ? { titleRuns } : {}),

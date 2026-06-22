@@ -523,6 +523,13 @@ export function SlideStageEditor({
   // Coalesce key for the active inline-text typing session, or null when not
   // editing — the whole session collapses to one undo step (issue #242).
   const [editCoalesceKey, setEditCoalesceKey] = useState<string | null>(null);
+  // rAF-throttle refs for `handlePointerMove`. The latest native pointermove
+  // event is stashed here; a requestAnimationFrame is scheduled only once per
+  // frame so the stage processes at most one move update per frame rather than
+  // once per native pointer event (which can fire 60–1000 times/s on high-DPI
+  // displays or styluses). Cancelled on drag end and on unmount.
+  const rafIdRef = useRef<number | null>(null);
+  const pendingMoveRef = useRef<PointerEvent | null>(null);
 
   const elements = useMemo(() => slide.elements ?? [], [slide.elements]);
   // Live element list for the global pointer-move handler (which is memoized on
@@ -580,172 +587,191 @@ export function SlideStageEditor({
 
   const handlePointerMove = useCallback(
     (event: PointerEvent) => {
-      const container = containerRef.current;
-      if (!container) {
+      // Stash the latest event and schedule a rAF if none is pending. This
+      // coalesces bursts of native pointermove events (up to 1000/s on some
+      // devices) down to one update per animation frame (~60/s), so dragging
+      // an element does not dispatch a deck mutation on every raw event.
+      pendingMoveRef.current = event;
+      if (rafIdRef.current !== null) {
         return;
       }
-      const rect = container.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) {
-        return;
-      }
-
-      // Marquee selection takes precedence: while a band is being drawn there is
-      // no element drag in flight (the two start from mutually exclusive
-      // pointer-downs). Issue #245.
-      const marquee = marqueeRef.current;
-      if (marquee) {
-        const curX = ((event.clientX - rect.left) / rect.width) * 100;
-        const curY = ((event.clientY - rect.top) / rect.height) * 100;
-        const raw: MarqueeRect = {
-          x: marquee.startXPct,
-          y: marquee.startYPct,
-          w: curX - marquee.startXPct,
-          h: curY - marquee.startYPct,
-        };
-        const norm = normalizeRect(raw);
-        if (
-          norm.w >= MARQUEE_THRESHOLD_PCT ||
-          norm.h >= MARQUEE_THRESHOLD_PCT
-        ) {
-          marquee.moved = true;
+      rafIdRef.current = requestAnimationFrame(() => {
+        rafIdRef.current = null;
+        const ev = pendingMoveRef.current;
+        if (!ev) {
+          return;
         }
-        marqueeRectRef.current = norm;
-        setMarqueeRect(norm);
-        return;
-      }
+        pendingMoveRef.current = null;
 
-      const drag = dragRef.current;
-      if (!drag) {
-        return;
-      }
-      const dxPct = ((event.clientX - drag.startClientX) / rect.width) * 100;
-      const dyPct = ((event.clientY - drag.startClientY) / rect.height) * 100;
+        const container = containerRef.current;
+        if (!container) {
+          return;
+        }
+        const rect = container.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) {
+          return;
+        }
 
-      // Promote the gesture to a real drag once the pointer travels past a few
-      // pixels, so a plain click (no movement) can instead open inline editing.
-      if (
-        !drag.moved &&
-        (Math.abs(event.clientX - drag.startClientX) >
-          CLICK_MOVE_THRESHOLD_PX ||
-          Math.abs(event.clientY - drag.startClientY) > CLICK_MOVE_THRESHOLD_PX)
-      ) {
-        drag.moved = true;
-      }
-
-      if (drag.mode === "rotate") {
-        const cxPct = drag.startBox.x + drag.startBox.w / 2;
-        const cyPct = drag.startBox.y + drag.startBox.h / 2;
-        const centerX = rect.left + (cxPct / 100) * rect.width;
-        const centerY = rect.top + (cyPct / 100) * rect.height;
-        let deg =
-          (Math.atan2(event.clientY - centerY, event.clientX - centerX) * 180) /
-            Math.PI +
-          90;
-        if (event.shiftKey) deg = Math.round(deg / 15) * 15;
-        deg = Math.round(deg);
-        if (deg > 180) deg -= 360;
-        if (deg < -180) deg += 360;
-        onUpdateElement(
-          drag.id,
-          { rotation: deg === 0 ? undefined : deg },
-          drag.coalesceKey,
-        );
-        return;
-      }
-
-      if (drag.mode === "move") {
-        // Snap the drag delta to the grid when enabled (keeps groups rigid).
-        const mdx = snapToGrid
-          ? Math.round(dxPct / GRID_PCT) * GRID_PCT
-          : dxPct;
-        const mdy = snapToGrid
-          ? Math.round(dyPct / GRID_PCT) * GRID_PCT
-          : dyPct;
-        // Group / multi-selection move: translate every captured member by the
-        // same delta in one batched, undoable mutation (no snapping).
-        if (drag.groupBoxes && drag.groupBoxes.length > 1) {
-          const boxesById: Record<string, ElementBox> = {};
-          for (const { id: memberId, startBox } of drag.groupBoxes) {
-            boxesById[memberId] = clampBox({
-              ...startBox,
-              x: startBox.x + mdx,
-              y: startBox.y + mdy,
-            });
+        // Marquee selection takes precedence: while a band is being drawn there is
+        // no element drag in flight (the two start from mutually exclusive
+        // pointer-downs). Issue #245.
+        const marquee = marqueeRef.current;
+        if (marquee) {
+          const curX = ((ev.clientX - rect.left) / rect.width) * 100;
+          const curY = ((ev.clientY - rect.top) / rect.height) * 100;
+          const raw: MarqueeRect = {
+            x: marquee.startXPct,
+            y: marquee.startYPct,
+            w: curX - marquee.startXPct,
+            h: curY - marquee.startYPct,
+          };
+          const norm = normalizeRect(raw);
+          if (
+            norm.w >= MARQUEE_THRESHOLD_PCT ||
+            norm.h >= MARQUEE_THRESHOLD_PCT
+          ) {
+            marquee.moved = true;
           }
-          onSetElementBoxes(boxesById, drag.coalesceKey);
+          marqueeRectRef.current = norm;
+          setMarqueeRect(norm);
           return;
         }
-        if (snapToGrid) {
-          const box = clampBox({
-            ...drag.startBox,
-            x: drag.startBox.x + mdx,
-            y: drag.startBox.y + mdy,
-          });
-          setSnapGuides([]);
-          onUpdateElement(drag.id, { box }, drag.coalesceKey);
-          return;
-        }
-        const moved = clampBox({
-          ...drag.startBox,
-          x: drag.startBox.x + dxPct,
-          y: drag.startBox.y + dyPct,
-        });
-        const others = elementsRef.current
-          .filter((element) => element.id !== drag.id)
-          .map((element) =>
-            fitElementBoxToContent(element, visuals, stageAspect),
-          );
-        const { box, guides } = snapBox(moved, others, SNAP_THRESHOLD_PCT);
-        setSnapGuides(guides);
-        onUpdateElement(drag.id, { box }, drag.coalesceKey);
-        return;
-      }
 
-      // Resize. Text / bullets follow the Canva model: side handles change the
-      // wrap width (height auto-fits, font unchanged); corner handles scale the
-      // font proportionally (width scales with it, height auto-fits). Other
-      // kinds get a free box resize.
-      const resized = elementsRef.current.find((item) => item.id === drag.id);
-      // Convert the screen-space drag into the element's local frame so resizing
-      // a rotated element still grows along its own axes.
-      let rdx = dxPct;
-      let rdy = dyPct;
-      const rot = resized?.rotation ?? 0;
-      if (rot) {
-        const dxPx = event.clientX - drag.startClientX;
-        const dyPx = event.clientY - drag.startClientY;
-        const a = (-rot * Math.PI) / 180;
-        const lx = dxPx * Math.cos(a) - dyPx * Math.sin(a);
-        const ly = dxPx * Math.sin(a) + dyPx * Math.cos(a);
-        rdx = (lx / rect.width) * 100;
-        rdy = (ly / rect.height) * 100;
-      }
-      if (resized && (resized.kind === "text" || resized.kind === "bullets")) {
-        const { box, fontSize } = resizeTextBox(
-          resized,
-          drag.startBox,
-          drag.startFontSize ?? resized.style.fontSize,
-          drag.mode,
-          rdx,
-          rdy,
-          stageAspect,
-        );
-        if (fontSize !== resized.style.fontSize) {
+        const drag = dragRef.current;
+        if (!drag) {
+          return;
+        }
+        const dxPct = ((ev.clientX - drag.startClientX) / rect.width) * 100;
+        const dyPct = ((ev.clientY - drag.startClientY) / rect.height) * 100;
+
+        // Promote the gesture to a real drag once the pointer travels past a few
+        // pixels, so a plain click (no movement) can instead open inline editing.
+        if (
+          !drag.moved &&
+          (Math.abs(ev.clientX - drag.startClientX) > CLICK_MOVE_THRESHOLD_PX ||
+            Math.abs(ev.clientY - drag.startClientY) > CLICK_MOVE_THRESHOLD_PX)
+        ) {
+          drag.moved = true;
+        }
+
+        if (drag.mode === "rotate") {
+          const cxPct = drag.startBox.x + drag.startBox.w / 2;
+          const cyPct = drag.startBox.y + drag.startBox.h / 2;
+          const centerX = rect.left + (cxPct / 100) * rect.width;
+          const centerY = rect.top + (cyPct / 100) * rect.height;
+          let deg =
+            (Math.atan2(ev.clientY - centerY, ev.clientX - centerX) * 180) /
+              Math.PI +
+            90;
+          if (ev.shiftKey) deg = Math.round(deg / 15) * 15;
+          deg = Math.round(deg);
+          if (deg > 180) deg -= 360;
+          if (deg < -180) deg += 360;
           onUpdateElement(
             drag.id,
-            { box, style: { ...resized.style, fontSize } },
+            { rotation: deg === 0 ? undefined : deg },
             drag.coalesceKey,
           );
-        } else {
-          onUpdateElement(drag.id, { box }, drag.coalesceKey);
+          return;
         }
-      } else {
-        onUpdateElement(
-          drag.id,
-          { box: clampBox(applyResize(drag.startBox, drag.mode, rdx, rdy)) },
-          drag.coalesceKey,
-        );
-      }
+
+        if (drag.mode === "move") {
+          // Snap the drag delta to the grid when enabled (keeps groups rigid).
+          const mdx = snapToGrid
+            ? Math.round(dxPct / GRID_PCT) * GRID_PCT
+            : dxPct;
+          const mdy = snapToGrid
+            ? Math.round(dyPct / GRID_PCT) * GRID_PCT
+            : dyPct;
+          // Group / multi-selection move: translate every captured member by the
+          // same delta in one batched, undoable mutation (no snapping).
+          if (drag.groupBoxes && drag.groupBoxes.length > 1) {
+            const boxesById: Record<string, ElementBox> = {};
+            for (const { id: memberId, startBox } of drag.groupBoxes) {
+              boxesById[memberId] = clampBox({
+                ...startBox,
+                x: startBox.x + mdx,
+                y: startBox.y + mdy,
+              });
+            }
+            onSetElementBoxes(boxesById, drag.coalesceKey);
+            return;
+          }
+          if (snapToGrid) {
+            const box = clampBox({
+              ...drag.startBox,
+              x: drag.startBox.x + mdx,
+              y: drag.startBox.y + mdy,
+            });
+            setSnapGuides([]);
+            onUpdateElement(drag.id, { box }, drag.coalesceKey);
+            return;
+          }
+          const moved = clampBox({
+            ...drag.startBox,
+            x: drag.startBox.x + dxPct,
+            y: drag.startBox.y + dyPct,
+          });
+          const others = elementsRef.current
+            .filter((element) => element.id !== drag.id)
+            .map((element) =>
+              fitElementBoxToContent(element, visuals, stageAspect),
+            );
+          const { box, guides } = snapBox(moved, others, SNAP_THRESHOLD_PCT);
+          setSnapGuides(guides);
+          onUpdateElement(drag.id, { box }, drag.coalesceKey);
+          return;
+        }
+
+        // Resize. Text / bullets follow the Canva model: side handles change the
+        // wrap width (height auto-fits, font unchanged); corner handles scale the
+        // font proportionally (width scales with it, height auto-fits). Other
+        // kinds get a free box resize.
+        const resized = elementsRef.current.find((item) => item.id === drag.id);
+        // Convert the screen-space drag into the element's local frame so resizing
+        // a rotated element still grows along its own axes.
+        let rdx = dxPct;
+        let rdy = dyPct;
+        const rot = resized?.rotation ?? 0;
+        if (rot) {
+          const dxPx = ev.clientX - drag.startClientX;
+          const dyPx = ev.clientY - drag.startClientY;
+          const a = (-rot * Math.PI) / 180;
+          const lx = dxPx * Math.cos(a) - dyPx * Math.sin(a);
+          const ly = dxPx * Math.sin(a) + dyPx * Math.cos(a);
+          rdx = (lx / rect.width) * 100;
+          rdy = (ly / rect.height) * 100;
+        }
+        if (
+          resized &&
+          (resized.kind === "text" || resized.kind === "bullets")
+        ) {
+          const { box, fontSize } = resizeTextBox(
+            resized,
+            drag.startBox,
+            drag.startFontSize ?? resized.style.fontSize,
+            drag.mode,
+            rdx,
+            rdy,
+            stageAspect,
+          );
+          if (fontSize !== resized.style.fontSize) {
+            onUpdateElement(
+              drag.id,
+              { box, style: { ...resized.style, fontSize } },
+              drag.coalesceKey,
+            );
+          } else {
+            onUpdateElement(drag.id, { box }, drag.coalesceKey);
+          }
+        } else {
+          onUpdateElement(
+            drag.id,
+            { box: clampBox(applyResize(drag.startBox, drag.mode, rdx, rdy)) },
+            drag.coalesceKey,
+          );
+        }
+      });
     },
     [onUpdateElement, onSetElementBoxes, stageAspect, visuals, snapToGrid],
   );
@@ -763,6 +789,13 @@ export function SlideStageEditor({
   );
 
   const endDrag = useCallback(() => {
+    // Cancel any pending rAF so a frame that fires after pointer-up does not
+    // apply a stale move to a newly completed gesture.
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+      pendingMoveRef.current = null;
+    }
     // Resolve a marquee gesture: a band that grew past the threshold selects
     // every intersecting element (additive when shift/ctrl/cmd was held);
     // otherwise the gesture was a bare click on empty stage and clears the
@@ -811,6 +844,13 @@ export function SlideStageEditor({
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", endDrag);
       window.removeEventListener("pointercancel", endDrag);
+      // Cancel any pending rAF to avoid stale callbacks after unmount or
+      // when the listener re-subscribes with a new handlePointerMove identity.
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+        pendingMoveRef.current = null;
+      }
     };
   }, [handlePointerMove, endDrag]);
 

@@ -20,6 +20,7 @@
 
 import {
   makeElementId,
+  makeSlideId,
   type BulletsElement,
   type DeckTheme,
   type ElementAlign,
@@ -209,6 +210,7 @@ function authoredSlide(
   visualIds: string[] = [],
 ): Slide {
   return {
+    id: makeSlideId(),
     index: 0,
     title: "",
     bullets: [],
@@ -226,6 +228,7 @@ function authoredSlide(
 /** Reproduces the legacy blank slide exactly — no elements, no derived flag. */
 function blankSlide(theme: DeckTheme): Slide {
   return {
+    id: makeSlideId(),
     index: 0,
     title: "",
     bullets: [],

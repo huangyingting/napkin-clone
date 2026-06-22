@@ -13,6 +13,7 @@ const STYLE: TextElementStyle = {
 
 function baseSlide(overrides: Partial<Slide> = {}): Slide {
   return {
+    id: "test-id",
     index: 0,
     title: "",
     bullets: [],

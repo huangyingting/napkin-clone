@@ -134,6 +134,7 @@ function freeFormSlide(
   overrides: Partial<Slide> = {},
 ): Slide {
   return {
+    id: "test-id",
     index,
     title: "",
     bullets: [],
@@ -153,6 +154,7 @@ function legacySlide(
   visualIds: string[] = [],
 ): Slide {
   return {
+    id: "test-id",
     index,
     title,
     bullets,

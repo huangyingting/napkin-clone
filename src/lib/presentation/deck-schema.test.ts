@@ -281,3 +281,36 @@ test("safeParseDeck rejects a non-boolean elementsDerived", () => {
   });
   assert.equal(result.success, false);
 });
+
+// ---------------------------------------------------------------------------
+// Stable slide id — backfill for legacy decks (issue #304)
+// ---------------------------------------------------------------------------
+
+test("safeParseDeck backfills a slide id when absent", () => {
+  const result = safeParseDeck(legacyDeck());
+  assert.equal(result.success, true);
+  if (result.success) {
+    const id = result.data.slides[0].id;
+    assert.ok(
+      typeof id === "string" && id.length > 0,
+      "id must be a non-empty string",
+    );
+  }
+});
+
+test("safeParseDeck preserves an existing slide id", () => {
+  const input = {
+    ...(legacyDeck() as { slides: object[] }),
+    slides: [
+      {
+        ...(legacyDeck() as { slides: object[] }).slides[0],
+        id: "sl-existing-abc",
+      },
+    ],
+  };
+  const result = safeParseDeck(input);
+  assert.equal(result.success, true);
+  if (result.success) {
+    assert.equal(result.data.slides[0].id, "sl-existing-abc");
+  }
+});

@@ -23,6 +23,7 @@ function deck(n: number): Deck {
     theme: "default",
     slides: [
       {
+        id: "test-id",
         index: 0,
         title: `slide-${n}`,
         bullets: [],

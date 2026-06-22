@@ -11,6 +11,7 @@ import type { Deck, DeckTheme, ElementBox, Slide, SlideElement } from "./deck";
 import type { SlideFormat } from "./slide-format";
 import {
   makeElementId,
+  makeSlideId,
   materializeSlideElements,
   migrateSlideToFreeForm,
 } from "./deck";
@@ -39,6 +40,7 @@ function reindex(slides: Slide[]): Slide[] {
 /** Creates a blank slide. `index` is a placeholder; callers re-index. */
 function freshBlankSlide(theme: DeckTheme): Slide {
   return {
+    id: makeSlideId(),
     index: 0,
     title: "",
     bullets: [],
@@ -129,6 +131,7 @@ export function duplicateSlide(deck: Deck, index: number): Deck {
   const original = deck.slides[index];
   const copy: Slide = {
     ...original,
+    id: makeSlideId(),
     bullets: [...original.bullets],
     visualIds: [...original.visualIds],
     ...(original.elements
