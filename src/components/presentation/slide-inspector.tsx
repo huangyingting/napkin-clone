@@ -39,12 +39,6 @@ import type {
 } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import {
-  resolveSlideFormat,
-  SLIDE_FORMATS,
-  slideFormatConfig,
-  type SlideFormat,
-} from "@/lib/presentation/slide-format";
-import {
   canAddImage,
   dataUrlByteSize,
   isEmptyImageSrc,
@@ -85,7 +79,6 @@ export interface SlideInspectorProps {
    * upload path (issue #247). The inspector never mutates it.
    */
   deck: Deck;
-  slideFormat: SlideFormat | undefined;
   visuals: ReadonlyMap<string, Visual>;
   selectedElementId: string | null;
   onSelectElement: (id: string | null) => void;
@@ -103,7 +96,6 @@ export interface SlideInspectorProps {
   onBringToFront: (id: string) => void;
   onSendToBack: (id: string) => void;
   // Style
-  onSlideFormatChange: (format: SlideFormat) => void;
   onBackgroundChange: (color: string | undefined) => void;
   onAccentChange: (color: string | undefined) => void;
   // Notes
@@ -485,7 +477,6 @@ export function SlideInspector({
   slide,
   slideIndex,
   deck,
-  slideFormat,
   visuals,
   selectedElementId,
   onSelectElement,
@@ -500,7 +491,6 @@ export function SlideInspector({
   onRemoveElement,
   onBringToFront,
   onSendToBack,
-  onSlideFormatChange,
   onBackgroundChange,
   onAccentChange,
   onNotesChange,
@@ -709,10 +699,6 @@ export function SlideInspector({
 
         {tab === "style" ? (
           <div className="flex flex-col gap-4">
-            <SlideFormatControl
-              value={resolveSlideFormat(slideFormat)}
-              onChange={onSlideFormatChange}
-            />
             <ColorOverride
               label="Background"
               value={slide.background}
@@ -754,49 +740,6 @@ export function SlideInspector({
         ) : null}
       </div>
     </aside>
-  );
-}
-
-function SlideFormatControl({
-  value,
-  onChange,
-}: {
-  value: SlideFormat;
-  onChange: (format: SlideFormat) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      <span className="text-xs font-medium text-ds-text-secondary">
-        Slide size
-      </span>
-      <div
-        role="radiogroup"
-        aria-label="Slide size"
-        className="grid grid-cols-2 gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-1"
-      >
-        {SLIDE_FORMATS.map((format) => {
-          const config = slideFormatConfig(format);
-          const active = value === format;
-          return (
-            <button
-              key={format}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              aria-label={config.label}
-              onClick={() => onChange(format)}
-              className={`rounded-ds-sm px-2 py-1.5 text-xs font-medium transition-colors ${
-                active
-                  ? "bg-ds-control text-ds-control-text"
-                  : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
-              } ${FOCUS_RING}`}
-            >
-              {format}
-            </button>
-          );
-        })}
-      </div>
-    </div>
   );
 }
 

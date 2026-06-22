@@ -515,7 +515,7 @@ export function SlideStageEditor({
   return (
     <div
       ref={containerRef}
-      className="relative touch-none overflow-hidden"
+      className="relative touch-none overflow-hidden rounded-ds-sm bg-ds-surface-raised shadow-ds-overlay ring-1 ring-ds-border-strong"
       style={{ width, height }}
       onPointerDown={handleStagePointerDown}
     >

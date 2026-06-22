@@ -86,7 +86,10 @@ import {
   type SlideLayout,
 } from "@/lib/presentation/deck";
 import {
+  resolveSlideFormat,
   slideAspectRatio,
+  SLIDE_FORMATS,
+  slideFormatConfig,
   type SlideFormat,
 } from "@/lib/presentation/slide-format";
 import {
@@ -211,6 +214,21 @@ function buildDefaultElement(
   }
 }
 
+function slideElementTypeLabel(element: SlideElement): string {
+  switch (element.kind) {
+    case "text":
+      return element.role === "title" ? "Title" : "Text";
+    case "bullets":
+      return "Bullets";
+    case "image":
+      return "Image";
+    case "shape":
+      return "Shape";
+    case "visual":
+      return "Visual";
+  }
+}
+
 export function SlideEditor({
   deck: deckProp,
   visuals,
@@ -233,11 +251,13 @@ export function SlideEditor({
   } = useDeckHistory(deckProp, onDeckChangeProp);
 
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [railOpen, setRailOpen] = useState(true);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   // Whether the mobile inspector bottom sheet is open (below `lg`; the inspector
   // is a fixed side pane at `lg+`). Issue #209.
   const [inspectorSheetOpen, setInspectorSheetOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(true);
   const [stageBounds, setStageBounds] = useState<Size>(DEFAULT_SCREEN_SIZE);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(
     null,
@@ -453,6 +473,20 @@ export function SlideEditor({
     }
     return next;
   }, [selectedSlide?.elements, selectedElementIds]);
+  const selectionSummary = useMemo(() => {
+    if (effectiveSelectedElementIds.size > 1) {
+      return `${effectiveSelectedElementIds.size} elements selected`;
+    }
+    if (!effectiveSelectedElementId || !selectedSlide?.elements) {
+      return "No element selected";
+    }
+    const element = selectedSlide.elements.find(
+      (candidate) => candidate.id === effectiveSelectedElementId,
+    );
+    return element
+      ? `${slideElementTypeLabel(element)} selected`
+      : "No element selected";
+  }, [effectiveSelectedElementId, effectiveSelectedElementIds, selectedSlide]);
   const activeSlideAspectRatio = slideAspectRatio(deck.slideFormat);
   // Fit the stage to the deck's slide format — not the viewport's — so
   // cqh-sized slide text never overflows on portrait phones.
@@ -1074,7 +1108,6 @@ export function SlideEditor({
         slide: selectedSlide,
         slideIndex: safeSelected,
         deck,
-        slideFormat: deck.slideFormat,
         visuals,
         selectedElementId: effectiveSelectedElementId,
         onSelectElement: handleSelectElement,
@@ -1094,7 +1127,6 @@ export function SlideEditor({
         onSendToBack: handleSendToBack,
         onBackgroundChange: handleBackgroundChange,
         onAccentChange: handleAccentChange,
-        onSlideFormatChange: handleSlideFormatChange,
         onNotesChange: (notes: string) =>
           handleNotesChange(safeSelected, notes),
       }
@@ -1109,12 +1141,23 @@ export function SlideEditor({
     >
       {/* ── Top bar ─────────────────────────────────────────────────────── */}
       <header className="flex items-center justify-between gap-3 border-b border-ds-border-subtle px-4 py-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <LayoutPanelLeft
-            size={18}
-            aria-hidden="true"
-            className="shrink-0 text-ds-text-secondary"
-          />
+        <div className="flex min-w-0 items-center gap-2">
+          <Tooltip
+            label={railOpen ? "Hide slide thumbnails" : "Show slide thumbnails"}
+            side="bottom"
+          >
+            <IconButton
+              aria-label={
+                railOpen ? "Hide slide thumbnails" : "Show slide thumbnails"
+              }
+              size="sm"
+              variant="plain"
+              active={railOpen}
+              onClick={() => setRailOpen((open) => !open)}
+            >
+              <LayoutPanelLeft aria-hidden className="h-3.5 w-3.5" />
+            </IconButton>
+          </Tooltip>
           <h2 className="truncate text-sm font-semibold text-ds-text-primary">
             Slide editor
           </h2>
@@ -1241,6 +1284,21 @@ export function SlideEditor({
           >
             {isSaving ? "Saving…" : "Save"}
           </button>
+          <Tooltip
+            label={inspectorOpen ? "Hide properties" : "Show properties"}
+            side="bottom"
+          >
+            <IconButton
+              aria-label={inspectorOpen ? "Hide properties" : "Show properties"}
+              size="sm"
+              variant="plain"
+              active={inspectorOpen}
+              className="hidden lg:flex"
+              onClick={() => setInspectorOpen((open) => !open)}
+            >
+              <PanelRight aria-hidden className="h-3.5 w-3.5" />
+            </IconButton>
+          </Tooltip>
           <button
             type="button"
             onClick={handleRequestClose}
@@ -1289,194 +1347,212 @@ export function SlideEditor({
         />
       ) : null}
 
+      {selectedSlide ? (
+        <div
+          role="toolbar"
+          aria-label="Slide editing tools"
+          className="flex flex-wrap items-center gap-2 border-b border-ds-border-subtle bg-ds-surface-base px-3 py-2"
+        >
+          <StageAddButton
+            icon={<Plus size={14} aria-hidden="true" />}
+            label="Slide"
+            onClick={() => handleAddSlide(safeSelected)}
+          />
+          <div
+            className="hidden h-5 w-px shrink-0 bg-ds-border-subtle sm:block"
+            aria-hidden="true"
+          />
+          <div className="flex shrink-0 items-center gap-1.5">
+            <span className="mr-0.5 text-xs font-medium text-ds-text-muted">
+              Insert
+            </span>
+            <StageAddButton
+              icon={<Type size={14} aria-hidden="true" />}
+              label="Text"
+              onClick={() => handleAddElement("text")}
+            />
+            <StageAddButton
+              icon={<List size={14} aria-hidden="true" />}
+              label="Bullets"
+              onClick={() => handleAddElement("bullets")}
+            />
+            <StageAddButton
+              icon={<ImageIcon size={14} aria-hidden="true" />}
+              label="Image"
+              onClick={() => handleAddElement("image")}
+            />
+            <StageAddButton
+              icon={<Shapes size={14} aria-hidden="true" />}
+              label="Shape"
+              onClick={() => handleAddElement("shape")}
+            />
+            <div className="relative">
+              <StageAddButton
+                icon={<Sparkles size={14} aria-hidden="true" />}
+                label="Visual"
+                aria-haspopup="dialog"
+                aria-expanded={visualPickerOpen}
+                onClick={() => setVisualPickerOpen((open) => !open)}
+              />
+              {visualPickerOpen ? (
+                <div className="absolute left-0 top-full z-modal mt-1">
+                  <VisualPicker
+                    visuals={visuals}
+                    onPick={handleAddVisual}
+                    onClose={() => setVisualPickerOpen(false)}
+                  />
+                </div>
+              ) : null}
+            </div>
+          </div>
+          <div
+            className="h-5 w-px shrink-0 bg-ds-border-subtle"
+            aria-hidden="true"
+          />
+          <SlideSizeControl
+            value={resolveSlideFormat(deck.slideFormat)}
+            onChange={handleSlideFormatChange}
+          />
+          <span className="hidden min-w-0 truncate text-xs text-ds-text-muted xl:inline">
+            Slide {safeSelected + 1} of {deck.slides.length} ·{" "}
+            {selectionSummary}
+          </span>
+        </div>
+      ) : null}
+
       {/* ── Body: thumbnail rail · stage · inspector ────────────────────── */}
       {/* Stacks vertically on phones (rail becomes a top strip), three-pane row
           from `sm` up. Issue #209. */}
       <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
         {/* Slide thumbnail rail — vertical column from `sm`, horizontal scrolling
             strip below `sm`. */}
-        <aside className="flex w-full shrink-0 flex-col border-b border-ds-border-subtle sm:w-56 sm:border-b-0 sm:border-r">
-          <div className="flex min-h-0 flex-1 gap-2 overflow-x-auto p-3 sm:block sm:gap-0 sm:overflow-x-visible sm:overflow-y-auto">
-            <ul ref={railListRef} className="flex flex-row gap-2 sm:flex-col">
-              {deck.slides.map((slide, index) => {
-                const selected = index === safeSelected;
-                const dropTarget =
-                  dragOverIndex === index && dragIndex !== index;
-                const dragging = dragIndex === index;
-                const title = deriveSlideTitle(slide, index);
-                const canDelete = deck.slides.length > 1;
-                return (
-                  <li
-                    key={index}
-                    data-slide-thumb
-                    className={`group relative w-40 shrink-0 sm:w-auto ${
-                      dragging ? "opacity-60" : ""
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setVisualPickerOpen(false);
-                        setSelectedIndex(index);
-                      }}
-                      aria-label={`Slide ${index + 1}: ${title}`}
-                      aria-current={selected}
-                      className={`flex w-full flex-col gap-1 rounded-ds-md border p-1.5 text-left transition-colors ${
-                        selected
-                          ? "border-ds-control bg-ds-state-hover"
-                          : "border-transparent hover:bg-ds-state-hover"
-                      } ${dropTarget ? "border-ds-control" : ""} ${FOCUS_RING}`}
+        {railOpen ? (
+          <aside className="flex w-full shrink-0 flex-col border-b border-ds-border-subtle sm:w-56 sm:border-b-0 sm:border-r">
+            <div className="flex min-h-0 flex-1 gap-2 overflow-x-auto p-3 sm:block sm:gap-0 sm:overflow-x-visible sm:overflow-y-auto">
+              <ul ref={railListRef} className="flex flex-row gap-2 sm:flex-col">
+                {deck.slides.map((slide, index) => {
+                  const selected = index === safeSelected;
+                  const dropTarget =
+                    dragOverIndex === index && dragIndex !== index;
+                  const dragging = dragIndex === index;
+                  const title = deriveSlideTitle(slide, index);
+                  const canDelete = deck.slides.length > 1;
+                  return (
+                    <li
+                      key={index}
+                      data-slide-thumb
+                      className={`group relative w-40 shrink-0 sm:w-auto ${
+                        dragging ? "opacity-60" : ""
+                      }`}
                     >
-                      <span className="flex items-center gap-2">
-                        <span className="flex w-4 shrink-0 flex-col items-center gap-1 text-xs tabular-nums text-ds-text-muted">
-                          {index + 1}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setVisualPickerOpen(false);
+                          setSelectedIndex(index);
+                        }}
+                        aria-label={`Slide ${index + 1}: ${title}`}
+                        aria-current={selected}
+                        className={`flex w-full flex-col gap-1 rounded-ds-md border p-1.5 text-left transition-colors ${
+                          selected
+                            ? "border-ds-control bg-ds-state-hover"
+                            : "border-transparent hover:bg-ds-state-hover"
+                        } ${dropTarget ? "border-ds-control" : ""} ${FOCUS_RING}`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="flex w-4 shrink-0 flex-col items-center gap-1 text-xs tabular-nums text-ds-text-muted">
+                            {index + 1}
+                          </span>
+                          <span
+                            className="pointer-events-none block min-w-0 flex-1 overflow-hidden rounded-ds-sm border border-ds-border-subtle"
+                            style={{ aspectRatio: activeSlideAspectRatio }}
+                          >
+                            <SlideCanvas
+                              slide={slide}
+                              visuals={visuals}
+                              preview
+                            />
+                          </span>
                         </span>
                         <span
-                          className="pointer-events-none block min-w-0 flex-1 overflow-hidden rounded-ds-sm border border-ds-border-subtle"
-                          style={{ aspectRatio: activeSlideAspectRatio }}
+                          className="block truncate pl-6 text-xs text-ds-text-secondary"
+                          title={title}
                         >
-                          <SlideCanvas
-                            slide={slide}
-                            visuals={visuals}
-                            preview
-                          />
+                          {title}
                         </span>
-                      </span>
-                      <span
-                        className="block truncate pl-6 text-xs text-ds-text-secondary"
-                        title={title}
-                      >
-                        {title}
-                      </span>
-                    </button>
+                      </button>
 
-                    {/* Drag handle — pointer-based reorder (touch friendly).
+                      {/* Drag handle — pointer-based reorder (touch friendly).
                         A ~44px transparent hit area centred on the slide number
                         gutter; the grip icon is the only visible affordance and
                         reveals on hover. `touch-none` keeps a touch drag from
                         scrolling the rail. Issue #209. */}
-                    <span
-                      role="presentation"
-                      aria-hidden="true"
-                      onPointerDown={(event) => beginReorder(event, index)}
-                      className="absolute left-0 top-0 flex h-11 w-11 cursor-grab touch-none items-center justify-center text-ds-text-muted opacity-0 transition-opacity group-hover:opacity-100"
-                    >
-                      <GripVertical size={14} aria-hidden="true" />
-                    </span>
+                      <span
+                        role="presentation"
+                        aria-hidden="true"
+                        onPointerDown={(event) => beginReorder(event, index)}
+                        className="absolute left-0 top-0 flex h-11 w-11 cursor-grab touch-none items-center justify-center text-ds-text-muted opacity-0 transition-opacity group-hover:opacity-100"
+                      >
+                        <GripVertical size={14} aria-hidden="true" />
+                      </span>
 
-                    {/* Hover/focus action cluster — reveals on group hover or
+                      {/* Hover/focus action cluster — reveals on group hover or
                         keyboard focus so the rail stays clean but every action
                         is keyboard-reachable (issue #212). */}
-                    <div className="absolute right-1 top-1 flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-                      <ThumbnailAction
-                        icon={<ChevronUp size={13} aria-hidden="true" />}
-                        label={`Move slide ${index + 1} up`}
-                        disabled={index === 0}
-                        onClick={() => handleMove(index, -1)}
-                      />
-                      <ThumbnailAction
-                        icon={<ChevronDown size={13} aria-hidden="true" />}
-                        label={`Move slide ${index + 1} down`}
-                        disabled={index === deck.slides.length - 1}
-                        onClick={() => handleMove(index, 1)}
-                      />
-                      <ThumbnailAction
-                        icon={<Copy size={13} aria-hidden="true" />}
-                        label={`Duplicate slide ${index + 1}`}
-                        onClick={() => handleDuplicate(index)}
-                      />
-                      <ThumbnailAction
-                        icon={<Trash2 size={13} aria-hidden="true" />}
-                        label={`Delete slide ${index + 1}`}
-                        disabled={!canDelete}
-                        onClick={() => handleRemove(index)}
-                      />
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+                      <div className="absolute right-1 top-1 flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                        <ThumbnailAction
+                          icon={<ChevronUp size={13} aria-hidden="true" />}
+                          label={`Move slide ${index + 1} up`}
+                          disabled={index === 0}
+                          onClick={() => handleMove(index, -1)}
+                        />
+                        <ThumbnailAction
+                          icon={<ChevronDown size={13} aria-hidden="true" />}
+                          label={`Move slide ${index + 1} down`}
+                          disabled={index === deck.slides.length - 1}
+                          onClick={() => handleMove(index, 1)}
+                        />
+                        <ThumbnailAction
+                          icon={<Copy size={13} aria-hidden="true" />}
+                          label={`Duplicate slide ${index + 1}`}
+                          onClick={() => handleDuplicate(index)}
+                        />
+                        <ThumbnailAction
+                          icon={<Trash2 size={13} aria-hidden="true" />}
+                          label={`Delete slide ${index + 1}`}
+                          disabled={!canDelete}
+                          onClick={() => handleRemove(index)}
+                        />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
 
-            <div className="relative shrink-0 self-center sm:mt-3 sm:self-auto">
-              <button
-                type="button"
-                aria-haspopup="menu"
-                aria-expanded={addTemplateOpen}
-                onClick={() => setAddTemplateOpen((open) => !open)}
-                className={`flex w-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-ds-md border border-dashed border-ds-border-subtle px-3 py-2 text-sm font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary sm:w-full ${FOCUS_RING}`}
-              >
-                <Plus size={15} aria-hidden="true" />
-                Add slide
-              </button>
-              {addTemplateOpen ? (
-                <SlideTemplatePicker
-                  onPick={handleAddTemplate}
-                  onClose={() => setAddTemplateOpen(false)}
-                />
-              ) : null}
-            </div>
-          </div>
-        </aside>
-
-        {/* Stage — large live preview of the selected slide */}
-        <main
-          className="flex min-w-0 flex-1 flex-col"
-          style={{ backgroundColor: selectedTheme.bgColor }}
-        >
-          {/* On-stage element toolbar */}
-          {selectedSlide ? (
-            <div className="flex flex-wrap items-center gap-1.5 border-b border-ds-border-subtle bg-ds-surface-base px-3 py-2">
-              <span className="mr-0.5 text-xs font-medium text-ds-text-muted">
-                Add
-              </span>
-              <StageAddButton
-                icon={<Type size={14} aria-hidden="true" />}
-                label="Text"
-                onClick={() => handleAddElement("text")}
-              />
-              <StageAddButton
-                icon={<List size={14} aria-hidden="true" />}
-                label="Bullets"
-                onClick={() => handleAddElement("bullets")}
-              />
-              <StageAddButton
-                icon={<ImageIcon size={14} aria-hidden="true" />}
-                label="Image"
-                onClick={() => handleAddElement("image")}
-              />
-              <StageAddButton
-                icon={<Shapes size={14} aria-hidden="true" />}
-                label="Shape"
-                onClick={() => handleAddElement("shape")}
-              />
-              <div className="relative">
-                <StageAddButton
-                  icon={<Sparkles size={14} aria-hidden="true" />}
-                  label="Visual"
-                  aria-haspopup="dialog"
-                  aria-expanded={visualPickerOpen}
-                  onClick={() => setVisualPickerOpen((open) => !open)}
-                />
-                {visualPickerOpen ? (
-                  <div className="absolute left-0 top-full z-modal mt-1">
-                    <VisualPicker
-                      visuals={visuals}
-                      onPick={handleAddVisual}
-                      onClose={() => setVisualPickerOpen(false)}
-                    />
-                  </div>
+              <div className="relative shrink-0 self-center sm:mt-3 sm:self-auto">
+                <button
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded={addTemplateOpen}
+                  onClick={() => setAddTemplateOpen((open) => !open)}
+                  className={`flex w-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-ds-md border border-dashed border-ds-border-subtle px-3 py-2 text-sm font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary sm:w-full ${FOCUS_RING}`}
+                >
+                  <Plus size={15} aria-hidden="true" />
+                  Add slide
+                </button>
+                {addTemplateOpen ? (
+                  <SlideTemplatePicker
+                    onPick={handleAddTemplate}
+                    onClose={() => setAddTemplateOpen(false)}
+                  />
                 ) : null}
               </div>
-              <div
-                className="mx-1 hidden h-5 w-px bg-ds-border-subtle sm:block"
-                aria-hidden="true"
-              />
-              <span className="hidden text-xs text-ds-text-muted lg:inline">
-                Double-click text to edit · drag to move · handles to resize
-              </span>
             </div>
-          ) : null}
+          </aside>
+        ) : null}
 
+        {/* Stage — large live preview of the selected slide */}
+        <main className="flex min-w-0 flex-1 flex-col bg-ds-surface-sunken">
           <div
             ref={stageRef}
             className="relative flex min-h-0 flex-1 items-center justify-center p-4 sm:p-6"
@@ -1540,7 +1616,7 @@ export function SlideEditor({
 
         {/* Inspector — desktop side pane (`lg+`). Below `lg` it is hidden and
             instead opened as a bottom sheet via the FAB below. Issue #209. */}
-        {inspectorProps ? (
+        {inspectorProps && inspectorOpen ? (
           <SlideInspector
             {...inspectorProps}
             className="hidden w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle lg:flex"
@@ -1691,6 +1767,43 @@ function StageAddButton({
       {icon}
       {label}
     </button>
+  );
+}
+
+function SlideSizeControl({
+  value,
+  onChange,
+}: {
+  value: SlideFormat;
+  onChange: (format: SlideFormat) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-1">
+      <span className="px-1 text-xs font-medium text-ds-text-muted">Size</span>
+      <div role="radiogroup" aria-label="Slide size" className="flex gap-0.5">
+        {SLIDE_FORMATS.map((format) => {
+          const active = value === format;
+          const config = slideFormatConfig(format);
+          return (
+            <button
+              key={format}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              aria-label={config.label}
+              onClick={() => onChange(format)}
+              className={`rounded-ds-sm px-2 py-1 text-xs font-medium transition-colors ${
+                active
+                  ? "bg-ds-control text-ds-control-text"
+                  : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+              } ${FOCUS_RING}`}
+            >
+              {format}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
