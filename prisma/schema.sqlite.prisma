@@ -89,6 +89,7 @@ model Workspace {
   owner       User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members     WorkspaceMember[]
   documents   Document[]
+  assets      Asset[]
   inviteLinks InviteLink[]
 
   @@index([ownerId])
@@ -135,6 +136,7 @@ model Document {
   tags      Tag[]      @relation("DocumentTags")
   versions  DocumentVersion[]
   commentReads CommentRead[]
+  assets    Asset[]
 
   @@index([ownerId])
   @@index([workspaceId])
@@ -365,4 +367,33 @@ model StripeWebhookEvent {
   id        String   @id
   type      String
   createdAt DateTime @default(now())
+}
+
+// Durable asset record for slide images, background media, and future media
+// types (Epic #374). Each upload is tracked by its storage key so that
+// multiple slide elements can reference the same bytes without duplication.
+// Soft-delete via `deletedAt` preserves the row for version-restore safety;
+// a background cleanup job can permanently remove rows where deletedAt is set
+// and no slide element references the asset.
+model Asset {
+  id           String    @id @default(cuid())
+  documentId   String?
+  workspaceId  String?
+  mimeType     String
+  byteSize     Int
+  widthPx      Int?
+  heightPx     Int?
+  checksum     String
+  storageKey   String    @unique
+  thumbnailKey String?
+  originalName String?
+  createdAt    DateTime  @default(now())
+  deletedAt    DateTime?
+
+  document  Document?  @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  @@index([documentId])
+  @@index([workspaceId])
+  @@index([checksum])
 }
