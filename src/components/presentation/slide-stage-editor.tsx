@@ -2915,6 +2915,17 @@ function ElementContextMenu({
         <>
           <div className="my-1 h-px bg-ds-border-subtle" aria-hidden />
           {canGroup ? item("Group", Group, onGroup) : null}
+          {element?.groupId
+            ? item("Ungroup", Ungroup, () =>
+                onUngroup(element.groupId as string),
+              )
+            : null}
+          <div className="my-1 h-px bg-ds-border-subtle" aria-hidden />
+          {item(
+            allSelectedLocked ? "Unlock" : "Lock",
+            allSelectedLocked ? LockOpen : Lock,
+            () => onToggleLock(element?.id ?? "", !allSelectedLocked),
+          )}
         </>
       ) : null}
       <div className="my-1 h-px bg-ds-border-subtle" aria-hidden />
