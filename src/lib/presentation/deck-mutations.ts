@@ -570,7 +570,41 @@ export function duplicateElements(
   originals.forEach((original, i) => {
     idMap.set(original.id, newElementIds[i]!);
   });
-  const patchedCopies = remapConnectorBindings(copies, idMap, slide.elements);
+  const connectorPatched = remapConnectorBindings(
+    copies,
+    idMap,
+    slide.elements,
+  );
+
+  // Remap groupIds for fully-copied groups (issue #330).
+  // When every element sharing a groupId is in the selection, the copies get a
+  // new shared groupId so the duplicate behaves as an independent group.
+  // When only SOME members of a group are copied, strip groupId from the copies
+  // so we never create a partial group.
+  const groupIdRemap = new Map<string, string>();
+  const groupMembersInSlide = new Map<string, string[]>();
+  for (const el of slide.elements) {
+    if (el.groupId) {
+      const arr = groupMembersInSlide.get(el.groupId) ?? [];
+      arr.push(el.id);
+      groupMembersInSlide.set(el.groupId, arr);
+    }
+  }
+  for (const [gid, memberIds] of groupMembersInSlide) {
+    if (memberIds.every((mid) => ids.has(mid))) {
+      groupIdRemap.set(gid, makeElementId());
+    }
+  }
+  const patchedCopies = connectorPatched.map((copy, i): SlideElement => {
+    const origGroupId = originals[i]?.groupId;
+    if (!origGroupId) return copy;
+    const newGid = groupIdRemap.get(origGroupId);
+    if (newGid) return { ...copy, groupId: newGid };
+    // Partial group — strip groupId from the copy.
+    const stripped = { ...copy };
+    delete (stripped as { groupId?: string }).groupId;
+    return stripped;
+  });
 
   const nextSlide = markElementsEdited({
     ...slide,

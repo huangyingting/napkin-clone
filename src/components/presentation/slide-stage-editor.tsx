@@ -981,6 +981,17 @@ export function SlideStageEditor({
   const marqueeRectRef = useRef<MarqueeRect | null>(null);
   const [marqueeRect, setMarqueeRect] = useState<MarqueeRect | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Group-editing mode (issue #330): when set, clicking an element in this
+  // group selects only that element instead of the whole group.  Set by
+  // double-clicking a grouped element; cleared by clicking outside the group or
+  // on the stage background.
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  // Stable ref so `beginDrag` (memoised with useCallback) always sees the
+  // latest activeGroupId without re-subscribing to pointer listeners.
+  const activeGroupIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    activeGroupIdRef.current = activeGroupId;
+  }, [activeGroupId]);
   // Right-click context menu: viewport coords + the element it targets.
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -1649,14 +1660,26 @@ export function SlideStageEditor({
         onSelectElements(ids, marquee.additive);
       } else if (!marquee.additive) {
         onSelectElement(null);
+        // Bare click on empty stage exits group-editing mode (issue #330).
+        setActiveGroupId(null);
       }
     }
     // A plain click (no movement) on a text/bullets element drops straight into
     // inline editing with the caret at the click point — no double-click needed.
+    // Exception (issue #330): if the element is part of a group and we are NOT
+    // yet in group-editing mode for that group, the click selected the whole
+    // group; skip auto-edit so the user must double-click to enter the group first.
     const drag = dragRef.current;
     if (drag && drag.mode === "move" && !drag.moved) {
       const element = elementsRef.current.find((item) => item.id === drag.id);
-      if (element && (element.kind === "text" || element.kind === "bullets")) {
+      const inGroupEditMode =
+        element?.groupId !== undefined &&
+        activeGroupIdRef.current === element.groupId;
+      if (
+        element &&
+        (element.kind === "text" || element.kind === "bullets") &&
+        (!element.groupId || inGroupEditMode)
+      ) {
         startEditing(element, {
           x: drag.startClientX,
           y: drag.startClientY,
@@ -1702,23 +1725,35 @@ export function SlideStageEditor({
       (event.currentTarget as Element).setPointerCapture(event.pointerId);
       const startElement = elementsRef.current.find((item) => item.id === id);
       const groupId = startElement?.groupId;
-      // Selection: a grouped element selects its whole group; otherwise keep an
-      // existing multi-selection (dragged element becomes primary) or collapse
-      // to a single selection.
-      if (mode === "move" && groupId) {
+      // Group-editing mode (issue #330): if the user has already double-clicked
+      // into a group (activeGroupId === groupId), a subsequent click selects
+      // only the individual element.  Outside that mode, clicking any member of
+      // a group selects the entire group and exits any prior group-editing mode
+      // for a different group.
+      const inGroupEditMode =
+        groupId !== undefined && activeGroupIdRef.current === groupId;
+      if (mode === "move" && groupId && !inGroupEditMode) {
+        // Select whole group and clear any stale group-editing mode.
         const groupIds = elementsRef.current
           .filter((item) => item.groupId === groupId)
           .map((item) => item.id);
         onSelectElements(groupIds);
+        setActiveGroupId(null);
       } else {
+        // Either no group, OR already in group-editing mode → select individual.
         onSelectElement(id, selectedElementIds.has(id) ? "keep" : "replace");
+        // Clicking an element outside the currently active group exits group-edit mode.
+        if (activeGroupIdRef.current && activeGroupIdRef.current !== groupId) {
+          setActiveGroupId(null);
+        }
       }
       // For a move, capture the start boxes of every co-moving member (the whole
       // group, or the current multi-selection) so they translate together.
       let groupBoxes: { id: string; startBox: ElementBox }[] | undefined;
       if (mode === "move") {
         const movingIds = new Set<string>([id]);
-        if (groupId) {
+        if (groupId && !inGroupEditMode) {
+          // Whole-group drag: move all group members together.
           elementsRef.current.forEach((item) => {
             if (item.groupId === groupId) movingIds.add(item.id);
           });
@@ -1914,8 +1949,18 @@ export function SlideStageEditor({
                 if (isEditing) {
                   return;
                 }
+                event.stopPropagation();
+                // Group-editing mode (issue #330).
+                // First double-click on a grouped element enters group-editing
+                // mode (selects only this element).  A second double-click
+                // (already in group-editing mode) proceeds to inline text
+                // editing as normal.
+                if (element.groupId && activeGroupId !== element.groupId) {
+                  setActiveGroupId(element.groupId);
+                  onSelectElement(element.id, "replace");
+                  return;
+                }
                 if (editable) {
-                  event.stopPropagation();
                   startEditing(element);
                 }
               }}
@@ -1949,7 +1994,11 @@ export function SlideStageEditor({
               } ${
                 selected
                   ? "ring-2 ring-[#71717a]"
-                  : "ring-1 ring-transparent hover:ring-1 hover:ring-[#71717a]/60"
+                  : activeGroupId &&
+                      element.groupId === activeGroupId &&
+                      !selected
+                    ? "ring-1 ring-[#71717a]/50 ring-dashed"
+                    : "ring-1 ring-transparent hover:ring-1 hover:ring-[#71717a]/60"
               }`}
               style={{
                 left: `${containerBox.x}%`,

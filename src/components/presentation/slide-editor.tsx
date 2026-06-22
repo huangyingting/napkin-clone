@@ -1707,6 +1707,8 @@ export function SlideEditor({
         onDistribute: handleDistribute,
         onMatchSize: handleMatchSize,
         onArrange: handleArrange,
+        onGroupElements: handleGroupElements,
+        onUngroupElements: handleUngroupElements,
         onBackgroundChange: handleBackgroundChange,
         onBackgroundGradientChange: handleBackgroundGradientChange,
         onBackgroundImageChange: handleBackgroundImageChange,

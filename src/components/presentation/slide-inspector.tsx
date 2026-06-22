@@ -33,6 +33,7 @@ import {
   ChevronDown,
   Copy,
   Expand,
+  Group,
   Italic,
   Link2Off,
   MoveHorizontal,
@@ -41,6 +42,7 @@ import {
   StepBack,
   StepForward,
   Trash2,
+  Ungroup,
   Upload,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -169,6 +171,9 @@ export interface SlideInspectorProps {
   onDistribute?: (ids: string[], mode: DistributeMode) => void;
   onMatchSize?: (ids: string[], mode: MatchSizeMode) => void;
   onArrange?: (ids: string[], mode: ArrangeMode) => void;
+  // Group operations (issue #330)
+  onGroupElements?: (ids: string[]) => void;
+  onUngroupElements?: (groupId: string) => void;
   // Style
   onBackgroundChange: (color: string | undefined) => void;
   onBackgroundGradientChange: (
@@ -1411,20 +1416,27 @@ function ToolRow({
 /**
  * Multi-select tools panel (issue #328).
  * Shown when 2+ elements are selected. Provides align, distribute, match-size,
- * and arrange operations. All operations are undoable as one history step.
+ * arrange, and group/ungroup operations (issue #330).
  */
 function MultiSelectTools({
   selectedIds,
+  sharedGroupId,
   onAlign,
   onDistribute,
   onMatchSize,
   onArrange,
+  onGroupElements,
+  onUngroupElements,
 }: {
   selectedIds: string[];
+  /** Non-null when all selected elements share the same groupId. */
+  sharedGroupId: string | null;
   onAlign?: (ids: string[], mode: AlignMode) => void;
   onDistribute?: (ids: string[], mode: DistributeMode) => void;
   onMatchSize?: (ids: string[], mode: MatchSizeMode) => void;
   onArrange?: (ids: string[], mode: ArrangeMode) => void;
+  onGroupElements?: (ids: string[]) => void;
+  onUngroupElements?: (groupId: string) => void;
 }) {
   const count = selectedIds.length;
   const canDistribute = count >= 3;
@@ -1432,6 +1444,46 @@ function MultiSelectTools({
 
   return (
     <div className="mt-2 border-t border-ds-border-subtle pt-3">
+      {/* Group indicator + group/ungroup (issue #330) */}
+      {sharedGroupId ? (
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Group
+              size={12}
+              className="text-ds-text-muted"
+              aria-hidden="true"
+            />
+            <span className="text-xs font-medium text-ds-text-secondary">
+              Group
+            </span>
+          </div>
+          <Tooltip label="Ungroup elements" side="bottom">
+            <button
+              type="button"
+              onClick={() => onUngroupElements?.(sharedGroupId)}
+              aria-label="Ungroup elements"
+              className={`flex items-center gap-1 rounded-ds-sm px-2 py-1 text-xs text-ds-text-secondary hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
+            >
+              <Ungroup size={12} aria-hidden="true" />
+              Ungroup
+            </button>
+          </Tooltip>
+        </div>
+      ) : (
+        <div className="mb-3 flex items-center justify-end">
+          <Tooltip label="Group selected elements" side="bottom">
+            <button
+              type="button"
+              onClick={() => onGroupElements?.(selectedIds)}
+              aria-label="Group elements"
+              className={`flex items-center gap-1 rounded-ds-sm px-2 py-1 text-xs text-ds-text-secondary hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
+            >
+              <Group size={12} aria-hidden="true" />
+              Group
+            </button>
+          </Tooltip>
+        </div>
+      )}
       <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ds-text-muted">
         {count} elements selected
       </p>
@@ -1574,6 +1626,8 @@ export function SlideInspector({
   onDistribute,
   onMatchSize,
   onArrange,
+  onGroupElements,
+  onUngroupElements,
   onBackgroundChange,
   onBackgroundGradientChange,
   onBackgroundImageChange,
@@ -1645,6 +1699,17 @@ export function SlideInspector({
   const selectedElement =
     elements.find((element) => element.id === selectedElementId) ?? null;
   const orderedElements = [...elements].sort((a, b) => b.zIndex - a.zIndex);
+
+  // Compute whether all selected elements share the same groupId (issue #330).
+  // Used to show the Group indicator and Ungroup button in MultiSelectTools.
+  const sharedGroupId: string | null = (() => {
+    if (!selectedElementIds || selectedElementIds.size < 2) return null;
+    const selElements = elements.filter((el) => selectedElementIds.has(el.id));
+    if (selElements.length < 2) return null;
+    const gid = selElements[0]?.groupId;
+    if (!gid) return null;
+    return selElements.every((el) => el.groupId === gid) ? gid : null;
+  })();
 
   const themeConfig = DECK_THEMES[slide.theme] ?? DECK_THEMES.default;
   const textColorPresets = mergeSwatches(brandSwatches, [
@@ -1791,14 +1856,17 @@ export function SlideInspector({
                 </div>
 
                 {/* Selected element editor */}
-                {/* Multi-select tools panel (issue #328) */}
+                {/* Multi-select tools panel (issue #328, #330) */}
                 {selectedElementIds && selectedElementIds.size >= 2 ? (
                   <MultiSelectTools
                     selectedIds={[...selectedElementIds]}
+                    sharedGroupId={sharedGroupId}
                     onAlign={onAlign}
                     onDistribute={onDistribute}
                     onMatchSize={onMatchSize}
                     onArrange={onArrange}
+                    onGroupElements={onGroupElements}
+                    onUngroupElements={onUngroupElements}
                   />
                 ) : null}
 
