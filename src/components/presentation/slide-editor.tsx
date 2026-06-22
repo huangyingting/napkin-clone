@@ -1003,16 +1003,28 @@ export function SlideEditor({
             event.preventDefault();
             const ids = kElemIds.size > 0 ? [...kElemIds] : [kElemId];
             const copied = slideEls.filter((el) => ids.includes(el.id));
-            if (key === "x") {
-              if (copied.length > 0) {
-                clipboardRef.current = copied.map((el) => structuredClone(el));
+            if (copied.length > 0) {
+              // Partial group copy: clear groupId from clipboard items whose
+              // group is not fully represented in the selection (issue #330).
+              const selectedIdSet = new Set(ids);
+              const partialGroups = new Set<string>();
+              for (const el of slideEls) {
+                const gid = (el as { groupId?: string }).groupId;
+                if (gid && !selectedIdSet.has(el.id)) partialGroups.add(gid);
+              }
+              const clip = copied.map((el) => {
+                const clone = structuredClone(el);
+                const gid = (clone as { groupId?: string }).groupId;
+                if (gid && partialGroups.has(gid)) {
+                  delete (clone as { groupId?: string }).groupId;
+                }
+                return clone;
+              });
+              clipboardRef.current = clip;
+              if (key === "x") {
                 onDeckChange(removeElements(kDeck, kSafe, ids));
                 setSelectedElementId(null);
                 setSelectedElementIds(new Set());
-              }
-            } else {
-              if (copied.length > 0) {
-                clipboardRef.current = copied.map((el) => structuredClone(el));
               }
             }
           }
@@ -1022,6 +1034,16 @@ export function SlideEditor({
           if (clipboardRef.current && clipboardRef.current.length > 0) {
             event.preventDefault();
             const clip = clipboardRef.current;
+            // Remap groupIds in the clipboard: elements that share a groupId in
+            // the clipboard (meaning they were copied as a complete group) get a
+            // fresh shared groupId on paste (issue #330).
+            const clipGroupRemap = new Map<string, string>();
+            for (const el of clip) {
+              const gid = (el as { groupId?: string }).groupId;
+              if (gid && !clipGroupRemap.has(gid)) {
+                clipGroupRemap.set(gid, makeElementId());
+              }
+            }
             let nextDeck = kDeck;
             const newIds: string[] = [];
             for (const el of clip) {
@@ -1033,6 +1055,11 @@ export function SlideEditor({
               clone.id = id;
               clone.box = { ...clone.box, x, y };
               delete (clone as { zIndex?: number }).zIndex;
+              const gid = (clone as { groupId?: string }).groupId;
+              if (gid) {
+                (clone as { groupId?: string }).groupId =
+                  clipGroupRemap.get(gid);
+              }
               nextDeck = addElement(nextDeck, kSafe, clone);
             }
             onDeckChange(nextDeck);
@@ -1049,6 +1076,45 @@ export function SlideEditor({
           );
           return;
         }
+      }
+
+      // Group (Ctrl/⌘+G) and Ungroup (Ctrl/⌘+Shift+G) shortcuts (issue #330).
+      if (mod && !event.altKey && event.key.toLowerCase() === "g") {
+        event.preventDefault();
+        const ids =
+          kElemIds.size > 0 ? [...kElemIds] : kElemId ? [kElemId] : [];
+        if (event.shiftKey) {
+          // Ungroup: clear groupId from every distinct group among the selected elements.
+          const slideEls = kDeck.slides[kSafe]?.elements ?? [];
+          const selectedEls = slideEls.filter((el) => ids.includes(el.id));
+          const gids = new Set(
+            selectedEls
+              .map((el) => (el as { groupId?: string }).groupId)
+              .filter((g): g is string => !!g),
+          );
+          if (gids.size > 0) {
+            let nextDeck = kDeck;
+            for (const gid of gids) {
+              nextDeck = ungroupElements(nextDeck, kSafe, gid);
+            }
+            onDeckChange(nextDeck);
+          }
+        } else {
+          // Group: requires at least 2 elements.
+          if (ids.length >= 2) {
+            const { deck: next, groupId } = groupElements(kDeck, kSafe, ids);
+            onDeckChange(next);
+            // Re-select the new group so all members are highlighted.
+            const newGroupEls = (next.slides[kSafe]?.elements ?? [])
+              .filter((el) => (el as { groupId?: string }).groupId === groupId)
+              .map((el) => el.id);
+            if (newGroupEls.length > 0) {
+              setSelectedElementId(newGroupEls[0] ?? null);
+              setSelectedElementIds(new Set(newGroupEls));
+            }
+          }
+        }
+        return;
       }
 
       // With an element selected, arrow keys nudge it and Delete removes it.
