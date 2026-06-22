@@ -420,7 +420,9 @@ function buildSlideSpec(
   return {
     index,
     background,
-    ...(slide.backgroundImage ? { backgroundImage: slide.backgroundImage } : {}),
+    ...(slide.backgroundImage
+      ? { backgroundImage: slide.backgroundImage }
+      : {}),
     accent,
     ops,
   };
@@ -579,7 +581,10 @@ function applyShapeOp(slide: PptxSlide, op: DeckShapeOp): void {
       y: op.y + op.h / 2,
       w: op.w,
       h: 0,
-      line: { color: op.stroke?.color ?? op.color, width: op.stroke?.width ?? 2 },
+      line: {
+        color: op.stroke?.color ?? op.color,
+        width: op.stroke?.width ?? 2,
+      },
       ...rotate,
     });
     return;

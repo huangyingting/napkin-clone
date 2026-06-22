@@ -625,7 +625,8 @@ export function SlideStageEditor({
       // pixels, so a plain click (no movement) can instead open inline editing.
       if (
         !drag.moved &&
-        (Math.abs(event.clientX - drag.startClientX) > CLICK_MOVE_THRESHOLD_PX ||
+        (Math.abs(event.clientX - drag.startClientX) >
+          CLICK_MOVE_THRESHOLD_PX ||
           Math.abs(event.clientY - drag.startClientY) > CLICK_MOVE_THRESHOLD_PX)
       ) {
         drag.moved = true;
@@ -790,10 +791,7 @@ export function SlideStageEditor({
     const drag = dragRef.current;
     if (drag && drag.mode === "move" && !drag.moved) {
       const element = elementsRef.current.find((item) => item.id === drag.id);
-      if (
-        element &&
-        (element.kind === "text" || element.kind === "bullets")
-      ) {
+      if (element && (element.kind === "text" || element.kind === "bullets")) {
         startEditing(element, {
           x: drag.startClientX,
           y: drag.startClientY,
@@ -803,13 +801,7 @@ export function SlideStageEditor({
     dragRef.current = null;
     setActiveDrag(null);
     setSnapGuides([]);
-  }, [
-    onSelectElement,
-    onSelectElements,
-    stageAspect,
-    visuals,
-    startEditing,
-  ]);
+  }, [onSelectElement, onSelectElements, stageAspect, visuals, startEditing]);
 
   useEffect(() => {
     window.addEventListener("pointermove", handlePointerMove);
@@ -970,8 +962,7 @@ export function SlideStageEditor({
           // editing text, so width / font can be adjusted without leaving the
           // caret. Ambiguous across a multi-selection, so single-only. Hidden
           // for locked elements.
-          const showHandles =
-            isPrimary && !isMultiSelect && !element.locked;
+          const showHandles = isPrimary && !isMultiSelect && !element.locked;
           return (
             <div
               key={element.id}
@@ -1251,7 +1242,12 @@ function FloatingElementToolbar({
     <div
       ref={ref}
       onPointerDown={(event) => event.stopPropagation()}
-      style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: OVERLAY_Z }}
+      style={{
+        position: "fixed",
+        top: pos.top,
+        left: pos.left,
+        zIndex: OVERLAY_Z,
+      }}
       className="flex items-center gap-1 rounded-ds-lg border border-ds-border-subtle bg-ds-surface-overlay p-1 shadow-ds-popover"
     >
       {children}
@@ -1314,7 +1310,10 @@ function ElementToolbarContent({
     "#ffffff",
     "#000000",
   ]);
-  const shapeColorPresets = mergeSwatches(brandSwatches, DEFAULT_SWATCH_PRESETS);
+  const shapeColorPresets = mergeSwatches(
+    brandSwatches,
+    DEFAULT_SWATCH_PRESETS,
+  );
   return (
     <>
       {element.kind === "text" || element.kind === "bullets" ? (
@@ -1433,13 +1432,16 @@ function ElementContextMenu({
     <div
       ref={ref}
       onPointerDown={(event) => event.stopPropagation()}
-      style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: OVERLAY_Z }}
+      style={{
+        position: "fixed",
+        top: pos.top,
+        left: pos.left,
+        zIndex: OVERLAY_Z,
+      }}
       className={cx("w-48", MENU_CHROME)}
       role="menu"
     >
-      {editable
-        ? item("Edit text", Pencil, () => onEdit(element))
-        : null}
+      {editable ? item("Edit text", Pencil, () => onEdit(element)) : null}
       {item("Duplicate", Copy, () => onDuplicate(element.id))}
       {item("Copy", Copy, onCopy)}
       {item("Cut", Scissors, onCut)}
@@ -1612,7 +1614,9 @@ function InlineTextEditor({
     lineHeight: kind === "text" ? 1.15 : 1.2,
     wordBreak: "break-word",
     ...(element.style.underline ? { textDecoration: "underline" } : {}),
-    ...(element.style.fontFamily ? { fontFamily: element.style.fontFamily } : {}),
+    ...(element.style.fontFamily
+      ? { fontFamily: element.style.fontFamily }
+      : {}),
   } as CSSProperties & Record<string, string>;
   if (kind === "bullets") {
     editableStyle["--ds-bullet-accent"] = accent;
