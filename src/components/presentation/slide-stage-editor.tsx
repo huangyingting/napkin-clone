@@ -54,6 +54,7 @@ import { FOCUS_RING } from "@/components/motion/control-styles";
 import { cx, MENU_CHROME, MENU_ITEM } from "@/components/ui/tokens";
 import type { ElementBox, Slide, SlideElement } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
+import { elementAccessibleName } from "@/lib/presentation/element-accessible-name";
 import { type SnapGuide, snapBox } from "@/lib/presentation/element-snap";
 import { mergeSwatches } from "@/lib/presentation/text-style";
 import {
@@ -1008,7 +1009,7 @@ export function SlideStageEditor({
               key={element.id}
               role="button"
               tabIndex={0}
-              aria-label={`${element.kind} element`}
+              aria-label={elementAccessibleName(element)}
               aria-pressed={selected}
               onPointerDown={(event) => {
                 if (isEditing || element.locked) {
@@ -1440,16 +1441,45 @@ function ElementContextMenu({
       left: Math.min(x, window.innerWidth - el.offsetWidth - 8),
     });
   }, [x, y]);
+
+  // Focus first menu item on open and handle Arrow key navigation.
   useEffect(() => {
-    const close = () => onClose();
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+    const menu = ref.current;
+    if (!menu) return;
+    const items = () =>
+      Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+    items()[0]?.focus();
+
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+      const els = items();
+      const idx = els.indexOf(document.activeElement as HTMLElement);
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        els[(idx + 1) % els.length]?.focus();
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        els[(idx - 1 + els.length) % els.length]?.focus();
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        els[0]?.focus();
+      } else if (event.key === "End") {
+        event.preventDefault();
+        els[els.length - 1]?.focus();
+      }
+    }
+
+    menu.addEventListener("keydown", onKey);
+    const close = (event: PointerEvent) => {
+      if (!menu.contains(event.target as Node)) onClose();
     };
     window.addEventListener("pointerdown", close);
-    window.addEventListener("keydown", onKey);
     return () => {
+      menu.removeEventListener("keydown", onKey);
       window.removeEventListener("pointerdown", close);
-      window.removeEventListener("keydown", onKey);
     };
   }, [onClose]);
 
@@ -1462,7 +1492,13 @@ function ElementContextMenu({
   const item = (label: string, icon: LucideIcon, onSelect: () => void) => {
     const Icon = icon;
     return (
-      <button type="button" className={MENU_ITEM} onClick={run(onSelect)}>
+      <button
+        type="button"
+        role="menuitem"
+        tabIndex={-1}
+        className={MENU_ITEM}
+        onClick={run(onSelect)}
+      >
         <Icon size={14} aria-hidden="true" className="mr-2 shrink-0" />
         {label}
       </button>
@@ -1480,6 +1516,7 @@ function ElementContextMenu({
       }}
       className={cx("w-48", MENU_CHROME)}
       role="menu"
+      aria-label="Element actions"
     >
       {editable ? item("Edit text", Pencil, () => onEdit(element)) : null}
       {item("Duplicate", Copy, () => onDuplicate(element.id))}
