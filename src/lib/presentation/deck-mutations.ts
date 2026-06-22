@@ -489,6 +489,11 @@ export function duplicateElement(
     zIndex: nextZIndex(slide.elements),
     box: offsetBox(original.box, DUPLICATE_ELEMENT_OFFSET_PCT),
   };
+  // Single-element duplicate is always a partial group copy — clear groupId so
+  // the lone copy is not mistakenly treated as a group member (issue #330).
+  if ((copy as { groupId?: string }).groupId) {
+    delete (copy as { groupId?: string }).groupId;
+  }
 
   // Remap / detach connector endpoints on the copy (issue #324).
   // idMap only contains the duplicated element itself; since the endpoint
@@ -570,7 +575,49 @@ export function duplicateElements(
   originals.forEach((original, i) => {
     idMap.set(original.id, newElementIds[i]!);
   });
-  const patchedCopies = remapConnectorBindings(copies, idMap, slide.elements);
+  const connectorPatched = remapConnectorBindings(
+    copies,
+    idMap,
+    slide.elements,
+  );
+
+  // Remap groupIds on copies (issue #330).
+  // If ALL members of a group on the slide are in the selection → the copies
+  // share a fresh groupId.  If only SOME members are selected (partial group
+  // copy) → groupId is cleared on the copies so they are not accidentally
+  // treated as group members.
+  const slideGroupCount = new Map<string, number>();
+  for (const el of slide.elements) {
+    if (el.groupId)
+      slideGroupCount.set(
+        el.groupId,
+        (slideGroupCount.get(el.groupId) ?? 0) + 1,
+      );
+  }
+  const selectionGroupCount = new Map<string, number>();
+  for (const orig of originals) {
+    if (orig.groupId)
+      selectionGroupCount.set(
+        orig.groupId,
+        (selectionGroupCount.get(orig.groupId) ?? 0) + 1,
+      );
+  }
+  const freshGroupIds = new Map<string, string>();
+  for (const [gid, total] of slideGroupCount) {
+    if ((selectionGroupCount.get(gid) ?? 0) === total) {
+      freshGroupIds.set(gid, makeElementId());
+    }
+  }
+  const patchedCopies = connectorPatched.map((copy, i) => {
+    const origGroupId = (originals[i] as { groupId?: string }).groupId;
+    if (!origGroupId) return copy;
+    const newGid = freshGroupIds.get(origGroupId);
+    if (newGid) return { ...copy, groupId: newGid };
+    // Partial group copy — dissolve membership.
+    const without = { ...copy };
+    delete (without as { groupId?: string }).groupId;
+    return without as SlideElement;
+  });
 
   const nextSlide = markElementsEdited({
     ...slide,
@@ -816,8 +863,14 @@ export function groupElements(
 ): { deck: Deck; groupId: string } {
   const groupId = makeElementId();
   const idSet = new Set(ids);
+  if (idSet.size === 0) {
+    return { deck, groupId };
+  }
   const next = mapSlide(deck, index, (slide) => {
     if (!slide.elements) {
+      return slide;
+    }
+    if (!slide.elements.some((el) => idSet.has(el.id))) {
       return slide;
     }
     return markElementsEdited({
@@ -838,6 +891,9 @@ export function ungroupElements(
 ): Deck {
   return mapSlide(deck, index, (slide) => {
     if (!slide.elements) {
+      return slide;
+    }
+    if (!slide.elements.some((el) => el.groupId === groupId)) {
       return slide;
     }
     return markElementsEdited({

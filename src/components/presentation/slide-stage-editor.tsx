@@ -981,6 +981,9 @@ export function SlideStageEditor({
   const marqueeRectRef = useRef<MarqueeRect | null>(null);
   const [marqueeRect, setMarqueeRect] = useState<MarqueeRect | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Group editing state (issue #330). When non-null, the user has "entered" this
+  // group and pointer-down treats group members as individual elements.
+  const [groupEditingId, setGroupEditingId] = useState<string | null>(null);
   // Right-click context menu: viewport coords + the element it targets.
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -1079,6 +1082,26 @@ export function SlideStageEditor({
     ) ?? null;
   const activeEditingId = editingElement?.id ?? null;
 
+  // Group bounding-box frame (issue #330). Shown when all selected elements share
+  // a groupId but the group is not yet entered (groupEditingId is null).
+  const activeGroupBbox = useMemo(() => {
+    if (groupEditingId) return null;
+    if (selectedElements.length < 2) return null;
+    const gid = (selectedElements[0] as { groupId?: string }).groupId;
+    if (!gid) return null;
+    if (
+      !selectedElements.every(
+        (el) => (el as { groupId?: string }).groupId === gid,
+      )
+    )
+      return null;
+    const transformable = selectedElements.filter((el) => !el.locked);
+    if (transformable.length === 0) return null;
+    return selectionBoundingBox(
+      transformable.map((el) => fittedBoxes.get(el.id) ?? el.box),
+    );
+  }, [groupEditingId, selectedElements, fittedBoxes]);
+
   const hiddenElementIds = useMemo(
     () =>
       editingElement &&
@@ -1087,6 +1110,28 @@ export function SlideStageEditor({
         : undefined,
     [editingElement],
   );
+
+  // Exit group editing on Escape (capture phase so it runs before slide-editor's
+  // handler, preventing the selection from also being cleared).
+  useEffect(() => {
+    if (!groupEditingId) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        // Re-select all group members and exit group editing.
+        const members = elementsRef.current
+          .filter(
+            (el) => (el as { groupId?: string }).groupId === groupEditingId,
+          )
+          .map((el) => el.id);
+        onSelectElements(members);
+        setGroupEditingId(null);
+      }
+    }
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [groupEditingId, onSelectElements]);
 
   const handlePointerMove = useCallback(
     (event: PointerEvent) => {
@@ -1701,13 +1746,13 @@ export function SlideStageEditor({
       // leaves the browser viewport, preventing a stuck-drag state (#306).
       (event.currentTarget as Element).setPointerCapture(event.pointerId);
       const startElement = elementsRef.current.find((item) => item.id === id);
-      const groupId = startElement?.groupId;
-      // Selection: a grouped element selects its whole group; otherwise keep an
-      // existing multi-selection (dragged element becomes primary) or collapse
-      // to a single selection.
-      if (mode === "move" && groupId) {
+      const groupId = (startElement as { groupId?: string } | undefined)
+        ?.groupId;
+      // Selection: a grouped element selects its whole group UNLESS we are
+      // already inside group-editing mode for that group (issue #330).
+      if (mode === "move" && groupId && groupId !== groupEditingId) {
         const groupIds = elementsRef.current
-          .filter((item) => item.groupId === groupId)
+          .filter((item) => (item as { groupId?: string }).groupId === groupId)
           .map((item) => item.id);
         onSelectElements(groupIds);
       } else {
@@ -1715,12 +1760,14 @@ export function SlideStageEditor({
       }
       // For a move, capture the start boxes of every co-moving member (the whole
       // group, or the current multi-selection) so they translate together.
+      // In group-editing mode only the individual element moves.
       let groupBoxes: { id: string; startBox: ElementBox }[] | undefined;
       if (mode === "move") {
         const movingIds = new Set<string>([id]);
-        if (groupId) {
+        if (groupId && groupId !== groupEditingId) {
           elementsRef.current.forEach((item) => {
-            if (item.groupId === groupId) movingIds.add(item.id);
+            if ((item as { groupId?: string }).groupId === groupId)
+              movingIds.add(item.id);
           });
         } else if (selectedElementIds.has(id)) {
           selectedElementIds.forEach((sid) => movingIds.add(sid));
@@ -1750,7 +1797,13 @@ export function SlideStageEditor({
       };
       setActiveDrag(mode);
     },
-    [nextGestureKey, onSelectElement, onSelectElements, selectedElementIds],
+    [
+      groupEditingId,
+      nextGestureKey,
+      onSelectElement,
+      onSelectElements,
+      selectedElementIds,
+    ],
   );
 
   const stopEditing = useCallback(() => {
@@ -1914,6 +1967,17 @@ export function SlideStageEditor({
                 if (isEditing) {
                   return;
                 }
+                // Double-click on a grouped element (issue #330):
+                // first double-click enters the group; inside the group, it
+                // falls through to inline editing as normal.
+                const elementGroupId = (element as { groupId?: string })
+                  .groupId;
+                if (elementGroupId && groupEditingId !== elementGroupId) {
+                  event.stopPropagation();
+                  setGroupEditingId(elementGroupId);
+                  onSelectElement(element.id, "replace");
+                  return;
+                }
                 if (editable) {
                   event.stopPropagation();
                   startEditing(element);
@@ -1933,9 +1997,18 @@ export function SlideStageEditor({
                 });
               }}
               onKeyDown={(event) => {
-                if (event.key === "Enter" && editable) {
+                if (event.key === "Enter") {
                   event.preventDefault();
-                  startEditing(element);
+                  // Enter on a grouped element enters the group; inside the
+                  // group it falls through to inline editing (issue #330).
+                  const elementGroupId = (element as { groupId?: string })
+                    .groupId;
+                  if (elementGroupId && groupEditingId !== elementGroupId) {
+                    setGroupEditingId(elementGroupId);
+                    onSelectElement(element.id, "replace");
+                  } else if (editable) {
+                    startEditing(element);
+                  }
                 } else if (event.key === " ") {
                   event.preventDefault();
                   onSelectElement(
@@ -2037,6 +2110,32 @@ export function SlideStageEditor({
             showAdvanced={showAdvanced}
             onBeginDrag={beginMultiDrag}
           />
+        ) : null}
+
+        {/* Group bounding-box frame (issue #330). Shown when all selected
+            elements share a groupId but the group has not been entered yet.
+            Rendered below the multi-select handles so it doesn't intercept
+            pointer events. */}
+        {activeGroupBbox && !marqueeRect && !activeDrag ? (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute"
+            style={{
+              left: `${activeGroupBbox.x}%`,
+              top: `${activeGroupBbox.y}%`,
+              width: `${activeGroupBbox.w}%`,
+              height: `${activeGroupBbox.h}%`,
+              border: "2px dashed var(--ds-accent)",
+              zIndex: 880,
+            }}
+          >
+            <span
+              className="absolute -top-5 left-0 rounded-ds-sm bg-[var(--ds-accent-surface,#e0e7ff)] px-1 text-[10px] font-medium leading-5 text-[var(--ds-accent,#6366f1)]"
+              style={{ whiteSpace: "nowrap" }}
+            >
+              Group
+            </span>
+          </div>
         ) : null}
 
         {/* Marquee (rubber-band) selection rectangle — issue #245. */}

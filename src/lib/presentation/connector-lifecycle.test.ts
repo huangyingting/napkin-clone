@@ -37,8 +37,10 @@ import {
 import {
   duplicateElement,
   duplicateElements,
+  groupElements,
   removeElement,
   removeElements,
+  ungroupElements,
 } from "./deck-mutations";
 
 // ---------------------------------------------------------------------------
@@ -700,4 +702,74 @@ test("duplicateElements original connectors are not modified", () => {
       assert.equal(origConnector.end.elementId, "shape-b");
     }
   }
+});
+
+// ---------------------------------------------------------------------------
+// ungroupElements + connector bindings (issue #330)
+// ---------------------------------------------------------------------------
+
+test("ungroupElements — connectors bound to grouped shapes stay bound after ungroup", () => {
+  const shapeA = makeShape("shape-a", BOX_A);
+  const shapeB = makeShape("shape-b", BOX_B);
+  const connector = makeConnector("conn-1", BOUND_START, BOUND_END);
+  const deck = makeDeck([shapeA, shapeB, connector]);
+
+  // Group both shapes together.
+  const { deck: grouped, groupId } = groupElements(deck, 0, [
+    "shape-a",
+    "shape-b",
+  ]);
+  // Connector bindings must be unaffected by grouping.
+  const groupedConn = grouped.slides[0]!.elements?.find(
+    (el) => el.id === "conn-1",
+  ) as ConnectorElement | undefined;
+  assert.ok(groupedConn);
+  assert.ok("elementId" in (groupedConn?.start ?? {}));
+  assert.ok("elementId" in (groupedConn?.end ?? {}));
+
+  // Now ungroup.
+  const next = ungroupElements(grouped, 0, groupId);
+  const conn = next.slides[0]!.elements?.find((el) => el.id === "conn-1") as
+    | ConnectorElement
+    | undefined;
+
+  assert.ok(conn, "connector still present after ungroup");
+  // start and end must remain bound — ungroupElements must not touch connectors.
+  assert.ok("elementId" in (conn?.start ?? {}), "start still bound");
+  assert.ok("elementId" in (conn?.end ?? {}), "end still bound");
+  if (conn && "elementId" in conn.start && "elementId" in conn.end) {
+    assert.equal(conn.start.elementId, "shape-a");
+    assert.equal(conn.end.elementId, "shape-b");
+  }
+});
+
+test("ungroupElements — connectors bound across group members are preserved with IDs intact", () => {
+  // Connector goes from a grouped shape to an ungrouped shape.
+  const shapeA = makeShape("shape-a", BOX_A); // will be in group
+  const shapeX = makeShape("shape-x", BOX_B); // NOT in group
+  const connector = makeConnector(
+    "conn-1",
+    { elementId: "shape-a", anchor: "right" },
+    { elementId: "shape-x", anchor: "left" },
+  );
+  const deck = makeDeck([shapeA, shapeX, connector]);
+  const { deck: grouped, groupId } = groupElements(deck, 0, ["shape-a"]);
+  const next = ungroupElements(grouped, 0, groupId);
+
+  const conn = next.slides[0]!.elements?.find((el) => el.id === "conn-1") as
+    | ConnectorElement
+    | undefined;
+  assert.ok(conn, "connector present after ungroup");
+  if (conn && "elementId" in conn.start && "elementId" in conn.end) {
+    assert.equal(
+      conn.start.elementId,
+      "shape-a",
+      "start still bound to shape-a",
+    );
+    assert.equal(conn.end.elementId, "shape-x", "end still bound to shape-x");
+  }
+
+  // shape-a must have no groupId anymore.
+  const a = next.slides[0]!.elements?.find((el) => el.id === "shape-a");
+  assert.equal(a?.groupId, undefined, "shape-a has no groupId after ungroup");
 });
