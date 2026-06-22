@@ -16,6 +16,10 @@ import {
   migrateSlideToFreeForm,
 } from "./deck";
 import { type AlignMode, alignBoxes } from "./element-align";
+import {
+  remapConnectorBindings,
+  updateConnectorBindingsOnDelete,
+} from "./connector-lifecycle";
 
 /**
  * `Omit` that distributes over a discriminated union, preserving each member's
@@ -478,9 +482,19 @@ export function duplicateElement(
     box: offsetBox(original.box, DUPLICATE_ELEMENT_OFFSET_PCT),
   };
 
+  // Remap / detach connector endpoints on the copy (issue #324).
+  // idMap only contains the duplicated element itself; since the endpoint
+  // shapes are not being duplicated, any bound endpoint is detached.
+  const idMap = new Map([[elementId, newElementId]]);
+  const [patchedCopy = copy] = remapConnectorBindings(
+    [copy],
+    idMap,
+    slide.elements,
+  );
+
   const nextSlide = markElementsEdited({
     ...slide,
-    elements: [...slide.elements, copy],
+    elements: [...slide.elements, patchedCopy],
   });
   const slides = deck.slides.map((current, i) =>
     i === index ? nextSlide : current,
@@ -541,9 +555,18 @@ export function duplicateElements(
     };
   });
 
+  // Remap / detach connector endpoints on the copies (issue #324).
+  // Endpoints bound to an id in idMap (both shapes in selection) are remapped
+  // to the copy; endpoints bound to an id outside idMap are detached.
+  const idMap = new Map<string, string>();
+  originals.forEach((original, i) => {
+    idMap.set(original.id, newElementIds[i]!);
+  });
+  const patchedCopies = remapConnectorBindings(copies, idMap, slide.elements);
+
   const nextSlide = markElementsEdited({
     ...slide,
-    elements: [...slide.elements, ...copies],
+    elements: [...slide.elements, ...patchedCopies],
   });
   const slides = deck.slides.map((current, i) =>
     i === index ? nextSlide : current,
@@ -552,19 +575,29 @@ export function duplicateElements(
   return { deck: { ...deck, slides }, newElementIds };
 }
 
-/** Removes an element from a slide by id. */
+/**
+ * Removes an element from a slide by id.
+ *
+ * Before removing the element, any {@link ConnectorElement} (or legacy
+ * `shape:"line"` with connector bindings) whose endpoint references the
+ * deleted element id has that endpoint **detached** to a free point at the
+ * anchor's last resolved position (issue #324 — delete policy: keep connector,
+ * clear binding).
+ */
 export function removeElement(
   deck: Deck,
   index: number,
   elementId: string,
 ): Deck {
+  const deletedIds = new Set([elementId]);
   return mapSlide(deck, index, (slide) => {
     if (!slide.elements) {
       return slide;
     }
+    const patched = updateConnectorBindingsOnDelete(slide.elements, deletedIds);
     return markElementsEdited({
       ...slide,
-      elements: slide.elements.filter((element) => element.id !== elementId),
+      elements: patched.filter((element) => element.id !== elementId),
     });
   });
 }
@@ -577,6 +610,10 @@ export function removeElement(
  * immutable; like every element mutation it clears `elementsDerived`. A no-op
  * (empty `elementIds`, bad index, no `elements[]`, or no id present) returns the
  * same slide reference so a `commit` of the result is skipped.
+ *
+ * Before removing the elements, any connector endpoint that references a
+ * deleted id is **detached** to a free point (issue #324 — delete policy:
+ * keep connector, clear binding).
  */
 export function removeElements(
   deck: Deck,
@@ -591,7 +628,8 @@ export function removeElements(
     if (!slide.elements) {
       return slide;
     }
-    const next = slide.elements.filter((element) => !ids.has(element.id));
+    const patched = updateConnectorBindingsOnDelete(slide.elements, ids);
+    const next = patched.filter((element) => !ids.has(element.id));
     if (next.length === slide.elements.length) {
       return slide;
     }
