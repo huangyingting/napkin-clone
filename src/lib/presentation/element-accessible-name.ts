@@ -33,8 +33,11 @@ export function elementAccessibleName(element: SlideElement): string {
       const alt = element.alt?.trim();
       return alt ? alt : "Visual";
     }
-    case "shape":
+    case "shape": {
+      const text = element.text?.trim();
+      if (text) return text.length > 60 ? `${text.slice(0, 60)}…` : text;
       return `Shape: ${element.shape}`;
+    }
     default:
       return "Element";
   }

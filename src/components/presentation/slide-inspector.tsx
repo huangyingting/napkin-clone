@@ -63,6 +63,7 @@ import {
   mergeSwatches,
   themeSwatchColors,
 } from "@/lib/presentation/text-style";
+import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 import type { Visual } from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { applyTheme, isThemeActive } from "@/lib/visual/transforms";
@@ -90,6 +91,13 @@ const FONT_FAMILIES: { label: string; value: string }[] = [
 
 const THEME_BACKGROUND_SWATCHES = themeSwatchColors(DECK_THEMES, "bgColor");
 const THEME_ACCENT_SWATCHES = themeSwatchColors(DECK_THEMES, "accentColor");
+
+const DEFAULT_SHAPE_TEXT_STYLE: TextElementStyle = {
+  fontSize: SLIDE_TEXT_FONT_SIZE.text,
+  bold: false,
+  italic: false,
+  align: "center",
+};
 
 type Tab = "content" | "style";
 
@@ -553,6 +561,35 @@ function ElementEditor({
     case "shape":
       return (
         <div className="flex flex-col gap-3">
+          {element.shape !== "line" ? (
+            <>
+              <RichTextBox
+                label="Text"
+                html={runsToHtml(element.textRuns, element.text ?? "")}
+                onChange={({ text, runs }, coalesceKey) =>
+                  onUpdateElement(
+                    element.id,
+                    {
+                      text: text.trim().length > 0 ? text : undefined,
+                      textRuns:
+                        shouldStoreRuns(runs) && text.trim().length > 0
+                          ? runs
+                          : undefined,
+                    },
+                    coalesceKey,
+                  )
+                }
+              />
+              <TextStyleBar
+                variant="compact"
+                style={element.textStyle ?? DEFAULT_SHAPE_TEXT_STYLE}
+                colorPresets={textColorPresets}
+                onChange={(textStyle) =>
+                  onUpdateElement(element.id, { textStyle })
+                }
+              />
+            </>
+          ) : null}
           <label className="block">
             <span className={LABEL_CLASS}>Shape</span>
             <select

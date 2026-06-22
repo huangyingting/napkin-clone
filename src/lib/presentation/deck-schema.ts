@@ -11,6 +11,8 @@ import {
   DECK_THEMES,
   SLIDE_LAYOUTS,
   makeSlideId,
+  type ConnectorAnchor,
+  type ConnectorBinding,
   type Deck,
   type DeckTheme,
   type ElementAlign,
@@ -73,6 +75,13 @@ const SHAPE_KINDS: readonly ShapeKind[] = [
   "ellipse",
   "line",
   "triangle",
+];
+const CONNECTOR_ANCHORS: readonly ConnectorAnchor[] = [
+  "center",
+  "top",
+  "bottom",
+  "left",
+  "right",
 ];
 
 function isHexColor(value: unknown): value is string {
@@ -154,6 +163,49 @@ function validateTextRun(input: unknown, context: string): TextRun {
   if (input.color !== undefined) run.color = input.color as string;
   if (input.link !== undefined) run.link = input.link as string;
   return run;
+}
+
+function validateConnectorBinding(
+  input: unknown,
+  context: string,
+): ConnectorBinding {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  const endpoint = (
+    value: unknown,
+    endpointContext: string,
+  ): { elementId: string; anchor: ConnectorAnchor } | undefined => {
+    if (value === undefined) return undefined;
+    if (!isPlainObject(value)) {
+      throw new DeckValidationError(`${endpointContext} must be an object`);
+    }
+    if (typeof value.elementId !== "string" || value.elementId.length === 0) {
+      throw new DeckValidationError(
+        `${endpointContext}.elementId must be a non-empty string`,
+      );
+    }
+    if (
+      typeof value.anchor !== "string" ||
+      !CONNECTOR_ANCHORS.includes(value.anchor as ConnectorAnchor)
+    ) {
+      throw new DeckValidationError(
+        `${endpointContext}.anchor must be one of: ${CONNECTOR_ANCHORS.join(", ")}`,
+      );
+    }
+    return {
+      elementId: value.elementId,
+      anchor: value.anchor as ConnectorAnchor,
+    };
+  };
+  return {
+    ...(endpoint(input.start, `${context}.start`) !== undefined
+      ? { start: endpoint(input.start, `${context}.start`) }
+      : {}),
+    ...(endpoint(input.end, `${context}.end`) !== undefined
+      ? { end: endpoint(input.end, `${context}.end`) }
+      : {}),
+  };
 }
 
 function validateTextRuns(value: unknown, context: string): TextRun[] {
@@ -340,6 +392,21 @@ function validateElement(input: unknown, context: string): SlideElement {
         kind: "shape",
         shape: input.shape as ShapeKind,
         color: input.color,
+        ...(typeof input.text === "string" ? { text: input.text } : {}),
+        ...(input.textRuns !== undefined
+          ? { textRuns: validateTextRuns(input.textRuns, `${context}.textRuns`) }
+          : {}),
+        ...(input.textStyle !== undefined
+          ? { textStyle: validateTextStyle(input.textStyle, `${context}.textStyle`) }
+          : {}),
+        ...(input.connector !== undefined
+          ? {
+              connector: validateConnectorBinding(
+                input.connector,
+                `${context}.connector`,
+              ),
+            }
+          : {}),
         ...(stroke !== undefined ? { stroke } : {}),
         ...(radius !== undefined ? { radius } : {}),
       };

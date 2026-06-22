@@ -207,6 +207,18 @@ export interface TextElementStyle {
 
 export type ShapeKind = "rect" | "ellipse" | "line" | "triangle";
 
+export type ConnectorAnchor = "center" | "top" | "bottom" | "left" | "right";
+
+export interface ConnectorEndpoint {
+  elementId: string;
+  anchor: ConnectorAnchor;
+}
+
+export interface ConnectorBinding {
+  start?: ConnectorEndpoint;
+  end?: ConnectorEndpoint;
+}
+
 interface BaseElement {
   /** Stable identifier, unique within a slide. */
   id: string;
@@ -301,6 +313,12 @@ export interface ShapeElement extends BaseElement {
   shape: ShapeKind;
   /** Hex fill (rect/ellipse/triangle) or stroke (line) color. */
   color: string;
+  /** Optional centered label rendered inside non-line shapes. */
+  text?: string;
+  /** Optional rich-text runs for the shape label. */
+  textRuns?: TextRun[];
+  /** Optional style for the shape label; falls back to a centered body style. */
+  textStyle?: TextElementStyle;
   /**
    * Optional stroke: a border for rect/ellipse, ignored for triangle, and the
    * line thickness/color for "line". Width is in `cqmin` units so it scales
@@ -309,6 +327,8 @@ export interface ShapeElement extends BaseElement {
   stroke?: { color: string; width: number };
   /** Optional corner radius for a rect, as a percent of the box (0–50). */
   radius?: number;
+  /** Optional endpoint bindings for line shapes used as connectors. */
+  connector?: ConnectorBinding;
 }
 
 /** Discriminated union of every free-form slide element. */

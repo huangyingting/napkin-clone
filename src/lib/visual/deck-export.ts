@@ -29,12 +29,15 @@
 import PptxGenJS from "pptxgenjs";
 
 import type {
+  ConnectorAnchor,
+  ConnectorEndpoint,
   Deck,
   DeckTheme,
   ElementAlign,
   ElementBox,
   ShapeKind,
   Slide,
+  SlideElement,
   TextRun,
 } from "@/lib/presentation/deck";
 import { materializeSlideElements } from "@/lib/presentation/deck";
@@ -192,6 +195,15 @@ export interface DeckShapeOp extends InchBox {
   shape: ShapeKind;
   /** Hex color without leading `#`. */
   color: string;
+  /** Optional centered label inside the shape. */
+  text?: string;
+  textRuns?: TextRun[];
+  textColor?: string;
+  fontSize?: number;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  align?: ElementAlign;
   /** Optional border/line stroke; `width` already converted to points. */
   stroke?: { color: string; width: number };
   /** Optional rect corner radius, already converted to inches. */
@@ -257,6 +269,57 @@ function fontSizePt(percentOfHeight: number, geometry: DeckGeometry): number {
   return Math.max(6, Math.round((percentOfHeight / 100) * geometry.slideHPt));
 }
 
+function connectorAnchorPoint(
+  box: ElementBox,
+  anchor: ConnectorAnchor,
+): { x: number; y: number } {
+  switch (anchor) {
+    case "top":
+      return { x: box.x + box.w / 2, y: box.y };
+    case "bottom":
+      return { x: box.x + box.w / 2, y: box.y + box.h };
+    case "left":
+      return { x: box.x, y: box.y + box.h / 2 };
+    case "right":
+      return { x: box.x + box.w, y: box.y + box.h / 2 };
+    case "center":
+    default:
+      return { x: box.x + box.w / 2, y: box.y + box.h / 2 };
+  }
+}
+
+function resolveConnectorPoint(
+  endpoint: ConnectorEndpoint | undefined,
+  elements: readonly SlideElement[],
+): { x: number; y: number } | null {
+  if (!endpoint) return null;
+  const element = elements.find((candidate) => candidate.id === endpoint.elementId);
+  return element ? connectorAnchorPoint(element.box, endpoint.anchor) : null;
+}
+
+function lineBoxFromConnectorPoints(
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  heightPct: number,
+  geometry: DeckGeometry,
+): { box: ElementBox; rotation?: number } {
+  const stageAspect = geometry.slideW / geometry.slideH;
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const width = Math.max(1, Math.sqrt(dx * dx + (dy / stageAspect) ** 2));
+  const rotation = (Math.atan2(dy / stageAspect, dx) * 180) / Math.PI;
+  const roundedRotation = Math.round(rotation);
+  return {
+    box: {
+      x: (start.x + end.x) / 2 - width / 2,
+      y: (start.y + end.y) / 2 - heightPct / 2,
+      w: width,
+      h: heightPct,
+    },
+    ...(roundedRotation !== 0 ? { rotation: roundedRotation } : {}),
+  };
+}
+
 /**
  * Build a {@link PptxSlideLayout} that fits a visual (in its own canvas units)
  * uniformly inside an inch box, centered. This places a visual element within
@@ -318,9 +381,25 @@ function buildSlideSpec(
   const ops: DeckOp[] = [];
 
   for (const element of elements) {
-    const box = boxToInches(element.box, geometry);
-    if (element.rotation) {
-      box.rotation = element.rotation;
+    let elementBox = element.box;
+    let elementRotation = element.rotation;
+    if (element.kind === "shape" && element.shape === "line") {
+      const start = resolveConnectorPoint(element.connector?.start, elements);
+      const end = resolveConnectorPoint(element.connector?.end, elements);
+      if (start && end) {
+        const resolved = lineBoxFromConnectorPoints(
+          start,
+          end,
+          element.box.h,
+          geometry,
+        );
+        elementBox = resolved.box;
+        elementRotation = resolved.rotation;
+      }
+    }
+    const box = boxToInches(elementBox, geometry);
+    if (elementRotation) {
+      box.rotation = elementRotation;
     }
     if (element.shadow) {
       box.shadow = true;
@@ -370,6 +449,25 @@ function buildSlideSpec(
           ...box,
           shape: element.shape,
           color: toHex(element.color),
+          ...(element.text && element.shape !== "line"
+            ? {
+                text: element.text,
+                ...(element.textRuns && element.textRuns.length > 0
+                  ? { textRuns: element.textRuns }
+                  : {}),
+                textColor: toHex(
+                  element.textStyle?.color ?? colors.body,
+                ),
+                fontSize: fontSizePt(
+                  element.textStyle?.fontSize ?? 4,
+                  geometry,
+                ),
+                bold: element.textStyle?.bold ?? false,
+                italic: element.textStyle?.italic ?? false,
+                ...(element.textStyle?.underline ? { underline: true } : {}),
+                align: element.textStyle?.align ?? "center",
+              }
+            : {}),
           ...(element.stroke
             ? {
                 stroke: {
@@ -572,6 +670,25 @@ function applyBulletsOp(slide: PptxSlide, op: DeckBulletsOp): void {
   slide.addText(runs, shared);
 }
 
+function applyShapeTextOp(slide: PptxSlide, op: DeckShapeOp): void {
+  if (!op.text || op.shape === "line") return;
+  applyTextOp(slide, {
+    kind: "text",
+    text: op.text,
+    ...(op.textRuns && op.textRuns.length > 0 ? { runs: op.textRuns } : {}),
+    x: op.x + op.w * 0.08,
+    y: op.y + op.h * 0.08,
+    w: op.w * 0.84,
+    h: op.h * 0.84,
+    color: op.textColor ?? "18181b",
+    fontSize: op.fontSize ?? 18,
+    bold: op.bold ?? false,
+    italic: op.italic ?? false,
+    ...(op.underline ? { underline: true } : {}),
+    align: op.align ?? "center",
+  });
+}
+
 function applyShapeOp(slide: PptxSlide, op: DeckShapeOp): void {
   const rotate = op.rotation ? { rotate: op.rotation } : {};
   if (op.shape === "line") {
@@ -587,6 +704,7 @@ function applyShapeOp(slide: PptxSlide, op: DeckShapeOp): void {
       },
       ...rotate,
     });
+    applyShapeTextOp(slide, op);
     return;
   }
   if (op.shape === "triangle") {
@@ -620,6 +738,7 @@ function applyShapeOp(slide: PptxSlide, op: DeckShapeOp): void {
     ...rotate,
     ...(op.shadow ? { shadow: SHADOW_OPTS } : {}),
   });
+  applyShapeTextOp(slide, op);
 }
 
 function applyImageOp(slide: PptxSlide, op: DeckImageOp): void {

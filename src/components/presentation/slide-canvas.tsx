@@ -12,6 +12,8 @@ import { memo, type JSX } from "react";
 
 import type {
   BulletsElement,
+  ConnectorAnchor,
+  ConnectorEndpoint,
   DeckTheme,
   ImageElement,
   ShapeElement,
@@ -21,6 +23,7 @@ import type {
   TextRun,
   VisualElement,
 } from "@/lib/presentation/deck";
+import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 import type { Visual } from "@/lib/visual/schema";
 import { applyTheme } from "@/lib/visual/transforms";
 import { isEmptyImageSrc } from "@/lib/presentation/image-element";
@@ -357,6 +360,94 @@ function renderRuns(runs: TextRun[]): JSX.Element[] {
   });
 }
 
+function contrastTextColor(hex: string): string {
+  const raw = hex.replace("#", "");
+  const expanded =
+    raw.length === 3
+      ? raw
+          .split("")
+          .map((part) => `${part}${part}`)
+          .join("")
+      : raw;
+  if (expanded.length < 6) return "#ffffff";
+  const r = Number.parseInt(expanded.slice(0, 2), 16) / 255;
+  const g = Number.parseInt(expanded.slice(2, 4), 16) / 255;
+  const b = Number.parseInt(expanded.slice(4, 6), 16) / 255;
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance > 0.58 ? "#18181b" : "#ffffff";
+}
+
+function ShapeText({ element }: { element: ShapeElement }): JSX.Element | null {
+  const text = element.text?.trim();
+  if (!text || element.shape === "line") return null;
+  const style = element.textStyle ?? {
+    fontSize: SLIDE_TEXT_FONT_SIZE.text,
+    bold: false,
+    italic: false,
+    align: "center" as const,
+  };
+  const color = style.color ?? contrastTextColor(element.color);
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: "8%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color,
+        fontSize: `${style.fontSize}cqh`,
+        fontWeight: style.bold ? 700 : 400,
+        fontStyle: style.italic ? "italic" : "normal",
+        ...(style.underline ? { textDecoration: "underline" } : {}),
+        ...(style.fontFamily ? { fontFamily: style.fontFamily } : {}),
+        textAlign: style.align,
+        lineHeight: 1.15,
+        whiteSpace: "pre-wrap",
+        overflow: "hidden",
+        overflowWrap: "break-word",
+        wordBreak: "normal",
+        pointerEvents: "none",
+      }}
+    >
+      <div style={{ width: "100%" }}>
+        {element.textRuns && element.textRuns.length > 0
+          ? renderRuns(element.textRuns)
+          : element.text}
+      </div>
+    </div>
+  );
+}
+
+function connectorAnchorPoint(
+  box: { x: number; y: number; w: number; h: number },
+  anchor: ConnectorAnchor,
+): { x: number; y: number } {
+  switch (anchor) {
+    case "top":
+      return { x: box.x + box.w / 2, y: box.y };
+    case "bottom":
+      return { x: box.x + box.w / 2, y: box.y + box.h };
+    case "left":
+      return { x: box.x, y: box.y + box.h / 2 };
+    case "right":
+      return { x: box.x + box.w, y: box.y + box.h / 2 };
+    case "center":
+    default:
+      return { x: box.x + box.w / 2, y: box.y + box.h / 2 };
+  }
+}
+
+function resolveConnectorPoint(
+  endpoint: ConnectorEndpoint | undefined,
+  elements: readonly SlideElement[],
+): { x: number; y: number } | null {
+  if (!endpoint) return null;
+  const element = elements.find((candidate) => candidate.id === endpoint.elementId);
+  if (!element) return null;
+  return connectorAnchorPoint(element.box, endpoint.anchor);
+}
+
 function TextElementView({
   element,
   tc,
@@ -593,8 +684,47 @@ function ImageElementView({
   );
 }
 
-function ShapeElementView({ element }: { element: ShapeElement }): JSX.Element {
+function ShapeElementView({
+  element,
+  elements,
+}: {
+  element: ShapeElement;
+  elements: readonly SlideElement[];
+}): JSX.Element {
   if (element.shape === "line") {
+    const start = resolveConnectorPoint(element.connector?.start, elements);
+    const end = resolveConnectorPoint(element.connector?.end, elements);
+    if (start && end) {
+      return (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          style={{
+            position: "absolute",
+            inset: 0,
+            height: "100%",
+            width: "100%",
+            overflow: "visible",
+            zIndex: element.zIndex,
+            ...(element.opacity !== undefined && element.opacity < 1
+              ? { opacity: element.opacity }
+              : {}),
+          }}
+        >
+          <line
+            x1={start.x}
+            y1={start.y}
+            x2={end.x}
+            y2={end.y}
+            stroke={element.stroke?.color ?? element.color}
+            strokeWidth={element.stroke?.width ?? 0.4}
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+      );
+    }
     return (
       <div
         style={{
@@ -618,16 +748,27 @@ function ShapeElementView({ element }: { element: ShapeElement }): JSX.Element {
       <div
         style={{
           ...boxStyle(element),
-          backgroundColor: element.color,
-          clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)",
+          overflow: "hidden",
         }}
-      />
+      >
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundColor: element.color,
+            clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)",
+          }}
+        />
+        <ShapeText element={element} />
+      </div>
     );
   }
   return (
     <div
       style={{
         ...boxStyle(element),
+        overflow: "hidden",
         backgroundColor: element.color,
         borderRadius:
           element.shape === "ellipse"
@@ -641,18 +782,22 @@ function ShapeElementView({ element }: { element: ShapeElement }): JSX.Element {
             }
           : {}),
       }}
-    />
+    >
+      <ShapeText element={element} />
+    </div>
   );
 }
 
 function SlideElementView({
   element,
+  elements,
   tc,
   accent,
   visuals,
   editable,
 }: {
   element: SlideElement;
+  elements: readonly SlideElement[];
   tc: ThemeConfig;
   accent: string;
   visuals: ReadonlyMap<string, Visual>;
@@ -668,7 +813,7 @@ function SlideElementView({
     case "image":
       return <ImageElementView element={element} editable={editable} />;
     case "shape":
-      return <ShapeElementView element={element} />;
+      return <ShapeElementView element={element} elements={elements} />;
     default:
       return null;
   }
@@ -722,6 +867,7 @@ function ElementsSlideLayout({
         <SlideElementView
           key={element.id}
           element={element}
+          elements={ordered}
           tc={tc}
           accent={accent}
           visuals={visuals}

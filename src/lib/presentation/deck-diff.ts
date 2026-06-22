@@ -95,7 +95,9 @@ function contentSignature(slide: Slide): string {
     } else if (element.kind === "image") {
       parts.push(`ei:${element.src.trim()}`);
     } else if (element.kind === "shape") {
-      parts.push(`es:${element.shape}:${element.color}`);
+      parts.push(
+        `es:${element.shape}:${element.color}:${element.text?.trim() ?? ""}`,
+      );
     }
   }
 

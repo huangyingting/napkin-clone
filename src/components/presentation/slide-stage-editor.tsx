@@ -53,9 +53,12 @@ import { ColorPicker, DEFAULT_SWATCH_PRESETS } from "@/components/ui";
 import { FOCUS_RING } from "@/components/motion/control-styles";
 import { cx, MENU_CHROME, MENU_ITEM } from "@/components/ui/tokens";
 import type {
+  ConnectorAnchor,
+  ConnectorEndpoint,
   ElementBox,
   Slide,
   SlideElement,
+  TextElementStyle,
 } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import { elementAccessibleName } from "@/lib/presentation/element-accessible-name";
@@ -82,6 +85,7 @@ import {
   textFitPaddingPct,
   type TextResizeMeasurer,
 } from "@/lib/presentation/text-element-fit";
+import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 import type { Visual } from "@/lib/visual/schema";
 
 type Handle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
@@ -514,6 +518,7 @@ function fitElementBoxToContent(
   element: SlideElement,
   visuals: ReadonlyMap<string, Visual>,
   stageAspect: number,
+  elements: readonly SlideElement[] = [element],
 ): ElementBox {
   switch (element.kind) {
     case "text":
@@ -526,12 +531,23 @@ function fitElementBoxToContent(
         : element.box;
     }
     case "shape":
-      return element.shape === "line"
-        ? positionFitWithinBox(element.box, {
-            w: element.box.w,
-            h: SELECTION_MIN_H_PCT,
-          })
-        : element.box;
+      if (element.shape !== "line") return element.box;
+      const endpoints = resolveLineEndpoints(
+        element,
+        elements,
+        visuals,
+        stageAspect,
+      );
+      const lineBox = lineBoxFromEndpoints(
+        endpoints.start,
+        endpoints.end,
+        element.box.h,
+        stageAspect,
+      ).box;
+      return positionFitWithinBox(
+        lineBox,
+        { w: lineBox.w, h: SELECTION_MIN_H_PCT },
+      );
     case "image":
       return element.box;
   }
@@ -557,6 +573,135 @@ function applyResize(
   return { x, y, w, h };
 }
 
+function lineEndpoints(
+  box: ElementBox,
+  rotation: number | undefined,
+  stageAspect: number,
+): { start: { x: number; y: number }; end: { x: number; y: number } } {
+  const angle = ((rotation ?? 0) * Math.PI) / 180;
+  const centerX = box.x + box.w / 2;
+  const centerY = box.y + box.h / 2;
+  const dx = (Math.cos(angle) * box.w) / 2;
+  const dy = (Math.sin(angle) * box.w * stageAspect) / 2;
+  return {
+    start: { x: centerX - dx, y: centerY - dy },
+    end: { x: centerX + dx, y: centerY + dy },
+  };
+}
+
+function anchorPoint(box: ElementBox, anchor: ConnectorAnchor): { x: number; y: number } {
+  switch (anchor) {
+    case "top":
+      return { x: box.x + box.w / 2, y: box.y };
+    case "bottom":
+      return { x: box.x + box.w / 2, y: box.y + box.h };
+    case "left":
+      return { x: box.x, y: box.y + box.h / 2 };
+    case "right":
+      return { x: box.x + box.w, y: box.y + box.h / 2 };
+    case "center":
+    default:
+      return { x: box.x + box.w / 2, y: box.y + box.h / 2 };
+  }
+}
+
+function resolveConnectorEndpoint(
+  endpoint: ConnectorEndpoint | undefined,
+  elements: readonly SlideElement[],
+  visuals: ReadonlyMap<string, Visual>,
+  stageAspect: number,
+): { x: number; y: number } | null {
+  if (!endpoint) return null;
+  const element = elements.find((item) => item.id === endpoint.elementId);
+  if (!element) return null;
+  return anchorPoint(
+    fitElementBoxToContent(element, visuals, stageAspect, elements),
+    endpoint.anchor,
+  );
+}
+
+function resolveLineEndpoints(
+  element: Extract<SlideElement, { kind: "shape" }>,
+  elements: readonly SlideElement[],
+  visuals: ReadonlyMap<string, Visual>,
+  stageAspect: number,
+): { start: { x: number; y: number }; end: { x: number; y: number } } {
+  const base = lineEndpoints(element.box, element.rotation, stageAspect);
+  if (element.shape !== "line") return base;
+  return {
+    start:
+      resolveConnectorEndpoint(
+        element.connector?.start,
+        elements,
+        visuals,
+        stageAspect,
+      ) ?? base.start,
+    end:
+      resolveConnectorEndpoint(
+        element.connector?.end,
+        elements,
+        visuals,
+        stageAspect,
+      ) ?? base.end,
+  };
+}
+
+function lineBoxFromEndpoints(
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  heightPct: number,
+  stageAspect: number,
+): { box: ElementBox; rotation?: number } {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const width = Math.max(1, Math.sqrt(dx * dx + (dy / stageAspect) ** 2));
+  const centerX = (start.x + end.x) / 2;
+  const centerY = (start.y + end.y) / 2;
+  const rotation = (Math.atan2(dy / stageAspect, dx) * 180) / Math.PI;
+  const box = clampBox({
+    x: centerX - width / 2,
+    y: centerY - heightPct / 2,
+    w: width,
+    h: heightPct,
+  });
+  const normalizedRotation = Math.round(rotation);
+  return {
+    box,
+    rotation: normalizedRotation === 0 ? undefined : normalizedRotation,
+  };
+}
+
+function snapLineEndpoint(
+  point: { x: number; y: number },
+  lineId: string,
+  elements: readonly SlideElement[],
+  visuals: ReadonlyMap<string, Visual>,
+  stageAspect: number,
+): { point: { x: number; y: number }; binding?: ConnectorEndpoint } {
+  const threshold = 5;
+  let bestPoint = point;
+  let bestBinding: ConnectorEndpoint | undefined;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const element of elements) {
+    if (element.id === lineId) continue;
+    if (element.kind === "shape" && element.shape === "line") continue;
+    const box = fitElementBoxToContent(element, visuals, stageAspect, elements);
+    const anchors: ConnectorAnchor[] = ["center", "top", "bottom", "left", "right"];
+    for (const anchor of anchors) {
+      const anchorPosition = anchorPoint(box, anchor);
+      const dx = (anchorPosition.x - point.x) * stageAspect;
+      const dy = anchorPosition.y - point.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance < bestDistance && distance <= threshold) {
+        bestDistance = distance;
+        bestPoint = anchorPosition;
+        bestBinding = { elementId: element.id, anchor };
+      }
+    }
+  }
+  return { point: bestPoint, ...(bestBinding ? { binding: bestBinding } : {}) };
+}
+
 // Each resize handle renders a ~44px transparent hit area (touch target, issue
 // #209) centred on its edge/corner, with a small visible dot drawn at its
 // centre. The −22 offsets are half of that 44px box so the box's centre lands
@@ -566,7 +711,7 @@ const HANDLE_EDGE = -22;
 const HANDLES: {
   handle: Handle;
   cursor: string;
-  style: React.CSSProperties;
+  style: CSSProperties;
 }[] = [
   {
     handle: "nw",
@@ -610,8 +755,12 @@ const HANDLES: {
   },
 ];
 
+const LINE_HANDLES = HANDLES.filter(
+  ({ handle }) => handle === "w" || handle === "e",
+);
+
 function resolveTextColor(
-  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+  element: Extract<SlideElement, { kind: "text" | "bullets" | "shape" }>,
   tc: ThemeConfig,
 ): string {
   if (element.kind === "text") {
@@ -620,7 +769,46 @@ function resolveTextColor(
       (element.role === "title" ? tc.titleColor : tc.bodyColor)
     );
   }
-  return element.style.color ?? tc.bodyColor;
+  if (element.kind === "bullets") {
+    return element.style.color ?? tc.bodyColor;
+  }
+  return element.textStyle?.color ?? contrastTextColor(element.color);
+}
+
+function contrastTextColor(hex: string): string {
+  const raw = hex.replace("#", "");
+  const expanded =
+    raw.length === 3
+      ? raw
+          .split("")
+          .map((part) => `${part}${part}`)
+          .join("")
+      : raw;
+  if (expanded.length < 6) return "#ffffff";
+  const r = Number.parseInt(expanded.slice(0, 2), 16) / 255;
+  const g = Number.parseInt(expanded.slice(2, 4), 16) / 255;
+  const b = Number.parseInt(expanded.slice(4, 6), 16) / 255;
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance > 0.58 ? "#18181b" : "#ffffff";
+}
+
+function defaultShapeTextStyle(): TextElementStyle {
+  return {
+    fontSize: SLIDE_TEXT_FONT_SIZE.text,
+    bold: false,
+    italic: false,
+    align: "center" as const,
+  };
+}
+
+function isInlineEditableElement(
+  element: SlideElement,
+): element is Extract<SlideElement, { kind: "text" | "bullets" | "shape" }> {
+  return (
+    element.kind === "text" ||
+    element.kind === "bullets" ||
+    (element.kind === "shape" && element.shape !== "line")
+  );
 }
 
 /**
@@ -769,7 +957,7 @@ export function SlideStageEditor({
     for (const element of elements) {
       map.set(
         element.id,
-        fitElementBoxToContent(element, visuals, stageAspect),
+        fitElementBoxToContent(element, visuals, stageAspect, elements),
       );
     }
     return map;
@@ -798,12 +986,16 @@ export function SlideStageEditor({
       (element) =>
         element.id === editingId &&
         element.id === selectedElementId &&
-        (element.kind === "text" || element.kind === "bullets"),
+        isInlineEditableElement(element),
     ) ?? null;
   const activeEditingId = editingElement?.id ?? null;
 
   const hiddenElementIds = useMemo(
-    () => (editingElement ? new Set([editingElement.id]) : undefined),
+    () =>
+      editingElement &&
+      (editingElement.kind === "text" || editingElement.kind === "bullets")
+        ? new Set([editingElement.id])
+        : undefined,
     [editingElement],
   );
 
@@ -931,7 +1123,19 @@ export function SlideStageEditor({
               y: drag.startBox.y + mdy,
             });
             setSnapGuides([]);
-            onUpdateElement(drag.id, { box }, drag.coalesceKey);
+            const moving = elementsRef.current.find(
+              (element) => element.id === drag.id,
+            );
+            onUpdateElement(
+              drag.id,
+              {
+                box,
+                ...(moving?.kind === "shape" && moving.shape === "line"
+                  ? { connector: undefined }
+                  : {}),
+              },
+              drag.coalesceKey,
+            );
             return;
           }
           const moved = clampBox({
@@ -942,11 +1146,28 @@ export function SlideStageEditor({
           const others = elementsRef.current
             .filter((element) => element.id !== drag.id)
             .map((element) =>
-              fitElementBoxToContent(element, visuals, stageAspect),
+              fitElementBoxToContent(
+                element,
+                visuals,
+                stageAspect,
+                elementsRef.current,
+              ),
             );
           const { box, guides } = snapBox(moved, others, SNAP_THRESHOLD_PCT);
           setSnapGuides(guides);
-          onUpdateElement(drag.id, { box }, drag.coalesceKey);
+          const moving = elementsRef.current.find(
+            (element) => element.id === drag.id,
+          );
+          onUpdateElement(
+            drag.id,
+            {
+              box,
+              ...(moving?.kind === "shape" && moving.shape === "line"
+                ? { connector: undefined }
+                : {}),
+            },
+            drag.coalesceKey,
+          );
           return;
         }
 
@@ -991,6 +1212,53 @@ export function SlideStageEditor({
           } else {
             onUpdateElement(drag.id, { box }, drag.coalesceKey);
           }
+        } else if (
+          resized?.kind === "shape" &&
+          resized.shape === "line" &&
+          (drag.mode === "w" || drag.mode === "e")
+        ) {
+          const currentPoint = {
+            x: Math.max(
+              0,
+              Math.min(100, ((ev.clientX - rect.left) / rect.width) * 100),
+            ),
+            y: Math.max(
+              0,
+              Math.min(100, ((ev.clientY - rect.top) / rect.height) * 100),
+            ),
+          };
+          const endpoints = resolveLineEndpoints(
+            resized,
+            elementsRef.current,
+            visuals,
+            stageAspect,
+          );
+          const snapped = snapLineEndpoint(
+            currentPoint,
+            resized.id,
+            elementsRef.current,
+            visuals,
+            stageAspect,
+          );
+          const start = drag.mode === "w" ? snapped.point : endpoints.start;
+          const end = drag.mode === "e" ? snapped.point : endpoints.end;
+          const { box, rotation } = lineBoxFromEndpoints(
+            start,
+            end,
+            drag.startBox.h,
+            stageAspect,
+          );
+          const connector = {
+            ...resized.connector,
+            ...(drag.mode === "w"
+              ? { start: snapped.binding }
+              : { end: snapped.binding }),
+          };
+          onUpdateElement(
+            drag.id,
+            { box, rotation, connector },
+            drag.coalesceKey,
+          );
         } else {
           onUpdateElement(
             drag.id,
@@ -1005,7 +1273,7 @@ export function SlideStageEditor({
 
   const startEditing = useCallback(
     (element: SlideElement, caret?: { x: number; y: number } | null) => {
-      if (element.kind === "text" || element.kind === "bullets") {
+      if (isInlineEditableElement(element)) {
         onSelectElement(element.id);
         setEditingId(element.id);
         setEditCoalesceKey(nextGestureKey("edit-text", element.id));
@@ -1037,7 +1305,12 @@ export function SlideStageEditor({
         const ids = boxesIntersectingRect(
           elementsRef.current.map((element) => ({
             id: element.id,
-            box: fitElementBoxToContent(element, visuals, stageAspect),
+            box: fitElementBoxToContent(
+              element,
+              visuals,
+              stageAspect,
+              elementsRef.current,
+            ),
           })),
           finalRect,
         );
@@ -1270,8 +1543,7 @@ export function SlideStageEditor({
           const inSelection = selectedElementIds.has(element.id);
           const selected = isPrimary || inSelection;
           const isEditing = element.id === activeEditingId;
-          const editable =
-            element.kind === "text" || element.kind === "bullets";
+          const editable = isInlineEditableElement(element);
           // Frame = the element box (Canva model). For text it equals fittedBox
           // anyway; the explicit element.box keeps the auto-growing height in
           // sync while editing.
@@ -1372,7 +1644,10 @@ export function SlideStageEditor({
               ) : null}
 
               {showHandles
-                ? HANDLES.map(({ handle, cursor, style }) => (
+                ? (element.kind === "shape" && element.shape === "line"
+                    ? LINE_HANDLES
+                    : HANDLES
+                  ).map(({ handle, cursor, style }) => (
                     <span
                       key={handle}
                       onPointerDown={(event) =>
@@ -1657,6 +1932,16 @@ function ElementToolbarContent({
             aria-label="Shape color"
             presets={shapeColorPresets}
           />
+          {element.shape !== "line" ? (
+            <TextStyleBar
+              variant="compact"
+              style={element.textStyle ?? defaultShapeTextStyle()}
+              colorPresets={textColorPresets}
+              onChange={(textStyle) =>
+                onUpdateElement(element.id, { textStyle })
+              }
+            />
+          ) : null}
           <ToolbarDivider />
         </>
       ) : null}
@@ -1771,7 +2056,7 @@ function ElementContextMenu({
   }, [onClose]);
 
   if (!element || typeof document === "undefined") return null;
-  const editable = element.kind === "text" || element.kind === "bullets";
+  const editable = isInlineEditableElement(element);
   const run = (action: () => void) => () => {
     action();
     onClose();
@@ -1879,7 +2164,7 @@ function InlineTextEditor({
   onChange,
   onCommit,
 }: {
-  element: Extract<SlideElement, { kind: "text" | "bullets" }>;
+  element: Extract<SlideElement, { kind: "text" | "bullets" | "shape" }>;
   color: string;
   accent: string;
   stageHeight: number;
@@ -1910,6 +2195,16 @@ function InlineTextEditor({
       onChange({ text, runs: shouldStoreRuns(runs) ? runs : undefined, box });
       return;
     }
+    if (kind === "shape") {
+      const trimmed = text.trim();
+      onChange({
+        text: trimmed.length > 0 ? text : undefined,
+        textRuns:
+          trimmed.length > 0 && shouldStoreRuns(runs) ? runs : undefined,
+        textStyle: element.textStyle ?? defaultShapeTextStyle(),
+      });
+      return;
+    }
     const lines = splitRunsIntoLines(runs)
       .map((line) => ({
         text: line.text.replace(/\s+$/, ""),
@@ -1922,7 +2217,7 @@ function InlineTextEditor({
       bulletRuns: hasRichBullets ? lines.map((line) => line.runs) : undefined,
       box,
     });
-  }, [kind, onChange, stageHeight, element.box]);
+  }, [kind, onChange, stageHeight, element]);
 
   const commit = useCallback(() => {
     emitChange();
@@ -1940,6 +2235,8 @@ function InlineTextEditor({
     if (!node) return;
     if (kind === "text") {
       node.innerHTML = runsToHtml(element.runs, element.text);
+    } else if (kind === "shape") {
+      node.innerHTML = runsToHtml(element.textRuns, element.text ?? "");
     } else {
       node.innerHTML =
         element.bullets.length > 0
@@ -1973,7 +2270,9 @@ function InlineTextEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fontSizePx = (element.style.fontSize / 100) * stageHeight;
+  const style =
+    kind === "shape" ? (element.textStyle ?? defaultShapeTextStyle()) : element.style;
+  const fontSizePx = (style.fontSize / 100) * stageHeight;
 
   // Mirror the static TextElementView / BulletsElementView text styles exactly
   // so entering edit mode is visually identical — no size / weight / line-height
@@ -1983,14 +2282,14 @@ function InlineTextEditor({
     width: "100%",
     color,
     fontSize: `${fontSizePx}px`,
-    fontWeight: element.style.bold ? 700 : 400,
-    fontStyle: element.style.italic ? "italic" : "normal",
-    textAlign: element.style.align,
-    lineHeight: kind === "text" ? 1.15 : 1.2,
+    fontWeight: style.bold ? 700 : 400,
+    fontStyle: style.italic ? "italic" : "normal",
+    textAlign: style.align,
+    lineHeight: kind === "bullets" ? 1.2 : 1.15,
     wordBreak: "break-word",
-    ...(element.style.underline ? { textDecoration: "underline" } : {}),
-    ...(element.style.fontFamily
-      ? { fontFamily: element.style.fontFamily }
+    ...(style.underline ? { textDecoration: "underline" } : {}),
+    ...(style.fontFamily
+      ? { fontFamily: style.fontFamily }
       : {}),
   } as CSSProperties & Record<string, string>;
   if (kind === "bullets") {
@@ -2013,7 +2312,13 @@ function InlineTextEditor({
       <div
         ref={ref}
         role="textbox"
-        aria-label={kind === "text" ? "Edit text" : "Edit bullets"}
+        aria-label={
+          kind === "bullets"
+            ? "Edit bullets"
+            : kind === "shape"
+              ? "Edit shape text"
+              : "Edit text"
+        }
         aria-multiline="true"
         contentEditable
         suppressContentEditableWarning
