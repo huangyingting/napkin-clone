@@ -69,6 +69,10 @@ import {
   shouldStoreRuns,
   splitRunsIntoLines,
 } from "@/lib/presentation/rich-text-html";
+import {
+  clientPointToStagePct,
+  defaultTextBoxAtPoint,
+} from "@/lib/presentation/canvas-helpers";
 import type { Visual } from "@/lib/visual/schema";
 
 type Handle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
@@ -463,6 +467,12 @@ interface SlideStageEditorProps {
   snapToGrid?: boolean;
   /** The user's brand-kit colors, surfaced first in the element color pickers. */
   brandSwatches?: readonly string[];
+  /**
+   * Double-clicking the empty canvas creates a text element at the given box
+   * and returns its new id (or null if creation failed). The caller owns the
+   * deck mutation so it lands on the undo stack.
+   */
+  onAddTextElement?: (box: ElementBox) => string | null;
 }
 
 export function SlideStageEditor({
@@ -487,6 +497,7 @@ export function SlideStageEditor({
   onUngroupElements,
   snapToGrid = false,
   brandSwatches = [],
+  onAddTextElement,
 }: SlideStageEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -958,6 +969,38 @@ export function SlideStageEditor({
     [activeEditingId],
   );
 
+  // Double-click on the empty stage background (not an element) creates a text
+  // element at the click point and immediately enters inline editing (#298).
+  // Element double-clicks call stopPropagation so they never reach this handler.
+  const handleStageDoubleClick = useCallback(
+    (event: React.MouseEvent) => {
+      if (activeEditingId || !onAddTextElement) {
+        return;
+      }
+      const container = containerRef.current;
+      if (!container) {
+        return;
+      }
+      const rect = container.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        return;
+      }
+      const { x: xPct, y: yPct } = clientPointToStagePct(
+        event.clientX,
+        event.clientY,
+        rect,
+      );
+      const box = defaultTextBoxAtPoint(xPct, yPct);
+      const newId = onAddTextElement(box);
+      if (newId) {
+        setEditingId(newId);
+        setEditCoalesceKey(nextGestureKey("edit-text", newId));
+        setPendingCaret(null);
+      }
+    },
+    [activeEditingId, nextGestureKey, onAddTextElement],
+  );
+
   const badge =
     activeDrag && selectedElementBox
       ? formatBadge(activeDrag, selectedElementBox)
@@ -969,6 +1012,7 @@ export function SlideStageEditor({
       className="relative touch-none overflow-hidden rounded-ds-sm bg-ds-surface-raised shadow-ds-overlay ring-1 ring-ds-border-strong"
       style={{ width, height }}
       onPointerDown={handleStagePointerDown}
+      onDoubleClick={handleStageDoubleClick}
     >
       <div className="pointer-events-none absolute inset-0">
         <SlideCanvas
@@ -978,6 +1022,19 @@ export function SlideStageEditor({
           editable
         />
       </div>
+
+      {/* Empty-state hint — only when the slide has no elements (#298).
+          pointer-events-none so it never intercepts clicks or double-clicks. */}
+      {elements.length === 0 ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 flex items-center justify-center"
+        >
+          <p className="select-none text-center text-sm leading-relaxed text-ds-text-muted opacity-50">
+            Click to add a title · Double-click to add text · Drag a visual here
+          </p>
+        </div>
+      ) : null}
 
       {/* Interaction layer */}
       <div className="absolute inset-0">
