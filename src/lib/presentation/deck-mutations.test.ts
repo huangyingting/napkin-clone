@@ -22,6 +22,7 @@ import {
   sendElementToBack,
   setDeckSlideFormat,
   setDeckTheme,
+  setElementPatches,
   setSlideAccent,
   setSlideBackground,
   slideNeedsMaterialization,
@@ -934,4 +935,57 @@ test("alignElements is a no-op when no named ids are present", () => {
   const deck = deckWithBoxes();
   const next = alignElements(deck, 0, ["nope"], "left");
   assert.equal(next.slides[0].elements, deck.slides[0].elements);
+});
+
+// ---------------------------------------------------------------------------
+// setElementPatches — batch lock (#328)
+// ---------------------------------------------------------------------------
+
+test("setElementPatches locks all named elements in a single batch", () => {
+  const deck = deckWithBoxes();
+  const byId = (d: Deck, id: string) =>
+    d.slides[0].elements!.find((e) => e.id === id)!;
+
+  const patches = { a: { locked: true }, b: { locked: true } };
+  const next = setElementPatches(deck, 0, patches);
+
+  assert.equal(byId(next, "a").locked, true);
+  assert.equal(byId(next, "b").locked, true);
+  // c is not in the patch map — must be unchanged.
+  assert.equal(byId(next, "c").locked, undefined);
+  // Original deck untouched.
+  assert.equal(byId(deck, "a").locked, undefined);
+});
+
+test("setElementPatches unlocks all named elements in a single batch", () => {
+  const deck = deckWithBoxes();
+  const byId = (d: Deck, id: string) =>
+    d.slides[0].elements!.find((e) => e.id === id)!;
+
+  // First lock a and b.
+  const locked = setElementPatches(deck, 0, {
+    a: { locked: true },
+    b: { locked: true },
+  });
+  // Then unlock them via a second batch.
+  const unlocked = setElementPatches(locked, 0, {
+    a: { locked: false },
+    b: { locked: false },
+  });
+
+  assert.equal(byId(unlocked, "a").locked, false);
+  assert.equal(byId(unlocked, "b").locked, false);
+  // c was never touched.
+  assert.equal(byId(unlocked, "c").locked, undefined);
+});
+
+test("setElementPatches preserves element kind and id", () => {
+  const deck = deckWithBoxes();
+  const byId = (d: Deck, id: string) =>
+    d.slides[0].elements!.find((e) => e.id === id)!;
+
+  const next = setElementPatches(deck, 0, { a: { locked: true } });
+  const el = byId(next, "a");
+  assert.equal(el.id, "a");
+  assert.equal(el.kind, "shape");
 });

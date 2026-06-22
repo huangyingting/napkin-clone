@@ -1339,6 +1339,16 @@ export function SlideEditor({
     [deck, onDeckChange, safeSelected],
   );
 
+  const handleLockElements = useCallback(
+    (ids: string[], locked: boolean) => {
+      const patchesById = Object.fromEntries(
+        ids.map((id) => [id, { locked } as ElementPatch]),
+      );
+      onDeckChange(setElementPatches(deck, safeSelected, patchesById));
+    },
+    [deck, onDeckChange, safeSelected],
+  );
+
   const handleGroupElements = useCallback(
     (ids: string[]) => {
       if (ids.length < 2) return;
@@ -2343,6 +2353,7 @@ export function SlideEditor({
                 onDistributeElements={handleDistributeElements}
                 onMatchSizeElements={handleMatchSizeElements}
                 onArrangeElements={handleArrangeElements}
+                onLockElements={handleLockElements}
                 snapToGrid={snapToGrid}
                 brandSwatches={brandSwatches}
                 onAddTextElement={handleAddTextElement}

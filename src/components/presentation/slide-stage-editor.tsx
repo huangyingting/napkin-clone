@@ -948,6 +948,8 @@ interface SlideStageEditorProps {
   onDistributeElements?: (mode: DistributeMode) => void;
   onMatchSizeElements?: (mode: MatchSizeMode) => void;
   onArrangeElements?: (direction: ArrangeDirection) => void;
+  /** Locks or unlocks all provided element ids in a single history step (#328). */
+  onLockElements?: (ids: string[], locked: boolean) => void;
   /** When true, element moves snap to a fixed grid. */
   snapToGrid?: boolean;
   /** The user's brand-kit colors, surfaced first in the element color pickers. */
@@ -992,6 +994,7 @@ export function SlideStageEditor({
   onDistributeElements,
   onMatchSizeElements,
   onArrangeElements,
+  onLockElements,
   snapToGrid = false,
   brandSwatches = [],
   onAddTextElement,
@@ -2266,6 +2269,8 @@ export function SlideStageEditor({
             onDistributeElements={onDistributeElements}
             onMatchSizeElements={onMatchSizeElements}
             onArrangeElements={onArrangeElements}
+            onLockElements={onLockElements}
+            selectedIds={[...selectedElementIds]}
           />
         ) : null}
       </div>
@@ -2631,6 +2636,8 @@ function ElementContextMenu({
   onDistributeElements,
   onMatchSizeElements,
   onArrangeElements,
+  onLockElements,
+  selectedIds,
 }: {
   x: number;
   y: number;
@@ -2661,6 +2668,10 @@ function ElementContextMenu({
   onDistributeElements?: (mode: DistributeMode) => void;
   onMatchSizeElements?: (mode: MatchSizeMode) => void;
   onArrangeElements?: (direction: ArrangeDirection) => void;
+  /** Locks/unlocks all selected elements in a single batch (#328). */
+  onLockElements?: (ids: string[], locked: boolean) => void;
+  /** The currently selected element ids, used for batch lock in multi-select. */
+  selectedIds?: string[];
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ top: y, left: x });
@@ -2924,7 +2935,7 @@ function ElementContextMenu({
           {item(
             allSelectedLocked ? "Unlock" : "Lock",
             allSelectedLocked ? LockOpen : Lock,
-            () => onToggleLock(element?.id ?? "", !allSelectedLocked),
+            () => onLockElements?.(selectedIds ?? [], !allSelectedLocked),
           )}
         </>
       ) : null}
