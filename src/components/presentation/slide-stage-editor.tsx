@@ -55,6 +55,7 @@ import { ColorPicker, DEFAULT_SWATCH_PRESETS } from "@/components/ui";
 import { FOCUS_RING } from "@/components/motion/control-styles";
 import { cx, MENU_CHROME, MENU_ITEM } from "@/components/ui/tokens";
 import type {
+  BulletItem,
   ConnectorAnchor,
   ConnectorElement,
   ConnectorEndpoint,
@@ -63,6 +64,7 @@ import type {
   SlideElement,
   TextElementStyle,
 } from "@/lib/presentation/deck";
+import { normalizeBulletItems } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import { detachConnectorEndpoint } from "@/lib/presentation/connector-lifecycle";
 import { elementAccessibleName } from "@/lib/presentation/element-accessible-name";
@@ -2758,6 +2760,12 @@ function InlineTextEditor({
   // the caret while the user types.
   const caretRef = useRef(caretClient);
 
+  // Per-item indent / listType metadata for bullets (#335).
+  // Seeded from the element on mount, updated via Tab/Shift+Tab.
+  const itemMetaRef = useRef<
+    Array<{ indent: number; listType: "bullet" | "number" }>
+  >([]);
+
   const emitChange = useCallback(() => {
     const node = ref.current;
     if (!node) return;
@@ -2798,9 +2806,20 @@ function InlineTextEditor({
       }))
       .filter((line) => line.text.length > 0);
     const hasRichBullets = lines.some((line) => shouldStoreRuns(line.runs));
+    // Build items[] merging text/runs from DOM with indent/listType from meta ref.
+    const meta = itemMetaRef.current;
+    const hasMeta = meta.some((m) => m.indent !== 0 || m.listType !== "bullet");
+    const items: BulletItem[] = lines.map((line, i) => ({
+      text: line.text,
+      ...(shouldStoreRuns(line.runs) ? { runs: line.runs } : {}),
+      indent: meta[i]?.indent ?? 0,
+      listType: meta[i]?.listType ?? "bullet",
+    }));
     onChange({
       bullets: lines.map((line) => line.text),
       bulletRuns: hasRichBullets ? lines.map((line) => line.runs) : undefined,
+      // Persist items[] whenever there's any indent/listType metadata (#335).
+      ...(hasMeta || items.length !== lines.length ? { items } : {}),
       ...(autoH ? { box } : {}),
     });
   }, [kind, onChange, stageHeight, element]);
@@ -2824,13 +2843,16 @@ function InlineTextEditor({
     } else if (kind === "shape") {
       node.innerHTML = runsToHtml(element.textRuns, element.text ?? "");
     } else {
+      // Seed indent metadata from authoritative items (#335).
+      const seedItems = normalizeBulletItems(element);
+      itemMetaRef.current = seedItems.map((it) => ({
+        indent: it.indent ?? 0,
+        listType: it.listType ?? "bullet",
+      }));
       node.innerHTML =
-        element.bullets.length > 0
-          ? element.bullets
-              .map(
-                (bullet, i) =>
-                  `<div>${runsToHtml(element.bulletRuns?.[i], bullet)}</div>`,
-              )
+        seedItems.length > 0
+          ? seedItems
+              .map((item) => `<div>${runsToHtml(item.runs, item.text)}</div>`)
               .join("")
           : "<div><br></div>";
     }
@@ -2924,6 +2946,39 @@ function InlineTextEditor({
           if (event.key === "Escape") {
             event.preventDefault();
             commit();
+            return;
+          }
+          // Tab / Shift+Tab in bullet editing: change indent of current item (#335).
+          if (kind === "bullets" && event.key === "Tab") {
+            event.preventDefault();
+            const node = ref.current;
+            const sel = window.getSelection();
+            if (node && sel && sel.rangeCount > 0) {
+              let cursor: Node | null = sel.getRangeAt(0).startContainer;
+              // Walk up to find the direct child <div> of the editable root.
+              while (cursor && cursor.parentNode !== node) {
+                cursor = cursor.parentNode;
+              }
+              if (cursor) {
+                const divs = Array.from(node.children);
+                const lineIdx = divs.indexOf(cursor as Element);
+                if (lineIdx >= 0) {
+                  const meta = itemMetaRef.current;
+                  // Ensure entry exists.
+                  if (!meta[lineIdx]) {
+                    meta[lineIdx] = { indent: 0, listType: "bullet" };
+                  }
+                  const cur = meta[lineIdx].indent;
+                  meta[lineIdx] = {
+                    ...meta[lineIdx],
+                    indent: event.shiftKey
+                      ? Math.max(0, cur - 1)
+                      : Math.min(5, cur + 1),
+                  };
+                  emitChange();
+                }
+              }
+            }
             return;
           }
           // Inline bold / italic shortcuts; re-serialize so the runs persist.

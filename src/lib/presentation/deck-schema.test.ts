@@ -938,3 +938,68 @@ test("safeParseDeck round-trips verticalAlign=middle on a bullets element style"
     }
   }
 });
+
+// ---------------------------------------------------------------------------
+// items[] — multi-level bullets (#335)
+// ---------------------------------------------------------------------------
+
+test("safeParseDeck round-trips items[] with indent and listType", () => {
+  const result = safeParseDeck(
+    bulletsElementWith({
+      items: [
+        { text: "Top level", indent: 0, listType: "bullet" },
+        { text: "Nested", indent: 1, listType: "number" },
+        { text: "Deep", indent: 2, listType: "bullet" },
+      ],
+    }),
+  );
+  assert.equal(result.success, true);
+  if (result.success) {
+    const el = result.data.slides[0].elements?.[0];
+    assert.equal(el?.kind, "bullets");
+    if (el?.kind === "bullets") {
+      assert.equal(el.items?.length, 3);
+      assert.equal(el.items?.[0].indent, 0);
+      assert.equal(el.items?.[0].listType, "bullet");
+      assert.equal(el.items?.[1].indent, 1);
+      assert.equal(el.items?.[1].listType, "number");
+      assert.equal(el.items?.[2].indent, 2);
+    }
+  }
+});
+
+test("safeParseDeck rejects indent out of range (>5)", () => {
+  const result = safeParseDeck(
+    bulletsElementWith({
+      items: [{ text: "Too deep", indent: 6, listType: "bullet" }],
+    }),
+  );
+  assert.equal(result.success, false);
+});
+
+test("safeParseDeck rejects invalid listType", () => {
+  const result = safeParseDeck(
+    bulletsElementWith({
+      items: [{ text: "Bad type", listType: "roman" }],
+    }),
+  );
+  assert.equal(result.success, false);
+});
+
+test("safeParseDeck accepts items[] without optional indent/listType", () => {
+  const result = safeParseDeck(
+    bulletsElementWith({
+      items: [{ text: "Simple item" }],
+    }),
+  );
+  assert.equal(result.success, true);
+  if (result.success) {
+    const el = result.data.slides[0].elements?.[0];
+    assert.equal(el?.kind, "bullets");
+    if (el?.kind === "bullets") {
+      assert.equal(el.items?.[0].text, "Simple item");
+      assert.equal(el.items?.[0].indent, undefined);
+      assert.equal(el.items?.[0].listType, undefined);
+    }
+  }
+});

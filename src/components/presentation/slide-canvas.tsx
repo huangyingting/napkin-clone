@@ -11,6 +11,7 @@
 import { memo, useLayoutEffect, useRef, useState, type JSX } from "react";
 
 import type {
+  BulletItem,
   BulletsElement,
   ConnectorElement,
   DeckTheme,
@@ -23,6 +24,7 @@ import type {
   TextRun,
   VisualElement,
 } from "@/lib/presentation/deck";
+import { normalizeBulletItems } from "@/lib/presentation/deck";
 import {
   resolveConnectorElementPoints,
   resolveConnectorEndpoint,
@@ -555,7 +557,36 @@ function BulletsElementView({
     element.fitMode,
   );
   const color = element.style.color ?? tc.bodyColor;
-  const bulletRuns = element.bulletRuns;
+
+  // Resolve authoritative item list (normalises legacy flat bullets on the fly)
+  const items = normalizeBulletItems(element);
+
+  // Pre-compute numbering: track a per-indent counter; reset when a non-number
+  // item appears at the same indent (or any indent ≤ current item's indent).
+  const numbers: (number | null)[] = [];
+  const counters = new Array(6).fill(0) as number[];
+  for (const item of items) {
+    const indent = item.indent ?? 0;
+    const listType = item.listType ?? "bullet";
+    if (listType === "number") {
+      // Reset counters for deeper levels before incrementing this one.
+      for (let d = indent + 1; d < 6; d++) counters[d] = 0;
+      counters[indent]++;
+      numbers.push(counters[indent]);
+    } else {
+      // A bullet item resets the number counter at this depth and below.
+      for (let d = indent; d < 6; d++) counters[d] = 0;
+      numbers.push(null);
+    }
+  }
+
+  /** Bullet marker for a given indent level (bullet type). */
+  function bulletMarker(indent: number): string {
+    if (indent === 0) return "•";
+    if (indent === 1) return "◦";
+    return "–";
+  }
+
   return (
     <ul
       ref={containerRef}
@@ -589,24 +620,58 @@ function BulletsElementView({
           : {}),
       }}
     >
-      {element.bullets.map((bullet, i) => {
-        const runs = bulletRuns?.[i];
+      {items.map((item: BulletItem, i: number) => {
+        const indent = item.indent ?? 0;
+        const listType = item.listType ?? "bullet";
+        const num = numbers[i];
+        const runs = item.runs;
+        const indentEm = indent * 1.5;
         return (
           <li
             key={i}
-            style={{ display: "flex", alignItems: "flex-start", gap: "0.5em" }}
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "0.5em",
+              paddingLeft: indentEm > 0 ? `${indentEm}em` : undefined,
+            }}
           >
-            <span
-              aria-hidden="true"
-              style={{
-                marginTop: "0.45em",
-                height: "0.35em",
-                width: "0.35em",
-                flexShrink: 0,
-                borderRadius: "9999px",
-                backgroundColor: accent,
-              }}
-            />
+            {listType === "number" ? (
+              <span
+                aria-hidden="true"
+                style={{
+                  flexShrink: 0,
+                  color: accent,
+                  minWidth: "1.2em",
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                {num}.
+              </span>
+            ) : (
+              <span
+                aria-hidden="true"
+                style={
+                  indent === 0
+                    ? {
+                        marginTop: "0.45em",
+                        height: "0.35em",
+                        width: "0.35em",
+                        flexShrink: 0,
+                        borderRadius: "9999px",
+                        backgroundColor: accent,
+                      }
+                    : {
+                        flexShrink: 0,
+                        color: accent,
+                        minWidth: "0.8em",
+                        lineHeight: 1,
+                      }
+                }
+              >
+                {indent === 0 ? null : bulletMarker(indent)}
+              </span>
+            )}
             <span
               style={{
                 minWidth: 0,
@@ -614,7 +679,7 @@ function BulletsElementView({
                 wordBreak: "normal",
               }}
             >
-              {runs && runs.length > 0 ? renderRuns(runs) : bullet}
+              {runs && runs.length > 0 ? renderRuns(runs) : item.text}
             </span>
           </li>
         );

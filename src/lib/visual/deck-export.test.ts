@@ -724,3 +724,80 @@ test("legacy line shape with connector binding still emits a shape op", () => {
     "legacy line shape still emits",
   );
 });
+
+// ---------------------------------------------------------------------------
+// Multi-level bullets / numbered lists (#335)
+// ---------------------------------------------------------------------------
+
+test("bullets op carries itemDetails when items have indent or listType", () => {
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [
+      freeFormSlide(0, [
+        bulletsEl("b", ["one", "two", "three"], {
+          items: [
+            { text: "one", indent: 0, listType: "bullet" },
+            { text: "two", indent: 1, listType: "number" },
+            { text: "three", indent: 2, listType: "bullet" },
+          ],
+        }),
+      ]),
+    ],
+  };
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const op = ofKind(spec.ops, "bullets")[0] as DeckBulletsOp;
+  assert.deepEqual(op.items, ["one", "two", "three"]);
+  assert.ok(op.itemDetails, "itemDetails present");
+  assert.equal(op.itemDetails?.[0].indent, 0);
+  assert.equal(op.itemDetails?.[1].indent, 1);
+  assert.equal(op.itemDetails?.[1].listType, "number");
+  assert.equal(op.itemDetails?.[2].indent, 2);
+});
+
+test("bullets op omits itemDetails for a flat bullet list (backward compat)", () => {
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [freeFormSlide(0, [bulletsEl("b", ["alpha", "beta"])])],
+  };
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const op = ofKind(spec.ops, "bullets")[0] as DeckBulletsOp;
+  assert.deepEqual(op.items, ["alpha", "beta"]);
+  assert.equal(op.itemDetails, undefined);
+});
+
+test("bullets op uses items[] text when element has items field", () => {
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [
+      freeFormSlide(0, [
+        bulletsEl("b", ["legacy text"], {
+          items: [{ text: "authoritative text", indent: 0 }],
+        }),
+      ]),
+    ],
+  };
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const op = ofKind(spec.ops, "bullets")[0] as DeckBulletsOp;
+  assert.deepEqual(op.items, ["authoritative text"]);
+});
+
+test("bullets op numbered list carries all items as number listType", () => {
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [
+      freeFormSlide(0, [
+        bulletsEl("b", ["step 1", "step 2"], {
+          items: [
+            { text: "step 1", listType: "number" },
+            { text: "step 2", listType: "number" },
+          ],
+        }),
+      ]),
+    ],
+  };
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const op = ofKind(spec.ops, "bullets")[0] as DeckBulletsOp;
+  assert.ok(op.itemDetails, "itemDetails present for numbered list");
+  assert.equal(op.itemDetails?.[0].listType, "number");
+  assert.equal(op.itemDetails?.[1].listType, "number");
+});
