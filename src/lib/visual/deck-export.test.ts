@@ -462,9 +462,7 @@ test("maskShape is present on op so PDF/image renderers can apply clip (PPTX deg
   // maskShape so that future PDF/canvas renderers can act on it.
   const deck: Deck = {
     theme: "indigo",
-    slides: [
-      freeFormSlide(0, [imageEl("im-circle", { maskShape: "circle" })]),
-    ],
+    slides: [freeFormSlide(0, [imageEl("im-circle", { maskShape: "circle" })])],
   };
 
   const [spec] = buildDeckSpecs(deck, new Map());
