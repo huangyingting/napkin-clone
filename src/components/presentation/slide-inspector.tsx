@@ -52,6 +52,7 @@ import { TextStyleBar } from "@/components/presentation/text-style-bar";
 import { Swatch, Tooltip } from "@/components/ui";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import type {
+  BulletsElement,
   ConnectorArrow,
   ConnectorElement,
   ConnectorEndpoint,
@@ -572,6 +573,227 @@ function FitModeControl({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Vertical align control
+// ---------------------------------------------------------------------------
+
+type VerticalAlignValue = "top" | "middle" | "bottom";
+
+const VERTICAL_ALIGN_OPTIONS: {
+  value: VerticalAlignValue;
+  label: string;
+  title: string;
+}[] = [
+  { value: "top", label: "Top", title: "Align text to top" },
+  { value: "middle", label: "Mid", title: "Center text vertically (default)" },
+  { value: "bottom", label: "Bot", title: "Align text to bottom" },
+];
+
+function VerticalAlignControl({
+  style,
+  onChange,
+}: {
+  style: TextElementStyle;
+  onChange: (style: TextElementStyle) => void;
+}) {
+  const active: VerticalAlignValue = style.verticalAlign ?? "middle";
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className={LABEL_CLASS + " mb-0"}>V-align</span>
+      <div
+        role="radiogroup"
+        aria-label="Vertical text alignment"
+        className="flex gap-0.5"
+      >
+        {VERTICAL_ALIGN_OPTIONS.map(({ value, label, title }) => {
+          const isActive = active === value;
+          return (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={isActive}
+              title={title}
+              onClick={() =>
+                onChange({
+                  ...style,
+                  // "middle" is the default — clear the field to keep the model lean
+                  ...(value === "middle"
+                    ? { verticalAlign: undefined }
+                    : { verticalAlign: value }),
+                })
+              }
+              className={`rounded-ds-sm px-2 py-1 text-xs font-medium transition-colors ${
+                isActive
+                  ? "bg-ds-control text-ds-control-text"
+                  : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+              } ${FOCUS_RING}`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Line height control
+// ---------------------------------------------------------------------------
+
+const LINE_HEIGHT_OPTIONS: { value: number; label: string }[] = [
+  { value: 1.0, label: "1.0" },
+  { value: 1.2, label: "1.2" },
+  { value: 1.5, label: "1.5" },
+  { value: 2.0, label: "2.0" },
+];
+
+function LineHeightControl({
+  style,
+  onChange,
+}: {
+  style: TextElementStyle;
+  onChange: (style: TextElementStyle) => void;
+}) {
+  const active = style.lineHeight ?? 1.2;
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className={LABEL_CLASS + " mb-0"}>Line height</span>
+      <div role="radiogroup" aria-label="Line height" className="flex gap-0.5">
+        {LINE_HEIGHT_OPTIONS.map(({ value, label }) => {
+          const isActive = Math.abs(active - value) < 0.001;
+          return (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={isActive}
+              title={`Line height ${label}`}
+              onClick={() =>
+                onChange({
+                  ...style,
+                  // 1.2 is the default — clear to keep model lean
+                  ...(Math.abs(value - 1.2) < 0.001
+                    ? { lineHeight: undefined }
+                    : { lineHeight: value }),
+                })
+              }
+              className={`rounded-ds-sm px-2 py-1 text-xs font-medium transition-colors ${
+                isActive
+                  ? "bg-ds-control text-ds-control-text"
+                  : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+              } ${FOCUS_RING}`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Paragraph spacing control (text elements)
+// ---------------------------------------------------------------------------
+
+function ParagraphSpacingControl({
+  style,
+  onChange,
+}: {
+  style: TextElementStyle;
+  onChange: (style: TextElementStyle) => void;
+}) {
+  return (
+    <label className="flex items-center justify-between gap-2">
+      <span className={LABEL_CLASS + " mb-0"}>Para spacing</span>
+      <input
+        type="number"
+        min={0}
+        max={20}
+        step={0.5}
+        value={style.paragraphSpacing ?? 0}
+        onChange={(e) => {
+          const v = parseFloat(e.target.value);
+          const next = { ...style };
+          if (!Number.isFinite(v) || v <= 0) {
+            delete next.paragraphSpacing;
+          } else {
+            next.paragraphSpacing = v;
+          }
+          onChange(next);
+        }}
+        className={`w-16 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-right text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
+      />
+    </label>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Bullets-specific: bulletGap and bulletIndent
+// ---------------------------------------------------------------------------
+
+function BulletGapControl({
+  element,
+  onChange,
+}: {
+  element: BulletsElement;
+  onChange: (patch: Partial<BulletsElement>) => void;
+}) {
+  return (
+    <label className="flex items-center justify-between gap-2">
+      <span className={LABEL_CLASS + " mb-0"}>Bullet gap</span>
+      <input
+        type="number"
+        min={0}
+        max={20}
+        step={0.5}
+        value={element.bulletGap ?? 0}
+        onChange={(e) => {
+          const v = parseFloat(e.target.value);
+          if (!Number.isFinite(v) || v <= 0) {
+            onChange({ bulletGap: undefined });
+          } else {
+            onChange({ bulletGap: v });
+          }
+        }}
+        className={`w-16 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-right text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
+      />
+    </label>
+  );
+}
+
+function BulletIndentControl({
+  element,
+  onChange,
+}: {
+  element: BulletsElement;
+  onChange: (patch: Partial<BulletsElement>) => void;
+}) {
+  return (
+    <label className="flex items-center justify-between gap-2">
+      <span className={LABEL_CLASS + " mb-0"}>Bullet indent</span>
+      <input
+        type="number"
+        min={0}
+        max={30}
+        step={1}
+        value={element.bulletIndent ?? 0}
+        onChange={(e) => {
+          const v = parseFloat(e.target.value);
+          if (!Number.isFinite(v) || v <= 0) {
+            onChange({ bulletIndent: undefined });
+          } else {
+            onChange({ bulletIndent: v });
+          }
+        }}
+        className={`w-16 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-right text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
+      />
+    </label>
+  );
+}
+
 function ElementEditor({
   element,
   deck,
@@ -621,6 +843,18 @@ function ElementEditor({
             fitMode={element.fitMode}
             onChange={(fitMode) => onUpdateElement(element.id, { fitMode })}
           />
+          <VerticalAlignControl
+            style={element.style}
+            onChange={(style) => onUpdateElement(element.id, { style })}
+          />
+          <LineHeightControl
+            style={element.style}
+            onChange={(style) => onUpdateElement(element.id, { style })}
+          />
+          <ParagraphSpacingControl
+            style={element.style}
+            onChange={(style) => onUpdateElement(element.id, { style })}
+          />
         </div>
       );
     case "bullets":
@@ -667,6 +901,22 @@ function ElementEditor({
           <FitModeControl
             fitMode={element.fitMode}
             onChange={(fitMode) => onUpdateElement(element.id, { fitMode })}
+          />
+          <VerticalAlignControl
+            style={element.style}
+            onChange={(style) => onUpdateElement(element.id, { style })}
+          />
+          <LineHeightControl
+            style={element.style}
+            onChange={(style) => onUpdateElement(element.id, { style })}
+          />
+          <BulletGapControl
+            element={element}
+            onChange={(patch) => onUpdateElement(element.id, patch)}
+          />
+          <BulletIndentControl
+            element={element}
+            onChange={(patch) => onUpdateElement(element.id, patch)}
           />
         </div>
       );

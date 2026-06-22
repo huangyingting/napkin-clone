@@ -632,6 +632,24 @@ function elementWithMetadata(extra: Record<string, unknown>) {
   ]);
 }
 
+// ---------------------------------------------------------------------------
+// verticalAlign, lineHeight, paragraphSpacing on TextElementStyle (issue #334)
+// ---------------------------------------------------------------------------
+
+function textElementWithStyle(style: unknown) {
+  return elementDeck([
+    {
+      id: "t",
+      kind: "text",
+      role: "body",
+      text: "hi",
+      zIndex: 0,
+      box: { x: 0, y: 0, w: 10, h: 10 },
+      style,
+    },
+  ]);
+}
+
 test("safeParseDeck round-trips hidden=true on a slide element", () => {
   const result = safeParseDeck(elementWithMetadata({ hidden: true }));
   assert.equal(result.success, true);
@@ -683,5 +701,240 @@ test("safeParseDeck omits name when empty string on a slide element", () => {
   if (result.success) {
     const el = result.data.slides[0].elements?.[0];
     assert.equal(el?.name, undefined);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// verticalAlign, lineHeight, paragraphSpacing on TextElementStyle (issue #334)
+// ---------------------------------------------------------------------------
+
+test("safeParseDeck round-trips verticalAlign=top on a text element", () => {
+  const result = safeParseDeck(
+    textElementWithStyle({
+      fontSize: 4,
+      bold: false,
+      italic: false,
+      align: "left",
+      verticalAlign: "top",
+    }),
+  );
+  assert.equal(result.success, true);
+  if (result.success) {
+    const el = result.data.slides[0].elements?.[0];
+    assert.equal(el?.kind, "text");
+    if (el?.kind === "text") {
+      assert.equal(el.style.verticalAlign, "top");
+    }
+  }
+});
+
+test("safeParseDeck round-trips verticalAlign=bottom on a text element", () => {
+  const result = safeParseDeck(
+    textElementWithStyle({
+      fontSize: 4,
+      bold: false,
+      italic: false,
+      align: "left",
+      verticalAlign: "bottom",
+    }),
+  );
+  assert.equal(result.success, true);
+  if (result.success) {
+    const el = result.data.slides[0].elements?.[0];
+    assert.equal(el?.kind, "text");
+    if (el?.kind === "text") {
+      assert.equal(el.style.verticalAlign, "bottom");
+    }
+  }
+});
+
+test("safeParseDeck omits verticalAlign when absent on a text element", () => {
+  const result = safeParseDeck(
+    textElementWithStyle({
+      fontSize: 4,
+      bold: false,
+      italic: false,
+      align: "left",
+    }),
+  );
+  assert.equal(result.success, true);
+  if (result.success) {
+    const el = result.data.slides[0].elements?.[0];
+    assert.equal(el?.kind, "text");
+    if (el?.kind === "text") {
+      assert.equal(el.style.verticalAlign, undefined);
+    }
+  }
+});
+
+test("safeParseDeck rejects an invalid verticalAlign on a text element", () => {
+  const result = safeParseDeck(
+    textElementWithStyle({
+      fontSize: 4,
+      bold: false,
+      italic: false,
+      align: "left",
+      verticalAlign: "center",
+    }),
+  );
+  assert.equal(result.success, false);
+});
+
+test("safeParseDeck round-trips lineHeight on a text element", () => {
+  const result = safeParseDeck(
+    textElementWithStyle({
+      fontSize: 4,
+      bold: false,
+      italic: false,
+      align: "left",
+      lineHeight: 1.5,
+    }),
+  );
+  assert.equal(result.success, true);
+  if (result.success) {
+    const el = result.data.slides[0].elements?.[0];
+    assert.equal(el?.kind, "text");
+    if (el?.kind === "text") {
+      assert.equal(el.style.lineHeight, 1.5);
+    }
+  }
+});
+
+test("safeParseDeck rejects a non-finite lineHeight on a text element", () => {
+  const result = safeParseDeck(
+    textElementWithStyle({
+      fontSize: 4,
+      bold: false,
+      italic: false,
+      align: "left",
+      lineHeight: Infinity,
+    }),
+  );
+  assert.equal(result.success, false);
+});
+
+test("safeParseDeck round-trips paragraphSpacing on a text element", () => {
+  const result = safeParseDeck(
+    textElementWithStyle({
+      fontSize: 4,
+      bold: false,
+      italic: false,
+      align: "left",
+      paragraphSpacing: 2,
+    }),
+  );
+  assert.equal(result.success, true);
+  if (result.success) {
+    const el = result.data.slides[0].elements?.[0];
+    assert.equal(el?.kind, "text");
+    if (el?.kind === "text") {
+      assert.equal(el.style.paragraphSpacing, 2);
+    }
+  }
+});
+
+test("safeParseDeck rejects a non-finite paragraphSpacing on a text element", () => {
+  const result = safeParseDeck(
+    textElementWithStyle({
+      fontSize: 4,
+      bold: false,
+      italic: false,
+      align: "left",
+      paragraphSpacing: NaN,
+    }),
+  );
+  assert.equal(result.success, false);
+});
+
+// ---------------------------------------------------------------------------
+// bulletGap / bulletIndent on BulletsElement (issue #334)
+// ---------------------------------------------------------------------------
+
+function bulletsElementWith(extra: unknown) {
+  return elementDeck([
+    {
+      id: "b",
+      kind: "bullets",
+      bullets: ["one", "two"],
+      zIndex: 0,
+      box: { x: 0, y: 0, w: 10, h: 10 },
+      style: { fontSize: 4, bold: false, italic: false, align: "left" },
+      ...(extra as object),
+    },
+  ]);
+}
+
+test("safeParseDeck round-trips bulletGap on a bullets element", () => {
+  const result = safeParseDeck(bulletsElementWith({ bulletGap: 1.5 }));
+  assert.equal(result.success, true);
+  if (result.success) {
+    const el = result.data.slides[0].elements?.[0];
+    assert.equal(el?.kind, "bullets");
+    if (el?.kind === "bullets") {
+      assert.equal(el.bulletGap, 1.5);
+    }
+  }
+});
+
+test("safeParseDeck omits bulletGap when absent on a bullets element", () => {
+  const result = safeParseDeck(bulletsElementWith({}));
+  assert.equal(result.success, true);
+  if (result.success) {
+    const el = result.data.slides[0].elements?.[0];
+    assert.equal(el?.kind, "bullets");
+    if (el?.kind === "bullets") {
+      assert.equal(el.bulletGap, undefined);
+    }
+  }
+});
+
+test("safeParseDeck rejects a non-finite bulletGap on a bullets element", () => {
+  const result = safeParseDeck(bulletsElementWith({ bulletGap: "wide" }));
+  assert.equal(result.success, false);
+});
+
+test("safeParseDeck round-trips bulletIndent on a bullets element", () => {
+  const result = safeParseDeck(bulletsElementWith({ bulletIndent: 5 }));
+  assert.equal(result.success, true);
+  if (result.success) {
+    const el = result.data.slides[0].elements?.[0];
+    assert.equal(el?.kind, "bullets");
+    if (el?.kind === "bullets") {
+      assert.equal(el.bulletIndent, 5);
+    }
+  }
+});
+
+test("safeParseDeck rejects a non-finite bulletIndent on a bullets element", () => {
+  const result = safeParseDeck(bulletsElementWith({ bulletIndent: null }));
+  assert.equal(result.success, false);
+});
+
+test("safeParseDeck round-trips verticalAlign=middle on a bullets element style", () => {
+  const result = safeParseDeck(
+    elementDeck([
+      {
+        id: "b",
+        kind: "bullets",
+        bullets: ["x"],
+        zIndex: 0,
+        box: { x: 0, y: 0, w: 10, h: 10 },
+        style: {
+          fontSize: 4,
+          bold: false,
+          italic: false,
+          align: "left",
+          verticalAlign: "middle",
+        },
+      },
+    ]),
+  );
+  assert.equal(result.success, true);
+  if (result.success) {
+    const el = result.data.slides[0].elements?.[0];
+    assert.equal(el?.kind, "bullets");
+    if (el?.kind === "bullets") {
+      assert.equal(el.style.verticalAlign, "middle");
+    }
   }
 });

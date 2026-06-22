@@ -75,6 +75,8 @@ function validateStringArray(value: unknown, context: string): string[] {
 }
 
 const ELEMENT_ALIGNS: readonly ElementAlign[] = ["left", "center", "right"];
+const VERTICAL_ALIGNS = ["top", "middle", "bottom"] as const;
+type VerticalAlign = (typeof VERTICAL_ALIGNS)[number];
 const SHAPE_KINDS: readonly ShapeKind[] = [
   "rect",
   "ellipse",
@@ -153,6 +155,31 @@ function validateTextStyle(input: unknown, context: string): TextElementStyle {
   if (input.color !== undefined && !isHexColor(input.color)) {
     throw new DeckValidationError(`${context}.color must be a hex color`);
   }
+  if (
+    input.verticalAlign !== undefined &&
+    !VERTICAL_ALIGNS.includes(input.verticalAlign as VerticalAlign)
+  ) {
+    throw new DeckValidationError(
+      `${context}.verticalAlign must be one of: ${VERTICAL_ALIGNS.join(", ")}`,
+    );
+  }
+  if (
+    input.lineHeight !== undefined &&
+    (typeof input.lineHeight !== "number" || !Number.isFinite(input.lineHeight))
+  ) {
+    throw new DeckValidationError(
+      `${context}.lineHeight must be a finite number`,
+    );
+  }
+  if (
+    input.paragraphSpacing !== undefined &&
+    (typeof input.paragraphSpacing !== "number" ||
+      !Number.isFinite(input.paragraphSpacing))
+  ) {
+    throw new DeckValidationError(
+      `${context}.paragraphSpacing must be a finite number`,
+    );
+  }
   return {
     fontSize: validateFiniteNumber(input.fontSize, `${context}.fontSize`),
     bold: Boolean(input.bold),
@@ -160,6 +187,15 @@ function validateTextStyle(input: unknown, context: string): TextElementStyle {
     align: input.align as ElementAlign,
     ...(input.underline !== undefined
       ? { underline: Boolean(input.underline) }
+      : {}),
+    ...(input.verticalAlign !== undefined
+      ? { verticalAlign: input.verticalAlign as VerticalAlign }
+      : {}),
+    ...(input.lineHeight !== undefined
+      ? { lineHeight: input.lineHeight as number }
+      : {}),
+    ...(input.paragraphSpacing !== undefined
+      ? { paragraphSpacing: input.paragraphSpacing as number }
       : {}),
     ...(input.color !== undefined ? { color: input.color as string } : {}),
     ...(typeof input.fontFamily === "string" && input.fontFamily.length > 0
@@ -344,6 +380,24 @@ function validateElement(input: unknown, context: string): SlideElement {
         input.fitMode,
         `${context}.fitMode`,
       );
+      if (
+        input.bulletGap !== undefined &&
+        (typeof input.bulletGap !== "number" ||
+          !Number.isFinite(input.bulletGap))
+      ) {
+        throw new DeckValidationError(
+          `${context}.bulletGap must be a finite number`,
+        );
+      }
+      if (
+        input.bulletIndent !== undefined &&
+        (typeof input.bulletIndent !== "number" ||
+          !Number.isFinite(input.bulletIndent))
+      ) {
+        throw new DeckValidationError(
+          `${context}.bulletIndent must be a finite number`,
+        );
+      }
       return {
         ...base,
         kind: "bullets",
@@ -358,6 +412,12 @@ function validateElement(input: unknown, context: string): SlideElement {
           : {}),
         style: validateTextStyle(input.style, `${context}.style`),
         ...(bulletsFitMode !== undefined ? { fitMode: bulletsFitMode } : {}),
+        ...(input.bulletGap !== undefined
+          ? { bulletGap: input.bulletGap as number }
+          : {}),
+        ...(input.bulletIndent !== undefined
+          ? { bulletIndent: input.bulletIndent as number }
+          : {}),
       };
     }
     case "visual": {
