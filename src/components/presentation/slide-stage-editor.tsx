@@ -719,8 +719,8 @@ function ConnectorEndpointHandles({
           <span
             className={`h-3 w-3 rounded-full shadow transition-colors ${
               bound
-                ? "border-2 border-white bg-[#3b82f6]"
-                : "border border-white bg-[#71717a]"
+                ? "border-2 border-white bg-ds-accent"
+                : "border border-white bg-ds-stage-muted"
             }`}
           />
         </span>
@@ -1816,8 +1816,8 @@ export function SlideStageEditor({
                     aria-hidden="true"
                     className={`pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full transition-transform ${
                       isHovered
-                        ? "h-3.5 w-3.5 scale-125 border-2 border-white bg-[#3b82f6] shadow-md"
-                        : "h-2.5 w-2.5 border border-white bg-[#71717a]/80 shadow"
+                        ? "h-3.5 w-3.5 scale-125 border-2 border-white bg-ds-accent shadow-md"
+                        : "h-2.5 w-2.5 border border-white bg-ds-stage-muted/80 shadow"
                     }`}
                     style={{ left: `${pt.x}%`, top: `${pt.y}%`, zIndex: 1350 }}
                   />
