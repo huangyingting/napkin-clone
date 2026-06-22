@@ -20,6 +20,7 @@ import type {
   ConnectorElement,
   Deck,
   ImageElement,
+  PlaceholderElement,
   ShapeElement,
   Slide,
   SlideElement,
@@ -31,6 +32,7 @@ import {
   buildDeckSpecs,
   type DeckBulletsOp,
   type DeckConnectorOp,
+  deckExportTestHelpers,
   type DeckOp,
   type DeckTextOp,
 } from "@/lib/visual/deck-export";
@@ -108,7 +110,10 @@ function visualEl(id: string, visualId: string): VisualElement {
   };
 }
 
-function shapeEl(id: string): ShapeElement {
+function shapeEl(
+  id: string,
+  overrides: Partial<ShapeElement> = {},
+): ShapeElement {
   return {
     id,
     kind: "shape",
@@ -116,6 +121,7 @@ function shapeEl(id: string): ShapeElement {
     color: "#ff8800",
     zIndex: 3,
     box: { x: 2, y: 2, w: 20, h: 10 },
+    ...overrides,
   };
 }
 
@@ -127,6 +133,20 @@ function imageEl(id: string): ImageElement {
     alt: "pic",
     zIndex: 4,
     box: { x: 70, y: 2, w: 25, h: 20 },
+  };
+}
+
+function placeholderEl(
+  id: string,
+  overrides: Partial<PlaceholderElement> = {},
+): PlaceholderElement {
+  return {
+    id,
+    kind: "placeholder",
+    placeholderType: "body",
+    zIndex: 2,
+    box: { x: 20, y: 20, w: 30, h: 20 },
+    ...overrides,
   };
 }
 
@@ -188,6 +208,52 @@ function ofKind<K extends DeckOp["kind"]>(
 ): Extract<DeckOp, { kind: K }>[] {
   return ops.filter((o): o is Extract<DeckOp, { kind: K }> => o.kind === kind);
 }
+
+interface RecordedTextCall {
+  text: unknown;
+  options: {
+    rotate?: number;
+    transparency?: number;
+    [key: string]: unknown;
+  };
+}
+
+interface RecordedShapeCall {
+  shape: unknown;
+  options: {
+    rotate?: number;
+    shadow?: unknown;
+    fill?: { color?: string; transparency?: number };
+    line?: {
+      dashType?: string;
+      endArrowType?: string;
+      transparency?: number;
+    };
+    [key: string]: unknown;
+  };
+}
+
+function recordingSlide() {
+  const textCalls: RecordedTextCall[] = [];
+  const shapeCalls: RecordedShapeCall[] = [];
+  const imageCalls: Array<Record<string, unknown>> = [];
+
+  const slide = {
+    addText(text: unknown, options: RecordedTextCall["options"]) {
+      textCalls.push({ text, options });
+    },
+    addShape(shape: unknown, options: RecordedShapeCall["options"]) {
+      shapeCalls.push({ shape, options });
+    },
+    addImage(options: Record<string, unknown>) {
+      imageCalls.push(options);
+    },
+  } as unknown as Parameters<typeof deckExportTestHelpers.applyDeckOp>[0];
+
+  return { slide, textCalls, shapeCalls, imageCalls };
+}
+
+const NO_SVG = () => null;
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -392,6 +458,28 @@ test("a known visual survives alongside an unknown one (only the orphan drops)",
     ofKind(spec.ops, "visual-native").length +
     ofKind(spec.ops, "visual-fallback").length;
   assert.equal(visualOps, 1, "only the resolvable visual emits an op");
+});
+
+test("a transformed visual degrades to a fallback image op instead of losing styling", () => {
+  const visuals = new Map<string, Visual>([["v1", flowchart()]]);
+  const transformed: VisualElement = {
+    ...visualEl("ve", "v1"),
+    rotation: 15,
+    shadow: true,
+    opacity: 0.4,
+  };
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [freeFormSlide(0, [transformed])],
+  };
+
+  const [spec] = buildDeckSpecs(deck, visuals);
+  assert.equal(ofKind(spec.ops, "visual-native").length, 0);
+  const fallback = ofKind(spec.ops, "visual-fallback");
+  assert.equal(fallback.length, 1);
+  assert.equal(fallback[0].rotation, 15);
+  assert.equal(fallback[0].shadow, true);
+  assert.equal(fallback[0].opacity, 0.4);
 });
 
 test("per-slide background and accent overrides are applied", () => {
@@ -723,6 +811,96 @@ test("legacy line shape with connector binding still emits a shape op", () => {
     ofKind(spec.ops, "shape").length >= 1,
     "legacy line shape still emits",
   );
+});
+
+test("shape text is applied to PPTX as a shape plus a text call", async () => {
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [
+      freeFormSlide(0, [
+        shapeEl("shape-text", {
+          text: "Inside",
+          rotation: 18,
+          shadow: true,
+          opacity: 0.25,
+          textStyle: {
+            fontSize: 4,
+            bold: true,
+            italic: false,
+            align: "center",
+          },
+        }),
+      ]),
+    ],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const op = ofKind(spec.ops, "shape")[0];
+  const { slide, shapeCalls, textCalls } = recordingSlide();
+
+  await deckExportTestHelpers.applyDeckOp(slide, op, NO_SVG);
+
+  assert.equal(shapeCalls.length, 1, "shape body emitted");
+  assert.equal(shapeCalls[0]?.shape, "rect");
+  assert.equal(shapeCalls[0]?.options.rotate, 18);
+  assert.deepEqual(
+    shapeCalls[0]?.options.shadow,
+    deckExportTestHelpers.SHADOW_OPTS,
+  );
+  assert.deepEqual(shapeCalls[0]?.options.fill, {
+    color: "FF8800",
+    transparency: 75,
+  });
+  assert.equal(textCalls.length, 1, "shape label emitted");
+  assert.equal(textCalls[0]?.text, "Inside");
+  assert.equal(textCalls[0]?.options.transparency, 75);
+});
+
+test("connector export is applied to PPTX as a line shape", async () => {
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [
+      freeFormSlide(0, [
+        connectorEl("pptx-connector", {
+          dash: true,
+          arrowEnd: "filled",
+          opacity: 0.4,
+        }),
+      ]),
+    ],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const op = ofKind(spec.ops, "connector")[0];
+  const { slide, shapeCalls } = recordingSlide();
+
+  await deckExportTestHelpers.applyDeckOp(slide, op, NO_SVG);
+
+  assert.equal(shapeCalls.length, 1);
+  assert.equal(shapeCalls[0]?.shape, "line");
+  assert.equal(shapeCalls[0]?.options.line?.dashType, "dash");
+  assert.equal(shapeCalls[0]?.options.line?.endArrowType, "arrow");
+  assert.equal(shapeCalls[0]?.options.line?.transparency, 60);
+});
+
+test("placeholder elements export as labeled placeholder ops instead of dropping silently", async () => {
+  const deck: Deck = {
+    theme: "default",
+    slides: [freeFormSlide(0, [placeholderEl("ph1")])],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const shapes = ofKind(spec.ops, "shape");
+  const texts = ofKind(spec.ops, "text");
+  assert.equal(shapes.length, 1, "placeholder outline emitted");
+  assert.equal(texts.length, 1, "placeholder label emitted");
+  assert.equal(texts[0]?.text, "Body");
+
+  const { slide, shapeCalls, textCalls } = recordingSlide();
+  await deckExportTestHelpers.applyDeckOp(slide, shapes[0], NO_SVG);
+  await deckExportTestHelpers.applyDeckOp(slide, texts[0], NO_SVG);
+  assert.equal(shapeCalls.length, 1);
+  assert.equal(textCalls.length, 1);
 });
 
 // ---------------------------------------------------------------------------

@@ -8,6 +8,7 @@
  *   – "Export as PDF"        → multi-page PDF (text + every visual in reading order)
  *   – "Export as PPTX"       → the edited deck (honoring `deckJson`: slide order,
  *                              retitling, free-form elements, per-slide theming)
+ *   – "Slide SVGs / PNGs"    → one image per authored slide, bundled as a ZIP
  *   – "Infographic PNG/PDF"  → one tall composed image (text + visuals in order)
  *
  * It reads the current Lexical editor state to traverse the document blocks
@@ -28,7 +29,11 @@ import { useVisualSvgRegistry } from "@/components/editor/visual-svg-registry";
 import { buildDeckFromBlocks } from "@/lib/presentation/deck";
 import { pickFreshestDeck } from "@/lib/presentation/fresh-deck";
 import type { Visual } from "@/lib/visual/schema";
-import { exportDeckAsPPTX } from "@/lib/visual/deck-export";
+import {
+  exportDeckAsPPTX,
+  exportDeckAsSlideImages,
+  type DeckSlideImageFormat,
+} from "@/lib/visual/deck-export";
 import {
   collectDocumentBlocks,
   exportDocumentAsPDF,
@@ -58,7 +63,8 @@ const WIDTH_PRESET_LIST = (
 
 /**
  * A dropdown button placed in the editor header that exports the whole
- * document as a PDF, PPTX deck, or infographic PNG/PDF.
+ * document as a PDF, PPTX deck, per-slide SVG/PNG bundle, or infographic
+ * PNG/PDF.
  * Uses `--ds-*` semantic tokens so it matches the surrounding app chrome.
  *
  * Fetches the current user's plan entitlements via /api/user/entitlements so
@@ -161,28 +167,31 @@ export function DocumentExportButton({
     setStatus("exporting");
     setIsOpen(false);
     try {
-      const blocks = await getBlocks();
+      const resolveDeckExportContext = async () => {
+        const blocks = await getBlocks();
 
-      // Build a visual lookup and a fallback deck from the live editor blocks.
-      const visuals = new Map<string, Visual>();
-      for (const block of blocks) {
-        if (block.kind === "visual") {
-          visuals.set(block.visualId, block.visual);
+        const visuals = new Map<string, Visual>();
+        for (const block of blocks) {
+          if (block.kind === "visual") {
+            visuals.set(block.visualId, block.visual);
+          }
         }
-      }
-      const baseDeck = buildDeckFromBlocks(blocks);
+        const baseDeck = buildDeckFromBlocks(blocks);
 
-      // Prefer the freshest saved deck so edits (reorder, retitle, free-form
-      // elements, per-slide theming) are honored. Fall back to the page-load
-      // deckJson, then the deck derived from live blocks.
-      let fetchedRaw: unknown = null;
-      try {
-        fetchedRaw = await fetchDeckJson(documentId);
-      } catch {
-        // Network/auth error — fall back to page-load deckJson, then live blocks.
-      }
-      const deck = pickFreshestDeck(fetchedRaw, initialDeckJson, baseDeck);
+        let fetchedRaw: unknown = null;
+        try {
+          fetchedRaw = await fetchDeckJson(documentId);
+        } catch {
+          // Network/auth error — fall back to page-load deckJson, then live blocks.
+        }
 
+        return {
+          deck: pickFreshestDeck(fetchedRaw, initialDeckJson, baseDeck),
+          visuals,
+        };
+      };
+
+      const { deck, visuals } = await resolveDeckExportContext();
       const blob = await exportDeckAsPPTX(deck, visuals, getSvg);
       if (!blob) {
         setErrorMsg("PPTX export failed");
@@ -193,6 +202,48 @@ export function DocumentExportButton({
       setStatus("idle");
     } catch {
       setErrorMsg("PPTX export failed");
+      setStatus("error");
+    }
+  };
+
+  const handleExportSlideImages = async (format: DeckSlideImageFormat) => {
+    setErrorMsg(null);
+    setStatus("exporting");
+    setIsOpen(false);
+    try {
+      const blocks = await getBlocks();
+
+      const visuals = new Map<string, Visual>();
+      for (const block of blocks) {
+        if (block.kind === "visual") {
+          visuals.set(block.visualId, block.visual);
+        }
+      }
+      const baseDeck = buildDeckFromBlocks(blocks);
+
+      let fetchedRaw: unknown = null;
+      try {
+        fetchedRaw = await fetchDeckJson(documentId);
+      } catch {
+        // Network/auth error — fall back to page-load deckJson, then live blocks.
+      }
+      const deck = pickFreshestDeck(fetchedRaw, initialDeckJson, baseDeck);
+
+      const blob = await exportDeckAsSlideImages(deck, visuals, getSvg, {
+        format,
+      });
+      if (!blob) {
+        setErrorMsg("Slide image export failed");
+        setStatus("error");
+        return;
+      }
+      downloadBlob(
+        blob,
+        `${sanitizeFilename(documentTitle, "document")}-slides.zip`,
+      );
+      setStatus("idle");
+    } catch {
+      setErrorMsg("Slide image export failed");
       setStatus("error");
     }
   };
@@ -308,6 +359,30 @@ export function DocumentExportButton({
                 to unlock.
               </p>
             )}
+
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => void handleExportSlideImages("svg")}
+              className={`flex w-full items-center justify-between rounded-ds-sm px-3 py-2 text-left text-sm text-ds-text-primary transition-colors hover:bg-ds-state-hover active:bg-ds-state-active ${FOCUS_RING}`}
+            >
+              <span>Slide SVGs</span>
+              <span className="text-xs text-ds-text-muted">
+                ZIP · one file per slide
+              </span>
+            </button>
+
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => void handleExportSlideImages("png")}
+              className={`flex w-full items-center justify-between rounded-ds-sm px-3 py-2 text-left text-sm text-ds-text-primary transition-colors hover:bg-ds-state-hover active:bg-ds-state-active ${FOCUS_RING}`}
+            >
+              <span>Slide PNGs</span>
+              <span className="text-xs text-ds-text-muted">
+                ZIP · one image per slide
+              </span>
+            </button>
           </div>
 
           {/* ── Infographic section ───────────────────────────────────── */}

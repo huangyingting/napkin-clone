@@ -26,6 +26,7 @@
  * physical slide height.
  */
 
+import JSZip from "jszip";
 import PptxGenJS from "pptxgenjs";
 
 import type {
@@ -47,6 +48,7 @@ import {
 import {
   materializeSlideElements,
   normalizeBulletItems,
+  PLACEHOLDER_TYPE_LABELS,
 } from "@/lib/presentation/deck";
 import { isEmptyImageSrc } from "@/lib/presentation/image-element";
 import { slideFormatConfig } from "@/lib/presentation/slide-format";
@@ -96,6 +98,7 @@ interface ThemeColors {
   accent: string;
   title: string;
   body: string;
+  muted: string;
 }
 
 const THEME_COLORS: Record<DeckTheme, ThemeColors> = {
@@ -104,36 +107,42 @@ const THEME_COLORS: Record<DeckTheme, ThemeColors> = {
     accent: "#818cf8",
     title: "#e0e7ff",
     body: "#c7d2fe",
+    muted: "#a5b4fc",
   },
   ocean: {
     bg: "#0c1a2e",
     accent: "#38bdf8",
     title: "#e0f2fe",
     body: "#bae6fd",
+    muted: "#7dd3fc",
   },
   forest: {
     bg: "#052e16",
     accent: "#4ade80",
     title: "#dcfce7",
     body: "#bbf7d0",
+    muted: "#86efac",
   },
   sunset: {
     bg: "#431407",
     accent: "#fb923c",
     title: "#ffedd5",
     body: "#fed7aa",
+    muted: "#fdba74",
   },
   grape: {
     bg: "#2e1065",
     accent: "#c084fc",
     title: "#f3e8ff",
     body: "#e9d5ff",
+    muted: "#d8b4fe",
   },
   default: {
     bg: "#09090b",
     accent: "#a1a1aa",
     title: "#fafafa",
     body: "#d4d4d8",
+    muted: "#a1a1aa",
   },
 };
 
@@ -155,6 +164,8 @@ interface InchBox {
   rotation?: number;
   /** Optional drop shadow (mirrors `element.shadow`). */
   shadow?: boolean;
+  /** Optional opacity in the `[0, 1]` range. */
+  opacity?: number;
 }
 
 /** A run of text (single block) placed at an inch box. */
@@ -171,6 +182,8 @@ export interface DeckTextOp extends InchBox {
   color: string;
   /** Font size in points. */
   fontSize: number;
+  /** Optional preferred font face (first resolved family only). */
+  fontFace?: string;
   bold: boolean;
   italic: boolean;
   underline?: boolean;
@@ -208,6 +221,8 @@ export interface DeckBulletsOp extends InchBox {
   }>;
   color: string;
   fontSize: number;
+  /** Optional preferred font face (first resolved family only). */
+  fontFace?: string;
   bold: boolean;
   italic: boolean;
   align: ElementAlign;
@@ -230,12 +245,13 @@ export interface DeckShapeOp extends InchBox {
   textRuns?: TextRun[];
   textColor?: string;
   fontSize?: number;
+  fontFace?: string;
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
   align?: ElementAlign;
   /** Optional border/line stroke; `width` already converted to points. */
-  stroke?: { color: string; width: number };
+  stroke?: { color: string; width: number; dash?: boolean };
   /** Optional rect corner radius, already converted to inches. */
   radius?: number;
 }
@@ -244,6 +260,9 @@ export interface DeckShapeOp extends InchBox {
 export interface DeckImageOp extends InchBox {
   kind: "image";
   src: string;
+  alt?: string;
+  fit?: "cover" | "contain";
+  radius?: number;
 }
 
 /** A first-class connector element drawn between two absolute inch-space points. */
@@ -321,6 +340,20 @@ function boxToInches(box: ElementBox, geometry: DeckGeometry): InchBox {
 /** Convert a `cqh` (percent-of-slide-height) font size to points. */
 function fontSizePt(percentOfHeight: number, geometry: DeckGeometry): number {
   return Math.max(6, Math.round((percentOfHeight / 100) * geometry.slideHPt));
+}
+
+/**
+ * PPTX only accepts a single font face, not a CSS family stack. We preserve the
+ * author's first explicit family and let Office/system substitution handle the
+ * rest, which keeps typography intentional while acknowledging platform drift.
+ */
+function primaryFontFace(fontFamily: string | undefined): string | undefined {
+  if (!fontFamily) return undefined;
+  const first = fontFamily
+    .split(",")
+    .map((part) => part.trim().replace(/^['"]|['"]$/g, ""))
+    .find((part) => part.length > 0);
+  return first && first.toLowerCase() !== "inherit" ? first : undefined;
 }
 
 /**
@@ -415,11 +448,41 @@ function buildSlideSpec(
     if (element.shadow) {
       box.shadow = true;
     }
+    if (element.opacity !== undefined && element.opacity < 1) {
+      box.opacity = Math.max(0, Math.min(1, element.opacity));
+    }
 
     switch (element.kind) {
-      case "placeholder":
-        // Authoring-only scaffold; omit from PPTX export.
+      case "placeholder": {
+        const label =
+          element.label?.trim() ||
+          PLACEHOLDER_TYPE_LABELS[element.placeholderType];
+        const minInch = Math.min(box.w, box.h);
+        ops.push({
+          kind: "shape",
+          ...box,
+          shape: "rect",
+          color: accent,
+          opacity: 0.12,
+          stroke: { color: accent, width: 1.5, dash: true },
+          radius: minInch * 0.08,
+        });
+        ops.push({
+          kind: "text",
+          x: box.x + box.w * 0.08,
+          y: box.y + box.h * 0.08,
+          w: box.w * 0.84,
+          h: box.h * 0.84,
+          text: label,
+          color: toHex(colors.muted),
+          fontSize: fontSizePt(3.2, geometry),
+          bold: true,
+          italic: false,
+          align: "center",
+          verticalAlign: "middle",
+        });
         break;
+      }
       case "text": {
         const defaultColor =
           element.role === "title" ? colors.title : colors.body;
@@ -432,6 +495,9 @@ function buildSlideSpec(
             : {}),
           color: toHex(element.style.color ?? defaultColor),
           fontSize: fontSizePt(element.style.fontSize, geometry),
+          ...(primaryFontFace(element.style.fontFamily)
+            ? { fontFace: primaryFontFace(element.style.fontFamily) }
+            : {}),
           bold: element.style.bold,
           italic: element.style.italic,
           ...(element.style.underline ? { underline: true } : {}),
@@ -480,6 +546,9 @@ function buildSlideSpec(
             : {}),
           color: toHex(element.style.color ?? colors.body),
           fontSize: fontSizePt(element.style.fontSize, geometry),
+          ...(primaryFontFace(element.style.fontFamily)
+            ? { fontFace: primaryFontFace(element.style.fontFamily) }
+            : {}),
           bold: element.style.bold,
           italic: element.style.italic,
           ...(element.style.underline ? { underline: true } : {}),
@@ -512,6 +581,9 @@ function buildSlideSpec(
                   element.textStyle?.fontSize ?? 4,
                   geometry,
                 ),
+                ...(primaryFontFace(element.textStyle?.fontFamily)
+                  ? { fontFace: primaryFontFace(element.textStyle?.fontFamily) }
+                  : {}),
                 bold: element.textStyle?.bold ?? false,
                 italic: element.textStyle?.italic ?? false,
                 ...(element.textStyle?.underline ? { underline: true } : {}),
@@ -537,7 +609,16 @@ function buildSlideSpec(
         // filled in) must not emit an op — pptxgenjs would otherwise try to
         // load an empty path and break the export. Skip it instead.
         if (isEmptyImageSrc(element.src)) break;
-        ops.push({ kind: "image", ...box, src: element.src });
+        ops.push({
+          kind: "image",
+          ...box,
+          src: element.src,
+          ...(element.alt ? { alt: element.alt } : {}),
+          ...(element.fit ? { fit: element.fit } : {}),
+          ...(element.radius
+            ? { radius: (element.radius / 100) * Math.min(box.w, box.h) }
+            : {}),
+        });
         break;
       }
       case "visual": {
@@ -551,7 +632,12 @@ function buildSlideSpec(
           : visual;
         const layout = layoutWithinBox(styled, box);
         const specs = visualToNativeSpecs(styled, layout);
-        if (isImageFallback(specs)) {
+        if (
+          isImageFallback(specs) ||
+          box.rotation ||
+          box.shadow ||
+          box.opacity
+        ) {
           ops.push({
             kind: "visual-fallback",
             ...box,
@@ -649,6 +735,11 @@ const SHADOW_OPTS = {
   opacity: 0.3,
 };
 
+function opacityTransparency(opacity: number | undefined): number | undefined {
+  if (opacity === undefined) return undefined;
+  return Math.round((1 - opacity) * 100);
+}
+
 /** Per-run PptxGenJS text options derived from a {@link TextRun}'s formatting. */
 function runToOptions(run: TextRun): Record<string, unknown> {
   const options: Record<string, unknown> = {};
@@ -676,6 +767,7 @@ function applyTextOp(slide: PptxSlide, op: DeckTextOp): void {
     h: op.h,
     color: op.color,
     fontSize: op.fontSize,
+    ...(op.fontFace ? { fontFace: op.fontFace } : {}),
     bold: op.bold,
     italic: op.italic,
     align: op.align,
@@ -686,6 +778,9 @@ function applyTextOp(slide: PptxSlide, op: DeckTextOp): void {
     ...(op.rotation ? { rotate: op.rotation } : {}),
     ...(op.underline ? { underline: { style: "sng" as const } } : {}),
     ...(op.shadow ? { shadow: SHADOW_OPTS } : {}),
+    ...(opacityTransparency(op.opacity) !== undefined
+      ? { transparency: opacityTransparency(op.opacity) }
+      : {}),
     ...(op.lineHeight ? { lineSpacing: Math.round(op.lineHeight * 100) } : {}),
     ...(op.paragraphSpacingPt ? { paraSpaceAfter: op.paragraphSpacingPt } : {}),
   };
@@ -717,6 +812,7 @@ function applyBulletsOp(slide: PptxSlide, op: DeckBulletsOp): void {
     h: op.h,
     color: op.color,
     fontSize: op.fontSize,
+    ...(op.fontFace ? { fontFace: op.fontFace } : {}),
     bold: op.bold,
     italic: op.italic,
     align: op.align,
@@ -727,6 +823,9 @@ function applyBulletsOp(slide: PptxSlide, op: DeckBulletsOp): void {
     ...(op.rotation ? { rotate: op.rotation } : {}),
     ...(op.underline ? { underline: { style: "sng" as const } } : {}),
     ...(op.shadow ? { shadow: SHADOW_OPTS } : {}),
+    ...(opacityTransparency(op.opacity) !== undefined
+      ? { transparency: opacityTransparency(op.opacity) }
+      : {}),
     ...(op.lineHeight ? { lineSpacing: Math.round(op.lineHeight * 100) } : {}),
   };
 
@@ -804,15 +903,19 @@ function applyShapeTextOp(slide: PptxSlide, op: DeckShapeOp): void {
     h: op.h * 0.84,
     color: op.textColor ?? "18181b",
     fontSize: op.fontSize ?? 18,
+    ...(op.fontFace ? { fontFace: op.fontFace } : {}),
     bold: op.bold ?? false,
     italic: op.italic ?? false,
     ...(op.underline ? { underline: true } : {}),
     align: op.align ?? "center",
+    ...(op.rotation ? { rotation: op.rotation } : {}),
+    ...(op.opacity !== undefined ? { opacity: op.opacity } : {}),
   });
 }
 
 function applyShapeOp(slide: PptxSlide, op: DeckShapeOp): void {
   const rotate = op.rotation ? { rotate: op.rotation } : {};
+  const transparency = opacityTransparency(op.opacity);
   if (op.shape === "line") {
     // Render as a centered horizontal rule across the box.
     slide.addShape(SHAPES.line, {
@@ -823,6 +926,8 @@ function applyShapeOp(slide: PptxSlide, op: DeckShapeOp): void {
       line: {
         color: op.stroke?.color ?? op.color,
         width: op.stroke?.width ?? 2,
+        ...(op.stroke?.dash ? { dashType: "dash" as const } : {}),
+        ...(transparency !== undefined ? { transparency } : {}),
       },
       ...rotate,
     });
@@ -835,9 +940,17 @@ function applyShapeOp(slide: PptxSlide, op: DeckShapeOp): void {
       y: op.y,
       w: op.w,
       h: op.h,
-      fill: { color: op.color },
-      line: { width: 0, color: op.color },
+      fill: {
+        color: op.color,
+        ...(transparency !== undefined ? { transparency } : {}),
+      },
+      line: {
+        width: 0,
+        color: op.color,
+        ...(transparency !== undefined ? { transparency } : {}),
+      },
       ...rotate,
+      ...(op.shadow ? { shadow: SHADOW_OPTS } : {}),
     });
     return;
   }
@@ -852,10 +965,22 @@ function applyShapeOp(slide: PptxSlide, op: DeckShapeOp): void {
     y: op.y,
     w: op.w,
     h: op.h,
-    fill: { color: op.color },
+    fill: {
+      color: op.color,
+      ...(transparency !== undefined ? { transparency } : {}),
+    },
     line: op.stroke
-      ? { color: op.stroke.color, width: op.stroke.width }
-      : { width: 0, color: op.color },
+      ? {
+          color: op.stroke.color,
+          width: op.stroke.width,
+          ...(op.stroke.dash ? { dashType: "dash" as const } : {}),
+          ...(transparency !== undefined ? { transparency } : {}),
+        }
+      : {
+          width: 0,
+          color: op.color,
+          ...(transparency !== undefined ? { transparency } : {}),
+        },
     ...(op.radius && op.shape !== "ellipse" ? { rectRadius: op.radius } : {}),
     ...rotate,
     ...(op.shadow ? { shadow: SHADOW_OPTS } : {}),
@@ -873,8 +998,13 @@ function applyImageOp(slide: PptxSlide, op: DeckImageOp): void {
     y: op.y,
     w: op.w,
     h: op.h,
+    ...(op.alt ? { altText: op.alt } : {}),
+    ...(op.fit ? { sizing: { type: op.fit, w: op.w, h: op.h } } : {}),
     ...(op.rotation ? { rotate: op.rotation } : {}),
     ...(op.shadow ? { shadow: SHADOW_OPTS } : {}),
+    ...(opacityTransparency(op.opacity) !== undefined
+      ? { transparency: opacityTransparency(op.opacity) }
+      : {}),
   });
 }
 
@@ -907,11 +1037,11 @@ function applyConnectorOp(slide: PptxSlide, op: DeckConnectorOp): void {
       ...(op.arrowStart && op.arrowStart !== "none"
         ? { beginArrowType: "arrow" as const }
         : {}),
+      ...(opacityTransparency(op.opacity) !== undefined
+        ? { transparency: opacityTransparency(op.opacity) }
+        : {}),
     },
     rotate: angle,
-    ...(op.opacity !== undefined
-      ? { transparency: Math.round((1 - op.opacity) * 100) }
-      : {}),
   });
 }
 
@@ -939,6 +1069,11 @@ async function applyVisualFallbackOp(
     y: op.y + (op.h - imgH) / 2,
     w: imgW,
     h: imgH,
+    ...(op.rotation ? { rotate: op.rotation } : {}),
+    ...(op.shadow ? { shadow: SHADOW_OPTS } : {}),
+    ...(opacityTransparency(op.opacity) !== undefined
+      ? { transparency: opacityTransparency(op.opacity) }
+      : {}),
   });
 }
 
@@ -971,6 +1106,22 @@ async function applyDeckOp(
       break;
   }
 }
+
+/**
+ * Narrow test seam for applier-level unit tests. The pure spec tests cover
+ * `buildDeckSpecs`; these helpers let Node tests assert that the resulting ops
+ * are translated into the right PptxGenJS calls without constructing a real
+ * `.pptx` archive.
+ */
+export const deckExportTestHelpers = {
+  applyDeckOp,
+  applyTextOp,
+  applyBulletsOp,
+  applyShapeOp,
+  applyImageOp,
+  applyConnectorOp,
+  SHADOW_OPTS,
+};
 
 /**
  * Produces a PPTX deck that honors the edited `deck` (slide order, retitling,
@@ -1015,6 +1166,564 @@ export async function exportDeckAsPPTX(
     })) as ArrayBuffer;
 
     return new Blob([arrayBuffer], { type: PPTX_MIME });
+  } catch {
+    return null;
+  }
+}
+
+export type DeckSlideImageFormat = "svg" | "png";
+
+export interface DeckSlideImageExportOptions {
+  /**
+   * Output format for each slide inside the returned ZIP archive.
+   * Defaults to `"svg"` for maximum fidelity.
+   */
+  format?: DeckSlideImageFormat;
+  /**
+   * Raster scale multiplier when `format === "png"`.
+   * Defaults to `1` because the exported slide SVG is already high resolution.
+   */
+  scale?: number;
+}
+
+interface SlideImageGeometry {
+  width: number;
+  height: number;
+  pxPerIn: number;
+}
+
+const SLIDE_IMAGE_PX_PER_IN = 120;
+
+function slideImageGeometry(format: Deck["slideFormat"]): SlideImageGeometry {
+  const geometry = deckGeometry(format);
+  return {
+    width: Math.round(geometry.slideW * SLIDE_IMAGE_PX_PER_IN),
+    height: Math.round(geometry.slideH * SLIDE_IMAGE_PX_PER_IN),
+    pxPerIn: SLIDE_IMAGE_PX_PER_IN,
+  };
+}
+
+function px(valueInches: number, pxPerIn: number): string {
+  return (Math.round(valueInches * pxPerIn * 1000) / 1000).toString();
+}
+
+function pxFromPt(valuePt: number, pxPerIn: number): string {
+  return (Math.round(((valuePt * pxPerIn) / 72) * 1000) / 1000).toString();
+}
+
+function xmlEscape(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function cssText(value: string | undefined): string {
+  return value ? xmlEscape(value) : "";
+}
+
+function cssFontFace(fontFace: string | undefined): string {
+  return fontFace ? `font-family:${cssText(fontFace)};` : "";
+}
+
+function shadowCss(enabled: boolean | undefined): string {
+  return enabled ? "filter:drop-shadow(0px 4px 8px rgba(0,0,0,0.28));" : "";
+}
+
+function rotationTransform(
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  rotation: number | undefined,
+): string {
+  if (!rotation) return "";
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  return ` transform="rotate(${rotation} ${cx} ${cy})"`;
+}
+
+function textHtml(text: string, runs?: TextRun[]): string {
+  if (runs && runs.length > 0) {
+    return runs
+      .map((run) => {
+        if (run.text === "\n") return "<br/>";
+        const styles = [
+          run.bold ? "font-weight:700;" : "",
+          run.italic ? "font-style:italic;" : "",
+          run.code ? `font-family:${CODE_FONT_FACE};` : "",
+          run.color ? `color:#${toHex(run.color)};` : "",
+        ].join("");
+        const content = xmlEscape(run.text).replaceAll("\n", "<br/>");
+        const span = `<span style="${styles}">${content}</span>`;
+        return run.link
+          ? `<a href="${xmlEscape(run.link)}" style="color:inherit;text-decoration:inherit;">${span}</a>`
+          : span;
+      })
+      .join("");
+  }
+  return xmlEscape(text).replaceAll("\n", "<br/>");
+}
+
+function renderTextForeignObject(
+  op: Pick<
+    DeckTextOp,
+    | "x"
+    | "y"
+    | "w"
+    | "h"
+    | "text"
+    | "runs"
+    | "color"
+    | "fontSize"
+    | "fontFace"
+    | "bold"
+    | "italic"
+    | "underline"
+    | "align"
+    | "verticalAlign"
+    | "lineHeight"
+    | "opacity"
+    | "shadow"
+    | "rotation"
+  >,
+  pxPerIn: number,
+): string {
+  const x = px(op.x, pxPerIn);
+  const y = px(op.y, pxPerIn);
+  const w = px(op.w, pxPerIn);
+  const h = px(op.h, pxPerIn);
+  const valign =
+    op.verticalAlign === "top"
+      ? "flex-start"
+      : op.verticalAlign === "bottom"
+        ? "flex-end"
+        : "center";
+  const outerStyle = [
+    "width:100%;height:100%;display:flex;",
+    `align-items:${valign};`,
+    "justify-content:stretch;",
+    `color:#${op.color};`,
+    `font-size:${pxFromPt(op.fontSize, pxPerIn)}px;`,
+    op.bold ? "font-weight:700;" : "font-weight:400;",
+    op.italic ? "font-style:italic;" : "font-style:normal;",
+    op.underline ? "text-decoration:underline;" : "",
+    `text-align:${op.align};`,
+    `line-height:${op.lineHeight ?? 1.15};`,
+    "white-space:pre-wrap;overflow-wrap:break-word;word-break:normal;",
+    "overflow:hidden;",
+    cssFontFace(op.fontFace),
+    op.opacity !== undefined ? `opacity:${op.opacity};` : "",
+    shadowCss(op.shadow),
+  ].join("");
+  const innerStyle = "width:100%;";
+  return `<foreignObject x="${x}" y="${y}" width="${w}" height="${h}"${rotationTransform(
+    op.x * pxPerIn,
+    op.y * pxPerIn,
+    op.w * pxPerIn,
+    op.h * pxPerIn,
+    op.rotation,
+  )}><div xmlns="http://www.w3.org/1999/xhtml" style="${outerStyle}"><div style="${innerStyle}">${textHtml(
+    op.text,
+    op.runs,
+  )}</div></div></foreignObject>`;
+}
+
+function renderBulletsForeignObject(
+  op: DeckBulletsOp,
+  pxPerIn: number,
+): string {
+  const bulletCounters = new Map<number, number>();
+  const rows = op.items
+    .map((item, index) => {
+      const detail = op.itemDetails?.[index];
+      const indent = detail?.indent ?? 0;
+      const numbered = detail?.listType === "number";
+      const current = (bulletCounters.get(indent) ?? 0) + 1;
+      bulletCounters.set(indent, current);
+      if (!numbered) bulletCounters.delete(indent + 1);
+      const marker = numbered ? `${current}.` : "•";
+      const html = textHtml(item, op.itemRuns?.[index]);
+      return `<div style="display:flex;gap:0.5em;padding-left:${indent * 1.5}em;"><span style="width:1.2em;flex:0 0 1.2em;">${marker}</span><span style="flex:1 1 auto;">${html}</span></div>`;
+    })
+    .join("");
+  return renderTextForeignObject(
+    {
+      ...op,
+      text: "",
+      runs: undefined,
+      shadow: op.shadow,
+    },
+    pxPerIn,
+  ).replace(
+    "</div></div></foreignObject>",
+    `${rows}</div></div></foreignObject>`,
+  );
+}
+
+function renderShapeLabel(op: DeckShapeOp, pxPerIn: number): string {
+  if (!op.text || op.shape === "line") return "";
+  return renderTextForeignObject(
+    {
+      x: op.x + op.w * 0.08,
+      y: op.y + op.h * 0.08,
+      w: op.w * 0.84,
+      h: op.h * 0.84,
+      text: op.text,
+      runs: op.textRuns,
+      color: op.textColor ?? "18181B",
+      fontSize: op.fontSize ?? 18,
+      fontFace: op.fontFace,
+      bold: op.bold ?? false,
+      italic: op.italic ?? false,
+      underline: op.underline,
+      align: op.align ?? "center",
+      verticalAlign: "middle",
+      opacity: op.opacity,
+      shadow: false,
+      rotation: undefined,
+      lineHeight: undefined,
+    },
+    pxPerIn,
+  );
+}
+
+function renderShapeSvg(op: DeckShapeOp, pxPerIn: number): string {
+  const x = op.x * pxPerIn;
+  const y = op.y * pxPerIn;
+  const w = op.w * pxPerIn;
+  const h = op.h * pxPerIn;
+  const fillOpacity = op.opacity ?? 1;
+  const lineWidth = op.stroke ? Number(pxFromPt(op.stroke.width, pxPerIn)) : 0;
+  const dash = op.stroke?.dash
+    ? ` stroke-dasharray="${lineWidth * 3} ${lineWidth * 2}"`
+    : "";
+  const common = `fill="#${op.color}" fill-opacity="${fillOpacity}" stroke="#${op.stroke?.color ?? op.color}" stroke-width="${lineWidth}"${dash}`;
+  const transform = rotationTransform(x, y, w, h, op.rotation);
+  const groupStyle = shadowCss(op.shadow);
+  let shapeSvg = "";
+
+  switch (op.shape) {
+    case "ellipse":
+      shapeSvg = `<ellipse cx="${x + w / 2}" cy="${y + h / 2}" rx="${w / 2}" ry="${h / 2}" ${common} />`;
+      break;
+    case "triangle":
+      shapeSvg = `<polygon points="${x + w / 2},${y} ${x + w},${y + h} ${x},${y + h}" ${common} />`;
+      break;
+    case "line":
+      shapeSvg = `<line x1="${x}" y1="${y + h / 2}" x2="${x + w}" y2="${y + h / 2}" stroke="#${op.stroke?.color ?? op.color}" stroke-width="${lineWidth || 1}" stroke-opacity="${fillOpacity}"${dash} />`;
+      break;
+    default:
+      shapeSvg = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${op.radius ? op.radius * pxPerIn : 0}" ry="${op.radius ? op.radius * pxPerIn : 0}" ${common} />`;
+      break;
+  }
+
+  return `<g${transform}${groupStyle ? ` style="${groupStyle}"` : ""}>${shapeSvg}${renderShapeLabel(
+    op,
+    pxPerIn,
+  )}</g>`;
+}
+
+function renderImageSvg(
+  op: DeckImageOp | DeckVisualFallbackOp,
+  id: string,
+  href: string,
+  pxPerIn: number,
+): { defs: string[]; body: string } {
+  const x = op.x * pxPerIn;
+  const y = op.y * pxPerIn;
+  const w = op.w * pxPerIn;
+  const h = op.h * pxPerIn;
+  const defs: string[] = [];
+  let clip = "";
+  if ("radius" in op && op.radius) {
+    const clipId = `${id}-clip`;
+    defs.push(
+      `<clipPath id="${clipId}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${op.radius * pxPerIn}" ry="${op.radius * pxPerIn}" /></clipPath>`,
+    );
+    clip = ` clip-path="url(#${clipId})"`;
+  }
+  const preserveAspectRatio =
+    "fit" in op && op.fit === "cover" ? "xMidYMid slice" : "xMidYMid meet";
+  const style = [
+    op.opacity !== undefined ? `opacity:${op.opacity};` : "",
+    shadowCss(op.shadow),
+  ].join("");
+  return {
+    defs,
+    body: `<image href="${xmlEscape(href)}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="${preserveAspectRatio}"${clip}${style ? ` style="${style}"` : ""}${rotationTransform(
+      x,
+      y,
+      w,
+      h,
+      op.rotation,
+    )} />`,
+  };
+}
+
+function renderConnectorSvg(
+  op: DeckConnectorOp,
+  id: string,
+  pxPerIn: number,
+): { defs: string[]; body: string } {
+  const defs: string[] = [];
+  const x1 = op.x1 * pxPerIn;
+  const y1 = op.y1 * pxPerIn;
+  const x2 = op.x2 * pxPerIn;
+  const y2 = op.y2 * pxPerIn;
+  const strokeWidth = Number(pxFromPt(op.width, pxPerIn));
+  const markers: string[] = [];
+  let markerStart = "";
+  let markerEnd = "";
+
+  if (op.arrowStart && op.arrowStart !== "none") {
+    const markerId = `${id}-start`;
+    defs.push(
+      `<marker id="${markerId}" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 Z" fill="${op.arrowStart === "filled" ? `#${op.color}` : "none"}" stroke="#${op.color}" stroke-width="1.2" /></marker>`,
+    );
+    markerStart = ` marker-start="url(#${markerId})"`;
+  }
+  if (op.arrowEnd && op.arrowEnd !== "none") {
+    const markerId = `${id}-end`;
+    defs.push(
+      `<marker id="${markerId}" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="${op.arrowEnd === "filled" ? `#${op.color}` : "none"}" stroke="#${op.color}" stroke-width="1.2" /></marker>`,
+    );
+    markerEnd = ` marker-end="url(#${markerId})"`;
+  }
+  if (markers.length > 0) defs.push(...markers);
+
+  return {
+    defs,
+    body: `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#${op.color}" stroke-width="${strokeWidth}" stroke-linecap="round"${op.dash ? ` stroke-dasharray="${strokeWidth * 3} ${strokeWidth * 2}"` : ""}${op.opacity !== undefined ? ` stroke-opacity="${op.opacity}"` : ""}${markerStart}${markerEnd} />`,
+  };
+}
+
+function renderPptxSpecSvg(
+  spec: PptxSpec,
+  id: string,
+  pxPerIn: number,
+): { defs: string[]; body: string } {
+  switch (spec.kind) {
+    case "rect":
+      return {
+        defs: [],
+        body: `<rect x="${px(spec.x, pxPerIn)}" y="${px(spec.y, pxPerIn)}" width="${px(spec.w, pxPerIn)}" height="${px(spec.h, pxPerIn)}" rx="${spec.cornerRadius ? px(spec.cornerRadius, pxPerIn) : 0}" ry="${spec.cornerRadius ? px(spec.cornerRadius, pxPerIn) : 0}" fill="#${spec.fill}"${spec.fillTransparency !== undefined ? ` fill-opacity="${(100 - spec.fillTransparency) / 100}"` : ""} stroke="#${spec.stroke}" stroke-width="${pxFromPt(spec.strokeWidth, pxPerIn)}" />`,
+      };
+    case "ellipse":
+      return {
+        defs: [],
+        body: `<ellipse cx="${Number(px(spec.x, pxPerIn)) + Number(px(spec.w, pxPerIn)) / 2}" cy="${Number(px(spec.y, pxPerIn)) + Number(px(spec.h, pxPerIn)) / 2}" rx="${Number(px(spec.w, pxPerIn)) / 2}" ry="${Number(px(spec.h, pxPerIn)) / 2}" fill="#${spec.fill}"${spec.fillTransparency !== undefined ? ` fill-opacity="${(100 - spec.fillTransparency) / 100}"` : ""} stroke="#${spec.stroke}" stroke-width="${pxFromPt(spec.strokeWidth, pxPerIn)}" />`,
+      };
+    case "diamond": {
+      const x = spec.x * pxPerIn;
+      const y = spec.y * pxPerIn;
+      const w = spec.w * pxPerIn;
+      const h = spec.h * pxPerIn;
+      return {
+        defs: [],
+        body: `<polygon points="${x + w / 2},${y} ${x + w},${y + h / 2} ${x + w / 2},${y + h} ${x},${y + h / 2}" fill="#${spec.fill}" stroke="#${spec.stroke}" stroke-width="${pxFromPt(spec.strokeWidth, pxPerIn)}" />`,
+      };
+    }
+    case "hexagon": {
+      const x = spec.x * pxPerIn;
+      const y = spec.y * pxPerIn;
+      const w = spec.w * pxPerIn;
+      const h = spec.h * pxPerIn;
+      const inset = w * 0.25;
+      return {
+        defs: [],
+        body: `<polygon points="${x + inset},${y} ${x + w - inset},${y} ${x + w},${y + h / 2} ${x + w - inset},${y + h} ${x + inset},${y + h} ${x},${y + h / 2}" fill="#${spec.fill}" stroke="#${spec.stroke}" stroke-width="${pxFromPt(spec.strokeWidth, pxPerIn)}" />`,
+      };
+    }
+    case "line":
+      return renderConnectorSvg(
+        {
+          kind: "connector",
+          x1: spec.x1,
+          y1: spec.y1,
+          x2: spec.x2,
+          y2: spec.y2,
+          color: spec.color,
+          width: spec.strokeWidth,
+          ...(spec.arrowEnd ? { arrowEnd: "arrow" as const } : {}),
+          ...(spec.dashed ? { dash: true } : {}),
+        },
+        id,
+        pxPerIn,
+      );
+    case "text":
+      return {
+        defs: [],
+        body: renderTextForeignObject(
+          {
+            x: spec.x,
+            y: spec.y,
+            w: spec.w,
+            h: spec.h,
+            text: spec.text,
+            color: spec.color,
+            fontSize: spec.fontSize,
+            fontFace: spec.fontFace,
+            bold: spec.bold ?? false,
+            italic: false,
+            align: spec.align ?? "center",
+            verticalAlign: "middle",
+          },
+          pxPerIn,
+        ),
+      };
+    case "image-fallback":
+      return { defs: [], body: "" };
+  }
+}
+
+function slideSpecToSvgString(
+  slideSpec: DeckSlideSpec,
+  geometry: SlideImageGeometry,
+  getSvg: (visualId: string) => SVGSVGElement | null,
+): string {
+  const defs: string[] = [];
+  const body: string[] = [];
+
+  body.push(
+    `<rect x="0" y="0" width="${geometry.width}" height="${geometry.height}" fill="#${slideSpec.background}" />`,
+  );
+
+  if (slideSpec.backgroundImage) {
+    body.push(
+      `<image href="${xmlEscape(slideSpec.backgroundImage)}" x="0" y="0" width="${geometry.width}" height="${geometry.height}" preserveAspectRatio="xMidYMid slice" />`,
+    );
+  }
+
+  slideSpec.ops.forEach((op, index) => {
+    const id = `slide-${slideSpec.index}-${index}`;
+    switch (op.kind) {
+      case "text":
+        body.push(renderTextForeignObject(op, geometry.pxPerIn));
+        break;
+      case "bullets":
+        body.push(renderBulletsForeignObject(op, geometry.pxPerIn));
+        break;
+      case "shape":
+        body.push(renderShapeSvg(op, geometry.pxPerIn));
+        break;
+      case "image": {
+        const rendered = renderImageSvg(op, id, op.src, geometry.pxPerIn);
+        defs.push(...rendered.defs);
+        body.push(rendered.body);
+        break;
+      }
+      case "connector": {
+        const rendered = renderConnectorSvg(op, id, geometry.pxPerIn);
+        defs.push(...rendered.defs);
+        body.push(rendered.body);
+        break;
+      }
+      case "visual-native":
+        op.specs.forEach((spec, specIndex) => {
+          const rendered = renderPptxSpecSvg(
+            spec,
+            `${id}-native-${specIndex}`,
+            geometry.pxPerIn,
+          );
+          defs.push(...rendered.defs);
+          body.push(rendered.body);
+        });
+        break;
+      case "visual-fallback": {
+        const svg = getSvg(op.visualId);
+        if (!svg) break;
+        const viewBox =
+          svg.getAttribute("viewBox") ??
+          `0 0 ${svg.viewBox.baseVal.width} ${svg.viewBox.baseVal.height}`;
+        const inner = new XMLSerializer()
+          .serializeToString(svg)
+          .replace(/^<svg\b[^>]*>/i, "")
+          .replace(/<\/svg>\s*$/i, "");
+        const rendered = renderImageSvg(op, id, "", geometry.pxPerIn);
+        defs.push(...rendered.defs);
+        body.push(
+          `<svg x="${px(op.x, geometry.pxPerIn)}" y="${px(op.y, geometry.pxPerIn)}" width="${px(op.w, geometry.pxPerIn)}" height="${px(op.h, geometry.pxPerIn)}" viewBox="${xmlEscape(viewBox)}" preserveAspectRatio="xMidYMid meet"${
+            op.opacity !== undefined || op.shadow || op.rotation
+              ? `${rotationTransform(
+                  op.x * geometry.pxPerIn,
+                  op.y * geometry.pxPerIn,
+                  op.w * geometry.pxPerIn,
+                  op.h * geometry.pxPerIn,
+                  op.rotation,
+                )}${
+                  op.shadow || op.opacity !== undefined
+                    ? ` style="${[
+                        op.opacity !== undefined
+                          ? `opacity:${op.opacity};`
+                          : "",
+                        shadowCss(op.shadow),
+                      ].join("")}"`
+                    : ""
+                }`
+              : ""
+          }>${inner}</svg>`,
+        );
+        break;
+      }
+    }
+  });
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${geometry.width}" height="${geometry.height}" viewBox="0 0 ${geometry.width} ${geometry.height}" overflow="hidden">
+${defs.length > 0 ? `<defs>${defs.join("")}</defs>` : ""}
+${body.join("")}
+</svg>`;
+}
+
+function parseSvg(svgString: string): SVGSVGElement | null {
+  const parsed = new DOMParser().parseFromString(svgString, "image/svg+xml");
+  const root = parsed.documentElement;
+  return root instanceof SVGSVGElement || root.tagName === "svg"
+    ? (root as unknown as SVGSVGElement)
+    : null;
+}
+
+/**
+ * Exports the deck as a ZIP archive containing one image per slide.
+ *
+ * - `"svg"` preserves the richest fidelity and is the default.
+ * - `"png"` rasterizes the generated slide SVG at the requested scale.
+ */
+export async function exportDeckAsSlideImages(
+  deck: Deck,
+  visuals: ReadonlyMap<string, Visual>,
+  getSvg: (visualId: string) => SVGSVGElement | null,
+  options: DeckSlideImageExportOptions = {},
+): Promise<Blob | null> {
+  try {
+    const format = options.format ?? "svg";
+    const specs = buildDeckSpecs(deck, visuals);
+    const geometry = slideImageGeometry(deck.slideFormat);
+    const zip = new JSZip();
+
+    for (const slideSpec of specs) {
+      const svgString = slideSpecToSvgString(slideSpec, geometry, getSvg);
+      const fileBase = `slide-${String(slideSpec.index + 1).padStart(2, "0")}`;
+      if (format === "svg") {
+        zip.file(`${fileBase}.svg`, svgString);
+        continue;
+      }
+
+      const svg = parseSvg(svgString);
+      if (!svg) return null;
+      const pngBlob = await exportPNG(svg, {
+        background: "include",
+        colorMode: "color",
+        scale: options.scale ?? 1,
+      });
+      if (!pngBlob) return null;
+      zip.file(`${fileBase}.png`, pngBlob);
+    }
+
+    return zip.generateAsync({ type: "blob" });
   } catch {
     return null;
   }
