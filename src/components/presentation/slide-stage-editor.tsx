@@ -863,6 +863,9 @@ export function SlideStageEditor({
       box: ElementBox,
     ) => {
       event.stopPropagation();
+      // Capture the pointer so drag events keep arriving even when the pointer
+      // leaves the browser viewport, preventing a stuck-drag state (#306).
+      (event.currentTarget as Element).setPointerCapture(event.pointerId);
       const startElement = elementsRef.current.find((item) => item.id === id);
       const groupId = startElement?.groupId;
       // Selection: a grouped element selects its whole group; otherwise keep an
@@ -942,6 +945,8 @@ export function SlideStageEditor({
       }
       const xPct = ((event.clientX - rect.left) / rect.width) * 100;
       const yPct = ((event.clientY - rect.top) / rect.height) * 100;
+      // Capture so marquee / background-click events keep arriving off-viewport (#306).
+      (event.currentTarget as Element).setPointerCapture(event.pointerId);
       marqueeRef.current = {
         startXPct: xPct,
         startYPct: yPct,

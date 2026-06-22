@@ -119,7 +119,11 @@ export interface SlideInspectorProps {
   onBulletsChange: (value: string) => void;
   onMaterialize: () => void;
   // Element editing
-  onUpdateElement: (id: string, patch: ElementPatch) => void;
+  onUpdateElement: (
+    id: string,
+    patch: ElementPatch,
+    coalesceKey?: string,
+  ) => void;
   onRemoveElement: (id: string) => void;
   onDuplicateElement: (id: string) => void;
   onBringToFront: (id: string) => void;
@@ -197,6 +201,14 @@ function elementLabel(element: SlideElement): string {
   }
 }
 
+/**
+ * Module-level counter so every `RichTextBox` focus session gets a globally
+ * unique coalesce key. Incrementing once per session (not per keystroke) means
+ * the entire typed run collapses to one undo step, and each new focus session
+ * starts a fresh entry (issue #306).
+ */
+let _richTextEditSeq = 0;
+
 function RichTextBox({
   label,
   html,
@@ -204,10 +216,16 @@ function RichTextBox({
 }: {
   label: string;
   html: string;
-  onChange: (value: { text: string; runs: TextRun[] }) => void;
+  onChange: (
+    value: { text: string; runs: TextRun[] },
+    coalesceKey?: string,
+  ) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const lastHtmlRef = useRef("");
+  // Coalesce key for the active editing session — the whole run of keystrokes
+  // collapses to one undo step (issue #306). Set on focus, cleared on blur.
+  const coalesceKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     const node = ref.current;
@@ -223,7 +241,7 @@ function RichTextBox({
     if (!node) return;
     const serialized = serializeRichText(node);
     lastHtmlRef.current = node.innerHTML;
-    onChange(serialized);
+    onChange(serialized, coalesceKeyRef.current ?? undefined);
   }, [onChange]);
 
   const applyCommand = useCallback(
@@ -275,7 +293,14 @@ function RichTextBox({
         contentEditable
         suppressContentEditableWarning
         onInput={emitChange}
-        onBlur={emitChange}
+        onFocus={() => {
+          _richTextEditSeq += 1;
+          coalesceKeyRef.current = `rich-text-edit:${_richTextEditSeq}`;
+        }}
+        onBlur={() => {
+          emitChange();
+          coalesceKeyRef.current = null;
+        }}
         onKeyDown={(event) => event.stopPropagation()}
         className={`min-h-24 w-full whitespace-pre-wrap rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-sm text-ds-text-primary outline-none ${FOCUS_RING}`}
       />
@@ -461,11 +486,15 @@ function ElementEditor({
           <RichTextBox
             label="Text"
             html={runsToHtml(element.runs, element.text)}
-            onChange={({ text, runs }) =>
-              onUpdateElement(element.id, {
-                text,
-                runs: shouldStoreRuns(runs) ? runs : undefined,
-              })
+            onChange={({ text, runs }, coalesceKey) =>
+              onUpdateElement(
+                element.id,
+                {
+                  text,
+                  runs: shouldStoreRuns(runs) ? runs : undefined,
+                },
+                coalesceKey,
+              )
             }
           />
           <TextStyleBar
@@ -489,7 +518,7 @@ function ElementEditor({
               bulletsToRuns(element.bullets, element.bulletRuns),
               element.bullets.join("\n"),
             )}
-            onChange={({ runs }) => {
+            onChange={({ runs }, coalesceKey) => {
               const lines = splitRunsIntoLines(runs)
                 .map((line) => ({
                   text: line.text.replace(/\s+$/, ""),
@@ -499,12 +528,16 @@ function ElementEditor({
               const hasRichBullets = lines.some((line) =>
                 shouldStoreRuns(line.runs),
               );
-              onUpdateElement(element.id, {
-                bullets: lines.map((line) => line.text),
-                bulletRuns: hasRichBullets
-                  ? lines.map((line) => line.runs)
-                  : undefined,
-              });
+              onUpdateElement(
+                element.id,
+                {
+                  bullets: lines.map((line) => line.text),
+                  bulletRuns: hasRichBullets
+                    ? lines.map((line) => line.runs)
+                    : undefined,
+                },
+                coalesceKey,
+              );
             }}
           />
           <TextStyleBar

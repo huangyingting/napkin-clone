@@ -354,9 +354,15 @@ export function SlideEditor({
   const railListRef = useRef<HTMLUListElement>(null);
   // Live reorder drag, tracked in a ref so the window pointer listeners always
   // read the latest source/target without re-subscribing on every move.
-  const reorderRef = useRef<{ fromIndex: number; overIndex: number } | null>(
-    null,
-  );
+  // `capturedPointerId` filters out a second touch so it cannot corrupt
+  // `dragOverIndex` (#306). `cachedRects` is populated once at pointerdown and
+  // reused on every pointermove to avoid per-frame layout reads.
+  const reorderRef = useRef<{
+    fromIndex: number;
+    overIndex: number;
+    capturedPointerId: number;
+    cachedRects: DOMRect[];
+  } | null>(null);
   // In-memory element clipboard for copy / cut / paste (within & across slides).
   const clipboardRef = useRef<SlideElement[] | null>(null);
   // Keydown handler state ref — deck and selection values read by the global
@@ -990,8 +996,11 @@ export function SlideEditor({
   );
 
   const handleNotesChange = useCallback(
-    (index: number, notes: string) => {
-      onDeckChange(updateSlide(deck, index, { notes }));
+    (index: number, notes: string, coalesceKey?: string) => {
+      onDeckChange(
+        updateSlide(deck, index, { notes }),
+        coalesceKey !== undefined ? { coalesceKey } : undefined,
+      );
     },
     [deck, onDeckChange],
   );
@@ -1008,7 +1017,21 @@ export function SlideEditor({
       }
       event.preventDefault();
       event.stopPropagation();
-      reorderRef.current = { fromIndex: index, overIndex: index };
+      // Cache item rects once so pointermove reuses them instead of querying
+      // layout on every frame. Capture the pointer to keep receiving events
+      // even when the pointer leaves the viewport (#306).
+      const list = railListRef.current;
+      const items = list
+        ? Array.from(list.querySelectorAll<HTMLElement>("[data-slide-thumb]"))
+        : [];
+      const cachedRects = items.map((item) => item.getBoundingClientRect());
+      (event.currentTarget as Element).setPointerCapture(event.pointerId);
+      reorderRef.current = {
+        fromIndex: index,
+        overIndex: index,
+        capturedPointerId: event.pointerId,
+        cachedRects,
+      };
       setDragIndex(index);
       setDragOverIndex(index);
     },
@@ -1021,18 +1044,17 @@ export function SlideEditor({
     }
 
     const handlePointerMove = (event: PointerEvent) => {
-      const list = railListRef.current;
       const drag = reorderRef.current;
-      if (!list || !drag) {
+      // Ignore events from a second touch; only the captured pointer drives the
+      // reorder so a concurrent contact cannot corrupt dragOverIndex (#306).
+      if (!drag || event.pointerId !== drag.capturedPointerId) {
         return;
       }
-      const items = Array.from(
-        list.querySelectorAll<HTMLElement>("[data-slide-thumb]"),
-      );
-      if (items.length === 0) {
+      // Reuse the rects cached at pointerdown — no per-frame layout reads (#306).
+      const rects = drag.cachedRects;
+      if (rects.length === 0) {
         return;
       }
-      const rects = items.map((item) => item.getBoundingClientRect());
       // The rail is vertical (desktop/tablet) or a horizontal strip (phone);
       // pick the axis from how the first two thumbnails are laid out.
       const vertical =
@@ -1050,10 +1072,13 @@ export function SlideEditor({
       setDragOverIndex(target);
     };
 
-    const handlePointerUp = () => {
+    const handlePointerUp = (event: PointerEvent) => {
       const drag = reorderRef.current;
+      if (!drag || event.pointerId !== drag.capturedPointerId) {
+        return;
+      }
       reorderRef.current = null;
-      if (drag && drag.overIndex !== drag.fromIndex) {
+      if (drag.overIndex !== drag.fromIndex) {
         onDeckChange(reorderSlides(deck, drag.fromIndex, drag.overIndex));
         setSelectedIndex(drag.overIndex);
       }
@@ -1975,7 +2000,9 @@ export function SlideEditor({
           {selectedSlide ? (
             <SlideNotesPanel
               notes={selectedSlide.notes}
-              onChange={(value) => handleNotesChange(safeSelected, value)}
+              onChange={(value, coalesceKey) =>
+                handleNotesChange(safeSelected, value, coalesceKey)
+              }
             />
           ) : null}
         </main>
@@ -2372,19 +2399,37 @@ function FromDocumentPanel({
  * mirroring the notes area found in dedicated presentation editors. Shows a
  * “Click to add speaker notes” placeholder until the user types. Pure
  * presentation — the value and change handler are owned by the editor.
+ *
+ * A per-session coalesceKey collapses an entire typing run into one undo step
+ * (issue #306). A fresh key is generated on focus; cleared on blur so the next
+ * session is a separate undo step.
  */
+
+/** Module-level counter so each notes-editing session gets a unique key (#306). */
+let _notesEditSeq = 0;
+
 function SlideNotesPanel({
   notes,
   onChange,
 }: {
   notes: string;
-  onChange: (value: string) => void;
+  onChange: (value: string, coalesceKey?: string) => void;
 }) {
+  const coalesceKeyRef = useRef<string | null>(null);
   return (
     <div className="shrink-0 border-t border-ds-border-subtle bg-ds-surface-base px-4 py-2">
       <textarea
         value={notes}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) =>
+          onChange(event.target.value, coalesceKeyRef.current ?? undefined)
+        }
+        onFocus={() => {
+          _notesEditSeq += 1;
+          coalesceKeyRef.current = `notes-edit:${_notesEditSeq}`;
+        }}
+        onBlur={() => {
+          coalesceKeyRef.current = null;
+        }}
         rows={4}
         aria-label="Speaker notes"
         placeholder="Click to add speaker notes…"
