@@ -925,7 +925,7 @@ function ElementsSlideLayout({
         }
       : { backgroundColor: background };
   const ordered = [...(slide.elements ?? [])]
-    .filter((element) => !hiddenElementIds?.has(element.id))
+    .filter((element) => !hiddenElementIds?.has(element.id) && !element.hidden)
     .sort((a, b) => a.zIndex - b.zIndex);
   return (
     <div

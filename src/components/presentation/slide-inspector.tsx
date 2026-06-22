@@ -93,6 +93,7 @@ import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 import type { Visual } from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { applyTheme, isThemeActive } from "@/lib/visual/transforms";
+import { SlideLayerList } from "@/components/presentation/slide-layer-list";
 
 const LAYOUT_OPTIONS: SlideLayout[] = [
   "title",
@@ -169,6 +170,9 @@ export interface SlideInspectorProps {
   onDistribute?: (ids: string[], mode: DistributeMode) => void;
   onMatchSize?: (ids: string[], mode: MatchSizeMode) => void;
   onArrange?: (ids: string[], mode: ArrangeMode) => void;
+  // Layer list callbacks (issue #331)
+  /** Toggles the `hidden` field on an element (undoable). */
+  onToggleHidden?: (id: string) => void;
   // Style
   onBackgroundChange: (color: string | undefined) => void;
   onBackgroundGradientChange: (
@@ -1574,6 +1578,7 @@ export function SlideInspector({
   onDistribute,
   onMatchSize,
   onArrange,
+  onToggleHidden,
   onBackgroundChange,
   onBackgroundGradientChange,
   onBackgroundImageChange,
@@ -1644,7 +1649,6 @@ export function SlideInspector({
   const hasElements = elements.length > 0;
   const selectedElement =
     elements.find((element) => element.id === selectedElementId) ?? null;
-  const orderedElements = [...elements].sort((a, b) => b.zIndex - a.zIndex);
 
   const themeConfig = DECK_THEMES[slide.theme] ?? DECK_THEMES.default;
   const textColorPresets = mergeSwatches(brandSwatches, [
@@ -1721,74 +1725,32 @@ export function SlideInspector({
           >
             {hasElements ? (
               <>
-                {/* Element list */}
-                <div className="flex flex-col gap-1">
-                  {orderedElements.map((element) => {
-                    const selected = element.id === selectedElementId;
-                    return (
-                      <div
-                        key={element.id}
-                        className={`flex items-center gap-1 rounded-ds-sm border px-2 py-1 ${
-                          selected
-                            ? "border-ds-control bg-ds-state-hover"
-                            : "border-transparent hover:bg-ds-state-hover"
-                        }`}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => onSelectElement(element.id)}
-                          className={`min-w-0 flex-1 truncate text-left text-xs text-ds-text-secondary ${FOCUS_RING}`}
-                        >
-                          {elementLabel(element)}
-                        </button>
-                        <Tooltip label="Duplicate element" side="bottom">
-                          <button
-                            type="button"
-                            onClick={() => onDuplicateElement(element.id)}
-                            aria-label="Duplicate element"
-                            className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
-                          >
-                            <Copy size={12} aria-hidden="true" />
-                          </button>
-                        </Tooltip>
-                        {showAdvanced ? (
-                          <>
-                            <Tooltip label="Bring to front" side="bottom">
-                              <button
-                                type="button"
-                                onClick={() => onBringToFront(element.id)}
-                                aria-label="Bring to front"
-                                className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
-                              >
-                                <ArrowUpToLine size={12} aria-hidden="true" />
-                              </button>
-                            </Tooltip>
-                            <Tooltip label="Send to back" side="bottom">
-                              <button
-                                type="button"
-                                onClick={() => onSendToBack(element.id)}
-                                aria-label="Send to back"
-                                className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
-                              >
-                                <ArrowDownToLine size={12} aria-hidden="true" />
-                              </button>
-                            </Tooltip>
-                          </>
-                        ) : null}
-                        <Tooltip label="Delete element" side="bottom">
-                          <button
-                            type="button"
-                            onClick={() => onRemoveElement(element.id)}
-                            aria-label="Delete element"
-                            className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
-                          >
-                            <Trash2 size={12} aria-hidden="true" />
-                          </button>
-                        </Tooltip>
-                      </div>
-                    );
-                  })}
-                </div>
+                {/* Layer/object list (issue #331) */}
+                <SlideLayerList
+                  elements={elements}
+                  selectedElementId={selectedElementId}
+                  selectedIds={selectedElementIds ?? new Set()}
+                  onSelectElement={onSelectElement}
+                  onToggleHidden={(id) => {
+                    const el = elements.find((e) => e.id === id);
+                    if (!el) return;
+                    if (onToggleHidden) {
+                      onToggleHidden(id);
+                    } else {
+                      onUpdateElement(id, {
+                        hidden: el.hidden ? undefined : true,
+                      });
+                    }
+                  }}
+                  onToggleLocked={(id) => {
+                    const el = elements.find((e) => e.id === id);
+                    if (!el) return;
+                    onUpdateElement(id, {
+                      locked: el.locked ? undefined : true,
+                    });
+                  }}
+                  onArrange={(ids, mode) => onArrange?.(ids, mode)}
+                />
 
                 {/* Selected element editor */}
                 {/* Multi-select tools panel (issue #328) */}

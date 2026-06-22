@@ -1022,7 +1022,10 @@ export function SlideStageEditor({
   const rafIdRef = useRef<number | null>(null);
   const pendingMoveRef = useRef<PointerEvent | null>(null);
 
-  const elements = useMemo(() => slide.elements ?? [], [slide.elements]);
+  const elements = useMemo(
+    () => (slide.elements ?? []).filter((el) => !el.hidden),
+    [slide.elements],
+  );
   // Live element list for the global pointer-move handler (which is memoized on
   // a stable identity and must not re-subscribe on every element change). The
   // ref is synced from an effect so it is never written during render.

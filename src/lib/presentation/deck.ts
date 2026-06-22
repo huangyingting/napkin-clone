@@ -301,6 +301,12 @@ interface BaseElement {
   /** When true, the element is not selectable or draggable in the editor. */
   locked?: boolean;
   /**
+   * When true, the element is hidden from all renderers (editor, present mode,
+   * public viewer). Unlike {@link locked} (which only affects interactivity),
+   * hidden elements are fully omitted from rendering.
+   */
+  hidden?: boolean;
+  /**
    * Optional group id. Elements sharing a `groupId` select and move together in
    * the editor. Renderers ignore it. Cleared by ungrouping.
    */
