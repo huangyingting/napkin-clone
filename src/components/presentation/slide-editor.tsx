@@ -111,6 +111,7 @@ import {
 import {
   SAVE_STATUS_LABEL,
   SLIDE_SAVE_DEBOUNCE_MS,
+  resolveSaveErrorMessage,
   resolveSaveStatus,
   shouldPersist,
   shouldScheduleAutosave,
@@ -350,6 +351,9 @@ export function SlideEditor({
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [hasSaveError, setHasSaveError] = useState(false);
+  // The server-returned reason for the last failed save, if any. Cleared on
+  // success and on new edits so stale messages are never shown after recovery.
+  const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
 
   // Pending autosave debounce timer.
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -382,10 +386,12 @@ export function SlideEditor({
         setIsDirty(false);
       }
       setHasSaveError(false);
+      setSaveErrorMessage(null);
       return;
     }
     setIsSaving(true);
     setHasSaveError(false);
+    setSaveErrorMessage(null);
     try {
       const res = await onSave(deckToSave);
       if (res.ok) {
@@ -396,6 +402,7 @@ export function SlideEditor({
         }
       } else {
         setHasSaveError(true);
+        setSaveErrorMessage(res.error);
       }
     } catch {
       setHasSaveError(true);
@@ -417,6 +424,7 @@ export function SlideEditor({
     }
     setIsDirty(true);
     setHasSaveError(false);
+    setSaveErrorMessage(null);
     if (autosaveTimerRef.current) {
       clearTimeout(autosaveTimerRef.current);
     }
@@ -1600,10 +1608,22 @@ export function SlideEditor({
             <button
               type="button"
               onClick={handleSave}
+              title={resolveSaveErrorMessage(saveErrorMessage)}
+              aria-label={`${resolveSaveErrorMessage(saveErrorMessage)} — Retry`}
               className={`flex h-8 items-center rounded-ds-md border border-ds-danger-border bg-ds-danger-surface px-2.5 text-sm font-medium text-ds-danger-text transition-opacity hover:opacity-90 ${FOCUS_RING}`}
             >
               {SAVE_STATUS_LABEL.error}
             </button>
+          ) : null}
+
+          {saveStatus === "error" && saveErrorMessage ? (
+            <span
+              role="status"
+              aria-live="assertive"
+              className="hidden max-w-xs truncate text-xs text-ds-danger-text xl:inline"
+            >
+              {saveErrorMessage}
+            </span>
           ) : null}
 
           <button

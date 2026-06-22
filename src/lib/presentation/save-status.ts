@@ -98,6 +98,21 @@ export function shouldScheduleAutosave({
 }
 
 /**
+ * Returns the user-facing message for the save-status error area.
+ *
+ * When the server returned a specific reason (e.g. "Deck is too large to
+ * save.") that message is surfaced directly so the user knows whether Retry
+ * can actually succeed. Falls back to the generic {@link SAVE_STATUS_LABEL}
+ * entry when no server message is available (e.g. a network error).
+ */
+export function resolveSaveErrorMessage(
+  serverMessage: string | null | undefined,
+): string {
+  const trimmed = serverMessage?.trim();
+  return trimmed ? trimmed : SAVE_STATUS_LABEL.error;
+}
+
+/**
  * Decides whether a flushed save should actually hit the network.
  *
  * The deck changes reference on every action (mutation, undo, redo, applied

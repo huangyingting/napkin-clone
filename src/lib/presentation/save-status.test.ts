@@ -5,6 +5,7 @@ import type { Deck } from "./deck";
 import {
   SAVE_STATUS_LABEL,
   SLIDE_SAVE_DEBOUNCE_MS,
+  resolveSaveErrorMessage,
   resolveSaveStatus,
   shouldPersist,
   shouldScheduleAutosave,
@@ -120,4 +121,27 @@ test("shouldPersist: a changed serialization persists", () => {
   const prev = '{"theme":"default","slides":[]}';
   const next = '{"theme":"midnight","slides":[]}';
   assert.equal(shouldPersist(prev, next), true);
+});
+
+// ---------------------------------------------------------------------------
+// resolveSaveErrorMessage — surface the real server reason (#303)
+// ---------------------------------------------------------------------------
+
+test("resolveSaveErrorMessage: server error string is returned verbatim", () => {
+  assert.equal(
+    resolveSaveErrorMessage("Deck is too large to save."),
+    "Deck is too large to save.",
+  );
+});
+
+test("resolveSaveErrorMessage: null falls back to the generic Retry label", () => {
+  assert.equal(resolveSaveErrorMessage(null), SAVE_STATUS_LABEL.error);
+});
+
+test("resolveSaveErrorMessage: undefined falls back to the generic Retry label", () => {
+  assert.equal(resolveSaveErrorMessage(undefined), SAVE_STATUS_LABEL.error);
+});
+
+test("resolveSaveErrorMessage: whitespace-only string falls back to the generic label", () => {
+  assert.equal(resolveSaveErrorMessage("   "), SAVE_STATUS_LABEL.error);
 });

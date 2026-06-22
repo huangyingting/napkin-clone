@@ -1030,6 +1030,32 @@ export function SlideInspector({
   className = "flex w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle",
 }: SlideInspectorProps) {
   const [tab, setTab] = useState<Tab>("content");
+  // Validation error for the background image URL field — only set when the
+  // user enters a data URL that is too large or not an image type.
+  const [bgImageError, setBgImageError] = useState<string | null>(null);
+
+  function handleBackgroundImageChange(value: string | undefined) {
+    if (value?.startsWith("data:")) {
+      if (!value.startsWith("data:image/")) {
+        setBgImageError("Please enter an image data URL (data:image/…).");
+        return;
+      }
+      // Net change in inlined bytes relative to the current background.
+      const addedBytes = value.length - dataUrlByteSize(slide.backgroundImage);
+      if (addedBytes > 0) {
+        const budget = canAddImage(deck, addedBytes);
+        if (!budget.ok) {
+          const usedMb = (budget.totalBytes / (1024 * 1024)).toFixed(1);
+          setBgImageError(
+            `Deck image storage is full (${usedMb} MB). Remove an image or use a smaller file.`,
+          );
+          return;
+        }
+      }
+    }
+    setBgImageError(null);
+    onBackgroundImageChange(value);
+  }
 
   const elements = slide.elements ?? [];
   const hasElements = elements.length > 0;
@@ -1343,7 +1369,7 @@ export function SlideInspector({
                 type="text"
                 value={slide.backgroundImage ?? ""}
                 onChange={(event) =>
-                  onBackgroundImageChange(
+                  handleBackgroundImageChange(
                     event.target.value.trim() === ""
                       ? undefined
                       : event.target.value.trim(),
@@ -1352,6 +1378,11 @@ export function SlideInspector({
                 placeholder="https://… or data:image/…"
                 className={`${FIELD_CLASS} ${FOCUS_RING}`}
               />
+              {bgImageError ? (
+                <p role="alert" className="mt-1 text-xs text-ds-danger-text">
+                  {bgImageError}
+                </p>
+              ) : null}
             </label>
             <p className="text-xs text-ds-text-muted">
               Overrides apply to this slide only. Image &gt; gradient &gt; solid
