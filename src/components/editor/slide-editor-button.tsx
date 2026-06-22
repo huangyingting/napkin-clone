@@ -19,7 +19,13 @@
 
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { LayoutPanelLeft } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { fetchDeckJson, saveDeckJson } from "@/app/app/documents/[id]/actions";
 import { listBrands } from "@/app/app/brands/actions";
@@ -110,6 +116,17 @@ export function SlideEditorButton({
   // happens on "Apply". `null` whenever no proposal is under review.
   const [aiPreview, setAiPreview] = useState<AiPreviewState | null>(null);
   const [deck, setDeck] = useState<Deck | null>(null);
+  // Ref kept in sync every render so the live-resync effect (below) can read
+  // the latest deck without adding `deck` to its dependency array — which would
+  // cause the Lexical listener to be torn down and re-registered on every deck
+  // edit (issue #295).
+  const deckRef = useRef<Deck | null>(null);
+  // Keep deckRef in sync after every render so the live-resync timeout (below)
+  // always reads the latest deck. useLayoutEffect runs synchronously post-DOM,
+  // before the browser paints — safe because the timeout fires well after.
+  useLayoutEffect(() => {
+    deckRef.current = deck;
+  });
   // The freshly-derived deck and its content hash, captured at open from the
   // live Lexical state. Drives the "Sync from document" merge and the
   // staleness banner without ever reaching back into Lexical from the editor.
@@ -199,6 +216,39 @@ export function SlideEditorButton({
       ),
     };
   }, []);
+
+  // Live document→deck re-sync while the slide editor panel is open (issue
+  // #295). Registers a Lexical update listener only while `open` is true;
+  // debounces re-derivation (~350 ms) so rapid keystrokes don't thrash. Reads
+  // the current deck through `deckRef` so the effect deps stay stable and the
+  // listener is NOT torn-down/re-registered on every deck edit. Cleanup
+  // unsubscribes the listener AND cancels any pending debounce — no leak on
+  // panel-close or unmount.
+  useEffect(() => {
+    if (!open) return;
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+    const unsubscribe = editor.registerUpdateListener(({ editorState }) => {
+      const json = JSON.stringify(editorState.toJSON());
+      if (timerId !== null) clearTimeout(timerId);
+      timerId = setTimeout(() => {
+        timerId = null;
+        const ctx = buildOpenContext(json);
+        setFreshDeck(stripOrphanedVisuals(ctx.baseDeck, ctx.knownVisualIds));
+        setVisuals(ctx.visualMap);
+        setDocumentTextBlocks(ctx.documentTextBlocks);
+        if (deckRef.current !== null) {
+          setStale(isDeckStale(deckRef.current, ctx.currentContentHash));
+        }
+      }, 350);
+    });
+    return () => {
+      unsubscribe();
+      if (timerId !== null) {
+        clearTimeout(timerId);
+        timerId = null;
+      }
+    };
+  }, [editor, open, buildOpenContext]);
 
   // Commit the prepared deck into editor state and reveal the SlideEditor panel.
   const finishOpen = useCallback(
