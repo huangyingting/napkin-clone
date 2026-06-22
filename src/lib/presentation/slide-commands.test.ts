@@ -358,10 +358,10 @@ test("UPDATE_SLIDE preserves slide id even when unsafe input forces id into patc
 
 test("UPDATE_SLIDE patch type excludes id at compile time", () => {
   const deck = makeDeck(["s1"]);
-  // @ts-expect-error — `id` is excluded from UpdateSlideCommand.patch
   executeCommand(deck, {
     type: "UPDATE_SLIDE",
     slideId: "s1",
+    // @ts-expect-error — `id` is excluded from UpdateSlideCommand.patch
     patch: { id: "injected" },
   });
 });
