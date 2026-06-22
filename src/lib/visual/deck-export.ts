@@ -29,6 +29,7 @@
 import PptxGenJS from "pptxgenjs";
 
 import type {
+  BulletItem,
   Deck,
   DeckTheme,
   ElementAlign,
@@ -43,7 +44,10 @@ import {
   resolveConnectorElementPoints,
   resolveConnectorEndpoint,
 } from "@/lib/presentation/connector-geometry";
-import { materializeSlideElements } from "@/lib/presentation/deck";
+import {
+  materializeSlideElements,
+  normalizeBulletItems,
+} from "@/lib/presentation/deck";
 import { isEmptyImageSrc } from "@/lib/presentation/image-element";
 import { slideFormatConfig } from "@/lib/presentation/slide-format";
 import type { Visual } from "@/lib/visual/schema";
@@ -193,6 +197,15 @@ export interface DeckBulletsOp extends InchBox {
    * back to the plain `items[i]` string.
    */
   itemRuns?: TextRun[][];
+  /**
+   * Per-item indent and list-type metadata (#335).  Parallel to `items`.
+   * When present, `applyBulletsOp` uses indent levels and numbered-list
+   * markers instead of the default flat bullet.
+   */
+  itemDetails?: ReadonlyArray<{
+    indent?: number;
+    listType?: "bullet" | "number";
+  }>;
   color: string;
   fontSize: number;
   bold: boolean;
@@ -439,12 +452,28 @@ function buildSlideSpec(
         break;
       }
       case "bullets": {
+        // Normalise to authoritative item list (handles legacy flat bullets).
+        const bulletItems: BulletItem[] = normalizeBulletItems(element);
+        const hasRichRuns = bulletItems.some(
+          (it) => it.runs && it.runs.length > 0,
+        );
+        const hasItemMeta = bulletItems.some(
+          (it) => (it.indent ?? 0) !== 0 || it.listType === "number",
+        );
         ops.push({
           kind: "bullets",
           ...box,
-          items: [...element.bullets],
-          ...(element.bulletRuns && element.bulletRuns.length > 0
-            ? { itemRuns: element.bulletRuns }
+          items: bulletItems.map((it) => it.text),
+          ...(hasRichRuns
+            ? { itemRuns: bulletItems.map((it) => it.runs ?? []) }
+            : {}),
+          ...(hasItemMeta
+            ? {
+                itemDetails: bulletItems.map((it) => ({
+                  indent: it.indent,
+                  listType: it.listType,
+                })),
+              }
             : {}),
           color: toHex(element.style.color ?? colors.body),
           fontSize: fontSizePt(element.style.fontSize, geometry),
@@ -702,10 +731,27 @@ function applyBulletsOp(slide: PptxSlide, op: DeckBulletsOp): void {
     op.itemRuns !== undefined &&
     op.itemRuns.some((runs) => runs && runs.length > 0);
 
+  /** Build the pptxgenjs `bullet` option for item at index `i`. */
+  function bulletOpt(
+    i: number,
+  ): true | { type: "number" | "bullet"; indent?: number } {
+    const detail = op.itemDetails?.[i];
+    const indent = (detail?.indent ?? 0) * 25; // ~25pt per level
+    const isNumbered = detail?.listType === "number";
+    if (indent === 0 && !isNumbered) return true;
+    return {
+      type: isNumbered ? "number" : "bullet",
+      ...(indent > 0 ? { indent } : {}),
+    };
+  }
+
   if (!hasRuns) {
     const runs = op.items.map((text, i) => ({
       text,
-      options: { bullet: true, breakLine: i < op.items.length - 1 },
+      options: {
+        bullet: bulletOpt(i),
+        breakLine: i < op.items.length - 1,
+      },
     }));
     slide.addText(runs, shared);
     return;
@@ -722,7 +768,7 @@ function applyBulletsOp(slide: PptxSlide, op: DeckBulletsOp): void {
           text: run.text === "\n" ? "" : run.text,
           options: {
             ...runToOptions(run),
-            ...(j === 0 ? { bullet: true } : {}),
+            ...(j === 0 ? { bullet: bulletOpt(i) } : {}),
             ...(isLastRun && !isLastLine ? { breakLine: true } : {}),
           },
         });
@@ -730,7 +776,7 @@ function applyBulletsOp(slide: PptxSlide, op: DeckBulletsOp): void {
     } else {
       runs.push({
         text,
-        options: { bullet: true, breakLine: !isLastLine },
+        options: { bullet: bulletOpt(i), breakLine: !isLastLine },
       });
     }
   });

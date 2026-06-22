@@ -367,6 +367,25 @@ export interface TextElement extends BaseElement {
   fitMode?: TextFitMode;
 }
 
+/**
+ * A single item in a multi-level bullet or numbered list (#335).
+ *
+ * When `items` is present on a {@link BulletsElement} it is authoritative and
+ * the legacy `bullets` / `bulletRuns` arrays are ignored by renderers.
+ */
+export interface BulletItem {
+  text: string;
+  /** Rich-text runs for this item; falls back to `text` when absent. */
+  runs?: TextRun[];
+  /**
+   * Nesting depth: 0 = top level (default), 1 = first nested, 2 = second
+   * nested.  Clamped to [0, 5] by validators.
+   */
+  indent?: number;
+  /** Marker style for this item.  Defaults to `"bullet"`. */
+  listType?: "bullet" | "number";
+}
+
 export interface BulletsElement extends BaseElement {
   kind: "bullets";
   bullets: string[];
@@ -378,6 +397,13 @@ export interface BulletsElement extends BaseElement {
    * any bullet without a matching entry renders from its plain string.
    */
   bulletRuns?: TextRun[][];
+  /**
+   * Authoritative multi-level item list (#335).  When present and non-empty,
+   * renderers and exporters use this instead of `bullets` / `bulletRuns`.
+   * Legacy decks that lack `items` are normalised on the fly via
+   * {@link normalizeBulletItems}.
+   */
+  items?: BulletItem[];
   style: TextElementStyle;
   /**
    * How the element handles content that exceeds the box height.
@@ -394,6 +420,24 @@ export interface BulletsElement extends BaseElement {
    * percent of slide width. Absent → 0.
    */
   bulletIndent?: number;
+}
+
+/**
+ * Returns the authoritative item list for a bullets element (#335).
+ *
+ * - When `el.items` is present and non-empty it is returned directly.
+ * - Otherwise the flat `bullets` / `bulletRuns` arrays are normalised into a
+ *   `BulletItem[]` so that all consumers can share a single code path.
+ */
+export function normalizeBulletItems(el: BulletsElement): BulletItem[] {
+  if (el.items && el.items.length > 0) return el.items;
+  return el.bullets.map((text, i) => {
+    const runs = el.bulletRuns?.[i];
+    return {
+      text,
+      ...(runs && runs.length > 0 ? { runs } : {}),
+    };
+  });
 }
 
 export interface VisualElement extends BaseElement {

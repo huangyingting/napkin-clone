@@ -11,6 +11,7 @@ import {
   DECK_THEMES,
   SLIDE_LAYOUTS,
   makeSlideId,
+  type BulletItem,
   type ConnectorAnchor,
   type ConnectorArrow,
   type ConnectorBinding,
@@ -320,6 +321,52 @@ function validateBulletRuns(value: unknown, context: string): TextRun[][] {
   );
 }
 
+const LIST_TYPES = ["bullet", "number"] as const;
+
+/** Validates and normalises a single {@link BulletItem} (#335). */
+function validateBulletItem(input: unknown, context: string): BulletItem {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  if (typeof input.text !== "string") {
+    throw new DeckValidationError(`${context}.text must be a string`);
+  }
+  const item: BulletItem = { text: input.text };
+  if (input.runs !== undefined) {
+    item.runs = validateTextRuns(input.runs, `${context}.runs`);
+  }
+  if (input.indent !== undefined) {
+    if (
+      typeof input.indent !== "number" ||
+      !Number.isInteger(input.indent) ||
+      input.indent < 0 ||
+      input.indent > 5
+    ) {
+      throw new DeckValidationError(`${context}.indent must be an integer 0–5`);
+    }
+    item.indent = input.indent;
+  }
+  if (input.listType !== undefined) {
+    if (!LIST_TYPES.includes(input.listType as (typeof LIST_TYPES)[number])) {
+      throw new DeckValidationError(
+        `${context}.listType must be "bullet" or "number"`,
+      );
+    }
+    item.listType = input.listType as BulletItem["listType"];
+  }
+  return item;
+}
+
+/** Validates an array of {@link BulletItem}s (#335). */
+function validateBulletItems(value: unknown, context: string): BulletItem[] {
+  if (!Array.isArray(value)) {
+    throw new DeckValidationError(`${context} must be an array`);
+  }
+  return value.map((item, index) =>
+    validateBulletItem(item, `${context}[${index}]`),
+  );
+}
+
 function validateElement(input: unknown, context: string): SlideElement {
   if (!isPlainObject(input)) {
     throw new DeckValidationError(`${context} must be an object`);
@@ -408,6 +455,11 @@ function validateElement(input: unknown, context: string): SlideElement {
                 input.bulletRuns,
                 `${context}.bulletRuns`,
               ),
+            }
+          : {}),
+        ...(input.items !== undefined
+          ? {
+              items: validateBulletItems(input.items, `${context}.items`),
             }
           : {}),
         style: validateTextStyle(input.style, `${context}.style`),

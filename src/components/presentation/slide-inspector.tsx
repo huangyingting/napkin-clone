@@ -52,6 +52,7 @@ import { TextStyleBar } from "@/components/presentation/text-style-bar";
 import { Swatch, Tooltip } from "@/components/ui";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import type {
+  BulletItem,
   BulletsElement,
   ConnectorArrow,
   ConnectorElement,
@@ -66,6 +67,7 @@ import type {
   TextFitMode,
   TextRun,
 } from "@/lib/presentation/deck";
+import { normalizeBulletItems } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import type {
   AlignMode,
@@ -794,6 +796,68 @@ function BulletIndentControl({
   );
 }
 
+/**
+ * List-type toggle: switches all items in the list between bullet and numbered.
+ * Per-item list type is set via Tab/Shift+Tab in the inline editor.
+ */
+function ListTypeControl({
+  element,
+  onChange,
+}: {
+  element: BulletsElement;
+  onChange: (patch: Partial<BulletsElement>) => void;
+}) {
+  const items = normalizeBulletItems(element);
+  // Consider the list "numbered" if a majority of items are numbered.
+  const numberedCount = items.filter(
+    (it: BulletItem) => it.listType === "number",
+  ).length;
+  const isNumbered = items.length > 0 && numberedCount > items.length / 2;
+
+  function toggle() {
+    const targetType = isNumbered ? "bullet" : "number";
+    const newItems: BulletItem[] = items.map((it: BulletItem) => ({
+      ...it,
+      listType: targetType,
+    }));
+    onChange({ items: newItems });
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className={LABEL_CLASS + " mb-0"}>List type</span>
+      <div className="flex gap-1">
+        <button
+          type="button"
+          onClick={() => !isNumbered || toggle()}
+          className={`rounded-ds-md border px-2 py-1 text-xs ${
+            !isNumbered
+              ? "border-ds-accent bg-ds-accent text-white"
+              : "border-ds-border-subtle bg-ds-surface text-ds-text-primary"
+          } ${FOCUS_RING}`}
+          aria-pressed={!isNumbered}
+          title="Bullet list"
+        >
+          • Bullet
+        </button>
+        <button
+          type="button"
+          onClick={() => isNumbered || toggle()}
+          className={`rounded-ds-md border px-2 py-1 text-xs ${
+            isNumbered
+              ? "border-ds-accent bg-ds-accent text-white"
+              : "border-ds-border-subtle bg-ds-surface text-ds-text-primary"
+          } ${FOCUS_RING}`}
+          aria-pressed={isNumbered}
+          title="Numbered list"
+        >
+          1. Number
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ElementEditor({
   element,
   deck,
@@ -915,6 +979,10 @@ function ElementEditor({
             onChange={(patch) => onUpdateElement(element.id, patch)}
           />
           <BulletIndentControl
+            element={element}
+            onChange={(patch) => onUpdateElement(element.id, patch)}
+          />
+          <ListTypeControl
             element={element}
             onChange={(patch) => onUpdateElement(element.id, patch)}
           />

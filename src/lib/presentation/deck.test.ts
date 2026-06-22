@@ -812,3 +812,83 @@ test("migrateSlideToFreeForm does not clobber a hand-edited free-form slide", as
   assert.equal(result, handEdited);
   assert.equal(result.elementsDerived, false);
 });
+
+// ---------------------------------------------------------------------------
+// normalizeBulletItems — multi-level bullets (#335)
+// ---------------------------------------------------------------------------
+
+test("normalizeBulletItems returns items[] as-is when present", async () => {
+  const { normalizeBulletItems } = await import("./deck");
+  const el = {
+    id: "b",
+    kind: "bullets" as const,
+    bullets: ["fallback"],
+    items: [
+      { text: "First", indent: 0, listType: "bullet" as const },
+      { text: "Second", indent: 1, listType: "number" as const },
+    ],
+    zIndex: 0,
+    box: { x: 0, y: 0, w: 10, h: 10 },
+    style: { fontSize: 4, bold: false, italic: false, align: "left" as const },
+  };
+  const result = normalizeBulletItems(el);
+  assert.equal(result.length, 2);
+  assert.equal(result[0].text, "First");
+  assert.equal(result[0].indent, 0);
+  assert.equal(result[1].text, "Second");
+  assert.equal(result[1].indent, 1);
+  assert.equal(result[1].listType, "number");
+});
+
+test("normalizeBulletItems converts flat bullets[] when items absent", async () => {
+  const { normalizeBulletItems } = await import("./deck");
+  const el = {
+    id: "b",
+    kind: "bullets" as const,
+    bullets: ["Alpha", "Beta", "Gamma"],
+    zIndex: 0,
+    box: { x: 0, y: 0, w: 10, h: 10 },
+    style: { fontSize: 4, bold: false, italic: false, align: "left" as const },
+  };
+  const result = normalizeBulletItems(el);
+  assert.equal(result.length, 3);
+  assert.equal(result[0].text, "Alpha");
+  assert.equal(result[1].text, "Beta");
+  assert.equal(result[2].text, "Gamma");
+  // No indent/listType on plain bullets
+  assert.equal(result[0].indent, undefined);
+  assert.equal(result[0].listType, undefined);
+});
+
+test("normalizeBulletItems merges bulletRuns into items when items absent", async () => {
+  const { normalizeBulletItems } = await import("./deck");
+  const el = {
+    id: "b",
+    kind: "bullets" as const,
+    bullets: ["plain", "rich"],
+    bulletRuns: [[], [{ text: "rich", bold: true }]],
+    zIndex: 0,
+    box: { x: 0, y: 0, w: 10, h: 10 },
+    style: { fontSize: 4, bold: false, italic: false, align: "left" as const },
+  };
+  const result = normalizeBulletItems(el);
+  assert.equal(result.length, 2);
+  // Empty runs array should not be attached
+  assert.equal(result[0].runs, undefined);
+  // Non-empty runs should be attached
+  assert.deepEqual(result[1].runs, [{ text: "rich", bold: true }]);
+});
+
+test("normalizeBulletItems returns empty array for empty bullets", async () => {
+  const { normalizeBulletItems } = await import("./deck");
+  const el = {
+    id: "b",
+    kind: "bullets" as const,
+    bullets: [],
+    zIndex: 0,
+    box: { x: 0, y: 0, w: 10, h: 10 },
+    style: { fontSize: 4, bold: false, italic: false, align: "left" as const },
+  };
+  const result = normalizeBulletItems(el);
+  assert.equal(result.length, 0);
+});
