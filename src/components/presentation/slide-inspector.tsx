@@ -146,18 +146,29 @@ export interface SlideInspectorProps {
 
 function TabButton({
   active,
+  tabId,
+  panelId,
   label,
   onClick,
+  onKeyDown,
 }: {
   active: boolean;
+  tabId: string;
+  panelId: string;
   label: string;
   onClick: () => void;
+  onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => void;
 }) {
   return (
     <button
       type="button"
+      role="tab"
+      id={tabId}
+      aria-selected={active}
+      aria-controls={panelId}
+      tabIndex={active ? 0 : -1}
       onClick={onClick}
-      aria-pressed={active}
+      onKeyDown={onKeyDown}
       className={`flex-1 rounded-ds-sm px-2 py-1.5 text-xs font-medium transition-colors ${
         active
           ? "bg-ds-control text-ds-control-text"
@@ -1030,6 +1041,25 @@ export function SlideInspector({
   className = "flex w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle",
 }: SlideInspectorProps) {
   const [tab, setTab] = useState<Tab>("content");
+  const TABS: Tab[] = ["content", "style"];
+
+  function handleTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
+    const idx = TABS.indexOf(tab);
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      event.preventDefault();
+      setTab(TABS[(idx + 1) % TABS.length]);
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      event.preventDefault();
+      setTab(TABS[(idx - 1 + TABS.length) % TABS.length]);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      setTab(TABS[0]);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      setTab(TABS[TABS.length - 1]);
+    }
+  }
+
   // Validation error for the background image URL field — only set when the
   // user enters a data URL that is too large or not an image type.
   const [bgImageError, setBgImageError] = useState<string | null>(null);
@@ -1105,183 +1135,205 @@ export function SlideInspector({
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-ds-border-subtle px-3 py-2">
+      <div
+        role="tablist"
+        aria-label="Inspector tabs"
+        className="flex items-center gap-1 border-b border-ds-border-subtle px-3 py-2"
+      >
         <TabButton
           active={tab === "content"}
+          tabId="inspector-tab-content"
+          panelId="inspector-panel-content"
           label="Content"
           onClick={() => setTab("content")}
+          onKeyDown={handleTabKeyDown}
         />
         <TabButton
           active={tab === "style"}
+          tabId="inspector-tab-style"
+          panelId="inspector-panel-style"
           label="Style"
           onClick={() => setTab("style")}
+          onKeyDown={handleTabKeyDown}
         />
       </div>
 
       <div className="flex flex-col gap-4 px-4 py-4">
         {tab === "content" ? (
-          hasElements ? (
-            <>
-              {/* Element list */}
-              <div className="flex flex-col gap-1">
-                {orderedElements.map((element) => {
-                  const selected = element.id === selectedElementId;
-                  return (
-                    <div
-                      key={element.id}
-                      className={`flex items-center gap-1 rounded-ds-sm border px-2 py-1 ${
-                        selected
-                          ? "border-ds-control bg-ds-state-hover"
-                          : "border-transparent hover:bg-ds-state-hover"
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => onSelectElement(element.id)}
-                        className={`min-w-0 flex-1 truncate text-left text-xs text-ds-text-secondary ${FOCUS_RING}`}
+          <div
+            role="tabpanel"
+            id="inspector-panel-content"
+            aria-labelledby="inspector-tab-content"
+            className="flex flex-col gap-4"
+          >
+            {hasElements ? (
+              <>
+                {/* Element list */}
+                <div className="flex flex-col gap-1">
+                  {orderedElements.map((element) => {
+                    const selected = element.id === selectedElementId;
+                    return (
+                      <div
+                        key={element.id}
+                        className={`flex items-center gap-1 rounded-ds-sm border px-2 py-1 ${
+                          selected
+                            ? "border-ds-control bg-ds-state-hover"
+                            : "border-transparent hover:bg-ds-state-hover"
+                        }`}
                       >
-                        {elementLabel(element)}
-                      </button>
-                      <Tooltip label="Duplicate element" side="bottom">
                         <button
                           type="button"
-                          onClick={() => onDuplicateElement(element.id)}
-                          aria-label="Duplicate element"
-                          className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
+                          onClick={() => onSelectElement(element.id)}
+                          className={`min-w-0 flex-1 truncate text-left text-xs text-ds-text-secondary ${FOCUS_RING}`}
                         >
-                          <Copy size={12} aria-hidden="true" />
+                          {elementLabel(element)}
                         </button>
-                      </Tooltip>
-                      <Tooltip label="Bring to front" side="bottom">
-                        <button
-                          type="button"
-                          onClick={() => onBringToFront(element.id)}
-                          aria-label="Bring to front"
-                          className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
-                        >
-                          <ArrowUpToLine size={12} aria-hidden="true" />
-                        </button>
-                      </Tooltip>
-                      <Tooltip label="Send to back" side="bottom">
-                        <button
-                          type="button"
-                          onClick={() => onSendToBack(element.id)}
-                          aria-label="Send to back"
-                          className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
-                        >
-                          <ArrowDownToLine size={12} aria-hidden="true" />
-                        </button>
-                      </Tooltip>
-                      <Tooltip label="Delete element" side="bottom">
-                        <button
-                          type="button"
-                          onClick={() => onRemoveElement(element.id)}
-                          aria-label="Delete element"
-                          className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
-                        >
-                          <Trash2 size={12} aria-hidden="true" />
-                        </button>
-                      </Tooltip>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Selected element editor */}
-              {selectedElement ? (
-                <div className="border-t border-ds-border-subtle pt-3">
-                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ds-text-muted">
-                    {elementLabel(selectedElement)}
-                  </p>
-                  <ElementActionRow
-                    elementId={selectedElement.id}
-                    onDuplicateElement={onDuplicateElement}
-                    onBringToFront={onBringToFront}
-                    onSendToBack={onSendToBack}
-                    onRemoveElement={onRemoveElement}
-                  />
-                  <ElementEditor
-                    element={selectedElement}
-                    deck={deck}
-                    visuals={visuals}
-                    textColorPresets={textColorPresets}
-                    onUpdateElement={onUpdateElement}
-                  />
-                  <ElementArrangeControl
-                    element={selectedElement}
-                    onUpdateElement={onUpdateElement}
-                  />
-                  <ElementOpacityControl
-                    element={selectedElement}
-                    onUpdateElement={onUpdateElement}
-                  />
-                  <ElementEffectsControl
-                    element={selectedElement}
-                    onUpdateElement={onUpdateElement}
-                  />
+                        <Tooltip label="Duplicate element" side="bottom">
+                          <button
+                            type="button"
+                            onClick={() => onDuplicateElement(element.id)}
+                            aria-label="Duplicate element"
+                            className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
+                          >
+                            <Copy size={12} aria-hidden="true" />
+                          </button>
+                        </Tooltip>
+                        <Tooltip label="Bring to front" side="bottom">
+                          <button
+                            type="button"
+                            onClick={() => onBringToFront(element.id)}
+                            aria-label="Bring to front"
+                            className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
+                          >
+                            <ArrowUpToLine size={12} aria-hidden="true" />
+                          </button>
+                        </Tooltip>
+                        <Tooltip label="Send to back" side="bottom">
+                          <button
+                            type="button"
+                            onClick={() => onSendToBack(element.id)}
+                            aria-label="Send to back"
+                            className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
+                          >
+                            <ArrowDownToLine size={12} aria-hidden="true" />
+                          </button>
+                        </Tooltip>
+                        <Tooltip label="Delete element" side="bottom">
+                          <button
+                            type="button"
+                            onClick={() => onRemoveElement(element.id)}
+                            aria-label="Delete element"
+                            className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
+                          >
+                            <Trash2 size={12} aria-hidden="true" />
+                          </button>
+                        </Tooltip>
+                      </div>
+                    );
+                  })}
                 </div>
-              ) : (
-                <p className="text-xs text-ds-text-muted">
-                  Select an element on the slide to edit it.
-                </p>
-              )}
-            </>
-          ) : (
-            <>
-              <label className="block">
-                <span className={LABEL_CLASS}>Title</span>
-                <input
-                  type="text"
-                  value={slide.title}
-                  onChange={(event) => onTitleChange(event.target.value)}
-                  placeholder="Untitled slide"
-                  className={`${FIELD_CLASS} ${FOCUS_RING}`}
-                />
-              </label>
 
-              <label className="block">
-                <span className={LABEL_CLASS}>Layout</span>
-                <select
-                  value={slide.layout}
-                  onChange={(event) =>
-                    onLayoutChange(event.target.value as SlideLayout)
-                  }
-                  className={`${FIELD_CLASS} ${FOCUS_RING}`}
+                {/* Selected element editor */}
+                {selectedElement ? (
+                  <div className="border-t border-ds-border-subtle pt-3">
+                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ds-text-muted">
+                      {elementLabel(selectedElement)}
+                    </p>
+                    <ElementActionRow
+                      elementId={selectedElement.id}
+                      onDuplicateElement={onDuplicateElement}
+                      onBringToFront={onBringToFront}
+                      onSendToBack={onSendToBack}
+                      onRemoveElement={onRemoveElement}
+                    />
+                    <ElementEditor
+                      element={selectedElement}
+                      deck={deck}
+                      visuals={visuals}
+                      textColorPresets={textColorPresets}
+                      onUpdateElement={onUpdateElement}
+                    />
+                    <ElementArrangeControl
+                      element={selectedElement}
+                      onUpdateElement={onUpdateElement}
+                    />
+                    <ElementOpacityControl
+                      element={selectedElement}
+                      onUpdateElement={onUpdateElement}
+                    />
+                    <ElementEffectsControl
+                      element={selectedElement}
+                      onUpdateElement={onUpdateElement}
+                    />
+                  </div>
+                ) : (
+                  <p className="text-xs text-ds-text-muted">
+                    Select an element on the slide to edit it.
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <label className="block">
+                  <span className={LABEL_CLASS}>Title</span>
+                  <input
+                    type="text"
+                    value={slide.title}
+                    onChange={(event) => onTitleChange(event.target.value)}
+                    placeholder="Untitled slide"
+                    className={`${FIELD_CLASS} ${FOCUS_RING}`}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className={LABEL_CLASS}>Layout</span>
+                  <select
+                    value={slide.layout}
+                    onChange={(event) =>
+                      onLayoutChange(event.target.value as SlideLayout)
+                    }
+                    className={`${FIELD_CLASS} ${FOCUS_RING}`}
+                  >
+                    {LAYOUT_OPTIONS.map((layout) => (
+                      <option key={layout} value={layout}>
+                        {layout}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className={LABEL_CLASS}>Bullets (one per line)</span>
+                  <textarea
+                    value={slide.bullets.join("\n")}
+                    onChange={(event) => onBulletsChange(event.target.value)}
+                    rows={5}
+                    className={`${FIELD_CLASS} resize-y ${FOCUS_RING}`}
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={onMaterialize}
+                  className={`flex w-full items-center justify-center gap-1.5 rounded-ds-md bg-ds-control px-3 py-2 text-sm font-medium text-ds-control-text transition-colors hover:bg-ds-control-hover ${FOCUS_RING}`}
                 >
-                  {LAYOUT_OPTIONS.map((layout) => (
-                    <option key={layout} value={layout}>
-                      {layout}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="block">
-                <span className={LABEL_CLASS}>Bullets (one per line)</span>
-                <textarea
-                  value={slide.bullets.join("\n")}
-                  onChange={(event) => onBulletsChange(event.target.value)}
-                  rows={5}
-                  className={`${FIELD_CLASS} resize-y ${FOCUS_RING}`}
-                />
-              </label>
-
-              <button
-                type="button"
-                onClick={onMaterialize}
-                className={`flex w-full items-center justify-center gap-1.5 rounded-ds-md bg-ds-control px-3 py-2 text-sm font-medium text-ds-control-text transition-colors hover:bg-ds-control-hover ${FOCUS_RING}`}
-              >
-                Customize layout (free-form)
-              </button>
-              <p className="text-xs text-ds-text-muted">
-                Unlocks drag-and-drop text, images, and shapes on this slide.
-              </p>
-            </>
-          )
+                  Customize layout (free-form)
+                </button>
+                <p className="text-xs text-ds-text-muted">
+                  Unlocks drag-and-drop text, images, and shapes on this slide.
+                </p>
+              </>
+            )}
+          </div>
         ) : null}
 
         {tab === "style" ? (
-          <div className="flex flex-col gap-4">
+          <div
+            role="tabpanel"
+            id="inspector-panel-style"
+            aria-labelledby="inspector-tab-style"
+            className="flex flex-col gap-4"
+          >
             <ColorOverride
               label="Background"
               value={slide.background}

@@ -60,6 +60,7 @@ import { createPortal } from "react-dom";
 
 import { FOCUS_RING } from "@/components/motion/control-styles";
 import type { ActionResult } from "@/lib/action-result";
+import { useFocusTrap } from "@/lib/presentation/use-focus-trap";
 import {
   DECK_THEMES,
   SlideCanvas,
@@ -264,6 +265,17 @@ function slideElementTypeLabel(element: SlideElement): string {
   }
 }
 
+/**
+ * Thin wrapper that applies a focus trap to its single-element child. Rendered
+ * only while the wrapped region is visible, so the trap installs/uninstalls
+ * with mount/unmount and React rules-of-hooks are satisfied.
+ */
+function FocusTrapped({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useFocusTrap(ref);
+  return <div ref={ref}>{children}</div>;
+}
+
 export function SlideEditor({
   deck: deckProp,
   visuals,
@@ -333,6 +345,9 @@ export function SlideEditor({
   // this editing session, so it does not keep nagging after the user acts.
   const [staleResolved, setStaleResolved] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
+  // Focus-trap ref for the main editor dialog.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef);
   // Thumbnail rail list element — measured during a pointer reorder to map the
   // pointer position to a drop target (works for both the vertical rail and the
   // horizontal mobile strip). Issue #209.
@@ -1387,6 +1402,7 @@ export function SlideEditor({
 
   return createPortal(
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label="Slide editor"
@@ -1998,34 +2014,36 @@ export function SlideEditor({
                 onClick={() => setInspectorSheetOpen(false)}
                 className="fixed inset-0 z-modal bg-ds-backdrop"
               />
-              <div
-                role="dialog"
-                aria-modal="true"
-                aria-label="Slide inspector"
-                className="fixed inset-x-0 bottom-0 z-modal flex max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl border-t border-ds-border-subtle bg-ds-surface-base shadow-ds-popover"
-              >
-                <div className="relative flex shrink-0 items-center justify-between px-4 pb-2 pt-4">
-                  <span
-                    aria-hidden="true"
-                    className="absolute left-1/2 top-2 h-1 w-10 -translate-x-1/2 rounded-full bg-ds-border-subtle"
+              <FocusTrapped>
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Slide inspector"
+                  className="fixed inset-x-0 bottom-0 z-modal flex max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl border-t border-ds-border-subtle bg-ds-surface-base shadow-ds-popover"
+                >
+                  <div className="relative flex shrink-0 items-center justify-between px-4 pb-2 pt-4">
+                    <span
+                      aria-hidden="true"
+                      className="absolute left-1/2 top-2 h-1 w-10 -translate-x-1/2 rounded-full bg-ds-border-subtle"
+                    />
+                    <p className="text-xs font-semibold uppercase tracking-wide text-ds-text-muted">
+                      Edit slide
+                    </p>
+                    <button
+                      type="button"
+                      aria-label="Close slide inspector"
+                      onClick={() => setInspectorSheetOpen(false)}
+                      className={`flex h-7 w-7 items-center justify-center rounded-full text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                    >
+                      <X size={16} aria-hidden="true" />
+                    </button>
+                  </div>
+                  <SlideInspector
+                    {...inspectorProps}
+                    className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto"
                   />
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ds-text-muted">
-                    Edit slide
-                  </p>
-                  <button
-                    type="button"
-                    aria-label="Close slide inspector"
-                    onClick={() => setInspectorSheetOpen(false)}
-                    className={`flex h-7 w-7 items-center justify-center rounded-full text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-                  >
-                    <X size={16} aria-hidden="true" />
-                  </button>
                 </div>
-                <SlideInspector
-                  {...inspectorProps}
-                  className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto"
-                />
-              </div>
+              </FocusTrapped>
             </>
           ) : null}
         </div>
@@ -2463,6 +2481,8 @@ function MergeSummaryDialog({
   onApply: () => void;
   onCancel: () => void;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef);
   const KIND_LABEL: Record<string, string> = {
     updated: "Updated",
     appended: "New",
@@ -2472,6 +2492,7 @@ function MergeSummaryDialog({
 
   return createPortal(
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label="Sync from document"
