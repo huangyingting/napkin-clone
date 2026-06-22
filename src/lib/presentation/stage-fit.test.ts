@@ -4,8 +4,10 @@ import { test } from "node:test";
 import {
   DEFAULT_SCREEN_SIZE,
   SLIDE_ASPECT_RATIO,
+  defaultScreenSize,
   fitAspectRatio,
 } from "./stage-fit";
+import { slideAspectRatio } from "./slide-format";
 
 test("SLIDE_ASPECT_RATIO is the fixed 16:9 slide ratio", () => {
   assert.equal(SLIDE_ASPECT_RATIO, 16 / 9);
@@ -45,4 +47,20 @@ test("fitAspectRatio falls back to DEFAULT_SCREEN_SIZE on degenerate bounds", ()
     fitAspectRatio({ width: -10, height: 100 }, SLIDE_ASPECT_RATIO),
     DEFAULT_SCREEN_SIZE,
   );
+});
+
+test("slideAspectRatio supports 4:3 slide format", () => {
+  assert.equal(slideAspectRatio("4:3"), 4 / 3);
+  assert.deepEqual(defaultScreenSize("4:3"), { width: 4, height: 3 });
+});
+
+test("fitAspectRatio letterboxes a 4:3 slide inside wide and tall bounds", () => {
+  const ratio = slideAspectRatio("4:3");
+  const wide = fitAspectRatio({ width: 1200, height: 600 }, ratio);
+  assert.equal(wide.height, 600);
+  assert.equal(wide.width, 800);
+
+  const tall = fitAspectRatio({ width: 360, height: 800 }, ratio);
+  assert.equal(tall.width, 360);
+  assert.equal(tall.height, 270);
 });

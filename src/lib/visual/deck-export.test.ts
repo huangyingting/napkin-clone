@@ -217,6 +217,29 @@ test("edited title and bullet text are present in the ops", () => {
   assert.deepEqual(bullets.items, ["Edited bullet one", "Edited bullet two"]);
 });
 
+test("4:3 decks convert percentage boxes against the standard 4:3 slide size", () => {
+  const deck: Deck = {
+    theme: "indigo",
+    slideFormat: "4:3",
+    slides: [
+      freeFormSlide(0, [
+        textEl("t", "Standard", {
+          box: { x: 50, y: 10, w: 50, h: 20 },
+          style: { fontSize: 10, bold: true, italic: false, align: "left" },
+        }),
+      ]),
+    ],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const text = ofKind(spec.ops, "text")[0] as DeckTextOp;
+  assert.equal(text.x, 5);
+  assert.equal(text.y, 0.75);
+  assert.equal(text.w, 5);
+  assert.equal(text.h, 1.5);
+  assert.equal(text.fontSize, 54);
+});
+
 test("a native visual is embedded as native shapes (not a fallback)", () => {
   const visuals = new Map<string, Visual>([["v1", flowchart()]]);
   const deck: Deck = {

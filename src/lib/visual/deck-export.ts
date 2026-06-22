@@ -19,11 +19,11 @@
  *     creates a real PptxGenJS deck, applies each op, and resolves visual
  *     image-fallbacks via the supplied `getSvg` callback. Returns a Blob.
  *
- * Units: the deck is designed as a 16:9 surface with percentage-based element
- * boxes, so we target the PptxGenJS `LAYOUT_WIDE` size (13.333" × 7.5") and
- * convert each percentage box to inches against those dimensions. Font sizes are
- * authored as a percent of slide height (`cqh`) and converted to points against
- * the 7.5" (540 pt) slide height.
+ * Units: the deck is designed as a fixed-format surface with percentage-based
+ * element boxes, so we target the deck's slide format and convert each
+ * percentage box to inches against those dimensions. Font sizes are authored as
+ * a percent of slide height (`cqh`) and converted to points against the chosen
+ * physical slide height.
  */
 
 import PptxGenJS from "pptxgenjs";
@@ -38,6 +38,7 @@ import type {
 } from "@/lib/presentation/deck";
 import { materializeSlideElements } from "@/lib/presentation/deck";
 import { isEmptyImageSrc } from "@/lib/presentation/image-element";
+import { slideFormatConfig } from "@/lib/presentation/slide-format";
 import type { Visual } from "@/lib/visual/schema";
 import { exportPNG } from "@/lib/visual/export";
 import { applySpecsToSlide } from "@/lib/visual/pptx-apply";
@@ -51,12 +52,25 @@ import {
 } from "@/lib/visual/pptx-shapes";
 
 // ---------------------------------------------------------------------------
-// Slide geometry (LAYOUT_WIDE — 16:9)
+// Slide geometry
 // ---------------------------------------------------------------------------
 
-const SLIDE_W = 13.333; // inches
-const SLIDE_H = 7.5; // inches
-const SLIDE_H_PT = SLIDE_H * 72; // 540 pt — used to convert `cqh` font sizes
+interface DeckGeometry {
+  pptxLayout: "LAYOUT_WIDE" | "LAYOUT_4X3";
+  slideW: number;
+  slideH: number;
+  slideHPt: number;
+}
+
+function deckGeometry(format: Deck["slideFormat"]): DeckGeometry {
+  const config = slideFormatConfig(format);
+  return {
+    pptxLayout: config.pptxLayout,
+    slideW: config.pptxWidthIn,
+    slideH: config.pptxHeightIn,
+    slideHPt: config.pptxHeightIn * 72,
+  };
+}
 
 const PPTX_MIME =
   "application/vnd.openxmlformats-officedocument.presentationml.presentation";
@@ -216,18 +230,18 @@ export interface DeckSlideSpec {
 // ---------------------------------------------------------------------------
 
 /** Convert a percentage {@link ElementBox} to an inch-space box. */
-function boxToInches(box: ElementBox): InchBox {
+function boxToInches(box: ElementBox, geometry: DeckGeometry): InchBox {
   return {
-    x: (box.x / 100) * SLIDE_W,
-    y: (box.y / 100) * SLIDE_H,
-    w: (box.w / 100) * SLIDE_W,
-    h: (box.h / 100) * SLIDE_H,
+    x: (box.x / 100) * geometry.slideW,
+    y: (box.y / 100) * geometry.slideH,
+    w: (box.w / 100) * geometry.slideW,
+    h: (box.h / 100) * geometry.slideH,
   };
 }
 
 /** Convert a `cqh` (percent-of-slide-height) font size to points. */
-function fontSizePt(percentOfHeight: number): number {
-  return Math.max(6, Math.round((percentOfHeight / 100) * SLIDE_H_PT));
+function fontSizePt(percentOfHeight: number, geometry: DeckGeometry): number {
+  return Math.max(6, Math.round((percentOfHeight / 100) * geometry.slideHPt));
 }
 
 /**
@@ -265,8 +279,9 @@ export function buildDeckSpecs(
   deck: Deck,
   visuals: ReadonlyMap<string, Visual>,
 ): DeckSlideSpec[] {
+  const geometry = deckGeometry(deck.slideFormat);
   return deck.slides.map((slide, index) =>
-    buildSlideSpec(slide, index, deck.theme, visuals),
+    buildSlideSpec(slide, index, deck.theme, visuals, geometry),
   );
 }
 
@@ -275,6 +290,7 @@ function buildSlideSpec(
   index: number,
   deckTheme: DeckTheme,
   visuals: ReadonlyMap<string, Visual>,
+  geometry: DeckGeometry,
 ): DeckSlideSpec {
   const colors = themeColors(slide.theme ?? deckTheme);
   const background = toHex(slide.background ?? colors.bg);
@@ -287,7 +303,7 @@ function buildSlideSpec(
   const ops: DeckOp[] = [];
 
   for (const element of elements) {
-    const box = boxToInches(element.box);
+    const box = boxToInches(element.box, geometry);
 
     switch (element.kind) {
       case "text": {
@@ -301,7 +317,7 @@ function buildSlideSpec(
             ? { runs: element.runs }
             : {}),
           color: toHex(element.style.color ?? defaultColor),
-          fontSize: fontSizePt(element.style.fontSize),
+          fontSize: fontSizePt(element.style.fontSize, geometry),
           bold: element.style.bold,
           italic: element.style.italic,
           align: element.style.align,
@@ -317,7 +333,7 @@ function buildSlideSpec(
             ? { itemRuns: element.bulletRuns }
             : {}),
           color: toHex(element.style.color ?? colors.body),
-          fontSize: fontSizePt(element.style.fontSize),
+          fontSize: fontSizePt(element.style.fontSize, geometry),
           bold: element.style.bold,
           italic: element.style.italic,
           align: element.style.align,
@@ -599,9 +615,10 @@ export async function exportDeckAsPPTX(
 ): Promise<Blob | null> {
   try {
     const specs = buildDeckSpecs(deck, visuals);
+    const geometry = deckGeometry(deck.slideFormat);
 
     const pptx = new PptxGenJS();
-    pptx.layout = "LAYOUT_WIDE";
+    pptx.layout = geometry.pptxLayout;
 
     for (const slideSpec of specs) {
       const slide = pptx.addSlide();

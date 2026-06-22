@@ -8,6 +8,7 @@
  */
 
 import type { Deck, DeckTheme, ElementBox, Slide, SlideElement } from "./deck";
+import type { SlideFormat } from "./slide-format";
 import {
   makeElementId,
   materializeSlideElements,
@@ -220,6 +221,11 @@ export function setDeckTheme(deck: Deck, theme: DeckTheme): Deck {
       slide.theme === theme ? slide : { ...slide, theme },
     ),
   };
+}
+
+/** Changes the deck-wide slide format. */
+export function setDeckSlideFormat(deck: Deck, slideFormat: SlideFormat): Deck {
+  return deck.slideFormat === slideFormat ? deck : { ...deck, slideFormat };
 }
 
 // ---------------------------------------------------------------------------

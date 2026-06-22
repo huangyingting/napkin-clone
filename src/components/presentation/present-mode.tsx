@@ -28,6 +28,12 @@ import {
 } from "lucide-react";
 
 import type { Deck, Slide } from "@/lib/presentation/deck";
+import {
+  DEFAULT_SCREEN_SIZE,
+  fitAspectRatio,
+  type Size,
+} from "@/lib/presentation/stage-fit";
+import { slideAspectRatio } from "@/lib/presentation/slide-format";
 import type { Visual } from "@/lib/visual/schema";
 import {
   DECK_THEMES,
@@ -48,11 +54,14 @@ function PresenterPanel({
   currentSlide,
   nextSlide,
   visuals,
+  slideFormat,
 }: {
   currentSlide: Slide;
   nextSlide: Slide | undefined;
   visuals: ReadonlyMap<string, Visual>;
+  slideFormat: Deck["slideFormat"];
 }): JSX.Element {
+  const previewAspectRatio = slideAspectRatio(slideFormat);
   return (
     <div className="flex h-full min-h-0 gap-4 overflow-hidden bg-ds-stage px-6 py-4">
       {/* Notes */}
@@ -79,7 +88,10 @@ function PresenterPanel({
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ds-stage-muted">
             Next
           </p>
-          <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-ds-stage-border">
+          <div
+            className="min-h-0 flex-1 overflow-hidden rounded-lg border border-ds-stage-border"
+            style={{ aspectRatio: previewAspectRatio }}
+          >
             <div className="h-full w-full scale-100 overflow-hidden">
               <SlideCanvas slide={nextSlide} visuals={visuals} preview />
             </div>
@@ -156,7 +168,10 @@ export function PresentMode({
   const [presenterView, setPresenterView] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hudVisible, setHudVisible] = useState(true);
+  const [slideAreaBounds, setSlideAreaBounds] =
+    useState<Size>(DEFAULT_SCREEN_SIZE);
   const containerRef = useRef<HTMLDivElement>(null);
+  const slideAreaRef = useRef<HTMLDivElement>(null);
   const hudTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentSlide = slides[clampSlideIndex(currentIndex, total)];
@@ -164,6 +179,11 @@ export function PresentMode({
     currentIndex + 1 < total ? slides[currentIndex + 1] : undefined;
   const progress = formatProgress(currentIndex, total);
   const progressPct = total > 1 ? (currentIndex / (total - 1)) * 100 : 100;
+  const activeSlideAspectRatio = slideAspectRatio(deck.slideFormat);
+  const fittedSlideSize = fitAspectRatio(
+    slideAreaBounds,
+    activeSlideAspectRatio,
+  );
 
   const goNext = useCallback(() => {
     setCurrentIndex((i) => clampSlideIndex(i + 1, total));
@@ -243,6 +263,24 @@ export function PresentMode({
     return () => {
       document.body.style.overflow = previousOverflow;
     };
+  }, []);
+
+  useEffect(() => {
+    const node = slideAreaRef.current;
+    if (!node) {
+      return;
+    }
+    const updateBounds = () => {
+      const rect = node.getBoundingClientRect();
+      setSlideAreaBounds({
+        width: Math.max(1, rect.width),
+        height: Math.max(1, rect.height),
+      });
+    };
+    updateBounds();
+    const observer = new ResizeObserver(updateBounds);
+    observer.observe(node);
+    return () => observer.disconnect();
   }, []);
 
   // Keyboard navigation.
@@ -402,11 +440,20 @@ export function PresentMode({
       {/* Main slide area + left/right click zones for navigation              */}
       {/* ------------------------------------------------------------------ */}
       <div
+        ref={slideAreaRef}
         className={`relative min-h-0 flex-1 overflow-hidden ${presenterView ? "basis-[65%]" : ""}`}
       >
         {/* Slide content */}
-        <div className="h-full w-full">
-          <SlideCanvas slide={currentSlide} visuals={visuals} />
+        <div className="flex h-full w-full items-center justify-center p-4">
+          <div
+            className="overflow-hidden shadow-ds-overlay"
+            style={{
+              width: fittedSlideSize.width,
+              height: fittedSlideSize.height,
+            }}
+          >
+            <SlideCanvas slide={currentSlide} visuals={visuals} />
+          </div>
         </div>
 
         {/* Left click zone — previous */}
@@ -454,6 +501,7 @@ export function PresentMode({
             currentSlide={currentSlide}
             nextSlide={nextSlide}
             visuals={visuals}
+            slideFormat={deck.slideFormat}
           />
         </div>
       )}

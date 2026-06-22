@@ -30,7 +30,27 @@ test("safeParseDeck accepts a legacy deck without elements", () => {
   assert.equal(result.success, true);
   if (result.success) {
     assert.equal(result.data.slides[0].elements, undefined);
+    assert.equal(result.data.slideFormat, "16:9");
   }
+});
+
+test("safeParseDeck round-trips a deck slide format", () => {
+  const result = safeParseDeck({
+    ...(legacyDeck() as object),
+    slideFormat: "4:3",
+  });
+  assert.equal(result.success, true);
+  if (result.success) {
+    assert.equal(result.data.slideFormat, "4:3");
+  }
+});
+
+test("safeParseDeck rejects an unknown slide format", () => {
+  const result = safeParseDeck({
+    ...(legacyDeck() as object),
+    slideFormat: "1:1",
+  });
+  assert.equal(result.success, false);
 });
 
 // ---------------------------------------------------------------------------

@@ -25,6 +25,12 @@ import {
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import type { Deck } from "@/lib/presentation/deck";
+import {
+  DEFAULT_SCREEN_SIZE,
+  fitAspectRatio,
+  type Size,
+} from "@/lib/presentation/stage-fit";
+import { slideAspectRatio } from "@/lib/presentation/slide-format";
 import type { Visual } from "@/lib/visual/schema";
 import {
   DECK_THEMES,
@@ -93,11 +99,32 @@ export function PublicPresentViewer({
     if (typeof window === "undefined") return 0;
     return slideIndexFromHash(window.location.hash, total);
   });
+  const [slideAreaBounds, setSlideAreaBounds] =
+    useState<Size>(DEFAULT_SCREEN_SIZE);
+  const slideAreaRef = useRef<HTMLDivElement>(null);
 
   // Sync URL hash to the current slide whenever the index changes.
   useEffect(() => {
     window.history.replaceState(null, "", hashFromSlideIndex(currentIndex));
   }, [currentIndex]);
+
+  useEffect(() => {
+    const node = slideAreaRef.current;
+    if (!node) {
+      return;
+    }
+    const updateBounds = () => {
+      const rect = node.getBoundingClientRect();
+      setSlideAreaBounds({
+        width: Math.max(1, rect.width),
+        height: Math.max(1, rect.height),
+      });
+    };
+    updateBounds();
+    const observer = new ResizeObserver(updateBounds);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Navigation callbacks
@@ -213,6 +240,10 @@ export function PublicPresentViewer({
   const tc = DECK_THEMES[currentSlide.theme] ?? DECK_THEMES.default;
   const progress = formatProgress(currentIndex, total);
   const progressPct = total > 1 ? (currentIndex / (total - 1)) * 100 : 100;
+  const fittedSlideSize = fitAspectRatio(
+    slideAreaBounds,
+    slideAspectRatio(deck.slideFormat),
+  );
 
   return (
     <div
@@ -264,9 +295,20 @@ export function PublicPresentViewer({
       {/* -------------------------------------------------------------------- */}
       {/* Slide canvas                                                          */}
       {/* -------------------------------------------------------------------- */}
-      <div className="relative min-h-0 flex-1 overflow-hidden">
-        <div className="h-full w-full">
-          <SlideCanvas slide={currentSlide} visuals={visuals} />
+      <div
+        ref={slideAreaRef}
+        className="relative min-h-0 flex-1 overflow-hidden"
+      >
+        <div className="flex h-full w-full items-center justify-center p-4">
+          <div
+            className="overflow-hidden shadow-ds-overlay"
+            style={{
+              width: fittedSlideSize.width,
+              height: fittedSlideSize.height,
+            }}
+          >
+            <SlideCanvas slide={currentSlide} visuals={visuals} />
+          </div>
         </div>
 
         {/* Left click zone — previous slide */}

@@ -74,7 +74,6 @@ import { Popover } from "@/components/ui/popover";
 import type { AlignMode } from "@/lib/presentation/element-align";
 import {
   DEFAULT_SCREEN_SIZE,
-  SLIDE_ASPECT_RATIO,
   fitAspectRatio,
   type Size,
 } from "@/lib/presentation/stage-fit";
@@ -86,6 +85,10 @@ import {
   type SlideElement,
   type SlideLayout,
 } from "@/lib/presentation/deck";
+import {
+  slideAspectRatio,
+  type SlideFormat,
+} from "@/lib/presentation/slide-format";
 import {
   mergeDeckFromDocument,
   type MergeSummary,
@@ -120,6 +123,7 @@ import {
   removeSlide,
   reorderSlides,
   sendElementToBack,
+  setDeckSlideFormat,
   setDeckTheme,
   setSlideAccent,
   setSlideBackground,
@@ -449,9 +453,10 @@ export function SlideEditor({
     }
     return next;
   }, [selectedSlide?.elements, selectedElementIds]);
-  // Fit the stage to the slide's FIXED 16:9 aspect ratio (issue #256) — not the
-  // viewport's — so cqh-sized slide text never overflows on portrait phones.
-  const fittedStageSize = fitAspectRatio(stageBounds, SLIDE_ASPECT_RATIO);
+  const activeSlideAspectRatio = slideAspectRatio(deck.slideFormat);
+  // Fit the stage to the deck's slide format — not the viewport's — so
+  // cqh-sized slide text never overflows on portrait phones.
+  const fittedStageSize = fitAspectRatio(stageBounds, activeSlideAspectRatio);
 
   useEffect(() => {
     const node = stageRef.current;
@@ -481,6 +486,13 @@ export function SlideEditor({
   const handleThemeChange = useCallback(
     (theme: DeckTheme) => {
       onDeckChange(setDeckTheme(deck, theme));
+    },
+    [deck, onDeckChange],
+  );
+
+  const handleSlideFormatChange = useCallback(
+    (slideFormat: SlideFormat) => {
+      onDeckChange(setDeckSlideFormat(deck, slideFormat));
     },
     [deck, onDeckChange],
   );
@@ -1062,6 +1074,7 @@ export function SlideEditor({
         slide: selectedSlide,
         slideIndex: safeSelected,
         deck,
+        slideFormat: deck.slideFormat,
         visuals,
         selectedElementId: effectiveSelectedElementId,
         onSelectElement: handleSelectElement,
@@ -1075,14 +1088,13 @@ export function SlideEditor({
         onBulletsChange: (value: string) =>
           handleBulletsChange(safeSelected, value),
         onMaterialize: handleMaterialize,
-        onAddElement: handleAddElement,
-        onAddVisual: handleAddVisual,
         onUpdateElement: handleUpdateElement,
         onRemoveElement: handleRemoveElement,
         onBringToFront: handleBringToFront,
         onSendToBack: handleSendToBack,
         onBackgroundChange: handleBackgroundChange,
         onAccentChange: handleAccentChange,
+        onSlideFormatChange: handleSlideFormatChange,
         onNotesChange: (notes: string) =>
           handleNotesChange(safeSelected, notes),
       }
@@ -1319,7 +1331,10 @@ export function SlideEditor({
                         <span className="flex w-4 shrink-0 flex-col items-center gap-1 text-xs tabular-nums text-ds-text-muted">
                           {index + 1}
                         </span>
-                        <span className="pointer-events-none block aspect-video min-w-0 flex-1 overflow-hidden rounded-ds-sm border border-ds-border-subtle">
+                        <span
+                          className="pointer-events-none block min-w-0 flex-1 overflow-hidden rounded-ds-sm border border-ds-border-subtle"
+                          style={{ aspectRatio: activeSlideAspectRatio }}
+                        >
                           <SlideCanvas
                             slide={slide}
                             visuals={visuals}

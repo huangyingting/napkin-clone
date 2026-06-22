@@ -60,7 +60,21 @@
  * `elements[]`.
  */
 
+import {
+  DEFAULT_SLIDE_FORMAT as DEFAULT_DECK_SLIDE_FORMAT,
+  type SlideFormat as PresentationSlideFormat,
+} from "@/lib/presentation/slide-format";
 import type { DocumentBlock } from "@/lib/visual/document-export";
+
+export {
+  DEFAULT_SLIDE_FORMAT,
+  SLIDE_FORMAT_CONFIGS,
+  SLIDE_FORMATS,
+  resolveSlideFormat,
+  slideAspectRatio,
+  slideFormatConfig,
+  type SlideFormat,
+} from "@/lib/presentation/slide-format";
 
 // ---------------------------------------------------------------------------
 // Deck / Slide types
@@ -326,6 +340,9 @@ export interface Deck {
 
   /** Theme applied uniformly to all slides. */
   theme: DeckTheme;
+
+  /** Deck-wide slide format. Missing legacy values render as 16:9. */
+  slideFormat?: PresentationSlideFormat;
 
   /**
    * Stable hash of the document content this deck was last derived/synced
@@ -730,5 +747,5 @@ export function buildDeckFromBlocks(
   }
 
   // Re-index after all pushes (index is set at push time but guard may add one)
-  return { slides, theme };
+  return { slides, theme, slideFormat: DEFAULT_DECK_SLIDE_FORMAT };
 }

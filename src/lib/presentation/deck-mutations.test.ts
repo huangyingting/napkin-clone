@@ -20,6 +20,7 @@ import {
   reorderSlides,
   moveSlide,
   sendElementToBack,
+  setDeckSlideFormat,
   setDeckTheme,
   setSlideAccent,
   setSlideBackground,
@@ -311,6 +312,23 @@ test("setDeckTheme changes the deck and all slide themes", () => {
   assert.ok(next.slides.every((s) => s.theme === "ocean"));
   // original untouched
   assert.equal(deck.theme, "default");
+});
+
+// ---------------------------------------------------------------------------
+// setDeckSlideFormat
+// ---------------------------------------------------------------------------
+
+test("setDeckSlideFormat changes the deck-wide slide format", () => {
+  const deck = makeDeck(["A"]);
+  const next = setDeckSlideFormat(deck, "4:3");
+
+  assert.equal(next.slideFormat, "4:3");
+  assert.equal(deck.slideFormat, undefined);
+});
+
+test("setDeckSlideFormat returns the same deck for a no-op", () => {
+  const deck: Deck = { ...makeDeck(["A"]), slideFormat: "16:9" };
+  assert.equal(setDeckSlideFormat(deck, "16:9"), deck);
 });
 
 // ---------------------------------------------------------------------------

@@ -19,12 +19,7 @@ import {
   ArrowDownToLine,
   ArrowUpToLine,
   Copy,
-  Image as ImageIcon,
-  List,
-  Shapes,
-  Sparkles,
   Trash2,
-  Type,
   Upload,
 } from "lucide-react";
 import { useRef, useState } from "react";
@@ -32,7 +27,6 @@ import { useRef, useState } from "react";
 import { FOCUS_RING } from "@/components/motion/control-styles";
 import { DECK_THEMES } from "@/components/presentation/slide-canvas";
 import { TextStyleBar } from "@/components/presentation/text-style-bar";
-import { VisualPicker } from "@/components/presentation/visual-picker";
 import { Swatch, Tooltip } from "@/components/ui";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import type {
@@ -44,6 +38,12 @@ import type {
   SlideLayout,
 } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
+import {
+  resolveSlideFormat,
+  SLIDE_FORMATS,
+  slideFormatConfig,
+  type SlideFormat,
+} from "@/lib/presentation/slide-format";
 import {
   canAddImage,
   dataUrlByteSize,
@@ -85,6 +85,7 @@ export interface SlideInspectorProps {
    * upload path (issue #247). The inspector never mutates it.
    */
   deck: Deck;
+  slideFormat: SlideFormat | undefined;
   visuals: ReadonlyMap<string, Visual>;
   selectedElementId: string | null;
   onSelectElement: (id: string | null) => void;
@@ -97,13 +98,12 @@ export interface SlideInspectorProps {
   onBulletsChange: (value: string) => void;
   onMaterialize: () => void;
   // Element editing
-  onAddElement: (kind: AddElementKind) => void;
-  onAddVisual: (visualId: string) => void;
   onUpdateElement: (id: string, patch: ElementPatch) => void;
   onRemoveElement: (id: string) => void;
   onBringToFront: (id: string) => void;
   onSendToBack: (id: string) => void;
   // Style
+  onSlideFormatChange: (format: SlideFormat) => void;
   onBackgroundChange: (color: string | undefined) => void;
   onAccentChange: (color: string | undefined) => void;
   // Notes
@@ -485,6 +485,7 @@ export function SlideInspector({
   slide,
   slideIndex,
   deck,
+  slideFormat,
   visuals,
   selectedElementId,
   onSelectElement,
@@ -495,19 +496,17 @@ export function SlideInspector({
   onLayoutChange,
   onBulletsChange,
   onMaterialize,
-  onAddElement,
-  onAddVisual,
   onUpdateElement,
   onRemoveElement,
   onBringToFront,
   onSendToBack,
+  onSlideFormatChange,
   onBackgroundChange,
   onAccentChange,
   onNotesChange,
   className = "flex w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle",
 }: SlideInspectorProps) {
   const [tab, setTab] = useState<Tab>("content");
-  const [visualPickerOpen, setVisualPickerOpen] = useState(false);
 
   const elements = slide.elements ?? [];
   const hasElements = elements.length > 0;
@@ -579,49 +578,6 @@ export function SlideInspector({
         {tab === "content" ? (
           hasElements ? (
             <>
-              {/* Add elements */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                <AddButton
-                  icon={<Type size={13} aria-hidden="true" />}
-                  label="Text"
-                  onClick={() => onAddElement("text")}
-                />
-                <AddButton
-                  icon={<List size={13} aria-hidden="true" />}
-                  label="Bullets"
-                  onClick={() => onAddElement("bullets")}
-                />
-                <AddButton
-                  icon={<ImageIcon size={13} aria-hidden="true" />}
-                  label="Image"
-                  onClick={() => onAddElement("image")}
-                />
-                <AddButton
-                  icon={<Shapes size={13} aria-hidden="true" />}
-                  label="Shape"
-                  onClick={() => onAddElement("shape")}
-                />
-                <AddButton
-                  icon={<Sparkles size={13} aria-hidden="true" />}
-                  label="Visual"
-                  aria-haspopup="dialog"
-                  aria-expanded={visualPickerOpen}
-                  onClick={() => setVisualPickerOpen((open) => !open)}
-                />
-              </div>
-
-              {visualPickerOpen ? (
-                <VisualPicker
-                  className="w-full"
-                  visuals={visuals}
-                  onPick={(visualId) => {
-                    onAddVisual(visualId);
-                    setVisualPickerOpen(false);
-                  }}
-                  onClose={() => setVisualPickerOpen(false)}
-                />
-              ) : null}
-
               {/* Element list */}
               <div className="flex flex-col gap-1">
                 {orderedElements.map((element) => {
@@ -753,6 +709,10 @@ export function SlideInspector({
 
         {tab === "style" ? (
           <div className="flex flex-col gap-4">
+            <SlideFormatControl
+              value={resolveSlideFormat(slideFormat)}
+              onChange={onSlideFormatChange}
+            />
             <ColorOverride
               label="Background"
               value={slide.background}
@@ -797,26 +757,46 @@ export function SlideInspector({
   );
 }
 
-function AddButton({
-  icon,
-  label,
-  onClick,
-  ...rest
+function SlideFormatControl({
+  value,
+  onChange,
 }: {
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-} & Omit<React.ComponentPropsWithoutRef<"button">, "onClick" | "children">) {
+  value: SlideFormat;
+  onChange: (format: SlideFormat) => void;
+}) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex items-center gap-1 rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-      {...rest}
-    >
-      {icon}
-      {label}
-    </button>
+    <div className="flex flex-col gap-2">
+      <span className="text-xs font-medium text-ds-text-secondary">
+        Slide size
+      </span>
+      <div
+        role="radiogroup"
+        aria-label="Slide size"
+        className="grid grid-cols-2 gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-1"
+      >
+        {SLIDE_FORMATS.map((format) => {
+          const config = slideFormatConfig(format);
+          const active = value === format;
+          return (
+            <button
+              key={format}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              aria-label={config.label}
+              onClick={() => onChange(format)}
+              className={`rounded-ds-sm px-2 py-1.5 text-xs font-medium transition-colors ${
+                active
+                  ? "bg-ds-control text-ds-control-text"
+                  : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+              } ${FOCUS_RING}`}
+            >
+              {format}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

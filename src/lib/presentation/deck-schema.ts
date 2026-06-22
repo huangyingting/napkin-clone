@@ -21,6 +21,11 @@ import {
   type TextElementStyle,
   type TextRun,
 } from "./deck";
+import {
+  DEFAULT_SLIDE_FORMAT,
+  SLIDE_FORMATS,
+  type SlideFormat,
+} from "./slide-format";
 
 class DeckValidationError extends Error {
   constructor(message: string) {
@@ -40,6 +45,12 @@ function isDeckTheme(value: unknown): value is DeckTheme {
 function isSlideLayout(value: unknown): value is SlideLayout {
   return (
     typeof value === "string" && SLIDE_LAYOUTS.includes(value as SlideLayout)
+  );
+}
+
+function isSlideFormat(value: unknown): value is SlideFormat {
+  return (
+    typeof value === "string" && SLIDE_FORMATS.includes(value as SlideFormat)
   );
 }
 
@@ -370,13 +381,24 @@ function validateDeck(input: unknown): Deck {
             );
           })();
 
+  const slideFormat =
+    input.slideFormat === undefined
+      ? DEFAULT_SLIDE_FORMAT
+      : isSlideFormat(input.slideFormat)
+        ? input.slideFormat
+        : (() => {
+            throw new DeckValidationError(
+              `Deck.slideFormat must be one of: ${SLIDE_FORMATS.join(", ")}`,
+            );
+          })();
+
   if (!Array.isArray(input.slides)) {
     throw new DeckValidationError("Deck.slides must be an array");
   }
 
   const slides = input.slides.map(validateSlide);
 
-  const deck: Deck = { slides, theme };
+  const deck: Deck = { slides, theme, slideFormat };
 
   if (input.deckContentHash !== undefined) {
     if (typeof input.deckContentHash !== "string") {

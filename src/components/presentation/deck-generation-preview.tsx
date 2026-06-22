@@ -50,6 +50,7 @@ import {
   type DeckDiffStatus,
 } from "@/lib/presentation/deck-diff";
 import type { Deck } from "@/lib/presentation/deck";
+import { slideAspectRatio } from "@/lib/presentation/slide-format";
 import type { Visual } from "@/lib/visual/schema";
 
 export interface DeckGenerationPreviewProps {
@@ -104,6 +105,7 @@ export function DeckGenerationPreview({
   // The current proposal on screen. Regenerate replaces this ONLY once a new
   // deck arrives, so the prior proposal never flashes to an empty state.
   const [proposal, setProposal] = useState<Deck>(proposedDeck);
+  const proposalAspectRatio = slideAspectRatio(proposal.slideFormat);
   const [isTruncated, setIsTruncated] = useState(truncated);
   const [regenError, setRegenError] = useState(false);
 
@@ -203,7 +205,10 @@ export function DeckGenerationPreview({
             const title = entry?.title ?? `Slide ${index + 1}`;
             return (
               <li key={index} className="flex flex-col gap-1">
-                <span className="relative block aspect-video overflow-hidden rounded-ds-sm border border-ds-border-subtle">
+                <span
+                  className="relative block overflow-hidden rounded-ds-sm border border-ds-border-subtle"
+                  style={{ aspectRatio: proposalAspectRatio }}
+                >
                   <SlideCanvas slide={slide} visuals={visuals} preview />
                   <span
                     className={`absolute right-1 top-1 rounded-ds-sm px-1.5 py-0.5 text-[0.625rem] font-medium ${MARKER_CLASS[marker]}`}
