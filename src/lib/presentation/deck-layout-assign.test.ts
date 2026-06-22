@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  deriveVisualAccessibleName,
   FALLBACK_THEME,
   normalizeGeneratedDeck,
 } from "@/lib/presentation/deck-layout-assign";
@@ -356,4 +357,82 @@ test("works with an array inventory of { id } carriers", () => {
   ];
   const result = normalizeGeneratedDeck(input, inventory);
   assert.ok(result.slides[0].elements?.some((e) => e.kind === "visual"));
+});
+
+test("deriveVisualAccessibleName prefers title, then summary, then type", () => {
+  assert.equal(
+    deriveVisualAccessibleName({
+      id: "v",
+      title: "Revenue chart",
+      type: "chart",
+      summary: "Q3 revenue",
+    }),
+    "Revenue chart",
+  );
+  assert.equal(
+    deriveVisualAccessibleName({
+      id: "v",
+      type: "flowchart",
+      summary: "Onboarding flow",
+    }),
+    "Onboarding flow",
+  );
+  assert.equal(
+    deriveVisualAccessibleName({ id: "v", type: "mindmap" }),
+    "Mindmap visual",
+  );
+  assert.equal(deriveVisualAccessibleName(undefined), "Generated visual");
+  assert.equal(deriveVisualAccessibleName({ id: "v" }), "Generated visual");
+});
+
+test("normalization labels visual elements with the inventory title", () => {
+  const input = deck([
+    slide({ title: "M", visualIds: ["vis-1"], layout: "media" }),
+  ]);
+
+  const inventory = [
+    { id: "vis-1", title: "Revenue chart", type: "chart", summary: "Q3" },
+  ];
+  const result = normalizeGeneratedDeck(input, inventory);
+  const visual = result.slides[0].elements?.find((e) => e.kind === "visual");
+  assert.ok(visual && visual.kind === "visual");
+  assert.equal(visual.alt, "Revenue chart");
+});
+
+test("normalization falls back to a default visual label without titles", () => {
+  const input = deck([
+    slide({ title: "M", visualIds: ["vis-1"], layout: "media" }),
+  ]);
+
+  // A plain id Set carries no titles, so the accessible name falls back.
+  const result = normalizeGeneratedDeck(input, new Set(["vis-1"]));
+  const visual = result.slides[0].elements?.find((e) => e.kind === "visual");
+  assert.ok(visual && visual.kind === "visual");
+  assert.equal(visual.alt, "Generated visual");
+});
+
+test("normalization preserves a model-supplied visual alt", () => {
+  const input = deck([
+    slide({
+      title: "M",
+      visualIds: ["vis-1"],
+      layout: "media",
+      elements: [
+        {
+          id: "v",
+          kind: "visual",
+          visualId: "vis-1",
+          alt: "Author supplied label",
+          zIndex: 0,
+          box: { x: 8, y: 24, w: 84, h: 68 },
+        },
+      ],
+    }),
+  ]);
+
+  const inventory = [{ id: "vis-1", title: "Revenue chart", type: "chart" }];
+  const result = normalizeGeneratedDeck(input, inventory);
+  const visual = result.slides[0].elements?.find((e) => e.kind === "visual");
+  assert.ok(visual && visual.kind === "visual");
+  assert.equal(visual.alt, "Author supplied label");
 });

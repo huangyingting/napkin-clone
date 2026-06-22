@@ -471,6 +471,7 @@ function VisualElementView({
     >
       <VisualRenderer
         visual={styled}
+        title={element.alt}
         className="h-full w-full object-contain"
         transparentBackground
       />
