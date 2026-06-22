@@ -58,7 +58,10 @@ import {
   shouldStoreRuns,
   splitRunsIntoLines,
 } from "@/lib/presentation/rich-text-html";
-import { mergeSwatches, themeSwatchColors } from "@/lib/presentation/text-style";
+import {
+  mergeSwatches,
+  themeSwatchColors,
+} from "@/lib/presentation/text-style";
 import type { Visual } from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { applyTheme, isThemeActive } from "@/lib/visual/transforms";
@@ -573,7 +576,10 @@ function ElementEditor({
                   min={0}
                   max={3}
                   step={0.25}
-                  value={element.stroke?.width ?? (element.shape === "line" ? 0.4 : 0)}
+                  value={
+                    element.stroke?.width ??
+                    (element.shape === "line" ? 0.4 : 0)
+                  }
                   onChange={(event) => {
                     const width = Number(event.target.value);
                     onUpdateElement(element.id, {
@@ -1265,7 +1271,9 @@ export function SlideInspector({
               onChange={onAccentChange}
             />
             <div className="border-t border-ds-border-subtle pt-3">
-              <span className={`${LABEL_CLASS} flex items-center justify-between`}>
+              <span
+                className={`${LABEL_CLASS} flex items-center justify-between`}
+              >
                 <span>Gradient</span>
                 <input
                   type="checkbox"

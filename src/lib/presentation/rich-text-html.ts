@@ -19,7 +19,9 @@ export function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
-export function normalizeCssColor(value: string | undefined): string | undefined {
+export function normalizeCssColor(
+  value: string | undefined,
+): string | undefined {
   if (!value) return undefined;
   const trimmed = value.trim();
   if (/^#[0-9a-fA-F]{3,8}$/.test(trimmed)) return trimmed;
@@ -96,7 +98,11 @@ export function mergeRuns(runs: TextRun[]): TextRun[] {
   return merged;
 }
 
-function appendRun(runs: TextRun[], text: string, style: Omit<TextRun, "text">) {
+function appendRun(
+  runs: TextRun[],
+  text: string,
+  style: Omit<TextRun, "text">,
+) {
   if (text.length === 0) return;
   runs.push({ text, ...style });
 }

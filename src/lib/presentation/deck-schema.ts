@@ -190,7 +190,9 @@ function validateElement(input: unknown, context: string): SlideElement {
       ? { opacity: validateOpacity(input.opacity, `${context}.opacity`) }
       : {}),
     ...(input.rotation !== undefined
-      ? { rotation: validateFiniteNumber(input.rotation, `${context}.rotation`) }
+      ? {
+          rotation: validateFiniteNumber(input.rotation, `${context}.rotation`),
+        }
       : {}),
     ...(input.shadow !== undefined ? { shadow: Boolean(input.shadow) } : {}),
     ...(input.locked !== undefined ? { locked: Boolean(input.locked) } : {}),
