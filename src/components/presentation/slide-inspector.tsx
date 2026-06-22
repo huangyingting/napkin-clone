@@ -18,11 +18,13 @@
 import {
   ArrowDownToLine,
   ArrowUpToLine,
+  Bold,
   Copy,
+  Italic,
   Trash2,
   Upload,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { FOCUS_RING } from "@/components/motion/control-styles";
 import { DECK_THEMES } from "@/components/presentation/slide-canvas";
@@ -36,6 +38,7 @@ import type {
   Slide,
   SlideElement,
   SlideLayout,
+  TextRun,
 } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import {
@@ -93,6 +96,7 @@ export interface SlideInspectorProps {
   // Element editing
   onUpdateElement: (id: string, patch: ElementPatch) => void;
   onRemoveElement: (id: string) => void;
+  onDuplicateElement: (id: string) => void;
   onBringToFront: (id: string) => void;
   onSendToBack: (id: string) => void;
   // Style
@@ -148,6 +152,274 @@ function elementLabel(element: SlideElement): string {
     default:
       return "Element";
   }
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function normalizeCssColor(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (/^#[0-9a-fA-F]{3,8}$/.test(trimmed)) return trimmed;
+  const rgb = trimmed.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+  if (!rgb) return undefined;
+  const toHex = (part: string) =>
+    Math.max(0, Math.min(255, Number(part)))
+      .toString(16)
+      .padStart(2, "0");
+  return `#${toHex(rgb[1])}${toHex(rgb[2])}${toHex(rgb[3])}`;
+}
+
+function plainTextToRuns(value: string): TextRun[] {
+  const runs: TextRun[] = [];
+  const parts = value.split("\n");
+  parts.forEach((part, index) => {
+    if (part.length > 0) runs.push({ text: part });
+    if (index < parts.length - 1) runs.push({ text: "\n" });
+  });
+  return runs.length > 0 ? runs : [{ text: "" }];
+}
+
+function runStyle(run: TextRun): string {
+  const rules: string[] = [];
+  if (run.bold) rules.push("font-weight:700");
+  if (run.italic) rules.push("font-style:italic");
+  if (run.color) rules.push(`color:${run.color}`);
+  if (run.code) {
+    rules.push(
+      "font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace",
+    );
+    rules.push("background-color:rgba(127,127,127,0.18)");
+  }
+  return rules.join(";");
+}
+
+function runsToHtml(runs: readonly TextRun[] | undefined, fallback: string) {
+  const source = runs && runs.length > 0 ? runs : plainTextToRuns(fallback);
+  const html = source
+    .map((run) => {
+      if (run.text === "\n") return "<br>";
+      const body = escapeHtml(run.text).replace(/\n/g, "<br>");
+      const style = runStyle(run);
+      return style ? `<span style="${style}">${body}</span>` : body;
+    })
+    .join("");
+  return html.length > 0 ? html : "<br>";
+}
+
+function sameRunStyle(a: TextRun, b: TextRun): boolean {
+  return (
+    a.bold === b.bold &&
+    a.italic === b.italic &&
+    a.code === b.code &&
+    a.color === b.color &&
+    a.link === b.link
+  );
+}
+
+function mergeRuns(runs: TextRun[]): TextRun[] {
+  const merged: TextRun[] = [];
+  for (const run of runs) {
+    if (run.text.length === 0) continue;
+    const last = merged[merged.length - 1];
+    if (last && sameRunStyle(last, run)) {
+      last.text += run.text;
+    } else {
+      merged.push({ ...run });
+    }
+  }
+  return merged;
+}
+
+function appendRun(
+  runs: TextRun[],
+  text: string,
+  style: Omit<TextRun, "text">,
+) {
+  if (text.length === 0) return;
+  runs.push({ text, ...style });
+}
+
+function appendNewline(runs: TextRun[]) {
+  const last = runs[runs.length - 1];
+  if (!last || last.text.endsWith("\n")) return;
+  runs.push({ text: "\n" });
+}
+
+function serializeRichText(root: HTMLElement): {
+  text: string;
+  runs: TextRun[];
+} {
+  const runs: TextRun[] = [];
+
+  function visit(node: Node, style: Omit<TextRun, "text">) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      appendRun(runs, node.textContent?.replace(/\u00a0/g, " ") ?? "", style);
+      return;
+    }
+    if (!(node instanceof HTMLElement)) return;
+
+    const tag = node.tagName.toLowerCase();
+    if (tag === "br") {
+      runs.push({ text: "\n" });
+      return;
+    }
+
+    const next: Omit<TextRun, "text"> = { ...style };
+    if (tag === "b" || tag === "strong") next.bold = true;
+    if (tag === "i" || tag === "em") next.italic = true;
+    if (tag === "code") next.code = true;
+    if (tag === "a") next.link = node.getAttribute("href") ?? undefined;
+
+    const fontWeight = node.style.fontWeight;
+    if (fontWeight === "bold" || Number(fontWeight) >= 600) next.bold = true;
+    if (node.style.fontStyle === "italic") next.italic = true;
+    const color = normalizeCssColor(
+      node.style.color || node.getAttribute("color") || undefined,
+    );
+    if (color) next.color = color;
+
+    node.childNodes.forEach((child) => visit(child, next));
+    if (node !== root && (tag === "div" || tag === "p" || tag === "li")) {
+      appendNewline(runs);
+    }
+  }
+
+  root.childNodes.forEach((node) => visit(node, {}));
+  while (runs.length > 0 && runs[runs.length - 1].text === "\n") {
+    runs.pop();
+  }
+  const merged = mergeRuns(runs);
+  return { text: merged.map((run) => run.text).join(""), runs: merged };
+}
+
+function shouldStoreRuns(runs: readonly TextRun[]): boolean {
+  return runs.some(
+    (run) =>
+      run.text.includes("\n") ||
+      run.bold ||
+      run.italic ||
+      run.code ||
+      run.color ||
+      run.link,
+  );
+}
+
+function bulletsToRuns(bullets: readonly string[], bulletRuns?: TextRun[][]) {
+  const runs: TextRun[] = [];
+  bullets.forEach((bullet, index) => {
+    const rich = bulletRuns?.[index];
+    if (rich && rich.length > 0) runs.push(...rich);
+    else if (bullet.length > 0) runs.push({ text: bullet });
+    if (index < bullets.length - 1) runs.push({ text: "\n" });
+  });
+  return runs;
+}
+
+function splitRunsIntoLines(runs: readonly TextRun[]) {
+  const lines: { text: string; runs: TextRun[] }[] = [{ text: "", runs: [] }];
+  for (const run of runs) {
+    const parts = run.text.split("\n");
+    parts.forEach((part, index) => {
+      if (index > 0) lines.push({ text: "", runs: [] });
+      if (part.length === 0) return;
+      const nextRun = { ...run, text: part };
+      lines[lines.length - 1].runs.push(nextRun);
+      lines[lines.length - 1].text += part;
+    });
+  }
+  return lines;
+}
+
+function RichTextBox({
+  label,
+  html,
+  onChange,
+}: {
+  label: string;
+  html: string;
+  onChange: (value: { text: string; runs: TextRun[] }) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const lastHtmlRef = useRef("");
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    if (lastHtmlRef.current === html) return;
+    if (document.activeElement === node) return;
+    node.innerHTML = html;
+    lastHtmlRef.current = html;
+  }, [html]);
+
+  const emitChange = useCallback(() => {
+    const node = ref.current;
+    if (!node) return;
+    const serialized = serializeRichText(node);
+    lastHtmlRef.current = node.innerHTML;
+    onChange(serialized);
+  }, [onChange]);
+
+  const applyCommand = useCallback(
+    (command: "bold" | "italic" | "foreColor", value?: string) => {
+      const node = ref.current;
+      if (!node) return;
+      node.focus();
+      document.execCommand(command, false, value);
+      emitChange();
+    },
+    [emitChange],
+  );
+
+  return (
+    <div className="flex flex-col gap-2">
+      <span className={LABEL_CLASS}>{label}</span>
+      <div className="flex items-center gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-1 py-1">
+        <button
+          type="button"
+          aria-label="Bold selected text"
+          onClick={() => applyCommand("bold")}
+          className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+        >
+          <Bold size={14} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          aria-label="Italic selected text"
+          onClick={() => applyCommand("italic")}
+          className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+        >
+          <Italic size={14} aria-hidden="true" />
+        </button>
+        <label className="ml-auto flex items-center gap-1 text-xs text-ds-text-muted">
+          Color
+          <input
+            type="color"
+            aria-label="Selected text color"
+            className="h-7 w-9 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
+            onChange={(event) => applyCommand("foreColor", event.target.value)}
+          />
+        </label>
+      </div>
+      <div
+        ref={ref}
+        role="textbox"
+        aria-label={label}
+        aria-multiline="true"
+        contentEditable
+        suppressContentEditableWarning
+        onInput={emitChange}
+        onBlur={emitChange}
+        onKeyDown={(event) => event.stopPropagation()}
+        className={`min-h-24 w-full whitespace-pre-wrap rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-sm text-ds-text-primary outline-none ${FOCUS_RING}`}
+      />
+    </div>
+  );
 }
 
 /**
@@ -283,17 +555,16 @@ function ElementEditor({
     case "text":
       return (
         <div className="flex flex-col gap-3">
-          <label className="block">
-            <span className={LABEL_CLASS}>Text</span>
-            <textarea
-              value={element.text}
-              onChange={(event) =>
-                onUpdateElement(element.id, { text: event.target.value })
-              }
-              rows={3}
-              className={`${FIELD_CLASS} resize-y ${FOCUS_RING}`}
-            />
-          </label>
+          <RichTextBox
+            label="Text"
+            html={runsToHtml(element.runs, element.text)}
+            onChange={({ text, runs }) =>
+              onUpdateElement(element.id, {
+                text,
+                runs: shouldStoreRuns(runs) ? runs : undefined,
+              })
+            }
+          />
           <TextStyleBar
             variant="labeled"
             style={element.style}
@@ -305,22 +576,30 @@ function ElementEditor({
     case "bullets":
       return (
         <div className="flex flex-col gap-3">
-          <label className="block">
-            <span className={LABEL_CLASS}>Bullets (one per line)</span>
-            <textarea
-              value={element.bullets.join("\n")}
-              onChange={(event) =>
-                onUpdateElement(element.id, {
-                  bullets: event.target.value
-                    .split("\n")
-                    .map((line) => line.replace(/\s+$/, ""))
-                    .filter((line) => line.length > 0),
-                })
-              }
-              rows={5}
-              className={`${FIELD_CLASS} resize-y ${FOCUS_RING}`}
-            />
-          </label>
+          <RichTextBox
+            label="Bullets"
+            html={runsToHtml(
+              bulletsToRuns(element.bullets, element.bulletRuns),
+              element.bullets.join("\n"),
+            )}
+            onChange={({ runs }) => {
+              const lines = splitRunsIntoLines(runs)
+                .map((line) => ({
+                  text: line.text.replace(/\s+$/, ""),
+                  runs: mergeRuns(line.runs),
+                }))
+                .filter((line) => line.text.length > 0);
+              const hasRichBullets = lines.some((line) =>
+                shouldStoreRuns(line.runs),
+              );
+              onUpdateElement(element.id, {
+                bullets: lines.map((line) => line.text),
+                bulletRuns: hasRichBullets
+                  ? lines.map((line) => line.runs)
+                  : undefined,
+              });
+            }}
+          />
           <TextStyleBar
             variant="labeled"
             style={element.style}
@@ -473,6 +752,65 @@ function VisualElementEditor({
   );
 }
 
+function ElementActionRow({
+  elementId,
+  onDuplicateElement,
+  onBringToFront,
+  onSendToBack,
+  onRemoveElement,
+}: {
+  elementId: string;
+  onDuplicateElement: (id: string) => void;
+  onBringToFront: (id: string) => void;
+  onSendToBack: (id: string) => void;
+  onRemoveElement: (id: string) => void;
+}) {
+  return (
+    <div className="mb-3 grid grid-cols-4 gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-1">
+      <Tooltip label="Duplicate element" side="bottom">
+        <button
+          type="button"
+          onClick={() => onDuplicateElement(elementId)}
+          aria-label="Duplicate element"
+          className={`flex h-7 items-center justify-center rounded-ds-sm text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+        >
+          <Copy size={14} aria-hidden="true" />
+        </button>
+      </Tooltip>
+      <Tooltip label="Bring to front" side="bottom">
+        <button
+          type="button"
+          onClick={() => onBringToFront(elementId)}
+          aria-label="Bring to front"
+          className={`flex h-7 items-center justify-center rounded-ds-sm text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+        >
+          <ArrowUpToLine size={14} aria-hidden="true" />
+        </button>
+      </Tooltip>
+      <Tooltip label="Send to back" side="bottom">
+        <button
+          type="button"
+          onClick={() => onSendToBack(elementId)}
+          aria-label="Send to back"
+          className={`flex h-7 items-center justify-center rounded-ds-sm text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+        >
+          <ArrowDownToLine size={14} aria-hidden="true" />
+        </button>
+      </Tooltip>
+      <Tooltip label="Delete element" side="bottom">
+        <button
+          type="button"
+          onClick={() => onRemoveElement(elementId)}
+          aria-label="Delete element"
+          className={`flex h-7 items-center justify-center rounded-ds-sm text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+        >
+          <Trash2 size={14} aria-hidden="true" />
+        </button>
+      </Tooltip>
+    </div>
+  );
+}
+
 export function SlideInspector({
   slide,
   slideIndex,
@@ -489,6 +827,7 @@ export function SlideInspector({
   onMaterialize,
   onUpdateElement,
   onRemoveElement,
+  onDuplicateElement,
   onBringToFront,
   onSendToBack,
   onBackgroundChange,
@@ -588,6 +927,16 @@ export function SlideInspector({
                       >
                         {elementLabel(element)}
                       </button>
+                      <Tooltip label="Duplicate element" side="bottom">
+                        <button
+                          type="button"
+                          onClick={() => onDuplicateElement(element.id)}
+                          aria-label="Duplicate element"
+                          className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
+                        >
+                          <Copy size={12} aria-hidden="true" />
+                        </button>
+                      </Tooltip>
                       <Tooltip label="Bring to front" side="bottom">
                         <button
                           type="button"
@@ -629,6 +978,13 @@ export function SlideInspector({
                   <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ds-text-muted">
                     {elementLabel(selectedElement)}
                   </p>
+                  <ElementActionRow
+                    elementId={selectedElement.id}
+                    onDuplicateElement={onDuplicateElement}
+                    onBringToFront={onBringToFront}
+                    onSendToBack={onSendToBack}
+                    onRemoveElement={onRemoveElement}
+                  />
                   <ElementEditor
                     element={selectedElement}
                     deck={deck}

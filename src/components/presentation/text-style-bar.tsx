@@ -4,13 +4,11 @@
  * Shared text-style control set for the slide editor.
  *
  * A single source of truth for the bold / italic / alignment / font-size /
- * color controls so the on-canvas {@link ElementToolbar} and the inspector's
- * Content tab drive the **same** properties with identical behaviour — ending
- * the previous font-size stepper-vs-slider and align cycle-vs-3-button
- * divergence.
+ * color controls so text controls in the inspector stay consistent wherever
+ * text element properties are edited.
  *
  * Two presentations share one control set:
- *  - `"compact"` — icon-only buttons for the floating on-canvas toolbar.
+ *  - `"compact"` — icon-only buttons for dense tool surfaces.
  *  - `"labeled"` — the same controls with field labels for the side inspector.
  *
  * Purely controlled: every change is reported through `onChange`; the component

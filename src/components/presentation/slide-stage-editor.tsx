@@ -11,41 +11,22 @@
  *  - **Inline text editing** — double-click a text or bullets element to edit
  *    its content directly on the slide; the underlying element is hidden while
  *    its editable overlay is shown so there is no double render.
- *  - **Contextual toolbar** — a floating toolbar above the selected element with
- *    quick font size, weight, alignment, color, layer, and delete controls.
  *  - **Live badge** — shows position / size while dragging.
  *
  * All geometry is expressed in percentage boxes so it stays resolution
  * independent. The component is controlled: it never mutates the deck.
  */
 
-import {
-  AlignCenter,
-  AlignLeft,
-  AlignRight,
-  AlignVerticalJustifyCenter,
-  AlignVerticalJustifyEnd,
-  AlignVerticalJustifyStart,
-  ArrowDownToLine,
-  ArrowUpToLine,
-  Copy,
-  Trash2,
-} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { FOCUS_RING } from "@/components/motion/control-styles";
 import {
   DECK_THEMES,
   SlideCanvas,
   type ThemeConfig,
 } from "@/components/presentation/slide-canvas";
-import { TextStyleBar } from "@/components/presentation/text-style-bar";
-import { ColorPicker, IconButton } from "@/components/ui";
 import type { ElementBox, Slide, SlideElement } from "@/lib/presentation/deck";
-import type { AlignMode } from "@/lib/presentation/element-align";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import { type SnapGuide, snapBox } from "@/lib/presentation/element-snap";
-import { clampToolbarLeft } from "@/lib/presentation/toolbar-position";
 import {
   boxesIntersectingRect,
   normalizeRect,
@@ -95,6 +76,12 @@ const MIN_SIZE_PCT = 4;
  */
 const SNAP_THRESHOLD_PCT = 1.5;
 
+const AUTO_FIT_PADDING_PCT = 1.2;
+const TEXT_MIN_W_PCT = 10;
+const TEXT_MIN_H_PCT = 5;
+const BULLETS_MIN_W_PCT = 18;
+const SELECTION_MIN_H_PCT = 4;
+
 function clampBox(box: ElementBox): ElementBox {
   const w = Math.max(MIN_SIZE_PCT, Math.min(100, box.w));
   const h = Math.max(MIN_SIZE_PCT, Math.min(100, box.h));
@@ -103,21 +90,139 @@ function clampBox(box: ElementBox): ElementBox {
   return { x, y, w, h };
 }
 
-interface SelectionBounds {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
+function clampFitSize(
+  widthPct: number,
+  heightPct: number,
+  minWidthPct: number,
+  minHeightPct: number,
+): { w: number; h: number } {
+  return {
+    w: Math.max(minWidthPct, Math.min(100, widthPct)),
+    h: Math.max(minHeightPct, Math.min(100, heightPct)),
+  };
 }
 
-/** Tight bounding box (percent) enclosing every box. Used to place the align
- * toolbar over a multi-selection. */
-function boundsOf(boxes: ElementBox[]): SelectionBounds {
-  const minX = Math.min(...boxes.map((b) => b.x));
-  const minY = Math.min(...boxes.map((b) => b.y));
-  const maxX = Math.max(...boxes.map((b) => b.x + b.w));
-  const maxY = Math.max(...boxes.map((b) => b.y + b.h));
-  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+function positionFitWithinBox(
+  source: ElementBox,
+  size: { w: number; h: number },
+  align: "left" | "center" | "right" = "center",
+): ElementBox {
+  let x = source.x;
+  if (align === "center") {
+    x = source.x + (source.w - size.w) / 2;
+  } else if (align === "right") {
+    x = source.x + source.w - size.w;
+  }
+  const y = source.y + Math.max(0, (source.h - size.h) / 2);
+  return clampBox({ x, y, w: size.w, h: size.h });
+}
+
+function textLineWidthPct(
+  text: string,
+  fontSizePct: number,
+  stageAspect: number,
+): number {
+  const visibleChars = Math.max(1, text.trimEnd().length);
+  return (visibleChars * fontSizePct * 0.56) / stageAspect;
+}
+
+function fitTextElementBox(
+  element: Extract<SlideElement, { kind: "text" }>,
+  stageAspect: number,
+): ElementBox {
+  const lines = (element.text || " ").split("\n");
+  const maxWidth = Math.max(TEXT_MIN_W_PCT, Math.min(92, element.box.w));
+  const lineWidths = lines.map((line) =>
+    textLineWidthPct(line, element.style.fontSize, stageAspect),
+  );
+  const width =
+    Math.min(maxWidth, Math.max(TEXT_MIN_W_PCT, ...lineWidths)) +
+    AUTO_FIT_PADDING_PCT * 2;
+  const wrappedLines = lineWidths.reduce(
+    (sum, lineWidth) => sum + Math.max(1, Math.ceil(lineWidth / maxWidth)),
+    0,
+  );
+  const height =
+    wrappedLines * element.style.fontSize * 1.2 + AUTO_FIT_PADDING_PCT * 2;
+  return positionFitWithinBox(
+    element.box,
+    clampFitSize(width, height, TEXT_MIN_W_PCT, TEXT_MIN_H_PCT),
+    element.style.align,
+  );
+}
+
+function fitBulletsElementBox(
+  element: Extract<SlideElement, { kind: "bullets" }>,
+  stageAspect: number,
+): ElementBox {
+  const bullets = element.bullets.length > 0 ? element.bullets : [" "];
+  const maxWidth = Math.max(BULLETS_MIN_W_PCT, Math.min(92, element.box.w));
+  const lineWidths = bullets.map((line) =>
+    textLineWidthPct(line, element.style.fontSize, stageAspect),
+  );
+  const width =
+    Math.min(maxWidth, Math.max(BULLETS_MIN_W_PCT, ...lineWidths) + 5) +
+    AUTO_FIT_PADDING_PCT * 2;
+  const wrappedLines = lineWidths.reduce(
+    (sum, lineWidth) => sum + Math.max(1, Math.ceil(lineWidth / maxWidth)),
+    0,
+  );
+  const height =
+    wrappedLines * element.style.fontSize * 1.2 +
+    Math.max(0, bullets.length - 1) * element.style.fontSize * 0.6 +
+    AUTO_FIT_PADDING_PCT * 2;
+  return positionFitWithinBox(
+    element.box,
+    clampFitSize(width, height, BULLETS_MIN_W_PCT, TEXT_MIN_H_PCT),
+    element.style.align,
+  );
+}
+
+function fitBoxToAspect(
+  box: ElementBox,
+  contentAspect: number,
+  stageAspect: number,
+): ElementBox {
+  if (contentAspect <= 0 || !Number.isFinite(contentAspect)) {
+    return box;
+  }
+  const boxAspect = (box.w / box.h) * stageAspect;
+  const size =
+    boxAspect > contentAspect
+      ? { w: (box.h * contentAspect) / stageAspect, h: box.h }
+      : { w: box.w, h: (box.w * stageAspect) / contentAspect };
+  return positionFitWithinBox(
+    box,
+    clampFitSize(size.w, size.h, MIN_SIZE_PCT, SELECTION_MIN_H_PCT),
+  );
+}
+
+function fitElementBoxToContent(
+  element: SlideElement,
+  visuals: ReadonlyMap<string, Visual>,
+  stageAspect: number,
+): ElementBox {
+  switch (element.kind) {
+    case "text":
+      return fitTextElementBox(element, stageAspect);
+    case "bullets":
+      return fitBulletsElementBox(element, stageAspect);
+    case "visual": {
+      const visual = visuals.get(element.visualId);
+      return visual
+        ? fitBoxToAspect(element.box, visual.width / visual.height, stageAspect)
+        : element.box;
+    }
+    case "shape":
+      return element.shape === "line"
+        ? positionFitWithinBox(element.box, {
+            w: element.box.w,
+            h: SELECTION_MIN_H_PCT,
+          })
+        : element.box;
+    case "image":
+      return element.box;
+  }
 }
 
 function applyResize(
@@ -229,16 +334,11 @@ interface SlideStageEditorProps {
    * the marquee; the first id becomes the primary.
    */
   onSelectElements: (ids: string[], additive?: boolean) => void;
-  onAlignElements: (mode: AlignMode) => void;
   onUpdateElement: (
     id: string,
     patch: ElementPatch,
     coalesceKey?: string,
   ) => void;
-  onRemoveElement: (id: string) => void;
-  onDuplicateElement: (id: string) => void;
-  onBringToFront: (id: string) => void;
-  onSendToBack: (id: string) => void;
 }
 
 export function SlideStageEditor({
@@ -250,12 +350,7 @@ export function SlideStageEditor({
   selectedElementIds,
   onSelectElement,
   onSelectElements,
-  onAlignElements,
   onUpdateElement,
-  onRemoveElement,
-  onDuplicateElement,
-  onBringToFront,
-  onSendToBack,
 }: SlideStageEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -290,17 +385,22 @@ export function SlideStageEditor({
     elementsRef.current = elements;
   }, [elements]);
   const tc = DECK_THEMES[slide.theme] ?? DECK_THEMES.default;
-  const textColorPresets = [
-    tc.titleColor,
-    tc.bodyColor,
-    tc.mutedColor,
-    tc.accentColor,
-    "#ffffff",
-    "#000000",
-  ];
-
+  const stageAspect = width / height;
+  const fittedBoxes = useMemo(() => {
+    const map = new Map<string, ElementBox>();
+    for (const element of elements) {
+      map.set(
+        element.id,
+        fitElementBoxToContent(element, visuals, stageAspect),
+      );
+    }
+    return map;
+  }, [elements, stageAspect, visuals]);
   const selectedElement =
     elements.find((element) => element.id === selectedElementId) ?? null;
+  const selectedElementBox = selectedElement
+    ? (fittedBoxes.get(selectedElement.id) ?? selectedElement.box)
+    : null;
   // Elements in the multi-selection that still exist on this slide, plus a
   // convenience flag for "2+ selected" (issue #237). The single-select path is
   // unchanged: a 1-element selection behaves exactly as before.
@@ -309,10 +409,6 @@ export function SlideStageEditor({
     [elements, selectedElementIds],
   );
   const isMultiSelect = selectedElements.length >= 2;
-  const selectionBounds = useMemo(
-    () => (isMultiSelect ? boundsOf(selectedElements.map((e) => e.box)) : null),
-    [isMultiSelect, selectedElements],
-  );
   // Editing is only active while the edited element is also the selection, so
   // changing slides or selecting another element implicitly exits edit mode
   // (no effect / setState needed).
@@ -381,7 +477,9 @@ export function SlideStageEditor({
         });
         const others = elementsRef.current
           .filter((element) => element.id !== drag.id)
-          .map((element) => element.box);
+          .map((element) =>
+            fitElementBoxToContent(element, visuals, stageAspect),
+          );
         const { box, guides } = snapBox(moved, others, SNAP_THRESHOLD_PCT);
         setSnapGuides(guides);
         onUpdateElement(drag.id, { box }, drag.coalesceKey);
@@ -391,7 +489,7 @@ export function SlideStageEditor({
       const next = applyResize(drag.startBox, drag.mode, dxPct, dyPct);
       onUpdateElement(drag.id, { box: clampBox(next) }, drag.coalesceKey);
     },
-    [onUpdateElement],
+    [onUpdateElement, stageAspect, visuals],
   );
 
   const endDrag = useCallback(() => {
@@ -409,7 +507,7 @@ export function SlideStageEditor({
         const ids = boxesIntersectingRect(
           elementsRef.current.map((element) => ({
             id: element.id,
-            box: element.box,
+            box: fitElementBoxToContent(element, visuals, stageAspect),
           })),
           finalRect,
         );
@@ -421,7 +519,7 @@ export function SlideStageEditor({
     dragRef.current = null;
     setActiveDrag(null);
     setSnapGuides([]);
-  }, [onSelectElement, onSelectElements]);
+  }, [onSelectElement, onSelectElements, stageAspect, visuals]);
 
   useEffect(() => {
     window.addEventListener("pointermove", handlePointerMove);
@@ -508,8 +606,8 @@ export function SlideStageEditor({
   );
 
   const badge =
-    activeDrag && selectedElement
-      ? formatBadge(activeDrag, selectedElement.box)
+    activeDrag && selectedElementBox
+      ? formatBadge(activeDrag, selectedElementBox)
       : null;
 
   return (
@@ -531,6 +629,7 @@ export function SlideStageEditor({
       {/* Interaction layer */}
       <div className="absolute inset-0">
         {elements.map((element) => {
+          const fittedBox = fittedBoxes.get(element.id) ?? element.box;
           const isPrimary = element.id === selectedElementId;
           const inSelection = selectedElementIds.has(element.id);
           const selected = isPrimary || inSelection;
@@ -558,7 +657,7 @@ export function SlideStageEditor({
                   onSelectElement(element.id, "toggle");
                   return;
                 }
-                beginDrag(event, element.id, "move", element.box);
+                beginDrag(event, element.id, "move", fittedBox);
               }}
               onDoubleClick={(event) => {
                 if (editable) {
@@ -586,10 +685,10 @@ export function SlideStageEditor({
                   : "ring-1 ring-transparent hover:ring-1 hover:ring-ds-control/40"
               }`}
               style={{
-                left: `${element.box.x}%`,
-                top: `${element.box.y}%`,
-                width: `${element.box.w}%`,
-                height: `${element.box.h}%`,
+                left: `${fittedBox.x}%`,
+                top: `${fittedBox.y}%`,
+                width: `${fittedBox.w}%`,
+                height: `${fittedBox.h}%`,
                 zIndex: selected ? 1000 : element.zIndex + 1,
               }}
             >
@@ -614,7 +713,7 @@ export function SlideStageEditor({
                     <span
                       key={handle}
                       onPointerDown={(event) =>
-                        beginDrag(event, element.id, handle, element.box)
+                        beginDrag(event, element.id, handle, fittedBox)
                       }
                       aria-hidden="true"
                       className="absolute flex h-11 w-11 touch-none items-center justify-center"
@@ -671,41 +770,14 @@ export function SlideStageEditor({
           <div
             className="pointer-events-none absolute rounded-ds-sm bg-ds-inverse-surface px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-ds-inverse-text"
             style={{
-              left: `${(selectedElement?.box.x ?? 0) + (selectedElement?.box.w ?? 0) / 2}%`,
-              top: `calc(${(selectedElement?.box.y ?? 0) + (selectedElement?.box.h ?? 0)}% + 6px)`,
+              left: `${(selectedElementBox?.x ?? 0) + (selectedElementBox?.w ?? 0) / 2}%`,
+              top: `calc(${(selectedElementBox?.y ?? 0) + (selectedElementBox?.h ?? 0)}% + 6px)`,
               transform: "translateX(-50%)",
               zIndex: 1500,
             }}
           >
             {badge}
           </div>
-        ) : null}
-
-        {/* Contextual toolbar — single (primary) selection only. */}
-        {selectedElement && !activeEditingId && !isMultiSelect ? (
-          <ElementToolbar
-            element={selectedElement}
-            width={width}
-            height={height}
-            textColorPresets={textColorPresets}
-            onUpdateElement={onUpdateElement}
-            onRemove={onRemoveElement}
-            onDuplicate={onDuplicateElement}
-            onBringToFront={onBringToFront}
-            onSendToBack={onSendToBack}
-            onEdit={() => startEditing(selectedElement)}
-          />
-        ) : null}
-
-        {/* Align toolbar — shown above the selection bounding box when 2+
-            elements are selected (issue #237). */}
-        {isMultiSelect && selectionBounds && !activeEditingId ? (
-          <AlignToolbar
-            bounds={selectionBounds}
-            width={width}
-            height={height}
-            onAlign={onAlignElements}
-          />
         ) : null}
       </div>
     </div>
@@ -796,217 +868,5 @@ function InlineTextEditor({
         overflow: "hidden",
       }}
     />
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Contextual toolbar — floats above the selected element.
-// ---------------------------------------------------------------------------
-
-function ToolbarButton({
-  label,
-  active = false,
-  onClick,
-  children,
-}: {
-  label: string;
-  active?: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      aria-pressed={active}
-      onClick={onClick}
-      className={`flex h-7 w-7 items-center justify-center rounded-ds-sm transition-colors ${
-        active
-          ? "bg-ds-control text-ds-control-text"
-          : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
-      } ${FOCUS_RING}`}
-    >
-      {children}
-    </button>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Align toolbar — floats above a multi-selection's bounding box (issue #237).
-// ---------------------------------------------------------------------------
-
-const ALIGN_ACTIONS: {
-  mode: AlignMode;
-  label: string;
-  Icon: typeof AlignLeft;
-}[] = [
-  { mode: "left", label: "Align left", Icon: AlignLeft },
-  { mode: "hcenter", label: "Align horizontal centers", Icon: AlignCenter },
-  { mode: "right", label: "Align right", Icon: AlignRight },
-  { mode: "top", label: "Align top", Icon: AlignVerticalJustifyStart },
-  {
-    mode: "vmiddle",
-    label: "Align vertical centers",
-    Icon: AlignVerticalJustifyCenter,
-  },
-  { mode: "bottom", label: "Align bottom", Icon: AlignVerticalJustifyEnd },
-];
-
-function AlignToolbar({
-  bounds,
-  width,
-  height,
-  onAlign,
-}: {
-  bounds: SelectionBounds;
-  width: number;
-  height: number;
-  onAlign: (mode: AlignMode) => void;
-}) {
-  // Position: centered above the selection bounding box, flipping below when it
-  // is near the top edge (mirrors {@link ElementToolbar}).
-  const topPxRaw = (bounds.y / 100) * height;
-  const placeBelow = topPxRaw < 44;
-  const topPx = placeBelow
-    ? ((bounds.y + bounds.h) / 100) * height + 8
-    : topPxRaw - 8;
-  const leftPx = ((bounds.x + bounds.w / 2) / 100) * width;
-  const clampedLeft = clampToolbarLeft(leftPx, width, 120);
-
-  return (
-    <div
-      role="toolbar"
-      aria-label="Align selected elements"
-      onPointerDown={(event) => event.stopPropagation()}
-      className="absolute flex items-center gap-0.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised px-1 py-1 shadow-ds-overlay"
-      style={{
-        left: clampedLeft,
-        top: topPx,
-        transform: placeBelow ? "translateX(-50%)" : "translate(-50%, -100%)",
-        zIndex: 2000,
-      }}
-    >
-      {ALIGN_ACTIONS.map(({ mode, label, Icon }, i) => (
-        <span key={mode} className="flex items-center">
-          {i === 3 ? <Divider /> : null}
-          <IconButton
-            size="sm"
-            aria-label={label}
-            title={label}
-            onClick={() => onAlign(mode)}
-          >
-            <Icon size={14} aria-hidden="true" />
-          </IconButton>
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function ElementToolbar({
-  element,
-  width,
-  height,
-  textColorPresets,
-  onUpdateElement,
-  onRemove,
-  onDuplicate,
-  onBringToFront,
-  onSendToBack,
-  onEdit,
-}: {
-  element: SlideElement;
-  width: number;
-  height: number;
-  textColorPresets: readonly string[];
-  onUpdateElement: (id: string, patch: ElementPatch) => void;
-  onRemove: (id: string) => void;
-  onDuplicate: (id: string) => void;
-  onBringToFront: (id: string) => void;
-  onSendToBack: (id: string) => void;
-  onEdit: () => void;
-}) {
-  const isText = element.kind === "text" || element.kind === "bullets";
-  const style = isText ? element.style : null;
-
-  // Position: centered above the element, flipping below near the top edge.
-  const elTopPx = (element.box.y / 100) * height;
-  const placeBelow = elTopPx < 44;
-  const topPx = placeBelow
-    ? ((element.box.y + element.box.h) / 100) * height + 8
-    : elTopPx - 8;
-  const leftPx = ((element.box.x + element.box.w / 2) / 100) * width;
-  const clampedLeft = clampToolbarLeft(leftPx, width, 90);
-
-  return (
-    <div
-      onPointerDown={(event) => event.stopPropagation()}
-      className="absolute flex items-center gap-0.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised px-1 py-1 shadow-ds-overlay"
-      style={{
-        left: clampedLeft,
-        top: topPx,
-        transform: placeBelow ? "translateX(-50%)" : "translate(-50%, -100%)",
-        zIndex: 2000,
-      }}
-    >
-      {isText && style ? (
-        <>
-          <TextStyleBar
-            variant="compact"
-            style={style}
-            colorPresets={textColorPresets}
-            onChange={(next) => onUpdateElement(element.id, { style: next })}
-          />
-          <Divider />
-        </>
-      ) : null}
-
-      {element.kind === "shape" ? (
-        <ColorPicker
-          color={element.color}
-          aria-label="Shape color"
-          onChange={(hex) => onUpdateElement(element.id, { color: hex })}
-        />
-      ) : null}
-
-      {isText ? (
-        <ToolbarButton label="Edit text" onClick={onEdit}>
-          <span className="text-[11px] font-semibold">Aa</span>
-        </ToolbarButton>
-      ) : null}
-
-      <Divider />
-      <ToolbarButton
-        label="Duplicate element"
-        onClick={() => onDuplicate(element.id)}
-      >
-        <Copy size={14} aria-hidden="true" />
-      </ToolbarButton>
-      <ToolbarButton
-        label="Bring to front"
-        onClick={() => onBringToFront(element.id)}
-      >
-        <ArrowUpToLine size={14} aria-hidden="true" />
-      </ToolbarButton>
-      <ToolbarButton
-        label="Send to back"
-        onClick={() => onSendToBack(element.id)}
-      >
-        <ArrowDownToLine size={14} aria-hidden="true" />
-      </ToolbarButton>
-      <ToolbarButton
-        label="Delete element"
-        onClick={() => onRemove(element.id)}
-      >
-        <Trash2 size={14} aria-hidden="true" />
-      </ToolbarButton>
-    </div>
-  );
-}
-
-function Divider() {
-  return (
-    <span className="mx-0.5 h-5 w-px bg-ds-border-subtle" aria-hidden="true" />
   );
 }

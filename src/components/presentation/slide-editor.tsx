@@ -71,7 +71,6 @@ import {
 import { VisualPicker } from "@/components/presentation/visual-picker";
 import { IconButton, Tooltip } from "@/components/ui";
 import { Popover } from "@/components/ui/popover";
-import type { AlignMode } from "@/lib/presentation/element-align";
 import {
   DEFAULT_SCREEN_SIZE,
   fitAspectRatio,
@@ -112,7 +111,6 @@ import {
 import {
   addElement,
   addSlide,
-  alignElements,
   bringElementToFront,
   duplicateElement,
   duplicateElements,
@@ -264,7 +262,7 @@ export function SlideEditor({
   );
   // The full multi-selection (issue #237). `selectedElementId` is the primary
   // (anchor) element used for single-element operations — move, resize, inline
-  // edit, the contextual toolbar, keyboard nudge/delete — and is always a member
+  // edit, keyboard nudge/delete, and inspector properties — and is always a member
   // of this set when non-empty. A 1-element selection is the common path and
   // behaves exactly as before.
   const [selectedElementIds, setSelectedElementIds] = useState<Set<string>>(
@@ -272,6 +270,7 @@ export function SlideEditor({
   );
   // Whether the stage "Add → Visual" picker popover is open.
   const [visualPickerOpen, setVisualPickerOpen] = useState(false);
+  const [insertMenuOpen, setInsertMenuOpen] = useState(false);
   // Whether the thumbnail rail "+ Add slide" template picker popover is open.
   const [addTemplateOpen, setAddTemplateOpen] = useState(false);
   // Whether the collapsed theme-swatch popover is open (shown below `lg`).
@@ -559,6 +558,9 @@ export function SlideEditor({
     },
     [deck.theme, handleThemeChange],
   );
+  const activeThemeOption =
+    THEME_OPTIONS.find((option) => option.value === deck.theme) ??
+    THEME_OPTIONS[THEME_OPTIONS.length - 1];
 
   const handleAddTemplate = useCallback(
     (kind: SlideTemplateKind) => {
@@ -1051,17 +1053,6 @@ export function SlideEditor({
     [deck, onDeckChange, safeSelected],
   );
 
-  const handleAlignElements = useCallback(
-    (mode: AlignMode) => {
-      const ids = [...effectiveSelectedElementIds];
-      if (ids.length < 2) {
-        return;
-      }
-      onDeckChange(alignElements(deck, safeSelected, ids, mode));
-    },
-    [deck, onDeckChange, safeSelected, effectiveSelectedElementIds],
-  );
-
   const handleMaterialize = useCallback(() => {
     onDeckChange(materializeSlide(deck, safeSelected));
   }, [deck, onDeckChange, safeSelected]);
@@ -1072,6 +1063,7 @@ export function SlideEditor({
       const element = buildDefaultElement(kind, accentForSelected, id);
       onDeckChange(addElement(deck, safeSelected, element));
       handleSelectElement(id);
+      setInsertMenuOpen(false);
     },
     [accentForSelected, deck, handleSelectElement, onDeckChange, safeSelected],
   );
@@ -1082,6 +1074,7 @@ export function SlideEditor({
       onDeckChange(addElement(deck, safeSelected, element));
       handleSelectElement(element.id);
       setVisualPickerOpen(false);
+      setInsertMenuOpen(false);
     },
     [deck, handleSelectElement, onDeckChange, safeSelected],
   );
@@ -1123,6 +1116,7 @@ export function SlideEditor({
         onMaterialize: handleMaterialize,
         onUpdateElement: handleUpdateElement,
         onRemoveElement: handleRemoveElement,
+        onDuplicateElement: handleDuplicateElement,
         onBringToFront: handleBringToFront,
         onSendToBack: handleSendToBack,
         onBackgroundChange: handleBackgroundChange,
@@ -1140,7 +1134,7 @@ export function SlideEditor({
       className="fixed inset-0 z-modal flex flex-col bg-ds-surface-base"
     >
       {/* ── Top bar ─────────────────────────────────────────────────────── */}
-      <header className="flex items-center justify-between gap-3 border-b border-ds-border-subtle px-4 py-3">
+      <header className="flex items-center gap-2 border-b border-ds-border-subtle px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
           <Tooltip
             label={railOpen ? "Hide slide thumbnails" : "Show slide thumbnails"}
@@ -1166,7 +1160,131 @@ export function SlideEditor({
           </span>
         </div>
 
-        <div className="flex shrink-0 items-center gap-3">
+        {selectedSlide ? (
+          <div
+            role="toolbar"
+            aria-label="Slide editing tools"
+            className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1"
+          >
+            <StageAddButton
+              icon={<Plus size={14} aria-hidden="true" />}
+              label="Slide"
+              onClick={() => handleAddSlide(safeSelected)}
+            />
+            <div
+              className="hidden h-5 w-px shrink-0 bg-ds-border-subtle sm:block"
+              aria-hidden="true"
+            />
+            <Popover
+              open={insertMenuOpen}
+              onClose={() => {
+                setInsertMenuOpen(false);
+                setVisualPickerOpen(false);
+              }}
+              aria-label="Insert element"
+              className="w-[280px] p-2"
+              trigger={
+                <button
+                  type="button"
+                  aria-label="Insert element"
+                  aria-haspopup="dialog"
+                  aria-expanded={insertMenuOpen}
+                  onClick={() => setInsertMenuOpen((open) => !open)}
+                  className={`flex h-7 shrink-0 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                >
+                  <Plus size={14} aria-hidden="true" />
+                  Insert
+                </button>
+              }
+            >
+              <div className="grid grid-cols-2 gap-1">
+                <InsertMenuButton
+                  icon={<Type size={14} aria-hidden="true" />}
+                  label="Text"
+                  onClick={() => handleAddElement("text")}
+                />
+                <InsertMenuButton
+                  icon={<List size={14} aria-hidden="true" />}
+                  label="Bullets"
+                  onClick={() => handleAddElement("bullets")}
+                />
+                <InsertMenuButton
+                  icon={<ImageIcon size={14} aria-hidden="true" />}
+                  label="Image"
+                  onClick={() => handleAddElement("image")}
+                />
+                <InsertMenuButton
+                  icon={<Shapes size={14} aria-hidden="true" />}
+                  label="Shape"
+                  onClick={() => handleAddElement("shape")}
+                />
+              </div>
+              <div className="mt-2 border-t border-ds-border-subtle pt-2">
+                {visualPickerOpen ? (
+                  <VisualPicker
+                    className="w-full"
+                    visuals={visuals}
+                    onPick={handleAddVisual}
+                    onClose={() => setVisualPickerOpen(false)}
+                  />
+                ) : (
+                  <InsertMenuButton
+                    icon={<Sparkles size={14} aria-hidden="true" />}
+                    label="Visual"
+                    onClick={() => setVisualPickerOpen(true)}
+                  />
+                )}
+              </div>
+            </Popover>
+            <div
+              className="h-5 w-px shrink-0 bg-ds-border-subtle"
+              aria-hidden="true"
+            />
+            <SlideSizeControl
+              value={resolveSlideFormat(deck.slideFormat)}
+              onChange={handleSlideFormatChange}
+            />
+            <Popover
+              open={themeMenuOpen}
+              onClose={() => setThemeMenuOpen(false)}
+              aria-label="Choose a theme"
+              className="w-auto p-3"
+              trigger={
+                <Tooltip label="Theme" side="bottom">
+                  <button
+                    type="button"
+                    aria-label="Choose a theme"
+                    aria-haspopup="dialog"
+                    aria-expanded={themeMenuOpen}
+                    onClick={() => setThemeMenuOpen((open) => !open)}
+                    className={`flex h-7 shrink-0 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                  >
+                    <Palette aria-hidden className="h-3.5 w-3.5" />
+                    <span
+                      aria-hidden="true"
+                      className="h-3.5 w-3.5 rounded-full border border-ds-border-subtle"
+                      style={{ backgroundColor: activeThemeOption.color }}
+                    />
+                  </button>
+                </Tooltip>
+              }
+            >
+              <div className="flex items-center gap-1.5">
+                {THEME_OPTIONS.map((option) =>
+                  renderThemeSwatch(option, () => setThemeMenuOpen(false)),
+                )}
+              </div>
+            </Popover>
+            <span className="hidden min-w-0 shrink truncate text-xs text-ds-text-muted 2xl:inline">
+              Slide {safeSelected + 1} of {deck.slides.length} ·{" "}
+              {selectionSummary}
+            </span>
+          </div>
+        ) : (
+          <div className="min-w-0 flex-1" />
+        )}
+
+        <div className="flex shrink-0 items-center gap-1.5">
           {/* Undo / redo deck history */}
           <div
             role="group"
@@ -1202,58 +1320,19 @@ export function SlideEditor({
             aria-hidden="true"
           />
 
-          {/* Theme swatches: inline row at lg+, collapsed into a popover below */}
-          <div className="hidden items-center gap-1.5 lg:flex">
-            {THEME_OPTIONS.map((option) => renderThemeSwatch(option))}
-          </div>
-
-          <div className="hidden sm:block lg:hidden">
-            <Popover
-              open={themeMenuOpen}
-              onClose={() => setThemeMenuOpen(false)}
-              aria-label="Choose a theme"
-              className="w-auto p-3"
-              trigger={
-                <Tooltip label="Theme" side="bottom">
-                  <IconButton
-                    aria-label="Choose a theme"
-                    aria-haspopup="dialog"
-                    aria-expanded={themeMenuOpen}
-                    size="sm"
-                    variant="plain"
-                    onClick={() => setThemeMenuOpen((open) => !open)}
-                  >
-                    <Palette aria-hidden className="h-3.5 w-3.5" />
-                  </IconButton>
-                </Tooltip>
-              }
-            >
-              <div className="flex items-center gap-1.5">
-                {THEME_OPTIONS.map((option) =>
-                  renderThemeSwatch(option, () => setThemeMenuOpen(false)),
-                )}
-              </div>
-            </Popover>
-          </div>
-
-          <div
-            className="hidden h-5 w-px bg-ds-border-subtle sm:block"
-            aria-hidden="true"
-          />
-
           {canSyncFromDocument ? (
             <Tooltip label="Re-sync slides from the document" side="bottom">
               <button
                 type="button"
                 onClick={handleRequestSync}
-                className={`flex h-8 items-center gap-1.5 rounded-ds-md border px-2.5 text-sm font-medium transition-colors ${
+                className={`flex h-8 items-center gap-1.5 rounded-ds-md border px-2 text-sm font-medium transition-colors ${
                   showStaleBanner
                     ? "border-ds-warning-border bg-ds-warning-surface text-ds-warning-text hover:opacity-90"
                     : "border-ds-border-subtle text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
                 } ${FOCUS_RING}`}
               >
                 <RefreshCw aria-hidden className="h-3.5 w-3.5" />
-                <span className="hidden md:inline">Sync from document</span>
+                <span className="hidden xl:inline">Sync</span>
               </button>
             </Tooltip>
           ) : null}
@@ -1261,7 +1340,7 @@ export function SlideEditor({
           <span
             role="status"
             aria-live="polite"
-            className="hidden text-xs text-ds-text-muted sm:inline"
+            className="hidden text-xs text-ds-text-muted xl:inline"
           >
             {saveStatus !== "error" ? SAVE_STATUS_LABEL[saveStatus] : null}
           </span>
@@ -1345,79 +1424,6 @@ export function SlideEditor({
           onApply={handleApplySync}
           onCancel={handleCancelSync}
         />
-      ) : null}
-
-      {selectedSlide ? (
-        <div
-          role="toolbar"
-          aria-label="Slide editing tools"
-          className="flex flex-wrap items-center gap-2 border-b border-ds-border-subtle bg-ds-surface-base px-3 py-2"
-        >
-          <StageAddButton
-            icon={<Plus size={14} aria-hidden="true" />}
-            label="Slide"
-            onClick={() => handleAddSlide(safeSelected)}
-          />
-          <div
-            className="hidden h-5 w-px shrink-0 bg-ds-border-subtle sm:block"
-            aria-hidden="true"
-          />
-          <div className="flex shrink-0 items-center gap-1.5">
-            <span className="mr-0.5 text-xs font-medium text-ds-text-muted">
-              Insert
-            </span>
-            <StageAddButton
-              icon={<Type size={14} aria-hidden="true" />}
-              label="Text"
-              onClick={() => handleAddElement("text")}
-            />
-            <StageAddButton
-              icon={<List size={14} aria-hidden="true" />}
-              label="Bullets"
-              onClick={() => handleAddElement("bullets")}
-            />
-            <StageAddButton
-              icon={<ImageIcon size={14} aria-hidden="true" />}
-              label="Image"
-              onClick={() => handleAddElement("image")}
-            />
-            <StageAddButton
-              icon={<Shapes size={14} aria-hidden="true" />}
-              label="Shape"
-              onClick={() => handleAddElement("shape")}
-            />
-            <div className="relative">
-              <StageAddButton
-                icon={<Sparkles size={14} aria-hidden="true" />}
-                label="Visual"
-                aria-haspopup="dialog"
-                aria-expanded={visualPickerOpen}
-                onClick={() => setVisualPickerOpen((open) => !open)}
-              />
-              {visualPickerOpen ? (
-                <div className="absolute left-0 top-full z-modal mt-1">
-                  <VisualPicker
-                    visuals={visuals}
-                    onPick={handleAddVisual}
-                    onClose={() => setVisualPickerOpen(false)}
-                  />
-                </div>
-              ) : null}
-            </div>
-          </div>
-          <div
-            className="h-5 w-px shrink-0 bg-ds-border-subtle"
-            aria-hidden="true"
-          />
-          <SlideSizeControl
-            value={resolveSlideFormat(deck.slideFormat)}
-            onChange={handleSlideFormatChange}
-          />
-          <span className="hidden min-w-0 truncate text-xs text-ds-text-muted xl:inline">
-            Slide {safeSelected + 1} of {deck.slides.length} ·{" "}
-            {selectionSummary}
-          </span>
-        </div>
       ) : null}
 
       {/* ── Body: thumbnail rail · stage · inspector ────────────────────── */}
@@ -1567,12 +1573,7 @@ export function SlideEditor({
                 selectedElementIds={effectiveSelectedElementIds}
                 onSelectElement={handleSelectElement}
                 onSelectElements={handleSelectElements}
-                onAlignElements={handleAlignElements}
                 onUpdateElement={handleUpdateElement}
-                onRemoveElement={handleRemoveElement}
-                onDuplicateElement={handleDuplicateElement}
-                onBringToFront={handleBringToFront}
-                onSendToBack={handleSendToBack}
               />
             ) : null}
             {selectedSlide &&
@@ -1766,6 +1767,27 @@ function StageAddButton({
     >
       {icon}
       {label}
+    </button>
+  );
+}
+
+function InsertMenuButton({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex h-8 items-center gap-2 rounded-ds-sm px-2 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+    >
+      {icon}
+      <span>{label}</span>
     </button>
   );
 }
