@@ -766,6 +766,40 @@ export function setElementBoxes(
   });
 }
 
+/**
+ * Applies per-element patches in a single atomic mutation, enabling multi-
+ * element transforms (resize, rotate) to land as one undo step (issue #329).
+ *
+ * Like {@link updateElement} the `id` and `kind` fields are immutable and are
+ * silently ignored even if present in the patch.  Returns the same deck when
+ * the slide has no `elements[]` or when none of the ids are present.
+ */
+export function setElementPatches(
+  deck: Deck,
+  index: number,
+  patchesById: Record<string, ElementPatch>,
+): Deck {
+  return mapSlide(deck, index, (slide) => {
+    if (!slide.elements) {
+      return slide;
+    }
+    return markElementsEdited({
+      ...slide,
+      elements: slide.elements.map((element) => {
+        const patch = patchesById[element.id];
+        return patch
+          ? ({
+              ...element,
+              ...patch,
+              id: element.id,
+              kind: element.kind,
+            } as SlideElement)
+          : element;
+      }),
+    });
+  });
+}
+
 /** Assigns a fresh group id to the given elements; returns it for re-selection. */
 export function groupElements(
   deck: Deck,

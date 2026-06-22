@@ -139,6 +139,7 @@ import {
   setDeckSlideFormat,
   setDeckTheme,
   setElementBoxes,
+  setElementPatches,
   setSlideAccent,
   setSlideBackground,
   setSlideBackgroundGradient,
@@ -1318,6 +1319,16 @@ export function SlideEditor({
     [deck, onDeckChange, safeSelected],
   );
 
+  const handleSetElementPatches = useCallback(
+    (patchesById: Record<string, ElementPatch>, coalesceKey?: string) => {
+      onDeckChange(
+        setElementPatches(deck, safeSelected, patchesById),
+        coalesceKey !== undefined ? { coalesceKey } : undefined,
+      );
+    },
+    [deck, onDeckChange, safeSelected],
+  );
+
   const handleGroupElements = useCallback(
     (ids: string[]) => {
       if (ids.length < 2) return;
@@ -2246,6 +2257,7 @@ export function SlideEditor({
                 onCutElements={handleCutElements}
                 onPasteElements={handlePasteElements}
                 onSetElementBoxes={handleSetElementBoxes}
+                onSetElementPatches={handleSetElementPatches}
                 onGroupElements={handleGroupElements}
                 onUngroupElements={handleUngroupElements}
                 snapToGrid={snapToGrid}
