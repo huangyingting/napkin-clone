@@ -301,6 +301,16 @@ interface BaseElement {
   /** When true, the element is not selectable or draggable in the editor. */
   locked?: boolean;
   /**
+   * When true, the element is not rendered in the editor, present mode, or
+   * export. Set/cleared via the layer list (issue #331).
+   */
+  hidden?: boolean;
+  /**
+   * Optional user-assigned display name for the element, shown in the layer
+   * list. When absent the layer list derives a name from content (issue #331).
+   */
+  name?: string;
+  /**
    * Optional group id. Elements sharing a `groupId` select and move together in
    * the editor. Renderers ignore it. Cleared by ungrouping.
    */

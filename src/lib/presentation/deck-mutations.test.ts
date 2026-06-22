@@ -9,24 +9,26 @@ import {
   bringElementToFront,
   duplicateElement,
   duplicateSlide,
-  groupElements,
   insertSlide,
   materializeDeck,
   materializeSlide,
+  moveElementZOrder,
   removeElement,
   removeElements,
   nudgeElements,
   duplicateElements,
   removeSlide,
+  renameElement,
   reorderSlides,
   moveSlide,
   sendElementToBack,
   setDeckSlideFormat,
   setDeckTheme,
+  setElementHidden,
+  setElementLocked,
   setSlideAccent,
   setSlideBackground,
   slideNeedsMaterialization,
-  ungroupElements,
   updateElement,
   updateSlide,
 } from "./deck-mutations";
@@ -939,159 +941,216 @@ test("alignElements is a no-op when no named ids are present", () => {
 });
 
 // ---------------------------------------------------------------------------
-// groupElements / ungroupElements (issue #330)
+// setElementHidden (issue #331)
 // ---------------------------------------------------------------------------
 
-test("groupElements assigns a shared groupId to all named elements", () => {
-  const deck = deckWithThreeElements();
-  const { deck: next, groupId } = groupElements(deck, 0, ["e1", "e2"]);
+function deckWithTwo(): Deck {
+  let deck = makeDeck(["A"]);
+  deck = addElement(deck, 0, {
+    id: "e1",
+    kind: "text",
+    text: "Hello",
+    role: "body",
+    style: { fontSize: 16, bold: false, italic: false, align: "left" },
+    box: { x: 10, y: 10, w: 30, h: 10 },
+  });
+  deck = addElement(deck, 0, {
+    id: "e2",
+    kind: "text",
+    text: "World",
+    role: "body",
+    style: { fontSize: 16, bold: false, italic: false, align: "left" },
+    box: { x: 20, y: 20, w: 30, h: 10 },
+  });
+  return deck;
+}
 
-  const elements = next.slides[0].elements!;
-  const e1 = elements.find((e) => e.id === "e1")!;
-  const e2 = elements.find((e) => e.id === "e2")!;
-  const e3 = elements.find((e) => e.id === "e3")!;
+test("setElementHidden sets hidden=true on the target element", () => {
+  const deck = deckWithTwo();
+  const next = setElementHidden(deck, 0, "e1", true);
 
-  assert.ok(groupId, "groupId is non-empty");
-  assert.equal(e1.groupId, groupId);
-  assert.equal(e2.groupId, groupId);
-  // e3 is not in the selection — must not receive a groupId.
-  assert.equal(e3.groupId, undefined);
+  const e1 = next.slides[0].elements!.find((e) => e.id === "e1")!;
+  const e2 = next.slides[0].elements!.find((e) => e.id === "e2")!;
+  assert.equal(e1.hidden, true);
+  assert.equal(e2.hidden, undefined, "other elements unaffected");
 });
 
-test("groupElements returns the new groupId for re-selection", () => {
-  const deck = deckWithThreeElements();
-  const { groupId } = groupElements(deck, 0, ["e1", "e2"]);
-  assert.ok(typeof groupId === "string" && groupId.length > 0);
+test("setElementHidden clears hidden when called with false", () => {
+  let deck = deckWithTwo();
+  deck = setElementHidden(deck, 0, "e1", true);
+  const next = setElementHidden(deck, 0, "e1", false);
+  const e1 = next.slides[0].elements!.find((e) => e.id === "e1")!;
+  assert.equal(e1.hidden, undefined);
 });
 
-test("groupElements clears elementsDerived and is immutable", () => {
-  const base = materializeDeck(deckWithThreeElements());
-  const stamped: Deck = {
-    ...base,
-    slides: base.slides.map((s, i) =>
-      i === 0 ? { ...s, elementsDerived: true } : s,
-    ),
-  };
-  const { deck: next } = groupElements(stamped, 0, ["e1", "e2"]);
-  assert.equal(next.slides[0].elementsDerived, false);
-  // Original untouched.
-  assert.equal(
-    stamped.slides[0].elements?.find((e) => e.id === "e1")?.groupId,
-    undefined,
-  );
+test("setElementHidden is immutable", () => {
+  const deck = deckWithTwo();
+  const before = deck.slides[0].elements;
+  setElementHidden(deck, 0, "e1", true);
+  assert.equal(deck.slides[0].elements, before);
 });
 
-test("groupElements is a no-op (same deck ref) when ids is empty", () => {
-  const deck = deckWithThreeElements();
-  const { deck: next } = groupElements(deck, 0, []);
-  assert.equal(next, deck);
-});
-
-test("groupElements is a no-op (same slide ref) when no id matches", () => {
-  const deck = deckWithThreeElements();
-  const { deck: next } = groupElements(deck, 0, ["does-not-exist"]);
-  assert.equal(next.slides[0], deck.slides[0]);
-});
-
-test("ungroupElements clears groupId from all group members", () => {
-  const base = deckWithThreeElements();
-  const { deck: grouped, groupId } = groupElements(base, 0, ["e1", "e2"]);
-  const next = ungroupElements(grouped, 0, groupId);
-
-  const elements = next.slides[0].elements!;
-  assert.equal(elements.find((e) => e.id === "e1")?.groupId, undefined);
-  assert.equal(elements.find((e) => e.id === "e2")?.groupId, undefined);
-  // e3 never had a groupId — still none.
-  assert.equal(elements.find((e) => e.id === "e3")?.groupId, undefined);
-});
-
-test("ungroupElements round-trips: group then ungroup leaves no groupId", () => {
-  const base = deckWithThreeElements();
-  const { deck: grouped, groupId } = groupElements(base, 0, ["e1", "e3"]);
-  const next = ungroupElements(grouped, 0, groupId);
-  for (const el of next.slides[0].elements!) {
-    assert.equal(el.groupId, undefined);
-  }
-});
-
-test("ungroupElements clears elementsDerived", () => {
-  const base = deckWithThreeElements();
-  const { deck: grouped, groupId } = groupElements(base, 0, ["e1", "e2"]);
-  const next = ungroupElements(grouped, 0, groupId);
+test("setElementHidden clears elementsDerived", () => {
+  const deck = materializeSlide(makeDeck(["A"]), 0);
+  assert.equal(deck.slides[0].elementsDerived, true);
+  const elementId = deck.slides[0].elements![0].id;
+  const next = setElementHidden(deck, 0, elementId, true);
   assert.equal(next.slides[0].elementsDerived, false);
 });
 
-test("ungroupElements is a no-op (same slide ref) for unknown groupId", () => {
-  const deck = deckWithThreeElements();
-  const result = ungroupElements(deck, 0, "not-a-real-group");
-  assert.equal(result.slides[0], deck.slides[0]);
+// ---------------------------------------------------------------------------
+// setElementLocked (issue #331)
+// ---------------------------------------------------------------------------
+
+test("setElementLocked sets locked=true on the target element", () => {
+  const deck = deckWithTwo();
+  const next = setElementLocked(deck, 0, "e2", true);
+
+  const e2 = next.slides[0].elements!.find((e) => e.id === "e2")!;
+  const e1 = next.slides[0].elements!.find((e) => e.id === "e1")!;
+  assert.equal(e2.locked, true);
+  assert.equal(e1.locked, undefined);
+});
+
+test("setElementLocked clears locked when called with false", () => {
+  let deck = deckWithTwo();
+  deck = setElementLocked(deck, 0, "e2", true);
+  const next = setElementLocked(deck, 0, "e2", false);
+  const e2 = next.slides[0].elements!.find((e) => e.id === "e2")!;
+  assert.equal(e2.locked, undefined);
 });
 
 // ---------------------------------------------------------------------------
-// duplicateElement + groupId (issue #330)
+// moveElementZOrder (issue #331)
 // ---------------------------------------------------------------------------
 
-test("duplicateElement clears groupId from the copy (partial group copy)", () => {
-  const base = deckWithThreeElements();
-  const { deck: grouped } = groupElements(base, 0, ["e1", "e2"]);
-  const { deck: next, newElementId } = duplicateElement(grouped, 0, "e1");
+/**
+ * Builds a deck with exactly three free-form elements at predictable z-indices
+ * (0 / 1 / 2) by constructing the slide's elements array directly, avoiding
+ * the legacy-content materialization that `addElement` triggers on a legacy
+ * slide and that would inject extra elements with conflicting z-indices.
+ */
+function deckWithThreeByZ(): Deck {
+  const slides: Slide[] = [
+    {
+      id: "s-z",
+      index: 0,
+      title: "",
+      bullets: [],
+      visualIds: [],
+      layout: "blank",
+      notes: "",
+      theme: "default",
+      elements: [
+        {
+          id: "low",
+          kind: "shape",
+          shape: "rect",
+          color: "#111",
+          box: { x: 0, y: 0, w: 10, h: 10 },
+          zIndex: 0,
+        },
+        {
+          id: "mid",
+          kind: "shape",
+          shape: "rect",
+          color: "#222",
+          box: { x: 0, y: 0, w: 10, h: 10 },
+          zIndex: 1,
+        },
+        {
+          id: "high",
+          kind: "shape",
+          shape: "rect",
+          color: "#333",
+          box: { x: 0, y: 0, w: 10, h: 10 },
+          zIndex: 2,
+        },
+      ],
+    },
+  ];
+  return { theme: "default", slides };
+}
 
-  const copy = next.slides[0].elements!.find((e) => e.id === newElementId)!;
-  assert.ok(copy, "copy exists");
-  // Original retains its groupId; copy must NOT.
-  const original = next.slides[0].elements!.find((e) => e.id === "e1")!;
-  assert.ok(original.groupId, "original still has groupId");
-  assert.equal(copy.groupId, undefined, "copy groupId cleared");
+test("moveElementZOrder 'up' increases an element's relative z-order", () => {
+  const deck = deckWithThreeByZ();
+  const next = moveElementZOrder(deck, 0, "mid", "up");
+
+  const byId = (d: Deck, id: string) =>
+    d.slides[0].elements!.find((e) => e.id === id)!;
+
+  // mid swaps with high: mid gets a higher zIndex than high
+  assert.ok(byId(next, "mid").zIndex > byId(next, "high").zIndex);
+  assert.ok(byId(next, "mid").zIndex > byId(next, "low").zIndex);
+});
+
+test("moveElementZOrder 'down' decreases an element's relative z-order", () => {
+  const deck = deckWithThreeByZ();
+  const next = moveElementZOrder(deck, 0, "mid", "down");
+
+  const byId = (d: Deck, id: string) =>
+    d.slides[0].elements!.find((e) => e.id === id)!;
+
+  // mid swaps with low: mid gets a lower zIndex than both low and high
+  assert.ok(byId(next, "mid").zIndex < byId(next, "high").zIndex);
+  assert.ok(byId(next, "mid").zIndex < byId(next, "low").zIndex);
+});
+
+test("moveElementZOrder 'up' is a no-op for the top element", () => {
+  const deck = deckWithThreeByZ();
+  const next = moveElementZOrder(deck, 0, "high", "up");
+  assert.equal(next.slides[0].elements, deck.slides[0].elements);
+});
+
+test("moveElementZOrder 'down' is a no-op for the bottom element", () => {
+  const deck = deckWithThreeByZ();
+  const next = moveElementZOrder(deck, 0, "low", "down");
+  assert.equal(next.slides[0].elements, deck.slides[0].elements);
+});
+
+test("moveElementZOrder is immutable", () => {
+  const deck = deckWithThreeByZ();
+  const before = deck.slides[0].elements;
+  moveElementZOrder(deck, 0, "mid", "up");
+  assert.equal(deck.slides[0].elements, before);
 });
 
 // ---------------------------------------------------------------------------
-// duplicateElements + groupId (issue #330)
+// renameElement (issue #331)
 // ---------------------------------------------------------------------------
 
-test("duplicateElements: full group copy creates a new shared groupId", () => {
-  const base = deckWithThreeElements();
-  const { deck: grouped, groupId } = groupElements(base, 0, ["e1", "e2"]);
-  const { deck: next, newElementIds } = duplicateElements(grouped, 0, [
-    "e1",
-    "e2",
-  ]);
-
-  assert.equal(newElementIds.length, 2);
-  const elements = next.slides[0].elements!;
-  const [copyId1, copyId2] = newElementIds;
-  const copy1 = elements.find((e) => e.id === copyId1)!;
-  const copy2 = elements.find((e) => e.id === copyId2)!;
-
-  // Both copies share a groupId…
-  assert.ok(copy1.groupId, "copy1 has groupId");
-  assert.equal(
-    copy1.groupId,
-    copy2.groupId,
-    "both copies share the same groupId",
-  );
-  // …and it is FRESH (different from the original group's id).
-  assert.notEqual(copy1.groupId, groupId, "new groupId differs from original");
+test("renameElement sets the name field on the element", () => {
+  const deck = deckWithTwo();
+  const next = renameElement(deck, 0, "e1", "My Title Box");
+  const e1 = next.slides[0].elements!.find((e) => e.id === "e1")!;
+  assert.equal(e1.name, "My Title Box");
 });
 
-test("duplicateElements: partial group copy clears groupId on copies", () => {
-  const base = deckWithThreeElements();
-  const { deck: grouped } = groupElements(base, 0, ["e1", "e2"]);
-  // Only duplicate e1 (not the full group).
-  const { deck: next, newElementIds } = duplicateElements(grouped, 0, ["e1"]);
-
-  assert.equal(newElementIds.length, 1);
-  const copy = next.slides[0].elements!.find((e) => e.id === newElementIds[0])!;
-  assert.equal(copy.groupId, undefined, "partial copy has no groupId");
+test("renameElement trims whitespace", () => {
+  const deck = deckWithTwo();
+  const next = renameElement(deck, 0, "e1", "  Padded  ");
+  const e1 = next.slides[0].elements!.find((e) => e.id === "e1")!;
+  assert.equal(e1.name, "Padded");
 });
 
-test("duplicateElements: ungrouped elements have no groupId on copies", () => {
-  const base = deckWithThreeElements();
-  const { deck: next, newElementIds } = duplicateElements(base, 0, [
-    "e1",
-    "e2",
-  ]);
-  const elements = next.slides[0].elements!;
-  for (const id of newElementIds) {
-    assert.equal(elements.find((e) => e.id === id)!.groupId, undefined);
-  }
+test("renameElement clears the name when given an empty string", () => {
+  let deck = deckWithTwo();
+  deck = renameElement(deck, 0, "e1", "Temporary");
+  const next = renameElement(deck, 0, "e1", "");
+  const e1 = next.slides[0].elements!.find((e) => e.id === "e1")!;
+  assert.equal(e1.name, undefined);
+});
+
+test("renameElement does not affect other elements", () => {
+  const deck = deckWithTwo();
+  const next = renameElement(deck, 0, "e1", "Renamed");
+  const e2 = next.slides[0].elements!.find((e) => e.id === "e2")!;
+  assert.equal(e2.name, undefined);
+});
+
+test("renameElement is immutable", () => {
+  const deck = deckWithTwo();
+  const before = deck.slides[0].elements;
+  renameElement(deck, 0, "e1", "Name");
+  assert.equal(deck.slides[0].elements, before);
 });

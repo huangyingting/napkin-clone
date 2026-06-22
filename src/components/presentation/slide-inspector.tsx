@@ -47,6 +47,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { FOCUS_RING } from "@/components/motion/control-styles";
 import { DECK_THEMES } from "@/components/presentation/slide-canvas";
+import { LayerList } from "@/components/presentation/layer-list";
 import { TextStyleBar } from "@/components/presentation/text-style-bar";
 import { Swatch, Tooltip } from "@/components/ui";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
@@ -169,6 +170,14 @@ export interface SlideInspectorProps {
   onDistribute?: (ids: string[], mode: DistributeMode) => void;
   onMatchSize?: (ids: string[], mode: MatchSizeMode) => void;
   onArrange?: (ids: string[], mode: ArrangeMode) => void;
+  // Group operations (issue #330)
+  onGroupElements?: (ids: string[]) => void;
+  onUngroupElements?: (groupId: string) => void;
+  // Layer list operations (issue #331) — all optional so existing callers compile unchanged
+  onSetElementHidden?: (elementId: string, hidden: boolean) => void;
+  onSetElementLocked?: (elementId: string, locked: boolean) => void;
+  onMoveElementZOrder?: (elementId: string, direction: "up" | "down") => void;
+  onRenameElement?: (elementId: string, name: string) => void;
   // Style
   onBackgroundChange: (color: string | undefined) => void;
   onBackgroundGradientChange: (
@@ -1574,6 +1583,12 @@ export function SlideInspector({
   onDistribute,
   onMatchSize,
   onArrange,
+  onGroupElements: _onGroupElements,
+  onUngroupElements: _onUngroupElements,
+  onSetElementHidden,
+  onSetElementLocked,
+  onMoveElementZOrder,
+  onRenameElement,
   onBackgroundChange,
   onBackgroundGradientChange,
   onBackgroundImageChange,
@@ -1789,6 +1804,40 @@ export function SlideInspector({
                     );
                   })}
                 </div>
+
+                {/* Layer list (issue #331) */}
+                {(onSetElementHidden ||
+                  onSetElementLocked ||
+                  onMoveElementZOrder ||
+                  onRenameElement) && (
+                  <CollapsibleSection id="layers" label="Layers">
+                    <LayerList
+                      elements={elements}
+                      selectedElementId={selectedElementId}
+                      onSelectElement={onSelectElement}
+                      onToggleHidden={(id) =>
+                        onSetElementHidden?.(
+                          id,
+                          !(
+                            elements.find((el) => el.id === id)?.hidden ?? false
+                          ),
+                        )
+                      }
+                      onToggleLocked={(id) =>
+                        onSetElementLocked?.(
+                          id,
+                          !(
+                            elements.find((el) => el.id === id)?.locked ?? false
+                          ),
+                        )
+                      }
+                      onMoveZOrder={(id, direction) =>
+                        onMoveElementZOrder?.(id, direction)
+                      }
+                      onRename={(id, name) => onRenameElement?.(id, name)}
+                    />
+                  </CollapsibleSection>
+                )}
 
                 {/* Selected element editor */}
                 {/* Multi-select tools panel (issue #328) */}

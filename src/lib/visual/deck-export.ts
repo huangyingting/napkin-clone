@@ -349,9 +349,9 @@ function buildSlideSpec(
   );
   const accent = toHex(slide.accent ?? colors.accent);
 
-  const elements = [...materializeSlideElements(slide)].sort(
-    (a, b) => a.zIndex - b.zIndex,
-  );
+  const elements = [...materializeSlideElements(slide)]
+    .filter((element) => !element.hidden)
+    .sort((a, b) => a.zIndex - b.zIndex);
 
   const ops: DeckOp[] = [];
 
