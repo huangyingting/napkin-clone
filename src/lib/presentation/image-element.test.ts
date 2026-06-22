@@ -3,6 +3,10 @@ import { test } from "node:test";
 
 import type { Deck, ImageElement, Slide, SlideElement } from "./deck";
 import {
+  DECK_JSON_NON_IMAGE_RESERVE,
+  MAX_DECK_JSON_BYTES,
+} from "./deck-limits";
+import {
   MAX_IMAGE_UPLOAD_BYTES,
   TOTAL_IMAGE_BUDGET_BYTES,
   canAddImage,
@@ -105,6 +109,20 @@ function deckWithElements(elements: SlideElement[]): Deck {
   return { theme: "default", slides: [slide] };
 }
 
+function deckWithBackground(backgroundImage: string | undefined): Deck {
+  const slide: Slide = {
+    index: 0,
+    title: "Slide",
+    bullets: [],
+    visualIds: [],
+    layout: "blank",
+    notes: "",
+    theme: "default",
+    backgroundImage,
+  };
+  return { theme: "default", slides: [slide] };
+}
+
 test("dataUrlByteSize: a data URL is sized by its string length", () => {
   const url = dataUrlOfBytes(1000);
   assert.equal(dataUrlByteSize(url), 1000);
@@ -171,4 +189,66 @@ test("canAddImage: defaults to TOTAL_IMAGE_BUDGET_BYTES", () => {
   const deck = deckWithElements([]);
   assert.equal(canAddImage(deck, TOTAL_IMAGE_BUDGET_BYTES).ok, true);
   assert.equal(canAddImage(deck, TOTAL_IMAGE_BUDGET_BYTES + 1).ok, false);
+});
+
+// ---------------------------------------------------------------------------
+// Issue #302 — budget derived from server cap + background image counting
+// ---------------------------------------------------------------------------
+
+test("budget derived from cap: TOTAL_IMAGE_BUDGET_BYTES equals cap minus reserve", () => {
+  assert.equal(
+    TOTAL_IMAGE_BUDGET_BYTES,
+    MAX_DECK_JSON_BYTES - DECK_JSON_NON_IMAGE_RESERVE,
+  );
+  assert.ok(TOTAL_IMAGE_BUDGET_BYTES < MAX_DECK_JSON_BYTES);
+});
+
+test("budget derived from cap: MAX_IMAGE_UPLOAD_BYTES inlined stays within budget", () => {
+  // Base64 expands raw bytes by 4/3. One maximally-sized upload should not
+  // overflow the total image budget when inlined as a data URL.
+  const worstCaseInlinedBytes = MAX_IMAGE_UPLOAD_BYTES * (4 / 3);
+  assert.ok(
+    worstCaseInlinedBytes <= TOTAL_IMAGE_BUDGET_BYTES,
+    `${worstCaseInlinedBytes} inlined bytes exceeds budget ${TOTAL_IMAGE_BUDGET_BYTES}`,
+  );
+});
+
+test("totalInlineImageBytes: background data URL counts toward the total", () => {
+  const bgUrl = dataUrlOfBytes(5000);
+  const deck: Deck = {
+    theme: "default",
+    slides: [
+      {
+        index: 0,
+        title: "Slide",
+        bullets: [],
+        visualIds: [],
+        layout: "blank",
+        notes: "",
+        theme: "default",
+        backgroundImage: bgUrl,
+        elements: [imageElement(dataUrlOfBytes(1000))],
+      },
+    ],
+  };
+  assert.equal(totalInlineImageBytes(deck), 6000);
+});
+
+test("totalInlineImageBytes: remote background contributes 0", () => {
+  const deck = deckWithBackground("https://example.com/bg.jpg");
+  assert.equal(totalInlineImageBytes(deck), 0);
+});
+
+test("totalInlineImageBytes: absent backgroundImage contributes 0", () => {
+  assert.equal(totalInlineImageBytes(deckWithBackground(undefined)), 0);
+});
+
+test("canAddImage: rejects image that pushes total over derived budget", () => {
+  // deck already at budget, adding any positive amount fails
+  const deck = deckWithElements([
+    imageElement(dataUrlOfBytes(TOTAL_IMAGE_BUDGET_BYTES)),
+  ]);
+  const check = canAddImage(deck, 1);
+  assert.equal(check.ok, false);
+  assert.equal(check.totalBytes, TOTAL_IMAGE_BUDGET_BYTES + 1);
 });

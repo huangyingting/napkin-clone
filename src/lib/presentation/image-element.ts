@@ -8,6 +8,10 @@
  */
 
 import type { Deck } from "./deck";
+import {
+  DECK_JSON_NON_IMAGE_RESERVE,
+  MAX_DECK_JSON_BYTES,
+} from "./deck-limits";
 
 /**
  * True when an image element has no usable source. A bare `<img src="">` shows
@@ -19,14 +23,33 @@ export function isEmptyImageSrc(src: string | null | undefined): boolean {
 }
 
 /**
- * Upload size ceiling. Image uploads are inlined into `deckJson` as base64 data
- * URLs, which bloat the saved document (~33% larger than the raw bytes) and are
- * synced over the wire on every autosave. 5 MB keeps a single image well within
- * a reasonable deck budget while still allowing high-quality screenshots; the
- * tradeoff is that larger files are rejected rather than silently degrading
- * save performance.
+ * Total inlined-image budget for a single deck. Uploaded images are stored as
+ * base64 data URLs inside `deckJson`, which is re-serialized and POSTed in full
+ * on every autosave (issue #247). This budget is derived from
+ * {@link MAX_DECK_JSON_BYTES} by reserving {@link DECK_JSON_NON_IMAGE_RESERVE}
+ * bytes for non-image JSON overhead (slide structure, text, theme, geometry,
+ * etc.), leaving the rest for inlined image payload. A future option is to
+ * offload images to blob storage and reference them by URL instead of inlining.
+ *
+ * The budget is measured against the size of the data-URL strings actually
+ * stored in `deckJson` (the thing serialized and sent), not the decoded pixel
+ * data. Both {@link ImageElement} `src` values and per-slide `backgroundImage`
+ * data URLs count toward this limit.
  */
-export const MAX_IMAGE_UPLOAD_BYTES = 5 * 1024 * 1024;
+export const TOTAL_IMAGE_BUDGET_BYTES =
+  MAX_DECK_JSON_BYTES - DECK_JSON_NON_IMAGE_RESERVE;
+
+/**
+ * Upload size ceiling per image file. Uploads are inlined as base64 data URLs,
+ * which expand the raw bytes by ~4/3 plus a small header prefix. This cap
+ * ensures that a single maximally-sized upload, once inlined, stays within
+ * {@link TOTAL_IMAGE_BUDGET_BYTES}: `MAX_IMAGE_UPLOAD_BYTES * 4/3 ≈
+ * TOTAL_IMAGE_BUDGET_BYTES`. Larger files are rejected rather than silently
+ * degrading autosave performance.
+ */
+export const MAX_IMAGE_UPLOAD_BYTES = Math.floor(
+  TOTAL_IMAGE_BUDGET_BYTES * (3 / 4),
+);
 
 export type ImageFileValidation = { ok: true } | { ok: false; reason: string };
 
@@ -55,22 +78,6 @@ export function validateImageFile(
 }
 
 /**
- * Total inlined-image budget for a single deck. Uploaded images are stored as
- * base64 data URLs inside `deckJson`, which is re-serialized and POSTed in full
- * on every autosave (issue #247). The per-image {@link MAX_IMAGE_UPLOAD_BYTES}
- * cap bounds one file, but a deck with several images can still grow to tens of
- * megabytes, making each debounced save a multi-MB write. This total cap keeps
- * the whole deck's inlined-image payload bounded so autosave stays cheap.
- *
- * 12 MB allows roughly a handful of large screenshots while staying well under
- * typical request-body limits. It is intentionally measured against the size of
- * the data-URL strings actually stored in `deckJson` (the thing that gets
- * serialized and sent), not the decoded pixel data. A future option is to
- * offload images to blob storage and reference them by URL instead of inlining.
- */
-export const TOTAL_IMAGE_BUDGET_BYTES = 12 * 1024 * 1024;
-
-/**
  * Estimates how many bytes a source string contributes to `deckJson`.
  *
  * Only inlined `data:` URLs are counted — those are the payload that bloats the
@@ -90,13 +97,16 @@ export function dataUrlByteSize(src: string | null | undefined): number {
 }
 
 /**
- * Sums the inlined-image bytes across every {@link ImageElement} in the deck —
- * i.e. the total data-URL payload currently stored in `deckJson`. Non-image
- * elements and image elements whose `src` is an external URL contribute 0.
+ * Sums the inlined-image bytes across every {@link ImageElement} in the deck
+ * AND every per-slide `backgroundImage` that is a `data:` URL — i.e. the total
+ * data-URL payload currently stored in `deckJson`. Non-image elements, image
+ * elements whose `src` is an external URL, and background images that are
+ * remote or absent contribute 0.
  */
 export function totalInlineImageBytes(deck: Deck): number {
   let total = 0;
   for (const slide of deck.slides) {
+    total += dataUrlByteSize(slide.backgroundImage);
     for (const element of slide.elements ?? []) {
       if (element.kind === "image") {
         total += dataUrlByteSize(element.src);
