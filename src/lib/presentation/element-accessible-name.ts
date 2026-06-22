@@ -1,4 +1,4 @@
-import type { SlideElement } from "./deck";
+import { PLACEHOLDER_TYPE_LABELS, type SlideElement } from "./deck";
 
 /**
  * Returns a concise, screen-reader–friendly accessible name for a slide
@@ -20,6 +20,12 @@ export function elementAccessibleName(
   allElements?: readonly SlideElement[],
 ): string {
   switch (element.kind) {
+    case "placeholder": {
+      const label =
+        element.label?.trim() ||
+        `${PLACEHOLDER_TYPE_LABELS[element.placeholderType]} placeholder`;
+      return label.length > 60 ? `${label.slice(0, 60)}…` : label;
+    }
     case "text": {
       const raw = element.text?.trim();
       if (!raw) return "Text element";
@@ -67,6 +73,11 @@ export function elementAccessibleName(
 /** Short label for a shape connected to a connector — used in accessible names. */
 function connectorTargetLabel(element: SlideElement): string {
   switch (element.kind) {
+    case "placeholder":
+      return (
+        element.label?.trim() ||
+        PLACEHOLDER_TYPE_LABELS[element.placeholderType]
+      );
     case "text": {
       const text = element.text?.trim();
       return text

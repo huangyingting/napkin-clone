@@ -7,13 +7,22 @@
  * testable under `node --test`.
  */
 
-import type { Deck, DeckTheme, ElementBox, Slide, SlideElement } from "./deck";
+import type {
+  Deck,
+  DeckTheme,
+  ElementBox,
+  Slide,
+  SlideElement,
+  SlideLayout as DeckLayout,
+} from "./deck";
 import type { SlideFormat } from "./slide-format";
 import {
+  applyLayout,
   makeElementId,
   makeSlideId,
   materializeSlideElements,
   migrateSlideToFreeForm,
+  resetLayout,
 } from "./deck";
 import {
   type AlignMode,
@@ -272,6 +281,24 @@ function mapSlide(
  */
 export function materializeSlide(deck: Deck, index: number): Deck {
   return mapSlide(deck, index, migrateSlideToFreeForm);
+}
+
+/** Applies a reusable placeholder layout to the slide at `index`. */
+export function applySlideLayout(
+  deck: Deck,
+  index: number,
+  layout: DeckLayout,
+): Deck {
+  return mapSlide(deck, index, (slide) => applyLayout(slide, layout));
+}
+
+/** Resets the slide at `index` back to a reusable placeholder layout. */
+export function resetSlideLayout(
+  deck: Deck,
+  index: number,
+  layout: DeckLayout,
+): Deck {
+  return mapSlide(deck, index, (slide) => resetLayout(slide, layout));
 }
 
 /**

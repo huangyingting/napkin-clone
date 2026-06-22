@@ -561,6 +561,8 @@ function fitElementBoxToContent(
   elements: readonly SlideElement[] = [element],
 ): ElementBox {
   switch (element.kind) {
+    case "placeholder":
+      return element.box;
     case "text":
     case "bullets":
       return fitTextElementBox(element);

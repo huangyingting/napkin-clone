@@ -3,10 +3,11 @@
  * ("kind") into a ready-to-edit {@link Slide}.
  *
  * The "+ Add slide" picker offers a small menu of starting points (Title,
- * Content, Visual spotlight, Two-column, Blank). Each NON-blank template emits a
- * slide whose `elements[]` are pre-built from the shared {@link ElementBox}
- * geometry and {@link makeElementId} helpers, so the slide is immediately
- * editable with no materialization step.
+ * Content, Visual spotlight, Two-column, Blank). Non-blank templates emit a
+ * slide whose `elements[]` are pre-built either from the reusable placeholder
+ * layouts ({@link defaultLayouts}) or, for the spotlight variant, shared
+ * geometry helpers, so the slide is immediately editable with no materialization
+ * step.
  *
  * Crucially, template slides are **hand-authored**, not derived: they carry
  * `elementsDerived: false` so "Sync from document" (issue #221) preserves their
@@ -19,20 +20,23 @@
  */
 
 import {
+  defaultLayouts,
   makeElementId,
   makeSlideId,
-  type BulletsElement,
   type DeckTheme,
   type ElementAlign,
   type ElementBox,
   type ImageElement,
   type Slide,
   type SlideElement,
-  type SlideLayout,
+  type SlideLayout as ReusableSlideLayout,
+  type SlideLayoutHint,
   type TextElement,
   type TextElementStyle,
   type VisualElement,
+  resetLayout,
 } from "./deck";
+import { DEFAULT_SLIDE_FORMAT, type SlideFormat } from "./slide-format";
 
 /** The set of layouts the "+ Add slide" picker can insert. */
 export type SlideTemplateKind =
@@ -46,6 +50,8 @@ export type SlideTemplateKind =
 export interface SlideTemplateContext {
   /** Theme stamped on the new slide (mirrors `Deck.theme`). */
   theme: DeckTheme;
+  /** Target slide format so placeholder layouts match the current deck. */
+  slideFormat?: SlideFormat;
   /**
    * Optional document visual to seed the "Visual spotlight" template with. When
    * absent the template drops in an empty image placeholder element instead, so
@@ -69,12 +75,12 @@ export const SLIDE_TEMPLATES: readonly SlideTemplateOption[] = [
   {
     kind: "title",
     label: "Title",
-    description: "Centered title with a subtitle",
+    description: "Centered title and subtitle placeholders",
   },
   {
     kind: "content",
     label: "Content",
-    description: "Title with a bullet list",
+    description: "Title, body, and visual placeholders",
   },
   {
     kind: "visual",
@@ -84,7 +90,7 @@ export const SLIDE_TEMPLATES: readonly SlideTemplateOption[] = [
   {
     kind: "two-column",
     label: "Two-column",
-    description: "Title over two bullet columns",
+    description: "Title over two body placeholders",
   },
   {
     kind: "blank",
@@ -94,23 +100,11 @@ export const SLIDE_TEMPLATES: readonly SlideTemplateOption[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Shared geometry — percentage boxes mirroring `materializeSlideElements`
-// so templates reuse the same approved spacing rather than ad-hoc pixels.
+// Shared spotlight geometry — kept local because only the visual template still
+// uses bespoke boxes; the other templates route through `defaultLayouts()`.
 // ---------------------------------------------------------------------------
 
 const BOX = {
-  /** Centered hero title for the Title template. */
-  heroTitle: { x: 8, y: 32, w: 84, h: 22 },
-  /** Subtitle beneath the hero title. */
-  heroSubtitle: { x: 8, y: 56, w: 84, h: 12 },
-  /** Top-aligned heading for content/two-column templates. */
-  heading: { x: 6, y: 6, w: 88, h: 16 },
-  /** Full-width body bullet list. */
-  body: { x: 6, y: 26, w: 88, h: 66 },
-  /** Left column body for the two-column template. */
-  columnLeft: { x: 6, y: 26, w: 42, h: 66 },
-  /** Right column body for the two-column template. */
-  columnRight: { x: 52, y: 26, w: 42, h: 66 },
   /** Full-bleed visual/image stage for the spotlight template. */
   spotlight: { x: 4, y: 6, w: 92, h: 74 },
   /** Caption strip beneath the spotlight visual. */
@@ -123,28 +117,6 @@ function textStyle(
   bold: boolean,
 ): TextElementStyle {
   return { fontSize, align, bold, italic: false };
-}
-
-function titleElement(
-  text: string,
-  box: ElementBox,
-  zIndex: number,
-  options: { big?: boolean; align?: ElementAlign } = {},
-): TextElement {
-  const big = options.big ?? false;
-  return {
-    id: makeElementId(),
-    kind: "text",
-    role: "title",
-    text,
-    zIndex,
-    box: { ...box },
-    style: textStyle(
-      big ? 9 : 6,
-      options.align ?? (big ? "center" : "left"),
-      true,
-    ),
-  };
 }
 
 function bodyTextElement(
@@ -161,21 +133,6 @@ function bodyTextElement(
     zIndex,
     box: { ...box },
     style: textStyle(4.5, align, false),
-  };
-}
-
-function bulletsElement(
-  bullets: string[],
-  box: ElementBox,
-  zIndex: number,
-): BulletsElement {
-  return {
-    id: makeElementId(),
-    kind: "bullets",
-    bullets,
-    zIndex,
-    box: { ...box },
-    style: textStyle(4.5, "left", false),
   };
 }
 
@@ -204,7 +161,7 @@ function spotlightElement(
 
 /** Builds an authored (non-derived) slide from a template's elements. */
 function authoredSlide(
-  layout: SlideLayout,
+  layout: SlideLayoutHint,
   theme: DeckTheme,
   elements: SlideElement[],
   visualIds: string[] = [],
@@ -223,6 +180,34 @@ function authoredSlide(
     // re-materialize them from document content (issue #221).
     elementsDerived: false,
   };
+}
+
+function findDefaultLayout(
+  name: "title-slide" | "title-content" | "two-column",
+  format: SlideFormat | undefined,
+): ReusableSlideLayout {
+  const slideFormat = format ?? DEFAULT_SLIDE_FORMAT;
+  const layouts = defaultLayouts();
+  const match =
+    layouts.find(
+      (layout) => layout.name === name && layout.format === slideFormat,
+    ) ?? layouts.find((layout) => layout.name === name);
+  if (!match) {
+    throw new Error(`Missing built-in slide layout "${name}"`);
+  }
+  return match;
+}
+
+function placeholderTemplateSlide(
+  name: "title-slide" | "title-content" | "two-column",
+  theme: DeckTheme,
+  slideFormat: SlideFormat | undefined,
+): Slide {
+  const hint: SlideLayoutHint = name === "title-slide" ? "title" : "content";
+  return resetLayout(
+    authoredSlide(hint, theme, []),
+    findDefaultLayout(name, slideFormat),
+  );
 }
 
 /** Reproduces the legacy blank slide exactly — no elements, no derived flag. */
@@ -251,24 +236,14 @@ export function buildTemplateSlide(
   kind: SlideTemplateKind,
   ctx: SlideTemplateContext,
 ): Slide {
-  const { theme } = ctx;
+  const { theme, slideFormat } = ctx;
 
   switch (kind) {
     case "title":
-      return authoredSlide("title", theme, [
-        titleElement("Title", BOX.heroTitle, 0, { big: true }),
-        bodyTextElement("Subtitle", BOX.heroSubtitle, 1, "center"),
-      ]);
+      return placeholderTemplateSlide("title-slide", theme, slideFormat);
 
     case "content":
-      return authoredSlide("content", theme, [
-        titleElement("Title", BOX.heading, 0),
-        bulletsElement(
-          ["First point", "Second point", "Third point"],
-          BOX.body,
-          1,
-        ),
-      ]);
+      return placeholderTemplateSlide("title-content", theme, slideFormat);
 
     case "visual": {
       const visual = spotlightElement(0, ctx.visualId);
@@ -281,11 +256,7 @@ export function buildTemplateSlide(
     }
 
     case "two-column":
-      return authoredSlide("content", theme, [
-        titleElement("Title", BOX.heading, 0),
-        bulletsElement(["Point one", "Point two"], BOX.columnLeft, 1),
-        bulletsElement(["Point three", "Point four"], BOX.columnRight, 2),
-      ]);
+      return placeholderTemplateSlide("two-column", theme, slideFormat);
 
     case "blank":
       return blankSlide(theme);

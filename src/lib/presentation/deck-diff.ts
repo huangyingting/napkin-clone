@@ -82,7 +82,11 @@ function contentSignature(slide: Slide): string {
 
   const elements = slide.elements ?? [];
   for (const element of elements) {
-    if (element.kind === "text") {
+    if (element.kind === "placeholder") {
+      parts.push(
+        `ep:${element.placeholderType}:${element.label?.trim() ?? ""}:${element.box.x},${element.box.y},${element.box.w},${element.box.h}`,
+      );
+    } else if (element.kind === "text") {
       const text = (element as TextElement).text.trim();
       parts.push(`et:${(element as TextElement).role}:${text}`);
     } else if (element.kind === "bullets") {

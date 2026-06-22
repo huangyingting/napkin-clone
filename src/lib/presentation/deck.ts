@@ -30,7 +30,8 @@
  *
  *  - **Legacy track** — the flat `title` / `titleRuns` / `bullets` /
  *    `bulletRuns` / `visualIds` / `layout` fields produced by
- *    {@link buildDeckFromBlocks}. Rendered through the fixed {@link SlideLayout}
+ *    {@link buildDeckFromBlocks}. Rendered through the fixed
+ *    {@link SlideLayoutHint}
  *    templates. This is what every deck authored before the free-form editor
  *    looks like, and what a freshly derived deck always starts as.
  *
@@ -62,6 +63,7 @@
 
 import {
   DEFAULT_SLIDE_FORMAT as DEFAULT_DECK_SLIDE_FORMAT,
+  SLIDE_FORMATS as PRESENTATION_SLIDE_FORMATS,
   type SlideFormat as PresentationSlideFormat,
 } from "@/lib/presentation/slide-format";
 import type { DocumentBlock } from "@/lib/visual/document-export";
@@ -125,7 +127,7 @@ export type DeckTheme = (typeof DECK_THEMES)[number];
 
 /**
  * Canonical slide layout hints. Exported as a `const` array so it is the single
- * source of truth for both the {@link SlideLayout} type and any code
+ * source of truth for both the {@link SlideLayoutHint} type and any code
  * (validators, AI prompts) that needs to enumerate the allowed values.
  *
  * - `"title"` — large centred title, optional subtitle; no bullets.
@@ -143,7 +145,28 @@ export const SLIDE_LAYOUTS = [
 ] as const;
 
 /** Slide layout hint used by a future renderer. */
-export type SlideLayout = (typeof SLIDE_LAYOUTS)[number];
+export type SlideLayoutHint = (typeof SLIDE_LAYOUTS)[number];
+
+/** Runtime list of supported reusable placeholder slot kinds. */
+export const PLACEHOLDER_TYPES = [
+  "title",
+  "subtitle",
+  "body",
+  "visual",
+  "footer",
+] as const;
+
+/** Placeholder slot kinds supported by reusable slide layouts. */
+export type PlaceholderType = (typeof PLACEHOLDER_TYPES)[number];
+
+/** Human-readable placeholder labels shared by the editor and tests. */
+export const PLACEHOLDER_TYPE_LABELS: Record<PlaceholderType, string> = {
+  title: "Title",
+  subtitle: "Subtitle",
+  body: "Body",
+  visual: "Visual",
+  footer: "Footer",
+};
 
 // ---------------------------------------------------------------------------
 // Free-form slide elements (additive, backward compatible)
@@ -307,7 +330,7 @@ export interface ConnectorElement extends BaseElement {
   routing?: ConnectorRouting;
 }
 
-interface BaseElement {
+export interface BaseElement {
   /** Stable identifier, unique within a slide. */
   id: string;
   /** Positioned box in percent units. */
@@ -344,6 +367,28 @@ interface BaseElement {
    * the editor. Renderers ignore it. Cleared by ungrouping.
    */
   groupId?: string;
+}
+
+/**
+ * A reusable layout slot rendered on-canvas until the user replaces it with
+ * slide content.
+ */
+export interface PlaceholderElement extends BaseElement {
+  kind: "placeholder";
+  placeholderType: PlaceholderType;
+  /** Optional editor-facing label shown instead of the generic type name. */
+  label?: string;
+}
+
+/**
+ * A reusable slide layout definition. Stored on the deck and applied onto a
+ * slide as placeholder elements.
+ */
+export interface SlideLayout {
+  id: string;
+  name: string;
+  format: PresentationSlideFormat;
+  placeholders: PlaceholderElement[];
 }
 
 export interface TextElement extends BaseElement {
@@ -495,6 +540,7 @@ export interface ShapeElement extends BaseElement {
 
 /** Discriminated union of every free-form slide element. */
 export type SlideElement =
+  | PlaceholderElement
   | TextElement
   | BulletsElement
   | VisualElement
@@ -542,7 +588,7 @@ export interface Slide {
   visualIds: string[];
 
   /** Renderer layout hint derived from the content composition. */
-  layout: SlideLayout;
+  layout: SlideLayoutHint;
 
   /** Speaker notes — overflow prose + quote blocks. */
   notes: string;
@@ -615,6 +661,12 @@ export interface Deck {
 
   /** Deck-wide slide format. Missing legacy values render as 16:9. */
   slideFormat?: PresentationSlideFormat;
+
+  /**
+   * Optional reusable layout catalogue available to this deck. When absent,
+   * callers may fall back to {@link defaultLayouts}.
+   */
+  layouts?: SlideLayout[];
 
   /**
    * Stable hash of the document content this deck was last derived/synced
@@ -704,6 +756,250 @@ export function buildVisualElement(
     box: options.box ?? { ...DEFAULT_VISUAL_BOX },
     ...(options.styleThemeId ? { styleThemeId: options.styleThemeId } : {}),
   };
+}
+
+function cloneBox(box: ElementBox): ElementBox {
+  return { ...box };
+}
+
+function clonePlaceholder(
+  placeholder: PlaceholderElement,
+  overrides: Partial<PlaceholderElement> = {},
+): PlaceholderElement {
+  const label =
+    typeof overrides.label === "string"
+      ? overrides.label
+      : placeholder.label?.trim()
+        ? placeholder.label
+        : undefined;
+  const next: PlaceholderElement = {
+    ...placeholder,
+    ...overrides,
+    id: overrides.id ?? placeholder.id,
+    kind: "placeholder",
+    placeholderType: overrides.placeholderType ?? placeholder.placeholderType,
+    zIndex: overrides.zIndex ?? placeholder.zIndex,
+    box: cloneBox(overrides.box ?? placeholder.box),
+  };
+  if (label) {
+    next.label = label;
+  } else {
+    delete next.label;
+  }
+  return next;
+}
+
+function restackElements(elements: readonly SlideElement[]): SlideElement[] {
+  return elements.map((element, index) =>
+    element.zIndex === index ? element : { ...element, zIndex: index },
+  );
+}
+
+function layoutHintForReusableLayout(
+  name: string,
+): SlideLayoutHint | undefined {
+  switch (name) {
+    case "blank":
+      return "blank";
+    case "title-slide":
+      return "title";
+    case "title-content":
+    case "two-column":
+      return "content";
+    default:
+      return undefined;
+  }
+}
+
+function placeholderMatchKey(
+  placeholder: PlaceholderElement,
+  counts: Map<PlaceholderType, number>,
+): string {
+  const occurrence = counts.get(placeholder.placeholderType) ?? 0;
+  counts.set(placeholder.placeholderType, occurrence + 1);
+  return `${placeholder.placeholderType}:${occurrence}`;
+}
+
+function existingPlaceholderMap(
+  placeholders: readonly PlaceholderElement[],
+): Map<string, PlaceholderElement> {
+  const counts = new Map<PlaceholderType, number>();
+  const byKey = new Map<string, PlaceholderElement>();
+  for (const placeholder of placeholders) {
+    byKey.set(placeholderMatchKey(placeholder, counts), placeholder);
+  }
+  return byKey;
+}
+
+function applyPlaceholderSet(
+  layout: SlideLayout,
+  existing: readonly PlaceholderElement[],
+  preserveMatchingLabels: boolean,
+): PlaceholderElement[] {
+  const matched = existingPlaceholderMap(existing);
+  const counts = new Map<PlaceholderType, number>();
+  return layout.placeholders.map((placeholder) => {
+    const key = placeholderMatchKey(placeholder, counts);
+    const current = matched.get(key);
+    return clonePlaceholder(placeholder, {
+      id: current?.id ?? makeElementId(),
+      ...(preserveMatchingLabels &&
+      typeof current?.label === "string" &&
+      current.label.trim().length > 0
+        ? { label: current.label }
+        : {}),
+    });
+  });
+}
+
+function reusableLayoutBoxes(
+  name: string,
+): readonly Omit<PlaceholderElement, "id" | "kind" | "zIndex">[] {
+  switch (name) {
+    case "blank":
+      return [];
+    case "title-slide":
+      return [
+        {
+          placeholderType: "title",
+          label: "Title",
+          box: { x: 8, y: 28, w: 84, h: 16 },
+        },
+        {
+          placeholderType: "subtitle",
+          label: "Subtitle",
+          box: { x: 12, y: 48, w: 76, h: 10 },
+        },
+        {
+          placeholderType: "footer",
+          label: "Footer",
+          box: { x: 6, y: 90, w: 88, h: 5 },
+        },
+      ];
+    case "title-content":
+      return [
+        {
+          placeholderType: "title",
+          label: "Title",
+          box: { x: 6, y: 6, w: 88, h: 14 },
+        },
+        {
+          placeholderType: "body",
+          label: "Body",
+          box: { x: 6, y: 24, w: 44, h: 58 },
+        },
+        {
+          placeholderType: "visual",
+          label: "Visual",
+          box: { x: 54, y: 24, w: 40, h: 58 },
+        },
+        {
+          placeholderType: "footer",
+          label: "Footer",
+          box: { x: 6, y: 86, w: 88, h: 6 },
+        },
+      ];
+    case "two-column":
+      return [
+        {
+          placeholderType: "title",
+          label: "Title",
+          box: { x: 6, y: 6, w: 88, h: 14 },
+        },
+        {
+          placeholderType: "body",
+          label: "Left column",
+          box: { x: 6, y: 24, w: 42, h: 58 },
+        },
+        {
+          placeholderType: "body",
+          label: "Right column",
+          box: { x: 52, y: 24, w: 42, h: 58 },
+        },
+        {
+          placeholderType: "footer",
+          label: "Footer",
+          box: { x: 6, y: 86, w: 88, h: 6 },
+        },
+      ];
+    default:
+      return [];
+  }
+}
+
+/**
+ * Applies a reusable layout's placeholders onto a slide, preserving all
+ * non-placeholder elements already on that slide.
+ */
+export function applyLayout(slide: Slide, layout: SlideLayout): Slide {
+  const existing = slide.elements ?? [];
+  const placeholders = existing.filter(
+    (element): element is PlaceholderElement => element.kind === "placeholder",
+  );
+  const preserved = existing.filter(
+    (element) => element.kind !== "placeholder",
+  );
+  const merged = restackElements([
+    ...applyPlaceholderSet(layout, placeholders, true),
+    ...preserved,
+  ]);
+  const hint = layoutHintForReusableLayout(layout.name);
+  return {
+    ...slide,
+    ...(hint ? { layout: hint } : {}),
+    elements: merged,
+    elementsDerived: false,
+  };
+}
+
+/**
+ * Re-installs a reusable layout's placeholders from scratch, discarding any
+ * existing placeholder instances while keeping free-form elements intact.
+ */
+export function resetLayout(slide: Slide, layout: SlideLayout): Slide {
+  const preserved = (slide.elements ?? []).filter(
+    (element) => element.kind !== "placeholder",
+  );
+  const merged = restackElements([
+    ...applyPlaceholderSet(layout, [], false),
+    ...preserved,
+  ]);
+  const hint = layoutHintForReusableLayout(layout.name);
+  return {
+    ...slide,
+    ...(hint ? { layout: hint } : {}),
+    elements: merged,
+    elementsDerived: false,
+  };
+}
+
+const BUILTIN_LAYOUTS: readonly SlideLayout[] =
+  PRESENTATION_SLIDE_FORMATS.flatMap((format) =>
+    (["blank", "title-slide", "title-content", "two-column"] as const).map(
+      (name) => ({
+        id: `layout:${format}:${name}`,
+        name,
+        format,
+        placeholders: reusableLayoutBoxes(name).map((placeholder, index) => ({
+          id: `layout-ph:${format}:${name}:${placeholder.placeholderType}:${index}`,
+          kind: "placeholder" as const,
+          zIndex: index,
+          box: cloneBox(placeholder.box),
+          placeholderType: placeholder.placeholderType,
+          ...(placeholder.label ? { label: placeholder.label } : {}),
+        })),
+      }),
+    ),
+  );
+
+/** Built-in placeholder layouts available to every deck format. */
+export function defaultLayouts(): SlideLayout[] {
+  return BUILTIN_LAYOUTS.map((layout) => ({
+    ...layout,
+    placeholders: layout.placeholders.map((placeholder) =>
+      clonePlaceholder(placeholder),
+    ),
+  }));
 }
 
 /**
@@ -848,12 +1144,12 @@ interface SlideBuilder {
   bulletRuns: TextRun[][];
   visualIds: string[];
   noteLines: string[];
-  layout: SlideLayout;
+  layout: SlideLayoutHint;
 }
 
 function freshSlide(
   title: string,
-  layout: SlideLayout = "content",
+  layout: SlideLayoutHint = "content",
   titleRuns?: TextRun[],
 ): SlideBuilder {
   return {
@@ -867,7 +1163,7 @@ function freshSlide(
   };
 }
 
-function resolveLayout(builder: SlideBuilder): SlideLayout {
+function resolveLayout(builder: SlideBuilder): SlideLayoutHint {
   if (builder.layout === "title" || builder.layout === "section") {
     return builder.layout;
   }
@@ -1037,5 +1333,10 @@ export function buildDeckFromBlocks(
   }
 
   // Re-index after all pushes (index is set at push time but guard may add one)
-  return { slides, theme, slideFormat: DEFAULT_DECK_SLIDE_FORMAT };
+  return {
+    slides,
+    theme,
+    slideFormat: DEFAULT_DECK_SLIDE_FORMAT,
+    layouts: defaultLayouts(),
+  };
 }

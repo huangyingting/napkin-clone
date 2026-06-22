@@ -13,7 +13,12 @@
  * No React, no DOM — fully testable under `node --test`.
  */
 
-import type { Slide, TextElement } from "./deck";
+import {
+  PLACEHOLDER_TYPE_LABELS,
+  type PlaceholderElement,
+  type Slide,
+  type TextElement,
+} from "./deck";
 
 /**
  * The slide's effective title (without any positional fallback). When the slide
@@ -56,6 +61,14 @@ export function deriveSlideTitle(slide: Slide, index: number): string {
   );
   if (texts[0]) {
     return texts[0].text.trim();
+  }
+
+  const titlePlaceholder = (slide.elements ?? []).find(
+    (element): element is PlaceholderElement =>
+      element.kind === "placeholder" && element.placeholderType === "title",
+  );
+  if (titlePlaceholder) {
+    return titlePlaceholder.label?.trim() || PLACEHOLDER_TYPE_LABELS.title;
   }
 
   return `Slide ${index + 1}`;
