@@ -449,6 +449,14 @@ function validateSlide(input: unknown, index: number): Slide {
     );
   }
 
+  // Preserve a persisted sourceSectionId verbatim — only buildDeckFromBlocks
+  // assigns it; validateSlide never backfills or re-derives it.
+  const sourceSectionId =
+    typeof input.sourceSectionId === "string" &&
+    input.sourceSectionId.length > 0
+      ? input.sourceSectionId
+      : undefined;
+
   return {
     id,
     index: input.index,
@@ -464,6 +472,7 @@ function validateSlide(input: unknown, index: number): Slide {
     ...(input.elementsDerived !== undefined
       ? { elementsDerived: input.elementsDerived as boolean }
       : {}),
+    ...(sourceSectionId !== undefined ? { sourceSectionId } : {}),
     ...(input.background !== undefined
       ? { background: input.background as string }
       : {}),

@@ -267,6 +267,28 @@ export function mergeDeckFromDocument(
   const consumedExisting = new Set<number>();
   const matchedFresh = new Set<number>();
 
+  // Pass 0 — match by sourceSectionId (both present and equal; first-unconsumed-
+  // wins to handle duplicate headings). This survives a slide's on-stage title
+  // rename and section reordering because the id is frozen from the doc heading.
+  const existingBySectionId = new Map<string, number[]>();
+  existing.slides.forEach((slide, i) => {
+    if (!slide.sourceSectionId) return;
+    const bucket = existingBySectionId.get(slide.sourceSectionId);
+    if (bucket) bucket.push(i);
+    else existingBySectionId.set(slide.sourceSectionId, [i]);
+  });
+
+  fresh.slides.forEach((slide, freshIndex) => {
+    if (!slide.sourceSectionId) return;
+    const bucket = existingBySectionId.get(slide.sourceSectionId);
+    if (!bucket) return;
+    const existingIndex = bucket.find((i) => !consumedExisting.has(i));
+    if (existingIndex === undefined) return;
+    consumedExisting.add(existingIndex);
+    matchedFresh.add(freshIndex);
+    pairedExistingToFresh.set(existingIndex, freshIndex);
+  });
+
   // Pass 1 — match by normalized non-empty title (first unconsumed wins).
   const existingByTitle = new Map<string, number[]>();
   existing.slides.forEach((slide, i) => {

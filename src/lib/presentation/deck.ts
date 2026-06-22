@@ -66,6 +66,31 @@ import {
 } from "@/lib/presentation/slide-format";
 import type { DocumentBlock } from "@/lib/visual/document-export";
 
+/**
+ * FNV-1a 32-bit hash used to derive a stable `sourceSectionId` from a heading
+ * text string. Kept local here (does not import from deck-hash.ts) to avoid a
+ * circular module dependency (deck-hash imports types from this module).
+ * Must stay byte-for-byte identical to the same function in deck-hash.ts.
+ */
+function fnv1aHex32(input: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+/**
+ * Returns a deterministic stable id for a document section whose heading text
+ * is `title`. Returns `undefined` for empty/blank headings so that untitled
+ * slides keep the index-based fallback matching instead.
+ */
+function computeSectionId(title: string): string | undefined {
+  const key = title.trim().toLowerCase();
+  return key ? fnv1aHex32(key) : undefined;
+}
+
 export {
   DEFAULT_SLIDE_FORMAT,
   SLIDE_FORMAT_CONFIGS,
@@ -364,6 +389,19 @@ export interface Slide {
    * ignore this field; it is pure editor-merge metadata.
    */
   elementsDerived?: boolean;
+
+  /**
+   * Stable identity key derived from the document heading this slide originated
+   * from (issue #296). Frozen onto the slide by {@link buildDeckFromBlocks} as
+   * an FNV-1a hex hash of the normalized heading text.  Survives a slide's
+   * on-stage title rename: the existing slide keeps its frozen `sourceSectionId`
+   * and re-derived fresh slides for the same unchanged document heading produce
+   * the same id, so "Sync from document" can match them in Pass 0 before the
+   * title-text pass.  Optional for legacy/persisted decks — absent slides fall
+   * back to the existing title/index match.  Excluded from `deck-hash` to avoid
+   * false staleness signals.
+   */
+  sourceSectionId?: string;
 
   /** Optional per-slide background color (hex), overriding the theme bg. */
   background?: string;
@@ -671,6 +709,7 @@ function finaliseSlide(
   theme: DeckTheme,
 ): Slide {
   const hasBulletRuns = builder.bulletRuns.some((runs) => runs.length > 0);
+  const sourceSectionId = computeSectionId(builder.title);
   return {
     id: makeSlideId(),
     index,
@@ -684,6 +723,7 @@ function finaliseSlide(
     layout: resolveLayout(builder),
     notes: builder.noteLines.join("\n").trim(),
     theme,
+    ...(sourceSectionId !== undefined ? { sourceSectionId } : {}),
   };
 }
 
