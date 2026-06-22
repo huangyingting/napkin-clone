@@ -20,17 +20,36 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type CSSProperties,
 } from "react";
+import { createPortal } from "react-dom";
+import {
+  ArrowDownToLine,
+  ArrowUpToLine,
+  ClipboardPaste,
+  Copy,
+  Lock,
+  LockOpen,
+  Pencil,
+  RotateCw,
+  Scissors,
+  Trash2,
+  type LucideIcon,
+} from "lucide-react";
 
 import {
   DECK_THEMES,
   SlideCanvas,
   type ThemeConfig,
 } from "@/components/presentation/slide-canvas";
+import { TextStyleBar } from "@/components/presentation/text-style-bar";
+import { ColorPicker } from "@/components/ui";
+import { FOCUS_RING } from "@/components/motion/control-styles";
+import { cx, MENU_CHROME, MENU_ITEM } from "@/components/ui/tokens";
 import type { ElementBox, Slide, SlideElement } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import { type SnapGuide, snapBox } from "@/lib/presentation/element-snap";
@@ -49,7 +68,7 @@ import {
 import type { Visual } from "@/lib/visual/schema";
 
 type Handle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
-type DragMode = "move" | Handle;
+type DragMode = "move" | "rotate" | Handle;
 
 interface DragState {
   id: string;
@@ -418,6 +437,14 @@ interface SlideStageEditorProps {
     patch: ElementPatch,
     coalesceKey?: string,
   ) => void;
+  /** Element operations surfaced by the floating toolbar + context menu. */
+  onDuplicateElement: (id: string) => void;
+  onRemoveElement: (id: string) => void;
+  onBringToFront: (id: string) => void;
+  onSendToBack: (id: string) => void;
+  onCopyElements: () => void;
+  onCutElements: () => void;
+  onPasteElements: () => void;
 }
 
 export function SlideStageEditor({
@@ -430,6 +457,13 @@ export function SlideStageEditor({
   onSelectElement,
   onSelectElements,
   onUpdateElement,
+  onDuplicateElement,
+  onRemoveElement,
+  onBringToFront,
+  onSendToBack,
+  onCopyElements,
+  onCutElements,
+  onPasteElements,
 }: SlideStageEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -442,6 +476,12 @@ export function SlideStageEditor({
   const marqueeRectRef = useRef<MarqueeRect | null>(null);
   const [marqueeRect, setMarqueeRect] = useState<MarqueeRect | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Right-click context menu: viewport coords + the element it targets.
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    elementId: string;
+  } | null>(null);
   // Viewport point where an inline edit was opened by a single click, so the
   // editor can drop the caret there instead of selecting all. Null for
   // double-click / keyboard entry (which select all).
@@ -496,6 +536,9 @@ export function SlideStageEditor({
     [elements, selectedElementIds],
   );
   const isMultiSelect = selectedElements.length >= 2;
+  // The single primary selection that the floating toolbar attaches to.
+  const primaryElement =
+    elements.find((element) => element.id === selectedElementId) ?? null;
   // Editing is only active while the edited element is also the selection, so
   // changing slides or selecting another element implicitly exits edit mode
   // (no effect / setState needed).
@@ -566,6 +609,27 @@ export function SlideStageEditor({
         drag.moved = true;
       }
 
+      if (drag.mode === "rotate") {
+        const cxPct = drag.startBox.x + drag.startBox.w / 2;
+        const cyPct = drag.startBox.y + drag.startBox.h / 2;
+        const centerX = rect.left + (cxPct / 100) * rect.width;
+        const centerY = rect.top + (cyPct / 100) * rect.height;
+        let deg =
+          (Math.atan2(event.clientY - centerY, event.clientX - centerX) * 180) /
+            Math.PI +
+          90;
+        if (event.shiftKey) deg = Math.round(deg / 15) * 15;
+        deg = Math.round(deg);
+        if (deg > 180) deg -= 360;
+        if (deg < -180) deg += 360;
+        onUpdateElement(
+          drag.id,
+          { rotation: deg === 0 ? undefined : deg },
+          drag.coalesceKey,
+        );
+        return;
+      }
+
       if (drag.mode === "move") {
         const moved = clampBox({
           ...drag.startBox,
@@ -588,14 +652,28 @@ export function SlideStageEditor({
       // font proportionally (width scales with it, height auto-fits). Other
       // kinds get a free box resize.
       const resized = elementsRef.current.find((item) => item.id === drag.id);
+      // Convert the screen-space drag into the element's local frame so resizing
+      // a rotated element still grows along its own axes.
+      let rdx = dxPct;
+      let rdy = dyPct;
+      const rot = resized?.rotation ?? 0;
+      if (rot) {
+        const dxPx = event.clientX - drag.startClientX;
+        const dyPx = event.clientY - drag.startClientY;
+        const a = (-rot * Math.PI) / 180;
+        const lx = dxPx * Math.cos(a) - dyPx * Math.sin(a);
+        const ly = dxPx * Math.sin(a) + dyPx * Math.cos(a);
+        rdx = (lx / rect.width) * 100;
+        rdy = (ly / rect.height) * 100;
+      }
       if (resized && (resized.kind === "text" || resized.kind === "bullets")) {
         const { box, fontSize } = resizeTextBox(
           resized,
           drag.startBox,
           drag.startFontSize ?? resized.style.fontSize,
           drag.mode,
-          dxPct,
-          dyPct,
+          rdx,
+          rdy,
           stageAspect,
         );
         if (fontSize !== resized.style.fontSize) {
@@ -610,7 +688,7 @@ export function SlideStageEditor({
       } else {
         onUpdateElement(
           drag.id,
-          { box: clampBox(applyResize(drag.startBox, drag.mode, dxPct, dyPct)) },
+          { box: clampBox(applyResize(drag.startBox, drag.mode, rdx, rdy)) },
           drag.coalesceKey,
         );
       }
@@ -798,8 +876,10 @@ export function SlideStageEditor({
           const containerBox = isEditing ? element.box : fittedBox;
           // Resize handles show for the primary selection — including while
           // editing text, so width / font can be adjusted without leaving the
-          // caret. Ambiguous across a multi-selection, so single-only.
-          const showHandles = isPrimary && !isMultiSelect;
+          // caret. Ambiguous across a multi-selection, so single-only. Hidden
+          // for locked elements.
+          const showHandles =
+            isPrimary && !isMultiSelect && !element.locked;
           return (
             <div
               key={element.id}
@@ -808,7 +888,7 @@ export function SlideStageEditor({
               aria-label={`${element.kind} element`}
               aria-pressed={selected}
               onPointerDown={(event) => {
-                if (isEditing) {
+                if (isEditing || element.locked) {
                   return;
                 }
                 // Shift / Ctrl / Cmd-click toggles the element in the
@@ -828,6 +908,19 @@ export function SlideStageEditor({
                   event.stopPropagation();
                   startEditing(element);
                 }
+              }}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onSelectElement(
+                  element.id,
+                  selectedElementIds.has(element.id) ? "keep" : "replace",
+                );
+                setContextMenu({
+                  x: event.clientX,
+                  y: event.clientY,
+                  elementId: element.id,
+                });
               }}
               onKeyDown={(event) => {
                 if (event.key === "Enter" && editable) {
@@ -854,6 +947,9 @@ export function SlideStageEditor({
                 width: `${containerBox.w}%`,
                 height: `${containerBox.h}%`,
                 zIndex: selected ? 1000 : element.zIndex + 1,
+                ...(element.rotation
+                  ? { transform: `rotate(${element.rotation}deg)` }
+                  : {}),
               }}
             >
               {isEditing && editable ? (
@@ -889,6 +985,20 @@ export function SlideStageEditor({
                     </span>
                   ))
                 : null}
+              {showHandles && !isEditing ? (
+                <span
+                  onPointerDown={(event) =>
+                    beginDrag(event, element.id, "rotate", fittedBox)
+                  }
+                  aria-hidden="true"
+                  className="absolute left-1/2 flex h-11 w-11 -translate-x-1/2 touch-none items-center justify-center"
+                  style={{ top: -40, cursor: "grab" }}
+                >
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full border border-white bg-ds-control text-ds-control-text shadow">
+                    <RotateCw size={11} aria-hidden="true" />
+                  </span>
+                </span>
+              ) : null}
             </div>
           );
         })}
@@ -945,6 +1055,47 @@ export function SlideStageEditor({
             {badge}
           </div>
         ) : null}
+
+        {/* Contextual floating toolbar — single primary selection, hidden while
+            dragging / resizing / marquee so it never jitters. */}
+        {primaryElement && !isMultiSelect && !activeDrag && !marqueeRect ? (
+          <FloatingElementToolbar
+            key={primaryElement.id}
+            stageRef={containerRef}
+            box={fittedBoxes.get(primaryElement.id) ?? primaryElement.box}
+          >
+            <ElementToolbarContent
+              element={primaryElement}
+              tc={tc}
+              onUpdateElement={onUpdateElement}
+              onDuplicate={() => onDuplicateElement(primaryElement.id)}
+              onBringToFront={() => onBringToFront(primaryElement.id)}
+              onSendToBack={() => onSendToBack(primaryElement.id)}
+              onRemove={() => onRemoveElement(primaryElement.id)}
+            />
+          </FloatingElementToolbar>
+        ) : null}
+
+        {/* Right-click context menu. */}
+        {contextMenu ? (
+          <ElementContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            element={
+              elements.find((el) => el.id === contextMenu.elementId) ?? null
+            }
+            onClose={() => setContextMenu(null)}
+            onEdit={(el) => startEditing(el)}
+            onDuplicate={onDuplicateElement}
+            onCopy={onCopyElements}
+            onCut={onCutElements}
+            onPaste={onPasteElements}
+            onRemove={onRemoveElement}
+            onBringToFront={onBringToFront}
+            onSendToBack={onSendToBack}
+            onToggleLock={(id, locked) => onUpdateElement(id, { locked })}
+          />
+        ) : null}
       </div>
     </div>
   );
@@ -955,6 +1106,251 @@ function formatBadge(mode: DragMode, box: ElementBox): string {
     return `${Math.round(box.x)}, ${Math.round(box.y)}`;
   }
   return `${Math.round(box.w)} × ${Math.round(box.h)}`;
+}
+
+// ---------------------------------------------------------------------------
+// Contextual floating toolbar + right-click context menu (Canva-style). Both
+// portal to `document.body` so they escape the stage's `overflow:hidden`, and
+// sit above the editor modal via an explicit z-index.
+// ---------------------------------------------------------------------------
+
+const OVERLAY_Z = 80;
+const TOOLBAR_GAP = 10;
+
+/** Positions its children as a fixed bar centered above (or below) `box`. */
+function FloatingElementToolbar({
+  stageRef,
+  box,
+  children,
+}: {
+  stageRef: React.RefObject<HTMLDivElement | null>;
+  box: ElementBox;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number }>({
+    top: -1000,
+    left: -1000,
+  });
+  useLayoutEffect(() => {
+    const stage = stageRef.current;
+    const el = ref.current;
+    if (!stage || !el) return;
+    const rect = stage.getBoundingClientRect();
+    const elTop = rect.top + (box.y / 100) * rect.height;
+    const elBottom = rect.top + ((box.y + box.h) / 100) * rect.height;
+    const elCenterX = rect.left + ((box.x + box.w / 2) / 100) * rect.width;
+    const w = el.offsetWidth;
+    const h = el.offsetHeight;
+    let top = elTop - h - TOOLBAR_GAP;
+    if (top < 8) top = elBottom + TOOLBAR_GAP;
+    let left = elCenterX - w / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - w - 8));
+    top = Math.max(8, Math.min(top, window.innerHeight - h - 8));
+    setPos({ top, left });
+  }, [box.x, box.y, box.w, box.h, stageRef]);
+
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div
+      ref={ref}
+      onPointerDown={(event) => event.stopPropagation()}
+      style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: OVERLAY_Z }}
+      className="flex items-center gap-1 rounded-ds-lg border border-ds-border-subtle bg-ds-surface-overlay p-1 shadow-ds-popover"
+    >
+      {children}
+    </div>,
+    document.body,
+  );
+}
+
+function ToolbarButton({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+    >
+      <Icon size={14} aria-hidden="true" />
+    </button>
+  );
+}
+
+function ToolbarDivider() {
+  return <span className="mx-0.5 h-5 w-px bg-ds-border-subtle" aria-hidden />;
+}
+
+/** The controls inside the floating toolbar, varying by element kind. */
+function ElementToolbarContent({
+  element,
+  tc,
+  onUpdateElement,
+  onDuplicate,
+  onBringToFront,
+  onSendToBack,
+  onRemove,
+}: {
+  element: SlideElement;
+  tc: ThemeConfig;
+  onUpdateElement: SlideStageEditorProps["onUpdateElement"];
+  onDuplicate: () => void;
+  onBringToFront: () => void;
+  onSendToBack: () => void;
+  onRemove: () => void;
+}) {
+  const textColorPresets = [
+    tc.titleColor,
+    tc.bodyColor,
+    tc.mutedColor,
+    tc.accentColor,
+    "#ffffff",
+    "#000000",
+  ];
+  return (
+    <>
+      {element.kind === "text" || element.kind === "bullets" ? (
+        <>
+          <TextStyleBar
+            variant="compact"
+            style={element.style}
+            colorPresets={textColorPresets}
+            onChange={(style) => onUpdateElement(element.id, { style })}
+          />
+          <ToolbarDivider />
+        </>
+      ) : null}
+      {element.kind === "shape" ? (
+        <>
+          <ColorPicker
+            color={element.color}
+            onChange={(color) => onUpdateElement(element.id, { color })}
+            aria-label="Shape color"
+          />
+          <ToolbarDivider />
+        </>
+      ) : null}
+      <ToolbarButton icon={Copy} label="Duplicate" onClick={onDuplicate} />
+      <ToolbarButton
+        icon={ArrowUpToLine}
+        label="Bring to front"
+        onClick={onBringToFront}
+      />
+      <ToolbarButton
+        icon={ArrowDownToLine}
+        label="Send to back"
+        onClick={onSendToBack}
+      />
+      <ToolbarButton icon={Trash2} label="Delete" onClick={onRemove} />
+    </>
+  );
+}
+
+/** Right-click menu of element actions, anchored at the pointer. */
+function ElementContextMenu({
+  x,
+  y,
+  element,
+  onClose,
+  onEdit,
+  onDuplicate,
+  onCopy,
+  onCut,
+  onPaste,
+  onRemove,
+  onBringToFront,
+  onSendToBack,
+  onToggleLock,
+}: {
+  x: number;
+  y: number;
+  element: SlideElement | null;
+  onClose: () => void;
+  onEdit: (element: SlideElement) => void;
+  onDuplicate: (id: string) => void;
+  onCopy: () => void;
+  onCut: () => void;
+  onPaste: () => void;
+  onRemove: (id: string) => void;
+  onBringToFront: (id: string) => void;
+  onSendToBack: (id: string) => void;
+  onToggleLock: (id: string, locked: boolean) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: y, left: x });
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setPos({
+      top: Math.min(y, window.innerHeight - el.offsetHeight - 8),
+      left: Math.min(x, window.innerWidth - el.offsetWidth - 8),
+    });
+  }, [x, y]);
+  useEffect(() => {
+    const close = () => onClose();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  if (!element || typeof document === "undefined") return null;
+  const editable = element.kind === "text" || element.kind === "bullets";
+  const run = (action: () => void) => () => {
+    action();
+    onClose();
+  };
+  const item = (label: string, icon: LucideIcon, onSelect: () => void) => {
+    const Icon = icon;
+    return (
+      <button type="button" className={MENU_ITEM} onClick={run(onSelect)}>
+        <Icon size={14} aria-hidden="true" className="mr-2 shrink-0" />
+        {label}
+      </button>
+    );
+  };
+  return createPortal(
+    <div
+      ref={ref}
+      onPointerDown={(event) => event.stopPropagation()}
+      style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: OVERLAY_Z }}
+      className={cx("w-48", MENU_CHROME)}
+      role="menu"
+    >
+      {editable
+        ? item("Edit text", Pencil, () => onEdit(element))
+        : null}
+      {item("Duplicate", Copy, () => onDuplicate(element.id))}
+      {item("Copy", Copy, onCopy)}
+      {item("Cut", Scissors, onCut)}
+      {item("Paste", ClipboardPaste, onPaste)}
+      <div className="my-1 h-px bg-ds-border-subtle" aria-hidden />
+      {item("Bring to front", ArrowUpToLine, () => onBringToFront(element.id))}
+      {item("Send to back", ArrowDownToLine, () => onSendToBack(element.id))}
+      <div className="my-1 h-px bg-ds-border-subtle" aria-hidden />
+      {item(
+        element.locked ? "Unlock" : "Lock",
+        element.locked ? LockOpen : Lock,
+        () => onToggleLock(element.id, !element.locked),
+      )}
+      {item("Delete", Trash2, () => onRemove(element.id))}
+    </div>,
+    document.body,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -1105,6 +1501,8 @@ function InlineTextEditor({
     textAlign: element.style.align,
     lineHeight: kind === "text" ? 1.15 : 1.2,
     wordBreak: "break-word",
+    ...(element.style.underline ? { textDecoration: "underline" } : {}),
+    ...(element.style.fontFamily ? { fontFamily: element.style.fontFamily } : {}),
   } as CSSProperties & Record<string, string>;
   if (kind === "bullets") {
     editableStyle["--ds-bullet-accent"] = accent;

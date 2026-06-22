@@ -171,12 +171,16 @@ export interface TextElementStyle {
   fontSize: number;
   bold: boolean;
   italic: boolean;
+  /** Optional underline for the whole element. */
+  underline?: boolean;
   align: ElementAlign;
   /** Optional hex color override; falls back to the theme color when unset. */
   color?: string;
+  /** Optional CSS font-family stack; falls back to the base/theme font. */
+  fontFamily?: string;
 }
 
-export type ShapeKind = "rect" | "ellipse" | "line";
+export type ShapeKind = "rect" | "ellipse" | "line" | "triangle";
 
 interface BaseElement {
   /** Stable identifier, unique within a slide. */
@@ -185,6 +189,21 @@ interface BaseElement {
   box: ElementBox;
   /** Stacking order — higher renders on top. */
   zIndex: number;
+  /**
+   * Optional element opacity in the `[0, 1]` range. Absent (or `1`) means fully
+   * opaque; renderers apply it uniformly so the editor, present mode, public
+   * viewer and export stay identical.
+   */
+  opacity?: number;
+  /**
+   * Optional clockwise rotation in degrees about the element's center. Absent
+   * (or `0`) means upright. Applied as a CSS transform in every renderer.
+   */
+  rotation?: number;
+  /** Optional drop shadow. Absent/false means no shadow. */
+  shadow?: boolean;
+  /** When true, the element is not selectable or draggable in the editor. */
+  locked?: boolean;
 }
 
 export interface TextElement extends BaseElement {
@@ -241,13 +260,25 @@ export interface ImageElement extends BaseElement {
   kind: "image";
   src: string;
   alt?: string;
+  /** Optional corner radius as a percent of the box (0–50). */
+  radius?: number;
+  /** How the image fills its box. Defaults to "contain". */
+  fit?: "cover" | "contain";
 }
 
 export interface ShapeElement extends BaseElement {
   kind: "shape";
   shape: ShapeKind;
-  /** Hex fill (rect/ellipse) or stroke (line) color. */
+  /** Hex fill (rect/ellipse/triangle) or stroke (line) color. */
   color: string;
+  /**
+   * Optional stroke: a border for rect/ellipse, ignored for triangle, and the
+   * line thickness/color for "line". Width is in `cqmin` units so it scales
+   * with the slide like the rest of the geometry.
+   */
+  stroke?: { color: string; width: number };
+  /** Optional corner radius for a rect, as a percent of the box (0–50). */
+  radius?: number;
 }
 
 /** Discriminated union of every free-form slide element. */
@@ -328,6 +359,18 @@ export interface Slide {
 
   /** Optional per-slide background color (hex), overriding the theme bg. */
   background?: string;
+
+  /**
+   * Optional per-slide background gradient (two-stop linear). When set it takes
+   * precedence over the solid `background` color. `angle` is in degrees.
+   */
+  backgroundGradient?: { from: string; to: string; angle?: number };
+
+  /**
+   * Optional per-slide background image (data URL or remote URL), rendered
+   * cover. Takes precedence over the gradient and solid color when set.
+   */
+  backgroundImage?: string;
 
   /** Optional per-slide accent color (hex), overriding the theme accent. */
   accent?: string;

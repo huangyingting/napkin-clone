@@ -67,7 +67,12 @@ function validateStringArray(value: unknown, context: string): string[] {
 }
 
 const ELEMENT_ALIGNS: readonly ElementAlign[] = ["left", "center", "right"];
-const SHAPE_KINDS: readonly ShapeKind[] = ["rect", "ellipse", "line"];
+const SHAPE_KINDS: readonly ShapeKind[] = [
+  "rect",
+  "ellipse",
+  "line",
+  "triangle",
+];
 
 function isHexColor(value: unknown): value is string {
   return typeof value === "string" && /^#[0-9a-fA-F]{3,8}$/.test(value);
@@ -78,6 +83,12 @@ function validateFiniteNumber(value: unknown, context: string): number {
     throw new DeckValidationError(`${context} must be a finite number`);
   }
   return value;
+}
+
+/** Validates an opacity value, clamping to the `[0, 1]` range. */
+function validateOpacity(value: unknown, context: string): number {
+  const n = validateFiniteNumber(value, context);
+  return Math.max(0, Math.min(1, n));
 }
 
 function validateBox(input: unknown, context: string): ElementBox {
@@ -112,7 +123,13 @@ function validateTextStyle(input: unknown, context: string): TextElementStyle {
     bold: Boolean(input.bold),
     italic: Boolean(input.italic),
     align: input.align as ElementAlign,
+    ...(input.underline !== undefined
+      ? { underline: Boolean(input.underline) }
+      : {}),
     ...(input.color !== undefined ? { color: input.color as string } : {}),
+    ...(typeof input.fontFamily === "string" && input.fontFamily.length > 0
+      ? { fontFamily: input.fontFamily }
+      : {}),
   };
 }
 
@@ -165,7 +182,19 @@ function validateElement(input: unknown, context: string): SlideElement {
   }
   const box = validateBox(input.box, `${context}.box`);
   const zIndex = validateFiniteNumber(input.zIndex, `${context}.zIndex`);
-  const base = { id: input.id, box, zIndex };
+  const base = {
+    id: input.id,
+    box,
+    zIndex,
+    ...(input.opacity !== undefined
+      ? { opacity: validateOpacity(input.opacity, `${context}.opacity`) }
+      : {}),
+    ...(input.rotation !== undefined
+      ? { rotation: validateFiniteNumber(input.rotation, `${context}.rotation`) }
+      : {}),
+    ...(input.shadow !== undefined ? { shadow: Boolean(input.shadow) } : {}),
+    ...(input.locked !== undefined ? { locked: Boolean(input.locked) } : {}),
+  };
 
   switch (input.kind) {
     case "text": {
@@ -247,6 +276,20 @@ function validateElement(input: unknown, context: string): SlideElement {
         kind: "image",
         src: input.src,
         ...(input.alt !== undefined ? { alt: input.alt } : {}),
+        ...(input.radius !== undefined
+          ? {
+              radius: Math.max(
+                0,
+                Math.min(
+                  50,
+                  validateFiniteNumber(input.radius, `${context}.radius`),
+                ),
+              ),
+            }
+          : {}),
+        ...(input.fit === "cover" || input.fit === "contain"
+          ? { fit: input.fit }
+          : {}),
       };
     }
     case "shape": {
@@ -261,11 +304,38 @@ function validateElement(input: unknown, context: string): SlideElement {
       if (!isHexColor(input.color)) {
         throw new DeckValidationError(`${context}.color must be a hex color`);
       }
+      let stroke: { color: string; width: number } | undefined;
+      if (input.stroke !== undefined) {
+        if (!isPlainObject(input.stroke) || !isHexColor(input.stroke.color)) {
+          throw new DeckValidationError(
+            `${context}.stroke.color must be a hex color`,
+          );
+        }
+        stroke = {
+          color: input.stroke.color,
+          width: Math.max(
+            0,
+            validateFiniteNumber(input.stroke.width, `${context}.stroke.width`),
+          ),
+        };
+      }
+      const radius =
+        input.radius !== undefined
+          ? Math.max(
+              0,
+              Math.min(
+                50,
+                validateFiniteNumber(input.radius, `${context}.radius`),
+              ),
+            )
+          : undefined;
       return {
         ...base,
         kind: "shape",
         shape: input.shape as ShapeKind,
         color: input.color,
+        ...(stroke !== undefined ? { stroke } : {}),
+        ...(radius !== undefined ? { radius } : {}),
       };
     }
     default:
@@ -327,6 +397,33 @@ function validateSlide(input: unknown, index: number): Slide {
   if (input.background !== undefined && !isHexColor(input.background)) {
     throw new DeckValidationError(`${context}.background must be a hex color`);
   }
+  let backgroundGradient:
+    | { from: string; to: string; angle?: number }
+    | undefined;
+  if (input.backgroundGradient !== undefined) {
+    const g = input.backgroundGradient;
+    if (!isPlainObject(g) || !isHexColor(g.from) || !isHexColor(g.to)) {
+      throw new DeckValidationError(
+        `${context}.backgroundGradient.from/to must be hex colors`,
+      );
+    }
+    backgroundGradient = {
+      from: g.from,
+      to: g.to,
+      ...(typeof g.angle === "number" && Number.isFinite(g.angle)
+        ? { angle: g.angle }
+        : {}),
+    };
+  }
+  if (
+    input.backgroundImage !== undefined &&
+    (typeof input.backgroundImage !== "string" ||
+      input.backgroundImage.length === 0)
+  ) {
+    throw new DeckValidationError(
+      `${context}.backgroundImage must be a non-empty string`,
+    );
+  }
   if (input.accent !== undefined && !isHexColor(input.accent)) {
     throw new DeckValidationError(`${context}.accent must be a hex color`);
   }
@@ -355,6 +452,10 @@ function validateSlide(input: unknown, index: number): Slide {
       : {}),
     ...(input.background !== undefined
       ? { background: input.background as string }
+      : {}),
+    ...(backgroundGradient !== undefined ? { backgroundGradient } : {}),
+    ...(input.backgroundImage !== undefined
+      ? { backgroundImage: input.backgroundImage as string }
       : {}),
     ...(input.accent !== undefined ? { accent: input.accent as string } : {}),
   };

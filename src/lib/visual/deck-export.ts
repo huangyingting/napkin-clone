@@ -33,6 +33,7 @@ import type {
   DeckTheme,
   ElementAlign,
   ElementBox,
+  ShapeKind,
   Slide,
   TextRun,
 } from "@/lib/presentation/deck";
@@ -140,6 +141,10 @@ interface InchBox {
   y: number;
   w: number;
   h: number;
+  /** Optional clockwise rotation in degrees (mirrors `element.rotation`). */
+  rotation?: number;
+  /** Optional drop shadow (mirrors `element.shadow`). */
+  shadow?: boolean;
 }
 
 /** A run of text (single block) placed at an inch box. */
@@ -158,6 +163,7 @@ export interface DeckTextOp extends InchBox {
   fontSize: number;
   bold: boolean;
   italic: boolean;
+  underline?: boolean;
   align: ElementAlign;
 }
 
@@ -165,6 +171,7 @@ export interface DeckTextOp extends InchBox {
 export interface DeckBulletsOp extends InchBox {
   kind: "bullets";
   items: string[];
+  underline?: boolean;
   /**
    * Optional rich-text runs, parallel to `items`: `itemRuns[i]` holds the
    * formatted spans for bullet line `i`. When an entry is present and non-empty
@@ -182,9 +189,13 @@ export interface DeckBulletsOp extends InchBox {
 /** A primitive shape placed at an inch box. */
 export interface DeckShapeOp extends InchBox {
   kind: "shape";
-  shape: "rect" | "ellipse" | "line";
+  shape: ShapeKind;
   /** Hex color without leading `#`. */
   color: string;
+  /** Optional border/line stroke; `width` already converted to points. */
+  stroke?: { color: string; width: number };
+  /** Optional rect corner radius, already converted to inches. */
+  radius?: number;
 }
 
 /** A raster image (data URL or path) placed at an inch box. */
@@ -219,6 +230,8 @@ export interface DeckSlideSpec {
   index: number;
   /** Slide background — hex color without leading `#`. */
   background: string;
+  /** Optional background image (data URL or path); takes precedence in render. */
+  backgroundImage?: string;
   /** Slide accent — hex color without leading `#`. */
   accent: string;
   /** Draw operations in z-order (earlier = drawn first / underneath). */
@@ -293,7 +306,9 @@ function buildSlideSpec(
   geometry: DeckGeometry,
 ): DeckSlideSpec {
   const colors = themeColors(slide.theme ?? deckTheme);
-  const background = toHex(slide.background ?? colors.bg);
+  const background = toHex(
+    slide.background ?? slide.backgroundGradient?.from ?? colors.bg,
+  );
   const accent = toHex(slide.accent ?? colors.accent);
 
   const elements = [...materializeSlideElements(slide)].sort(
@@ -304,6 +319,12 @@ function buildSlideSpec(
 
   for (const element of elements) {
     const box = boxToInches(element.box, geometry);
+    if (element.rotation) {
+      box.rotation = element.rotation;
+    }
+    if (element.shadow) {
+      box.shadow = true;
+    }
 
     switch (element.kind) {
       case "text": {
@@ -320,6 +341,7 @@ function buildSlideSpec(
           fontSize: fontSizePt(element.style.fontSize, geometry),
           bold: element.style.bold,
           italic: element.style.italic,
+          ...(element.style.underline ? { underline: true } : {}),
           align: element.style.align,
         });
         break;
@@ -336,16 +358,29 @@ function buildSlideSpec(
           fontSize: fontSizePt(element.style.fontSize, geometry),
           bold: element.style.bold,
           italic: element.style.italic,
+          ...(element.style.underline ? { underline: true } : {}),
           align: element.style.align,
         });
         break;
       }
       case "shape": {
+        const minInch = Math.min(box.w, box.h);
         ops.push({
           kind: "shape",
           ...box,
           shape: element.shape,
           color: toHex(element.color),
+          ...(element.stroke
+            ? {
+                stroke: {
+                  color: toHex(element.stroke.color),
+                  width: (element.stroke.width / 100) * minInch * 72,
+                },
+              }
+            : {}),
+          ...(element.radius
+            ? { radius: (element.radius / 100) * minInch }
+            : {}),
         });
         break;
       }
@@ -382,7 +417,13 @@ function buildSlideSpec(
     }
   }
 
-  return { index, background, accent, ops };
+  return {
+    index,
+    background,
+    ...(slide.backgroundImage ? { backgroundImage: slide.backgroundImage } : {}),
+    accent,
+    ops,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -392,11 +433,13 @@ function buildSlideSpec(
 type PptxSlide = ReturnType<PptxGenJS["addSlide"]>;
 type ShapeName = Parameters<PptxSlide["addShape"]>[0];
 
-const SHAPES = {
+const SHAPES: Record<ShapeKind | "roundRect", ShapeName> = {
   rect: "rect",
   ellipse: "ellipse",
   line: "line",
-} satisfies Record<DeckShapeOp["shape"], ShapeName>;
+  triangle: "triangle",
+  roundRect: "roundRect",
+};
 
 /** Rasterise a live SVG to a PNG data URL (browser-only). */
 async function svgToPngDataUrl(svg: SVGSVGElement): Promise<string | null> {
@@ -415,6 +458,16 @@ async function svgToPngDataUrl(svg: SVGSVGElement): Promise<string | null> {
 
 /** Monospace font face used to render inline-code runs in PPTX. */
 const CODE_FONT_FACE = "Courier New";
+
+/** Shared outer drop-shadow options for elements with `shadow` set. */
+const SHADOW_OPTS = {
+  type: "outer" as const,
+  color: "000000",
+  blur: 4,
+  offset: 3,
+  angle: 90,
+  opacity: 0.3,
+};
 
 /** Per-run PptxGenJS text options derived from a {@link TextRun}'s formatting. */
 function runToOptions(run: TextRun): Record<string, unknown> {
@@ -442,6 +495,9 @@ function applyTextOp(slide: PptxSlide, op: DeckTextOp): void {
     align: op.align,
     valign: "middle" as const,
     wrap: true,
+    ...(op.rotation ? { rotate: op.rotation } : {}),
+    ...(op.underline ? { underline: { style: "sng" as const } } : {}),
+    ...(op.shadow ? { shadow: SHADOW_OPTS } : {}),
   };
 
   if (op.runs && op.runs.length > 0) {
@@ -470,6 +526,9 @@ function applyBulletsOp(slide: PptxSlide, op: DeckBulletsOp): void {
     align: op.align,
     valign: "middle" as const,
     wrap: true,
+    ...(op.rotation ? { rotate: op.rotation } : {}),
+    ...(op.underline ? { underline: { style: "sng" as const } } : {}),
+    ...(op.shadow ? { shadow: SHADOW_OPTS } : {}),
   };
 
   const hasRuns =
@@ -512,6 +571,7 @@ function applyBulletsOp(slide: PptxSlide, op: DeckBulletsOp): void {
 }
 
 function applyShapeOp(slide: PptxSlide, op: DeckShapeOp): void {
+  const rotate = op.rotation ? { rotate: op.rotation } : {};
   if (op.shape === "line") {
     // Render as a centered horizontal rule across the box.
     slide.addShape(SHAPES.line, {
@@ -519,17 +579,41 @@ function applyShapeOp(slide: PptxSlide, op: DeckShapeOp): void {
       y: op.y + op.h / 2,
       w: op.w,
       h: 0,
-      line: { color: op.color, width: 2 },
+      line: { color: op.stroke?.color ?? op.color, width: op.stroke?.width ?? 2 },
+      ...rotate,
     });
     return;
   }
-  slide.addShape(op.shape === "ellipse" ? SHAPES.ellipse : SHAPES.rect, {
+  if (op.shape === "triangle") {
+    slide.addShape(SHAPES.triangle, {
+      x: op.x,
+      y: op.y,
+      w: op.w,
+      h: op.h,
+      fill: { color: op.color },
+      line: { width: 0, color: op.color },
+      ...rotate,
+    });
+    return;
+  }
+  const shapeName =
+    op.shape === "ellipse"
+      ? SHAPES.ellipse
+      : op.radius
+        ? SHAPES.roundRect
+        : SHAPES.rect;
+  slide.addShape(shapeName, {
     x: op.x,
     y: op.y,
     w: op.w,
     h: op.h,
     fill: { color: op.color },
-    line: { width: 0, color: op.color },
+    line: op.stroke
+      ? { color: op.stroke.color, width: op.stroke.width }
+      : { width: 0, color: op.color },
+    ...(op.radius && op.shape !== "ellipse" ? { rectRadius: op.radius } : {}),
+    ...rotate,
+    ...(op.shadow ? { shadow: SHADOW_OPTS } : {}),
   });
 }
 
@@ -537,7 +621,15 @@ function applyImageOp(slide: PptxSlide, op: DeckImageOp): void {
   const source = op.src.startsWith("data:")
     ? { data: op.src }
     : { path: op.src };
-  slide.addImage({ ...source, x: op.x, y: op.y, w: op.w, h: op.h });
+  slide.addImage({
+    ...source,
+    x: op.x,
+    y: op.y,
+    w: op.w,
+    h: op.h,
+    ...(op.rotation ? { rotate: op.rotation } : {}),
+    ...(op.shadow ? { shadow: SHADOW_OPTS } : {}),
+  });
 }
 
 async function applyVisualFallbackOp(
@@ -622,7 +714,11 @@ export async function exportDeckAsPPTX(
 
     for (const slideSpec of specs) {
       const slide = pptx.addSlide();
-      slide.background = { color: slideSpec.background };
+      slide.background = slideSpec.backgroundImage
+        ? slideSpec.backgroundImage.startsWith("data:")
+          ? { data: slideSpec.backgroundImage }
+          : { path: slideSpec.backgroundImage }
+        : { color: slideSpec.background };
       for (const op of slideSpec.ops) {
         await applyDeckOp(slide, op, getSvg);
       }

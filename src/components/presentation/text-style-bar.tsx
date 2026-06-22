@@ -23,6 +23,7 @@ import {
   Italic,
   Minus,
   Plus,
+  Underline,
   type LucideIcon,
 } from "lucide-react";
 
@@ -197,6 +198,13 @@ export function TextStyleBar({
         >
           <Italic size={14} aria-hidden="true" />
         </IconToggle>
+        <IconToggle
+          label="Underline"
+          active={style.underline ?? false}
+          onClick={() => set({ underline: !style.underline })}
+        >
+          <Underline size={14} aria-hidden="true" />
+        </IconToggle>
         <AlignGroup align={style.align} onChange={(align) => set({ align })} />
         <span
           className="mx-0.5 h-5 w-px bg-ds-border-subtle"
@@ -223,6 +231,13 @@ export function TextStyleBar({
           onClick={() => set({ italic: !style.italic })}
         >
           <Italic size={14} aria-hidden="true" />
+        </IconToggle>
+        <IconToggle
+          label="Underline"
+          active={style.underline ?? false}
+          onClick={() => set({ underline: !style.underline })}
+        >
+          <Underline size={14} aria-hidden="true" />
         </IconToggle>
         <div className="ml-1">
           <AlignGroup

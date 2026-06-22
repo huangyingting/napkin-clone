@@ -303,6 +303,15 @@ function boxStyle(element: SlideElement): React.CSSProperties {
     width: `${element.box.w}%`,
     height: `${element.box.h}%`,
     zIndex: element.zIndex,
+    ...(element.opacity !== undefined && element.opacity < 1
+      ? { opacity: element.opacity }
+      : {}),
+    ...(element.rotation
+      ? { transform: `rotate(${element.rotation}deg)` }
+      : {}),
+    ...(element.shadow
+      ? { filter: "drop-shadow(0 0.6cqmin 1.2cqmin rgba(0,0,0,0.28))" }
+      : {}),
   };
 }
 
@@ -374,6 +383,10 @@ function TextElementView({
         fontSize: `${element.style.fontSize}cqh`,
         fontWeight: element.style.bold ? 700 : 400,
         fontStyle: element.style.italic ? "italic" : "normal",
+        ...(element.style.underline ? { textDecoration: "underline" } : {}),
+        ...(element.style.fontFamily
+          ? { fontFamily: element.style.fontFamily }
+          : {}),
         lineHeight: 1.15,
         overflow: "hidden",
         wordBreak: "break-word",
@@ -407,6 +420,10 @@ function BulletsElementView({
         fontSize: `${element.style.fontSize}cqh`,
         fontWeight: element.style.bold ? 700 : 400,
         fontStyle: element.style.italic ? "italic" : "normal",
+        ...(element.style.underline ? { textDecoration: "underline" } : {}),
+        ...(element.style.fontFamily
+          ? { fontFamily: element.style.fontFamily }
+          : {}),
         textAlign: element.style.align,
         lineHeight: 1.2,
         overflow: "hidden",
@@ -545,6 +562,7 @@ function ImageElementView({
         alignItems: "center",
         justifyContent: "center",
         overflow: "hidden",
+        ...(element.radius ? { borderRadius: `${element.radius}%` } : {}),
       }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -554,7 +572,7 @@ function ImageElementView({
         style={{
           height: "100%",
           width: "100%",
-          objectFit: "contain",
+          objectFit: element.fit ?? "contain",
         }}
       />
     </div>
@@ -573,12 +591,23 @@ function ShapeElementView({ element }: { element: ShapeElement }): JSX.Element {
       >
         <div
           style={{
-            height: "2px",
+            height: `${element.stroke?.width ?? 0.4}cqmin`,
             width: "100%",
-            backgroundColor: element.color,
+            backgroundColor: element.stroke?.color ?? element.color,
           }}
         />
       </div>
+    );
+  }
+  if (element.shape === "triangle") {
+    return (
+      <div
+        style={{
+          ...boxStyle(element),
+          backgroundColor: element.color,
+          clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)",
+        }}
+      />
     );
   }
   return (
@@ -586,7 +615,17 @@ function ShapeElementView({ element }: { element: ShapeElement }): JSX.Element {
       style={{
         ...boxStyle(element),
         backgroundColor: element.color,
-        borderRadius: element.shape === "ellipse" ? "9999px" : "0.25rem",
+        borderRadius:
+          element.shape === "ellipse"
+            ? "9999px"
+            : element.radius !== undefined
+              ? `${element.radius}%`
+              : "0.25rem",
+        ...(element.stroke
+          ? {
+              border: `${element.stroke.width}cqmin solid ${element.stroke.color}`,
+            }
+          : {}),
       }}
     />
   );
@@ -636,6 +675,21 @@ function ElementsSlideLayout({
 }): JSX.Element {
   const background = slide.background ?? tc.bgColor;
   const accent = slide.accent ?? tc.accentColor;
+  // Background precedence: image > gradient > solid color.
+  const backgroundStyle: React.CSSProperties = slide.backgroundImage
+    ? {
+        backgroundColor: background,
+        backgroundImage: `url(${slide.backgroundImage})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }
+    : slide.backgroundGradient
+      ? {
+          backgroundImage: `linear-gradient(${
+            slide.backgroundGradient.angle ?? 135
+          }deg, ${slide.backgroundGradient.from}, ${slide.backgroundGradient.to})`,
+        }
+      : { backgroundColor: background };
   const ordered = [...(slide.elements ?? [])]
     .filter((element) => !hiddenElementIds?.has(element.id))
     .sort((a, b) => a.zIndex - b.zIndex);
@@ -646,7 +700,7 @@ function ElementsSlideLayout({
         height: "100%",
         width: "100%",
         overflow: "hidden",
-        backgroundColor: background,
+        ...backgroundStyle,
         containerType: "size",
       }}
     >

@@ -126,6 +126,8 @@ import {
   setDeckTheme,
   setSlideAccent,
   setSlideBackground,
+  setSlideBackgroundGradient,
+  setSlideBackgroundImage,
   updateElement,
   updateSlide,
   type DistributiveOmit,
@@ -292,6 +294,8 @@ export function SlideEditor({
   const reorderRef = useRef<{ fromIndex: number; overIndex: number } | null>(
     null,
   );
+  // In-memory element clipboard for copy / cut / paste (within & across slides).
+  const clipboardRef = useRef<SlideElement[] | null>(null);
 
   // ── Autosave + save-status feedback (issue #208) ───────────────────────────
   // Mirrors the document editor: a debounced autosave persists deck edits a
@@ -619,6 +623,60 @@ export function SlideEditor({
     [deck, onDeckChange],
   );
 
+  // ── Element clipboard (copy / cut / paste), shared by the keyboard handler
+  // and the right-click context menu. Uses an in-memory ref so it works within
+  // and across slides; each op routes through a pure mutation (single undo).
+  const selectedElementIdList = useCallback(() => {
+    if (!effectiveSelectedElementId) return [] as string[];
+    return effectiveSelectedElementIds.size > 0
+      ? [...effectiveSelectedElementIds]
+      : [effectiveSelectedElementId];
+  }, [effectiveSelectedElementId, effectiveSelectedElementIds]);
+
+  const handleCopyElements = useCallback(() => {
+    const ids = selectedElementIdList();
+    if (ids.length === 0) return;
+    const slideEls = deck.slides[safeSelected]?.elements ?? [];
+    const copied = slideEls.filter((el) => ids.includes(el.id));
+    if (copied.length > 0) {
+      clipboardRef.current = copied.map((el) => structuredClone(el));
+    }
+  }, [deck, safeSelected, selectedElementIdList]);
+
+  const handleCutElements = useCallback(() => {
+    const ids = selectedElementIdList();
+    if (ids.length === 0) return;
+    const slideEls = deck.slides[safeSelected]?.elements ?? [];
+    const copied = slideEls.filter((el) => ids.includes(el.id));
+    if (copied.length === 0) return;
+    clipboardRef.current = copied.map((el) => structuredClone(el));
+    onDeckChange(removeElements(deck, safeSelected, ids));
+    setSelectedElementId(null);
+    setSelectedElementIds(new Set());
+  }, [deck, safeSelected, onDeckChange, selectedElementIdList]);
+
+  const handlePasteElements = useCallback(() => {
+    const clip = clipboardRef.current;
+    if (!clip || clip.length === 0) return;
+    let nextDeck = deck;
+    const newIds: string[] = [];
+    for (const el of clip) {
+      const id = makeElementId();
+      newIds.push(id);
+      const x = Math.max(0, Math.min(100 - el.box.w, el.box.x + 3));
+      const y = Math.max(0, Math.min(100 - el.box.h, el.box.y + 3));
+      const clone = structuredClone(el);
+      clone.id = id;
+      clone.box = { ...clone.box, x, y };
+      // Drop the source z-index so the paste lands on top of the stack.
+      delete (clone as { zIndex?: number }).zIndex;
+      nextDeck = addElement(nextDeck, safeSelected, clone);
+    }
+    onDeckChange(nextDeck);
+    setSelectedElementId(newIds[0] ?? null);
+    setSelectedElementIds(new Set(newIds));
+  }, [deck, safeSelected, onDeckChange]);
+
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null;
@@ -704,6 +762,36 @@ export function SlideEditor({
           handleAddSlide(safeSelected);
           return;
         }
+        // Element clipboard + select-all. Operate on the current slide's
+        // elements; all route through pure mutations so they are single undo
+        // steps, and paste works across slides via the shared clipboard ref.
+        const slideEls = deck.slides[safeSelected]?.elements ?? [];
+        if (key === "a") {
+          if (slideEls.length > 0) {
+            event.preventDefault();
+            setSelectedElementId(slideEls[slideEls.length - 1].id);
+            setSelectedElementIds(new Set(slideEls.map((el) => el.id)));
+          }
+          return;
+        }
+        if (key === "c" || key === "x") {
+          if (effectiveSelectedElementId) {
+            event.preventDefault();
+            if (key === "x") {
+              handleCutElements();
+            } else {
+              handleCopyElements();
+            }
+          }
+          return;
+        }
+        if (key === "v") {
+          if (clipboardRef.current && clipboardRef.current.length > 0) {
+            event.preventDefault();
+            handlePasteElements();
+          }
+          return;
+        }
         if (event.key === "Backspace" || event.key === "Delete") {
           event.preventDefault();
           handleRemove(safeSelected);
@@ -771,6 +859,9 @@ export function SlideEditor({
     handleDuplicate,
     handleRemove,
     handleAddSlide,
+    handleCopyElements,
+    handleCutElements,
+    handlePasteElements,
   ]);
 
   const handleBulletsChange = useCallback(
@@ -1060,6 +1151,22 @@ export function SlideEditor({
     [deck, onDeckChange, safeSelected],
   );
 
+  const handleBackgroundGradientChange = useCallback(
+    (gradient: { from: string; to: string; angle?: number } | undefined) => {
+      onDeckChange(
+        setSlideBackgroundGradient(deck, safeSelected, gradient),
+      );
+    },
+    [deck, onDeckChange, safeSelected],
+  );
+
+  const handleBackgroundImageChange = useCallback(
+    (image: string | undefined) => {
+      onDeckChange(setSlideBackgroundImage(deck, safeSelected, image));
+    },
+    [deck, onDeckChange, safeSelected],
+  );
+
   // Shared inspector props, rendered into the desktop side pane (`lg+`) and the
   // mobile bottom sheet (below `lg`) so both surfaces edit the same slide with
   // identical behaviour. Issue #209.
@@ -1087,6 +1194,8 @@ export function SlideEditor({
         onBringToFront: handleBringToFront,
         onSendToBack: handleSendToBack,
         onBackgroundChange: handleBackgroundChange,
+        onBackgroundGradientChange: handleBackgroundGradientChange,
+        onBackgroundImageChange: handleBackgroundImageChange,
         onAccentChange: handleAccentChange,
       }
     : null;
@@ -1539,6 +1648,13 @@ export function SlideEditor({
                 onSelectElement={handleSelectElement}
                 onSelectElements={handleSelectElements}
                 onUpdateElement={handleUpdateElement}
+                onDuplicateElement={handleDuplicateElement}
+                onRemoveElement={handleRemoveElement}
+                onBringToFront={handleBringToFront}
+                onSendToBack={handleSendToBack}
+                onCopyElements={handleCopyElements}
+                onCutElements={handleCutElements}
+                onPasteElements={handlePasteElements}
               />
             ) : null}
           </div>

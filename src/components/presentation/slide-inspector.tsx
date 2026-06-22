@@ -40,6 +40,7 @@ import type {
   Slide,
   SlideElement,
   SlideLayout,
+  TextElementStyle,
   TextRun,
 } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
@@ -70,7 +71,18 @@ const LAYOUT_OPTIONS: SlideLayout[] = [
   "blank",
 ];
 
-const SHAPE_OPTIONS: ShapeKind[] = ["rect", "ellipse", "line"];
+const SHAPE_OPTIONS: ShapeKind[] = ["rect", "ellipse", "line", "triangle"];
+
+/** Selectable font-family stacks for text/bullets elements. */
+const FONT_FAMILIES: { label: string; value: string }[] = [
+  { label: "Default", value: "" },
+  { label: "Sans", value: "ui-sans-serif, system-ui, sans-serif" },
+  { label: "Serif", value: "ui-serif, Georgia, Cambria, serif" },
+  {
+    label: "Mono",
+    value: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+  },
+];
 
 const THEME_BACKGROUND_SWATCHES = themeSwatchColors(DECK_THEMES, "bgColor");
 const THEME_ACCENT_SWATCHES = themeSwatchColors(DECK_THEMES, "accentColor");
@@ -111,6 +123,10 @@ export interface SlideInspectorProps {
   onSendToBack: (id: string) => void;
   // Style
   onBackgroundChange: (color: string | undefined) => void;
+  onBackgroundGradientChange: (
+    gradient: { from: string; to: string; angle?: number } | undefined,
+  ) => void;
+  onBackgroundImageChange: (image: string | undefined) => void;
   onAccentChange: (color: string | undefined) => void;
   /**
    * Overrides the root container classes so the host can place the inspector in
@@ -360,6 +376,48 @@ function ImageElementEditor({
           className={`${FIELD_CLASS} ${FOCUS_RING}`}
         />
       </label>
+      <div className="flex items-center justify-between gap-2">
+        <span className={LABEL_CLASS + " mb-0"}>Fit</span>
+        <div role="radiogroup" aria-label="Image fit" className="flex gap-0.5">
+          {(["contain", "cover"] as const).map((fit) => {
+            const active = (element.fit ?? "contain") === fit;
+            return (
+              <button
+                key={fit}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => onUpdateElement(element.id, { fit })}
+                className={`rounded-ds-sm px-2 py-1 text-xs font-medium capitalize transition-colors ${
+                  active
+                    ? "bg-ds-control text-ds-control-text"
+                    : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+                } ${FOCUS_RING}`}
+              >
+                {fit}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <label className="block">
+        <span className={LABEL_CLASS}>Corner radius</span>
+        <input
+          type="range"
+          min={0}
+          max={50}
+          step={1}
+          value={element.radius ?? 0}
+          onChange={(event) => {
+            const radius = Number(event.target.value);
+            onUpdateElement(element.id, {
+              radius: radius <= 0 ? undefined : radius,
+            });
+          }}
+          className="w-full accent-ds-control"
+          aria-label="Image corner radius"
+        />
+      </label>
     </div>
   );
 }
@@ -397,6 +455,10 @@ function ElementEditor({
             colorPresets={textColorPresets}
             onChange={(style) => onUpdateElement(element.id, { style })}
           />
+          <FontFamilyControl
+            style={element.style}
+            onChange={(style) => onUpdateElement(element.id, { style })}
+          />
         </div>
       );
     case "bullets":
@@ -430,6 +492,10 @@ function ElementEditor({
             variant="labeled"
             style={element.style}
             colorPresets={textColorPresets}
+            onChange={(style) => onUpdateElement(element.id, { style })}
+          />
+          <FontFamilyControl
+            style={element.style}
             onChange={(style) => onUpdateElement(element.id, { style })}
           />
         </div>
@@ -475,6 +541,78 @@ function ElementEditor({
               aria-label="Shape color"
             />
           </label>
+          {element.shape !== "triangle" ? (
+            <label className="flex items-center justify-between gap-2">
+              <span className={LABEL_CLASS + " mb-0"}>
+                {element.shape === "line" ? "Thickness" : "Border"}
+              </span>
+              <span className="flex items-center gap-2">
+                {element.shape !== "line" ? (
+                  <input
+                    type="color"
+                    value={element.stroke?.color ?? "#000000"}
+                    onChange={(event) =>
+                      onUpdateElement(element.id, {
+                        stroke: {
+                          color: event.target.value,
+                          width: element.stroke?.width ?? 0.4,
+                        },
+                      })
+                    }
+                    className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
+                    aria-label="Border color"
+                  />
+                ) : null}
+                <input
+                  type="range"
+                  min={0}
+                  max={3}
+                  step={0.25}
+                  value={element.stroke?.width ?? (element.shape === "line" ? 0.4 : 0)}
+                  onChange={(event) => {
+                    const width = Number(event.target.value);
+                    onUpdateElement(element.id, {
+                      stroke:
+                        width <= 0
+                          ? undefined
+                          : {
+                              color:
+                                element.stroke?.color ??
+                                (element.shape === "line"
+                                  ? element.color
+                                  : "#000000"),
+                              width,
+                            },
+                    });
+                  }}
+                  className="w-24 accent-ds-control"
+                  aria-label={
+                    element.shape === "line" ? "Line thickness" : "Border width"
+                  }
+                />
+              </span>
+            </label>
+          ) : null}
+          {element.shape === "rect" ? (
+            <label className="block">
+              <span className={LABEL_CLASS}>Corner radius</span>
+              <input
+                type="range"
+                min={0}
+                max={50}
+                step={1}
+                value={element.radius ?? 0}
+                onChange={(event) => {
+                  const radius = Number(event.target.value);
+                  onUpdateElement(element.id, {
+                    radius: radius <= 0 ? undefined : radius,
+                  });
+                }}
+                className="w-full accent-ds-control"
+                aria-label="Corner radius"
+              />
+            </label>
+          ) : null}
         </div>
       );
     case "visual":
@@ -637,6 +775,223 @@ function ElementActionRow({
   );
 }
 
+/**
+ * Numeric box field (percent units). Commits clamped values to the element box.
+ */
+function NumberField({
+  label,
+  value,
+  min = 0,
+  max = 100,
+  onCommit,
+}: {
+  label: string;
+  value: number;
+  min?: number;
+  max?: number;
+  onCommit: (value: number) => void;
+}) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-[11px] text-ds-text-muted">{label}</span>
+      <input
+        type="number"
+        value={Math.round(value * 10) / 10}
+        min={min}
+        max={max}
+        step={1}
+        onChange={(event) => {
+          const n = Number(event.target.value);
+          if (Number.isFinite(n)) {
+            onCommit(Math.max(min, Math.min(max, n)));
+          }
+        }}
+        className={`w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-sm text-ds-text-primary outline-none ${FOCUS_RING}`}
+      />
+    </label>
+  );
+}
+
+/**
+ * Shared position & size editor for any element (percent units). Height is only
+ * offered for non-text kinds, since text / bullets height auto-fits the content.
+ */
+function ElementArrangeControl({
+  element,
+  onUpdateElement,
+}: {
+  element: SlideElement;
+  onUpdateElement: SlideInspectorProps["onUpdateElement"];
+}) {
+  const { x, y, w, h } = element.box;
+  const showHeight = element.kind !== "text" && element.kind !== "bullets";
+  const rotation = element.rotation ?? 0;
+  const update = (patch: Partial<typeof element.box>) =>
+    onUpdateElement(element.id, { box: { ...element.box, ...patch } });
+  return (
+    <div className="mt-3">
+      <span className={LABEL_CLASS}>Position &amp; size</span>
+      <div className="grid grid-cols-2 gap-2">
+        <NumberField label="X %" value={x} onCommit={(v) => update({ x: v })} />
+        <NumberField label="Y %" value={y} onCommit={(v) => update({ y: v })} />
+        <NumberField
+          label="W %"
+          value={w}
+          min={1}
+          onCommit={(v) => update({ w: v })}
+        />
+        {showHeight ? (
+          <NumberField
+            label="H %"
+            value={h}
+            min={1}
+            onCommit={(v) => update({ h: v })}
+          />
+        ) : null}
+        <NumberField
+          label="Rotate °"
+          value={rotation}
+          min={-180}
+          max={180}
+          onCommit={(v) =>
+            onUpdateElement(element.id, { rotation: v === 0 ? undefined : v })
+          }
+        />
+      </div>
+      <div className="mt-2 flex gap-2">
+        <button
+          type="button"
+          onClick={() => update({ x: (100 - w) / 2 })}
+          className={`flex-1 rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+        >
+          Center H
+        </button>
+        <button
+          type="button"
+          onClick={() => update({ y: (100 - h) / 2 })}
+          className={`flex-1 rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+        >
+          Center V
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Shared effects (drop shadow) and lock toggles for any selected element.
+ */
+function ElementEffectsControl({
+  element,
+  onUpdateElement,
+}: {
+  element: SlideElement;
+  onUpdateElement: SlideInspectorProps["onUpdateElement"];
+}) {
+  return (
+    <div className="mt-3 flex items-center gap-4">
+      <label className="flex items-center gap-2 text-xs text-ds-text-secondary">
+        <input
+          type="checkbox"
+          checked={element.shadow ?? false}
+          onChange={(event) =>
+            onUpdateElement(element.id, {
+              shadow: event.target.checked ? true : undefined,
+            })
+          }
+          className="accent-ds-control"
+        />
+        Shadow
+      </label>
+      <label className="flex items-center gap-2 text-xs text-ds-text-secondary">
+        <input
+          type="checkbox"
+          checked={element.locked ?? false}
+          onChange={(event) =>
+            onUpdateElement(element.id, {
+              locked: event.target.checked ? true : undefined,
+            })
+          }
+          className="accent-ds-control"
+        />
+        Lock
+      </label>
+    </div>
+  );
+}
+
+/**
+ * Shared opacity slider shown for any selected element. Stores `opacity` on the
+ * element (cleared to `undefined` at 100% so fully-opaque elements stay clean).
+ */
+function ElementOpacityControl({
+  element,
+  onUpdateElement,
+}: {
+  element: SlideElement;
+  onUpdateElement: SlideInspectorProps["onUpdateElement"];
+}) {
+  const value = element.opacity ?? 1;
+  const pct = Math.round(value * 100);
+  return (
+    <label className="mt-3 block">
+      <span className={`${LABEL_CLASS} flex items-center justify-between`}>
+        <span>Opacity</span>
+        <span className="tabular-nums text-ds-text-muted">{pct}%</span>
+      </span>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        value={pct}
+        onChange={(event) => {
+          const next = Number(event.target.value) / 100;
+          onUpdateElement(element.id, {
+            opacity: next >= 1 ? undefined : next,
+          });
+        }}
+        className="w-full accent-ds-control"
+        aria-label="Element opacity"
+      />
+    </label>
+  );
+}
+
+/**
+ * Font-family picker for text / bullets elements. Stores a CSS font stack in
+ * `style.fontFamily` (cleared to inherit the base font when "Default").
+ */
+function FontFamilyControl({
+  style,
+  onChange,
+}: {
+  style: TextElementStyle;
+  onChange: (style: TextElementStyle) => void;
+}) {
+  return (
+    <label className="block">
+      <span className={LABEL_CLASS}>Font</span>
+      <select
+        value={style.fontFamily ?? ""}
+        onChange={(event) => {
+          const value = event.target.value;
+          const next = { ...style };
+          if (value) next.fontFamily = value;
+          else delete next.fontFamily;
+          onChange(next);
+        }}
+        className={`${FIELD_CLASS} ${FOCUS_RING}`}
+      >
+        {FONT_FAMILIES.map((font) => (
+          <option key={font.label} value={font.value}>
+            {font.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 export function SlideInspector({
   slide,
   slideIndex,
@@ -657,6 +1012,8 @@ export function SlideInspector({
   onBringToFront,
   onSendToBack,
   onBackgroundChange,
+  onBackgroundGradientChange,
+  onBackgroundImageChange,
   onAccentChange,
   className = "flex w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle",
 }: SlideInspectorProps) {
@@ -812,6 +1169,18 @@ export function SlideInspector({
                     textColorPresets={textColorPresets}
                     onUpdateElement={onUpdateElement}
                   />
+                  <ElementArrangeControl
+                    element={selectedElement}
+                    onUpdateElement={onUpdateElement}
+                  />
+                  <ElementOpacityControl
+                    element={selectedElement}
+                    onUpdateElement={onUpdateElement}
+                  />
+                  <ElementEffectsControl
+                    element={selectedElement}
+                    onUpdateElement={onUpdateElement}
+                  />
                 </div>
               ) : (
                 <p className="text-xs text-ds-text-muted">
@@ -889,9 +1258,90 @@ export function SlideInspector({
               presets={THEME_ACCENT_SWATCHES}
               onChange={onAccentChange}
             />
+            <div className="border-t border-ds-border-subtle pt-3">
+              <span className={`${LABEL_CLASS} flex items-center justify-between`}>
+                <span>Gradient</span>
+                <input
+                  type="checkbox"
+                  checked={slide.backgroundGradient !== undefined}
+                  onChange={(event) =>
+                    onBackgroundGradientChange(
+                      event.target.checked
+                        ? {
+                            from: slide.backgroundGradient?.from ?? "#6366f1",
+                            to: slide.backgroundGradient?.to ?? "#ec4899",
+                            angle: slide.backgroundGradient?.angle ?? 135,
+                          }
+                        : undefined,
+                    )
+                  }
+                  className="accent-ds-control"
+                  aria-label="Enable gradient background"
+                />
+              </span>
+              {slide.backgroundGradient ? (
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={slide.backgroundGradient.from}
+                    onChange={(event) =>
+                      onBackgroundGradientChange({
+                        ...slide.backgroundGradient!,
+                        from: event.target.value,
+                      })
+                    }
+                    className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
+                    aria-label="Gradient start color"
+                  />
+                  <input
+                    type="color"
+                    value={slide.backgroundGradient.to}
+                    onChange={(event) =>
+                      onBackgroundGradientChange({
+                        ...slide.backgroundGradient!,
+                        to: event.target.value,
+                      })
+                    }
+                    className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
+                    aria-label="Gradient end color"
+                  />
+                  <input
+                    type="range"
+                    min={0}
+                    max={360}
+                    step={5}
+                    value={slide.backgroundGradient.angle ?? 135}
+                    onChange={(event) =>
+                      onBackgroundGradientChange({
+                        ...slide.backgroundGradient!,
+                        angle: Number(event.target.value),
+                      })
+                    }
+                    className="flex-1 accent-ds-control"
+                    aria-label="Gradient angle"
+                  />
+                </div>
+              ) : null}
+            </div>
+            <label className="block">
+              <span className={LABEL_CLASS}>Background image URL</span>
+              <input
+                type="text"
+                value={slide.backgroundImage ?? ""}
+                onChange={(event) =>
+                  onBackgroundImageChange(
+                    event.target.value.trim() === ""
+                      ? undefined
+                      : event.target.value.trim(),
+                  )
+                }
+                placeholder="https://… or data:image/…"
+                className={`${FIELD_CLASS} ${FOCUS_RING}`}
+              />
+            </label>
             <p className="text-xs text-ds-text-muted">
-              Overrides apply to this slide only. Pick a theme swatch, or use
-              “Custom…” for any color. “Theme” clears the override.
+              Overrides apply to this slide only. Image &gt; gradient &gt; solid
+              color. “Theme” clears the color override.
             </p>
           </div>
         ) : null}

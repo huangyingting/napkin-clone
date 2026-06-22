@@ -717,3 +717,45 @@ export function setSlideAccent(
     return next;
   });
 }
+
+/**
+ * Sets (or clears) a slide's background gradient. Setting it clears any
+ * background image so the precedence (image > gradient > solid) stays clean.
+ */
+export function setSlideBackgroundGradient(
+  deck: Deck,
+  index: number,
+  gradient: { from: string; to: string; angle?: number } | undefined,
+): Deck {
+  return mapSlide(deck, index, (slide) => {
+    const next = { ...slide };
+    if (gradient === undefined) {
+      delete next.backgroundGradient;
+    } else {
+      next.backgroundGradient = gradient;
+      delete next.backgroundImage;
+    }
+    return next;
+  });
+}
+
+/**
+ * Sets (or clears) a slide's background image. Setting it clears any background
+ * gradient so the precedence stays clean.
+ */
+export function setSlideBackgroundImage(
+  deck: Deck,
+  index: number,
+  image: string | undefined,
+): Deck {
+  return mapSlide(deck, index, (slide) => {
+    const next = { ...slide };
+    if (image === undefined) {
+      delete next.backgroundImage;
+    } else {
+      next.backgroundImage = image;
+      delete next.backgroundGradient;
+    }
+    return next;
+  });
+}
