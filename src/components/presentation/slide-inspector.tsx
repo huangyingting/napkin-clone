@@ -58,7 +58,10 @@ import type {
   ConnectorElement,
   ConnectorEndpoint,
   Deck,
+  ImageCrop,
   ImageElement,
+  ImageFitMode,
+  ImageMaskShape,
   PlaceholderElement,
   SlideLayout as ReusableSlideLayout,
   SlideLayoutHint,
@@ -427,6 +430,8 @@ function RichTextBox({
  *    budget so autosave stays cheap (#247).
  *  - **URL / data URL** — the existing text field still accepts a pasted source.
  *  - **Alt text** — accessible description, unchanged.
+ *  - **Fit / mask / crop** — non-destructive presentation controls stored on the
+ *    element so the canvas, present mode, and export paths can honor them.
  */
 function ImageElementEditor({
   element,
@@ -506,30 +511,18 @@ function ImageElementEditor({
           className={`${FIELD_CLASS} ${FOCUS_RING}`}
         />
       </label>
-      <div className="flex items-center justify-between gap-2">
-        <span className={LABEL_CLASS + " mb-0"}>Fit</span>
-        <div role="radiogroup" aria-label="Image fit" className="flex gap-0.5">
-          {(["contain", "cover"] as const).map((fit) => {
-            const active = (element.fit ?? "contain") === fit;
-            return (
-              <button
-                key={fit}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                onClick={() => onUpdateElement(element.id, { fit })}
-                className={`rounded-ds-sm px-2 py-1 text-xs font-medium capitalize transition-colors ${
-                  active
-                    ? "bg-ds-control text-ds-control-text"
-                    : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
-                } ${FOCUS_RING}`}
-              >
-                {fit}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <ImageFitModeControl
+        fitMode={element.fitMode}
+        onChange={(fitMode) => onUpdateElement(element.id, { fitMode })}
+      />
+      <ImageMaskControl
+        maskShape={element.maskShape}
+        onChange={(maskShape) => onUpdateElement(element.id, { maskShape })}
+      />
+      <ImageCropControl
+        crop={element.crop}
+        onChange={(crop) => onUpdateElement(element.id, { crop })}
+      />
       {showAdvanced ? (
         <label className="block">
           <span className={LABEL_CLASS}>Corner radius</span>
@@ -550,6 +543,166 @@ function ImageElementEditor({
           />
         </label>
       ) : null}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Image controls
+// ---------------------------------------------------------------------------
+
+const IMAGE_FIT_MODE_OPTIONS: {
+  value: ImageFitMode;
+  label: string;
+  title: string;
+}[] = [
+  {
+    value: "contain",
+    label: "Contain",
+    title: "Show the full image inside the box",
+  },
+  {
+    value: "cover",
+    label: "Cover",
+    title: "Fill the box and crop overflow",
+  },
+  {
+    value: "fill",
+    label: "Fill",
+    title: "Stretch the image to fill the box",
+  },
+  {
+    value: "none",
+    label: "None",
+    title: "Keep the image at its intrinsic size and clip overflow",
+  },
+];
+
+const IMAGE_MASK_OPTIONS: { value: ImageMaskShape; label: string }[] = [
+  { value: "none", label: "None" },
+  { value: "circle", label: "Circle" },
+  { value: "rounded", label: "Rounded" },
+  { value: "diamond", label: "Diamond" },
+];
+
+function ImageFitModeControl({
+  fitMode,
+  onChange,
+}: {
+  fitMode: ImageFitMode | undefined;
+  onChange: (fitMode: ImageFitMode | undefined) => void;
+}) {
+  const active = fitMode ?? "contain";
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className={LABEL_CLASS + " mb-0"}>Fit</span>
+      <div
+        role="radiogroup"
+        aria-label="Image fit mode"
+        className="flex flex-wrap justify-end gap-0.5"
+      >
+        {IMAGE_FIT_MODE_OPTIONS.map(({ value, label, title }) => {
+          const isActive = active === value;
+          return (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={isActive}
+              title={title}
+              onClick={() => onChange(value === "contain" ? undefined : value)}
+              className={`rounded-ds-sm px-2 py-1 text-xs font-medium transition-colors ${
+                isActive
+                  ? "bg-ds-control text-ds-control-text"
+                  : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+              } ${FOCUS_RING}`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ImageMaskControl({
+  maskShape,
+  onChange,
+}: {
+  maskShape: ImageMaskShape | undefined;
+  onChange: (maskShape: ImageMaskShape | undefined) => void;
+}) {
+  return (
+    <label className="block">
+      <span className={LABEL_CLASS}>Mask</span>
+      <select
+        value={maskShape ?? "none"}
+        onChange={(event) => {
+          const value = event.target.value as ImageMaskShape;
+          onChange(value === "none" ? undefined : value);
+        }}
+        className={`${FIELD_CLASS} ${FOCUS_RING}`}
+      >
+        {IMAGE_MASK_OPTIONS.map(({ value, label }) => (
+          <option key={value} value={value}>
+            {label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function ImageCropControl({
+  crop,
+  onChange,
+}: {
+  crop: ImageCrop | undefined;
+  onChange: (crop: ImageCrop | undefined) => void;
+}) {
+  const current: ImageCrop = crop ?? {
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  };
+
+  function commit(side: keyof ImageCrop, value: number) {
+    const next = {
+      ...current,
+      [side]: Math.max(0, Math.min(100, value)) / 100,
+    };
+    onChange(
+      Object.values(next).every((entry) => entry <= 0) ? undefined : next,
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <span className={LABEL_CLASS + " mb-0"}>Crop</span>
+      <div className="grid grid-cols-2 gap-2">
+        <NumberField
+          label="Top %"
+          value={current.top * 100}
+          onCommit={(value) => commit("top", value)}
+        />
+        <NumberField
+          label="Right %"
+          value={current.right * 100}
+          onCommit={(value) => commit("right", value)}
+        />
+        <NumberField
+          label="Bottom %"
+          value={current.bottom * 100}
+          onCommit={(value) => commit("bottom", value)}
+        />
+        <NumberField
+          label="Left %"
+          value={current.left * 100}
+          onCommit={(value) => commit("left", value)}
+        />
+      </div>
     </div>
   );
 }

@@ -9,6 +9,8 @@
 
 import {
   DECK_THEMES,
+  IMAGE_FIT_MODES,
+  IMAGE_MASK_SHAPES,
   PLACEHOLDER_TYPES,
   SLIDE_LAYOUTS,
   makeSlideId,
@@ -24,6 +26,9 @@ import {
   type DeckTheme,
   type ElementAlign,
   type ElementBox,
+  type ImageCrop,
+  type ImageFitMode,
+  type ImageMaskShape,
   type PlaceholderElement,
   type PlaceholderType,
   type ShapeKind,
@@ -131,6 +136,56 @@ function validateTextFitMode(
     );
   }
   return value as TextFitMode;
+}
+
+function validateUnitFraction(value: unknown, context: string): number {
+  const n = validateFiniteNumber(value, context);
+  if (n < 0 || n > 1) {
+    throw new DeckValidationError(`${context} must be between 0 and 1`);
+  }
+  return n;
+}
+
+export function validateImageFitMode(
+  value: unknown,
+  context: string,
+): ImageFitMode | undefined {
+  if (value === undefined) return undefined;
+  if (!IMAGE_FIT_MODES.includes(value as ImageFitMode)) {
+    throw new DeckValidationError(
+      `${context} must be one of: ${IMAGE_FIT_MODES.join(", ")}`,
+    );
+  }
+  return value as ImageFitMode;
+}
+
+export function validateImageMaskShape(
+  value: unknown,
+  context: string,
+): ImageMaskShape | undefined {
+  if (value === undefined) return undefined;
+  if (!IMAGE_MASK_SHAPES.includes(value as ImageMaskShape)) {
+    throw new DeckValidationError(
+      `${context} must be one of: ${IMAGE_MASK_SHAPES.join(", ")}`,
+    );
+  }
+  return value as ImageMaskShape;
+}
+
+export function validateImageCrop(
+  input: unknown,
+  context: string,
+): ImageCrop | undefined {
+  if (input === undefined) return undefined;
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  return {
+    top: validateUnitFraction(input.top, `${context}.top`),
+    right: validateUnitFraction(input.right, `${context}.right`),
+    bottom: validateUnitFraction(input.bottom, `${context}.bottom`),
+    left: validateUnitFraction(input.left, `${context}.left`),
+  };
 }
 
 function isIsoTimestamp(value: unknown): value is string {
@@ -606,6 +661,15 @@ export function validateElement(input: unknown, context: string): SlideElement {
       if (input.alt !== undefined && typeof input.alt !== "string") {
         throw new DeckValidationError(`${context}.alt must be a string`);
       }
+      const fitMode = validateImageFitMode(
+        input.fitMode ?? input.fit,
+        `${context}.fitMode`,
+      );
+      const maskShape = validateImageMaskShape(
+        input.maskShape,
+        `${context}.maskShape`,
+      );
+      const crop = validateImageCrop(input.crop, `${context}.crop`);
       return {
         ...base,
         kind: "image",
@@ -622,9 +686,9 @@ export function validateElement(input: unknown, context: string): SlideElement {
               ),
             }
           : {}),
-        ...(input.fit === "cover" || input.fit === "contain"
-          ? { fit: input.fit }
-          : {}),
+        ...(fitMode !== undefined ? { fitMode } : {}),
+        ...(maskShape !== undefined ? { maskShape } : {}),
+        ...(crop !== undefined ? { crop } : {}),
       };
     }
     case "shape": {

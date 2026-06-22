@@ -125,7 +125,10 @@ function shapeEl(
   };
 }
 
-function imageEl(id: string): ImageElement {
+function imageEl(
+  id: string,
+  overrides: Partial<ImageElement> = {},
+): ImageElement {
   return {
     id,
     kind: "image",
@@ -133,6 +136,7 @@ function imageEl(id: string): ImageElement {
     alt: "pic",
     zIndex: 4,
     box: { x: 70, y: 2, w: 25, h: 20 },
+    ...overrides,
   };
 }
 
@@ -387,6 +391,32 @@ test("all five element kinds each emit at least one op", () => {
   );
   assert.ok(ofKind(spec.ops, "shape").length >= 1, "shape op emitted");
   assert.ok(ofKind(spec.ops, "image").length >= 1, "image op emitted");
+});
+
+test("image ops carry fitMode, maskShape, and crop metadata", () => {
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [
+      freeFormSlide(0, [
+        imageEl("im", {
+          fitMode: "fill",
+          maskShape: "diamond",
+          crop: { top: 0.1, right: 0.2, bottom: 0.05, left: 0.15 },
+        }),
+      ]),
+    ],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const image = ofKind(spec.ops, "image")[0];
+  assert.equal(image?.fitMode, "fill");
+  assert.equal(image?.maskShape, "diamond");
+  assert.deepEqual(image?.crop, {
+    top: 0.1,
+    right: 0.2,
+    bottom: 0.05,
+    left: 0.15,
+  });
 });
 
 test("an image element with an empty src emits no image op (skips broken image)", () => {

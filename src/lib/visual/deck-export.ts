@@ -35,6 +35,9 @@ import type {
   DeckTheme,
   ElementAlign,
   ElementBox,
+  ImageCrop,
+  ImageFitMode,
+  ImageMaskShape,
   ShapeKind,
   Slide,
   TextFitMode,
@@ -261,7 +264,9 @@ export interface DeckImageOp extends InchBox {
   kind: "image";
   src: string;
   alt?: string;
-  fit?: "cover" | "contain";
+  fitMode?: ImageFitMode;
+  maskShape?: ImageMaskShape;
+  crop?: ImageCrop;
   radius?: number;
 }
 
@@ -614,7 +619,13 @@ function buildSlideSpec(
           ...box,
           src: element.src,
           ...(element.alt ? { alt: element.alt } : {}),
-          ...(element.fit ? { fit: element.fit } : {}),
+          ...(element.fitMode !== undefined
+            ? { fitMode: element.fitMode }
+            : {}),
+          ...(element.maskShape !== undefined
+            ? { maskShape: element.maskShape }
+            : {}),
+          ...(element.crop !== undefined ? { crop: element.crop } : {}),
           ...(element.radius
             ? { radius: (element.radius / 100) * Math.min(box.w, box.h) }
             : {}),
@@ -738,6 +749,87 @@ const SHADOW_OPTS = {
 function opacityTransparency(opacity: number | undefined): number | undefined {
   if (opacity === undefined) return undefined;
   return Math.round((1 - opacity) * 100);
+}
+
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function hasImageCrop(crop: ImageCrop | undefined): crop is ImageCrop {
+  return Boolean(
+    crop &&
+    (crop.top > 0 || crop.right > 0 || crop.bottom > 0 || crop.left > 0),
+  );
+}
+
+function imageObjectPosition(crop: ImageCrop | undefined): string {
+  if (!crop) return "50% 50%";
+  const remainingX = Math.max(0, 1 - crop.left - crop.right);
+  const remainingY = Math.max(0, 1 - crop.top - crop.bottom);
+  const x = Math.max(0, Math.min(1, crop.left + remainingX / 2));
+  const y = Math.max(0, Math.min(1, crop.top + remainingY / 2));
+  return `${x * 100}% ${y * 100}%`;
+}
+
+function imageNeedsRasterFallback(op: DeckImageOp): boolean {
+  return (
+    (op.maskShape !== undefined && op.maskShape !== "none") ||
+    (op.radius !== undefined && op.radius > 0) ||
+    hasImageCrop(op.crop) ||
+    op.fitMode === "none"
+  );
+}
+
+function renderStyledImageSvg(
+  op: DeckImageOp,
+  pxPerIn = 192,
+): SVGSVGElement | null {
+  if (typeof DOMParser === "undefined") {
+    return null;
+  }
+  const width = Math.max(1, Math.round(op.w * pxPerIn));
+  const height = Math.max(1, Math.round(op.h * pxPerIn));
+  const radius =
+    op.radius !== undefined && op.radius > 0 ? op.radius : undefined;
+  const roundedRadiusPx =
+    op.maskShape === "rounded"
+      ? radius !== undefined
+        ? Math.round(radius * pxPerIn)
+        : Math.round(Math.min(width, height) * 0.12)
+      : radius !== undefined
+        ? Math.round(radius * pxPerIn)
+        : 0;
+  const maskCss =
+    op.maskShape === "circle"
+      ? "clip-path:circle(50% at 50% 50%);"
+      : op.maskShape === "diamond"
+        ? "clip-path:polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);"
+        : roundedRadiusPx > 0
+          ? `border-radius:${roundedRadiusPx}px;`
+          : "";
+  const cropCss = hasImageCrop(op.crop)
+    ? `clip-path:inset(${op.crop.top * 100}% ${op.crop.right * 100}% ${op.crop.bottom * 100}% ${op.crop.left * 100}%);`
+    : "";
+  const fitMode = op.fitMode ?? "contain";
+  const svgString = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <foreignObject x="0" y="0" width="${width}" height="${height}">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="width:${width}px;height:${height}px;overflow:hidden;${maskCss}">
+      <div style="width:100%;height:100%;overflow:hidden;${cropCss}">
+        <img src="${escapeXml(op.src)}" alt="${escapeXml(op.alt ?? "")}" style="display:block;width:100%;height:100%;object-fit:${fitMode};object-position:${imageObjectPosition(
+          op.crop,
+        )};" />
+      </div>
+    </div>
+  </foreignObject>
+</svg>`;
+  const parsed = new DOMParser().parseFromString(svgString, "image/svg+xml");
+  const root = parsed.documentElement;
+  return root.tagName === "svg" ? (root as unknown as SVGSVGElement) : null;
 }
 
 /** Per-run PptxGenJS text options derived from a {@link TextRun}'s formatting. */
@@ -988,10 +1080,31 @@ function applyShapeOp(slide: PptxSlide, op: DeckShapeOp): void {
   applyShapeTextOp(slide, op);
 }
 
-function applyImageOp(slide: PptxSlide, op: DeckImageOp): void {
+async function applyImageOp(slide: PptxSlide, op: DeckImageOp): Promise<void> {
+  if (imageNeedsRasterFallback(op)) {
+    const styledSvg = renderStyledImageSvg(op);
+    if (styledSvg) {
+      const pngDataUrl = await svgToPngDataUrl(styledSvg);
+      if (pngDataUrl) {
+        slide.addImage({
+          data: pngDataUrl,
+          x: op.x,
+          y: op.y,
+          w: op.w,
+          h: op.h,
+          ...(op.alt ? { altText: op.alt } : {}),
+          ...(op.rotation ? { rotate: op.rotation } : {}),
+          ...(op.shadow ? { shadow: SHADOW_OPTS } : {}),
+        });
+        return;
+      }
+    }
+  }
+
   const source = op.src.startsWith("data:")
     ? { data: op.src }
     : { path: op.src };
+  const fitMode = op.fitMode === "none" ? "contain" : (op.fitMode ?? "contain");
   slide.addImage({
     ...source,
     x: op.x,
@@ -999,7 +1112,9 @@ function applyImageOp(slide: PptxSlide, op: DeckImageOp): void {
     w: op.w,
     h: op.h,
     ...(op.alt ? { altText: op.alt } : {}),
-    ...(op.fit ? { sizing: { type: op.fit, w: op.w, h: op.h } } : {}),
+    ...(fitMode === "cover" || fitMode === "contain"
+      ? { sizing: { type: fitMode, w: op.w, h: op.h } }
+      : {}),
     ...(op.rotation ? { rotate: op.rotation } : {}),
     ...(op.shadow ? { shadow: SHADOW_OPTS } : {}),
     ...(opacityTransparency(op.opacity) !== undefined
@@ -1093,7 +1208,7 @@ async function applyDeckOp(
       applyShapeOp(slide, op);
       break;
     case "image":
-      applyImageOp(slide, op);
+      await applyImageOp(slide, op);
       break;
     case "connector":
       applyConnectorOp(slide, op);
@@ -1446,7 +1561,7 @@ function renderImageSvg(
     clip = ` clip-path="url(#${clipId})"`;
   }
   const preserveAspectRatio =
-    "fit" in op && op.fit === "cover" ? "xMidYMid slice" : "xMidYMid meet";
+    "fitMode" in op && op.fitMode === "cover" ? "xMidYMid slice" : "xMidYMid meet";
   const style = [
     op.opacity !== undefined ? `opacity:${op.opacity};` : "",
     shadowCss(op.shadow),

@@ -522,6 +522,31 @@ export interface VisualElement extends BaseElement {
   alt?: string;
 }
 
+/** How an image is sized within its element box. */
+export const IMAGE_FIT_MODES = ["contain", "cover", "fill", "none"] as const;
+export type ImageFitMode = (typeof IMAGE_FIT_MODES)[number];
+
+/** Shape mask options for an image element. */
+export const IMAGE_MASK_SHAPES = [
+  "none",
+  "circle",
+  "rounded",
+  "diamond",
+] as const;
+export type ImageMaskShape = (typeof IMAGE_MASK_SHAPES)[number];
+
+/** Fractional clipping inset applied to an image element. */
+export interface ImageCrop {
+  /** Fraction clipped from the top edge (0–1). */
+  top: number;
+  /** Fraction clipped from the right edge (0–1). */
+  right: number;
+  /** Fraction clipped from the bottom edge (0–1). */
+  bottom: number;
+  /** Fraction clipped from the left edge (0–1). */
+  left: number;
+}
+
 export interface ImageElement extends BaseElement {
   kind: "image";
   src: string;
@@ -529,7 +554,11 @@ export interface ImageElement extends BaseElement {
   /** Optional corner radius as a percent of the box (0–50). */
   radius?: number;
   /** How the image fills its box. Defaults to "contain". */
-  fit?: "cover" | "contain";
+  fitMode?: ImageFitMode;
+  /** Optional shape mask applied over the image. Defaults to "none". */
+  maskShape?: ImageMaskShape;
+  /** Optional clipping inset. Defaults to no crop. */
+  crop?: ImageCrop;
 }
 
 export interface ShapeElement extends BaseElement {
