@@ -801,3 +801,33 @@ test("bullets op numbered list carries all items as number listType", () => {
   assert.equal(op.itemDetails?.[0].listType, "number");
   assert.equal(op.itemDetails?.[1].listType, "number");
 });
+
+test("bullets op carries both itemRuns and itemDetails for rich numbered/indented items", () => {
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [
+      freeFormSlide(0, [
+        bulletsEl("b", ["top", "nested"], {
+          items: [
+            { text: "top", indent: 0, listType: "bullet" },
+            {
+              text: "nested",
+              indent: 1,
+              listType: "number",
+              runs: [{ text: "nested", italic: true }],
+            },
+          ],
+        }),
+      ]),
+    ],
+  };
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const op = ofKind(spec.ops, "bullets")[0] as DeckBulletsOp;
+  assert.deepEqual(op.items, ["top", "nested"]);
+  assert.ok(op.itemRuns, "itemRuns present");
+  assert.deepEqual(op.itemRuns?.[1], [{ text: "nested", italic: true }]);
+  assert.ok(op.itemDetails, "itemDetails present");
+  assert.equal(op.itemDetails?.[0].indent, 0);
+  assert.equal(op.itemDetails?.[1].indent, 1);
+  assert.equal(op.itemDetails?.[1].listType, "number");
+});

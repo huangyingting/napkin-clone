@@ -732,17 +732,16 @@ function applyBulletsOp(slide: PptxSlide, op: DeckBulletsOp): void {
     op.itemRuns.some((runs) => runs && runs.length > 0);
 
   /** Build the pptxgenjs `bullet` option for item at index `i`. */
-  function bulletOpt(
-    i: number,
-  ): true | { type: "number" | "bullet"; indent?: number } {
+  function bulletOpt(i: number): true | { type: "number" | "bullet" } {
     const detail = op.itemDetails?.[i];
-    const indent = (detail?.indent ?? 0) * 25; // ~25pt per level
     const isNumbered = detail?.listType === "number";
-    if (indent === 0 && !isNumbered) return true;
-    return {
-      type: isNumbered ? "number" : "bullet",
-      ...(indent > 0 ? { indent } : {}),
-    };
+    if (!isNumbered && (detail?.indent ?? 0) === 0) return true;
+    return { type: isNumbered ? "number" : "bullet" };
+  }
+
+  /** Return the paragraph-level indent depth for item at index `i`. */
+  function itemIndentLevel(i: number): number {
+    return op.itemDetails?.[i]?.indent ?? 0;
   }
 
   if (!hasRuns) {
@@ -750,6 +749,7 @@ function applyBulletsOp(slide: PptxSlide, op: DeckBulletsOp): void {
       text,
       options: {
         bullet: bulletOpt(i),
+        indentLevel: itemIndentLevel(i),
         breakLine: i < op.items.length - 1,
       },
     }));
@@ -768,7 +768,9 @@ function applyBulletsOp(slide: PptxSlide, op: DeckBulletsOp): void {
           text: run.text === "\n" ? "" : run.text,
           options: {
             ...runToOptions(run),
-            ...(j === 0 ? { bullet: bulletOpt(i) } : {}),
+            ...(j === 0
+              ? { bullet: bulletOpt(i), indentLevel: itemIndentLevel(i) }
+              : {}),
             ...(isLastRun && !isLastLine ? { breakLine: true } : {}),
           },
         });
@@ -776,7 +778,11 @@ function applyBulletsOp(slide: PptxSlide, op: DeckBulletsOp): void {
     } else {
       runs.push({
         text,
-        options: { bullet: bulletOpt(i), breakLine: !isLastLine },
+        options: {
+          bullet: bulletOpt(i),
+          indentLevel: itemIndentLevel(i),
+          breakLine: !isLastLine,
+        },
       });
     }
   });
