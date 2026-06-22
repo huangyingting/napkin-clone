@@ -19,7 +19,7 @@ test("getUnsupportedFeatures returns only unsupported entries for a target", () 
   const unsupported = getUnsupportedFeatures("pptx");
   assert.deepEqual(
     unsupported.map((entry) => entry.feature),
-    ["source-ref-metadata"],
+    ["source-ref-metadata", "hidden-element"],
   );
 });
 
@@ -36,6 +36,7 @@ test("getDegradedFeatures returns partial and degraded entries for a target", ()
     "placeholder-element",
     "theme-typography",
     "visual-element",
+    "background-gradient",
   ]);
 });
 
@@ -79,4 +80,74 @@ test("image-mask is partial in PPTX due to raster fallback", () => {
 test("the fidelity matrix keeps every feature unique", () => {
   const features = EXPORT_FIDELITY_MATRIX.map((entry) => entry.feature);
   assert.equal(features.length, new Set(features).size);
+});
+
+// ---------------------------------------------------------------------------
+// New element kinds and slide features (issue #379)
+// ---------------------------------------------------------------------------
+
+test("hidden-element is unsupported on all export targets", () => {
+  assert.equal(getFidelity("hidden-element", "pptx"), "unsupported");
+  assert.equal(getFidelity("hidden-element", "pdf"), "unsupported");
+  assert.equal(getFidelity("hidden-element", "image"), "unsupported");
+  const entry = EXPORT_FIDELITY_MATRIX.find(
+    (e) => e.feature === "hidden-element",
+  );
+  assert.ok(entry?.notes?.includes("hidden=true"), "note explains filter");
+});
+
+test("locked-element has full fidelity on all export targets", () => {
+  assert.equal(getFidelity("locked-element", "pptx"), "full");
+  assert.equal(getFidelity("locked-element", "pdf"), "full");
+  assert.equal(getFidelity("locked-element", "image"), "full");
+  const entry = EXPORT_FIDELITY_MATRIX.find(
+    (e) => e.feature === "locked-element",
+  );
+  assert.ok(
+    entry?.notes?.includes("locked only affects editor"),
+    "note explains locked semantics",
+  );
+});
+
+test("background-solid has full fidelity on all export targets", () => {
+  assert.equal(getFidelity("background-solid", "pptx"), "full");
+  assert.equal(getFidelity("background-solid", "pdf"), "full");
+  assert.equal(getFidelity("background-solid", "image"), "full");
+});
+
+test("background-gradient is partial in PPTX (from-stop only) and full elsewhere", () => {
+  assert.equal(getFidelity("background-gradient", "pptx"), "partial");
+  assert.equal(getFidelity("background-gradient", "pdf"), "full");
+  assert.equal(getFidelity("background-gradient", "image"), "full");
+  const entry = EXPORT_FIDELITY_MATRIX.find(
+    (e) => e.feature === "background-gradient",
+  );
+  assert.ok(
+    entry?.notes?.includes("from"),
+    "note mentions 'from' stop fallback",
+  );
+});
+
+test("background-image has full fidelity on all export targets", () => {
+  assert.equal(getFidelity("background-image", "pptx"), "full");
+  assert.equal(getFidelity("background-image", "pdf"), "full");
+  assert.equal(getFidelity("background-image", "image"), "full");
+});
+
+test("getDegradedFeatures for pptx includes the new partial entries", () => {
+  const features = getDegradedFeatures("pptx").map((e) => e.feature);
+  assert.ok(
+    features.includes("background-gradient"),
+    "background-gradient partial",
+  );
+});
+
+test("getUnsupportedFeatures for all targets includes hidden-element", () => {
+  for (const target of ["pptx", "pdf", "image"] as const) {
+    const features = getUnsupportedFeatures(target).map((e) => e.feature);
+    assert.ok(
+      features.includes("hidden-element"),
+      `hidden-element unsupported for ${target}`,
+    );
+  }
 });

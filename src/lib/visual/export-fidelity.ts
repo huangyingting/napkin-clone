@@ -117,6 +117,42 @@ export const EXPORT_FIDELITY_MATRIX: FeatureFidelity[] = [
     notes:
       "native where possible; unsupported or transformed visuals rasterize to PNG",
   },
+  {
+    feature: "hidden-element",
+    pptx: "unsupported",
+    pdf: "unsupported",
+    image: "unsupported",
+    notes:
+      "hidden=true elements are filtered before export; they are not visual targets",
+  },
+  {
+    feature: "locked-element",
+    pptx: "full",
+    pdf: "full",
+    image: "full",
+    notes:
+      "locked only affects editor interactivity; locked elements export identically to unlocked ones",
+  },
+  {
+    feature: "background-solid",
+    pptx: "full",
+    pdf: "full",
+    image: "full",
+  },
+  {
+    feature: "background-gradient",
+    pptx: "partial",
+    pdf: "full",
+    image: "full",
+    notes:
+      "PPTX uses the gradient 'from' stop as a solid fill; full gradient is preserved for PDF/image renderers",
+  },
+  {
+    feature: "background-image",
+    pptx: "full",
+    pdf: "full",
+    image: "full",
+  },
 ];
 
 export function getFidelity(

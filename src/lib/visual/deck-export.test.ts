@@ -1101,3 +1101,295 @@ test("bullets op carries both itemRuns and itemDetails for rich numbered/indente
   assert.equal(op.itemDetails?.[1].indent, 1);
   assert.equal(op.itemDetails?.[1].listType, "number");
 });
+
+// ---------------------------------------------------------------------------
+// Hidden / locked / grouped elements (issue #379)
+// ---------------------------------------------------------------------------
+
+test("a hidden text element produces no ops", () => {
+  const deck: Deck = {
+    theme: "default",
+    slides: [freeFormSlide(0, [textEl("t-hidden", "ghost", { hidden: true })])],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  assert.equal(spec.ops.length, 0, "hidden element must not produce any ops");
+});
+
+test("a hidden element is dropped while its visible sibling on the same slide is kept", () => {
+  const deck: Deck = {
+    theme: "default",
+    slides: [
+      freeFormSlide(0, [
+        textEl("t-visible", "visible"),
+        textEl("t-hidden", "hidden", { hidden: true, zIndex: 1 }),
+      ]),
+    ],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const texts = ofKind(spec.ops, "text");
+  assert.equal(texts.length, 1, "only the visible text op survives");
+  assert.equal(texts[0]?.text, "visible");
+});
+
+test("a hidden image and a hidden shape both produce no ops", () => {
+  const deck: Deck = {
+    theme: "default",
+    slides: [
+      freeFormSlide(0, [
+        imageEl("im", { hidden: true }),
+        shapeEl("sh", { hidden: true, zIndex: 1 }),
+      ]),
+    ],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  assert.equal(spec.ops.length, 0, "all hidden elements dropped");
+});
+
+test("a locked text element exports identically to an unlocked one", () => {
+  const unlockedDeck: Deck = {
+    theme: "default",
+    slides: [freeFormSlide(0, [textEl("t", "hello")])],
+  };
+  const lockedDeck: Deck = {
+    theme: "default",
+    slides: [freeFormSlide(0, [textEl("t", "hello", { locked: true })])],
+  };
+
+  const [uSpec] = buildDeckSpecs(unlockedDeck, new Map());
+  const [lSpec] = buildDeckSpecs(lockedDeck, new Map());
+  const uText = ofKind(uSpec.ops, "text")[0] as DeckTextOp;
+  const lText = ofKind(lSpec.ops, "text")[0] as DeckTextOp;
+
+  assert.ok(uText && lText, "both produce text ops");
+  assert.equal(lText.text, uText.text);
+  assert.equal(lText.x, uText.x);
+  assert.equal(lText.w, uText.w);
+});
+
+test("a locked shape exports with full geometry (lock is editor-only)", () => {
+  const deck: Deck = {
+    theme: "default",
+    slides: [freeFormSlide(0, [shapeEl("sh", { locked: true })])],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  assert.equal(ofKind(spec.ops, "shape").length, 1, "locked shape produces op");
+});
+
+test("grouped elements each emit their own op (group membership is flattened in export)", () => {
+  const deck: Deck = {
+    theme: "default",
+    slides: [
+      freeFormSlide(0, [
+        textEl("t1", "Group member A", { groupId: "g1" }),
+        textEl("t2", "Group member B", { groupId: "g1", zIndex: 1 }),
+        textEl("t3", "No group", { zIndex: 2 }),
+      ]),
+    ],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const texts = ofKind(spec.ops, "text");
+  assert.equal(texts.length, 3, "all three elements produce ops");
+  assert.deepEqual(
+    texts.map((t) => t.text),
+    ["Group member A", "Group member B", "No group"],
+  );
+});
+
+test("grouped shapes export in z-order and preserve geometry", () => {
+  const deck: Deck = {
+    theme: "default",
+    slides: [
+      freeFormSlide(0, [
+        shapeEl("sh1", { groupId: "g2", box: { x: 5, y: 5, w: 20, h: 15 } }),
+        shapeEl("sh2", {
+          groupId: "g2",
+          zIndex: 1,
+          box: { x: 30, y: 5, w: 20, h: 15 },
+        }),
+      ]),
+    ],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  assert.equal(
+    ofKind(spec.ops, "shape").length,
+    2,
+    "both grouped shapes export",
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Background gradient and image (issue #379)
+// ---------------------------------------------------------------------------
+
+test("backgroundGradient: spec.background uses the 'from' stop color", () => {
+  const deck: Deck = {
+    theme: "default",
+    slides: [
+      freeFormSlide(0, [textEl("t", "Gradient bg")], {
+        backgroundGradient: { from: "#112233", to: "#aabbcc" },
+      }),
+    ],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  assert.equal(
+    spec.background,
+    "112233",
+    "gradient from-stop used as PPTX background",
+  );
+});
+
+test("backgroundGradient with explicit background color: solid background takes precedence", () => {
+  // The exporter uses `slide.background ?? slide.backgroundGradient?.from`, so
+  // when both fields are set the explicit solid color is used.
+  const deck: Deck = {
+    theme: "default",
+    slides: [
+      freeFormSlide(0, [textEl("t", "Both")], {
+        background: "#ffffff",
+        backgroundGradient: { from: "#334455", to: "#aabbcc" },
+      }),
+    ],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  assert.equal(spec.background, "FFFFFF");
+});
+
+test("backgroundImage is forwarded verbatim to the slide spec", () => {
+  const dataUrl = "data:image/jpeg;base64,JFIF";
+  const deck: Deck = {
+    theme: "default",
+    slides: [
+      freeFormSlide(0, [textEl("t", "Image bg")], {
+        backgroundImage: dataUrl,
+      }),
+    ],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  assert.equal(
+    spec.backgroundImage,
+    dataUrl,
+    "backgroundImage verbatim in spec",
+  );
+});
+
+test("slide without any background override uses the theme default", () => {
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [freeFormSlide(0, [textEl("t", "Theme bg")])],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  assert.ok(
+    spec.background.length === 6,
+    "background is a 6-char hex string from the theme",
+  );
+  assert.equal(spec.backgroundImage, undefined, "no backgroundImage in spec");
+});
+
+// ---------------------------------------------------------------------------
+// sourceRef metadata (issue #379)
+// ---------------------------------------------------------------------------
+
+test("text element with an active sourceRef still emits a normal text op", () => {
+  const deck: Deck = {
+    theme: "default",
+    slides: [
+      freeFormSlide(0, [
+        textEl("t-linked", "Source-linked text", {
+          sourceRef: {
+            documentId: "doc-x",
+            blockId: "blk-1",
+            contentHash: "deadbeef",
+            linkedAt: "2026-01-01T00:00:00Z",
+          },
+        }),
+      ]),
+    ],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const text = ofKind(spec.ops, "text")[0] as DeckTextOp;
+  assert.ok(text, "text op emitted");
+  assert.equal(text.text, "Source-linked text");
+});
+
+test("bullets element with sourceRef still emits a normal bullets op", () => {
+  const deck: Deck = {
+    theme: "default",
+    slides: [
+      freeFormSlide(0, [
+        bulletsEl("b-linked", ["alpha", "beta"], {
+          sourceRef: {
+            documentId: "doc-x",
+            blockId: "blk-2",
+            linkedAt: "2026-01-01T00:00:00Z",
+          },
+        }),
+      ]),
+    ],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const bullets = ofKind(spec.ops, "bullets")[0] as DeckBulletsOp;
+  assert.ok(bullets, "bullets op emitted");
+  assert.deepEqual(bullets.items, ["alpha", "beta"]);
+});
+
+test("image element with sourceRef still emits a normal image op", () => {
+  const deck: Deck = {
+    theme: "default",
+    slides: [
+      freeFormSlide(0, [
+        imageEl("im-linked", {
+          sourceRef: {
+            documentId: "doc-x",
+            blockId: "blk-3",
+            linkedAt: "2026-01-01T00:00:00Z",
+          },
+        }),
+      ]),
+    ],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  assert.equal(
+    ofKind(spec.ops, "image").length,
+    1,
+    "image op emitted with sourceRef",
+  );
+});
+
+test("element with unlinked=true sourceRef exports normally (unlinked is metadata-only)", () => {
+  const deck: Deck = {
+    theme: "default",
+    slides: [
+      freeFormSlide(0, [
+        textEl("t-unlinked", "Detached", {
+          sourceRef: {
+            documentId: "doc-x",
+            blockId: "blk-4",
+            linkedAt: "2026-01-01T00:00:00Z",
+            unlinked: true,
+          },
+        }),
+      ]),
+    ],
+  };
+
+  const [spec] = buildDeckSpecs(deck, new Map());
+  assert.equal(
+    ofKind(spec.ops, "text").length,
+    1,
+    "unlinked element still exports",
+  );
+  assert.equal(ofKind(spec.ops, "text")[0]?.text, "Detached");
+});

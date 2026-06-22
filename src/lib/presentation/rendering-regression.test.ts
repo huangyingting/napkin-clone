@@ -24,20 +24,25 @@ import type {
   BulletsElement,
   ConnectorElement,
   Deck,
+  ImageElement,
+  PlaceholderElement,
   ShapeElement,
   Slide,
   SlideElement,
   TextElement,
+  VisualElement,
 } from "@/lib/presentation/deck";
 import { resolveConnectorElementPoints } from "@/lib/presentation/connector-geometry";
 import {
   buildDeckSpecs,
   type DeckBulletsOp,
   type DeckConnectorOp,
+  type DeckImageOp,
   type DeckOp,
   type DeckShapeOp,
   type DeckTextOp,
 } from "@/lib/visual/deck-export";
+import type { Visual, VisualNode } from "@/lib/visual/schema";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -821,4 +826,493 @@ test("[AC-6] connector between two shapes tracks both when both move", () => {
   );
   assert.deepEqual(r2.start, { x: 25, y: 15 }, "start follows moved A");
   assert.deepEqual(r2.end, { x: 70, y: 15 }, "end follows moved B");
+});
+
+// ---------------------------------------------------------------------------
+// AC-7 — Image element rendering
+// ---------------------------------------------------------------------------
+
+function imageEl(
+  id: string,
+  overrides: Partial<ImageElement> = {},
+): ImageElement {
+  return {
+    id,
+    kind: "image",
+    src: "data:image/png;base64,AAAA",
+    alt: "test image",
+    zIndex: 0,
+    box: { x: 10, y: 10, w: 40, h: 30 },
+    ...overrides,
+  };
+}
+
+test("[AC-7] image op carries src and geometry", () => {
+  const ops = buildOps([imageEl("img1")]);
+  const op = ofKind(ops, "image")[0] as DeckImageOp;
+
+  assert.ok(op, "image op emitted");
+  assert.equal(op.src, "data:image/png;base64,AAAA");
+  assert.ok(
+    Number.isFinite(op.x) && op.x >= 0,
+    "x is a finite non-negative number",
+  );
+  assert.ok(Number.isFinite(op.w) && op.w > 0, "w is a positive number");
+});
+
+test("[AC-7] image op carries fitMode when set to fill", () => {
+  const ops = buildOps([imageEl("img2", { fitMode: "fill" })]);
+  const op = ofKind(ops, "image")[0] as DeckImageOp;
+
+  assert.equal(op.fitMode, "fill");
+});
+
+test("[AC-7] image op carries fitMode when set to contain", () => {
+  const ops = buildOps([imageEl("img3", { fitMode: "contain" })]);
+  const op = ofKind(ops, "image")[0] as DeckImageOp;
+
+  assert.equal(op.fitMode, "contain");
+});
+
+test("[AC-7] image op carries fitMode when set to cover", () => {
+  const ops = buildOps([imageEl("img4", { fitMode: "cover" })]);
+  const op = ofKind(ops, "image")[0] as DeckImageOp;
+
+  assert.equal(op.fitMode, "cover");
+});
+
+test("[AC-7] image op carries maskShape when set", () => {
+  const ops = buildOps([imageEl("img5", { maskShape: "circle" })]);
+  const op = ofKind(ops, "image")[0] as DeckImageOp;
+
+  assert.equal(op.maskShape, "circle");
+});
+
+test("[AC-7] image op carries crop metadata", () => {
+  const crop = { top: 0.05, right: 0.1, bottom: 0.15, left: 0.2 };
+  const ops = buildOps([imageEl("img6", { crop })]);
+  const op = ofKind(ops, "image")[0] as DeckImageOp;
+
+  assert.deepEqual(op.crop, crop);
+});
+
+test("[AC-7] image op omits fitMode, maskShape, crop when absent", () => {
+  const ops = buildOps([imageEl("img7")]);
+  const op = ofKind(ops, "image")[0] as DeckImageOp;
+
+  assert.equal(op.fitMode, undefined, "fitMode absent");
+  assert.equal(op.maskShape, undefined, "maskShape absent");
+  assert.equal(op.crop, undefined, "crop absent");
+});
+
+test("[AC-7] image with empty src produces no op (broken image skipped)", () => {
+  const ops = buildOps([imageEl("img8", { src: "" })]);
+
+  assert.equal(ofKind(ops, "image").length, 0, "no image op for empty src");
+});
+
+test("[AC-7] image with whitespace src is treated as empty and skipped", () => {
+  const ops = buildOps([imageEl("img9", { src: "   " })]);
+
+  assert.equal(ofKind(ops, "image").length, 0);
+});
+
+// ---------------------------------------------------------------------------
+// AC-8 — Visual element rendering
+// ---------------------------------------------------------------------------
+
+function visualNode(
+  id: string,
+  label: string,
+  x: number,
+  y: number,
+): VisualNode {
+  return { id, label, x, y, width: 150, height: 56 };
+}
+
+function flowchartVisual(): Visual {
+  return {
+    version: 1,
+    type: "flowchart",
+    width: 760,
+    height: 480,
+    nodes: [
+      visualNode("a", "Alpha", 100, 100),
+      visualNode("b", "Beta", 100, 300),
+    ],
+    edges: [{ id: "e1", from: "a", to: "b" }],
+    style: {
+      palette: ["#6366f1", "#0ea5e9", "#10b981"],
+      background: "#ffffff",
+      nodeFill: "#eef2ff",
+      nodeStroke: "#6366f1",
+      nodeText: "#1e1b4b",
+      edgeColor: "#94a3b8",
+      fontFamily: "ui-sans-serif, system-ui, sans-serif",
+      fontSize: 14,
+      fontWeight: 600,
+    },
+  };
+}
+
+function visualEl(
+  id: string,
+  visualId: string,
+  overrides: Partial<VisualElement> = {},
+): VisualElement {
+  return {
+    id,
+    kind: "visual",
+    visualId,
+    zIndex: 0,
+    box: { x: 10, y: 10, w: 50, h: 40 },
+    ...overrides,
+  };
+}
+
+test("[AC-8] native visual emits exactly one visual-native op and no fallback", () => {
+  const visuals = new Map<string, Visual>([["v1", flowchartVisual()]]);
+  const [spec] = buildDeckSpecs(deck([visualEl("ve", "v1")]), visuals);
+
+  assert.equal(ofKind(spec.ops, "visual-native").length, 1, "one native op");
+  assert.equal(ofKind(spec.ops, "visual-fallback").length, 0, "no fallback op");
+});
+
+test("[AC-8] unknown visual id produces no ops at all", () => {
+  const [spec] = buildDeckSpecs(deck([visualEl("ve", "missing")]), new Map());
+
+  assert.equal(spec.ops.length, 0, "no ops for orphaned visual reference");
+});
+
+test("[AC-8] visual with rotation falls back to rasterised image", () => {
+  const visuals = new Map<string, Visual>([["v1", flowchartVisual()]]);
+  const transformed = visualEl("ve", "v1", { rotation: 30 });
+  const [spec] = buildDeckSpecs(deck([transformed]), visuals);
+
+  assert.equal(ofKind(spec.ops, "visual-native").length, 0, "no native op");
+  assert.equal(
+    ofKind(spec.ops, "visual-fallback").length,
+    1,
+    "fallback op present",
+  );
+});
+
+test("[AC-8] visual with opacity falls back to rasterised image", () => {
+  const visuals = new Map<string, Visual>([["v1", flowchartVisual()]]);
+  const [spec] = buildDeckSpecs(
+    deck([visualEl("ve", "v1", { opacity: 0.5 })]),
+    visuals,
+  );
+
+  assert.equal(ofKind(spec.ops, "visual-native").length, 0);
+  assert.equal(ofKind(spec.ops, "visual-fallback").length, 1);
+});
+
+test("[AC-8] known visual alongside unknown emits only one op (orphan is dropped)", () => {
+  const visuals = new Map<string, Visual>([["v1", flowchartVisual()]]);
+  const els: SlideElement[] = [
+    visualEl("good", "v1"),
+    { ...visualEl("bad", "orphan"), zIndex: 1 },
+  ];
+  const [spec] = buildDeckSpecs(deck(els), visuals);
+
+  const totalVisualOps =
+    ofKind(spec.ops, "visual-native").length +
+    ofKind(spec.ops, "visual-fallback").length;
+  assert.equal(totalVisualOps, 1, "only the resolvable visual emits an op");
+});
+
+// ---------------------------------------------------------------------------
+// AC-9 — Placeholder element rendering
+// ---------------------------------------------------------------------------
+
+function placeholderEl(
+  id: string,
+  overrides: Partial<PlaceholderElement> = {},
+): PlaceholderElement {
+  return {
+    id,
+    kind: "placeholder",
+    placeholderType: "body",
+    zIndex: 0,
+    box: { x: 10, y: 20, w: 50, h: 30 },
+    ...overrides,
+  };
+}
+
+test("[AC-9] placeholder exports as a shape outline plus a label text op", () => {
+  const ops = buildOps([placeholderEl("ph1")]);
+
+  assert.equal(ofKind(ops, "shape").length, 1, "placeholder outline shape op");
+  assert.equal(ofKind(ops, "text").length, 1, "placeholder label text op");
+  assert.equal(
+    ofKind(ops, "text")[0]?.text,
+    "Body",
+    "label shows placeholder type",
+  );
+});
+
+test("[AC-9] placeholder with custom label uses that label in the text op", () => {
+  const ops = buildOps([
+    placeholderEl("ph2", { placeholderType: "title", label: "Custom Heading" }),
+  ]);
+  const textOp = ofKind(ops, "text")[0];
+
+  assert.equal(
+    textOp?.text,
+    "Custom Heading",
+    "custom label used over type name",
+  );
+});
+
+test("[AC-9] placeholder text op carries correct geometry within slide bounds", () => {
+  const ops = buildOps([
+    placeholderEl("ph3", { box: { x: 0, y: 0, w: 100, h: 50 } }),
+  ]);
+  const textOp = ofKind(ops, "text")[0];
+
+  assert.ok(textOp, "text op present");
+  // Placeholder insets the label by 8% on each side (see deck-export.ts).
+  const expectedX = SLIDE_W * 0.08;
+  const expectedY = SLIDE_H * 0.5 * 0.08;
+  const expectedW = SLIDE_W * 0.84;
+  const expectedH = SLIDE_H * 0.5 * 0.84;
+  assert.ok(
+    Math.abs(textOp.x - expectedX) < 0.01,
+    `x ≈ ${expectedX.toFixed(3)}`,
+  );
+  assert.ok(
+    Math.abs(textOp.y - expectedY) < 0.01,
+    `y ≈ ${expectedY.toFixed(3)}`,
+  );
+  assert.ok(
+    Math.abs(textOp.w - expectedW) < 0.01,
+    `w ≈ ${expectedW.toFixed(3)}`,
+  );
+  assert.ok(
+    Math.abs(textOp.h - expectedH) < 0.01,
+    `h ≈ ${expectedH.toFixed(3)}`,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// AC-10 — Hidden / locked / grouped element rendering
+// ---------------------------------------------------------------------------
+
+test("[AC-10] hidden=true element produces no ops", () => {
+  const ops = buildOps([textEl("t1", "invisible", { hidden: true })]);
+
+  assert.equal(ops.length, 0, "hidden element must not produce any ops");
+});
+
+test("[AC-10] hidden text element is dropped while sibling visible element is kept", () => {
+  const ops = buildOps([
+    textEl("t-hidden", "hidden text", { hidden: true }),
+    textEl("t-visible", "visible text", { zIndex: 1 }),
+  ]);
+
+  const textOps = ofKind(ops, "text");
+  assert.equal(textOps.length, 1, "only one text op for the visible element");
+  assert.equal(textOps[0].text, "visible text");
+});
+
+test("[AC-10] hidden shape is dropped while visible shape sibling is kept", () => {
+  const ops = buildOps([
+    shapeEl("sh-hidden", { hidden: true }),
+    shapeEl("sh-visible", { zIndex: 1 }),
+  ]);
+
+  assert.equal(
+    ofKind(ops, "shape").length,
+    1,
+    "only visible shape produces op",
+  );
+});
+
+test("[AC-10] locked=true element exports identically to an unlocked element", () => {
+  const unlockedOps = buildOps([textEl("t-unlocked", "hello")]);
+  const lockedOps = buildOps([textEl("t-locked", "hello", { locked: true })]);
+
+  const unlockedOp = ofKind(unlockedOps, "text")[0];
+  const lockedOp = ofKind(lockedOps, "text")[0];
+
+  assert.ok(unlockedOp, "unlocked op present");
+  assert.ok(lockedOp, "locked op present");
+  assert.equal(lockedOp.text, unlockedOp.text, "text field identical");
+  assert.equal(lockedOp.x, unlockedOp.x, "geometry identical");
+  assert.equal(lockedOp.w, unlockedOp.w, "geometry identical");
+});
+
+test("[AC-10] locked=true shape exports with all geometry and style intact", () => {
+  const ops = buildOps([shapeEl("sh-locked", { locked: true })]);
+
+  assert.equal(ofKind(ops, "shape").length, 1, "locked shape produces op");
+});
+
+test("[AC-10] grouped elements (same groupId) each produce their own op (flattened)", () => {
+  const ops = buildOps([
+    textEl("t1", "Group A", { groupId: "g1" }),
+    textEl("t2", "Group A also", { groupId: "g1", zIndex: 1 }),
+    textEl("t3", "No group", { zIndex: 2 }),
+  ]);
+
+  assert.equal(ofKind(ops, "text").length, 3, "all three elements produce ops");
+  assert.deepEqual(
+    ofKind(ops, "text").map((o) => o.text),
+    ["Group A", "Group A also", "No group"],
+  );
+});
+
+test("[AC-10] grouped shapes each export individually (group membership not merged)", () => {
+  const ops = buildOps([
+    shapeEl("sh1", { groupId: "g1" }),
+    shapeEl("sh2", { groupId: "g1", zIndex: 1 }),
+  ]);
+
+  assert.equal(
+    ofKind(ops, "shape").length,
+    2,
+    "both grouped shapes produce ops",
+  );
+});
+
+// ---------------------------------------------------------------------------
+// AC-11 — Background rendering (solid, gradient, image)
+// ---------------------------------------------------------------------------
+
+function deckWith(slideOverrides: Partial<Slide>): Deck {
+  return {
+    theme: "default",
+    slides: [slide([], slideOverrides)],
+  };
+}
+
+test("[AC-11] per-slide background color override is in the spec", () => {
+  const [spec] = buildDeckSpecs(deckWith({ background: "#abcdef" }), new Map());
+
+  assert.equal(
+    spec.background,
+    "ABCDEF",
+    "background hex normalised to uppercase",
+  );
+});
+
+test("[AC-11] backgroundGradient uses the 'from' stop as the PPTX background color", () => {
+  const [spec] = buildDeckSpecs(
+    deckWith({ backgroundGradient: { from: "#112233", to: "#aabbcc" } }),
+    new Map(),
+  );
+
+  assert.equal(
+    spec.background,
+    "112233",
+    "gradient from-stop used as fallback background",
+  );
+});
+
+test("[AC-11] backgroundImage is forwarded to the slide spec", () => {
+  const dataUrl = "data:image/png;base64,BGBG";
+  const [spec] = buildDeckSpecs(
+    deckWith({ backgroundImage: dataUrl }),
+    new Map(),
+  );
+
+  assert.equal(
+    spec.backgroundImage,
+    dataUrl,
+    "backgroundImage propagated verbatim",
+  );
+});
+
+test("[AC-11] slide without background overrides falls back to theme defaults", () => {
+  const [spec] = buildDeckSpecs(
+    { theme: "ocean", slides: [slide([], { theme: "ocean" })] },
+    new Map(),
+  );
+
+  assert.equal(spec.background, "0C1A2E", "ocean theme background used");
+  assert.equal(spec.backgroundImage, undefined, "no backgroundImage in spec");
+});
+
+test("[AC-11] backgroundImage takes precedence: spec carries it even when background color is also set", () => {
+  const dataUrl = "data:image/png;base64,IMG";
+  const [spec] = buildDeckSpecs(
+    deckWith({ background: "#ffffff", backgroundImage: dataUrl }),
+    new Map(),
+  );
+
+  assert.equal(spec.backgroundImage, dataUrl, "backgroundImage present");
+  // The solid background field is also populated (used as a fallback color layer).
+  assert.equal(spec.background, "FFFFFF");
+});
+
+// ---------------------------------------------------------------------------
+// AC-12 — sourceRef metadata: not a visual export target
+// ---------------------------------------------------------------------------
+
+test("[AC-12] text element with sourceRef still emits a normal text op", () => {
+  const ops = buildOps([
+    textEl("t-ref", "Linked content", {
+      sourceRef: {
+        documentId: "doc-1",
+        blockId: "block-42",
+        contentHash: "abc123",
+        linkedAt: "2026-01-01T00:00:00Z",
+      },
+    }),
+  ]);
+  const op = ofKind(ops, "text")[0];
+
+  assert.ok(op, "text op emitted despite sourceRef");
+  assert.equal(op.text, "Linked content", "content preserved");
+});
+
+test("[AC-12] bullets element with sourceRef still emits a normal bullets op", () => {
+  const ops = buildOps([
+    bulletsEl("b-ref", ["item 1", "item 2"], {
+      sourceRef: {
+        documentId: "doc-1",
+        blockId: "block-7",
+        linkedAt: "2026-01-01T00:00:00Z",
+      },
+    }),
+  ]);
+  const op = ofKind(ops, "bullets")[0];
+
+  assert.ok(op, "bullets op emitted despite sourceRef");
+  assert.deepEqual(op.items, ["item 1", "item 2"]);
+});
+
+test("[AC-12] shape with sourceRef exports normally (sourceRef is opaque metadata)", () => {
+  const ops = buildOps([
+    shapeEl("sh-ref", {
+      sourceRef: {
+        documentId: "doc-1",
+        blockId: "block-5",
+        linkedAt: "2026-01-01T00:00:00Z",
+      },
+    }),
+  ]);
+
+  assert.equal(
+    ofKind(ops, "shape").length,
+    1,
+    "shape op emitted with sourceRef",
+  );
+});
+
+test("[AC-12] unlinked sourceRef (unlinked=true) does not suppress the element", () => {
+  const ops = buildOps([
+    textEl("t-unlinked", "Detached text", {
+      sourceRef: {
+        documentId: "doc-1",
+        blockId: "block-9",
+        linkedAt: "2026-01-01T00:00:00Z",
+        unlinked: true,
+      },
+    }),
+  ]);
+
+  assert.equal(ofKind(ops, "text").length, 1, "unlinked element still exports");
+  assert.equal(ofKind(ops, "text")[0]?.text, "Detached text");
 });
