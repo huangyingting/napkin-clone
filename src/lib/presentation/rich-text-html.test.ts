@@ -68,9 +68,15 @@ after(() => {
 });
 
 test("serializeRichText keeps a newline between inline text and a following block", () => {
-  const root = element("div", [text("First line"), element("div", [text("Second line")])]);
+  const root = element("div", [
+    text("First line"),
+    element("div", [text("Second line")]),
+  ]);
 
-  assert.equal(serializeRichText(root as unknown as HTMLElement).text, "First line\nSecond line");
+  assert.equal(
+    serializeRichText(root as unknown as HTMLElement).text,
+    "First line\nSecond line",
+  );
 });
 
 test("serializeRichText keeps one newline between sibling contentEditable divs", () => {
@@ -79,5 +85,8 @@ test("serializeRichText keeps one newline between sibling contentEditable divs",
     element("div", [text("Second line")]),
   ]);
 
-  assert.equal(serializeRichText(root as unknown as HTMLElement).text, "First line\nSecond line");
+  assert.equal(
+    serializeRichText(root as unknown as HTMLElement).text,
+    "First line\nSecond line",
+  );
 });

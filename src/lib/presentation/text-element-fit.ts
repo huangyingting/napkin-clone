@@ -11,14 +11,8 @@ export interface TextResizeMeasurer {
     widthPct: number,
     fontSizePct: number,
   ) => number;
-  measureMinWidthPct: (
-    element: TextLikeElement,
-    fontSizePct: number,
-  ) => number;
-  measureMaxWidthPct: (
-    element: TextLikeElement,
-    fontSizePct: number,
-  ) => number;
+  measureMinWidthPct: (element: TextLikeElement, fontSizePct: number) => number;
+  measureMaxWidthPct: (element: TextLikeElement, fontSizePct: number) => number;
 }
 
 let textMeasureHost: HTMLDivElement | null = null;

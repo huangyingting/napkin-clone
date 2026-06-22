@@ -17,6 +17,7 @@ import { test } from "node:test";
 
 import type {
   BulletsElement,
+  ConnectorElement,
   Deck,
   ImageElement,
   ShapeElement,
@@ -29,6 +30,7 @@ import type { Visual, VisualNode } from "@/lib/visual/schema";
 import {
   buildDeckSpecs,
   type DeckBulletsOp,
+  type DeckConnectorOp,
   type DeckOp,
   type DeckTextOp,
 } from "@/lib/visual/deck-export";
@@ -125,6 +127,21 @@ function imageEl(id: string): ImageElement {
     alt: "pic",
     zIndex: 4,
     box: { x: 70, y: 2, w: 25, h: 20 },
+  };
+}
+
+function connectorEl(
+  id: string,
+  overrides: Partial<ConnectorElement> = {},
+): ConnectorElement {
+  return {
+    id,
+    kind: "connector",
+    zIndex: 5,
+    box: { x: 0, y: 0, w: 100, h: 100 },
+    start: { x: 10, y: 20 },
+    end: { x: 80, y: 70 },
+    ...overrides,
   };
 }
 
@@ -553,4 +570,157 @@ test("bullets op omits itemRuns when absent", () => {
   const [spec] = buildDeckSpecs(deck, new Map());
   const bullets = ofKind(spec.ops, "bullets")[0] as DeckBulletsOp;
   assert.equal(bullets.itemRuns, undefined);
+});
+
+// ---------------------------------------------------------------------------
+// ConnectorElement export — new first-class connector kind (issue #323)
+// ---------------------------------------------------------------------------
+
+test("a connector element emits a connector op with inch-space endpoints", () => {
+  // 10% of 13.333" = 1.3333", 20% of 7.5" = 1.5"
+  // 80% of 13.333" = 10.6667", 70% of 7.5" = 5.25"
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [freeFormSlide(0, [connectorEl("c1")])],
+  };
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const ops = ofKind(spec.ops, "connector");
+  assert.equal(ops.length, 1, "one connector op emitted");
+  const op = ops[0] as DeckConnectorOp;
+  assert.ok(Math.abs(op.x1 - 1.333) < 0.01, "x1 ≈ 10% of slide width");
+  assert.ok(Math.abs(op.y1 - 1.5) < 0.01, "y1 ≈ 20% of slide height");
+  assert.ok(Math.abs(op.x2 - 10.666) < 0.01, "x2 ≈ 80% of slide width");
+  assert.ok(Math.abs(op.y2 - 5.25) < 0.01, "y2 ≈ 70% of slide height");
+});
+
+test("connector op color defaults to #a1a1aa when no stroke is set", () => {
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [freeFormSlide(0, [connectorEl("c2")])],
+  };
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const op = ofKind(spec.ops, "connector")[0] as DeckConnectorOp;
+  assert.equal(op.color, "A1A1AA");
+});
+
+test("connector op inherits custom stroke color and width", () => {
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [
+      freeFormSlide(0, [
+        connectorEl("c3", { stroke: { color: "#ff0000", width: 2 } }),
+      ]),
+    ],
+  };
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const op = ofKind(spec.ops, "connector")[0] as DeckConnectorOp;
+  assert.equal(op.color, "FF0000");
+  assert.ok(op.width > 0, "stroke width is positive");
+});
+
+test("connector op carries arrowEnd and dash when set", () => {
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [
+      freeFormSlide(0, [
+        connectorEl("c4", {
+          arrowEnd: "filled",
+          dash: true,
+          arrowStart: "none",
+        }),
+      ]),
+    ],
+  };
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const op = ofKind(spec.ops, "connector")[0] as DeckConnectorOp;
+  assert.equal(op.arrowEnd, "filled");
+  assert.equal(op.arrowStart, "none");
+  assert.equal(op.dash, true);
+});
+
+test("connector op with bound endpoints resolves to element anchor positions", () => {
+  // Place a target rect at x=50, y=40, w=10, h=10.
+  // Its "left" anchor is at (50, 45) and its "right" anchor is at (60, 45).
+  const target: ShapeElement = {
+    id: "target",
+    kind: "shape",
+    shape: "rect",
+    color: "#aaaaaa",
+    zIndex: 0,
+    box: { x: 50, y: 40, w: 10, h: 10 },
+  };
+  const connector: ConnectorElement = {
+    id: "c5",
+    kind: "connector",
+    zIndex: 1,
+    box: { x: 0, y: 0, w: 100, h: 100 },
+    start: { elementId: "target", anchor: "left" },
+    end: { elementId: "target", anchor: "right" },
+  };
+  const deck: Deck = {
+    theme: "default",
+    slides: [freeFormSlide(0, [target, connector])],
+  };
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const op = ofKind(spec.ops, "connector")[0] as DeckConnectorOp;
+  // left anchor of target: x=50% → 50/100*13.333 ≈ 6.666", y=45% → 45/100*7.5 = 3.375"
+  assert.ok(Math.abs(op.x1 - 6.666) < 0.01, "x1 resolves to left anchor");
+  assert.ok(Math.abs(op.y1 - 3.375) < 0.01, "y1 resolves to anchor midpoint");
+  // right anchor: x=60% → 7.999", y=45% → 3.375"
+  assert.ok(Math.abs(op.x2 - 7.999) < 0.01, "x2 resolves to right anchor");
+  assert.ok(Math.abs(op.y2 - 3.375) < 0.01, "y2 resolves to anchor midpoint");
+});
+
+test("all six element kinds (including connector) each emit at least one op", () => {
+  const visuals = new Map<string, Visual>([["v1", flowchart()]]);
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [
+      freeFormSlide(0, [
+        textEl("t", "Title"),
+        bulletsEl("b", ["one"]),
+        visualEl("ve", "v1"),
+        shapeEl("sh"),
+        imageEl("im"),
+        connectorEl("cn"),
+      ]),
+    ],
+  };
+  const [spec] = buildDeckSpecs(deck, visuals);
+  assert.ok(ofKind(spec.ops, "text").length >= 1, "text op emitted");
+  assert.ok(ofKind(spec.ops, "bullets").length >= 1, "bullets op emitted");
+  assert.ok(
+    ofKind(spec.ops, "visual-native").length +
+      ofKind(spec.ops, "visual-fallback").length >=
+      1,
+    "visual op emitted",
+  );
+  assert.ok(ofKind(spec.ops, "shape").length >= 1, "shape op emitted");
+  assert.ok(ofKind(spec.ops, "image").length >= 1, "image op emitted");
+  assert.ok(ofKind(spec.ops, "connector").length >= 1, "connector op emitted");
+});
+
+// Backward-compatibility: legacy line shapes still export correctly (#323).
+test("legacy line shape with connector binding still emits a shape op", () => {
+  const lineShape: ShapeElement = {
+    id: "line1",
+    kind: "shape",
+    shape: "line",
+    color: "#888888",
+    zIndex: 0,
+    box: { x: 10, y: 50, w: 80, h: 1 },
+    connector: {
+      start: undefined,
+      end: undefined,
+    },
+  };
+  const deck: Deck = {
+    theme: "default",
+    slides: [freeFormSlide(0, [lineShape])],
+  };
+  const [spec] = buildDeckSpecs(deck, new Map());
+  assert.ok(
+    ofKind(spec.ops, "shape").length >= 1,
+    "legacy line shape still emits",
+  );
 });

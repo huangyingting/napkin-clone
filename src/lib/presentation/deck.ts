@@ -219,6 +219,65 @@ export interface ConnectorBinding {
   end?: ConnectorEndpoint;
 }
 
+/**
+ * A free-floating connector endpoint expressed in percentage units (0–100).
+ * Used when a connector end is not bound to an element anchor.
+ */
+export interface ConnectorPointFree {
+  /** Horizontal position as a percent of slide width. */
+  x: number;
+  /** Vertical position as a percent of slide height. */
+  y: number;
+}
+
+/**
+ * A connector endpoint is either a free point in slide-percentage space or an
+ * anchor bound to another element on the same slide.
+ */
+export type ConnectorPoint = ConnectorPointFree | ConnectorEndpoint;
+
+/** Routing algorithm for a {@link ConnectorElement}. */
+export type ConnectorRouting = "straight" | "elbow";
+
+/** Arrowhead style for a connector endpoint. */
+export type ConnectorArrow = "none" | "arrow" | "filled";
+
+/**
+ * A first-class connector element — a directed line between two points that may
+ * optionally be anchored to other slide elements.
+ *
+ * Introduced in issue #323 as the preferred replacement for the legacy
+ * `{ kind: "shape", shape: "line", connector: ... }` pattern. Both forms
+ * co-exist during the transition period:
+ *  - Legacy line shapes remain valid and render/export exactly as before.
+ *  - New connectors are authored as `kind: "connector"` and carry richer
+ *    semantics (arrowheads, dash, routing) without the shape-type branch.
+ */
+export interface ConnectorElement extends BaseElement {
+  kind: "connector";
+  /** Start endpoint: a free slide-percentage point or an element-anchor binding. */
+  start: ConnectorPoint;
+  /** End endpoint: a free slide-percentage point or an element-anchor binding. */
+  end: ConnectorPoint;
+  /** Optional stroke color and width (`width` in `cqmin` units). */
+  stroke?: { color: string; width: number };
+  /**
+   * Arrowhead drawn at the *start* end of the connector.
+   * Absent or `"none"` means no arrowhead at the start.
+   */
+  arrowStart?: ConnectorArrow;
+  /**
+   * Arrowhead drawn at the *end* of the connector.
+   * Absent means `"arrow"` (the most common case for directed connectors).
+   * Set to `"none"` for an undirected line.
+   */
+  arrowEnd?: ConnectorArrow;
+  /** When true the connector renders as a dashed stroke. */
+  dash?: boolean;
+  /** Routing algorithm. Absent / `"straight"` means a direct point-to-point line. */
+  routing?: ConnectorRouting;
+}
+
 interface BaseElement {
   /** Stable identifier, unique within a slide. */
   id: string;
@@ -337,7 +396,8 @@ export type SlideElement =
   | BulletsElement
   | VisualElement
   | ImageElement
-  | ShapeElement;
+  | ShapeElement
+  | ConnectorElement;
 
 /** A single slide in the presentation deck. */
 export interface Slide {

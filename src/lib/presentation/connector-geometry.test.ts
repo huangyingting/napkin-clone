@@ -46,9 +46,12 @@ test("lineEndpoints and lineBoxFromEndpoints round-trip an unrotated line", () =
     start: { x: 10, y: 21 },
     end: { x: 50, y: 21 },
   });
-  assert.deepEqual(lineBoxFromEndpoints(endpoints.start, endpoints.end, 2, 16 / 9), {
-    box,
-  });
+  assert.deepEqual(
+    lineBoxFromEndpoints(endpoints.start, endpoints.end, 2, 16 / 9),
+    {
+      box,
+    },
+  );
 });
 
 test("resolveLineEndpoints uses connector bindings when available", () => {
@@ -66,10 +69,13 @@ test("resolveLineEndpoints uses connector bindings when available", () => {
     },
   );
 
-  assert.deepEqual(resolveLineEndpoints(line, [start, end, line], resolveBox, 16 / 9), {
-    start: { x: 30, y: 20 },
-    end: { x: 70, y: 30 },
-  });
+  assert.deepEqual(
+    resolveLineEndpoints(line, [start, end, line], resolveBox, 16 / 9),
+    {
+      start: { x: 30, y: 20 },
+      end: { x: 70, y: 30 },
+    },
+  );
 });
 
 test("snapLineEndpoint returns the closest eligible anchor binding", () => {

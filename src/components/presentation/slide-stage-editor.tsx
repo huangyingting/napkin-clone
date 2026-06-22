@@ -269,8 +269,7 @@ function minWidthThatFitsHeightPct(
     return minWidthPct;
   }
   if (
-    fitTextHeightPct(element, fontSizePct, maxWidthPct, measurer) >
-    maxHeightPct
+    fitTextHeightPct(element, fontSizePct, maxWidthPct, measurer) > maxHeightPct
   ) {
     return maxWidthPct;
   }
@@ -278,9 +277,7 @@ function minWidthThatFitsHeightPct(
   let high = maxWidthPct;
   for (let i = 0; i < 8; i += 1) {
     const mid = (low + high) / 2;
-    if (
-      fitTextHeightPct(element, fontSizePct, mid, measurer) <= maxHeightPct
-    ) {
+    if (fitTextHeightPct(element, fontSizePct, mid, measurer) <= maxHeightPct) {
       high = mid;
     } else {
       low = mid;
@@ -306,7 +303,8 @@ function largestFontForFixedWidthPct(
   while (low <= high) {
     const mid = Math.floor((low + high) / 2);
     const fontSize = mid * FONT_STEP_PCT;
-    const widthFits = minContentWidthPct(element, fontSize, measurer) <= widthPct;
+    const widthFits =
+      minContentWidthPct(element, fontSize, measurer) <= widthPct;
     const heightFits =
       fitTextHeightPct(element, fontSize, widthPct, measurer) <= maxHeightPct;
     if (widthFits && heightFits) {
@@ -485,10 +483,10 @@ function resizeTextBox(
           measurer,
         );
     minWidth = minWidthForFontPct(element, fontSize, maxWidth, measurer);
-        width = Math.min(maxWidth, Math.max(width, minWidth));
+    width = Math.min(maxWidth, Math.max(width, minWidth));
     height = fitTextHeightPct(element, fontSize, width, measurer);
   }
-      height = Math.min(maxHeight, height);
+  height = Math.min(maxHeight, height);
 
   let x = startBox.x;
   if (west) x = startBox.x + startBox.w - width;
@@ -545,17 +543,21 @@ function fitElementBoxToContent(
         resolveConnectorBox,
         stageAspect,
       );
-      const lineBox = clampBox(lineBoxFromEndpoints(
-        endpoints.start,
-        endpoints.end,
-        element.box.h,
-        stageAspect,
-      ).box);
-      return positionFitWithinBox(
-        lineBox,
-        { w: lineBox.w, h: SELECTION_MIN_H_PCT },
+      const lineBox = clampBox(
+        lineBoxFromEndpoints(
+          endpoints.start,
+          endpoints.end,
+          element.box.h,
+          stageAspect,
+        ).box,
       );
+      return positionFitWithinBox(lineBox, {
+        w: lineBox.w,
+        h: SELECTION_MIN_H_PCT,
+      });
     case "image":
+      return element.box;
+    case "connector":
       return element.box;
   }
 }
@@ -2164,7 +2166,9 @@ function InlineTextEditor({
   }, []);
 
   const style =
-    kind === "shape" ? (element.textStyle ?? defaultShapeTextStyle()) : element.style;
+    kind === "shape"
+      ? (element.textStyle ?? defaultShapeTextStyle())
+      : element.style;
   const fontSizePx = (style.fontSize / 100) * stageHeight;
 
   // Mirror the static TextElementView / BulletsElementView text styles exactly
@@ -2181,9 +2185,7 @@ function InlineTextEditor({
     lineHeight: kind === "bullets" ? 1.2 : 1.15,
     wordBreak: "break-word",
     ...(style.underline ? { textDecoration: "underline" } : {}),
-    ...(style.fontFamily
-      ? { fontFamily: style.fontFamily }
-      : {}),
+    ...(style.fontFamily ? { fontFamily: style.fontFamily } : {}),
   } as CSSProperties & Record<string, string>;
   if (kind === "bullets") {
     editableStyle["--ds-bullet-accent"] = accent;
