@@ -30,6 +30,8 @@ import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { isAiDeckGenClientEnabled } from "@/lib/ai/ai-deck-gen-flag";
 import { isEffectivelyEmptyEditorState } from "@/lib/ai/empty-content";
 import type { DeckGenerationOptions } from "@/lib/ai/use-deck-generation";
+import { deckEditDistance } from "@/lib/ai/deck-metrics";
+import { logInfo } from "@/lib/log";
 import { buildDeckFromBlocks, type Deck } from "@/lib/presentation/deck";
 import { materializeDeck } from "@/lib/presentation/deck-mutations";
 import {
@@ -119,6 +121,12 @@ export function SlideEditorButton({
   // even without a server round-trip succeeding (e.g. offline).
   const lastSavedRef = useRef<unknown>(initialDeckJson);
 
+  // The deck the editor opened with when it originated from an AI "Apply"
+  // (issue #270). Set on apply, consumed once on the FIRST successful save to
+  // log a content-free post-apply edit-distance signal, then cleared. `null`
+  // whenever the open did not originate from AI.
+  const aiAppliedDeckRef = useRef<Deck | null>(null);
+
   // Build the base deck + visual inventory from a serialised document snapshot.
   // Stamp the freshly-derived deck with the *current* document content hash so a
   // deck saved from it is never falsely flagged as stale on reopen. A fresh
@@ -198,6 +206,8 @@ export function SlideEditorButton({
   // Deterministic open path (the default and the universal fallback).
   const openDerived = useCallback(
     async (json: string) => {
+      // A derived open never originates from AI apply — drop any baseline.
+      aiAppliedDeckRef.current = null;
       const { startDeck, ctx } = await prepareOpen(json);
       finishOpen(startDeck, ctx);
     },
@@ -218,6 +228,11 @@ export function SlideEditorButton({
       const startDeck = materializeDeck(
         stripOrphanedVisuals(stamped, ctx.knownVisualIds),
       );
+      // Record the applied AI deck as the baseline for the post-apply
+      // edit-distance signal (issue #270), captured AFTER the same
+      // materialize/strip pipeline the editor opens with so the first save is
+      // compared like-for-like.
+      aiAppliedDeckRef.current = startDeck;
       setAiPreview(null);
       finishOpen(startDeck, ctx);
     },
@@ -281,6 +296,7 @@ export function SlideEditorButton({
     setPendingJson(null);
     setEmptyDocument(false);
     setAiPreview(null);
+    aiAppliedDeckRef.current = null;
     closeSlideEditor();
   }, [closeSlideEditor]);
 
@@ -290,6 +306,28 @@ export function SlideEditorButton({
       if (res.ok) {
         // Keep lastSavedRef current so subsequent opens don't regress.
         lastSavedRef.current = updatedDeck;
+
+        // Post-apply edit-distance signal (issue #270): on the FIRST successful
+        // save of a deck that originated from AI apply, log how much the user
+        // changed it. Content-free (only counts) and best-effort — never blocks
+        // or fails the save. Cleared after one emit so we capture the initial
+        // tweak, not every later autosave.
+        const aiBaseline = aiAppliedDeckRef.current;
+        if (aiBaseline) {
+          aiAppliedDeckRef.current = null;
+          try {
+            const distance = deckEditDistance(aiBaseline, updatedDeck);
+            logInfo("editor.slide-editor", "ai-deck-post-apply-edit", {
+              slidesAdded: distance.slidesAdded,
+              slidesRemoved: distance.slidesRemoved,
+              slidesChanged: distance.slidesChanged,
+              elementDelta: distance.elementDelta,
+              distance: distance.distance,
+            });
+          } catch {
+            // Signal logging is best-effort and must never affect the save.
+          }
+        }
       }
       // Surface the result so the editor can show the save-status badge and a
       // working Retry action instead of silently swallowing failures.

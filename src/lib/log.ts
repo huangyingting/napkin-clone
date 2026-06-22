@@ -126,8 +126,9 @@ export function buildErrorLog(
 }
 
 /**
- * Emit a single structured JSON error line to `stderr`. Sensitive context keys
- * are redacted. Never throws (logging must not break request handling).
+ * Emit a single structured JSON error line to `stderr` (via `console.error`).
+ * Sensitive context keys are redacted. Never throws (logging must not break
+ * request handling).
  */
 export function logError(
   scope: string,
@@ -136,6 +137,56 @@ export function logError(
 ): void {
   try {
     console.error(JSON.stringify(buildErrorLog(scope, error, context)));
+  } catch {
+    // Logging must never break the caller.
+  }
+}
+
+export interface InfoLogRecord {
+  level: "info";
+  scope: string;
+  timestamp: string;
+  message: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Build the structured info record (redacting sensitive context keys) WITHOUT
+ * writing it. Exposed for unit tests; production code should call
+ * {@link logInfo}.
+ *
+ * Reserved fields (`level`, `scope`, `timestamp`, `message`) always win over
+ * context keys, so a caller cannot clobber them. Like {@link buildErrorLog},
+ * any context key that looks sensitive (secrets/tokens/raw input text) is
+ * redacted — callers must still only pass ids, counts, and numbers.
+ */
+export function buildInfoLog(
+  scope: string,
+  message: string,
+  context: Record<string, unknown> = {},
+): InfoLogRecord {
+  return {
+    ...redactContext(context),
+    level: "info",
+    scope,
+    timestamp: new Date().toISOString(),
+    message,
+  };
+}
+
+/**
+ * Emit a single structured JSON info line to `stdout` (via `console.info`).
+ * Sensitive context keys are redacted. Never throws (logging must not break
+ * request handling). Use only for ids/counts/numbers — never document content
+ * or PII.
+ */
+export function logInfo(
+  scope: string,
+  message: string,
+  context: Record<string, unknown> = {},
+): void {
+  try {
+    console.info(JSON.stringify(buildInfoLog(scope, message, context)));
   } catch {
     // Logging must never break the caller.
   }
