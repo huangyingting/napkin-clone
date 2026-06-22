@@ -1561,7 +1561,9 @@ function renderImageSvg(
     clip = ` clip-path="url(#${clipId})"`;
   }
   const preserveAspectRatio =
-    "fitMode" in op && op.fitMode === "cover" ? "xMidYMid slice" : "xMidYMid meet";
+    "fitMode" in op && op.fitMode === "cover"
+      ? "xMidYMid slice"
+      : "xMidYMid meet";
   const style = [
     op.opacity !== undefined ? `opacity:${op.opacity};` : "",
     shadowCss(op.shadow),
