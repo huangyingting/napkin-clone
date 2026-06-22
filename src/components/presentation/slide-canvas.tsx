@@ -389,11 +389,18 @@ function TextElementView({
           : {}),
         lineHeight: 1.15,
         overflow: "hidden",
-        overflowWrap: "break-word",
-        wordBreak: "normal",
       }}
     >
-      {hasRuns ? renderRuns(element.runs!) : element.text || "\u00a0"}
+      <div
+        style={{
+          width: "100%",
+          whiteSpace: "pre-wrap",
+          overflowWrap: "break-word",
+          wordBreak: "normal",
+        }}
+      >
+        {hasRuns ? renderRuns(element.runs!) : element.text || "\u00a0"}
+      </div>
     </div>
   );
 }

@@ -56,7 +56,6 @@ import type {
   ElementBox,
   Slide,
   SlideElement,
-  TextRun,
 } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import { elementAccessibleName } from "@/lib/presentation/element-accessible-name";
@@ -78,6 +77,10 @@ import {
   clientPointToStagePct,
   defaultTextBoxAtPoint,
 } from "@/lib/presentation/canvas-helpers";
+import {
+  createTextResizeMeasurer,
+  type TextResizeMeasurer,
+} from "@/lib/presentation/text-element-fit";
 import type { Visual } from "@/lib/visual/schema";
 
 type Handle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
@@ -185,152 +188,6 @@ function positionFitWithinBox(
   }
   const y = source.y + Math.max(0, (source.h - size.h) / 2);
   return clampBox({ x, y, w: size.w, h: size.h });
-}
-
-interface TextResizeMeasurer {
-  measureHeightPct: (
-    element: Extract<SlideElement, { kind: "text" | "bullets" }>,
-    widthPct: number,
-    fontSizePct: number,
-  ) => number;
-  measureMinWidthPct: (
-    element: Extract<SlideElement, { kind: "text" | "bullets" }>,
-    fontSizePct: number,
-  ) => number;
-}
-
-let textMeasureHost: HTMLDivElement | null = null;
-
-function getTextMeasureHost(): HTMLDivElement | null {
-  if (typeof document === "undefined") return null;
-  if (textMeasureHost?.isConnected) return textMeasureHost;
-  const host = document.createElement("div");
-  Object.assign(host.style, {
-    position: "fixed",
-    left: "-100000px",
-    top: "0",
-    visibility: "hidden",
-    pointerEvents: "none",
-    zIndex: "-1",
-    width: "auto",
-    height: "auto",
-    overflow: "visible",
-  });
-  document.body.appendChild(host);
-  textMeasureHost = host;
-  return host;
-}
-
-function applyMeasuredTextStyle(
-  node: HTMLElement,
-  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
-  fontSizePx: number,
-  lineHeight: number,
-  mode: "height" | "minWidth",
-) {
-  const style = node.style;
-  style.boxSizing = "border-box";
-  style.color = "black";
-  style.fontSize = `${fontSizePx}px`;
-  style.fontWeight = element.style.bold ? "700" : "400";
-  style.fontStyle = element.style.italic ? "italic" : "normal";
-  style.textAlign = element.style.align;
-  style.lineHeight = String(lineHeight);
-  style.margin = "0";
-  style.padding = "0";
-  style.whiteSpace = "normal";
-  style.overflow = "visible";
-  style.overflowWrap = mode === "height" ? "break-word" : "normal";
-  style.wordBreak = "normal";
-  style.textDecoration = element.style.underline ? "underline" : "";
-  if (element.style.fontFamily) style.fontFamily = element.style.fontFamily;
-}
-
-function fillMeasuredInline(
-  node: HTMLElement,
-  runs: readonly TextRun[] | undefined,
-  fallback: string,
-) {
-  if (runs && runs.length > 0) node.innerHTML = runsToHtml(runs, fallback);
-  else node.textContent = fallback || "\u00a0";
-}
-
-function createMeasuredTextNode(
-  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
-  fontSizePx: number,
-  widthPx: number | null,
-  mode: "height" | "minWidth",
-): HTMLElement {
-  if (element.kind === "text") {
-    const node = document.createElement("div");
-    applyMeasuredTextStyle(node, element, fontSizePx, 1.15, mode);
-    node.style.display = "block";
-    node.style.width = widthPx == null ? "min-content" : `${widthPx}px`;
-    node.style.height = "auto";
-    fillMeasuredInline(node, element.runs, element.text || "\u00a0");
-    return node;
-  }
-
-  const list = document.createElement("ul");
-  applyMeasuredTextStyle(list, element, fontSizePx, 1.2, mode);
-  list.style.display = "flex";
-  list.style.flexDirection = "column";
-  list.style.justifyContent = "center";
-  list.style.gap = "0.6em";
-  list.style.listStyle = "none";
-  list.style.width = widthPx == null ? "min-content" : `${widthPx}px`;
-  list.style.height = "auto";
-  const bullets = element.bullets.length > 0 ? element.bullets : [""];
-  bullets.forEach((bullet, index) => {
-    const item = document.createElement("li");
-    item.style.display = "flex";
-    item.style.alignItems = "flex-start";
-    item.style.gap = "0.5em";
-    const marker = document.createElement("span");
-    marker.style.marginTop = "0.45em";
-    marker.style.height = "0.35em";
-    marker.style.width = "0.35em";
-    marker.style.flexShrink = "0";
-    const text = document.createElement("span");
-    text.style.minWidth = mode === "minWidth" ? "min-content" : "0";
-    text.style.overflowWrap = mode === "height" ? "break-word" : "normal";
-    text.style.wordBreak = "normal";
-    fillMeasuredInline(text, element.bulletRuns?.[index], bullet || "\u00a0");
-    item.append(marker, text);
-    list.appendChild(item);
-  });
-  return list;
-}
-
-function createTextResizeMeasurer(
-  stageWidthPx: number,
-  stageHeightPx: number,
-): TextResizeMeasurer {
-  const measure = (
-    element: Extract<SlideElement, { kind: "text" | "bullets" }>,
-    fontSizePct: number,
-    widthPct: number | null,
-    mode: "height" | "minWidth",
-  ): number => {
-    const host = getTextMeasureHost();
-    if (!host || stageWidthPx <= 0 || stageHeightPx <= 0) return 0;
-    const fontSizePx = Math.max(1, (fontSizePct / 100) * stageHeightPx);
-    const widthPx =
-      widthPct == null ? null : Math.max(1, (widthPct / 100) * stageWidthPx);
-    const node = createMeasuredTextNode(element, fontSizePx, widthPx, mode);
-    host.replaceChildren(node);
-    const rect = node.getBoundingClientRect();
-    host.replaceChildren();
-    return mode === "height"
-      ? ((rect.height + 1) / stageHeightPx) * 100
-      : ((rect.width + 1) / stageWidthPx) * 100;
-  };
-  return {
-    measureHeightPct: (element, widthPct, fontSizePct) =>
-      measure(element, fontSizePct, widthPct, "height"),
-    measureMinWidthPct: (element, fontSizePct) =>
-      measure(element, fontSizePct, null, "minWidth"),
-  };
 }
 
 function fitTextElementBox(
@@ -1481,8 +1338,8 @@ export function SlideStageEditor({
                 isEditing ? "cursor-text" : "cursor-move"
               } ${
                 selected
-                  ? "ring-2 ring-ds-control"
-                  : "ring-1 ring-transparent hover:ring-1 hover:ring-ds-control/40"
+                  ? "ring-2 ring-[#71717a]"
+                  : "ring-1 ring-transparent hover:ring-1 hover:ring-[#71717a]/60"
               }`}
               style={{
                 left: `${containerBox.x}%`,
@@ -1524,7 +1381,7 @@ export function SlideStageEditor({
                       className="absolute flex h-11 w-11 touch-none items-center justify-center"
                       style={{ ...style, cursor }}
                     >
-                      <span className="h-2.5 w-2.5 rounded-full border border-white bg-ds-control shadow" />
+                      <span className="h-2.5 w-2.5 rounded-full border border-white bg-[#71717a] shadow" />
                     </span>
                   ))
                 : null}
@@ -1537,7 +1394,7 @@ export function SlideStageEditor({
                   className="absolute left-1/2 flex h-11 w-11 -translate-x-1/2 touch-none items-center justify-center"
                   style={{ top: "calc(100% + 6px)", cursor: "grab" }}
                 >
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full border border-white bg-ds-control text-ds-control-text shadow">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full border border-white bg-[#71717a] text-white shadow">
                     <RotateCw size={11} aria-hidden="true" />
                   </span>
                 </span>
@@ -1552,7 +1409,7 @@ export function SlideStageEditor({
           marqueeRect.h >= MARQUEE_THRESHOLD_PCT) ? (
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute border border-ds-control bg-ds-control/10"
+            className="pointer-events-none absolute border border-[#71717a] bg-[#71717a]/10"
             style={{
               left: `${marqueeRect.x}%`,
               top: `${marqueeRect.y}%`,
@@ -1570,14 +1427,14 @@ export function SlideStageEditor({
                 <div
                   key={`x-${guide.position}`}
                   aria-hidden="true"
-                  className="pointer-events-none absolute top-0 bottom-0 w-px bg-ds-control"
+                  className="pointer-events-none absolute top-0 bottom-0 w-px bg-[#71717a]"
                   style={{ left: `${guide.position}%`, zIndex: 1400 }}
                 />
               ) : (
                 <div
                   key={`y-${guide.position}`}
                   aria-hidden="true"
-                  className="pointer-events-none absolute left-0 right-0 h-px bg-ds-control"
+                  className="pointer-events-none absolute left-0 right-0 h-px bg-[#71717a]"
                   style={{ top: `${guide.position}%`, zIndex: 1400 }}
                 />
               ),

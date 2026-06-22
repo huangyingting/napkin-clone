@@ -20,6 +20,7 @@ import {
   type TextElement,
   type TextRun,
 } from "./deck";
+import { headingFontSize, SLIDE_TEXT_FONT_SIZE } from "./text-defaults";
 
 /** A single click-to-insert entry derived from the source document. */
 export type Insertable =
@@ -89,18 +90,6 @@ export function buildInsertables(blocks: DocumentBlock[]): Insertable[] {
 /** Default box for a freshly inserted document-text element, percent units. */
 const DEFAULT_TEXT_BOX: ElementBox = { x: 12, y: 28, w: 76, h: 18 };
 
-/** Font size (percent of slide height) for each heading level. */
-function headingFontSize(level: 1 | 2 | 3 | undefined): number {
-  switch (level) {
-    case 1:
-      return 6.5;
-    case 2:
-      return 5.5;
-    default:
-      return 5;
-  }
-}
-
 /**
  * Builds the canonical {@link TextElement} (sans `zIndex`) for a text
  * {@link Insertable}. Pure and DOM-free: callers route the result through
@@ -115,7 +104,9 @@ export function insertableTextElement(
   options: { id?: string } = {},
 ): Omit<TextElement, "zIndex"> & { id: string } {
   const heading = item.heading;
-  const fontSize = heading ? headingFontSize(item.level) : 4;
+  const fontSize = heading
+    ? headingFontSize(item.level)
+    : SLIDE_TEXT_FONT_SIZE.text;
   const role: TextElement["role"] =
     heading && item.level === 1 ? "title" : "body";
   return {

@@ -113,6 +113,10 @@ function appendNewline(runs: TextRun[]) {
   runs.push({ text: "\n" });
 }
 
+function isBlockBoundary(tag: string): boolean {
+  return tag === "div" || tag === "p" || tag === "li";
+}
+
 export function serializeRichText(root: HTMLElement): {
   text: string;
   runs: TextRun[];
@@ -132,6 +136,11 @@ export function serializeRichText(root: HTMLElement): {
       return;
     }
 
+    const isBlock = node !== root && isBlockBoundary(tag);
+    if (isBlock) {
+      appendNewline(runs);
+    }
+
     const next: Omit<TextRun, "text"> = { ...style };
     if (tag === "b" || tag === "strong") next.bold = true;
     if (tag === "i" || tag === "em") next.italic = true;
@@ -147,7 +156,7 @@ export function serializeRichText(root: HTMLElement): {
     if (color) next.color = color;
 
     node.childNodes.forEach((child) => visit(child, next));
-    if (node !== root && (tag === "div" || tag === "p" || tag === "li")) {
+    if (isBlock) {
       appendNewline(runs);
     }
   }

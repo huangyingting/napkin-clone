@@ -158,6 +158,12 @@ import {
   insertableTextElement,
   type Insertable,
 } from "@/lib/presentation/document-insertable";
+import {
+  createTextResizeMeasurer,
+  fitNewTextElementBox,
+  type TextLikeElement,
+} from "@/lib/presentation/text-element-fit";
+import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 import type { DocumentTextBlock } from "@/lib/visual/document-export";
 
 interface SlideEditorProps {
@@ -220,7 +226,12 @@ function buildDefaultElement(
         role: "body",
         text: "New text",
         box: { x: 20, y: 40, w: 60, h: 16 },
-        style: { fontSize: 5, bold: false, italic: false, align: "left" },
+        style: {
+          fontSize: SLIDE_TEXT_FONT_SIZE.text,
+          bold: false,
+          italic: false,
+          align: "left",
+        },
       };
     case "bullets":
       return {
@@ -228,7 +239,12 @@ function buildDefaultElement(
         kind: "bullets",
         bullets: ["First point", "Second point"],
         box: { x: 14, y: 28, w: 72, h: 48 },
-        style: { fontSize: 4.5, bold: false, italic: false, align: "left" },
+        style: {
+          fontSize: SLIDE_TEXT_FONT_SIZE.list,
+          bold: false,
+          italic: false,
+          align: "left",
+        },
       };
     case "image":
       return {
@@ -634,6 +650,25 @@ export function SlideEditor({
   // Fit the stage to the deck's slide format — not the viewport's — so
   // cqh-sized slide text never overflows on portrait phones.
   const fittedStageSize = fitAspectRatio(stageBounds, activeSlideAspectRatio);
+
+  const fitInsertedTextElement = useCallback(
+    <T extends TextLikeElement,>(
+      element: T,
+      anchor: "top-left" | "center",
+    ) => {
+      const stageWidth = fittedStageSize.width * zoom;
+      const stageHeight = fittedStageSize.height * zoom;
+      if (stageWidth <= 0 || stageHeight <= 0) {
+        return element;
+      }
+      const measurer = createTextResizeMeasurer(stageWidth, stageHeight);
+      return {
+        ...element,
+        box: fitNewTextElementBox(element, element.box, measurer, anchor),
+      };
+    },
+    [fittedStageSize.height, fittedStageSize.width, zoom],
+  );
 
   useEffect(() => {
     const node = stageRef.current;
@@ -1432,17 +1467,28 @@ export function SlideEditor({
       }
 
       const id = makeElementId();
-      const element = buildDefaultElement(
+      const rawElement = buildDefaultElement(
         kind,
         accentForSelected,
         id,
         shapeKind,
       );
+      const element =
+        rawElement.kind === "text" || rawElement.kind === "bullets"
+          ? fitInsertedTextElement(rawElement, "top-left")
+          : rawElement;
       onDeckChange(addElement(deck, safeSelected, element));
       handleSelectElement(id);
       setInsertMenuOpen(false);
     },
-    [accentForSelected, deck, handleSelectElement, onDeckChange, safeSelected],
+    [
+      accentForSelected,
+      deck,
+      fitInsertedTextElement,
+      handleSelectElement,
+      onDeckChange,
+      safeSelected,
+    ],
   );
 
   // Double-click-to-add-text callback (#298). Builds a text element at the
@@ -1452,17 +1498,19 @@ export function SlideEditor({
     (box: ElementBox): string | null => {
       if (!selectedSlide) return null;
       const id = makeElementId();
-      const element = {
-        ...buildDefaultElement("text", accentForSelected, id),
+      const element: TextLikeElement = {
+        ...(buildDefaultElement("text", accentForSelected, id) as TextLikeElement),
         box,
       };
-      onDeckChange(addElement(deck, safeSelected, element));
+      const fitted = fitInsertedTextElement(element, "center");
+      onDeckChange(addElement(deck, safeSelected, fitted));
       handleSelectElement(id);
       return id;
     },
     [
       accentForSelected,
       deck,
+      fitInsertedTextElement,
       handleSelectElement,
       onDeckChange,
       safeSelected,
@@ -1494,11 +1542,14 @@ export function SlideEditor({
 
   const handleInsertDocumentText = useCallback(
     (item: Extract<Insertable, { kind: "text" }>) => {
-      const element = insertableTextElement(item);
+      const element = fitInsertedTextElement(
+        insertableTextElement(item),
+        "top-left",
+      );
       onDeckChange(addElement(deck, safeSelected, element));
       handleSelectElement(element.id);
     },
-    [deck, handleSelectElement, onDeckChange, safeSelected],
+    [deck, fitInsertedTextElement, handleSelectElement, onDeckChange, safeSelected],
   );
 
   // Inserts every document visual onto the current slide in one undoable step,
