@@ -48,8 +48,8 @@ import {
   canAddImage,
   dataUrlByteSize,
   isEmptyImageSrc,
-  validateImageFile,
 } from "@/lib/presentation/image-element";
+import { useImageUpload } from "@/lib/presentation/use-image-upload";
 import {
   bulletsToRuns,
   mergeRuns,
@@ -332,39 +332,15 @@ function ImageElementEditor({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function handleFile(file: File | undefined) {
-    if (!file) return;
-    const validation = validateImageFile(file);
-    if (!validation.ok) {
-      setError(validation.reason);
-      return;
-    }
-    setError(null);
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result !== "string") {
-        return;
-      }
-      // Net change in inlined bytes: replacing this element's current image
-      // only costs the difference, so a like-for-like swap is never rejected.
-      const addedBytes = dataUrlByteSize(result) - dataUrlByteSize(element.src);
-      const budget = canAddImage(deck, addedBytes);
-      // Only block genuine growth past the budget; a non-increasing change
-      // (shrinking or replacing) always passes, so decks already over budget
-      // stay editable.
-      if (addedBytes > 0 && !budget.ok) {
-        const usedMb = (budget.totalBytes / (1024 * 1024)).toFixed(1);
-        setError(
-          `Deck image storage is full (${usedMb} MB). Remove an image or use a smaller file.`,
-        );
-        return;
-      }
-      onUpdateElement(element.id, { src: result });
-    };
-    reader.onerror = () => setError("Could not read that file.");
-    reader.readAsDataURL(file);
-  }
+  const { handleFile } = useImageUpload({
+    deck,
+    currentSrc: element.src,
+    onAccept: (dataUrl) => {
+      setError(null);
+      onUpdateElement(element.id, { src: dataUrl });
+    },
+    onError: (message) => setError(message),
+  });
 
   const hasSource = !isEmptyImageSrc(element.src);
 
@@ -1096,6 +1072,17 @@ export function SlideInspector({
   // Validation error for the background image URL field — only set when the
   // user enters a data URL that is too large or not an image type.
   const [bgImageError, setBgImageError] = useState<string | null>(null);
+  const bgFileInputRef = useRef<HTMLInputElement>(null);
+
+  const { handleFile: handleBgImageFile } = useImageUpload({
+    deck,
+    currentSrc: slide.backgroundImage,
+    onAccept: (dataUrl) => {
+      setBgImageError(null);
+      handleBackgroundImageChange(dataUrl);
+    },
+    onError: (message) => setBgImageError(message),
+  });
 
   function handleBackgroundImageChange(value: string | undefined) {
     if (value?.startsWith("data:")) {
@@ -1448,8 +1435,26 @@ export function SlideInspector({
                 </div>
               ) : null}
             </div>
-            <label className="block">
-              <span className={LABEL_CLASS}>Background image URL</span>
+            <div>
+              <span className={LABEL_CLASS}>Background image</span>
+              <button
+                type="button"
+                onClick={() => bgFileInputRef.current?.click()}
+                className={`flex w-full items-center justify-center gap-2 rounded-ds-md border border-dashed border-ds-border-subtle bg-ds-surface px-2 py-2 text-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover ${FOCUS_RING}`}
+              >
+                <Upload size={14} aria-hidden="true" />
+                {slide.backgroundImage ? "Replace image" : "Upload image"}
+              </button>
+              <input
+                ref={bgFileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => {
+                  handleBgImageFile(event.target.files?.[0]);
+                  event.target.value = "";
+                }}
+              />
               <input
                 type="text"
                 value={slide.backgroundImage ?? ""}
@@ -1461,14 +1466,15 @@ export function SlideInspector({
                   )
                 }
                 placeholder="https://… or data:image/…"
-                className={`${FIELD_CLASS} ${FOCUS_RING}`}
+                className={`mt-1.5 ${FIELD_CLASS} ${FOCUS_RING}`}
+                aria-label="Background image URL"
               />
               {bgImageError ? (
                 <p role="alert" className="mt-1 text-xs text-ds-danger-text">
                   {bgImageError}
                 </p>
               ) : null}
-            </label>
+            </div>
             <p className="text-xs text-ds-text-muted">
               Overrides apply to this slide only. Image &gt; gradient &gt; solid
               color. “Theme” clears the color override.
