@@ -57,7 +57,7 @@ deck:
 | `colors`            | `slideBg`, `surface`, `accent`, `onBg`, `onSurface`, `onAccent`, `muted`             |
 | `typography`        | `fontFamily`, `headingFontFamily?`, `scale` (pt sizes for h1/h2/h3/body/list/footer) |
 | `spacing`           | `slidePaddingPt`, `gridUnitPt`                                                       |
-| `shape`             | `cornerRadiusPx`, `shadowCss`                                                        |
+| `shape`             | `cornerRadiusPt`, `shadowCss`                                                        |
 | `defaultBackground` | `BackgroundTreatment` (solid / gradient / image)                                     |
 
 The deck references a token set via `Deck.themeId`. Built-in token sets match
@@ -77,7 +77,7 @@ MasterSlide
 ├─ background?     → optional BackgroundTreatment override for all slides
 ├─ showPageNumbers → boolean (default false)
 ├─ logoUrl?        → brand logo image URL
-├─ logoPlacement?  → corner / edge anchor for the logo
+├─ logoPlacement?  → corner anchor for the logo
 └─ footerText?     → global footer string (may include {{pageNumber}})
 ```
 
@@ -208,4 +208,4 @@ optional with sensible fallbacks.
 - Normalise built-in layouts into the new layout contract (#378).
 - Layout application rules that preserve manual overrides (#378).
 - Theme/layout validation helpers (#378).
-- PPTX import/export mapping (#future).
+- `MasterSlide.themeId` vs deck `themeId` precedence if per-master theming is introduced (#future).

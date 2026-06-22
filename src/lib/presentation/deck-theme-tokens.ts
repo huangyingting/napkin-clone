@@ -135,7 +135,7 @@ export type DeckThemeTokenSet = {
 // Master slide
 // ---------------------------------------------------------------------------
 
-/** Corner / edge anchor for the logo overlay. */
+/** Corner anchor for the logo overlay. */
 export type LogoPlacement =
   | "top-left"
   | "top-right"
@@ -168,7 +168,7 @@ export type MasterSlide = {
   showPageNumbers: boolean;
   /** Brand logo image URL rendered in the `logoPlacement` corner. */
   logoUrl?: string;
-  /** Corner / edge anchor for the logo.  Required when `logoUrl` is set. */
+  /** Corner anchor for the logo.  Required when `logoUrl` is set. */
   logoPlacement?: LogoPlacement;
   /**
    * Global footer text.  Supports the `{{pageNumber}}` placeholder token
@@ -358,7 +358,7 @@ export function resolveThemeTokens(themeId?: string | null): DeckThemeTokenSet {
 
 /**
  * Returns the resolved `BackgroundTreatment` for a slide, applying the
- * cascade: element background image → slide overrides → master background →
+ * cascade: slide background image → slide overrides → master background →
  * deck theme default background.
  *
  * Accepts the three existing per-slide fields as optional parameters so
