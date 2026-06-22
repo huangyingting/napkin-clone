@@ -122,12 +122,16 @@ import {
 import {
   addElement,
   addSlide,
+  alignElements,
+  arrangeSelectedElements,
   bringElementToFront,
+  distributeElements,
   duplicateElement,
   duplicateElements,
   duplicateSlide,
   groupElements,
   insertSlide,
+  matchSizeElements,
   materializeSlide,
   moveSlide,
   removeElement,
@@ -150,6 +154,12 @@ import {
   type DistributiveOmit,
   type ElementPatch,
 } from "@/lib/presentation/deck-mutations";
+import type {
+  AlignMode,
+  DistributeMode,
+  MatchSizeMode,
+} from "@/lib/presentation/element-align";
+import type { ArrangeMode } from "@/lib/presentation/element-arrange";
 import { deriveSlideTitle } from "@/lib/presentation/slide-title";
 import { reorderTargetIndex } from "@/lib/presentation/slide-reorder";
 import { useDeckHistory } from "@/lib/presentation/use-deck-history";
@@ -1391,6 +1401,36 @@ export function SlideEditor({
     [deck, onDeckChange, safeSelected],
   );
 
+  // ── Multi-select: align, distribute, match-size, arrange (issue #328) ────
+
+  const handleAlign = useCallback(
+    (ids: string[], mode: AlignMode) => {
+      onDeckChange(alignElements(deck, safeSelected, ids, mode));
+    },
+    [deck, onDeckChange, safeSelected],
+  );
+
+  const handleDistribute = useCallback(
+    (ids: string[], mode: DistributeMode) => {
+      onDeckChange(distributeElements(deck, safeSelected, ids, mode));
+    },
+    [deck, onDeckChange, safeSelected],
+  );
+
+  const handleMatchSize = useCallback(
+    (ids: string[], mode: MatchSizeMode) => {
+      onDeckChange(matchSizeElements(deck, safeSelected, ids, mode));
+    },
+    [deck, onDeckChange, safeSelected],
+  );
+
+  const handleArrange = useCallback(
+    (ids: string[], mode: ArrangeMode) => {
+      onDeckChange(arrangeSelectedElements(deck, safeSelected, ids, mode));
+    },
+    [deck, onDeckChange, safeSelected],
+  );
+
   const handleMaterialize = useCallback(() => {
     onDeckChange(materializeSlide(deck, safeSelected));
   }, [deck, onDeckChange, safeSelected]);
@@ -1662,6 +1702,11 @@ export function SlideEditor({
         onDuplicateElement: handleDuplicateElement,
         onBringToFront: handleBringToFront,
         onSendToBack: handleSendToBack,
+        selectedElementIds: effectiveSelectedElementIds,
+        onAlign: handleAlign,
+        onDistribute: handleDistribute,
+        onMatchSize: handleMatchSize,
+        onArrange: handleArrange,
         onBackgroundChange: handleBackgroundChange,
         onBackgroundGradientChange: handleBackgroundGradientChange,
         onBackgroundImageChange: handleBackgroundImageChange,
