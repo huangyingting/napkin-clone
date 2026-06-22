@@ -152,13 +152,6 @@ function snapFontSize(value: number): number {
   );
 }
 
-function snapFontSizeDown(value: number): number {
-  return Math.min(
-    MAX_FONT_PCT,
-    Math.max(MIN_FONT_PCT, Math.floor(value / FONT_STEP_PCT) * FONT_STEP_PCT),
-  );
-}
-
 function clampBox(box: ElementBox): ElementBox {
   const w = Math.max(MIN_SIZE_PCT, Math.min(100, box.w));
   const h = Math.max(MIN_SIZE_PCT, Math.min(100, box.h));
