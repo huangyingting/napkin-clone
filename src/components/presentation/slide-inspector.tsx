@@ -568,7 +568,7 @@ const IMAGE_FIT_MODE_OPTIONS: {
   },
   {
     value: "fill",
-    label: "Fill",
+    label: "Stretch",
     title: "Stretch the image to fill the box",
   },
   {
@@ -679,8 +679,28 @@ function ImageCropControl({
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <span className={LABEL_CLASS + " mb-0"}>Crop</span>
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="image-crop-dialog-label"
+      className="flex flex-col gap-2"
+    >
+      <div className="flex items-center justify-between">
+        <span id="image-crop-dialog-label" className={LABEL_CLASS + " mb-0"}>
+          Crop
+        </span>
+        {/* Visible instruction pill — decorative; screen-reader text below */}
+        <span
+          aria-hidden="true"
+          className="rounded-full border border-ds-border-subtle px-2 py-0.5 text-xs text-ds-text-secondary"
+        >
+          Enter % per side
+        </span>
+      </div>
+      <span className="sr-only">
+        Enter percentage values from 0 to 100 to crop each side of the image.
+        Top, Right, Bottom, and Left fields trim that fraction of the image.
+      </span>
       <div className="grid grid-cols-2 gap-2">
         <NumberField
           label="Top %"
