@@ -4,7 +4,7 @@
  */
 export { Button, IconButton } from "./button";
 
-export { ColorPicker } from "./color-picker";
+export { ColorPicker, DEFAULT_SWATCH_PRESETS } from "./color-picker";
 
 export { Divider } from "./divider";
 

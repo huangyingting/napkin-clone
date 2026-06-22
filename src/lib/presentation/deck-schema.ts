@@ -194,6 +194,9 @@ function validateElement(input: unknown, context: string): SlideElement {
       : {}),
     ...(input.shadow !== undefined ? { shadow: Boolean(input.shadow) } : {}),
     ...(input.locked !== undefined ? { locked: Boolean(input.locked) } : {}),
+    ...(typeof input.groupId === "string" && input.groupId.length > 0
+      ? { groupId: input.groupId }
+      : {}),
   };
 
   switch (input.kind) {

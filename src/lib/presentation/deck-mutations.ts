@@ -701,6 +701,76 @@ export function setSlideBackground(
   });
 }
 
+/**
+ * Sets multiple element boxes at once on a slide (used by group drag-move so a
+ * whole group moves in a single, undoable mutation).
+ */
+export function setElementBoxes(
+  deck: Deck,
+  index: number,
+  boxesById: Record<string, ElementBox>,
+): Deck {
+  return mapSlide(deck, index, (slide) => {
+    if (!slide.elements) {
+      return slide;
+    }
+    return markElementsEdited({
+      ...slide,
+      elements: slide.elements.map((element) =>
+        boxesById[element.id]
+          ? { ...element, box: boxesById[element.id] }
+          : element,
+      ),
+    });
+  });
+}
+
+/** Assigns a fresh group id to the given elements; returns it for re-selection. */
+export function groupElements(
+  deck: Deck,
+  index: number,
+  ids: readonly string[],
+): { deck: Deck; groupId: string } {
+  const groupId = makeElementId();
+  const idSet = new Set(ids);
+  const next = mapSlide(deck, index, (slide) => {
+    if (!slide.elements) {
+      return slide;
+    }
+    return markElementsEdited({
+      ...slide,
+      elements: slide.elements.map((element) =>
+        idSet.has(element.id) ? { ...element, groupId } : element,
+      ),
+    });
+  });
+  return { deck: next, groupId };
+}
+
+/** Clears the given `groupId` from every element that carries it. */
+export function ungroupElements(
+  deck: Deck,
+  index: number,
+  groupId: string,
+): Deck {
+  return mapSlide(deck, index, (slide) => {
+    if (!slide.elements) {
+      return slide;
+    }
+    return markElementsEdited({
+      ...slide,
+      elements: slide.elements.map((element) => {
+        if (element.groupId !== groupId) {
+          return element;
+        }
+        const copy = { ...element };
+        delete (copy as { groupId?: string }).groupId;
+        return copy;
+      }),
+    });
+  });
+}
+
 /** Sets (or clears, with `undefined`) a slide's accent color override. */
 export function setSlideAccent(
   deck: Deck,

@@ -204,6 +204,11 @@ interface BaseElement {
   shadow?: boolean;
   /** When true, the element is not selectable or draggable in the editor. */
   locked?: boolean;
+  /**
+   * Optional group id. Elements sharing a `groupId` select and move together in
+   * the editor. Renderers ignore it. Cleared by ungrouping.
+   */
+  groupId?: string;
 }
 
 export interface TextElement extends BaseElement {
