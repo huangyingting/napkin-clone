@@ -731,6 +731,15 @@ export interface Deck {
    * available.
    */
   deckContentHash?: string;
+
+  /**
+   * Monotonically-increasing deck schema version used by the migration
+   * pipeline in `deck-migration.ts`. Legacy decks omit this field (treated as
+   * version 0). After migration, all persisted decks carry the current version.
+   * Callers must not interpret the version themselves; use `migrateDeck` and
+   * `safeParseDeck` instead.
+   */
+  schemaVersion?: number;
 }
 
 // ---------------------------------------------------------------------------
