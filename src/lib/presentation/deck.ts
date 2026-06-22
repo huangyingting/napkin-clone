@@ -330,6 +330,21 @@ export interface ConnectorElement extends BaseElement {
   routing?: ConnectorRouting;
 }
 
+/**
+ * Provenance metadata linking an inserted slide element back to a source
+ * document block for sync and staleness tracking.
+ */
+export interface SourceRef {
+  documentId: string;
+  blockId: string;
+  /** Hash of the source content at insertion time, used for staleness checks. */
+  contentHash?: string;
+  /** ISO timestamp describing when the source link was established. */
+  linkedAt: string;
+  /** True when the user explicitly broke the source link. */
+  unlinked?: boolean;
+}
+
 export interface BaseElement {
   /** Stable identifier, unique within a slide. */
   id: string;
@@ -367,6 +382,8 @@ export interface BaseElement {
    * the editor. Renderers ignore it. Cleared by ungrouping.
    */
   groupId?: string;
+  /** Optional provenance link back to the source document block. */
+  sourceRef?: SourceRef;
 }
 
 /**
@@ -691,6 +708,62 @@ export const MAX_BULLETS = 5;
 // ---------------------------------------------------------------------------
 // Element helpers
 // ---------------------------------------------------------------------------
+
+function cloneSourceRef(ref: SourceRef): SourceRef {
+  return {
+    documentId: ref.documentId,
+    blockId: ref.blockId,
+    ...(ref.contentHash !== undefined ? { contentHash: ref.contentHash } : {}),
+    linkedAt: ref.linkedAt,
+    ...(ref.unlinked === true ? { unlinked: true } : {}),
+  };
+}
+
+function cloneLinkedSourceRef(ref: SourceRef): SourceRef {
+  const linkedRef = cloneSourceRef(ref);
+  delete linkedRef.unlinked;
+  return linkedRef;
+}
+
+/** Returns true when an element still has an active source link. */
+export function isSourceLinked(el: BaseElement): boolean {
+  return el.sourceRef !== undefined && el.sourceRef.unlinked !== true;
+}
+
+/**
+ * Returns true when an element's linked source content has changed since the
+ * element was inserted or last relinked.
+ */
+export function isSourceStale(el: BaseElement, currentHash: string): boolean {
+  const contentHash = el.sourceRef?.contentHash;
+  return (
+    isSourceLinked(el) &&
+    typeof contentHash === "string" &&
+    contentHash !== currentHash
+  );
+}
+
+/** Marks an element's source link as intentionally broken. */
+export function unlinkSource<T extends BaseElement>(el: T): T {
+  if (el.sourceRef === undefined || el.sourceRef.unlinked === true) {
+    return el;
+  }
+  return {
+    ...el,
+    sourceRef: {
+      ...cloneSourceRef(el.sourceRef),
+      unlinked: true,
+    },
+  };
+}
+
+/** Replaces an element's source link with a fresh active reference. */
+export function relinkSource<T extends BaseElement>(el: T, ref: SourceRef): T {
+  return {
+    ...el,
+    sourceRef: cloneLinkedSourceRef(ref),
+  };
+}
 
 /**
  * Generates a unique id for a new slide element.
