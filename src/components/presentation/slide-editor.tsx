@@ -1296,6 +1296,31 @@ export function SlideEditor({
     [accentForSelected, deck, handleSelectElement, onDeckChange, safeSelected],
   );
 
+  // Double-click-to-add-text callback (#298). Builds a text element at the
+  // given box, commits it as a single undoable step, selects it, and returns
+  // the new id so the stage can enter inline editing immediately.
+  const handleAddTextElement = useCallback(
+    (box: ElementBox): string | null => {
+      if (!selectedSlide) return null;
+      const id = makeElementId();
+      const element = {
+        ...buildDefaultElement("text", accentForSelected, id),
+        box,
+      };
+      onDeckChange(addElement(deck, safeSelected, element));
+      handleSelectElement(id);
+      return id;
+    },
+    [
+      accentForSelected,
+      deck,
+      handleSelectElement,
+      onDeckChange,
+      safeSelected,
+      selectedSlide,
+    ],
+  );
+
   const handleAddVisual = useCallback(
     (visualId: string) => {
       const element = buildVisualElement(visualId);
@@ -1957,6 +1982,7 @@ export function SlideEditor({
                 onUngroupElements={handleUngroupElements}
                 snapToGrid={snapToGrid}
                 brandSwatches={brandSwatches}
+                onAddTextElement={handleAddTextElement}
               />
             ) : null}
             {/* Zoom controls — overlaid bottom-right of the stage. */}
