@@ -28,8 +28,17 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import {
+  AlignCenterHorizontal,
+  AlignCenterVertical,
+  AlignEndHorizontal,
+  AlignEndVertical,
+  AlignHorizontalSpaceBetween,
+  AlignStartHorizontal,
+  AlignStartVertical,
+  AlignVerticalSpaceBetween,
   ArrowDownToLine,
   ArrowUpToLine,
+  BringToFront,
   ClipboardPaste,
   Copy,
   Group,
@@ -37,9 +46,13 @@ import {
   Link2Off,
   Lock,
   LockOpen,
+  Maximize2,
+  MoveHorizontal,
+  MoveVertical,
   Pencil,
   RotateCw,
   Scissors,
+  SendToBack,
   Trash2,
   Ungroup,
   type LucideIcon,
@@ -63,7 +76,16 @@ import type {
   SlideElement,
   TextElementStyle,
 } from "@/lib/presentation/deck";
-import type { ElementPatch } from "@/lib/presentation/deck-mutations";
+import type {
+  ElementPatch,
+  ArrangeDirection,
+} from "@/lib/presentation/deck-mutations";
+import type {
+  AlignMode,
+  DistributeMode,
+  MatchSizeMode,
+} from "@/lib/presentation/element-align";
+import { boundingBoxOf } from "@/lib/presentation/element-align";
 import { detachConnectorEndpoint } from "@/lib/presentation/connector-lifecycle";
 import { elementAccessibleName } from "@/lib/presentation/element-accessible-name";
 import { type SnapGuide, snapBox } from "@/lib/presentation/element-snap";
@@ -921,6 +943,11 @@ interface SlideStageEditorProps {
   ) => void;
   onGroupElements: (ids: string[]) => void;
   onUngroupElements: (groupId: string) => void;
+  /** Multi-select arrangement operations (issue #328). */
+  onAlignElements?: (mode: AlignMode) => void;
+  onDistributeElements?: (mode: DistributeMode) => void;
+  onMatchSizeElements?: (mode: MatchSizeMode) => void;
+  onArrangeElements?: (direction: ArrangeDirection) => void;
   /** When true, element moves snap to a fixed grid. */
   snapToGrid?: boolean;
   /** The user's brand-kit colors, surfaced first in the element color pickers. */
@@ -961,6 +988,10 @@ export function SlideStageEditor({
   onSetElementPatches,
   onGroupElements,
   onUngroupElements,
+  onAlignElements,
+  onDistributeElements,
+  onMatchSizeElements,
+  onArrangeElements,
   snapToGrid = false,
   brandSwatches = [],
   onAddTextElement,
@@ -1064,6 +1095,19 @@ export function SlideStageEditor({
       transformable.map((el) => fittedBoxes.get(el.id) ?? el.box),
     );
   }, [isMultiSelect, selectedElements, fittedBoxes]);
+  // Bounding box of all selected elements for the multi-select toolbar (issue #328).
+  const multiSelectBounds = useMemo(() => {
+    if (!isMultiSelect) return null;
+    const boxes = selectedElements.map(
+      (el) => fittedBoxes.get(el.id) ?? el.box,
+    );
+    return boundingBoxOf(boxes);
+  }, [isMultiSelect, selectedElements, fittedBoxes]);
+  // Whether any unlocked element is in the selection (enables arrangement ops).
+  const hasUnlockedSelected = useMemo(
+    () => selectedElements.some((el) => !el.locked),
+    [selectedElements],
+  );
   // The single primary selection that the floating toolbar attaches to.
   const primaryElement =
     elements.find((element) => element.id === selectedElementId) ?? null;
@@ -2152,6 +2196,26 @@ export function SlideStageEditor({
           </FloatingElementToolbar>
         ) : null}
 
+        {/* Multi-select floating toolbar — shown when 2+ elements are selected
+            and the user is not dragging or using the marquee (issue #328). */}
+        {isMultiSelect && !activeDrag && !marqueeRect && multiSelectBounds ? (
+          <FloatingElementToolbar
+            key="multi-select-toolbar"
+            stageRef={containerRef}
+            box={multiSelectBounds}
+          >
+            <MultiSelectToolbarContent
+              count={selectedElements.length}
+              allLocked={!hasUnlockedSelected}
+              onAlign={onAlignElements ?? (() => {})}
+              onDistribute={onDistributeElements ?? (() => {})}
+              onMatchSize={onMatchSizeElements ?? (() => {})}
+              onArrange={onArrangeElements ?? (() => {})}
+              showAdvanced={showAdvanced}
+            />
+          </FloatingElementToolbar>
+        ) : null}
+
         {/* Right-click context menu. */}
         {contextMenu ? (
           <ElementContextMenu
@@ -2196,6 +2260,12 @@ export function SlideStageEditor({
             onGroup={() => onGroupElements([...selectedElementIds])}
             onUngroup={onUngroupElements}
             showAdvanced={showAdvanced}
+            multiSelectCount={isMultiSelect ? selectedElements.length : 0}
+            allSelectedLocked={isMultiSelect && !hasUnlockedSelected}
+            onAlignElements={onAlignElements}
+            onDistributeElements={onDistributeElements}
+            onMatchSizeElements={onMatchSizeElements}
+            onArrangeElements={onArrangeElements}
           />
         ) : null}
       </div>
@@ -2275,18 +2345,21 @@ function ToolbarButton({
   icon: Icon,
   label,
   onClick,
+  disabled = false,
 }: {
   icon: LucideIcon;
   label: string;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
-      onClick={onClick}
-      className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent ${FOCUS_RING}`}
     >
       <Icon size={14} aria-hidden="true" />
     </button>
@@ -2297,7 +2370,143 @@ function ToolbarDivider() {
   return <span className="mx-0.5 h-5 w-px bg-ds-border-subtle" aria-hidden />;
 }
 
-/** The controls inside the floating toolbar, varying by element kind. */
+/**
+ * Toolbar content for multi-element selections: align, distribute, match-size,
+ * and z-order arrange, with correct disabled states (issue #328).
+ */
+function MultiSelectToolbarContent({
+  count,
+  allLocked,
+  onAlign,
+  onDistribute,
+  onMatchSize,
+  onArrange,
+  showAdvanced,
+}: {
+  count: number;
+  allLocked: boolean;
+  onAlign: (mode: AlignMode) => void;
+  onDistribute: (mode: DistributeMode) => void;
+  onMatchSize: (mode: MatchSizeMode) => void;
+  onArrange: (direction: ArrangeDirection) => void;
+  showAdvanced: boolean;
+}) {
+  const canDistribute = !allLocked && count >= 3;
+  return (
+    <>
+      {/* Align group */}
+      <ToolbarButton
+        icon={AlignStartHorizontal}
+        label="Align left"
+        disabled={allLocked}
+        onClick={() => onAlign("left")}
+      />
+      <ToolbarButton
+        icon={AlignCenterHorizontal}
+        label="Center horizontally"
+        disabled={allLocked}
+        onClick={() => onAlign("hcenter")}
+      />
+      <ToolbarButton
+        icon={AlignEndHorizontal}
+        label="Align right"
+        disabled={allLocked}
+        onClick={() => onAlign("right")}
+      />
+      <ToolbarButton
+        icon={AlignStartVertical}
+        label="Align top"
+        disabled={allLocked}
+        onClick={() => onAlign("top")}
+      />
+      <ToolbarButton
+        icon={AlignCenterVertical}
+        label="Center vertically"
+        disabled={allLocked}
+        onClick={() => onAlign("vmiddle")}
+      />
+      <ToolbarButton
+        icon={AlignEndVertical}
+        label="Align bottom"
+        disabled={allLocked}
+        onClick={() => onAlign("bottom")}
+      />
+      <ToolbarDivider />
+      {/* Distribute group (requires 3+ elements) */}
+      <ToolbarButton
+        icon={AlignHorizontalSpaceBetween}
+        label={
+          canDistribute
+            ? "Distribute horizontally"
+            : "Distribute horizontally (needs 3+)"
+        }
+        disabled={!canDistribute}
+        onClick={() => onDistribute("horizontal")}
+      />
+      <ToolbarButton
+        icon={AlignVerticalSpaceBetween}
+        label={
+          canDistribute
+            ? "Distribute vertically"
+            : "Distribute vertically (needs 3+)"
+        }
+        disabled={!canDistribute}
+        onClick={() => onDistribute("vertical")}
+      />
+      <ToolbarDivider />
+      {/* Match size group */}
+      <ToolbarButton
+        icon={MoveHorizontal}
+        label="Match width"
+        disabled={allLocked}
+        onClick={() => onMatchSize("width")}
+      />
+      <ToolbarButton
+        icon={MoveVertical}
+        label="Match height"
+        disabled={allLocked}
+        onClick={() => onMatchSize("height")}
+      />
+      <ToolbarButton
+        icon={Maximize2}
+        label="Match size"
+        disabled={allLocked}
+        onClick={() => onMatchSize("both")}
+      />
+      {showAdvanced ? (
+        <>
+          <ToolbarDivider />
+          {/* Arrange / z-order group */}
+          <ToolbarButton
+            icon={BringToFront}
+            label="Bring to front"
+            disabled={allLocked}
+            onClick={() => onArrange("bringToFront")}
+          />
+          <ToolbarButton
+            icon={ArrowUpToLine}
+            label="Bring forward"
+            disabled={allLocked}
+            onClick={() => onArrange("bringForward")}
+          />
+          <ToolbarButton
+            icon={ArrowDownToLine}
+            label="Send backward"
+            disabled={allLocked}
+            onClick={() => onArrange("sendBackward")}
+          />
+          <ToolbarButton
+            icon={SendToBack}
+            label="Send to back"
+            disabled={allLocked}
+            onClick={() => onArrange("sendToBack")}
+          />
+        </>
+      ) : null}
+    </>
+  );
+}
+
 function ElementToolbarContent({
   element,
   tc,
@@ -2416,6 +2625,12 @@ function ElementContextMenu({
   onGroup,
   onUngroup,
   showAdvanced,
+  multiSelectCount,
+  allSelectedLocked,
+  onAlignElements,
+  onDistributeElements,
+  onMatchSizeElements,
+  onArrangeElements,
 }: {
   x: number;
   y: number;
@@ -2438,6 +2653,14 @@ function ElementContextMenu({
   onGroup: () => void;
   onUngroup: (groupId: string) => void;
   showAdvanced: boolean;
+  /** When > 0, a multi-element selection is active (issue #328). */
+  multiSelectCount?: number;
+  /** True when all selected elements are locked (disables arrangement ops). */
+  allSelectedLocked?: boolean;
+  onAlignElements?: (mode: AlignMode) => void;
+  onDistributeElements?: (mode: DistributeMode) => void;
+  onMatchSizeElements?: (mode: MatchSizeMode) => void;
+  onArrangeElements?: (direction: ArrangeDirection) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ top: y, left: x });
@@ -2455,7 +2678,9 @@ function ElementContextMenu({
     const menu = ref.current;
     if (!menu) return;
     const items = () =>
-      Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+      Array.from(
+        menu.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled])'),
+      );
     items()[0]?.focus();
 
     function onKey(event: KeyboardEvent) {
@@ -2493,19 +2718,27 @@ function ElementContextMenu({
 
   if (!element || typeof document === "undefined") return null;
   const editable = isInlineEditableElement(element);
+  const isMulti = (multiSelectCount ?? 0) >= 2;
+  const canDistribute = !allSelectedLocked && (multiSelectCount ?? 0) >= 3;
   const run = (action: () => void) => () => {
     action();
     onClose();
   };
-  const item = (label: string, icon: LucideIcon, onSelect: () => void) => {
+  const item = (
+    label: string,
+    icon: LucideIcon,
+    onSelect: () => void,
+    disabled?: boolean,
+  ) => {
     const Icon = icon;
     return (
       <button
         type="button"
         role="menuitem"
         tabIndex={-1}
-        className={MENU_ITEM}
-        onClick={run(onSelect)}
+        disabled={disabled}
+        className={`${MENU_ITEM} disabled:cursor-not-allowed disabled:opacity-40`}
+        onClick={disabled ? undefined : run(onSelect)}
       >
         <Icon size={14} aria-hidden="true" className="mr-2 shrink-0" />
         {label}
@@ -2522,7 +2755,7 @@ function ElementContextMenu({
         left: pos.left,
         zIndex: OVERLAY_Z,
       }}
-      className={cx("w-48", MENU_CHROME)}
+      className={cx("w-52", MENU_CHROME)}
       role="menu"
       aria-label="Element actions"
     >
@@ -2539,7 +2772,123 @@ function ElementContextMenu({
           {item("Detach end", Link2Off, onDetachConnectorEnd)}
         </>
       ) : null}
-      {showAdvanced ? (
+      {/* Multi-select arrangement actions (issue #328) */}
+      {isMulti &&
+      (onAlignElements ||
+        onDistributeElements ||
+        onMatchSizeElements ||
+        onArrangeElements) ? (
+        <>
+          <div className="my-1 h-px bg-ds-border-subtle" aria-hidden />
+          <p className="px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ds-text-muted">
+            Align
+          </p>
+          {item(
+            "Align left",
+            AlignStartHorizontal,
+            () => onAlignElements?.("left"),
+            allSelectedLocked,
+          )}
+          {item(
+            "Center horizontally",
+            AlignCenterHorizontal,
+            () => onAlignElements?.("hcenter"),
+            allSelectedLocked,
+          )}
+          {item(
+            "Align right",
+            AlignEndHorizontal,
+            () => onAlignElements?.("right"),
+            allSelectedLocked,
+          )}
+          {item(
+            "Align top",
+            AlignStartVertical,
+            () => onAlignElements?.("top"),
+            allSelectedLocked,
+          )}
+          {item(
+            "Center vertically",
+            AlignCenterVertical,
+            () => onAlignElements?.("vmiddle"),
+            allSelectedLocked,
+          )}
+          {item(
+            "Align bottom",
+            AlignEndVertical,
+            () => onAlignElements?.("bottom"),
+            allSelectedLocked,
+          )}
+          <p className="mt-1 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ds-text-muted">
+            Distribute
+          </p>
+          {item(
+            "Distribute horizontally",
+            AlignHorizontalSpaceBetween,
+            () => onDistributeElements?.("horizontal"),
+            !canDistribute,
+          )}
+          {item(
+            "Distribute vertically",
+            AlignVerticalSpaceBetween,
+            () => onDistributeElements?.("vertical"),
+            !canDistribute,
+          )}
+          <p className="mt-1 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ds-text-muted">
+            Match size
+          </p>
+          {item(
+            "Match width",
+            MoveHorizontal,
+            () => onMatchSizeElements?.("width"),
+            allSelectedLocked,
+          )}
+          {item(
+            "Match height",
+            MoveVertical,
+            () => onMatchSizeElements?.("height"),
+            allSelectedLocked,
+          )}
+          {item(
+            "Match size",
+            Maximize2,
+            () => onMatchSizeElements?.("both"),
+            allSelectedLocked,
+          )}
+          {showAdvanced ? (
+            <>
+              <p className="mt-1 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ds-text-muted">
+                Arrange
+              </p>
+              {item(
+                "Bring to front",
+                BringToFront,
+                () => onArrangeElements?.("bringToFront"),
+                allSelectedLocked,
+              )}
+              {item(
+                "Bring forward",
+                ArrowUpToLine,
+                () => onArrangeElements?.("bringForward"),
+                allSelectedLocked,
+              )}
+              {item(
+                "Send backward",
+                ArrowDownToLine,
+                () => onArrangeElements?.("sendBackward"),
+                allSelectedLocked,
+              )}
+              {item(
+                "Send to back",
+                SendToBack,
+                () => onArrangeElements?.("sendToBack"),
+                allSelectedLocked,
+              )}
+            </>
+          ) : null}
+        </>
+      ) : null}
+      {showAdvanced && !isMulti ? (
         <>
           <div className="my-1 h-px bg-ds-border-subtle" aria-hidden />
           {item("Bring to front", ArrowUpToLine, () =>
@@ -2560,6 +2909,12 @@ function ElementContextMenu({
             element.locked ? LockOpen : Lock,
             () => onToggleLock(element.id, !element.locked),
           )}
+        </>
+      ) : null}
+      {showAdvanced && isMulti ? (
+        <>
+          <div className="my-1 h-px bg-ds-border-subtle" aria-hidden />
+          {canGroup ? item("Group", Group, onGroup) : null}
         </>
       ) : null}
       <div className="my-1 h-px bg-ds-border-subtle" aria-hidden />

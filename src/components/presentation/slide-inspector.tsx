@@ -18,13 +18,26 @@
  */
 
 import {
+  AlignCenterHorizontal,
+  AlignCenterVertical,
+  AlignEndHorizontal,
+  AlignEndVertical,
+  AlignHorizontalSpaceBetween,
+  AlignStartHorizontal,
+  AlignStartVertical,
+  AlignVerticalSpaceBetween,
   ArrowDownToLine,
   ArrowUpToLine,
   Bold,
+  BringToFront,
   ChevronDown,
   Copy,
   Italic,
   Link2Off,
+  Maximize2,
+  MoveHorizontal,
+  MoveVertical,
+  SendToBack,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -48,7 +61,10 @@ import type {
   TextElementStyle,
   TextRun,
 } from "@/lib/presentation/deck";
-import type { ElementPatch } from "@/lib/presentation/deck-mutations";
+import type {
+  ElementPatch,
+  ArrangeDirection,
+} from "@/lib/presentation/deck-mutations";
 import { detachConnectorEndpoint } from "@/lib/presentation/connector-lifecycle";
 import {
   canAddImage,
@@ -69,6 +85,11 @@ import {
   themeSwatchColors,
 } from "@/lib/presentation/text-style";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
+import type {
+  AlignMode,
+  DistributeMode,
+  MatchSizeMode,
+} from "@/lib/presentation/element-align";
 import type { Visual } from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { applyTheme, isThemeActive } from "@/lib/visual/transforms";
@@ -123,6 +144,8 @@ export interface SlideInspectorProps {
   deck: Deck;
   visuals: ReadonlyMap<string, Visual>;
   selectedElementId: string | null;
+  /** Multi-selection ids; when size >= 2 the multi-select tools panel is shown (issue #328). */
+  selectedElementIds?: ReadonlySet<string>;
   onSelectElement: (id: string | null) => void;
   canDelete: boolean;
   onDuplicateSlide: () => void;
@@ -166,6 +189,11 @@ export interface SlideInspectorProps {
    * call-sites that omit the prop preserve today's full behaviour.
    */
   showAdvanced?: boolean;
+  /** Multi-select arrangement callbacks (issue #328). */
+  onAlignElements?: (mode: AlignMode) => void;
+  onDistributeElements?: (mode: DistributeMode) => void;
+  onMatchSizeElements?: (mode: MatchSizeMode) => void;
+  onArrangeElements?: (direction: ArrangeDirection) => void;
 }
 
 function TabButton({
@@ -1329,6 +1357,7 @@ export function SlideInspector({
   deck,
   visuals,
   selectedElementId,
+  selectedElementIds,
   onSelectElement,
   canDelete,
   onDuplicateSlide,
@@ -1349,6 +1378,10 @@ export function SlideInspector({
   brandSwatches = [],
   className = "flex w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle",
   showAdvanced = true,
+  onAlignElements,
+  onDistributeElements,
+  onMatchSizeElements,
+  onArrangeElements,
 }: SlideInspectorProps) {
   const [tab, setTab] = useState<Tab>("content");
   const TABS: Tab[] = ["content", "style"];
@@ -1413,6 +1446,14 @@ export function SlideInspector({
   const selectedElement =
     elements.find((element) => element.id === selectedElementId) ?? null;
   const orderedElements = [...elements].sort((a, b) => b.zIndex - a.zIndex);
+  const multiCount = selectedElementIds?.size ?? 0;
+  const isMultiSelect = multiCount >= 2;
+  // Lock state for multi-select: all selected elements are locked.
+  const multiAllLocked = isMultiSelect
+    ? elements
+        .filter((el) => selectedElementIds!.has(el.id))
+        .every((el) => el.locked)
+    : false;
 
   const themeConfig = DECK_THEMES[slide.theme] ?? DECK_THEMES.default;
   const textColorPresets = mergeSwatches(brandSwatches, [
@@ -1559,7 +1600,22 @@ export function SlideInspector({
                 </div>
 
                 {/* Selected element editor */}
-                {selectedElement ? (
+                {isMultiSelect ? (
+                  <div className="border-t border-ds-border-subtle pt-3">
+                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ds-text-muted">
+                      {multiCount} elements selected
+                    </p>
+                    <MultiSelectTools
+                      count={multiCount}
+                      allLocked={multiAllLocked}
+                      onAlign={onAlignElements ?? (() => {})}
+                      onDistribute={onDistributeElements ?? (() => {})}
+                      onMatchSize={onMatchSizeElements ?? (() => {})}
+                      onArrange={onArrangeElements ?? (() => {})}
+                      showAdvanced={showAdvanced}
+                    />
+                  </div>
+                ) : selectedElement ? (
                   <div className="border-t border-ds-border-subtle pt-3">
                     <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ds-text-muted">
                       {elementLabel(selectedElement)}
@@ -1882,6 +1938,187 @@ function ColorOverride({
             {(value ?? fallback).toLowerCase()}
           </span>
         </label>
+      ) : null}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Multi-select tools panel — shown in the inspector when 2+ elements are
+// selected. Provides align, distribute, match-size, and arrange controls with
+// correct disabled states. Issue #328.
+// ---------------------------------------------------------------------------
+
+const INSPECT_BTN =
+  `flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors` +
+  ` hover:bg-ds-state-hover hover:text-ds-text-primary disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`;
+
+function InspectorArrangeButton({
+  icon: Icon,
+  label,
+  onClick,
+  disabled = false,
+}: {
+  icon: React.ComponentType<{ size?: number; "aria-hidden"?: boolean | true }>;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Tooltip label={label} side="bottom">
+      <button
+        type="button"
+        aria-label={label}
+        onClick={disabled ? undefined : onClick}
+        disabled={disabled}
+        className={INSPECT_BTN}
+      >
+        <Icon size={14} aria-hidden />
+      </button>
+    </Tooltip>
+  );
+}
+
+function MultiSelectTools({
+  count,
+  allLocked,
+  onAlign,
+  onDistribute,
+  onMatchSize,
+  onArrange,
+  showAdvanced,
+}: {
+  count: number;
+  allLocked: boolean;
+  onAlign: (mode: AlignMode) => void;
+  onDistribute: (mode: DistributeMode) => void;
+  onMatchSize: (mode: MatchSizeMode) => void;
+  onArrange: (direction: ArrangeDirection) => void;
+  showAdvanced: boolean;
+}) {
+  const canDistribute = !allLocked && count >= 3;
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-ds-text-muted">
+          Align
+        </p>
+        <div className="flex flex-wrap gap-0.5">
+          <InspectorArrangeButton
+            icon={AlignStartHorizontal}
+            label="Align left"
+            disabled={allLocked}
+            onClick={() => onAlign("left")}
+          />
+          <InspectorArrangeButton
+            icon={AlignCenterHorizontal}
+            label="Center horizontally"
+            disabled={allLocked}
+            onClick={() => onAlign("hcenter")}
+          />
+          <InspectorArrangeButton
+            icon={AlignEndHorizontal}
+            label="Align right"
+            disabled={allLocked}
+            onClick={() => onAlign("right")}
+          />
+          <InspectorArrangeButton
+            icon={AlignStartVertical}
+            label="Align top"
+            disabled={allLocked}
+            onClick={() => onAlign("top")}
+          />
+          <InspectorArrangeButton
+            icon={AlignCenterVertical}
+            label="Center vertically"
+            disabled={allLocked}
+            onClick={() => onAlign("vmiddle")}
+          />
+          <InspectorArrangeButton
+            icon={AlignEndVertical}
+            label="Align bottom"
+            disabled={allLocked}
+            onClick={() => onAlign("bottom")}
+          />
+        </div>
+      </div>
+      <div>
+        <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-ds-text-muted">
+          Distribute{" "}
+          {count < 3 ? <span className="normal-case">(needs 3+)</span> : null}
+        </p>
+        <div className="flex gap-0.5">
+          <InspectorArrangeButton
+            icon={AlignHorizontalSpaceBetween}
+            label="Distribute horizontally"
+            disabled={!canDistribute}
+            onClick={() => onDistribute("horizontal")}
+          />
+          <InspectorArrangeButton
+            icon={AlignVerticalSpaceBetween}
+            label="Distribute vertically"
+            disabled={!canDistribute}
+            onClick={() => onDistribute("vertical")}
+          />
+        </div>
+      </div>
+      <div>
+        <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-ds-text-muted">
+          Match size
+        </p>
+        <div className="flex gap-0.5">
+          <InspectorArrangeButton
+            icon={MoveHorizontal}
+            label="Match width"
+            disabled={allLocked}
+            onClick={() => onMatchSize("width")}
+          />
+          <InspectorArrangeButton
+            icon={MoveVertical}
+            label="Match height"
+            disabled={allLocked}
+            onClick={() => onMatchSize("height")}
+          />
+          <InspectorArrangeButton
+            icon={Maximize2}
+            label="Match size"
+            disabled={allLocked}
+            onClick={() => onMatchSize("both")}
+          />
+        </div>
+      </div>
+      {showAdvanced ? (
+        <div>
+          <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-ds-text-muted">
+            Arrange
+          </p>
+          <div className="flex gap-0.5">
+            <InspectorArrangeButton
+              icon={BringToFront}
+              label="Bring to front"
+              disabled={allLocked}
+              onClick={() => onArrange("bringToFront")}
+            />
+            <InspectorArrangeButton
+              icon={ArrowUpToLine}
+              label="Bring forward"
+              disabled={allLocked}
+              onClick={() => onArrange("bringForward")}
+            />
+            <InspectorArrangeButton
+              icon={ArrowDownToLine}
+              label="Send backward"
+              disabled={allLocked}
+              onClick={() => onArrange("sendBackward")}
+            />
+            <InspectorArrangeButton
+              icon={SendToBack}
+              label="Send to back"
+              disabled={allLocked}
+              onClick={() => onArrange("sendToBack")}
+            />
+          </div>
+        </div>
       ) : null}
     </div>
   );

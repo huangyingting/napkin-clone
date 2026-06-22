@@ -15,7 +15,14 @@ import {
   materializeSlideElements,
   migrateSlideToFreeForm,
 } from "./deck";
-import { type AlignMode, alignBoxes } from "./element-align";
+import {
+  type AlignMode,
+  alignBoxes,
+  type DistributeMode,
+  distributeBoxes,
+  type MatchSizeMode,
+  matchSizeBoxes,
+} from "./element-align";
 import {
   remapConnectorBindings,
   updateConnectorBindingsOnDelete,
@@ -417,6 +424,170 @@ export function alignElements(
       }),
     });
   });
+}
+
+/**
+ * Distributes `elementIds` evenly along the given axis (issue #328).
+ * Requires at least 3 elements to have any effect.
+ */
+export function distributeElements(
+  deck: Deck,
+  index: number,
+  elementIds: readonly string[],
+  mode: DistributeMode,
+): Deck {
+  const ids = new Set(elementIds);
+  return mapSlide(deck, index, (slide) => {
+    if (!slide.elements) {
+      return slide;
+    }
+    const targets = slide.elements.filter((element) => ids.has(element.id));
+    if (targets.length < 3) {
+      return slide;
+    }
+    const distributed = distributeBoxes(
+      targets.map((element) => element.box),
+      mode,
+    );
+    const boxById = new Map<string, ElementBox>();
+    targets.forEach((element, i) => boxById.set(element.id, distributed[i]));
+    return markElementsEdited({
+      ...slide,
+      elements: slide.elements.map((element) => {
+        const box = boxById.get(element.id);
+        return box ? { ...element, box } : element;
+      }),
+    });
+  });
+}
+
+/**
+ * Resizes all named elements to match the dimensions of the first one in
+ * `elementIds` (the primary selection). Issue #328.
+ */
+export function matchSizeElements(
+  deck: Deck,
+  index: number,
+  elementIds: readonly string[],
+  mode: MatchSizeMode,
+): Deck {
+  if (elementIds.length < 2) {
+    return deck;
+  }
+  const ids = new Set(elementIds);
+  return mapSlide(deck, index, (slide) => {
+    if (!slide.elements) {
+      return slide;
+    }
+    // Keep elementIds order so boxes[0] is the primary reference.
+    const targets = elementIds
+      .map((id) => slide.elements!.find((el) => el.id === id))
+      .filter((el): el is SlideElement => el !== undefined);
+    if (targets.length < 2) {
+      return slide;
+    }
+    const matched = matchSizeBoxes(
+      targets.map((element) => element.box),
+      mode,
+    );
+    const boxById = new Map<string, ElementBox>();
+    targets.forEach((element, i) => boxById.set(element.id, matched[i]));
+    return markElementsEdited({
+      ...slide,
+      elements: slide.elements.map((element) => {
+        if (!ids.has(element.id)) return element;
+        const box = boxById.get(element.id);
+        return box ? { ...element, box } : element;
+      }),
+    });
+  });
+}
+
+/** The four z-order directions for a multi-element arrangement (issue #328). */
+export type ArrangeDirection =
+  | "bringToFront"
+  | "sendToBack"
+  | "bringForward"
+  | "sendBackward";
+
+/**
+ * Changes the z-order of a group of selected elements (issue #328).
+ *
+ * - `bringToFront` / `sendToBack`: places all selected elements at the top /
+ *   bottom of the z-stack, above / below all non-selected elements, preserving
+ *   their relative order among themselves.
+ * - `bringForward` / `sendBackward`: moves each selected element one step
+ *   toward the top / bottom of the z-stack by swapping it with the nearest
+ *   non-selected neighbour in that direction (processed in the safe order so
+ *   no element is double-moved in a single call).
+ */
+export function arrangeSelectedElements(
+  deck: Deck,
+  index: number,
+  elementIds: readonly string[],
+  direction: ArrangeDirection,
+): Deck {
+  if (elementIds.length === 0) return deck;
+  const ids = new Set(elementIds);
+  return mapSlide(deck, index, (slide) => {
+    if (!slide.elements || slide.elements.length === 0) return slide;
+
+    const sorted = [...slide.elements].sort((a, b) => a.zIndex - b.zIndex);
+    const others = sorted.filter((e) => !ids.has(e.id));
+    const selected = sorted.filter((e) => ids.has(e.id));
+
+    let newOrder: SlideElement[];
+    if (direction === "bringToFront") {
+      newOrder = [...others, ...selected];
+    } else if (direction === "sendToBack") {
+      newOrder = [...selected, ...others];
+    } else if (direction === "bringForward") {
+      newOrder = shiftSelectionForward(sorted, ids);
+    } else {
+      newOrder = shiftSelectionBackward(sorted, ids);
+    }
+
+    const baseZ = sorted[0]?.zIndex ?? 0;
+    const idToNewZ = new Map<string, number>(
+      newOrder.map((e, i) => [e.id, baseZ + i]),
+    );
+    return markElementsEdited({
+      ...slide,
+      elements: slide.elements.map((e) => {
+        const z = idToNewZ.get(e.id);
+        return z !== undefined ? { ...e, zIndex: z } : e;
+      }),
+    });
+  });
+}
+
+function shiftSelectionForward(
+  sorted: SlideElement[],
+  ids: Set<string>,
+): SlideElement[] {
+  const arr = [...sorted];
+  // Process from top to bottom so the highest selected element moves first,
+  // preventing a chain reaction that would shift the whole group more than one step.
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (ids.has(arr[i].id) && i + 1 < arr.length && !ids.has(arr[i + 1].id)) {
+      [arr[i], arr[i + 1]] = [arr[i + 1], arr[i]];
+    }
+  }
+  return arr;
+}
+
+function shiftSelectionBackward(
+  sorted: SlideElement[],
+  ids: Set<string>,
+): SlideElement[] {
+  const arr = [...sorted];
+  // Process from bottom to top so the lowest selected element moves first.
+  for (let i = 0; i < arr.length; i++) {
+    if (ids.has(arr[i].id) && i - 1 >= 0 && !ids.has(arr[i - 1].id)) {
+      [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]];
+    }
+  }
+  return arr;
 }
 
 /**

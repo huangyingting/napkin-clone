@@ -122,12 +122,16 @@ import {
 import {
   addElement,
   addSlide,
+  alignElements,
+  arrangeSelectedElements,
   bringElementToFront,
+  distributeElements,
   duplicateElement,
   duplicateElements,
   duplicateSlide,
   groupElements,
   insertSlide,
+  matchSizeElements,
   materializeSlide,
   moveSlide,
   removeElement,
@@ -147,9 +151,15 @@ import {
   ungroupElements,
   updateElement,
   updateSlide,
+  type ArrangeDirection,
   type DistributiveOmit,
   type ElementPatch,
 } from "@/lib/presentation/deck-mutations";
+import type {
+  AlignMode,
+  DistributeMode,
+  MatchSizeMode,
+} from "@/lib/presentation/element-align";
 import { deriveSlideTitle } from "@/lib/presentation/slide-title";
 import { reorderTargetIndex } from "@/lib/presentation/slide-reorder";
 import { useDeckHistory } from "@/lib/presentation/use-deck-history";
@@ -1345,6 +1355,70 @@ export function SlideEditor({
     [deck, onDeckChange, safeSelected],
   );
 
+  const handleAlignElements = useCallback(
+    (mode: AlignMode) => {
+      onDeckChange(
+        alignElements(
+          deck,
+          safeSelected,
+          [...effectiveSelectedElementIds],
+          mode,
+        ),
+      );
+    },
+    [deck, onDeckChange, safeSelected, effectiveSelectedElementIds],
+  );
+
+  const handleDistributeElements = useCallback(
+    (mode: DistributeMode) => {
+      onDeckChange(
+        distributeElements(
+          deck,
+          safeSelected,
+          [...effectiveSelectedElementIds],
+          mode,
+        ),
+      );
+    },
+    [deck, onDeckChange, safeSelected, effectiveSelectedElementIds],
+  );
+
+  const handleMatchSizeElements = useCallback(
+    (mode: MatchSizeMode) => {
+      // Pass element ids in insertion order so boxes[0] is the primary.
+      const ids = selectedElementId
+        ? [
+            selectedElementId,
+            ...[...effectiveSelectedElementIds].filter(
+              (id) => id !== selectedElementId,
+            ),
+          ]
+        : [...effectiveSelectedElementIds];
+      onDeckChange(matchSizeElements(deck, safeSelected, ids, mode));
+    },
+    [
+      deck,
+      onDeckChange,
+      safeSelected,
+      effectiveSelectedElementIds,
+      selectedElementId,
+    ],
+  );
+
+  const handleArrangeElements = useCallback(
+    (direction: ArrangeDirection) => {
+      onDeckChange(
+        arrangeSelectedElements(
+          deck,
+          safeSelected,
+          [...effectiveSelectedElementIds],
+          direction,
+        ),
+      );
+    },
+    [deck, onDeckChange, safeSelected, effectiveSelectedElementIds],
+  );
+
   const handleRemoveElement = useCallback(
     (id: string) => {
       onDeckChange(removeElement(deck, safeSelected, id));
@@ -1646,6 +1720,7 @@ export function SlideEditor({
         deck,
         visuals,
         selectedElementId: effectiveSelectedElementId,
+        selectedElementIds: effectiveSelectedElementIds,
         onSelectElement: handleSelectElement,
         canDelete: deck.slides.length > 1,
         onDuplicateSlide: () => handleDuplicate(safeSelected),
@@ -1667,6 +1742,10 @@ export function SlideEditor({
         onBackgroundImageChange: handleBackgroundImageChange,
         onAccentChange: handleAccentChange,
         brandSwatches,
+        onAlignElements: handleAlignElements,
+        onDistributeElements: handleDistributeElements,
+        onMatchSizeElements: handleMatchSizeElements,
+        onArrangeElements: handleArrangeElements,
       }
     : null;
 
@@ -2260,6 +2339,10 @@ export function SlideEditor({
                 onSetElementPatches={handleSetElementPatches}
                 onGroupElements={handleGroupElements}
                 onUngroupElements={handleUngroupElements}
+                onAlignElements={handleAlignElements}
+                onDistributeElements={handleDistributeElements}
+                onMatchSizeElements={handleMatchSizeElements}
+                onArrangeElements={handleArrangeElements}
                 snapToGrid={snapToGrid}
                 brandSwatches={brandSwatches}
                 onAddTextElement={handleAddTextElement}
