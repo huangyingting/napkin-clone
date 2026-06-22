@@ -24,8 +24,8 @@
  * Pure and headless — fully testable under `node --test`.
  */
 
-import type { Deck, Slide, TextRun } from "./deck";
-import { materializeSlideElements } from "./deck";
+import type { Deck, Slide, SlideElement, TextRun, VisualElement } from "./deck";
+import { buildVisualElement, materializeSlideElements } from "./deck";
 import { normalizeTitle } from "./deck-hash";
 import { slideEffectiveTitle } from "./slide-title";
 
@@ -52,6 +52,11 @@ export interface MergeSlideChange {
   elementsPreserved: number;
   /** Whether this slide's content actually changed (updated slides only). */
   contentChanged: boolean;
+  /**
+   * Number of new document visuals appended to a hand-edited slide during this
+   * sync. Only set when > 0 (i.e. when new visuals were actually appended).
+   */
+  visualsAdded?: number;
 }
 
 /** Human-readable summary of a sync, shown before applying. */
@@ -170,9 +175,14 @@ function elementsArePurelyDerived(slide: Slide): boolean {
  * from the freshly-derived content so the rendered slide actually updates
  * (issue #221). For hand-edited slides (`elementsDerived === false`), every
  * manual aspect of `existing` (free-form `elements[]`, `background`, `accent`,
- * theme) is preserved verbatim.
+ * theme) is preserved verbatim. Additionally, any document visuals in
+ * `fresh.visualIds` that are NOT already rendered on the hand-edited slide are
+ * appended as new visual elements (issue #294).
  */
-function mergeSlide(existing: Slide, fresh: Slide): Slide {
+function mergeSlide(
+  existing: Slide,
+  fresh: Slide,
+): { slide: Slide; visualsAdded: number } {
   const refreshed: Slide = {
     ...existing,
     title: fresh.title,
@@ -194,7 +204,38 @@ function mergeSlide(existing: Slide, fresh: Slide): Slide {
   else delete refreshed.bulletRuns;
 
   if (!elementsArePurelyDerived(existing)) {
-    return refreshed;
+    // Collect visual ids already rendered as elements on this hand-edited slide
+    // so we can diff against fresh.visualIds without duplicating anything.
+    const renderedVisualIds = new Set(
+      (existing.elements ?? [])
+        .filter((el): el is VisualElement => el.kind === "visual")
+        .map((el) => el.visualId),
+    );
+    // New document visuals not yet present on this slide, in document order.
+    const newVisualIds = fresh.visualIds.filter(
+      (id) => !renderedVisualIds.has(id),
+    );
+    if (newVisualIds.length === 0) {
+      return { slide: refreshed, visualsAdded: 0 };
+    }
+    // Assign zIndices above all existing elements.
+    const maxZ = (existing.elements ?? []).reduce(
+      (max, el) => Math.max(max, el.zIndex),
+      -1,
+    );
+    const newElements: SlideElement[] = newVisualIds.map(
+      (visualId, offset) => ({
+        ...buildVisualElement(visualId),
+        zIndex: maxZ + 1 + offset,
+      }),
+    );
+    return {
+      slide: {
+        ...refreshed,
+        elements: [...(existing.elements ?? []), ...newElements],
+      },
+      visualsAdded: newVisualIds.length,
+    };
   }
 
   // Derive a clean element list from the refreshed legacy fields. Clearing
@@ -203,7 +244,10 @@ function mergeSlide(existing: Slide, fresh: Slide): Slide {
     ...refreshed,
     elements: undefined,
   });
-  return { ...refreshed, elements, elementsDerived: true };
+  return {
+    slide: { ...refreshed, elements, elementsDerived: true },
+    visualsAdded: 0,
+  };
 }
 
 /**
@@ -292,9 +336,10 @@ export function mergeDeckFromDocument(
 
     const freshSlide = fresh.slides[freshIndex];
     const changed = !sameContent(existingSlide, freshSlide);
-    const merged = changed
+    const mergeResult = changed
       ? mergeSlide(existingSlide, freshSlide)
-      : existingSlide;
+      : { slide: existingSlide, visualsAdded: 0 };
+    const merged = mergeResult.slide;
     if (changed) updatedCount += 1;
     else unchangedCount += 1;
     // Derived slides are re-materialized (their elements regenerated), so no
@@ -311,6 +356,9 @@ export function mergeDeckFromDocument(
       after: snapshot(merged),
       elementsPreserved: preserved,
       contentChanged: changed,
+      ...(mergeResult.visualsAdded > 0
+        ? { visualsAdded: mergeResult.visualsAdded }
+        : {}),
     });
     return merged;
   });

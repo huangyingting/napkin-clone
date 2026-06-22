@@ -6,7 +6,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { Deck, Slide, SlideElement, TextRun } from "./deck";
+import type { Deck, Slide, SlideElement, TextRun, VisualElement } from "./deck";
+import { DEFAULT_VISUAL_BOX } from "./deck";
 import { mergeDeckFromDocument } from "./deck-merge";
 
 function element(id: string): SlideElement {
@@ -553,4 +554,123 @@ test("hand-edited slide: run refresh never clobbers verbatim elements", () => {
   assert.deepEqual(s.bulletRuns, [[{ text: "new bullet", bold: true }]]);
   assert.equal(summary.updatedCount, 1);
   assert.equal(summary.preservedElementCount, 2);
+});
+
+// ---------------------------------------------------------------------------
+// New document visuals appended to hand-edited slides (issue #294)
+// ---------------------------------------------------------------------------
+
+function visualElement(id: string, visualId: string): VisualElement {
+  return {
+    id,
+    kind: "visual",
+    visualId,
+    zIndex: 0,
+    box: { x: 10, y: 10, w: 30, h: 30 },
+  };
+}
+
+test("new document visual is appended to hand-edited slide (#294)", () => {
+  const existing = deck([
+    slide({
+      title: "Intro",
+      bullets: ["text"],
+      visualIds: [],
+      elements: [element("manual-1")],
+      elementsDerived: false,
+    }),
+  ]);
+  const fresh = deck([
+    slide({ title: "Intro", bullets: ["text"], visualIds: ["vis-a"] }),
+  ]);
+
+  const { deck: merged } = mergeDeckFromDocument(existing, fresh);
+  const s = merged.slides[0];
+
+  // The appended visual element must reference the new visual id.
+  const visualEls = (s.elements ?? []).filter(
+    (el): el is VisualElement => el.kind === "visual",
+  );
+  assert.equal(visualEls.length, 1);
+  assert.equal(visualEls[0].visualId, "vis-a");
+  // It should use the default centered box from buildVisualElement.
+  assert.deepEqual(visualEls[0].box, DEFAULT_VISUAL_BOX);
+  // elementsDerived must stay false — slide is still hand-edited.
+  assert.equal(s.elementsDerived, false);
+});
+
+test("existing manual elements are unchanged and new visual is appended after (#294)", () => {
+  const manualEl = element("manual-1");
+  const existing = deck([
+    slide({
+      title: "Intro",
+      bullets: ["text"],
+      visualIds: [],
+      elements: [manualEl],
+      elementsDerived: false,
+    }),
+  ]);
+  const fresh = deck([
+    slide({ title: "Intro", bullets: ["text"], visualIds: ["vis-b"] }),
+  ]);
+
+  const { deck: merged } = mergeDeckFromDocument(existing, fresh);
+  const s = merged.slides[0];
+  const els = s.elements ?? [];
+
+  // Existing manual element is at index 0, byte-for-byte identical.
+  assert.equal(els.length, 2);
+  assert.deepEqual(els[0], manualEl);
+  // New visual is appended after.
+  assert.equal(els[1].kind, "visual");
+  assert.equal((els[1] as VisualElement).visualId, "vis-b");
+});
+
+test("already-rendered visual id is not duplicated (#294)", () => {
+  const existing = deck([
+    slide({
+      title: "Intro",
+      bullets: ["text"],
+      visualIds: ["vis-c"],
+      elements: [element("manual-1"), visualElement("v-el-1", "vis-c")],
+      elementsDerived: false,
+    }),
+  ]);
+  // Fresh doc also references "vis-c" — already on the slide, must not duplicate.
+  const fresh = deck([
+    slide({
+      title: "Intro",
+      bullets: ["text"],
+      visualIds: ["vis-c"],
+    }),
+  ]);
+
+  const { deck: merged } = mergeDeckFromDocument(existing, fresh);
+  const s = merged.slides[0];
+  const visualEls = (s.elements ?? []).filter(
+    (el): el is VisualElement => el.kind === "visual",
+  );
+  assert.equal(visualEls.length, 1);
+  assert.equal(visualEls[0].visualId, "vis-c");
+});
+
+test("merge summary reports visualsAdded for hand-edited slide (#294)", () => {
+  const existing = deck([
+    slide({
+      title: "Intro",
+      bullets: ["text"],
+      visualIds: [],
+      elements: [element("manual-1")],
+      elementsDerived: false,
+    }),
+  ]);
+  const fresh = deck([
+    slide({ title: "Intro", bullets: ["text"], visualIds: ["vis-d", "vis-e"] }),
+  ]);
+
+  const { summary } = mergeDeckFromDocument(existing, fresh);
+
+  assert.equal(summary.changes.length, 1);
+  assert.equal(summary.changes[0].kind, "updated");
+  assert.equal(summary.changes[0].visualsAdded, 2);
 });
