@@ -148,6 +148,7 @@ export function DeckGenerationPreview({
       open
       onClose={onCancel}
       aria-labelledby={titleId}
+      aria-busy={isRegenerating}
       className="flex max-h-[calc(100vh-2rem)] w-[44rem] max-w-[calc(100vw-2rem)] flex-col gap-4 border-ds-border-subtle bg-ds-surface-overlay p-5 shadow-ds-popover"
     >
       <div className="flex items-start gap-2">
@@ -206,6 +207,7 @@ export function DeckGenerationPreview({
                   <SlideCanvas slide={slide} visuals={visuals} preview />
                   <span
                     className={`absolute right-1 top-1 rounded-ds-sm px-1.5 py-0.5 text-[0.625rem] font-medium ${MARKER_CLASS[marker]}`}
+                    aria-label={`${MARKER_LABEL[marker]}: ${title}`}
                   >
                     {MARKER_LABEL[marker]}
                   </span>

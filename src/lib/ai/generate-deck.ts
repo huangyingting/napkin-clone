@@ -336,7 +336,7 @@ export async function generateDeck(
 
     return normalizeGeneratedDeck(
       stripOrphanedVisuals(repaired, knownVisualIds),
-      knownVisualIds,
+      visualInventory,
       input.preferredTheme,
     );
   }

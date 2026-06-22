@@ -19,6 +19,12 @@ export type DialogProps = {
    * `aria-labelledby` on the dialog panel.
    */
   "aria-labelledby"?: string;
+  /**
+   * Reflects whether the dialog's content is busy (e.g. an in-flight async
+   * action). Forwarded to the panel as `aria-busy` so assistive tech can
+   * announce the busy state while a generation/regeneration is running.
+   */
+  "aria-busy"?: boolean;
   children: ReactNode;
   /** Extra classes applied to the dialog panel (e.g. `max-w-sm`). */
   className?: string;
@@ -40,6 +46,7 @@ export function Dialog({
   open,
   onClose,
   "aria-labelledby": labelledBy,
+  "aria-busy": busy,
   children,
   className,
 }: DialogProps) {
@@ -117,6 +124,7 @@ export function Dialog({
             role="dialog"
             aria-modal="true"
             aria-labelledby={labelledBy}
+            aria-busy={busy}
             // tabIndex allows focus() fallback when no tabbable child is found
             tabIndex={-1}
             initial={popMotion.initial}

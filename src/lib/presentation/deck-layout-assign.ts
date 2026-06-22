@@ -51,6 +51,7 @@ import {
   type SlideLayout,
   type TextElement,
   type TextElementStyle,
+  type VisualElement,
 } from "./deck";
 
 /**
@@ -75,6 +76,12 @@ const BODY_FONT_SIZE = 4.5;
 /** An item the deck may reference by id — structurally a `{ id }` carrier. */
 export interface VisualInventoryItem {
   id: string;
+  /** Human title of the visual, when known (used as the accessible name). */
+  title?: string;
+  /** Visual kind/type, e.g. "flowchart" (fallback accessible name source). */
+  type?: string;
+  /** A short content summary (fallback accessible name source). */
+  summary?: string;
 }
 
 /** Either a set of known visual ids or any array of `{ id }` carriers. */
@@ -91,6 +98,41 @@ function toKnownIds(
     return new Set(inventory.map((item) => item.id));
   }
   return new Set();
+}
+
+/**
+ * Builds an id → inventory-item lookup so visual elements can be labelled with
+ * the source visual's title/summary. A plain id `Set` carries no titles, so the
+ * map is empty in that case and labels fall back to a sensible default.
+ */
+function toInventoryMap(
+  inventory: VisualInventory | undefined,
+): ReadonlyMap<string, VisualInventoryItem> {
+  const map = new Map<string, VisualInventoryItem>();
+  if (Array.isArray(inventory)) {
+    for (const item of inventory) {
+      map.set(item.id, item);
+    }
+  }
+  return map;
+}
+
+/**
+ * Derives an accessible name (alt text) for a referenced visual: its title when
+ * known, otherwise a content summary, otherwise a label built from the visual
+ * type, falling back to a generic default so the element is never unlabeled.
+ * Pure and DOM-free.
+ */
+export function deriveVisualAccessibleName(
+  item: VisualInventoryItem | undefined,
+): string {
+  const title = item?.title?.trim();
+  if (title) return title;
+  const summary = item?.summary?.trim();
+  if (summary) return summary;
+  const type = item?.type?.trim();
+  if (type) return `${type[0].toUpperCase()}${type.slice(1)} visual`;
+  return "Generated visual";
 }
 
 function clampCoord(value: number, fallback: number): number {
@@ -161,14 +203,16 @@ function applyTextHierarchy(element: TextElement): TextElement {
 
 /**
  * Cleans a single model-provided element: clamps its box, re-stacks its zIndex,
- * guarantees a unique id, applies text hierarchy, and drops `visual` elements
- * whose id is not in the inventory (returns `undefined` for those).
+ * guarantees a unique id, applies text hierarchy, labels visual elements with an
+ * accessible name, and drops `visual` elements whose id is not in the inventory
+ * (returns `undefined` for those).
  */
 function cleanElement(
   element: SlideElement,
   zIndex: number,
   usedIds: Set<string>,
   knownIds: ReadonlySet<string>,
+  inventory: ReadonlyMap<string, VisualInventoryItem>,
 ): SlideElement | undefined {
   if (element.kind === "visual" && !knownIds.has(element.visualId)) {
     return undefined;
@@ -184,6 +228,18 @@ function cleanElement(
   if (base.kind === "text") {
     return applyTextHierarchy(base as TextElement);
   }
+  if (base.kind === "visual") {
+    const visual = base as VisualElement;
+    // Ensure a generated visual carries an accessible name; preserve an
+    // explicit one the model already supplied.
+    if (!visual.alt || visual.alt.trim().length === 0) {
+      return {
+        ...visual,
+        alt: deriveVisualAccessibleName(inventory.get(visual.visualId)),
+      };
+    }
+    return visual;
+  }
   return base;
 }
 
@@ -197,6 +253,7 @@ function buildElements(
   slide: Slide,
   visualIds: string[],
   knownIds: ReadonlySet<string>,
+  inventory: ReadonlyMap<string, VisualInventoryItem>,
 ): SlideElement[] {
   const usedIds = new Set<string>();
 
@@ -220,7 +277,13 @@ function buildElements(
 
   const elements: SlideElement[] = [];
   for (const element of source) {
-    const cleaned = cleanElement(element, elements.length, usedIds, knownIds);
+    const cleaned = cleanElement(
+      element,
+      elements.length,
+      usedIds,
+      knownIds,
+      inventory,
+    );
     if (cleaned) {
       elements.push(cleaned);
     }
@@ -237,6 +300,7 @@ function buildElements(
         id: makeElementId(),
         kind: "visual",
         visualId,
+        alt: deriveVisualAccessibleName(inventory.get(visualId)),
         zIndex: elements.length,
         box: { ...PROMINENT_VISUAL_BOX },
       });
@@ -251,9 +315,10 @@ function normalizeSlide(
   index: number,
   theme: DeckTheme,
   knownIds: ReadonlySet<string>,
+  inventory: ReadonlyMap<string, VisualInventoryItem>,
 ): Slide {
   const visualIds = (slide.visualIds ?? []).filter((id) => knownIds.has(id));
-  const elements = buildElements(slide, visualIds, knownIds);
+  const elements = buildElements(slide, visualIds, knownIds, inventory);
 
   return {
     ...slide,
@@ -306,9 +371,10 @@ export function normalizeGeneratedDeck(
   preferredTheme?: DeckTheme,
 ): Deck {
   const knownIds = toKnownIds(inventory);
+  const inventoryMap = toInventoryMap(inventory);
   const theme = resolveTheme(deck, preferredTheme);
   const slides = deck.slides.map((slide, index) =>
-    normalizeSlide(slide, index, theme, knownIds),
+    normalizeSlide(slide, index, theme, knownIds, inventoryMap),
   );
   return { ...deck, theme, slides };
 }

@@ -24,6 +24,7 @@
 import { Sparkles } from "lucide-react";
 import { useId, useState } from "react";
 
+import { FOCUS_RING } from "@/components/motion/control-styles";
 import { GeneratingIndicator } from "@/components/motion/generation-status";
 import { Button } from "@/components/ui";
 import { Dialog } from "@/components/ui";
@@ -42,8 +43,7 @@ const LENGTH_OPTIONS: ReadonlyArray<{ value: DeckLength; label: string }> = [
   { value: "long", label: "Long" },
 ];
 
-const FIELD_CLASS =
-  "h-8 w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised px-2.5 text-sm text-ds-text-primary placeholder:text-ds-text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-focus";
+const FIELD_CLASS = `h-8 w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised px-2.5 text-sm text-ds-text-primary placeholder:text-ds-text-muted ${FOCUS_RING}`;
 
 export interface SlideEditorOpenDialogProps {
   /** Serialised Lexical document state captured when the chooser opened. */
@@ -132,6 +132,7 @@ export function SlideEditorOpenDialog({
       open
       onClose={isLoading ? handleCancel : onClose}
       aria-labelledby={titleId}
+      aria-busy={isLoading}
       className="flex w-[26rem] max-w-[calc(100vw-2rem)] flex-col gap-4 border-ds-border-subtle bg-ds-surface-overlay p-5 shadow-ds-popover"
     >
       <div className="flex items-start gap-2">

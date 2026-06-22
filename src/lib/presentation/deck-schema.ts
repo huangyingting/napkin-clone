@@ -206,6 +206,9 @@ function validateElement(input: unknown, context: string): SlideElement {
           `${context}.styleThemeId must be a string`,
         );
       }
+      if (input.alt !== undefined && typeof input.alt !== "string") {
+        throw new DeckValidationError(`${context}.alt must be a string`);
+      }
       return {
         ...base,
         kind: "visual",
@@ -213,6 +216,9 @@ function validateElement(input: unknown, context: string): SlideElement {
         ...(typeof input.styleThemeId === "string" &&
         input.styleThemeId.length > 0
           ? { styleThemeId: input.styleThemeId }
+          : {}),
+        ...(typeof input.alt === "string" && input.alt.length > 0
+          ? { alt: input.alt }
           : {}),
       };
     }

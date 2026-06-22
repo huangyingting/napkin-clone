@@ -214,6 +214,13 @@ export interface VisualElement extends BaseElement {
    * in its original document style.
    */
   styleThemeId?: string;
+  /**
+   * Optional accessible name (alt text) for the referenced visual. Normalization
+   * of AI-generated decks (issue #271) derives this from the visual's title or
+   * inventory summary so a generated, `role="img"` visual is never unlabeled.
+   * When absent the shared renderer falls back to the visual's own title.
+   */
+  alt?: string;
 }
 
 export interface ImageElement extends BaseElement {
