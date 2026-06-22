@@ -11,6 +11,7 @@ import { normalizeDeckRaw, pickFreshestDeck } from "./fresh-deck";
 const BASE_DECK: Deck = {
   slides: [
     {
+      id: "sl-base",
       index: 0,
       title: "Base",
       bullets: [],
@@ -26,6 +27,7 @@ const BASE_DECK: Deck = {
 const FETCHED_DECK: Deck = {
   slides: [
     {
+      id: "sl-fetched",
       index: 0,
       title: "Fetched (remote)",
       bullets: ["Remote bullet"],
@@ -41,6 +43,7 @@ const FETCHED_DECK: Deck = {
 const FALLBACK_DECK: Deck = {
   slides: [
     {
+      id: "sl-fallback",
       index: 0,
       title: "Fallback (prop)",
       bullets: [],

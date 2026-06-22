@@ -35,6 +35,7 @@ import {
 
 function slide(index: number, title: string): Slide {
   return {
+    id: "test-id",
     index,
     title,
     bullets: [`${title} bullet`],
@@ -153,6 +154,7 @@ test("addSlide with -1 prepends", () => {
 test("insertSlide places a caller-built slide and re-indexes", () => {
   const deck = makeDeck(["A", "B"]);
   const authored: Slide = {
+    id: "authored-id",
     index: 0,
     title: "",
     bullets: [],
@@ -177,6 +179,7 @@ test("insertSlide places a caller-built slide and re-indexes", () => {
 test("insertSlide with -1 prepends the slide", () => {
   const deck = makeDeck(["A"]);
   const authored: Slide = {
+    id: "first-id",
     index: 0,
     title: "First",
     bullets: [],
@@ -363,6 +366,7 @@ test("slideNeedsMaterialization flags legacy content but not blanks", () => {
   // Slide with only a title.
   assert.equal(
     slideNeedsMaterialization({
+      id: "test-id",
       index: 0,
       title: "Just a title",
       bullets: [],
@@ -377,6 +381,7 @@ test("slideNeedsMaterialization flags legacy content but not blanks", () => {
   // Slide with only a visual.
   assert.equal(
     slideNeedsMaterialization({
+      id: "test-id",
       index: 0,
       title: "",
       bullets: [],
@@ -391,6 +396,7 @@ test("slideNeedsMaterialization flags legacy content but not blanks", () => {
   // Empty / blank slide — nothing to derive.
   assert.equal(
     slideNeedsMaterialization({
+      id: "test-id",
       index: 0,
       title: "",
       bullets: [],
@@ -420,6 +426,7 @@ test("materializeDeck materializes every legacy slide", () => {
 
 test("materializeDeck leaves blank slides legacy and returns same ref when no-op", () => {
   const blank: Slide = {
+    id: "blank-id",
     index: 0,
     title: "",
     bullets: [],

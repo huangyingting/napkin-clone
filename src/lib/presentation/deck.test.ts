@@ -368,6 +368,7 @@ test("safeParseDeck rejects a slide with missing notes field", () => {
 test("materializeSlideElements builds a title element from the slide title", async () => {
   const { materializeSlideElements } = await import("./deck");
   const elements = materializeSlideElements({
+    id: "test-id",
     index: 0,
     title: "Hello",
     bullets: [],
@@ -387,6 +388,7 @@ test("materializeSlideElements builds a title element from the slide title", asy
 test("materializeSlideElements pairs bullets and a visual side by side", async () => {
   const { materializeSlideElements } = await import("./deck");
   const elements = materializeSlideElements({
+    id: "test-id",
     index: 0,
     title: "T",
     bullets: ["a", "b"],
@@ -412,6 +414,7 @@ test("materializeSlideElements returns existing elements unchanged", async () =>
     },
   ];
   const elements = materializeSlideElements({
+    id: "test-id",
     index: 0,
     title: "T",
     bullets: ["a"],
@@ -427,6 +430,7 @@ test("materializeSlideElements returns existing elements unchanged", async () =>
 test("materializeSlideElements cascades 3+ visuals into offset tiles", async () => {
   const { materializeSlideElements } = await import("./deck");
   const elements = materializeSlideElements({
+    id: "test-id",
     index: 0,
     title: "",
     bullets: [],
@@ -473,6 +477,7 @@ test("materializeSlideElements cascades 3+ visuals into offset tiles", async () 
 test("materializeSlideElements tiles extra visuals alongside bullets", async () => {
   const { materializeSlideElements } = await import("./deck");
   const elements = materializeSlideElements({
+    id: "test-id",
     index: 0,
     title: "T",
     bullets: ["a", "b"],
@@ -667,6 +672,7 @@ test("buildDeckFromBlocks omits runs entirely for a plain document", () => {
 test("materializeSlideElements copies titleRuns and bulletRuns to elements", async () => {
   const { materializeSlideElements } = await import("./deck");
   const elements = materializeSlideElements({
+    id: "test-id",
     index: 0,
     title: "Title",
     titleRuns: [{ text: "Title", bold: true }],
@@ -745,6 +751,7 @@ test("makeElementId holds no module-level state (order-independent)", async () =
 
 function legacySlide(overrides: Partial<Slide> = {}): Slide {
   return {
+    id: "test-id",
     index: 0,
     title: "Title",
     bullets: ["a", "b"],

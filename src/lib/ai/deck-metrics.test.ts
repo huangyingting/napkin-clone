@@ -61,6 +61,7 @@ function visualElement(id: string, visualId: string): SlideElement {
 
 function slide(index: number, title: string, elements: SlideElement[]): Slide {
   return {
+    id: "test-id",
     index,
     title,
     bullets: [],
@@ -168,6 +169,7 @@ test("computeDeckMetrics: counts words from legacy title/bullets fields", () => 
     theme: "default",
     slides: [
       {
+        id: "test-id",
         index: 0,
         title: "Legacy title here", // 3 words
         bullets: ["first bullet", "second"], // 3 words

@@ -27,6 +27,7 @@ function textBlock(
 
 function slide(partial: Partial<Slide>): Slide {
   return {
+    id: "test-id",
     index: 0,
     title: "",
     bullets: [],

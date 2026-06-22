@@ -8,7 +8,7 @@
  * sync without duplicating layout code.
  */
 
-import type { JSX } from "react";
+import { memo, type JSX } from "react";
 
 import type {
   BulletsElement,
@@ -747,8 +747,12 @@ export interface SlideCanvasProps {
  *
  * Shared between the in-app {@link PresentMode} and the public
  * {@link PublicPresentViewer} so both surfaces stay in sync.
+ *
+ * Wrapped with `React.memo` so the thumbnail rail skips re-rendering canvases
+ * whose props (slide identity, visuals map) did not change — a drag that only
+ * mutates the active slide will not re-render every thumbnail.
  */
-export function SlideCanvas({
+export const SlideCanvas = memo(function SlideCanvas({
   slide,
   visuals,
   preview = false,
@@ -784,4 +788,4 @@ export function SlideCanvas({
     default:
       return <BlankSlideLayout {...props} />;
   }
-}
+});

@@ -49,6 +49,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -343,6 +344,17 @@ export function SlideEditor({
   );
   // In-memory element clipboard for copy / cut / paste (within & across slides).
   const clipboardRef = useRef<SlideElement[] | null>(null);
+  // Keydown handler state ref — deck and selection values read by the global
+  // keydown listener are kept in a ref updated each render so the listener can
+  // subscribe ONCE (empty stable deps) and always read the latest state without
+  // re-subscribing on every deck identity change (which happens on every drag
+  // frame). Behavior is unchanged; the re-subscription churn is eliminated.
+  const keydownStateRef = useRef({
+    deck,
+    safeSelected: 0,
+    effectiveSelectedElementId: null as string | null,
+    effectiveSelectedElementIds: new Set<string>(),
+  });
 
   // ── Autosave + save-status feedback (issue #208) ───────────────────────────
   // Mirrors the document editor: a debounced autosave persists deck edits a
@@ -523,6 +535,18 @@ export function SlideEditor({
     }
     return next;
   }, [selectedSlide?.elements, selectedElementIds]);
+  // Keep the keydown state ref current after every render so the single-subscribed
+  // listener always reads the latest deck and selection without re-subscribing.
+  // useLayoutEffect runs synchronously after DOM updates (before paint) so the ref
+  // is fresh before any user interaction can trigger the keydown handler.
+  useLayoutEffect(() => {
+    keydownStateRef.current = {
+      deck,
+      safeSelected,
+      effectiveSelectedElementId,
+      effectiveSelectedElementIds,
+    };
+  });
   const selectionSummary = useMemo(() => {
     if (effectiveSelectedElementIds.size > 1) {
       return `${effectiveSelectedElementIds.size} elements selected`;
@@ -741,11 +765,21 @@ export function SlideEditor({
           target.tagName === "SELECT" ||
           target.isContentEditable);
 
+      // Read volatile state from the ref so this handler never needs to
+      // re-subscribe when deck identity or selection changes (e.g. during a
+      // drag that fires 60 commits/s). The ref is updated on every render.
+      const {
+        deck: kDeck,
+        safeSelected: kSafe,
+        effectiveSelectedElementId: kElemId,
+        effectiveSelectedElementIds: kElemIds,
+      } = keydownStateRef.current;
+
       if (event.key === "Escape") {
         event.preventDefault();
         if (inspectorSheetOpen) {
           setInspectorSheetOpen(false);
-        } else if (effectiveSelectedElementId) {
+        } else if (kElemId) {
           setSelectedElementId(null);
           setSelectedElementIds(new Set());
         } else {
@@ -791,14 +825,11 @@ export function SlideEditor({
           // multi-selection (offset copies) and selects them (#245). Inlined
           // (not via `handleDuplicateElement`) so this effect needs no extra dep
           // and avoids a temporal-dead-zone with handlers declared further down.
-          if (effectiveSelectedElementId) {
-            const ids =
-              effectiveSelectedElementIds.size > 0
-                ? [...effectiveSelectedElementIds]
-                : [effectiveSelectedElementId];
+          if (kElemId) {
+            const ids = kElemIds.size > 0 ? [...kElemIds] : [kElemId];
             const { deck: nextDeck, newElementIds } = duplicateElements(
-              deck,
-              safeSelected,
+              kDeck,
+              kSafe,
               ids,
             );
             if (newElementIds.length > 0) {
@@ -807,19 +838,22 @@ export function SlideEditor({
               setSelectedElementIds(new Set(newElementIds));
             }
           } else {
-            handleDuplicate(safeSelected);
+            onDeckChange(duplicateSlide(kDeck, kSafe));
+            setSelectedIndex(kSafe + 1);
           }
           return;
         }
         if (key === "n") {
           event.preventDefault();
-          handleAddSlide(safeSelected);
+          const next = addSlide(kDeck, kSafe);
+          onDeckChange(next);
+          setSelectedIndex(Math.min(kSafe + 1, next.slides.length - 1));
           return;
         }
         // Element clipboard + select-all. Operate on the current slide's
         // elements; all route through pure mutations so they are single undo
         // steps, and paste works across slides via the shared clipboard ref.
-        const slideEls = deck.slides[safeSelected]?.elements ?? [];
+        const slideEls = kDeck.slides[kSafe]?.elements ?? [];
         if (key === "a") {
           if (slideEls.length > 0) {
             event.preventDefault();
@@ -829,12 +863,21 @@ export function SlideEditor({
           return;
         }
         if (key === "c" || key === "x") {
-          if (effectiveSelectedElementId) {
+          if (kElemId) {
             event.preventDefault();
+            const ids = kElemIds.size > 0 ? [...kElemIds] : [kElemId];
+            const copied = slideEls.filter((el) => ids.includes(el.id));
             if (key === "x") {
-              handleCutElements();
+              if (copied.length > 0) {
+                clipboardRef.current = copied.map((el) => structuredClone(el));
+                onDeckChange(removeElements(kDeck, kSafe, ids));
+                setSelectedElementId(null);
+                setSelectedElementIds(new Set());
+              }
             } else {
-              handleCopyElements();
+              if (copied.length > 0) {
+                clipboardRef.current = copied.map((el) => structuredClone(el));
+              }
             }
           }
           return;
@@ -842,22 +885,41 @@ export function SlideEditor({
         if (key === "v") {
           if (clipboardRef.current && clipboardRef.current.length > 0) {
             event.preventDefault();
-            handlePasteElements();
+            const clip = clipboardRef.current;
+            let nextDeck = kDeck;
+            const newIds: string[] = [];
+            for (const el of clip) {
+              const id = makeElementId();
+              newIds.push(id);
+              const x = Math.max(0, Math.min(100 - el.box.w, el.box.x + 3));
+              const y = Math.max(0, Math.min(100 - el.box.h, el.box.y + 3));
+              const clone = structuredClone(el);
+              clone.id = id;
+              clone.box = { ...clone.box, x, y };
+              delete (clone as { zIndex?: number }).zIndex;
+              nextDeck = addElement(nextDeck, kSafe, clone);
+            }
+            onDeckChange(nextDeck);
+            setSelectedElementId(newIds[0] ?? null);
+            setSelectedElementIds(new Set(newIds));
           }
           return;
         }
         if (event.key === "Backspace" || event.key === "Delete") {
           event.preventDefault();
-          handleRemove(safeSelected);
+          onDeckChange(removeSlide(kDeck, kSafe));
+          setSelectedIndex((current) =>
+            Math.max(0, Math.min(current, kDeck.slides.length - 2)),
+          );
           return;
         }
       }
 
       // With an element selected, arrow keys nudge it and Delete removes it.
-      const slide = deck.slides[safeSelected];
+      const slide = kDeck.slides[kSafe];
       const selected =
-        effectiveSelectedElementId && slide?.elements
-          ? slide.elements.find((el) => el.id === effectiveSelectedElementId)
+        kElemId && slide?.elements
+          ? slide.elements.find((el) => el.id === kElemId)
           : undefined;
 
       if (selected) {
@@ -865,13 +927,10 @@ export function SlideEditor({
         // falling back to the primary alone when the set is somehow empty. A
         // multi-delete / multi-nudge routes through one pure mutation so it is a
         // single undo step.
-        const selectedIds =
-          effectiveSelectedElementIds.size > 0
-            ? [...effectiveSelectedElementIds]
-            : [selected.id];
+        const selectedIds = kElemIds.size > 0 ? [...kElemIds] : [selected.id];
         if (event.key === "Delete" || event.key === "Backspace") {
           event.preventDefault();
-          onDeckChange(removeElements(deck, safeSelected, selectedIds));
+          onDeckChange(removeElements(kDeck, kSafe, selectedIds));
           setSelectedElementId(null);
           setSelectedElementIds(new Set());
           return;
@@ -885,7 +944,7 @@ export function SlideEditor({
         else if (event.key === "ArrowDown") dy = step;
         if (dx !== 0 || dy !== 0) {
           event.preventDefault();
-          onDeckChange(nudgeElements(deck, safeSelected, selectedIds, dx, dy));
+          onDeckChange(nudgeElements(kDeck, kSafe, selectedIds, dx, dy));
           return;
         }
       }
@@ -895,28 +954,14 @@ export function SlideEditor({
         setSelectedIndex((i) => Math.max(0, i - 1));
       } else if (event.key === "ArrowRight") {
         event.preventDefault();
-        setSelectedIndex((i) => Math.min(deck.slides.length - 1, i + 1));
+        setSelectedIndex((i) =>
+          Math.min(keydownStateRef.current.deck.slides.length - 1, i + 1),
+        );
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [
-    handleRequestClose,
-    deck,
-    safeSelected,
-    effectiveSelectedElementId,
-    effectiveSelectedElementIds,
-    inspectorSheetOpen,
-    onDeckChange,
-    undo,
-    redo,
-    handleDuplicate,
-    handleRemove,
-    handleAddSlide,
-    handleCopyElements,
-    handleCutElements,
-    handlePasteElements,
-  ]);
+  }, [handleRequestClose, inspectorSheetOpen, onDeckChange, undo, redo]);
 
   const handleBulletsChange = useCallback(
     (index: number, value: string) => {
@@ -1730,7 +1775,7 @@ export function SlideEditor({
                   const canDelete = deck.slides.length > 1;
                   return (
                     <li
-                      key={index}
+                      key={slide.id}
                       data-slide-thumb
                       className={`group relative w-40 shrink-0 sm:w-auto ${
                         dragging ? "opacity-60" : ""

@@ -23,6 +23,7 @@ function element(id: string): SlideElement {
 
 function slide(partial: Partial<Slide>): Slide {
   return {
+    id: "test-id",
     index: 0,
     title: "",
     bullets: [],
