@@ -32,12 +32,14 @@ import {
   ArrowUpToLine,
   ClipboardPaste,
   Copy,
+  Group,
   Lock,
   LockOpen,
   Pencil,
   RotateCw,
   Scissors,
   Trash2,
+  Ungroup,
   type LucideIcon,
 } from "lucide-react";
 
@@ -47,12 +49,13 @@ import {
   type ThemeConfig,
 } from "@/components/presentation/slide-canvas";
 import { TextStyleBar } from "@/components/presentation/text-style-bar";
-import { ColorPicker } from "@/components/ui";
+import { ColorPicker, DEFAULT_SWATCH_PRESETS } from "@/components/ui";
 import { FOCUS_RING } from "@/components/motion/control-styles";
 import { cx, MENU_CHROME, MENU_ITEM } from "@/components/ui/tokens";
 import type { ElementBox, Slide, SlideElement } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import { type SnapGuide, snapBox } from "@/lib/presentation/element-snap";
+import { mergeSwatches } from "@/lib/presentation/text-style";
 import {
   boxesIntersectingRect,
   normalizeRect,
@@ -82,6 +85,8 @@ interface DragState {
   moved: boolean;
   /** Font size at gesture start, for proportional corner scaling of text. */
   startFontSize?: number;
+  /** Start boxes of all co-moving members for a group / multi-selection move. */
+  groupBoxes?: { id: string; startBox: ElementBox }[];
 }
 
 /**
@@ -110,6 +115,8 @@ const MARQUEE_THRESHOLD_PCT = 1;
 const CLICK_MOVE_THRESHOLD_PX = 4;
 
 const MIN_SIZE_PCT = 4;
+// Grid step (percent of slide) used when snap-to-grid is enabled.
+const GRID_PCT = 2.5;
 
 /**
  * Snap threshold in percent of the slide dimension (issue #225). Kept small so
@@ -445,6 +452,16 @@ interface SlideStageEditorProps {
   onCopyElements: () => void;
   onCutElements: () => void;
   onPasteElements: () => void;
+  onSetElementBoxes: (
+    boxesById: Record<string, ElementBox>,
+    coalesceKey?: string,
+  ) => void;
+  onGroupElements: (ids: string[]) => void;
+  onUngroupElements: (groupId: string) => void;
+  /** When true, element moves snap to a fixed grid. */
+  snapToGrid?: boolean;
+  /** The user's brand-kit colors, surfaced first in the element color pickers. */
+  brandSwatches?: readonly string[];
 }
 
 export function SlideStageEditor({
@@ -464,6 +481,11 @@ export function SlideStageEditor({
   onCopyElements,
   onCutElements,
   onPasteElements,
+  onSetElementBoxes,
+  onGroupElements,
+  onUngroupElements,
+  snapToGrid = false,
+  brandSwatches = [],
 }: SlideStageEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -631,6 +653,37 @@ export function SlideStageEditor({
       }
 
       if (drag.mode === "move") {
+        // Snap the drag delta to the grid when enabled (keeps groups rigid).
+        const mdx = snapToGrid
+          ? Math.round(dxPct / GRID_PCT) * GRID_PCT
+          : dxPct;
+        const mdy = snapToGrid
+          ? Math.round(dyPct / GRID_PCT) * GRID_PCT
+          : dyPct;
+        // Group / multi-selection move: translate every captured member by the
+        // same delta in one batched, undoable mutation (no snapping).
+        if (drag.groupBoxes && drag.groupBoxes.length > 1) {
+          const boxesById: Record<string, ElementBox> = {};
+          for (const { id: memberId, startBox } of drag.groupBoxes) {
+            boxesById[memberId] = clampBox({
+              ...startBox,
+              x: startBox.x + mdx,
+              y: startBox.y + mdy,
+            });
+          }
+          onSetElementBoxes(boxesById, drag.coalesceKey);
+          return;
+        }
+        if (snapToGrid) {
+          const box = clampBox({
+            ...drag.startBox,
+            x: drag.startBox.x + mdx,
+            y: drag.startBox.y + mdy,
+          });
+          setSnapGuides([]);
+          onUpdateElement(drag.id, { box }, drag.coalesceKey);
+          return;
+        }
         const moved = clampBox({
           ...drag.startBox,
           x: drag.startBox.x + dxPct,
@@ -693,7 +746,7 @@ export function SlideStageEditor({
         );
       }
     },
-    [onUpdateElement, stageAspect, visuals],
+    [onUpdateElement, onSetElementBoxes, stageAspect, visuals, snapToGrid],
   );
 
   const startEditing = useCallback(
@@ -777,12 +830,39 @@ export function SlideStageEditor({
       box: ElementBox,
     ) => {
       event.stopPropagation();
-      // Dragging an element that is already part of a multi-selection keeps that
-      // selection (and makes the dragged element primary) so the user can still
-      // align it; otherwise a plain drag collapses to a single selection. Group
-      // move is intentionally not implemented — only the dragged element moves.
-      onSelectElement(id, selectedElementIds.has(id) ? "keep" : "replace");
       const startElement = elementsRef.current.find((item) => item.id === id);
+      const groupId = startElement?.groupId;
+      // Selection: a grouped element selects its whole group; otherwise keep an
+      // existing multi-selection (dragged element becomes primary) or collapse
+      // to a single selection.
+      if (mode === "move" && groupId) {
+        const groupIds = elementsRef.current
+          .filter((item) => item.groupId === groupId)
+          .map((item) => item.id);
+        onSelectElements(groupIds);
+      } else {
+        onSelectElement(id, selectedElementIds.has(id) ? "keep" : "replace");
+      }
+      // For a move, capture the start boxes of every co-moving member (the whole
+      // group, or the current multi-selection) so they translate together.
+      let groupBoxes: { id: string; startBox: ElementBox }[] | undefined;
+      if (mode === "move") {
+        const movingIds = new Set<string>([id]);
+        if (groupId) {
+          elementsRef.current.forEach((item) => {
+            if (item.groupId === groupId) movingIds.add(item.id);
+          });
+        } else if (selectedElementIds.has(id)) {
+          selectedElementIds.forEach((sid) => movingIds.add(sid));
+        }
+        if (movingIds.size > 1) {
+          groupBoxes = [...movingIds].map((mid) => ({
+            id: mid,
+            startBox:
+              elementsRef.current.find((item) => item.id === mid)?.box ?? box,
+          }));
+        }
+      }
       dragRef.current = {
         id,
         mode,
@@ -796,10 +876,11 @@ export function SlideStageEditor({
           (startElement.kind === "text" || startElement.kind === "bullets")
             ? startElement.style.fontSize
             : undefined,
+        groupBoxes,
       };
       setActiveDrag(mode);
     },
-    [nextGestureKey, onSelectElement, selectedElementIds],
+    [nextGestureKey, onSelectElement, onSelectElements, selectedElementIds],
   );
 
   const stopEditing = useCallback(() => {
@@ -862,6 +943,17 @@ export function SlideStageEditor({
 
       {/* Interaction layer */}
       <div className="absolute inset-0">
+        {snapToGrid ? (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0"
+            style={{
+              backgroundImage:
+                "linear-gradient(to right, rgba(127,127,127,0.18) 1px, transparent 1px), linear-gradient(to bottom, rgba(127,127,127,0.18) 1px, transparent 1px)",
+              backgroundSize: `${GRID_PCT}% ${GRID_PCT}%`,
+            }}
+          />
+        ) : null}
         {elements.map((element) => {
           const fittedBox = fittedBoxes.get(element.id) ?? element.box;
           const isPrimary = element.id === selectedElementId;
@@ -992,7 +1084,7 @@ export function SlideStageEditor({
                   }
                   aria-hidden="true"
                   className="absolute left-1/2 flex h-11 w-11 -translate-x-1/2 touch-none items-center justify-center"
-                  style={{ top: -40, cursor: "grab" }}
+                  style={{ top: "calc(100% + 6px)", cursor: "grab" }}
                 >
                   <span className="flex h-5 w-5 items-center justify-center rounded-full border border-white bg-ds-control text-ds-control-text shadow">
                     <RotateCw size={11} aria-hidden="true" />
@@ -1067,6 +1159,7 @@ export function SlideStageEditor({
             <ElementToolbarContent
               element={primaryElement}
               tc={tc}
+              brandSwatches={brandSwatches}
               onUpdateElement={onUpdateElement}
               onDuplicate={() => onDuplicateElement(primaryElement.id)}
               onBringToFront={() => onBringToFront(primaryElement.id)}
@@ -1094,6 +1187,9 @@ export function SlideStageEditor({
             onBringToFront={onBringToFront}
             onSendToBack={onSendToBack}
             onToggleLock={(id, locked) => onUpdateElement(id, { locked })}
+            canGroup={selectedElementIds.size >= 2}
+            onGroup={() => onGroupElements([...selectedElementIds])}
+            onUngroup={onUngroupElements}
           />
         ) : null}
       </div>
@@ -1194,6 +1290,7 @@ function ToolbarDivider() {
 function ElementToolbarContent({
   element,
   tc,
+  brandSwatches,
   onUpdateElement,
   onDuplicate,
   onBringToFront,
@@ -1202,20 +1299,22 @@ function ElementToolbarContent({
 }: {
   element: SlideElement;
   tc: ThemeConfig;
+  brandSwatches: readonly string[];
   onUpdateElement: SlideStageEditorProps["onUpdateElement"];
   onDuplicate: () => void;
   onBringToFront: () => void;
   onSendToBack: () => void;
   onRemove: () => void;
 }) {
-  const textColorPresets = [
+  const textColorPresets = mergeSwatches(brandSwatches, [
     tc.titleColor,
     tc.bodyColor,
     tc.mutedColor,
     tc.accentColor,
     "#ffffff",
     "#000000",
-  ];
+  ]);
+  const shapeColorPresets = mergeSwatches(brandSwatches, DEFAULT_SWATCH_PRESETS);
   return (
     <>
       {element.kind === "text" || element.kind === "bullets" ? (
@@ -1235,6 +1334,7 @@ function ElementToolbarContent({
             color={element.color}
             onChange={(color) => onUpdateElement(element.id, { color })}
             aria-label="Shape color"
+            presets={shapeColorPresets}
           />
           <ToolbarDivider />
         </>
@@ -1270,6 +1370,9 @@ function ElementContextMenu({
   onBringToFront,
   onSendToBack,
   onToggleLock,
+  canGroup,
+  onGroup,
+  onUngroup,
 }: {
   x: number;
   y: number;
@@ -1284,6 +1387,9 @@ function ElementContextMenu({
   onBringToFront: (id: string) => void;
   onSendToBack: (id: string) => void;
   onToggleLock: (id: string, locked: boolean) => void;
+  canGroup: boolean;
+  onGroup: () => void;
+  onUngroup: (groupId: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ top: y, left: x });
@@ -1341,6 +1447,10 @@ function ElementContextMenu({
       <div className="my-1 h-px bg-ds-border-subtle" aria-hidden />
       {item("Bring to front", ArrowUpToLine, () => onBringToFront(element.id))}
       {item("Send to back", ArrowDownToLine, () => onSendToBack(element.id))}
+      {canGroup ? item("Group", Group, onGroup) : null}
+      {element.groupId
+        ? item("Ungroup", Ungroup, () => onUngroup(element.groupId as string))
+        : null}
       <div className="my-1 h-px bg-ds-border-subtle" aria-hidden />
       {item(
         element.locked ? "Unlock" : "Lock",

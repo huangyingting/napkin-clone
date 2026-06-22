@@ -69,3 +69,27 @@ export function themeSwatchColors<T extends Record<string, unknown>>(
   }
   return out;
 }
+
+/**
+ * Merges swatch lists in priority order, deduping by lowercased value (the
+ * first-seen casing wins). Used to surface a user's brand-kit colors ahead of
+ * the on-theme / default swatches in the editor's color pickers. Non-string
+ * entries are skipped so callers can splat sparse brand fields directly.
+ */
+export function mergeSwatches(
+  ...lists: ReadonlyArray<readonly (string | null | undefined)[] | undefined>
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const list of lists) {
+    if (!list) continue;
+    for (const color of list) {
+      if (typeof color !== "string") continue;
+      const lower = color.toLowerCase();
+      if (seen.has(lower)) continue;
+      seen.add(lower);
+      out.push(color);
+    }
+  }
+  return out;
+}

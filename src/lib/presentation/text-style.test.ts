@@ -7,6 +7,7 @@ import {
   FONT_MAX,
   FONT_MIN,
   FONT_STEP,
+  mergeSwatches,
   stepFontSize,
   themeSwatchColors,
 } from "./text-style";
@@ -72,4 +73,22 @@ test("themeSwatchColors skips non-string values", () => {
     b: { accentColor: "#222222", weight: 2 },
   } as unknown as Record<string, Record<string, string>>;
   assert.deepEqual(themeSwatchColors(themes, "weight"), []);
+});
+
+test("mergeSwatches keeps priority order and dedupes case-insensitively", () => {
+  assert.deepEqual(
+    mergeSwatches(["#FF0000", "#00ff00"], ["#00FF00", "#0000ff"]),
+    ["#FF0000", "#00ff00", "#0000ff"],
+  );
+});
+
+test("mergeSwatches skips nullish and non-string entries", () => {
+  assert.deepEqual(
+    mergeSwatches(["#111111", null, undefined], undefined, ["#222222"]),
+    ["#111111", "#222222"],
+  );
+});
+
+test("mergeSwatches returns an empty list for no usable input", () => {
+  assert.deepEqual(mergeSwatches(undefined, [null, undefined]), []);
 });

@@ -24,18 +24,22 @@
 import {
   ChevronUp,
   ChevronDown,
+  Circle,
   Copy,
   GripVertical,
+  Grid3x3,
   Image as ImageIcon,
   LayoutPanelLeft,
   List,
+  Minus,
   PanelRight,
   Plus,
   Redo2,
   RefreshCw,
-  Shapes,
   Sparkles,
+  Square,
   Trash2,
+  Triangle,
   Type,
   Undo2,
   X,
@@ -79,6 +83,8 @@ import {
   makeElementId,
   type Deck,
   type DeckTheme,
+  type ElementBox,
+  type ShapeKind,
   type SlideElement,
   type SlideLayout,
 } from "@/lib/presentation/deck";
@@ -113,6 +119,7 @@ import {
   duplicateElement,
   duplicateElements,
   duplicateSlide,
+  groupElements,
   insertSlide,
   materializeSlide,
   moveSlide,
@@ -124,10 +131,12 @@ import {
   sendElementToBack,
   setDeckSlideFormat,
   setDeckTheme,
+  setElementBoxes,
   setSlideAccent,
   setSlideBackground,
   setSlideBackgroundGradient,
   setSlideBackgroundImage,
+  ungroupElements,
   updateElement,
   updateSlide,
   type DistributiveOmit,
@@ -158,6 +167,12 @@ interface SlideEditorProps {
   freshDeck?: Deck | null;
   /** Whether the document changed since this deck was last built/synced. */
   isDeckStale?: boolean;
+  /**
+   * The current user's brand-kit colors, surfaced first in the slide editor's
+   * color pickers (background, accent, text, and shape). Best-effort and
+   * optional — falls back to on-theme / default swatches when empty.
+   */
+  brandSwatches?: readonly string[];
 }
 
 const THEME_OPTIONS: { value: DeckTheme; label: string; color: string }[] = [
@@ -174,6 +189,7 @@ function buildDefaultElement(
   kind: AddElementKind,
   accent: string,
   id: string,
+  shapeKind: ShapeKind = "rect",
 ): DistributiveOmit<SlideElement, "id" | "zIndex"> & { id: string } {
   switch (kind) {
     case "text":
@@ -205,9 +221,12 @@ function buildDefaultElement(
       return {
         id,
         kind: "shape",
-        shape: "rect",
+        shape: shapeKind,
         color: accent,
-        box: { x: 30, y: 34, w: 40, h: 32 },
+        box:
+          shapeKind === "line"
+            ? { x: 20, y: 50, w: 60, h: 2 }
+            : { x: 30, y: 34, w: 40, h: 32 },
       };
   }
 }
@@ -235,6 +254,7 @@ export function SlideEditor({
   onSave,
   freshDeck = null,
   isDeckStale = false,
+  brandSwatches = [],
 }: SlideEditorProps) {
   // Snapshot-based undo/redo over the plain Deck object. Every mutation routes
   // through `onDeckChange` (the history `commit`), which records the previous
@@ -256,6 +276,11 @@ export function SlideEditor({
   // is a fixed side pane at `lg+`). Issue #209.
   const [inspectorSheetOpen, setInspectorSheetOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [snapToGrid, setSnapToGrid] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const adjustZoom = useCallback((delta: number) => {
+    setZoom((z) => Math.min(3, Math.max(0.25, Math.round((z + delta) * 100) / 100)));
+  }, []);
   const [stageBounds, setStageBounds] = useState<Size>(DEFAULT_SCREEN_SIZE);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(
     null,
@@ -1065,6 +1090,32 @@ export function SlideEditor({
     [deck, onDeckChange, safeSelected],
   );
 
+  const handleSetElementBoxes = useCallback(
+    (boxesById: Record<string, ElementBox>, coalesceKey?: string) => {
+      onDeckChange(
+        setElementBoxes(deck, safeSelected, boxesById),
+        coalesceKey !== undefined ? { coalesceKey } : undefined,
+      );
+    },
+    [deck, onDeckChange, safeSelected],
+  );
+
+  const handleGroupElements = useCallback(
+    (ids: string[]) => {
+      if (ids.length < 2) return;
+      const { deck: next } = groupElements(deck, safeSelected, ids);
+      onDeckChange(next);
+    },
+    [deck, onDeckChange, safeSelected],
+  );
+
+  const handleUngroupElements = useCallback(
+    (groupId: string) => {
+      onDeckChange(ungroupElements(deck, safeSelected, groupId));
+    },
+    [deck, onDeckChange, safeSelected],
+  );
+
   const handleRemoveElement = useCallback(
     (id: string) => {
       onDeckChange(removeElement(deck, safeSelected, id));
@@ -1116,9 +1167,9 @@ export function SlideEditor({
   }, [deck, onDeckChange, safeSelected]);
 
   const handleAddElement = useCallback(
-    (kind: AddElementKind) => {
+    (kind: AddElementKind, shapeKind?: ShapeKind) => {
       const id = makeElementId();
-      const element = buildDefaultElement(kind, accentForSelected, id);
+      const element = buildDefaultElement(kind, accentForSelected, id, shapeKind);
       onDeckChange(addElement(deck, safeSelected, element));
       handleSelectElement(id);
       setInsertMenuOpen(false);
@@ -1197,6 +1248,7 @@ export function SlideEditor({
         onBackgroundGradientChange: handleBackgroundGradientChange,
         onBackgroundImageChange: handleBackgroundImageChange,
         onAccentChange: handleAccentChange,
+        brandSwatches,
       }
     : null;
 
@@ -1288,9 +1340,24 @@ export function SlideEditor({
                   onClick={() => handleAddElement("image")}
                 />
                 <InsertMenuButton
-                  icon={<Shapes size={14} aria-hidden="true" />}
-                  label="Shape"
-                  onClick={() => handleAddElement("shape")}
+                  icon={<Square size={14} aria-hidden="true" />}
+                  label="Rectangle"
+                  onClick={() => handleAddElement("shape", "rect")}
+                />
+                <InsertMenuButton
+                  icon={<Circle size={14} aria-hidden="true" />}
+                  label="Ellipse"
+                  onClick={() => handleAddElement("shape", "ellipse")}
+                />
+                <InsertMenuButton
+                  icon={<Triangle size={14} aria-hidden="true" />}
+                  label="Triangle"
+                  onClick={() => handleAddElement("shape", "triangle")}
+                />
+                <InsertMenuButton
+                  icon={<Minus size={14} aria-hidden="true" />}
+                  label="Line"
+                  onClick={() => handleAddElement("shape", "line")}
                 />
               </div>
               <div className="mt-2 border-t border-ds-border-subtle pt-2">
@@ -1450,6 +1517,20 @@ export function SlideEditor({
               onClick={() => setInspectorOpen((open) => !open)}
             >
               <PanelRight aria-hidden className="h-3.5 w-3.5" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip
+            label={snapToGrid ? "Snap to grid: on" : "Snap to grid: off"}
+            side="bottom"
+          >
+            <IconButton
+              aria-label="Toggle snap to grid"
+              size="sm"
+              variant="plain"
+              active={snapToGrid}
+              onClick={() => setSnapToGrid((on) => !on)}
+            >
+              <Grid3x3 aria-hidden className="h-3.5 w-3.5" />
             </IconButton>
           </Tooltip>
           <button
@@ -1632,17 +1713,17 @@ export function SlideEditor({
         ) : null}
 
         {/* Stage — large live preview of the selected slide */}
-        <main className="flex min-w-0 flex-1 flex-col bg-ds-surface-sunken">
+        <main className="relative flex min-w-0 flex-1 flex-col bg-ds-surface-sunken">
           <div
             ref={stageRef}
-            className="relative flex min-h-0 flex-1 items-center justify-center p-4 sm:p-6"
+            className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto p-4 sm:p-6"
           >
             {selectedSlide ? (
               <SlideStageEditor
                 slide={selectedSlide}
                 visuals={visuals}
-                width={fittedStageSize.width}
-                height={fittedStageSize.height}
+                width={fittedStageSize.width * zoom}
+                height={fittedStageSize.height * zoom}
                 selectedElementId={effectiveSelectedElementId}
                 selectedElementIds={effectiveSelectedElementIds}
                 onSelectElement={handleSelectElement}
@@ -1655,8 +1736,47 @@ export function SlideEditor({
                 onCopyElements={handleCopyElements}
                 onCutElements={handleCutElements}
                 onPasteElements={handlePasteElements}
+                onSetElementBoxes={handleSetElementBoxes}
+                onGroupElements={handleGroupElements}
+                onUngroupElements={handleUngroupElements}
+                snapToGrid={snapToGrid}
+                brandSwatches={brandSwatches}
               />
             ) : null}
+            {/* Zoom controls — overlaid bottom-right of the stage. */}
+            <div className="pointer-events-auto absolute bottom-3 right-3 z-10 flex items-center gap-0.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface/90 p-0.5 shadow-sm backdrop-blur">
+              <Tooltip label="Zoom out" side="top">
+                <IconButton
+                  aria-label="Zoom out"
+                  size="sm"
+                  variant="plain"
+                  disabled={zoom <= 0.25}
+                  onClick={() => adjustZoom(-0.25)}
+                >
+                  <Minus aria-hidden className="h-3.5 w-3.5" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip label="Reset zoom" side="top">
+                <button
+                  type="button"
+                  onClick={() => setZoom(1)}
+                  className={`min-w-12 rounded-ds-sm px-1.5 py-1 text-center text-xs font-medium tabular-nums text-ds-text-secondary transition-colors hover:bg-ds-state-hover ${FOCUS_RING}`}
+                >
+                  {Math.round(zoom * 100)}%
+                </button>
+              </Tooltip>
+              <Tooltip label="Zoom in" side="top">
+                <IconButton
+                  aria-label="Zoom in"
+                  size="sm"
+                  variant="plain"
+                  disabled={zoom >= 3}
+                  onClick={() => adjustZoom(0.25)}
+                >
+                  <Plus aria-hidden className="h-3.5 w-3.5" />
+                </IconButton>
+              </Tooltip>
+            </div>
           </div>
 
           {/* Speaker notes — always-visible input docked under the slide, like
@@ -1780,25 +1900,88 @@ function SlideTemplatePicker({
       ref={ref}
       role="menu"
       aria-label="Slide templates"
-      className="absolute bottom-full left-0 right-0 z-modal mb-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised p-1 shadow-lg"
+      className="absolute bottom-full left-0 right-0 z-modal mb-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised p-2 shadow-lg"
     >
-      {SLIDE_TEMPLATES.map((template) => (
-        <button
-          key={template.kind}
-          type="button"
-          role="menuitem"
-          onClick={() => onPick(template.kind)}
-          className={`flex w-full flex-col items-start gap-0.5 rounded-ds-sm px-2.5 py-1.5 text-left transition-colors hover:bg-ds-state-hover ${FOCUS_RING}`}
-        >
-          <span className="text-sm font-medium text-ds-text-primary">
-            {template.label}
-          </span>
-          <span className="text-[11px] text-ds-text-muted">
-            {template.description}
-          </span>
-        </button>
-      ))}
+      <div className="grid grid-cols-2 gap-2">
+        {SLIDE_TEMPLATES.map((template) => (
+          <button
+            key={template.kind}
+            type="button"
+            role="menuitem"
+            onClick={() => onPick(template.kind)}
+            title={template.description}
+            className={`group flex flex-col gap-1 rounded-ds-sm border border-ds-border-subtle p-1.5 text-left transition-colors hover:border-ds-border-strong hover:bg-ds-state-hover ${FOCUS_RING}`}
+          >
+            <TemplatePreview kind={template.kind} />
+            <span className="text-xs font-medium leading-tight text-ds-text-primary">
+              {template.label}
+            </span>
+            <span className="line-clamp-2 text-[10px] leading-tight text-ds-text-muted">
+              {template.description}
+            </span>
+          </button>
+        ))}
+      </div>
     </div>
+  );
+}
+
+/** Bar used inside {@link TemplatePreview} to mock a line of slide content. */
+function PreviewBar({ className = "" }: { className?: string }) {
+  return <span className={`block rounded-[1px] bg-ds-text-muted/40 ${className}`} />;
+}
+
+/**
+ * A tiny 16:9 mock of each slide-template layout, shown in the gallery so the
+ * user recognises the structure at a glance instead of reading labels alone.
+ */
+function TemplatePreview({ kind }: { kind: SlideTemplateKind }) {
+  return (
+    <span
+      aria-hidden
+      className="block aspect-video w-full overflow-hidden rounded-[3px] border border-ds-border-subtle bg-ds-surface"
+    >
+      {kind === "title" ? (
+        <span className="flex h-full flex-col items-center justify-center gap-1 px-3">
+          <PreviewBar className="h-1.5 w-3/4" />
+          <PreviewBar className="h-1 w-1/2 bg-ds-text-muted/25" />
+        </span>
+      ) : null}
+      {kind === "content" ? (
+        <span className="flex h-full flex-col gap-1 p-2">
+          <PreviewBar className="h-1.5 w-1/2" />
+          <PreviewBar className="mt-0.5 h-1 w-full bg-ds-text-muted/25" />
+          <PreviewBar className="h-1 w-5/6 bg-ds-text-muted/25" />
+          <PreviewBar className="h-1 w-3/4 bg-ds-text-muted/25" />
+        </span>
+      ) : null}
+      {kind === "visual" ? (
+        <span className="flex h-full flex-col gap-1 p-1.5">
+          <span className="block flex-1 rounded-[2px] bg-ds-text-muted/30" />
+          <PreviewBar className="h-1 w-1/2 self-center bg-ds-text-muted/25" />
+        </span>
+      ) : null}
+      {kind === "two-column" ? (
+        <span className="flex h-full flex-col gap-1 p-2">
+          <PreviewBar className="h-1.5 w-1/2" />
+          <span className="flex flex-1 gap-1.5">
+            <span className="flex flex-1 flex-col gap-1">
+              <PreviewBar className="h-1 w-full bg-ds-text-muted/25" />
+              <PreviewBar className="h-1 w-5/6 bg-ds-text-muted/25" />
+            </span>
+            <span className="flex flex-1 flex-col gap-1">
+              <PreviewBar className="h-1 w-full bg-ds-text-muted/25" />
+              <PreviewBar className="h-1 w-5/6 bg-ds-text-muted/25" />
+            </span>
+          </span>
+        </span>
+      ) : null}
+      {kind === "blank" ? (
+        <span className="flex h-full items-center justify-center">
+          <span className="block h-3/4 w-5/6 rounded-[2px] border border-dashed border-ds-border-strong" />
+        </span>
+      ) : null}
+    </span>
   );
 }
 

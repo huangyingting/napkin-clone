@@ -19,9 +19,10 @@
 
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { LayoutPanelLeft } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchDeckJson, saveDeckJson } from "@/app/app/documents/[id]/actions";
+import { listBrands } from "@/app/app/brands/actions";
 import { SlideEditor } from "@/components/presentation/slide-editor";
 import { SlideEditorOpenDialog } from "@/components/editor/slide-editor-open-dialog";
 import { DeckGenerationPreview } from "@/components/presentation/deck-generation-preview";
@@ -41,6 +42,7 @@ import {
 } from "@/lib/presentation/deck-hash";
 import { pickFreshestDeck } from "@/lib/presentation/fresh-deck";
 import { inferDeckTheme } from "@/lib/presentation/infer-theme";
+import { mergeSwatches } from "@/lib/presentation/text-style";
 import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
 import { collectDocumentBlocks } from "@/lib/visual/document-export";
 import type { Visual } from "@/lib/visual/schema";
@@ -113,9 +115,42 @@ export function SlideEditorButton({
   const [visuals, setVisuals] = useState<ReadonlyMap<string, Visual>>(
     () => new Map(),
   );
+  // The current user's brand-kit colors, surfaced first in the editor's color
+  // pickers. Best-effort: brands are per-user (not document-scoped), loaded
+  // once on mount; failures leave the pickers on their default swatches.
+  const [brandSwatches, setBrandSwatches] = useState<readonly string[]>([]);
   const { openSlideEditor, closeSlideEditor } = useRightSurface();
 
   const aiEnabled = isAiDeckGenClientEnabled();
+
+  // Load the user's brand-kit palettes once the editor is first opened so the
+  // color pickers can offer brand colors first. Deferred until `open` to avoid
+  // a brand query for users who never touch the slide editor.
+  useEffect(() => {
+    if (!open || brandSwatches.length > 0) return;
+    let cancelled = false;
+    void listBrands()
+      .then((brands) => {
+        if (cancelled) return;
+        const swatches = mergeSwatches(
+          ...brands.map((brand) => [
+            ...(brand.palette ?? []),
+            brand.background,
+            brand.nodeFill,
+            brand.nodeStroke,
+            brand.edgeColor,
+            brand.nodeText,
+          ]),
+        );
+        setBrandSwatches(swatches);
+      })
+      .catch(() => {
+        // Brand swatches are a best-effort enhancement; ignore failures.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, brandSwatches.length]);
 
   // Tracks the most recently saved deck so subsequent opens use fresh data
   // even without a server round-trip succeeding (e.g. offline).
@@ -389,6 +424,7 @@ export function SlideEditorButton({
           onSave={handleSave}
           freshDeck={freshDeck}
           isDeckStale={stale}
+          brandSwatches={brandSwatches}
         />
       ) : null}
     </>

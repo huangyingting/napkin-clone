@@ -58,7 +58,7 @@ import {
   shouldStoreRuns,
   splitRunsIntoLines,
 } from "@/lib/presentation/rich-text-html";
-import { themeSwatchColors } from "@/lib/presentation/text-style";
+import { mergeSwatches, themeSwatchColors } from "@/lib/presentation/text-style";
 import type { Visual } from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { applyTheme, isThemeActive } from "@/lib/visual/transforms";
@@ -128,6 +128,11 @@ export interface SlideInspectorProps {
   ) => void;
   onBackgroundImageChange: (image: string | undefined) => void;
   onAccentChange: (color: string | undefined) => void;
+  /**
+   * The current user's brand-kit colors, surfaced ahead of the on-theme
+   * swatches in the background/accent/text pickers. Optional and best-effort.
+   */
+  brandSwatches?: readonly string[];
   /**
    * Overrides the root container classes so the host can place the inspector in
    * the desktop side pane or a mobile bottom sheet (issue #209). Defaults to the
@@ -1015,6 +1020,7 @@ export function SlideInspector({
   onBackgroundGradientChange,
   onBackgroundImageChange,
   onAccentChange,
+  brandSwatches = [],
   className = "flex w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle",
 }: SlideInspectorProps) {
   const [tab, setTab] = useState<Tab>("content");
@@ -1026,14 +1032,14 @@ export function SlideInspector({
   const orderedElements = [...elements].sort((a, b) => b.zIndex - a.zIndex);
 
   const themeConfig = DECK_THEMES[slide.theme] ?? DECK_THEMES.default;
-  const textColorPresets = [
+  const textColorPresets = mergeSwatches(brandSwatches, [
     themeConfig.titleColor,
     themeConfig.bodyColor,
     themeConfig.mutedColor,
     themeConfig.accentColor,
     "#ffffff",
     "#000000",
-  ];
+  ]);
 
   return (
     <aside className={className}>
@@ -1248,14 +1254,14 @@ export function SlideInspector({
               label="Background"
               value={slide.background}
               fallback={themeConfig.bgColor}
-              presets={THEME_BACKGROUND_SWATCHES}
+              presets={mergeSwatches(brandSwatches, THEME_BACKGROUND_SWATCHES)}
               onChange={onBackgroundChange}
             />
             <ColorOverride
               label="Accent"
               value={slide.accent}
               fallback={themeConfig.accentColor}
-              presets={THEME_ACCENT_SWATCHES}
+              presets={mergeSwatches(brandSwatches, THEME_ACCENT_SWATCHES)}
               onChange={onAccentChange}
             />
             <div className="border-t border-ds-border-subtle pt-3">
