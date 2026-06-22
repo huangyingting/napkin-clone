@@ -334,6 +334,8 @@ export function SlideEditor({
   const [fromDocOpen, setFromDocOpen] = useState(false);
   // Whether the thumbnail rail "+ Add slide" template picker popover is open.
   const [addTemplateOpen, setAddTemplateOpen] = useState(false);
+  // Whether the visual picker for the "Visual spotlight" template is open.
+  const [spotlightPickerOpen, setSpotlightPickerOpen] = useState(false);
   // Whether the collapsed theme-swatch popover is open (shown below `lg`).
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   // Pending sync from the live document: a computed merge awaiting the user's
@@ -668,11 +670,33 @@ export function SlideEditor({
 
   const handleAddTemplate = useCallback(
     (kind: SlideTemplateKind) => {
+      // When the user picks "Visual spotlight" and the document has visuals,
+      // open the VisualPicker so they choose which visual to spotlight. The
+      // actual slide insertion happens in handleSpotlightPick below.
+      if (kind === "visual" && visuals.size > 0) {
+        setAddTemplateOpen(false);
+        setSpotlightPickerOpen(true);
+        return;
+      }
       const slide = buildTemplateSlide(kind, { theme: deck.theme });
       const next = insertSlide(deck, deck.slides.length - 1, slide);
       onDeckChange(next);
       setSelectedIndex(next.slides.length - 1);
       setAddTemplateOpen(false);
+    },
+    [deck, onDeckChange, visuals],
+  );
+
+  const handleSpotlightPick = useCallback(
+    (visualId: string) => {
+      const slide = buildTemplateSlide("visual", {
+        theme: deck.theme,
+        visualId,
+      });
+      const next = insertSlide(deck, deck.slides.length - 1, slide);
+      onDeckChange(next);
+      setSelectedIndex(next.slides.length - 1);
+      setSpotlightPickerOpen(false);
     },
     [deck, onDeckChange],
   );
@@ -2049,6 +2073,14 @@ export function SlideEditor({
                   <SlideTemplatePicker
                     onPick={handleAddTemplate}
                     onClose={() => setAddTemplateOpen(false)}
+                  />
+                ) : null}
+                {spotlightPickerOpen ? (
+                  <VisualPicker
+                    className="absolute bottom-full left-0 z-modal mb-1"
+                    visuals={visuals}
+                    onPick={handleSpotlightPick}
+                    onClose={() => setSpotlightPickerOpen(false)}
                   />
                 ) : null}
               </div>
