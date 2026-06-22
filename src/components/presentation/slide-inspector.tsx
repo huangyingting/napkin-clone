@@ -2252,14 +2252,15 @@ export function SlideInspector({
                   <button
                     type="button"
                     onClick={() => onResetLayout(selectedLayout)}
-                    className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-3 py-2 text-sm font-medium text-ds-text-primary hover:bg-ds-state-hover ${FOCUS_RING}`}
+                    className={`rounded-ds-md border border-ds-danger-border bg-ds-danger-surface px-3 py-2 text-sm font-medium text-ds-danger-text hover:opacity-90 ${FOCUS_RING}`}
                   >
                     Reset
                   </button>
                 </div>
                 <p className="mt-2 text-xs text-ds-text-muted">
-                  Apply preserves free-form elements and refreshes placeholders.
-                  Reset reinstalls the selected placeholder scaffold.
+                  Apply refreshes placeholders while keeping your other
+                  elements. Reset replaces all placeholders with the layout
+                  defaults.
                 </p>
               </div>
             ) : null}

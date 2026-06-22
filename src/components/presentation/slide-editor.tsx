@@ -857,6 +857,14 @@ export function SlideEditor({
 
   const handleResetReusableLayout = useCallback(
     (layout: ReusableSlideLayout) => {
+      if (
+        typeof window !== "undefined" &&
+        !window.confirm(
+          `Reset slide to the "${layout.name}" layout? This will remove any custom placeholder positions and labels.`,
+        )
+      ) {
+        return;
+      }
       onDeckChange(resetSlideLayout(deck, safeSelected, layout));
       setSelectedElementId(null);
       setSelectedElementIds(new Set());

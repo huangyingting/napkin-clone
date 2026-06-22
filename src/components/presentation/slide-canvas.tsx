@@ -451,10 +451,12 @@ function PlaceholderElementView({
   element,
   tc,
   accent,
+  editable,
 }: {
   element: PlaceholderElement;
   tc: ThemeConfig;
   accent: string;
+  editable?: boolean;
 }): JSX.Element {
   const label =
     element.label?.trim() || PLACEHOLDER_TYPE_LABELS[element.placeholderType];
@@ -479,7 +481,7 @@ function PlaceholderElementView({
         overflowWrap: "break-word",
         wordBreak: "normal",
         userSelect: "none",
-        pointerEvents: "none",
+        pointerEvents: editable ? "auto" : "none",
       }}
     >
       <span>{label}</span>
@@ -1090,7 +1092,12 @@ function SlideElementView({
   switch (element.kind) {
     case "placeholder":
       return (
-        <PlaceholderElementView element={element} tc={tc} accent={accent} />
+        <PlaceholderElementView
+          element={element}
+          tc={tc}
+          accent={accent}
+          editable={editable}
+        />
       );
     case "text":
       return <TextElementView element={element} tc={tc} accent={accent} />;
