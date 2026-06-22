@@ -86,11 +86,12 @@ import {
   isUnlimitedCreditsEnabled,
 } from "@/lib/billing/entitlements";
 import { getCurrentUser } from "@/lib/session";
-import { logError } from "@/lib/log";
+import { logError, logInfo } from "@/lib/log";
 import {
   collectDocumentBlocks,
   type DocumentBlock,
 } from "@/lib/visual/document-export";
+import { computeDeckMetrics, countWords } from "@/lib/ai/deck-metrics";
 import { inferDeckTheme } from "@/lib/presentation/infer-theme";
 import type { Visual } from "@/lib/visual/schema";
 import { auth as authEnv } from "@/lib/env";
@@ -369,6 +370,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   // Generate.
   try {
+    const generateStartedAt = Date.now();
     const { deck } = await runDeckGeneration({
       contentJson: body.contentJson,
       visuals,
@@ -376,6 +378,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       options,
       preferredTheme,
     });
+    const latencyMs = Date.now() - generateStartedAt;
 
     // Commit side effects only on success.
     commitAnonUsage?.();
@@ -406,6 +409,29 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         maxAge: ONE_YEAR_SECONDS,
       });
     }
+
+    // Best-effort evaluation metrics (issue #270). Content-free: only ids,
+    // counts, and numbers are emitted — never slide text, titles, or PII.
+    // Wrapped so a logging failure can never break a successful generation.
+    try {
+      const metrics = computeDeckMetrics(deck, {
+        sourceWordCount: countWords(outline),
+      });
+      logInfo(LOG_SCOPE, "deck-generated", {
+        requestId,
+        latencyMs,
+        outlineChars: outline.length,
+        outlineWords: metrics.sourceWordCount ?? 0,
+        slideCount: metrics.slideCount,
+        wordsPerSlide: metrics.wordsPerSlide,
+        percentSlidesWithVisual: metrics.percentSlidesWithVisual,
+        schemaValid: metrics.schemaValid,
+        truncated,
+      });
+    } catch {
+      // Metrics logging is best-effort and must never affect the response.
+    }
+
     return response;
   } catch (error) {
     if (error instanceof GenerateTimeoutError) {
