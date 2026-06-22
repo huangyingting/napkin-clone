@@ -28,6 +28,7 @@ import { DeckGenerationPreview } from "@/components/presentation/deck-generation
 import type { ActionResult } from "@/lib/action-result";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { isAiDeckGenClientEnabled } from "@/lib/ai/ai-deck-gen-flag";
+import { isEffectivelyEmptyEditorState } from "@/lib/ai/empty-content";
 import type { DeckGenerationOptions } from "@/lib/ai/use-deck-generation";
 import { buildDeckFromBlocks, type Deck } from "@/lib/presentation/deck";
 import { materializeDeck } from "@/lib/presentation/deck-mutations";
@@ -46,6 +47,12 @@ import { useRightSurface } from "@/app/app/documents/[id]/right-surface-context"
 interface SlideEditorButtonProps {
   documentId: string;
   initialDeckJson: unknown;
+  /**
+   * The DB-persisted serialised Lexical state the editor seeds from. Used as a
+   * non-empty fallback for AI generation when the LIVE editor state hasn't
+   * finished seeding yet (collab degraded/connecting — issue #280).
+   */
+  initialContentJson?: string | null;
   iconOnly?: boolean;
 }
 
@@ -76,6 +83,7 @@ interface AiPreviewState {
 export function SlideEditorButton({
   documentId,
   initialDeckJson,
+  initialContentJson = null,
   iconOnly = false,
 }: SlideEditorButtonProps) {
   const [editor] = useLexicalComposerContext();
@@ -84,6 +92,11 @@ export function SlideEditorButton({
   // holds the document content captured at chooser-open time so the choice
   // (generate vs derive) operates on a consistent snapshot.
   const [pendingJson, setPendingJson] = useState<string | null>(null);
+  // True when the document is genuinely empty (both the live editor state and
+  // the DB-persisted initial content are effectively empty). Gates the AI
+  // generate option off and surfaces a friendly "add content first" message in
+  // the chooser instead of letting the request 400 (issue #280).
+  const [emptyDocument, setEmptyDocument] = useState(false);
   // The AI deck preview/diff (issue #269). Set after a successful generation so
   // the user reviews the proposed deck (against the baseline the editor would
   // otherwise open) BEFORE it opens — opening is non-destructive and only
@@ -236,14 +249,29 @@ export function SlideEditorButton({
   );
 
   const handleOpen = useCallback(async () => {
-    const json = JSON.stringify(editor.getEditorState().toJSON());
+    const liveJson = JSON.stringify(editor.getEditorState().toJSON());
     if (aiEnabled) {
+      // Prefer the freshest NON-empty snapshot so a still-seeding editor (collab
+      // degraded/connecting; LocalFallbackSeedPlugin seeds via a deferred
+      // microtask — #257) doesn't break AI generation with an empty-outline 400
+      // (#280). Fall back to the DB-persisted initial content when the live
+      // state is still empty; only when BOTH are empty is the document genuinely
+      // empty and the AI option is gated off.
+      let effectiveJson = liveJson;
+      if (
+        isEffectivelyEmptyEditorState(liveJson) &&
+        initialContentJson &&
+        !isEffectivelyEmptyEditorState(initialContentJson)
+      ) {
+        effectiveJson = initialContentJson;
+      }
+      setEmptyDocument(isEffectivelyEmptyEditorState(effectiveJson));
       // Defer the heavy open work until the user picks generate vs derive.
-      setPendingJson(json);
+      setPendingJson(effectiveJson);
       return;
     }
-    await openDerived(json);
-  }, [editor, aiEnabled, openDerived]);
+    await openDerived(liveJson);
+  }, [editor, aiEnabled, openDerived, initialContentJson]);
 
   const handleClose = useCallback(() => {
     setOpen(false);
@@ -251,6 +279,7 @@ export function SlideEditorButton({
     setFreshDeck(null);
     setStale(false);
     setPendingJson(null);
+    setEmptyDocument(false);
     setAiPreview(null);
     closeSlideEditor();
   }, [closeSlideEditor]);
@@ -283,13 +312,17 @@ export function SlideEditorButton({
       {aiEnabled && pendingJson && !open ? (
         <SlideEditorOpenDialog
           contentJson={pendingJson}
+          isEmptyDocument={emptyDocument}
           onApply={({ deck: generated, truncated, options }) => {
             void showAiPreview(generated, truncated, options, pendingJson);
           }}
           onDerive={() => {
             void openDerived(pendingJson);
           }}
-          onClose={() => setPendingJson(null)}
+          onClose={() => {
+            setPendingJson(null);
+            setEmptyDocument(false);
+          }}
         />
       ) : null}
 

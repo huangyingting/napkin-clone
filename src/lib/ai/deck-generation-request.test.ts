@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   buildDeckGenerationBody,
+  EMPTY_CONTENT_ERROR,
   messageFrom,
   parseDeckResponse,
   requestDeckGeneration,
@@ -191,6 +192,35 @@ test("requestDeckGeneration classifies a 504 as timeout", async () => {
   assert.equal(result.ok, false);
   if (!result.ok) {
     assert.equal(result.errorKind, "timeout");
+  }
+});
+
+test("requestDeckGeneration classifies an empty-outline 400 as empty", async () => {
+  const fetchImpl = (async () =>
+    jsonResponse(
+      { error: "`contentJson` does not contain any usable outline content." },
+      false,
+      400,
+    )) as unknown as typeof fetch;
+  const result = await requestDeckGeneration(CONTENT_JSON, {}, fetchImpl);
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.errorKind, "empty");
+    assert.equal(result.error, EMPTY_CONTENT_ERROR);
+  }
+});
+
+test("requestDeckGeneration classifies a non-empty 400 as other", async () => {
+  const fetchImpl = (async () =>
+    jsonResponse(
+      { error: "`contentJson` is required." },
+      false,
+      400,
+    )) as unknown as typeof fetch;
+  const result = await requestDeckGeneration(CONTENT_JSON, {}, fetchImpl);
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.errorKind, "other");
   }
 });
 

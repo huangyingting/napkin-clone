@@ -22,6 +22,9 @@ export type { DeckGenerationOptions } from "@/lib/ai/deck-prompt";
  * - `credit`   — insufficient credits / quota (402).
  * - `unavailable` — the feature flag is OFF server-side (404): the caller
  *   should silently fall back to the deterministic derive path.
+ * - `empty`    — the document has no usable outline content (400): the caller
+ *   should show a friendly "add some content first" message rather than a
+ *   generic error (issue #280).
  * - `other`    — any other non-OK status or an unparseable response.
  */
 export type DeckGenerateErrorKind =
@@ -29,6 +32,7 @@ export type DeckGenerateErrorKind =
   | "timeout"
   | "credit"
   | "unavailable"
+  | "empty"
   | "other";
 
 /** A user-facing error plus its classification. */
@@ -50,6 +54,26 @@ const NETWORK_ERROR =
   "Couldn't reach the generator. Check your connection and try again.";
 const BAD_PAYLOAD_ERROR =
   "The generator returned an unexpected response. Please try again.";
+/** Shown when the document has no usable outline content yet (issue #280). */
+export const EMPTY_CONTENT_ERROR =
+  "Add some content to your document first, then generate slides.";
+
+/**
+ * Marker substring of the route's empty-outline 400 message
+ * ("`contentJson` does not contain any usable outline content."). Matched
+ * loosely so the empty-document case is classified distinctly from generic
+ * 400s (issue #280).
+ */
+const EMPTY_OUTLINE_MARKER = "does not contain any usable outline content";
+
+/** True when a 400 payload is the route's empty-outline rejection. */
+function isEmptyOutline400(payload: unknown): boolean {
+  if (payload && typeof payload === "object" && "error" in payload) {
+    const error = (payload as { error: unknown }).error;
+    return typeof error === "string" && error.includes(EMPTY_OUTLINE_MARKER);
+  }
+  return false;
+}
 
 /** Pull a string `error` field off a JSON payload, falling back when absent. */
 export function messageFrom(payload: unknown, fallback: string): string {
@@ -169,6 +193,13 @@ export async function requestDeckGeneration(
         ok: false,
         error: messageFrom(payload, TIMEOUT_ERROR),
         errorKind: "timeout",
+      };
+    }
+    if (response.status === 400 && isEmptyOutline400(payload)) {
+      return {
+        ok: false,
+        error: EMPTY_CONTENT_ERROR,
+        errorKind: "empty",
       };
     }
     return {
