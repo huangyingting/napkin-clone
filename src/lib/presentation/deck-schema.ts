@@ -26,6 +26,7 @@ import {
   type SlideElement,
   type SlideLayout,
   type TextElementStyle,
+  type TextFitMode,
   type TextRun,
 } from "./deck";
 import {
@@ -89,6 +90,24 @@ const CONNECTOR_ANCHORS: readonly ConnectorAnchor[] = [
 ];
 const CONNECTOR_ROUTINGS: readonly ConnectorRouting[] = ["straight", "elbow"];
 const CONNECTOR_ARROWS: readonly ConnectorArrow[] = ["none", "arrow", "filled"];
+const TEXT_FIT_MODES: readonly TextFitMode[] = [
+  "auto-height",
+  "fixed-box",
+  "shrink-to-fit",
+];
+
+function validateTextFitMode(
+  value: unknown,
+  context: string,
+): TextFitMode | undefined {
+  if (value === undefined) return undefined;
+  if (!TEXT_FIT_MODES.includes(value as TextFitMode)) {
+    throw new DeckValidationError(
+      `${context} must be one of: ${TEXT_FIT_MODES.join(", ")}`,
+    );
+  }
+  return value as TextFitMode;
+}
 
 function isHexColor(value: unknown): value is string {
   return typeof value === "string" && /^#[0-9a-fA-F]{3,8}$/.test(value);
@@ -288,6 +307,10 @@ function validateElement(input: unknown, context: string): SlideElement {
       : {}),
     ...(input.shadow !== undefined ? { shadow: Boolean(input.shadow) } : {}),
     ...(input.locked !== undefined ? { locked: Boolean(input.locked) } : {}),
+    ...(input.hidden !== undefined ? { hidden: Boolean(input.hidden) } : {}),
+    ...(typeof input.name === "string" && input.name.length > 0
+      ? { name: input.name }
+      : {}),
     ...(typeof input.groupId === "string" && input.groupId.length > 0
       ? { groupId: input.groupId }
       : {}),
@@ -303,6 +326,7 @@ function validateElement(input: unknown, context: string): SlideElement {
           `${context}.role must be "title" or "body"`,
         );
       }
+      const fitMode = validateTextFitMode(input.fitMode, `${context}.fitMode`);
       return {
         ...base,
         kind: "text",
@@ -312,9 +336,14 @@ function validateElement(input: unknown, context: string): SlideElement {
           ? { runs: validateTextRuns(input.runs, `${context}.runs`) }
           : {}),
         style: validateTextStyle(input.style, `${context}.style`),
+        ...(fitMode !== undefined ? { fitMode } : {}),
       };
     }
-    case "bullets":
+    case "bullets": {
+      const bulletsFitMode = validateTextFitMode(
+        input.fitMode,
+        `${context}.fitMode`,
+      );
       return {
         ...base,
         kind: "bullets",
@@ -328,7 +357,9 @@ function validateElement(input: unknown, context: string): SlideElement {
             }
           : {}),
         style: validateTextStyle(input.style, `${context}.style`),
+        ...(bulletsFitMode !== undefined ? { fitMode: bulletsFitMode } : {}),
       };
+    }
     case "visual": {
       if (typeof input.visualId !== "string" || input.visualId.length === 0) {
         throw new DeckValidationError(

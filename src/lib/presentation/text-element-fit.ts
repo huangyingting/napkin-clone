@@ -185,6 +185,55 @@ export function textFitPaddingPct(
   return AUTO_FIT_PADDING_PCT * 2 + fontSlack;
 }
 
+/**
+ * Returns `true` when the element should auto-grow its box to fit content.
+ * Absent `fitMode` (legacy decks) is treated as `"auto-height"`.
+ */
+export function isAutoHeight(element: TextLikeElement): boolean {
+  return !element.fitMode || element.fitMode === "auto-height";
+}
+
+/**
+ * Binary-searches for the largest font size (≤ `element.style.fontSize`) that
+ * makes the content fit within `boxHeightPct` (including padding slack).
+ *
+ * Returns the original font size unchanged when the content already fits.
+ * Never returns a value below `minFontSizePct` (default 1 % of slide height).
+ */
+export function shrinkFontSizeToFit(
+  element: TextLikeElement,
+  boxWidthPct: number,
+  boxHeightPct: number,
+  measurer: TextResizeMeasurer,
+  minFontSizePct: number = 1,
+): number {
+  const maxFontSizePct = element.style.fontSize;
+  const padding = textFitPaddingPct(element, maxFontSizePct);
+  const targetHeightPct = Math.max(0, boxHeightPct - padding);
+
+  // Fast path: already fits at the declared font size.
+  const fullHeight = measurer.measureHeightPct(
+    element,
+    boxWidthPct,
+    maxFontSizePct,
+  );
+  if (fullHeight <= targetHeightPct) return maxFontSizePct;
+
+  // Binary search: find the largest font size in [min, max] that fits.
+  let lo = Math.max(minFontSizePct, 0.1);
+  let hi = maxFontSizePct;
+  for (let i = 0; i < 16; i++) {
+    const mid = (lo + hi) / 2;
+    const h = measurer.measureHeightPct(element, boxWidthPct, mid);
+    if (h <= targetHeightPct) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+  return Math.max(minFontSizePct, lo);
+}
+
 export function fitNewTextElementBox(
   element: TextLikeElement,
   box: ElementBox,

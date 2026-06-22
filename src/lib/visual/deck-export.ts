@@ -35,6 +35,7 @@ import type {
   ElementBox,
   ShapeKind,
   Slide,
+  TextFitMode,
   TextRun,
 } from "@/lib/presentation/deck";
 import {
@@ -170,6 +171,8 @@ export interface DeckTextOp extends InchBox {
   italic: boolean;
   underline?: boolean;
   align: ElementAlign;
+  /** How content that exceeds the box is handled (mirrors `TextFitMode`). */
+  fitMode?: TextFitMode;
 }
 
 /** A bulleted list placed at an inch box. */
@@ -189,6 +192,8 @@ export interface DeckBulletsOp extends InchBox {
   bold: boolean;
   italic: boolean;
   align: ElementAlign;
+  /** How content that exceeds the box is handled (mirrors `TextFitMode`). */
+  fitMode?: TextFitMode;
 }
 
 /** A primitive shape placed at an inch box. */
@@ -405,6 +410,7 @@ function buildSlideSpec(
           italic: element.style.italic,
           ...(element.style.underline ? { underline: true } : {}),
           align: element.style.align,
+          ...(element.fitMode ? { fitMode: element.fitMode } : {}),
         });
         break;
       }
@@ -422,6 +428,7 @@ function buildSlideSpec(
           italic: element.style.italic,
           ...(element.style.underline ? { underline: true } : {}),
           align: element.style.align,
+          ...(element.fitMode ? { fitMode: element.fitMode } : {}),
         });
         break;
       }
@@ -606,6 +613,8 @@ function applyTextOp(slide: PptxSlide, op: DeckTextOp): void {
     align: op.align,
     valign: "middle" as const,
     wrap: true,
+    // `shrinkText: true` instructs PPTX to reduce font size until text fits.
+    ...(op.fitMode === "shrink-to-fit" ? { shrinkText: true } : {}),
     ...(op.rotation ? { rotate: op.rotation } : {}),
     ...(op.underline ? { underline: { style: "sng" as const } } : {}),
     ...(op.shadow ? { shadow: SHADOW_OPTS } : {}),
@@ -637,6 +646,8 @@ function applyBulletsOp(slide: PptxSlide, op: DeckBulletsOp): void {
     align: op.align,
     valign: "middle" as const,
     wrap: true,
+    // `shrinkText: true` instructs PPTX to reduce font size until text fits.
+    ...(op.fitMode === "shrink-to-fit" ? { shrinkText: true } : {}),
     ...(op.rotation ? { rotate: op.rotation } : {}),
     ...(op.underline ? { underline: { style: "sng" as const } } : {}),
     ...(op.shadow ? { shadow: SHADOW_OPTS } : {}),
