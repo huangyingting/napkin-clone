@@ -41,6 +41,7 @@ import {
   type TextFitMode,
   type TextRun,
 } from "./deck";
+import { CURRENT_DECK_SCHEMA_VERSION, migrateDeck } from "./deck-migration";
 import {
   DEFAULT_SLIDE_FORMAT,
   SLIDE_FORMATS,
@@ -1062,6 +1063,24 @@ function validateDeck(input: unknown): Deck {
     }
   }
 
+  if (input.schemaVersion !== undefined) {
+    if (
+      typeof input.schemaVersion !== "number" ||
+      !Number.isInteger(input.schemaVersion) ||
+      input.schemaVersion < 0
+    ) {
+      throw new DeckValidationError(
+        "Deck.schemaVersion must be a non-negative integer",
+      );
+    }
+    if (input.schemaVersion > CURRENT_DECK_SCHEMA_VERSION) {
+      throw new DeckValidationError(
+        `Deck.schemaVersion ${input.schemaVersion} is not supported (current: ${CURRENT_DECK_SCHEMA_VERSION})`,
+      );
+    }
+    deck.schemaVersion = input.schemaVersion;
+  }
+
   return deck;
 }
 
@@ -1069,10 +1088,17 @@ export type DeckParseResult =
   | { success: true; data: Deck }
   | { success: false; error: string };
 
-/** Non-throwing wrapper around {@link validateDeck}. */
+/**
+ * Non-throwing wrapper around {@link validateDeck}.
+ *
+ * Runs the migration pipeline ({@link migrateDeck}) before validation so
+ * callers never need to call it manually. The returned `data` deck will always
+ * carry `schemaVersion: CURRENT_DECK_SCHEMA_VERSION` for any structurally
+ * valid input.
+ */
 export function safeParseDeck(input: unknown): DeckParseResult {
   try {
-    return { success: true, data: validateDeck(input) };
+    return { success: true, data: validateDeck(migrateDeck(input)) };
   } catch (error) {
     const message =
       error instanceof DeckValidationError ? error.message : "Invalid deck";
