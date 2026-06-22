@@ -10,13 +10,15 @@
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Accepted image MIME types for slide assets. */
+/**
+ * Accepted image MIME types for slide assets.
+ * SVG is excluded until server-side sanitization is in place.
+ */
 export const SLIDE_IMAGE_TYPES = [
   "image/png",
   "image/jpeg",
   "image/gif",
   "image/webp",
-  "image/svg+xml",
 ] as const;
 
 export type SlideImageMime = (typeof SLIDE_IMAGE_TYPES)[number];
@@ -39,6 +41,10 @@ export type AssetUploadError =
 
 export type AssetUploadValidation =
   | { ok: true; mime: SlideImageMime; byteSize: number }
+  | { ok: false; error: AssetUploadError };
+
+export type AssetMetaResult =
+  | { ok: true; meta: AssetMeta }
   | { ok: false; error: AssetUploadError };
 
 /** Metadata parsed from a validated asset before storage. */
@@ -65,7 +71,6 @@ export function resolveAssetMime(type: string, name: string): string {
     jpeg: "image/jpeg",
     gif: "image/gif",
     webp: "image/webp",
-    svg: "image/svg+xml",
   };
   return extMap[ext] ?? type;
 }
@@ -131,8 +136,8 @@ export function validateAssetDimensions(
 
 /**
  * Assembles an `AssetMeta` record after successful validation.
- * Callers should run `validateAssetUpload` and `validateAssetDimensions`
- * first; this function trusts the inputs.
+ * Returns an error if the checksum is empty/whitespace or if the
+ * resolved MIME type is not an accepted slide image type.
  */
 export function buildAssetMeta(opts: {
   type: string;
@@ -141,15 +146,27 @@ export function buildAssetMeta(opts: {
   checksum: string;
   widthPx?: number;
   heightPx?: number;
-}): AssetMeta {
-  const mimeType = resolveAssetMime(opts.type, opts.name) as SlideImageMime;
+}): AssetMetaResult {
+  if (!opts.checksum || !opts.checksum.trim()) {
+    return { ok: false, error: { code: "checksum_missing" } };
+  }
+  const resolved = resolveAssetMime(opts.type, opts.name);
+  if (!isAcceptedSlideImageType(resolved)) {
+    return {
+      ok: false,
+      error: { code: "type_rejected", accepted: SLIDE_IMAGE_TYPES },
+    };
+  }
   return {
-    mimeType,
-    byteSize: opts.size,
-    checksum: opts.checksum,
-    ...(opts.widthPx !== undefined ? { widthPx: opts.widthPx } : {}),
-    ...(opts.heightPx !== undefined ? { heightPx: opts.heightPx } : {}),
-    originalName: opts.name || undefined,
+    ok: true,
+    meta: {
+      mimeType: resolved,
+      byteSize: opts.size,
+      checksum: opts.checksum,
+      ...(opts.widthPx !== undefined ? { widthPx: opts.widthPx } : {}),
+      ...(opts.heightPx !== undefined ? { heightPx: opts.heightPx } : {}),
+      originalName: opts.name || undefined,
+    },
   };
 }
 

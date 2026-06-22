@@ -28,3 +28,9 @@ CREATE INDEX "Asset_workspaceId_idx" ON "Asset"("workspaceId");
 
 -- CreateIndex
 CREATE INDEX "Asset_checksum_idx" ON "Asset"("checksum");
+
+-- AddForeignKey
+ALTER TABLE "Asset" ADD CONSTRAINT "Asset_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "Document"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Asset" ADD CONSTRAINT "Asset_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "Workspace"("id") ON DELETE SET NULL ON UPDATE CASCADE;

@@ -89,6 +89,7 @@ model Workspace {
   owner       User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members     WorkspaceMember[]
   documents   Document[]
+  assets      Asset[]
   inviteLinks InviteLink[]
 
   @@index([ownerId])
@@ -135,6 +136,7 @@ model Document {
   tags      Tag[]      @relation("DocumentTags")
   versions  DocumentVersion[]
   commentReads CommentRead[]
+  assets    Asset[]
 
   @@index([ownerId])
   @@index([workspaceId])
@@ -387,6 +389,9 @@ model Asset {
   originalName String?
   createdAt    DateTime  @default(now())
   deletedAt    DateTime?
+
+  document  Document?  @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
 
   @@index([documentId])
   @@index([workspaceId])

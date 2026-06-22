@@ -12,7 +12,9 @@ CREATE TABLE "Asset" (
     "thumbnailKey" TEXT,
     "originalName" TEXT,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "deletedAt" DATETIME
+    "deletedAt" DATETIME,
+    CONSTRAINT "Asset_documentId_fkey" FOREIGN KEY ("documentId") REFERENCES "Document" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT "Asset_workspaceId_fkey" FOREIGN KEY ("workspaceId") REFERENCES "Workspace" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
 -- CreateIndex

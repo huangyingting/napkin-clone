@@ -44,10 +44,6 @@ describe("resolveAssetMime", () => {
       "image/gif",
     );
     assert.equal(
-      resolveAssetMime("application/octet-stream", "icon.svg"),
-      "image/svg+xml",
-    );
-    assert.equal(
       resolveAssetMime("application/octet-stream", "image.webp"),
       "image/webp",
     );
@@ -60,6 +56,14 @@ describe("resolveAssetMime", () => {
   it("returns original type for unknown extension with octet-stream", () => {
     assert.equal(
       resolveAssetMime("application/octet-stream", "file.xyz"),
+      "application/octet-stream",
+    );
+  });
+
+  it("does not resolve svg extension (SVG unsupported until sanitization)", () => {
+    // .svg has no entry in extMap; falls back to the provided type argument
+    assert.equal(
+      resolveAssetMime("application/octet-stream", "icon.svg"),
       "application/octet-stream",
     );
   });
@@ -82,6 +86,10 @@ describe("isAcceptedSlideImageType", () => {
     assert.equal(isAcceptedSlideImageType("font/ttf"), false);
     assert.equal(isAcceptedSlideImageType(""), false);
   });
+
+  it("rejects SVG until server-side sanitization is added", () => {
+    assert.equal(isAcceptedSlideImageType("image/svg+xml"), false);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -100,12 +108,6 @@ describe("validateAssetUpload — happy path", () => {
     const result = validateAssetUpload("image/jpeg", "photo.jpg", 500_000);
     assert.ok(result.ok);
     assert.equal(result.mime, "image/jpeg");
-  });
-
-  it("accepts an SVG", () => {
-    const result = validateAssetUpload("image/svg+xml", "logo.svg", 2048);
-    assert.ok(result.ok);
-    assert.equal(result.mime, "image/svg+xml");
   });
 
   it("accepts a file exactly at the size limit", () => {
@@ -161,6 +163,22 @@ describe("validateAssetUpload — rejections", () => {
     assert.equal(result.error.code, "type_rejected");
   });
 
+  it("rejects SVG until server-side sanitization is added", () => {
+    const result = validateAssetUpload("image/svg+xml", "logo.svg", 2048);
+    assert.ok(!result.ok);
+    assert.equal(result.error.code, "type_rejected");
+  });
+
+  it("rejects SVG via extension fallback", () => {
+    const result = validateAssetUpload(
+      "application/octet-stream",
+      "icon.svg",
+      512,
+    );
+    assert.ok(!result.ok);
+    assert.equal(result.error.code, "type_rejected");
+  });
+
   it("size check runs before MIME check", () => {
     // Oversized + wrong type → should fail on size first
     const result = validateAssetUpload(
@@ -183,7 +201,7 @@ describe("validateAssetDimensions", () => {
     assert.ok(r.ok);
   });
 
-  it("accepts SVG with undefined dimensions", () => {
+  it("accepts raster with undefined dimensions", () => {
     const r = validateAssetDimensions(undefined, undefined);
     assert.ok(r.ok);
   });
@@ -212,7 +230,7 @@ describe("validateAssetDimensions", () => {
 
 describe("buildAssetMeta", () => {
   it("builds metadata for a raster image", () => {
-    const meta = buildAssetMeta({
+    const result = buildAssetMeta({
       type: "image/png",
       name: "slide-bg.png",
       size: 204_800,
@@ -220,44 +238,104 @@ describe("buildAssetMeta", () => {
       widthPx: 1920,
       heightPx: 1080,
     });
-    assert.equal(meta.mimeType, "image/png");
-    assert.equal(meta.byteSize, 204_800);
-    assert.equal(meta.checksum, "abc123");
-    assert.equal(meta.widthPx, 1920);
-    assert.equal(meta.heightPx, 1080);
-    assert.equal(meta.originalName, "slide-bg.png");
+    assert.ok(result.ok);
+    assert.equal(result.meta.mimeType, "image/png");
+    assert.equal(result.meta.byteSize, 204_800);
+    assert.equal(result.meta.checksum, "abc123");
+    assert.equal(result.meta.widthPx, 1920);
+    assert.equal(result.meta.heightPx, 1080);
+    assert.equal(result.meta.originalName, "slide-bg.png");
   });
 
-  it("builds metadata for an SVG (no dimensions)", () => {
-    const meta = buildAssetMeta({
-      type: "image/svg+xml",
-      name: "icon.svg",
+  it("builds metadata for a GIF (no dimensions)", () => {
+    const result = buildAssetMeta({
+      type: "image/gif",
+      name: "anim.gif",
       size: 512,
       checksum: "deadbeef",
     });
-    assert.equal(meta.mimeType, "image/svg+xml");
-    assert.equal(meta.widthPx, undefined);
-    assert.equal(meta.heightPx, undefined);
+    assert.ok(result.ok);
+    assert.equal(result.meta.mimeType, "image/gif");
+    assert.equal(result.meta.widthPx, undefined);
+    assert.equal(result.meta.heightPx, undefined);
   });
 
   it("resolves MIME from extension via octet-stream", () => {
-    const meta = buildAssetMeta({
+    const result = buildAssetMeta({
       type: "application/octet-stream",
       name: "image.webp",
       size: 1024,
       checksum: "ff00",
     });
-    assert.equal(meta.mimeType, "image/webp");
+    assert.ok(result.ok);
+    assert.equal(result.meta.mimeType, "image/webp");
   });
 
   it("omits originalName when name is empty string", () => {
-    const meta = buildAssetMeta({
+    const result = buildAssetMeta({
       type: "image/png",
       name: "",
       size: 100,
       checksum: "00",
     });
-    assert.equal(meta.originalName, undefined);
+    assert.ok(result.ok);
+    assert.equal(result.meta.originalName, undefined);
+  });
+
+  it("rejects empty checksum", () => {
+    const result = buildAssetMeta({
+      type: "image/png",
+      name: "img.png",
+      size: 100,
+      checksum: "",
+    });
+    assert.ok(!result.ok);
+    assert.equal(result.error.code, "checksum_missing");
+  });
+
+  it("rejects whitespace-only checksum", () => {
+    const result = buildAssetMeta({
+      type: "image/png",
+      name: "img.png",
+      size: 100,
+      checksum: "   ",
+    });
+    assert.ok(!result.ok);
+    assert.equal(result.error.code, "checksum_missing");
+  });
+
+  it("rejects invalid MIME type without unsafe cast", () => {
+    const result = buildAssetMeta({
+      type: "application/pdf",
+      name: "deck.pdf",
+      size: 100,
+      checksum: "abc",
+    });
+    assert.ok(!result.ok);
+    assert.equal(result.error.code, "type_rejected");
+  });
+
+  it("rejects SVG MIME type", () => {
+    const result = buildAssetMeta({
+      type: "image/svg+xml",
+      name: "icon.svg",
+      size: 512,
+      checksum: "deadbeef",
+    });
+    assert.ok(!result.ok);
+    assert.equal(result.error.code, "type_rejected");
+  });
+
+  it("checksum checked before MIME resolution", () => {
+    // Empty checksum should be caught first, even with an invalid MIME
+    const result = buildAssetMeta({
+      type: "application/pdf",
+      name: "deck.pdf",
+      size: 100,
+      checksum: "",
+    });
+    assert.ok(!result.ok);
+    assert.equal(result.error.code, "checksum_missing");
   });
 });
 
