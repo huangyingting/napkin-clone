@@ -85,6 +85,11 @@ import {
   defaultTextBoxAtPoint,
 } from "@/lib/presentation/canvas-helpers";
 import {
+  rotateElementsAroundCenter,
+  scaleElementsInBoundingBox,
+  selectionBoundingBox,
+} from "@/lib/presentation/selection-transform";
+import {
   CONNECTOR_ANCHORS,
   anchorPoint,
   lineBoxFromEndpoints,
@@ -117,6 +122,27 @@ interface DragState {
   startFontSize?: number;
   /** Start boxes of all co-moving members for a group / multi-selection move. */
   groupBoxes?: { id: string; startBox: ElementBox }[];
+}
+
+/**
+ * Drag state for a multi-selection bounding-box resize or rotate gesture
+ * (issue #329).  Tracks the combined box at gesture start, the per-element
+ * start state (box + rotation), and — for rotate — the angle between the
+ * pointer and the selection center at gesture start so deltas are computed from
+ * the original rather than accumulated each frame.
+ */
+interface MultiDragState {
+  mode: Handle | "rotate";
+  startClientX: number;
+  startClientY: number;
+  /** Combined bounding box of all transformable elements at gesture start. */
+  startBbox: ElementBox;
+  /** Per-element starting state (for applying transforms from the original). */
+  elementStarts: { id: string; startBox: ElementBox; startRotation: number }[];
+  /** Angle (degrees) from selection center to pointer at drag start, for rotate. */
+  startAngleDeg: number;
+  coalesceKey: string;
+  moved: boolean;
 }
 
 /**
@@ -729,6 +755,73 @@ function ConnectorEndpointHandles({
   );
 }
 
+/**
+ * Overlay rendered around the combined bounding box of a multi-selection
+ * (issue #329).  Shows a dashed border frame with eight resize handles and one
+ * rotation handle (matching the per-element single-select style so the UX is
+ * consistent).
+ *
+ * The component is purely presentational — all pointer events are forwarded
+ * upstream via `onBeginDrag`.
+ */
+function MultiSelectBoundingBox({
+  bbox,
+  showAdvanced,
+  onBeginDrag,
+}: {
+  bbox: ElementBox;
+  showAdvanced: boolean;
+  onBeginDrag: (
+    event: React.PointerEvent,
+    mode: Handle | "rotate",
+    bbox: ElementBox,
+  ) => void;
+}) {
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute"
+      style={{
+        left: `${bbox.x}%`,
+        top: `${bbox.y}%`,
+        width: `${bbox.w}%`,
+        height: `${bbox.h}%`,
+        zIndex: 1200,
+        // Dashed outline distinguishes the combined box from single-select rings.
+        outline: "2px dashed #71717a",
+        outlineOffset: "1px",
+      }}
+    >
+      {/* Eight resize handles — same positions and touch targets as HANDLES. */}
+      {HANDLES.map(({ handle, cursor, style }) => (
+        <span
+          key={handle}
+          onPointerDown={(event) => onBeginDrag(event, handle, bbox)}
+          aria-hidden="true"
+          className="pointer-events-auto absolute flex h-11 w-11 touch-none items-center justify-center"
+          style={{ ...style, cursor }}
+        >
+          <span className="h-2.5 w-2.5 rounded-full border border-white bg-[#71717a] shadow" />
+        </span>
+      ))}
+
+      {/* Rotation handle — only in advanced mode, same style as single-select. */}
+      {showAdvanced ? (
+        <span
+          onPointerDown={(event) => onBeginDrag(event, "rotate", bbox)}
+          aria-hidden="true"
+          className="pointer-events-auto absolute left-1/2 flex h-11 w-11 -translate-x-1/2 touch-none items-center justify-center"
+          style={{ top: "calc(100% + 6px)", cursor: "grab" }}
+        >
+          <span className="flex h-5 w-5 items-center justify-center rounded-full border border-white bg-[#71717a] text-white shadow">
+            <RotateCw size={11} aria-hidden="true" />
+          </span>
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function resolveTextColor(
   element: Extract<SlideElement, { kind: "text" | "bullets" | "shape" }>,
   tc: ThemeConfig,
@@ -821,6 +914,11 @@ interface SlideStageEditorProps {
     boxesById: Record<string, ElementBox>,
     coalesceKey?: string,
   ) => void;
+  /** Applies per-element patches atomically — used by multi-select transform (#329). */
+  onSetElementPatches: (
+    patchesById: Record<string, ElementPatch>,
+    coalesceKey?: string,
+  ) => void;
   onGroupElements: (ids: string[]) => void;
   onUngroupElements: (groupId: string) => void;
   /** When true, element moves snap to a fixed grid. */
@@ -860,6 +958,7 @@ export function SlideStageEditor({
   onCutElements,
   onPasteElements,
   onSetElementBoxes,
+  onSetElementPatches,
   onGroupElements,
   onUngroupElements,
   snapToGrid = false,
@@ -869,7 +968,11 @@ export function SlideStageEditor({
 }: SlideStageEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
+  const multiDragRef = useRef<MultiDragState | null>(null);
   const [activeDrag, setActiveDrag] = useState<DragMode | null>(null);
+  const [multiActiveDrag, setMultiActiveDrag] = useState<
+    Handle | "rotate" | null
+  >(null);
   // In-flight marquee selection (issue #245). The ref drives the pointer math;
   // `marqueeRect` mirrors it for rendering the band; `marqueeRectRef` holds the
   // latest normalized rect so pointer-up can resolve the selection even when the
@@ -950,6 +1053,17 @@ export function SlideStageEditor({
     [elements, selectedElementIds],
   );
   const isMultiSelect = selectedElements.length >= 2;
+  // Combined bounding box for the multi-selection (issue #329). Excludes locked
+  // elements since they are not resized/rotated. Memoised so handle rendering
+  // and pointer math always see the same box within a render cycle.
+  const multiSelectBbox = useMemo(() => {
+    if (!isMultiSelect) return null;
+    const transformable = selectedElements.filter((el) => !el.locked);
+    if (transformable.length < 2) return null;
+    return selectionBoundingBox(
+      transformable.map((el) => fittedBoxes.get(el.id) ?? el.box),
+    );
+  }, [isMultiSelect, selectedElements, fittedBoxes]);
   // The single primary selection that the floating toolbar attaches to.
   const primaryElement =
     elements.find((element) => element.id === selectedElementId) ?? null;
@@ -1023,6 +1137,96 @@ export function SlideStageEditor({
           }
           marqueeRectRef.current = norm;
           setMarqueeRect(norm);
+          return;
+        }
+
+        // Multi-select bounding box resize / rotate (issue #329).
+        const multiDrag = multiDragRef.current;
+        if (multiDrag) {
+          if (
+            !multiDrag.moved &&
+            (Math.abs(ev.clientX - multiDrag.startClientX) >
+              CLICK_MOVE_THRESHOLD_PX ||
+              Math.abs(ev.clientY - multiDrag.startClientY) >
+                CLICK_MOVE_THRESHOLD_PX)
+          ) {
+            multiDrag.moved = true;
+          }
+          if (!multiDrag.moved) return;
+
+          // Reconstruct each element from its start snapshot so every frame
+          // transforms from the original rather than accumulating rounding errors.
+          const startEls = multiDrag.elementStarts
+            .map(({ id, startBox, startRotation }) => {
+              const el = elementsRef.current.find((e) => e.id === id);
+              if (!el) return null;
+              const base = { ...el, box: startBox } as SlideElement;
+              if (startRotation === 0) {
+                delete (base as { rotation?: number }).rotation;
+              } else {
+                (base as { rotation?: number }).rotation = startRotation;
+              }
+              return base;
+            })
+            .filter((e): e is SlideElement => e !== null);
+
+          if (multiDrag.mode === "rotate") {
+            const cxPct = multiDrag.startBbox.x + multiDrag.startBbox.w / 2;
+            const cyPct = multiDrag.startBbox.y + multiDrag.startBbox.h / 2;
+            const centerXPx = rect.left + (cxPct / 100) * rect.width;
+            const centerYPx = rect.top + (cyPct / 100) * rect.height;
+            const currentAngle =
+              (Math.atan2(ev.clientY - centerYPx, ev.clientX - centerXPx) *
+                180) /
+                Math.PI -
+              90;
+            let deltaAngle = currentAngle - multiDrag.startAngleDeg;
+            if (ev.shiftKey) deltaAngle = Math.round(deltaAngle / 15) * 15;
+            deltaAngle = Math.round(deltaAngle);
+            const transformed = rotateElementsAroundCenter(
+              startEls,
+              cxPct,
+              cyPct,
+              deltaAngle,
+            );
+            const patchesById: Record<string, ElementPatch> = {};
+            for (const el of transformed) {
+              patchesById[el.id] = {
+                box: el.box,
+                rotation: el.rotation,
+              };
+            }
+            onSetElementPatches(patchesById, multiDrag.coalesceKey);
+          } else {
+            // Resize: apply handle delta to the combined bbox, then scale each
+            // element proportionally within the new box.
+            const dxPct =
+              ((ev.clientX - multiDrag.startClientX) / rect.width) * 100;
+            const dyPct =
+              ((ev.clientY - multiDrag.startClientY) / rect.height) * 100;
+            const rawBbox = applyResize(
+              multiDrag.startBbox,
+              multiDrag.mode,
+              dxPct,
+              dyPct,
+            );
+            const newBbox: ElementBox = {
+              x: rawBbox.x,
+              y: rawBbox.y,
+              w: Math.max(MIN_SIZE_PCT, rawBbox.w),
+              h: Math.max(MIN_SIZE_PCT, rawBbox.h),
+            };
+            const transformed = scaleElementsInBoundingBox(
+              startEls,
+              multiDrag.startBbox,
+              newBbox,
+            );
+            const boxesById: Record<string, ElementBox> = {};
+            for (const el of transformed) {
+              boxesById[el.id] = el.box;
+            }
+            onSetElementBoxes(boxesById, multiDrag.coalesceKey);
+          }
           return;
         }
 
@@ -1335,7 +1539,14 @@ export function SlideStageEditor({
         }
       });
     },
-    [onUpdateElement, onSetElementBoxes, stageAspect, visuals, snapToGrid],
+    [
+      onUpdateElement,
+      onSetElementBoxes,
+      onSetElementPatches,
+      stageAspect,
+      visuals,
+      snapToGrid,
+    ],
   );
 
   const startEditing = useCallback(
@@ -1348,6 +1559,60 @@ export function SlideStageEditor({
       }
     },
     [nextGestureKey, onSelectElement],
+  );
+
+  /**
+   * Begins a multi-selection bounding-box resize or rotate gesture (issue #329).
+   * Called from handle pointer-down events on the `MultiSelectBoundingBox`
+   * overlay.  Captures the starting state of every transformable (non-locked)
+   * selected element so pointer-move can apply transforms from the snapshot on
+   * every frame without accumulating floating-point errors.
+   */
+  const beginMultiDrag = useCallback(
+    (event: React.PointerEvent, mode: Handle | "rotate", bbox: ElementBox) => {
+      event.stopPropagation();
+      (event.currentTarget as Element).setPointerCapture(event.pointerId);
+
+      const transformable = elementsRef.current.filter(
+        (el) => selectedElementIds.has(el.id) && !el.locked,
+      );
+
+      const container = containerRef.current;
+      const rect = container?.getBoundingClientRect();
+      const cxPct = bbox.x + bbox.w / 2;
+      const cyPct = bbox.y + bbox.h / 2;
+      const centerXPx = rect
+        ? rect.left + (cxPct / 100) * rect.width
+        : event.clientX;
+      const centerYPx = rect
+        ? rect.top + (cyPct / 100) * rect.height
+        : event.clientY;
+      const startAngleDeg =
+        (Math.atan2(event.clientY - centerYPx, event.clientX - centerXPx) *
+          180) /
+          Math.PI -
+        90;
+
+      multiDragRef.current = {
+        mode,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        startBbox: bbox,
+        elementStarts: transformable.map((el) => ({
+          id: el.id,
+          startBox: fittedBoxes.get(el.id) ?? el.box,
+          startRotation: el.rotation ?? 0,
+        })),
+        startAngleDeg,
+        coalesceKey: nextGestureKey(
+          mode === "rotate" ? "multi-rotate" : "multi-resize",
+          "sel",
+        ),
+        moved: false,
+      };
+      setMultiActiveDrag(mode);
+    },
+    [nextGestureKey, selectedElementIds, fittedBoxes],
   );
 
   const endDrag = useCallback(() => {
@@ -1399,7 +1664,9 @@ export function SlideStageEditor({
       }
     }
     dragRef.current = null;
+    multiDragRef.current = null;
     setActiveDrag(null);
+    setMultiActiveDrag(null);
     setSnapGuides([]);
     setAnchorPreview(null);
   }, [onSelectElement, onSelectElements, stageAspect, visuals, startEditing]);
@@ -1560,7 +1827,9 @@ export function SlideStageEditor({
   const badge =
     activeDrag && selectedElementBox
       ? formatBadge(activeDrag, selectedElementBox)
-      : null;
+      : multiActiveDrag && multiSelectBbox
+        ? formatBadge(multiActiveDrag, multiSelectBbox)
+        : null;
 
   return (
     <div
@@ -1758,6 +2027,18 @@ export function SlideStageEditor({
           );
         })}
 
+        {/* Multi-selection bounding box — resize and rotate handles (issue #329).
+            Shown when 2+ non-locked elements are selected and the user is not
+            performing a marquee.  Hidden while a single-element drag is active
+            so it does not jitter under the element being dragged. */}
+        {multiSelectBbox && !marqueeRect && !activeDrag ? (
+          <MultiSelectBoundingBox
+            bbox={multiSelectBbox}
+            showAdvanced={showAdvanced}
+            onBeginDrag={beginMultiDrag}
+          />
+        ) : null}
+
         {/* Marquee (rubber-band) selection rectangle — issue #245. */}
         {marqueeRect &&
         (marqueeRect.w >= MARQUEE_THRESHOLD_PCT ||
@@ -1827,19 +2108,27 @@ export function SlideStageEditor({
           : null}
 
         {/* Live position / size badge */}
-        {badge ? (
-          <div
-            className="pointer-events-none absolute rounded-ds-sm bg-ds-inverse-surface px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-ds-inverse-text"
-            style={{
-              left: `${(selectedElementBox?.x ?? 0) + (selectedElementBox?.w ?? 0) / 2}%`,
-              top: `calc(${(selectedElementBox?.y ?? 0) + (selectedElementBox?.h ?? 0)}% + 6px)`,
-              transform: "translateX(-50%)",
-              zIndex: 1500,
-            }}
-          >
-            {badge}
-          </div>
-        ) : null}
+        {badge
+          ? (() => {
+              const badgeBox =
+                multiActiveDrag && multiSelectBbox
+                  ? multiSelectBbox
+                  : selectedElementBox;
+              return (
+                <div
+                  className="pointer-events-none absolute rounded-ds-sm bg-ds-inverse-surface px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-ds-inverse-text"
+                  style={{
+                    left: `${(badgeBox?.x ?? 0) + (badgeBox?.w ?? 0) / 2}%`,
+                    top: `calc(${(badgeBox?.y ?? 0) + (badgeBox?.h ?? 0)}% + 6px)`,
+                    transform: "translateX(-50%)",
+                    zIndex: 1500,
+                  }}
+                >
+                  {badge}
+                </div>
+              );
+            })()
+          : null}
 
         {/* Contextual floating toolbar — single primary selection, hidden while
             dragging / resizing / marquee so it never jitters. */}
