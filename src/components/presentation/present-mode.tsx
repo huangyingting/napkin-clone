@@ -1,140 +1,463 @@
 "use client";
 
 /**
- * In-app Present mode — fullscreen slide navigation with presenter view.
+ * In-app Present mode — fullscreen slide navigation with presenter tools.
  *
  * Renders a {@link Deck} (from {@link buildDeckFromBlocks}) one slide at a
  * time in a fullscreen overlay. Features:
  *
  * - Keyboard + click navigation: ArrowRight/Down/Space/PageDown → next;
- *   ArrowLeft/Up/PageUp → prev; Home → first; End → last; Esc → exit.
+ *   ArrowLeft/Up/PageUp → prev; Home → first; End → last; Esc → close / exit.
+ * - Presenter tools: keyboard help (`?`), speaker notes (`N`), slide overview
+ *   (`O`), timer (`T`), laser pointer (`L`), and fullscreen (`F`).
  * - Progress indicator ("3 / 12") and a progress bar.
- * - Presenter view: toggle (P key or button) shows speaker notes and a
- *   next-slide preview below the main canvas.
- * - Renders title, section, content, media, and blank slide layouts.
+ * - Presenter panel: current-slide speaker notes with next-slide preview.
  * - Visual slides rendered via {@link VisualRenderer}.
- * - Fullscreen API with graceful degradation.
+ * - Fullscreen API with vendor-prefixed fallbacks and a visible F11 hint.
  */
 
-import { useCallback, useEffect, useRef, useState, type JSX } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type JSX,
+  type ReactNode,
+  type TouchEvent,
+} from "react";
 import { createPortal } from "react-dom";
 import {
-  X,
   ChevronLeft,
   ChevronRight,
+  FileText,
+  Grid3x3,
   Maximize2,
   Minimize2,
-  LayoutPanelTop,
+  X,
 } from "lucide-react";
 
-import type { Deck, Slide } from "@/lib/presentation/deck";
-import {
-  DEFAULT_SCREEN_SIZE,
-  fitAspectRatio,
-  type Size,
-} from "@/lib/presentation/stage-fit";
-import { slideAspectRatio } from "@/lib/presentation/slide-format";
-import type { Visual } from "@/lib/visual/schema";
+import { FOCUS_RING } from "@/components/motion/control-styles";
 import {
   DECK_THEMES,
   SlideCanvas,
 } from "@/components/presentation/slide-canvas";
+import type { Deck, Slide } from "@/lib/presentation/deck";
 import {
   clampSlideIndex,
   formatProgress,
   resolveSwipeNavigation,
 } from "@/lib/presentation/slide-helpers";
-import { FOCUS_RING } from "@/components/motion/control-styles";
+import { slideAspectRatio } from "@/lib/presentation/slide-format";
+import {
+  DEFAULT_SCREEN_SIZE,
+  fitAspectRatio,
+  type Size,
+} from "@/lib/presentation/stage-fit";
+import { isEditableTagName, isHelpShortcut } from "@/lib/shortcuts/match";
+import type { Visual } from "@/lib/visual/schema";
 
-// ---------------------------------------------------------------------------
-// Presenter notes panel
-// ---------------------------------------------------------------------------
+type PresentShortcut = {
+  keys: string[];
+  description: string;
+};
+
+const PRESENT_MODE_SHORTCUTS: PresentShortcut[] = [
+  { keys: ["→", "↓", "Space", "PgDn"], description: "Next slide" },
+  { keys: ["←", "↑", "PgUp"], description: "Previous slide" },
+  { keys: ["Home"], description: "First slide" },
+  { keys: ["End"], description: "Last slide" },
+  { keys: ["F"], description: "Toggle fullscreen" },
+  { keys: ["Esc"], description: "Close overlay or exit presentation" },
+  { keys: ["?"], description: "Toggle keyboard help" },
+  { keys: ["N"], description: "Toggle speaker notes" },
+  { keys: ["O"], description: "Toggle slide overview" },
+  { keys: ["T"], description: "Toggle presenter timer" },
+  { keys: ["L"], description: "Toggle laser pointer" },
+];
+
+type LegacyFullscreenElement = HTMLElement & {
+  webkitRequestFullscreen?: () => Promise<void> | void;
+  mozRequestFullScreen?: () => Promise<void> | void;
+  msRequestFullscreen?: () => Promise<void> | void;
+};
+
+type LegacyFullscreenDocument = Document & {
+  webkitFullscreenElement?: Element | null;
+  mozFullScreenElement?: Element | null;
+  msFullscreenElement?: Element | null;
+  webkitExitFullscreen?: () => Promise<void> | void;
+  mozCancelFullScreen?: () => Promise<void> | void;
+  msExitFullscreen?: () => Promise<void> | void;
+};
+
+function getFullscreenElement(doc: Document): Element | null {
+  const legacyDoc = doc as LegacyFullscreenDocument;
+  return (
+    doc.fullscreenElement ??
+    legacyDoc.webkitFullscreenElement ??
+    legacyDoc.mozFullScreenElement ??
+    legacyDoc.msFullscreenElement ??
+    null
+  );
+}
+
+async function requestBrowserFullscreen(): Promise<boolean> {
+  const root = document.documentElement as LegacyFullscreenElement;
+
+  try {
+    if (root.requestFullscreen) {
+      await root.requestFullscreen();
+      return true;
+    }
+    if (root.webkitRequestFullscreen) {
+      await Promise.resolve(root.webkitRequestFullscreen());
+      return true;
+    }
+    if (root.mozRequestFullScreen) {
+      await Promise.resolve(root.mozRequestFullScreen());
+      return true;
+    }
+    if (root.msRequestFullscreen) {
+      await Promise.resolve(root.msRequestFullscreen());
+      return true;
+    }
+  } catch {
+    return false;
+  }
+
+  return false;
+}
+
+async function exitBrowserFullscreen(): Promise<boolean> {
+  const legacyDoc = document as LegacyFullscreenDocument;
+
+  try {
+    if (document.exitFullscreen) {
+      await document.exitFullscreen();
+      return true;
+    }
+    if (legacyDoc.webkitExitFullscreen) {
+      await Promise.resolve(legacyDoc.webkitExitFullscreen());
+      return true;
+    }
+    if (legacyDoc.mozCancelFullScreen) {
+      await Promise.resolve(legacyDoc.mozCancelFullScreen());
+      return true;
+    }
+    if (legacyDoc.msExitFullscreen) {
+      await Promise.resolve(legacyDoc.msExitFullscreen());
+      return true;
+    }
+  } catch {
+    return false;
+  }
+
+  return false;
+}
+
+function formatElapsedTime(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3600)
+    .toString()
+    .padStart(2, "0");
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+    .toString()
+    .padStart(2, "0");
+  const seconds = Math.floor(totalSeconds % 60)
+    .toString()
+    .padStart(2, "0");
+  return `${hours}:${minutes}:${seconds}`;
+}
+
+function ShortcutKeys({ keys }: { keys: string[] }): JSX.Element {
+  return (
+    <span className="flex flex-wrap items-center gap-1">
+      {keys.map((key, index) => (
+        <kbd
+          key={`${key}-${index}`}
+          className="inline-flex h-6 min-w-6 items-center justify-center rounded-md border border-ds-inverse-border-subtle bg-ds-inverse-control px-1.5 text-xs font-medium text-ds-inverse-text"
+        >
+          {key}
+        </kbd>
+      ))}
+    </span>
+  );
+}
+
+function KeyboardHelpOverlay({
+  onClose,
+}: {
+  onClose: () => void;
+}): JSX.Element {
+  return (
+    <div
+      className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-6"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="present-mode-shortcuts-title"
+        className="w-full max-w-3xl rounded-2xl border border-ds-inverse-border-subtle bg-ds-inverse-surface p-6 text-ds-inverse-text shadow-ds-overlay backdrop-blur-sm"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2
+              id="present-mode-shortcuts-title"
+              className="text-lg font-semibold"
+            >
+              Keyboard shortcuts
+            </h2>
+            <p className="mt-1 text-sm text-ds-inverse-muted">
+              Presenter tools stay in-app only and never appear in the public
+              viewer.
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Close keyboard shortcuts"
+            onClick={onClose}
+            className={`flex h-8 w-8 items-center justify-center rounded-full text-ds-inverse-muted transition-colors hover:bg-ds-inverse-control-hover hover:text-ds-inverse-text ${FOCUS_RING}`}
+          >
+            <X size={16} aria-hidden="true" />
+          </button>
+        </div>
+
+        <ul className="mt-6 grid gap-3 sm:grid-cols-2">
+          {PRESENT_MODE_SHORTCUTS.map((shortcut) => (
+            <li
+              key={shortcut.description}
+              className="flex items-center justify-between gap-4 rounded-xl border border-ds-inverse-border-subtle bg-ds-inverse-control px-4 py-3"
+            >
+              <span className="text-sm text-ds-inverse-text">
+                {shortcut.description}
+              </span>
+              <ShortcutKeys keys={shortcut.keys} />
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function PresenterTimer({
+  elapsedSeconds,
+}: {
+  elapsedSeconds: number;
+}): JSX.Element {
+  const formatted = formatElapsedTime(elapsedSeconds);
+  return (
+    <span
+      aria-label={`Elapsed time ${formatted}`}
+      className="rounded-md border border-ds-inverse-border-subtle bg-ds-inverse-surface-muted px-2 py-1 text-xs font-medium tabular-nums text-ds-inverse-text backdrop-blur-sm"
+    >
+      <span className="mr-1 text-ds-inverse-muted">Timer</span>
+      {formatted}
+    </span>
+  );
+}
+
+function SlideOverviewPanel({
+  slides,
+  visuals,
+  slideFormat,
+  currentIndex,
+  onJump,
+  onClose,
+}: {
+  slides: Slide[];
+  visuals: ReadonlyMap<string, Visual>;
+  slideFormat: Deck["slideFormat"];
+  currentIndex: number;
+  onJump: (index: number) => void;
+  onClose: () => void;
+}): JSX.Element {
+  const aspectRatio = slideAspectRatio(slideFormat);
+
+  return (
+    <div
+      className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-6"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="present-mode-overview-title"
+        className="flex max-h-[85vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-ds-inverse-border-subtle bg-ds-inverse-surface p-6 text-ds-inverse-text shadow-ds-overlay backdrop-blur-sm"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2
+              id="present-mode-overview-title"
+              className="text-lg font-semibold"
+            >
+              Slide overview
+            </h2>
+            <p className="mt-1 text-sm text-ds-inverse-muted">
+              Click any slide to jump there.
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Close slide overview"
+            onClick={onClose}
+            className={`flex h-8 w-8 items-center justify-center rounded-full text-ds-inverse-muted transition-colors hover:bg-ds-inverse-control-hover hover:text-ds-inverse-text ${FOCUS_RING}`}
+          >
+            <X size={16} aria-hidden="true" />
+          </button>
+        </div>
+
+        <div className="mt-6 overflow-y-auto pr-1">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {slides.map((slide, index) => {
+              const isCurrent = index === currentIndex;
+              const slideLabel =
+                slide.title.trim() || `Untitled slide ${index + 1}`;
+              const accent = (DECK_THEMES[slide.theme] ?? DECK_THEMES.default)
+                .accentColor;
+              return (
+                <button
+                  key={slide.id}
+                  type="button"
+                  aria-current={isCurrent ? "true" : undefined}
+                  aria-label={`Jump to slide ${index + 1}${slide.title ? `, ${slide.title}` : ""}`}
+                  onClick={() => onJump(index)}
+                  className={`flex flex-col gap-3 rounded-xl border p-3 text-left transition-colors hover:border-ds-inverse-text hover:text-ds-inverse-text ${FOCUS_RING} ${
+                    isCurrent
+                      ? "border-ds-inverse-text bg-ds-inverse-control"
+                      : "border-ds-inverse-border-subtle bg-ds-inverse-control"
+                  }`}
+                  style={
+                    isCurrent ? { boxShadow: `0 0 0 1px ${accent}` } : undefined
+                  }
+                >
+                  <div
+                    className="overflow-hidden rounded-lg border border-ds-inverse-border-subtle bg-ds-inverse-surface"
+                    style={{ aspectRatio }}
+                  >
+                    <SlideCanvas slide={slide} visuals={visuals} preview />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs font-semibold uppercase tracking-widest text-ds-inverse-muted">
+                        Slide {index + 1}
+                      </span>
+                      {isCurrent ? (
+                        <span className="text-xs font-medium text-ds-inverse-text">
+                          Current
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="truncate text-sm font-medium text-ds-inverse-text">
+                      {slideLabel}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function PresenterPanel({
   currentSlide,
+  currentIndex,
+  total,
   nextSlide,
   visuals,
   slideFormat,
 }: {
   currentSlide: Slide;
+  currentIndex: number;
+  total: number;
   nextSlide: Slide | undefined;
   visuals: ReadonlyMap<string, Visual>;
   slideFormat: Deck["slideFormat"];
 }): JSX.Element {
   const previewAspectRatio = slideAspectRatio(slideFormat);
+  const slideLabel = currentSlide.title.trim() || `Slide ${currentIndex + 1}`;
+
   return (
     <div className="flex h-full min-h-0 gap-4 overflow-hidden bg-ds-stage px-6 py-4">
-      {/* Notes */}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ds-stage-muted">
-          Speaker notes
+      <div className="flex min-w-0 flex-[1.4] flex-col">
+        <p className="text-xs font-semibold uppercase tracking-widest text-ds-stage-muted">
+          Current slide notes
         </p>
-        <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-ds-stage-border bg-ds-stage-panel-muted p-4">
-          {currentSlide.notes ? (
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-ds-stage-text">
-              {currentSlide.notes}
-            </p>
-          ) : (
-            <p className="text-sm italic text-ds-stage-muted">
-              No speaker notes.
-            </p>
-          )}
+        <div className="mt-2 flex min-h-0 flex-1 flex-col rounded-lg border border-ds-stage-border bg-ds-stage-panel-muted p-4">
+          <p className="text-xs font-semibold uppercase tracking-widest text-ds-stage-muted">
+            Slide {currentIndex + 1} of {total}
+          </p>
+          <h2 className="mt-2 text-lg font-semibold text-ds-stage-text">
+            {slideLabel}
+          </h2>
+          <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
+            {currentSlide.notes ? (
+              <p className="whitespace-pre-wrap text-base leading-7 text-ds-stage-text">
+                {currentSlide.notes}
+              </p>
+            ) : (
+              <p className="text-sm italic text-ds-stage-muted">
+                No speaker notes for this slide.
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Next slide preview */}
       {nextSlide && (
-        <div className="flex w-56 flex-shrink-0 flex-col">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-ds-stage-muted">
-            Next
+        <div className="flex w-64 flex-shrink-0 flex-col">
+          <p className="text-xs font-semibold uppercase tracking-widest text-ds-stage-muted">
+            Up next
           </p>
           <div
-            className="min-h-0 flex-1 overflow-hidden rounded-lg border border-ds-stage-border"
+            className="mt-2 min-h-0 flex-1 overflow-hidden rounded-lg border border-ds-stage-border"
             style={{ aspectRatio: previewAspectRatio }}
           >
-            <div className="h-full w-full scale-100 overflow-hidden">
+            <div className="h-full w-full overflow-hidden">
               <SlideCanvas slide={nextSlide} visuals={visuals} preview />
             </div>
           </div>
-          {nextSlide.title && (
-            <p className="mt-1.5 truncate text-xs text-ds-stage-muted">
-              {nextSlide.title}
-            </p>
-          )}
+          <p className="mt-2 truncate text-sm text-ds-stage-muted">
+            {nextSlide.title.trim() || `Slide ${currentIndex + 2}`}
+          </p>
         </div>
       )}
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// HUD controls (progress, nav buttons, presenter toggle, fullscreen, close)
-// ---------------------------------------------------------------------------
-
 function HudButton({
   label,
   onClick,
   children,
+  active,
 }: {
   label: string;
   onClick: () => void;
-  children: React.ReactNode;
+  children: ReactNode;
+  active?: boolean;
 }): JSX.Element {
   return (
     <button
       type="button"
       aria-label={label}
+      aria-pressed={active === undefined ? undefined : active}
       onClick={onClick}
-      className={`flex h-8 w-8 items-center justify-center rounded-lg border border-ds-inverse-border-subtle bg-ds-inverse-control text-ds-inverse-muted transition-colors hover:bg-ds-inverse-control-hover hover:text-ds-inverse-text ${FOCUS_RING}`}
+      className={`flex h-8 w-8 items-center justify-center rounded-lg border transition-colors ${FOCUS_RING} ${
+        active
+          ? "border-ds-inverse-text bg-ds-inverse-control-hover text-ds-inverse-text"
+          : "border-ds-inverse-border-subtle bg-ds-inverse-control text-ds-inverse-muted hover:bg-ds-inverse-control-hover hover:text-ds-inverse-text"
+      }`}
     >
       {children}
     </button>
   );
 }
-
-// ---------------------------------------------------------------------------
-// PresentMode
-// ---------------------------------------------------------------------------
 
 export interface PresentModeProps {
   deck: Deck;
@@ -151,10 +474,14 @@ export interface PresentModeProps {
  * Navigation:
  * - **Next**: ArrowRight, ArrowDown, Space, PageDown, or click the right half
  * - **Prev**: ArrowLeft, ArrowUp, PageUp, or click the left half
- * - **First**: Home
- * - **Last**: End
+ * - **First / Last**: Home / End
  * - **Exit**: Esc (also exits fullscreen)
- * - **Presenter toggle**: P key or toolbar button
+ * - **Fullscreen**: F key or toolbar button
+ * - **Speaker notes**: N key or toolbar button
+ * - **Slide overview**: O key or toolbar button
+ * - **Timer**: T key or toolbar button
+ * - **Laser pointer**: L key or toolbar button
+ * - **Keyboard help**: ? key or toolbar button
  */
 export function PresentMode({
   deck,
@@ -165,14 +492,26 @@ export function PresentMode({
   const total = slides.length;
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [presenterView, setPresenterView] = useState(false);
+  const [notesVisible, setNotesVisible] = useState(false);
+  const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
+  const [overviewOpen, setOverviewOpen] = useState(false);
+  const [showTimer, setShowTimer] = useState(false);
+  const [laserActive, setLaserActive] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fullscreenHintVisible, setFullscreenHintVisible] = useState(false);
   const [hudVisible, setHudVisible] = useState(true);
   const [slideAreaBounds, setSlideAreaBounds] =
     useState<Size>(DEFAULT_SCREEN_SIZE);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [laserPosition, setLaserPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const slideAreaRef = useRef<HTMLDivElement>(null);
   const hudTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const presentationStartedAtRef = useRef<number | null>(null);
+  const touchStartXRef = useRef<number | null>(null);
 
   const currentSlide = slides[clampSlideIndex(currentIndex, total)];
   const nextSlide =
@@ -184,27 +523,30 @@ export function PresentMode({
     slideAreaBounds,
     activeSlideAspectRatio,
   );
+  const topHudVisible =
+    hudVisible ||
+    keyboardHelpOpen ||
+    overviewOpen ||
+    showTimer ||
+    fullscreenHintVisible;
+  const bottomHudVisible = hudVisible || keyboardHelpOpen || overviewOpen;
 
   const goNext = useCallback(() => {
-    setCurrentIndex((i) => clampSlideIndex(i + 1, total));
+    setCurrentIndex((index) => clampSlideIndex(index + 1, total));
   }, [total]);
 
   const goPrev = useCallback(() => {
-    setCurrentIndex((i) => clampSlideIndex(i - 1, total));
+    setCurrentIndex((index) => clampSlideIndex(index - 1, total));
   }, [total]);
 
-  // Touch / swipe navigation — mirrors the public viewer so in-app present
-  // supports the same left/right swipe gesture (issue #209).
-  const touchStartXRef = useRef<number | null>(null);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartXRef.current = e.touches[0].clientX;
+  const handleTouchStart = useCallback((event: TouchEvent) => {
+    touchStartXRef.current = event.touches[0].clientX;
   }, []);
 
   const handleTouchEnd = useCallback(
-    (e: React.TouchEvent) => {
+    (event: TouchEvent) => {
       if (touchStartXRef.current === null) return;
-      const dx = e.changedTouches[0].clientX - touchStartXRef.current;
+      const dx = event.changedTouches[0].clientX - touchStartXRef.current;
       touchStartXRef.current = null;
       const intent = resolveSwipeNavigation(dx);
       if (intent === "next") goNext();
@@ -214,55 +556,75 @@ export function PresentMode({
   );
 
   const handleClose = useCallback(async () => {
-    // Await the fullscreen exit before unmounting so the browser finishes the
-    // transition while the overlay is still mounted — otherwise the last painted
-    // frame can linger as a stray dark band after the overlay is gone.
-    if (document.fullscreenElement) {
-      try {
-        await document.exitFullscreen();
-      } catch {
-        // Fullscreen API not supported / already exiting — ignore.
-      }
+    if (getFullscreenElement(document)) {
+      await exitBrowserFullscreen();
     }
     onClose();
   }, [onClose]);
 
+  const enterFullscreen = useCallback(async () => {
+    const succeeded = await requestBrowserFullscreen();
+    setFullscreenHintVisible(!succeeded);
+    return succeeded;
+  }, []);
+
   const toggleFullscreen = useCallback(async () => {
-    try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen();
-      } else {
-        const el = containerRef.current ?? document.documentElement;
-        await el.requestFullscreen();
-      }
-    } catch {
-      // Fullscreen API not supported — degrade gracefully.
+    if (getFullscreenElement(document)) {
+      await exitBrowserFullscreen();
+      setFullscreenHintVisible(false);
+      return;
     }
-  }, []);
+    await enterFullscreen();
+  }, [enterFullscreen]);
 
-  // Track fullscreen state changes (user may press Esc to exit native fullscreen).
   useEffect(() => {
-    const handler = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+    const updateFullscreenState = () => {
+      const active = !!getFullscreenElement(document);
+      setIsFullscreen(active);
+      if (active) {
+        setFullscreenHintVisible(false);
+      }
     };
-    document.addEventListener("fullscreenchange", handler);
-    return () => document.removeEventListener("fullscreenchange", handler);
+
+    updateFullscreenState();
+    const events = [
+      "fullscreenchange",
+      "webkitfullscreenchange",
+      "mozfullscreenchange",
+      "MSFullscreenChange",
+    ];
+    for (const eventName of events) {
+      document.addEventListener(eventName, updateFullscreenState);
+    }
+    return () => {
+      for (const eventName of events) {
+        document.removeEventListener(eventName, updateFullscreenState);
+      }
+    };
   }, []);
 
-  // Auto-enter fullscreen on mount (best-effort).
   useEffect(() => {
-    void toggleFullscreen();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    presentationStartedAtRef.current = Date.now();
+    containerRef.current?.focus();
+
+    let cancelled = false;
+    const autoEnterFullscreen = async () => {
+      const succeeded = await requestBrowserFullscreen();
+      if (!cancelled) {
+        setFullscreenHintVisible(!succeeded);
+      }
+    };
+
+    void autoEnterFullscreen();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // Lock body scroll while presenting so the page underneath can't peek through
-  // or shift; restore the previous value on unmount.
   useEffect(() => {
     const root = document.documentElement;
     const previousRootOverflow = root.style.overflow;
     const previousBodyOverflow = document.body.style.overflow;
-    // Lock both <html> and <body>: the page scrollbar usually lives on the
-    // documentElement, so hiding only body leaves a stray vertical scrollbar.
     root.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
     return () => {
@@ -289,52 +651,26 @@ export function PresentMode({
     return () => observer.disconnect();
   }, []);
 
-  // Keyboard navigation.
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Skip if a form element has focus (let the user type in notes etc.)
-      const tag = (e.target as HTMLElement | null)?.tagName ?? "";
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
+    const startedAt = presentationStartedAtRef.current ?? Date.now();
+    presentationStartedAtRef.current = startedAt;
+    const intervalId = window.setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    }, 1000);
+    return () => window.clearInterval(intervalId);
+  }, []);
 
-      switch (e.key) {
-        case "ArrowRight":
-        case "ArrowDown":
-        case " ":
-        case "PageDown":
-          e.preventDefault();
-          goNext();
-          break;
-        case "ArrowLeft":
-        case "ArrowUp":
-        case "PageUp":
-          e.preventDefault();
-          goPrev();
-          break;
-        case "Home":
-          e.preventDefault();
-          setCurrentIndex(0);
-          break;
-        case "End":
-          e.preventDefault();
-          setCurrentIndex(total - 1);
-          break;
-        case "Escape":
-          // Native fullscreen exits itself; we just close the overlay.
-          handleClose();
-          break;
-        case "p":
-        case "P":
-          e.preventDefault();
-          setPresenterView((v) => !v);
-          break;
-      }
+  useEffect(() => {
+    if (!laserActive) return;
+
+    const handleMouseMove = (event: MouseEvent) => {
+      setLaserPosition({ x: event.clientX, y: event.clientY });
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [goNext, goPrev, handleClose, total]);
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, [laserActive]);
 
-  // Fade HUD after 3 s of inactivity; show again on any pointer move / key.
   const scheduleHudHide = useCallback(() => {
     if (hudTimerRef.current) clearTimeout(hudTimerRef.current);
     hudTimerRef.current = setTimeout(() => setHudVisible(false), 3000);
@@ -356,11 +692,179 @@ export function PresentMode({
     };
   }, [resetHudTimer, scheduleHudHide]);
 
+  const closeKeyboardHelp = useCallback(() => {
+    setKeyboardHelpOpen(false);
+    resetHudTimer();
+  }, [resetHudTimer]);
+
+  const closeOverview = useCallback(() => {
+    setOverviewOpen(false);
+    resetHudTimer();
+  }, [resetHudTimer]);
+
+  const toggleKeyboardHelp = useCallback(() => {
+    setOverviewOpen(false);
+    setKeyboardHelpOpen((open) => !open);
+    resetHudTimer();
+  }, [resetHudTimer]);
+
+  const toggleNotes = useCallback(() => {
+    setNotesVisible((visible) => !visible);
+    resetHudTimer();
+  }, [resetHudTimer]);
+
+  const toggleOverview = useCallback(() => {
+    setKeyboardHelpOpen(false);
+    setOverviewOpen((open) => !open);
+    resetHudTimer();
+  }, [resetHudTimer]);
+
+  const toggleTimer = useCallback(() => {
+    setShowTimer((visible) => !visible);
+    resetHudTimer();
+  }, [resetHudTimer]);
+
+  const toggleLaser = useCallback(() => {
+    setLaserActive((active) => {
+      const next = !active;
+      if (next) {
+        setLaserPosition({
+          x: window.innerWidth / 2,
+          y: window.innerHeight / 2,
+        });
+      }
+      return next;
+    });
+    resetHudTimer();
+  }, [resetHudTimer]);
+
+  const handleJumpToSlide = useCallback(
+    (index: number) => {
+      setCurrentIndex(clampSlideIndex(index, total));
+      closeOverview();
+    },
+    [closeOverview, total],
+  );
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        isEditableTagName(target?.tagName, target?.isContentEditable ?? false)
+      ) {
+        return;
+      }
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        if (keyboardHelpOpen) {
+          closeKeyboardHelp();
+          return;
+        }
+        if (overviewOpen) {
+          closeOverview();
+          return;
+        }
+        void handleClose();
+        return;
+      }
+
+      if (isHelpShortcut(event)) {
+        event.preventDefault();
+        toggleKeyboardHelp();
+        return;
+      }
+
+      if (keyboardHelpOpen) {
+        return;
+      }
+
+      if (overviewOpen) {
+        if (event.key === "o" || event.key === "O") {
+          event.preventDefault();
+          closeOverview();
+        }
+        return;
+      }
+
+      switch (event.key) {
+        case "ArrowRight":
+        case "ArrowDown":
+        case " ":
+        case "PageDown":
+          event.preventDefault();
+          goNext();
+          break;
+        case "ArrowLeft":
+        case "ArrowUp":
+        case "PageUp":
+          event.preventDefault();
+          goPrev();
+          break;
+        case "Home":
+          event.preventDefault();
+          setCurrentIndex(0);
+          break;
+        case "End":
+          event.preventDefault();
+          setCurrentIndex(Math.max(0, total - 1));
+          break;
+        case "f":
+        case "F":
+          event.preventDefault();
+          void toggleFullscreen();
+          break;
+        case "n":
+        case "N":
+          event.preventDefault();
+          toggleNotes();
+          break;
+        case "o":
+        case "O":
+          event.preventDefault();
+          toggleOverview();
+          break;
+        case "t":
+        case "T":
+          event.preventDefault();
+          toggleTimer();
+          break;
+        case "l":
+        case "L":
+          event.preventDefault();
+          toggleLaser();
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    closeKeyboardHelp,
+    closeOverview,
+    goNext,
+    goPrev,
+    handleClose,
+    keyboardHelpOpen,
+    overviewOpen,
+    toggleKeyboardHelp,
+    toggleLaser,
+    toggleNotes,
+    toggleFullscreen,
+    toggleOverview,
+    toggleTimer,
+    total,
+  ]);
+
   if (!currentSlide) {
     return (
       <div className="fixed inset-0 z-modal flex items-center justify-center bg-ds-inverse-surface text-ds-inverse-text">
         <p>No slides to present.</p>
-        <button type="button" onClick={onClose} className="ml-4 underline">
+        <button
+          type="button"
+          onClick={() => void handleClose()}
+          className="ml-4 underline"
+        >
           Close
         </button>
       </div>
@@ -382,22 +886,17 @@ export function PresentMode({
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      {/* ------------------------------------------------------------------ */}
-      {/* HUD — top bar (progress + controls)                                  */}
-      {/* ------------------------------------------------------------------ */}
       <div
         aria-label="Presentation controls"
-        className={`pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-4 px-4 py-3 transition-opacity duration-300 ${hudVisible ? "opacity-100" : "opacity-0"}`}
+        className={`pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-4 px-4 py-3 transition-opacity duration-300 ${topHudVisible ? "opacity-100" : "opacity-0"}`}
       >
-        {/* Left: slide count + progress bar */}
-        <div className="pointer-events-auto flex items-center gap-3">
+        <div className="pointer-events-auto flex flex-wrap items-center gap-3">
           <span
             aria-label={`Slide ${progress}`}
             className="rounded-md bg-ds-inverse-surface-muted px-2 py-1 text-xs font-medium tabular-nums text-ds-inverse-muted backdrop-blur-sm"
           >
             {progress}
           </span>
-          {/* Horizontal progress bar */}
           <div
             role="progressbar"
             aria-valuenow={currentIndex + 1}
@@ -414,21 +913,72 @@ export function PresentMode({
               }}
             />
           </div>
+          {showTimer ? (
+            <PresenterTimer elapsedSeconds={elapsedSeconds} />
+          ) : null}
+          {fullscreenHintVisible ? (
+            <span className="rounded-md border border-amber-400/40 bg-ds-inverse-surface-muted px-2 py-1 text-xs font-medium text-ds-inverse-text backdrop-blur-sm">
+              Fullscreen unavailable — press F11
+            </span>
+          ) : null}
         </div>
 
-        {/* Right: presenter toggle, fullscreen, close */}
-        <div className="pointer-events-auto flex items-center gap-2">
+        <div className="pointer-events-auto flex flex-wrap items-center gap-2">
           <HudButton
             label={
-              presenterView ? "Hide presenter view" : "Show presenter view"
+              keyboardHelpOpen
+                ? "Hide keyboard shortcuts"
+                : "Show keyboard shortcuts"
             }
-            onClick={() => setPresenterView((v) => !v)}
+            active={keyboardHelpOpen}
+            onClick={toggleKeyboardHelp}
           >
-            <LayoutPanelTop size={14} aria-hidden="true" />
+            <span className="text-sm font-semibold leading-none">?</span>
+          </HudButton>
+          <HudButton
+            label={notesVisible ? "Hide speaker notes" : "Show speaker notes"}
+            active={notesVisible}
+            onClick={toggleNotes}
+          >
+            <FileText size={14} aria-hidden="true" />
+          </HudButton>
+          <HudButton
+            label={overviewOpen ? "Hide slide overview" : "Show slide overview"}
+            active={overviewOpen}
+            onClick={toggleOverview}
+          >
+            <Grid3x3 size={14} aria-hidden="true" />
+          </HudButton>
+          <HudButton
+            label={showTimer ? "Hide presenter timer" : "Show presenter timer"}
+            active={showTimer}
+            onClick={toggleTimer}
+          >
+            <span className="text-[11px] font-semibold leading-none">T</span>
+          </HudButton>
+          <HudButton
+            label={
+              laserActive ? "Disable laser pointer" : "Enable laser pointer"
+            }
+            active={laserActive}
+            onClick={toggleLaser}
+          >
+            <span
+              aria-hidden="true"
+              className={`block h-2.5 w-2.5 rounded-full ${
+                laserActive
+                  ? "bg-red-400 shadow-[0_0_0_4px_rgba(248,113,113,0.25)]"
+                  : "border border-current"
+              }`}
+            />
           </HudButton>
           <HudButton
             label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-            onClick={() => void toggleFullscreen()}
+            active={isFullscreen}
+            onClick={() => {
+              resetHudTimer();
+              void toggleFullscreen();
+            }}
           >
             {isFullscreen ? (
               <Minimize2 size={14} aria-hidden="true" />
@@ -436,20 +986,22 @@ export function PresentMode({
               <Maximize2 size={14} aria-hidden="true" />
             )}
           </HudButton>
-          <HudButton label="Exit presentation" onClick={handleClose}>
+          <HudButton
+            label="Exit presentation"
+            onClick={() => {
+              resetHudTimer();
+              void handleClose();
+            }}
+          >
             <X size={14} aria-hidden="true" />
           </HudButton>
         </div>
       </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Main slide area + left/right click zones for navigation              */}
-      {/* ------------------------------------------------------------------ */}
       <div
         ref={slideAreaRef}
-        className={`relative min-h-0 flex-1 overflow-hidden ${presenterView ? "basis-[65%]" : ""}`}
+        className={`relative min-h-0 flex-1 overflow-hidden ${notesVisible ? "basis-[65%]" : ""}`}
       >
-        {/* Slide content */}
         <div className="flex h-full w-full items-center justify-center p-4">
           <div
             className="overflow-hidden shadow-ds-overlay"
@@ -462,7 +1014,6 @@ export function PresentMode({
           </div>
         </div>
 
-        {/* Left click zone — previous */}
         <button
           type="button"
           aria-label="Previous slide"
@@ -478,7 +1029,6 @@ export function PresentMode({
           </span>
         </button>
 
-        {/* Right click zone — next */}
         <button
           type="button"
           aria-label="Next slide"
@@ -495,16 +1045,15 @@ export function PresentMode({
         </button>
       </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Presenter panel (notes + next-slide preview)                         */}
-      {/* ------------------------------------------------------------------ */}
-      {presenterView && (
+      {notesVisible && (
         <div
           className="flex-shrink-0 border-t border-ds-inverse-border-subtle"
           style={{ height: "35%" }}
         >
           <PresenterPanel
             currentSlide={currentSlide}
+            currentIndex={currentIndex}
+            total={total}
             nextSlide={nextSlide}
             visuals={visuals}
             slideFormat={deck.slideFormat}
@@ -512,11 +1061,8 @@ export function PresentMode({
         </div>
       )}
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Bottom HUD — prev/next arrow buttons                                 */}
-      {/* ------------------------------------------------------------------ */}
       <div
-        className={`pointer-events-none absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-3 transition-opacity duration-300 ${hudVisible ? "opacity-100" : "opacity-0"}`}
+        className={`pointer-events-none absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-3 transition-opacity duration-300 ${bottomHudVisible ? "opacity-100" : "opacity-0"}`}
       >
         <div className="pointer-events-auto flex items-center gap-2 rounded-xl bg-ds-inverse-surface-muted px-3 py-2 backdrop-blur-sm">
           <button
@@ -543,7 +1089,29 @@ export function PresentMode({
         </div>
       </div>
 
-      {/* Screen-reader-only slide title announcement */}
+      {laserActive && laserPosition ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed z-20 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500 shadow-[0_0_0_6px_rgba(239,68,68,0.25)]"
+          style={{ left: laserPosition.x, top: laserPosition.y }}
+        />
+      ) : null}
+
+      {overviewOpen ? (
+        <SlideOverviewPanel
+          slides={slides}
+          visuals={visuals}
+          slideFormat={deck.slideFormat}
+          currentIndex={currentIndex}
+          onJump={handleJumpToSlide}
+          onClose={closeOverview}
+        />
+      ) : null}
+
+      {keyboardHelpOpen ? (
+        <KeyboardHelpOverlay onClose={closeKeyboardHelp} />
+      ) : null}
+
       <div className="sr-only" aria-live="assertive" aria-atomic="true">
         {currentSlide.title
           ? `Slide ${currentIndex + 1} of ${total}: ${currentSlide.title}`
@@ -552,8 +1120,6 @@ export function PresentMode({
     </div>
   );
 
-  // Portal to <body> so the fixed overlay escapes the editor's stacking/transform
-  // context — this is what prevents a stray dark band lingering after exit.
   return typeof document !== "undefined"
     ? createPortal(overlay, document.body)
     : overlay;
