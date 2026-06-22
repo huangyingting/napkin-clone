@@ -21,6 +21,7 @@ import { buildShareSegment, buildSlugCandidate } from "@/lib/slug";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { normalizeDeckRaw } from "@/lib/presentation/fresh-deck";
 import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
+import { MAX_DECK_JSON_BYTES } from "@/lib/presentation/deck-limits";
 import { VISUAL_KIND_TO_PRISMA, safeParseVisual } from "@/lib/visual/schema";
 import {
   diffVisualMirror,
@@ -40,7 +41,6 @@ const generateSlugSuffix = customAlphabet("23456789abcdefghjkmnpqrstuvwxyz", 4);
 const MAX_CONTENT_LENGTH = 100_000;
 const MAX_LEXICAL_STATE_LENGTH = 2_000_000;
 const MAX_ANCHOR_BLOCK_ID_LENGTH = 200;
-const MAX_DECK_JSON_LENGTH = 500_000;
 
 // How many historical snapshots to retain per visual. Older ones are pruned in
 // the same save so the history table can't grow without bound.
@@ -739,7 +739,7 @@ export async function saveDeckJson(
 
   // Serialize and check size
   const serialized = JSON.stringify(result.data);
-  if (serialized.length > MAX_DECK_JSON_LENGTH) {
+  if (serialized.length > MAX_DECK_JSON_BYTES) {
     return actionError("Deck is too large to save.");
   }
 
