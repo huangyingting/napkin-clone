@@ -659,6 +659,12 @@ export interface Deck {
   /** Theme applied uniformly to all slides. */
   theme: DeckTheme;
 
+  /**
+   * Optional content/theme token id for typography and other theme-scoped
+   * design tokens. Legacy decks may omit this and fall back to {@link theme}.
+   */
+  themeId?: string;
+
   /** Deck-wide slide format. Missing legacy values render as 16:9. */
   slideFormat?: PresentationSlideFormat;
 
@@ -1336,6 +1342,7 @@ export function buildDeckFromBlocks(
   return {
     slides,
     theme,
+    themeId: theme,
     slideFormat: DEFAULT_DECK_SLIDE_FORMAT,
     layouts: defaultLayouts(),
   };

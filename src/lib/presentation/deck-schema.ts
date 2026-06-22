@@ -914,6 +914,16 @@ function validateDeck(input: unknown): Deck {
     ...(layouts !== undefined ? { layouts } : {}),
   };
 
+  if (input.themeId !== undefined) {
+    if (typeof input.themeId !== "string") {
+      throw new DeckValidationError("Deck.themeId must be a string");
+    }
+    const trimmedThemeId = input.themeId.trim();
+    if (trimmedThemeId.length > 0) {
+      deck.themeId = trimmedThemeId;
+    }
+  }
+
   if (input.deckContentHash !== undefined) {
     if (typeof input.deckContentHash !== "string") {
       throw new DeckValidationError("Deck.deckContentHash must be a string");

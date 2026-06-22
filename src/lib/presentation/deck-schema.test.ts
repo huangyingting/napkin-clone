@@ -51,6 +51,17 @@ test("safeParseDeck round-trips a deck slide format", () => {
   }
 });
 
+test("safeParseDeck preserves an optional deck themeId", () => {
+  const result = safeParseDeck({
+    ...(legacyDeck() as object),
+    themeId: "amber",
+  });
+  assert.equal(result.success, true);
+  if (result.success) {
+    assert.equal(result.data.themeId, "amber");
+  }
+});
+
 test("safeParseDeck rejects an unknown slide format", () => {
   const result = safeParseDeck({
     ...(legacyDeck() as object),

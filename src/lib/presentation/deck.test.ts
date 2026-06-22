@@ -264,6 +264,11 @@ test("returned deck has theme matching the argument", () => {
   assert.equal(deck.theme, "forest");
 });
 
+test("returned deck carries themeId matching the chosen theme", () => {
+  const deck = buildDeckFromBlocks([h1("T")], "forest");
+  assert.equal(deck.themeId, "forest");
+});
+
 test("complex document: h1 + two h2 sections + visuals", () => {
   const deck = buildDeckFromBlocks([
     h1("My Deck"),
