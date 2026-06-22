@@ -12,6 +12,7 @@ import { memo, type JSX } from "react";
 
 import type {
   BulletsElement,
+  ConnectorElement,
   DeckTheme,
   ImageElement,
   ShapeElement,
@@ -21,7 +22,11 @@ import type {
   TextRun,
   VisualElement,
 } from "@/lib/presentation/deck";
-import { resolveConnectorEndpoint } from "@/lib/presentation/connector-geometry";
+import {
+  resolveConnectorElementEndpoint,
+  resolveConnectorEndpoint,
+  type ConnectorBoxResolver,
+} from "@/lib/presentation/connector-geometry";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 import type { Visual } from "@/lib/visual/schema";
 import { applyTheme } from "@/lib/visual/transforms";
@@ -766,6 +771,55 @@ function ShapeElementView({
   );
 }
 
+function ConnectorElementView({
+  element,
+  elements,
+}: {
+  element: ConnectorElement;
+  elements: readonly SlideElement[];
+}): JSX.Element {
+  const resolveBox: ConnectorBoxResolver = (candidate) => candidate.box;
+  const start = resolveConnectorElementEndpoint(
+    element.start,
+    elements,
+    resolveBox,
+  );
+  const end = resolveConnectorElementEndpoint(
+    element.end,
+    elements,
+    resolveBox,
+  );
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      style={{
+        position: "absolute",
+        inset: 0,
+        height: "100%",
+        width: "100%",
+        overflow: "visible",
+        zIndex: element.zIndex,
+        ...(element.opacity !== undefined && element.opacity < 1
+          ? { opacity: element.opacity }
+          : {}),
+      }}
+    >
+      <line
+        x1={start.x}
+        y1={start.y}
+        x2={end.x}
+        y2={end.y}
+        stroke={element.stroke.color}
+        strokeWidth={element.stroke.width}
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}
+
 function SlideElementView({
   element,
   elements,
@@ -792,6 +846,8 @@ function SlideElementView({
       return <ImageElementView element={element} editable={editable} />;
     case "shape":
       return <ShapeElementView element={element} elements={elements} />;
+    case "connector":
+      return <ConnectorElementView element={element} elements={elements} />;
     default:
       return null;
   }

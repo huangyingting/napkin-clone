@@ -39,6 +39,7 @@ import type {
 } from "@/lib/presentation/deck";
 import {
   lineBoxFromEndpoints,
+  resolveConnectorElementEndpoint,
   resolveConnectorEndpoint,
 } from "@/lib/presentation/connector-geometry";
 import { materializeSlideElements } from "@/lib/presentation/deck";
@@ -355,6 +356,26 @@ function buildSlideSpec(
         elementRotation = resolved.rotation;
       }
     }
+    if (element.kind === "connector") {
+      const start = resolveConnectorElementEndpoint(
+        element.start,
+        elements,
+        (candidate) => candidate.box,
+      );
+      const end = resolveConnectorElementEndpoint(
+        element.end,
+        elements,
+        (candidate) => candidate.box,
+      );
+      const resolved = lineBoxFromEndpoints(
+        start,
+        end,
+        element.box.h,
+        geometry.slideW / geometry.slideH,
+      );
+      elementBox = resolved.box;
+      elementRotation = resolved.rotation;
+    }
     const box = boxToInches(elementBox, geometry);
     if (elementRotation) {
       box.rotation = elementRotation;
@@ -413,9 +434,7 @@ function buildSlideSpec(
                 ...(element.textRuns && element.textRuns.length > 0
                   ? { textRuns: element.textRuns }
                   : {}),
-                textColor: toHex(
-                  element.textStyle?.color ?? colors.body,
-                ),
+                textColor: toHex(element.textStyle?.color ?? colors.body),
                 fontSize: fontSizePt(
                   element.textStyle?.fontSize ?? 4,
                   geometry,
@@ -468,6 +487,22 @@ function buildSlideSpec(
         } else {
           ops.push({ kind: "visual-native", specs });
         }
+        break;
+      }
+      case "connector": {
+        // Render as a PPTX line shape — box is already resolved above via
+        // resolveConnectorElementEndpoint + lineBoxFromEndpoints.
+        const minInch = Math.min(box.w, box.h);
+        ops.push({
+          kind: "shape",
+          ...box,
+          shape: "line",
+          color: toHex(element.stroke.color),
+          stroke: {
+            color: toHex(element.stroke.color),
+            width: (element.stroke.width / 100) * minInch * 72,
+          },
+        });
         break;
       }
     }

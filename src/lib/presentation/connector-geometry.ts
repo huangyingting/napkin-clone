@@ -1,5 +1,7 @@
 import type {
   ConnectorAnchor,
+  ConnectorElement,
+  ConnectorElementEndpoint,
   ConnectorEndpoint,
   ElementBox,
   ShapeElement,
@@ -21,7 +23,10 @@ export const CONNECTOR_ANCHORS: readonly ConnectorAnchor[] = [
   "right",
 ];
 
-export function anchorPoint(box: ElementBox, anchor: ConnectorAnchor): PointPct {
+export function anchorPoint(
+  box: ElementBox,
+  anchor: ConnectorAnchor,
+): PointPct {
   switch (anchor) {
     case "top":
       return { x: box.x + box.w / 2, y: box.y };
@@ -74,8 +79,11 @@ export function resolveLineEndpoints(
   if (element.shape !== "line") return base;
   return {
     start:
-      resolveConnectorEndpoint(element.connector?.start, elements, resolveBox) ??
-      base.start,
+      resolveConnectorEndpoint(
+        element.connector?.start,
+        elements,
+        resolveBox,
+      ) ?? base.start,
     end:
       resolveConnectorEndpoint(element.connector?.end, elements, resolveBox) ??
       base.end,
@@ -118,6 +126,7 @@ export function snapLineEndpoint(
   for (const element of elements) {
     if (element.id === lineId) continue;
     if (element.kind === "shape" && element.shape === "line") continue;
+    if (element.kind === "connector") continue;
     const box = resolveBox(element);
     for (const anchor of CONNECTOR_ANCHORS) {
       const anchorPosition = anchorPoint(box, anchor);
@@ -132,4 +141,52 @@ export function snapLineEndpoint(
     }
   }
   return { point: bestPoint, ...(bestBinding ? { binding: bestBinding } : {}) };
+}
+
+// ---------------------------------------------------------------------------
+// ConnectorElement helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns `true` when `ep` is a {@link ConnectorFreePoint} (has `x`/`y` fields).
+ * Narrows the type to `ConnectorFreePoint` for TypeScript.
+ */
+export function isFreePoint(
+  ep: ConnectorElementEndpoint,
+): ep is import("./deck").ConnectorFreePoint {
+  return "x" in ep && "y" in ep;
+}
+
+/**
+ * Resolves a {@link ConnectorElementEndpoint} to a slide-percentage point.
+ *
+ * - Free points (`{x, y}`) are returned directly.
+ * - Bound endpoints (`{elementId, anchor}`) are resolved through the element
+ *   lookup and the anchor geometry on the resolved box.
+ * - Returns `{ x: 50, y: 50 }` as a safe fallback when a bound target is missing.
+ */
+export function resolveConnectorElementEndpoint(
+  ep: ConnectorElementEndpoint,
+  elements: readonly SlideElement[],
+  resolveBox: ConnectorBoxResolver,
+): PointPct {
+  if (isFreePoint(ep)) return { x: ep.x, y: ep.y };
+  const element = elements.find((item) => item.id === ep.elementId);
+  if (!element) return { x: 50, y: 50 };
+  return anchorPoint(resolveBox(element), ep.anchor);
+}
+
+/**
+ * Resolves both endpoints of a {@link ConnectorElement} to percentage points,
+ * returning `{ start, end }` ready for geometry calculations.
+ */
+export function resolveConnectorElementEndpoints(
+  element: ConnectorElement,
+  elements: readonly SlideElement[],
+  resolveBox: ConnectorBoxResolver,
+): { start: PointPct; end: PointPct } {
+  return {
+    start: resolveConnectorElementEndpoint(element.start, elements, resolveBox),
+    end: resolveConnectorElementEndpoint(element.end, elements, resolveBox),
+  };
 }

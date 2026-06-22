@@ -53,6 +53,7 @@ import { ColorPicker, DEFAULT_SWATCH_PRESETS } from "@/components/ui";
 import { FOCUS_RING } from "@/components/motion/control-styles";
 import { cx, MENU_CHROME, MENU_ITEM } from "@/components/ui/tokens";
 import type {
+  ConnectorElementEndpoint,
   ElementBox,
   Slide,
   SlideElement,
@@ -79,7 +80,9 @@ import {
   defaultTextBoxAtPoint,
 } from "@/lib/presentation/canvas-helpers";
 import {
+  isFreePoint,
   lineBoxFromEndpoints,
+  resolveConnectorElementEndpoint,
   resolveLineEndpoints,
   snapLineEndpoint,
 } from "@/lib/presentation/connector-geometry";
@@ -269,8 +272,7 @@ function minWidthThatFitsHeightPct(
     return minWidthPct;
   }
   if (
-    fitTextHeightPct(element, fontSizePct, maxWidthPct, measurer) >
-    maxHeightPct
+    fitTextHeightPct(element, fontSizePct, maxWidthPct, measurer) > maxHeightPct
   ) {
     return maxWidthPct;
   }
@@ -278,9 +280,7 @@ function minWidthThatFitsHeightPct(
   let high = maxWidthPct;
   for (let i = 0; i < 8; i += 1) {
     const mid = (low + high) / 2;
-    if (
-      fitTextHeightPct(element, fontSizePct, mid, measurer) <= maxHeightPct
-    ) {
+    if (fitTextHeightPct(element, fontSizePct, mid, measurer) <= maxHeightPct) {
       high = mid;
     } else {
       low = mid;
@@ -306,7 +306,8 @@ function largestFontForFixedWidthPct(
   while (low <= high) {
     const mid = Math.floor((low + high) / 2);
     const fontSize = mid * FONT_STEP_PCT;
-    const widthFits = minContentWidthPct(element, fontSize, measurer) <= widthPct;
+    const widthFits =
+      minContentWidthPct(element, fontSize, measurer) <= widthPct;
     const heightFits =
       fitTextHeightPct(element, fontSize, widthPct, measurer) <= maxHeightPct;
     if (widthFits && heightFits) {
@@ -485,10 +486,10 @@ function resizeTextBox(
           measurer,
         );
     minWidth = minWidthForFontPct(element, fontSize, maxWidth, measurer);
-        width = Math.min(maxWidth, Math.max(width, minWidth));
+    width = Math.min(maxWidth, Math.max(width, minWidth));
     height = fitTextHeightPct(element, fontSize, width, measurer);
   }
-      height = Math.min(maxHeight, height);
+  height = Math.min(maxHeight, height);
 
   let x = startBox.x;
   if (west) x = startBox.x + startBox.w - width;
@@ -545,18 +546,43 @@ function fitElementBoxToContent(
         resolveConnectorBox,
         stageAspect,
       );
-      const lineBox = clampBox(lineBoxFromEndpoints(
-        endpoints.start,
-        endpoints.end,
-        element.box.h,
-        stageAspect,
-      ).box);
-      return positionFitWithinBox(
-        lineBox,
-        { w: lineBox.w, h: SELECTION_MIN_H_PCT },
+      const lineBox = clampBox(
+        lineBoxFromEndpoints(
+          endpoints.start,
+          endpoints.end,
+          element.box.h,
+          stageAspect,
+        ).box,
       );
+      return positionFitWithinBox(lineBox, {
+        w: lineBox.w,
+        h: SELECTION_MIN_H_PCT,
+      });
     case "image":
       return element.box;
+    case "connector": {
+      const resolveConnectorBox = (candidate: SlideElement) =>
+        candidate.kind === "connector"
+          ? candidate.box
+          : fitElementBoxToContent(candidate, visuals, stageAspect, elements);
+      const startPt = resolveConnectorElementEndpoint(
+        element.start,
+        elements,
+        resolveConnectorBox,
+      );
+      const endPt = resolveConnectorElementEndpoint(
+        element.end,
+        elements,
+        resolveConnectorBox,
+      );
+      const lineBox = clampBox(
+        lineBoxFromEndpoints(startPt, endPt, element.box.h, stageAspect).box,
+      );
+      return positionFitWithinBox(lineBox, {
+        w: lineBox.w,
+        h: SELECTION_MIN_H_PCT,
+      });
+    }
   }
 }
 
@@ -1011,6 +1037,22 @@ export function SlideStageEditor({
                 ...(moving?.kind === "shape" && moving.shape === "line"
                   ? { connector: undefined }
                   : {}),
+                ...(moving?.kind === "connector"
+                  ? {
+                      start: isFreePoint(moving.start)
+                        ? {
+                            x: moving.start.x + (box.x - drag.startBox.x),
+                            y: moving.start.y + (box.y - drag.startBox.y),
+                          }
+                        : moving.start,
+                      end: isFreePoint(moving.end)
+                        ? {
+                            x: moving.end.x + (box.x - drag.startBox.x),
+                            y: moving.end.y + (box.y - drag.startBox.y),
+                          }
+                        : moving.end,
+                    }
+                  : {}),
               },
               drag.coalesceKey,
             );
@@ -1042,6 +1084,22 @@ export function SlideStageEditor({
               box,
               ...(moving?.kind === "shape" && moving.shape === "line"
                 ? { connector: undefined }
+                : {}),
+              ...(moving?.kind === "connector"
+                ? {
+                    start: isFreePoint(moving.start)
+                      ? {
+                          x: moving.start.x + (box.x - drag.startBox.x),
+                          y: moving.start.y + (box.y - drag.startBox.y),
+                        }
+                      : moving.start,
+                    end: isFreePoint(moving.end)
+                      ? {
+                          x: moving.end.x + (box.x - drag.startBox.x),
+                          y: moving.end.y + (box.y - drag.startBox.y),
+                        }
+                      : moving.end,
+                  }
                 : {}),
             },
             drag.coalesceKey,
@@ -1150,6 +1208,72 @@ export function SlideStageEditor({
           onUpdateElement(
             drag.id,
             { box, rotation, connector },
+            drag.coalesceKey,
+          );
+        } else if (
+          resized?.kind === "connector" &&
+          (drag.mode === "w" || drag.mode === "e")
+        ) {
+          // Endpoint drag for a ConnectorElement: snap + update the endpoint.
+          const currentPoint = {
+            x: Math.max(
+              0,
+              Math.min(100, ((ev.clientX - rect.left) / rect.width) * 100),
+            ),
+            y: Math.max(
+              0,
+              Math.min(100, ((ev.clientY - rect.top) / rect.height) * 100),
+            ),
+          };
+          const resolveBox = (candidate: SlideElement) =>
+            fitElementBoxToContent(
+              candidate,
+              visuals,
+              stageAspect,
+              elementsRef.current,
+            );
+          const currentStart = resolveConnectorElementEndpoint(
+            resized.start,
+            elementsRef.current,
+            resolveBox,
+          );
+          const currentEnd = resolveConnectorElementEndpoint(
+            resized.end,
+            elementsRef.current,
+            resolveBox,
+          );
+          const snapped = snapLineEndpoint(
+            currentPoint,
+            resized.id,
+            elementsRef.current,
+            resolveBox,
+            stageAspect,
+          );
+          const isStart = drag.mode === "w";
+          const start = isStart ? snapped.point : currentStart;
+          const end = isStart ? currentEnd : snapped.point;
+          const { box: rawBox, rotation } = lineBoxFromEndpoints(
+            start,
+            end,
+            drag.startBox.h,
+            stageAspect,
+          );
+          const box = clampBox(rawBox);
+          const newEndpoint: ConnectorElementEndpoint = snapped.binding
+            ? {
+                elementId: snapped.binding.elementId,
+                anchor: snapped.binding.anchor,
+              }
+            : isStart
+              ? { x: start.x, y: start.y }
+              : { x: end.x, y: end.y };
+          onUpdateElement(
+            drag.id,
+            {
+              box,
+              rotation,
+              ...(isStart ? { start: newEndpoint } : { end: newEndpoint }),
+            },
             drag.coalesceKey,
           );
         } else {
@@ -1537,7 +1661,8 @@ export function SlideStageEditor({
               ) : null}
 
               {showHandles
-                ? (element.kind === "shape" && element.shape === "line"
+                ? ((element.kind === "shape" && element.shape === "line") ||
+                  element.kind === "connector"
                     ? LINE_HANDLES
                     : HANDLES
                   ).map(({ handle, cursor, style }) => (
@@ -1835,6 +1960,21 @@ function ElementToolbarContent({
               }
             />
           ) : null}
+          <ToolbarDivider />
+        </>
+      ) : null}
+      {element.kind === "connector" ? (
+        <>
+          <ColorPicker
+            color={element.stroke.color}
+            onChange={(color) =>
+              onUpdateElement(element.id, {
+                stroke: { ...element.stroke, color },
+              })
+            }
+            aria-label="Connector color"
+            presets={shapeColorPresets}
+          />
           <ToolbarDivider />
         </>
       ) : null}
@@ -2164,7 +2304,9 @@ function InlineTextEditor({
   }, []);
 
   const style =
-    kind === "shape" ? (element.textStyle ?? defaultShapeTextStyle()) : element.style;
+    kind === "shape"
+      ? (element.textStyle ?? defaultShapeTextStyle())
+      : element.style;
   const fontSizePx = (style.fontSize / 100) * stageHeight;
 
   // Mirror the static TextElementView / BulletsElementView text styles exactly
@@ -2181,9 +2323,7 @@ function InlineTextEditor({
     lineHeight: kind === "bullets" ? 1.2 : 1.15,
     wordBreak: "break-word",
     ...(style.underline ? { textDecoration: "underline" } : {}),
-    ...(style.fontFamily
-      ? { fontFamily: style.fontFamily }
-      : {}),
+    ...(style.fontFamily ? { fontFamily: style.fontFamily } : {}),
   } as CSSProperties & Record<string, string>;
   if (kind === "bullets") {
     editableStyle["--ds-bullet-accent"] = accent;

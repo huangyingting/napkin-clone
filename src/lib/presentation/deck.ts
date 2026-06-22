@@ -219,6 +219,85 @@ export interface ConnectorBinding {
   end?: ConnectorEndpoint;
 }
 
+/**
+ * A free endpoint: absolute position as a percentage of the slide dimensions.
+ * Used by {@link ConnectorElement} when an endpoint is not bound to another element.
+ */
+export interface ConnectorFreePoint {
+  /** X position as a % of slide width. */
+  x: number;
+  /** Y position as a % of slide height. */
+  y: number;
+}
+
+/**
+ * A bound endpoint: snapped to a named anchor on another slide element.
+ * Visually follows the target element as it is moved or resized.
+ */
+export interface ConnectorBoundEndpoint {
+  elementId: string;
+  anchor: ConnectorAnchor;
+}
+
+/**
+ * An endpoint for a {@link ConnectorElement} — either a free position (x/y as %
+ * of slide) or a bound anchor on another element.
+ *
+ * Discriminate via `"x" in endpoint` (free) vs `"elementId" in endpoint` (bound).
+ */
+export type ConnectorElementEndpoint =
+  | ConnectorFreePoint
+  | ConnectorBoundEndpoint;
+
+/** Arrowhead decoration style for a {@link ConnectorElement} endpoint. */
+export type ConnectorArrowHead = "none" | "open" | "filled" | "dot";
+
+/** Path routing algorithm for a {@link ConnectorElement}. `"straight"` is the v1 default. */
+export type ConnectorRouting = "straight";
+
+/** Dash/stroke pattern for a {@link ConnectorElement}. */
+export type ConnectorDash = "solid" | "dashed" | "dotted";
+
+/**
+ * A first-class line connector between two points or element anchors.
+ *
+ * Unlike a {@link ShapeElement} with `shape: "line"`, a `ConnectorElement`:
+ * - stores explicit `start`/`end` endpoints (free point or element binding)
+ *   rather than deriving them from its bounding box + rotation
+ * - is never a filled shape — it has no `color` fill field
+ * - supports arrowhead and dash styling independently of the stroke
+ *
+ * **Backward compatibility:** existing `shape: "line"` elements continue to
+ * work unchanged.  Use `normalizeConnector` to migrate a legacy line shape
+ * to a `ConnectorElement`.
+ */
+export interface ConnectorElement extends BaseElement {
+  kind: "connector";
+  /** Start endpoint — free position (x/y %) or bound to an element anchor. */
+  start: ConnectorElementEndpoint;
+  /** End endpoint — free position (x/y %) or bound to an element anchor. */
+  end: ConnectorElementEndpoint;
+  /** Path routing algorithm. */
+  routing: ConnectorRouting;
+  /**
+   * Stroke color and width. Width is in `cqmin` units (scales with the slide),
+   * matching the convention used by {@link ShapeElement}.stroke.
+   */
+  stroke: { color: string; width: number };
+  /** Arrowhead decoration at the start endpoint. Default: `"none"`. */
+  arrowStart?: ConnectorArrowHead;
+  /** Arrowhead decoration at the end endpoint. Default: `"none"`. */
+  arrowEnd?: ConnectorArrowHead;
+  /** Stroke dash pattern. Default: `"solid"`. */
+  dash?: ConnectorDash;
+  /**
+   * Optional floating label rendered near the connector midpoint.
+   * Reserved for future rendering support — renderers may ignore it until
+   * label rendering is fully implemented.
+   */
+  label?: { text: string; style?: TextElementStyle };
+}
+
 interface BaseElement {
   /** Stable identifier, unique within a slide. */
   id: string;
@@ -337,7 +416,8 @@ export type SlideElement =
   | BulletsElement
   | VisualElement
   | ImageElement
-  | ShapeElement;
+  | ShapeElement
+  | ConnectorElement;
 
 /** A single slide in the presentation deck. */
 export interface Slide {
