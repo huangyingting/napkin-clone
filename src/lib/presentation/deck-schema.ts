@@ -12,6 +12,7 @@ import {
   PLACEHOLDER_TYPES,
   SLIDE_LAYOUTS,
   makeSlideId,
+  type BaseElement,
   type BulletItem,
   type ConnectorAnchor,
   type ConnectorArrow,
@@ -30,6 +31,7 @@ import {
   type SlideElement,
   type SlideLayout as DeckLayout,
   type SlideLayoutHint,
+  type SourceRef,
   type TextElementStyle,
   type TextFitMode,
   type TextRun,
@@ -103,6 +105,8 @@ const TEXT_FIT_MODES: readonly TextFitMode[] = [
   "fixed-box",
   "shrink-to-fit",
 ];
+const ISO_TIMESTAMP_PATTERN =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
 
 function validatePlaceholderType(
   value: unknown,
@@ -127,6 +131,55 @@ function validateTextFitMode(
     );
   }
   return value as TextFitMode;
+}
+
+function isIsoTimestamp(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    ISO_TIMESTAMP_PATTERN.test(value) &&
+    !Number.isNaN(Date.parse(value))
+  );
+}
+
+export function validateSourceRef(input: unknown, context: string): SourceRef {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  if (typeof input.documentId !== "string" || input.documentId.length === 0) {
+    throw new DeckValidationError(
+      `${context}.documentId must be a non-empty string`,
+    );
+  }
+  if (typeof input.blockId !== "string" || input.blockId.length === 0) {
+    throw new DeckValidationError(
+      `${context}.blockId must be a non-empty string`,
+    );
+  }
+  if (
+    input.contentHash !== undefined &&
+    (typeof input.contentHash !== "string" || input.contentHash.length === 0)
+  ) {
+    throw new DeckValidationError(
+      `${context}.contentHash must be a non-empty string`,
+    );
+  }
+  if (!isIsoTimestamp(input.linkedAt)) {
+    throw new DeckValidationError(
+      `${context}.linkedAt must be a valid ISO timestamp`,
+    );
+  }
+  if (input.unlinked !== undefined && typeof input.unlinked !== "boolean") {
+    throw new DeckValidationError(`${context}.unlinked must be a boolean`);
+  }
+  return {
+    documentId: input.documentId,
+    blockId: input.blockId,
+    ...(typeof input.contentHash === "string"
+      ? { contentHash: input.contentHash }
+      : {}),
+    linkedAt: input.linkedAt,
+    ...(input.unlinked !== undefined ? { unlinked: input.unlinked } : {}),
+  };
 }
 
 function isHexColor(value: unknown): value is string {
@@ -384,16 +437,16 @@ function validateBulletItems(value: unknown, context: string): BulletItem[] {
   );
 }
 
-export function validateElement(input: unknown, context: string): SlideElement {
-  if (!isPlainObject(input)) {
-    throw new DeckValidationError(`${context} must be an object`);
-  }
+function validateBaseElementFields(
+  input: Record<string, unknown>,
+  context: string,
+): BaseElement {
   if (typeof input.id !== "string" || input.id.length === 0) {
     throw new DeckValidationError(`${context}.id must be a non-empty string`);
   }
   const box = validateBox(input.box, `${context}.box`);
   const zIndex = validateFiniteNumber(input.zIndex, `${context}.zIndex`);
-  const base = {
+  return {
     id: input.id,
     box,
     zIndex,
@@ -414,7 +467,19 @@ export function validateElement(input: unknown, context: string): SlideElement {
     ...(typeof input.groupId === "string" && input.groupId.length > 0
       ? { groupId: input.groupId }
       : {}),
+    ...(input.sourceRef !== undefined
+      ? {
+          sourceRef: validateSourceRef(input.sourceRef, `${context}.sourceRef`),
+        }
+      : {}),
   };
+}
+
+export function validateElement(input: unknown, context: string): SlideElement {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  const base = validateBaseElementFields(input, context);
 
   switch (input.kind) {
     case "placeholder": {
