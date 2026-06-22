@@ -62,6 +62,7 @@ import type {
   SlideElement,
   SlideLayout,
   TextElementStyle,
+  TextFitMode,
   TextRun,
 } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
@@ -504,6 +505,73 @@ function ImageElementEditor({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Fit mode picker (text / bullets elements)
+// ---------------------------------------------------------------------------
+
+const FIT_MODE_OPTIONS: { value: TextFitMode; label: string; title: string }[] =
+  [
+    {
+      value: "auto-height",
+      label: "Auto",
+      title: "Box grows to fit content (default)",
+    },
+    {
+      value: "fixed-box",
+      label: "Clip",
+      title: "Box height is fixed; overflow is clipped",
+    },
+    {
+      value: "shrink-to-fit",
+      label: "Shrink",
+      title: "Font shrinks until content fits the box",
+    },
+  ];
+
+function FitModeControl({
+  fitMode,
+  onChange,
+}: {
+  fitMode: TextFitMode | undefined;
+  onChange: (mode: TextFitMode | undefined) => void;
+}) {
+  const active = fitMode ?? "auto-height";
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className={LABEL_CLASS + " mb-0"}>Text fit</span>
+      <div
+        role="radiogroup"
+        aria-label="Text fit mode"
+        className="flex gap-0.5"
+      >
+        {FIT_MODE_OPTIONS.map(({ value, label, title }) => {
+          const isActive = active === value;
+          return (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={isActive}
+              title={title}
+              onClick={() =>
+                // Selecting the default "auto-height" clears the field
+                onChange(value === "auto-height" ? undefined : value)
+              }
+              className={`rounded-ds-sm px-2 py-1 text-xs font-medium transition-colors ${
+                isActive
+                  ? "bg-ds-control text-ds-control-text"
+                  : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+              } ${FOCUS_RING}`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function ElementEditor({
   element,
   deck,
@@ -549,6 +617,10 @@ function ElementEditor({
             style={element.style}
             onChange={(style) => onUpdateElement(element.id, { style })}
           />
+          <FitModeControl
+            fitMode={element.fitMode}
+            onChange={(fitMode) => onUpdateElement(element.id, { fitMode })}
+          />
         </div>
       );
     case "bullets":
@@ -591,6 +663,10 @@ function ElementEditor({
           <FontFamilyControl
             style={element.style}
             onChange={(style) => onUpdateElement(element.id, { style })}
+          />
+          <FitModeControl
+            fitMode={element.fitMode}
+            onChange={(fitMode) => onUpdateElement(element.id, { fitMode })}
           />
         </div>
       );

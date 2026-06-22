@@ -8,7 +8,7 @@
  * sync without duplicating layout code.
  */
 
-import { memo, type JSX } from "react";
+import { memo, useLayoutEffect, useRef, useState, type JSX } from "react";
 
 import type {
   BulletsElement,
@@ -19,6 +19,7 @@ import type {
   Slide,
   SlideElement,
   TextElement,
+  TextFitMode,
   TextRun,
   VisualElement,
 } from "@/lib/presentation/deck";
@@ -422,6 +423,59 @@ function ShapeText({ element }: { element: ShapeElement }): JSX.Element | null {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Shrink-to-fit hook
+// ---------------------------------------------------------------------------
+
+/**
+ * Computes a CSS `font-size` string that shrinks the font until the content
+ * fits within the container when `fitMode === "shrink-to-fit"`.
+ *
+ * Uses the "adjust state during render" pattern (React docs) to reset the
+ * scale on config changes — this avoids `setState` inside an effect body and
+ * satisfies the `react-hooks/set-state-in-effect` lint rule.
+ *
+ * The measurement loop runs whenever `scale` or `enabled` changes and
+ * converges in ≤ 3 renders: reducing the font always reduces `scrollHeight`,
+ * and the `Math.abs` guard prevents spurious updates once settled.
+ */
+function useShrinkFontSizeCss(
+  containerRef: React.RefObject<HTMLElement | null>,
+  baseFontSizePct: number,
+  fitMode: TextFitMode | undefined,
+): string {
+  const enabled = fitMode === "shrink-to-fit";
+  const [scale, setScale] = useState(1);
+
+  // "Adjust state during render" — reset scale without a setState-in-effect.
+  const [prevBaseFontSizePct, setPrevBaseFontSizePct] =
+    useState(baseFontSizePct);
+  const [prevFitMode, setPrevFitMode] = useState(fitMode);
+  if (baseFontSizePct !== prevBaseFontSizePct || fitMode !== prevFitMode) {
+    setPrevBaseFontSizePct(baseFontSizePct);
+    setPrevFitMode(fitMode);
+    if (scale !== 1) setScale(1);
+  }
+
+  // Measurement loop — re-runs whenever scale or mode changes, then settles.
+  useLayoutEffect(() => {
+    if (!enabled || !containerRef.current) return;
+    const el = containerRef.current;
+    const containerH = el.clientHeight;
+    const contentH = el.scrollHeight;
+    if (contentH > containerH && containerH > 0) {
+      const newScale = Math.max(0.1, (containerH / contentH) * scale);
+      if (Math.abs(newScale - scale) > 0.001) {
+        setScale(newScale);
+      }
+    }
+    // containerRef.current is intentionally excluded — ref objects are stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, scale]);
+
+  return `${baseFontSizePct * (enabled ? scale : 1)}cqh`;
+}
+
 function TextElementView({
   element,
   tc,
@@ -432,12 +486,19 @@ function TextElementView({
   accent: string;
 }): JSX.Element {
   void accent;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const fontSizeCss = useShrinkFontSizeCss(
+    containerRef,
+    element.style.fontSize,
+    element.fitMode,
+  );
   const color =
     element.style.color ??
     (element.role === "title" ? tc.titleColor : tc.bodyColor);
   const hasRuns = element.runs !== undefined && element.runs.length > 0;
   return (
     <div
+      ref={containerRef}
       style={{
         ...boxStyle(element),
         display: "flex",
@@ -445,7 +506,7 @@ function TextElementView({
         justifyContent: "center",
         textAlign: element.style.align,
         color,
-        fontSize: `${element.style.fontSize}cqh`,
+        fontSize: fontSizeCss,
         fontWeight: element.style.bold ? 700 : 400,
         fontStyle: element.style.italic ? "italic" : "normal",
         ...(element.style.underline ? { textDecoration: "underline" } : {}),
@@ -479,10 +540,17 @@ function BulletsElementView({
   tc: ThemeConfig;
   accent: string;
 }): JSX.Element {
+  const containerRef = useRef<HTMLUListElement>(null);
+  const fontSizeCss = useShrinkFontSizeCss(
+    containerRef,
+    element.style.fontSize,
+    element.fitMode,
+  );
   const color = element.style.color ?? tc.bodyColor;
   const bulletRuns = element.bulletRuns;
   return (
     <ul
+      ref={containerRef}
       style={{
         ...boxStyle(element),
         display: "flex",
@@ -490,7 +558,7 @@ function BulletsElementView({
         justifyContent: "center",
         gap: "0.6em",
         color,
-        fontSize: `${element.style.fontSize}cqh`,
+        fontSize: fontSizeCss,
         fontWeight: element.style.bold ? 700 : 400,
         fontStyle: element.style.italic ? "italic" : "normal",
         ...(element.style.underline ? { textDecoration: "underline" } : {}),

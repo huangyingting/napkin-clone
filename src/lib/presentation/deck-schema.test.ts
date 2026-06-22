@@ -509,3 +509,106 @@ test("safeParseDeck still accepts a legacy line shape with connector binding", (
     }
   }
 });
+
+// ---------------------------------------------------------------------------
+// fitMode on text / bullets elements (issue #333)
+// ---------------------------------------------------------------------------
+
+function textElementWithFitMode(fitMode: unknown) {
+  return elementDeck([
+    {
+      id: "t",
+      kind: "text",
+      role: "body",
+      text: "hi",
+      zIndex: 0,
+      box: { x: 0, y: 0, w: 10, h: 10 },
+      style: { fontSize: 4, bold: false, italic: false, align: "left" },
+      fitMode,
+    },
+  ]);
+}
+
+function bulletsElementWithFitMode(fitMode: unknown) {
+  return elementDeck([
+    {
+      id: "b",
+      kind: "bullets",
+      bullets: ["one", "two"],
+      zIndex: 0,
+      box: { x: 0, y: 0, w: 10, h: 10 },
+      style: { fontSize: 4, bold: false, italic: false, align: "left" },
+      fitMode,
+    },
+  ]);
+}
+
+test("safeParseDeck round-trips fitMode=fixed-box on a text element", () => {
+  const result = safeParseDeck(textElementWithFitMode("fixed-box"));
+  assert.equal(result.success, true);
+  if (result.success) {
+    const el = result.data.slides[0].elements?.[0];
+    assert.equal(el?.kind, "text");
+    if (el?.kind === "text") {
+      assert.equal(el.fitMode, "fixed-box");
+    }
+  }
+});
+
+test("safeParseDeck round-trips fitMode=shrink-to-fit on a text element", () => {
+  const result = safeParseDeck(textElementWithFitMode("shrink-to-fit"));
+  assert.equal(result.success, true);
+  if (result.success) {
+    const el = result.data.slides[0].elements?.[0];
+    assert.equal(el?.kind, "text");
+    if (el?.kind === "text") {
+      assert.equal(el.fitMode, "shrink-to-fit");
+    }
+  }
+});
+
+test("safeParseDeck omits fitMode when absent on a text element", () => {
+  const result = safeParseDeck(textElementWithFitMode(undefined));
+  assert.equal(result.success, true);
+  if (result.success) {
+    const el = result.data.slides[0].elements?.[0];
+    assert.equal(el?.kind, "text");
+    if (el?.kind === "text") {
+      assert.equal(el.fitMode, undefined);
+    }
+  }
+});
+
+test("safeParseDeck rejects an invalid fitMode on a text element", () => {
+  const result = safeParseDeck(textElementWithFitMode("magic-shrink"));
+  assert.equal(result.success, false);
+});
+
+test("safeParseDeck round-trips fitMode=fixed-box on a bullets element", () => {
+  const result = safeParseDeck(bulletsElementWithFitMode("fixed-box"));
+  assert.equal(result.success, true);
+  if (result.success) {
+    const el = result.data.slides[0].elements?.[0];
+    assert.equal(el?.kind, "bullets");
+    if (el?.kind === "bullets") {
+      assert.equal(el.fitMode, "fixed-box");
+    }
+  }
+});
+
+test("safeParseDeck round-trips fitMode=shrink-to-fit on a bullets element", () => {
+  const result = safeParseDeck(bulletsElementWithFitMode("shrink-to-fit"));
+  assert.equal(result.success, true);
+  if (result.success) {
+    const el = result.data.slides[0].elements?.[0];
+    assert.equal(el?.kind, "bullets");
+    if (el?.kind === "bullets") {
+      assert.equal(el.fitMode, "shrink-to-fit");
+    }
+  }
+});
+
+test("safeParseDeck rejects an invalid fitMode on a bullets element", () => {
+  const result = safeParseDeck(bulletsElementWithFitMode(42));
+  assert.equal(result.success, false);
+});

@@ -190,6 +190,18 @@ export interface TextRun {
   link?: string;
 }
 
+/**
+ * Controls how a text or bullets element handles content that exceeds its box.
+ *
+ * - `"auto-height"` (default / absent): the box grows to fit the content
+ *   height in the editor; the canvas clips only if the box is intentionally
+ *   smaller than the content.
+ * - `"fixed-box"`: the box height is pinned; content that overflows is clipped.
+ * - `"shrink-to-fit"`: the font size is reduced automatically until the
+ *   content fits within the box without clipping.
+ */
+export type TextFitMode = "auto-height" | "fixed-box" | "shrink-to-fit";
+
 /** Text styling shared by `text` and `bullets` elements. */
 export interface TextElementStyle {
   /** Font size as a percent of slide height (rendered via `cqh`). */
@@ -331,6 +343,11 @@ export interface TextElement extends BaseElement {
   style: TextElementStyle;
   /** Theming hint for the default color when `style.color` is unset. */
   role: "title" | "body";
+  /**
+   * How the element handles content that exceeds the box height.
+   * Absent / `"auto-height"` preserves the pre-#333 behaviour.
+   */
+  fitMode?: TextFitMode;
 }
 
 export interface BulletsElement extends BaseElement {
@@ -345,6 +362,11 @@ export interface BulletsElement extends BaseElement {
    */
   bulletRuns?: TextRun[][];
   style: TextElementStyle;
+  /**
+   * How the element handles content that exceeds the box height.
+   * Absent / `"auto-height"` preserves the pre-#333 behaviour.
+   */
+  fitMode?: TextFitMode;
 }
 
 export interface VisualElement extends BaseElement {
