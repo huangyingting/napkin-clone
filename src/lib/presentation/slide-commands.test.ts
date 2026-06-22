@@ -217,6 +217,19 @@ test("DUPLICATE_SLIDE returns error when slide not found", () => {
   assert.equal(result.deck, deck);
 });
 
+test("DUPLICATE_SLIDE does not mutate the original deck", () => {
+  const deck = makeDeck(["s1", "s2"]);
+  const originalLength = deck.slides.length;
+  const originalIds = deck.slides.map((s) => s.id);
+  executeCommand(deck, { type: "DUPLICATE_SLIDE", slideId: "s1" });
+
+  assert.equal(deck.slides.length, originalLength);
+  assert.deepEqual(
+    deck.slides.map((s) => s.id),
+    originalIds,
+  );
+});
+
 // ---------------------------------------------------------------------------
 // REORDER_SLIDE
 // ---------------------------------------------------------------------------
@@ -262,6 +275,17 @@ test("REORDER_SLIDE returns error when slide not found", () => {
 
   assert.equal(result.ok, false);
   assert.equal(result.deck, deck);
+});
+
+test("REORDER_SLIDE does not mutate the original deck", () => {
+  const deck = makeDeck(["s1", "s2", "s3"]);
+  const originalIds = deck.slides.map((s) => s.id);
+  executeCommand(deck, { type: "REORDER_SLIDE", slideId: "s1", toIndex: 2 });
+
+  assert.deepEqual(
+    deck.slides.map((s) => s.id),
+    originalIds,
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -316,6 +340,30 @@ test("UPDATE_SLIDE does not mutate the original deck", () => {
   });
 
   assert.equal(deck.slides[0]!.notes, originalNotes);
+});
+
+test("UPDATE_SLIDE preserves slide id even when unsafe input forces id into patch", () => {
+  const deck = makeDeck(["s1"]);
+  // Force `id` into patch via unsafe cast to verify the runtime guard strips it.
+  const result = executeCommand(deck, {
+    type: "UPDATE_SLIDE",
+    slideId: "s1",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    patch: { notes: "ok", id: "injected" } as any,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.deck.slides[0]!.id, "s1");
+});
+
+test("UPDATE_SLIDE patch type excludes id at compile time", () => {
+  const deck = makeDeck(["s1"]);
+  // @ts-expect-error — `id` is excluded from UpdateSlideCommand.patch
+  executeCommand(deck, {
+    type: "UPDATE_SLIDE",
+    slideId: "s1",
+    patch: { id: "injected" },
+  });
 });
 
 // ---------------------------------------------------------------------------

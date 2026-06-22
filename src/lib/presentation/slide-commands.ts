@@ -8,8 +8,14 @@
  *
  * Design goals:
  *  - `executeCommand` is pure and deterministic: same deck + command → same result.
+ *    **Caveat:** commands that create new slides or elements (ADD_SLIDE,
+ *    DUPLICATE_SLIDE, ADD_ELEMENT) generate fresh ids via `crypto.randomUUID()`
+ *    internally, so those specific results are not replay-identical across calls.
  *  - The input deck is **never mutated** — failures return the same reference.
  *  - Validation errors are explicit and do not partially mutate the deck.
+ *  - Slide `id`, `index`, and `theme` fields are structurally immutable: the
+ *    `UpdateSlideCommand.patch` type excludes them, and the executor strips any
+ *    `id` key that reaches it through an unsafe cast.
  *  - `CommandResult` exposes enough metadata (affected ids, historyKey) for
  *    upstream undo/redo, autosave, and analytics consumers.
  */
@@ -64,7 +70,7 @@ export interface ReorderSlideCommand {
 export interface UpdateSlideCommand {
   type: "UPDATE_SLIDE";
   slideId: string;
-  patch: Partial<Omit<Slide, "index" | "theme">>;
+  patch: Partial<Omit<Slide, "id" | "index" | "theme">>;
   /**
    * Optional grouping key — adjacent commands sharing this key may be
    * coalesced into a single undo step by {@link coalesceCommands}.
@@ -246,8 +252,12 @@ export function executeCommand(deck: Deck, cmd: SlideCommand): CommandResult {
       const index = findSlideIndex(deck, cmd.slideId);
       if (index === -1) return failure(deck, `Slide not found: ${cmd.slideId}`);
 
+      // Strip `id` defensively — the type excludes it, but callers may bypass
+      // TypeScript with an unsafe cast. Slide identity must never change.
+      const { id: _discardedId, ...safePatch } = cmd.patch as Partial<Slide>;
+
       return success(
-        updateSlide(deck, index, cmd.patch),
+        updateSlide(deck, index, safePatch),
         [cmd.slideId],
         [],
         cmd.coalesceKey,
