@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Deck, Slide, SlideElement, TextRun, VisualElement } from "./deck";
-import { DEFAULT_VISUAL_BOX } from "./deck";
+import { DEFAULT_VISUAL_BOX, buildDeckFromBlocks } from "./deck";
 import { mergeDeckFromDocument } from "./deck-merge";
 
 function element(id: string): SlideElement {
@@ -673,4 +673,256 @@ test("merge summary reports visualsAdded for hand-edited slide (#294)", () => {
   assert.equal(summary.changes.length, 1);
   assert.equal(summary.changes[0].kind, "updated");
   assert.equal(summary.changes[0].visualsAdded, 2);
+});
+
+// ---------------------------------------------------------------------------
+// Stable sourceSectionId matching — Pass 0 (issue #296)
+// ---------------------------------------------------------------------------
+
+test("renamed on-stage title: Pass 0 matches by sourceSectionId, no duplicate (#296)", () => {
+  // Slide was synced from a doc section "Intro"; user renamed its on-stage title
+  // to "Introduction" via the canvas editor, but the frozen sourceSectionId
+  // still identifies the original section. The doc heading stays "Intro".
+  const existing = deck([
+    slide({
+      title: "Intro",
+      bullets: ["kept"],
+      sourceSectionId: "sec-intro",
+      elements: [element("manual-el")],
+      elementsDerived: false,
+    }),
+  ]);
+  // Fresh deck re-derived from unchanged doc heading "Intro" → same sourceSectionId.
+  const fresh = deck([
+    slide({
+      title: "Intro",
+      bullets: ["updated content"],
+      sourceSectionId: "sec-intro",
+    }),
+  ]);
+
+  const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
+
+  // One slide updated in-place — no duplicate appended.
+  assert.equal(merged.slides.length, 1);
+  assert.deepEqual(merged.slides[0].bullets, ["updated content"]);
+  // Hand-edited elements preserved.
+  assert.deepEqual(
+    merged.slides[0].elements?.map((e) => e.id),
+    ["manual-el"],
+  );
+  assert.equal(summary.updatedCount, 1);
+  assert.equal(summary.appendedCount, 0);
+  assert.equal(summary.preservedCount, 0);
+});
+
+test("renamed slide title diverges from doc heading: sourceSectionId still matches (#296)", () => {
+  // Existing slide.title drifted from the doc heading (user renamed on stage).
+  // Title-match would fail; Pass 0 by sourceSectionId must succeed.
+  const existing = deck([
+    slide({
+      title: "Old On-Stage Name",
+      bullets: ["original"],
+      sourceSectionId: "sec-features",
+      elements: [element("feat-el")],
+    }),
+  ]);
+  const fresh = deck([
+    slide({
+      title: "Features",
+      bullets: ["fresh bullets"],
+      sourceSectionId: "sec-features",
+    }),
+  ]);
+
+  const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
+
+  assert.equal(merged.slides.length, 1);
+  assert.deepEqual(merged.slides[0].bullets, ["fresh bullets"]);
+  assert.equal(summary.updatedCount, 1);
+  assert.equal(summary.appendedCount, 0);
+});
+
+test("reordered sections: match by sourceSectionId, existing order preserved (#296)", () => {
+  const existing = deck([
+    slide({
+      title: "Alpha",
+      bullets: ["a-old"],
+      sourceSectionId: "sec-alpha",
+      elements: [element("el-a")],
+      elementsDerived: false,
+    }),
+    slide({
+      title: "Beta",
+      bullets: ["b-old"],
+      sourceSectionId: "sec-beta",
+      elements: [element("el-b")],
+      elementsDerived: false,
+    }),
+  ]);
+  // Fresh deck has sections in reverse order but same ids.
+  const fresh = deck([
+    slide({ title: "Beta", bullets: ["b-new"], sourceSectionId: "sec-beta" }),
+    slide({ title: "Alpha", bullets: ["a-new"], sourceSectionId: "sec-alpha" }),
+  ]);
+
+  const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
+
+  // Existing order is preserved; content is refreshed.
+  assert.equal(merged.slides.length, 2);
+  assert.equal(merged.slides[0].title, "Alpha");
+  assert.deepEqual(merged.slides[0].bullets, ["a-new"]);
+  assert.equal(merged.slides[0].elements?.[0].id, "el-a");
+  assert.equal(merged.slides[1].title, "Beta");
+  assert.deepEqual(merged.slides[1].bullets, ["b-new"]);
+  assert.equal(merged.slides[1].elements?.[0].id, "el-b");
+  assert.equal(summary.updatedCount, 2);
+  assert.equal(summary.appendedCount, 0);
+});
+
+test("duplicate section ids: first-unconsumed pairing, no crash or over-duplication (#296)", () => {
+  // Two existing slides with the same sourceSectionId (identical heading text
+  // in the document produces identical ids). Both should be matched 1-to-1 with
+  // the two fresh slides that carry the same id.
+  const existing = deck([
+    slide({
+      title: "Topic",
+      bullets: ["first"],
+      sourceSectionId: "sec-topic",
+      elements: [element("el-1")],
+      elementsDerived: false,
+    }),
+    slide({
+      title: "Topic",
+      bullets: ["second"],
+      sourceSectionId: "sec-topic",
+      elements: [element("el-2")],
+      elementsDerived: false,
+    }),
+  ]);
+  const fresh = deck([
+    slide({
+      title: "Topic",
+      bullets: ["fresh-1"],
+      sourceSectionId: "sec-topic",
+    }),
+    slide({
+      title: "Topic",
+      bullets: ["fresh-2"],
+      sourceSectionId: "sec-topic",
+    }),
+  ]);
+
+  const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
+
+  // Both slides matched and updated; no duplicates appended.
+  assert.equal(merged.slides.length, 2);
+  assert.deepEqual(merged.slides[0].bullets, ["fresh-1"]);
+  assert.deepEqual(merged.slides[1].bullets, ["fresh-2"]);
+  assert.equal(merged.slides[0].elements?.[0].id, "el-1");
+  assert.equal(merged.slides[1].elements?.[0].id, "el-2");
+  assert.equal(summary.updatedCount, 2);
+  assert.equal(summary.appendedCount, 0);
+});
+
+test("legacy slides without sourceSectionId fall back to title/index match (#296 regression)", () => {
+  // Existing slides have NO sourceSectionId (legacy deck). They must still
+  // match by title exactly as before Pass 0 existed.
+  const existing = deck([
+    slide({
+      title: "Intro",
+      bullets: ["legacy-intro"],
+      elements: [element("intro-el")],
+    }),
+    slide({ title: "Outro", bullets: ["legacy-outro"] }),
+  ]);
+  // Fresh slides carry sourceSectionId but existing don't — title match still
+  // fires in Pass 1.
+  const fresh = deck([
+    slide({
+      title: "Outro",
+      bullets: ["outro-new"],
+      sourceSectionId: "sec-outro",
+    }),
+    slide({
+      title: "Intro",
+      bullets: ["intro-new"],
+      sourceSectionId: "sec-intro",
+    }),
+  ]);
+
+  const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);
+
+  assert.equal(merged.slides.length, 2);
+  assert.equal(merged.slides[0].title, "Intro");
+  assert.deepEqual(merged.slides[0].bullets, ["intro-new"]);
+  assert.equal(merged.slides[0].elements?.[0].id, "intro-el");
+  assert.equal(merged.slides[1].title, "Outro");
+  assert.deepEqual(merged.slides[1].bullets, ["outro-new"]);
+  assert.equal(summary.updatedCount, 2);
+  assert.equal(summary.appendedCount, 0);
+});
+
+test("buildDeckFromBlocks stamps sourceSectionId; end-to-end: renamed slide title syncs without duplicate (#296)", () => {
+  // Derive an initial deck from document blocks.
+  const blocks = [
+    {
+      kind: "text" as const,
+      blockType: "heading" as const,
+      level: 2 as const,
+      text: "Getting Started",
+      runs: [],
+    },
+    {
+      kind: "text" as const,
+      blockType: "paragraph" as const,
+      text: "Learn the basics.",
+    },
+  ];
+  const initialDeck = buildDeckFromBlocks(blocks);
+  const derivedSlide = initialDeck.slides[0];
+
+  // The derived slide should carry a sourceSectionId.
+  assert.ok(
+    derivedSlide.sourceSectionId !== undefined,
+    "buildDeckFromBlocks must stamp sourceSectionId on heading-based slides",
+  );
+
+  // Simulate user editing the on-stage title ("Getting Started" → "Quick Start").
+  // In practice this clears elementsDerived; here we just patch the title field
+  // to simulate a stale slide.title while sourceSectionId stays frozen.
+  const existingDeck: Deck = {
+    ...initialDeck,
+    slides: [
+      {
+        ...derivedSlide,
+        title: "Quick Start (renamed on stage)",
+        elements: [element("manual-el")],
+        elementsDerived: false,
+      },
+    ],
+  };
+
+  // Re-derive from the SAME document blocks (heading text unchanged).
+  const freshDeck = buildDeckFromBlocks(blocks);
+  // Confirm the fresh slide has the same sourceSectionId as the initial derive.
+  assert.equal(
+    freshDeck.slides[0].sourceSectionId,
+    derivedSlide.sourceSectionId,
+  );
+
+  const { deck: merged, summary } = mergeDeckFromDocument(
+    existingDeck,
+    freshDeck,
+  );
+
+  // Pass 0 must match by sourceSectionId — one update, no duplicate appended.
+  assert.equal(merged.slides.length, 1);
+  assert.equal(summary.updatedCount, 1);
+  assert.equal(summary.appendedCount, 0);
+  // Hand-edited element preserved (hand-edited slide).
+  assert.deepEqual(
+    merged.slides[0].elements?.map((e) => e.id),
+    ["manual-el"],
+  );
 });
