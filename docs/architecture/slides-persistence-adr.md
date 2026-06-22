@@ -186,32 +186,67 @@ slide, never when loading or re-serialising an existing one.
 **Scope:** Backend-only. No UI change except a conflict error state on
 autosave failure.
 
-1. Add `deckRevision Int @default(0)` to the `Document` model in Prisma.
+1. Add `deckRevision Int @default(0)` to the `Document` model in **both**
+   `prisma/schema.prisma` (PostgreSQL) and `prisma/schema.sqlite.prisma`
+   (SQLite/dev). Run `prisma migrate dev` for each schema to generate matching
+   migration files in `prisma/migrations` and `prisma/migrations-sqlite`.
 2. Update `saveDeckJson` to accept an optional `clientRev: number` parameter.
-3. Inside the existing Prisma transaction, read `doc.deckRevision`:
-   - If `clientRev` is present and `clientRev !== doc.deckRevision`, return an
-     action error `{ code: "deck_conflict", serverDeck: doc.deckJson, serverRev: doc.deckRevision }`.
-   - Otherwise, write the new deck and increment `deckRevision`.
-4. Return the new `deckRevision` on success so the client can update its local
-   `rev` without a separate fetch.
-5. The `Deck` TypeScript type gains an optional `rev?: number` field. The
-   schema validator accepts but does not require it. `saveDeckJson` strips
-   `rev` before persisting (the canonical revision lives in the DB column, not
-   in the JSON blob).
-6. Existing saves without `clientRev` continue to work (no revision check) —
+3. Implement the compare-and-swap (CAS) using one of the two concrete
+   approaches — pick the one that fits the call site:
+   - **Preferred — `updateMany` CAS:** call
+     `prisma.document.updateMany({ where: { id, deckRevision: clientRev } })`
+     and check `result.count === 0`; if zero rows were updated, a concurrent
+     write changed the revision first — read the current row and return a
+     conflict result.
+   - **Alternative — explicit transaction:** wrap a `findUnique` + `update`
+     in `prisma.$transaction([ … ])` so the read and write are atomic.
+     Either approach is acceptable; the ADR does not prescribe which, but the
+     chosen mechanism **must** be documented in the implementation PR.
+   - `saveDeckJson` currently has **no** transaction; one must be added as
+     part of this stage.
+4. The return type of `saveDeckJson` is a discriminated union — define it as:
+   ```ts
+   type SaveDeckResult =
+     | { ok: true; rev: number }
+     | { ok: "conflict"; serverDeck: string; serverRev: number };
+   ```
+   This shape is intentionally distinct from the existing `ActionResult`
+   wrapper so callers can pattern-match on `ok` without ambiguity. The
+   existing `ActionResult` error path is preserved for unexpected/server
+   errors; `SaveDeckResult` is only returned when the save itself completes
+   (with or without a conflict).
+5. Return `{ ok: true, rev: newRev }` on success so the client can update its
+   local `rev` without a separate fetch.
+6. The `Deck` TypeScript type gains an optional `rev?: number` field. The
+   schema validator (`parseDeck` / `safeParseDeck`) accepts but does not
+   require it. `saveDeckJson` strips `rev` from the payload before persisting
+   (the canonical revision lives in the `deckRevision` DB column, not in the
+   JSON blob).
+7. Existing saves without `clientRev` continue to work (no revision check) —
    backward compatible.
-7. The slide editor's autosave hook reads the initial `rev` from
+8. The slide editor's autosave hook reads the initial `rev` from
    `getDeckJson`'s response and threads it through each `saveDeckJson` call.
 
-**Migration:** Single `ALTER TABLE` via Prisma migration (additive, no data
-loss). Existing documents start with `deckRevision = 0`; clients that load
-them will receive `rev: 0` and begin tracking from that point.
+**Conflict response size note:** On a 50-slide deck the `serverDeck` payload
+returned in a conflict response may be 200–500 KB. This is acceptable for an
+occasional recovery path; if benchmarks show it is a problem, a follow-on can
+return only the conflicting slide IDs and fetch full slides on demand.
+
+**Migration:** Additive — `deckRevision Int @default(0)` adds a column with a
+default value; no existing rows change. Existing documents start with
+`deckRevision = 0`; clients that load them receive `rev: 0` and begin tracking
+from that point. Apply to both Prisma schema files before merging.
 
 **Test targets:**
 
-- Unit: `saveDeckJson` returns conflict when `clientRev < serverRev`.
-- Unit: `saveDeckJson` increments revision on successful write.
+- Unit: `saveDeckJson` returns `{ ok: "conflict", serverDeck, serverRev }` when
+  `clientRev` does not match the current `deckRevision`.
+- Unit: `saveDeckJson` returns `{ ok: true, rev }` and increments `deckRevision`
+  on a successful write.
 - Unit: `saveDeckJson` accepts writes when `clientRev` is absent (legacy path).
+- Concurrency: two parallel `saveDeckJson` calls with identical `clientRev`
+  result in exactly one success and one conflict (validates CAS atomicity; use
+  `Promise.all` in test with a real or transactional test DB).
 
 ---
 
@@ -231,7 +266,20 @@ them will receive `rev: 0` and begin tracking from that point.
    cherry-pick individual slides from either version.
 6. The same flow applies to self-conflicts (same user, two tabs).
 
-**No schema changes.** Pure React state and the existing action return type.
+**No schema changes.** Pure React state and the `SaveDeckResult` return type
+defined in Stage 1.
+
+**Test targets:**
+
+- Component: conflict toast/banner renders when autosave hook receives
+  `{ ok: "conflict" }`.
+- Component: "Keep mine" path re-submits local deck with updated `rev` and
+  closes the banner on `{ ok: true }`.
+- Component: "Use theirs" path replaces editor state with `serverDeck` and
+  discards local changes.
+- Integration: force-write after conflict resolution — after a user chooses
+  "Keep mine", the subsequent save must succeed (i.e., `clientRev` now matches
+  `serverRev` that was returned in the conflict response).
 
 ---
 
@@ -254,6 +302,19 @@ them will receive `rev: 0` and begin tracking from that point.
 **Backward compatibility:** Clients without patch support continue using
 `saveDeckJson`. The patch endpoint is additive.
 
+**Test targets:**
+
+- Unit: each `DeckPatch` operation type (`insert-slide`, `delete-slide`,
+  `move-slide`, `update-slide`, `update-element`, `update-deck-meta`) produces
+  the correct mutated deck (pure reducer tests, no DB).
+- Integration: `PATCH /api/documents/[id]/deck` returns 200 with updated `rev`
+  on a valid patch sequence against a test DB.
+- Integration: `PATCH` with a stale `clientRev` returns a `deck_conflict`
+  result (same shape as Stage 1).
+- Partial-failure rollback: if one patch operation in a batch is invalid
+  (e.g., references a non-existent element ID), the entire transaction rolls
+  back and the deck remains unchanged.
+
 ---
 
 ### Stage 4 — Presence Model for Slide Editor Sessions (child issue 376-6)
@@ -263,17 +324,35 @@ them will receive `rev: 0` and begin tracking from that point.
 1. Use the existing Yjs awareness channel (already open for the text
    layer) to broadcast slide editor presence:
    - `{ userId, displayName, avatarUrl, deckId, slideIndex, elementId | null }`.
-2. The slide editor renders presence indicators: avatar stack on the slide
+2. The slide editor currently does not receive the Yjs `provider` or
+   `awareness` object. The implementation **must** explicitly thread the
+   provider/awareness instance down from the document page component into the
+   slide editor component (e.g., via a context or prop). Do not assume the
+   slide editor has ambient access to the collaboration provider.
+3. The slide editor renders presence indicators: avatar stack on the slide
    panel (who is on this slide), a subtle highlight ring on elements being
    edited by another user.
-3. **No locking.** Presence is advisory. Conflicts are handled by the
+4. **No locking.** Presence is advisory. Conflicts are handled by the
    revision-token flow, not by preventing concurrent edits.
-4. Slide-level presence data is ephemeral (in-memory awareness); it is not
+5. Slide-level presence data is ephemeral (in-memory awareness); it is not
    persisted.
 
 **Dependency:** Requires the collaboration server to be reachable from the
 slide editor page. Currently conditional on `appEnv.collabUrl`; presence
 degrades gracefully (no indicators) when the collab server is absent.
+
+**Test targets:**
+
+- Unit: awareness update with the correct presence shape is emitted when the
+  active slide index changes (Vitest + mock Yjs provider).
+- Unit: presence indicators render correctly given a mock awareness state with
+  multiple users on the same slide.
+- Graceful degradation: when `appEnv.collabUrl` is absent or the provider is
+  unavailable, the slide editor renders without presence indicators and without
+  throwing (no uncaught errors).
+- Self-conflict awareness: when the same user has two tabs open, both tabs
+  show the user's own presence entry; the conflict recovery UI (Stage 2) still
+  triggers correctly on a revision mismatch.
 
 ---
 
@@ -287,8 +366,10 @@ Current behaviour: `restoreDocumentVersion` copies `version.deckJson` back to
 Required changes:
 
 1. Before restoring, call the existing `sanitizeRestoredDeck` to strip
-   visual references that no longer exist in the restored `contentJson` (already
-   implemented — verify it handles all element types including images).
+   visual references that no longer exist in the restored `contentJson`.
+   Verify that `sanitizeRestoredDeck` handles **all** element types present in
+   the schema (text, image, video, shape, etc.) — add coverage for any element
+   type not yet exercised in tests.
 2. After restoring, set `Document.deckRevision` to `currentRev + 1` so any
    in-flight client save with the old `rev` is detected as a conflict.
 3. Asset references in the restored deck that point to deleted or
@@ -298,18 +379,36 @@ Required changes:
    (already the current behaviour via `force: true` in `shouldSnapshot`) so
    the user can undo the restore itself.
 
+**Test targets:**
+
+- Integration: restored deck passes `safeParseDeck` and `deckRevision` is
+  incremented by 1 (against a test DB with a seeded version row).
+- Unit: `sanitizeRestoredDeck` correctly strips element types for all known
+  element variants (text, image, video, shape); add a test case per element
+  type that has a cross-reference into `contentJson`.
+- Unit: pre-restore snapshot is created before the restore operation completes
+  (assert that `DocumentVersion` row count increases by 1).
+- Unit: inaccessible asset keys in the restored deck are replaced with the
+  expected placeholder element shape, not left as dangling references.
+
 ---
 
 ## Validation and Test Strategy
 
-| Layer                | What to test                                                                   | Approach                                               |
-| -------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------ |
-| `saveDeckJson`       | Revision increment, conflict detection, missing-rev backward compat            | `node:test` unit tests (no DB: mock Prisma tx)         |
-| Patch apply          | Each `DeckPatch` operation mutates deck correctly                              | Pure-function unit tests on the patch reducer          |
-| Conflict recovery UI | Toast appears on `deck_conflict`; each resolution path updates state correctly | React Testing Library component tests                  |
-| Presence broadcast   | Awareness updates are sent/received with correct shape                         | Vitest + mock Yjs provider                             |
-| Version restore      | Restored deck passes `safeParseDeck`; `deckRevision` incremented               | Integration test against test DB                       |
-| Backward compat      | Decks saved before `rev` field exist load and save without errors              | Unit test: `saveDeckJson` without `clientRev` succeeds |
+| Layer                        | What to test                                                                                                               | Approach                                                                |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `saveDeckJson`               | Revision increment, conflict detection, missing-rev backward compat                                                        | `node:test` unit tests (no DB: mock Prisma tx)                          |
+| `saveDeckJson` CAS           | Two parallel saves with same `clientRev` yield exactly one success + one conflict                                          | Concurrency integration test against a real/test-transaction DB         |
+| Patch apply                  | Each `DeckPatch` operation mutates deck correctly                                                                          | Pure-function unit tests on the patch reducer                           |
+| Patch endpoint               | Valid patch increments `rev`; stale `clientRev` returns conflict; partial batch rolls back                                 | Integration tests against test DB (`PATCH /api/documents/[id]/deck`)    |
+| Conflict recovery UI         | Toast appears on `deck_conflict`; each resolution path updates state correctly                                             | React Testing Library component tests                                   |
+| Force-write after resolution | "Keep mine" re-submit with updated `rev` succeeds                                                                          | Integration test: conflict → resolution → next save OK                  |
+| Presence broadcast           | Awareness updates are sent/received with correct shape; degrades gracefully without provider                               | Vitest + mock Yjs provider                                              |
+| Self-conflict                | Same user with two tabs still triggers conflict UI on revision mismatch                                                    | Unit test with mock awareness + two simulated autosave hooks            |
+| Version restore              | Restored deck passes `safeParseDeck`; `deckRevision` incremented; pre-restore snapshot created; asset placeholders applied | Integration test against test DB                                        |
+| `sanitizeRestoredDeck`       | All element types (text, image, video, shape) are handled                                                                  | Unit tests per element type                                             |
+| Backward compat              | Decks saved before `rev` field exist load and save without errors                                                          | Unit test: `saveDeckJson` without `clientRev` succeeds                  |
+| E2E smoke                    | Conflict detection → user resolves via "Keep mine" → subsequent autosave succeeds without conflict                         | Playwright test: open two tabs, edit in both, resolve conflict in tab 1 |
 
 All tests must pass in CI before a child issue PR is merged to `dev`.
 
@@ -317,13 +416,13 @@ All tests must pass in CI before a child issue PR is merged to `dev`.
 
 ## Migration and Backward Compatibility
 
-| Change                           | Risk                                     | Mitigation                                                                        |
-| -------------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------- |
-| Add `deckRevision` column        | Additive migration, default `0`          | No existing row changes; Prisma `@default(0)` handles it                          |
-| `rev` field in `Deck` JSON       | Optional field; validator accepts absent | `safeParseDeck` treats absent `rev` as legacy; no migration of stored JSON needed |
-| `PATCH /deck` endpoint           | New route, no existing route changed     | Clients without patch support are unaffected                                      |
-| Revision check in `saveDeckJson` | Only applied when `clientRev` is sent    | Old clients (no `clientRev`) bypass the check — zero breakage                     |
-| Presence awareness shape         | New awareness state key (`deckPresence`) | Ignored by text-layer awareness handlers; no conflict                             |
+| Change                           | Risk                                                                                                                                | Mitigation                                                                                |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Add `deckRevision` column        | Additive migration, default `0`; applies to both `prisma/schema.prisma` (PostgreSQL) and `prisma/schema.sqlite.prisma` (SQLite/dev) | No existing row changes; Prisma `@default(0)` handles it; run migrations for both schemas |
+| `rev` field in `Deck` JSON       | Optional field; validator accepts absent                                                                                            | `safeParseDeck` treats absent `rev` as legacy; no migration of stored JSON needed         |
+| `PATCH /deck` endpoint           | New route, no existing route changed                                                                                                | Clients without patch support are unaffected                                              |
+| Revision check in `saveDeckJson` | Only applied when `clientRev` is sent                                                                                               | Old clients (no `clientRev`) bypass the check — zero breakage                             |
+| Presence awareness shape         | New awareness state key (`deckPresence`)                                                                                            | Ignored by text-layer awareness handlers; no conflict                                     |
 
 No existing `deckJson` column data needs to be rewritten. The `schemaVersion`
 migration boundary (`CURRENT_DECK_SCHEMA_VERSION`) is independent of the
