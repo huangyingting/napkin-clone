@@ -1003,3 +1003,21 @@ test("safeParseDeck accepts items[] without optional indent/listType", () => {
     }
   }
 });
+
+test("safeParseDeck rejects negative indent (-1) on items[]", () => {
+  const result = safeParseDeck(
+    bulletsElementWith({
+      items: [{ text: "Bad", indent: -1 }],
+    }),
+  );
+  assert.equal(result.success, false);
+});
+
+test("safeParseDeck rejects non-integer float indent (1.5) on items[]", () => {
+  const result = safeParseDeck(
+    bulletsElementWith({
+      items: [{ text: "Bad", indent: 1.5 }],
+    }),
+  );
+  assert.equal(result.success, false);
+});
