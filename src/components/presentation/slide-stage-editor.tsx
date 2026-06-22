@@ -59,6 +59,10 @@ interface DragState {
   startBox: ElementBox;
   /** Coalesce key for the whole gesture so it forms one undo step (#242). */
   coalesceKey: string;
+  /** True once the pointer has moved past the click threshold (a real drag). */
+  moved: boolean;
+  /** Font size at gesture start, for proportional corner scaling of text. */
+  startFontSize?: number;
 }
 
 /**
@@ -82,6 +86,10 @@ interface MarqueeState {
  */
 const MARQUEE_THRESHOLD_PCT = 1;
 
+// Pointer travel (px) below which a press-release on an element counts as a
+// click (opens inline editing) rather than a drag (moves the element).
+const CLICK_MOVE_THRESHOLD_PX = 4;
+
 const MIN_SIZE_PCT = 4;
 
 /**
@@ -92,9 +100,11 @@ const SNAP_THRESHOLD_PCT = 1.5;
 
 const AUTO_FIT_PADDING_PCT = 1.2;
 const TEXT_MIN_W_PCT = 10;
-const TEXT_MIN_H_PCT = 5;
 const BULLETS_MIN_W_PCT = 18;
 const SELECTION_MIN_H_PCT = 4;
+// Font-size bounds (percent of stage height) for corner-handle text scaling.
+const MIN_FONT_PCT = 2;
+const MAX_FONT_PCT = 30;
 
 function clampBox(box: ElementBox): ElementBox {
   const w = Math.max(MIN_SIZE_PCT, Math.min(100, box.w));
@@ -141,55 +151,111 @@ function textLineWidthPct(
 }
 
 function fitTextElementBox(
-  element: Extract<SlideElement, { kind: "text" }>,
-  stageAspect: number,
+  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
 ): ElementBox {
-  const lines = (element.text || " ").split("\n");
-  const maxWidth = Math.max(TEXT_MIN_W_PCT, Math.min(92, element.box.w));
-  const lineWidths = lines.map((line) =>
-    textLineWidthPct(line, element.style.fontSize, stageAspect),
-  );
-  const width =
-    Math.min(maxWidth, Math.max(TEXT_MIN_W_PCT, ...lineWidths)) +
-    AUTO_FIT_PADDING_PCT * 2;
-  const wrappedLines = lineWidths.reduce(
-    (sum, lineWidth) => sum + Math.max(1, Math.ceil(lineWidth / maxWidth)),
-    0,
-  );
-  const height =
-    wrappedLines * element.style.fontSize * 1.2 + AUTO_FIT_PADDING_PCT * 2;
-  return positionFitWithinBox(
-    element.box,
-    clampFitSize(width, height, TEXT_MIN_W_PCT, TEXT_MIN_H_PCT),
-    element.style.align,
-  );
+  // Canva model: the frame IS the element box — width is user-controlled, height
+  // tracks the content (kept in sync by the editor / resize handlers). No
+  // content-hug, so the editor selection always matches the static render.
+  return element.box;
 }
 
-function fitBulletsElementBox(
-  element: Extract<SlideElement, { kind: "bullets" }>,
+function contentHeightPct(
+  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+  fontSizePct: number,
+  boxWidthPct: number,
   stageAspect: number,
-): ElementBox {
-  const bullets = element.bullets.length > 0 ? element.bullets : [" "];
-  const maxWidth = Math.max(BULLETS_MIN_W_PCT, Math.min(92, element.box.w));
-  const lineWidths = bullets.map((line) =>
-    textLineWidthPct(line, element.style.fontSize, stageAspect),
-  );
-  const width =
-    Math.min(maxWidth, Math.max(BULLETS_MIN_W_PCT, ...lineWidths) + 5) +
-    AUTO_FIT_PADDING_PCT * 2;
-  const wrappedLines = lineWidths.reduce(
-    (sum, lineWidth) => sum + Math.max(1, Math.ceil(lineWidth / maxWidth)),
-    0,
-  );
+): number {
+  const lines =
+    element.kind === "text"
+      ? (element.text || " ").split("\n")
+      : element.bullets.length > 0
+        ? element.bullets
+        : [" "];
+  const minWidth =
+    element.kind === "bullets" ? BULLETS_MIN_W_PCT : TEXT_MIN_W_PCT;
+  const maxWidth = Math.max(minWidth, Math.min(92, boxWidthPct));
+  const wrappedLines = lines.reduce((sum, line) => {
+    const lineWidth = textLineWidthPct(line, fontSizePct, stageAspect);
+    return sum + Math.max(1, Math.ceil(lineWidth / maxWidth));
+  }, 0);
+  let height = wrappedLines * fontSizePct * 1.2;
+  if (element.kind === "bullets") {
+    height += Math.max(0, lines.length - 1) * fontSizePct * 0.6;
+  }
+  return height;
+}
+
+/**
+ * Canva-style resize for a text / bullets element.
+ *
+ * - **Side handles** (`e` / `w`) change the wrap width only; the font is
+ *   untouched and the height auto-fits the re-wrapped content.
+ * - **Corner handles** scale the font proportionally to the horizontal drag.
+ * - **Top / bottom handles** (`n` / `s`) scale the font proportionally to the
+ *   vertical drag (width scales with it), so every side has a useful grip.
+ *
+ * Height is always derived from the content; the opposite edge / corner is
+ * anchored so the frame grows from where the user grabs it.
+ */
+function resizeTextBox(
+  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+  startBox: ElementBox,
+  startFontSize: number,
+  handle: Handle,
+  dxPct: number,
+  dyPct: number,
+  stageAspect: number,
+): { box: ElementBox; fontSize: number } {
+  const east = handle.includes("e");
+  const west = handle.includes("w");
+  const north = handle.includes("n");
+  const south = handle.includes("s");
+  const isCorner = handle.length === 2;
+  const isVerticalOnly = !isCorner && (north || south);
+  // Keep the frame at least as wide as the wrap-measurement minimum so the
+  // auto-fit height never under-counts wrapped lines and clips text.
+  const minWidth =
+    element.kind === "bullets" ? BULLETS_MIN_W_PCT : TEXT_MIN_W_PCT;
+
+  let width = startBox.w;
+  let fontSize = startFontSize;
+
+  if (isVerticalOnly) {
+    // Vertical handle: proportional font scale driven by the vertical drag.
+    const targetHeight = south ? startBox.h + dyPct : startBox.h - dyPct;
+    const rawScale = startBox.h > 0 ? targetHeight / startBox.h : 1;
+    fontSize = Math.min(
+      MAX_FONT_PCT,
+      Math.max(MIN_FONT_PCT, startFontSize * rawScale),
+    );
+    const scale = fontSize / startFontSize;
+    width = Math.max(minWidth, Math.min(100, startBox.w * scale));
+  } else {
+    if (east) width = startBox.w + dxPct;
+    else if (west) width = startBox.w - dxPct;
+    width = Math.max(minWidth, Math.min(100, width));
+    if (isCorner) {
+      const targetScale = width / startBox.w;
+      fontSize = Math.min(
+        MAX_FONT_PCT,
+        Math.max(MIN_FONT_PCT, startFontSize * targetScale),
+      );
+      const scale = fontSize / startFontSize;
+      width = Math.max(minWidth, Math.min(100, startBox.w * scale));
+    }
+  }
+
   const height =
-    wrappedLines * element.style.fontSize * 1.2 +
-    Math.max(0, bullets.length - 1) * element.style.fontSize * 0.6 +
+    contentHeightPct(element, fontSize, width, stageAspect) +
     AUTO_FIT_PADDING_PCT * 2;
-  return positionFitWithinBox(
-    element.box,
-    clampFitSize(width, height, BULLETS_MIN_W_PCT, TEXT_MIN_H_PCT),
-    element.style.align,
-  );
+
+  let x = startBox.x;
+  if (west) x = startBox.x + startBox.w - width;
+  else if (isVerticalOnly) x = startBox.x + (startBox.w - width) / 2;
+  let y = startBox.y;
+  if (north) y = startBox.y + startBox.h - height;
+
+  return { box: clampBox({ x, y, w: width, h: height }), fontSize };
 }
 
 function fitBoxToAspect(
@@ -218,9 +284,8 @@ function fitElementBoxToContent(
 ): ElementBox {
   switch (element.kind) {
     case "text":
-      return fitTextElementBox(element, stageAspect);
     case "bullets":
-      return fitBulletsElementBox(element, stageAspect);
+      return fitTextElementBox(element);
     case "visual": {
       const visual = visuals.get(element.visualId);
       return visual
@@ -377,6 +442,13 @@ export function SlideStageEditor({
   const marqueeRectRef = useRef<MarqueeRect | null>(null);
   const [marqueeRect, setMarqueeRect] = useState<MarqueeRect | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Viewport point where an inline edit was opened by a single click, so the
+  // editor can drop the caret there instead of selecting all. Null for
+  // double-click / keyboard entry (which select all).
+  const [pendingCaret, setPendingCaret] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
   // Monotonic gesture counter (issue #242). Each drag / resize / inline-edit
   // gesture derives a coalesce key with a unique suffix so consecutive gestures
@@ -484,6 +556,16 @@ export function SlideStageEditor({
       const dxPct = ((event.clientX - drag.startClientX) / rect.width) * 100;
       const dyPct = ((event.clientY - drag.startClientY) / rect.height) * 100;
 
+      // Promote the gesture to a real drag once the pointer travels past a few
+      // pixels, so a plain click (no movement) can instead open inline editing.
+      if (
+        !drag.moved &&
+        (Math.abs(event.clientX - drag.startClientX) > CLICK_MOVE_THRESHOLD_PX ||
+          Math.abs(event.clientY - drag.startClientY) > CLICK_MOVE_THRESHOLD_PX)
+      ) {
+        drag.moved = true;
+      }
+
       if (drag.mode === "move") {
         const moved = clampBox({
           ...drag.startBox,
@@ -501,10 +583,51 @@ export function SlideStageEditor({
         return;
       }
 
-      const next = applyResize(drag.startBox, drag.mode, dxPct, dyPct);
-      onUpdateElement(drag.id, { box: clampBox(next) }, drag.coalesceKey);
+      // Resize. Text / bullets follow the Canva model: side handles change the
+      // wrap width (height auto-fits, font unchanged); corner handles scale the
+      // font proportionally (width scales with it, height auto-fits). Other
+      // kinds get a free box resize.
+      const resized = elementsRef.current.find((item) => item.id === drag.id);
+      if (resized && (resized.kind === "text" || resized.kind === "bullets")) {
+        const { box, fontSize } = resizeTextBox(
+          resized,
+          drag.startBox,
+          drag.startFontSize ?? resized.style.fontSize,
+          drag.mode,
+          dxPct,
+          dyPct,
+          stageAspect,
+        );
+        if (fontSize !== resized.style.fontSize) {
+          onUpdateElement(
+            drag.id,
+            { box, style: { ...resized.style, fontSize } },
+            drag.coalesceKey,
+          );
+        } else {
+          onUpdateElement(drag.id, { box }, drag.coalesceKey);
+        }
+      } else {
+        onUpdateElement(
+          drag.id,
+          { box: clampBox(applyResize(drag.startBox, drag.mode, dxPct, dyPct)) },
+          drag.coalesceKey,
+        );
+      }
     },
     [onUpdateElement, stageAspect, visuals],
+  );
+
+  const startEditing = useCallback(
+    (element: SlideElement, caret?: { x: number; y: number } | null) => {
+      if (element.kind === "text" || element.kind === "bullets") {
+        onSelectElement(element.id);
+        setEditingId(element.id);
+        setEditCoalesceKey(nextGestureKey("edit-text", element.id));
+        setPendingCaret(caret ?? null);
+      }
+    },
+    [nextGestureKey, onSelectElement],
   );
 
   const endDrag = useCallback(() => {
@@ -531,10 +654,31 @@ export function SlideStageEditor({
         onSelectElement(null);
       }
     }
+    // A plain click (no movement) on a text/bullets element drops straight into
+    // inline editing with the caret at the click point — no double-click needed.
+    const drag = dragRef.current;
+    if (drag && drag.mode === "move" && !drag.moved) {
+      const element = elementsRef.current.find((item) => item.id === drag.id);
+      if (
+        element &&
+        (element.kind === "text" || element.kind === "bullets")
+      ) {
+        startEditing(element, {
+          x: drag.startClientX,
+          y: drag.startClientY,
+        });
+      }
+    }
     dragRef.current = null;
     setActiveDrag(null);
     setSnapGuides([]);
-  }, [onSelectElement, onSelectElements, stageAspect, visuals]);
+  }, [
+    onSelectElement,
+    onSelectElements,
+    stageAspect,
+    visuals,
+    startEditing,
+  ]);
 
   useEffect(() => {
     window.addEventListener("pointermove", handlePointerMove);
@@ -560,6 +704,7 @@ export function SlideStageEditor({
       // align it; otherwise a plain drag collapses to a single selection. Group
       // move is intentionally not implemented — only the dragged element moves.
       onSelectElement(id, selectedElementIds.has(id) ? "keep" : "replace");
+      const startElement = elementsRef.current.find((item) => item.id === id);
       dragRef.current = {
         id,
         mode,
@@ -567,26 +712,22 @@ export function SlideStageEditor({
         startClientY: event.clientY,
         startBox: box,
         coalesceKey: nextGestureKey(mode === "move" ? "move" : "resize", id),
+        moved: false,
+        startFontSize:
+          startElement &&
+          (startElement.kind === "text" || startElement.kind === "bullets")
+            ? startElement.style.fontSize
+            : undefined,
       };
       setActiveDrag(mode);
     },
     [nextGestureKey, onSelectElement, selectedElementIds],
   );
 
-  const startEditing = useCallback(
-    (element: SlideElement) => {
-      if (element.kind === "text" || element.kind === "bullets") {
-        onSelectElement(element.id);
-        setEditingId(element.id);
-        setEditCoalesceKey(nextGestureKey("edit-text", element.id));
-      }
-    },
-    [nextGestureKey, onSelectElement],
-  );
-
   const stopEditing = useCallback(() => {
     setEditingId(null);
     setEditCoalesceKey(null);
+    setPendingCaret(null);
   }, []);
 
   // Pointer-down on the empty stage background starts a marquee (issue #245).
@@ -651,9 +792,14 @@ export function SlideStageEditor({
           const isEditing = element.id === activeEditingId;
           const editable =
             element.kind === "text" || element.kind === "bullets";
-          // Resize handles only attach to a single (primary) selection — they
-          // would be ambiguous across a multi-selection. Issue #237.
-          const showHandles = isPrimary && !isEditing && !isMultiSelect;
+          // Frame = the element box (Canva model). For text it equals fittedBox
+          // anyway; the explicit element.box keeps the auto-growing height in
+          // sync while editing.
+          const containerBox = isEditing ? element.box : fittedBox;
+          // Resize handles show for the primary selection — including while
+          // editing text, so width / font can be adjusted without leaving the
+          // caret. Ambiguous across a multi-selection, so single-only.
+          const showHandles = isPrimary && !isMultiSelect;
           return (
             <div
               key={element.id}
@@ -675,6 +821,9 @@ export function SlideStageEditor({
                 beginDrag(event, element.id, "move", fittedBox);
               }}
               onDoubleClick={(event) => {
+                if (isEditing) {
+                  return;
+                }
                 if (editable) {
                   event.stopPropagation();
                   startEditing(element);
@@ -700,10 +849,10 @@ export function SlideStageEditor({
                   : "ring-1 ring-transparent hover:ring-1 hover:ring-ds-control/40"
               }`}
               style={{
-                left: `${fittedBox.x}%`,
-                top: `${fittedBox.y}%`,
-                width: `${fittedBox.w}%`,
-                height: `${fittedBox.h}%`,
+                left: `${containerBox.x}%`,
+                top: `${containerBox.y}%`,
+                width: `${containerBox.w}%`,
+                height: `${containerBox.h}%`,
                 zIndex: selected ? 1000 : element.zIndex + 1,
               }}
             >
@@ -713,6 +862,7 @@ export function SlideStageEditor({
                   color={resolveTextColor(element, tc)}
                   accent={accent}
                   stageHeight={height}
+                  caretClient={pendingCaret}
                   onChange={(patch) =>
                     onUpdateElement(
                       element.id,
@@ -814,11 +964,35 @@ function formatBadge(mode: DragMode, box: ElementBox): string {
 // every keystroke instead of being flattened to plain text.
 // ---------------------------------------------------------------------------
 
+/**
+ * Cross-browser caret range from a viewport point. Chrome / Safari expose
+ * `caretRangeFromPoint`; Firefox uses the standard `caretPositionFromPoint`.
+ * Returns `null` when neither is available or the point hits nothing.
+ */
+function caretRangeFromPoint(x: number, y: number): Range | null {
+  if (typeof document.caretRangeFromPoint === "function") {
+    return document.caretRangeFromPoint(x, y);
+  }
+  const docWithCaret = document as Document & {
+    caretPositionFromPoint?: (
+      x: number,
+      y: number,
+    ) => { offsetNode: Node; offset: number } | null;
+  };
+  const pos = docWithCaret.caretPositionFromPoint?.(x, y);
+  if (!pos) return null;
+  const range = document.createRange();
+  range.setStart(pos.offsetNode, pos.offset);
+  range.collapse(true);
+  return range;
+}
+
 function InlineTextEditor({
   element,
   color,
   accent,
   stageHeight,
+  caretClient,
   onChange,
   onCommit,
 }: {
@@ -826,6 +1000,7 @@ function InlineTextEditor({
   color: string;
   accent: string;
   stageHeight: number;
+  caretClient: { x: number; y: number } | null;
   onChange: (patch: ElementPatch) => void;
   onCommit: () => void;
 }) {
@@ -834,12 +1009,49 @@ function InlineTextEditor({
   // on the (changing) element prop — the DOM is the source of truth while the
   // overlay is mounted and its innerHTML is set exactly once below.
   const kind = element.kind;
+  // Snapshot the open-caret point once (mount only) so later renders never move
+  // the caret while the user types.
+  const caretRef = useRef(caretClient);
 
-  // Seed the editable surface with the rendered runs, then focus and select all
-  // so a fresh edit replaces the content like the old textarea did. Bullets are
-  // seeded as one `<div>` per line so each is a block the marker CSS can attach
-  // to and so Enter creates a new bullet. Runs only on mount; deck updates flow
-  // out (never back into the DOM) so the caret is never disturbed mid-edit.
+  const emitChange = useCallback(() => {
+    const node = ref.current;
+    if (!node) return;
+    // Grow the box height to fit the live content (font size stays fixed) so a
+    // multi-line edit expands the frame instead of clipping. The measured DOM
+    // height is authoritative — more accurate than the static heuristic fit.
+    const heightPct =
+      (node.scrollHeight / stageHeight) * 100 + AUTO_FIT_PADDING_PCT * 2;
+    const box = clampBox({ ...element.box, h: heightPct });
+    const { text, runs } = serializeRichText(node);
+    if (kind === "text") {
+      onChange({ text, runs: shouldStoreRuns(runs) ? runs : undefined, box });
+      return;
+    }
+    const lines = splitRunsIntoLines(runs)
+      .map((line) => ({
+        text: line.text.replace(/\s+$/, ""),
+        runs: mergeRuns(line.runs),
+      }))
+      .filter((line) => line.text.length > 0);
+    const hasRichBullets = lines.some((line) => shouldStoreRuns(line.runs));
+    onChange({
+      bullets: lines.map((line) => line.text),
+      bulletRuns: hasRichBullets ? lines.map((line) => line.runs) : undefined,
+      box,
+    });
+  }, [kind, onChange, stageHeight, element.box]);
+
+  const commit = useCallback(() => {
+    emitChange();
+    onCommit();
+  }, [emitChange, onCommit]);
+
+  // Seed the editable surface with the rendered runs, then place the caret: at
+  // the click point for a single-click open, otherwise select all (double-click
+  // / keyboard). Bullets are seeded as one `<div>` per line so each is a block
+  // the marker CSS can attach to and so Enter creates a new bullet. Runs only on
+  // mount; deck updates flow out (never back into the DOM) so the caret is never
+  // disturbed mid-edit.
   useEffect(() => {
     const node = ref.current;
     if (!node) return;
@@ -859,40 +1071,24 @@ function InlineTextEditor({
     node.focus();
     const selection = window.getSelection();
     if (selection) {
-      const range = document.createRange();
-      range.selectNodeContents(node);
-      selection.removeAllRanges();
-      selection.addRange(range);
+      const caret = caretRef.current;
+      const pointRange = caret ? caretRangeFromPoint(caret.x, caret.y) : null;
+      if (pointRange && node.contains(pointRange.startContainer)) {
+        pointRange.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(pointRange);
+      } else {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
     }
+    // Fit the frame to the seeded content straight away.
+    emitChange();
     // Mount-only: intentionally not re-seeding on element changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const emitChange = useCallback(() => {
-    const node = ref.current;
-    if (!node) return;
-    const { text, runs } = serializeRichText(node);
-    if (kind === "text") {
-      onChange({ text, runs: shouldStoreRuns(runs) ? runs : undefined });
-      return;
-    }
-    const lines = splitRunsIntoLines(runs)
-      .map((line) => ({
-        text: line.text.replace(/\s+$/, ""),
-        runs: mergeRuns(line.runs),
-      }))
-      .filter((line) => line.text.length > 0);
-    const hasRichBullets = lines.some((line) => shouldStoreRuns(line.runs));
-    onChange({
-      bullets: lines.map((line) => line.text),
-      bulletRuns: hasRichBullets ? lines.map((line) => line.runs) : undefined,
-    });
-  }, [kind, onChange]);
-
-  const commit = useCallback(() => {
-    emitChange();
-    onCommit();
-  }, [emitChange, onCommit]);
 
   const fontSizePx = (element.style.fontSize / 100) * stageHeight;
 
