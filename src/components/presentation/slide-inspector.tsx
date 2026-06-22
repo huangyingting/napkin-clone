@@ -101,6 +101,10 @@ import {
   themeSwatchColors,
 } from "@/lib/presentation/text-style";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
+import {
+  getThemeTypography,
+  placeholderStyle,
+} from "@/lib/presentation/theme-typography";
 import { DEFAULT_SLIDE_FORMAT } from "@/lib/presentation/slide-format";
 import type { Visual } from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
@@ -280,6 +284,29 @@ function placeholderDisplayName(
   return (
     element.label?.trim() || PLACEHOLDER_TYPE_LABELS[element.placeholderType]
   );
+}
+
+function primaryFontLabel(fontFamily: string): string {
+  const [first] = fontFamily.split(",");
+  return first?.trim().replace(/^['"]|['"]$/g, "") || fontFamily;
+}
+
+function placeholderThemeHint(
+  deck: Pick<Deck, "theme" | "themeId">,
+  element: Pick<PlaceholderElement, "placeholderType">,
+): string {
+  const style = placeholderStyle(
+    element.placeholderType,
+    getThemeTypography(deck.themeId ?? deck.theme),
+  );
+  const parts: string[] = [];
+  if (style.fontFamily) {
+    parts.push(primaryFontLabel(style.fontFamily));
+  }
+  if (style.fontSize !== undefined) {
+    parts.push(`${style.fontSize} pt`);
+  }
+  return parts.join(" · ");
 }
 
 /**
@@ -923,6 +950,9 @@ function ElementEditor({
               className={`${FIELD_CLASS} ${FOCUS_RING}`}
             />
           </label>
+          <p className="text-xs text-ds-text-muted">
+            Theme hint: {placeholderThemeHint(deck, element)}.
+          </p>
           <p className="text-xs text-ds-text-muted">
             Shown on-canvas until this slot is replaced with slide content.
           </p>
