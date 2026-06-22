@@ -720,9 +720,8 @@ function cloneSourceRef(ref: SourceRef): SourceRef {
 }
 
 function cloneLinkedSourceRef(ref: SourceRef): SourceRef {
-  const linkedRef = cloneSourceRef(ref);
-  delete linkedRef.unlinked;
-  return linkedRef;
+  const { unlinked: _unlinked, ...linkedRef } = ref;
+  return cloneSourceRef(linkedRef);
 }
 
 /** Returns true when an element still has an active source link. */
