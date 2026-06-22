@@ -211,6 +211,23 @@ export interface TextElementStyle {
   /** Optional underline for the whole element. */
   underline?: boolean;
   align: ElementAlign;
+  /**
+   * Vertical alignment of text within its box.
+   * - `"top"`: content starts at the top edge.
+   * - `"middle"` (default): content is vertically centered.
+   * - `"bottom"`: content is pushed to the bottom edge.
+   */
+  verticalAlign?: "top" | "middle" | "bottom";
+  /**
+   * CSS `line-height` multiplier (e.g. 1.2, 1.5, 2.0).
+   * When absent the renderer uses its own default (~1.15–1.2).
+   */
+  lineHeight?: number;
+  /**
+   * Extra space below each paragraph / text block, expressed as a percent of
+   * slide height (the same unit as `fontSize`). Absent → 0.
+   */
+  paragraphSpacing?: number;
   /** Optional hex color override; falls back to the theme color when unset. */
   color?: string;
   /** Optional CSS font-family stack; falls back to the base/theme font. */
@@ -367,6 +384,16 @@ export interface BulletsElement extends BaseElement {
    * Absent / `"auto-height"` preserves the pre-#333 behaviour.
    */
   fitMode?: TextFitMode;
+  /**
+   * Extra vertical gap between bullet items, expressed as a percent of slide
+   * height. Supplements the default `gap` on the list container. Absent → 0.
+   */
+  bulletGap?: number;
+  /**
+   * Extra left indent applied to the entire bullet list, expressed as a
+   * percent of slide width. Absent → 0.
+   */
+  bulletIndent?: number;
 }
 
 export interface VisualElement extends BaseElement {

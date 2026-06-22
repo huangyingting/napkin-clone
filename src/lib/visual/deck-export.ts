@@ -171,6 +171,12 @@ export interface DeckTextOp extends InchBox {
   italic: boolean;
   underline?: boolean;
   align: ElementAlign;
+  /** Vertical alignment of text within its box. */
+  verticalAlign?: "top" | "middle" | "bottom";
+  /** CSS line-height multiplier. */
+  lineHeight?: number;
+  /** Extra space below the text block, in points. */
+  paragraphSpacingPt?: number;
   /** How content that exceeds the box is handled (mirrors `TextFitMode`). */
   fitMode?: TextFitMode;
 }
@@ -192,6 +198,10 @@ export interface DeckBulletsOp extends InchBox {
   bold: boolean;
   italic: boolean;
   align: ElementAlign;
+  /** Vertical alignment of the bullet list within its box. */
+  verticalAlign?: "top" | "middle" | "bottom";
+  /** CSS line-height multiplier. */
+  lineHeight?: number;
   /** How content that exceeds the box is handled (mirrors `TextFitMode`). */
   fitMode?: TextFitMode;
 }
@@ -410,6 +420,20 @@ function buildSlideSpec(
           italic: element.style.italic,
           ...(element.style.underline ? { underline: true } : {}),
           align: element.style.align,
+          ...(element.style.verticalAlign
+            ? { verticalAlign: element.style.verticalAlign }
+            : {}),
+          ...(element.style.lineHeight
+            ? { lineHeight: element.style.lineHeight }
+            : {}),
+          ...(element.style.paragraphSpacing
+            ? {
+                paragraphSpacingPt: fontSizePt(
+                  element.style.paragraphSpacing,
+                  geometry,
+                ),
+              }
+            : {}),
           ...(element.fitMode ? { fitMode: element.fitMode } : {}),
         });
         break;
@@ -428,6 +452,12 @@ function buildSlideSpec(
           italic: element.style.italic,
           ...(element.style.underline ? { underline: true } : {}),
           align: element.style.align,
+          ...(element.style.verticalAlign
+            ? { verticalAlign: element.style.verticalAlign }
+            : {}),
+          ...(element.style.lineHeight
+            ? { lineHeight: element.style.lineHeight }
+            : {}),
           ...(element.fitMode ? { fitMode: element.fitMode } : {}),
         });
         break;
@@ -601,6 +631,12 @@ function runToOptions(run: TextRun): Record<string, unknown> {
 type PptxTextRun = { text: string; options: Record<string, unknown> };
 
 function applyTextOp(slide: PptxSlide, op: DeckTextOp): void {
+  const pptxValign =
+    op.verticalAlign === "top"
+      ? ("top" as const)
+      : op.verticalAlign === "bottom"
+        ? ("bottom" as const)
+        : ("middle" as const);
   const shared = {
     x: op.x,
     y: op.y,
@@ -611,13 +647,15 @@ function applyTextOp(slide: PptxSlide, op: DeckTextOp): void {
     bold: op.bold,
     italic: op.italic,
     align: op.align,
-    valign: "middle" as const,
+    valign: pptxValign,
     wrap: true,
     // `shrinkText: true` instructs PPTX to reduce font size until text fits.
     ...(op.fitMode === "shrink-to-fit" ? { shrinkText: true } : {}),
     ...(op.rotation ? { rotate: op.rotation } : {}),
     ...(op.underline ? { underline: { style: "sng" as const } } : {}),
     ...(op.shadow ? { shadow: SHADOW_OPTS } : {}),
+    ...(op.lineHeight ? { lineSpacing: Math.round(op.lineHeight * 100) } : {}),
+    ...(op.paragraphSpacingPt ? { paraSpaceAfter: op.paragraphSpacingPt } : {}),
   };
 
   if (op.runs && op.runs.length > 0) {
@@ -634,6 +672,12 @@ function applyTextOp(slide: PptxSlide, op: DeckTextOp): void {
 }
 
 function applyBulletsOp(slide: PptxSlide, op: DeckBulletsOp): void {
+  const pptxValign =
+    op.verticalAlign === "top"
+      ? ("top" as const)
+      : op.verticalAlign === "bottom"
+        ? ("bottom" as const)
+        : ("middle" as const);
   const shared = {
     x: op.x,
     y: op.y,
@@ -644,13 +688,14 @@ function applyBulletsOp(slide: PptxSlide, op: DeckBulletsOp): void {
     bold: op.bold,
     italic: op.italic,
     align: op.align,
-    valign: "middle" as const,
+    valign: pptxValign,
     wrap: true,
     // `shrinkText: true` instructs PPTX to reduce font size until text fits.
     ...(op.fitMode === "shrink-to-fit" ? { shrinkText: true } : {}),
     ...(op.rotation ? { rotate: op.rotation } : {}),
     ...(op.underline ? { underline: { style: "sng" as const } } : {}),
     ...(op.shadow ? { shadow: SHADOW_OPTS } : {}),
+    ...(op.lineHeight ? { lineSpacing: Math.round(op.lineHeight * 100) } : {}),
   };
 
   const hasRuns =

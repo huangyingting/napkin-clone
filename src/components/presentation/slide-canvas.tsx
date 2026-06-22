@@ -503,7 +503,12 @@ function TextElementView({
         ...boxStyle(element),
         display: "flex",
         flexDirection: "column",
-        justifyContent: "center",
+        justifyContent:
+          element.style.verticalAlign === "top"
+            ? "flex-start"
+            : element.style.verticalAlign === "bottom"
+              ? "flex-end"
+              : "center",
         textAlign: element.style.align,
         color,
         fontSize: fontSizeCss,
@@ -513,7 +518,7 @@ function TextElementView({
         ...(element.style.fontFamily
           ? { fontFamily: element.style.fontFamily }
           : {}),
-        lineHeight: 1.15,
+        lineHeight: element.style.lineHeight ?? 1.15,
         overflow: "hidden",
       }}
     >
@@ -523,6 +528,9 @@ function TextElementView({
           whiteSpace: "pre-wrap",
           overflowWrap: "break-word",
           wordBreak: "normal",
+          ...(element.style.paragraphSpacing
+            ? { marginBottom: `${element.style.paragraphSpacing}cqh` }
+            : {}),
         }}
       >
         {hasRuns ? renderRuns(element.runs!) : element.text || "\u00a0"}
@@ -555,8 +563,13 @@ function BulletsElementView({
         ...boxStyle(element),
         display: "flex",
         flexDirection: "column",
-        justifyContent: "center",
-        gap: "0.6em",
+        justifyContent:
+          element.style.verticalAlign === "top"
+            ? "flex-start"
+            : element.style.verticalAlign === "bottom"
+              ? "flex-end"
+              : "center",
+        gap: element.bulletGap ? `${element.bulletGap}cqh` : "0.6em",
         color,
         fontSize: fontSizeCss,
         fontWeight: element.style.bold ? 700 : 400,
@@ -566,11 +579,14 @@ function BulletsElementView({
           ? { fontFamily: element.style.fontFamily }
           : {}),
         textAlign: element.style.align,
-        lineHeight: 1.2,
+        lineHeight: element.style.lineHeight ?? 1.2,
         overflow: "hidden",
         margin: 0,
         padding: 0,
         listStyle: "none",
+        ...(element.bulletIndent
+          ? { paddingLeft: `${element.bulletIndent}cqw` }
+          : {}),
       }}
     >
       {element.bullets.map((bullet, i) => {
