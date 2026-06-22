@@ -331,4 +331,3 @@ test("insertableTextElement heading stamps sourceRef when both ids present", () 
   assert.equal(el.role, "body");
   assert.equal(el.style.bold, true);
 });
-

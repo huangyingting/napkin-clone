@@ -82,7 +82,10 @@ test("documentBlockSignature for visuals differs by visualId", () => {
 test("hashDocumentBlock is deterministic: same block always same hash", () => {
   const block = para("Stable text");
   assert.equal(hashDocumentBlock(block), hashDocumentBlock(block));
-  assert.equal(hashDocumentBlock(block), hashDocumentBlock(para("Stable text")));
+  assert.equal(
+    hashDocumentBlock(block),
+    hashDocumentBlock(para("Stable text")),
+  );
 });
 
 test("hashDocumentBlock returns 8-char hex string", () => {
@@ -91,7 +94,10 @@ test("hashDocumentBlock returns 8-char hex string", () => {
 });
 
 test("hashDocumentBlock differs for different text", () => {
-  assert.notEqual(hashDocumentBlock(para("AAA")), hashDocumentBlock(para("BBB")));
+  assert.notEqual(
+    hashDocumentBlock(para("AAA")),
+    hashDocumentBlock(para("BBB")),
+  );
 });
 
 test("hashDocumentBlock differs for heading vs paragraph with same text", () => {

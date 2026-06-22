@@ -202,4 +202,3 @@ export function insertableTextElement(
     ...(sourceRef !== undefined ? { sourceRef } : {}),
   };
 }
-
