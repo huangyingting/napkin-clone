@@ -3,14 +3,21 @@
  *
  * Coverage:
  *  - `isAutoHeight`           — default and explicit modes
+ *  - `textFitPaddingPct`      — text vs bullets padding slack
  *  - `shrinkFontSizeToFit`    — binary-search convergence via mock measurer
+ *  - `fitNewTextElementBox`   — sizing a new element via mock measurer
  */
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { TextLikeElement, TextResizeMeasurer } from "./text-element-fit";
-import { isAutoHeight, shrinkFontSizeToFit } from "./text-element-fit";
+import {
+  fitNewTextElementBox,
+  isAutoHeight,
+  shrinkFontSizeToFit,
+  textFitPaddingPct,
+} from "./text-element-fit";
 
 // ---------------------------------------------------------------------------
 // Minimal element factories
@@ -33,6 +40,16 @@ function textEl(overrides: {
       align: "left",
     },
     ...(overrides.fitMode !== undefined ? { fitMode: overrides.fitMode } : {}),
+  };
+}
+
+function bulletsEl(fontSize = 5): TextLikeElement {
+  return {
+    kind: "bullets",
+    id: "b",
+    box: { x: 10, y: 10, w: 40, h: 20 },
+    bullets: ["one", "two"],
+    style: { fontSize, bold: false, italic: false, align: "left" },
   };
 }
 
@@ -123,4 +140,88 @@ test("shrinkFontSizeToFit converges within 16 iterations", () => {
   // binary search does at most 16+1 calls (1 for the fast path check)
   assert.ok(callCount <= 17, `Expected ≤ 17 measurer calls, got ${callCount}`);
   assert.ok(result > 0 && result <= 8, `Result ${result} out of range`);
+});
+
+// ---------------------------------------------------------------------------
+// textFitPaddingPct
+// ---------------------------------------------------------------------------
+
+test("textFitPaddingPct returns 2×AUTO_FIT_PADDING for text elements", () => {
+  const el = textEl({ fontSize: 5 });
+  // AUTO_FIT_PADDING_PCT = 1.2, so 1.2 * 2 = 2.4 for text elements
+  const result = textFitPaddingPct(el);
+  assert.ok(
+    result >= 2.4 && result <= 2.41,
+    `Expected padding ≈ 2.4, got ${result}`,
+  );
+});
+
+test("textFitPaddingPct adds font-relative slack for bullets elements", () => {
+  const textResult = textFitPaddingPct(textEl({ fontSize: 5 }));
+  const bulletsResult = textFitPaddingPct(bulletsEl(5));
+  assert.ok(
+    bulletsResult > textResult,
+    `Bullets padding ${bulletsResult} should exceed text padding ${textResult}`,
+  );
+});
+
+test("textFitPaddingPct scales bullets slack with fontSize", () => {
+  const small = textFitPaddingPct(bulletsEl(4));
+  const large = textFitPaddingPct(bulletsEl(10));
+  assert.ok(
+    large > small,
+    `Larger font size should produce larger bullets padding (${large} > ${small})`,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// fitNewTextElementBox
+// ---------------------------------------------------------------------------
+
+test("fitNewTextElementBox fits box to measured content dimensions", () => {
+  // mockMeasurer(1): height = fontSize = 5; minWidth = 5; maxWidth = 40
+  const el = textEl({ fontSize: 5 });
+  const box = { x: 10, y: 10, w: 50, h: 30 };
+  const measurer = mockMeasurer(1);
+  const result = fitNewTextElementBox(el, box, measurer);
+  // Width clamped between minWidth(5) and maxContentWidth(40)
+  assert.equal(result.w, 40, `Expected width 40, got ${result.w}`);
+  // Height = measureHeightPct(40, 5) + padding = 5 + 2.4 = 7.4 (≈)
+  assert.ok(result.h > 5 && result.h < 15, `Height ${result.h} out of range`);
+  // top-left anchor: x and y should be unchanged (element fits within slide)
+  assert.equal(result.x, box.x);
+  assert.equal(result.y, box.y);
+});
+
+test("fitNewTextElementBox respects top-left anchor (default)", () => {
+  const el = textEl({ fontSize: 5 });
+  const box = { x: 10, y: 10, w: 50, h: 30 };
+  const measurer = mockMeasurer(1);
+  const result = fitNewTextElementBox(el, box, measurer, "top-left");
+  assert.equal(result.x, box.x);
+  assert.equal(result.y, box.y);
+});
+
+test("fitNewTextElementBox centers element for center anchor", () => {
+  const el = textEl({ fontSize: 5 });
+  const box = { x: 0, y: 0, w: 50, h: 30 };
+  const measurer = mockMeasurer(1);
+  const result = fitNewTextElementBox(el, box, measurer, "center");
+  // Center X of result should equal center X of box
+  const resultCenterX = result.x + result.w / 2;
+  const boxCenterX = box.x + box.w / 2;
+  assert.ok(
+    Math.abs(resultCenterX - boxCenterX) < 0.5,
+    `Center X ${resultCenterX} should be close to box center ${boxCenterX}`,
+  );
+});
+
+test("fitNewTextElementBox clamps to slide boundaries", () => {
+  const el = textEl({ fontSize: 5 });
+  // Box near the right/bottom edge; content may overflow without clamping
+  const box = { x: 70, y: 70, w: 50, h: 30 };
+  const measurer = mockMeasurer(1);
+  const result = fitNewTextElementBox(el, box, measurer);
+  assert.ok(result.x >= 0 && result.x + result.w <= 100, "X out of bounds");
+  assert.ok(result.y >= 0 && result.y + result.h <= 100, "Y out of bounds");
 });

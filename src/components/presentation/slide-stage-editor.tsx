@@ -99,7 +99,9 @@ import {
 } from "@/lib/presentation/connector-geometry";
 import {
   createTextResizeMeasurer,
+  isAutoHeight,
   textFitPaddingPct,
+  type TextLikeElement,
   type TextResizeMeasurer,
 } from "@/lib/presentation/text-element-fit";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
@@ -673,6 +675,9 @@ const HANDLES: {
 const LINE_HANDLES = HANDLES.filter(
   ({ handle }) => handle === "w" || handle === "e",
 );
+
+/** Bottom-edge handles dimmed for auto-height text/bullets (#333). */
+const BOTTOM_HANDLES = new Set<Handle>(["s", "se", "sw"]);
 
 /**
  * Endpoint drag handles for a selected {@link ConnectorElement} (issue #325).
@@ -1418,23 +1423,42 @@ export function SlideStageEditor({
           resized &&
           (resized.kind === "text" || resized.kind === "bullets")
         ) {
-          const { box, fontSize } = resizeTextBox(
-            resized,
-            drag.startBox,
-            drag.startFontSize ?? resized.style.fontSize,
-            drag.mode,
-            rdx,
-            rdy,
-            createTextResizeMeasurer(rect.width, rect.height),
-          );
-          if (fontSize !== resized.style.fontSize) {
+          const isFixed = resized.fitMode === "fixed-box";
+          const isAutoH = isAutoHeight(resized);
+          if (isFixed || (isAutoH && BOTTOM_HANDLES.has(drag.mode))) {
+            // Fixed-box: free box resize (content clips at stored boundary).
+            // Auto-height + bottom handle: user is manually setting the height,
+            // so switch to fixed-box and let the box grow freely (#333).
+            const newBox = clampBox(
+              applyResize(drag.startBox, drag.mode, rdx, rdy),
+            );
             onUpdateElement(
               drag.id,
-              { box, style: { ...resized.style, fontSize } },
+              { box: newBox, ...(isAutoH ? { fitMode: "fixed-box" } : {}) },
               drag.coalesceKey,
             );
           } else {
-            onUpdateElement(drag.id, { box }, drag.coalesceKey);
+            // Auto-height (non-bottom handles) or shrink-to-fit: Canva-style
+            // text resize where font scales with the box and height derives
+            // from content.
+            const { box, fontSize } = resizeTextBox(
+              resized,
+              drag.startBox,
+              drag.startFontSize ?? resized.style.fontSize,
+              drag.mode,
+              rdx,
+              rdy,
+              createTextResizeMeasurer(rect.width, rect.height),
+            );
+            if (fontSize !== resized.style.fontSize) {
+              onUpdateElement(
+                drag.id,
+                { box, style: { ...resized.style, fontSize } },
+                drag.coalesceKey,
+              );
+            } else {
+              onUpdateElement(drag.id, { box }, drag.coalesceKey);
+            }
           }
         } else if (
           resized?.kind === "connector" &&
@@ -2067,19 +2091,29 @@ export function SlideStageEditor({
                   (element.kind === "shape" && element.shape === "line"
                     ? LINE_HANDLES
                     : HANDLES
-                  ).map(({ handle, cursor, style }) => (
-                    <span
-                      key={handle}
-                      onPointerDown={(event) =>
-                        beginDrag(event, element.id, handle, fittedBox)
-                      }
-                      aria-hidden="true"
-                      className="absolute flex h-11 w-11 touch-none items-center justify-center"
-                      style={{ ...style, cursor }}
-                    >
-                      <span className="h-2.5 w-2.5 rounded-full border border-white bg-[#71717a] shadow" />
-                    </span>
-                  ))
+                  ).map(({ handle, cursor, style }) => {
+                    const dimmed =
+                      BOTTOM_HANDLES.has(handle) &&
+                      (element.kind === "text" || element.kind === "bullets") &&
+                      isAutoHeight(element);
+                    return (
+                      <span
+                        key={handle}
+                        onPointerDown={(event) =>
+                          beginDrag(event, element.id, handle, fittedBox)
+                        }
+                        aria-hidden="true"
+                        className="absolute flex h-11 w-11 touch-none items-center justify-center"
+                        style={{ ...style, cursor }}
+                      >
+                        <span
+                          className={`h-2.5 w-2.5 rounded-full border border-white bg-[#71717a] shadow transition-opacity ${
+                            dimmed ? "opacity-40" : ""
+                          }`}
+                        />
+                      </span>
+                    );
+                  })
                 )
               ) : null}
               {showHandles && !isEditing && showAdvanced ? (
@@ -2727,15 +2761,24 @@ function InlineTextEditor({
   const emitChange = useCallback(() => {
     const node = ref.current;
     if (!node) return;
-    // Grow the box height to fit the live content (font size stays fixed) so a
-    // multi-line edit expands the frame instead of clipping. The measured DOM
-    // height is authoritative — more accurate than the static heuristic fit.
-    const heightPct =
-      (node.scrollHeight / stageHeight) * 100 + AUTO_FIT_PADDING_PCT * 2;
-    const box = clampBox({ ...element.box, h: heightPct });
+    // Auto-height mode: grow the box to fit the live content so a multi-line
+    // edit expands the frame instead of clipping. Fixed-box and shrink-to-fit
+    // keep the stored height; content is clipped or scaled by the renderer
+    // (#333). Shapes never auto-grow (they have no fitMode).
+    const autoH = kind !== "shape" && isAutoHeight(element as TextLikeElement);
+    const box = autoH
+      ? clampBox({
+          ...element.box,
+          h: (node.scrollHeight / stageHeight) * 100 + AUTO_FIT_PADDING_PCT * 2,
+        })
+      : element.box;
     const { text, runs } = serializeRichText(node);
     if (kind === "text") {
-      onChange({ text, runs: shouldStoreRuns(runs) ? runs : undefined, box });
+      onChange({
+        text,
+        runs: shouldStoreRuns(runs) ? runs : undefined,
+        ...(autoH ? { box } : {}),
+      });
       return;
     }
     if (kind === "shape") {
@@ -2758,7 +2801,7 @@ function InlineTextEditor({
     onChange({
       bullets: lines.map((line) => line.text),
       bulletRuns: hasRichBullets ? lines.map((line) => line.runs) : undefined,
-      box,
+      ...(autoH ? { box } : {}),
     });
   }, [kind, onChange, stageHeight, element]);
 
