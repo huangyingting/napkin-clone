@@ -612,3 +612,76 @@ test("safeParseDeck rejects an invalid fitMode on a bullets element", () => {
   const result = safeParseDeck(bulletsElementWithFitMode(42));
   assert.equal(result.success, false);
 });
+
+// ---------------------------------------------------------------------------
+// Layer metadata — hidden and name (issue #331)
+// ---------------------------------------------------------------------------
+
+function elementWithMetadata(extra: Record<string, unknown>) {
+  return elementDeck([
+    {
+      id: "m",
+      kind: "text",
+      role: "body",
+      text: "meta",
+      zIndex: 0,
+      box: { x: 0, y: 0, w: 10, h: 10 },
+      style: { fontSize: 4, bold: false, italic: false, align: "left" },
+      ...extra,
+    },
+  ]);
+}
+
+test("safeParseDeck round-trips hidden=true on a slide element", () => {
+  const result = safeParseDeck(elementWithMetadata({ hidden: true }));
+  assert.equal(result.success, true);
+  if (result.success) {
+    const el = result.data.slides[0].elements?.[0];
+    assert.equal(el?.hidden, true);
+  }
+});
+
+test("safeParseDeck round-trips hidden=false on a slide element", () => {
+  const result = safeParseDeck(elementWithMetadata({ hidden: false }));
+  assert.equal(result.success, true);
+  if (result.success) {
+    const el = result.data.slides[0].elements?.[0];
+    assert.equal(el?.hidden, false);
+  }
+});
+
+test("safeParseDeck omits hidden when absent on a slide element", () => {
+  const result = safeParseDeck(elementWithMetadata({}));
+  assert.equal(result.success, true);
+  if (result.success) {
+    const el = result.data.slides[0].elements?.[0];
+    assert.equal(el?.hidden, undefined);
+  }
+});
+
+test("safeParseDeck round-trips a non-empty name on a slide element", () => {
+  const result = safeParseDeck(elementWithMetadata({ name: "My Layer" }));
+  assert.equal(result.success, true);
+  if (result.success) {
+    const el = result.data.slides[0].elements?.[0];
+    assert.equal(el?.name, "My Layer");
+  }
+});
+
+test("safeParseDeck omits name when absent on a slide element", () => {
+  const result = safeParseDeck(elementWithMetadata({}));
+  assert.equal(result.success, true);
+  if (result.success) {
+    const el = result.data.slides[0].elements?.[0];
+    assert.equal(el?.name, undefined);
+  }
+});
+
+test("safeParseDeck omits name when empty string on a slide element", () => {
+  const result = safeParseDeck(elementWithMetadata({ name: "" }));
+  assert.equal(result.success, true);
+  if (result.success) {
+    const el = result.data.slides[0].elements?.[0];
+    assert.equal(el?.name, undefined);
+  }
+});

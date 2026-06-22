@@ -307,6 +307,10 @@ function validateElement(input: unknown, context: string): SlideElement {
       : {}),
     ...(input.shadow !== undefined ? { shadow: Boolean(input.shadow) } : {}),
     ...(input.locked !== undefined ? { locked: Boolean(input.locked) } : {}),
+    ...(input.hidden !== undefined ? { hidden: Boolean(input.hidden) } : {}),
+    ...(typeof input.name === "string" && input.name.length > 0
+      ? { name: input.name }
+      : {}),
     ...(typeof input.groupId === "string" && input.groupId.length > 0
       ? { groupId: input.groupId }
       : {}),
