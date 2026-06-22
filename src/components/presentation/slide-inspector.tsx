@@ -940,6 +940,28 @@ function ElementEditor({
               const hasRichBullets = lines.some((line) =>
                 shouldStoreRuns(line.runs),
               );
+              // Co-update items[] when it is the authoritative source so that
+              // normalizeBulletItems doesn't shadow the text edit.  We preserve
+              // each item's indent/listType by index; indices beyond the
+              // existing length (newly added lines) get no metadata.
+              const existingItems = element.items;
+              const updatedItems: BulletItem[] | undefined = existingItems
+                ? lines.map((line, i) => {
+                    const prev = existingItems[i];
+                    return {
+                      text: line.text,
+                      ...(shouldStoreRuns(line.runs)
+                        ? { runs: line.runs }
+                        : {}),
+                      ...(prev?.indent !== undefined
+                        ? { indent: prev.indent }
+                        : {}),
+                      ...(prev?.listType !== undefined
+                        ? { listType: prev.listType }
+                        : {}),
+                    };
+                  })
+                : undefined;
               onUpdateElement(
                 element.id,
                 {
@@ -947,6 +969,9 @@ function ElementEditor({
                   bulletRuns: hasRichBullets
                     ? lines.map((line) => line.runs)
                     : undefined,
+                  ...(updatedItems !== undefined
+                    ? { items: updatedItems }
+                    : {}),
                 },
                 coalesceKey,
               );
