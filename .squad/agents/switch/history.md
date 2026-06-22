@@ -91,3 +91,7 @@ Ralph processed open board; Switch shipped remaining acceptance criterion for #8
 ## 2026-06-21T20:35:42+08:00 — Slides editing review backlog
 
 Slides editing review produced epic #199 and child issues #200–#214. Switch owns #200 (undo/redo), #201 (auto-materialize/remove gate), #202 (insert+restyle document visuals), #208 (save-status/autosave/close guard), #209 (responsive/touch editor), and #212 (thumbnail rail polish).
+
+## 2026-06-22T15:47:18+08:00 — Slides review + #293 "From document" panel
+
+Frontend impl review (8 HIGH issues → #304–#307); immediately implemented #293 "From document" quick-insert panel (11 tests, commit af4d248, PR #308).

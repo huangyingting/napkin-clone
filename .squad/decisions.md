@@ -1876,3 +1876,18 @@ main is green (typecheck clean, 710 tests pass, build green, format:check clean)
 - **P2:** #212 thumbnail rail hover/titles/shortcuts (Switch); #213 schema hygiene: SSR-safe IDs + legacy→free-form migration (Tank); #214 regression tests for editor/sync/export (Ghost).
 
 **Dedup notes:** ~33 reviewer ideas were merged into 15 issues. Undo/redo → #200; materialization gate → #201; document visual insertion + restyle dead-end → #202; deck→PPTX + export fidelity + element assembly → #203; orphan visuals + version restore inconsistency → #204; sync button + staleness tracking → #205; color/style unification → #207; save status + autosave/close guard → #208; responsive/touch + reorder/present swipe → #209; SSR-safe IDs + migration docs → #213; test additions → #214. Deferred/out-of-scope for now: PPTX-import fidelity, image URL→file picker, and `useDeckEditor`/context refactor unless they block the above.
+
+---
+
+### 2026-06-22T15:47:18+08:00: Slides "lite Canva" editor — three-lens review → epic #292 (#293–#307)
+**By:** Scribe, from Trinity / Mouse / Switch reviews + Switch-1 implementation
+
+**Trinity (Architecture/Code-Health):** Balance inverted — free-form over-built, document-leverage under-built. P0: inline-image client cap (5MB/12MB) vs server deckJson cap (500KB) → silent autosave failures; background images bypass total-budget check; doc→deck link is weakest subsystem; dual-track `Slide` pays cost with no runtime benefit beyond hashing/merge. Issues: #302–#303 (data-integrity), #293–#297 (doc-leverage), #307 (tech-debt).
+
+**Mouse (UX):** Document visuals buried ≥2 clicks deep; no document-TEXT reuse at all; blank canvas has no affordance; image-insert requires two surfaces; rich keyboard model undiscoverable; three competing text-edit surfaces; power features always-on with no progressive disclosure. Recommendation: "From document" rail (text + visuals, click-to-insert, "Add all") + on-canvas empty-state + Simple/Advanced disclosure split. Issues: #293–#297, #298–#301.
+
+**Switch (Frontend Impl):** P0 perf: rAF-throttle `handlePointerMove` + memo `SlideCanvas` + stable slide IDs; 60Hz keyboard-listener churn; undo-stack flooding from notes/inspector. P0 a11y: modal focus-trap + initial focus; context-menu `role="menuitem"`; inspector tab pattern. P1 robustness: `setPointerCapture` on drag start; `execCommand` deprecation. Structural: three mega-files, two text-pipeline duplications, `window.confirm` usage. Issues: #304 (perf), #305 (a11y), #306 (robustness), #307 (tech-debt).
+
+**Resulting issues:** Epic **#292**; doc-leverage **#293–#297**; quick-edit UX **#298–#301**; data-integrity **#302–#303**; frontend perf/a11y/robustness **#304–#306**; tech-debt **#307**. Label: `area:slides`.
+
+**Implementation (Switch-1):** Implemented #293 "From document" quick-insert panel (document text blocks + visuals, click-to-insert, "Add all visuals") + new pure module `src/lib/presentation/document-insertable.ts` (11 tests). Commit `af4d248` on branch `squad/293-from-document-panel`. 1797 tests pass; typecheck + lint green. PR #308 opened.

@@ -26,3 +26,7 @@ Ran live browser walkthrough of the running app (port 4000) post-phases 0–3. E
 ## 2026-06-21T20:35:42+08:00 — Slides editing review backlog
 
 Slides editing review produced epic #199 and child issues #200–#214. Trinity owns #205 (doc↔deck merge-sync + staleness) and authored the cross-discipline balance narrative for the backlog.
+
+## 2026-06-22T15:47:18+08:00 — Slides architecture review → epic #292
+
+Architecture review: balance inverted (free-form over-built, doc-leverage under-built); P0 image-budget/server-cap mismatch; epic #292 and child issues #293–#307 created.
