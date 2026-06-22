@@ -151,6 +151,7 @@ import {
 import { deriveSlideTitle } from "@/lib/presentation/slide-title";
 import { reorderTargetIndex } from "@/lib/presentation/slide-reorder";
 import { useDeckHistory } from "@/lib/presentation/use-deck-history";
+import { useImageUpload } from "@/lib/presentation/use-image-upload";
 import {
   buildInsertables,
   insertableTextElement,
@@ -365,6 +366,13 @@ export function SlideEditor({
   } | null>(null);
   // In-memory element clipboard for copy / cut / paste (within & across slides).
   const clipboardRef = useRef<SlideElement[] | null>(null);
+  // Hidden file input for the Insert ▸ Image one-step picker flow (#299).
+  const insertImageFileInputRef = useRef<HTMLInputElement>(null);
+  // Element ID of the pending Insert ▸ Image pick session. Cleared by onAccept
+  // (file chosen) and onError (validation failure) so the cancel-fallback
+  // knows whether to insert the empty placeholder.
+  const insertImagePendingIdRef = useRef<string | null>(null);
+  const [insertImageError, setInsertImageError] = useState<string | null>(null);
   // Keydown handler state ref — deck and selection values read by the global
   // keydown listener are kept in a ref updated each render so the listener can
   // subscribe ONCE (empty stable deps) and always read the latest state without
@@ -1280,8 +1288,87 @@ export function SlideEditor({
     onDeckChange(materializeSlide(deck, safeSelected));
   }, [deck, onDeckChange, safeSelected]);
 
+  // Insert ▸ Image: accept callback for the shared upload hook (#299).
+  const handleInsertImageAccept = useCallback(
+    (dataUrl: string) => {
+      const id = insertImagePendingIdRef.current;
+      if (!id) return;
+      insertImagePendingIdRef.current = null;
+      const element = {
+        ...buildDefaultElement("image", accentForSelected, id),
+        src: dataUrl,
+      };
+      onDeckChange(addElement(deck, safeSelected, element));
+      handleSelectElement(id);
+      setInsertImageError(null);
+      setInsertMenuOpen(false);
+    },
+    [accentForSelected, deck, handleSelectElement, onDeckChange, safeSelected],
+  );
+
+  const { handleFile: handleInsertImageFile } = useImageUpload({
+    deck,
+    currentSrc: "",
+    onAccept: handleInsertImageAccept,
+    onError: (message) => {
+      // Validation failure — suppress the cancel-fallback and surface the error.
+      insertImagePendingIdRef.current = null;
+      setInsertImageError(message);
+    },
+  });
+
   const handleAddElement = useCallback(
     (kind: AddElementKind, shapeKind?: ShapeKind) => {
+      if (kind === "image") {
+        const id = makeElementId();
+        insertImagePendingIdRef.current = id;
+        setInsertImageError(null);
+
+        const input = insertImageFileInputRef.current;
+        if (!input) {
+          // No input ref yet (rare); fall back to empty placeholder.
+          const element = buildDefaultElement("image", accentForSelected, id);
+          onDeckChange(addElement(deck, safeSelected, element));
+          handleSelectElement(id);
+          setInsertMenuOpen(false);
+          return;
+        }
+
+        // Insert empty placeholder when the user dismisses the picker without
+        // choosing a file. Two mechanisms for cross-browser coverage:
+        //   1. `cancel` event (Chrome 113+, Firefox 91+, Safari 16.4+)
+        //   2. window `focus` + 300 ms grace period (older browsers)
+        // The idempotency guard on `insertImagePendingIdRef.current === id`
+        // ensures only one path runs even when both fire.
+        const doFallback = () => {
+          if (insertImagePendingIdRef.current !== id) return;
+          insertImagePendingIdRef.current = null;
+          const element = buildDefaultElement("image", accentForSelected, id);
+          onDeckChange(addElement(deck, safeSelected, element));
+          handleSelectElement(id);
+          setInsertMenuOpen(false);
+        };
+
+        const handleCancel = () => {
+          input.removeEventListener("cancel", handleCancel);
+          window.removeEventListener("focus", handleWindowFocus);
+          doFallback();
+        };
+
+        const handleWindowFocus = () => {
+          window.removeEventListener("focus", handleWindowFocus);
+          setTimeout(() => {
+            input.removeEventListener("cancel", handleCancel);
+            doFallback();
+          }, 300);
+        };
+
+        input.addEventListener("cancel", handleCancel);
+        window.addEventListener("focus", handleWindowFocus);
+        input.click();
+        return;
+      }
+
       const id = makeElementId();
       const element = buildDefaultElement(
         kind,
@@ -1458,6 +1545,17 @@ export function SlideEditor({
       aria-label="Slide editor"
       className="fixed inset-0 z-modal flex flex-col bg-ds-surface-base"
     >
+      {/* Hidden file input for Insert ▸ Image one-step picker (#299). */}
+      <input
+        ref={insertImageFileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(event) => {
+          handleInsertImageFile(event.target.files?.[0]);
+          event.target.value = "";
+        }}
+      />
       {/* ── Top bar ─────────────────────────────────────────────────────── */}
       <header className="flex items-center gap-2 border-b border-ds-border-subtle px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
@@ -1559,6 +1657,11 @@ export function SlideEditor({
                   onClick={() => handleAddElement("shape", "line")}
                 />
               </div>
+              {insertImageError ? (
+                <p role="alert" className="mt-1 text-xs text-ds-danger-text">
+                  {insertImageError}
+                </p>
+              ) : null}
               <div className="mt-2 border-t border-ds-border-subtle pt-2">
                 {visualPickerOpen ? (
                   <VisualPicker
