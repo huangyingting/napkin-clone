@@ -18,13 +18,28 @@
  */
 
 import {
+  AlignCenterHorizontal,
+  AlignCenterVertical,
+  AlignEndHorizontal,
+  AlignEndVertical,
+  AlignHorizontalSpaceBetween,
+  AlignStartHorizontal,
+  AlignStartVertical,
+  AlignVerticalSpaceBetween,
   ArrowDownToLine,
   ArrowUpToLine,
   Bold,
+  BringToFront,
   ChevronDown,
   Copy,
+  Expand,
   Italic,
   Link2Off,
+  MoveHorizontal,
+  MoveVertical,
+  SendToBack,
+  StepBack,
+  StepForward,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -49,6 +64,12 @@ import type {
   TextRun,
 } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
+import type {
+  AlignMode,
+  DistributeMode,
+  MatchSizeMode,
+} from "@/lib/presentation/element-align";
+import type { ArrangeMode } from "@/lib/presentation/element-arrange";
 import { detachConnectorEndpoint } from "@/lib/presentation/connector-lifecycle";
 import {
   canAddImage,
@@ -142,6 +163,12 @@ export interface SlideInspectorProps {
   onDuplicateElement: (id: string) => void;
   onBringToFront: (id: string) => void;
   onSendToBack: (id: string) => void;
+  // Multi-select operations (visible when 2+ elements selected, issue #328)
+  selectedElementIds?: ReadonlySet<string>;
+  onAlign?: (ids: string[], mode: AlignMode) => void;
+  onDistribute?: (ids: string[], mode: DistributeMode) => void;
+  onMatchSize?: (ids: string[], mode: MatchSizeMode) => void;
+  onArrange?: (ids: string[], mode: ArrangeMode) => void;
   // Style
   onBackgroundChange: (color: string | undefined) => void;
   onBackgroundGradientChange: (
@@ -1323,12 +1350,213 @@ function CollapsibleSection({
   );
 }
 
+/** Small icon-button used inside the multi-select tools grid. */
+function ToolBtn({
+  label,
+  onClick,
+  disabled = false,
+  disabledReason,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  disabledReason?: string;
+  children: React.ReactNode;
+}) {
+  const btn = (
+    <button
+      type="button"
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`}
+    >
+      {children}
+    </button>
+  );
+  if (!disabled) {
+    return (
+      <Tooltip label={label} side="bottom">
+        {btn}
+      </Tooltip>
+    );
+  }
+  return (
+    <Tooltip label={disabledReason ?? label} side="bottom">
+      {btn}
+    </Tooltip>
+  );
+}
+
+/**
+ * Inline tool-group row shown inside the multi-select tools panel.
+ * Renders a label and a horizontal row of icon buttons.
+ */
+function ToolRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-xs text-ds-text-muted">{label}</span>
+      <div className="flex items-center gap-0.5">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * Multi-select tools panel (issue #328).
+ * Shown when 2+ elements are selected. Provides align, distribute, match-size,
+ * and arrange operations. All operations are undoable as one history step.
+ */
+function MultiSelectTools({
+  selectedIds,
+  onAlign,
+  onDistribute,
+  onMatchSize,
+  onArrange,
+}: {
+  selectedIds: string[];
+  onAlign?: (ids: string[], mode: AlignMode) => void;
+  onDistribute?: (ids: string[], mode: DistributeMode) => void;
+  onMatchSize?: (ids: string[], mode: MatchSizeMode) => void;
+  onArrange?: (ids: string[], mode: ArrangeMode) => void;
+}) {
+  const count = selectedIds.length;
+  const canDistribute = count >= 3;
+  const distributeDisabledReason = "Need 3+ elements to distribute";
+
+  return (
+    <div className="mt-2 border-t border-ds-border-subtle pt-3">
+      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ds-text-muted">
+        {count} elements selected
+      </p>
+      <div className="flex flex-col gap-2">
+        {/* Align */}
+        <ToolRow label="Align">
+          <ToolBtn
+            label="Align left"
+            onClick={() => onAlign?.(selectedIds, "left")}
+          >
+            <AlignStartHorizontal size={14} aria-hidden="true" />
+          </ToolBtn>
+          <ToolBtn
+            label="Align center"
+            onClick={() => onAlign?.(selectedIds, "hcenter")}
+          >
+            <AlignCenterHorizontal size={14} aria-hidden="true" />
+          </ToolBtn>
+          <ToolBtn
+            label="Align right"
+            onClick={() => onAlign?.(selectedIds, "right")}
+          >
+            <AlignEndHorizontal size={14} aria-hidden="true" />
+          </ToolBtn>
+          <ToolBtn
+            label="Align top"
+            onClick={() => onAlign?.(selectedIds, "top")}
+          >
+            <AlignStartVertical size={14} aria-hidden="true" />
+          </ToolBtn>
+          <ToolBtn
+            label="Align middle"
+            onClick={() => onAlign?.(selectedIds, "vmiddle")}
+          >
+            <AlignCenterVertical size={14} aria-hidden="true" />
+          </ToolBtn>
+          <ToolBtn
+            label="Align bottom"
+            onClick={() => onAlign?.(selectedIds, "bottom")}
+          >
+            <AlignEndVertical size={14} aria-hidden="true" />
+          </ToolBtn>
+        </ToolRow>
+
+        {/* Distribute */}
+        <ToolRow label="Distribute">
+          <ToolBtn
+            label="Distribute horizontally"
+            disabled={!canDistribute}
+            disabledReason={distributeDisabledReason}
+            onClick={() => onDistribute?.(selectedIds, "horizontal")}
+          >
+            <AlignHorizontalSpaceBetween size={14} aria-hidden="true" />
+          </ToolBtn>
+          <ToolBtn
+            label="Distribute vertically"
+            disabled={!canDistribute}
+            disabledReason={distributeDisabledReason}
+            onClick={() => onDistribute?.(selectedIds, "vertical")}
+          >
+            <AlignVerticalSpaceBetween size={14} aria-hidden="true" />
+          </ToolBtn>
+        </ToolRow>
+
+        {/* Match size */}
+        <ToolRow label="Match size">
+          <ToolBtn
+            label="Match width"
+            onClick={() => onMatchSize?.(selectedIds, "width")}
+          >
+            <MoveHorizontal size={14} aria-hidden="true" />
+          </ToolBtn>
+          <ToolBtn
+            label="Match height"
+            onClick={() => onMatchSize?.(selectedIds, "height")}
+          >
+            <MoveVertical size={14} aria-hidden="true" />
+          </ToolBtn>
+          <ToolBtn
+            label="Match width & height"
+            onClick={() => onMatchSize?.(selectedIds, "both")}
+          >
+            <Expand size={14} aria-hidden="true" />
+          </ToolBtn>
+        </ToolRow>
+
+        {/* Arrange */}
+        <ToolRow label="Arrange">
+          <ToolBtn
+            label="Send to back"
+            onClick={() => onArrange?.(selectedIds, "back")}
+          >
+            <SendToBack size={14} aria-hidden="true" />
+          </ToolBtn>
+          <ToolBtn
+            label="Send backward"
+            onClick={() => onArrange?.(selectedIds, "backward")}
+          >
+            <StepBack size={14} aria-hidden="true" />
+          </ToolBtn>
+          <ToolBtn
+            label="Bring forward"
+            onClick={() => onArrange?.(selectedIds, "forward")}
+          >
+            <StepForward size={14} aria-hidden="true" />
+          </ToolBtn>
+          <ToolBtn
+            label="Bring to front"
+            onClick={() => onArrange?.(selectedIds, "front")}
+          >
+            <BringToFront size={14} aria-hidden="true" />
+          </ToolBtn>
+        </ToolRow>
+      </div>
+    </div>
+  );
+}
+
 export function SlideInspector({
   slide,
   slideIndex,
   deck,
   visuals,
   selectedElementId,
+  selectedElementIds,
   onSelectElement,
   canDelete,
   onDuplicateSlide,
@@ -1342,6 +1570,10 @@ export function SlideInspector({
   onDuplicateElement,
   onBringToFront,
   onSendToBack,
+  onAlign,
+  onDistribute,
+  onMatchSize,
+  onArrange,
   onBackgroundChange,
   onBackgroundGradientChange,
   onBackgroundImageChange,
@@ -1559,6 +1791,17 @@ export function SlideInspector({
                 </div>
 
                 {/* Selected element editor */}
+                {/* Multi-select tools panel (issue #328) */}
+                {selectedElementIds && selectedElementIds.size >= 2 ? (
+                  <MultiSelectTools
+                    selectedIds={[...selectedElementIds]}
+                    onAlign={onAlign}
+                    onDistribute={onDistribute}
+                    onMatchSize={onMatchSize}
+                    onArrange={onArrange}
+                  />
+                ) : null}
+
                 {selectedElement ? (
                   <div className="border-t border-ds-border-subtle pt-3">
                     <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ds-text-muted">
