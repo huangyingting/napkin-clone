@@ -243,6 +243,21 @@ test("validateSourceRef rejects invalid source link metadata", () => {
   );
 });
 
+test("validateSourceRef rejects empty documentId", () => {
+  assert.throws(
+    () =>
+      validateSourceRef(
+        {
+          documentId: "",
+          blockId: "block-1",
+          linkedAt: "2026-06-22T17:49:04.676Z",
+        },
+        "sourceRef",
+      ),
+    /sourceRef\.documentId must be a non-empty string/,
+  );
+});
+
 test("safeParseDeck rejects an element with an invalid sourceRef", () => {
   const result = safeParseDeck(
     elementDeck([
@@ -286,6 +301,24 @@ test("unlinkSource marks an element as intentionally unlinked", () => {
     unlinked: true,
   });
   assert.equal(isSourceLinked(unlinked), false);
+});
+
+test("unlinkSource returns same object identity when element has no sourceRef", () => {
+  const element: TextElement = {
+    id: "no-source",
+    kind: "text",
+    role: "body",
+    text: "No source",
+    zIndex: 0,
+    box: { x: 0, y: 0, w: 10, h: 5 },
+    style: { fontSize: 4, bold: false, italic: false, align: "left" },
+  };
+  assert.strictEqual(unlinkSource(element), element);
+});
+
+test("unlinkSource returns same object identity when sourceRef.unlinked is already true", () => {
+  const element = sourceLinkedTextElement(makeSourceRef({ unlinked: true }));
+  assert.strictEqual(unlinkSource(element), element);
 });
 
 test("relinkSource restores an active source link", () => {
