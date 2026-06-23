@@ -2,7 +2,7 @@
 
 **Status:** Accepted  
 **Date:** 2026-06-23  
-**Issue:** #438 / Epic #436 — Cross-surface command bus for document visuals and deck artifacts  
+**Issue:** #438 / Epic #436 — Cross-surface command envelope for document visuals and deck artifacts  
 **Authors:** Switch (Frontend Dev)
 
 ---
@@ -200,6 +200,16 @@ Server validation layers add context-aware checks such as:
 - target existence,
 - optimistic revision conflicts,
 - future schema rejection (`schemaVersion > CURRENT_COMMAND_SCHEMA_VERSION`).
+
+For the deck-command write path these checks are implemented by
+`acceptDeckCommandEnvelope()` (in `command-envelope.ts`), which layers
+schema-version, target-surface (`deck`), and target-document checks on top of
+`validateCommandEnvelope()` and returns a stable `EnvelopeRejectionCode`
+(`malformed` | `unsupported_schema_version` | `wrong_target` | `wrong_document`).
+The `saveDeckCommand` server action calls it before executing the command and
+persisting under the revision-token CAS (`target.expectedRevision`). Stale
+revisions stay an optimistic-lock (CAS) concern in the persistence layer, not a
+structural validation error.
 
 ---
 

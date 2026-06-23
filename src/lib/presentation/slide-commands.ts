@@ -46,6 +46,8 @@ import type {
   SlideElement,
   SlideLayout as ReusableSlideLayout,
   SlideLayoutHint,
+  SourceRef,
+  TextRun,
 } from "./deck";
 import type { DistributiveOmit, ElementPatch } from "./deck-mutations";
 import type { AlignMode, DistributeMode, MatchSizeMode } from "./element-align";
@@ -91,6 +93,7 @@ import {
 } from "./deck-mutations";
 import type { SlideFormat } from "./slide-format";
 import { CURRENT_DECK_SCHEMA_VERSION } from "./deck";
+import { relinkSource, unlinkSource } from "./deck";
 
 // ---------------------------------------------------------------------------
 // Command types
@@ -481,6 +484,80 @@ export interface SetSlideAccentCommand {
   commandId?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Epic #494 — source-ref deck commands
+//
+// Source-link refresh / unlink / relink / orphan-removal used to happen as
+// ad-hoc UPDATE_ELEMENT / REMOVE_ELEMENT mutations built in the editor UI.
+// These dedicated commands own the source-ref semantics in the pure executor
+// so every source action flows through the shared `commitCommand` path, emits
+// validated `DeckPatch` records, and preserves geometry/style/z-order plus all
+// other element fields (only `sourceRef`, and — for text refresh — `text`/`runs`
+// are touched). Stale/orphaned links remain user-visible and are never
+// auto-deleted; removal is an explicit user action.
+// ---------------------------------------------------------------------------
+
+/**
+ * Refreshes an element's content/source link from its (now-fresh) source block.
+ *
+ * The caller resolves the fresh content from the live document (the deck has no
+ * document context) and supplies the rebuilt `sourceRef`. For text elements the
+ * refreshed `text` (and optional `runs`) are applied alongside the ref; visual
+ * elements only update the `sourceRef`. The target element must already carry a
+ * `sourceRef`.
+ */
+export interface RefreshElementFromSourceCommand {
+  type: "REFRESH_ELEMENT_FROM_SOURCE";
+  slideId: string;
+  elementId: string;
+  /** Fresh active source ref reflecting the current source block content. */
+  sourceRef: SourceRef;
+  /** For text elements: refreshed text content from the source block. */
+  text?: string;
+  /** For text elements: refreshed inline runs (omit to leave runs unchanged). */
+  runs?: TextRun[];
+  commandId?: string;
+}
+
+/**
+ * Marks an element's source link as intentionally broken (manual content). The
+ * element and all of its geometry/style are kept; only `sourceRef.unlinked` is
+ * set. The target element must already carry a `sourceRef`.
+ */
+export interface UnlinkElementSourceCommand {
+  type: "UNLINK_ELEMENT_SOURCE";
+  slideId: string;
+  elementId: string;
+  commandId?: string;
+}
+
+/**
+ * Repoints an element's source link at a different document block. The caller
+ * supplies the new active `sourceRef`; the element keeps its geometry/style and
+ * (for visuals) its current `visualId`. The target element must already carry a
+ * `sourceRef`.
+ */
+export interface RelinkElementSourceCommand {
+  type: "RELINK_ELEMENT_SOURCE";
+  slideId: string;
+  elementId: string;
+  /** New active source ref pointing at the relink target block. */
+  sourceRef: SourceRef;
+  commandId?: string;
+}
+
+/**
+ * Removes an orphaned source-linked element from a slide. Only ever invoked
+ * explicitly by the user for elements whose source block is missing; stale
+ * links are never auto-removed.
+ */
+export interface RemoveSourceElementCommand {
+  type: "REMOVE_SOURCE_ELEMENT";
+  slideId: string;
+  elementId: string;
+  commandId?: string;
+}
+
 /** Discriminated union of all supported slide commands. */
 export type SlideCommand =
   // Original commands
@@ -527,7 +604,12 @@ export type SlideCommand =
   | SetSlideBackgroundGradientCommand
   | SetSlideBackgroundImageCommand
   | SetSlideBackgroundAssetCommand
-  | SetSlideAccentCommand;
+  | SetSlideAccentCommand
+  // #494 — source-ref deck commands
+  | RefreshElementFromSourceCommand
+  | UnlinkElementSourceCommand
+  | RelinkElementSourceCommand
+  | RemoveSourceElementCommand;
 
 // ---------------------------------------------------------------------------
 // Issue #401 — Domain patch representation
@@ -1488,6 +1570,120 @@ export function executeCommand(deck: Deck, cmd: SlideCommand): CommandResult {
         [
           makePatch("slide.set_accent", [cmd.slideId], [], {
             slideFields: fields,
+          }),
+        ],
+      );
+    }
+
+    // ── #494 — source-ref deck commands ────────────────────────────────────
+
+    case "REFRESH_ELEMENT_FROM_SOURCE": {
+      const index = findSlideIndex(deck, cmd.slideId);
+      if (index === -1) return failure(deck, `Slide not found: ${cmd.slideId}`);
+      const element = deck.slides[index]!.elements?.find(
+        (e) => e.id === cmd.elementId,
+      );
+      if (!element) {
+        return failure(deck, `Element not found: ${cmd.elementId}`);
+      }
+      if (element.sourceRef === undefined) {
+        return failure(deck, `Element has no source link: ${cmd.elementId}`);
+      }
+      // Refreshing re-activates the link: strip any unlinked flag so the
+      // persisted patch carries no `undefined` values (DeckPatch invariant).
+      const { unlinked: _unlinked, ...activeRef } = cmd.sourceRef;
+      const sourceRef: SourceRef = activeRef;
+      const patch: ElementPatch =
+        element.kind === "text"
+          ? {
+              text: cmd.text ?? element.text,
+              ...(cmd.runs !== undefined ? { runs: cmd.runs } : {}),
+              sourceRef,
+            }
+          : { sourceRef };
+      return success(
+        updateElement(deck, index, cmd.elementId, patch),
+        [cmd.slideId],
+        [cmd.elementId],
+        undefined,
+        [
+          makePatch("element.update", [cmd.slideId], [cmd.elementId], {
+            elementFields: { [cmd.elementId]: patch },
+          }),
+        ],
+      );
+    }
+
+    case "UNLINK_ELEMENT_SOURCE": {
+      const index = findSlideIndex(deck, cmd.slideId);
+      if (index === -1) return failure(deck, `Slide not found: ${cmd.slideId}`);
+      const element = deck.slides[index]!.elements?.find(
+        (e) => e.id === cmd.elementId,
+      );
+      if (!element) {
+        return failure(deck, `Element not found: ${cmd.elementId}`);
+      }
+      if (element.sourceRef === undefined) {
+        return failure(deck, `Element has no source link: ${cmd.elementId}`);
+      }
+      const patch: ElementPatch = {
+        sourceRef: unlinkSource(element).sourceRef,
+      };
+      return success(
+        updateElement(deck, index, cmd.elementId, patch),
+        [cmd.slideId],
+        [cmd.elementId],
+        undefined,
+        [
+          makePatch("element.update", [cmd.slideId], [cmd.elementId], {
+            elementFields: { [cmd.elementId]: patch },
+          }),
+        ],
+      );
+    }
+
+    case "RELINK_ELEMENT_SOURCE": {
+      const index = findSlideIndex(deck, cmd.slideId);
+      if (index === -1) return failure(deck, `Slide not found: ${cmd.slideId}`);
+      const element = deck.slides[index]!.elements?.find(
+        (e) => e.id === cmd.elementId,
+      );
+      if (!element) {
+        return failure(deck, `Element not found: ${cmd.elementId}`);
+      }
+      if (element.sourceRef === undefined) {
+        return failure(deck, `Element has no source link: ${cmd.elementId}`);
+      }
+      const patch: ElementPatch = {
+        sourceRef: relinkSource(element, cmd.sourceRef).sourceRef,
+      };
+      return success(
+        updateElement(deck, index, cmd.elementId, patch),
+        [cmd.slideId],
+        [cmd.elementId],
+        undefined,
+        [
+          makePatch("element.update", [cmd.slideId], [cmd.elementId], {
+            elementFields: { [cmd.elementId]: patch },
+          }),
+        ],
+      );
+    }
+
+    case "REMOVE_SOURCE_ELEMENT": {
+      const index = findSlideIndex(deck, cmd.slideId);
+      if (index === -1) return failure(deck, `Slide not found: ${cmd.slideId}`);
+      if (!deck.slides[index]!.elements?.some((e) => e.id === cmd.elementId)) {
+        return failure(deck, `Element not found: ${cmd.elementId}`);
+      }
+      return success(
+        removeElement(deck, index, cmd.elementId),
+        [cmd.slideId],
+        [cmd.elementId],
+        undefined,
+        [
+          makePatch("element.remove", [cmd.slideId], [cmd.elementId], {
+            removedIds: [cmd.elementId],
           }),
         ],
       );

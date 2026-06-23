@@ -76,7 +76,7 @@ The following subsystems have dedicated test files that must stay green:
 | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Block identity (#430)                | `src/lib/lexical/block-id.test.ts`                                                                                                                                                      |
 | Visual mirror diff (#448)            | `src/lib/visual/mirror-diff.test.ts`, `mirror-repair.test.ts`                                                                                                                           |
-| Command bus (#436)                   | `src/lib/commands/`, `src/lib/presentation/slide-commands.test.ts`                                                                                                                      |
+| Command envelope (#436)              | `src/lib/commands/`, `src/lib/presentation/slide-commands.test.ts`                                                                                                                      |
 | Deck save / conflict (#376)          | `src/lib/presentation/save-conflict.test.ts`, `deck-revision-token.test.ts`                                                                                                             |
 | Export preflight (#416)              | `src/lib/visual/export-preflight.test.ts`                                                                                                                                               |
 | Authorization                        | `src/lib/auth/document-permissions.test.ts`, `authz-regression.test.ts`                                                                                                                 |
@@ -197,7 +197,7 @@ Before each foundation release wave:
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | #430          | Block-anchor identity — `block-id.ts`, `block-id-runtime.ts`                                                                                |
 | #448          | Visual projection repair — `mirror-diff.ts`, `mirror-repair.ts`                                                                             |
-| #436          | Command bus — `slide-commands.ts`, `commands/`                                                                                              |
+| #436          | Command envelope — `slide-commands.ts`, `commands/`                                                                                         |
 | #379 / #380   | Export pipeline — `export-preflight.ts`, `deck-export.ts`                                                                                   |
 | #376          | Conflict recovery — `deck-revision-token.ts`                                                                                                |
 | #460          | Structured diagnostics — `src/lib/diagnostics/error-codes.ts`                                                                               |

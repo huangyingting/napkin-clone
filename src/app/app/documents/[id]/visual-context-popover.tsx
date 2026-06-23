@@ -711,11 +711,13 @@ export type VisualContextPopoverProps = {
   onChange: (next: Visual) => void;
   /**
    * Routes a typed visual command payload through `executeVisualCommand`
-   * (issue #471). When provided, visual-level intent commands (theme, display
-   * style, effects, kind, canvas, aspect ratio, auto-layout) are dispatched
-   * here instead of calling `onChange` directly, so edits flow through command
-   * metadata (patches, side effects, render invalidation, source staleness).
-   * When omitted, the popover applies edits directly through `onChange`.
+   * (issue #471/#507). When provided, visual-level intent edits (theme, display
+   * style, effects, kind, canvas, aspect ratio, auto-layout, node/visual style,
+   * node ext style, node icon, edge style) are dispatched here instead of
+   * calling `onChange` directly, so edits flow through command metadata
+   * (patches, side effects, render invalidation, source staleness) and are
+   * validated before persistence. When omitted, the popover applies edits
+   * directly through `onChange`.
    */
   onCommand?: (payload: VisualCommandPayload, coalesceKey?: string) => void;
   onRemove: () => void;
@@ -1128,10 +1130,29 @@ export function VisualContextPopover({
   );
 
   const applyBrandToThis = useCallback(
+    // #507 exemption: `applyBrand` is a composite styling preset with no single
+    // `visual.*` command op. Themes (the command-backed equivalent) route through
+    // `applyThemeById`; brand presets remain a direct transform.
     (brand: BrandStyle) => {
       onChange(applyBrand(visual, brand));
     },
     [onChange, visual],
+  );
+
+  // #507: routes a discrete user-intent style edit through the visual command
+  // executor when a command sink (`onCommand`) is available, so the edit is
+  // validated and carries command metadata before `node.setVisual`. Callers
+  // without a command sink fall back to the identical direct transform, so
+  // externally observable behavior is unchanged.
+  const runVisualEdit = useCallback(
+    (payload: VisualCommandPayload, fallback: () => Visual) => {
+      if (onCommand) {
+        onCommand(payload);
+      } else {
+        onChange(fallback());
+      }
+    },
+    [onChange, onCommand],
   );
 
   // ---------------------------------------------------------------------------
@@ -1175,22 +1196,44 @@ export function VisualContextPopover({
                 label="Fill"
                 color={selectedNode.color ?? style.nodeFill}
                 onChange={(v) =>
-                  onChange(setNodeStyle(visual, selectedNode.id, "color", v))
+                  runVisualEdit(
+                    {
+                      op: "visual.set_node_style",
+                      nodeId: selectedNode.id,
+                      field: "color",
+                      value: v,
+                    },
+                    () => setNodeStyle(visual, selectedNode.id, "color", v),
+                  )
                 }
               />
               <CompactColorField
                 label="Stroke"
                 color={selectedNode.stroke ?? style.nodeStroke}
                 onChange={(v) =>
-                  onChange(setNodeStyle(visual, selectedNode.id, "stroke", v))
+                  runVisualEdit(
+                    {
+                      op: "visual.set_node_style",
+                      nodeId: selectedNode.id,
+                      field: "stroke",
+                      value: v,
+                    },
+                    () => setNodeStyle(visual, selectedNode.id, "stroke", v),
+                  )
                 }
               />
               <CompactColorField
                 label="Text"
                 color={selectedNode.textColor ?? style.nodeText}
                 onChange={(v) =>
-                  onChange(
-                    setNodeStyle(visual, selectedNode.id, "textColor", v),
+                  runVisualEdit(
+                    {
+                      op: "visual.set_node_style",
+                      nodeId: selectedNode.id,
+                      field: "textColor",
+                      value: v,
+                    },
+                    () => setNodeStyle(visual, selectedNode.id, "textColor", v),
                   )
                 }
               />
@@ -1207,7 +1250,14 @@ export function VisualContextPopover({
               options={FILL_STYLE_OPTIONS}
               value={selectedNode.fillStyle ?? "solid"}
               onChange={(v) =>
-                onChange(setNodeFillStyle(visual, selectedNode.id, v))
+                runVisualEdit(
+                  {
+                    op: "visual.set_node_ext_style",
+                    nodeId: selectedNode.id,
+                    patch: { fillStyle: v },
+                  },
+                  () => setNodeFillStyle(visual, selectedNode.id, v),
+                )
               }
             />
           </div>
@@ -1222,7 +1272,14 @@ export function VisualContextPopover({
               options={BORDER_STYLE_OPTIONS}
               value={selectedNode.borderStyle ?? "solid"}
               onChange={(v) =>
-                onChange(setNodeBorderStyle(visual, selectedNode.id, v))
+                runVisualEdit(
+                  {
+                    op: "visual.set_node_ext_style",
+                    nodeId: selectedNode.id,
+                    patch: { borderStyle: v },
+                  },
+                  () => setNodeBorderStyle(visual, selectedNode.id, v),
+                )
               }
             />
           </div>
@@ -1235,20 +1292,22 @@ export function VisualContextPopover({
                 size="sm"
                 variant="subtle"
                 disabled={(selectedNode.borderWidth ?? 1.5) <= 0.5}
-                onClick={() =>
-                  onChange(
-                    setNodeBorderWidth(
-                      visual,
-                      selectedNode.id,
-                      Math.max(
-                        0.5,
-                        Math.round(
-                          ((selectedNode.borderWidth ?? 1.5) - 0.5) * 2,
-                        ) / 2,
-                      ),
-                    ),
-                  )
-                }
+                onClick={() => {
+                  const nextWidth = Math.max(
+                    0.5,
+                    Math.round(((selectedNode.borderWidth ?? 1.5) - 0.5) * 2) /
+                      2,
+                  );
+                  runVisualEdit(
+                    {
+                      op: "visual.set_node_ext_style",
+                      nodeId: selectedNode.id,
+                      patch: { borderWidth: nextWidth },
+                    },
+                    () =>
+                      setNodeBorderWidth(visual, selectedNode.id, nextWidth),
+                  );
+                }}
               >
                 <span aria-hidden="true">−</span>
               </IconButton>
@@ -1260,20 +1319,22 @@ export function VisualContextPopover({
                 size="sm"
                 variant="subtle"
                 disabled={(selectedNode.borderWidth ?? 1.5) >= 8}
-                onClick={() =>
-                  onChange(
-                    setNodeBorderWidth(
-                      visual,
-                      selectedNode.id,
-                      Math.min(
-                        8,
-                        Math.round(
-                          ((selectedNode.borderWidth ?? 1.5) + 0.5) * 2,
-                        ) / 2,
-                      ),
-                    ),
-                  )
-                }
+                onClick={() => {
+                  const nextWidth = Math.min(
+                    8,
+                    Math.round(((selectedNode.borderWidth ?? 1.5) + 0.5) * 2) /
+                      2,
+                  );
+                  runVisualEdit(
+                    {
+                      op: "visual.set_node_ext_style",
+                      nodeId: selectedNode.id,
+                      patch: { borderWidth: nextWidth },
+                    },
+                    () =>
+                      setNodeBorderWidth(visual, selectedNode.id, nextWidth),
+                  );
+                }}
               >
                 <span aria-hidden="true">+</span>
               </IconButton>
@@ -1290,7 +1351,14 @@ export function VisualContextPopover({
               options={TEXT_ALIGN_OPTIONS}
               value={selectedNode.textAlign ?? "center"}
               onChange={(v) =>
-                onChange(setNodeTextAlign(visual, selectedNode.id, v))
+                runVisualEdit(
+                  {
+                    op: "visual.set_node_ext_style",
+                    nodeId: selectedNode.id,
+                    patch: { textAlign: v },
+                  },
+                  () => setNodeTextAlign(visual, selectedNode.id, v),
+                )
               }
             />
           </div>
@@ -1354,35 +1422,50 @@ export function VisualContextPopover({
                 label="Background"
                 color={style.background}
                 onChange={(v) =>
-                  onChange(setVisualStyle(visual, { background: v }))
+                  runVisualEdit(
+                    { op: "visual.set_style", patch: { background: v } },
+                    () => setVisualStyle(visual, { background: v }),
+                  )
                 }
               />
               <ColorField
                 label="Node fill"
                 color={style.nodeFill}
                 onChange={(v) =>
-                  onChange(setVisualStyle(visual, { nodeFill: v }))
+                  runVisualEdit(
+                    { op: "visual.set_style", patch: { nodeFill: v } },
+                    () => setVisualStyle(visual, { nodeFill: v }),
+                  )
                 }
               />
               <ColorField
                 label="Node stroke"
                 color={style.nodeStroke}
                 onChange={(v) =>
-                  onChange(setVisualStyle(visual, { nodeStroke: v }))
+                  runVisualEdit(
+                    { op: "visual.set_style", patch: { nodeStroke: v } },
+                    () => setVisualStyle(visual, { nodeStroke: v }),
+                  )
                 }
               />
               <ColorField
                 label="Text"
                 color={style.nodeText}
                 onChange={(v) =>
-                  onChange(setVisualStyle(visual, { nodeText: v }))
+                  runVisualEdit(
+                    { op: "visual.set_style", patch: { nodeText: v } },
+                    () => setVisualStyle(visual, { nodeText: v }),
+                  )
                 }
               />
               <ColorField
                 label="Edge"
                 color={style.edgeColor}
                 onChange={(v) =>
-                  onChange(setVisualStyle(visual, { edgeColor: v }))
+                  runVisualEdit(
+                    { op: "visual.set_style", patch: { edgeColor: v } },
+                    () => setVisualStyle(visual, { edgeColor: v }),
+                  )
                 }
               />
               {resetThemeId && activeThemeId === null ? (
@@ -1448,12 +1531,18 @@ export function VisualContextPopover({
                     role="option"
                     aria-selected={active}
                     onClick={() => {
-                      onChange(
-                        setNodeFontFamily(
-                          visual,
-                          selectedNode.id,
-                          option.value,
-                        ),
+                      runVisualEdit(
+                        {
+                          op: "visual.set_node_ext_style",
+                          nodeId: selectedNode.id,
+                          patch: { fontFamily: option.value },
+                        },
+                        () =>
+                          setNodeFontFamily(
+                            visual,
+                            selectedNode.id,
+                            option.value,
+                          ),
                       );
                       setNodeFontPickerOpen(false);
                     }}
@@ -1532,7 +1621,10 @@ export function VisualContextPopover({
               options={FONT_WEIGHTS}
               value={String(style.fontWeight)}
               onChange={(v) =>
-                onChange(setVisualStyle(visual, { fontWeight: Number(v) }))
+                runVisualEdit(
+                  { op: "visual.set_style", patch: { fontWeight: Number(v) } },
+                  () => setVisualStyle(visual, { fontWeight: Number(v) }),
+                )
               }
             />
           </div>
@@ -1553,9 +1645,21 @@ export function VisualContextPopover({
           nodeLabel={selectedNode.label}
           value={selectedNode.icon}
           onSelect={(name) =>
-            onChange(setNodeIcon(visual, selectedNode.id, name))
+            runVisualEdit(
+              {
+                op: "visual.set_node_icon",
+                nodeId: selectedNode.id,
+                icon: name,
+              },
+              () => setNodeIcon(visual, selectedNode.id, name),
+            )
           }
-          onRemove={() => onChange(clearNodeIcon(visual, selectedNode.id))}
+          onRemove={() =>
+            runVisualEdit(
+              { op: "visual.clear_node_icon", nodeId: selectedNode.id },
+              () => clearNodeIcon(visual, selectedNode.id),
+            )
+          }
         />
       </div>
     );
@@ -1692,7 +1796,13 @@ export function VisualContextPopover({
                     options={ARROW_STYLE_OPTIONS}
                     value={visual.edges[0]?.arrowStyle ?? "filled"}
                     onChange={(v) =>
-                      onChange(setAllEdgesStyle(visual, { arrowStyle: v }))
+                      runVisualEdit(
+                        {
+                          op: "visual.set_all_edges_style",
+                          patch: { arrowStyle: v },
+                        },
+                        () => setAllEdgesStyle(visual, { arrowStyle: v }),
+                      )
                     }
                   />
                 </div>
@@ -1707,7 +1817,13 @@ export function VisualContextPopover({
                   options={LINE_STYLE_OPTIONS}
                   value={visual.edges[0]?.lineStyle ?? "solid"}
                   onChange={(v) =>
-                    onChange(setAllEdgesStyle(visual, { lineStyle: v }))
+                    runVisualEdit(
+                      {
+                        op: "visual.set_all_edges_style",
+                        patch: { lineStyle: v },
+                      },
+                      () => setAllEdgesStyle(visual, { lineStyle: v }),
+                    )
                   }
                 />
               </div>
@@ -1723,18 +1839,22 @@ export function VisualContextPopover({
                     disabled={
                       (visual.edges[0]?.lineWidth ?? 1.6) <= LINE_WIDTH_MIN
                     }
-                    onClick={() =>
-                      onChange(
-                        setAllEdgesStyle(visual, {
-                          lineWidth: Math.max(
-                            LINE_WIDTH_MIN,
-                            Math.round(
-                              ((visual.edges[0]?.lineWidth ?? 1.6) - 0.5) * 2,
-                            ) / 2,
-                          ),
-                        }),
-                      )
-                    }
+                    onClick={() => {
+                      const nextWidth = Math.max(
+                        LINE_WIDTH_MIN,
+                        Math.round(
+                          ((visual.edges[0]?.lineWidth ?? 1.6) - 0.5) * 2,
+                        ) / 2,
+                      );
+                      runVisualEdit(
+                        {
+                          op: "visual.set_all_edges_style",
+                          patch: { lineWidth: nextWidth },
+                        },
+                        () =>
+                          setAllEdgesStyle(visual, { lineWidth: nextWidth }),
+                      );
+                    }}
                   >
                     <span aria-hidden="true">−</span>
                   </IconButton>
@@ -1748,18 +1868,22 @@ export function VisualContextPopover({
                     disabled={
                       (visual.edges[0]?.lineWidth ?? 1.6) >= LINE_WIDTH_MAX
                     }
-                    onClick={() =>
-                      onChange(
-                        setAllEdgesStyle(visual, {
-                          lineWidth: Math.min(
-                            LINE_WIDTH_MAX,
-                            Math.round(
-                              ((visual.edges[0]?.lineWidth ?? 1.6) + 0.5) * 2,
-                            ) / 2,
-                          ),
-                        }),
-                      )
-                    }
+                    onClick={() => {
+                      const nextWidth = Math.min(
+                        LINE_WIDTH_MAX,
+                        Math.round(
+                          ((visual.edges[0]?.lineWidth ?? 1.6) + 0.5) * 2,
+                        ) / 2,
+                      );
+                      runVisualEdit(
+                        {
+                          op: "visual.set_all_edges_style",
+                          patch: { lineWidth: nextWidth },
+                        },
+                        () =>
+                          setAllEdgesStyle(visual, { lineWidth: nextWidth }),
+                      );
+                    }}
                   >
                     <span aria-hidden="true">+</span>
                   </IconButton>
@@ -2103,6 +2227,10 @@ export function VisualContextPopover({
                   size="sm"
                   onClick={() => {
                     if (!selectedNode) return;
+                    // #507 exemption: this is a composite reset spanning two ops
+                    // (visual.reset_node_style + visual.reset_node_ext_style)
+                    // applied as a single user action; kept as one direct
+                    // transform to preserve single-edit/undo granularity.
                     const r1 = resetNodeStyle(visual, selectedNode.id);
                     onChange(resetNodeExtStyle(r1, selectedNode.id));
                   }}

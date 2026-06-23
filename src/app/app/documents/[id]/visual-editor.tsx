@@ -19,6 +19,7 @@ import {
 import { useIsPointerFine } from "@/lib/pointer";
 import { setNodeLabel } from "@/lib/visual/transforms";
 import type { Visual, VisualEdge, VisualNode } from "@/lib/visual/schema";
+import type { VisualCommandPayload } from "@/lib/commands/visual-commands";
 
 /** Pointer travel (px) under which a press counts as a click, not a drag. */
 const CLICK_THRESHOLD = 4;
@@ -164,6 +165,7 @@ interface ResizeState {
 export function VisualEditor({
   visual,
   onChange,
+  onCommand,
   onSelectNode,
   onSelectEdge,
   initialSelectedNodeId = null,
@@ -173,6 +175,15 @@ export function VisualEditor({
 }: {
   visual: Visual;
   onChange: (next: Visual) => void;
+  /**
+   * Optional command sink (#507). When provided, discrete graph-structure
+   * edits (e.g. node deletion) route through the visual command executor for
+   * validation + command metadata, falling back to `onChange` when omitted.
+   * Continuous gesture edits (drag/resize/reposition) and inline label typing
+   * stay on `onChange` — they are high-frequency transforms, not discrete
+   * commands.
+   */
+  onCommand?: (payload: VisualCommandPayload, coalesceKey?: string) => void;
   onSelectNode?: (id: string | null) => void;
   onSelectEdge?: (id: string | null) => void;
   initialSelectedNodeId?: string | null;
@@ -331,9 +342,15 @@ export function VisualEditor({
       setActiveId((current) => (current === id ? null : current));
       setHoverId((current) => (current === id ? null : current));
       setSelectedId((current) => (current === id ? null : current));
-      onChange(deleteNode(visual, id));
+      // #507: discrete user-intent deletion routes through the command sink
+      // when available; the `nodes.length <= 1` guard above preserves UX.
+      if (onCommand) {
+        onCommand({ op: "visual.delete_node", nodeId: id });
+      } else {
+        onChange(deleteNode(visual, id));
+      }
     },
-    [canEdit, visual, onChange],
+    [canEdit, visual, onChange, onCommand],
   );
 
   const endDrag = useCallback((event: React.PointerEvent) => {

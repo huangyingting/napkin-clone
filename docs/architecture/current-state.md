@@ -19,7 +19,7 @@
 | Collaboration state | In-memory Y.Doc (collab server)           | Flushed to `Document.contentJson` on client save or room eviction |
 | Permissions         | `WorkspaceMembership`, `Document.ownerId` | `requireDocumentCapability` capability cache                      |
 | Sharing             | `Document.isShared`, `shareId`, `slug`    | Public URLs `/share/…`, `/embed/…`, `/present/…`                  |
-| Command envelope    | `CommandEnvelope` + `CommandBus`          | Applied to `deckJson` via `saveDeckPatch`                         |
+| Command envelope    | `CommandEnvelope` + pure executors        | Applied to `deckJson` via `saveDeckPatch`                         |
 
 ---
 
@@ -317,13 +317,39 @@ version restore so cached public pages reflect the restored content.
 ## 10. Command Infrastructure
 
 **Source files:**  
-`src/lib/commands/command-bus.ts`  
 `src/lib/commands/command-envelope.ts`  
+`src/lib/commands/visual-command-adapter.ts`  
+`src/lib/commands/visual-commands.ts`  
 `src/lib/presentation/slide-commands.ts`
 
-The command bus (`CommandBus`) dispatches `CommandEnvelope` records to registered handlers. Slide deck mutations use `DeckPatch` records applied by `applyPatch` in `patchDeck`. The `saveDeckPatch` server action is the write path for incremental deck updates.
+There is **no runtime command bus** and no `command-bus.ts` module. Commands are
+serializable `CommandEnvelope` records executed by **pure executors** behind thin
+adapters:
 
-The command bus is in-process; there is no durable command log or event-sourcing layer yet.
+- **Deck/slide commands** are defined as `SlideCommand` variants in
+  `src/lib/presentation/slide-commands.ts`. UI handlers call `commitCommand()`,
+  which wraps the pure `executeCommand()` and returns the new deck plus
+  `DeckPatch[]`. Patches are persisted via the `saveDeckPatch` server action and
+  re-applied by `applyPatch` in `patchDeck` under a revision-token CAS.
+- **Visual commands** are defined as `VisualCommandPayload` ops in
+  `src/lib/commands/visual-commands.ts`. UI surfaces call `applyVisualCommand()`
+  in `src/lib/commands/visual-command-adapter.ts`, which builds a validated
+  `CommandEnvelope`, runs the pure `executeVisualCommand()`, and returns the new
+  `Visual` for the caller to write back via `node.setVisual()`.
+- `validateCommandEnvelope()` is the shared, server-safe structural validator for
+  both surfaces; `adaptSlideCommandResult` / `adaptVisualCommandResult` normalize
+  results into the cross-surface `CrossSurfaceCommandResult` shape.
+
+**Where to add a new command:**
+
+- deck/slide intent → add a `SlideCommand` variant + executor case in
+  `slide-commands.ts` (emit `DeckPatch[]`);
+- visual intent → add a `VisualCommandPayload` op in `visual-commands.ts` and
+  route the UI edit through `applyVisualCommand()`.
+
+Do **not** introduce a runtime dispatcher/bus — the architecture is intentionally
+"pure executor + serializable patch + adapter", not event sourcing. There is no
+durable command log yet.
 
 ---
 

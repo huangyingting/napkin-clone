@@ -28,6 +28,13 @@ import type {
   ShareSettings,
 } from "@/lib/document/persistence-types";
 import type { DeckPatch } from "@/lib/presentation/slide-commands";
+import { executeCommand } from "@/lib/presentation/slide-commands";
+import type { SlideCommand } from "@/lib/presentation/slide-commands";
+import { safeParseDeck } from "@/lib/presentation/deck-schema";
+import {
+  acceptDeckCommandEnvelope,
+  type CommandEnvelope,
+} from "@/lib/commands/command-envelope";
 
 // URL-safe share ID generator (no ambiguous chars: 0/O, 1/l/I)
 const generateShareId = customAlphabet(
@@ -434,6 +441,19 @@ export async function fetchDeckJson(
  * Delegates persistence orchestration to {@link persistDeck} in the persistence
  * service (#474).
  *
+ * ## Mutation entry-point boundaries (Epic #494)
+ *
+ * The deck has three write entry points, each with a distinct input contract:
+ *  - {@link saveDeckJson} — accepts a **full deck JSON** snapshot.
+ *  - {@link saveDeckPatch} — accepts **`DeckPatch[]`** records (already produced
+ *    by `commitCommand` on the client) and applies them under CAS.
+ *  - {@link saveDeckCommand} — accepts a **`CommandEnvelope<SlideCommand>`**,
+ *    validates it with `acceptDeckCommandEnvelope` (schema version / target /
+ *    document checks) BEFORE persistence, then executes it server-side.
+ *
+ * All three preserve the optimistic revision-token CAS via `clientToken` /
+ * `expectedRevision`.
+ *
  * @param clientToken - The revision token last received from `fetchDeckJson` or
  *   a prior successful save. When supplied the write uses an atomic CAS.
  */
@@ -457,6 +477,10 @@ export async function saveDeckJson(
  * Applies a list of {@link DeckPatch} records to the stored deck, guarded by
  * the optimistic revision token. Delegates to {@link patchDeck} in the
  * persistence service (#474).
+ *
+ * Input contract: pre-built `DeckPatch[]` (typically produced by `commitCommand`
+ * on the client). For the validated command-envelope entry point see
+ * {@link saveDeckCommand}.
  */
 export async function saveDeckPatch(
   id: string,
@@ -472,6 +496,89 @@ export async function saveDeckPatch(
     revalidatePath(`/app/documents/${id}`);
   }
   return result;
+}
+
+/**
+ * Validated command-envelope write path for deck mutations (Epic #494, #508).
+ *
+ * Accepts a serializable {@link CommandEnvelope} carrying a {@link SlideCommand}
+ * payload and enforces, in order:
+ *  1. authorization — `requireDocumentCapability(..., "edit")`;
+ *  2. envelope acceptance — `acceptDeckCommandEnvelope` rejects malformed,
+ *     unsupported-schema-version, wrong-target-surface, and wrong-document
+ *     envelopes BEFORE any persistence, with structured + safely-logged errors;
+ *  3. server-side execution — runs the pure `executeCommand` against the stored
+ *     deck;
+ *  4. persistence — writes the result via `persistDeck` under the optimistic
+ *     revision-token CAS (using `target.expectedRevision` as the client token).
+ *
+ * This keeps the existing CAS behavior intact while giving callers a single,
+ * server-validated command surface that never trusts a client-provided patch
+ * shape.
+ */
+export async function saveDeckCommand(
+  id: string,
+  envelope: CommandEnvelope<SlideCommand>,
+): Promise<SaveDeckResult> {
+  const user = await requireUser();
+  await requireDocumentCapability(user.id, id, "edit");
+
+  const acceptance = acceptDeckCommandEnvelope(envelope, { documentId: id });
+  if (!acceptance.ok) {
+    logInfo("deck.command.rejected", "Rejected deck command envelope", {
+      documentId: id,
+      code: acceptance.code,
+      errors: acceptance.errors,
+      envelopeId: typeof envelope?.id === "string" ? envelope.id : "(unknown)",
+    });
+    return {
+      ok: false,
+      error: `Rejected command (${acceptance.code}): ${acceptance.errors.join("; ")}`,
+    };
+  }
+
+  const document = await prisma.document.findUnique({
+    where: { id },
+    select: { deckJson: true },
+  });
+  if (!document) {
+    return { ok: false, error: "Document not found." };
+  }
+
+  const rawDeck =
+    typeof document.deckJson === "string"
+      ? JSON.parse(document.deckJson)
+      : document.deckJson;
+  const parsed = safeParseDeck(rawDeck);
+  if (!parsed.success) {
+    logError("deck.command.stored_deck_invalid", new Error(parsed.error), {
+      documentId: id,
+      envelopeId: envelope.id,
+    });
+    return { ok: false, error: `Stored deck is invalid: ${parsed.error}` };
+  }
+
+  const result = executeCommand(parsed.data, envelope.payload);
+  if (!result.ok) {
+    logInfo("deck.command.execution_failed", "Deck command failed to execute", {
+      documentId: id,
+      envelopeId: envelope.id,
+      type: envelope.payload.type,
+      error: result.error,
+    });
+    return { ok: false, error: result.error ?? "Command failed to execute." };
+  }
+
+  const persisted = await persistDeck(
+    id,
+    result.deck,
+    envelope.target.expectedRevision ?? null,
+  );
+
+  if (persisted.ok === true) {
+    revalidatePath(`/app/documents/${id}`);
+  }
+  return persisted;
 }
 
 /**

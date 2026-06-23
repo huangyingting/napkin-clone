@@ -173,6 +173,12 @@ export function VisualCard({
   // OnChangePlugin debounce-saves it into `contentJson` (US-003) and the save
   // action mirrors it to the `Visual` row (US-011). When `autoLayout` is on,
   // elastic layout is re-applied here so the canvas always grows to fit content.
+  //
+  // #507 exemption: this is the generic write-back seam (it receives an
+  // already-computed Visual, not a typed intent), so it is not itself a command.
+  // Discrete user-intent edits route through `handleCommand` / `applyVisualCommand`
+  // before reaching this seam; non-command callers (repair/projection) pass a
+  // Visual directly.
   const updateVisual = useCallback(
     (next: Visual) => {
       const toSave = applyElasticLayout(next);
@@ -223,6 +229,11 @@ export function VisualCard({
     });
   }, [editor, nodeKey]);
 
+  // Deletes the selected graph node. User-intent edit (#471/#507): routed
+  // through the visual command executor so the deletion is validated and
+  // carries command metadata. The `nodes.length <= 1` guard preserves the
+  // existing UX (never delete the last node). On command failure the visual is
+  // left unchanged — invalid command output is never persisted.
   const removeSelectedNode = useCallback(() => {
     const id = selectedNodeId;
     if (!id) {
@@ -237,23 +248,25 @@ export function VisualCard({
       if (current.nodes.length <= 1) {
         return;
       }
-      node.setVisual(
-        applyElasticLayout({
-          ...current,
-          nodes: current.nodes.filter((item) => item.id !== id),
-          edges: current.edges.filter(
-            (edge) => edge.from !== id && edge.to !== id,
-          ),
-        }),
-      );
+      const result = applyVisualCommand(current, visualId, {
+        op: "visual.delete_node",
+        nodeId: id,
+      });
+      if (result.ok) {
+        node.setVisual(applyElasticLayout(result.visual));
+      }
     });
     setSelectedNodeId(null);
-  }, [editor, nodeKey, selectedNodeId]);
+  }, [editor, nodeKey, selectedNodeId, visualId]);
 
   // Duplicates this visual block by inserting a new VisualNode with the same
   // payload immediately after the current node. A fresh visualId is generated
   // by $createVisualNode so the duplicate is tracked independently. Collab-safe:
   // the mutation goes through editor.update() → node.insertAfter().
+  //
+  // #507 exemption: this is a document-structure edit (inserts a new Lexical
+  // block), not a visual-content command. There is no `visual.*` op for block
+  // duplication, so it intentionally bypasses the visual command executor.
   const duplicateVisual = useCallback(() => {
     editor.update(() => {
       const node = $getNodeByKey(nodeKey);
@@ -271,6 +284,11 @@ export function VisualCard({
    *
    * Fonts referenced by the brand are injected as <link> tags so they load
    * immediately in the editor canvas.
+   *
+   * #507 exemption: this is a cross-visual, document-wide operation (it mutates
+   * every VisualNode in the document at once) with no single-visual `visual.*`
+   * command op. Per-visual brand application still flows through the executor
+   * (`visual.apply_theme`); this bulk path is intentionally direct.
    */
   const applyBrandToAll = useCallback(
     (brand: BrandStyle) => {
@@ -513,6 +531,7 @@ export function VisualCard({
           <VisualEditor
             visual={data}
             onChange={updateVisual}
+            onCommand={handleCommand}
             onSelectNode={setSelectedNodeId}
             onSelectEdge={setSelectedEdgeId}
             initialSelectedNodeId={selectedNodeId}
