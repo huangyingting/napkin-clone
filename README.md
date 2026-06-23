@@ -1,113 +1,137 @@
-# TextIQ — Text-to-Visuals Platform
+# TextIQ
 
-Turn plain text into AI-generated, editable visuals (flowcharts, mind maps,
-infographics, charts, and concept diagrams) with accounts, cloud documents,
-exports, sharing, and real-time collaboration.
+TextIQ is a text-to-visuals and slide-authoring app. It combines a Lexical
+document editor, editable visual blocks, AI-assisted visual/deck generation,
+presentation editing, sharing, export, workspaces, brand kits, and real-time
+collaboration.
 
-Built with **Next.js (App Router)**, **TypeScript**, and **Tailwind CSS**.
+Built with **Next.js App Router**, **React**, **TypeScript**, **Prisma**,
+**Lexical**, **Yjs**, and **Tailwind CSS**.
 
-## Getting started
+## Quick Start
 
-The app uses **SQLite by default** for zero-setup local development — there is no
-database service to install or run. From a clean clone:
+The default local database is SQLite, so no database service is required.
 
 ```bash
-cp .env.example .env   # provides AUTH_SECRET + SQLite defaults
-npm install            # postinstall generates the Prisma client (SQLite)
-npm run db:migrate     # creates prisma/dev.db and applies migrations
-npm run db:seed        # loads a demo user, document, and visual
-npm run dev            # start the dev server
+cp .env.example .env
+npm install
+npm run db:migrate
+npm run db:seed
+npm run dev
 ```
 
-Open [http://localhost:4000](http://localhost:4000) to view the app.
+Open [http://localhost:4000](http://localhost:4000).
 
-The database steps need no configuration: `DB_PROVIDER` defaults to `sqlite` and
-`DATABASE_URL` defaults to `file:./prisma/dev.db` when unset, so
-`npm install && npm run db:migrate && npm run db:seed && npm run dev` brings the
-app up on SQLite with no Postgres installed. Copying `.env.example` is recommended
-because signing in requires `AUTH_SECRET` (replace the placeholder with
-`openssl rand -base64 32` for anything beyond a quick look).
+`DB_PROVIDER` defaults to `sqlite`, and `DATABASE_URL` defaults to
+`file:./prisma/dev.db` when unset. Copying `.env.example` is still recommended
+because authentication needs `AUTH_SECRET`; use `openssl rand -base64 32` for a
+real secret outside quick local testing.
 
 ## Scripts
 
-| Script                 | Description                               |
-| ---------------------- | ----------------------------------------- |
-| `npm run dev`          | Start the development server              |
-| `npm run build`        | Create a production build                 |
-| `npm run start`        | Run the production build                  |
-| `npm run lint`         | Lint with ESLint (`eslint-config-next`)   |
-| `npm run typecheck`    | Type-check with `tsc --noEmit`            |
-| `npm run format`       | Format the codebase with Prettier         |
-| `npm run format:check` | Verify formatting without writing changes |
-| `npm run collab`       | Run the real-time collaboration server    |
+| Script                 | Description                                                                |
+| ---------------------- | -------------------------------------------------------------------------- |
+| `npm run dev`          | Start the Next app through `server.mjs` with inline collaboration enabled. |
+| `npm run build`        | Create a production build.                                                 |
+| `npm run start`        | Run the production server.                                                 |
+| `npm run collab`       | Run the standalone Yjs collaboration server.                               |
+| `npm test`             | Run unit/pure tests under `src/**/*.test.ts` and `scripts/**/*.test.mjs`.  |
+| `npm run test:e2e`     | Run Playwright E2E tests.                                                  |
+| `npm run typecheck`    | Type-check with `tsc --noEmit`.                                            |
+| `npm run lint`         | Run ESLint.                                                                |
+| `npm run format`       | Format the repository with Prettier.                                       |
+| `npm run format:check` | Check Prettier formatting.                                                 |
+| `npm run db:generate`  | Generate the Prisma client.                                                |
+| `npm run db:migrate`   | Run `prisma migrate dev`.                                                  |
+| `npm run db:deploy`    | Run `prisma migrate deploy`.                                               |
+| `npm run db:seed`      | Seed demo data.                                                            |
+| `npm run db:reset`     | Regenerate Prisma, reset the DB, and seed.                                 |
 
 ## Database
 
-The database engine is chosen at runtime by the **`DB_PROVIDER`** env var
-(`sqlite` | `postgres`, default **`sqlite`** when unset):
+The database provider is selected with `DB_PROVIDER`:
 
-- **Local dev/test — SQLite (default).** Zero setup: `npm run db:migrate` creates
-  `prisma/dev.db`. `DATABASE_URL` is optional (defaults to `file:./prisma/dev.db`).
-- **Production — PostgreSQL.** Switch by setting `DB_PROVIDER=postgres` and a
-  `postgresql://` `DATABASE_URL`, then apply migrations with
-  `DB_PROVIDER=postgres npm run db:deploy`.
+| Provider   | Use                                                                     |
+| ---------- | ----------------------------------------------------------------------- |
+| `sqlite`   | Default for local development and tests.                                |
+| `postgres` | Production-style deployment. Requires a `postgresql://` `DATABASE_URL`. |
 
-All database scripts honor `DB_PROVIDER` (default SQLite):
-
-| Script                | Description                                          |
-| --------------------- | ---------------------------------------------------- |
-| `npm run db:generate` | Generate the Prisma client for the selected provider |
-| `npm run db:migrate`  | Create/apply a dev migration (`prisma migrate dev`)  |
-| `npm run db:deploy`   | Apply committed migrations (`prisma migrate deploy`) |
-| `npm run db:seed`     | Seed demo data                                       |
-| `npm run db:reset`    | Drop, re-migrate, and re-seed                        |
-
-Prefix any command with `DB_PROVIDER=postgres` (and a `postgresql://`
-`DATABASE_URL`) to target Postgres, e.g.:
+Examples:
 
 ```bash
+npm run db:migrate
+
 DB_PROVIDER=postgres \
 DATABASE_URL="postgresql://user:pass@localhost:5432/textiq?schema=public" \
 npm run db:deploy
 ```
 
-## Real-time collaboration
+## Collaboration
 
-Collaborative editing is powered by a self-hosted Yjs websocket sync server. By
-default the app server (`npm run dev` / `npm start`, via `server.mjs`) hosts that
-socket **on the same port** at the `/collab` path, so the browser derives the
-websocket URL from the page origin — a single forwarded port (e.g. VS Code port
-forwarding or a reverse proxy) carries both the app and collaboration with no
-extra configuration. The editor **degrades gracefully to local-only editing**
-after 2.5 s if the socket is unreachable, and seeds its content from the
-database (the durable source of truth), so collaboration is never a hard
-dependency and the document is never blank.
+The app server hosts the Yjs websocket endpoint inline at `/collab` by default,
+so the browser can use the same origin/port as the app. The editor degrades to
+local-only editing if the socket is unavailable.
 
-To run collaboration as a separate process instead, start `npm run collab`
-(default port 1234), set `COLLAB_INLINE=0` on the app server to disable the
-inline socket, and point clients at it with `NEXT_PUBLIC_COLLAB_WS_URL`.
+To run collaboration separately:
 
-For running the server in production, the single-instance in-memory limitation,
-and concrete scaling/persistence options (sticky routing, a Redis pub/sub
-backplane, or a Yjs persistence adapter), see
-[docs/collab-deployment.md](docs/collab-deployment.md).
-
-## Project structure
-
-```
-src/app/        App Router routes, layout, and global styles
-public/         Static assets
+```bash
+npm run collab
+COLLAB_INLINE=0 npm run dev
 ```
 
-## Editor architecture
+Then set `NEXT_PUBLIC_COLLAB_WS_URL` for the browser client. Production
+deployment and scaling constraints are documented in
+[docs/operations/collab-deployment.md](docs/operations/collab-deployment.md).
 
-The document editor (Lexical rich text + editable visual blocks, context-aware
-toolbars, and a data-driven tool registry) is documented in
-[docs/editor-architecture.md](docs/editor-architecture.md) — read it before
-adding a formatting tool, a visual kind, or a theme.
+## Documentation
 
-## Notes
+The documentation entry point is [docs/README.md](docs/README.md). Important
+architecture contracts live under [docs/architecture/](docs/architecture/README.md):
 
-This repository also hosts the Ralph autonomous-agent tooling (`scripts/ralph.sh`,
-`scripts/prompt.md`, `scripts/prd.json`). Those files drive the iterative build and are not part
-of the application itself.
+| Area                        | Start here                                                                           |
+| --------------------------- | ------------------------------------------------------------------------------------ |
+| System overview             | [docs/architecture/current-state.md](docs/architecture/current-state.md)             |
+| AI generation               | [docs/architecture/ai/README.md](docs/architecture/ai/README.md)                     |
+| Data models                 | [docs/architecture/data-model/README.md](docs/architecture/data-model/README.md)     |
+| Editor architecture         | [docs/architecture/editor/README.md](docs/architecture/editor/README.md)             |
+| Presentation runtime/export | [docs/architecture/presentation/README.md](docs/architecture/presentation/README.md) |
+| Product/billing             | [docs/architecture/product/README.md](docs/architecture/product/README.md)           |
+| Security and sharing        | [docs/architecture/security/README.md](docs/architecture/security/README.md)         |
+| Commands and mutations      | [docs/architecture/commands/README.md](docs/architecture/commands/README.md)         |
+| Operations                  | [docs/operations/README.md](docs/operations/README.md)                               |
+
+Current schemas are authoritative during development. Do not add runtime
+compatibility paths for superseded deck/visual/document payload shapes; update
+fixtures, generators, and docs to the current shape instead.
+
+## Project Structure
+
+| Path              | Purpose                                                                           |
+| ----------------- | --------------------------------------------------------------------------------- |
+| `src/app/`        | App Router pages, routes, and server actions.                                     |
+| `src/components/` | React UI components.                                                              |
+| `src/lib/`        | Domain logic, schemas, persistence helpers, AI, auth, billing, export, and tests. |
+| `scripts/`        | Collaboration server and supporting Node scripts.                                 |
+| `prisma/`         | Prisma schemas, migrations, and seed script.                                      |
+| `e2e/`            | Playwright E2E tests.                                                             |
+| `docs/`           | Current architecture and operations documentation.                                |
+
+## Quality Gate
+
+Before merging behavior changes, run the relevant checks:
+
+```bash
+npm test
+npm run typecheck
+npm run lint
+npm run format:check
+```
+
+For documentation-only changes, at minimum run:
+
+```bash
+npx prettier --check docs README.md AGENTS.md
+```
+
+See [docs/operations/release-gate.md](docs/operations/release-gate.md) for the
+full release readiness checklist.
