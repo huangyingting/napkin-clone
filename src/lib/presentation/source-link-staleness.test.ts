@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { Deck, Slide, SlideElement, TextElement } from "@/lib/presentation/deck";
-import type { DocumentBlock, DocumentTextBlock } from "@/lib/visual/document-export";
+import type {
+  Deck,
+  Slide,
+  SlideElement,
+  TextElement,
+} from "@/lib/presentation/deck";
+import type { DocumentTextBlock } from "@/lib/visual/document-export";
 import { hashDocumentBlock } from "@/lib/presentation/document-block-hash";
 import {
   findStaleSourceLinks,
@@ -61,10 +66,7 @@ function unlinkedElement(id: string): TextElement {
   };
 }
 
-function slide(
-  id: string,
-  elements: SlideElement[],
-): Slide {
+function slide(id: string, elements: SlideElement[]): Slide {
   return {
     id,
     index: 0,
@@ -221,9 +223,7 @@ test("ignores sourceRef without contentHash", () => {
 
 test("ignores fresh blocks without a blockId (cannot be matched)", () => {
   const noIdBlock = textBlockNoId("Some text");
-  const d = deck(
-    slide("s1", [linkedElement("el-1", "blk-1", "oldhash")]),
-  );
+  const d = deck(slide("s1", [linkedElement("el-1", "blk-1", "oldhash")]));
   // freshBlocks only has a block without blockId — should not match
   const result = findStaleSourceLinks(d, [noIdBlock]);
   assert.equal(result.length, 1);
@@ -280,7 +280,7 @@ test("mixes missing and changed in the same slide", () => {
 
   const d = deck(
     slide("s1", [
-      linkedElement("e1", "k1", "hash-of-gone"),   // k1 will be missing
+      linkedElement("e1", "k1", "hash-of-gone"), // k1 will be missing
       linkedElement("e2", "k2", hashDocumentBlock(b2)), // k2 changed
     ]),
   );
