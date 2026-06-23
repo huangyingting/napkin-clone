@@ -52,7 +52,7 @@ import {
 import { normalizeGeneratedDeck } from "@/lib/presentation/deck-layout-assign";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
-import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck-migration";
+import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 
 export type { DeckGenerationOptions } from "@/lib/ai/deck-prompt";
 

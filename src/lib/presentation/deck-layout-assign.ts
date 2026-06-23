@@ -22,7 +22,7 @@ import {
   type TextElementStyle,
   type VisualElement,
 } from "./deck";
-import { CURRENT_DECK_SCHEMA_VERSION } from "./deck-migration";
+import { CURRENT_DECK_SCHEMA_VERSION } from "./deck";
 
 /**
  * Brand-aligned theme used when the deck carries no valid theme. Mirrors the

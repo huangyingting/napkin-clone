@@ -3,9 +3,9 @@
  *
  * Covers:
  *  - Adapter completeness (every VisualKind has an adapter)
- *  - Chart adapter: valid/invalid/migration
- *  - Flowchart adapter: dangling edges, migration
- *  - Venn adapter: node count, position, migration
+ *  - Chart adapter: valid/invalid
+ *  - Flowchart adapter: dangling edges
+ *  - Venn adapter: node count, position
  *  - Comparison adapter: column index validation
  *  - Matrix adapter: quadrant validation
  *  - Funnel adapter: value validation
@@ -20,7 +20,6 @@ import type { Visual } from "@/lib/visual/schema";
 import {
   assertAdapterCompleteness,
   getAdapter,
-  migrateWithAdapter,
   validateWithAdapter,
 } from "@/lib/visual/adapters";
 
@@ -82,15 +81,6 @@ test("default adapter passes any valid visual", () => {
   assert.equal(result.ok, true);
 });
 
-test("default adapter migrate is a no-op", () => {
-  const visual = baseVisual("list", {
-    nodes: [{ id: "n1", label: "Item" }],
-  });
-  const { migrated, changes } = migrateWithAdapter(visual);
-  assert.equal(migrated, false);
-  assert.equal(changes.length, 0);
-});
-
 // ---------------------------------------------------------------------------
 // Chart adapter
 // ---------------------------------------------------------------------------
@@ -120,20 +110,6 @@ test("chart adapter fails when a node is missing value", () => {
     assert.equal(result.errors[0]!.code, "chart.missing-value");
     assert.equal(result.errors[0]!.nodeId, "n2");
   }
-});
-
-test("chart adapter migration assigns value=0 to nodes missing value", () => {
-  const visual = baseVisual("chart", {
-    nodes: [
-      { id: "n1", label: "A" },
-      { id: "n2", label: "B", value: 5 },
-    ],
-  });
-  const { migrated, visual: out, changes } = migrateWithAdapter(visual);
-  assert.equal(migrated, true);
-  assert.equal(changes.length, 1);
-  assert.equal(out.nodes[0]!.value, 0);
-  assert.equal(out.nodes[1]!.value, 5);
 });
 
 test("chart adapter editableNodeFields includes value", () => {
@@ -179,33 +155,6 @@ test("flowchart adapter fails on dangling edge target", () => {
   if (!result.ok) {
     assert.equal(result.errors[0]!.code, "flowchart.dangling-edge-to");
   }
-});
-
-test("flowchart adapter migration removes dangling edges", () => {
-  const visual = baseVisual("flowchart", {
-    nodes: [{ id: "n1", label: "Start", x: 100, y: 100 }],
-    edges: [
-      { id: "e1", from: "n1", to: "n1" },
-      { id: "e2", from: "n1", to: "missing" },
-    ],
-  });
-  const { migrated, visual: out, changes } = migrateWithAdapter(visual);
-  assert.equal(migrated, true);
-  assert.equal(out.edges.length, 1);
-  assert.equal(out.edges[0]!.id, "e1");
-  assert.equal(changes.length, 1);
-});
-
-test("flowchart adapter migration is a no-op for valid visuals", () => {
-  const visual = baseVisual("flowchart", {
-    nodes: [
-      { id: "n1", label: "A", x: 100, y: 100 },
-      { id: "n2", label: "B", x: 200, y: 200 },
-    ],
-    edges: [{ id: "e1", from: "n1", to: "n2" }],
-  });
-  const { migrated } = migrateWithAdapter(visual);
-  assert.equal(migrated, false);
 });
 
 // ---------------------------------------------------------------------------
@@ -267,22 +216,6 @@ test("venn adapter fails when nodes are missing position", () => {
   }
 });
 
-test("venn adapter migration assigns default positions when missing", () => {
-  const visual = baseVisual("venn", {
-    nodes: [
-      { id: "a", label: "Set A" },
-      { id: "b", label: "Set B" },
-    ],
-  });
-  const { migrated, visual: out } = migrateWithAdapter(visual);
-  assert.equal(migrated, true);
-  for (const node of out.nodes) {
-    assert.ok(typeof node.x === "number", `node ${node.id} missing x`);
-    assert.ok(typeof node.y === "number", `node ${node.id} missing y`);
-    assert.ok(typeof node.width === "number" && node.width > 0);
-  }
-});
-
 // ---------------------------------------------------------------------------
 // Comparison adapter
 // ---------------------------------------------------------------------------
@@ -310,19 +243,6 @@ test("comparison adapter fails when value is not a non-negative integer", () => 
   if (!result.ok) {
     assert.equal(result.errors.length, 2);
   }
-});
-
-test("comparison adapter migration assigns column 0 to invalid nodes", () => {
-  const visual = baseVisual("comparison", {
-    nodes: [
-      { id: "n1", label: "Col A" },
-      { id: "n2", label: "Item", value: 1 },
-    ],
-  });
-  const { migrated, visual: out } = migrateWithAdapter(visual);
-  assert.equal(migrated, true);
-  assert.equal(out.nodes[0]!.value, 0);
-  assert.equal(out.nodes[1]!.value, 1);
 });
 
 // ---------------------------------------------------------------------------
@@ -378,22 +298,6 @@ test("funnel adapter fails when node has negative value", () => {
   if (!result.ok) {
     assert.equal(result.errors[0]!.code, "funnel.invalid-value");
   }
-});
-
-test("funnel adapter migration assigns decreasing default values", () => {
-  const visual = baseVisual("funnel", {
-    nodes: [
-      { id: "n1", label: "Top" },
-      { id: "n2", label: "Mid" },
-      { id: "n3", label: "Bot" },
-    ],
-  });
-  const { migrated, visual: out } = migrateWithAdapter(visual);
-  assert.equal(migrated, true);
-  // Values should be assigned (decreasing by default: 3, 2, 1 for 3 nodes)
-  const values = out.nodes.map((n) => n.value as number);
-  assert.ok(values.every((v) => typeof v === "number" && v > 0));
-  assert.ok(values[0]! >= values[1]!, "First value should be >= second");
 });
 
 // ---------------------------------------------------------------------------

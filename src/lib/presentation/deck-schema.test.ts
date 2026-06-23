@@ -22,7 +22,7 @@ import {
   validateImageMaskShape,
   validateSourceRef,
 } from "./deck-schema";
-import { CURRENT_DECK_SCHEMA_VERSION } from "./deck-migration";
+import { CURRENT_DECK_SCHEMA_VERSION } from "./deck";
 
 // ---------------------------------------------------------------------------
 // Current deck validation

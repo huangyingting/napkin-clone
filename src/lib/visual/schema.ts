@@ -5,7 +5,7 @@
  * canonical, renderer-agnostic format produced by AI generation (US-010/011) and
  * consumed by the SVG renderer (`src/components/visual/visual-renderer.tsx`).
  *
- * The schema is versioned (`version`) so future shape changes can be migrated.
+ * The schema is versioned (`version`) so validators can reject structural drift.
  * Validation (`validateVisual` / `safeParseVisual`) is intentionally strict about
  * structure (so garbled LLM output can be rejected later) but forgiving about
  * styling (missing/partial `style` is merged with `DEFAULT_STYLE`).
@@ -177,8 +177,7 @@ export interface VisualNode {
   /**
    * Per-node font family override (any CSS font-family string). When set,
    * overrides `style.fontFamily` for this node's label in the renderer.
-   * `undefined` / absent means "inherit the visual's global font family".
-   * Backward compatible: existing visuals without this field are unaffected.
+  * `undefined` / absent means "inherit the visual's global font family".
    */
   fontFamily?: string;
 }
@@ -231,7 +230,7 @@ export interface Visual {
   /**
    * The trimmed source text this visual was generated from, if any. Used by
    * "Sync to text" to re-generate from the anchor block and detect staleness.
-   * Optional so existing visuals without it remain fully valid.
+  * Optional because only generated/synced visuals have source text.
    */
   sourceText?: string;
   /**
@@ -241,9 +240,9 @@ export interface Visual {
   sourceTextHash?: string;
   /**
    * When `true`, the elastic auto-layout engine re-flows the canvas whenever
-   * nodes are added, removed, or their labels change — sizing each node to its
-   * text and expanding the viewBox so nothing clips. Defaults to `false`
-   * (manual positioning) for backward compatibility with existing visuals.
+  * nodes are added, removed, or their labels change — sizing each node to its
+  * text and expanding the viewBox so nothing clips. Defaults to `false`
+  * for manual positioning.
    * Only meaningful for positioned kinds (flowchart/mindmap/concept/orgchart);
    * other kinds are always derived-layout and ignore this flag.
    */
@@ -251,8 +250,7 @@ export interface Visual {
   /**
    * Optional presentation effects (drop shadow, sketch/hand-drawn, etc.).
    * Effects are additive; an absent or empty array means no effects are
-   * applied. Defaults to `undefined` (no effects) for full backward
-   * compatibility — existing visuals without this field are unaffected.
+   * applied. Defaults to `undefined` (no effects).
    */
   effects?: VisualEffect[];
 }

@@ -314,14 +314,13 @@ function toggleLink(editor: LexicalEditor, ctx: EditorContextSnapshot): void {
 }
 
 // Text-format tools are visible whenever there is a non-collapsed, editable
-// text selection — exactly the condition the legacy floating toolbar used.
+// text selection.
 const onRangeSelection = (ctx: EditorContextSnapshot): boolean =>
   ctx.editable && ctx.kind === "range";
 
 /**
- * The text formatting tool set, migrated 1:1 from the legacy floating toolbar
- * (bold/italic/link, H2/H3/quote, bullet/number lists), plus the Phase 4
- * additions: inline `code` (now themed as a chip via the editor `theme`),
+ * The text formatting tool set: bold/italic/link, H2/H3/quote,
+ * bullet/number lists, inline `code` (themed as a chip via the editor `theme`),
  * text alignment, and text color / highlight. Underline and strikethrough are
  * surfaced too — the editor already applies them — so this exposes existing
  * capability rather than inventing new formatting.
@@ -537,8 +536,7 @@ type BlockInsertKind =
   | "divider";
 
 /**
- * Transforms the active block into `itemKey`, reusing the exact insertion logic
- * the legacy `block-insert-menu.tsx` used: replace the anchored block with a
+ * Transforms the active block into `itemKey`: replace the anchored block with a
  * fresh empty paragraph (clearing any `/filter` trigger text and giving the
  * block transforms a clean range selection), then apply the target type. Prefers
  * the snapshot's `blockKey` (the menu-anchored block) and falls back to the live
@@ -596,10 +594,8 @@ function applyBlockInsert(
 const whenEditable = (ctx: EditorContextSnapshot): boolean => ctx.editable;
 
 /**
- * The deterministic block-type insert tools offered by the `+`/`/` menu —
- * exactly the set the legacy `block-insert-menu.tsx` supported (Heading 2/3,
- * bullet/numbered list, quote, divider). Each `run` reuses that menu's block
- * transform via {@link applyBlockInsert}.
+ * The deterministic block-type insert tools offered by the `+`/`/` menu.
+ * Each `run` applies its block transform via {@link applyBlockInsert}.
  */
 const BLOCK_INSERT_TOOLS: readonly EditorTool[] = [
   {

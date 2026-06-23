@@ -55,7 +55,7 @@ import {
 import { shouldSnapshot } from "@/lib/document-versions";
 import { applyPatch, type DeckPatch } from "@/lib/presentation/slide-commands";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
-import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck-migration";
+import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 import type { Deck, Slide } from "@/lib/presentation/deck";
 
 // ---------------------------------------------------------------------------

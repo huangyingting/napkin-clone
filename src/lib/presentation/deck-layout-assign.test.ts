@@ -6,7 +6,7 @@ import {
   FALLBACK_THEME,
   normalizeGeneratedDeck,
 } from "@/lib/presentation/deck-layout-assign";
-import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck-migration";
+import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import type {
   Deck,

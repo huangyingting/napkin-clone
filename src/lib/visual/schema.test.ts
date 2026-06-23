@@ -86,7 +86,7 @@ test("keeps a straight connector style", () => {
   assert.equal(visual.edges[0].style, "straight");
 });
 
-test("defaults to no style when omitted (backward compatible)", () => {
+test("defaults to no connector style when omitted", () => {
   const visual = validateVisual(
     visualWithEdge({ id: "e1", from: "a", to: "b" }),
   );

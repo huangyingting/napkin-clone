@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Deck } from "./deck";
-import { CURRENT_DECK_SCHEMA_VERSION } from "./deck-migration";
+import { CURRENT_DECK_SCHEMA_VERSION } from "./deck";
 import { normalizeDeckRaw, pickFreshestDeck } from "./fresh-deck";
 
 // ---------------------------------------------------------------------------

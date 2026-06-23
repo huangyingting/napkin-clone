@@ -176,19 +176,15 @@ interface SlideEditorProps {
   visuals: ReadonlyMap<string, Visual>;
   /**
    * The source document's text blocks, surfaced in the "From document"
-   * quick-insert panel so reused document text is one click away. Optional so
-   * callers without a live document (e.g. tests) keep working — the panel then
-   * shows only visuals (or an empty state).
+    * quick-insert panel so reused document text is one click away.
    */
   documentTextBlocks?: readonly DocumentTextBlock[];
   /**
    * All raw document blocks (text + visual). When provided, passed to
    * `mergeDeckFromDocument` for element-level source-ref precedence (#409)
    * and to `findStaleSourceLinks` for visual staleness detection (#424).
-   * Optional for backward compat — callers that only set `documentTextBlocks`
-   * keep working as before.
    */
-  documentBlocks?: readonly DocumentBlock[];
+  documentBlocks: readonly DocumentBlock[];
   /**
    * The source document's stable ID. Used for two purposes: passed through to
    * {@link insertableTextElement} so inserted text elements carry a full
@@ -571,8 +567,8 @@ export function SlideEditor({
 
   // Schedule a debounced autosave on each real user edit. The present deck only
   // changes reference on a genuine action (mutation / undo / redo / applied
-  // sync); the initial load, legacy materialization (done before this editor)
-  // and the staleness banner never reach here, so no spurious autosave fires.
+  // sync); the initial load and staleness banner never reach here, so no
+  // spurious autosave fires.
   useEffect(() => {
     latestDeckRef.current = deck;
     const lastSeen = lastSeenDeckRef.current;
@@ -1386,9 +1382,9 @@ export function SlideEditor({
   );
 
   // ── Pointer-based thumbnail reorder (issue #209) ───────────────────────────
-  // Migrated from HTML5 drag-and-drop (no touch support) to the Pointer API used
-  // by the stage editor, so reordering works with touch. Keyboard ↑/↓ reorder
-  // (the move buttons, issue #212) and the reorderSlides mutation are unchanged.
+  // Uses the same Pointer API as the stage editor so reordering works with
+  // touch. Keyboard ↑/↓ reorder (the move buttons, issue #212) and the
+  // reorderSlides mutation are unchanged.
   const beginReorder = useCallback(
     (event: React.PointerEvent, index: number) => {
       // Only react to the primary button / a touch or pen contact.
@@ -2046,20 +2042,18 @@ export function SlideEditor({
   // All visual insertables from the document (for use in relink pickers).
   const documentVisualInsertables = useMemo(
     () =>
-      buildInsertables(documentBlocks ?? []).filter(
+      buildInsertables(documentBlocks).filter(
         (item): item is Extract<Insertable, { kind: "visual" }> =>
           item.kind === "visual",
       ),
     [documentBlocks],
   );
 
-  // Compute stale links using documentBlocks when available (covers visuals too).
+  // Compute stale links from the full current document block list.
   const staleLinks = useMemo<StaleSourceLink[]>(() => {
-    const blocks =
-      documentBlocks ?? (documentTextBlocks as readonly DocumentBlock[]);
-    if (blocks.length === 0 && staleSourceLinkCount === 0) return [];
-    return findStaleSourceLinks(deck, blocks);
-  }, [deck, documentBlocks, documentTextBlocks, staleSourceLinkCount]);
+    if (documentBlocks.length === 0 && staleSourceLinkCount === 0) return [];
+    return findStaleSourceLinks(deck, documentBlocks);
+  }, [deck, documentBlocks, staleSourceLinkCount]);
 
   // Stale-link action: update element content from fresh source block.
   const handleUpdateFromSource = useCallback(
@@ -2072,12 +2066,10 @@ export function SlideEditor({
       );
       if (!element?.sourceRef) return;
 
-      const blocks =
-        documentBlocks ?? (documentTextBlocks as readonly DocumentBlock[]);
       const linkedAt = new Date().toISOString();
       if (link.blockKind === "text") {
         if (element.kind !== "text") return;
-        const fresh = blocks.find(
+        const fresh = documentBlocks.find(
           (b): b is DocumentTextBlock =>
             b.kind === "text" && b.blockId === link.blockId,
         );
@@ -2103,7 +2095,7 @@ export function SlideEditor({
         });
       } else {
         // Visual: update the contentHash; visualId stays the same.
-        const fresh = blocks.find(
+        const fresh = documentBlocks.find(
           (b) => b.kind === "visual" && b.visualId === link.blockId,
         );
         if (!fresh) return;
@@ -2122,7 +2114,7 @@ export function SlideEditor({
         });
       }
     },
-    [deck, doCommitAndChange, documentBlocks, documentTextBlocks],
+    [deck, doCommitAndChange, documentBlocks],
   );
 
   // Stale-link action: unlink element from its source (keep as manual).

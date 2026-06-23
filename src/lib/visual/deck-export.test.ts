@@ -1005,7 +1005,7 @@ test("bullets op uses items[] text when element has items field", () => {
     theme: "indigo",
     slides: [
       freeFormSlide(0, [
-        bulletsEl("b", ["legacy text"], {
+        bulletsEl("b", ["mirrored text"], {
           items: [{ text: "authoritative text", indent: 0 }],
         }),
       ]),

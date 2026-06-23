@@ -1201,8 +1201,7 @@ export type DeckParseResult =
 /**
  * Non-throwing wrapper around {@link validateDeck}.
  *
- * Only the current schema version is accepted; older payloads are rejected
- * instead of migrated.
+ * Only the current schema version is accepted.
  */
 export function safeParseDeck(input: unknown): DeckParseResult {
   try {

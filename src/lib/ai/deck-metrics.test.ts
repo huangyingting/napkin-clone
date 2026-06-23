@@ -7,7 +7,7 @@ import type {
   SlideElement,
   TextElementStyle,
 } from "@/lib/presentation/deck";
-import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck-migration";
+import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 import {
   computeDeckMetrics,
   countWords,

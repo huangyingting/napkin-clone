@@ -29,7 +29,7 @@ import {
 } from "@/lib/presentation/deck-revision-token";
 
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
-import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck-migration";
+import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 
 import {
   diffVisualMirror,

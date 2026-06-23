@@ -38,7 +38,7 @@ export function buildLinkedInIntent(url: string): string {
 
 /**
  * Returns a Facebook sharer URL for the given `url`.
- * Opens the Facebook sharer dialog via the legacy sharer endpoint.
+ * Opens the Facebook sharer dialog.
  */
 export function buildFacebookIntent(url: string): string {
   return (

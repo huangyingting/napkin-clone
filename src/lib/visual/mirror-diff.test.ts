@@ -142,49 +142,7 @@ test("invalid-payload anchor (live but absent from liveNodes) is not pruned", ()
   assert.deepEqual(diff.toDelete, []);
 });
 
-test("dedupes legacy duplicate anchors: keeps most recent, deletes the rest", () => {
-  const diff = diffVisualMirror({
-    existingRows: [
-      row({
-        id: "old",
-        anchorBlockId: "a",
-        orderIndex: 0,
-        dataKey: "X",
-        createdAt: 100,
-      }),
-      row({
-        id: "new",
-        anchorBlockId: "a",
-        orderIndex: 0,
-        dataKey: "X",
-        createdAt: 200,
-      }),
-    ],
-    liveNodes: [node({ anchorBlockId: "a", orderIndex: 0, dataKey: "X" })],
-    liveAnchors: new Set(["a"]),
-  });
-
-  // Survivor is the most-recent row "new"; "old" is removed as a stale dupe.
-  assert.deepEqual(diff.toDelete, ["old"]);
-  assert.deepEqual(diff.toUpdate, []);
-  assert.deepEqual(diff.toCreate, []);
-});
-
-test("duplicate anchors with equal createdAt keep the lowest id", () => {
-  const diff = diffVisualMirror({
-    existingRows: [
-      row({ id: "b", anchorBlockId: "a", dataKey: "X", createdAt: 100 }),
-      row({ id: "a", anchorBlockId: "a", dataKey: "X", createdAt: 100 }),
-    ],
-    liveNodes: [node({ anchorBlockId: "a", dataKey: "X" })],
-    liveAnchors: new Set(["a"]),
-  });
-
-  // Tie on createdAt -> lowest id "a" survives, "b" is deleted.
-  assert.deepEqual(diff.toDelete, ["b"]);
-});
-
-test("handles a mix of create, update, prune and dedupe together", () => {
+test("handles a mix of create, update, and prune together", () => {
   const diff = diffVisualMirror({
     existingRows: [
       row({
@@ -195,18 +153,11 @@ test("handles a mix of create, update, prune and dedupe together", () => {
         createdAt: 100,
       }),
       row({
-        id: "dupOld",
+        id: "existing-b",
         anchorBlockId: "b",
         orderIndex: 1,
         dataKey: "B",
         createdAt: 100,
-      }),
-      row({
-        id: "dupNew",
-        anchorBlockId: "b",
-        orderIndex: 1,
-        dataKey: "B",
-        createdAt: 200,
       }),
       row({
         id: "stale",
@@ -232,6 +183,5 @@ test("handles a mix of create, update, prune and dedupe together", () => {
     diff.toUpdate.map((u) => ({ id: u.id, changed: u.payloadChanged })),
     [{ id: "keep", changed: true }],
   );
-  // "dupOld" is the stale duplicate of anchor b; "stale" is the orphaned anchor z.
-  assert.deepEqual([...diff.toDelete].sort(), ["dupOld", "stale"]);
+  assert.deepEqual(diff.toDelete, ["stale"]);
 });

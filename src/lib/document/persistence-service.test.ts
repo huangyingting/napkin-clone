@@ -19,7 +19,7 @@ import {
   mirrorVisualNodesInTx,
   sanitizeRestoredDeck,
 } from "./persistence-service";
-import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck-migration";
+import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 
 // ---------------------------------------------------------------------------
 // mirrorVisualNodesInTx — shared transaction boundary

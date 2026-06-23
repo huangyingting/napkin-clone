@@ -8,7 +8,7 @@ import {
   DEFAULT_VISUAL_BOX,
   MAX_BULLETS,
 } from "./deck";
-import { CURRENT_DECK_SCHEMA_VERSION } from "./deck-migration";
+import { CURRENT_DECK_SCHEMA_VERSION } from "./deck";
 import { safeParseDeck } from "./deck-schema";
 
 // ---------------------------------------------------------------------------

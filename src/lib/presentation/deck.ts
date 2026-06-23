@@ -507,8 +507,8 @@ export interface ImageElement extends BaseElement {
   crop?: ImageCrop;
   /**
    * ID of the server-stored {@link Asset} row when this image was uploaded via
-   * the slide asset upload action (Epic #374). Absent for data-URL images that
-   * have not been migrated to server storage.
+    * the slide asset upload action (Epic #374). Data-URL images use `src`
+    * directly and leave this unset.
    */
   assetId?: string;
 }
@@ -643,9 +643,8 @@ export interface Slide {
   /**
    * ID of the server-stored {@link Asset} row when this slide's background
    * was uploaded via the slide asset upload action (Epic #374, issue #393).
-   * Absent for data-URL and remote-URL backgrounds that have not been migrated
-   * to server storage.  When present, renderers SHOULD resolve the URL via the
-   * asset resolver rather than treating `backgroundImage` as canonical.
+    * When present, renderers SHOULD resolve the URL via the asset resolver
+    * rather than treating `backgroundImage` as canonical.
    */
   backgroundAssetId?: string;
 

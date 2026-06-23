@@ -60,7 +60,10 @@ import { mergeSwatches } from "@/lib/presentation/text-style";
 import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
 import { findStaleSourceLinks } from "@/lib/presentation/source-link-staleness";
 import { collectDocumentBlocks } from "@/lib/visual/document-export";
-import type { DocumentTextBlock } from "@/lib/visual/document-export";
+import type {
+  DocumentBlock,
+  DocumentTextBlock,
+} from "@/lib/visual/document-export";
 import type { Visual } from "@/lib/visual/schema";
 import { useRightSurface } from "@/app/app/documents/[id]/right-surface-context";
 
@@ -82,6 +85,8 @@ interface OpenContext {
   currentContentHash: string;
   visualMap: Map<string, Visual>;
   knownVisualIds: Set<string>;
+  /** All source document blocks, for source-link refresh and relinking. */
+  documentBlocks: DocumentBlock[];
   /** The document's text blocks, for the "From document" quick-insert panel. */
   documentTextBlocks: DocumentTextBlock[];
 }
@@ -149,6 +154,9 @@ export function SlideEditorButton({
   const [documentTextBlocks, setDocumentTextBlocks] = useState<
     readonly DocumentTextBlock[]
   >([]);
+  const [documentBlocks, setDocumentBlocks] = useState<readonly DocumentBlock[]>(
+    [],
+  );
   // The current user's brand-kit colors, surfaced first in the editor's color
   // pickers. Best-effort: brands are per-user (not document-scoped), loaded
   // once on mount; failures leave the pickers on their default swatches.
@@ -192,8 +200,7 @@ export function SlideEditorButton({
 
   // The revision token from the most recent fetch or successful save. Passed to
   // saveDeckJson as the clientToken for optimistic locking. null until the first
-  // successful fetch or save; legacy documents (null DB token) are treated as
-  // "no lock" on the first save, then start carrying a token from then on.
+  // successful fetch or save.
   const revisionTokenRef = useRef<string | null>(null);
 
   // Conflict recovery dialog state (#404). When a save returns ok: "conflict"
@@ -234,6 +241,7 @@ export function SlideEditorButton({
       currentContentHash,
       visualMap,
       knownVisualIds: new Set(visualMap.keys()),
+      documentBlocks: blocks,
       documentTextBlocks: blocks.filter(
         (block): block is DocumentTextBlock => block.kind === "text",
       ),
@@ -258,6 +266,7 @@ export function SlideEditorButton({
         const ctx = buildOpenContext(json);
         setFreshDeck(stripOrphanedVisuals(ctx.baseDeck, ctx.knownVisualIds));
         setVisuals(ctx.visualMap);
+        setDocumentBlocks(ctx.documentBlocks);
         setDocumentTextBlocks(ctx.documentTextBlocks);
         if (deckRef.current !== null) {
           setStale(isDeckStale(deckRef.current, ctx.currentContentHash));
@@ -277,6 +286,7 @@ export function SlideEditorButton({
   const finishOpen = useCallback(
     (startDeck: Deck, ctx: OpenContext) => {
       setVisuals(ctx.visualMap);
+      setDocumentBlocks(ctx.documentBlocks);
       setDocumentTextBlocks(ctx.documentTextBlocks);
       setDeck(startDeck);
       // freshDeck (current document) drives the merge; strip orphans so synced
@@ -404,6 +414,8 @@ export function SlideEditorButton({
     setOpen(false);
     setDeck(null);
     setFreshDeck(null);
+    setDocumentBlocks([]);
+    setDocumentTextBlocks([]);
     setStale(false);
     setPendingJson(null);
     setEmptyDocument(false);
@@ -563,6 +575,7 @@ export function SlideEditorButton({
         <SlideEditor
           deck={deck}
           visuals={visuals}
+          documentBlocks={documentBlocks}
           documentTextBlocks={documentTextBlocks}
           documentId={documentId}
           onDeckChange={setDeck}
@@ -572,7 +585,7 @@ export function SlideEditorButton({
           isDeckStale={stale}
           brandSwatches={brandSwatches}
           staleSourceLinkCount={
-            findStaleSourceLinks(deck, documentTextBlocks).length
+            findStaleSourceLinks(deck, documentBlocks).length
           }
         />
       ) : null}

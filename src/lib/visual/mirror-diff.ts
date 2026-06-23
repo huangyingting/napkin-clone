@@ -21,7 +21,7 @@ export type ExistingVisualRow = {
    * can't be re-validated (forces an update so the row is repaired).
    */
   dataKey: string | null;
-  /** Creation time (epoch ms) — picks the survivor among duplicate anchors. */
+  /** Creation time (epoch ms). */
   createdAt: number;
 };
 
@@ -60,7 +60,7 @@ type VisualUpdate<TData = unknown> = {
 export type VisualMirrorDiff<TData = unknown> = {
   toCreate: Array<VisualCreate<TData>>;
   toUpdate: Array<VisualUpdate<TData>>;
-  /** Row ids to delete: orphaned anchors plus any stale duplicate rows. */
+  /** Row ids to delete for orphaned anchors. */
   toDelete: string[];
 };
 
@@ -111,30 +111,13 @@ export function mirrorOutcomeFromDiff(
 }
 
 /**
- * Sorts duplicate rows so the survivor is first: most recently created wins,
- * ties broken by lowest id. Mirrors the dedup rule in the unique-index
- * migration so code and schema agree on which row to keep.
- */
-function survivorFirst(a: ExistingVisualRow, b: ExistingVisualRow): number {
-  if (a.createdAt !== b.createdAt) {
-    return b.createdAt - a.createdAt;
-  }
-  if (a.id < b.id) return -1;
-  if (a.id > b.id) return 1;
-  return 0;
-}
-
-/**
  * Computes the create/update/delete plan to mirror `liveNodes` into the
  * `Visual` table given the document's `existingRows`.
  *
  * - `liveAnchors` is the set of every anchor present in the editor — including
  *   nodes whose payload failed validation. Those anchors keep their existing
- *   row alive (never pruned) but produce no create/update, matching the prior
+ *   row alive (never pruned) but produce no create/update, matching the current
  *   behavior where an invalid payload is skipped rather than persisted.
- * - Among duplicate rows sharing an anchor (possible only from legacy data
- *   written before the unique constraint), the survivor is updated and the rest
- *   are deleted.
  */
 export function diffVisualMirror<TData = unknown>(input: {
   existingRows: ReadonlyArray<ExistingVisualRow>;
@@ -143,18 +126,12 @@ export function diffVisualMirror<TData = unknown>(input: {
 }): VisualMirrorDiff<TData> {
   const { existingRows, liveNodes, liveAnchors } = input;
 
-  // Group anchored rows so we can pick a survivor and prune duplicates.
-  const byAnchor = new Map<string, ExistingVisualRow[]>();
+  const byAnchor = new Map<string, ExistingVisualRow>();
   for (const row of existingRows) {
     if (row.anchorBlockId === null) {
       continue;
     }
-    const group = byAnchor.get(row.anchorBlockId);
-    if (group) {
-      group.push(row);
-    } else {
-      byAnchor.set(row.anchorBlockId, [row]);
-    }
+    byAnchor.set(row.anchorBlockId, row);
   }
 
   const toCreate: Array<VisualCreate<TData>> = [];
@@ -162,9 +139,9 @@ export function diffVisualMirror<TData = unknown>(input: {
   const toDelete = new Set<string>();
 
   for (const node of liveNodes) {
-    const group = byAnchor.get(node.anchorBlockId);
+    const existing = byAnchor.get(node.anchorBlockId);
 
-    if (!group || group.length === 0) {
+    if (!existing) {
       toCreate.push({
         anchorBlockId: node.anchorBlockId,
         orderIndex: node.orderIndex,
@@ -175,26 +152,21 @@ export function diffVisualMirror<TData = unknown>(input: {
       continue;
     }
 
-    const [survivor, ...duplicates] = [...group].sort(survivorFirst);
-    for (const dup of duplicates) {
-      toDelete.add(dup.id);
-    }
-
     const payloadChanged =
-      survivor.dataKey === null || survivor.dataKey !== node.dataKey;
+      existing.dataKey === null || existing.dataKey !== node.dataKey;
 
     if (payloadChanged) {
       toUpdate.push({
-        id: survivor.id,
+        id: existing.id,
         orderIndex: node.orderIndex,
         type: node.type,
         title: node.title,
         data: node.data,
         payloadChanged: true,
       });
-    } else if (survivor.orderIndex !== node.orderIndex) {
+    } else if (existing.orderIndex !== node.orderIndex) {
       toUpdate.push({
-        id: survivor.id,
+        id: existing.id,
         orderIndex: node.orderIndex,
         type: node.type,
         title: node.title,

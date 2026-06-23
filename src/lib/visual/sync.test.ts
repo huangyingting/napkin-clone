@@ -280,7 +280,7 @@ test("validateVisual: preserves sourceText and sourceTextHash through round-trip
   }
 });
 
-test("validateVisual: accepts visual without sourceText (backward compatible)", () => {
+test("validateVisual: accepts visual without sourceText", () => {
   const raw = {
     version: VISUAL_SCHEMA_VERSION,
     type: "flowchart",

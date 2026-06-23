@@ -342,6 +342,5 @@ described in them differs from this document, this document is authoritative.
 | `visual-mirror-contract.md`    | Current — details intact          | Still accurate; atomicity detail updated here                           |
 | `command-envelope-spec.md`     | Current                           | Command bus is live                                                     |
 | `theme-layout-architecture.md` | Current                           | CSS token layer                                                         |
-| `migration-dry-run-plan.md`    | Historical — migration complete   | `bid` stamping done                                                     |
 | `mutation-audit.md`            | Current                           | Audit reference                                                         |
 | `release-gate.md`              | Current                           | CI gate specification                                                   |

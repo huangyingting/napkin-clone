@@ -90,7 +90,7 @@ import {
   updateSlide,
 } from "./deck-mutations";
 import type { SlideFormat } from "./slide-format";
-import { CURRENT_DECK_SCHEMA_VERSION } from "./deck-migration";
+import { CURRENT_DECK_SCHEMA_VERSION } from "./deck";
 
 // ---------------------------------------------------------------------------
 // Command types

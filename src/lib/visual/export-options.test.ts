@@ -272,7 +272,7 @@ test("computeLetterboxedDimensions: 9:16 letterboxes a portrait canvas", () => {
 // computeLetterboxedDimensions — safe-area padding
 // ---------------------------------------------------------------------------
 
-test("computeLetterboxedDimensions: padding=0 matches legacy no-padding behaviour", () => {
+test("computeLetterboxedDimensions: padding=0 matches no-padding behaviour", () => {
   const withPad = computeLetterboxedDimensions(
     { width: 800, height: 600 },
     "1:1",

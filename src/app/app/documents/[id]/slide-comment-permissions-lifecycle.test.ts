@@ -7,7 +7,7 @@
  *    canDeleteComment work regardless of anchor type).
  *  - Anchor parse / sanitize at the server-action boundary.
  *  - Delete / duplicate / restore lifecycle rules via pure helpers.
- *  - Backward compat: text comments are unaffected by slide anchor logic.
+ *  - Text comments are unaffected by slide anchor logic.
  *
  * DOM-free, runnable under `node --test`.
  */
@@ -255,11 +255,11 @@ test("lifecycle restore: orphaned anchors identified correctly after deck replac
 });
 
 // ---------------------------------------------------------------------------
-// #419 backward compat — text comments unaffected
+// #419 text comments unaffected
 // ---------------------------------------------------------------------------
 
-test("backward compat: text comment record has null slide anchor fields", () => {
-  // A legacy text/visual comment row has no slideId/elementId.
+test("text comment record has null slide anchor fields", () => {
+  // A text/visual comment row has no slideId/elementId.
   // CommentAnchorRecord only has slideId/elementId/anchorGeometry fields.
   const record = {
     slideId: null,
@@ -274,13 +274,13 @@ test("backward compat: text comment record has null slide anchor fields", () => 
   assert.equal(anchor1.geometry, null);
 });
 
-test("backward compat: deck-level anchor resolves to deck for text comment", () => {
+test("deck-level anchor resolves to deck for text comment", () => {
   const textCommentAnchor = commentAnchorFromRecord({});
   const deck = makeDeck([makeSlide("sl-1")]);
   assert.equal(resolveAnchorState(textCommentAnchor, deck), "deck");
 });
 
-test("backward compat: text comment not affected by slide delete lifecycle", () => {
+test("text comment not affected by slide delete lifecycle", () => {
   // A deck-level (text) comment has slideId=null; slide delete should not touch it.
   const deckLevelAnchor = anchor({ slideId: null });
   const result = applySlideDeleteToAnchors([deckLevelAnchor], "sl-1");

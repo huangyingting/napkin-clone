@@ -68,7 +68,7 @@ function matchesQuery(tool: EditorTool, query: string): boolean {
  * sections: "Text" ({@link toolsFor}`("block-insert")`) and "Visuals"
  * ({@link toolsFor}`("visual-insert")`), each item icon-first.
  *
- * Affordances (parity with the legacy `block-insert-menu.tsx`):
+ * Affordances:
  *  - A "+" gutter button on an empty paragraph opens the menu (keyboard-driven,
  *    menu takes focus).
  *  - Typing "/" at the start of any single block opens the same menu, filtered
@@ -199,7 +199,7 @@ export function InsertMenuPlugin() {
   );
 
   // Refs keep the Lexical key-command handlers (slash mode) free of stale
-  // closures, mirroring the legacy menu's approach.
+  // closures.
   const slashActiveRef = useRef(false);
   const flatToolsRef = useRef(flatTools);
   const activeIndexRef = useRef(safeActive);

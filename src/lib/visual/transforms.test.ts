@@ -577,12 +577,12 @@ test("setAllEdgesStyle preserves edge content (from/to/label)", () => {
   }
 });
 
-// ── Backward compatibility ────────────────────────────────────────────────────
+// ── Optional current fields ───────────────────────────────────────────────────
 
-test("validateVisual accepts old visuals without new fields", () => {
+test("validateVisual accepts visuals without optional node style fields", () => {
   for (const kind of VISUAL_KINDS) {
     const source = sourceFor(kind);
-    // Strip new fields to simulate old stored visuals.
+    // Strip optional fields.
     const stripped = {
       ...source,
       nodes: source.nodes.map((n) => {

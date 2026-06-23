@@ -251,7 +251,7 @@ export async function createComment(
         },
       });
     } else {
-      // Text/visual anchor (backward compatible path).
+      // Text/visual document anchor.
       const anchorType = normalizeAnchorType(input.anchorType ?? null);
       const anchorText = anchorType
         ? (input.anchorText?.trim().slice(0, MAX_ANCHOR_TEXT_LENGTH) ?? null)

@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { safeParseDeck } from "./deck-schema";
-import { CURRENT_DECK_SCHEMA_VERSION } from "./deck-migration";
+import { CURRENT_DECK_SCHEMA_VERSION } from "./deck";
 
 function baseDeck(overrides: Record<string, unknown> = {}) {
   return {

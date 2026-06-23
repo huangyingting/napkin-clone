@@ -52,8 +52,7 @@ function useIsMac(): boolean {
  * {@link useEditorContext} snapshot (it runs no `selectionchange` listener or
  * rect math of its own) and renders the visible `text-format` tools from the
  * {@link toolsFor} registry as icon buttons. It appears above a non-collapsed
- * text selection and flips below it near the top edge — preserving the legacy
- * `floating-toolbar.tsx` behaviour with a cleaner, icons-first surface.
+ * text selection and flips below it near the top edge.
  *
  * All actions go through `tool.run(editor, ctx)`, which wraps Lexical commands /
  * `editor.update()` only — never Yjs, never persisted NodeKeys.

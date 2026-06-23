@@ -309,7 +309,7 @@ test("collectDocumentBlocks attaches runs only when formatting is present", () =
     ]),
   );
   assert.equal(blocks.length, 2);
-  // Plain paragraph carries no runs (identical to legacy shape).
+  // Plain paragraph carries no runs.
   if (blocks[0].kind === "text") {
     assert.equal(blocks[0].runs, undefined);
     assert.equal(blocks[0].text, "all plain text");

@@ -8,7 +8,7 @@ import {
   parseDeckResponse,
   requestDeckGeneration,
 } from "./deck-generation-request";
-import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck-migration";
+import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 
 // A schema-valid deck reused across the parse/request tests. Mirrors the
 // current deck schema.

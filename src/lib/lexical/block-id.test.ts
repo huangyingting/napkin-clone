@@ -22,7 +22,7 @@ import {
 } from "./block-id-runtime";
 import { markdownToLexicalStateObject } from "./from-markdown";
 
-function legacyState(): {
+function bidlessState(): {
   root: {
     type: "root";
     version: 1;
@@ -36,7 +36,6 @@ function legacyState(): {
       children: [
         {
           type: "paragraph",
-          key: "legacy-paragraph",
           version: 1,
           direction: null,
           format: "",
@@ -47,7 +46,6 @@ function legacyState(): {
         },
         {
           type: "heading",
-          key: "legacy-heading",
           version: 1,
           direction: null,
           format: "",
@@ -64,7 +62,6 @@ function legacyState(): {
           children: [
             {
               type: "listitem",
-              key: "legacy-item",
               version: 1,
               direction: null,
               format: "",
@@ -170,8 +167,8 @@ test("BLOCK_NODE_TYPES contains every bid-carrying block node type", () => {
 });
 
 test("stampBlockIds adds bid to paragraph, heading, and listitem nodes that lack one", () => {
-  const stamped = stampBlockIds(legacyState()) as ReturnType<
-    typeof legacyState
+  const stamped = stampBlockIds(bidlessState()) as ReturnType<
+    typeof bidlessState
   >;
   const [paragraph, heading, list] = stamped.root.children as Array<
     Record<string, unknown>
@@ -215,7 +212,7 @@ test("stampBlockIds preserves existing bid values and is idempotent", () => {
 });
 
 test("stampBlockIds skips visual, root, and list container nodes", () => {
-  const stamped = stampBlockIds(legacyState()) as Record<string, unknown>;
+  const stamped = stampBlockIds(bidlessState()) as Record<string, unknown>;
   const root = stamped.root as Record<string, unknown>;
   const list = (root.children as Array<Record<string, unknown>>)[2];
   const visual = (root.children as Array<Record<string, unknown>>)[3];
@@ -224,8 +221,8 @@ test("stampBlockIds skips visual, root, and list container nodes", () => {
   assert.equal(visual.bid, undefined);
 });
 
-test("stampBlockIds handles legacy contentJson without throwing", () => {
-  assert.doesNotThrow(() => stampBlockIds(legacyState()));
+test("stampBlockIds handles bidless contentJson without throwing", () => {
+  assert.doesNotThrow(() => stampBlockIds(bidlessState()));
 });
 
 test("stampBlockIds handles empty, null, and invalid input gracefully", () => {
@@ -263,7 +260,7 @@ test("regenerateBlockIds always generates new bids even when one already exists"
 });
 
 test("regenerateBlockIds builds a correct bidMap", () => {
-  const input = stampBlockIds(legacyState()) as ReturnType<typeof legacyState>;
+  const input = stampBlockIds(bidlessState()) as ReturnType<typeof bidlessState>;
   const beforeRoot = input.root;
   const beforeParagraph = beforeRoot.children[0] as { bid: string };
   const beforeHeading = beforeRoot.children[1] as { bid: string };
@@ -271,7 +268,7 @@ test("regenerateBlockIds builds a correct bidMap", () => {
     .children[0] ?? {}) as { bid: string };
 
   const result = regenerateBlockIds(input);
-  const root = (result.updated as ReturnType<typeof legacyState>).root;
+  const root = (result.updated as ReturnType<typeof bidlessState>).root;
   const paragraph = root.children[0] as { bid: string };
   const heading = root.children[1] as { bid: string };
   const item = ((root.children[2] as { children: unknown[] }).children[0] ?? {
@@ -294,10 +291,10 @@ test("regenerateBlockIds handles nested list items", () => {
   assert.match(String(inner.bid), /^[A-Za-z0-9]{12}$/);
 });
 
-test("collectDocumentBlocks returns blockIds for stamped legacy content and markdown-derived content", () => {
-  const legacyBlocks = collectDocumentBlocks(stampBlockIds(legacyState()));
+test("collectDocumentBlocks returns blockIds for stamped bidless content and markdown-derived content", () => {
+  const bidlessBlocks = collectDocumentBlocks(stampBlockIds(bidlessState()));
   assert.equal(
-    legacyBlocks.every((block) => block.kind === "visual" || block.blockId),
+    bidlessBlocks.every((block) => block.kind === "visual" || block.blockId),
     true,
   );
 

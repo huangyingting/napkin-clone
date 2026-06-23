@@ -97,9 +97,8 @@ const theme: EditorThemeClasses = {
   },
 };
 
-// Nodes the editor can render/parse. Headings and lists are required so that a
-// document migrated from Markdown (US-004) round-trips through Lexical's
-// `parseEditorState`.
+// Nodes the editor can render/parse. Headings and lists are required so that
+// imported Markdown round-trips through Lexical's `parseEditorState`.
 const NODES: Array<Klass<LexicalNode>> = [
   HeadingNode,
   QuoteNode,
@@ -337,8 +336,7 @@ function useEditorHeaderMode() {
  * originator writes). The title is a separate collaborative, autosaved input.
  * It renders the full document chrome (back link, workspace, read-only badge,
  * presence, sharing, inline comments) and hosts the "+"/"/" insert menus, the floating
- * format toolbar, the per-block visual spark, and inline visual cards. This
- * replaced the legacy textarea/tab editor (US-018).
+ * format toolbar, the per-block visual spark, and inline visual cards.
  */
 export function LexicalEditor({
   documentId,
