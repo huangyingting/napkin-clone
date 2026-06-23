@@ -106,6 +106,11 @@ import {
   type TextLikeElement,
   type TextResizeMeasurer,
 } from "@/lib/presentation/text-element-fit";
+import {
+  elementPointerDownIntent,
+  isInlineEditableStageElement,
+  shouldEnterInlineTextEditOnClick,
+} from "@/lib/presentation/stage-interaction";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 import type { Visual } from "@/lib/visual/schema";
 
@@ -126,6 +131,10 @@ interface DragState {
   startFontSize?: number;
   /** Start boxes of all co-moving members for a group / multi-selection move. */
   groupBoxes?: { id: string; startBox: ElementBox }[];
+  /** True when this pointer-down began on the single primary selection. */
+  wasPrimarySelected: boolean;
+  /** Selection size at pointer-down; used to avoid entering edit from a group. */
+  selectedCountAtStart: number;
 }
 
 /**
@@ -873,16 +882,6 @@ function defaultShapeTextStyle(): TextElementStyle {
   };
 }
 
-function isInlineEditableElement(
-  element: SlideElement,
-): element is Extract<SlideElement, { kind: "text" | "bullets" | "shape" }> {
-  return (
-    element.kind === "text" ||
-    element.kind === "bullets" ||
-    (element.kind === "shape" && element.shape !== "line")
-  );
-}
-
 /**
  * How a selection request should fold into the current selection. `"replace"`
  * (the default, plain click) selects just the one element; `"toggle"`
@@ -1087,7 +1086,7 @@ export function SlideStageEditor({
       (element) =>
         element.id === editingId &&
         element.id === selectedElementId &&
-        isInlineEditableElement(element),
+        isInlineEditableStageElement(element),
     ) ?? null;
   const activeEditingId = editingElement?.id ?? null;
 
@@ -1614,7 +1613,7 @@ export function SlideStageEditor({
 
   const startEditing = useCallback(
     (element: SlideElement, caret?: { x: number; y: number } | null) => {
-      if (isInlineEditableElement(element)) {
+      if (isInlineEditableStageElement(element)) {
         onSelectElement(element.id);
         setEditingId(element.id);
         setEditCoalesceKey(nextGestureKey("edit-text", element.id));
@@ -1714,12 +1713,21 @@ export function SlideStageEditor({
         onSelectElement(null);
       }
     }
-    // A plain click (no movement) on a text/bullets element drops straight into
-    // inline editing with the caret at the click point — no double-click needed.
+    // A plain click on the already-selected primary text element enters inline
+    // editing. The initial click on an unselected element only selects it.
     const drag = dragRef.current;
-    if (drag && drag.mode === "move" && !drag.moved) {
+    if (drag) {
       const element = elementsRef.current.find((item) => item.id === drag.id);
-      if (element && (element.kind === "text" || element.kind === "bullets")) {
+      if (
+        element &&
+        shouldEnterInlineTextEditOnClick({
+          element,
+          mode: drag.mode,
+          moved: drag.moved,
+          wasPrimarySelected: drag.wasPrimarySelected,
+          selectedCount: drag.selectedCountAtStart,
+        })
+      ) {
         startEditing(element, {
           x: drag.startClientX,
           y: drag.startClientY,
@@ -1798,6 +1806,8 @@ export function SlideStageEditor({
           }));
         }
       }
+      const wasPrimarySelected =
+        selectedElementId === id && selectedElementIds.size === 1;
       dragRef.current = {
         id,
         mode,
@@ -1812,6 +1822,8 @@ export function SlideStageEditor({
             ? startElement.style.fontSize
             : undefined,
         groupBoxes,
+        wasPrimarySelected,
+        selectedCountAtStart: selectedElementIds.size,
       };
       setActiveDrag(mode);
     },
@@ -1820,6 +1832,7 @@ export function SlideStageEditor({
       nextGestureKey,
       onSelectElement,
       onSelectElements,
+      selectedElementId,
       selectedElementIds,
     ],
   );
@@ -1951,7 +1964,7 @@ export function SlideStageEditor({
           const inSelection = selectedElementIds.has(element.id);
           const selected = isPrimary || inSelection;
           const isEditing = element.id === activeEditingId;
-          const editable = isInlineEditableElement(element);
+          const editable = isInlineEditableStageElement(element);
           // Frame = the element box (Canva model). For text it equals fittedBox
           // anyway; the explicit element.box keeps the auto-growing height in
           // sync while editing.
@@ -1972,11 +1985,31 @@ export function SlideStageEditor({
                 if (isEditing || element.locked) {
                   return;
                 }
-                // Shift / Ctrl / Cmd-click toggles the element in the
-                // multi-selection without starting a drag. Issue #237.
-                if (event.shiftKey || event.metaKey || event.ctrlKey) {
+                const pointerIntent = elementPointerDownIntent({
+                  isSelected: selectedElementIds.has(element.id),
+                  isAdditive: event.shiftKey || event.metaKey || event.ctrlKey,
+                });
+                if (pointerIntent === "toggle-selection") {
                   event.stopPropagation();
                   onSelectElement(element.id, "toggle");
+                  return;
+                }
+                if (pointerIntent === "select-only") {
+                  event.stopPropagation();
+                  const elementGroupId = (element as { groupId?: string })
+                    .groupId;
+                  if (elementGroupId && groupEditingId !== elementGroupId) {
+                    const groupIds = elementsRef.current
+                      .filter(
+                        (item) =>
+                          (item as { groupId?: string }).groupId ===
+                          elementGroupId,
+                      )
+                      .map((item) => item.id);
+                    onSelectElements(groupIds);
+                  } else {
+                    onSelectElement(element.id, "replace");
+                  }
                   return;
                 }
                 beginDrag(event, element.id, "move", fittedBox);
@@ -2619,7 +2652,7 @@ function ElementContextMenu({
   }, [onClose]);
 
   if (!element || typeof document === "undefined") return null;
-  const editable = isInlineEditableElement(element);
+  const editable = isInlineEditableStageElement(element);
   const run = (action: () => void) => () => {
     action();
     onClose();
