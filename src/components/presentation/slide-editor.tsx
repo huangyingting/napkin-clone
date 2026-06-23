@@ -169,15 +169,31 @@ import { uploadSlideAsset } from "@/app/app/documents/[id]/slide-asset-actions";
 import {
   buildInsertables,
   insertableTextElement,
+  insertableVisualElement,
   type Insertable,
 } from "@/lib/presentation/document-insertable";
+import {
+  findStaleSourceLinks,
+  updateTextElementFromBlock,
+  buildRefreshSourceRef,
+  type StaleSourceLink,
+} from "@/lib/presentation/source-link-staleness";
+import { hashDocumentBlock } from "@/lib/presentation/document-block-hash";
+import {
+  unlinkSource,
+  relinkSource,
+  type SourceRef,
+} from "@/lib/presentation/deck";
+import type {
+  DocumentBlock,
+  DocumentTextBlock,
+} from "@/lib/visual/document-export";
 import {
   createTextResizeMeasurer,
   fitNewTextElementBox,
   type TextLikeElement,
 } from "@/lib/presentation/text-element-fit";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
-import type { DocumentTextBlock } from "@/lib/visual/document-export";
 
 interface SlideEditorProps {
   deck: Deck;
@@ -189,6 +205,14 @@ interface SlideEditorProps {
    * shows only visuals (or an empty state).
    */
   documentTextBlocks?: readonly DocumentTextBlock[];
+  /**
+   * All raw document blocks (text + visual). When provided, passed to
+   * `mergeDeckFromDocument` for element-level source-ref precedence (#409)
+   * and to `findStaleSourceLinks` for visual staleness detection (#424).
+   * Optional for backward compat — callers that only set `documentTextBlocks`
+   * keep working as before.
+   */
+  documentBlocks?: readonly DocumentBlock[];
   /**
    * The source document's stable ID. Used for two purposes: passed through to
    * {@link insertableTextElement} so inserted text elements carry a full
@@ -221,7 +245,6 @@ interface SlideEditorProps {
    * optional — falls back to on-theme / default swatches when empty.
    */
   brandSwatches?: readonly string[];
-  /**
   /**
    * Number of slide elements whose source-document links are stale (issue
    * #377). Drives the stale-count badge on the "From document" button. Absent
@@ -330,6 +353,7 @@ export function SlideEditor({
   deck: deckProp,
   visuals,
   documentTextBlocks = [],
+  documentBlocks,
   documentId,
   onDeckChange: onDeckChangeProp,
   onClose,
@@ -1787,12 +1811,13 @@ export function SlideEditor({
   // "From document" panel inserts. These keep the panel open so the user can
   // place several items in a row; each insert is a single undoable step.
   const handleInsertDocumentVisual = useCallback(
-    (visualId: string) => {
-      const element = buildVisualElement(visualId);
+    (item: Extract<Insertable, { kind: "visual" }>) => {
+      // Stamp sourceRef when documentId is available (issue #424).
+      const element = insertableVisualElement(item, { documentId });
       onDeckChange(addElement(deck, safeSelected, element));
       handleSelectElement(element.id);
     },
-    [deck, handleSelectElement, onDeckChange, safeSelected],
+    [deck, documentId, handleSelectElement, onDeckChange, safeSelected],
   );
 
   const handleInsertDocumentText = useCallback(
@@ -1843,6 +1868,139 @@ export function SlideEditor({
           item.kind === "text",
       ),
     [documentTextBlocks],
+  );
+
+  // All visual insertables from the document (for use in relink pickers).
+  const documentVisualInsertables = useMemo(
+    () =>
+      buildInsertables(documentBlocks ?? []).filter(
+        (item): item is Extract<Insertable, { kind: "visual" }> =>
+          item.kind === "visual",
+      ),
+    [documentBlocks],
+  );
+
+  // Compute stale links using documentBlocks when available (covers visuals too).
+  const staleLinks = useMemo<StaleSourceLink[]>(() => {
+    const blocks =
+      documentBlocks ?? (documentTextBlocks as readonly DocumentBlock[]);
+    if (blocks.length === 0 && staleSourceLinkCount === 0) return [];
+    return findStaleSourceLinks(deck, blocks);
+  }, [deck, documentBlocks, documentTextBlocks, staleSourceLinkCount]);
+
+  // Stale-link action: update element content from fresh source block.
+  const handleUpdateFromSource = useCallback(
+    (link: StaleSourceLink) => {
+      const slideIndex = deck.slides.findIndex((s) => s.id === link.slideId);
+      if (slideIndex < 0) return;
+      const slide = deck.slides[slideIndex];
+      const element = (slide.elements ?? []).find(
+        (el) => el.id === link.elementId,
+      );
+      if (!element?.sourceRef) return;
+
+      const blocks =
+        documentBlocks ?? (documentTextBlocks as readonly DocumentBlock[]);
+      const linkedAt = new Date().toISOString();
+      if (link.blockKind === "text") {
+        if (element.kind !== "text") return;
+        const fresh = blocks.find(
+          (b): b is DocumentTextBlock =>
+            b.kind === "text" && b.blockId === link.blockId,
+        );
+        if (!fresh) return;
+        const newRef = buildRefreshSourceRef(
+          element.sourceRef,
+          link.blockId,
+          hashDocumentBlock(fresh),
+          linkedAt,
+        );
+        const updated = updateTextElementFromBlock(element, fresh, newRef);
+        const patch: ElementPatch = {
+          text: updated.text,
+          ...(updated.runs !== undefined ? { runs: updated.runs } : {}),
+          sourceRef: updated.sourceRef,
+        };
+        onDeckChange(updateElement(deck, slideIndex, link.elementId, patch));
+      } else {
+        // Visual: update the contentHash; visualId stays the same.
+        const fresh = blocks.find(
+          (b) => b.kind === "visual" && b.visualId === link.blockId,
+        );
+        if (!fresh) return;
+        const newRef = buildRefreshSourceRef(
+          element.sourceRef,
+          link.blockId,
+          hashDocumentBlock(fresh),
+          linkedAt,
+          "visual",
+        );
+        onDeckChange(
+          updateElement(deck, slideIndex, link.elementId, {
+            sourceRef: newRef,
+          }),
+        );
+      }
+    },
+    [deck, documentBlocks, documentTextBlocks, onDeckChange],
+  );
+
+  // Stale-link action: unlink element from its source (keep as manual).
+  const handleUnlinkSource = useCallback(
+    (link: StaleSourceLink) => {
+      const slideIndex = deck.slides.findIndex((s) => s.id === link.slideId);
+      if (slideIndex < 0) return;
+      const slide = deck.slides[slideIndex];
+      const element = (slide.elements ?? []).find(
+        (el) => el.id === link.elementId,
+      );
+      if (!element?.sourceRef) return;
+      const unlinked = unlinkSource(element);
+      onDeckChange(
+        updateElement(deck, slideIndex, link.elementId, {
+          sourceRef: unlinked.sourceRef,
+        }),
+      );
+    },
+    [deck, onDeckChange],
+  );
+
+  // Stale-link action: relink element to a different document block.
+  const handleRelinkSource = useCallback(
+    (link: StaleSourceLink, newBlockId: string, newContentHash: string) => {
+      const slideIndex = deck.slides.findIndex((s) => s.id === link.slideId);
+      if (slideIndex < 0) return;
+      const slide = deck.slides[slideIndex];
+      const element = (slide.elements ?? []).find(
+        (el) => el.id === link.elementId,
+      );
+      if (!element?.sourceRef) return;
+      const newRef: SourceRef = {
+        documentId: element.sourceRef.documentId,
+        blockId: newBlockId,
+        contentHash: newContentHash,
+        linkedAt: new Date().toISOString(),
+        blockKind: link.blockKind,
+      };
+      const relinked = relinkSource(element, newRef);
+      onDeckChange(
+        updateElement(deck, slideIndex, link.elementId, {
+          sourceRef: relinked.sourceRef,
+        }),
+      );
+    },
+    [deck, onDeckChange],
+  );
+
+  // Stale-link action: remove an orphaned element from the slide (#410).
+  // Only offered for orphaned elements (block_missing); never auto-invoked.
+  const handleRemoveOrphaned = useCallback(
+    (link: StaleSourceLink) => {
+      const slideIndex = deck.slides.findIndex((s) => s.id === link.slideId);
+      if (slideIndex < 0) return;
+      onDeckChange(removeElement(deck, slideIndex, link.elementId));
+    },
+    [deck, onDeckChange],
   );
 
   const documentVisualEntries = useMemo(
@@ -2107,10 +2265,17 @@ export function SlideEditor({
               <FromDocumentPanel
                 visuals={documentVisualEntries}
                 textItems={documentTextInsertables}
+                staleLinks={staleLinks}
                 onClose={() => setFromDocOpen(false)}
                 onAddAllVisuals={handleAddAllVisuals}
                 onInsertVisual={handleInsertDocumentVisual}
                 onInsertText={handleInsertDocumentText}
+                onUpdateFromSource={handleUpdateFromSource}
+                onUnlinkSource={handleUnlinkSource}
+                onRelinkSource={handleRelinkSource}
+                onRemoveOrphaned={handleRemoveOrphaned}
+                documentTextInsertables={documentTextInsertables}
+                documentVisualInsertables={documentVisualInsertables}
               />
             </Popover>
             <div
@@ -2848,24 +3013,53 @@ function fromDocVisualLabel(id: string, visual: Visual): string {
  * visuals and text as click-to-insert cards plus an "Add all visuals" action.
  * Each insert is routed through the editor's undoable `addElement` path; the
  * panel stays open after an insert so several items can be placed in a row.
+ *
+ * Issue #408/#410: When `staleLinks` is non-empty, a "Source links" section
+ * is shown above the insert cards, listing each stale element with its reason
+ * (changed vs orphaned/missing) and per-element actions (update, unlink/keep,
+ * relink, remove). The panel never auto-deletes elements (#410).
  */
 function FromDocumentPanel({
   visuals,
   textItems,
+  staleLinks = [],
   onClose,
   onAddAllVisuals,
   onInsertVisual,
   onInsertText,
+  onUpdateFromSource,
+  onUnlinkSource,
+  onRelinkSource,
+  onRemoveOrphaned,
+  documentTextInsertables = [],
+  documentVisualInsertables = [],
 }: {
   visuals: readonly (readonly [string, Visual])[];
   textItems: readonly Extract<Insertable, { kind: "text" }>[];
+  staleLinks?: StaleSourceLink[];
   onClose: () => void;
   onAddAllVisuals: () => void;
-  onInsertVisual: (visualId: string) => void;
+  onInsertVisual: (item: Extract<Insertable, { kind: "visual" }>) => void;
   onInsertText: (item: Extract<Insertable, { kind: "text" }>) => void;
+  onUpdateFromSource?: (link: StaleSourceLink) => void;
+  onUnlinkSource?: (link: StaleSourceLink) => void;
+  onRelinkSource?: (
+    link: StaleSourceLink,
+    newBlockId: string,
+    newContentHash: string,
+  ) => void;
+  onRemoveOrphaned?: (link: StaleSourceLink) => void;
+  documentTextInsertables?: readonly Extract<Insertable, { kind: "text" }>[];
+  documentVisualInsertables?: readonly Extract<
+    Insertable,
+    { kind: "visual" }
+  >[];
 }) {
   const hasVisuals = visuals.length > 0;
   const hasText = textItems.length > 0;
+  const hasStale = staleLinks.length > 0;
+  const changedLinks = staleLinks.filter((l) => l.reason === "content_changed");
+  const missingLinks = staleLinks.filter((l) => l.reason === "block_missing");
 
   return (
     <div className="flex max-h-[70vh] flex-col">
@@ -2883,95 +3077,253 @@ function FromDocumentPanel({
         </button>
       </div>
 
-      {!hasVisuals && !hasText ? (
-        <p className="px-3 py-8 text-center text-xs text-ds-text-muted">
-          This document has no text or visuals yet. Add content in the document
-          to reuse it on a slide.
-        </p>
-      ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto p-3">
-          {hasVisuals ? (
-            <section aria-label="Document visuals">
-              <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-[11px] font-medium uppercase tracking-wide text-ds-text-muted">
-                  Visuals
-                </h3>
-                <button
-                  type="button"
-                  onClick={onAddAllVisuals}
-                  className={`flex h-6 items-center gap-1 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 text-[11px] font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-                >
-                  <Plus size={12} aria-hidden="true" />
-                  Add all visuals
-                </button>
-              </div>
-              <ul className="grid grid-cols-2 gap-2">
-                {visuals.map(([id, visual]) => (
-                  <li key={id}>
-                    <button
-                      type="button"
-                      onClick={() => onInsertVisual(id)}
-                      aria-label={`Insert ${fromDocVisualLabel(id, visual)}`}
-                      title={fromDocVisualLabel(id, visual)}
-                      className={`group flex w-full flex-col gap-1 rounded-ds-sm border border-ds-border-subtle bg-ds-surface p-1.5 text-left transition-colors hover:border-ds-control hover:bg-ds-state-hover ${FOCUS_RING}`}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {/* Stale source links section (#408 / #410) */}
+        {hasStale ? (
+          <section
+            aria-label="Stale source links"
+            className="border-b border-ds-border-subtle p-3"
+          >
+            <h3 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-ds-warning-text">
+              Source links
+            </h3>
+            {changedLinks.length > 0 && (
+              <div className="mb-2">
+                <p className="mb-1.5 text-[11px] text-ds-text-muted">
+                  Content changed
+                </p>
+                <ul className="flex flex-col gap-1">
+                  {changedLinks.map((link) => (
+                    <li
+                      key={link.elementId}
+                      className="flex items-center gap-1 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2 py-1.5"
                     >
-                      <span className="flex aspect-video items-center justify-center overflow-hidden rounded-ds-sm bg-ds-surface-base">
-                        <VisualRenderer
-                          visual={visual}
-                          className="h-full w-full object-contain"
-                          transparentBackground
-                        />
+                      <span className="min-w-0 flex-1 truncate text-[11px] text-ds-text-secondary">
+                        {link.blockKind === "visual" ? "Visual" : "Text"} ·{" "}
+                        {link.blockId.slice(0, 8)}
                       </span>
-                      <span className="truncate text-[11px] text-ds-text-muted">
-                        {fromDocVisualLabel(id, visual)}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          {hasText ? (
-            <section
-              aria-label="Document text"
-              className={hasVisuals ? "mt-4" : ""}
-            >
-              <h3 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-ds-text-muted">
-                Text
-              </h3>
-              <ul className="flex flex-col gap-1">
-                {textItems.map((item, index) => (
-                  <li key={index}>
-                    <button
-                      type="button"
-                      onClick={() => onInsertText(item)}
-                      aria-label={`Insert ${item.heading ? "heading" : "text"}: ${item.label}`}
-                      title={item.text}
-                      className={`flex w-full items-center gap-2 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-left transition-colors hover:border-ds-control hover:bg-ds-state-hover ${FOCUS_RING}`}
-                    >
-                      <Type
-                        size={13}
-                        aria-hidden="true"
-                        className="shrink-0 text-ds-text-muted"
-                      />
-                      <span
-                        className={`min-w-0 flex-1 truncate text-xs ${
-                          item.heading
-                            ? "font-semibold text-ds-text-primary"
-                            : "text-ds-text-secondary"
-                        }`}
+                      <button
+                        type="button"
+                        onClick={() => onUpdateFromSource?.(link)}
+                        aria-label="Update element from source"
+                        title="Update from source"
+                        className={`shrink-0 rounded-ds-sm px-1.5 py-0.5 text-[11px] font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
                       >
-                        {item.label}
+                        Update
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onUnlinkSource?.(link)}
+                        aria-label="Unlink element from source"
+                        title="Keep as manual (unlink)"
+                        className={`shrink-0 rounded-ds-sm px-1.5 py-0.5 text-[11px] font-medium text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                      >
+                        Unlink
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {missingLinks.length > 0 && (
+              <div>
+                <p className="mb-1.5 text-[11px] text-ds-text-muted">
+                  Orphaned (source deleted)
+                </p>
+                <ul className="flex flex-col gap-1">
+                  {missingLinks.map((link) => (
+                    <li
+                      key={link.elementId}
+                      className="flex items-center gap-1 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2 py-1.5"
+                    >
+                      <span className="min-w-0 flex-1 truncate text-[11px] text-ds-text-secondary">
+                        {link.blockKind === "visual" ? "Visual" : "Text"} ·{" "}
+                        {link.blockId.slice(0, 8)}
                       </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-        </div>
-      )}
+                      {/* Relink to a new block (visual or text) */}
+                      {link.blockKind === "visual" &&
+                        documentVisualInsertables.length > 0 && (
+                          <select
+                            aria-label="Relink to visual"
+                            defaultValue=""
+                            onChange={(e) => {
+                              const item = documentVisualInsertables.find(
+                                (i) => i.visualId === e.target.value,
+                              );
+                              if (item)
+                                onRelinkSource?.(
+                                  link,
+                                  item.visualId,
+                                  item.contentHash,
+                                );
+                            }}
+                            className={`shrink-0 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-1 py-0.5 text-[11px] text-ds-text-secondary ${FOCUS_RING}`}
+                          >
+                            <option value="" disabled>
+                              Relink…
+                            </option>
+                            {documentVisualInsertables.map((i) => (
+                              <option key={i.visualId} value={i.visualId}>
+                                {i.visualId.slice(0, 8)}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      {link.blockKind === "text" &&
+                        documentTextInsertables.length > 0 && (
+                          <select
+                            aria-label="Relink to text block"
+                            defaultValue=""
+                            onChange={(e) => {
+                              const item = documentTextInsertables.find(
+                                (i) => i.blockId === e.target.value,
+                              );
+                              if (item)
+                                onRelinkSource?.(
+                                  link,
+                                  item.blockId!,
+                                  item.contentHash,
+                                );
+                            }}
+                            className={`shrink-0 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-1 py-0.5 text-[11px] text-ds-text-secondary ${FOCUS_RING}`}
+                          >
+                            <option value="" disabled>
+                              Relink…
+                            </option>
+                            {documentTextInsertables
+                              .filter((i) => i.blockId !== undefined)
+                              .map((i) => (
+                                <option key={i.blockId} value={i.blockId}>
+                                  {i.label}
+                                </option>
+                              ))}
+                          </select>
+                        )}
+                      <button
+                        type="button"
+                        onClick={() => onUnlinkSource?.(link)}
+                        aria-label="Keep element as manual (unlink from source)"
+                        title="Keep as manual"
+                        className={`shrink-0 rounded-ds-sm px-1.5 py-0.5 text-[11px] font-medium text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                      >
+                        Keep
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onRemoveOrphaned?.(link)}
+                        aria-label="Remove orphaned element"
+                        title="Remove element"
+                        className={`shrink-0 rounded-ds-sm px-1.5 py-0.5 text-[11px] font-medium text-ds-error-text transition-colors hover:bg-ds-error-surface ${FOCUS_RING}`}
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+        ) : null}
+
+        {!hasVisuals && !hasText && !hasStale ? (
+          <p className="px-3 py-8 text-center text-xs text-ds-text-muted">
+            This document has no text or visuals yet. Add content in the
+            document to reuse it on a slide.
+          </p>
+        ) : (
+          <div className="p-3">
+            {hasVisuals ? (
+              <section aria-label="Document visuals">
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="text-[11px] font-medium uppercase tracking-wide text-ds-text-muted">
+                    Visuals
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={onAddAllVisuals}
+                    className={`flex h-6 items-center gap-1 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 text-[11px] font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                  >
+                    <Plus size={12} aria-hidden="true" />
+                    Add all visuals
+                  </button>
+                </div>
+                <ul className="grid grid-cols-2 gap-2">
+                  {visuals.map(([id, visual]) => {
+                    const insertable = documentVisualInsertables.find(
+                      (i) => i.visualId === id,
+                    ) ?? {
+                      kind: "visual" as const,
+                      visualId: id,
+                      contentHash: "",
+                    };
+                    return (
+                      <li key={id}>
+                        <button
+                          type="button"
+                          onClick={() => onInsertVisual(insertable)}
+                          aria-label={`Insert ${fromDocVisualLabel(id, visual)}`}
+                          title={fromDocVisualLabel(id, visual)}
+                          className={`group flex w-full flex-col gap-1 rounded-ds-sm border border-ds-border-subtle bg-ds-surface p-1.5 text-left transition-colors hover:border-ds-control hover:bg-ds-state-hover ${FOCUS_RING}`}
+                        >
+                          <span className="flex aspect-video items-center justify-center overflow-hidden rounded-ds-sm bg-ds-surface-base">
+                            <VisualRenderer
+                              visual={visual}
+                              className="h-full w-full object-contain"
+                              transparentBackground
+                            />
+                          </span>
+                          <span className="truncate text-[11px] text-ds-text-muted">
+                            {fromDocVisualLabel(id, visual)}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ) : null}
+
+            {hasText ? (
+              <section
+                aria-label="Document text"
+                className={hasVisuals ? "mt-4" : ""}
+              >
+                <h3 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-ds-text-muted">
+                  Text
+                </h3>
+                <ul className="flex flex-col gap-1">
+                  {textItems.map((item, index) => (
+                    <li key={index}>
+                      <button
+                        type="button"
+                        onClick={() => onInsertText(item)}
+                        aria-label={`Insert ${item.heading ? "heading" : "text"}: ${item.label}`}
+                        title={item.text}
+                        className={`flex w-full items-center gap-2 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-left transition-colors hover:border-ds-control hover:bg-ds-state-hover ${FOCUS_RING}`}
+                      >
+                        <Type
+                          size={13}
+                          aria-hidden="true"
+                          className="shrink-0 text-ds-text-muted"
+                        />
+                        <span
+                          className={`min-w-0 flex-1 truncate text-xs ${
+                            item.heading
+                              ? "font-semibold text-ds-text-primary"
+                              : "text-ds-text-secondary"
+                          }`}
+                        >
+                          {item.label}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -331,3 +331,97 @@ test("insertableTextElement heading stamps sourceRef when both ids present", () 
   assert.equal(el.role, "body");
   assert.equal(el.style.bold, true);
 });
+
+// ---------------------------------------------------------------------------
+// Visual insertable source metadata (#424)
+// ---------------------------------------------------------------------------
+
+import { insertableVisualElement } from "./document-insertable";
+import { hashDocumentBlock } from "./document-block-hash";
+
+function visualBlock(visualId: string): DocumentBlock {
+  return { kind: "visual", visualId, visual: {} as Visual };
+}
+
+test("visual insertable carries contentHash", () => {
+  const block = visualBlock("vis-abc");
+  const items = buildInsertables([block]);
+  assert.equal(items.length, 1);
+  assert.equal(items[0].kind, "visual");
+  const item = items[0] as Extract<(typeof items)[0], { kind: "visual" }>;
+  assert.equal(typeof item.contentHash, "string");
+  assert.ok(item.contentHash.length > 0);
+  assert.equal(item.contentHash, hashDocumentBlock(block));
+});
+
+test("visual insertable contentHash is deterministic", () => {
+  const b1 = visualBlock("vis-x");
+  const b2 = visualBlock("vis-x");
+  const items1 = buildInsertables([b1]);
+  const items2 = buildInsertables([b2]);
+  const i1 = items1[0] as Extract<(typeof items1)[0], { kind: "visual" }>;
+  const i2 = items2[0] as Extract<(typeof items2)[0], { kind: "visual" }>;
+  assert.equal(i1.contentHash, i2.contentHash);
+});
+
+test("visual insertable contentHash differs for different visualIds", () => {
+  const items = buildInsertables([visualBlock("vis-1"), visualBlock("vis-2")]);
+  const i1 = items[0] as Extract<(typeof items)[0], { kind: "visual" }>;
+  const i2 = items[1] as Extract<(typeof items)[1], { kind: "visual" }>;
+  assert.notEqual(i1.contentHash, i2.contentHash);
+});
+
+test("insertableVisualElement: builds element without sourceRef when documentId absent", () => {
+  const block = visualBlock("vis-abc");
+  const [item] = buildInsertables([block]) as Extract<
+    ReturnType<typeof buildInsertables>[number],
+    { kind: "visual" }
+  >[];
+  const el = insertableVisualElement(item);
+  assert.equal(el.kind, "visual");
+  assert.equal(el.visualId, "vis-abc");
+  assert.equal(el.sourceRef, undefined);
+});
+
+test("insertableVisualElement: stamps sourceRef with blockKind visual when documentId provided", () => {
+  const block = visualBlock("vis-xyz");
+  const items = buildInsertables([block]);
+  const item = items[0] as Extract<(typeof items)[0], { kind: "visual" }>;
+  const el = insertableVisualElement(item, {
+    documentId: "doc-1",
+    linkedAt: "2026-06-01T00:00:00.000Z",
+  });
+  assert.ok(el.sourceRef !== undefined);
+  assert.equal(el.sourceRef!.documentId, "doc-1");
+  assert.equal(el.sourceRef!.blockId, "vis-xyz");
+  assert.equal(el.sourceRef!.blockKind, "visual");
+  assert.equal(el.sourceRef!.contentHash, item.contentHash);
+  assert.equal(el.sourceRef!.linkedAt, "2026-06-01T00:00:00.000Z");
+  assert.equal(el.sourceRef!.unlinked, undefined);
+});
+
+test("insertableVisualElement: visualId matches the sourceRef blockId", () => {
+  const block = visualBlock("vis-q");
+  const [item] = buildInsertables([block]) as Extract<
+    ReturnType<typeof buildInsertables>[number],
+    { kind: "visual" }
+  >[];
+  const el = insertableVisualElement(item, {
+    documentId: "doc-2",
+    linkedAt: "2026-06-01T00:00:00.000Z",
+  });
+  assert.equal(el.visualId, el.sourceRef!.blockId);
+});
+
+test("insertableVisualElement: defaults linkedAt to now when omitted", () => {
+  const block = visualBlock("vis-time");
+  const [item] = buildInsertables([block]) as Extract<
+    ReturnType<typeof buildInsertables>[number],
+    { kind: "visual" }
+  >[];
+  const before = Date.now();
+  const el = insertableVisualElement(item, { documentId: "doc-1" });
+  const after = Date.now();
+  const ts = Date.parse(el.sourceRef!.linkedAt);
+  assert.ok(ts >= before && ts <= after, "linkedAt should be near now");
+});

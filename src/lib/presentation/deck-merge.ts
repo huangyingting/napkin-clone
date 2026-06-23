@@ -28,6 +28,15 @@ import type { Deck, Slide, SlideElement, TextRun, VisualElement } from "./deck";
 import { buildVisualElement, materializeSlideElements } from "./deck";
 import { normalizeTitle } from "./deck-hash";
 import { slideEffectiveTitle } from "./slide-title";
+import type {
+  DocumentBlock,
+  DocumentTextBlock,
+} from "@/lib/visual/document-export";
+import { hashDocumentBlock } from "./document-block-hash";
+import {
+  updateTextElementFromBlock,
+  buildRefreshSourceRef,
+} from "./source-link-staleness";
 
 /** How a single resulting slide was affected by a sync. */
 export type MergeChangeKind = "updated" | "appended" | "preserved";
@@ -87,6 +96,15 @@ export interface MergeOptions {
    * still refreshed and orphans preserved.
    */
   appendNew?: boolean;
+  /**
+   * The raw document blocks from the current document state. When provided,
+   * the merge applies element-level source-ref precedence for hand-edited
+   * slides (issue #409): text/visual elements with an active `sourceRef` that
+   * matches a changed block are updated in place, preserving geometry and style.
+   * Elements whose source block is missing (orphaned) are left untouched —
+   * they are never auto-deleted (#410).
+   */
+  freshBlocks?: readonly DocumentBlock[];
 }
 
 function snapshot(slide: Slide): MergeSlideSnapshot {
@@ -155,6 +173,89 @@ function sameBulletRuns(
 }
 
 /**
+ * Builds lookup maps from fresh document blocks for element-level source-ref
+ * precedence (issue #409): text blocks indexed by blockId, visual blocks
+ * indexed by visualId.
+ */
+function buildFreshBlockMaps(freshBlocks: readonly DocumentBlock[]): {
+  textById: Map<string, DocumentTextBlock>;
+  visualByVisualId: Map<string, DocumentBlock>;
+} {
+  const textById = new Map<string, DocumentTextBlock>();
+  const visualByVisualId = new Map<string, DocumentBlock>();
+  for (const block of freshBlocks) {
+    if (block.kind === "text" && block.blockId !== undefined) {
+      textById.set(block.blockId, block);
+    } else if (block.kind === "visual") {
+      visualByVisualId.set(block.visualId, block);
+    }
+  }
+  return { textById, visualByVisualId };
+}
+
+/**
+ * Applies element-level source-ref updates to a hand-edited slide's elements
+ * (issue #409). For each element with an active `sourceRef` whose source
+ * block has changed, the element's content is refreshed while geometry, style,
+ * and z-order are preserved. Orphaned elements (missing source block) are left
+ * untouched — they are never auto-deleted (#410).
+ *
+ * Returns the updated elements array and a count of elements refreshed.
+ */
+function applyElementSourceUpdates(
+  elements: SlideElement[],
+  textById: Map<string, DocumentTextBlock>,
+  visualByVisualId: Map<string, DocumentBlock>,
+  linkedAt: string,
+): { elements: SlideElement[]; sourceUpdatedCount: number } {
+  let sourceUpdatedCount = 0;
+  const updated = elements.map((el): SlideElement => {
+    const { sourceRef } = el;
+    if (
+      sourceRef === undefined ||
+      sourceRef.unlinked === true ||
+      sourceRef.contentHash === undefined
+    ) {
+      return el;
+    }
+
+    const blockKind: "text" | "visual" = sourceRef.blockKind ?? "text";
+
+    if (blockKind === "visual") {
+      const freshBlock = visualByVisualId.get(sourceRef.blockId);
+      if (freshBlock === undefined) return el; // orphan — never auto-delete
+      const freshHash = hashDocumentBlock(freshBlock);
+      if (freshHash === sourceRef.contentHash) return el; // up-to-date
+      // Visual id stayed the same; update the contentHash.
+      const newRef = buildRefreshSourceRef(
+        sourceRef,
+        sourceRef.blockId,
+        freshHash,
+        linkedAt,
+        "visual",
+      );
+      sourceUpdatedCount += 1;
+      return { ...el, sourceRef: newRef };
+    } else {
+      const freshBlock = textById.get(sourceRef.blockId);
+      if (freshBlock === undefined) return el; // orphan — never auto-delete
+      const freshHash = hashDocumentBlock(freshBlock);
+      if (freshHash === sourceRef.contentHash) return el; // up-to-date
+      if (el.kind !== "text") return el; // can only update text elements
+      const newRef = buildRefreshSourceRef(
+        sourceRef,
+        sourceRef.blockId,
+        freshHash,
+        linkedAt,
+      );
+      sourceUpdatedCount += 1;
+      return updateTextElementFromBlock(el, freshBlock, newRef);
+    }
+  });
+  return { elements: updated, sourceUpdatedCount };
+}
+
+/**
  * True when a slide's `elements[]` are still purely auto-derived from its
  * legacy `title`/`bullets`/`visualIds` (issue #221) and may therefore be
  * safely re-materialized from refreshed document content:
@@ -178,10 +279,16 @@ function elementsArePurelyDerived(slide: Slide): boolean {
  * theme) is preserved verbatim. Additionally, any document visuals in
  * `fresh.visualIds` that are NOT already rendered on the hand-edited slide are
  * appended as new visual elements (issue #294).
+ *
+ * When `freshBlockMaps` is provided, element-level source refs on hand-edited
+ * slides are checked: elements with an active source ref whose content changed
+ * are updated in place (#409). Orphaned elements (missing source block) are
+ * never auto-deleted (#410).
  */
 function mergeSlide(
   existing: Slide,
   fresh: Slide,
+  freshBlockMaps?: ReturnType<typeof buildFreshBlockMaps>,
 ): { slide: Slide; visualsAdded: number } {
   const refreshed: Slide = {
     ...existing,
@@ -204,10 +311,24 @@ function mergeSlide(
   else delete refreshed.bulletRuns;
 
   if (!elementsArePurelyDerived(existing)) {
+    // Apply element-level source-ref updates when freshBlockMaps are provided
+    // (#409). Text/visual elements with a matching changed source block are
+    // refreshed in place; orphaned elements (missing block) are left untouched.
+    const baseElements = existing.elements ?? [];
+    const linkedAt = new Date().toISOString();
+    const elementsBefore = freshBlockMaps
+      ? applyElementSourceUpdates(
+          baseElements,
+          freshBlockMaps.textById,
+          freshBlockMaps.visualByVisualId,
+          linkedAt,
+        ).elements
+      : baseElements;
+
     // Collect visual ids already rendered as elements on this hand-edited slide
     // so we can diff against fresh.visualIds without duplicating anything.
     const renderedVisualIds = new Set(
-      (existing.elements ?? [])
+      elementsBefore
         .filter((el): el is VisualElement => el.kind === "visual")
         .map((el) => el.visualId),
     );
@@ -216,10 +337,13 @@ function mergeSlide(
       (id) => !renderedVisualIds.has(id),
     );
     if (newVisualIds.length === 0) {
-      return { slide: refreshed, visualsAdded: 0 };
+      return {
+        slide: { ...refreshed, elements: elementsBefore },
+        visualsAdded: 0,
+      };
     }
     // Assign zIndices above all existing elements.
-    const maxZ = (existing.elements ?? []).reduce(
+    const maxZ = elementsBefore.reduce(
       (max, el) => Math.max(max, el.zIndex),
       -1,
     );
@@ -232,7 +356,7 @@ function mergeSlide(
     return {
       slide: {
         ...refreshed,
-        elements: [...(existing.elements ?? []), ...newElements],
+        elements: [...elementsBefore, ...newElements],
       },
       visualsAdded: newVisualIds.length,
     };
@@ -261,6 +385,12 @@ export function mergeDeckFromDocument(
   options: MergeOptions = {},
 ): MergeResult {
   const appendNew = options.appendNew ?? true;
+  // Build fresh block maps once upfront for element-level source ref precedence
+  // (#409). Only built when freshBlocks are provided; otherwise the merge falls
+  // back to the existing slide-level behavior.
+  const freshBlockMaps = options.freshBlocks
+    ? buildFreshBlockMaps(options.freshBlocks)
+    : undefined;
 
   // freshIndex -> existingIndex once paired; existing slides get consumed once.
   const pairedExistingToFresh = new Map<number, number>();
@@ -359,8 +489,12 @@ export function mergeDeckFromDocument(
     const freshSlide = fresh.slides[freshIndex];
     const changed = !sameContent(existingSlide, freshSlide);
     const mergeResult = changed
-      ? mergeSlide(existingSlide, freshSlide)
-      : { slide: existingSlide, visualsAdded: 0 };
+      ? mergeSlide(existingSlide, freshSlide, freshBlockMaps)
+      : freshBlockMaps && !elementsArePurelyDerived(existingSlide)
+        ? // Even when slide-level content is unchanged, apply element-level
+          // source-ref updates to hand-edited slides when freshBlocks provided.
+          mergeSlide(existingSlide, existingSlide, freshBlockMaps)
+        : { slide: existingSlide, visualsAdded: 0 };
     const merged = mergeResult.slide;
     if (changed) updatedCount += 1;
     else unchangedCount += 1;

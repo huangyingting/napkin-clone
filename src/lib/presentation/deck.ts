@@ -343,6 +343,13 @@ export interface SourceRef {
   linkedAt: string;
   /** True when the user explicitly broke the source link. */
   unlinked?: boolean;
+  /**
+   * Kind of source block this ref points to. `"text"` (default/absent) means
+   * a document text block matched by `blockId`; `"visual"` means a visual block
+   * matched by `blockId` treated as a `visualId`. Absent for legacy source refs
+   * — treated as `"text"` for backward compatibility.
+   */
+  blockKind?: "text" | "visual";
 }
 
 export interface BaseElement {
@@ -775,6 +782,7 @@ function cloneSourceRef(ref: SourceRef): SourceRef {
     ...(ref.contentHash !== undefined ? { contentHash: ref.contentHash } : {}),
     linkedAt: ref.linkedAt,
     ...(ref.unlinked === true ? { unlinked: true } : {}),
+    ...(ref.blockKind !== undefined ? { blockKind: ref.blockKind } : {}),
   };
 }
 
@@ -875,10 +883,20 @@ export const DEFAULT_VISUAL_BOX: ElementBox = { x: 25, y: 18, w: 50, h: 64 };
  * "Insert document visual" picker routes the result through
  * `addElement`/`onDeckChange` so the insert is undoable. `zIndex` is assigned by
  * `addElement`, so it is intentionally omitted here.
+ *
+ * Pass `options.sourceRef` to stamp provenance metadata when inserting from
+ * a source document (issue #424). Legacy inserts that omit `sourceRef` remain
+ * fully valid — detection falls back to `visualId`-only matching.
  */
 export function buildVisualElement(
   visualId: string,
-  options: { id?: string; box?: ElementBox; styleThemeId?: string } = {},
+  options: {
+    id?: string;
+    box?: ElementBox;
+    styleThemeId?: string;
+    /** Optional source-document provenance for inserted document visuals (#424). */
+    sourceRef?: SourceRef;
+  } = {},
 ): Omit<VisualElement, "zIndex"> & { id: string } {
   return {
     id: options.id ?? makeElementId(),
@@ -886,6 +904,9 @@ export function buildVisualElement(
     visualId,
     box: options.box ?? { ...DEFAULT_VISUAL_BOX },
     ...(options.styleThemeId ? { styleThemeId: options.styleThemeId } : {}),
+    ...(options.sourceRef !== undefined
+      ? { sourceRef: options.sourceRef }
+      : {}),
   };
 }
 

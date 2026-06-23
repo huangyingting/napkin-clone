@@ -6,11 +6,21 @@ import type {
   Slide,
   SlideElement,
   TextElement,
+  VisualElement,
+  SourceRef,
 } from "@/lib/presentation/deck";
-import type { DocumentTextBlock } from "@/lib/visual/document-export";
+import { unlinkSource } from "@/lib/presentation/deck";
+import type {
+  DocumentBlock,
+  DocumentTextBlock,
+} from "@/lib/visual/document-export";
+import type { Visual } from "@/lib/visual/schema";
 import { hashDocumentBlock } from "@/lib/presentation/document-block-hash";
 import {
   findStaleSourceLinks,
+  updateTextElementFromBlock,
+  updateVisualElementFromBlock,
+  buildRefreshSourceRef,
   type StaleSourceLink,
 } from "./source-link-staleness";
 
@@ -306,4 +316,315 @@ test("slides without elements array are skipped gracefully", () => {
   const d: Deck = { slides: [slideNoElements], theme: "indigo" };
   const result = findStaleSourceLinks(d, []);
   assert.deepEqual(result, []);
+});
+
+// ---------------------------------------------------------------------------
+// Visual source staleness (#424)
+// ---------------------------------------------------------------------------
+
+const FAKE_VISUAL = { type: "chart" } as unknown as Visual;
+
+function visualBlock(visualId: string): DocumentBlock {
+  return { kind: "visual", visualId, visual: FAKE_VISUAL };
+}
+
+function linkedVisualElement(
+  id: string,
+  visualId: string,
+  contentHash: string,
+  overrides: Partial<VisualElement["sourceRef"]> = {},
+): VisualElement {
+  return {
+    id,
+    kind: "visual",
+    visualId,
+    box: { x: 25, y: 18, w: 50, h: 64 },
+    zIndex: 0,
+    sourceRef: {
+      documentId: "doc-1",
+      blockId: visualId,
+      contentHash,
+      linkedAt: "2026-01-01T00:00:00.000Z",
+      blockKind: "visual",
+      ...overrides,
+    },
+  };
+}
+
+test("visual: returns empty when visual hash matches", () => {
+  const block = visualBlock("vis-1");
+  const hash = hashDocumentBlock(block);
+  const el = linkedVisualElement("el-v1", "vis-1", hash);
+  const d = deck(slide("s1", [el]));
+  const result = findStaleSourceLinks(d, [block]);
+  assert.deepEqual(result, []);
+});
+
+test("visual: detects block_missing when visual not in freshBlocks", () => {
+  const el = linkedVisualElement("el-v1", "vis-gone", "oldhash");
+  const d = deck(slide("s1", [el]));
+  const result = findStaleSourceLinks(d, []);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].reason, "block_missing");
+  assert.equal(result[0].blockKind, "visual");
+  assert.equal(result[0].blockId, "vis-gone");
+  assert.equal(result[0].elementId, "el-v1");
+});
+
+test("visual: detects content_changed when hash differs", () => {
+  const block1 = visualBlock("vis-1");
+  const hash1 = hashDocumentBlock(block1);
+  // Simulate a different visual with the same id by re-creating the block
+  // (in practice the hash changes when the visual's identity changes, which
+  // is encoded in the signature as visual\x02{visualId}).
+  // For a forced hash mismatch we just pass a stale hash.
+  const el = linkedVisualElement("el-v1", "vis-1", "stale-hash");
+  const d = deck(slide("s1", [el]));
+  const result = findStaleSourceLinks(d, [block1]);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].reason, "content_changed");
+  assert.equal(result[0].blockKind, "visual");
+  assert.equal(hash1, hashDocumentBlock(block1)); // sanity
+});
+
+test("visual: ignores visual with unlinked === true", () => {
+  const block = visualBlock("vis-1");
+  const hash = hashDocumentBlock(block);
+  const el = linkedVisualElement("el-v1", "vis-1", hash, { unlinked: true });
+  const d = deck(slide("s1", [el]));
+  const result = findStaleSourceLinks(d, [block]);
+  assert.deepEqual(result, []);
+});
+
+test("visual: ignores visual with no contentHash (legacy element)", () => {
+  const el: VisualElement = {
+    id: "el-no-hash",
+    kind: "visual",
+    visualId: "vis-1",
+    box: { x: 25, y: 18, w: 50, h: 64 },
+    zIndex: 0,
+    sourceRef: {
+      documentId: "doc-1",
+      blockId: "vis-1",
+      linkedAt: "2026-01-01T00:00:00.000Z",
+      blockKind: "visual",
+      // contentHash intentionally absent
+    },
+  };
+  const d = deck(slide("s1", [el]));
+  const result = findStaleSourceLinks(d, [visualBlock("vis-1")]);
+  assert.deepEqual(result, []);
+});
+
+test("visual: legacy element without blockKind is treated as text (not visual)", () => {
+  // A visual element with no blockKind defaults to "text" — so its blockId is
+  // looked up in the text block index, not the visual index. This keeps
+  // legacy source refs for text elements working even if they have a string
+  // that happens to match a visual id.
+  const textBlock: DocumentTextBlock = {
+    kind: "text",
+    blockType: "paragraph",
+    text: "hello",
+    blockId: "vis-1", // same as visual id — but looked up as text
+  };
+  const el: VisualElement = {
+    id: "el-legacy",
+    kind: "visual",
+    visualId: "vis-1",
+    box: { x: 25, y: 18, w: 50, h: 64 },
+    zIndex: 0,
+    sourceRef: {
+      documentId: "doc-1",
+      blockId: "vis-1",
+      contentHash: hashDocumentBlock(textBlock),
+      linkedAt: "2026-01-01T00:00:00.000Z",
+      // blockKind absent — treated as "text"
+    },
+  };
+  const d = deck(slide("s1", [el]));
+  // Pass a fresh text block with matching hash → not stale
+  const result = findStaleSourceLinks(d, [textBlock]);
+  assert.deepEqual(result, []);
+});
+
+test("blockKind is carried through on each stale entry", () => {
+  const textEl = linkedElement("te1", "blk-1", "stale-hash-text");
+  const visEl = linkedVisualElement("ve1", "vis-1", "stale-hash-vis");
+  const d = deck(slide("s1", [textEl, visEl]));
+  const result = findStaleSourceLinks(d, []);
+  assert.equal(result.length, 2);
+  const byEl = Object.fromEntries(
+    result.map((r) => [r.elementId, r.blockKind]),
+  );
+  assert.equal(byEl["te1"], "text");
+  assert.equal(byEl["ve1"], "visual");
+});
+
+// ---------------------------------------------------------------------------
+// #408 action helpers: updateTextElementFromBlock
+// ---------------------------------------------------------------------------
+
+test("updateTextElementFromBlock: updates text and runs, preserves geometry", () => {
+  const original = textBlock("blk-1", "Original text");
+  const originalHash = hashDocumentBlock(original);
+  const el = linkedElement("el-1", "blk-1", originalHash);
+
+  const fresh: DocumentTextBlock = {
+    kind: "text",
+    blockType: "paragraph",
+    text: "Updated text",
+    blockId: "blk-1",
+    runs: [{ text: "Updated text", bold: true }],
+  };
+  const freshHash = hashDocumentBlock(fresh);
+  const newRef = buildRefreshSourceRef(
+    el.sourceRef!,
+    "blk-1",
+    freshHash,
+    "2026-06-01T00:00:00.000Z",
+  );
+
+  const updated = updateTextElementFromBlock(el, fresh, newRef);
+
+  assert.equal(updated.text, "Updated text");
+  assert.deepEqual(updated.runs, [{ text: "Updated text", bold: true }]);
+  // Geometry preserved:
+  assert.deepEqual(updated.box, el.box);
+  assert.equal(updated.zIndex, el.zIndex);
+  assert.deepEqual(updated.style, el.style);
+  assert.equal(updated.id, el.id);
+  assert.equal(updated.role, el.role);
+  // sourceRef updated:
+  assert.equal(updated.sourceRef!.contentHash, freshHash);
+  assert.equal(updated.sourceRef!.linkedAt, "2026-06-01T00:00:00.000Z");
+  assert.equal(updated.sourceRef!.unlinked, undefined);
+});
+
+test("updateTextElementFromBlock: clears runs when fresh block has no runs", () => {
+  const el = linkedElement("el-1", "blk-1", "oldhash");
+  const fresh: DocumentTextBlock = {
+    kind: "text",
+    blockType: "paragraph",
+    text: "Plain text",
+    blockId: "blk-1",
+    // no runs
+  };
+  const newRef = buildRefreshSourceRef(
+    el.sourceRef!,
+    "blk-1",
+    hashDocumentBlock(fresh),
+    "2026-06-01T00:00:00.000Z",
+  );
+  const updated = updateTextElementFromBlock(el, fresh, newRef);
+  assert.equal(updated.text, "Plain text");
+  assert.equal(updated.runs, undefined);
+});
+
+test("updateTextElementFromBlock: clears unlinked flag", () => {
+  const el = linkedElement("el-1", "blk-1", "oldhash", { unlinked: true });
+  const fresh: DocumentTextBlock = {
+    kind: "text",
+    blockType: "paragraph",
+    text: "Fresh",
+    blockId: "blk-1",
+  };
+  const newRef = buildRefreshSourceRef(
+    el.sourceRef!,
+    "blk-1",
+    hashDocumentBlock(fresh),
+    "2026-06-01T00:00:00.000Z",
+  );
+  const updated = updateTextElementFromBlock(el, fresh, newRef);
+  assert.equal(updated.sourceRef!.unlinked, undefined);
+});
+
+// ---------------------------------------------------------------------------
+// #408 action helpers: updateVisualElementFromBlock + buildRefreshSourceRef
+// ---------------------------------------------------------------------------
+
+test("updateVisualElementFromBlock: updates visualId and sourceRef, preserves geometry", () => {
+  const el = linkedVisualElement("el-v1", "vis-old", "oldhash");
+  const newRef: SourceRef = {
+    documentId: "doc-1",
+    blockId: "vis-new",
+    contentHash: "newhash",
+    linkedAt: "2026-06-01T00:00:00.000Z",
+    blockKind: "visual",
+  };
+  const updated = updateVisualElementFromBlock(el, newRef);
+
+  assert.equal(updated.visualId, "vis-new");
+  assert.equal(updated.sourceRef!.blockId, "vis-new");
+  assert.equal(updated.sourceRef!.contentHash, "newhash");
+  assert.equal(updated.sourceRef!.unlinked, undefined);
+  // Geometry preserved:
+  assert.deepEqual(updated.box, el.box);
+  assert.equal(updated.zIndex, el.zIndex);
+  assert.equal(updated.id, el.id);
+});
+
+test("buildRefreshSourceRef: carries documentId and optional blockKind", () => {
+  const existing: SourceRef = {
+    documentId: "doc-abc",
+    blockId: "old-block",
+    contentHash: "oldhash",
+    linkedAt: "2026-01-01T00:00:00.000Z",
+  };
+  const ref = buildRefreshSourceRef(
+    existing,
+    "new-block",
+    "newhash",
+    "2026-06-01T00:00:00.000Z",
+    "text",
+  );
+  assert.equal(ref.documentId, "doc-abc");
+  assert.equal(ref.blockId, "new-block");
+  assert.equal(ref.contentHash, "newhash");
+  assert.equal(ref.linkedAt, "2026-06-01T00:00:00.000Z");
+  assert.equal(ref.blockKind, "text");
+  assert.equal(ref.unlinked, undefined);
+});
+
+test("buildRefreshSourceRef: inherits blockKind from existing when not provided", () => {
+  const existing: SourceRef = {
+    documentId: "doc-abc",
+    blockId: "old-block",
+    contentHash: "oldhash",
+    linkedAt: "2026-01-01T00:00:00.000Z",
+    blockKind: "visual",
+  };
+  const ref = buildRefreshSourceRef(
+    existing,
+    "vis-new",
+    "newhash",
+    "2026-06-01T00:00:00.000Z",
+  );
+  assert.equal(ref.blockKind, "visual");
+});
+
+// ---------------------------------------------------------------------------
+// #410 orphan handling: block_missing is never auto-deleted
+// ---------------------------------------------------------------------------
+
+test("orphan (#410): block_missing elements remain in deck after sync", () => {
+  // This test validates the invariant: findStaleSourceLinks reports orphans,
+  // but the caller decides whether to delete them — the library never does.
+  const el = linkedElement("el-orphan", "blk-deleted", "somehash");
+  const d = deck(slide("s1", [el]));
+  // Fresh blocks don't include "blk-deleted" anymore.
+  const stale = findStaleSourceLinks(d, []);
+  assert.equal(stale.length, 1);
+  assert.equal(stale[0].reason, "block_missing");
+  // The deck itself is unchanged — we only got a report, no mutation.
+  assert.equal(d.slides[0].elements?.length, 1);
+  assert.equal(d.slides[0].elements?.[0].id, "el-orphan");
+});
+
+test("orphan (#410): after unlinking, orphaned element no longer appears stale", () => {
+  const el = linkedElement("el-orphan", "blk-deleted", "somehash");
+  const unlinkedEl = unlinkSource(el);
+  const d = deck(slide("s1", [unlinkedEl]));
+  const stale = findStaleSourceLinks(d, []);
+  // Unlinked elements are ignored — the orphan badge clears after unlinking.
+  assert.deepEqual(stale, []);
 });

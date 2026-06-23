@@ -227,6 +227,15 @@ export function validateSourceRef(input: unknown, context: string): SourceRef {
   if (input.unlinked !== undefined && typeof input.unlinked !== "boolean") {
     throw new DeckValidationError(`${context}.unlinked must be a boolean`);
   }
+  if (
+    input.blockKind !== undefined &&
+    input.blockKind !== "text" &&
+    input.blockKind !== "visual"
+  ) {
+    throw new DeckValidationError(
+      `${context}.blockKind must be "text" or "visual"`,
+    );
+  }
   return {
     documentId: input.documentId,
     blockId: input.blockId,
@@ -235,6 +244,9 @@ export function validateSourceRef(input: unknown, context: string): SourceRef {
       : {}),
     linkedAt: input.linkedAt,
     ...(input.unlinked !== undefined ? { unlinked: input.unlinked } : {}),
+    ...(input.blockKind !== undefined
+      ? { blockKind: input.blockKind as "text" | "visual" }
+      : {}),
   };
 }
 
