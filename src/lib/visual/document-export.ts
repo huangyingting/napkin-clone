@@ -131,10 +131,9 @@ export type DocumentTextBlock = {
   /**
    * Stable identifier for this block within its source document, used to
    * anchor `sourceRef` links on inserted slide elements. Populated by
-   * `collectDocumentBlocks` from the serialised Lexical node `key` field
-   * (issue #377). Absent for nodes serialised without a `key` (e.g. the raw
-   * `editorState.toJSON()` output); callers that need block IDs must provide
-   * pre-keyed JSON via a live-state enrichment step.
+   * `collectDocumentBlocks` from the serialised Lexical node `bid` field
+   * (durable since #432), with the legacy `key` field as a backward-compatible
+   * fallback. Absent only when neither field is present.
    */
   blockId?: string;
 };
@@ -275,11 +274,14 @@ function formattedRuns(node: Record<string, unknown>): TextRun[] | undefined {
   return runsHaveFormatting(runs) ? runs : undefined;
 }
 
-/** Extracts a non-empty string `blockId` from the serialised node's `key` field. */
+/**
+ * Extracts a non-empty string `blockId` from the serialised node, preferring
+ * the durable `bid` field with `key` as a legacy fallback.
+ */
 function nodeBlockId(node: Record<string, unknown>): string | undefined {
-  return typeof node.key === "string" && node.key.length > 0
-    ? node.key
-    : undefined;
+  if (typeof node.bid === "string" && node.bid.length > 0) return node.bid;
+  if (typeof node.key === "string" && node.key.length > 0) return node.key;
+  return undefined;
 }
 
 function walkBlocks(node: unknown, out: DocumentBlock[]): void {

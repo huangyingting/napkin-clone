@@ -19,6 +19,7 @@ import {
 import { requireUser } from "@/lib/session";
 import { BLANK_TEMPLATE_ID, getTemplateOrBlank } from "@/lib/templates/catalog";
 import { acquirePurgeLock, INVITE_LINK_RETENTION_MS } from "@/lib/maintenance";
+import { regenerateBlockIds } from "@/lib/lexical/block-id";
 import { SOFT_DELETE_RETENTION_MS } from "@/lib/trash";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
@@ -119,9 +120,10 @@ export async function renameDocument(
  *
  * View access is authorized via `requireDocumentCapability` (a non-accessible
  * id throws a clear "Document not found." error). The copy reuses the source
- * title (suffixed " (copy)") and content and deep-copies every `Visual` row
- * (anchorBlockId, orderIndex, type, title, data) via a nested create in a
- * single statement.
+ * title (suffixed " (copy)") and content, regenerates every durable document
+ * block id in `contentJson`, remaps duplicated deck source refs where
+ * possible, and deep-copies every `Visual` row (anchorBlockId, orderIndex,
+ * type, title, data) via a nested create in a single statement.
  *
  * Comments and share state are intentionally NOT copied: the new document is
  * private (`isShared` defaults to false, `shareId` stays null) and starts with
@@ -160,16 +162,33 @@ export async function duplicateDocument(id: string): Promise<void> {
     return;
   }
 
+  let newContentJson: Prisma.JsonValue | null = source.contentJson;
+  let bidMap: Map<string, string> | undefined;
+  if (source.contentJson != null) {
+    const result = regenerateBlockIds(source.contentJson);
+    newContentJson = result.updated as Prisma.JsonValue;
+    bidMap = result.bidMap;
+  }
+
+  let newDeckJson: Prisma.JsonValue | null = source.deckJson;
+  if (source.deckJson != null && bidMap && bidMap.size > 0) {
+    newDeckJson = remapDeckSourceRefs(
+      source.deckJson,
+      id,
+      bidMap,
+    ) as Prisma.JsonValue;
+  }
+
   await prisma.document.create({
     data: {
       ownerId: user.id,
       title: `${source.title} (copy)`,
       content: source.content,
-      ...(source.contentJson != null && {
-        contentJson: source.contentJson as Prisma.InputJsonValue,
+      ...(newContentJson != null && {
+        contentJson: newContentJson as Prisma.InputJsonValue,
       }),
-      ...(source.deckJson != null && {
-        deckJson: source.deckJson as Prisma.InputJsonValue,
+      ...(newDeckJson != null && {
+        deckJson: newDeckJson as Prisma.InputJsonValue,
       }),
       visuals: {
         create: source.visuals.map((visual) => ({
@@ -185,6 +204,48 @@ export async function duplicateDocument(id: string): Promise<void> {
   });
 
   revalidatePath("/app");
+}
+
+/**
+ * Returns a copy of `deckJson` where every element `sourceRef` that points at
+ * `sourceDocId` has its `blockId` remapped via `bidMap`. Refs whose blockId
+ * does not appear in `bidMap` are left unchanged; they will resolve as missing
+ * in the duplicate until the user refreshes the link.
+ */
+function remapDeckSourceRefs(
+  deckJson: unknown,
+  sourceDocId: string,
+  bidMap: Map<string, string>,
+): unknown {
+  if (typeof deckJson !== "object" || deckJson === null) return deckJson;
+  const deck = deckJson as Record<string, unknown>;
+  if (!Array.isArray(deck.slides)) return deckJson;
+  return {
+    ...deck,
+    slides: (deck.slides as unknown[]).map((slide) => {
+      if (typeof slide !== "object" || slide === null) return slide;
+      const s = slide as Record<string, unknown>;
+      if (!Array.isArray(s.elements)) return slide;
+      return {
+        ...s,
+        elements: (s.elements as unknown[]).map((element) => {
+          if (typeof element !== "object" || element === null) return element;
+          const e = element as Record<string, unknown>;
+          const ref = e.sourceRef as Record<string, unknown> | undefined;
+          if (!ref || ref.documentId !== sourceDocId) return element;
+          const newBid =
+            typeof ref.blockId === "string"
+              ? bidMap.get(ref.blockId)
+              : undefined;
+          if (!newBid) return element;
+          return {
+            ...e,
+            sourceRef: { ...ref, blockId: newBid },
+          };
+        }),
+      };
+    }),
+  };
 }
 
 /**

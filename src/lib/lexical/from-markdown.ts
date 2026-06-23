@@ -8,14 +8,15 @@
  * a `contentJson`, we convert its Markdown here so the editor can initialize
  * from it (and the first save then persists the Lexical state).
  *
- * It produces the exact serialized shape Lexical's `editorState.toJSON()` emits
- * for `ParagraphNode`, `HeadingNode`, `ListNode`, and `ListItemNode`, so the
- * result round-trips through Lexical's `parseEditorState`. It deliberately does
- * not import `lexical`/React so it stays pure and unit-testable under
- * `node --test`.
+ * It produces the serialized shape Lexical's `editorState.toJSON()` emits for
+ * `ParagraphNode`, `HeadingNode`, `ListNode`, and `ListItemNode`, plus the
+ * additive durable `bid` field on block-level nodes. The result still
+ * round-trips through Lexical's `parseEditorState`. It deliberately does not
+ * import `lexical`/React so it stays pure and unit-testable under `node --test`.
  */
 
 import { parseMarkdown } from "@/lib/markdown";
+import { generateBlockId } from "./block-id";
 
 type SerializedTextNode = {
   detail: number;
@@ -66,6 +67,7 @@ function inlineChildren(text: string): SerializedTextNode[] {
 
 function paragraphNode(text: string): SerializedElementNode {
   return {
+    bid: generateBlockId(),
     children: inlineChildren(text),
     direction: null,
     format: "",
@@ -79,6 +81,7 @@ function paragraphNode(text: string): SerializedElementNode {
 
 function headingNode(level: 1 | 2 | 3, text: string): SerializedElementNode {
   return {
+    bid: generateBlockId(),
     children: inlineChildren(text),
     direction: null,
     format: "",
@@ -91,6 +94,7 @@ function headingNode(level: 1 | 2 | 3, text: string): SerializedElementNode {
 
 function listItemNode(text: string, value: number): SerializedElementNode {
   return {
+    bid: generateBlockId(),
     children: inlineChildren(text),
     direction: null,
     format: "",

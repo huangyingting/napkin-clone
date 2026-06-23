@@ -25,6 +25,14 @@ export const IMPORT_TAG = "import";
 export const RESTORE_TAG = "restore";
 
 /**
+ * Custom Lexical update tag applied when the editor lazily stamps missing
+ * durable block ids onto already-loaded content. The update should sync through
+ * collaboration, but it is an additive identity repair rather than a user edit,
+ * so autosave skips it.
+ */
+export const BLOCK_ID_REPAIR_TAG = "block-id-repair";
+
+/**
  * Decides whether an editor update should trigger an autosave to the database.
  *
  * Remote CRDT merges (`COLLABORATION_TAG`) and history replays / programmatic
@@ -42,7 +50,8 @@ export function shouldAutosaveUpdate(tags: ReadonlySet<string>): boolean {
   if (
     tags.has(COLLABORATION_TAG) ||
     tags.has(HISTORIC_TAG) ||
-    tags.has(RESTORE_TAG)
+    tags.has(RESTORE_TAG) ||
+    tags.has(BLOCK_ID_REPAIR_TAG)
   ) {
     return false;
   }

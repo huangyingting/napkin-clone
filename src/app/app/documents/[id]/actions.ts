@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { Prisma } from "@/generated/prisma/client";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 import { requireDocumentCapability } from "@/lib/auth/document-permissions";
+import { stampBlockIds } from "@/lib/lexical/block-id";
 import { collectVisualNodes } from "@/lib/lexical/visual-nodes";
 import { lexicalStateToPlainText } from "@/lib/lexical/plain-text";
 import {
@@ -368,8 +369,10 @@ async function mirrorVisualNodes(
  * `requireDocumentCapability` — a viewer or unrelated user is rejected with a
  * clear error (issue #89) — and the write uses `updateMany` keyed by id so a
  * concurrent change is a harmless no-op. The parsed state is stored in
- * `contentJson`, and a plain-text projection is written to `content` so AI block
- * text, search, and the read-only fallback keep working off the same source.
+ * `contentJson`; missing durable block ids are stamped server-side as a lazy
+ * upgrade step before persistence. A plain-text projection is written to
+ * `content` so AI block text, search, and the read-only fallback keep working
+ * off the same source.
  *
  * Malformed JSON is rejected (the client always sends valid serialized state).
  */
@@ -389,6 +392,8 @@ export async function saveDocumentLexical(
   } catch {
     return actionError("Invalid editor state.");
   }
+
+  parsed = stampBlockIds(parsed);
 
   await requireDocumentCapability(user.id, id, "edit");
 
