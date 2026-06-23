@@ -54,7 +54,7 @@ export interface StaleSourceLink {
   /** Why the link is considered stale. */
   reason: StaleReason;
   /**
-  * Kind of the source block. Matches `sourceRef.blockKind`.
+   * Kind of the source block. Matches `sourceRef.blockKind`.
    */
   blockKind: "text" | "visual";
 }

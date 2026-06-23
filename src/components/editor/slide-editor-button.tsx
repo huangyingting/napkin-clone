@@ -154,9 +154,9 @@ export function SlideEditorButton({
   const [documentTextBlocks, setDocumentTextBlocks] = useState<
     readonly DocumentTextBlock[]
   >([]);
-  const [documentBlocks, setDocumentBlocks] = useState<readonly DocumentBlock[]>(
-    [],
-  );
+  const [documentBlocks, setDocumentBlocks] = useState<
+    readonly DocumentBlock[]
+  >([]);
   // The current user's brand-kit colors, surfaced first in the editor's color
   // pickers. Best-effort: brands are per-user (not document-scoped), loaded
   // once on mount; failures leave the pickers on their default swatches.

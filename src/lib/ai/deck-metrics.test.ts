@@ -77,7 +77,11 @@ function slide(index: number, title: string, elements: SlideElement[]): Slide {
 }
 
 function deck(slides: Slide[]): Deck {
-  return { theme: "indigo", slides, schemaVersion: CURRENT_DECK_SCHEMA_VERSION };
+  return {
+    theme: "indigo",
+    slides,
+    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+  };
 }
 
 // An empty deck: no slides.

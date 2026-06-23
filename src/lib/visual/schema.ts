@@ -177,7 +177,7 @@ export interface VisualNode {
   /**
    * Per-node font family override (any CSS font-family string). When set,
    * overrides `style.fontFamily` for this node's label in the renderer.
-  * `undefined` / absent means "inherit the visual's global font family".
+   * `undefined` / absent means "inherit the visual's global font family".
    */
   fontFamily?: string;
 }
@@ -230,7 +230,7 @@ export interface Visual {
   /**
    * The trimmed source text this visual was generated from, if any. Used by
    * "Sync to text" to re-generate from the anchor block and detect staleness.
-  * Optional because only generated/synced visuals have source text.
+   * Optional because only generated/synced visuals have source text.
    */
   sourceText?: string;
   /**
@@ -240,9 +240,9 @@ export interface Visual {
   sourceTextHash?: string;
   /**
    * When `true`, the elastic auto-layout engine re-flows the canvas whenever
-  * nodes are added, removed, or their labels change — sizing each node to its
-  * text and expanding the viewBox so nothing clips. Defaults to `false`
-  * for manual positioning.
+   * nodes are added, removed, or their labels change — sizing each node to its
+   * text and expanding the viewBox so nothing clips. Defaults to `false`
+   * for manual positioning.
    * Only meaningful for positioned kinds (flowchart/mindmap/concept/orgchart);
    * other kinds are always derived-layout and ignore this flag.
    */

@@ -384,7 +384,7 @@ export interface TextElement extends BaseElement {
    * and exporters use these formatted spans (bold/italic/code/color/link) and
    * fall back to the plain `text` string when absent. The concatenation of
    * run `text` values equals `text`, so the plain field always stays a valid
-  * fallback for compact text operations.
+   * fallback for compact text operations.
    */
   runs?: TextRun[];
   style: TextElementStyle;
@@ -507,8 +507,8 @@ export interface ImageElement extends BaseElement {
   crop?: ImageCrop;
   /**
    * ID of the server-stored {@link Asset} row when this image was uploaded via
-    * the slide asset upload action (Epic #374). Data-URL images use `src`
-    * directly and leave this unset.
+   * the slide asset upload action (Epic #374). Data-URL images use `src`
+   * directly and leave this unset.
    */
   assetId?: string;
 }
@@ -558,9 +558,9 @@ export interface Slide {
   /**
    * Optional rich-text runs for `title`, captured from the document heading so
    * emphasis (bold/italic/code/color/link) survives derivation. Additive: when
-  * absent the title renders from the plain `title` string. Threaded into the
-  * generated title {@link TextElement}'s `runs` by
-  * {@link buildSlideElementsFromContent}.
+   * absent the title renders from the plain `title` string. Threaded into the
+   * generated title {@link TextElement}'s `runs` by
+   * {@link buildSlideElementsFromContent}.
    */
   titleRuns?: TextRun[];
 
@@ -572,9 +572,9 @@ export interface Slide {
 
   /**
    * Optional rich-text runs, parallel to `bullets`: `bulletRuns[i]` holds the
-  * formatted spans for visible bullet line `i`. Additive — absent entries fall
-  * back to the plain `bullets[i]` string. Threaded into generated
-  * {@link BulletsElement} values by {@link buildSlideElementsFromContent}.
+   * formatted spans for visible bullet line `i`. Additive — absent entries fall
+   * back to the plain `bullets[i]` string. Threaded into generated
+   * {@link BulletsElement} values by {@link buildSlideElementsFromContent}.
    */
   bulletRuns?: TextRun[][];
 
@@ -594,22 +594,22 @@ export interface Slide {
   theme: DeckTheme;
 
   /**
-  * Free-form positioned elements. This is the authoritative slide content
-  * consumed by renderers and exporters.
+   * Free-form positioned elements. This is the authoritative slide content
+   * consumed by renderers and exporters.
    */
   elements?: SlideElement[];
 
   /**
-  * Editor-merge provenance flag (issue #221). `true` means `elements[]` was
-  * produced by {@link buildSlideElementsFromContent} from document-derived
-  * slide content and has not been hand-edited since. Any
+   * Editor-merge provenance flag (issue #221). `true` means `elements[]` was
+   * produced by {@link buildSlideElementsFromContent} from document-derived
+   * slide content and has not been hand-edited since. Any
    * genuine element edit (move/resize/text/style/add/delete) clears it to
    * `false`, marking the slide as hand-authored.
    *
    * "Sync from document" uses this to decide whether to re-materialize a slide's
    * `elements[]` from refreshed document content (when still derived) or to
-  * preserve them verbatim (when hand-edited). Absent → treated as hand-edited.
-  * Renderers ignore this field; it is pure editor-merge metadata.
+   * preserve them verbatim (when hand-edited). Absent → treated as hand-edited.
+   * Renderers ignore this field; it is pure editor-merge metadata.
    */
   elementsDerived?: boolean;
 
@@ -620,7 +620,7 @@ export interface Slide {
    * on-stage title rename: the existing slide keeps its frozen `sourceSectionId`
    * and re-derived fresh slides for the same unchanged document heading produce
    * the same id, so "Sync from document" can match them in Pass 0 before the
-  * title-text pass. Excluded from `deck-hash` to avoid
+   * title-text pass. Excluded from `deck-hash` to avoid
    * false staleness signals.
    */
   sourceSectionId?: string;
@@ -643,8 +643,8 @@ export interface Slide {
   /**
    * ID of the server-stored {@link Asset} row when this slide's background
    * was uploaded via the slide asset upload action (Epic #374, issue #393).
-    * When present, renderers SHOULD resolve the URL via the asset resolver
-    * rather than treating `backgroundImage` as canonical.
+   * When present, renderers SHOULD resolve the URL via the asset resolver
+   * rather than treating `backgroundImage` as canonical.
    */
   backgroundAssetId?: string;
 
@@ -667,8 +667,8 @@ export interface Deck {
   theme: DeckTheme;
 
   /**
-  * Optional content/theme token id for typography and other theme-scoped
-  * design tokens.
+   * Optional content/theme token id for typography and other theme-scoped
+   * design tokens.
    */
   themeId?: string;
 
@@ -686,22 +686,22 @@ export interface Deck {
    * against (see `deck-hash.ts`). Embedded in the persisted deck JSON — NO
    * schema change — so staleness can be detected without a separate column:
    * on open the editor recomputes the live content hash and compares it against
-  * this value to surface `isDeckStale`. Absent values are treated as
-  * "staleness unknown" and the banner stays hidden, while the manual
-  * "Sync from document" action remains available.
+   * this value to surface `isDeckStale`. Absent values are treated as
+   * "staleness unknown" and the banner stays hidden, while the manual
+   * "Sync from document" action remains available.
    */
   deckContentHash?: string;
 
   /**
-  * Monotonically-increasing deck schema version. Persisted decks must carry
-  * the current version and `safeParseDeck` rejects any other version.
+   * Monotonically-increasing deck schema version. Persisted decks must carry
+   * the current version and `safeParseDeck` rejects any other version.
    */
   schemaVersion?: number;
 
   /**
    * Optional master slide catalogue. Each entry defines structural chrome
    * (background, logo, footer, page numbers) shared by slides that reference
-  * that master via `Slide.masterRef`.
+   * that master via `Slide.masterRef`.
    */
   masters?: MasterSlide[];
 

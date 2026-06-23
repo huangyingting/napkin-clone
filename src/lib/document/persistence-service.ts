@@ -65,11 +65,7 @@ const MAX_VISUAL_REVISIONS = 10;
 // ---------------------------------------------------------------------------
 
 export type { VisualMirrorOutcome, DeckPatch };
-export type {
-  RestoredDocumentVersion,
-  SaveDeckPatchResult,
-  SaveDeckResult,
-};
+export type { RestoredDocumentVersion, SaveDeckPatchResult, SaveDeckResult };
 
 // ---------------------------------------------------------------------------
 // Private helpers

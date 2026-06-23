@@ -16,12 +16,7 @@ import type {
   SlideLayout as DeckLayout,
 } from "./deck";
 import type { SlideFormat } from "./slide-format";
-import {
-  applyLayout,
-  makeElementId,
-  makeSlideId,
-  resetLayout,
-} from "./deck";
+import { applyLayout, makeElementId, makeSlideId, resetLayout } from "./deck";
 import {
   type AlignMode,
   type DistributeMode,

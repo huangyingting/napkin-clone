@@ -129,9 +129,9 @@ export type DocumentTextBlock = {
    */
   runs?: TextRun[];
   /**
-  * Stable identifier for this block within its source document, used to
-  * anchor `sourceRef` links on inserted slide elements. Populated from the
-  * serialised Lexical node `bid` field.
+   * Stable identifier for this block within its source document, used to
+   * anchor `sourceRef` links on inserted slide elements. Populated from the
+   * serialised Lexical node `bid` field.
    */
   blockId?: string;
 };

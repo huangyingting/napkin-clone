@@ -357,7 +357,9 @@ test("hand-edited slide: sync preserves elements verbatim", () => {
 
 test("untitled slide with no elements is not materialized during sync", () => {
   const existing = deck([slide({ title: "", bullets: ["old"], elements: [] })]);
-  const fresh = deck([slide({ title: "", bullets: ["brand new"], elements: [] })]);
+  const fresh = deck([
+    slide({ title: "", bullets: ["brand new"], elements: [] }),
+  ]);
 
   const { deck: merged } = mergeDeckFromDocument(existing, fresh);
 
@@ -379,10 +381,10 @@ test("slide with elements but no provenance flag is treated as hand-edited", () 
   const { deck: merged } = mergeDeckFromDocument(existing, fresh);
 
   // No flag → preserved verbatim (never clobber unknown decks).
-  assert.deepEqual(merged.slides[0].elements?.map((e) => e.id), [
-    "title-intro",
-    "manual-el",
-  ]);
+  assert.deepEqual(
+    merged.slides[0].elements?.map((e) => e.id),
+    ["title-intro", "manual-el"],
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -638,7 +640,10 @@ test("existing manual elements are unchanged and new visual is appended after (#
   const els = s.elements ?? [];
 
   assert.equal(els.length, 3);
-  assert.deepEqual(els.find((el) => el.id === manualEl.id), manualEl);
+  assert.deepEqual(
+    els.find((el) => el.id === manualEl.id),
+    manualEl,
+  );
   const visual = els.find((el): el is VisualElement => el.kind === "visual");
   assert.equal(visual?.visualId, "vis-b");
 });
