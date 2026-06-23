@@ -19,6 +19,7 @@
 
 import { NextResponse } from "next/server";
 
+import { forbidden, unauthorized } from "@/lib/api/errors";
 import { getDocumentCapabilities } from "@/lib/auth/document-permissions";
 import { decideRoomAccess } from "@/lib/collab/room-access";
 import { getCurrentUser } from "@/lib/session";
@@ -28,22 +29,19 @@ export const runtime = "nodejs";
 export async function GET(request: Request): Promise<NextResponse> {
   const user = await getCurrentUser();
   if (!user?.id) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    return unauthorized();
   }
 
   const room = new URL(request.url).searchParams.get("room")?.trim();
   if (!room) {
-    return NextResponse.json({ error: "Missing room." }, { status: 403 });
+    return forbidden("Missing room.");
   }
 
   const capabilities = await getDocumentCapabilities(user.id, room);
   const decision = decideRoomAccess(capabilities);
 
   if (!decision.ok) {
-    return NextResponse.json(
-      { error: "Forbidden." },
-      { status: decision.status },
-    );
+    return decision.status === 401 ? unauthorized() : forbidden();
   }
 
   return NextResponse.json({

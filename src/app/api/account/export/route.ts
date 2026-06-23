@@ -12,6 +12,7 @@
 
 import { NextResponse } from "next/server";
 
+import { unauthorized } from "@/lib/api/errors";
 import { buildAccountExport } from "@/lib/account/export";
 import { logError } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
@@ -22,7 +23,7 @@ export const runtime = "nodejs";
 export async function GET(): Promise<NextResponse> {
   const sessionUser = await getCurrentUser();
   if (!sessionUser) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    return unauthorized();
   }
 
   try {
@@ -39,7 +40,7 @@ export async function GET(): Promise<NextResponse> {
       },
     });
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+      return unauthorized();
     }
 
     // Fetch all data scoped to the authenticated user in parallel.

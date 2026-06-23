@@ -77,6 +77,7 @@ import {
 import { isUnlimitedCreditsEnabled } from "@/lib/billing/entitlements";
 import { getCurrentUser } from "@/lib/session";
 import { logError } from "@/lib/log";
+import { ABUSE_CATEGORIES, logRouteDenial } from "@/lib/diagnostics/api-abuse";
 import {
   VISUAL_KINDS,
   isVisualKind,
@@ -227,6 +228,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         1,
         Math.ceil((result.resetAt - Date.now()) / 1000),
       );
+      logRouteDenial({
+        route: LOG_SCOPE,
+        reason: ABUSE_CATEGORIES.RATE_LIMIT_HIT,
+        status: 429,
+        userId: user.id,
+        retryAfterSeconds: retryAfter,
+      });
       return errorResponse(
         429,
         "Rate limit exceeded. Please wait a moment and try again.",
@@ -241,6 +249,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       creditCost = computeCreditCost(text);
       const creditState = await getUserCreditState(user.id);
       if (!hasSufficientCredits(creditState.balance, creditCost)) {
+        logRouteDenial({
+          route: LOG_SCOPE,
+          reason: ABUSE_CATEGORIES.CREDIT_DENIED,
+          status: 402,
+          userId: user.id,
+        });
         return errorResponse(
           402,
           `Insufficient credits: you need ${creditCost} but have ${creditState.balance}. ` +
@@ -274,10 +288,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // shared store keyed by IP, clearing the cookie does NOT reset it, so it is
     // materially harder to reset than the local cookie alone.
     const clientIp = getClientIp(request.headers) ?? "unknown";
-    const ipKey = rateLimitSubject(
-      "gen-anon-ip",
-      hashIdentifier(clientIp, secret),
-    );
+    const clientHash = hashIdentifier(clientIp, secret);
+    const ipKey = rateLimitSubject("gen-anon-ip", clientHash);
     const now = Date.now();
     const ipResult = await checkRateLimitWithStore(
       prismaRateLimitStore,
@@ -289,6 +301,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       },
     );
     if (!ipResult.allowed) {
+      logRouteDenial({
+        route: LOG_SCOPE,
+        reason: ABUSE_CATEGORIES.RATE_LIMIT_HIT,
+        status: 429,
+        subjectHash: clientHash,
+        retryAfterSeconds: retryAfterSeconds(ipResult.resetAt, now),
+      });
       return errorResponse(
         429,
         "Too many anonymous generations from your network. Please wait and try again, or sign in.",
@@ -300,6 +319,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       parseAnonCookie(request.cookies.get(ANON_COOKIE_NAME)?.value, secret) ??
       newAnonState();
     if (state.count >= anonTrialLimit()) {
+      logRouteDenial({
+        route: LOG_SCOPE,
+        reason: ABUSE_CATEGORIES.ANON_QUOTA_DENIED,
+        status: 429,
+        subjectHash: clientHash,
+      });
       return errorResponse(
         429,
         "You've used all your free generations. Sign in to keep creating visuals.",
@@ -340,6 +365,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         if (err instanceof InsufficientCreditsError) {
           // Balance was depleted by a concurrent request between our pre-check
           // and now — return the same 402 with updated info.
+          logRouteDenial({
+            route: LOG_SCOPE,
+            reason: ABUSE_CATEGORIES.CREDIT_DENIED,
+            status: 402,
+            userId: user.id,
+          });
           return errorResponse(402, err.message);
         }
         // Non-fatal — log but don't fail the generation response.
@@ -377,6 +408,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         requestId,
         reason: "timeout",
         status: 504,
+      });
+      logRouteDenial({
+        route: LOG_SCOPE,
+        reason: ABUSE_CATEGORIES.AI_TIMEOUT,
+        status: 504,
+        userId: user?.id,
       });
       return errorResponse(
         504,

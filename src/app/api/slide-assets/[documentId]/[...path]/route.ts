@@ -23,15 +23,8 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import {
-  documentCapabilities,
-  type DocumentRoleInput,
-} from "@/lib/auth/document-permissions";
-import {
-  evaluateShareAccess,
-  toShareAccessInput,
-  SHARE_ACCESS_SELECT,
-} from "@/lib/share-access";
+import { SHARE_ACCESS_SELECT } from "@/lib/share-access";
+import { decideSlideAssetAccess } from "@/lib/slides/asset-access";
 import { logError } from "@/lib/log";
 import { getDefaultStorageAdapter } from "@/lib/slides/asset-storage";
 
@@ -48,22 +41,13 @@ export async function GET(
   const storageKey = `${documentId}/${filenamePart}`;
 
   // -------------------------------------------------------------------
-  // 1. Look up the asset and verify it belongs to this document.
+  // 1. Look up the asset and the owning document (no access decision yet).
   // -------------------------------------------------------------------
   const asset = await prisma.asset.findFirst({
     where: { storageKey, documentId, deletedAt: null },
     select: { id: true, mimeType: true, storageKey: true },
   });
 
-  if (!asset) {
-    return new NextResponse("Not found", { status: 404 });
-  }
-
-  // -------------------------------------------------------------------
-  // 2. Access control.
-  // -------------------------------------------------------------------
-
-  // Fetch document share state and membership for permission evaluation.
   const doc = await prisma.document.findUnique({
     where: { id: documentId },
     select: {
@@ -79,42 +63,26 @@ export async function GET(
     },
   });
 
-  if (!doc || doc.deletedAt) {
-    return new NextResponse("Not found", { status: 404 });
-  }
-
   const user = await getCurrentUser();
 
-  // Authenticated user: check document view capability.
-  if (user?.id) {
-    const roleInput: DocumentRoleInput = {
-      ownerId: doc.ownerId,
-      workspaceId: doc.workspaceId,
-      workspace: doc.workspace,
-    };
-    const caps = documentCapabilities(roleInput, user.id);
-    if (caps.canView) {
-      return serveAsset(asset.storageKey, asset.mimeType);
-    }
+  // -------------------------------------------------------------------
+  // 2. Access control — single composed, route-shared decision.
+  // -------------------------------------------------------------------
+  const decision = decideSlideAssetAccess({
+    asset: asset ? { id: asset.id } : null,
+    document: doc,
+    userId: user?.id ?? null,
+  });
+
+  if (!decision.allow) {
+    // Privacy: missing asset/document and unauthorized requests both surface as
+    // plain-text bodies; existence is never leaked (404 stays a 404).
+    const body = decision.status === 403 ? "Forbidden" : "Not found";
+    return new NextResponse(body, { status: decision.status });
   }
 
-  // Unauthenticated (or no-capability): allow if the document is publicly
-  // shared with a valid present or embed link (covers /present and embed viewers).
-  const shareDecision = evaluateShareAccess(
-    toShareAccessInput(doc, doc.shareId ?? "", "present"),
-  );
-  if (shareDecision.allow) {
-    return serveAsset(asset.storageKey, asset.mimeType);
-  }
-
-  const embedDecision = evaluateShareAccess(
-    toShareAccessInput(doc, doc.shareId ?? "", "embed"),
-  );
-  if (embedDecision.allow) {
-    return serveAsset(asset.storageKey, asset.mimeType);
-  }
-
-  return new NextResponse("Forbidden", { status: 403 });
+  // `asset` is non-null here (a null asset would have denied with 404 above).
+  return serveAsset(asset!.storageKey, asset!.mimeType);
 }
 
 // ---------------------------------------------------------------------------

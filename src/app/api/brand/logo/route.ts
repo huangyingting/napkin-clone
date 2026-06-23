@@ -11,6 +11,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 
+import { forbidden, unauthorized } from "@/lib/api/errors";
 import { getCurrentUser } from "@/lib/session";
 import { validateLogoUpload, formatUploadError } from "@/lib/brand/upload";
 import {
@@ -35,15 +36,12 @@ function extractPaletteFromBuffer(buffer: Buffer, mime: string): string[] {
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const user = await getCurrentUser();
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    return unauthorized();
   }
 
   const entitlements = await resolveBrandEntitlements(user.id);
   if (!entitlements.canBrand) {
-    return NextResponse.json(
-      { error: BRAND_STYLES_UPGRADE_MESSAGE },
-      { status: 403 },
-    );
+    return forbidden(BRAND_STYLES_UPGRADE_MESSAGE);
   }
 
   let formData: FormData;
