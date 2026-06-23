@@ -1,0 +1,112 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import type { ElementBox, SlideElement } from "./deck";
+import { hitTestSlideElements } from "./stage-hit-test";
+
+function box(x: number, y: number, w: number, h: number): ElementBox {
+  return { x, y, w, h };
+}
+
+function rect(
+  id: string,
+  zIndex: number,
+  elementBox: ElementBox,
+): SlideElement {
+  return {
+    id,
+    kind: "shape",
+    shape: "rect",
+    color: "#333333",
+    zIndex,
+    box: elementBox,
+  };
+}
+
+function text(
+  id: string,
+  zIndex: number,
+  elementBox: ElementBox,
+  value = "Title",
+): SlideElement {
+  return {
+    id,
+    kind: "text",
+    role: "body",
+    text: value,
+    zIndex,
+    box: elementBox,
+    style: { fontSize: 5, bold: false, italic: false, align: "left" },
+  };
+}
+
+test("hitTestSlideElements returns the top visible element by zIndex", () => {
+  const elements = [
+    rect("bottom", 0, box(10, 10, 40, 40)),
+    rect("top", 1, box(20, 20, 40, 40)),
+  ];
+  const hits = hitTestSlideElements({ x: 30, y: 30 }, elements);
+  assert.deepEqual(
+    hits.map((hit) => hit.element.id),
+    ["top", "bottom"],
+  );
+});
+
+test("hitTestSlideElements lets lower elements show through empty text frame areas", () => {
+  const elements = [
+    rect("bottom", 0, box(0, 0, 100, 100)),
+    text("wide-text", 10, box(0, 0, 100, 100), "Hi"),
+  ];
+
+  const hits = hitTestSlideElements({ x: 90, y: 90 }, elements);
+  assert.equal(hits[0]?.element.id, "bottom");
+});
+
+test("hitTestSlideElements still hits text when pointer is on visible text area", () => {
+  const elements = [
+    rect("bottom", 0, box(0, 0, 100, 100)),
+    text("wide-text", 10, box(0, 0, 100, 100), "Hi"),
+  ];
+
+  const hits = hitTestSlideElements({ x: 2, y: 50 }, elements);
+  assert.equal(hits[0]?.element.id, "wide-text");
+});
+
+test("hitTestSlideElements skips hidden and locked elements by default", () => {
+  const hidden = { ...rect("hidden", 20, box(0, 0, 100, 100)), hidden: true };
+  const locked = { ...rect("locked", 10, box(0, 0, 100, 100)), locked: true };
+  const bottom = rect("bottom", 0, box(0, 0, 100, 100));
+
+  const hits = hitTestSlideElements({ x: 50, y: 50 }, [bottom, locked, hidden]);
+  assert.deepEqual(
+    hits.map((hit) => hit.element.id),
+    ["bottom"],
+  );
+});
+
+test("hitTestSlideElements can include locked elements when requested", () => {
+  const locked = { ...rect("locked", 10, box(0, 0, 100, 100)), locked: true };
+  const bottom = rect("bottom", 0, box(0, 0, 100, 100));
+
+  const hits = hitTestSlideElements({ x: 50, y: 50 }, [bottom, locked], {
+    includeLocked: true,
+  });
+  assert.equal(hits[0]?.element.id, "locked");
+});
+
+test("hitTestSlideElements uses distance threshold for line shapes", () => {
+  const line: SlideElement = {
+    id: "line",
+    kind: "shape",
+    shape: "line",
+    color: "#111111",
+    zIndex: 1,
+    box: box(10, 50, 80, 4),
+  };
+
+  assert.equal(
+    hitTestSlideElements({ x: 50, y: 52 }, [line])[0]?.element.id,
+    "line",
+  );
+  assert.equal(hitTestSlideElements({ x: 50, y: 65 }, [line]).length, 0);
+});
