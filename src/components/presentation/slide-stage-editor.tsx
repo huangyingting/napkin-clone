@@ -843,6 +843,38 @@ function MultiSelectBoundingBox({
   );
 }
 
+function ElementFrameOverlay({
+  box,
+  rotation,
+  variant,
+}: {
+  box: ElementBox;
+  rotation?: number;
+  variant: "selected" | "preselected";
+}) {
+  const selected = variant === "selected";
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute box-border rounded-[2px]"
+      style={{
+        left: `${box.x}%`,
+        top: `${box.y}%`,
+        width: `${box.w}%`,
+        height: `${box.h}%`,
+        zIndex: selected ? 1320 : 1310,
+        border: selected
+          ? "2px solid #71717a"
+          : "1.5px solid rgba(113, 113, 122, 0.86)",
+        boxShadow: selected
+          ? "0 0 0 1px rgba(255,255,255,0.92)"
+          : "0 0 0 1px rgba(255,255,255,0.72)",
+        ...(rotation ? { transform: `rotate(${rotation}deg)` } : {}),
+      }}
+    />
+  );
+}
+
 function resolveTextColor(
   element: Extract<SlideElement, { kind: "text" | "bullets" | "shape" }>,
   tc: ThemeConfig,
@@ -1162,6 +1194,26 @@ export function SlideStageEditor({
         isInlineEditableStageElement(element),
     ) ?? null;
   const activeEditingId = editingElement?.id ?? null;
+  const preselectedElement =
+    elements.find((element) => element.id === preselectedElementId) ?? null;
+  const showSingleSelectedFrame =
+    primaryElement !== null && !isMultiSelect && !marqueeRect;
+  const selectedFrameBox =
+    showSingleSelectedFrame && primaryElement
+      ? primaryElement.id === activeEditingId
+        ? primaryElement.box
+        : (fittedBoxes.get(primaryElement.id) ?? primaryElement.box)
+      : null;
+  const showPreselectedFrame =
+    preselectedElement !== null &&
+    !selectedElementIds.has(preselectedElement.id) &&
+    !activeDrag &&
+    !marqueeRect &&
+    !activeEditingId;
+  const preselectedFrameBox =
+    showPreselectedFrame && preselectedElement
+      ? (fittedBoxes.get(preselectedElement.id) ?? preselectedElement.box)
+      : null;
 
   // Group bounding-box frame (issue #330). Shown when all selected elements share
   // a groupId but the group is not yet entered (groupEditingId is null).
@@ -2073,12 +2125,6 @@ export function SlideStageEditor({
           const isPrimary = element.id === selectedElementId;
           const inSelection = selectedElementIds.has(element.id);
           const selected = isPrimary || inSelection;
-          const preselected =
-            element.id === preselectedElementId &&
-            !selected &&
-            !activeDrag &&
-            !marqueeRect &&
-            !activeEditingId;
           const isEditing = element.id === activeEditingId;
           const editable = isInlineEditableStageElement(element);
           // Frame = the element box (Canva model). For text it equals fittedBox
@@ -2205,12 +2251,6 @@ export function SlideStageEditor({
               }}
               className={`absolute outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ds-surface-raised ${
                 isEditing ? "cursor-text" : "cursor-move"
-              } ${
-                selected
-                  ? "ring-2 ring-[#71717a]"
-                  : preselected
-                    ? "ring-1 ring-[#71717a]/70"
-                    : "ring-1 ring-transparent"
               }`}
               style={{
                 left: `${containerBox.x}%`,
@@ -2297,6 +2337,22 @@ export function SlideStageEditor({
             </div>
           );
         })}
+
+        {selectedFrameBox && primaryElement ? (
+          <ElementFrameOverlay
+            box={selectedFrameBox}
+            rotation={primaryElement.rotation}
+            variant="selected"
+          />
+        ) : null}
+
+        {preselectedFrameBox && preselectedElement ? (
+          <ElementFrameOverlay
+            box={preselectedFrameBox}
+            rotation={preselectedElement.rotation}
+            variant="preselected"
+          />
+        ) : null}
 
         {/* Multi-selection bounding box — resize and rotate handles (issue #329).
             Shown when 2+ non-locked elements are selected and the user is not
