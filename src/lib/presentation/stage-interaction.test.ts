@@ -41,10 +41,10 @@ function lineShapeElement(): SlideElement {
   };
 }
 
-test("elementPointerDownIntent selects an unselected element without dragging", () => {
+test("elementPointerDownIntent tracks unselected elements for select-or-drag", () => {
   assert.equal(
     elementPointerDownIntent({ isSelected: false, isAdditive: false }),
-    "select-only",
+    "select-or-drag",
   );
 });
 

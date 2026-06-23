@@ -2047,24 +2047,9 @@ export function SlideStageEditor({
                   onSelectElement(element.id, "toggle");
                   return;
                 }
-                if (pointerIntent === "select-only") {
-                  event.stopPropagation();
-                  const elementGroupId = (element as { groupId?: string })
-                    .groupId;
-                  if (elementGroupId && groupEditingId !== elementGroupId) {
-                    const groupIds = elementsRef.current
-                      .filter(
-                        (item) =>
-                          (item as { groupId?: string }).groupId ===
-                          elementGroupId,
-                      )
-                      .map((item) => item.id);
-                    onSelectElements(groupIds);
-                  } else {
-                    onSelectElement(element.id, "replace");
-                  }
-                  return;
-                }
+                // Unselected plain pointer-down still begins drag tracking:
+                // pointer-up without movement selects only, while movement past
+                // the click threshold moves immediately.
                 beginDrag(event, element.id, "move", fittedBox);
               }}
               onDoubleClick={(event) => {
