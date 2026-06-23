@@ -15,7 +15,7 @@ The default local database is SQLite, so no database service is required.
 ```bash
 cp .env.example .env
 npm install
-npm run db:migrate
+npm run db:push
 npm run db:seed
 npm run dev
 ```
@@ -42,10 +42,9 @@ real secret outside quick local testing.
 | `npm run format`       | Format the repository with Prettier.                                       |
 | `npm run format:check` | Check Prettier formatting.                                                 |
 | `npm run db:generate`  | Generate the Prisma client.                                                |
-| `npm run db:migrate`   | Run `prisma migrate dev`.                                                  |
-| `npm run db:deploy`    | Run `prisma migrate deploy`.                                               |
+| `npm run db:push`      | Apply the selected Prisma schema directly with `prisma db push`.           |
 | `npm run db:seed`      | Seed demo data.                                                            |
-| `npm run db:reset`     | Regenerate Prisma, reset the DB, and seed.                                 |
+| `npm run db:reset`     | Regenerate Prisma, force-reset via `db push`, and seed.                    |
 
 ## Database
 
@@ -56,14 +55,17 @@ The database provider is selected with `DB_PROVIDER`:
 | `sqlite`   | Default for local development and tests.                                |
 | `postgres` | Production-style deployment. Requires a `postgresql://` `DATABASE_URL`. |
 
+During development, schemas are applied directly with `prisma db push`; migration
+history is not maintained. Development data can be reset when schemas change.
+
 Examples:
 
 ```bash
-npm run db:migrate
+npm run db:push
 
 DB_PROVIDER=postgres \
 DATABASE_URL="postgresql://user:pass@localhost:5432/textiq?schema=public" \
-npm run db:deploy
+npm run db:push
 ```
 
 ## Collaboration
@@ -112,7 +114,7 @@ fixtures, generators, and docs to the current shape instead.
 | `src/components/` | React UI components.                                                              |
 | `src/lib/`        | Domain logic, schemas, persistence helpers, AI, auth, billing, export, and tests. |
 | `scripts/`        | Collaboration server and supporting Node scripts.                                 |
-| `prisma/`         | Prisma schemas, migrations, and seed script.                                      |
+| `prisma/`         | Prisma schemas and seed script.                                                   |
 | `e2e/`            | Playwright E2E tests.                                                             |
 | `docs/`           | Current architecture and operations documentation.                                |
 

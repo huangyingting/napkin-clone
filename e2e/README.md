@@ -35,7 +35,7 @@ the required CI workflow — run them locally or in a dedicated E2E job.
    export DATABASE_URL="file:./prisma/dev.db"
    export AUTH_SECRET=dev-secret
    npm run db:generate
-   npm run db:migrate   # or db:reset to seed
+   npm run db:push      # or db:reset to force-reset and seed
    npm run dev
    ```
 

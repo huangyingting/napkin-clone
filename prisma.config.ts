@@ -14,13 +14,11 @@ const provider =
   process.env["DB_PROVIDER"] === "postgres" ? "postgres" : "sqlite";
 const isSqlite = provider === "sqlite";
 
-// Each provider has its own schema file and migration history.
+// Each provider has its own schema file. Development applies the selected
+// schema directly with `prisma db push` while schemas are changing quickly.
 const schema = isSqlite
   ? "prisma/schema.sqlite.prisma"
   : "prisma/schema.prisma";
-const migrationsPath = isSqlite
-  ? "prisma/migrations-sqlite"
-  : "prisma/migrations";
 
 // DATABASE_URL wins when set; SQLite falls back to a local file so a fresh clone
 // works with no configuration.
@@ -31,7 +29,6 @@ const url =
 export default defineConfig({
   schema,
   migrations: {
-    path: migrationsPath,
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
