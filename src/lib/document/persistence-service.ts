@@ -39,7 +39,8 @@ import type {
 } from "@/lib/document/persistence-types";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { normalizeDeckRaw } from "@/lib/presentation/fresh-deck";
-import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
+import { reconcileDocumentDeckDependencies } from "@/lib/document/source-ref-model";
+import { reportSchemaFailure } from "@/lib/diagnostics/schema-telemetry";
 import { MAX_DECK_JSON_BYTES } from "@/lib/presentation/deck-limits";
 import { generateRevisionToken } from "@/lib/presentation/deck-revision-token";
 import { applyPatch, type DeckPatch } from "@/lib/presentation/slide-commands";
@@ -258,6 +259,12 @@ export async function mirrorVisualNodesInTx(
     const result = safeParseVisual(node.visual);
     if (!result.success) {
       skippedCount += 1;
+      reportSchemaFailure("content-visual-parse-failed", {
+        area: "Document.contentJson:visual",
+        documentId,
+        anchorBlockId: anchor,
+        reason: result.error,
+      });
       continue;
     }
     const visual = result.data;
@@ -289,6 +296,15 @@ export async function mirrorVisualNodesInTx(
   const diff = diffVisualMirror<Prisma.InputJsonValue>({
     existingRows: existingRows.map((row) => {
       const parsed = safeParseVisual(row.data);
+      if (!parsed.success) {
+        reportSchemaFailure("visual-parse-failed", {
+          area: "Visual.data",
+          documentId,
+          rowId: row.id,
+          ...(row.anchorBlockId ? { anchorBlockId: row.anchorBlockId } : {}),
+          reason: parsed.error,
+        });
+      }
       return {
         id: row.id,
         anchorBlockId: row.anchorBlockId,
@@ -446,13 +462,20 @@ export function sanitizeRestoredDeck(
 
   const parsed = safeParseDeck(normalizeDeckRaw(rawDeckJson));
   if (!parsed.success) {
+    reportSchemaFailure("deck-parse-failed", {
+      area: "DocumentVersion.deckJson",
+      reason: parsed.error,
+    });
     return rawDeckJson as Prisma.InputJsonValue;
   }
 
   const knownVisualIds = new Set(
     collectVisualNodes(restoredContent).map((n) => n.visualId),
   );
-  const sanitized = stripOrphanedVisuals(parsed.data, knownVisualIds);
+  const { deck: sanitized } = reconcileDocumentDeckDependencies({
+    deck: parsed.data,
+    visualsById: knownVisualIds,
+  });
   return sanitized as unknown as Prisma.InputJsonValue;
 }
 
@@ -474,7 +497,14 @@ export async function reconcileDeckAfterMirror(
     if (!doc?.deckJson) return;
 
     const parsed = safeParseDeck(normalizeDeckRaw(doc.deckJson));
-    if (!parsed.success) return;
+    if (!parsed.success) {
+      reportSchemaFailure("deck-parse-failed", {
+        area: "Document.deckJson",
+        documentId,
+        reason: parsed.error,
+      });
+      return;
+    }
 
     const visualRows = await prisma.visual.findMany({
       where: { documentId, anchorBlockId: { not: null } },
@@ -486,11 +516,12 @@ export async function reconcileDeckAfterMirror(
         .filter((id): id is string => id !== null),
     );
 
-    const reconciled = stripOrphanedVisuals(parsed.data, knownVisualIds);
+    const { deck: reconciled, changed } = reconcileDocumentDeckDependencies({
+      deck: parsed.data,
+      visualsById: knownVisualIds,
+    });
 
-    const before = JSON.stringify(parsed.data.slides.map((s) => s.elements));
-    const after = JSON.stringify(reconciled.slides.map((s) => s.elements));
-    if (before === after) return;
+    if (!changed) return;
 
     await prisma.document.updateMany({
       where: { id: documentId },
@@ -546,6 +577,11 @@ export async function persistDeck(
 ): Promise<SaveDeckResult> {
   const result = safeParseDeck(deckJson);
   if (!result.success) {
+    reportSchemaFailure("deck-parse-failed", {
+      area: "persistDeck.input",
+      documentId,
+      reason: result.error,
+    });
     return { ok: false, error: `Invalid deck: ${result.error}` };
   }
 
@@ -620,6 +656,11 @@ export async function patchDeck(
 
   const baseResult = safeParseDeck(rawDeckJson);
   if (!baseResult.success) {
+    reportSchemaFailure("deck-parse-failed", {
+      area: "patchDeck.storedDeck",
+      documentId,
+      reason: baseResult.error,
+    });
     return { ok: false, error: `Stored deck is invalid: ${baseResult.error}` };
   }
 
@@ -632,6 +673,11 @@ export async function patchDeck(
 
   const resultParsed = safeParseDeck(deck);
   if (!resultParsed.success) {
+    reportSchemaFailure("deck-parse-failed", {
+      area: "patchDeck.result",
+      documentId,
+      reason: resultParsed.error,
+    });
     return {
       ok: false,
       error: `Patch result is invalid: ${resultParsed.error}`,

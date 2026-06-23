@@ -14,6 +14,7 @@ import {
   enumerateDeckDependencies,
   checkDependencyHealth,
   reconcileDeckVisuals,
+  reconcileDocumentDeckDependencies,
   collectDeckVisualIds,
 } from "./source-ref-model";
 
@@ -349,5 +350,138 @@ describe("restore scenario: orphan detection and reconcile", () => {
     const ids = collectDeckVisualIds(reconciled);
     assert.ok(!ids.has("vis-old"), "orphaned visual should be removed");
     assert.ok(ids.has("vis-new"), "valid visual should remain");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// reconcileDocumentDeckDependencies (#503)
+// ---------------------------------------------------------------------------
+
+describe("reconcileDocumentDeckDependencies", () => {
+  test("classifies a present visual reference as found and keeps it", () => {
+    const deck = makeDeck([makeVisualSlide("s1", "e1", "vis-1")]);
+    const result = reconcileDocumentDeckDependencies({
+      deck,
+      visualsById: new Set(["vis-1"]),
+    });
+    assert.equal(result.counts.found, 1);
+    assert.equal(result.counts.missing, 0);
+    assert.equal(result.counts.removed, 0);
+    assert.equal(result.changed, false);
+    assert.ok(collectDeckVisualIds(result.deck).has("vis-1"));
+  });
+
+  test("classifies an absent visual reference as missing and strips it", () => {
+    const deck = makeDeck([makeVisualSlide("s1", "e1", "vis-gone")]);
+    const result = reconcileDocumentDeckDependencies({
+      deck,
+      visualsById: new Set<string>(),
+    });
+    assert.equal(result.counts.missing, 1);
+    assert.equal(result.counts.removed, 1);
+    assert.equal(result.changed, true);
+    assert.ok(!collectDeckVisualIds(result.deck).has("vis-gone"));
+    const removed = result.dependencies.find((d) => d.removed);
+    assert.equal(removed?.status, "missing");
+  });
+
+  test("classifies an empty visual id as invalid and strips it", () => {
+    const deck = makeDeck([makeVisualSlide("s1", "e1", "")]);
+    const result = reconcileDocumentDeckDependencies({
+      deck,
+      visualsById: new Set<string>(),
+    });
+    assert.equal(result.counts.invalid, 1);
+    assert.equal(result.counts.removed, 1);
+    assert.equal(result.changed, true);
+  });
+
+  test("derives the known visual set from sourceRefs blocks when omitted", () => {
+    const deck = makeDeck([makeVisualSlide("s1", "e1", "vis-1")]);
+    const result = reconcileDocumentDeckDependencies({
+      deck,
+      sourceRefs: [makeVisualBlock("vis-1")],
+    });
+    assert.equal(result.counts.found, 1);
+    assert.equal(result.changed, false);
+  });
+
+  test("surfaces a stale source link without deleting it", () => {
+    const ref: SourceRef = {
+      documentId: "doc-1",
+      blockId: "block-xyz",
+      contentHash: "stale-hash-does-not-match",
+      linkedAt: "2026-01-01T00:00:00Z",
+      blockKind: "text",
+    };
+    const deck = makeDeck([makeTextSlide("s1", "e1", "Hello", ref)]);
+    const result = reconcileDocumentDeckDependencies({
+      deck,
+      sourceRefs: [makeTextBlock("block-xyz", "Hello")],
+    });
+    assert.equal(result.counts.stale, 1);
+    assert.equal(result.counts.removed, 0);
+    assert.equal(result.changed, false);
+    const dep = result.dependencies.find(
+      (d) => d.dependency.kind === "source_ref",
+    );
+    assert.equal(dep?.status, "stale");
+    assert.equal(dep?.removed, false);
+  });
+
+  test("classifies a missing source-ref block as missing without deleting", () => {
+    const ref: SourceRef = {
+      documentId: "doc-1",
+      blockId: "block-gone",
+      linkedAt: "2026-01-01T00:00:00Z",
+      blockKind: "text",
+    };
+    const deck = makeDeck([makeTextSlide("s1", "e1", "Hello", ref)]);
+    const result = reconcileDocumentDeckDependencies({
+      deck,
+      sourceRefs: [makeTextBlock("block-other", "Other")],
+    });
+    assert.equal(result.counts.missing, 1);
+    assert.equal(result.counts.removed, 0);
+    assert.equal(result.changed, false);
+  });
+
+  test("treats source refs as found when no fresh blocks are supplied", () => {
+    const ref: SourceRef = {
+      documentId: "doc-1",
+      blockId: "block-xyz",
+      contentHash: "whatever",
+      linkedAt: "2026-01-01T00:00:00Z",
+      blockKind: "text",
+    };
+    const deck = makeDeck([
+      makeVisualSlide("s1", "e1", "vis-1"),
+      makeTextSlide("s2", "e2", "Hello", ref),
+    ]);
+    const result = reconcileDocumentDeckDependencies({
+      deck,
+      visualsById: new Set(["vis-1"]),
+    });
+    // Visual found + source ref defaulted to found (no blocks to classify).
+    assert.equal(result.counts.found, 2);
+    assert.equal(result.counts.stale, 0);
+    assert.equal(result.changed, false);
+  });
+
+  test("reconciled deck matches stripOrphanedVisuals output (behavior parity)", () => {
+    const deck = makeDeck([
+      makeVisualSlide("s1", "e1", "vis-keep"),
+      makeVisualSlide("s2", "e2", "vis-drop"),
+    ]);
+    const known = new Set(["vis-keep"]);
+    const viaReconcile = reconcileDocumentDeckDependencies({
+      deck,
+      visualsById: known,
+    }).deck;
+    const viaStrip = reconcileDeckVisuals(deck, known);
+    assert.deepEqual(
+      viaReconcile.slides.map((s) => s.elements),
+      viaStrip.slides.map((s) => s.elements),
+    );
   });
 });

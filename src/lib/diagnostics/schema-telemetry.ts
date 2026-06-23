@@ -1,0 +1,139 @@
+/**
+ * Persisted-schema parse-failure telemetry (#504).
+ *
+ * When the server fails to parse a persisted payload (a deck, a visual, or a
+ * source reference) we must record a structured, actionable diagnostic so the
+ * repair playbook (`docs/operations/persisted-schema-repair.md`) and the audit
+ * CLI (#501) can be pointed at the affected row — WITHOUT ever leaking document
+ * content.
+ *
+ * The contract is deliberately narrow:
+ *  - Callers pass a {@link SchemaFailureCategory} and a small bag of SAFE
+ *    identifiers (ids, counts, an opaque validator `reason` string).
+ *  - The validator `reason` strings produced by `safeParseDeck` /
+ *    `safeParseVisual` / `validateSourceRef` describe the schema violation
+ *    (e.g. "Deck.slides[0].id must be a non-empty string"); they never echo
+ *    document text, so they are safe to record.
+ *  - Anything that looks like raw content (keys such as `text`, `input`,
+ *    `deckJson`, `contentJson`, `data`) is stripped before logging as a
+ *    belt-and-suspenders guard on top of {@link logError}'s own redaction.
+ *
+ * The pure {@link buildSchemaDiagnostic} builder is exported for unit testing
+ * the no-content-leak guarantee; production code calls
+ * {@link reportSchemaFailure}.
+ */
+
+import { logError } from "@/lib/log";
+
+/** Fixed scope used for every persisted-schema diagnostic. */
+export const SCHEMA_TELEMETRY_SCOPE = "schema.persisted";
+
+/**
+ * The set of persisted-schema parse-failure categories. Each maps to a stable,
+ * greppable string used as the diagnostic `category` field and as the synthetic
+ * error name, so log pipelines can alert per-category.
+ */
+export const SCHEMA_FAILURE_CATEGORIES = [
+  "deck-parse-failed",
+  "visual-parse-failed",
+  "sourceref-invalid",
+  "content-visual-parse-failed",
+] as const;
+
+export type SchemaFailureCategory = (typeof SCHEMA_FAILURE_CATEGORIES)[number];
+
+/**
+ * Context keys that are explicitly disallowed because they may carry raw
+ * document content. These are dropped from any diagnostic context regardless of
+ * the generic redaction in {@link logError}. Comparison is normalized
+ * (lower-cased, non-alphanumerics stripped) so `deckJson`, `deck_json`, and
+ * `DeckJSON` all match.
+ */
+const CONTENT_KEYS = new Set([
+  "deckjson",
+  "contentjson",
+  "data",
+  "visual",
+  "deck",
+  "node",
+  "payload",
+  "raw",
+  "rawdeck",
+  "rawvisual",
+  "value",
+  "snapshot",
+  "body",
+]);
+
+function normalizeKey(key: string): string {
+  return key.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/** True when a context key may hold raw document content and must be dropped. */
+export function isContentKey(key: string): boolean {
+  return CONTENT_KEYS.has(normalizeKey(key));
+}
+
+/** Safe identifiers a caller may attach to a schema diagnostic. */
+export interface SchemaFailureContext {
+  /** Opaque validator failure reason — safe (describes schema, not content). */
+  reason?: string;
+  /** Document id the row belongs to (safe identifier). */
+  documentId?: string;
+  /** Primary key of the offending row (safe identifier). */
+  rowId?: string;
+  /** Schema area / table the failure came from (e.g. "Document.deckJson"). */
+  area?: string;
+  /** Anchor / block id (safe identifier). */
+  anchorBlockId?: string;
+  /** Numeric counters only (never content). */
+  [key: string]: string | number | boolean | undefined;
+}
+
+export interface SchemaDiagnosticRecord {
+  category: SchemaFailureCategory;
+  [key: string]: string | number | boolean | undefined;
+}
+
+/**
+ * Builds the safe diagnostic context for a persisted-schema parse failure
+ * WITHOUT writing anything. Drops any content-bearing keys and any non-scalar
+ * values, so only ids/counts/booleans and the validator `reason` survive.
+ *
+ * Exposed for unit tests asserting the no-content-leak guarantee.
+ */
+export function buildSchemaDiagnostic(
+  category: SchemaFailureCategory,
+  context: SchemaFailureContext = {},
+): SchemaDiagnosticRecord {
+  const out: SchemaDiagnosticRecord = { category };
+  for (const [key, value] of Object.entries(context)) {
+    if (value === undefined) continue;
+    if (isContentKey(key)) continue;
+    if (
+      typeof value !== "string" &&
+      typeof value !== "number" &&
+      typeof value !== "boolean"
+    ) {
+      continue;
+    }
+    out[key] = value;
+  }
+  return out;
+}
+
+/**
+ * Emit a single structured diagnostic line for a persisted-schema parse
+ * failure. The synthetic error carries the category as its name so log
+ * pipelines see `errorName: "deck-parse-failed"` etc. Never throws (logging
+ * must not break the caller's flow).
+ */
+export function reportSchemaFailure(
+  category: SchemaFailureCategory,
+  context: SchemaFailureContext = {},
+): void {
+  const diagnostic = buildSchemaDiagnostic(category, context);
+  const error = new Error(category);
+  error.name = category;
+  logError(SCHEMA_TELEMETRY_SCOPE, error, diagnostic);
+}

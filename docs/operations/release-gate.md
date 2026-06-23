@@ -42,6 +42,27 @@ Node 22, SQLite). The build step (`npm run build`) is also run in CI but is
 not part of the local gate loop — a passing local gate with a failing build
 is still a release blocker and must be fixed immediately.
 
+### Persisted-schema audit (Epic #493)
+
+The automated gate above validates code. A second, data-facing gate validates
+the **persisted payloads** the runtime trusts — `Document.deckJson`, embedded
+`Document.contentJson` visuals, `Visual.data`, and active `SourceRef` fields.
+Run it against a target database (staging or a production replica) before a
+release wave:
+
+```bash
+npm run audit:schema -- --ci
+```
+
+The CLI (`src/scripts/audit-persisted-schema.ts`, core in
+`src/lib/schema-audit/audit.ts`) exits non-zero when any row fails its schema
+validator and reports only safe identifiers (document id / row id / schema area
+/ failure reason) — never document content. A clean run is a precondition for
+release; drift is remediated with the offline migration harness
+(`npm run migrate:schema`, see
+[`persisted-schema-migrations.md`](./persisted-schema-migrations.md)) and the
+[repair playbook](./persisted-schema-repair.md).
+
 ### Test coverage scope
 
 `npm test` runs:
@@ -172,13 +193,14 @@ Before each foundation release wave:
 
 ## Part 5 — Cross-references
 
-| Related issue | Area                                                                                                                               |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| #430          | Block-anchor identity — `block-id.ts`, `block-id-runtime.ts`                                                                       |
-| #448          | Visual projection repair — `mirror-diff.ts`, `mirror-repair.ts`                                                                    |
-| #436          | Command bus — `slide-commands.ts`, `commands/`                                                                                     |
-| #379 / #380   | Export pipeline — `export-preflight.ts`, `deck-export.ts`                                                                          |
-| #376          | Conflict recovery — `deck-revision-token.ts`                                                                                       |
-| #460          | Structured diagnostics — `src/lib/diagnostics/error-codes.ts`                                                                      |
-| #461          | Performance budgets — `src/lib/presentation/perf-budgets.ts`                                                                       |
-| #495          | API surface governance — `docs/security/api-route-security-matrix.md`, `src/lib/api/errors.ts`, `src/lib/diagnostics/api-abuse.ts` |
+| Related issue | Area                                                                                                                                        |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| #430          | Block-anchor identity — `block-id.ts`, `block-id-runtime.ts`                                                                                |
+| #448          | Visual projection repair — `mirror-diff.ts`, `mirror-repair.ts`                                                                             |
+| #436          | Command bus — `slide-commands.ts`, `commands/`                                                                                              |
+| #379 / #380   | Export pipeline — `export-preflight.ts`, `deck-export.ts`                                                                                   |
+| #376          | Conflict recovery — `deck-revision-token.ts`                                                                                                |
+| #460          | Structured diagnostics — `src/lib/diagnostics/error-codes.ts`                                                                               |
+| #461          | Performance budgets — `src/lib/presentation/perf-budgets.ts`                                                                                |
+| #495          | API surface governance — `docs/security/api-route-security-matrix.md`, `src/lib/api/errors.ts`, `src/lib/diagnostics/api-abuse.ts`          |
+| #493          | Persisted-schema gates — `src/lib/schema-audit/audit.ts`, `src/lib/schema-migrate/harness.ts`, `docs/operations/persisted-schema-repair.md` |
