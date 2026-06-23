@@ -17,7 +17,13 @@ import {
   type ResizeHandle,
 } from "@/components/visual/layout";
 import { useIsPointerFine } from "@/lib/pointer";
-import { setNodeLabel } from "@/lib/visual/transforms";
+import {
+  flipEdge,
+  setEdgeLabel,
+  setNodeLabel,
+  toggleEdgeDirected,
+  toggleEdgeStyle,
+} from "@/lib/visual/transforms";
 import type { Visual, VisualEdge, VisualNode } from "@/lib/visual/schema";
 import type { VisualCommandPayload } from "@/lib/commands/visual-commands";
 
@@ -87,47 +93,6 @@ function deleteNode(visual: Visual, id: string): Visual {
   };
 }
 
-function setEdgeLabel(visual: Visual, id: string, label: string): Visual {
-  return {
-    ...visual,
-    edges: visual.edges.map((edge) =>
-      edge.id === id ? { ...edge, label } : edge,
-    ),
-  };
-}
-
-/** Flips a connector's direction by swapping its `from`/`to` endpoints. */
-function flipEdge(visual: Visual, id: string): Visual {
-  return {
-    ...visual,
-    edges: visual.edges.map((edge) =>
-      edge.id === id ? { ...edge, from: edge.to, to: edge.from } : edge,
-    ),
-  };
-}
-
-/** Toggles a connector's arrowhead (the `directed` flag; default shown). */
-function toggleEdgeDirected(visual: Visual, id: string): Visual {
-  return {
-    ...visual,
-    edges: visual.edges.map((edge) =>
-      edge.id === id ? { ...edge, directed: edge.directed === false } : edge,
-    ),
-  };
-}
-
-/** Toggles a connector between curved and straight (default straight). */
-function toggleEdgeStyle(visual: Visual, id: string): Visual {
-  return {
-    ...visual,
-    edges: visual.edges.map((edge) =>
-      edge.id === id
-        ? { ...edge, style: edge.style === "curved" ? "straight" : "curved" }
-        : edge,
-    ),
-  };
-}
-
 interface DragState {
   id: string;
   startClientX: number;
@@ -176,11 +141,12 @@ export function VisualEditor({
   visual: Visual;
   onChange: (next: Visual) => void;
   /**
-   * Optional command sink (#507). When provided, discrete graph-structure
-   * edits (e.g. node deletion) route through the visual command executor for
-   * validation + command metadata, falling back to `onChange` when omitted.
-   * Continuous gesture edits (drag/resize/reposition) and inline label typing
-   * stay on `onChange` — they are high-frequency transforms, not discrete
+   * Optional command sink (#507). When provided, discrete graph-structure and
+   * user-intent edits (node deletion, edge flip / arrowhead / curve toggle, and
+   * the inline node/edge label commit) route through the visual command
+   * executor for validation + command metadata, falling back to `onChange` when
+   * omitted. Continuous gesture edits (drag/resize/reposition) and inline label
+   * typing stay on `onChange` — they are high-frequency transforms, not discrete
    * commands.
    */
   onCommand?: (payload: VisualCommandPayload, coalesceKey?: string) => void;
@@ -521,12 +487,22 @@ export function VisualEditor({
       } else if (event.key === "Escape") {
         event.preventDefault();
         if (editingId) {
-          onChange(setNodeLabel(visual, editingId, editStartLabel.current));
+          // #507: the discrete label commit (restoring the pre-edit value)
+          // routes through the command sink when available.
+          if (onCommand) {
+            onCommand({
+              op: "visual.set_node_label",
+              nodeId: editingId,
+              label: editStartLabel.current,
+            });
+          } else {
+            onChange(setNodeLabel(visual, editingId, editStartLabel.current));
+          }
         }
         setEditingId(null);
       }
     },
-    [editingId, onChange, visual],
+    [editingId, onChange, onCommand, visual],
   );
 
   const onNodeKeyDown = useCallback(
@@ -596,14 +572,24 @@ export function VisualEditor({
       } else if (event.key === "Escape") {
         event.preventDefault();
         if (selectedEdgeId) {
-          onChange(
-            setEdgeLabel(visual, selectedEdgeId, editStartEdgeLabel.current),
-          );
+          // #507: the discrete edge-label commit (restoring the pre-edit
+          // value) routes through the command sink when available.
+          if (onCommand) {
+            onCommand({
+              op: "visual.set_edge_label",
+              edgeId: selectedEdgeId,
+              label: editStartEdgeLabel.current,
+            });
+          } else {
+            onChange(
+              setEdgeLabel(visual, selectedEdgeId, editStartEdgeLabel.current),
+            );
+          }
         }
         setSelectedEdgeId(null);
       }
     },
-    [onChange, selectedEdgeId, visual],
+    [onChange, onCommand, selectedEdgeId, visual],
   );
 
   const onEdgeKeyDown = useCallback(
@@ -827,7 +813,11 @@ export function VisualEditor({
               type="button"
               aria-label="Flip connector direction"
               onPointerDown={(event) => event.preventDefault()}
-              onClick={() => onChange(flipEdge(visual, edge.id))}
+              onClick={() =>
+                onCommand
+                  ? onCommand({ op: "visual.flip_edge", edgeId: edge.id })
+                  : onChange(flipEdge(visual, edge.id))
+              }
               className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-ds-border-subtle text-ds-text-secondary transition hover:bg-ds-state-hover hover:text-ds-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-1"
             >
               <FlipHorizontal2 aria-hidden="true" className="h-3.5 w-3.5" />
@@ -842,7 +832,14 @@ export function VisualEditor({
               aria-label={directedOn ? "Hide arrowhead" : "Show arrowhead"}
               aria-pressed={directedOn}
               onPointerDown={(event) => event.preventDefault()}
-              onClick={() => onChange(toggleEdgeDirected(visual, edge.id))}
+              onClick={() =>
+                onCommand
+                  ? onCommand({
+                      op: "visual.toggle_edge_directed",
+                      edgeId: edge.id,
+                    })
+                  : onChange(toggleEdgeDirected(visual, edge.id))
+              }
               className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-1 ${
                 directedOn
                   ? "border-ds-accent bg-ds-accent text-ds-accent-contrast"
@@ -863,7 +860,14 @@ export function VisualEditor({
               }
               aria-pressed={curvedOn}
               onPointerDown={(event) => event.preventDefault()}
-              onClick={() => onChange(toggleEdgeStyle(visual, edge.id))}
+              onClick={() =>
+                onCommand
+                  ? onCommand({
+                      op: "visual.toggle_edge_style",
+                      edgeId: edge.id,
+                    })
+                  : onChange(toggleEdgeStyle(visual, edge.id))
+              }
               className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-1 ${
                 curvedOn
                   ? "border-ds-accent bg-ds-accent text-ds-accent-contrast"

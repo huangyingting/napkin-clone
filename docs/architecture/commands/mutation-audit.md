@@ -185,8 +185,12 @@ the command executor at these seams:
 - `mobile-editing-sheet.tsx` — now wires an `onCommand` handler
   (`applyVisualCommand` → `node.setVisual`) into the shared popover, so the
   mobile surface gets the same command coverage.
-- `visual-editor.tsx` — discrete node deletion routes through an optional
-  `onCommand` sink (`visual.delete_node`).
+- `visual-editor.tsx` — discrete node deletion (`visual.delete_node`), edge
+  flip (`visual.flip_edge`), arrowhead toggle (`visual.toggle_edge_directed`),
+  curve toggle (`visual.toggle_edge_style`), and inline node/edge label commits
+  (`visual.set_node_label` / `visual.set_edge_label`) route through an optional
+  `onCommand` sink, falling back to the direct transform only when no sink is
+  wired.
 
 **Exempt (direct mutation, documented in code):**
 
@@ -197,14 +201,11 @@ the command executor at these seams:
 - Brand presets (`applyBrandToThis`) and composite resets
   (`resetNodeStyle` + `resetNodeExtStyle` as one action) — no 1:1 op; themes are
   the command-backed equivalent.
-- Continuous gesture edits in `visual-editor.tsx` (drag / resize / reposition,
-  inline label typing, edge flip / toggle) — high-frequency transforms, not
-  discrete commands, and (flip/toggle) have no 1:1 op.
+- Continuous gesture edits in `visual-editor.tsx` (drag / resize / reposition
+  and high-frequency inline label typing) — high-frequency transforms, not
+  discrete commands. The discrete committed edits at these seams (edge
+  flip / toggle and the final label commit) now route through `onCommand`.
 - Projection/repair paths (`mirrorVisualNodes`) — not user intent (see §3).
-
-**Deferred:** routing `visual-editor.tsx` edge flip/toggle and inline label
-commits would require new `visual.*` ops (e.g. an edge-toggle op); deferred to a
-follow-up so this epic stays scoped and regression-free.
 
 ### 3. Mirrored `Visual` rows
 

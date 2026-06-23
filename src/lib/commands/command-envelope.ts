@@ -599,6 +599,28 @@ function validateVisualPayload(
       }
       validateEdgeStylePatch(payload.patch, "payload.patch", errors);
       return;
+    case "visual.set_edge_label":
+      pushUnknownKeyErrors(
+        payload,
+        ["op", "edgeId", "label"],
+        "payload",
+        errors,
+      );
+      if (!isNonEmptyString(payload.edgeId)) {
+        errors.push("payload.edgeId must be a non-empty string.");
+      }
+      if (typeof payload.label !== "string") {
+        errors.push("payload.label must be a string.");
+      }
+      return;
+    case "visual.flip_edge":
+    case "visual.toggle_edge_directed":
+    case "visual.toggle_edge_style":
+      pushUnknownKeyErrors(payload, ["op", "edgeId"], "payload", errors);
+      if (!isNonEmptyString(payload.edgeId)) {
+        errors.push("payload.edgeId must be a non-empty string.");
+      }
+      return;
     case "visual.set_all_edges_style":
       pushUnknownKeyErrors(payload, ["op", "patch"], "payload", errors);
       validateEdgeStylePatch(payload.patch, "payload.patch", errors);

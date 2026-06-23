@@ -100,6 +100,70 @@ test("validateCommandEnvelope reports invalid ids, targets, and payload mismatch
   );
 });
 
+test("validateCommandEnvelope accepts the new edge flip/toggle + label ops", () => {
+  const base = {
+    id: commandId("4"),
+    schemaVersion: CURRENT_COMMAND_SCHEMA_VERSION,
+    timestamp: BASE_TIMESTAMP,
+    actor: ACTOR,
+    target: { surface: "visual" as const, visualId: "vis-3" },
+    source: "user" as const,
+  };
+
+  const payloads = [
+    { op: "visual.flip_edge", edgeId: "e1" },
+    { op: "visual.toggle_edge_directed", edgeId: "e1" },
+    { op: "visual.toggle_edge_style", edgeId: "e1" },
+    { op: "visual.set_edge_label", edgeId: "e1", label: "Yes" },
+  ] as const;
+
+  for (const payload of payloads) {
+    const envelope = {
+      ...base,
+      type: payload.op,
+      payload,
+    } as unknown as CommandEnvelope;
+    const validation = validateCommandEnvelope(envelope);
+    assert.equal(validation.valid, true, `${payload.op} should validate`);
+  }
+});
+
+test("validateCommandEnvelope rejects edge ops with a missing/blank edgeId", () => {
+  const flip = {
+    id: commandId("5"),
+    schemaVersion: CURRENT_COMMAND_SCHEMA_VERSION,
+    type: "visual.flip_edge",
+    timestamp: BASE_TIMESTAMP,
+    actor: ACTOR,
+    target: { surface: "visual", visualId: "vis-3" },
+    payload: { op: "visual.flip_edge", edgeId: "" },
+    source: "user",
+  } as unknown as CommandEnvelope;
+
+  const flipValidation = validateCommandEnvelope(flip);
+  assert.equal(flipValidation.valid, false);
+  assert.ok(
+    flipValidation.errors.some((error) => error.includes("payload.edgeId")),
+  );
+
+  const label = {
+    id: commandId("6"),
+    schemaVersion: CURRENT_COMMAND_SCHEMA_VERSION,
+    type: "visual.set_edge_label",
+    timestamp: BASE_TIMESTAMP,
+    actor: ACTOR,
+    target: { surface: "visual", visualId: "vis-3" },
+    payload: { op: "visual.set_edge_label", edgeId: "e1", label: 7 },
+    source: "user",
+  } as unknown as CommandEnvelope;
+
+  const labelValidation = validateCommandEnvelope(label);
+  assert.equal(labelValidation.valid, false);
+  assert.ok(
+    labelValidation.errors.some((error) => error.includes("payload.label")),
+  );
+});
+
 test("command envelopes remain JSON-serializable", () => {
   const envelope: CommandEnvelope = {
     id: commandId("2"),
