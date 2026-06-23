@@ -27,7 +27,11 @@ import {
   useState,
 } from "react";
 
-import { fetchDeckJson, saveDeckJson } from "@/app/app/documents/[id]/actions";
+import {
+  fetchDeckJson,
+  saveDeckJson,
+  type SaveDeckResult,
+} from "@/app/app/documents/[id]/actions";
 import { listBrands } from "@/app/app/brands/actions";
 import { SlideEditor } from "@/components/presentation/slide-editor";
 import { SlideEditorOpenDialog } from "@/components/editor/slide-editor-open-dialog";
@@ -182,6 +186,12 @@ export function SlideEditorButton({
   // even without a server round-trip succeeding (e.g. offline).
   const lastSavedRef = useRef<unknown>(initialDeckJson);
 
+  // The revision token from the most recent fetch or successful save. Passed to
+  // saveDeckJson as the clientToken for optimistic locking. null until the first
+  // successful fetch or save; legacy documents (null DB token) are treated as
+  // "no lock" on the first save, then start carrying a token from then on.
+  const revisionTokenRef = useRef<string | null>(null);
+
   // The deck the editor opened with when it originated from an AI "Apply"
   // (issue #270). Set on apply, consumed once on the FIRST successful save to
   // log a content-free post-apply edit-distance signal, then cleared. `null`
@@ -282,7 +292,9 @@ export function SlideEditorButton({
       // Fetch the freshest deckJson from the server; fall back gracefully.
       let fetchedRaw: unknown = null;
       try {
-        fetchedRaw = await fetchDeckJson(documentId);
+        const fetched = await fetchDeckJson(documentId);
+        fetchedRaw = fetched.deckJson;
+        revisionTokenRef.current = fetched.revisionToken;
       } catch {
         // Network/auth error — proceed with lastSavedRef as fallback.
       }
@@ -400,10 +412,16 @@ export function SlideEditorButton({
 
   const handleSave = useCallback(
     async (updatedDeck: Deck): Promise<ActionResult> => {
-      const res = await saveDeckJson(documentId, updatedDeck);
-      if (res.ok) {
-        // Keep lastSavedRef current so subsequent opens don't regress.
+      const res: SaveDeckResult = await saveDeckJson(
+        documentId,
+        updatedDeck,
+        revisionTokenRef.current,
+      );
+      if (res.ok === true) {
+        // Keep lastSavedRef and revisionTokenRef current so subsequent saves
+        // use the latest token without requiring a full re-fetch.
         lastSavedRef.current = updatedDeck;
+        revisionTokenRef.current = res.revisionToken;
 
         // Post-apply edit-distance signal (issue #270): on the FIRST successful
         // save of a deck that originated from AI apply, log how much the user
@@ -426,9 +444,18 @@ export function SlideEditorButton({
             // Signal logging is best-effort and must never affect the save.
           }
         }
+        return { ok: true, data: undefined };
       }
-      // Surface the result so the editor can show the save-status badge and a
-      // working Retry action instead of silently swallowing failures.
+      if (res.ok === "conflict") {
+        // Surface conflict as a save error so the existing error badge and
+        // Retry action are shown. Keep conflict UI minimal per #376.
+        return {
+          ok: false,
+          error:
+            "Deck was modified by another session. Reload to get the latest version.",
+        };
+      }
+      // Validation / server error — propagate as-is.
       return res;
     },
     [documentId],
