@@ -2,7 +2,8 @@
  * GET /api/brand — list the current user's saved brand styles.
  *
  * Used by the visual context popover to fetch brands without a full page
- * reload. Returns `{ brands: BrandStyle[] }`.
+ * reload. Returns `{ brands: BrandStyle[] }` with asset-backed logo/font URLs
+ * resolved via the shared serializer (Epic #496).
  */
 
 import { NextResponse } from "next/server";
@@ -10,7 +11,7 @@ import { NextResponse } from "next/server";
 import { unauthorized } from "@/lib/api/errors";
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import type { BrandStyle } from "@/lib/brand/schema";
+import { BRAND_SELECT, serializeBrands } from "@/lib/brand/serialize";
 
 export const runtime = "nodejs";
 
@@ -23,40 +24,9 @@ export async function GET(): Promise<NextResponse> {
   const rows = await prisma.brand.findMany({
     where: { ownerId: user.id },
     orderBy: { createdAt: "asc" },
-    select: {
-      id: true,
-      name: true,
-      ownerId: true,
-      palette: true,
-      background: true,
-      nodeFill: true,
-      nodeStroke: true,
-      nodeText: true,
-      edgeColor: true,
-      fontFamily: true,
-      fontDataUrl: true,
-      logoUrl: true,
-      createdAt: true,
-      updatedAt: true,
-    },
+    select: BRAND_SELECT,
   });
 
-  const brands: BrandStyle[] = rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    ownerId: row.ownerId,
-    palette: Array.isArray(row.palette) ? (row.palette as string[]) : null,
-    background: row.background,
-    nodeFill: row.nodeFill,
-    nodeStroke: row.nodeStroke,
-    nodeText: row.nodeText,
-    edgeColor: row.edgeColor,
-    fontFamily: row.fontFamily,
-    fontDataUrl: row.fontDataUrl,
-    logoUrl: row.logoUrl,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  }));
-
+  const brands = await serializeBrands(rows);
   return NextResponse.json({ brands });
 }

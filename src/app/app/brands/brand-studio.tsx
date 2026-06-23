@@ -61,6 +61,8 @@ function emptyInput(): BrandInput & { id?: string } {
     nodeText: "#312e81",
     edgeColor: "#a5b4fc",
     fontFamily: null,
+    fontAssetId: null,
+    logoAssetId: null,
     fontDataUrl: null,
     logoUrl: null,
   };
@@ -169,19 +171,23 @@ function BrandForm({
     try {
       const fd = new FormData();
       fd.append("logo", file);
+      if (form.id) fd.append("brandId", form.id);
       const res = await fetch("/api/brand/logo", { method: "POST", body: fd });
       const json = (await res.json()) as {
-        dataUrl?: string;
+        url?: string;
+        assetId?: string;
         palette?: string[];
         error?: string;
       };
-      if (!res.ok || !json.dataUrl) {
+      if (!res.ok || !json.url || !json.assetId) {
         setError(json.error ?? "Logo upload failed.");
         return;
       }
-      setForm((f) => ({ ...f, logoUrl: json.dataUrl! }));
+      const logoUrl = json.url;
+      setForm((f) => ({ ...f, logoUrl, logoAssetId: json.assetId! }));
 
-      // Auto-extract palette from the image using canvas
+      // Auto-extract palette from the image using canvas. The protected URL is
+      // same-origin, so the canvas is not tainted and getImageData succeeds.
       const img = new Image();
       img.onload = () => {
         try {
@@ -216,7 +222,7 @@ function BrandForm({
           // Best-effort; ignore extraction errors
         }
       };
-      img.src = json.dataUrl!;
+      img.src = logoUrl;
     } catch {
       setError("Logo upload failed. Please try again.");
     } finally {
@@ -235,27 +241,32 @@ function BrandForm({
     try {
       const fd = new FormData();
       fd.append("font", file);
+      if (form.id) fd.append("brandId", form.id);
       const res = await fetch("/api/brand/font", { method: "POST", body: fd });
       const json = (await res.json()) as {
-        dataUrl?: string;
+        url?: string;
+        assetId?: string;
         familyName?: string;
         error?: string;
       };
-      if (!res.ok || !json.dataUrl) {
+      if (!res.ok || !json.url || !json.assetId) {
         setError(json.error ?? "Font upload failed.");
         return;
       }
-      // Inject @font-face immediately so the name works in the current editor
+      // Inject @font-face immediately so the name works in the current editor.
+      // The src is the protected /api/brand-assets URL (same-origin cookie).
       const family = json.familyName!;
+      const fontUrl = json.url;
       const styleEl = document.createElement("style");
-      styleEl.textContent = `@font-face { font-family: '${family}'; src: url('${json.dataUrl}'); }`;
+      styleEl.textContent = `@font-face { font-family: '${family}'; src: url('${fontUrl}'); }`;
       document.head.appendChild(styleEl);
-      // Persist both the CSS family name and the durable data-URL so the font
-      // survives save → reload (rehydration done in BrandCard useEffect).
+      // Persist the CSS family name plus the asset ref so the font survives
+      // save → reload (rehydration done in BrandCard useEffect).
       setForm((f) => ({
         ...f,
         fontFamily: `'${family}', sans-serif`,
-        fontDataUrl: json.dataUrl!,
+        fontAssetId: json.assetId!,
+        fontDataUrl: fontUrl,
       }));
     } catch {
       setError("Font upload failed. Please try again.");
@@ -276,8 +287,8 @@ function BrandForm({
         nodeText: form.nodeText,
         edgeColor: form.edgeColor,
         fontFamily: form.fontFamily,
-        fontDataUrl: form.fontDataUrl,
-        logoUrl: form.logoUrl,
+        logoAssetId: form.logoAssetId ?? null,
+        fontAssetId: form.fontAssetId ?? null,
       };
       const result = form.id
         ? await updateBrand(form.id, payload)
@@ -465,7 +476,9 @@ function BrandForm({
               <button
                 type="button"
                 aria-label="Remove logo"
-                onClick={() => setForm((f) => ({ ...f, logoUrl: null }))}
+                onClick={() =>
+                  setForm((f) => ({ ...f, logoUrl: null, logoAssetId: null }))
+                }
                 className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--ds-surface-raised)] border border-[var(--ds-border-subtle)] text-[var(--ds-text-muted)] hover:bg-[var(--ds-danger,#dc2626)] hover:text-[var(--ds-text-on-accent,#ffffff)]"
               >
                 <X className="h-2.5 w-2.5" />
@@ -724,6 +737,8 @@ function BrandCard({
               nodeText: brand.nodeText,
               edgeColor: brand.edgeColor,
               fontFamily: brand.fontFamily,
+              fontAssetId: brand.fontAssetId ?? null,
+              logoAssetId: brand.logoAssetId ?? null,
               fontDataUrl: brand.fontDataUrl,
               logoUrl: brand.logoUrl,
             }}

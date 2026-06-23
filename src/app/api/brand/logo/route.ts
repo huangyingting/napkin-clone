@@ -1,12 +1,15 @@
 /**
- * POST /api/brand/logo — upload a brand logo image and get back a data-URL.
+ * POST /api/brand/logo — upload a brand logo image as a protected asset.
  *
- * The image is validated (type + size ≤ 2 MB), base64-encoded, and returned
- * as a `data:` URL to store in Brand.logoUrl.  Optionally also returns a
- * candidate color palette extracted from the image (canvas-based, 6 colors).
+ * The image is validated (type + size ≤ 2 MB) then stored as a durable `Asset`
+ * row whose bytes live in the NON-public `storage/brand-assets/` directory and
+ * are served only through the authorised `/api/brand-assets/…` route (Epic
+ * #496). The route returns `{ url, assetId, mime }` — a protected URL and the
+ * asset id to persist on the brand (`logoAssetId`) — instead of a base64 data
+ * URL.
  *
- * Palette extraction runs server-side using a lightweight pixel-sampling
- * algorithm (no canvas required — pure Buffer arithmetic).
+ * Palette extraction stays client-side (canvas) when the image loads in the UI;
+ * the response carries an empty `palette` for backward compatibility.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -14,24 +17,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import { forbidden, unauthorized } from "@/lib/api/errors";
 import { getCurrentUser } from "@/lib/session";
 import { validateLogoUpload, formatUploadError } from "@/lib/brand/upload";
+import { storeBrandAsset } from "@/lib/brand/asset-store";
 import {
   resolveBrandEntitlements,
   BRAND_STYLES_UPGRADE_MESSAGE,
 } from "@/lib/billing/brand-entitlements";
 
 export const runtime = "nodejs";
-
-/** Simple server-side palette extraction from PNG/JPEG/WebP pixel data. */
-function extractPaletteFromBuffer(buffer: Buffer, mime: string): string[] {
-  // For SVG, skip extraction (no pixel data).
-  if (mime === "image/svg+xml") return [];
-
-  // Sample raw bytes — for a real app you'd use 'sharp' or 'jimp', but we
-  // keep zero new deps here. We just return an empty palette and let the
-  // client-side canvas extraction handle it when the image loads in the UI.
-  void buffer;
-  return [];
-}
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const user = await getCurrentUser();
@@ -70,9 +62,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const dataUrl = `data:${validation.mime};base64,${buffer.toString("base64")}`;
-  const palette = extractPaletteFromBuffer(buffer, validation.mime);
+  // Optional brand scope: present when editing an existing brand.
+  const brandIdRaw = formData.get("brandId");
+  const brandId =
+    typeof brandIdRaw === "string" && brandIdRaw ? brandIdRaw : null;
 
-  return NextResponse.json({ dataUrl, palette });
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const stored = await storeBrandAsset({
+    ownerId: user.id,
+    buffer,
+    mimeType: validation.mime,
+    originalName: file.name || undefined,
+    brandId,
+  });
+
+  return NextResponse.json({
+    url: stored.url,
+    assetId: stored.assetId,
+    mime: validation.mime,
+    palette: [],
+  });
 }

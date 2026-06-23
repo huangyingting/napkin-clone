@@ -344,16 +344,38 @@ model Brand {
   edgeColor    String?
   // Typography
   fontFamily   String?
-  // Font asset (durable data-URL for uploaded custom fonts, mirrors logoUrl)
+  // -------------------------------------------------------------------------
+  // Asset-backed brand media (Epic #496 — Brand and Asset Storage Unification).
+  //
+  // Logo and uploaded custom-font bytes are stored as protected `Asset` rows
+  // (served via /api/brand-assets/…), NOT as raw data URLs.  `logoAssetId` and
+  // `fontAssetId` point at the owning brand's `Asset.id` for the logo / font.
+  // Display URLs are DERIVED from the referenced asset's `storageKey` at read
+  // time — never persisted here.
+  //
+  // `logoUrl` / `fontDataUrl` are LEGACY columns retained ONLY as migration
+  // INPUT (they held base64 `data:` URLs before #496).  The offline migration
+  // `migrate-brand-assets` decodes them into assets and then clears them; new
+  // application writes set them to null and must use the asset refs instead
+  // (AGENTS.md: no runtime compatibility layer for superseded shapes).
+  // -------------------------------------------------------------------------
+  logoAssetId  String?
+  fontAssetId  String?
+  // LEGACY (migration input only — do not write from app code post-#496).
   fontDataUrl  String?
-  // Asset (logo stored as a data-URL or public path, max 2 MB)
   logoUrl      String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  owner User @relation("BrandOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  owner  User    @relation("BrandOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  // Assets scoped to this brand (logo, font, future media). Cleared to null on
+  // brand delete (onDelete: SetNull on Asset.brandId) so a cleanup pass can
+  // orphan + purge them rather than leaving permanent orphans.
+  assets Asset[] @relation("BrandAssets")
 
   @@index([ownerId])
+  @@index([logoAssetId])
+  @@index([fontAssetId])
 }
 
 // Monetization: active subscription for a user.
@@ -394,9 +416,12 @@ model StripeWebhookEvent {
 // and no slide element references the asset.
 model Asset {
   id           String    @id @default(cuid())
-  // Scope: an asset may be owned by a document, workspace, or both.
+  // Scope: an asset may be owned by a document, workspace, or brand.
   documentId   String?
   workspaceId  String?
+  // Brand scope (Epic #496): set when the asset backs a brand logo/font. On
+  // brand delete this is set to null so the orphan/purge pass can reclaim it.
+  brandId      String?
   mimeType     String
   byteSize     Int
   // Pixel dimensions — null for non-image types (e.g., video, font).
@@ -415,9 +440,11 @@ model Asset {
 
   document  Document?  @relation(fields: [documentId], references: [id], onDelete: SetNull)
   workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  brand     Brand?     @relation("BrandAssets", fields: [brandId], references: [id], onDelete: SetNull)
 
   @@index([documentId])
   @@index([workspaceId])
+  @@index([brandId])
   @@index([checksum])
 }
 

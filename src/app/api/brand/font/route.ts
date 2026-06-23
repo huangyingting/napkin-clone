@@ -1,18 +1,23 @@
 /**
- * POST /api/brand/font — upload a custom font file and get back a data-URL.
+ * POST /api/brand/font — upload a custom font as a protected asset.
  *
- * The font is validated (type + size ≤ 2 MB), base64-encoded, and returned
- * as a `data:` URL.  The caller stores this durable URL in `Brand.fontDataUrl`
- * so the font survives page reloads and other sessions.  Rehydration injects a
- * `@font-face` rule from the stored URL wherever the brand is rendered.
+ * The font is validated (type/extension fallback + size ≤ 2 MB) then stored as
+ * a durable `Asset` row whose bytes live in the NON-public
+ * `storage/brand-assets/` directory and are served only through the authorised
+ * `/api/brand-assets/…` route (Epic #496). The route returns
+ * `{ url, assetId, familyName, mime }` — a protected URL and the asset id to
+ * persist on the brand (`fontAssetId`) — instead of a base64 data URL.
+ *
+ * Rehydration injects a `@font-face` rule whose `src` is the protected URL.
+ * Same-origin browser fetches carry the session cookie, so the owner's font
+ * loads in-browser wherever the brand is rendered.
  *
  * Export notes:
- * - SVG/PNG: the browser has the font loaded (via @font-face data-URL), so
- *   canvas rasterization renders correctly at export time.
- * - PDF: same as PNG (goes through PNG rasterization).
+ * - SVG/PNG/PDF: the browser has the font loaded (via the @font-face protected
+ *   URL), so canvas rasterization renders correctly at export time.
  * - PPTX: native shapes reference the fontFamily string only; custom fonts are
- *   NOT embedded in the .pptx file.  Viewers without the font will fall back to
- *   system defaults.  Full font embedding in PPTX is out of scope for this PR.
+ *   NOT embedded in the .pptx file. Viewers without the font fall back to
+ *   system defaults. Font embedding in PPTX is out of scope.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -20,6 +25,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { forbidden, unauthorized } from "@/lib/api/errors";
 import { getCurrentUser } from "@/lib/session";
 import { validateFontUpload, formatUploadError } from "@/lib/brand/upload";
+import { storeBrandAsset } from "@/lib/brand/asset-store";
 import {
   resolveBrandEntitlements,
   FONT_UPLOAD_UPGRADE_MESSAGE,
@@ -64,8 +70,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Optional brand scope: present when editing an existing brand.
+  const brandIdRaw = formData.get("brandId");
+  const brandId =
+    typeof brandIdRaw === "string" && brandIdRaw ? brandIdRaw : null;
+
   const buffer = Buffer.from(await file.arrayBuffer());
-  const dataUrl = `data:${validation.mime};base64,${buffer.toString("base64")}`;
+  const stored = await storeBrandAsset({
+    ownerId: user.id,
+    buffer,
+    mimeType: validation.mime,
+    originalName: file.name || undefined,
+    brandId,
+  });
 
   // Derive a CSS-safe family name from the filename (strip extension, spaces → hyphens)
   const familyName = file.name
@@ -73,5 +90,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     .replace(/[^a-zA-Z0-9_-]/g, "-")
     .slice(0, 64);
 
-  return NextResponse.json({ dataUrl, familyName });
+  return NextResponse.json({
+    url: stored.url,
+    assetId: stored.assetId,
+    familyName,
+    mime: validation.mime,
+  });
 }

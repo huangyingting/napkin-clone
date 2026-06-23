@@ -94,8 +94,23 @@ export interface BrandStyle {
   nodeText: string | null;
   edgeColor: string | null;
   fontFamily: string | null;
-  /** Durable `data:` URL for an uploaded custom font (mirrors `logoUrl`). */
+  /**
+   * Asset id of the uploaded custom font, when present (Epic #496). The display
+   * URL in {@link fontDataUrl} is DERIVED from this asset's storage key.
+   */
+  fontAssetId?: string | null;
+  /** Asset id of the uploaded logo, when present (Epic #496). */
+  logoAssetId?: string | null;
+  /**
+   * Protected `/api/brand-assets/…` URL for the uploaded custom font, derived
+   * from {@link fontAssetId} at read time (Epic #496). `null` for web fonts.
+   * (Historically a base64 `data:` URL; migrated to a protected URL by #496.)
+   */
   fontDataUrl: string | null;
+  /**
+   * Protected `/api/brand-assets/…` URL for the uploaded logo, derived from
+   * {@link logoAssetId} at read time (Epic #496).
+   */
   logoUrl: string | null;
   createdAt: string;
   updatedAt: string;
@@ -111,8 +126,16 @@ export interface BrandInput {
   nodeText?: string | null;
   edgeColor?: string | null;
   fontFamily?: string | null;
-  /** Durable `data:` URL for an uploaded custom font (mirrors `logoUrl`). */
+  /** Asset id of the uploaded custom font (Epic #496). */
+  fontAssetId?: string | null;
+  /** Asset id of the uploaded logo (Epic #496). */
+  logoAssetId?: string | null;
+  /**
+   * Protected URL for the uploaded custom font (display only; not persisted —
+   * the brand stores {@link fontAssetId} and derives the URL at read time).
+   */
   fontDataUrl?: string | null;
+  /** Protected URL for the uploaded logo (display only; not persisted). */
   logoUrl?: string | null;
 }
 
@@ -197,6 +220,15 @@ export function validateBrandInput(
   const logoUrl =
     typeof r.logoUrl === "string" ? r.logoUrl.slice(0, 2048) : null;
 
+  // Asset-backed refs (Epic #496). Brand media is persisted as asset ids; the
+  // protected display URL is derived at read time.
+  const assetId = (key: string): string | null =>
+    typeof r[key] === "string" && (r[key] as string).length > 0
+      ? (r[key] as string).slice(0, 191)
+      : null;
+  const logoAssetId = assetId("logoAssetId");
+  const fontAssetId = assetId("fontAssetId");
+
   return {
     ok: true,
     data: {
@@ -208,6 +240,8 @@ export function validateBrandInput(
       nodeText: optionalColor("nodeText") ?? null,
       edgeColor: optionalColor("edgeColor") ?? null,
       fontFamily,
+      fontAssetId,
+      logoAssetId,
       fontDataUrl,
       logoUrl,
     },
