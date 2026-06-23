@@ -319,9 +319,7 @@ export function runExportPreflight(
   // Per-slide element checks.
   for (let i = 0; i < deck.slides.length; i++) {
     const slide = deck.slides[i];
-    const elements = [...(slide.elements ?? [])].filter(
-      (el) => !el.hidden,
-    );
+    const elements = [...(slide.elements ?? [])].filter((el) => !el.hidden);
 
     for (const el of elements) {
       if (el.kind === "image") {

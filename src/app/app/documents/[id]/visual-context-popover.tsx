@@ -715,7 +715,7 @@ export type VisualContextPopoverProps = {
    * style, effects, kind, canvas, aspect ratio, auto-layout) are dispatched
    * here instead of calling `onChange` directly, so edits flow through command
    * metadata (patches, side effects, render invalidation, source staleness).
-  * When omitted, the popover applies edits directly through `onChange`.
+   * When omitted, the popover applies edits directly through `onChange`.
    */
   onCommand?: (payload: VisualCommandPayload, coalesceKey?: string) => void;
   onRemove: () => void;

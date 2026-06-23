@@ -176,7 +176,7 @@ interface SlideEditorProps {
   visuals: ReadonlyMap<string, Visual>;
   /**
    * The source document's text blocks, surfaced in the "From document"
-    * quick-insert panel so reused document text is one click away.
+   * quick-insert panel so reused document text is one click away.
    */
   documentTextBlocks?: readonly DocumentTextBlock[];
   /**

@@ -2474,173 +2474,169 @@ export function SlideInspector({
               </div>
             ) : null}
             <>
-                {/* Element list */}
-                <div className="flex flex-col gap-1">
-                  {orderedElements.map((element) => {
-                    const selected = element.id === selectedElementId;
-                    return (
-                      <div
-                        key={element.id}
-                        className={`flex items-center gap-1 rounded-ds-sm border px-2 py-1 ${
-                          selected
-                            ? "border-ds-control bg-ds-state-hover"
-                            : "border-transparent hover:bg-ds-state-hover"
-                        }`}
+              {/* Element list */}
+              <div className="flex flex-col gap-1">
+                {orderedElements.map((element) => {
+                  const selected = element.id === selectedElementId;
+                  return (
+                    <div
+                      key={element.id}
+                      className={`flex items-center gap-1 rounded-ds-sm border px-2 py-1 ${
+                        selected
+                          ? "border-ds-control bg-ds-state-hover"
+                          : "border-transparent hover:bg-ds-state-hover"
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => onSelectElement(element.id)}
+                        className={`min-w-0 flex-1 truncate text-left text-xs text-ds-text-secondary ${FOCUS_RING}`}
                       >
+                        {elementLabel(element)}
+                      </button>
+                      <Tooltip label="Duplicate element" side="bottom">
                         <button
                           type="button"
-                          onClick={() => onSelectElement(element.id)}
-                          className={`min-w-0 flex-1 truncate text-left text-xs text-ds-text-secondary ${FOCUS_RING}`}
+                          onClick={() => onDuplicateElement(element.id)}
+                          aria-label="Duplicate element"
+                          className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
                         >
-                          {elementLabel(element)}
+                          <Copy size={12} aria-hidden="true" />
                         </button>
-                        <Tooltip label="Duplicate element" side="bottom">
-                          <button
-                            type="button"
-                            onClick={() => onDuplicateElement(element.id)}
-                            aria-label="Duplicate element"
-                            className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
-                          >
-                            <Copy size={12} aria-hidden="true" />
-                          </button>
-                        </Tooltip>
-                        {showAdvanced ? (
-                          <>
-                            <Tooltip label="Bring to front" side="bottom">
-                              <button
-                                type="button"
-                                onClick={() => onBringToFront(element.id)}
-                                aria-label="Bring to front"
-                                className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
-                              >
-                                <ArrowUpToLine size={12} aria-hidden="true" />
-                              </button>
-                            </Tooltip>
-                            <Tooltip label="Send to back" side="bottom">
-                              <button
-                                type="button"
-                                onClick={() => onSendToBack(element.id)}
-                                aria-label="Send to back"
-                                className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
-                              >
-                                <ArrowDownToLine size={12} aria-hidden="true" />
-                              </button>
-                            </Tooltip>
-                          </>
-                        ) : null}
-                        <Tooltip label="Delete element" side="bottom">
-                          <button
-                            type="button"
-                            onClick={() => onRemoveElement(element.id)}
-                            aria-label="Delete element"
-                            className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
-                          >
-                            <Trash2 size={12} aria-hidden="true" />
-                          </button>
-                        </Tooltip>
-                      </div>
-                    );
-                  })}
-                </div>
+                      </Tooltip>
+                      {showAdvanced ? (
+                        <>
+                          <Tooltip label="Bring to front" side="bottom">
+                            <button
+                              type="button"
+                              onClick={() => onBringToFront(element.id)}
+                              aria-label="Bring to front"
+                              className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
+                            >
+                              <ArrowUpToLine size={12} aria-hidden="true" />
+                            </button>
+                          </Tooltip>
+                          <Tooltip label="Send to back" side="bottom">
+                            <button
+                              type="button"
+                              onClick={() => onSendToBack(element.id)}
+                              aria-label="Send to back"
+                              className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
+                            >
+                              <ArrowDownToLine size={12} aria-hidden="true" />
+                            </button>
+                          </Tooltip>
+                        </>
+                      ) : null}
+                      <Tooltip label="Delete element" side="bottom">
+                        <button
+                          type="button"
+                          onClick={() => onRemoveElement(element.id)}
+                          aria-label="Delete element"
+                          className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
+                        >
+                          <Trash2 size={12} aria-hidden="true" />
+                        </button>
+                      </Tooltip>
+                    </div>
+                  );
+                })}
+              </div>
 
-                {/* Layer list (issue #331) */}
-                {(onSetElementHidden ||
-                  onSetElementLocked ||
-                  onMoveElementZOrder ||
-                  onRenameElement) && (
-                  <CollapsibleSection id="layers" label="Layers">
-                    <LayerList
-                      elements={elements}
-                      selectedElementId={selectedElementId}
-                      onSelectElement={onSelectElement}
-                      onToggleHidden={(id) =>
-                        onSetElementHidden?.(
-                          id,
-                          !(
-                            elements.find((el) => el.id === id)?.hidden ?? false
-                          ),
-                        )
-                      }
-                      onToggleLocked={(id) =>
-                        onSetElementLocked?.(
-                          id,
-                          !(
-                            elements.find((el) => el.id === id)?.locked ?? false
-                          ),
-                        )
-                      }
-                      onMoveZOrder={(id, direction) =>
-                        onMoveElementZOrder?.(id, direction)
-                      }
-                      onRename={(id, name) => onRenameElement?.(id, name)}
-                    />
-                  </CollapsibleSection>
-                )}
-
-                {/* Selected element editor */}
-                {/* Multi-select tools panel (issue #328) */}
-                {selectedElementIds && selectedElementIds.size >= 2 ? (
-                  <MultiSelectTools
-                    selectedIds={[...selectedElementIds]}
-                    onAlign={onAlign}
-                    onDistribute={onDistribute}
-                    onMatchSize={onMatchSize}
-                    onArrange={onArrange}
+              {/* Layer list (issue #331) */}
+              {(onSetElementHidden ||
+                onSetElementLocked ||
+                onMoveElementZOrder ||
+                onRenameElement) && (
+                <CollapsibleSection id="layers" label="Layers">
+                  <LayerList
+                    elements={elements}
+                    selectedElementId={selectedElementId}
+                    onSelectElement={onSelectElement}
+                    onToggleHidden={(id) =>
+                      onSetElementHidden?.(
+                        id,
+                        !(elements.find((el) => el.id === id)?.hidden ?? false),
+                      )
+                    }
+                    onToggleLocked={(id) =>
+                      onSetElementLocked?.(
+                        id,
+                        !(elements.find((el) => el.id === id)?.locked ?? false),
+                      )
+                    }
+                    onMoveZOrder={(id, direction) =>
+                      onMoveElementZOrder?.(id, direction)
+                    }
+                    onRename={(id, name) => onRenameElement?.(id, name)}
                   />
-                ) : null}
+                </CollapsibleSection>
+              )}
 
-                {selectedElement ? (
-                  <div className="border-t border-ds-border-subtle pt-3">
-                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ds-text-muted">
-                      {elementLabel(selectedElement)}
-                    </p>
-                    <ElementActionRow
-                      elementId={selectedElement.id}
-                      showAdvanced={showAdvanced}
-                      onDuplicateElement={onDuplicateElement}
-                      onBringToFront={onBringToFront}
-                      onSendToBack={onSendToBack}
-                      onRemoveElement={onRemoveElement}
-                    />
-                    <ElementEditor
-                      element={selectedElement}
-                      deck={deck}
-                      visuals={visuals}
-                      textColorPresets={textColorPresets}
-                      showAdvanced={showAdvanced}
-                      elements={elements}
-                      onUpdateElement={onUpdateElement}
-                      documentId={documentId}
-                    />
-                    {showAdvanced ? (
-                      <>
-                        <CollapsibleSection id="arrange" label="Arrange">
-                          <ElementArrangeControl
-                            element={selectedElement}
-                            onUpdateElement={onUpdateElement}
-                          />
-                        </CollapsibleSection>
-                        <CollapsibleSection id="opacity" label="Opacity">
-                          <ElementOpacityControl
-                            element={selectedElement}
-                            onUpdateElement={onUpdateElement}
-                          />
-                        </CollapsibleSection>
-                        <CollapsibleSection id="effects" label="Effects">
-                          <ElementEffectsControl
-                            element={selectedElement}
-                            onUpdateElement={onUpdateElement}
-                          />
-                        </CollapsibleSection>
-                      </>
-                    ) : null}
-                  </div>
-                ) : (
-                  <p className="text-xs text-ds-text-muted">
-                    Select an element on the slide to edit it.
+              {/* Selected element editor */}
+              {/* Multi-select tools panel (issue #328) */}
+              {selectedElementIds && selectedElementIds.size >= 2 ? (
+                <MultiSelectTools
+                  selectedIds={[...selectedElementIds]}
+                  onAlign={onAlign}
+                  onDistribute={onDistribute}
+                  onMatchSize={onMatchSize}
+                  onArrange={onArrange}
+                />
+              ) : null}
+
+              {selectedElement ? (
+                <div className="border-t border-ds-border-subtle pt-3">
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ds-text-muted">
+                    {elementLabel(selectedElement)}
                   </p>
-                )}
-              </>
+                  <ElementActionRow
+                    elementId={selectedElement.id}
+                    showAdvanced={showAdvanced}
+                    onDuplicateElement={onDuplicateElement}
+                    onBringToFront={onBringToFront}
+                    onSendToBack={onSendToBack}
+                    onRemoveElement={onRemoveElement}
+                  />
+                  <ElementEditor
+                    element={selectedElement}
+                    deck={deck}
+                    visuals={visuals}
+                    textColorPresets={textColorPresets}
+                    showAdvanced={showAdvanced}
+                    elements={elements}
+                    onUpdateElement={onUpdateElement}
+                    documentId={documentId}
+                  />
+                  {showAdvanced ? (
+                    <>
+                      <CollapsibleSection id="arrange" label="Arrange">
+                        <ElementArrangeControl
+                          element={selectedElement}
+                          onUpdateElement={onUpdateElement}
+                        />
+                      </CollapsibleSection>
+                      <CollapsibleSection id="opacity" label="Opacity">
+                        <ElementOpacityControl
+                          element={selectedElement}
+                          onUpdateElement={onUpdateElement}
+                        />
+                      </CollapsibleSection>
+                      <CollapsibleSection id="effects" label="Effects">
+                        <ElementEffectsControl
+                          element={selectedElement}
+                          onUpdateElement={onUpdateElement}
+                        />
+                      </CollapsibleSection>
+                    </>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="text-xs text-ds-text-muted">
+                  Select an element on the slide to edit it.
+                </p>
+              )}
+            </>
           </div>
         ) : null}
 

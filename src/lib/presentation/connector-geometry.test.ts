@@ -127,11 +127,7 @@ test("resolveConnectorEndpoint resolves the correct anchor position on a matchin
 // ---------------------------------------------------------------------------
 
 test("resolveLineEndpoints returns box-based endpoints for a non-line shape", () => {
-  const rect = shape(
-    "rect",
-    { x: 10, y: 20, w: 40, h: 2 },
-    { shape: "rect" },
-  );
+  const rect = shape("rect", { x: 10, y: 20, w: 40, h: 2 }, { shape: "rect" });
 
   const result = resolveLineEndpoints(rect, [rect], resolveBox, 16 / 9);
   // box-based horizontal line with rotation=undefined → midpoints along y=21

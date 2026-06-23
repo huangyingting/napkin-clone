@@ -260,7 +260,9 @@ test("regenerateBlockIds always generates new bids even when one already exists"
 });
 
 test("regenerateBlockIds builds a correct bidMap", () => {
-  const input = stampBlockIds(bidlessState()) as ReturnType<typeof bidlessState>;
+  const input = stampBlockIds(bidlessState()) as ReturnType<
+    typeof bidlessState
+  >;
   const beforeRoot = input.root;
   const beforeParagraph = beforeRoot.children[0] as { bid: string };
   const beforeHeading = beforeRoot.children[1] as { bid: string };

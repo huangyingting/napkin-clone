@@ -10,10 +10,7 @@ import {
 } from "@/components/editor/side-panel";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 
-import {
-  listDocumentVersions,
-  restoreDocumentVersion,
-} from "./actions";
+import { listDocumentVersions, restoreDocumentVersion } from "./actions";
 import type { DocumentVersionSummary } from "@/lib/document/persistence-types";
 import { RESTORE_TAG } from "@/lib/lexical/import-persistence";
 

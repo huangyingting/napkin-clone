@@ -223,4 +223,3 @@ function remapEndpoint(
   // Only one endpoint included — detach to a free point.
   return detachConnectorEndpoint(ep, allElements);
 }
-

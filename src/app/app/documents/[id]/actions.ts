@@ -131,7 +131,10 @@ export async function rebuildVisualMirror(
 const MAX_SHARE_EXPIRY_MS = 5 * 365 * 24 * 60 * 60 * 1000; // ~5 years
 
 /** Builds the canonical public share URL (or `null` when not shared). */
-function buildShareUrl(slug: string | null, shareId: string | null): string | null {
+function buildShareUrl(
+  slug: string | null,
+  shareId: string | null,
+): string | null {
   if (!slug || !shareId) {
     return null;
   }

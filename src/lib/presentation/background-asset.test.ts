@@ -24,7 +24,11 @@ function minSlide(overrides: Record<string, unknown> = {}) {
 }
 
 function deckWith(slides: object[]): unknown {
-  return { slides, theme: "default", schemaVersion: CURRENT_DECK_SCHEMA_VERSION };
+  return {
+    slides,
+    theme: "default",
+    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+  };
 }
 
 function minDeck(slideOverrides: Record<string, unknown> = {}): Deck {

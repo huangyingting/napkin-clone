@@ -587,7 +587,6 @@ test("buildRefreshSourceRef: carries documentId and blockKind", () => {
   assert.equal(ref.unlinked, undefined);
 });
 
-
 // ---------------------------------------------------------------------------
 // #410 orphan handling: block_missing is never auto-deleted
 // ---------------------------------------------------------------------------

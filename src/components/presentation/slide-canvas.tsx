@@ -992,7 +992,7 @@ export interface SlideCanvasProps {
   /**
    * Optional deck context. When provided, enables full cascade resolution
    * (master slides, custom token sets) for background and accent colours.
-  * When absent the built-in theme palette is used.
+   * When absent the built-in theme palette is used.
    */
   deck?: Deck;
   visuals: ReadonlyMap<string, Visual>;

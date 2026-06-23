@@ -95,4 +95,3 @@ test("markdownToLexicalState and markdownToLexicalStateObject produce consistent
     assert.equal(a.type, b.type);
   }
 });
-

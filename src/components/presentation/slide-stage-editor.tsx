@@ -1592,11 +1592,7 @@ export function SlideStageEditor({
             stageAspect,
           );
           const box = clampBox(rawBox);
-          onUpdateElement(
-            drag.id,
-            { box, rotation },
-            drag.coalesceKey,
-          );
+          onUpdateElement(drag.id, { box, rotation }, drag.coalesceKey);
         } else {
           onUpdateElement(
             drag.id,
