@@ -2313,6 +2313,10 @@ export function SlideInspector({
   const [bgImageError, setBgImageError] = useState<string | null>(null);
   const bgFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Background image upload does not persist an assetId on the slide model
+  // (background asset references are not yet implemented), so the server-upload
+  // path is intentionally omitted here.  If/when background assetId support is
+  // added, restore documentId + uploadFn and wire up the assetId callback.
   const { handleFile: handleBgImageFile } = useImageUpload({
     deck,
     currentSrc: slide.backgroundImage,
@@ -2321,8 +2325,6 @@ export function SlideInspector({
       handleBackgroundImageChange(src);
     },
     onError: (message) => setBgImageError(message),
-    documentId,
-    uploadFn: documentId ? uploadSlideAsset : undefined,
   });
 
   function handleBackgroundImageChange(value: string | undefined) {

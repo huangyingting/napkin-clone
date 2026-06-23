@@ -104,19 +104,41 @@ export function resetDefaultStorageAdapter(): void {
 // ---------------------------------------------------------------------------
 
 /**
+ * Canonical mapping from accepted slide-asset MIME types to their storage
+ * file extension.
+ *
+ * Extension is derived from the **validated MIME type**, not the
+ * user-supplied filename. This prevents extension spoofing: a request with
+ * `type=image/png` and `name=evil.html` must produce a `.png` key, never
+ * `.html`, so the file cannot be served as HTML from the public assets
+ * directory.
+ */
+export const MIME_TO_EXT: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/gif": "gif",
+  "image/webp": "webp",
+};
+
+/**
  * Derives the canonical storage key for an asset:
  * `${documentId}/${checksum}.${ext}`
  *
+ * The extension is resolved from `mimeType` via {@link MIME_TO_EXT} — never
+ * from the user-supplied filename — to prevent extension-spoofing attacks.
  * Using `documentId` as a path segment partitions assets per document and
  * ensures `storageKey` uniqueness across documents that may share identical
  * file bytes.
+ *
+ * @param documentId - Owning document id (becomes the first path segment).
+ * @param checksum   - SHA-256 hex digest of the file bytes.
+ * @param mimeType   - Validated MIME type (drives the file extension).
  */
 export function deriveStorageKey(
   documentId: string,
   checksum: string,
-  filename: string,
+  mimeType: string,
 ): string {
-  const dotIndex = filename.lastIndexOf(".");
-  const ext = dotIndex > 0 ? filename.slice(dotIndex + 1).toLowerCase() : "bin";
+  const ext = MIME_TO_EXT[mimeType] ?? "bin";
   return `${documentId}/${checksum}.${ext}`;
 }

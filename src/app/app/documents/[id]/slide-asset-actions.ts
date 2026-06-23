@@ -25,6 +25,7 @@ import {
   deriveStorageKey,
   getDefaultStorageAdapter,
 } from "@/lib/slides/asset-storage";
+import { withP2002Fallback } from "@/lib/slides/p2002-fallback";
 
 export type UploadSlideAssetResult = { assetId: string; url: string };
 
@@ -38,7 +39,8 @@ export type UploadSlideAssetResult = { assetId: string; url: string };
  *  4. Dedup — if an Asset row with the same `documentId` + `checksum` already
  *     exists the existing record is returned (no duplicate write).
  *  5. Storage — raw bytes written via {@link getDefaultStorageAdapter}.
- *  6. DB row — an `Asset` record is created and its `id` returned.
+ *  6. DB row — an `Asset` record is created (with P2002 race recovery) and
+ *     its `id` returned.
  *
  * @param documentId - The owning document's id; scopes the asset and enforces auth.
  * @param formData   - Must contain a `file` entry of type {@link File}.
@@ -93,8 +95,8 @@ export async function uploadSlideAsset(
   }
   const { meta } = metaResult;
 
-  // Derive storage key: `{documentId}/{checksum}.{ext}`
-  const storageKey = deriveStorageKey(documentId, checksum, fileEntry.name);
+  // Extension is derived from the validated MIME type — never from the filename.
+  const storageKey = deriveStorageKey(documentId, checksum, meta.mimeType);
 
   // Persist bytes.
   const url = await getDefaultStorageAdapter().store(
@@ -103,18 +105,26 @@ export async function uploadSlideAsset(
     meta.mimeType,
   );
 
-  // Create Asset record.
-  const asset = await prisma.asset.create({
-    data: {
-      documentId,
-      mimeType: meta.mimeType,
-      byteSize: meta.byteSize,
-      checksum,
-      storageKey,
-      ...(meta.originalName ? { originalName: meta.originalName } : {}),
-    },
-    select: { id: true },
-  });
+  // Create Asset record, recovering from concurrent-insert P2002 races.
+  const asset = await withP2002Fallback<{ id: string }>(
+    () =>
+      prisma.asset.create({
+        data: {
+          documentId,
+          mimeType: meta.mimeType,
+          byteSize: meta.byteSize,
+          checksum,
+          storageKey,
+          ...(meta.originalName ? { originalName: meta.originalName } : {}),
+        },
+        select: { id: true },
+      }),
+    () =>
+      prisma.asset.findFirst({
+        where: { documentId, checksum },
+        select: { id: true },
+      }),
+  );
 
   return actionOk({ assetId: asset.id, url });
 }

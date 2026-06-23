@@ -364,6 +364,39 @@ test("safeParseDeck rejects an invalid image crop", () => {
   );
 });
 
+// ---------------------------------------------------------------------------
+// assetId schema validator (Epic #374)
+// ---------------------------------------------------------------------------
+
+test("safeParseDeck round-trips assetId when it is a non-empty string", () => {
+  const result = safeParseDeck(imageElementDeck({ assetId: "clr1234abcdef" }));
+  assert.equal(result.success, true);
+  if (result.success) {
+    const element = result.data.slides[0].elements?.[0];
+    assert.equal(element?.kind, "image");
+    if (element?.kind === "image") {
+      assert.equal(element.assetId, "clr1234abcdef");
+    }
+  }
+});
+
+test("safeParseDeck accepts an image element without assetId (optional field)", () => {
+  const result = safeParseDeck(imageElementDeck());
+  assert.equal(result.success, true);
+  if (result.success) {
+    const element = result.data.slides[0].elements?.[0];
+    assert.equal(element?.kind, "image");
+    if (element?.kind === "image") {
+      assert.equal(element.assetId, undefined);
+    }
+  }
+});
+
+test("safeParseDeck rejects assetId that is not a string", () => {
+  const result = safeParseDeck(imageElementDeck({ assetId: 42 }));
+  assert.equal(result.success, false);
+});
+
 test("validateSourceRef rejects empty documentId", () => {
   assert.throws(
     () =>

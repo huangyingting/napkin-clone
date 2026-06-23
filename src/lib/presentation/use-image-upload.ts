@@ -12,8 +12,11 @@
  *
  * When `documentId` and `uploadFn` are both provided the hook first attempts a
  * server-side upload (Epic #374).  On success `onAccept` is called with the
- * served URL and the new `assetId`; if the upload fails the hook transparently
- * falls back to the local data-URL path so the editor keeps working offline.
+ * served URL and the new `assetId`.  If the upload returns an action error
+ * (auth failure, validation, etc.) `onError` is called so the caller can
+ * surface the message to the user.  Only genuine network failures or unexpected
+ * rejections fall back to the local data-URL path — keeping the editor usable
+ * offline while not silently swallowing actionable errors.
  *
  * The pure gatekeepers `validateImageFile` and `canAddImage` are NOT weakened —
  * they remain the only guard for type, size, and budget (issues #226, #302, #303).
@@ -63,6 +66,48 @@ export interface UseImageUploadOptions {
   uploadFn?: UploadSlideAssetFn;
 }
 
+/**
+ * Executes the server-upload path for a single file.
+ *
+ * - On success (`result.ok`) calls `onAccept` with the served URL and assetId.
+ * - On action error (`!result.ok`) calls `onError` with the server message so
+ *   auth and validation failures are visible to the user instead of silently
+ *   discarded.
+ * - If `uploadFn` itself rejects (network outage, timeout, unexpected error)
+ *   calls `onFallback` so the caller can fall back to the data-URL path.
+ *
+ * Splitting rejection from resolved-but-failed lets callers distinguish
+ * server-side errors (surfaced) from infrastructure failures (degraded mode).
+ *
+ * @internal Exported for unit testing — not part of the public hook API.
+ */
+export function applyServerUpload(opts: {
+  uploadFn: UploadSlideAssetFn;
+  documentId: string;
+  file: File;
+  onAccept: (src: string, assetId?: string) => void;
+  onError: (message: string) => void;
+  onFallback: () => void;
+}): void {
+  const { uploadFn, documentId, file, onAccept, onError, onFallback } = opts;
+  const formData = new FormData();
+  formData.append("file", file);
+  uploadFn(documentId, formData).then(
+    (result) => {
+      if (result.ok) {
+        onAccept(result.data.url, result.data.assetId);
+      } else {
+        // Action error (auth failure, validation, etc.) — surface to caller.
+        onError(result.error);
+      }
+    },
+    () => {
+      // Network / unexpected rejection — fall back to data-URL path.
+      onFallback();
+    },
+  );
+}
+
 export function useImageUpload({
   deck,
   onAccept,
@@ -104,22 +149,14 @@ export function useImageUpload({
 
       // Server-upload path: attempt when documentId + uploadFn are provided.
       if (documentId && uploadFn) {
-        const formData = new FormData();
-        formData.append("file", file);
-        uploadFn(documentId, formData).then(
-          (result) => {
-            if (result.ok) {
-              onAccept(result.data.url, result.data.assetId);
-            } else {
-              // Server upload failed — fall back to the data-URL path silently.
-              readAsDataUrl(file);
-            }
-          },
-          () => {
-            // Network / unexpected error — fall back to data-URL path.
-            readAsDataUrl(file);
-          },
-        );
+        applyServerUpload({
+          uploadFn,
+          documentId,
+          file,
+          onAccept,
+          onError,
+          onFallback: () => readAsDataUrl(file),
+        });
         return;
       }
 

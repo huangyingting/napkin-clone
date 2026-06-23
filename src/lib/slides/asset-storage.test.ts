@@ -17,6 +17,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   LocalAssetStorageAdapter,
+  MIME_TO_EXT,
   deriveStorageKey,
   getDefaultStorageAdapter,
   resetDefaultStorageAdapter,
@@ -105,30 +106,59 @@ describe("LocalAssetStorageAdapter — urlFor", () => {
 // ---------------------------------------------------------------------------
 
 describe("deriveStorageKey", () => {
-  it("returns {documentId}/{checksum}.{ext}", () => {
-    const key = deriveStorageKey("doc123", "deadbeef", "photo.png");
+  it("returns {documentId}/{checksum}.{ext} for image/png", () => {
+    const key = deriveStorageKey("doc123", "deadbeef", "image/png");
     assert.equal(key, "doc123/deadbeef.png");
   });
 
-  it("lowercases the extension", () => {
-    const key = deriveStorageKey("d", "abc", "IMAGE.PNG");
-    assert.equal(key, "d/abc.png");
+  it("maps image/jpeg to .jpg extension", () => {
+    const key = deriveStorageKey("d", "abc", "image/jpeg");
+    assert.equal(key, "d/abc.jpg");
   });
 
-  it("falls back to 'bin' for files with no extension", () => {
-    const key = deriveStorageKey("d", "abc", "noextension");
+  it("maps image/gif to .gif extension", () => {
+    const key = deriveStorageKey("d", "abc", "image/gif");
+    assert.equal(key, "d/abc.gif");
+  });
+
+  it("maps image/webp to .webp extension", () => {
+    const key = deriveStorageKey("d", "abc", "image/webp");
+    assert.equal(key, "d/abc.webp");
+  });
+
+  it("falls back to 'bin' for unknown MIME types", () => {
+    const key = deriveStorageKey("d", "abc", "application/octet-stream");
     assert.equal(key, "d/abc.bin");
   });
 
-  it("uses only the last extension segment", () => {
-    const key = deriveStorageKey("d", "abc", "archive.tar.gz");
-    assert.equal(key, "d/abc.gz");
+  it("partitions keys by documentId so identical files in different docs differ", () => {
+    const k1 = deriveStorageKey("docA", "ff00", "image/png");
+    const k2 = deriveStorageKey("docB", "ff00", "image/png");
+    assert.notEqual(k1, k2);
   });
 
-  it("partitions keys by documentId so identical files in different docs differ", () => {
-    const k1 = deriveStorageKey("docA", "ff00", "img.jpg");
-    const k2 = deriveStorageKey("docB", "ff00", "img.jpg");
-    assert.notEqual(k1, k2);
+  // Security: extension must come from the validated MIME type, not the filename.
+  // A request with type=image/png and name=evil.html must produce .png, not .html.
+  it("uses MIME-derived extension regardless of what filename the client supplied", () => {
+    // The action validates MIME first, then passes meta.mimeType here.
+    // This test documents the contract: extension = f(mimeType), not f(filename).
+    const key = deriveStorageKey("doc1", "hash1", "image/png");
+    assert.ok(
+      key.endsWith(".png"),
+      "extension must come from MIME, not filename",
+    );
+    assert.ok(
+      !key.endsWith(".html"),
+      "must never produce .html from image/png",
+    );
+  });
+
+  it("rejects SVG-like extension by falling back to bin (SVG not in allowed MIME set)", () => {
+    // image/svg+xml is not an accepted slide image type; the action rejects it
+    // before reaching deriveStorageKey, but even if it slipped through the key
+    // would get the safe 'bin' extension, not 'svg'.
+    const key = deriveStorageKey("d", "abc", "image/svg+xml");
+    assert.equal(key, "d/abc.bin");
   });
 });
 
@@ -185,5 +215,23 @@ describe("getDefaultStorageAdapter / setDefaultStorageAdapter / resetDefaultStor
     const after = getDefaultStorageAdapter();
     // Both are LocalAssetStorageAdapters but separate instances.
     assert.ok(before !== after);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// MIME_TO_EXT coverage
+// ---------------------------------------------------------------------------
+
+describe("MIME_TO_EXT", () => {
+  it("covers all accepted slide image MIME types", () => {
+    const expected = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+    for (const mime of expected) {
+      assert.ok(mime in MIME_TO_EXT, `MIME_TO_EXT must include ${mime}`);
+    }
+  });
+
+  it("does not include SVG or HTML MIME types (security)", () => {
+    assert.equal(MIME_TO_EXT["image/svg+xml"], undefined);
+    assert.equal(MIME_TO_EXT["text/html"], undefined);
   });
 });

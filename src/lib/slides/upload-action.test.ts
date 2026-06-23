@@ -10,7 +10,9 @@
  *    but re-exercised here in the server-action context)
  *  - `deriveStorageKey` — the storage key derivation that determines the
  *    final `storageKey` column value and dedup uniqueness
- *  - Dedup semantics verified via the in-memory storage adapter stub
+ *  - `withP2002Fallback` — the concurrent-insert race handler extracted from
+ *    `uploadSlideAsset`, exercised here without a real Prisma connection
+ *  - Extension-mismatch security: keys must use MIME-derived extension
  */
 
 import { describe, it } from "node:test";
@@ -27,6 +29,7 @@ import {
   setDefaultStorageAdapter,
   resetDefaultStorageAdapter,
 } from "@/lib/slides/asset-storage";
+import { withP2002Fallback } from "@/lib/slides/p2002-fallback";
 
 // ---------------------------------------------------------------------------
 // SHA-256 checksum computation
@@ -86,10 +89,22 @@ describe("upload action validation pipeline", () => {
     assert.ok(!v.ok);
     assert.equal(v.error.code, "type_rejected");
   });
+
+  it("rejects SVG MIME type", () => {
+    const v = validateAssetUpload("image/svg+xml", "image.svg", 100);
+    assert.ok(!v.ok);
+    assert.equal(v.error.code, "type_rejected");
+  });
+
+  it("rejects text/html MIME type", () => {
+    const v = validateAssetUpload("text/html", "page.html", 100);
+    assert.ok(!v.ok);
+    assert.equal(v.error.code, "type_rejected");
+  });
 });
 
 // ---------------------------------------------------------------------------
-// deriveStorageKey — the dedup key shape used in the action
+// deriveStorageKey — MIME-based extension (security)
 // ---------------------------------------------------------------------------
 
 describe("deriveStorageKey (upload action key shape)", () => {
@@ -97,17 +112,92 @@ describe("deriveStorageKey (upload action key shape)", () => {
     const checksum = createHash("sha256")
       .update(Buffer.from("bytes"))
       .digest("hex");
-    const key = deriveStorageKey("docABC", checksum, "photo.jpeg");
+    const key = deriveStorageKey("docABC", checksum, "image/jpeg");
     assert.ok(key.startsWith("docABC/"), "key must be scoped by documentId");
     assert.ok(key.includes(checksum), "key must embed the checksum");
-    assert.ok(key.endsWith(".jpeg"), "key must include the file extension");
+    assert.ok(key.endsWith(".jpg"), "key must use MIME-derived extension");
   });
 
   it("two documents with identical file content get different keys (dedup scoped to document)", () => {
     const checksum = "ff00ff";
-    const k1 = deriveStorageKey("doc1", checksum, "img.png");
-    const k2 = deriveStorageKey("doc2", checksum, "img.png");
+    const k1 = deriveStorageKey("doc1", checksum, "image/png");
+    const k2 = deriveStorageKey("doc2", checksum, "image/png");
     assert.notEqual(k1, k2, "keys must differ across documents");
+  });
+
+  // Security: a client that sends type=image/png with name=evil.html must not
+  // produce an .html key.  The action validates MIME first and passes
+  // meta.mimeType (not fileEntry.name) to deriveStorageKey.
+  it("extension mismatch — image/png MIME always produces .png key regardless of filename", () => {
+    const checksum = "abc123";
+    // Simulates: fileEntry.type="image/png", fileEntry.name="evil.html"
+    // Action passes meta.mimeType ("image/png") — filename is ignored.
+    const key = deriveStorageKey("doc1", checksum, "image/png");
+    assert.ok(
+      key.endsWith(".png"),
+      "must use MIME extension, not filename extension",
+    );
+    assert.ok(
+      !key.includes(".html"),
+      "must not produce .html under any circumstance",
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// withP2002Fallback — dedup race recovery
+// ---------------------------------------------------------------------------
+
+describe("withP2002Fallback", () => {
+  it("returns the result of createFn when it succeeds", async () => {
+    const result = await withP2002Fallback(
+      async () => ({ id: "asset-new" }),
+      async () => null,
+    );
+    assert.deepEqual(result, { id: "asset-new" });
+  });
+
+  it("calls recoverFn and returns its result when createFn throws P2002", async () => {
+    const p2002 = Object.assign(new Error("Unique constraint failed"), {
+      code: "P2002",
+    });
+    const result = await withP2002Fallback(
+      async () => {
+        throw p2002;
+      },
+      async () => ({ id: "asset-winner" }),
+    );
+    assert.deepEqual(result, { id: "asset-winner" });
+  });
+
+  it("re-throws P2002 when recoverFn returns null (winner row missing)", async () => {
+    const p2002 = Object.assign(new Error("Unique constraint failed"), {
+      code: "P2002",
+    });
+    await assert.rejects(
+      () =>
+        withP2002Fallback(
+          async () => {
+            throw p2002;
+          },
+          async () => null,
+        ),
+      (err: unknown) => (err as { code?: string }).code === "P2002",
+    );
+  });
+
+  it("re-throws non-P2002 errors unchanged", async () => {
+    const otherError = new Error("Unexpected DB error");
+    await assert.rejects(
+      () =>
+        withP2002Fallback(
+          async () => {
+            throw otherError;
+          },
+          async () => ({ id: "should-not-reach" }),
+        ),
+      otherError,
+    );
   });
 });
 
@@ -134,7 +224,7 @@ describe("upload dedup via in-memory adapter", () => {
 
   it("stores asset on first upload and returns URL", async () => {
     setDefaultStorageAdapter(adapter);
-    const key = deriveStorageKey("docX", "hash1", "img.png");
+    const key = deriveStorageKey("docX", "hash1", "image/png");
     const url = await adapter.store(key, Buffer.from("pixels"), "image/png");
     assert.equal(url, `/assets/${key}`);
     assert.ok(stored.has(key));
@@ -142,7 +232,7 @@ describe("upload dedup via in-memory adapter", () => {
   });
 
   it("urlFor returns URL for an existing key without writing", () => {
-    const key = deriveStorageKey("docX", "hash2", "bg.webp");
+    const key = deriveStorageKey("docX", "hash2", "image/webp");
     const url = adapter.urlFor(key);
     assert.equal(url, `/assets/${key}`);
     assert.ok(!stored.has(key), "urlFor must not write any bytes");
