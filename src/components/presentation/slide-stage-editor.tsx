@@ -113,6 +113,7 @@ import {
   shouldClearSelectionOnStagePointerDown,
   shouldEnterInlineTextEditOnClick,
 } from "@/lib/presentation/stage-interaction";
+import { hitTestSlideElements } from "@/lib/presentation/stage-hit-test";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 import type { Visual } from "@/lib/visual/schema";
 
@@ -1028,6 +1029,9 @@ export function SlideStageEditor({
     elementId: string;
     hoveredAnchor: ConnectorAnchor | null;
   } | null>(null);
+  const [preselectedElementId, setPreselectedElementId] = useState<
+    string | null
+  >(null);
   // Monotonic gesture counter (issue #242). Each drag / resize / inline-edit
   // gesture derives a coalesce key with a unique suffix so consecutive gestures
   // of the same kind on the same element never merge into one undo step.
@@ -1097,6 +1101,28 @@ export function SlideStageEditor({
     }
     return map;
   }, [elements, stageAspect, visuals]);
+  const hitTestAtClientPoint = useCallback(
+    (clientX: number, clientY: number) => {
+      const container = containerRef.current;
+      if (!container) return [];
+      const rect = container.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return [];
+      if (
+        clientX < rect.left ||
+        clientX > rect.right ||
+        clientY < rect.top ||
+        clientY > rect.bottom
+      ) {
+        return [];
+      }
+      const point = clientPointToStagePct(clientX, clientY, rect);
+      return hitTestSlideElements(point, elementsRef.current, {
+        fittedBoxes,
+        stageAspect,
+      });
+    },
+    [fittedBoxes, stageAspect],
+  );
   const selectedElement =
     elements.find((element) => element.id === selectedElementId) ?? null;
   const selectedElementBox = selectedElement
@@ -1212,6 +1238,23 @@ export function SlideStageEditor({
         const rect = container.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) {
           return;
+        }
+
+        const hoveringInteraction =
+          !activeEditingId &&
+          marqueeRef.current === null &&
+          multiDragRef.current === null &&
+          dragRef.current === null;
+        if (hoveringInteraction) {
+          const hit = hitTestAtClientPoint(ev.clientX, ev.clientY)[0] ?? null;
+          const nextId = hit?.element.id ?? null;
+          setPreselectedElementId((current) =>
+            current === nextId ? current : nextId,
+          );
+        } else {
+          setPreselectedElementId((current) =>
+            current === null ? current : null,
+          );
         }
 
         // Marquee selection takes precedence: while a band is being drawn there is
@@ -1648,6 +1691,8 @@ export function SlideStageEditor({
       });
     },
     [
+      activeEditingId,
+      hitTestAtClientPoint,
       onUpdateElement,
       onSetElementBoxes,
       onSetElementPatches,
@@ -1871,6 +1916,7 @@ export function SlideStageEditor({
         wasPrimarySelected,
         selectedCountAtStart: selectedElementIds.size,
       };
+      setPreselectedElementId(null);
       setActiveDrag(mode);
     },
     [
@@ -2026,6 +2072,12 @@ export function SlideStageEditor({
           const isPrimary = element.id === selectedElementId;
           const inSelection = selectedElementIds.has(element.id);
           const selected = isPrimary || inSelection;
+          const preselected =
+            element.id === preselectedElementId &&
+            !selected &&
+            !activeDrag &&
+            !marqueeRect &&
+            !activeEditingId;
           const isEditing = element.id === activeEditingId;
           const editable = isInlineEditableStageElement(element);
           // Frame = the element box (Canva model). For text it equals fittedBox
@@ -2046,54 +2098,87 @@ export function SlideStageEditor({
               aria-label={elementAccessibleName(element, elements)}
               aria-pressed={selected}
               onPointerDown={(event) => {
-                if (isEditing || element.locked) {
+                const hit = hitTestAtClientPoint(
+                  event.clientX,
+                  event.clientY,
+                )[0];
+                if (!hit) {
+                  return;
+                }
+                const targetElement = hit.element;
+                if (targetElement.id !== element.id) {
+                  event.stopPropagation();
+                }
+                if (
+                  targetElement.id === activeEditingId ||
+                  targetElement.locked
+                ) {
                   return;
                 }
                 const pointerIntent = elementPointerDownIntent({
-                  isSelected: selectedElementIds.has(element.id),
+                  isSelected: selectedElementIds.has(targetElement.id),
                   isAdditive: event.shiftKey || event.metaKey || event.ctrlKey,
                 });
                 if (pointerIntent === "toggle-selection") {
                   event.stopPropagation();
-                  onSelectElement(element.id, "toggle");
+                  onSelectElement(targetElement.id, "toggle");
                   return;
                 }
                 // Unselected plain pointer-down still begins drag tracking:
                 // pointer-up without movement selects only, while movement past
                 // the click threshold moves immediately.
-                beginDrag(event, element.id, "move", fittedBox);
+                beginDrag(event, targetElement.id, "move", hit.box);
               }}
               onDoubleClick={(event) => {
-                if (isEditing) {
+                const hit = hitTestAtClientPoint(
+                  event.clientX,
+                  event.clientY,
+                )[0];
+                if (!hit) {
+                  return;
+                }
+                const targetElement = hit.element;
+                if (targetElement.id !== element.id) {
+                  event.stopPropagation();
+                }
+                if (targetElement.id === activeEditingId) {
                   return;
                 }
                 // Double-click on a grouped element (issue #330):
                 // first double-click enters the group; inside the group, it
                 // falls through to inline editing as normal.
-                const elementGroupId = (element as { groupId?: string })
+                const elementGroupId = (targetElement as { groupId?: string })
                   .groupId;
                 if (elementGroupId && groupEditingId !== elementGroupId) {
                   event.stopPropagation();
                   setGroupEditingId(elementGroupId);
-                  onSelectElement(element.id, "replace");
+                  onSelectElement(targetElement.id, "replace");
                   return;
                 }
-                if (editable) {
+                if (isInlineEditableStageElement(targetElement)) {
                   event.stopPropagation();
-                  startEditing(element);
+                  startEditing(targetElement);
                 }
               }}
               onContextMenu={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
+                const hit = hitTestAtClientPoint(
+                  event.clientX,
+                  event.clientY,
+                )[0];
+                if (!hit) {
+                  return;
+                }
+                const targetElement = hit.element;
                 onSelectElement(
-                  element.id,
-                  selectedElementIds.has(element.id) ? "keep" : "replace",
+                  targetElement.id,
+                  selectedElementIds.has(targetElement.id) ? "keep" : "replace",
                 );
                 setContextMenu({
                   x: event.clientX,
                   y: event.clientY,
-                  elementId: element.id,
+                  elementId: targetElement.id,
                 });
               }}
               onKeyDown={(event) => {
@@ -2122,7 +2207,9 @@ export function SlideStageEditor({
               } ${
                 selected
                   ? "ring-2 ring-[#71717a]"
-                  : "ring-1 ring-transparent hover:ring-1 hover:ring-[#71717a]/60"
+                  : preselected
+                    ? "ring-1 ring-[#71717a]/70"
+                    : "ring-1 ring-transparent"
               }`}
               style={{
                 left: `${containerBox.x}%`,
