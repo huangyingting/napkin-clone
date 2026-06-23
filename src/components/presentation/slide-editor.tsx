@@ -187,6 +187,13 @@ interface SlideEditorProps {
    * shows only visuals (or an empty state).
    */
   documentTextBlocks?: readonly DocumentTextBlock[];
+  /**
+   * The source document's stable ID, passed through to
+   * {@link insertableTextElement} so inserted text elements carry a full
+   * `sourceRef` (issue #377). Absent when the panel is opened without a live
+   * document context.
+   */
+  documentId?: string;
   onDeckChange: (deck: Deck) => void;
   onClose: () => void;
   /**
@@ -211,6 +218,12 @@ interface SlideEditorProps {
    * optional — falls back to on-theme / default swatches when empty.
    */
   brandSwatches?: readonly string[];
+  /**
+   * Number of slide elements whose source-document links are stale (issue
+   * #377). Drives the stale-count badge on the "From document" button. Absent
+   * or zero means no badge is rendered.
+   */
+  staleSourceLinkCount?: number;
 }
 
 const THEME_OPTIONS: { value: DeckTheme; label: string; color: string }[] = [
@@ -313,12 +326,14 @@ export function SlideEditor({
   deck: deckProp,
   visuals,
   documentTextBlocks = [],
+  documentId,
   onDeckChange: onDeckChangeProp,
   onClose,
   onSave,
   freshDeck = null,
   isDeckStale = false,
   brandSwatches = [],
+  staleSourceLinkCount = 0,
 }: SlideEditorProps) {
   // Snapshot-based undo/redo over the plain Deck object. Every mutation routes
   // through `onDeckChange` (the history `commit`), which records the previous
@@ -1776,7 +1791,7 @@ export function SlideEditor({
   const handleInsertDocumentText = useCallback(
     (item: Extract<Insertable, { kind: "text" }>) => {
       const element = fitInsertedTextElement(
-        insertableTextElement(item),
+        insertableTextElement(item, { documentId }),
         "top-left",
       );
       onDeckChange(addElement(deck, safeSelected, element));
@@ -1784,6 +1799,7 @@ export function SlideEditor({
     },
     [
       deck,
+      documentId,
       fitInsertedTextElement,
       handleSelectElement,
       onDeckChange,
@@ -2047,14 +2063,28 @@ export function SlideEditor({
                 <Tooltip label="Insert from document" side="bottom">
                   <button
                     type="button"
-                    aria-label="From document"
+                    aria-label={
+                      staleSourceLinkCount > 0
+                        ? `From document — ${staleSourceLinkCount} stale link${staleSourceLinkCount === 1 ? "" : "s"}`
+                        : "From document"
+                    }
                     aria-haspopup="dialog"
                     aria-expanded={fromDocOpen}
                     onClick={() => setFromDocOpen((open) => !open)}
-                    className={`flex h-7 shrink-0 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                    className={`relative flex h-7 shrink-0 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
                   >
                     <FileText size={14} aria-hidden="true" />
                     From document
+                    {staleSourceLinkCount > 0 ? (
+                      <span
+                        aria-hidden="true"
+                        className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-ds-warning-surface px-1 text-[10px] font-semibold leading-none text-ds-warning-text"
+                      >
+                        {staleSourceLinkCount > 99
+                          ? "99+"
+                          : staleSourceLinkCount}
+                      </span>
+                    ) : null}
                   </button>
                 </Tooltip>
               }
