@@ -9,9 +9,10 @@ current system.
 
 ## Overview
 
-| Document                             | Scope                                                   |
-| ------------------------------------ | ------------------------------------------------------- |
-| [current-state.md](current-state.md) | End-to-end system architecture and source-of-truth map. |
+| Document                                         | Scope                                                   |
+| ------------------------------------------------ | ------------------------------------------------------- |
+| [current-state.md](current-state.md)             | End-to-end system architecture and source-of-truth map. |
+| [decisions/](decisions/0001-realtime-scaling.md) | Architecture Decision Records (ADRs).                   |
 
 ## Contract Groups
 

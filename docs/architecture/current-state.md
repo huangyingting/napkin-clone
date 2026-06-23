@@ -61,19 +61,36 @@ The failure window where a synced edit may not reach the DB:
 - `hasPendingUpdates(doc, lastSavedStateVector)` — pure helper comparing the
   current Yjs state vector against the last durably-saved vector. Returns `true`
   when unsaved operations exist in memory.
-- `setRoomSavedStateVector(roomName, stateVector)` — called after a confirmed
-  DB write to record the vector at which the room was last saved.
+- `setRoomSavedStateVector(roomName, stateVector)` / `markRoomSaved(roomName, doc)`
+  — called after a confirmed durable write to record the vector at which the room
+  was last saved. `getRoomSavedStateVector(roomName)` reads it back.
+  **Saved-vector lifecycle:** the vector tracks the last _confirmed durable_ write
+  (a successful `contentJson` autosave). Eviction does **not** advance it — the
+  eviction flush is best-effort recovery, not the source of truth — so `evictRoom`
+  clears the entry instead. A save with no active room is a no-op (the room
+  reseeds from the DB on reconnect). In **inline** mode the vector can be advanced
+  after a confirmed save; the **standalone** process runs separately and relies on
+  DB reseed on reconnect rather than cross-process vector advancement.
 - `onBeforeEvict(roomName, update)` callback — fires with the full Yjs update
-  bytes before a room is torn down when unsaved changes are detected. The
-  callback is wired at `createCollabWss` time (server.mjs level) and can POST
-  to a flush endpoint to persist the update.
+  bytes before a room is torn down when unsaved changes are detected. Wired at
+  `createCollabWss` time in **both** entry points (`server.mjs`,
+  `scripts/collab-server.mjs`) via `createEvictionFlusher` from
+  `scripts/collab-flush.mjs`, which POSTs the update (base64) to the internal
+  `/api/collab/flush` endpoint. That endpoint persists a **best-effort recovery
+  snapshot** (`Document.collabRecoverySnapshot` / `collabRecoverySavedAt`) — it is
+  NOT the canonical store and is never read on the normal load path; `contentJson`
+  (client autosave) remains the source of truth. When `COLLAB_INTERNAL_SECRET` is
+  unset the flusher is a no-op (one warning) and the endpoint returns `503`.
 - Degraded/offline path: the `CollaborationPlugin` is seeded from `contentJson`
   via `DEGRADED_TIMEOUT_MS` fallback; the degraded flag in
   `useLexicalCollaboration` ensures the editor is not gated on a sync event
   that never arrives.
 
 **Full distributed durability is out of scope.** The window is reduced;
-zero-loss delivery is not guaranteed.
+zero-loss delivery is not guaranteed. The eviction snapshot is **best-effort
+recovery only** — `contentJson` (client autosave) is canonical. The scaling /
+durability path is recorded in
+[ADR 0001 — Realtime collaboration scaling and durability](decisions/0001-realtime-scaling.md).
 
 ---
 
@@ -227,13 +244,23 @@ TTL expires        → hasPendingUpdates? → onBeforeEvict(roomName, update) �
 - `docs: Map<string, WSSharedDoc>` — the in-memory room registry.
 - `savedStateVectors: Map<string, Uint8Array>` — tracks what has been durably saved per room.
 
-### 7.2 Authorization
+### 7.2 Authorization and eviction flush
 
 `createCollabWss(roomFromUrl, { authorize, onBeforeEvict })` requires an
-authorization callback:
+authorization callback and accepts an optional eviction-flush callback:
 
 - `authorize(req, room)` → `{ ok, status, readOnly? }` — called before WebSocket handshake.
-- `onBeforeEvict(roomName, update)` → `Promise<void>` — called with Yjs bytes when a dirty room is evicted.
+- `onBeforeEvict(roomName, update)` → `Promise<void>` — called with Yjs bytes when
+  a **dirty** room is evicted. Both entry points build this via
+  `createEvictionFlusher` (`scripts/collab-flush.mjs`), which POSTs the update
+  (base64) to `/api/collab/flush` with the `x-collab-internal-secret` header. The
+  endpoint stores a **best-effort recovery snapshot** on the `Document`
+  (`collabRecoverySnapshot` / `collabRecoverySavedAt`); it never becomes the
+  source of truth and is never read on the normal load path. Errors are recorded
+  in an in-memory observability ring (`recentFlushFailures()` / `flushStats()`,
+  surfaced in both health endpoints as `recentFlushFailures` / `flushFailures`)
+  and never advance the saved-state vector. When `COLLAB_INTERNAL_SECRET` is unset
+  the flusher is a no-op and the endpoint returns `503`.
 
 Read-only connections (viewers) receive sync-step-1 replies but cannot send updates (sync-step-2 / update messages are dropped).
 
@@ -302,16 +329,16 @@ The command bus is in-process; there is no durable command log or event-sourcing
 
 ## 11. Sources of Truth vs. Derived Projections
 
-| Data                | Source of Truth                        | Derived / Projection                     |
-| ------------------- | -------------------------------------- | ---------------------------------------- |
-| Document body       | `Document.contentJson`                 | `Document.content` (plain-text)          |
-| Embedded visuals    | `Document.contentJson` (visual nodes)  | `Visual` rows (mirror projection)        |
-| Visual history      | `VisualRevision` rows                  | —                                        |
-| Deck/slides         | `Document.deckJson`                    | —                                        |
-| Document history    | `DocumentVersion` rows                 | —                                        |
-| Collaboration state | In-memory Y.Doc                        | Persisted to `contentJson` on save/evict |
-| Block identity      | `bid` fields in Lexical nodes          | `anchorBlockId` in `Visual` rows         |
-| Share state         | `Document.isShared`, `shareId`, `slug` | Public URLs                              |
+| Data                | Source of Truth                        | Derived / Projection                                                                                                                  |
+| ------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Document body       | `Document.contentJson`                 | `Document.content` (plain-text)                                                                                                       |
+| Embedded visuals    | `Document.contentJson` (visual nodes)  | `Visual` rows (mirror projection)                                                                                                     |
+| Visual history      | `VisualRevision` rows                  | —                                                                                                                                     |
+| Deck/slides         | `Document.deckJson`                    | —                                                                                                                                     |
+| Document history    | `DocumentVersion` rows                 | —                                                                                                                                     |
+| Collaboration state | In-memory Y.Doc                        | `contentJson` via client autosave (canonical); `collabRecoverySnapshot` is a best-effort eviction recovery aid, not a source of truth |
+| Block identity      | `bid` fields in Lexical nodes          | `anchorBlockId` in `Visual` rows                                                                                                      |
+| Share state         | `Document.isShared`, `shareId`, `slug` | Public URLs                                                                                                                           |
 
 ---
 
@@ -324,27 +351,28 @@ The command bus is in-process; there is no durable command log or event-sourcing
 - **Deck patch save** → `saveDeckPatch` → `patchDeck` (CAS token, incremental)
 - **Version restore** → `restoreDocumentVersion` → `restoreVersion` (checkpoint + atomic restore)
 - **Mirror rebuild** → `rebuildVisualMirror` → `rebuildMirror` (repair, idempotent)
-- **Collab flush on evict** → `onBeforeEvict` callback → flush endpoint (reduces window)
+- **Collab flush on evict** → `onBeforeEvict` (`createEvictionFlusher`) → `POST /api/collab/flush` → best-effort recovery snapshot on `Document.collabRecoverySnapshot` (NOT canonical; `contentJson` remains the source of truth)
 
 ---
 
 ## Architecture Documents
 
-| Document                                                                     | Status  | Notes                                                     |
-| ---------------------------------------------------------------------------- | ------- | --------------------------------------------------------- |
-| [ai/generation.md](ai/generation.md)                                         | Current | AI generation request flow and validation contracts       |
-| [data-model/deck.md](data-model/deck.md)                                     | Current | Deck schema, slide elements, source refs, and persistence |
-| [data-model/visual-mirror.md](data-model/visual-mirror.md)                   | Current | Visual projection contract                                |
-| [editor/comments-and-anchors.md](editor/comments-and-anchors.md)             | Current | Comment threads and document/slide anchors                |
-| [editor/lexical-editor.md](editor/lexical-editor.md)                         | Current | Editor surfaces, visual lifecycle, and deck autosave UX   |
-| [editor/theme-layout.md](editor/theme-layout.md)                             | Current | Slide token cascade, masters, layouts, and overrides      |
-| [presentation/assets.md](presentation/assets.md)                             | Current | Slide asset upload, serving, references, and cleanup      |
-| [presentation/slide-editor.md](presentation/slide-editor.md)                 | Current | Slide editor runtime and interaction boundaries           |
-| [presentation/rendering-and-export.md](presentation/rendering-and-export.md) | Current | Shared rendering, present mode, and export pipeline       |
-| [product/brand-and-billing.md](product/brand-and-billing.md)                 | Current | Brand styles, plan entitlements, and AI credits           |
-| [security/access-and-sharing.md](security/access-and-sharing.md)             | Current | Document permissions, public links, and asset access      |
-| [security/workspaces.md](security/workspaces.md)                             | Current | Workspace roles, invites, and membership behavior         |
-| [commands/command-envelope.md](commands/command-envelope.md)                 | Current | Cross-surface command envelope                            |
-| [commands/mutation-audit.md](commands/mutation-audit.md)                     | Current | Mutation inventory and routing decisions                  |
-| [../operations/collab-deployment.md](../operations/collab-deployment.md)     | Current | Collaboration deployment and scaling                      |
-| [../operations/release-gate.md](../operations/release-gate.md)               | Current | Release readiness checklist                               |
+| Document                                                                     | Status   | Notes                                                     |
+| ---------------------------------------------------------------------------- | -------- | --------------------------------------------------------- |
+| [ai/generation.md](ai/generation.md)                                         | Current  | AI generation request flow and validation contracts       |
+| [data-model/deck.md](data-model/deck.md)                                     | Current  | Deck schema, slide elements, source refs, and persistence |
+| [data-model/visual-mirror.md](data-model/visual-mirror.md)                   | Current  | Visual projection contract                                |
+| [editor/comments-and-anchors.md](editor/comments-and-anchors.md)             | Current  | Comment threads and document/slide anchors                |
+| [editor/lexical-editor.md](editor/lexical-editor.md)                         | Current  | Editor surfaces, visual lifecycle, and deck autosave UX   |
+| [editor/theme-layout.md](editor/theme-layout.md)                             | Current  | Slide token cascade, masters, layouts, and overrides      |
+| [presentation/assets.md](presentation/assets.md)                             | Current  | Slide asset upload, serving, references, and cleanup      |
+| [presentation/slide-editor.md](presentation/slide-editor.md)                 | Current  | Slide editor runtime and interaction boundaries           |
+| [presentation/rendering-and-export.md](presentation/rendering-and-export.md) | Current  | Shared rendering, present mode, and export pipeline       |
+| [product/brand-and-billing.md](product/brand-and-billing.md)                 | Current  | Brand styles, plan entitlements, and AI credits           |
+| [security/access-and-sharing.md](security/access-and-sharing.md)             | Current  | Document permissions, public links, and asset access      |
+| [security/workspaces.md](security/workspaces.md)                             | Current  | Workspace roles, invites, and membership behavior         |
+| [commands/command-envelope.md](commands/command-envelope.md)                 | Current  | Cross-surface command envelope                            |
+| [commands/mutation-audit.md](commands/mutation-audit.md)                     | Current  | Mutation inventory and routing decisions                  |
+| [decisions/0001-realtime-scaling.md](decisions/0001-realtime-scaling.md)     | Accepted | ADR: realtime collaboration scaling and durability        |
+| [../operations/collab-deployment.md](../operations/collab-deployment.md)     | Current  | Collaboration deployment and scaling                      |
+| [../operations/release-gate.md](../operations/release-gate.md)               | Current  | Release readiness checklist                               |

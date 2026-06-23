@@ -1,0 +1,142 @@
+/**
+ * Eviction-flush helper for the collaboration server (#497).
+ *
+ * When a dirty room is evicted (all clients gone, idle TTL elapsed, unsaved
+ * changes detected) `collab-core.mjs` calls an `onBeforeEvict(roomName, update)`
+ * callback. This module builds that callback: it POSTs the room's Yjs update
+ * (base64) to the app's internal flush endpoint (`/api/collab/flush`) with a
+ * shared-secret header so the edit is persisted as a best-effort recovery
+ * snapshot instead of being silently lost on eviction.
+ *
+ * Design notes:
+ *  - The flush is **best-effort recovery**, not the source of truth. The
+ *    canonical store is `Document.contentJson`, written by the editor's client
+ *    autosave. A failed flush never advances the saved-state vector.
+ *  - If `COLLAB_INTERNAL_SECRET` is unset the returned callback is a no-op that
+ *    logs a single clear warning at construction time, so dev without the secret
+ *    still runs (it just skips the recovery snapshot).
+ *  - Errors never throw out of the callback — eviction must always complete.
+ *  - Structured logs carry only safe ids/flags, never document content.
+ *
+ * Runs under plain Node (no TS path aliases), like the rest of `scripts/*.mjs`.
+ */
+import { recordFlushAttempt, recordFlushFailure } from "./collab-core.mjs";
+
+/** Convert a Uint8Array Yjs update to a base64 string for JSON transport. */
+const toBase64 = (update) => Buffer.from(update).toString("base64");
+
+/** Emit a single structured JSON log line (ids/flags only, never content). */
+const log = (record) => {
+  try {
+    const level = record.level ?? (record.ok ? "info" : "error");
+    const { level: _ignored, ...rest } = record;
+    console.info(
+      JSON.stringify({
+        level,
+        scope: "collab.flush",
+        timestamp: new Date().toISOString(),
+        ...rest,
+      }),
+    );
+  } catch {
+    // Logging must never break eviction.
+  }
+};
+
+/**
+ * Builds the `onBeforeEvict` callback wired into `createCollabWss`.
+ *
+ * @param {Object} options
+ * @param {string} [options.flushUrl] Absolute URL of the internal flush
+ *   endpoint, e.g. `http://127.0.0.1:4000/api/collab/flush`.
+ * @param {string} [options.internalSecret] Shared secret sent as the
+ *   `x-collab-internal-secret` header. When falsy the flusher is a no-op.
+ * @param {typeof fetch} [options.fetchImpl] Override for testing.
+ * @returns {(roomName: string, update: Uint8Array) => Promise<void>}
+ */
+export function createEvictionFlusher(options = {}) {
+  const flushUrl = options.flushUrl;
+  const internalSecret = options.internalSecret;
+  const fetchImpl = options.fetchImpl || fetch;
+
+  if (!internalSecret) {
+    // No-op flusher: dev without the secret still runs. Warn once at startup so
+    // the operator knows the eviction recovery snapshot is disabled.
+    console.warn(
+      "[collab] COLLAB_INTERNAL_SECRET is not set — eviction flush is DISABLED. " +
+        "Dirty rooms will rely on client autosave only (no recovery snapshot).",
+    );
+    return async () => {};
+  }
+
+  if (!flushUrl) {
+    console.warn(
+      "[collab] no flush URL configured — eviction flush is DISABLED.",
+    );
+    return async () => {};
+  }
+
+  return async function onBeforeEvict(roomName, update) {
+    // The room name IS the document id in both entry points.
+    const docId = roomName;
+    recordFlushAttempt();
+    log({
+      level: "info",
+      room: roomName,
+      docId,
+      dirty: true,
+      flushAttempt: true,
+    });
+
+    try {
+      const res = await fetchImpl(flushUrl, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-collab-internal-secret": internalSecret,
+        },
+        body: JSON.stringify({
+          documentId: docId,
+          room: roomName,
+          update: toBase64(update),
+        }),
+      });
+
+      if (!res.ok) {
+        const failureReason = `http_${res.status}`;
+        recordFlushFailure({ room: roomName, docId, reason: failureReason });
+        log({
+          room: roomName,
+          docId,
+          dirty: true,
+          flushAttempt: true,
+          ok: false,
+          status: res.status,
+          failureReason,
+        });
+        return;
+      }
+
+      log({
+        room: roomName,
+        docId,
+        dirty: true,
+        flushAttempt: true,
+        ok: true,
+        status: res.status,
+      });
+    } catch (err) {
+      const failureReason =
+        err instanceof Error ? err.name || "network_error" : "network_error";
+      recordFlushFailure({ room: roomName, docId, reason: failureReason });
+      log({
+        room: roomName,
+        docId,
+        dirty: true,
+        flushAttempt: true,
+        ok: false,
+        failureReason,
+      });
+    }
+  };
+}

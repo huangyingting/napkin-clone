@@ -344,3 +344,22 @@ In every option the **application database remains the canonical content store**
 (via the editor's autosave). The Yjs layer is a low-latency, conflict-free
 transport plus short-term history — not the system of record — so a collab-layer
 failure never loses a saved document.
+
+> **Decision record:** the formal trade-off analysis and the chosen path live in
+> [ADR 0001 — Realtime collaboration scaling and durability](../architecture/decisions/0001-realtime-scaling.md).
+
+## Eviction recovery snapshot (best-effort)
+
+When a dirty room is evicted (all clients gone, idle TTL elapsed, unsaved changes
+detected) the server flushes the room's Yjs update to the internal
+`/api/collab/flush` endpoint, which stores it on `Document.collabRecoverySnapshot`
+/ `collabRecoverySavedAt`. This is a **best-effort recovery aid only** — it is not
+the source of truth and is not read on the normal load path. Configure it with:
+
+- `COLLAB_INTERNAL_SECRET` — shared secret sent as the `x-collab-internal-secret`
+  header and compared in constant time by the endpoint. When **unset**, the
+  flusher is a no-op (logs one warning) and the endpoint returns `503`, so dev
+  without the secret still runs — it just skips the recovery snapshot.
+
+Both health endpoints surface flush observability: `flushFailures` (counter) and
+`recentFlushFailures` (recent failures, safe ids only).

@@ -139,6 +139,104 @@ export function setRoomSavedStateVector(roomName, stateVector) {
   savedStateVectors.set(roomName, stateVector);
 }
 
+/**
+ * Returns the last durably-saved state vector recorded for a room, or `null`
+ * if none has been recorded (room never saved, or already evicted).
+ *
+ * Pure read — safe to call from tests and health checks.
+ *
+ * @param {string} roomName
+ * @returns {Uint8Array | null}
+ */
+export function getRoomSavedStateVector(roomName) {
+  return savedStateVectors.get(roomName) ?? null;
+}
+
+/**
+ * Records that a room has been **durably saved** by capturing the document's
+ * current state vector. Call this ONLY after a confirmed durable write (e.g. a
+ * successful Lexical autosave that committed `contentJson`), never after a
+ * best-effort eviction flush.
+ *
+ * Saved-vector lifecycle (the vector tracks the last *confirmed durable* write):
+ *  - A save with an active in-memory room advances the vector here.
+ *  - Eviction does NOT advance the vector: the eviction snapshot flush is
+ *    best-effort recovery, not the source of truth, so advancing on evict would
+ *    falsely mark unsaved edits as durable. `evictRoom` instead clears the entry.
+ *  - A save that arrives with no active room is a no-op (nothing to advance);
+ *    the room reseeds from the DB on the next connection.
+ *
+ * In inline mode (collab socket and Next in the same process) this can be
+ * invoked after a confirmed save; the standalone process runs separately and
+ * relies on DB reseed on reconnect rather than cross-process vector advancement.
+ *
+ * @param {string} roomName
+ * @param {Y.Doc} doc - The in-memory room document at save time.
+ */
+export function markRoomSaved(roomName, doc) {
+  savedStateVectors.set(roomName, Y.encodeStateVector(doc));
+}
+
+// ---------------------------------------------------------------------------
+// Flush observability (#499)
+// ---------------------------------------------------------------------------
+
+/** Max number of recent flush failures retained in memory. */
+const FLUSH_FAILURE_RING_CAP = 20;
+
+/**
+ * In-memory ring buffer of recent eviction-flush failures, capped at
+ * {@link FLUSH_FAILURE_RING_CAP}. Holds only safe ids — never document content.
+ * @type {Array<{ room: string, docId: string, reason: string, at: string }>}
+ */
+const flushFailureRing = [];
+
+/** Monotonic counters for eviction-flush activity. */
+const flushCounters = { flushAttempts: 0, flushFailures: 0 };
+
+/**
+ * Record that an eviction flush was attempted. Increments the attempt counter.
+ * Safe to call from the flush helper before issuing the network request.
+ */
+export function recordFlushAttempt() {
+  flushCounters.flushAttempts += 1;
+}
+
+/**
+ * Record an eviction-flush failure into the observability ring and increment
+ * the failure counter. Only safe identifiers and a short reason are stored.
+ *
+ * @param {{ room: string, docId?: string, reason: string }} failure
+ */
+export function recordFlushFailure(failure) {
+  flushCounters.flushFailures += 1;
+  flushFailureRing.push({
+    room: failure.room,
+    docId: failure.docId ?? failure.room,
+    reason: failure.reason,
+    at: new Date().toISOString(),
+  });
+  while (flushFailureRing.length > FLUSH_FAILURE_RING_CAP) {
+    flushFailureRing.shift();
+  }
+}
+
+/**
+ * Returns a copy of the recent flush failures (safe ids only), oldest first.
+ * @returns {Array<{ room: string, docId: string, reason: string, at: string }>}
+ */
+export function recentFlushFailures() {
+  return flushFailureRing.map((entry) => ({ ...entry }));
+}
+
+/**
+ * Returns the current flush counters for health surfaces.
+ * @returns {{ flushAttempts: number, flushFailures: number }}
+ */
+export function flushStats() {
+  return { ...flushCounters };
+}
+
 /** Tear down a room's awareness + doc and remove it from the in-memory map. */
 const evictRoom = (doc, roomName, onBeforeEvict) => {
   if (
@@ -412,6 +510,8 @@ export const _testOnly = {
   scheduleEviction,
   cancelEviction,
   evictRoom,
+  flushFailureRing,
+  flushCounters,
 };
 
 /**
