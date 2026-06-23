@@ -71,21 +71,14 @@ import type {
   DeckThemeTokenSet,
   MasterSlide,
 } from "@/lib/presentation/deck-theme-tokens";
+import { fnv1aHash32 } from "@/lib/presentation/fnv-hash";
 
 /**
- * FNV-1a 32-bit hash used to derive a stable `sourceSectionId` from a heading
- * text string. Kept local here (does not import from deck-hash.ts) to avoid a
- * circular module dependency (deck-hash imports types from this module).
- * Must stay byte-for-byte identical to the same function in deck-hash.ts.
+ * Computes a stable `sourceSectionId` from a heading text string using the
+ * shared {@link fnv1aHash32} utility (issue #487). The circular-import concern
+ * that previously required a local copy is resolved by the new shared module.
  */
-function fnv1aHex32(input: string): string {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < input.length; i++) {
-    hash ^= input.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return (hash >>> 0).toString(16).padStart(8, "0");
-}
+// fnv1aHash32 is imported at the top of the file.
 
 /**
  * Returns a deterministic stable id for a document section whose heading text
@@ -94,7 +87,7 @@ function fnv1aHex32(input: string): string {
  */
 function computeSectionId(title: string): string | undefined {
   const key = title.trim().toLowerCase();
-  return key ? fnv1aHex32(key) : undefined;
+  return key ? fnv1aHash32(key) : undefined;
 }
 
 export {

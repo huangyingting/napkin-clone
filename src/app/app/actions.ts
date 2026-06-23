@@ -20,6 +20,7 @@ import { requireUser } from "@/lib/session";
 import { BLANK_TEMPLATE_ID, getTemplateOrBlank } from "@/lib/templates/catalog";
 import { acquirePurgeLock, INVITE_LINK_RETENTION_MS } from "@/lib/maintenance";
 import { regenerateBlockIds } from "@/lib/lexical/block-id";
+import { markdownToLexicalState } from "@/lib/lexical/from-markdown";
 import { SOFT_DELETE_RETENTION_MS } from "@/lib/trash";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
@@ -78,8 +79,17 @@ export async function createDocumentFromImport(
     rawTitle.trim().slice(0, MAX_TITLE_LENGTH) || "Imported document";
   const safeContent = content.slice(0, MAX_CONTENT_LENGTH);
 
+  // Normalize: convert the imported Markdown to canonical contentJson at
+  // creation time so the document is immediately on the Lexical track and
+  // the first-open conversion is skipped (issue #485). The legacy `content`
+  // field is still stored as a fallback for any reader that has not been
+  // updated to use contentJson.
+  const contentJson = JSON.parse(
+    markdownToLexicalState(safeContent),
+  ) as Prisma.InputJsonValue;
+
   const document = await prisma.document.create({
-    data: { ownerId: user.id, title, content: safeContent },
+    data: { ownerId: user.id, title, content: safeContent, contentJson },
     select: { id: true },
   });
 

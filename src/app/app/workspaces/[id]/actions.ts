@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 
 import { DOCUMENT_LIST_LIMIT, capList } from "@/lib/documents";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@/generated/prisma/client";
 import { requireUser } from "@/lib/session";
 import { BLANK_TEMPLATE_ID, getTemplateOrBlank } from "@/lib/templates/catalog";
 import {
@@ -13,6 +14,8 @@ import {
   isInvitableWorkspaceRole,
   type WorkspaceRole,
 } from "@/lib/workspace/roles";
+import { markdownToLexicalState } from "@/lib/lexical/from-markdown";
+import { requireWorkspaceCapability } from "@/lib/auth/workspace-capabilities";
 
 /** Maximum stored document title length (mirrors the editor's title save). */
 const MAX_TITLE_LENGTH = 200;
@@ -22,57 +25,6 @@ const MAX_CONTENT_LENGTH = 100_000;
 
 /** Maximum stored workspace name length. */
 const MAX_WORKSPACE_NAME_LENGTH = 100;
-
-/**
- * Ensures the current user is the workspace OWNER and returns the workspace id.
- * Throws if the user is not the owner or the workspace does not exist. This is
- * the server-side enforcement gate for owner-only lifecycle actions (rename,
- * delete, transfer ownership).
- */
-async function requireWorkspaceOwner(
-  userId: string,
-  workspaceId: string,
-): Promise<{ id: string }> {
-  const workspace = await prisma.workspace.findFirst({
-    where: { id: workspaceId, ownerId: userId },
-    select: { id: true },
-  });
-
-  if (!workspace) {
-    throw new Error(
-      "Unauthorized: only the workspace owner may perform this action.",
-    );
-  }
-
-  return workspace;
-}
-
-/**
- * Ensures the current user is a workspace OWNER or EDITOR. Throws if the user
- * is a VIEWER, not a member, or the workspace does not exist. This check is the
- * server-side enforcement gate for workspace document mutations.
- */
-async function requireWorkspaceMutator(
-  userId: string,
-  workspaceId: string,
-): Promise<void> {
-  const workspace = await prisma.workspace.findFirst({
-    where: {
-      id: workspaceId,
-      OR: [
-        { ownerId: userId },
-        { members: { some: { userId, role: "EDITOR" } } },
-      ],
-    },
-    select: { id: true },
-  });
-
-  if (!workspace) {
-    throw new Error(
-      "Unauthorized: only workspace owners and editors may create or import documents.",
-    );
-  }
-}
 
 export type InviteLink = {
   id: string;
@@ -130,14 +82,9 @@ export async function createInviteLink(
     throw new Error(`Invalid invite role: ${String(role)}.`);
   }
 
-  // Verify user is the workspace owner
-  const workspace = await prisma.workspace.findFirst({
-    where: { id: workspaceId, ownerId: user.id },
-  });
-
-  if (!workspace) {
-    throw new Error("Workspace not found or unauthorized.");
-  }
+  // Centralized authorization (issue #483): only the workspace owner may
+  // create invite links (manage capability).
+  await requireWorkspaceCapability(user.id, workspaceId, "manage");
 
   const expiresAt = normalizeExpiry(options.expiresInDays);
   const maxUses = normalizeMaxUses(options.maxUses);
@@ -195,15 +142,19 @@ function normalizeMaxUses(maxUses?: number | null): number | null {
 export async function revokeInviteLink(linkId: string): Promise<void> {
   const user = await requireUser();
 
-  // Verify user owns the workspace
+  // Look up the link to get its workspaceId for centralized authorization.
   const link = await prisma.inviteLink.findFirst({
     where: { id: linkId },
-    include: { workspace: true },
+    select: { workspaceId: true },
   });
 
-  if (!link || link.workspace.ownerId !== user.id) {
+  if (!link) {
     throw new Error("Invite link not found or unauthorized.");
   }
+
+  // Centralized authorization (issue #483): only the workspace owner may
+  // revoke invite links (manage capability).
+  await requireWorkspaceCapability(user.id, link.workspaceId, "manage");
 
   await prisma.inviteLink.update({
     where: { id: linkId },
@@ -216,15 +167,19 @@ export async function revokeInviteLink(linkId: string): Promise<void> {
 export async function removeMember(memberId: string): Promise<void> {
   const user = await requireUser();
 
-  // Verify user owns the workspace
+  // Look up the member to get the workspaceId and their userId.
   const member = await prisma.workspaceMember.findFirst({
     where: { id: memberId },
-    include: { workspace: true },
+    select: { workspaceId: true, userId: true },
   });
 
-  if (!member || member.workspace.ownerId !== user.id) {
+  if (!member) {
     throw new Error("Member not found or unauthorized.");
   }
+
+  // Centralized authorization (issue #483): only the workspace owner may
+  // remove members (manage capability).
+  await requireWorkspaceCapability(user.id, member.workspaceId, "manage");
 
   // Document handoff: move documents the removed member owns within this
   // workspace back to their personal space (workspaceId = null). This preserves
@@ -253,7 +208,7 @@ export async function renameWorkspace(
   rawName: string,
 ): Promise<void> {
   const user = await requireUser();
-  await requireWorkspaceOwner(user.id, workspaceId);
+  await requireWorkspaceCapability(user.id, workspaceId, "manage");
 
   const name = rawName.trim().slice(0, MAX_WORKSPACE_NAME_LENGTH);
   if (name === "") {
@@ -282,7 +237,7 @@ export async function renameWorkspace(
  */
 export async function deleteWorkspace(workspaceId: string): Promise<void> {
   const user = await requireUser();
-  await requireWorkspaceOwner(user.id, workspaceId);
+  await requireWorkspaceCapability(user.id, workspaceId, "manage");
 
   await prisma.$transaction([
     prisma.document.updateMany({
@@ -356,7 +311,7 @@ export async function transferOwnership(
   newOwnerUserId: string,
 ): Promise<void> {
   const user = await requireUser();
-  await requireWorkspaceOwner(user.id, workspaceId);
+  await requireWorkspaceCapability(user.id, workspaceId, "manage");
 
   if (newOwnerUserId === user.id) {
     throw new Error("You already own this workspace.");
@@ -432,7 +387,7 @@ export async function createWorkspaceDocument(
   templateId: string,
 ): Promise<void> {
   const user = await requireUser();
-  await requireWorkspaceMutator(user.id, workspaceId);
+  await requireWorkspaceCapability(user.id, workspaceId, "mutate");
 
   const template = getTemplateOrBlank(templateId);
   const content = template.id === BLANK_TEMPLATE_ID ? "" : template.content;
@@ -462,14 +417,29 @@ export async function importWorkspaceDocument(
   rawTitle: string,
 ): Promise<void> {
   const user = await requireUser();
-  await requireWorkspaceMutator(user.id, workspaceId);
+  await requireWorkspaceCapability(user.id, workspaceId, "mutate");
 
   const title =
     rawTitle.trim().slice(0, MAX_TITLE_LENGTH) || "Imported document";
   const safeContent = content.slice(0, MAX_CONTENT_LENGTH);
 
+  // Normalize: convert the imported Markdown to canonical contentJson at
+  // creation time so the document is immediately on the Lexical track and
+  // the first-open conversion is skipped (issue #485). The legacy `content`
+  // field is still stored as a fallback (issue #485 AC: keep first-open
+  // fallback for existing content-only docs).
+  const contentJson = JSON.parse(
+    markdownToLexicalState(safeContent),
+  ) as Prisma.InputJsonValue;
+
   const document = await prisma.document.create({
-    data: { ownerId: user.id, workspaceId, title, content: safeContent },
+    data: {
+      ownerId: user.id,
+      workspaceId,
+      title,
+      content: safeContent,
+      contentJson,
+    },
     select: { id: true },
   });
 
