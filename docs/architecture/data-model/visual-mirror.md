@@ -1,4 +1,4 @@
-# ADR: contentJson-to-Visual Mirror Contract
+# Visual Mirror Contract
 
 **Status:** Accepted  
 **Date:** 2026-06-23  
@@ -133,7 +133,7 @@ The mirror returns a `VisualMirrorOutcome`:
 type VisualMirrorOutcome = {
   created: number; // rows inserted
   updated: number; // rows updated (payload or order)
-  deleted: number; // rows pruned (orphaned anchors + stale duplicates)
+  deleted: number; // rows pruned (orphaned anchors)
   skipped: number; // nodes whose payload failed safeParseVisual
   invalid: number; // nodes with missing/empty visualId
 };
@@ -159,10 +159,11 @@ the same document because each traversal position is unique. The sort order of
 1. **One row per anchor per document**: the unique constraint on
    `(documentId, anchorBlockId)` is the schema-level guarantee.
 2. **Rows track content**: after any successful `mirrorVisualNodes` or
-   `rebuildVisualMirror` call, the set of `(documentId, anchorBlockId)` rows
-   matches the set of valid visual nodes in `contentJson`.
+   `rebuildVisualMirror` call, valid visual nodes have matching
+   `(documentId, anchorBlockId)` rows. Invalid live anchors may preserve an
+   existing row until their payload is valid again.
 3. **Anchors are required**: the mirror never creates rows without an
-  `anchorBlockId`; existing null-anchor rows are deleted.
+   `anchorBlockId`; existing null-anchor rows are deleted.
 4. **Invalid payloads don't update rows**: a node that fails `safeParseVisual`
    leaves the existing row untouched; it does not delete or corrupt it.
 5. **Idempotence**: running `rebuildVisualMirror` twice on the same `contentJson`

@@ -193,8 +193,8 @@ Master scope rules:
 | `Slide.accent`                                                | Unchanged; is a Layer 4 color override.                                        |
 | `Slide.layout` (`SlideLayoutHint`)                            | Document-derived layout hint.                                                  |
 | `Slide.theme` (copy on each slide)                            | Slide-local theme snapshot.                                                    |
-| `Deck.masters`                                                | **New, optional.** Absent → single implicit master derived from the token set. |
-| `Slide.masterRef`                                             | **New, optional.** Absent → use the first/only master.                         |
+| `Deck.masters`                                                | Optional explicit masters. Absent → single implicit master from the token set. |
+| `Slide.masterRef`                                             | Optional master reference. Absent → use the first/only master.                 |
 
 All fields above are part of the current deck shape.
 

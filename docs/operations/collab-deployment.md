@@ -2,8 +2,8 @@
 
 Real-time collaborative editing (multiple cursors, presence, conflict-free
 merges) is powered by a self-hosted Yjs websocket sync server,
-[`scripts/collab-server.mjs`](../scripts/collab-server.mjs). The browser editor
-connects to it through the [`useCollaboration`](../src/lib/collab/use-collaboration.ts)
+[`scripts/collab-server.mjs`](../../scripts/collab-server.mjs). The browser editor
+connects to it through the [`useCollaboration`](../../src/lib/collab/use-collaboration.ts)
 hook.
 
 This document describes how to run that server in production, the **required
@@ -81,9 +81,9 @@ for a durable horizontal-scale path.
 ### Startup guard behaviour
 
 The startup guard runs before the server accepts any connections. It is
-implemented in [`scripts/collab-deployment-config.mjs`](../scripts/collab-deployment-config.mjs)
+implemented in [`scripts/collab-deployment-config.mjs`](../../scripts/collab-deployment-config.mjs)
 (plain ESM, used by both entry points) with a TypeScript-tested mirror in
-[`src/lib/collab/deployment-config.ts`](../src/lib/collab/deployment-config.ts).
+[`src/lib/collab/deployment-config.ts`](../../src/lib/collab/deployment-config.ts).
 
 | Env configuration                                          | Startup result    | Health `mode`     | `healthy` |
 | ---------------------------------------------------------- | ----------------- | ----------------- | --------- |
@@ -128,6 +128,31 @@ Recommended production setup:
 `NEXT_PUBLIC_COLLAB_WS_URL` configures the client. In production they describe
 the two ends of the **same** endpoint (the public `wss://` URL terminates at the
 proxy, which forwards to `COLLAB_HOST:COLLAB_PORT`).
+
+## Authorization
+
+Every WebSocket upgrade is authorized before the handshake completes. The core
+server (`createCollabWss`) requires an `authorize(req, room)` callback and will
+not start without one.
+
+Both entry points use the same rule:
+
+- **Inline server (`server.mjs`)**: forwards cookies to
+  `/api/collab/authorize` on the same HTTP server for `/collab/<documentId>`.
+- **Standalone server (`scripts/collab-server.mjs`)**: forwards cookies to
+  `COLLAB_AUTHORIZE_URL`, defaulting to `${AUTH_URL}/api/collab/authorize` or
+  `http://127.0.0.1:4000/api/collab/authorize`.
+
+The authorize route maps application permissions to collab access:
+
+| Capability | WebSocket behavior                          |
+| ---------- | ------------------------------------------- |
+| no access  | upgrade refused with 401/403                |
+| `view`     | connection accepted as read-only            |
+| `edit`     | connection accepted with update permissions |
+
+Read-only connections receive sync replies and awareness updates, but update
+messages are dropped server-side.
 
 ## Health endpoint
 
