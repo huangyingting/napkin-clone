@@ -82,6 +82,11 @@ import {
   InsufficientCreditsError,
 } from "@/lib/billing/credits";
 import {
+  reserveUsage,
+  captureUsage,
+  refundUsage,
+} from "@/lib/billing/usage-ledger";
+import {
   isAiDeckGenEnabled,
   isUnlimitedCreditsEnabled,
 } from "@/lib/billing/entitlements";
@@ -284,8 +289,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // Quota / rate limiting + credit metering.
   let commitAnonUsage: (() => void) | null = null;
   let setAnonCookie: string | null = null;
-  // For authenticated users: compute credit cost up-front; deduct after success.
+  // For authenticated users: compute credit cost up-front; reserve before gen.
   let creditCost = 0;
+  let ledgerReserved = false;
 
   if (user) {
     const result = await checkRateLimitWithStore(
@@ -322,6 +328,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             `Your credits reset on ${creditState.periodEnd.toLocaleDateString()}. ` +
             `Upgrade your plan or wait for your credits to reset.`,
         );
+      }
+      // Reserve usage in the ledger before calling the AI model (#481).
+      if (creditCost > 0) {
+        try {
+          await reserveUsage({
+            idempotencyKey: requestId,
+            userId: user.id,
+            operation: "generate-deck",
+            creditCost,
+          });
+          ledgerReserved = true;
+        } catch (err) {
+          logError(LOG_SCOPE, err, {
+            requestId,
+            reason: "ledger-reserve-failed",
+          });
+        }
       }
     }
   } else {
@@ -383,11 +406,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Commit side effects only on success.
     commitAnonUsage?.();
 
-    // Deduct credits for authenticated users (best-effort; mirrors existing
-    // soft-quota semantics — a small TOCTOU race is acceptable).
+    // Capture usage in the ledger (atomically deducts credits, #481).
     if (user && creditCost > 0) {
       try {
-        await deductCredits(user.id, creditCost);
+        if (ledgerReserved) {
+          await captureUsage({
+            idempotencyKey: requestId,
+            userId: user.id,
+            creditCost,
+          });
+        } else {
+          await deductCredits(user.id, creditCost);
+        }
       } catch (err) {
         if (err instanceof InsufficientCreditsError) {
           // Balance was depleted by a concurrent request between our pre-check
@@ -395,7 +425,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           return errorResponse(402, err.message);
         }
         // Non-fatal — log but don't fail the generation response.
-        logError(LOG_SCOPE, err, { requestId, reason: "credit-deduct-failed" });
+        logError(LOG_SCOPE, err, {
+          requestId,
+          reason: "credit-capture-failed",
+        });
       }
     }
 
@@ -434,6 +467,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return response;
   } catch (error) {
+    // Refund the ledger entry on any generation failure (#481).
+    if (ledgerReserved) {
+      await refundUsage({ idempotencyKey: requestId }).catch((refundErr) => {
+        logError(LOG_SCOPE, refundErr, {
+          requestId,
+          reason: "ledger-refund-failed",
+        });
+      });
+    }
+
     if (error instanceof GenerateTimeoutError) {
       logError(LOG_SCOPE, error, {
         requestId,

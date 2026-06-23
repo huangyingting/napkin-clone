@@ -220,6 +220,14 @@ describe("upload dedup via in-memory adapter", () => {
     urlFor(key: string): string {
       return `/assets/${key}`;
     },
+    async read(key: string): Promise<Buffer> {
+      const buf = stored.get(key);
+      if (!buf) throw Object.assign(new Error("Not found"), { code: "ENOENT" });
+      return buf;
+    },
+    async delete(key: string): Promise<void> {
+      stored.delete(key);
+    },
   };
 
   it("stores asset on first upload and returns URL", async () => {

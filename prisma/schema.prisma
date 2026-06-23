@@ -412,3 +412,37 @@ model Asset {
   @@index([workspaceId])
   @@index([checksum])
 }
+
+// ---------------------------------------------------------------------------
+// Usage ledger (Epic #478, issue #481)
+// ---------------------------------------------------------------------------
+
+/**
+ * Durable ledger entry for AI generation credit usage.
+ *
+ * Lifecycle: reserved → captured (on success) or refunded (on failure).
+ * Idempotent by `idempotencyKey`: callers must supply a stable per-request
+ * key (e.g. a request UUID) so retries never double-charge.
+ *
+ * Status values:
+ *   "reserved"  — intent recorded; credits NOT yet deducted.
+ *   "captured"  — generation succeeded; credits atomically deducted.
+ *   "refunded"  — generation failed; entry tombstoned; credits unchanged.
+ */
+model UsageLedgerEntry {
+  id             String    @id @default(cuid())
+  /// Stable per-request key — prevents double-charge on retry.
+  idempotencyKey String    @unique
+  userId         String
+  /// Logical operation name, e.g. "generate" or "generate-deck".
+  operation      String
+  creditCost     Int
+  /// One of: "reserved" | "captured" | "refunded"
+  status         String    @default("reserved")
+  reservedAt     DateTime  @default(now())
+  capturedAt     DateTime?
+  refundedAt     DateTime?
+
+  @@index([userId])
+  @@index([status])
+}

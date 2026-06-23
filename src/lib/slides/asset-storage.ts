@@ -1,10 +1,15 @@
 /**
- * Storage adapter abstraction for slide assets (Epic #374).
+ * Storage adapter abstraction for slide assets (Epic #374, #479, #480).
  *
- * Provides a testable interface for persisting uploaded asset bytes and
- * returning a publicly accessible URL. The default adapter writes files to the
- * Next.js `public/slide-assets/` directory and returns a root-relative URL,
- * making it work out of the box in development without any extra infrastructure.
+ * Provides a testable interface for persisting, reading, and deleting uploaded
+ * asset bytes and returning a protected delivery URL. The default adapter
+ * writes files to `storage/slide-assets/` (non-public) and returns a
+ * root-relative URL under `/api/slide-assets/`, which enforces document-scoped
+ * auth before serving the bytes.
+ *
+ * Legacy assets stored in `public/slide-assets/` continue to be served by
+ * Next.js's static file server under `/slide-assets/…` — no migration of
+ * existing files is required.
  *
  * Swap the default by calling `setDefaultStorageAdapter` before the first
  * request — useful in tests and in future cloud deployments (S3, Azure Blob…).
@@ -18,17 +23,27 @@ import path from "node:path";
 // ---------------------------------------------------------------------------
 
 /**
- * Minimal contract for a slide-asset storage backend.
+ * Contract for a slide-asset storage backend.
  *
  * @param key      - Opaque storage key (e.g. `${documentId}/${checksum}.png`).
  * @param buffer   - Raw file bytes to persist.
  * @param mimeType - MIME type of the stored file.
- * @returns A publicly accessible URL for the stored asset.
+ * @returns A URL through which the stored asset can be retrieved.
  */
 export interface AssetStorageAdapter {
   store(key: string, buffer: Buffer, mimeType: string): Promise<string>;
-  /** Returns the public URL for an existing storage key without writing. */
+  /** Returns the URL for an existing storage key without writing. */
   urlFor(key: string): string;
+  /**
+   * Reads the raw bytes for the given storage key.
+   * Throws (ENOENT-like) when the file does not exist.
+   */
+  read(key: string): Promise<Buffer>;
+  /**
+   * Deletes the file for the given storage key.
+   * Must be idempotent: no-op if the file is already absent.
+   */
+  delete(key: string): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -36,17 +51,22 @@ export interface AssetStorageAdapter {
 // ---------------------------------------------------------------------------
 
 /**
- * Writes assets to `{rootDir}/{key}` and serves them at `{baseUrl}/{key}`.
+ * Writes assets to `{rootDir}/{key}` and serves them via `{baseUrl}/{key}`.
  *
- * The default instance uses `<cwd>/public/slide-assets` as the root so
- * Next.js's built-in static file server exposes them at `/slide-assets/{key}`.
+ * The default instance uses `<cwd>/storage/slide-assets` (a NON-public
+ * directory) so assets are not reachable via Next.js's static file server.
+ * All reads must go through the authorised `/api/slide-assets/…` route.
  * Intermediate directories are created automatically on first write.
+ *
+ * Legacy assets stored in the old `public/slide-assets/` directory continue
+ * to be served by Next.js's built-in static file server under `/slide-assets/…`
+ * — no migration is required for existing decks.
  */
 export class LocalAssetStorageAdapter implements AssetStorageAdapter {
   constructor(
     /** Absolute directory where assets are written. */
     readonly rootDir: string,
-    /** Base URL prefix prepended to the key in the returned public URL. */
+    /** Base URL prefix prepended to the key in the returned URL. */
     readonly baseUrl: string,
   ) {}
 
@@ -64,6 +84,14 @@ export class LocalAssetStorageAdapter implements AssetStorageAdapter {
   urlFor(key: string): string {
     return `${this.baseUrl}/${key}`;
   }
+
+  async read(key: string): Promise<Buffer> {
+    return fs.readFile(path.join(this.rootDir, key));
+  }
+
+  async delete(key: string): Promise<void> {
+    await fs.rm(path.join(this.rootDir, key), { force: true });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -74,16 +102,17 @@ let _defaultAdapter: AssetStorageAdapter | undefined;
 
 /**
  * Returns the process-wide default storage adapter, creating a
- * {@link LocalAssetStorageAdapter} targeting `public/slide-assets/` on first
- * call.
+ * {@link LocalAssetStorageAdapter} targeting `storage/slide-assets/` (a
+ * non-public directory) on first call. Assets are served through the
+ * authorised `/api/slide-assets/…` route rather than the static file server.
  *
  * Override before the first upload by calling {@link setDefaultStorageAdapter}.
  */
 export function getDefaultStorageAdapter(): AssetStorageAdapter {
   if (!_defaultAdapter) {
     _defaultAdapter = new LocalAssetStorageAdapter(
-      path.join(process.cwd(), "public", "slide-assets"),
-      "/slide-assets",
+      path.join(process.cwd(), "storage", "slide-assets"),
+      "/api/slide-assets",
     );
   }
   return _defaultAdapter;

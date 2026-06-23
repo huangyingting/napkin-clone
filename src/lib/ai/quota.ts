@@ -218,27 +218,54 @@ export function checkRateLimit(
  * with a `RateLimitHit` table so the limit is shared across instances; tests
  * back it with an in-memory fake. `get` returns the subject's current window
  * (or `undefined`); `set` persists a window for the subject.
+ *
+ * Cost-bearing stores should implement the optional `atomicIncrement` method
+ * to eliminate the get→compute→set race that can allow a small overshoot under
+ * concurrency. When present, {@link checkRateLimitWithStore} delegates to it
+ * instead of the two-phase read-modify-write (#482).
  */
 export interface RateLimitStore {
   get(key: string): Promise<RateLimitWindow | undefined>;
   set(key: string, window: RateLimitWindow): Promise<void>;
+  /**
+   * Optional atomic increment (#482).
+   *
+   * Performs a single DB-level operation that increments the window count by 1
+   * when `count < limit` and the window has not expired, or resets the window
+   * when it has expired.
+   *
+   * Returns the resulting {@link RateLimitResult} directly. When this method is
+   * present, {@link checkRateLimitWithStore} uses it instead of the two-phase
+   * get → compute → set path, eliminating the race where two concurrent
+   * requests each read the same count and both succeed past the limit.
+   *
+   * Guarantee: the number of allowed increments within a window is bounded to
+   * exactly `limit`. An overshoot of ≥1 is not possible as long as the
+   * underlying DB operation is atomic (conditional `updateMany` + upsert).
+   */
+  atomicIncrement?(
+    key: string,
+    options: RateLimitOptions,
+  ): Promise<RateLimitResult>;
 }
 
 /**
- * Store-backed counterpart of {@link checkRateLimit}. Reads the current window
- * from `store`, applies the same {@link computeRateLimit} decision, and
- * persists the next window when the request is allowed.
+ * Store-backed counterpart of {@link checkRateLimit}. When the store provides
+ * {@link RateLimitStore.atomicIncrement}, delegates to it for an atomically
+ * bounded guarantee (no overshoot, #482). Otherwise falls back to the
+ * read-modify-write path.
  *
- * Read-modify-write across instances has a small race under high concurrency
- * (two instances may both read the same window and each allow one extra hit);
- * this is acceptable for a soft quota and preserves the existing semantics. A
- * shared store still enforces the limit globally rather than per instance.
+ * The atomic path ensures that exactly `limit` requests succeed per window
+ * even under high concurrency across multiple instances.
  */
 export async function checkRateLimitWithStore(
   store: RateLimitStore,
   key: string,
   options: RateLimitOptions,
 ): Promise<RateLimitResult> {
+  if (store.atomicIncrement) {
+    return store.atomicIncrement(key, options);
+  }
   const { result, next } = computeRateLimit(await store.get(key), options);
   if (next) {
     await store.set(key, next);
