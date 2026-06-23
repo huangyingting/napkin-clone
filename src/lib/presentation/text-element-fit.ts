@@ -234,6 +234,49 @@ export function shrinkFontSizeToFit(
   return Math.max(minFontSizePct, lo);
 }
 
+/**
+ * The single editor-side text/bullets fitting path (#540).
+ *
+ * Returns a copy of `element` whose `box` has been measured-and-fitted to its
+ * content via `fitNewTextElementBox`. Both manual insertion (`fitInsertedText`
+ * in the slide editor) and any document-derived normalisation route through
+ * this one helper so equivalent text — regardless of origin — yields an
+ * identical box once the stage size (and therefore the `measurer`) is known.
+ *
+ * Pure and DOM-free given an injected {@link TextResizeMeasurer}, so it is unit
+ * testable with a mock measurer.
+ */
+export function fitTextLikeElement<T extends TextLikeElement>(
+  element: T,
+  measurer: TextResizeMeasurer,
+  anchor: "top-left" | "center" = "top-left",
+): T {
+  return {
+    ...element,
+    box: fitNewTextElementBox(element, element.box, measurer, anchor),
+  };
+}
+
+/**
+ * Geometry decision for the inline text editor's auto-height effect (#540).
+ *
+ * Returns the box the live edit should grow/shrink to, or `null` when no
+ * geometry should be written. Crucially it returns `null` until the user has
+ * actually changed the content (`contentChanged === false`) so that *entering*
+ * inline edit mode never moves or resizes the element — document-derived
+ * elements (whose stored box does not hug their content) no longer jump on the
+ * first edit-mount. Non auto-height elements (`fixed-box` / `shrink-to-fit`)
+ * keep their stored box and so always return `null`.
+ */
+export function inlineEditAutoHeightBox(
+  element: TextLikeElement,
+  contentHeightPct: number,
+  contentChanged: boolean,
+): ElementBox | null {
+  if (!contentChanged || !isAutoHeight(element)) return null;
+  return { ...element.box, h: contentHeightPct };
+}
+
 export function fitNewTextElementBox(
   element: TextLikeElement,
   box: ElementBox,

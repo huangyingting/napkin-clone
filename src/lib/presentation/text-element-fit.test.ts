@@ -14,6 +14,8 @@ import { test } from "node:test";
 import type { TextLikeElement, TextResizeMeasurer } from "./text-element-fit";
 import {
   fitNewTextElementBox,
+  fitTextLikeElement,
+  inlineEditAutoHeightBox,
   isAutoHeight,
   shrinkFontSizeToFit,
   textFitPaddingPct,
@@ -225,4 +227,75 @@ test("fitNewTextElementBox clamps to slide boundaries", () => {
   const result = fitNewTextElementBox(el, box, measurer);
   assert.ok(result.x >= 0 && result.x + result.w <= 100, "X out of bounds");
   assert.ok(result.y >= 0 && result.y + result.h <= 100, "Y out of bounds");
+});
+
+// ---------------------------------------------------------------------------
+// fitTextLikeElement — the single shared fitting path (#540)
+// ---------------------------------------------------------------------------
+
+test("fitTextLikeElement produces identical boxes for derived and inserted elements", () => {
+  // A document-derived element carries a broad layout box; a manually inserted
+  // element carries the default insert box. Same content, style and origin
+  // (x/y) → the shared helper must yield an identical fitted box so derived and
+  // inserted text share one geometry path.
+  const measurer = mockMeasurer(1);
+  const derived = textEl({ fontSize: 5 });
+  derived.box = { x: 6, y: 26, w: 88, h: 66 };
+  const inserted = textEl({ fontSize: 5 });
+  inserted.box = { x: 6, y: 26, w: 50, h: 30 };
+
+  const derivedFit = fitTextLikeElement(derived, measurer);
+  const insertedFit = fitTextLikeElement(inserted, measurer);
+
+  assert.deepEqual(derivedFit.box, insertedFit.box);
+  // And it matches the underlying primitive applied to the same origin box.
+  assert.deepEqual(
+    derivedFit.box,
+    fitNewTextElementBox(inserted, inserted.box, measurer),
+  );
+});
+
+test("fitTextLikeElement keeps the element's other fields and honours anchor", () => {
+  const measurer = mockMeasurer(1);
+  const el = textEl({ fontSize: 5 });
+  el.box = { x: 0, y: 0, w: 60, h: 40 };
+  const fitted = fitTextLikeElement(el, measurer, "center");
+  assert.equal(fitted.kind, "text");
+  assert.equal(fitted.style.fontSize, el.style.fontSize);
+  // center anchor re-centres within the original box
+  assert.ok(Math.abs(fitted.box.x + fitted.box.w / 2 - 30) < 0.5);
+});
+
+// ---------------------------------------------------------------------------
+// inlineEditAutoHeightBox — edit-mount geometry guard (#540)
+// ---------------------------------------------------------------------------
+
+test("inlineEditAutoHeightBox withholds geometry until the content changes", () => {
+  const el = textEl({ fitMode: "auto-height" });
+  // Entering edit (no change yet) must not write geometry.
+  assert.equal(inlineEditAutoHeightBox(el, 42, false), null);
+});
+
+test("inlineEditAutoHeightBox emits the fitted height once the content changes", () => {
+  const el = textEl({ fitMode: "auto-height" });
+  const box = inlineEditAutoHeightBox(el, 42, true);
+  assert.deepEqual(box, { x: el.box.x, y: el.box.y, w: el.box.w, h: 42 });
+});
+
+test("inlineEditAutoHeightBox never writes geometry for non auto-height modes", () => {
+  for (const fitMode of ["fixed-box", "shrink-to-fit"] as const) {
+    const el = textEl({ fitMode });
+    assert.equal(inlineEditAutoHeightBox(el, 42, true), null);
+  }
+});
+
+test("inlineEditAutoHeightBox grows bullets auto-height boxes on content change", () => {
+  const el = bulletsEl(5);
+  assert.equal(inlineEditAutoHeightBox(el, 99, false), null);
+  assert.deepEqual(inlineEditAutoHeightBox(el, 30, true), {
+    x: el.box.x,
+    y: el.box.y,
+    w: el.box.w,
+    h: 30,
+  });
 });

@@ -183,7 +183,7 @@ import type {
 } from "@/lib/visual/document-export";
 import {
   createTextResizeMeasurer,
-  fitNewTextElementBox,
+  fitTextLikeElement,
   type TextLikeElement,
 } from "@/lib/presentation/text-element-fit";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
@@ -845,10 +845,7 @@ export function SlideEditor({
         return element;
       }
       const measurer = createTextResizeMeasurer(stageWidth, stageHeight);
-      return {
-        ...element,
-        box: fitNewTextElementBox(element, element.box, measurer, anchor),
-      };
+      return fitTextLikeElement(element, measurer, anchor);
     },
     [fittedStageSize.height, fittedStageSize.width, zoom],
   );

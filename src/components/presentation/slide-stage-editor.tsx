@@ -102,6 +102,7 @@ import {
 } from "@/lib/presentation/connector-geometry";
 import {
   createTextResizeMeasurer,
+  inlineEditAutoHeightBox,
   isAutoHeight,
   textFitPaddingPct,
   type TextLikeElement,
@@ -2838,6 +2839,14 @@ function InlineTextEditor({
   // the caret while the user types.
   const caretRef = useRef(caretClient);
 
+  // Inline-edit geometry guard (#540): the serialized content captured on the
+  // first emit (mount) is the baseline; geometry is only written once the live
+  // content diverges from it. This stops document-derived elements (whose
+  // stored box does not hug their content) from jumping when edit mode mounts
+  // or on a no-op blur — they only refit after the user actually edits.
+  const baselineSigRef = useRef<string | null>(null);
+  const contentChangedRef = useRef(false);
+
   // Per-item indent / listType metadata for bullets (#335).
   // Seeded from the element on mount, updated via Tab/Shift+Tab.
   const itemMetaRef = useRef<
@@ -2847,23 +2856,39 @@ function InlineTextEditor({
   const emitChange = useCallback(() => {
     const node = ref.current;
     if (!node) return;
+    const { text, runs } = serializeRichText(node);
+    // Track whether the user has actually changed the seeded content. The first
+    // emit (mount) establishes the baseline; geometry is withheld until the
+    // content diverges from it so entering edit mode never moves/resizes the
+    // element (#540).
+    const signature = JSON.stringify({ text, runs });
+    if (baselineSigRef.current === null) {
+      baselineSigRef.current = signature;
+    } else if (signature !== baselineSigRef.current) {
+      contentChangedRef.current = true;
+    }
     // Auto-height mode: grow the box to fit the live content so a multi-line
     // edit expands the frame instead of clipping. Fixed-box and shrink-to-fit
     // keep the stored height; content is clipped or scaled by the renderer
-    // (#333). Shapes never auto-grow (they have no fitMode).
-    const autoH = kind !== "shape" && isAutoHeight(element as TextLikeElement);
-    const box = autoH
-      ? clampBox({
-          ...element.box,
-          h: (node.scrollHeight / stageHeight) * 100 + AUTO_FIT_PADDING_PCT * 2,
-        })
-      : element.box;
-    const { text, runs } = serializeRichText(node);
+    // (#333). Shapes never auto-grow (they have no fitMode). The fit is only
+    // applied once the user has changed the content (#540).
+    const contentHeightPct =
+      (node.scrollHeight / stageHeight) * 100 + AUTO_FIT_PADDING_PCT * 2;
+    const fittedBox =
+      kind === "shape"
+        ? null
+        : inlineEditAutoHeightBox(
+            element as TextLikeElement,
+            contentHeightPct,
+            contentChangedRef.current,
+          );
+    const includeBox = fittedBox !== null;
+    const box = fittedBox ? clampBox(fittedBox) : element.box;
     if (kind === "text") {
       onChange({
         text,
         runs: shouldStoreRuns(runs) ? runs : undefined,
-        ...(autoH ? { box } : {}),
+        ...(includeBox ? { box } : {}),
       });
       return;
     }
@@ -2898,7 +2923,7 @@ function InlineTextEditor({
       bulletRuns: hasRichBullets ? lines.map((line) => line.runs) : undefined,
       // Persist items[] whenever there's any indent/listType metadata (#335).
       ...(hasMeta || items.length !== lines.length ? { items } : {}),
-      ...(autoH ? { box } : {}),
+      ...(includeBox ? { box } : {}),
     });
   }, [kind, onChange, stageHeight, element]);
 
@@ -2950,7 +2975,9 @@ function InlineTextEditor({
         selection.addRange(range);
       }
     }
-    // Fit the frame to the seeded content straight away.
+    // Establish the content baseline on mount. emitChange withholds geometry
+    // until the user actually edits, so entering edit mode never moves/resizes
+    // the element (#540); content (text/runs) is seeded out unchanged.
     emitChange();
     // Mount-only: intentionally not re-seeding on element changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
