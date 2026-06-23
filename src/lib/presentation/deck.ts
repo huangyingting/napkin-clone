@@ -37,7 +37,6 @@ import {
   SLIDE_FORMATS as PRESENTATION_SLIDE_FORMATS,
   type SlideFormat as PresentationSlideFormat,
 } from "@/lib/presentation/slide-format";
-import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck-migration";
 import type { DocumentBlock } from "@/lib/visual/document-export";
 import type {
   DeckThemeTokenSet,
@@ -75,6 +74,9 @@ export {
 // ---------------------------------------------------------------------------
 // Deck / Slide types
 // ---------------------------------------------------------------------------
+
+/** Increment this for future structural deck schema changes. */
+export const CURRENT_DECK_SCHEMA_VERSION = 2;
 
 /**
  * Canonical presentation theme names — mirrors the Visual theme palette names.

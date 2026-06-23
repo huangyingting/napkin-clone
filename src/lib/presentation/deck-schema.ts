@@ -13,6 +13,7 @@ import {
   IMAGE_MASK_SHAPES,
   PLACEHOLDER_TYPES,
   SLIDE_LAYOUTS,
+  CURRENT_DECK_SCHEMA_VERSION,
   type BaseElement,
   type BulletItem,
   type ConnectorAnchor,
@@ -39,7 +40,6 @@ import {
   type TextFitMode,
   type TextRun,
 } from "./deck";
-import { CURRENT_DECK_SCHEMA_VERSION } from "./deck-migration";
 import {
   DEFAULT_SLIDE_FORMAT,
   SLIDE_FORMATS,
