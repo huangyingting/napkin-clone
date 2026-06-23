@@ -26,6 +26,7 @@ import { injectBrandFontFace } from "@/lib/brand/font-face";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { applyTheme } from "@/lib/visual/transforms";
 import { applyElasticLayout } from "@/lib/visual/transforms";
+import { applyVisualCommand } from "@/lib/commands/visual-command-adapter";
 
 import { VisualNode } from "./visual-node";
 
@@ -93,8 +94,19 @@ function ThemeSection() {
       editor.update(() => {
         const nodes = $nodesOfType(VisualNode);
         for (const node of nodes) {
+          const visual = node.getVisual();
+          const visualId = node.getVisualId();
+          // Route through visual command executor so edits carry command metadata
+          // (patches, side effects, source staleness). Direct applyTheme fallback
+          // is intentionally kept for safety.
+          const result = applyVisualCommand(visual, visualId, {
+            op: "visual.apply_theme",
+            themeId,
+          });
           node.setVisual(
-            applyElasticLayout(applyTheme(node.getVisual(), themeId)),
+            applyElasticLayout(
+              result.ok ? result.visual : applyTheme(visual, themeId),
+            ),
           );
         }
       });

@@ -8,7 +8,8 @@
  * 1. Re-fetches deckJson from the server on every open (catches remote edits).
  * 2. Falls back to the last locally-saved deck (updated after each save).
  * 3. Falls back to the base deck derived from the Lexical editor state.
- * Saves go through the owner-scoped `saveDeckJson` server action.
+ * Saves use patch autosave first (`saveDeckPatch`), with owner-scoped
+ * `saveDeckJson` whole-deck fallback.
  *
  * When AI deck generation is enabled (client flag), opening the editor first
  * presents a chooser (issue #268): "Generate with AI" (with length/tone/audience
@@ -30,6 +31,7 @@ import {
 import {
   fetchDeckJson,
   saveDeckJson,
+  saveDeckPatch,
   type SaveDeckResult,
 } from "@/app/app/documents/[id]/actions";
 import { ConflictRecoveryDialog } from "@/components/presentation/conflict-recovery-dialog";
@@ -45,6 +47,7 @@ import type { DeckGenerationOptions } from "@/lib/ai/use-deck-generation";
 import { deckEditDistance } from "@/lib/ai/deck-metrics";
 import { logInfo } from "@/lib/log";
 import { buildDeckFromBlocks, type Deck } from "@/lib/presentation/deck";
+import type { DeckPatch } from "@/lib/presentation/slide-commands";
 import { materializeDeck } from "@/lib/presentation/deck-mutations";
 import {
   computeDeckContentHash,
@@ -53,6 +56,7 @@ import {
 } from "@/lib/presentation/deck-hash";
 import { pickFreshestDeck } from "@/lib/presentation/fresh-deck";
 import { inferDeckTheme } from "@/lib/presentation/infer-theme";
+import { attemptPatchAutosave } from "@/lib/presentation/patch-autosave";
 import { mergeSwatches } from "@/lib/presentation/text-style";
 import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
 import { findStaleSourceLinks } from "@/lib/presentation/source-link-staleness";
@@ -420,23 +424,23 @@ export function SlideEditorButton({
   }, [closeSlideEditor]);
 
   const handleSave = useCallback(
-    async (updatedDeck: Deck): Promise<ActionResult> => {
-      const res: SaveDeckResult = await saveDeckJson(
+    async (
+      updatedDeck: Deck,
+      patches: DeckPatch[] = [],
+    ): Promise<ActionResult> => {
+      const result = await attemptPatchAutosave(
         documentId,
         updatedDeck,
+        patches,
         revisionTokenRef.current,
+        saveDeckPatch,
+        saveDeckJson,
       );
-      if (res.ok === true) {
-        // Keep lastSavedRef and revisionTokenRef current so subsequent saves
-        // use the latest token without requiring a full re-fetch.
-        lastSavedRef.current = updatedDeck;
-        revisionTokenRef.current = res.revisionToken;
 
-        // Post-apply edit-distance signal (issue #270): on the FIRST successful
-        // save of a deck that originated from AI apply, log how much the user
-        // changed it. Content-free (only counts) and best-effort — never blocks
-        // or fails the save. Cleared after one emit so we capture the initial
-        // tweak, not every later autosave.
+      if (result.ok === true) {
+        lastSavedRef.current = updatedDeck;
+        revisionTokenRef.current = result.revisionToken;
+
         const aiBaseline = aiAppliedDeckRef.current;
         if (aiBaseline) {
           aiAppliedDeckRef.current = null;
@@ -450,24 +454,22 @@ export function SlideEditorButton({
               distance: distance.distance,
             });
           } catch {
-            // Signal logging is best-effort and must never affect the save.
+            // Best-effort.
           }
         }
         return { ok: true, data: undefined };
       }
-      if (res.ok === "conflict") {
-        // Surface the conflict recovery dialog (#404) instead of a generic error.
+      if (result.ok === "conflict") {
         setConflictState({
           localDeck: updatedDeck,
-          serverRevisionToken: res.serverRevisionToken,
+          serverRevisionToken: result.serverRevisionToken,
         });
         return {
           ok: false,
           error: "Save conflict: another session modified this deck.",
         };
       }
-      // Validation / server error — propagate as-is.
-      return res;
+      return { ok: false, error: result.error };
     },
     [documentId],
   );

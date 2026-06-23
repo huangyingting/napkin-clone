@@ -120,38 +120,15 @@ import {
   shouldPersist,
   shouldScheduleAutosave,
 } from "@/lib/presentation/save-status";
-import { executeCommand } from "@/lib/presentation/slide-commands";
+import {
+  commitCommand,
+  executeCommand,
+  type DeckPatch,
+} from "@/lib/presentation/slide-commands";
 import {
   addElement,
-  applySlideLayout,
-  alignElements,
-  arrangeSelectedElements,
-  bringElementToFront,
-  distributeElements,
-  duplicateElement,
   duplicateElements,
-  groupElements,
   insertSlide,
-  matchSizeElements,
-  materializeSlide,
-  moveSlide,
-  removeElement,
-  removeElements,
-  nudgeElements,
-  resetSlideLayout,
-  sendElementToBack,
-  setDeckSlideFormat,
-  setDeckTheme,
-  setElementBoxes,
-  setElementPatches,
-  setSlideAccent,
-  setSlideBackground,
-  setSlideBackgroundAsset,
-  setSlideBackgroundGradient,
-  setSlideBackgroundImage,
-  ungroupElements,
-  updateElement,
-  updateSlide,
   type DistributiveOmit,
   type ElementPatch,
 } from "@/lib/presentation/deck-mutations";
@@ -229,7 +206,7 @@ interface SlideEditorProps {
    * save-status badge and offer a working Retry on error. Used by both the
    * debounced autosave and the explicit Save button (a single save path).
    */
-  onSave: (deck: Deck) => Promise<ActionResult>;
+  onSave: (deck: Deck, patches: DeckPatch[]) => Promise<ActionResult>;
   /**
    * The deck freshly derived from the live document (`buildDeckFromBlocks`),
    * carrying the current document content hash. Drives the "Sync from document"
@@ -261,6 +238,24 @@ const THEME_OPTIONS: { value: DeckTheme; label: string; color: string }[] = [
   { value: "grape", label: "Grape", color: "#c084fc" },
   { value: "default", label: "Default", color: "#a1a1aa" },
 ];
+
+function appendPendingPatches(
+  pendingPatchesRef: { current: DeckPatch[] },
+  patches: DeckPatch[],
+) {
+  pendingPatchesRef.current = [...pendingPatchesRef.current, ...patches];
+}
+
+function clearPendingPatches(pendingPatchesRef: { current: DeckPatch[] }) {
+  pendingPatchesRef.current = [];
+}
+
+function replacePendingPatches(
+  pendingPatchesRef: { current: DeckPatch[] },
+  patches: DeckPatch[],
+) {
+  pendingPatchesRef.current = patches;
+}
 
 /** Builds a freshly-positioned element for the "Add" buttons. */
 function buildDefaultElement(
@@ -507,6 +502,21 @@ export function SlideEditor({
   // before anything has been saved. Lets `flushSave` skip redundant network
   // writes when an edit serializes identically to what is already saved (#247).
   const lastSavedSerializedRef = useRef<string | null>(null);
+  // Accumulated serializable patches emitted by committed commands. Cleared when
+  // passed to onSave (or on undo/redo which invalidates the accumulated history).
+  const pendingPatchesRef = useRef<DeckPatch[]>([]);
+
+  // Single commit path for command-based handlers: runs commitCommand, accumulates
+  // patches, then calls onDeckChange with the correct commitOptions.
+  const doCommitAndChange = useCallback(
+    (deck: Deck, cmd: Parameters<typeof commitCommand>[1]) => {
+      const { result, commitOptions, patches } = commitCommand(deck, cmd);
+      if (!result.ok) return;
+      appendPendingPatches(pendingPatchesRef, patches);
+      onDeckChange(result.deck, commitOptions);
+    },
+    [onDeckChange],
+  );
 
   // Persists the latest deck immediately, cancelling any pending debounce. Both
   // the autosave timer and the manual Save / Retry buttons route through here so
@@ -529,11 +539,13 @@ export function SlideEditor({
       setSaveErrorMessage(null);
       return;
     }
+    const patchSnapshot = pendingPatchesRef.current;
+    clearPendingPatches(pendingPatchesRef);
     setIsSaving(true);
     setHasSaveError(false);
     setSaveErrorMessage(null);
     try {
-      const res = await onSave(deckToSave);
+      const res = await onSave(deckToSave, patchSnapshot);
       if (res.ok) {
         lastSavedSerializedRef.current = serialized;
         // Only clear the dirty flag if no newer edit was queued mid-save.
@@ -541,10 +553,16 @@ export function SlideEditor({
           setIsDirty(false);
         }
       } else {
+        if (latestDeckRef.current === deckToSave) {
+          replacePendingPatches(pendingPatchesRef, patchSnapshot);
+        }
         setHasSaveError(true);
         setSaveErrorMessage(res.error);
       }
     } catch {
+      if (latestDeckRef.current === deckToSave) {
+        replacePendingPatches(pendingPatchesRef, patchSnapshot);
+      }
       setHasSaveError(true);
     } finally {
       setIsSaving(false);
@@ -752,16 +770,16 @@ export function SlideEditor({
 
   const handleThemeChange = useCallback(
     (theme: DeckTheme) => {
-      onDeckChange(setDeckTheme(deck, theme));
+      doCommitAndChange(deck, { type: "SET_DECK_THEME", theme });
     },
-    [deck, onDeckChange],
+    [deck, doCommitAndChange],
   );
 
   const handleSlideFormatChange = useCallback(
     (slideFormat: SlideFormat) => {
-      onDeckChange(setDeckSlideFormat(deck, slideFormat));
+      doCommitAndChange(deck, { type: "SET_DECK_FORMAT", slideFormat });
     },
-    [deck, onDeckChange],
+    [deck, doCommitAndChange],
   );
 
   // Shared renderer for a single theme swatch button, reused by the inline
@@ -811,6 +829,7 @@ export function SlideEditor({
         slideFormat: deck.slideFormat,
       });
       const next = insertSlide(deck, deck.slides.length - 1, slide);
+      clearPendingPatches(pendingPatchesRef);
       onDeckChange(next);
       setSelectedIndex(next.slides.length - 1);
       setAddTemplateOpen(false);
@@ -826,6 +845,7 @@ export function SlideEditor({
         visualId,
       });
       const next = insertSlide(deck, deck.slides.length - 1, slide);
+      clearPendingPatches(pendingPatchesRef);
       onDeckChange(next);
       setSelectedIndex(next.slides.length - 1);
       setSpotlightPickerOpen(false);
@@ -836,14 +856,13 @@ export function SlideEditor({
   const handleAddSlide = useCallback(
     (afterIndex: number) => {
       const afterSlideId = deck.slides[afterIndex]?.id ?? null;
-      const result = executeCommand(deck, { type: "ADD_SLIDE", afterSlideId });
+      const { result, commitOptions, patches } = commitCommand(deck, {
+        type: "ADD_SLIDE",
+        afterSlideId,
+      });
       if (!result.ok) return;
-      onDeckChange(
-        result.deck,
-        result.historyKey !== undefined
-          ? { coalesceKey: result.historyKey }
-          : undefined,
-      );
+      appendPendingPatches(pendingPatchesRef, patches);
+      onDeckChange(result.deck, commitOptions);
       setSelectedIndex(Math.min(afterIndex + 1, result.deck.slides.length - 1));
     },
     [deck, onDeckChange],
@@ -851,11 +870,14 @@ export function SlideEditor({
 
   const handleMove = useCallback(
     (index: number, direction: number) => {
-      const next = moveSlide(deck, index, direction);
-      if (next === deck) {
-        return;
-      }
-      onDeckChange(next);
+      const { result, commitOptions, patches } = commitCommand(deck, {
+        type: "MOVE_SLIDE",
+        slideIndex: index,
+        direction,
+      });
+      if (!result.ok) return;
+      appendPendingPatches(pendingPatchesRef, patches);
+      onDeckChange(result.deck, commitOptions);
       setSelectedIndex(index + (direction > 0 ? 1 : -1));
     },
     [deck, onDeckChange],
@@ -865,14 +887,13 @@ export function SlideEditor({
     (index: number) => {
       const slideId = deck.slides[index]?.id;
       if (!slideId) return;
-      const result = executeCommand(deck, { type: "DUPLICATE_SLIDE", slideId });
+      const { result, commitOptions, patches } = commitCommand(deck, {
+        type: "DUPLICATE_SLIDE",
+        slideId,
+      });
       if (!result.ok) return;
-      onDeckChange(
-        result.deck,
-        result.historyKey !== undefined
-          ? { coalesceKey: result.historyKey }
-          : undefined,
-      );
+      appendPendingPatches(pendingPatchesRef, patches);
+      onDeckChange(result.deck, commitOptions);
       setSelectedIndex(index + 1);
     },
     [deck, onDeckChange],
@@ -882,14 +903,13 @@ export function SlideEditor({
     (index: number) => {
       const slideId = deck.slides[index]?.id;
       if (!slideId) return;
-      const result = executeCommand(deck, { type: "REMOVE_SLIDE", slideId });
+      const { result, commitOptions, patches } = commitCommand(deck, {
+        type: "REMOVE_SLIDE",
+        slideId,
+      });
       if (!result.ok) return;
-      onDeckChange(
-        result.deck,
-        result.historyKey !== undefined
-          ? { coalesceKey: result.historyKey }
-          : undefined,
-      );
+      appendPendingPatches(pendingPatchesRef, patches);
+      onDeckChange(result.deck, commitOptions);
       setSelectedIndex((current) =>
         Math.max(0, Math.min(current, deck.slides.length - 2)),
       );
@@ -899,25 +919,38 @@ export function SlideEditor({
 
   const handleTitleChange = useCallback(
     (index: number, title: string) => {
-      onDeckChange(updateSlide(deck, index, { title }));
+      const slideId = deck.slides[index]?.id;
+      if (!slideId) return;
+      doCommitAndChange(deck, { type: "UPDATE_SLIDE_TITLE", slideId, title });
     },
-    [deck, onDeckChange],
+    [deck, doCommitAndChange],
   );
 
   const handleLayoutChange = useCallback(
     (index: number, layout: SlideLayoutHint) => {
-      onDeckChange(updateSlide(deck, index, { layout }));
+      const slideId = deck.slides[index]?.id;
+      if (!slideId) return;
+      doCommitAndChange(deck, {
+        type: "UPDATE_SLIDE_LAYOUT_HINT",
+        slideId,
+        layout,
+      });
     },
-    [deck, onDeckChange],
+    [deck, doCommitAndChange],
   );
 
   const handleApplyReusableLayout = useCallback(
     (layout: ReusableSlideLayout) => {
-      onDeckChange(applySlideLayout(deck, safeSelected, layout));
+      if (!deck.slides[safeSelected]) return;
+      doCommitAndChange(deck, {
+        type: "APPLY_SLIDE_LAYOUT",
+        slideIndex: safeSelected,
+        layout,
+      });
       setSelectedElementId(null);
       setSelectedElementIds(new Set());
     },
-    [deck, onDeckChange, safeSelected],
+    [deck, doCommitAndChange, safeSelected],
   );
 
   const handleResetReusableLayout = useCallback(
@@ -930,11 +963,16 @@ export function SlideEditor({
       ) {
         return;
       }
-      onDeckChange(resetSlideLayout(deck, safeSelected, layout));
+      if (!deck.slides[safeSelected]) return;
+      doCommitAndChange(deck, {
+        type: "RESET_SLIDE_LAYOUT",
+        slideIndex: safeSelected,
+        layout,
+      });
       setSelectedElementId(null);
       setSelectedElementIds(new Set());
     },
-    [deck, onDeckChange, safeSelected],
+    [deck, doCommitAndChange, safeSelected],
   );
 
   // ── Element clipboard (copy / cut / paste), shared by the keyboard handler
@@ -964,10 +1002,16 @@ export function SlideEditor({
     const copied = slideEls.filter((el) => ids.includes(el.id));
     if (copied.length === 0) return;
     clipboardRef.current = copied.map((el) => structuredClone(el));
-    onDeckChange(removeElements(deck, safeSelected, ids));
+    const slideId = deck.slides[safeSelected]?.id;
+    if (!slideId) return;
+    doCommitAndChange(deck, {
+      type: "REMOVE_ELEMENTS",
+      slideId,
+      elementIds: ids,
+    });
     setSelectedElementId(null);
     setSelectedElementIds(new Set());
-  }, [deck, safeSelected, onDeckChange, selectedElementIdList]);
+  }, [deck, safeSelected, doCommitAndChange, selectedElementIdList]);
 
   const handlePasteElements = useCallback(() => {
     const clip = clipboardRef.current;
@@ -986,10 +1030,21 @@ export function SlideEditor({
       delete (clone as { zIndex?: number }).zIndex;
       nextDeck = addElement(nextDeck, safeSelected, clone);
     }
+    clearPendingPatches(pendingPatchesRef);
     onDeckChange(nextDeck);
     setSelectedElementId(newIds[0] ?? null);
     setSelectedElementIds(new Set(newIds));
   }, [deck, safeSelected, onDeckChange]);
+
+  const handleUndo = useCallback(() => {
+    clearPendingPatches(pendingPatchesRef);
+    undo();
+  }, [undo]);
+
+  const handleRedo = useCallback(() => {
+    clearPendingPatches(pendingPatchesRef);
+    redo();
+  }, [redo]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -1035,15 +1090,15 @@ export function SlideEditor({
       if (mod && (event.key === "z" || event.key === "Z")) {
         event.preventDefault();
         if (event.shiftKey) {
-          redo();
+          handleRedo();
         } else {
-          undo();
+          handleUndo();
         }
         return;
       }
       if (mod && !event.shiftKey && (event.key === "y" || event.key === "Y")) {
         event.preventDefault();
-        redo();
+        handleRedo();
         return;
       }
 
@@ -1069,6 +1124,7 @@ export function SlideEditor({
               ids,
             );
             if (newElementIds.length > 0) {
+              clearPendingPatches(pendingPatchesRef);
               onDeckChange(nextDeck);
               setSelectedElementId(newElementIds[0]);
               setSelectedElementIds(new Set(newElementIds));
@@ -1076,17 +1132,13 @@ export function SlideEditor({
           } else {
             const slideId = kDeck.slides[kSafe]?.id;
             if (slideId) {
-              const result = executeCommand(kDeck, {
+              const { result, commitOptions, patches } = commitCommand(kDeck, {
                 type: "DUPLICATE_SLIDE",
                 slideId,
               });
               if (result.ok) {
-                onDeckChange(
-                  result.deck,
-                  result.historyKey !== undefined
-                    ? { coalesceKey: result.historyKey }
-                    : undefined,
-                );
+                appendPendingPatches(pendingPatchesRef, patches);
+                onDeckChange(result.deck, commitOptions);
                 setSelectedIndex(kSafe + 1);
               }
             }
@@ -1096,17 +1148,13 @@ export function SlideEditor({
         if (key === "n") {
           event.preventDefault();
           const afterSlideId = kDeck.slides[kSafe]?.id ?? null;
-          const result = executeCommand(kDeck, {
+          const { result, commitOptions, patches } = commitCommand(kDeck, {
             type: "ADD_SLIDE",
             afterSlideId,
           });
           if (result.ok) {
-            onDeckChange(
-              result.deck,
-              result.historyKey !== undefined
-                ? { coalesceKey: result.historyKey }
-                : undefined,
-            );
+            appendPendingPatches(pendingPatchesRef, patches);
+            onDeckChange(result.deck, commitOptions);
             setSelectedIndex(
               Math.min(kSafe + 1, result.deck.slides.length - 1),
             );
@@ -1149,9 +1197,16 @@ export function SlideEditor({
               });
               clipboardRef.current = clip;
               if (key === "x") {
-                onDeckChange(removeElements(kDeck, kSafe, ids));
-                setSelectedElementId(null);
-                setSelectedElementIds(new Set());
+                const slideId = kDeck.slides[kSafe]?.id;
+                if (slideId) {
+                  doCommitAndChange(kDeck, {
+                    type: "REMOVE_ELEMENTS",
+                    slideId,
+                    elementIds: ids,
+                  });
+                  setSelectedElementId(null);
+                  setSelectedElementIds(new Set());
+                }
               }
             }
           }
@@ -1189,6 +1244,7 @@ export function SlideEditor({
               }
               nextDeck = addElement(nextDeck, kSafe, clone);
             }
+            clearPendingPatches(pendingPatchesRef);
             onDeckChange(nextDeck);
             setSelectedElementId(newIds[0] ?? null);
             setSelectedElementIds(new Set(newIds));
@@ -1199,17 +1255,13 @@ export function SlideEditor({
           event.preventDefault();
           const slideId = kDeck.slides[kSafe]?.id;
           if (slideId) {
-            const result = executeCommand(kDeck, {
+            const { result, commitOptions, patches } = commitCommand(kDeck, {
               type: "REMOVE_SLIDE",
               slideId,
             });
             if (result.ok) {
-              onDeckChange(
-                result.deck,
-                result.historyKey !== undefined
-                  ? { coalesceKey: result.historyKey }
-                  : undefined,
-              );
+              appendPendingPatches(pendingPatchesRef, patches);
+              onDeckChange(result.deck, commitOptions);
               setSelectedIndex((current) =>
                 Math.max(0, Math.min(current, kDeck.slides.length - 2)),
               );
@@ -1224,6 +1276,10 @@ export function SlideEditor({
         event.preventDefault();
         const ids =
           kElemIds.size > 0 ? [...kElemIds] : kElemId ? [kElemId] : [];
+        const slideId = kDeck.slides[kSafe]?.id;
+        if (!slideId) {
+          return;
+        }
         if (event.shiftKey) {
           // Ungroup: clear groupId from every distinct group among the selected elements.
           const slideEls = kDeck.slides[kSafe]?.elements ?? [];
@@ -1235,25 +1291,30 @@ export function SlideEditor({
           );
           if (gids.size > 0) {
             let nextDeck = kDeck;
+            const patches: DeckPatch[] = [];
             for (const gid of gids) {
-              nextDeck = ungroupElements(nextDeck, kSafe, gid);
+              const committed = commitCommand(nextDeck, {
+                type: "UNGROUP_ELEMENTS",
+                slideId,
+                groupId: gid,
+              });
+              if (!committed.result.ok) {
+                continue;
+              }
+              nextDeck = committed.result.deck;
+              patches.push(...committed.patches);
             }
-            onDeckChange(nextDeck);
-          }
-        } else {
-          // Group: requires at least 2 elements.
-          if (ids.length >= 2) {
-            const { deck: next, groupId } = groupElements(kDeck, kSafe, ids);
-            onDeckChange(next);
-            // Re-select the new group so all members are highlighted.
-            const newGroupEls = (next.slides[kSafe]?.elements ?? [])
-              .filter((el) => (el as { groupId?: string }).groupId === groupId)
-              .map((el) => el.id);
-            if (newGroupEls.length > 0) {
-              setSelectedElementId(newGroupEls[0] ?? null);
-              setSelectedElementIds(new Set(newGroupEls));
+            if (nextDeck !== kDeck) {
+              appendPendingPatches(pendingPatchesRef, patches);
+              onDeckChange(nextDeck);
             }
           }
+        } else if (ids.length >= 2) {
+          doCommitAndChange(kDeck, {
+            type: "GROUP_ELEMENTS",
+            slideId,
+            elementIds: ids,
+          });
         }
         return;
       }
@@ -1271,9 +1332,17 @@ export function SlideEditor({
         // multi-delete / multi-nudge routes through one pure mutation so it is a
         // single undo step.
         const selectedIds = kElemIds.size > 0 ? [...kElemIds] : [selected.id];
+        const slideId = kDeck.slides[kSafe]?.id;
+        if (!slideId) {
+          return;
+        }
         if (event.key === "Delete" || event.key === "Backspace") {
           event.preventDefault();
-          onDeckChange(removeElements(kDeck, kSafe, selectedIds));
+          doCommitAndChange(kDeck, {
+            type: "REMOVE_ELEMENTS",
+            slideId,
+            elementIds: selectedIds,
+          });
           setSelectedElementId(null);
           setSelectedElementIds(new Set());
           return;
@@ -1287,7 +1356,13 @@ export function SlideEditor({
         else if (event.key === "ArrowDown") dy = step;
         if (dx !== 0 || dy !== 0) {
           event.preventDefault();
-          onDeckChange(nudgeElements(kDeck, kSafe, selectedIds, dx, dy));
+          doCommitAndChange(kDeck, {
+            type: "NUDGE_ELEMENTS",
+            slideId,
+            elementIds: selectedIds,
+            dx,
+            dy,
+          });
           return;
         }
       }
@@ -1304,7 +1379,14 @@ export function SlideEditor({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [handleRequestClose, inspectorSheetOpen, onDeckChange, undo, redo]);
+  }, [
+    doCommitAndChange,
+    handleRequestClose,
+    handleRedo,
+    handleUndo,
+    inspectorSheetOpen,
+    onDeckChange,
+  ]);
 
   const handleBulletsChange = useCallback(
     (index: number, value: string) => {
@@ -1312,16 +1394,32 @@ export function SlideEditor({
         .split("\n")
         .map((line) => line.trim())
         .filter((line) => line.length > 0);
-      onDeckChange(updateSlide(deck, index, { bullets }));
+      const slideId = deck.slides[index]?.id;
+      if (!slideId) return;
+      doCommitAndChange(deck, { type: "UPDATE_SLIDE_BODY", slideId, bullets });
     },
-    [deck, onDeckChange],
+    [deck, doCommitAndChange],
   );
 
   const handleNotesChange = useCallback(
     (index: number, notes: string, coalesceKey?: string) => {
+      const slideId = deck.slides[index]?.id;
+      if (!slideId) return;
+      const result = executeCommand(deck, {
+        type: "UPDATE_SLIDE_NOTES",
+        slideId,
+        notes,
+        ...(coalesceKey !== undefined ? { coalesceKey } : {}),
+      });
+      if (!result.ok) return;
+      appendPendingPatches(pendingPatchesRef, result.patches);
       onDeckChange(
-        updateSlide(deck, index, { notes }),
-        coalesceKey !== undefined ? { coalesceKey } : undefined,
+        result.deck,
+        coalesceKey !== undefined
+          ? { coalesceKey }
+          : result.historyKey !== undefined
+            ? { coalesceKey: result.historyKey }
+            : undefined,
       );
     },
     [deck, onDeckChange],
@@ -1403,18 +1501,14 @@ export function SlideEditor({
       if (drag.overIndex !== drag.fromIndex) {
         const slideId = deck.slides[drag.fromIndex]?.id;
         if (slideId) {
-          const result = executeCommand(deck, {
+          const { result, commitOptions, patches } = commitCommand(deck, {
             type: "REORDER_SLIDE",
             slideId,
             toIndex: drag.overIndex,
           });
           if (result.ok) {
-            onDeckChange(
-              result.deck,
-              result.historyKey !== undefined
-                ? { coalesceKey: result.historyKey }
-                : undefined,
-            );
+            appendPendingPatches(pendingPatchesRef, patches);
+            onDeckChange(result.deck, commitOptions);
             setSelectedIndex(drag.overIndex);
           }
         }
@@ -1463,6 +1557,7 @@ export function SlideEditor({
 
   const handleApplySync = useCallback(() => {
     if (!mergePreview) return;
+    clearPendingPatches(pendingPatchesRef);
     onDeckChange(mergePreview.deck);
     setMergePreview(null);
     setStaleResolved(true);
@@ -1533,9 +1628,24 @@ export function SlideEditor({
 
   const handleUpdateElement = useCallback(
     (id: string, patch: ElementPatch, coalesceKey?: string) => {
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
+      const result = executeCommand(deck, {
+        type: "UPDATE_ELEMENT",
+        slideId,
+        elementId: id,
+        patch,
+        ...(coalesceKey !== undefined ? { coalesceKey } : {}),
+      });
+      if (!result.ok) return;
+      appendPendingPatches(pendingPatchesRef, result.patches);
       onDeckChange(
-        updateElement(deck, safeSelected, id, patch),
-        coalesceKey !== undefined ? { coalesceKey } : undefined,
+        result.deck,
+        coalesceKey !== undefined
+          ? { coalesceKey }
+          : result.historyKey !== undefined
+            ? { coalesceKey: result.historyKey }
+            : undefined,
       );
     },
     [deck, onDeckChange, safeSelected],
@@ -1543,9 +1653,23 @@ export function SlideEditor({
 
   const handleSetElementBoxes = useCallback(
     (boxesById: Record<string, ElementBox>, coalesceKey?: string) => {
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
+      const result = executeCommand(deck, {
+        type: "SET_ELEMENT_BOXES",
+        slideId,
+        boxesById,
+        ...(coalesceKey !== undefined ? { coalesceKey } : {}),
+      });
+      if (!result.ok) return;
+      appendPendingPatches(pendingPatchesRef, result.patches);
       onDeckChange(
-        setElementBoxes(deck, safeSelected, boxesById),
-        coalesceKey !== undefined ? { coalesceKey } : undefined,
+        result.deck,
+        coalesceKey !== undefined
+          ? { coalesceKey }
+          : result.historyKey !== undefined
+            ? { coalesceKey: result.historyKey }
+            : undefined,
       );
     },
     [deck, onDeckChange, safeSelected],
@@ -1553,9 +1677,23 @@ export function SlideEditor({
 
   const handleSetElementPatches = useCallback(
     (patchesById: Record<string, ElementPatch>, coalesceKey?: string) => {
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
+      const result = executeCommand(deck, {
+        type: "SET_ELEMENT_PATCHES",
+        slideId,
+        patchesById,
+        ...(coalesceKey !== undefined ? { coalesceKey } : {}),
+      });
+      if (!result.ok) return;
+      appendPendingPatches(pendingPatchesRef, result.patches);
       onDeckChange(
-        setElementPatches(deck, safeSelected, patchesById),
-        coalesceKey !== undefined ? { coalesceKey } : undefined,
+        result.deck,
+        coalesceKey !== undefined
+          ? { coalesceKey }
+          : result.historyKey !== undefined
+            ? { coalesceKey: result.historyKey }
+            : undefined,
       );
     },
     [deck, onDeckChange, safeSelected],
@@ -1564,22 +1702,35 @@ export function SlideEditor({
   const handleGroupElements = useCallback(
     (ids: string[]) => {
       if (ids.length < 2) return;
-      const { deck: next } = groupElements(deck, safeSelected, ids);
-      onDeckChange(next);
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
+      doCommitAndChange(deck, {
+        type: "GROUP_ELEMENTS",
+        slideId,
+        elementIds: ids,
+      });
     },
-    [deck, onDeckChange, safeSelected],
+    [deck, doCommitAndChange, safeSelected],
   );
 
   const handleUngroupElements = useCallback(
     (groupId: string) => {
-      onDeckChange(ungroupElements(deck, safeSelected, groupId));
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
+      doCommitAndChange(deck, { type: "UNGROUP_ELEMENTS", slideId, groupId });
     },
-    [deck, onDeckChange, safeSelected],
+    [deck, doCommitAndChange, safeSelected],
   );
 
   const handleRemoveElement = useCallback(
     (id: string) => {
-      onDeckChange(removeElement(deck, safeSelected, id));
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
+      doCommitAndChange(deck, {
+        type: "REMOVE_ELEMENT",
+        slideId,
+        elementId: id,
+      });
       setSelectedElementId((current) => (current === id ? null : current));
       setSelectedElementIds((current) => {
         if (!current.has(id)) {
@@ -1590,72 +1741,120 @@ export function SlideEditor({
         return next;
       });
     },
-    [deck, onDeckChange, safeSelected],
+    [deck, doCommitAndChange, safeSelected],
   );
 
   const handleDuplicateElement = useCallback(
     (id: string) => {
-      const { deck: next, newElementId } = duplicateElement(
-        deck,
-        safeSelected,
-        id,
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
+      const { result, commitOptions, patches } = commitCommand(deck, {
+        type: "DUPLICATE_ELEMENT",
+        slideId,
+        elementId: id,
+      });
+      if (!result.ok) return;
+      appendPendingPatches(pendingPatchesRef, patches);
+      onDeckChange(result.deck, commitOptions);
+      const newId = result.affectedElementIds.find(
+        (elementId) => elementId !== id,
       );
-      if (newElementId == null) {
-        return;
-      }
-      onDeckChange(next);
-      handleSelectElement(newElementId);
+      if (newId) handleSelectElement(newId);
     },
     [deck, onDeckChange, safeSelected, handleSelectElement],
   );
 
   const handleBringToFront = useCallback(
     (id: string) => {
-      onDeckChange(bringElementToFront(deck, safeSelected, id));
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
+      doCommitAndChange(deck, {
+        type: "BRING_ELEMENT_TO_FRONT",
+        slideId,
+        elementId: id,
+      });
     },
-    [deck, onDeckChange, safeSelected],
+    [deck, doCommitAndChange, safeSelected],
   );
 
   const handleSendToBack = useCallback(
     (id: string) => {
-      onDeckChange(sendElementToBack(deck, safeSelected, id));
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
+      doCommitAndChange(deck, {
+        type: "SEND_ELEMENT_TO_BACK",
+        slideId,
+        elementId: id,
+      });
     },
-    [deck, onDeckChange, safeSelected],
+    [deck, doCommitAndChange, safeSelected],
   );
 
   // ── Multi-select: align, distribute, match-size, arrange (issue #328) ────
 
   const handleAlign = useCallback(
     (ids: string[], mode: AlignMode) => {
-      onDeckChange(alignElements(deck, safeSelected, ids, mode));
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
+      doCommitAndChange(deck, {
+        type: "ALIGN_ELEMENTS",
+        slideId,
+        elementIds: ids,
+        mode,
+      });
     },
-    [deck, onDeckChange, safeSelected],
+    [deck, doCommitAndChange, safeSelected],
   );
 
   const handleDistribute = useCallback(
     (ids: string[], mode: DistributeMode) => {
-      onDeckChange(distributeElements(deck, safeSelected, ids, mode));
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
+      doCommitAndChange(deck, {
+        type: "DISTRIBUTE_ELEMENTS",
+        slideId,
+        elementIds: ids,
+        mode,
+      });
     },
-    [deck, onDeckChange, safeSelected],
+    [deck, doCommitAndChange, safeSelected],
   );
 
   const handleMatchSize = useCallback(
     (ids: string[], mode: MatchSizeMode) => {
-      onDeckChange(matchSizeElements(deck, safeSelected, ids, mode));
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
+      doCommitAndChange(deck, {
+        type: "MATCH_SIZE_ELEMENTS",
+        slideId,
+        elementIds: ids,
+        mode,
+      });
     },
-    [deck, onDeckChange, safeSelected],
+    [deck, doCommitAndChange, safeSelected],
   );
 
   const handleArrange = useCallback(
     (ids: string[], mode: ArrangeMode) => {
-      onDeckChange(arrangeSelectedElements(deck, safeSelected, ids, mode));
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
+      doCommitAndChange(deck, {
+        type: "ARRANGE_ELEMENTS",
+        slideId,
+        elementIds: ids,
+        mode,
+      });
     },
-    [deck, onDeckChange, safeSelected],
+    [deck, doCommitAndChange, safeSelected],
   );
 
   const handleMaterialize = useCallback(() => {
-    onDeckChange(materializeSlide(deck, safeSelected));
-  }, [deck, onDeckChange, safeSelected]);
+    if (!deck.slides[safeSelected]) return;
+    doCommitAndChange(deck, {
+      type: "MATERIALIZE_SLIDE",
+      slideIndex: safeSelected,
+    });
+  }, [deck, doCommitAndChange, safeSelected]);
 
   // Insert ▸ Image: accept callback for the shared upload hook (#299).
   const handleInsertImageAccept = useCallback(
@@ -1663,17 +1862,25 @@ export function SlideEditor({
       const id = insertImagePendingIdRef.current;
       if (!id) return;
       insertImagePendingIdRef.current = null;
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
       const element = {
         ...buildDefaultElement("image", accentForSelected, id),
         src,
         ...(assetId ? { assetId } : {}),
       };
-      onDeckChange(addElement(deck, safeSelected, element));
+      doCommitAndChange(deck, { type: "ADD_ELEMENT", slideId, element });
       handleSelectElement(id);
       setInsertImageError(null);
       setInsertMenuOpen(false);
     },
-    [accentForSelected, deck, handleSelectElement, onDeckChange, safeSelected],
+    [
+      accentForSelected,
+      deck,
+      doCommitAndChange,
+      handleSelectElement,
+      safeSelected,
+    ],
   );
 
   const { handleFile: handleInsertImageFile } = useImageUpload({
@@ -1691,6 +1898,8 @@ export function SlideEditor({
 
   const handleAddElement = useCallback(
     (kind: AddElementKind, shapeKind?: ShapeKind) => {
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
       if (kind === "image") {
         const id = makeElementId();
         insertImagePendingIdRef.current = id;
@@ -1700,7 +1909,7 @@ export function SlideEditor({
         if (!input) {
           // No input ref yet (rare); fall back to empty placeholder.
           const element = buildDefaultElement("image", accentForSelected, id);
-          onDeckChange(addElement(deck, safeSelected, element));
+          doCommitAndChange(deck, { type: "ADD_ELEMENT", slideId, element });
           handleSelectElement(id);
           setInsertMenuOpen(false);
           return;
@@ -1716,7 +1925,7 @@ export function SlideEditor({
           if (insertImagePendingIdRef.current !== id) return;
           insertImagePendingIdRef.current = null;
           const element = buildDefaultElement("image", accentForSelected, id);
-          onDeckChange(addElement(deck, safeSelected, element));
+          doCommitAndChange(deck, { type: "ADD_ELEMENT", slideId, element });
           handleSelectElement(id);
           setInsertMenuOpen(false);
         };
@@ -1752,16 +1961,16 @@ export function SlideEditor({
         rawElement.kind === "text" || rawElement.kind === "bullets"
           ? fitInsertedTextElement(rawElement, "top-left")
           : rawElement;
-      onDeckChange(addElement(deck, safeSelected, element));
+      doCommitAndChange(deck, { type: "ADD_ELEMENT", slideId, element });
       handleSelectElement(id);
       setInsertMenuOpen(false);
     },
     [
       accentForSelected,
       deck,
+      doCommitAndChange,
       fitInsertedTextElement,
       handleSelectElement,
-      onDeckChange,
       safeSelected,
     ],
   );
@@ -1771,7 +1980,8 @@ export function SlideEditor({
   // the new id so the stage can enter inline editing immediately.
   const handleAddTextElement = useCallback(
     (box: ElementBox): string | null => {
-      if (!selectedSlide) return null;
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!selectedSlide || !slideId) return null;
       const id = makeElementId();
       const element: TextLikeElement = {
         ...(buildDefaultElement(
@@ -1782,16 +1992,20 @@ export function SlideEditor({
         box,
       };
       const fitted = fitInsertedTextElement(element, "center");
-      onDeckChange(addElement(deck, safeSelected, fitted));
+      doCommitAndChange(deck, {
+        type: "ADD_ELEMENT",
+        slideId,
+        element: fitted,
+      });
       handleSelectElement(id);
       return id;
     },
     [
       accentForSelected,
       deck,
+      doCommitAndChange,
       fitInsertedTextElement,
       handleSelectElement,
-      onDeckChange,
       safeSelected,
       selectedSlide,
     ],
@@ -1799,42 +2013,48 @@ export function SlideEditor({
 
   const handleAddVisual = useCallback(
     (visualId: string) => {
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
       const element = buildVisualElement(visualId);
-      onDeckChange(addElement(deck, safeSelected, element));
+      doCommitAndChange(deck, { type: "ADD_ELEMENT", slideId, element });
       handleSelectElement(element.id);
       setVisualPickerOpen(false);
       setInsertMenuOpen(false);
     },
-    [deck, handleSelectElement, onDeckChange, safeSelected],
+    [deck, doCommitAndChange, handleSelectElement, safeSelected],
   );
 
   // "From document" panel inserts. These keep the panel open so the user can
   // place several items in a row; each insert is a single undoable step.
   const handleInsertDocumentVisual = useCallback(
     (item: Extract<Insertable, { kind: "visual" }>) => {
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
       // Stamp sourceRef when documentId is available (issue #424).
       const element = insertableVisualElement(item, { documentId });
-      onDeckChange(addElement(deck, safeSelected, element));
+      doCommitAndChange(deck, { type: "ADD_ELEMENT", slideId, element });
       handleSelectElement(element.id);
     },
-    [deck, documentId, handleSelectElement, onDeckChange, safeSelected],
+    [deck, doCommitAndChange, documentId, handleSelectElement, safeSelected],
   );
 
   const handleInsertDocumentText = useCallback(
     (item: Extract<Insertable, { kind: "text" }>) => {
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
       const element = fitInsertedTextElement(
         insertableTextElement(item, { documentId }),
         "top-left",
       );
-      onDeckChange(addElement(deck, safeSelected, element));
+      doCommitAndChange(deck, { type: "ADD_ELEMENT", slideId, element });
       handleSelectElement(element.id);
     },
     [
       deck,
+      doCommitAndChange,
       documentId,
       fitInsertedTextElement,
       handleSelectElement,
-      onDeckChange,
       safeSelected,
     ],
   );
@@ -1857,6 +2077,7 @@ export function SlideEditor({
       });
       next = addElement(next, safeSelected, element);
     });
+    clearPendingPatches(pendingPatchesRef);
     onDeckChange(next);
   }, [deck, onDeckChange, safeSelected, visuals]);
 
@@ -1921,7 +2142,12 @@ export function SlideEditor({
           ...(updated.runs !== undefined ? { runs: updated.runs } : {}),
           sourceRef: updated.sourceRef,
         };
-        onDeckChange(updateElement(deck, slideIndex, link.elementId, patch));
+        doCommitAndChange(deck, {
+          type: "UPDATE_ELEMENT",
+          slideId: link.slideId,
+          elementId: link.elementId,
+          patch,
+        });
       } else {
         // Visual: update the contentHash; visualId stays the same.
         const fresh = blocks.find(
@@ -1935,14 +2161,15 @@ export function SlideEditor({
           linkedAt,
           "visual",
         );
-        onDeckChange(
-          updateElement(deck, slideIndex, link.elementId, {
-            sourceRef: newRef,
-          }),
-        );
+        doCommitAndChange(deck, {
+          type: "UPDATE_ELEMENT",
+          slideId: link.slideId,
+          elementId: link.elementId,
+          patch: { sourceRef: newRef },
+        });
       }
     },
-    [deck, documentBlocks, documentTextBlocks, onDeckChange],
+    [deck, doCommitAndChange, documentBlocks, documentTextBlocks],
   );
 
   // Stale-link action: unlink element from its source (keep as manual).
@@ -1956,13 +2183,14 @@ export function SlideEditor({
       );
       if (!element?.sourceRef) return;
       const unlinked = unlinkSource(element);
-      onDeckChange(
-        updateElement(deck, slideIndex, link.elementId, {
-          sourceRef: unlinked.sourceRef,
-        }),
-      );
+      doCommitAndChange(deck, {
+        type: "UPDATE_ELEMENT",
+        slideId: link.slideId,
+        elementId: link.elementId,
+        patch: { sourceRef: unlinked.sourceRef },
+      });
     },
-    [deck, onDeckChange],
+    [deck, doCommitAndChange],
   );
 
   // Stale-link action: relink element to a different document block.
@@ -1983,24 +2211,27 @@ export function SlideEditor({
         blockKind: link.blockKind,
       };
       const relinked = relinkSource(element, newRef);
-      onDeckChange(
-        updateElement(deck, slideIndex, link.elementId, {
-          sourceRef: relinked.sourceRef,
-        }),
-      );
+      doCommitAndChange(deck, {
+        type: "UPDATE_ELEMENT",
+        slideId: link.slideId,
+        elementId: link.elementId,
+        patch: { sourceRef: relinked.sourceRef },
+      });
     },
-    [deck, onDeckChange],
+    [deck, doCommitAndChange],
   );
 
   // Stale-link action: remove an orphaned element from the slide (#410).
   // Only offered for orphaned elements (block_missing); never auto-invoked.
   const handleRemoveOrphaned = useCallback(
     (link: StaleSourceLink) => {
-      const slideIndex = deck.slides.findIndex((s) => s.id === link.slideId);
-      if (slideIndex < 0) return;
-      onDeckChange(removeElement(deck, slideIndex, link.elementId));
+      doCommitAndChange(deck, {
+        type: "REMOVE_ELEMENT",
+        slideId: link.slideId,
+        elementId: link.elementId,
+      });
     },
-    [deck, onDeckChange],
+    [deck, doCommitAndChange],
   );
 
   const documentVisualEntries = useMemo(
@@ -2010,37 +2241,67 @@ export function SlideEditor({
 
   const handleBackgroundChange = useCallback(
     (color: string | undefined) => {
-      onDeckChange(setSlideBackground(deck, safeSelected, color));
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
+      doCommitAndChange(deck, {
+        type: "SET_SLIDE_BACKGROUND",
+        slideId,
+        background: color,
+      });
     },
-    [deck, onDeckChange, safeSelected],
+    [deck, doCommitAndChange, safeSelected],
   );
 
   const handleAccentChange = useCallback(
     (color: string | undefined) => {
-      onDeckChange(setSlideAccent(deck, safeSelected, color));
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
+      doCommitAndChange(deck, {
+        type: "SET_SLIDE_ACCENT",
+        slideId,
+        accent: color,
+      });
     },
-    [deck, onDeckChange, safeSelected],
+    [deck, doCommitAndChange, safeSelected],
   );
 
   const handleBackgroundGradientChange = useCallback(
     (gradient: { from: string; to: string; angle?: number } | undefined) => {
-      onDeckChange(setSlideBackgroundGradient(deck, safeSelected, gradient));
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
+      doCommitAndChange(deck, {
+        type: "SET_SLIDE_BACKGROUND_GRADIENT",
+        slideId,
+        gradient,
+      });
     },
-    [deck, onDeckChange, safeSelected],
+    [deck, doCommitAndChange, safeSelected],
   );
 
   const handleBackgroundImageChange = useCallback(
     (image: string | undefined) => {
-      onDeckChange(setSlideBackgroundImage(deck, safeSelected, image));
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
+      doCommitAndChange(deck, {
+        type: "SET_SLIDE_BACKGROUND_IMAGE",
+        slideId,
+        image,
+      });
     },
-    [deck, onDeckChange, safeSelected],
+    [deck, doCommitAndChange, safeSelected],
   );
 
   const handleBackgroundAssetChange = useCallback(
     (opts: { url: string; assetId: string } | undefined) => {
-      onDeckChange(setSlideBackgroundAsset(deck, safeSelected, opts));
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
+      doCommitAndChange(deck, {
+        type: "SET_SLIDE_BACKGROUND_ASSET",
+        slideId,
+        opts,
+      });
     },
-    [deck, onDeckChange, safeSelected],
+    [deck, doCommitAndChange, safeSelected],
   );
 
   // Shared inspector props, rendered into the desktop side pane (`lg+`) and the
@@ -2339,7 +2600,7 @@ export function SlideEditor({
                 size="sm"
                 variant="plain"
                 disabled={!canUndo}
-                onClick={undo}
+                onClick={handleUndo}
               >
                 <Undo2 aria-hidden className="h-3.5 w-3.5" />
               </IconButton>
@@ -2350,7 +2611,7 @@ export function SlideEditor({
                 size="sm"
                 variant="plain"
                 disabled={!canRedo}
-                onClick={redo}
+                onClick={handleRedo}
               >
                 <Redo2 aria-hidden className="h-3.5 w-3.5" />
               </IconButton>
@@ -2752,6 +3013,7 @@ export function SlideEditor({
 
         {/* Inspector — desktop side pane (`lg+`). Below `lg` it is hidden and
             instead opened as a bottom sheet via the FAB below. Issue #209. */}
+        {/* eslint-disable-next-line react-hooks/refs -- handler props only run on user events. */}
         {inspectorProps && inspectorOpen ? (
           <SlideInspector
             {...inspectorProps}
@@ -2766,6 +3028,7 @@ export function SlideEditor({
       {/* Reuses the document editor's MobileEditingSheet pattern: a FAB toggles
           a bottom sheet that hosts the same inspector. Hidden at `lg+` where the
           inspector is a permanent side pane. Issue #209. */}
+      {/* eslint-disable-next-line react-hooks/refs -- handler props only run on user events. */}
       {inspectorProps ? (
         <div className="lg:hidden">
           <button

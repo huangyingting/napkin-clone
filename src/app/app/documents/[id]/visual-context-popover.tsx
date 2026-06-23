@@ -97,6 +97,7 @@ import { applyBrand, brandPreviewStyle } from "@/lib/brand/transforms";
 import type { BrandStyle } from "@/lib/brand/schema";
 import { BRAND_WEB_FONTS } from "@/lib/brand/schema";
 import { computeVisualInfo } from "@/lib/visual/info";
+import type { VisualCommandPayload } from "@/lib/commands/visual-commands";
 
 import { IconPicker } from "./icon-picker";
 
@@ -516,9 +517,11 @@ const EFFECT_PRESETS: {
 function EffectsPicker({
   visual,
   onChange,
+  onCommand,
 }: {
   visual: Visual;
   onChange: (next: Visual) => void;
+  onCommand?: (payload: VisualCommandPayload) => void;
 }) {
   const activeKinds = new Set((visual.effects ?? []).map((e) => e.kind));
   return (
@@ -537,9 +540,12 @@ function EffectsPicker({
               aria-pressed={active}
               onClick={() => {
                 if (active) {
-                  onChange(clearEffect(visual, kind));
+                  if (onCommand) onCommand({ op: "visual.clear_effect", kind });
+                  else onChange(clearEffect(visual, kind));
                 } else {
-                  onChange(setEffect(visual, { kind }));
+                  if (onCommand)
+                    onCommand({ op: "visual.set_effect", effect: { kind } });
+                  else onChange(setEffect(visual, { kind }));
                 }
               }}
               className={cx(
@@ -703,6 +709,15 @@ export type VisualContextPopoverProps = {
   selectedNodeId: string | null;
   /** Applies a transformed visual back to the document (via `node.setVisual`). */
   onChange: (next: Visual) => void;
+  /**
+   * Routes a typed visual command payload through `executeVisualCommand`
+   * (issue #471). When provided, visual-level intent commands (theme, display
+   * style, effects, kind, canvas, aspect ratio, auto-layout) are dispatched
+   * here instead of calling `onChange` directly, so edits flow through command
+   * metadata (patches, side effects, render invalidation, source staleness).
+   * Falls back to `onChange` when absent for backward compatibility.
+   */
+  onCommand?: (payload: VisualCommandPayload, coalesceKey?: string) => void;
   onRemove: () => void;
   onRemoveSelectedNode?: () => void;
   onClose: () => void;
@@ -789,6 +804,7 @@ export function VisualContextPopover({
   visual,
   selectedNodeId,
   onChange,
+  onCommand,
   onRemove,
   onRemoveSelectedNode,
   onClose,
@@ -1091,16 +1107,24 @@ export function VisualContextPopover({
   const applyThemeById = useCallback(
     (themeId: string) => {
       setLastThemeId(themeId);
-      onChange(applyTheme(visual, themeId));
+      if (onCommand) {
+        onCommand({ op: "visual.apply_theme", themeId });
+      } else {
+        onChange(applyTheme(visual, themeId));
+      }
     },
-    [onChange, visual],
+    [onChange, onCommand, visual],
   );
 
   const applyDisplayStyleById = useCallback(
     (styleId: string) => {
-      onChange(applyDisplayStyle(visual, styleId));
+      if (onCommand) {
+        onCommand({ op: "visual.apply_display_style", styleId });
+      } else {
+        onChange(applyDisplayStyle(visual, styleId));
+      }
     },
-    [onChange, visual],
+    [onChange, onCommand, visual],
   );
 
   const applyBrandToThis = useCallback(
@@ -1132,7 +1156,11 @@ export function VisualContextPopover({
   function renderEffectsSection() {
     return (
       <div className="py-1">
-        <EffectsPicker visual={visual} onChange={onChange} />
+        <EffectsPicker
+          visual={visual}
+          onChange={onChange}
+          onCommand={onCommand}
+        />
       </div>
     );
   }
@@ -1544,7 +1572,11 @@ export function VisualContextPopover({
               size="sm"
               options={ASPECT_RATIO_OPTIONS}
               value={visual.aspectRatio ?? "auto"}
-              onChange={(preset) => onChange(setAspectRatio(visual, preset))}
+              onChange={(preset) =>
+                onCommand
+                  ? onCommand({ op: "visual.set_aspect_ratio", preset })
+                  : onChange(setAspectRatio(visual, preset))
+              }
             />
           </div>
         </div>
@@ -1556,7 +1588,14 @@ export function VisualContextPopover({
               size="sm"
               options={CANVAS_STYLE_OPTIONS}
               value={visual.canvasStyle ?? "blank"}
-              onChange={(cs) => onChange(setCanvasStyle(visual, cs))}
+              onChange={(cs) =>
+                onCommand
+                  ? onCommand({
+                      op: "visual.set_canvas_style",
+                      canvasStyle: cs,
+                    })
+                  : onChange(setCanvasStyle(visual, cs))
+              }
             />
           </div>
         </div>
@@ -1577,9 +1616,14 @@ export function VisualContextPopover({
                 role="switch"
                 aria-checked={visual.autoLayout ?? false}
                 aria-label="Toggle auto layout"
-                onClick={() =>
-                  onChange(setAutoLayout(visual, !(visual.autoLayout ?? false)))
-                }
+                onClick={() => {
+                  const enabled = !(visual.autoLayout ?? false);
+                  if (onCommand) {
+                    onCommand({ op: "visual.set_auto_layout", enabled });
+                  } else {
+                    onChange(setAutoLayout(visual, enabled));
+                  }
+                }}
                 className={cx(
                   "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-accent,#6366f1)] focus-visible:ring-offset-1",
                   visual.autoLayout
@@ -1614,7 +1658,11 @@ export function VisualContextPopover({
               size="sm"
               options={KIND_OPTIONS}
               value={visual.type}
-              onChange={(kind) => onChange(setVisualKind(visual, kind))}
+              onChange={(kind) =>
+                onCommand
+                  ? onCommand({ op: "visual.set_kind", kind })
+                  : onChange(setVisualKind(visual, kind))
+              }
             />
           </div>
         </div>
