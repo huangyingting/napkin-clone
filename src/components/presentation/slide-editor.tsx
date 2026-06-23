@@ -93,7 +93,6 @@ import {
   type ShapeKind,
   type SlideElement,
   type SlideLayout as ReusableSlideLayout,
-  type SlideLayoutHint,
 } from "@/lib/presentation/deck";
 import {
   resolveSlideFormat,
@@ -284,6 +283,7 @@ function buildDefaultElement(
         id,
         kind: "bullets",
         bullets: ["First point", "Second point"],
+        items: [{ text: "First point" }, { text: "Second point" }],
         box: { x: 14, y: 28, w: 72, h: 48 },
         style: {
           fontSize: SLIDE_TEXT_FONT_SIZE.list,
@@ -912,28 +912,6 @@ export function SlideEditor({
     [deck, onDeckChange],
   );
 
-  const handleTitleChange = useCallback(
-    (index: number, title: string) => {
-      const slideId = deck.slides[index]?.id;
-      if (!slideId) return;
-      doCommitAndChange(deck, { type: "UPDATE_SLIDE_TITLE", slideId, title });
-    },
-    [deck, doCommitAndChange],
-  );
-
-  const handleLayoutChange = useCallback(
-    (index: number, layout: SlideLayoutHint) => {
-      const slideId = deck.slides[index]?.id;
-      if (!slideId) return;
-      doCommitAndChange(deck, {
-        type: "UPDATE_SLIDE_LAYOUT_HINT",
-        slideId,
-        layout,
-      });
-    },
-    [deck, doCommitAndChange],
-  );
-
   const handleApplyReusableLayout = useCallback(
     (layout: ReusableSlideLayout) => {
       if (!deck.slides[safeSelected]) return;
@@ -1382,19 +1360,6 @@ export function SlideEditor({
     inspectorSheetOpen,
     onDeckChange,
   ]);
-
-  const handleBulletsChange = useCallback(
-    (index: number, value: string) => {
-      const bullets = value
-        .split("\n")
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0);
-      const slideId = deck.slides[index]?.id;
-      if (!slideId) return;
-      doCommitAndChange(deck, { type: "UPDATE_SLIDE_BODY", slideId, bullets });
-    },
-    [deck, doCommitAndChange],
-  );
 
   const handleNotesChange = useCallback(
     (index: number, notes: string, coalesceKey?: string) => {
@@ -2122,6 +2087,7 @@ export function SlideEditor({
           link.blockId,
           hashDocumentBlock(fresh),
           linkedAt,
+          "text",
         );
         const updated = updateTextElementFromBlock(element, fresh, newRef);
         const patch: ElementPatch = {

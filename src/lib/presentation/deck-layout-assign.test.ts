@@ -8,7 +8,12 @@ import {
 } from "@/lib/presentation/deck-layout-assign";
 import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck-migration";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
-import type { Deck, Slide, SlideElement } from "@/lib/presentation/deck";
+import type {
+  Deck,
+  DeckTheme,
+  Slide,
+  SlideElement,
+} from "@/lib/presentation/deck";
 
 const KNOWN = new Set(["vis-1", "vis-2"]);
 
@@ -26,14 +31,12 @@ function slide(overrides: Partial<Slide> = {}): Slide {
   };
 }
 
-function deck(slides: Slide[], theme = "indigo"): Deck {
-  const parsed = safeParseDeck({
+function deck(slides: Slide[], theme: DeckTheme = "indigo"): Deck {
+  return {
     theme,
     slides,
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
-  });
-  assert.ok(parsed.success, parsed.success ? "" : parsed.error);
-  return parsed.data;
+  };
 }
 
 function area(el: Extract<SlideElement, { box: unknown }>): number {
@@ -133,6 +136,7 @@ test("re-scaffolds elements that do not match the declared layout", () => {
           id: "b",
           kind: "bullets",
           bullets: ["x"],
+          items: [{ text: "x" }],
           zIndex: 0,
           box: { x: 6, y: 26, w: 88, h: 66 },
           style: { fontSize: 4.5, bold: false, italic: false, align: "left" },
@@ -164,6 +168,7 @@ test("keeps and cleans model elements that match the layout", () => {
           id: "b",
           kind: "bullets",
           bullets: ["one", "two"],
+          items: [{ text: "one" }, { text: "two" }],
           zIndex: 1,
           box: { x: 6, y: 26, w: 88, h: 66 },
           style: { fontSize: 4.5, bold: false, italic: false, align: "left" },

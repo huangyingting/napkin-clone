@@ -60,6 +60,7 @@ function linkedElement(
       contentHash,
       linkedAt: "2026-01-01T00:00:00.000Z",
       ...overrides,
+      blockKind: "text",
     },
   };
 }
@@ -223,6 +224,7 @@ test("ignores sourceRef without contentHash", () => {
       documentId: "doc-1",
       blockId: "blk-1",
       linkedAt: "2026-01-01T00:00:00.000Z",
+      blockKind: "text",
       // contentHash intentionally absent
     },
   };
@@ -396,7 +398,7 @@ test("visual: ignores visual with unlinked === true", () => {
   assert.deepEqual(result, []);
 });
 
-test("visual: ignores visual with no contentHash (legacy element)", () => {
+test("visual: ignores visual sourceRef with no contentHash", () => {
   const el: VisualElement = {
     id: "el-no-hash",
     kind: "visual",
@@ -416,11 +418,7 @@ test("visual: ignores visual with no contentHash (legacy element)", () => {
   assert.deepEqual(result, []);
 });
 
-test("visual: legacy element without blockKind is treated as text (not visual)", () => {
-  // A visual element with no blockKind defaults to "text" — so its blockId is
-  // looked up in the text block index, not the visual index. This keeps
-  // legacy source refs for text elements working even if they have a string
-  // that happens to match a visual id.
+test("visual: sourceRef with blockKind=text is treated as text", () => {
   const textBlock: DocumentTextBlock = {
     kind: "text",
     blockType: "paragraph",
@@ -428,7 +426,7 @@ test("visual: legacy element without blockKind is treated as text (not visual)",
     blockId: "vis-1", // same as visual id — but looked up as text
   };
   const el: VisualElement = {
-    id: "el-legacy",
+    id: "el-text-kind",
     kind: "visual",
     visualId: "vis-1",
     box: { x: 25, y: 18, w: 50, h: 64 },
@@ -438,7 +436,7 @@ test("visual: legacy element without blockKind is treated as text (not visual)",
       blockId: "vis-1",
       contentHash: hashDocumentBlock(textBlock),
       linkedAt: "2026-01-01T00:00:00.000Z",
-      // blockKind absent — treated as "text"
+      blockKind: "text",
     },
   };
   const d = deck(slide("s1", [el]));
@@ -482,6 +480,7 @@ test("updateTextElementFromBlock: updates text and runs, preserves geometry", ()
     "blk-1",
     freshHash,
     "2026-06-01T00:00:00.000Z",
+    "text",
   );
 
   const updated = updateTextElementFromBlock(el, fresh, newRef);
@@ -514,6 +513,7 @@ test("updateTextElementFromBlock: clears runs when fresh block has no runs", () 
     "blk-1",
     hashDocumentBlock(fresh),
     "2026-06-01T00:00:00.000Z",
+    "text",
   );
   const updated = updateTextElementFromBlock(el, fresh, newRef);
   assert.equal(updated.text, "Plain text");
@@ -533,6 +533,7 @@ test("updateTextElementFromBlock: clears unlinked flag", () => {
     "blk-1",
     hashDocumentBlock(fresh),
     "2026-06-01T00:00:00.000Z",
+    "text",
   );
   const updated = updateTextElementFromBlock(el, fresh, newRef);
   assert.equal(updated.sourceRef!.unlinked, undefined);
@@ -563,12 +564,13 @@ test("updateVisualElementFromBlock: updates visualId and sourceRef, preserves ge
   assert.equal(updated.id, el.id);
 });
 
-test("buildRefreshSourceRef: carries documentId and optional blockKind", () => {
+test("buildRefreshSourceRef: carries documentId and blockKind", () => {
   const existing: SourceRef = {
     documentId: "doc-abc",
     blockId: "old-block",
     contentHash: "oldhash",
     linkedAt: "2026-01-01T00:00:00.000Z",
+    blockKind: "text",
   };
   const ref = buildRefreshSourceRef(
     existing,
@@ -585,22 +587,6 @@ test("buildRefreshSourceRef: carries documentId and optional blockKind", () => {
   assert.equal(ref.unlinked, undefined);
 });
 
-test("buildRefreshSourceRef: inherits blockKind from existing when not provided", () => {
-  const existing: SourceRef = {
-    documentId: "doc-abc",
-    blockId: "old-block",
-    contentHash: "oldhash",
-    linkedAt: "2026-01-01T00:00:00.000Z",
-    blockKind: "visual",
-  };
-  const ref = buildRefreshSourceRef(
-    existing,
-    "vis-new",
-    "newhash",
-    "2026-06-01T00:00:00.000Z",
-  );
-  assert.equal(ref.blockKind, "visual");
-});
 
 // ---------------------------------------------------------------------------
 // #410 orphan handling: block_missing is never auto-deleted

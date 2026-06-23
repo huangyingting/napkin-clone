@@ -94,6 +94,7 @@ function bulletsEl(
     id,
     kind: "bullets",
     bullets,
+    items: bullets.map((text) => ({ text })),
     zIndex: 1,
     box: { x: 6, y: 26, w: 88, h: 66 },
     style: { fontSize: 4.5, bold: false, italic: false, align: "left" },
@@ -186,24 +187,6 @@ function freeFormSlide(
     theme: "indigo",
     elements,
     ...overrides,
-  };
-}
-
-function legacySlide(
-  index: number,
-  title: string,
-  bullets: string[],
-  visualIds: string[] = [],
-): Slide {
-  return {
-    id: "test-id",
-    index,
-    title,
-    bullets,
-    visualIds,
-    layout: visualIds.length > 0 ? "content" : "content",
-    notes: "",
-    theme: "indigo",
   };
 }
 
@@ -604,24 +587,28 @@ test("slide without overrides uses the theme background/accent", () => {
   assert.equal(spec.accent, "0284C7"); // ocean accent (light)
 });
 
-test("legacy slide (no elements[]) emits title + bullets + visual", () => {
+test("slide without elements[] is not materialized for export", () => {
   const visuals = new Map<string, Visual>([["v1", flowchart()]]);
   const deck: Deck = {
     theme: "indigo",
-    slides: [legacySlide(0, "Legacy Title", ["alpha", "beta"], ["v1"])],
+    slides: [
+      {
+        id: "sl-no-elements",
+        index: 0,
+        title: "Old Title",
+        bullets: ["alpha", "beta"],
+        visualIds: ["v1"],
+        layout: "content",
+        notes: "",
+        theme: "indigo",
+      },
+    ],
   };
 
   const [spec] = buildDeckSpecs(deck, visuals);
-  const text = ofKind(spec.ops, "text")[0] as DeckTextOp;
-  assert.equal(text.text, "Legacy Title");
-
-  const bullets = ofKind(spec.ops, "bullets")[0] as DeckBulletsOp;
-  assert.deepEqual(bullets.items, ["alpha", "beta"]);
-
-  assert.ok(
-    ofKind(spec.ops, "visual-native").length >= 1,
-    "legacy visual is embedded",
-  );
+  assert.equal(ofKind(spec.ops, "text").length, 0);
+  assert.equal(ofKind(spec.ops, "bullets").length, 0);
+  assert.equal(ofKind(spec.ops, "visual-native").length, 0);
 });
 
 test("text/bullets boxes convert percentages to inches within slide bounds", () => {
@@ -731,7 +718,10 @@ test("bullets op carries parallel itemRuns when present", () => {
     slides: [
       freeFormSlide(0, [
         bulletsEl("b1", ["one", "two"], {
-          bulletRuns: [[], [{ text: "two", italic: true }]],
+          items: [
+            { text: "one" },
+            { text: "two", runs: [{ text: "two", italic: true }] },
+          ],
         }),
       ]),
     ],
@@ -999,7 +989,7 @@ test("bullets op carries itemDetails when items have indent or listType", () => 
   assert.equal(op.itemDetails?.[2].indent, 2);
 });
 
-test("bullets op omits itemDetails for a flat bullet list (backward compat)", () => {
+test("bullets op omits itemDetails for a flat bullet list", () => {
   const deck: Deck = {
     theme: "indigo",
     slides: [freeFormSlide(0, [bulletsEl("b", ["alpha", "beta"])])],
@@ -1286,6 +1276,7 @@ test("text element with an active sourceRef still emits a normal text op", () =>
             blockId: "blk-1",
             contentHash: "deadbeef",
             linkedAt: "2026-01-01T00:00:00Z",
+            blockKind: "text",
           },
         }),
       ]),
@@ -1308,6 +1299,7 @@ test("bullets element with sourceRef still emits a normal bullets op", () => {
             documentId: "doc-x",
             blockId: "blk-2",
             linkedAt: "2026-01-01T00:00:00Z",
+            blockKind: "text",
           },
         }),
       ]),
@@ -1330,6 +1322,7 @@ test("image element with sourceRef still emits a normal image op", () => {
             documentId: "doc-x",
             blockId: "blk-3",
             linkedAt: "2026-01-01T00:00:00Z",
+            blockKind: "text",
           },
         }),
       ]),
@@ -1355,6 +1348,7 @@ test("element with unlinked=true sourceRef exports normally (unlinked is metadat
             blockId: "blk-4",
             linkedAt: "2026-01-01T00:00:00Z",
             unlinked: true,
+            blockKind: "text",
           },
         }),
       ]),

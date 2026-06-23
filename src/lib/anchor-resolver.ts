@@ -3,7 +3,7 @@
  *
  * Every feature that points from one entity to another — source links (#377),
  * slide comments (#380), visual mirrors, version restore — needs identical
- * semantics for what "the target exists / is missing / is stale / is legacy"
+ * semantics for what "the target exists / is missing / is stale"
  * means. This module provides that shared vocabulary.
  *
  * All helpers are DOM-free and side-effect-free so they can run in server
@@ -23,7 +23,7 @@ export type AnchorTargetStatus =
   | "stale"
   | "missing"
   | "ambiguous"
-  | "legacy_unknown"
+  | "unknown"
   | "invalid"
   | "unauthorized";
 
@@ -75,7 +75,7 @@ export function resolveSourceRef(
     return { status: "invalid", reason: "Source ref blockId is empty." };
   }
 
-  const blockKind = sourceRef.blockKind ?? "text";
+  const blockKind = sourceRef.blockKind;
   if (blockKind !== "text" && blockKind !== "visual") {
     return {
       status: "invalid",
@@ -167,7 +167,7 @@ export function resolveCommentAnchor(
       return { status: "missing", reason: "Comment anchor target is missing." };
     case "unknown":
       return {
-        status: "legacy_unknown",
+        status: "unknown",
         reason:
           "Comment anchor could not be resolved against the current deck.",
       };

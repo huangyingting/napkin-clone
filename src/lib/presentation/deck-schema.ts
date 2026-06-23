@@ -13,7 +13,6 @@ import {
   IMAGE_MASK_SHAPES,
   PLACEHOLDER_TYPES,
   SLIDE_LAYOUTS,
-  makeSlideId,
   type BaseElement,
   type BulletItem,
   type ConnectorAnchor,
@@ -231,11 +230,7 @@ export function validateSourceRef(input: unknown, context: string): SourceRef {
   if (input.unlinked !== undefined && typeof input.unlinked !== "boolean") {
     throw new DeckValidationError(`${context}.unlinked must be a boolean`);
   }
-  if (
-    input.blockKind !== undefined &&
-    input.blockKind !== "text" &&
-    input.blockKind !== "visual"
-  ) {
+  if (input.blockKind !== "text" && input.blockKind !== "visual") {
     throw new DeckValidationError(
       `${context}.blockKind must be "text" or "visual"`,
     );
@@ -248,9 +243,7 @@ export function validateSourceRef(input: unknown, context: string): SourceRef {
       : {}),
     linkedAt: input.linkedAt,
     ...(input.unlinked !== undefined ? { unlinked: input.unlinked } : {}),
-    ...(input.blockKind !== undefined
-      ? { blockKind: input.blockKind as "text" | "visual" }
-      : {}),
+    blockKind: input.blockKind,
   };
 }
 
@@ -689,6 +682,7 @@ export function validateElement(input: unknown, context: string): SlideElement {
           `${context}.bulletIndent must be a finite number`,
         );
       }
+      const items = validateBulletItems(input.items, `${context}.items`);
       return {
         ...base,
         kind: "bullets",
@@ -701,11 +695,7 @@ export function validateElement(input: unknown, context: string): SlideElement {
               ),
             }
           : {}),
-        ...(input.items !== undefined
-          ? {
-              items: validateBulletItems(input.items, `${context}.items`),
-            }
-          : {}),
+        items,
         style: validateTextStyle(input.style, `${context}.style`),
         ...(bulletsFitMode !== undefined ? { fitMode: bulletsFitMode } : {}),
         ...(input.bulletGap !== undefined
@@ -949,12 +939,10 @@ function validateSlide(input: unknown, index: number): Slide {
     throw new DeckValidationError(`${context} must be an object`);
   }
 
-  // Accept an existing stable id or backfill a fresh one for legacy slides that
-  // were persisted before the `id` field was introduced.
-  const id =
-    typeof input.id === "string" && input.id.length > 0
-      ? input.id
-      : makeSlideId();
+  if (typeof input.id !== "string" || input.id.length === 0) {
+    throw new DeckValidationError(`${context}.id must be a non-empty string`);
+  }
+  const id = input.id;
 
   if (typeof input.index !== "number" || !Number.isFinite(input.index)) {
     throw new DeckValidationError(`${context}.index must be a number`);
@@ -989,15 +977,12 @@ function validateSlide(input: unknown, index: number): Slide {
     );
   }
 
-  let elements: SlideElement[] | undefined;
-  if (input.elements !== undefined) {
-    if (!Array.isArray(input.elements)) {
-      throw new DeckValidationError(`${context}.elements must be an array`);
-    }
-    elements = input.elements.map((element, elementIndex) =>
-      validateElement(element, `${context}.elements[${elementIndex}]`),
-    );
+  if (!Array.isArray(input.elements)) {
+    throw new DeckValidationError(`${context}.elements must be an array`);
   }
+  const elements = input.elements.map((element, elementIndex) =>
+    validateElement(element, `${context}.elements[${elementIndex}]`),
+  );
 
   if (input.background !== undefined && !isHexColor(input.background)) {
     throw new DeckValidationError(`${context}.background must be a hex color`);
@@ -1074,7 +1059,7 @@ function validateSlide(input: unknown, index: number): Slide {
     layout: input.layout as SlideLayoutHint,
     notes: input.notes,
     theme: input.theme,
-    ...(elements !== undefined ? { elements } : {}),
+    elements,
     ...(input.elementsDerived !== undefined
       ? { elementsDerived: input.elementsDerived as boolean }
       : {}),

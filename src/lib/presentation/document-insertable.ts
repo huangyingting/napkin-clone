@@ -153,7 +153,7 @@ export function buildSourceRefFromBlock(
   contentHash: string,
   linkedAt: string,
 ): SourceRef {
-  return { documentId, blockId, contentHash, linkedAt };
+  return { documentId, blockId, contentHash, linkedAt, blockKind: "text" };
 }
 
 /**
@@ -228,8 +228,7 @@ export function insertableTextElement(
  * and `blockId` equals the `visualId`. This lets staleness detection (#424)
  * identify missing or changed document visuals without re-deriving the deck.
  *
- * Callers that omit `documentId` produce a legacy `visualId`-only element
- * which remains valid and backward compatible.
+ * Callers that omit `documentId` produce an unlinked visual element.
  */
 export function insertableVisualElement(
   item: Extract<Insertable, { kind: "visual" }>,

@@ -59,6 +59,7 @@ function slide(index: number, title: string): Slide {
         id: `bullets-${index}`,
         kind: "bullets",
         bullets,
+        items: bullets.map((text) => ({ text })),
         zIndex: 1,
         box: { x: 6, y: 26, w: 88, h: 66 },
         style: { fontSize: 4.5, align: "left", bold: false, italic: false },
@@ -262,20 +263,20 @@ test("removeSlide keeps at least one slide", () => {
 // updateSlide
 // ---------------------------------------------------------------------------
 
-test("updateSlide ignores content-field patches once elements are authoritative", () => {
+test("updateSlide applies content-field patches", () => {
   const deck = makeDeck(["A", "B"]);
   const next = updateSlide(deck, 1, {
     title: "B2",
     bullets: ["x", "y"],
   });
 
-  assert.equal(next.slides[1].title, "B");
-  assert.deepEqual(next.slides[1].bullets, ["B bullet"]);
+  assert.equal(next.slides[1].title, "B2");
+  assert.deepEqual(next.slides[1].bullets, ["x", "y"]);
   assert.equal(next.slides[0].title, "A");
   assert.equal(deck.slides[1].title, "B");
 });
 
-test("updateSlide ignores content-field patches on element slides", () => {
+test("updateSlide applies element-slide fields without touching elements", () => {
   const deck = makeDeck(["A", "B"]);
   const before = deck.slides[0];
   const next = updateSlide(deck, 0, {
@@ -285,25 +286,24 @@ test("updateSlide ignores content-field patches on element slides", () => {
     layout: "media",
   });
 
-  assert.equal(next.slides[0].title, before.title);
-  assert.deepEqual(next.slides[0].bullets, before.bullets);
-  assert.deepEqual(next.slides[0].visualIds, before.visualIds);
-  assert.equal(next.slides[0].layout, before.layout);
-  // elements stay authoritative and intact
+  assert.equal(next.slides[0].title, "HACKED");
+  assert.deepEqual(next.slides[0].bullets, ["zzz"]);
+  assert.deepEqual(next.slides[0].visualIds, ["v9"]);
+  assert.equal(next.slides[0].layout, "media");
   assert.equal(next.slides[0].elements, before.elements);
 });
 
-test("updateSlide still applies non-content fields on an element slide", () => {
+test("updateSlide applies mixed slide fields", () => {
   const deck = makeDeck(["A", "B"]);
   const next = updateSlide(deck, 0, {
-    title: "ignored",
+    title: "updated",
     notes: "new notes",
     background: "#123456",
   });
 
   assert.equal(next.slides[0].notes, "new notes");
   assert.equal(next.slides[0].background, "#123456");
-  assert.equal(next.slides[0].title, deck.slides[0].title);
+  assert.equal(next.slides[0].title, "updated");
 });
 
 // ---------------------------------------------------------------------------
@@ -417,6 +417,7 @@ test("updateElement clears stale bulletRuns when an inline bullets edit commits 
     kind: "bullets",
     bullets: ["Old"],
     bulletRuns: [[{ text: "Old", italic: true }]],
+    items: [{ text: "Old", runs: [{ text: "Old", italic: true }] }],
     box: { x: 0, y: 0, w: 10, h: 10 },
     style: { fontSize: 5, bold: false, italic: false, align: "left" },
   });

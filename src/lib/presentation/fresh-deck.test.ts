@@ -20,6 +20,17 @@ const BASE_DECK: Deck = {
       layout: "title",
       notes: "",
       theme: "default",
+      elements: [
+        {
+          id: "el-base-title",
+          kind: "text",
+          role: "title",
+          text: "Base",
+          zIndex: 0,
+          box: { x: 6, y: 6, w: 88, h: 16 },
+          style: { fontSize: 6, bold: true, italic: false, align: "left" },
+        },
+      ],
     },
   ],
   theme: "default",
@@ -37,6 +48,26 @@ const FETCHED_DECK: Deck = {
       layout: "content",
       notes: "",
       theme: "indigo",
+      elements: [
+        {
+          id: "el-fetched-title",
+          kind: "text",
+          role: "title",
+          text: "Fetched (remote)",
+          zIndex: 0,
+          box: { x: 6, y: 6, w: 88, h: 16 },
+          style: { fontSize: 6, bold: true, italic: false, align: "left" },
+        },
+        {
+          id: "el-fetched-body",
+          kind: "bullets",
+          bullets: ["Remote bullet"],
+          items: [{ text: "Remote bullet" }],
+          zIndex: 1,
+          box: { x: 6, y: 26, w: 88, h: 66 },
+          style: { fontSize: 4.5, bold: false, italic: false, align: "left" },
+        },
+      ],
     },
   ],
   theme: "indigo",
@@ -54,6 +85,17 @@ const FALLBACK_DECK: Deck = {
       layout: "section",
       notes: "",
       theme: "ocean",
+      elements: [
+        {
+          id: "el-fallback-title",
+          kind: "text",
+          role: "title",
+          text: "Fallback (prop)",
+          zIndex: 0,
+          box: { x: 6, y: 6, w: 88, h: 16 },
+          style: { fontSize: 6, bold: true, italic: false, align: "left" },
+        },
+      ],
     },
   ],
   theme: "ocean",
@@ -69,13 +111,13 @@ test("normalizeDeckRaw — returns object unchanged", () => {
   assert.strictEqual(normalizeDeckRaw(obj), obj);
 });
 
-test("normalizeDeckRaw — parses valid JSON string", () => {
+test("normalizeDeckRaw — rejects JSON strings", () => {
   const serialized = JSON.stringify(FETCHED_DECK);
   const result = normalizeDeckRaw(serialized);
-  assert.deepStrictEqual(result, FETCHED_DECK);
+  assert.strictEqual(result, null);
 });
 
-test("normalizeDeckRaw — returns null for invalid JSON string", () => {
+test("normalizeDeckRaw — returns null for invalid string", () => {
   const result = normalizeDeckRaw("not-json{{{");
   assert.strictEqual(result, null);
 });
@@ -120,17 +162,17 @@ test("pickFreshestDeck — falls back to baseDeck when both raw sources are inva
   assert.strictEqual(result.slides[0]?.title, "Base");
 });
 
-test("pickFreshestDeck — accepts fetched as JSON string", () => {
+test("pickFreshestDeck — rejects fetched JSON string", () => {
   const serialized = JSON.stringify(FETCHED_DECK);
   const result = pickFreshestDeck(serialized, FALLBACK_DECK, BASE_DECK);
-  assert.strictEqual(result.theme, "indigo");
-  assert.strictEqual(result.slides[0]?.title, "Fetched (remote)");
+  assert.strictEqual(result.theme, "ocean");
+  assert.strictEqual(result.slides[0]?.title, "Fallback (prop)");
 });
 
-test("pickFreshestDeck — accepts fallbackRaw as JSON string", () => {
+test("pickFreshestDeck — rejects fallbackRaw JSON string", () => {
   const serialized = JSON.stringify(FALLBACK_DECK);
   const result = pickFreshestDeck(null, serialized, BASE_DECK);
-  assert.strictEqual(result.theme, "ocean");
+  assert.strictEqual(result.theme, "default");
 });
 
 test("pickFreshestDeck — uses fetched even when fallback is also valid", () => {

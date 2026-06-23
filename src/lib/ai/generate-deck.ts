@@ -40,6 +40,7 @@ import {
   DECK_THEMES,
   SLIDE_LAYOUTS,
   makeElementId,
+  makeSlideId,
   type Deck,
   type DeckTheme,
   type ElementAlign,
@@ -180,13 +181,23 @@ function repairElement(
         role: input.role === "title" ? "title" : "body",
         style: repairTextStyle(input.style),
       };
-    case "bullets":
+    case "bullets": {
+      const bullets = toStringArray(input.bullets);
       return {
         ...base,
         kind: "bullets",
-        bullets: toStringArray(input.bullets),
+        bullets,
+        items: Array.isArray(input.items)
+          ? input.items
+              .filter(
+                (item): item is { text: string } =>
+                  isPlainObject(item) && typeof item.text === "string",
+              )
+              .map((item) => ({ text: item.text }))
+          : bullets.map((text) => ({ text })),
         style: repairTextStyle(input.style),
       };
+    }
     case "visual": {
       if (typeof input.visualId !== "string" || input.visualId.length === 0) {
         return undefined;
@@ -207,6 +218,7 @@ function repairElement(
 }
 
 interface NormalizedSlide {
+  id: string;
   index: number;
   title: string;
   bullets: string[];
@@ -229,6 +241,10 @@ function repairSlide(
     : DEFAULT_LAYOUT;
 
   const normalized: NormalizedSlide = {
+    id:
+      typeof slide.id === "string" && slide.id.length > 0
+        ? slide.id
+        : makeSlideId(),
     index,
     title: typeof slide.title === "string" ? slide.title : "",
     bullets: toStringArray(slide.bullets),
@@ -254,11 +270,10 @@ function repairSlide(
 }
 
 /**
- * Turns the raw parsed model payload into a fully repaired, `safeParseDeck`-
- * shaped plain object: defaults the theme, clamps boxes, maps unknown layouts to
- * `"blank"`, regenerates colliding/missing element ids, fills required fields,
- * and caps the slide count to {@link MAX_DECK_SLIDES}. Returns `undefined` when
- * the payload is too garbled to recover (no usable `slides` array).
+ * Turns the raw parsed model payload into a repaired deck candidate: defaults
+ * the theme, maps unknown layouts to `"blank"`, regenerates missing ids, fills
+ * sparse content fields, and caps the slide count to {@link MAX_DECK_SLIDES}.
+ * It is normalized into current `elements[]` before final schema validation.
  */
 function repairDeck(parsed: unknown): Deck | undefined {
   const candidate = Array.isArray(parsed) ? parsed[0] : parsed;
@@ -274,12 +289,11 @@ function repairDeck(parsed: unknown): Deck | undefined {
     .slice(0, MAX_DECK_SLIDES)
     .map((slide, index) => repairSlide(slide, index, theme));
 
-  const result = safeParseDeck({
+  return {
     slides,
     theme,
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
-  });
-  return result.success ? result.data : undefined;
+  } as Deck;
 }
 
 /**
@@ -339,11 +353,17 @@ export async function generateDeck(
       continue;
     }
 
-    return normalizeGeneratedDeck(
+    const normalized = normalizeGeneratedDeck(
       stripOrphanedVisuals(repaired, knownVisualIds),
       visualInventory,
       input.preferredTheme,
     );
+    const final = safeParseDeck(normalized);
+    if (!final.success) {
+      lastReason = final.error;
+      continue;
+    }
+    return final.data;
   }
 
   throw new GenerationError(

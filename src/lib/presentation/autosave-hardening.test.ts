@@ -168,9 +168,9 @@ describe("autosave: stale revision conflict preserves state (#459)", () => {
     assert.equal(isRevisionConflict(T, T), false);
   });
 
-  test("isRevisionConflict: false when clientToken is null (legacy path)", () => {
-    assert.equal(isRevisionConflict(null, generateRevisionToken()), false);
-    assert.equal(isRevisionConflict(undefined, generateRevisionToken()), false);
+  test("isRevisionConflict: true when clientToken is missing", () => {
+    assert.equal(isRevisionConflict(null, generateRevisionToken()), true);
+    assert.equal(isRevisionConflict(undefined, generateRevisionToken()), true);
   });
 
   test("conflict result carries serverRevisionToken (allows keep-mine / use-server)", () => {

@@ -49,6 +49,7 @@ function bulletsEl(fontSize = 5): TextLikeElement {
     id: "b",
     box: { x: 10, y: 10, w: 40, h: 20 },
     bullets: ["one", "two"],
+    items: [{ text: "one" }, { text: "two" }],
     style: { fontSize, bold: false, italic: false, align: "left" },
   };
 }

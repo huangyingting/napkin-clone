@@ -100,6 +100,7 @@ test("resolveSourceRef returns found, stale, and missing for text and visual sou
         blockId: "blk-1",
         contentHash: hashDocumentBlock(freshText),
         linkedAt: "2026-06-23T00:00:00.000Z",
+        blockKind: "text",
       },
       blocks,
     ).status,
@@ -112,6 +113,7 @@ test("resolveSourceRef returns found, stale, and missing for text and visual sou
       blockId: "blk-1",
       contentHash: hashDocumentBlock(changedText),
       linkedAt: "2026-06-23T00:00:00.000Z",
+      blockKind: "text",
     },
     blocks,
   );
@@ -137,6 +139,7 @@ test("resolveSourceRef returns found, stale, and missing for text and visual sou
         documentId: "doc-1",
         blockId: "blk-gone",
         linkedAt: "2026-06-23T00:00:00.000Z",
+        blockKind: "text",
       },
       blocks,
     ).status,
@@ -177,21 +180,22 @@ test("resolveCommentAnchor maps deck, attached, orphaned, and unknown anchor sta
   );
   assert.equal(
     resolveCommentAnchor(anchor({ slideId: "sl-1" }), null).status,
-    "legacy_unknown",
+    "unknown",
   );
 });
 
-test("legacy text blocks without bid remain unresolved and return missing", () => {
-  const legacyBlocks: DocumentBlock[] = [textBlock(undefined, "Legacy text")];
-  assert.equal(resolveBlockRef("legacy-key", legacyBlocks).status, "missing");
+test("text blocks without bid remain unresolved and return missing", () => {
+  const blocks: DocumentBlock[] = [textBlock(undefined, "Text")];
+  assert.equal(resolveBlockRef("missing-key", blocks).status, "missing");
   assert.equal(
     resolveSourceRef(
       {
         documentId: "doc-1",
-        blockId: "legacy-key",
+        blockId: "missing-key",
         linkedAt: "2026-06-23T00:00:00.000Z",
+        blockKind: "text",
       },
-      legacyBlocks,
+      blocks,
     ).status,
     "missing",
   );

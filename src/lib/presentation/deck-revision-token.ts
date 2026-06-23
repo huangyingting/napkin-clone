@@ -20,18 +20,13 @@ export const generateRevisionToken = customAlphabet(
 );
 
 /**
- * Returns `true` when the caller's optimistic-lock token is present and does
- * **not** match the server's current token, indicating that another session
- * wrote the deck between the client's last fetch and this save attempt.
- *
- * When `clientToken` is `null` or `undefined` (legacy callers that were never
- * seeded with a token) the check is unconditionally skipped — these clients
- * always win so existing integrations are not broken.
+ * Returns `true` when either side is missing an optimistic-lock token or the
+ * caller's token does not match the server's current token.
  */
 export function isRevisionConflict(
   clientToken: string | null | undefined,
   serverToken: string | null,
 ): boolean {
-  if (clientToken == null) return false;
+  if (clientToken == null || serverToken == null) return true;
   return serverToken !== clientToken;
 }

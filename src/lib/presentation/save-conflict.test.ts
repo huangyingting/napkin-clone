@@ -137,9 +137,9 @@ describe("saveDeckJson revision-token semantics (#407)", () => {
     assert.equal(isRevisionConflict(clientToken, serverToken), true);
   });
 
-  test("legacy (no clientToken) path: always succeeds regardless of server token", () => {
-    assert.equal(isRevisionConflict(null, generateRevisionToken()), false);
-    assert.equal(isRevisionConflict(undefined, generateRevisionToken()), false);
+  test("missing clientToken path: conflict regardless of server token", () => {
+    assert.equal(isRevisionConflict(null, generateRevisionToken()), true);
+    assert.equal(isRevisionConflict(undefined, generateRevisionToken()), true);
   });
 
   test("conflicted save: snapshot policy skipped because count === 0 (simulated)", () => {

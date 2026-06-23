@@ -303,13 +303,8 @@ export interface SourceRef {
   linkedAt: string;
   /** True when the user explicitly broke the source link. */
   unlinked?: boolean;
-  /**
-   * Kind of source block this ref points to. `"text"` (default/absent) means
-   * a document text block matched by `blockId`; `"visual"` means a visual block
-   * matched by `blockId` treated as a `visualId`. Absent for legacy source refs
-   * — treated as `"text"` for backward compatibility.
-   */
-  blockKind?: "text" | "visual";
+  /** Kind of source block this ref points to. */
+  blockKind: "text" | "visual";
 }
 
 export interface BaseElement {
@@ -387,7 +382,7 @@ export interface TextElement extends BaseElement {
    * and exporters use these formatted spans (bold/italic/code/color/link) and
    * fall back to the plain `text` string when absent. The concatenation of
    * run `text` values equals `text`, so the plain field always stays a valid
-   * fallback and no migration is needed.
+  * fallback for compact text operations.
    */
   runs?: TextRun[];
   style: TextElementStyle;
@@ -402,9 +397,6 @@ export interface TextElement extends BaseElement {
 
 /**
  * A single item in a multi-level bullet or numbered list (#335).
- *
- * When `items` is present on a {@link BulletsElement} it is authoritative and
- * the legacy `bullets` / `bulletRuns` arrays are ignored by renderers.
  */
 export interface BulletItem {
   text: string;
@@ -430,13 +422,8 @@ export interface BulletsElement extends BaseElement {
    * any bullet without a matching entry renders from its plain string.
    */
   bulletRuns?: TextRun[][];
-  /**
-   * Authoritative multi-level item list (#335).  When present and non-empty,
-   * renderers and exporters use this instead of `bullets` / `bulletRuns`.
-   * Legacy decks that lack `items` are normalised on the fly via
-   * {@link normalizeBulletItems}.
-   */
-  items?: BulletItem[];
+  /** Authoritative multi-level item list (#335). */
+  items: BulletItem[];
   style: TextElementStyle;
   /**
    * How the element handles content that exceeds the box height.
@@ -458,19 +445,11 @@ export interface BulletsElement extends BaseElement {
 /**
  * Returns the authoritative item list for a bullets element (#335).
  *
- * - When `el.items` is present and non-empty it is returned directly.
- * - Otherwise the flat `bullets` / `bulletRuns` arrays are normalised into a
- *   `BulletItem[]` so that all consumers can share a single code path.
+ * Current deck payloads must carry `items[]`; flat `bullets[]` exists only as
+ * a compact text mirror for form controls and export APIs.
  */
 export function normalizeBulletItems(el: BulletsElement): BulletItem[] {
-  if (el.items && el.items.length > 0) return el.items;
-  return el.bullets.map((text, i) => {
-    const runs = el.bulletRuns?.[i];
-    return {
-      text,
-      ...(runs && runs.length > 0 ? { runs } : {}),
-    };
-  });
+  return el.items;
 }
 
 export interface VisualElement extends BaseElement {
@@ -577,8 +556,9 @@ export interface Slide {
   /**
    * Optional rich-text runs for `title`, captured from the document heading so
    * emphasis (bold/italic/code/color/link) survives derivation. Additive: when
-   * absent the title renders from the plain `title` string. Threaded into the
-   * title {@link TextElement}'s `runs` by {@link materializeSlideElements}.
+  * absent the title renders from the plain `title` string. Threaded into the
+  * generated title {@link TextElement}'s `runs` by
+  * {@link buildSlideElementsFromContent}.
    */
   titleRuns?: TextRun[];
 
@@ -590,9 +570,9 @@ export interface Slide {
 
   /**
    * Optional rich-text runs, parallel to `bullets`: `bulletRuns[i]` holds the
-   * formatted spans for visible bullet line `i`. Additive — absent entries fall
-   * back to the plain `bullets[i]` string. Threaded into the
-   * {@link BulletsElement}'s `bulletRuns` by {@link materializeSlideElements}.
+  * formatted spans for visible bullet line `i`. Additive — absent entries fall
+  * back to the plain `bullets[i]` string. Threaded into generated
+  * {@link BulletsElement} values by {@link buildSlideElementsFromContent}.
    */
   bulletRuns?: TextRun[][];
 
@@ -612,25 +592,22 @@ export interface Slide {
   theme: DeckTheme;
 
   /**
-   * Free-form positioned elements. When present and non-empty, this is the
-   * **authoritative** slide content and renderers ignore the legacy
-   * `title`/`bullets`/`visualIds`/`layout` fields. Absent for decks authored
-   * before the free-form editor — those still render via the legacy layouts.
+  * Free-form positioned elements. This is the authoritative slide content
+  * consumed by renderers and exporters.
    */
   elements?: SlideElement[];
 
   /**
-   * Editor-merge provenance flag (issue #221). `true` means `elements[]` was
-   * produced purely by {@link materializeSlideElements} from the legacy
-   * `title`/`bullets`/`visualIds` and has not been hand-edited since. Any
+  * Editor-merge provenance flag (issue #221). `true` means `elements[]` was
+  * produced by {@link buildSlideElementsFromContent} from document-derived
+  * slide content and has not been hand-edited since. Any
    * genuine element edit (move/resize/text/style/add/delete) clears it to
    * `false`, marking the slide as hand-authored.
    *
    * "Sync from document" uses this to decide whether to re-materialize a slide's
    * `elements[]` from refreshed document content (when still derived) or to
-   * preserve them verbatim (when hand-edited). Absent → treated as hand-edited
-   * so legacy/persisted decks with `elements[]` are never clobbered. Renderers
-   * ignore this field; it is pure editor-merge metadata.
+  * preserve them verbatim (when hand-edited). Absent → treated as hand-edited.
+  * Renderers ignore this field; it is pure editor-merge metadata.
    */
   elementsDerived?: boolean;
 
@@ -641,8 +618,7 @@ export interface Slide {
    * on-stage title rename: the existing slide keeps its frozen `sourceSectionId`
    * and re-derived fresh slides for the same unchanged document heading produce
    * the same id, so "Sync from document" can match them in Pass 0 before the
-   * title-text pass.  Optional for legacy/persisted decks — absent slides fall
-   * back to the existing title/index match.  Excluded from `deck-hash` to avoid
+  * title-text pass. Excluded from `deck-hash` to avoid
    * false staleness signals.
    */
   sourceSectionId?: string;
@@ -690,12 +666,12 @@ export interface Deck {
   theme: DeckTheme;
 
   /**
-   * Optional content/theme token id for typography and other theme-scoped
-   * design tokens. Legacy decks may omit this and fall back to {@link theme}.
+  * Optional content/theme token id for typography and other theme-scoped
+  * design tokens.
    */
   themeId?: string;
 
-  /** Deck-wide slide format. Missing legacy values render as 16:9. */
+  /** Deck-wide slide format. Missing values render as 16:9. */
   slideFormat?: PresentationSlideFormat;
 
   /**
@@ -709,27 +685,22 @@ export interface Deck {
    * against (see `deck-hash.ts`). Embedded in the persisted deck JSON — NO
    * schema change — so staleness can be detected without a separate column:
    * on open the editor recomputes the live content hash and compares it against
-   * this value to surface `isDeckStale`. Absent for decks authored before this
-   * signal existed (legacy) — those are treated as "staleness unknown" and the
-   * banner stays hidden, while the manual "Sync from document" action remains
-   * available.
+  * this value to surface `isDeckStale`. Absent values are treated as
+  * "staleness unknown" and the banner stays hidden, while the manual
+  * "Sync from document" action remains available.
    */
   deckContentHash?: string;
 
   /**
-   * Monotonically-increasing deck schema version used by the migration
-   * pipeline in `deck-migration.ts`. Legacy decks omit this field (treated as
-   * version 0). After migration, all persisted decks carry the current version.
-   * Callers must not interpret the version themselves; use `migrateDeck` and
-   * `safeParseDeck` instead.
+  * Monotonically-increasing deck schema version. Persisted decks must carry
+  * the current version and `safeParseDeck` rejects any other version.
    */
   schemaVersion?: number;
 
   /**
    * Optional master slide catalogue. Each entry defines structural chrome
    * (background, logo, footer, page numbers) shared by slides that reference
-   * that master via `Slide.masterRef`. Legacy decks without masters fall back
-   * to token-set defaults.
+  * that master via `Slide.masterRef`.
    */
   masters?: MasterSlide[];
 
@@ -758,7 +729,7 @@ function cloneSourceRef(ref: SourceRef): SourceRef {
     ...(ref.contentHash !== undefined ? { contentHash: ref.contentHash } : {}),
     linkedAt: ref.linkedAt,
     ...(ref.unlinked === true ? { unlinked: true } : {}),
-    ...(ref.blockKind !== undefined ? { blockKind: ref.blockKind } : {}),
+    blockKind: ref.blockKind,
   };
 }
 
@@ -861,8 +832,7 @@ export const DEFAULT_VISUAL_BOX: ElementBox = { x: 25, y: 18, w: 50, h: 64 };
  * `addElement`, so it is intentionally omitted here.
  *
  * Pass `options.sourceRef` to stamp provenance metadata when inserting from
- * a source document (issue #424). Legacy inserts that omit `sourceRef` remain
- * fully valid — detection falls back to `visualId`-only matching.
+ * a source document (issue #424).
  */
 export function buildVisualElement(
   visualId: string,
@@ -1147,16 +1117,8 @@ export function defaultLayouts(): SlideLayout[] {
   }));
 }
 
-/**
- * Returns the slide's element list, deriving it from the slide's document-
- * derived content fields when needed. Pure and deterministic except for
- * generated element ids.
- */
-export function materializeSlideElements(slide: Slide): SlideElement[] {
-  if (slide.elements && slide.elements.length > 0) {
-    return slide.elements;
-  }
-
+/** Builds positioned current elements while deriving a brand-new deck. */
+export function buildSlideElementsFromContent(slide: Slide): SlideElement[] {
   const elements: SlideElement[] = [];
   let z = 0;
 
@@ -1202,6 +1164,12 @@ export function materializeSlideElements(slide: Slide): SlideElement[] {
       kind: "bullets",
       bullets: [...bullets],
       ...(bulletRuns ? { bulletRuns } : {}),
+      items: bullets.map((text, index) => ({
+        text,
+        ...(bulletRuns?.[index] && bulletRuns[index].length > 0
+          ? { runs: bulletRuns[index] }
+          : {}),
+      })),
       zIndex: z++,
       box: { x: 6, y: 26, w: 46, h: 66 },
       style: textStyle(4.5, "left", false),
@@ -1227,6 +1195,12 @@ export function materializeSlideElements(slide: Slide): SlideElement[] {
       kind: "bullets",
       bullets: [...bullets],
       ...(bulletRuns ? { bulletRuns } : {}),
+      items: bullets.map((text, index) => ({
+        text,
+        ...(bulletRuns?.[index] && bulletRuns[index].length > 0
+          ? { runs: bulletRuns[index] }
+          : {}),
+      })),
       zIndex: z++,
       box: { x: 6, y: 26, w: 88, h: 66 },
       style: textStyle(4.5, "left", false),
@@ -1316,7 +1290,7 @@ function finaliseSlide(
   };
   return {
     ...slide,
-    elements: materializeSlideElements(slide),
+    elements: buildSlideElementsFromContent(slide),
     elementsDerived: true,
   };
 }

@@ -187,7 +187,7 @@ export function textFitPaddingPct(
 
 /**
  * Returns `true` when the element should auto-grow its box to fit content.
- * Absent `fitMode` (legacy decks) is treated as `"auto-height"`.
+ * Absent `fitMode` is treated as `"auto-height"`.
  */
 export function isAutoHeight(element: TextLikeElement): boolean {
   return !element.fitMode || element.fitMode === "auto-height";

@@ -8,7 +8,6 @@ import {
   DEFAULT_VISUAL_BOX,
   MAX_BULLETS,
 } from "./deck";
-import type { Slide } from "./deck";
 import { CURRENT_DECK_SCHEMA_VERSION } from "./deck-migration";
 import { safeParseDeck } from "./deck-schema";
 
@@ -361,19 +360,19 @@ test("safeParseDeck rejects a slide with missing notes field", () => {
   const raw = JSON.parse(JSON.stringify(deck)) as {
     slides: Array<Record<string, unknown>>;
   };
-  // Remove notes from first slide to simulate a corrupted/legacy payload
+  // Remove notes from first slide to simulate a corrupted payload.
   delete raw.slides[0].notes;
   const result = safeParseDeck(raw);
   assert.equal(result.success, false, "should fail when notes is missing");
 });
 
 // ---------------------------------------------------------------------------
-// materializeSlideElements
+// buildSlideElementsFromContent
 // ---------------------------------------------------------------------------
 
-test("materializeSlideElements builds a title element from the slide title", async () => {
-  const { materializeSlideElements } = await import("./deck");
-  const elements = materializeSlideElements({
+test("buildSlideElementsFromContent builds a title element from slide content", async () => {
+  const { buildSlideElementsFromContent } = await import("./deck");
+  const elements = buildSlideElementsFromContent({
     id: "test-id",
     index: 0,
     title: "Hello",
@@ -391,9 +390,9 @@ test("materializeSlideElements builds a title element from the slide title", asy
   }
 });
 
-test("materializeSlideElements pairs bullets and a visual side by side", async () => {
-  const { materializeSlideElements } = await import("./deck");
-  const elements = materializeSlideElements({
+test("buildSlideElementsFromContent pairs bullets and a visual side by side", async () => {
+  const { buildSlideElementsFromContent } = await import("./deck");
+  const elements = buildSlideElementsFromContent({
     id: "test-id",
     index: 0,
     title: "T",
@@ -407,35 +406,9 @@ test("materializeSlideElements pairs bullets and a visual side by side", async (
   assert.ok(elements.some((e) => e.kind === "visual"));
 });
 
-test("materializeSlideElements returns existing elements unchanged", async () => {
-  const { materializeSlideElements } = await import("./deck");
-  const existing = [
-    {
-      id: "keep",
-      kind: "shape" as const,
-      shape: "rect" as const,
-      color: "#000000",
-      zIndex: 0,
-      box: { x: 0, y: 0, w: 1, h: 1 },
-    },
-  ];
-  const elements = materializeSlideElements({
-    id: "test-id",
-    index: 0,
-    title: "T",
-    bullets: ["a"],
-    visualIds: [],
-    layout: "content",
-    notes: "",
-    theme: "default",
-    elements: existing,
-  });
-  assert.equal(elements, existing);
-});
-
-test("materializeSlideElements cascades 3+ visuals into offset tiles", async () => {
-  const { materializeSlideElements } = await import("./deck");
-  const elements = materializeSlideElements({
+test("buildSlideElementsFromContent cascades 3+ visuals into offset tiles", async () => {
+  const { buildSlideElementsFromContent } = await import("./deck");
+  const elements = buildSlideElementsFromContent({
     id: "test-id",
     index: 0,
     title: "",
@@ -480,9 +453,9 @@ test("materializeSlideElements cascades 3+ visuals into offset tiles", async () 
   }
 });
 
-test("materializeSlideElements tiles extra visuals alongside bullets", async () => {
-  const { materializeSlideElements } = await import("./deck");
-  const elements = materializeSlideElements({
+test("buildSlideElementsFromContent tiles extra visuals alongside bullets", async () => {
+  const { buildSlideElementsFromContent } = await import("./deck");
+  const elements = buildSlideElementsFromContent({
     id: "test-id",
     index: 0,
     title: "T",
@@ -679,9 +652,9 @@ test("buildDeckFromBlocks omits runs entirely for a plain document", () => {
   assert.equal(slide.bulletRuns, undefined);
 });
 
-test("materializeSlideElements copies titleRuns and bulletRuns to elements", async () => {
-  const { materializeSlideElements } = await import("./deck");
-  const elements = materializeSlideElements({
+test("buildSlideElementsFromContent copies titleRuns and bulletRuns to elements", async () => {
+  const { buildSlideElementsFromContent } = await import("./deck");
+  const elements = buildSlideElementsFromContent({
     id: "test-id",
     index: 0,
     title: "Title",
@@ -782,51 +755,13 @@ test("normalizeBulletItems returns items[] as-is when present", async () => {
   assert.equal(result[1].listType, "number");
 });
 
-test("normalizeBulletItems converts flat bullets[] when items absent", async () => {
-  const { normalizeBulletItems } = await import("./deck");
-  const el = {
-    id: "b",
-    kind: "bullets" as const,
-    bullets: ["Alpha", "Beta", "Gamma"],
-    zIndex: 0,
-    box: { x: 0, y: 0, w: 10, h: 10 },
-    style: { fontSize: 4, bold: false, italic: false, align: "left" as const },
-  };
-  const result = normalizeBulletItems(el);
-  assert.equal(result.length, 3);
-  assert.equal(result[0].text, "Alpha");
-  assert.equal(result[1].text, "Beta");
-  assert.equal(result[2].text, "Gamma");
-  // No indent/listType on plain bullets
-  assert.equal(result[0].indent, undefined);
-  assert.equal(result[0].listType, undefined);
-});
-
-test("normalizeBulletItems merges bulletRuns into items when items absent", async () => {
-  const { normalizeBulletItems } = await import("./deck");
-  const el = {
-    id: "b",
-    kind: "bullets" as const,
-    bullets: ["plain", "rich"],
-    bulletRuns: [[], [{ text: "rich", bold: true }]],
-    zIndex: 0,
-    box: { x: 0, y: 0, w: 10, h: 10 },
-    style: { fontSize: 4, bold: false, italic: false, align: "left" as const },
-  };
-  const result = normalizeBulletItems(el);
-  assert.equal(result.length, 2);
-  // Empty runs array should not be attached
-  assert.equal(result[0].runs, undefined);
-  // Non-empty runs should be attached
-  assert.deepEqual(result[1].runs, [{ text: "rich", bold: true }]);
-});
-
-test("normalizeBulletItems returns empty array for empty bullets", async () => {
+test("normalizeBulletItems returns empty current items", async () => {
   const { normalizeBulletItems } = await import("./deck");
   const el = {
     id: "b",
     kind: "bullets" as const,
     bullets: [],
+    items: [],
     zIndex: 0,
     box: { x: 0, y: 0, w: 10, h: 10 },
     style: { fontSize: 4, bold: false, italic: false, align: "left" as const },

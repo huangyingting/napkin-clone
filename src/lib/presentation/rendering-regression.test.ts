@@ -125,6 +125,7 @@ function bulletsEl(
     id,
     kind: "bullets",
     bullets,
+    items: bullets.map((text) => ({ text })),
     zIndex: 0,
     box: { x: 5, y: 5, w: 60, h: 40 },
     style: { fontSize: 4, bold: false, italic: false, align: "left" },
@@ -337,7 +338,10 @@ test("[AC-2] mixed bullet/number list preserves each item type", () => {
 test("[AC-2] bullets op carries itemRuns when bullet items have rich runs", () => {
   const ops = buildOps([
     bulletsEl("b5", ["one", "two"], {
-      bulletRuns: [[], [{ text: "two", italic: true }]],
+      items: [
+        { text: "one" },
+        { text: "two", runs: [{ text: "two", italic: true }] },
+      ],
     }),
   ]);
   const op = ofKind(ops, "bullets")[0] as DeckBulletsOp;
@@ -355,7 +359,7 @@ test("[AC-2] bullets op omits itemRuns when no runs are set", () => {
 
 test("[AC-2] bullets items[] text is authoritative over flat bullets array", () => {
   const ops = buildOps([
-    bulletsEl("b7", ["legacy text"], {
+    bulletsEl("b7", ["flat mirror text"], {
       items: [{ text: "authoritative text", indent: 0 }],
     }),
   ]);
@@ -1258,6 +1262,7 @@ test("[AC-12] text element with sourceRef still emits a normal text op", () => {
         blockId: "block-42",
         contentHash: "abc123",
         linkedAt: "2026-01-01T00:00:00Z",
+        blockKind: "text",
       },
     }),
   ]);
@@ -1274,6 +1279,7 @@ test("[AC-12] bullets element with sourceRef still emits a normal bullets op", (
         documentId: "doc-1",
         blockId: "block-7",
         linkedAt: "2026-01-01T00:00:00Z",
+        blockKind: "text",
       },
     }),
   ]);
@@ -1290,6 +1296,7 @@ test("[AC-12] shape with sourceRef exports normally (sourceRef is opaque metadat
         documentId: "doc-1",
         blockId: "block-5",
         linkedAt: "2026-01-01T00:00:00Z",
+        blockKind: "text",
       },
     }),
   ]);
@@ -1309,6 +1316,7 @@ test("[AC-12] unlinked sourceRef (unlinked=true) does not suppress the element",
         blockId: "block-9",
         linkedAt: "2026-01-01T00:00:00Z",
         unlinked: true,
+        blockKind: "text",
       },
     }),
   ]);

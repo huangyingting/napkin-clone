@@ -23,7 +23,7 @@
  *    without a `contentHash` are silently skipped.
  *  - Text blocks are indexed by `blockId`; visual blocks are indexed by
  *    `visualId`. The `sourceRef.blockKind` field disambiguates which map to
- *    consult (absent/`"text"` → text map; `"visual"` → visual map).
+ *    consult (`"text"` → text map; `"visual"` → visual map).
  *  - Elements whose source block is missing produce `"block_missing"` (orphan);
  *    elements whose hash differs produce `"content_changed"`. Both are subtypes
  *    of {@link StaleReason} so callers can display them distinctly (#410).
@@ -54,8 +54,7 @@ export interface StaleSourceLink {
   /** Why the link is considered stale. */
   reason: StaleReason;
   /**
-   * Kind of the source block. Matches `sourceRef.blockKind`; absent/`"text"`
-   * for text blocks, `"visual"` for visual blocks.
+  * Kind of the source block. Matches `sourceRef.blockKind`.
    */
   blockKind: "text" | "visual";
 }
@@ -107,7 +106,7 @@ export function findStaleSourceLinks(
         continue;
       }
 
-      const blockKind: "text" | "visual" = sourceRef.blockKind ?? "text";
+      const blockKind = sourceRef.blockKind;
 
       if (blockKind === "visual") {
         // Visual block: look up by visualId (blockId holds the visualId).
@@ -228,24 +227,20 @@ export function updateVisualElementFromBlock(
  * @param blockId    The block id (or visualId) of the new source block.
  * @param contentHash  Hash of the new block content.
  * @param linkedAt   ISO timestamp for the relink.
- * @param blockKind  Kind of the new block. Absent → carry over from existing.
+ * @param blockKind  Kind of the new block.
  */
 export function buildRefreshSourceRef(
   existing: SourceRef,
   blockId: string,
   contentHash: string,
   linkedAt: string,
-  blockKind?: "text" | "visual",
+  blockKind: "text" | "visual",
 ): SourceRef {
   return {
     documentId: existing.documentId,
     blockId,
     contentHash,
     linkedAt,
-    ...(blockKind !== undefined
-      ? { blockKind }
-      : existing.blockKind !== undefined
-        ? { blockKind: existing.blockKind }
-        : {}),
+    blockKind,
   };
 }

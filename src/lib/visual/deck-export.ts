@@ -11,10 +11,9 @@
  *
  * Design (mirrors the pure/applier split used by pptx-shapes.ts + pptx-apply.ts):
  *  1. `buildDeckSpecs` — pure, DOM-free transform from a `Deck` into an array of
- *     `DeckSlideSpec` descriptors. Fully testable under `node --test`. It reuses
- *     `materializeSlideElements` so legacy slides (no `elements[]`) and free-form
- *     slides flow through one uniform element-based code path, and reuses
- *     `visualToNativeSpecs` for the visual→PPTX mapping.
+ *     `DeckSlideSpec` descriptors. Fully testable under `node --test`. It walks
+ *     current slide `elements[]` and reuses `visualToNativeSpecs` for the
+ *     visual→PPTX mapping.
  *  2. `exportDeckAsPPTX` — browser-only applier that walks the descriptors,
  *     creates a real PptxGenJS deck, applies each op, and resolves visual
  *     image-fallbacks via the supplied `getSvg` callback. Returns a Blob.
@@ -42,13 +41,8 @@ import type {
   TextFitMode,
   TextRun,
 } from "@/lib/presentation/deck";
+import { resolveConnectorElementPoints } from "@/lib/presentation/connector-geometry";
 import {
-  lineBoxFromEndpoints,
-  resolveConnectorElementPoints,
-  resolveConnectorEndpoint,
-} from "@/lib/presentation/connector-geometry";
-import {
-  materializeSlideElements,
   normalizeBulletItems,
   PLACEHOLDER_TYPE_LABELS,
 } from "@/lib/presentation/deck";
@@ -323,10 +317,6 @@ function layoutWithinBox(visual: Visual, box: InchBox): PptxSlideLayout {
  * Pure, DOM-free transform turning a {@link Deck} into an ordered array of
  * {@link DeckSlideSpec}. One spec is produced per `deck.slides` entry, in order.
  *
- * Both free-form slides (those with `elements[]`) and legacy slides flow through
- * `materializeSlideElements`, so a legacy slide is emitted as its title + bullets
- * + visual, while a free-form slide is emitted exactly as authored.
- *
  * @param deck     The edited deck (from `deckJson`).
  * @param visuals  Lookup of visual payloads by id, used for native shape mapping.
  */
@@ -357,15 +347,15 @@ function buildSlideSpec(
   );
   const accent = toHex(resolved.accent);
 
-  const elements = [...materializeSlideElements(slide)]
+  const elements = [...(slide.elements ?? [])]
     .filter((element) => !element.hidden)
     .sort((a, b) => a.zIndex - b.zIndex);
 
   const ops: DeckOp[] = [];
 
   for (const element of elements) {
-    let elementBox = element.box;
-    let elementRotation = element.rotation;
+    const elementBox = element.box;
+    const elementRotation = element.rotation;
     const box = boxToInches(elementBox, geometry);
     if (elementRotation) {
       box.rotation = elementRotation;
@@ -446,7 +436,7 @@ function buildSlideSpec(
         break;
       }
       case "bullets": {
-        // Normalise to authoritative item list (handles legacy flat bullets).
+        // Use the authoritative item list.
         const bulletItems: BulletItem[] = normalizeBulletItems(element);
         const hasRichRuns = bulletItems.some(
           (it) => it.runs && it.runs.length > 0,

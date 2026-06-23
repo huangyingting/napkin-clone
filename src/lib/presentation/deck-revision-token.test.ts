@@ -18,11 +18,10 @@ import {
 // Tests
 // ---------------------------------------------------------------------------
 
-test("no-token save: always succeeds regardless of DB token", () => {
-  // Legacy clients that don't send a token must never be blocked.
-  assert.equal(isRevisionConflict(undefined, "existing-token"), false);
-  assert.equal(isRevisionConflict(null, "existing-token"), false);
-  assert.equal(isRevisionConflict(undefined, null), false);
+test("no-token save: conflicts regardless of DB token", () => {
+  assert.equal(isRevisionConflict(undefined, "existing-token"), true);
+  assert.equal(isRevisionConflict(null, "existing-token"), true);
+  assert.equal(isRevisionConflict(undefined, null), true);
 });
 
 test("matching-token save: not a conflict when tokens agree", () => {
@@ -53,15 +52,12 @@ test("round-trip: fresh token is not a conflict with itself, stale token is", ()
   );
 });
 
-test("legacy null token: first save with clientToken=null never conflicts", () => {
-  // A document that has never had a token (null in DB).
-  // A client that provides no token must succeed (legacy / initial-save path).
-  assert.equal(isRevisionConflict(null, null), false);
-  assert.equal(isRevisionConflict(undefined, null), false);
+test("missing server token conflicts", () => {
+  assert.equal(isRevisionConflict(null, null), true);
+  assert.equal(isRevisionConflict(undefined, null), true);
 });
 
 test("stale-token conflict: DB token is null but client sends a token", () => {
-  // Edge case: client has a token but the DB was reset to null (e.g. restore).
   assert.equal(isRevisionConflict("tok-stale", null), true);
 });
 

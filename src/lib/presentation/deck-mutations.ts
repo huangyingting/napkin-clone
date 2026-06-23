@@ -178,31 +178,7 @@ export function removeSlide(deck: Deck, index: number): Deck {
   return { ...deck, slides: reindex(slides) };
 }
 
-/**
- * Legacy slide fields that the free-form `elements[]` track makes authoritative.
- * Once a slide has elements, renderers ignore these, so {@link updateSlide}
- * refuses to patch them to avoid leaving conflicting legacy + free-form content.
- */
-const LEGACY_CONTENT_FIELDS = [
-  "title",
-  "titleRuns",
-  "bullets",
-  "bulletRuns",
-  "visualIds",
-  "layout",
-] as const satisfies readonly (keyof Slide)[];
-
-/**
- * Updates a slide's field(s) and re-indexes the deck.
- *
- * **Free-form guard:** when the target slide already has authoritative
- * `elements[]`, patches to the legacy content fields (`title`, `titleRuns`,
- * `bullets`, `bulletRuns`, `visualIds`, `layout`) are ignored — renderers read
- * only `elements[]`, so honoring such a patch would silently desync the legacy
- * fallback from the visible slide. All other fields (e.g. `notes`, `background`,
- * `accent`, `elements`, `elementsDerived`) still apply. Legacy slides (no
- * `elements[]`) accept the full patch unchanged.
- */
+/** Updates a slide's field(s) and re-indexes the deck. */
 export function updateSlide(
   deck: Deck,
   index: number,
@@ -212,28 +188,13 @@ export function updateSlide(
     return deck;
   }
 
-  const target = deck.slides[index];
-  const hasElements = Boolean(target.elements && target.elements.length > 0);
-  const effectivePatch = hasElements ? stripLegacyContentFields(patch) : patch;
-
   const slides = deck.slides.map((slide, i) =>
     i === index
-      ? { ...slide, ...effectivePatch, index: slide.index, theme: slide.theme }
+      ? { ...slide, ...patch, index: slide.index, theme: slide.theme }
       : slide,
   );
 
   return { ...deck, slides: reindex(slides) };
-}
-
-/** Drops legacy content keys from a slide patch (free-form guard helper). */
-function stripLegacyContentFields(
-  patch: Partial<Omit<Slide, "index" | "theme">>,
-): Partial<Omit<Slide, "index" | "theme">> {
-  const next = { ...patch };
-  for (const field of LEGACY_CONTENT_FIELDS) {
-    delete next[field];
-  }
-  return next;
 }
 
 /** Changes the deck theme, copying it onto every slide. */
@@ -603,11 +564,10 @@ export function duplicateElements(
 /**
  * Removes an element from a slide by id.
  *
- * Before removing the element, any {@link ConnectorElement} (or legacy
- * `shape:"line"` with connector bindings) whose endpoint references the
- * deleted element id has that endpoint **detached** to a free point at the
- * anchor's last resolved position (issue #324 — delete policy: keep connector,
- * clear binding).
+ * Before removing the element, any {@link ConnectorElement} whose endpoint
+ * references the deleted element id has that endpoint **detached** to a free
+ * point at the anchor's last resolved position (issue #324 — delete policy:
+ * keep connector, clear binding).
  */
 export function removeElement(
   deck: Deck,
@@ -942,7 +902,7 @@ export function setSlideBackgroundImage(
 /**
  * Sets a slide's background to a server-stored asset, persisting both the
  * resolved URL (as `backgroundImage`) and the asset id (as `backgroundAssetId`)
- * so renderers can use the resolver while legacy URL fallback still works.
+ * so renderers can use the resolver.
  * Clears any background gradient.  Passing `undefined` for both clears the
  * background asset and image.
  */

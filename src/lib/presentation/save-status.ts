@@ -82,7 +82,7 @@ export interface AutosaveDecisionInputs {
  *
  * The slide editor's deck only changes reference on a genuine user action
  * (mutation, undo, redo or an applied document sync) — the initial load,
- * legacy-slide materialization and the non-blocking staleness banner never
+ * slide rebuilding and the non-blocking staleness banner never
  * produce a new reference here. So a `null` `lastSeen` (initial render) is never
  * autosaved, and an unchanged reference is a no-op; only a new reference is a
  * real edit worth persisting.

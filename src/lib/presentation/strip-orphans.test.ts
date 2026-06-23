@@ -52,13 +52,6 @@ function deck(slides: Slide[]): Deck {
 // Tests
 // ---------------------------------------------------------------------------
 
-test("strips unknown visualId from slide.visualIds", () => {
-  const input = deck([slide({ visualIds: ["keep", "gone"] })]);
-  const result = stripOrphanedVisuals(input, new Set(["keep"]));
-
-  assert.deepEqual(result.slides[0].visualIds, ["keep"]);
-});
-
 test("drops orphan visual elements", () => {
   const input = deck([
     slide({
@@ -94,7 +87,6 @@ test("preserves known visuals and non-visual elements", () => {
 test("does not mutate the input deck", () => {
   const input = deck([
     slide({
-      visualIds: ["keep", "gone"],
       elements: [
         visualElement("el-keep", "keep"),
         visualElement("el-gone", "gone"),
@@ -108,24 +100,14 @@ test("does not mutate the input deck", () => {
   assert.deepEqual(input, snapshot);
 });
 
-test("handles legacy slides without elements[]", () => {
-  const input = deck([slide({ visualIds: ["keep", "gone"] })]);
-  const result = stripOrphanedVisuals(input, new Set(["keep"]));
-
-  assert.equal(result.slides[0].elements, undefined);
-  assert.deepEqual(result.slides[0].visualIds, ["keep"]);
-});
-
 test("drops all references when knownVisualIds is empty", () => {
   const input = deck([
     slide({
-      visualIds: ["a", "b"],
       elements: [visualElement("el-a", "a"), textElement("el-text", "keep me")],
     }),
   ]);
   const result = stripOrphanedVisuals(input, new Set());
 
-  assert.deepEqual(result.slides[0].visualIds, []);
   assert.deepEqual(
     result.slides[0].elements?.map((el) => el.id),
     ["el-text"],

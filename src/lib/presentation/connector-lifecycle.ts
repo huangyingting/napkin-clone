@@ -107,12 +107,10 @@ export function updateConnectorBindingsOnDelete(
 
   let anyChanged = false;
   const patched = elements.map((el): SlideElement => {
-    let next: SlideElement;
-
     if (el.kind !== "connector") {
       return el;
     }
-    next = patchConnectorOnDelete(el, deletedIds, elements);
+    const next = patchConnectorOnDelete(el, deletedIds, elements);
 
     if (next !== el) anyChanged = true;
     return next;
@@ -180,12 +178,10 @@ export function remapConnectorBindings(
 
   let anyChanged = false;
   const result = copies.map((el): SlideElement => {
-    let next: SlideElement;
-
     if (el.kind !== "connector") {
       return el;
     }
-    next = remapConnectorElement(el, idMap, allElements);
+    const next = remapConnectorElement(el, idMap, allElements);
 
     if (next !== el) anyChanged = true;
     return next;

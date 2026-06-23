@@ -10,8 +10,8 @@
 
 import {
   DECK_THEMES,
+  buildSlideElementsFromContent,
   makeElementId,
-  materializeSlideElements,
   type Deck,
   type DeckTheme,
   type ElementBox,
@@ -35,7 +35,7 @@ export const FALLBACK_THEME: DeckTheme = "indigo";
 /**
  * Prominent visual box used when injecting a document visual into a `media`
  * slide that is missing one. Mirrors the visual-only box in
- * {@link materializeSlideElements} so generated and derived slides share the
+ * {@link buildSlideElementsFromContent} so generated slides share the
  * same approved geometry.
  */
 const PROMINENT_VISUAL_BOX: ElementBox = { x: 8, y: 24, w: 84, h: 68 };
@@ -214,9 +214,8 @@ function cleanElement(
 
 /**
  * Builds the normalized `elements[]` for one slide. Cleans the model's elements
- * when they match the declared layout; otherwise re-scaffolds them from the
- * slide's legacy fields via {@link materializeSlideElements}, then re-stamps
- * hierarchy and ids.
+ * when they match the declared layout; otherwise builds current elements from
+ * the slide's repaired content fields, then re-stamps hierarchy and ids.
  */
 function buildElements(
   slide: Slide,
@@ -234,9 +233,7 @@ function buildElements(
   ) {
     source = slide.elements;
   } else {
-    // Re-scaffold from the legacy fields so the slide gets hierarchy-aware,
-    // template-conformant positioned elements.
-    source = materializeSlideElements({
+    source = buildSlideElementsFromContent({
       ...slide,
       visualIds,
       elements: undefined,
@@ -324,7 +321,7 @@ function resolveTheme(deck: Deck, preferredTheme?: DeckTheme): DeckTheme {
  * set of positioned `elements[]`. Pure and deterministic except for generated
  * element ids. The result remains `safeParseDeck`-valid.
  *
- * @param deck       A `safeParseDeck`-valid deck to normalize.
+ * @param deck       A repaired model deck candidate to normalize.
  * @param inventory  Visuals the deck may reference, as a set of ids or any
  *                   array of `{ id }` carriers. Visuals not present here are
  *                   dropped. Omit for "no known visuals".

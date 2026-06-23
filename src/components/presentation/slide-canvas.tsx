@@ -8,7 +8,14 @@
  * sync without duplicating layout code.
  */
 
-import { memo, useLayoutEffect, useRef, useState, type JSX } from "react";
+import {
+  memo,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type JSX,
+  type RefObject,
+} from "react";
 
 import type {
   BulletItem,
@@ -31,10 +38,7 @@ import {
   PLACEHOLDER_TYPE_LABELS,
 } from "@/lib/presentation/deck";
 import { resolveSlideStyle } from "@/lib/presentation/style-cascade";
-import {
-  resolveConnectorElementPoints,
-  resolveConnectorEndpoint,
-} from "@/lib/presentation/connector-geometry";
+import { resolveConnectorElementPoints } from "@/lib/presentation/connector-geometry";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 import type { Visual } from "@/lib/visual/schema";
 import { applyTheme } from "@/lib/visual/transforms";
@@ -346,13 +350,47 @@ function PlaceholderElementView({
  * and the `Math.abs` guard prevents spurious updates once settled.
  */
 function useShrinkFontSizeCss(
-  containerRef: React.RefObject<HTMLElement | null>,
-  elements: _elements,
+  containerRef: RefObject<HTMLElement | null>,
+  baseFontSize: number,
   fitMode: TextFitMode | undefined,
 ): string {
   const enabled = fitMode === "shrink-to-fit";
-  const [scale, setScale] = useState(1);
+  const configKey = `${baseFontSize}:${fitMode ?? ""}`;
+  const [sizing, setSizing] = useState({ key: configKey, scale: 1 });
+  const scale = sizing.key === configKey ? sizing.scale : 1;
 
+  if (sizing.key !== configKey) {
+    setSizing({ key: configKey, scale: 1 });
+  }
+
+  useLayoutEffect(() => {
+    if (!enabled) return;
+    const node = containerRef.current;
+    if (!node) return;
+    const overflows =
+      node.scrollHeight > node.clientHeight + 1 ||
+      node.scrollWidth > node.clientWidth + 1;
+    if (!overflows || scale <= 0.55) return;
+    const nextScale = Math.max(0.55, scale * 0.88);
+    setSizing((current) =>
+      current.key === configKey && Math.abs(current.scale - nextScale) > 0.001
+        ? { ...current, scale: nextScale }
+        : current,
+    );
+  }, [configKey, containerRef, enabled, scale]);
+
+  return `${baseFontSize * (enabled ? scale : 1)}cqh`;
+}
+
+function TextElementView({
+  element,
+  tc,
+}: {
+  element: TextElement;
+  tc: ThemeConfig;
+}): JSX.Element {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const fontSizeCss = useShrinkFontSizeCss(
     containerRef,
     element.style.fontSize,
     element.fitMode,
@@ -421,7 +459,7 @@ function BulletsElementView({
   );
   const color = element.style.color ?? tc.bodyColor;
 
-  // Resolve authoritative item list (normalises legacy flat bullets on the fly)
+  // Resolve the authoritative item list.
   const items = normalizeBulletItems(element);
 
   // Pre-compute numbering: track a per-indent counter; reset when a non-number
@@ -870,7 +908,7 @@ function SlideElementView({
         />
       );
     case "text":
-      return <TextElementView element={element} tc={tc} accent={accent} />;
+      return <TextElementView element={element} tc={tc} />;
     case "bullets":
       return <BulletsElementView element={element} tc={tc} accent={accent} />;
     case "visual":
@@ -954,7 +992,7 @@ export interface SlideCanvasProps {
   /**
    * Optional deck context. When provided, enables full cascade resolution
    * (master slides, custom token sets) for background and accent colours.
-   * When absent the legacy per-theme dark-mode palette is used as a fallback.
+  * When absent the built-in theme palette is used.
    */
   deck?: Deck;
   visuals: ReadonlyMap<string, Visual>;
@@ -994,7 +1032,7 @@ export const SlideCanvas = memo(function SlideCanvas({
   editable = false,
 }: SlideCanvasProps): JSX.Element {
   // When deck context is available, resolve via the full cascade (masters,
-  // custom token sets). Otherwise fall back to the legacy dark-mode palette.
+  // custom token sets). Otherwise use the built-in theme palette.
   const tc: ThemeConfig = (() => {
     if (deck) {
       const resolved = resolveSlideStyle(deck, slide);

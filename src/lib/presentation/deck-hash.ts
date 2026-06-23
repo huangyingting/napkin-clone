@@ -11,8 +11,8 @@
  * deck was last built/synced.
  *
  * The hash is computed over the *content signature* of a deck (titles, bullets,
- * visual ids, notes, layout, theme) — the legacy fields produced by
- * `buildDeckFromBlocks` — and deliberately ignores free-form `elements[]`,
+ * visual ids, notes, layout, theme) produced by `buildDeckFromBlocks` and
+ * deliberately ignores free-form `elements[]`,
  * per-slide colors and element ids. That way the signal tracks document edits,
  * not manual deck styling: re-deriving the same document always yields the same
  * hash, so a deck synced against the current document is never falsely flagged.
@@ -41,7 +41,7 @@ export function normalizeTitle(title: string): string {
 
 /**
  * Builds a canonical, deterministic string capturing only the document-derived
- * content of a slide (the legacy `buildDeckFromBlocks` fields). Free-form
+ * content of a slide (the `buildDeckFromBlocks` fields). Free-form
  * `elements[]`, element ids, background/accent and the slide `index` are
  * intentionally excluded so manual deck editing never shifts the signature.
  */
@@ -87,9 +87,7 @@ export function stampDeckContentHash(deck: Deck, contentHash: string): Deck {
 /**
  * Returns `true` when the deck's stored `deckContentHash` differs from the
  * current document content hash — i.e. the document was edited after the deck
- * was last built/synced. Returns `false` when the deck carries no stored hash
- * (legacy deck — staleness cannot be determined; the manual sync action stays
- * available regardless).
+ * was last built/synced. Returns `false` when the deck carries no stored hash.
  */
 export function isDeckStale(deck: Deck, currentContentHash: string): boolean {
   if (deck.deckContentHash == null || deck.deckContentHash === "") {

@@ -93,6 +93,7 @@ function bulletsEl(overrides: Partial<BulletsElement> = {}): BulletsElement {
     id: "bul-1",
     kind: "bullets",
     bullets: ["Point one", "Point two"],
+    items: [{ text: "Point one" }, { text: "Point two" }],
     box: { x: 5, y: 25, w: 90, h: 60 },
     zIndex: 0,
     style: { fontSize: 4, bold: false, italic: false, align: "left" },

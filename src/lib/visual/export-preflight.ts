@@ -17,7 +17,6 @@
  */
 
 import type { Deck, ImageElement, SlideElement } from "@/lib/presentation/deck";
-import { materializeSlideElements } from "@/lib/presentation/deck";
 import { getFidelity } from "@/lib/visual/export-fidelity";
 
 // ---------------------------------------------------------------------------
@@ -320,7 +319,7 @@ export function runExportPreflight(
   // Per-slide element checks.
   for (let i = 0; i < deck.slides.length; i++) {
     const slide = deck.slides[i];
-    const elements = [...materializeSlideElements(slide)].filter(
+    const elements = [...(slide.elements ?? [])].filter(
       (el) => !el.hidden,
     );
 

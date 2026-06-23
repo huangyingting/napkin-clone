@@ -22,7 +22,7 @@ export type ThemeTypography = {
 /**
  * Built-in typography themes keyed by the same palette ids used by the visual
  * theme system (`src/lib/visual/themes.ts`), plus a stable `default` fallback
- * for legacy decks that only know about the presentation theme.
+ * for decks that only specify the presentation theme.
  */
 export const THEME_TYPOGRAPHY: Record<string, ThemeTypography> = {
   default: {

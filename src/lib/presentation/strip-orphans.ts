@@ -18,9 +18,8 @@ import type { Deck, Slide, SlideElement } from "./deck";
  * Returns a copy of `deck` with every visual reference that is not present in
  * `knownVisualIds` removed:
  *
- *  - Drops missing ids from each {@link Slide.visualIds} (legacy slides).
- *  - Drops `elements` of kind `"visual"` whose `visualId` is unknown (free-form
- *    slides). All other element kinds are preserved untouched.
+ * Drops `elements` of kind `"visual"` whose `visualId` is unknown. All other
+ * element kinds are preserved untouched.
  *
  * Slides without any orphaned reference are returned by identity so callers can
  * cheaply detect "no change". The input deck and its slides/elements arrays are
@@ -40,10 +39,6 @@ export function stripOrphanedVisuals(
 }
 
 function stripSlide(slide: Slide, knownVisualIds: ReadonlySet<string>): Slide {
-  const visualIds = slide.visualIds ?? [];
-  const nextVisualIds = visualIds.filter((id) => knownVisualIds.has(id));
-  const visualIdsChanged = nextVisualIds.length !== visualIds.length;
-
   let nextElements: SlideElement[] | undefined = slide.elements;
   let elementsChanged = false;
   if (slide.elements) {
@@ -54,13 +49,12 @@ function stripSlide(slide: Slide, knownVisualIds: ReadonlySet<string>): Slide {
     elementsChanged = nextElements.length !== slide.elements.length;
   }
 
-  if (!visualIdsChanged && !elementsChanged) {
+  if (!elementsChanged) {
     return slide;
   }
 
   return {
     ...slide,
-    visualIds: nextVisualIds,
     ...(slide.elements !== undefined ? { elements: nextElements } : {}),
   };
 }

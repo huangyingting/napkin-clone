@@ -29,6 +29,7 @@ function bulletsEl(bullets: string[]): SlideElement {
     ...BASE,
     kind: "bullets",
     bullets,
+    items: bullets.map((text) => ({ text })),
     style: { fontSize: 4, bold: false, italic: false, align: "left" },
   };
 }

@@ -42,9 +42,9 @@ function textElement(
   };
 }
 
-test("deriveSlideTitle uses the explicit slide title when present", () => {
+test("deriveSlideTitle ignores flat slide title without elements", () => {
   const slide = baseSlide({ title: "  Quarterly results  " });
-  assert.equal(deriveSlideTitle(slide, 3), "Quarterly results");
+  assert.equal(deriveSlideTitle(slide, 3), "Slide 4");
 });
 
 test("deriveSlideTitle prefers a title-role text element over body text", () => {
@@ -79,26 +79,27 @@ test("deriveSlideTitle falls back to 'Slide N' (1-based) when empty", () => {
   assert.equal(deriveSlideTitle(baseSlide({ index: 4 }), 4), "Slide 5");
 });
 
-test("slideEffectiveTitle reads the edited title element over a stale slide.title (#244)", () => {
+test("slideEffectiveTitle reads the title element", () => {
   const slide = baseSlide({
-    title: "Stale legacy title",
+    title: "Stale title mirror",
     elements: [textElement("a", "Renamed on stage", "title", 0)],
   });
   assert.equal(slideEffectiveTitle(slide), "Renamed on stage");
   assert.equal(deriveSlideTitle(slide, 0), "Renamed on stage");
 });
 
-test("slideEffectiveTitle falls back to legacy slide.title with no title element (#244)", () => {
+test("slideEffectiveTitle ignores slide.title when no title element exists", () => {
   const slide = baseSlide({
-    title: "Legacy title",
+    title: "Title mirror",
     elements: [textElement("a", "Body copy", "body", 0)],
   });
-  assert.equal(slideEffectiveTitle(slide), "Legacy title");
+  assert.equal(slideEffectiveTitle(slide), "");
+  assert.equal(deriveSlideTitle(slide, 0), "Body copy");
 });
 
-test("slideEffectiveTitle keeps legacy (no elements) behavior using slide.title (#244)", () => {
-  const slide = baseSlide({ title: "  Plain legacy  " });
-  assert.equal(slideEffectiveTitle(slide), "Plain legacy");
+test("slideEffectiveTitle returns empty without a title element", () => {
+  const slide = baseSlide({ title: "  Plain title mirror  " });
+  assert.equal(slideEffectiveTitle(slide), "");
   const blank = baseSlide();
   assert.equal(slideEffectiveTitle(blank), "");
 });

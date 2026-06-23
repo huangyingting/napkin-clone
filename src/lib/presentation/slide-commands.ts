@@ -210,7 +210,7 @@ export interface UpdateSlideTitleCommand {
   commandId?: string;
 }
 
-/** Updates the body bullets of a legacy-track slide. */
+/** Updates the body bullets mirrored on a slide. */
 export interface UpdateSlideBodyCommand {
   type: "UPDATE_SLIDE_BODY";
   slideId: string;

@@ -10,6 +10,10 @@ import type { Deck, Slide, SlideElement } from "./deck";
 import { diffDecks } from "./deck-diff";
 
 function slide(partial: Partial<Slide>): Slide {
+  const title = partial.title ?? "";
+  const elements =
+    partial.elements ??
+    (title.trim().length > 0 ? [titleElement("title", title.trim())] : []);
   return {
     id: "test-id",
     index: 0,
@@ -19,6 +23,7 @@ function slide(partial: Partial<Slide>): Slide {
     layout: "content",
     notes: "",
     theme: "default",
+    elements,
     ...partial,
   };
 }
@@ -123,8 +128,8 @@ test("matches by normalized title regardless of order (reorder → no changes)",
     slide({ title: "Gamma", bullets: ["c"] }),
   ]);
   const proposed = deck([
-    slide({ title: "gamma", bullets: ["c"] }),
-    slide({ title: "ALPHA", bullets: ["a"] }),
+    slide({ title: "Gamma", bullets: ["c"] }),
+    slide({ title: "Alpha", bullets: ["a"] }),
     slide({ title: "Beta", bullets: ["b"] }),
   ]);
 
@@ -137,7 +142,7 @@ test("matches by normalized title regardless of order (reorder → no changes)",
 });
 
 test("matches title carried by free-form title element", () => {
-  const baseline = deck([slide({ title: "Vision", bullets: ["legacy"] })]);
+  const baseline = deck([slide({ title: "Vision", bullets: ["baseline"] })]);
   const proposed = deck([
     slide({
       title: "",

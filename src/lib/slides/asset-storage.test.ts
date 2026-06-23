@@ -344,7 +344,7 @@ describe("Protected delivery URL (#479)", () => {
     assert.equal(url, "/api/slide-assets/docY/ff00.jpg");
     assert.ok(
       !url.startsWith("/slide-assets/"),
-      "must not be under the legacy static /slide-assets/ path",
+      "must not be under the public static /slide-assets/ path",
     );
   });
 });

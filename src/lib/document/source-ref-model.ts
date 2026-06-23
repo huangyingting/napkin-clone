@@ -40,18 +40,10 @@ export type { AnchorResolution };
  */
 export type DocumentDeckDependency =
   | {
-      /** Reference via a `VisualElement.visualId` (free-form slide). */
+      /** Reference via a `VisualElement.visualId`. */
       kind: "visual";
       slideId: string;
       elementId: string;
-      visualId: string;
-    }
-  | {
-      /** Reference via a legacy `Slide.visualIds` array (legacy slides). */
-      kind: "legacy_visual";
-      slideId: string;
-      /** Index in the `visualIds` array. */
-      index: number;
       visualId: string;
     }
   | {
@@ -72,9 +64,9 @@ export type DocumentDeckDependency =
 // ---------------------------------------------------------------------------
 
 /**
- * Returns every deck→document dependency: visual element references, legacy
- * `visualIds` array entries, and source-linked elements. The result is the
- * complete graph of what the deck depends on from the document.
+ * Returns every deck→document dependency: visual element references and
+ * source-linked elements. The result is the complete graph of what the deck
+ * depends on from the document.
  *
  * Callers can use this as the canonical input to `checkDependencyHealth`
  * and `reconcileDeckVisuals` so all consistency-maintenance paths start from
@@ -86,22 +78,8 @@ export function enumerateDeckDependencies(
   const deps: DocumentDeckDependency[] = [];
 
   for (const slide of deck.slides) {
-    // Legacy visualIds array.
-    if (slide.visualIds && slide.visualIds.length > 0) {
-      for (let i = 0; i < slide.visualIds.length; i++) {
-        deps.push({
-          kind: "legacy_visual",
-          slideId: slide.id,
-          index: i,
-          visualId: slide.visualIds[i],
-        });
-      }
-    }
-
-    // Free-form elements.
     if (slide.elements) {
       for (const element of slide.elements) {
-        // Visual element → visualId dependency.
         if (element.kind === "visual") {
           deps.push({
             kind: "visual",
@@ -119,7 +97,7 @@ export function enumerateDeckDependencies(
           ref.unlinked !== true &&
           ref.blockId !== undefined
         ) {
-          const blockKind: "text" | "visual" = ref.blockKind ?? "text";
+          const blockKind = ref.blockKind;
           deps.push({
             kind: "source_ref",
             slideId: slide.id,
@@ -172,7 +150,6 @@ export function checkDependencyHealth(
 
     switch (dep.kind) {
       case "visual":
-      case "legacy_visual":
         resolution = resolveVisualRef(dep.visualId, freshBlocks);
         break;
       case "source_ref":
@@ -212,8 +189,8 @@ export function reconcileDeckVisuals(
 }
 
 /**
- * Collects every visual id the deck references (from both `visualIds` arrays
- * and `visual` element `visualId` fields).
+ * Collects every visual id the deck references from `visual` element
+ * `visualId` fields.
  *
  * Useful as a quick way to build the "what does this deck need?" set for
  * orphan detection or dependency checks without running a full
@@ -222,11 +199,6 @@ export function reconcileDeckVisuals(
 export function collectDeckVisualIds(deck: Deck): Set<string> {
   const ids = new Set<string>();
   for (const slide of deck.slides) {
-    if (slide.visualIds) {
-      for (const id of slide.visualIds) {
-        ids.add(id);
-      }
-    }
     if (slide.elements) {
       for (const element of slide.elements) {
         if (element.kind === "visual" && element.visualId) {

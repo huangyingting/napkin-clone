@@ -34,6 +34,7 @@ function currentDeck(): unknown {
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
     slides: [
       {
+        id: "sl-current",
         index: 0,
         title: "Current",
         bullets: ["a", "b"],
@@ -122,6 +123,7 @@ function elementDeck(elements: unknown[]): unknown {
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
     slides: [
       {
+        id: "sl-element",
         index: 0,
         title: "",
         bullets: [],
@@ -138,10 +140,12 @@ function elementDeck(elements: unknown[]): unknown {
 }
 
 function makeSourceRef(overrides: Partial<SourceRef> = {}): SourceRef {
+  const blockKind = overrides.blockKind ? overrides.blockKind : "text";
   const sourceRef: SourceRef = {
     documentId: overrides.documentId ?? "doc-1",
     blockId: overrides.blockId ?? "block-1",
     linkedAt: overrides.linkedAt ?? "2026-06-22T17:49:04.676Z",
+    blockKind,
   };
   if ("contentHash" in overrides) {
     if (overrides.contentHash !== undefined) {
@@ -186,6 +190,7 @@ test("safeParseDeck round-trips every element kind", () => {
       id: "b",
       kind: "bullets",
       bullets: ["one", "two"],
+      items: [{ text: "one" }, { text: "two" }],
       zIndex: 1,
       box: { x: 1, y: 2, w: 3, h: 4 },
       style: { fontSize: 4, bold: false, italic: true, align: "left" },
@@ -509,6 +514,7 @@ test("relinkSource restores an active source link", () => {
     blockId: "block-2",
     contentHash: "hash-2",
     linkedAt: "2026-06-23T00:00:00.000Z",
+    blockKind: "text",
   });
 });
 
@@ -808,19 +814,14 @@ test("safeParseDeck rejects non-boolean elementsDerived", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Stable slide id — backfill for current decks (issue #304)
+// Stable slide id
 // ---------------------------------------------------------------------------
 
-test("safeParseDeck backfills a slide id when absent", () => {
-  const result = safeParseDeck(currentDeck());
-  assert.equal(result.success, true);
-  if (result.success) {
-    const id = result.data.slides[0].id;
-    assert.ok(
-      typeof id === "string" && id.length > 0,
-      "id must be a non-empty string",
-    );
-  }
+test("safeParseDeck rejects a slide missing its id", () => {
+  const input = currentDeck() as { slides: Array<Record<string, unknown>> };
+  delete input.slides[0].id;
+  const result = safeParseDeck(input);
+  assert.equal(result.success, false);
 });
 
 test("safeParseDeck preserves an existing slide id", () => {
@@ -1028,6 +1029,7 @@ function bulletsElementWithFitMode(fitMode: unknown) {
       id: "b",
       kind: "bullets",
       bullets: ["one", "two"],
+      items: [{ text: "one" }, { text: "two" }],
       zIndex: 0,
       box: { x: 0, y: 0, w: 10, h: 10 },
       style: { fontSize: 4, bold: false, italic: false, align: "left" },
@@ -1349,6 +1351,7 @@ function bulletsElementWith(extra: unknown) {
       id: "b",
       kind: "bullets",
       bullets: ["one", "two"],
+      items: [{ text: "one" }, { text: "two" }],
       zIndex: 0,
       box: { x: 0, y: 0, w: 10, h: 10 },
       style: { fontSize: 4, bold: false, italic: false, align: "left" },
@@ -1410,6 +1413,7 @@ test("safeParseDeck round-trips verticalAlign=middle on a bullets element style"
         id: "b",
         kind: "bullets",
         bullets: ["x"],
+        items: [{ text: "x" }],
         zIndex: 0,
         box: { x: 0, y: 0, w: 10, h: 10 },
         style: {

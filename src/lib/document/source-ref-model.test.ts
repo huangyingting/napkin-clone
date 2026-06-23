@@ -85,19 +85,6 @@ function makeTextSlide(
   } as unknown as Slide;
 }
 
-function makeLegacySlide(slideId: string, visualIds: string[]): Slide {
-  return {
-    id: slideId,
-    title: "",
-    bullets: [],
-    index: 0,
-    visualIds,
-    layout: "content",
-    notes: "",
-    theme: "indigo",
-  } as unknown as Slide;
-}
-
 function makeVisualBlock(visualId: string): DocumentBlock {
   return { kind: "visual", visualId } as unknown as DocumentBlock;
 }
@@ -136,23 +123,13 @@ describe("enumerateDeckDependencies", () => {
     assert.equal((deps[0] as { visualId: string }).visualId, "vis-abc");
   });
 
-  test("enumerates legacy visualIds array references", () => {
-    const deck = makeDeck([makeLegacySlide("s1", ["vis-1", "vis-2"])]);
-    const deps = enumerateDeckDependencies(deck);
-    assert.equal(deps.length, 2);
-    assert.ok(deps.every((d) => d.kind === "legacy_visual"));
-    const visualIds = deps
-      .filter((d) => d.kind === "legacy_visual")
-      .map((d) => (d as { visualId: string }).visualId);
-    assert.deepEqual(visualIds, ["vis-1", "vis-2"]);
-  });
-
   test("enumerates source_ref dependencies on text elements", () => {
     const ref: SourceRef = {
       documentId: "doc-1",
       blockId: "block-xyz",
       contentHash: "abc123",
       linkedAt: "2026-01-01T00:00:00Z",
+      blockKind: "text",
     };
     const deck = makeDeck([makeTextSlide("s1", "e1", "Hello", ref)]);
     const deps = enumerateDeckDependencies(deck);
@@ -169,6 +146,7 @@ describe("enumerateDeckDependencies", () => {
       blockId: "block-xyz",
       linkedAt: "2024-01-01T00:00:00Z",
       unlinked: true,
+      blockKind: "text",
     };
     const deck = makeDeck([makeTextSlide("s1", "e1", "Hello", ref)]);
     const deps = enumerateDeckDependencies(deck);
@@ -192,19 +170,19 @@ describe("enumerateDeckDependencies", () => {
 
   test("handles multiple slides with mixed dependency kinds", () => {
     const deck = makeDeck([
-      makeLegacySlide("s1", ["vis-1"]),
       makeVisualSlide("s2", "e1", "vis-2"),
       makeTextSlide("s3", "e2", "text", {
         documentId: "d",
         blockId: "block-1",
         contentHash: "h",
         linkedAt: "2026-01-01T00:00:00Z",
+        blockKind: "text",
       }),
     ]);
     const deps = enumerateDeckDependencies(deck);
-    assert.equal(deps.length, 3);
+    assert.equal(deps.length, 2);
     const kinds = deps.map((d) => d.kind).sort();
-    assert.deepEqual(kinds, ["legacy_visual", "source_ref", "visual"]);
+    assert.deepEqual(kinds, ["source_ref", "visual"]);
   });
 });
 
@@ -234,6 +212,7 @@ describe("checkDependencyHealth", () => {
       documentId: "d",
       blockId: "block-1",
       linkedAt: "2026-01-01T00:00:00Z",
+      blockKind: "text",
       // No contentHash → resolveSourceRef skips hash check → "found"
     };
     const deck = makeDeck([makeTextSlide("s1", "e1", "hello", ref)]);
@@ -248,6 +227,7 @@ describe("checkDependencyHealth", () => {
       documentId: "d",
       blockId: "block-missing",
       linkedAt: "2026-01-01T00:00:00Z",
+      blockKind: "text",
     };
     const deck = makeDeck([makeTextSlide("s1", "e1", "text", ref)]);
     const freshBlocks: DocumentBlock[] = [
@@ -293,16 +273,9 @@ describe("reconcileDeckVisuals", () => {
     assert.equal(slide2.elements?.length ?? 0, 0);
   });
 
-  test("removes orphaned legacy visualIds", () => {
-    const deck = makeDeck([makeLegacySlide("s1", ["keep", "gone"])]);
-    const known = new Set(["keep"]);
-    const reconciled = reconcileDeckVisuals(deck, known);
-    assert.deepEqual(reconciled.slides[0].visualIds, ["keep"]);
-  });
-
   test("is a no-op when all visuals are known", () => {
-    const deck = makeDeck([makeLegacySlide("s1", ["vis-a", "vis-b"])]);
-    const known = new Set(["vis-a", "vis-b"]);
+    const deck = makeDeck([makeVisualSlide("s1", "e1", "vis-a")]);
+    const known = new Set(["vis-a"]);
     const reconciled = reconcileDeckVisuals(deck, known);
     assert.strictEqual(reconciled.slides[0], deck.slides[0]);
   });
@@ -313,22 +286,17 @@ describe("reconcileDeckVisuals", () => {
 // ---------------------------------------------------------------------------
 
 describe("collectDeckVisualIds", () => {
-  test("collects visual ids from elements and legacy visualIds", () => {
-    const deck = makeDeck([
-      makeVisualSlide("s1", "e1", "vis-a"),
-      makeLegacySlide("s2", ["vis-b", "vis-c"]),
-    ]);
+  test("collects visual ids from elements", () => {
+    const deck = makeDeck([makeVisualSlide("s1", "e1", "vis-a")]);
     const ids = collectDeckVisualIds(deck);
     assert.ok(ids.has("vis-a"));
-    assert.ok(ids.has("vis-b"));
-    assert.ok(ids.has("vis-c"));
-    assert.equal(ids.size, 3);
+    assert.equal(ids.size, 1);
   });
 
-  test("deduplicates ids that appear in multiple places", () => {
+  test("deduplicates ids that appear in multiple elements", () => {
     const deck = makeDeck([
       makeVisualSlide("s1", "e1", "vis-shared"),
-      makeLegacySlide("s2", ["vis-shared"]),
+      makeVisualSlide("s2", "e2", "vis-shared"),
     ]);
     const ids = collectDeckVisualIds(deck);
     assert.equal(ids.size, 1);

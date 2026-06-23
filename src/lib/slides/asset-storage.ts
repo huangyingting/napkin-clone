@@ -7,10 +7,6 @@
  * root-relative URL under `/api/slide-assets/`, which enforces document-scoped
  * auth before serving the bytes.
  *
- * Legacy assets stored in `public/slide-assets/` continue to be served by
- * Next.js's static file server under `/slide-assets/…` — no migration of
- * existing files is required.
- *
  * Swap the default by calling `setDefaultStorageAdapter` before the first
  * request — useful in tests and in future cloud deployments (S3, Azure Blob…).
  */
@@ -58,9 +54,6 @@ export interface AssetStorageAdapter {
  * All reads must go through the authorised `/api/slide-assets/…` route.
  * Intermediate directories are created automatically on first write.
  *
- * Legacy assets stored in the old `public/slide-assets/` directory continue
- * to be served by Next.js's built-in static file server under `/slide-assets/…`
- * — no migration is required for existing decks.
  */
 export class LocalAssetStorageAdapter implements AssetStorageAdapter {
   constructor(

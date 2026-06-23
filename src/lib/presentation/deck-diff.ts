@@ -66,7 +66,7 @@ function displayTitle(slide: Slide, index: number): string {
 
 /**
  * A content fingerprint capturing whatever carries a slide's meaning, whether it
- * lives in the legacy `title`/`bullets`/`visualIds`/`notes` fields or in
+ * lives in the document-derived `title`/`bullets`/`visualIds`/`notes` fields or in
  * authoritative free-form `elements[]` (AI decks keep their content in
  * `elements[]` with `elementsDerived=false`). Used only to decide
  * `changed` vs `unchanged` for an already-matched pair.

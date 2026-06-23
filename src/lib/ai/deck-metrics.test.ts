@@ -46,6 +46,7 @@ function bulletsElement(id: string, bullets: string[]): SlideElement {
     zIndex: 1,
     kind: "bullets",
     bullets,
+    items: bullets.map((text) => ({ text })),
     style: { ...TEXT_STYLE },
   };
 }

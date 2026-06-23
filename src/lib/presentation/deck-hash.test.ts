@@ -134,10 +134,10 @@ test("isDeckStale: true when document hash differs from stored hash", () => {
   assert.equal(isDeckStale(stamped, current), true);
 });
 
-test("isDeckStale: false for legacy decks with no stored hash", () => {
-  const legacy = deck([slide({ title: "Intro" })]);
-  assert.equal(legacy.deckContentHash, undefined);
-  assert.equal(isDeckStale(legacy, "anything"), false);
+test("isDeckStale: false when no stored hash is present", () => {
+  const input = deck([slide({ title: "Intro" })]);
+  assert.equal(input.deckContentHash, undefined);
+  assert.equal(isDeckStale(input, "anything"), false);
 });
 
 test("re-deriving the same document yields the same hash (no false staleness)", () => {
