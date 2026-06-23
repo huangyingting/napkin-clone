@@ -210,7 +210,7 @@ test("duplicate slide: existing comments are NOT copied to new slide (exclude po
   // When a slide is duplicated, we do NOT copy comments to the new slide.
   // This is a policy assertion — the new slide starts with zero comments.
   // The pure verification: retargeting comments to a new slide is explicit
-  // and must be opted into by the caller; no comments auto-migrate.
+  // and must be opted into by the caller; comments are not copied automatically.
   const originalSlideId = "sl-1";
   const newSlideId = "sl-2";
 

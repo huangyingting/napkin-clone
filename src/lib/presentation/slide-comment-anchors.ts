@@ -23,10 +23,8 @@
  * Always use {@link commentAnchorFromRecord} / {@link commentAnchorToRecord}
  * at the DB boundary to avoid silently dropping coordinates from the rename.
  *
- * ## Geometry versioning (TODO — Epic #380 follow-up)
- * `anchorGeometry` currently stores a simple `{x, y}` point. Future slices
- * may extend it with additional fields (e.g. bounding-box, version tag).
- * When that happens, bump the geometry schema and migrate stored JSON blobs.
+ * ## Geometry shape
+ * `anchorGeometry` stores a simple `{x, y}` point.
  */
 
 import type { Deck } from "./deck";
@@ -48,7 +46,7 @@ export interface AnchorPoint {
 
 /**
  * The slide-level portion of a comment anchor. Mirrors the nullable DB
- * columns added in migration 20260622140000_add_comment_slide_anchors.
+ * columns on `Comment`.
  *
  * All fields are optional — an absent/null anchor means the comment is
  * attached to the whole document (deck level).

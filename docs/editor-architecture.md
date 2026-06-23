@@ -367,9 +367,7 @@ durable source of truth.
 The slide editor has a parallel autosave pipeline that is completely separate
 from the Lexical `contentJson` path. Deck edits are persisted via
 `saveDeckJson` (whole-deck) or `saveDeckPatch` (patch-based, experimental) in
-`actions.ts`. Full semantics are documented in
-[`slides-persistence-adr.md`](./architecture/slides-persistence-adr.md);
-the key points for editor contributors are:
+`actions.ts`. The key points for editor contributors are:
 
 ### Revision token (optimistic locking)
 
@@ -380,8 +378,7 @@ next save. `saveDeckJson` / `saveDeckPatch` perform an atomic compare-and-swap:
 - `clientToken === stored token` → write accepted → new token returned.
 - `clientToken !== stored token` → `{ ok: "conflict", serverRevisionToken }`
   → the editor opens the `ConflictRecoveryDialog`.
-- `clientToken` absent / `null` → legacy path → write unconditional (no
-  conflict check). Used for the very first save and for force-writes.
+- `clientToken` absent / `null` → conflict.
 
 ### Patch saves (`saveDeckPatch`)
 

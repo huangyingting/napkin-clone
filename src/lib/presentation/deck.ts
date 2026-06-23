@@ -1123,8 +1123,8 @@ export function buildSlideElementsFromContent(slide: Slide): SlideElement[] {
   const elements: SlideElement[] = [];
   let z = 0;
 
-  const visualIds = slide.visualIds ?? [];
-  const bullets = slide.bullets ?? [];
+  const visualIds = slide.visualIds;
+  const bullets = slide.bullets;
   const hasVisual = visualIds.length > 0;
   const hasBullets = bullets.length > 0;
   const isBigTitle = slide.layout === "title" || slide.layout === "section";

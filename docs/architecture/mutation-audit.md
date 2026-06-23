@@ -13,7 +13,7 @@ Inventory every mutation path that touches document visuals, deck artifacts, or
 closely-coupled projections so Epic #436 can route **user intent** through one
 shared command envelope without forking a second command system.
 
-The command-bus migration rule is:
+The command-bus routing rule is:
 
 - keep existing pure deck commands as the deck executor;
 - add a pure visual command executor over `src/lib/visual/transforms.ts`;
@@ -221,7 +221,7 @@ replays stored state snapshots, not user-intent commands.
 
 ---
 
-## Migration summary
+## Routing Summary
 
 ### Route through the new envelope now
 
@@ -239,7 +239,7 @@ replays stored state snapshots, not user-intent commands.
 - asset uploads
 - comment CRUD
 - document version restore orchestration
-- source-ref deck mutation migration
+- source-ref deck mutation routing
 
 ---
 

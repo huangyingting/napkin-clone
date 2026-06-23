@@ -192,10 +192,9 @@ Slides can reference document content in three ways:
 | Dependency kind | Where                                         | Identified by                               |
 | --------------- | --------------------------------------------- | ------------------------------------------- |
 | `visual`        | Free-form `SlideElement.kind === "visual"`    | `element.visualId` → `Visual.anchorBlockId` |
-| `legacy_visual` | `Slide.visualIds` array (pre-elements schema) | `visualIds[i]` → `Visual.anchorBlockId`     |
 | `source_ref`    | `SlideElement.sourceRef` (text or visual)     | `sourceRef.blockId` + `contentHash`         |
 
-`enumerateDeckDependencies(deck)` returns all three kinds in a typed union.
+`enumerateDeckDependencies(deck)` returns both dependency kinds in a typed union.
 `checkDependencyHealth(deck, freshBlocks)` classifies each as found/stale/missing/invalid.
 `reconcileDeckVisuals(deck, knownVisualIds)` delegates to `stripOrphanedVisuals`.
 `collectDeckVisualIds(deck)` returns the full set of visual ids the deck needs.
@@ -323,11 +322,6 @@ The command bus is in-process; there is no durable command log or event-sourcing
 - **Mirror rebuild** → `rebuildVisualMirror` → `rebuildMirror` (repair, idempotent)
 - **Collab flush on evict** → `onBeforeEvict` callback → flush endpoint (reduces window)
 
-### Legacy / pending migration
-
-- **Full deck save without token** — `saveDeckJson(id, deckJson, null)` still works but does not detect concurrent-write conflicts. New clients always supply a token.
-- **Legacy `visualIds` array** — `Slide.visualIds` is still read and reconciled; new slides use the `elements` array.
-
 ---
 
 ## Historical ADRs
@@ -337,8 +331,6 @@ described in them differs from this document, this document is authoritative.
 
 | ADR                            | Status                            | Notes                                                                   |
 | ------------------------------ | --------------------------------- | ----------------------------------------------------------------------- |
-| `block-anchor-identity-adr.md` | Historical — superseded           | Describes the identity migration; final `bid` stamping is now live      |
-| `slides-persistence-adr.md`    | Historical — partially superseded | CAS token and patch path are live; distributed event log is future work |
 | `visual-mirror-contract.md`    | Current — details intact          | Still accurate; atomicity detail updated here                           |
 | `command-envelope-spec.md`     | Current                           | Command bus is live                                                     |
 | `theme-layout-architecture.md` | Current                           | CSS token layer                                                         |

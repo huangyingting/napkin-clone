@@ -74,12 +74,12 @@ const FETCHED_DECK: Deck = {
   schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
 };
 
-const FALLBACK_DECK: Deck = {
+const CACHED_DECK: Deck = {
   slides: [
     {
-      id: "sl-fallback",
+      id: "sl-cached",
       index: 0,
-      title: "Fallback (prop)",
+      title: "Cached (prop)",
       bullets: [],
       visualIds: [],
       layout: "section",
@@ -87,10 +87,10 @@ const FALLBACK_DECK: Deck = {
       theme: "ocean",
       elements: [
         {
-          id: "el-fallback-title",
+          id: "el-cached-title",
           kind: "text",
           role: "title",
-          text: "Fallback (prop)",
+          text: "Cached (prop)",
           zIndex: 0,
           box: { x: 6, y: 6, w: 88, h: 16 },
           style: { fontSize: 6, bold: true, italic: false, align: "left" },
@@ -139,24 +139,24 @@ test("normalizeDeckRaw — returns undefined unchanged", () => {
 // ---------------------------------------------------------------------------
 
 test("pickFreshestDeck — uses fetched when valid", () => {
-  const result = pickFreshestDeck(FETCHED_DECK, FALLBACK_DECK, BASE_DECK);
+  const result = pickFreshestDeck(FETCHED_DECK, CACHED_DECK, BASE_DECK);
   assert.strictEqual(result.theme, "indigo");
   assert.strictEqual(result.slides[0]?.title, "Fetched (remote)");
 });
 
-test("pickFreshestDeck — falls back to fallbackRaw when fetched is null", () => {
-  const result = pickFreshestDeck(null, FALLBACK_DECK, BASE_DECK);
+test("pickFreshestDeck — uses cachedRaw when fetched is null", () => {
+  const result = pickFreshestDeck(null, CACHED_DECK, BASE_DECK);
   assert.strictEqual(result.theme, "ocean");
-  assert.strictEqual(result.slides[0]?.title, "Fallback (prop)");
+  assert.strictEqual(result.slides[0]?.title, "Cached (prop)");
 });
 
-test("pickFreshestDeck — falls back to fallbackRaw when fetched is invalid", () => {
+test("pickFreshestDeck — uses cachedRaw when fetched is invalid", () => {
   const invalid = { slides: "not-an-array", theme: "default" };
-  const result = pickFreshestDeck(invalid, FALLBACK_DECK, BASE_DECK);
+  const result = pickFreshestDeck(invalid, CACHED_DECK, BASE_DECK);
   assert.strictEqual(result.theme, "ocean");
 });
 
-test("pickFreshestDeck — falls back to baseDeck when both raw sources are invalid", () => {
+test("pickFreshestDeck — uses baseDeck when both raw sources are invalid", () => {
   const result = pickFreshestDeck(null, undefined, BASE_DECK);
   assert.strictEqual(result.theme, "default");
   assert.strictEqual(result.slides[0]?.title, "Base");
@@ -164,19 +164,19 @@ test("pickFreshestDeck — falls back to baseDeck when both raw sources are inva
 
 test("pickFreshestDeck — rejects fetched JSON string", () => {
   const serialized = JSON.stringify(FETCHED_DECK);
-  const result = pickFreshestDeck(serialized, FALLBACK_DECK, BASE_DECK);
+  const result = pickFreshestDeck(serialized, CACHED_DECK, BASE_DECK);
   assert.strictEqual(result.theme, "ocean");
-  assert.strictEqual(result.slides[0]?.title, "Fallback (prop)");
+  assert.strictEqual(result.slides[0]?.title, "Cached (prop)");
 });
 
-test("pickFreshestDeck — rejects fallbackRaw JSON string", () => {
-  const serialized = JSON.stringify(FALLBACK_DECK);
+test("pickFreshestDeck — rejects cachedRaw JSON string", () => {
+  const serialized = JSON.stringify(CACHED_DECK);
   const result = pickFreshestDeck(null, serialized, BASE_DECK);
   assert.strictEqual(result.theme, "default");
 });
 
-test("pickFreshestDeck — uses fetched even when fallback is also valid", () => {
-  const result = pickFreshestDeck(FETCHED_DECK, FALLBACK_DECK, BASE_DECK);
+test("pickFreshestDeck — uses fetched even when cachedRaw is also valid", () => {
+  const result = pickFreshestDeck(FETCHED_DECK, CACHED_DECK, BASE_DECK);
   // Fetched takes priority
   assert.strictEqual(result.slides[0]?.title, "Fetched (remote)");
 });

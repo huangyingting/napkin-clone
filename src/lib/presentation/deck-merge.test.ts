@@ -486,8 +486,8 @@ test("derived slide: stale title runs dropped when fresh has none", () => {
       elementsDerived: true,
     }),
   ]);
-  // Fresh document keeps the matching title but drops the bold formatting
-  // (no titleRuns) — a formatting-only change on the title.
+  // Fresh document keeps the matching title but drops the bold style
+  // (no titleRuns) — a style-only change on the title.
   const fresh = deck([slide({ title: "Intro", bullets: ["body"] })]);
 
   const { deck: merged, summary } = mergeDeckFromDocument(existing, fresh);

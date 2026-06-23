@@ -192,7 +192,7 @@ what must happen after a successful command.
 - actor / target metadata,
 - required ids for the addressed surface,
 - visual payload structure and supported literal values,
-- deck payload compatibility (`payload.type` string present).
+- deck payload shape (`payload.type` string present).
 
 Server validation layers add context-aware checks such as:
 
@@ -217,7 +217,7 @@ visual edits.
 
 ---
 
-## Compatibility with existing slide commands
+## Interaction With Slide Commands
 
 The command envelope is deliberately additive:
 

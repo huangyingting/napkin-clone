@@ -48,8 +48,7 @@ A Lexical node of type `"visual"` has the following shape inside `contentJson`:
 
 Key rules:
 
-- `visualId` is the **durable block identity** for the visual (set server-side
-  via `stampBlockIds`; see `block-anchor-identity-adr.md`). It must be a
+- `visualId` is the **durable block identity** for the visual. It must be a
   non-empty string to be mirrored.
 - `visual` contains the structured visual payload (validated with
   `safeParseVisual`). If validation fails the node is **skipped** (not
@@ -65,7 +64,7 @@ Key rules:
 | --------------- | ------------------ | ---------------------------------------------------------------------- |
 | `id`            | `string` (CUID)    | Stable database-assigned identifier                                    |
 | `documentId`    | `string`           | Parent document                                                        |
-| `anchorBlockId` | `string \| null`   | Matches `visualId` from the Lexical node (null for legacy rows)        |
+| `anchorBlockId` | `string`           | Matches `visualId` from the Lexical node                               |
 | `orderIndex`    | `number`           | Document-order position (0-based depth-first traversal)                |
 | `type`          | `string`           | Prisma enum value mapped from `VisualKind` via `VISUAL_KIND_TO_PRISMA` |
 | `data`          | `JSON`             | Full validated visual payload                                          |
@@ -73,8 +72,6 @@ Key rules:
 | `revisions`     | `VisualRevision[]` | History snapshots; written before each payload update                  |
 
 A **unique constraint** on `(documentId, anchorBlockId)` prevents duplicates.
-Legacy rows with `anchorBlockId = null` represent the document-level visual
-(pre-anchor era) and are never touched by the mirror pipeline.
 
 ---
 
@@ -112,8 +109,7 @@ Inputs: `existingRows` (from DB), `liveNodes`, `liveAnchors`.
 | `liveNode` payload differs (`dataKey` changed or existing `dataKey` is null) | **update** (`payloadChanged = true`); snapshot to `VisualRevision` first |
 | `liveNode` order differs only (`dataKey` same)                               | **update** (`payloadChanged = false`); no snapshot                       |
 | Existing row's anchor is not in `liveAnchors`                                | **delete**                                                               |
-| Multiple rows share an anchor (legacy duplicates)                            | Keep the most-recently-created; **delete** the rest                      |
-| Existing row has `anchorBlockId = null`                                      | **never touched**                                                        |
+| Existing row has `anchorBlockId = null`                                      | **delete**                                                               |
 
 ### 4. Execute
 
@@ -165,8 +161,8 @@ the same document because each traversal position is unique. The sort order of
 2. **Rows track content**: after any successful `mirrorVisualNodes` or
    `rebuildVisualMirror` call, the set of `(documentId, anchorBlockId)` rows
    matches the set of valid visual nodes in `contentJson`.
-3. **Null-anchor rows are immutable**: the mirror never creates, updates, or
-   deletes rows with `anchorBlockId = null`.
+3. **Anchors are required**: the mirror never creates rows without an
+  `anchorBlockId`; existing null-anchor rows are deleted.
 4. **Invalid payloads don't update rows**: a node that fails `safeParseVisual`
    leaves the existing row untouched; it does not delete or corrupt it.
 5. **Idempotence**: running `rebuildVisualMirror` twice on the same `contentJson`
@@ -186,7 +182,6 @@ the same document because each traversal position is unique. The sort order of
 | `safeParseVisual` rejects a node | Node is counted as `skipped`; save continues                             |
 | `visualId` is null or whitespace | Node is counted as `invalid`; save continues                             |
 | DB transaction fails (transient) | Error propagates; save surfaces an error to the caller                   |
-| Duplicate anchor rows (legacy)   | Mirror deduplicates on next save: keeps newest, deletes rest             |
 | Concurrent saves                 | Upsert semantics prevent double-create; last write wins on order/payload |
 
 ---
@@ -209,5 +204,4 @@ by:
 
 - `src/lib/visual/mirror-diff.ts` — pure diff logic
 - `src/app/app/documents/[id]/actions.ts` — `mirrorVisualNodes`, `saveDocumentLexical`, `restoreDocumentVersion`, `rebuildVisualMirror`
-- `docs/architecture/block-anchor-identity-adr.md` — durable block identity
 - `prisma/schema.prisma` — `Visual`, `VisualRevision` models

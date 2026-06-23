@@ -416,7 +416,7 @@ export function backgroundTreatmentToCss(bg: BackgroundTreatment): string {
 
 /**
  * Looks up the built-in token set for each registered `DeckTheme` and returns
- * the result.  Useful for migration tooling that needs to enumerate all themes.
+ * the result.
  */
 export function allThemeTokenSets(): DeckThemeTokenSet[] {
   return [...BUILT_IN_TOKEN_SETS];

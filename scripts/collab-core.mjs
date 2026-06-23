@@ -451,8 +451,7 @@ const refuseUpgrade = (socket, status) => {
  * the handshake completes (issue #88). It must resolve to
  * `{ ok, status, readOnly? }`: when `ok` is false the upgrade is refused with the
  * given status (401 unauthenticated / 403 no access); when `ok` is true the
- * connection is wired, read-only for viewers (`readOnly: true`). When no
- * authorizer is supplied every upgrade is allowed (legacy/un-secured mode).
+ * connection is wired, read-only for viewers (`readOnly: true`).
  *
  * `options.onBeforeEvict(roomName, update)` is an optional async callback
  * invoked when a room is about to be evicted and has pending unsaved changes.
@@ -462,6 +461,9 @@ const refuseUpgrade = (socket, status) => {
 export function createCollabWss(roomFromUrl, options = {}) {
   const wss = new WebSocketServer({ noServer: true });
   const authorize = options.authorize;
+  if (typeof authorize !== "function") {
+    throw new Error("[collab] createCollabWss requires options.authorize");
+  }
   const onBeforeEvict = options.onBeforeEvict ?? null;
   const toRoom =
     roomFromUrl ?? ((url) => (url || "/").slice(1).split("?")[0] || "default");
@@ -477,17 +479,15 @@ export function createCollabWss(roomFromUrl, options = {}) {
 
   const handleUpgrade = async (req, socket, head) => {
     let decision = { ok: true, readOnly: false };
-    if (authorize) {
-      try {
-        decision = await authorize(req, toRoom(req.url || "/"));
-      } catch (err) {
-        console.error("[collab] authorization error", err);
-        decision = { ok: false, status: 500 };
-      }
-      if (!decision || !decision.ok) {
-        refuseUpgrade(socket, decision?.status || 403);
-        return;
-      }
+    try {
+      decision = await authorize(req, toRoom(req.url || "/"));
+    } catch (err) {
+      console.error("[collab] authorization error", err);
+      decision = { ok: false, status: 500 };
+    }
+    if (!decision || !decision.ok) {
+      refuseUpgrade(socket, decision?.status || 403);
+      return;
     }
 
     wss.handleUpgrade(req, socket, head, (ws) => {

@@ -2,7 +2,7 @@
  * Pure helpers for deck revision-token optimistic locking (#376).
  *
  * Extracted from `saveDeckJson` so they can be unit-tested without a database
- * and reused across server actions and future migration utilities.
+ * and reused across server actions.
  *
  * All functions are DOM-free, server-free, and side-effect-free.
  */

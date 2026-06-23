@@ -124,10 +124,7 @@ export async function GET(
 /**
  * Reads the asset via the default storage adapter and streams the bytes.
  *
- * The adapter reads from the non-public `storage/slide-assets/` directory
- * (new uploads). Assets that were stored before the migration remain in
- * `public/slide-assets/` and are served by Next.js's static file server under
- * `/slide-assets/…` — they never reach this route.
+ * The adapter reads from the non-public `storage/slide-assets/` directory.
  *
  * Returns 404 if the file is not found on any storage layer (storage
  * inconsistency after a cleanup run).
@@ -138,7 +135,7 @@ async function serveAsset(
 ): Promise<NextResponse> {
   try {
     const data = await getDefaultStorageAdapter().read(storageKey);
-    // Convert Buffer to Uint8Array for compatibility with BodyInit.
+    // BodyInit expects a Uint8Array here.
     return new NextResponse(new Uint8Array(data), {
       status: 200,
       headers: {

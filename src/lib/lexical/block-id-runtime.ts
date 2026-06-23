@@ -117,7 +117,7 @@ function visit(node: LexicalNode): void {
 /**
  * Installs once-per-runtime prototype patches that preserve `bid` across
  * Lexical clone/import/export cycles while keeping the serialized node types
- * backward-compatible (`paragraph`, `heading`, `listitem`, etc.).
+ * unchanged (`paragraph`, `heading`, `listitem`, etc.).
  */
 export function ensureLexicalBlockIdSupport(): void {
   if (supportInstalled) {

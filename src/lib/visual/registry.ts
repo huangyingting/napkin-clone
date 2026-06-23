@@ -10,7 +10,7 @@
  *  - Allowed node shapes and default shape
  *  - Export support per format
  *  - AI prompt guidance (drives {@link buildMessagesOptions} in prompt.ts)
- *  - Validation and migration hooks (via adapters, see adapters.ts)
+ *  - Validation hooks (via adapters, see adapters.ts)
  *
  * The registry intentionally holds no React imports — it is pure TypeScript,
  * unit-testable, and safe to import server-side.

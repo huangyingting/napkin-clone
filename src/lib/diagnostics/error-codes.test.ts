@@ -72,15 +72,6 @@ describe("buildDiagnostic", () => {
     assert.equal(d.scope, "save.deck");
   });
 
-  test("MIGRATION_UNSAFE has fatal severity", () => {
-    const d = buildDiagnostic(
-      ERROR_CODES.MIGRATION_UNSAFE,
-      "migration",
-      "unsafe",
-    );
-    assert.equal(d.severity, "fatal");
-  });
-
   test("EXPORT_FALLBACK has warning severity", () => {
     const d = buildDiagnostic(
       ERROR_CODES.EXPORT_FALLBACK,

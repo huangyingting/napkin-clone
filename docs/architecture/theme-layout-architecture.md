@@ -7,8 +7,7 @@
 This document defines the five-layer styling cascade that gives Slides
 predictable, reversible brand application. It describes each layer's scope and
 responsibilities, the reset-to-inherited semantic for overrides, master-slide
-structure, layout-to-slide binding, and the migration path from the existing
-deck/slide fields.
+structure, and layout-to-slide binding.
 
 ---
 
@@ -61,8 +60,8 @@ deck:
 | `defaultBackground` | `BackgroundTreatment` (solid / gradient / image)                                     |
 
 The deck references a token set via `Deck.themeId`. Built-in token sets match
-the existing `DeckTheme` names (`indigo`, `ocean`, `forest`, `sunset`, `grape`,
-`default`) so legacy decks continue working without migration.
+the `DeckTheme` names (`indigo`, `ocean`, `forest`, `sunset`, `grape`,
+`default`).
 
 ---
 
@@ -84,8 +83,8 @@ MasterSlide
 **Master scope:** One deck may carry multiple named masters (e.g., "Title",
 "Content", "Section") stored in `Deck.masters`. Each `Slide` references a
 master by `masterRef` id. When `masterRef` is absent the deck's first
-(or only) master is used. A deck with no `masters` array falls back to the
-token-derived defaults, preserving full backward compatibility.
+(or only) master is used. A deck with no `masters` array uses token-derived
+defaults.
 
 The master **does not** own placeholder layouts — those belong to Layer 3.
 The master owns chrome (background, logo, footer, page numbers) that sits
@@ -131,7 +130,7 @@ Per-slide override fields on `Slide`:
 **Reset to inherited:** Delete (or set to `undefined`) the override field.
 The cascade then resolves the value from the master/theme layer.
 
-These fields are unchanged from the existing schema — no migration required.
+These fields are part of the current schema.
 
 ---
 
@@ -183,22 +182,21 @@ Master scope rules:
 
 ---
 
-## Compatibility with Existing Fields
+## Current Field Roles
 
 | Existing field                                                | Treatment in new architecture                                                  |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | `Deck.theme` (`DeckTheme`)                                    | Stable; maps 1-to-1 to a built-in `DeckThemeTokenSet` id.                      |
-| `Deck.themeId`                                                | Preferred selector for the token set; fallback to `Deck.theme`.                |
+| `Deck.themeId`                                                | Preferred selector for the token set; otherwise `Deck.theme` is used.          |
 | `Deck.layouts`                                                | Unchanged; becomes the layout catalogue for Layer 3.                           |
 | `Slide.background` / `backgroundGradient` / `backgroundImage` | Unchanged; are Layer 4 overrides.                                              |
 | `Slide.accent`                                                | Unchanged; is a Layer 4 color override.                                        |
-| `Slide.layout` (`SlideLayoutHint`)                            | Legacy renderer hint; survives alongside the new reusable layout system.       |
-| `Slide.theme` (copy on each slide)                            | Legacy read-only copy; renderers should prefer `Deck.theme` / `themeId`.       |
+| `Slide.layout` (`SlideLayoutHint`)                            | Document-derived layout hint.                                                  |
+| `Slide.theme` (copy on each slide)                            | Slide-local theme snapshot.                                                    |
 | `Deck.masters`                                                | **New, optional.** Absent → single implicit master derived from the token set. |
 | `Slide.masterRef`                                             | **New, optional.** Absent → use the first/only master.                         |
 
-No migration is required for any existing deck record. All new fields are
-optional with sensible fallbacks.
+All fields above are part of the current deck shape.
 
 ---
 

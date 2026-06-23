@@ -26,7 +26,7 @@ export function normalizeDeckRaw(raw: unknown): unknown {
 /**
  * Returns the best initial deck to seed the editor from, in priority order:
  * 1. `fetchedRaw`  — freshly fetched from the server on panel open
- * 2. `fallbackRaw` — last value known to this component (prop or last save)
+ * 2. `cachedRaw`  — last value known to this component (prop or last save)
  * 3. `baseDeck`    — derived from the current Lexical editor state
  *
  * Each raw source is filtered then validated with `safeParseDeck` before being
@@ -34,14 +34,14 @@ export function normalizeDeckRaw(raw: unknown): unknown {
  */
 export function pickFreshestDeck(
   fetchedRaw: unknown,
-  fallbackRaw: unknown,
+  cachedRaw: unknown,
   baseDeck: Deck,
 ): Deck {
   const fromFetched = safeParseDeck(normalizeDeckRaw(fetchedRaw));
   if (fromFetched.success) return fromFetched.data;
 
-  const fromFallback = safeParseDeck(normalizeDeckRaw(fallbackRaw));
-  if (fromFallback.success) return fromFallback.data;
+  const fromCached = safeParseDeck(normalizeDeckRaw(cachedRaw));
+  if (fromCached.success) return fromCached.data;
 
   return baseDeck;
 }

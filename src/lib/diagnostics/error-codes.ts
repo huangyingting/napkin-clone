@@ -24,8 +24,6 @@
  * | INVALID_DECK              | deck      | error    | Dev/log      |
  * | INVALID_VISUAL            | visual    | error    | Dev/log      |
  * | PROJECTION_REPAIR_FAILED  | visual    | error    | Dev/log      |
- * | MIGRATION_UNSAFE          | migration | fatal    | Dev/log      |
- * | MIGRATION_DRY_RUN         | migration | warning  | Log-only     |
  * | PERMISSION_DENIED         | auth      | error    | Yes          |
  * | MISSING_ASSET             | asset     | error    | Yes          |
  * | EXPORT_FALLBACK           | export    | warning  | Yes          |
@@ -55,10 +53,6 @@ export const ERROR_CODES = {
   // Visual / projection
   INVALID_VISUAL: "INVALID_VISUAL",
   PROJECTION_REPAIR_FAILED: "PROJECTION_REPAIR_FAILED",
-
-  // Migration
-  MIGRATION_UNSAFE: "MIGRATION_UNSAFE",
-  MIGRATION_DRY_RUN: "MIGRATION_DRY_RUN",
 
   // Authorization
   PERMISSION_DENIED: "PERMISSION_DENIED",
@@ -101,8 +95,6 @@ export const CODE_SEVERITY: Record<ErrorCode, DiagnosticSeverity> = {
   INVALID_DECK: "error",
   INVALID_VISUAL: "error",
   PROJECTION_REPAIR_FAILED: "error",
-  MIGRATION_UNSAFE: "fatal",
-  MIGRATION_DRY_RUN: "warning",
   PERMISSION_DENIED: "error",
   MISSING_ASSET: "error",
   EXPORT_FALLBACK: "warning",

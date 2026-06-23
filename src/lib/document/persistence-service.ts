@@ -492,12 +492,8 @@ export async function reconcileDeckAfterMirror(
 
     const reconciled = stripOrphanedVisuals(parsed.data, knownVisualIds);
 
-    const before = JSON.stringify(
-      parsed.data.slides.map((s) => s.elements ?? s.visualIds),
-    );
-    const after = JSON.stringify(
-      reconciled.slides.map((s) => s.elements ?? s.visualIds),
-    );
+    const before = JSON.stringify(parsed.data.slides.map((s) => s.elements));
+    const after = JSON.stringify(reconciled.slides.map((s) => s.elements));
     if (before === after) return;
 
     await prisma.document.updateMany({
