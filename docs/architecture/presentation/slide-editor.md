@@ -73,6 +73,34 @@ Current stage capabilities:
 Geometry is percentage-based (`ElementBox`) so the same deck renders consistently
 at thumbnail, editor, present, and export sizes.
 
+## Keyboard Accessibility
+
+The canvas is fully keyboard operable (ADR 0002; issues #530–#535). The pure
+decision logic lives in `src/lib/presentation/canvas-a11y.ts` (unit-tested by
+`canvas-a11y.test.ts`); the editors keep only thin wiring.
+
+- **Move:** Arrow nudges the selection by `1%`, Shift+Arrow by `5%`.
+- **Resize:** Alt+Arrow resizes by `1%`, Alt+Shift+Arrow by `5%` — Right/Down
+  grow the right/bottom edge, Left/Up shrink them (`resizeBoxByStep`, applied via
+  `SET_ELEMENT_BOXES`).
+- **Traversal:** Tab / Shift+Tab select the next / previous element in a
+  deterministic reading order (`orderedElementIds` + `nextElementId`) while a
+  canvas element has focus, backed by a roving tabindex (the primary selection,
+  or the first element in reading order, is the single Tab stop). Escape releases
+  canvas focus so users are never trapped.
+- **Focus restoration:** after move/resize the moved element keeps focus; after
+  delete the next/previous survivor (or the stage container) is focused
+  (`focusTargetAfterDelete`); after duplicate the new copy; after group the group
+  primary. Driven by an imperative `focusRequest` prop into the stage.
+- **Announcements:** a visually-hidden `aria-live="polite"` region in the stage
+  announces selection, move, resize and delete results (`announce*` builders);
+  focused elements show a distinct `focus-visible` ring.
+- **Connectors (interim):** with two connectable elements selected, `C` inserts a
+  default-endpoint connector; with a connector selected, `C` / `Shift+C` cycle its
+  end / start endpoint anchor. Free-draw routing remains pointer-only.
+- **Help:** `?` (or the toolbar keyboard button) opens the shortcut help dialog
+  (`canvasShortcutHelp`).
+
 ## Canvas Contract
 
 `SlideCanvas` is read-only. It renders the current `slide.elements[]` with the
