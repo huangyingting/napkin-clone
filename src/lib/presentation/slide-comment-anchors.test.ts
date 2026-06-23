@@ -8,10 +8,13 @@ import { test } from "node:test";
 
 import type { Deck, Slide } from "./deck";
 import {
+  commentAnchorFromRecord,
+  commentAnchorToRecord,
   floatAnchorToDeck,
   floatAnchorToSlide,
   resolveAnchorState,
   retargetAnchorSlide,
+  retargetAnchorToSlideOnly,
   type SlideCommentAnchor,
 } from "./slide-comment-anchors";
 
@@ -173,7 +176,7 @@ test("resolveAnchorState: geometry does not affect attached result", () => {
 // floatAnchorToDeck
 // ---------------------------------------------------------------------------
 
-test("floatAnchorToDeck: clears slideId and elementId", () => {
+test("floatAnchorToDeck: clears slideId, elementId, and geometry", () => {
   const a = anchor({
     slideId: "sl-1",
     elementId: "el-a",
@@ -182,7 +185,7 @@ test("floatAnchorToDeck: clears slideId and elementId", () => {
   const result = floatAnchorToDeck(a);
   assert.equal(result.slideId, null);
   assert.equal(result.elementId, null);
-  assert.deepEqual(result.geometry, { x: 10, y: 20 });
+  assert.equal(result.geometry, null);
 });
 
 test("floatAnchorToDeck: does not mutate original", () => {
@@ -253,4 +256,122 @@ test("retargetAnchorSlide: result resolves to attached on new slide", () => {
   const a = anchor({ slideId: "sl-1", elementId: "el-a" });
   const retargeted = retargetAnchorSlide(a, "sl-2");
   assert.equal(resolveAnchorState(retargeted, d), "attached");
+});
+
+// ---------------------------------------------------------------------------
+// retargetAnchorToSlideOnly
+// ---------------------------------------------------------------------------
+
+test("retargetAnchorToSlideOnly: updates slideId and clears elementId", () => {
+  const a = anchor({
+    slideId: "sl-1",
+    elementId: "el-a",
+    geometry: { x: 10, y: 10 },
+  });
+  const result = retargetAnchorToSlideOnly(a, "sl-2");
+  assert.equal(result.slideId, "sl-2");
+  assert.equal(result.elementId, null);
+  assert.deepEqual(result.geometry, { x: 10, y: 10 });
+});
+
+test("retargetAnchorToSlideOnly: does not mutate original", () => {
+  const a = anchor({ slideId: "sl-1", elementId: "el-a" });
+  retargetAnchorToSlideOnly(a, "sl-2");
+  assert.equal(a.slideId, "sl-1");
+  assert.equal(a.elementId, "el-a");
+});
+
+test("retargetAnchorToSlideOnly: result resolves to attached even when elementId would be orphaned", () => {
+  const d = deck([slide("sl-1", ["el-a"]), slide("sl-2")]);
+  const a = anchor({ slideId: "sl-1", elementId: "el-a" });
+  const retargeted = retargetAnchorToSlideOnly(a, "sl-2");
+  assert.equal(resolveAnchorState(retargeted, d), "attached");
+});
+
+// ---------------------------------------------------------------------------
+// commentAnchorFromRecord
+// ---------------------------------------------------------------------------
+
+test("commentAnchorFromRecord: full record maps correctly", () => {
+  const result = commentAnchorFromRecord({
+    slideId: "sl-1",
+    elementId: "el-a",
+    anchorGeometry: { x: 25, y: 75 },
+  });
+  assert.equal(result.slideId, "sl-1");
+  assert.equal(result.elementId, "el-a");
+  assert.deepEqual(result.geometry, { x: 25, y: 75 });
+});
+
+test("commentAnchorFromRecord: null anchorGeometry → null geometry", () => {
+  const result = commentAnchorFromRecord({
+    slideId: "sl-1",
+    elementId: null,
+    anchorGeometry: null,
+  });
+  assert.equal(result.geometry, null);
+});
+
+test("commentAnchorFromRecord: missing anchorGeometry → null geometry", () => {
+  const result = commentAnchorFromRecord({ slideId: "sl-1" });
+  assert.equal(result.geometry, null);
+});
+
+test("commentAnchorFromRecord: malformed anchorGeometry (no x/y) → null geometry", () => {
+  const result = commentAnchorFromRecord({
+    slideId: "sl-1",
+    anchorGeometry: { label: "bad" },
+  });
+  assert.equal(result.geometry, null);
+});
+
+test("commentAnchorFromRecord: null slideId/elementId normalised to null", () => {
+  const result = commentAnchorFromRecord({
+    slideId: null,
+    elementId: null,
+  });
+  assert.equal(result.slideId, null);
+  assert.equal(result.elementId, null);
+});
+
+// ---------------------------------------------------------------------------
+// commentAnchorToRecord
+// ---------------------------------------------------------------------------
+
+test("commentAnchorToRecord: full anchor maps correctly", () => {
+  const result = commentAnchorToRecord({
+    slideId: "sl-1",
+    elementId: "el-a",
+    geometry: { x: 50, y: 50 },
+  });
+  assert.equal(result.slideId, "sl-1");
+  assert.equal(result.elementId, "el-a");
+  assert.deepEqual(result.anchorGeometry, { x: 50, y: 50 });
+});
+
+test("commentAnchorToRecord: undefined geometry → null anchorGeometry", () => {
+  const result = commentAnchorToRecord({ slideId: "sl-1" });
+  assert.equal(result.anchorGeometry, null);
+});
+
+test("commentAnchorToRecord: null geometry → null anchorGeometry", () => {
+  const result = commentAnchorToRecord({ slideId: "sl-1", geometry: null });
+  assert.equal(result.anchorGeometry, null);
+});
+
+test("commentAnchorToRecord: undefined slideId/elementId → null", () => {
+  const result = commentAnchorToRecord({});
+  assert.equal(result.slideId, null);
+  assert.equal(result.elementId, null);
+});
+
+test("commentAnchorFromRecord round-trips through commentAnchorToRecord", () => {
+  const original: SlideCommentAnchor = {
+    slideId: "sl-1",
+    elementId: "el-a",
+    geometry: { x: 33, y: 66 },
+  };
+  const record = commentAnchorToRecord(original);
+  const recovered = commentAnchorFromRecord(record);
+  assert.deepEqual(recovered, original);
 });

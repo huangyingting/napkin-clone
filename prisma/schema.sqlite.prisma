@@ -244,6 +244,7 @@ model Comment {
   @@index([documentId])
   @@index([authorId])
   @@index([parentId])
+  @@index([slideId])
 }
 
 // Per-user read state for a document's comment thread (issue #160). One row per
