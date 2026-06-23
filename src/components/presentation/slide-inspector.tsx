@@ -91,6 +91,7 @@ import {
   isEmptyImageSrc,
 } from "@/lib/presentation/image-element";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
+import { uploadSlideAsset } from "@/app/app/documents/[id]/slide-asset-actions";
 import {
   bulletsToRuns,
   mergeRuns,
@@ -222,6 +223,11 @@ export interface SlideInspectorProps {
    * call-sites that omit the prop preserve today's full behaviour.
    */
   showAdvanced?: boolean;
+  /**
+   * ID of the owning document. When provided the image upload path attempts a
+   * server-side asset upload (Epic #374) before falling back to a data URL.
+   */
+  documentId?: string;
 }
 
 function TabButton({
@@ -438,11 +444,13 @@ function ImageElementEditor({
   deck,
   showAdvanced,
   onUpdateElement,
+  documentId,
 }: {
   element: ImageElement;
   deck: Deck;
   showAdvanced: boolean;
   onUpdateElement: SlideInspectorProps["onUpdateElement"];
+  documentId?: string;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -450,11 +458,13 @@ function ImageElementEditor({
   const { handleFile } = useImageUpload({
     deck,
     currentSrc: element.src,
-    onAccept: (dataUrl) => {
+    onAccept: (src, assetId) => {
       setError(null);
-      onUpdateElement(element.id, { src: dataUrl });
+      onUpdateElement(element.id, { src, ...(assetId ? { assetId } : {}) });
     },
     onError: (message) => setError(message),
+    documentId,
+    uploadFn: documentId ? uploadSlideAsset : undefined,
   });
 
   const hasSource = !isEmptyImageSrc(element.src);
@@ -1085,6 +1095,7 @@ function ElementEditor({
   showAdvanced,
   elements,
   onUpdateElement,
+  documentId,
 }: {
   element: SlideElement;
   deck: Deck;
@@ -1093,6 +1104,7 @@ function ElementEditor({
   showAdvanced: boolean;
   elements: readonly SlideElement[];
   onUpdateElement: SlideInspectorProps["onUpdateElement"];
+  documentId?: string;
 }) {
   switch (element.kind) {
     case "placeholder":
@@ -1275,6 +1287,7 @@ function ElementEditor({
           deck={deck}
           showAdvanced={showAdvanced}
           onUpdateElement={onUpdateElement}
+          documentId={documentId}
         />
       );
     case "shape":
@@ -2272,6 +2285,7 @@ export function SlideInspector({
   brandSwatches = [],
   className = "flex w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle",
   showAdvanced = true,
+  documentId,
 }: SlideInspectorProps) {
   const [tab, setTab] = useState<Tab>("content");
   const [selectedLayoutId, setSelectedLayoutId] = useState("");
@@ -2302,11 +2316,13 @@ export function SlideInspector({
   const { handleFile: handleBgImageFile } = useImageUpload({
     deck,
     currentSrc: slide.backgroundImage,
-    onAccept: (dataUrl) => {
+    onAccept: (src) => {
       setBgImageError(null);
-      handleBackgroundImageChange(dataUrl);
+      handleBackgroundImageChange(src);
     },
     onError: (message) => setBgImageError(message),
+    documentId,
+    uploadFn: documentId ? uploadSlideAsset : undefined,
   });
 
   function handleBackgroundImageChange(value: string | undefined) {
@@ -2605,6 +2621,7 @@ export function SlideInspector({
                       showAdvanced={showAdvanced}
                       elements={elements}
                       onUpdateElement={onUpdateElement}
+                      documentId={documentId}
                     />
                     {showAdvanced ? (
                       <>

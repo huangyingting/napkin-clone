@@ -662,6 +662,9 @@ export function validateElement(input: unknown, context: string): SlideElement {
       if (input.alt !== undefined && typeof input.alt !== "string") {
         throw new DeckValidationError(`${context}.alt must be a string`);
       }
+      if (input.assetId !== undefined && typeof input.assetId !== "string") {
+        throw new DeckValidationError(`${context}.assetId must be a string`);
+      }
       const fitMode = validateImageFitMode(
         input.fitMode ?? input.fit,
         `${context}.fitMode`,
@@ -676,6 +679,7 @@ export function validateElement(input: unknown, context: string): SlideElement {
         kind: "image",
         src: input.src,
         ...(input.alt !== undefined ? { alt: input.alt } : {}),
+        ...(input.assetId !== undefined ? { assetId: input.assetId } : {}),
         ...(input.radius !== undefined
           ? {
               radius: Math.max(

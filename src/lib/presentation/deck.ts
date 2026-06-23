@@ -559,6 +559,12 @@ export interface ImageElement extends BaseElement {
   maskShape?: ImageMaskShape;
   /** Optional clipping inset. Defaults to no crop. */
   crop?: ImageCrop;
+  /**
+   * ID of the server-stored {@link Asset} row when this image was uploaded via
+   * the slide asset upload action (Epic #374). Absent for data-URL images that
+   * have not been migrated to server storage.
+   */
+  assetId?: string;
 }
 
 export interface ShapeElement extends BaseElement {
