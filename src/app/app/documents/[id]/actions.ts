@@ -22,10 +22,7 @@ import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { normalizeDeckRaw } from "@/lib/presentation/fresh-deck";
 import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
 import { MAX_DECK_JSON_BYTES } from "@/lib/presentation/deck-limits";
-import {
-  generateRevisionToken,
-  isRevisionConflict,
-} from "@/lib/presentation/deck-revision-token";
+import { generateRevisionToken } from "@/lib/presentation/deck-revision-token";
 import { VISUAL_KIND_TO_PRISMA, safeParseVisual } from "@/lib/visual/schema";
 import {
   diffVisualMirror,
@@ -749,10 +746,12 @@ export type SaveDeckResult =
  * Lexical `contentJson` so deck edits never touch collaborative editing state.
  *
  * @param clientToken - The revision token last received from `fetchDeckJson` or
- *   a prior successful save. When supplied, the save is rejected with
- *   `{ ok: "conflict" }` if another session advanced the token since the client
- *   last fetched, preventing silent lost-update overwrites. Pass `null` or omit
- *   for legacy/initial saves (token check is skipped).
+ *   a prior successful save. When supplied the write uses an atomic CAS
+ *   (`updateMany` keyed by both `id` and `deckRevisionToken`) so no separate
+ *   pre-read is required; a missed write (`count === 0`) is resolved with a
+ *   single post-read to distinguish a concurrent-write conflict from a deleted
+ *   document. Pass `null` or omit for legacy/initial saves (token check is
+ *   skipped, write is unconditional).
  * @returns `SaveDeckResult`:
  *   - `{ ok: true, revisionToken }` — write accepted; store `revisionToken` for
  *     the next save.
@@ -780,37 +779,46 @@ export async function saveDeckJson(
 
   await requireDocumentCapability(user.id, id, "edit");
 
-  // Read current token before writing so isRevisionConflict can decide whether
-  // this save should proceed.
-  const current = await prisma.document.findUnique({
-    where: { id },
-    select: { deckRevisionToken: true },
-  });
-  if (!current) {
-    return { ok: false, error: "Document not found." };
-  }
-
-  if (isRevisionConflict(clientToken, current.deckRevisionToken)) {
-    return {
-      ok: "conflict",
-      serverRevisionToken: current.deckRevisionToken,
-    };
-  }
-
   const newToken = generateRevisionToken();
-  const { count } = await prisma.document.updateMany({
-    where: { id },
-    data: {
-      deckJson: result.data as unknown as Prisma.InputJsonValue,
-      deckRevisionToken: newToken,
-    },
-  });
-  if (count === 0) {
-    return { ok: false, error: "Document not found." };
+
+  if (clientToken != null) {
+    // Atomic CAS: the WHERE clause matches only when the stored token still
+    // equals clientToken — no separate pre-read needed, no TOCTOU window.
+    const { count } = await prisma.document.updateMany({
+      where: { id, deckRevisionToken: clientToken },
+      data: {
+        deckJson: result.data as unknown as Prisma.InputJsonValue,
+        deckRevisionToken: newToken,
+      },
+    });
+    if (count === 0) {
+      // Miss: either the token was advanced by a concurrent write (conflict)
+      // or the document was deleted.  Read once to distinguish.
+      const latest = await prisma.document.findUnique({
+        where: { id },
+        select: { deckRevisionToken: true },
+      });
+      if (!latest) {
+        return { ok: false, error: "Document not found." };
+      }
+      return { ok: "conflict", serverRevisionToken: latest.deckRevisionToken };
+    }
+  } else {
+    // Legacy path: caller holds no token, always overwrite (no CAS check).
+    const { count } = await prisma.document.updateMany({
+      where: { id },
+      data: {
+        deckJson: result.data as unknown as Prisma.InputJsonValue,
+        deckRevisionToken: newToken,
+      },
+    });
+    if (count === 0) {
+      return { ok: false, error: "Document not found." };
+    }
   }
 
-  // Snapshot only after a confirmed write so conflicted saves never create
-  // version-history entries.
+  // Snapshot only after a confirmed write (count > 0) so conflicted saves
+  // never create phantom version-history entries.
   await snapshotDocumentVersion(id, { userId: user.id });
 
   revalidatePath(`/app/documents/${id}`);
