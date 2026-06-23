@@ -44,6 +44,8 @@ import {
   type EditorTool,
 } from "@/lib/lexical/tool-registry";
 import { applyElasticLayout } from "@/lib/visual/transforms";
+import { applyVisualCommand } from "@/lib/commands/visual-command-adapter";
+import type { VisualCommandPayload } from "@/lib/commands/visual-commands";
 import type { Visual } from "@/lib/visual/schema";
 import type { BrandStyle } from "@/lib/brand/schema";
 import { BRAND_WEB_FONTS } from "@/lib/brand/schema";
@@ -344,6 +346,9 @@ function VisualContextSection() {
   const visualData = panelState?.nodeKey === nodeKey ? panelState : null;
 
   const updateVisual = useCallback(
+    // #507 exemption: generic write-back seam (receives an already-computed
+    // Visual). Discrete user-intent edits route through `handleCommand` /
+    // `applyVisualCommand` before reaching this seam.
     (next: Visual) => {
       if (!visualData) return;
       const key = visualData.nodeKey;
@@ -351,6 +356,34 @@ function VisualContextSection() {
         const node = $getNodeByKey(key);
         if ($isVisualNode(node)) {
           node.setVisual(applyElasticLayout(next));
+        }
+      });
+    },
+    [editor, visualData],
+  );
+
+  // #507: routes a typed visual command payload from the context popover through
+  // the visual command executor, then writes the validated result back via
+  // node.setVisual. On command failure the visual is left unchanged — invalid
+  // command output is never persisted.
+  const handleCommand = useCallback(
+    (payload: VisualCommandPayload, coalesceKey?: string) => {
+      if (!visualData) return;
+      const key = visualData.nodeKey;
+      editor.update(() => {
+        const node = $getNodeByKey(key);
+        if (!$isVisualNode(node)) {
+          return;
+        }
+        const result = applyVisualCommand(
+          node.getVisual(),
+          node.getVisualId(),
+          payload,
+          undefined,
+          coalesceKey,
+        );
+        if (result.ok) {
+          node.setVisual(applyElasticLayout(result.visual));
         }
       });
     },
@@ -420,6 +453,7 @@ function VisualContextSection() {
       visual={visualData.visual}
       selectedNodeId={selectedNodeId}
       onChange={updateVisual}
+      onCommand={handleCommand}
       onRemove={removeVisual}
       onClose={handleClose}
       getSvgElement={getSvgElement}

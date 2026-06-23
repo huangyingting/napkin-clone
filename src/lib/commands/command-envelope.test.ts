@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   CURRENT_COMMAND_SCHEMA_VERSION,
+  acceptDeckCommandEnvelope,
   adaptSlideCommandResult,
   makeSideEffects,
   validateCommandEnvelope,
@@ -99,6 +100,70 @@ test("validateCommandEnvelope reports invalid ids, targets, and payload mismatch
   );
 });
 
+test("validateCommandEnvelope accepts the new edge flip/toggle + label ops", () => {
+  const base = {
+    id: commandId("4"),
+    schemaVersion: CURRENT_COMMAND_SCHEMA_VERSION,
+    timestamp: BASE_TIMESTAMP,
+    actor: ACTOR,
+    target: { surface: "visual" as const, visualId: "vis-3" },
+    source: "user" as const,
+  };
+
+  const payloads = [
+    { op: "visual.flip_edge", edgeId: "e1" },
+    { op: "visual.toggle_edge_directed", edgeId: "e1" },
+    { op: "visual.toggle_edge_style", edgeId: "e1" },
+    { op: "visual.set_edge_label", edgeId: "e1", label: "Yes" },
+  ] as const;
+
+  for (const payload of payloads) {
+    const envelope = {
+      ...base,
+      type: payload.op,
+      payload,
+    } as unknown as CommandEnvelope;
+    const validation = validateCommandEnvelope(envelope);
+    assert.equal(validation.valid, true, `${payload.op} should validate`);
+  }
+});
+
+test("validateCommandEnvelope rejects edge ops with a missing/blank edgeId", () => {
+  const flip = {
+    id: commandId("5"),
+    schemaVersion: CURRENT_COMMAND_SCHEMA_VERSION,
+    type: "visual.flip_edge",
+    timestamp: BASE_TIMESTAMP,
+    actor: ACTOR,
+    target: { surface: "visual", visualId: "vis-3" },
+    payload: { op: "visual.flip_edge", edgeId: "" },
+    source: "user",
+  } as unknown as CommandEnvelope;
+
+  const flipValidation = validateCommandEnvelope(flip);
+  assert.equal(flipValidation.valid, false);
+  assert.ok(
+    flipValidation.errors.some((error) => error.includes("payload.edgeId")),
+  );
+
+  const label = {
+    id: commandId("6"),
+    schemaVersion: CURRENT_COMMAND_SCHEMA_VERSION,
+    type: "visual.set_edge_label",
+    timestamp: BASE_TIMESTAMP,
+    actor: ACTOR,
+    target: { surface: "visual", visualId: "vis-3" },
+    payload: { op: "visual.set_edge_label", edgeId: "e1", label: 7 },
+    source: "user",
+  } as unknown as CommandEnvelope;
+
+  const labelValidation = validateCommandEnvelope(label);
+  assert.equal(labelValidation.valid, false);
+  assert.ok(
+    labelValidation.errors.some((error) => error.includes("payload.label")),
+  );
+});
+
 test("command envelopes remain JSON-serializable", () => {
   const envelope: CommandEnvelope = {
     id: commandId("2"),
@@ -149,4 +214,146 @@ test("deck envelopes stay compatible with existing slide metadata", () => {
   assert.deepEqual(adapted.affectedIds.slideIds, ["s1"]);
   assert.equal(adapted.coalesceKey, "title:s1");
   assert.deepEqual(adapted.patches, result.patches);
+});
+
+// ---------------------------------------------------------------------------
+// Server-side acceptance boundary (#508)
+// ---------------------------------------------------------------------------
+
+function deckEnvelope(
+  payload: SlideCommand,
+  overrides: Partial<CommandEnvelope<SlideCommand>> = {},
+): CommandEnvelope<SlideCommand> {
+  return {
+    id: commandId("a"),
+    schemaVersion: CURRENT_COMMAND_SCHEMA_VERSION,
+    type: "deck.slide_command",
+    timestamp: BASE_TIMESTAMP,
+    actor: ACTOR,
+    target: { surface: "deck", documentId: "doc-1" },
+    payload,
+    source: "user",
+    ...overrides,
+  };
+}
+
+const SOURCE_REF = {
+  documentId: "doc-1",
+  blockId: "blk-1",
+  contentHash: "hash-1",
+  linkedAt: BASE_TIMESTAMP,
+  blockKind: "text" as const,
+};
+
+test("acceptDeckCommandEnvelope accepts a well-formed deck command for the target document", () => {
+  const envelope = deckEnvelope({
+    type: "UNLINK_ELEMENT_SOURCE",
+    slideId: "s1",
+    elementId: "el-1",
+  });
+  const acceptance = acceptDeckCommandEnvelope(envelope, {
+    documentId: "doc-1",
+  });
+  assert.equal(acceptance.ok, true);
+  assert.equal(acceptance.code, undefined);
+  assert.deepEqual(acceptance.errors, []);
+});
+
+test("acceptDeckCommandEnvelope accepts source-ref commands carrying a valid sourceRef", () => {
+  const refresh = deckEnvelope({
+    type: "REFRESH_ELEMENT_FROM_SOURCE",
+    slideId: "s1",
+    elementId: "el-1",
+    sourceRef: SOURCE_REF,
+    text: "fresh",
+  });
+  const relink = deckEnvelope({
+    type: "RELINK_ELEMENT_SOURCE",
+    slideId: "s1",
+    elementId: "el-1",
+    sourceRef: { ...SOURCE_REF, blockId: "blk-2" },
+  });
+  assert.equal(
+    acceptDeckCommandEnvelope(refresh, { documentId: "doc-1" }).ok,
+    true,
+  );
+  assert.equal(
+    acceptDeckCommandEnvelope(relink, { documentId: "doc-1" }).ok,
+    true,
+  );
+});
+
+test("acceptDeckCommandEnvelope rejects a source-ref command with a malformed sourceRef", () => {
+  const envelope = deckEnvelope({
+    type: "RELINK_ELEMENT_SOURCE",
+    slideId: "s1",
+    elementId: "el-1",
+    // Missing required blockId / linkedAt and invalid blockKind.
+    sourceRef: { documentId: "doc-1", blockKind: "bogus" },
+  } as unknown as SlideCommand);
+  const acceptance = acceptDeckCommandEnvelope(envelope, {
+    documentId: "doc-1",
+  });
+  assert.equal(acceptance.ok, false);
+  assert.equal(acceptance.code, "malformed");
+  assert.ok(
+    acceptance.errors.some((e) => e.includes("payload.sourceRef.blockId")),
+  );
+  assert.ok(
+    acceptance.errors.some((e) => e.includes("payload.sourceRef.blockKind")),
+  );
+});
+
+test("acceptDeckCommandEnvelope rejects a malformed envelope", () => {
+  const bad = {
+    id: "not-a-uuid",
+    schemaVersion: CURRENT_COMMAND_SCHEMA_VERSION,
+    type: "deck.slide_command",
+    timestamp: BASE_TIMESTAMP,
+    actor: ACTOR,
+    target: { surface: "deck", documentId: "doc-1" },
+    payload: { type: "UNLINK_ELEMENT_SOURCE", slideId: "s1" },
+  } as unknown as CommandEnvelope<SlideCommand>;
+  const acceptance = acceptDeckCommandEnvelope(bad, { documentId: "doc-1" });
+  assert.equal(acceptance.ok, false);
+  assert.equal(acceptance.code, "malformed");
+  assert.ok(acceptance.errors.some((e) => e.includes("UUID v4")));
+  assert.ok(acceptance.errors.some((e) => e.includes("elementId")));
+});
+
+test("acceptDeckCommandEnvelope rejects an unsupported (future) schema version", () => {
+  const envelope = deckEnvelope(
+    { type: "UNLINK_ELEMENT_SOURCE", slideId: "s1", elementId: "el-1" },
+    { schemaVersion: CURRENT_COMMAND_SCHEMA_VERSION + 1 },
+  );
+  const acceptance = acceptDeckCommandEnvelope(envelope, {
+    documentId: "doc-1",
+  });
+  assert.equal(acceptance.ok, false);
+  assert.equal(acceptance.code, "unsupported_schema_version");
+});
+
+test("acceptDeckCommandEnvelope rejects an envelope addressed to the wrong surface", () => {
+  const envelope = deckEnvelope(
+    { type: "UNLINK_ELEMENT_SOURCE", slideId: "s1", elementId: "el-1" },
+    { target: { surface: "document", documentId: "doc-1" } },
+  );
+  const acceptance = acceptDeckCommandEnvelope(envelope, {
+    documentId: "doc-1",
+  });
+  assert.equal(acceptance.ok, false);
+  assert.equal(acceptance.code, "wrong_target");
+});
+
+test("acceptDeckCommandEnvelope rejects an envelope addressed to a different document", () => {
+  const envelope = deckEnvelope(
+    { type: "UNLINK_ELEMENT_SOURCE", slideId: "s1", elementId: "el-1" },
+    { target: { surface: "deck", documentId: "doc-OTHER" } },
+  );
+  const acceptance = acceptDeckCommandEnvelope(envelope, {
+    documentId: "doc-1",
+  });
+  assert.equal(acceptance.ok, false);
+  assert.equal(acceptance.code, "wrong_document");
+  assert.ok(acceptance.errors.some((e) => e.includes("doc-OTHER")));
 });

@@ -345,6 +345,52 @@ export function setEdgeLineWidth(
   return next;
 }
 
+/** Sets a single edge's label. */
+export function setEdgeLabel(
+  visual: Visual,
+  id: string,
+  label: string,
+): Visual {
+  return {
+    ...visual,
+    edges: visual.edges.map((edge) =>
+      edge.id === id ? { ...edge, label } : edge,
+    ),
+  };
+}
+
+/** Flips a connector's direction by swapping its `from`/`to` endpoints. */
+export function flipEdge(visual: Visual, id: string): Visual {
+  return {
+    ...visual,
+    edges: visual.edges.map((edge) =>
+      edge.id === id ? { ...edge, from: edge.to, to: edge.from } : edge,
+    ),
+  };
+}
+
+/** Toggles a connector's arrowhead (the `directed` flag; default shown). */
+export function toggleEdgeDirected(visual: Visual, id: string): Visual {
+  return {
+    ...visual,
+    edges: visual.edges.map((edge) =>
+      edge.id === id ? { ...edge, directed: edge.directed === false } : edge,
+    ),
+  };
+}
+
+/** Toggles a connector between curved and straight (default straight). */
+export function toggleEdgeStyle(visual: Visual, id: string): Visual {
+  return {
+    ...visual,
+    edges: visual.edges.map((edge) =>
+      edge.id === id
+        ? { ...edge, style: edge.style === "curved" ? "straight" : "curved" }
+        : edge,
+    ),
+  };
+}
+
 /**
  * Applies arrowStyle / lineStyle / lineWidth to **all** edges in the visual —
  * the "global connector style" path in the UI (no edge selection required).

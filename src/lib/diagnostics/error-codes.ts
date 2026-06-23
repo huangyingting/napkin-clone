@@ -68,7 +68,7 @@ export const ERROR_CODES = {
   SOURCE_STALE: "SOURCE_STALE",
   SOURCE_MISSING: "SOURCE_MISSING",
 
-  // Command bus
+  // Command envelope
   UNSUPPORTED_COMMAND: "UNSUPPORTED_COMMAND",
 
   // Performance / budget

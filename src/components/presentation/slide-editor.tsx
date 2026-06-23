@@ -155,11 +155,7 @@ import {
   type StaleSourceLink,
 } from "@/lib/presentation/source-link-staleness";
 import { hashDocumentBlock } from "@/lib/presentation/document-block-hash";
-import {
-  unlinkSource,
-  relinkSource,
-  type SourceRef,
-} from "@/lib/presentation/deck";
+import { type SourceRef } from "@/lib/presentation/deck";
 import type {
   DocumentBlock,
   DocumentTextBlock,
@@ -2082,16 +2078,13 @@ export function SlideEditor({
           "text",
         );
         const updated = updateTextElementFromBlock(element, fresh, newRef);
-        const patch: ElementPatch = {
-          text: updated.text,
-          ...(updated.runs !== undefined ? { runs: updated.runs } : {}),
-          sourceRef: updated.sourceRef,
-        };
         doCommitAndChange(deck, {
-          type: "UPDATE_ELEMENT",
+          type: "REFRESH_ELEMENT_FROM_SOURCE",
           slideId: link.slideId,
           elementId: link.elementId,
-          patch,
+          sourceRef: newRef,
+          text: updated.text,
+          ...(updated.runs !== undefined ? { runs: updated.runs } : {}),
         });
       } else {
         // Visual: update the contentHash; visualId stays the same.
@@ -2107,10 +2100,10 @@ export function SlideEditor({
           "visual",
         );
         doCommitAndChange(deck, {
-          type: "UPDATE_ELEMENT",
+          type: "REFRESH_ELEMENT_FROM_SOURCE",
           slideId: link.slideId,
           elementId: link.elementId,
-          patch: { sourceRef: newRef },
+          sourceRef: newRef,
         });
       }
     },
@@ -2127,12 +2120,10 @@ export function SlideEditor({
         (el) => el.id === link.elementId,
       );
       if (!element?.sourceRef) return;
-      const unlinked = unlinkSource(element);
       doCommitAndChange(deck, {
-        type: "UPDATE_ELEMENT",
+        type: "UNLINK_ELEMENT_SOURCE",
         slideId: link.slideId,
         elementId: link.elementId,
-        patch: { sourceRef: unlinked.sourceRef },
       });
     },
     [deck, doCommitAndChange],
@@ -2155,12 +2146,11 @@ export function SlideEditor({
         linkedAt: new Date().toISOString(),
         blockKind: link.blockKind,
       };
-      const relinked = relinkSource(element, newRef);
       doCommitAndChange(deck, {
-        type: "UPDATE_ELEMENT",
+        type: "RELINK_ELEMENT_SOURCE",
         slideId: link.slideId,
         elementId: link.elementId,
-        patch: { sourceRef: relinked.sourceRef },
+        sourceRef: newRef,
       });
     },
     [deck, doCommitAndChange],
@@ -2171,7 +2161,7 @@ export function SlideEditor({
   const handleRemoveOrphaned = useCallback(
     (link: StaleSourceLink) => {
       doCommitAndChange(deck, {
-        type: "REMOVE_ELEMENT",
+        type: "REMOVE_SOURCE_ELEMENT",
         slideId: link.slideId,
         elementId: link.elementId,
       });

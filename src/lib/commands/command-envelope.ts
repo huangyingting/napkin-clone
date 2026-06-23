@@ -71,6 +71,10 @@ const SLIDE_COMMAND_TYPES = [
   "SET_SLIDE_BACKGROUND_IMAGE",
   "SET_SLIDE_BACKGROUND_ASSET",
   "SET_SLIDE_ACCENT",
+  "REFRESH_ELEMENT_FROM_SOURCE",
+  "UNLINK_ELEMENT_SOURCE",
+  "RELINK_ELEMENT_SOURCE",
+  "REMOVE_SOURCE_ELEMENT",
 ] as const;
 const UUID_V4_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -595,6 +599,28 @@ function validateVisualPayload(
       }
       validateEdgeStylePatch(payload.patch, "payload.patch", errors);
       return;
+    case "visual.set_edge_label":
+      pushUnknownKeyErrors(
+        payload,
+        ["op", "edgeId", "label"],
+        "payload",
+        errors,
+      );
+      if (!isNonEmptyString(payload.edgeId)) {
+        errors.push("payload.edgeId must be a non-empty string.");
+      }
+      if (typeof payload.label !== "string") {
+        errors.push("payload.label must be a string.");
+      }
+      return;
+    case "visual.flip_edge":
+    case "visual.toggle_edge_directed":
+    case "visual.toggle_edge_style":
+      pushUnknownKeyErrors(payload, ["op", "edgeId"], "payload", errors);
+      if (!isNonEmptyString(payload.edgeId)) {
+        errors.push("payload.edgeId must be a non-empty string.");
+      }
+      return;
     case "visual.set_all_edges_style":
       pushUnknownKeyErrors(payload, ["op", "patch"], "payload", errors);
       validateEdgeStylePatch(payload.patch, "payload.patch", errors);
@@ -667,6 +693,46 @@ function validateVisualPayload(
       return;
     default:
       errors.push(`Unsupported visual payload op: ${String(payload.op)}.`);
+  }
+}
+
+function validateSourceRef(value: unknown, errors: string[]): void {
+  if (!isPlainObject(value)) {
+    errors.push("payload.sourceRef must be an object.");
+    return;
+  }
+  pushUnknownKeyErrors(
+    value,
+    [
+      "documentId",
+      "blockId",
+      "contentHash",
+      "linkedAt",
+      "unlinked",
+      "blockKind",
+    ],
+    "payload.sourceRef",
+    errors,
+  );
+  if (!isNonEmptyString(value.documentId)) {
+    errors.push("payload.sourceRef.documentId must be a non-empty string.");
+  }
+  if (!isNonEmptyString(value.blockId)) {
+    errors.push("payload.sourceRef.blockId must be a non-empty string.");
+  }
+  if (!isNonEmptyString(value.linkedAt)) {
+    errors.push("payload.sourceRef.linkedAt must be a non-empty string.");
+  }
+  if (value.contentHash !== undefined && !isNonEmptyString(value.contentHash)) {
+    errors.push(
+      "payload.sourceRef.contentHash must be a non-empty string when provided.",
+    );
+  }
+  if (value.unlinked !== undefined && typeof value.unlinked !== "boolean") {
+    errors.push("payload.sourceRef.unlinked must be a boolean when provided.");
+  }
+  if (!isOneOf(value.blockKind, ["text", "visual"] as const)) {
+    errors.push('payload.sourceRef.blockKind must be "text" or "visual".');
   }
 }
 
@@ -770,12 +836,24 @@ function validateSlideCommandPayload(
     case "SET_ELEMENT_LOCKED":
     case "MOVE_ELEMENT_ZORDER":
     case "RENAME_ELEMENT":
+    case "UNLINK_ELEMENT_SOURCE":
+    case "REMOVE_SOURCE_ELEMENT":
       if (!isNonEmptyString(payload.slideId)) {
         errors.push("payload.slideId must be a non-empty string.");
       }
       if (!isNonEmptyString(payload.elementId)) {
         errors.push("payload.elementId must be a non-empty string.");
       }
+      break;
+    case "REFRESH_ELEMENT_FROM_SOURCE":
+    case "RELINK_ELEMENT_SOURCE":
+      if (!isNonEmptyString(payload.slideId)) {
+        errors.push("payload.slideId must be a non-empty string.");
+      }
+      if (!isNonEmptyString(payload.elementId)) {
+        errors.push("payload.elementId must be a non-empty string.");
+      }
+      validateSourceRef(payload.sourceRef, errors);
       break;
     case "MOVE_SLIDE":
       if (!isInteger(payload.slideIndex)) {
@@ -1147,6 +1225,77 @@ export function validateCommandEnvelope(
   }
 
   return { valid: errors.length === 0, errors };
+}
+
+/**
+ * Structured rejection codes for {@link acceptDeckCommandEnvelope}. Stable so
+ * the server action layer can log and branch on them.
+ */
+export type EnvelopeRejectionCode =
+  | "malformed"
+  | "unsupported_schema_version"
+  | "wrong_target"
+  | "wrong_document";
+
+export interface EnvelopeAcceptance {
+  ok: boolean;
+  errors: string[];
+  /** Present only when `ok` is `false`. */
+  code?: EnvelopeRejectionCode;
+}
+
+/**
+ * Server-side acceptance check for a deck-command envelope, layered on top of
+ * the pure structural {@link validateCommandEnvelope}.
+ *
+ * Rejects — with a stable {@link EnvelopeRejectionCode} — before any
+ * persistence:
+ *  - malformed envelopes (structural validation failure),
+ *  - unsupported / future command schema versions,
+ *  - envelopes addressed to the wrong target surface (must be `deck`),
+ *  - envelopes addressed to a different document than the request.
+ *
+ * It intentionally does **not** perform optimistic-revision (CAS) checks: those
+ * stay in the persistence layer (`persistDeck` / `patchDeck`) keyed on the
+ * deck revision token. `target.expectedRevision`, when present, is forwarded by
+ * the caller as the CAS `clientToken`.
+ */
+export function acceptDeckCommandEnvelope(
+  env: CommandEnvelope<unknown>,
+  context: { documentId: string },
+): EnvelopeAcceptance {
+  const structural = validateCommandEnvelope(env);
+  if (!structural.valid) {
+    return { ok: false, code: "malformed", errors: structural.errors };
+  }
+  if (env.schemaVersion > CURRENT_COMMAND_SCHEMA_VERSION) {
+    return {
+      ok: false,
+      code: "unsupported_schema_version",
+      errors: [
+        `schemaVersion ${env.schemaVersion} exceeds supported ${CURRENT_COMMAND_SCHEMA_VERSION}.`,
+      ],
+    };
+  }
+  if (env.target.surface !== "deck") {
+    return {
+      ok: false,
+      code: "wrong_target",
+      errors: [
+        `Deck command entry point requires target.surface "deck", got "${env.target.surface}".`,
+      ],
+    };
+  }
+  if (env.target.documentId !== context.documentId) {
+    return {
+      ok: false,
+      code: "wrong_document",
+      errors: [
+        `Command targets document "${env.target.documentId ?? "(none)"}" but was submitted to "${context.documentId}".`,
+      ],
+    };
+  }
+  return { ok: true, errors: [] };
 }
 
 export function adaptSlideCommandResult(

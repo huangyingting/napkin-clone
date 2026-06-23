@@ -44,9 +44,13 @@ import {
   setAutoLayout,
   setCanvasStyle,
   setEdgeArrowStyle,
+  setEdgeLabel,
   setEdgeLineStyle,
   setEdgeLineWidth,
   setEffect,
+  flipEdge,
+  toggleEdgeDirected,
+  toggleEdgeStyle,
   setNodeBorderStyle,
   setNodeBorderWidth,
   setNodeFillStyle,
@@ -100,7 +104,11 @@ export type VisualCommandPayload =
   | { op: "visual.set_node_icon"; nodeId: string; icon: string }
   | { op: "visual.clear_node_icon"; nodeId: string }
   | { op: "visual.set_node_label"; nodeId: string; label: string }
+  | { op: "visual.set_edge_label"; edgeId: string; label: string }
   | { op: "visual.set_edge_style"; edgeId: string; patch: EdgeStylePatch }
+  | { op: "visual.flip_edge"; edgeId: string }
+  | { op: "visual.toggle_edge_directed"; edgeId: string }
+  | { op: "visual.toggle_edge_style"; edgeId: string }
   | { op: "visual.set_all_edges_style"; patch: AllEdgesStylePatch }
   | { op: "visual.set_effect"; effect: VisualEffect }
   | { op: "visual.clear_effect"; kind: EffectKind }
@@ -604,6 +612,42 @@ export function executeVisualCommand(
       affectedEdgeIds = [cmd.payload.edgeId];
       break;
     }
+    case "visual.set_edge_label": {
+      const error = ensureEdgeExists(visual, cmd.payload.edgeId);
+      if (error) {
+        return failure(visual, error);
+      }
+      next = setEdgeLabel(visual, cmd.payload.edgeId, cmd.payload.label);
+      affectedEdgeIds = [cmd.payload.edgeId];
+      break;
+    }
+    case "visual.flip_edge": {
+      const error = ensureEdgeExists(visual, cmd.payload.edgeId);
+      if (error) {
+        return failure(visual, error);
+      }
+      next = flipEdge(visual, cmd.payload.edgeId);
+      affectedEdgeIds = [cmd.payload.edgeId];
+      break;
+    }
+    case "visual.toggle_edge_directed": {
+      const error = ensureEdgeExists(visual, cmd.payload.edgeId);
+      if (error) {
+        return failure(visual, error);
+      }
+      next = toggleEdgeDirected(visual, cmd.payload.edgeId);
+      affectedEdgeIds = [cmd.payload.edgeId];
+      break;
+    }
+    case "visual.toggle_edge_style": {
+      const error = ensureEdgeExists(visual, cmd.payload.edgeId);
+      if (error) {
+        return failure(visual, error);
+      }
+      next = toggleEdgeStyle(visual, cmd.payload.edgeId);
+      affectedEdgeIds = [cmd.payload.edgeId];
+      break;
+    }
     case "visual.set_all_edges_style":
       next = setAllEdgesStyle(visual, cmd.payload.patch);
       affectedEdgeIds = wholeVisualEdgeIds(visual, next);
@@ -813,6 +857,17 @@ function canCoalesceVisualCommands(
         b.payload.op === "visual.set_edge_style" &&
         a.payload.edgeId === b.payload.edgeId
       );
+    case "visual.set_edge_label":
+      return (
+        b.payload.op === "visual.set_edge_label" &&
+        a.payload.edgeId === b.payload.edgeId
+      );
+    // Edge flip/toggle are discrete user-intent edits; never coalesce
+    // (merging two toggles would silently cancel the change).
+    case "visual.flip_edge":
+    case "visual.toggle_edge_directed":
+    case "visual.toggle_edge_style":
+      return false;
     // Lifecycle operations are never coalesced — each is a discrete structural change.
     case "visual.add_node":
     case "visual.delete_node":

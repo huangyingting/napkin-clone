@@ -54,6 +54,11 @@ import {
 } from "@/lib/presentation/deck-revision-token";
 import { shouldSnapshot } from "@/lib/document-versions";
 import { applyPatch, type DeckPatch } from "@/lib/presentation/slide-commands";
+import { executeCommand } from "@/lib/presentation/slide-commands";
+import { acceptDeckCommandEnvelope } from "@/lib/commands/command-envelope";
+import { CURRENT_COMMAND_SCHEMA_VERSION } from "@/lib/commands/command-envelope";
+import type { CommandEnvelope } from "@/lib/commands/command-envelope";
+import type { SlideCommand } from "@/lib/presentation/slide-commands";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 import type { Deck, Slide } from "@/lib/presentation/deck";
@@ -374,5 +379,130 @@ describe("DocumentVersion snapshot semantics (#405)", () => {
   test("safeParseDeck: rejects an invalid deck", () => {
     const result = safeParseDeck({ theme: "unknown-theme", slides: [] });
     assert.equal(result.success, false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// #508 — command-envelope save path (saveDeckCommand) boundaries
+// ---------------------------------------------------------------------------
+
+describe("saveDeckCommand validation + CAS semantics (#508)", () => {
+  const DOC_ID = "doc-cmd-1";
+
+  function deckCommandEnvelope(
+    payload: SlideCommand,
+    overrides: Partial<CommandEnvelope<SlideCommand>> = {},
+  ): CommandEnvelope<SlideCommand> {
+    return {
+      id: "00000000-0000-4000-8000-00000000000a",
+      schemaVersion: CURRENT_COMMAND_SCHEMA_VERSION,
+      type: "deck.slide_command",
+      timestamp: "2026-06-23T00:00:00.000Z",
+      actor: { id: "user-1" },
+      target: { surface: "deck", documentId: DOC_ID },
+      payload,
+      source: "user",
+      ...overrides,
+    };
+  }
+
+  test("stale expected revision → CAS conflict before write", () => {
+    // The envelope carries target.expectedRevision; saveDeckCommand forwards it
+    // to persistDeck as the CAS clientToken. A stale token conflicts.
+    const serverToken = generateRevisionToken();
+    const envelope = deckCommandEnvelope(
+      { type: "UNLINK_ELEMENT_SOURCE", slideId: "slide-1", elementId: "el-1" },
+      {
+        target: {
+          surface: "deck",
+          documentId: DOC_ID,
+          expectedRevision: "stale-token",
+        },
+      },
+    );
+    // Envelope itself is acceptable (CAS is enforced by persistence, not the validator).
+    assert.equal(
+      acceptDeckCommandEnvelope(envelope, { documentId: DOC_ID }).ok,
+      true,
+    );
+    assert.equal(
+      isRevisionConflict(envelope.target.expectedRevision, serverToken),
+      true,
+      "stale expected revision must be rejected by CAS",
+    );
+  });
+
+  test("matching expected revision → CAS proceeds", () => {
+    const serverToken = generateRevisionToken();
+    const envelope = deckCommandEnvelope(
+      { type: "UNLINK_ELEMENT_SOURCE", slideId: "slide-1", elementId: "el-1" },
+      {
+        target: {
+          surface: "deck",
+          documentId: DOC_ID,
+          expectedRevision: serverToken,
+        },
+      },
+    );
+    assert.equal(
+      isRevisionConflict(envelope.target.expectedRevision, serverToken),
+      false,
+    );
+  });
+
+  test("source-ref command executes server-side and produces a re-appliable patch", () => {
+    const deck: Deck = makeDeck([
+      {
+        ...makeSlide("slide-1", 0, "S1"),
+        elements: [
+          {
+            id: "el-text",
+            kind: "text",
+            text: "old",
+            style: { fontSize: 5, bold: false, italic: false, align: "left" },
+            role: "body",
+            box: { x: 0, y: 0, w: 50, h: 10 },
+            zIndex: 1,
+            sourceRef: {
+              documentId: DOC_ID,
+              blockId: "blk-1",
+              contentHash: "old",
+              linkedAt: "2026-06-01T00:00:00.000Z",
+              blockKind: "text",
+            },
+          },
+        ],
+        elementsDerived: false,
+      } as Slide,
+    ]);
+
+    const envelope = deckCommandEnvelope({
+      type: "REFRESH_ELEMENT_FROM_SOURCE",
+      slideId: "slide-1",
+      elementId: "el-text",
+      sourceRef: {
+        documentId: DOC_ID,
+        blockId: "blk-1",
+        contentHash: "new",
+        linkedAt: "2026-06-23T00:00:00.000Z",
+        blockKind: "text",
+      },
+      text: "fresh",
+    });
+
+    assert.equal(
+      acceptDeckCommandEnvelope(envelope, { documentId: DOC_ID }).ok,
+      true,
+    );
+
+    const result = executeCommand(deck, envelope.payload);
+    assert.equal(result.ok, true);
+    assert.equal(result.patches.length, 1);
+
+    // The emitted patch re-applies cleanly (mirrors persistDeck/patchDeck replay).
+    const replayed = applyPatch(deck, result.patches[0]!);
+    assert.ok(replayed);
+    const el = replayed!.slides[0]!.elements!.find((e) => e.id === "el-text");
+    assert.equal(el?.kind === "text" ? el.text : undefined, "fresh");
   });
 });

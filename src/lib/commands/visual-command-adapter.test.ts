@@ -15,7 +15,14 @@ import {
 } from "./visual-command-adapter";
 import { createBlankVisual } from "@/lib/visual/fixtures";
 import { STYLE_THEMES } from "@/lib/visual/themes";
-import { applyTheme } from "@/lib/visual/transforms";
+import {
+  applyTheme,
+  flipEdge,
+  setEdgeLabel,
+  setNodeLabel,
+  toggleEdgeDirected,
+  toggleEdgeStyle,
+} from "@/lib/visual/transforms";
 
 const VISUAL_ID = "vis-adapter-1";
 const DOC_ID = "doc-1";
@@ -130,6 +137,243 @@ describe("applyVisualCommand — effects", () => {
   });
 });
 
+describe("applyVisualCommand — node style edits (#507)", () => {
+  test("visual.set_node_style updates a node color and emits patch", () => {
+    const visual = createBlankVisual("flowchart");
+    const nodeId = visual.nodes[0]!.id;
+
+    const result = applyVisualCommand(visual, VISUAL_ID, {
+      op: "visual.set_node_style",
+      nodeId,
+      field: "color",
+      value: "#abcdef",
+    });
+
+    assert.ok(result.ok);
+    assert.strictEqual(
+      result.visual.nodes.find((n) => n.id === nodeId)?.color,
+      "#abcdef",
+    );
+    assert.strictEqual(result.patches[0]!.op, "visual.set_node_style");
+    assert.deepStrictEqual(result.patches[0]!.affectedNodeIds, [nodeId]);
+  });
+
+  test("visual.set_node_ext_style applies fill/border/text patch", () => {
+    const visual = createBlankVisual("flowchart");
+    const nodeId = visual.nodes[0]!.id;
+
+    const result = applyVisualCommand(visual, VISUAL_ID, {
+      op: "visual.set_node_ext_style",
+      nodeId,
+      patch: { fillStyle: "gradient", textAlign: "left" },
+    });
+
+    assert.ok(result.ok);
+    const node = result.visual.nodes.find((n) => n.id === nodeId);
+    assert.strictEqual(node?.fillStyle, "gradient");
+    assert.strictEqual(node?.textAlign, "left");
+    assert.strictEqual(result.patches[0]!.op, "visual.set_node_ext_style");
+  });
+
+  test("visual.set_node_icon and clear_node_icon round-trip", () => {
+    const visual = createBlankVisual("flowchart");
+    const nodeId = visual.nodes[0]!.id;
+
+    const set = applyVisualCommand(visual, VISUAL_ID, {
+      op: "visual.set_node_icon",
+      nodeId,
+      icon: "Sparkles",
+    });
+    assert.ok(set.ok);
+    assert.strictEqual(
+      set.visual.nodes.find((n) => n.id === nodeId)?.icon,
+      "Sparkles",
+    );
+
+    const cleared = applyVisualCommand(set.visual, VISUAL_ID, {
+      op: "visual.clear_node_icon",
+      nodeId,
+    });
+    assert.ok(cleared.ok);
+    assert.strictEqual(
+      cleared.visual.nodes.find((n) => n.id === nodeId)?.icon,
+      undefined,
+    );
+  });
+
+  test("visual.set_node_label updates a node label", () => {
+    const visual = createBlankVisual("flowchart");
+    const nodeId = visual.nodes[0]!.id;
+
+    const result = applyVisualCommand(visual, VISUAL_ID, {
+      op: "visual.set_node_label",
+      nodeId,
+      label: "Renamed",
+    });
+
+    assert.ok(result.ok);
+    assert.strictEqual(
+      result.visual.nodes.find((n) => n.id === nodeId)?.label,
+      "Renamed",
+    );
+    assert.strictEqual(result.patches[0]!.op, "visual.set_node_label");
+  });
+});
+
+describe("applyVisualCommand — edge + lifecycle edits (#507)", () => {
+  test("visual.set_all_edges_style applies arrow/line patch to all edges", () => {
+    const visual = createBlankVisual("flowchart");
+
+    const result = applyVisualCommand(visual, VISUAL_ID, {
+      op: "visual.set_all_edges_style",
+      patch: { lineStyle: "dashed" },
+    });
+
+    assert.ok(result.ok);
+    assert.ok(result.visual.edges.every((e) => e.lineStyle === "dashed"));
+    assert.strictEqual(result.patches[0]!.op, "visual.set_all_edges_style");
+  });
+
+  test("visual.delete_node removes node + connected edges and reports affected ids", () => {
+    const visual = createBlankVisual("flowchart");
+    // n2 is connected to both e1 (n1->n2) and e2 (n2->n3).
+    const result = applyVisualCommand(visual, VISUAL_ID, {
+      op: "visual.delete_node",
+      nodeId: "n2",
+    });
+
+    assert.ok(result.ok);
+    assert.ok(!result.visual.nodes.some((n) => n.id === "n2"));
+    assert.ok(
+      !result.visual.edges.some((e) => e.from === "n2" || e.to === "n2"),
+    );
+    const patch = result.patches[0]!;
+    assert.strictEqual(patch.op, "visual.delete_node");
+    assert.deepStrictEqual(patch.affectedNodeIds, ["n2"]);
+    assert.deepStrictEqual([...patch.affectedEdgeIds].sort(), ["e1", "e2"]);
+  });
+});
+
+describe("applyVisualCommand — edge flip/toggle + label commits (#507)", () => {
+  test("visual.flip_edge swaps from/to and matches the direct transform", () => {
+    const visual = createBlankVisual("flowchart");
+
+    const result = applyVisualCommand(visual, VISUAL_ID, {
+      op: "visual.flip_edge",
+      edgeId: "e1",
+    });
+
+    assert.ok(result.ok);
+    const edge = result.visual.edges.find((e) => e.id === "e1")!;
+    assert.strictEqual(edge.from, "n2");
+    assert.strictEqual(edge.to, "n1");
+    assert.strictEqual(result.patches[0]!.op, "visual.flip_edge");
+    assert.deepStrictEqual(result.patches[0]!.affectedEdgeIds, ["e1"]);
+    // Byte-identical to the direct pure transform.
+    assert.deepStrictEqual(result.visual, flipEdge(visual, "e1"));
+  });
+
+  test("visual.toggle_edge_directed flips the directed flag (matches transform)", () => {
+    const visual = createBlankVisual("flowchart");
+
+    const result = applyVisualCommand(visual, VISUAL_ID, {
+      op: "visual.toggle_edge_directed",
+      edgeId: "e1",
+    });
+
+    assert.ok(result.ok);
+    assert.strictEqual(
+      result.visual.edges.find((e) => e.id === "e1")?.directed,
+      false,
+    );
+    assert.strictEqual(result.patches[0]!.op, "visual.toggle_edge_directed");
+    assert.deepStrictEqual(result.patches[0]!.affectedEdgeIds, ["e1"]);
+    assert.deepStrictEqual(result.visual, toggleEdgeDirected(visual, "e1"));
+  });
+
+  test("visual.toggle_edge_style flips curved/straight (matches transform)", () => {
+    const visual = createBlankVisual("flowchart");
+
+    const result = applyVisualCommand(visual, VISUAL_ID, {
+      op: "visual.toggle_edge_style",
+      edgeId: "e1",
+    });
+
+    assert.ok(result.ok);
+    assert.strictEqual(
+      result.visual.edges.find((e) => e.id === "e1")?.style,
+      "curved",
+    );
+    assert.strictEqual(result.patches[0]!.op, "visual.toggle_edge_style");
+    assert.deepStrictEqual(result.patches[0]!.affectedEdgeIds, ["e1"]);
+    assert.deepStrictEqual(result.visual, toggleEdgeStyle(visual, "e1"));
+  });
+
+  test("visual.set_edge_label commits the label (matches transform)", () => {
+    const visual = createBlankVisual("flowchart");
+
+    const result = applyVisualCommand(visual, VISUAL_ID, {
+      op: "visual.set_edge_label",
+      edgeId: "e1",
+      label: "Yes",
+    });
+
+    assert.ok(result.ok);
+    assert.strictEqual(
+      result.visual.edges.find((e) => e.id === "e1")?.label,
+      "Yes",
+    );
+    assert.strictEqual(result.patches[0]!.op, "visual.set_edge_label");
+    assert.deepStrictEqual(result.patches[0]!.affectedEdgeIds, ["e1"]);
+    assert.deepStrictEqual(result.visual, setEdgeLabel(visual, "e1", "Yes"));
+  });
+
+  test("visual.set_node_label commit matches the direct transform byte-for-byte", () => {
+    const visual = createBlankVisual("flowchart");
+
+    const result = applyVisualCommand(visual, VISUAL_ID, {
+      op: "visual.set_node_label",
+      nodeId: "n1",
+      label: "Begin",
+    });
+
+    assert.ok(result.ok);
+    assert.deepStrictEqual(result.visual, setNodeLabel(visual, "n1", "Begin"));
+  });
+
+  test("edge flip/toggle/label on a missing edge fail without mutating", () => {
+    const visual = createBlankVisual("flowchart");
+
+    for (const payload of [
+      { op: "visual.flip_edge" as const, edgeId: "missing-edge" },
+      { op: "visual.toggle_edge_directed" as const, edgeId: "missing-edge" },
+      { op: "visual.toggle_edge_style" as const, edgeId: "missing-edge" },
+      {
+        op: "visual.set_edge_label" as const,
+        edgeId: "missing-edge",
+        label: "x",
+      },
+    ]) {
+      const result = applyVisualCommand(visual, VISUAL_ID, payload);
+      assert.ok(!result.ok, `${payload.op} should fail for missing edge`);
+      assert.strictEqual(result.visual, visual);
+      assert.strictEqual(result.patches.length, 0);
+    }
+  });
+
+  test("a malformed edge payload (missing edgeId) is rejected before persistence", () => {
+    const visual = createBlankVisual("flowchart");
+
+    const result = applyVisualCommand(visual, VISUAL_ID, {
+      op: "visual.flip_edge",
+    } as unknown as Parameters<typeof applyVisualCommand>[2]);
+
+    assert.ok(!result.ok, "malformed payload should be rejected");
+    assert.strictEqual(result.visual, visual);
+    assert.strictEqual(result.patches.length, 0);
+  });
+});
+
 describe("applyVisualCommand — failure path", () => {
   test("returns original visual on failure (no mutation)", () => {
     const visual = createBlankVisual("flowchart");
@@ -142,6 +386,36 @@ describe("applyVisualCommand — failure path", () => {
 
     assert.ok(!result.ok, "should fail for missing node");
     // Input visual unchanged.
+    assert.strictEqual(result.visual, visual);
+    assert.strictEqual(result.patches.length, 0);
+  });
+
+  test("set_node_style on a missing node does not mutate the visual", () => {
+    const visual = createBlankVisual("flowchart");
+
+    const result = applyVisualCommand(visual, VISUAL_ID, {
+      op: "visual.set_node_style",
+      nodeId: "missing-node",
+      field: "color",
+      value: "#000000",
+    });
+
+    assert.ok(!result.ok, "should fail for missing node");
+    assert.strictEqual(result.visual, visual);
+    assert.strictEqual(result.patches.length, 0);
+  });
+
+  test("a malformed payload is rejected before persistence", () => {
+    const visual = createBlankVisual("flowchart");
+
+    // Missing the required `value` field — invalid envelope payload.
+    const result = applyVisualCommand(visual, VISUAL_ID, {
+      op: "visual.set_node_style",
+      nodeId: visual.nodes[0]!.id,
+      field: "color",
+    } as unknown as Parameters<typeof applyVisualCommand>[2]);
+
+    assert.ok(!result.ok, "malformed payload should be rejected");
     assert.strictEqual(result.visual, visual);
     assert.strictEqual(result.patches.length, 0);
   });

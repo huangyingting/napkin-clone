@@ -1,3 +1,14 @@
+/**
+ * Cross-surface command tests.
+ *
+ * NOTE: there is no runtime "command bus" object. These tests exercise the real
+ * architecture — pure executors (`executeCommand`, `executeVisualCommand`)
+ * behind serializable `CommandEnvelope` records and the adapters
+ * (`adaptSlideCommandResult`, `adaptVisualCommandResult`) that normalize results
+ * into the shared `CrossSurfaceCommandResult` shape. The `applyMixedBatch`
+ * helper below simulates how a caller would replay a heterogeneous stream of
+ * visual + deck commands; it is not a dispatcher under test.
+ */
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -38,7 +49,7 @@ type BatchEntry =
   | { kind: "visual"; command: VisualCommand }
   | { kind: "deck"; command: DeckEnvelope };
 
-type BusResult = CrossSurfaceCommandResult<
+type CrossSurfaceResult = CrossSurfaceCommandResult<
   DeckPatch | VisualPatch,
   VisualSideEffect
 >;
@@ -114,8 +125,8 @@ function applyMixedBatch(
   deck: Deck,
   visual: Visual,
   batch: BatchEntry[],
-): { deck: Deck; visual: Visual; results: BusResult[] } {
-  const results: BusResult[] = [];
+): { deck: Deck; visual: Visual; results: CrossSurfaceResult[] } {
+  const results: CrossSurfaceResult[] = [];
   let currentDeck = deck;
   let currentVisual = visual;
 
@@ -227,7 +238,7 @@ test("mixed command batches replay deterministically across visual and deck surf
       command: makeDeckEnvelope({
         type: "UPDATE_SLIDE_TITLE",
         slideId: "s1",
-        title: "Command-bus title",
+        title: "Cross-surface title",
         coalesceKey: "title:s1",
       }),
     },
