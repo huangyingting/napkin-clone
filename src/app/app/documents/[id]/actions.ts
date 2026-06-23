@@ -7,32 +7,23 @@ import { Prisma } from "@/generated/prisma/client";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 import { requireDocumentCapability } from "@/lib/auth/document-permissions";
 import { stampBlockIds } from "@/lib/lexical/block-id";
-import { collectVisualNodes } from "@/lib/lexical/visual-nodes";
-import { lexicalStateToPlainText } from "@/lib/lexical/plain-text";
-import {
-  MAX_DOCUMENT_VERSIONS,
-  SNAPSHOT_MIN_INTERVAL_MS,
-  shouldSnapshot,
-  staleVersionIds,
-} from "@/lib/document-versions";
 import { prisma } from "@/lib/prisma";
 import { app as appEnv } from "@/lib/env";
 import { requireUser } from "@/lib/session";
 import { buildShareSegment, buildSlugCandidate } from "@/lib/slug";
-import { safeParseDeck } from "@/lib/presentation/deck-schema";
-import { normalizeDeckRaw } from "@/lib/presentation/fresh-deck";
-import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
-import { MAX_DECK_JSON_BYTES } from "@/lib/presentation/deck-limits";
-import { generateRevisionToken } from "@/lib/presentation/deck-revision-token";
-import { applyPatch, type DeckPatch } from "@/lib/presentation/slide-commands";
-import { VISUAL_KIND_TO_PRISMA, safeParseVisual } from "@/lib/visual/schema";
-import {
-  diffVisualMirror,
-  mirrorOutcomeFromDiff,
-  type LiveVisualNode,
-  type VisualMirrorOutcome,
-} from "@/lib/visual/mirror-diff";
 import { logInfo, logError } from "@/lib/log";
+import {
+  atomicSaveDocumentLexical,
+  rebuildMirror,
+  persistDeck,
+  patchDeck,
+  restoreVersion,
+  type VisualMirrorOutcome,
+  type SaveDeckResult,
+  type SaveDeckPatchResult,
+  type RestoredDocumentVersion,
+} from "@/lib/document/persistence-service";
+import type { DeckPatch } from "@/lib/presentation/slide-commands";
 
 // URL-safe share ID generator (no ambiguous chars: 0/O, 1/l/I)
 const generateShareId = customAlphabet(
@@ -44,365 +35,14 @@ const generateShareId = customAlphabet(
 // collisions vanishingly unlikely (4 lowercase alphanumeric chars).
 const generateSlugSuffix = customAlphabet("23456789abcdefghjkmnpqrstuvwxyz", 4);
 
-const MAX_CONTENT_LENGTH = 100_000;
 const MAX_LEXICAL_STATE_LENGTH = 2_000_000;
-const MAX_ANCHOR_BLOCK_ID_LENGTH = 200;
-
-// How many historical snapshots to retain per visual. Older ones are pruned in
-// the same save so the history table can't grow without bound.
-const MAX_VISUAL_REVISIONS = 10;
-
-function stableJsonString(value: unknown): string {
-  if (value === null || typeof value !== "object") {
-    return JSON.stringify(value);
-  }
-  if (Array.isArray(value)) {
-    return `[${value.map(stableJsonString).join(",")}]`;
-  }
-  const record = value as Record<string, unknown>;
-  return `{${Object.keys(record)
-    .sort()
-    .map((key) => `${JSON.stringify(key)}:${stableJsonString(record[key])}`)
-    .join(",")}}`;
-}
-
-function jsonEqual(a: unknown, b: unknown): boolean {
-  return stableJsonString(a) === stableJsonString(b);
-}
-
-/**
- * Records a snapshot of a visual's current persisted state into the
- * `VisualRevision` history, then prunes that visual's history to the most recent
- * `MAX_VISUAL_REVISIONS` entries. Called with the *previous* row before it is
- * overwritten, so each edit/regeneration is restorable (US-016).
- */
-async function snapshotVisualRevision(
-  tx: Prisma.TransactionClient,
-  previous: {
-    id: string;
-    data: Prisma.JsonValue;
-    type: string;
-    title: string | null;
-  },
-): Promise<void> {
-  await tx.visualRevision.create({
-    data: {
-      visualId: previous.id,
-      data: previous.data as unknown as Prisma.InputJsonValue,
-      type: previous.type,
-      title: previous.title,
-    },
-  });
-
-  // Keep only the newest snapshots; delete anything beyond the retention limit.
-  const stale = await tx.visualRevision.findMany({
-    where: { visualId: previous.id },
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    skip: MAX_VISUAL_REVISIONS,
-    select: { id: true },
-  });
-
-  if (stale.length > 0) {
-    await tx.visualRevision.deleteMany({
-      where: { id: { in: stale.map((revision) => revision.id) } },
-    });
-  }
-}
-
-/**
- * Records a point-in-time snapshot of a document's current persisted editable
- * state into `DocumentVersion`, then prunes that document's history to the most
- * recent {@link MAX_DOCUMENT_VERSIONS} entries (issue #158).
- *
- * Snapshots are throttled by {@link shouldSnapshot}: a new version is only
- * created when the document's most recent snapshot is older than
- * {@link SNAPSHOT_MIN_INTERVAL_MS}, unless `force` is set for a meaningful event
- * (e.g. a pre-restore checkpoint) that must always be captured. Callers invoke
- * this only after passing the edit-permission check, so authorization is
- * inherited from the save path. Failures are intentionally swallowed: a missed
- * snapshot must never break the user's save.
- */
-async function snapshotDocumentVersion(
-  documentId: string,
-  options: {
-    userId?: string | null;
-    force?: boolean;
-    label?: string | null;
-  } = {},
-): Promise<void> {
-  try {
-    const now = new Date();
-
-    const last = await prisma.documentVersion.findFirst({
-      where: { documentId },
-      orderBy: { createdAt: "desc" },
-      select: { createdAt: true, contentJson: true, deckJson: true },
-    });
-
-    if (
-      !shouldSnapshot(
-        last?.createdAt ?? null,
-        now,
-        SNAPSHOT_MIN_INTERVAL_MS,
-        options.force ?? false,
-      )
-    ) {
-      return;
-    }
-
-    const doc = await prisma.document.findUnique({
-      where: { id: documentId },
-      select: { contentJson: true, deckJson: true },
-    });
-    if (!doc || doc.contentJson == null) {
-      return;
-    }
-
-    if (
-      !(options.force ?? false) &&
-      last &&
-      jsonEqual(doc.contentJson, last.contentJson) &&
-      jsonEqual(doc.deckJson, last.deckJson)
-    ) {
-      return;
-    }
-
-    await prisma.documentVersion.create({
-      data: {
-        documentId,
-        contentJson: (doc.contentJson ??
-          Prisma.JsonNull) as Prisma.InputJsonValue,
-        deckJson:
-          doc.deckJson == null
-            ? Prisma.DbNull
-            : (doc.deckJson as Prisma.InputJsonValue),
-        label: options.label ?? null,
-        createdById: options.userId ?? null,
-      },
-    });
-
-    // Prune anything beyond the retention window so history can't grow unbounded.
-    const existing = await prisma.documentVersion.findMany({
-      where: { documentId },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      select: { id: true },
-    });
-    const stale = staleVersionIds(
-      existing.map((version) => version.id),
-      MAX_DOCUMENT_VERSIONS,
-    );
-    if (stale.length > 0) {
-      await prisma.documentVersion.deleteMany({
-        where: { id: { in: stale } },
-      });
-    }
-  } catch {
-    // A failed snapshot should never surface to the caller's save.
-  }
-}
-
-/**
- * Normalizes a caller-supplied anchor block id. A non-empty trimmed string
- * (clamped to a sane length) anchors the visual to that Markdown block; any
- * empty/whitespace value or non-string collapses to `null`, which targets the
- * legacy document-level visual row (backward compatible).
- */
-function normalizeAnchorBlockId(
-  value: string | null | undefined,
-): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-  return trimmed.slice(0, MAX_ANCHOR_BLOCK_ID_LENGTH);
-}
-
-/**
- * Mirrors every {@link VisualNode} in a serialized Lexical state to a `Visual`
- * database row so that share/embed pages, dashboard thumbnails, and version
- * history keep working — `contentJson` remains the editor's source of truth, and
- * these rows are a derived projection of it.
- *
- * Each node is keyed by its stable `visualId` (stored as the row's
- * `anchorBlockId`) and its document-order index is written to `orderIndex`. A
- * row is created when missing, and only updated when the validated payload (or
- * its order) actually changed — so a save that doesn't touch a visual records no
- * spurious `VisualRevision` snapshot. Invalid payloads are skipped (never
- * persisted). The document is assumed already access-scoped by the caller.
- */
-async function mirrorVisualNodes(
-  documentId: string,
-  parsedState: unknown,
-): Promise<VisualMirrorOutcome> {
-  const nodes = collectVisualNodes(parsedState);
-
-  // Track every anchor present in the editor — including nodes whose payload
-  // fails validation, so an unparseable card keeps its row alive (it just isn't
-  // re-persisted) rather than being pruned (US-013).
-  const liveAnchors = new Set<string>();
-  const liveNodes: Array<LiveVisualNode<Prisma.InputJsonValue>> = [];
-
-  let invalidCount = 0; // nodes with no usable visualId
-  let skippedCount = 0; // nodes with anchor but invalid payload
-
-  for (let index = 0; index < nodes.length; index += 1) {
-    const node = nodes[index];
-
-    const anchor = normalizeAnchorBlockId(node.visualId);
-    if (!anchor) {
-      invalidCount += 1;
-      continue;
-    }
-    liveAnchors.add(anchor);
-
-    // Re-validate so a tampered/garbled payload can never be persisted.
-    const result = safeParseVisual(node.visual);
-    if (!result.success) {
-      skippedCount += 1;
-      continue;
-    }
-    const visual = result.data;
-    liveNodes.push({
-      anchorBlockId: anchor,
-      orderIndex: index,
-      type: VISUAL_KIND_TO_PRISMA[visual.type],
-      title: visual.title ?? null,
-      data: visual as unknown as Prisma.InputJsonValue,
-      // Compare against the row's normalized payload so key-order differences
-      // don't count as a change.
-      dataKey: JSON.stringify(visual),
-    });
-  }
-
-  // One batched read replaces the previous per-node findFirst (N+1). The diff,
-  // upserts, and prune all run inside a single transaction so two concurrent
-  // saves can't both miss-and-create — and the unique (documentId, anchorBlockId)
-  // constraint is the hard guarantee against duplicates.
-  let outcome: VisualMirrorOutcome = {
-    created: 0,
-    updated: 0,
-    deleted: 0,
-    skipped: skippedCount,
-    invalid: invalidCount,
-  };
-
-  await prisma.$transaction(async (tx) => {
-    const existingRows = await tx.visual.findMany({
-      where: { documentId },
-      select: {
-        id: true,
-        anchorBlockId: true,
-        orderIndex: true,
-        data: true,
-        type: true,
-        title: true,
-        createdAt: true,
-      },
-    });
-
-    const existingById = new Map(existingRows.map((row) => [row.id, row]));
-
-    const diff = diffVisualMirror<Prisma.InputJsonValue>({
-      existingRows: existingRows.map((row) => {
-        const parsed = safeParseVisual(row.data);
-        return {
-          id: row.id,
-          anchorBlockId: row.anchorBlockId,
-          orderIndex: row.orderIndex,
-          dataKey: parsed.success ? JSON.stringify(parsed.data) : null,
-          createdAt: row.createdAt.getTime(),
-        };
-      }),
-      liveNodes,
-      liveAnchors,
-    });
-
-    outcome = mirrorOutcomeFromDiff(diff, skippedCount, invalidCount);
-
-    // Upsert on the unique key so a row created by a racing transaction is
-    // updated in place instead of triggering a duplicate insert.
-    for (const create of diff.toCreate) {
-      await tx.visual.upsert({
-        where: {
-          documentId_anchorBlockId: {
-            documentId,
-            anchorBlockId: create.anchorBlockId,
-          },
-        },
-        create: {
-          documentId,
-          anchorBlockId: create.anchorBlockId,
-          orderIndex: create.orderIndex,
-          type: create.type,
-          title: create.title,
-          data: create.data,
-        },
-        update: {
-          orderIndex: create.orderIndex,
-          type: create.type,
-          title: create.title,
-          data: create.data,
-        },
-      });
-    }
-
-    for (const update of diff.toUpdate) {
-      if (update.payloadChanged) {
-        const previous = existingById.get(update.id);
-        if (previous) {
-          await snapshotVisualRevision(tx, previous);
-        }
-        await tx.visual.update({
-          where: { id: update.id },
-          data: {
-            type: update.type,
-            title: update.title,
-            data: update.data,
-            orderIndex: update.orderIndex,
-          },
-        });
-      } else {
-        await tx.visual.update({
-          where: { id: update.id },
-          data: { orderIndex: update.orderIndex },
-        });
-      }
-    }
-
-    if (diff.toDelete.length > 0) {
-      await tx.visual.deleteMany({ where: { id: { in: diff.toDelete } } });
-    }
-  });
-
-  logInfo("visual.mirror", "mirror complete", {
-    documentId,
-    created: outcome.created,
-    updated: outcome.updated,
-    deleted: outcome.deleted,
-    skipped: outcome.skipped,
-    invalid: outcome.invalid,
-  });
-
-  return outcome;
-}
 
 /**
  * Saves the serialized Lexical editor state for a document.
  *
- * `stateJson` is the stringified `editorState.toJSON()` from the client. Edit
- * access (owner or workspace editor) is authorized via
- * `requireDocumentCapability` — a viewer or unrelated user is rejected with a
- * clear error (issue #89) — and the write uses `updateMany` keyed by id so a
- * concurrent change is a harmless no-op. The parsed state is stored in
- * `contentJson`; missing durable block ids are stamped server-side as a lazy
- * upgrade step before persistence. A plain-text projection is written to
- * `content` so AI block text, search, and the read-only fallback keep working
- * off the same source.
- *
- * Malformed JSON is rejected (the client always sends valid serialized state).
+ * Permission-checked (edit access required). Delegates all persistence
+ * orchestration — atomic contentJson write + visual mirror rebuild — to
+ * {@link atomicSaveDocumentLexical} in the persistence service (#474, #470).
  */
 export async function saveDocumentLexical(
   id: string,
@@ -425,24 +65,7 @@ export async function saveDocumentLexical(
 
   await requireDocumentCapability(user.id, id, "edit");
 
-  const content = lexicalStateToPlainText(parsed).slice(0, MAX_CONTENT_LENGTH);
-
-  // Snapshot the state that is about to be overwritten. Capturing after the
-  // write would make history restore the current save, which feels broken.
-  await snapshotDocumentVersion(id, { userId: user.id });
-
-  await prisma.document.updateMany({
-    where: { id },
-    data: {
-      contentJson: parsed as Prisma.InputJsonValue,
-      content,
-    },
-  });
-
-  // Mirror embedded visual blocks to Visual rows so share/embed, dashboard
-  // thumbnails, and version history keep working off the editor's source of
-  // truth (contentJson). The outcome carries counts for observability.
-  const outcome = await mirrorVisualNodes(id, parsed);
+  const outcome = await atomicSaveDocumentLexical(id, parsed, user.id);
 
   revalidatePath("/app");
   return actionOk(outcome);
@@ -452,12 +75,10 @@ export async function saveDocumentLexical(
  * Idempotent server action that rebuilds all `Visual` rows for a document
  * purely from its current `contentJson` (issue #451).
  *
- * Equivalent to the mirror portion of `saveDocumentLexical` but usable as a
- * standalone repair tool — it does NOT snapshot, update `contentJson`, or touch
- * any other document fields. Running it twice without intermediate edits is a
- * no-op (the second run produces an empty diff).
- *
- * Permission-checked: requires edit access to the document.
+ * Delegates to {@link rebuildMirror} in the persistence service after
+ * permission checks. Does NOT snapshot, update `contentJson`, or touch any
+ * other document fields. Running it twice without intermediate edits is a
+ * no-op. Permission-checked: requires edit access to the document.
  */
 export async function rebuildVisualMirror(
   documentId: string,
@@ -489,17 +110,14 @@ export async function rebuildVisualMirror(
   }
 
   try {
-    const outcome = await mirrorVisualNodes(documentId, doc.contentJson);
-    logInfo("visual.rebuild", "rebuild complete", { documentId, ...outcome });
+    const outcome = await rebuildMirror(documentId, doc.contentJson);
     revalidatePath("/app");
     return actionOk(outcome);
   } catch (err) {
     logError(
       "visual.rebuild",
       err instanceof Error ? err : new Error(String(err)),
-      {
-        documentId,
-      },
+      { documentId },
     );
     return actionError("Failed to rebuild visual mirror.");
   }
@@ -814,41 +432,19 @@ export async function fetchDeckJson(
   return { deckJson, revisionToken: document.deckRevisionToken };
 }
 
-/**
- * Discriminated result for {@link saveDeckJson}. Distinct from {@link ActionResult}
- * so callers can pattern-match on the three outcomes without ambiguity.
- * - `ok: true`        — write accepted; `revisionToken` is the new token the
- *                       client should store for the next save.
- * - `ok: "conflict"`  — optimistic-lock mismatch; another session saved first.
- *                       `serverRevisionToken` is the current server token.
- * - `ok: false`       — validation or server error (uses existing ActionResult path).
- */
-export type SaveDeckResult =
-  | { ok: true; revisionToken: string }
-  | { ok: "conflict"; serverRevisionToken: string | null }
-  | { ok: false; error: string };
+// Re-export SaveDeckResult for callers that import it from this module.
+export type { SaveDeckResult };
 
 /**
  * Persists an edited Deck for a document. Requires edit access (owner or
  * workspace editor), authorized via `requireDocumentCapability` so a viewer or
- * unrelated user is rejected with a clear error (issue #89). The deck JSON is
- * validated with `safeParseDeck` before storing, and rejected when it exceeds a
- * sane serialized size. Stored in `Document.deckJson`, separate from the
- * Lexical `contentJson` so deck edits never touch collaborative editing state.
+ * unrelated user is rejected with a clear error (issue #89).
+ *
+ * Delegates persistence orchestration to {@link persistDeck} in the persistence
+ * service (#474).
  *
  * @param clientToken - The revision token last received from `fetchDeckJson` or
- *   a prior successful save. When supplied the write uses an atomic CAS
- *   (`updateMany` keyed by both `id` and `deckRevisionToken`) so no separate
- *   pre-read is required; a missed write (`count === 0`) is resolved with a
- *   single post-read to distinguish a concurrent-write conflict from a deleted
- *   document. Pass `null` or omit for legacy/initial saves (token check is
- *   skipped, write is unconditional).
- * @returns `SaveDeckResult`:
- *   - `{ ok: true, revisionToken }` — write accepted; store `revisionToken` for
- *     the next save.
- *   - `{ ok: "conflict", serverRevisionToken }` — optimistic-lock mismatch;
- *     another session saved first.
- *   - `{ ok: false, error }` — validation or server error.
+ *   a prior successful save. When supplied the write uses an atomic CAS.
  */
 export async function saveDeckJson(
   id: string,
@@ -856,89 +452,22 @@ export async function saveDeckJson(
   clientToken?: string | null,
 ): Promise<SaveDeckResult> {
   const user = await requireUser();
-
-  const result = safeParseDeck(deckJson);
-  if (!result.success) {
-    return { ok: false, error: `Invalid deck: ${result.error}` };
-  }
-
-  // Serialize and check size
-  const serialized = JSON.stringify(result.data);
-  if (serialized.length > MAX_DECK_JSON_BYTES) {
-    return { ok: false, error: "Deck is too large to save." };
-  }
-
   await requireDocumentCapability(user.id, id, "edit");
 
-  const newToken = generateRevisionToken();
+  const result = await persistDeck(id, deckJson, clientToken);
 
-  if (clientToken != null) {
-    // Atomic CAS: the WHERE clause matches only when the stored token still
-    // equals clientToken — no separate pre-read needed, no TOCTOU window.
-    const { count } = await prisma.document.updateMany({
-      where: { id, deckRevisionToken: clientToken },
-      data: {
-        deckJson: result.data as unknown as Prisma.InputJsonValue,
-        deckRevisionToken: newToken,
-      },
-    });
-    if (count === 0) {
-      // Miss: either the token was advanced by a concurrent write (conflict)
-      // or the document was deleted.  Read once to distinguish.
-      const latest = await prisma.document.findUnique({
-        where: { id },
-        select: { deckRevisionToken: true },
-      });
-      if (!latest) {
-        return { ok: false, error: "Document not found." };
-      }
-      return { ok: "conflict", serverRevisionToken: latest.deckRevisionToken };
-    }
-  } else {
-    // Legacy path: caller holds no token, always overwrite (no CAS check).
-    const { count } = await prisma.document.updateMany({
-      where: { id },
-      data: {
-        deckJson: result.data as unknown as Prisma.InputJsonValue,
-        deckRevisionToken: newToken,
-      },
-    });
-    if (count === 0) {
-      return { ok: false, error: "Document not found." };
-    }
+  if (result.ok === true) {
+    revalidatePath(`/app/documents/${id}`);
   }
-
-  // Snapshot only after a confirmed write (count > 0) so conflicted saves
-  // never create phantom version-history entries.
-  await snapshotDocumentVersion(id, { userId: user.id });
-
-  revalidatePath(`/app/documents/${id}`);
-  return { ok: true, revisionToken: newToken };
+  return result;
 }
 
 /**
  * Applies a list of {@link DeckPatch} records to the stored deck, guarded by
- * the optimistic revision token. Patches are applied in order using
- * {@link applyPatch}; if any patch returns `null` (unsupported op or missing
- * payload) the action falls back to returning a `"fallback"` discriminant so
- * the caller can retry with a full whole-deck save via {@link saveDeckJson}.
- *
- * Semantics are identical to {@link saveDeckJson} for conflict detection and
- * version snapshotting:
- * - Stale `clientToken` → `{ ok: "conflict" }`.
- * - Any patch that is un-replayable from its payload alone → `{ ok: "fallback" }`.
- * - Invalid result deck → `{ ok: false, error }`.
- * - Successful apply → `{ ok: true, revisionToken }` and a `DocumentVersion`
- *   snapshot (throttled, same rules as whole-deck save).
- *
- * Patch saves do NOT create version snapshots when the result deck is identical
- * to what is already stored (idempotent re-apply).
+ * the optimistic revision token. Delegates to {@link patchDeck} in the
+ * persistence service (#474).
  */
-export type SaveDeckPatchResult =
-  | { ok: true; revisionToken: string }
-  | { ok: "conflict"; serverRevisionToken: string | null }
-  | { ok: "fallback" }
-  | { ok: false; error: string };
+export type { SaveDeckPatchResult };
 
 export async function saveDeckPatch(
   id: string,
@@ -948,95 +477,12 @@ export async function saveDeckPatch(
   const user = await requireUser();
   await requireDocumentCapability(user.id, id, "edit");
 
-  // Read the current stored deck and revision token together.
-  const document = await prisma.document.findUnique({
-    where: { id },
-    select: { deckJson: true, deckRevisionToken: true },
-  });
-  if (!document) {
-    return { ok: false, error: "Document not found." };
+  const result = await patchDeck(id, patches, clientToken);
+
+  if (result.ok === true) {
+    revalidatePath(`/app/documents/${id}`);
   }
-
-  // Optimistic-lock check (same logic as saveDeckJson).
-  if (clientToken != null && document.deckRevisionToken !== clientToken) {
-    return { ok: "conflict", serverRevisionToken: document.deckRevisionToken };
-  }
-
-  // Parse and validate the current stored deck.
-  const rawDeckJson =
-    typeof document.deckJson === "string"
-      ? JSON.parse(document.deckJson)
-      : document.deckJson;
-
-  const baseResult = safeParseDeck(rawDeckJson);
-  if (!baseResult.success) {
-    return { ok: false, error: `Stored deck is invalid: ${baseResult.error}` };
-  }
-
-  // Apply patches in sequence; fall back if any patch is un-replayable.
-  let deck = baseResult.data;
-  for (const patch of patches) {
-    const next = applyPatch(deck, patch);
-    if (next === null) {
-      // This patch op requires more context than the patch payload carries.
-      return { ok: "fallback" };
-    }
-    deck = next;
-  }
-
-  // Validate the resulting deck before persisting.
-  const resultParsed = safeParseDeck(deck);
-  if (!resultParsed.success) {
-    return {
-      ok: false,
-      error: `Patch result is invalid: ${resultParsed.error}`,
-    };
-  }
-
-  const serialized = JSON.stringify(resultParsed.data);
-  if (serialized.length > MAX_DECK_JSON_BYTES) {
-    return { ok: false, error: "Deck is too large to save." };
-  }
-
-  const newToken = generateRevisionToken();
-
-  if (clientToken != null) {
-    // Atomic CAS: only write if token still matches (same as saveDeckJson).
-    const { count } = await prisma.document.updateMany({
-      where: { id, deckRevisionToken: clientToken },
-      data: {
-        deckJson: resultParsed.data as unknown as Prisma.InputJsonValue,
-        deckRevisionToken: newToken,
-      },
-    });
-    if (count === 0) {
-      const latest = await prisma.document.findUnique({
-        where: { id },
-        select: { deckRevisionToken: true },
-      });
-      if (!latest) {
-        return { ok: false, error: "Document not found." };
-      }
-      return { ok: "conflict", serverRevisionToken: latest.deckRevisionToken };
-    }
-  } else {
-    const { count } = await prisma.document.updateMany({
-      where: { id },
-      data: {
-        deckJson: resultParsed.data as unknown as Prisma.InputJsonValue,
-        deckRevisionToken: newToken,
-      },
-    });
-    if (count === 0) {
-      return { ok: false, error: "Document not found." };
-    }
-  }
-
-  // Snapshot only after a confirmed write — same policy as saveDeckJson.
-  await snapshotDocumentVersion(id, { userId: user.id });
-
-  revalidatePath(`/app/documents/${id}`);
-  return { ok: true, revisionToken: newToken };
+  return result;
 }
 
 /** A version-history entry surfaced to the editor's Version History panel. */
@@ -1050,10 +496,7 @@ export type DocumentVersionSummary = {
   hasDeck: boolean;
 };
 
-export type RestoredDocumentVersion = {
-  documentId: string;
-  contentJson: unknown;
-};
+export type { RestoredDocumentVersion };
 
 /**
  * Lists a document's version-history snapshots, newest first. Requires view
@@ -1090,139 +533,11 @@ export async function listDocumentVersions(
 }
 
 /**
- * Sanitizes a restored snapshot's `deckJson` against its restored content,
- * returning a Prisma-writable value. Orphaned visual references (ids the
- * restored content no longer provides) are stripped so a restore can never
- * re-introduce silently blank slides. Returns `Prisma.DbNull` when there is no
- * deck, and falls back to the raw value when it cannot be parsed/normalized.
- */
-function sanitizeRestoredDeck(
-  rawDeckJson: Prisma.JsonValue | null,
-  restoredContent: unknown,
-): Prisma.InputJsonValue | typeof Prisma.DbNull {
-  if (rawDeckJson == null) {
-    return Prisma.DbNull;
-  }
-
-  const parsed = safeParseDeck(normalizeDeckRaw(rawDeckJson));
-  if (!parsed.success) {
-    return rawDeckJson as Prisma.InputJsonValue;
-  }
-
-  const knownVisualIds = new Set(
-    collectVisualNodes(restoredContent).map((node) => node.visualId),
-  );
-  const sanitized = stripOrphanedVisuals(parsed.data, knownVisualIds);
-  return sanitized as unknown as Prisma.InputJsonValue;
-}
-
-/**
- * Belt-and-suspenders post-mirror deck reconciliation (issue #452).
+ * Restores a document to an earlier snapshot. Requires edit access.
  *
- * Re-reads the document's `deckJson` and current Visual rows from the DB and
- * strips any deck visual references that no longer have a corresponding Visual
- * row. This guards against partial-mirror edge cases where the DB Visual rows
- * diverge from what `sanitizeRestoredDeck` expected.
- *
- * No-ops when there is no deck or when every deck reference is still valid.
- */
-async function reconcileDeckAfterMirror(documentId: string): Promise<void> {
-  try {
-    const doc = await prisma.document.findUnique({
-      where: { id: documentId },
-      select: { deckJson: true },
-    });
-    if (!doc?.deckJson) {
-      return;
-    }
-
-    const parsed = safeParseDeck(normalizeDeckRaw(doc.deckJson));
-    if (!parsed.success) {
-      return;
-    }
-
-    // Build the known-good visual id set from actual DB rows.
-    const visualRows = await prisma.visual.findMany({
-      where: { documentId, anchorBlockId: { not: null } },
-      select: { anchorBlockId: true },
-    });
-    const knownVisualIds = new Set(
-      visualRows
-        .map((r) => r.anchorBlockId)
-        .filter((id): id is string => id !== null),
-    );
-
-    const reconciled = stripOrphanedVisuals(parsed.data, knownVisualIds);
-
-    // Only write back if something actually changed.
-    const before = JSON.stringify(
-      parsed.data.slides.map((s) => s.elements ?? s.visualIds),
-    );
-    const after = JSON.stringify(
-      reconciled.slides.map((s) => s.elements ?? s.visualIds),
-    );
-    if (before === after) {
-      return;
-    }
-
-    await prisma.document.updateMany({
-      where: { id: documentId },
-      data: { deckJson: reconciled as unknown as Prisma.InputJsonValue },
-    });
-
-    logInfo("visual.reconcile", "deck reconciled after mirror", {
-      documentId,
-      knownVisualCount: knownVisualIds.size,
-    });
-  } catch (err) {
-    // A reconciliation failure must never surface to the caller's restore.
-    logError(
-      "visual.reconcile",
-      err instanceof Error ? err : new Error(String(err)),
-      { documentId },
-    );
-  }
-}
-
-/**
- * Revalidates the Next.js cache for all public share/embed/present paths
- * associated with a document (issue #452). Called after restore so cached
- * public pages reflect the restored content without waiting for the default TTL.
- */
-async function revalidateSharePaths(documentId: string): Promise<void> {
-  try {
-    const doc = await prisma.document.findUnique({
-      where: { id: documentId },
-      select: { shareId: true, slug: true, isShared: true },
-    });
-    if (!doc?.isShared || !doc.shareId) {
-      return;
-    }
-
-    const segment = buildShareSegment(doc.slug, doc.shareId);
-    revalidatePath(`/share/${segment}`);
-    revalidatePath(`/embed/${segment}`);
-    revalidatePath(`/present/${segment}`);
-  } catch {
-    // Cache revalidation failures must never surface to the caller.
-  }
-}
-
-/**
- * Restores a document to an earlier snapshot, writing that version's
- * `contentJson`/`deckJson` (and derived plain-text `content`) back as the
- * current document state. Requires edit access (issue #158).
- *
- * Before overwriting, a forced snapshot of the *pre-restore* state is captured
- * (labelled so it's recognizable in the history), so a restore is itself
- * reversible. The mirrored Visual rows are rebuilt from the restored content so
- * share/embed and dashboard thumbnails stay consistent.
- *
- * Post-restore reconciliation (issue #452):
- *  1. Visual rows are rebuilt from the restored `contentJson`.
- *  2. A second deck pass reconciles against the actual DB Visual rows so no
- *     slide can reference a visual that the mirror failed to create.
- *  3. Share/embed/present cache paths are revalidated so cached pages refresh.
+ * Delegates persistence orchestration (pre-restore checkpoint, atomic
+ * contentJson+mirror write, deck sanitize+reconcile, cache revalidation) to
+ * {@link restoreVersion} in the persistence service (#474).
  */
 export async function restoreDocumentVersion(
   versionId: string,
@@ -1231,12 +546,7 @@ export async function restoreDocumentVersion(
 
   const version = await prisma.documentVersion.findUnique({
     where: { id: versionId },
-    select: {
-      documentId: true,
-      contentJson: true,
-      deckJson: true,
-      createdAt: true,
-    },
+    select: { documentId: true },
   });
   if (!version) {
     return actionError("Version not found.");
@@ -1245,49 +555,17 @@ export async function restoreDocumentVersion(
   const { documentId } = version;
   await requireDocumentCapability(user.id, documentId, "edit");
 
-  // Checkpoint the current state first so the restore can itself be undone.
-  await snapshotDocumentVersion(documentId, {
-    userId: user.id,
-    force: true,
-    label: "Before restore",
-  });
-
-  const restoredContent = version.contentJson;
-  const content = lexicalStateToPlainText(restoredContent).slice(
-    0,
-    MAX_CONTENT_LENGTH,
-  );
-
-  // Sanitize the restored deck against the restored content: a snapshot can
-  // pair a deck with content whose visuals have since changed, which would
-  // re-introduce orphaned visual references (silent blank slides). Strip any
-  // visualId the restored content no longer provides before persisting.
-  const restoredDeck = sanitizeRestoredDeck(version.deckJson, restoredContent);
-
-  await prisma.document.updateMany({
-    where: { id: documentId },
-    data: {
-      contentJson: restoredContent as Prisma.InputJsonValue,
-      content,
-      deckJson: restoredDeck,
-    },
-  });
-
-  // Rebuild mirrored Visual rows from the restored content so embeds/thumbnails
-  // reflect the restored version (mirrors the saveDocumentLexical save path).
-  await mirrorVisualNodes(documentId, restoredContent);
-
-  // Belt-and-suspenders: re-read the actual Visual rows after the mirror rebuild
-  // and do a second deck reconciliation against them. This guards against any
-  // edge case where the mirror partially succeeded, ensuring the deck never
-  // references a Visual row that doesn't exist in the database.
-  await reconcileDeckAfterMirror(documentId);
-
-  // Revalidate share/embed/present cache paths so any cached public pages
-  // reflect the restored content.
-  await revalidateSharePaths(documentId);
-
-  revalidatePath(`/app/documents/${documentId}`);
-  revalidatePath("/app");
-  return actionOk({ documentId, contentJson: restoredContent });
+  try {
+    const restored = await restoreVersion(documentId, versionId, user.id);
+    revalidatePath(`/app/documents/${documentId}`);
+    revalidatePath("/app");
+    return actionOk(restored);
+  } catch (err) {
+    logError(
+      "document.restore",
+      err instanceof Error ? err : new Error(String(err)),
+      { documentId, versionId },
+    );
+    return actionError("Failed to restore document version.");
+  }
 }

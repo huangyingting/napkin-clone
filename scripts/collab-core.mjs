@@ -89,8 +89,75 @@ const updateHandler = (update, _origin, doc) => {
 /** Returns true when a room with the given active-connection count should be evicted. */
 export const shouldEvict = (connCount) => connCount === 0;
 
+/**
+ * Returns true when the current document state has diverged from the last
+ * durably-saved state, i.e., there are pending updates that have not been
+ * persisted yet.
+ *
+ * @param {Y.Doc} doc - The in-memory Yjs document for the room.
+ * @param {Uint8Array | null} lastSavedStateVector - The Y.js state vector
+ *   (from `Y.encodeStateVector(doc)`) recorded at the last confirmed durable
+ *   save, or `null` if no save has been recorded for this room.
+ * @returns {boolean} `true` when the room has unsaved changes.
+ *
+ * This is a pure function with no side effects — safe to test without any
+ * network or DB dependencies.
+ */
+export function hasPendingUpdates(doc, lastSavedStateVector) {
+  if (!lastSavedStateVector) {
+    // No confirmed save for this room — treat all content as pending.
+    // An empty document (no clock entries) is trivially "no pending updates".
+    const currentVector = Y.encodeStateVector(doc);
+    // An all-zero vector means the document is empty (no updates applied).
+    return currentVector.some((byte) => byte !== 0);
+  }
+  // Compute the diff: if there is any update newer than lastSavedStateVector,
+  // there are pending changes.
+  const diff = Y.encodeStateAsUpdate(doc, lastSavedStateVector);
+  // A Yjs update with no changes is just a 2-byte varint header (value 0).
+  // Any payload longer than 2 bytes contains at least one pending operation.
+  return diff.length > 2;
+}
+
+/**
+ * Tracks the last durably-saved Yjs state vector per room. Set by the
+ * persistence hook after a successful DB write via `setRoomSavedStateVector`.
+ * @type {Map<string, Uint8Array>}
+ */
+const savedStateVectors = new Map();
+
+/**
+ * Records that the room's current state has been durably saved. The caller
+ * supplies the state vector captured **at the time of the save** (via
+ * `Y.encodeStateVector(doc)`) so future `hasPendingUpdates` calls can detect
+ * whether additional changes have arrived since the save completed.
+ *
+ * @param {string} roomName
+ * @param {Uint8Array} stateVector
+ */
+export function setRoomSavedStateVector(roomName, stateVector) {
+  savedStateVectors.set(roomName, stateVector);
+}
+
 /** Tear down a room's awareness + doc and remove it from the in-memory map. */
-const evictRoom = (doc, roomName) => {
+const evictRoom = (doc, roomName, onBeforeEvict) => {
+  if (
+    onBeforeEvict &&
+    hasPendingUpdates(doc, savedStateVectors.get(roomName) ?? null)
+  ) {
+    // Fire-and-forget: errors must not block eviction. The callback receives
+    // the room name and the full document update so the caller can persist it
+    // via the normal save path (e.g. POST to an internal flush endpoint).
+    try {
+      const update = Y.encodeStateAsUpdate(doc);
+      Promise.resolve(onBeforeEvict(roomName, update)).catch((err) => {
+        console.error("[collab] onBeforeEvict error", roomName, err);
+      });
+    } catch (err) {
+      console.error("[collab] onBeforeEvict sync error", roomName, err);
+    }
+  }
+  savedStateVectors.delete(roomName);
   doc.awareness.destroy();
   doc.off("update", updateHandler);
   doc.destroy();
@@ -100,14 +167,20 @@ const evictRoom = (doc, roomName) => {
 /**
  * Schedule eviction of an empty room after `ttlMs` milliseconds.
  * Re-calling before the timer fires resets it (safe to call multiple times).
+ * `onBeforeEvict` is called (if provided) with `(roomName, update)` before the
+ * room is destroyed so callers can flush unsaved state to durable storage.
  */
-const scheduleEviction = (roomName, ttlMs = ROOM_IDLE_TTL_MS) => {
+const scheduleEviction = (
+  roomName,
+  ttlMs = ROOM_IDLE_TTL_MS,
+  onBeforeEvict = null,
+) => {
   cancelEviction(roomName);
   const timer = setTimeout(() => {
     evictTimers.delete(roomName);
     const doc = docs.get(roomName);
     if (doc && doc.conns.size === 0) {
-      evictRoom(doc, roomName);
+      evictRoom(doc, roomName, onBeforeEvict);
     }
   }, ttlMs);
   evictTimers.set(roomName, timer);
@@ -129,7 +202,13 @@ const getYDoc = (docName) =>
     return doc;
   });
 
-const messageListener = (conn, doc, message, readOnly) => {
+const messageListener = (
+  conn,
+  doc,
+  message,
+  readOnly,
+  onBeforeEvict = null,
+) => {
   try {
     const encoder = encoding.createEncoder();
     const decoder = decoding.createDecoder(message);
@@ -153,7 +232,7 @@ const messageListener = (conn, doc, message, readOnly) => {
         }
         // If the reply has more than just the message-type header, send it.
         if (encoding.length(encoder) > 1) {
-          send(doc, conn, encoding.toUint8Array(encoder));
+          send(doc, conn, encoding.toUint8Array(encoder), onBeforeEvict);
         }
         break;
       }
@@ -174,7 +253,7 @@ const messageListener = (conn, doc, message, readOnly) => {
           ),
         );
         if (encoding.length(encoder) > 1) {
-          send(doc, conn, encoding.toUint8Array(encoder));
+          send(doc, conn, encoding.toUint8Array(encoder), onBeforeEvict);
         }
         break;
       default:
@@ -185,7 +264,7 @@ const messageListener = (conn, doc, message, readOnly) => {
   }
 };
 
-const closeConn = (doc, conn) => {
+const closeConn = (doc, conn, onBeforeEvict = null) => {
   if (doc.conns.has(conn)) {
     const controlledIds = doc.conns.get(conn);
     doc.conns.delete(conn);
@@ -197,7 +276,7 @@ const closeConn = (doc, conn) => {
     if (doc.conns.size === 0) {
       // Room is empty — schedule eviction after the idle grace period.
       // The DB is the durable source of truth, so eviction is safe.
-      scheduleEviction(doc.name);
+      scheduleEviction(doc.name, ROOM_IDLE_TTL_MS, onBeforeEvict);
     }
   }
   try {
@@ -207,22 +286,22 @@ const closeConn = (doc, conn) => {
   }
 };
 
-const send = (doc, conn, message) => {
+const send = (doc, conn, message, onBeforeEvict = null) => {
   if (
     conn.readyState !== wsReadyStateConnecting &&
     conn.readyState !== wsReadyStateOpen
   ) {
-    closeConn(doc, conn);
+    closeConn(doc, conn, onBeforeEvict);
     return;
   }
   try {
     conn.send(message, (err) => {
       if (err != null) {
-        closeConn(doc, conn);
+        closeConn(doc, conn, onBeforeEvict);
       }
     });
   } catch {
-    closeConn(doc, conn);
+    closeConn(doc, conn, onBeforeEvict);
   }
 };
 
@@ -231,8 +310,19 @@ const send = (doc, conn, message) => {
  * derived by the caller from the request URL, which lets the same logic serve
  * both `ws://host:port/<room>` (standalone) and `wss://host/<prefix>/<room>`
  * (mounted on the app server) shapes.
+ *
+ * `onBeforeEvict` is an optional async callback invoked when the room is about
+ * to be evicted (all connections closed, idle TTL expired) and there are
+ * pending updates. Signature: `(roomName: string, update: Uint8Array) => Promise<void>`.
+ * Errors from the callback are logged but never re-thrown so eviction always
+ * completes.
  */
-const setupConnection = (conn, roomName, readOnly = false) => {
+const setupConnection = (
+  conn,
+  roomName,
+  readOnly = false,
+  onBeforeEvict = null,
+) => {
   conn.binaryType = "arraybuffer";
   const doc = getYDoc(roomName || "default");
   // Cancel any pending eviction — this connection revives the room.
@@ -240,14 +330,20 @@ const setupConnection = (conn, roomName, readOnly = false) => {
   doc.conns.set(conn, new Set());
 
   conn.on("message", (message) =>
-    messageListener(conn, doc, new Uint8Array(message), readOnly),
+    messageListener(
+      conn,
+      doc,
+      new Uint8Array(message),
+      readOnly,
+      onBeforeEvict,
+    ),
   );
 
   let pongReceived = true;
   const pingInterval = setInterval(() => {
     if (!pongReceived) {
       if (doc.conns.has(conn)) {
-        closeConn(doc, conn);
+        closeConn(doc, conn, onBeforeEvict);
       }
       clearInterval(pingInterval);
     } else if (doc.conns.has(conn)) {
@@ -255,14 +351,14 @@ const setupConnection = (conn, roomName, readOnly = false) => {
       try {
         conn.ping();
       } catch {
-        closeConn(doc, conn);
+        closeConn(doc, conn, onBeforeEvict);
         clearInterval(pingInterval);
       }
     }
   }, PING_TIMEOUT);
 
   conn.on("close", () => {
-    closeConn(doc, conn);
+    closeConn(doc, conn, onBeforeEvict);
     clearInterval(pingInterval);
   });
   conn.on("pong", () => {
@@ -274,7 +370,7 @@ const setupConnection = (conn, roomName, readOnly = false) => {
     const encoder = encoding.createEncoder();
     encoding.writeVarUint(encoder, messageSync);
     syncProtocol.writeSyncStep1(encoder, doc);
-    send(doc, conn, encoding.toUint8Array(encoder));
+    send(doc, conn, encoding.toUint8Array(encoder), onBeforeEvict);
   }
   // Send current presence so the newcomer immediately sees who's here.
   const states = doc.awareness.getStates();
@@ -288,7 +384,7 @@ const setupConnection = (conn, roomName, readOnly = false) => {
         Array.from(states.keys()),
       ),
     );
-    send(doc, conn, encoding.toUint8Array(encoder));
+    send(doc, conn, encoding.toUint8Array(encoder), onBeforeEvict);
   }
 };
 
@@ -312,6 +408,7 @@ export const connCount = () => {
 export const _testOnly = {
   docs,
   evictTimers,
+  savedStateVectors,
   scheduleEviction,
   cancelEviction,
   evictRoom,
@@ -356,15 +453,26 @@ const refuseUpgrade = (socket, status) => {
  * given status (401 unauthenticated / 403 no access); when `ok` is true the
  * connection is wired, read-only for viewers (`readOnly: true`). When no
  * authorizer is supplied every upgrade is allowed (legacy/un-secured mode).
+ *
+ * `options.onBeforeEvict(roomName, update)` is an optional async callback
+ * invoked when a room is about to be evicted and has pending unsaved changes.
+ * The callback receives the room name and the full Yjs update bytes so it can
+ * flush them to durable storage. Errors are logged and never re-thrown.
  */
 export function createCollabWss(roomFromUrl, options = {}) {
   const wss = new WebSocketServer({ noServer: true });
   const authorize = options.authorize;
+  const onBeforeEvict = options.onBeforeEvict ?? null;
   const toRoom =
     roomFromUrl ?? ((url) => (url || "/").slice(1).split("?")[0] || "default");
 
   wss.on("connection", (conn, req, decision) => {
-    setupConnection(conn, toRoom(req.url || "/"), Boolean(decision?.readOnly));
+    setupConnection(
+      conn,
+      toRoom(req.url || "/"),
+      Boolean(decision?.readOnly),
+      onBeforeEvict,
+    );
   });
 
   const handleUpgrade = async (req, socket, head) => {
