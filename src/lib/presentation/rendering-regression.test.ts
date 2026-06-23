@@ -1230,7 +1230,7 @@ test("[AC-11] slide without background overrides falls back to theme defaults", 
     new Map(),
   );
 
-  assert.equal(spec.background, "0C1A2E", "ocean theme background used");
+  assert.equal(spec.background, "F6FBFF", "ocean theme background used");
   assert.equal(spec.backgroundImage, undefined, "no backgroundImage in spec");
 });
 

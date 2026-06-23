@@ -32,7 +32,6 @@ import PptxGenJS from "pptxgenjs";
 import type {
   BulletItem,
   Deck,
-  DeckTheme,
   ElementAlign,
   ElementBox,
   ImageCrop,
@@ -55,6 +54,7 @@ import {
 } from "@/lib/presentation/deck";
 import { isEmptyImageSrc } from "@/lib/presentation/image-element";
 import { slideFormatConfig } from "@/lib/presentation/slide-format";
+import { resolveSlideStyle } from "@/lib/presentation/style-cascade";
 import type { Visual } from "@/lib/visual/schema";
 import { exportPNG } from "@/lib/visual/export";
 import { applySpecsToSlide } from "@/lib/visual/pptx-apply";
@@ -90,68 +90,6 @@ function deckGeometry(format: Deck["slideFormat"]): DeckGeometry {
 
 const PPTX_MIME =
   "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-
-// ---------------------------------------------------------------------------
-// Theme colors — DOM-free copy of DECK_THEMES (slide-canvas.tsx). Kept local so
-// this module stays importable under `node --test` without pulling in React.
-// ---------------------------------------------------------------------------
-
-interface ThemeColors {
-  bg: string;
-  accent: string;
-  title: string;
-  body: string;
-  muted: string;
-}
-
-const THEME_COLORS: Record<DeckTheme, ThemeColors> = {
-  indigo: {
-    bg: "#1e1b4b",
-    accent: "#818cf8",
-    title: "#e0e7ff",
-    body: "#c7d2fe",
-    muted: "#a5b4fc",
-  },
-  ocean: {
-    bg: "#0c1a2e",
-    accent: "#38bdf8",
-    title: "#e0f2fe",
-    body: "#bae6fd",
-    muted: "#7dd3fc",
-  },
-  forest: {
-    bg: "#052e16",
-    accent: "#4ade80",
-    title: "#dcfce7",
-    body: "#bbf7d0",
-    muted: "#86efac",
-  },
-  sunset: {
-    bg: "#431407",
-    accent: "#fb923c",
-    title: "#ffedd5",
-    body: "#fed7aa",
-    muted: "#fdba74",
-  },
-  grape: {
-    bg: "#2e1065",
-    accent: "#c084fc",
-    title: "#f3e8ff",
-    body: "#e9d5ff",
-    muted: "#d8b4fe",
-  },
-  default: {
-    bg: "#09090b",
-    accent: "#a1a1aa",
-    title: "#fafafa",
-    body: "#d4d4d8",
-    muted: "#a1a1aa",
-  },
-};
-
-function themeColors(theme: DeckTheme | undefined): ThemeColors {
-  return (theme && THEME_COLORS[theme]) || THEME_COLORS.default;
-}
 
 // ---------------------------------------------------------------------------
 // Slide-spec descriptor model (pure, DOM-free)
@@ -398,22 +336,26 @@ export function buildDeckSpecs(
 ): DeckSlideSpec[] {
   const geometry = deckGeometry(deck.slideFormat);
   return deck.slides.map((slide, index) =>
-    buildSlideSpec(slide, index, deck.theme, visuals, geometry),
+    buildSlideSpec(deck, slide, index, visuals, geometry),
   );
 }
 
 function buildSlideSpec(
+  deck: Deck,
   slide: Slide,
   index: number,
-  deckTheme: DeckTheme,
   visuals: ReadonlyMap<string, Visual>,
   geometry: DeckGeometry,
 ): DeckSlideSpec {
-  const colors = themeColors(slide.theme ?? deckTheme);
+  const resolved = resolveSlideStyle(deck, slide);
   const background = toHex(
-    slide.background ?? slide.backgroundGradient?.from ?? colors.bg,
+    resolved.background.type === "solid"
+      ? resolved.background.color
+      : resolved.background.type === "gradient"
+        ? resolved.background.from
+        : "#ffffff",
   );
-  const accent = toHex(slide.accent ?? colors.accent);
+  const accent = toHex(resolved.accent);
 
   const elements = [...materializeSlideElements(slide)]
     .filter((element) => !element.hidden)
@@ -479,7 +421,7 @@ function buildSlideSpec(
           w: box.w * 0.84,
           h: box.h * 0.84,
           text: label,
-          color: toHex(colors.muted),
+          color: toHex(resolved.mutedColor),
           fontSize: fontSizePt(3.2, geometry),
           bold: true,
           italic: false,
@@ -490,7 +432,7 @@ function buildSlideSpec(
       }
       case "text": {
         const defaultColor =
-          element.role === "title" ? colors.title : colors.body;
+          element.role === "title" ? resolved.titleColor : resolved.bodyColor;
         ops.push({
           kind: "text",
           ...box,
@@ -549,7 +491,7 @@ function buildSlideSpec(
                 })),
               }
             : {}),
-          color: toHex(element.style.color ?? colors.body),
+          color: toHex(element.style.color ?? resolved.bodyColor),
           fontSize: fontSizePt(element.style.fontSize, geometry),
           ...(primaryFontFace(element.style.fontFamily)
             ? { fontFace: primaryFontFace(element.style.fontFamily) }
@@ -581,7 +523,9 @@ function buildSlideSpec(
                 ...(element.textRuns && element.textRuns.length > 0
                   ? { textRuns: element.textRuns }
                   : {}),
-                textColor: toHex(element.textStyle?.color ?? colors.body),
+                textColor: toHex(
+                  element.textStyle?.color ?? resolved.bodyColor,
+                ),
                 fontSize: fontSizePt(
                   element.textStyle?.fontSize ?? 4,
                   geometry,

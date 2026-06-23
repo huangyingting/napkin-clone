@@ -600,8 +600,8 @@ test("slide without overrides uses the theme background/accent", () => {
   };
 
   const [spec] = buildDeckSpecs(deck, new Map());
-  assert.equal(spec.background, "0C1A2E"); // ocean bg
-  assert.equal(spec.accent, "38BDF8"); // ocean accent
+  assert.equal(spec.background, "F6FBFF"); // ocean slideBg (light)
+  assert.equal(spec.accent, "0284C7"); // ocean accent (light)
 });
 
 test("legacy slide (no elements[]) emits title + bullets + visual", () => {
@@ -1245,9 +1245,10 @@ test("backgroundGradient: spec.background uses the 'from' stop color", () => {
   );
 });
 
-test("backgroundGradient with explicit background color: solid background takes precedence", () => {
-  // The exporter uses `slide.background ?? slide.backgroundGradient?.from`, so
-  // when both fields are set the explicit solid color is used.
+test("backgroundGradient takes precedence over explicit background color", () => {
+  // The cascade resolves: image > gradient > solid, so when both backgroundGradient
+  // and background are set, the gradient wins and its 'from' stop is used as the
+  // PPTX solid background color.
   const deck: Deck = {
     theme: "default",
     slides: [
@@ -1259,7 +1260,7 @@ test("backgroundGradient with explicit background color: solid background takes 
   };
 
   const [spec] = buildDeckSpecs(deck, new Map());
-  assert.equal(spec.background, "FFFFFF");
+  assert.equal(spec.background, "334455");
 });
 
 test("backgroundImage is forwarded verbatim to the slide spec", () => {

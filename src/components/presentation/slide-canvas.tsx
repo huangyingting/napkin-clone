@@ -14,6 +14,7 @@ import type {
   BulletItem,
   BulletsElement,
   ConnectorElement,
+  Deck,
   DeckTheme,
   ImageElement,
   PlaceholderElement,
@@ -29,6 +30,7 @@ import {
   normalizeBulletItems,
   PLACEHOLDER_TYPE_LABELS,
 } from "@/lib/presentation/deck";
+import { resolveSlideStyle } from "@/lib/presentation/style-cascade";
 import {
   resolveConnectorElementPoints,
   resolveConnectorEndpoint,
@@ -1239,6 +1241,12 @@ function ElementsSlideLayout({
 
 export interface SlideCanvasProps {
   slide: Slide;
+  /**
+   * Optional deck context. When provided, enables full cascade resolution
+   * (master slides, custom token sets) for background and accent colours.
+   * When absent the legacy per-theme dark-mode palette is used as a fallback.
+   */
+  deck?: Deck;
   visuals: ReadonlyMap<string, Visual>;
   /** True when rendered at reduced size (e.g. presenter next-slide preview). */
   preview?: boolean;
@@ -1269,12 +1277,32 @@ export interface SlideCanvasProps {
  */
 export const SlideCanvas = memo(function SlideCanvas({
   slide,
+  deck,
   visuals,
   preview = false,
   hiddenElementIds,
   editable = false,
 }: SlideCanvasProps): JSX.Element {
-  const tc = DECK_THEMES[slide.theme] ?? DECK_THEMES.default;
+  // When deck context is available, resolve via the full cascade (masters,
+  // custom token sets). Otherwise fall back to the legacy dark-mode palette.
+  const tc: ThemeConfig = (() => {
+    if (deck) {
+      const resolved = resolveSlideStyle(deck, slide);
+      return {
+        bgColor:
+          resolved.background.type === "solid"
+            ? resolved.background.color
+            : resolved.background.type === "gradient"
+              ? resolved.background.from
+              : (DECK_THEMES[slide.theme] ?? DECK_THEMES.default).bgColor,
+        accentColor: resolved.accent,
+        titleColor: resolved.titleColor,
+        bodyColor: resolved.bodyColor,
+        mutedColor: resolved.mutedColor,
+      };
+    }
+    return DECK_THEMES[slide.theme] ?? DECK_THEMES.default;
+  })();
 
   // Free-form elements are authoritative when present.
   if (slide.elements && slide.elements.length > 0) {
