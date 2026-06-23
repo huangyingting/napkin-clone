@@ -23,6 +23,7 @@ import { normalizeDeckRaw } from "@/lib/presentation/fresh-deck";
 import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
 import { MAX_DECK_JSON_BYTES } from "@/lib/presentation/deck-limits";
 import { generateRevisionToken } from "@/lib/presentation/deck-revision-token";
+import { applyPatch, type DeckPatch } from "@/lib/presentation/slide-commands";
 import { VISUAL_KIND_TO_PRISMA, safeParseVisual } from "@/lib/visual/schema";
 import {
   diffVisualMirror,
@@ -819,6 +820,129 @@ export async function saveDeckJson(
 
   // Snapshot only after a confirmed write (count > 0) so conflicted saves
   // never create phantom version-history entries.
+  await snapshotDocumentVersion(id, { userId: user.id });
+
+  revalidatePath(`/app/documents/${id}`);
+  return { ok: true, revisionToken: newToken };
+}
+
+/**
+ * Applies a list of {@link DeckPatch} records to the stored deck, guarded by
+ * the optimistic revision token. Patches are applied in order using
+ * {@link applyPatch}; if any patch returns `null` (unsupported op or missing
+ * payload) the action falls back to returning a `"fallback"` discriminant so
+ * the caller can retry with a full whole-deck save via {@link saveDeckJson}.
+ *
+ * Semantics are identical to {@link saveDeckJson} for conflict detection and
+ * version snapshotting:
+ * - Stale `clientToken` → `{ ok: "conflict" }`.
+ * - Any patch that is un-replayable from its payload alone → `{ ok: "fallback" }`.
+ * - Invalid result deck → `{ ok: false, error }`.
+ * - Successful apply → `{ ok: true, revisionToken }` and a `DocumentVersion`
+ *   snapshot (throttled, same rules as whole-deck save).
+ *
+ * Patch saves do NOT create version snapshots when the result deck is identical
+ * to what is already stored (idempotent re-apply).
+ */
+export type SaveDeckPatchResult =
+  | { ok: true; revisionToken: string }
+  | { ok: "conflict"; serverRevisionToken: string | null }
+  | { ok: "fallback" }
+  | { ok: false; error: string };
+
+export async function saveDeckPatch(
+  id: string,
+  patches: DeckPatch[],
+  clientToken: string | null | undefined,
+): Promise<SaveDeckPatchResult> {
+  const user = await requireUser();
+  await requireDocumentCapability(user.id, id, "edit");
+
+  // Read the current stored deck and revision token together.
+  const document = await prisma.document.findUnique({
+    where: { id },
+    select: { deckJson: true, deckRevisionToken: true },
+  });
+  if (!document) {
+    return { ok: false, error: "Document not found." };
+  }
+
+  // Optimistic-lock check (same logic as saveDeckJson).
+  if (clientToken != null && document.deckRevisionToken !== clientToken) {
+    return { ok: "conflict", serverRevisionToken: document.deckRevisionToken };
+  }
+
+  // Parse and validate the current stored deck.
+  const rawDeckJson =
+    typeof document.deckJson === "string"
+      ? JSON.parse(document.deckJson)
+      : document.deckJson;
+
+  const baseResult = safeParseDeck(rawDeckJson);
+  if (!baseResult.success) {
+    return { ok: false, error: `Stored deck is invalid: ${baseResult.error}` };
+  }
+
+  // Apply patches in sequence; fall back if any patch is un-replayable.
+  let deck = baseResult.data;
+  for (const patch of patches) {
+    const next = applyPatch(deck, patch);
+    if (next === null) {
+      // This patch op requires more context than the patch payload carries.
+      return { ok: "fallback" };
+    }
+    deck = next;
+  }
+
+  // Validate the resulting deck before persisting.
+  const resultParsed = safeParseDeck(deck);
+  if (!resultParsed.success) {
+    return {
+      ok: false,
+      error: `Patch result is invalid: ${resultParsed.error}`,
+    };
+  }
+
+  const serialized = JSON.stringify(resultParsed.data);
+  if (serialized.length > MAX_DECK_JSON_BYTES) {
+    return { ok: false, error: "Deck is too large to save." };
+  }
+
+  const newToken = generateRevisionToken();
+
+  if (clientToken != null) {
+    // Atomic CAS: only write if token still matches (same as saveDeckJson).
+    const { count } = await prisma.document.updateMany({
+      where: { id, deckRevisionToken: clientToken },
+      data: {
+        deckJson: resultParsed.data as unknown as Prisma.InputJsonValue,
+        deckRevisionToken: newToken,
+      },
+    });
+    if (count === 0) {
+      const latest = await prisma.document.findUnique({
+        where: { id },
+        select: { deckRevisionToken: true },
+      });
+      if (!latest) {
+        return { ok: false, error: "Document not found." };
+      }
+      return { ok: "conflict", serverRevisionToken: latest.deckRevisionToken };
+    }
+  } else {
+    const { count } = await prisma.document.updateMany({
+      where: { id },
+      data: {
+        deckJson: resultParsed.data as unknown as Prisma.InputJsonValue,
+        deckRevisionToken: newToken,
+      },
+    });
+    if (count === 0) {
+      return { ok: false, error: "Document not found." };
+    }
+  }
+
+  // Snapshot only after a confirmed write — same policy as saveDeckJson.
   await snapshotDocumentVersion(id, { userId: user.id });
 
   revalidatePath(`/app/documents/${id}`);

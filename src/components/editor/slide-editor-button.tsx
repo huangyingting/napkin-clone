@@ -32,6 +32,7 @@ import {
   saveDeckJson,
   type SaveDeckResult,
 } from "@/app/app/documents/[id]/actions";
+import { ConflictRecoveryDialog } from "@/components/presentation/conflict-recovery-dialog";
 import { listBrands } from "@/app/app/brands/actions";
 import { SlideEditor } from "@/components/presentation/slide-editor";
 import { SlideEditorOpenDialog } from "@/components/editor/slide-editor-open-dialog";
@@ -191,6 +192,14 @@ export function SlideEditorButton({
   // successful fetch or save; legacy documents (null DB token) are treated as
   // "no lock" on the first save, then start carrying a token from then on.
   const revisionTokenRef = useRef<string | null>(null);
+
+  // Conflict recovery dialog state (#404). When a save returns ok: "conflict"
+  // the dialog opens with the local deck snapshot and the server's current
+  // revision token. Closed by user action or after successful recovery.
+  const [conflictState, setConflictState] = useState<{
+    localDeck: Deck;
+    serverRevisionToken: string | null;
+  } | null>(null);
 
   // The deck the editor opened with when it originated from an AI "Apply"
   // (issue #270). Set on apply, consumed once on the FIRST successful save to
@@ -447,12 +456,14 @@ export function SlideEditorButton({
         return { ok: true, data: undefined };
       }
       if (res.ok === "conflict") {
-        // Surface conflict as a save error so the existing error badge and
-        // Retry action are shown. Keep conflict UI minimal per #376.
+        // Surface the conflict recovery dialog (#404) instead of a generic error.
+        setConflictState({
+          localDeck: updatedDeck,
+          serverRevisionToken: res.serverRevisionToken,
+        });
         return {
           ok: false,
-          error:
-            "Deck was modified by another session. Reload to get the latest version.",
+          error: "Save conflict: another session modified this deck.",
         };
       }
       // Validation / server error — propagate as-is.
@@ -460,6 +471,58 @@ export function SlideEditorButton({
     },
     [documentId],
   );
+
+  // Conflict recovery: "Keep mine" — force-save the local snapshot using the
+  // server's current token so the CAS check passes (#404).
+  const handleConflictKeepMine = useCallback(
+    async (localDeck: Deck, serverToken: string | null) => {
+      const res: SaveDeckResult = await saveDeckJson(
+        documentId,
+        localDeck,
+        serverToken,
+      );
+      if (res.ok === true) {
+        lastSavedRef.current = localDeck;
+        revisionTokenRef.current = res.revisionToken;
+        setConflictState(null);
+      } else if (res.ok === "conflict") {
+        // Another concurrent write raced us again; update the token and retry.
+        setConflictState({
+          localDeck,
+          serverRevisionToken: res.serverRevisionToken,
+        });
+        throw new Error("Still conflicted — try again.");
+      } else {
+        throw new Error(res.error);
+      }
+    },
+    [documentId],
+  );
+
+  // Conflict recovery: "Use theirs" — reload the server deck and discard local
+  // changes (#404). We re-fetch to get the latest revision token.
+  const handleConflictUseTheirs = useCallback(() => {
+    setConflictState(null);
+    void (async () => {
+      try {
+        const fetched = await fetchDeckJson(documentId);
+        revisionTokenRef.current = fetched.revisionToken;
+        if (fetched.deckJson) {
+          lastSavedRef.current = fetched.deckJson;
+          // Update the editor deck via setDeck so the open editor reflects
+          // the server state.
+          const { safeParseDeck } =
+            await import("@/lib/presentation/deck-schema");
+          const parsed = safeParseDeck(fetched.deckJson);
+          if (parsed.success) {
+            setDeck(parsed.data);
+          }
+        }
+      } catch {
+        // Best-effort — user will see the existing (local) deck if fetch fails.
+      }
+    })();
+  }, [documentId]);
 
   return (
     <>
@@ -520,6 +583,17 @@ export function SlideEditorButton({
           staleSourceLinkCount={
             findStaleSourceLinks(deck, documentTextBlocks).length
           }
+        />
+      ) : null}
+
+      {conflictState ? (
+        <ConflictRecoveryDialog
+          open={true}
+          localDeck={conflictState.localDeck}
+          serverRevisionToken={conflictState.serverRevisionToken}
+          onKeepMine={handleConflictKeepMine}
+          onUseTheirs={handleConflictUseTheirs}
+          onDismiss={() => setConflictState(null)}
         />
       ) : null}
     </>
