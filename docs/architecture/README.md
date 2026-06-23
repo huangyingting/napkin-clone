@@ -9,10 +9,10 @@ current system.
 
 ## Overview
 
-| Document                                         | Scope                                                   |
-| ------------------------------------------------ | ------------------------------------------------------- |
-| [current-state.md](current-state.md)             | End-to-end system architecture and source-of-truth map. |
-| [decisions/](decisions/0001-realtime-scaling.md) | Architecture Decision Records (ADRs).                   |
+| Document                                         | Scope                                                                                                                                                                                     |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [current-state.md](current-state.md)             | End-to-end system architecture and source-of-truth map.                                                                                                                                   |
+| [decisions/](decisions/0001-realtime-scaling.md) | Architecture Decision Records (ADRs): [0001 realtime scaling](decisions/0001-realtime-scaling.md), [0002 canvas keyboard accessibility](decisions/0002-canvas-keyboard-accessibility.md). |
 
 ## Contract Groups
 

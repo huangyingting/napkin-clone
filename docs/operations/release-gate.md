@@ -88,6 +88,49 @@ The following subsystems have dedicated test files that must stay green:
 
 ---
 
+### Critical-flow E2E profile (Epic #517)
+
+The unit gate above is intentionally credential-less and never starts a server.
+A second, opt-in **deterministic E2E profile** drives the critical product
+flows end to end through a real browser. It is **not** part of `npm test` or the
+required fast gate — it runs in a dedicated job against a seeded database and a
+running app.
+
+```bash
+# 1. Seed the deterministic fixture (owner + viewer users, one shared document
+#    with text + visual + deckJson + public share policy + a slide image asset,
+#    plus a private document/asset for access-control checks).
+export DB_PROVIDER=sqlite DATABASE_URL="file:./prisma/dev.db" AUTH_SECRET=ci-placeholder
+npm run db:reset        # or db:push
+npm run db:seed:e2e     # writes e2e/.e2e-fixture.json + storage/slide-assets/…
+
+# 2. Start the app, then run the profile suite (sets E2E_PROFILE=1).
+npm run dev &
+npm run test:e2e:profile
+```
+
+Key properties:
+
+- The seeded **document URL** (`/app/documents/<documentId>`) and **share id**
+  (`<slug>-<shareId>`) are **deterministic** — the seed and the specs share one
+  source of truth in `e2e/helpers/profile.ts`.
+- Under the profile (`E2E_PROFILE=1`), authenticated specs **do not skip**; they
+  run for real. Without it, every profile-dependent spec **skips cleanly** so the
+  credential-less fast gate and CI stay green.
+- Seeded owner/viewer emails and passwords are fixed test credentials (see
+  `e2e/helpers/profile.ts` / the emitted `e2e/.e2e-fixture.json`).
+
+| Spec (Epic #517)             | Covers                                                                                         |
+| ---------------------------- | ---------------------------------------------------------------------------------------------- |
+| `import-roundtrip.spec.ts`   | #519 Markdown import → editor render → edit/save → reload persistence; unsupported-type error  |
+| `present-export.spec.ts`     | #520 authenticated + public present render seeded text; real PDF download (nonzero bytes)      |
+| `slide-asset-upload.spec.ts` | #521 inspector image upload → reload resolves protected asset; private-asset 403 vs shared 200 |
+
+See [`e2e/README.md`](../../e2e/README.md) for the full environment-variable
+reference and per-spec run instructions.
+
+---
+
 ## Part 2 — Critical flow checklist
 
 For each flow below, check the indicated owner: **A** = automated test,
@@ -95,27 +138,27 @@ For each flow below, check the indicated owner: **A** = automated test,
 
 ### Document flows
 
-| #   | Flow                              | Owner | Notes                                                     |
-| --- | --------------------------------- | ----- | --------------------------------------------------------- |
-| D-1 | Document edit and Lexical save    | **A** | `saveDocumentLexical` path; block-id stamping tested      |
-| D-2 | Inline visual edit and save       | **A** | `mirrorVisualNodes` + diff tested                         |
-| D-3 | Document duplicate                | **A** | `regenerateBlockIds` tested; share-id regeneration tested |
-| D-4 | Document version restore          | **A** | Snapshot policy tested in `save-conflict.test.ts`         |
-| D-5 | Document import (markdown, .docx) | **M** | Pure import helpers tested; UI smoke manual               |
-| D-6 | Document search                   | **A** | `search.test.ts`                                          |
-| D-7 | Document delete / trash / restore | **A** | `trash.test.ts`                                           |
+| #   | Flow                              | Owner           | Notes                                                                                                                     |
+| --- | --------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| D-1 | Document edit and Lexical save    | **A**           | `saveDocumentLexical` path; block-id stamping tested                                                                      |
+| D-2 | Inline visual edit and save       | **A**           | `mirrorVisualNodes` + diff tested                                                                                         |
+| D-3 | Document duplicate                | **A**           | `regenerateBlockIds` tested; share-id regeneration tested                                                                 |
+| D-4 | Document version restore          | **A**           | Snapshot policy tested in `save-conflict.test.ts`                                                                         |
+| D-5 | Document import (markdown, .docx) | **M** + **E2E** | Pure import helpers tested; Markdown round-trip in `e2e/import-roundtrip.spec.ts` (#519); DOCX UI round-trip still manual |
+| D-6 | Document search                   | **A**           | `search.test.ts`                                                                                                          |
+| D-7 | Document delete / trash / restore | **A**           | `trash.test.ts`                                                                                                           |
 
 ### Slide / deck flows
 
-| #   | Flow                                | Owner         | Notes                                                       |
-| --- | ----------------------------------- | ------------- | ----------------------------------------------------------- |
-| S-1 | Slide edit and autosave (deck JSON) | **A**         | `save-conflict.test.ts`, `autosave-hardening.test.ts`       |
-| S-2 | Deck patch save (`saveDeckPatch`)   | **A**         | `save-conflict.test.ts`                                     |
-| S-3 | Stale revision conflict recovery    | **A**         | `deck-revision-token.test.ts`, `autosave-hardening.test.ts` |
-| S-4 | Oversized deck rejection            | **A**         | `perf-budgets.test.ts`, `autosave-hardening.test.ts`        |
-| S-5 | Present mode (read-only render)     | **M**         | SlideCanvas rendering; public URL smoke                     |
-| S-6 | Deck PPTX / PDF export              | **A** + **M** | `export-preflight.test.ts`; export UI smoke manual          |
-| S-7 | Export preflight (fatal / warning)  | **A**         | `export-preflight.test.ts`                                  |
+| #   | Flow                                | Owner           | Notes                                                                                                 |
+| --- | ----------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------- |
+| S-1 | Slide edit and autosave (deck JSON) | **A**           | `save-conflict.test.ts`, `autosave-hardening.test.ts`                                                 |
+| S-2 | Deck patch save (`saveDeckPatch`)   | **A**           | `save-conflict.test.ts`                                                                               |
+| S-3 | Stale revision conflict recovery    | **A**           | `deck-revision-token.test.ts`, `autosave-hardening.test.ts`                                           |
+| S-4 | Oversized deck rejection            | **A**           | `perf-budgets.test.ts`, `autosave-hardening.test.ts`                                                  |
+| S-5 | Present mode (read-only render)     | **M** + **E2E** | SlideCanvas rendering; authenticated + public present asserted in `e2e/present-export.spec.ts` (#520) |
+| S-6 | Deck PPTX / PDF export              | **A** + **E2E** | `export-preflight.test.ts`; real PDF download asserted in `e2e/present-export.spec.ts` (#520)         |
+| S-7 | Export preflight (fatal / warning)  | **A**           | `export-preflight.test.ts`                                                                            |
 
 ### Visual projection flows
 
@@ -140,21 +183,21 @@ For each flow below, check the indicated owner: **A** = automated test,
 
 ### Asset flows
 
-| #    | Flow                             | Owner | Notes                                            |
-| ---- | -------------------------------- | ----- | ------------------------------------------------ |
-| AS-1 | Image upload and inline data URL | **M** | UI smoke; budget check in `perf-budgets.test.ts` |
-| AS-2 | Missing asset preflight warning  | **A** | `export-preflight.test.ts`                       |
-| AS-3 | Oversized image rejection        | **A** | `perf-budgets.test.ts` (INLINE_IMAGE_HARD_BYTES) |
+| #    | Flow                             | Owner           | Notes                                                                                                                                  |
+| ---- | -------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| AS-1 | Image upload and protected asset | **M** + **E2E** | UI smoke; budget check in `perf-budgets.test.ts`; inspector upload + protected-asset access in `e2e/slide-asset-upload.spec.ts` (#521) |
+| AS-2 | Missing asset preflight warning  | **A**           | `export-preflight.test.ts`                                                                                                             |
+| AS-3 | Oversized image rejection        | **A**           | `perf-budgets.test.ts` (INLINE_IMAGE_HARD_BYTES)                                                                                       |
 
 ### Accessibility flows
 
-| #    | Flow                                   | Owner | Notes                                                      |
-| ---- | -------------------------------------- | ----- | ---------------------------------------------------------- |
-| AC-1 | VisualRenderer role=img + aria-label   | **A** | `a11y-helpers.test.ts`                                     |
-| AC-2 | Decorative canvas elements aria-hidden | **A** | `a11y-helpers.test.ts`                                     |
-| AC-3 | Icon-only toolbar controls labelled    | **A** | `a11y-helpers.test.ts`                                     |
-| AC-4 | Modal dialog semantics                 | **A** | `a11y-helpers.test.ts`                                     |
-| AC-5 | Canvas drag/resize keyboard parity     | **D** | Deferred — documented limitation in `a11y-helpers.test.ts` |
+| #    | Flow                                   | Owner | Notes                                                                                                                                                        |
+| ---- | -------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| AC-1 | VisualRenderer role=img + aria-label   | **A** | `a11y-helpers.test.ts`                                                                                                                                       |
+| AC-2 | Decorative canvas elements aria-hidden | **A** | `a11y-helpers.test.ts`                                                                                                                                       |
+| AC-3 | Icon-only toolbar controls labelled    | **A** | `a11y-helpers.test.ts`                                                                                                                                       |
+| AC-4 | Modal dialog semantics                 | **A** | `a11y-helpers.test.ts`                                                                                                                                       |
+| AC-5 | Canvas drag/resize keyboard parity     | **D** | Deferred — decision recorded in [ADR 0002](../architecture/decisions/0002-canvas-keyboard-accessibility.md); limitation also noted in `a11y-helpers.test.ts` |
 
 ---
 
@@ -172,7 +215,8 @@ For each flow below, check the indicated owner: **A** = automated test,
 - A flow marked **M** (manual smoke) failed: document the failure and its risk level;
   the responsible engineer signs off that it is safe to proceed.
 - A known canvas keyboard limitation (**D**) is present: confirm it is recorded in
-  `a11y-helpers.test.ts` and the deferred-risk list.
+  `a11y-helpers.test.ts`, in [ADR 0002 — Canvas keyboard accessibility](../architecture/decisions/0002-canvas-keyboard-accessibility.md),
+  and the deferred-risk list.
 - Performance budgets report `warned: true` (not `exceeded`) for any metric: log the
   finding and plan remediation within the next sprint.
 
@@ -193,14 +237,15 @@ Before each foundation release wave:
 
 ## Part 5 — Cross-references
 
-| Related issue | Area                                                                                                                                        |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| #430          | Block-anchor identity — `block-id.ts`, `block-id-runtime.ts`                                                                                |
-| #448          | Visual projection repair — `mirror-diff.ts`, `mirror-repair.ts`                                                                             |
-| #436          | Command envelope — `slide-commands.ts`, `commands/`                                                                                         |
-| #379 / #380   | Export pipeline — `export-preflight.ts`, `deck-export.ts`                                                                                   |
-| #376          | Conflict recovery — `deck-revision-token.ts`                                                                                                |
-| #460          | Structured diagnostics — `src/lib/diagnostics/error-codes.ts`                                                                               |
-| #461          | Performance budgets — `src/lib/presentation/perf-budgets.ts`                                                                                |
-| #495          | API surface governance — `docs/security/api-route-security-matrix.md`, `src/lib/api/errors.ts`, `src/lib/diagnostics/api-abuse.ts`          |
-| #493          | Persisted-schema gates — `src/lib/schema-audit/audit.ts`, `src/lib/schema-migrate/harness.ts`, `docs/operations/persisted-schema-repair.md` |
+| Related issue | Area                                                                                                                                                                                                                       |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| #430          | Block-anchor identity — `block-id.ts`, `block-id-runtime.ts`                                                                                                                                                               |
+| #448          | Visual projection repair — `mirror-diff.ts`, `mirror-repair.ts`                                                                                                                                                            |
+| #436          | Command envelope — `slide-commands.ts`, `commands/`                                                                                                                                                                        |
+| #379 / #380   | Export pipeline — `export-preflight.ts`, `deck-export.ts`                                                                                                                                                                  |
+| #376          | Conflict recovery — `deck-revision-token.ts`                                                                                                                                                                               |
+| #460          | Structured diagnostics — `src/lib/diagnostics/error-codes.ts`                                                                                                                                                              |
+| #461          | Performance budgets — `src/lib/presentation/perf-budgets.ts`                                                                                                                                                               |
+| #495          | API surface governance — `docs/security/api-route-security-matrix.md`, `src/lib/api/errors.ts`, `src/lib/diagnostics/api-abuse.ts`                                                                                         |
+| #493          | Persisted-schema gates — `src/lib/schema-audit/audit.ts`, `src/lib/schema-migrate/harness.ts`, `docs/operations/persisted-schema-repair.md`                                                                                |
+| #517          | Release-gate E2E profile — `prisma/seed-e2e.ts`, `e2e/helpers/profile.ts`, `e2e/{import-roundtrip,present-export,slide-asset-upload}.spec.ts`, [ADR 0002](../architecture/decisions/0002-canvas-keyboard-accessibility.md) |
