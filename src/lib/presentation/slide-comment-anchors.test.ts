@@ -36,6 +36,12 @@ function slide(id: string, elementIds: string[] = []): Slide {
       text: "",
       zIndex: 0,
       box: { x: 0, y: 0, w: 100, h: 10 },
+      style: {
+        fontSize: 4.5,
+        bold: false,
+        italic: false,
+        align: "left" as const,
+      },
     })),
   };
 }
@@ -47,9 +53,7 @@ function deck(slides: Slide[]): Deck {
   };
 }
 
-function anchor(
-  partial: Partial<SlideCommentAnchor> = {},
-): SlideCommentAnchor {
+function anchor(partial: Partial<SlideCommentAnchor> = {}): SlideCommentAnchor {
   return partial;
 }
 
@@ -74,7 +78,10 @@ test("resolveAnchorState: no slideId, null deck → deck (no deck needed)", () =
 // ---------------------------------------------------------------------------
 
 test("resolveAnchorState: slideId set, null deck → unknown", () => {
-  assert.equal(resolveAnchorState(anchor({ slideId: "sl-1" }), null), "unknown");
+  assert.equal(
+    resolveAnchorState(anchor({ slideId: "sl-1" }), null),
+    "unknown",
+  );
 });
 
 test("resolveAnchorState: slideId set, undefined deck → unknown", () => {
@@ -151,7 +158,11 @@ test("resolveAnchorState: geometry does not affect attached result", () => {
   const d = deck([slide("sl-1", ["el-a"])]);
   assert.equal(
     resolveAnchorState(
-      anchor({ slideId: "sl-1", elementId: "el-a", geometry: { x: 50, y: 50 } }),
+      anchor({
+        slideId: "sl-1",
+        elementId: "el-a",
+        geometry: { x: 50, y: 50 },
+      }),
       d,
     ),
     "attached",
@@ -163,7 +174,11 @@ test("resolveAnchorState: geometry does not affect attached result", () => {
 // ---------------------------------------------------------------------------
 
 test("floatAnchorToDeck: clears slideId and elementId", () => {
-  const a = anchor({ slideId: "sl-1", elementId: "el-a", geometry: { x: 10, y: 20 } });
+  const a = anchor({
+    slideId: "sl-1",
+    elementId: "el-a",
+    geometry: { x: 10, y: 20 },
+  });
   const result = floatAnchorToDeck(a);
   assert.equal(result.slideId, null);
   assert.equal(result.elementId, null);
@@ -187,7 +202,11 @@ test("floatAnchorToDeck: result resolves to deck", () => {
 // ---------------------------------------------------------------------------
 
 test("floatAnchorToSlide: clears elementId, keeps slideId", () => {
-  const a = anchor({ slideId: "sl-1", elementId: "el-a", geometry: { x: 5, y: 5 } });
+  const a = anchor({
+    slideId: "sl-1",
+    elementId: "el-a",
+    geometry: { x: 5, y: 5 },
+  });
   const result = floatAnchorToSlide(a);
   assert.equal(result.slideId, "sl-1");
   assert.equal(result.elementId, null);
@@ -212,7 +231,11 @@ test("floatAnchorToSlide: result resolves to attached when slide exists", () => 
 // ---------------------------------------------------------------------------
 
 test("retargetAnchorSlide: updates slideId to new target", () => {
-  const a = anchor({ slideId: "sl-1", elementId: "el-a", geometry: { x: 10, y: 10 } });
+  const a = anchor({
+    slideId: "sl-1",
+    elementId: "el-a",
+    geometry: { x: 10, y: 10 },
+  });
   const result = retargetAnchorSlide(a, "sl-2");
   assert.equal(result.slideId, "sl-2");
   assert.equal(result.elementId, "el-a");
