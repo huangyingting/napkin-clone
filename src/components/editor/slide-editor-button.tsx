@@ -450,7 +450,8 @@ export function SlideEditorButton({
         // Retry action are shown. Keep conflict UI minimal per #376.
         return {
           ok: false,
-          error: "Deck was modified by another session. Reload to get the latest version.",
+          error:
+            "Deck was modified by another session. Reload to get the latest version.",
         };
       }
       // Validation / server error — propagate as-is.
