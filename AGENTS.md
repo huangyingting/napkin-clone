@@ -20,21 +20,12 @@ Project rules for AI coding agents.
 
 ## Verification
 
-Before handoff/check-in, format first:
+Before handoff/check-in, verify only the files touched by the change whenever that is reliable.
 
-```bash
-npm run format
-```
-
-Then run checks appropriate to the change:
-
-```bash
-npm run typecheck
-npm run lint
-npm test
-```
-
-Run focused tests first when possible; broaden for shared behavior.
+- Format modified/added files only, for example `npx prettier --write <files>`.
+- Lint modified/added lintable files only, for example `npx eslint <files>`.
+- Typecheck modified/added TypeScript files with the smallest reliable scope; if the change touches shared types, route files, generated Next types, or anything that cannot be checked file-by-file, run `npm run typecheck`.
+- Run tests for modified/added test files, or the nearest focused tests covering modified code. Broaden only for shared behavior or cross-module contracts.
 
 ## Invariants
 
