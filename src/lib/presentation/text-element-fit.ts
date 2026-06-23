@@ -1,6 +1,8 @@
 import type { BulletsElement, ElementBox, TextElement, TextRun } from "./deck";
 import { runsToHtml } from "./rich-text-html";
 
+export type TextBoxFitAnchor = "top-left" | "center" | "preserve-text-position";
+
 export type TextLikeElement =
   | (Omit<TextElement, "zIndex"> & { zIndex?: number })
   | (Omit<BulletsElement, "zIndex"> & { zIndex?: number });
@@ -238,7 +240,7 @@ export function fitNewTextElementBox(
   element: TextLikeElement,
   box: ElementBox,
   measurer: TextResizeMeasurer,
-  anchor: "top-left" | "center" = "top-left",
+  anchor: TextBoxFitAnchor = "top-left",
 ): ElementBox {
   const maxWidth = Math.max(4, Math.min(box.w, 100));
   const minWidth = Math.min(
@@ -260,11 +262,35 @@ export function fitNewTextElementBox(
   if (anchor === "center") {
     x = box.x + box.w / 2 - width / 2;
     y = box.y + box.h / 2 - height / 2;
+  } else if (anchor === "preserve-text-position") {
+    if (element.style.align === "center") {
+      x = box.x + box.w / 2 - width / 2;
+    } else if (element.style.align === "right") {
+      x = box.x + box.w - width;
+    }
+    if (element.style.verticalAlign === "top") {
+      y = box.y;
+    } else if (element.style.verticalAlign === "bottom") {
+      y = box.y + box.h - height;
+    } else {
+      y = box.y + box.h / 2 - height / 2;
+    }
   }
   return {
     x: Math.max(0, Math.min(100 - width, x)),
     y: Math.max(0, Math.min(100 - height, y)),
     w: width,
     h: height,
+  };
+}
+
+export function fitTextElementToContent<T extends TextLikeElement>(
+  element: T,
+  measurer: TextResizeMeasurer,
+  anchor: TextBoxFitAnchor = "top-left",
+): T {
+  return {
+    ...element,
+    box: fitNewTextElementBox(element, element.box, measurer, anchor),
   };
 }

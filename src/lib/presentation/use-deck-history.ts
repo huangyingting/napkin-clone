@@ -54,6 +54,7 @@ export interface DeckHistory {
 /** Actions accepted by {@link deckHistoryReducer}. */
 export type DeckHistoryAction =
   | { type: "commit"; deck: Deck; coalesceKey?: string }
+  | { type: "replace"; deck: Deck }
   | { type: "undo" }
   | { type: "redo" };
 
@@ -104,6 +105,25 @@ export function pushDeckHistory(
   return { past, present: deck, future: [], lastCoalesceKey: coalesceKey };
 }
 
+/**
+ * Replaces the visible deck without creating an undo entry. Used for internal
+ * normalization that should become the editor baseline rather than a user step.
+ */
+export function replaceDeckHistory(
+  state: DeckHistory,
+  deck: Deck,
+): DeckHistory {
+  if (deck === state.present) {
+    return state;
+  }
+  return {
+    past: state.past,
+    present: deck,
+    future: state.future,
+    lastCoalesceKey: undefined,
+  };
+}
+
 /** Restores the most recent `past` snapshot, banking the present onto `future`. */
 export function undoDeckHistory(state: DeckHistory): DeckHistory {
   if (state.past.length === 0) {
@@ -139,6 +159,8 @@ export function deckHistoryReducer(
   switch (action.type) {
     case "commit":
       return pushDeckHistory(state, action.deck, action.coalesceKey);
+    case "replace":
+      return replaceDeckHistory(state, action.deck);
     case "undo":
       return undoDeckHistory(state);
     case "redo":
@@ -161,6 +183,8 @@ export interface UseDeckHistory {
    * the present in place rather than pushing new snapshots (issue #242).
    */
   commit: (deck: Deck, opts?: { coalesceKey?: string }) => void;
+  /** Replaces the present deck without adding an undo step. */
+  replace: (deck: Deck) => void;
   /** Reverts to the previous snapshot, if any. */
   undo: () => void;
   /** Re-applies the next undone snapshot, if any. */
@@ -201,6 +225,10 @@ export function useDeckHistory(
     dispatch({ type: "commit", deck, coalesceKey: opts?.coalesceKey });
   }, []);
 
+  const replace = useCallback((deck: Deck) => {
+    dispatch({ type: "replace", deck });
+  }, []);
+
   const undo = useCallback(() => {
     dispatch({ type: "undo" });
   }, []);
@@ -214,6 +242,7 @@ export function useDeckHistory(
     canUndo: state.past.length > 0,
     canRedo: state.future.length > 0,
     commit,
+    replace,
     undo,
     redo,
   };

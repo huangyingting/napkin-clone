@@ -10,6 +10,7 @@ import {
   initDeckHistory,
   pushDeckHistory,
   redoDeckHistory,
+  replaceDeckHistory,
   undoDeckHistory,
 } from "./use-deck-history";
 
@@ -74,6 +75,23 @@ test("commit action routes through the reducer", () => {
   state = deckHistoryReducer(state, { type: "commit", deck: deck(1) });
   assert.equal(state.present.slides[0].title, "slide-1");
   assert.equal(state.past.length, 1);
+});
+
+test("replaceDeckHistory replaces present without adding an undo entry", () => {
+  const initial = initDeckHistory(deck(0));
+  const replaced = replaceDeckHistory(initial, deck(1));
+  assert.equal(replaced.present.slides[0].title, "slide-1");
+  assert.equal(replaced.past.length, 0);
+  assert.equal(replaced.future.length, 0);
+  assert.equal(canUndo(replaced), false);
+});
+
+test("replace action routes through the reducer and resets coalescing", () => {
+  let state = pushDeckHistory(initDeckHistory(deck(0)), deck(1), "move:el#1");
+  state = deckHistoryReducer(state, { type: "replace", deck: deck(2) });
+  assert.equal(state.present.slides[0].title, "slide-2");
+  assert.equal(state.past.length, 1);
+  assert.equal(state.lastCoalesceKey, undefined);
 });
 
 // ---------------------------------------------------------------------------

@@ -14,6 +14,7 @@ import { test } from "node:test";
 import type { TextLikeElement, TextResizeMeasurer } from "./text-element-fit";
 import {
   fitNewTextElementBox,
+  fitTextElementToContent,
   isAutoHeight,
   shrinkFontSizeToFit,
   textFitPaddingPct,
@@ -26,6 +27,8 @@ import {
 function textEl(overrides: {
   fitMode?: "auto-height" | "fixed-box" | "shrink-to-fit";
   fontSize?: number;
+  align?: "left" | "center" | "right";
+  verticalAlign?: "top" | "middle" | "bottom";
 }): TextLikeElement {
   return {
     kind: "text",
@@ -37,7 +40,10 @@ function textEl(overrides: {
       fontSize: overrides.fontSize ?? 5,
       bold: false,
       italic: false,
-      align: "left",
+      align: overrides.align ?? "left",
+      ...(overrides.verticalAlign !== undefined
+        ? { verticalAlign: overrides.verticalAlign }
+        : {}),
     },
     ...(overrides.fitMode !== undefined ? { fitMode: overrides.fitMode } : {}),
   };
@@ -215,6 +221,49 @@ test("fitNewTextElementBox centers element for center anchor", () => {
     Math.abs(resultCenterX - boxCenterX) < 0.5,
     `Center X ${resultCenterX} should be close to box center ${boxCenterX}`,
   );
+});
+
+test("fitNewTextElementBox preserves left-aligned rendered text position", () => {
+  const el = textEl({ fontSize: 5, align: "left" });
+  const box = { x: 6, y: 26, w: 88, h: 66 };
+  const measurer = mockMeasurer(1);
+  const result = fitNewTextElementBox(
+    el,
+    box,
+    measurer,
+    "preserve-text-position",
+  );
+
+  assert.equal(result.x, box.x);
+  assert.ok(result.h < box.h, "expected fitted height to shrink");
+  assert.ok(
+    Math.abs(result.y + result.h / 2 - (box.y + box.h / 2)) < 0.5,
+    "middle-aligned text should keep its vertical center",
+  );
+});
+
+test("fitNewTextElementBox preserves right and bottom aligned rendered text position", () => {
+  const el = textEl({ fontSize: 5, align: "right", verticalAlign: "bottom" });
+  const box = { x: 10, y: 20, w: 60, h: 40 };
+  const measurer = mockMeasurer(1);
+  const result = fitNewTextElementBox(
+    el,
+    box,
+    measurer,
+    "preserve-text-position",
+  );
+
+  assert.ok(Math.abs(result.x + result.w - (box.x + box.w)) < 0.5);
+  assert.ok(Math.abs(result.y + result.h - (box.y + box.h)) < 0.5);
+});
+
+test("fitTextElementToContent returns an element with a fitted box", () => {
+  const el = textEl({ fontSize: 5 });
+  const measurer = mockMeasurer(1);
+  const result = fitTextElementToContent(el, measurer);
+  assert.equal(result.id, el.id);
+  assert.equal(result.kind, el.kind);
+  assert.notDeepEqual(result.box, el.box);
 });
 
 test("fitNewTextElementBox clamps to slide boundaries", () => {

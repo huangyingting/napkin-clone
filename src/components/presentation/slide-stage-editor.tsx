@@ -2790,6 +2790,7 @@ function InlineTextEditor({
   const itemMetaRef = useRef<
     Array<{ indent: number; listType: "bullet" | "number" }>
   >([]);
+  const dirtyRef = useRef(false);
 
   const emitChange = useCallback(() => {
     const node = ref.current;
@@ -2802,7 +2803,10 @@ function InlineTextEditor({
     const box = autoH
       ? clampBox({
           ...element.box,
-          h: (node.scrollHeight / stageHeight) * 100 + AUTO_FIT_PADDING_PCT * 2,
+          h: Math.max(
+            element.box.h,
+            (node.scrollHeight / stageHeight) * 100 + AUTO_FIT_PADDING_PCT * 2,
+          ),
         })
       : element.box;
     const { text, runs } = serializeRichText(node);
@@ -2850,7 +2854,9 @@ function InlineTextEditor({
   }, [kind, onChange, stageHeight, element]);
 
   const commit = useCallback(() => {
-    emitChange();
+    if (dirtyRef.current) {
+      emitChange();
+    }
     onCommit();
   }, [emitChange, onCommit]);
 
@@ -2897,8 +2903,6 @@ function InlineTextEditor({
         selection.addRange(range);
       }
     }
-    // Fit the frame to the seeded content straight away.
-    emitChange();
     // Mount-only: intentionally not re-seeding on element changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -2957,7 +2961,10 @@ function InlineTextEditor({
         suppressContentEditableWarning
         className={`outline-none${kind === "bullets" ? " ds-inline-bullets" : ""}`}
         style={editableStyle}
-        onInput={emitChange}
+        onInput={() => {
+          dirtyRef.current = true;
+          emitChange();
+        }}
         onBlur={commit}
         onPaste={(event) => {
           // Paste as plain text so external rich markup never leaks into the
@@ -2965,6 +2972,8 @@ function InlineTextEditor({
           event.preventDefault();
           const text = event.clipboardData.getData("text/plain");
           document.execCommand("insertText", false, text);
+          dirtyRef.current = true;
+          emitChange();
         }}
         onKeyDown={(event) => {
           event.stopPropagation();
@@ -3000,6 +3009,7 @@ function InlineTextEditor({
                       ? Math.max(0, cur - 1)
                       : Math.min(5, cur + 1),
                   };
+                  dirtyRef.current = true;
                   emitChange();
                 }
               }
@@ -3012,6 +3022,7 @@ function InlineTextEditor({
             if (key === "b" || key === "i") {
               event.preventDefault();
               document.execCommand(key === "b" ? "bold" : "italic");
+              dirtyRef.current = true;
               emitChange();
             }
           }

@@ -162,7 +162,7 @@ import type {
 } from "@/lib/visual/document-export";
 import {
   createTextResizeMeasurer,
-  fitNewTextElementBox,
+  fitTextElementToContent,
   type TextLikeElement,
 } from "@/lib/presentation/text-element-fit";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
@@ -356,6 +356,7 @@ export function SlideEditor({
   const {
     present: deck,
     commit: onDeckChange,
+    replace: replaceDeck,
     undo,
     redo,
     canUndo,
@@ -727,13 +728,66 @@ export function SlideEditor({
         return element;
       }
       const measurer = createTextResizeMeasurer(stageWidth, stageHeight);
-      return {
-        ...element,
-        box: fitNewTextElementBox(element, element.box, measurer, anchor),
-      };
+      return fitTextElementToContent(element, measurer, anchor);
     },
     [fittedStageSize.height, fittedStageSize.width, zoom],
   );
+
+  const fitDerivedTextElementBoxes = useCallback(
+    (source: Deck): Deck => {
+      const stageWidth = fittedStageSize.width * zoom;
+      const stageHeight = fittedStageSize.height * zoom;
+      if (stageWidth <= 0 || stageHeight <= 0) {
+        return source;
+      }
+
+      const measurer = createTextResizeMeasurer(stageWidth, stageHeight);
+      let changed = false;
+      const slides = source.slides.map((slide) => {
+        if (slide.elementsDerived !== true || !slide.elements?.length) {
+          return slide;
+        }
+
+        let slideChanged = false;
+        const elements = slide.elements.map((element) => {
+          if (element.kind !== "text" && element.kind !== "bullets") {
+            return element;
+          }
+          const fitted = fitTextElementToContent(
+            element,
+            measurer,
+            "preserve-text-position",
+          );
+          const sameBox =
+            Math.abs(fitted.box.x - element.box.x) < 0.01 &&
+            Math.abs(fitted.box.y - element.box.y) < 0.01 &&
+            Math.abs(fitted.box.w - element.box.w) < 0.01 &&
+            Math.abs(fitted.box.h - element.box.h) < 0.01;
+          if (sameBox) {
+            return element;
+          }
+          slideChanged = true;
+          return fitted;
+        });
+
+        if (!slideChanged) {
+          return slide;
+        }
+        changed = true;
+        return { ...slide, elements };
+      });
+
+      return changed ? { ...source, slides } : source;
+    },
+    [fittedStageSize.height, fittedStageSize.width, zoom],
+  );
+
+  useLayoutEffect(() => {
+    const fitted = fitDerivedTextElementBoxes(deck);
+    if (fitted !== deck) {
+      replaceDeck(fitted);
+    }
+  }, [deck, fitDerivedTextElementBoxes, replaceDeck]);
 
   useEffect(() => {
     const node = stageRef.current;
