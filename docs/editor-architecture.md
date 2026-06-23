@@ -362,6 +362,72 @@ persisted. Real-time collaboration is layered on Lexical via Yjs/`y-websocket`
 (see [collab-deployment.md](./collab-deployment.md)); the database remains the
 durable source of truth.
 
+## Deck (slide) autosave and version semantics
+
+The slide editor has a parallel autosave pipeline that is completely separate
+from the Lexical `contentJson` path. Deck edits are persisted via
+`saveDeckJson` (whole-deck) or `saveDeckPatch` (patch-based, experimental) in
+`actions.ts`. Full semantics are documented in
+[`slides-persistence-adr.md`](./architecture/slides-persistence-adr.md);
+the key points for editor contributors are:
+
+### Revision token (optimistic locking)
+
+Every successful deck save returns a `revisionToken` (24-character opaque
+string). The client stores this token and sends it as `clientToken` on the
+next save. `saveDeckJson` / `saveDeckPatch` perform an atomic compare-and-swap:
+
+- `clientToken === stored token` → write accepted → new token returned.
+- `clientToken !== stored token` → `{ ok: "conflict", serverRevisionToken }`
+  → the editor opens the `ConflictRecoveryDialog`.
+- `clientToken` absent / `null` → legacy path → write unconditional (no
+  conflict check). Used for the very first save and for force-writes.
+
+### Patch saves (`saveDeckPatch`)
+
+`saveDeckPatch(id, patches, clientToken)` accepts an array of `DeckPatch`
+records (from `slide-commands.ts`) and applies them to the stored deck using
+`applyPatch()`. Unsupported ops return `{ ok: "fallback" }` so the caller can
+fall back to `saveDeckJson`.
+
+### `DocumentVersion` snapshot policy
+
+`DocumentVersion` snapshots are created **only after a confirmed write**:
+
+| Event                               | Snapshot?                         |
+| ----------------------------------- | --------------------------------- |
+| Successful whole-deck or patch save | Yes (throttled: max 1 per 10 min) |
+| Conflicted save (`ok: "conflict"`)  | **No** (no write occurred)        |
+| Patch fallback (`ok: "fallback"`)   | **No** (no write occurred)        |
+| Pre-restore checkpoint              | Yes (forced — bypasses throttle)  |
+
+This invariant ensures that a conflict storm (e.g., two tabs rapidly saving)
+cannot create unbounded phantom version entries.
+
+### Conflict recovery UX
+
+When a conflict is detected:
+
+1. `ConflictRecoveryDialog` opens with the local snapshot and server token.
+2. **Keep my version:** re-saves with the server's current token (force write).
+   On success, the editor's token ref is updated.
+3. **Use server version:** fetches the latest server deck, replaces editor
+   state, discards local changes.
+4. **Dismiss:** closes the dialog; unsaved changes remain (conflict may recur).
+
+Self-conflicts (same user, two tabs) are handled identically.
+
+### Presence model
+
+The slide editor presence model (`use-slide-presence.ts`) reuses the Yjs
+awareness channel to broadcast who has the deck open and which slide they are
+viewing. Presence is advisory — it does not imply real-time merge. Conflicts
+are handled by the revision-token CAS, not by presence locking. When the
+awareness channel is unavailable the hook degrades gracefully (empty peers).
+
+See [`use-slide-presence.ts`](../src/lib/presentation/use-slide-presence.ts)
+for the `SlidePresencePayload` shape and `useSlidePresence` hook API.
+
 ## Tests
 
 Tests live next to the code they cover as `*.test.ts`, e.g.:

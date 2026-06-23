@@ -460,3 +460,152 @@ concerns.
 - **Negative (accepted):** Whole-deck writes continue until Stage 3. Large
   decks (50+ slides) will benefit most from Stage 3 and should be tested with
   realistic payloads before that PR ships.
+
+---
+
+## Implementation Status (Epic #376 child issues)
+
+This section documents the as-implemented behaviour for issues #403–#407,
+superseding the ADR's earlier Stage descriptions where they differ.
+
+### #403 — Patch-Based Save (`saveDeckPatch`)
+
+**Status:** Implemented in `src/app/app/documents/[id]/actions.ts`.
+
+`saveDeckPatch(id, patches, clientToken)` accepts an array of `DeckPatch`
+records (the same format emitted by `executeCommand` / `commitCommand` from
+`slide-commands.ts`). It:
+
+1. Reads the stored deck and revision token in one query.
+2. Checks `clientToken` against `document.deckRevisionToken`. Stale token →
+   `{ ok: "conflict", serverRevisionToken }`.
+3. Applies each patch in sequence via `applyPatch()`. If any patch returns
+   `null` (unsupported op or missing payload) the action returns
+   `{ ok: "fallback" }` so the caller can retry with a whole-deck save.
+4. Validates the resulting deck with `safeParseDeck`. Invalid result →
+   `{ ok: false, error }`.
+5. Atomic CAS write: `updateMany` keyed on `{ id, deckRevisionToken: clientToken }`.
+   A zero count is re-resolved as conflict or deleted-document.
+6. On success: calls `snapshotDocumentVersion` (throttled, same as
+   `saveDeckJson`), returns `{ ok: true, revisionToken }`.
+
+**Patch saves do NOT create `DocumentVersion` snapshots on conflict or
+fallback.** The snapshot call is only reached after a confirmed write
+(`count > 0`), identical to the whole-deck save path.
+
+**`saveDeckJson` is unchanged and remains the canonical fallback.** The patch
+endpoint is additive and does not break existing autosave flows.
+
+### #404 — Conflict Recovery UX
+
+**Status:** Implemented in `src/components/presentation/conflict-recovery-dialog.tsx`
+and wired in `src/components/editor/slide-editor-button.tsx`.
+
+When `saveDeckJson` returns `{ ok: "conflict" }` the `SlideEditorButton`
+component now:
+
+1. Stores the local deck snapshot and the server's current revision token in
+   `conflictState`.
+2. Renders a `ConflictRecoveryDialog` modal (distinct from a generic error
+   banner — see acceptance criterion).
+3. **Keep my version:** calls `saveDeckJson` with the server's current token
+   as `clientToken`, forcing the write through. On success the revision token
+   ref and `lastSavedRef` are updated; the dialog closes.
+4. **Use server version:** fetches the latest deck from the server via
+   `fetchDeckJson`, updates the editor's deck state, and discards local
+   changes.
+5. **Dismiss:** closes the dialog; unsaved changes remain in the editor (the
+   user can retry manually).
+
+Self-conflict (same user, two tabs) is handled identically — the dialog copy
+does not assume the conflict originated from a different user.
+
+The editor updates its revision token after every successful recovery so the
+next autosave uses the current server token.
+
+### #405 — Autosave and Snapshot Semantics
+
+**Autosave flow:**
+
+1. `SlideEditor` debounces edits (~1.5 s). On tick, calls `onSave(deck)`.
+2. `SlideEditorButton.handleSave` calls `saveDeckJson(id, deck, revisionTokenRef.current)`.
+3. On `{ ok: true }`: updates `revisionTokenRef` and `lastSavedRef`; clears
+   the dirty flag.
+4. On `{ ok: "conflict" }`: opens `ConflictRecoveryDialog`; returns
+   `{ ok: false, error }` to the save-status badge.
+5. On `{ ok: false }`: surfaces the error via the save badge; Retry calls
+   `flushSave()` again.
+
+**`DocumentVersion` snapshot semantics:**
+
+| Event                                        | Snapshot created?                                               |
+| -------------------------------------------- | --------------------------------------------------------------- |
+| Successful `saveDeckJson` (whole-deck)       | Yes — after confirmed `updateMany` (`count > 0`)                |
+| Successful `saveDeckPatch` (patch save)      | Yes — same guard (`count > 0`)                                  |
+| Conflicted `saveDeckJson` or `saveDeckPatch` | **No** — `count === 0` → early return before snapshot call      |
+| `saveDeckPatch` fallback (unsupported op)    | **No** — returns `ok: "fallback"` before any write              |
+| Forced restore (`restoreDocumentVersion`)    | Yes — pre-restore `force: true` snapshot then the restore write |
+| Retry after conflict recovery (keep mine)    | Yes — the re-save is a normal `saveDeckJson` call               |
+
+Snapshots are throttled by `shouldSnapshot` (10-minute minimum interval) and
+pruned to `MAX_DOCUMENT_VERSIONS` (15 entries). `force: true` bypasses
+throttle (used for version restore pre-checkpoint only).
+
+Patch saves use the same snapshot policy as whole-deck saves: one coalesced
+snapshot per 10-minute window, not one snapshot per patch. A high-frequency
+patch stream therefore produces the same number of snapshot entries as a
+high-frequency whole-deck autosave stream.
+
+### #406 — Slide Editor Presence Model
+
+**Status:** Implemented in `src/lib/presentation/use-slide-presence.ts`.
+
+**Payload shape** (`SlidePresencePayload`):
+
+```ts
+interface SlidePresencePayload {
+  documentId: string;
+  userName: string;
+  userId: string;
+  selectedSlideId: string | null;
+  selectedElementIds: string[];
+  editingMode: "browsing" | "selecting" | "editing";
+}
+```
+
+**Transport:** Reuses the existing Yjs `WebsocketProvider` awareness channel.
+Slide presence is keyed under `"deckPresence"` in the awareness state map,
+keeping it invisible to the text-layer awareness handlers (which read only
+`name` / `color` at the top level).
+
+**Offline/local-only degradation:** When `awareness` is `null` / `undefined`
+the hook returns an empty `peers` array and does not attempt any network
+traffic. The local payload is always available regardless of connectivity.
+
+**Rendering contract:** The UI MUST NOT imply real-time collaborative editing.
+Presence shows who else has the deck open and which slide they are viewing —
+it does not guarantee that remote edits are automatically merged. Conflicts are
+handled by the revision-token CAS path, not by presence locking.
+
+### #407 — Save-Conflict and Non-Conflicting Edit Tests
+
+**Status:** Implemented in `src/lib/presentation/save-conflict.test.ts`
+and `src/lib/presentation/use-slide-presence.test.ts`.
+
+Coverage:
+
+| Test                                                                | Location                     |
+| ------------------------------------------------------------------- | ---------------------------- |
+| `saveDeckJson` success-with-token (matching tokens → no conflict)   | `save-conflict.test.ts`      |
+| Stale-token conflict (different tokens → conflict)                  | `save-conflict.test.ts`      |
+| Legacy (no clientToken) → always succeeds                           | `save-conflict.test.ts`      |
+| Conflicted save does NOT create version snapshot (`count=0` guard)  | `save-conflict.test.ts`      |
+| Successful save → snapshot policy says yes                          | `save-conflict.test.ts`      |
+| `applyPatch` round-trip for `slide.update_title`, `deck.set_theme`  | `save-conflict.test.ts`      |
+| Two non-conflicting patches on separate slides succeed sequentially | `save-conflict.test.ts`      |
+| Same-slide conflict: stale token detected by `isRevisionConflict`   | `save-conflict.test.ts`      |
+| `applyPatch` returns `null` for unsupported ops (fallback trigger)  | `save-conflict.test.ts`      |
+| `safeParseDeck` validates / rejects decks (schema end-to-end)       | `save-conflict.test.ts`      |
+| Presence payload derivation                                         | `use-slide-presence.test.ts` |
+| Presence peer extraction, sorting, local/remote marking             | `use-slide-presence.test.ts` |
+| Offline fallback: empty peers, local payload available              | `use-slide-presence.test.ts` |
