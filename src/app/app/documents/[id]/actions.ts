@@ -22,6 +22,7 @@ import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { normalizeDeckRaw } from "@/lib/presentation/fresh-deck";
 import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
 import { MAX_DECK_JSON_BYTES } from "@/lib/presentation/deck-limits";
+import { generateRevisionToken } from "@/lib/presentation/deck-revision-token";
 import { VISUAL_KIND_TO_PRISMA, safeParseVisual } from "@/lib/visual/schema";
 import {
   diffVisualMirror,
@@ -37,10 +38,6 @@ const generateShareId = customAlphabet(
 // Short random suffix appended to slug candidates to make same-title
 // collisions vanishingly unlikely (4 lowercase alphanumeric chars).
 const generateSlugSuffix = customAlphabet("23456789abcdefghjkmnpqrstuvwxyz", 4);
-const generateRevisionToken = customAlphabet(
-  "23456789abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ",
-  24,
-);
 
 const MAX_CONTENT_LENGTH = 100_000;
 const MAX_LEXICAL_STATE_LENGTH = 2_000_000;
@@ -726,14 +723,6 @@ export async function fetchDeckJson(
 }
 
 /**
- * Persists an edited Deck for a document. Requires edit access (owner or
- * workspace editor), authorized via `requireDocumentCapability` so a viewer or
- * unrelated user is rejected with a clear error (issue #89). The deck JSON is
- * validated with `safeParseDeck` before storing, and rejected when it exceeds a
- * sane serialized size. Stored in `Document.deckJson`, separate from the
- * Lexical `contentJson` so deck edits never touch collaborative editing state.
- */
-/**
  * Discriminated result for {@link saveDeckJson}. Distinct from {@link ActionResult}
  * so callers can pattern-match on the three outcomes without ambiguity.
  * - `ok: true`        — write accepted; `revisionToken` is the new token the
@@ -747,6 +736,14 @@ export type SaveDeckResult =
   | { ok: "conflict"; serverRevisionToken: string | null }
   | { ok: false; error: string };
 
+/**
+ * Persists an edited Deck for a document. Requires edit access (owner or
+ * workspace editor), authorized via `requireDocumentCapability` so a viewer or
+ * unrelated user is rejected with a clear error (issue #89). The deck JSON is
+ * validated with `safeParseDeck` before storing, and rejected when it exceeds a
+ * sane serialized size. Stored in `Document.deckJson`, separate from the
+ * Lexical `contentJson` so deck edits never touch collaborative editing state.
+ */
 export async function saveDeckJson(
   id: string,
   deckJson: unknown,
@@ -767,32 +764,45 @@ export async function saveDeckJson(
 
   await requireDocumentCapability(user.id, id, "edit");
 
-  // Optimistic locking: when the caller provides a token, verify it still
-  // matches the current DB value before writing. A mismatch means another
-  // session saved after the client last fetched — return a conflict result
-  // without touching the DB.
-  if (clientToken != null) {
-    const current = await prisma.document.findUnique({
-      where: { id },
-      select: { deckRevisionToken: true },
-    });
-    if (current && current.deckRevisionToken !== clientToken) {
-      return { ok: "conflict", serverRevisionToken: current.deckRevisionToken };
-    }
-  }
-
   // Snapshot the previous editable state before overwriting the deck.
   await snapshotDocumentVersion(id, { userId: user.id });
 
   const newToken = generateRevisionToken();
 
-  await prisma.document.updateMany({
-    where: { id },
-    data: {
-      deckJson: result.data as unknown as Prisma.InputJsonValue,
-      deckRevisionToken: newToken,
-    },
-  });
+  if (clientToken != null) {
+    // Atomic CAS: include the expected token in the WHERE clause so the update
+    // only lands when no other session has advanced the token since the client
+    // last fetched.  count === 0 means the token mismatched → conflict.
+    const { count } = await prisma.document.updateMany({
+      where: { id, deckRevisionToken: clientToken },
+      data: {
+        deckJson: result.data as unknown as Prisma.InputJsonValue,
+        deckRevisionToken: newToken,
+      },
+    });
+    if (count === 0) {
+      const current = await prisma.document.findUnique({
+        where: { id },
+        select: { deckRevisionToken: true },
+      });
+      return {
+        ok: "conflict",
+        serverRevisionToken: current?.deckRevisionToken ?? null,
+      };
+    }
+  } else {
+    // Legacy path: no token provided; overwrite unconditionally.
+    const { count } = await prisma.document.updateMany({
+      where: { id },
+      data: {
+        deckJson: result.data as unknown as Prisma.InputJsonValue,
+        deckRevisionToken: newToken,
+      },
+    });
+    if (count === 0) {
+      return { ok: false, error: "Document not found." };
+    }
+  }
 
   revalidatePath(`/app/documents/${id}`);
   return { ok: true, revisionToken: newToken };
