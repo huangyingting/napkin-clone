@@ -888,3 +888,100 @@ test("ADD_ELEMENT delegates to existing addElement mutation: element gets genera
   assert.ok(el?.id, "element must have a non-empty id");
   assert.equal(el?.kind, "shape");
 });
+
+// ---------------------------------------------------------------------------
+// Slide-editor wiring contract (#375)
+//
+// These tests pin the properties that slide-editor.tsx relies on when routing
+// ADD_SLIDE, REMOVE_SLIDE, DUPLICATE_SLIDE, and REORDER_SLIDE through
+// executeCommand:
+//
+//  1. Slide-level commands never produce a historyKey (they carry no
+//     coalesceKey field), so upstream history records each as a discrete step.
+//  2. On failure, the returned deck is the same reference as the input —
+//     callers can safely skip onDeckChange without worrying about partial state.
+// ---------------------------------------------------------------------------
+
+test("ADD_SLIDE: historyKey is undefined (slide editor records discrete step)", () => {
+  const deck = makeDeck(["s1"]);
+  const result = executeCommand(deck, { type: "ADD_SLIDE" });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.historyKey, undefined);
+});
+
+test("REMOVE_SLIDE: historyKey is undefined (slide editor records discrete step)", () => {
+  const deck = makeDeck(["s1", "s2"]);
+  const result = executeCommand(deck, { type: "REMOVE_SLIDE", slideId: "s1" });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.historyKey, undefined);
+});
+
+test("DUPLICATE_SLIDE: historyKey is undefined (slide editor records discrete step)", () => {
+  const deck = makeDeck(["s1"]);
+  const result = executeCommand(deck, {
+    type: "DUPLICATE_SLIDE",
+    slideId: "s1",
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.historyKey, undefined);
+});
+
+test("REORDER_SLIDE: historyKey is undefined (slide editor records discrete step)", () => {
+  const deck = makeDeck(["s1", "s2"]);
+  const result = executeCommand(deck, {
+    type: "REORDER_SLIDE",
+    slideId: "s1",
+    toIndex: 1,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.historyKey, undefined);
+});
+
+test("ADD_SLIDE failure: deck reference is unchanged so onDeckChange is safely skipped", () => {
+  const deck = makeDeck(["s1"]);
+  const result = executeCommand(deck, {
+    type: "ADD_SLIDE",
+    afterSlideId: "ghost",
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.deck, deck);
+});
+
+test("REMOVE_SLIDE failure (last slide): deck reference is unchanged so onDeckChange is safely skipped", () => {
+  const deck = makeDeck(["only"]);
+  const result = executeCommand(deck, {
+    type: "REMOVE_SLIDE",
+    slideId: "only",
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.deck, deck);
+});
+
+test("DUPLICATE_SLIDE failure: deck reference is unchanged so onDeckChange is safely skipped", () => {
+  const deck = makeDeck(["s1"]);
+  const result = executeCommand(deck, {
+    type: "DUPLICATE_SLIDE",
+    slideId: "ghost",
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.deck, deck);
+});
+
+test("REORDER_SLIDE failure (out-of-bounds): deck reference is unchanged so onDeckChange is safely skipped", () => {
+  const deck = makeDeck(["s1"]);
+  const result = executeCommand(deck, {
+    type: "REORDER_SLIDE",
+    slideId: "s1",
+    toIndex: 99,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.deck, deck);
+});
