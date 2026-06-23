@@ -16,13 +16,21 @@ import type {
   EffectKind,
   FillStyle,
   LineStyle,
+  NodeShape,
   TextAlign,
   Visual,
+  VisualEdge,
   VisualEffect,
   VisualKind,
+  VisualNode,
   VisualStyle,
 } from "@/lib/visual/schema";
-import { safeParseVisual } from "@/lib/visual/schema";
+import {
+  DEFAULT_NODE_HEIGHT,
+  DEFAULT_NODE_WIDTH,
+  safeParseVisual,
+} from "@/lib/visual/schema";
+import { getKindEntry, isShapeAllowed } from "@/lib/visual/registry";
 import {
   applyDisplayStyle,
   applyTheme,
@@ -96,7 +104,26 @@ export type VisualCommandPayload =
   | { op: "visual.set_all_edges_style"; patch: AllEdgesStylePatch }
   | { op: "visual.set_effect"; effect: VisualEffect }
   | { op: "visual.clear_effect"; kind: EffectKind }
-  | { op: "visual.merge_content"; newVisual: Visual };
+  | { op: "visual.merge_content"; newVisual: Visual }
+  // --- lifecycle operations (#446) ---
+  | {
+      op: "visual.add_node";
+      node: Omit<VisualNode, "id"> & { id?: string };
+    }
+  | { op: "visual.delete_node"; nodeId: string }
+  | {
+      op: "visual.add_edge";
+      edge: Omit<VisualEdge, "id"> & { id?: string };
+    }
+  | { op: "visual.delete_edge"; edgeId: string }
+  | {
+      op: "visual.reconnect_edge";
+      edgeId: string;
+      fromNodeId?: string;
+      toNodeId?: string;
+    }
+  | { op: "visual.duplicate_node"; nodeId: string; newNodeId?: string }
+  | { op: "visual.relayout_graph" };
 
 export interface VisualCommand extends CommandEnvelope<VisualCommandPayload> {
   type: VisualCommandPayload["op"];
@@ -250,6 +277,190 @@ function applyEdgeStyle(
     next = setEdgeLineWidth(next, edgeId, patch.lineWidth);
   }
   return next;
+}
+
+// ---------------------------------------------------------------------------
+// Lifecycle operation helpers (#446)
+// ---------------------------------------------------------------------------
+
+/** Generates a simple sequential id for a new node or edge. */
+function generateId(prefix: string, existing: string[]): string {
+  const existingSet = new Set(existing);
+  let counter = existing.length + 1;
+  let candidate = `${prefix}-${counter}`;
+  while (existingSet.has(candidate)) {
+    counter += 1;
+    candidate = `${prefix}-${counter}`;
+  }
+  return candidate;
+}
+
+/**
+ * Adds a node to the visual, validating registry constraints.
+ * Returns an error string if the kind does not support node addition or the
+ * provided shape is not allowed for this kind.
+ */
+function addNode(
+  visual: Visual,
+  nodeSpec: Omit<VisualNode, "id"> & { id?: string },
+): { next: Visual; nodeId: string } | { error: string } {
+  const entry = getKindEntry(visual.type);
+  if (!entry.editing.nodeAddable) {
+    return { error: `Kind "${visual.type}" does not support adding nodes.` };
+  }
+  const shape: NodeShape = (nodeSpec.shape ?? entry.defaultShape) as NodeShape;
+  if (!isShapeAllowed(visual.type, shape)) {
+    return {
+      error: `Shape "${shape}" is not allowed for kind "${visual.type}". Allowed: ${entry.allowedShapes.join(", ")}.`,
+    };
+  }
+  const nodeId =
+    nodeSpec.id ??
+    generateId(
+      "n",
+      visual.nodes.map((n) => n.id),
+    );
+  const cx = visual.width / 2;
+  const cy = visual.height / 2;
+  const newNode: VisualNode = {
+    id: nodeId,
+    label: nodeSpec.label ?? "Node",
+    width: nodeSpec.width ?? DEFAULT_NODE_WIDTH,
+    height: nodeSpec.height ?? DEFAULT_NODE_HEIGHT,
+    shape,
+    ...(entry.layoutFamily === "positioned"
+      ? { x: nodeSpec.x ?? cx, y: nodeSpec.y ?? cy }
+      : {}),
+    ...(nodeSpec.value !== undefined ? { value: nodeSpec.value } : {}),
+    ...(nodeSpec.color ? { color: nodeSpec.color } : {}),
+    ...(nodeSpec.stroke ? { stroke: nodeSpec.stroke } : {}),
+    ...(nodeSpec.textColor ? { textColor: nodeSpec.textColor } : {}),
+    ...(nodeSpec.icon ? { icon: nodeSpec.icon } : {}),
+  };
+  return {
+    next: { ...visual, nodes: [...visual.nodes, newNode] },
+    nodeId,
+  };
+}
+
+/**
+ * Deletes a node and all edges that reference it.
+ */
+function deleteNode(visual: Visual, nodeId: string): Visual {
+  const nodes = visual.nodes.filter((n) => n.id !== nodeId);
+  const edges = visual.edges.filter(
+    (e) => e.from !== nodeId && e.to !== nodeId,
+  );
+  return { ...visual, nodes, edges };
+}
+
+/**
+ * Adds an edge between two nodes, validating registry constraints.
+ */
+function addEdge(
+  visual: Visual,
+  edgeSpec: Omit<VisualEdge, "id"> & { id?: string },
+): { next: Visual; edgeId: string } | { error: string } {
+  const entry = getKindEntry(visual.type);
+  if (!entry.editing.edgeAddable) {
+    return { error: `Kind "${visual.type}" does not support adding edges.` };
+  }
+  const nodeIds = new Set(visual.nodes.map((n) => n.id));
+  if (!nodeIds.has(edgeSpec.from)) {
+    return { error: `Source node "${edgeSpec.from}" does not exist.` };
+  }
+  if (!nodeIds.has(edgeSpec.to)) {
+    return { error: `Target node "${edgeSpec.to}" does not exist.` };
+  }
+  const edgeId =
+    edgeSpec.id ??
+    generateId(
+      "e",
+      visual.edges.map((e) => e.id),
+    );
+  const newEdge: VisualEdge = {
+    id: edgeId,
+    from: edgeSpec.from,
+    to: edgeSpec.to,
+    ...(edgeSpec.label !== undefined ? { label: edgeSpec.label } : {}),
+    ...(edgeSpec.directed !== undefined ? { directed: edgeSpec.directed } : {}),
+    ...(edgeSpec.style ? { style: edgeSpec.style } : {}),
+  };
+  return {
+    next: { ...visual, edges: [...visual.edges, newEdge] },
+    edgeId,
+  };
+}
+
+/**
+ * Reconnects an edge to different source/target nodes.
+ */
+function reconnectEdge(
+  visual: Visual,
+  edgeId: string,
+  fromNodeId: string | undefined,
+  toNodeId: string | undefined,
+): { next: Visual } | { error: string } {
+  const entry = getKindEntry(visual.type);
+  if (!entry.editing.edgeReconnectable) {
+    return {
+      error: `Kind "${visual.type}" does not support edge reconnection.`,
+    };
+  }
+  const edge = visual.edges.find((e) => e.id === edgeId);
+  if (!edge) {
+    return { error: `Edge "${edgeId}" does not exist.` };
+  }
+  const nodeIds = new Set(visual.nodes.map((n) => n.id));
+  const newFrom = fromNodeId ?? edge.from;
+  const newTo = toNodeId ?? edge.to;
+  if (!nodeIds.has(newFrom)) {
+    return { error: `Source node "${newFrom}" does not exist.` };
+  }
+  if (!nodeIds.has(newTo)) {
+    return { error: `Target node "${newTo}" does not exist.` };
+  }
+  const edges = visual.edges.map((e) =>
+    e.id === edgeId ? { ...e, from: newFrom, to: newTo } : e,
+  );
+  return { next: { ...visual, edges } };
+}
+
+/**
+ * Duplicates a node with a new id, offset slightly to avoid overlap.
+ */
+function duplicateNode(
+  visual: Visual,
+  nodeId: string,
+  newNodeId?: string,
+): { next: Visual; newNodeId: string } | { error: string } {
+  const entry = getKindEntry(visual.type);
+  if (!entry.editing.nodeDuplicatable) {
+    return {
+      error: `Kind "${visual.type}" does not support node duplication.`,
+    };
+  }
+  const source = visual.nodes.find((n) => n.id === nodeId);
+  if (!source) {
+    return { error: `Node "${nodeId}" does not exist.` };
+  }
+  const generatedId =
+    newNodeId ??
+    generateId(
+      "n",
+      visual.nodes.map((n) => n.id),
+    );
+  const offset = 20;
+  const duplicate: VisualNode = {
+    ...source,
+    id: generatedId,
+    ...(typeof source.x === "number" ? { x: source.x + offset } : {}),
+    ...(typeof source.y === "number" ? { y: source.y + offset } : {}),
+  };
+  return {
+    next: { ...visual, nodes: [...visual.nodes, duplicate] },
+    newNodeId: generatedId,
+  };
 }
 
 function validateOutput(
@@ -418,6 +629,105 @@ export function executeVisualCommand(
       includeSourceRecompute = true;
       break;
     }
+    // --- lifecycle operations (#446) ---
+    case "visual.add_node": {
+      const result = addNode(visual, cmd.payload.node);
+      if ("error" in result) {
+        return failure(visual, result.error);
+      }
+      next = result.next;
+      affectedNodeIds = [result.nodeId];
+      break;
+    }
+    case "visual.delete_node": {
+      const delError = ensureNodeExists(visual, cmd.payload.nodeId);
+      if (delError) {
+        return failure(visual, delError);
+      }
+      const kindEntry = getKindEntry(visual.type);
+      if (!kindEntry.editing.nodeDeletable) {
+        return failure(
+          visual,
+          `Kind "${visual.type}" does not support deleting nodes.`,
+        );
+      }
+      next = deleteNode(visual, cmd.payload.nodeId);
+      affectedNodeIds = [cmd.payload.nodeId];
+      const deletedNodeId = cmd.payload.nodeId;
+      affectedEdgeIds = visual.edges
+        .filter((e) => e.from === deletedNodeId || e.to === deletedNodeId)
+        .map((e) => e.id);
+      break;
+    }
+    case "visual.add_edge": {
+      const result = addEdge(visual, cmd.payload.edge);
+      if ("error" in result) {
+        return failure(visual, result.error);
+      }
+      next = result.next;
+      affectedEdgeIds = [result.edgeId];
+      break;
+    }
+    case "visual.delete_edge": {
+      const delEdgeError = ensureEdgeExists(visual, cmd.payload.edgeId);
+      if (delEdgeError) {
+        return failure(visual, delEdgeError);
+      }
+      const kindEntryEdge = getKindEntry(visual.type);
+      if (!kindEntryEdge.editing.edgeDeletable) {
+        return failure(
+          visual,
+          `Kind "${visual.type}" does not support deleting edges.`,
+        );
+      }
+      const deletedEdgeId = cmd.payload.edgeId;
+      next = {
+        ...visual,
+        edges: visual.edges.filter((e) => e.id !== deletedEdgeId),
+      };
+      affectedEdgeIds = [deletedEdgeId];
+      break;
+    }
+    case "visual.reconnect_edge": {
+      const result = reconnectEdge(
+        visual,
+        cmd.payload.edgeId,
+        cmd.payload.fromNodeId,
+        cmd.payload.toNodeId,
+      );
+      if ("error" in result) {
+        return failure(visual, result.error);
+      }
+      next = result.next;
+      affectedEdgeIds = [cmd.payload.edgeId];
+      break;
+    }
+    case "visual.duplicate_node": {
+      const result = duplicateNode(
+        visual,
+        cmd.payload.nodeId,
+        cmd.payload.newNodeId,
+      );
+      if ("error" in result) {
+        return failure(visual, result.error);
+      }
+      next = result.next;
+      affectedNodeIds = [cmd.payload.nodeId, result.newNodeId];
+      break;
+    }
+    case "visual.relayout_graph": {
+      const kindEntryLayout = getKindEntry(visual.type);
+      if (!kindEntryLayout.editing.autoLayoutSupported) {
+        return failure(
+          visual,
+          `Kind "${visual.type}" does not support auto-layout.`,
+        );
+      }
+      next = setAutoLayout(visual, true);
+      affectedNodeIds = wholeVisualNodeIds(visual, next);
+      affectedEdgeIds = wholeVisualEdgeIds(visual, next);
+      break;
+    }
   }
 
   const invalid = validateOutput(next, visual);
@@ -503,6 +813,15 @@ function canCoalesceVisualCommands(
         b.payload.op === "visual.set_edge_style" &&
         a.payload.edgeId === b.payload.edgeId
       );
+    // Lifecycle operations are never coalesced — each is a discrete structural change.
+    case "visual.add_node":
+    case "visual.delete_node":
+    case "visual.add_edge":
+    case "visual.delete_edge":
+    case "visual.reconnect_edge":
+    case "visual.duplicate_node":
+    case "visual.relayout_graph":
+      return false;
   }
 }
 

@@ -616,6 +616,56 @@ function validateVisualPayload(
         errors.push("payload.newVisual must be a schema-valid visual.");
       }
       return;
+    // --- lifecycle operations (#446) ---
+    case "visual.add_node":
+      pushUnknownKeyErrors(payload, ["op", "node"], "payload", errors);
+      if (!isPlainObject(payload.node)) {
+        errors.push("payload.node must be an object.");
+      }
+      return;
+    case "visual.delete_node":
+      pushUnknownKeyErrors(payload, ["op", "nodeId"], "payload", errors);
+      if (!isNonEmptyString(payload.nodeId)) {
+        errors.push("payload.nodeId must be a non-empty string.");
+      }
+      return;
+    case "visual.add_edge":
+      pushUnknownKeyErrors(payload, ["op", "edge"], "payload", errors);
+      if (!isPlainObject(payload.edge)) {
+        errors.push("payload.edge must be an object.");
+      }
+      return;
+    case "visual.delete_edge":
+      pushUnknownKeyErrors(payload, ["op", "edgeId"], "payload", errors);
+      if (!isNonEmptyString(payload.edgeId)) {
+        errors.push("payload.edgeId must be a non-empty string.");
+      }
+      return;
+    case "visual.reconnect_edge":
+      pushUnknownKeyErrors(
+        payload,
+        ["op", "edgeId", "fromNodeId", "toNodeId"],
+        "payload",
+        errors,
+      );
+      if (!isNonEmptyString(payload.edgeId)) {
+        errors.push("payload.edgeId must be a non-empty string.");
+      }
+      return;
+    case "visual.duplicate_node":
+      pushUnknownKeyErrors(
+        payload,
+        ["op", "nodeId", "newNodeId"],
+        "payload",
+        errors,
+      );
+      if (!isNonEmptyString(payload.nodeId)) {
+        errors.push("payload.nodeId must be a non-empty string.");
+      }
+      return;
+    case "visual.relayout_graph":
+      pushUnknownKeyErrors(payload, ["op"], "payload", errors);
+      return;
     default:
       errors.push(`Unsupported visual payload op: ${String(payload.op)}.`);
   }
