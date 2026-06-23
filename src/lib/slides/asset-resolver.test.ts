@@ -18,19 +18,12 @@ import {
 // resolveAssetSync (pure helper)
 // ---------------------------------------------------------------------------
 
-test("#394: resolveAssetSync returns loaded for fallbackUrl-only (legacy url)", () => {
+test("#394: resolveAssetSync returns missing for fallbackUrl without assetId", () => {
   const result = resolveAssetSync({
     fallbackUrl: "https://example.com/img.png",
   });
-  assert.equal(result.status, "loaded");
-  assert.equal(result.url, "https://example.com/img.png");
-});
-
-test("#394: resolveAssetSync returns loaded for data URL fallback (legacy inline)", () => {
-  const dataUrl = "data:image/png;base64,abc";
-  const result = resolveAssetSync({ fallbackUrl: dataUrl });
-  assert.equal(result.status, "loaded");
-  assert.equal(result.url, dataUrl);
+  assert.equal(result.status, "missing");
+  assert.equal(result.url, undefined);
 });
 
 test("#394: resolveAssetSync returns missing when neither assetId nor fallbackUrl set", () => {
@@ -63,11 +56,11 @@ test("#394: resolveAssetSync returns missing when assetId present but no fallbac
 // ClientAssetResolver
 // ---------------------------------------------------------------------------
 
-test("#394: ClientAssetResolver resolves fallback URL for legacy element", async () => {
+test("#394: ClientAssetResolver returns missing for fallback URL without assetId", async () => {
   const resolver = new ClientAssetResolver();
   const result = await resolver.resolve({ fallbackUrl: "/assets/img.png" });
-  assert.equal(result.status, "loaded");
-  assert.equal(result.url, "/assets/img.png");
+  assert.equal(result.status, "missing");
+  assert.equal(result.url, undefined);
 });
 
 test("#394: ClientAssetResolver resolves loaded for assetId + fallbackUrl", async () => {
@@ -143,14 +136,14 @@ test("#394: ServerAssetResolver returns missing when asset row not found", async
   assert.equal(result.status, "missing");
 });
 
-test("#394: ServerAssetResolver passes through legacy URL when no assetId", async () => {
+test("#394: ServerAssetResolver returns missing when fallback URL has no assetId", async () => {
   const db = makeDb(null);
   const resolver = new ServerAssetResolver(db, makeStorage());
   const result = await resolver.resolve({
-    fallbackUrl: "https://example.com/legacy.png",
+    fallbackUrl: "https://example.com/img.png",
   });
-  assert.equal(result.status, "loaded");
-  assert.equal(result.url, "https://example.com/legacy.png");
+  assert.equal(result.status, "missing");
+  assert.equal(result.url, undefined);
 });
 
 test("#394: ServerAssetResolver falls back to fallbackUrl on DB error", async () => {

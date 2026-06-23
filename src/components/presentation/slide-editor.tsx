@@ -763,11 +763,6 @@ export function SlideEditor({
     return () => observer.disconnect();
   }, []);
 
-  // Auto-materialization of legacy slides happens BEFORE the deck reaches this
-  // editor (in SlideEditorButton, before useDeckHistory), so the materialized
-  // deck is the history baseline: `canUndo` stays false until the user edits and
-  // the first undo never reverts to the legacy form.
-
   const handleThemeChange = useCallback(
     (theme: DeckTheme) => {
       doCommitAndChange(deck, { type: "SET_DECK_THEME", theme });
@@ -1848,14 +1843,6 @@ export function SlideEditor({
     [deck, doCommitAndChange, safeSelected],
   );
 
-  const handleMaterialize = useCallback(() => {
-    if (!deck.slides[safeSelected]) return;
-    doCommitAndChange(deck, {
-      type: "MATERIALIZE_SLIDE",
-      slideIndex: safeSelected,
-    });
-  }, [deck, doCommitAndChange, safeSelected]);
-
   // Insert ▸ Image: accept callback for the shared upload hook (#299).
   const handleInsertImageAccept = useCallback(
     (src: string, assetId?: string) => {
@@ -2318,15 +2305,8 @@ export function SlideEditor({
         canDelete: deck.slides.length > 1,
         onDuplicateSlide: () => handleDuplicate(safeSelected),
         onRemoveSlide: () => handleRemove(safeSelected),
-        onTitleChange: (title: string) =>
-          handleTitleChange(safeSelected, title),
-        onLayoutChange: (layout: SlideLayoutHint) =>
-          handleLayoutChange(safeSelected, layout),
         onApplyLayout: handleApplyReusableLayout,
         onResetLayout: handleResetReusableLayout,
-        onBulletsChange: (value: string) =>
-          handleBulletsChange(safeSelected, value),
-        onMaterialize: handleMaterialize,
         onUpdateElement: handleUpdateElement,
         onRemoveElement: handleRemoveElement,
         onDuplicateElement: handleDuplicateElement,

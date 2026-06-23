@@ -6,8 +6,6 @@
  * Two tabs:
  *  - **Content** — edits the selected free-form element (text, bullets, image,
  *    shape, visual), lists all elements with reorder/delete, and adds new ones.
- *    For legacy slides (no elements yet) it shows the classic title / layout /
- *    bullets fields plus a "Customize layout" action that materializes elements.
  *  - **Style** — per-slide background and accent color overrides.
  *
  * Speaker notes live in a dedicated panel docked at the bottom of the stage
@@ -64,7 +62,6 @@ import type {
   ImageMaskShape,
   PlaceholderElement,
   SlideLayout as ReusableSlideLayout,
-  SlideLayoutHint,
   ShapeKind,
   Slide,
   SlideElement,
@@ -114,14 +111,6 @@ import type { Visual } from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { applyTheme, isThemeActive } from "@/lib/visual/transforms";
 
-const LAYOUT_OPTIONS: SlideLayoutHint[] = [
-  "title",
-  "section",
-  "content",
-  "media",
-  "blank",
-];
-
 const SHAPE_OPTIONS: ShapeKind[] = ["rect", "ellipse", "line", "triangle"];
 
 /** Selectable font-family stacks for text/bullets elements. */
@@ -168,13 +157,8 @@ export interface SlideInspectorProps {
   canDelete: boolean;
   onDuplicateSlide: () => void;
   onRemoveSlide: () => void;
-  // Legacy slide editing
-  onTitleChange: (title: string) => void;
-  onLayoutChange: (layout: SlideLayoutHint) => void;
   onApplyLayout: (layout: ReusableSlideLayout) => void;
   onResetLayout: (layout: ReusableSlideLayout) => void;
-  onBulletsChange: (value: string) => void;
-  onMaterialize: () => void;
   // Element editing
   onUpdateElement: (
     id: string,
@@ -2260,12 +2244,8 @@ export function SlideInspector({
   canDelete,
   onDuplicateSlide,
   onRemoveSlide,
-  onTitleChange,
-  onLayoutChange,
   onApplyLayout,
   onResetLayout,
-  onBulletsChange,
-  onMaterialize,
   onUpdateElement,
   onRemoveElement,
   onDuplicateElement,
@@ -2360,7 +2340,6 @@ export function SlideInspector({
   }
 
   const elements = slide.elements ?? [];
-  const hasElements = elements.length > 0;
   const selectedElement =
     elements.find((element) => element.id === selectedElementId) ?? null;
   const orderedElements = [...elements].sort((a, b) => b.zIndex - a.zIndex);
@@ -2494,8 +2473,7 @@ export function SlideInspector({
                 </p>
               </div>
             ) : null}
-            {hasElements ? (
-              <>
+            <>
                 {/* Element list */}
                 <div className="flex flex-col gap-1">
                   {orderedElements.map((element) => {
@@ -2663,58 +2641,6 @@ export function SlideInspector({
                   </p>
                 )}
               </>
-            ) : (
-              <>
-                <label className="block">
-                  <span className={LABEL_CLASS}>Title</span>
-                  <input
-                    type="text"
-                    value={slide.title}
-                    onChange={(event) => onTitleChange(event.target.value)}
-                    placeholder="Untitled slide"
-                    className={`${FIELD_CLASS} ${FOCUS_RING}`}
-                  />
-                </label>
-
-                <label className="block">
-                  <span className={LABEL_CLASS}>Layout</span>
-                  <select
-                    value={slide.layout}
-                    onChange={(event) =>
-                      onLayoutChange(event.target.value as SlideLayoutHint)
-                    }
-                    className={`${FIELD_CLASS} ${FOCUS_RING}`}
-                  >
-                    {LAYOUT_OPTIONS.map((layout) => (
-                      <option key={layout} value={layout}>
-                        {layout}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="block">
-                  <span className={LABEL_CLASS}>Bullets (one per line)</span>
-                  <textarea
-                    value={slide.bullets.join("\n")}
-                    onChange={(event) => onBulletsChange(event.target.value)}
-                    rows={5}
-                    className={`${FIELD_CLASS} resize-y ${FOCUS_RING}`}
-                  />
-                </label>
-
-                <button
-                  type="button"
-                  onClick={onMaterialize}
-                  className={`flex w-full items-center justify-center gap-1.5 rounded-ds-md bg-ds-control px-3 py-2 text-sm font-medium text-ds-control-text transition-colors hover:bg-ds-control-hover ${FOCUS_RING}`}
-                >
-                  Customize layout (free-form)
-                </button>
-                <p className="text-xs text-ds-text-muted">
-                  Unlocks drag-and-drop text, images, and shapes on this slide.
-                </p>
-              </>
-            )}
           </div>
         ) : null}
 

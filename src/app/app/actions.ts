@@ -79,11 +79,7 @@ export async function createDocumentFromImport(
     rawTitle.trim().slice(0, MAX_TITLE_LENGTH) || "Imported document";
   const safeContent = content.slice(0, MAX_CONTENT_LENGTH);
 
-  // Normalize: convert the imported Markdown to canonical contentJson at
-  // creation time so the document is immediately on the Lexical track and
-  // the first-open conversion is skipped (issue #485). The legacy `content`
-  // field is still stored as a fallback for any reader that has not been
-  // updated to use contentJson.
+  // Normalize imported Markdown to canonical contentJson at creation time.
   const contentJson = JSON.parse(
     markdownToLexicalState(safeContent),
   ) as Prisma.InputJsonValue;

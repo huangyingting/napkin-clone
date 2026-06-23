@@ -9,6 +9,7 @@ import {
   MAX_BULLETS,
 } from "./deck";
 import type { Slide } from "./deck";
+import { CURRENT_DECK_SCHEMA_VERSION } from "./deck-migration";
 import { safeParseDeck } from "./deck-schema";
 
 // ---------------------------------------------------------------------------
@@ -561,8 +562,10 @@ test("buildVisualElement: generates unique ids across calls", () => {
 test("safeParseDeck: preserves a visual element's styleThemeId", () => {
   const deck = {
     theme: "default" as const,
+    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
     slides: [
       {
+        id: "s1",
         index: 0,
         title: "",
         bullets: [],
@@ -596,8 +599,10 @@ test("safeParseDeck: preserves a visual element's styleThemeId", () => {
 test("safeParseDeck: omits styleThemeId when absent", () => {
   const deck = {
     theme: "default" as const,
+    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
     slides: [
       {
+        id: "s1",
         index: 0,
         title: "",
         bullets: [],
@@ -748,74 +753,6 @@ test("makeElementId holds no module-level state (order-independent)", async () =
   assert.notEqual(a, b);
   assert.ok(!/^el-0$/.test(a));
   assert.ok(!/^el-1$/.test(b));
-});
-
-// ---------------------------------------------------------------------------
-// migrateSlideToFreeForm — audited legacy → free-form upgrade
-// ---------------------------------------------------------------------------
-
-function legacySlide(overrides: Partial<Slide> = {}): Slide {
-  return {
-    id: "test-id",
-    index: 0,
-    title: "Title",
-    bullets: ["a", "b"],
-    visualIds: [] as string[],
-    layout: "content" as const,
-    notes: "",
-    theme: "default" as const,
-    ...overrides,
-  };
-}
-
-test("migrateSlideToFreeForm derives elements[] from legacy content", async () => {
-  const { migrateSlideToFreeForm } = await import("./deck");
-  const migrated = migrateSlideToFreeForm(legacySlide());
-  assert.ok(migrated.elements && migrated.elements.length > 0);
-  assert.ok(migrated.elements?.some((e) => e.kind === "text"));
-  assert.ok(migrated.elements?.some((e) => e.kind === "bullets"));
-});
-
-test("migrateSlideToFreeForm stamps elementsDerived=true", async () => {
-  const { migrateSlideToFreeForm } = await import("./deck");
-  const migrated = migrateSlideToFreeForm(legacySlide());
-  assert.equal(migrated.elementsDerived, true);
-});
-
-test("migrateSlideToFreeForm preserves the legacy fields as a fallback", async () => {
-  const { migrateSlideToFreeForm } = await import("./deck");
-  const migrated = migrateSlideToFreeForm(legacySlide());
-  assert.equal(migrated.title, "Title");
-  assert.deepEqual(migrated.bullets, ["a", "b"]);
-});
-
-test("migrateSlideToFreeForm is idempotent on an already free-form slide", async () => {
-  const { migrateSlideToFreeForm } = await import("./deck");
-  const once = migrateSlideToFreeForm(legacySlide());
-  const twice = migrateSlideToFreeForm(once);
-  // Same reference returned — no re-derivation, ids unchanged.
-  assert.equal(twice, once);
-  assert.equal(twice.elementsDerived, true);
-});
-
-test("migrateSlideToFreeForm does not clobber a hand-edited free-form slide", async () => {
-  const { migrateSlideToFreeForm } = await import("./deck");
-  const handEdited = legacySlide({
-    elements: [
-      {
-        id: "keep",
-        kind: "shape",
-        shape: "rect",
-        color: "#000000",
-        zIndex: 0,
-        box: { x: 0, y: 0, w: 1, h: 1 },
-      },
-    ],
-    elementsDerived: false,
-  });
-  const result = migrateSlideToFreeForm(handEdited);
-  assert.equal(result, handEdited);
-  assert.equal(result.elementsDerived, false);
 });
 
 // ---------------------------------------------------------------------------

@@ -1,7 +1,6 @@
 /**
- * Pure helpers for maintaining {@link ConnectorElement} and legacy
- * `shape:"line"` endpoint bindings across element lifecycle operations:
- * delete, duplicate, and copy/paste.
+ * Pure helpers for maintaining {@link ConnectorElement} endpoint bindings
+ * across element lifecycle operations: delete, duplicate, and copy/paste.
  *
  * Design goals:
  *  - Pure and headless — no DOM, no React, no browser APIs.  Fully testable
@@ -28,7 +27,6 @@ import type {
   ConnectorElement,
   ConnectorPoint,
   ConnectorPointFree,
-  ShapeElement,
   SlideElement,
 } from "./deck";
 import { anchorPoint } from "./connector-geometry";
@@ -86,10 +84,6 @@ export function detachConnectorEndpoint(
  *
  * - {@link ConnectorElement}: `start` and/or `end` are converted to free
  *   points when they are bound to a deleted id.
- * - Legacy `shape:"line"` {@link ShapeElement}: the `connector.start` /
- *   `connector.end` binding objects are cleared (`undefined`) when their
- *   `elementId` is in `deletedIds`.  The line's visual geometry comes from
- *   its bounding box, so clearing the binding is sufficient.
  * - All other element types are passed through with the same object identity.
  *
  * Returns the same array reference (cast to `SlideElement[]`) when
@@ -115,16 +109,10 @@ export function updateConnectorBindingsOnDelete(
   const patched = elements.map((el): SlideElement => {
     let next: SlideElement;
 
-    if (el.kind === "connector") {
-      next = patchConnectorOnDelete(el, deletedIds, elements);
-    } else if (el.kind === "shape" && el.shape === "line") {
-      next = patchLegacyLineOnDelete(
-        el as ShapeElement & { shape: "line" },
-        deletedIds,
-      );
-    } else {
+    if (el.kind !== "connector") {
       return el;
     }
+    next = patchConnectorOnDelete(el, deletedIds, elements);
 
     if (next !== el) anyChanged = true;
     return next;
@@ -156,32 +144,6 @@ function patchConnectorOnDelete(
   };
 }
 
-/**
- * Patches a legacy `shape:"line"` element by clearing any connector binding
- * whose `elementId` is in `deletedIds`.
- */
-function patchLegacyLineOnDelete(
-  el: ShapeElement & { shape: "line" },
-  deletedIds: ReadonlySet<string>,
-): ShapeElement {
-  if (!el.connector) return el;
-
-  const startAffected =
-    el.connector.start !== undefined &&
-    deletedIds.has(el.connector.start.elementId);
-  const endAffected =
-    el.connector.end !== undefined &&
-    deletedIds.has(el.connector.end.elementId);
-
-  if (!startAffected && !endAffected) return el;
-
-  const connector = { ...el.connector };
-  if (startAffected) delete connector.start;
-  if (endAffected) delete connector.end;
-
-  return { ...el, connector };
-}
-
 // ---------------------------------------------------------------------------
 // remapConnectorBindings
 // ---------------------------------------------------------------------------
@@ -197,11 +159,6 @@ function patchLegacyLineOnDelete(
  * - `elementId` **is not** in `idMap` → the endpoint is detached to a free
  *   point at the position resolved against `allElements` (only one connected
  *   shape was included — the dangling endpoint becomes a free point).
- *
- * For legacy `shape:"line"` copies:
- * - `connector.start` / `connector.end` are remapped when the elementId is in
- *   `idMap`, or cleared when it is not (the line's visual geometry is
- *   bounding-box derived so clearing is sufficient).
  *
  * Non-connector copies are returned with the same object identity.
  * The `allElements` list should be the **original** slide elements (before the
@@ -225,13 +182,10 @@ export function remapConnectorBindings(
   const result = copies.map((el): SlideElement => {
     let next: SlideElement;
 
-    if (el.kind === "connector") {
-      next = remapConnectorElement(el, idMap, allElements);
-    } else if (el.kind === "shape" && el.shape === "line") {
-      next = remapLegacyLine(el as ShapeElement & { shape: "line" }, idMap);
-    } else {
+    if (el.kind !== "connector") {
       return el;
     }
+    next = remapConnectorElement(el, idMap, allElements);
 
     if (next !== el) anyChanged = true;
     return next;
@@ -274,40 +228,3 @@ function remapEndpoint(
   return detachConnectorEndpoint(ep, allElements);
 }
 
-/** Remaps (or clears) the connector bindings of a legacy line copy. */
-function remapLegacyLine(
-  el: ShapeElement & { shape: "line" },
-  idMap: ReadonlyMap<string, string>,
-): ShapeElement {
-  if (!el.connector) return el;
-
-  let changed = false;
-  const connector = { ...el.connector };
-
-  if (connector.start) {
-    const newId = idMap.get(connector.start.elementId);
-    if (newId !== undefined) {
-      connector.start = { ...connector.start, elementId: newId };
-      changed = true;
-    } else {
-      // Not in selection — clear the binding.
-      delete connector.start;
-      changed = true;
-    }
-  }
-
-  if (connector.end) {
-    const newId = idMap.get(connector.end.elementId);
-    if (newId !== undefined) {
-      connector.end = { ...connector.end, elementId: newId };
-      changed = true;
-    } else {
-      // Not in selection — clear the binding.
-      delete connector.end;
-      changed = true;
-    }
-  }
-
-  if (!changed) return el;
-  return { ...el, connector };
-}

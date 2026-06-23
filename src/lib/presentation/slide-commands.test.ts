@@ -1283,49 +1283,6 @@ test("RESET_SLIDE_LAYOUT resets layout and emits patch", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Issue #398 — MATERIALIZE_SLIDE
-// ---------------------------------------------------------------------------
-
-test("MATERIALIZE_SLIDE materializes a legacy slide", () => {
-  const deck: Deck = {
-    theme: "default",
-    slides: [
-      {
-        id: "s1",
-        index: 0,
-        title: "My Title",
-        bullets: ["point a"],
-        visualIds: [],
-        layout: "content",
-        notes: "",
-        theme: "default",
-      },
-    ],
-  };
-  const result = executeCommand(deck, {
-    type: "MATERIALIZE_SLIDE",
-    slideIndex: 0,
-  });
-  assert.equal(result.ok, true);
-  assert.ok(
-    result.deck.slides[0]!.elements &&
-      result.deck.slides[0]!.elements.length > 0,
-    "slide should have elements after materialization",
-  );
-  assert.equal(result.patches[0]!.op, "slide.materialize");
-});
-
-test("MATERIALIZE_SLIDE fails on invalid index", () => {
-  const deck = makeDeck(["s1"]);
-  const result = executeCommand(deck, {
-    type: "MATERIALIZE_SLIDE",
-    slideIndex: 99,
-  });
-  assert.equal(result.ok, false);
-  assert.equal(result.deck, deck);
-});
-
-// ---------------------------------------------------------------------------
 // Issue #399 — REMOVE_ELEMENTS (multi-element)
 // ---------------------------------------------------------------------------
 

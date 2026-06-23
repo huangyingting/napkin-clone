@@ -131,9 +131,12 @@ export async function rebuildVisualMirror(
 const MAX_SHARE_EXPIRY_MS = 5 * 365 * 24 * 60 * 60 * 1000; // ~5 years
 
 /** Builds the canonical public share URL (or `null` when not shared). */
-function buildShareUrl(slug: string | null, shareId: string | null): string {
+function buildShareUrl(slug: string | null, shareId: string | null): string | null {
+  if (!slug || !shareId) {
+    return null;
+  }
   const base = appEnv.url();
-  return `${base}/share/${buildShareSegment(slug, shareId ?? "")}`;
+  return `${base}/share/${buildShareSegment(slug, shareId)}`;
 }
 
 /**
@@ -149,7 +152,7 @@ function toShareSettings(row: {
   shareEmbedEnabled: boolean;
   sharePresentEnabled: boolean;
 }): ShareSettings {
-  const shared = row.isShared && row.shareId !== null;
+  const shared = row.isShared && row.shareId !== null && row.slug !== null;
   return {
     isShared: row.isShared,
     shareId: row.shareId,

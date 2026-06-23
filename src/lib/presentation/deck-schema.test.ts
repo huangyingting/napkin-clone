@@ -22,23 +22,36 @@ import {
   validateImageMaskShape,
   validateSourceRef,
 } from "./deck-schema";
+import { CURRENT_DECK_SCHEMA_VERSION } from "./deck-migration";
 
 // ---------------------------------------------------------------------------
-// Backward compatibility — legacy decks (no elements) still validate
+// Current deck validation
 // ---------------------------------------------------------------------------
 
-function legacyDeck(): unknown {
+function currentDeck(): unknown {
   return {
     theme: "default",
+    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
     slides: [
       {
         index: 0,
-        title: "Legacy",
+        title: "Current",
         bullets: ["a", "b"],
         visualIds: [],
         layout: "content",
         notes: "",
         theme: "default",
+        elements: [
+          {
+            id: "txt-1",
+            kind: "text",
+            text: "Current",
+            role: "title",
+            zIndex: 0,
+            box: { x: 6, y: 6, w: 88, h: 16 },
+            style: { fontSize: 6, bold: true, italic: false, align: "left" },
+          },
+        ],
       },
     ],
   };
@@ -57,16 +70,13 @@ function imageElementDeck(overrides: Record<string, unknown> = {}): unknown {
   ]);
 }
 
-test("safeParseDeck accepts a legacy deck; migration populates elements[]", () => {
-  // After the v1→v2 migration, legacy slides that had no elements[] are
-  // materialized. So elements is now a non-empty array, not undefined.
-  const result = safeParseDeck(legacyDeck());
+test("safeParseDeck accepts a current deck", () => {
+  const result = safeParseDeck(currentDeck());
   assert.equal(result.success, true);
   if (result.success) {
     assert.ok(
       Array.isArray(result.data.slides[0].elements) &&
         result.data.slides[0].elements.length > 0,
-      "migration should have materialized elements[] for legacy slides",
     );
     assert.equal(result.data.slideFormat, "16:9");
   }
@@ -74,7 +84,7 @@ test("safeParseDeck accepts a legacy deck; migration populates elements[]", () =
 
 test("safeParseDeck round-trips a deck slide format", () => {
   const result = safeParseDeck({
-    ...(legacyDeck() as object),
+    ...(currentDeck() as object),
     slideFormat: "4:3",
   });
   assert.equal(result.success, true);
@@ -85,7 +95,7 @@ test("safeParseDeck round-trips a deck slide format", () => {
 
 test("safeParseDeck preserves an optional deck themeId", () => {
   const result = safeParseDeck({
-    ...(legacyDeck() as object),
+    ...(currentDeck() as object),
     themeId: "amber",
   });
   assert.equal(result.success, true);
@@ -96,7 +106,7 @@ test("safeParseDeck preserves an optional deck themeId", () => {
 
 test("safeParseDeck rejects an unknown slide format", () => {
   const result = safeParseDeck({
-    ...(legacyDeck() as object),
+    ...(currentDeck() as object),
     slideFormat: "1:1",
   });
   assert.equal(result.success, false);
@@ -109,6 +119,7 @@ test("safeParseDeck rejects an unknown slide format", () => {
 function elementDeck(elements: unknown[]): unknown {
   return {
     theme: "indigo",
+    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
     slides: [
       {
         index: 0,
@@ -346,14 +357,14 @@ test("safeParseDeck round-trips image crop, fitMode, and maskShape", () => {
   }
 });
 
-test("safeParseDeck normalizes legacy image fit to fitMode", () => {
+test("safeParseDeck ignores obsolete image fit alias", () => {
   const result = safeParseDeck(imageElementDeck({ fit: "cover" }));
   assert.equal(result.success, true);
   if (result.success) {
     const element = result.data.slides[0].elements?.[0];
     assert.equal(element?.kind, "image");
     if (element?.kind === "image") {
-      assert.equal(element.fitMode, "cover");
+      assert.equal(element.fitMode, undefined);
       assert.equal("fit" in element, false);
     }
   }
@@ -540,7 +551,7 @@ test("validateElement rejects an unknown placeholder type", () => {
 test("safeParseDeck round-trips reusable layouts", () => {
   const layouts = defaultLayouts().filter((layout) => layout.format === "16:9");
   const result = safeParseDeck({
-    ...(legacyDeck() as object),
+    ...(currentDeck() as object),
     layouts,
   });
   assert.equal(result.success, true);
@@ -707,7 +718,7 @@ test("validated elements preserve a stable shape", () => {
 
 test("safeParseDeck preserves a deckContentHash when present", () => {
   const result = safeParseDeck({
-    ...(legacyDeck() as object),
+    ...(currentDeck() as object),
     deckContentHash: "abc12345",
   });
   assert.equal(result.success, true);
@@ -717,14 +728,14 @@ test("safeParseDeck preserves a deckContentHash when present", () => {
 });
 
 test("safeParseDeck omits deckContentHash when absent or empty", () => {
-  const absent = safeParseDeck(legacyDeck());
+  const absent = safeParseDeck(currentDeck());
   assert.equal(absent.success, true);
   if (absent.success) {
     assert.equal(absent.data.deckContentHash, undefined);
   }
 
   const empty = safeParseDeck({
-    ...(legacyDeck() as object),
+    ...(currentDeck() as object),
     deckContentHash: "",
   });
   assert.equal(empty.success, true);
@@ -735,7 +746,7 @@ test("safeParseDeck omits deckContentHash when absent or empty", () => {
 
 test("safeParseDeck rejects a non-string deckContentHash", () => {
   const result = safeParseDeck({
-    ...(legacyDeck() as object),
+    ...(currentDeck() as object),
     deckContentHash: 42,
   });
   assert.equal(result.success, false);
@@ -747,10 +758,10 @@ test("safeParseDeck rejects a non-string deckContentHash", () => {
 
 test("safeParseDeck round-trips the elementsDerived flag (true preserved)", () => {
   const withTrue = safeParseDeck({
-    ...(legacyDeck() as { slides: { [k: string]: unknown }[] }),
+    ...(currentDeck() as { slides: { [k: string]: unknown }[] }),
     slides: [
       {
-        ...(legacyDeck() as { slides: object[] }).slides[0],
+        ...(currentDeck() as { slides: object[] }).slides[0],
         elementsDerived: true,
       },
     ],
@@ -760,62 +771,48 @@ test("safeParseDeck round-trips the elementsDerived flag (true preserved)", () =
     assert.equal(withTrue.data.slides[0].elementsDerived, true);
   }
 
-  // A slide with elementsDerived: false but no elements[] is materialized by
-  // the v1→v2 migration (issue #486), which stamps elementsDerived: true. So
-  // the round-trip value is true, not false — this is the expected behavior.
   const withFalse = safeParseDeck({
-    ...(legacyDeck() as { slides: object[] }),
+    ...(currentDeck() as { slides: object[] }),
     slides: [
       {
-        ...(legacyDeck() as { slides: object[] }).slides[0],
+        ...(currentDeck() as { slides: object[] }).slides[0],
         elementsDerived: false,
       },
     ],
   });
   assert.equal(withFalse.success, true);
   if (withFalse.success) {
-    // Migration materializes elements and stamps elementsDerived: true.
-    assert.equal(withFalse.data.slides[0].elementsDerived, true);
+    assert.equal(withFalse.data.slides[0].elementsDerived, false);
   }
 });
 
-test("safeParseDeck stamps elementsDerived: true on legacy slides (v1→v2 migration)", () => {
-  // After the v1→v2 migration, all slides that lacked elements[] are
-  // materialized and stamped elementsDerived: true. There is no longer a
-  // scenario where a legacy slide without elements comes back with
-  // elementsDerived === undefined.
-  const result = safeParseDeck(legacyDeck());
+test("safeParseDeck leaves elementsDerived absent when absent", () => {
+  const result = safeParseDeck(currentDeck());
   assert.equal(result.success, true);
   if (result.success) {
-    assert.equal(result.data.slides[0].elementsDerived, true);
+    assert.equal(result.data.slides[0].elementsDerived, undefined);
   }
 });
 
-test("safeParseDeck with non-boolean elementsDerived: migration overwrites with true", () => {
-  // A slide with elementsDerived: "yes" (invalid) but no elements[] is
-  // processed by the v1→v2 migration, which materializes elements and sets
-  // elementsDerived: true (a valid boolean). So the parse succeeds.
+test("safeParseDeck rejects non-boolean elementsDerived", () => {
   const result = safeParseDeck({
-    ...(legacyDeck() as { slides: object[] }),
+    ...(currentDeck() as { slides: object[] }),
     slides: [
       {
-        ...(legacyDeck() as { slides: object[] }).slides[0],
+        ...(currentDeck() as { slides: object[] }).slides[0],
         elementsDerived: "yes",
       },
     ],
   });
-  assert.equal(result.success, true);
-  if (result.success) {
-    assert.equal(result.data.slides[0].elementsDerived, true);
-  }
+  assert.equal(result.success, false);
 });
 
 // ---------------------------------------------------------------------------
-// Stable slide id — backfill for legacy decks (issue #304)
+// Stable slide id — backfill for current decks (issue #304)
 // ---------------------------------------------------------------------------
 
 test("safeParseDeck backfills a slide id when absent", () => {
-  const result = safeParseDeck(legacyDeck());
+  const result = safeParseDeck(currentDeck());
   assert.equal(result.success, true);
   if (result.success) {
     const id = result.data.slides[0].id;
@@ -828,10 +825,10 @@ test("safeParseDeck backfills a slide id when absent", () => {
 
 test("safeParseDeck preserves an existing slide id", () => {
   const input = {
-    ...(legacyDeck() as { slides: object[] }),
+    ...(currentDeck() as { slides: object[] }),
     slides: [
       {
-        ...(legacyDeck() as { slides: object[] }).slides[0],
+        ...(currentDeck() as { slides: object[] }).slides[0],
         id: "sl-existing-abc",
       },
     ],
@@ -1002,38 +999,6 @@ test("safeParseDeck ignores unrecognised connector routing values", () => {
     const el = result.data.slides[0].elements?.[0];
     if (el?.kind === "connector") {
       assert.equal(el.routing, undefined);
-    }
-  }
-});
-
-// Backward-compatibility: legacy line-shape decks still validate (#323).
-test("safeParseDeck still accepts a legacy line shape with connector binding", () => {
-  const result = safeParseDeck(
-    elementDeck([
-      {
-        id: "legacy-line",
-        kind: "shape",
-        shape: "line",
-        color: "#888888",
-        zIndex: 0,
-        box: { x: 10, y: 10, w: 80, h: 1 },
-        connector: {
-          start: { elementId: "el-a", anchor: "right" },
-          end: { elementId: "el-b", anchor: "left" },
-        },
-      },
-    ]),
-  );
-  assert.equal(result.success, true);
-  if (result.success) {
-    const el = result.data.slides[0].elements?.[0];
-    assert.equal(el?.kind, "shape");
-    if (el?.kind === "shape") {
-      assert.equal(el.shape, "line");
-      assert.deepEqual(el.connector?.start, {
-        elementId: "el-a",
-        anchor: "right",
-      });
     }
   }
 });

@@ -6,6 +6,7 @@ import {
   FALLBACK_THEME,
   normalizeGeneratedDeck,
 } from "@/lib/presentation/deck-layout-assign";
+import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck-migration";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import type { Deck, Slide, SlideElement } from "@/lib/presentation/deck";
 
@@ -26,7 +27,11 @@ function slide(overrides: Partial<Slide> = {}): Slide {
 }
 
 function deck(slides: Slide[], theme = "indigo"): Deck {
-  const parsed = safeParseDeck({ theme, slides });
+  const parsed = safeParseDeck({
+    theme,
+    slides,
+    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+  });
   assert.ok(parsed.success, parsed.success ? "" : parsed.error);
   return parsed.data;
 }

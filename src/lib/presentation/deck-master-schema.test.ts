@@ -6,10 +6,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { safeParseDeck } from "./deck-schema";
+import { CURRENT_DECK_SCHEMA_VERSION } from "./deck-migration";
 
 function baseDeck(overrides: Record<string, unknown> = {}) {
   return {
     theme: "default",
+    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
     slides: [
       {
         id: "s1",
@@ -20,6 +22,7 @@ function baseDeck(overrides: Record<string, unknown> = {}) {
         layout: "content",
         notes: "",
         theme: "default",
+        elements: [],
       },
     ],
     ...overrides,
@@ -216,21 +219,10 @@ test("masters must be an array", () => {
 });
 
 test("slide with valid masterRef is preserved", () => {
+  const deck = baseDeck();
   const result = safeParseDeck({
-    theme: "default",
-    slides: [
-      {
-        id: "s1",
-        index: 0,
-        title: "Test",
-        bullets: [],
-        visualIds: [],
-        layout: "content",
-        notes: "",
-        theme: "default",
-        masterRef: "master-1",
-      },
-    ],
+    ...deck,
+    slides: [{ ...(deck.slides as object[])[0], masterRef: "master-1" }],
     masters: [
       {
         id: "master-1",
@@ -246,20 +238,11 @@ test("slide with valid masterRef is preserved", () => {
 });
 
 test("slide with orphan masterRef is stripped when masters is defined", () => {
+  const deck = baseDeck();
   const result = safeParseDeck({
-    theme: "default",
+    ...deck,
     slides: [
-      {
-        id: "s1",
-        index: 0,
-        title: "Test",
-        bullets: [],
-        visualIds: [],
-        layout: "content",
-        notes: "",
-        theme: "default",
-        masterRef: "non-existent-master",
-      },
+      { ...(deck.slides as object[])[0], masterRef: "non-existent-master" },
     ],
     masters: [
       {
@@ -276,21 +259,10 @@ test("slide with orphan masterRef is stripped when masters is defined", () => {
 });
 
 test("slide masterRef is preserved when no masters array is present", () => {
+  const deck = baseDeck();
   const result = safeParseDeck({
-    theme: "default",
-    slides: [
-      {
-        id: "s1",
-        index: 0,
-        title: "Test",
-        bullets: [],
-        visualIds: [],
-        layout: "content",
-        notes: "",
-        theme: "default",
-        masterRef: "some-master",
-      },
-    ],
+    ...deck,
+    slides: [{ ...(deck.slides as object[])[0], masterRef: "some-master" }],
   });
   assert.ok(result.success);
   if (!result.success) return;

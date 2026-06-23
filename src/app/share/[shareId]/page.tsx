@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { LexicalReadOnly } from "@/components/lexical/lexical-read-only";
-import { VisualRenderer } from "@/components/visual/visual-renderer";
 
 import { ShareLightbox } from "./share-lightbox";
 import { MadeWithBadge } from "@/components/made-with-badge";
@@ -15,7 +14,6 @@ import {
   SHARE_ACCESS_SELECT,
   toShareAccessInput,
 } from "@/lib/share-access";
-import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 import { app as appEnv } from "@/lib/env";
 
 const SITE_NAME = "TextIQ";
@@ -97,8 +95,6 @@ export default async function SharedDocumentPage({
 }) {
   const { shareId } = await params;
 
-  // The URL segment may be the legacy bare shareId or the decorative
-  // `<slug>-<shareId>` form; resolve the canonical shareId from it.
   const resolvedShareId = shareIdFromParam(shareId);
 
   // Find the document by shareId and apply the share-access policy (shared,
@@ -118,14 +114,6 @@ export default async function SharedDocumentPage({
           plan: true,
         },
       },
-      // Legacy visuals: the document-level one (anchorBlockId = null) and
-      // block-anchored ones. Only used for documents that have not yet been
-      // migrated to the Lexical `contentJson` format (where visuals live inline
-      // as VisualNodes).
-      visuals: {
-        orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }],
-        select: { anchorBlockId: true, data: true },
-      },
     },
   });
 
@@ -140,27 +128,8 @@ export default async function SharedDocumentPage({
   const ownerName = document.owner.name || document.owner.email.split("@")[0];
   const showAttribution = shouldShowAttribution(document.owner.plan);
 
-  // Documents authored in the Lexical editor store their full content (blocks
-  // and inline visuals) in `contentJson`; render it read-only in one column.
-  const hasLexical = document.contentJson != null;
-
-  // For legacy documents (no `contentJson`), parse stored visuals, tolerating
-  // garbled data, and split the document-level visual (anchorBlockId = null)
-  // from block-anchored ones.
-  let visual: Visual | null = null;
-  const blockVisuals: Record<string, Visual> = {};
-  if (!hasLexical) {
-    for (const row of document.visuals) {
-      const parsed = safeParseVisual(row.data);
-      if (!parsed.success) {
-        continue;
-      }
-      if (row.anchorBlockId === null) {
-        visual ??= parsed.data;
-      } else if (!(row.anchorBlockId in blockVisuals)) {
-        blockVisuals[row.anchorBlockId] = parsed.data;
-      }
-    }
+  if (document.contentJson == null) {
+    notFound();
   }
 
   return (
@@ -186,34 +155,7 @@ export default async function SharedDocumentPage({
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
         <ShareLightbox>
           <article className="rounded-lg border border-ds-border-subtle bg-ds-surface-base p-4 sm:p-6">
-            {hasLexical ? (
-              <LexicalReadOnly state={document.contentJson} />
-            ) : (
-              <>
-                <LexicalReadOnly fallbackMarkdown={document.content} />
-                {Object.keys(blockVisuals).length > 0 ? (
-                  <div className="mt-6 flex flex-col gap-4">
-                    {Object.entries(blockVisuals).map(([id, blockVisual]) => (
-                      <div
-                        key={id}
-                        data-block-visual={id}
-                        className="w-full min-w-0 overflow-hidden rounded-lg border border-ds-border-subtle bg-ds-surface-base"
-                      >
-                        <VisualRenderer
-                          visual={blockVisual}
-                          className="h-auto w-full"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-                {visual ? (
-                  <div className="mt-6 w-full min-w-0 overflow-hidden rounded-lg border border-ds-border-subtle bg-ds-surface-base">
-                    <VisualRenderer visual={visual} className="h-auto w-full" />
-                  </div>
-                ) : null}
-              </>
-            )}
+            <LexicalReadOnly state={document.contentJson} />
           </article>
         </ShareLightbox>
       </div>

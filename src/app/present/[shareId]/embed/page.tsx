@@ -43,7 +43,6 @@ export default async function PresentEmbedPage({
     where: { shareId: resolvedShareId },
     select: {
       title: true,
-      content: true,
       contentJson: true,
       deckJson: true,
       ...SHARE_ACCESS_SELECT,
@@ -62,10 +61,7 @@ export default async function PresentEmbedPage({
     notFound();
   }
 
-  const blocks = buildPresentationBlocks(
-    document.contentJson,
-    document.content,
-  );
+  const blocks = buildPresentationBlocks(document.contentJson);
 
   const visualsRecord: Record<string, Visual> = {};
   for (const block of blocks) {

@@ -19,6 +19,7 @@ import {
   mirrorVisualNodesInTx,
   sanitizeRestoredDeck,
 } from "./persistence-service";
+import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck-migration";
 
 // ---------------------------------------------------------------------------
 // mirrorVisualNodesInTx — shared transaction boundary
@@ -163,7 +164,7 @@ const VALID_DECK = {
     },
   ],
   theme: "indigo",
-  version: 1,
+  schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
 };
 
 /** Minimal Lexical state carrying a single visual node with the given visualId. */

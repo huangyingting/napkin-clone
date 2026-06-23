@@ -1592,15 +1592,9 @@ export function SlideStageEditor({
             stageAspect,
           );
           const box = clampBox(rawBox);
-          const connector = {
-            ...resized.connector,
-            ...(drag.mode === "w"
-              ? { start: snapped.binding }
-              : { end: snapped.binding }),
-          };
           onUpdateElement(
             drag.id,
-            { box, rotation, connector },
+            { box, rotation },
             drag.coalesceKey,
           );
         } else {

@@ -3,7 +3,7 @@
  * issue #394).
  *
  * Renderers (editor canvas, present viewer, PPTX/image export) all need to
- * turn an `assetId` — or a raw URL / data URL — into a displayable source.
+ * turn an `assetId` into a displayable source.
  * Rather than forking this logic across surfaces we define a single resolver
  * interface and two concrete implementations:
  *
@@ -14,9 +14,6 @@
  *   - {@link ServerAssetResolver} — used by export paths (PPTX, SVG, image).
  *     Resolves `assetId` by looking up the `storageKey` in the database and
  *     returning either the public URL or raw bytes.
- *
- * Both implementations honour the legacy URL / data-URL pass-through so that
- * elements that have never been migrated to server storage continue to render.
  *
  * Pure and headless (no React, no browser APIs) so this module is safe to
  * import from both client components and server actions/routes.
@@ -41,13 +38,11 @@ export interface AssetResolution {
 /**
  * Resolves slide asset references to displayable sources.
  *
- * Call {@link resolve} with an element's `assetId` and/or `src` / `backgroundImage`.
+ * Call {@link resolve} with an element's `assetId` and cached display URL.
  * The contract for each combination:
  *
  *  - `assetId` present → perform asset lookup; fall back to `fallbackUrl` on
  *    failure only if the failure is a network / infra error (not "missing").
- *  - `assetId` absent, `fallbackUrl` is a non-empty non-data URL → pass through.
- *  - `assetId` absent, `fallbackUrl` is a data URL → pass through (legacy inline).
  *  - Both absent → `status: "missing"`, `url: undefined`.
  */
 export interface AssetResolver {
@@ -83,12 +78,8 @@ export class ClientAssetResolver implements AssetResolver {
     assetId?: string;
     fallbackUrl?: string;
   }): Promise<AssetResolution> {
-    // Legacy or plain URL element: no assetId.
     if (!assetId) {
-      if (!fallbackUrl || fallbackUrl.trim() === "") {
-        return { url: undefined, status: "missing" };
-      }
-      return { url: fallbackUrl, status: "loaded" };
+      return { url: undefined, status: "missing" };
     }
 
     // Asset-backed element: return the cached URL.
@@ -138,10 +129,7 @@ export interface AssetResolverStorage {
  *
  *  - If the asset row is soft-deleted → `status: "missing"`.
  *  - If the asset row is not found → `status: "missing"`.
- *  - If `fallbackUrl` is set and the DB lookup fails → honours the fallback
- *    only for data-URL / remote-URL elements (not for assetId-backed ones
- *    where missing is intentional).
- *  - Legacy elements (no `assetId`) → pure pass-through.
+ *  - If `fallbackUrl` is set and the DB lookup fails → honours the cached URL.
  */
 export class ServerAssetResolver implements AssetResolver {
   constructor(
@@ -157,10 +145,7 @@ export class ServerAssetResolver implements AssetResolver {
     fallbackUrl?: string;
   }): Promise<AssetResolution> {
     if (!assetId) {
-      if (!fallbackUrl || fallbackUrl.trim() === "") {
-        return { url: undefined, status: "missing" };
-      }
-      return { url: fallbackUrl, status: "loaded" };
+      return { url: undefined, status: "missing" };
     }
 
     try {
@@ -205,13 +190,12 @@ export function effectiveImageUrl(resolution: AssetResolution): string {
 }
 
 /**
- * Resolves an element's `assetId` and `src`/`fallbackUrl` synchronously
- * for contexts where an async resolver is not yet available.
+ * Resolves an element's `assetId` and cached URL synchronously for contexts
+ * where an async resolver is not yet available.
  *
  * Rules (matches {@link ClientAssetResolver} behaviour):
  *  - `assetId` set + non-empty `fallbackUrl` → loaded with the fallback URL.
  *  - `assetId` set, no `fallbackUrl` → missing.
- *  - no `assetId`, non-empty `fallbackUrl` → loaded (legacy pass-through).
  *  - neither → missing.
  */
 export function resolveAssetSync(opts: {
@@ -220,10 +204,7 @@ export function resolveAssetSync(opts: {
 }): AssetResolution {
   const { assetId, fallbackUrl } = opts;
   if (!assetId) {
-    if (!fallbackUrl || fallbackUrl.trim() === "") {
-      return { url: undefined, status: "missing" };
-    }
-    return { url: fallbackUrl, status: "loaded" };
+    return { url: undefined, status: "missing" };
   }
   if (fallbackUrl && fallbackUrl.trim() !== "") {
     return { url: fallbackUrl, status: "loaded" };

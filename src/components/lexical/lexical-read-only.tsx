@@ -1,7 +1,6 @@
 import { Fragment, type JSX, type ReactNode } from "react";
 
 import { VisualRenderer } from "@/components/visual/visual-renderer";
-import { markdownToLexicalStateObject } from "@/lib/lexical/from-markdown";
 import { safeParseVisual } from "@/lib/visual/schema";
 
 /**
@@ -276,28 +275,15 @@ function parseState(state: unknown): SerializedNode | null {
   return isRecord(root) ? root : null;
 }
 
-/**
- * Renders a document read-only from its Lexical `contentJson`. When no
- * serialized state is available (legacy documents that only have a Markdown
- * `content` string), pass `fallbackMarkdown` and it is converted on the fly with
- * the US-004 converter so unmigrated documents still render.
- */
+/** Renders a document read-only from its Lexical `contentJson`. */
 export function LexicalReadOnly({
   state,
-  fallbackMarkdown,
   className,
 }: {
   state?: unknown;
-  fallbackMarkdown?: string | null;
   className?: string;
 }): JSX.Element {
-  let root = parseState(state);
-
-  if (!root || !Array.isArray(root.children) || root.children.length === 0) {
-    if (fallbackMarkdown && fallbackMarkdown.trim()) {
-      root = markdownToLexicalStateObject(fallbackMarkdown).root;
-    }
-  }
+  const root = parseState(state);
 
   const children =
     root && Array.isArray(root.children) ? (root.children as unknown[]) : [];

@@ -120,12 +120,7 @@ export default async function PresentPage({
     notFound();
   }
 
-  // Build blocks from contentJson when available; fall back to Markdown content
-  // for legacy/imported documents that have not yet been opened in the editor.
-  const blocks = buildPresentationBlocks(
-    document.contentJson,
-    document.content,
-  );
+  const blocks = buildPresentationBlocks(document.contentJson);
 
   // Build visual lookup map: visualId → Visual
   const visualsRecord: Record<string, Visual> = {};

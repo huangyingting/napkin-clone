@@ -6,8 +6,6 @@
  *  - Is stable across save/reload and text edits inside the block.
  *  - Is unique within a document when generated via {@link generateBlockId}.
  *  - Must be regenerated when a block is cloned (duplicate doc, copy/paste).
- *  - Is absent on pre-#432 content; {@link collectDocumentBlocks} falls back to
- *    the legacy `key` field when `bid` is absent.
  *
  * ## Stamping and upgrading
  *
@@ -124,7 +122,7 @@ function regenerateNode(node: unknown, bidMap: Map<string, string>): unknown {
   }
 
   const nextBid = generateBlockId();
-  const previousId = nonEmptyString(node.bid) ?? nonEmptyString(node.key);
+  const previousId = nonEmptyString(node.bid);
   if (previousId) {
     bidMap.set(previousId, nextBid);
   }

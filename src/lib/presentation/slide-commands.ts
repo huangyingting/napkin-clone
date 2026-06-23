@@ -64,7 +64,6 @@ import {
   groupElements,
   insertSlide,
   matchSizeElements,
-  materializeSlide,
   moveElementZOrder,
   moveSlide,
   nudgeElements,
@@ -250,13 +249,6 @@ export interface ResetSlideLayoutCommand {
   type: "RESET_SLIDE_LAYOUT";
   slideIndex: number;
   layout: ReusableSlideLayout;
-  commandId?: string;
-}
-
-/** Materializes a legacy-track slide into free-form `elements[]`. */
-export interface MaterializeSlideCommand {
-  type: "MATERIALIZE_SLIDE";
-  slideIndex: number;
   commandId?: string;
 }
 
@@ -509,7 +501,6 @@ export type SlideCommand =
   | UpdateSlideLayoutHintCommand
   | ApplySlideLayoutCommand
   | ResetSlideLayoutCommand
-  | MaterializeSlideCommand
   // #399 — multi-element, group, align/arrange
   | RemoveElementsCommand
   | DuplicateElementCommand
@@ -1044,20 +1035,6 @@ export function executeCommand(deck: Deck, cmd: SlideCommand): CommandResult {
         [],
         undefined,
         [makePatch("slide.reset_layout", [slide.id], [])],
-      );
-    }
-
-    case "MATERIALIZE_SLIDE": {
-      if (cmd.slideIndex < 0 || cmd.slideIndex >= deck.slides.length) {
-        return failure(deck, `Invalid slideIndex: ${cmd.slideIndex}`);
-      }
-      const slide = deck.slides[cmd.slideIndex]!;
-      return success(
-        materializeSlide(deck, cmd.slideIndex),
-        [slide.id],
-        [],
-        undefined,
-        [makePatch("slide.materialize", [slide.id], [])],
       );
     }
 

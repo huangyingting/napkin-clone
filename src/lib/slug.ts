@@ -67,27 +67,25 @@ export function buildSlugCandidate(title: string, suffix?: string): string {
 }
 
 /**
- * Builds the URL path segment used in a share/embed link from a (possibly
- * empty) decorative slug and the canonical shareId.
- *
- * - With a slug: `<slug>-<shareId>` (the shareId is always the part after the
- *   last hyphen, since the shareId alphabet never contains a hyphen).
- * - Without a slug: just `<shareId>` (legacy/bare form).
+ * Builds the URL path segment used in a share/embed link.
  */
 export function buildShareSegment(
   slug: string | null | undefined,
   shareId: string,
 ): string {
-  return slug ? `${slug}-${shareId}` : shareId;
+  const cleanSlug = slug?.trim();
+  if (!cleanSlug || !shareId) {
+    throw new Error("Share links require both slug and shareId.");
+  }
+  return `${cleanSlug}-${shareId}`;
 }
 
 /**
- * Extracts the canonical shareId from a share/embed URL segment that may be
- * either the legacy bare shareId or the `<slug>-<shareId>` form. Because the
- * shareId alphabet contains no hyphens, the real id is always the substring
- * after the last hyphen (or the whole segment when there is none).
+ * Extracts the canonical shareId from a `<slug>-<shareId>` URL segment. Because
+ * the shareId alphabet contains no hyphens, the real id is the substring after
+ * the last hyphen. Malformed/bare segments return an empty id.
  */
 export function shareIdFromParam(param: string): string {
   const idx = param.lastIndexOf("-");
-  return idx === -1 ? param : param.slice(idx + 1);
+  return idx > 0 && idx < param.length - 1 ? param.slice(idx + 1) : "";
 }

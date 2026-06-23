@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { documentCapabilities } from "@/lib/auth/document-permissions";
-import { markdownToLexicalState } from "@/lib/lexical/from-markdown";
 import { prisma } from "@/lib/prisma";
 import { normalizeDeckRaw } from "@/lib/presentation/fresh-deck";
 import { requireUser } from "@/lib/session";
@@ -43,7 +42,6 @@ export default async function DocumentEditorPage({
     select: {
       id: true,
       title: true,
-      content: true,
       contentJson: true,
       deckJson: true,
       isShared: true,
@@ -79,14 +77,9 @@ export default async function DocumentEditorPage({
   // the UI and the server actions agree on what this user may do (issue #89).
   const { canEdit, canManage } = documentCapabilities(document, user.id);
 
-  // The Lexical editor's content (including inline visual cards) lives in
-  // `contentJson`. Legacy documents that only have Markdown `content` are
-  // converted on first open; the first edit then persists `contentJson`.
   const initialStateJson = document.contentJson
     ? JSON.stringify(document.contentJson)
-    : document.content
-      ? markdownToLexicalState(document.content)
-      : null;
+    : null;
 
   // Comment threads for everyone with access (owner + workspace members).
   const initialComments = await listComments(document.id);

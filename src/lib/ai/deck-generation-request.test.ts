@@ -8,20 +8,34 @@ import {
   parseDeckResponse,
   requestDeckGeneration,
 } from "./deck-generation-request";
+import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck-migration";
 
 // A schema-valid deck reused across the parse/request tests. Mirrors the
-// minimal legacy deck shape exercised in deck-schema.test.ts.
+// current deck schema.
 const VALID_DECK = {
   theme: "default",
+  schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
   slides: [
     {
+      id: "slide-1",
       index: 0,
-      title: "Legacy",
+      title: "Current",
       bullets: ["a", "b"],
       visualIds: [],
       layout: "content",
       notes: "",
       theme: "default",
+      elements: [
+        {
+          id: "text-1",
+          kind: "text",
+          text: "Current",
+          role: "title",
+          zIndex: 0,
+          box: { x: 6, y: 6, w: 88, h: 16 },
+          style: { fontSize: 6, bold: true, italic: false, align: "left" },
+        },
+      ],
     },
   ],
 };
@@ -90,7 +104,7 @@ test("parseDeckResponse returns the deck and truncated flag", () => {
   const parsed = parseDeckResponse({ deck: VALID_DECK, truncated: true });
   assert.ok(parsed);
   assert.equal(parsed.truncated, true);
-  assert.equal(parsed.deck.slides[0].title, "Legacy");
+  assert.equal(parsed.deck.slides[0].title, "Current");
 });
 
 test("parseDeckResponse defaults truncated to false", () => {
@@ -128,7 +142,7 @@ test("requestDeckGeneration returns the parsed deck on success", async () => {
   assert.equal(result.ok, true);
   if (result.ok) {
     assert.equal(result.truncated, true);
-    assert.equal(result.deck.slides[0].title, "Legacy");
+    assert.equal(result.deck.slides[0].title, "Current");
   }
 });
 

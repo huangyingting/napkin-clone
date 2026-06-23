@@ -2,8 +2,7 @@
  * Tests for import normalization (issue #485).
  *
  * Verifies that the Markdown→Lexical conversion produces valid, parseable
- * contentJson at creation time, and that the legacy first-open path still
- * produces identical output for existing content-only docs.
+ * contentJson at creation time.
  */
 
 import assert from "node:assert/strict";
@@ -97,28 +96,3 @@ test("markdownToLexicalState and markdownToLexicalStateObject produce consistent
   }
 });
 
-// ---------------------------------------------------------------------------
-// Legacy first-open fallback: existing content-only docs
-// ---------------------------------------------------------------------------
-
-test("legacy first-open fallback: converting a content-only doc produces the same structure as creation-time normalization", () => {
-  // Simulate a legacy doc that has only `content` (Markdown) and no contentJson.
-  const legacyMarkdown = "# Legacy Doc\n\n- item a\n- item b";
-
-  // The first-open path: convert on read (same function, same Markdown).
-  const firstOpenState = markdownToLexicalStateObject(legacyMarkdown);
-
-  // The creation-time path (import normalization): convert at write.
-  const creationTimeState = markdownToLexicalStateObject(legacyMarkdown);
-
-  // Both should produce the same structure (node types and counts).
-  assert.equal(
-    firstOpenState.root.children.length,
-    creationTimeState.root.children.length,
-  );
-  for (let i = 0; i < firstOpenState.root.children.length; i++) {
-    const fo = firstOpenState.root.children[i] as Record<string, unknown>;
-    const ct = creationTimeState.root.children[i] as Record<string, unknown>;
-    assert.equal(fo.type, ct.type);
-  }
-});

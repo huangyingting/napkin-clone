@@ -6,6 +6,7 @@ import { test } from "node:test";
 
 import { safeParseDeck } from "./deck-schema";
 import type { Deck } from "./deck";
+import { CURRENT_DECK_SCHEMA_VERSION } from "./deck-migration";
 
 function minSlide(overrides: Record<string, unknown> = {}) {
   return {
@@ -17,12 +18,13 @@ function minSlide(overrides: Record<string, unknown> = {}) {
     visualIds: [],
     layout: "blank",
     theme: "default",
+    elements: [],
     ...overrides,
   };
 }
 
 function deckWith(slides: object[]): unknown {
-  return { slides, theme: "default", schemaVersion: 1 };
+  return { slides, theme: "default", schemaVersion: CURRENT_DECK_SCHEMA_VERSION };
 }
 
 function minDeck(slideOverrides: Record<string, unknown> = {}): Deck {
@@ -37,11 +39,12 @@ function minDeck(slideOverrides: Record<string, unknown> = {}): Deck {
         visualIds: [],
         layout: "blank",
         theme: "default",
+        elements: [],
         ...slideOverrides,
       },
     ],
     theme: "default",
-    schemaVersion: 1,
+    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
   };
 }
 
@@ -65,15 +68,6 @@ test("#393: safeParseDeck accepts slide without backgroundAssetId", () => {
   const input = deckWith([minSlide({ backgroundImage: "/img.png" })]);
   const result = safeParseDeck(input);
   assert.ok(result.success);
-  assert.equal(result.data.slides[0].backgroundAssetId, undefined);
-});
-
-test("#393: safeParseDeck accepts slide with legacy data URL backgroundImage and no assetId", () => {
-  const dataUrl = "data:image/png;base64,iVBORw0KGgo=";
-  const input = deckWith([minSlide({ backgroundImage: dataUrl })]);
-  const result = safeParseDeck(input);
-  assert.ok(result.success);
-  assert.equal(result.data.slides[0].backgroundImage, dataUrl);
   assert.equal(result.data.slides[0].backgroundAssetId, undefined);
 });
 

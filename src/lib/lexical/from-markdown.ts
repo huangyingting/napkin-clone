@@ -3,11 +3,6 @@
  * (headings H1–H3, bullet lists, and paragraphs) to a serialized Lexical editor
  * state JSON.
  *
- * This is the lazy migration path: documents created before the Lexical editor
- * only have a Markdown `content` string. When such a document is opened without
- * a `contentJson`, we convert its Markdown here so the editor can initialize
- * from it (and the first save then persists the Lexical state).
- *
  * It produces the serialized shape Lexical's `editorState.toJSON()` emits for
  * `ParagraphNode`, `HeadingNode`, `ListNode`, and `ListItemNode`, plus the
  * additive durable `bid` field on block-level nodes. The result still

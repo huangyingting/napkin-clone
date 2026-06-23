@@ -1,4 +1,6 @@
 import { Prisma } from "@/generated/prisma/client";
+import { generateBlockId } from "@/lib/lexical/block-id";
+import { buildSeedContentJson } from "@/lib/lexical/seed-content";
 import { prisma } from "@/lib/prisma";
 import { FIXTURES } from "@/lib/visual/fixtures";
 import { VISUAL_KIND_TO_PRISMA } from "@/lib/visual/schema";
@@ -49,17 +51,21 @@ export async function seedSampleDocument(userId: string): Promise<void> {
     }
 
     const sampleVisual = FIXTURES.flowchart;
+    const visualId = generateBlockId();
 
     await prisma.document.create({
       data: {
         title: SAMPLE_DOCUMENT_TITLE,
         content: SAMPLE_DOCUMENT_CONTENT,
+        contentJson: buildSeedContentJson(
+          "This sample document includes an editable visual below.",
+          sampleVisual,
+          visualId,
+        ) as unknown as Prisma.InputJsonValue,
         ownerId: userId,
-        // Attach a document-level visual (anchorBlockId = null) so it renders in
-        // the editor's right-hand visual panel out of the box.
         visuals: {
           create: {
-            anchorBlockId: null,
+            anchorBlockId: visualId,
             type: VISUAL_KIND_TO_PRISMA[sampleVisual.type],
             title: sampleVisual.title ?? null,
             data: sampleVisual as unknown as Prisma.InputJsonValue,

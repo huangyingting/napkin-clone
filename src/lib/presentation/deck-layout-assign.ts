@@ -1,42 +1,11 @@
 /**
  * Layout / template / theme normalization for AI-generated decks (issue #264).
  *
- * `generateDeck` (issue #261) parses and *repairs* raw model output into a
- * `safeParseDeck`-valid {@link Deck}, but a repaired deck can still be "thin":
- * the model may emit only legacy `title` / `bullets` / `visualIds` fields, or
- * positioned `elements[]` that do not match the slide's declared {@link
- * SlideLayoutHint}. Hand-authored slides (from {@link buildTemplateSlide}) and
- * document-derived slides (from {@link materializeSlideElements}) both speak a
- * richer vocabulary: every slide snaps to a layout preset, carries a deck
- * {@link DeckTheme}, and positions title / body / visual elements for clear
- * visual hierarchy.
- *
- * {@link normalizeGeneratedDeck} brings AI output into that same vocabulary so a
- * generated deck renders identically to an authored one in the editor, preview
- * and present routes. It is pure and DOM-free — no React, no network — and
- * fully testable under `node --test`.
- *
- * Rules (see issue #264):
- *  1. Per slide: keep/clean model-provided `elements[]` (clamp boxes, dedupe
- *     ids, re-stack zIndex) when they already match the declared layout;
- *     otherwise re-scaffold from the legacy fields via
- *     {@link materializeSlideElements} so the slide gets hierarchy-appropriate
- *     positioned elements.
- *  2. Place a referenced document visual into a prominent box for slides whose
- *     layout implies a visual (`media`). Only ids present in the supplied
- *     inventory are used; orphaned references are dropped.
- *  3. Stamp the deck theme uniformly on every slide. The model is biased to
- *     return a vibrant theme, but when it returns `"default"` (reserved for
- *     dark/embed contexts) or a missing/invalid theme, substitute a vibrant one
- *     (issue #281): the caller-supplied document-derived `preferredTheme` (from
- *     {@link inferDeckTheme}) when available, otherwise {@link FALLBACK_THEME}.
- *     An explicit NON-default vibrant theme the model chose is preserved. Text
- *     styles are normalized so title vs body hierarchy stays clear.
- *  4. Slides are stamped `elementsDerived = false` (authored). The user chose AI
- *     generation, so the output is treated like hand-authored content and a
- *     later "Sync from document" (issue #221) PRESERVES it instead of clobbering
- *     it with re-materialized document content.
- *  5. Output stays `safeParseDeck`-valid.
+ * `generateDeck` repairs raw model output into a current-schema {@link Deck},
+ * but the model may still emit sparse slide content or positioned `elements[]`
+ * that do not match the slide's declared {@link SlideLayoutHint}. This module
+ * normalizes that output into the same element-first vocabulary used by the
+ * editor, preview, and present routes.
  */
 
 import {
@@ -53,6 +22,7 @@ import {
   type TextElementStyle,
   type VisualElement,
 } from "./deck";
+import { CURRENT_DECK_SCHEMA_VERSION } from "./deck-migration";
 
 /**
  * Brand-aligned theme used when the deck carries no valid theme. Mirrors the
@@ -63,8 +33,8 @@ import {
 export const FALLBACK_THEME: DeckTheme = "indigo";
 
 /**
- * Prominent visual box (percent units) used when injecting a document visual
- * into a `media` slide that is missing one. Mirrors the visual-only box in
+ * Prominent visual box used when injecting a document visual into a `media`
+ * slide that is missing one. Mirrors the visual-only box in
  * {@link materializeSlideElements} so generated and derived slides share the
  * same approved geometry.
  */
@@ -101,7 +71,6 @@ function toKnownIds(
 }
 
 /**
- * Builds an id → inventory-item lookup so visual elements can be labelled with
  * the source visual's title/summary. A plain id `Set` carries no titles, so the
  * map is empty in that case and labels fall back to a sensible default.
  */
@@ -376,5 +345,5 @@ export function normalizeGeneratedDeck(
   const slides = deck.slides.map((slide, index) =>
     normalizeSlide(slide, index, theme, knownIds, inventoryMap),
   );
-  return { ...deck, theme, slides };
+  return { ...deck, theme, schemaVersion: CURRENT_DECK_SCHEMA_VERSION, slides };
 }

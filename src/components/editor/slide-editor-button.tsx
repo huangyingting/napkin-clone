@@ -48,7 +48,6 @@ import { deckEditDistance } from "@/lib/ai/deck-metrics";
 import { logInfo } from "@/lib/log";
 import { buildDeckFromBlocks, type Deck } from "@/lib/presentation/deck";
 import type { DeckPatch } from "@/lib/presentation/slide-commands";
-import { materializeDeck } from "@/lib/presentation/deck-mutations";
 import {
   computeDeckContentHash,
   isDeckStale,
@@ -295,9 +294,7 @@ export function SlideEditorButton({
   // Deterministic open path (the default and the universal fallback). Seeds from
   // the freshest of server deckJson / last saved / freshly-derived base deck.
   // Prepare the deterministic baseline the editor would otherwise open: the
-  // freshest of server deckJson / last saved / freshly-derived base deck,
-  // materialized so it is element-first. Shared by the derive open path and the
-  // AI preview (which diffs the proposal against this baseline).
+  // freshest of server deckJson / last saved / freshly-derived base deck.
   const prepareOpen = useCallback(
     async (json: string): Promise<{ startDeck: Deck; ctx: OpenContext }> => {
       const ctx = buildOpenContext(json);
@@ -312,14 +309,9 @@ export function SlideEditorButton({
         // Network/auth error — proceed with lastSavedRef as fallback.
       }
 
-      // Materialize legacy slides up-front so the editor opens fully
-      // element-first and the materialized deck becomes the history BASELINE
-      // (empty `past`), keeping `canUndo` false until the user actually edits.
-      const startDeck = materializeDeck(
-        stripOrphanedVisuals(
-          pickFreshestDeck(fetchedRaw, lastSavedRef.current, ctx.baseDeck),
-          ctx.knownVisualIds,
-        ),
+      const startDeck = stripOrphanedVisuals(
+        pickFreshestDeck(fetchedRaw, lastSavedRef.current, ctx.baseDeck),
+        ctx.knownVisualIds,
       );
       return { startDeck, ctx };
     },
@@ -340,7 +332,7 @@ export function SlideEditorButton({
   // AI open path: a freshly generated deck (already normalized +
   // safeParseDeck-valid + elementsDerived=false) is stamped with the current
   // document hash so it isn't falsely flagged stale, then flowed through the
-  // SAME materialize + strip-orphans pipeline as a derived deck. This is the
+  // same strip-orphans pipeline as a derived deck. This is the
   // APPLY point of issue #269: it runs only after the user reviews the preview
   // and presses "Apply", and remains non-destructive (the AI deck becomes the
   // editor's history baseline; nothing is persisted until the first edit/save).
@@ -348,13 +340,10 @@ export function SlideEditorButton({
     (aiDeck: Deck, json: string) => {
       const ctx = buildOpenContext(json);
       const stamped = stampDeckContentHash(aiDeck, ctx.currentContentHash);
-      const startDeck = materializeDeck(
-        stripOrphanedVisuals(stamped, ctx.knownVisualIds),
-      );
+      const startDeck = stripOrphanedVisuals(stamped, ctx.knownVisualIds);
       // Record the applied AI deck as the baseline for the post-apply
-      // edit-distance signal (issue #270), captured AFTER the same
-      // materialize/strip pipeline the editor opens with so the first save is
-      // compared like-for-like.
+      // edit-distance signal (issue #270), captured after the same open
+      // pipeline the editor uses so the first save is compared like-for-like.
       aiAppliedDeckRef.current = startDeck;
       setAiPreview(null);
       finishOpen(startDeck, ctx);

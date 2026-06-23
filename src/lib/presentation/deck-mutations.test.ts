@@ -10,8 +10,6 @@ import {
   duplicateElement,
   duplicateSlide,
   insertSlide,
-  materializeDeck,
-  materializeSlide,
   moveElementZOrder,
   removeElement,
   removeElements,
@@ -28,7 +26,6 @@ import {
   setElementLocked,
   setSlideAccent,
   setSlideBackground,
-  slideNeedsMaterialization,
   updateElement,
   updateSlide,
 } from "./deck-mutations";
@@ -38,15 +35,36 @@ import {
 // ---------------------------------------------------------------------------
 
 function slide(index: number, title: string): Slide {
+  const bullets = [`${title} bullet`];
   return {
     id: "test-id",
     index,
     title,
-    bullets: [`${title} bullet`],
+    bullets,
     visualIds: [],
     layout: "content",
     notes: "",
     theme: "default",
+    elements: [
+      {
+        id: `title-${index}`,
+        kind: "text",
+        role: "title",
+        text: title,
+        zIndex: 0,
+        box: { x: 6, y: 6, w: 88, h: 16 },
+        style: { fontSize: 6, align: "left", bold: true, italic: false },
+      },
+      {
+        id: `bullets-${index}`,
+        kind: "bullets",
+        bullets,
+        zIndex: 1,
+        box: { x: 6, y: 26, w: 88, h: 66 },
+        style: { fontSize: 4.5, align: "left", bold: false, italic: false },
+      },
+    ],
+    elementsDerived: true,
   };
 }
 
@@ -244,23 +262,21 @@ test("removeSlide keeps at least one slide", () => {
 // updateSlide
 // ---------------------------------------------------------------------------
 
-test("updateSlide applies a patch to title and bullets", () => {
+test("updateSlide ignores content-field patches once elements are authoritative", () => {
   const deck = makeDeck(["A", "B"]);
   const next = updateSlide(deck, 1, {
     title: "B2",
     bullets: ["x", "y"],
   });
 
-  assert.equal(next.slides[1].title, "B2");
-  assert.deepEqual(next.slides[1].bullets, ["x", "y"]);
-  // other slides untouched
+  assert.equal(next.slides[1].title, "B");
+  assert.deepEqual(next.slides[1].bullets, ["B bullet"]);
   assert.equal(next.slides[0].title, "A");
-  // original untouched
   assert.equal(deck.slides[1].title, "B");
 });
 
-test("updateSlide ignores legacy-field patches once elements are authoritative", () => {
-  const deck = materializeSlide(makeDeck(["A", "B"]), 0);
+test("updateSlide ignores content-field patches on element slides", () => {
+  const deck = makeDeck(["A", "B"]);
   const before = deck.slides[0];
   const next = updateSlide(deck, 0, {
     title: "HACKED",
@@ -269,7 +285,6 @@ test("updateSlide ignores legacy-field patches once elements are authoritative",
     layout: "media",
   });
 
-  // Legacy content fields are frozen on a free-form slide — no desync.
   assert.equal(next.slides[0].title, before.title);
   assert.deepEqual(next.slides[0].bullets, before.bullets);
   assert.deepEqual(next.slides[0].visualIds, before.visualIds);
@@ -278,8 +293,8 @@ test("updateSlide ignores legacy-field patches once elements are authoritative",
   assert.equal(next.slides[0].elements, before.elements);
 });
 
-test("updateSlide still applies non-legacy fields on a free-form slide", () => {
-  const deck = materializeSlide(makeDeck(["A", "B"]), 0);
+test("updateSlide still applies non-content fields on an element slide", () => {
+  const deck = makeDeck(["A", "B"]);
   const next = updateSlide(deck, 0, {
     title: "ignored",
     notes: "new notes",
@@ -288,23 +303,7 @@ test("updateSlide still applies non-legacy fields on a free-form slide", () => {
 
   assert.equal(next.slides[0].notes, "new notes");
   assert.equal(next.slides[0].background, "#123456");
-  // legacy title patch still ignored
   assert.equal(next.slides[0].title, deck.slides[0].title);
-});
-
-test("updateSlide applies the full patch on a legacy slide (no elements)", () => {
-  const deck = makeDeck(["A", "B"]);
-  const next = updateSlide(deck, 0, {
-    title: "A2",
-    bullets: ["p"],
-    visualIds: ["v1"],
-    layout: "media",
-  });
-
-  assert.equal(next.slides[0].title, "A2");
-  assert.deepEqual(next.slides[0].bullets, ["p"]);
-  assert.deepEqual(next.slides[0].visualIds, ["v1"]);
-  assert.equal(next.slides[0].layout, "media");
 });
 
 // ---------------------------------------------------------------------------
@@ -346,115 +345,7 @@ function deckWithBullets(): Deck {
   return makeDeck(["A", "B"]);
 }
 
-test("materializeSlide derives elements from legacy content", () => {
-  const deck = deckWithBullets();
-  const next = materializeSlide(deck, 0);
-
-  assert.ok((next.slides[0].elements?.length ?? 0) > 0);
-  // Other slide untouched (still legacy)
-  assert.equal(next.slides[1].elements, undefined);
-  // Original untouched
-  assert.equal(deck.slides[0].elements, undefined);
-});
-
-test("materializeSlide is a no-op when elements already exist", () => {
-  const deck = materializeSlide(deckWithBullets(), 0);
-  const again = materializeSlide(deck, 0);
-  assert.equal(again.slides[0].elements, deck.slides[0].elements);
-});
-
-test("slideNeedsMaterialization flags legacy content but not blanks", () => {
-  // Legacy slide with a title + bullets.
-  assert.equal(slideNeedsMaterialization(slide(0, "A")), true);
-
-  // Slide with only a title.
-  assert.equal(
-    slideNeedsMaterialization({
-      id: "test-id",
-      index: 0,
-      title: "Just a title",
-      bullets: [],
-      visualIds: [],
-      layout: "title",
-      notes: "",
-      theme: "default",
-    }),
-    true,
-  );
-
-  // Slide with only a visual.
-  assert.equal(
-    slideNeedsMaterialization({
-      id: "test-id",
-      index: 0,
-      title: "",
-      bullets: [],
-      visualIds: ["v1"],
-      layout: "media",
-      notes: "",
-      theme: "default",
-    }),
-    true,
-  );
-
-  // Empty / blank slide — nothing to derive.
-  assert.equal(
-    slideNeedsMaterialization({
-      id: "test-id",
-      index: 0,
-      title: "",
-      bullets: [],
-      visualIds: [],
-      layout: "blank",
-      notes: "",
-      theme: "default",
-    }),
-    false,
-  );
-
-  // Already materialized slide.
-  const materialized = materializeSlide(deckWithBullets(), 0).slides[0];
-  assert.equal(slideNeedsMaterialization(materialized), false);
-});
-
-test("materializeDeck materializes every legacy slide", () => {
-  const deck = makeDeck(["A", "B"]);
-  const next = materializeDeck(deck);
-
-  assert.ok((next.slides[0].elements?.length ?? 0) > 0);
-  assert.ok((next.slides[1].elements?.length ?? 0) > 0);
-  // Original deck untouched (immutability).
-  assert.equal(deck.slides[0].elements, undefined);
-  assert.equal(deck.slides[1].elements, undefined);
-});
-
-test("materializeDeck leaves blank slides legacy and returns same ref when no-op", () => {
-  const blank: Slide = {
-    id: "blank-id",
-    index: 0,
-    title: "",
-    bullets: [],
-    visualIds: [],
-    layout: "blank",
-    notes: "",
-    theme: "default",
-  };
-  const deck: Deck = { theme: "default", slides: [blank] };
-  const next = materializeDeck(deck);
-
-  // Nothing to materialize → exact same reference (so a history commit is a no-op).
-  assert.equal(next, deck);
-  assert.equal(next.slides[0].elements, undefined);
-});
-
-test("materializeDeck preserves already-materialized slides untouched", () => {
-  const base = materializeDeck(makeDeck(["A", "B"]));
-  const again = materializeDeck(base);
-  // No legacy slides remain → same reference back.
-  assert.equal(again, base);
-});
-
-test("addElement materializes then appends with a generated id and top z", () => {
+test("addElement appends with a generated id and top z", () => {
   const deck = deckWithBullets();
   const next = addElement(deck, 0, {
     kind: "shape",
@@ -585,9 +476,7 @@ test("removeElements deletes only the named ids", () => {
 });
 
 test("removeElements clears elementsDerived and is immutable", () => {
-  const base = materializeDeck(deckWithThreeElements());
-  // materializeDeck marks the slide as derived; addElement already cleared it,
-  // so re-stamp it true to prove removeElements clears it.
+  const base = deckWithThreeElements();
   const stamped: Deck = {
     ...base,
     slides: base.slides.map((s, i) =>
@@ -632,7 +521,7 @@ test("nudgeElements clamps each box within the slide", () => {
 });
 
 test("nudgeElements clears elementsDerived and is immutable", () => {
-  const base = materializeDeck(deckWithThreeElements());
+  const base = deckWithThreeElements();
   const stamped: Deck = {
     ...base,
     slides: base.slides.map((s, i) =>
@@ -693,7 +582,7 @@ test("duplicateElements is a no-op when nothing matches", () => {
 });
 
 test("bringElementToFront / sendElementToBack reorder z-index", () => {
-  let deck = materializeSlide(deckWithBullets(), 0);
+  let deck = deckWithBullets();
   const ids = (deck.slides[0].elements ?? []).map((e) => e.id);
   assert.ok(ids.length >= 2);
 
@@ -723,7 +612,7 @@ test("setSlideBackground / setSlideAccent set and clear overrides", () => {
 });
 
 test("duplicateSlide deep-copies elements", () => {
-  const deck = materializeSlide(deckWithBullets(), 0);
+  const deck = deckWithBullets();
   const next = duplicateSlide(deck, 0);
   assert.notEqual(next.slides[0].elements, next.slides[1].elements);
   assert.deepEqual(
@@ -733,26 +622,11 @@ test("duplicateSlide deep-copies elements", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Provenance flag (issue #221): elementsDerived stamping / clearing
+// Provenance flag (issue #221): elementsDerived clearing
 // ---------------------------------------------------------------------------
 
-test("materializeSlide stamps elementsDerived=true on the derived slide", () => {
-  const next = materializeSlide(deckWithBullets(), 0);
-  assert.equal(next.slides[0].elementsDerived, true);
-  // Untouched slide carries no flag.
-  assert.equal(next.slides[1].elementsDerived, undefined);
-});
-
-test("materializeDeck stamps elementsDerived=true on every derived slide", () => {
-  const next = materializeDeck(deckWithBullets());
-  assert.ok(next.slides.length >= 1);
-  for (const slide of next.slides) {
-    assert.equal(slide.elementsDerived, true);
-  }
-});
-
 test("addElement clears elementsDerived (hand-edit) on the slide", () => {
-  const derived = materializeDeck(deckWithBullets());
+  const derived = deckWithBullets();
   assert.equal(derived.slides[0].elementsDerived, true);
   const next = addElement(derived, 0, {
     kind: "shape",
@@ -766,7 +640,7 @@ test("addElement clears elementsDerived (hand-edit) on the slide", () => {
 });
 
 test("updateElement clears elementsDerived on the slide", () => {
-  const derived = materializeDeck(deckWithBullets());
+  const derived = deckWithBullets();
   const elementId = derived.slides[0].elements![0].id;
   const next = updateElement(derived, 0, elementId, {
     box: { x: 5, y: 5, w: 30, h: 30 },
@@ -775,7 +649,7 @@ test("updateElement clears elementsDerived on the slide", () => {
 });
 
 test("removeElement / bringElementToFront / sendElementToBack clear elementsDerived", () => {
-  const derived = materializeDeck(deckWithBullets());
+  const derived = deckWithBullets();
   const elementId = derived.slides[0].elements![0].id;
 
   assert.equal(
@@ -793,7 +667,7 @@ test("removeElement / bringElementToFront / sendElementToBack clear elementsDeri
 });
 
 test("duplicateSlide carries the elementsDerived flag onto the copy", () => {
-  const derived = materializeDeck(deckWithBullets());
+  const derived = deckWithBullets();
   const next = duplicateSlide(derived, 0);
   assert.equal(next.slides[0].elementsDerived, true);
   assert.equal(next.slides[1].elementsDerived, true);
@@ -804,7 +678,7 @@ test("duplicateSlide carries the elementsDerived flag onto the copy", () => {
 // ---------------------------------------------------------------------------
 
 test("duplicateElement clones with a new id, offset, and returns the copy id", () => {
-  const deck = materializeSlide(deckWithBullets(), 0);
+  const deck = deckWithBullets();
   const original = deck.slides[0].elements![0];
   const { deck: next, newElementId } = duplicateElement(deck, 0, original.id);
 
@@ -838,7 +712,7 @@ test("duplicateElement clones with a new id, offset, and returns the copy id", (
 });
 
 test("duplicateElement clears elementsDerived on the slide", () => {
-  const derived = materializeDeck(deckWithBullets());
+  const derived = deckWithBullets();
   assert.equal(derived.slides[0].elementsDerived, true);
   const id = derived.slides[0].elements![0].id;
   const { deck: next } = duplicateElement(derived, 0, id);
@@ -846,7 +720,7 @@ test("duplicateElement clears elementsDerived on the slide", () => {
 });
 
 test("duplicateElement is a no-op for a bad index or missing element", () => {
-  const deck = materializeSlide(deckWithBullets(), 0);
+  const deck = deckWithBullets();
   const id = deck.slides[0].elements![0].id;
 
   const badIndex = duplicateElement(deck, 9, id);
@@ -857,14 +731,13 @@ test("duplicateElement is a no-op for a bad index or missing element", () => {
   assert.equal(missing.deck, deck);
   assert.equal(missing.newElementId, null);
 
-  // Legacy slide (no elements) is also a no-op.
-  const legacy = duplicateElement(deck, 1, id);
-  assert.equal(legacy.deck, deck);
-  assert.equal(legacy.newElementId, null);
+  const missingOnOtherSlide = duplicateElement(deck, 1, id);
+  assert.equal(missingOnOtherSlide.deck, deck);
+  assert.equal(missingOnOtherSlide.newElementId, null);
 });
 
 test("duplicateElement clamps the offset so the copy stays on the slide", () => {
-  const deck = materializeSlide(deckWithBullets(), 0);
+  const deck = deckWithBullets();
   const id = deck.slides[0].elements![0].id;
   // Push the original hard against the bottom-right corner.
   const pinned = updateElement(deck, 0, id, {
@@ -925,7 +798,7 @@ test("alignElements aligns only the named ids and leaves others untouched", () =
 });
 
 test("alignElements clears elementsDerived and returns a new deck", () => {
-  const deck = materializeSlide(makeDeck(["A"]), 0);
+  const deck = makeDeck(["A"]);
   assert.equal(deck.slides[0].elementsDerived, true);
   const ids = deck.slides[0].elements!.slice(0, 2).map((e) => e.id);
   const next = alignElements(deck, 0, ids, "top");
@@ -991,7 +864,7 @@ test("setElementHidden is immutable", () => {
 });
 
 test("setElementHidden clears elementsDerived", () => {
-  const deck = materializeSlide(makeDeck(["A"]), 0);
+  const deck = makeDeck(["A"]);
   assert.equal(deck.slides[0].elementsDerived, true);
   const elementId = deck.slides[0].elements![0].id;
   const next = setElementHidden(deck, 0, elementId, true);
@@ -1025,10 +898,7 @@ test("setElementLocked clears locked when called with false", () => {
 // ---------------------------------------------------------------------------
 
 /**
- * Builds a deck with exactly three free-form elements at predictable z-indices
- * (0 / 1 / 2) by constructing the slide's elements array directly, avoiding
- * the legacy-content materialization that `addElement` triggers on a legacy
- * slide and that would inject extra elements with conflicting z-indices.
+ * Builds a deck with exactly three elements at predictable z-indices.
  */
 function deckWithThreeByZ(): Deck {
   const slides: Slide[] = [

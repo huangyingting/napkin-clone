@@ -71,23 +71,11 @@ export function resolveConnectorEndpoint(
 
 export function resolveLineEndpoints(
   element: ShapeElement,
-  elements: readonly SlideElement[],
-  resolveBox: ConnectorBoxResolver,
+  _elements: readonly SlideElement[],
+  _resolveBox: ConnectorBoxResolver,
   stageAspect: number,
 ): { start: PointPct; end: PointPct } {
-  const base = lineEndpoints(element.box, element.rotation, stageAspect);
-  if (element.shape !== "line") return base;
-  return {
-    start:
-      resolveConnectorEndpoint(
-        element.connector?.start,
-        elements,
-        resolveBox,
-      ) ?? base.start,
-    end:
-      resolveConnectorEndpoint(element.connector?.end, elements, resolveBox) ??
-      base.end,
-  };
+  return lineEndpoints(element.box, element.rotation, stageAspect);
 }
 
 export function lineBoxFromEndpoints(

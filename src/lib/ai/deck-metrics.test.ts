@@ -7,6 +7,7 @@ import type {
   SlideElement,
   TextElementStyle,
 } from "@/lib/presentation/deck";
+import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck-migration";
 import {
   computeDeckMetrics,
   countWords,
@@ -75,7 +76,7 @@ function slide(index: number, title: string, elements: SlideElement[]): Slide {
 }
 
 function deck(slides: Slide[]): Deck {
-  return { theme: "indigo", slides };
+  return { theme: "indigo", slides, schemaVersion: CURRENT_DECK_SCHEMA_VERSION };
 }
 
 // An empty deck: no slides.
@@ -162,31 +163,6 @@ test("computeDeckMetrics: partial visual share is a fraction", () => {
   const metrics = computeDeckMetrics(mixed);
   assert.equal(metrics.slidesWithVisual, 1);
   assert.equal(metrics.percentSlidesWithVisual, 0.5);
-});
-
-test("computeDeckMetrics: counts words from legacy title/bullets fields", () => {
-  const legacy: Deck = {
-    theme: "default",
-    slides: [
-      {
-        id: "test-id",
-        index: 0,
-        title: "Legacy title here", // 3 words
-        bullets: ["first bullet", "second"], // 3 words
-        visualIds: ["v1"],
-        layout: "content",
-        notes: "",
-        theme: "default",
-      },
-    ],
-  };
-  const metrics = computeDeckMetrics(legacy);
-  assert.equal(metrics.slideCount, 1);
-  assert.equal(metrics.totalWordCount, 6);
-  assert.equal(metrics.wordsPerSlide, 6);
-  assert.equal(metrics.slidesWithVisual, 1); // via visualIds
-  assert.equal(metrics.percentSlidesWithVisual, 1);
-  assert.equal(metrics.schemaValid, true);
 });
 
 test("computeDeckMetrics: echoes sourceWordCount and derives slidesPerSourceWord", () => {

@@ -55,30 +55,6 @@ test("lineEndpoints and lineBoxFromEndpoints round-trip an unrotated line", () =
   );
 });
 
-test("resolveLineEndpoints uses connector bindings when available", () => {
-  const start = shape("start", { x: 10, y: 10, w: 20, h: 20 });
-  const end = shape("end", { x: 70, y: 20, w: 20, h: 20 });
-  const line = shape(
-    "line",
-    { x: 20, y: 30, w: 50, h: 2 },
-    {
-      shape: "line",
-      connector: {
-        start: { elementId: "start", anchor: "right" },
-        end: { elementId: "end", anchor: "left" },
-      },
-    },
-  );
-
-  assert.deepEqual(
-    resolveLineEndpoints(line, [start, end, line], resolveBox, 16 / 9),
-    {
-      start: { x: 30, y: 20 },
-      end: { x: 70, y: 30 },
-    },
-  );
-});
-
 test("snapLineEndpoint returns the closest eligible anchor binding", () => {
   const target = shape("target", { x: 20, y: 20, w: 20, h: 20 });
   const line = shape("line", { x: 0, y: 0, w: 10, h: 2 }, { shape: "line" });
@@ -150,18 +126,11 @@ test("resolveConnectorEndpoint resolves the correct anchor position on a matchin
 // resolveLineEndpoints – edge cases
 // ---------------------------------------------------------------------------
 
-test("resolveLineEndpoints returns box-based endpoints for a non-line shape even when connector is present", () => {
-  // A rect element with a connector binding; the binding must be ignored.
+test("resolveLineEndpoints returns box-based endpoints for a non-line shape", () => {
   const rect = shape(
     "rect",
     { x: 10, y: 20, w: 40, h: 2 },
-    {
-      shape: "rect",
-      connector: {
-        start: { elementId: "nowhere", anchor: "top" },
-        end: { elementId: "nowhere", anchor: "bottom" },
-      },
-    },
+    { shape: "rect" },
   );
 
   const result = resolveLineEndpoints(rect, [rect], resolveBox, 16 / 9);
@@ -174,46 +143,6 @@ test("resolveLineEndpoints returns box-based endpoints for a non-line shape even
 
 test("resolveLineEndpoints returns box-based endpoints for a line with no connector binding", () => {
   const line = shape("line", { x: 10, y: 20, w: 40, h: 2 }, { shape: "line" });
-
-  const result = resolveLineEndpoints(line, [line], resolveBox, 16 / 9);
-  assert.deepEqual(result, {
-    start: { x: 10, y: 21 },
-    end: { x: 50, y: 21 },
-  });
-});
-
-test("resolveLineEndpoints uses only the bound end when one endpoint is missing", () => {
-  // Shape "anchor" has its bottom at { x:10, y:20 } (x+w/2=10, y+h=20).
-  const anchor = shape("anchor", { x: 0, y: 0, w: 20, h: 20 });
-  const line = shape(
-    "line",
-    { x: 10, y: 20, w: 40, h: 2 },
-    {
-      shape: "line",
-      connector: { start: { elementId: "anchor", anchor: "bottom" } },
-      // end is intentionally absent — should fall back to box-based endpoint
-    },
-  );
-
-  const result = resolveLineEndpoints(line, [anchor, line], resolveBox, 16 / 9);
-  assert.deepEqual(result, {
-    start: { x: 10, y: 20 }, // bottom of "anchor"
-    end: { x: 50, y: 21 }, // box-based fallback
-  });
-});
-
-test("resolveLineEndpoints falls back to box-based endpoints when bound elements do not exist", () => {
-  const line = shape(
-    "line",
-    { x: 10, y: 20, w: 40, h: 2 },
-    {
-      shape: "line",
-      connector: {
-        start: { elementId: "ghost-a", anchor: "center" },
-        end: { elementId: "ghost-b", anchor: "center" },
-      },
-    },
-  );
 
   const result = resolveLineEndpoints(line, [line], resolveBox, 16 / 9);
   assert.deepEqual(result, {

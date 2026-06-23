@@ -154,10 +154,10 @@ test("visual spotlight with a visualId references that document visual", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Blank template — legacy parity
+// Blank template
 // ---------------------------------------------------------------------------
 
-test("blank template reproduces the legacy blank slide", () => {
+test("blank template creates an element-first blank slide", () => {
   const slide = buildTemplateSlide("blank", { theme: "ocean" });
   assert.equal(slide.title, "");
   assert.deepEqual(slide.bullets, []);
@@ -165,9 +165,8 @@ test("blank template reproduces the legacy blank slide", () => {
   assert.equal(slide.layout, "blank");
   assert.equal(slide.notes, "");
   assert.equal(slide.theme, "ocean");
-  // No elements and no derived flag — identical to today's blank add.
-  assert.equal(slide.elements, undefined);
-  assert.equal(slide.elementsDerived, undefined);
+  assert.deepEqual(slide.elements, []);
+  assert.equal(slide.elementsDerived, false);
 });
 
 test("every box stays within the 0–100 percent slide bounds", () => {

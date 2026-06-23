@@ -263,16 +263,23 @@ test("regenerateBlockIds always generates new bids even when one already exists"
 });
 
 test("regenerateBlockIds builds a correct bidMap", () => {
-  const result = regenerateBlockIds(legacyState());
+  const input = stampBlockIds(legacyState()) as ReturnType<typeof legacyState>;
+  const beforeRoot = input.root;
+  const beforeParagraph = beforeRoot.children[0] as { bid: string };
+  const beforeHeading = beforeRoot.children[1] as { bid: string };
+  const beforeItem = ((beforeRoot.children[2] as { children: unknown[] })
+    .children[0] ?? {}) as { bid: string };
+
+  const result = regenerateBlockIds(input);
   const root = (result.updated as ReturnType<typeof legacyState>).root;
   const paragraph = root.children[0] as { bid: string };
   const heading = root.children[1] as { bid: string };
   const item = ((root.children[2] as { children: unknown[] }).children[0] ?? {
     bid: undefined,
   }) as { bid: string };
-  assert.equal(result.bidMap.get("legacy-paragraph"), paragraph.bid);
-  assert.equal(result.bidMap.get("legacy-heading"), heading.bid);
-  assert.equal(result.bidMap.get("legacy-item"), item.bid);
+  assert.equal(result.bidMap.get(beforeParagraph.bid), paragraph.bid);
+  assert.equal(result.bidMap.get(beforeHeading.bid), heading.bid);
+  assert.equal(result.bidMap.get(beforeItem.bid), item.bid);
 });
 
 test("regenerateBlockIds handles nested list items", () => {

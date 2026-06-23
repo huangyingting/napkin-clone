@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Deck } from "./deck";
+import { CURRENT_DECK_SCHEMA_VERSION } from "./deck-migration";
 import { normalizeDeckRaw, pickFreshestDeck } from "./fresh-deck";
 
 // ---------------------------------------------------------------------------
@@ -22,6 +23,7 @@ const BASE_DECK: Deck = {
     },
   ],
   theme: "default",
+  schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
 };
 
 const FETCHED_DECK: Deck = {
@@ -38,6 +40,7 @@ const FETCHED_DECK: Deck = {
     },
   ],
   theme: "indigo",
+  schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
 };
 
 const FALLBACK_DECK: Deck = {
@@ -54,6 +57,7 @@ const FALLBACK_DECK: Deck = {
     },
   ],
   theme: "ocean",
+  schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
 };
 
 // ---------------------------------------------------------------------------

@@ -20,8 +20,6 @@ import {
   applyLayout,
   makeElementId,
   makeSlideId,
-  materializeSlideElements,
-  migrateSlideToFreeForm,
   resetLayout,
 } from "./deck";
 import {
@@ -69,6 +67,8 @@ function freshBlankSlide(theme: DeckTheme): Slide {
     layout: "blank",
     notes: "",
     theme,
+    elements: [],
+    elementsDerived: false,
   };
 }
 
@@ -271,18 +271,6 @@ function mapSlide(
   return { ...deck, slides };
 }
 
-/**
- * Materializes a slide's legacy content into free-form elements (no-op when the
- * slide already has elements). After this the slide is edited element-first.
- *
- * Delegates to {@link migrateSlideToFreeForm} — the single audited legacy →
- * free-form upgrade — so the `elementsDerived` provenance (issue #221) stays
- * consistent with every other upgrade path.
- */
-export function materializeSlide(deck: Deck, index: number): Deck {
-  return mapSlide(deck, index, migrateSlideToFreeForm);
-}
-
 /** Applies a reusable placeholder layout to the slide at `index`. */
 export function applySlideLayout(
   deck: Deck,
@@ -299,48 +287,6 @@ export function resetSlideLayout(
   layout: DeckLayout,
 ): Deck {
   return mapSlide(deck, index, (slide) => resetLayout(slide, layout));
-}
-
-/**
- * True when a slide still holds legacy content (title / bullets / visuals) that
- * has not yet been materialized into free-form `elements`. A blank slide with
- * no legacy content returns `false` — there is nothing to derive.
- *
- * Pure and deterministic: mirrors the element-producing branches of
- * {@link materializeSlideElements} without generating any ids, so it is safe to
- * call repeatedly (e.g. from the editor on open, or from tests).
- */
-export function slideNeedsMaterialization(slide: Slide): boolean {
-  if (slide.elements && slide.elements.length > 0) {
-    return false;
-  }
-  return Boolean(
-    slide.title ||
-    (slide.bullets?.length ?? 0) > 0 ||
-    (slide.visualIds?.length ?? 0) > 0,
-  );
-}
-
-/**
- * Materializes every legacy slide in the deck so each one is directly editable
- * element-first. Slides that already have elements — or that are blank with no
- * legacy content — are left untouched.
- *
- * Returns the *same* deck reference when nothing needs materializing, so a
- * history `commit` of the result is a no-op (the snapshot reducer skips
- * reference-equal decks) and the editor can call this on open without polluting
- * undo history for already-materialized decks.
- */
-export function materializeDeck(deck: Deck): Deck {
-  let changed = false;
-  const slides = deck.slides.map((slide) => {
-    if (!slideNeedsMaterialization(slide)) {
-      return slide;
-    }
-    changed = true;
-    return migrateSlideToFreeForm(slide);
-  });
-  return changed ? { ...deck, slides } : deck;
 }
 
 /** Returns the next z-index above the current maximum on a slide. */
@@ -362,7 +308,7 @@ function markElementsEdited(slide: Slide): Slide {
     : { ...slide, elementsDerived: false };
 }
 
-/** Appends a new element to a slide, materializing legacy content first. */
+/** Appends a new element to a slide. */
 export function addElement(
   deck: Deck,
   index: number,
@@ -372,10 +318,7 @@ export function addElement(
   },
 ): Deck {
   return mapSlide(deck, index, (slide) => {
-    const existing =
-      slide.elements && slide.elements.length > 0
-        ? slide.elements
-        : materializeSlideElements(slide);
+    const existing = slide.elements ?? [];
     const next: SlideElement = {
       ...element,
       id: element.id ?? makeElementId(),

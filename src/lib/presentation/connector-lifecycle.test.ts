@@ -79,27 +79,6 @@ function makeConnector(
   };
 }
 
-function makeLegacyLine(
-  id: string,
-  startId?: string,
-  endId?: string,
-): ShapeElement {
-  return {
-    id,
-    kind: "shape",
-    shape: "line",
-    color: "#ff0000",
-    zIndex: 1,
-    box: BOX_CONNECTOR,
-    connector: {
-      ...(startId
-        ? { start: { elementId: startId, anchor: "right" as const } }
-        : {}),
-      ...(endId ? { end: { elementId: endId, anchor: "left" as const } } : {}),
-    },
-  };
-}
-
 const BOUND_START: ConnectorEndpoint = {
   elementId: "shape-a",
   anchor: "right",
@@ -259,60 +238,6 @@ test("updateConnectorBindingsOnDelete — returns same reference when deletedIds
 });
 
 // ---------------------------------------------------------------------------
-// updateConnectorBindingsOnDelete — legacy shape:line
-// ---------------------------------------------------------------------------
-
-test("updateConnectorBindingsOnDelete — clears legacy line start binding when shape is deleted", () => {
-  const shapeA = makeShape("shape-a");
-  const line = makeLegacyLine("line-1", "shape-a");
-  const elements: SlideElement[] = [shapeA, line];
-
-  const result = updateConnectorBindingsOnDelete(
-    elements,
-    new Set(["shape-a"]),
-  );
-
-  const patchedLine = result.find((el) => el.id === "line-1") as ShapeElement;
-  assert.equal(patchedLine.kind, "shape");
-  if (patchedLine.kind === "shape") {
-    assert.equal(patchedLine.connector?.start, undefined);
-  }
-});
-
-test("updateConnectorBindingsOnDelete — clears legacy line end binding when shape is deleted", () => {
-  const shapeB = makeShape("shape-b");
-  const line = makeLegacyLine("line-1", undefined, "shape-b");
-  const elements: SlideElement[] = [shapeB, line];
-
-  const result = updateConnectorBindingsOnDelete(
-    elements,
-    new Set(["shape-b"]),
-  );
-
-  const patchedLine = result.find((el) => el.id === "line-1") as ShapeElement;
-  if (patchedLine.kind === "shape") {
-    assert.equal(patchedLine.connector?.end, undefined);
-  }
-});
-
-test("updateConnectorBindingsOnDelete — preserves legacy line binding when unaffected shape is deleted", () => {
-  const shapeX = makeShape("shape-x");
-  const line = makeLegacyLine("line-1", "shape-a", "shape-b");
-  const elements: SlideElement[] = [shapeX, line];
-
-  const result = updateConnectorBindingsOnDelete(
-    elements,
-    new Set(["shape-x"]),
-  );
-
-  // Line should be reference-equal — nothing changed
-  assert.equal(
-    result.find((el) => el.id === "line-1"),
-    line,
-  );
-});
-
-// ---------------------------------------------------------------------------
 // remapConnectorBindings — ConnectorElement
 // ---------------------------------------------------------------------------
 
@@ -407,49 +332,6 @@ test("remapConnectorBindings — returns same copies reference when nothing chan
   const result = remapConnectorBindings(copies, idMap, []);
   // No connectors in copies — should return same reference
   assert.equal(result, copies);
-});
-
-// ---------------------------------------------------------------------------
-// remapConnectorBindings — legacy shape:line (copy/paste AC-4)
-// ---------------------------------------------------------------------------
-
-test("remapConnectorBindings — remaps legacy line start binding when shape included (AC-4)", () => {
-  const allElements: SlideElement[] = [
-    makeShape("shape-a"),
-    makeShape("shape-b"),
-  ];
-  const lineCopy = makeLegacyLine("line-new", "shape-a", "shape-b");
-  const idMap = new Map([
-    ["shape-a", "shape-a-copy"],
-    ["shape-b", "shape-b-copy"],
-    ["line-1", "line-new"],
-  ]);
-
-  const [result] = remapConnectorBindings([lineCopy], idMap, allElements);
-
-  assert.ok(result?.kind === "shape");
-  if (result?.kind === "shape" && result.shape === "line") {
-    assert.equal(result.connector?.start?.elementId, "shape-a-copy");
-    assert.equal(result.connector?.end?.elementId, "shape-b-copy");
-  }
-});
-
-test("remapConnectorBindings — clears legacy line binding when shape not included (AC-4)", () => {
-  const allElements: SlideElement[] = [
-    makeShape("shape-a"),
-    makeShape("shape-b"),
-  ];
-  // Only line is in idMap — neither shape is duplicated
-  const lineCopy = makeLegacyLine("line-new", "shape-a", "shape-b");
-  const idMap = new Map([["line-1", "line-new"]]);
-
-  const [result] = remapConnectorBindings([lineCopy], idMap, allElements);
-
-  assert.ok(result?.kind === "shape");
-  if (result?.kind === "shape") {
-    assert.equal(result.connector?.start, undefined);
-    assert.equal(result.connector?.end, undefined);
-  }
 });
 
 // ---------------------------------------------------------------------------

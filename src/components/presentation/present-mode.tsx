@@ -75,50 +75,16 @@ const PRESENT_MODE_SHORTCUTS: PresentShortcut[] = [
   { keys: ["L"], description: "Toggle laser pointer" },
 ];
 
-type LegacyFullscreenElement = HTMLElement & {
-  webkitRequestFullscreen?: () => Promise<void> | void;
-  mozRequestFullScreen?: () => Promise<void> | void;
-  msRequestFullscreen?: () => Promise<void> | void;
-};
-
-type LegacyFullscreenDocument = Document & {
-  webkitFullscreenElement?: Element | null;
-  mozFullScreenElement?: Element | null;
-  msFullscreenElement?: Element | null;
-  webkitExitFullscreen?: () => Promise<void> | void;
-  mozCancelFullScreen?: () => Promise<void> | void;
-  msExitFullscreen?: () => Promise<void> | void;
-};
-
 function getFullscreenElement(doc: Document): Element | null {
-  const legacyDoc = doc as LegacyFullscreenDocument;
-  return (
-    doc.fullscreenElement ??
-    legacyDoc.webkitFullscreenElement ??
-    legacyDoc.mozFullScreenElement ??
-    legacyDoc.msFullscreenElement ??
-    null
-  );
+  return doc.fullscreenElement ?? null;
 }
 
 async function requestBrowserFullscreen(): Promise<boolean> {
-  const root = document.documentElement as LegacyFullscreenElement;
+  const root = document.documentElement;
 
   try {
     if (root.requestFullscreen) {
       await root.requestFullscreen();
-      return true;
-    }
-    if (root.webkitRequestFullscreen) {
-      await Promise.resolve(root.webkitRequestFullscreen());
-      return true;
-    }
-    if (root.mozRequestFullScreen) {
-      await Promise.resolve(root.mozRequestFullScreen());
-      return true;
-    }
-    if (root.msRequestFullscreen) {
-      await Promise.resolve(root.msRequestFullscreen());
       return true;
     }
   } catch {
@@ -129,23 +95,9 @@ async function requestBrowserFullscreen(): Promise<boolean> {
 }
 
 async function exitBrowserFullscreen(): Promise<boolean> {
-  const legacyDoc = document as LegacyFullscreenDocument;
-
   try {
     if (document.exitFullscreen) {
       await document.exitFullscreen();
-      return true;
-    }
-    if (legacyDoc.webkitExitFullscreen) {
-      await Promise.resolve(legacyDoc.webkitExitFullscreen());
-      return true;
-    }
-    if (legacyDoc.mozCancelFullScreen) {
-      await Promise.resolve(legacyDoc.mozCancelFullScreen());
-      return true;
-    }
-    if (legacyDoc.msExitFullscreen) {
-      await Promise.resolve(legacyDoc.msExitFullscreen());
       return true;
     }
   } catch {
@@ -587,19 +539,9 @@ export function PresentMode({
     };
 
     updateFullscreenState();
-    const events = [
-      "fullscreenchange",
-      "webkitfullscreenchange",
-      "mozfullscreenchange",
-      "MSFullscreenChange",
-    ];
-    for (const eventName of events) {
-      document.addEventListener(eventName, updateFullscreenState);
-    }
+    document.addEventListener("fullscreenchange", updateFullscreenState);
     return () => {
-      for (const eventName of events) {
-        document.removeEventListener(eventName, updateFullscreenState);
-      }
+      document.removeEventListener("fullscreenchange", updateFullscreenState);
     };
   }, []);
 

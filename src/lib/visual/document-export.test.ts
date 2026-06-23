@@ -325,17 +325,17 @@ test("collectDocumentBlocks attaches runs only when formatting is present", () =
 });
 
 // ---------------------------------------------------------------------------
-// blockId from serialised Lexical node key (issue #377)
+// blockId from durable serialised Lexical bid
 // ---------------------------------------------------------------------------
 
-test("collectDocumentBlocks populates blockId from node key on paragraph", () => {
+test("collectDocumentBlocks populates blockId from node bid on paragraph", () => {
   const raw = {
     root: {
       type: "root",
       children: [
         {
           type: "paragraph",
-          key: "para-1",
+          bid: "para-1",
           children: [{ type: "text", text: "Hello" }],
         },
       ],
@@ -349,7 +349,7 @@ test("collectDocumentBlocks populates blockId from node key on paragraph", () =>
   }
 });
 
-test("collectDocumentBlocks populates blockId from node key on heading", () => {
+test("collectDocumentBlocks populates blockId from node bid on heading", () => {
   const raw = {
     root: {
       type: "root",
@@ -357,7 +357,7 @@ test("collectDocumentBlocks populates blockId from node key on heading", () => {
         {
           type: "heading",
           tag: "h2",
-          key: "heading-42",
+          bid: "heading-42",
           children: [{ type: "text", text: "Section" }],
         },
       ],
@@ -371,14 +371,14 @@ test("collectDocumentBlocks populates blockId from node key on heading", () => {
   }
 });
 
-test("collectDocumentBlocks populates blockId from node key on quote", () => {
+test("collectDocumentBlocks populates blockId from node bid on quote", () => {
   const raw = {
     root: {
       type: "root",
       children: [
         {
           type: "quote",
-          key: "q-7",
+          bid: "q-7",
           children: [{ type: "text", text: "Quote text" }],
         },
       ],
@@ -391,7 +391,7 @@ test("collectDocumentBlocks populates blockId from node key on quote", () => {
   }
 });
 
-test("collectDocumentBlocks populates blockId from listitem key", () => {
+test("collectDocumentBlocks populates blockId from listitem bid", () => {
   const raw = {
     root: {
       type: "root",
@@ -401,7 +401,7 @@ test("collectDocumentBlocks populates blockId from listitem key", () => {
           children: [
             {
               type: "listitem",
-              key: "li-3",
+              bid: "li-3",
               children: [{ type: "text", text: "Item" }],
             },
           ],
@@ -417,23 +417,23 @@ test("collectDocumentBlocks populates blockId from listitem key", () => {
   }
 });
 
-test("collectDocumentBlocks leaves blockId undefined when key is absent", () => {
-  const blocks = collectDocumentBlocks(state([paragraph("No key here")]));
+test("collectDocumentBlocks leaves blockId undefined when bid is absent", () => {
+  const blocks = collectDocumentBlocks(state([paragraph("No bid here")]));
   assert.equal(blocks.length, 1);
   if (blocks[0].kind === "text") {
     assert.equal(blocks[0].blockId, undefined);
   }
 });
 
-test("collectDocumentBlocks leaves blockId undefined when key is empty string", () => {
+test("collectDocumentBlocks leaves blockId undefined when bid is empty string", () => {
   const raw = {
     root: {
       type: "root",
       children: [
         {
           type: "paragraph",
-          key: "",
-          children: [{ type: "text", text: "Empty key" }],
+          bid: "",
+          children: [{ type: "text", text: "Empty bid" }],
         },
       ],
     },
@@ -452,15 +452,15 @@ test("collectDocumentBlocks extracts blockIds from multiple blocks independently
         {
           type: "heading",
           tag: "h1",
-          key: "k1",
+          bid: "k1",
           children: [{ type: "text", text: "Title" }],
         },
         {
           type: "paragraph",
-          key: "k2",
+          bid: "k2",
           children: [{ type: "text", text: "Body" }],
         },
-        { type: "paragraph", children: [{ type: "text", text: "No key" }] },
+        { type: "paragraph", children: [{ type: "text", text: "No bid" }] },
       ],
     },
   };
@@ -468,4 +468,24 @@ test("collectDocumentBlocks extracts blockIds from multiple blocks independently
   assert.equal(blocks.length, 3);
   const ids = blocks.map((b) => (b.kind === "text" ? b.blockId : null));
   assert.deepEqual(ids, ["k1", "k2", undefined]);
+});
+
+test("collectDocumentBlocks ignores Lexical runtime key when bid is absent", () => {
+  const raw = {
+    root: {
+      type: "root",
+      children: [
+        {
+          type: "paragraph",
+          key: "runtime-key",
+          children: [{ type: "text", text: "Hello" }],
+        },
+      ],
+    },
+  };
+  const blocks = collectDocumentBlocks(raw);
+  assert.equal(blocks.length, 1);
+  if (blocks[0].kind === "text") {
+    assert.equal(blocks[0].blockId, undefined);
+  }
 });

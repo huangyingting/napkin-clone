@@ -129,11 +129,9 @@ export type DocumentTextBlock = {
    */
   runs?: TextRun[];
   /**
-   * Stable identifier for this block within its source document, used to
-   * anchor `sourceRef` links on inserted slide elements. Populated by
-   * `collectDocumentBlocks` from the serialised Lexical node `bid` field
-   * (durable since #432), with the legacy `key` field as a backward-compatible
-   * fallback. Absent only when neither field is present.
+  * Stable identifier for this block within its source document, used to
+  * anchor `sourceRef` links on inserted slide elements. Populated from the
+  * serialised Lexical node `bid` field.
    */
   blockId?: string;
 };
@@ -275,12 +273,10 @@ function formattedRuns(node: Record<string, unknown>): TextRun[] | undefined {
 }
 
 /**
- * Extracts a non-empty string `blockId` from the serialised node, preferring
- * the durable `bid` field with `key` as a legacy fallback.
+ * Extracts a non-empty durable `blockId` from the serialised node.
  */
 function nodeBlockId(node: Record<string, unknown>): string | undefined {
   if (typeof node.bid === "string" && node.bid.length > 0) return node.bid;
-  if (typeof node.key === "string" && node.key.length > 0) return node.key;
   return undefined;
 }
 

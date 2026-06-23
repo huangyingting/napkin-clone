@@ -51,6 +51,7 @@ import {
 import { normalizeGeneratedDeck } from "@/lib/presentation/deck-layout-assign";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
+import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck-migration";
 
 export type { DeckGenerationOptions } from "@/lib/ai/deck-prompt";
 
@@ -273,7 +274,11 @@ function repairDeck(parsed: unknown): Deck | undefined {
     .slice(0, MAX_DECK_SLIDES)
     .map((slide, index) => repairSlide(slide, index, theme));
 
-  const result = safeParseDeck({ slides, theme });
+  const result = safeParseDeck({
+    slides,
+    theme,
+    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+  });
   return result.success ? result.data : undefined;
 }
 

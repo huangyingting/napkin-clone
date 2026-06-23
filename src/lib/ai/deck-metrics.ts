@@ -61,9 +61,7 @@ export function countWords(text: string): number {
 }
 
 /**
- * Words contributed by a single slide. Prefers the authoritative `elements[]`
- * (AI/free-form decks keep their content there) and falls back to the legacy
- * `title`/`bullets` fields for decks authored before the free-form editor.
+ * Words contributed by a single slide's authoritative `elements[]` content.
  *
  * Defensive against malformed slides so {@link computeDeckMetrics} can still
  * report `schemaValid: false` instead of throwing on invalid input.
@@ -85,12 +83,7 @@ function slideWordCount(slide: Slide): number {
     return words;
   }
 
-  let words = countWords(slide.title);
-  const bullets = Array.isArray(slide.bullets) ? slide.bullets : [];
-  for (const bullet of bullets) {
-    words += countWords(bullet);
-  }
-  return words;
+  return 0;
 }
 
 /** True when a slide carries at least one visual or image element. */
@@ -101,10 +94,10 @@ function slideHasVisual(slide: Slide): boolean {
       (element) => element.kind === "visual" || element.kind === "image",
     );
   }
-  return Array.isArray(slide.visualIds) && slide.visualIds.length > 0;
+  return false;
 }
 
-/** Total element count across the deck (legacy slides contribute 0). */
+/** Total element count across the deck. */
 function totalElementCount(deck: Deck): number {
   let total = 0;
   for (const slide of deck.slides) {

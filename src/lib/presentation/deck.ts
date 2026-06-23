@@ -23,42 +23,13 @@
  *     with an empty title.
  *
  * ---------------------------------------------------------------------------
- * Dual-track slide schema (legacy ⇄ free-form) and the migration path
+ * Element-first slide schema
  * ---------------------------------------------------------------------------
  *
- * A {@link Slide} carries content in one of two tracks:
- *
- *  - **Legacy track** — the flat `title` / `titleRuns` / `bullets` /
- *    `bulletRuns` / `visualIds` / `layout` fields produced by
- *    {@link buildDeckFromBlocks}. Rendered through the fixed
- *    {@link SlideLayoutHint}
- *    templates. This is what every deck authored before the free-form editor
- *    looks like, and what a freshly derived deck always starts as.
- *
- *  - **Free-form track** — the optional `elements[]` array of positioned
- *    {@link SlideElement}s. When present and non-empty it is the **authoritative**
- *    slide content: renderers and exporters read `elements[]` and ignore the
- *    legacy fields entirely.
- *
- * A slide is migrated from legacy → free-form exactly once, via the audited
- * {@link migrateSlideToFreeForm} wrapper over {@link materializeSlideElements}.
- * Migration is:
- *
- *  - **One-way and explicit.** The editor calls it on the upgrade path (open /
- *    first element edit) — there is no implicit lazy mutation of persisted data,
- *    and no free-form → legacy downgrade.
- *  - **Idempotent.** A slide that already has `elements[]` is returned
- *    unchanged, so it is safe to call repeatedly.
- *  - **Provenance-stamped.** It sets `elementsDerived = true` (issue #221) so a
- *    later "Sync from document" knows the elements were machine-derived (and may
- *    be re-materialized) versus hand-edited (preserved verbatim). Any genuine
- *    element edit clears the flag — see {@link Slide.elementsDerived}.
- *
- * Once a slide is on the free-form track, its legacy fields are frozen: mutation
- * helpers (`updateSlide`) refuse to patch them so a slide can never hold
- * conflicting legacy + free-form content. The legacy fields remain on disk only
- * as a render fallback for any consumer that has not been taught about
- * `elements[]`.
+ * Every persisted slide carries an `elements[]` array of positioned
+ * {@link SlideElement}s. The flat `title` / `bullets` / `visualIds` fields are
+ * retained as document-sync metadata, but renderers and editing surfaces read
+ * the element list.
  */
 
 import {
@@ -66,6 +37,7 @@ import {
   SLIDE_FORMATS as PRESENTATION_SLIDE_FORMATS,
   type SlideFormat as PresentationSlideFormat,
 } from "@/lib/presentation/slide-format";
+import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck-migration";
 import type { DocumentBlock } from "@/lib/visual/document-export";
 import type {
   DeckThemeTokenSet,
@@ -166,7 +138,7 @@ export const PLACEHOLDER_TYPE_LABELS: Record<PlaceholderType, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// Free-form slide elements (additive, backward compatible)
+// Slide elements
 // ---------------------------------------------------------------------------
 
 /**
@@ -263,11 +235,6 @@ export interface ConnectorEndpoint {
   anchor: ConnectorAnchor;
 }
 
-export interface ConnectorBinding {
-  start?: ConnectorEndpoint;
-  end?: ConnectorEndpoint;
-}
-
 /**
  * A free-floating connector endpoint expressed in percentage units (0–100).
  * Used when a connector end is not bound to an element anchor.
@@ -295,12 +262,8 @@ export type ConnectorArrow = "none" | "arrow" | "filled";
  * A first-class connector element — a directed line between two points that may
  * optionally be anchored to other slide elements.
  *
- * Introduced in issue #323 as the preferred replacement for the legacy
- * `{ kind: "shape", shape: "line", connector: ... }` pattern. Both forms
- * co-exist during the transition period:
- *  - Legacy line shapes remain valid and render/export exactly as before.
- *  - New connectors are authored as `kind: "connector"` and carry richer
- *    semantics (arrowheads, dash, routing) without the shape-type branch.
+ * Authored as `kind: "connector"` and carries connector semantics
+ * (arrowheads, dash, routing) without a shape-type branch.
  */
 export interface ConnectorElement extends BaseElement {
   kind: "connector";
@@ -513,13 +476,7 @@ export function normalizeBulletItems(el: BulletsElement): BulletItem[] {
 export interface VisualElement extends BaseElement {
   kind: "visual";
   visualId: string;
-  /**
-   * Optional restyle applied over the referenced document visual at render
-   * time — a {@link StyleTheme} id (see `@/lib/visual/themes`). When set, every
-   * renderer re-tints the visual via `applyTheme` before drawing, so editor,
-   * present and the public viewer stay identical. Absent → the visual renders
-   * in its original document style.
-   */
+  /** Optional restyle applied over the referenced document visual at render time. */
   styleThemeId?: string;
   /**
    * Optional accessible name (alt text) for the referenced visual. Normalization
@@ -594,8 +551,6 @@ export interface ShapeElement extends BaseElement {
   stroke?: { color: string; width: number };
   /** Optional corner radius for a rect, as a percent of the box (0–50). */
   radius?: number;
-  /** Optional endpoint bindings for line shapes used as connectors. */
-  connector?: ConnectorBinding;
 }
 
 /** Discriminated union of every free-form slide element. */
@@ -1193,13 +1148,9 @@ export function defaultLayouts(): SlideLayout[] {
 }
 
 /**
- * Returns the slide's free-form elements, deriving them from the legacy
- * `title` / `bullets` / `visualIds` fields when the slide has none yet.
- *
- * Pure and deterministic except for generated element ids. Used by the editor
- * to "materialize" a legacy slide into editable elements on demand, and by
- * tests. Renderers should prefer an existing `slide.elements` and only call
- * this when they explicitly want a derived element list.
+ * Returns the slide's element list, deriving it from the slide's document-
+ * derived content fields when needed. Pure and deterministic except for
+ * generated element ids.
  */
 export function materializeSlideElements(slide: Slide): SlideElement[] {
   if (slide.elements && slide.elements.length > 0) {
@@ -1296,37 +1247,6 @@ export function materializeSlideElements(slide: Slide): SlideElement[] {
   return elements;
 }
 
-/**
- * Migrates a single {@link Slide} from the legacy track to the free-form track.
- *
- * This is the **one** audited entry point for the legacy → free-form upgrade: a
- * thin, idempotent wrapper over {@link materializeSlideElements} that stamps the
- * result so provenance is never lost.
- *
- *  - **Idempotent.** When the slide already has a non-empty `elements[]` it is
- *    returned unchanged (same reference), so callers may invoke it freely on
- *    open, on first edit, or in a loop.
- *  - **Provenance.** Sets `elementsDerived = true` (issue #221) on the migrated
- *    slide, marking `elements[]` as machine-derived from the legacy fields and
- *    not yet hand-edited. Element-editing mutations later clear this flag.
- *  - **Non-destructive.** The legacy `title`/`bullets`/`visualIds` are left on
- *    the slide as a render fallback; `elements[]` becomes authoritative.
- *
- * Pure and DOM-free except for the generated element ids. Prefer this over
- * calling {@link materializeSlideElements} directly on any explicit upgrade
- * path so the `elementsDerived` semantics stay consistent across the editor.
- */
-export function migrateSlideToFreeForm(slide: Slide): Slide {
-  if (slide.elements && slide.elements.length > 0) {
-    return slide;
-  }
-  return {
-    ...slide,
-    elements: materializeSlideElements(slide),
-    elementsDerived: true,
-  };
-}
-
 interface SlideBuilder {
   title: string;
   titleRuns?: TextRun[];
@@ -1379,7 +1299,7 @@ function finaliseSlide(
 ): Slide {
   const hasBulletRuns = builder.bulletRuns.some((runs) => runs.length > 0);
   const sourceSectionId = computeSectionId(builder.title);
-  return {
+  const slide: Slide = {
     id: makeSlideId(),
     index,
     title: builder.title,
@@ -1393,6 +1313,11 @@ function finaliseSlide(
     notes: builder.noteLines.join("\n").trim(),
     theme,
     ...(sourceSectionId !== undefined ? { sourceSectionId } : {}),
+  };
+  return {
+    ...slide,
+    elements: materializeSlideElements(slide),
+    elementsDerived: true,
   };
 }
 
@@ -1519,6 +1444,8 @@ export function buildDeckFromBlocks(
       layout: "blank",
       notes: "",
       theme,
+      elements: [],
+      elementsDerived: false,
     });
   }
 
@@ -1529,5 +1456,6 @@ export function buildDeckFromBlocks(
     themeId: theme,
     slideFormat: DEFAULT_DECK_SLIDE_FORMAT,
     layouts: defaultLayouts(),
+    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
   };
 }

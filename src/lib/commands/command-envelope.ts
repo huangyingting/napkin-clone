@@ -46,7 +46,6 @@ const SLIDE_COMMAND_TYPES = [
   "UPDATE_SLIDE_LAYOUT_HINT",
   "APPLY_SLIDE_LAYOUT",
   "RESET_SLIDE_LAYOUT",
-  "MATERIALIZE_SLIDE",
   "REMOVE_ELEMENTS",
   "DUPLICATE_ELEMENT",
   "DUPLICATE_ELEMENTS",
@@ -821,11 +820,6 @@ function validateSlideCommandPayload(
       }
       if (!isPlainObject(payload.layout)) {
         errors.push("payload.layout must be an object.");
-      }
-      break;
-    case "MATERIALIZE_SLIDE":
-      if (!isInteger(payload.slideIndex)) {
-        errors.push("payload.slideIndex must be an integer.");
       }
       break;
     case "REMOVE_ELEMENTS":

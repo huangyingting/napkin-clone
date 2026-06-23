@@ -132,8 +132,6 @@ function survivorFirst(a: ExistingVisualRow, b: ExistingVisualRow): number {
  *   nodes whose payload failed validation. Those anchors keep their existing
  *   row alive (never pruned) but produce no create/update, matching the prior
  *   behavior where an invalid payload is skipped rather than persisted.
- * - Rows with a `null` anchor (the legacy document-level visual) are never
- *   touched.
  * - Among duplicate rows sharing an anchor (possible only from legacy data
  *   written before the unique constraint), the survivor is updated and the rest
  *   are deleted.
@@ -207,8 +205,10 @@ export function diffVisualMirror<TData = unknown>(input: {
   }
 
   // Prune mirrored rows whose anchor is no longer present in the editor.
+  // Null anchors are no longer a valid document shape, so they are pruned too.
   for (const row of existingRows) {
     if (row.anchorBlockId === null) {
+      toDelete.add(row.id);
       continue;
     }
     if (!liveAnchors.has(row.anchorBlockId)) {

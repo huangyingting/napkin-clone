@@ -18,7 +18,6 @@ import {
   type BulletItem,
   type ConnectorAnchor,
   type ConnectorArrow,
-  type ConnectorBinding,
   type ConnectorElement,
   type ConnectorPoint,
   type ConnectorRouting,
@@ -41,7 +40,7 @@ import {
   type TextFitMode,
   type TextRun,
 } from "./deck";
-import { CURRENT_DECK_SCHEMA_VERSION, migrateDeck } from "./deck-migration";
+import { CURRENT_DECK_SCHEMA_VERSION } from "./deck-migration";
 import {
   DEFAULT_SLIDE_FORMAT,
   SLIDE_FORMATS,
@@ -490,49 +489,6 @@ function validateTextRun(input: unknown, context: string): TextRun {
   return run;
 }
 
-function validateConnectorBinding(
-  input: unknown,
-  context: string,
-): ConnectorBinding {
-  if (!isPlainObject(input)) {
-    throw new DeckValidationError(`${context} must be an object`);
-  }
-  const endpoint = (
-    value: unknown,
-    endpointContext: string,
-  ): { elementId: string; anchor: ConnectorAnchor } | undefined => {
-    if (value === undefined) return undefined;
-    if (!isPlainObject(value)) {
-      throw new DeckValidationError(`${endpointContext} must be an object`);
-    }
-    if (typeof value.elementId !== "string" || value.elementId.length === 0) {
-      throw new DeckValidationError(
-        `${endpointContext}.elementId must be a non-empty string`,
-      );
-    }
-    if (
-      typeof value.anchor !== "string" ||
-      !CONNECTOR_ANCHORS.includes(value.anchor as ConnectorAnchor)
-    ) {
-      throw new DeckValidationError(
-        `${endpointContext}.anchor must be one of: ${CONNECTOR_ANCHORS.join(", ")}`,
-      );
-    }
-    return {
-      elementId: value.elementId,
-      anchor: value.anchor as ConnectorAnchor,
-    };
-  };
-  return {
-    ...(endpoint(input.start, `${context}.start`) !== undefined
-      ? { start: endpoint(input.start, `${context}.start`) }
-      : {}),
-    ...(endpoint(input.end, `${context}.end`) !== undefined
-      ? { end: endpoint(input.end, `${context}.end`) }
-      : {}),
-  };
-}
-
 function validateConnectorPoint(
   input: unknown,
   context: string,
@@ -802,10 +758,7 @@ export function validateElement(input: unknown, context: string): SlideElement {
       if (input.assetId !== undefined && typeof input.assetId !== "string") {
         throw new DeckValidationError(`${context}.assetId must be a string`);
       }
-      const fitMode = validateImageFitMode(
-        input.fitMode ?? input.fit,
-        `${context}.fitMode`,
-      );
+      const fitMode = validateImageFitMode(input.fitMode, `${context}.fitMode`);
       const maskShape = validateImageMaskShape(
         input.maskShape,
         `${context}.maskShape`,
@@ -886,14 +839,6 @@ export function validateElement(input: unknown, context: string): SlideElement {
               textStyle: validateTextStyle(
                 input.textStyle,
                 `${context}.textStyle`,
-              ),
-            }
-          : {}),
-        ...(input.connector !== undefined
-          ? {
-              connector: validateConnectorBinding(
-                input.connector,
-                `${context}.connector`,
               ),
             }
           : {}),
@@ -1222,23 +1167,18 @@ function validateDeck(input: unknown): Deck {
     }
   }
 
-  if (input.schemaVersion !== undefined) {
-    if (
-      typeof input.schemaVersion !== "number" ||
-      !Number.isInteger(input.schemaVersion) ||
-      input.schemaVersion < 0
-    ) {
-      throw new DeckValidationError(
-        "Deck.schemaVersion must be a non-negative integer",
-      );
-    }
-    if (input.schemaVersion > CURRENT_DECK_SCHEMA_VERSION) {
-      throw new DeckValidationError(
-        `Deck.schemaVersion ${input.schemaVersion} is not supported (current: ${CURRENT_DECK_SCHEMA_VERSION})`,
-      );
-    }
-    deck.schemaVersion = input.schemaVersion;
+  if (
+    typeof input.schemaVersion !== "number" ||
+    !Number.isInteger(input.schemaVersion)
+  ) {
+    throw new DeckValidationError("Deck.schemaVersion must be an integer");
   }
+  if (input.schemaVersion !== CURRENT_DECK_SCHEMA_VERSION) {
+    throw new DeckValidationError(
+      `Deck.schemaVersion ${input.schemaVersion} is not supported (current: ${CURRENT_DECK_SCHEMA_VERSION})`,
+    );
+  }
+  deck.schemaVersion = input.schemaVersion;
 
   if (input.masters !== undefined) {
     if (!Array.isArray(input.masters)) {
@@ -1276,14 +1216,12 @@ export type DeckParseResult =
 /**
  * Non-throwing wrapper around {@link validateDeck}.
  *
- * Runs the migration pipeline ({@link migrateDeck}) before validation so
- * callers never need to call it manually. The returned `data` deck will always
- * carry `schemaVersion: CURRENT_DECK_SCHEMA_VERSION` for any structurally
- * valid input.
+ * Only the current schema version is accepted; older payloads are rejected
+ * instead of migrated.
  */
 export function safeParseDeck(input: unknown): DeckParseResult {
   try {
-    return { success: true, data: validateDeck(migrateDeck(input)) };
+    return { success: true, data: validateDeck(input) };
   } catch (error) {
     const message =
       error instanceof DeckValidationError ? error.message : "Invalid deck";

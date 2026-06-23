@@ -116,7 +116,7 @@ test("prunes rows whose anchor is no longer live", () => {
   assert.deepEqual(diff.toUpdate, []);
 });
 
-test("never touches the document-level (null anchor) row", () => {
+test("prunes null-anchor rows", () => {
   const diff = diffVisualMirror({
     existingRows: [row({ id: "doc", anchorBlockId: null, dataKey: "Z" })],
     liveNodes: [],
@@ -125,7 +125,7 @@ test("never touches the document-level (null anchor) row", () => {
 
   assert.deepEqual(diff.toCreate, []);
   assert.deepEqual(diff.toUpdate, []);
-  assert.deepEqual(diff.toDelete, []);
+  assert.deepEqual(diff.toDelete, ["doc"]);
 });
 
 test("invalid-payload anchor (live but absent from liveNodes) is not pruned", () => {

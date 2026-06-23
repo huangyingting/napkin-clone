@@ -54,24 +54,24 @@ test("slugify keeps numbers", () => {
   assert.equal(slugify("Top 10 Tips for 2026"), "top-10-tips-for-2026");
 });
 
-test("buildShareSegment combines slug and shareId, omitting empty slug", () => {
+test("buildShareSegment combines slug and shareId", () => {
   assert.equal(
     buildShareSegment("my-doc-title", "Ab3xY9kQ"),
     "my-doc-title-Ab3xY9kQ",
   );
-  assert.equal(buildShareSegment(null, "Ab3xY9kQ"), "Ab3xY9kQ");
-  assert.equal(buildShareSegment("", "Ab3xY9kQ"), "Ab3xY9kQ");
-  assert.equal(buildShareSegment(undefined, "Ab3xY9kQ"), "Ab3xY9kQ");
 });
 
-test("shareIdFromParam resolves both bare and slug-prefixed forms", () => {
-  // bare legacy shareId (no hyphen)
-  assert.equal(shareIdFromParam("Ab3xY9kQ"), "Ab3xY9kQ");
-  // slug-prefixed form: shareId is the part after the last hyphen
+test("buildShareSegment rejects missing slug or shareId", () => {
+  assert.throws(() => buildShareSegment(null, "Ab3xY9kQ"));
+  assert.throws(() => buildShareSegment("", "Ab3xY9kQ"));
+  assert.throws(() => buildShareSegment(undefined, "Ab3xY9kQ"));
+  assert.throws(() => buildShareSegment("my-doc", ""));
+});
+
+test("shareIdFromParam resolves slug-prefixed forms only", () => {
+  assert.equal(shareIdFromParam("Ab3xY9kQ"), "");
   assert.equal(shareIdFromParam("my-doc-title-Ab3xY9kQ"), "Ab3xY9kQ");
-  // slug with a numeric uniqueness suffix
   assert.equal(shareIdFromParam("my-doc-2-Ab3xY9kQ"), "Ab3xY9kQ");
-  // round-trips with buildShareSegment
   assert.equal(
     shareIdFromParam(buildShareSegment("hello-world", "Zz9Qm2pK")),
     "Zz9Qm2pK",

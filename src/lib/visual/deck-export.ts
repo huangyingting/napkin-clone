@@ -366,28 +366,6 @@ function buildSlideSpec(
   for (const element of elements) {
     let elementBox = element.box;
     let elementRotation = element.rotation;
-    if (element.kind === "shape" && element.shape === "line") {
-      const start = resolveConnectorEndpoint(
-        element.connector?.start,
-        elements,
-        (candidate) => candidate.box,
-      );
-      const end = resolveConnectorEndpoint(
-        element.connector?.end,
-        elements,
-        (candidate) => candidate.box,
-      );
-      if (start && end) {
-        const resolved = lineBoxFromEndpoints(
-          start,
-          end,
-          element.box.h,
-          geometry.slideW / geometry.slideH,
-        );
-        elementBox = resolved.box;
-        elementRotation = resolved.rotation;
-      }
-    }
     const box = boxToInches(elementBox, geometry);
     if (elementRotation) {
       box.rotation = elementRotation;

@@ -9,11 +9,9 @@
  * geometry helpers, so the slide is immediately editable with no materialization
  * step.
  *
- * Crucially, template slides are **hand-authored**, not derived: they carry
- * `elementsDerived: false` so "Sync from document" (issue #221) preserves their
- * `elements[]` verbatim instead of clobbering them with re-materialized document
- * content. The Blank template reproduces the legacy blank slide exactly (no
- * `elements[]`, no flag) so today's behavior is unchanged.
+ * Template slides are **hand-authored**, not derived: they carry
+ * `elementsDerived: false` so "Sync from document" preserves their `elements[]`
+ * verbatim.
  *
  * Pure and deterministic except for the generated element ids — fully testable
  * under `node --test`.
@@ -210,7 +208,6 @@ function placeholderTemplateSlide(
   );
 }
 
-/** Reproduces the legacy blank slide exactly — no elements, no derived flag. */
 function blankSlide(theme: DeckTheme): Slide {
   return {
     id: makeSlideId(),
@@ -221,6 +218,8 @@ function blankSlide(theme: DeckTheme): Slide {
     layout: "blank",
     notes: "",
     theme,
+    elements: [],
+    elementsDerived: false,
   };
 }
 
@@ -228,9 +227,8 @@ function blankSlide(theme: DeckTheme): Slide {
  * Constructs a {@link Slide} for the given template `kind`.
  *
  * Non-blank templates return a slide with a pre-built `elements[]` and
- * `elementsDerived === false` (authored, preserved on sync). The Blank template
- * returns the legacy blank slide. `index` is a placeholder — the caller
- * re-indexes when inserting into the deck.
+ * `elementsDerived === false` (authored, preserved on sync). `index` is a
+ * placeholder — the caller re-indexes when inserting into the deck.
  */
 export function buildTemplateSlide(
   kind: SlideTemplateKind,

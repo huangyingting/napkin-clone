@@ -880,31 +880,6 @@ test("all six element kinds (including connector) each emit at least one op", ()
   assert.ok(ofKind(spec.ops, "connector").length >= 1, "connector op emitted");
 });
 
-// Backward-compatibility: legacy line shapes still export correctly (#323).
-test("legacy line shape with connector binding still emits a shape op", () => {
-  const lineShape: ShapeElement = {
-    id: "line1",
-    kind: "shape",
-    shape: "line",
-    color: "#888888",
-    zIndex: 0,
-    box: { x: 10, y: 50, w: 80, h: 1 },
-    connector: {
-      start: undefined,
-      end: undefined,
-    },
-  };
-  const deck: Deck = {
-    theme: "default",
-    slides: [freeFormSlide(0, [lineShape])],
-  };
-  const [spec] = buildDeckSpecs(deck, new Map());
-  assert.ok(
-    ofKind(spec.ops, "shape").length >= 1,
-    "legacy line shape still emits",
-  );
-});
-
 test("shape text is applied to PPTX as a shape plus a text call", async () => {
   const deck: Deck = {
     theme: "indigo",

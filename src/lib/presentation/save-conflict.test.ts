@@ -82,6 +82,7 @@ function makeDeck(slides: Slide[]): Deck {
 function validMinimalDeck(): unknown {
   return {
     theme: "default",
+    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
     slides: [
       {
         id: "slide-1",
@@ -92,6 +93,7 @@ function validMinimalDeck(): unknown {
         layout: "content",
         notes: "",
         theme: "default",
+        elements: [],
       },
     ],
   };

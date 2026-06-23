@@ -423,11 +423,7 @@ export async function importWorkspaceDocument(
     rawTitle.trim().slice(0, MAX_TITLE_LENGTH) || "Imported document";
   const safeContent = content.slice(0, MAX_CONTENT_LENGTH);
 
-  // Normalize: convert the imported Markdown to canonical contentJson at
-  // creation time so the document is immediately on the Lexical track and
-  // the first-open conversion is skipped (issue #485). The legacy `content`
-  // field is still stored as a fallback (issue #485 AC: keep first-open
-  // fallback for existing content-only docs).
+  // Normalize imported Markdown to canonical contentJson at creation time.
   const contentJson = JSON.parse(
     markdownToLexicalState(safeContent),
   ) as Prisma.InputJsonValue;

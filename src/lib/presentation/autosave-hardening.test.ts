@@ -29,6 +29,7 @@ import {
 } from "@/lib/presentation/deck-revision-token";
 
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
+import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck-migration";
 
 import {
   diffVisualMirror,
@@ -416,6 +417,7 @@ describe("autosave: schema validation rejects corrupt payloads (#459)", () => {
   test("safeParseDeck: valid minimal deck passes", () => {
     const result = safeParseDeck({
       theme: "default",
+      schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
       slides: [
         {
           id: "s-1",
@@ -426,6 +428,7 @@ describe("autosave: schema validation rejects corrupt payloads (#459)", () => {
           layout: "content",
           notes: "",
           theme: "default",
+          elements: [],
         },
       ],
     });
