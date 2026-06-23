@@ -22,14 +22,16 @@
  *   - workspace memberships where the user is a non-owner member
  *   - comments authored by the user (body, timestamps; document id for context)
  *   - tags owned by the user
- *   - brands owned by the user
- *   - assets owned by the user (metadata only, not the raw file bytes)
+ *   - brands owned by the user (incl. logo/font asset references — ids only)
+ *   - assets owned by the user via documents, workspaces, OR brands (metadata
+ *     only — mimeType/byteSize/checksum/createdAt; NOT the raw file bytes)
  *   - active subscription (if any)
  *
  *   EXCLUDED:
  *   - other users' data (docs, comments, profiles)
  *   - soft-deleted documents (deletedAt != null)
- *   - raw file bytes for assets (referenced by storageKey, not included)
+ *   - raw file bytes for assets, including brand logo/font bytes (referenced by
+ *     storageKey / asset id, never inlined)
  *   - Stripe webhook events, rate-limit hits, and other operational tables
  *   - invite-link tokens (security — tokens are not user data)
  *
@@ -116,6 +118,10 @@ export interface ExportTagInput {
 export interface ExportBrandInput {
   id: string;
   name: string;
+  /** Asset reference for the brand logo, when set (Epic #496). Metadata only. */
+  logoAssetId?: string | null;
+  /** Asset reference for the brand font, when set (Epic #496). Metadata only. */
+  fontAssetId?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -214,6 +220,8 @@ export interface AccountExport {
   brands: Array<{
     id: string;
     name: string;
+    logoAssetId: string | null;
+    fontAssetId: string | null;
     createdAt: string;
     updatedAt: string;
   }>;
@@ -251,14 +259,14 @@ const EXPORT_SCOPE: {
     "workspace memberships (non-owner member rows)",
     "authored comments",
     "owned tags",
-    "owned brands",
-    "owned assets (metadata only, not raw file bytes)",
+    "owned brands (logo/font asset references — ids only)",
+    "owned assets via documents/workspaces/brands (metadata only, not raw file bytes)",
     "active subscription",
   ],
   excludedEntities: [
     "soft-deleted documents",
     "other users' documents, comments, or profile data",
-    "raw asset file bytes",
+    "raw asset file bytes (incl. brand logo/font bytes)",
     "invite-link tokens",
     "Stripe webhook events",
     "operational rate-limit records",
@@ -370,6 +378,8 @@ export function buildAccountExport(input: {
     brands: brands.map((b) => ({
       id: b.id,
       name: b.name,
+      logoAssetId: b.logoAssetId ?? null,
+      fontAssetId: b.fontAssetId ?? null,
       createdAt: b.createdAt.toISOString(),
       updatedAt: b.updatedAt.toISOString(),
     })),

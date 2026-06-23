@@ -7,67 +7,45 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { validateBrandInput, type BrandStyle } from "@/lib/brand/schema";
 import {
+  BRAND_SELECT,
+  serializeBrands,
+  type BrandRow,
+} from "@/lib/brand/serialize";
+import { reconcileBrandAssets } from "@/lib/brand/asset-orphan";
+import {
   resolveBrandEntitlements,
   isCustomFontFamily,
   BRAND_STYLES_UPGRADE_MESSAGE,
   FONT_UPLOAD_UPGRADE_MESSAGE,
 } from "@/lib/billing/brand-entitlements";
 
-/** Serializes a Prisma Brand row to the client-safe `BrandStyle` shape. */
-function toBrandStyle(row: {
-  id: string;
-  name: string;
-  ownerId: string;
-  palette: unknown;
-  background: string | null;
-  nodeFill: string | null;
-  nodeStroke: string | null;
-  nodeText: string | null;
-  edgeColor: string | null;
-  fontFamily: string | null;
-  fontDataUrl: string | null;
-  logoUrl: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}): BrandStyle {
-  let palette: string[] | null = null;
-  if (Array.isArray(row.palette)) {
-    palette = row.palette as string[];
-  }
-  return {
-    id: row.id,
-    name: row.name,
-    ownerId: row.ownerId,
-    palette,
-    background: row.background,
-    nodeFill: row.nodeFill,
-    nodeStroke: row.nodeStroke,
-    nodeText: row.nodeText,
-    edgeColor: row.edgeColor,
-    fontFamily: row.fontFamily,
-    fontDataUrl: row.fontDataUrl,
-    logoUrl: row.logoUrl,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
+/** Serializes one brand row to a `BrandStyle`, resolving asset URLs. */
+async function serializeOne(row: BrandRow): Promise<BrandStyle> {
+  const [style] = await serializeBrands([row]);
+  return style;
 }
 
-const BRAND_SELECT = {
-  id: true,
-  name: true,
-  ownerId: true,
-  palette: true,
-  background: true,
-  nodeFill: true,
-  nodeStroke: true,
-  nodeText: true,
-  edgeColor: true,
-  fontFamily: true,
-  fontDataUrl: true,
-  logoUrl: true,
-  createdAt: true,
-  updatedAt: true,
-} as const;
+/**
+ * Links the brand's logo/font assets to the brand (`Asset.brandId`) so the
+ * orphan/cleanup pass treats them as live, then reconciles any assets that are
+ * no longer referenced by the brand (e.g. a replaced logo) into orphans.
+ */
+async function linkBrandAssets(
+  brandId: string,
+  logoAssetId: string | null,
+  fontAssetId: string | null,
+): Promise<void> {
+  const referenced = [logoAssetId, fontAssetId].filter(
+    (id): id is string => typeof id === "string" && id.length > 0,
+  );
+  if (referenced.length > 0) {
+    await prisma.asset.updateMany({
+      where: { id: { in: referenced }, deletedAt: null },
+      data: { brandId },
+    });
+  }
+  await reconcileBrandAssets(brandId, prisma, new Date());
+}
 
 /** Lists all brands owned by the current user. */
 export async function listBrands(): Promise<BrandStyle[]> {
@@ -77,7 +55,7 @@ export async function listBrands(): Promise<BrandStyle[]> {
     orderBy: { createdAt: "asc" },
     select: BRAND_SELECT,
   });
-  return rows.map(toBrandStyle);
+  return serializeBrands(rows);
 }
 
 /** Creates a new brand for the current user. Returns the created brand. */
@@ -110,14 +88,20 @@ export async function createBrand(
       nodeText: data.nodeText ?? undefined,
       edgeColor: data.edgeColor ?? undefined,
       fontFamily: data.fontFamily ?? undefined,
-      fontDataUrl: data.fontDataUrl ?? undefined,
-      logoUrl: data.logoUrl ?? undefined,
+      logoAssetId: data.logoAssetId ?? undefined,
+      fontAssetId: data.fontAssetId ?? undefined,
     },
     select: BRAND_SELECT,
   });
 
+  await linkBrandAssets(
+    row.id,
+    data.logoAssetId ?? null,
+    data.fontAssetId ?? null,
+  );
+
   revalidatePath("/app/brands");
-  return actionOk(toBrandStyle(row));
+  return actionOk(await serializeOne(row));
 }
 
 /** Updates a brand owned by the current user. */
@@ -157,14 +141,20 @@ export async function updateBrand(
       nodeText: data.nodeText,
       edgeColor: data.edgeColor,
       fontFamily: data.fontFamily,
-      fontDataUrl: data.fontDataUrl,
-      logoUrl: data.logoUrl,
+      logoAssetId: data.logoAssetId ?? null,
+      fontAssetId: data.fontAssetId ?? null,
     },
     select: BRAND_SELECT,
   });
 
+  await linkBrandAssets(
+    row.id,
+    data.logoAssetId ?? null,
+    data.fontAssetId ?? null,
+  );
+
   revalidatePath("/app/brands");
-  return actionOk(toBrandStyle(row));
+  return actionOk(await serializeOne(row));
 }
 
 /** Deletes a brand owned by the current user. */
@@ -182,7 +172,22 @@ export async function deleteBrand(id: string): Promise<ActionResult> {
   if (!existing) return actionError("Brand not found.");
   if (existing.ownerId !== user.id) return actionError("Not authorized.");
 
+  // Capture the brand's assets before delete so the SetNull cascade does not
+  // leave them as permanent orphans; mark them orphaned afterward.
+  const brandAssets = await prisma.asset.findMany({
+    where: { brandId: id, deletedAt: null },
+    select: { id: true },
+  });
+
   await prisma.brand.delete({ where: { id } });
+
+  if (brandAssets.length > 0) {
+    await prisma.asset.updateMany({
+      where: { id: { in: brandAssets.map((a) => a.id) }, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+  }
+
   revalidatePath("/app/brands");
   return actionOk();
 }

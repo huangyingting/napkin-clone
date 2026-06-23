@@ -129,18 +129,27 @@ export async function GET(): Promise<NextResponse> {
           updatedAt: true,
         },
       }),
-      // Brands owned by the user.
+      // Brands owned by the user (incl. logo/font asset references).
       prisma.brand.findMany({
         where: { ownerId: sessionUser.id },
         orderBy: { createdAt: "asc" },
-        select: { id: true, name: true, createdAt: true, updatedAt: true },
+        select: {
+          id: true,
+          name: true,
+          logoAssetId: true,
+          fontAssetId: true,
+          createdAt: true,
+          updatedAt: true,
+        },
       }),
-      // Assets owned through the user's documents or workspaces (metadata only — not raw bytes).
+      // Assets owned through the user's documents, workspaces, or brands
+      // (metadata only — never the raw bytes; see export.ts scope).
       prisma.asset.findMany({
         where: {
           OR: [
             { document: { ownerId: sessionUser.id } },
             { workspace: { ownerId: sessionUser.id } },
+            { brand: { ownerId: sessionUser.id } },
           ],
           deletedAt: null,
         },
