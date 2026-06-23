@@ -278,3 +278,78 @@ describe("sanitizeRestoredDeck", () => {
     assert.deepEqual(result, malformed);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Schema parse-failure telemetry (#504) — diagnostics without crashing
+// ---------------------------------------------------------------------------
+
+/** Captures every console.error JSON line emitted while `fn` runs. */
+async function captureErrorLines(
+  fn: () => void | Promise<void>,
+): Promise<Record<string, unknown>[]> {
+  const original = console.error;
+  const records: Record<string, unknown>[] = [];
+  console.error = (line?: unknown) => {
+    try {
+      records.push(JSON.parse(String(line)));
+    } catch {
+      // ignore non-JSON lines
+    }
+  };
+  try {
+    await fn();
+  } finally {
+    console.error = original;
+  }
+  return records;
+}
+
+describe("schema parse-failure telemetry", () => {
+  test("sanitizeRestoredDeck emits a deck-parse-failed diagnostic and does not throw", async () => {
+    const malformed = { not: "a valid deck" } as unknown as Prisma.JsonValue;
+    let result: unknown;
+    const records = await captureErrorLines(() => {
+      result = sanitizeRestoredDeck(malformed, EMPTY_LEXICAL_STATE);
+    });
+    // Returns the raw value (flow not interrupted).
+    assert.deepEqual(result, malformed);
+    const diag = records.find((r) => r.category === "deck-parse-failed");
+    assert.ok(diag, "expected a deck-parse-failed diagnostic");
+    assert.equal(diag?.scope, "schema.persisted");
+    // No document content leaked.
+    const serialized = JSON.stringify(records);
+    assert.ok(!serialized.includes("a valid deck"));
+  });
+
+  test("mirrorVisualNodesInTx emits content-visual-parse-failed for an invalid visual and keeps going", async () => {
+    const stateWithBadVisual = {
+      root: {
+        children: [
+          {
+            type: "visual",
+            visualId: "vis-bad",
+            visual: { version: 1, type: "not-a-real-kind" },
+          },
+        ],
+        direction: "ltr",
+        format: "",
+        indent: 0,
+        type: "root",
+        version: 1,
+      },
+    };
+    const { tx } = { tx: makeStubTx() };
+    let outcome: Awaited<ReturnType<typeof mirrorVisualNodesInTx>> | undefined;
+    const records = await captureErrorLines(async () => {
+      outcome = await mirrorVisualNodesInTx(tx, "doc-1", stateWithBadVisual);
+    });
+    // The invalid node is skipped, not fatal.
+    assert.ok(outcome);
+    const diag = records.find(
+      (r) => r.category === "content-visual-parse-failed",
+    );
+    assert.ok(diag, "expected a content-visual-parse-failed diagnostic");
+    assert.equal(diag?.documentId, "doc-1");
+    assert.equal(diag?.anchorBlockId, "vis-bad");
+  });
+});

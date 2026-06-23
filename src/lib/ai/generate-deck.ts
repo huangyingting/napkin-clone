@@ -51,7 +51,7 @@ import {
 } from "@/lib/presentation/deck";
 import { normalizeGeneratedDeck } from "@/lib/presentation/deck-layout-assign";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
-import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
+import { reconcileDocumentDeckDependencies } from "@/lib/document/source-ref-model";
 import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 
 export type { DeckGenerationOptions } from "@/lib/ai/deck-prompt";
@@ -354,7 +354,10 @@ export async function generateDeck(
     }
 
     const normalized = normalizeGeneratedDeck(
-      stripOrphanedVisuals(repaired, knownVisualIds),
+      reconcileDocumentDeckDependencies({
+        deck: repaired,
+        visualsById: knownVisualIds,
+      }).deck,
       visualInventory,
       input.preferredTheme,
     );

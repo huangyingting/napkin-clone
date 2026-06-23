@@ -188,6 +188,166 @@ export function reconcileDeckVisuals(
   return stripOrphanedVisuals(deck, knownVisualIds);
 }
 
+// ---------------------------------------------------------------------------
+// Canonical deck reconciliation
+// ---------------------------------------------------------------------------
+
+/** Reconciliation status of a single deck→document dependency. */
+export type ReconciledDependencyStatus =
+  | "found"
+  | "stale"
+  | "missing"
+  | "invalid";
+
+/** A single dependency together with its reconciliation outcome. */
+export interface ReconciledDependency {
+  dependency: DocumentDeckDependency;
+  status: ReconciledDependencyStatus;
+  /** True when this reference was removed from the reconciled deck. */
+  removed: boolean;
+  reason?: string;
+}
+
+/** Per-status counts plus the number of references removed from the deck. */
+export interface ReconciliationCounts {
+  found: number;
+  stale: number;
+  missing: number;
+  invalid: number;
+  removed: number;
+}
+
+export interface ReconcileDeckDependenciesInput {
+  /** The deck to reconcile. */
+  deck: Deck;
+  /**
+   * The set of visual ids that currently exist in the document
+   * (anchor/visual ids). When omitted it is derived from `freshBlocks`.
+   */
+  visualsById?: ReadonlySet<string>;
+  /**
+   * Current document blocks. When provided, enables `source_ref` staleness
+   * classification via the shared anchor resolver; also supplies the known
+   * visual id set when `visualsById` is omitted.
+   */
+  sourceRefs?: readonly DocumentBlock[];
+}
+
+export interface DeckReconciliationResult {
+  /** Reconciled deck: orphaned/invalid visual references stripped. */
+  deck: Deck;
+  /** True when the reconciled deck differs from the input deck. */
+  changed: boolean;
+  counts: ReconciliationCounts;
+  /** One entry per enumerated dependency, in enumeration order. */
+  dependencies: ReconciledDependency[];
+}
+
+function narrowStatus(status: AnchorResolution["status"]): {
+  status: ReconciledDependencyStatus;
+} {
+  switch (status) {
+    case "found":
+    case "stale":
+    case "missing":
+    case "invalid":
+      return { status };
+    default:
+      // ambiguous / unknown / unauthorized are not produced by the visual or
+      // source-ref resolvers used here; classify defensively as invalid.
+      return { status: "invalid" };
+  }
+}
+
+/**
+ * Canonical entry point for deck↔document dependency reconciliation (#503).
+ *
+ * Classifies every deck visual reference and active `sourceRef` as
+ * `found` | `stale` | `missing` | `invalid`, then produces a reconciled deck
+ * applying the established product rules:
+ *  - **Missing / invalid visual references are stripped** (delegates to
+ *    {@link reconcileDeckVisuals} / `stripOrphanedVisuals`) so a public render
+ *    never shows a silently blank slide for a visual that no longer exists.
+ *  - **Stale source links are surfaced, NOT auto-deleted** — they remain in the
+ *    returned deck and are reported via `counts.stale` so callers can flag them.
+ *
+ * The reconciled deck is byte-equivalent to the prior `stripOrphanedVisuals`
+ * output, so routing existing call sites through here preserves externally
+ * observable behavior while giving every path one shared vocabulary + counts.
+ *
+ * Pure: no DB, no React.
+ */
+export function reconcileDocumentDeckDependencies(
+  input: ReconcileDeckDependenciesInput,
+): DeckReconciliationResult {
+  const { deck, sourceRefs } = input;
+  const knownVisualIds: ReadonlySet<string> =
+    input.visualsById ??
+    new Set(
+      (sourceRefs ?? [])
+        .filter(
+          (b): b is Extract<DocumentBlock, { kind: "visual" }> =>
+            b.kind === "visual",
+        )
+        .map((b) => b.visualId),
+    );
+
+  const dependencies: ReconciledDependency[] = [];
+  const counts: ReconciliationCounts = {
+    found: 0,
+    stale: 0,
+    missing: 0,
+    invalid: 0,
+    removed: 0,
+  };
+
+  for (const dependency of enumerateDeckDependencies(deck)) {
+    let status: ReconciledDependencyStatus;
+    let reason: string | undefined;
+    let removed = false;
+
+    if (dependency.kind === "visual") {
+      if (dependency.visualId.trim().length === 0) {
+        status = "invalid";
+        reason = "Visual id is empty.";
+      } else if (knownVisualIds.has(dependency.visualId)) {
+        status = "found";
+      } else {
+        status = "missing";
+        reason = `Visual ${dependency.visualId} was not found.`;
+      }
+      // Missing/invalid visual refs are stripped from the reconciled deck.
+      removed = status !== "found";
+    } else {
+      // source_ref: classifiable only against fresh document blocks. Without
+      // them we cannot detect staleness, so treat as found (link preserved).
+      if (sourceRefs) {
+        const resolution = resolveSourceRef(dependency.sourceRef, sourceRefs);
+        status = narrowStatus(resolution.status).status;
+        reason = resolution.reason;
+      } else {
+        status = "found";
+      }
+      // Stale/missing source links are surfaced, never auto-deleted.
+      removed = false;
+    }
+
+    counts[status] += 1;
+    if (removed) counts.removed += 1;
+    dependencies.push({
+      dependency,
+      status,
+      removed,
+      ...(reason ? { reason } : {}),
+    });
+  }
+
+  const reconciledDeck = reconcileDeckVisuals(deck, knownVisualIds);
+  const changed = counts.removed > 0;
+
+  return { deck: reconciledDeck, changed, counts, dependencies };
+}
+
 /**
  * Collects every visual id the deck references from `visual` element
  * `visualId` fields.

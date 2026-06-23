@@ -18,7 +18,9 @@
     "db:schema:sqlite": "node scripts/gen-sqlite-schema.mjs",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
-    "db:reset": "prisma generate && prisma db push --force-reset && prisma db seed"
+    "db:reset": "prisma generate && prisma db push --force-reset && prisma db seed",
+    "audit:schema": "node --import tsx src/scripts/audit-persisted-schema.ts",
+    "migrate:schema": "node --import tsx src/scripts/migrate-persisted-schema.ts"
   },
   "dependencies": {
     "@lexical/history": "^0.45.0",
