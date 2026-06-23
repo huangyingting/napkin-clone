@@ -1206,7 +1206,6 @@ export function SlideStageEditor({
       : null;
   const showPreselectedFrame =
     preselectedElement !== null &&
-    !selectedElementIds.has(preselectedElement.id) &&
     !activeDrag &&
     !marqueeRect &&
     !activeEditingId;
@@ -1346,6 +1345,7 @@ export function SlideStageEditor({
                 CLICK_MOVE_THRESHOLD_PX)
           ) {
             multiDrag.moved = true;
+            setMultiActiveDrag(multiDrag.mode);
           }
           if (!multiDrag.moved) return;
 
@@ -1440,6 +1440,7 @@ export function SlideStageEditor({
             Math.abs(ev.clientY - drag.startClientY) > CLICK_MOVE_THRESHOLD_PX)
         ) {
           drag.moved = true;
+          setActiveDrag(drag.mode);
         }
 
         if (drag.mode === "rotate") {
@@ -1816,7 +1817,6 @@ export function SlideStageEditor({
         ),
         moved: false,
       };
-      setMultiActiveDrag(mode);
     },
     [nextGestureKey, selectedElementIds, fittedBoxes],
   );
@@ -1970,7 +1970,6 @@ export function SlideStageEditor({
         selectedCountAtStart: selectedElementIds.size,
       };
       setPreselectedElementId(null);
-      setActiveDrag(mode);
     },
     [
       groupEditingId,
