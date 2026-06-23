@@ -260,13 +260,23 @@ import fs from "node:fs/promises";
 import fsPath from "node:path";
 
 /**
- * Storage adapter for the local `public/slide-assets/` directory.
+ * @deprecated Pass {@link AssetStorageAdapter} (from `asset-storage.ts`) directly
+ * to {@link purgeExpiredAssets} instead — the adapter now implements `delete`
+ * and satisfies the {@link OrphanStorage} interface (#480).
+ *
+ * This class is kept for backward compatibility with callers that constructed
+ * it explicitly, but it now delegates to a `LocalAssetStorageAdapter` pointed
+ * at `storage/slide-assets/` (the new non-public default).
+ *
+ * For legacy assets stored in `public/slide-assets/`, construct
+ * `new LocalOrphanStorage(path.join(process.cwd(), "public", "slide-assets"))`
+ * explicitly.
  */
 export class LocalOrphanStorage implements OrphanStorage {
   constructor(
     readonly rootDir: string = fsPath.join(
       process.cwd(),
-      "public",
+      "storage",
       "slide-assets",
     ),
   ) {}

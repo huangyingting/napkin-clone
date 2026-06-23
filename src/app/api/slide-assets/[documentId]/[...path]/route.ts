@@ -19,9 +19,6 @@
  * ownership, and streams the file from the local storage root.
  */
 
-import fs from "node:fs/promises";
-import path from "node:path";
-
 import { type NextRequest, NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/session";
@@ -36,6 +33,7 @@ import {
   SHARE_ACCESS_SELECT,
 } from "@/lib/share-access";
 import { logError } from "@/lib/log";
+import { getDefaultStorageAdapter } from "@/lib/slides/asset-storage";
 
 export async function GET(
   _request: NextRequest,
@@ -124,23 +122,24 @@ export async function GET(
 // ---------------------------------------------------------------------------
 
 /**
- * Streams the asset file from the local `public/slide-assets/` directory.
- * Returns 404 if the file is not found (e.g. storage inconsistency after a
- * cleanup run).
+ * Reads the asset via the default storage adapter and streams the bytes.
+ *
+ * The adapter reads from the non-public `storage/slide-assets/` directory
+ * (new uploads). Assets that were stored before the migration remain in
+ * `public/slide-assets/` and are served by Next.js's static file server under
+ * `/slide-assets/…` — they never reach this route.
+ *
+ * Returns 404 if the file is not found on any storage layer (storage
+ * inconsistency after a cleanup run).
  */
 async function serveAsset(
   storageKey: string,
   mimeType: string,
 ): Promise<NextResponse> {
   try {
-    const filePath = path.join(
-      process.cwd(),
-      "public",
-      "slide-assets",
-      storageKey,
-    );
-    const data = await fs.readFile(filePath);
-    return new NextResponse(data, {
+    const data = await getDefaultStorageAdapter().read(storageKey);
+    // Convert Buffer to Uint8Array for compatibility with BodyInit.
+    return new NextResponse(new Uint8Array(data), {
       status: 200,
       headers: {
         "Content-Type": mimeType,

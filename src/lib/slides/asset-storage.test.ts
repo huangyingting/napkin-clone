@@ -172,18 +172,20 @@ describe("getDefaultStorageAdapter / setDefaultStorageAdapter / resetDefaultStor
     resetDefaultStorageAdapter();
   });
 
-  it("returns a LocalAssetStorageAdapter with public/slide-assets root by default", () => {
+  it("returns a LocalAssetStorageAdapter with storage/slide-assets root by default (#479)", () => {
     resetDefaultStorageAdapter();
     const adapter = getDefaultStorageAdapter();
     assert.ok(adapter instanceof LocalAssetStorageAdapter);
     assert.ok(
       (adapter as LocalAssetStorageAdapter).rootDir.endsWith(
-        path.join("public", "slide-assets"),
+        path.join("storage", "slide-assets"),
       ),
+      "default rootDir must be outside public/ (#479)",
     );
     assert.equal(
       (adapter as LocalAssetStorageAdapter).baseUrl,
-      "/slide-assets",
+      "/api/slide-assets",
+      "default baseUrl must route through the protected API (#479)",
     );
   });
 
@@ -202,6 +204,10 @@ describe("getDefaultStorageAdapter / setDefaultStorageAdapter / resetDefaultStor
       urlFor() {
         return "https://cdn.example.com/key";
       },
+      async read() {
+        return Buffer.from("data");
+      },
+      async delete() {},
     };
     setDefaultStorageAdapter(mock);
     assert.equal(getDefaultStorageAdapter(), mock);
@@ -233,5 +239,112 @@ describe("MIME_TO_EXT", () => {
   it("does not include SVG or HTML MIME types (security)", () => {
     assert.equal(MIME_TO_EXT["image/svg+xml"], undefined);
     assert.equal(MIME_TO_EXT["text/html"], undefined);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// LocalAssetStorageAdapter — read (#480)
+// ---------------------------------------------------------------------------
+
+describe("LocalAssetStorageAdapter — read (#480)", () => {
+  const READ_ROOT = path.join(
+    __dirname,
+    "__test_output__",
+    "slide-assets-read",
+  );
+
+  before(async () => {
+    await fs.rm(READ_ROOT, { recursive: true, force: true });
+  });
+  after(async () => {
+    await fs.rm(READ_ROOT, { recursive: true, force: true });
+  });
+
+  it("reads back bytes previously written by store()", async () => {
+    const adapter = new LocalAssetStorageAdapter(
+      READ_ROOT,
+      "/api/slide-assets",
+    );
+    const key = "docA/deadbeef.png";
+    const data = Buffer.from("png-content");
+
+    await adapter.store(key, data, "image/png");
+    const result = await adapter.read(key);
+
+    assert.deepEqual(result, data);
+  });
+
+  it("throws when the file does not exist", async () => {
+    const adapter = new LocalAssetStorageAdapter(
+      READ_ROOT,
+      "/api/slide-assets",
+    );
+    await assert.rejects(
+      () => adapter.read("nonexistent/file.png"),
+      (err: NodeJS.ErrnoException) => err.code === "ENOENT",
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// LocalAssetStorageAdapter — delete (#480)
+// ---------------------------------------------------------------------------
+
+describe("LocalAssetStorageAdapter — delete (#480)", () => {
+  const DEL_ROOT = path.join(__dirname, "__test_output__", "slide-assets-del");
+
+  before(async () => {
+    await fs.rm(DEL_ROOT, { recursive: true, force: true });
+  });
+  after(async () => {
+    await fs.rm(DEL_ROOT, { recursive: true, force: true });
+  });
+
+  it("removes a stored file so read() fails afterwards", async () => {
+    const adapter = new LocalAssetStorageAdapter(DEL_ROOT, "/api/slide-assets");
+    const key = "docB/toremove.webp";
+    await adapter.store(key, Buffer.from("data"), "image/webp");
+
+    await adapter.delete(key);
+
+    await assert.rejects(
+      () => adapter.read(key),
+      (err: NodeJS.ErrnoException) => err.code === "ENOENT",
+    );
+  });
+
+  it("is idempotent — deleting a non-existent key does not throw", async () => {
+    const adapter = new LocalAssetStorageAdapter(DEL_ROOT, "/api/slide-assets");
+    await assert.doesNotReject(() => adapter.delete("ghost/file.png"));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Protected delivery URL (#479)
+// ---------------------------------------------------------------------------
+
+describe("Protected delivery URL (#479)", () => {
+  it("default adapter returns /api/slide-assets/ URL for new uploads", async () => {
+    resetDefaultStorageAdapter();
+    const adapter = getDefaultStorageAdapter();
+    const url = adapter.urlFor("docX/abc123.png");
+    assert.ok(
+      url.startsWith("/api/slide-assets/"),
+      "new assets must route through the protected API, not /slide-assets/ static",
+    );
+    resetDefaultStorageAdapter();
+  });
+
+  it("urlFor returns a path outside public/ for the default adapter (#479)", () => {
+    const adapter = new LocalAssetStorageAdapter(
+      path.join(process.cwd(), "storage", "slide-assets"),
+      "/api/slide-assets",
+    );
+    const url = adapter.urlFor("docY/ff00.jpg");
+    assert.equal(url, "/api/slide-assets/docY/ff00.jpg");
+    assert.ok(
+      !url.startsWith("/slide-assets/"),
+      "must not be under the legacy static /slide-assets/ path",
+    );
   });
 });

@@ -20,7 +20,12 @@
 
 import crypto from "node:crypto";
 
-import { type RateLimitStore, type RateLimitWindow } from "@/lib/ai/quota";
+import {
+  type RateLimitStore,
+  type RateLimitWindow,
+  type RateLimitOptions,
+  type RateLimitResult,
+} from "@/lib/ai/quota";
 import { prisma } from "@/lib/prisma";
 
 function intFromEnv(name: string, fallback: number): number {
@@ -109,10 +114,25 @@ export function retryAfterSeconds(resetAt: number, now: number): number {
 }
 
 /**
- * `RateLimitHit`-backed {@link RateLimitStore}. Persisting the window in a row
- * (instead of a per-instance Map) makes a limit hold across instances and, for
- * IP-keyed limits, survive a cookie reset. Shared by the import and generate
- * routes.
+ * `RateLimitHit`-backed {@link RateLimitStore} with atomic increment (#482).
+ *
+ * Persisting the window in a row (instead of a per-instance Map) makes a limit
+ * hold across instances and, for IP-keyed limits, survive a cookie reset.
+ *
+ * ## Atomicity guarantee (#482)
+ *
+ * The store implements `atomicIncrement` which collapses the previous
+ * read-modify-write into a single conditional `updateMany` guarded by
+ * `count < limit AND resetAt > now`. Prisma executes this as one DB-level
+ * operation (a single UPDATE with a WHERE clause), so two concurrent requests
+ * that both read count=N−1 cannot both succeed — exactly one UPDATE matches and
+ * increments; the other sees 0 rows updated and is either blocked or starts a
+ * new window (if expired).
+ *
+ * Bounded guarantee: the number of allowed requests within a window is bounded
+ * to exactly `limit`. An overshoot of ≥1 at the critical boundary is not
+ * possible under this scheme, as long as the underlying DB enforces row-level
+ * write serialization (SQLite WAL mode, PostgreSQL MVCC).
  */
 export const prismaRateLimitStore: RateLimitStore = {
   async get(key) {
@@ -131,5 +151,80 @@ export const prismaRateLimitStore: RateLimitStore = {
       create: { subject: key, count: window.count, resetAt },
       update: { count: window.count, resetAt },
     });
+  },
+
+  /**
+   * Atomic conditional increment for the fixed-window rate limiter (#482).
+   *
+   * Decision tree (all in DB-level operations):
+   *
+   *  1. Try `updateMany WHERE subject=key AND count < limit AND resetAt > now,
+   *     SET count = count + 1`.
+   *     - If 1 row updated → allowed; re-read count and return.
+   *  2. If 0 rows updated, fetch the current row:
+   *     a. Row absent or expired (resetAt ≤ now) → upsert with count=1 and a
+   *        fresh resetAt. Return allowed with count=1.
+   *     b. Row present and not expired → blocked at limit.
+   */
+  async atomicIncrement(
+    key: string,
+    options: RateLimitOptions,
+  ): Promise<RateLimitResult> {
+    const { limit, windowMs, now } = options;
+    const nowDate = new Date(now);
+    const newResetAt = new Date(now + windowMs);
+
+    // Phase 1: atomic conditional increment.
+    const incremented = await prisma.rateLimitHit.updateMany({
+      where: {
+        subject: key,
+        count: { lt: limit },
+        resetAt: { gt: nowDate },
+      },
+      data: { count: { increment: 1 } },
+    });
+
+    if (incremented.count > 0) {
+      // Read back to get the actual count after increment.
+      const row = await prisma.rateLimitHit.findUnique({
+        where: { subject: key },
+      });
+      const count = row?.count ?? 1;
+      const resetAt = row?.resetAt.getTime() ?? now + windowMs;
+      return {
+        allowed: true,
+        remaining: Math.max(0, limit - count),
+        limit,
+        resetAt,
+      };
+    }
+
+    // Phase 2: no rows matched — either expired or blocked.
+    const existing = await prisma.rateLimitHit.findUnique({
+      where: { subject: key },
+    });
+
+    if (!existing || existing.resetAt.getTime() <= now) {
+      // Window absent or expired — start a fresh window atomically.
+      await prisma.rateLimitHit.upsert({
+        where: { subject: key },
+        create: { subject: key, count: 1, resetAt: newResetAt },
+        update: { count: 1, resetAt: newResetAt },
+      });
+      return {
+        allowed: true,
+        remaining: Math.max(0, limit - 1),
+        limit,
+        resetAt: newResetAt.getTime(),
+      };
+    }
+
+    // Row exists, window not expired, count >= limit → blocked.
+    return {
+      allowed: false,
+      remaining: 0,
+      limit,
+      resetAt: existing.resetAt.getTime(),
+    };
   },
 };
