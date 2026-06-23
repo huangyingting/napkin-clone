@@ -130,9 +130,11 @@ export type DocumentTextBlock = {
   runs?: TextRun[];
   /**
    * Stable identifier for this block within its source document, used to
-   * anchor `sourceRef` links on inserted slide elements. Set by the Lexical
-   * block collector once the node-key extraction is wired; absent for blocks
-   * collected before that integration lands (issue #377 follow-up).
+   * anchor `sourceRef` links on inserted slide elements. Populated by
+   * `collectDocumentBlocks` from the serialised Lexical node `key` field
+   * (issue #377). Absent for nodes serialised without a `key` (e.g. the raw
+   * `editorState.toJSON()` output); callers that need block IDs must provide
+   * pre-keyed JSON via a live-state enrichment step.
    */
   blockId?: string;
 };
@@ -273,6 +275,13 @@ function formattedRuns(node: Record<string, unknown>): TextRun[] | undefined {
   return runsHaveFormatting(runs) ? runs : undefined;
 }
 
+/** Extracts a non-empty string `blockId` from the serialised node's `key` field. */
+function nodeBlockId(node: Record<string, unknown>): string | undefined {
+  return typeof node.key === "string" && node.key.length > 0
+    ? node.key
+    : undefined;
+}
+
 function walkBlocks(node: unknown, out: DocumentBlock[]): void {
   if (!isRecord(node)) return;
 
@@ -299,40 +308,52 @@ function walkBlocks(node: unknown, out: DocumentBlock[]): void {
       tag === "h1" ? 1 : tag === "h2" ? 2 : tag === "h3" ? 3 : 2
     ) as 1 | 2 | 3;
     const runs = formattedRuns(node);
+    const blockId = nodeBlockId(node);
     out.push({
       kind: "text",
       blockType: "heading",
       level,
       text: blockText(node),
       ...(runs ? { runs } : {}),
+      ...(blockId ? { blockId } : {}),
     });
     return;
   }
 
   if (type === "paragraph") {
     const runs = formattedRuns(node);
+    const blockId = nodeBlockId(node);
     out.push({
       kind: "text",
       blockType: "paragraph",
       text: blockText(node),
       ...(runs ? { runs } : {}),
+      ...(blockId ? { blockId } : {}),
     });
     return;
   }
 
   if (type === "quote") {
     const runs = formattedRuns(node);
+    const blockId = nodeBlockId(node);
     out.push({
       kind: "text",
       blockType: "quote",
       text: blockText(node),
       ...(runs ? { runs } : {}),
+      ...(blockId ? { blockId } : {}),
     });
     return;
   }
 
   if (type === "horizontalrule") {
-    out.push({ kind: "text", blockType: "hr", text: "" });
+    const blockId = nodeBlockId(node);
+    out.push({
+      kind: "text",
+      blockType: "hr",
+      text: "",
+      ...(blockId ? { blockId } : {}),
+    });
     return;
   }
 
@@ -342,11 +363,13 @@ function walkBlocks(node: unknown, out: DocumentBlock[]): void {
       if (!isRecord(child)) continue;
       if (child.type === "listitem") {
         const runs = formattedRuns(child);
+        const blockId = nodeBlockId(child);
         out.push({
           kind: "text",
           blockType: "listitem",
           text: blockText(child),
           ...(runs ? { runs } : {}),
+          ...(blockId ? { blockId } : {}),
         });
       } else {
         walkBlocks(child, out);

@@ -323,3 +323,138 @@ test("collectDocumentBlocks attaches runs only when formatting is present", () =
     ]);
   }
 });
+
+// ---------------------------------------------------------------------------
+// blockId from serialised Lexical node key (issue #377)
+// ---------------------------------------------------------------------------
+
+test("collectDocumentBlocks populates blockId from node key on paragraph", () => {
+  const raw = {
+    root: {
+      type: "root",
+      children: [
+        {
+          type: "paragraph",
+          key: "para-1",
+          children: [{ type: "text", text: "Hello" }],
+        },
+      ],
+    },
+  };
+  const blocks = collectDocumentBlocks(raw);
+  assert.equal(blocks.length, 1);
+  if (blocks[0].kind === "text") {
+    assert.equal(blocks[0].blockId, "para-1");
+    assert.equal(blocks[0].text, "Hello");
+  }
+});
+
+test("collectDocumentBlocks populates blockId from node key on heading", () => {
+  const raw = {
+    root: {
+      type: "root",
+      children: [
+        {
+          type: "heading",
+          tag: "h2",
+          key: "heading-42",
+          children: [{ type: "text", text: "Section" }],
+        },
+      ],
+    },
+  };
+  const blocks = collectDocumentBlocks(raw);
+  assert.equal(blocks.length, 1);
+  if (blocks[0].kind === "text") {
+    assert.equal(blocks[0].blockId, "heading-42");
+    assert.equal(blocks[0].blockType, "heading");
+  }
+});
+
+test("collectDocumentBlocks populates blockId from node key on quote", () => {
+  const raw = {
+    root: {
+      type: "root",
+      children: [
+        {
+          type: "quote",
+          key: "q-7",
+          children: [{ type: "text", text: "Quote text" }],
+        },
+      ],
+    },
+  };
+  const blocks = collectDocumentBlocks(raw);
+  assert.equal(blocks.length, 1);
+  if (blocks[0].kind === "text") {
+    assert.equal(blocks[0].blockId, "q-7");
+  }
+});
+
+test("collectDocumentBlocks populates blockId from listitem key", () => {
+  const raw = {
+    root: {
+      type: "root",
+      children: [
+        {
+          type: "list",
+          children: [
+            {
+              type: "listitem",
+              key: "li-3",
+              children: [{ type: "text", text: "Item" }],
+            },
+          ],
+        },
+      ],
+    },
+  };
+  const blocks = collectDocumentBlocks(raw);
+  assert.equal(blocks.length, 1);
+  if (blocks[0].kind === "text") {
+    assert.equal(blocks[0].blockId, "li-3");
+    assert.equal(blocks[0].blockType, "listitem");
+  }
+});
+
+test("collectDocumentBlocks leaves blockId undefined when key is absent", () => {
+  const blocks = collectDocumentBlocks(
+    state([paragraph("No key here")]),
+  );
+  assert.equal(blocks.length, 1);
+  if (blocks[0].kind === "text") {
+    assert.equal(blocks[0].blockId, undefined);
+  }
+});
+
+test("collectDocumentBlocks leaves blockId undefined when key is empty string", () => {
+  const raw = {
+    root: {
+      type: "root",
+      children: [
+        { type: "paragraph", key: "", children: [{ type: "text", text: "Empty key" }] },
+      ],
+    },
+  };
+  const blocks = collectDocumentBlocks(raw);
+  if (blocks[0].kind === "text") {
+    assert.equal(blocks[0].blockId, undefined);
+  }
+});
+
+test("collectDocumentBlocks extracts blockIds from multiple blocks independently", () => {
+  const raw = {
+    root: {
+      type: "root",
+      children: [
+        { type: "heading", tag: "h1", key: "k1", children: [{ type: "text", text: "Title" }] },
+        { type: "paragraph", key: "k2", children: [{ type: "text", text: "Body" }] },
+        { type: "paragraph", children: [{ type: "text", text: "No key" }] },
+      ],
+    },
+  };
+  const blocks = collectDocumentBlocks(raw);
+  assert.equal(blocks.length, 3);
+  const ids = blocks.map((b) => (b.kind === "text" ? b.blockId : null));
+  assert.deepEqual(ids, ["k1", "k2", undefined]);
+});

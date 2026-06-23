@@ -50,6 +50,7 @@ import { pickFreshestDeck } from "@/lib/presentation/fresh-deck";
 import { inferDeckTheme } from "@/lib/presentation/infer-theme";
 import { mergeSwatches } from "@/lib/presentation/text-style";
 import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
+import { findStaleSourceLinks } from "@/lib/presentation/source-link-staleness";
 import { collectDocumentBlocks } from "@/lib/visual/document-export";
 import type { DocumentTextBlock } from "@/lib/visual/document-export";
 import type { Visual } from "@/lib/visual/schema";
@@ -482,12 +483,14 @@ export function SlideEditorButton({
           deck={deck}
           visuals={visuals}
           documentTextBlocks={documentTextBlocks}
+          documentId={documentId}
           onDeckChange={setDeck}
           onClose={handleClose}
           onSave={handleSave}
           freshDeck={freshDeck}
           isDeckStale={stale}
           brandSwatches={brandSwatches}
+          staleSourceLinkCount={findStaleSourceLinks(deck, documentTextBlocks).length}
         />
       ) : null}
     </>
