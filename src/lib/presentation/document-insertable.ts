@@ -26,6 +26,7 @@ import type {
 
 import {
   makeElementId,
+  buildVisualElement,
   type BaseElement,
   type ElementBox,
   type SourceRef,
@@ -37,7 +38,16 @@ import { headingFontSize, SLIDE_TEXT_FONT_SIZE } from "./text-defaults";
 
 /** A single click-to-insert entry derived from the source document. */
 export type Insertable =
-  | { kind: "visual"; visualId: string }
+  | {
+      kind: "visual";
+      visualId: string;
+      /**
+       * Deterministic content hash for the visual block at collection time
+       * (issue #424). Always present so staleness detection works when
+       * `documentId` is later provided.
+       */
+      contentHash: string;
+    }
   | {
       kind: "text";
       /** Short, truncated label for the card. */
@@ -97,14 +107,20 @@ function textInsertable(block: DocumentTextBlock): Insertable {
  * Preserves document order; skips horizontal rules and empty/whitespace-only
  * text; dedupes visuals by `visualId` (keeping the first occurrence).
  */
-export function buildInsertables(blocks: DocumentBlock[]): Insertable[] {
+export function buildInsertables(
+  blocks: readonly DocumentBlock[],
+): Insertable[] {
   const out: Insertable[] = [];
   const seenVisuals = new Set<string>();
   for (const block of blocks) {
     if (block.kind === "visual") {
       if (seenVisuals.has(block.visualId)) continue;
       seenVisuals.add(block.visualId);
-      out.push({ kind: "visual", visualId: block.visualId });
+      out.push({
+        kind: "visual",
+        visualId: block.visualId,
+        contentHash: hashDocumentBlock(block),
+      });
       continue;
     }
     if (block.blockType === "hr") continue;
@@ -201,4 +217,44 @@ export function insertableTextElement(
     },
     ...(sourceRef !== undefined ? { sourceRef } : {}),
   };
+}
+
+/**
+ * Builds a {@link VisualElement} (sans `zIndex`) from a visual insertable,
+ * optionally stamping a full `sourceRef` when `documentId` is provided.
+ *
+ * When both `documentId` and the insertable's `contentHash` are available,
+ * the element is stamped with a `sourceRef` whose `blockKind` is `"visual"`
+ * and `blockId` equals the `visualId`. This lets staleness detection (#424)
+ * identify missing or changed document visuals without re-deriving the deck.
+ *
+ * Callers that omit `documentId` produce a legacy `visualId`-only element
+ * which remains valid and backward compatible.
+ */
+export function insertableVisualElement(
+  item: Extract<Insertable, { kind: "visual" }>,
+  options: {
+    id?: string;
+    box?: import("./deck").ElementBox;
+    /** Source document id — required to stamp a full `sourceRef`. */
+    documentId?: string;
+    /** ISO timestamp for `sourceRef.linkedAt`. Defaults to `new Date().toISOString()`. */
+    linkedAt?: string;
+  } = {},
+): ReturnType<typeof buildVisualElement> {
+  const sourceRef: SourceRef | undefined =
+    options.documentId !== undefined
+      ? {
+          documentId: options.documentId,
+          blockId: item.visualId,
+          contentHash: item.contentHash,
+          linkedAt: options.linkedAt ?? new Date().toISOString(),
+          blockKind: "visual",
+        }
+      : undefined;
+  return buildVisualElement(item.visualId, {
+    id: options.id,
+    ...(options.box !== undefined ? { box: options.box } : {}),
+    ...(sourceRef !== undefined ? { sourceRef } : {}),
+  });
 }

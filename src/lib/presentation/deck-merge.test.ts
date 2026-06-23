@@ -926,3 +926,265 @@ test("buildDeckFromBlocks stamps sourceSectionId; end-to-end: renamed slide titl
     ["manual-el"],
   );
 });
+
+// ---------------------------------------------------------------------------
+// Element-level source-ref precedence in merge (#409)
+// ---------------------------------------------------------------------------
+
+import type { TextElement } from "./deck";
+import type {
+  DocumentBlock,
+  DocumentTextBlock,
+} from "@/lib/visual/document-export";
+import { hashDocumentBlock } from "./document-block-hash";
+
+function linkedTextElement(
+  id: string,
+  blockId: string,
+  contentHash: string,
+  text: string = "original",
+): TextElement {
+  return {
+    id,
+    kind: "text",
+    role: "body",
+    text,
+    box: { x: 10, y: 10, w: 60, h: 15 },
+    zIndex: 1,
+    style: { fontSize: 4, bold: false, italic: false, align: "left" },
+    sourceRef: {
+      documentId: "doc-1",
+      blockId,
+      contentHash,
+      linkedAt: "2026-01-01T00:00:00.000Z",
+    },
+  };
+}
+
+function freshTextBlock(blockId: string, text: string): DocumentTextBlock {
+  return { kind: "text", blockType: "paragraph", text, blockId };
+}
+
+test("element-level merge: updates linked text element content (#409)", () => {
+  const block = freshTextBlock("blk-1", "Original text");
+  const hash = hashDocumentBlock(block);
+  const el = linkedTextElement("el-linked", "blk-1", hash, "Original text");
+
+  const existing = deck([
+    slide({
+      title: "Slide",
+      elements: [element("manual-1"), el],
+      elementsDerived: false,
+    }),
+  ]);
+  const fresh = deck([slide({ title: "Slide" })]);
+
+  // Simulate document change: text was updated.
+  const changedBlock = freshTextBlock("blk-1", "Updated text");
+  const freshBlocks: DocumentBlock[] = [changedBlock];
+
+  const { deck: merged } = mergeDeckFromDocument(existing, fresh, {
+    freshBlocks,
+  });
+
+  const s = merged.slides[0];
+  const els = s.elements ?? [];
+  // manual element unchanged:
+  assert.equal(els[0].id, "manual-1");
+  const updatedEl = els.find((e) => e.id === "el-linked");
+  assert.ok(updatedEl !== undefined);
+  assert.equal(updatedEl.kind, "text");
+  assert.equal((updatedEl as TextElement).text, "Updated text");
+  // geometry preserved:
+  assert.deepEqual(updatedEl.box, el.box);
+  assert.equal(updatedEl.zIndex, el.zIndex);
+  // sourceRef updated:
+  assert.equal(
+    updatedEl.sourceRef?.contentHash,
+    hashDocumentBlock(changedBlock),
+  );
+});
+
+test("element-level merge: preserves geometry and style of updated element (#409)", () => {
+  const block = freshTextBlock("blk-2", "Old content");
+  const hash = hashDocumentBlock(block);
+  const el: TextElement = {
+    id: "el-positioned",
+    kind: "text",
+    role: "body",
+    text: "Old content",
+    box: { x: 30, y: 40, w: 25, h: 12 },
+    zIndex: 5,
+    style: { fontSize: 6, bold: true, italic: false, align: "center" },
+    sourceRef: {
+      documentId: "doc-1",
+      blockId: "blk-2",
+      contentHash: hash,
+      linkedAt: "2026-01-01T00:00:00.000Z",
+    },
+  };
+
+  const existing = deck([
+    slide({ title: "T", elements: [el], elementsDerived: false }),
+  ]);
+  const fresh = deck([slide({ title: "T" })]);
+  const newBlock = freshTextBlock("blk-2", "New content");
+
+  const { deck: merged } = mergeDeckFromDocument(existing, fresh, {
+    freshBlocks: [newBlock],
+  });
+
+  const updatedEl = merged.slides[0].elements?.find(
+    (e) => e.id === "el-positioned",
+  ) as TextElement | undefined;
+  assert.ok(updatedEl !== undefined);
+  assert.equal(updatedEl.text, "New content");
+  // style/geometry must be preserved verbatim:
+  assert.equal(updatedEl.zIndex, 5);
+  assert.deepEqual(updatedEl.box, { x: 30, y: 40, w: 25, h: 12 });
+  assert.deepEqual(updatedEl.style, {
+    fontSize: 6,
+    bold: true,
+    italic: false,
+    align: "center",
+  });
+});
+
+test("element-level merge: orphaned element (missing block) is not deleted (#409/#410)", () => {
+  const block = freshTextBlock("blk-deleted", "Was here");
+  const hash = hashDocumentBlock(block);
+  const orphan = linkedTextElement(
+    "el-orphan",
+    "blk-deleted",
+    hash,
+    "Was here",
+  );
+
+  const existing = deck([
+    slide({ title: "T", elements: [orphan], elementsDerived: false }),
+  ]);
+  const fresh = deck([slide({ title: "T" })]);
+
+  // freshBlocks does NOT include blk-deleted — simulates deletion.
+  const { deck: merged } = mergeDeckFromDocument(existing, fresh, {
+    freshBlocks: [],
+  });
+
+  const els = merged.slides[0].elements ?? [];
+  // Orphaned element must survive — never auto-deleted.
+  assert.equal(els.length, 1);
+  assert.equal(els[0].id, "el-orphan");
+  assert.equal((els[0] as TextElement).text, "Was here"); // content unchanged
+});
+
+test("element-level merge: unlinked elements are not updated (#409)", () => {
+  const block = freshTextBlock("blk-x", "Original");
+  const hash = hashDocumentBlock(block);
+  const unlinkedEl: TextElement = {
+    id: "el-unlinked",
+    kind: "text",
+    role: "body",
+    text: "Manual override",
+    box: { x: 10, y: 10, w: 60, h: 15 },
+    zIndex: 1,
+    style: { fontSize: 4, bold: false, italic: false, align: "left" },
+    sourceRef: {
+      documentId: "doc-1",
+      blockId: "blk-x",
+      contentHash: hash,
+      linkedAt: "2026-01-01T00:00:00.000Z",
+      unlinked: true,
+    },
+  };
+
+  const existing = deck([
+    slide({ title: "T", elements: [unlinkedEl], elementsDerived: false }),
+  ]);
+  const fresh = deck([slide({ title: "T" })]);
+  const changedBlock = freshTextBlock("blk-x", "Changed");
+
+  const { deck: merged } = mergeDeckFromDocument(existing, fresh, {
+    freshBlocks: [changedBlock],
+  });
+
+  const els = merged.slides[0].elements ?? [];
+  // Unlinked element must not be updated — manual override is preserved.
+  assert.equal((els[0] as TextElement).text, "Manual override");
+});
+
+test("element-level merge: decks without freshBlocks fall back to slide-level merge", () => {
+  const block = freshTextBlock("blk-1", "Original");
+  const hash = hashDocumentBlock(block);
+  const el = linkedTextElement("el-1", "blk-1", hash, "Original");
+
+  const existing = deck([
+    slide({
+      title: "Slide",
+      bullets: ["old bullet"],
+      elements: [element("manual-1"), el],
+      elementsDerived: false,
+    }),
+  ]);
+  const fresh = deck([slide({ title: "Slide", bullets: ["new bullet"] })]);
+
+  // No freshBlocks — element content should NOT be updated.
+  const { deck: merged } = mergeDeckFromDocument(existing, fresh);
+  const updatedEl = merged.slides[0].elements?.find((e) => e.id === "el-1");
+  assert.ok(updatedEl !== undefined);
+  assert.equal((updatedEl as TextElement).text, "Original"); // unchanged
+  // But slide-level bullet was updated:
+  assert.deepEqual(merged.slides[0].bullets, ["new bullet"]);
+});
+
+test("element-level merge: mixed linked/unlinked/manual elements on one slide (#409)", () => {
+  const block = freshTextBlock("blk-linked", "Linked content");
+  const hash = hashDocumentBlock(block);
+  const linkedEl = linkedTextElement(
+    "el-linked",
+    "blk-linked",
+    hash,
+    "Linked content",
+  );
+  const manualEl = element("el-manual");
+  const unlinkedEl: TextElement = {
+    id: "el-unlinked",
+    kind: "text",
+    role: "body",
+    text: "Manual override",
+    box: { x: 10, y: 10, w: 60, h: 15 },
+    zIndex: 2,
+    style: { fontSize: 4, bold: false, italic: false, align: "left" },
+    sourceRef: {
+      documentId: "doc-1",
+      blockId: "blk-linked",
+      contentHash: hash,
+      linkedAt: "2026-01-01T00:00:00.000Z",
+      unlinked: true,
+    },
+  };
+
+  const existing = deck([
+    slide({
+      title: "T",
+      elements: [manualEl, linkedEl, unlinkedEl],
+      elementsDerived: false,
+    }),
+  ]);
+  const fresh = deck([slide({ title: "T" })]);
+  const changedBlock = freshTextBlock("blk-linked", "Changed content");
+
+  const { deck: merged } = mergeDeckFromDocument(existing, fresh, {
+    freshBlocks: [changedBlock],
+  });
+
+  const els = merged.slides[0].elements ?? [];
+  assert.equal(els.length, 3);
+
+  const manual = els.find((e) => e.id === "el-manual");
+  const linked = els.find((e) => e.id === "el-linked") as TextElement;
+  const unlinked = els.find((e) => e.id === "el-unlinked") as TextElement;
+
+  assert.ok(manual !== undefined); // manual element unchanged
+  assert.equal(linked.text, "Changed content"); // linked element updated
+  assert.equal(unlinked.text, "Manual override"); // unlinked element not touched
+});

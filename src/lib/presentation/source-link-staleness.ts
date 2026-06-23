@@ -8,19 +8,28 @@
  * persisted refs against a freshly collected set of document blocks and
  * returns every ref whose source has either changed or disappeared.
  *
+ * Issue #424 extends this to visual blocks: inserted document visuals may
+ * carry `sourceRef.blockKind === "visual"` with `blockId` equal to the
+ * document visual's `visualId`. Staleness is detected the same way.
+ *
+ * Issue #408 adds pure action helpers — {@link updateTextElementFromBlock} and
+ * {@link updateVisualElementFromBlock} — that preserve geometry/style/z-order
+ * while refreshing content from the fresh source block.
+ *
  * Design notes:
  *  - Only elements with a fully-wired `sourceRef` (both `blockId` and
  *    `contentHash`) are checked. Pre-#377 insertions (no `sourceRef`),
  *    explicitly unlinked refs (`sourceRef.unlinked === true`), and refs
  *    without a `contentHash` are silently skipped.
- *  - The `freshBlocks` map is built once per call from the `blockId` field
- *    on `DocumentTextBlock`s. Visual blocks carry a `visualId`, not a
- *    `blockId`, and are never considered for text-staleness.
- *  - Hash comparison uses the same {@link hashDocumentBlock} used at
- *    insertion time, so the algorithm is symmetric and zero-dep.
+ *  - Text blocks are indexed by `blockId`; visual blocks are indexed by
+ *    `visualId`. The `sourceRef.blockKind` field disambiguates which map to
+ *    consult (absent/`"text"` → text map; `"visual"` → visual map).
+ *  - Elements whose source block is missing produce `"block_missing"` (orphan);
+ *    elements whose hash differs produce `"content_changed"`. Both are subtypes
+ *    of {@link StaleReason} so callers can display them distinctly (#410).
  */
 
-import type { Deck } from "./deck";
+import type { Deck, SourceRef, TextElement, VisualElement } from "./deck";
 import type {
   DocumentBlock,
   DocumentTextBlock,
@@ -44,6 +53,11 @@ export interface StaleSourceLink {
   blockId: string;
   /** Why the link is considered stale. */
   reason: StaleReason;
+  /**
+   * Kind of the source block. Matches `sourceRef.blockKind`; absent/`"text"`
+   * for text blocks, `"visual"` for visual blocks.
+   */
+  blockKind: "text" | "visual";
 }
 
 /**
@@ -67,10 +81,14 @@ export function findStaleSourceLinks(
   freshBlocks: readonly DocumentBlock[],
 ): StaleSourceLink[] {
   // Index fresh text blocks by blockId for O(1) lookup.
-  const blockById = new Map<string, DocumentTextBlock>();
+  const textBlockById = new Map<string, DocumentTextBlock>();
+  // Index fresh visual blocks by visualId for O(1) lookup.
+  const visualBlockByVisualId = new Map<string, DocumentBlock>();
   for (const block of freshBlocks) {
     if (block.kind === "text" && block.blockId !== undefined) {
-      blockById.set(block.blockId, block);
+      textBlockById.set(block.blockId, block);
+    } else if (block.kind === "visual") {
+      visualBlockByVisualId.set(block.visualId, block);
     }
   }
 
@@ -89,28 +107,145 @@ export function findStaleSourceLinks(
         continue;
       }
 
-      const fresh = blockById.get(sourceRef.blockId);
-      if (fresh === undefined) {
-        stale.push({
-          slideId: slide.id,
-          elementId: element.id,
-          blockId: sourceRef.blockId,
-          reason: "block_missing",
-        });
-        continue;
-      }
+      const blockKind: "text" | "visual" = sourceRef.blockKind ?? "text";
 
-      const freshHash = hashDocumentBlock(fresh);
-      if (freshHash !== sourceRef.contentHash) {
-        stale.push({
-          slideId: slide.id,
-          elementId: element.id,
-          blockId: sourceRef.blockId,
-          reason: "content_changed",
-        });
+      if (blockKind === "visual") {
+        // Visual block: look up by visualId (blockId holds the visualId).
+        const fresh = visualBlockByVisualId.get(sourceRef.blockId);
+        if (fresh === undefined) {
+          stale.push({
+            slideId: slide.id,
+            elementId: element.id,
+            blockId: sourceRef.blockId,
+            reason: "block_missing",
+            blockKind: "visual",
+          });
+          continue;
+        }
+        const freshHash = hashDocumentBlock(fresh);
+        if (freshHash !== sourceRef.contentHash) {
+          stale.push({
+            slideId: slide.id,
+            elementId: element.id,
+            blockId: sourceRef.blockId,
+            reason: "content_changed",
+            blockKind: "visual",
+          });
+        }
+      } else {
+        // Text block (default): look up by blockId.
+        const fresh = textBlockById.get(sourceRef.blockId);
+        if (fresh === undefined) {
+          stale.push({
+            slideId: slide.id,
+            elementId: element.id,
+            blockId: sourceRef.blockId,
+            reason: "block_missing",
+            blockKind: "text",
+          });
+          continue;
+        }
+        const freshHash = hashDocumentBlock(fresh);
+        if (freshHash !== sourceRef.contentHash) {
+          stale.push({
+            slideId: slide.id,
+            elementId: element.id,
+            blockId: sourceRef.blockId,
+            reason: "content_changed",
+            blockKind: "text",
+          });
+        }
       }
     }
   }
 
   return stale;
+}
+
+// ---------------------------------------------------------------------------
+// Action helpers (issue #408)
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns a copy of a text element with content refreshed from a fresh source
+ * block, while preserving all geometry (box, zIndex, rotation, opacity),
+ * style, id, and role.
+ *
+ * The `sourceRef.contentHash` and `sourceRef.linkedAt` are updated to reflect
+ * the new content; `sourceRef.unlinked` is cleared (the link is now fresh).
+ * Runs are carried through only when present on the fresh block.
+ *
+ * Safe to call even when the element has no `sourceRef` — in that case a new
+ * minimal ref is built from the provided `newRef` argument.
+ *
+ * @param element    The stale text element to update.
+ * @param freshBlock The fresh block from the current document.
+ * @param newRef     A valid active SourceRef reflecting the fresh state. The
+ *                   caller is responsible for computing `contentHash` via
+ *                   `hashDocumentBlock(freshBlock)` and setting `linkedAt`.
+ */
+export function updateTextElementFromBlock(
+  element: TextElement,
+  freshBlock: DocumentTextBlock,
+  newRef: SourceRef,
+): TextElement {
+  const runs =
+    freshBlock.runs && freshBlock.runs.length > 0 ? freshBlock.runs : undefined;
+  return {
+    ...element,
+    text: freshBlock.text,
+    ...(runs !== undefined ? { runs } : { runs: undefined }),
+    sourceRef: { ...newRef, unlinked: undefined },
+  };
+}
+
+/**
+ * Returns a copy of a visual element with the source ref refreshed to point
+ * at a new visual id (i.e. after a relink to a different document visual).
+ *
+ * The `visualId` on the element is updated to match the new `blockId` in
+ * `newRef`. Geometry and styling are preserved verbatim.
+ *
+ * @param element The existing visual element.
+ * @param newRef  A valid active SourceRef for the new visual block. `blockId`
+ *                must equal the new `visualId`; `blockKind` must be `"visual"`.
+ */
+export function updateVisualElementFromBlock(
+  element: VisualElement,
+  newRef: SourceRef,
+): VisualElement {
+  return {
+    ...element,
+    visualId: newRef.blockId,
+    sourceRef: { ...newRef, unlinked: undefined },
+  };
+}
+
+/**
+ * Builds a fresh {@link SourceRef} for a relink/update operation.
+ *
+ * @param existing   The current sourceRef (to carry over documentId).
+ * @param blockId    The block id (or visualId) of the new source block.
+ * @param contentHash  Hash of the new block content.
+ * @param linkedAt   ISO timestamp for the relink.
+ * @param blockKind  Kind of the new block. Absent → carry over from existing.
+ */
+export function buildRefreshSourceRef(
+  existing: SourceRef,
+  blockId: string,
+  contentHash: string,
+  linkedAt: string,
+  blockKind?: "text" | "visual",
+): SourceRef {
+  return {
+    documentId: existing.documentId,
+    blockId,
+    contentHash,
+    linkedAt,
+    ...(blockKind !== undefined
+      ? { blockKind }
+      : existing.blockKind !== undefined
+        ? { blockKind: existing.blockKind }
+        : {}),
+  };
 }
