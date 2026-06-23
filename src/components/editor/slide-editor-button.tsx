@@ -490,7 +490,9 @@ export function SlideEditorButton({
           freshDeck={freshDeck}
           isDeckStale={stale}
           brandSwatches={brandSwatches}
-          staleSourceLinkCount={findStaleSourceLinks(deck, documentTextBlocks).length}
+          staleSourceLinkCount={
+            findStaleSourceLinks(deck, documentTextBlocks).length
+          }
         />
       ) : null}
     </>

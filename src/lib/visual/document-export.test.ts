@@ -418,9 +418,7 @@ test("collectDocumentBlocks populates blockId from listitem key", () => {
 });
 
 test("collectDocumentBlocks leaves blockId undefined when key is absent", () => {
-  const blocks = collectDocumentBlocks(
-    state([paragraph("No key here")]),
-  );
+  const blocks = collectDocumentBlocks(state([paragraph("No key here")]));
   assert.equal(blocks.length, 1);
   if (blocks[0].kind === "text") {
     assert.equal(blocks[0].blockId, undefined);
@@ -432,7 +430,11 @@ test("collectDocumentBlocks leaves blockId undefined when key is empty string", 
     root: {
       type: "root",
       children: [
-        { type: "paragraph", key: "", children: [{ type: "text", text: "Empty key" }] },
+        {
+          type: "paragraph",
+          key: "",
+          children: [{ type: "text", text: "Empty key" }],
+        },
       ],
     },
   };
@@ -447,8 +449,17 @@ test("collectDocumentBlocks extracts blockIds from multiple blocks independently
     root: {
       type: "root",
       children: [
-        { type: "heading", tag: "h1", key: "k1", children: [{ type: "text", text: "Title" }] },
-        { type: "paragraph", key: "k2", children: [{ type: "text", text: "Body" }] },
+        {
+          type: "heading",
+          tag: "h1",
+          key: "k1",
+          children: [{ type: "text", text: "Title" }],
+        },
+        {
+          type: "paragraph",
+          key: "k2",
+          children: [{ type: "text", text: "Body" }],
+        },
         { type: "paragraph", children: [{ type: "text", text: "No key" }] },
       ],
     },

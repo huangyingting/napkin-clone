@@ -2002,7 +2002,9 @@ export function SlideEditor({
                         aria-hidden="true"
                         className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-ds-warning-surface px-1 text-[10px] font-semibold leading-none text-ds-warning-text"
                       >
-                        {staleSourceLinkCount > 99 ? "99+" : staleSourceLinkCount}
+                        {staleSourceLinkCount > 99
+                          ? "99+"
+                          : staleSourceLinkCount}
                       </span>
                     ) : null}
                   </button>

@@ -21,7 +21,10 @@
  */
 
 import type { Deck } from "./deck";
-import type { DocumentBlock, DocumentTextBlock } from "@/lib/visual/document-export";
+import type {
+  DocumentBlock,
+  DocumentTextBlock,
+} from "@/lib/visual/document-export";
 import { hashDocumentBlock } from "./document-block-hash";
 
 /** Reason a source link is considered stale. */
