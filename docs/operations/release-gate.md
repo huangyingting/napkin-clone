@@ -191,13 +191,13 @@ For each flow below, check the indicated owner: **A** = automated test,
 
 ### Accessibility flows
 
-| #    | Flow                                   | Owner | Notes                                                                                                                                                        |
-| ---- | -------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| AC-1 | VisualRenderer role=img + aria-label   | **A** | `a11y-helpers.test.ts`                                                                                                                                       |
-| AC-2 | Decorative canvas elements aria-hidden | **A** | `a11y-helpers.test.ts`                                                                                                                                       |
-| AC-3 | Icon-only toolbar controls labelled    | **A** | `a11y-helpers.test.ts`                                                                                                                                       |
-| AC-4 | Modal dialog semantics                 | **A** | `a11y-helpers.test.ts`                                                                                                                                       |
-| AC-5 | Canvas drag/resize keyboard parity     | **D** | Deferred — decision recorded in [ADR 0002](../architecture/decisions/0002-canvas-keyboard-accessibility.md); limitation also noted in `a11y-helpers.test.ts` |
+| #    | Flow                                               | Owner | Notes                                                                                                                                                                                                                                                                                                                              |
+| ---- | -------------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AC-1 | VisualRenderer role=img + aria-label               | **A** | `a11y-helpers.test.ts`                                                                                                                                                                                                                                                                                                             |
+| AC-2 | Decorative canvas elements aria-hidden             | **A** | `a11y-helpers.test.ts`                                                                                                                                                                                                                                                                                                             |
+| AC-3 | Icon-only toolbar controls labelled                | **A** | `a11y-helpers.test.ts`                                                                                                                                                                                                                                                                                                             |
+| AC-4 | Modal dialog semantics                             | **A** | `a11y-helpers.test.ts`                                                                                                                                                                                                                                                                                                             |
+| AC-5 | Canvas keyboard resize / traversal / announcements | **A** | Keyboard resize, deterministic traversal (roving tabindex), focus restoration, and `aria-live` announcements ship (#530–#535); pure logic covered by `canvas-a11y.test.ts`. Remaining accepted limitations (connector free-draw, rotation) recorded in [ADR 0002](../architecture/decisions/0002-canvas-keyboard-accessibility.md) |
 
 ---
 
@@ -216,7 +216,10 @@ For each flow below, check the indicated owner: **A** = automated test,
   the responsible engineer signs off that it is safe to proceed.
 - A known canvas keyboard limitation (**D**) is present: confirm it is recorded in
   `a11y-helpers.test.ts`, in [ADR 0002 — Canvas keyboard accessibility](../architecture/decisions/0002-canvas-keyboard-accessibility.md),
-  and the deferred-risk list.
+  and the deferred-risk list. The R1–R3 keyboard parity work (resize, traversal,
+  focus restoration, announcements) now ships (#530–#535, covered by
+  `canvas-a11y.test.ts`); only the accepted A1 (connector free-draw) and A2
+  (rotation) limitations remain as documented warnings.
 - Performance budgets report `warned: true` (not `exceeded`) for any metric: log the
   finding and plan remediation within the next sprint.
 

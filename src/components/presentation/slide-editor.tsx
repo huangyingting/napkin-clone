@@ -30,6 +30,7 @@ import {
   GripVertical,
   Grid3x3,
   Image as ImageIcon,
+  Keyboard,
   LayoutPanelLeft,
   List,
   Minus,
@@ -76,6 +77,7 @@ import {
 import { VisualPicker } from "@/components/presentation/visual-picker";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { IconButton, Tooltip } from "@/components/ui";
+import { Dialog } from "@/components/ui/dialog";
 import { Popover } from "@/components/ui/popover";
 import {
   DEFAULT_SCREEN_SIZE,
@@ -89,6 +91,7 @@ import {
   makeElementId,
   type Deck,
   type DeckTheme,
+  type ConnectorElement,
   type ElementBox,
   type ShapeKind,
   type SlideElement,
@@ -124,6 +127,24 @@ import {
   executeCommand,
   type DeckPatch,
 } from "@/lib/presentation/slide-commands";
+import {
+  announceDelete,
+  announceMove,
+  announceResize,
+  announceSelection,
+  buildConnectorBetween,
+  canvasShortcutHelp,
+  connectorBoundingBox,
+  cycleEndpointAnchor,
+  focusTargetAfterDelete,
+  isArrowKey,
+  nextElementId,
+  orderedElementIds,
+  resizeBoxByStep,
+  selectedConnectablePair,
+} from "@/lib/presentation/canvas-a11y";
+import { resolveConnectorElementPoints } from "@/lib/presentation/connector-geometry";
+import { elementAccessibleName } from "@/lib/presentation/element-accessible-name";
 import {
   addElement,
   duplicateElements,
@@ -336,6 +357,76 @@ function FocusTrapped({ children }: { children: React.ReactNode }) {
   return <div ref={ref}>{children}</div>;
 }
 
+/**
+ * In-product keyboard shortcut help overlay for the slide editor canvas (#535).
+ * Built on the shared accessible {@link Dialog} (focus-trapped, Escape to
+ * close, focus restored on close); the shortcut content comes from the pure
+ * {@link canvasShortcutHelp} helper so it stays in sync with the keyboard
+ * model and is unit-tested.
+ */
+function KeyboardShortcutHelpDialog({
+  open,
+  isMac,
+  onClose,
+}: {
+  open: boolean;
+  isMac: boolean;
+  onClose: () => void;
+}) {
+  const groups = useMemo(() => canvasShortcutHelp({ isMac }), [isMac]);
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      aria-labelledby="canvas-keyboard-help-title"
+      className="max-w-2xl"
+    >
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <h2
+          id="canvas-keyboard-help-title"
+          className="text-base font-semibold text-ds-text-primary"
+        >
+          Keyboard shortcuts
+        </h2>
+        <IconButton
+          aria-label="Close"
+          size="sm"
+          variant="plain"
+          onClick={onClose}
+        >
+          <X size={16} aria-hidden="true" />
+        </IconButton>
+      </div>
+      <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
+        {groups.map((group) => (
+          <section key={group.title}>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ds-text-muted">
+              {group.title}
+            </h3>
+            <dl className="flex flex-col gap-1.5">
+              {group.entries.map((entry) => (
+                <div
+                  key={entry.keys}
+                  className="flex items-baseline justify-between gap-3 text-sm"
+                >
+                  <dt className="text-ds-text-secondary">
+                    {entry.description}
+                  </dt>
+                  <dd className="shrink-0">
+                    <kbd className="rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-1.5 py-0.5 text-xs font-medium text-ds-text-primary">
+                      {entry.keys}
+                    </kbd>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ))}
+      </div>
+    </Dialog>
+  );
+}
+
 export function SlideEditor({
   deck: deckProp,
   visuals,
@@ -470,6 +561,33 @@ export function SlideEditor({
     effectiveSelectedElementId: null as string | null,
     effectiveSelectedElementIds: new Set<string>(),
   });
+
+  // ── Canvas keyboard accessibility (#530–#535) ──────────────────────────────
+  // Imperative focus restoration (#532): bumping the nonce tells the stage to
+  // move DOM focus to `elementId` (or the canvas container when null) after a
+  // keyboard mutation so users are never dropped to the top of the page.
+  const focusNonceRef = useRef(0);
+  const [focusRequest, setFocusRequest] = useState<{
+    elementId: string | null;
+    nonce: number;
+  }>({ elementId: null, nonce: 0 });
+  const requestElementFocus = useCallback((elementId: string | null) => {
+    focusNonceRef.current += 1;
+    setFocusRequest({ elementId, nonce: focusNonceRef.current });
+  }, []);
+  // Polite screen-reader announcements (#533): selection / move / resize /
+  // delete results surfaced in the stage's visually-hidden live region.
+  const liveNonceRef = useRef(0);
+  const [liveMessage, setLiveMessage] = useState<{
+    text: string;
+    nonce: number;
+  }>({ text: "", nonce: 0 });
+  const announce = useCallback((text: string) => {
+    liveNonceRef.current += 1;
+    setLiveMessage({ text, nonce: liveNonceRef.current });
+  }, []);
+  // In-product keyboard shortcut help overlay (#535).
+  const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
 
   // ── Autosave + save-status feedback (issue #208) ───────────────────────────
   // Mirrors the document editor: a debounced autosave persists deck edits a
@@ -1033,11 +1151,16 @@ export function SlideEditor({
 
       if (event.key === "Escape") {
         event.preventDefault();
-        if (inspectorSheetOpen) {
+        if (keyboardHelpOpen) {
+          setKeyboardHelpOpen(false);
+        } else if (inspectorSheetOpen) {
           setInspectorSheetOpen(false);
         } else if (kElemId) {
           setSelectedElementId(null);
           setSelectedElementIds(new Set());
+          // Release canvas focus to the stage container so Tab can leave the
+          // canvas — keyboard users are never trapped among elements (#531).
+          requestElementFocus(null);
         } else {
           handleRequestClose();
         }
@@ -1046,6 +1169,45 @@ export function SlideEditor({
 
       if (typing) {
         return;
+      }
+
+      // Open the in-product keyboard shortcut help (#535). `?` is Shift+/; the
+      // `typing` guard above keeps it from firing while editing a field.
+      if (event.key === "?") {
+        event.preventDefault();
+        setKeyboardHelpOpen(true);
+        return;
+      }
+
+      // Tab / Shift+Tab cycle the selection among canvas elements in reading
+      // order while a canvas element has focus (#531). Only intercepted when
+      // focus is on an element; Tab from the bare stage container (e.g. after
+      // Escape) falls through to native order so the canvas is never a trap.
+      if (event.key === "Tab" && target?.closest("[data-element-id]")) {
+        const tabSlide = kDeck.slides[kSafe];
+        const ordered = orderedElementIds(tabSlide?.elements ?? []);
+        if (ordered.length > 0) {
+          event.preventDefault();
+          const nextId = nextElementId(
+            ordered,
+            kElemId,
+            event.shiftKey ? -1 : 1,
+          );
+          setSelectedElementId(nextId);
+          setSelectedElementIds(nextId ? new Set([nextId]) : new Set());
+          requestElementFocus(nextId);
+          const nextEl = nextId
+            ? tabSlide?.elements?.find((el) => el.id === nextId)
+            : undefined;
+          if (nextEl) {
+            announce(
+              announceSelection(
+                elementAccessibleName(nextEl, tabSlide?.elements),
+              ),
+            );
+          }
+          return;
+        }
       }
 
       // Undo / redo over deck history. Ctrl/⌘+Z = undo,
@@ -1093,6 +1255,21 @@ export function SlideEditor({
               onDeckChange(nextDeck);
               setSelectedElementId(newElementIds[0]);
               setSelectedElementIds(new Set(newElementIds));
+              // Keep focus on the new copy (#532) and announce it (#533).
+              requestElementFocus(newElementIds[0]);
+              const dupEl = nextDeck.slides[kSafe]?.elements?.find(
+                (el) => el.id === newElementIds[0],
+              );
+              if (dupEl) {
+                announce(
+                  announceSelection(
+                    elementAccessibleName(
+                      dupEl,
+                      nextDeck.slides[kSafe]?.elements,
+                    ),
+                  ),
+                );
+              }
             }
           } else {
             const slideId = kDeck.slides[kSafe]?.id;
@@ -1280,8 +1457,84 @@ export function SlideEditor({
             slideId,
             elementIds: ids,
           });
+          // Keep focus on the group's primary element (#532).
+          requestElementFocus(ids[0]);
         }
         return;
+      }
+
+      // Connector keyboard authoring (#534, interim subset). Bare `c`:
+      //  - one connector selected → cycle its END endpoint anchor among the
+      //    candidate anchors (Shift+C cycles the START endpoint),
+      //  - exactly two connectable elements selected → insert a connector with
+      //    default endpoints bound to both, then select + focus it.
+      // Free-draw connector authoring stays deferred (ADR 0002, A1).
+      if (!mod && !event.altKey && (event.key === "c" || event.key === "C")) {
+        const connSlide = kDeck.slides[kSafe];
+        const connSlideId = connSlide?.id;
+        const connElements = connSlide?.elements ?? [];
+        if (!connSlideId) {
+          return;
+        }
+        const selectedConnector =
+          kElemId && kElemIds.size <= 1
+            ? connElements.find(
+                (el): el is ConnectorElement =>
+                  el.id === kElemId && el.kind === "connector",
+              )
+            : undefined;
+        if (selectedConnector) {
+          event.preventDefault();
+          const whichEnd = event.shiftKey ? "start" : "end";
+          const updated = cycleEndpointAnchor(selectedConnector, whichEnd, 1);
+          if (updated !== selectedConnector) {
+            // Recompute the connector's box from the resolved endpoints so its
+            // selection bounds / handles track the new anchor.
+            const pts = resolveConnectorElementPoints(
+              updated,
+              connElements,
+              (el) => el.box,
+            );
+            const nextBox = connectorBoundingBox(pts.start, pts.end);
+            doCommitAndChange(kDeck, {
+              type: "UPDATE_ELEMENT",
+              slideId: connSlideId,
+              elementId: selectedConnector.id,
+              patch:
+                whichEnd === "start"
+                  ? { start: updated.start, box: nextBox }
+                  : { end: updated.end, box: nextBox },
+            });
+            requestElementFocus(selectedConnector.id);
+            const endpoint = updated[whichEnd];
+            const anchorLabel =
+              "anchor" in endpoint ? endpoint.anchor : "anchor";
+            announce(
+              `Reattached connector ${whichEnd} endpoint to ${anchorLabel}`,
+            );
+          }
+          return;
+        }
+        const pair = selectedConnectablePair(connElements, kElemIds);
+        if (pair) {
+          event.preventDefault();
+          const newId = makeElementId();
+          doCommitAndChange(kDeck, {
+            type: "ADD_ELEMENT",
+            slideId: connSlideId,
+            element: { ...buildConnectorBetween(pair[0], pair[1]), id: newId },
+          });
+          setSelectedElementId(newId);
+          setSelectedElementIds(new Set([newId]));
+          requestElementFocus(newId);
+          announce(
+            `Connected ${elementAccessibleName(
+              pair[0],
+              connElements,
+            )} to ${elementAccessibleName(pair[1], connElements)}`,
+          );
+          return;
+        }
       }
 
       // With an element selected, arrow keys nudge it and Delete removes it.
@@ -1303,6 +1556,18 @@ export function SlideEditor({
         }
         if (event.key === "Delete" || event.key === "Backspace") {
           event.preventDefault();
+          // Restore focus to the next surviving element in reading order, or
+          // the canvas container when none remain (#532), and announce the
+          // deletion (#533).
+          const ordered = orderedElementIds(slide?.elements ?? []);
+          const focusTarget = focusTargetAfterDelete(
+            ordered,
+            new Set(selectedIds),
+          );
+          const deletedName =
+            selectedIds.length > 1
+              ? `${selectedIds.length} elements`
+              : elementAccessibleName(selected, slide?.elements);
           doCommitAndChange(kDeck, {
             type: "REMOVE_ELEMENTS",
             slideId,
@@ -1310,8 +1575,46 @@ export function SlideEditor({
           });
           setSelectedElementId(null);
           setSelectedElementIds(new Set());
+          requestElementFocus(focusTarget);
+          announce(announceDelete(deletedName));
           return;
         }
+
+        // Alt+Arrow resizes the selected element box (#530), mirroring the
+        // nudge step model: Alt+Arrow = 1%, Alt+Shift+Arrow = 5%. Right/Down
+        // grow the right/bottom edge; Left/Up shrink them. Alt distinguishes
+        // this from the bare-Arrow nudge below so the two never collide.
+        if (event.altKey && isArrowKey(event.key)) {
+          event.preventDefault();
+          const stepPct = event.shiftKey ? 5 : 1;
+          const boxesById: Record<string, ElementBox> = {};
+          for (const id of selectedIds) {
+            const el = slide?.elements?.find(
+              (candidate) => candidate.id === id,
+            );
+            if (!el) continue;
+            const nextBox = resizeBoxByStep(el.box, event.key, stepPct);
+            if (nextBox !== el.box) boxesById[id] = nextBox;
+          }
+          if (Object.keys(boxesById).length > 0) {
+            doCommitAndChange(kDeck, {
+              type: "SET_ELEMENT_BOXES",
+              slideId,
+              boxesById,
+            });
+            requestElementFocus(selected.id);
+            const primaryBox = boxesById[selected.id] ?? selected.box;
+            announce(
+              announceResize(
+                elementAccessibleName(selected, slide?.elements),
+                primaryBox.w,
+                primaryBox.h,
+              ),
+            );
+          }
+          return;
+        }
+
         const step = event.shiftKey ? 5 : 1;
         let dx = 0;
         let dy = 0;
@@ -1328,6 +1631,16 @@ export function SlideEditor({
             dx,
             dy,
           });
+          // Keep focus on the moved element and announce the new position
+          // (#532, #533). The displayed coords mirror NUDGE_ELEMENTS clamping.
+          requestElementFocus(selected.id);
+          announce(
+            announceMove(
+              elementAccessibleName(selected, slide?.elements),
+              Math.max(0, Math.min(100 - selected.box.w, selected.box.x + dx)),
+              Math.max(0, Math.min(100 - selected.box.h, selected.box.y + dy)),
+            ),
+          );
           return;
         }
       }
@@ -1345,12 +1658,15 @@ export function SlideEditor({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
+    announce,
     doCommitAndChange,
     handleRequestClose,
     handleRedo,
     handleUndo,
     inspectorSheetOpen,
+    keyboardHelpOpen,
     onDeckChange,
+    requestElementFocus,
   ]);
 
   const handleNotesChange = useCallback(
@@ -2622,6 +2938,19 @@ export function SlideEditor({
             </IconButton>
           </Tooltip>
 
+          {/* Keyboard shortcuts help (#535) */}
+          <Tooltip label="Keyboard shortcuts" side="bottom">
+            <IconButton
+              aria-label="Keyboard shortcuts"
+              size="sm"
+              variant="plain"
+              active={keyboardHelpOpen}
+              onClick={() => setKeyboardHelpOpen(true)}
+            >
+              <Keyboard aria-hidden className="h-3.5 w-3.5" />
+            </IconButton>
+          </Tooltip>
+
           {/* Simple / Advanced mode toggle */}
           <div
             role="group"
@@ -2717,6 +3046,12 @@ export function SlideEditor({
           onCancel={handleCancelSync}
         />
       ) : null}
+
+      <KeyboardShortcutHelpDialog
+        open={keyboardHelpOpen}
+        isMac={isMac}
+        onClose={() => setKeyboardHelpOpen(false)}
+      />
 
       {/* ── Body: thumbnail rail · stage · inspector ────────────────────── */}
       {/* Stacks vertically on phones (rail becomes a top strip), three-pane row
@@ -2889,6 +3224,8 @@ export function SlideEditor({
                 brandSwatches={brandSwatches}
                 onAddTextElement={handleAddTextElement}
                 showAdvanced={showAdvanced}
+                focusRequest={focusRequest}
+                liveMessage={liveMessage}
               />
             ) : null}
             {/* Zoom controls — overlaid bottom-right of the stage. */}

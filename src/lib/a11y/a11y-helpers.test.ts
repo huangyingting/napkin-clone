@@ -342,12 +342,13 @@ describe("a11y: summariseResults utility (#462)", () => {
 // #462: Known canvas keyboard limitation documentation test
 // ---------------------------------------------------------------------------
 
-describe("a11y: known canvas keyboard limitations (#462)", () => {
+describe("a11y: known canvas keyboard limitations (#462, ADR 0002)", () => {
   /**
-   * The slide canvas drag-and-drop operations (element repositioning,
-   * connector drawing, resize handles) do not have full keyboard equivalents.
-   * This is a documented limitation. These tests document what IS covered and
-   * what is deferred.
+   * The slide canvas keyboard model now covers the R1–R3 requirements of
+   * ADR 0002: keyboard move (nudge) and resize, deterministic traversal with
+   * roving tabindex, focus restoration after mutations, and `aria-live`
+   * announcements. The pure decision logic behind these is unit-tested in
+   * `src/lib/presentation/canvas-a11y.test.ts`.
    *
    * Covered by the a11y smoke layer:
    *  - Visual SVG: role=img + aria-label (VisualRenderer)
@@ -355,16 +356,19 @@ describe("a11y: known canvas keyboard limitations (#462)", () => {
    *  - Modal semantics: role=dialog + label (slide editor modal)
    *  - Icon-only controls: aria-label (toolbar buttons)
    *
-   * Deferred (not in scope for smoke layer):
-   *  - Full keyboard drag/resize of canvas elements (requires browser + AT)
-   *  - Connector draw via keyboard (requires full pointer-key mapping)
+   * Shipped keyboard parity (covered by `canvas-a11y.test.ts`):
+   *  - Move (Arrow / Shift+Arrow) and resize (Alt+Arrow / Alt+Shift+Arrow)
+   *  - Traversal (Tab / Shift+Tab) + roving tabindex
+   *  - Focus restoration + selection / move / resize / delete announcements
+   *  - Connector create (between two selected elements) + endpoint reattach
+   *
+   * Deferred (accepted limitations, ADR 0002 A1/A2):
+   *  - Free-draw connector authoring via keyboard (default-endpoint insertion
+   *    + reattach ships; free arbitrary routing remains pointer-only)
+   *  - Keyboard rotation (decorative, pointer-only)
    */
-  test("limitation documentation: this test documents deferred canvas keyboard coverage", () => {
-    const deferredItems = [
-      "drag-to-reposition",
-      "resize-handle-keyboard",
-      "connector-draw-keyboard",
-    ];
+  test("limitation documentation: deferred canvas keyboard coverage is recorded", () => {
+    const deferredItems = ["connector-freedraw-keyboard", "rotation-keyboard"];
     // Documenting limitations explicitly so they are not hidden.
     assert.ok(
       deferredItems.length > 0,

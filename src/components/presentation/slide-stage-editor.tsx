@@ -65,6 +65,7 @@ import type {
   TextElementStyle,
 } from "@/lib/presentation/deck";
 import { normalizeBulletItems } from "@/lib/presentation/deck";
+import { orderedElementIds } from "@/lib/presentation/canvas-a11y";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import { detachConnectorEndpoint } from "@/lib/presentation/connector-lifecycle";
 import { elementAccessibleName } from "@/lib/presentation/element-accessible-name";
@@ -947,6 +948,19 @@ interface SlideStageEditorProps {
    * that don't pass the prop keep today's full behaviour.
    */
   showAdvanced?: boolean;
+  /**
+   * Imperative focus restoration request (#532). When `nonce` changes the stage
+   * focuses the element whose id matches `elementId`, or the canvas container
+   * when `elementId` is `null`, so keyboard users are never dropped to page top
+   * after a move / resize / delete / duplicate / group mutation.
+   */
+  focusRequest?: { elementId: string | null; nonce: number };
+  /**
+   * Polite screen-reader announcement (#533). When `nonce` changes the text is
+   * surfaced in a visually-hidden `aria-live` region (selection / move / resize
+   * / delete results).
+   */
+  liveMessage?: { text: string; nonce: number };
 }
 
 export function SlideStageEditor({
@@ -974,6 +988,8 @@ export function SlideStageEditor({
   brandSwatches = [],
   onAddTextElement,
   showAdvanced = true,
+  focusRequest,
+  liveMessage,
 }: SlideStageEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -1032,6 +1048,12 @@ export function SlideStageEditor({
   const pendingMoveRef = useRef<PointerEvent | null>(null);
 
   const elements = useMemo(() => slide.elements ?? [], [slide.elements]);
+  // Deterministic reading-order ids (#531). Drives the roving tabindex: the
+  // selected primary is the single Tab stop, falling back to the first element
+  // in reading order when nothing is selected so Tab enters the canvas at a
+  // predictable place rather than walking every element in raw DOM order.
+  const orderedIds = useMemo(() => orderedElementIds(elements), [elements]);
+  const rovingTabId = selectedElementId ?? orderedIds[0] ?? null;
   // Live element list for the global pointer-move handler (which is memoized on
   // a stable identity and must not re-subscribe on every element change). The
   // ref is synced from an effect so it is never written during render.
@@ -1039,6 +1061,29 @@ export function SlideStageEditor({
   useEffect(() => {
     elementsRef.current = elements;
   }, [elements]);
+  // Focus restoration (#532). When the parent requests focus after a keyboard
+  // mutation, move DOM focus to the target element (or the canvas container
+  // when none remains) so keyboard users keep their place instead of being
+  // dropped to the top of the page. Keyed on the request nonce so an identical
+  // target id still re-focuses; the initial nonce (0) is ignored.
+  const focusNonce = focusRequest?.nonce ?? 0;
+  useLayoutEffect(() => {
+    if (focusNonce === 0) return;
+    const container = containerRef.current;
+    if (!container) return;
+    const targetId = focusRequest?.elementId ?? null;
+    if (targetId) {
+      const node = container.querySelector<HTMLElement>(
+        `[data-element-id="${CSS.escape(targetId)}"]`,
+      );
+      if (node) {
+        node.focus();
+        return;
+      }
+    }
+    container.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only when the request nonce changes.
+  }, [focusNonce]);
   const tc = DECK_THEMES[slide.theme] ?? DECK_THEMES.default;
   const accent = slide.accent ?? tc.accentColor;
   const stageAspect = width / height;
@@ -1905,11 +1950,18 @@ export function SlideStageEditor({
   return (
     <div
       ref={containerRef}
-      className="relative touch-none overflow-hidden rounded-ds-sm bg-ds-surface-raised shadow-ds-overlay ring-1 ring-ds-border-strong"
+      data-slide-stage
+      tabIndex={-1}
+      className="relative touch-none overflow-hidden rounded-ds-sm bg-ds-surface-raised shadow-ds-overlay outline-none ring-1 ring-ds-border-strong"
       style={{ width, height }}
       onPointerDown={handleStagePointerDown}
       onDoubleClick={handleStageDoubleClick}
     >
+      {/* Visually-hidden polite live region (#533): selection / move / resize /
+          delete results announced to screen readers without visual noise. */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {liveMessage?.text ?? ""}
+      </div>
       <div className="pointer-events-none absolute inset-0">
         <SlideCanvas
           slide={slide}
@@ -1964,8 +2016,9 @@ export function SlideStageEditor({
           return (
             <div
               key={element.id}
+              data-element-id={element.id}
               role="button"
-              tabIndex={0}
+              tabIndex={element.id === rovingTabId ? 0 : -1}
               aria-label={elementAccessibleName(element, elements)}
               aria-pressed={selected}
               onPointerDown={(event) => {
@@ -2035,7 +2088,7 @@ export function SlideStageEditor({
                   );
                 }
               }}
-              className={`absolute outline-none transition-colors ${
+              className={`absolute outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ds-surface-raised ${
                 isEditing ? "cursor-text" : "cursor-move"
               } ${
                 selected
