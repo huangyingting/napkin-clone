@@ -164,6 +164,7 @@ import { deriveSlideTitle } from "@/lib/presentation/slide-title";
 import { reorderTargetIndex } from "@/lib/presentation/slide-reorder";
 import { useDeckHistory } from "@/lib/presentation/use-deck-history";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
+import { uploadSlideAsset } from "@/app/app/documents/[id]/slide-asset-actions";
 import {
   buildInsertables,
   insertableTextElement,
@@ -188,10 +189,11 @@ interface SlideEditorProps {
    */
   documentTextBlocks?: readonly DocumentTextBlock[];
   /**
-   * The source document's stable ID, passed through to
+   * The source document's stable ID. Used for two purposes: passed through to
    * {@link insertableTextElement} so inserted text elements carry a full
-   * `sourceRef` (issue #377). Absent when the panel is opened without a live
-   * document context.
+   * `sourceRef` (issue #377); and passed to {@link useImageUpload} so uploaded
+   * images are stored as server-side slide assets (Epic #374). Absent when the
+   * panel is opened without a live document context.
    */
   documentId?: string;
   onDeckChange: (deck: Deck) => void;
@@ -218,6 +220,7 @@ interface SlideEditorProps {
    * optional — falls back to on-theme / default swatches when empty.
    */
   brandSwatches?: readonly string[];
+  /**
   /**
    * Number of slide elements whose source-document links are stale (issue
    * #377). Drives the stale-count badge on the "From document" button. Absent
@@ -1631,13 +1634,14 @@ export function SlideEditor({
 
   // Insert ▸ Image: accept callback for the shared upload hook (#299).
   const handleInsertImageAccept = useCallback(
-    (dataUrl: string) => {
+    (src: string, assetId?: string) => {
       const id = insertImagePendingIdRef.current;
       if (!id) return;
       insertImagePendingIdRef.current = null;
       const element = {
         ...buildDefaultElement("image", accentForSelected, id),
-        src: dataUrl,
+        src,
+        ...(assetId ? { assetId } : {}),
       };
       onDeckChange(addElement(deck, safeSelected, element));
       handleSelectElement(id);
@@ -1656,6 +1660,8 @@ export function SlideEditor({
       insertImagePendingIdRef.current = null;
       setInsertImageError(message);
     },
+    documentId,
+    uploadFn: documentId ? uploadSlideAsset : undefined,
   });
 
   const handleAddElement = useCallback(
@@ -2576,6 +2582,7 @@ export function SlideEditor({
           <SlideInspector
             {...inspectorProps}
             showAdvanced={showAdvanced}
+            documentId={documentId}
             className="hidden w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle lg:flex"
           />
         ) : null}
@@ -2632,6 +2639,7 @@ export function SlideEditor({
                   <SlideInspector
                     {...inspectorProps}
                     showAdvanced={showAdvanced}
+                    documentId={documentId}
                     className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto"
                   />
                 </div>
