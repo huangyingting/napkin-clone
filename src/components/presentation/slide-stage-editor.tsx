@@ -1119,9 +1119,10 @@ export function SlideStageEditor({
       return hitTestSlideElements(point, elementsRef.current, {
         fittedBoxes,
         stageAspect,
+        selectedElementIds,
       });
     },
-    [fittedBoxes, stageAspect],
+    [fittedBoxes, selectedElementIds, stageAspect],
   );
   const selectedElement =
     elements.find((element) => element.id === selectedElementId) ?? null;
