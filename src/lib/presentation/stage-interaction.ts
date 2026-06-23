@@ -2,7 +2,7 @@ import type { SlideElement } from "./deck";
 
 export type ElementPointerDownIntent =
   | "toggle-selection"
-  | "select-only"
+  | "select-or-drag"
   | "drag-selected";
 
 export type InlineEditableStageElement = Extract<
@@ -28,7 +28,7 @@ export function elementPointerDownIntent({
   isAdditive: boolean;
 }): ElementPointerDownIntent {
   if (isAdditive) return "toggle-selection";
-  return isSelected ? "drag-selected" : "select-only";
+  return isSelected ? "drag-selected" : "select-or-drag";
 }
 
 export function shouldEnterInlineTextEditOnClick({
