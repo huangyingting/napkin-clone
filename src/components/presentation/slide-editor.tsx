@@ -146,6 +146,7 @@ import {
   setElementPatches,
   setSlideAccent,
   setSlideBackground,
+  setSlideBackgroundAsset,
   setSlideBackgroundGradient,
   setSlideBackgroundImage,
   ungroupElements,
@@ -1877,6 +1878,13 @@ export function SlideEditor({
     [deck, onDeckChange, safeSelected],
   );
 
+  const handleBackgroundAssetChange = useCallback(
+    (opts: { url: string; assetId: string } | undefined) => {
+      onDeckChange(setSlideBackgroundAsset(deck, safeSelected, opts));
+    },
+    [deck, onDeckChange, safeSelected],
+  );
+
   // Shared inspector props, rendered into the desktop side pane (`lg+`) and the
   // mobile bottom sheet (below `lg`) so both surfaces edit the same slide with
   // identical behaviour. Issue #209.
@@ -1913,6 +1921,7 @@ export function SlideEditor({
         onBackgroundChange: handleBackgroundChange,
         onBackgroundGradientChange: handleBackgroundGradientChange,
         onBackgroundImageChange: handleBackgroundImageChange,
+        onBackgroundAssetChange: handleBackgroundAssetChange,
         onAccentChange: handleAccentChange,
         brandSwatches,
       }

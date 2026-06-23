@@ -996,6 +996,32 @@ export function setSlideBackgroundImage(
   });
 }
 
+/**
+ * Sets a slide's background to a server-stored asset, persisting both the
+ * resolved URL (as `backgroundImage`) and the asset id (as `backgroundAssetId`)
+ * so renderers can use the resolver while legacy URL fallback still works.
+ * Clears any background gradient.  Passing `undefined` for both clears the
+ * background asset and image.
+ */
+export function setSlideBackgroundAsset(
+  deck: Deck,
+  index: number,
+  opts: { url: string; assetId: string } | undefined,
+): Deck {
+  return mapSlide(deck, index, (slide) => {
+    const next = { ...slide };
+    if (opts === undefined) {
+      delete next.backgroundImage;
+      delete next.backgroundAssetId;
+    } else {
+      next.backgroundImage = opts.url;
+      next.backgroundAssetId = opts.assetId;
+      delete next.backgroundGradient;
+    }
+    return next;
+  });
+}
+
 // ── Multi-select: distribute, match-size, arrange (issue #328) ──────────────
 
 /**

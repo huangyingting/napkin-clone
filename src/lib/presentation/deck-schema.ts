@@ -947,6 +947,15 @@ function validateSlide(input: unknown, index: number): Slide {
       `${context}.backgroundImage must be a non-empty string`,
     );
   }
+  if (
+    input.backgroundAssetId !== undefined &&
+    (typeof input.backgroundAssetId !== "string" ||
+      input.backgroundAssetId.length === 0)
+  ) {
+    throw new DeckValidationError(
+      `${context}.backgroundAssetId must be a non-empty string`,
+    );
+  }
   if (input.accent !== undefined && !isHexColor(input.accent)) {
     throw new DeckValidationError(`${context}.accent must be a hex color`);
   }
@@ -989,6 +998,9 @@ function validateSlide(input: unknown, index: number): Slide {
     ...(backgroundGradient !== undefined ? { backgroundGradient } : {}),
     ...(input.backgroundImage !== undefined
       ? { backgroundImage: input.backgroundImage as string }
+      : {}),
+    ...(input.backgroundAssetId !== undefined
+      ? { backgroundAssetId: input.backgroundAssetId as string }
       : {}),
     ...(input.accent !== undefined ? { accent: input.accent as string } : {}),
   };
