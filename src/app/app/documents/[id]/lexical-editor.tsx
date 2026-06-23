@@ -31,7 +31,15 @@ import { useLexicalCollaboration } from "@/lib/collab/use-lexical-collaboration"
 import { useYText } from "@/lib/collab/use-collaboration";
 import { readingTimeMinutes, wordCount } from "@/lib/document-stats";
 import { EditorContextProvider } from "@/lib/lexical/editor-context";
-import { shouldAutosaveUpdate } from "@/lib/lexical/import-persistence";
+import {
+  BLOCK_ID_REPAIR_TAG,
+  shouldAutosaveUpdate,
+} from "@/lib/lexical/import-persistence";
+import {
+  $ensureBlockIdsInDocument,
+  ensureLexicalBlockIdSupport,
+  registerBlockIdTransforms,
+} from "@/lib/lexical/block-id-runtime";
 
 import { saveDocumentLexical } from "./actions";
 import { BlockSparkPlugin } from "./block-spark";
@@ -101,6 +109,8 @@ const NODES: Array<Klass<LexicalNode>> = [
   HorizontalRuleNode,
   VisualNode,
 ];
+
+ensureLexicalBlockIdSupport();
 
 function onError(error: Error) {
   console.error(error);
@@ -208,6 +218,23 @@ function DocumentStatsPlugin({ onText }: { onText: (text: string) => void }) {
       read(editorState);
     });
   }, [editor, onText]);
+  return null;
+}
+
+function DurableBlockIdPlugin() {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    const unregisterTransforms = registerBlockIdTransforms(editor);
+    editor.update(
+      () => {
+        $ensureBlockIdsInDocument();
+      },
+      { discrete: true, tag: BLOCK_ID_REPAIR_TAG },
+    );
+    return unregisterTransforms;
+  }, [editor]);
+
   return null;
 }
 
@@ -667,6 +694,7 @@ export function LexicalEditor({
                             username={userName}
                             cursorColor={collab.cursorColor}
                           />
+                          <DurableBlockIdPlugin />
                           <EditableGate editable={editable} />
                           <LocalFallbackSeedPlugin
                             initialStateJson={initialStateJson}

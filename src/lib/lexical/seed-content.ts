@@ -2,15 +2,17 @@
  * Pure helper that builds a minimal Lexical editor-state JSON object whose
  * root contains one intro paragraph followed by one VisualNode decorator block.
  *
- * It produces the exact serialized shapes that `from-markdown.ts` emits for
- * paragraph nodes and that `VisualNode.exportJSON()` emits for visual blocks,
- * so the result round-trips correctly through Lexical's `parseEditorState`.
+ * It produces the same serialized paragraph shape that `from-markdown.ts`
+ * emits (including durable `bid`) and the shape that `VisualNode.exportJSON()`
+ * emits for visual blocks, so the result round-trips correctly through
+ * Lexical's `parseEditorState`.
  *
  * Intentionally has no `lexical`/React imports so it stays pure and can be
  * used from Node scripts (seed, tests) without a DOM.
  */
 
 import type { Visual } from "@/lib/visual/schema";
+import { generateBlockId } from "./block-id";
 
 interface SerializedTextNode {
   detail: number;
@@ -23,6 +25,7 @@ interface SerializedTextNode {
 }
 
 interface SerializedParagraphNode {
+  bid?: string;
   children: SerializedTextNode[];
   direction: null;
   format: "";
@@ -68,6 +71,7 @@ function textNode(text: string): SerializedTextNode {
 
 function paragraphNode(text: string): SerializedParagraphNode {
   return {
+    bid: generateBlockId(),
     children: text === "" ? [] : [textNode(text)],
     direction: null,
     format: "",

@@ -1,0 +1,176 @@
+import { ListItemNode } from "@lexical/list";
+import { HorizontalRuleNode } from "@lexical/react/LexicalHorizontalRuleNode";
+import { HeadingNode, QuoteNode } from "@lexical/rich-text";
+import {
+  $getRoot,
+  $isElementNode,
+  type EditorState,
+  type LexicalEditor,
+  type LexicalNode,
+  type SerializedLexicalNode,
+  ParagraphNode,
+} from "lexical";
+
+import { generateBlockId } from "./block-id";
+
+type NodeWithBid = LexicalNode & {
+  __bid?: string;
+  afterCloneFrom(prevNode: NodeWithBid): void;
+  exportJSON(): SerializedLexicalNode;
+  updateFromJSON(serializedNode: SerializedLexicalNode): NodeWithBid;
+};
+
+type PatchableNodeClass = {
+  name: string;
+  prototype: NodeWithBid;
+};
+
+const PATCH_FLAG = Symbol.for("textiq.block-id.patch");
+let supportInstalled = false;
+
+function readSerializedBid(
+  serializedNode: SerializedLexicalNode,
+): string | undefined {
+  const bid = (serializedNode as SerializedLexicalNode & { bid?: unknown }).bid;
+  return typeof bid === "string" && bid.length > 0 ? bid : undefined;
+}
+
+function hasNodeBid(
+  node: LexicalNode,
+): node is NodeWithBid & { __bid: string } {
+  return (
+    typeof (node as NodeWithBid).__bid === "string" &&
+    (node as NodeWithBid).__bid!.length > 0
+  );
+}
+
+function ensureNodeBid(node: LexicalNode): string {
+  const writable = node.getWritable() as NodeWithBid;
+  writable.__bid ??= generateBlockId();
+  return writable.__bid;
+}
+
+function isDurableBlockNode(node: LexicalNode): boolean {
+  return (
+    node instanceof ParagraphNode ||
+    node instanceof HeadingNode ||
+    node instanceof QuoteNode ||
+    node instanceof HorizontalRuleNode ||
+    node instanceof ListItemNode
+  );
+}
+
+function patchNodeClass(klass: PatchableNodeClass): void {
+  const proto = klass.prototype as NodeWithBid & { [PATCH_FLAG]?: boolean };
+  if (proto[PATCH_FLAG]) {
+    return;
+  }
+
+  const originalAfterCloneFrom = proto.afterCloneFrom;
+  const originalExportJSON = proto.exportJSON;
+  const originalUpdateFromJSON = proto.updateFromJSON;
+
+  proto.afterCloneFrom = function afterCloneFromWithBid(
+    this: NodeWithBid,
+    prevNode: NodeWithBid,
+  ): void {
+    originalAfterCloneFrom.call(this, prevNode);
+    if (hasNodeBid(prevNode)) {
+      this.__bid = prevNode.__bid;
+    }
+  };
+
+  proto.updateFromJSON = function updateFromJSONWithBid(
+    this: NodeWithBid,
+    serializedNode: SerializedLexicalNode,
+  ): NodeWithBid {
+    const self = originalUpdateFromJSON.call(this, serializedNode);
+    self.__bid =
+      readSerializedBid(serializedNode) ?? self.__bid ?? generateBlockId();
+    return self;
+  };
+
+  proto.exportJSON = function exportJSONWithBid(
+    this: NodeWithBid,
+  ): SerializedLexicalNode {
+    const json = originalExportJSON.call(this) as SerializedLexicalNode & {
+      bid?: string;
+    };
+    json.bid = hasNodeBid(this) ? this.__bid : generateBlockId();
+    return json;
+  };
+
+  proto[PATCH_FLAG] = true;
+}
+
+function visit(node: LexicalNode): void {
+  if (isDurableBlockNode(node) && !hasNodeBid(node)) {
+    ensureNodeBid(node);
+  }
+  if ($isElementNode(node)) {
+    for (const child of node.getChildren()) {
+      visit(child);
+    }
+  }
+}
+
+/**
+ * Installs once-per-runtime prototype patches that preserve `bid` across
+ * Lexical clone/import/export cycles while keeping the serialized node types
+ * backward-compatible (`paragraph`, `heading`, `listitem`, etc.).
+ */
+export function ensureLexicalBlockIdSupport(): void {
+  if (supportInstalled) {
+    return;
+  }
+  supportInstalled = true;
+  patchNodeClass(ParagraphNode as unknown as PatchableNodeClass);
+  patchNodeClass(HeadingNode as unknown as PatchableNodeClass);
+  patchNodeClass(QuoteNode as unknown as PatchableNodeClass);
+  patchNodeClass(ListItemNode as unknown as PatchableNodeClass);
+  patchNodeClass(HorizontalRuleNode as unknown as PatchableNodeClass);
+}
+
+/**
+ * Walks the live editor tree and stamps any block nodes missing a `bid`.
+ * Safe to call repeatedly inside a Lexical update.
+ */
+export function $ensureBlockIdsInDocument(): void {
+  visit($getRoot());
+}
+
+/**
+ * Registers transforms that stamp freshly-created block nodes with `bid`
+ * values before they are serialized or synced.
+ */
+export function registerBlockIdTransforms(editor: LexicalEditor): () => void {
+  ensureLexicalBlockIdSupport();
+  const unregisters = [
+    editor.registerNodeTransform(ParagraphNode, (node) => {
+      if (!hasNodeBid(node)) ensureNodeBid(node);
+    }),
+    editor.registerNodeTransform(HeadingNode, (node) => {
+      if (!hasNodeBid(node)) ensureNodeBid(node);
+    }),
+    editor.registerNodeTransform(QuoteNode, (node) => {
+      if (!hasNodeBid(node)) ensureNodeBid(node);
+    }),
+    editor.registerNodeTransform(ListItemNode, (node) => {
+      if (!hasNodeBid(node)) ensureNodeBid(node);
+    }),
+    editor.registerNodeTransform(HorizontalRuleNode, (node) => {
+      if (!hasNodeBid(node)) ensureNodeBid(node);
+    }),
+  ];
+  return () => {
+    for (const unregister of unregisters) {
+      unregister();
+    }
+  };
+}
+
+export function serializeEditorStateWithBlockIds(
+  editorState: EditorState,
+): unknown {
+  return editorState.toJSON();
+}
