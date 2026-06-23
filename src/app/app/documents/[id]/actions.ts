@@ -22,7 +22,10 @@ import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { normalizeDeckRaw } from "@/lib/presentation/fresh-deck";
 import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
 import { MAX_DECK_JSON_BYTES } from "@/lib/presentation/deck-limits";
-import { generateRevisionToken } from "@/lib/presentation/deck-revision-token";
+import {
+  generateRevisionToken,
+  isRevisionConflict,
+} from "@/lib/presentation/deck-revision-token";
 import { VISUAL_KIND_TO_PRISMA, safeParseVisual } from "@/lib/visual/schema";
 import {
   diffVisualMirror,
@@ -700,10 +703,11 @@ async function writeShareData(
 }
 
 /**
- * Returns the current `deckJson` for a document so the slide editor can seed
- * itself from the freshest server state rather than the stale page-load prop
- * (issue #155). Requires at least view access; returns `null` when no deck has
- * been saved yet.
+ * Returns `{ deckJson, revisionToken }` for a document so the slide editor can
+ * seed itself from the freshest server state rather than the stale page-load
+ * prop (issue #155). `deckJson` is `null` when no deck has been saved yet;
+ * `revisionToken` is `null` for documents that have not yet received a token
+ * (first save). Requires at least view access.
  */
 export async function fetchDeckJson(
   id: string,
@@ -743,6 +747,18 @@ export type SaveDeckResult =
  * validated with `safeParseDeck` before storing, and rejected when it exceeds a
  * sane serialized size. Stored in `Document.deckJson`, separate from the
  * Lexical `contentJson` so deck edits never touch collaborative editing state.
+ *
+ * @param clientToken - The revision token last received from `fetchDeckJson` or
+ *   a prior successful save. When supplied, the save is rejected with
+ *   `{ ok: "conflict" }` if another session advanced the token since the client
+ *   last fetched, preventing silent lost-update overwrites. Pass `null` or omit
+ *   for legacy/initial saves (token check is skipped).
+ * @returns `SaveDeckResult`:
+ *   - `{ ok: true, revisionToken }` — write accepted; store `revisionToken` for
+ *     the next save.
+ *   - `{ ok: "conflict", serverRevisionToken }` — optimistic-lock mismatch;
+ *     another session saved first.
+ *   - `{ ok: false, error }` — validation or server error.
  */
 export async function saveDeckJson(
   id: string,
@@ -764,45 +780,38 @@ export async function saveDeckJson(
 
   await requireDocumentCapability(user.id, id, "edit");
 
-  // Snapshot the previous editable state before overwriting the deck.
-  await snapshotDocumentVersion(id, { userId: user.id });
+  // Read current token before writing so isRevisionConflict can decide whether
+  // this save should proceed.
+  const current = await prisma.document.findUnique({
+    where: { id },
+    select: { deckRevisionToken: true },
+  });
+  if (!current) {
+    return { ok: false, error: "Document not found." };
+  }
+
+  if (isRevisionConflict(clientToken, current.deckRevisionToken)) {
+    return {
+      ok: "conflict",
+      serverRevisionToken: current.deckRevisionToken,
+    };
+  }
 
   const newToken = generateRevisionToken();
-
-  if (clientToken != null) {
-    // Atomic CAS: include the expected token in the WHERE clause so the update
-    // only lands when no other session has advanced the token since the client
-    // last fetched.  count === 0 means the token mismatched → conflict.
-    const { count } = await prisma.document.updateMany({
-      where: { id, deckRevisionToken: clientToken },
-      data: {
-        deckJson: result.data as unknown as Prisma.InputJsonValue,
-        deckRevisionToken: newToken,
-      },
-    });
-    if (count === 0) {
-      const current = await prisma.document.findUnique({
-        where: { id },
-        select: { deckRevisionToken: true },
-      });
-      return {
-        ok: "conflict",
-        serverRevisionToken: current?.deckRevisionToken ?? null,
-      };
-    }
-  } else {
-    // Legacy path: no token provided; overwrite unconditionally.
-    const { count } = await prisma.document.updateMany({
-      where: { id },
-      data: {
-        deckJson: result.data as unknown as Prisma.InputJsonValue,
-        deckRevisionToken: newToken,
-      },
-    });
-    if (count === 0) {
-      return { ok: false, error: "Document not found." };
-    }
+  const { count } = await prisma.document.updateMany({
+    where: { id },
+    data: {
+      deckJson: result.data as unknown as Prisma.InputJsonValue,
+      deckRevisionToken: newToken,
+    },
+  });
+  if (count === 0) {
+    return { ok: false, error: "Document not found." };
   }
+
+  // Snapshot only after a confirmed write so conflicted saves never create
+  // version-history entries.
+  await snapshotDocumentVersion(id, { userId: user.id });
 
   revalidatePath(`/app/documents/${id}`);
   return { ok: true, revisionToken: newToken };

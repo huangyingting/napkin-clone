@@ -34,19 +34,23 @@ test("stale-token conflict: returns true when DB token differs", () => {
   assert.equal(isRevisionConflict("tok-old", "tok-new"), true);
 });
 
-test("getDeckJson token return: revisionToken passes through from DB", () => {
-  // Simulate the fetchDeckJson return shape (pure, no DB).
-  function simulateFetch(dbToken: string | null) {
-    const raw = { slides: [] }; // minimal deckJson
-    return { deckJson: raw, revisionToken: dbToken };
-  }
+test("round-trip: fresh token is not a conflict with itself, stale token is", () => {
+  // Exercises the interaction between the two production exports: a token
+  // generated for a save must not conflict when echoed back, but any other
+  // token must be detected as stale.
+  const serverToken = generateRevisionToken();
+  assert.equal(
+    isRevisionConflict(serverToken, serverToken),
+    false,
+    "matching token must not conflict",
+  );
 
-  const withToken = simulateFetch("tok-123");
-  assert.equal(withToken.revisionToken, "tok-123");
-  assert.deepEqual(withToken.deckJson, { slides: [] });
-
-  const withoutToken = simulateFetch(null);
-  assert.equal(withoutToken.revisionToken, null);
+  const clientStale = generateRevisionToken();
+  assert.equal(
+    isRevisionConflict(clientStale, serverToken),
+    true,
+    "different token must conflict",
+  );
 });
 
 test("legacy null token: first save with clientToken=null never conflicts", () => {
