@@ -32,6 +32,11 @@ import {
 } from "@/lib/document-versions";
 import { prisma } from "@/lib/prisma";
 import { buildShareSegment } from "@/lib/slug";
+import type {
+  RestoredDocumentVersion,
+  SaveDeckPatchResult,
+  SaveDeckResult,
+} from "@/lib/document/persistence-types";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { normalizeDeckRaw } from "@/lib/presentation/fresh-deck";
 import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
@@ -60,21 +65,10 @@ const MAX_VISUAL_REVISIONS = 10;
 // ---------------------------------------------------------------------------
 
 export type { VisualMirrorOutcome, DeckPatch };
-
-export type SaveDeckResult =
-  | { ok: true; revisionToken: string }
-  | { ok: "conflict"; serverRevisionToken: string | null }
-  | { ok: false; error: string };
-
-export type SaveDeckPatchResult =
-  | { ok: true; revisionToken: string }
-  | { ok: "conflict"; serverRevisionToken: string | null }
-  | { ok: "fallback" }
-  | { ok: false; error: string };
-
-export type RestoredDocumentVersion = {
-  documentId: string;
-  contentJson: unknown;
+export type {
+  RestoredDocumentVersion,
+  SaveDeckPatchResult,
+  SaveDeckResult,
 };
 
 // ---------------------------------------------------------------------------

@@ -20,9 +20,9 @@
 import type { Deck } from "@/lib/presentation/deck";
 import type { DeckPatch } from "@/lib/presentation/slide-commands";
 import type {
-  SaveDeckResult,
   SaveDeckPatchResult,
-} from "@/lib/document/persistence-service";
+  SaveDeckResult,
+} from "@/lib/document/persistence-types";
 
 // ---------------------------------------------------------------------------
 // Type aliases for the injected save functions

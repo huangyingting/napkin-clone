@@ -32,7 +32,6 @@ import {
   fetchDeckJson,
   saveDeckJson,
   saveDeckPatch,
-  type SaveDeckResult,
 } from "@/app/app/documents/[id]/actions";
 import { ConflictRecoveryDialog } from "@/components/presentation/conflict-recovery-dialog";
 import { listBrands } from "@/app/app/brands/actions";
@@ -40,6 +39,7 @@ import { SlideEditor } from "@/components/presentation/slide-editor";
 import { SlideEditorOpenDialog } from "@/components/editor/slide-editor-open-dialog";
 import { DeckGenerationPreview } from "@/components/presentation/deck-generation-preview";
 import type { ActionResult } from "@/lib/action-result";
+import type { SaveDeckResult } from "@/lib/document/persistence-types";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { isAiDeckGenClientEnabled } from "@/lib/ai/ai-deck-gen-flag";
 import { isEffectivelyEmptyEditorState } from "@/lib/ai/empty-content";

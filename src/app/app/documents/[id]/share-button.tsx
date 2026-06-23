@@ -13,8 +13,8 @@ import {
   regenerateShareLink,
   toggleDocumentSharing,
   updateSharePolicy,
-  type ShareSettings,
 } from "./actions";
+import type { ShareSettings } from "@/lib/document/persistence-types";
 
 type ShareState = {
   isShared: boolean;

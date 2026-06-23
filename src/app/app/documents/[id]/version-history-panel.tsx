@@ -13,8 +13,8 @@ import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import {
   listDocumentVersions,
   restoreDocumentVersion,
-  type DocumentVersionSummary,
 } from "./actions";
+import type { DocumentVersionSummary } from "@/lib/document/persistence-types";
 import { RESTORE_TAG } from "@/lib/lexical/import-persistence";
 
 function formatTime(iso: string): string {

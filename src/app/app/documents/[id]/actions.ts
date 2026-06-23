@@ -19,10 +19,14 @@ import {
   patchDeck,
   restoreVersion,
   type VisualMirrorOutcome,
-  type SaveDeckResult,
-  type SaveDeckPatchResult,
-  type RestoredDocumentVersion,
 } from "@/lib/document/persistence-service";
+import type {
+  DocumentVersionSummary,
+  RestoredDocumentVersion,
+  SaveDeckPatchResult,
+  SaveDeckResult,
+  ShareSettings,
+} from "@/lib/document/persistence-types";
 import type { DeckPatch } from "@/lib/presentation/slide-commands";
 
 // URL-safe share ID generator (no ambiguous chars: 0/O, 1/l/I)
@@ -125,22 +129,6 @@ export async function rebuildVisualMirror(
 
 // Furthest-out expiry a caller may set, guarding against absurd dates.
 const MAX_SHARE_EXPIRY_MS = 5 * 365 * 24 * 60 * 60 * 1000; // ~5 years
-
-/**
- * The full share-link state returned to the client by the sharing actions.
- * Carries the lifecycle/access policy (issue #101) alongside the link itself so
- * the share UI can render and mutate every control from a single payload.
- */
-export type ShareSettings = {
-  isShared: boolean;
-  shareId: string | null;
-  slug: string | null;
-  shareUrl: string | null;
-  /** ISO-8601 expiry, or `null` when the link never expires. */
-  expiresAt: string | null;
-  embedEnabled: boolean;
-  presentEnabled: boolean;
-};
 
 /** Builds the canonical public share URL (or `null` when not shared). */
 function buildShareUrl(slug: string | null, shareId: string | null): string {
@@ -432,9 +420,6 @@ export async function fetchDeckJson(
   return { deckJson, revisionToken: document.deckRevisionToken };
 }
 
-// Re-export SaveDeckResult for callers that import it from this module.
-export type { SaveDeckResult };
-
 /**
  * Persists an edited Deck for a document. Requires edit access (owner or
  * workspace editor), authorized via `requireDocumentCapability` so a viewer or
@@ -467,8 +452,6 @@ export async function saveDeckJson(
  * the optimistic revision token. Delegates to {@link patchDeck} in the
  * persistence service (#474).
  */
-export type { SaveDeckPatchResult };
-
 export async function saveDeckPatch(
   id: string,
   patches: DeckPatch[],
@@ -484,19 +467,6 @@ export async function saveDeckPatch(
   }
   return result;
 }
-
-/** A version-history entry surfaced to the editor's Version History panel. */
-export type DocumentVersionSummary = {
-  id: string;
-  createdAt: string;
-  label: string | null;
-  /** Display name of the user who triggered the snapshot, when known. */
-  authorName: string | null;
-  /** Whether this snapshot carries a presentation deck alongside the document. */
-  hasDeck: boolean;
-};
-
-export type { RestoredDocumentVersion };
 
 /**
  * Lists a document's version-history snapshots, newest first. Requires view

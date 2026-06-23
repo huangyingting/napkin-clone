@@ -19,7 +19,7 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
-    "db:reset": "prisma migrate reset --force && prisma db seed"
+    "db:reset": "prisma generate && prisma migrate reset --force && prisma db seed"
   },
   "dependencies": {
     "@lexical/history": "^0.45.0",
