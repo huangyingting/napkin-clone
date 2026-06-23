@@ -17,6 +17,7 @@ import {
   type ResizeHandle,
 } from "@/components/visual/layout";
 import { useIsPointerFine } from "@/lib/pointer";
+import { setNodeLabel } from "@/lib/visual/transforms";
 import type { Visual, VisualEdge, VisualNode } from "@/lib/visual/schema";
 
 /** Pointer travel (px) under which a press counts as a click, not a drag. */
@@ -42,15 +43,6 @@ function caretIndexFromRatio(label: string, ratio: number): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
-}
-
-function setNodeLabel(visual: Visual, id: string, label: string): Visual {
-  return {
-    ...visual,
-    nodes: visual.nodes.map((node) =>
-      node.id === id ? { ...node, label } : node,
-    ),
-  };
 }
 
 function setNodePosition(

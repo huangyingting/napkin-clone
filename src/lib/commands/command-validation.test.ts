@@ -1,0 +1,204 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import { CURRENT_COMMAND_SCHEMA_VERSION } from "@/lib/commands/command-envelope";
+import {
+  validateDeckCommand,
+  validateVisualCommand,
+  type DeckCommandContext,
+  type VisualCommandContext,
+} from "@/lib/commands/command-validation";
+import type { CommandEnvelope } from "@/lib/commands/command-envelope";
+import type { VisualCommand } from "@/lib/commands/visual-commands";
+import type { SlideCommand } from "@/lib/presentation/slide-commands";
+
+const ACTOR = { id: "user-1", sessionId: "session-1" };
+
+function commandId(suffix: string): string {
+  return `20000000-0000-4000-8000-${suffix.padStart(12, "0")}`;
+}
+
+function makeVisualCommand(
+  overrides: Partial<VisualCommand> = {},
+): VisualCommand {
+  return {
+    id: commandId("1"),
+    schemaVersion: CURRENT_COMMAND_SCHEMA_VERSION,
+    type: "visual.set_node_label",
+    timestamp: "2026-06-23T00:00:00.000Z",
+    actor: ACTOR,
+    target: {
+      surface: "visual",
+      documentId: "doc-1",
+      visualId: "vis-1",
+      expectedRevision: "rev-1",
+    },
+    payload: {
+      op: "visual.set_node_label",
+      nodeId: "n1",
+      label: "Updated",
+    },
+    source: "user",
+    ...overrides,
+  };
+}
+
+function makeDeckCommand(
+  overrides: Partial<CommandEnvelope<SlideCommand>> = {},
+): CommandEnvelope<SlideCommand> {
+  return {
+    id: commandId("2"),
+    schemaVersion: CURRENT_COMMAND_SCHEMA_VERSION,
+    type: "deck.slide_command",
+    timestamp: "2026-06-23T00:00:00.000Z",
+    actor: ACTOR,
+    target: {
+      surface: "deck",
+      documentId: "doc-1",
+      slideId: "s1",
+      expectedRevision: "rev-1",
+    },
+    payload: {
+      type: "UPDATE_SLIDE_TITLE",
+      slideId: "s1",
+      title: "Updated",
+      coalesceKey: "title:s1",
+    },
+    source: "user",
+    ...overrides,
+  };
+}
+
+test("validateVisualCommand rejects actor/document mismatches as unauthorized", () => {
+  const ctx: VisualCommandContext = {
+    documentId: "doc-1",
+    visualId: "vis-1",
+    visualExists: true,
+    actorDocumentId: "doc-2",
+    currentRevision: "rev-1",
+  };
+
+  const result = validateVisualCommand(makeVisualCommand(), ctx);
+  assert.equal(result.valid, false);
+  assert.equal(result.errorCode, "unauthorized");
+});
+
+test("validateDeckCommand rejects missing decks", () => {
+  const ctx: DeckCommandContext = {
+    documentId: "doc-1",
+    deckExists: false,
+    actorDocumentId: "doc-1",
+    currentRevision: "rev-1",
+  };
+
+  const result = validateDeckCommand(makeDeckCommand(), ctx);
+  assert.equal(result.valid, false);
+  assert.equal(result.errorCode, "missing_target");
+});
+
+test("validateDeckCommand rejects unsupported slide payload types", () => {
+  const ctx: DeckCommandContext = {
+    documentId: "doc-1",
+    deckExists: true,
+    actorDocumentId: "doc-1",
+    currentRevision: "rev-1",
+  };
+
+  const result = validateDeckCommand(
+    makeDeckCommand({
+      payload: { type: "BOGUS" } as unknown as SlideCommand,
+    }),
+    ctx,
+  );
+  assert.equal(result.valid, false);
+  assert.equal(result.errorCode, "invalid_command");
+});
+
+test("validateDeckCommand rejects mismatched target and payload ids", () => {
+  const ctx: DeckCommandContext = {
+    documentId: "doc-1",
+    deckExists: true,
+    actorDocumentId: "doc-1",
+    currentRevision: "rev-1",
+  };
+
+  const result = validateDeckCommand(
+    makeDeckCommand({
+      target: { surface: "deck", documentId: "doc-1", slideId: "s1" },
+      payload: {
+        type: "UPDATE_SLIDE_TITLE",
+        slideId: "s2",
+        title: "Mismatch",
+      } as SlideCommand,
+    }),
+    ctx,
+  );
+  assert.equal(result.valid, false);
+  assert.equal(result.errorCode, "invalid_command");
+});
+
+test("validateVisualCommand rejects invalid visual payloads", () => {
+  const cmd = makeVisualCommand({
+    payload: {
+      op: "visual.set_node_style",
+      nodeId: "n1",
+      field: "fill" as never,
+      value: "#abcdef",
+    },
+    type: "visual.set_node_style",
+  });
+  const ctx: VisualCommandContext = {
+    documentId: "doc-1",
+    visualId: "vis-1",
+    visualExists: true,
+    actorDocumentId: "doc-1",
+    currentRevision: "rev-1",
+  };
+
+  const result = validateVisualCommand(cmd, ctx);
+  assert.equal(result.valid, false);
+  assert.equal(result.errorCode, "invalid_command");
+});
+
+test("validateVisualCommand rejects stale revisions", () => {
+  const ctx: VisualCommandContext = {
+    documentId: "doc-1",
+    visualId: "vis-1",
+    visualExists: true,
+    actorDocumentId: "doc-1",
+    currentRevision: "rev-2",
+  };
+
+  const result = validateVisualCommand(makeVisualCommand(), ctx);
+  assert.equal(result.valid, false);
+  assert.equal(result.errorCode, "stale_revision");
+});
+
+test("validateVisualCommand rejects future schema versions as unsupported", () => {
+  const ctx: VisualCommandContext = {
+    documentId: "doc-1",
+    visualId: "vis-1",
+    visualExists: true,
+    actorDocumentId: "doc-1",
+    currentRevision: "rev-1",
+  };
+
+  const result = validateVisualCommand(
+    makeVisualCommand({ schemaVersion: CURRENT_COMMAND_SCHEMA_VERSION + 1 }),
+    ctx,
+  );
+  assert.equal(result.valid, false);
+  assert.equal(result.errorCode, "unsupported_command");
+});
+
+test("validateDeckCommand accepts valid deck envelopes", () => {
+  const ctx: DeckCommandContext = {
+    documentId: "doc-1",
+    deckExists: true,
+    actorDocumentId: "doc-1",
+    currentRevision: "rev-1",
+  };
+
+  const result = validateDeckCommand(makeDeckCommand(), ctx);
+  assert.deepEqual(result, { valid: true });
+});

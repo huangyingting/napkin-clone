@@ -268,6 +268,19 @@ export function setNodeFontFamily(
   return next;
 }
 
+/** Sets a node label and re-flows auto-layout visuals when needed. */
+export function setNodeLabel(
+  visual: Visual,
+  id: string,
+  label: string,
+): Visual {
+  const next = cloneVisual(visual);
+  next.nodes = next.nodes.map((node) =>
+    node.id === id ? { ...node, label } : node,
+  );
+  return next.autoLayout ? applyElasticLayout(next) : next;
+}
+
 /**
  * Clears all extended per-node style overrides (fillStyle, borderStyle,
  * borderWidth, textAlign, fontFamily), falling back to defaults. Works alongside
