@@ -205,6 +205,9 @@ export interface SlideInspectorProps {
     gradient: { from: string; to: string; angle?: number } | undefined,
   ) => void;
   onBackgroundImageChange: (image: string | undefined) => void;
+  onBackgroundAssetChange?: (
+    opts: { url: string; assetId: string } | undefined,
+  ) => void;
   onAccentChange: (color: string | undefined) => void;
   /**
    * The current user's brand-kit colors, surfaced ahead of the on-theme
@@ -2281,6 +2284,7 @@ export function SlideInspector({
   onBackgroundChange,
   onBackgroundGradientChange,
   onBackgroundImageChange,
+  onBackgroundAssetChange,
   onAccentChange,
   brandSwatches = [],
   className = "flex w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle",
@@ -2313,18 +2317,23 @@ export function SlideInspector({
   const [bgImageError, setBgImageError] = useState<string | null>(null);
   const bgFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Background image upload does not persist an assetId on the slide model
-  // (background asset references are not yet implemented), so the server-upload
-  // path is intentionally omitted here.  If/when background assetId support is
-  // added, restore documentId + uploadFn and wire up the assetId callback.
+  // Background image upload: when documentId + uploadFn are available, attempt
+  // server-side upload and persist the assetId via onBackgroundAssetChange.
+  // Falls back to the data-URL path so the editor remains usable offline.
   const { handleFile: handleBgImageFile } = useImageUpload({
     deck,
     currentSrc: slide.backgroundImage,
-    onAccept: (src) => {
+    onAccept: (src, assetId) => {
       setBgImageError(null);
-      handleBackgroundImageChange(src);
+      if (assetId && onBackgroundAssetChange) {
+        onBackgroundAssetChange({ url: src, assetId });
+      } else {
+        handleBackgroundImageChange(src);
+      }
     },
     onError: (message) => setBgImageError(message),
+    documentId: documentId ?? undefined,
+    uploadFn: documentId ? uploadSlideAsset : undefined,
   });
 
   function handleBackgroundImageChange(value: string | undefined) {
