@@ -52,6 +52,50 @@ test("hitTestSlideElements returns the top visible element by zIndex", () => {
   );
 });
 
+test("hitTestSlideElements prefers covered text content over a large covering shape", () => {
+  const elements = [
+    text("covered-text", 0, box(10, 40, 80, 20), "Revenue"),
+    rect("large-cover", 20, box(0, 0, 100, 100)),
+  ];
+
+  const hits = hitTestSlideElements({ x: 12, y: 50 }, elements);
+  assert.equal(hits[0]?.element.id, "covered-text");
+  assert.equal(hits[0]?.reason, "text-content");
+});
+
+test("hitTestSlideElements prefers shape edge over covered text", () => {
+  const elements = [
+    text("covered-text", 0, box(10, 40, 80, 20), "Revenue"),
+    rect("large-cover", 20, box(10, 30, 80, 40)),
+  ];
+
+  const hits = hitTestSlideElements({ x: 10.5, y: 50 }, elements);
+  assert.equal(hits[0]?.element.id, "large-cover");
+  assert.equal(hits[0]?.reason, "shape-edge");
+});
+
+test("hitTestSlideElements keeps selected covering elements sticky", () => {
+  const elements = [
+    text("covered-text", 0, box(10, 40, 80, 20), "Revenue"),
+    rect("selected-cover", 20, box(0, 0, 100, 100)),
+  ];
+
+  const hits = hitTestSlideElements({ x: 12, y: 50 }, elements, {
+    selectedElementIds: new Set(["selected-cover"]),
+  });
+  assert.equal(hits[0]?.element.id, "selected-cover");
+});
+
+test("hitTestSlideElements lets small covering shapes beat underlying text", () => {
+  const elements = [
+    text("covered-text", 0, box(10, 40, 80, 20), "Revenue"),
+    rect("small-cover", 20, box(10, 45, 12, 10)),
+  ];
+
+  const hits = hitTestSlideElements({ x: 15, y: 50 }, elements);
+  assert.equal(hits[0]?.element.id, "small-cover");
+});
+
 test("hitTestSlideElements lets lower elements show through empty text frame areas", () => {
   const elements = [
     rect("bottom", 0, box(0, 0, 100, 100)),
