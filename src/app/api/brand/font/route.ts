@@ -17,6 +17,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 
+import { forbidden, unauthorized } from "@/lib/api/errors";
 import { getCurrentUser } from "@/lib/session";
 import { validateFontUpload, formatUploadError } from "@/lib/brand/upload";
 import {
@@ -29,15 +30,12 @@ export const runtime = "nodejs";
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const user = await getCurrentUser();
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    return unauthorized();
   }
 
   const entitlements = await resolveBrandEntitlements(user.id);
   if (!entitlements.canFontUpload) {
-    return NextResponse.json(
-      { error: FONT_UPLOAD_UPGRADE_MESSAGE },
-      { status: 403 },
-    );
+    return forbidden(FONT_UPLOAD_UPGRADE_MESSAGE);
   }
 
   let formData: FormData;

@@ -10,6 +10,7 @@
 
 import { NextResponse } from "next/server";
 
+import { unauthorized } from "@/lib/api/errors";
 import { getCurrentUser } from "@/lib/session";
 import { getEntitlements } from "@/lib/billing/entitlements";
 import { getUserCreditState } from "@/lib/billing/credits";
@@ -19,7 +20,7 @@ export const runtime = "nodejs";
 export async function GET(): Promise<NextResponse> {
   const user = await getCurrentUser();
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   // Derive the balance from getUserCreditState so the period-rollover reset is

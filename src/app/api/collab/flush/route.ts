@@ -30,6 +30,12 @@ import { timingSafeEqual } from "node:crypto";
 
 import { NextResponse, type NextRequest } from "next/server";
 
+import {
+  featureDisabled,
+  notFound,
+  unauthorized,
+  validationError,
+} from "@/lib/api/errors";
 import { logError, logInfo } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
 
@@ -62,22 +68,19 @@ function isValidBase64(value: unknown): value is string {
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const expectedSecret = process.env.COLLAB_INTERNAL_SECRET?.trim();
   if (!expectedSecret) {
-    return NextResponse.json(
-      { error: "Collaboration flush is disabled." },
-      { status: 503 },
-    );
+    return featureDisabled("Collaboration flush is disabled.");
   }
 
   const provided = request.headers.get(SECRET_HEADER);
   if (!provided || !secretsMatch(provided, expectedSecret)) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    return unauthorized();
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+    return validationError("Invalid JSON body.");
   }
 
   const payload = body as {
@@ -93,14 +96,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         : null;
 
   if (!documentId) {
-    return NextResponse.json({ error: "Missing documentId." }, { status: 400 });
+    return validationError("Missing documentId.");
   }
 
   if (!isValidBase64(payload.update)) {
-    return NextResponse.json(
-      { error: "Missing or invalid update." },
-      { status: 400 },
-    );
+    return validationError("Missing or invalid update.");
   }
 
   // Never create rows — only snapshot onto an existing document.
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   if (!existing) {
     logInfo(LOG_SCOPE, "flush rejected: document not found", { documentId });
-    return NextResponse.json({ error: "Not found." }, { status: 404 });
+    return notFound();
   }
 
   try {

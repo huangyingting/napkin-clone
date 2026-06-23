@@ -16,6 +16,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { logError } from "@/lib/log";
+import { ABUSE_CATEGORIES, logRouteDenial } from "@/lib/diagnostics/api-abuse";
 import {
   formatValidationError,
   parseImportedFile,
@@ -57,7 +58,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const clientIp = getClientIp(request.headers) ?? "unknown";
-  const rateKey = rateLimitSubject("import", hashIdentifier(clientIp, secret));
+  const clientHash = hashIdentifier(clientIp, secret);
+  const rateKey = rateLimitSubject("import", clientHash);
   const now = Date.now();
   const limit = await checkRateLimitWithStore(prismaRateLimitStore, rateKey, {
     limit: importRateLimit(),
@@ -65,6 +67,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     now,
   });
   if (!limit.allowed) {
+    logRouteDenial({
+      route: LOG_SCOPE,
+      reason: ABUSE_CATEGORIES.RATE_LIMIT_HIT,
+      status: 429,
+      subjectHash: clientHash,
+      retryAfterSeconds: retryAfterSeconds(limit.resetAt, now),
+    });
     return NextResponse.json(
       { error: "Too many imports. Please wait a moment and try again." },
       {
@@ -130,6 +139,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch (error) {
     if (error instanceof ParseTimeoutError) {
       logError(LOG_SCOPE, error, { reason: "parse-timeout", status: 422 });
+      logRouteDenial({
+        route: LOG_SCOPE,
+        reason: ABUSE_CATEGORIES.PARSER_TIMEOUT,
+        status: 422,
+        subjectHash: clientHash,
+      });
       return NextResponse.json(
         {
           error:

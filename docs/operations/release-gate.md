@@ -51,18 +51,19 @@ is still a release blocker and must be fixed immediately.
 
 The following subsystems have dedicated test files that must stay green:
 
-| Subsystem                            | Test file(s)                                                                |
-| ------------------------------------ | --------------------------------------------------------------------------- |
-| Block identity (#430)                | `src/lib/lexical/block-id.test.ts`                                          |
-| Visual mirror diff (#448)            | `src/lib/visual/mirror-diff.test.ts`, `mirror-repair.test.ts`               |
-| Command bus (#436)                   | `src/lib/commands/`, `src/lib/presentation/slide-commands.test.ts`          |
-| Deck save / conflict (#376)          | `src/lib/presentation/save-conflict.test.ts`, `deck-revision-token.test.ts` |
-| Export preflight (#416)              | `src/lib/visual/export-preflight.test.ts`                                   |
-| Authorization                        | `src/lib/auth/document-permissions.test.ts`, `authz-regression.test.ts`     |
-| Structured diagnostics (#460)        | `src/lib/diagnostics/error-codes.test.ts`                                   |
-| Performance budgets (#461)           | `src/lib/presentation/perf-budgets.test.ts`                                 |
-| Autosave / conflict hardening (#459) | `src/lib/presentation/autosave-hardening.test.ts`                           |
-| A11y helpers (#462)                  | `src/lib/a11y/a11y-helpers.test.ts`                                         |
+| Subsystem                            | Test file(s)                                                                                                                                                                            |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Block identity (#430)                | `src/lib/lexical/block-id.test.ts`                                                                                                                                                      |
+| Visual mirror diff (#448)            | `src/lib/visual/mirror-diff.test.ts`, `mirror-repair.test.ts`                                                                                                                           |
+| Command bus (#436)                   | `src/lib/commands/`, `src/lib/presentation/slide-commands.test.ts`                                                                                                                      |
+| Deck save / conflict (#376)          | `src/lib/presentation/save-conflict.test.ts`, `deck-revision-token.test.ts`                                                                                                             |
+| Export preflight (#416)              | `src/lib/visual/export-preflight.test.ts`                                                                                                                                               |
+| Authorization                        | `src/lib/auth/document-permissions.test.ts`, `authz-regression.test.ts`                                                                                                                 |
+| API surface governance (#495)        | `src/app/api/api-route-security-matrix.test.ts`, `src/lib/api/errors.test.ts`, `src/lib/diagnostics/api-abuse.test.ts`, `src/app/api/slide-assets/[documentId]/[...path]/route.test.ts` |
+| Structured diagnostics (#460)        | `src/lib/diagnostics/error-codes.test.ts`                                                                                                                                               |
+| Performance budgets (#461)           | `src/lib/presentation/perf-budgets.test.ts`                                                                                                                                             |
+| Autosave / conflict hardening (#459) | `src/lib/presentation/autosave-hardening.test.ts`                                                                                                                                       |
+| A11y helpers (#462)                  | `src/lib/a11y/a11y-helpers.test.ts`                                                                                                                                                     |
 
 ---
 
@@ -171,12 +172,13 @@ Before each foundation release wave:
 
 ## Part 5 — Cross-references
 
-| Related issue | Area                                                            |
-| ------------- | --------------------------------------------------------------- |
-| #430          | Block-anchor identity — `block-id.ts`, `block-id-runtime.ts`    |
-| #448          | Visual projection repair — `mirror-diff.ts`, `mirror-repair.ts` |
-| #436          | Command bus — `slide-commands.ts`, `commands/`                  |
-| #379 / #380   | Export pipeline — `export-preflight.ts`, `deck-export.ts`       |
-| #376          | Conflict recovery — `deck-revision-token.ts`                    |
-| #460          | Structured diagnostics — `src/lib/diagnostics/error-codes.ts`   |
-| #461          | Performance budgets — `src/lib/presentation/perf-budgets.ts`    |
+| Related issue | Area                                                                                                                               |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| #430          | Block-anchor identity — `block-id.ts`, `block-id-runtime.ts`                                                                       |
+| #448          | Visual projection repair — `mirror-diff.ts`, `mirror-repair.ts`                                                                    |
+| #436          | Command bus — `slide-commands.ts`, `commands/`                                                                                     |
+| #379 / #380   | Export pipeline — `export-preflight.ts`, `deck-export.ts`                                                                          |
+| #376          | Conflict recovery — `deck-revision-token.ts`                                                                                       |
+| #460          | Structured diagnostics — `src/lib/diagnostics/error-codes.ts`                                                                      |
+| #461          | Performance budgets — `src/lib/presentation/perf-budgets.ts`                                                                       |
+| #495          | API surface governance — `docs/security/api-route-security-matrix.md`, `src/lib/api/errors.ts`, `src/lib/diagnostics/api-abuse.ts` |

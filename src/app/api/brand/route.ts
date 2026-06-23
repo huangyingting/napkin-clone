@@ -7,6 +7,7 @@
 
 import { NextResponse } from "next/server";
 
+import { unauthorized } from "@/lib/api/errors";
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import type { BrandStyle } from "@/lib/brand/schema";
@@ -16,7 +17,7 @@ export const runtime = "nodejs";
 export async function GET(): Promise<NextResponse> {
   const user = await getCurrentUser();
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    return unauthorized();
   }
 
   const rows = await prisma.brand.findMany({
