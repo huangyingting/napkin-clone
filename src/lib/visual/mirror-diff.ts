@@ -65,6 +65,52 @@ export type VisualMirrorDiff<TData = unknown> = {
 };
 
 /**
+ * Structured counts of what the mirror pipeline did (or plans to do).
+ * Returned by `mirrorVisualNodes` and `rebuildVisualMirror`; also emitted as
+ * a structured log entry so production pipelines can track drift over time.
+ * Never contains visual payloads or PII — only counts and ids.
+ */
+export type VisualMirrorOutcome = {
+  /** Rows inserted into the Visual table. */
+  created: number;
+  /** Rows updated (payload change or order-only move). */
+  updated: number;
+  /** Rows deleted (orphaned anchors + stale duplicates). */
+  deleted: number;
+  /**
+   * Nodes whose `visual` payload failed `safeParseVisual`. The anchor is kept
+   * alive (existing row preserved) but no create/update is emitted.
+   */
+  skipped: number;
+  /**
+   * Nodes with a missing or empty `visualId`. These produce neither an anchor
+   * nor a live node; they are invisible to the mirror.
+   */
+  invalid: number;
+};
+
+/**
+ * Derives a {@link VisualMirrorOutcome} from a completed diff plus the
+ * per-node counters collected during node collection (before diffing).
+ *
+ * Keeping this as a pure helper lets tests verify outcome computation
+ * independently of DB I/O.
+ */
+export function mirrorOutcomeFromDiff(
+  diff: VisualMirrorDiff,
+  skipped: number,
+  invalid: number,
+): VisualMirrorOutcome {
+  return {
+    created: diff.toCreate.length,
+    updated: diff.toUpdate.length,
+    deleted: diff.toDelete.length,
+    skipped,
+    invalid,
+  };
+}
+
+/**
  * Sorts duplicate rows so the survivor is first: most recently created wins,
  * ties broken by lowest id. Mirrors the dedup rule in the unique-index
  * migration so code and schema agree on which row to keep.

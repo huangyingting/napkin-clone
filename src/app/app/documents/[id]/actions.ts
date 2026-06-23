@@ -28,8 +28,11 @@ import { applyPatch, type DeckPatch } from "@/lib/presentation/slide-commands";
 import { VISUAL_KIND_TO_PRISMA, safeParseVisual } from "@/lib/visual/schema";
 import {
   diffVisualMirror,
+  mirrorOutcomeFromDiff,
   type LiveVisualNode,
+  type VisualMirrorOutcome,
 } from "@/lib/visual/mirror-diff";
+import { logInfo, logError } from "@/lib/log";
 
 // URL-safe share ID generator (no ambiguous chars: 0/O, 1/l/I)
 const generateShareId = customAlphabet(
@@ -233,7 +236,7 @@ function normalizeAnchorBlockId(
 async function mirrorVisualNodes(
   documentId: string,
   parsedState: unknown,
-): Promise<void> {
+): Promise<VisualMirrorOutcome> {
   const nodes = collectVisualNodes(parsedState);
 
   // Track every anchor present in the editor — including nodes whose payload
@@ -242,11 +245,15 @@ async function mirrorVisualNodes(
   const liveAnchors = new Set<string>();
   const liveNodes: Array<LiveVisualNode<Prisma.InputJsonValue>> = [];
 
+  let invalidCount = 0; // nodes with no usable visualId
+  let skippedCount = 0; // nodes with anchor but invalid payload
+
   for (let index = 0; index < nodes.length; index += 1) {
     const node = nodes[index];
 
     const anchor = normalizeAnchorBlockId(node.visualId);
     if (!anchor) {
+      invalidCount += 1;
       continue;
     }
     liveAnchors.add(anchor);
@@ -254,6 +261,7 @@ async function mirrorVisualNodes(
     // Re-validate so a tampered/garbled payload can never be persisted.
     const result = safeParseVisual(node.visual);
     if (!result.success) {
+      skippedCount += 1;
       continue;
     }
     const visual = result.data;
@@ -273,6 +281,14 @@ async function mirrorVisualNodes(
   // upserts, and prune all run inside a single transaction so two concurrent
   // saves can't both miss-and-create — and the unique (documentId, anchorBlockId)
   // constraint is the hard guarantee against duplicates.
+  let outcome: VisualMirrorOutcome = {
+    created: 0,
+    updated: 0,
+    deleted: 0,
+    skipped: skippedCount,
+    invalid: invalidCount,
+  };
+
   await prisma.$transaction(async (tx) => {
     const existingRows = await tx.visual.findMany({
       where: { documentId },
@@ -289,25 +305,26 @@ async function mirrorVisualNodes(
 
     const existingById = new Map(existingRows.map((row) => [row.id, row]));
 
-    const { toCreate, toUpdate, toDelete } =
-      diffVisualMirror<Prisma.InputJsonValue>({
-        existingRows: existingRows.map((row) => {
-          const parsed = safeParseVisual(row.data);
-          return {
-            id: row.id,
-            anchorBlockId: row.anchorBlockId,
-            orderIndex: row.orderIndex,
-            dataKey: parsed.success ? JSON.stringify(parsed.data) : null,
-            createdAt: row.createdAt.getTime(),
-          };
-        }),
-        liveNodes,
-        liveAnchors,
-      });
+    const diff = diffVisualMirror<Prisma.InputJsonValue>({
+      existingRows: existingRows.map((row) => {
+        const parsed = safeParseVisual(row.data);
+        return {
+          id: row.id,
+          anchorBlockId: row.anchorBlockId,
+          orderIndex: row.orderIndex,
+          dataKey: parsed.success ? JSON.stringify(parsed.data) : null,
+          createdAt: row.createdAt.getTime(),
+        };
+      }),
+      liveNodes,
+      liveAnchors,
+    });
+
+    outcome = mirrorOutcomeFromDiff(diff, skippedCount, invalidCount);
 
     // Upsert on the unique key so a row created by a racing transaction is
     // updated in place instead of triggering a duplicate insert.
-    for (const create of toCreate) {
+    for (const create of diff.toCreate) {
       await tx.visual.upsert({
         where: {
           documentId_anchorBlockId: {
@@ -332,7 +349,7 @@ async function mirrorVisualNodes(
       });
     }
 
-    for (const update of toUpdate) {
+    for (const update of diff.toUpdate) {
       if (update.payloadChanged) {
         const previous = existingById.get(update.id);
         if (previous) {
@@ -355,10 +372,21 @@ async function mirrorVisualNodes(
       }
     }
 
-    if (toDelete.length > 0) {
-      await tx.visual.deleteMany({ where: { id: { in: toDelete } } });
+    if (diff.toDelete.length > 0) {
+      await tx.visual.deleteMany({ where: { id: { in: diff.toDelete } } });
     }
   });
+
+  logInfo("visual.mirror", "mirror complete", {
+    documentId,
+    created: outcome.created,
+    updated: outcome.updated,
+    deleted: outcome.deleted,
+    skipped: outcome.skipped,
+    invalid: outcome.invalid,
+  });
+
+  return outcome;
 }
 
 /**
@@ -379,7 +407,7 @@ async function mirrorVisualNodes(
 export async function saveDocumentLexical(
   id: string,
   stateJson: string,
-): Promise<ActionResult> {
+): Promise<ActionResult<VisualMirrorOutcome>> {
   const user = await requireUser();
 
   if (stateJson.length > MAX_LEXICAL_STATE_LENGTH) {
@@ -413,11 +441,68 @@ export async function saveDocumentLexical(
 
   // Mirror embedded visual blocks to Visual rows so share/embed, dashboard
   // thumbnails, and version history keep working off the editor's source of
-  // truth (contentJson).
-  await mirrorVisualNodes(id, parsed);
+  // truth (contentJson). The outcome carries counts for observability.
+  const outcome = await mirrorVisualNodes(id, parsed);
 
   revalidatePath("/app");
-  return actionOk();
+  return actionOk(outcome);
+}
+
+/**
+ * Idempotent server action that rebuilds all `Visual` rows for a document
+ * purely from its current `contentJson` (issue #451).
+ *
+ * Equivalent to the mirror portion of `saveDocumentLexical` but usable as a
+ * standalone repair tool — it does NOT snapshot, update `contentJson`, or touch
+ * any other document fields. Running it twice without intermediate edits is a
+ * no-op (the second run produces an empty diff).
+ *
+ * Permission-checked: requires edit access to the document.
+ */
+export async function rebuildVisualMirror(
+  documentId: string,
+): Promise<ActionResult<VisualMirrorOutcome>> {
+  const user = await requireUser();
+  await requireDocumentCapability(user.id, documentId, "edit");
+
+  const doc = await prisma.document.findUnique({
+    where: { id: documentId },
+    select: { contentJson: true },
+  });
+
+  if (!doc) {
+    return actionError("Document not found.");
+  }
+
+  if (doc.contentJson == null) {
+    const empty: VisualMirrorOutcome = {
+      created: 0,
+      updated: 0,
+      deleted: 0,
+      skipped: 0,
+      invalid: 0,
+    };
+    logInfo("visual.rebuild", "rebuild skipped: no contentJson", {
+      documentId,
+    });
+    return actionOk(empty);
+  }
+
+  try {
+    const outcome = await mirrorVisualNodes(documentId, doc.contentJson);
+    logInfo("visual.rebuild", "rebuild complete", { documentId, ...outcome });
+    revalidatePath("/app");
+    return actionOk(outcome);
+  } catch (err) {
+    logError(
+      "visual.rebuild",
+      err instanceof Error ? err : new Error(String(err)),
+      {
+        documentId,
+      },
+    );
+    return actionError("Failed to rebuild visual mirror.");
+  }
 }
 
 // Furthest-out expiry a caller may set, guarding against absurd dates.
@@ -1032,6 +1117,98 @@ function sanitizeRestoredDeck(
 }
 
 /**
+ * Belt-and-suspenders post-mirror deck reconciliation (issue #452).
+ *
+ * Re-reads the document's `deckJson` and current Visual rows from the DB and
+ * strips any deck visual references that no longer have a corresponding Visual
+ * row. This guards against partial-mirror edge cases where the DB Visual rows
+ * diverge from what `sanitizeRestoredDeck` expected.
+ *
+ * No-ops when there is no deck or when every deck reference is still valid.
+ */
+async function reconcileDeckAfterMirror(documentId: string): Promise<void> {
+  try {
+    const doc = await prisma.document.findUnique({
+      where: { id: documentId },
+      select: { deckJson: true },
+    });
+    if (!doc?.deckJson) {
+      return;
+    }
+
+    const parsed = safeParseDeck(normalizeDeckRaw(doc.deckJson));
+    if (!parsed.success) {
+      return;
+    }
+
+    // Build the known-good visual id set from actual DB rows.
+    const visualRows = await prisma.visual.findMany({
+      where: { documentId, anchorBlockId: { not: null } },
+      select: { anchorBlockId: true },
+    });
+    const knownVisualIds = new Set(
+      visualRows
+        .map((r) => r.anchorBlockId)
+        .filter((id): id is string => id !== null),
+    );
+
+    const reconciled = stripOrphanedVisuals(parsed.data, knownVisualIds);
+
+    // Only write back if something actually changed.
+    const before = JSON.stringify(
+      parsed.data.slides.map((s) => s.elements ?? s.visualIds),
+    );
+    const after = JSON.stringify(
+      reconciled.slides.map((s) => s.elements ?? s.visualIds),
+    );
+    if (before === after) {
+      return;
+    }
+
+    await prisma.document.updateMany({
+      where: { id: documentId },
+      data: { deckJson: reconciled as unknown as Prisma.InputJsonValue },
+    });
+
+    logInfo("visual.reconcile", "deck reconciled after mirror", {
+      documentId,
+      knownVisualCount: knownVisualIds.size,
+    });
+  } catch (err) {
+    // A reconciliation failure must never surface to the caller's restore.
+    logError(
+      "visual.reconcile",
+      err instanceof Error ? err : new Error(String(err)),
+      { documentId },
+    );
+  }
+}
+
+/**
+ * Revalidates the Next.js cache for all public share/embed/present paths
+ * associated with a document (issue #452). Called after restore so cached
+ * public pages reflect the restored content without waiting for the default TTL.
+ */
+async function revalidateSharePaths(documentId: string): Promise<void> {
+  try {
+    const doc = await prisma.document.findUnique({
+      where: { id: documentId },
+      select: { shareId: true, slug: true, isShared: true },
+    });
+    if (!doc?.isShared || !doc.shareId) {
+      return;
+    }
+
+    const segment = buildShareSegment(doc.slug, doc.shareId);
+    revalidatePath(`/share/${segment}`);
+    revalidatePath(`/embed/${segment}`);
+    revalidatePath(`/present/${segment}`);
+  } catch {
+    // Cache revalidation failures must never surface to the caller.
+  }
+}
+
+/**
  * Restores a document to an earlier snapshot, writing that version's
  * `contentJson`/`deckJson` (and derived plain-text `content`) back as the
  * current document state. Requires edit access (issue #158).
@@ -1040,6 +1217,12 @@ function sanitizeRestoredDeck(
  * (labelled so it's recognizable in the history), so a restore is itself
  * reversible. The mirrored Visual rows are rebuilt from the restored content so
  * share/embed and dashboard thumbnails stay consistent.
+ *
+ * Post-restore reconciliation (issue #452):
+ *  1. Visual rows are rebuilt from the restored `contentJson`.
+ *  2. A second deck pass reconciles against the actual DB Visual rows so no
+ *     slide can reference a visual that the mirror failed to create.
+ *  3. Share/embed/present cache paths are revalidated so cached pages refresh.
  */
 export async function restoreDocumentVersion(
   versionId: string,
@@ -1093,6 +1276,16 @@ export async function restoreDocumentVersion(
   // Rebuild mirrored Visual rows from the restored content so embeds/thumbnails
   // reflect the restored version (mirrors the saveDocumentLexical save path).
   await mirrorVisualNodes(documentId, restoredContent);
+
+  // Belt-and-suspenders: re-read the actual Visual rows after the mirror rebuild
+  // and do a second deck reconciliation against them. This guards against any
+  // edge case where the mirror partially succeeded, ensuring the deck never
+  // references a Visual row that doesn't exist in the database.
+  await reconcileDeckAfterMirror(documentId);
+
+  // Revalidate share/embed/present cache paths so any cached public pages
+  // reflect the restored content.
+  await revalidateSharePaths(documentId);
 
   revalidatePath(`/app/documents/${documentId}`);
   revalidatePath("/app");
