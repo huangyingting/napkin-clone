@@ -7,16 +7,19 @@ the required CI workflow — run them locally or in a dedicated E2E job.
 
 ## What's covered
 
-| Spec                            | Coverage                                                                        |
-| ------------------------------- | ------------------------------------------------------------------------------- |
-| `public-pages.spec.ts`          | Home / login / signup render (smoke)                                            |
-| `auth-redirect.spec.ts`         | Protected `/app*` → `/login?callbackUrl=...` (preserves path)                   |
-| `oauth-disabled.spec.ts`        | Google CTA hidden when the provider is unconfigured                             |
-| `workspace.spec.ts`             | Create / import, empty state, viewer restriction (auth-gated)                   |
-| `share-fallback.spec.ts`        | Unknown share/present/embed links → not-found fallback                          |
-| `billing-brand.spec.ts`         | Billing unlimited-credit UI + Brand Studio font persistence                     |
-| `slides-smoke.spec.ts`          | Slides edit/save/present/export smoke (auth-gated, skips cleanly without creds) |
-| `screenshot-regression.spec.ts` | Slide screenshot regression with deterministic fixtures (opt-in via env var)    |
+| Spec                            | Coverage                                                                                         |
+| ------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `public-pages.spec.ts`          | Home / login / signup render (smoke)                                                             |
+| `auth-redirect.spec.ts`         | Protected `/app*` → `/login?callbackUrl=...` (preserves path)                                    |
+| `oauth-disabled.spec.ts`        | Google CTA hidden when the provider is unconfigured                                              |
+| `workspace.spec.ts`             | Create / import, empty state, viewer restriction (auth-gated)                                    |
+| `share-fallback.spec.ts`        | Unknown share/present/embed links → not-found fallback                                           |
+| `billing-brand.spec.ts`         | Billing unlimited-credit UI + Brand Studio font persistence                                      |
+| `slides-smoke.spec.ts`          | Slides edit/save/present/export smoke (auth-gated, skips cleanly without creds)                  |
+| `screenshot-regression.spec.ts` | Slide screenshot regression with deterministic fixtures (opt-in via env var)                     |
+| `import-roundtrip.spec.ts`      | Markdown import → editor render → edit/save/reload; unsupported-type error (profile-gated, #519) |
+| `present-export.spec.ts`        | Authenticated + public present render; real PDF export download (profile-gated, #520)            |
+| `slide-asset-upload.spec.ts`    | Inspector image upload + protected slide-asset access control (profile-gated, #521)              |
 
 ## Prerequisites
 
@@ -59,19 +62,74 @@ Public-page, auth-redirect, OAuth-disabled, and share-fallback specs run with no
 extra configuration. Authenticated flows skip cleanly unless you provide seeded
 credentials:
 
-| Variable                    | Used by                           | Purpose                                                   |
-| --------------------------- | --------------------------------- | --------------------------------------------------------- |
-| `E2E_BASE_URL` / `BASE_URL` | all                               | App base URL (default `http://localhost:3000`)            |
-| `E2E_WEB_SERVER`            | config                            | `1` to let Playwright run `npm run dev`                   |
-| `E2E_USER_EMAIL/PASSWORD`   | workspace, billing, brand, slides | A seeded owner/editor login                               |
-| `E2E_VIEWER_EMAIL/PASSWORD` | workspace                         | A seeded viewer-only login                                |
-| `E2E_VIEWER_DOC_URL`        | workspace                         | A document URL the viewer can open read-only              |
-| `E2E_BRAND_FONT_URL`        | brand                             | Path to a `.woff2`/`.ttf` font to upload                  |
-| `BILLING_UNLIMITED_CREDITS` | billing                           | Match the server's unlimited-credit gate                  |
-| `AUTH_GOOGLE_ID/SECRET`     | oauth-disabled                    | Match the server's Google provider configuration          |
-| `E2E_SLIDES_DOC_URL`        | slides-smoke                      | Full URL to a seeded document with a Slides presentation  |
-| `E2E_SCREENSHOT_REGRESSION` | screenshot-regression             | Set to `1` to enable screenshot comparison tests          |
-| `E2E_REGRESSION_SHARE_ID`   | screenshot-regression             | A share id for the public present/embed regression slides |
+| Variable                    | Used by                           | Purpose                                                       |
+| --------------------------- | --------------------------------- | ------------------------------------------------------------- |
+| `E2E_BASE_URL` / `BASE_URL` | all                               | App base URL (default `http://localhost:3000`)                |
+| `E2E_WEB_SERVER`            | config                            | `1` to let Playwright run `npm run dev`                       |
+| `E2E_USER_EMAIL/PASSWORD`   | workspace, billing, brand, slides | A seeded owner/editor login                                   |
+| `E2E_VIEWER_EMAIL/PASSWORD` | workspace                         | A seeded viewer-only login                                    |
+| `E2E_VIEWER_DOC_URL`        | workspace                         | A document URL the viewer can open read-only                  |
+| `E2E_BRAND_FONT_URL`        | brand                             | Path to a `.woff2`/`.ttf` font to upload                      |
+| `BILLING_UNLIMITED_CREDITS` | billing                           | Match the server's unlimited-credit gate                      |
+| `AUTH_GOOGLE_ID/SECRET`     | oauth-disabled                    | Match the server's Google provider configuration              |
+| `E2E_SLIDES_DOC_URL`        | slides-smoke                      | Full URL to a seeded document with a Slides presentation      |
+| `E2E_SCREENSHOT_REGRESSION` | screenshot-regression             | Set to `1` to enable screenshot comparison tests              |
+| `E2E_REGRESSION_SHARE_ID`   | screenshot-regression             | A share id for the public present/embed regression slides     |
+| `E2E_PROFILE`               | import / present / slide-asset    | Set to `1` to run the deterministic profile specs (see below) |
+
+## Deterministic E2E profile (Epic #517)
+
+The fast unit gate is intentionally credential-less, so the authenticated specs
+above skip without env credentials. The **deterministic E2E profile** removes
+that ambiguity for the critical-flow specs (`import-roundtrip.spec.ts`,
+`present-export.spec.ts`, `slide-asset-upload.spec.ts`): a fixed seed produces
+known users and a known document, and the specs run for real against it.
+
+### What the profile seeds
+
+`npm run db:seed:e2e` (`prisma/seed-e2e.ts`) is **idempotent** and creates:
+
+- a fixed **owner** user and a fixed **viewer** user (passwords hashed with the
+  same bcrypt path the app uses);
+- a workspace granting the viewer read-only access;
+- one **shared** document with intro text + an embedded visual, a persisted
+  `deckJson` whose first slide carries known text and an `ImageElement` backed by
+  a slide `Asset` (bytes written under `storage/slide-assets/…`), and an enabled
+  public present/embed share policy;
+- a second **private** (never-shared) document + asset used to assert
+  protected-asset denial.
+
+All identifiers are constants in `e2e/helpers/profile.ts` (the single source of
+truth shared by the seed and the specs), and the seed emits the resolved values
+to `e2e/.e2e-fixture.json`. The **seeded document URL and share id are
+deterministic**:
+
+- Document editor: `/app/documents/e2efixturedocument0000001`
+- Public present: `/present/e2e-fixture-deck-e2efixtureshare01`
+- Public embed: `/embed/e2e-fixture-deck-e2efixtureshare01`
+
+### Enabling the profile
+
+```bash
+export DB_PROVIDER=sqlite DATABASE_URL="file:./prisma/dev.db" AUTH_SECRET=ci-placeholder
+npm run db:push        # or db:reset
+npm run db:seed:e2e    # seed the deterministic fixture
+npm run dev &          # start the app
+npm run test:e2e:profile   # runs Playwright with E2E_PROFILE=1
+```
+
+Under the profile (`E2E_PROFILE=1`, set by `test:e2e:profile`) the
+profile-dependent specs **do not skip** — they run for real. Without
+`E2E_PROFILE=1` they **skip cleanly** via `e2eProfileEnabled()`, so the
+credential-less fast gate and CI stay green.
+
+### DOCX coverage note
+
+`import-roundtrip.spec.ts` covers the Markdown import path fully through the UI
+and the unsupported-type path through the route. Binary `.docx` fixtures are
+impractical to maintain in-repo; the DOCX parser is unit-tested
+(`src/lib/import/docx.ts`, `validate.test.ts`), so the DOCX **UI** round-trip
+remains a documented manual gap (release-gate flow D-5).
 
 ## Slides smoke (`slides-smoke.spec.ts`)
 

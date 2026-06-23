@@ -1,0 +1,187 @@
+import { expect, test } from "@playwright/test";
+
+import { login } from "./helpers/auth";
+import {
+  e2eProfileEnabled,
+  fixturePngBuffer,
+  profileAssetPath,
+  profileDocPath,
+  profileOwnerCredentials,
+  profilePresentPath,
+  profilePrivateAssetPath,
+  profileViewerCredentials,
+} from "./helpers/profile";
+
+/**
+ * Slide image upload + protected asset access-control E2E (Epic #517, #521).
+ *
+ * Two concerns are covered:
+ *  1. Upload a small raster image through the slide inspector, persist it on the
+ *     image element, RELOAD, and verify the rendered slide still resolves the
+ *     protected `/api/slide-assets/…` URL.
+ *  2. Access control on protected slide assets:
+ *     - the owner can fetch its document's protected bytes (200);
+ *     - an anonymous/unrelated request to a PRIVATE document's asset is denied
+ *       (403/404) — access-control denial, distinct from a missing file;
+ *     - a public present/embed share policy still serves the shared document's
+ *       asset to anonymous requests (200).
+ *
+ * Runs ONLY under the deterministic E2E profile (`E2E_PROFILE=1` +
+ * `npm run db:seed:e2e`); skips cleanly otherwise so the fast gate stays green.
+ */
+
+test.describe("slide asset access control", () => {
+  test.skip(
+    !e2eProfileEnabled(),
+    "Set E2E_PROFILE=1 and seed (npm run db:seed:e2e) to run slide-asset checks",
+  );
+
+  test("owner fetches protected bytes; anonymous denied for private, allowed for shared", async ({
+    page,
+    browser,
+  }) => {
+    // Owner session — fetches go out with the owner's auth cookie.
+    await login(page, profileOwnerCredentials());
+
+    const ownerShared = await page.request.get(profileAssetPath());
+    expect(
+      ownerShared.status(),
+      "access: owner should fetch its shared-document asset (200)",
+    ).toBe(200);
+    expect(
+      ownerShared.headers()["content-type"] ?? "",
+      "access: shared asset should be served as image/png",
+    ).toContain("image/png");
+    expect(
+      (await ownerShared.body()).byteLength,
+      "missing-file: owner asset bytes should be nonzero",
+    ).toBeGreaterThan(0);
+
+    const ownerPrivate = await page.request.get(profilePrivateAssetPath());
+    expect(
+      ownerPrivate.status(),
+      "access: owner should fetch its private-document asset (200)",
+    ).toBe(200);
+
+    // Fresh anonymous context — no auth cookie at all.
+    const anon = await browser.newContext();
+    try {
+      const anonPrivate = await anon.request.get(profilePrivateAssetPath());
+      expect(
+        anonPrivate.status(),
+        "access: anonymous request to a PRIVATE asset must be denied (403/404)",
+      ).toBeGreaterThanOrEqual(403);
+      expect(anonPrivate.status()).toBeLessThan(405);
+
+      const anonShared = await anon.request.get(profileAssetPath());
+      expect(
+        anonShared.status(),
+        "access: shared (public present/embed) asset must serve anonymously (200)",
+      ).toBe(200);
+      expect(
+        (await anonShared.body()).byteLength,
+        "missing-file: shared asset bytes should be nonzero for anonymous",
+      ).toBeGreaterThan(0);
+    } finally {
+      await anon.close();
+    }
+  });
+
+  test("an unrelated authenticated user is denied the private asset", async ({
+    browser,
+  }) => {
+    const ctx = await browser.newContext();
+    try {
+      const viewerPage = await ctx.newPage();
+      // The viewer has no relationship to the private (workspace-less) document.
+      await login(viewerPage, profileViewerCredentials());
+
+      const res = await viewerPage.request.get(profilePrivateAssetPath());
+      expect(
+        res.status(),
+        "access: unrelated user must be denied the private asset (403/404)",
+      ).toBeGreaterThanOrEqual(403);
+      expect(res.status()).toBeLessThan(405);
+    } finally {
+      await ctx.close();
+    }
+  });
+});
+
+test.describe("slide image upload round-trip", () => {
+  test.skip(
+    !e2eProfileEnabled(),
+    "Set E2E_PROFILE=1 and seed (npm run db:seed:e2e) to run slide upload",
+  );
+
+  test("uploads via the inspector and the reloaded slide resolves the protected asset", async ({
+    page,
+  }) => {
+    await login(page, profileOwnerCredentials());
+    await page.goto(profileDocPath());
+
+    // Open the slide editor.
+    const openEditor = page.getByRole("button", { name: "Open slide editor" });
+    await expect(
+      openEditor,
+      "upload: 'Open slide editor' button not found",
+    ).toBeVisible({ timeout: 20_000 });
+    await openEditor.click();
+
+    // Select the seeded image element (its accessible name is its alt text).
+    const seededImage = page.getByRole("button", {
+      name: "Seeded fixture image",
+    });
+    await expect(
+      seededImage,
+      "upload: seeded image element not present on the canvas",
+    ).toBeVisible({ timeout: 20_000 });
+    await seededImage.click();
+
+    // The inspector exposes an image upload control (accept="image/*").
+    const fileInput = page.locator('input[type="file"][accept="image/*"]');
+    await expect(
+      fileInput.first(),
+      "upload: inspector image file input not found after selecting element",
+    ).toHaveCount(1, { timeout: 10_000 });
+
+    await fileInput.first().setInputFiles({
+      name: "uploaded-fixture.png",
+      mimeType: "image/png",
+      buffer: fixturePngBuffer(),
+    });
+
+    // No upload error should be surfaced by the inspector.
+    await expect(
+      page.getByRole("alert"),
+      "upload: inspector reported an upload error",
+    ).toHaveCount(0, { timeout: 15_000 });
+
+    // Give the deck autosave time to persist the updated element, then reload.
+    await page.waitForTimeout(2_000);
+    await page.reload();
+
+    // Verify the rendered slide still resolves a protected asset URL by loading
+    // the public present page (which renders the persisted deck's image) and
+    // confirming the asset request returns real bytes.
+    const present = await page.goto(profilePresentPath());
+    expect(
+      present?.status(),
+      "upload: public present page should load after upload",
+    ).toBe(200);
+
+    const slideImg = page.locator('img[src*="/api/slide-assets/"]').first();
+    await expect(
+      slideImg,
+      "upload: reloaded slide does not render a protected asset image",
+    ).toBeVisible({ timeout: 20_000 });
+
+    const src = await slideImg.getAttribute("src");
+    expect(src, "upload: protected image has no src").toBeTruthy();
+    const assetResponse = await page.request.get(src!);
+    expect(
+      assetResponse.status(),
+      "upload: protected asset URL did not resolve to servable bytes",
+    ).toBe(200);
+  });
+});
