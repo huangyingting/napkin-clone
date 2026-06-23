@@ -120,9 +120,9 @@ import {
   shouldPersist,
   shouldScheduleAutosave,
 } from "@/lib/presentation/save-status";
+import { executeCommand } from "@/lib/presentation/slide-commands";
 import {
   addElement,
-  addSlide,
   applySlideLayout,
   alignElements,
   arrangeSelectedElements,
@@ -130,7 +130,6 @@ import {
   distributeElements,
   duplicateElement,
   duplicateElements,
-  duplicateSlide,
   groupElements,
   insertSlide,
   matchSizeElements,
@@ -139,8 +138,6 @@ import {
   removeElement,
   removeElements,
   nudgeElements,
-  removeSlide,
-  reorderSlides,
   resetSlideLayout,
   sendElementToBack,
   setDeckSlideFormat,
@@ -795,9 +792,16 @@ export function SlideEditor({
 
   const handleAddSlide = useCallback(
     (afterIndex: number) => {
-      const next = addSlide(deck, afterIndex);
-      onDeckChange(next);
-      setSelectedIndex(Math.min(afterIndex + 1, next.slides.length - 1));
+      const afterSlideId = deck.slides[afterIndex]?.id ?? null;
+      const result = executeCommand(deck, { type: "ADD_SLIDE", afterSlideId });
+      if (!result.ok) return;
+      onDeckChange(
+        result.deck,
+        result.historyKey !== undefined
+          ? { coalesceKey: result.historyKey }
+          : undefined,
+      );
+      setSelectedIndex(Math.min(afterIndex + 1, result.deck.slides.length - 1));
     },
     [deck, onDeckChange],
   );
@@ -816,7 +820,16 @@ export function SlideEditor({
 
   const handleDuplicate = useCallback(
     (index: number) => {
-      onDeckChange(duplicateSlide(deck, index));
+      const slideId = deck.slides[index]?.id;
+      if (!slideId) return;
+      const result = executeCommand(deck, { type: "DUPLICATE_SLIDE", slideId });
+      if (!result.ok) return;
+      onDeckChange(
+        result.deck,
+        result.historyKey !== undefined
+          ? { coalesceKey: result.historyKey }
+          : undefined,
+      );
       setSelectedIndex(index + 1);
     },
     [deck, onDeckChange],
@@ -824,7 +837,16 @@ export function SlideEditor({
 
   const handleRemove = useCallback(
     (index: number) => {
-      onDeckChange(removeSlide(deck, index));
+      const slideId = deck.slides[index]?.id;
+      if (!slideId) return;
+      const result = executeCommand(deck, { type: "REMOVE_SLIDE", slideId });
+      if (!result.ok) return;
+      onDeckChange(
+        result.deck,
+        result.historyKey !== undefined
+          ? { coalesceKey: result.historyKey }
+          : undefined,
+      );
       setSelectedIndex((current) =>
         Math.max(0, Math.min(current, deck.slides.length - 2)),
       );
@@ -1009,16 +1031,43 @@ export function SlideEditor({
               setSelectedElementIds(new Set(newElementIds));
             }
           } else {
-            onDeckChange(duplicateSlide(kDeck, kSafe));
-            setSelectedIndex(kSafe + 1);
+            const slideId = kDeck.slides[kSafe]?.id;
+            if (slideId) {
+              const result = executeCommand(kDeck, {
+                type: "DUPLICATE_SLIDE",
+                slideId,
+              });
+              if (result.ok) {
+                onDeckChange(
+                  result.deck,
+                  result.historyKey !== undefined
+                    ? { coalesceKey: result.historyKey }
+                    : undefined,
+                );
+                setSelectedIndex(kSafe + 1);
+              }
+            }
           }
           return;
         }
         if (key === "n") {
           event.preventDefault();
-          const next = addSlide(kDeck, kSafe);
-          onDeckChange(next);
-          setSelectedIndex(Math.min(kSafe + 1, next.slides.length - 1));
+          const afterSlideId = kDeck.slides[kSafe]?.id ?? null;
+          const result = executeCommand(kDeck, {
+            type: "ADD_SLIDE",
+            afterSlideId,
+          });
+          if (result.ok) {
+            onDeckChange(
+              result.deck,
+              result.historyKey !== undefined
+                ? { coalesceKey: result.historyKey }
+                : undefined,
+            );
+            setSelectedIndex(
+              Math.min(kSafe + 1, result.deck.slides.length - 1),
+            );
+          }
           return;
         }
         // Element clipboard + select-all. Operate on the current slide's
@@ -1105,10 +1154,24 @@ export function SlideEditor({
         }
         if (event.key === "Backspace" || event.key === "Delete") {
           event.preventDefault();
-          onDeckChange(removeSlide(kDeck, kSafe));
-          setSelectedIndex((current) =>
-            Math.max(0, Math.min(current, kDeck.slides.length - 2)),
-          );
+          const slideId = kDeck.slides[kSafe]?.id;
+          if (slideId) {
+            const result = executeCommand(kDeck, {
+              type: "REMOVE_SLIDE",
+              slideId,
+            });
+            if (result.ok) {
+              onDeckChange(
+                result.deck,
+                result.historyKey !== undefined
+                  ? { coalesceKey: result.historyKey }
+                  : undefined,
+              );
+              setSelectedIndex((current) =>
+                Math.max(0, Math.min(current, kDeck.slides.length - 2)),
+              );
+            }
+          }
           return;
         }
       }
@@ -1295,8 +1358,23 @@ export function SlideEditor({
       }
       reorderRef.current = null;
       if (drag.overIndex !== drag.fromIndex) {
-        onDeckChange(reorderSlides(deck, drag.fromIndex, drag.overIndex));
-        setSelectedIndex(drag.overIndex);
+        const slideId = deck.slides[drag.fromIndex]?.id;
+        if (slideId) {
+          const result = executeCommand(deck, {
+            type: "REORDER_SLIDE",
+            slideId,
+            toIndex: drag.overIndex,
+          });
+          if (result.ok) {
+            onDeckChange(
+              result.deck,
+              result.historyKey !== undefined
+                ? { coalesceKey: result.historyKey }
+                : undefined,
+            );
+            setSelectedIndex(drag.overIndex);
+          }
+        }
       }
       setDragIndex(null);
       setDragOverIndex(null);
