@@ -34,6 +34,8 @@ import {
 import { useRegisterVisualSvg } from "@/components/editor/visual-svg-registry";
 import { useRightSurface } from "./right-surface-context";
 
+import { applyVisualCommand } from "@/lib/commands/visual-command-adapter";
+import type { VisualCommandPayload } from "@/lib/commands/visual-commands";
 import { useEditingSurface } from "./use-editing-surface";
 import { VisualContextPopover } from "./visual-context-popover";
 import { VisualEditor } from "./visual-editor";
@@ -182,6 +184,33 @@ export function VisualCard({
       });
     },
     [editor, nodeKey],
+  );
+
+  // Routes a typed visual command payload through the visual command executor,
+  // then writes the result back via node.setVisual (issue #471). Falls back to
+  // updateVisual when the command fails so the editor remains functional.
+  const handleCommand = useCallback(
+    (payload: VisualCommandPayload, coalesceKey?: string) => {
+      editor.update(() => {
+        const node = $getNodeByKey(nodeKey);
+        if (!$isVisualNode(node)) {
+          return;
+        }
+        const current = node.getVisual();
+        const result = applyVisualCommand(
+          current,
+          visualId,
+          payload,
+          undefined,
+          coalesceKey,
+        );
+        if (result.ok) {
+          node.setVisual(applyElasticLayout(result.visual));
+        }
+        // On failure the visual is unchanged — no-op is the safe default.
+      });
+    },
+    [editor, nodeKey, visualId],
   );
 
   // Removes this visual block from the document (US-013).
@@ -651,6 +680,7 @@ export function VisualCard({
           visual={data}
           selectedNodeId={selectedNodeId}
           onChange={updateVisual}
+          onCommand={handleCommand}
           onRemove={removeVisual}
           onRemoveSelectedNode={selectedNodeId ? removeSelectedNode : undefined}
           onClose={closeControls}
