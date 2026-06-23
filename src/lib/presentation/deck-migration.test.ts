@@ -39,8 +39,8 @@ function minimalDeckWithVersion(version: number | undefined): unknown {
 // Constants
 // ---------------------------------------------------------------------------
 
-test("CURRENT_DECK_SCHEMA_VERSION is 1", () => {
-  assert.equal(CURRENT_DECK_SCHEMA_VERSION, 1);
+test("CURRENT_DECK_SCHEMA_VERSION is 2", () => {
+  assert.equal(CURRENT_DECK_SCHEMA_VERSION, 2);
 });
 
 test("MIN_SUPPORTED_DECK_SCHEMA_VERSION is 0", () => {
@@ -64,7 +64,15 @@ test("migrateDeck stamps schemaVersion on deck with explicit version 0", () => {
   assert.equal(result.schemaVersion, CURRENT_DECK_SCHEMA_VERSION);
 });
 
-test("migrateDeck passes through a current-version deck unchanged", () => {
+test("migrateDeck stamps schemaVersion on deck with explicit version 1", () => {
+  const raw = { ...(minimalLegacyDeck() as object), schemaVersion: 1 };
+  const result = migrateDeck(raw) as Record<string, unknown>;
+  assert.equal(result.schemaVersion, CURRENT_DECK_SCHEMA_VERSION);
+});
+
+test("migrateDeck passes through a current-version deck unchanged (same reference)", () => {
+  // Build a v2-level deck that already has elements[] on all slides so it
+  // would not be mutated even if migration ran.
   const raw = {
     ...(minimalLegacyDeck() as object),
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
@@ -108,6 +116,93 @@ test("migrateDeck preserves all existing deck fields", () => {
   assert.equal(result.themeId, "my-theme");
   assert.equal(result.deckContentHash, "abc123");
   assert.equal(result.schemaVersion, CURRENT_DECK_SCHEMA_VERSION);
+});
+
+// ---------------------------------------------------------------------------
+// v1→v2 materialization (issue #486)
+// ---------------------------------------------------------------------------
+
+test("migrateDeck materializes elements[] for legacy slides without elements", () => {
+  const raw = minimalLegacyDeck() as Record<string, unknown>;
+  const result = migrateDeck(raw) as Record<string, unknown>;
+  const slides = result.slides as Array<Record<string, unknown>>;
+  assert.ok(Array.isArray(slides[0].elements), "elements should be an array");
+  assert.ok(
+    (slides[0].elements as unknown[]).length > 0,
+    "elements should be non-empty",
+  );
+});
+
+test("migrateDeck sets elementsDerived: true on materialized slides", () => {
+  const raw = minimalLegacyDeck() as Record<string, unknown>;
+  const result = migrateDeck(raw) as Record<string, unknown>;
+  const slides = result.slides as Array<Record<string, unknown>>;
+  assert.equal(slides[0].elementsDerived, true);
+});
+
+test("migrateDeck does not overwrite existing elements[] (idempotent)", () => {
+  const existingElement = {
+    id: "el-existing",
+    kind: "text",
+    text: "manual",
+    role: "title",
+    zIndex: 0,
+    box: { x: 0, y: 0, w: 100, h: 10 },
+    style: { fontSize: 6, align: "left", bold: true, italic: false },
+  };
+  const raw = {
+    theme: "default",
+    slides: [
+      {
+        index: 0,
+        title: "Hello",
+        bullets: [],
+        visualIds: [],
+        layout: "content",
+        notes: "",
+        theme: "default",
+        elements: [existingElement],
+        elementsDerived: false,
+      },
+    ],
+  };
+  const result = migrateDeck(raw) as Record<string, unknown>;
+  const slides = result.slides as Array<Record<string, unknown>>;
+  const elements = slides[0].elements as unknown[];
+  // Existing elements must be preserved verbatim.
+  assert.equal(elements.length, 1);
+  assert.deepEqual(elements[0], existingElement);
+  // elementsDerived must NOT be overwritten when elements[] already present.
+  assert.equal(slides[0].elementsDerived, false);
+});
+
+test("migrateDeck idempotence: running twice yields same slide structure", () => {
+  const raw = minimalLegacyDeck() as Record<string, unknown>;
+  const once = migrateDeck(raw) as Record<string, unknown>;
+  const twice = migrateDeck(once) as Record<string, unknown>;
+  // Second pass should not change slides (elements already populated).
+  const slidesOnce = once.slides as Array<Record<string, unknown>>;
+  const slidesTwice = twice.slides as Array<Record<string, unknown>>;
+  assert.equal(
+    (slidesOnce[0].elements as unknown[]).length,
+    (slidesTwice[0].elements as unknown[]).length,
+  );
+});
+
+test("migrateDeck preserves legacy fields alongside new elements[] (backward compat)", () => {
+  const raw = minimalLegacyDeck() as Record<string, unknown>;
+  const result = migrateDeck(raw) as Record<string, unknown>;
+  const slides = result.slides as Array<Record<string, unknown>>;
+  // Legacy fields must still be present.
+  assert.equal(slides[0].title, "Hello");
+  assert.ok(Array.isArray(slides[0].bullets));
+  assert.ok(Array.isArray(slides[0].visualIds));
+  assert.equal(slides[0].layout, "content");
+});
+
+test("migrateDeck handles malformed slides gracefully (non-object slide skipped)", () => {
+  const raw = { theme: "default", slides: [null, 42, "bad"] };
+  assert.doesNotThrow(() => migrateDeck(raw));
 });
 
 // ---------------------------------------------------------------------------

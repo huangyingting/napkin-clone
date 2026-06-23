@@ -23,20 +23,15 @@
  */
 
 import type { Deck, Slide } from "./deck";
+import { fnv1aHash32 } from "./fnv-hash";
 
 /**
  * FNV-1a 32-bit string hash, returned as an 8-char zero-padded hex string.
- * Deterministic and dependency-free so it is identical in the browser and Node.
+ * Delegates to the shared {@link fnv1aHash32} utility (issue #487) so both
+ * former call sites produce byte-for-byte identical output.
  */
 export function fnv1aHex(input: string): string {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < input.length; i++) {
-    hash ^= input.charCodeAt(i);
-    // hash * 16777619 with 32-bit overflow via Math.imul.
-    hash = Math.imul(hash, 0x01000193);
-  }
-  // Coerce to unsigned 32-bit then hex.
-  return (hash >>> 0).toString(16).padStart(8, "0");
+  return fnv1aHash32(input);
 }
 
 /** Normalizes a title for matching/hashing: trimmed and lower-cased. */

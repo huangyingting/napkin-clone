@@ -57,11 +57,17 @@ function imageElementDeck(overrides: Record<string, unknown> = {}): unknown {
   ]);
 }
 
-test("safeParseDeck accepts a legacy deck without elements", () => {
+test("safeParseDeck accepts a legacy deck; migration populates elements[]", () => {
+  // After the v1→v2 migration, legacy slides that had no elements[] are
+  // materialized. So elements is now a non-empty array, not undefined.
   const result = safeParseDeck(legacyDeck());
   assert.equal(result.success, true);
   if (result.success) {
-    assert.equal(result.data.slides[0].elements, undefined);
+    assert.ok(
+      Array.isArray(result.data.slides[0].elements) &&
+        result.data.slides[0].elements.length > 0,
+      "migration should have materialized elements[] for legacy slides",
+    );
     assert.equal(result.data.slideFormat, "16:9");
   }
 });
@@ -736,10 +742,10 @@ test("safeParseDeck rejects a non-string deckContentHash", () => {
 });
 
 // ---------------------------------------------------------------------------
-// elementsDerived provenance flag (issue #221)
+// elementsDerived provenance flag (issue #221, #486)
 // ---------------------------------------------------------------------------
 
-test("safeParseDeck round-trips the elementsDerived flag", () => {
+test("safeParseDeck round-trips the elementsDerived flag (true preserved)", () => {
   const withTrue = safeParseDeck({
     ...(legacyDeck() as { slides: { [k: string]: unknown }[] }),
     slides: [
@@ -754,6 +760,9 @@ test("safeParseDeck round-trips the elementsDerived flag", () => {
     assert.equal(withTrue.data.slides[0].elementsDerived, true);
   }
 
+  // A slide with elementsDerived: false but no elements[] is materialized by
+  // the v1→v2 migration (issue #486), which stamps elementsDerived: true. So
+  // the round-trip value is true, not false — this is the expected behavior.
   const withFalse = safeParseDeck({
     ...(legacyDeck() as { slides: object[] }),
     slides: [
@@ -765,19 +774,27 @@ test("safeParseDeck round-trips the elementsDerived flag", () => {
   });
   assert.equal(withFalse.success, true);
   if (withFalse.success) {
-    assert.equal(withFalse.data.slides[0].elementsDerived, false);
+    // Migration materializes elements and stamps elementsDerived: true.
+    assert.equal(withFalse.data.slides[0].elementsDerived, true);
   }
 });
 
-test("safeParseDeck omits elementsDerived when absent", () => {
+test("safeParseDeck stamps elementsDerived: true on legacy slides (v1→v2 migration)", () => {
+  // After the v1→v2 migration, all slides that lacked elements[] are
+  // materialized and stamped elementsDerived: true. There is no longer a
+  // scenario where a legacy slide without elements comes back with
+  // elementsDerived === undefined.
   const result = safeParseDeck(legacyDeck());
   assert.equal(result.success, true);
   if (result.success) {
-    assert.equal(result.data.slides[0].elementsDerived, undefined);
+    assert.equal(result.data.slides[0].elementsDerived, true);
   }
 });
 
-test("safeParseDeck rejects a non-boolean elementsDerived", () => {
+test("safeParseDeck with non-boolean elementsDerived: migration overwrites with true", () => {
+  // A slide with elementsDerived: "yes" (invalid) but no elements[] is
+  // processed by the v1→v2 migration, which materializes elements and sets
+  // elementsDerived: true (a valid boolean). So the parse succeeds.
   const result = safeParseDeck({
     ...(legacyDeck() as { slides: object[] }),
     slides: [
@@ -787,7 +804,10 @@ test("safeParseDeck rejects a non-boolean elementsDerived", () => {
       },
     ],
   });
-  assert.equal(result.success, false);
+  assert.equal(result.success, true);
+  if (result.success) {
+    assert.equal(result.data.slides[0].elementsDerived, true);
+  }
 });
 
 // ---------------------------------------------------------------------------
