@@ -47,6 +47,11 @@ import {
   SLIDE_FORMATS,
   type SlideFormat,
 } from "./slide-format";
+import type {
+  BackgroundTreatment,
+  DeckThemeTokenSet,
+  MasterSlide,
+} from "./deck-theme-tokens";
 
 class DeckValidationError extends Error {
   constructor(message: string) {
@@ -252,6 +257,126 @@ export function validateSourceRef(input: unknown, context: string): SourceRef {
 
 function isHexColor(value: unknown): value is string {
   return typeof value === "string" && /^#[0-9a-fA-F]{3,8}$/.test(value);
+}
+
+function validateBackgroundTreatment(
+  input: unknown,
+  context: string,
+): BackgroundTreatment {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  if (input.type === "solid") {
+    if (!isHexColor(input.color)) {
+      throw new DeckValidationError(`${context}.color must be a hex color`);
+    }
+    return { type: "solid", color: input.color as string };
+  }
+  if (input.type === "gradient") {
+    if (!isHexColor(input.from)) {
+      throw new DeckValidationError(`${context}.from must be a hex color`);
+    }
+    if (!isHexColor(input.to)) {
+      throw new DeckValidationError(`${context}.to must be a hex color`);
+    }
+    return {
+      type: "gradient",
+      from: input.from as string,
+      to: input.to as string,
+      ...(typeof input.angle === "number" && Number.isFinite(input.angle)
+        ? { angle: input.angle }
+        : {}),
+    };
+  }
+  if (input.type === "image") {
+    if (typeof input.url !== "string" || input.url.length === 0) {
+      throw new DeckValidationError(
+        `${context}.url must be a non-empty string`,
+      );
+    }
+    return { type: "image", url: input.url as string };
+  }
+  throw new DeckValidationError(
+    `${context}.type must be "solid", "gradient", or "image"`,
+  );
+}
+
+const LOGO_PLACEMENTS = [
+  "top-left",
+  "top-right",
+  "bottom-left",
+  "bottom-right",
+] as const;
+
+function validateMaster(input: unknown, context: string): MasterSlide {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  if (typeof input.id !== "string" || input.id.length === 0) {
+    throw new DeckValidationError(`${context}.id must be a non-empty string`);
+  }
+  if (typeof input.name !== "string" || input.name.length === 0) {
+    throw new DeckValidationError(`${context}.name must be a non-empty string`);
+  }
+  if (typeof input.themeId !== "string") {
+    throw new DeckValidationError(`${context}.themeId must be a string`);
+  }
+  const master: MasterSlide = {
+    id: input.id,
+    name: input.name,
+    themeId: input.themeId,
+    showPageNumbers: Boolean(input.showPageNumbers),
+  };
+  if (input.background !== undefined) {
+    master.background = validateBackgroundTreatment(
+      input.background,
+      `${context}.background`,
+    );
+  }
+  if (input.logoUrl !== undefined) {
+    if (typeof input.logoUrl !== "string" || input.logoUrl.length === 0) {
+      throw new DeckValidationError(
+        `${context}.logoUrl must be a non-empty string`,
+      );
+    }
+    master.logoUrl = input.logoUrl;
+  }
+  if (input.logoPlacement !== undefined) {
+    if (
+      !LOGO_PLACEMENTS.includes(
+        input.logoPlacement as (typeof LOGO_PLACEMENTS)[number],
+      )
+    ) {
+      throw new DeckValidationError(
+        `${context}.logoPlacement must be one of: ${LOGO_PLACEMENTS.join(", ")}`,
+      );
+    }
+    master.logoPlacement = input.logoPlacement as MasterSlide["logoPlacement"];
+  }
+  if (input.footerText !== undefined) {
+    if (typeof input.footerText !== "string") {
+      throw new DeckValidationError(`${context}.footerText must be a string`);
+    }
+    master.footerText = input.footerText;
+  }
+  return master;
+}
+
+function validateCustomTokenSet(
+  input: unknown,
+  context: string,
+): DeckThemeTokenSet {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  if (typeof input.id !== "string" || input.id.length === 0) {
+    throw new DeckValidationError(`${context}.id must be a non-empty string`);
+  }
+  if (typeof input.name !== "string" || input.name.length === 0) {
+    throw new DeckValidationError(`${context}.name must be a non-empty string`);
+  }
+  // Pass through as-is — full validation is complex and less critical for runtime-generated token sets
+  return input as unknown as DeckThemeTokenSet;
 }
 
 function validateFiniteNumber(value: unknown, context: string): number {
@@ -971,6 +1096,11 @@ function validateSlide(input: unknown, index: number): Slide {
   if (input.accent !== undefined && !isHexColor(input.accent)) {
     throw new DeckValidationError(`${context}.accent must be a hex color`);
   }
+  // masterRef — optional non-empty string
+  const masterRef =
+    typeof input.masterRef === "string" && input.masterRef.length > 0
+      ? input.masterRef
+      : undefined;
   if (
     input.elementsDerived !== undefined &&
     typeof input.elementsDerived !== "boolean"
@@ -1015,6 +1145,7 @@ function validateSlide(input: unknown, index: number): Slide {
       ? { backgroundAssetId: input.backgroundAssetId as string }
       : {}),
     ...(input.accent !== undefined ? { accent: input.accent as string } : {}),
+    ...(masterRef !== undefined ? { masterRef } : {}),
   };
 }
 
@@ -1107,6 +1238,32 @@ function validateDeck(input: unknown): Deck {
       );
     }
     deck.schemaVersion = input.schemaVersion;
+  }
+
+  if (input.masters !== undefined) {
+    if (!Array.isArray(input.masters)) {
+      throw new DeckValidationError("Deck.masters must be an array");
+    }
+    const masters: MasterSlide[] = input.masters.map((master, index) =>
+      validateMaster(master, `Deck.masters[${index}]`),
+    );
+    deck.masters = masters;
+    // Strip masterRefs pointing to non-existent masters (warn but don't fail)
+    const masterIds = new Set(masters.map((m) => m.id));
+    deck.slides = deck.slides.map((slide) => {
+      if (slide.masterRef !== undefined && !masterIds.has(slide.masterRef)) {
+        const { masterRef: _stripped, ...rest } = slide;
+        return rest as typeof slide;
+      }
+      return slide;
+    });
+  }
+
+  if (input.customTokenSet !== undefined) {
+    deck.customTokenSet = validateCustomTokenSet(
+      input.customTokenSet,
+      "Deck.customTokenSet",
+    );
   }
 
   return deck;

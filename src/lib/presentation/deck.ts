@@ -67,6 +67,10 @@ import {
   type SlideFormat as PresentationSlideFormat,
 } from "@/lib/presentation/slide-format";
 import type { DocumentBlock } from "@/lib/visual/document-export";
+import type {
+  DeckThemeTokenSet,
+  MasterSlide,
+} from "@/lib/presentation/deck-theme-tokens";
 
 /**
  * FNV-1a 32-bit hash used to derive a stable `sourceSectionId` from a heading
@@ -413,6 +417,10 @@ export interface SlideLayout {
   name: string;
   format: PresentationSlideFormat;
   placeholders: PlaceholderElement[];
+  /** Human-readable display title shown in the layout picker. */
+  title?: string;
+  /** Short description of the layout intent. */
+  description?: string;
 }
 
 export interface TextElement extends BaseElement {
@@ -717,6 +725,12 @@ export interface Slide {
 
   /** Optional per-slide accent color (hex), overriding the theme accent. */
   accent?: string;
+
+  /**
+   * Reference to a master slide id in `Deck.masters`.
+   * When absent, the first master is used (or token-set defaults if no masters).
+   */
+  masterRef?: string;
 }
 
 /** A complete presentation deck derived from a document's block structure. */
@@ -762,6 +776,20 @@ export interface Deck {
    * `safeParseDeck` instead.
    */
   schemaVersion?: number;
+
+  /**
+   * Optional master slide catalogue. Each entry defines structural chrome
+   * (background, logo, footer, page numbers) shared by slides that reference
+   * that master via `Slide.masterRef`. Legacy decks without masters fall back
+   * to token-set defaults.
+   */
+  masters?: MasterSlide[];
+
+  /**
+   * Custom token set generated from a brand application.
+   * When present, resolvers prefer this over the built-in set for `themeId`.
+   */
+  customTokenSet?: DeckThemeTokenSet;
 }
 
 // ---------------------------------------------------------------------------
@@ -1125,6 +1153,22 @@ export function resetLayout(slide: Slide, layout: SlideLayout): Slide {
   };
 }
 
+const LAYOUT_META: Record<string, { title: string; description: string }> = {
+  blank: { title: "Blank", description: "Empty canvas with no placeholders" },
+  "title-slide": {
+    title: "Title Slide",
+    description: "Centered title and subtitle",
+  },
+  "title-content": {
+    title: "Title + Content",
+    description: "Slide title with body content area",
+  },
+  "two-column": {
+    title: "Two Column",
+    description: "Side-by-side content areas",
+  },
+};
+
 const BUILTIN_LAYOUTS: readonly SlideLayout[] =
   PRESENTATION_SLIDE_FORMATS.flatMap((format) =>
     (["blank", "title-slide", "title-content", "two-column"] as const).map(
@@ -1140,6 +1184,7 @@ const BUILTIN_LAYOUTS: readonly SlideLayout[] =
           placeholderType: placeholder.placeholderType,
           ...(placeholder.label ? { label: placeholder.label } : {}),
         })),
+        ...(LAYOUT_META[name] ?? {}),
       }),
     ),
   );
