@@ -110,6 +110,7 @@ import {
 import {
   elementPointerDownIntent,
   isInlineEditableStageElement,
+  shouldClearSelectionOnStagePointerDown,
   shouldEnterInlineTextEditOnClick,
 } from "@/lib/presentation/stage-interaction";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
@@ -1895,7 +1896,17 @@ export function SlideStageEditor({
   // deferred to pointer-up so a true drag can build a selection first.
   const handleStagePointerDown = useCallback(
     (event: React.PointerEvent) => {
-      if (activeEditingId || event.button !== 0) {
+      if (
+        shouldClearSelectionOnStagePointerDown({
+          activeEditingId,
+          isPrimaryButton: event.button === 0,
+        })
+      ) {
+        stopEditing();
+        onSelectElement(null);
+        return;
+      }
+      if (event.button !== 0) {
         return;
       }
       const container = containerRef.current;
@@ -1918,7 +1929,7 @@ export function SlideStageEditor({
       };
       marqueeRectRef.current = { x: xPct, y: yPct, w: 0, h: 0 };
     },
-    [activeEditingId],
+    [activeEditingId, onSelectElement, stopEditing],
   );
 
   // Double-click on the empty stage background (not an element) creates a text

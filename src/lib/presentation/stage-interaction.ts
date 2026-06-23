@@ -52,3 +52,13 @@ export function shouldEnterInlineTextEditOnClick({
     isInlineEditableStageElement(element)
   );
 }
+
+export function shouldClearSelectionOnStagePointerDown({
+  activeEditingId,
+  isPrimaryButton,
+}: {
+  activeEditingId: string | null;
+  isPrimaryButton: boolean;
+}): boolean {
+  return activeEditingId !== null && isPrimaryButton;
+}

@@ -5,6 +5,7 @@ import type { SlideElement } from "./deck";
 import {
   elementPointerDownIntent,
   isInlineEditableStageElement,
+  shouldClearSelectionOnStagePointerDown,
   shouldEnterInlineTextEditOnClick,
 } from "./stage-interaction";
 
@@ -126,6 +127,30 @@ test("shouldEnterInlineTextEditOnClick only edits inline-editable elements", () 
       moved: false,
       wasPrimarySelected: true,
       selectedCount: 1,
+    }),
+    false,
+  );
+});
+
+test("shouldClearSelectionOnStagePointerDown clears only primary clicks while editing", () => {
+  assert.equal(
+    shouldClearSelectionOnStagePointerDown({
+      activeEditingId: "text-1",
+      isPrimaryButton: true,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldClearSelectionOnStagePointerDown({
+      activeEditingId: "text-1",
+      isPrimaryButton: false,
+    }),
+    false,
+  );
+  assert.equal(
+    shouldClearSelectionOnStagePointerDown({
+      activeEditingId: null,
+      isPrimaryButton: true,
     }),
     false,
   );
