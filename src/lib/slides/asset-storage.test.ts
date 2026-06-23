@@ -88,7 +88,10 @@ describe("LocalAssetStorageAdapter — store", () => {
 describe("LocalAssetStorageAdapter — urlFor", () => {
   it("returns {baseUrl}/{key} without writing any file", () => {
     const adapter = new LocalAssetStorageAdapter(TEST_ROOT, TEST_BASE_URL);
-    assert.equal(adapter.urlFor("docX/hash.png"), `${TEST_BASE_URL}/docX/hash.png`);
+    assert.equal(
+      adapter.urlFor("docX/hash.png"),
+      `${TEST_BASE_URL}/docX/hash.png`,
+    );
   });
 
   it("handles keys with multiple path segments", () => {
@@ -148,7 +151,10 @@ describe("getDefaultStorageAdapter / setDefaultStorageAdapter / resetDefaultStor
         path.join("public", "slide-assets"),
       ),
     );
-    assert.equal((adapter as LocalAssetStorageAdapter).baseUrl, "/slide-assets");
+    assert.equal(
+      (adapter as LocalAssetStorageAdapter).baseUrl,
+      "/slide-assets",
+    );
   });
 
   it("returns the same instance on repeated calls (singleton)", () => {
@@ -160,8 +166,12 @@ describe("getDefaultStorageAdapter / setDefaultStorageAdapter / resetDefaultStor
 
   it("setDefaultStorageAdapter replaces the singleton", () => {
     const mock: import("@/lib/slides/asset-storage").AssetStorageAdapter = {
-      async store() { return "https://cdn.example.com/key"; },
-      urlFor() { return "https://cdn.example.com/key"; },
+      async store() {
+        return "https://cdn.example.com/key";
+      },
+      urlFor() {
+        return "https://cdn.example.com/key";
+      },
     };
     setDefaultStorageAdapter(mock);
     assert.equal(getDefaultStorageAdapter(), mock);

@@ -119,7 +119,11 @@ describe("upload dedup via in-memory adapter", () => {
   const stored: Map<string, Buffer> = new Map();
 
   const adapter = {
-    async store(key: string, buffer: Buffer, _mimeType?: string): Promise<string> {
+    async store(
+      key: string,
+      buffer: Buffer,
+      _mimeType?: string,
+    ): Promise<string> {
       stored.set(key, buffer);
       return `/assets/${key}`;
     },

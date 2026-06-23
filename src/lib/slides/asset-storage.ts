@@ -50,7 +50,11 @@ export class LocalAssetStorageAdapter implements AssetStorageAdapter {
     readonly baseUrl: string,
   ) {}
 
-  async store(key: string, buffer: Buffer, _mimeType?: string): Promise<string> {
+  async store(
+    key: string,
+    buffer: Buffer,
+    _mimeType?: string,
+  ): Promise<string> {
     const dest = path.join(this.rootDir, key);
     await fs.mkdir(path.dirname(dest), { recursive: true });
     await fs.writeFile(dest, buffer);
@@ -113,7 +117,6 @@ export function deriveStorageKey(
   filename: string,
 ): string {
   const dotIndex = filename.lastIndexOf(".");
-  const ext =
-    dotIndex > 0 ? filename.slice(dotIndex + 1).toLowerCase() : "bin";
+  const ext = dotIndex > 0 ? filename.slice(dotIndex + 1).toLowerCase() : "bin";
   return `${documentId}/${checksum}.${ext}`;
 }
