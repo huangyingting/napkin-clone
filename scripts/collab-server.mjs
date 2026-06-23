@@ -15,8 +15,15 @@
  */
 import http from "node:http";
 
-import { createCollabWss, roomCount, connCount } from "./collab-core.mjs";
+import {
+  createCollabWss,
+  roomCount,
+  connCount,
+  flushStats,
+  recentFlushFailures,
+} from "./collab-core.mjs";
 import { createCollabAuthorizer } from "./collab-auth.mjs";
+import { createEvictionFlusher } from "./collab-flush.mjs";
 import { resolveDeploymentConfig } from "./collab-deployment-config.mjs";
 
 const PORT = Number(process.env.COLLAB_PORT || 1234);
@@ -49,6 +56,8 @@ const server = http.createServer((req, res) => {
       mode: deploymentConfig.mode,
       warnings: deploymentConfig.warnings,
       healthy: deploymentConfig.healthy,
+      flushFailures: flushStats().flushFailures,
+      recentFlushFailures: recentFlushFailures(),
     };
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify(summary));
@@ -70,7 +79,19 @@ const authorize = createCollabAuthorizer({
   authorizeUrl:
     process.env.COLLAB_AUTHORIZE_URL || `${appBaseUrl}/api/collab/authorize`,
 });
-const { handleUpgrade } = createCollabWss(undefined, { authorize });
+
+// Flush dirty rooms to the app's internal recovery-snapshot endpoint before
+// eviction (#497). Resolves against the same app origin used for authorize.
+// When COLLAB_INTERNAL_SECRET is unset the flusher is a no-op (logs one
+// warning), so dev without the secret still runs.
+const onBeforeEvict = createEvictionFlusher({
+  flushUrl: `${appBaseUrl}/api/collab/flush`,
+  internalSecret: process.env.COLLAB_INTERNAL_SECRET,
+});
+const { handleUpgrade } = createCollabWss(undefined, {
+  authorize,
+  onBeforeEvict,
+});
 server.on("upgrade", (req, socket, head) => {
   handleUpgrade(req, socket, head);
 });

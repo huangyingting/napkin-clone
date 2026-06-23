@@ -130,6 +130,14 @@ model Document {
   updatedAt   DateTime @updatedAt
   deletedAt   DateTime?
 
+  // Best-effort collaboration recovery snapshot (#497). When a dirty collab
+  // room is evicted, the server flushes the room's Yjs update (base64) here so
+  // edits that never reached the canonical `contentJson` autosave are not
+  // silently lost. This is NOT the source of truth — `contentJson` remains
+  // canonical; the snapshot is a recovery aid only and is never read on the
+  // normal load path.
+  collabRecoverySnapshot String?
+  collabRecoverySavedAt  DateTime?
   owner     User       @relation("DocumentOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   visuals   Visual[]
@@ -386,15 +394,21 @@ model StripeWebhookEvent {
 // and no slide element references the asset.
 model Asset {
   id           String    @id @default(cuid())
+  // Scope: an asset may be owned by a document, workspace, or both.
   documentId   String?
   workspaceId  String?
   mimeType     String
   byteSize     Int
+  // Pixel dimensions — null for non-image types (e.g., video, font).
   widthPx      Int?
   heightPx     Int?
+  // SHA-256 hex digest of the raw file bytes — used for dedup and integrity.
   checksum     String
+  // Opaque storage path / object key (e.g., S3 key or local path).
   storageKey   String    @unique
+  // Optional pre-generated thumbnail object key.
   thumbnailKey String?
+  // Original client-provided filename for display/download UX.
   originalName String?
   createdAt    DateTime  @default(now())
   deletedAt    DateTime?
