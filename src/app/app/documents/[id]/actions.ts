@@ -37,6 +37,10 @@ const generateShareId = customAlphabet(
 // Short random suffix appended to slug candidates to make same-title
 // collisions vanishingly unlikely (4 lowercase alphanumeric chars).
 const generateSlugSuffix = customAlphabet("23456789abcdefghjkmnpqrstuvwxyz", 4);
+const generateRevisionToken = customAlphabet(
+  "23456789abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ",
+  24,
+);
 
 const MAX_CONTENT_LENGTH = 100_000;
 const MAX_LEXICAL_STATE_LENGTH = 2_000_000;
@@ -704,18 +708,21 @@ async function writeShareData(
  * (issue #155). Requires at least view access; returns `null` when no deck has
  * been saved yet.
  */
-export async function fetchDeckJson(id: string): Promise<unknown> {
+export async function fetchDeckJson(
+  id: string,
+): Promise<{ deckJson: unknown; revisionToken: string | null }> {
   const user = await requireUser();
   await requireDocumentCapability(user.id, id, "view");
 
   const document = await prisma.document.findUniqueOrThrow({
     where: { id },
-    select: { deckJson: true },
+    select: { deckJson: true, deckRevisionToken: true },
   });
 
   const raw = document.deckJson;
   // Normalise: some DB providers serialise JSON columns as strings.
-  return typeof raw === "string" ? JSON.parse(raw) : raw;
+  const deckJson = typeof raw === "string" ? JSON.parse(raw) : raw;
+  return { deckJson, revisionToken: document.deckRevisionToken };
 }
 
 /**
@@ -726,35 +733,69 @@ export async function fetchDeckJson(id: string): Promise<unknown> {
  * sane serialized size. Stored in `Document.deckJson`, separate from the
  * Lexical `contentJson` so deck edits never touch collaborative editing state.
  */
+/**
+ * Discriminated result for {@link saveDeckJson}. Distinct from {@link ActionResult}
+ * so callers can pattern-match on the three outcomes without ambiguity.
+ * - `ok: true`        — write accepted; `revisionToken` is the new token the
+ *                       client should store for the next save.
+ * - `ok: "conflict"`  — optimistic-lock mismatch; another session saved first.
+ *                       `serverRevisionToken` is the current server token.
+ * - `ok: false`       — validation or server error (uses existing ActionResult path).
+ */
+export type SaveDeckResult =
+  | { ok: true; revisionToken: string }
+  | { ok: "conflict"; serverRevisionToken: string | null }
+  | { ok: false; error: string };
+
 export async function saveDeckJson(
   id: string,
   deckJson: unknown,
-): Promise<ActionResult> {
+  clientToken?: string | null,
+): Promise<SaveDeckResult> {
   const user = await requireUser();
 
   const result = safeParseDeck(deckJson);
   if (!result.success) {
-    return actionError(`Invalid deck: ${result.error}`);
+    return { ok: false, error: `Invalid deck: ${result.error}` };
   }
 
   // Serialize and check size
   const serialized = JSON.stringify(result.data);
   if (serialized.length > MAX_DECK_JSON_BYTES) {
-    return actionError("Deck is too large to save.");
+    return { ok: false, error: "Deck is too large to save." };
   }
 
   await requireDocumentCapability(user.id, id, "edit");
 
+  // Optimistic locking: when the caller provides a token, verify it still
+  // matches the current DB value before writing. A mismatch means another
+  // session saved after the client last fetched — return a conflict result
+  // without touching the DB.
+  if (clientToken != null) {
+    const current = await prisma.document.findUnique({
+      where: { id },
+      select: { deckRevisionToken: true },
+    });
+    if (current && current.deckRevisionToken !== clientToken) {
+      return { ok: "conflict", serverRevisionToken: current.deckRevisionToken };
+    }
+  }
+
   // Snapshot the previous editable state before overwriting the deck.
   await snapshotDocumentVersion(id, { userId: user.id });
 
+  const newToken = generateRevisionToken();
+
   await prisma.document.updateMany({
     where: { id },
-    data: { deckJson: result.data as unknown as Prisma.InputJsonValue },
+    data: {
+      deckJson: result.data as unknown as Prisma.InputJsonValue,
+      deckRevisionToken: newToken,
+    },
   });
 
   revalidatePath(`/app/documents/${id}`);
-  return actionOk();
+  return { ok: true, revisionToken: newToken };
 }
 
 /** A version-history entry surfaced to the editor's Version History panel. */

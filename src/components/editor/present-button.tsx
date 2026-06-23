@@ -68,7 +68,7 @@ export function PresentButton({
     let fetchedRaw: unknown = null;
     setIsLoading(true);
     try {
-      fetchedRaw = await fetchDeckJson(documentId);
+      fetchedRaw = (await fetchDeckJson(documentId)).deckJson;
     } catch {
       // Network/auth error — fall back to page-load deckJson, then live blocks.
     } finally {

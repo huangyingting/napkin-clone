@@ -180,7 +180,7 @@ export function DocumentExportButton({
 
         let fetchedRaw: unknown = null;
         try {
-          fetchedRaw = await fetchDeckJson(documentId);
+          fetchedRaw = (await fetchDeckJson(documentId)).deckJson;
         } catch {
           // Network/auth error — fall back to page-load deckJson, then live blocks.
         }
@@ -223,7 +223,7 @@ export function DocumentExportButton({
 
       let fetchedRaw: unknown = null;
       try {
-        fetchedRaw = await fetchDeckJson(documentId);
+        fetchedRaw = (await fetchDeckJson(documentId)).deckJson;
       } catch {
         // Network/auth error — fall back to page-load deckJson, then live blocks.
       }
