@@ -81,9 +81,12 @@ import { IconButton, Tooltip } from "@/components/ui";
 import { Dialog } from "@/components/ui/dialog";
 import { Popover } from "@/components/ui/popover";
 import {
+  clampZoom,
   DEFAULT_SCREEN_SIZE,
   fitAspectRatio,
   type Size,
+  ZOOM_PERCENT_PRESETS,
+  zoomToPercent,
 } from "@/lib/presentation/stage-fit";
 import type { EditorMode } from "@/lib/presentation/editor-mode";
 import {
@@ -504,7 +507,7 @@ export function SlideEditor({
   const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
   const [notesExpanded, setNotesExpanded] = useState(false);
   const handleZoomChange = useCallback((nextZoom: number) => {
-    setZoom(Math.min(3, Math.max(0.25, Math.round(nextZoom * 100) / 100)));
+    setZoom(clampZoom(nextZoom));
   }, []);
   const [stageBounds, setStageBounds] = useState<Size>(DEFAULT_SCREEN_SIZE);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(
@@ -3971,12 +3974,12 @@ function SlideBottomDock({
   onZoomMenuOpenChange: (open: boolean) => void;
 }) {
   const coalesceKeyRef = useRef<string | null>(null);
-  const zoomPercent = Math.round(zoom * 100);
+  const zoomPercent = zoomToPercent(zoom);
   const setZoomPercent = (percent: number) => {
     onZoomChange(percent / 100);
     onZoomMenuOpenChange(false);
   };
-  const presets = [50, 75, 100, 125, 150, 200, 300];
+  const presets = ZOOM_PERCENT_PRESETS;
 
   return (
     <div className="shrink-0 border-t border-ds-border-subtle bg-ds-surface-base">
