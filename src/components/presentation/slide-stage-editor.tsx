@@ -126,7 +126,11 @@ import {
   resolveStageHitTarget,
   type StageInteractionTarget,
 } from "@/lib/presentation/stage-targeting";
-import { hitTestSlideElements } from "@/lib/presentation/stage-hit-test";
+import {
+  hitTestSlideElements,
+  type TextHitGeometry,
+} from "@/lib/presentation/stage-hit-test";
+import { measureTextHitGeometry } from "@/lib/presentation/text-hit-geometry";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 import type { Visual } from "@/lib/visual/schema";
 
@@ -1183,6 +1187,17 @@ export function SlideStageEditor({
     }
     return map;
   }, [elements, stageAspect, visuals]);
+  const textHitGeometryRef = useRef<ReadonlyMap<string, TextHitGeometry>>(
+    new Map(),
+  );
+  useLayoutEffect(() => {
+    textHitGeometryRef.current = measureTextHitGeometry({
+      elements,
+      fittedBoxes,
+      stageWidthPx: width,
+      stageHeightPx: height,
+    });
+  }, [elements, fittedBoxes, height, width]);
   const hitTestAtClientPoint = useCallback(
     (clientX: number, clientY: number) => {
       const container = containerRef.current;
@@ -1202,6 +1217,7 @@ export function SlideStageEditor({
         fittedBoxes,
         stageAspect,
         selectedElementIds,
+        textHitGeometry: textHitGeometryRef.current,
       });
     },
     [fittedBoxes, selectedElementIds, stageAspect],
@@ -2370,6 +2386,7 @@ export function SlideStageEditor({
                     fittedBoxes,
                     stageAspect,
                     selectedElementIds,
+                    textHitGeometry: textHitGeometryRef.current,
                   });
                   const target = nextSelectUnderTarget(hits, elements, {
                     groupEditingId,

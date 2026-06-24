@@ -16,6 +16,10 @@ export interface HitTestCandidate {
   reason: HitTestReason;
 }
 
+export interface TextHitGeometry {
+  contentBoxes: readonly ElementBox[];
+}
+
 export type HitTestReason =
   | "text-content"
   | "text-near"
@@ -32,6 +36,7 @@ export interface HitTestOptions {
   includeLocked?: boolean;
   lineThresholdPct?: number;
   selectedElementIds?: ReadonlySet<string>;
+  textHitGeometry?: ReadonlyMap<string, TextHitGeometry>;
 }
 
 const DEFAULT_LINE_THRESHOLD_PCT = 1.5;
@@ -163,6 +168,17 @@ function textVisibleBox(
   return { x, y, w, h };
 }
 
+function textContentBoxes(
+  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+  box: ElementBox,
+  stageAspect: number,
+  textHitGeometry: ReadonlyMap<string, TextHitGeometry> | undefined,
+): readonly ElementBox[] {
+  const measured = textHitGeometry?.get(element.id)?.contentBoxes;
+  if (measured && measured.length > 0) return measured;
+  return [textVisibleBox(element, box, stageAspect)];
+}
+
 function distanceToSegment(
   point: PointPct,
   start: PointPct,
@@ -239,6 +255,7 @@ function hitTestElement(
   stageAspect: number,
   lineThresholdPct: number,
   selectedElementIds: ReadonlySet<string> | undefined,
+  textHitGeometry: ReadonlyMap<string, TextHitGeometry> | undefined,
 ): Omit<HitTestCandidate, "box" | "element"> | null {
   const box = resolveBox(element, fittedBoxes);
   const localPoint = rotatePointAroundCenter(
@@ -251,14 +268,25 @@ function hitTestElement(
   switch (element.kind) {
     case "text":
     case "bullets": {
-      const visible = textVisibleBox(element, box, stageAspect);
-      if (pointInBox(localPoint, visible)) {
+      const contentBoxes = textContentBoxes(
+        element,
+        box,
+        stageAspect,
+        textHitGeometry,
+      );
+      if (
+        contentBoxes.some((contentBox) => pointInBox(localPoint, contentBox))
+      ) {
         return {
           score: withBonuses(SCORE.textContent, element, selectedElementIds),
           reason: "text-content",
         };
       }
-      if (pointInBox(localPoint, inflateBox(visible, TEXT_NEAR_PADDING_PCT))) {
+      if (
+        contentBoxes.some((contentBox) =>
+          pointInBox(localPoint, inflateBox(contentBox, TEXT_NEAR_PADDING_PCT)),
+        )
+      ) {
         return {
           score: withBonuses(SCORE.textNear, element, selectedElementIds),
           reason: "text-near",
@@ -373,6 +401,7 @@ export function hitTestSlideElements(
         stageAspect,
         lineThresholdPct,
         options.selectedElementIds,
+        options.textHitGeometry,
       );
       return hit ? { ...candidate, ...hit } : null;
     })
