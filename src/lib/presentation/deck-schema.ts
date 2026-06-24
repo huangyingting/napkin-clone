@@ -47,9 +47,17 @@ import {
 } from "./slide-format";
 import type {
   BackgroundTreatment,
+  ColorToken,
+  DeckTextRole,
   DeckThemeTokenSet,
+  FontScale,
   MasterSlide,
+  ShapeToken,
+  SpacingToken,
+  TextRoleToken,
+  TypographyToken,
 } from "./deck-theme-tokens";
+import { DECK_TEXT_ROLES, isDeckTextRole } from "./deck-theme-tokens";
 
 class DeckValidationError extends Error {
   constructor(message: string) {
@@ -354,6 +362,181 @@ function validateMaster(input: unknown, context: string): MasterSlide {
   return master;
 }
 
+const COLOR_TOKEN_KEYS = [
+  "slideBg",
+  "surface",
+  "accent",
+  "onBg",
+  "onSurface",
+  "onAccent",
+  "muted",
+] as const;
+
+function validateColorToken(input: unknown, context: string): ColorToken {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  for (const key of COLOR_TOKEN_KEYS) {
+    if (!isHexColor(input[key])) {
+      throw new DeckValidationError(`${context}.${key} must be a hex color`);
+    }
+  }
+  return {
+    slideBg: input.slideBg as string,
+    surface: input.surface as string,
+    accent: input.accent as string,
+    onBg: input.onBg as string,
+    onSurface: input.onSurface as string,
+    onAccent: input.onAccent as string,
+    muted: input.muted as string,
+  };
+}
+
+const FONT_SCALE_KEYS = ["h1", "h2", "h3", "body", "list", "footer"] as const;
+
+function validateFontScale(input: unknown, context: string): FontScale {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  const scale = {} as FontScale;
+  for (const key of FONT_SCALE_KEYS) {
+    scale[key] = validateFiniteNumber(input[key], `${context}.${key}`);
+  }
+  return scale;
+}
+
+/** Validates a single semantic-role typography token (#603 / #604). */
+function validateTextRoleToken(input: unknown, context: string): TextRoleToken {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  if (!isHexColor(input.color)) {
+    throw new DeckValidationError(`${context}.color must be a hex color`);
+  }
+  if (
+    input.align !== undefined &&
+    !ELEMENT_ALIGNS.includes(input.align as ElementAlign)
+  ) {
+    throw new DeckValidationError(
+      `${context}.align must be one of: ${ELEMENT_ALIGNS.join(", ")}`,
+    );
+  }
+  const token: TextRoleToken = {
+    fontSize: validateFiniteNumber(input.fontSize, `${context}.fontSize`),
+    color: input.color as string,
+    weight: validateFiniteNumber(input.weight, `${context}.weight`),
+  };
+  if (input.fontFamily !== undefined) {
+    if (typeof input.fontFamily !== "string" || input.fontFamily.length === 0) {
+      throw new DeckValidationError(
+        `${context}.fontFamily must be a non-empty string`,
+      );
+    }
+    token.fontFamily = input.fontFamily;
+  }
+  if (input.italic !== undefined) token.italic = Boolean(input.italic);
+  if (input.underline !== undefined) token.underline = Boolean(input.underline);
+  if (input.lineHeight !== undefined) {
+    token.lineHeight = validateFiniteNumber(
+      input.lineHeight,
+      `${context}.lineHeight`,
+    );
+  }
+  if (input.paragraphSpacing !== undefined) {
+    token.paragraphSpacing = validateFiniteNumber(
+      input.paragraphSpacing,
+      `${context}.paragraphSpacing`,
+    );
+  }
+  if (input.align !== undefined) token.align = input.align as ElementAlign;
+  return token;
+}
+
+/** Validates the optional `typography.roles` map (#604). */
+function validateRoleTokenMap(
+  input: unknown,
+  context: string,
+): Partial<Record<DeckTextRole, TextRoleToken>> {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  const roles: Partial<Record<DeckTextRole, TextRoleToken>> = {};
+  for (const key of Object.keys(input)) {
+    if (!isDeckTextRole(key)) {
+      throw new DeckValidationError(
+        `${context}.${key} is not a known text role (expected one of: ${DECK_TEXT_ROLES.join(
+          ", ",
+        )})`,
+      );
+    }
+    roles[key] = validateTextRoleToken(input[key], `${context}.${key}`);
+  }
+  return roles;
+}
+
+function validateTypographyToken(
+  input: unknown,
+  context: string,
+): TypographyToken {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  if (typeof input.fontFamily !== "string" || input.fontFamily.length === 0) {
+    throw new DeckValidationError(
+      `${context}.fontFamily must be a non-empty string`,
+    );
+  }
+  if (
+    input.headingFontFamily !== undefined &&
+    (typeof input.headingFontFamily !== "string" ||
+      input.headingFontFamily.length === 0)
+  ) {
+    throw new DeckValidationError(
+      `${context}.headingFontFamily must be a non-empty string`,
+    );
+  }
+  const typography: TypographyToken = {
+    fontFamily: input.fontFamily,
+    scale: validateFontScale(input.scale, `${context}.scale`),
+  };
+  if (input.headingFontFamily !== undefined) {
+    typography.headingFontFamily = input.headingFontFamily;
+  }
+  if (input.roles !== undefined) {
+    typography.roles = validateRoleTokenMap(input.roles, `${context}.roles`);
+  }
+  return typography;
+}
+
+function validateSpacingToken(input: unknown, context: string): SpacingToken {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  return {
+    slidePaddingPt: validateFiniteNumber(
+      input.slidePaddingPt,
+      `${context}.slidePaddingPt`,
+    ),
+    gridUnitPt: validateFiniteNumber(input.gridUnitPt, `${context}.gridUnitPt`),
+  };
+}
+
+function validateShapeToken(input: unknown, context: string): ShapeToken {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  if (typeof input.shadowCss !== "string") {
+    throw new DeckValidationError(`${context}.shadowCss must be a string`);
+  }
+  return {
+    cornerRadiusPt: validateFiniteNumber(
+      input.cornerRadiusPt,
+      `${context}.cornerRadiusPt`,
+    ),
+    shadowCss: input.shadowCss,
+  };
+}
+
 function validateCustomTokenSet(
   input: unknown,
   context: string,
@@ -367,8 +550,21 @@ function validateCustomTokenSet(
   if (typeof input.name !== "string" || input.name.length === 0) {
     throw new DeckValidationError(`${context}.name must be a non-empty string`);
   }
-  // Pass through as-is — full validation is complex and less critical for runtime-generated token sets
-  return input as unknown as DeckThemeTokenSet;
+  return {
+    id: input.id,
+    name: input.name,
+    colors: validateColorToken(input.colors, `${context}.colors`),
+    typography: validateTypographyToken(
+      input.typography,
+      `${context}.typography`,
+    ),
+    spacing: validateSpacingToken(input.spacing, `${context}.spacing`),
+    shape: validateShapeToken(input.shape, `${context}.shape`),
+    defaultBackground: validateBackgroundTreatment(
+      input.defaultBackground,
+      `${context}.defaultBackground`,
+    ),
+  };
 }
 
 function validateFiniteNumber(value: unknown, context: string): number {
@@ -458,6 +654,78 @@ function validateTextStyle(input: unknown, context: string): TextElementStyle {
       ? { fontFamily: input.fontFamily }
       : {}),
   };
+}
+
+/**
+ * Validates a partial text-style override (#605). Unlike {@link validateTextStyle},
+ * every field is optional — a present field is validated, an absent field means
+ * "inherit from the resolved template/role style". Used for `styleOverride` and
+ * shape `textStyleOverride`.
+ */
+function validatePartialTextStyle(
+  input: unknown,
+  context: string,
+): Partial<TextElementStyle> {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  if (
+    input.align !== undefined &&
+    !ELEMENT_ALIGNS.includes(input.align as ElementAlign)
+  ) {
+    throw new DeckValidationError(
+      `${context}.align must be one of: ${ELEMENT_ALIGNS.join(", ")}`,
+    );
+  }
+  if (input.color !== undefined && !isHexColor(input.color)) {
+    throw new DeckValidationError(`${context}.color must be a hex color`);
+  }
+  if (
+    input.verticalAlign !== undefined &&
+    !VERTICAL_ALIGNS.includes(input.verticalAlign as VerticalAlign)
+  ) {
+    throw new DeckValidationError(
+      `${context}.verticalAlign must be one of: ${VERTICAL_ALIGNS.join(", ")}`,
+    );
+  }
+  const out: Partial<TextElementStyle> = {};
+  if (input.fontSize !== undefined) {
+    out.fontSize = validateFiniteNumber(input.fontSize, `${context}.fontSize`);
+  }
+  if (input.bold !== undefined) out.bold = Boolean(input.bold);
+  if (input.italic !== undefined) out.italic = Boolean(input.italic);
+  if (input.underline !== undefined) out.underline = Boolean(input.underline);
+  if (input.align !== undefined) out.align = input.align as ElementAlign;
+  if (input.verticalAlign !== undefined) {
+    out.verticalAlign = input.verticalAlign as VerticalAlign;
+  }
+  if (input.lineHeight !== undefined) {
+    out.lineHeight = validateFiniteNumber(
+      input.lineHeight,
+      `${context}.lineHeight`,
+    );
+  }
+  if (input.paragraphSpacing !== undefined) {
+    out.paragraphSpacing = validateFiniteNumber(
+      input.paragraphSpacing,
+      `${context}.paragraphSpacing`,
+    );
+  }
+  if (input.color !== undefined) out.color = input.color as string;
+  if (typeof input.fontFamily === "string" && input.fontFamily.length > 0) {
+    out.fontFamily = input.fontFamily;
+  }
+  return out;
+}
+
+/** Validates an optional semantic text role field (#605). */
+function validateTextRole(input: unknown, context: string): DeckTextRole {
+  if (!isDeckTextRole(input)) {
+    throw new DeckValidationError(
+      `${context} must be one of: ${DECK_TEXT_ROLES.join(", ")}`,
+    );
+  }
+  return input;
 }
 
 function validateTextRun(input: unknown, context: string): TextRun {
@@ -656,6 +924,19 @@ export function validateElement(input: unknown, context: string): SlideElement {
           ? { runs: validateTextRuns(input.runs, `${context}.runs`) }
           : {}),
         style: validateTextStyle(input.style, `${context}.style`),
+        ...(input.textRole !== undefined
+          ? {
+              textRole: validateTextRole(input.textRole, `${context}.textRole`),
+            }
+          : {}),
+        ...(input.styleOverride !== undefined
+          ? {
+              styleOverride: validatePartialTextStyle(
+                input.styleOverride,
+                `${context}.styleOverride`,
+              ),
+            }
+          : {}),
         ...(fitMode !== undefined ? { fitMode } : {}),
       };
     }
@@ -697,6 +978,19 @@ export function validateElement(input: unknown, context: string): SlideElement {
           : {}),
         items,
         style: validateTextStyle(input.style, `${context}.style`),
+        ...(input.textRole !== undefined
+          ? {
+              textRole: validateTextRole(input.textRole, `${context}.textRole`),
+            }
+          : {}),
+        ...(input.styleOverride !== undefined
+          ? {
+              styleOverride: validatePartialTextStyle(
+                input.styleOverride,
+                `${context}.styleOverride`,
+              ),
+            }
+          : {}),
         ...(bulletsFitMode !== undefined ? { fitMode: bulletsFitMode } : {}),
         ...(input.bulletGap !== undefined
           ? { bulletGap: input.bulletGap as number }
@@ -829,6 +1123,19 @@ export function validateElement(input: unknown, context: string): SlideElement {
               textStyle: validateTextStyle(
                 input.textStyle,
                 `${context}.textStyle`,
+              ),
+            }
+          : {}),
+        ...(input.textRole !== undefined
+          ? {
+              textRole: validateTextRole(input.textRole, `${context}.textRole`),
+            }
+          : {}),
+        ...(input.textStyleOverride !== undefined
+          ? {
+              textStyleOverride: validatePartialTextStyle(
+                input.textStyleOverride,
+                `${context}.textStyleOverride`,
               ),
             }
           : {}),

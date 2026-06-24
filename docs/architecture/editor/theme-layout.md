@@ -195,8 +195,50 @@ Master scope rules:
 | `Slide.theme` (copy on each slide)                            | Slide-local theme snapshot.                                                    |
 | `Deck.masters`                                                | Optional explicit masters. Absent → single implicit master from the token set. |
 | `Slide.masterRef`                                             | Optional master reference. Absent → use the first/only master.                 |
+| `TextElement.textRole` / `BulletsElement.textRole`            | Optional semantic role (`h1`…`shapeLabel`); selects the template role token.   |
+| `TextElement.styleOverride` / `BulletsElement.styleOverride`  | Optional `Partial<TextElementStyle>` local override over the resolved role.    |
+| `ShapeElement.textRole` / `ShapeElement.textStyleOverride`    | Semantic role + local override for the shape label.                            |
 
 All fields above are part of the current deck shape.
+
+---
+
+## Semantic Text Roles (#603)
+
+`DECK_TEXT_ROLES` (in `deck-theme-tokens.ts`) is the canonical, ordered role
+vocabulary: `h1`, `h2`, `h3`, `subtitle`, `body`, `bullet`, `caption`,
+`footer`, `shapeLabel`. A theme's `DeckThemeTokenSet.typography.roles` map may
+define a `TextRoleToken` (font family, size, color, weight, italic, underline,
+line height, paragraph spacing, alignment) per role. Any absent role is derived
+deterministically from the legacy `FontScale` + color tokens via
+`deriveRoleToken`, so **every** theme exposes complete role typography. Use
+`resolveRoleToken(tokenSet, role)` to read the effective token (authored partial
+merged over derived defaults).
+
+## Resolved Text Styles (#602)
+
+`style-cascade.ts` exposes pure resolvers that turn the deck template role token
+plus local element overrides into a final `ResolvedTextStyle`:
+
+- `resolveTextElementStyle(deck, textElement)` — legacy `role: "title"` maps to
+  `h1`, `"body"` to `body`; an explicit `textRole` wins.
+- `resolveBulletsElementStyle(deck, bulletsElement)` — defaults to `bullet`.
+- `resolveShapeLabelStyle(deck, shapeElement)` — defaults to `shapeLabel`, reads
+  `textStyleOverride`.
+
+Each resolved style carries an `origin` map (`deck` | `layout` | `slide` |
+`element`) per field, so an inspector can explain whether a value is inherited
+or locally overridden. `fontSize` is in points (the role-token unit), making the
+resolvers authoritative for export specs.
+
+## Override and Reset-to-Inherited Semantics (#605)
+
+`styleOverride` / `textStyleOverride` hold only the locally changed fields. A
+present field wins (`origin: element`); an absent field inherits the resolved
+role token (`origin: deck`). **Resetting** a property to the theme value means
+deleting that key from the override object, after which the resolver
+re-derives the inherited value. The concrete `style` / `textStyle` fields remain
+during the transition for renderers that have not yet adopted the resolvers.
 
 ---
 

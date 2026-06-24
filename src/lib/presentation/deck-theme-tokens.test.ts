@@ -9,8 +9,12 @@ import {
   allThemeTokenSets,
   backgroundTreatmentToCss,
   BUILT_IN_TOKEN_SETS,
+  DECK_TEXT_ROLES,
   DEFAULT_TOKEN_SET,
+  deriveRoleToken,
   isBuiltInTheme,
+  isDeckTextRole,
+  resolveRoleToken,
   resolveSlideBackground,
   resolveThemeTokens,
 } from "./deck-theme-tokens";
@@ -250,5 +254,87 @@ describe("isBuiltInTheme", () => {
 
   it("returns false for an empty string", () => {
     assert.strictEqual(isBuiltInTheme(""), false);
+  });
+});
+
+describe("semantic text roles (#603)", () => {
+  it("exposes the canonical role list", () => {
+    assert.deepStrictEqual(DECK_TEXT_ROLES, [
+      "h1",
+      "h2",
+      "h3",
+      "subtitle",
+      "body",
+      "bullet",
+      "caption",
+      "footer",
+      "shapeLabel",
+    ]);
+  });
+
+  it("isDeckTextRole recognizes valid and rejects invalid roles", () => {
+    assert.strictEqual(isDeckTextRole("h1"), true);
+    assert.strictEqual(isDeckTextRole("shapeLabel"), true);
+    assert.strictEqual(isDeckTextRole("title"), false);
+    assert.strictEqual(isDeckTextRole(undefined), false);
+    assert.strictEqual(isDeckTextRole(42), false);
+  });
+
+  it("every built-in theme yields usable role typography for every role", () => {
+    for (const ts of BUILT_IN_TOKEN_SETS) {
+      for (const role of DECK_TEXT_ROLES) {
+        const token = resolveRoleToken(ts, role);
+        assert.ok(
+          typeof token.fontFamily === "string" && token.fontFamily.length > 0,
+          `${ts.id}/${role} fontFamily`,
+        );
+        assert.ok(
+          Number.isFinite(token.fontSize) && token.fontSize > 0,
+          `${ts.id}/${role} fontSize`,
+        );
+        assert.match(
+          token.color,
+          /^#[0-9a-fA-F]{6,8}$/,
+          `${ts.id}/${role} color`,
+        );
+        assert.ok(token.weight >= 100 && token.weight <= 900);
+      }
+    }
+  });
+
+  it("derives heading roles bold and body roles regular", () => {
+    const h1 = deriveRoleToken(DEFAULT_TOKEN_SET, "h1");
+    const body = deriveRoleToken(DEFAULT_TOKEN_SET, "body");
+    assert.strictEqual(h1.weight, 700);
+    assert.strictEqual(body.weight, 400);
+  });
+
+  it("derives heading roles from the heading font when defined", () => {
+    const indigo = resolveThemeTokens("indigo");
+    const h1 = deriveRoleToken(indigo, "h1");
+    const body = deriveRoleToken(indigo, "body");
+    assert.ok(h1.fontFamily?.startsWith("Space Grotesk"));
+    assert.ok(body.fontFamily?.startsWith("Inter"));
+  });
+
+  it("footer and caption roles use the muted color", () => {
+    const footer = deriveRoleToken(DEFAULT_TOKEN_SET, "footer");
+    assert.strictEqual(footer.color, DEFAULT_TOKEN_SET.colors.muted);
+  });
+
+  it("resolveRoleToken merges an authored partial token over derived defaults", () => {
+    const themed = {
+      ...DEFAULT_TOKEN_SET,
+      typography: {
+        ...DEFAULT_TOKEN_SET.typography,
+        roles: { h1: { fontSize: 48, color: "#ff0000", weight: 800 } },
+      },
+    };
+    const token = resolveRoleToken(themed, "h1");
+    assert.strictEqual(token.fontSize, 48);
+    assert.strictEqual(token.color, "#ff0000");
+    assert.strictEqual(token.weight, 800);
+    // align falls back to the derived default since the authored token omits it
+    assert.strictEqual(token.align, "center");
   });
 });

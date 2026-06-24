@@ -39,6 +39,7 @@ import {
 } from "@/lib/presentation/slide-format";
 import type { DocumentBlock } from "@/lib/visual/document-export";
 import type {
+  DeckTextRole,
   DeckThemeTokenSet,
   MasterSlide,
 } from "@/lib/presentation/deck-theme-tokens";
@@ -391,6 +392,19 @@ export interface TextElement extends BaseElement {
   /** Theming hint for the default color when `style.color` is unset. */
   role: "title" | "body";
   /**
+   * Optional semantic deck-template role (#605). When present, the style
+   * cascade resolves typography from the deck template for this role and treats
+   * {@link styleOverride} as local overrides on top. Absent → the element is
+   * styled entirely by its concrete `style` (legacy behaviour).
+   */
+  textRole?: DeckTextRole;
+  /**
+   * Optional local style overrides applied over the resolved template/role
+   * style (#605). Only the present fields win; absent fields inherit. Resetting
+   * a property to the theme value means deleting it from this object.
+   */
+  styleOverride?: Partial<TextElementStyle>;
+  /**
    * How the element handles content that exceeds the box height.
    * Absent / `"auto-height"` preserves the pre-#333 behaviour.
    */
@@ -427,6 +441,17 @@ export interface BulletsElement extends BaseElement {
   /** Authoritative multi-level item list (#335). */
   items: BulletItem[];
   style: TextElementStyle;
+  /**
+   * Optional semantic deck-template role (#605). Defaults conceptually to
+   * `"bullet"` when the element opts into template inheritance. Absent → styled
+   * entirely by concrete `style` (legacy behaviour).
+   */
+  textRole?: DeckTextRole;
+  /**
+   * Optional local style overrides applied over the resolved template/role
+   * style (#605). Present fields win; absent fields inherit from the template.
+   */
+  styleOverride?: Partial<TextElementStyle>;
   /**
    * How the element handles content that exceeds the box height.
    * Absent / `"auto-height"` preserves the pre-#333 behaviour.
@@ -524,6 +549,17 @@ export interface ShapeElement extends BaseElement {
   textRuns?: TextRun[];
   /** Optional style for the shape label; falls back to a centered body style. */
   textStyle?: TextElementStyle;
+  /**
+   * Optional semantic deck-template role for the shape label (#605). Defaults
+   * conceptually to `"shapeLabel"` when inheriting from the template. Absent →
+   * styled by concrete `textStyle` (legacy behaviour).
+   */
+  textRole?: DeckTextRole;
+  /**
+   * Optional local style overrides for the shape label, applied over the
+   * resolved template/role style (#605).
+   */
+  textStyleOverride?: Partial<TextElementStyle>;
   /**
    * Optional stroke: a border for rect/ellipse, ignored for triangle, and the
    * line thickness/color for "line". Width is in `cqmin` units so it scales

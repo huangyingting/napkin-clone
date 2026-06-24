@@ -15,8 +15,123 @@
  *   Deck theme tokens → master slide → layout → slide override → element override
  */
 
-import type { DeckTheme } from "@/lib/presentation/deck";
+import type { DeckTheme, ElementAlign } from "@/lib/presentation/deck";
 import { type FontScale } from "@/lib/presentation/theme-typography";
+
+// ---------------------------------------------------------------------------
+// Semantic text roles (#603)
+// ---------------------------------------------------------------------------
+
+/**
+ * Canonical, ordered list of semantic text roles a global deck template can
+ * style.  Stored as a runtime const so validators and UI can iterate it, and
+ * re-exported as the {@link DeckTextRole} string-literal union for typing.
+ *
+ * Roles are intentionally semantic (what the text *is*) rather than visual
+ * (how it currently looks) so a single template edit can restyle every element
+ * carrying a role without rewriting concrete element styles.
+ */
+export const DECK_TEXT_ROLES = [
+  "h1",
+  "h2",
+  "h3",
+  "subtitle",
+  "body",
+  "bullet",
+  "caption",
+  "footer",
+  "shapeLabel",
+] as const;
+
+export type DeckTextRole = (typeof DECK_TEXT_ROLES)[number];
+
+/** Type guard: is `value` a known {@link DeckTextRole}? */
+export function isDeckTextRole(value: unknown): value is DeckTextRole {
+  return (
+    typeof value === "string" &&
+    (DECK_TEXT_ROLES as readonly string[]).includes(value)
+  );
+}
+
+/**
+ * Typography token for a single semantic role.  All fields except `fontSize`,
+ * `color`, and `weight` are optional; absent values inherit from the renderer
+ * or theme defaults.  Sizes are points (matching {@link FontScale}); colors are
+ * hex strings.
+ */
+export type TextRoleToken = {
+  /** Font stack.  Falls back to the theme heading/body font when absent. */
+  fontFamily?: string;
+  /** Point size for this role. */
+  fontSize: number;
+  /** Hex color (`"#rrggbb"` / `"#rrggbbaa"`). */
+  color: string;
+  /** Numeric font weight (100–900). */
+  weight: number;
+  italic?: boolean;
+  underline?: boolean;
+  /** CSS line-height multiplier (e.g. 1.2). */
+  lineHeight?: number;
+  /** Paragraph spacing as a percent of slide height. */
+  paragraphSpacing?: number;
+  /** Default horizontal alignment for the role. */
+  align?: ElementAlign;
+};
+
+/** A complete-or-partial map of role → token. */
+export type TextRoleTokenMap = Partial<Record<DeckTextRole, TextRoleToken>>;
+
+/**
+ * Maps a {@link DeckTextRole} onto the {@link FontScale} key whose size best
+ * approximates it.  Used to derive role defaults from the legacy `scale` so
+ * existing themes get complete role typography without hand-authoring tokens.
+ */
+const ROLE_TO_SCALE_KEY: Record<DeckTextRole, keyof FontScale> = {
+  h1: "h1",
+  h2: "h2",
+  h3: "h3",
+  subtitle: "h3",
+  body: "body",
+  bullet: "list",
+  caption: "footer",
+  footer: "footer",
+  shapeLabel: "body",
+};
+
+/** Headings render bold by default; body-like roles use a regular weight. */
+const ROLE_DEFAULT_WEIGHT: Record<DeckTextRole, number> = {
+  h1: 700,
+  h2: 700,
+  h3: 600,
+  subtitle: 400,
+  body: 400,
+  bullet: 400,
+  caption: 400,
+  footer: 400,
+  shapeLabel: 600,
+};
+
+/** Roles that prefer the heading font stack when one is defined. */
+const HEADING_ROLES: ReadonlySet<DeckTextRole> = new Set([
+  "h1",
+  "h2",
+  "h3",
+  "subtitle",
+  "shapeLabel",
+]);
+
+/** Default alignment per role (titles/labels centered, copy left-aligned). */
+const ROLE_DEFAULT_ALIGN: Record<DeckTextRole, ElementAlign> = {
+  h1: "center",
+  h2: "left",
+  h3: "left",
+  subtitle: "center",
+  body: "left",
+  bullet: "left",
+  caption: "left",
+  footer: "center",
+  shapeLabel: "center",
+};
 
 // ---------------------------------------------------------------------------
 // Color tokens
@@ -64,6 +179,13 @@ export type TypographyToken = {
   headingFontFamily?: string;
   /** Point sizes for each semantic text role. */
   scale: FontScale;
+  /**
+   * Optional explicit semantic role tokens (#603).  When a role is absent the
+   * cascade derives a token from {@link FontScale} + color tokens via
+   * {@link deriveRoleTokens}.  Authoring this map lets a theme define full
+   * per-role typography (font, color, weight, alignment, spacing).
+   */
+  roles?: TextRoleTokenMap;
 };
 
 // ---------------------------------------------------------------------------
@@ -428,4 +550,54 @@ export function allThemeTokenSets(): DeckThemeTokenSet[] {
  */
 export function isBuiltInTheme(id: string): id is DeckTheme {
   return TOKEN_SET_BY_ID.has(id);
+}
+
+// ---------------------------------------------------------------------------
+// Semantic role token resolution (#603 / #602)
+// ---------------------------------------------------------------------------
+
+/**
+ * Derives a complete {@link TextRoleToken} for `role` from a token set's
+ * legacy {@link FontScale}, font stacks, and color tokens.  This guarantees
+ * every theme exposes usable role typography even when it predates the
+ * explicit `typography.roles` map.
+ */
+export function deriveRoleToken(
+  tokenSet: DeckThemeTokenSet,
+  role: DeckTextRole,
+): TextRoleToken {
+  const { typography, colors } = tokenSet;
+  const sizeKey = ROLE_TO_SCALE_KEY[role];
+  const fontFamily = HEADING_ROLES.has(role)
+    ? (typography.headingFontFamily ?? typography.fontFamily)
+    : typography.fontFamily;
+  const color =
+    role === "footer" || role === "caption" ? colors.muted : colors.onBg;
+  return {
+    fontFamily,
+    fontSize: typography.scale[sizeKey],
+    color,
+    weight: ROLE_DEFAULT_WEIGHT[role],
+    align: ROLE_DEFAULT_ALIGN[role],
+  };
+}
+
+/**
+ * Resolves the effective {@link TextRoleToken} for a role: an explicitly
+ * authored `typography.roles[role]` token (merged over derived defaults so a
+ * partial authored token still yields complete typography) or, when absent,
+ * the fully derived token.
+ *
+ * Unknown roles are not representable at the type level; callers passing an
+ * arbitrary string should guard with {@link isDeckTextRole} and fall back to
+ * `"body"`.
+ */
+export function resolveRoleToken(
+  tokenSet: DeckThemeTokenSet,
+  role: DeckTextRole,
+): TextRoleToken {
+  const derived = deriveRoleToken(tokenSet, role);
+  const authored = tokenSet.typography.roles?.[role];
+  if (!authored) return derived;
+  return { ...derived, ...authored };
 }
