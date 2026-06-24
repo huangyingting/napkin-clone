@@ -191,6 +191,11 @@ interface LayerRowProps {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onRename: (name: string) => void;
+  draggable?: boolean;
+  isDragTarget?: boolean;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
+  onDropOnRow?: () => void;
 }
 
 function LayerRow({
@@ -205,8 +210,14 @@ function LayerRow({
   onMoveUp,
   onMoveDown,
   onRename,
+  draggable = false,
+  isDragTarget = false,
+  onDragStart,
+  onDragEnd,
+  onDropOnRow,
 }: LayerRowProps) {
   const [renaming, setRenaming] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
   const displayName = getDisplayName(element, allElements);
 
@@ -232,11 +243,35 @@ function LayerRow({
       tabIndex={selected ? 0 : -1}
       onKeyDown={handleRowKeyDown}
       onClick={onSelect}
+      draggable={draggable && !renaming}
+      onDragStart={(e) => {
+        if (!draggable) return;
+        e.dataTransfer.effectAllowed = "move";
+        onDragStart?.();
+      }}
+      onDragEnd={() => {
+        setDragOver(false);
+        onDragEnd?.();
+      }}
+      onDragOver={(e) => {
+        if (!isDragTarget) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        if (!dragOver) setDragOver(true);
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragOver(false);
+        onDropOnRow?.();
+      }}
       className={`flex flex-col gap-0 rounded-ds-sm border px-2 py-1 transition-colors ${
         selected
           ? "border-ds-accent-border bg-ds-accent-surface"
           : "border-transparent hover:bg-ds-state-hover"
-      } ${element.hidden ? "opacity-50" : ""}`}
+      } ${dragOver ? "border-ds-accent-border ring-1 ring-ds-accent-border" : ""} ${
+        element.hidden ? "opacity-50" : ""
+      }`}
     >
       <div className="flex items-center gap-1">
         {/* Kind icon */}
@@ -388,6 +423,8 @@ export interface LayerListProps {
   /** Move element one step up (higher zIndex) or down (lower zIndex). */
   onMoveZOrder: (elementId: string, direction: "up" | "down") => void;
   onRename: (elementId: string, name: string) => void;
+  /** Drag-reorder: move `elementId` to the z-position of `targetElementId` (#639). */
+  onReorder?: (elementId: string, targetElementId: string) => void;
 }
 
 export function LayerList({
@@ -398,8 +435,10 @@ export function LayerList({
   onToggleLocked,
   onMoveZOrder,
   onRename,
+  onReorder,
 }: LayerListProps) {
   const [query, setQuery] = useState("");
+  const [dragId, setDragId] = useState<string | null>(null);
   const listId = useId();
   const searchId = useId();
   const listRef = useRef<HTMLDivElement>(null);
@@ -501,6 +540,16 @@ export function LayerList({
               onMoveUp={() => onMoveZOrder(element.id, "up")}
               onMoveDown={() => onMoveZOrder(element.id, "down")}
               onRename={(name) => onRename(element.id, name)}
+              draggable={Boolean(onReorder)}
+              isDragTarget={dragId !== null && dragId !== element.id}
+              onDragStart={() => setDragId(element.id)}
+              onDragEnd={() => setDragId(null)}
+              onDropOnRow={() => {
+                if (onReorder && dragId && dragId !== element.id) {
+                  onReorder(dragId, element.id);
+                }
+                setDragId(null);
+              }}
             />
           ))
         )}

@@ -1196,3 +1196,33 @@ export function renameElement(
     });
   });
 }
+
+/**
+ * Moves `elementId` to the z-order position of `targetElementId` (drag-reorder
+ * in the layer panel, #639). Elements are reordered in the ascending-zIndex
+ * list, then re-indexed sequentially so the new relative order is stable. A
+ * no-op when either id is missing or both are the same. Pure and immutable.
+ */
+export function reorderElement(
+  deck: Deck,
+  index: number,
+  elementId: string,
+  targetElementId: string,
+): Deck {
+  return mapSlide(deck, index, (slide) => {
+    if (!slide.elements || elementId === targetElementId) return slide;
+    const sorted = [...slide.elements].sort((a, b) => a.zIndex - b.zIndex);
+    const from = sorted.findIndex((el) => el.id === elementId);
+    const to = sorted.findIndex((el) => el.id === targetElementId);
+    if (from === -1 || to === -1) return slide;
+    const [moved] = sorted.splice(from, 1);
+    sorted.splice(to, 0, moved!);
+    const reindexed = new Map<string, SlideElement>(
+      sorted.map((el, i) => [el.id, { ...el, zIndex: i }]),
+    );
+    return markElementsEdited({
+      ...slide,
+      elements: slide.elements.map((el) => reindexed.get(el.id) ?? el),
+    });
+  });
+}
