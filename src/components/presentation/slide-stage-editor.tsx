@@ -2428,7 +2428,7 @@ export function SlideStageEditor({
                   );
                 }
               }}
-              className={`absolute outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ds-accent focus-visible:ring-offset-2 focus-visible:ring-offset-ds-surface-raised ${
+              className={`absolute outline-none transition-colors ${
                 isEditing ? "cursor-text" : "cursor-move"
               }`}
               style={{

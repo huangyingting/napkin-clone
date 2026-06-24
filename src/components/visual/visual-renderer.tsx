@@ -249,11 +249,13 @@ function ShapeEl({
   fill,
   stroke,
   strokeWidth,
+  uid,
 }: {
   node: VisualNode;
   fill: string;
   stroke: string;
   strokeWidth: number;
+  uid: string;
 }): JSX.Element {
   const { x, y } = nodeCenter(node);
   const w = node.width ?? DEFAULT_NODE_WIDTH;
@@ -263,7 +265,8 @@ function ShapeEl({
   const top = y - h / 2;
   const sw = node.borderWidth ?? strokeWidth;
   const strokeDasharray = dashArray(node.borderStyle);
-  const fillId = node.fillStyle === "gradient" ? `grad-${node.id}` : undefined;
+  const fillId =
+    node.fillStyle === "gradient" ? `${uid}-grad-${node.id}` : undefined;
   const resolvedFill = fillId ? `url(#${fillId})` : fill;
   const common = {
     fill: resolvedFill,
@@ -337,6 +340,7 @@ function NodeEl({
   fontSize,
   fontWeight = 600,
   strokeWidth = 1.5,
+  uid,
 }: {
   node: VisualNode;
   fill: string;
@@ -346,6 +350,7 @@ function NodeEl({
   fontSize: number;
   fontWeight?: number;
   strokeWidth?: number;
+  uid: string;
 }): JSX.Element {
   const { x, y } = nodeCenter(node);
   const w = node.width ?? DEFAULT_NODE_WIDTH;
@@ -369,6 +374,7 @@ function NodeEl({
         fill={fill}
         stroke={stroke}
         strokeWidth={strokeWidth}
+        uid={uid}
       />
       {Icon ? (
         <IconGlyph
@@ -521,7 +527,13 @@ function buildNodeMap(nodes: VisualNode[]): Map<string, VisualNode> {
   return new Map(nodes.map((node) => [node.id, node]));
 }
 
-function Flowchart({ visual }: { visual: Visual }): JSX.Element {
+function Flowchart({
+  visual,
+  uid,
+}: {
+  visual: Visual;
+  uid: string;
+}): JSX.Element {
   const nodes = buildNodeMap(visual.nodes);
   const { style } = visual;
   return (
@@ -539,13 +551,20 @@ function Flowchart({ visual }: { visual: Visual }): JSX.Element {
           style={style}
           fontSize={style.fontSize}
           fontWeight={style.fontWeight}
+          uid={uid}
         />
       ))}
     </Fragment>
   );
 }
 
-function MindMap({ visual }: { visual: Visual }): JSX.Element {
+function MindMap({
+  visual,
+  uid,
+}: {
+  visual: Visual;
+  uid: string;
+}): JSX.Element {
   const nodes = buildNodeMap(visual.nodes);
   const { style } = visual;
   const indexOf = new Map(visual.nodes.map((node, index) => [node.id, index]));
@@ -579,6 +598,7 @@ function MindMap({ visual }: { visual: Visual }): JSX.Element {
               isRoot ? Math.min(style.fontWeight + 100, 900) : style.fontWeight
             }
             strokeWidth={0}
+            uid={uid}
           />
         );
       })}
@@ -737,7 +757,13 @@ function BarChart({ visual }: { visual: Visual }): JSX.Element {
   );
 }
 
-function ConceptMap({ visual }: { visual: Visual }): JSX.Element {
+function ConceptMap({
+  visual,
+  uid,
+}: {
+  visual: Visual;
+  uid: string;
+}): JSX.Element {
   const nodes = buildNodeMap(visual.nodes);
   const { style } = visual;
   return (
@@ -764,6 +790,7 @@ function ConceptMap({ visual }: { visual: Visual }): JSX.Element {
             fontSize={style.fontSize}
             fontWeight={style.fontWeight}
             strokeWidth={2.5}
+            uid={uid}
           />
         );
       })}
@@ -771,7 +798,13 @@ function ConceptMap({ visual }: { visual: Visual }): JSX.Element {
   );
 }
 
-function Timeline({ visual }: { visual: Visual }): JSX.Element {
+function Timeline({
+  visual,
+  uid,
+}: {
+  visual: Visual;
+  uid: string;
+}): JSX.Element {
   const { style } = visual;
   const layout = timelineLayout(visual);
   const { axisY, badgeRadius, cardHeight } = layout;
@@ -816,6 +849,7 @@ function Timeline({ visual }: { visual: Visual }): JSX.Element {
               style={style}
               fontSize={style.fontSize}
               fontWeight={style.fontWeight}
+              uid={uid}
             />
             <circle
               cx={step.centerX}
@@ -899,7 +933,13 @@ function RingArrow({
   );
 }
 
-function CycleScene({ visual }: { visual: Visual }): JSX.Element {
+function CycleScene({
+  visual,
+  uid,
+}: {
+  visual: Visual;
+  uid: string;
+}): JSX.Element {
   const { style } = visual;
   const layout = cycleLayout(visual);
   const { cx, cy, placements } = layout;
@@ -945,6 +985,7 @@ function CycleScene({ visual }: { visual: Visual }): JSX.Element {
             fontSize={style.fontSize}
             fontWeight={style.fontWeight}
             strokeWidth={0}
+            uid={uid}
           />
         );
       })}
@@ -952,7 +993,13 @@ function CycleScene({ visual }: { visual: Visual }): JSX.Element {
   );
 }
 
-function Comparison({ visual }: { visual: Visual }): JSX.Element {
+function Comparison({
+  visual,
+  uid,
+}: {
+  visual: Visual;
+  uid: string;
+}): JSX.Element {
   const { style } = visual;
   const layout = comparisonLayout(visual);
 
@@ -980,6 +1027,7 @@ function Comparison({ visual }: { visual: Visual }): JSX.Element {
               fontSize={style.fontSize + 1}
               fontWeight={Math.min(style.fontWeight + 100, 900)}
               strokeWidth={0}
+              uid={uid}
             />
           );
         }
@@ -994,6 +1042,7 @@ function Comparison({ visual }: { visual: Visual }): JSX.Element {
             fontSize={style.fontSize}
             fontWeight={style.fontWeight}
             strokeWidth={1.5}
+            uid={uid}
           />
         );
       })}
@@ -1087,7 +1136,13 @@ function VennDiagram({ visual }: { visual: Visual }): JSX.Element {
   );
 }
 
-function Pyramid({ visual }: { visual: Visual }): JSX.Element {
+function Pyramid({
+  visual,
+  transparentBackground,
+}: {
+  visual: Visual;
+  transparentBackground: boolean;
+}): JSX.Element {
   const { style } = visual;
   const layout = pyramidLayout(visual);
 
@@ -1114,8 +1169,8 @@ function Pyramid({ visual }: { visual: Visual }): JSX.Element {
             <polygon
               points={points}
               fill={accent}
-              stroke={style.background}
-              strokeWidth={2}
+              stroke={transparentBackground ? "none" : style.background}
+              strokeWidth={transparentBackground ? 0 : 2}
             />
             <MultilineText
               cx={cx}
@@ -1224,7 +1279,13 @@ function MatrixScene({ visual }: { visual: Visual }): JSX.Element {
   );
 }
 
-function OrgChart({ visual }: { visual: Visual }): JSX.Element {
+function OrgChart({
+  visual,
+  uid,
+}: {
+  visual: Visual;
+  uid: string;
+}): JSX.Element {
   const nodes = buildNodeMap(visual.nodes);
   const { style } = visual;
   return (
@@ -1252,6 +1313,7 @@ function OrgChart({ visual }: { visual: Visual }): JSX.Element {
             fontSize={style.fontSize}
             fontWeight={style.fontWeight}
             strokeWidth={2}
+            uid={uid}
           />
         );
       })}
@@ -1259,34 +1321,47 @@ function OrgChart({ visual }: { visual: Visual }): JSX.Element {
   );
 }
 
-function VisualBody({ visual }: { visual: Visual }): JSX.Element | null {
+function VisualBody({
+  visual,
+  transparentBackground,
+  uid,
+}: {
+  visual: Visual;
+  transparentBackground: boolean;
+  uid: string;
+}): JSX.Element | null {
   switch (visual.type) {
     case "flowchart":
-      return <Flowchart visual={visual} />;
+      return <Flowchart visual={visual} uid={uid} />;
     case "mindmap":
-      return <MindMap visual={visual} />;
+      return <MindMap visual={visual} uid={uid} />;
     case "list":
       return <ListScene visual={visual} />;
     case "chart":
       return <BarChart visual={visual} />;
     case "concept":
-      return <ConceptMap visual={visual} />;
+      return <ConceptMap visual={visual} uid={uid} />;
     case "timeline":
-      return <Timeline visual={visual} />;
+      return <Timeline visual={visual} uid={uid} />;
     case "cycle":
-      return <CycleScene visual={visual} />;
+      return <CycleScene visual={visual} uid={uid} />;
     case "comparison":
-      return <Comparison visual={visual} />;
+      return <Comparison visual={visual} uid={uid} />;
     case "funnel":
       return <Funnel visual={visual} />;
     case "venn":
       return <VennDiagram visual={visual} />;
     case "pyramid":
-      return <Pyramid visual={visual} />;
+      return (
+        <Pyramid
+          visual={visual}
+          transparentBackground={transparentBackground}
+        />
+      );
     case "matrix":
       return <MatrixScene visual={visual} />;
     case "orgchart":
-      return <OrgChart visual={visual} />;
+      return <OrgChart visual={visual} uid={uid} />;
     default:
       return null;
   }
@@ -1307,15 +1382,17 @@ function lightenHex(hex: string): string {
 
 /**
  * Renders `<linearGradient>` defs for any nodes that use `fillStyle:
- * "gradient"`. The gradient id is `grad-{nodeId}` and goes from a lightened
- * highlight at the top to the base fill color at the bottom.
+ * "gradient"`. The gradient id is prefixed by the renderer instance id so
+ * duplicated visuals on the same slide never share SVG definition IDs.
  */
 function GradientDefs({
   nodes,
   fills,
+  uid,
 }: {
   nodes: import("@/lib/visual/schema").VisualNode[];
   fills: Map<string, string>;
+  uid: string;
 }): JSX.Element | null {
   const gradNodes = nodes.filter((n) => n.fillStyle === "gradient");
   if (gradNodes.length === 0) return null;
@@ -1327,7 +1404,7 @@ function GradientDefs({
         return (
           <linearGradient
             key={n.id}
-            id={`grad-${n.id}`}
+            id={`${uid}-grad-${n.id}`}
             x1="0"
             y1="0"
             x2="0"
@@ -1461,12 +1538,20 @@ function EffectWrappedBody({
   visual,
   effects,
   uid,
+  transparentBackground,
 }: {
   visual: Visual;
   effects: VisualEffect[];
   uid: string;
+  transparentBackground: boolean;
 }): JSX.Element {
-  let inner: JSX.Element = <VisualBody visual={visual} />;
+  let inner: JSX.Element = (
+    <VisualBody
+      visual={visual}
+      transparentBackground={transparentBackground}
+      uid={uid}
+    />
+  );
   for (const effect of effects) {
     const filterId = `${uid}fx_${effect.kind}`;
     inner = <g filter={`url(#${filterId})`}>{inner}</g>;
@@ -1510,7 +1595,7 @@ export const VisualRenderer = forwardRef<
 
   const canvasStyle = visual.canvasStyle ?? "blank";
   // Use a stable id based on whether a pattern is needed (no collab conflict).
-  const patternId = `__canvas_pattern__`;
+  const patternId = `${uid}-canvas-pattern`;
   // Determine a contrasting pattern colour: use edge/stroke colour so it
   // harmonises with the theme rather than hard-coding a grey.
   const patternStroke = visual.style.edgeColor;
@@ -1531,7 +1616,7 @@ export const VisualRenderer = forwardRef<
       role="img"
       aria-label={label}
     >
-      <GradientDefs nodes={visual.nodes} fills={fillMap} />
+      <GradientDefs nodes={visual.nodes} fills={fillMap} uid={uid} />
       {canvasStyle !== "blank" && (
         <defs>
           {canvasStyle === "ruled" && (
@@ -1561,7 +1646,12 @@ export const VisualRenderer = forwardRef<
           fill={`url(#${patternId})`}
         />
       )}
-      <EffectWrappedBody visual={visual} effects={effects} uid={uid} />
+      <EffectWrappedBody
+        visual={visual}
+        effects={effects}
+        uid={uid}
+        transparentBackground={transparentBackground}
+      />
     </svg>
   );
 });

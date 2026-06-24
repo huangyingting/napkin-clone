@@ -495,6 +495,8 @@ function hsvToHex(h: number, s: number, v: number): string {
 }
 
 const FLOATING_PANEL_STAGE_RESERVE_PX = 352;
+const PASTE_OFFSET_PCT = 3;
+const PASTE_OFFSET_WRAP_STEPS = 8;
 
 function appendPendingPatches(
   pendingPatchesRef: { current: DeckPatch[] },
@@ -810,6 +812,7 @@ export function SlideEditor({
   } | null>(null);
   // In-memory element clipboard for copy / cut / paste (within & across slides).
   const clipboardRef = useRef<SlideElement[] | null>(null);
+  const pasteCountRef = useRef(0);
   // Hidden file input for the Insert ▸ Image one-step picker flow (#299).
   const insertImageFileInputRef = useRef<HTMLInputElement>(null);
   // Element ID of the pending Insert ▸ Image pick session. Cleared by onAccept
@@ -1486,6 +1489,7 @@ export function SlideEditor({
     const copied = slideEls.filter((el) => ids.includes(el.id));
     if (copied.length > 0) {
       clipboardRef.current = copied.map((el) => structuredClone(el));
+      pasteCountRef.current = 0;
     }
   }, [deck, safeSelected, selectedElementIdList]);
 
@@ -1496,6 +1500,7 @@ export function SlideEditor({
     const copied = slideEls.filter((el) => ids.includes(el.id));
     if (copied.length === 0) return;
     clipboardRef.current = copied.map((el) => structuredClone(el));
+    pasteCountRef.current = 0;
     const slideId = deck.slides[safeSelected]?.id;
     if (!slideId) return;
     doCommitAndChange(deck, {
@@ -1512,11 +1517,13 @@ export function SlideEditor({
     if (!clip || clip.length === 0) return;
     let nextDeck = deck;
     const newIds: string[] = [];
+    const pasteStep = (pasteCountRef.current % PASTE_OFFSET_WRAP_STEPS) + 1;
+    const offset = pasteStep * PASTE_OFFSET_PCT;
     for (const el of clip) {
       const id = makeElementId();
       newIds.push(id);
-      const x = Math.max(0, Math.min(100 - el.box.w, el.box.x + 3));
-      const y = Math.max(0, Math.min(100 - el.box.h, el.box.y + 3));
+      const x = Math.max(0, Math.min(100 - el.box.w, el.box.x + offset));
+      const y = Math.max(0, Math.min(100 - el.box.h, el.box.y + offset));
       const clone = structuredClone(el);
       clone.id = id;
       clone.box = { ...clone.box, x, y };
@@ -1524,6 +1531,7 @@ export function SlideEditor({
       delete (clone as { zIndex?: number }).zIndex;
       nextDeck = addElement(nextDeck, safeSelected, clone);
     }
+    pasteCountRef.current += 1;
     clearPendingPatches(pendingPatchesRef);
     onDeckChange(nextDeck);
     setSelectedElementId(newIds[0] ?? null);
@@ -1749,6 +1757,7 @@ export function SlideEditor({
                 return clone;
               });
               clipboardRef.current = clip;
+              pasteCountRef.current = 0;
               if (key === "x") {
                 const slideId = kDeck.slides[kSafe]?.id;
                 if (slideId) {
@@ -1781,11 +1790,20 @@ export function SlideEditor({
             }
             let nextDeck = kDeck;
             const newIds: string[] = [];
+            const pasteStep =
+              (pasteCountRef.current % PASTE_OFFSET_WRAP_STEPS) + 1;
+            const offset = pasteStep * PASTE_OFFSET_PCT;
             for (const el of clip) {
               const id = makeElementId();
               newIds.push(id);
-              const x = Math.max(0, Math.min(100 - el.box.w, el.box.x + 3));
-              const y = Math.max(0, Math.min(100 - el.box.h, el.box.y + 3));
+              const x = Math.max(
+                0,
+                Math.min(100 - el.box.w, el.box.x + offset),
+              );
+              const y = Math.max(
+                0,
+                Math.min(100 - el.box.h, el.box.y + offset),
+              );
               const clone = structuredClone(el);
               clone.id = id;
               clone.box = { ...clone.box, x, y };
@@ -1797,6 +1815,7 @@ export function SlideEditor({
               }
               nextDeck = addElement(nextDeck, kSafe, clone);
             }
+            pasteCountRef.current += 1;
             clearPendingPatches(pendingPatchesRef);
             onDeckChange(nextDeck);
             setSelectedElementId(newIds[0] ?? null);
@@ -1967,9 +1986,6 @@ export function SlideEditor({
         }
         if (event.key === "Delete" || event.key === "Backspace") {
           event.preventDefault();
-          // Restore focus to the next surviving element in reading order, or
-          // the canvas container when none remain (#532), and announce the
-          // deletion (#533).
           const ordered = orderedElementIds(slide?.elements ?? []);
           const focusTarget = focusTargetAfterDelete(
             ordered,
@@ -1984,8 +2000,10 @@ export function SlideEditor({
             slideId,
             elementIds: selectedIds,
           });
-          setSelectedElementId(null);
-          setSelectedElementIds(new Set());
+          setSelectedElementId(focusTarget);
+          setSelectedElementIds(
+            focusTarget ? new Set([focusTarget]) : new Set(),
+          );
           requestElementFocus(focusTarget);
           announce(announceDelete(deletedName));
           return;
@@ -2461,23 +2479,21 @@ export function SlideEditor({
   const handleRemoveElement = useCallback(
     (id: string) => {
       const slideId = deck.slides[safeSelected]?.id;
+      const ordered = orderedElementIds(
+        deck.slides[safeSelected]?.elements ?? [],
+      );
+      const focusTarget = focusTargetAfterDelete(ordered, new Set([id]));
       if (!slideId) return;
       doCommitAndChange(deck, {
         type: "REMOVE_ELEMENT",
         slideId,
         elementId: id,
       });
-      setSelectedElementId((current) => (current === id ? null : current));
-      setSelectedElementIds((current) => {
-        if (!current.has(id)) {
-          return current;
-        }
-        const next = new Set(current);
-        next.delete(id);
-        return next;
-      });
+      setSelectedElementId(focusTarget);
+      setSelectedElementIds(focusTarget ? new Set([focusTarget]) : new Set());
+      requestElementFocus(focusTarget);
     },
-    [deck, doCommitAndChange, safeSelected],
+    [deck, doCommitAndChange, requestElementFocus, safeSelected],
   );
 
   const handleDuplicateElement = useCallback(
