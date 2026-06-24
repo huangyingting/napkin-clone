@@ -2799,7 +2799,7 @@ export function SlideEditor({
           <div
             role="toolbar"
             aria-label="Slide editing tools"
-            className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1"
+            className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain whitespace-nowrap px-1 py-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             <Popover
               open={addTemplateOpen || spotlightPickerOpen}
@@ -3365,7 +3365,7 @@ export function SlideEditor({
               documentId={documentId}
               initialTab={rightPanelTab}
               onClose={closeRightPanel}
-              className="absolute bottom-4 right-4 top-4 z-panel hidden w-80 flex-col overflow-y-auto rounded-ds-lg border border-ds-border-subtle bg-ds-surface-overlay shadow-ds-overlay lg:flex"
+              className="absolute bottom-4 right-4 top-4 z-panel hidden w-80 flex-col overflow-y-auto overflow-x-hidden rounded-ds-lg border border-ds-border-subtle bg-ds-surface-overlay shadow-ds-overlay lg:flex"
             />
           ) : null}
         </div>
@@ -3543,7 +3543,7 @@ export function SlideEditor({
                     {...inspectorProps}
                     showAdvanced={showAdvanced}
                     documentId={documentId}
-                    className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto"
+                    className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto overflow-x-hidden"
                   />
                 </div>
               </FocusTrapped>
@@ -4080,7 +4080,7 @@ function SlideSelectionToolbar({
     <div
       role="toolbar"
       aria-label="Selected slide element tools"
-      className="pointer-events-auto absolute left-1/2 top-3 z-20 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-1 overflow-x-auto rounded-ds-lg border border-ds-border-subtle bg-ds-surface-raised p-1 shadow-ds-popover"
+      className="pointer-events-auto absolute left-1/2 top-3 z-20 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-1 overflow-visible rounded-ds-lg border border-ds-border-subtle bg-ds-surface-raised p-1 shadow-ds-popover"
     >
       {showRich && selectedElement ? (
         <ElementToolbarContent

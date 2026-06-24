@@ -60,7 +60,7 @@ export function VisualPicker({
       </div>
 
       {entries.length > 0 ? (
-        <ul className="grid max-h-72 grid-cols-2 gap-2 overflow-y-auto p-1">
+        <ul className="grid max-h-72 grid-cols-2 gap-2 overflow-y-auto overflow-x-hidden p-1">
           {entries.map(([id, visual]) => (
             <li key={id}>
               <button

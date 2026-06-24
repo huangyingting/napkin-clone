@@ -2370,7 +2370,7 @@ export function SlideInspector({
   onBackgroundAssetChange,
   onAccentChange,
   brandSwatches = [],
-  className = "flex w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle",
+  className = "flex w-80 shrink-0 flex-col overflow-y-auto overflow-x-hidden border-l border-ds-border-subtle",
   showAdvanced = true,
   documentId,
   onClose,

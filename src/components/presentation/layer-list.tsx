@@ -480,7 +480,7 @@ export function LayerList({
         aria-label="Layers"
         aria-activedescendant={selectedElementId ?? undefined}
         onKeyDown={handleListKeyDown}
-        className="flex flex-col gap-0.5 overflow-y-auto"
+        className="flex flex-col gap-0.5 overflow-y-auto overflow-x-hidden"
         style={{ maxHeight: "20rem" }}
       >
         {filtered.length === 0 ? (
