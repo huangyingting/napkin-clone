@@ -262,6 +262,8 @@ const THEME_OPTIONS: { value: DeckTheme; label: string; color: string }[] = [
   { value: "default", label: "Default", color: "#a1a1aa" },
 ];
 
+const FLOATING_PANEL_STAGE_RESERVE_PX = 352;
+
 function appendPendingPatches(
   pendingPatchesRef: { current: DeckPatch[] },
   patches: DeckPatch[],
@@ -890,12 +892,18 @@ export function SlideEditor({
   const scrollContentHeight = Math.max(stageBounds.height, renderedStageHeight);
   const scrollInsetX = Math.max(
     0,
-    (scrollContentWidth - renderedStageWidth) / 2,
+    (stageBounds.width - renderedStageWidth) / 2,
   );
   const scrollInsetY = Math.max(
     0,
     (scrollContentHeight - renderedStageHeight) / 2,
   );
+  const panelSlideShiftX = inspectorOpen
+    ? Math.max(
+        -scrollInsetX,
+        -Math.min(FLOATING_PANEL_STAGE_RESERVE_PX / 2, scrollInsetX),
+      )
+    : 0;
 
   const fitInsertedTextElement = useCallback(
     <T extends TextLikeElement>(element: T, anchor: "top-left" | "center") => {
@@ -3296,7 +3304,7 @@ export function SlideEditor({
               className="relative min-h-0 flex-1 overflow-auto px-4 py-2 sm:px-5 sm:py-3"
             >
               <div
-                className="relative shrink-0"
+                className="relative shrink-0 transition-[padding] duration-200 ease-out motion-reduce:transition-none"
                 style={{
                   boxSizing: "border-box",
                   width: scrollContentWidth,
@@ -3306,34 +3314,39 @@ export function SlideEditor({
                 }}
               >
                 {selectedSlide ? (
-                  <SlideStageEditor
-                    slide={selectedSlide}
-                    visuals={visuals}
-                    width={renderedStageWidth}
-                    height={renderedStageHeight}
-                    selectedElementId={effectiveSelectedElementId}
-                    selectedElementIds={effectiveSelectedElementIds}
-                    onSelectElement={handleSelectElement}
-                    onSelectElements={handleSelectElements}
-                    onUpdateElement={handleUpdateElement}
-                    onDuplicateElement={handleDuplicateElement}
-                    onRemoveElement={handleRemoveElement}
-                    onBringToFront={handleBringToFront}
-                    onSendToBack={handleSendToBack}
-                    onCopyElements={handleCopyElements}
-                    onCutElements={handleCutElements}
-                    onPasteElements={handlePasteElements}
-                    onSetElementBoxes={handleSetElementBoxes}
-                    onSetElementPatches={handleSetElementPatches}
-                    onGroupElements={handleGroupElements}
-                    onUngroupElements={handleUngroupElements}
-                    snapToGrid={snapToGrid}
-                    brandSwatches={brandSwatches}
-                    onAddTextElement={handleAddTextElement}
-                    showAdvanced={showAdvanced}
-                    focusRequest={focusRequest}
-                    liveMessage={liveMessage}
-                  />
+                  <div
+                    className="transition-transform duration-200 ease-out motion-reduce:transition-none"
+                    style={{ transform: `translateX(${panelSlideShiftX}px)` }}
+                  >
+                    <SlideStageEditor
+                      slide={selectedSlide}
+                      visuals={visuals}
+                      width={renderedStageWidth}
+                      height={renderedStageHeight}
+                      selectedElementId={effectiveSelectedElementId}
+                      selectedElementIds={effectiveSelectedElementIds}
+                      onSelectElement={handleSelectElement}
+                      onSelectElements={handleSelectElements}
+                      onUpdateElement={handleUpdateElement}
+                      onDuplicateElement={handleDuplicateElement}
+                      onRemoveElement={handleRemoveElement}
+                      onBringToFront={handleBringToFront}
+                      onSendToBack={handleSendToBack}
+                      onCopyElements={handleCopyElements}
+                      onCutElements={handleCutElements}
+                      onPasteElements={handlePasteElements}
+                      onSetElementBoxes={handleSetElementBoxes}
+                      onSetElementPatches={handleSetElementPatches}
+                      onGroupElements={handleGroupElements}
+                      onUngroupElements={handleUngroupElements}
+                      snapToGrid={snapToGrid}
+                      brandSwatches={brandSwatches}
+                      onAddTextElement={handleAddTextElement}
+                      showAdvanced={showAdvanced}
+                      focusRequest={focusRequest}
+                      liveMessage={liveMessage}
+                    />
+                  </div>
                 ) : null}
               </div>
             </div>
@@ -3364,7 +3377,7 @@ export function SlideEditor({
               setRailContentMounted(false);
             }
           }}
-          className={`shrink-0 overflow-hidden border-t border-ds-border-subtle bg-ds-surface-sunken transition-[max-height,opacity,transform] duration-200 ease-out motion-reduce:transition-none ${
+          className={`shrink-0 overflow-hidden bg-ds-surface-sunken transition-[max-height,opacity,transform] duration-200 ease-out motion-reduce:transition-none ${
             railOpen
               ? "max-h-32 translate-y-0 opacity-100"
               : "max-h-0 translate-y-1 opacity-0"
@@ -4164,7 +4177,7 @@ function SlideBottomDock({
   const presets = [...ZOOM_PERCENT_PRESETS].sort((a, b) => b - a);
 
   return (
-    <div className="shrink-0 border-t border-ds-border-subtle bg-ds-surface-sunken">
+    <div className="shrink-0 bg-ds-surface-sunken">
       <div className="flex min-h-10 items-center justify-center gap-1.5 px-2 py-1">
         <Tooltip
           label={railOpen ? "Hide slide thumbnails" : "Show slide thumbnails"}
