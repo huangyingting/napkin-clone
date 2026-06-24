@@ -938,7 +938,7 @@ function restackElements(elements: readonly SlideElement[]): SlideElement[] {
   );
 }
 
-function layoutHintForReusableLayout(
+export function layoutHintForReusableLayout(
   name: string,
 ): SlideLayoutHint | undefined {
   switch (name) {

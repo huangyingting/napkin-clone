@@ -1247,6 +1247,64 @@ test("APPLY_SLIDE_LAYOUT applies placeholder layout", () => {
   assert.equal(result.patches[0]!.op, "slide.apply_layout");
 });
 
+test("APPLY_SLIDE_LAYOUT with preserveContent moves bound content and preserves free-form (#630)", () => {
+  const titleEl: SlideElement = {
+    id: "t1",
+    kind: "text",
+    role: "title",
+    text: "Heading",
+    zIndex: 0,
+    box: { x: 1, y: 1, w: 10, h: 10 },
+    style: { fontSize: 6, bold: true, italic: false, align: "left" },
+    layoutSlot: { kind: "title" },
+  };
+  const freeEl: SlideElement = {
+    id: "f1",
+    kind: "shape",
+    shape: "rect",
+    color: "#3366ff",
+    zIndex: 1,
+    box: { x: 70, y: 70, w: 20, h: 20 },
+  };
+  const deck = makeDeckWithElements("s1", [titleEl, freeEl]);
+  const layout = {
+    id: "title-content",
+    name: "title-content",
+    format: "16:9" as const,
+    placeholders: [
+      {
+        id: "ph-title",
+        kind: "placeholder" as const,
+        placeholderType: "title" as const,
+        zIndex: 0,
+        box: { x: 8, y: 6, w: 84, h: 14 },
+      },
+      {
+        id: "ph-body",
+        kind: "placeholder" as const,
+        placeholderType: "body" as const,
+        zIndex: 1,
+        box: { x: 8, y: 24, w: 84, h: 60 },
+      },
+    ],
+  };
+  const result = executeCommand(deck, {
+    type: "APPLY_SLIDE_LAYOUT",
+    slideIndex: 0,
+    layout,
+    preserveContent: true,
+  });
+  assert.equal(result.ok, true);
+  const els = result.deck.slides[0]!.elements ?? [];
+  const movedTitle = els.find((e) => e.id === "t1");
+  assert.deepEqual(movedTitle?.box, { x: 8, y: 6, w: 84, h: 14 });
+  assert.equal(movedTitle?.kind === "text" ? movedTitle.text : "", "Heading");
+  const keptFree = els.find((e) => e.id === "f1");
+  assert.deepEqual(keptFree?.box, { x: 70, y: 70, w: 20, h: 20 });
+  assert.ok(els.some((e) => e.kind === "placeholder"));
+  assert.equal(result.patches[0]!.op, "slide.apply_layout");
+});
+
 test("APPLY_SLIDE_LAYOUT fails on invalid index", () => {
   const deck = makeDeck(["s1"]);
   const layout = {

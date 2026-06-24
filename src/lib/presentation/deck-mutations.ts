@@ -16,7 +16,14 @@ import type {
   SlideLayout as DeckLayout,
 } from "./deck";
 import type { SlideFormat } from "./slide-format";
-import { applyLayout, makeElementId, makeSlideId, resetLayout } from "./deck";
+import {
+  applyLayout,
+  layoutHintForReusableLayout,
+  makeElementId,
+  makeSlideId,
+  resetLayout,
+} from "./deck";
+import { applyLayoutPreservingContent } from "./layout-apply";
 import {
   type AlignMode,
   type DistributeMode,
@@ -234,6 +241,32 @@ export function applySlideLayout(
   layout: DeckLayout,
 ): Deck {
   return mapSlide(deck, index, (slide) => applyLayout(slide, layout));
+}
+
+/**
+ * Applies a layout to the slide at `index` while **preserving authored
+ * content** (#630): slot-bound elements move into the matching placeholder
+ * geometry, empty slots get fresh placeholders, and free-form elements are
+ * left untouched. The slide stays authored (`elementsDerived: false`).
+ */
+export function applySlideLayoutPreservingContent(
+  deck: Deck,
+  index: number,
+  layout: DeckLayout,
+): Deck {
+  return mapSlide(deck, index, (slide) => {
+    const { elements } = applyLayoutPreservingContent(
+      slide.elements ?? [],
+      layout,
+    );
+    const hint = layoutHintForReusableLayout(layout.name);
+    return {
+      ...slide,
+      ...(hint ? { layout: hint } : {}),
+      elements,
+      elementsDerived: false,
+    };
+  });
 }
 
 /** Resets the slide at `index` back to a reusable placeholder layout. */
