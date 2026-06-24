@@ -6,11 +6,12 @@
 These documents describe the interactive editor surfaces and the slide styling
 architecture used by those surfaces.
 
-| Document                                           | Scope                                                                                  |
-| -------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| [comments-and-anchors.md](comments-and-anchors.md) | Comment threads, text/visual anchors, slide anchors, and lifecycle behavior.           |
-| [lexical-editor.md](lexical-editor.md)             | Lexical editor selection model, tool registry, visual lifecycle, and deck autosave UX. |
-| [theme-layout.md](theme-layout.md)                 | Slide token cascade, masters, layouts, and style override resolution.                  |
+| Document                                                 | Scope                                                                                      |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| [comments-and-anchors.md](comments-and-anchors.md)       | Comment threads, text/visual anchors, slide anchors, and lifecycle behavior.               |
+| [lexical-editor.md](lexical-editor.md)                   | Lexical editor selection model, tool registry, visual lifecycle, and deck autosave UX.     |
+| [theme-layout.md](theme-layout.md)                       | Slide token cascade, masters, layouts, and style override resolution.                      |
+| [deck-template-authoring.md](deck-template-authoring.md) | Global deck template contract, semantic roles, reset-to-inherited, and authoring workflow. |
 
 ## Related Contracts
 
