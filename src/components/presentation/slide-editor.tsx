@@ -473,6 +473,15 @@ export function SlideEditor({
   // is a fixed side pane at `lg+`). Issue #209.
   const [inspectorSheetOpen, setInspectorSheetOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  // The desktop "Show/Hide properties" toggle. Focus returns here when the
+  // supplemental panel is dismissed via its own close button so keyboard focus
+  // is restored predictably (issue #585).
+  const inspectorToggleRef = useRef<HTMLButtonElement>(null);
+  const closeRightPanel = useCallback(() => {
+    setInspectorOpen(false);
+    // Restore focus to the toggle after the panel unmounts.
+    requestAnimationFrame(() => inspectorToggleRef.current?.focus());
+  }, []);
   // Which tab the right supplemental panel shows. Set by toolbar handoff
   // (Position -> arrange, Layers -> layers) and the top-bar panel toggle.
   const [rightPanelTab, setRightPanelTab] = useState<RightPanelTab>("arrange");
@@ -3005,6 +3014,7 @@ export function SlideEditor({
             side="bottom"
           >
             <IconButton
+              ref={inspectorToggleRef}
               aria-label={inspectorOpen ? "Hide properties" : "Show properties"}
               size="sm"
               variant="plain"
@@ -3313,7 +3323,7 @@ export function SlideEditor({
               showAdvanced={showAdvanced}
               documentId={documentId}
               initialTab={rightPanelTab}
-              onClose={() => setInspectorOpen(false)}
+              onClose={closeRightPanel}
               className="hidden w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle bg-ds-surface-base lg:flex"
             />
           ) : null}
