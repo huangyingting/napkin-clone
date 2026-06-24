@@ -59,6 +59,7 @@ import {
   arrangeSelectedElements,
   bringElementToFront,
   applySlideLayout,
+  applySlideLayoutPreservingContent,
   distributeElements,
   duplicateElement,
   duplicateElements,
@@ -244,6 +245,13 @@ export interface ApplySlideLayoutCommand {
   type: "APPLY_SLIDE_LAYOUT";
   slideIndex: number;
   layout: ReusableSlideLayout;
+  /**
+   * When true, apply the layout **preserving authored content** (#630):
+   * slot-bound elements move into the matching placeholder geometry, empty
+   * slots get fresh placeholders, and free-form elements are untouched.
+   * Absent/false keeps the legacy rebuild behaviour.
+   */
+  preserveContent?: boolean;
   commandId?: string;
 }
 
@@ -1097,13 +1105,12 @@ export function executeCommand(deck: Deck, cmd: SlideCommand): CommandResult {
         return failure(deck, `Invalid slideIndex: ${cmd.slideIndex}`);
       }
       const slide = deck.slides[cmd.slideIndex]!;
-      return success(
-        applySlideLayout(deck, cmd.slideIndex, cmd.layout),
-        [slide.id],
-        [],
-        undefined,
-        [makePatch("slide.apply_layout", [slide.id], [])],
-      );
+      const nextDeck = cmd.preserveContent
+        ? applySlideLayoutPreservingContent(deck, cmd.slideIndex, cmd.layout)
+        : applySlideLayout(deck, cmd.slideIndex, cmd.layout);
+      return success(nextDeck, [slide.id], [], undefined, [
+        makePatch("slide.apply_layout", [slide.id], []),
+      ]);
     }
 
     case "RESET_SLIDE_LAYOUT": {
