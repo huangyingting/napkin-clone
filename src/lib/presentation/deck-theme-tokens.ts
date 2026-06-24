@@ -15,7 +15,13 @@
  *   Deck theme tokens → master slide → layout → slide override → element override
  */
 
-import type { DeckTheme, ElementAlign } from "@/lib/presentation/deck";
+import type {
+  ConnectorArrow,
+  DeckTheme,
+  ElementAlign,
+  ImageFitMode,
+  ImageMaskShape,
+} from "@/lib/presentation/deck";
 import { type FontScale } from "@/lib/presentation/theme-typography";
 
 // ---------------------------------------------------------------------------
@@ -213,6 +219,74 @@ export type ShapeToken = {
    * Set to `"none"` to suppress shadows by default.
    */
   shadowCss: string;
+  /** Optional default fill (hex) for new shapes. Absent → renderer/accent. */
+  fill?: string;
+  /** Optional default stroke color (hex). Absent → no border. */
+  stroke?: string;
+  /** Optional default stroke width in `cqmin` units. */
+  strokeWidth?: number;
+  /** Optional default opacity (0–1). Absent → fully opaque. */
+  opacity?: number;
+};
+
+// ---------------------------------------------------------------------------
+// Non-text default tokens (#601)
+// ---------------------------------------------------------------------------
+
+/** Numbered-list rendering style for bullet defaults. */
+export type BulletNumberStyle =
+  | "decimal"
+  | "lower-alpha"
+  | "upper-alpha"
+  | "lower-roman";
+
+/** Deck-template bullet defaults inherited by bullet elements. */
+export type BulletDefaultsToken = {
+  /** Marker color (hex). Absent → resolves to the accent color. */
+  markerColor?: string;
+  /** Extra gap between items as a percent of slide height. Absent → 0. */
+  gapPct?: number;
+  /** List indent as a percent of slide width. Absent → 0. */
+  indentPct?: number;
+  /** Numbered-list glyph style. Absent → "decimal". */
+  numberStyle?: BulletNumberStyle;
+};
+
+/** Dash style for connector strokes. */
+export type ConnectorDashStyle = "solid" | "dashed" | "dotted";
+
+/** Deck-template connector defaults inherited by connector elements. */
+export type ConnectorDefaultsToken = {
+  /** Stroke color (hex). Absent → resolves to the onBg color. */
+  color?: string;
+  /** Stroke width in `cqmin` units. Absent → 0.4. */
+  width?: number;
+  /** Dash pattern. Absent → "solid". */
+  dash?: ConnectorDashStyle;
+  /** Arrowhead at the start endpoint. Absent → "none". */
+  startArrow?: ConnectorArrow;
+  /** Arrowhead at the end endpoint. Absent → "arrow". */
+  endArrow?: ConnectorArrow;
+};
+
+/** Deck-template visual (chart/diagram) defaults. */
+export type VisualDefaultsToken = {
+  /** Restyle theme id applied to embedded visuals. Absent → visual's own. */
+  styleThemeId?: string;
+  /** Render visuals on a transparent background. Absent → false. */
+  transparentBackground?: boolean;
+};
+
+/** Deck-template image defaults inherited by image elements. */
+export type ImageDefaultsToken = {
+  /** Fit mode. Absent → "contain". */
+  fitMode?: ImageFitMode;
+  /** Corner radius as a percent of the box (0–50). Absent → 0. */
+  radiusPct?: number;
+  /** Mask shape. Absent → "none". */
+  maskShape?: ImageMaskShape;
+  /** Drop shadow. Absent → false. */
+  shadow?: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -249,6 +323,14 @@ export type DeckThemeTokenSet = {
   typography: TypographyToken;
   spacing: SpacingToken;
   shape: ShapeToken;
+  /** Optional bullet defaults (#601). Absent → deterministic fallbacks. */
+  bullet?: BulletDefaultsToken;
+  /** Optional connector defaults (#601). Absent → deterministic fallbacks. */
+  connector?: ConnectorDefaultsToken;
+  /** Optional visual defaults (#601). Absent → deterministic fallbacks. */
+  visual?: VisualDefaultsToken;
+  /** Optional image defaults (#601). Absent → deterministic fallbacks. */
+  image?: ImageDefaultsToken;
   /** Default background applied when no slide- or master-level override exists. */
   defaultBackground: BackgroundTreatment;
 };
@@ -600,4 +682,94 @@ export function resolveRoleToken(
   const authored = tokenSet.typography.roles?.[role];
   if (!authored) return derived;
   return { ...derived, ...authored };
+}
+
+// ---------------------------------------------------------------------------
+// Non-text default resolvers (#601)
+// ---------------------------------------------------------------------------
+
+/** Fully-resolved bullet defaults (every field present). */
+export interface ResolvedBulletDefaults {
+  markerColor: string;
+  gapPct: number;
+  indentPct: number;
+  numberStyle: BulletNumberStyle;
+}
+
+/**
+ * Resolves bullet defaults, filling absent fields with deterministic fallbacks
+ * (marker color → accent). Existing rendering is unaffected when `bullet` is
+ * absent because these are defaults a consumer opts into.
+ */
+export function resolveBulletDefaults(
+  tokenSet: DeckThemeTokenSet,
+): ResolvedBulletDefaults {
+  const b = tokenSet.bullet ?? {};
+  return {
+    markerColor: b.markerColor ?? tokenSet.colors.accent,
+    gapPct: b.gapPct ?? 0,
+    indentPct: b.indentPct ?? 0,
+    numberStyle: b.numberStyle ?? "decimal",
+  };
+}
+
+/** Fully-resolved connector defaults (every field present). */
+export interface ResolvedConnectorDefaults {
+  color: string;
+  width: number;
+  dash: ConnectorDashStyle;
+  startArrow: ConnectorArrow;
+  endArrow: ConnectorArrow;
+}
+
+/** Resolves connector defaults with deterministic fallbacks. */
+export function resolveConnectorDefaults(
+  tokenSet: DeckThemeTokenSet,
+): ResolvedConnectorDefaults {
+  const c = tokenSet.connector ?? {};
+  return {
+    color: c.color ?? tokenSet.colors.onBg,
+    width: c.width ?? 0.4,
+    dash: c.dash ?? "solid",
+    startArrow: c.startArrow ?? "none",
+    endArrow: c.endArrow ?? "arrow",
+  };
+}
+
+/** Fully-resolved image defaults (every field present). */
+export interface ResolvedImageDefaults {
+  fitMode: ImageFitMode;
+  radiusPct: number;
+  maskShape: ImageMaskShape;
+  shadow: boolean;
+}
+
+/** Resolves image defaults with deterministic fallbacks. */
+export function resolveImageDefaults(
+  tokenSet: DeckThemeTokenSet,
+): ResolvedImageDefaults {
+  const i = tokenSet.image ?? {};
+  return {
+    fitMode: i.fitMode ?? "contain",
+    radiusPct: i.radiusPct ?? 0,
+    maskShape: i.maskShape ?? "none",
+    shadow: i.shadow ?? false,
+  };
+}
+
+/** Fully-resolved visual defaults. `styleThemeId` stays optional. */
+export interface ResolvedVisualDefaults {
+  styleThemeId?: string;
+  transparentBackground: boolean;
+}
+
+/** Resolves visual defaults with deterministic fallbacks. */
+export function resolveVisualDefaults(
+  tokenSet: DeckThemeTokenSet,
+): ResolvedVisualDefaults {
+  const v = tokenSet.visual ?? {};
+  return {
+    ...(v.styleThemeId !== undefined ? { styleThemeId: v.styleThemeId } : {}),
+    transparentBackground: v.transparentBackground ?? false,
+  };
 }

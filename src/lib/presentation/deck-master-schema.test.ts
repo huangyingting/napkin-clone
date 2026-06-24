@@ -539,3 +539,80 @@ test("shape element with textRole and textStyleOverride is accepted", () => {
   assert.equal(el.textRole, "shapeLabel");
   assert.equal(el.textStyleOverride?.bold, true);
 });
+
+// ---------------------------------------------------------------------------
+// Optional non-text template tokens (#601)
+// ---------------------------------------------------------------------------
+
+test("customTokenSet with valid non-text default tokens is accepted", () => {
+  const result = safeParseDeck(
+    baseDeck({
+      customTokenSet: validTokenSet({
+        bullet: {
+          markerColor: "#ff0000",
+          gapPct: 2,
+          numberStyle: "lower-alpha",
+        },
+        connector: {
+          color: "#00ff00",
+          width: 1.2,
+          dash: "dashed",
+          endArrow: "filled",
+        },
+        visual: { styleThemeId: "mono", transparentBackground: true },
+        image: {
+          fitMode: "cover",
+          radiusPct: 8,
+          maskShape: "circle",
+          shadow: true,
+        },
+        shape: {
+          cornerRadiusPt: 6,
+          shadowCss: "none",
+          fill: "#123456",
+          opacity: 0.5,
+        },
+      }),
+    }),
+  );
+  assert.ok(result.success, result.success ? "" : result.error);
+  if (!result.success) return;
+  const ts = result.data.customTokenSet;
+  assert.equal(ts?.bullet?.markerColor, "#ff0000");
+  assert.equal(ts?.connector?.dash, "dashed");
+  assert.equal(ts?.image?.fitMode, "cover");
+  assert.equal(ts?.shape?.fill, "#123456");
+  assert.equal(ts?.shape?.opacity, 0.5);
+});
+
+test("customTokenSet with an invalid bullet marker color is rejected", () => {
+  const result = safeParseDeck(
+    baseDeck({
+      customTokenSet: validTokenSet({ bullet: { markerColor: "red" } }),
+    }),
+  );
+  assert.ok(!result.success);
+  assert.match(result.error, /bullet\.markerColor must be a hex color/);
+});
+
+test("customTokenSet with an invalid connector dash is rejected", () => {
+  const result = safeParseDeck(
+    baseDeck({
+      customTokenSet: validTokenSet({ connector: { dash: "wavy" } }),
+    }),
+  );
+  assert.ok(!result.success);
+  assert.match(result.error, /connector\.dash must be one of/);
+});
+
+test("customTokenSet with an invalid shape fill color is rejected", () => {
+  const result = safeParseDeck(
+    baseDeck({
+      customTokenSet: validTokenSet({
+        shape: { cornerRadiusPt: 4, shadowCss: "none", fill: "nothex" },
+      }),
+    }),
+  );
+  assert.ok(!result.success);
+  assert.match(result.error, /shape\.fill must be a hex color/);
+});
