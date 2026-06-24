@@ -1197,6 +1197,7 @@ export function buildSlideElementsFromContent(slide: Slide): SlideElement[] {
         isBigTitle ? "center" : "left",
         true,
       ),
+      textRole: "h1",
       layoutSlot: { kind: "title" },
     });
   }
@@ -1219,6 +1220,7 @@ export function buildSlideElementsFromContent(slide: Slide): SlideElement[] {
       zIndex: z++,
       box: { x: 6, y: 26, w: 46, h: 66 },
       style: textStyle(4.5, "left", false),
+      textRole: "bullet",
       layoutSlot: { kind: "body" },
     });
     elements.push({
@@ -1253,6 +1255,7 @@ export function buildSlideElementsFromContent(slide: Slide): SlideElement[] {
       zIndex: z++,
       box: { x: 6, y: 26, w: 88, h: 66 },
       style: textStyle(4.5, "left", false),
+      textRole: "bullet",
       layoutSlot: { kind: "body" },
     });
   }

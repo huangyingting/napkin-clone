@@ -36,6 +36,7 @@ import {
 } from "./deck";
 import { DEFAULT_SLIDE_FORMAT, type SlideFormat } from "./slide-format";
 import type { LayoutSlotBinding, SlideSlotKind } from "./slide-slots";
+import type { DeckTextRole } from "./deck-theme-tokens";
 
 /**
  * Maps a reusable {@link PlaceholderType} onto its semantic layout slot (#627).
@@ -44,6 +45,26 @@ import type { LayoutSlotBinding, SlideSlotKind } from "./slide-slots";
  */
 function placeholderSlotKind(type: PlaceholderType): SlideSlotKind {
   return type;
+}
+
+/**
+ * Maps a {@link PlaceholderType} onto its semantic {@link DeckTextRole} (#610)
+ * so materialized template text inherits deck-template typography. The concrete
+ * `style` set alongside remains the authoritative local style during the
+ * render-wiring transition (#598); this is additive metadata.
+ */
+function placeholderTextRole(type: PlaceholderType): DeckTextRole {
+  switch (type) {
+    case "title":
+      return "h1";
+    case "subtitle":
+      return "subtitle";
+    case "footer":
+      return "footer";
+    case "visual":
+    case "body":
+      return "body";
+  }
 }
 
 /** The set of layouts the "+ Add slide" picker can insert. */
@@ -191,6 +212,7 @@ function materializePlaceholderElement(
     zIndex,
     box: { ...placeholder.box },
     style: templateTextStyle(placeholder.placeholderType),
+    textRole: placeholderTextRole(placeholder.placeholderType),
     layoutSlot,
   };
 }
@@ -201,6 +223,7 @@ function bodyTextElement(
   zIndex: number,
   align: ElementAlign = "center",
   layoutSlot?: LayoutSlotBinding,
+  textRole?: DeckTextRole,
 ): TextElement {
   return {
     id: makeElementId(),
@@ -210,6 +233,7 @@ function bodyTextElement(
     zIndex,
     box: { ...box },
     style: textStyle(4.5, align, false),
+    ...(textRole ? { textRole } : {}),
     ...(layoutSlot ? { layoutSlot } : {}),
   };
 }
@@ -335,9 +359,16 @@ export function buildTemplateSlide(
         theme,
         [
           visual,
-          bodyTextElement("Caption", BOX.caption, 1, "center", {
-            kind: "caption",
-          }),
+          bodyTextElement(
+            "Caption",
+            BOX.caption,
+            1,
+            "center",
+            {
+              kind: "caption",
+            },
+            "caption",
+          ),
         ],
         ctx.visualId ? [ctx.visualId] : [],
       );

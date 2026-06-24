@@ -793,3 +793,24 @@ test("normalizeBulletItems returns empty current items", async () => {
   const result = normalizeBulletItems(el);
   assert.equal(result.length, 0);
 });
+
+test("buildSlideElementsFromContent stamps semantic textRole h1/bullet (#610)", async () => {
+  const { buildSlideElementsFromContent } = await import("./deck");
+  const elements = buildSlideElementsFromContent({
+    id: "test-id",
+    index: 0,
+    title: "Title",
+    bullets: ["a", "b"],
+    visualIds: [],
+    layout: "content",
+    notes: "",
+    theme: "default",
+  });
+  const title = elements.find((e) => e.kind === "text");
+  const bullets = elements.find((e) => e.kind === "bullets");
+  assert.equal(title?.kind === "text" ? title.textRole : undefined, "h1");
+  assert.equal(
+    bullets?.kind === "bullets" ? bullets.textRole : undefined,
+    "bullet",
+  );
+});
