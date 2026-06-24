@@ -113,6 +113,52 @@ export function renderFooterText(template: string, slideIndex: number): string {
 }
 
 // ---------------------------------------------------------------------------
+// Slide theme colours for the shared renderer (#609)
+// ---------------------------------------------------------------------------
+
+/** The flat colour set the slide renderer needs for one slide. */
+export interface SlideThemeColors {
+  bgColor: string;
+  accentColor: string;
+  titleColor: string;
+  bodyColor: string;
+  mutedColor: string;
+}
+
+/**
+ * Resolves the renderer's slide colours from the deck token cascade (#609).
+ * A full {@link Deck} carries master / custom-token context; when absent a
+ * minimal deck is synthesised from the slide's own `theme` so present and
+ * public viewers resolve the same palette as the editor instead of a legacy
+ * fallback. The background colour collapses a gradient to its `from` stop and
+ * an image background to the token-set's `slideBg`.
+ */
+export function resolveSlideThemeColors(
+  deck: Deck | undefined,
+  slide: Slide,
+): SlideThemeColors {
+  const effectiveDeck: Deck = deck ?? {
+    theme: slide.theme,
+    themeId: slide.theme,
+    slides: [slide],
+  };
+  const r = resolveSlideStyle(effectiveDeck, slide);
+  const bgColor =
+    r.background.type === "solid"
+      ? r.background.color
+      : r.background.type === "gradient"
+        ? r.background.from
+        : r.tokenSet.colors.slideBg;
+  return {
+    bgColor,
+    accentColor: r.accent,
+    titleColor: r.titleColor,
+    bodyColor: r.bodyColor,
+    mutedColor: r.mutedColor,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Resolved text / bullet / shape-label styles (#602)
 // ---------------------------------------------------------------------------
 

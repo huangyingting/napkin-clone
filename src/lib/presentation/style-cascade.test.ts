@@ -14,6 +14,7 @@ import {
   resolveRoleTextStyle,
   resolveShapeLabelStyle,
   resolveSlideStyle,
+  resolveSlideThemeColors,
   resolveTextElementStyle,
 } from "./style-cascade";
 
@@ -383,4 +384,72 @@ test("resolveShapeLabelStyle defaults to shapeLabel and reads textStyleOverride"
   assert.strictEqual(style.role, "shapeLabel");
   assert.strictEqual(style.color, "#0a0a0a");
   assert.strictEqual(style.origin.color, "element");
+});
+
+// ---------------------------------------------------------------------------
+// resolveSlideThemeColors (#609)
+// ---------------------------------------------------------------------------
+
+test("resolveSlideThemeColors uses cascade colors without a deck (default theme)", () => {
+  const colors = resolveSlideThemeColors(
+    undefined,
+    makeSlide({ theme: "default" }),
+  );
+  // default token set: light slide background, dark onBg text
+  assert.strictEqual(colors.bgColor, "#ffffff");
+  assert.strictEqual(colors.titleColor, "#0f172a");
+  assert.strictEqual(colors.bodyColor, "#0f172a");
+  assert.strictEqual(colors.mutedColor, "#64748b");
+});
+
+test("resolveSlideThemeColors resolves a different built-in theme without a deck", () => {
+  const colors = resolveSlideThemeColors(
+    undefined,
+    makeSlide({ theme: "indigo" }),
+  );
+  // indigo token set: still a light background with a theme-dark onBg
+  assert.strictEqual(colors.bgColor, "#ffffff");
+  assert.strictEqual(colors.titleColor, "#1e1b4b");
+  assert.strictEqual(colors.accentColor, "#4f46e5");
+});
+
+test("resolveSlideThemeColors honors a deck custom token set", () => {
+  const deck = makeDeck({
+    theme: "default",
+    customTokenSet: {
+      id: "brand:x",
+      name: "X",
+      colors: {
+        slideBg: "#101010",
+        surface: "#202020",
+        accent: "#ff0000",
+        onBg: "#fafafa",
+        onSurface: "#eeeeee",
+        onAccent: "#ffffff",
+        muted: "#999999",
+      },
+      typography: {
+        fontFamily: "Inter",
+        scale: { h1: 36, h2: 28, h3: 22, body: 16, list: 14, footer: 10 },
+      },
+      spacing: { slidePaddingPt: 36, gridUnitPt: 6 },
+      shape: { cornerRadiusPt: 4, shadowCss: "none" },
+      defaultBackground: { type: "solid", color: "#101010" },
+    },
+  });
+  const colors = resolveSlideThemeColors(deck, makeSlide({ theme: "default" }));
+  assert.strictEqual(colors.bgColor, "#101010");
+  assert.strictEqual(colors.titleColor, "#fafafa");
+  assert.strictEqual(colors.accentColor, "#ff0000");
+});
+
+test("resolveSlideThemeColors collapses a slide gradient background to its from-stop", () => {
+  const colors = resolveSlideThemeColors(
+    undefined,
+    makeSlide({
+      theme: "default",
+      backgroundGradient: { from: "#123456", to: "#654321" },
+    }),
+  );
+  assert.strictEqual(colors.bgColor, "#123456");
 });
