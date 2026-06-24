@@ -37,7 +37,16 @@ import {
   normalizeBulletItems,
   PLACEHOLDER_TYPE_LABELS,
 } from "@/lib/presentation/deck";
-import { resolveSlideThemeColors } from "@/lib/presentation/style-cascade";
+import type {
+  ConnectorDefaultsToken,
+  DeckThemeTokenSet,
+  ImageDefaultsToken,
+  ShapeToken,
+} from "@/lib/presentation/deck-theme-tokens";
+import {
+  resolveSlideThemeColors,
+  resolveSlideTokenSet,
+} from "@/lib/presentation/style-cascade";
 import { resolveConnectorElementPoints } from "@/lib/presentation/connector-geometry";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 import type { Visual } from "@/lib/visual/schema";
@@ -604,19 +613,22 @@ function BulletsElementView({
 function VisualElementView({
   element,
   visuals,
+  defaultStyleThemeId,
 }: {
   element: VisualElement;
   visuals: ReadonlyMap<string, Visual>;
+  /** Deck-template default restyle theme applied when the element sets none (#607). */
+  defaultStyleThemeId?: string;
 }): JSX.Element | null {
   const visual = visuals.get(element.visualId);
   if (!visual) {
     return null;
   }
   // Apply the optional per-element restyle here, in the one shared renderer, so
-  // editor / present / public viewer all draw the visual identically.
-  const styled = element.styleThemeId
-    ? applyTheme(visual, element.styleThemeId)
-    : visual;
+  // editor / present / public viewer all draw the visual identically. Falls back
+  // to the deck-template default styleThemeId when the element sets none (#607).
+  const styleThemeId = element.styleThemeId ?? defaultStyleThemeId;
+  const styled = styleThemeId ? applyTheme(visual, styleThemeId) : visual;
   return (
     <div
       style={{
@@ -640,6 +652,7 @@ function VisualElementView({
 function ImageElementView({
   element,
   editable = false,
+  defaults,
 }: {
   element: ImageElement;
   /**
@@ -648,15 +661,25 @@ function ImageElementView({
    * surfaces render a neutral box so they never show a broken image (#226).
    */
   editable?: boolean;
+  /** Deck-template image defaults applied when the element omits a field (#607). */
+  defaults?: ImageDefaultsToken;
 }): JSX.Element {
   const cropClipPath = imageCropClipPath(element.crop);
+  // Effective image styling: element value wins, else the deck-template default
+  // (#607), else the renderer's built-in default. Built-in themes set no image
+  // token, so existing decks are unaffected.
+  const effFitMode = element.fitMode ?? defaults?.fitMode;
+  const effMask: Pick<ImageElement, "maskShape" | "radius"> = {
+    maskShape: element.maskShape ?? defaults?.maskShape,
+    radius: element.radius ?? defaults?.radiusPct,
+  };
   const outerStyle: React.CSSProperties = {
     ...boxStyle(element),
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
-    ...imageMaskStyle(element),
+    ...imageMaskStyle(effMask),
   };
   const innerStyle: React.CSSProperties = {
     height: "100%",
@@ -723,7 +746,7 @@ function ImageElementView({
             display: "block",
             height: "100%",
             width: "100%",
-            objectFit: element.fitMode ?? "contain",
+            objectFit: effFitMode ?? "contain",
             objectPosition: imageObjectPosition(element.crop),
           }}
         />
@@ -735,10 +758,20 @@ function ImageElementView({
 function ShapeElementView({
   element,
   elements: _elements,
+  defaults,
 }: {
   element: ShapeElement;
   elements: readonly SlideElement[];
+  /** Deck-template shape defaults applied when the element omits a field (#607). */
+  defaults?: ShapeToken;
 }): JSX.Element {
+  // Effective stroke: element stroke wins, else a deck-template default stroke
+  // (#607) when the token defines one. Built-in themes set no shape stroke token.
+  const effStroke =
+    element.stroke ??
+    (defaults?.stroke
+      ? { color: defaults.stroke, width: defaults.strokeWidth ?? 0.4 }
+      : undefined);
   if (element.shape === "line") {
     return (
       <div
@@ -750,9 +783,9 @@ function ShapeElementView({
       >
         <div
           style={{
-            height: `${element.stroke?.width ?? 0.4}cqmin`,
+            height: `${effStroke?.width ?? 0.4}cqmin`,
             width: "100%",
-            backgroundColor: element.stroke?.color ?? element.color,
+            backgroundColor: effStroke?.color ?? element.color,
           }}
         />
       </div>
@@ -791,9 +824,9 @@ function ShapeElementView({
             : element.radius !== undefined
               ? `${element.radius}%`
               : "0.25rem",
-        ...(element.stroke
+        ...(effStroke
           ? {
-              border: `${element.stroke.width}cqmin solid ${element.stroke.color}`,
+              border: `${effStroke.width}cqmin solid ${effStroke.color}`,
             }
           : {}),
       }}
@@ -806,20 +839,25 @@ function ShapeElementView({
 function ConnectorElementView({
   element,
   elements,
+  defaults,
 }: {
   element: ConnectorElement;
   elements: readonly SlideElement[];
+  /** Deck-template connector defaults applied when the element omits a field (#607). */
+  defaults?: ConnectorDefaultsToken;
 }): JSX.Element {
   const { start, end } = resolveConnectorElementPoints(
     element,
     elements,
     (el) => el.box,
   );
-  const strokeColor = element.stroke?.color ?? "#a1a1aa";
-  const strokeWidth = element.stroke?.width ?? 0.4;
-  const arrowEnd = element.arrowEnd ?? "arrow";
-  const arrowStart = element.arrowStart ?? "none";
-  const dash = element.dash ? "4 2" : undefined;
+  const strokeColor = element.stroke?.color ?? defaults?.color ?? "#a1a1aa";
+  const strokeWidth = element.stroke?.width ?? defaults?.width ?? 0.4;
+  const arrowEnd = element.arrowEnd ?? defaults?.endArrow ?? "arrow";
+  const arrowStart = element.arrowStart ?? defaults?.startArrow ?? "none";
+  const dashed =
+    element.dash || (defaults?.dash !== undefined && defaults.dash !== "solid");
+  const dash = dashed ? "4 2" : undefined;
   const endMarkerId = `conn-end-${element.id}`;
   const startMarkerId = `conn-start-${element.id}`;
   return (
@@ -899,6 +937,7 @@ function SlideElementView({
   elements,
   tc,
   accent,
+  tokenSet,
   visuals,
   editable,
 }: {
@@ -906,6 +945,7 @@ function SlideElementView({
   elements: readonly SlideElement[];
   tc: ThemeConfig;
   accent: string;
+  tokenSet: DeckThemeTokenSet;
   visuals: ReadonlyMap<string, Visual>;
   editable?: boolean;
 }): JSX.Element | null {
@@ -922,15 +962,45 @@ function SlideElementView({
     case "text":
       return <TextElementView element={element} tc={tc} />;
     case "bullets":
-      return <BulletsElementView element={element} tc={tc} accent={accent} />;
+      return (
+        <BulletsElementView
+          element={element}
+          tc={tc}
+          accent={tokenSet.bullet?.markerColor ?? accent}
+        />
+      );
     case "visual":
-      return <VisualElementView element={element} visuals={visuals} />;
+      return (
+        <VisualElementView
+          element={element}
+          visuals={visuals}
+          defaultStyleThemeId={tokenSet.visual?.styleThemeId}
+        />
+      );
     case "image":
-      return <ImageElementView element={element} editable={editable} />;
+      return (
+        <ImageElementView
+          element={element}
+          editable={editable}
+          defaults={tokenSet.image}
+        />
+      );
     case "shape":
-      return <ShapeElementView element={element} elements={elements} />;
+      return (
+        <ShapeElementView
+          element={element}
+          elements={elements}
+          defaults={tokenSet.shape}
+        />
+      );
     case "connector":
-      return <ConnectorElementView element={element} elements={elements} />;
+      return (
+        <ConnectorElementView
+          element={element}
+          elements={elements}
+          defaults={tokenSet.connector}
+        />
+      );
     default:
       return null;
   }
@@ -939,12 +1009,14 @@ function SlideElementView({
 function ElementsSlideLayout({
   slide,
   tc,
+  tokenSet,
   visuals,
   hiddenElementIds,
   editable,
 }: {
   slide: Slide;
   tc: ThemeConfig;
+  tokenSet: DeckThemeTokenSet;
   visuals: ReadonlyMap<string, Visual>;
   hiddenElementIds?: ReadonlySet<string>;
   editable?: boolean;
@@ -987,6 +1059,7 @@ function ElementsSlideLayout({
           elements={ordered}
           tc={tc}
           accent={accent}
+          tokenSet={tokenSet}
           visuals={visuals}
           editable={editable}
         />
@@ -1049,11 +1122,16 @@ export const SlideCanvas = memo(function SlideCanvas({
   // viewers use the same cascade palette as the editor (light slide background,
   // theme-derived text colours) instead of the legacy dark fallback.
   const tc: ThemeConfig = resolveThemeConfig(deck, slide);
+  // Token set drives optional non-text template defaults (#607): bullet marker,
+  // image fit/radius/mask/shadow, connector stroke/arrows, shape stroke, visual
+  // restyle. Built-in themes set none of these, so absent → existing defaults.
+  const tokenSet = resolveSlideTokenSet(deck, slide);
 
   return (
     <ElementsSlideLayout
       slide={slide}
       tc={tc}
+      tokenSet={tokenSet}
       visuals={visuals}
       hiddenElementIds={hiddenElementIds}
       editable={editable}

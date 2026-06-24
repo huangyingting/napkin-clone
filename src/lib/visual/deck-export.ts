@@ -577,15 +577,25 @@ function buildSlideSpec(
           ...box,
           src: element.src,
           ...(element.alt ? { alt: element.alt } : {}),
-          ...(element.fitMode !== undefined
-            ? { fitMode: element.fitMode }
+          ...((element.fitMode ?? resolved.tokenSet.image?.fitMode) !==
+          undefined
+            ? { fitMode: element.fitMode ?? resolved.tokenSet.image?.fitMode }
             : {}),
-          ...(element.maskShape !== undefined
-            ? { maskShape: element.maskShape }
+          ...((element.maskShape ?? resolved.tokenSet.image?.maskShape) !==
+          undefined
+            ? {
+                maskShape:
+                  element.maskShape ?? resolved.tokenSet.image?.maskShape,
+              }
             : {}),
           ...(element.crop !== undefined ? { crop: element.crop } : {}),
-          ...(element.radius
-            ? { radius: (element.radius / 100) * Math.min(box.w, box.h) }
+          ...((element.radius ?? resolved.tokenSet.image?.radiusPct)
+            ? {
+                radius:
+                  ((element.radius ?? resolved.tokenSet.image?.radiusPct ?? 0) /
+                    100) *
+                  Math.min(box.w, box.h),
+              }
             : {}),
         });
         break;
@@ -596,9 +606,10 @@ function buildSlideSpec(
         // Honor the optional per-element restyle, mirroring the shared renderer
         // (slide-canvas VisualElementView) so the export matches what the editor
         // and present/public viewers draw. applyTheme is pure and node-safe.
-        const styled = element.styleThemeId
-          ? applyTheme(visual, element.styleThemeId)
-          : visual;
+        // Falls back to the deck-template default styleThemeId (#607).
+        const styleThemeId =
+          element.styleThemeId ?? resolved.tokenSet.visual?.styleThemeId;
+        const styled = styleThemeId ? applyTheme(visual, styleThemeId) : visual;
         const layout = layoutWithinBox(styled, box);
         const specs = visualToNativeSpecs(styled, layout);
         if (
@@ -623,13 +634,23 @@ function buildSlideSpec(
           elements,
           (candidate) => candidate.box,
         );
-        const strokeColor = element.stroke?.color ?? "#a1a1aa";
+        const connectorDefaults = resolved.tokenSet.connector;
+        const strokeColor =
+          element.stroke?.color ?? connectorDefaults?.color ?? "#a1a1aa";
         // Width is authored in `cqmin` (percent of shortest slide side); convert to pt.
         const minInch = Math.min(geometry.slideW, geometry.slideH);
         const strokeWidthPt = Math.max(
           1,
-          ((element.stroke?.width ?? 0.4) / 100) * minInch * 72,
+          ((element.stroke?.width ?? connectorDefaults?.width ?? 0.4) / 100) *
+            minInch *
+            72,
         );
+        const dashed =
+          element.dash ||
+          (connectorDefaults?.dash !== undefined &&
+            connectorDefaults.dash !== "solid");
+        const arrowStart = element.arrowStart ?? connectorDefaults?.startArrow;
+        const arrowEnd = element.arrowEnd ?? connectorDefaults?.endArrow;
         ops.push({
           kind: "connector",
           x1: (startPct.x / 100) * geometry.slideW,
@@ -638,9 +659,9 @@ function buildSlideSpec(
           y2: (endPct.y / 100) * geometry.slideH,
           color: toHex(strokeColor),
           width: strokeWidthPt,
-          ...(element.dash ? { dash: true } : {}),
-          ...(element.arrowStart ? { arrowStart: element.arrowStart } : {}),
-          ...(element.arrowEnd ? { arrowEnd: element.arrowEnd } : {}),
+          ...(dashed ? { dash: true } : {}),
+          ...(arrowStart ? { arrowStart } : {}),
+          ...(arrowEnd ? { arrowEnd } : {}),
           ...(element.opacity !== undefined && element.opacity < 1
             ? { opacity: element.opacity }
             : {}),
