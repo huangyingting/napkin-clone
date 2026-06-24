@@ -33,6 +33,7 @@ import {
   ClipboardPaste,
   Copy,
   Group,
+  Layers,
   Link,
   Link2Off,
   Lock,
@@ -1047,6 +1048,7 @@ export function SlideStageEditor({
     x: number;
     y: number;
     elementId: string;
+    candidateIds: string[];
   } | null>(null);
   // Viewport point where an inline edit was opened by a single click, so the
   // editor can drop the caret there instead of selecting all. Null for
@@ -2209,10 +2211,8 @@ export function SlideStageEditor({
               onContextMenu={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
-                const hit = hitTestAtClientPoint(
-                  event.clientX,
-                  event.clientY,
-                )[0];
+                const hits = hitTestAtClientPoint(event.clientX, event.clientY);
+                const hit = hits[0];
                 if (!hit) {
                   return;
                 }
@@ -2225,6 +2225,7 @@ export function SlideStageEditor({
                   x: event.clientX,
                   y: event.clientY,
                   elementId: targetElement.id,
+                  candidateIds: hits.map((candidate) => candidate.element.id),
                 });
               }}
               onKeyDown={(event) => {
@@ -2512,7 +2513,12 @@ export function SlideStageEditor({
             element={
               elements.find((el) => el.id === contextMenu.elementId) ?? null
             }
+            allElements={elements}
+            candidates={contextMenu.candidateIds
+              .map((id) => elements.find((el) => el.id === id) ?? null)
+              .filter((el): el is SlideElement => el !== null)}
             onClose={() => setContextMenu(null)}
+            onSelectCandidate={(id) => onSelectElement(id, "replace")}
             onEdit={(el) => startEditing(el)}
             onDuplicate={onDuplicateElement}
             onCopy={onCopyElements}
@@ -2752,7 +2758,10 @@ function ElementContextMenu({
   x,
   y,
   element,
+  allElements,
+  candidates,
   onClose,
+  onSelectCandidate,
   onEdit,
   onDuplicate,
   onCopy,
@@ -2772,7 +2781,10 @@ function ElementContextMenu({
   x: number;
   y: number;
   element: SlideElement | null;
+  allElements: readonly SlideElement[];
+  candidates: readonly SlideElement[];
   onClose: () => void;
+  onSelectCandidate: (id: string) => void;
   onEdit: (element: SlideElement) => void;
   onDuplicate: (id: string) => void;
   onCopy: () => void;
@@ -2845,6 +2857,7 @@ function ElementContextMenu({
 
   if (!element || typeof document === "undefined") return null;
   const editable = isInlineEditableStageElement(element);
+  const layerCandidates = candidates.length > 1 ? candidates : [];
   const run = (action: () => void) => () => {
     action();
     onClose();
@@ -2878,6 +2891,41 @@ function ElementContextMenu({
       role="menu"
       aria-label="Element actions"
     >
+      {layerCandidates.length > 0 ? (
+        <>
+          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-ds-text-muted">
+            Select layer
+          </div>
+          {layerCandidates.map((candidate) => {
+            const selected = candidate.id === element.id;
+            return (
+              <button
+                key={candidate.id}
+                type="button"
+                role="menuitem"
+                tabIndex={-1}
+                className={MENU_ITEM}
+                onClick={run(() => onSelectCandidate(candidate.id))}
+              >
+                <Layers
+                  size={14}
+                  aria-hidden="true"
+                  className="mr-2 shrink-0"
+                />
+                <span className="min-w-0 flex-1 truncate text-left">
+                  {elementAccessibleName(candidate, allElements)}
+                </span>
+                {selected ? (
+                  <span className="ml-2 text-[10px] text-ds-text-muted">
+                    Current
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+          <div className="my-1 h-px bg-ds-border-subtle" aria-hidden />
+        </>
+      ) : null}
       {editable ? item("Edit text", Pencil, () => onEdit(element)) : null}
       {item("Duplicate", Copy, () => onDuplicate(element.id))}
       {item("Copy", Copy, onCopy)}
