@@ -2301,3 +2301,65 @@ test("SET_ELEMENT_BOXES commands coalesce when they share a coalesceKey", () => 
   const result = coalesceCommands(cmds);
   assert.equal(result.length, 2);
 });
+
+test("REORDER_ELEMENT moves an element to a target's z-order position (#639)", () => {
+  const els: SlideElement[] = [
+    {
+      id: "a",
+      kind: "shape",
+      shape: "rect",
+      color: "#111",
+      zIndex: 0,
+      box: { x: 0, y: 0, w: 5, h: 5 },
+    },
+    {
+      id: "b",
+      kind: "shape",
+      shape: "rect",
+      color: "#222",
+      zIndex: 1,
+      box: { x: 0, y: 0, w: 5, h: 5 },
+    },
+    {
+      id: "c",
+      kind: "shape",
+      shape: "rect",
+      color: "#333",
+      zIndex: 2,
+      box: { x: 0, y: 0, w: 5, h: 5 },
+    },
+  ];
+  const deck = makeDeckWithElements("s1", els);
+  const result = executeCommand(deck, {
+    type: "REORDER_ELEMENT",
+    slideId: "s1",
+    elementId: "a",
+    targetElementId: "c",
+  });
+  assert.equal(result.ok, true);
+  const byZ = [...(result.deck.slides[0]!.elements ?? [])]
+    .sort((x, y) => x.zIndex - y.zIndex)
+    .map((e) => e.id);
+  assert.deepEqual(byZ, ["b", "c", "a"]);
+  assert.equal(result.patches[0]!.op, "element.reorder");
+});
+
+test("REORDER_ELEMENT fails when the element is missing (#639)", () => {
+  const deck = makeDeckWithElements("s1", [
+    {
+      id: "a",
+      kind: "shape",
+      shape: "rect",
+      color: "#111",
+      zIndex: 0,
+      box: { x: 0, y: 0, w: 5, h: 5 },
+    },
+  ]);
+  const result = executeCommand(deck, {
+    type: "REORDER_ELEMENT",
+    slideId: "s1",
+    elementId: "nope",
+    targetElementId: "a",
+  });
+  assert.equal(result.ok, false);
+});

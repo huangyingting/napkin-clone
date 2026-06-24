@@ -24,11 +24,8 @@ import {
   AlignStartHorizontal,
   AlignStartVertical,
   AlignVerticalSpaceBetween,
-  ArrowDownToLine,
-  ArrowUpToLine,
   Bold,
   BringToFront,
-  ChevronDown,
   Copy,
   Expand,
   Italic,
@@ -187,6 +184,7 @@ export interface SlideInspectorProps {
   onSetElementLocked?: (elementId: string, locked: boolean) => void;
   onMoveElementZOrder?: (elementId: string, direction: "up" | "down") => void;
   onRenameElement?: (elementId: string, name: string) => void;
+  onReorderElement?: (elementId: string, targetElementId: string) => void;
   // Style
   onBackgroundChange: (color: string | undefined) => void;
   onBackgroundGradientChange: (
@@ -2098,43 +2096,6 @@ function FontFamilyControl({
   );
 }
 
-/**
- * A labelled collapsible section with an accessible toggle button.
- * Starts collapsed (closed by default) and reveals children when opened.
- * Used in Advanced mode to group controls that are noise for new users.
- */
-function CollapsibleSection({
-  id,
-  label,
-  children,
-}: {
-  id: string;
-  label: string;
-  children: React.ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  const contentId = `${id}-content`;
-  return (
-    <div className="mt-3 border-t border-ds-border-subtle pt-3">
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-controls={contentId}
-        onClick={() => setOpen((o) => !o)}
-        className={`flex w-full items-center justify-between text-xs font-medium text-ds-text-secondary transition-colors hover:text-ds-text-primary ${FOCUS_RING}`}
-      >
-        <span>{label}</span>
-        <ChevronDown
-          size={12}
-          aria-hidden="true"
-          className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
-        />
-      </button>
-      {open ? <div id={contentId}>{children}</div> : null}
-    </div>
-  );
-}
-
 /** Small icon-button used inside the multi-select tools grid. */
 function ToolBtn({
   label,
@@ -2350,10 +2311,6 @@ export function SlideInspector({
   onResetLayout,
   onUpdateNotes,
   onUpdateElement,
-  onRemoveElement,
-  onDuplicateElement,
-  onBringToFront,
-  onSendToBack,
   onAlign,
   onDistribute,
   onMatchSize,
@@ -2364,6 +2321,7 @@ export function SlideInspector({
   onSetElementLocked,
   onMoveElementZOrder,
   onRenameElement,
+  onReorderElement,
   onBackgroundChange,
   onBackgroundGradientChange,
   onBackgroundImageChange,
@@ -2381,7 +2339,6 @@ export function SlideInspector({
   const elements = slide.elements ?? [];
   const selectedElement =
     elements.find((element) => element.id === selectedElementId) ?? null;
-  const orderedElements = [...elements].sort((a, b) => b.zIndex - a.zIndex);
   const canShowTextPanel =
     selectedElement?.kind === "text" ||
     selectedElement?.kind === "bullets" ||
@@ -2598,103 +2555,34 @@ export function SlideInspector({
             className="flex flex-col gap-4"
           >
             <>
-              {/* Element list */}
-              <div className="flex flex-col gap-1">
-                {orderedElements.map((element) => {
-                  const selected = element.id === selectedElementId;
-                  return (
-                    <div
-                      key={element.id}
-                      className={`flex items-center gap-1 rounded-ds-sm border px-2 py-1 ${
-                        selected
-                          ? "border-ds-accent-border bg-ds-accent-surface"
-                          : "border-transparent hover:bg-ds-state-hover"
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => onSelectElement(element.id)}
-                        className={`min-w-0 flex-1 truncate text-left text-xs text-ds-text-secondary ${FOCUS_RING}`}
-                      >
-                        {elementLabel(element)}
-                      </button>
-                      <Tooltip label="Duplicate element" side="bottom">
-                        <button
-                          type="button"
-                          onClick={() => onDuplicateElement(element.id)}
-                          aria-label="Duplicate element"
-                          className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
-                        >
-                          <Copy size={12} aria-hidden="true" />
-                        </button>
-                      </Tooltip>
-                      {showAdvanced ? (
-                        <>
-                          <Tooltip label="Bring to front" side="bottom">
-                            <button
-                              type="button"
-                              onClick={() => onBringToFront(element.id)}
-                              aria-label="Bring to front"
-                              className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
-                            >
-                              <ArrowUpToLine size={12} aria-hidden="true" />
-                            </button>
-                          </Tooltip>
-                          <Tooltip label="Send to back" side="bottom">
-                            <button
-                              type="button"
-                              onClick={() => onSendToBack(element.id)}
-                              aria-label="Send to back"
-                              className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
-                            >
-                              <ArrowDownToLine size={12} aria-hidden="true" />
-                            </button>
-                          </Tooltip>
-                        </>
-                      ) : null}
-                      <Tooltip label="Delete element" side="bottom">
-                        <button
-                          type="button"
-                          onClick={() => onRemoveElement(element.id)}
-                          aria-label="Delete element"
-                          className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
-                        >
-                          <Trash2 size={12} aria-hidden="true" />
-                        </button>
-                      </Tooltip>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Layer list (issue #331) */}
+              {/* Layer list (issue #331): single rich list with select, rename,
+                  visibility, lock, z-order, filter, and drag-reorder (#639). */}
               {(onSetElementHidden ||
                 onSetElementLocked ||
                 onMoveElementZOrder ||
                 onRenameElement) && (
-                <CollapsibleSection id="layers" label="Layers">
-                  <LayerList
-                    elements={elements}
-                    selectedElementId={selectedElementId}
-                    onSelectElement={onSelectElement}
-                    onToggleHidden={(id) =>
-                      onSetElementHidden?.(
-                        id,
-                        !(elements.find((el) => el.id === id)?.hidden ?? false),
-                      )
-                    }
-                    onToggleLocked={(id) =>
-                      onSetElementLocked?.(
-                        id,
-                        !(elements.find((el) => el.id === id)?.locked ?? false),
-                      )
-                    }
-                    onMoveZOrder={(id, direction) =>
-                      onMoveElementZOrder?.(id, direction)
-                    }
-                    onRename={(id, name) => onRenameElement?.(id, name)}
-                  />
-                </CollapsibleSection>
+                <LayerList
+                  elements={elements}
+                  selectedElementId={selectedElementId}
+                  onSelectElement={onSelectElement}
+                  onToggleHidden={(id) =>
+                    onSetElementHidden?.(
+                      id,
+                      !(elements.find((el) => el.id === id)?.hidden ?? false),
+                    )
+                  }
+                  onToggleLocked={(id) =>
+                    onSetElementLocked?.(
+                      id,
+                      !(elements.find((el) => el.id === id)?.locked ?? false),
+                    )
+                  }
+                  onMoveZOrder={(id, direction) =>
+                    onMoveElementZOrder?.(id, direction)
+                  }
+                  onRename={(id, name) => onRenameElement?.(id, name)}
+                  {...(onReorderElement ? { onReorder: onReorderElement } : {})}
+                />
               )}
             </>
           </div>

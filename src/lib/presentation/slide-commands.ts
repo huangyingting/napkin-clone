@@ -74,6 +74,7 @@ import {
   removeElements,
   removeSlide,
   renameElement,
+  reorderElement,
   reorderSlides,
   resetSlideLayout,
   resetSlideLayoutPositions,
@@ -433,6 +434,15 @@ export interface RenameElementCommand {
   commandId?: string;
 }
 
+/** Moves an element to the z-order position of another (layer drag-reorder). */
+export interface ReorderElementCommand {
+  type: "REORDER_ELEMENT";
+  slideId: string;
+  elementId: string;
+  targetElementId: string;
+  commandId?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Issue #400 — style, theme, layout, and asset commands
 // ---------------------------------------------------------------------------
@@ -612,6 +622,7 @@ export type SlideCommand =
   | SetElementLockedCommand
   | MoveElementZOrderCommand
   | RenameElementCommand
+  | ReorderElementCommand
   // #400 — style, theme, layout, asset
   | SetDeckThemeCommand
   | SetDeckFormatCommand
@@ -679,6 +690,7 @@ export type PatchOp =
   | "element.set_locked"
   | "element.move_zorder"
   | "element.rename"
+  | "element.reorder"
   // Deck-level
   | "deck.set_theme"
   | "deck.set_format";
@@ -1446,6 +1458,22 @@ export function executeCommand(deck: Deck, cmd: SlideCommand): CommandResult {
         [cmd.elementId],
         undefined,
         [makePatch("element.rename", [cmd.slideId], [cmd.elementId])],
+      );
+    }
+
+    case "REORDER_ELEMENT": {
+      const index = findSlideIndex(deck, cmd.slideId);
+      if (index === -1) return failure(deck, `Slide not found: ${cmd.slideId}`);
+      const slide = deck.slides[index]!;
+      if (!slide.elements?.some((e) => e.id === cmd.elementId)) {
+        return failure(deck, `Element not found: ${cmd.elementId}`);
+      }
+      return success(
+        reorderElement(deck, index, cmd.elementId, cmd.targetElementId),
+        [cmd.slideId],
+        [cmd.elementId],
+        undefined,
+        [makePatch("element.reorder", [cmd.slideId], [cmd.elementId])],
       );
     }
 

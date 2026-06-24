@@ -11,6 +11,7 @@ import {
   duplicateSlide,
   insertSlide,
   moveElementZOrder,
+  reorderElement,
   removeElement,
   removeElements,
   nudgeElements,
@@ -1024,4 +1025,25 @@ test("renameElement is immutable", () => {
   const before = deck.slides[0].elements;
   renameElement(deck, 0, "e1", "Name");
   assert.equal(deck.slides[0].elements, before);
+});
+
+test("reorderElement moves an element to the target's z-order position (#639)", () => {
+  const deck = deckWithThreeByZ();
+  const byZ = (d: Deck) =>
+    [...d.slides[0].elements!]
+      .sort((a, b) => a.zIndex - b.zIndex)
+      .map((e) => e.id);
+  // Move "low" (bottom) to "high" (top) position → order becomes mid, high, low.
+  const next = reorderElement(deck, 0, "low", "high");
+  assert.deepStrictEqual(byZ(next), ["mid", "high", "low"]);
+});
+
+test("reorderElement is a no-op when ids are equal or missing (#639)", () => {
+  const deck = deckWithThreeByZ();
+  const zOf = (d: Deck) => d.slides[0].elements!.map((e) => e.zIndex);
+  assert.deepStrictEqual(zOf(reorderElement(deck, 0, "mid", "mid")), zOf(deck));
+  assert.deepStrictEqual(
+    zOf(reorderElement(deck, 0, "nope", "high")),
+    zOf(deck),
+  );
 });

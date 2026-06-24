@@ -2526,6 +2526,77 @@ export function SlideEditor({
     [deck, doCommitAndChange, safeSelected],
   );
 
+  // ── Layer panel: visibility, lock, z-order step, rename, drag-reorder (#639)
+  const handleSetElementHidden = useCallback(
+    (id: string, hidden: boolean) => {
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
+      doCommitAndChange(deck, {
+        type: "SET_ELEMENT_HIDDEN",
+        slideId,
+        elementId: id,
+        hidden,
+      });
+    },
+    [deck, doCommitAndChange, safeSelected],
+  );
+
+  const handleSetElementLocked = useCallback(
+    (id: string, locked: boolean) => {
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
+      doCommitAndChange(deck, {
+        type: "SET_ELEMENT_LOCKED",
+        slideId,
+        elementId: id,
+        locked,
+      });
+    },
+    [deck, doCommitAndChange, safeSelected],
+  );
+
+  const handleMoveElementZOrder = useCallback(
+    (id: string, direction: "up" | "down") => {
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
+      doCommitAndChange(deck, {
+        type: "MOVE_ELEMENT_ZORDER",
+        slideId,
+        elementId: id,
+        direction,
+      });
+    },
+    [deck, doCommitAndChange, safeSelected],
+  );
+
+  const handleRenameElement = useCallback(
+    (id: string, name: string) => {
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId) return;
+      doCommitAndChange(deck, {
+        type: "RENAME_ELEMENT",
+        slideId,
+        elementId: id,
+        name,
+      });
+    },
+    [deck, doCommitAndChange, safeSelected],
+  );
+
+  const handleReorderElement = useCallback(
+    (id: string, targetId: string) => {
+      const slideId = deck.slides[safeSelected]?.id;
+      if (!slideId || id === targetId) return;
+      doCommitAndChange(deck, {
+        type: "REORDER_ELEMENT",
+        slideId,
+        elementId: id,
+        targetElementId: targetId,
+      });
+    },
+    [deck, doCommitAndChange, safeSelected],
+  );
+
   // ── Multi-select: align, distribute, match-size, arrange (issue #328) ────
 
   const handleAlign = useCallback(
@@ -3046,6 +3117,11 @@ export function SlideEditor({
         onDuplicateElement: handleDuplicateElement,
         onBringToFront: handleBringToFront,
         onSendToBack: handleSendToBack,
+        onSetElementHidden: handleSetElementHidden,
+        onSetElementLocked: handleSetElementLocked,
+        onMoveElementZOrder: handleMoveElementZOrder,
+        onRenameElement: handleRenameElement,
+        onReorderElement: handleReorderElement,
         selectedElementIds: effectiveSelectedElementIds,
         onAlign: handleAlign,
         onDistribute: handleDistribute,
