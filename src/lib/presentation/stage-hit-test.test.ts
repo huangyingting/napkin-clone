@@ -40,6 +40,20 @@ function text(
   };
 }
 
+function visual(
+  id: string,
+  zIndex: number,
+  elementBox: ElementBox,
+): SlideElement {
+  return {
+    id,
+    kind: "visual",
+    visualId: `visual-${id}`,
+    zIndex,
+    box: elementBox,
+  };
+}
+
 test("hitTestSlideElements returns the top visible element by zIndex", () => {
   const elements = [
     rect("bottom", 0, box(10, 10, 40, 40)),
@@ -176,6 +190,37 @@ test("hitTestSlideElements skips hidden and locked elements by default", () => {
     hits.map((hit) => hit.element.id),
     ["bottom"],
   );
+});
+
+test("hitTestSlideElements uses media geometry regions for visual/image hits", () => {
+  const elements = [
+    rect("bottom", 0, box(0, 0, 100, 100)),
+    visual("sparse-visual", 10, box(0, 0, 100, 100)),
+  ];
+  const mediaHitGeometry = new Map([
+    ["sparse-visual", { regions: [box(20, 20, 10, 10)] }],
+  ]);
+
+  const emptyRegionHits = hitTestSlideElements({ x: 80, y: 80 }, elements, {
+    mediaHitGeometry,
+  });
+  assert.equal(emptyRegionHits[0]?.element.id, "bottom");
+
+  const regionHits = hitTestSlideElements({ x: 25, y: 25 }, elements, {
+    mediaHitGeometry,
+  });
+  assert.equal(regionHits[0]?.element.id, "sparse-visual");
+});
+
+test("hitTestSlideElements falls back to fitted media box without media geometry", () => {
+  const elements = [
+    rect("bottom", 0, box(0, 0, 100, 100)),
+    visual("visual-box", 10, box(0, 0, 100, 100)),
+  ];
+
+  const hits = hitTestSlideElements({ x: 80, y: 80 }, elements);
+
+  assert.equal(hits[0]?.element.id, "visual-box");
 });
 
 test("hitTestSlideElements can include locked elements when requested", () => {

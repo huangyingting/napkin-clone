@@ -16,6 +16,7 @@ contract for `SlideStageEditor`, not the persisted deck schema.
 | Target resolution            | [`src/lib/presentation/stage-targeting.ts`](../../../src/lib/presentation/stage-targeting.ts)                       |
 | Chrome layering              | [`src/lib/presentation/stage-chrome.ts`](../../../src/lib/presentation/stage-chrome.ts)                             |
 | Interaction decision helpers | [`src/lib/presentation/stage-interaction.ts`](../../../src/lib/presentation/stage-interaction.ts)                   |
+| Media hit geometry           | [`src/lib/presentation/media-hit-geometry.ts`](../../../src/lib/presentation/media-hit-geometry.ts)                 |
 | Text hit geometry            | [`src/lib/presentation/text-hit-geometry.ts`](../../../src/lib/presentation/text-hit-geometry.ts)                   |
 | Keyboard canvas helpers      | [`src/lib/presentation/canvas-a11y.ts`](../../../src/lib/presentation/canvas-a11y.ts)                               |
 | Connector geometry           | [`src/lib/presentation/connector-geometry.ts`](../../../src/lib/presentation/connector-geometry.ts)                 |
@@ -176,18 +177,19 @@ near its stroke, with enough tolerance to be practical.
 
 ### Visuals And Images
 
-Visual and image elements currently use their fitted box as the hit geometry.
-For images with transparent pixels or visuals with sparse internal nodes, a
-future improvement could add alpha/pixel-aware or node-aware hit testing. Until
-then, semantic scoring still lets selected elements stay sticky and lets context
-menus/layer list provide precise fallback.
+Visual and image elements can use optional media-aware hit geometry. Visuals get
+node-aware regions from `media-hit-geometry.ts` when positioned node bounds are
+available; otherwise visuals and images fall back to their fitted box. Image
+alpha/pixel-aware geometry is intentionally an extension hook rather than work
+done in pointermove.
 
 Large visuals/images are ambiguous: they can be primary content, but they can
 also act as background-like covers. The current box-based rule is intentionally
 conservative. Future scoring may need additional signals, such as:
 
 - alpha-aware image hit testing for transparent PNG/WebP content;
-- rendered-node hit testing for sparse visuals;
+- richer rendered-node hit testing for sparse visuals, including edges and
+  labels outside basic node rectangles;
 - background/cover intent from slide layout, element role, or user lock state;
 - selected-object stickiness so large media remains operable once selected.
 
