@@ -162,11 +162,14 @@ export function FloatingSurface({
       {open ? (
         <motion.div
           ref={ref}
+          data-floating-panel="true"
           role={role}
           aria-label={ariaLabel}
           onMouseDown={
             keepSelection ? (event) => event.preventDefault() : undefined
           }
+          onPointerMove={(event) => event.stopPropagation()}
+          onMouseMove={(event) => event.stopPropagation()}
           initial={popMotion.initial}
           animate={popMotion.animate}
           exit={popMotion.exit}

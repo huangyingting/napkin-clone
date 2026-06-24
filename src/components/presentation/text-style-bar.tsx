@@ -81,7 +81,7 @@ function IconToggle({
         onClick={onClick}
         className={`flex h-7 w-7 items-center justify-center rounded-ds-sm transition-colors ${
           active
-            ? "bg-ds-control text-ds-control-text"
+            ? "bg-ds-accent-surface text-ds-accent-text"
             : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
         } ${FOCUS_RING}`}
       >
@@ -134,7 +134,7 @@ function AlignGroup({
               onClick={() => onChange(option)}
               className={`flex h-7 w-7 items-center justify-center transition-colors ${
                 selected
-                  ? "bg-ds-control text-ds-control-text"
+                  ? "bg-ds-accent-surface text-ds-accent-text"
                   : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
               } ${FOCUS_RING}`}
             >

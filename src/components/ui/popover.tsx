@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 
 import { usePopMotion } from "@/components/motion/reveal";
 
@@ -17,6 +18,7 @@ import { cx, MENU_CHROME } from "./tokens";
 // Gap (px) between the trigger's bottom edge and the panel — matches the old
 // `mt-2` spacing.
 const PANEL_GAP = 8;
+const VIEWPORT_INSET = 8;
 
 export type PopoverProps = {
   /** Controls panel visibility. The caller owns the open/close state. */
@@ -39,6 +41,12 @@ export type PopoverProps = {
    * the bottom of the viewport, e.g. the slide bottom dock).
    */
   placement?: "bottom" | "top";
+  /** Horizontal alignment relative to the trigger. Defaults to end-aligned. */
+  align?: "start" | "end";
+  /** Render the panel in `document.body` so overflow ancestors cannot clip it. */
+  portal?: boolean;
+  /** Semantic z-index layer for the floating panel. */
+  layer?: "dropdown" | "tooltip";
   /** ARIA role for the panel. Defaults to `"dialog"`. */
   role?: string;
   "aria-label"?: string;
@@ -53,14 +61,17 @@ export type PopoverProps = {
  *   box. Fixed positioning lets the panel escape any `overflow` ancestor (e.g.
  *   a horizontally-scrollable toolbar) that would otherwise clip it —
  *   `overflow-x: auto` forces `overflow-y` to compute as `auto`, which used to
- *   clip dropdowns rendered below the row. It stays a DOM child of the trigger,
- *   so it keeps the surrounding stacking context (the `z-dropdown` panel paints
- *   above a `z-modal` editor as before).
+ *   clip dropdowns rendered below the row. Use `portal` when an ancestor's
+ *   filter/backdrop-filter/transform creates a fixed-position containing block
+ *   anyway; the panel is then rendered in `document.body` and click-away checks
+ *   both the trigger wrapper and the portaled panel.
  * - Repositions on scroll / resize so it stays pinned to the trigger.
  * - Closes on Escape key and pointer-down outside the container.
  * - Reduced-motion-aware enter / exit animation via {@link usePopMotion}.
  * - Default placement: bottom-end (right edge aligned to the trigger's right
- *   edge, just below it). Pass `className` to override sizing/appearance.
+ *   edge, just below it). `align="start"` left-aligns wide menus opened from
+ *   the left side of dense toolbars. The computed x-coordinate is clamped to
+ *   the viewport so fixed-width menus do not get cut off-screen.
  */
 export function Popover({
   open,
@@ -69,37 +80,49 @@ export function Popover({
   children,
   className,
   placement = "bottom",
+  align = "end",
+  portal = false,
+  layer = "dropdown",
   role = "dialog",
   "aria-label": ariaLabel,
 }: PopoverProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const popMotion = usePopMotion();
-  // Fixed-viewport coordinates: pin the panel's right edge to the trigger's
-  // right edge, and anchor it either below (`top`) or above (`bottom`) the
-  // trigger depending on `placement`.
+  // Fixed-viewport coordinates: anchor the panel near the trigger, then clamp
+  // the measured panel box inside the viewport.
   const [coords, setCoords] = useState<{
     top?: number;
     bottom?: number;
-    right: number;
+    left: number;
   }>({
     top: -1000,
-    right: -1000,
+    left: -1000,
   });
 
   const reposition = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    const right = Math.max(0, window.innerWidth - rect.right);
+    const panelWidth = panelRef.current?.offsetWidth ?? 0;
+    const preferredLeft =
+      align === "start" || panelWidth === 0
+        ? rect.left
+        : rect.right - panelWidth;
+    const maxLeft = Math.max(
+      VIEWPORT_INSET,
+      window.innerWidth - (panelWidth || rect.width) - VIEWPORT_INSET,
+    );
+    const left = Math.min(Math.max(preferredLeft, VIEWPORT_INSET), maxLeft);
     if (placement === "top") {
       setCoords({
         bottom: Math.max(0, window.innerHeight - rect.top + PANEL_GAP),
-        right,
+        left,
       });
     } else {
-      setCoords({ top: rect.bottom + PANEL_GAP, right });
+      setCoords({ top: rect.bottom + PANEL_GAP, left });
     }
-  }, [placement]);
+  }, [align, placement]);
 
   // Measure the trigger on open and keep the panel pinned while the user
   // scrolls or resizes.
@@ -126,52 +149,68 @@ export function Popover({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
-  // Pointer-down outside the container closes the popover.
+  // Pointer-down outside the container closes the popover. Use mousedown
+  // instead of click so portaled panel buttons that swap their own subtree
+  // (for example a Customize view) are classified before React unmounts the
+  // original event target.
   useEffect(() => {
     if (!open) return;
-    const onDocClick = (event: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
+    const onDocMouseDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      const insideTrigger = containerRef.current?.contains(target) ?? false;
+      const insidePanel = panelRef.current?.contains(target) ?? false;
+      if (!insideTrigger && !insidePanel) {
         onClose();
       }
     };
-    document.addEventListener("click", onDocClick);
-    return () => document.removeEventListener("click", onDocClick);
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => document.removeEventListener("mousedown", onDocMouseDown);
   }, [open, onClose]);
+
+  const panel = (
+    <AnimatePresence>
+      {open ? (
+        <motion.div
+          ref={panelRef}
+          data-floating-panel="true"
+          role={role}
+          aria-label={ariaLabel}
+          initial={popMotion.initial}
+          animate={popMotion.animate}
+          exit={popMotion.exit}
+          transition={popMotion.transition}
+          onPointerDown={(event) => event.stopPropagation()}
+          onPointerMove={(event) => event.stopPropagation()}
+          onMouseDown={(event) => event.stopPropagation()}
+          onMouseMove={(event) => event.stopPropagation()}
+          style={{
+            top: coords.top,
+            bottom: coords.bottom,
+            left: coords.left,
+          }}
+          className={cx(
+            "fixed max-w-[calc(100vw-1rem)]",
+            layer === "tooltip" ? "z-tooltip" : "z-dropdown",
+            // Default sizing only when the caller doesn't supply its own.
+            // `cx` concatenates without Tailwind-merge, so a hardcoded
+            // default width/padding would otherwise override the caller's.
+            className ? undefined : "w-80 p-4",
+            MENU_CHROME,
+            className,
+          )}
+        >
+          {children}
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
 
   return (
     <div ref={containerRef} className="relative">
       {trigger}
-      <AnimatePresence>
-        {open ? (
-          <motion.div
-            role={role}
-            aria-label={ariaLabel}
-            initial={popMotion.initial}
-            animate={popMotion.animate}
-            exit={popMotion.exit}
-            transition={popMotion.transition}
-            style={{
-              top: coords.top,
-              bottom: coords.bottom,
-              right: coords.right,
-            }}
-            className={cx(
-              "fixed z-dropdown",
-              // Default sizing only when the caller doesn't supply its own.
-              // `cx` concatenates without Tailwind-merge, so a hardcoded
-              // default width/padding would otherwise override the caller's.
-              className ? undefined : "w-80 p-4",
-              MENU_CHROME,
-              className,
-            )}
-          >
-            {children}
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      {portal && typeof document !== "undefined"
+        ? createPortal(panel, document.body)
+        : panel}
     </div>
   );
 }

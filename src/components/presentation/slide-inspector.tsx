@@ -255,7 +255,7 @@ function TabButton({
       onKeyDown={onKeyDown}
       className={`flex-1 rounded-ds-sm px-2 py-1.5 text-xs font-medium transition-colors ${
         active
-          ? "bg-ds-control text-ds-control-text"
+          ? "bg-ds-accent-surface text-ds-accent-text"
           : "text-ds-text-secondary hover:bg-ds-state-hover"
       } ${FOCUS_RING}`}
     >
@@ -583,7 +583,7 @@ function ImageElementEditor({
                 radius: radius <= 0 ? undefined : radius,
               });
             }}
-            className="w-full accent-ds-control"
+            className="w-full accent-ds-accent"
             aria-label="Image corner radius"
           />
         </label>
@@ -658,7 +658,7 @@ function ImageFitModeControl({
               onClick={() => onChange(value === "contain" ? undefined : value)}
               className={`rounded-ds-sm px-2 py-1 text-xs font-medium transition-colors ${
                 isActive
-                  ? "bg-ds-control text-ds-control-text"
+                  ? "bg-ds-accent-surface text-ds-accent-text"
                   : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
               } ${FOCUS_RING}`}
             >
@@ -826,7 +826,7 @@ function FitModeControl({
               }
               className={`rounded-ds-sm px-2 py-1 text-xs font-medium transition-colors ${
                 isActive
-                  ? "bg-ds-control text-ds-control-text"
+                  ? "bg-ds-accent-surface text-ds-accent-text"
                   : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
               } ${FOCUS_RING}`}
             >
@@ -891,7 +891,7 @@ function VerticalAlignControl({
               }
               className={`rounded-ds-sm px-2 py-1 text-xs font-medium transition-colors ${
                 isActive
-                  ? "bg-ds-control text-ds-control-text"
+                  ? "bg-ds-accent-surface text-ds-accent-text"
                   : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
               } ${FOCUS_RING}`}
             >
@@ -947,7 +947,7 @@ function LineHeightControl({
               }
               className={`rounded-ds-sm px-2 py-1 text-xs font-medium transition-colors ${
                 isActive
-                  ? "bg-ds-control text-ds-control-text"
+                  ? "bg-ds-accent-surface text-ds-accent-text"
                   : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
               } ${FOCUS_RING}`}
             >
@@ -1094,10 +1094,10 @@ function ListTypeControl({
         <button
           type="button"
           onClick={() => !isNumbered || toggle()}
-          className={`rounded-ds-md border px-2 py-1 text-xs ${
+          className={`rounded-ds-md border px-2 py-1 text-xs transition-colors ${
             !isNumbered
-              ? "border-ds-accent bg-ds-accent text-white"
-              : "border-ds-border-subtle bg-ds-surface text-ds-text-primary"
+              ? "border-ds-accent-border bg-ds-accent-surface text-ds-accent-text"
+              : "border-ds-border-subtle bg-ds-surface text-ds-text-primary hover:bg-ds-state-hover"
           } ${FOCUS_RING}`}
           aria-pressed={!isNumbered}
           title="Bullet list"
@@ -1107,10 +1107,10 @@ function ListTypeControl({
         <button
           type="button"
           onClick={() => isNumbered || toggle()}
-          className={`rounded-ds-md border px-2 py-1 text-xs ${
+          className={`rounded-ds-md border px-2 py-1 text-xs transition-colors ${
             isNumbered
-              ? "border-ds-accent bg-ds-accent text-white"
-              : "border-ds-border-subtle bg-ds-surface text-ds-text-primary"
+              ? "border-ds-accent-border bg-ds-accent-surface text-ds-accent-text"
+              : "border-ds-border-subtle bg-ds-surface text-ds-text-primary hover:bg-ds-state-hover"
           } ${FOCUS_RING}`}
           aria-pressed={isNumbered}
           title="Numbered list"
@@ -1555,7 +1555,7 @@ function ElementEditor({
                             },
                     });
                   }}
-                  className="w-24 accent-ds-control"
+                  className="w-24 accent-ds-accent"
                   aria-label={
                     element.shape === "line" ? "Line thickness" : "Border width"
                   }
@@ -1578,7 +1578,7 @@ function ElementEditor({
                     radius: radius <= 0 ? undefined : radius,
                   });
                 }}
-                className="w-full accent-ds-control"
+                className="w-full accent-ds-accent"
                 aria-label="Corner radius"
               />
             </label>
@@ -1706,7 +1706,7 @@ function ConnectorElementEditor({
           onChange={(event) =>
             onUpdateElement(element.id, { dash: event.target.checked })
           }
-          className="h-4 w-4 accent-ds-control"
+          className="h-4 w-4 accent-ds-accent"
           aria-label="Toggle dashed line style"
         />
       </label>
@@ -1748,7 +1748,7 @@ function ConnectorElementEditor({
               },
             });
           }}
-          className="w-full accent-ds-control"
+          className="w-full accent-ds-accent"
           aria-label="Stroke width"
         />
       </label>
@@ -1846,7 +1846,7 @@ function VisualElementEditor({
             }
             className={`rounded-ds-sm border px-2 py-1 text-xs font-medium transition-colors ${
               usingOriginal
-                ? "border-ds-control bg-ds-control text-ds-control-text"
+                ? "border-ds-accent-border bg-ds-accent-surface text-ds-accent-text"
                 : "border-ds-border-subtle text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
             } ${FOCUS_RING}`}
           >
@@ -2005,7 +2005,7 @@ function ElementEffectsControl({
               shadow: event.target.checked ? true : undefined,
             })
           }
-          className="accent-ds-control"
+          className="accent-ds-accent"
         />
         Shadow
       </label>
@@ -2018,7 +2018,7 @@ function ElementEffectsControl({
               locked: event.target.checked ? true : undefined,
             })
           }
-          className="accent-ds-control"
+          className="accent-ds-accent"
         />
         Lock
       </label>
@@ -2056,7 +2056,7 @@ function ElementOpacityControl({
             opacity: next >= 1 ? undefined : next,
           });
         }}
-        className="w-full accent-ds-control"
+        className="w-full accent-ds-accent"
         aria-label="Element opacity"
       />
     </label>
@@ -2376,7 +2376,6 @@ export function SlideInspector({
   onClose,
   initialTab,
 }: SlideInspectorProps) {
-  const [panel, setPanel] = useState<Panel>(initialTab ?? "position");
   const [positionTab, setPositionTab] = useState<PositionPanelTab>("arrange");
   const [selectedLayoutId, setSelectedLayoutId] = useState("");
   const elements = slide.elements ?? [];
@@ -2391,31 +2390,14 @@ export function SlideInspector({
   const canShowMediaPanel =
     selectedElement?.kind === "image" || selectedElement?.kind === "visual";
   const canShowSourcePanel = shouldShowSourceTab(selectedElement);
-
-  useEffect(() => {
-    if (!initialTab) return;
-    setPanel(initialTab);
-    if (initialTab === "position") {
-      setPositionTab("arrange");
-    }
-  }, [initialTab]);
-
-  useEffect(() => {
-    if (
-      (panel === "text" && !canShowTextPanel) ||
-      (panel === "effects" && !canShowEffectsPanel) ||
-      (panel === "media" && !canShowMediaPanel) ||
-      (panel === "source" && !canShowSourcePanel)
-    ) {
-      setPanel("position");
-    }
-  }, [
-    canShowEffectsPanel,
-    canShowMediaPanel,
-    canShowSourcePanel,
-    canShowTextPanel,
-    panel,
-  ]);
+  const requestedPanel = initialTab ?? "position";
+  const panel: Panel =
+    (requestedPanel === "text" && !canShowTextPanel) ||
+    (requestedPanel === "effects" && !canShowEffectsPanel) ||
+    (requestedPanel === "media" && !canShowMediaPanel) ||
+    (requestedPanel === "source" && !canShowSourcePanel)
+      ? "position"
+      : requestedPanel;
 
   function handleTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
     const tabs: PositionPanelTab[] = ["arrange", "layers"];
@@ -2625,7 +2607,7 @@ export function SlideInspector({
                       key={element.id}
                       className={`flex items-center gap-1 rounded-ds-sm border px-2 py-1 ${
                         selected
-                          ? "border-ds-control bg-ds-state-hover"
+                          ? "border-ds-accent-border bg-ds-accent-surface"
                           : "border-transparent hover:bg-ds-state-hover"
                       }`}
                     >
@@ -2869,7 +2851,7 @@ export function SlideInspector({
                           : undefined,
                       )
                     }
-                    className="accent-ds-control"
+                    className="accent-ds-accent"
                     aria-label="Enable gradient background"
                   />
                 </span>
@@ -2911,7 +2893,7 @@ export function SlideInspector({
                           angle: Number(event.target.value),
                         })
                       }
-                      className="flex-1 accent-ds-control"
+                      className="flex-1 accent-ds-accent"
                       aria-label="Gradient angle"
                     />
                   </div>

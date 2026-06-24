@@ -168,7 +168,7 @@ function RenameField({
       onChange={(e) => setValue(e.target.value)}
       onBlur={commit}
       onKeyDown={handleKeyDown}
-      className={`min-w-0 flex-1 truncate rounded-ds-sm border border-ds-control bg-ds-surface px-1 py-0 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
+      className={`min-w-0 flex-1 truncate rounded-ds-sm border border-ds-accent-border bg-ds-surface px-1 py-0 text-xs text-ds-text-primary outline-none ${FOCUS_RING}`}
       aria-label="Rename element"
     />
   );
@@ -233,7 +233,7 @@ function LayerRow({
       onClick={onSelect}
       className={`flex flex-col gap-0 rounded-ds-sm border px-2 py-1 transition-colors ${
         selected
-          ? "border-ds-control bg-ds-state-hover"
+          ? "border-ds-accent-border bg-ds-accent-surface"
           : "border-transparent hover:bg-ds-state-hover"
       } ${element.hidden ? "opacity-50" : ""}`}
     >

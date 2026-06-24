@@ -781,12 +781,12 @@ function ConnectorEndpointHandles({
             cursor: "crosshair",
           }}
         >
-          {/* Blue filled = bound to a shape; grey open = free floating */}
+          {/* Filled = bound to a shape; outlined = free floating. */}
           <span
             className={`h-3 w-3 rounded-full shadow transition-colors ${
               bound
-                ? "border-2 border-white bg-ds-accent"
-                : "border border-white bg-ds-stage-muted"
+                ? "bg-ds-accent"
+                : "border border-ds-accent bg-ds-accent-surface"
             }`}
           />
         </span>
@@ -828,7 +828,7 @@ function MultiSelectBoundingBox({
         height: `${bbox.h}%`,
         zIndex: STAGE_CHROME_Z_INDEX.multiSelectionBounds,
         // Dashed outline distinguishes the combined box from single-select rings.
-        outline: "2px dashed #71717a",
+        outline: "2px dashed var(--ds-accent)",
         outlineOffset: "1px",
       }}
     >
@@ -841,7 +841,7 @@ function MultiSelectBoundingBox({
           className="pointer-events-auto absolute flex h-11 w-11 touch-none items-center justify-center"
           style={{ ...style, cursor }}
         >
-          <span className="h-2.5 w-2.5 rounded-full border border-white bg-[#71717a] shadow" />
+          <span className="h-2.5 w-2.5 rounded-full bg-ds-accent shadow" />
         </span>
       ))}
 
@@ -853,7 +853,7 @@ function MultiSelectBoundingBox({
           className="pointer-events-auto absolute left-1/2 flex h-11 w-11 -translate-x-1/2 touch-none items-center justify-center"
           style={{ top: "calc(100% + 6px)", cursor: "grab" }}
         >
-          <span className="flex h-5 w-5 items-center justify-center rounded-full border border-white bg-[#71717a] text-white shadow">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ds-accent text-ds-text-on-accent shadow">
             <RotateCw size={11} aria-hidden="true" />
           </span>
         </span>
@@ -875,7 +875,9 @@ function ElementFrameOverlay({
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute box-border rounded-[2px]"
+      className={`pointer-events-none absolute box-border rounded-[2px] ${
+        selected ? "opacity-100" : "opacity-70"
+      }`}
       style={{
         left: `${box.x}%`,
         top: `${box.y}%`,
@@ -885,11 +887,8 @@ function ElementFrameOverlay({
           ? STAGE_CHROME_Z_INDEX.selectedFrame
           : STAGE_CHROME_Z_INDEX.preselectedFrame,
         border: selected
-          ? "2px solid #71717a"
-          : "1.5px solid rgba(113, 113, 122, 0.86)",
-        boxShadow: selected
-          ? "0 0 0 1px rgba(255,255,255,0.92)"
-          : "0 0 0 1px rgba(255,255,255,0.72)",
+          ? "2px solid var(--ds-accent)"
+          : "1.5px solid var(--ds-accent)",
         ...(rotation ? { transform: `rotate(${rotation}deg)` } : {}),
       }}
     />
@@ -1409,6 +1408,13 @@ export function SlideStageEditor({
           return;
         }
         pendingMoveRef.current = null;
+
+        if ((ev.target as Element | null)?.closest("[data-floating-panel]")) {
+          setPreselectedTarget((current) =>
+            current === null ? current : null,
+          );
+          return;
+        }
 
         const container = containerRef.current;
         if (!container) {
@@ -2487,7 +2493,7 @@ export function SlideStageEditor({
                         style={{ ...style, cursor }}
                       >
                         <span
-                          className={`h-2.5 w-2.5 rounded-full border border-white bg-[#71717a] shadow transition-opacity ${
+                          className={`h-2.5 w-2.5 rounded-full bg-ds-accent shadow transition-opacity ${
                             dimmed ? "opacity-40" : ""
                           }`}
                         />
@@ -2505,7 +2511,7 @@ export function SlideStageEditor({
                   className="absolute left-1/2 flex h-11 w-11 -translate-x-1/2 touch-none items-center justify-center"
                   style={{ top: "calc(100% + 6px)", cursor: "grab" }}
                 >
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full border border-white bg-[#71717a] text-white shadow">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ds-accent text-ds-text-on-accent shadow">
                     <RotateCw size={11} aria-hidden="true" />
                   </span>
                 </span>
@@ -2574,7 +2580,7 @@ export function SlideStageEditor({
           marqueeRect.h >= MARQUEE_THRESHOLD_PCT) ? (
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute border border-[#71717a] bg-[#71717a]/10"
+            className="pointer-events-none absolute border border-ds-accent bg-ds-accent/10"
             style={{
               left: `${marqueeRect.x}%`,
               top: `${marqueeRect.y}%`,
@@ -2592,7 +2598,7 @@ export function SlideStageEditor({
                 <div
                   key={`x-${guide.position}`}
                   aria-hidden="true"
-                  className="pointer-events-none absolute top-0 bottom-0 w-px bg-[#71717a]"
+                  className="pointer-events-none absolute top-0 bottom-0 w-px bg-ds-accent"
                   style={{
                     left: `${guide.position}%`,
                     zIndex: STAGE_CHROME_Z_INDEX.snapGuide,
@@ -2602,7 +2608,7 @@ export function SlideStageEditor({
                 <div
                   key={`y-${guide.position}`}
                   aria-hidden="true"
-                  className="pointer-events-none absolute left-0 right-0 h-px bg-[#71717a]"
+                  className="pointer-events-none absolute left-0 right-0 h-px bg-ds-accent"
                   style={{
                     top: `${guide.position}%`,
                     zIndex: STAGE_CHROME_Z_INDEX.snapGuide,
@@ -2632,8 +2638,8 @@ export function SlideStageEditor({
                     aria-hidden="true"
                     className={`pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full transition-transform ${
                       isHovered
-                        ? "h-3.5 w-3.5 scale-125 border-2 border-white bg-ds-accent shadow-md"
-                        : "h-2.5 w-2.5 border border-white bg-ds-stage-muted/80 shadow"
+                        ? "h-3.5 w-3.5 scale-125 bg-ds-accent shadow-md"
+                        : "h-2.5 w-2.5 border border-ds-accent bg-ds-accent-surface shadow"
                     }`}
                     style={{
                       left: `${pt.x}%`,
@@ -3000,7 +3006,10 @@ function ElementContextMenu({
   return createPortal(
     <div
       ref={ref}
+      data-floating-panel="true"
       onPointerDown={(event) => event.stopPropagation()}
+      onPointerMove={(event) => event.stopPropagation()}
+      onMouseMove={(event) => event.stopPropagation()}
       style={{
         position: "fixed",
         top: pos.top,

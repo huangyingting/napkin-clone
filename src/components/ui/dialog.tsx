@@ -111,7 +111,10 @@ export function Dialog({
   return createPortal(
     <AnimatePresence>
       {open ? (
-        <div className="fixed inset-0 z-modal flex items-center justify-center p-4">
+        <div
+          data-floating-panel="true"
+          className="fixed inset-0 z-modal flex items-center justify-center p-4"
+        >
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-ds-backdrop"

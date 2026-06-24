@@ -68,7 +68,7 @@ export function VisualPicker({
                 onClick={() => onPick(id)}
                 aria-label={`Insert ${visualLabel(id, visual)}`}
                 title={visualLabel(id, visual)}
-                className={`group flex w-full flex-col gap-1 rounded-ds-sm border border-ds-border-subtle bg-ds-surface p-1.5 text-left transition-colors hover:border-ds-control hover:bg-ds-state-hover ${FOCUS_RING}`}
+                className={`group flex w-full flex-col gap-1 rounded-ds-sm border border-ds-border-subtle bg-ds-surface p-1.5 text-left transition-colors hover:border-ds-accent-border hover:bg-ds-state-hover ${FOCUS_RING}`}
               >
                 <span className="flex aspect-video items-center justify-center overflow-hidden rounded-ds-sm bg-ds-surface-base">
                   <VisualRenderer
