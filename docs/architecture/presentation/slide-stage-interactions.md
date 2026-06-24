@@ -14,6 +14,7 @@ contract for `SlideStageEditor`, not the persisted deck schema.
 | Stage UI/controller          | [`src/components/presentation/slide-stage-editor.tsx`](../../../src/components/presentation/slide-stage-editor.tsx) |
 | Semantic hit testing         | [`src/lib/presentation/stage-hit-test.ts`](../../../src/lib/presentation/stage-hit-test.ts)                         |
 | Target resolution            | [`src/lib/presentation/stage-targeting.ts`](../../../src/lib/presentation/stage-targeting.ts)                       |
+| Chrome layering              | [`src/lib/presentation/stage-chrome.ts`](../../../src/lib/presentation/stage-chrome.ts)                             |
 | Interaction decision helpers | [`src/lib/presentation/stage-interaction.ts`](../../../src/lib/presentation/stage-interaction.ts)                   |
 | Keyboard canvas helpers      | [`src/lib/presentation/canvas-a11y.ts`](../../../src/lib/presentation/canvas-a11y.ts)                               |
 | Connector geometry           | [`src/lib/presentation/connector-geometry.ts`](../../../src/lib/presentation/connector-geometry.ts)                 |
@@ -196,10 +197,14 @@ Selection/preselection frames are visual chrome, not hit targets.
   `pointer-events: none` overlay layer.
 - This keeps the frame visible even when the selected/preselected element is
   behind another element.
+- Stage chrome z-index values are centralized in `stage-chrome.ts` so selected
+  element handle overlays, selected/preselected frames, group frames,
+  multi-selection bounds, guides, marquees, and live badges preserve a stable
+  stacking order.
 - The frame overlay must not intercept pointer events.
 - Multi-selection and group bounding boxes should also remain visually above
-  slide elements. Multi-selection currently has its own high z-index transform
-  box; group frames should follow the same principle if they can be obscured.
+  slide elements. Multi-selection and group frames use the same named top-layer
+  chrome scale as the single-element selection frame.
 - Resize/rotate handles are shown only for the primary selected element and keep
   their pointer hit areas.
 
@@ -306,8 +311,8 @@ Implementation guidance:
   localized content.
 - Visual and image hit testing is box-based. Alpha-aware image picking and
   visual-node hit testing could make sparse media behave more like Canva.
-- Group frame and handle layering should be audited against the single-element
-  top-layer frame strategy if group frames become obscured.
+- If future group handles diverge from the multi-selection handle strategy, they
+  should stay on the named top-layer chrome scale in `stage-chrome.ts`.
 - Fully covered arbitrary objects cannot always be inferred correctly from a
   single pointer point. If semantic scoring is ambiguous, right-click layer
   selection or the layer list remains the precise fallback.
