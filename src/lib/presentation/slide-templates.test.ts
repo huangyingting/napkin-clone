@@ -275,3 +275,39 @@ test("template slot bindings survive schema validation", () => {
     assert.ok(bound.length > 0, `${kind} should retain bound slots`);
   }
 });
+
+// ---------------------------------------------------------------------------
+// Semantic text roles on template text (#610)
+// ---------------------------------------------------------------------------
+
+test("title template text carries h1/subtitle/footer textRoles", () => {
+  const slide = buildTemplateSlide("title", { theme: "indigo" });
+  const roles = (slide.elements ?? [])
+    .filter((el) => el.kind === "text")
+    .map((el) => (el.kind === "text" ? el.textRole : undefined));
+  assert.ok(roles.includes("h1"), roles.join(","));
+  assert.ok(roles.includes("subtitle"), roles.join(","));
+  assert.ok(roles.includes("footer"), roles.join(","));
+});
+
+test("visual template caption text carries the caption role", () => {
+  const slide = buildTemplateSlide("visual", {
+    theme: "indigo",
+    visualId: "v1",
+  });
+  const roles = (slide.elements ?? [])
+    .filter((el) => el.kind === "text")
+    .map((el) => (el.kind === "text" ? el.textRole : undefined));
+  assert.ok(roles.includes("caption"), roles.join(","));
+});
+
+test("every non-blank template text element carries a textRole", () => {
+  for (const kind of ["title", "content", "visual", "two-column"] as const) {
+    const slide = buildTemplateSlide(kind, { theme: "indigo" });
+    for (const el of slide.elements ?? []) {
+      if (el.kind === "text") {
+        assert.ok(el.textRole !== undefined, `${kind} text needs a textRole`);
+      }
+    }
+  }
+});

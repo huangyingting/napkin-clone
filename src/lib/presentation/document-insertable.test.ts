@@ -155,6 +155,17 @@ test("maps lower-level headings to bold body elements with smaller sizes", () =>
   assert.equal(insertableTextElement(h3).style.fontSize, 5);
 });
 
+test("maps document heading levels to semantic textRole h1/h2/h3 (#610)", () => {
+  const [h1] = textItems(buildInsertables([heading("H1", 1)]));
+  const [h2] = textItems(buildInsertables([heading("H2", 2)]));
+  const [h3] = textItems(buildInsertables([heading("H3", 3)]));
+  const [body] = textItems(buildInsertables([para("Body")]));
+  assert.equal(insertableTextElement(h1).textRole, "h1");
+  assert.equal(insertableTextElement(h2).textRole, "h2");
+  assert.equal(insertableTextElement(h3).textRole, "h3");
+  assert.equal(insertableTextElement(body).textRole, "body");
+});
+
 test("maps a paragraph to a non-bold body element at body size", () => {
   const [item] = textItems(buildInsertables([para("Body text")]));
   const el = insertableTextElement(item);
