@@ -54,7 +54,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type ComponentPropsWithoutRef,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
@@ -486,10 +485,10 @@ export function SlideEditor({
   }, []);
   const showAdvanced = editorMode === "advanced";
   const [zoom, setZoom] = useState(1);
-  const adjustZoom = useCallback((delta: number) => {
-    setZoom((z) =>
-      Math.min(3, Math.max(0.25, Math.round((z + delta) * 100) / 100)),
-    );
+  const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
+  const [notesExpanded, setNotesExpanded] = useState(false);
+  const handleZoomChange = useCallback((nextZoom: number) => {
+    setZoom(Math.min(3, Math.max(0.25, Math.round(nextZoom * 100) / 100)));
   }, []);
   const [stageBounds, setStageBounds] = useState<Size>(DEFAULT_SCREEN_SIZE);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(
@@ -987,13 +986,13 @@ export function SlideEditor({
         theme: deck.theme,
         slideFormat: deck.slideFormat,
       });
-      const next = insertSlide(deck, deck.slides.length - 1, slide);
+      const next = insertSlide(deck, safeSelected, slide);
       clearPendingPatches(pendingPatchesRef);
       onDeckChange(next);
-      setSelectedIndex(next.slides.length - 1);
+      setSelectedIndex(Math.min(safeSelected + 1, next.slides.length - 1));
       setAddTemplateOpen(false);
     },
-    [deck, onDeckChange, visuals],
+    [deck, onDeckChange, safeSelected, visuals],
   );
 
   const handleSpotlightPick = useCallback(
@@ -1003,28 +1002,13 @@ export function SlideEditor({
         slideFormat: deck.slideFormat,
         visualId,
       });
-      const next = insertSlide(deck, deck.slides.length - 1, slide);
+      const next = insertSlide(deck, safeSelected, slide);
       clearPendingPatches(pendingPatchesRef);
       onDeckChange(next);
-      setSelectedIndex(next.slides.length - 1);
+      setSelectedIndex(Math.min(safeSelected + 1, next.slides.length - 1));
       setSpotlightPickerOpen(false);
     },
-    [deck, onDeckChange],
-  );
-
-  const handleAddSlide = useCallback(
-    (afterIndex: number) => {
-      const afterSlideId = deck.slides[afterIndex]?.id ?? null;
-      const { result, commitOptions, patches } = commitCommand(deck, {
-        type: "ADD_SLIDE",
-        afterSlideId,
-      });
-      if (!result.ok) return;
-      appendPendingPatches(pendingPatchesRef, patches);
-      onDeckChange(result.deck, commitOptions);
-      setSelectedIndex(Math.min(afterIndex + 1, result.deck.slides.length - 1));
-    },
-    [deck, onDeckChange],
+    [deck, onDeckChange, safeSelected],
   );
 
   const handleMove = useCallback(
@@ -2643,6 +2627,10 @@ export function SlideEditor({
         brandSwatches,
       }
     : null;
+  const selectedElementForToolbar =
+    selectedSlide?.elements?.find(
+      (element) => element.id === effectiveSelectedElementId,
+    ) ?? null;
 
   return createPortal(
     <div
@@ -2666,22 +2654,6 @@ export function SlideEditor({
       {/* ── Top bar ─────────────────────────────────────────────────────── */}
       <header className="flex items-center gap-2 border-b border-ds-border-subtle px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
-          <Tooltip
-            label={railOpen ? "Hide slide thumbnails" : "Show slide thumbnails"}
-            side="bottom"
-          >
-            <IconButton
-              aria-label={
-                railOpen ? "Hide slide thumbnails" : "Show slide thumbnails"
-              }
-              size="sm"
-              variant="plain"
-              active={railOpen}
-              onClick={() => setRailOpen((open) => !open)}
-            >
-              <LayoutPanelLeft aria-hidden className="h-3.5 w-3.5" />
-            </IconButton>
-          </Tooltip>
           <h2 className="truncate text-sm font-semibold text-ds-text-primary">
             Slide editor
           </h2>
@@ -2696,11 +2668,44 @@ export function SlideEditor({
             aria-label="Slide editing tools"
             className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1"
           >
-            <StageAddButton
-              icon={<Plus size={14} aria-hidden="true" />}
-              label="Slide"
-              onClick={() => handleAddSlide(safeSelected)}
-            />
+            <Popover
+              open={addTemplateOpen || spotlightPickerOpen}
+              onClose={() => {
+                setAddTemplateOpen(false);
+                setSpotlightPickerOpen(false);
+              }}
+              aria-label="Add slide"
+              className={
+                spotlightPickerOpen ? "w-[320px] p-2" : "w-[360px] p-2"
+              }
+              trigger={
+                <button
+                  type="button"
+                  aria-label="Add slide"
+                  aria-haspopup="dialog"
+                  aria-expanded={addTemplateOpen || spotlightPickerOpen}
+                  onClick={() => {
+                    setSpotlightPickerOpen(false);
+                    setAddTemplateOpen((open) => !open);
+                  }}
+                  className={`flex h-7 shrink-0 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-control px-2 text-xs font-semibold text-ds-control-text transition-colors hover:bg-ds-control-hover ${FOCUS_RING}`}
+                >
+                  <Plus size={14} aria-hidden="true" />
+                  Add
+                </button>
+              }
+            >
+              {spotlightPickerOpen ? (
+                <VisualPicker
+                  className="w-full"
+                  visuals={visuals}
+                  onPick={handleSpotlightPick}
+                  onClose={() => setSpotlightPickerOpen(false)}
+                />
+              ) : (
+                <SlideTemplatePicker onPick={handleAddTemplate} />
+              )}
+            </Popover>
             <div
               className="hidden h-5 w-px shrink-0 bg-ds-border-subtle sm:block"
               aria-hidden="true"
@@ -3110,235 +3115,199 @@ export function SlideEditor({
       {/* ── Body: thumbnail rail · stage · inspector ────────────────────── */}
       {/* Stacks vertically on phones (rail becomes a top strip), three-pane row
           from `sm` up. Issue #209. */}
-      <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
-        {/* Slide thumbnail rail — vertical column from `sm`, horizontal scrolling
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="relative flex min-h-0 flex-1 flex-col sm:flex-row">
+          {/* Slide thumbnail rail — vertical column from `sm`, horizontal scrolling
             strip below `sm`. */}
-        {railOpen ? (
-          <aside className="flex w-full shrink-0 flex-col border-b border-ds-border-subtle sm:w-56 sm:border-b-0 sm:border-r">
-            <div className="flex min-h-0 flex-1 gap-2 overflow-x-auto p-3 sm:block sm:gap-0 sm:overflow-x-visible sm:overflow-y-auto">
-              <ul ref={railListRef} className="flex flex-row gap-2 sm:flex-col">
-                {deck.slides.map((slide, index) => {
-                  const selected = index === safeSelected;
-                  const dropTarget =
-                    dragOverIndex === index && dragIndex !== index;
-                  const dragging = dragIndex === index;
-                  const title = deriveSlideTitle(slide, index);
-                  const canDelete = deck.slides.length > 1;
-                  return (
-                    <li
-                      key={slide.id}
-                      data-slide-thumb
-                      className={`group relative w-40 shrink-0 sm:w-auto ${
-                        dragging ? "opacity-60" : ""
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setVisualPickerOpen(false);
-                          setSelectedIndex(index);
-                        }}
-                        aria-label={`Slide ${index + 1}: ${title}`}
-                        aria-current={selected}
-                        className={`flex w-full flex-col gap-1 rounded-ds-md border p-1.5 text-left transition-colors ${
-                          selected
-                            ? "border-ds-control bg-ds-state-hover"
-                            : "border-transparent hover:bg-ds-state-hover"
-                        } ${dropTarget ? "border-ds-control" : ""} ${FOCUS_RING}`}
+          {railOpen ? (
+            <aside className="flex w-full shrink-0 flex-col border-b border-ds-border-subtle sm:w-56 sm:border-b-0 sm:border-r">
+              <div className="flex min-h-0 flex-1 gap-2 overflow-x-auto p-3 sm:block sm:gap-0 sm:overflow-x-visible sm:overflow-y-auto">
+                <ul
+                  ref={railListRef}
+                  className="flex flex-row gap-2 sm:flex-col"
+                >
+                  {deck.slides.map((slide, index) => {
+                    const selected = index === safeSelected;
+                    const dropTarget =
+                      dragOverIndex === index && dragIndex !== index;
+                    const dragging = dragIndex === index;
+                    const title = deriveSlideTitle(slide, index);
+                    const canDelete = deck.slides.length > 1;
+                    return (
+                      <li
+                        key={slide.id}
+                        data-slide-thumb
+                        className={`group relative w-40 shrink-0 sm:w-auto ${
+                          dragging ? "opacity-60" : ""
+                        }`}
                       >
-                        <span className="flex items-center gap-2">
-                          <span className="flex w-4 shrink-0 flex-col items-center gap-1 text-xs tabular-nums text-ds-text-muted">
-                            {index + 1}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setVisualPickerOpen(false);
+                            setSelectedIndex(index);
+                          }}
+                          aria-label={`Slide ${index + 1}: ${title}`}
+                          aria-current={selected}
+                          className={`flex w-full flex-col gap-1 rounded-ds-md border p-1.5 text-left transition-colors ${
+                            selected
+                              ? "border-ds-control bg-ds-state-hover"
+                              : "border-transparent hover:bg-ds-state-hover"
+                          } ${dropTarget ? "border-ds-control" : ""} ${FOCUS_RING}`}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span className="flex w-4 shrink-0 flex-col items-center gap-1 text-xs tabular-nums text-ds-text-muted">
+                              {index + 1}
+                            </span>
+                            <span
+                              className="pointer-events-none block min-w-0 flex-1 overflow-hidden rounded-ds-sm border border-ds-border-subtle"
+                              style={{ aspectRatio: activeSlideAspectRatio }}
+                            >
+                              <SlideCanvas
+                                slide={slide}
+                                visuals={visuals}
+                                preview
+                              />
+                            </span>
                           </span>
                           <span
-                            className="pointer-events-none block min-w-0 flex-1 overflow-hidden rounded-ds-sm border border-ds-border-subtle"
-                            style={{ aspectRatio: activeSlideAspectRatio }}
+                            className="block truncate pl-6 text-xs text-ds-text-secondary"
+                            title={title}
                           >
-                            <SlideCanvas
-                              slide={slide}
-                              visuals={visuals}
-                              preview
-                            />
+                            {title}
                           </span>
-                        </span>
-                        <span
-                          className="block truncate pl-6 text-xs text-ds-text-secondary"
-                          title={title}
-                        >
-                          {title}
-                        </span>
-                      </button>
+                        </button>
 
-                      {/* Drag handle — pointer-based reorder (touch friendly).
+                        {/* Drag handle — pointer-based reorder (touch friendly).
                         A ~44px transparent hit area centred on the slide number
                         gutter; the grip icon is the only visible affordance and
                         reveals on hover. `touch-none` keeps a touch drag from
                         scrolling the rail. Issue #209. */}
-                      <span
-                        role="presentation"
-                        aria-hidden="true"
-                        onPointerDown={(event) => beginReorder(event, index)}
-                        className="absolute left-0 top-0 flex h-11 w-11 cursor-grab touch-none items-center justify-center text-ds-text-muted opacity-0 transition-opacity group-hover:opacity-100"
-                      >
-                        <GripVertical size={14} aria-hidden="true" />
-                      </span>
+                        <span
+                          role="presentation"
+                          aria-hidden="true"
+                          onPointerDown={(event) => beginReorder(event, index)}
+                          className="absolute left-0 top-0 flex h-11 w-11 cursor-grab touch-none items-center justify-center text-ds-text-muted opacity-0 transition-opacity group-hover:opacity-100"
+                        >
+                          <GripVertical size={14} aria-hidden="true" />
+                        </span>
 
-                      {/* Hover/focus action cluster — reveals on group hover or
+                        {/* Hover/focus action cluster — reveals on group hover or
                         keyboard focus so the rail stays clean but every action
                         is keyboard-reachable (issue #212). */}
-                      <div className="absolute right-1 top-1 flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-                        <ThumbnailAction
-                          icon={<ChevronUp size={13} aria-hidden="true" />}
-                          label={`Move slide ${index + 1} up`}
-                          disabled={index === 0}
-                          onClick={() => handleMove(index, -1)}
-                        />
-                        <ThumbnailAction
-                          icon={<ChevronDown size={13} aria-hidden="true" />}
-                          label={`Move slide ${index + 1} down`}
-                          disabled={index === deck.slides.length - 1}
-                          onClick={() => handleMove(index, 1)}
-                        />
-                        <ThumbnailAction
-                          icon={<Copy size={13} aria-hidden="true" />}
-                          label={`Duplicate slide ${index + 1}`}
-                          onClick={() => handleDuplicate(index)}
-                        />
-                        <ThumbnailAction
-                          icon={<Trash2 size={13} aria-hidden="true" />}
-                          label={`Delete slide ${index + 1}`}
-                          disabled={!canDelete}
-                          onClick={() => handleRemove(index)}
-                        />
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-
-              <div className="relative shrink-0 self-center sm:mt-3 sm:self-auto">
-                <button
-                  type="button"
-                  aria-haspopup="menu"
-                  aria-expanded={addTemplateOpen}
-                  onClick={() => setAddTemplateOpen((open) => !open)}
-                  className={`flex w-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-ds-md border border-dashed border-ds-border-subtle px-3 py-2 text-sm font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary sm:w-full ${FOCUS_RING}`}
-                >
-                  <Plus size={15} aria-hidden="true" />
-                  Add slide
-                </button>
-                {addTemplateOpen ? (
-                  <SlideTemplatePicker
-                    onPick={handleAddTemplate}
-                    onClose={() => setAddTemplateOpen(false)}
-                  />
-                ) : null}
-                {spotlightPickerOpen ? (
-                  <VisualPicker
-                    className="absolute bottom-full left-0 z-modal mb-1"
-                    visuals={visuals}
-                    onPick={handleSpotlightPick}
-                    onClose={() => setSpotlightPickerOpen(false)}
-                  />
-                ) : null}
+                        <div className="absolute right-1 top-1 flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                          <ThumbnailAction
+                            icon={<ChevronUp size={13} aria-hidden="true" />}
+                            label={`Move slide ${index + 1} up`}
+                            disabled={index === 0}
+                            onClick={() => handleMove(index, -1)}
+                          />
+                          <ThumbnailAction
+                            icon={<ChevronDown size={13} aria-hidden="true" />}
+                            label={`Move slide ${index + 1} down`}
+                            disabled={index === deck.slides.length - 1}
+                            onClick={() => handleMove(index, 1)}
+                          />
+                          <ThumbnailAction
+                            icon={<Copy size={13} aria-hidden="true" />}
+                            label={`Duplicate slide ${index + 1}`}
+                            onClick={() => handleDuplicate(index)}
+                          />
+                          <ThumbnailAction
+                            icon={<Trash2 size={13} aria-hidden="true" />}
+                            label={`Delete slide ${index + 1}`}
+                            disabled={!canDelete}
+                            onClick={() => handleRemove(index)}
+                          />
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
-            </div>
-          </aside>
-        ) : null}
+            </aside>
+          ) : null}
 
-        {/* Stage — large live preview of the selected slide */}
-        <main className="relative flex min-w-0 flex-1 flex-col bg-ds-surface-sunken">
-          <div
-            ref={stageRef}
-            className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto p-4 sm:p-6"
-          >
+          {/* Stage — large live preview of the selected slide */}
+          <main className="relative flex min-w-0 flex-1 flex-col bg-ds-surface-sunken">
             {selectedSlide ? (
-              <SlideStageEditor
-                slide={selectedSlide}
-                visuals={visuals}
-                width={fittedStageSize.width * zoom}
-                height={fittedStageSize.height * zoom}
-                selectedElementId={effectiveSelectedElementId}
-                selectedElementIds={effectiveSelectedElementIds}
-                onSelectElement={handleSelectElement}
-                onSelectElements={handleSelectElements}
-                onUpdateElement={handleUpdateElement}
+              <SlideSelectionToolbar
+                selectionSummary={selectionSummary}
+                selectedElement={selectedElementForToolbar}
+                selectedCount={effectiveSelectedElementIds.size}
+                onOpenArrange={() => setInspectorOpen(true)}
+                onOpenLayers={() => setInspectorOpen(true)}
                 onDuplicateElement={handleDuplicateElement}
                 onRemoveElement={handleRemoveElement}
                 onBringToFront={handleBringToFront}
                 onSendToBack={handleSendToBack}
-                onCopyElements={handleCopyElements}
-                onCutElements={handleCutElements}
-                onPasteElements={handlePasteElements}
-                onSetElementBoxes={handleSetElementBoxes}
-                onSetElementPatches={handleSetElementPatches}
-                onGroupElements={handleGroupElements}
-                onUngroupElements={handleUngroupElements}
-                snapToGrid={snapToGrid}
-                brandSwatches={brandSwatches}
-                onAddTextElement={handleAddTextElement}
-                showAdvanced={showAdvanced}
-                focusRequest={focusRequest}
-                liveMessage={liveMessage}
               />
             ) : null}
-            {/* Zoom controls — overlaid bottom-right of the stage. */}
-            <div className="pointer-events-auto absolute bottom-3 right-3 z-10 flex items-center gap-0.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface/90 p-0.5 shadow-sm backdrop-blur">
-              <Tooltip label="Zoom out" side="top">
-                <IconButton
-                  aria-label="Zoom out"
-                  size="sm"
-                  variant="plain"
-                  disabled={zoom <= 0.25}
-                  onClick={() => adjustZoom(-0.25)}
-                >
-                  <Minus aria-hidden className="h-3.5 w-3.5" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip label="Reset zoom" side="top">
-                <button
-                  type="button"
-                  onClick={() => setZoom(1)}
-                  className={`min-w-12 rounded-ds-sm px-1.5 py-1 text-center text-xs font-medium tabular-nums text-ds-text-secondary transition-colors hover:bg-ds-state-hover ${FOCUS_RING}`}
-                >
-                  {Math.round(zoom * 100)}%
-                </button>
-              </Tooltip>
-              <Tooltip label="Zoom in" side="top">
-                <IconButton
-                  aria-label="Zoom in"
-                  size="sm"
-                  variant="plain"
-                  disabled={zoom >= 3}
-                  onClick={() => adjustZoom(0.25)}
-                >
-                  <Plus aria-hidden className="h-3.5 w-3.5" />
-                </IconButton>
-              </Tooltip>
+            <div
+              ref={stageRef}
+              className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto p-4 sm:p-6"
+            >
+              {selectedSlide ? (
+                <SlideStageEditor
+                  slide={selectedSlide}
+                  visuals={visuals}
+                  width={fittedStageSize.width * zoom}
+                  height={fittedStageSize.height * zoom}
+                  selectedElementId={effectiveSelectedElementId}
+                  selectedElementIds={effectiveSelectedElementIds}
+                  onSelectElement={handleSelectElement}
+                  onSelectElements={handleSelectElements}
+                  onUpdateElement={handleUpdateElement}
+                  onDuplicateElement={handleDuplicateElement}
+                  onRemoveElement={handleRemoveElement}
+                  onBringToFront={handleBringToFront}
+                  onSendToBack={handleSendToBack}
+                  onCopyElements={handleCopyElements}
+                  onCutElements={handleCutElements}
+                  onPasteElements={handlePasteElements}
+                  onSetElementBoxes={handleSetElementBoxes}
+                  onSetElementPatches={handleSetElementPatches}
+                  onGroupElements={handleGroupElements}
+                  onUngroupElements={handleUngroupElements}
+                  snapToGrid={snapToGrid}
+                  brandSwatches={brandSwatches}
+                  onAddTextElement={handleAddTextElement}
+                  showAdvanced={showAdvanced}
+                  focusRequest={focusRequest}
+                  liveMessage={liveMessage}
+                />
+              ) : null}
             </div>
-          </div>
+          </main>
 
-          {/* Speaker notes — always-visible input docked under the slide, like
-              a presentation editor. Replaces the inspector's old "Notes" tab. */}
-          {selectedSlide ? (
-            <SlideNotesPanel
-              notes={selectedSlide.notes}
-              onChange={(value, coalesceKey) =>
-                handleNotesChange(safeSelected, value, coalesceKey)
-              }
+          {/* Inspector — desktop side pane (`lg+`). Below `lg` it is hidden and
+            instead opened as a bottom sheet via the FAB below. Issue #209. */}
+          {/* eslint-disable-next-line react-hooks/refs -- handler props only run on user events. */}
+          {inspectorProps && inspectorOpen ? (
+            <SlideInspector
+              {...inspectorProps}
+              showAdvanced={showAdvanced}
+              documentId={documentId}
+              className="hidden w-80 flex-col overflow-y-auto rounded-ds-lg border border-ds-border-subtle bg-ds-surface-base shadow-ds-popover lg:absolute lg:bottom-4 lg:right-4 lg:top-4 lg:z-30 lg:flex"
             />
           ) : null}
-        </main>
+        </div>
 
-        {/* Inspector — desktop side pane (`lg+`). Below `lg` it is hidden and
-            instead opened as a bottom sheet via the FAB below. Issue #209. */}
-        {/* eslint-disable-next-line react-hooks/refs -- handler props only run on user events. */}
-        {inspectorProps && inspectorOpen ? (
-          <SlideInspector
-            {...inspectorProps}
-            showAdvanced={showAdvanced}
-            documentId={documentId}
-            className="hidden w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle lg:flex"
+        {selectedSlide ? (
+          <SlideBottomDock
+            railOpen={railOpen}
+            notes={selectedSlide.notes}
+            notesExpanded={notesExpanded}
+            zoom={zoom}
+            zoomMenuOpen={zoomMenuOpen}
+            slideLabel={`Slide ${safeSelected + 1} of ${deck.slides.length}`}
+            onToggleRail={() => setRailOpen((open) => !open)}
+            onToggleNotes={() => setNotesExpanded((open) => !open)}
+            onNotesChange={(value, coalesceKey) =>
+              handleNotesChange(safeSelected, value, coalesceKey)
+            }
+            onZoomChange={handleZoomChange}
+            onZoomMenuOpenChange={setZoomMenuOpen}
           />
         ) : null}
       </div>
@@ -3410,46 +3379,20 @@ export function SlideEditor({
 }
 
 /**
- * Template picker popover shown by the thumbnail rail's "+ Add slide" button.
- * Lists each {@link SLIDE_TEMPLATES} option; picking one inserts an authored
- * slide via the caller (routed through the undo/redo `commit` path). Closes on
- * Escape or outside click so it behaves like the other editor popovers.
+ * Template picker shown from the top-toolbar Add popover. Lists each
+ * {@link SLIDE_TEMPLATES} option; picking one inserts an authored slide via the
+ * caller (routed through the undo/redo `commit` path).
  */
 function SlideTemplatePicker({
   onPick,
-  onClose,
 }: {
   onPick: (kind: SlideTemplateKind) => void;
-  onClose: () => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function onPointerDown(event: PointerEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
-        onClose();
-      }
-    }
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        onClose();
-      }
-    }
-    document.addEventListener("pointerdown", onPointerDown, true);
-    document.addEventListener("keydown", onKeyDown, true);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown, true);
-      document.removeEventListener("keydown", onKeyDown, true);
-    };
-  }, [onClose]);
-
   return (
     <div
-      ref={ref}
       role="menu"
       aria-label="Slide templates"
-      className="absolute bottom-full left-0 right-0 z-modal mb-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised p-2 shadow-lg"
+      className="rounded-ds-md bg-ds-surface-raised"
     >
       <div className="grid grid-cols-2 gap-2">
         {SLIDE_TEMPLATES.map((template) => (
@@ -3533,29 +3476,6 @@ function TemplatePreview({ kind }: { kind: SlideTemplateKind }) {
         </span>
       ) : null}
     </span>
-  );
-}
-
-function StageAddButton({
-  icon,
-  label,
-  onClick,
-  ...rest
-}: {
-  icon: ReactNode;
-  label: string;
-  onClick: () => void;
-} & Omit<ComponentPropsWithoutRef<"button">, "onClick" | "children">) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex items-center gap-1 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 py-1 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-      {...rest}
-    >
-      {icon}
-      {label}
-    </button>
   );
 }
 
@@ -3910,47 +3830,252 @@ function FromDocumentPanel({
   );
 }
 
-/**
- * Always-visible speaker-notes input docked at the bottom of the stage,
- * mirroring the notes area found in dedicated presentation editors. Shows a
- * “Click to add speaker notes” placeholder until the user types. Pure
- * presentation — the value and change handler are owned by the editor.
- *
- * A per-session coalesceKey collapses an entire typing run into one undo step
- * (issue #306). A fresh key is generated on focus; cleared on blur so the next
- * session is a separate undo step.
- */
+function SlideSelectionToolbar({
+  selectionSummary,
+  selectedElement,
+  selectedCount,
+  onOpenArrange,
+  onOpenLayers,
+  onDuplicateElement,
+  onRemoveElement,
+  onBringToFront,
+  onSendToBack,
+}: {
+  selectionSummary: string;
+  selectedElement: SlideElement | null;
+  selectedCount: number;
+  onOpenArrange: () => void;
+  onOpenLayers: () => void;
+  onDuplicateElement: (id: string) => void;
+  onRemoveElement: (id: string) => void;
+  onBringToFront: (id: string) => void;
+  onSendToBack: (id: string) => void;
+}) {
+  if (!selectedElement && selectedCount === 0) return null;
+  const label = selectedElement
+    ? slideElementTypeLabel(selectedElement)
+    : selectionSummary;
+  return (
+    <div
+      role="toolbar"
+      aria-label="Selected slide element tools"
+      className="absolute left-1/2 top-3 z-20 flex max-w-[calc(100%-3rem)] -translate-x-1/2 items-center gap-1 overflow-x-auto rounded-ds-md border border-ds-border-subtle bg-ds-surface/95 p-1 shadow-ds-popover backdrop-blur"
+    >
+      <span className="shrink-0 px-2 text-xs font-semibold text-ds-text-secondary">
+        {label}
+      </span>
+      <span className="h-5 w-px shrink-0 bg-ds-border-subtle" />
+      <button
+        type="button"
+        onClick={onOpenArrange}
+        className={`flex h-7 shrink-0 items-center rounded-ds-sm px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+      >
+        Position
+      </button>
+      <button
+        type="button"
+        onClick={onOpenLayers}
+        className={`flex h-7 shrink-0 items-center rounded-ds-sm px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+      >
+        Layers
+      </button>
+      {selectedElement ? (
+        <>
+          <span className="h-5 w-px shrink-0 bg-ds-border-subtle" />
+          <button
+            type="button"
+            onClick={() => onBringToFront(selectedElement.id)}
+            className={`flex h-7 shrink-0 items-center rounded-ds-sm px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+          >
+            Front
+          </button>
+          <button
+            type="button"
+            onClick={() => onSendToBack(selectedElement.id)}
+            className={`flex h-7 shrink-0 items-center rounded-ds-sm px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+          >
+            Back
+          </button>
+          <Tooltip label="Duplicate" side="bottom">
+            <button
+              type="button"
+              aria-label="Duplicate selected element"
+              onClick={() => onDuplicateElement(selectedElement.id)}
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+            >
+              <Copy size={14} aria-hidden="true" />
+            </button>
+          </Tooltip>
+          <Tooltip label="Delete" side="bottom">
+            <button
+              type="button"
+              aria-label="Delete selected element"
+              onClick={() => onRemoveElement(selectedElement.id)}
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+            >
+              <Trash2 size={14} aria-hidden="true" />
+            </button>
+          </Tooltip>
+        </>
+      ) : null}
+    </div>
+  );
+}
 
 /** Module-level counter so each notes-editing session gets a unique key (#306). */
 let _notesEditSeq = 0;
 
-function SlideNotesPanel({
+function SlideBottomDock({
+  railOpen,
   notes,
-  onChange,
+  notesExpanded,
+  zoom,
+  zoomMenuOpen,
+  slideLabel,
+  onToggleRail,
+  onToggleNotes,
+  onNotesChange,
+  onZoomChange,
+  onZoomMenuOpenChange,
 }: {
+  railOpen: boolean;
   notes: string;
-  onChange: (value: string, coalesceKey?: string) => void;
+  notesExpanded: boolean;
+  zoom: number;
+  zoomMenuOpen: boolean;
+  slideLabel: string;
+  onToggleRail: () => void;
+  onToggleNotes: () => void;
+  onNotesChange: (value: string, coalesceKey?: string) => void;
+  onZoomChange: (zoom: number) => void;
+  onZoomMenuOpenChange: (open: boolean) => void;
 }) {
   const coalesceKeyRef = useRef<string | null>(null);
+  const zoomPercent = Math.round(zoom * 100);
+  const setZoomPercent = (percent: number) => {
+    onZoomChange(percent / 100);
+    onZoomMenuOpenChange(false);
+  };
+  const presets = [50, 75, 100, 125, 150, 200, 300];
+
   return (
-    <div className="shrink-0 border-t border-ds-border-subtle bg-ds-surface-base px-4 py-2">
-      <textarea
-        value={notes}
-        onChange={(event) =>
-          onChange(event.target.value, coalesceKeyRef.current ?? undefined)
-        }
-        onFocus={() => {
-          _notesEditSeq += 1;
-          coalesceKeyRef.current = `notes-edit:${_notesEditSeq}`;
-        }}
-        onBlur={() => {
-          coalesceKeyRef.current = null;
-        }}
-        rows={4}
-        aria-label="Speaker notes"
-        placeholder="Click to add speaker notes…"
-        className={`w-full resize-y rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-sm text-ds-text-primary placeholder:text-ds-text-muted outline-none ${FOCUS_RING}`}
-      />
+    <div className="shrink-0 border-t border-ds-border-subtle bg-ds-surface-base">
+      {notesExpanded ? (
+        <div className={railOpen ? "sm:ml-56" : undefined}>
+          <textarea
+            value={notes}
+            onChange={(event) =>
+              onNotesChange(
+                event.target.value,
+                coalesceKeyRef.current ?? undefined,
+              )
+            }
+            onFocus={() => {
+              _notesEditSeq += 1;
+              coalesceKeyRef.current = `notes-edit:${_notesEditSeq}`;
+            }}
+            onBlur={() => {
+              coalesceKeyRef.current = null;
+            }}
+            rows={4}
+            aria-label="Speaker notes"
+            placeholder="Click to add speaker notes…"
+            className={`block min-h-24 w-full resize-y rounded-none border-0 bg-ds-surface px-3 py-2 text-sm text-ds-text-primary placeholder:text-ds-text-muted outline-none ${FOCUS_RING}`}
+          />
+        </div>
+      ) : null}
+      <div className="flex min-h-14 items-center gap-3 px-3 py-2">
+        <div className="flex items-center gap-1.5">
+          <Tooltip
+            label={railOpen ? "Hide slide thumbnails" : "Show slide thumbnails"}
+            side="top"
+          >
+            <button
+              type="button"
+              aria-label={
+                railOpen ? "Hide slide thumbnails" : "Show slide thumbnails"
+              }
+              aria-pressed={railOpen}
+              onClick={onToggleRail}
+              className={`flex h-8 items-center gap-1.5 rounded-ds-md border border-ds-border-subtle px-2 text-xs font-semibold transition-colors ${
+                railOpen
+                  ? "bg-ds-control text-ds-control-text"
+                  : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+              } ${FOCUS_RING}`}
+            >
+              <LayoutPanelLeft size={14} aria-hidden="true" />
+              Slides
+            </button>
+          </Tooltip>
+          <button
+            type="button"
+            aria-pressed={notesExpanded}
+            onClick={onToggleNotes}
+            className={`flex h-8 items-center rounded-ds-md border border-ds-border-subtle px-2 text-xs font-semibold transition-colors ${
+              notesExpanded
+                ? "bg-ds-control text-ds-control-text"
+                : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+            } ${FOCUS_RING}`}
+          >
+            Notes
+          </button>
+        </div>
+        <div className="min-w-0 flex-1 text-center text-xs font-medium text-ds-text-muted">
+          {slideLabel}
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <input
+            type="range"
+            min={25}
+            max={300}
+            step={5}
+            value={zoomPercent}
+            onChange={(event) => setZoomPercent(Number(event.target.value))}
+            aria-label="Slide zoom"
+            className="w-36 accent-ds-control"
+          />
+          <Popover
+            open={zoomMenuOpen}
+            onClose={() => onZoomMenuOpenChange(false)}
+            aria-label="Zoom presets"
+            className="w-32 p-2"
+            trigger={
+              <button
+                type="button"
+                aria-haspopup="dialog"
+                aria-expanded={zoomMenuOpen}
+                onClick={() => onZoomMenuOpenChange(!zoomMenuOpen)}
+                className={`h-8 min-w-14 rounded-ds-md border border-ds-border-subtle px-2 text-xs font-semibold tabular-nums text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+              >
+                {zoomPercent}%
+              </button>
+            }
+          >
+            <div className="grid grid-cols-2 gap-1">
+              <button
+                type="button"
+                onClick={() => setZoomPercent(100)}
+                className={`rounded-ds-sm px-2 py-1 text-left text-xs font-medium text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+              >
+                Fit
+              </button>
+              {presets.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setZoomPercent(preset)}
+                  className={`rounded-ds-sm px-2 py-1 text-left text-xs font-medium text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                >
+                  {preset}%
+                </button>
+              ))}
+            </div>
+          </Popover>
+          <span className="hidden rounded-ds-md bg-ds-surface-raised px-2 py-1 text-xs font-semibold text-ds-text-muted sm:inline">
+            Page
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1209,7 +1209,11 @@ export function SlideStageEditor({
     });
   }, [elements, fittedBoxes, height, visuals, width]);
   const hitTestAtClientPoint = useCallback(
-    (clientX: number, clientY: number) => {
+    (
+      clientX: number,
+      clientY: number,
+      options: { selectedElementBonus?: boolean } = {},
+    ) => {
       const container = containerRef.current;
       if (!container) return [];
       const rect = container.getBoundingClientRect();
@@ -1227,6 +1231,7 @@ export function SlideStageEditor({
         fittedBoxes,
         mediaHitGeometry: mediaHitGeometryRef.current,
         stageAspect,
+        selectedElementBonus: options.selectedElementBonus,
         selectedElementIds,
         textHitGeometry: textHitGeometryRef.current,
       });
@@ -1421,7 +1426,10 @@ export function SlideStageEditor({
           multiDragRef.current === null &&
           dragRef.current === null;
         if (hoveringInteraction) {
-          const hit = hitTestAtClientPoint(ev.clientX, ev.clientY)[0] ?? null;
+          const hit =
+            hitTestAtClientPoint(ev.clientX, ev.clientY, {
+              selectedElementBonus: false,
+            })[0] ?? null;
           const target = resolveStageHitTarget(hit, elementsRef.current, {
             groupEditingId,
           });

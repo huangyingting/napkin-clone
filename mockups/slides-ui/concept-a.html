@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Slides UI Concept A - Balanced Workspace</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app concept-a">
+      <header class="globalbar">
+        <div class="global-left">
+          <span class="brand-mark"><span class="brand-dot"></span>TextIQ</span>
+          <button class="btn ghost">File</button>
+          <button class="btn ghost">Resize</button>
+          <span class="doc-title">Investor narrative - Presentation</span>
+        </div>
+        <div class="global-center">
+          <button class="icon-btn">↶</button>
+          <button class="icon-btn">↷</button>
+          <button class="btn primary">+ Add</button>
+          <button class="btn">Insert</button>
+          <button class="btn">Theme</button>
+          <span class="status-pill">Saved</span>
+        </div>
+        <div class="global-right">
+          <button class="btn">Present</button>
+          <button class="btn violet">Share</button>
+          <button class="icon-btn">×</button>
+        </div>
+      </header>
+
+      <div class="contextbar">
+        <div class="context-left">
+          <button class="btn">Roca Two</button>
+          <button class="icon-btn">−</button>
+          <span class="pill">270</span>
+          <button class="icon-btn">+</button>
+        </div>
+        <div class="context-center toolbar-cluster">
+          <button class="tool-btn active">B</button>
+          <button class="tool-btn">I</button>
+          <button class="tool-btn">U</button>
+          <button class="tool-btn">S</button>
+          <span class="segment">
+            <button class="tool-btn">L</button>
+            <button class="tool-btn active">C</button>
+            <button class="tool-btn">R</button>
+          </span>
+          <button class="color-swatch" style="background: #263b8f"></button>
+          <button class="btn">Effects</button>
+          <button class="btn">Animate</button>
+          <button class="btn active">Position</button>
+          <button class="icon-btn">⋯</button>
+        </div>
+        <div class="context-right">
+          <button class="btn">Layers</button>
+        </div>
+      </div>
+
+      <main class="layout">
+        <aside class="rail">
+          <div class="rail-header">
+            <span>Slides</span><span>Drag to reorder</span>
+          </div>
+          <div class="thumb-list">
+            <div class="thumb selected">
+              <span class="thumb-num">1</span>
+              <span class="thumb-canvas"
+                ><i
+                  class="shape-big"
+                  style="
+                    font-size: 22px;
+                    left: 38%;
+                    top: 25%;
+                    position: absolute;
+                  "
+                  >E</i
+                ></span
+              >
+              <span class="thumb-title">Title cover</span>
+            </div>
+            <div class="drag-indicator"></div>
+            <div class="thumb">
+              <span class="thumb-num">2</span>
+              <span class="thumb-canvas blue"></span>
+              <span class="thumb-title">Metrics</span>
+            </div>
+            <div class="thumb">
+              <span class="thumb-num">3</span>
+              <span class="thumb-canvas dark"></span>
+              <span class="thumb-title">Market map</span>
+            </div>
+            <div class="thumb">
+              <span class="thumb-num">4</span>
+              <span class="thumb-canvas"></span>
+              <span class="thumb-title">Closing</span>
+            </div>
+          </div>
+        </aside>
+
+        <section class="stage-shell">
+          <div class="context-popover">
+            <button class="btn primary">Ask AI</button>
+            <button class="tool-btn">✦</button>
+            <button class="tool-btn">↻</button>
+            <button class="tool-btn">⛓</button>
+            <button class="tool-btn">⇪</button>
+            <button class="tool-btn">🗑</button>
+            <button class="tool-btn">⋯</button>
+          </div>
+          <div class="canvas-wrap">
+            <div class="slide grid-bg">
+              <span class="slide-label">AUTOMATE</span>
+              <div class="slide-title">STACK<br />THE<br />WORK</div>
+              <p class="body-copy">
+                A concise operating narrative with visuals, notes, and
+                source-linked evidence prepared for presentation review.
+              </p>
+              <div
+                class="visual-card"
+                style="left: 22%; top: 12%; width: 42%; height: 72%"
+              >
+                <span class="handle tl"></span><span class="handle tr"></span
+                ><span class="handle bl"></span><span class="handle br"></span>
+              </div>
+              <div class="shape-star" style="right: 13%; top: 36%">✱</div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Arrange</div>
+            <button class="icon-btn">×</button>
+          </div>
+          <div class="tabs">
+            <button class="tab active">Arrange</button>
+            <button class="tab">Details</button>
+            <button class="tab">Layers</button>
+          </div>
+          <section class="section">
+            <div class="section-title">Order</div>
+            <div class="command-grid">
+              <button class="btn">↟ Forward</button>
+              <button class="btn">↡ Backward</button>
+              <button class="btn">⤒ To front</button>
+              <button class="btn">⤓ To back</button>
+            </div>
+          </section>
+          <section class="section">
+            <div class="section-title">Align to page</div>
+            <div class="command-grid">
+              <button class="btn">Top</button>
+              <button class="btn">Left</button>
+              <button class="btn">Middle</button>
+              <button class="btn">Center</button>
+              <button class="btn">Bottom</button>
+              <button class="btn">Right</button>
+            </div>
+          </section>
+          <section class="section">
+            <div class="section-title">Advanced</div>
+            <div class="field-grid">
+              <div class="field"><label>X</label><input value="22%" /></div>
+              <div class="field"><label>Y</label><input value="12%" /></div>
+              <div class="field"><label>W</label><input value="42%" /></div>
+              <div class="field"><label>H</label><input value="72%" /></div>
+            </div>
+          </section>
+        </aside>
+
+        <footer class="bottom-dock">
+          <div class="dock-left">
+            <button class="btn active">Slides</button>
+            <button class="btn">Notes</button>
+          </div>
+          <div class="dock-center">
+            <span class="slide-status">Slide 1 of 4 · Title cover</span>
+          </div>
+          <div class="dock-right">
+            <span class="zoom-track"></span>
+            <button class="zoom-btn">100%</button>
+            <span class="page-chip">1 / 4</span>
+            <button class="view-btn active">Page</button>
+            <button class="view-btn">Grid</button>
+          </div>
+        </footer>
+      </main>
+    </div>
+  </body>
+</html>
