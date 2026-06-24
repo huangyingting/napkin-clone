@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { ImageElement, PlaceholderElement } from "./deck";
+import {
+  CURRENT_DECK_SCHEMA_VERSION,
+  type ImageElement,
+  type TextElement,
+} from "./deck";
+import { safeParseDeck } from "./deck-schema";
 import {
   buildTemplateSlide,
   SLIDE_TEMPLATES,
@@ -78,52 +83,70 @@ test("non-blank templates assign unique element ids", () => {
   }
 });
 
-test("title template = title, subtitle, and footer placeholders", () => {
-  assert.deepEqual(elementKinds("title"), [
-    "placeholder",
-    "placeholder",
-    "placeholder",
-  ]);
+test("template slides are valid deck payloads", () => {
+  for (const kind of SLIDE_TEMPLATES.map((option) => option.kind)) {
+    const slide = buildTemplateSlide(kind, { theme: "indigo" });
+    const result = safeParseDeck({
+      schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+      theme: "indigo",
+      slides: [{ ...slide, index: 0 }],
+    });
+    assert.equal(result.success, true, kind);
+  }
+});
+
+test("title template = editable title, subtitle, and footer text", () => {
+  assert.deepEqual(elementKinds("title"), ["text", "text", "text"]);
   const slide = buildTemplateSlide("title", { theme: "indigo" });
   assert.equal(slide.layout, "title");
-  const placeholders = slide.elements as PlaceholderElement[];
+  const textElements = slide.elements as TextElement[];
   assert.deepEqual(
-    placeholders.map((element) => element.placeholderType),
-    ["title", "subtitle", "footer"],
+    textElements.map((element) => element.text),
+    ["Title", "Subtitle", "Footer"],
   );
+  assert.equal(textElements[0]?.role, "title");
 });
 
-test("content template = title/body/visual/footer placeholders", () => {
-  assert.deepEqual(elementKinds("content"), [
-    "placeholder",
-    "placeholder",
-    "placeholder",
-    "placeholder",
-  ]);
+test("content template = editable title/body text plus image/footer", () => {
+  assert.deepEqual(elementKinds("content"), ["text", "text", "image", "text"]);
   const slide = buildTemplateSlide("content", { theme: "indigo" });
   assert.equal(slide.layout, "content");
-  const placeholders = slide.elements as PlaceholderElement[];
-  assert.deepEqual(
-    placeholders.map((element) => element.placeholderType),
-    ["title", "body", "visual", "footer"],
-  );
+  const [title, body, image, footer] = slide.elements ?? [];
+  assert.equal(title?.kind, "text");
+  assert.equal((title as TextElement).text, "Title");
+  assert.equal(body?.kind, "text");
+  assert.equal((body as TextElement).text, "Body");
+  assert.equal(image?.kind, "image");
+  assert.match((image as ImageElement).src, /^data:image\/svg\+xml,/);
+  assert.equal(footer?.kind, "text");
+  assert.equal((footer as TextElement).text, "Footer");
 });
 
-test("two-column template = title + two body placeholders + footer", () => {
+test("layout templates no longer emit non-editable placeholders", () => {
+  for (const kind of ["title", "content", "two-column"] as const) {
+    const slide = buildTemplateSlide(kind, { theme: "indigo" });
+    assert.equal(
+      (slide.elements ?? []).some((element) => element.kind === "placeholder"),
+      false,
+      `${kind} should use editable concrete elements`,
+    );
+  }
+});
+
+test("two-column template = title + two editable text columns + footer", () => {
   assert.deepEqual(elementKinds("two-column"), [
-    "placeholder",
-    "placeholder",
-    "placeholder",
-    "placeholder",
+    "text",
+    "text",
+    "text",
+    "text",
   ]);
   const slide = buildTemplateSlide("two-column", { theme: "indigo" });
   const [, left, right] = slide.elements as [
-    PlaceholderElement,
-    PlaceholderElement,
-    PlaceholderElement,
+    TextElement,
+    TextElement,
+    TextElement,
   ];
-  assert.equal(left.placeholderType, "body");
-  assert.equal(right.placeholderType, "body");
+  assert.deepEqual([left.text, right.text], ["Left column", "Right column"]);
   // Columns sit side by side: the right column starts past the left's edge.
   assert.ok(right.box.x >= left.box.x + left.box.w);
 });
@@ -137,7 +160,7 @@ test("visual spotlight without a visualId uses an image placeholder", () => {
   const slide = buildTemplateSlide("visual", { theme: "indigo" });
   assert.equal(slide.layout, "media");
   const image = slide.elements?.[0] as ImageElement;
-  assert.equal(image.src, "");
+  assert.match(image.src, /^data:image\/svg\+xml,/);
   assert.deepEqual(slide.visualIds, []);
 });
 

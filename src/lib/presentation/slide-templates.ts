@@ -4,10 +4,8 @@
  *
  * The "+ Add slide" picker offers a small menu of starting points (Title,
  * Content, Visual spotlight, Two-column, Blank). Non-blank templates emit a
- * slide whose `elements[]` are pre-built either from the reusable placeholder
- * layouts ({@link defaultLayouts}) or, for the spotlight variant, shared
- * geometry helpers, so the slide is immediately editable with no materialization
- * step.
+ * slide whose `elements[]` are pre-built from real text/image/visual elements,
+ * so the slide is immediately editable with no materialization step.
  *
  * Template slides are **hand-authored**, not derived: they carry
  * `elementsDerived: false` so "Sync from document" preserves their `elements[]`
@@ -21,10 +19,13 @@ import {
   defaultLayouts,
   makeElementId,
   makeSlideId,
+  PLACEHOLDER_TYPE_LABELS,
   type DeckTheme,
   type ElementAlign,
   type ElementBox,
   type ImageElement,
+  type PlaceholderElement,
+  type PlaceholderType,
   type Slide,
   type SlideElement,
   type SlideLayout as ReusableSlideLayout,
@@ -32,7 +33,6 @@ import {
   type TextElement,
   type TextElementStyle,
   type VisualElement,
-  resetLayout,
 } from "./deck";
 import { DEFAULT_SLIDE_FORMAT, type SlideFormat } from "./slide-format";
 
@@ -73,12 +73,12 @@ export const SLIDE_TEMPLATES: readonly SlideTemplateOption[] = [
   {
     kind: "title",
     label: "Title",
-    description: "Centered title and subtitle placeholders",
+    description: "Editable title, subtitle, and footer",
   },
   {
     kind: "content",
     label: "Content",
-    description: "Title, body, and visual placeholders",
+    description: "Editable title, body, visual, and footer",
   },
   {
     kind: "visual",
@@ -88,7 +88,7 @@ export const SLIDE_TEMPLATES: readonly SlideTemplateOption[] = [
   {
     kind: "two-column",
     label: "Two-column",
-    description: "Title over two body placeholders",
+    description: "Editable title over two body columns",
   },
   {
     kind: "blank",
@@ -109,12 +109,72 @@ const BOX = {
   caption: { x: 6, y: 82, w: 88, h: 12 },
 } satisfies Record<string, ElementBox>;
 
+export const TEMPLATE_IMAGE_PLACEHOLDER_SRC =
+  "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20800%20450%22%3E%3Crect%20width%3D%22800%22%20height%3D%22450%22%20rx%3D%2228%22%20fill%3D%22%23f4f4f5%22%2F%3E%3Crect%20x%3D%2224%22%20y%3D%2224%22%20width%3D%22752%22%20height%3D%22402%22%20rx%3D%2224%22%20fill%3D%22none%22%20stroke%3D%22%23a1a1aa%22%20stroke-width%3D%226%22%20stroke-dasharray%3D%2218%2016%22%2F%3E%3Cpath%20d%3D%22M300%20265l78-78%2062%2062%2036-36%2074%2074%22%20fill%3D%22none%22%20stroke%3D%22%2371717a%22%20stroke-width%3D%2214%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Ccircle%20cx%3D%22330%22%20cy%3D%22160%22%20r%3D%2226%22%20fill%3D%22%2371717a%22%2F%3E%3Ctext%20x%3D%22400%22%20y%3D%22345%22%20text-anchor%3D%22middle%22%20font-family%3D%22Inter%2CArial%2Csans-serif%22%20font-size%3D%2244%22%20fill%3D%22%2371717a%22%3EAdd%20image%3C%2Ftext%3E%3C%2Fsvg%3E";
+
+function placeholderImageElement(
+  label: string,
+  box: ElementBox,
+  zIndex: number,
+): ImageElement {
+  return {
+    id: makeElementId(),
+    kind: "image",
+    src: TEMPLATE_IMAGE_PLACEHOLDER_SRC,
+    alt: `${label} placeholder`,
+    zIndex,
+    box: { ...box },
+  };
+}
+
 function textStyle(
   fontSize: number,
   align: ElementAlign,
   bold: boolean,
 ): TextElementStyle {
   return { fontSize, align, bold, italic: false };
+}
+
+function templateTextStyle(type: PlaceholderType): TextElementStyle {
+  switch (type) {
+    case "title":
+      return textStyle(6.5, "center", true);
+    case "subtitle":
+      return textStyle(4.5, "center", false);
+    case "body":
+      return textStyle(4.25, "left", false);
+    case "footer":
+      return textStyle(2.4, "center", false);
+    case "visual":
+      return textStyle(4.5, "center", true);
+  }
+}
+
+function placeholderLabel(placeholder: PlaceholderElement): string {
+  return (
+    placeholder.label?.trim() ||
+    PLACEHOLDER_TYPE_LABELS[placeholder.placeholderType]
+  );
+}
+
+function materializePlaceholderElement(
+  placeholder: PlaceholderElement,
+  zIndex: number,
+): SlideElement {
+  const label = placeholderLabel(placeholder);
+  if (placeholder.placeholderType === "visual") {
+    return placeholderImageElement(label, placeholder.box, zIndex);
+  }
+
+  return {
+    id: makeElementId(),
+    kind: "text",
+    role: placeholder.placeholderType === "title" ? "title" : "body",
+    text: label,
+    zIndex,
+    box: { ...placeholder.box },
+    style: templateTextStyle(placeholder.placeholderType),
+  };
 }
 
 function bodyTextElement(
@@ -147,14 +207,7 @@ function spotlightElement(
       box: { ...BOX.spotlight },
     };
   }
-  return {
-    id: makeElementId(),
-    kind: "image",
-    src: "",
-    alt: "Visual placeholder",
-    zIndex,
-    box: { ...BOX.spotlight },
-  };
+  return placeholderImageElement("Visual", BOX.spotlight, zIndex);
 }
 
 /** Builds an authored (non-derived) slide from a template's elements. */
@@ -196,15 +249,19 @@ function findDefaultLayout(
   return match;
 }
 
-function placeholderTemplateSlide(
+function layoutTemplateSlide(
   name: "title-slide" | "title-content" | "two-column",
   theme: DeckTheme,
   slideFormat: SlideFormat | undefined,
 ): Slide {
   const hint: SlideLayoutHint = name === "title-slide" ? "title" : "content";
-  return resetLayout(
-    authoredSlide(hint, theme, []),
-    findDefaultLayout(name, slideFormat),
+  const layout = findDefaultLayout(name, slideFormat);
+  return authoredSlide(
+    hint,
+    theme,
+    layout.placeholders.map((placeholder, index) =>
+      materializePlaceholderElement(placeholder, index),
+    ),
   );
 }
 
@@ -238,10 +295,10 @@ export function buildTemplateSlide(
 
   switch (kind) {
     case "title":
-      return placeholderTemplateSlide("title-slide", theme, slideFormat);
+      return layoutTemplateSlide("title-slide", theme, slideFormat);
 
     case "content":
-      return placeholderTemplateSlide("title-content", theme, slideFormat);
+      return layoutTemplateSlide("title-content", theme, slideFormat);
 
     case "visual": {
       const visual = spotlightElement(0, ctx.visualId);
@@ -254,7 +311,7 @@ export function buildTemplateSlide(
     }
 
     case "two-column":
-      return placeholderTemplateSlide("two-column", theme, slideFormat);
+      return layoutTemplateSlide("two-column", theme, slideFormat);
 
     case "blank":
       return blankSlide(theme);

@@ -6,11 +6,12 @@
  * unit-tested in isolation.
  */
 
-/** Tabs available in the right supplemental panel (Slides-UI.md). */
+/** Task panels available in the right supplemental panel (Slides-UI.md). */
 export type RightPanelTab =
-  | "arrange"
-  | "details"
-  | "layers"
+  | "position"
+  | "text"
+  | "effects"
+  | "media"
   | "slide"
   | "notes"
   | "source";
@@ -20,7 +21,7 @@ export type RightPanelTab =
  * useful default is `arrange`; with no selection, slide-level settings.
  */
 export function defaultPanelTab(hasSelection: boolean): RightPanelTab {
-  return hasSelection ? "arrange" : "slide";
+  return hasSelection ? "position" : "slide";
 }
 
 /**

@@ -127,7 +127,8 @@ const FONT_FAMILIES: { label: string; value: string }[] = [
 const THEME_BACKGROUND_SWATCHES = themeSwatchColors(DECK_THEMES, "bgColor");
 const THEME_ACCENT_SWATCHES = themeSwatchColors(DECK_THEMES, "accentColor");
 
-type Tab = RightPanelTab;
+type Panel = RightPanelTab;
+type PositionPanelTab = "arrange" | "layers";
 
 const FIELD_CLASS =
   "w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-sm text-ds-text-primary outline-none";
@@ -135,6 +136,13 @@ const FIELD_CLASS =
 const LABEL_CLASS = "mb-1 block text-xs font-medium text-ds-text-secondary";
 
 let _speakerNotesEditSeq = 0;
+
+const DEFAULT_SHAPE_TEXT_STYLE: TextElementStyle = {
+  fontSize: 4,
+  bold: false,
+  italic: false,
+  align: "center",
+};
 
 export type AddElementKind = "text" | "bullets" | "image" | "shape";
 
@@ -308,6 +316,10 @@ function elementLabel(element: SlideElement): string {
     default:
       return "Element";
   }
+}
+
+function shouldShowSourceTab(element: SlideElement | null): boolean {
+  return element?.sourceRef !== undefined;
 }
 
 function placeholderDisplayName(
@@ -1106,6 +1118,163 @@ function ListTypeControl({
           1. Number
         </button>
       </div>
+    </div>
+  );
+}
+
+function TextPanel({
+  element,
+  onUpdateElement,
+}: {
+  element: SlideElement | null;
+  onUpdateElement: SlideInspectorProps["onUpdateElement"];
+}) {
+  const [textTab, setTextTab] = useState<"font" | "style">("font");
+
+  if (!element) {
+    return (
+      <p className="text-xs text-ds-text-muted">
+        Select a text-bearing element to edit typography.
+      </p>
+    );
+  }
+
+  if (
+    element.kind !== "text" &&
+    element.kind !== "bullets" &&
+    !(element.kind === "shape" && element.shape !== "line")
+  ) {
+    return (
+      <p className="text-xs text-ds-text-muted">
+        Text settings are available for text, bullets, and labeled shapes.
+      </p>
+    );
+  }
+
+  const style =
+    element.kind === "shape"
+      ? (element.textStyle ?? DEFAULT_SHAPE_TEXT_STYLE)
+      : element.style;
+  const updateStyle = (next: TextElementStyle) => {
+    if (element.kind === "shape") {
+      onUpdateElement(element.id, { textStyle: next });
+      return;
+    }
+    onUpdateElement(element.id, { style: next });
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div
+        role="tablist"
+        aria-label="Text settings tabs"
+        className="flex items-center gap-1 rounded-ds-md bg-ds-surface-raised p-1"
+      >
+        <TabButton
+          active={textTab === "font"}
+          tabId="text-panel-tab-font"
+          panelId="text-panel-font"
+          label="Font"
+          onClick={() => setTextTab("font")}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+              event.preventDefault();
+              setTextTab((current) => (current === "font" ? "style" : "font"));
+            }
+          }}
+        />
+        <TabButton
+          active={textTab === "style"}
+          tabId="text-panel-tab-style"
+          panelId="text-panel-style"
+          label="Style"
+          onClick={() => setTextTab("style")}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+              event.preventDefault();
+              setTextTab((current) => (current === "font" ? "style" : "font"));
+            }
+          }}
+        />
+      </div>
+
+      {textTab === "font" ? (
+        <div
+          role="tabpanel"
+          id="text-panel-font"
+          aria-labelledby="text-panel-tab-font"
+          className="flex flex-col gap-3"
+        >
+          <FontFamilyControl style={style} onChange={updateStyle} />
+          <LineHeightControl style={style} onChange={updateStyle} />
+          {element.kind === "text" || element.kind === "shape" ? (
+            <ParagraphSpacingControl style={style} onChange={updateStyle} />
+          ) : null}
+          {element.kind === "bullets" ? (
+            <BulletGapControl
+              element={element}
+              onChange={(patch) => onUpdateElement(element.id, patch)}
+            />
+          ) : null}
+        </div>
+      ) : null}
+
+      {textTab === "style" ? (
+        <div
+          role="tabpanel"
+          id="text-panel-style"
+          aria-labelledby="text-panel-tab-style"
+          className="flex flex-col gap-3"
+        >
+          {element.kind === "text" || element.kind === "bullets" ? (
+            <FitModeControl
+              fitMode={element.fitMode}
+              onChange={(fitMode) => onUpdateElement(element.id, { fitMode })}
+            />
+          ) : null}
+          <VerticalAlignControl style={style} onChange={updateStyle} />
+          {element.kind === "bullets" ? (
+            <>
+              <BulletIndentControl
+                element={element}
+                onChange={(patch) => onUpdateElement(element.id, patch)}
+              />
+              <ListTypeControl
+                element={element}
+                onChange={(patch) => onUpdateElement(element.id, patch)}
+              />
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function EffectsPanel({
+  element,
+  onUpdateElement,
+}: {
+  element: SlideElement | null;
+  onUpdateElement: SlideInspectorProps["onUpdateElement"];
+}) {
+  if (!element) {
+    return (
+      <p className="text-xs text-ds-text-muted">
+        Select an element to edit effects.
+      </p>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-4">
+      <ElementOpacityControl
+        element={element}
+        onUpdateElement={onUpdateElement}
+      />
+      <ElementEffectsControl
+        element={element}
+        onUpdateElement={onUpdateElement}
+      />
     </div>
   );
 }
@@ -2207,37 +2376,62 @@ export function SlideInspector({
   onClose,
   initialTab,
 }: SlideInspectorProps) {
-  const [tab, setTab] = useState<Tab>(initialTab ?? "arrange");
+  const [panel, setPanel] = useState<Panel>(initialTab ?? "position");
+  const [positionTab, setPositionTab] = useState<PositionPanelTab>("arrange");
   const [selectedLayoutId, setSelectedLayoutId] = useState("");
-  const TABS: Tab[] = [
-    "arrange",
-    "details",
-    "layers",
-    "slide",
-    "notes",
-    "source",
-  ];
+  const elements = slide.elements ?? [];
+  const selectedElement =
+    elements.find((element) => element.id === selectedElementId) ?? null;
+  const orderedElements = [...elements].sort((a, b) => b.zIndex - a.zIndex);
+  const canShowTextPanel =
+    selectedElement?.kind === "text" ||
+    selectedElement?.kind === "bullets" ||
+    (selectedElement?.kind === "shape" && selectedElement.shape !== "line");
+  const canShowEffectsPanel = selectedElement !== null;
+  const canShowMediaPanel =
+    selectedElement?.kind === "image" || selectedElement?.kind === "visual";
+  const canShowSourcePanel = shouldShowSourceTab(selectedElement);
 
   useEffect(() => {
-    if (initialTab) {
-      setTab(initialTab);
+    if (!initialTab) return;
+    setPanel(initialTab);
+    if (initialTab === "position") {
+      setPositionTab("arrange");
     }
   }, [initialTab]);
 
+  useEffect(() => {
+    if (
+      (panel === "text" && !canShowTextPanel) ||
+      (panel === "effects" && !canShowEffectsPanel) ||
+      (panel === "media" && !canShowMediaPanel) ||
+      (panel === "source" && !canShowSourcePanel)
+    ) {
+      setPanel("position");
+    }
+  }, [
+    canShowEffectsPanel,
+    canShowMediaPanel,
+    canShowSourcePanel,
+    canShowTextPanel,
+    panel,
+  ]);
+
   function handleTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
-    const idx = TABS.indexOf(tab);
+    const tabs: PositionPanelTab[] = ["arrange", "layers"];
+    const idx = tabs.indexOf(positionTab);
     if (event.key === "ArrowRight" || event.key === "ArrowDown") {
       event.preventDefault();
-      setTab(TABS[(idx + 1) % TABS.length]);
+      setPositionTab(tabs[(idx + 1) % tabs.length]);
     } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
       event.preventDefault();
-      setTab(TABS[(idx - 1 + TABS.length) % TABS.length]);
+      setPositionTab(tabs[(idx - 1 + tabs.length) % tabs.length]);
     } else if (event.key === "Home") {
       event.preventDefault();
-      setTab(TABS[0]);
+      setPositionTab(tabs[0]);
     } else if (event.key === "End") {
       event.preventDefault();
-      setTab(TABS[TABS.length - 1]);
+      setPositionTab(tabs[tabs.length - 1]);
     }
   }
 
@@ -2288,10 +2482,6 @@ export function SlideInspector({
     onBackgroundImageChange(value);
   }
 
-  const elements = slide.elements ?? [];
-  const selectedElement =
-    elements.find((element) => element.id === selectedElementId) ?? null;
-  const orderedElements = [...elements].sort((a, b) => b.zIndex - a.zIndex);
   const builtInLayouts = useMemo(() => defaultLayouts(), []);
   const availableLayouts = useMemo(() => {
     const source =
@@ -2306,13 +2496,27 @@ export function SlideInspector({
     null;
 
   const themeConfig = DECK_THEMES[slide.theme] ?? DECK_THEMES.default;
+  const panelTitle: Record<Panel, string> = {
+    position: "Position",
+    text: "Text",
+    effects: "Effects",
+    media: "Media",
+    slide: "Slide",
+    notes: "Notes",
+    source: "Source",
+  };
 
   return (
     <aside className={className}>
       <div className="flex items-center justify-between border-b border-ds-border-subtle px-4 py-3">
-        <p className="text-xs font-medium uppercase tracking-wide text-ds-text-muted">
-          Slide {slideIndex + 1}
-        </p>
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-ds-text-muted">
+            Slide {slideIndex + 1}
+          </p>
+          <h3 className="text-sm font-semibold text-ds-text-primary">
+            {panelTitle[panel]}
+          </h3>
+        </div>
         <div className="flex items-center gap-1">
           <Tooltip label="Duplicate slide" side="bottom">
             <button
@@ -2350,64 +2554,33 @@ export function SlideInspector({
         </div>
       </div>
 
-      {/* Tabs */}
-      <div
-        role="tablist"
-        aria-label="Inspector tabs"
-        className="flex items-center gap-1 overflow-x-auto border-b border-ds-border-subtle px-3 py-2"
-      >
-        <TabButton
-          active={tab === "arrange"}
-          tabId="inspector-tab-arrange"
-          panelId="inspector-panel-arrange"
-          label="Arrange"
-          onClick={() => setTab("arrange")}
-          onKeyDown={handleTabKeyDown}
-        />
-        <TabButton
-          active={tab === "details"}
-          tabId="inspector-tab-details"
-          panelId="inspector-panel-details"
-          label="Details"
-          onClick={() => setTab("details")}
-          onKeyDown={handleTabKeyDown}
-        />
-        <TabButton
-          active={tab === "layers"}
-          tabId="inspector-tab-layers"
-          panelId="inspector-panel-layers"
-          label="Layers"
-          onClick={() => setTab("layers")}
-          onKeyDown={handleTabKeyDown}
-        />
-        <TabButton
-          active={tab === "slide"}
-          tabId="inspector-tab-slide"
-          panelId="inspector-panel-slide"
-          label="Slide"
-          onClick={() => setTab("slide")}
-          onKeyDown={handleTabKeyDown}
-        />
-        <TabButton
-          active={tab === "notes"}
-          tabId="inspector-tab-notes"
-          panelId="inspector-panel-notes"
-          label="Notes"
-          onClick={() => setTab("notes")}
-          onKeyDown={handleTabKeyDown}
-        />
-        <TabButton
-          active={tab === "source"}
-          tabId="inspector-tab-source"
-          panelId="inspector-panel-source"
-          label="Source"
-          onClick={() => setTab("source")}
-          onKeyDown={handleTabKeyDown}
-        />
-      </div>
+      {panel === "position" ? (
+        <div
+          role="tablist"
+          aria-label="Position panel tabs"
+          className="flex items-center gap-1 border-b border-ds-border-subtle px-3 py-2"
+        >
+          <TabButton
+            active={positionTab === "arrange"}
+            tabId="inspector-tab-arrange"
+            panelId="inspector-panel-arrange"
+            label="Arrange"
+            onClick={() => setPositionTab("arrange")}
+            onKeyDown={handleTabKeyDown}
+          />
+          <TabButton
+            active={positionTab === "layers"}
+            tabId="inspector-tab-layers"
+            panelId="inspector-panel-layers"
+            label="Layers"
+            onClick={() => setPositionTab("layers")}
+            onKeyDown={handleTabKeyDown}
+          />
+        </div>
+      ) : null}
 
       <div className="flex flex-col gap-4 px-4 py-4">
-        {tab === "arrange" ? (
+        {panel === "position" && positionTab === "arrange" ? (
           <div
             role="tabpanel"
             id="inspector-panel-arrange"
@@ -2435,7 +2608,7 @@ export function SlideInspector({
           </div>
         ) : null}
 
-        {tab === "layers" ? (
+        {panel === "position" && positionTab === "layers" ? (
           <div
             role="tabpanel"
             id="inspector-panel-layers"
@@ -2545,11 +2718,39 @@ export function SlideInspector({
           </div>
         ) : null}
 
-        {tab === "details" ? (
+        {panel === "text" ? (
           <div
             role="tabpanel"
-            id="inspector-panel-details"
-            aria-labelledby="inspector-tab-details"
+            id="inspector-panel-text"
+            aria-label="Text settings"
+            className="flex flex-col gap-4"
+          >
+            <TextPanel
+              element={selectedElement}
+              onUpdateElement={onUpdateElement}
+            />
+          </div>
+        ) : null}
+
+        {panel === "effects" ? (
+          <div
+            role="tabpanel"
+            id="inspector-panel-effects"
+            aria-label="Effects settings"
+            className="flex flex-col gap-4"
+          >
+            <EffectsPanel
+              element={selectedElement}
+              onUpdateElement={onUpdateElement}
+            />
+          </div>
+        ) : null}
+
+        {panel === "media" ? (
+          <div
+            role="tabpanel"
+            id="inspector-panel-media"
+            aria-label="Media settings"
             className="flex flex-col gap-4"
           >
             {selectedElement ? (
@@ -2557,41 +2758,33 @@ export function SlideInspector({
                 <p className="text-xs font-medium uppercase tracking-wide text-ds-text-muted">
                   {elementLabel(selectedElement)}
                 </p>
-                <ElementEditor
-                  element={selectedElement}
-                  deck={deck}
-                  visuals={visuals}
-                  showAdvanced={showAdvanced}
-                  elements={elements}
-                  onUpdateElement={onUpdateElement}
-                  documentId={documentId}
-                />
-                {showAdvanced ? (
-                  <>
-                    <CollapsibleSection id="opacity" label="Opacity">
-                      <ElementOpacityControl
-                        element={selectedElement}
-                        onUpdateElement={onUpdateElement}
-                      />
-                    </CollapsibleSection>
-                    <CollapsibleSection id="effects" label="Effects">
-                      <ElementEffectsControl
-                        element={selectedElement}
-                        onUpdateElement={onUpdateElement}
-                      />
-                    </CollapsibleSection>
-                  </>
-                ) : null}
+                {selectedElement.kind === "image" ||
+                selectedElement.kind === "visual" ? (
+                  <ElementEditor
+                    element={selectedElement}
+                    deck={deck}
+                    visuals={visuals}
+                    showAdvanced={showAdvanced}
+                    elements={elements}
+                    onUpdateElement={onUpdateElement}
+                    documentId={documentId}
+                  />
+                ) : (
+                  <p className="text-xs text-ds-text-muted">
+                    Media settings are available for images and document
+                    visuals.
+                  </p>
+                )}
               </>
             ) : (
               <p className="text-xs text-ds-text-muted">
-                Select an element to edit its details.
+                Select an image or visual to edit media settings.
               </p>
             )}
           </div>
         ) : null}
 
-        {tab === "slide" ? (
+        {panel === "slide" ? (
           <div
             role="tabpanel"
             id="inspector-panel-slide"
@@ -2772,7 +2965,7 @@ export function SlideInspector({
           </div>
         ) : null}
 
-        {tab === "notes" ? (
+        {panel === "notes" ? (
           <div
             role="tabpanel"
             id="inspector-panel-notes"
@@ -2783,7 +2976,7 @@ export function SlideInspector({
           </div>
         ) : null}
 
-        {tab === "source" ? (
+        {panel === "source" ? (
           <div
             role="tabpanel"
             id="inspector-panel-source"

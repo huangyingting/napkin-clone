@@ -115,6 +115,7 @@ import type { Visual } from "@/lib/visual/schema";
 import {
   buildTemplateSlide,
   SLIDE_TEMPLATES,
+  TEMPLATE_IMAGE_PLACEHOLDER_SRC,
   type SlideTemplateKind,
 } from "@/lib/presentation/slide-templates";
 import {
@@ -319,8 +320,8 @@ function buildDefaultElement(
       return {
         id,
         kind: "image",
-        src: "",
-        alt: "",
+        src: TEMPLATE_IMAGE_PLACEHOLDER_SRC,
+        alt: "Image placeholder",
         box: { x: 25, y: 22, w: 50, h: 56 },
       };
     case "shape":
@@ -466,6 +467,7 @@ export function SlideEditor({
 
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [railOpen, setRailOpen] = useState(true);
+  const [railContentMounted, setRailContentMounted] = useState(true);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [dragPreview, setDragPreview] = useState<{
@@ -491,7 +493,7 @@ export function SlideEditor({
   }, []);
   // Which tab the right supplemental panel shows. Set by toolbar handoff
   // (Position -> arrange, Layers -> layers) and the top-bar panel toggle.
-  const [rightPanelTab, setRightPanelTab] = useState<RightPanelTab>("arrange");
+  const [rightPanelTab, setRightPanelTab] = useState<RightPanelTab>("position");
   const openRightPanel = useCallback((tab: RightPanelTab) => {
     setRightPanelTab(tab);
     setInspectorOpen(true);
@@ -525,6 +527,13 @@ export function SlideEditor({
     setZoom(clampZoom(nextZoom));
   }, []);
   const [stageBounds, setStageBounds] = useState<Size>(DEFAULT_SCREEN_SIZE);
+
+  useEffect(() => {
+    if (railOpen) {
+      setRailContentMounted(true);
+    }
+  }, [railOpen]);
+
   const [selectedElementId, setSelectedElementId] = useState<string | null>(
     null,
   );
@@ -875,6 +884,18 @@ export function SlideEditor({
   // Fit the stage to the deck's slide format — not the viewport's — so
   // cqh-sized slide text never overflows on portrait phones.
   const fittedStageSize = fitAspectRatio(stageBounds, activeSlideAspectRatio);
+  const renderedStageWidth = fittedStageSize.width * zoom;
+  const renderedStageHeight = fittedStageSize.height * zoom;
+  const scrollContentWidth = Math.max(stageBounds.width, renderedStageWidth);
+  const scrollContentHeight = Math.max(stageBounds.height, renderedStageHeight);
+  const scrollInsetX = Math.max(
+    0,
+    (scrollContentWidth - renderedStageWidth) / 2,
+  );
+  const scrollInsetY = Math.max(
+    0,
+    (scrollContentHeight - renderedStageHeight) / 2,
+  );
 
   const fitInsertedTextElement = useCallback(
     <T extends TextLikeElement>(element: T, anchor: "top-left" | "center") => {
@@ -953,9 +974,16 @@ export function SlideEditor({
 
     const updateBounds = () => {
       const rect = node.getBoundingClientRect();
+      const style = window.getComputedStyle(node);
+      const paddingX =
+        Number.parseFloat(style.paddingLeft) +
+        Number.parseFloat(style.paddingRight);
+      const paddingY =
+        Number.parseFloat(style.paddingTop) +
+        Number.parseFloat(style.paddingBottom);
       setStageBounds({
-        width: Math.max(1, rect.width),
-        height: Math.max(1, rect.height),
+        width: Math.max(1, rect.width - paddingX),
+        height: Math.max(1, rect.height - paddingY),
       });
     };
 
@@ -963,6 +991,11 @@ export function SlideEditor({
     const observer = new ResizeObserver(updateBounds);
     observer.observe(node);
     return () => observer.disconnect();
+  }, []);
+
+  const handleToggleRail = useCallback(() => {
+    setRailContentMounted(true);
+    setRailOpen((open) => !open);
   }, []);
 
   const handleThemeChange = useCallback(
@@ -3233,109 +3266,11 @@ export function SlideEditor({
         </div>
       ) : null}
 
-      {/* ── Body: thumbnail rail · stage · inspector ────────────────────── */}
-      {/* Stacks vertically on phones (rail becomes a top strip), three-pane row
-          from `sm` up. Issue #209. */}
+      {/* ── Body: stage · floating inspector · bottom thumbnail strip ───── */}
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="relative flex min-h-0 flex-1 flex-col sm:flex-row">
-          {/* Slide thumbnail rail — vertical column from `sm`, horizontal scrolling
-            strip below `sm`. */}
-          {railOpen ? (
-            <aside className="flex w-full shrink-0 flex-col bg-ds-surface-sunken sm:w-56">
-              <div className="flex min-h-0 flex-1 gap-2 overflow-x-auto p-3 sm:block sm:gap-0 sm:overflow-x-visible sm:overflow-y-auto">
-                <ul
-                  ref={railListRef}
-                  className="flex flex-row gap-2 sm:flex-col"
-                >
-                  {deck.slides.map((slide, index) => {
-                    const selected = index === safeSelected;
-                    const dropTarget =
-                      dragOverIndex === index && dragIndex !== index;
-                    const dragging =
-                      dragIndex === index && dragPreview !== null;
-                    const title = deriveSlideTitle(slide, index);
-                    const canDelete = deck.slides.length > 1;
-                    return (
-                      <li
-                        key={slide.id}
-                        data-slide-thumb
-                        className={`group relative w-40 shrink-0 transition-transform sm:w-auto ${
-                          dragging ? "scale-[0.98] opacity-30" : ""
-                        }`}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setVisualPickerOpen(false);
-                            setSelectedIndex(index);
-                          }}
-                          onPointerDown={(event) => beginReorder(event, index)}
-                          aria-label={`Slide ${index + 1}: ${title}`}
-                          aria-current={selected}
-                          title={title}
-                          className={`flex w-full rounded-ds-md border p-1 text-left transition-all ${
-                            selected
-                              ? "border-ds-control bg-ds-state-hover"
-                              : "border-transparent hover:bg-ds-state-hover"
-                          } ${
-                            dropTarget
-                              ? "border-ds-control bg-ds-state-hover shadow-ds-overlay ring-2 ring-ds-control/30"
-                              : ""
-                          } ${dragging ? "cursor-grabbing" : "cursor-grab"} ${FOCUS_RING}`}
-                        >
-                          <span
-                            className="pointer-events-none relative block min-w-0 flex-1 overflow-hidden rounded-ds-sm border border-ds-border-subtle"
-                            style={{ aspectRatio: activeSlideAspectRatio }}
-                          >
-                            <SlideCanvas
-                              slide={slide}
-                              visuals={visuals}
-                              preview
-                            />
-                            <span className="absolute left-1.5 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-ds-sm bg-ds-surface-overlay px-1 text-[11px] font-semibold tabular-nums text-ds-text-secondary shadow-sm ring-1 ring-ds-border-subtle">
-                              {index + 1}
-                            </span>
-                          </span>
-                        </button>
-
-                        {/* Hover/focus action cluster — reveals on group hover or
-                        keyboard focus so the rail stays clean but every action
-                        is keyboard-reachable (issue #212). */}
-                        <div className="absolute right-1 top-1 flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-                          <ThumbnailAction
-                            icon={<ChevronUp size={13} aria-hidden="true" />}
-                            label={`Move slide ${index + 1} up`}
-                            disabled={index === 0}
-                            onClick={() => handleMove(index, -1)}
-                          />
-                          <ThumbnailAction
-                            icon={<ChevronDown size={13} aria-hidden="true" />}
-                            label={`Move slide ${index + 1} down`}
-                            disabled={index === deck.slides.length - 1}
-                            onClick={() => handleMove(index, 1)}
-                          />
-                          <ThumbnailAction
-                            icon={<Copy size={13} aria-hidden="true" />}
-                            label={`Duplicate slide ${index + 1}`}
-                            onClick={() => handleDuplicate(index)}
-                          />
-                          <ThumbnailAction
-                            icon={<Trash2 size={13} aria-hidden="true" />}
-                            label={`Delete slide ${index + 1}`}
-                            disabled={!canDelete}
-                            onClick={() => handleRemove(index)}
-                          />
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            </aside>
-          ) : null}
-
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
           {/* Stage — large live preview of the selected slide */}
-          <main className="relative flex min-w-0 flex-1 flex-col bg-ds-surface-sunken">
+          <main className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-ds-surface-sunken">
             {selectedSlide ? (
               <SlideSelectionToolbar
                 selectionSummary={selectionSummary}
@@ -3345,8 +3280,11 @@ export function SlideEditor({
                 brandSwatches={brandSwatches}
                 showAdvanced={showAdvanced}
                 onUpdateElement={handleUpdateElement}
-                onOpenArrange={() => openRightPanel("arrange")}
-                onOpenLayers={() => openRightPanel("layers")}
+                onOpenPosition={() => openRightPanel("position")}
+                onOpenText={() => openRightPanel("text")}
+                onOpenEffects={() => openRightPanel("effects")}
+                onOpenMedia={() => openRightPanel("media")}
+                onOpenSource={() => openRightPanel("source")}
                 onDuplicateElement={handleDuplicateElement}
                 onRemoveElement={handleRemoveElement}
                 onBringToFront={handleBringToFront}
@@ -3355,43 +3293,56 @@ export function SlideEditor({
             ) : null}
             <div
               ref={stageRef}
-              className="relative flex min-h-0 flex-1 overflow-auto p-4 sm:p-6"
+              className="relative min-h-0 flex-1 overflow-auto px-4 py-2 sm:px-5 sm:py-3"
             >
-              {selectedSlide ? (
-                <SlideStageEditor
-                  slide={selectedSlide}
-                  visuals={visuals}
-                  width={fittedStageSize.width * zoom}
-                  height={fittedStageSize.height * zoom}
-                  selectedElementId={effectiveSelectedElementId}
-                  selectedElementIds={effectiveSelectedElementIds}
-                  onSelectElement={handleSelectElement}
-                  onSelectElements={handleSelectElements}
-                  onUpdateElement={handleUpdateElement}
-                  onDuplicateElement={handleDuplicateElement}
-                  onRemoveElement={handleRemoveElement}
-                  onBringToFront={handleBringToFront}
-                  onSendToBack={handleSendToBack}
-                  onCopyElements={handleCopyElements}
-                  onCutElements={handleCutElements}
-                  onPasteElements={handlePasteElements}
-                  onSetElementBoxes={handleSetElementBoxes}
-                  onSetElementPatches={handleSetElementPatches}
-                  onGroupElements={handleGroupElements}
-                  onUngroupElements={handleUngroupElements}
-                  snapToGrid={snapToGrid}
-                  brandSwatches={brandSwatches}
-                  onAddTextElement={handleAddTextElement}
-                  showAdvanced={showAdvanced}
-                  focusRequest={focusRequest}
-                  liveMessage={liveMessage}
-                />
-              ) : null}
+              <div
+                className="relative shrink-0"
+                style={{
+                  boxSizing: "border-box",
+                  width: scrollContentWidth,
+                  height: scrollContentHeight,
+                  paddingLeft: scrollInsetX,
+                  paddingTop: scrollInsetY,
+                }}
+              >
+                {selectedSlide ? (
+                  <SlideStageEditor
+                    slide={selectedSlide}
+                    visuals={visuals}
+                    width={renderedStageWidth}
+                    height={renderedStageHeight}
+                    selectedElementId={effectiveSelectedElementId}
+                    selectedElementIds={effectiveSelectedElementIds}
+                    onSelectElement={handleSelectElement}
+                    onSelectElements={handleSelectElements}
+                    onUpdateElement={handleUpdateElement}
+                    onDuplicateElement={handleDuplicateElement}
+                    onRemoveElement={handleRemoveElement}
+                    onBringToFront={handleBringToFront}
+                    onSendToBack={handleSendToBack}
+                    onCopyElements={handleCopyElements}
+                    onCutElements={handleCutElements}
+                    onPasteElements={handlePasteElements}
+                    onSetElementBoxes={handleSetElementBoxes}
+                    onSetElementPatches={handleSetElementPatches}
+                    onGroupElements={handleGroupElements}
+                    onUngroupElements={handleUngroupElements}
+                    snapToGrid={snapToGrid}
+                    brandSwatches={brandSwatches}
+                    onAddTextElement={handleAddTextElement}
+                    showAdvanced={showAdvanced}
+                    focusRequest={focusRequest}
+                    liveMessage={liveMessage}
+                  />
+                ) : null}
+              </div>
             </div>
           </main>
 
-          {/* Inspector — desktop side pane (`lg+`). Below `lg` it is hidden and
-            instead opened as a bottom sheet via the FAB below. Issue #209. */}
+          {/* Floating inspector — desktop overlay (`lg+`). Below `lg` it is
+            opened as a bottom sheet via the FAB below. The desktop panel does
+            not participate in flex layout, so opening it never resizes the
+            slide stage. */}
           {/* eslint-disable-next-line react-hooks/refs -- handler props only run on user events. */}
           {inspectorProps && inspectorOpen ? (
             <SlideInspector
@@ -3401,10 +3352,113 @@ export function SlideEditor({
               documentId={documentId}
               initialTab={rightPanelTab}
               onClose={closeRightPanel}
-              className="hidden w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle bg-ds-surface-base lg:flex"
+              className="absolute bottom-4 right-4 top-4 z-panel hidden w-80 flex-col overflow-y-auto rounded-ds-lg border border-ds-border-subtle bg-ds-surface-overlay shadow-ds-overlay lg:flex"
             />
           ) : null}
         </div>
+
+        <aside
+          aria-hidden={!railOpen}
+          onTransitionEnd={(event) => {
+            if (event.currentTarget === event.target && !railOpen) {
+              setRailContentMounted(false);
+            }
+          }}
+          className={`shrink-0 overflow-hidden border-t border-ds-border-subtle bg-ds-surface-sunken transition-[max-height,opacity,transform] duration-200 ease-out motion-reduce:transition-none ${
+            railOpen
+              ? "max-h-32 translate-y-0 opacity-100"
+              : "max-h-0 translate-y-1 opacity-0"
+          }`}
+        >
+          {railContentMounted ? (
+            <div
+              className={`overflow-x-auto px-2 py-1 transition-opacity duration-150 ${
+                railOpen ? "opacity-100" : "pointer-events-none opacity-0"
+              }`}
+            >
+              <ul ref={railListRef} className="flex flex-row gap-1.5">
+                {deck.slides.map((slide, index) => {
+                  const selected = index === safeSelected;
+                  const dropTarget =
+                    dragOverIndex === index && dragIndex !== index;
+                  const dragging = dragIndex === index && dragPreview !== null;
+                  const title = deriveSlideTitle(slide, index);
+                  const canDelete = deck.slides.length > 1;
+                  return (
+                    <li
+                      key={slide.id}
+                      data-slide-thumb
+                      className={`group relative w-28 shrink-0 transition-transform sm:w-32 ${
+                        dragging ? "scale-[0.98] opacity-30" : ""
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setVisualPickerOpen(false);
+                          setSelectedIndex(index);
+                        }}
+                        onPointerDown={(event) => beginReorder(event, index)}
+                        aria-label={`Slide ${index + 1}: ${title}`}
+                        aria-current={selected}
+                        title={title}
+                        className={`flex w-full rounded-ds-md border p-1 text-left transition-all ${
+                          selected
+                            ? "border-ds-control bg-ds-state-hover"
+                            : "border-transparent hover:bg-ds-state-hover"
+                        } ${
+                          dropTarget
+                            ? "border-ds-control bg-ds-state-hover shadow-ds-overlay ring-2 ring-ds-control/30"
+                            : ""
+                        } ${dragging ? "cursor-grabbing" : "cursor-grab"} ${FOCUS_RING}`}
+                      >
+                        <span
+                          className="pointer-events-none relative block min-w-0 flex-1 overflow-hidden rounded-ds-sm border border-ds-border-subtle"
+                          style={{ aspectRatio: activeSlideAspectRatio }}
+                        >
+                          <SlideCanvas
+                            slide={slide}
+                            visuals={visuals}
+                            preview
+                          />
+                          <span className="absolute left-1.5 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-ds-sm bg-ds-surface-overlay px-1 text-[11px] font-semibold tabular-nums text-ds-text-secondary shadow-sm ring-1 ring-ds-border-subtle">
+                            {index + 1}
+                          </span>
+                        </span>
+                      </button>
+
+                      <div className="absolute right-1 top-1 flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                        <ThumbnailAction
+                          icon={<ChevronUp size={13} aria-hidden="true" />}
+                          label={`Move slide ${index + 1} up`}
+                          disabled={index === 0}
+                          onClick={() => handleMove(index, -1)}
+                        />
+                        <ThumbnailAction
+                          icon={<ChevronDown size={13} aria-hidden="true" />}
+                          label={`Move slide ${index + 1} down`}
+                          disabled={index === deck.slides.length - 1}
+                          onClick={() => handleMove(index, 1)}
+                        />
+                        <ThumbnailAction
+                          icon={<Copy size={13} aria-hidden="true" />}
+                          label={`Duplicate slide ${index + 1}`}
+                          onClick={() => handleDuplicate(index)}
+                        />
+                        <ThumbnailAction
+                          icon={<Trash2 size={13} aria-hidden="true" />}
+                          label={`Delete slide ${index + 1}`}
+                          disabled={!canDelete}
+                          onClick={() => handleRemove(index)}
+                        />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
+        </aside>
 
         {selectedSlide ? (
           <SlideBottomDock
@@ -3415,7 +3469,7 @@ export function SlideEditor({
             zoom={zoom}
             zoomMenuOpen={zoomMenuOpen}
             slideLabel={`Slide ${safeSelected + 1} of ${deck.slides.length}`}
-            onToggleRail={() => setRailOpen((open) => !open)}
+            onToggleRail={handleToggleRail}
             onOpenNotes={openNotesPanel}
             onZoomChange={handleZoomChange}
             onZoomMenuOpenChange={setZoomMenuOpen}
@@ -3949,8 +4003,11 @@ function SlideSelectionToolbar({
   brandSwatches,
   showAdvanced,
   onUpdateElement,
-  onOpenArrange,
-  onOpenLayers,
+  onOpenPosition,
+  onOpenText,
+  onOpenEffects,
+  onOpenMedia,
+  onOpenSource,
   onDuplicateElement,
   onRemoveElement,
   onBringToFront,
@@ -3967,8 +4024,11 @@ function SlideSelectionToolbar({
     patch: ElementPatch,
     coalesceKey?: string,
   ) => void;
-  onOpenArrange: () => void;
-  onOpenLayers: () => void;
+  onOpenPosition: () => void;
+  onOpenText: () => void;
+  onOpenEffects: () => void;
+  onOpenMedia: () => void;
+  onOpenSource: () => void;
   onDuplicateElement: (id: string) => void;
   onRemoveElement: (id: string) => void;
   onBringToFront: (id: string) => void;
@@ -3988,6 +4048,21 @@ function SlideSelectionToolbar({
       hasSelectedElement: selectedElement !== null,
       selectedCount,
     });
+  const canOpenTextPanel =
+    selectedElement !== null &&
+    selectedCount <= 1 &&
+    (selectedElement.kind === "text" ||
+      selectedElement.kind === "bullets" ||
+      (selectedElement.kind === "shape" && selectedElement.shape !== "line"));
+  const canOpenMediaPanel =
+    selectedElement !== null &&
+    selectedCount <= 1 &&
+    (selectedElement.kind === "image" || selectedElement.kind === "visual");
+  const canOpenEffectsPanel = selectedElement !== null && selectedCount <= 1;
+  const canOpenSourcePanel =
+    selectedElement !== null &&
+    selectedCount <= 1 &&
+    selectedElement.sourceRef !== undefined;
   return (
     <div
       role="toolbar"
@@ -4012,19 +4087,48 @@ function SlideSelectionToolbar({
         </span>
       )}
       <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
+      {canOpenTextPanel ? (
+        <button
+          type="button"
+          onClick={onOpenText}
+          className={`flex h-7 shrink-0 items-center rounded-ds-sm px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+        >
+          Text
+        </button>
+      ) : null}
+      {canOpenMediaPanel ? (
+        <button
+          type="button"
+          onClick={onOpenMedia}
+          className={`flex h-7 shrink-0 items-center rounded-ds-sm px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+        >
+          Media
+        </button>
+      ) : null}
+      {canOpenEffectsPanel ? (
+        <button
+          type="button"
+          onClick={onOpenEffects}
+          className={`flex h-7 shrink-0 items-center rounded-ds-sm px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+        >
+          Effects
+        </button>
+      ) : null}
+      {canOpenSourcePanel ? (
+        <button
+          type="button"
+          onClick={onOpenSource}
+          className={`flex h-7 shrink-0 items-center rounded-ds-sm px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+        >
+          Source
+        </button>
+      ) : null}
       <button
         type="button"
-        onClick={onOpenArrange}
+        onClick={onOpenPosition}
         className={`flex h-7 shrink-0 items-center rounded-ds-sm px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
       >
         Position
-      </button>
-      <button
-        type="button"
-        onClick={onOpenLayers}
-        className={`flex h-7 shrink-0 items-center rounded-ds-sm px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-      >
-        Layers
       </button>
     </div>
   );
@@ -4060,8 +4164,8 @@ function SlideBottomDock({
   const presets = [...ZOOM_PERCENT_PRESETS].sort((a, b) => b - a);
 
   return (
-    <div className="shrink-0 bg-ds-surface-sunken">
-      <div className="flex min-h-14 items-center justify-center gap-2 px-3 py-2">
+    <div className="shrink-0 border-t border-ds-border-subtle bg-ds-surface-sunken">
+      <div className="flex min-h-10 items-center justify-center gap-1.5 px-2 py-1">
         <Tooltip
           label={railOpen ? "Hide slide thumbnails" : "Show slide thumbnails"}
           side="top"

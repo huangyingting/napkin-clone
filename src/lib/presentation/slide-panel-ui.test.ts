@@ -7,8 +7,8 @@ import {
   shouldShowRichToolbarControls,
 } from "./slide-panel-ui";
 
-test("defaultPanelTab is arrange with a selection", () => {
-  assert.equal(defaultPanelTab(true), "arrange");
+test("defaultPanelTab is position with a selection", () => {
+  assert.equal(defaultPanelTab(true), "position");
 });
 
 test("defaultPanelTab is slide with no selection", () => {
