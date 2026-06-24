@@ -72,6 +72,11 @@ import {
   PLACEHOLDER_TYPE_LABELS,
 } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
+import {
+  resolveRoleToken,
+  type DeckTextRole,
+} from "@/lib/presentation/deck-theme-tokens";
+import { resolveSlideTokenSet } from "@/lib/presentation/style-cascade";
 import type { RightPanelTab } from "@/lib/presentation/slide-panel-ui";
 import type {
   AlignMode,
@@ -1120,11 +1125,233 @@ function ListTypeControl({
   );
 }
 
+/** Hex color test used by the inheritance-aware color control. */
+function isHexColor(value: string): boolean {
+  return /^#[0-9a-fA-F]{6}$/.test(value);
+}
+
+/** Semantic roles offered per element kind in the Text panel (#615). */
+const TEXT_ROLE_OPTIONS: Readonly<
+  Record<
+    "text" | "bullets" | "shape",
+    ReadonlyArray<{ value: DeckTextRole; label: string }>
+  >
+> = {
+  text: [
+    { value: "h1", label: "Heading 1" },
+    { value: "h2", label: "Heading 2" },
+    { value: "h3", label: "Heading 3" },
+    { value: "subtitle", label: "Subtitle" },
+    { value: "body", label: "Body" },
+    { value: "caption", label: "Caption" },
+  ],
+  bullets: [
+    { value: "bullet", label: "Bullet" },
+    { value: "body", label: "Body" },
+  ],
+  shape: [
+    { value: "shapeLabel", label: "Shape label" },
+    { value: "h1", label: "Heading 1" },
+    { value: "h2", label: "Heading 2" },
+    { value: "h3", label: "Heading 3" },
+    { value: "body", label: "Body" },
+    { value: "caption", label: "Caption" },
+  ],
+};
+
+/** The role an element inherits when it carries no explicit `textRole`. */
+function defaultTextRole(element: SlideElement): DeckTextRole {
+  if (element.kind === "text") return element.role === "title" ? "h1" : "body";
+  if (element.kind === "bullets") return "bullet";
+  return "shapeLabel";
+}
+
+/** Elements that carry a semantic text role + local style override (#615). */
+type TextBearingElement = Extract<
+  SlideElement,
+  { kind: "text" | "bullets" | "shape" }
+>;
+
+/** Role dropdown: switches the element's semantic typography role (#615). */
+function RoleSelectControl({
+  element,
+  onChange,
+}: {
+  element: TextBearingElement;
+  onChange: (role: DeckTextRole) => void;
+}) {
+  const kindKey =
+    element.kind === "shape" ? "shape" : (element.kind as "text" | "bullets");
+  const options = TEXT_ROLE_OPTIONS[kindKey];
+  const current = element.textRole ?? defaultTextRole(element);
+  return (
+    <label className="block">
+      <span className={LABEL_CLASS}>Role</span>
+      <select
+        value={current}
+        onChange={(event) => onChange(event.target.value as DeckTextRole)}
+        className={`${FIELD_CLASS} ${FOCUS_RING}`}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <span className="mt-1 block text-[11px] text-ds-text-muted">
+        Inherits theme typography for this role; edits below override it
+        locally.
+      </span>
+    </label>
+  );
+}
+
+/**
+ * Header row marking a property as inherited or locally overridden, with a
+ * per-property reset to the inherited theme value (#615).
+ */
+function OverrideHeader({
+  label,
+  overridden,
+  onReset,
+}: {
+  label: string;
+  overridden: boolean;
+  onReset: () => void;
+}) {
+  return (
+    <span className="mb-1 flex items-center justify-between gap-2">
+      <span className="text-xs font-medium text-ds-text-secondary">
+        {label}
+      </span>
+      {overridden ? (
+        <span className="flex items-center gap-1.5">
+          <span className="rounded-ds-sm bg-ds-state-hover px-1 py-0.5 text-[10px] font-medium text-ds-text-secondary">
+            Custom
+          </span>
+          <button
+            type="button"
+            onClick={onReset}
+            className={`rounded-ds-sm text-[11px] text-ds-text-secondary underline-offset-2 hover:underline ${FOCUS_RING}`}
+          >
+            Reset
+          </button>
+        </span>
+      ) : (
+        <span className="text-[10px] text-ds-text-muted">Inherited</span>
+      )}
+    </span>
+  );
+}
+
+/** Font control that surfaces inherited vs. local state with reset (#615). */
+function InheritedFontControl({
+  style,
+  inheritedLabel,
+  onChange,
+}: {
+  style: TextElementStyle;
+  inheritedLabel: string;
+  onChange: (style: TextElementStyle) => void;
+}) {
+  const overridden = style.fontFamily !== undefined;
+  return (
+    <div className="block">
+      <OverrideHeader
+        label="Font"
+        overridden={overridden}
+        onReset={() => {
+          const next = { ...style };
+          delete next.fontFamily;
+          onChange(next);
+        }}
+      />
+      <select
+        value={style.fontFamily ?? ""}
+        aria-label="Font family"
+        onChange={(event) => {
+          const value = event.target.value;
+          const next = { ...style };
+          if (value) next.fontFamily = value;
+          else delete next.fontFamily;
+          onChange(next);
+        }}
+        className={`${FIELD_CLASS} ${FOCUS_RING}`}
+      >
+        <option value="">Theme default ({inheritedLabel})</option>
+        {FONT_FAMILIES.filter((font) => font.value).map((font) => (
+          <option key={font.label} value={font.value}>
+            {font.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+/** Color control that surfaces inherited vs. local state with reset (#615). */
+function InheritedColorControl({
+  style,
+  inheritedColor,
+  onChange,
+}: {
+  style: TextElementStyle;
+  inheritedColor: string;
+  onChange: (style: TextElementStyle) => void;
+}) {
+  const overridden = style.color !== undefined;
+  const value = style.color ?? inheritedColor;
+  const setColor = (hex: string) => onChange({ ...style, color: hex });
+  return (
+    <div className="block">
+      <OverrideHeader
+        label="Color"
+        overridden={overridden}
+        onReset={() => {
+          const next = { ...style };
+          delete next.color;
+          onChange(next);
+        }}
+      />
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          aria-label="Text color"
+          value={isHexColor(value) ? value : "#000000"}
+          onChange={(event) => setColor(event.target.value)}
+          className="h-7 w-9 cursor-pointer rounded-ds-sm border border-ds-border-subtle bg-ds-surface"
+        />
+        <input
+          key={value}
+          type="text"
+          spellCheck={false}
+          defaultValue={value}
+          aria-label="Text color hex"
+          onBlur={(event) => {
+            const next = event.target.value.trim();
+            if (isHexColor(next) && next.toLowerCase() !== value.toLowerCase())
+              setColor(next);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter")
+              (event.target as HTMLInputElement).blur();
+          }}
+          className={`w-24 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-1.5 py-1 font-mono text-[11px] text-ds-text-primary ${FOCUS_RING}`}
+        />
+      </div>
+    </div>
+  );
+}
+
 function TextPanel({
   element,
+  deck,
+  slide,
   onUpdateElement,
 }: {
   element: SlideElement | null;
+  deck: Deck;
+  slide: Slide;
   onUpdateElement: SlideInspectorProps["onUpdateElement"];
 }) {
   const [textTab, setTextTab] = useState<"font" | "style">("font");
@@ -1160,6 +1387,18 @@ function TextPanel({
     }
     onUpdateElement(element.id, { style: next });
   };
+
+  // Resolve the inherited (role-token) values so the panel can show what the
+  // element falls back to and mark per-property local overrides (#615).
+  const role = element.textRole ?? defaultTextRole(element);
+  const tokenSet = resolveSlideTokenSet(deck, slide);
+  const roleToken = resolveRoleToken(tokenSet, role);
+  const inheritedColor = roleToken.color;
+  const inheritedFontLabel =
+    FONT_FAMILIES.find(
+      (font) =>
+        font.value === (roleToken.fontFamily ?? tokenSet.typography.fontFamily),
+    )?.label ?? "theme font";
 
   return (
     <div className="flex flex-col gap-4">
@@ -1203,7 +1442,20 @@ function TextPanel({
           aria-labelledby="text-panel-tab-font"
           className="flex flex-col gap-3"
         >
-          <FontFamilyControl style={style} onChange={updateStyle} />
+          <RoleSelectControl
+            element={element}
+            onChange={(textRole) => onUpdateElement(element.id, { textRole })}
+          />
+          <InheritedColorControl
+            style={style}
+            inheritedColor={inheritedColor}
+            onChange={updateStyle}
+          />
+          <InheritedFontControl
+            style={style}
+            inheritedLabel={inheritedFontLabel}
+            onChange={updateStyle}
+          />
           <LineHeightControl style={style} onChange={updateStyle} />
           {element.kind === "text" || element.kind === "shape" ? (
             <ParagraphSpacingControl style={style} onChange={updateStyle} />
@@ -2597,6 +2849,8 @@ export function SlideInspector({
           >
             <TextPanel
               element={selectedElement}
+              deck={deck}
+              slide={slide}
               onUpdateElement={onUpdateElement}
             />
           </div>
