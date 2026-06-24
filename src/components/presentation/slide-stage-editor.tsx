@@ -100,6 +100,7 @@ import {
 import {
   CONNECTOR_ANCHORS,
   anchorPoint,
+  connectorAnchorCandidates,
   lineBoxFromEndpoints,
   resolveConnectorElementPoints,
   resolveLineEndpoints,
@@ -1106,11 +1107,10 @@ export function SlideStageEditor({
     y: number;
   } | null>(null);
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
-  // Anchor point preview overlay while dragging a connector endpoint (issue #325).
-  const [anchorPreview, setAnchorPreview] = useState<{
-    elementId: string;
-    hoveredAnchor: ConnectorAnchor | null;
-  } | null>(null);
+  // Anchor point preview overlays while dragging a connector endpoint.
+  const [anchorPreview, setAnchorPreview] = useState<
+    { elementId: string; hoveredAnchor: ConnectorAnchor | null }[] | null
+  >(null);
   const [preselectedTarget, setPreselectedTarget] =
     useState<StagePreselection | null>(null);
   // Monotonic gesture counter (issue #242). Each drag / resize / inline-edit
@@ -1737,30 +1737,20 @@ export function SlideStageEditor({
             resolveBox,
             stageAspect,
           );
-          // Update anchor preview state: highlight the snapped anchor, or show
-          // dots on whatever shape the pointer is hovering over.
-          if (snapped.binding) {
-            setAnchorPreview({
-              elementId: snapped.binding.elementId,
-              hoveredAnchor: snapped.binding.anchor,
-            });
-          } else {
-            const hovered = elementsRef.current.find((el) => {
-              if (el.id === resized.id) return false;
-              if (el.kind === "connector") return false;
-              if (el.kind === "shape" && el.shape === "line") return false;
-              const b = resolveBox(el);
-              return (
-                currentPoint.x >= b.x &&
-                currentPoint.x <= b.x + b.w &&
-                currentPoint.y >= b.y &&
-                currentPoint.y <= b.y + b.h
-              );
-            });
-            setAnchorPreview(
-              hovered ? { elementId: hovered.id, hoveredAnchor: null } : null,
-            );
-          }
+          const previewTargets = connectorAnchorCandidates(
+            currentPoint,
+            resized.id,
+            elementsRef.current,
+            resolveBox,
+            stageAspect,
+          ).map((candidate) => ({
+            elementId: candidate.elementId,
+            hoveredAnchor:
+              snapped.binding?.elementId === candidate.elementId
+                ? snapped.binding.anchor
+                : candidate.hoveredAnchor,
+          }));
+          setAnchorPreview(previewTargets.length > 0 ? previewTargets : null);
           // Resolve current start/end screen positions for bounding box update.
           const resolvedPts = resolveConnectorElementPoints(
             resized,
@@ -2557,22 +2547,22 @@ export function SlideStageEditor({
           : null}
 
         {/* Connector anchor preview dots — shown while dragging a connector
-            endpoint near a target shape (issue #325). Five anchor points
-            (center, top, bottom, left, right) appear on the hovered shape; the
-            one currently within snap radius is highlighted in blue. */}
+            endpoint near candidate target elements. Five anchor points (center,
+            top, bottom, left, right) appear on each candidate; the snapped
+            anchor is highlighted in blue. */}
         {anchorPreview
-          ? (() => {
+          ? anchorPreview.flatMap((preview) => {
               const targetEl = elements.find(
-                (el) => el.id === anchorPreview.elementId,
+                (el) => el.id === preview.elementId,
               );
-              if (!targetEl) return null;
+              if (!targetEl) return [];
               const box = fittedBoxes.get(targetEl.id) ?? targetEl.box;
               return CONNECTOR_ANCHORS.map((anchor) => {
                 const pt = anchorPoint(box, anchor);
-                const isHovered = anchor === anchorPreview.hoveredAnchor;
+                const isHovered = anchor === preview.hoveredAnchor;
                 return (
                   <div
-                    key={anchor}
+                    key={`${preview.elementId}:${anchor}`}
                     aria-hidden="true"
                     className={`pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full transition-transform ${
                       isHovered
@@ -2587,7 +2577,7 @@ export function SlideStageEditor({
                   />
                 );
               });
-            })()
+            })
           : null}
 
         {/* Live position / size badge */}

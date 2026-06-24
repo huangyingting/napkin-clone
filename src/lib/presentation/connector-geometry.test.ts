@@ -4,6 +4,7 @@ import test from "node:test";
 import type { ElementBox, ShapeElement, SlideElement } from "./deck";
 import {
   anchorPoint,
+  connectorAnchorCandidates,
   lineBoxFromEndpoints,
   lineEndpoints,
   resolveConnectorEndpoint,
@@ -289,4 +290,84 @@ test("snapLineEndpoint excludes other line shapes from snap candidates", () => {
 
   assert.deepEqual(result.point, { x: 15, y: 11 });
   assert.strictEqual(result.binding, undefined);
+});
+
+test("connectorAnchorCandidates returns all hovered and near-anchor targets", () => {
+  const containing = shape("containing", { x: 10, y: 10, w: 30, h: 20 });
+  const nearAnchor = shape("near-anchor", { x: 40, y: 10, w: 10, h: 10 });
+  const line = shape("line", { x: 0, y: 0, w: 10, h: 2 }, { shape: "line" });
+
+  const candidates = connectorAnchorCandidates(
+    { x: 38, y: 18 },
+    line.id,
+    [containing, nearAnchor, line],
+    resolveBox,
+    1,
+  );
+
+  assert.deepEqual(
+    candidates.map((candidate) => ({
+      elementId: candidate.elementId,
+      hoveredAnchor: candidate.hoveredAnchor,
+      containsPoint: candidate.containsPoint,
+    })),
+    [
+      { elementId: "containing", hoveredAnchor: "right", containsPoint: true },
+      {
+        elementId: "near-anchor",
+        hoveredAnchor: "left",
+        containsPoint: false,
+      },
+    ],
+  );
+});
+
+test("connectorAnchorCandidates shows box-contained targets even without a snapped anchor", () => {
+  const target = shape("target", { x: 10, y: 10, w: 40, h: 40 });
+  const line = shape("line", { x: 0, y: 0, w: 10, h: 2 }, { shape: "line" });
+
+  const candidates = connectorAnchorCandidates(
+    { x: 27, y: 27 },
+    line.id,
+    [target, line],
+    resolveBox,
+    1,
+    2,
+  );
+
+  assert.deepEqual(candidates, [
+    {
+      elementId: "target",
+      hoveredAnchor: null,
+      distance: Math.sqrt(18),
+      containsPoint: true,
+    },
+  ]);
+});
+
+test("connectorAnchorCandidates excludes connectors, the active line, and other line shapes", () => {
+  const connector: SlideElement = {
+    id: "connector",
+    kind: "connector",
+    start: { x: 10, y: 10 },
+    end: { x: 20, y: 20 },
+    zIndex: 0,
+    box: { x: 10, y: 10, w: 10, h: 10 },
+  };
+  const otherLine = shape(
+    "other-line",
+    { x: 10, y: 10, w: 10, h: 2 },
+    { shape: "line" },
+  );
+  const line = shape("line", { x: 0, y: 0, w: 10, h: 2 }, { shape: "line" });
+
+  const candidates = connectorAnchorCandidates(
+    { x: 15, y: 15 },
+    line.id,
+    [connector, otherLine, line],
+    resolveBox,
+    1,
+  );
+
+  assert.deepEqual(candidates, []);
 });
