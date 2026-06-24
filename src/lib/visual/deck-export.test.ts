@@ -1363,3 +1363,44 @@ test("element with unlinked=true sourceRef exports normally (unlinked is metadat
   );
   assert.equal(ofKind(spec.ops, "text")[0]?.text, "Detached");
 });
+
+test("exported text inherits the deck-template role font when no element override (#606)", () => {
+  // indigo theme: heading font "Space Grotesk", body font "Inter".
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [
+      freeFormSlide(0, [
+        textEl("title", "Heading", { role: "title", textRole: "h1" }),
+        bulletsEl("b", ["point"]),
+      ]),
+    ],
+  };
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const title = ofKind(spec.ops, "text")[0] as DeckTextOp;
+  const bullets = ofKind(spec.ops, "bullets")[0] as DeckBulletsOp;
+  assert.equal(title.fontFace, "Space Grotesk");
+  assert.equal(bullets.fontFace, "Inter");
+});
+
+test("an explicit element fontFamily still wins over the role font (#606)", () => {
+  const deck: Deck = {
+    theme: "indigo",
+    slides: [
+      freeFormSlide(0, [
+        textEl("title", "Heading", {
+          role: "title",
+          style: {
+            fontSize: 6,
+            bold: true,
+            italic: false,
+            align: "left",
+            fontFamily: "Courier New, monospace",
+          },
+        }),
+      ]),
+    ],
+  };
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const title = ofKind(spec.ops, "text")[0] as DeckTextOp;
+  assert.equal(title.fontFace, "Courier New");
+});

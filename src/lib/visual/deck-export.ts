@@ -49,6 +49,11 @@ import {
 import { isEmptyImageSrc } from "@/lib/presentation/image-element";
 import { slideFormatConfig } from "@/lib/presentation/slide-format";
 import { resolveSlideStyle } from "@/lib/presentation/style-cascade";
+import {
+  resolveRoleToken,
+  type DeckTextRole,
+  type DeckThemeTokenSet,
+} from "@/lib/presentation/deck-theme-tokens";
 import type { Visual } from "@/lib/visual/schema";
 import { exportPNG } from "@/lib/visual/export";
 import { applySpecsToSlide } from "@/lib/visual/pptx-apply";
@@ -294,6 +299,22 @@ function primaryFontFace(fontFamily: string | undefined): string | undefined {
 }
 
 /**
+ * Resolves the export font face for a text-bearing element (#606): the
+ * element's own `fontFamily` override wins, otherwise the deck-template role
+ * font (heading stack for heading/label roles, body stack otherwise) is
+ * inherited from the cascade so exported text matches the editor's typography.
+ */
+function roleFontFace(
+  ownFontFamily: string | undefined,
+  role: DeckTextRole,
+  tokenSet: DeckThemeTokenSet,
+): string | undefined {
+  return primaryFontFace(
+    ownFontFamily ?? resolveRoleToken(tokenSet, role).fontFamily,
+  );
+}
+
+/**
  * Build a {@link PptxSlideLayout} that fits a visual (in its own canvas units)
  * uniformly inside an inch box, centered. This places a visual element within
  * its authored free-form box rather than centering it on the whole slide.
@@ -399,8 +420,15 @@ function buildSlideSpec(
         break;
       }
       case "text": {
+        const textRole: DeckTextRole =
+          element.textRole ?? (element.role === "title" ? "h1" : "body");
         const defaultColor =
           element.role === "title" ? resolved.titleColor : resolved.bodyColor;
+        const fontFace = roleFontFace(
+          element.style.fontFamily,
+          textRole,
+          resolved.tokenSet,
+        );
         ops.push({
           kind: "text",
           ...box,
@@ -410,9 +438,7 @@ function buildSlideSpec(
             : {}),
           color: toHex(element.style.color ?? defaultColor),
           fontSize: fontSizePt(element.style.fontSize, geometry),
-          ...(primaryFontFace(element.style.fontFamily)
-            ? { fontFace: primaryFontFace(element.style.fontFamily) }
-            : {}),
+          ...(fontFace ? { fontFace } : {}),
           bold: element.style.bold,
           italic: element.style.italic,
           ...(element.style.underline ? { underline: true } : {}),
@@ -461,8 +487,18 @@ function buildSlideSpec(
             : {}),
           color: toHex(element.style.color ?? resolved.bodyColor),
           fontSize: fontSizePt(element.style.fontSize, geometry),
-          ...(primaryFontFace(element.style.fontFamily)
-            ? { fontFace: primaryFontFace(element.style.fontFamily) }
+          ...(roleFontFace(
+            element.style.fontFamily,
+            element.textRole ?? "bullet",
+            resolved.tokenSet,
+          )
+            ? {
+                fontFace: roleFontFace(
+                  element.style.fontFamily,
+                  element.textRole ?? "bullet",
+                  resolved.tokenSet,
+                ),
+              }
             : {}),
           bold: element.style.bold,
           italic: element.style.italic,
@@ -498,8 +534,18 @@ function buildSlideSpec(
                   element.textStyle?.fontSize ?? 4,
                   geometry,
                 ),
-                ...(primaryFontFace(element.textStyle?.fontFamily)
-                  ? { fontFace: primaryFontFace(element.textStyle?.fontFamily) }
+                ...(roleFontFace(
+                  element.textStyle?.fontFamily,
+                  element.textRole ?? "shapeLabel",
+                  resolved.tokenSet,
+                )
+                  ? {
+                      fontFace: roleFontFace(
+                        element.textStyle?.fontFamily,
+                        element.textRole ?? "shapeLabel",
+                        resolved.tokenSet,
+                      ),
+                    }
                   : {}),
                 bold: element.textStyle?.bold ?? false,
                 italic: element.textStyle?.italic ?? false,
