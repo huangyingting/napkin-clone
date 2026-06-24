@@ -115,3 +115,40 @@ export function applyLayoutPreservingContent(
 
   return { elements: restacked, moved, inserted };
 }
+
+/** Outcome of {@link resetLayoutPositions}. */
+export interface LayoutResetResult {
+  /** New element list (bound elements repositioned; order/z-index preserved). */
+  elements: SlideElement[];
+  /** Slot keys whose bound element was repositioned. */
+  moved: string[];
+}
+
+/**
+ * Restores bound elements to their slot geometry **without changing content or
+ * structure** (#629 "Reset layout positions"). Unlike
+ * {@link applyLayoutPreservingContent} this never inserts placeholders, never
+ * deletes anything, and preserves element order and z-index — it only updates
+ * the `box` of elements already bound to a slot present in the layout. Safe,
+ * non-destructive, and undoable.
+ */
+export function resetLayoutPositions(
+  elements: readonly SlideElement[],
+  layout: SlideLayout,
+): LayoutResetResult {
+  const slots = targetSlots(layout);
+  const moved: string[] = [];
+  const consumed = new Set<string>();
+
+  const next: SlideElement[] = elements.map((el) => {
+    const slot = slots.find(
+      (s) => !consumed.has(slotKey(s.binding)) && matchesSlot(el, s.binding),
+    );
+    if (!slot) return el;
+    consumed.add(slotKey(slot.binding));
+    moved.push(slotKey(slot.binding));
+    return { ...el, box: { ...slot.placeholder.box } } as SlideElement;
+  });
+
+  return { elements: next, moved };
+}

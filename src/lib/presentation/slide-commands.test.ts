@@ -1340,6 +1340,54 @@ test("RESET_SLIDE_LAYOUT resets layout and emits patch", () => {
   assert.deepEqual(result.affectedSlideIds, ["s1"]);
 });
 
+test("RESET_SLIDE_LAYOUT with positionsOnly repositions bound content without inserting placeholders (#629)", () => {
+  const titleEl: SlideElement = {
+    id: "t1",
+    kind: "text",
+    role: "title",
+    text: "Heading",
+    zIndex: 0,
+    box: { x: 1, y: 1, w: 10, h: 10 },
+    style: { fontSize: 6, bold: true, italic: false, align: "left" },
+    layoutSlot: { kind: "title" },
+  };
+  const deck = makeDeckWithElements("s1", [titleEl]);
+  const layout = {
+    id: "title-content",
+    name: "title-content",
+    format: "16:9" as const,
+    placeholders: [
+      {
+        id: "ph-title",
+        kind: "placeholder" as const,
+        placeholderType: "title" as const,
+        zIndex: 0,
+        box: { x: 8, y: 6, w: 84, h: 14 },
+      },
+      {
+        id: "ph-body",
+        kind: "placeholder" as const,
+        placeholderType: "body" as const,
+        zIndex: 1,
+        box: { x: 8, y: 24, w: 84, h: 60 },
+      },
+    ],
+  };
+  const result = executeCommand(deck, {
+    type: "RESET_SLIDE_LAYOUT",
+    slideIndex: 0,
+    layout,
+    positionsOnly: true,
+  });
+  assert.equal(result.ok, true);
+  const els = result.deck.slides[0]!.elements ?? [];
+  // title repositioned, content preserved, NO placeholder inserted for empty body
+  assert.equal(els.length, 1);
+  assert.deepEqual(els[0]!.box, { x: 8, y: 6, w: 84, h: 14 });
+  assert.equal(els[0]!.kind === "text" ? els[0]!.text : "", "Heading");
+  assert.equal(result.patches[0]!.op, "slide.reset_layout");
+});
+
 // ---------------------------------------------------------------------------
 // Issue #399 — REMOVE_ELEMENTS (multi-element)
 // ---------------------------------------------------------------------------
