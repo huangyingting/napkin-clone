@@ -100,6 +100,20 @@ test("hitTestSlideElements keeps selected covering elements sticky", () => {
   assert.equal(hits[0]?.element.id, "selected-cover");
 });
 
+test("hitTestSlideElements can ignore selected stickiness for hover preselection", () => {
+  const elements = [
+    text("covered-text", 0, box(10, 40, 80, 20), "Revenue"),
+    rect("selected-cover", 20, box(0, 0, 100, 100)),
+  ];
+
+  const hits = hitTestSlideElements({ x: 12, y: 50 }, elements, {
+    selectedElementBonus: false,
+    selectedElementIds: new Set(["selected-cover"]),
+  });
+  assert.equal(hits[0]?.element.id, "covered-text");
+  assert.equal(hits[0]?.reason, "text-content");
+});
+
 test("hitTestSlideElements lets small covering shapes beat underlying text", () => {
   const elements = [
     text("covered-text", 0, box(10, 40, 80, 20), "Revenue"),

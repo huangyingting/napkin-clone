@@ -40,6 +40,7 @@ export interface HitTestOptions {
   includeLocked?: boolean;
   lineThresholdPct?: number;
   selectedElementIds?: ReadonlySet<string>;
+  selectedElementBonus?: boolean;
   mediaHitGeometry?: ReadonlyMap<string, MediaHitGeometry>;
   textHitGeometry?: ReadonlyMap<string, TextHitGeometry>;
 }
@@ -409,6 +410,10 @@ export function hitTestSlideElements(
   const stageAspect = options.stageAspect ?? 1;
   const lineThresholdPct =
     options.lineThresholdPct ?? DEFAULT_LINE_THRESHOLD_PCT;
+  const selectedElementIds =
+    options.selectedElementBonus === false
+      ? undefined
+      : options.selectedElementIds;
   return elements
     .map((element, index) => ({
       element,
@@ -425,7 +430,7 @@ export function hitTestSlideElements(
         options.fittedBoxes,
         stageAspect,
         lineThresholdPct,
-        options.selectedElementIds,
+        selectedElementIds,
         options.mediaHitGeometry,
         options.textHitGeometry,
       );

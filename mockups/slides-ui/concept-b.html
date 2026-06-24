@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Slides UI Concept B - Canvas First</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app concept-b">
+      <header class="globalbar">
+        <div class="global-left">
+          <span class="brand-mark"><span class="brand-dot"></span>TextIQ</span>
+          <button class="btn ghost">File</button>
+          <span class="doc-title">Board update - Presentation</span>
+        </div>
+        <div class="global-center">
+          <button class="icon-btn">↶</button>
+          <button class="icon-btn">↷</button>
+          <button class="btn primary">+ Add</button>
+          <button class="btn">Insert</button>
+          <button class="btn">From document</button>
+          <span class="status-pill">Autosaved</span>
+        </div>
+        <div class="global-right">
+          <button class="btn">Present</button>
+          <button class="btn violet">Share</button>
+          <button class="icon-btn">×</button>
+        </div>
+      </header>
+
+      <div class="contextbar centered">
+        <div class="toolbar-cluster">
+          <button class="btn">Inter</button>
+          <button class="icon-btn">−</button>
+          <span class="pill">42</span>
+          <button class="icon-btn">+</button>
+          <button class="tool-btn active">B</button>
+          <button class="tool-btn">I</button>
+          <button class="color-swatch" style="background: #0f9f9a"></button>
+          <span class="segment"
+            ><button class="tool-btn">L</button
+            ><button class="tool-btn active">C</button
+            ><button class="tool-btn">R</button></span
+          >
+          <button class="btn">Effects</button>
+          <button class="btn active">Position</button>
+          <button class="btn">Layers</button>
+          <button class="icon-btn">⋯</button>
+        </div>
+      </div>
+
+      <main class="layout focus concept-b-layout">
+        <aside class="rail wide-focus">
+          <div class="rail-header"><span>Slides</span><span>Drag</span></div>
+          <div class="thumb-list">
+            <div class="thumb selected">
+              <span class="thumb-num">1</span><span class="thumb-canvas"></span>
+              <span class="thumb-title">Growth map</span>
+            </div>
+            <div class="drag-indicator"></div>
+            <div class="thumb">
+              <span class="thumb-num">2</span
+              ><span class="thumb-canvas blue"></span>
+              <span class="thumb-title">Signals</span>
+            </div>
+            <div class="thumb">
+              <span class="thumb-num">3</span
+              ><span class="thumb-canvas dark"></span>
+              <span class="thumb-title">Close</span>
+            </div>
+          </div>
+        </aside>
+
+        <section class="stage-shell">
+          <button class="edge-tab">Arrange</button>
+          <aside class="panel floating">
+            <div class="panel-header">
+              <div class="panel-title">Arrange</div>
+              <button class="icon-btn">×</button>
+            </div>
+            <div class="tabs">
+              <button class="tab active">Arrange</button
+              ><button class="tab">Layers</button
+              ><button class="tab">Details</button>
+            </div>
+            <section class="section">
+              <div class="section-title">Quick order</div>
+              <div class="command-grid">
+                <button class="btn">Forward</button
+                ><button class="btn">Backward</button
+                ><button class="btn">To front</button
+                ><button class="btn">To back</button>
+              </div>
+            </section>
+            <section class="section">
+              <div class="section-title">Exact box</div>
+              <div class="field-grid">
+                <div class="field"><label>X</label><input value="18%" /></div>
+                <div class="field"><label>Y</label><input value="18%" /></div>
+                <div class="field"><label>W</label><input value="61%" /></div>
+                <div class="field"><label>H</label><input value="54%" /></div>
+              </div>
+            </section>
+            <section class="section">
+              <div class="section-title">Lock ratio</div>
+              <button class="btn active">Ratio locked</button>
+            </section>
+          </aside>
+
+          <div class="context-popover">
+            <button class="btn primary">Ask AI</button>
+            <button class="tool-btn">↕</button>
+            <button class="tool-btn">↔</button>
+            <button class="tool-btn">Group</button>
+            <button class="tool-btn">Copy</button>
+            <button class="tool-btn">⋯</button>
+          </div>
+
+          <div class="canvas-wrap">
+            <div class="slide blueprint">
+              <span class="slide-label">GROWTH MAP</span>
+              <div
+                class="slide-title"
+                style="font-size: 34px; max-width: 420px"
+              >
+                Where the story changes
+              </div>
+              <div class="chart" style="left: 22%; bottom: 22%; height: 42%">
+                <span style="height: 40%"></span
+                ><span style="height: 76%"></span
+                ><span style="height: 58%"></span>
+              </div>
+              <div
+                class="connector-line"
+                style="
+                  left: 43%;
+                  top: 56%;
+                  width: 22%;
+                  transform: rotate(-18deg);
+                "
+              ></div>
+              <div
+                class="shape-star"
+                style="right: 18%; top: 22%; color: #0f9f9a"
+              >
+                ✦
+              </div>
+              <div
+                class="visual-card"
+                style="left: 16%; top: 20%; width: 62%; height: 54%"
+              >
+                <span class="handle tl"></span><span class="handle tr"></span
+                ><span class="handle bl"></span><span class="handle br"></span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <footer class="bottom-dock">
+          <div class="dock-left">
+            <button class="btn active">Slides</button
+            ><button class="btn">Notes</button>
+          </div>
+          <div class="dock-center">
+            <span class="slide-status">Slide 1 of 3 · Canvas-first mode</span>
+          </div>
+          <div class="dock-right">
+            <span class="zoom-track"></span><button class="zoom-btn">92%</button
+            ><button class="view-btn active">Fit</button
+            ><button class="view-btn">Grid</button>
+          </div>
+        </footer>
+      </main>
+    </div>
+  </body>
+</html>
