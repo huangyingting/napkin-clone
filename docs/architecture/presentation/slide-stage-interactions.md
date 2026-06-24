@@ -63,7 +63,7 @@ hover phase.
 | Mouse/trackpad | Full hover preselection, click selection, drag threshold, double-click edit, context menu.                                 |
 | Pen/stylus     | Treat like pointer input; hover preselection is available only on devices/browsers that emit hover-style pointer movement. |
 | Touch          | No reliable hover. Tap should select, second tap edits editable text, drag threshold starts movement.                      |
-| Keyboard       | Uses roving tabindex and keyboard canvas helpers; hover preselection is visual-only and not required for keyboard access.  |
+| Keyboard       | Uses roving tabindex and keyboard canvas helpers; `Alt+]` cycles select-under candidates at the focused element center.    |
 | Screen readers | Use focus, selection announcements, and the layer list. Preselection itself is advisory visual chrome.                     |
 
 Touch and keyboard users must always have deterministic alternatives through
@@ -230,6 +230,7 @@ hit-test for the target. This keeps hover feedback and click behavior aligned.
 | Pointer up no movement  | press-pending target                 | select only, or enter inline edit if it was the selected text element |
 | Double click            | top semantic hit candidate           | enter group or inline text edit for that target                       |
 | Context menu            | top semantic hit candidate           | select target and open menu for that target                           |
+| Select-under cycle      | current ranked candidate stack       | `Alt`-click or `Alt+]` selects the next candidate in stack order      |
 | Stage empty click       | no semantic hit, no marquee movement | clear selection                                                       |
 | Editing stage click     | primary stage click while editing    | commit/exit inline edit and clear selection                           |
 
@@ -286,8 +287,9 @@ replacement for precise layer selection.
   of occlusion.
 - The context menu exposes a `Select layer` section when multiple hit-test
   candidates are under the pointer, sorted by score/z-index.
-- A future select-under cycle can reuse the same candidate list without changing
-  default hover behavior.
+- Select-under cycling reuses the same candidate list without changing default
+  hover behavior: `Alt`-click cycles at the pointer, and `Alt+]` cycles at the
+  focused element center.
 
 These fallbacks are especially important for fully covered arbitrary objects,
 nearly identical stacked shapes, locked/background layers, and dense groups.
@@ -319,8 +321,9 @@ Implementation guidance:
 - Fully covered arbitrary objects cannot always be inferred correctly from a
   single pointer point. If semantic scoring is ambiguous, right-click layer
   selection or the layer list remains the precise fallback.
-- A future `select-under` cycle can be added without replacing semantic scoring:
-  it should cycle through the ordered candidate list returned by the hit-test.
+- Select-under cycling uses the ordered candidate list returned by the hit-test;
+  it remains a precision fallback rather than a replacement for semantic
+  scoring.
 
 ## Invariants
 

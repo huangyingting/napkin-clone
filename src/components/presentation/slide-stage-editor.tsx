@@ -81,6 +81,7 @@ import {
   STAGE_CHROME_Z_INDEX,
   stageElementOverlayZIndex,
 } from "@/lib/presentation/stage-chrome";
+import { nextSelectUnderTarget } from "@/lib/presentation/stage-select-under";
 import {
   mergeRuns,
   runsToHtml,
@@ -2234,11 +2235,22 @@ export function SlideStageEditor({
               aria-label={elementAccessibleName(element, elements)}
               aria-pressed={selected}
               onPointerDown={(event) => {
-                const hit = hitTestAtClientPoint(
-                  event.clientX,
-                  event.clientY,
-                )[0];
+                const hits = hitTestAtClientPoint(event.clientX, event.clientY);
+                const hit = hits[0];
                 if (!hit) {
+                  return;
+                }
+                if (event.altKey && hits.length > 1) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  const target = nextSelectUnderTarget(
+                    hits,
+                    elementsRef.current,
+                    { groupEditingId, selectedElementIds },
+                  );
+                  if (target) {
+                    selectStageTarget(target, "replace");
+                  }
                   return;
                 }
                 const target = resolveStageHitTarget(hit, elementsRef.current, {
@@ -2347,6 +2359,24 @@ export function SlideStageEditor({
                     onSelectElement(element.id, "replace");
                   } else if (editable) {
                     startEditing(element);
+                  }
+                } else if (event.altKey && event.key === "]") {
+                  event.preventDefault();
+                  const point = {
+                    x: fittedBox.x + fittedBox.w / 2,
+                    y: fittedBox.y + fittedBox.h / 2,
+                  };
+                  const hits = hitTestSlideElements(point, elements, {
+                    fittedBoxes,
+                    stageAspect,
+                    selectedElementIds,
+                  });
+                  const target = nextSelectUnderTarget(hits, elements, {
+                    groupEditingId,
+                    selectedElementIds,
+                  });
+                  if (target) {
+                    selectStageTarget(target, "replace");
                   }
                 } else if (event.key === " ") {
                   event.preventDefault();
