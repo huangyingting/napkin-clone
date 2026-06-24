@@ -78,6 +78,10 @@ import {
   type MarqueeRect,
 } from "@/lib/presentation/marquee-select";
 import {
+  STAGE_CHROME_Z_INDEX,
+  stageElementOverlayZIndex,
+} from "@/lib/presentation/stage-chrome";
+import {
   mergeRuns,
   runsToHtml,
   serializeRichText,
@@ -814,7 +818,7 @@ function MultiSelectBoundingBox({
         top: `${bbox.y}%`,
         width: `${bbox.w}%`,
         height: `${bbox.h}%`,
-        zIndex: 1200,
+        zIndex: STAGE_CHROME_Z_INDEX.multiSelectionBounds,
         // Dashed outline distinguishes the combined box from single-select rings.
         outline: "2px dashed #71717a",
         outlineOffset: "1px",
@@ -869,7 +873,9 @@ function ElementFrameOverlay({
         top: `${box.y}%`,
         width: `${box.w}%`,
         height: `${box.h}%`,
-        zIndex: selected ? 1320 : 1310,
+        zIndex: selected
+          ? STAGE_CHROME_Z_INDEX.selectedFrame
+          : STAGE_CHROME_Z_INDEX.preselectedFrame,
         border: selected
           ? "2px solid #71717a"
           : "1.5px solid rgba(113, 113, 122, 0.86)",
@@ -2368,7 +2374,10 @@ export function SlideStageEditor({
                 top: `${containerBox.y}%`,
                 width: `${containerBox.w}%`,
                 height: `${containerBox.h}%`,
-                zIndex: selected ? 1000 : element.zIndex + 1,
+                zIndex: stageElementOverlayZIndex({
+                  elementZIndex: element.zIndex,
+                  selected,
+                }),
                 ...(element.rotation
                   ? { transform: `rotate(${element.rotation}deg)` }
                   : {}),
@@ -2491,7 +2500,7 @@ export function SlideStageEditor({
               width: `${activeGroupBbox.w}%`,
               height: `${activeGroupBbox.h}%`,
               border: "2px dashed var(--ds-accent)",
-              zIndex: 880,
+              zIndex: STAGE_CHROME_Z_INDEX.groupFrame,
             }}
           >
             <span
@@ -2515,7 +2524,7 @@ export function SlideStageEditor({
               top: `${marqueeRect.y}%`,
               width: `${marqueeRect.w}%`,
               height: `${marqueeRect.h}%`,
-              zIndex: 1450,
+              zIndex: STAGE_CHROME_Z_INDEX.marquee,
             }}
           />
         ) : null}
@@ -2528,14 +2537,20 @@ export function SlideStageEditor({
                   key={`x-${guide.position}`}
                   aria-hidden="true"
                   className="pointer-events-none absolute top-0 bottom-0 w-px bg-[#71717a]"
-                  style={{ left: `${guide.position}%`, zIndex: 1400 }}
+                  style={{
+                    left: `${guide.position}%`,
+                    zIndex: STAGE_CHROME_Z_INDEX.snapGuide,
+                  }}
                 />
               ) : (
                 <div
                   key={`y-${guide.position}`}
                   aria-hidden="true"
                   className="pointer-events-none absolute left-0 right-0 h-px bg-[#71717a]"
-                  style={{ top: `${guide.position}%`, zIndex: 1400 }}
+                  style={{
+                    top: `${guide.position}%`,
+                    zIndex: STAGE_CHROME_Z_INDEX.snapGuide,
+                  }}
                 />
               ),
             )
@@ -2564,7 +2579,11 @@ export function SlideStageEditor({
                         ? "h-3.5 w-3.5 scale-125 border-2 border-white bg-ds-accent shadow-md"
                         : "h-2.5 w-2.5 border border-white bg-ds-stage-muted/80 shadow"
                     }`}
-                    style={{ left: `${pt.x}%`, top: `${pt.y}%`, zIndex: 1350 }}
+                    style={{
+                      left: `${pt.x}%`,
+                      top: `${pt.y}%`,
+                      zIndex: STAGE_CHROME_Z_INDEX.connectorAnchorPreview,
+                    }}
                   />
                 );
               });
@@ -2585,7 +2604,7 @@ export function SlideStageEditor({
                     left: `${(badgeBox?.x ?? 0) + (badgeBox?.w ?? 0) / 2}%`,
                     top: `calc(${(badgeBox?.y ?? 0) + (badgeBox?.h ?? 0)}% + 6px)`,
                     transform: "translateX(-50%)",
-                    zIndex: 1500,
+                    zIndex: STAGE_CHROME_Z_INDEX.liveBadge,
                   }}
                 >
                   {badge}

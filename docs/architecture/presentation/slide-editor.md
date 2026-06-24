@@ -18,6 +18,7 @@ and pointer state rules, see
 | Stage interactions | [`src/components/presentation/slide-stage-editor.tsx`](../../../src/components/presentation/slide-stage-editor.tsx) |
 | Stage hit testing  | [`src/lib/presentation/stage-hit-test.ts`](../../../src/lib/presentation/stage-hit-test.ts)                         |
 | Stage targeting    | [`src/lib/presentation/stage-targeting.ts`](../../../src/lib/presentation/stage-targeting.ts)                       |
+| Stage chrome       | [`src/lib/presentation/stage-chrome.ts`](../../../src/lib/presentation/stage-chrome.ts)                             |
 | Stage decisions    | [`src/lib/presentation/stage-interaction.ts`](../../../src/lib/presentation/stage-interaction.ts)                   |
 | Read-only canvas   | [`src/components/presentation/slide-canvas.tsx`](../../../src/components/presentation/slide-canvas.tsx)             |
 | Inspector          | [`src/components/presentation/slide-inspector.tsx`](../../../src/components/presentation/slide-inspector.tsx)       |
