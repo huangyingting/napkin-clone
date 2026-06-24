@@ -128,8 +128,10 @@ import {
 } from "@/lib/presentation/stage-targeting";
 import {
   hitTestSlideElements,
+  type MediaHitGeometry,
   type TextHitGeometry,
 } from "@/lib/presentation/stage-hit-test";
+import { buildMediaHitGeometry } from "@/lib/presentation/media-hit-geometry";
 import { measureTextHitGeometry } from "@/lib/presentation/text-hit-geometry";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 import type { Visual } from "@/lib/visual/schema";
@@ -1190,6 +1192,9 @@ export function SlideStageEditor({
   const textHitGeometryRef = useRef<ReadonlyMap<string, TextHitGeometry>>(
     new Map(),
   );
+  const mediaHitGeometryRef = useRef<ReadonlyMap<string, MediaHitGeometry>>(
+    new Map(),
+  );
   useLayoutEffect(() => {
     textHitGeometryRef.current = measureTextHitGeometry({
       elements,
@@ -1197,7 +1202,12 @@ export function SlideStageEditor({
       stageWidthPx: width,
       stageHeightPx: height,
     });
-  }, [elements, fittedBoxes, height, width]);
+    mediaHitGeometryRef.current = buildMediaHitGeometry({
+      elements,
+      fittedBoxes,
+      visuals,
+    });
+  }, [elements, fittedBoxes, height, visuals, width]);
   const hitTestAtClientPoint = useCallback(
     (clientX: number, clientY: number) => {
       const container = containerRef.current;
@@ -1215,6 +1225,7 @@ export function SlideStageEditor({
       const point = clientPointToStagePct(clientX, clientY, rect);
       return hitTestSlideElements(point, elementsRef.current, {
         fittedBoxes,
+        mediaHitGeometry: mediaHitGeometryRef.current,
         stageAspect,
         selectedElementIds,
         textHitGeometry: textHitGeometryRef.current,
@@ -2384,6 +2395,7 @@ export function SlideStageEditor({
                   };
                   const hits = hitTestSlideElements(point, elements, {
                     fittedBoxes,
+                    mediaHitGeometry: mediaHitGeometryRef.current,
                     stageAspect,
                     selectedElementIds,
                     textHitGeometry: textHitGeometryRef.current,

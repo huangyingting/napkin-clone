@@ -21,6 +21,7 @@ and pointer state rules, see
 | Stage chrome       | [`src/lib/presentation/stage-chrome.ts`](../../../src/lib/presentation/stage-chrome.ts)                             |
 | Select-under       | [`src/lib/presentation/stage-select-under.ts`](../../../src/lib/presentation/stage-select-under.ts)                 |
 | Stage decisions    | [`src/lib/presentation/stage-interaction.ts`](../../../src/lib/presentation/stage-interaction.ts)                   |
+| Media hit geometry | [`src/lib/presentation/media-hit-geometry.ts`](../../../src/lib/presentation/media-hit-geometry.ts)                 |
 | Text hit geometry  | [`src/lib/presentation/text-hit-geometry.ts`](../../../src/lib/presentation/text-hit-geometry.ts)                   |
 | Read-only canvas   | [`src/components/presentation/slide-canvas.tsx`](../../../src/components/presentation/slide-canvas.tsx)             |
 | Inspector          | [`src/components/presentation/slide-inspector.tsx`](../../../src/components/presentation/slide-inspector.tsx)       |

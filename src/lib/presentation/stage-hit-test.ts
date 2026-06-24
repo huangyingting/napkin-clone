@@ -20,6 +20,10 @@ export interface TextHitGeometry {
   contentBoxes: readonly ElementBox[];
 }
 
+export interface MediaHitGeometry {
+  regions: readonly ElementBox[];
+}
+
 export type HitTestReason =
   | "text-content"
   | "text-near"
@@ -36,6 +40,7 @@ export interface HitTestOptions {
   includeLocked?: boolean;
   lineThresholdPct?: number;
   selectedElementIds?: ReadonlySet<string>;
+  mediaHitGeometry?: ReadonlyMap<string, MediaHitGeometry>;
   textHitGeometry?: ReadonlyMap<string, TextHitGeometry>;
 }
 
@@ -255,6 +260,7 @@ function hitTestElement(
   stageAspect: number,
   lineThresholdPct: number,
   selectedElementIds: ReadonlySet<string> | undefined,
+  mediaHitGeometry: ReadonlyMap<string, MediaHitGeometry> | undefined,
   textHitGeometry: ReadonlyMap<string, TextHitGeometry> | undefined,
 ): Omit<HitTestCandidate, "box" | "element"> | null {
   const box = resolveBox(element, fittedBoxes);
@@ -361,6 +367,25 @@ function hitTestElement(
         reason: "connector-stroke",
       };
     }
+    case "image":
+    case "visual": {
+      const mediaGeometry = mediaHitGeometry?.get(element.id);
+      if (mediaGeometry) {
+        if (
+          !mediaGeometry.regions.some((region) =>
+            pointInBox(localPoint, region),
+          )
+        ) {
+          return null;
+        }
+      } else if (!pointInElementBox(point, element, box, stageAspect)) {
+        return null;
+      }
+      return {
+        score: withBonuses(SCORE.boxInterior, element, selectedElementIds),
+        reason: "box-interior",
+      };
+    }
     default:
       if (!pointInElementBox(point, element, box, stageAspect)) return null;
       return {
@@ -401,6 +426,7 @@ export function hitTestSlideElements(
         stageAspect,
         lineThresholdPct,
         options.selectedElementIds,
+        options.mediaHitGeometry,
         options.textHitGeometry,
       );
       return hit ? { ...candidate, ...hit } : null;
