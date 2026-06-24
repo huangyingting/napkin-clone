@@ -22,6 +22,33 @@ job of this harness.
 
 ---
 
+## Global deck template rollout (#620)
+
+The global deck template work (epic #600 and the layout-binding/migration
+issues #616, #626–#628) adds only **optional** fields to the persisted deck
+shape:
+
+- Deck `customTokenSet` gains optional `typography.roles`, `bullet`,
+  `connector`, `visual`, `image`, and extended `shape` token groups.
+- Text/bullets elements gain optional `textRole` + `styleOverride`; shapes gain
+  `textRole` + `textStyleOverride`; every element gains an optional `layoutSlot`.
+
+**Decision: no `CURRENT_DECK_SCHEMA_VERSION` bump.** Because every addition is an
+optional field, existing `schemaVersion: 2` decks remain valid unchanged, and
+decks carrying the new fields also parse. `validateDeck` continues to reject any
+deck whose `schemaVersion` is not the current version, so genuinely stale
+shapes are still rejected. No offline migration is required: legacy elements are
+enriched **forward and additively** at the application layer by the pure
+inference helpers (`slide-role-inference.ts`, `slide-slot-inference.ts`) without
+altering geometry, content, or concrete styles — so there is no visual drift and
+no superseded shape to strip.
+
+`safeParseDeck` round-trips the full current-shape template model; see the
+"current-shape template model" tests in
+`src/lib/presentation/deck-master-schema.test.ts`.
+
+---
+
 ## Components
 
 | Piece                    | Location                                  |

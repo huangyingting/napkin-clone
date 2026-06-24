@@ -690,3 +690,98 @@ test("element with a negative layoutSlot index is rejected", () => {
     /layoutSlot\.index must be a non-negative integer/,
   );
 });
+
+// ---------------------------------------------------------------------------
+// Current-shape template model round-trip + version policy (#620)
+// ---------------------------------------------------------------------------
+
+test("safeParseDeck round-trips the full current-shape template model", () => {
+  const result = safeParseDeck({
+    theme: "indigo",
+    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    customTokenSet: validTokenSet({
+      typography: {
+        fontFamily: "Inter, sans-serif",
+        headingFontFamily: "Space Grotesk, sans-serif",
+        scale: { h1: 36, h2: 28, h3: 22, body: 16, list: 14, footer: 10 },
+        roles: {
+          h1: { fontSize: 42, color: "#111827", weight: 700, align: "center" },
+          body: { fontSize: 16, color: "#0f172a", weight: 400 },
+        },
+      },
+      bullet: { markerColor: "#6366f1", numberStyle: "decimal" },
+      connector: { color: "#0f172a", endArrow: "filled" },
+      visual: { transparentBackground: true },
+      image: { fitMode: "cover", radiusPct: 6 },
+      shape: { cornerRadiusPt: 6, shadowCss: "none", fill: "#eef2ff" },
+    }),
+    masters: [
+      { id: "m1", name: "Content", themeId: "indigo", showPageNumbers: true },
+    ],
+    slides: [
+      {
+        id: "s1",
+        index: 0,
+        title: "Title",
+        bullets: [],
+        visualIds: [],
+        layout: "content",
+        notes: "",
+        theme: "indigo",
+        masterRef: "m1",
+        elements: [
+          {
+            id: "t1",
+            kind: "text",
+            zIndex: 0,
+            box: { x: 6, y: 6, w: 80, h: 16 },
+            text: "Heading",
+            role: "title",
+            style: { fontSize: 6, bold: true, italic: false, align: "center" },
+            textRole: "h1",
+            styleOverride: { color: "#ffffff" },
+            layoutSlot: { kind: "title" },
+          },
+          {
+            id: "b1",
+            kind: "bullets",
+            zIndex: 1,
+            box: { x: 6, y: 26, w: 80, h: 60 },
+            bullets: ["a", "b"],
+            items: [{ text: "a" }, { text: "b" }],
+            style: { fontSize: 4.5, bold: false, italic: false, align: "left" },
+            textRole: "bullet",
+            layoutSlot: { kind: "body" },
+          },
+          {
+            id: "sh1",
+            kind: "shape",
+            zIndex: 2,
+            box: { x: 60, y: 26, w: 30, h: 20 },
+            shape: "rect",
+            color: "#3366ff",
+            text: "Label",
+            textRole: "shapeLabel",
+            textStyleOverride: { bold: true, align: "center" },
+            layoutSlot: { kind: "caption" },
+          },
+        ],
+      },
+    ],
+  });
+  assert.ok(result.success, result.success ? "" : result.error);
+  if (!result.success) return;
+  const el = result.data.slides[0].elements ?? [];
+  assert.equal(el[0].layoutSlot?.kind, "title");
+  assert.equal(el[1].kind === "bullets" ? el[1].textRole : "x", "bullet");
+  assert.equal(el[2].kind === "shape" ? el[2].textRole : "x", "shapeLabel");
+  assert.equal(result.data.customTokenSet?.typography.roles?.h1?.fontSize, 42);
+});
+
+test("safeParseDeck rejects a superseded (non-current) schemaVersion", () => {
+  const result = safeParseDeck(
+    baseDeck({ schemaVersion: CURRENT_DECK_SCHEMA_VERSION - 1 }),
+  );
+  assert.ok(!result.success);
+  assert.match(result.error, /schemaVersion .* is not supported/);
+});
