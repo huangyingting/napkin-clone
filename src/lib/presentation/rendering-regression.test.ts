@@ -1324,3 +1324,156 @@ test("[AC-12] unlinked sourceRef (unlinked=true) does not suppress the element",
   assert.equal(ofKind(ops, "text").length, 1, "unlinked element still exports");
   assert.equal(ofKind(ops, "text")[0]?.text, "Detached text");
 });
+
+// ---------------------------------------------------------------------------
+// #618 — Inherited deck-template style regression + override preservation
+// ---------------------------------------------------------------------------
+
+function tokenSetWith(
+  overrides: Partial<{
+    onBg: string;
+    accent: string;
+    fontFamily: string;
+    headingFontFamily: string;
+  }> = {},
+) {
+  return {
+    id: "brand:t",
+    name: "T",
+    colors: {
+      slideBg: "#ffffff",
+      surface: "#f0f0f0",
+      accent: overrides.accent ?? "#3366ff",
+      onBg: overrides.onBg ?? "#0f172a",
+      onSurface: "#111111",
+      onAccent: "#ffffff",
+      muted: "#64748b",
+    },
+    typography: {
+      fontFamily: overrides.fontFamily ?? "Inter",
+      ...(overrides.headingFontFamily
+        ? { headingFontFamily: overrides.headingFontFamily }
+        : {}),
+      scale: { h1: 36, h2: 28, h3: 22, body: 16, list: 14, footer: 10 },
+    },
+    spacing: { slidePaddingPt: 36, gridUnitPt: 6 },
+    shape: { cornerRadiusPt: 4, shadowCss: "none" },
+    defaultBackground: { type: "solid" as const, color: "#ffffff" },
+  };
+}
+
+function titleOpColor(deckObj: Deck): string {
+  const [spec] = buildDeckSpecs(deckObj, new Map());
+  return (ofKind(spec.ops, "text")[0] as DeckTextOp).color.toLowerCase();
+}
+
+test("[#618] inherited title color tracks a deck-template change", () => {
+  const el = () => textEl("t", "Heading", { role: "title", textRole: "h1" });
+  const a = titleOpColor(
+    deck([el()], {
+      customTokenSet: tokenSetWith({ onBg: "#112233" }) as never,
+    }),
+  );
+  const b = titleOpColor(
+    deck([el()], {
+      customTokenSet: tokenSetWith({ onBg: "#445566" }) as never,
+    }),
+  );
+  assert.equal(a, "112233");
+  assert.equal(b, "445566");
+  assert.notEqual(a, b, "inherited role color must change with the template");
+});
+
+test("[#618] inherited role font tracks a deck-template heading-font change", () => {
+  const el = () => textEl("t", "Heading", { role: "title", textRole: "h1" });
+  const fontOf = (d: Deck) =>
+    (
+      buildDeckSpecs(d, new Map())[0].ops.find(
+        (o) => o.kind === "text",
+      ) as DeckTextOp
+    ).fontFace;
+  assert.equal(
+    fontOf(
+      deck([el()], {
+        customTokenSet: tokenSetWith({ headingFontFamily: "Oswald" }) as never,
+      }),
+    ),
+    "Oswald",
+  );
+  assert.equal(
+    fontOf(
+      deck([el()], {
+        customTokenSet: tokenSetWith({
+          headingFontFamily: "Bebas Neue",
+        }) as never,
+      }),
+    ),
+    "Bebas Neue",
+  );
+});
+
+test("[#618] a local color override is NOT clobbered by a global template change", () => {
+  const el = () =>
+    textEl("t", "Heading", {
+      role: "title",
+      style: {
+        fontSize: 6,
+        bold: true,
+        italic: false,
+        align: "left",
+        color: "#abcdef",
+      },
+    });
+  const a = titleOpColor(
+    deck([el()], {
+      customTokenSet: tokenSetWith({ onBg: "#112233" }) as never,
+    }),
+  );
+  const b = titleOpColor(
+    deck([el()], {
+      customTokenSet: tokenSetWith({ onBg: "#445566" }) as never,
+    }),
+  );
+  assert.equal(a, "abcdef");
+  assert.equal(b, "abcdef");
+});
+
+test("[#618] export smoke: custom template fonts + gradient background do not crash", () => {
+  const customTokenSet = {
+    ...tokenSetWith({ headingFontFamily: "Some Unembeddable Font" }),
+    defaultBackground: {
+      type: "gradient" as const,
+      from: "#123456",
+      to: "#654321",
+    },
+  };
+  const d = deck(
+    [
+      textEl("t", "Title", { role: "title", textRole: "h1" }),
+      bulletsEl("b", ["a", "b"]),
+      shapeEl("s", { text: "Label" }),
+      connectorEl("c"),
+    ],
+    {
+      customTokenSet: customTokenSet as never,
+      slides: [
+        {
+          id: "s1",
+          index: 0,
+          title: "",
+          bullets: [],
+          visualIds: [],
+          layout: "blank",
+          notes: "",
+          theme: "default",
+          backgroundGradient: { from: "#123456", to: "#654321" },
+          elements: [
+            textEl("t", "Title", { role: "title", textRole: "h1" }),
+            bulletsEl("b", ["a", "b"]),
+          ],
+        },
+      ],
+    },
+  );
+  assert.doesNotThrow(() => buildDeckSpecs(d, new Map()));
+});
