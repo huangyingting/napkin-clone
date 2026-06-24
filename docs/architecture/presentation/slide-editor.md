@@ -5,7 +5,10 @@
 
 This document describes the runtime architecture of the slide editor. It is
 about interaction and UI ownership, not the persisted deck schema. For the JSON
-contract, see [../data-model/deck.md](../data-model/deck.md).
+contract, see [../data-model/deck.md](../data-model/deck.md). For detailed
+stage hit-testing, hover preselection, overlap handling, connector targeting,
+and pointer state rules, see
+[slide-stage-interactions.md](slide-stage-interactions.md).
 
 ## Source Files
 
@@ -13,6 +16,8 @@ contract, see [../data-model/deck.md](../data-model/deck.md).
 | ------------------ | ------------------------------------------------------------------------------------------------------------------- |
 | Editor shell       | [`src/components/presentation/slide-editor.tsx`](../../../src/components/presentation/slide-editor.tsx)             |
 | Stage interactions | [`src/components/presentation/slide-stage-editor.tsx`](../../../src/components/presentation/slide-stage-editor.tsx) |
+| Stage hit testing  | [`src/lib/presentation/stage-hit-test.ts`](../../../src/lib/presentation/stage-hit-test.ts)                         |
+| Stage decisions    | [`src/lib/presentation/stage-interaction.ts`](../../../src/lib/presentation/stage-interaction.ts)                   |
 | Read-only canvas   | [`src/components/presentation/slide-canvas.tsx`](../../../src/components/presentation/slide-canvas.tsx)             |
 | Inspector          | [`src/components/presentation/slide-inspector.tsx`](../../../src/components/presentation/slide-inspector.tsx)       |
 | Layer list         | [`src/components/presentation/layer-list.tsx`](../../../src/components/presentation/layer-list.tsx)                 |
