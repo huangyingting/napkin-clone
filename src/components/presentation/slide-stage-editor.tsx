@@ -114,6 +114,12 @@ import {
   shouldClearSelectionOnStagePointerDown,
   shouldEnterInlineTextEditOnClick,
 } from "@/lib/presentation/stage-interaction";
+import {
+  isStageTargetSelected,
+  resolveStageElementTarget,
+  resolveStageHitTarget,
+  type StageInteractionTarget,
+} from "@/lib/presentation/stage-targeting";
 import { hitTestSlideElements } from "@/lib/presentation/stage-hit-test";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 import type { Visual } from "@/lib/visual/schema";
@@ -927,6 +933,42 @@ function defaultShapeTextStyle(): TextElementStyle {
  */
 export type SelectionMode = "replace" | "toggle" | "keep";
 
+type StagePreselection =
+  | { kind: "element"; elementId: string }
+  | { kind: "group"; groupId: string; elementIds: string[] };
+
+function preselectionFromStageTarget(
+  target: StageInteractionTarget,
+): StagePreselection {
+  return target.kind === "group"
+    ? {
+        kind: "group",
+        groupId: target.groupId,
+        elementIds: target.elementIds,
+      }
+    : { kind: "element", elementId: target.element.id };
+}
+
+function samePreselection(
+  a: StagePreselection | null,
+  b: StagePreselection | null,
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.kind !== b.kind) return false;
+  if (a.kind === "element" && b.kind === "element") {
+    return a.elementId === b.elementId;
+  }
+  if (a.kind === "group" && b.kind === "group") {
+    return (
+      a.groupId === b.groupId &&
+      a.elementIds.length === b.elementIds.length &&
+      a.elementIds.every((id, index) => id === b.elementIds[index])
+    );
+  }
+  return false;
+}
+
 interface SlideStageEditorProps {
   slide: Slide;
   visuals: ReadonlyMap<string, Visual>;
@@ -1063,9 +1105,8 @@ export function SlideStageEditor({
     elementId: string;
     hoveredAnchor: ConnectorAnchor | null;
   } | null>(null);
-  const [preselectedElementId, setPreselectedElementId] = useState<
-    string | null
-  >(null);
+  const [preselectedTarget, setPreselectedTarget] =
+    useState<StagePreselection | null>(null);
   // Monotonic gesture counter (issue #242). Each drag / resize / inline-edit
   // gesture derives a coalesce key with a unique suffix so consecutive gestures
   // of the same kind on the same element never merge into one undo step.
@@ -1196,8 +1237,28 @@ export function SlideStageEditor({
         isInlineEditableStageElement(element),
     ) ?? null;
   const activeEditingId = editingElement?.id ?? null;
-  const preselectedElement =
-    elements.find((element) => element.id === preselectedElementId) ?? null;
+  const preselectedFrame = useMemo(() => {
+    if (!preselectedTarget) return null;
+    if (preselectedTarget.kind === "element") {
+      const element = elements.find(
+        (item) => item.id === preselectedTarget.elementId,
+      );
+      if (!element) return null;
+      return {
+        box: fittedBoxes.get(element.id) ?? element.box,
+        rotation: element.rotation,
+      };
+    }
+    const ids = new Set(preselectedTarget.elementIds);
+    const boxes = elements
+      .filter((element) => ids.has(element.id) && !element.locked)
+      .map((element) => fittedBoxes.get(element.id) ?? element.box);
+    if (boxes.length === 0) return null;
+    return {
+      box: selectionBoundingBox(boxes),
+      rotation: undefined,
+    };
+  }, [elements, fittedBoxes, preselectedTarget]);
   const showSingleSelectedFrame =
     primaryElement !== null && !isMultiSelect && !marqueeRect;
   const selectedFrameBox =
@@ -1207,14 +1268,10 @@ export function SlideStageEditor({
         : (fittedBoxes.get(primaryElement.id) ?? primaryElement.box)
       : null;
   const showPreselectedFrame =
-    preselectedElement !== null &&
+    preselectedFrame !== null &&
     !activeDrag &&
     !marqueeRect &&
     !activeEditingId;
-  const preselectedFrameBox =
-    showPreselectedFrame && preselectedElement
-      ? (fittedBoxes.get(preselectedElement.id) ?? preselectedElement.box)
-      : null;
 
   // Group bounding-box frame (issue #330). Shown when all selected elements share
   // a groupId but the group is not yet entered (groupEditingId is null).
@@ -1267,6 +1324,36 @@ export function SlideStageEditor({
     return () => window.removeEventListener("keydown", onKey, true);
   }, [groupEditingId, onSelectElements]);
 
+  const selectStageTarget = useCallback(
+    (target: StageInteractionTarget, mode: SelectionMode = "replace") => {
+      if (target.kind === "element") {
+        onSelectElement(target.element.id, mode);
+        return;
+      }
+
+      if (mode === "toggle") {
+        const next = new Set(selectedElementIds);
+        const allSelected = target.elementIds.every((id) => next.has(id));
+        for (const id of target.elementIds) {
+          if (allSelected) next.delete(id);
+          else next.add(id);
+        }
+        onSelectElements([...next]);
+        return;
+      }
+
+      if (
+        mode === "keep" &&
+        isStageTargetSelected(target, selectedElementIds)
+      ) {
+        return;
+      }
+
+      onSelectElements(target.elementIds);
+    },
+    [onSelectElement, onSelectElements, selectedElementIds],
+  );
+
   const handlePointerMove = useCallback(
     (event: PointerEvent) => {
       // Stash the latest event and schedule a rAF if none is pending. This
@@ -1301,12 +1388,19 @@ export function SlideStageEditor({
           dragRef.current === null;
         if (hoveringInteraction) {
           const hit = hitTestAtClientPoint(ev.clientX, ev.clientY)[0] ?? null;
-          const nextId = hit?.element.id ?? null;
-          setPreselectedElementId((current) =>
-            current === nextId ? current : nextId,
+          const target = resolveStageHitTarget(hit, elementsRef.current, {
+            groupEditingId,
+          });
+          const nextPreselection = target
+            ? preselectionFromStageTarget(target)
+            : null;
+          setPreselectedTarget((current) =>
+            samePreselection(current, nextPreselection)
+              ? current
+              : nextPreselection,
           );
         } else {
-          setPreselectedElementId((current) =>
+          setPreselectedTarget((current) =>
             current === null ? current : null,
           );
         }
@@ -1748,6 +1842,7 @@ export function SlideStageEditor({
     },
     [
       activeEditingId,
+      groupEditingId,
       hitTestAtClientPoint,
       onUpdateElement,
       onSetElementBoxes,
@@ -1918,17 +2013,18 @@ export function SlideStageEditor({
       // leaves the browser viewport, preventing a stuck-drag state (#306).
       (event.currentTarget as Element).setPointerCapture(event.pointerId);
       const startElement = elementsRef.current.find((item) => item.id === id);
-      const groupId = (startElement as { groupId?: string } | undefined)
-        ?.groupId;
-      // Selection: a grouped element selects its whole group UNLESS we are
-      // already inside group-editing mode for that group (issue #330).
-      if (mode === "move" && groupId && groupId !== groupEditingId) {
-        const groupIds = elementsRef.current
-          .filter((item) => (item as { groupId?: string }).groupId === groupId)
-          .map((item) => item.id);
-        onSelectElements(groupIds);
-      } else {
-        onSelectElement(id, selectedElementIds.has(id) ? "keep" : "replace");
+      const startTarget = startElement
+        ? resolveStageElementTarget(startElement, elementsRef.current, {
+            groupEditingId,
+          })
+        : null;
+      if (startTarget) {
+        selectStageTarget(
+          startTarget,
+          isStageTargetSelected(startTarget, selectedElementIds)
+            ? "keep"
+            : "replace",
+        );
       }
       // For a move, capture the start boxes of every co-moving member (the whole
       // group, or the current multi-selection) so they translate together.
@@ -1936,11 +2032,8 @@ export function SlideStageEditor({
       let groupBoxes: { id: string; startBox: ElementBox }[] | undefined;
       if (mode === "move") {
         const movingIds = new Set<string>([id]);
-        if (groupId && groupId !== groupEditingId) {
-          elementsRef.current.forEach((item) => {
-            if ((item as { groupId?: string }).groupId === groupId)
-              movingIds.add(item.id);
-          });
+        if (startTarget?.kind === "group") {
+          startTarget.elementIds.forEach((memberId) => movingIds.add(memberId));
         } else if (selectedElementIds.has(id)) {
           selectedElementIds.forEach((sid) => movingIds.add(sid));
         }
@@ -1971,13 +2064,12 @@ export function SlideStageEditor({
         wasPrimarySelected,
         selectedCountAtStart: selectedElementIds.size,
       };
-      setPreselectedElementId(null);
+      setPreselectedTarget(null);
     },
     [
       groupEditingId,
       nextGestureKey,
-      onSelectElement,
-      onSelectElements,
+      selectStageTarget,
       selectedElementId,
       selectedElementIds,
     ],
@@ -2153,7 +2245,13 @@ export function SlideStageEditor({
                 if (!hit) {
                   return;
                 }
-                const targetElement = hit.element;
+                const target = resolveStageHitTarget(hit, elementsRef.current, {
+                  groupEditingId,
+                });
+                if (!target) {
+                  return;
+                }
+                const targetElement = target.element;
                 if (targetElement.id !== element.id) {
                   event.stopPropagation();
                 }
@@ -2164,12 +2262,12 @@ export function SlideStageEditor({
                   return;
                 }
                 const pointerIntent = elementPointerDownIntent({
-                  isSelected: selectedElementIds.has(targetElement.id),
+                  isSelected: isStageTargetSelected(target, selectedElementIds),
                   isAdditive: event.shiftKey || event.metaKey || event.ctrlKey,
                 });
                 if (pointerIntent === "toggle-selection") {
                   event.stopPropagation();
-                  onSelectElement(targetElement.id, "toggle");
+                  selectStageTarget(target, "toggle");
                   return;
                 }
                 // Unselected plain pointer-down still begins drag tracking:
@@ -2185,7 +2283,13 @@ export function SlideStageEditor({
                 if (!hit) {
                   return;
                 }
-                const targetElement = hit.element;
+                const target = resolveStageHitTarget(hit, elementsRef.current, {
+                  groupEditingId,
+                });
+                if (!target) {
+                  return;
+                }
+                const targetElement = target.element;
                 if (targetElement.id !== element.id) {
                   event.stopPropagation();
                 }
@@ -2195,11 +2299,9 @@ export function SlideStageEditor({
                 // Double-click on a grouped element (issue #330):
                 // first double-click enters the group; inside the group, it
                 // falls through to inline editing as normal.
-                const elementGroupId = (targetElement as { groupId?: string })
-                  .groupId;
-                if (elementGroupId && groupEditingId !== elementGroupId) {
+                if (target.kind === "group") {
                   event.stopPropagation();
-                  setGroupEditingId(elementGroupId);
+                  setGroupEditingId(target.groupId);
                   onSelectElement(targetElement.id, "replace");
                   return;
                 }
@@ -2216,10 +2318,18 @@ export function SlideStageEditor({
                 if (!hit) {
                   return;
                 }
-                const targetElement = hit.element;
-                onSelectElement(
-                  targetElement.id,
-                  selectedElementIds.has(targetElement.id) ? "keep" : "replace",
+                const target = resolveStageHitTarget(hit, elementsRef.current, {
+                  groupEditingId,
+                });
+                if (!target) {
+                  return;
+                }
+                const targetElement = target.element;
+                selectStageTarget(
+                  target,
+                  isStageTargetSelected(target, selectedElementIds)
+                    ? "keep"
+                    : "replace",
                 );
                 setContextMenu({
                   x: event.clientX,
@@ -2233,10 +2343,11 @@ export function SlideStageEditor({
                   event.preventDefault();
                   // Enter on a grouped element enters the group; inside the
                   // group it falls through to inline editing (issue #330).
-                  const elementGroupId = (element as { groupId?: string })
-                    .groupId;
-                  if (elementGroupId && groupEditingId !== elementGroupId) {
-                    setGroupEditingId(elementGroupId);
+                  const target = resolveStageElementTarget(element, elements, {
+                    groupEditingId,
+                  });
+                  if (target.kind === "group") {
+                    setGroupEditingId(target.groupId);
                     onSelectElement(element.id, "replace");
                   } else if (editable) {
                     startEditing(element);
@@ -2346,10 +2457,10 @@ export function SlideStageEditor({
           />
         ) : null}
 
-        {preselectedFrameBox && preselectedElement ? (
+        {showPreselectedFrame && preselectedFrame ? (
           <ElementFrameOverlay
-            box={preselectedFrameBox}
-            rotation={preselectedElement.rotation}
+            box={preselectedFrame.box}
+            rotation={preselectedFrame.rotation}
             variant="preselected"
           />
         ) : null}
@@ -2518,7 +2629,16 @@ export function SlideStageEditor({
               .map((id) => elements.find((el) => el.id === id) ?? null)
               .filter((el): el is SlideElement => el !== null)}
             onClose={() => setContextMenu(null)}
-            onSelectCandidate={(id) => onSelectElement(id, "replace")}
+            onSelectCandidate={(id) => {
+              const candidate = elements.find((el) => el.id === id);
+              if (!candidate) return;
+              selectStageTarget(
+                resolveStageElementTarget(candidate, elements, {
+                  groupEditingId,
+                }),
+                "replace",
+              );
+            }}
             onEdit={(el) => startEditing(el)}
             onDuplicate={onDuplicateElement}
             onCopy={onCopyElements}
