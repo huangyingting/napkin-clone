@@ -46,6 +46,7 @@ import {
 import { FOCUS_RING } from "@/components/motion/control-styles";
 import { Tooltip } from "@/components/ui";
 import { elementAccessibleName } from "@/lib/presentation/element-accessible-name";
+import { filterLayers } from "@/lib/presentation/layer-filter";
 import type { SlideElement } from "@/lib/presentation/deck";
 
 // ---------------------------------------------------------------------------
@@ -406,13 +407,9 @@ export function LayerList({
   // Sort descending by zIndex: top-most element first in the list.
   const sorted = [...elements].sort((a, b) => b.zIndex - a.zIndex);
 
-  const filtered = query.trim()
-    ? sorted.filter((el) =>
-        getDisplayName(el, elements)
-          .toLowerCase()
-          .includes(query.trim().toLowerCase()),
-      )
-    : sorted;
+  const filtered = filterLayers(sorted, query, (el) =>
+    getDisplayName(el, elements),
+  );
 
   // Keyboard navigation: arrow keys cycle through rows in the listbox.
   const handleListKeyDown = useCallback(
@@ -463,7 +460,7 @@ export function LayerList({
         <input
           id={searchId}
           type="text"
-          placeholder="Filter layers…"
+          placeholder="Filter… (kind:text, is:locked, is:hidden)"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className={`w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface py-1.5 pl-6 pr-2 text-xs text-ds-text-primary placeholder:text-ds-text-muted outline-none ${FOCUS_RING}`}
