@@ -38,6 +38,7 @@ import {
   Link2Off,
   Lock,
   LockOpen,
+  Palette,
   Pencil,
   RotateCw,
   Scissors,
@@ -2835,6 +2836,7 @@ export function ElementToolbarContent({
             onChange={(color) => onUpdateElement(element.id, { color })}
             aria-label="Shape color"
             presets={shapeColorPresets}
+            icon={<Palette size={14} aria-hidden="true" />}
           />
           {element.shape !== "line" ? (
             <TextStyleBar

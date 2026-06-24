@@ -22,6 +22,7 @@ import {
   Bold,
   Italic,
   Minus,
+  Palette,
   Plus,
   Underline,
   type LucideIcon,
@@ -165,6 +166,11 @@ export function TextStyleBar({
       aria-label="Text color"
       size="md"
       presets={colorPresets}
+      icon={
+        variant === "compact" ? (
+          <Palette size={14} aria-hidden="true" />
+        ) : undefined
+      }
       active={style.color !== undefined}
       onChange={(hex) => set({ color: hex })}
       onReset={() => {
@@ -179,11 +185,6 @@ export function TextStyleBar({
   if (variant === "compact") {
     return (
       <div className="flex items-center gap-0.5">
-        <FontStepper fontSize={style.fontSize} onStep={handleStep} />
-        <span
-          className="mx-0.5 h-5 w-px bg-ds-border-subtle"
-          aria-hidden="true"
-        />
         <IconToggle
           label="Bold"
           active={style.bold}

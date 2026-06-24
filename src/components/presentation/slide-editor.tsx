@@ -3547,7 +3547,6 @@ export function SlideEditor({
           <main className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-ds-surface-sunken">
             {selectedSlide ? (
               <SlideSelectionToolbar
-                selectionSummary={selectionSummary}
                 selectedElement={selectedElementForToolbar}
                 selectedCount={effectiveSelectedElementIds.size}
                 theme={selectedTheme}
@@ -4696,7 +4695,6 @@ function FromDocumentPanel({
 }
 
 function SlideSelectionToolbar({
-  selectionSummary,
   selectedElement,
   selectedCount,
   theme,
@@ -4712,7 +4710,6 @@ function SlideSelectionToolbar({
   onBringToFront,
   onSendToBack,
 }: {
-  selectionSummary: string;
   selectedElement: SlideElement | null;
   selectedCount: number;
   theme: ThemeConfig;
@@ -4761,6 +4758,17 @@ function SlideSelectionToolbar({
     selectedElement !== null &&
     selectedCount <= 1 &&
     selectedElement.sourceRef !== undefined;
+  const panelEntry = (label: string, icon: ReactNode, onClick: () => void) => (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+    >
+      {icon}
+    </button>
+  );
   return (
     <div
       role="toolbar"
@@ -4779,55 +4787,43 @@ function SlideSelectionToolbar({
           onSendToBack={() => onSendToBack(selectedElement.id)}
           onRemove={() => onRemoveElement(selectedElement.id)}
         />
-      ) : (
-        <span className="shrink-0 px-2 text-xs font-semibold text-ds-text-secondary">
-          {selectionSummary}
-        </span>
+      ) : null}
+      {showRich ? (
+        <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
+      ) : null}
+      {canOpenTextPanel
+        ? panelEntry(
+            "Text settings",
+            <Type size={14} aria-hidden="true" />,
+            onOpenText,
+          )
+        : null}
+      {canOpenMediaPanel
+        ? panelEntry(
+            "Media settings",
+            <ImageIcon size={14} aria-hidden="true" />,
+            onOpenMedia,
+          )
+        : null}
+      {canOpenEffectsPanel
+        ? panelEntry(
+            "Effects settings",
+            <Sparkles size={14} aria-hidden="true" />,
+            onOpenEffects,
+          )
+        : null}
+      {canOpenSourcePanel
+        ? panelEntry(
+            "Source settings",
+            <FileText size={14} aria-hidden="true" />,
+            onOpenSource,
+          )
+        : null}
+      {panelEntry(
+        "Position settings",
+        <Grid3x3 size={14} aria-hidden="true" />,
+        onOpenPosition,
       )}
-      <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
-      {canOpenTextPanel ? (
-        <button
-          type="button"
-          onClick={onOpenText}
-          className={`flex h-7 shrink-0 items-center rounded-ds-sm px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-        >
-          Text
-        </button>
-      ) : null}
-      {canOpenMediaPanel ? (
-        <button
-          type="button"
-          onClick={onOpenMedia}
-          className={`flex h-7 shrink-0 items-center rounded-ds-sm px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-        >
-          Media
-        </button>
-      ) : null}
-      {canOpenEffectsPanel ? (
-        <button
-          type="button"
-          onClick={onOpenEffects}
-          className={`flex h-7 shrink-0 items-center rounded-ds-sm px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-        >
-          Effects
-        </button>
-      ) : null}
-      {canOpenSourcePanel ? (
-        <button
-          type="button"
-          onClick={onOpenSource}
-          className={`flex h-7 shrink-0 items-center rounded-ds-sm px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-        >
-          Source
-        </button>
-      ) : null}
-      <button
-        type="button"
-        onClick={onOpenPosition}
-        className={`flex h-7 shrink-0 items-center rounded-ds-sm px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-      >
-        Position
-      </button>
     </div>
   );
 }
