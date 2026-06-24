@@ -64,12 +64,14 @@ import { useFocusTrap } from "@/lib/presentation/use-focus-trap";
 import {
   DECK_THEMES,
   SlideCanvas,
+  type ThemeConfig,
 } from "@/components/presentation/slide-canvas";
 import {
   SlideInspector,
   type AddElementKind,
 } from "@/components/presentation/slide-inspector";
 import {
+  ElementToolbarContent,
   SlideStageEditor,
   type SelectionMode,
 } from "@/components/presentation/slide-stage-editor";
@@ -158,6 +160,12 @@ import type {
 } from "@/lib/presentation/element-align";
 import type { ArrangeMode } from "@/lib/presentation/element-arrange";
 import { deriveSlideTitle } from "@/lib/presentation/slide-title";
+import {
+  inspectorTabForPanel,
+  isSelectionToolbarVisible,
+  shouldShowRichToolbarControls,
+  type RightPanelTab,
+} from "@/lib/presentation/slide-panel-ui";
 import { reorderTargetIndex } from "@/lib/presentation/slide-reorder";
 import { useDeckHistory } from "@/lib/presentation/use-deck-history";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
@@ -240,6 +248,8 @@ interface SlideEditorProps {
    */
   staleSourceLinkCount?: number;
 }
+
+/** Tabs available in the right supplemental panel (Slides-UI.md). */
 
 const THEME_OPTIONS: { value: DeckTheme; label: string; color: string }[] = [
   { value: "indigo", label: "Indigo", color: "#818cf8" },
@@ -460,7 +470,14 @@ export function SlideEditor({
   // Whether the mobile inspector bottom sheet is open (below `lg`; the inspector
   // is a fixed side pane at `lg+`). Issue #209.
   const [inspectorSheetOpen, setInspectorSheetOpen] = useState(false);
-  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  // Which tab the right supplemental panel shows. Set by toolbar handoff
+  // (Position -> arrange, Layers -> layers) and the top-bar panel toggle.
+  const [rightPanelTab, setRightPanelTab] = useState<RightPanelTab>("arrange");
+  const openRightPanel = useCallback((tab: RightPanelTab) => {
+    setRightPanelTab(tab);
+    setInspectorOpen(true);
+  }, []);
   const [snapToGrid, setSnapToGrid] = useState(false);
   // Simple / Advanced progressive disclosure. Defaults to "simple" and is
   // persisted in localStorage so the choice survives page reloads.
@@ -3235,8 +3252,12 @@ export function SlideEditor({
                 selectionSummary={selectionSummary}
                 selectedElement={selectedElementForToolbar}
                 selectedCount={effectiveSelectedElementIds.size}
-                onOpenArrange={() => setInspectorOpen(true)}
-                onOpenLayers={() => setInspectorOpen(true)}
+                theme={selectedTheme}
+                brandSwatches={brandSwatches}
+                showAdvanced={showAdvanced}
+                onUpdateElement={handleUpdateElement}
+                onOpenArrange={() => openRightPanel("arrange")}
+                onOpenLayers={() => openRightPanel("layers")}
                 onDuplicateElement={handleDuplicateElement}
                 onRemoveElement={handleRemoveElement}
                 onBringToFront={handleBringToFront}
@@ -3285,10 +3306,13 @@ export function SlideEditor({
           {/* eslint-disable-next-line react-hooks/refs -- handler props only run on user events. */}
           {inspectorProps && inspectorOpen ? (
             <SlideInspector
+              key={`panel-${rightPanelTab}`}
               {...inspectorProps}
               showAdvanced={showAdvanced}
               documentId={documentId}
-              className="hidden w-80 flex-col overflow-y-auto rounded-ds-lg border border-ds-border-subtle bg-ds-surface-base shadow-ds-popover lg:absolute lg:bottom-4 lg:right-4 lg:top-4 lg:z-30 lg:flex"
+              initialTab={inspectorTabForPanel(rightPanelTab)}
+              onClose={() => setInspectorOpen(false)}
+              className="hidden w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle bg-ds-surface-base lg:flex"
             />
           ) : null}
         </div>
@@ -3834,6 +3858,10 @@ function SlideSelectionToolbar({
   selectionSummary,
   selectedElement,
   selectedCount,
+  theme,
+  brandSwatches,
+  showAdvanced,
+  onUpdateElement,
   onOpenArrange,
   onOpenLayers,
   onDuplicateElement,
@@ -3844,6 +3872,14 @@ function SlideSelectionToolbar({
   selectionSummary: string;
   selectedElement: SlideElement | null;
   selectedCount: number;
+  theme: ThemeConfig;
+  brandSwatches: readonly string[];
+  showAdvanced: boolean;
+  onUpdateElement: (
+    id: string,
+    patch: ElementPatch,
+    coalesceKey?: string,
+  ) => void;
   onOpenArrange: () => void;
   onOpenLayers: () => void;
   onDuplicateElement: (id: string) => void;
@@ -3851,20 +3887,44 @@ function SlideSelectionToolbar({
   onBringToFront: (id: string) => void;
   onSendToBack: (id: string) => void;
 }) {
-  if (!selectedElement && selectedCount === 0) return null;
-  const label = selectedElement
-    ? slideElementTypeLabel(selectedElement)
-    : selectionSummary;
+  if (
+    !isSelectionToolbarVisible({
+      hasSelectedElement: selectedElement !== null,
+      selectedCount,
+    })
+  ) {
+    return null;
+  }
+  const showRich =
+    selectedElement !== null &&
+    shouldShowRichToolbarControls({
+      hasSelectedElement: selectedElement !== null,
+      selectedCount,
+    });
   return (
     <div
       role="toolbar"
       aria-label="Selected slide element tools"
-      className="absolute left-1/2 top-3 z-20 flex max-w-[calc(100%-3rem)] -translate-x-1/2 items-center gap-1 overflow-x-auto rounded-ds-md border border-ds-border-subtle bg-ds-surface/95 p-1 shadow-ds-popover backdrop-blur"
+      className="pointer-events-auto absolute left-1/2 top-3 z-20 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-1 overflow-x-auto rounded-ds-lg border border-ds-border-subtle bg-ds-surface-raised p-1 shadow-ds-popover"
     >
-      <span className="shrink-0 px-2 text-xs font-semibold text-ds-text-secondary">
-        {label}
-      </span>
-      <span className="h-5 w-px shrink-0 bg-ds-border-subtle" />
+      {showRich && selectedElement ? (
+        <ElementToolbarContent
+          element={selectedElement}
+          tc={theme}
+          brandSwatches={brandSwatches}
+          onUpdateElement={onUpdateElement}
+          onDuplicate={() => onDuplicateElement(selectedElement.id)}
+          onBringToFront={() => onBringToFront(selectedElement.id)}
+          onSendToBack={() => onSendToBack(selectedElement.id)}
+          onRemove={() => onRemoveElement(selectedElement.id)}
+          showAdvanced={showAdvanced}
+        />
+      ) : (
+        <span className="shrink-0 px-2 text-xs font-semibold text-ds-text-secondary">
+          {selectionSummary}
+        </span>
+      )}
+      <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
       <button
         type="button"
         onClick={onOpenArrange}
@@ -3879,45 +3939,6 @@ function SlideSelectionToolbar({
       >
         Layers
       </button>
-      {selectedElement ? (
-        <>
-          <span className="h-5 w-px shrink-0 bg-ds-border-subtle" />
-          <button
-            type="button"
-            onClick={() => onBringToFront(selectedElement.id)}
-            className={`flex h-7 shrink-0 items-center rounded-ds-sm px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-          >
-            Front
-          </button>
-          <button
-            type="button"
-            onClick={() => onSendToBack(selectedElement.id)}
-            className={`flex h-7 shrink-0 items-center rounded-ds-sm px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-          >
-            Back
-          </button>
-          <Tooltip label="Duplicate" side="bottom">
-            <button
-              type="button"
-              aria-label="Duplicate selected element"
-              onClick={() => onDuplicateElement(selectedElement.id)}
-              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-            >
-              <Copy size={14} aria-hidden="true" />
-            </button>
-          </Tooltip>
-          <Tooltip label="Delete" side="bottom">
-            <button
-              type="button"
-              aria-label="Delete selected element"
-              onClick={() => onRemoveElement(selectedElement.id)}
-              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-            >
-              <Trash2 size={14} aria-hidden="true" />
-            </button>
-          </Tooltip>
-        </>
-      ) : null}
     </div>
   );
 }

@@ -1075,7 +1075,6 @@ export function SlideStageEditor({
   onGroupElements,
   onUngroupElements,
   snapToGrid = false,
-  brandSwatches = [],
   onAddTextElement,
   showAdvanced = true,
   focusRequest,
@@ -2670,28 +2669,6 @@ export function SlideStageEditor({
             })()
           : null}
 
-        {/* Contextual floating toolbar — single primary selection, hidden while
-            dragging / resizing / marquee so it never jitters. */}
-        {primaryElement && !isMultiSelect && !activeDrag && !marqueeRect ? (
-          <FloatingElementToolbar
-            key={primaryElement.id}
-            stageRef={containerRef}
-            box={fittedBoxes.get(primaryElement.id) ?? primaryElement.box}
-          >
-            <ElementToolbarContent
-              element={primaryElement}
-              tc={tc}
-              brandSwatches={brandSwatches}
-              onUpdateElement={onUpdateElement}
-              onDuplicate={() => onDuplicateElement(primaryElement.id)}
-              onBringToFront={() => onBringToFront(primaryElement.id)}
-              onSendToBack={() => onSendToBack(primaryElement.id)}
-              onRemove={() => onRemoveElement(primaryElement.id)}
-              showAdvanced={showAdvanced}
-            />
-          </FloatingElementToolbar>
-        ) : null}
-
         {/* Right-click context menu. */}
         {contextMenu ? (
           <ElementContextMenu
@@ -2771,59 +2748,6 @@ function formatBadge(mode: DragMode, box: ElementBox): string {
 // ---------------------------------------------------------------------------
 
 const OVERLAY_Z = 80;
-const TOOLBAR_GAP = 10;
-
-/** Positions its children as a fixed bar centered above (or below) `box`. */
-function FloatingElementToolbar({
-  stageRef,
-  box,
-  children,
-}: {
-  stageRef: React.RefObject<HTMLDivElement | null>;
-  box: ElementBox;
-  children: React.ReactNode;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number }>({
-    top: -1000,
-    left: -1000,
-  });
-  useLayoutEffect(() => {
-    const stage = stageRef.current;
-    const el = ref.current;
-    if (!stage || !el) return;
-    const rect = stage.getBoundingClientRect();
-    const elTop = rect.top + (box.y / 100) * rect.height;
-    const elBottom = rect.top + ((box.y + box.h) / 100) * rect.height;
-    const elCenterX = rect.left + ((box.x + box.w / 2) / 100) * rect.width;
-    const w = el.offsetWidth;
-    const h = el.offsetHeight;
-    let top = elTop - h - TOOLBAR_GAP;
-    if (top < 8) top = elBottom + TOOLBAR_GAP;
-    let left = elCenterX - w / 2;
-    left = Math.max(8, Math.min(left, window.innerWidth - w - 8));
-    top = Math.max(8, Math.min(top, window.innerHeight - h - 8));
-    setPos({ top, left });
-  }, [box.x, box.y, box.w, box.h, stageRef]);
-
-  if (typeof document === "undefined") return null;
-  return createPortal(
-    <div
-      ref={ref}
-      onPointerDown={(event) => event.stopPropagation()}
-      style={{
-        position: "fixed",
-        top: pos.top,
-        left: pos.left,
-        zIndex: OVERLAY_Z,
-      }}
-      className="flex items-center gap-1 rounded-ds-lg border border-ds-border-subtle bg-ds-surface-overlay p-1 shadow-ds-popover"
-    >
-      {children}
-    </div>,
-    document.body,
-  );
-}
 
 function ToolbarButton({
   icon: Icon,
@@ -2851,8 +2775,8 @@ function ToolbarDivider() {
   return <span className="mx-0.5 h-5 w-px bg-ds-border-subtle" aria-hidden />;
 }
 
-/** The controls inside the floating toolbar, varying by element kind. */
-function ElementToolbarContent({
+/** The controls inside the context toolbar, varying by element kind. */
+export function ElementToolbarContent({
   element,
   tc,
   brandSwatches,

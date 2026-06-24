@@ -40,13 +40,13 @@ import {
   StepForward,
   Trash2,
   Upload,
+  X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { FOCUS_RING } from "@/components/motion/control-styles";
 import { DECK_THEMES } from "@/components/presentation/slide-canvas";
 import { LayerList } from "@/components/presentation/layer-list";
-import { TextStyleBar } from "@/components/presentation/text-style-bar";
 import { Swatch, Tooltip } from "@/components/ui";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import type {
@@ -101,7 +101,6 @@ import {
   mergeSwatches,
   themeSwatchColors,
 } from "@/lib/presentation/text-style";
-import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 import {
   getThemeTypography,
   placeholderStyle,
@@ -126,13 +125,6 @@ const FONT_FAMILIES: { label: string; value: string }[] = [
 
 const THEME_BACKGROUND_SWATCHES = themeSwatchColors(DECK_THEMES, "bgColor");
 const THEME_ACCENT_SWATCHES = themeSwatchColors(DECK_THEMES, "accentColor");
-
-const DEFAULT_SHAPE_TEXT_STYLE: TextElementStyle = {
-  fontSize: SLIDE_TEXT_FONT_SIZE.text,
-  bold: false,
-  italic: false,
-  align: "center",
-};
 
 type Tab = "content" | "style";
 
@@ -215,6 +207,13 @@ export interface SlideInspectorProps {
    * server-side asset upload (Epic #374) before falling back to a data URL.
    */
   documentId?: string;
+  /**
+   * When provided, the panel is dismissable: a close button is shown in the
+   * header so the supplemental panel only stays open while needed (Slides-UI.md).
+   */
+  onClose?: () => void;
+  /** Initial active tab when the panel opens (toolbar handoff). */
+  initialTab?: "content" | "style";
 }
 
 function TabButton({
@@ -1078,7 +1077,6 @@ function ElementEditor({
   element,
   deck,
   visuals,
-  textColorPresets,
   showAdvanced,
   elements,
   onUpdateElement,
@@ -1087,7 +1085,6 @@ function ElementEditor({
   element: SlideElement;
   deck: Deck;
   visuals: ReadonlyMap<string, Visual>;
-  textColorPresets: readonly string[];
   showAdvanced: boolean;
   elements: readonly SlideElement[];
   onUpdateElement: SlideInspectorProps["onUpdateElement"];
@@ -1146,12 +1143,6 @@ function ElementEditor({
                 coalesceKey,
               )
             }
-          />
-          <TextStyleBar
-            variant="labeled"
-            style={element.style}
-            colorPresets={textColorPresets}
-            onChange={(style) => onUpdateElement(element.id, { style })}
           />
           <FontFamilyControl
             style={element.style}
@@ -1231,12 +1222,6 @@ function ElementEditor({
               );
             }}
           />
-          <TextStyleBar
-            variant="labeled"
-            style={element.style}
-            colorPresets={textColorPresets}
-            onChange={(style) => onUpdateElement(element.id, { style })}
-          />
           <FontFamilyControl
             style={element.style}
             onChange={(style) => onUpdateElement(element.id, { style })}
@@ -1281,33 +1266,23 @@ function ElementEditor({
       return (
         <div className="flex flex-col gap-3">
           {element.shape !== "line" ? (
-            <>
-              <RichTextBox
-                label="Text"
-                html={runsToHtml(element.textRuns, element.text ?? "")}
-                onChange={({ text, runs }, coalesceKey) =>
-                  onUpdateElement(
-                    element.id,
-                    {
-                      text: text.trim().length > 0 ? text : undefined,
-                      textRuns:
-                        shouldStoreRuns(runs) && text.trim().length > 0
-                          ? runs
-                          : undefined,
-                    },
-                    coalesceKey,
-                  )
-                }
-              />
-              <TextStyleBar
-                variant="compact"
-                style={element.textStyle ?? DEFAULT_SHAPE_TEXT_STYLE}
-                colorPresets={textColorPresets}
-                onChange={(textStyle) =>
-                  onUpdateElement(element.id, { textStyle })
-                }
-              />
-            </>
+            <RichTextBox
+              label="Text"
+              html={runsToHtml(element.textRuns, element.text ?? "")}
+              onChange={({ text, runs }, coalesceKey) =>
+                onUpdateElement(
+                  element.id,
+                  {
+                    text: text.trim().length > 0 ? text : undefined,
+                    textRuns:
+                      shouldStoreRuns(runs) && text.trim().length > 0
+                        ? runs
+                        : undefined,
+                  },
+                  coalesceKey,
+                )
+              }
+            />
           ) : null}
           <label className="block">
             <span className={LABEL_CLASS}>Shape</span>
@@ -1326,18 +1301,6 @@ function ElementEditor({
                 </option>
               ))}
             </select>
-          </label>
-          <label className="flex items-center justify-between gap-2">
-            <span className={LABEL_CLASS + " mb-0"}>Color</span>
-            <input
-              type="color"
-              value={element.color}
-              onChange={(event) =>
-                onUpdateElement(element.id, { color: event.target.value })
-              }
-              className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
-              aria-label="Shape color"
-            />
           </label>
           {element.shape !== "triangle" ? (
             <label className="flex items-center justify-between gap-2">
@@ -2270,8 +2233,10 @@ export function SlideInspector({
   className = "flex w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle",
   showAdvanced = true,
   documentId,
+  onClose,
+  initialTab,
 }: SlideInspectorProps) {
-  const [tab, setTab] = useState<Tab>("content");
+  const [tab, setTab] = useState<Tab>(initialTab ?? "content");
   const [selectedLayoutId, setSelectedLayoutId] = useState("");
   const TABS: Tab[] = ["content", "style"];
 
@@ -2357,14 +2322,6 @@ export function SlideInspector({
     null;
 
   const themeConfig = DECK_THEMES[slide.theme] ?? DECK_THEMES.default;
-  const textColorPresets = mergeSwatches(brandSwatches, [
-    themeConfig.titleColor,
-    themeConfig.bodyColor,
-    themeConfig.mutedColor,
-    themeConfig.accentColor,
-    "#ffffff",
-    "#000000",
-  ]);
 
   return (
     <aside className={className}>
@@ -2394,6 +2351,18 @@ export function SlideInspector({
               <Trash2 size={14} aria-hidden="true" />
             </button>
           </Tooltip>
+          {onClose ? (
+            <Tooltip label="Close panel" side="bottom">
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close properties panel"
+                className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-muted transition-colors hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
+              >
+                <X size={14} aria-hidden="true" />
+              </button>
+            </Tooltip>
+          ) : null}
         </div>
       </div>
 
@@ -2602,7 +2571,6 @@ export function SlideInspector({
                     element={selectedElement}
                     deck={deck}
                     visuals={visuals}
-                    textColorPresets={textColorPresets}
                     showAdvanced={showAdvanced}
                     elements={elements}
                     onUpdateElement={onUpdateElement}
