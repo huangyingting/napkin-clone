@@ -244,6 +244,48 @@ function checkFontUsage(
   }
 }
 
+/**
+ * Deck-level check (#617): warns when an applied custom deck template (e.g. a
+ * brand-derived `customTokenSet`) declares typography fonts that PPTX cannot
+ * embed. Resolved template fonts may never appear on an element's own
+ * `style.fontFamily`, so the per-element {@link checkFontUsage} would miss
+ * them. Gated on the same caller-provided `customFontFamilies` set so behaviour
+ * stays predictable and opt-in.
+ */
+function checkCustomTemplateFonts(
+  deck: Deck,
+  customFontFamilies: ReadonlySet<string>,
+  diagnostics: PreflightDiagnostic[],
+): void {
+  const typography = deck.customTokenSet?.typography;
+  if (!typography) return;
+
+  const candidates: string[] = [typography.fontFamily];
+  if (typography.headingFontFamily) {
+    candidates.push(typography.headingFontFamily);
+  }
+  if (typography.roles) {
+    for (const token of Object.values(typography.roles)) {
+      if (token?.fontFamily) candidates.push(token.fontFamily);
+    }
+  }
+
+  const seen = new Set<string>();
+  for (const stack of candidates) {
+    const primary = primaryFontFamily(stack);
+    if (seen.has(primary)) continue;
+    seen.add(primary);
+    if (customFontFamilies.has(primary)) {
+      diagnostics.push({
+        severity: "warning",
+        code: "missing-font",
+        message: `Deck template uses custom font "${primary}" which is not embedded in PPTX — Office will substitute a system font.`,
+        detail: primary,
+      });
+    }
+  }
+}
+
 function checkPptxFidelityFeatures(
   slide: Deck["slides"][number],
   slideIndex: number,
@@ -314,6 +356,11 @@ export function runExportPreflight(
       message: `Deck has ${deck.slides.length} slides (recommended maximum: ${maxSlides}). Export file may be very large.`,
       detail: String(deck.slides.length),
     });
+  }
+
+  // Deck-level custom template font check (#617).
+  if (target === "pptx" && customFontFamilies.size > 0) {
+    checkCustomTemplateFonts(deck, customFontFamilies, diagnostics);
   }
 
   // Per-slide element checks.
