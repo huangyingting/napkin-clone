@@ -2363,3 +2363,17 @@ test("REORDER_ELEMENT fails when the element is missing (#639)", () => {
   });
   assert.equal(result.ok, false);
 });
+
+test("UPDATE_DECK_TEMPLATE edits the deck template and is collab-patch round-trippable (#614)", () => {
+  const deck = makeDeck(["s1"]);
+  const result = executeCommand(deck, {
+    type: "UPDATE_DECK_TEMPLATE",
+    patch: { colors: { accent: "#00aa00" } },
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.deck.customTokenSet?.colors.accent, "#00aa00");
+  assert.equal(result.patches[0]!.op, "deck.update_template");
+  // applying the emitted patch to the original deck reproduces the edit (collab)
+  const replayed = applyPatch(deck, result.patches[0]!);
+  assert.equal(replayed?.customTokenSet?.colors.accent, "#00aa00");
+});

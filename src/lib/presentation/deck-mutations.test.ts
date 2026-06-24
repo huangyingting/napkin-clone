@@ -12,6 +12,7 @@ import {
   insertSlide,
   moveElementZOrder,
   reorderElement,
+  updateDeckTemplate,
   removeElement,
   removeElements,
   nudgeElements,
@@ -1046,4 +1047,33 @@ test("reorderElement is a no-op when ids are equal or missing (#639)", () => {
     zOf(reorderElement(deck, 0, "nope", "high")),
     zOf(deck),
   );
+});
+
+test("updateDeckTemplate materializes a custom token set from the theme then patches colors (#614)", () => {
+  const deck: Deck = { theme: "default", slides: [] };
+  const next = updateDeckTemplate(deck, { colors: { accent: "#ff0000" } });
+  assert.ok(next.customTokenSet, "custom token set is created");
+  assert.equal(next.customTokenSet!.colors.accent, "#ff0000");
+  // other colors inherit from the default theme
+  assert.equal(next.customTokenSet!.colors.onBg, "#0f172a");
+});
+
+test("updateDeckTemplate merges a partial role token over the resolved role (#614)", () => {
+  const deck: Deck = { theme: "default", slides: [] };
+  const next = updateDeckTemplate(deck, {
+    typography: { roles: { h1: { color: "#abcdef" } } },
+  });
+  const h1 = next.customTokenSet!.typography.roles!.h1!;
+  assert.equal(h1.color, "#abcdef");
+  // fontSize/weight come from the resolved default h1 role
+  assert.equal(h1.fontSize, 36);
+  assert.equal(h1.weight, 700);
+});
+
+test("updateDeckTemplate merges over an existing custom token set (#614)", () => {
+  const deck: Deck = { theme: "default", slides: [] };
+  const once = updateDeckTemplate(deck, { colors: { accent: "#ff0000" } });
+  const twice = updateDeckTemplate(once, { colors: { onBg: "#222222" } });
+  assert.equal(twice.customTokenSet!.colors.accent, "#ff0000");
+  assert.equal(twice.customTokenSet!.colors.onBg, "#222222");
 });
