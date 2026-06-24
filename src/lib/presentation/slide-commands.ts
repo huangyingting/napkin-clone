@@ -49,6 +49,7 @@ import type {
   SourceRef,
   TextRun,
 } from "./deck";
+import type { DeckThemeTokenSet } from "./deck-theme-tokens";
 import type { DistributiveOmit, ElementPatch } from "./deck-mutations";
 import type { AlignMode, DistributeMode, MatchSizeMode } from "./element-align";
 import type { ArrangeMode } from "./element-arrange";
@@ -81,6 +82,8 @@ import {
   sendElementToBack,
   setDeckSlideFormat,
   setDeckTheme,
+  updateDeckTemplate,
+  type DeckTemplatePatch,
   setElementBoxes,
   setElementHidden,
   setElementLocked,
@@ -454,6 +457,13 @@ export interface SetDeckThemeCommand {
   commandId?: string;
 }
 
+/** Edits the global deck template (colors, role typography, defaults) (#614). */
+export interface UpdateDeckTemplateCommand {
+  type: "UPDATE_DECK_TEMPLATE";
+  patch: DeckTemplatePatch;
+  commandId?: string;
+}
+
 /** Changes the deck-level slide format (aspect ratio). */
 export interface SetDeckFormatCommand {
   type: "SET_DECK_FORMAT";
@@ -625,6 +635,7 @@ export type SlideCommand =
   | ReorderElementCommand
   // #400 — style, theme, layout, asset
   | SetDeckThemeCommand
+  | UpdateDeckTemplateCommand
   | SetDeckFormatCommand
   | SetSlideBackgroundCommand
   | SetSlideBackgroundGradientCommand
@@ -693,6 +704,7 @@ export type PatchOp =
   | "element.reorder"
   // Deck-level
   | "deck.set_theme"
+  | "deck.update_template"
   | "deck.set_format";
 
 /**
@@ -726,6 +738,7 @@ export interface DeckPatch {
   deckFields?: {
     theme?: DeckTheme;
     slideFormat?: SlideFormat;
+    customTokenSet?: DeckThemeTokenSet;
   };
   /**
    * Per-slide scalar-field changes keyed by slide id.
@@ -1498,6 +1511,24 @@ export function executeCommand(deck: Deck, cmd: SlideCommand): CommandResult {
       );
     }
 
+    case "UPDATE_DECK_TEMPLATE": {
+      const next = updateDeckTemplate(deck, cmd.patch);
+      return success(
+        next,
+        deck.slides.map((s) => s.id),
+        [],
+        undefined,
+        [
+          makePatch(
+            "deck.update_template",
+            deck.slides.map((s) => s.id),
+            [],
+            { deckFields: { customTokenSet: next.customTokenSet } },
+          ),
+        ],
+      );
+    }
+
     case "SET_DECK_FORMAT": {
       return success(
         setDeckSlideFormat(deck, cmd.slideFormat),
@@ -1862,6 +1893,11 @@ export function applyPatch(deck: Deck, patch: DeckPatch): Deck | null {
       const theme = patch.deckFields?.theme;
       if (!theme) return null;
       return setDeckTheme(deck, theme);
+    }
+    case "deck.update_template": {
+      const customTokenSet = patch.deckFields?.customTokenSet;
+      if (!customTokenSet) return null;
+      return { ...deck, customTokenSet };
     }
     case "deck.set_format": {
       const slideFormat = patch.deckFields?.slideFormat;

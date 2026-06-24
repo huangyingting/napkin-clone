@@ -16,6 +16,19 @@ import type {
   SlideLayout as DeckLayout,
 } from "./deck";
 import type { SlideFormat } from "./slide-format";
+import type {
+  BulletDefaultsToken,
+  ColorToken,
+  ConnectorDefaultsToken,
+  DeckTextRole,
+  DeckThemeTokenSet,
+  ImageDefaultsToken,
+  TextRoleToken,
+  TextRoleTokenMap,
+  VisualDefaultsToken,
+} from "./deck-theme-tokens";
+import type { BackgroundTreatment } from "./deck-theme-tokens";
+import { resolveRoleToken, resolveThemeTokens } from "./deck-theme-tokens";
 import {
   applyLayout,
   layoutHintForReusableLayout,
@@ -216,6 +229,92 @@ export function setDeckTheme(deck: Deck, theme: DeckTheme): Deck {
 /** Changes the deck-wide slide format. */
 export function setDeckSlideFormat(deck: Deck, slideFormat: SlideFormat): Deck {
   return deck.slideFormat === slideFormat ? deck : { ...deck, slideFormat };
+}
+
+/**
+ * Structured patch for editing the global deck template (#614). Every field is
+ * optional and shallow-merges over the current (or theme-materialised) token
+ * set. Role-token patches merge over the *resolved* role token so a partial
+ * edit still yields complete typography.
+ */
+export interface DeckTemplatePatch {
+  colors?: Partial<ColorToken>;
+  typography?: {
+    fontFamily?: string;
+    headingFontFamily?: string;
+    roles?: Partial<Record<DeckTextRole, Partial<TextRoleToken>>>;
+  };
+  defaultBackground?: BackgroundTreatment;
+  bullet?: Partial<BulletDefaultsToken>;
+  connector?: Partial<ConnectorDefaultsToken>;
+  image?: Partial<ImageDefaultsToken>;
+  visual?: Partial<VisualDefaultsToken>;
+}
+
+function mergeRoleTokens(
+  base: DeckThemeTokenSet,
+  existing: TextRoleTokenMap | undefined,
+  patchRoles: Partial<Record<DeckTextRole, Partial<TextRoleToken>>>,
+): TextRoleTokenMap {
+  const out: TextRoleTokenMap = { ...(existing ?? {}) };
+  for (const key of Object.keys(patchRoles) as DeckTextRole[]) {
+    const partial = patchRoles[key];
+    if (!partial) continue;
+    const baseToken = out[key] ?? resolveRoleToken(base, key);
+    out[key] = { ...baseToken, ...partial };
+  }
+  return out;
+}
+
+/**
+ * Applies a {@link DeckTemplatePatch} to the deck's global template (#614).
+ * When the deck has no `customTokenSet` yet, one is materialised from the
+ * current theme's built-in token set first, so editing a template always
+ * produces a complete, persistable set. Returns a new deck (immutable).
+ */
+export function updateDeckTemplate(deck: Deck, patch: DeckTemplatePatch): Deck {
+  const themeId = deck.themeId ?? deck.theme;
+  const base: DeckThemeTokenSet = deck.customTokenSet ?? {
+    ...resolveThemeTokens(themeId),
+    id: `custom:${themeId}`,
+    name: `Custom (${deck.theme})`,
+  };
+  const next: DeckThemeTokenSet = {
+    ...base,
+    ...(patch.colors ? { colors: { ...base.colors, ...patch.colors } } : {}),
+    ...(patch.typography
+      ? {
+          typography: {
+            ...base.typography,
+            ...(patch.typography.fontFamily !== undefined
+              ? { fontFamily: patch.typography.fontFamily }
+              : {}),
+            ...(patch.typography.headingFontFamily !== undefined
+              ? { headingFontFamily: patch.typography.headingFontFamily }
+              : {}),
+            ...(patch.typography.roles
+              ? {
+                  roles: mergeRoleTokens(
+                    base,
+                    base.typography.roles,
+                    patch.typography.roles,
+                  ),
+                }
+              : {}),
+          },
+        }
+      : {}),
+    ...(patch.defaultBackground
+      ? { defaultBackground: patch.defaultBackground }
+      : {}),
+    ...(patch.bullet ? { bullet: { ...base.bullet, ...patch.bullet } } : {}),
+    ...(patch.connector
+      ? { connector: { ...base.connector, ...patch.connector } }
+      : {}),
+    ...(patch.image ? { image: { ...base.image, ...patch.image } } : {}),
+    ...(patch.visual ? { visual: { ...base.visual, ...patch.visual } } : {}),
+  };
+  return { ...deck, customTokenSet: next };
 }
 
 // ---------------------------------------------------------------------------
