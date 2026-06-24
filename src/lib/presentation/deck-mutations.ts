@@ -23,7 +23,10 @@ import {
   makeSlideId,
   resetLayout,
 } from "./deck";
-import { applyLayoutPreservingContent } from "./layout-apply";
+import {
+  applyLayoutPreservingContent,
+  resetLayoutPositions,
+} from "./layout-apply";
 import {
   type AlignMode,
   type DistributeMode,
@@ -276,6 +279,22 @@ export function resetSlideLayout(
   layout: DeckLayout,
 ): Deck {
   return mapSlide(deck, index, (slide) => resetLayout(slide, layout));
+}
+
+/**
+ * Resets only the *positions* of slot-bound elements on the slide at `index`
+ * to the layout's slot geometry (#629), without inserting placeholders,
+ * deleting content, or reordering. Free-form elements are untouched.
+ */
+export function resetSlideLayoutPositions(
+  deck: Deck,
+  index: number,
+  layout: DeckLayout,
+): Deck {
+  return mapSlide(deck, index, (slide) => {
+    const { elements } = resetLayoutPositions(slide.elements ?? [], layout);
+    return { ...slide, elements };
+  });
 }
 
 /** Returns the next z-index above the current maximum on a slide. */

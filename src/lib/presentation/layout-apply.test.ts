@@ -12,7 +12,10 @@ import type {
   SlideLayout,
   TextElement,
 } from "./deck";
-import { applyLayoutPreservingContent } from "./layout-apply";
+import {
+  applyLayoutPreservingContent,
+  resetLayoutPositions,
+} from "./layout-apply";
 import type { SlideSlotKind } from "./slide-slots";
 
 let n = 0;
@@ -176,4 +179,51 @@ test("does not mutate the input elements", () => {
     layout([placeholder("title", TITLE_BOX)]),
   );
   assert.deepStrictEqual(title, before);
+});
+
+// ---------------------------------------------------------------------------
+// resetLayoutPositions (#629)
+// ---------------------------------------------------------------------------
+
+test("resetLayoutPositions repositions bound elements without inserting placeholders", () => {
+  const title = boundText("title");
+  const result = resetLayoutPositions(
+    [title],
+    layout([placeholder("title", TITLE_BOX), placeholder("body", BODY_BOX)]),
+  );
+  const moved = result.elements.find((e) => e.id === title.id);
+  assert.deepStrictEqual(moved?.box, TITLE_BOX);
+  // only the title element remains — no placeholder inserted for the empty body slot
+  assert.equal(result.elements.length, 1);
+  assert.deepStrictEqual(result.moved, ["title#0"]);
+});
+
+test("resetLayoutPositions preserves free-form elements and content", () => {
+  const title = { ...boundText("title"), text: "Keep me" };
+  const free = freeShape();
+  const result = resetLayoutPositions(
+    [title, free],
+    layout([placeholder("title", TITLE_BOX)]),
+  );
+  const t = result.elements.find((e) => e.id === title.id);
+  const f = result.elements.find((e) => e.id === free.id);
+  assert.equal(t?.kind === "text" ? t.text : "", "Keep me");
+  assert.deepStrictEqual(f?.box, { x: 70, y: 70, w: 20, h: 20 });
+});
+
+test("resetLayoutPositions preserves element order and z-index", () => {
+  const a = { ...freeShape(), zIndex: 0 };
+  const title = { ...boundText("title"), zIndex: 1 };
+  const result = resetLayoutPositions(
+    [a, title],
+    layout([placeholder("title", TITLE_BOX)]),
+  );
+  assert.deepStrictEqual(
+    result.elements.map((e) => e.id),
+    [a.id, title.id],
+  );
+  assert.deepStrictEqual(
+    result.elements.map((e) => e.zIndex),
+    [0, 1],
+  );
 });
