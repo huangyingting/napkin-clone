@@ -605,3 +605,106 @@ describe("multi-slide preflight", () => {
     assert.equal(fatalDiagnostics(result).length, 0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Tests: custom deck-template fonts (#617)
+// ---------------------------------------------------------------------------
+
+describe("custom deck-template font diagnostics", () => {
+  function brandTokenSet(
+    overrides: Record<string, unknown> = {},
+  ): Record<string, unknown> {
+    return {
+      id: "brand:acme",
+      name: "Acme",
+      colors: {
+        slideBg: "#ffffff",
+        surface: "#f0f0f0",
+        accent: "#ff0000",
+        onBg: "#000000",
+        onSurface: "#111111",
+        onAccent: "#ffffff",
+        muted: "#888888",
+      },
+      typography: {
+        fontFamily: "Brandon Grotesque, Arial, sans-serif",
+        scale: { h1: 36, h2: 28, h3: 22, body: 16, list: 14, footer: 10 },
+      },
+      spacing: { slidePaddingPt: 36, gridUnitPt: 6 },
+      shape: { cornerRadiusPt: 4, shadowCss: "none" },
+      defaultBackground: { type: "solid", color: "#ffffff" },
+      ...overrides,
+    };
+  }
+
+  test("custom template font triggers a deck-level missing-font warning for PPTX", () => {
+    const deck = makeDeck([makeSlide([textEl()])], {
+      customTokenSet: brandTokenSet() as never,
+    });
+    const result = runExportPreflight(deck, {
+      target: "pptx",
+      customFontFamilies: new Set(["Brandon Grotesque"]),
+    });
+    const fontDiags = result.diagnostics.filter(
+      (d) => d.code === "missing-font",
+    );
+    assert.equal(fontDiags.length, 1);
+    assert.equal(fontDiags[0].detail, "Brandon Grotesque");
+    assert.equal(fontDiags[0].slideIndex, undefined); // deck-level
+    assert.equal(result.canExport, true); // warning, not fatal
+  });
+
+  test("heading and role template fonts are each reported once", () => {
+    const deck = makeDeck([makeSlide([textEl()])], {
+      customTokenSet: brandTokenSet({
+        typography: {
+          fontFamily: "Brandon Grotesque, Arial, sans-serif",
+          headingFontFamily: "Tungsten, Arial, sans-serif",
+          scale: { h1: 36, h2: 28, h3: 22, body: 16, list: 14, footer: 10 },
+          roles: {
+            caption: {
+              fontFamily: "Tungsten",
+              fontSize: 12,
+              color: "#333333",
+              weight: 400,
+            },
+          },
+        },
+      }) as never,
+    });
+    const result = runExportPreflight(deck, {
+      target: "pptx",
+      customFontFamilies: new Set(["Brandon Grotesque", "Tungsten"]),
+    });
+    const fonts = result.diagnostics
+      .filter((d) => d.code === "missing-font")
+      .map((d) => d.detail)
+      .sort();
+    assert.deepEqual(fonts, ["Brandon Grotesque", "Tungsten"]);
+  });
+
+  test("no warning when customFontFamilies is not provided", () => {
+    const deck = makeDeck([makeSlide([textEl()])], {
+      customTokenSet: brandTokenSet() as never,
+    });
+    const result = runExportPreflight(deck, { target: "pptx" });
+    assert.equal(
+      result.diagnostics.filter((d) => d.code === "missing-font").length,
+      0,
+    );
+  });
+
+  test("no template-font warning for image-target export", () => {
+    const deck = makeDeck([makeSlide([textEl()])], {
+      customTokenSet: brandTokenSet() as never,
+    });
+    const result = runExportPreflight(deck, {
+      target: "image",
+      customFontFamilies: new Set(["Brandon Grotesque"]),
+    });
+    assert.equal(
+      result.diagnostics.filter((d) => d.code === "missing-font").length,
+      0,
+    );
+  });
+});
