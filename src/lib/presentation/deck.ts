@@ -38,6 +38,7 @@ import {
   type SlideFormat as PresentationSlideFormat,
 } from "@/lib/presentation/slide-format";
 import type { DocumentBlock } from "@/lib/visual/document-export";
+import type { LayoutSlotBinding } from "@/lib/presentation/slide-slots";
 import type {
   DeckTextRole,
   DeckThemeTokenSet,
@@ -349,6 +350,13 @@ export interface BaseElement {
   groupId?: string;
   /** Optional provenance link back to the source document block. */
   sourceRef?: SourceRef;
+  /**
+   * Optional binding to a semantic layout slot (#628). When present, layout
+   * application moves this element into the matching slot's geometry instead of
+   * replacing it. Absent → the element is free-form/unbound and is never moved
+   * by layout actions.
+   */
+  layoutSlot?: LayoutSlotBinding;
 }
 
 /**
