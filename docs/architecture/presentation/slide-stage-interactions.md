@@ -16,6 +16,7 @@ contract for `SlideStageEditor`, not the persisted deck schema.
 | Target resolution            | [`src/lib/presentation/stage-targeting.ts`](../../../src/lib/presentation/stage-targeting.ts)                       |
 | Chrome layering              | [`src/lib/presentation/stage-chrome.ts`](../../../src/lib/presentation/stage-chrome.ts)                             |
 | Interaction decision helpers | [`src/lib/presentation/stage-interaction.ts`](../../../src/lib/presentation/stage-interaction.ts)                   |
+| Text hit geometry            | [`src/lib/presentation/text-hit-geometry.ts`](../../../src/lib/presentation/text-hit-geometry.ts)                   |
 | Keyboard canvas helpers      | [`src/lib/presentation/canvas-a11y.ts`](../../../src/lib/presentation/canvas-a11y.ts)                               |
 | Connector geometry           | [`src/lib/presentation/connector-geometry.ts`](../../../src/lib/presentation/connector-geometry.ts)                 |
 | Element fitting              | [`src/lib/presentation/text-element-fit.ts`](../../../src/lib/presentation/text-element-fit.ts)                     |
@@ -126,9 +127,12 @@ Text elements should not use the entire frame as their primary hit area.
 - Frame-only hit -> `text-frame`, low score.
 - Alignment and vertical alignment affect the estimated visible text box.
 
-The current implementation estimates text geometry from line count, character
-count, font size, alignment, and stage aspect ratio. This is a pragmatic
-approximation; a future improvement could cache DOM-measured line boxes.
+The current implementation accepts an optional measured text geometry cache from
+`text-hit-geometry.ts`. The cache is built by `SlideStageEditor` during layout
+from a hidden DOM measurement host, stores line/content boxes in slide-percent
+coordinates, and is passed into the pure `stage-hit-test.ts` pipeline. Cache
+misses fall back to the heuristic geometry derived from line count, character
+count, font size, alignment, and stage aspect ratio.
 
 ### Bullets
 
@@ -311,9 +315,9 @@ Implementation guidance:
 
 ## Known Limitations And Future Work
 
-- Text hit boxes are estimated, not DOM-measured per glyph. DOM line-box caching
-  would improve precision for wrapped text, mixed fonts, rich runs, and
-  localized content.
+- Text hit boxes use DOM-measured line/content boxes when the cache is available
+  and fall back to heuristic boxes on cache miss. The cache is invalidated when
+  slide elements, fitted boxes, or stage dimensions change.
 - Visual and image hit testing is box-based. Alpha-aware image picking and
   visual-node hit testing could make sparse media behave more like Canva.
 - If future group handles diverge from the multi-selection handle strategy, they

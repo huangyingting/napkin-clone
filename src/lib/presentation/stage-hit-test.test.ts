@@ -116,6 +116,56 @@ test("hitTestSlideElements still hits text when pointer is on visible text area"
   assert.equal(hits[0]?.element.id, "wide-text");
 });
 
+test("hitTestSlideElements uses measured text geometry when provided", () => {
+  const elements = [
+    rect("bottom", 0, box(0, 0, 100, 100)),
+    text("wide-text", 10, box(0, 0, 100, 100), "A wrapped localized title"),
+  ];
+  const textHitGeometry = new Map([
+    ["wide-text", { contentBoxes: [box(40, 40, 12, 8)] }],
+  ]);
+
+  const emptyFrameHits = hitTestSlideElements({ x: 2, y: 50 }, elements, {
+    textHitGeometry,
+  });
+  assert.equal(emptyFrameHits[0]?.element.id, "bottom");
+
+  const measuredHits = hitTestSlideElements({ x: 42, y: 42 }, elements, {
+    textHitGeometry,
+  });
+  assert.equal(measuredHits[0]?.element.id, "wide-text");
+  assert.equal(measuredHits[0]?.reason, "text-content");
+});
+
+test("hitTestSlideElements treats measured text padding as text-near", () => {
+  const elements = [
+    rect("bottom", 0, box(0, 0, 100, 100)),
+    text("wide-text", 10, box(0, 0, 100, 100), "Revenue"),
+  ];
+
+  const hits = hitTestSlideElements({ x: 38, y: 42 }, elements, {
+    textHitGeometry: new Map([
+      ["wide-text", { contentBoxes: [box(40, 40, 12, 8)] }],
+    ]),
+  });
+
+  assert.equal(hits[0]?.element.id, "wide-text");
+  assert.equal(hits[0]?.reason, "text-near");
+});
+
+test("hitTestSlideElements falls back to heuristic text geometry on cache miss", () => {
+  const elements = [
+    rect("bottom", 0, box(0, 0, 100, 100)),
+    text("wide-text", 10, box(0, 0, 100, 100), "Hi"),
+  ];
+
+  const hits = hitTestSlideElements({ x: 2, y: 50 }, elements, {
+    textHitGeometry: new Map(),
+  });
+  assert.equal(hits[0]?.element.id, "wide-text");
+  assert.equal(hits[0]?.reason, "text-content");
+});
+
 test("hitTestSlideElements skips hidden and locked elements by default", () => {
   const hidden = { ...rect("hidden", 20, box(0, 0, 100, 100)), hidden: true };
   const locked = { ...rect("locked", 10, box(0, 0, 100, 100)), locked: true };
