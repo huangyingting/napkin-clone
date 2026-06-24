@@ -161,7 +161,6 @@ import type {
 import type { ArrangeMode } from "@/lib/presentation/element-arrange";
 import { deriveSlideTitle } from "@/lib/presentation/slide-title";
 import {
-  inspectorTabForPanel,
   isSelectionToolbarVisible,
   shouldShowRichToolbarControls,
   type RightPanelTab,
@@ -3310,7 +3309,7 @@ export function SlideEditor({
               {...inspectorProps}
               showAdvanced={showAdvanced}
               documentId={documentId}
-              initialTab={inspectorTabForPanel(rightPanelTab)}
+              initialTab={rightPanelTab}
               onClose={() => setInspectorOpen(false)}
               className="hidden w-80 shrink-0 flex-col overflow-y-auto border-l border-ds-border-subtle bg-ds-surface-base lg:flex"
             />

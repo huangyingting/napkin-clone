@@ -2,20 +2,17 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-  inspectorTabForPanel,
+  defaultPanelTab,
   isSelectionToolbarVisible,
   shouldShowRichToolbarControls,
 } from "./slide-panel-ui";
 
-test("inspectorTabForPanel maps slide tab to style section", () => {
-  assert.equal(inspectorTabForPanel("slide"), "style");
+test("defaultPanelTab is arrange with a selection", () => {
+  assert.equal(defaultPanelTab(true), "arrange");
 });
 
-test("inspectorTabForPanel maps other tabs to content section", () => {
-  assert.equal(inspectorTabForPanel("arrange"), "content");
-  assert.equal(inspectorTabForPanel("details"), "content");
-  assert.equal(inspectorTabForPanel("layers"), "content");
-  assert.equal(inspectorTabForPanel("source"), "content");
+test("defaultPanelTab is slide with no selection", () => {
+  assert.equal(defaultPanelTab(false), "slide");
 });
 
 test("isSelectionToolbarVisible is hidden with no selection", () => {
