@@ -48,7 +48,6 @@ import {
 } from "lucide-react";
 
 import {
-  DECK_THEMES,
   SlideCanvas,
   type ThemeConfig,
 } from "@/components/presentation/slide-canvas";
@@ -62,11 +61,20 @@ import type {
   ConnectorElement,
   ConnectorEndpoint,
   ElementBox,
+  Deck,
   Slide,
   SlideElement,
   TextElementStyle,
 } from "@/lib/presentation/deck";
 import { normalizeBulletItems } from "@/lib/presentation/deck";
+import {
+  resolveSlideThemeColors,
+  resolveSlideTokenSet,
+} from "@/lib/presentation/style-cascade";
+import {
+  resolveRoleToken,
+  type DeckThemeTokenSet,
+} from "@/lib/presentation/deck-theme-tokens";
 import { orderedElementIds } from "@/lib/presentation/canvas-a11y";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import { detachConnectorEndpoint } from "@/lib/presentation/connector-lifecycle";
@@ -899,16 +907,17 @@ function ElementFrameOverlay({
 function resolveTextColor(
   element: Extract<SlideElement, { kind: "text" | "bullets" | "shape" }>,
   tc: ThemeConfig,
+  tokenSet: DeckThemeTokenSet,
 ): string {
   if (element.kind === "text") {
-    return (
-      element.style.color ??
-      (element.role === "title" ? tc.titleColor : tc.bodyColor)
-    );
+    const role = element.textRole ?? (element.role === "title" ? "h1" : "body");
+    return element.style.color ?? resolveRoleToken(tokenSet, role).color;
   }
   if (element.kind === "bullets") {
-    return element.style.color ?? tc.bodyColor;
+    const role = element.textRole ?? "bullet";
+    return element.style.color ?? resolveRoleToken(tokenSet, role).color;
   }
+  void tc;
   return element.textStyle?.color ?? contrastTextColor(element.color);
 }
 
@@ -985,6 +994,8 @@ function samePreselection(
 
 interface SlideStageEditorProps {
   slide: Slide;
+  /** Deck context for full cascade resolution (custom token set / masters). */
+  deck?: Deck;
   visuals: ReadonlyMap<string, Visual>;
   width: number;
   height: number;
@@ -1055,6 +1066,7 @@ interface SlideStageEditorProps {
 
 export function SlideStageEditor({
   slide,
+  deck,
   visuals,
   width,
   height,
@@ -1175,7 +1187,8 @@ export function SlideStageEditor({
     container.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only when the request nonce changes.
   }, [focusNonce]);
-  const tc = DECK_THEMES[slide.theme] ?? DECK_THEMES.default;
+  const tc = resolveSlideThemeColors(deck, slide);
+  const stageTokenSet = resolveSlideTokenSet(deck, slide);
   const accent = slide.accent ?? tc.accentColor;
   const stageAspect = width / height;
   const fittedBoxes = useMemo(() => {
@@ -2219,6 +2232,7 @@ export function SlideStageEditor({
       <div className="pointer-events-none absolute inset-0">
         <SlideCanvas
           slide={slide}
+          {...(deck ? { deck } : {})}
           visuals={visuals}
           hiddenElementIds={hiddenElementIds}
           editable
@@ -2449,7 +2463,7 @@ export function SlideStageEditor({
               {isEditing && editable ? (
                 <InlineTextEditor
                   element={element}
-                  color={resolveTextColor(element, tc)}
+                  color={resolveTextColor(element, tc, stageTokenSet)}
                   accent={accent}
                   stageHeight={height}
                   caretClient={pendingCaret}

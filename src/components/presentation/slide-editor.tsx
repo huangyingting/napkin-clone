@@ -44,10 +44,10 @@ import {
   Square,
   Trash2,
   Triangle,
-  Type,
   Undo2,
   X,
   Palette,
+  Type,
 } from "lucide-react";
 import {
   useCallback,
@@ -132,6 +132,9 @@ import {
   executeCommand,
   type DeckPatch,
 } from "@/lib/presentation/slide-commands";
+import { DeckTemplatePanel } from "@/components/presentation/deck-template-panel";
+import { resolveThemeTokens } from "@/lib/presentation/deck-theme-tokens";
+import type { DeckTemplatePatch } from "@/lib/presentation/deck-mutations";
 import {
   announceDelete,
   announceMove,
@@ -778,6 +781,7 @@ export function SlideEditor({
   const [spotlightPickerOpen, setSpotlightPickerOpen] = useState(false);
   // Whether the collapsed theme-swatch popover is open (shown below `lg`).
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  const [deckTemplateOpen, setDeckTemplateOpen] = useState(false);
   // Pending sync from the live document: a computed merge awaiting the user's
   // confirmation. `null` when no merge dialog is open.
   const [mergePreview, setMergePreview] = useState<{
@@ -3057,6 +3061,22 @@ export function SlideEditor({
     [deck, doCommitAndChange, safeSelected],
   );
 
+  // ── Global deck template editing (#613/#612/#614) ───────────────────────────
+  const handleUpdateDeckTemplate = useCallback(
+    (patch: DeckTemplatePatch) => {
+      doCommitAndChange(deck, { type: "UPDATE_DECK_TEMPLATE", patch });
+    },
+    [deck, doCommitAndChange],
+  );
+
+  const handleResetDeckTemplate = useCallback(() => {
+    doCommitAndChange(deck, {
+      type: "UPDATE_DECK_TEMPLATE",
+      patch: {},
+      reset: true,
+    });
+  }, [deck, doCommitAndChange]);
+
   const handleBackgroundGradientChange = useCallback(
     (gradient: { from: string; to: string; angle?: number } | undefined) => {
       const slideId = deck.slides[safeSelected]?.id;
@@ -3141,6 +3161,8 @@ export function SlideEditor({
     selectedSlide?.elements?.find(
       (element) => element.id === effectiveSelectedElementId,
     ) ?? null;
+  const deckTemplateTokenSet =
+    deck.customTokenSet ?? resolveThemeTokens(deck.themeId ?? deck.theme);
 
   return createPortal(
     <div
@@ -3409,6 +3431,36 @@ export function SlideEditor({
                 onPickGradient={applyDeckGradientBackground}
               />
             </Popover>
+            <Popover
+              open={deckTemplateOpen}
+              onClose={() => setDeckTemplateOpen(false)}
+              aria-label="Edit deck theme"
+              portal
+              layer="tooltip"
+              className="p-3"
+              trigger={
+                <Tooltip label="Deck theme" side="bottom">
+                  <button
+                    type="button"
+                    aria-label="Edit deck theme"
+                    aria-haspopup="dialog"
+                    aria-expanded={deckTemplateOpen}
+                    onClick={() => setDeckTemplateOpen((open) => !open)}
+                    className={`flex h-7 shrink-0 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                  >
+                    <Type aria-hidden className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Theme</span>
+                  </button>
+                </Tooltip>
+              }
+            >
+              <DeckTemplatePanel
+                tokenSet={deckTemplateTokenSet}
+                isCustom={deck.customTokenSet !== undefined}
+                onUpdate={handleUpdateDeckTemplate}
+                onReset={handleResetDeckTemplate}
+              />
+            </Popover>
             <span className="hidden min-w-0 shrink truncate text-xs text-ds-text-muted 2xl:inline">
               Slide {safeSelected + 1} of {deck.slides.length} ·{" "}
               {selectionSummary}
@@ -3662,6 +3714,7 @@ export function SlideEditor({
                   >
                     <SlideStageEditor
                       slide={selectedSlide}
+                      deck={deck}
                       visuals={visuals}
                       width={renderedStageWidth}
                       height={renderedStageHeight}

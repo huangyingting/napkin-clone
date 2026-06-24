@@ -83,6 +83,7 @@ import {
   setDeckSlideFormat,
   setDeckTheme,
   updateDeckTemplate,
+  resetDeckTemplate,
   type DeckTemplatePatch,
   setElementBoxes,
   setElementHidden,
@@ -461,6 +462,8 @@ export interface SetDeckThemeCommand {
 export interface UpdateDeckTemplateCommand {
   type: "UPDATE_DECK_TEMPLATE";
   patch: DeckTemplatePatch;
+  /** When true, reset the template back to the built-in theme (#612). */
+  reset?: boolean;
   commandId?: string;
 }
 
@@ -739,6 +742,8 @@ export interface DeckPatch {
     theme?: DeckTheme;
     slideFormat?: SlideFormat;
     customTokenSet?: DeckThemeTokenSet;
+    /** Signals a reset of the global template back to the built-in theme (#612). */
+    resetTemplate?: boolean;
   };
   /**
    * Per-slide scalar-field changes keyed by slide id.
@@ -1512,6 +1517,22 @@ export function executeCommand(deck: Deck, cmd: SlideCommand): CommandResult {
     }
 
     case "UPDATE_DECK_TEMPLATE": {
+      if (cmd.reset) {
+        return success(
+          resetDeckTemplate(deck),
+          deck.slides.map((s) => s.id),
+          [],
+          undefined,
+          [
+            makePatch(
+              "deck.update_template",
+              deck.slides.map((s) => s.id),
+              [],
+              { deckFields: { resetTemplate: true } },
+            ),
+          ],
+        );
+      }
       const next = updateDeckTemplate(deck, cmd.patch);
       return success(
         next,
@@ -1895,6 +1916,9 @@ export function applyPatch(deck: Deck, patch: DeckPatch): Deck | null {
       return setDeckTheme(deck, theme);
     }
     case "deck.update_template": {
+      if (patch.deckFields?.resetTemplate) {
+        return resetDeckTemplate(deck);
+      }
       const customTokenSet = patch.deckFields?.customTokenSet;
       if (!customTokenSet) return null;
       return { ...deck, customTokenSet };

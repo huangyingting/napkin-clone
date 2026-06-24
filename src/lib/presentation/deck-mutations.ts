@@ -317,6 +317,17 @@ export function updateDeckTemplate(deck: Deck, patch: DeckTemplatePatch): Deck {
   return { ...deck, customTokenSet: next };
 }
 
+/**
+ * Removes the deck's `customTokenSet`, resetting the global template back to the
+ * built-in theme (#612 "reset to theme"). Returns a new deck (immutable).
+ */
+export function resetDeckTemplate(deck: Deck): Deck {
+  if (deck.customTokenSet === undefined) return deck;
+  const copy = { ...deck };
+  delete (copy as { customTokenSet?: unknown }).customTokenSet;
+  return copy;
+}
+
 // ---------------------------------------------------------------------------
 // Free-form element mutations
 // ---------------------------------------------------------------------------
