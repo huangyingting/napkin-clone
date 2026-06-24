@@ -112,6 +112,25 @@ export function renderFooterText(template: string, slideIndex: number): string {
   return template.replace(/\{\{pageNumber\}\}/g, String(slideIndex + 1));
 }
 
+/**
+ * Resolves the {@link DeckThemeTokenSet} that governs a slide (#607). Mirrors
+ * the deck/no-deck handling of {@link resolveSlideThemeColors} so the renderer
+ * can read optional non-text default tokens (bullet/connector/image/visual/
+ * shape) without a full deck. Returns the slide's custom token set when present,
+ * otherwise the built-in set for its theme.
+ */
+export function resolveSlideTokenSet(
+  deck: Deck | undefined,
+  slide: Slide,
+): DeckThemeTokenSet {
+  const effectiveDeck: Deck = deck ?? {
+    theme: slide.theme,
+    themeId: slide.theme,
+    slides: [slide],
+  };
+  return resolveSlideStyle(effectiveDeck, slide).tokenSet;
+}
+
 // ---------------------------------------------------------------------------
 // Slide theme colours for the shared renderer (#609)
 // ---------------------------------------------------------------------------

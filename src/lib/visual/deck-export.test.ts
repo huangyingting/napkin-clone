@@ -1404,3 +1404,74 @@ test("an explicit element fontFamily still wins over the role font (#606)", () =
   const title = ofKind(spec.ops, "text")[0] as DeckTextOp;
   assert.equal(title.fontFace, "Courier New");
 });
+
+// ---------------------------------------------------------------------------
+// Non-text template defaults in export (#607)
+// ---------------------------------------------------------------------------
+
+function brandDeckWith(
+  elements: SlideElement[],
+  tokenExtras: Record<string, unknown>,
+): Deck {
+  return {
+    theme: "default",
+    customTokenSet: {
+      id: "brand:nt",
+      name: "NT",
+      colors: {
+        slideBg: "#ffffff",
+        surface: "#f0f0f0",
+        accent: "#3366ff",
+        onBg: "#0f172a",
+        onSurface: "#111111",
+        onAccent: "#ffffff",
+        muted: "#64748b",
+      },
+      typography: {
+        fontFamily: "Inter",
+        scale: { h1: 36, h2: 28, h3: 22, body: 16, list: 14, footer: 10 },
+      },
+      spacing: { slidePaddingPt: 36, gridUnitPt: 6 },
+      shape: { cornerRadiusPt: 4, shadowCss: "none" },
+      defaultBackground: { type: "solid", color: "#ffffff" },
+      ...tokenExtras,
+    },
+    slides: [freeFormSlide(0, elements)],
+  } as unknown as Deck;
+}
+
+test("export inherits the template image fit mode when the element omits it (#607)", () => {
+  const deck = brandDeckWith([imageEl("img")], { image: { fitMode: "cover" } });
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const img = ofKind(spec.ops, "image")[0] as DeckImageOp;
+  assert.equal(img.fitMode, "cover");
+});
+
+test("an element image fit mode overrides the template default (#607)", () => {
+  const deck = brandDeckWith([imageEl("img", { fitMode: "fill" })], {
+    image: { fitMode: "cover" },
+  });
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const img = ofKind(spec.ops, "image")[0] as DeckImageOp;
+  assert.equal(img.fitMode, "fill");
+});
+
+test("export inherits template connector color and end arrow (#607)", () => {
+  const deck = brandDeckWith([connectorEl("c")], {
+    connector: { color: "#00ff00", endArrow: "filled" },
+  });
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const conn = ofKind(spec.ops, "connector")[0] as DeckConnectorOp;
+  assert.equal(conn.color.toLowerCase(), "00ff00");
+  assert.equal(conn.arrowEnd, "filled");
+});
+
+test("an element connector stroke overrides the template default (#607)", () => {
+  const deck = brandDeckWith(
+    [connectorEl("c", { stroke: { color: "#ff0000", width: 1 } })],
+    { connector: { color: "#00ff00" } },
+  );
+  const [spec] = buildDeckSpecs(deck, new Map());
+  const conn = ofKind(spec.ops, "connector")[0] as DeckConnectorOp;
+  assert.equal(conn.color.toLowerCase(), "ff0000");
+});
