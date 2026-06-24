@@ -15,6 +15,13 @@ export interface PointPct {
 
 export type ConnectorBoxResolver = (element: SlideElement) => ElementBox;
 
+export interface ConnectorAnchorCandidate {
+  elementId: string;
+  hoveredAnchor: ConnectorAnchor | null;
+  distance: number;
+  containsPoint: boolean;
+}
+
 export const CONNECTOR_ANCHORS: readonly ConnectorAnchor[] = [
   "center",
   "top",
@@ -69,6 +76,100 @@ export function resolveConnectorEndpoint(
   return anchorPoint(resolveBox(element), endpoint.anchor);
 }
 
+function isConnectorAnchorTarget(
+  element: SlideElement,
+  lineId: string,
+): boolean {
+  if (element.id === lineId) return false;
+  if (element.kind === "connector") return false;
+  if (element.kind === "shape" && element.shape === "line") return false;
+  return true;
+}
+
+function pointInBox(point: PointPct, box: ElementBox): boolean {
+  return (
+    point.x >= box.x &&
+    point.x <= box.x + box.w &&
+    point.y >= box.y &&
+    point.y <= box.y + box.h
+  );
+}
+
+function distanceToPoint(
+  a: PointPct,
+  b: PointPct,
+  stageAspect: number,
+): number {
+  const dx = (a.x - b.x) * stageAspect;
+  const dy = a.y - b.y;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function nearestAnchor(
+  point: PointPct,
+  box: ElementBox,
+  stageAspect: number,
+): { anchor: ConnectorAnchor; distance: number; point: PointPct } {
+  let nearest: ConnectorAnchor = "center";
+  let nearestPoint = anchorPoint(box, nearest);
+  let nearestDistance = distanceToPoint(nearestPoint, point, stageAspect);
+  for (const anchor of CONNECTOR_ANCHORS) {
+    const candidatePoint = anchorPoint(box, anchor);
+    const distance = distanceToPoint(candidatePoint, point, stageAspect);
+    if (distance < nearestDistance) {
+      nearest = anchor;
+      nearestPoint = candidatePoint;
+      nearestDistance = distance;
+    }
+  }
+  return { anchor: nearest, distance: nearestDistance, point: nearestPoint };
+}
+
+export function connectorAnchorCandidates(
+  point: PointPct,
+  lineId: string,
+  elements: readonly SlideElement[],
+  resolveBox: ConnectorBoxResolver,
+  stageAspect: number,
+  thresholdPct = 5,
+): ConnectorAnchorCandidate[] {
+  return elements
+    .map((element, index) => ({ element, index }))
+    .filter(({ element }) => isConnectorAnchorTarget(element, lineId))
+    .map(({ element, index }) => {
+      const box = resolveBox(element);
+      const nearest = nearestAnchor(point, box, stageAspect);
+      const containsPoint = pointInBox(point, box);
+      if (!containsPoint && nearest.distance > thresholdPct) {
+        return null;
+      }
+      return {
+        elementId: element.id,
+        hoveredAnchor: nearest.distance <= thresholdPct ? nearest.anchor : null,
+        distance: nearest.distance,
+        containsPoint,
+        index,
+      };
+    })
+    .filter(
+      (candidate): candidate is ConnectorAnchorCandidate & { index: number } =>
+        candidate !== null,
+    )
+    .sort(
+      (a, b) =>
+        Number(b.hoveredAnchor !== null) - Number(a.hoveredAnchor !== null) ||
+        Number(b.containsPoint) - Number(a.containsPoint) ||
+        a.distance - b.distance ||
+        b.index - a.index,
+    )
+    .map(({ elementId, hoveredAnchor, distance, containsPoint }) => ({
+      elementId,
+      hoveredAnchor,
+      distance,
+      containsPoint,
+    }));
+}
+
 export function resolveLineEndpoints(
   element: ShapeElement,
   _elements: readonly SlideElement[],
@@ -112,19 +213,13 @@ export function snapLineEndpoint(
   let bestBinding: ConnectorEndpoint | undefined;
   let bestDistance = Number.POSITIVE_INFINITY;
   for (const element of elements) {
-    if (element.id === lineId) continue;
-    if (element.kind === "shape" && element.shape === "line") continue;
+    if (!isConnectorAnchorTarget(element, lineId)) continue;
     const box = resolveBox(element);
-    for (const anchor of CONNECTOR_ANCHORS) {
-      const anchorPosition = anchorPoint(box, anchor);
-      const dx = (anchorPosition.x - point.x) * stageAspect;
-      const dy = anchorPosition.y - point.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      if (distance < bestDistance && distance <= thresholdPct) {
-        bestDistance = distance;
-        bestPoint = anchorPosition;
-        bestBinding = { elementId: element.id, anchor };
-      }
+    const nearest = nearestAnchor(point, box, stageAspect);
+    if (nearest.distance < bestDistance && nearest.distance <= thresholdPct) {
+      bestDistance = nearest.distance;
+      bestPoint = nearest.point;
+      bestBinding = { elementId: element.id, anchor: nearest.anchor };
     }
   }
   return { point: bestPoint, ...(bestBinding ? { binding: bestBinding } : {}) };

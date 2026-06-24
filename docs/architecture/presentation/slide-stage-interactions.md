@@ -163,6 +163,9 @@ Connectors must be considered in both preselection and direct manipulation.
   connector is selected.
 - While dragging an endpoint, anchor preview dots are shown on candidate target
   elements; this interaction intentionally suppresses general hover preselection.
+- Candidate target elements are collected by `connectorAnchorCandidates` from
+  elements under the pointer and elements with anchors inside the snap radius;
+  final binding still uses the nearest snapped anchor from `snapLineEndpoint`.
 
 A connector is not selected by its full bounding box. It should be targetable
 near its stroke, with enough tolerance to be practical.
