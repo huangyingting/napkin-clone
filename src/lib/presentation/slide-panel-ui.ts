@@ -14,16 +14,12 @@ export type RightPanelTab =
   | "slide"
   | "source";
 
-/** The two internal sections the current `SlideInspector` renders. */
-export type InspectorTab = "content" | "style";
-
 /**
- * Maps a requested right-panel tab to the inspector section that currently
- * hosts it. Slide-level settings live in the inspector's `style` section; every
- * other tab (arrange/details/layers/source) is hosted by `content`.
+ * The tab the panel should open to by default. With a selection, the most
+ * useful default is `arrange`; with no selection, slide-level settings.
  */
-export function inspectorTabForPanel(tab: RightPanelTab): InspectorTab {
-  return tab === "slide" ? "style" : "content";
+export function defaultPanelTab(hasSelection: boolean): RightPanelTab {
+  return hasSelection ? "arrange" : "slide";
 }
 
 /**

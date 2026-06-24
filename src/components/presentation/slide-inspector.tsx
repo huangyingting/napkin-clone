@@ -75,6 +75,7 @@ import {
   PLACEHOLDER_TYPE_LABELS,
 } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
+import type { RightPanelTab } from "@/lib/presentation/slide-panel-ui";
 import type {
   AlignMode,
   DistributeMode,
@@ -126,7 +127,7 @@ const FONT_FAMILIES: { label: string; value: string }[] = [
 const THEME_BACKGROUND_SWATCHES = themeSwatchColors(DECK_THEMES, "bgColor");
 const THEME_ACCENT_SWATCHES = themeSwatchColors(DECK_THEMES, "accentColor");
 
-type Tab = "content" | "style";
+type Tab = RightPanelTab;
 
 const FIELD_CLASS =
   "w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-sm text-ds-text-primary outline-none";
@@ -213,7 +214,7 @@ export interface SlideInspectorProps {
    */
   onClose?: () => void;
   /** Initial active tab when the panel opens (toolbar handoff). */
-  initialTab?: "content" | "style";
+  initialTab?: RightPanelTab;
 }
 
 function TabButton({
@@ -1675,73 +1676,6 @@ function VisualElementEditor({
   );
 }
 
-function ElementActionRow({
-  elementId,
-  showAdvanced,
-  onDuplicateElement,
-  onBringToFront,
-  onSendToBack,
-  onRemoveElement,
-}: {
-  elementId: string;
-  showAdvanced: boolean;
-  onDuplicateElement: (id: string) => void;
-  onBringToFront: (id: string) => void;
-  onSendToBack: (id: string) => void;
-  onRemoveElement: (id: string) => void;
-}) {
-  return (
-    <div
-      className={`mb-3 grid gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-1 ${showAdvanced ? "grid-cols-4" : "grid-cols-2"}`}
-    >
-      <Tooltip label="Duplicate element" side="bottom">
-        <button
-          type="button"
-          onClick={() => onDuplicateElement(elementId)}
-          aria-label="Duplicate element"
-          className={`flex h-7 items-center justify-center rounded-ds-sm text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-        >
-          <Copy size={14} aria-hidden="true" />
-        </button>
-      </Tooltip>
-      {showAdvanced ? (
-        <>
-          <Tooltip label="Bring to front" side="bottom">
-            <button
-              type="button"
-              onClick={() => onBringToFront(elementId)}
-              aria-label="Bring to front"
-              className={`flex h-7 items-center justify-center rounded-ds-sm text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-            >
-              <ArrowUpToLine size={14} aria-hidden="true" />
-            </button>
-          </Tooltip>
-          <Tooltip label="Send to back" side="bottom">
-            <button
-              type="button"
-              onClick={() => onSendToBack(elementId)}
-              aria-label="Send to back"
-              className={`flex h-7 items-center justify-center rounded-ds-sm text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-            >
-              <ArrowDownToLine size={14} aria-hidden="true" />
-            </button>
-          </Tooltip>
-        </>
-      ) : null}
-      <Tooltip label="Delete element" side="bottom">
-        <button
-          type="button"
-          onClick={() => onRemoveElement(elementId)}
-          aria-label="Delete element"
-          className={`flex h-7 items-center justify-center rounded-ds-sm text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-        >
-          <Trash2 size={14} aria-hidden="true" />
-        </button>
-      </Tooltip>
-    </div>
-  );
-}
-
 /**
  * Numeric box field (percent units). Commits clamped values to the element box.
  */
@@ -2236,9 +2170,9 @@ export function SlideInspector({
   onClose,
   initialTab,
 }: SlideInspectorProps) {
-  const [tab, setTab] = useState<Tab>(initialTab ?? "content");
+  const [tab, setTab] = useState<Tab>(initialTab ?? "arrange");
   const [selectedLayoutId, setSelectedLayoutId] = useState("");
-  const TABS: Tab[] = ["content", "style"];
+  const TABS: Tab[] = ["arrange", "details", "layers", "slide", "source"];
 
   function handleTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
     const idx = TABS.indexOf(tab);
@@ -2370,78 +2304,86 @@ export function SlideInspector({
       <div
         role="tablist"
         aria-label="Inspector tabs"
-        className="flex items-center gap-1 border-b border-ds-border-subtle px-3 py-2"
+        className="flex items-center gap-1 overflow-x-auto border-b border-ds-border-subtle px-3 py-2"
       >
         <TabButton
-          active={tab === "content"}
-          tabId="inspector-tab-content"
-          panelId="inspector-panel-content"
-          label="Content"
-          onClick={() => setTab("content")}
+          active={tab === "arrange"}
+          tabId="inspector-tab-arrange"
+          panelId="inspector-panel-arrange"
+          label="Arrange"
+          onClick={() => setTab("arrange")}
           onKeyDown={handleTabKeyDown}
         />
         <TabButton
-          active={tab === "style"}
-          tabId="inspector-tab-style"
-          panelId="inspector-panel-style"
-          label="Style"
-          onClick={() => setTab("style")}
+          active={tab === "details"}
+          tabId="inspector-tab-details"
+          panelId="inspector-panel-details"
+          label="Details"
+          onClick={() => setTab("details")}
+          onKeyDown={handleTabKeyDown}
+        />
+        <TabButton
+          active={tab === "layers"}
+          tabId="inspector-tab-layers"
+          panelId="inspector-panel-layers"
+          label="Layers"
+          onClick={() => setTab("layers")}
+          onKeyDown={handleTabKeyDown}
+        />
+        <TabButton
+          active={tab === "slide"}
+          tabId="inspector-tab-slide"
+          panelId="inspector-panel-slide"
+          label="Slide"
+          onClick={() => setTab("slide")}
+          onKeyDown={handleTabKeyDown}
+        />
+        <TabButton
+          active={tab === "source"}
+          tabId="inspector-tab-source"
+          panelId="inspector-panel-source"
+          label="Source"
+          onClick={() => setTab("source")}
           onKeyDown={handleTabKeyDown}
         />
       </div>
 
       <div className="flex flex-col gap-4 px-4 py-4">
-        {tab === "content" ? (
+        {tab === "arrange" ? (
           <div
             role="tabpanel"
-            id="inspector-panel-content"
-            aria-labelledby="inspector-tab-content"
+            id="inspector-panel-arrange"
+            aria-labelledby="inspector-tab-arrange"
             className="flex flex-col gap-4"
           >
-            {selectedLayout ? (
-              <div className="rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised p-3">
-                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ds-text-muted">
-                  Reusable layout
-                </p>
-                <label className="block">
-                  <span className={LABEL_CLASS}>Layout</span>
-                  <select
-                    value={selectedLayout.id}
-                    onChange={(event) =>
-                      setSelectedLayoutId(event.target.value)
-                    }
-                    className={`${FIELD_CLASS} ${FOCUS_RING}`}
-                  >
-                    {availableLayouts.map((layout) => (
-                      <option key={layout.id} value={layout.id}>
-                        {layout.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onApplyLayout(selectedLayout)}
-                    className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-3 py-2 text-sm font-medium text-ds-text-primary hover:bg-ds-state-hover ${FOCUS_RING}`}
-                  >
-                    Apply
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onResetLayout(selectedLayout)}
-                    className={`rounded-ds-md border border-ds-danger-border bg-ds-danger-surface px-3 py-2 text-sm font-medium text-ds-danger-text hover:opacity-90 ${FOCUS_RING}`}
-                  >
-                    Reset
-                  </button>
-                </div>
-                <p className="mt-2 text-xs text-ds-text-muted">
-                  Apply refreshes placeholders while keeping your other
-                  elements. Reset replaces all placeholders with the layout
-                  defaults.
-                </p>
-              </div>
-            ) : null}
+            {selectedElementIds && selectedElementIds.size >= 2 ? (
+              <MultiSelectTools
+                selectedIds={[...selectedElementIds]}
+                onAlign={onAlign}
+                onDistribute={onDistribute}
+                onMatchSize={onMatchSize}
+                onArrange={onArrange}
+              />
+            ) : selectedElement ? (
+              <ElementArrangeControl
+                element={selectedElement}
+                onUpdateElement={onUpdateElement}
+              />
+            ) : (
+              <p className="text-xs text-ds-text-muted">
+                Select an element to arrange it.
+              </p>
+            )}
+          </div>
+        ) : null}
+
+        {tab === "layers" ? (
+          <div
+            role="tabpanel"
+            id="inspector-panel-layers"
+            aria-labelledby="inspector-tab-layers"
+            className="flex flex-col gap-4"
+          >
             <>
               {/* Element list */}
               <div className="flex flex-col gap-1">
@@ -2541,80 +2483,107 @@ export function SlideInspector({
                   />
                 </CollapsibleSection>
               )}
-
-              {/* Selected element editor */}
-              {/* Multi-select tools panel (issue #328) */}
-              {selectedElementIds && selectedElementIds.size >= 2 ? (
-                <MultiSelectTools
-                  selectedIds={[...selectedElementIds]}
-                  onAlign={onAlign}
-                  onDistribute={onDistribute}
-                  onMatchSize={onMatchSize}
-                  onArrange={onArrange}
-                />
-              ) : null}
-
-              {selectedElement ? (
-                <div className="border-t border-ds-border-subtle pt-3">
-                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ds-text-muted">
-                    {elementLabel(selectedElement)}
-                  </p>
-                  <ElementActionRow
-                    elementId={selectedElement.id}
-                    showAdvanced={showAdvanced}
-                    onDuplicateElement={onDuplicateElement}
-                    onBringToFront={onBringToFront}
-                    onSendToBack={onSendToBack}
-                    onRemoveElement={onRemoveElement}
-                  />
-                  <ElementEditor
-                    element={selectedElement}
-                    deck={deck}
-                    visuals={visuals}
-                    showAdvanced={showAdvanced}
-                    elements={elements}
-                    onUpdateElement={onUpdateElement}
-                    documentId={documentId}
-                  />
-                  {showAdvanced ? (
-                    <>
-                      <CollapsibleSection id="arrange" label="Arrange">
-                        <ElementArrangeControl
-                          element={selectedElement}
-                          onUpdateElement={onUpdateElement}
-                        />
-                      </CollapsibleSection>
-                      <CollapsibleSection id="opacity" label="Opacity">
-                        <ElementOpacityControl
-                          element={selectedElement}
-                          onUpdateElement={onUpdateElement}
-                        />
-                      </CollapsibleSection>
-                      <CollapsibleSection id="effects" label="Effects">
-                        <ElementEffectsControl
-                          element={selectedElement}
-                          onUpdateElement={onUpdateElement}
-                        />
-                      </CollapsibleSection>
-                    </>
-                  ) : null}
-                </div>
-              ) : (
-                <p className="text-xs text-ds-text-muted">
-                  Select an element on the slide to edit it.
-                </p>
-              )}
             </>
           </div>
         ) : null}
 
-        {tab === "style" ? (
+        {tab === "details" ? (
           <div
             role="tabpanel"
-            id="inspector-panel-style"
-            aria-labelledby="inspector-tab-style"
+            id="inspector-panel-details"
+            aria-labelledby="inspector-tab-details"
             className="flex flex-col gap-4"
           >
+            {selectedElement ? (
+              <>
+                <p className="text-xs font-medium uppercase tracking-wide text-ds-text-muted">
+                  {elementLabel(selectedElement)}
+                </p>
+                <ElementEditor
+                  element={selectedElement}
+                  deck={deck}
+                  visuals={visuals}
+                  showAdvanced={showAdvanced}
+                  elements={elements}
+                  onUpdateElement={onUpdateElement}
+                  documentId={documentId}
+                />
+                {showAdvanced ? (
+                  <>
+                    <CollapsibleSection id="opacity" label="Opacity">
+                      <ElementOpacityControl
+                        element={selectedElement}
+                        onUpdateElement={onUpdateElement}
+                      />
+                    </CollapsibleSection>
+                    <CollapsibleSection id="effects" label="Effects">
+                      <ElementEffectsControl
+                        element={selectedElement}
+                        onUpdateElement={onUpdateElement}
+                      />
+                    </CollapsibleSection>
+                  </>
+                ) : null}
+              </>
+            ) : (
+              <p className="text-xs text-ds-text-muted">
+                Select an element to edit its details.
+              </p>
+            )}
+          </div>
+        ) : null}
+
+        {tab === "slide" ? (
+          <div
+            role="tabpanel"
+            id="inspector-panel-slide"
+            aria-labelledby="inspector-tab-slide"
+            className="flex flex-col gap-4"
+          >
+            {selectedLayout ? (
+              <div className="rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised p-3">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ds-text-muted">
+                  Reusable layout
+                </p>
+                <label className="block">
+                  <span className={LABEL_CLASS}>Layout</span>
+                  <select
+                    value={selectedLayout.id}
+                    onChange={(event) =>
+                      setSelectedLayoutId(event.target.value)
+                    }
+                    className={`${FIELD_CLASS} ${FOCUS_RING}`}
+                  >
+                    {availableLayouts.map((layout) => (
+                      <option key={layout.id} value={layout.id}>
+                        {layout.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onApplyLayout(selectedLayout)}
+                    className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-3 py-2 text-sm font-medium text-ds-text-primary hover:bg-ds-state-hover ${FOCUS_RING}`}
+                  >
+                    Apply
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onResetLayout(selectedLayout)}
+                    className={`rounded-ds-md border border-ds-danger-border bg-ds-danger-surface px-3 py-2 text-sm font-medium text-ds-danger-text hover:opacity-90 ${FOCUS_RING}`}
+                  >
+                    Reset
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-ds-text-muted">
+                  Apply refreshes placeholders while keeping your other
+                  elements. Reset replaces all placeholders with the layout
+                  defaults.
+                </p>
+              </div>
+            ) : null}
             <ColorOverride
               label="Background"
               value={slide.background}
@@ -2744,8 +2713,85 @@ export function SlideInspector({
             </p>
           </div>
         ) : null}
+
+        {tab === "source" ? (
+          <div
+            role="tabpanel"
+            id="inspector-panel-source"
+            aria-labelledby="inspector-tab-source"
+            className="flex flex-col gap-4"
+          >
+            <SourceSummary element={selectedElement} />
+          </div>
+        ) : null}
       </div>
     </aside>
+  );
+}
+
+/**
+ * Read-only summary of a selected element's source-document link. The
+ * authoritative link controls live in the stage toolbar's "From document"
+ * menu; this panel only surfaces the current provenance state (issue #580).
+ */
+function SourceSummary({
+  element,
+}: {
+  element: SlideElement | null | undefined;
+}) {
+  if (!element) {
+    return (
+      <p className="text-xs text-ds-text-muted">
+        Select an element to see its document source link.
+      </p>
+    );
+  }
+  const ref = element.sourceRef;
+  if (!ref || ref.unlinked) {
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-sm font-medium text-ds-text-primary">
+          Not linked to a document
+        </p>
+        <p className="text-xs text-ds-text-muted">
+          This element is standalone. Insert content from the stage toolbar’s
+          “From document” menu to establish a source link.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <p className="text-sm font-medium text-ds-text-primary">
+          Linked to document
+        </p>
+        <p className="text-xs text-ds-text-muted">
+          Source edits can be synced from the stage toolbar’s “From document”
+          menu.
+        </p>
+      </div>
+      <dl className="flex flex-col gap-1.5 text-xs">
+        <div className="flex items-center justify-between gap-2">
+          <dt className="text-ds-text-muted">Block kind</dt>
+          <dd className="font-medium capitalize text-ds-text-secondary">
+            {ref.blockKind}
+          </dd>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <dt className="shrink-0 text-ds-text-muted">Block id</dt>
+          <dd className="truncate font-mono text-ds-text-secondary">
+            {ref.blockId}
+          </dd>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <dt className="text-ds-text-muted">Linked</dt>
+          <dd className="text-ds-text-secondary">
+            {new Date(ref.linkedAt).toLocaleString()}
+          </dd>
+        </div>
+      </dl>
+    </div>
   );
 }
 
