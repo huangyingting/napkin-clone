@@ -43,6 +43,7 @@ import type {
   ImageDefaultsToken,
   ShapeToken,
 } from "@/lib/presentation/deck-theme-tokens";
+import { resolveRoleToken } from "@/lib/presentation/deck-theme-tokens";
 import {
   resolveSlideThemeColors,
   resolveSlideTokenSet,
@@ -406,9 +407,11 @@ function useShrinkFontSizeCss(
 function TextElementView({
   element,
   tc,
+  tokenSet,
 }: {
   element: TextElement;
   tc: ThemeConfig;
+  tokenSet: DeckThemeTokenSet;
 }): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const fontSizeCss = useShrinkFontSizeCss(
@@ -416,9 +419,17 @@ function TextElementView({
     element.style.fontSize,
     element.fitMode,
   );
-  const color =
-    element.style.color ??
-    (element.role === "title" ? tc.titleColor : tc.bodyColor);
+  // Resolve color + font from the element's semantic role token so a deck-level
+  // template change propagates to inherited text (#609/#615). A local override
+  // (element.style.color / .fontFamily) still wins. For built-in themes every
+  // role resolves to onBg / the theme font, so existing decks are unchanged.
+  const roleToken = resolveRoleToken(
+    tokenSet,
+    element.textRole ?? (element.role === "title" ? "h1" : "body"),
+  );
+  void tc;
+  const color = element.style.color ?? roleToken.color;
+  const roleFontFamily = element.style.fontFamily ?? roleToken.fontFamily;
   const hasRuns = element.runs !== undefined && element.runs.length > 0;
   return (
     <div
@@ -439,9 +450,7 @@ function TextElementView({
         fontWeight: element.style.bold ? 700 : 400,
         fontStyle: element.style.italic ? "italic" : "normal",
         ...(element.style.underline ? { textDecoration: "underline" } : {}),
-        ...(element.style.fontFamily
-          ? { fontFamily: element.style.fontFamily }
-          : {}),
+        ...(roleFontFamily ? { fontFamily: roleFontFamily } : {}),
         lineHeight: element.style.lineHeight ?? 1.15,
         overflow: "hidden",
       }}
@@ -467,10 +476,12 @@ function BulletsElementView({
   element,
   tc,
   accent,
+  tokenSet,
 }: {
   element: BulletsElement;
   tc: ThemeConfig;
   accent: string;
+  tokenSet: DeckThemeTokenSet;
 }): JSX.Element {
   const containerRef = useRef<HTMLUListElement>(null);
   const fontSizeCss = useShrinkFontSizeCss(
@@ -478,7 +489,11 @@ function BulletsElementView({
     element.style.fontSize,
     element.fitMode,
   );
-  const color = element.style.color ?? tc.bodyColor;
+  // Resolve color from the bullet role token so deck-template edits propagate
+  // (#609/#615); a local override still wins. Built-in themes resolve to onBg.
+  const roleToken = resolveRoleToken(tokenSet, element.textRole ?? "bullet");
+  void tc;
+  const color = element.style.color ?? roleToken.color;
 
   // Resolve the authoritative item list.
   const items = normalizeBulletItems(element);
@@ -960,13 +975,14 @@ function SlideElementView({
         />
       );
     case "text":
-      return <TextElementView element={element} tc={tc} />;
+      return <TextElementView element={element} tc={tc} tokenSet={tokenSet} />;
     case "bullets":
       return (
         <BulletsElementView
           element={element}
           tc={tc}
           accent={tokenSet.bullet?.markerColor ?? accent}
+          tokenSet={tokenSet}
         />
       );
     case "visual":
