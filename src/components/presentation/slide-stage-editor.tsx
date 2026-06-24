@@ -2791,7 +2791,7 @@ export function ElementToolbarContent({
   onBringToFront,
   onSendToBack,
   onRemove,
-  showAdvanced,
+  showAdvanced = true,
 }: {
   element: SlideElement;
   tc: ThemeConfig;
@@ -2801,7 +2801,7 @@ export function ElementToolbarContent({
   onBringToFront: () => void;
   onSendToBack: () => void;
   onRemove: () => void;
-  showAdvanced: boolean;
+  showAdvanced?: boolean;
 }) {
   const textColorPresets = mergeSwatches(brandSwatches, [
     tc.titleColor,

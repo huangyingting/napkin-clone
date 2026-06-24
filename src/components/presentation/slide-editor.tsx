@@ -747,7 +747,6 @@ export function SlideEditor({
     openInspectorSurface();
   }, [openInspectorSurface]);
   const [snapToGrid, setSnapToGrid] = useState(false);
-  const showAdvanced = true;
   const [zoom, setZoom] = useState(1);
   const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
   const handleZoomChange = useCallback((nextZoom: number) => {
@@ -1482,25 +1481,76 @@ export function SlideEditor({
       : [effectiveSelectedElementId];
   }, [effectiveSelectedElementId, effectiveSelectedElementIds]);
 
+  const copyElementsToClipboard = useCallback(
+    (sourceDeck: Deck, slideIndex: number, ids: readonly string[]) => {
+      if (ids.length === 0) return false;
+      const slideEls = sourceDeck.slides[slideIndex]?.elements ?? [];
+      const copied = slideEls.filter((el) => ids.includes(el.id));
+      if (copied.length === 0) return false;
+      const selectedIdSet = new Set(ids);
+      const partialGroups = new Set<string>();
+      for (const el of slideEls) {
+        const groupId = (el as { groupId?: string }).groupId;
+        if (groupId && !selectedIdSet.has(el.id)) partialGroups.add(groupId);
+      }
+      clipboardRef.current = copied.map((el) => {
+        const clone = structuredClone(el);
+        const groupId = (clone as { groupId?: string }).groupId;
+        if (groupId && partialGroups.has(groupId)) {
+          delete (clone as { groupId?: string }).groupId;
+        }
+        return clone;
+      });
+      pasteCountRef.current = 0;
+      return true;
+    },
+    [],
+  );
+
+  const pasteClipboardElements = useCallback(
+    (sourceDeck: Deck, slideIndex: number) => {
+      const clip = clipboardRef.current;
+      if (!clip || clip.length === 0) return null;
+      const groupRemap = new Map<string, string>();
+      for (const el of clip) {
+        const groupId = (el as { groupId?: string }).groupId;
+        if (groupId && !groupRemap.has(groupId)) {
+          groupRemap.set(groupId, makeElementId());
+        }
+      }
+      let nextDeck = sourceDeck;
+      const newIds: string[] = [];
+      const pasteStep = (pasteCountRef.current % PASTE_OFFSET_WRAP_STEPS) + 1;
+      const offset = pasteStep * PASTE_OFFSET_PCT;
+      for (const el of clip) {
+        const id = makeElementId();
+        newIds.push(id);
+        const x = Math.max(0, Math.min(100 - el.box.w, el.box.x + offset));
+        const y = Math.max(0, Math.min(100 - el.box.h, el.box.y + offset));
+        const clone = structuredClone(el);
+        clone.id = id;
+        clone.box = { ...clone.box, x, y };
+        delete (clone as { zIndex?: number }).zIndex;
+        const groupId = (clone as { groupId?: string }).groupId;
+        if (groupId) {
+          (clone as { groupId?: string }).groupId = groupRemap.get(groupId);
+        }
+        nextDeck = addElement(nextDeck, slideIndex, clone);
+      }
+      pasteCountRef.current += 1;
+      return { deck: nextDeck, newIds };
+    },
+    [],
+  );
+
   const handleCopyElements = useCallback(() => {
     const ids = selectedElementIdList();
-    if (ids.length === 0) return;
-    const slideEls = deck.slides[safeSelected]?.elements ?? [];
-    const copied = slideEls.filter((el) => ids.includes(el.id));
-    if (copied.length > 0) {
-      clipboardRef.current = copied.map((el) => structuredClone(el));
-      pasteCountRef.current = 0;
-    }
-  }, [deck, safeSelected, selectedElementIdList]);
+    copyElementsToClipboard(deck, safeSelected, ids);
+  }, [copyElementsToClipboard, deck, safeSelected, selectedElementIdList]);
 
   const handleCutElements = useCallback(() => {
     const ids = selectedElementIdList();
-    if (ids.length === 0) return;
-    const slideEls = deck.slides[safeSelected]?.elements ?? [];
-    const copied = slideEls.filter((el) => ids.includes(el.id));
-    if (copied.length === 0) return;
-    clipboardRef.current = copied.map((el) => structuredClone(el));
-    pasteCountRef.current = 0;
+    if (!copyElementsToClipboard(deck, safeSelected, ids)) return;
     const slideId = deck.slides[safeSelected]?.id;
     if (!slideId) return;
     doCommitAndChange(deck, {
@@ -1510,33 +1560,22 @@ export function SlideEditor({
     });
     setSelectedElementId(null);
     setSelectedElementIds(new Set());
-  }, [deck, safeSelected, doCommitAndChange, selectedElementIdList]);
+  }, [
+    copyElementsToClipboard,
+    deck,
+    safeSelected,
+    doCommitAndChange,
+    selectedElementIdList,
+  ]);
 
   const handlePasteElements = useCallback(() => {
-    const clip = clipboardRef.current;
-    if (!clip || clip.length === 0) return;
-    let nextDeck = deck;
-    const newIds: string[] = [];
-    const pasteStep = (pasteCountRef.current % PASTE_OFFSET_WRAP_STEPS) + 1;
-    const offset = pasteStep * PASTE_OFFSET_PCT;
-    for (const el of clip) {
-      const id = makeElementId();
-      newIds.push(id);
-      const x = Math.max(0, Math.min(100 - el.box.w, el.box.x + offset));
-      const y = Math.max(0, Math.min(100 - el.box.h, el.box.y + offset));
-      const clone = structuredClone(el);
-      clone.id = id;
-      clone.box = { ...clone.box, x, y };
-      // Drop the source z-index so the paste lands on top of the stack.
-      delete (clone as { zIndex?: number }).zIndex;
-      nextDeck = addElement(nextDeck, safeSelected, clone);
-    }
-    pasteCountRef.current += 1;
+    const pasted = pasteClipboardElements(deck, safeSelected);
+    if (!pasted) return;
     clearPendingPatches(pendingPatchesRef);
-    onDeckChange(nextDeck);
-    setSelectedElementId(newIds[0] ?? null);
-    setSelectedElementIds(new Set(newIds));
-  }, [deck, safeSelected, onDeckChange]);
+    onDeckChange(pasted.deck);
+    setSelectedElementId(pasted.newIds[0] ?? null);
+    setSelectedElementIds(new Set(pasted.newIds));
+  }, [deck, safeSelected, onDeckChange, pasteClipboardElements]);
 
   const handleUndo = useCallback(() => {
     clearPendingPatches(pendingPatchesRef);
@@ -1738,26 +1777,7 @@ export function SlideEditor({
           if (kElemId) {
             event.preventDefault();
             const ids = kElemIds.size > 0 ? [...kElemIds] : [kElemId];
-            const copied = slideEls.filter((el) => ids.includes(el.id));
-            if (copied.length > 0) {
-              // Partial group copy: clear groupId from clipboard items whose
-              // group is not fully represented in the selection (issue #330).
-              const selectedIdSet = new Set(ids);
-              const partialGroups = new Set<string>();
-              for (const el of slideEls) {
-                const gid = (el as { groupId?: string }).groupId;
-                if (gid && !selectedIdSet.has(el.id)) partialGroups.add(gid);
-              }
-              const clip = copied.map((el) => {
-                const clone = structuredClone(el);
-                const gid = (clone as { groupId?: string }).groupId;
-                if (gid && partialGroups.has(gid)) {
-                  delete (clone as { groupId?: string }).groupId;
-                }
-                return clone;
-              });
-              clipboardRef.current = clip;
-              pasteCountRef.current = 0;
+            if (copyElementsToClipboard(kDeck, kSafe, ids)) {
               if (key === "x") {
                 const slideId = kDeck.slides[kSafe]?.id;
                 if (slideId) {
@@ -1775,51 +1795,13 @@ export function SlideEditor({
           return;
         }
         if (key === "v") {
-          if (clipboardRef.current && clipboardRef.current.length > 0) {
+          const pasted = pasteClipboardElements(kDeck, kSafe);
+          if (pasted) {
             event.preventDefault();
-            const clip = clipboardRef.current;
-            // Remap groupIds in the clipboard: elements that share a groupId in
-            // the clipboard (meaning they were copied as a complete group) get a
-            // fresh shared groupId on paste (issue #330).
-            const clipGroupRemap = new Map<string, string>();
-            for (const el of clip) {
-              const gid = (el as { groupId?: string }).groupId;
-              if (gid && !clipGroupRemap.has(gid)) {
-                clipGroupRemap.set(gid, makeElementId());
-              }
-            }
-            let nextDeck = kDeck;
-            const newIds: string[] = [];
-            const pasteStep =
-              (pasteCountRef.current % PASTE_OFFSET_WRAP_STEPS) + 1;
-            const offset = pasteStep * PASTE_OFFSET_PCT;
-            for (const el of clip) {
-              const id = makeElementId();
-              newIds.push(id);
-              const x = Math.max(
-                0,
-                Math.min(100 - el.box.w, el.box.x + offset),
-              );
-              const y = Math.max(
-                0,
-                Math.min(100 - el.box.h, el.box.y + offset),
-              );
-              const clone = structuredClone(el);
-              clone.id = id;
-              clone.box = { ...clone.box, x, y };
-              delete (clone as { zIndex?: number }).zIndex;
-              const gid = (clone as { groupId?: string }).groupId;
-              if (gid) {
-                (clone as { groupId?: string }).groupId =
-                  clipGroupRemap.get(gid);
-              }
-              nextDeck = addElement(nextDeck, kSafe, clone);
-            }
-            pasteCountRef.current += 1;
             clearPendingPatches(pendingPatchesRef);
-            onDeckChange(nextDeck);
-            setSelectedElementId(newIds[0] ?? null);
-            setSelectedElementIds(new Set(newIds));
+            onDeckChange(pasted.deck);
+            setSelectedElementId(pasted.newIds[0] ?? null);
+            setSelectedElementIds(new Set(pasted.newIds));
           }
           return;
         }
@@ -2088,6 +2070,7 @@ export function SlideEditor({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
     announce,
+    copyElementsToClipboard,
     doCommitAndChange,
     handleRequestClose,
     handleRedo,
@@ -2095,6 +2078,7 @@ export function SlideEditor({
     inspectorSheetOpen,
     keyboardHelpOpen,
     onDeckChange,
+    pasteClipboardElements,
     requestElementFocus,
   ]);
 
@@ -3568,7 +3552,6 @@ export function SlideEditor({
                 selectedCount={effectiveSelectedElementIds.size}
                 theme={selectedTheme}
                 brandSwatches={brandSwatches}
-                showAdvanced={showAdvanced}
                 onUpdateElement={handleUpdateElement}
                 onOpenPosition={() => openRightPanel("position")}
                 onOpenText={() => openRightPanel("text")}
@@ -3624,7 +3607,6 @@ export function SlideEditor({
                       snapToGrid={snapToGrid}
                       brandSwatches={brandSwatches}
                       onAddTextElement={handleAddTextElement}
-                      showAdvanced={showAdvanced}
                       focusRequest={focusRequest}
                       liveMessage={liveMessage}
                     />
@@ -3643,7 +3625,6 @@ export function SlideEditor({
             <SlideInspector
               key={`panel-${rightPanelTab}`}
               {...inspectorProps}
-              showAdvanced={showAdvanced}
               documentId={documentId}
               initialTab={rightPanelTab}
               onClose={closeRightPanel}
@@ -3827,7 +3808,6 @@ export function SlideEditor({
                   <SlideInspector
                     key={`sheet-panel-${rightPanelTab}`}
                     {...inspectorProps}
-                    showAdvanced={showAdvanced}
                     documentId={documentId}
                     initialTab={rightPanelTab}
                     className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto overflow-x-hidden"
@@ -4721,7 +4701,6 @@ function SlideSelectionToolbar({
   selectedCount,
   theme,
   brandSwatches,
-  showAdvanced,
   onUpdateElement,
   onOpenPosition,
   onOpenText,
@@ -4738,7 +4717,6 @@ function SlideSelectionToolbar({
   selectedCount: number;
   theme: ThemeConfig;
   brandSwatches: readonly string[];
-  showAdvanced: boolean;
   onUpdateElement: (
     id: string,
     patch: ElementPatch,
@@ -4800,7 +4778,6 @@ function SlideSelectionToolbar({
           onBringToFront={() => onBringToFront(selectedElement.id)}
           onSendToBack={() => onSendToBack(selectedElement.id)}
           onRemove={() => onRemoveElement(selectedElement.id)}
-          showAdvanced={showAdvanced}
         />
       ) : (
         <span className="shrink-0 px-2 text-xs font-semibold text-ds-text-secondary">
