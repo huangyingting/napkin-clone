@@ -13,6 +13,7 @@ contract for `SlideStageEditor`, not the persisted deck schema.
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | Stage UI/controller          | [`src/components/presentation/slide-stage-editor.tsx`](../../../src/components/presentation/slide-stage-editor.tsx) |
 | Semantic hit testing         | [`src/lib/presentation/stage-hit-test.ts`](../../../src/lib/presentation/stage-hit-test.ts)                         |
+| Target resolution            | [`src/lib/presentation/stage-targeting.ts`](../../../src/lib/presentation/stage-targeting.ts)                       |
 | Interaction decision helpers | [`src/lib/presentation/stage-interaction.ts`](../../../src/lib/presentation/stage-interaction.ts)                   |
 | Keyboard canvas helpers      | [`src/lib/presentation/canvas-a11y.ts`](../../../src/lib/presentation/canvas-a11y.ts)                               |
 | Connector geometry           | [`src/lib/presentation/connector-geometry.ts`](../../../src/lib/presentation/connector-geometry.ts)                 |
@@ -229,6 +230,12 @@ candidate list, but side effects differ. Hover only updates
 `preselectedElementId`; pointer-down stores a press-pending target; movement past
 the threshold promotes that target into the active manipulation state.
 
+The raw semantic hit candidate is resolved through `stage-targeting.ts` before
+selection semantics are applied. This keeps group behavior consistent across
+hover, pointer-down, double-click, context-menu selection, and future
+select-under cycling while preserving the raw candidate stack for precision
+fallback menus.
+
 ## Groups And Multi-Selection
 
 Groups add another semantic layer over hit testing.
@@ -236,6 +243,8 @@ Groups add another semantic layer over hit testing.
 - Outside group-editing mode, clicking a grouped member selects the group as a
   unit.
 - Inside group-editing mode, members are targetable individually.
+- `stage-targeting.ts` is the shared boundary that turns a raw hit element into
+  either an element target or a group target.
 - Group bounding boxes are visual chrome and should not become hit-test
   blockers.
 - Multi-selection transforms use the combined transform box, not the individual
