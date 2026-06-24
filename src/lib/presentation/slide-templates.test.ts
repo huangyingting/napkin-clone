@@ -203,3 +203,75 @@ test("every box stays within the 0–100 percent slide bounds", () => {
     }
   }
 });
+
+// ---------------------------------------------------------------------------
+// Semantic layout-slot bindings (#627)
+// ---------------------------------------------------------------------------
+
+function slotKeys(kind: SlideTemplateKind, visualId?: string): string[] {
+  const slide = buildTemplateSlide(kind, { theme: "indigo", visualId });
+  return (slide.elements ?? []).map((el) =>
+    el.layoutSlot
+      ? `${el.layoutSlot.kind}#${el.layoutSlot.index ?? 0}`
+      : "unbound",
+  );
+}
+
+test("title template binds title/subtitle/footer slots", () => {
+  const keys = slotKeys("title");
+  assert.ok(keys.includes("title#0"), keys.join(","));
+  assert.ok(keys.includes("subtitle#0"), keys.join(","));
+  assert.ok(keys.includes("footer#0"), keys.join(","));
+});
+
+test("content template binds title/body/visual/footer slots", () => {
+  const keys = slotKeys("content");
+  assert.ok(keys.includes("title#0"), keys.join(","));
+  assert.ok(keys.includes("body#0"), keys.join(","));
+  assert.ok(keys.includes("visual#0"), keys.join(","));
+  assert.ok(keys.includes("footer#0"), keys.join(","));
+});
+
+test("two-column template binds two distinct body slots (body#0, body#1)", () => {
+  const keys = slotKeys("two-column");
+  assert.ok(keys.includes("body#0"), keys.join(","));
+  assert.ok(keys.includes("body#1"), keys.join(","));
+});
+
+test("visual template binds a visual slot and a caption slot", () => {
+  const withVisual = slotKeys("visual", "visual-123");
+  assert.ok(withVisual.includes("visual#0"), withVisual.join(","));
+  assert.ok(withVisual.includes("caption#0"), withVisual.join(","));
+  // Without a visual id the spotlight image still fills the visual slot.
+  const withoutVisual = slotKeys("visual");
+  assert.ok(withoutVisual.includes("visual#0"), withoutVisual.join(","));
+});
+
+test("every non-blank template element carries a slot binding", () => {
+  for (const kind of ["title", "content", "visual", "two-column"] as const) {
+    const slide = buildTemplateSlide(kind, { theme: "indigo" });
+    for (const el of slide.elements ?? []) {
+      assert.ok(
+        el.layoutSlot !== undefined,
+        `${kind} element ${el.kind} should be slot-bound`,
+      );
+    }
+  }
+});
+
+test("template slot bindings survive schema validation", () => {
+  for (const kind of ["title", "content", "visual", "two-column"] as const) {
+    const slide = buildTemplateSlide(kind, { theme: "indigo" });
+    const result = safeParseDeck({
+      theme: "indigo",
+      schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+      slides: [{ ...slide, index: 0 }],
+    });
+    assert.ok(result.success, result.success ? "" : result.error);
+    if (!result.success) return;
+    const bound = (result.data.slides[0].elements ?? []).filter(
+      (el) => el.layoutSlot !== undefined,
+    );
+    assert.ok(bound.length > 0, `${kind} should retain bound slots`);
+  }
+});
