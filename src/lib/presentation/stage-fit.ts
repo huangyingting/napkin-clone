@@ -49,3 +49,37 @@ export function fitAspectRatio(bounds: Size, aspectRatio: number): Size {
 
   return { width: bounds.width, height: bounds.width / aspectRatio };
 }
+
+/** Minimum supported stage zoom factor (`1` === 100%). */
+export const MIN_ZOOM = 0.25;
+
+/** Maximum supported stage zoom factor (`1` === 100%). */
+export const MAX_ZOOM = 3;
+
+/** Discrete zoom presets (percent) offered in the bottom-dock zoom menu. */
+export const ZOOM_PERCENT_PRESETS: readonly number[] = [
+  50, 75, 100, 125, 150, 200, 300,
+];
+
+/**
+ * Clamp a stage zoom factor to the supported `[MIN_ZOOM, MAX_ZOOM]` range and
+ * round to whole-percent precision so the slider, percent label, and presets
+ * stay consistent. Non-finite input falls back to `1` (100%).
+ */
+export function clampZoom(zoom: number): number {
+  if (!Number.isFinite(zoom)) {
+    return 1;
+  }
+  const rounded = Math.round(zoom * 100) / 100;
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, rounded));
+}
+
+/** Convert a zoom factor (`1` === 100%) to a whole-number percent. */
+export function zoomToPercent(zoom: number): number {
+  return Math.round(zoom * 100);
+}
+
+/** Convert a whole-number percent to a clamped zoom factor. */
+export function percentToZoom(percent: number): number {
+  return clampZoom(percent / 100);
+}

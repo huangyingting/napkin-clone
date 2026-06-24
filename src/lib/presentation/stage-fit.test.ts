@@ -4,8 +4,14 @@ import { test } from "node:test";
 import {
   DEFAULT_SCREEN_SIZE,
   SLIDE_ASPECT_RATIO,
+  clampZoom,
   defaultScreenSize,
   fitAspectRatio,
+  MAX_ZOOM,
+  MIN_ZOOM,
+  percentToZoom,
+  ZOOM_PERCENT_PRESETS,
+  zoomToPercent,
 } from "./stage-fit";
 import { slideAspectRatio } from "./slide-format";
 
@@ -63,4 +69,41 @@ test("fitAspectRatio letterboxes a 4:3 slide inside wide and tall bounds", () =>
   const tall = fitAspectRatio({ width: 360, height: 800 }, ratio);
   assert.equal(tall.width, 360);
   assert.equal(tall.height, 270);
+});
+
+// Bottom-dock zoom controls (issue #591) — pure clamp/convert helpers.
+
+test("ZOOM_PERCENT_PRESETS exposes the dock preset ladder", () => {
+  assert.deepEqual(
+    [...ZOOM_PERCENT_PRESETS],
+    [50, 75, 100, 125, 150, 200, 300],
+  );
+});
+
+test("clampZoom limits to the supported [MIN_ZOOM, MAX_ZOOM] range", () => {
+  assert.equal(clampZoom(0.1), MIN_ZOOM);
+  assert.equal(clampZoom(10), MAX_ZOOM);
+  assert.equal(clampZoom(1), 1);
+});
+
+test("clampZoom rounds to whole-percent precision", () => {
+  assert.equal(clampZoom(1.234), 1.23);
+  assert.equal(clampZoom(0.756), 0.76);
+});
+
+test("clampZoom falls back to 1 for non-finite input", () => {
+  assert.equal(clampZoom(Number.NaN), 1);
+  assert.equal(clampZoom(Number.POSITIVE_INFINITY), 1);
+});
+
+test("zoomToPercent and percentToZoom round-trip preset values", () => {
+  for (const percent of ZOOM_PERCENT_PRESETS) {
+    assert.equal(zoomToPercent(percentToZoom(percent)), percent);
+  }
+});
+
+test("percentToZoom clamps slider extremes (25% .. 300%)", () => {
+  assert.equal(percentToZoom(25), MIN_ZOOM);
+  assert.equal(percentToZoom(300), MAX_ZOOM);
+  assert.equal(percentToZoom(10), MIN_ZOOM);
 });
