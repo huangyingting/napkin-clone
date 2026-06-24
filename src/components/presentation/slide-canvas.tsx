@@ -37,7 +37,7 @@ import {
   normalizeBulletItems,
   PLACEHOLDER_TYPE_LABELS,
 } from "@/lib/presentation/deck";
-import { resolveSlideStyle } from "@/lib/presentation/style-cascade";
+import { resolveSlideThemeColors } from "@/lib/presentation/style-cascade";
 import { resolveConnectorElementPoints } from "@/lib/presentation/connector-geometry";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 import type { Visual } from "@/lib/visual/schema";
@@ -105,6 +105,18 @@ export const DECK_THEMES: Record<DeckTheme, ThemeConfig> = {
 // ---------------------------------------------------------------------------
 // Free-form element rendering (shared by editor, present, and public viewer)
 // ---------------------------------------------------------------------------
+
+/**
+ * Builds a {@link ThemeConfig} from the deck token cascade for a slide (#609).
+ * Delegates to the pure {@link resolveSlideThemeColors} so the colour logic is
+ * unit-testable; `ThemeConfig` is structurally the same shape.
+ */
+export function resolveThemeConfig(
+  deck: Deck | undefined,
+  slide: Slide,
+): ThemeConfig {
+  return resolveSlideThemeColors(deck, slide);
+}
 
 function boxStyle(element: SlideElement): React.CSSProperties {
   return {
@@ -1031,26 +1043,12 @@ export const SlideCanvas = memo(function SlideCanvas({
   hiddenElementIds,
   editable = false,
 }: SlideCanvasProps): JSX.Element {
-  // When deck context is available, resolve via the full cascade (masters,
-  // custom token sets). Otherwise use the built-in theme palette.
-  const tc: ThemeConfig = (() => {
-    if (deck) {
-      const resolved = resolveSlideStyle(deck, slide);
-      return {
-        bgColor:
-          resolved.background.type === "solid"
-            ? resolved.background.color
-            : resolved.background.type === "gradient"
-              ? resolved.background.from
-              : (DECK_THEMES[slide.theme] ?? DECK_THEMES.default).bgColor,
-        accentColor: resolved.accent,
-        titleColor: resolved.titleColor,
-        bodyColor: resolved.bodyColor,
-        mutedColor: resolved.mutedColor,
-      };
-    }
-    return DECK_THEMES[slide.theme] ?? DECK_THEMES.default;
-  })();
+  // Resolve colours from the deck token cascade on every surface (#609). When a
+  // full deck is available it carries master/custom-token context; otherwise a
+  // minimal deck is synthesised from the slide's own theme so present and public
+  // viewers use the same cascade palette as the editor (light slide background,
+  // theme-derived text colours) instead of the legacy dark fallback.
+  const tc: ThemeConfig = resolveThemeConfig(deck, slide);
 
   return (
     <ElementsSlideLayout
