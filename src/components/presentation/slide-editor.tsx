@@ -4,11 +4,13 @@
  * Slide Editor — a full-page presentation editing surface.
  *
  * Opens over the whole viewport (portaled to `document.body`, `z-modal`) with a
- * three-pane layout: a thumbnail rail (reorder via HTML5 drag-and-drop, add /
- * duplicate / delete), a large live stage that renders the selected slide with
- * the shared {@link SlideCanvas}, and an inspector for editing the slide's
- * title, bullets, notes and layout. A theme picker lives in the top bar; arrow
- * keys page between slides (unless a field is focused), Escape closes.
+ * surface-ownership layout (see `Slides-UI.md`): a top toolbar for global
+ * actions, a slide rail (reorder via HTML5 drag-and-drop, add / duplicate /
+ * delete), a large live stage that renders the selected slide with the shared
+ * {@link SlideCanvas}, a selected-object context toolbar, a right properties
+ * panel (Arrange / Text / Media / Layers / Slide / Source), and a bottom dock
+ * (zoom / notes / status). A theme picker lives in the top bar; arrow keys page
+ * between slides (unless a field is focused), Escape closes.
  *
  * Every change flows through the pure `deck-mutations` helpers and is reported
  * via `onDeckChange`; edits are persisted automatically by a debounced autosave
@@ -715,7 +717,7 @@ export function SlideEditor({
     offsetY: number;
   } | null>(null);
   // Whether the mobile inspector bottom sheet is open (below `lg`; the inspector
-  // is a fixed side pane at `lg+`). Issue #209.
+  // is a fixed right panel at `lg+`). Issue #209.
   const [inspectorSheetOpen, setInspectorSheetOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const openInspectorSurface = useCallback(() => {
@@ -3094,7 +3096,7 @@ export function SlideEditor({
     [deck, doCommitAndChange, safeSelected],
   );
 
-  // Shared inspector props, rendered into the desktop side pane (`lg+`) and the
+  // Shared inspector props, rendered into the desktop right panel (`lg+`) and the
   // mobile bottom sheet (below `lg`) so both surfaces edit the same slide with
   // identical behaviour. Issue #209.
   const inspectorProps = selectedSlide
@@ -3831,7 +3833,7 @@ export function SlideEditor({
       {/* ── Mobile inspector bottom sheet (below `lg`) ───────────────────── */}
       {/* Reuses the document editor's MobileEditingSheet pattern: a FAB toggles
           a bottom sheet that hosts the same inspector. Hidden at `lg+` where the
-          inspector is a permanent side pane. Issue #209. */}
+          inspector is a permanent right panel. Issue #209. */}
       {/* eslint-disable-next-line react-hooks/refs -- handler props only run on user events. */}
       {inspectorProps ? (
         <div className="lg:hidden">

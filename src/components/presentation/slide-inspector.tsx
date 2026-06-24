@@ -202,8 +202,8 @@ export interface SlideInspectorProps {
   brandSwatches?: readonly string[];
   /**
    * Overrides the root container classes so the host can place the inspector in
-   * the desktop side pane or a mobile bottom sheet (issue #209). Defaults to the
-   * desktop three-pane column.
+   * the desktop right panel or a mobile bottom sheet (issue #209). Defaults to
+   * the docked right-panel column.
    */
   className?: string;
   /**
