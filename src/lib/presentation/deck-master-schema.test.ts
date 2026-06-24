@@ -616,3 +616,77 @@ test("customTokenSet with an invalid shape fill color is rejected", () => {
   assert.ok(!result.success);
   assert.match(result.error, /shape\.fill must be a hex color/);
 });
+
+// ---------------------------------------------------------------------------
+// Semantic layout-slot binding validation (#628)
+// ---------------------------------------------------------------------------
+
+test("element with a valid layoutSlot binding is accepted", () => {
+  const result = safeParseDeck(
+    deckWithElement({
+      id: "e1",
+      kind: "text",
+      box: { x: 0, y: 0, w: 10, h: 10 },
+      text: "Title",
+      role: "title",
+      style: baseTextStyle,
+      layoutSlot: { kind: "title" },
+    }),
+  );
+  assert.ok(result.success, result.success ? "" : result.error);
+  if (!result.success) return;
+  const el = result.data.slides[0].elements?.[0];
+  assert.equal(el?.layoutSlot?.kind, "title");
+});
+
+test("element with a repeated-slot index binding is accepted", () => {
+  const result = safeParseDeck(
+    deckWithElement({
+      id: "e1",
+      kind: "text",
+      box: { x: 0, y: 0, w: 10, h: 10 },
+      text: "Body col 2",
+      role: "body",
+      style: baseTextStyle,
+      layoutSlot: { kind: "body", index: 1 },
+    }),
+  );
+  assert.ok(result.success, result.success ? "" : result.error);
+  if (!result.success) return;
+  assert.equal(result.data.slides[0].elements?.[0].layoutSlot?.index, 1);
+});
+
+test("element with an unknown layoutSlot kind is rejected", () => {
+  const result = safeParseDeck(
+    deckWithElement({
+      id: "e1",
+      kind: "text",
+      box: { x: 0, y: 0, w: 10, h: 10 },
+      text: "x",
+      role: "body",
+      style: baseTextStyle,
+      layoutSlot: { kind: "header" },
+    }),
+  );
+  assert.ok(!result.success);
+  assert.match(result.error, /layoutSlot\.kind must be one of/);
+});
+
+test("element with a negative layoutSlot index is rejected", () => {
+  const result = safeParseDeck(
+    deckWithElement({
+      id: "e1",
+      kind: "text",
+      box: { x: 0, y: 0, w: 10, h: 10 },
+      text: "x",
+      role: "body",
+      style: baseTextStyle,
+      layoutSlot: { kind: "body", index: -1 },
+    }),
+  );
+  assert.ok(!result.success);
+  assert.match(
+    result.error,
+    /layoutSlot\.index must be a non-negative integer/,
+  );
+});

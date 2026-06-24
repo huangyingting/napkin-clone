@@ -45,6 +45,11 @@ import {
   SLIDE_FORMATS,
   type SlideFormat,
 } from "./slide-format";
+import {
+  SLIDE_SLOT_KINDS,
+  isSlideSlotKind,
+  type LayoutSlotBinding,
+} from "./slide-slots";
 import type {
   BackgroundTreatment,
   BulletDefaultsToken,
@@ -263,6 +268,32 @@ export function validateSourceRef(input: unknown, context: string): SourceRef {
 
 function isHexColor(value: unknown): value is string {
   return typeof value === "string" && /^#[0-9a-fA-F]{3,8}$/.test(value);
+}
+
+/** Validates an optional semantic layout-slot binding (#628). */
+function validateLayoutSlot(
+  input: unknown,
+  context: string,
+): LayoutSlotBinding {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  if (!isSlideSlotKind(input.kind)) {
+    throw new DeckValidationError(
+      `${context}.kind must be one of: ${SLIDE_SLOT_KINDS.join(", ")}`,
+    );
+  }
+  const binding: LayoutSlotBinding = { kind: input.kind };
+  if (input.index !== undefined) {
+    const index = validateFiniteNumber(input.index, `${context}.index`);
+    if (!Number.isInteger(index) || index < 0) {
+      throw new DeckValidationError(
+        `${context}.index must be a non-negative integer`,
+      );
+    }
+    binding.index = index;
+  }
+  return binding;
 }
 
 function validateBackgroundTreatment(
@@ -1059,6 +1090,14 @@ function validateBaseElementFields(
     ...(input.sourceRef !== undefined
       ? {
           sourceRef: validateSourceRef(input.sourceRef, `${context}.sourceRef`),
+        }
+      : {}),
+    ...(input.layoutSlot !== undefined
+      ? {
+          layoutSlot: validateLayoutSlot(
+            input.layoutSlot,
+            `${context}.layoutSlot`,
+          ),
         }
       : {}),
   };
