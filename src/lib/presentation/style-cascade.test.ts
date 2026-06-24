@@ -9,8 +9,12 @@ import type { Deck, Slide } from "./deck";
 import type { MasterSlide } from "./deck-theme-tokens";
 import {
   renderFooterText,
+  resolveBulletsElementStyle,
   resolveMaster,
+  resolveRoleTextStyle,
+  resolveShapeLabelStyle,
   resolveSlideStyle,
+  resolveTextElementStyle,
 } from "./style-cascade";
 
 function makeSlide(overrides: Partial<Slide> = {}): Slide {
@@ -301,4 +305,82 @@ test("renderFooterText replaces multiple occurrences", () => {
 
 test("renderFooterText returns template unchanged when no token present", () => {
   assert.equal(renderFooterText("Confidential", 0), "Confidential");
+});
+
+// ---------------------------------------------------------------------------
+// resolved text / bullet / shape-label styles (#602)
+// ---------------------------------------------------------------------------
+
+test("resolveRoleTextStyle uses the deck role token when no override", () => {
+  const deck = makeDeck();
+  const tokenSet = resolveSlideStyle(deck, makeSlide()).tokenSet;
+  const style = resolveRoleTextStyle(tokenSet, "h1");
+  // default theme: h1 size 36, bold weight 700, centered
+  assert.strictEqual(style.fontSize, 36);
+  assert.strictEqual(style.weight, 700);
+  assert.strictEqual(style.align, "center");
+  assert.strictEqual(style.role, "h1");
+  assert.strictEqual(style.origin.fontSize, "deck");
+  assert.strictEqual(style.origin.color, "deck");
+});
+
+test("resolveRoleTextStyle: a local override wins and is tagged element", () => {
+  const tokenSet = resolveSlideStyle(makeDeck(), makeSlide()).tokenSet;
+  const style = resolveRoleTextStyle(tokenSet, "body", {
+    color: "#abcabc",
+    bold: true,
+    align: "right",
+  });
+  assert.strictEqual(style.color, "#abcabc");
+  assert.strictEqual(style.weight, 700);
+  assert.strictEqual(style.align, "right");
+  assert.strictEqual(style.origin.color, "element");
+  assert.strictEqual(style.origin.weight, "element");
+  assert.strictEqual(style.origin.align, "element");
+  // untouched fields stay inherited
+  assert.strictEqual(style.origin.fontSize, "deck");
+});
+
+test("resolveRoleTextStyle: deleting an override restores the inherited value", () => {
+  const tokenSet = resolveSlideStyle(makeDeck(), makeSlide()).tokenSet;
+  const overridden = resolveRoleTextStyle(tokenSet, "h2", { color: "#123456" });
+  const reset = resolveRoleTextStyle(tokenSet, "h2", {});
+  assert.strictEqual(overridden.color, "#123456");
+  assert.strictEqual(overridden.origin.color, "element");
+  // reset (override field removed) -> inherited deck color
+  assert.strictEqual(reset.color, tokenSet.colors.onBg);
+  assert.strictEqual(reset.origin.color, "deck");
+});
+
+test("resolveTextElementStyle maps legacy role title -> h1, body -> body", () => {
+  const deck = makeDeck();
+  const title = resolveTextElementStyle(deck, { role: "title" });
+  const body = resolveTextElementStyle(deck, { role: "body" });
+  assert.strictEqual(title.role, "h1");
+  assert.strictEqual(body.role, "body");
+  assert.strictEqual(title.fontSize, 36);
+  assert.strictEqual(body.fontSize, 16);
+});
+
+test("resolveTextElementStyle honors an explicit textRole over legacy role", () => {
+  const deck = makeDeck();
+  const style = resolveTextElementStyle(deck, {
+    role: "body",
+    textRole: "caption",
+  });
+  assert.strictEqual(style.role, "caption");
+});
+
+test("resolveBulletsElementStyle defaults to the bullet role", () => {
+  const style = resolveBulletsElementStyle(makeDeck(), {});
+  assert.strictEqual(style.role, "bullet");
+});
+
+test("resolveShapeLabelStyle defaults to shapeLabel and reads textStyleOverride", () => {
+  const style = resolveShapeLabelStyle(makeDeck(), {
+    textStyleOverride: { color: "#0a0a0a" },
+  });
+  assert.strictEqual(style.role, "shapeLabel");
+  assert.strictEqual(style.color, "#0a0a0a");
+  assert.strictEqual(style.origin.color, "element");
 });

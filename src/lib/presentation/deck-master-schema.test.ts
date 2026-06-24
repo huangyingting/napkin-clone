@@ -316,3 +316,226 @@ test("customTokenSet must be an object", () => {
   assert.ok(!result.success);
   assert.match(result.error, /Deck\.customTokenSet must be an object/);
 });
+
+// ---------------------------------------------------------------------------
+// Hardened customTokenSet validation (#604)
+// ---------------------------------------------------------------------------
+
+function validTokenSet(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "brand:abc",
+    name: "My Brand",
+    colors: {
+      slideBg: "#ffffff",
+      surface: "#f0f0f0",
+      accent: "#ff0000",
+      onBg: "#000000",
+      onSurface: "#111111",
+      onAccent: "#ffffff",
+      muted: "#888888",
+    },
+    typography: {
+      fontFamily: "Arial",
+      scale: { h1: 36, h2: 28, h3: 22, body: 16, list: 14, footer: 10 },
+    },
+    spacing: { slidePaddingPt: 36, gridUnitPt: 6 },
+    shape: { cornerRadiusPt: 4, shadowCss: "none" },
+    defaultBackground: { type: "solid", color: "#ffffff" },
+    ...overrides,
+  };
+}
+
+test("customTokenSet with an invalid color is rejected", () => {
+  const result = safeParseDeck(
+    baseDeck({
+      customTokenSet: validTokenSet({
+        colors: {
+          slideBg: "not-a-color",
+          surface: "#f0f0f0",
+          accent: "#ff0000",
+          onBg: "#000000",
+          onSurface: "#111111",
+          onAccent: "#ffffff",
+          muted: "#888888",
+        },
+      }),
+    }),
+  );
+  assert.ok(!result.success);
+  assert.match(result.error, /colors\.slideBg must be a hex color/);
+});
+
+test("customTokenSet with an invalid background is rejected", () => {
+  const result = safeParseDeck(
+    baseDeck({
+      customTokenSet: validTokenSet({
+        defaultBackground: { type: "solid", color: "nope" },
+      }),
+    }),
+  );
+  assert.ok(!result.success);
+  assert.match(result.error, /defaultBackground\.color must be a hex color/);
+});
+
+test("customTokenSet with valid semantic role tokens is accepted", () => {
+  const result = safeParseDeck(
+    baseDeck({
+      customTokenSet: validTokenSet({
+        typography: {
+          fontFamily: "Arial",
+          scale: { h1: 36, h2: 28, h3: 22, body: 16, list: 14, footer: 10 },
+          roles: {
+            h1: {
+              fontSize: 48,
+              color: "#111827",
+              weight: 700,
+              align: "center",
+            },
+            body: { fontSize: 16, color: "#0f172a", weight: 400 },
+          },
+        },
+      }),
+    }),
+  );
+  assert.ok(result.success);
+  if (!result.success) return;
+  assert.equal(result.data.customTokenSet?.typography.roles?.h1?.fontSize, 48);
+});
+
+test("customTokenSet with an unknown role key is rejected", () => {
+  const result = safeParseDeck(
+    baseDeck({
+      customTokenSet: validTokenSet({
+        typography: {
+          fontFamily: "Arial",
+          scale: { h1: 36, h2: 28, h3: 22, body: 16, list: 14, footer: 10 },
+          roles: { headline: { fontSize: 48, color: "#111827", weight: 700 } },
+        },
+      }),
+    }),
+  );
+  assert.ok(!result.success);
+  assert.match(result.error, /headline is not a known text role/);
+});
+
+test("customTokenSet with a role token missing color is rejected", () => {
+  const result = safeParseDeck(
+    baseDeck({
+      customTokenSet: validTokenSet({
+        typography: {
+          fontFamily: "Arial",
+          scale: { h1: 36, h2: 28, h3: 22, body: 16, list: 14, footer: 10 },
+          roles: { h1: { fontSize: 48, weight: 700 } },
+        },
+      }),
+    }),
+  );
+  assert.ok(!result.success);
+  assert.match(result.error, /roles\.h1\.color must be a hex color/);
+});
+
+// ---------------------------------------------------------------------------
+// Element semantic role + style override validation (#605 / #604)
+// ---------------------------------------------------------------------------
+
+function deckWithElement(element: Record<string, unknown>) {
+  return baseDeck({
+    slides: [
+      {
+        id: "s1",
+        index: 0,
+        title: "Slide 1",
+        bullets: [],
+        visualIds: [],
+        layout: "content",
+        notes: "",
+        theme: "default",
+        elements: [{ zIndex: 0, ...element }],
+      },
+    ],
+  });
+}
+
+const baseTextStyle = {
+  fontSize: 5,
+  bold: false,
+  italic: false,
+  align: "left",
+};
+
+test("text element with valid textRole and styleOverride is accepted", () => {
+  const result = safeParseDeck(
+    deckWithElement({
+      id: "e1",
+      kind: "text",
+      box: { x: 0, y: 0, w: 10, h: 10 },
+      text: "Hi",
+      role: "body",
+      style: baseTextStyle,
+      textRole: "h2",
+      styleOverride: { color: "#ff00ff", bold: true },
+    }),
+  );
+  assert.ok(result.success, result.success ? "" : result.error);
+  if (!result.success) return;
+  const el = result.data.slides[0].elements?.[0];
+  assert.equal(el?.kind, "text");
+  if (el?.kind !== "text") return;
+  assert.equal(el.textRole, "h2");
+  assert.equal(el.styleOverride?.color, "#ff00ff");
+  assert.equal(el.styleOverride?.bold, true);
+});
+
+test("text element with an unknown textRole is rejected", () => {
+  const result = safeParseDeck(
+    deckWithElement({
+      id: "e1",
+      kind: "text",
+      box: { x: 0, y: 0, w: 10, h: 10 },
+      text: "Hi",
+      role: "body",
+      style: baseTextStyle,
+      textRole: "headline",
+    }),
+  );
+  assert.ok(!result.success);
+  assert.match(result.error, /textRole must be one of/);
+});
+
+test("text element with an invalid styleOverride color is rejected", () => {
+  const result = safeParseDeck(
+    deckWithElement({
+      id: "e1",
+      kind: "text",
+      box: { x: 0, y: 0, w: 10, h: 10 },
+      text: "Hi",
+      role: "body",
+      style: baseTextStyle,
+      styleOverride: { color: "magenta" },
+    }),
+  );
+  assert.ok(!result.success);
+  assert.match(result.error, /styleOverride\.color must be a hex color/);
+});
+
+test("shape element with textRole and textStyleOverride is accepted", () => {
+  const result = safeParseDeck(
+    deckWithElement({
+      id: "e1",
+      kind: "shape",
+      box: { x: 0, y: 0, w: 10, h: 10 },
+      shape: "rect",
+      color: "#3366ff",
+      text: "Label",
+      textRole: "shapeLabel",
+      textStyleOverride: { bold: true, align: "center" },
+    }),
+  );
+  assert.ok(result.success, result.success ? "" : result.error);
+  if (!result.success) return;
+  const el = result.data.slides[0].elements?.[0];
+  assert.equal(el?.kind, "shape");
+  if (el?.kind !== "shape") return;
+  assert.equal(el.textRole, "shapeLabel");
+  assert.equal(el.textStyleOverride?.bold, true);
+});
