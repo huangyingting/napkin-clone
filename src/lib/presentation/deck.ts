@@ -1197,6 +1197,7 @@ export function buildSlideElementsFromContent(slide: Slide): SlideElement[] {
         isBigTitle ? "center" : "left",
         true,
       ),
+      layoutSlot: { kind: "title" },
     });
   }
 
@@ -1218,6 +1219,7 @@ export function buildSlideElementsFromContent(slide: Slide): SlideElement[] {
       zIndex: z++,
       box: { x: 6, y: 26, w: 46, h: 66 },
       style: textStyle(4.5, "left", false),
+      layoutSlot: { kind: "body" },
     });
     elements.push({
       id: makeElementId(),
@@ -1225,6 +1227,7 @@ export function buildSlideElementsFromContent(slide: Slide): SlideElement[] {
       visualId: visualIds[0],
       zIndex: z++,
       box: { x: 54, y: 26, w: 40, h: 66 },
+      layoutSlot: { kind: "visual" },
     });
   } else if (hasVisual) {
     elements.push({
@@ -1233,6 +1236,7 @@ export function buildSlideElementsFromContent(slide: Slide): SlideElement[] {
       visualId: visualIds[0],
       zIndex: z++,
       box: { x: 8, y: 24, w: 84, h: 68 },
+      layoutSlot: { kind: "visual" },
     });
   } else if (hasBullets) {
     elements.push({
@@ -1249,6 +1253,7 @@ export function buildSlideElementsFromContent(slide: Slide): SlideElement[] {
       zIndex: z++,
       box: { x: 6, y: 26, w: 88, h: 66 },
       style: textStyle(4.5, "left", false),
+      layoutSlot: { kind: "body" },
     });
   }
 
@@ -1260,6 +1265,7 @@ export function buildSlideElementsFromContent(slide: Slide): SlideElement[] {
       visualId: visualIds[i],
       zIndex: z++,
       box: { x: 12 + i * 4, y: 30 + i * 4, w: 38, h: 38 },
+      layoutSlot: { kind: "visual", index: i },
     });
   }
 

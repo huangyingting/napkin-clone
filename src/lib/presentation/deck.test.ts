@@ -406,6 +406,30 @@ test("buildSlideElementsFromContent pairs bullets and a visual side by side", as
   assert.ok(elements.some((e) => e.kind === "visual"));
 });
 
+test("buildSlideElementsFromContent binds title/body/visual layout slots (#627)", async () => {
+  const { buildSlideElementsFromContent } = await import("./deck");
+  const elements = buildSlideElementsFromContent({
+    id: "test-id",
+    index: 0,
+    title: "T",
+    bullets: ["a", "b"],
+    visualIds: ["vis-1", "vis-2"],
+    layout: "content",
+    notes: "",
+    theme: "default",
+  });
+  const slotKey = (e: (typeof elements)[number]) =>
+    e.layoutSlot
+      ? `${e.layoutSlot.kind}#${e.layoutSlot.index ?? 0}`
+      : "unbound";
+  const keys = elements.map(slotKey);
+  assert.ok(keys.includes("title#0"), keys.join(","));
+  assert.ok(keys.includes("body#0"), keys.join(","));
+  assert.ok(keys.includes("visual#0"), keys.join(","));
+  // The second visual cascades into a distinct visual occurrence.
+  assert.ok(keys.includes("visual#1"), keys.join(","));
+});
+
 test("buildSlideElementsFromContent cascades 3+ visuals into offset tiles", async () => {
   const { buildSlideElementsFromContent } = await import("./deck");
   const elements = buildSlideElementsFromContent({
