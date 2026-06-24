@@ -240,6 +240,20 @@ deleting that key from the override object, after which the resolver
 re-derives the inherited value. The concrete `style` / `textStyle` fields remain
 during the transition for renderers that have not yet adopted the resolvers.
 
+## Non-Text Defaults (#601)
+
+`DeckThemeTokenSet` carries optional default token groups for non-text
+elements: `bullet` (marker color, gap, indent, number style), `connector`
+(color, width, dash, arrowheads), `visual` (restyle theme, transparent
+background), `image` (fit mode, radius, mask, shadow), and an extended `shape`
+(fill, stroke, stroke width, opacity in addition to corner radius and shadow).
+All groups are optional; `deck-theme-tokens.ts` exposes
+`resolveBulletDefaults` / `resolveConnectorDefaults` / `resolveImageDefaults` /
+`resolveVisualDefaults` which fill absent fields with deterministic fallbacks
+(e.g. bullet marker → accent, connector color → onBg). Existing rendering is
+unaffected when these groups are absent because they are defaults a consumer
+opts into.
+
 ---
 
 ## Future Work (out of scope for this slice)

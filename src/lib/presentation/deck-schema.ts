@@ -47,15 +47,21 @@ import {
 } from "./slide-format";
 import type {
   BackgroundTreatment,
+  BulletDefaultsToken,
+  BulletNumberStyle,
   ColorToken,
+  ConnectorDashStyle,
+  ConnectorDefaultsToken,
   DeckTextRole,
   DeckThemeTokenSet,
   FontScale,
+  ImageDefaultsToken,
   MasterSlide,
   ShapeToken,
   SpacingToken,
   TextRoleToken,
   TypographyToken,
+  VisualDefaultsToken,
 } from "./deck-theme-tokens";
 import { DECK_TEXT_ROLES, isDeckTextRole } from "./deck-theme-tokens";
 
@@ -528,13 +534,169 @@ function validateShapeToken(input: unknown, context: string): ShapeToken {
   if (typeof input.shadowCss !== "string") {
     throw new DeckValidationError(`${context}.shadowCss must be a string`);
   }
-  return {
+  if (input.fill !== undefined && !isHexColor(input.fill)) {
+    throw new DeckValidationError(`${context}.fill must be a hex color`);
+  }
+  if (input.stroke !== undefined && !isHexColor(input.stroke)) {
+    throw new DeckValidationError(`${context}.stroke must be a hex color`);
+  }
+  const token: ShapeToken = {
     cornerRadiusPt: validateFiniteNumber(
       input.cornerRadiusPt,
       `${context}.cornerRadiusPt`,
     ),
     shadowCss: input.shadowCss,
   };
+  if (input.fill !== undefined) token.fill = input.fill as string;
+  if (input.stroke !== undefined) token.stroke = input.stroke as string;
+  if (input.strokeWidth !== undefined) {
+    token.strokeWidth = validateFiniteNumber(
+      input.strokeWidth,
+      `${context}.strokeWidth`,
+    );
+  }
+  if (input.opacity !== undefined) {
+    token.opacity = validateOpacity(input.opacity, `${context}.opacity`);
+  }
+  return token;
+}
+
+const BULLET_NUMBER_STYLES = [
+  "decimal",
+  "lower-alpha",
+  "upper-alpha",
+  "lower-roman",
+] as const;
+
+function validateBulletDefaults(
+  input: unknown,
+  context: string,
+): BulletDefaultsToken {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  if (input.markerColor !== undefined && !isHexColor(input.markerColor)) {
+    throw new DeckValidationError(`${context}.markerColor must be a hex color`);
+  }
+  if (
+    input.numberStyle !== undefined &&
+    !BULLET_NUMBER_STYLES.includes(input.numberStyle as BulletNumberStyle)
+  ) {
+    throw new DeckValidationError(
+      `${context}.numberStyle must be one of: ${BULLET_NUMBER_STYLES.join(", ")}`,
+    );
+  }
+  const token: BulletDefaultsToken = {};
+  if (input.markerColor !== undefined) {
+    token.markerColor = input.markerColor as string;
+  }
+  if (input.gapPct !== undefined) {
+    token.gapPct = validateFiniteNumber(input.gapPct, `${context}.gapPct`);
+  }
+  if (input.indentPct !== undefined) {
+    token.indentPct = validateFiniteNumber(
+      input.indentPct,
+      `${context}.indentPct`,
+    );
+  }
+  if (input.numberStyle !== undefined) {
+    token.numberStyle = input.numberStyle as BulletNumberStyle;
+  }
+  return token;
+}
+
+const CONNECTOR_DASH_STYLES = ["solid", "dashed", "dotted"] as const;
+
+function validateConnectorDefaults(
+  input: unknown,
+  context: string,
+): ConnectorDefaultsToken {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  if (input.color !== undefined && !isHexColor(input.color)) {
+    throw new DeckValidationError(`${context}.color must be a hex color`);
+  }
+  if (
+    input.dash !== undefined &&
+    !CONNECTOR_DASH_STYLES.includes(input.dash as ConnectorDashStyle)
+  ) {
+    throw new DeckValidationError(
+      `${context}.dash must be one of: ${CONNECTOR_DASH_STYLES.join(", ")}`,
+    );
+  }
+  const validateArrow = (value: unknown, ctx: string): ConnectorArrow => {
+    if (!CONNECTOR_ARROWS.includes(value as ConnectorArrow)) {
+      throw new DeckValidationError(
+        `${ctx} must be one of: ${CONNECTOR_ARROWS.join(", ")}`,
+      );
+    }
+    return value as ConnectorArrow;
+  };
+  const token: ConnectorDefaultsToken = {};
+  if (input.color !== undefined) token.color = input.color as string;
+  if (input.width !== undefined) {
+    token.width = validateFiniteNumber(input.width, `${context}.width`);
+  }
+  if (input.dash !== undefined) token.dash = input.dash as ConnectorDashStyle;
+  if (input.startArrow !== undefined) {
+    token.startArrow = validateArrow(input.startArrow, `${context}.startArrow`);
+  }
+  if (input.endArrow !== undefined) {
+    token.endArrow = validateArrow(input.endArrow, `${context}.endArrow`);
+  }
+  return token;
+}
+
+function validateVisualDefaults(
+  input: unknown,
+  context: string,
+): VisualDefaultsToken {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  if (
+    input.styleThemeId !== undefined &&
+    typeof input.styleThemeId !== "string"
+  ) {
+    throw new DeckValidationError(`${context}.styleThemeId must be a string`);
+  }
+  const token: VisualDefaultsToken = {};
+  if (typeof input.styleThemeId === "string" && input.styleThemeId.length > 0) {
+    token.styleThemeId = input.styleThemeId;
+  }
+  if (input.transparentBackground !== undefined) {
+    token.transparentBackground = Boolean(input.transparentBackground);
+  }
+  return token;
+}
+
+function validateImageDefaults(
+  input: unknown,
+  context: string,
+): ImageDefaultsToken {
+  if (!isPlainObject(input)) {
+    throw new DeckValidationError(`${context} must be an object`);
+  }
+  const token: ImageDefaultsToken = {};
+  const fitMode = validateImageFitMode(input.fitMode, `${context}.fitMode`);
+  if (fitMode !== undefined) token.fitMode = fitMode;
+  const maskShape = validateImageMaskShape(
+    input.maskShape,
+    `${context}.maskShape`,
+  );
+  if (maskShape !== undefined) token.maskShape = maskShape;
+  if (input.radiusPct !== undefined) {
+    token.radiusPct = Math.max(
+      0,
+      Math.min(
+        50,
+        validateFiniteNumber(input.radiusPct, `${context}.radiusPct`),
+      ),
+    );
+  }
+  if (input.shadow !== undefined) token.shadow = Boolean(input.shadow);
+  return token;
 }
 
 function validateCustomTokenSet(
@@ -560,6 +722,23 @@ function validateCustomTokenSet(
     ),
     spacing: validateSpacingToken(input.spacing, `${context}.spacing`),
     shape: validateShapeToken(input.shape, `${context}.shape`),
+    ...(input.bullet !== undefined
+      ? { bullet: validateBulletDefaults(input.bullet, `${context}.bullet`) }
+      : {}),
+    ...(input.connector !== undefined
+      ? {
+          connector: validateConnectorDefaults(
+            input.connector,
+            `${context}.connector`,
+          ),
+        }
+      : {}),
+    ...(input.visual !== undefined
+      ? { visual: validateVisualDefaults(input.visual, `${context}.visual`) }
+      : {}),
+    ...(input.image !== undefined
+      ? { image: validateImageDefaults(input.image, `${context}.image`) }
+      : {}),
     defaultBackground: validateBackgroundTreatment(
       input.defaultBackground,
       `${context}.defaultBackground`,

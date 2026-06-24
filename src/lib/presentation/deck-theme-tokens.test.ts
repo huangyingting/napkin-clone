@@ -14,9 +14,13 @@ import {
   deriveRoleToken,
   isBuiltInTheme,
   isDeckTextRole,
+  resolveBulletDefaults,
+  resolveConnectorDefaults,
+  resolveImageDefaults,
   resolveRoleToken,
   resolveSlideBackground,
   resolveThemeTokens,
+  resolveVisualDefaults,
 } from "./deck-theme-tokens";
 
 describe("resolveThemeTokens", () => {
@@ -336,5 +340,83 @@ describe("semantic text roles (#603)", () => {
     assert.strictEqual(token.weight, 800);
     // align falls back to the derived default since the authored token omits it
     assert.strictEqual(token.align, "center");
+  });
+});
+
+describe("non-text default tokens (#601)", () => {
+  it("resolves bullet defaults with fallbacks when absent", () => {
+    const d = resolveBulletDefaults(DEFAULT_TOKEN_SET);
+    assert.strictEqual(d.markerColor, DEFAULT_TOKEN_SET.colors.accent);
+    assert.strictEqual(d.gapPct, 0);
+    assert.strictEqual(d.indentPct, 0);
+    assert.strictEqual(d.numberStyle, "decimal");
+  });
+
+  it("resolves connector defaults with fallbacks when absent", () => {
+    const d = resolveConnectorDefaults(DEFAULT_TOKEN_SET);
+    assert.strictEqual(d.color, DEFAULT_TOKEN_SET.colors.onBg);
+    assert.strictEqual(d.width, 0.4);
+    assert.strictEqual(d.dash, "solid");
+    assert.strictEqual(d.startArrow, "none");
+    assert.strictEqual(d.endArrow, "arrow");
+  });
+
+  it("resolves image defaults with fallbacks when absent", () => {
+    const d = resolveImageDefaults(DEFAULT_TOKEN_SET);
+    assert.strictEqual(d.fitMode, "contain");
+    assert.strictEqual(d.radiusPct, 0);
+    assert.strictEqual(d.maskShape, "none");
+    assert.strictEqual(d.shadow, false);
+  });
+
+  it("resolves visual defaults with fallbacks when absent", () => {
+    const d = resolveVisualDefaults(DEFAULT_TOKEN_SET);
+    assert.strictEqual(d.transparentBackground, false);
+    assert.strictEqual(d.styleThemeId, undefined);
+  });
+
+  it("authored non-text tokens win over fallbacks", () => {
+    const themed = {
+      ...DEFAULT_TOKEN_SET,
+      bullet: {
+        markerColor: "#ff0000",
+        gapPct: 2,
+        numberStyle: "lower-alpha" as const,
+      },
+      connector: {
+        color: "#00ff00",
+        width: 1.2,
+        dash: "dashed" as const,
+        endArrow: "filled" as const,
+      },
+      image: { fitMode: "cover" as const, radiusPct: 8, shadow: true },
+      visual: { styleThemeId: "mono", transparentBackground: true },
+    };
+    assert.strictEqual(resolveBulletDefaults(themed).markerColor, "#ff0000");
+    assert.strictEqual(
+      resolveBulletDefaults(themed).numberStyle,
+      "lower-alpha",
+    );
+    assert.strictEqual(resolveConnectorDefaults(themed).dash, "dashed");
+    assert.strictEqual(resolveConnectorDefaults(themed).endArrow, "filled");
+    assert.strictEqual(resolveImageDefaults(themed).fitMode, "cover");
+    assert.strictEqual(resolveImageDefaults(themed).shadow, true);
+    assert.strictEqual(resolveVisualDefaults(themed).styleThemeId, "mono");
+    assert.strictEqual(
+      resolveVisualDefaults(themed).transparentBackground,
+      true,
+    );
+  });
+
+  it("every built-in theme resolves non-text defaults without throwing", () => {
+    for (const ts of BUILT_IN_TOKEN_SETS) {
+      assert.ok(resolveBulletDefaults(ts).markerColor.startsWith("#"));
+      assert.ok(resolveConnectorDefaults(ts).color.startsWith("#"));
+      assert.ok(resolveImageDefaults(ts).fitMode.length > 0);
+      assert.strictEqual(
+        typeof resolveVisualDefaults(ts).transparentBackground,
+        "boolean",
+      );
+    }
   });
 });
