@@ -8,8 +8,8 @@
  *    shape, visual), lists all elements with reorder/delete, and adds new ones.
  *  - **Style** — per-slide background and accent color overrides.
  *
- * Speaker notes live in a dedicated panel docked at the bottom of the stage
- * (see `SlideNotesPanel` in the editor), not here.
+ * Speaker notes live in a dedicated inspector tab so slide-level editing stays
+ * in the right supplemental panel.
  *
  * Purely presentational: every change is reported through callbacks; the
  * component never mutates the deck.
@@ -134,6 +134,8 @@ const FIELD_CLASS =
 
 const LABEL_CLASS = "mb-1 block text-xs font-medium text-ds-text-secondary";
 
+let _speakerNotesEditSeq = 0;
+
 export type AddElementKind = "text" | "bullets" | "image" | "shape";
 
 export interface SlideInspectorProps {
@@ -152,6 +154,7 @@ export interface SlideInspectorProps {
   onRemoveSlide: () => void;
   onApplyLayout: (layout: ReusableSlideLayout) => void;
   onResetLayout: (layout: ReusableSlideLayout) => void;
+  onUpdateNotes: (value: string, coalesceKey?: string) => void;
   // Element editing
   onUpdateElement: (
     id: string,
@@ -250,6 +253,39 @@ function TabButton({
     >
       {label}
     </button>
+  );
+}
+
+function SpeakerNotesControl({
+  notes,
+  onChange,
+}: {
+  notes: string;
+  onChange: (value: string, coalesceKey?: string) => void;
+}) {
+  const coalesceKeyRef = useRef<string | null>(null);
+
+  return (
+    <label className="block">
+      <span className={LABEL_CLASS}>Speaker notes</span>
+      <textarea
+        value={notes}
+        onChange={(event) =>
+          onChange(event.target.value, coalesceKeyRef.current ?? undefined)
+        }
+        onFocus={() => {
+          _speakerNotesEditSeq += 1;
+          coalesceKeyRef.current = `notes-edit:${_speakerNotesEditSeq}`;
+        }}
+        onBlur={() => {
+          coalesceKeyRef.current = null;
+        }}
+        rows={12}
+        aria-label="Speaker notes"
+        placeholder="Add speaker notes…"
+        className={`${FIELD_CLASS} min-h-64 resize-y leading-6 placeholder:text-ds-text-muted ${FOCUS_RING}`}
+      />
+    </label>
   );
 }
 
@@ -2143,6 +2179,7 @@ export function SlideInspector({
   onRemoveSlide,
   onApplyLayout,
   onResetLayout,
+  onUpdateNotes,
   onUpdateElement,
   onRemoveElement,
   onDuplicateElement,
@@ -2172,7 +2209,20 @@ export function SlideInspector({
 }: SlideInspectorProps) {
   const [tab, setTab] = useState<Tab>(initialTab ?? "arrange");
   const [selectedLayoutId, setSelectedLayoutId] = useState("");
-  const TABS: Tab[] = ["arrange", "details", "layers", "slide", "source"];
+  const TABS: Tab[] = [
+    "arrange",
+    "details",
+    "layers",
+    "slide",
+    "notes",
+    "source",
+  ];
+
+  useEffect(() => {
+    if (initialTab) {
+      setTab(initialTab);
+    }
+  }, [initialTab]);
 
   function handleTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
     const idx = TABS.indexOf(tab);
@@ -2336,6 +2386,14 @@ export function SlideInspector({
           panelId="inspector-panel-slide"
           label="Slide"
           onClick={() => setTab("slide")}
+          onKeyDown={handleTabKeyDown}
+        />
+        <TabButton
+          active={tab === "notes"}
+          tabId="inspector-tab-notes"
+          panelId="inspector-panel-notes"
+          label="Notes"
+          onClick={() => setTab("notes")}
           onKeyDown={handleTabKeyDown}
         />
         <TabButton
@@ -2711,6 +2769,17 @@ export function SlideInspector({
               Overrides apply to this slide only. Image &gt; gradient &gt; solid
               color. “Theme” clears the color override.
             </p>
+          </div>
+        ) : null}
+
+        {tab === "notes" ? (
+          <div
+            role="tabpanel"
+            id="inspector-panel-notes"
+            aria-labelledby="inspector-tab-notes"
+            className="flex flex-col gap-4"
+          >
+            <SpeakerNotesControl notes={slide.notes} onChange={onUpdateNotes} />
           </div>
         ) : null}
 

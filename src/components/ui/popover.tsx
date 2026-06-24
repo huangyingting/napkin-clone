@@ -33,6 +33,12 @@ export type PopoverProps = {
   children: ReactNode;
   /** Extra classes applied to the panel (e.g. sizing, custom placement). */
   className?: string;
+  /**
+   * Vertical placement relative to the trigger. `"bottom"` (default) opens
+   * below the trigger; `"top"` opens above it (useful for triggers pinned to
+   * the bottom of the viewport, e.g. the slide bottom dock).
+   */
+  placement?: "bottom" | "top";
   /** ARIA role for the panel. Defaults to `"dialog"`. */
   role?: string;
   "aria-label"?: string;
@@ -62,15 +68,20 @@ export function Popover({
   trigger,
   children,
   className,
+  placement = "bottom",
   role = "dialog",
   "aria-label": ariaLabel,
 }: PopoverProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const popMotion = usePopMotion();
-  // Fixed-viewport coordinates: pin the panel's top to the trigger's bottom and
-  // its right edge to the trigger's right edge (replicates the old
-  // `right-0 top-full` placement).
-  const [coords, setCoords] = useState<{ top: number; right: number }>({
+  // Fixed-viewport coordinates: pin the panel's right edge to the trigger's
+  // right edge, and anchor it either below (`top`) or above (`bottom`) the
+  // trigger depending on `placement`.
+  const [coords, setCoords] = useState<{
+    top?: number;
+    bottom?: number;
+    right: number;
+  }>({
     top: -1000,
     right: -1000,
   });
@@ -79,11 +90,16 @@ export function Popover({
     const el = containerRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    setCoords({
-      top: rect.bottom + PANEL_GAP,
-      right: Math.max(0, window.innerWidth - rect.right),
-    });
-  }, []);
+    const right = Math.max(0, window.innerWidth - rect.right);
+    if (placement === "top") {
+      setCoords({
+        bottom: Math.max(0, window.innerHeight - rect.top + PANEL_GAP),
+        right,
+      });
+    } else {
+      setCoords({ top: rect.bottom + PANEL_GAP, right });
+    }
+  }, [placement]);
 
   // Measure the trigger on open and keep the panel pinned while the user
   // scrolls or resizes.
@@ -137,10 +153,17 @@ export function Popover({
             animate={popMotion.animate}
             exit={popMotion.exit}
             transition={popMotion.transition}
-            style={{ top: coords.top, right: coords.right }}
+            style={{
+              top: coords.top,
+              bottom: coords.bottom,
+              right: coords.right,
+            }}
             className={cx(
               "fixed z-dropdown",
-              "w-80 p-4",
+              // Default sizing only when the caller doesn't supply its own.
+              // `cx` concatenates without Tailwind-merge, so a hardcoded
+              // default width/padding would otherwise override the caller's.
+              className ? undefined : "w-80 p-4",
               MENU_CHROME,
               className,
             )}

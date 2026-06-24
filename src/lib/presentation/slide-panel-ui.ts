@@ -12,6 +12,7 @@ export type RightPanelTab =
   | "details"
   | "layers"
   | "slide"
+  | "notes"
   | "source";
 
 /**

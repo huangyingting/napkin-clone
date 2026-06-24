@@ -2199,7 +2199,7 @@ export function SlideStageEditor({
       ref={containerRef}
       data-slide-stage
       tabIndex={-1}
-      className="relative touch-none overflow-hidden rounded-ds-sm bg-ds-surface-raised shadow-ds-overlay outline-none ring-1 ring-ds-border-strong"
+      className="relative m-auto shrink-0 touch-none overflow-hidden rounded-ds-sm bg-ds-surface-raised shadow-ds-overlay outline-none ring-1 ring-ds-border-strong"
       style={{ width, height }}
       onPointerDown={handleStagePointerDown}
       onDoubleClick={handleStageDoubleClick}

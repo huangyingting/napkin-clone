@@ -54,11 +54,11 @@ export function fitAspectRatio(bounds: Size, aspectRatio: number): Size {
 export const MIN_ZOOM = 0.25;
 
 /** Maximum supported stage zoom factor (`1` === 100%). */
-export const MAX_ZOOM = 3;
+export const MAX_ZOOM = 2;
 
 /** Discrete zoom presets (percent) offered in the bottom-dock zoom menu. */
 export const ZOOM_PERCENT_PRESETS: readonly number[] = [
-  50, 75, 100, 125, 150, 200, 300,
+  25, 50, 75, 100, 125, 150, 175, 200,
 ];
 
 /**

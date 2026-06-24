@@ -76,12 +76,12 @@ test("fitAspectRatio letterboxes a 4:3 slide inside wide and tall bounds", () =>
 test("ZOOM_PERCENT_PRESETS exposes the dock preset ladder", () => {
   assert.deepEqual(
     [...ZOOM_PERCENT_PRESETS],
-    [50, 75, 100, 125, 150, 200, 300],
+    [25, 50, 75, 100, 125, 150, 175, 200],
   );
 });
 
 test("clampZoom limits to the supported [MIN_ZOOM, MAX_ZOOM] range", () => {
-  assert.equal(clampZoom(0.1), MIN_ZOOM);
+  assert.equal(clampZoom(0.05), MIN_ZOOM);
   assert.equal(clampZoom(10), MAX_ZOOM);
   assert.equal(clampZoom(1), 1);
 });
@@ -102,8 +102,9 @@ test("zoomToPercent and percentToZoom round-trip preset values", () => {
   }
 });
 
-test("percentToZoom clamps slider extremes (25% .. 300%)", () => {
+test("percentToZoom clamps slider extremes (25% .. 200%)", () => {
   assert.equal(percentToZoom(25), MIN_ZOOM);
-  assert.equal(percentToZoom(300), MAX_ZOOM);
+  assert.equal(percentToZoom(200), MAX_ZOOM);
   assert.equal(percentToZoom(10), MIN_ZOOM);
+  assert.equal(percentToZoom(300), MAX_ZOOM);
 });

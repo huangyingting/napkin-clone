@@ -27,7 +27,6 @@ import {
   Circle,
   Copy,
   FileText,
-  GripVertical,
   Grid3x3,
   Image as ImageIcon,
   Keyboard,
@@ -469,6 +468,14 @@ export function SlideEditor({
   const [railOpen, setRailOpen] = useState(true);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [dragPreview, setDragPreview] = useState<{
+    index: number;
+    x: number;
+    y: number;
+    width: number;
+    offsetX: number;
+    offsetY: number;
+  } | null>(null);
   // Whether the mobile inspector bottom sheet is open (below `lg`; the inspector
   // is a fixed side pane at `lg+`). Issue #209.
   const [inspectorSheetOpen, setInspectorSheetOpen] = useState(false);
@@ -514,7 +521,6 @@ export function SlideEditor({
   const showAdvanced = editorMode === "advanced";
   const [zoom, setZoom] = useState(1);
   const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
-  const [notesExpanded, setNotesExpanded] = useState(false);
   const handleZoomChange = useCallback((nextZoom: number) => {
     setZoom(clampZoom(nextZoom));
   }, []);
@@ -568,6 +574,11 @@ export function SlideEditor({
     overIndex: number;
     capturedPointerId: number;
     cachedRects: DOMRect[];
+    startClientX: number;
+    startClientY: number;
+    offsetX: number;
+    offsetY: number;
+    moved: boolean;
   } | null>(null);
   // In-memory element clipboard for copy / cut / paste (within & across slides).
   const clipboardRef = useRef<SlideElement[] | null>(null);
@@ -1759,6 +1770,18 @@ export function SlideEditor({
     [deck, onDeckChange],
   );
 
+  const openNotesPanel = useCallback(() => {
+    setRightPanelTab("notes");
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 1023px)").matches
+    ) {
+      setInspectorSheetOpen(true);
+      return;
+    }
+    setInspectorOpen(true);
+  }, []);
+
   // ── Pointer-based thumbnail reorder (issue #209) ───────────────────────────
   // Uses the same Pointer API as the stage editor so reordering works with
   // touch. Keyboard ↑/↓ reorder (the move buttons, issue #212) and the
@@ -1779,13 +1802,20 @@ export function SlideEditor({
         ? Array.from(list.querySelectorAll<HTMLElement>("[data-slide-thumb]"))
         : [];
       const cachedRects = items.map((item) => item.getBoundingClientRect());
+      const sourceRect = cachedRects[index];
       (event.currentTarget as Element).setPointerCapture(event.pointerId);
       reorderRef.current = {
         fromIndex: index,
         overIndex: index,
         capturedPointerId: event.pointerId,
         cachedRects,
+        startClientX: event.clientX,
+        startClientY: event.clientY,
+        offsetX: sourceRect ? event.clientX - sourceRect.left : 0,
+        offsetY: sourceRect ? event.clientY - sourceRect.top : 0,
+        moved: false,
       };
+      setDragPreview(null);
       setDragIndex(index);
       setDragOverIndex(index);
     },
@@ -1804,6 +1834,14 @@ export function SlideEditor({
       if (!drag || event.pointerId !== drag.capturedPointerId) {
         return;
       }
+      const movement = Math.hypot(
+        event.clientX - drag.startClientX,
+        event.clientY - drag.startClientY,
+      );
+      if (!drag.moved && movement < 4) {
+        return;
+      }
+      drag.moved = true;
       // Reuse the rects cached at pointerdown — no per-frame layout reads (#306).
       const rects = drag.cachedRects;
       if (rects.length === 0) {
@@ -1824,6 +1862,24 @@ export function SlideEditor({
       const target = reorderTargetIndex(pointer, extents);
       drag.overIndex = target;
       setDragOverIndex(target);
+      setDragPreview((preview) =>
+        preview
+          ? {
+              ...preview,
+              x: event.clientX - preview.offsetX,
+              y: event.clientY - preview.offsetY,
+            }
+          : rects[drag.fromIndex]
+            ? {
+                index: drag.fromIndex,
+                x: event.clientX - drag.offsetX,
+                y: event.clientY - drag.offsetY,
+                width: rects[drag.fromIndex].width,
+                offsetX: drag.offsetX,
+                offsetY: drag.offsetY,
+              }
+            : null,
+      );
     };
 
     const handlePointerUp = (event: PointerEvent) => {
@@ -1832,7 +1888,12 @@ export function SlideEditor({
         return;
       }
       reorderRef.current = null;
-      if (drag.overIndex !== drag.fromIndex) {
+      if (event.type === "pointercancel") {
+        // Clean up visual state only; a cancelled gesture should not select or reorder.
+      } else if (!drag.moved) {
+        setVisualPickerOpen(false);
+        setSelectedIndex(drag.fromIndex);
+      } else if (drag.overIndex !== drag.fromIndex) {
         const slideId = deck.slides[drag.fromIndex]?.id;
         if (slideId) {
           const { result, commitOptions, patches } = commitCommand(deck, {
@@ -1849,6 +1910,7 @@ export function SlideEditor({
       }
       setDragIndex(null);
       setDragOverIndex(null);
+      setDragPreview(null);
     };
 
     window.addEventListener("pointermove", handlePointerMove);
@@ -2637,6 +2699,8 @@ export function SlideEditor({
         onRemoveSlide: () => handleRemove(safeSelected),
         onApplyLayout: handleApplyReusableLayout,
         onResetLayout: handleResetReusableLayout,
+        onUpdateNotes: (value: string, coalesceKey?: string) =>
+          handleNotesChange(safeSelected, value, coalesceKey),
         onUpdateElement: handleUpdateElement,
         onRemoveElement: handleRemoveElement,
         onDuplicateElement: handleDuplicateElement,
@@ -3141,6 +3205,34 @@ export function SlideEditor({
         onClose={() => setKeyboardHelpOpen(false)}
       />
 
+      {dragPreview && deck.slides[dragPreview.index] ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed z-dropdown rotate-1 opacity-95"
+          style={{
+            left: dragPreview.x,
+            top: dragPreview.y,
+            width: dragPreview.width,
+          }}
+        >
+          <div className="rounded-ds-md border border-ds-control bg-ds-surface-base p-1 shadow-ds-overlay ring-2 ring-ds-control/30">
+            <div
+              className="relative overflow-hidden rounded-ds-sm border border-ds-border-subtle"
+              style={{ aspectRatio: activeSlideAspectRatio }}
+            >
+              <SlideCanvas
+                slide={deck.slides[dragPreview.index]}
+                visuals={visuals}
+                preview
+              />
+              <span className="absolute left-1.5 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-ds-sm bg-ds-surface-overlay px-1 text-[11px] font-semibold tabular-nums text-ds-text-secondary shadow-sm ring-1 ring-ds-border-subtle">
+                {dragPreview.index + 1}
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* ── Body: thumbnail rail · stage · inspector ────────────────────── */}
       {/* Stacks vertically on phones (rail becomes a top strip), three-pane row
           from `sm` up. Issue #209. */}
@@ -3149,7 +3241,7 @@ export function SlideEditor({
           {/* Slide thumbnail rail — vertical column from `sm`, horizontal scrolling
             strip below `sm`. */}
           {railOpen ? (
-            <aside className="flex w-full shrink-0 flex-col border-b border-ds-border-subtle sm:w-56 sm:border-b-0 sm:border-r">
+            <aside className="flex w-full shrink-0 flex-col bg-ds-surface-sunken sm:w-56">
               <div className="flex min-h-0 flex-1 gap-2 overflow-x-auto p-3 sm:block sm:gap-0 sm:overflow-x-visible sm:overflow-y-auto">
                 <ul
                   ref={railListRef}
@@ -3159,15 +3251,16 @@ export function SlideEditor({
                     const selected = index === safeSelected;
                     const dropTarget =
                       dragOverIndex === index && dragIndex !== index;
-                    const dragging = dragIndex === index;
+                    const dragging =
+                      dragIndex === index && dragPreview !== null;
                     const title = deriveSlideTitle(slide, index);
                     const canDelete = deck.slides.length > 1;
                     return (
                       <li
                         key={slide.id}
                         data-slide-thumb
-                        className={`group relative w-40 shrink-0 sm:w-auto ${
-                          dragging ? "opacity-60" : ""
+                        className={`group relative w-40 shrink-0 transition-transform sm:w-auto ${
+                          dragging ? "scale-[0.98] opacity-30" : ""
                         }`}
                       >
                         <button
@@ -3176,50 +3269,34 @@ export function SlideEditor({
                             setVisualPickerOpen(false);
                             setSelectedIndex(index);
                           }}
+                          onPointerDown={(event) => beginReorder(event, index)}
                           aria-label={`Slide ${index + 1}: ${title}`}
                           aria-current={selected}
-                          className={`flex w-full flex-col gap-1 rounded-ds-md border p-1.5 text-left transition-colors ${
+                          title={title}
+                          className={`flex w-full rounded-ds-md border p-1 text-left transition-all ${
                             selected
                               ? "border-ds-control bg-ds-state-hover"
                               : "border-transparent hover:bg-ds-state-hover"
-                          } ${dropTarget ? "border-ds-control" : ""} ${FOCUS_RING}`}
+                          } ${
+                            dropTarget
+                              ? "border-ds-control bg-ds-state-hover shadow-ds-overlay ring-2 ring-ds-control/30"
+                              : ""
+                          } ${dragging ? "cursor-grabbing" : "cursor-grab"} ${FOCUS_RING}`}
                         >
-                          <span className="flex items-center gap-2">
-                            <span className="flex w-4 shrink-0 flex-col items-center gap-1 text-xs tabular-nums text-ds-text-muted">
+                          <span
+                            className="pointer-events-none relative block min-w-0 flex-1 overflow-hidden rounded-ds-sm border border-ds-border-subtle"
+                            style={{ aspectRatio: activeSlideAspectRatio }}
+                          >
+                            <SlideCanvas
+                              slide={slide}
+                              visuals={visuals}
+                              preview
+                            />
+                            <span className="absolute left-1.5 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-ds-sm bg-ds-surface-overlay px-1 text-[11px] font-semibold tabular-nums text-ds-text-secondary shadow-sm ring-1 ring-ds-border-subtle">
                               {index + 1}
                             </span>
-                            <span
-                              className="pointer-events-none block min-w-0 flex-1 overflow-hidden rounded-ds-sm border border-ds-border-subtle"
-                              style={{ aspectRatio: activeSlideAspectRatio }}
-                            >
-                              <SlideCanvas
-                                slide={slide}
-                                visuals={visuals}
-                                preview
-                              />
-                            </span>
-                          </span>
-                          <span
-                            className="block truncate pl-6 text-xs text-ds-text-secondary"
-                            title={title}
-                          >
-                            {title}
                           </span>
                         </button>
-
-                        {/* Drag handle — pointer-based reorder (touch friendly).
-                        A ~44px transparent hit area centred on the slide number
-                        gutter; the grip icon is the only visible affordance and
-                        reveals on hover. `touch-none` keeps a touch drag from
-                        scrolling the rail. Issue #209. */}
-                        <span
-                          role="presentation"
-                          aria-hidden="true"
-                          onPointerDown={(event) => beginReorder(event, index)}
-                          className="absolute left-0 top-0 flex h-11 w-11 cursor-grab touch-none items-center justify-center text-ds-text-muted opacity-0 transition-opacity group-hover:opacity-100"
-                        >
-                          <GripVertical size={14} aria-hidden="true" />
-                        </span>
 
                         {/* Hover/focus action cluster — reveals on group hover or
                         keyboard focus so the rail stays clean but every action
@@ -3278,7 +3355,7 @@ export function SlideEditor({
             ) : null}
             <div
               ref={stageRef}
-              className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto p-4 sm:p-6"
+              className="relative flex min-h-0 flex-1 overflow-auto p-4 sm:p-6"
             >
               {selectedSlide ? (
                 <SlideStageEditor
@@ -3332,16 +3409,14 @@ export function SlideEditor({
         {selectedSlide ? (
           <SlideBottomDock
             railOpen={railOpen}
-            notes={selectedSlide.notes}
-            notesExpanded={notesExpanded}
+            notesOpen={
+              rightPanelTab === "notes" && (inspectorOpen || inspectorSheetOpen)
+            }
             zoom={zoom}
             zoomMenuOpen={zoomMenuOpen}
             slideLabel={`Slide ${safeSelected + 1} of ${deck.slides.length}`}
             onToggleRail={() => setRailOpen((open) => !open)}
-            onToggleNotes={() => setNotesExpanded((open) => !open)}
-            onNotesChange={(value, coalesceKey) =>
-              handleNotesChange(safeSelected, value, coalesceKey)
-            }
+            onOpenNotes={openNotesPanel}
             onZoomChange={handleZoomChange}
             onZoomMenuOpenChange={setZoomMenuOpen}
           />
@@ -3955,159 +4030,128 @@ function SlideSelectionToolbar({
   );
 }
 
-/** Module-level counter so each notes-editing session gets a unique key (#306). */
-let _notesEditSeq = 0;
-
 function SlideBottomDock({
   railOpen,
-  notes,
-  notesExpanded,
+  notesOpen,
   zoom,
   zoomMenuOpen,
   slideLabel,
   onToggleRail,
-  onToggleNotes,
-  onNotesChange,
+  onOpenNotes,
   onZoomChange,
   onZoomMenuOpenChange,
 }: {
   railOpen: boolean;
-  notes: string;
-  notesExpanded: boolean;
+  notesOpen: boolean;
   zoom: number;
   zoomMenuOpen: boolean;
   slideLabel: string;
   onToggleRail: () => void;
-  onToggleNotes: () => void;
-  onNotesChange: (value: string, coalesceKey?: string) => void;
+  onOpenNotes: () => void;
   onZoomChange: (zoom: number) => void;
   onZoomMenuOpenChange: (open: boolean) => void;
 }) {
-  const coalesceKeyRef = useRef<string | null>(null);
   const zoomPercent = zoomToPercent(zoom);
   const setZoomPercent = (percent: number) => {
     onZoomChange(percent / 100);
     onZoomMenuOpenChange(false);
   };
-  const presets = ZOOM_PERCENT_PRESETS;
+  // Descending order (largest first) to match the zoom menu in the mockup.
+  const presets = [...ZOOM_PERCENT_PRESETS].sort((a, b) => b - a);
 
   return (
-    <div className="shrink-0 border-t border-ds-border-subtle bg-ds-surface-base">
-      {notesExpanded ? (
-        <div className={railOpen ? "sm:ml-56" : undefined}>
-          <textarea
-            value={notes}
-            onChange={(event) =>
-              onNotesChange(
-                event.target.value,
-                coalesceKeyRef.current ?? undefined,
-              )
-            }
-            onFocus={() => {
-              _notesEditSeq += 1;
-              coalesceKeyRef.current = `notes-edit:${_notesEditSeq}`;
-            }}
-            onBlur={() => {
-              coalesceKeyRef.current = null;
-            }}
-            rows={4}
-            aria-label="Speaker notes"
-            placeholder="Click to add speaker notes…"
-            className={`block min-h-24 w-full resize-y rounded-none border-0 bg-ds-surface px-3 py-2 text-sm text-ds-text-primary placeholder:text-ds-text-muted outline-none ${FOCUS_RING}`}
-          />
-        </div>
-      ) : null}
-      <div className="flex min-h-14 items-center gap-3 px-3 py-2">
-        <div className="flex items-center gap-1.5">
-          <Tooltip
-            label={railOpen ? "Hide slide thumbnails" : "Show slide thumbnails"}
-            side="top"
-          >
-            <button
-              type="button"
-              aria-label={
-                railOpen ? "Hide slide thumbnails" : "Show slide thumbnails"
-              }
-              aria-pressed={railOpen}
-              onClick={onToggleRail}
-              className={`flex h-8 items-center gap-1.5 rounded-ds-md border border-ds-border-subtle px-2 text-xs font-semibold transition-colors ${
-                railOpen
-                  ? "bg-ds-control text-ds-control-text"
-                  : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
-              } ${FOCUS_RING}`}
-            >
-              <LayoutPanelLeft size={14} aria-hidden="true" />
-              Slides
-            </button>
-          </Tooltip>
+    <div className="shrink-0 bg-ds-surface-sunken">
+      <div className="flex min-h-14 items-center justify-center gap-2 px-3 py-2">
+        <Tooltip
+          label={railOpen ? "Hide slide thumbnails" : "Show slide thumbnails"}
+          side="top"
+        >
           <button
             type="button"
-            aria-pressed={notesExpanded}
-            onClick={onToggleNotes}
-            className={`flex h-8 items-center rounded-ds-md border border-ds-border-subtle px-2 text-xs font-semibold transition-colors ${
-              notesExpanded
+            aria-label={
+              railOpen ? "Hide slide thumbnails" : "Show slide thumbnails"
+            }
+            aria-pressed={railOpen}
+            onClick={onToggleRail}
+            className={`flex h-8 items-center gap-1.5 rounded-ds-md px-2 text-xs font-semibold transition-colors ${
+              railOpen
                 ? "bg-ds-control text-ds-control-text"
                 : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
             } ${FOCUS_RING}`}
           >
-            Notes
+            <LayoutPanelLeft size={14} aria-hidden="true" />
+            Slides
           </button>
-        </div>
-        <div className="min-w-0 flex-1 text-center text-xs font-medium text-ds-text-muted">
+        </Tooltip>
+        <button
+          type="button"
+          aria-pressed={notesOpen}
+          onClick={onOpenNotes}
+          className={`flex h-8 items-center rounded-ds-md px-2 text-xs font-semibold transition-colors ${
+            notesOpen
+              ? "bg-ds-control text-ds-control-text"
+              : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+          } ${FOCUS_RING}`}
+        >
+          Notes
+        </button>
+        <span className="hidden truncate text-xs font-medium text-ds-text-muted sm:inline">
           {slideLabel}
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <input
-            type="range"
-            min={25}
-            max={300}
-            step={5}
-            value={zoomPercent}
-            onChange={(event) => setZoomPercent(Number(event.target.value))}
-            aria-label="Slide zoom"
-            className="w-36 accent-ds-control"
-          />
-          <Popover
-            open={zoomMenuOpen}
-            onClose={() => onZoomMenuOpenChange(false)}
-            aria-label="Zoom presets"
-            className="w-32 p-2"
-            trigger={
+        </span>
+        <div className="mx-1 h-5 w-px bg-ds-border-subtle" aria-hidden="true" />
+        <input
+          type="range"
+          min={25}
+          max={200}
+          step={5}
+          value={zoomPercent}
+          onChange={(event) => onZoomChange(Number(event.target.value) / 100)}
+          aria-label="Slide zoom"
+          className="w-32 accent-ds-control"
+        />
+        <Popover
+          open={zoomMenuOpen}
+          onClose={() => onZoomMenuOpenChange(false)}
+          aria-label="Zoom presets"
+          placement="top"
+          className="w-16 p-1"
+          trigger={
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded={zoomMenuOpen}
+              onClick={() => onZoomMenuOpenChange(!zoomMenuOpen)}
+              className={`h-8 min-w-14 rounded-ds-md px-2 text-xs font-semibold tabular-nums text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+            >
+              {zoomPercent}%
+            </button>
+          }
+        >
+          <div className="flex flex-col">
+            {presets.map((preset) => (
               <button
+                key={preset}
                 type="button"
-                aria-haspopup="dialog"
-                aria-expanded={zoomMenuOpen}
-                onClick={() => onZoomMenuOpenChange(!zoomMenuOpen)}
-                className={`h-8 min-w-14 rounded-ds-md border border-ds-border-subtle px-2 text-xs font-semibold tabular-nums text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                onClick={() => setZoomPercent(preset)}
+                className={`rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${
+                  preset === zoomPercent
+                    ? "bg-ds-state-hover text-ds-text-primary"
+                    : "text-ds-text-secondary"
+                } ${FOCUS_RING}`}
               >
-                {zoomPercent}%
+                {preset}%
               </button>
-            }
-          >
-            <div className="grid grid-cols-2 gap-1">
-              <button
-                type="button"
-                onClick={() => setZoomPercent(100)}
-                className={`rounded-ds-sm px-2 py-1 text-left text-xs font-medium text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-              >
-                Fit
-              </button>
-              {presets.map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => setZoomPercent(preset)}
-                  className={`rounded-ds-sm px-2 py-1 text-left text-xs font-medium text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-                >
-                  {preset}%
-                </button>
-              ))}
-            </div>
-          </Popover>
-          <span className="hidden rounded-ds-md bg-ds-surface-raised px-2 py-1 text-xs font-semibold text-ds-text-muted sm:inline">
-            Page
-          </span>
-        </div>
+            ))}
+            <div className="my-1 border-t border-ds-border-subtle" />
+            <button
+              type="button"
+              onClick={() => setZoomPercent(100)}
+              className={`rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+            >
+              Fit
+            </button>
+          </div>
+        </Popover>
       </div>
     </div>
   );
