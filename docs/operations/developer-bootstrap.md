@@ -1,0 +1,76 @@
+# Developer Bootstrap and Local QA
+
+**Status:** Current  
+**Last updated:** 2026-06-25
+
+These commands are additive developer tooling. They do not change app runtime
+behavior.
+
+## Fresh checkout
+
+```bash
+npm run dev:setup
+npm run dev:doctor
+```
+
+`dev:setup` creates an ignored `.env` with SQLite defaults and a generated
+`AUTH_SECRET`, then runs the smallest database setup commands:
+`npm run db:generate` and `npm run db:push`. Use `npm run dev:setup -- --no-db`
+when dependencies or generated clients are intentionally supplied by another
+worktree.
+
+`dev:doctor` checks Node, local env, generated Prisma client, SQLite schema file,
+the app port, and the Playwright Chromium browser. It redacts secret-like values
+and prints the smallest repair command for failures.
+
+## Worktrees
+
+```bash
+npm run dev:worktree
+set -a; . ./.env.worktree; set +a; npm run dev
+```
+
+The helper creates an ignored `.env.worktree` with a worktree-specific SQLite
+path such as `file:./prisma/dev.n17.db`, ensures local asset storage exists under
+`storage/slide-assets`, and reports whether `node_modules`, `src/generated`,
+`.next`, or `storage` are symlinks.
+
+Supported pattern: sharing `node_modules` and `src/generated` is acceptable when
+`.next` remains worktree-local. Unsupported pattern: sharing `.next` across
+worktrees or reusing `.next` after switching dependency trees; remove `.next`
+before rebuilding in that case.
+
+## Local CI parity
+
+```bash
+npm run ci:local
+```
+
+This mirrors `.github/workflows/ci.yml` after dependency installation with the
+documented SQLite env:
+
+1. `npm run db:schema:check`
+2. `npm run db:generate`
+3. `npm test`
+4. `npm run typecheck`
+5. `npm run typecheck:unused`
+6. `npm run lint`
+7. `npm run format:check`
+8. `npm run build`
+
+Output is staged and the command exits with the first failing stage's exit code.
+
+## Browser QA
+
+```bash
+npm run qa:browser
+```
+
+The browser QA command applies the SQLite schema, seeds the deterministic E2E
+profile, starts the dev server, waits for it to respond, and prints owner/viewer
+test credentials plus editor, present, and embed URLs. It uses only fixed test
+personas from the existing E2E profile; no production credentials are required.
+
+Use `npm run qa:browser -- --seed-only` to seed and print URLs without starting
+the server, or `npm run qa:browser -- --print-only` to print an existing
+`e2e/.e2e-fixture.json`.

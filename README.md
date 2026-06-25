@@ -32,6 +32,11 @@ real secret outside quick local testing.
 | Script                     | Description                                                                  |
 | -------------------------- | ---------------------------------------------------------------------------- |
 | `npm run dev`              | Start the Next app through `server.mjs` with inline collaboration enabled.   |
+| `npm run dev:doctor`       | Check local Node/env/Prisma/port/Playwright readiness with repair hints.     |
+| `npm run dev:setup`        | Create a local `.env`, generate Prisma, and apply the SQLite schema.         |
+| `npm run dev:worktree`     | Create `.env.worktree` and report worktree-local safety checks.              |
+| `npm run ci:local`         | Run the same SQLite quality stages as GitHub CI, including `build`.          |
+| `npm run qa:browser`       | Seed deterministic browser QA data, start dev, and print fixture URLs.       |
 | `npm run build`            | Create a production build.                                                   |
 | `npm run start`            | Run the production server.                                                   |
 | `npm run collab`           | Run the standalone Yjs collaboration server.                                 |
@@ -131,11 +136,21 @@ fixtures, generators, and docs to the current shape instead.
 
 ## Quality Gate
 
-Before merging behavior changes, run the relevant checks:
+Before merging behavior changes, run the local CI parity command or the same
+stages directly:
 
 ```bash
+npm run ci:local
+```
+
+The required fast gate is:
+
+```bash
+export DB_PROVIDER=sqlite DATABASE_URL="file:./prisma/dev.db" AUTH_SECRET=ci-placeholder
+npm run db:schema:check
 npm test
 npm run typecheck
+npm run typecheck:unused
 npm run lint
 npm run format:check
 ```
