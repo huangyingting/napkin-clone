@@ -11,11 +11,54 @@ import {
   type SerializedLexicalNode,
   type Spread,
 } from "lexical";
-import type { JSX } from "react";
+import { createContext, useContext, type JSX, type ReactNode } from "react";
 
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
-import { VisualCard } from "./visual-card";
+export type VisualNodeRendererProps = {
+  nodeKey: string;
+  visual: Visual;
+  visualId: string;
+};
+
+type RenderVisualNode = (props: VisualNodeRendererProps) => ReactNode;
+
+const VisualNodeRendererContext = createContext<RenderVisualNode | null>(null);
+
+function FallbackVisualNodeRenderer({
+  visualId,
+}: VisualNodeRendererProps): JSX.Element {
+  return (
+    <div
+      data-lexical-visual-id={visualId}
+      data-lexical-visual-renderer="missing"
+    >
+      Visual unavailable
+    </div>
+  );
+}
+
+function VisualNodeDecoration(props: VisualNodeRendererProps): JSX.Element {
+  const renderVisualNode = useContext(VisualNodeRendererContext);
+  if (renderVisualNode) {
+    return <>{renderVisualNode(props)}</>;
+  }
+  return <FallbackVisualNodeRenderer {...props} />;
+}
+
+export function VisualNodeRendererProvider({
+  renderVisualNode,
+  children,
+}: {
+  renderVisualNode: RenderVisualNode;
+  children: ReactNode;
+}): JSX.Element {
+  return (
+    <VisualNodeRendererContext.Provider value={renderVisualNode}>
+      {children}
+    </VisualNodeRendererContext.Provider>
+  );
+}
 
 /**
  * Serialized shape persisted into `contentJson`. The `visual` payload is the
@@ -161,7 +204,7 @@ export class VisualNode extends DecoratorNode<JSX.Element> {
 
   decorate(): JSX.Element {
     return (
-      <VisualCard
+      <VisualNodeDecoration
         nodeKey={this.getKey()}
         visual={this.__visual}
         visualId={this.__visualId}

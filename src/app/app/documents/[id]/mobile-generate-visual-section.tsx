@@ -18,7 +18,7 @@ import { useEditorContext } from "@/lib/lexical/editor-context";
 import { generateTargetForContext } from "@/lib/visual/generate";
 import type { Visual } from "@/lib/visual/schema";
 
-import { $createVisualNode } from "./visual-node";
+import { $createVisualNode } from "@/lib/lexical/visual-node";
 import { useVisualGeneration } from "./use-visual-generation";
 
 export function GenerateVisualSection() {

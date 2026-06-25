@@ -23,10 +23,7 @@ import {
 import type { InsertVisualPayload } from "@/lib/lexical/commands";
 import { createBlankVisual } from "@/lib/visual/blank";
 
-import {
-  $createVisualNode,
-  type VisualNode,
-} from "@/app/app/documents/[id]/visual-node";
+import { $createVisualNode, type VisualNode } from "@/lib/lexical/visual-node";
 
 /**
  * Resolves the top-level block node a new visual should be inserted *after*.

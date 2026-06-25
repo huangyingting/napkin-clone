@@ -2,45 +2,31 @@
 
 import { LinkNode } from "@lexical/link";
 import { ListItemNode, ListNode } from "@lexical/list";
-import { CollaborationPlugin } from "@lexical/react/LexicalCollaborationPlugin";
 import { LexicalCollaboration } from "@lexical/react/LexicalCollaborationContext";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { HorizontalRuleNode } from "@lexical/react/LexicalHorizontalRuleNode";
-import { HorizontalRulePlugin } from "@lexical/react/LexicalHorizontalRulePlugin";
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { ContentEditable } from "@lexical/react/LexicalContentEditable";
-import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
-import { LinkPlugin } from "@lexical/react/LexicalLinkPlugin";
-import { ListPlugin } from "@lexical/react/LexicalListPlugin";
-import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
-import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
-import {
-  $getRoot,
-  HISTORIC_TAG,
-  type EditorState,
-  type EditorThemeClasses,
-  type Klass,
-  type LexicalNode,
-} from "lexical";
+import type { EditorThemeClasses, Klass, LexicalNode } from "lexical";
 import { SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useLexicalCollaboration } from "@/lib/collab/use-lexical-collaboration";
 import { useYText } from "@/lib/collab/use-collaboration";
 import type { DocumentEditorViewModel } from "@/lib/document-editor/view-model";
 import { readingTimeMinutes, wordCount } from "@/lib/document-stats";
+import { createEditorPlugin, EditorPluginHost } from "@/lib/lexical/editor-api";
 import { EditorContextProvider } from "@/lib/lexical/editor-context";
+import { createCoreEditorPlugins } from "@/lib/lexical/editor-plugins";
+import { shouldAutosaveUpdate } from "@/lib/lexical/import-persistence";
+import { ensureLexicalBlockIdSupport } from "@/lib/lexical/block-id-runtime";
+import { useLexicalAutosave } from "@/lib/lexical/use-autosave";
+import { useCollaborationEditable } from "@/lib/lexical/use-collaboration-gate";
 import {
-  BLOCK_ID_REPAIR_TAG,
-  shouldAutosaveUpdate,
-} from "@/lib/lexical/import-persistence";
-import {
-  $ensureBlockIdsInDocument,
-  ensureLexicalBlockIdSupport,
-  registerBlockIdTransforms,
-} from "@/lib/lexical/block-id-runtime";
+  VisualNode,
+  VisualNodeRendererProvider,
+  type VisualNodeRendererProps,
+} from "@/lib/lexical/visual-node";
 
 import { saveDocumentLexical } from "./actions";
 import { BlockSparkPlugin } from "./block-spark";
@@ -67,7 +53,7 @@ import { ShareButton } from "./share-button";
 import { TagControl } from "./tag-control";
 import { UndoRedoControls } from "./undo-redo-controls";
 import { VersionHistoryPanel } from "./version-history-panel";
-import { VisualNode } from "./visual-node";
+import { VisualCard } from "./visual-card";
 import { VisualPanelProvider } from "./visual-panel-context";
 import { RightSurfaceProvider } from "./right-surface-context";
 
@@ -114,127 +100,12 @@ function onError(error: Error) {
   console.error(error);
 }
 
-type SaveStatus = "saved" | "pending" | "saving" | "error";
-
-const STATUS_LABEL: Record<SaveStatus, string> = {
+const STATUS_LABEL = {
   saved: "All changes saved",
   pending: "Unsaved changes…",
   saving: "Saving…",
   error: "Couldn't save changes",
-};
-
-// How long to wait after the last keystroke before persisting.
-const SAVE_DEBOUNCE_MS = 800;
-
-/**
- * Mirrors the collaboration ready-gate onto the Lexical editor: editing stays
- * disabled until the room has synced (or the degraded fallback fires), so no one
- * types before the shared document is bootstrapped from the database.
- */
-function EditableGate({ editable }: { editable: boolean }) {
-  const [editor] = useLexicalComposerContext();
-  useEffect(() => {
-    editor.setEditable(editable);
-  }, [editor, editable]);
-  return null;
-}
-
-/**
- * Seeds the editor from the database when collaboration is unavailable.
- *
- * Content normally arrives via the `CollaborationPlugin`, which bootstraps the
- * shared Yjs document from `initialStateJson` — but only on the provider's
- * `sync` event. When the collab server can't be reached (e.g. the websocket port
- * isn't forwarded) the room degrades to local-only mode and that `sync` event
- * never fires, leaving the editor blank even though the database holds content.
- * Since the database is the durable source of truth, this fallback parses the
- * serialized state and loads it directly so the document is never empty. It runs
- * once, only while degraded and unsynced, and only if the editor is still empty.
- */
-function LocalFallbackSeedPlugin({
-  initialStateJson,
-  degraded,
-  synced,
-}: {
-  initialStateJson: string | null;
-  degraded: boolean;
-  synced: boolean;
-}) {
-  const [editor] = useLexicalComposerContext();
-  const seededRef = useRef(false);
-  useEffect(() => {
-    if (seededRef.current || synced || !degraded || !initialStateJson) {
-      return;
-    }
-    const isEmpty = editor
-      .getEditorState()
-      .read(
-        () =>
-          $getRoot().getTextContent() === "" &&
-          $getRoot().getChildrenSize() <= 1,
-      );
-    if (!isEmpty) {
-      seededRef.current = true;
-      return;
-    }
-    seededRef.current = true;
-    let cancelled = false;
-    queueMicrotask(() => {
-      if (cancelled) {
-        return;
-      }
-      try {
-        const parsed = editor.parseEditorState(initialStateJson);
-        editor.setEditorState(parsed, { tag: HISTORIC_TAG });
-      } catch (error) {
-        console.error("Failed to seed editor from database fallback", error);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [editor, initialStateJson, degraded, synced]);
-  return null;
-}
-
-/**
- * Reports the document's live plain-text content (across local *and* remote
- * edits) so the editor can show reading time and word count (US-024). Uses the
- * editor's text content directly and fires on every update, so the stats stay in
- * sync as collaborators type.
- */
-function DocumentStatsPlugin({ onText }: { onText: (text: string) => void }) {
-  const [editor] = useLexicalComposerContext();
-  useEffect(() => {
-    const read = (state: EditorState) => {
-      state.read(() => {
-        onText($getRoot().getTextContent());
-      });
-    };
-    read(editor.getEditorState());
-    return editor.registerUpdateListener(({ editorState }) => {
-      read(editorState);
-    });
-  }, [editor, onText]);
-  return null;
-}
-
-function DurableBlockIdPlugin() {
-  const [editor] = useLexicalComposerContext();
-
-  useEffect(() => {
-    const unregisterTransforms = registerBlockIdTransforms(editor);
-    editor.update(
-      () => {
-        $ensureBlockIdsInDocument();
-      },
-      { discrete: true, tag: BLOCK_ID_REPAIR_TAG },
-    );
-    return unregisterTransforms;
-  }, [editor]);
-
-  return null;
-}
+} as const;
 
 function DocumentStyleButton({ disabled }: { disabled: boolean }) {
   const [open, setOpen] = useState(false);
@@ -380,12 +251,7 @@ export function LexicalEditor({
   // Editing is enabled only with permission AND once collaboration is ready
   // (synced, or a degraded local-only fallback), so no one edits before the
   // shared document is bootstrapped from the database.
-  const editable = canEdit && collab.ready;
-
-  const [status, setStatus] = useState<SaveStatus>("saved");
-
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const latestJsonRef = useRef<string | null>(null);
+  const editable = useCollaborationEditable(canEdit, collab.ready);
 
   // Ref for the editor content area — used by PageBreakIndicator.
   const contentAreaRef = useRef<HTMLDivElement | null>(null);
@@ -418,59 +284,14 @@ export function LexicalEditor({
   const words = wordCount(statsText);
   const minutes = readingTimeMinutes(statsText);
 
-  const save = useCallback(async () => {
-    const json = latestJsonRef.current;
-    if (json === null) {
-      return;
-    }
-    setStatus("saving");
-    try {
-      const res = await saveDocumentLexical(documentId, json);
-      if (!res.ok) {
-        console.error(res.error);
-        setStatus("error");
-        return;
-      }
-      // Only flip to "saved" if nothing newer was queued while saving.
-      if (latestJsonRef.current === json) {
-        setStatus("saved");
-      }
-    } catch (error) {
-      console.error(error);
-      setStatus("error");
-    }
-  }, [documentId]);
-
-  const handleChange = useCallback(
-    (editorState: EditorState, _editor: unknown, tags: Set<string>) => {
-      // Remote CRDT merges and collaborative undo are tagged and skipped; only
-      // the client that made a local edit persists it to the database (US-003).
-      // Explicit imports (IMPORT_TAG) are user-initiated replacements that must
-      // persist even though they replace the whole document — see
-      // `shouldAutosaveUpdate`.
-      if (!shouldAutosaveUpdate(tags)) {
-        return;
-      }
-      latestJsonRef.current = JSON.stringify(editorState.toJSON());
-      setStatus("pending");
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
-      timerRef.current = setTimeout(() => {
-        void save();
-      }, SAVE_DEBOUNCE_MS);
-    },
-    [save],
+  const saveLexical = useCallback(
+    (json: string) => saveDocumentLexical(documentId, json),
+    [documentId],
   );
-
-  // Clear any pending debounce timer on unmount.
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
-    };
-  }, []);
+  const { status, handleChange } = useLexicalAutosave({
+    save: saveLexical,
+    shouldAutosaveUpdate,
+  });
 
   const initialConfig = {
     namespace: "TextIQLexicalEditor",
@@ -483,249 +304,250 @@ export function LexicalEditor({
     editable: false,
   };
 
-  // Body save indicator: error wins, then saving, then pending, else saved.
-  const saveStatus: SaveStatus =
-    status === "error"
-      ? "error"
-      : status === "saving"
-        ? "saving"
-        : status === "pending"
-          ? "pending"
-          : "saved";
+  const saveStatus = status;
   const { ref: editorHeaderRef, mode: editorHeaderMode } =
     useEditorHeaderMode();
   const toolbarLabels = editorHeaderMode === "full" ? "show" : "hide";
   const headerStacked = editorHeaderMode === "stacked";
   const headerFull = editorHeaderMode === "full";
+  const corePlugins = useMemo(
+    () =>
+      createCoreEditorPlugins({
+        documentId,
+        providerFactory: collab.providerFactory,
+        initialStateJson,
+        userName,
+        cursorColor: collab.cursorColor,
+        ready: collab.ready,
+        degraded: collab.degraded,
+        synced: collab.synced,
+        editable,
+        onText: handleStatsText,
+        onChange: handleChange,
+      }),
+    [
+      documentId,
+      collab.providerFactory,
+      initialStateJson,
+      userName,
+      collab.cursorColor,
+      collab.ready,
+      collab.degraded,
+      collab.synced,
+      editable,
+      handleStatsText,
+      handleChange,
+    ],
+  );
+  const documentPlugins = useMemo(
+    () => [
+      createEditorPlugin("insert-menu", () => <InsertMenuPlugin />),
+      createEditorPlugin("block-spark", () => <BlockSparkPlugin />),
+      createEditorPlugin("insert-visual", () => <InsertVisualPlugin />),
+      createEditorPlugin("floating-text-toolbar", () => (
+        <FloatingTextToolbar />
+      )),
+      createEditorPlugin("inline-comments", () => (
+        <InlineCommentsLayer
+          documentId={documentId}
+          initialComments={initialComments}
+        />
+      )),
+    ],
+    [documentId, initialComments],
+  );
+  const renderVisualNode = useCallback(
+    (props: VisualNodeRendererProps) => <VisualCard {...props} />,
+    [],
+  );
 
   return (
     <main className="flex flex-1 flex-col bg-ds-surface-sunken">
       <LexicalCollaboration>
         <LexicalComposer initialConfig={initialConfig}>
           <VisualSvgRegistryProvider>
-            <RightSurfaceProvider>
-              {/* `z-sticky` keeps this in-page toolbar above the article column
+            <VisualNodeRendererProvider renderVisualNode={renderVisualNode}>
+              <RightSurfaceProvider>
+                {/* `z-sticky` keeps this in-page toolbar above the article column
                 below it (which is z-base), while staying below the global site
                 header (`z-header`) so the header's user/language menus can open
                 over this bar. The toolbar's own Share/Export menus are children
                 of this stacking context and open downward over the article. */}
-              <div
-                ref={editorHeaderRef}
-                data-toolbar-labels={toolbarLabels}
-                className={cx(
-                  "relative z-sticky flex gap-2 border-b border-ds-border-subtle bg-ds-surface-chrome px-3 py-2 backdrop-blur sm:px-6",
-                  headerStacked
-                    ? "flex-col"
-                    : "flex-row items-center justify-between",
-                )}
-              >
                 <div
+                  ref={editorHeaderRef}
+                  data-toolbar-labels={toolbarLabels}
                   className={cx(
-                    "flex shrink-0 items-center gap-3",
+                    "relative z-sticky flex gap-2 border-b border-ds-border-subtle bg-ds-surface-chrome px-3 py-2 backdrop-blur sm:px-6",
                     headerStacked
-                      ? "w-full justify-between"
-                      : "w-auto justify-start",
+                      ? "flex-col"
+                      : "flex-row items-center justify-between",
                   )}
                 >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <Link
-                      href="/app"
-                      className="w-fit shrink-0 text-xs font-medium text-ds-text-muted transition hover:text-ds-text-primary"
-                    >
-                      ← Back
-                    </Link>
-                    {workspaceName && (
-                      <>
-                        <span className="text-xs text-ds-border-strong">·</span>
-                        <span className="max-w-36 truncate text-xs text-ds-text-muted">
-                          {workspaceName}
-                        </span>
-                      </>
+                  <div
+                    className={cx(
+                      "flex shrink-0 items-center gap-3",
+                      headerStacked
+                        ? "w-full justify-between"
+                        : "w-auto justify-start",
                     )}
-                    {!canEdit && (
-                      <>
-                        <span className="text-xs text-ds-border-strong">·</span>
-                        <span className="rounded-full bg-ds-surface-sunken px-2 py-0.5 text-xs font-medium text-ds-text-secondary">
-                          Read-only
-                        </span>
-                      </>
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Link
+                        href="/app"
+                        className="w-fit shrink-0 text-xs font-medium text-ds-text-muted transition hover:text-ds-text-primary"
+                      >
+                        ← Back
+                      </Link>
+                      {workspaceName && (
+                        <>
+                          <span className="text-xs text-ds-border-strong">
+                            ·
+                          </span>
+                          <span className="max-w-36 truncate text-xs text-ds-text-muted">
+                            {workspaceName}
+                          </span>
+                        </>
+                      )}
+                      {!canEdit && (
+                        <>
+                          <span className="text-xs text-ds-border-strong">
+                            ·
+                          </span>
+                          <span className="rounded-full bg-ds-surface-sunken px-2 py-0.5 text-xs font-medium text-ds-text-secondary">
+                            Read-only
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <div className={cx("shrink-0", !headerStacked && "hidden")}>
+                      <Presence peers={collab.peers} status={collab.status} />
+                    </div>
+                  </div>
+
+                  <div
+                    className={cx(
+                      "flex min-w-0 flex-1 items-center gap-1 overscroll-x-contain whitespace-nowrap py-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+                      headerFull
+                        ? "justify-end gap-2 overflow-visible"
+                        : headerStacked
+                          ? "justify-end overflow-x-auto"
+                          : "justify-end overflow-x-auto",
                     )}
-                  </div>
-                  <div className={cx("shrink-0", !headerStacked && "hidden")}>
-                    <Presence peers={collab.peers} status={collab.status} />
-                  </div>
-                </div>
-
-                <div
-                  className={cx(
-                    "flex min-w-0 flex-1 items-center gap-1 overscroll-x-contain whitespace-nowrap py-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-                    headerFull
-                      ? "justify-end gap-2 overflow-visible"
-                      : headerStacked
-                        ? "justify-end overflow-x-auto"
-                        : "justify-end overflow-x-auto",
-                  )}
-                >
-                  <div className={cx("shrink-0", headerStacked && "hidden")}>
-                    <Presence peers={collab.peers} status={collab.status} />
-                  </div>
-                  {canEdit && (
-                    <EditorToolbarGroup label="Edit document">
-                      <ImportPlugin />
-                      <UndoRedoControls editable={editable} />
-                    </EditorToolbarGroup>
-                  )}
-
-                  {canEdit && <EditorToolbarDivider />}
-
-                  <EditorToolbarGroup label="Document style and page guides">
-                    {canEdit && <DocumentStyleButton disabled={!editable} />}
-                    <PageGuidesButton
-                      showPageBreaks={showPageBreaks}
-                      onToggle={() => setShowPageBreaks((v) => !v)}
-                    />
-                  </EditorToolbarGroup>
-
-                  <EditorToolbarDivider />
-
-                  <EditorToolbarGroup label="Create and present">
+                  >
+                    <div className={cx("shrink-0", headerStacked && "hidden")}>
+                      <Presence peers={collab.peers} status={collab.status} />
+                    </div>
                     {canEdit && (
-                      <SlideEditorButton
+                      <EditorToolbarGroup label="Edit document">
+                        <ImportPlugin />
+                        <UndoRedoControls editable={editable} />
+                      </EditorToolbarGroup>
+                    )}
+
+                    {canEdit && <EditorToolbarDivider />}
+
+                    <EditorToolbarGroup label="Document style and page guides">
+                      {canEdit && <DocumentStyleButton disabled={!editable} />}
+                      <PageGuidesButton
+                        showPageBreaks={showPageBreaks}
+                        onToggle={() => setShowPageBreaks((v) => !v)}
+                      />
+                    </EditorToolbarGroup>
+
+                    <EditorToolbarDivider />
+
+                    <EditorToolbarGroup label="Create and present">
+                      {canEdit && (
+                        <SlideEditorButton
+                          documentId={documentId}
+                          initialDeckJson={initialDeckJson}
+                          initialContentJson={initialStateJson}
+                        />
+                      )}
+                      <PresentButton
                         documentId={documentId}
                         initialDeckJson={initialDeckJson}
-                        initialContentJson={initialStateJson}
-                      />
-                    )}
-                    <PresentButton
-                      documentId={documentId}
-                      initialDeckJson={initialDeckJson}
-                      documentTitle={title.value}
-                    />
-                    <DocumentExportButton
-                      documentTitle={title.value}
-                      documentId={documentId}
-                      initialDeckJson={initialDeckJson}
-                    />
-                  </EditorToolbarGroup>
-
-                  <EditorToolbarDivider />
-
-                  <EditorToolbarGroup label="Collaborate and review">
-                    {canManage && (
-                      <ShareButton
-                        id={documentId}
-                        initialIsShared={initialIsShared}
-                        initialShareId={initialShareId}
-                        initialSlug={initialSlug}
-                        initialExpiresAt={initialShareExpiresAt}
-                        initialEmbedEnabled={initialShareEmbedEnabled}
-                        initialPresentEnabled={initialSharePresentEnabled}
                         documentTitle={title.value}
                       />
-                    )}
-                    <VersionHistoryPanel
-                      documentId={documentId}
-                      canEdit={canEdit}
-                    />
-                  </EditorToolbarGroup>
-                </div>
-              </div>
+                      <DocumentExportButton
+                        documentTitle={title.value}
+                        documentId={documentId}
+                        initialDeckJson={initialDeckJson}
+                      />
+                    </EditorToolbarGroup>
 
-              <EditorContextProvider>
-                <VisualPanelProvider>
-                  {/* Reading layout with context-aware floating toolboxes on
+                    <EditorToolbarDivider />
+
+                    <EditorToolbarGroup label="Collaborate and review">
+                      {canManage && (
+                        <ShareButton
+                          id={documentId}
+                          initialIsShared={initialIsShared}
+                          initialShareId={initialShareId}
+                          initialSlug={initialSlug}
+                          initialExpiresAt={initialShareExpiresAt}
+                          initialEmbedEnabled={initialShareEmbedEnabled}
+                          initialPresentEnabled={initialSharePresentEnabled}
+                          documentTitle={title.value}
+                        />
+                      )}
+                      <VersionHistoryPanel
+                        documentId={documentId}
+                        canEdit={canEdit}
+                      />
+                    </EditorToolbarGroup>
+                  </div>
+                </div>
+
+                <EditorContextProvider>
+                  <VisualPanelProvider>
+                    {/* Reading layout with context-aware floating toolboxes on
                       fine pointers and a bottom-sheet fallback on coarse pointers. */}
-                  <div className="flex flex-1 overflow-hidden">
-                    {/* Article column */}
-                    <div className="flex flex-1 min-w-0 justify-center px-4 py-6 sm:px-6 sm:py-8">
-                      <div className="w-full max-w-5xl">
-                        <div
-                          ref={contentAreaRef}
-                          className="relative rounded-2xl border border-ds-border-subtle bg-ds-surface-raised p-4 sm:p-6"
-                        >
-                          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-ds-border-subtle pb-3">
-                            <TagControl
-                              documentId={documentId}
-                              initialTags={initialTags}
-                              allTags={allTags}
-                              editable={canEdit}
-                            />
-                            <div className="flex flex-wrap items-center gap-3 text-xs text-ds-text-muted">
-                              <span aria-label="Document statistics">
-                                {minutes} min read · {words}{" "}
-                                {words === 1 ? "word" : "words"}
-                              </span>
-                              <span role="status" aria-live="polite">
-                                {STATUS_LABEL[saveStatus]}
-                              </span>
+                    <div className="flex flex-1 overflow-hidden">
+                      {/* Article column */}
+                      <div className="flex flex-1 min-w-0 justify-center px-4 py-6 sm:px-6 sm:py-8">
+                        <div className="w-full max-w-5xl">
+                          <div
+                            ref={contentAreaRef}
+                            className="relative rounded-2xl border border-ds-border-subtle bg-ds-surface-raised p-4 sm:p-6"
+                          >
+                            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-ds-border-subtle pb-3">
+                              <TagControl
+                                documentId={documentId}
+                                initialTags={initialTags}
+                                allTags={allTags}
+                                editable={canEdit}
+                              />
+                              <div className="flex flex-wrap items-center gap-3 text-xs text-ds-text-muted">
+                                <span aria-label="Document statistics">
+                                  {minutes} min read · {words}{" "}
+                                  {words === 1 ? "word" : "words"}
+                                </span>
+                                <span role="status" aria-live="polite">
+                                  {STATUS_LABEL[saveStatus]}
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                          {showPageBreaks && (
-                            <PageBreakIndicator
-                              contentRef={contentAreaRef}
-                              pageSize="a4"
-                            />
-                          )}
-                          <div className="relative">
-                            <RichTextPlugin
-                              contentEditable={
-                                <ContentEditable
-                                  aria-label="Document body"
-                                  className="ds-prose min-h-[16rem] outline-none"
-                                />
-                              }
-                              placeholder={
-                                <div className="pointer-events-none absolute left-0 top-0 text-base text-ds-text-muted">
-                                  {collab.ready
-                                    ? "Start writing…"
-                                    : "Connecting…"}
-                                </div>
-                              }
-                              ErrorBoundary={LexicalErrorBoundary}
+                            {showPageBreaks && (
+                              <PageBreakIndicator
+                                contentRef={contentAreaRef}
+                                pageSize="a4"
+                              />
+                            )}
+                            <EditorPluginHost
+                              plugins={[...corePlugins, ...documentPlugins]}
                             />
                           </div>
-                          <CollaborationPlugin
-                            id={documentId}
-                            providerFactory={collab.providerFactory}
-                            shouldBootstrap
-                            initialEditorState={initialStateJson ?? null}
-                            username={userName}
-                            cursorColor={collab.cursorColor}
-                          />
-                          <DurableBlockIdPlugin />
-                          <EditableGate editable={editable} />
-                          <LocalFallbackSeedPlugin
-                            initialStateJson={initialStateJson}
-                            degraded={collab.degraded}
-                            synced={collab.synced}
-                          />
-                          <DocumentStatsPlugin onText={handleStatsText} />
-                          <ListPlugin />
-                          <LinkPlugin />
-                          <HorizontalRulePlugin />
-                          <InsertMenuPlugin />
-                          <BlockSparkPlugin />
-                          <InsertVisualPlugin />
-                          <FloatingTextToolbar />
-                          <OnChangePlugin
-                            onChange={handleChange}
-                            ignoreSelectionChange
-                            ignoreHistoryMergeTagChange
-                          />
-                          <InlineCommentsLayer
-                            documentId={documentId}
-                            initialComments={initialComments}
-                          />
                         </div>
                       </div>
-                    </div>
 
-                    {/* Context toolbox host — visual/text popovers on fine pointers, sheet on coarse pointers */}
-                    <MobileEditingSheetHost editable={editable} />
-                  </div>
-                </VisualPanelProvider>
-              </EditorContextProvider>
-            </RightSurfaceProvider>
+                      {/* Context toolbox host — visual/text popovers on fine pointers, sheet on coarse pointers */}
+                      <MobileEditingSheetHost editable={editable} />
+                    </div>
+                  </VisualPanelProvider>
+                </EditorContextProvider>
+              </RightSurfaceProvider>
+            </VisualNodeRendererProvider>
           </VisualSvgRegistryProvider>
         </LexicalComposer>
       </LexicalCollaboration>

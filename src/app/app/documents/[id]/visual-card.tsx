@@ -35,7 +35,11 @@ import type { VisualCommandPayload } from "@/lib/commands/visual-commands";
 import { useEditingSurface } from "./use-editing-surface";
 import { VisualContextPopover } from "./visual-context-popover";
 import { VisualEditor } from "./visual-editor";
-import { $isVisualNode, $createVisualNode, VisualNode } from "./visual-node";
+import {
+  $isVisualNode,
+  $createVisualNode,
+  VisualNode,
+} from "@/lib/lexical/visual-node";
 import { useVisualPanel } from "./visual-panel-context";
 
 // Block types whose text content can serve as a visual's source anchor.

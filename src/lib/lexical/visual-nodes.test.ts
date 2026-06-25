@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import type { Visual } from "@/lib/visual/schema";
 
-import { collectVisualNodes } from "./visual-nodes";
+import { collectVisualNodes } from "@/lib/lexical/visual-nodes";
 
 function visual(id: string): Visual {
   return {

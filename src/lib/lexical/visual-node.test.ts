@@ -7,7 +7,11 @@ import { $getRoot } from "lexical";
 import { FIXTURES } from "@/lib/visual/fixtures";
 import { safeParseVisual } from "@/lib/visual/schema";
 
-import { $createVisualNode, $isVisualNode, VisualNode } from "./visual-node";
+import {
+  $createVisualNode,
+  $isVisualNode,
+  VisualNode,
+} from "@/lib/lexical/visual-node";
 
 function makeEditor() {
   return createHeadlessEditor({

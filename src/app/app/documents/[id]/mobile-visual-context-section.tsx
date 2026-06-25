@@ -16,7 +16,7 @@ import type { Visual } from "@/lib/visual/schema";
 
 import { VisualContextPopover } from "./visual-context-popover";
 import { useVisualPanel } from "./visual-panel-context";
-import { $isVisualNode, VisualNode } from "./visual-node";
+import { $isVisualNode, VisualNode } from "@/lib/lexical/visual-node";
 
 const SOURCE_TEXT_BLOCK_TYPES = new Set([
   "paragraph",

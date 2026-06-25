@@ -34,8 +34,8 @@ export type InsertVisualPayload = {
 /**
  * Inserts a blank (deterministically seeded) visual block into the document.
  * Dispatch with `editor.dispatchCommand(INSERT_VISUAL_COMMAND, { kind })`. The
- * handler ({@link "../../app/app/documents/[id]/insert-visual-plugin"}) builds a
- * `VisualNode` and inserts + selects it, all within a single `editor.update()`.
+ * registered handler builds a `VisualNode` and inserts + selects it, all within
+ * a single `editor.update()`.
  */
 export const INSERT_VISUAL_COMMAND: LexicalCommand<InsertVisualPayload> =
   createCommand("INSERT_VISUAL_COMMAND");

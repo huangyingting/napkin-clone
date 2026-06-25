@@ -47,7 +47,7 @@ import {
   DOCUMENT_GUTTER_BUTTON_SIZE,
   leftGutterButtonLeft,
 } from "./document-gutter";
-import { $createVisualNode } from "./visual-node";
+import { $createVisualNode } from "@/lib/lexical/visual-node";
 import {
   DEFAULT_EXPANDED_VISUAL_CATEGORIES,
   type GenOptions,

@@ -28,15 +28,13 @@ import {
 
 import { FIXTURES } from "@/lib/visual/fixtures";
 
-import {
-  $createVisualNode,
-  VisualNode,
-} from "@/app/app/documents/[id]/visual-node";
+import { $createVisualNode, VisualNode } from "@/lib/lexical/visual-node";
 
 import {
   readSelectionDescriptor,
+  stableSelectionSnapshot,
   type SelectionDescriptor,
-} from "./editor-context";
+} from "./selection-snapshot";
 
 /**
  * Headless editor wired with the SAME node set the app registers in
@@ -326,4 +324,29 @@ test("blockText reflects the live block's text content", () => {
 
   assert.equal(descriptor.blockText, "first second");
   assert.ok(descriptor.blockKey, "expected a live blockKey for the paragraph");
+});
+
+test("stable selection snapshot keeps bid but strips live NodeKeys", () => {
+  const editor = makeEditor();
+  let blockKey = "";
+  const descriptor = derive(editor, () => {
+    const paragraph = $createParagraphNode() as ReturnType<
+      typeof $createParagraphNode
+    > & { __bid?: string };
+    paragraph.__bid = "bid-stable-1";
+    const text = $createTextNode("stable block");
+    paragraph.append(text);
+    $getRoot().clear().append(paragraph);
+    blockKey = paragraph.getKey();
+    text.select(0, 6);
+  });
+
+  assert.equal(descriptor.blockKey, blockKey);
+  assert.equal(descriptor.blockBid, "bid-stable-1");
+
+  const stable = stableSelectionSnapshot(descriptor);
+  assert.equal(stable.blockBid, "bid-stable-1");
+  assert.equal(JSON.stringify(stable).includes(blockKey), false);
+  assert.equal("blockKey" in stable, false);
+  assert.equal("selectedVisualNodeKey" in stable, false);
 });
