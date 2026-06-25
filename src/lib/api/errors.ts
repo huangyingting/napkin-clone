@@ -9,9 +9,11 @@
  *
  *   `NextResponse.json({ error, code }, { status })`
  *
- * The `error` field is the human-readable message (unchanged for callers that
- * already read it); `code` is a STABLE machine-readable identifier that UIs and
- * log pipelines can branch on without string-matching prose.
+ * The canonical helpers below include both fields: `error` is the
+ * human-readable message (unchanged for callers that already read it); `code` is
+ * a STABLE machine-readable identifier that UIs and log pipelines can branch on
+ * without string-matching prose. A few legacy upload routes still contractually
+ * return only `{ error }`; keep those opt-in helpers small and status-focused.
  *
  * IMPORTANT — privacy: these helpers do NOT encode any product policy about
  * WHICH status a route should return. Routes that must not leak the existence
@@ -41,6 +43,10 @@ export interface ApiErrorBody {
   code: ApiErrorCode;
 }
 
+export interface PlainApiErrorBody {
+  error: string;
+}
+
 function errorResponse(
   status: number,
   code: ApiErrorCode,
@@ -48,6 +54,35 @@ function errorResponse(
   headers?: Record<string, string>,
 ): NextResponse<ApiErrorBody> {
   return NextResponse.json({ error: message, code }, { status, headers });
+}
+
+/** JSON `{ error }` for routes whose public contract predates canonical codes. */
+export function jsonError(
+  message: string,
+  status: number,
+  headers?: Record<string, string>,
+): NextResponse<PlainApiErrorBody> {
+  return NextResponse.json({ error: message }, { status, headers });
+}
+
+/** 400 — the request body could not be parsed as multipart form data. */
+export function multipartFormDataError(): NextResponse<PlainApiErrorBody> {
+  return jsonError("Request must be multipart/form-data.", 400);
+}
+
+/** 429 — `{ error }` response with a positive `Retry-After` header. */
+export function rateLimitedJsonError(
+  retryAfterSeconds: number,
+  message: string,
+): NextResponse<PlainApiErrorBody> {
+  return jsonError(message, 429, {
+    "Retry-After": String(Math.ceil(retryAfterSeconds)),
+  });
+}
+
+/** Maps upload validation failures to their shared HTTP status. */
+export function uploadValidationStatus(error: { code: string }): 413 | 415 {
+  return error.code === "file_too_large" ? 413 : 415;
 }
 
 /** 401 — caller is not authenticated. */
