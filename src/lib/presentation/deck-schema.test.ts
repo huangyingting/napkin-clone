@@ -19,57 +19,51 @@ import {
   validateImageMaskShape,
   validateSourceRef,
 } from "./deck-schema";
-import { CURRENT_DECK_SCHEMA_VERSION } from "./deck";
+import {
+  buildDeck,
+  buildImageElement,
+  buildSlide,
+  buildSourceRef,
+  buildTextElement,
+} from "@/test/builders/deck";
 
 // ---------------------------------------------------------------------------
 // Current deck validation
 // ---------------------------------------------------------------------------
 
 function currentDeck(): unknown {
-  return deckFixture({
+  return buildDeck({
     theme: "default",
-    slide: slideFixture({
-      id: "sl-current",
-      title: "Current",
-      bullets: ["a", "b"],
-      layout: "content",
-      elements: [
-        {
-          id: "txt-1",
-          kind: "text",
-          text: "Current",
-          role: "title",
-          zIndex: 0,
-          box: { x: 6, y: 6, w: 88, h: 16 },
-          style: { fontSize: 6, bold: true, italic: false, align: "left" },
-        },
-      ],
-    }),
+    slides: [
+      buildSlide({
+        id: "sl-current",
+        title: "Current",
+        bullets: ["a", "b"],
+        layout: "content",
+        elements: [
+          buildTextElement({
+            id: "txt-1",
+            text: "Current",
+            role: "title",
+            zIndex: 0,
+            box: { x: 6, y: 6, w: 88, h: 16 },
+            style: { fontSize: 6, bold: true, italic: false, align: "left" },
+          }),
+        ],
+      }),
+    ],
   });
-}
-
-function deckFixture({
-  theme,
-  slide,
-}: {
-  theme: Deck["theme"];
-  slide: Record<string, unknown>;
-}): unknown {
-  return {
-    theme,
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
-    slides: [slide],
-  };
 }
 
 function imageElementDeck(overrides: Record<string, unknown> = {}): unknown {
   return elementDeck([
     {
-      id: "img-1",
-      kind: "image",
-      src: "https://example.com/a.png",
-      zIndex: 0,
-      box: { x: 8, y: 10, w: 32, h: 24 },
+      ...buildImageElement({
+        id: "img-1",
+        src: "https://example.com/a.png",
+        zIndex: 0,
+        box: { x: 8, y: 10, w: 32, h: 24 },
+      }),
       ...overrides,
     },
   ]);
@@ -122,15 +116,17 @@ test("safeParseDeck rejects an unknown slide format", () => {
 // ---------------------------------------------------------------------------
 
 function elementDeck(elements: unknown[]): unknown {
-  return deckFixture({
+  return buildDeck({
     theme: "indigo",
-    slide: slideFixture({
-      id: "sl-element",
-      theme: "indigo",
-      background: "#101010",
-      accent: "#abcdef",
-      elements,
-    }),
+    slides: [
+      slideFixture({
+        id: "sl-element",
+        theme: "indigo",
+        background: "#101010",
+        accent: "#abcdef",
+        elements,
+      }) as unknown as Deck["slides"][number],
+    ],
   });
 }
 
@@ -138,54 +134,38 @@ function slideFixture(
   overrides: Record<string, unknown> = {},
 ): Record<string, unknown> {
   const theme = (overrides.theme as Deck["theme"] | undefined) ?? "default";
-  return {
+  return buildSlide({
+    theme,
     id: "sl-fixture",
-    index: 0,
     title: "",
     bullets: [],
-    visualIds: [],
     layout: "blank",
-    notes: "",
-    theme,
     elements: [],
     ...overrides,
-  };
+  } as Partial<Deck["slides"][number]>) as unknown as Record<string, unknown>;
 }
 
 function makeSourceRef(overrides: Partial<SourceRef> = {}): SourceRef {
-  const blockKind = overrides.blockKind ? overrides.blockKind : "text";
-  const sourceRef: SourceRef = {
-    documentId: overrides.documentId ?? "doc-1",
-    blockId: overrides.blockId ?? "block-1",
-    linkedAt: overrides.linkedAt ?? "2026-06-22T17:49:04.676Z",
-    blockKind,
-  };
-  if ("contentHash" in overrides) {
-    if (overrides.contentHash !== undefined) {
-      sourceRef.contentHash = overrides.contentHash;
-    }
-  } else {
-    sourceRef.contentHash = "hash-1";
-  }
-  if ("unlinked" in overrides && overrides.unlinked !== undefined) {
-    sourceRef.unlinked = overrides.unlinked;
-  }
-  return sourceRef;
+  return buildSourceRef({
+    documentId: "doc-1",
+    blockId: "block-1",
+    contentHash: "hash-1",
+    ...overrides,
+  });
 }
 
 function sourceLinkedTextElement(
   sourceRef: SourceRef = makeSourceRef(),
 ): TextElement {
-  return {
+  return buildTextElement({
     id: "linked-text",
-    kind: "text",
     role: "body",
     text: "Linked content",
     zIndex: 0,
     box: { x: 1, y: 2, w: 30, h: 12 },
     style: { fontSize: 4, bold: false, italic: false, align: "left" },
     sourceRef,
-  };
+  });
 }
 
 test("safeParseDeck round-trips every element kind", () => {

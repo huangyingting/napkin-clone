@@ -99,9 +99,10 @@ known users and a known document, and the specs run for real against it.
 - a second **private** (never-shared) document + asset used to assert
   protected-asset denial.
 
-All identifiers are constants in `e2e/helpers/profile.ts` (the single source of
-truth shared by the seed and the specs), and the seed emits the resolved values
-to `e2e/.e2e-fixture.json`. The **seeded document URL and share id are
+All identifiers and payload builders live in `src/test/builders/e2e-profile.ts`
+(the single source of truth shared by the seed and the specs through
+`e2e/helpers/profile.ts`), and the seed emits the resolved values to
+`e2e/.e2e-fixture.json`. The **seeded document URL and share id are
 deterministic**:
 
 - Document editor: `/app/documents/e2efixturedocument0000001`

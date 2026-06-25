@@ -3,71 +3,51 @@ import { test } from "node:test";
 
 import { MAX_INPUT_CHARS } from "@/lib/ai/generate";
 import type { Visual } from "@/lib/visual/schema";
+import {
+  FORMAT_BOLD,
+  FORMAT_CODE,
+  FORMAT_ITALIC,
+  buildContentJson as state,
+  buildHeadingNode as heading,
+  buildHorizontalRuleNode as hr,
+  buildListNode as list,
+  buildParagraphNode,
+  buildQuoteNode as quote,
+  buildTextNode,
+  buildVisualLexicalNode as visualNode,
+  type SerializedFixtureTextNode,
+  type SerializedFixtureRootChild,
+} from "@/test/builders/lexical";
+import {
+  buildVisual,
+  buildVisualMap as visualMap,
+  buildVisualNode,
+} from "@/test/builders/visual";
 import { buildDeckSource } from "./deck-source";
 
-// ---------------------------------------------------------------------------
-// Fixtures — mirror the Lexical serialised JSON shapes the editor emits
-// (matching content/document-blocks.test.ts / deck.test.ts).
-// ---------------------------------------------------------------------------
-
-const FORMAT_BOLD = 1;
-const FORMAT_ITALIC = 2;
-const FORMAT_CODE = 16;
-
 function visual(id: string, overrides: Partial<Visual> = {}): Visual {
-  return {
-    version: 1,
-    type: "flowchart",
+  const built = buildVisual({
     nodes: [
-      { id: `${id}-n1`, label: "Start" },
-      { id: `${id}-n2`, label: "Finish" },
+      buildVisualNode({ id: `${id}-n1`, label: "Start" }),
+      buildVisualNode({ id: `${id}-n2`, label: "Finish", x: 360 }),
     ],
     edges: [],
-    style: {},
     ...overrides,
-  } as unknown as Visual;
+  });
+  if (!("title" in overrides)) {
+    delete built.title;
+  }
+  return built;
 }
 
-function visualNode(visualId: string, v: Visual = visual(visualId)) {
-  return { type: "visual", visualId, visual: v };
+function text(value: string, format = 0): SerializedFixtureTextNode {
+  return buildTextNode(value, { format });
 }
 
-function text(value: string, format = 0) {
-  return { type: "text", text: value, format };
-}
-
-function paragraph(...children: unknown[]) {
-  return { type: "paragraph", children };
-}
-
-function heading(level: 1 | 2 | 3, value: string) {
-  return { type: "heading", tag: `h${level}`, children: [text(value)] };
-}
-
-function quote(value: string) {
-  return { type: "quote", children: [text(value)] };
-}
-
-function listItem(value: string) {
-  return { type: "listitem", children: [text(value)] };
-}
-
-function list(items: string[]) {
-  return { type: "list", tag: "ul", children: items.map(listItem) };
-}
-
-function hr() {
-  return { type: "horizontalrule" };
-}
-
-function state(children: unknown[]): string {
-  return JSON.stringify({ root: { type: "root", children } });
-}
-
-function visualMap(
-  ...visuals: Array<[string, Visual]>
-): ReadonlyMap<string, Visual> {
-  return new Map(visuals);
+function paragraph(
+  ...children: SerializedFixtureTextNode[]
+): SerializedFixtureRootChild {
+  return buildParagraphNode(children);
 }
 
 // ---------------------------------------------------------------------------
@@ -232,7 +212,7 @@ test("inventory falls back to the embedded visual when the map lacks it", () => 
 // ---------------------------------------------------------------------------
 
 test("huge document is truncated to MAX_INPUT_CHARS while retaining headings", () => {
-  const children: unknown[] = [];
+  const children: SerializedFixtureRootChild[] = [];
   const headingTexts: string[] = [];
   for (let i = 0; i < 200; i++) {
     const headingText = `Section ${i}`;
@@ -262,7 +242,7 @@ test("huge document is truncated to MAX_INPUT_CHARS while retaining headings", (
 });
 
 test("truncation is deterministic and never alters leading content", () => {
-  const children: unknown[] = [heading(1, "Top")];
+  const children: SerializedFixtureRootChild[] = [heading(1, "Top")];
   for (let i = 0; i < 500; i++) {
     children.push(paragraph(text(`para ${i} ` + "y".repeat(100))));
   }
@@ -277,7 +257,7 @@ test("truncation is deterministic and never alters leading content", () => {
 });
 
 test("small document reports truncated=false and keeps all content", () => {
-  const children: unknown[] = [
+  const children: SerializedFixtureRootChild[] = [
     heading(1, "Top"),
     paragraph(text("A short paragraph.")),
     heading(2, "Next"),

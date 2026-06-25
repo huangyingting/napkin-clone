@@ -1,6 +1,11 @@
-import { createHash } from "node:crypto";
-
 import type { Credentials } from "./auth";
+import {
+  E2E_PROFILE_FIXTURE,
+  fixtureAssetChecksum,
+  fixturePngBuffer,
+} from "@/test/builders/e2e-profile";
+
+export { E2E_PROFILE_FIXTURE, fixtureAssetChecksum, fixturePngBuffer };
 
 /**
  * Deterministic E2E profile fixture (Epic #517, issue #518).
@@ -21,56 +26,6 @@ import type { Credentials } from "./auth";
  * Base values may be overridden from the environment (e.g. to point at a
  * staging seed), but the defaults are the deterministic local fixture.
  */
-
-/** A tiny, fully-deterministic 1×1 transparent PNG used as the seeded asset. */
-export const FIXTURE_PNG_BASE64 =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
-
-/** Raw bytes of {@link FIXTURE_PNG_BASE64}. */
-export function fixturePngBuffer(): Buffer {
-  return Buffer.from(FIXTURE_PNG_BASE64, "base64");
-}
-
-/** SHA-256 hex digest of the fixture PNG bytes — drives the asset storage key. */
-export function fixtureAssetChecksum(): string {
-  return createHash("sha256").update(fixturePngBuffer()).digest("hex");
-}
-
-/**
- * The deterministic fixture. IDs are hyphen-free where they must round-trip
- * through `shareIdFromParam` (the shareId), and otherwise stable strings.
- */
-export const E2E_PROFILE_FIXTURE = {
-  owner: {
-    email: process.env.E2E_USER_EMAIL ?? "e2e-owner@textiq.test",
-    password: process.env.E2E_USER_PASSWORD ?? "e2e-owner-pw-2026",
-    name: "E2E Owner",
-  },
-  viewer: {
-    email: process.env.E2E_VIEWER_EMAIL ?? "e2e-viewer@textiq.test",
-    password: process.env.E2E_VIEWER_PASSWORD ?? "e2e-viewer-pw-2026",
-    name: "E2E Viewer",
-  },
-  workspaceId: "e2efixtureworkspace0000001",
-  documentId: "e2efixturedocument0000001",
-  /**
-   * A second, PRIVATE (never-shared) document owned by the same owner. Used to
-   * assert that an anonymous/unrelated request to a private slide asset is
-   * denied (403/404), in contrast to the shared `documentId` above whose asset
-   * is reachable through its public present/embed policy.
-   */
-  privateDocumentId: "e2efixtureprivatedoc00001",
-  visualId: "e2efixturevisual000000001",
-  /** Share id MUST be hyphen-free so `shareIdFromParam` recovers it. */
-  shareId: "e2efixtureshare01",
-  slug: "e2e-fixture-deck",
-  /** Text that the seeded deck's first slide renders (asserted in specs). */
-  slideTitleText: "Release Gate Fixture Slide",
-  slideBodyText: "Deterministic deck for the E2E release gate.",
-  /** Intro paragraph text embedded in the document's contentJson. */
-  documentBodyText: "E2E fixture document body for the release gate profile.",
-  documentTitle: "E2E Fixture Deck",
-} as const;
 
 /** Owner login credentials for the deterministic profile. */
 export function profileOwnerCredentials(): Credentials {

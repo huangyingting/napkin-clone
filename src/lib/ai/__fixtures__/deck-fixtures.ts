@@ -17,75 +17,85 @@
  */
 
 import type { Visual } from "@/lib/visual/schema";
+import {
+  buildContentJson,
+  buildHeadingNode,
+  buildHorizontalRuleNode,
+  buildListNode,
+  buildParagraphNode,
+  buildQuoteNode,
+  buildTextNode,
+  buildVisualLexicalNode,
+  type SerializedFixtureRootChild,
+  type SerializedFixtureTextNode,
+} from "@/test/builders/lexical";
+import {
+  buildVisual,
+  buildVisualMap,
+  buildVisualNode,
+} from "@/test/builders/visual";
 
 // ---------------------------------------------------------------------------
 // Lexical text-format bitmask flags (subset the editor uses for emphasis).
 // ---------------------------------------------------------------------------
 
-export const FORMAT_BOLD = 1;
-export const FORMAT_ITALIC = 2;
-export const FORMAT_CODE = 16;
-
-// ---------------------------------------------------------------------------
-// Lexical node builders — mirror the serialised JSON the editor emits.
-// ---------------------------------------------------------------------------
+export {
+  FORMAT_BOLD,
+  FORMAT_CODE,
+  FORMAT_ITALIC,
+} from "@/test/builders/lexical";
 
 export function visual(id: string, overrides: Partial<Visual> = {}): Visual {
-  return {
-    version: 1,
-    type: "flowchart",
+  return buildVisual({
     nodes: [
-      { id: `${id}-n1`, label: "Start" },
-      { id: `${id}-n2`, label: "Finish" },
+      buildVisualNode({ id: `${id}-n1`, label: "Start" }),
+      buildVisualNode({ id: `${id}-n2`, label: "Finish", x: 360 }),
     ],
     edges: [],
-    style: {},
     ...overrides,
-  } as unknown as Visual;
+  });
 }
 
 export function visualNode(visualId: string, v: Visual = visual(visualId)) {
-  return { type: "visual", visualId, visual: v };
+  return buildVisualLexicalNode(visualId, v);
 }
 
-export function text(value: string, format = 0) {
-  return { type: "text", text: value, format };
+export function text(value: string, format = 0): SerializedFixtureTextNode {
+  return buildTextNode(value, { format });
 }
 
-export function paragraph(...children: unknown[]) {
-  return { type: "paragraph", children };
+export function paragraph(
+  ...children: SerializedFixtureTextNode[]
+): SerializedFixtureRootChild {
+  return buildParagraphNode(children);
 }
 
 export function heading(level: 1 | 2 | 3, value: string) {
-  return { type: "heading", tag: `h${level}`, children: [text(value)] };
+  return buildHeadingNode(level, value);
 }
 
 export function quote(value: string) {
-  return { type: "quote", children: [text(value)] };
-}
-
-export function listItem(value: string) {
-  return { type: "listitem", children: [text(value)] };
+  return buildQuoteNode(value);
 }
 
 export function list(items: string[]) {
-  return { type: "list", tag: "ul", children: items.map(listItem) };
+  return buildListNode(items);
 }
 
 export function hr() {
-  return { type: "horizontalrule" };
+  return buildHorizontalRuleNode();
 }
 
 /** Serialises a list of root children into a Lexical editor-state string. */
-export function state(children: unknown[]): string {
-  return JSON.stringify({ root: { type: "root", children } });
+export function state(children: SerializedFixtureRootChild[]): string {
+  return buildContentJson(children);
 }
 
 /** Builds a `{ visualId → Visual }` map from id/visual pairs. */
 export function visualMap(
   ...visuals: Array<[string, Visual]>
 ): ReadonlyMap<string, Visual> {
-  return new Map(visuals);
+  return buildVisualMap(...visuals);
 }
 
 // ---------------------------------------------------------------------------
@@ -142,7 +152,7 @@ export const DOC_NO_VISUALS: string = state([
  * trims detail and reports `truncated === true` while keeping every heading.
  */
 export const DOC_HUGE: string = (() => {
-  const children: unknown[] = [heading(1, "Top")];
+  const children: SerializedFixtureRootChild[] = [heading(1, "Top")];
   for (let i = 0; i < 200; i++) {
     children.push(heading(2, `Section ${i}`));
     children.push(paragraph(text(`detail ${i} ` + "x".repeat(200))));

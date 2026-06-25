@@ -4,8 +4,8 @@ import { test } from "node:test";
 import { createHeadlessEditor } from "@lexical/headless";
 import { $getRoot } from "lexical";
 
-import { FIXTURES } from "@/lib/visual/fixtures";
 import { safeParseVisual } from "@/lib/visual/schema";
+import { buildVisual } from "@/test/builders/visual";
 
 import {
   $createVisualNode,
@@ -24,7 +24,7 @@ function makeEditor() {
 }
 
 test("serializes and deserializes a visual node round-trip", () => {
-  const visual = FIXTURES.flowchart;
+  const visual = buildVisual({ title: "Flow fixture" });
 
   const editor = makeEditor();
   editor.update(
@@ -49,7 +49,7 @@ test("serializes and deserializes a visual node round-trip", () => {
 });
 
 test("exportJSON includes the visual payload, id, and node type", () => {
-  const visual = FIXTURES.mindmap;
+  const visual = buildVisual({ type: "mindmap", title: "Mind map fixture" });
   const editor = makeEditor();
 
   editor.update(
@@ -73,7 +73,9 @@ test("generates a stable id when none is provided", () => {
   const editor = makeEditor();
   editor.update(
     () => {
-      $getRoot().clear().append($createVisualNode(FIXTURES.list));
+      $getRoot()
+        .clear()
+        .append($createVisualNode(buildVisual({ type: "list" })));
     },
     { discrete: true },
   );
@@ -91,7 +93,9 @@ test("generates a stable id when none is provided", () => {
 test("preserves an invalid payload through round-trip and flags it as invalid", () => {
   // The node stores whatever payload it is given; rendering uses safeParseVisual
   // to degrade gracefully, so a malformed visual must not break serialization.
-  const broken = { not: "a visual" } as unknown as (typeof FIXTURES)["chart"];
+  const broken = { not: "a visual" } as unknown as ReturnType<
+    typeof buildVisual
+  >;
 
   const editor = makeEditor();
   editor.update(

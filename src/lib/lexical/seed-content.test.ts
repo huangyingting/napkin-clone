@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { FIXTURES } from "@/lib/visual/fixtures";
 import { safeParseVisual } from "@/lib/visual/schema";
+import { buildVisual } from "@/test/builders/visual";
 
 import { buildSeedContentJson } from "./seed-content";
 
 const DEMO_VISUAL_ID = "demo-visual-id-abc123";
-const sampleVisual = FIXTURES.flowchart;
+const sampleVisual = buildVisual({ title: "Seed content visual" });
 
 test("returns a root node with exactly two children: paragraph + visual", () => {
   const state = buildSeedContentJson(
