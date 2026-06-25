@@ -1,7 +1,7 @@
 # TextIQ Documentation
 
 **Status:** Current  
-**Last updated:** 2026-06-23
+**Last updated:** 2026-06-25
 
 This folder documents the current design of the TextIQ editor, visual mirror,
 and slide deck system. The project is still in development, so these docs treat
@@ -18,6 +18,12 @@ workflow. They are separate from application-level old-data compatibility.
 | [architecture/README.md](architecture/README.md)                               | Architecture contracts grouped by data model, editor, and commands.             |
 | [operations/README.md](operations/README.md)                                   | Deployment, release gates, and operational runbooks.                            |
 | [architecture/editor/lexical-editor.md](architecture/editor/lexical-editor.md) | Lexical editor surfaces, tool registry, visual lifecycle, and deck autosave UX. |
+
+## Planning Backlogs
+
+| Document                                         | Purpose                                                                                |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| [refactoring-roadmap.md](refactoring-roadmap.md) | Planning backlog for refactoring epics and issues based on the current codebase audit. |
 
 ## Architecture Topics
 
