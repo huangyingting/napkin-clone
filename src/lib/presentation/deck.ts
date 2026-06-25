@@ -932,12 +932,6 @@ function clonePlaceholder(
   return next;
 }
 
-function restackElements(elements: readonly SlideElement[]): SlideElement[] {
-  return elements.map((element, index) =>
-    element.zIndex === index ? element : { ...element, zIndex: index },
-  );
-}
-
 export function layoutHintForReusableLayout(
   name: string,
 ): SlideLayoutHint | undefined {
@@ -952,47 +946,6 @@ export function layoutHintForReusableLayout(
     default:
       return undefined;
   }
-}
-
-function placeholderMatchKey(
-  placeholder: PlaceholderElement,
-  counts: Map<PlaceholderType, number>,
-): string {
-  const occurrence = counts.get(placeholder.placeholderType) ?? 0;
-  counts.set(placeholder.placeholderType, occurrence + 1);
-  return `${placeholder.placeholderType}:${occurrence}`;
-}
-
-function existingPlaceholderMap(
-  placeholders: readonly PlaceholderElement[],
-): Map<string, PlaceholderElement> {
-  const counts = new Map<PlaceholderType, number>();
-  const byKey = new Map<string, PlaceholderElement>();
-  for (const placeholder of placeholders) {
-    byKey.set(placeholderMatchKey(placeholder, counts), placeholder);
-  }
-  return byKey;
-}
-
-function applyPlaceholderSet(
-  layout: SlideLayout,
-  existing: readonly PlaceholderElement[],
-  preserveMatchingLabels: boolean,
-): PlaceholderElement[] {
-  const matched = existingPlaceholderMap(existing);
-  const counts = new Map<PlaceholderType, number>();
-  return layout.placeholders.map((placeholder) => {
-    const key = placeholderMatchKey(placeholder, counts);
-    const current = matched.get(key);
-    return clonePlaceholder(placeholder, {
-      id: current?.id ?? makeElementId(),
-      ...(preserveMatchingLabels &&
-      typeof current?.label === "string" &&
-      current.label.trim().length > 0
-        ? { label: current.label }
-        : {}),
-    });
-  });
 }
 
 function reusableLayoutBoxes(
@@ -1068,52 +1021,6 @@ function reusableLayoutBoxes(
     default:
       return [];
   }
-}
-
-/**
- * Applies a reusable layout's placeholders onto a slide, preserving all
- * non-placeholder elements already on that slide.
- */
-export function applyLayout(slide: Slide, layout: SlideLayout): Slide {
-  const existing = slide.elements ?? [];
-  const placeholders = existing.filter(
-    (element): element is PlaceholderElement => element.kind === "placeholder",
-  );
-  const preserved = existing.filter(
-    (element) => element.kind !== "placeholder",
-  );
-  const merged = restackElements([
-    ...applyPlaceholderSet(layout, placeholders, true),
-    ...preserved,
-  ]);
-  const hint = layoutHintForReusableLayout(layout.name);
-  return {
-    ...slide,
-    ...(hint ? { layout: hint } : {}),
-    elements: merged,
-    elementsDerived: false,
-  };
-}
-
-/**
- * Re-installs a reusable layout's placeholders from scratch, discarding any
- * existing placeholder instances while keeping free-form elements intact.
- */
-export function resetLayout(slide: Slide, layout: SlideLayout): Slide {
-  const preserved = (slide.elements ?? []).filter(
-    (element) => element.kind !== "placeholder",
-  );
-  const merged = restackElements([
-    ...applyPlaceholderSet(layout, [], false),
-    ...preserved,
-  ]);
-  const hint = layoutHintForReusableLayout(layout.name);
-  return {
-    ...slide,
-    ...(hint ? { layout: hint } : {}),
-    elements: merged,
-    elementsDerived: false,
-  };
 }
 
 const LAYOUT_META: Record<string, { title: string; description: string }> = {

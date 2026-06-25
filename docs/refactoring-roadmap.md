@@ -34,8 +34,6 @@ The audit passes found these pressure points:
 | Area                               | Current signal                                                                                          | Main risk                                                            |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | Persisted deck reads               | Mixed handling of string `deckJson` and parsed JSON objects                                             | Hidden compatibility branch and inconsistent fallback behavior       |
-| Presentation migration helpers     | `slide-role-inference` and `slide-slot-inference` are not used outside tests                            | Dead code plus docs that imply migration behavior that is not wired  |
-| Reusable layout commands           | Command payloads still carry flags for old layout behavior                                              | Current behavior and legacy behavior coexist in the same API         |
 | Brand assets                       | Legacy Prisma columns remain; DTO names still reuse `logoUrl` and `fontDataUrl` for derived asset URLs  | Old storage concepts leak into current runtime naming                |
 | Slide editor UI                    | `slide-editor.tsx`, `slide-stage-editor.tsx`, and `slide-inspector.tsx` are very large                  | Hard-to-review changes, repeated state wiring, brittle UI ownership  |
 | AI generation routes               | `/api/generate` and `/api/generate-deck` duplicate quota, credit, Azure, timeout, and error handling    | Security and billing behavior can drift between routes               |
@@ -188,80 +186,18 @@ silently parsed in runtime save/render paths.
 
 ## R2 - Remove Legacy Presentation Paths
 
-### Problem
+### Status
 
-Several presentation modules still carry legacy or migration language:
+Completed. Presentation runtime now has a single current layout command path:
+applying a layout preserves authored content, and resetting a layout only
+restores bound element positions without changing content, inserting
+placeholders, or reordering elements.
 
-- `src/lib/presentation/slide-role-inference.ts` stamps `textRole` on legacy
-  text-bearing elements, but production code does not call it.
-- `src/lib/presentation/slide-slot-inference.ts` infers `layoutSlot`, but
-  production code does not call it.
-- `src/lib/presentation/slide-commands.ts` has `preserveContent` and
-  `positionsOnly` flags whose false value keeps old layout behavior.
-- `src/lib/presentation/deck.ts` still exports `applyLayout` and `resetLayout`
-  paths that reinstall placeholders instead of using the newer preserving
-  layout semantics.
+Role/slot enrichment is not performed in the application layer. Legacy decks
+without those optional fields remain valid as-is; any future persisted stamping
+must be implemented as an explicit offline migration descriptor.
 
-This leaves old behavior beside current behavior and makes the command API less
-systematic.
-
-### Best Strategy
-
-Delete unused role/slot inference helpers unless a concrete migration issue is
-created and wired through the offline migration registry. Make the
-content-preserving layout behavior the only command behavior, then remove old
-command flags and old layout wrappers from the runtime path.
-
-### Requirements
-
-- Remove `slide-role-inference.ts` and `slide-slot-inference.ts` if they remain
-  test-only after R1.
-- Update docs that currently imply these helpers run in the application layer.
-- If role/slot stamping is still desired, implement it as an explicit offline
-  migration descriptor, not as a runtime render/editor fallback.
-- Change `APPLY_SLIDE_LAYOUT` so it always preserves authored content.
-- Change `RESET_SLIDE_LAYOUT` so the command names distinguish full placeholder
-  reset from position-only reset, or keep only the current desired reset
-  behavior.
-- Remove `preserveContent?: boolean` and `positionsOnly?: boolean` from command
-  payloads after callers are updated.
-- Remove old tests that assert legacy placeholder reinstall behavior, or move
-  them to a migration-only suite if still needed.
-- Keep undo/redo patch metadata and affected slide/element ids unchanged where
-  possible.
-
-### Suggested Issues
-
-1. **R2.1 - Delete unused role/slot inference modules**
-   - Confirm no production imports.
-   - Delete modules and tests.
-   - Update `docs/operations/persisted-schema-migrations.md` and editor theme
-     docs to remove claims of application-layer enrichment.
-
-2. **R2.2 - Make content-preserving layout apply current behavior**
-   - Route `APPLY_SLIDE_LAYOUT` directly to
-     `applySlideLayoutPreservingContent`.
-   - Remove `preserveContent` from the command type and call sites.
-   - Update slide editor call sites to send the smaller command.
-
-3. **R2.3 - Remove old layout reset branch**
-   - Decide the current reset product behavior.
-   - If position-only reset is current, route directly to
-     `resetSlideLayoutPositions` and remove `positionsOnly`.
-   - If full reset remains a current feature, model it as a separate command
-     name, not a legacy boolean branch.
-
-4. **R2.4 - Clean deck layout API surface**
-   - Remove unused `applyLayout` and `resetLayout` exports from `deck.ts` after
-     command callers stop using them.
-   - Keep low-level placeholder helpers only if they have current callers.
-
-### Verification
-
-- `src/lib/presentation/slide-commands.test.ts`
-- `src/lib/presentation/layout-apply.test.ts`
-- Focused slide editor smoke/E2E tests if command payloads change.
-- `npm run typecheck`
+The public deck layout surface no longer exposes placeholder-reinstall helpers.
 
 ## R3 - Brand Asset Contract Cleanup
 

@@ -30,11 +30,9 @@ import type {
 import type { BackgroundTreatment } from "./deck-theme-tokens";
 import { resolveRoleToken, resolveThemeTokens } from "./deck-theme-tokens";
 import {
-  applyLayout,
   layoutHintForReusableLayout,
   makeElementId,
   makeSlideId,
-  resetLayout,
 } from "./deck";
 import {
   applyLayoutPreservingContent,
@@ -347,15 +345,6 @@ function mapSlide(
   return { ...deck, slides };
 }
 
-/** Applies a reusable placeholder layout to the slide at `index`. */
-export function applySlideLayout(
-  deck: Deck,
-  index: number,
-  layout: DeckLayout,
-): Deck {
-  return mapSlide(deck, index, (slide) => applyLayout(slide, layout));
-}
-
 /**
  * Applies a layout to the slide at `index` while **preserving authored
  * content** (#630): slot-bound elements move into the matching placeholder
@@ -380,15 +369,6 @@ export function applySlideLayoutPreservingContent(
       elementsDerived: false,
     };
   });
-}
-
-/** Resets the slide at `index` back to a reusable placeholder layout. */
-export function resetSlideLayout(
-  deck: Deck,
-  index: number,
-  layout: DeckLayout,
-): Deck {
-  return mapSlide(deck, index, (slide) => resetLayout(slide, layout));
 }
 
 /**
