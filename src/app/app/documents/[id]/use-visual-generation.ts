@@ -7,6 +7,7 @@ import {
   requestVisualCandidates,
   stampSourceText,
 } from "@/lib/visual/generate";
+import type { VisualGenerationActionPort } from "@/lib/action-ports";
 import type { DetailLevel, Orientation } from "@/lib/ai/prompt";
 import {
   bucketCount,
@@ -91,7 +92,13 @@ interface GenerateOptions {
   options?: GenOptions;
 }
 
-export function useVisualGeneration() {
+const routeVisualGenerationActions: VisualGenerationActionPort = {
+  requestVisualCandidates,
+};
+
+export function useVisualGeneration(
+  actions: VisualGenerationActionPort = routeVisualGenerationActions,
+) {
   const [status, setStatus] = useState<GenStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [errorSection, setErrorSection] =
@@ -147,7 +154,7 @@ export function useVisualGeneration() {
         visualKind: opts.type,
       });
 
-      const result = await requestVisualCandidates(target.text, {
+      const result = await actions.requestVisualCandidates(target.text, {
         type: opts.type,
         orientation: opts.orientation,
         detailLevel: opts.detailLevel,
@@ -187,7 +194,7 @@ export function useVisualGeneration() {
       }
       return { ...result, section };
     },
-    [genOptions],
+    [actions, genOptions],
   );
 
   const stampGeneratedVisual = useCallback(

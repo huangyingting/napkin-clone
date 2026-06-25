@@ -1,7 +1,7 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
-import { Download, X } from "lucide-react";
+import { AnimatePresence } from "framer-motion";
+import { Download } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -12,17 +12,18 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-import { usePopMotion } from "@/components/motion/reveal";
 import {
   Button,
   FieldRow,
-  IconButton,
-  PanelSurface,
   SegmentedControl,
   cx,
   FOCUS_RING,
   type SegmentedOption,
 } from "@/components/ui";
+import {
+  ExportPreviewThumbnail,
+  VisualExportDialogShell,
+} from "@/components/visual/export-workflow-chrome";
 import type { PlanEntitlements } from "@/lib/billing/catalog";
 import {
   applySocialPresetToOptions,
@@ -224,7 +225,6 @@ export function ExportDialog({
   );
 
   const previewUrl = useExportPreview(getSvgElement, exportOptions, format);
-  const popMotion = usePopMotion();
 
   // Close on Escape
   useEffect(() => {
@@ -405,270 +405,228 @@ export function ExportDialog({
     <AnimatePresence>
       {open && (
         <>
-          {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="fixed inset-0 z-overlay bg-ds-backdrop"
-            aria-hidden="true"
-            onClick={onClose}
-          />
-
-          {/* Dialog */}
-          <motion.div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Export visual"
-            {...popMotion}
-            className="tiq-full-viewport fixed inset-0 z-modal flex items-center justify-center p-4"
-          >
-            <PanelSurface
-              elevation="popover"
-              radius="xl"
-              className="relative flex max-h-[calc(var(--tiq-viewport-height)-var(--ds-space-6))] w-full max-w-2xl flex-col overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Header */}
-              <div className="flex items-center justify-between border-b border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] px-5 py-4">
-                <h2 className="text-sm font-semibold text-[var(--ds-text-primary,#15171a)]">
-                  Export visual
-                </h2>
-                <IconButton
-                  aria-label="Close export dialog"
-                  variant="plain"
-                  size="sm"
-                  onClick={onClose}
-                >
-                  <X className="h-4 w-4" aria-hidden="true" />
-                </IconButton>
+          <VisualExportDialogShell title="Export visual" onClose={onClose}>
+            {/* Body */}
+            <div className="flex min-h-0 flex-1 flex-col gap-0 overflow-y-auto overscroll-contain sm:flex-row sm:overflow-hidden">
+              {/* Preview panel */}
+              <div className="flex min-h-[180px] flex-1 items-center justify-center bg-[var(--ds-surface-sunken,#f4f8fb)] p-4 sm:min-h-[280px]">
+                <ExportPreviewThumbnail
+                  dataUrl={previewUrl}
+                  background={options.background}
+                  customBackground={options.customBackground}
+                />
               </div>
 
-              {/* Body */}
-              <div className="flex min-h-0 flex-1 flex-col gap-0 overflow-y-auto overscroll-contain sm:flex-row sm:overflow-hidden">
-                {/* Preview panel */}
-                <div className="flex min-h-[180px] flex-1 items-center justify-center bg-[var(--ds-surface-sunken,#f4f8fb)] p-4 sm:min-h-[280px]">
-                  <PreviewThumbnail
-                    dataUrl={previewUrl}
-                    background={options.background}
-                    customBackground={options.customBackground}
-                  />
-                </div>
-
-                {/* Controls panel */}
-                <div className="flex w-full flex-col gap-4 border-t border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] p-5 sm:w-[260px] sm:border-l sm:border-t-0">
-                  {supportsCanvasOptions && (
-                    <ControlField label="Social preset">
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {OUTPUT_PROFILE_CATALOG.map((preset) => {
-                          const isActive = options.socialPreset === preset.id;
-                          return (
-                            <button
-                              key={preset.id}
-                              type="button"
-                              aria-pressed={isActive}
-                              onClick={() => selectSocialPreset(preset.id)}
-                              className={cx(
-                                "flex flex-col items-start rounded-[var(--ds-radius-sm,8px)] border px-2.5 py-2 text-left transition-colors",
-                                FOCUS_RING,
-                                isActive
-                                  ? "border-[var(--ds-accent,#6366f1)] bg-[var(--ds-state-selected,#eef2ff)] text-[var(--ds-accent,#6366f1)]"
-                                  : "border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-raised,#ffffff)] text-[var(--ds-text-primary,#15171a)] hover:border-[var(--ds-border-strong,#dde1e5)]",
-                              )}
-                            >
-                              <span className="text-[11px] font-semibold leading-tight">
-                                {preset.label}
-                              </span>
-                              <span className="mt-0.5 text-[10px] leading-tight opacity-60">
-                                {preset.canonicalWidth}×{preset.canonicalHeight}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                      {options.socialPreset && (
-                        <p className="mt-1 text-xs text-[var(--ds-text-muted,#6f7d83)]">
-                          Click again to clear preset.
-                        </p>
-                      )}
-                    </ControlField>
-                  )}
-
-                  {/* Format */}
-                  <ControlField label="Format">
-                    <SegmentedControl
-                      options={FORMAT_OPTIONS}
-                      value={format}
-                      onChange={(v) => {
-                        const f = v as ExportFormat;
-                        if (f === "svg" && !canSvg) return;
-                        if (f === "pptx" && !canPptx) return;
-                        setFormat(f);
-                      }}
-                      aria-label="Export format"
-                      size="sm"
-                    />
-                    {format === "svg" && !canSvg && (
-                      <p className="mt-1 text-xs text-[var(--ds-danger,#dc2626)]">
-                        SVG export requires Plus or Pro.{" "}
-                        <a href="/app/settings/billing" className="underline">
-                          Upgrade
-                        </a>
-                      </p>
-                    )}
-                    {format === "pptx" && !canPptx && (
-                      <p className="mt-1 text-xs text-[var(--ds-danger,#dc2626)]">
-                        PPTX export requires Plus or Pro.{" "}
-                        <a href="/app/settings/billing" className="underline">
-                          Upgrade
-                        </a>
-                      </p>
-                    )}
-                    {!canRemoveWatermark && (
+              {/* Controls panel */}
+              <div className="flex w-full flex-col gap-4 border-t border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] p-5 sm:w-[260px] sm:border-l sm:border-t-0">
+                {supportsCanvasOptions && (
+                  <ControlField label="Social preset">
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {OUTPUT_PROFILE_CATALOG.map((preset) => {
+                        const isActive = options.socialPreset === preset.id;
+                        return (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            aria-pressed={isActive}
+                            onClick={() => selectSocialPreset(preset.id)}
+                            className={cx(
+                              "flex flex-col items-start rounded-[var(--ds-radius-sm,8px)] border px-2.5 py-2 text-left transition-colors",
+                              FOCUS_RING,
+                              isActive
+                                ? "border-[var(--ds-accent,#6366f1)] bg-[var(--ds-state-selected,#eef2ff)] text-[var(--ds-accent,#6366f1)]"
+                                : "border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-raised,#ffffff)] text-[var(--ds-text-primary,#15171a)] hover:border-[var(--ds-border-strong,#dde1e5)]",
+                            )}
+                          >
+                            <span className="text-[11px] font-semibold leading-tight">
+                              {preset.label}
+                            </span>
+                            <span className="mt-0.5 text-[10px] leading-tight opacity-60">
+                              {preset.canonicalWidth}×{preset.canonicalHeight}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {options.socialPreset && (
                       <p className="mt-1 text-xs text-[var(--ds-text-muted,#6f7d83)]">
-                        Free plan: exports include a watermark.{" "}
-                        <a href="/app/settings/billing" className="underline">
-                          Upgrade
-                        </a>{" "}
-                        to remove.
+                        Click again to clear preset.
                       </p>
                     )}
                   </ControlField>
+                )}
 
-                  {/* Background (raster/SVG) */}
-                  {supportsCanvasOptions && (
-                    <ControlField label="Background">
-                      <SegmentedControl
-                        options={BG_OPTIONS}
-                        value={options.background}
-                        onChange={setBackground}
-                        aria-label="Background mode"
-                        size="sm"
-                      />
-                      {options.background === "custom" && (
-                        <div className="mt-2 flex items-center gap-2">
-                          <input
-                            type="color"
-                            value={options.customBackground ?? "#ffffff"}
-                            onChange={setCustomBackground}
-                            aria-label="Custom background color"
-                            className={cx(
-                              "h-7 w-7 cursor-pointer rounded-[var(--ds-radius-sm,8px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))]",
-                              FOCUS_RING,
-                            )}
-                          />
-                          <span className="font-mono text-xs text-[var(--ds-text-muted,#6f7d83)]">
-                            {options.customBackground ?? "#ffffff"}
-                          </span>
-                        </div>
-                      )}
-                    </ControlField>
+                {/* Format */}
+                <ControlField label="Format">
+                  <SegmentedControl
+                    options={FORMAT_OPTIONS}
+                    value={format}
+                    onChange={(v) => {
+                      const f = v as ExportFormat;
+                      if (f === "svg" && !canSvg) return;
+                      if (f === "pptx" && !canPptx) return;
+                      setFormat(f);
+                    }}
+                    aria-label="Export format"
+                    size="sm"
+                  />
+                  {format === "svg" && !canSvg && (
+                    <p className="mt-1 text-xs text-[var(--ds-danger,#dc2626)]">
+                      SVG export requires Plus or Pro.{" "}
+                      <a href="/app/settings/billing" className="underline">
+                        Upgrade
+                      </a>
+                    </p>
                   )}
-
-                  {/* Color mode (raster) */}
-                  {isRaster && (
-                    <ControlField label="Color mode">
-                      <SegmentedControl
-                        options={COLOR_OPTIONS}
-                        value={options.colorMode}
-                        onChange={setColorMode}
-                        aria-label="Color mode"
-                        size="sm"
-                      />
-                    </ControlField>
+                  {format === "pptx" && !canPptx && (
+                    <p className="mt-1 text-xs text-[var(--ds-danger,#dc2626)]">
+                      PPTX export requires Plus or Pro.{" "}
+                      <a href="/app/settings/billing" className="underline">
+                        Upgrade
+                      </a>
+                    </p>
                   )}
-
-                  {/* Resolution (raster) */}
-                  {isRaster && (
-                    <ControlField label="Resolution">
-                      <SegmentedControl
-                        options={SCALE_OPTIONS}
-                        value={String(options.scale)}
-                        onChange={setScale}
-                        aria-label="Export resolution"
-                        size="sm"
-                      />
-                      <p className="mt-1 text-xs text-[var(--ds-text-muted,#6f7d83)]">
-                        <ExportDimensions
-                          getSvgElement={getSvgElement}
-                          options={options}
-                        />
-                      </p>
-                    </ControlField>
+                  {!canRemoveWatermark && (
+                    <p className="mt-1 text-xs text-[var(--ds-text-muted,#6f7d83)]">
+                      Free plan: exports include a watermark.{" "}
+                      <a href="/app/settings/billing" className="underline">
+                        Upgrade
+                      </a>{" "}
+                      to remove.
+                    </p>
                   )}
+                </ControlField>
 
-                  {/* Branding toggle (paid plans only) */}
-                  {canRemoveWatermark && (
-                    <ControlField label="Branding">
-                      <label className="flex cursor-pointer items-center gap-2">
+                {/* Background (raster/SVG) */}
+                {supportsCanvasOptions && (
+                  <ControlField label="Background">
+                    <SegmentedControl
+                      options={BG_OPTIONS}
+                      value={options.background}
+                      onChange={setBackground}
+                      aria-label="Background mode"
+                      size="sm"
+                    />
+                    {options.background === "custom" && (
+                      <div className="mt-2 flex items-center gap-2">
                         <input
-                          type="checkbox"
-                          checked={exportOptions.watermark ?? false}
-                          onChange={toggleBranding}
-                          aria-label="Include TextIQ branding"
+                          type="color"
+                          value={options.customBackground ?? "#ffffff"}
+                          onChange={setCustomBackground}
+                          aria-label="Custom background color"
                           className={cx(
-                            "h-4 w-4 cursor-pointer rounded border border-[var(--ds-border-strong,#dde1e5)]",
+                            "h-7 w-7 cursor-pointer rounded-[var(--ds-radius-sm,8px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))]",
                             FOCUS_RING,
                           )}
                         />
-                        <span className="text-xs text-[var(--ds-text-secondary,#54666d)]">
-                          Include TextIQ branding
+                        <span className="font-mono text-xs text-[var(--ds-text-muted,#6f7d83)]">
+                          {options.customBackground ?? "#ffffff"}
                         </span>
-                      </label>
-                    </ControlField>
-                  )}
-
-                  {/* Format hint */}
-                  <p className="text-xs text-[var(--ds-text-muted,#6f7d83)]">
-                    {formatLabel(format)} — {formatDescription(format)}
-                    {format === "pptx"
-                      ? ". Native PPTX exports are editable shapes; social, background, color, and resolution controls apply only to raster formats."
-                      : ""}
-                  </p>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="flex items-center justify-between border-t border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] px-5 py-3">
-                {error ? (
-                  <p
-                    role="alert"
-                    className="text-xs text-[var(--ds-danger,#dc2626)]"
-                  >
-                    {error}
-                  </p>
-                ) : (
-                  <span />
+                      </div>
+                    )}
+                  </ControlField>
                 )}
-                <div className="flex items-center gap-2">
-                  <Button variant="plain" size="sm" onClick={onClose}>
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="solid"
-                    size="sm"
-                    disabled={exporting}
-                    onClick={handleExport}
-                    leadingIcon={
-                      exporting ? (
-                        <span
-                          aria-hidden="true"
-                          className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
-                        />
-                      ) : (
-                        <Download className="h-3.5 w-3.5" aria-hidden="true" />
-                      )
-                    }
-                  >
-                    {exporting
-                      ? "Exporting…"
-                      : `Download ${formatLabel(format)}`}
-                  </Button>
-                </div>
+
+                {/* Color mode (raster) */}
+                {isRaster && (
+                  <ControlField label="Color mode">
+                    <SegmentedControl
+                      options={COLOR_OPTIONS}
+                      value={options.colorMode}
+                      onChange={setColorMode}
+                      aria-label="Color mode"
+                      size="sm"
+                    />
+                  </ControlField>
+                )}
+
+                {/* Resolution (raster) */}
+                {isRaster && (
+                  <ControlField label="Resolution">
+                    <SegmentedControl
+                      options={SCALE_OPTIONS}
+                      value={String(options.scale)}
+                      onChange={setScale}
+                      aria-label="Export resolution"
+                      size="sm"
+                    />
+                    <p className="mt-1 text-xs text-[var(--ds-text-muted,#6f7d83)]">
+                      <ExportDimensions
+                        getSvgElement={getSvgElement}
+                        options={options}
+                      />
+                    </p>
+                  </ControlField>
+                )}
+
+                {/* Branding toggle (paid plans only) */}
+                {canRemoveWatermark && (
+                  <ControlField label="Branding">
+                    <label className="flex cursor-pointer items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={exportOptions.watermark ?? false}
+                        onChange={toggleBranding}
+                        aria-label="Include TextIQ branding"
+                        className={cx(
+                          "h-4 w-4 cursor-pointer rounded border border-[var(--ds-border-strong,#dde1e5)]",
+                          FOCUS_RING,
+                        )}
+                      />
+                      <span className="text-xs text-[var(--ds-text-secondary,#54666d)]">
+                        Include TextIQ branding
+                      </span>
+                    </label>
+                  </ControlField>
+                )}
+
+                {/* Format hint */}
+                <p className="text-xs text-[var(--ds-text-muted,#6f7d83)]">
+                  {formatLabel(format)} — {formatDescription(format)}
+                  {format === "pptx"
+                    ? ". Native PPTX exports are editable shapes; social, background, color, and resolution controls apply only to raster formats."
+                    : ""}
+                </p>
               </div>
-            </PanelSurface>
-          </motion.div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between border-t border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] px-5 py-3">
+              {error ? (
+                <p
+                  role="alert"
+                  className="text-xs text-[var(--ds-danger,#dc2626)]"
+                >
+                  {error}
+                </p>
+              ) : (
+                <span />
+              )}
+              <div className="flex items-center gap-2">
+                <Button variant="plain" size="sm" onClick={onClose}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="solid"
+                  size="sm"
+                  disabled={exporting}
+                  onClick={handleExport}
+                  leadingIcon={
+                    exporting ? (
+                      <span
+                        aria-hidden="true"
+                        className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
+                      />
+                    ) : (
+                      <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                    )
+                  }
+                >
+                  {exporting ? "Exporting…" : `Download ${formatLabel(format)}`}
+                </Button>
+              </div>
+            </div>
+          </VisualExportDialogShell>
         </>
       )}
     </AnimatePresence>,
@@ -688,55 +646,6 @@ function ControlField({
   children: React.ReactNode;
 }) {
   return <FieldRow label={label}>{children}</FieldRow>;
-}
-
-function PreviewThumbnail({
-  dataUrl,
-  background,
-  customBackground,
-}: {
-  dataUrl: string | undefined;
-  background: BackgroundMode;
-  customBackground?: string;
-}) {
-  const isTransparent = background === "transparent";
-  const customFill =
-    background === "custom" ? (customBackground ?? "#ffffff") : undefined;
-
-  return (
-    <div
-      className="relative flex max-h-[220px] max-w-[320px] items-center justify-center overflow-hidden rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))]"
-      style={
-        isTransparent
-          ? {
-              backgroundImage:
-                "linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)",
-              backgroundSize: "12px 12px",
-              backgroundPosition: "0 0, 0 6px, 6px -6px, -6px 0px",
-            }
-          : customFill
-            ? { backgroundColor: customFill }
-            : { backgroundColor: "#ffffff" }
-      }
-    >
-      {dataUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={dataUrl}
-          alt="Export preview"
-          className="max-h-[220px] max-w-[320px] object-contain"
-          draggable={false}
-        />
-      ) : (
-        <div className="flex h-32 w-48 items-center justify-center">
-          <span
-            aria-hidden="true"
-            className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--ds-border-strong,#dde1e5)] border-t-[var(--ds-text-muted,#6f7d83)]"
-          />
-        </div>
-      )}
-    </div>
-  );
 }
 
 function ExportDimensions({

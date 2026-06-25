@@ -1,27 +1,15 @@
 "use client";
 
 import { Upload, X } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useState } from "react";
 
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import {
-  bucketBytes,
-  bucketDurationMs,
-  classifyFileType,
-  emitProductTelemetry,
-  reasonFromStatus,
-} from "@/lib/telemetry/product";
-
-/** Accepted file extensions shown in the file picker and error messages. */
-const ACCEPTED_EXTENSIONS = ".md,.html,.htm,.docx,.pptx,.pdf";
-
-/** Human-readable list of accepted formats. */
-const ACCEPTED_LABEL = ".md, .html, .docx, .pptx, .pdf";
-
-type ImportState =
-  | { status: "idle" }
-  | { status: "uploading" }
-  | { status: "error"; message: string };
+  DOCUMENT_IMPORT_ACCEPT,
+  DOCUMENT_IMPORT_ACCEPT_LABEL,
+  DOCUMENT_IMPORT_MAX_SIZE_LABEL,
+  useDocumentImportWorkflow,
+} from "@/lib/import/document-import-workflow";
 
 /**
  * A drag-and-drop + file-picker button that uploads a document to
@@ -48,91 +36,12 @@ export function ImportButton({
   /** When true with compact, renders only the icon while keeping the label accessible. */
   iconOnly?: boolean;
 }) {
-  const [state, setState] = useState<ImportState>({ status: "idle" });
   const [isDragging, setIsDragging] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const processFile = useCallback(
-    async (file: File) => {
-      const fileType = classifyFileType(file);
-      const fileSizeBucket = bucketBytes(file.size);
-      // Client-side size guard (20 MB).
-      if (file.size > 20 * 1024 * 1024) {
-        emitProductTelemetry("product.import.failed", {
-          failureReason: "too_large",
-          fileSizeBucket,
-          fileType,
-          surface: compact ? "toolbar" : "dropzone",
-        });
-        setState({
-          status: "error",
-          message: "File is too large. Maximum allowed size is 20 MB.",
-        });
-        return;
-      }
-
-      setState({ status: "uploading" });
-      const startedAt = performance.now();
-      const surface = compact ? "toolbar" : "dropzone";
-      emitProductTelemetry("product.import.started", {
-        fileSizeBucket,
-        fileType,
-        surface,
-      });
-
-      const formData = new FormData();
-      formData.append("file", file);
-
-      try {
-        const response = await fetch("/api/import", {
-          method: "POST",
-          body: formData,
-        });
-
-        const data = (await response.json()) as
-          | { markdown: string }
-          | { error: string };
-
-        if (!response.ok || "error" in data) {
-          emitProductTelemetry("product.import.failed", {
-            durationBucket: bucketDurationMs(performance.now() - startedAt),
-            failureReason: reasonFromStatus(response.status),
-            fileSizeBucket,
-            fileType,
-            status: response.status,
-            surface,
-          });
-          setState({
-            status: "error",
-            message: "error" in data ? data.error : "Import failed.",
-          });
-          return;
-        }
-
-        setState({ status: "idle" });
-        emitProductTelemetry("product.import.succeeded", {
-          durationBucket: bucketDurationMs(performance.now() - startedAt),
-          fileSizeBucket,
-          fileType,
-          surface,
-        });
-        onImport(data.markdown);
-      } catch {
-        emitProductTelemetry("product.import.failed", {
-          durationBucket: bucketDurationMs(performance.now() - startedAt),
-          failureReason: "network",
-          fileSizeBucket,
-          fileType,
-          surface,
-        });
-        setState({
-          status: "error",
-          message: "Could not reach the server. Please try again.",
-        });
-      }
-    },
-    [compact, onImport],
-  );
+  const { inputRef, state, isUploading, processFile, dismissError } =
+    useDocumentImportWorkflow({
+      onImported: ({ markdown }) => onImport(markdown),
+      surface: compact ? "toolbar" : "dropzone",
+    });
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -159,17 +68,13 @@ export function ImportButton({
 
   const handleDragLeave = () => setIsDragging(false);
 
-  const dismiss = () => setState({ status: "idle" });
-
-  const isUploading = state.status === "uploading";
-
   if (compact) {
     return (
       <>
         <input
           ref={inputRef}
           type="file"
-          accept={ACCEPTED_EXTENSIONS}
+          accept={DOCUMENT_IMPORT_ACCEPT}
           onChange={handleFileChange}
           className="sr-only"
           aria-label="Import document file"
@@ -183,7 +88,7 @@ export function ImportButton({
             <button
               type="button"
               aria-label="Dismiss error"
-              onClick={dismiss}
+              onClick={dismissError}
               className="tiq-touch-target shrink-0 rounded-full p-0.5 hover:bg-ds-state-hover"
             >
               <X className="h-3 w-3" />
@@ -209,7 +114,7 @@ export function ImportButton({
       <input
         ref={inputRef}
         type="file"
-        accept={ACCEPTED_EXTENSIONS}
+        accept={DOCUMENT_IMPORT_ACCEPT}
         onChange={handleFileChange}
         className="sr-only"
         aria-label="Import document file"
@@ -232,7 +137,7 @@ export function ImportButton({
             <button
               type="button"
               aria-label="Dismiss error"
-              onClick={dismiss}
+              onClick={dismissError}
               className="tiq-touch-target rounded-full p-1 hover:bg-ds-state-hover"
             >
               <X className="h-4 w-4" />
@@ -276,7 +181,8 @@ export function ImportButton({
               {isUploading ? "Importing…" : "Drop a file or click to browse"}
             </span>
             <span className="text-xs text-[var(--ds-text-muted,#a1a1aa)]">
-              {ACCEPTED_LABEL} · max 20 MB
+              {DOCUMENT_IMPORT_ACCEPT_LABEL} · max{" "}
+              {DOCUMENT_IMPORT_MAX_SIZE_LABEL}
             </span>
           </div>
         </div>
