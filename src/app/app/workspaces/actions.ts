@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
-import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
+import { createWorkspaceForUser } from "@/lib/workspace/service";
 
 export async function createWorkspace(
   _prevState: string | null,
@@ -16,12 +16,7 @@ export async function createWorkspace(
     return "Workspace name is required.";
   }
 
-  const workspace = await prisma.workspace.create({
-    data: {
-      name: name.trim(),
-      ownerId: user.id,
-    },
-  });
+  const workspace = await createWorkspaceForUser(user.id, name);
 
   revalidatePath("/app/workspaces");
   return `/app/workspaces/${workspace.id}`;

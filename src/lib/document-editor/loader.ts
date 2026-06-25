@@ -2,6 +2,7 @@ import "server-only";
 
 import type { Prisma } from "@/generated/prisma/client";
 import { requireDocumentActionContext } from "@/lib/actions/document-action-context";
+import { accessibleDocumentWhere } from "@/lib/access-query";
 import { createCommentService } from "@/lib/comments";
 import { prisma } from "@/lib/prisma";
 
@@ -56,19 +57,7 @@ export async function loadDocumentEditorViewModel({
   userName: string;
 }): Promise<DocumentEditorViewModel | null> {
   const document = await prisma.document.findFirst({
-    where: {
-      id: documentId,
-      deletedAt: null,
-      OR: [
-        { ownerId: userId },
-        {
-          workspaceId: { not: null },
-          workspace: {
-            OR: [{ ownerId: userId }, { members: { some: { userId } } }],
-          },
-        },
-      ],
-    },
+    where: accessibleDocumentWhere(userId, documentId),
     select: documentEditorSelect(userId),
   });
 
