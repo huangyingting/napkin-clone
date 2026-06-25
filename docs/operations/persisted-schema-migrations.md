@@ -22,24 +22,20 @@ job of this harness.
 
 ---
 
-## Global deck template rollout (#620)
+## Global deck template fields
 
-The global deck template work (epic #600 and the layout-binding/migration
-issues #616, #626–#628) adds only **optional** fields to the persisted deck
-shape:
+The current deck shape includes optional template and layout-binding fields:
 
 - Deck `customTokenSet` gains optional `typography.roles`, `bullet`,
   `connector`, `visual`, `image`, and extended `shape` token groups.
-- Text/bullets elements gain optional `textRole` + `styleOverride`; shapes gain
-  `textRole` + `textStyleOverride`; every element gains an optional `layoutSlot`.
+- Text/bullets elements may carry optional `textRole` + `styleOverride`; shapes
+  may carry `textRole` + `textStyleOverride`; every element may carry an
+  optional `layoutSlot`.
 
-**Historical decision: no `CURRENT_DECK_SCHEMA_VERSION` bump for #620.** Because
-that rollout only added optional fields, then-current `schemaVersion: 2` decks
-remained valid unchanged. `validateDeck` continues to reject any deck whose
-`schemaVersion` is not the current version, so genuinely stale shapes are still
-rejected. Runtime render, export, and editor paths do not add role or slot
-bindings to legacy elements; if persisted role/slot stamping becomes necessary,
-it must be modeled as an explicit offline migration descriptor.
+`validateDeck` rejects any deck whose `schemaVersion` is not the current version.
+Runtime render, export, and editor paths do not add missing role or slot bindings
+to persisted decks; if persisted role/slot stamping becomes necessary, it must
+be modeled as an explicit offline migration descriptor.
 
 `safeParseDeck` round-trips the full current-shape template model; see the
 "current-shape template model" tests in
@@ -133,8 +129,9 @@ themes use the `DeckTheme` ids (`indigo`, `ocean`, `forest`, `sunset`,
 `grape`, `default`). Brand/custom themes set `Deck.themeId` to the custom
 token-set id and carry `Deck.customTokenSet`.
 
-There is no runtime compatibility shim for schema-v2 theme payloads. Persisted
-development data and fixtures must be regenerated or migrated to schema v3.
+There is no runtime compatibility shim for non-current theme payloads. Persisted
+development data and fixtures must be regenerated or migrated to the current
+schema.
 
 ---
 

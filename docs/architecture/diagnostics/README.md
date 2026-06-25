@@ -31,8 +31,8 @@ Examples:
 - `command.validation.unsupported`
 
 Use lowercase dot-separated segments. Each segment should be a stable noun or
-verb phrase with no raw ids or user content. Legacy scopes may remain until the
-owning code path is touched.
+verb phrase with no raw ids or user content. When an owning code path changes,
+keep its scope aligned with the current domain name.
 
 ## Choosing the layer
 
