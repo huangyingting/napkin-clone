@@ -395,6 +395,7 @@ durable command log yet.
 | [../auth/README.md](../auth/README.md)                                             | Current  | Authentication and account lifecycle                      |
 | [../collaboration/README.md](../collaboration/README.md)                           | Current  | Collaboration room model and runtime readiness            |
 | [../data-model/deck.md](../data-model/deck.md)                                     | Current  | Deck schema, slide elements, source refs, and persistence |
+| [../data-model/document-persistence.md](../data-model/document-persistence.md)     | Current  | Document save transactions and version restore            |
 | [../data-model/persistence.md](../data-model/persistence.md)                       | Current  | Prisma provider resolution and relational model           |
 | [../data-model/visual-mirror.md](../data-model/visual-mirror.md)                   | Current  | Visual projection contract                                |
 | [../documents/README.md](../documents/README.md)                                   | Current  | Document creation, listing, search, tags, and trash       |
@@ -419,3 +420,4 @@ durable command log yet.
 | [0002-canvas-keyboard-accessibility.md](0002-canvas-keyboard-accessibility.md)     | Accepted | ADR: canvas keyboard accessibility decisions              |
 | [../operations/collab-deployment.md](../operations/collab-deployment.md)           | Current  | Collaboration deployment and scaling                      |
 | [../operations/release-gate.md](../operations/release-gate.md)                     | Current  | Release readiness checklist                               |
+| [../operations/resource-limits.md](../operations/resource-limits.md)               | Current  | Resource limit inventory and budget helpers               |

@@ -13,6 +13,7 @@ manual release procedures.
 | [collab-deployment.md](collab-deployment.md)                                         | Yjs collaboration server deployment, authorization, durability window, and scaling options.         |
 | [release-gate.md](release-gate.md)                                                   | Release readiness checklist and local/CI quality gate.                                              |
 | [persisted-schema-repair.md](persisted-schema-repair.md)                             | Repair playbook: parse-failure telemetry, audit CLI, mirror rebuild, version restore (Epic #493).   |
+| [resource-limits.md](resource-limits.md)                                             | Central limit inventory for import, AI, deck persistence, assets, documents, and timing budgets.    |
 | [privacy-dsar-runbook.md](privacy-dsar-runbook.md)                                   | Personal-data inventory, account export coverage, erasure verification, and public metadata policy. |
 | [../security/api-route-security-matrix.md](../security/api-route-security-matrix.md) | API route classification, denial semantics, and abuse-control diagnostics (Epic #495).              |
 
