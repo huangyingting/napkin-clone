@@ -7,6 +7,7 @@ import {
 } from "@/components/google-sign-in-button";
 import { safeCallbackUrl } from "@/lib/auth/callback-url";
 import { isGoogleAuthConfigured } from "@/lib/auth/google-provider";
+import { routeProtectionPolicy } from "@/lib/auth/route-protection-policy";
 import { getCurrentUser } from "@/lib/session";
 
 import { SignupForm } from "./signup-form";
@@ -21,7 +22,7 @@ export default async function SignupPage({
   searchParams: Promise<{ callbackUrl?: string | string[]; error?: string }>;
 }) {
   if (await getCurrentUser()) {
-    redirect("/app");
+    redirect(routeProtectionPolicy.authenticatedHome);
   }
 
   const { callbackUrl: rawCallbackUrl, error } = await searchParams;
