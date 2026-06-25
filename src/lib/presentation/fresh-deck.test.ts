@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import type { Deck } from "./deck";
 import { CURRENT_DECK_SCHEMA_VERSION } from "./deck";
-import { normalizeDeckRaw, pickFreshestDeck } from "./fresh-deck";
+import { pickFreshestDeck } from "./fresh-deck";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -101,38 +101,6 @@ const CACHED_DECK: Deck = {
   theme: "ocean",
   schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
 };
-
-// ---------------------------------------------------------------------------
-// normalizeDeckRaw
-// ---------------------------------------------------------------------------
-
-test("normalizeDeckRaw — returns object unchanged", () => {
-  const obj = { slides: [], theme: "default" };
-  assert.strictEqual(normalizeDeckRaw(obj), obj);
-});
-
-test("normalizeDeckRaw — rejects JSON strings", () => {
-  const serialized = JSON.stringify(FETCHED_DECK);
-  const result = normalizeDeckRaw(serialized);
-  assert.strictEqual(result, null);
-});
-
-test("normalizeDeckRaw — returns null for invalid string", () => {
-  const result = normalizeDeckRaw("not-json{{{");
-  assert.strictEqual(result, null);
-});
-
-test("normalizeDeckRaw — returns null for empty string", () => {
-  assert.strictEqual(normalizeDeckRaw(""), null);
-});
-
-test("normalizeDeckRaw — returns null unchanged", () => {
-  assert.strictEqual(normalizeDeckRaw(null), null);
-});
-
-test("normalizeDeckRaw — returns undefined unchanged", () => {
-  assert.strictEqual(normalizeDeckRaw(undefined), undefined);
-});
 
 // ---------------------------------------------------------------------------
 // pickFreshestDeck

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { documentCapabilities } from "@/lib/auth/document-permissions";
 import { prisma } from "@/lib/prisma";
-import { normalizeDeckRaw } from "@/lib/presentation/fresh-deck";
+import { normalizePersistedDeckJson } from "@/lib/presentation/persisted-deck";
 import { requireUser } from "@/lib/session";
 
 import { listComments } from "./comments-actions";
@@ -96,7 +96,7 @@ export default async function DocumentEditorPage({
       documentId={document.id}
       initialTitle={document.title}
       initialStateJson={initialStateJson}
-      initialDeckJson={normalizeDeckRaw(document.deckJson)}
+      initialDeckJson={normalizePersistedDeckJson(document.deckJson)}
       initialIsShared={document.isShared}
       initialShareId={document.shareId}
       initialSlug={document.slug}

@@ -22,7 +22,7 @@ import {
   safeParseDeck,
   validateSourceRef,
 } from "@/lib/presentation/deck-schema";
-import { normalizeDeckRaw } from "@/lib/presentation/fresh-deck";
+import { normalizePersistedDeckJson } from "@/lib/presentation/persisted-deck";
 import { safeParseVisual } from "@/lib/visual/schema";
 import { collectVisualNodes } from "@/lib/lexical/visual-nodes";
 
@@ -116,7 +116,18 @@ export function auditDocumentDeck(row: DocumentAuditRow): SchemaViolation[] {
   const violations: SchemaViolation[] = [];
   if (row.deckJson == null) return violations;
 
-  const raw = normalizeDeckRaw(row.deckJson);
+  if (typeof row.deckJson === "string") {
+    violations.push({
+      area: "Document.deckJson",
+      documentId: row.id,
+      rowId: row.id,
+      reason:
+        "Serialized deck JSON strings are persisted-schema drift; deckJson must be a parsed JSON object.",
+    });
+    return violations;
+  }
+
+  const raw = normalizePersistedDeckJson(row.deckJson);
   const parsed = safeParseDeck(raw);
   if (!parsed.success) {
     violations.push({

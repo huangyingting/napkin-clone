@@ -33,7 +33,8 @@ The current deck version is exported from
 - `BulletsElement.items[]` is required and carries the authoritative bullet
   content for bullet elements.
 - `SourceRef.blockKind` is required and must be either `"text"` or `"visual"`.
-- Raw JSON strings are not a supported persisted deck format.
+- Serialized deck JSON strings are persisted-schema drift, not supported
+  persisted input.
 
 There is no deck migration shim. A schema bump means fixtures, generators, and
 persisted development data must be updated to the new shape.
@@ -138,8 +139,10 @@ immutability and clear derived provenance for the affected slide.
 2. cached last-known deck from the component;
 3. freshly derived base deck from the current Lexical state.
 
-Each raw candidate is filtered by `normalizeDeckRaw` and validated with
-`safeParseDeck`. JSON strings are rejected.
+Each raw candidate is filtered by `normalizePersistedDeckJson` from
+`src/lib/presentation/persisted-deck.ts` and validated with `safeParseDeck`.
+Serialized JSON strings are rejected as persisted-schema drift and surfaced by
+schema audit rather than parsed at runtime.
 
 The slide editor receives the full current `documentBlocks` list. Text-only
 block lists are not used as a substitute for visual/source-ref workflows.

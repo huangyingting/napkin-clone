@@ -118,6 +118,24 @@ describe("auditRows — invalid rows", () => {
     assert.equal(v?.documentId, "doc-bad");
   });
 
+  test("flags serialized string Document.deckJson as persisted-schema drift", () => {
+    const report = auditRows({
+      documents: [
+        {
+          id: "doc-string",
+          deckJson: JSON.stringify(validDeck()),
+          contentJson: null,
+        },
+      ],
+    });
+    const v = report.violations.find((x) => x.area === "Document.deckJson");
+    assert.ok(v);
+    assert.equal(v?.documentId, "doc-string");
+    assert.match(v?.reason ?? "", /persisted-schema drift/);
+    assert.match(v?.reason ?? "", /parsed JSON object/);
+    assert.equal(report.summary.byArea["Document.deckJson"], 1);
+  });
+
   test("flags an invalid embedded content visual with its anchor id", () => {
     const report = auditRows({
       documents: [

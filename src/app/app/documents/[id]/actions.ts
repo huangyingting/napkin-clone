@@ -31,6 +31,7 @@ import type { DeckPatch } from "@/lib/presentation/slide-commands";
 import { executeCommand } from "@/lib/presentation/slide-commands";
 import type { SlideCommand } from "@/lib/presentation/slide-commands";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
+import { normalizePersistedDeckJson } from "@/lib/presentation/persisted-deck";
 import {
   acceptDeckCommandEnvelope,
   type CommandEnvelope,
@@ -427,10 +428,10 @@ export async function fetchDeckJson(
     select: { deckJson: true, deckRevisionToken: true },
   });
 
-  const raw = document.deckJson;
-  // Normalise: some DB providers serialise JSON columns as strings.
-  const deckJson = typeof raw === "string" ? JSON.parse(raw) : raw;
-  return { deckJson, revisionToken: document.deckRevisionToken };
+  return {
+    deckJson: normalizePersistedDeckJson(document.deckJson),
+    revisionToken: document.deckRevisionToken,
+  };
 }
 
 /**
@@ -545,11 +546,7 @@ export async function saveDeckCommand(
     return { ok: false, error: "Document not found." };
   }
 
-  const rawDeck =
-    typeof document.deckJson === "string"
-      ? JSON.parse(document.deckJson)
-      : document.deckJson;
-  const parsed = safeParseDeck(rawDeck);
+  const parsed = safeParseDeck(normalizePersistedDeckJson(document.deckJson));
   if (!parsed.success) {
     logError("deck.command.stored_deck_invalid", new Error(parsed.error), {
       documentId: id,

@@ -12,7 +12,7 @@ import {
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { buildDeckFromBlocks } from "@/lib/presentation/deck";
 import { buildPresentationBlocks } from "@/lib/presentation/present-blocks";
-import { normalizeDeckRaw } from "@/lib/presentation/fresh-deck";
+import { normalizePersistedDeckJson } from "@/lib/presentation/persisted-deck";
 import { reconcileDocumentDeckDependencies } from "@/lib/document/source-ref-model";
 import type { Visual } from "@/lib/visual/schema";
 import { shouldShowAttribution } from "@/lib/billing/attribution";
@@ -70,7 +70,7 @@ export default async function PresentEmbedPage({
     }
   }
 
-  const normalized = normalizeDeckRaw(document.deckJson);
+  const normalized = normalizePersistedDeckJson(document.deckJson);
   const parsed = normalized ? safeParseDeck(normalized) : null;
   const { deck } = reconcileDocumentDeckDependencies({
     deck: parsed && parsed.success ? parsed.data : buildDeckFromBlocks(blocks),

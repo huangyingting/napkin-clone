@@ -4,24 +4,14 @@
  * Extracted from SlideEditorButton so the logic is DOM-free and fully
  * testable under `node --test`.
  *
- * `normalizeDeckRaw` is the single helper for filtering raw deckJson DB values
- * before they are passed to `safeParseDeck`. Current storage returns parsed
- * JSON objects.
+ * Raw persisted deck values are filtered by `normalizePersistedDeckJson` before
+ * they are passed to `safeParseDeck`. Current storage returns parsed JSON
+ * objects.
  */
 
 import type { Deck } from "./deck";
 import { safeParseDeck } from "./deck-schema";
-
-/**
- * Canonical filter for raw deckJson values as they arrive from the DB or a
- * prop. Strings are not a supported persisted format.
- */
-export function normalizeDeckRaw(raw: unknown): unknown {
-  if (typeof raw === "string") {
-    return null;
-  }
-  return raw;
-}
+import { normalizePersistedDeckJson } from "./persisted-deck";
 
 /**
  * Returns the best initial deck to seed the editor from, in priority order:
@@ -37,10 +27,10 @@ export function pickFreshestDeck(
   cachedRaw: unknown,
   baseDeck: Deck,
 ): Deck {
-  const fromFetched = safeParseDeck(normalizeDeckRaw(fetchedRaw));
+  const fromFetched = safeParseDeck(normalizePersistedDeckJson(fetchedRaw));
   if (fromFetched.success) return fromFetched.data;
 
-  const fromCached = safeParseDeck(normalizeDeckRaw(cachedRaw));
+  const fromCached = safeParseDeck(normalizePersistedDeckJson(cachedRaw));
   if (fromCached.success) return fromCached.data;
 
   return baseDeck;
