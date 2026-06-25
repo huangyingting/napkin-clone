@@ -23,7 +23,7 @@ import { FOCUS_RING } from "@/components/ui/tokens";
 import { Popover } from "@/components/ui/popover";
 import { Tooltip } from "@/components/ui";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
-import { ElementToolbarContent } from "@/components/presentation/slide-stage-editor";
+import { ElementToolbarContent } from "@/components/presentation/slide-stage/element-overlays";
 import { useFocusTrap } from "@/lib/presentation/use-focus-trap";
 import type { Visual } from "@/lib/visual/schema";
 import type { SlideElement } from "@/lib/presentation/deck";

@@ -17,31 +17,20 @@ import { Copy, Trash2, Upload, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
 import { FOCUS_RING } from "@/components/ui/tokens";
+import {
+  SpeakerNotesControl,
+  TabButton,
+} from "@/components/presentation/slide-inspector/primitives";
 import { LayerList } from "@/components/presentation/layer-list";
 import { Tooltip } from "@/components/ui";
-import type {
-  Deck,
-  PlaceholderElement,
-  SlideLayout as ReusableSlideLayout,
-  Slide,
-  SlideElement,
-} from "@/lib/presentation/deck";
+import type { PlaceholderElement, SlideElement } from "@/lib/presentation/deck";
 import {
   defaultLayouts,
   PLACEHOLDER_TYPE_LABELS,
 } from "@/lib/presentation/deck";
-import type { ElementPatch } from "@/lib/presentation/deck-mutations";
-import type { StaleReason } from "@/lib/presentation/source-link-staleness";
 import type { RightPanelTab } from "@/lib/presentation/slide-panel-ui";
-import type {
-  AlignMode,
-  DistributeMode,
-  MatchSizeMode,
-} from "@/lib/presentation/element-align";
-import type { ArrangeMode } from "@/lib/presentation/element-arrange";
 import { canAddImage, dataUrlByteSize } from "@/lib/presentation/image-element";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
-import type { SlideAssetActionPort } from "@/lib/action-ports";
 import {
   ColorOverride,
   EffectsPanel,
@@ -58,7 +47,6 @@ import {
 import { allThemeTokenSets } from "@/lib/presentation/deck-theme-tokens";
 import { resolveSlideThemeColors } from "@/lib/presentation/style-cascade";
 import { DEFAULT_SLIDE_FORMAT } from "@/lib/presentation/slide-format";
-import type { Visual } from "@/lib/visual/schema";
 
 const BUILT_IN_THEME_TOKEN_SETS = allThemeTokenSets();
 const THEME_BACKGROUND_SWATCHES = tokenSetSwatchColors(
@@ -78,169 +66,11 @@ const FIELD_CLASS =
 
 const LABEL_CLASS = "mb-1 block text-xs font-medium text-ds-text-secondary";
 
-let _speakerNotesEditSeq = 0;
-
-export type AddElementKind = "text" | "bullets" | "image" | "shape";
-
-export interface SlideInspectorProps {
-  slide: Slide;
-  slideIndex: number;
-  /**
-   * The whole deck — used only to enforce the total inlined-image budget on the
-   * upload path (issue #247). The inspector never mutates it.
-   */
-  deck: Deck;
-  visuals: ReadonlyMap<string, Visual>;
-  selectedElementId: string | null;
-  onSelectElement: (id: string | null) => void;
-  canDelete: boolean;
-  onDuplicateSlide: () => void;
-  onRemoveSlide: () => void;
-  onApplyLayout: (layout: ReusableSlideLayout) => void;
-  onResetLayout: (layout: ReusableSlideLayout) => void;
-  onUpdateNotes: (value: string, coalesceKey?: string) => void;
-  // Element editing
-  onUpdateElement: (
-    id: string,
-    patch: ElementPatch,
-    coalesceKey?: string,
-  ) => void;
-  onRemoveElement: (id: string) => void;
-  onDuplicateElement: (id: string) => void;
-  onBringToFront: (id: string) => void;
-  onSendToBack: (id: string) => void;
-  // Multi-select operations (visible when 2+ elements selected, issue #328)
-  selectedElementIds?: ReadonlySet<string>;
-  onAlign?: (ids: string[], mode: AlignMode) => void;
-  onDistribute?: (ids: string[], mode: DistributeMode) => void;
-  onMatchSize?: (ids: string[], mode: MatchSizeMode) => void;
-  onArrange?: (ids: string[], mode: ArrangeMode) => void;
-  // Group operations (issue #330)
-  onGroupElements?: (ids: string[]) => void;
-  onUngroupElements?: (groupId: string) => void;
-  // Layer list operations (issue #331) — all optional so existing callers compile unchanged
-  onSetElementHidden?: (elementId: string, hidden: boolean) => void;
-  onSetElementLocked?: (elementId: string, locked: boolean) => void;
-  onMoveElementZOrder?: (elementId: string, direction: "up" | "down") => void;
-  onRenameElement?: (elementId: string, name: string) => void;
-  onReorderElement?: (elementId: string, targetElementId: string) => void;
-  // Per-element source-link panel actions (#644) — optional so existing
-  // callers compile unchanged. `sourceStaleReasonById` maps an element id to
-  // its stale reason when the linked source block has changed or gone missing.
-  sourceStaleReasonById?: ReadonlyMap<string, StaleReason>;
-  onUpdateElementFromSource?: (elementId: string) => void;
-  onUnlinkElementSource?: (elementId: string) => void;
-  onRelinkElementSource?: (elementId: string) => void;
-  // Style
-  onBackgroundChange: (color: string | undefined) => void;
-  onBackgroundGradientChange: (
-    gradient: { from: string; to: string; angle?: number } | undefined,
-  ) => void;
-  onBackgroundImageChange: (image: string | undefined) => void;
-  onBackgroundAssetChange?: (
-    opts: { url: string; assetId: string } | undefined,
-  ) => void;
-  onAccentChange: (color: string | undefined) => void;
-  /**
-   * The current user's brand-kit colors, surfaced ahead of the on-theme
-   * swatches in the background/accent/text pickers. Optional and best-effort.
-   */
-  brandSwatches?: readonly string[];
-  /**
-   * Overrides the root container classes so the host can place the inspector in
-   * the desktop right panel or a mobile bottom sheet (issue #209). Defaults to
-   * the docked right-panel column.
-   */
-  className?: string;
-  /**
-   * When false (Simple mode) advanced inspector sections are hidden: Arrange,
-   * Opacity, Effects, corner radius, and gradient. Defaults to true so
-   * call-sites that omit the prop preserve today's full behaviour.
-   */
-  showAdvanced?: boolean;
-  /**
-   * ID of the owning document. When provided the image upload path attempts a
-   * server-side asset upload (Epic #374) before falling back to a data URL.
-   */
-  documentId?: string;
-  slideAssetPort?: SlideAssetActionPort;
-  /**
-   * When provided, the panel is dismissable: a close button is shown in the
-   * header so the supplemental panel only stays open while needed (Slides-UI.md).
-   */
-  onClose?: () => void;
-  /** Initial active tab when the panel opens (toolbar handoff). */
-  initialTab?: RightPanelTab;
-}
-
-function TabButton({
-  active,
-  tabId,
-  panelId,
-  label,
-  onClick,
-  onKeyDown,
-}: {
-  active: boolean;
-  tabId: string;
-  panelId: string;
-  label: string;
-  onClick: () => void;
-  onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      id={tabId}
-      aria-selected={active}
-      aria-controls={panelId}
-      tabIndex={active ? 0 : -1}
-      onClick={onClick}
-      onKeyDown={onKeyDown}
-      className={`flex-1 rounded-ds-sm px-2 py-1.5 text-xs font-medium transition-colors ${
-        active
-          ? "bg-ds-accent-surface text-ds-accent-text"
-          : "text-ds-text-secondary hover:bg-ds-state-hover"
-      } ${FOCUS_RING}`}
-    >
-      {label}
-    </button>
-  );
-}
-
-export function SpeakerNotesControl({
-  notes,
-  onChange,
-}: {
-  notes: string;
-  onChange: (value: string, coalesceKey?: string) => void;
-}) {
-  const coalesceKeyRef = useRef<string | null>(null);
-
-  return (
-    <label className="block">
-      <span className={LABEL_CLASS}>Speaker notes</span>
-      <textarea
-        value={notes}
-        onChange={(event) =>
-          onChange(event.target.value, coalesceKeyRef.current ?? undefined)
-        }
-        onFocus={() => {
-          _speakerNotesEditSeq += 1;
-          coalesceKeyRef.current = `notes-edit:${_speakerNotesEditSeq}`;
-        }}
-        onBlur={() => {
-          coalesceKeyRef.current = null;
-        }}
-        rows={12}
-        aria-label="Speaker notes"
-        placeholder="Add speaker notes…"
-        className={`${FIELD_CLASS} min-h-64 resize-y leading-6 placeholder:text-ds-text-muted ${FOCUS_RING}`}
-      />
-    </label>
-  );
-}
+export type {
+  AddElementKind,
+  SlideInspectorProps,
+} from "@/components/presentation/slide-inspector/types";
+import type { SlideInspectorProps } from "@/components/presentation/slide-inspector/types";
 
 function elementLabel(element: SlideElement): string {
   switch (element.kind) {
