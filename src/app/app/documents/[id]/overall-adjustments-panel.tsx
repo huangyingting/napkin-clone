@@ -180,9 +180,9 @@ function BrandSection() {
             link.href = match.url;
             document.head.appendChild(link);
           }
-        } else if (brand.fontDataUrl) {
-          // Custom uploaded font: rehydrate @font-face from durable data-URL.
-          injectBrandFontFace(brand.id, brand.fontFamily, brand.fontDataUrl);
+        } else if (brand.fontAssetUrl) {
+          // Custom uploaded font: rehydrate @font-face from protected asset URL.
+          injectBrandFontFace(brand.id, brand.fontFamily, brand.fontAssetUrl);
         }
       }
       editor.update(() => {

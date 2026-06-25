@@ -24,8 +24,7 @@
     "db:seed:e2e": "node --import tsx prisma/seed-e2e.ts",
     "db:reset": "node scripts/gen-sqlite-schema.mjs --if-sqlite && prisma generate && prisma db push --force-reset && prisma db seed",
     "audit:schema": "node --import tsx src/scripts/audit-persisted-schema.ts",
-    "migrate:schema": "node --import tsx src/scripts/migrate-persisted-schema.ts",
-    "migrate:brand-assets": "node --import tsx src/scripts/migrate-brand-assets.ts"
+    "migrate:schema": "node --import tsx src/scripts/migrate-persisted-schema.ts"
   },
   "dependencies": {
     "@lexical/history": "^0.45.0",

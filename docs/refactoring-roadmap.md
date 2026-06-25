@@ -34,7 +34,7 @@ The audit passes found these pressure points:
 | Area                               | Current signal                                                                                          | Main risk                                                            |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | Persisted deck reads               | Mixed handling of string `deckJson` and parsed JSON objects                                             | Hidden compatibility branch and inconsistent fallback behavior       |
-| Brand assets                       | Legacy Prisma columns remain; DTO names still reuse `logoUrl` and `fontDataUrl` for derived asset URLs  | Old storage concepts leak into current runtime naming                |
+| Brand assets                       | Completed R3 cleanup: asset-id writes, derived `logoAssetUrl` / `fontAssetUrl`, no legacy columns       | Keep future brand media changes asset-first                          |
 | Slide editor UI                    | `slide-editor.tsx`, `slide-stage-editor.tsx`, and `slide-inspector.tsx` are very large                  | Hard-to-review changes, repeated state wiring, brittle UI ownership  |
 | AI generation routes               | `/api/generate` and `/api/generate-deck` duplicate quota, credit, Azure, timeout, and error handling    | Security and billing behavior can drift between routes               |
 | Shared primitives                  | `intFromEnv`, `messageFrom`, P2002 recovery, and JSON-object guards are duplicated or misplaced         | Inconsistent edge-case behavior and unclear ownership                |
@@ -203,19 +203,15 @@ The public deck layout surface no longer exposes placeholder-reinstall helpers.
 
 ### Problem
 
-Brand media is now asset-backed, but old names and columns still leak into the
-runtime model:
+Completed. Brand media is asset-backed end to end:
 
-- Prisma `Brand` still has legacy `logoUrl` and `fontDataUrl` columns.
-- `BrandStyle` exposes derived protected asset URLs as `logoUrl` and
-  `fontDataUrl`.
-- `BrandInput` accepts display URLs even though app writes should persist only
-  asset ids.
-- The brand UI passes `logoUrl` and `fontDataUrl` through form state.
-- `migrate-brand-assets` exists to convert old data URLs into assets.
-
-The code comments say the legacy columns are migration input only, but the DTO
-names still make old storage terms look current.
+- Prisma `Brand` stores `logoAssetId` and `fontAssetId`; legacy `logoUrl` and
+  `fontDataUrl` columns are gone.
+- `BrandStyle` exposes derived protected asset URLs as `logoAssetUrl` and
+  `fontAssetUrl`.
+- `BrandInput` accepts asset ids only; display URLs stay local to reads or client
+  preview state.
+- The one-off legacy media migration code path has been removed.
 
 ### Best Strategy
 
@@ -239,10 +235,9 @@ legacy Prisma columns and delete the one-off migration script/tests.
   brand token conversion, and tests.
 - Run the brand asset migration against target data before schema cleanup.
 - Drop legacy Prisma columns after data is migrated and verified.
-- Delete `src/lib/brand/asset-migrate.ts`, its tests, and
-  `src/scripts/migrate-brand-assets.ts` only after the schema no longer has
+- Delete one-off legacy media migration code after the schema no longer has
   legacy columns.
-- Remove `migrate:brand-assets` from `package.json` after the script is gone.
+- Remove package scripts for deleted one-off migration commands.
 
 ### Suggested Issues
 
