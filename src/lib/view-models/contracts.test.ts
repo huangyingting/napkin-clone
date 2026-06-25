@@ -84,6 +84,8 @@ test("serialized view-model contract matrix stays JSON-shaped", () => {
       shareExpiresAt: now,
       shareEmbedEnabled: true,
       sharePresentEnabled: true,
+      shareMetadataMode: "generic",
+      shareDiscoverable: false,
       ownerId: "user-1",
       workspaceId: null,
       tags: [{ id: "tag-1", name: "Plan", slug: "plan" }],
@@ -134,7 +136,7 @@ test("serialized view-model contract matrix stays JSON-shaped", () => {
     title: "Roadmap",
     contentJson: { root: { children: [] } },
     deckJson: deck,
-    owner: { name: "Ada", email: "ada@example.com", plan: "free" },
+    owner: { name: "Ada", plan: "free" },
   });
 
   for (const viewModel of [

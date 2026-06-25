@@ -22,7 +22,6 @@ export const PUBLIC_RENDER_DOCUMENT_SELECT = {
   owner: {
     select: {
       name: true,
-      email: true,
       plan: true,
     },
   },
@@ -36,7 +35,6 @@ export const PUBLIC_RENDER_PRESENTATION_SELECT = {
   owner: {
     select: {
       name: true,
-      email: true,
       plan: true,
     },
   },

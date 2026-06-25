@@ -40,7 +40,9 @@
  * are normalized to ISO 8601 UTC strings for portability.
  */
 
-export const ACCOUNT_EXPORT_VERSION = 2;
+import { PERSONAL_DATA_EXPORT_SECTIONS } from "@/lib/privacy/personal-data-inventory";
+
+export const ACCOUNT_EXPORT_VERSION = 3;
 
 export interface ExportUserInput {
   id: string;
@@ -77,6 +79,13 @@ export interface ExportDocumentInput {
   deckJson: unknown;
   workspaceId: string | null;
   isShared: boolean;
+  sharePolicy: {
+    expiresAt: Date | null;
+    embedEnabled: boolean;
+    presentEnabled: boolean;
+    metadataMode: string;
+    discoverable: boolean;
+  };
   createdAt: Date;
   updatedAt: Date;
   visuals: ExportVisualInput[];
@@ -107,6 +116,12 @@ export interface ExportCommentInput {
   updatedAt: Date;
 }
 
+export interface ExportCommentReadInput {
+  id: string;
+  documentId: string;
+  lastReadAt: Date;
+}
+
 export interface ExportTagInput {
   id: string;
   name: string;
@@ -130,7 +145,10 @@ export interface ExportAssetInput {
   id: string;
   mimeType: string;
   byteSize: number;
+  widthPx: number | null;
+  heightPx: number | null;
   checksum: string;
+  originalName: string | null;
   createdAt: Date;
 }
 
@@ -145,6 +163,24 @@ export interface ExportSubscriptionInput {
   updatedAt: Date;
 }
 
+export interface ExportInviteLinkUseInput {
+  id: string;
+  inviteLinkId: string;
+  workspaceId: string | null;
+  role: string;
+  usedAt: Date;
+}
+
+export interface ExportUsageLedgerEntryInput {
+  id: string;
+  operation: string;
+  creditCost: number;
+  status: string;
+  reservedAt: Date;
+  capturedAt: Date | null;
+  refundedAt: Date | null;
+}
+
 export interface AccountExport {
   exportVersion: number;
   exportedAt: string;
@@ -153,6 +189,11 @@ export interface AccountExport {
     description: string;
     includedEntities: string[];
     excludedEntities: string[];
+  };
+  manifest: {
+    personalDataSections: string[];
+    assetBytesIncluded: false;
+    assetBytesDecision: string;
   };
   user: {
     id: string;
@@ -171,6 +212,13 @@ export interface AccountExport {
     deckJson: unknown;
     workspaceId: string | null;
     isShared: boolean;
+    sharePolicy: {
+      expiresAt: string | null;
+      embedEnabled: boolean;
+      presentEnabled: boolean;
+      metadataMode: string;
+      discoverable: boolean;
+    };
     createdAt: string;
     updatedAt: string;
     visuals: Array<{
@@ -210,6 +258,11 @@ export interface AccountExport {
     createdAt: string;
     updatedAt: string;
   }>;
+  commentReads: Array<{
+    id: string;
+    documentId: string;
+    lastReadAt: string;
+  }>;
   tags: Array<{
     id: string;
     name: string;
@@ -229,7 +282,10 @@ export interface AccountExport {
     id: string;
     mimeType: string;
     byteSize: number;
+    widthPx: number | null;
+    heightPx: number | null;
     checksum: string;
+    displayName: string | null;
     createdAt: string;
   }>;
   subscription: {
@@ -242,6 +298,22 @@ export interface AccountExport {
     createdAt: string;
     updatedAt: string;
   } | null;
+  inviteLinkUses: Array<{
+    id: string;
+    inviteLinkId: string;
+    workspaceId: string | null;
+    role: string;
+    usedAt: string;
+  }>;
+  usageLedger: Array<{
+    id: string;
+    operation: string;
+    creditCost: number;
+    status: string;
+    reservedAt: string;
+    capturedAt: string | null;
+    refundedAt: string | null;
+  }>;
 }
 
 const EXPORT_SCOPE: {
@@ -258,10 +330,13 @@ const EXPORT_SCOPE: {
     "owned workspaces",
     "workspace memberships (non-owner member rows)",
     "authored comments",
+    "comment read state",
     "owned tags",
     "owned brands (logo/font asset references — ids only)",
-    "owned assets via documents/workspaces/brands (metadata only, not raw file bytes)",
+    "owned assets via documents/workspaces/brands (display metadata only, not raw file bytes)",
     "active subscription",
+    "invite-link uses attributed to the user (without invite tokens)",
+    "usage ledger entries attributed to the user",
   ],
   excludedEntities: [
     "soft-deleted documents",
@@ -269,13 +344,23 @@ const EXPORT_SCOPE: {
     "raw asset file bytes (incl. brand logo/font bytes)",
     "invite-link tokens",
     "Stripe webhook events",
-    "operational rate-limit records",
+    "operational rate-limit records (erased on account deletion)",
   ],
 };
 
 /** Serializes a Date to ISO, preserving null. */
 function iso(date: Date | null): string | null {
   return date ? date.toISOString() : null;
+}
+
+function sanitizeDisplayName(name: string | null): string | null {
+  if (!name) return null;
+  const sanitized = name
+    .replace(/[^\p{L}\p{N}._ -]+/gu, "_")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+  return sanitized || null;
 }
 
 /**
@@ -289,10 +374,13 @@ export function buildAccountExport(input: {
   workspacesOwned: ExportWorkspaceInput[];
   workspaceMemberships: ExportMembershipInput[];
   comments: ExportCommentInput[];
+  commentReads: ExportCommentReadInput[];
   tags: ExportTagInput[];
   brands: ExportBrandInput[];
   assets: ExportAssetInput[];
   subscription: ExportSubscriptionInput | null;
+  inviteLinkUses: ExportInviteLinkUseInput[];
+  usageLedger: ExportUsageLedgerEntryInput[];
   now: Date;
 }): AccountExport {
   const {
@@ -301,10 +389,13 @@ export function buildAccountExport(input: {
     workspacesOwned,
     workspaceMemberships,
     comments,
+    commentReads,
     tags,
     brands,
     assets,
     subscription,
+    inviteLinkUses,
+    usageLedger,
     now,
   } = input;
 
@@ -312,6 +403,12 @@ export function buildAccountExport(input: {
     exportVersion: ACCOUNT_EXPORT_VERSION,
     exportedAt: now.toISOString(),
     scope: EXPORT_SCOPE,
+    manifest: {
+      personalDataSections: [...PERSONAL_DATA_EXPORT_SECTIONS],
+      assetBytesIncluded: false,
+      assetBytesDecision:
+        "Raw asset bytes are not embedded in JSON exports; asset display metadata is included for portability without copying protected blobs.",
+    },
     user: {
       id: user.id,
       email: user.email,
@@ -329,6 +426,13 @@ export function buildAccountExport(input: {
       deckJson: doc.deckJson ?? null,
       workspaceId: doc.workspaceId,
       isShared: doc.isShared,
+      sharePolicy: {
+        expiresAt: iso(doc.sharePolicy.expiresAt),
+        embedEnabled: doc.sharePolicy.embedEnabled,
+        presentEnabled: doc.sharePolicy.presentEnabled,
+        metadataMode: doc.sharePolicy.metadataMode,
+        discoverable: doc.sharePolicy.discoverable,
+      },
       createdAt: doc.createdAt.toISOString(),
       updatedAt: doc.updatedAt.toISOString(),
       visuals: doc.visuals.map((v) => ({
@@ -368,6 +472,11 @@ export function buildAccountExport(input: {
       createdAt: c.createdAt.toISOString(),
       updatedAt: c.updatedAt.toISOString(),
     })),
+    commentReads: commentReads.map((read) => ({
+      id: read.id,
+      documentId: read.documentId,
+      lastReadAt: read.lastReadAt.toISOString(),
+    })),
     tags: tags.map((t) => ({
       id: t.id,
       name: t.name,
@@ -387,7 +496,10 @@ export function buildAccountExport(input: {
       id: a.id,
       mimeType: a.mimeType,
       byteSize: a.byteSize,
+      widthPx: a.widthPx,
+      heightPx: a.heightPx,
       checksum: a.checksum,
+      displayName: sanitizeDisplayName(a.originalName),
       createdAt: a.createdAt.toISOString(),
     })),
     subscription: subscription
@@ -402,5 +514,21 @@ export function buildAccountExport(input: {
           updatedAt: subscription.updatedAt.toISOString(),
         }
       : null,
+    inviteLinkUses: inviteLinkUses.map((use) => ({
+      id: use.id,
+      inviteLinkId: use.inviteLinkId,
+      workspaceId: use.workspaceId,
+      role: use.role,
+      usedAt: use.usedAt.toISOString(),
+    })),
+    usageLedger: usageLedger.map((entry) => ({
+      id: entry.id,
+      operation: entry.operation,
+      creditCost: entry.creditCost,
+      status: entry.status,
+      reservedAt: entry.reservedAt.toISOString(),
+      capturedAt: iso(entry.capturedAt),
+      refundedAt: iso(entry.refundedAt),
+    })),
   };
 }

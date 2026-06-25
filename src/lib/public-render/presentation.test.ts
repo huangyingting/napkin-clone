@@ -67,7 +67,7 @@ test("buildPublicPresentationModel strips orphan visual references from persiste
         ],
       }),
     ]),
-    owner: { name: null, email: "owner@example.com", plan: "free" },
+    owner: { name: null, plan: "free" },
   });
 
   assert.equal(model.title, "Public deck");
@@ -76,7 +76,7 @@ test("buildPublicPresentationModel strips orphan visual references from persiste
     model.deck.slides[0].elements?.map((element) => element.id),
     ["el-keep"],
   );
-  assert.equal(model.attribution.ownerName, "owner");
+  assert.equal(model.attribution.ownerName, "Document owner");
 });
 
 test("buildPublicPresentationModel falls back to a block-derived deck when persisted deck is invalid", () => {
@@ -84,7 +84,7 @@ test("buildPublicPresentationModel falls back to a block-derived deck when persi
     title: "Fallback deck",
     contentJson: contentWithVisual("vis-1"),
     deckJson: { schemaVersion: -1 },
-    owner: { name: "Ava", email: "ava@example.com", plan: "free" },
+    owner: { name: "Ava", plan: "free" },
   });
 
   assert.equal(model.title, "Fallback deck");

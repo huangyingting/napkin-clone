@@ -170,6 +170,8 @@ export const SHARE_ACCESS_SELECT = {
   shareExpiresAt: true,
   shareEmbedEnabled: true,
   sharePresentEnabled: true,
+  shareMetadataMode: true,
+  shareDiscoverable: true,
 } as const;
 
 /** The document shape produced by {@link SHARE_ACCESS_SELECT}. */
@@ -180,6 +182,8 @@ export type ShareAccessFields = {
   shareExpiresAt: Date | null;
   shareEmbedEnabled: boolean;
   sharePresentEnabled: boolean;
+  shareMetadataMode?: string;
+  shareDiscoverable?: boolean;
 };
 
 /**

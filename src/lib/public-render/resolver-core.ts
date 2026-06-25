@@ -40,7 +40,6 @@ export type PublicRenderDocumentRow = ShareAccessFields &
     slug: string | null;
     owner: {
       name: string | null;
-      email: string;
       plan: string;
     };
   };
@@ -58,6 +57,8 @@ export interface PublicMetadataModel {
   content: string;
   slug: string | null;
   shareId: string | null;
+  metadataMode: string;
+  discoverable: boolean;
 }
 
 export type PublicAssetAccessDecision =
@@ -295,6 +296,8 @@ export async function resolvePublicRenderWithSource(
         content: document.content,
         slug: document.slug,
         shareId: document.shareId,
+        metadataMode: document.shareMetadataMode ?? "generic",
+        discoverable: document.shareDiscoverable ?? false,
       },
       decision,
     };

@@ -33,4 +33,6 @@ export type ShareSettings = {
   expiresAt: string | null;
   embedEnabled: boolean;
   presentEnabled: boolean;
+  metadataMode: "generic" | "title" | "title-excerpt";
+  discoverable: boolean;
 };

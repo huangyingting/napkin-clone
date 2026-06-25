@@ -10,6 +10,8 @@ export interface PublicMetadataDocument {
   content: string;
   slug: string | null;
   shareId: string | null;
+  metadataMode: string;
+  discoverable: boolean;
 }
 
 export interface BuildPublicMetadataInput {
@@ -63,16 +65,28 @@ export function buildPublicMetadata({
       ? `${baseUrl}/share/${segment}`
       : `${baseUrl}/present/${segment}`;
   const shareCanonical = `${baseUrl}/share/${segment}`;
-  const description = excerpt(document.content);
+  const metadataMode =
+    document.metadataMode === "title" ||
+    document.metadataMode === "title-excerpt"
+      ? document.metadataMode
+      : "generic";
+  const canShowTitle =
+    metadataMode === "title" || metadataMode === "title-excerpt";
+  const canShowExcerpt = metadataMode === "title-excerpt";
+  const safeTitle = canShowTitle ? document.title : "Shared Document";
+  const description = canShowExcerpt
+    ? excerpt(document.content)
+    : "A read-only document shared with TextIQ.";
   const ogImage = `${baseUrl}/share/${segment}/opengraph-image`;
   const pageTitle =
     surface === "share"
-      ? `${document.title} — ${siteName}`
-      : `${document.title} — Presentation — ${siteName}`;
+      ? `${safeTitle} — ${siteName}`
+      : `${safeTitle} — Presentation — ${siteName}`;
 
   return {
     title: pageTitle,
     description,
+    robots: { index: document.discoverable, follow: document.discoverable },
     alternates: { canonical },
     openGraph: {
       title: pageTitle,
@@ -80,7 +94,7 @@ export function buildPublicMetadata({
       url: canonical,
       siteName,
       type: "article",
-      images: [{ url: ogImage, width: 1200, height: 630, alt: document.title }],
+      images: [{ url: ogImage, width: 1200, height: 630, alt: safeTitle }],
     },
     twitter: {
       card: "summary_large_image",

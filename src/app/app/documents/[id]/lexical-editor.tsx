@@ -302,6 +302,8 @@ export function LexicalEditor({
   initialShareExpiresAt = null,
   initialShareEmbedEnabled = true,
   initialSharePresentEnabled = true,
+  initialShareMetadataMode = "generic",
+  initialShareDiscoverable = false,
   initialTags = [],
   allTags = [],
 }: Partial<
@@ -319,6 +321,8 @@ export function LexicalEditor({
     | "initialShareExpiresAt"
     | "initialShareEmbedEnabled"
     | "initialSharePresentEnabled"
+    | "initialShareMetadataMode"
+    | "initialShareDiscoverable"
     | "initialTags"
     | "allTags"
   >
@@ -566,6 +570,8 @@ export function LexicalEditor({
                           initialExpiresAt={initialShareExpiresAt}
                           initialEmbedEnabled={initialShareEmbedEnabled}
                           initialPresentEnabled={initialSharePresentEnabled}
+                          initialMetadataMode={initialShareMetadataMode}
+                          initialDiscoverable={initialShareDiscoverable}
                           documentTitle={title.value}
                         />
                       )}

@@ -62,9 +62,36 @@ function isContentKey(key) {
 function redactContext(context = {}) {
   const out = {};
   for (const [key, value] of Object.entries(context)) {
-    out[key] = isSensitiveKey(key) ? REDACTED : value;
+    out[key] =
+      isSensitiveKey(key) ||
+      isContentKey(key) ||
+      (typeof value === "string" && isUnsafeLogString(value))
+        ? REDACTED
+        : value;
   }
   return out;
+}
+
+function isUnsafeLogString(value) {
+  const trimmed = value.trim();
+  if (
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      trimmed,
+    )
+  ) {
+    return false;
+  }
+  return (
+    /[^\s@]+@[^\s@]+\.[^\s@]+/.test(trimmed) ||
+    /^https?:\/\//i.test(trimmed) ||
+    /^bearer\s+/i.test(trimmed) ||
+    /(?:\d[ -]*?){13,19}/.test(trimmed) ||
+    /(?:sk|rk|pk|whsec|tok|seti|pi|cs)_[A-Za-z0-9_=-]{8,}/.test(trimmed)
+  );
+}
+
+function sanitizeLogString(value) {
+  return isUnsafeLogString(value) ? REDACTED : value;
 }
 
 function isSafeTelemetryScalar(value) {
@@ -94,4 +121,6 @@ module.exports = {
   redactContext,
   isSafeTelemetryScalar,
   buildSafeTelemetryContext,
+  isUnsafeLogString,
+  sanitizeLogString,
 };

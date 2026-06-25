@@ -13,6 +13,8 @@ export interface DocumentEditorViewModel {
   initialShareExpiresAt: string | null;
   initialShareEmbedEnabled: boolean;
   initialSharePresentEnabled: boolean;
+  initialShareMetadataMode: "generic" | "title" | "title-excerpt";
+  initialShareDiscoverable: boolean;
   canEdit: boolean;
   canManage: boolean;
   workspaceName: string | null;
@@ -33,6 +35,8 @@ export interface DocumentEditorRow {
   shareExpiresAt: Date | null;
   shareEmbedEnabled: boolean;
   sharePresentEnabled: boolean;
+  shareMetadataMode: string;
+  shareDiscoverable: boolean;
   ownerId: string;
   workspaceId: string | null;
   tags: DocumentTag[];
@@ -73,6 +77,12 @@ export function buildDocumentEditorViewModel({
       : null,
     initialShareEmbedEnabled: document.shareEmbedEnabled,
     initialSharePresentEnabled: document.sharePresentEnabled,
+    initialShareMetadataMode:
+      document.shareMetadataMode === "title" ||
+      document.shareMetadataMode === "title-excerpt"
+        ? document.shareMetadataMode
+        : "generic",
+    initialShareDiscoverable: document.shareDiscoverable,
     canEdit,
     canManage,
     workspaceName: document.workspace?.name ?? null,

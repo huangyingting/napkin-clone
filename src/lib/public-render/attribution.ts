@@ -2,7 +2,6 @@ import { shouldShowAttribution } from "@/lib/billing/attribution";
 
 export interface PublicOwnerAttributionInput {
   name: string | null;
-  email: string;
   plan: string;
 }
 
@@ -15,7 +14,7 @@ export function buildPublicAttribution(
   owner: PublicOwnerAttributionInput,
 ): PublicAttribution {
   return {
-    ownerName: owner.name || owner.email.split("@")[0],
+    ownerName: owner.name || "Document owner",
     showAttribution: shouldShowAttribution(owner.plan),
   };
 }

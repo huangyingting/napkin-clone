@@ -26,6 +26,7 @@ export const normalizeLogKey = redaction.normalizeLogKey;
 
 /** True when a context key should be redacted before logging. */
 export const isSensitiveKey = redaction.isSensitiveKey;
+export const sanitizeLogString = redaction.sanitizeLogString;
 
 const redactContext = redaction.redactContext;
 
@@ -43,12 +44,16 @@ function normalizeError(error: unknown): {
   stack?: string;
 } {
   if (error instanceof Error) {
-    return { name: error.name, message: error.message, stack: error.stack };
+    return {
+      name: error.name,
+      message: sanitizeLogString(error.message),
+      ...(error.stack ? { stack: sanitizeLogString(error.stack) } : {}),
+    };
   }
   if (typeof error === "string") {
-    return { name: "Error", message: error };
+    return { name: "Error", message: sanitizeLogString(error) };
   }
-  return { name: "Error", message: safeStringify(error) };
+  return { name: "Error", message: sanitizeLogString(safeStringify(error)) };
 }
 
 export interface ErrorLogRecord {

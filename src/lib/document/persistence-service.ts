@@ -136,6 +136,8 @@ function toShareSettings(row: {
   shareExpiresAt: Date | null;
   shareEmbedEnabled: boolean;
   sharePresentEnabled: boolean;
+  shareMetadataMode?: string;
+  shareDiscoverable?: boolean;
 }): ShareSettings {
   const shared = row.isShared && row.shareId !== null && row.slug !== null;
   return {
@@ -146,6 +148,12 @@ function toShareSettings(row: {
     expiresAt: row.shareExpiresAt ? row.shareExpiresAt.toISOString() : null,
     embedEnabled: row.shareEmbedEnabled,
     presentEnabled: row.sharePresentEnabled,
+    metadataMode:
+      row.shareMetadataMode === "title" ||
+      row.shareMetadataMode === "title-excerpt"
+        ? row.shareMetadataMode
+        : "generic",
+    discoverable: row.shareDiscoverable ?? false,
   };
 }
 
@@ -167,6 +175,8 @@ async function writeShareData(
   shareExpiresAt: Date | null;
   shareEmbedEnabled: boolean;
   sharePresentEnabled: boolean;
+  shareMetadataMode?: string;
+  shareDiscoverable?: boolean;
 }> {
   if (!isShared) {
     return prisma.document.update({
@@ -179,8 +189,10 @@ async function writeShareData(
         shareExpiresAt: true,
         shareEmbedEnabled: true,
         sharePresentEnabled: true,
+        shareMetadataMode: true,
+        shareDiscoverable: true,
       },
-    });
+    } as never);
   }
 
   let lastError: unknown;
@@ -197,8 +209,10 @@ async function writeShareData(
           shareExpiresAt: true,
           shareEmbedEnabled: true,
           sharePresentEnabled: true,
+          shareMetadataMode: true,
+          shareDiscoverable: true,
         },
-      });
+      } as never);
     } catch (err) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&
@@ -529,6 +543,8 @@ export async function updateDocumentSharePolicyData(
     shareExpiresAt?: Date | null;
     shareEmbedEnabled?: boolean;
     sharePresentEnabled?: boolean;
+    shareMetadataMode?: string;
+    shareDiscoverable?: boolean;
   },
 ): Promise<ShareSettings> {
   const updated = await prisma.document.update({
@@ -541,8 +557,10 @@ export async function updateDocumentSharePolicyData(
       shareExpiresAt: true,
       shareEmbedEnabled: true,
       sharePresentEnabled: true,
+      shareMetadataMode: true,
+      shareDiscoverable: true,
     },
-  });
+  } as never);
 
   return toShareSettings(updated);
 }

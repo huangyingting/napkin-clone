@@ -24,6 +24,8 @@ type ShareState = {
   expiresAt: string | null;
   embedEnabled: boolean;
   presentEnabled: boolean;
+  metadataMode: "generic" | "title" | "title-excerpt";
+  discoverable: boolean;
 };
 
 /** Builds the displayed share URL from the current origin + shareId/slug. */
@@ -48,6 +50,8 @@ function toShareState(settings: ShareSettings): ShareState {
     expiresAt: settings.expiresAt,
     embedEnabled: settings.embedEnabled,
     presentEnabled: settings.presentEnabled,
+    metadataMode: settings.metadataMode,
+    discoverable: settings.discoverable,
   };
 }
 
@@ -75,6 +79,8 @@ export function ShareButton({
   initialExpiresAt = null,
   initialEmbedEnabled = true,
   initialPresentEnabled = true,
+  initialMetadataMode = "generic",
+  initialDiscoverable = false,
   documentTitle = "Untitled",
   iconOnly = false,
 }: {
@@ -85,6 +91,8 @@ export function ShareButton({
   initialExpiresAt?: string | null;
   initialEmbedEnabled?: boolean;
   initialPresentEnabled?: boolean;
+  initialMetadataMode?: "generic" | "title" | "title-excerpt";
+  initialDiscoverable?: boolean;
   documentTitle?: string;
   iconOnly?: boolean;
 }) {
@@ -97,6 +105,8 @@ export function ShareButton({
     expiresAt: initialExpiresAt,
     embedEnabled: initialEmbedEnabled,
     presentEnabled: initialPresentEnabled,
+    metadataMode: initialMetadataMode,
+    discoverable: initialDiscoverable,
   });
   const [copying, setCopying] = useState(false);
   const [embedCopied, setEmbedCopied] = useState(false);
@@ -168,6 +178,28 @@ export function ShareButton({
 
   const handlePresentEnabledChange = async (enabled: boolean) => {
     const result = await updateSharePolicy(id, { presentEnabled: enabled });
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setError(null);
+    setShareState(toShareState(result.data));
+  };
+
+  const handleMetadataModeChange = async (
+    mode: "generic" | "title" | "title-excerpt",
+  ) => {
+    const result = await updateSharePolicy(id, { metadataMode: mode });
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setError(null);
+    setShareState(toShareState(result.data));
+  };
+
+  const handleDiscoverableChange = async (discoverable: boolean) => {
+    const result = await updateSharePolicy(id, { discoverable });
     if (!result.ok) {
       setError(result.error);
       return;
@@ -306,6 +338,46 @@ export function ShareButton({
             {shareState.expiresAt
               ? "After this time the link stops working everywhere."
               : "No expiry — the link works until disabled or regenerated."}
+          </p>
+        </div>
+      )}
+
+      {shareState.isShared && (
+        <div className="mt-4 border-t border-ds-border-subtle pt-3">
+          <h4 className="mb-2 text-xs font-semibold text-ds-text-primary">
+            Public preview privacy
+          </h4>
+          <label className="mb-2 flex flex-col gap-1 text-xs text-ds-text-secondary">
+            Social preview metadata
+            <select
+              value={shareState.metadataMode}
+              onChange={(event) =>
+                handleMetadataModeChange(
+                  event.target.value as "generic" | "title" | "title-excerpt",
+                )
+              }
+              className="rounded-md border border-ds-border-subtle bg-ds-surface-sunken px-2 py-1 text-xs outline-none"
+            >
+              <option value="generic">Generic TextIQ preview</option>
+              <option value="title">Document title only</option>
+              <option value="title-excerpt">Title and excerpt</option>
+            </select>
+          </label>
+          <div className="mt-2 flex items-center justify-between">
+            <span
+              className="text-xs text-ds-text-secondary"
+              id="share-discoverable-label"
+            >
+              Allow search indexing
+            </span>
+            <Switch
+              checked={shareState.discoverable}
+              onCheckedChange={handleDiscoverableChange}
+              aria-labelledby="share-discoverable-label"
+            />
+          </div>
+          <p className="mt-1 text-xs text-ds-text-muted">
+            Links default to noindex/nofollow and generic social previews.
           </p>
         </div>
       )}
