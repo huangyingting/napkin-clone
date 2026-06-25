@@ -2,6 +2,8 @@
 
 import { usePathname } from "next/navigation";
 
+import { shouldRenderAppHeader } from "@/lib/app-shell/header-gate";
+
 /**
  * Hides the global app chrome (the {@link SiteHeader}) on routes that must be
  * embeddable without any header/nav — the public `/embed/[shareId]` and
@@ -15,7 +17,7 @@ import { usePathname } from "next/navigation";
 export function HeaderGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  if (pathname?.startsWith("/embed") || pathname?.startsWith("/present")) {
+  if (!shouldRenderAppHeader(pathname)) {
     return null;
   }
 
