@@ -15,6 +15,13 @@
  */
 import { logScriptError } from "./structured-log.mjs";
 
+const DEFAULT_AUTHORIZE_TIMEOUT_MS = 5000;
+
+const readPositiveInt = (value, fallback) => {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
 /**
  * @typedef {Object} CollabUpgradeDecision
  * @property {boolean} ok        Whether the upgrade should proceed.
@@ -50,6 +57,7 @@ export function interpretAuthorizeResponse(status, body) {
  * @param {string} options.authorizeUrl Base URL of the app's authorize route,
  *   e.g. `http://127.0.0.1:4000/api/collab/authorize`.
  * @param {typeof fetch} [options.fetchImpl] Override for testing.
+ * @param {number} [options.timeoutMs] Authorization request timeout.
  */
 export function createCollabAuthorizer(options = {}) {
   const authorizeUrl = options.authorizeUrl;
@@ -57,6 +65,10 @@ export function createCollabAuthorizer(options = {}) {
     throw new Error("[collab] createCollabAuthorizer requires authorizeUrl");
   }
   const fetchImpl = options.fetchImpl || fetch;
+  const timeoutMs = readPositiveInt(
+    options.timeoutMs ?? process.env.COLLAB_AUTHORIZE_TIMEOUT_MS,
+    DEFAULT_AUTHORIZE_TIMEOUT_MS,
+  );
 
   return async function authorize(req, room) {
     if (!room || room === "default") {
@@ -66,6 +78,9 @@ export function createCollabAuthorizer(options = {}) {
 
     const url = `${authorizeUrl}?room=${encodeURIComponent(room)}`;
     const cookie = req.headers?.cookie;
+    const abortController = new AbortController();
+    const timeout = setTimeout(() => abortController.abort(), timeoutMs);
+    timeout.unref?.();
 
     try {
       const res = await fetchImpl(url, {
@@ -74,6 +89,7 @@ export function createCollabAuthorizer(options = {}) {
           ...(cookie ? { cookie } : {}),
           accept: "application/json",
         },
+        signal: abortController.signal,
       });
 
       let body = null;
@@ -87,6 +103,8 @@ export function createCollabAuthorizer(options = {}) {
     } catch (err) {
       logScriptError("collab.auth.request", err, { room });
       return { ok: false, status: 403 };
+    } finally {
+      clearTimeout(timeout);
     }
   };
 }

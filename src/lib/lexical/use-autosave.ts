@@ -38,6 +38,10 @@ export function createAutosaveController({
 }): AutosaveController {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let latest: string | null = null;
+  let generation = 0;
+  let disposed = false;
+  let inFlight: Promise<void> | null = null;
+  let flushAgain = false;
 
   const clearPendingTimer = () => {
     if (timer) {
@@ -46,40 +50,76 @@ export function createAutosaveController({
     }
   };
 
-  const flush = async () => {
+  const emitStatus = (status: SaveStatus) => {
+    if (!disposed) onStatus(status);
+  };
+
+  const emitError = (error: unknown) => {
+    if (!disposed) onError(error);
+  };
+
+  const flush = async (): Promise<void> => {
     const json = latest;
-    if (json === null) {
+    if (disposed || json === null) {
       return;
     }
-    clearPendingTimer();
-    onStatus("saving");
-    try {
-      const result = await save(json);
-      if (!result.ok) {
-        onError(result.error ?? "Save failed");
-        onStatus("error");
-        return;
-      }
-      if (latest === json) {
-        onStatus("saved");
-      }
-    } catch (error) {
-      onError(error);
-      onStatus("error");
+    if (inFlight) {
+      flushAgain = true;
+      return inFlight;
     }
+    clearPendingTimer();
+    const saveGeneration = generation;
+    emitStatus("saving");
+    inFlight = (async () => {
+      try {
+        const result = await save(json);
+        if (disposed || saveGeneration !== generation || latest !== json) {
+          return;
+        }
+        if (!result.ok) {
+          emitError(result.error ?? "Save failed");
+          emitStatus("error");
+          return;
+        }
+        emitStatus("saved");
+      } catch (error) {
+        if (disposed || saveGeneration !== generation || latest !== json) {
+          return;
+        }
+        emitError(error);
+        emitStatus("error");
+      } finally {
+        inFlight = null;
+        if (!disposed && flushAgain && latest !== json) {
+          flushAgain = false;
+          await flush();
+        } else {
+          flushAgain = false;
+        }
+      }
+    })();
+    return inFlight;
   };
 
   return {
     queue(json) {
+      if (disposed) return;
       latest = json;
-      onStatus("pending");
+      generation += 1;
+      if (inFlight) {
+        flushAgain = true;
+      }
+      emitStatus("pending");
       clearPendingTimer();
       timer = setTimer(() => {
         void flush();
       }, debounceMs);
     },
     flush,
-    dispose: clearPendingTimer,
+    dispose() {
+      disposed = true;
+      clearPendingTimer();
+    },
     latestJson: () => latest,
   };
 }

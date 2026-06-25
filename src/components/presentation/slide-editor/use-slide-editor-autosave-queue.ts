@@ -15,6 +15,7 @@ import type { DeckPatch } from "@/lib/presentation/slide-commands";
 
 import {
   clearPendingPatches,
+  prependPendingPatches,
   replacePendingPatches,
 } from "./use-slide-editor-commit";
 
@@ -36,49 +37,76 @@ export function useSlideEditorAutosaveQueue({
   const latestDeckRef = useRef<Deck>(deck);
   const lastSeenDeckRef = useRef<Deck | null>(null);
   const lastSavedSerializedRef = useRef<string | null>(null);
+  const inFlightSaveRef = useRef<Promise<void> | null>(null);
+  const saveAgainRef = useRef(false);
 
   const flushSave = useCallback(async () => {
     if (autosaveTimerRef.current) {
       clearTimeout(autosaveTimerRef.current);
       autosaveTimerRef.current = null;
     }
-    const deckToSave = latestDeckRef.current;
-    const serialized = JSON.stringify(deckToSave);
-    if (!shouldPersist(lastSavedSerializedRef.current, serialized)) {
-      if (latestDeckRef.current === deckToSave) {
-        setIsDirty(false);
-      }
-      setHasSaveError(false);
-      setSaveErrorMessage(null);
-      return;
+    if (inFlightSaveRef.current) {
+      saveAgainRef.current = true;
+      return inFlightSaveRef.current;
     }
-    const patchSnapshot = pendingPatchesRef.current;
-    clearPendingPatches(pendingPatchesRef);
     setIsSaving(true);
-    setHasSaveError(false);
-    setSaveErrorMessage(null);
-    try {
-      const res = await onSave(deckToSave, patchSnapshot);
-      if (res.ok) {
-        lastSavedSerializedRef.current = serialized;
-        if (latestDeckRef.current === deckToSave) {
-          setIsDirty(false);
-        }
-      } else {
-        if (latestDeckRef.current === deckToSave) {
-          replacePendingPatches(pendingPatchesRef, patchSnapshot);
-        }
-        setHasSaveError(true);
-        setSaveErrorMessage(res.error);
+    inFlightSaveRef.current = (async () => {
+      try {
+        do {
+          saveAgainRef.current = false;
+          if (autosaveTimerRef.current) {
+            clearTimeout(autosaveTimerRef.current);
+            autosaveTimerRef.current = null;
+          }
+          const deckToSave = latestDeckRef.current;
+          const serialized = JSON.stringify(deckToSave);
+          if (!shouldPersist(lastSavedSerializedRef.current, serialized)) {
+            if (latestDeckRef.current === deckToSave) {
+              setIsDirty(false);
+            }
+            setHasSaveError(false);
+            setSaveErrorMessage(null);
+            return;
+          }
+          const patchSnapshot = [...pendingPatchesRef.current];
+          clearPendingPatches(pendingPatchesRef);
+          setHasSaveError(false);
+          setSaveErrorMessage(null);
+          try {
+            const res = await onSave(deckToSave, patchSnapshot);
+            if (res.ok) {
+              lastSavedSerializedRef.current = serialized;
+              if (latestDeckRef.current === deckToSave) {
+                setIsDirty(false);
+              }
+            } else if (latestDeckRef.current === deckToSave) {
+              replacePendingPatches(pendingPatchesRef, patchSnapshot);
+              setHasSaveError(true);
+              setSaveErrorMessage(res.error);
+            } else {
+              prependPendingPatches(pendingPatchesRef, patchSnapshot);
+            }
+          } catch {
+            if (latestDeckRef.current === deckToSave) {
+              replacePendingPatches(pendingPatchesRef, patchSnapshot);
+              setHasSaveError(true);
+            } else {
+              prependPendingPatches(pendingPatchesRef, patchSnapshot);
+            }
+          }
+          if (latestDeckRef.current !== deckToSave) {
+            saveAgainRef.current = true;
+          } else {
+            saveAgainRef.current = false;
+          }
+        } while (saveAgainRef.current);
+      } finally {
+        inFlightSaveRef.current = null;
+        saveAgainRef.current = false;
+        setIsSaving(false);
       }
-    } catch {
-      if (latestDeckRef.current === deckToSave) {
-        replacePendingPatches(pendingPatchesRef, patchSnapshot);
-      }
-      setHasSaveError(true);
-    } finally {
-      setIsSaving(false);
-    }
+    })();
+    return inFlightSaveRef.current;
   }, [onSave, pendingPatchesRef]);
 
   useEffect(() => {
@@ -104,6 +132,7 @@ export function useSlideEditorAutosaveQueue({
       if (autosaveTimerRef.current) {
         clearTimeout(autosaveTimerRef.current);
       }
+      saveAgainRef.current = false;
     };
   }, []);
 

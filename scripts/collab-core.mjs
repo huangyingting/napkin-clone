@@ -27,6 +27,7 @@ const DEFAULT_MAX_MESSAGE_BYTES = 256 * 1024;
 const DEFAULT_MAX_MESSAGES_PER_WINDOW = 120;
 const DEFAULT_MESSAGE_WINDOW_MS = 10_000;
 const DEFAULT_MAX_AWARENESS_BYTES = 16 * 1024;
+const DEFAULT_ACCESS_REVALIDATE_MS = 60_000;
 
 const readPositiveInt = (name, fallback) => {
   const parsed = Number.parseInt(process.env[name] ?? "", 10);
@@ -499,6 +500,9 @@ const closeConn = (doc, conn, onBeforeEvict = null) => {
   }
 };
 
+const rawSocketClosed = (socket) =>
+  Boolean(socket.destroyed || socket.closed || socket.writable === false);
+
 const send = (doc, conn, message, onBeforeEvict = null) => {
   if (
     conn.readyState !== wsReadyStateConnecting &&
@@ -535,6 +539,7 @@ const setupConnection = (
   roomName,
   readOnly = false,
   onBeforeEvict = null,
+  reauthorize = null,
 ) => {
   conn.binaryType = "arraybuffer";
   const room = roomName || "default";
@@ -558,6 +563,7 @@ const setupConnection = (
     return;
   }
   const doc = getYDoc(room);
+  conn.__textiqReadOnly = readOnly;
   // Cancel any pending eviction — this connection revives the room.
   cancelEviction(room);
   doc.conns.set(conn, new Set());
@@ -567,7 +573,7 @@ const setupConnection = (
       conn,
       doc,
       new Uint8Array(message),
-      readOnly,
+      Boolean(conn.__textiqReadOnly),
       onBeforeEvict,
     ),
   );
@@ -591,9 +597,36 @@ const setupConnection = (
   }, PING_TIMEOUT);
   pingInterval.unref?.();
 
+  const accessInterval =
+    typeof reauthorize === "function"
+      ? setInterval(
+          async () => {
+            try {
+              const decision = await reauthorize();
+              if (!decision?.ok) {
+                closeConn(doc, conn, onBeforeEvict);
+                clearInterval(accessInterval);
+                return;
+              }
+              conn.__textiqReadOnly = Boolean(decision.readOnly);
+            } catch (err) {
+              logScriptError("collab.core.reauthorize", err, { room });
+              closeConn(doc, conn, onBeforeEvict);
+              clearInterval(accessInterval);
+            }
+          },
+          readPositiveInt(
+            "COLLAB_ACCESS_REVALIDATE_MS",
+            DEFAULT_ACCESS_REVALIDATE_MS,
+          ),
+        )
+      : null;
+  accessInterval?.unref?.();
+
   conn.on("close", () => {
     closeConn(doc, conn, onBeforeEvict);
     clearInterval(pingInterval);
+    if (accessInterval) clearInterval(accessInterval);
   });
   conn.on("pong", () => {
     pongReceived = true;
@@ -648,6 +681,7 @@ export const _testOnly = {
   allowUpgradeAttempt,
   messageListener,
   setupConnection,
+  rawSocketClosed,
   scheduleEviction,
   cancelEviction,
   evictRoom,
@@ -710,15 +744,20 @@ export function createCollabWss(roomFromUrl, options = {}) {
     roomFromUrl ?? ((url) => (url || "/").slice(1).split("?")[0] || "default");
 
   wss.on("connection", (conn, req, decision) => {
+    const room = toRoom(req.url || "/");
     setupConnection(
       conn,
-      toRoom(req.url || "/"),
+      room,
       Boolean(decision?.readOnly),
       onBeforeEvict,
+      () => authorize(req, room),
     );
   });
 
   const handleUpgrade = async (req, socket, head) => {
+    if (rawSocketClosed(socket)) {
+      return;
+    }
     if (!allowUpgradeAttempt(clientIpFromUpgrade(req))) {
       logScriptError("collab.core.flood", new Error("upgrade rate exceeded"), {
         reason: "upgrade_rate",
@@ -735,6 +774,9 @@ export function createCollabWss(roomFromUrl, options = {}) {
     }
     if (!decision || !decision.ok) {
       refuseUpgrade(socket, decision?.status || 403);
+      return;
+    }
+    if (rawSocketClosed(socket)) {
       return;
     }
 

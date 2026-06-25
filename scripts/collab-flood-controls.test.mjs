@@ -75,3 +75,50 @@ test("collab message listener closes oversized messages", () => {
   assert.equal(doc.conns.has(conn), false);
   conn.__events.close();
 });
+
+test("collab access revalidation closes sockets after access is revoked", async () => {
+  process.env.COLLAB_ACCESS_REVALIDATE_MS = "1";
+  console.error = () => {};
+  const conn = fakeConn();
+  let checks = 0;
+  _testOnly.setupConnection(conn, "doc-3", false, null, async () => {
+    checks += 1;
+    return { ok: false, status: 403 };
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 25));
+
+  assert.equal(checks > 0, true);
+  assert.equal(conn.closed, true);
+  conn.__events.close();
+});
+
+test("collab access revalidation downgrades active sockets to read-only", async () => {
+  process.env.COLLAB_ACCESS_REVALIDATE_MS = "1";
+  const conn = fakeConn();
+  _testOnly.setupConnection(conn, "doc-4", false, null, async () => ({
+    ok: true,
+    status: 101,
+    readOnly: true,
+  }));
+
+  await new Promise((resolve) => setTimeout(resolve, 25));
+
+  assert.equal(conn.__textiqReadOnly, true);
+  conn.__events.close();
+});
+
+test("collab raw socket guard detects clients closed during async auth", () => {
+  assert.equal(
+    _testOnly.rawSocketClosed({ destroyed: true, writable: true }),
+    true,
+  );
+  assert.equal(
+    _testOnly.rawSocketClosed({ destroyed: false, writable: false }),
+    true,
+  );
+  assert.equal(
+    _testOnly.rawSocketClosed({ destroyed: false, writable: true }),
+    false,
+  );
+});

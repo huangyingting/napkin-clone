@@ -25,6 +25,10 @@ import {
   type SortKey,
   type ViewKey,
 } from "./document-list-url-state";
+import {
+  isCurrentDocumentListRequest,
+  nextDocumentListRequestSeq,
+} from "./document-list-async-ordering";
 import { useOptimisticDocumentTrash } from "./use-optimistic-document-trash";
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -58,6 +62,7 @@ export function DocumentList({
   const [searchCapped, setSearchCapped] = useState(false);
   const [isSearchPending, startSearchTransition] = useTransition();
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchRequestSeqRef = useRef(0);
 
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -70,6 +75,17 @@ export function DocumentList({
 
   const updateParams = (mutate: (params: URLSearchParams) => void) => {
     replaceDocumentListQueryState(pathname, searchParams, mutate);
+  };
+
+  const handleQueryChange = (nextQuery: string) => {
+    setQuery(nextQuery);
+    if (!nextQuery.trim()) {
+      searchRequestSeqRef.current = nextDocumentListRequestSeq(
+        searchRequestSeqRef.current,
+      );
+      setSearchResults(null);
+      setSearchCapped(false);
+    }
   };
 
   const setSort = (next: SortKey) => {
@@ -107,6 +123,8 @@ export function DocumentList({
       clearTimeout(searchDebounceRef.current);
     }
     const trimmed = query.trim();
+    const requestSeq = nextDocumentListRequestSeq(searchRequestSeqRef.current);
+    searchRequestSeqRef.current = requestSeq;
     if (!trimmed) {
       searchDebounceRef.current = null;
       return;
@@ -115,6 +133,11 @@ export function DocumentList({
       startSearchTransition(async () => {
         const { results, hasMore } =
           await documentListActions.searchDocuments(trimmed);
+        if (
+          !isCurrentDocumentListRequest(searchRequestSeqRef.current, requestSeq)
+        ) {
+          return;
+        }
         setSearchCapped(hasMore);
         setSearchResults(
           results.map((result: SearchResult) => ({
@@ -144,8 +167,14 @@ export function DocumentList({
     };
   }, [query]);
 
-  const { combinedDocuments, removedIds, undo, handleDelete, handleUndo } =
-    useOptimisticDocumentTrash(documents, documentListActions);
+  const {
+    combinedDocuments,
+    removedIds,
+    undo,
+    errorMessage: trashErrorMessage,
+    handleDelete,
+    handleUndo,
+  } = useOptimisticDocumentTrash(documents, documentListActions);
 
   const trimmedQuery = query.trim();
   const activePool: DashboardDocument[] = trimmedQuery
@@ -176,7 +205,7 @@ export function DocumentList({
           <DocumentListToolbar
             availableTags={availableTags}
             query={query}
-            setQuery={setQuery}
+            setQuery={handleQueryChange}
             isSearching={isSearching}
             selectedTag={selectedTag}
             setTag={setTag}
@@ -194,6 +223,14 @@ export function DocumentList({
             >
               Showing the first {visible.length} documents — narrow your search
               to see more.
+            </p>
+          )}
+          {trashErrorMessage && (
+            <p
+              role="alert"
+              className="rounded-lg border border-ds-danger-border bg-ds-danger-surface px-4 py-2 text-sm text-ds-danger-text"
+            >
+              {trashErrorMessage}
             </p>
           )}
 
