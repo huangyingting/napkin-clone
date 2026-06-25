@@ -1,6 +1,3 @@
-import { notFound as nextNotFound } from "next/navigation";
-import { NextResponse } from "next/server";
-
 import {
   forbidden,
   notFound as apiNotFound,
@@ -49,7 +46,7 @@ export function assertAccessDecisionForServerAction<
 
 export function assertAccessDecisionOrNotFound(
   decision: AccessDecision,
-  notFound: () => never = nextNotFound,
+  notFound: () => never,
 ): asserts decision is AccessAllowedDecision {
   if (!decision.allow) {
     notFound();
@@ -58,7 +55,7 @@ export function assertAccessDecisionOrNotFound(
 
 export function accessDecisionToApiResponse(
   decision: AccessDecision,
-): NextResponse | null {
+): ReturnType<typeof unauthorized> | null {
   if (decision.allow) {
     return null;
   }
@@ -73,12 +70,12 @@ export function accessDecisionToApiResponse(
 
 export function accessDecisionToPlainTextApiResponse(
   decision: AccessDecision,
-): NextResponse | null {
+): Response | null {
   if (decision.allow) {
     return null;
   }
   const body = decision.status === 404 ? "Not found" : decision.safeMessage;
-  return new NextResponse(body, { status: decision.status });
+  return new Response(body, { status: decision.status });
 }
 
 export function accessDecisionToDiagnostic(

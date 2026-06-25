@@ -60,6 +60,7 @@ export default async function PresentEmbedPage({
     evaluateShareAccessDecision(
       toShareAccessInput(document, resolvedShareId, "present"),
     ),
+    notFound,
   );
 
   const blocks = buildPresentationBlocks(document.contentJson);

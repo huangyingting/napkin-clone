@@ -126,6 +126,7 @@ export default async function SharedDocumentPage({
     evaluateShareAccessDecision(
       toShareAccessInput(document, resolvedShareId, "view"),
     ),
+    notFound,
   );
 
   const ownerName = document.owner.name || document.owner.email.split("@")[0];

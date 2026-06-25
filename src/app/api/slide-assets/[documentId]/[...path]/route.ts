@@ -35,7 +35,7 @@ import { getDefaultStorageAdapter } from "@/lib/slides/asset-storage";
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ documentId: string; path: string[] }> },
-): Promise<NextResponse> {
+): Promise<Response> {
   const { documentId, path: pathSegments } = await params;
   const filenamePart = Array.isArray(pathSegments)
     ? pathSegments.join("/")

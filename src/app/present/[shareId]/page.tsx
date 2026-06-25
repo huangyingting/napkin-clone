@@ -119,6 +119,7 @@ export default async function PresentPage({
     evaluateShareAccessDecision(
       toShareAccessInput(document, resolvedShareId, "present"),
     ),
+    notFound,
   );
 
   const blocks = buildPresentationBlocks(document.contentJson);

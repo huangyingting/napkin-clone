@@ -57,6 +57,7 @@ export default async function EmbedPage({
     evaluateShareAccessDecision(
       toShareAccessInput(document, resolvedShareId, "embed"),
     ),
+    notFound,
   );
 
   if (document.contentJson == null) {
