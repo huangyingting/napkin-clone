@@ -27,29 +27,17 @@ import { cx, FIELD_CONTROL, RADIUS } from "@/components/ui/tokens";
 
 import { createComment, type CommentThread } from "./comments-actions";
 import {
-  DOCUMENT_GUTTER_BUTTON_SIZE,
-  DOCUMENT_GUTTER_GAP,
-  rightGutterButtonLeft,
-} from "./document-gutter";
-
-const MAX_ANCHOR_TEXT_LENGTH = 280;
-const COMMENT_CARD_WIDTH = 240;
-const COMMENT_CARD_VIEWPORT_BLOCK_GAP = 10;
-const COMMENT_CARD_VIEWPORT_INLINE_GAP = 36;
-
-type AnchorPosition = {
-  text: string;
-  top: number;
-  iconLeft: number;
-  markerLeft: number;
-};
-
-type CommentCardPosition = {
-  anchorText: string;
-  top: number;
-  left: number;
-  maxHeight: number;
-};
+  COMMENT_CARD_VIEWPORT_BLOCK_GAP,
+  anchorPositionForBlock,
+  commentBlockAtY,
+  computeCommentCardPosition,
+  isInRightCommentGutter,
+  isTextCommentBlock,
+  normalizeInlineAnchorText,
+  preferredRightSideCardLeft,
+  type AnchorPosition,
+  type CommentCardPosition,
+} from "./inline-comment-dom";
 
 function subscribeToHydrationStore(): () => void {
   return () => {};
@@ -63,85 +51,6 @@ function getServerSnapshot(): boolean {
   return false;
 }
 
-function normalizeAnchorText(value: string): string {
-  return value.replace(/\s+/g, " ").trim().slice(0, MAX_ANCHOR_TEXT_LENGTH);
-}
-
-function isVisualBlock(element: HTMLElement): boolean {
-  return (
-    element.closest("[data-visual-chrome],[data-lexical-visual-id]") !== null ||
-    element.querySelector("[data-visual-chrome],[data-lexical-visual-id]") !==
-      null
-  );
-}
-
-function isTextBlock(element: HTMLElement): boolean {
-  if (isVisualBlock(element)) {
-    return false;
-  }
-  return normalizeAnchorText(element.textContent ?? "").length > 0;
-}
-
-function blockAtY(root: HTMLElement, clientY: number): HTMLElement | null {
-  const blocks = Array.from(root.children).filter(
-    (child): child is HTMLElement => child instanceof HTMLElement,
-  );
-  let nearest: { block: HTMLElement; distance: number } | null = null;
-  for (const block of blocks) {
-    const rect = block.getBoundingClientRect();
-    if (clientY >= rect.top && clientY <= rect.bottom) {
-      return isTextBlock(block) ? block : null;
-    }
-    if (!isTextBlock(block)) {
-      continue;
-    }
-    const distance = Math.min(
-      Math.abs(clientY - rect.top),
-      Math.abs(clientY - rect.bottom),
-    );
-    if (!nearest || distance < nearest.distance) {
-      nearest = { block, distance };
-    }
-  }
-  return nearest && nearest.distance <= 32 ? nearest.block : null;
-}
-
-function isInRightCommentGutter(root: HTMLElement, clientX: number): boolean {
-  const rootRect = root.getBoundingClientRect();
-  const buttonLeft = rightGutterButtonLeft(rootRect);
-  if (buttonLeft === null || buttonLeft < rootRect.right) {
-    return false;
-  }
-  return (
-    clientX >= rootRect.right &&
-    clientX <= buttonLeft + DOCUMENT_GUTTER_BUTTON_SIZE + DOCUMENT_GUTTER_GAP
-  );
-}
-
-function positionForBlock(
-  block: HTMLElement,
-  root: HTMLElement,
-): AnchorPosition | null {
-  const text = normalizeAnchorText(block.textContent ?? "");
-  if (!text) return null;
-  const blockRect = block.getBoundingClientRect();
-  const rootRect = root.getBoundingClientRect();
-  const iconLeft = rightGutterButtonLeft(rootRect);
-  if (iconLeft === null) {
-    return null;
-  }
-  return {
-    text,
-    top: blockRect.top + blockRect.height / 2,
-    iconLeft,
-    markerLeft: iconLeft,
-  };
-}
-
-function preferredRightSideCardLeft(anchor: AnchorPosition): number {
-  return anchor.iconLeft + DOCUMENT_GUTTER_BUTTON_SIZE + DOCUMENT_GUTTER_GAP;
-}
-
 function threadsByTextAnchor(
   threads: CommentThread[],
 ): Map<string, CommentThread[]> {
@@ -150,7 +59,7 @@ function threadsByTextAnchor(
     if (thread.anchorType !== "text" || !thread.anchorText) {
       continue;
     }
-    const key = normalizeAnchorText(thread.anchorText);
+    const key = normalizeInlineAnchorText(thread.anchorText);
     const current = map.get(key) ?? [];
     current.push(thread);
     map.set(key, current);
@@ -198,10 +107,10 @@ export function InlineCommentsLayer({
     const seen = new Set<string>();
     const dots: Array<AnchorPosition & { count: number }> = [];
     for (const child of Array.from(root.children)) {
-      if (!(child instanceof HTMLElement) || !isTextBlock(child)) {
+      if (!(child instanceof HTMLElement) || !isTextCommentBlock(child)) {
         continue;
       }
-      const position = positionForBlock(child, root);
+      const position = anchorPositionForBlock(child, root);
       if (!position || seen.has(position.text)) {
         continue;
       }
@@ -266,8 +175,8 @@ export function InlineCommentsLayer({
           setHoverAnchor(null);
           return;
         }
-        const block = blockAtY(root, event.clientY);
-        setHoverAnchor(block ? positionForBlock(block, root) : null);
+        const block = commentBlockAtY(root, event.clientY);
+        setHoverAnchor(block ? anchorPositionForBlock(block, root) : null);
       };
       window.addEventListener("mousemove", onMouseMove);
       const frame = requestAnimationFrame(refreshPositions);
@@ -349,45 +258,21 @@ export function InlineCommentsLayer({
     );
 
     const updateCardPosition = () => {
-      const maxWidth = Math.max(
-        180,
-        window.innerWidth - COMMENT_CARD_VIEWPORT_INLINE_GAP * 2,
-      );
-      const measuredWidth = Math.min(card?.offsetWidth ?? 0, maxWidth);
-      const cardWidth = measuredWidth > 0 ? measuredWidth : COMMENT_CARD_WIDTH;
-      const measuredHeight = Math.min(card?.offsetHeight ?? 0, maxHeight);
-      const cardHeight = measuredHeight > 0 ? measuredHeight : 240;
-      const preferredTop = activeAnchor.top - COMMENT_CARD_VIEWPORT_BLOCK_GAP;
-      const preferredLeft = preferredRightSideCardLeft(activeAnchor);
-      const maxLeft = Math.max(
-        COMMENT_CARD_VIEWPORT_INLINE_GAP,
-        window.innerWidth - cardWidth - COMMENT_CARD_VIEWPORT_INLINE_GAP,
-      );
-      const nextLeft = Math.min(
-        Math.max(preferredLeft, COMMENT_CARD_VIEWPORT_INLINE_GAP),
-        maxLeft,
-      );
-      const maxTop = Math.max(
-        COMMENT_CARD_VIEWPORT_BLOCK_GAP,
-        window.innerHeight - cardHeight - COMMENT_CARD_VIEWPORT_BLOCK_GAP,
-      );
-      const nextTop = Math.min(
-        Math.max(preferredTop, COMMENT_CARD_VIEWPORT_BLOCK_GAP),
-        maxTop,
-      );
+      const next = computeCommentCardPosition({
+        anchor: activeAnchor,
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+        measuredWidth: card?.offsetWidth ?? 0,
+        measuredHeight: card?.offsetHeight ?? 0,
+      });
 
       setCardPosition((current) =>
         current?.anchorText === activeAnchor.text &&
-        Math.abs(current.top - nextTop) < 0.5 &&
-        Math.abs(current.left - nextLeft) < 0.5 &&
+        Math.abs(current.top - next.top) < 0.5 &&
+        Math.abs(current.left - next.left) < 0.5 &&
         current.maxHeight === maxHeight
           ? current
-          : {
-              anchorText: activeAnchor.text,
-              top: nextTop,
-              left: nextLeft,
-              maxHeight,
-            },
+          : next,
       );
     };
 

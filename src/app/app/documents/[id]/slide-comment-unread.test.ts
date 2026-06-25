@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { isCommentUnread } from "./slide-comment-unread";
+import { isCommentUnread } from "@/lib/comments";
 
 // ---------------------------------------------------------------------------
 // isCommentUnread
