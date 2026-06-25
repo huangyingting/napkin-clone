@@ -7,6 +7,8 @@
  * field is treated as potentially absent and validated before use.
  */
 
+import type { AssetReference, ResolvedAssetUrl } from "@/lib/asset-vocabulary";
+
 /** The curated Google Fonts list available for brand font selection. */
 export const BRAND_WEB_FONTS = [
   {
@@ -98,19 +100,19 @@ export interface BrandStyle {
    * Asset id of the uploaded custom font, when present (Epic #496). The display
    * URL in {@link fontAssetUrl} is derived from this asset's storage key.
    */
-  fontAssetId?: string | null;
+  fontAssetId?: AssetReference | null;
   /** Asset id of the uploaded logo, when present (Epic #496). */
-  logoAssetId?: string | null;
+  logoAssetId?: AssetReference | null;
   /**
    * Protected `/api/brand-assets/…` URL for the uploaded custom font, derived
    * from {@link fontAssetId} at read time (Epic #496). `null` for web fonts.
    */
-  fontAssetUrl: string | null;
+  fontAssetUrl: ResolvedAssetUrl | null;
   /**
    * Protected `/api/brand-assets/…` URL for the uploaded logo, derived from
    * {@link logoAssetId} at read time (Epic #496).
    */
-  logoAssetUrl: string | null;
+  logoAssetUrl: ResolvedAssetUrl | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -126,9 +128,9 @@ export interface BrandInput {
   edgeColor?: string | null;
   fontFamily?: string | null;
   /** Asset id of the uploaded custom font (Epic #496). */
-  fontAssetId?: string | null;
+  fontAssetId?: AssetReference | null;
   /** Asset id of the uploaded logo (Epic #496). */
-  logoAssetId?: string | null;
+  logoAssetId?: AssetReference | null;
 }
 
 const HEX_COLOR = /^#[0-9a-fA-F]{3,8}$/;

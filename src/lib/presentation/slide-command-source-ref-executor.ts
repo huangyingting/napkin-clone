@@ -1,4 +1,10 @@
-import { relinkSource, unlinkSource, type Deck, type SourceRef } from "./deck";
+import {
+  activeSourceRef,
+  relinkSource,
+  unlinkSource,
+  type Deck,
+  type SourceRef,
+} from "./deck";
 import {
   removeElement,
   updateElement,
@@ -37,8 +43,7 @@ export function executeSourceRefFamilyCommand(
       if (!element) return failure(deck, `Element not found: ${cmd.elementId}`);
       if (element.sourceRef === undefined)
         return failure(deck, `Element has no source link: ${cmd.elementId}`);
-      const { unlinked: _unlinked, ...activeRef } = cmd.sourceRef;
-      const sourceRef: SourceRef = activeRef;
+      const sourceRef: SourceRef = activeSourceRef(cmd.sourceRef);
       const patch: ElementPatch =
         element.kind === "text"
           ? {

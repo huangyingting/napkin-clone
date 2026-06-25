@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  anchorNodeIdFromDurableBlockId,
   commentAnchorFromRecord,
   commentAnchorToRecord,
+  durableBlockIdFromAnchorRecord,
   sanitizeAnchorGeometry,
   slideAnchorFromRecord,
   slideAnchorToRecord,
@@ -133,6 +135,29 @@ test("commentAnchorToRecord maps canonical variants to DB columns", () => {
       anchorGeometry: { x: 5, y: 6 },
     },
   );
+});
+
+test("comment anchor id adapters treat anchorNodeId as durable block id", () => {
+  assert.equal(anchorNodeIdFromDurableBlockId(null), null);
+  assert.equal(anchorNodeIdFromDurableBlockId("bid-stable-1"), "bid-stable-1");
+  assert.equal(
+    durableBlockIdFromAnchorRecord({ anchorNodeId: "visual-1" }),
+    "visual-1",
+  );
+
+  const record = commentAnchorToRecord({
+    kind: "document-block",
+    blockKind: "visual",
+    text: "Chart",
+    nodeId: "visual-1",
+  });
+  assert.equal(record.anchorNodeId, "visual-1");
+  assert.deepEqual(commentAnchorFromRecord(record), {
+    kind: "document-block",
+    blockKind: "visual",
+    text: "Chart",
+    nodeId: "visual-1",
+  });
 });
 
 test("validateAnchorGeometry accepts bounds and rejects invalid values", () => {

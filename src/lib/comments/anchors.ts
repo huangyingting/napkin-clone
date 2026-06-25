@@ -53,6 +53,25 @@ export interface CommentAnchorRecord {
   anchorGeometry?: unknown;
 }
 
+/**
+ * Adapter for the persisted comment-anchor `anchorNodeId` column.
+ *
+ * Despite the historical column name, current comment anchors store durable
+ * document block/visual ids here, not transient Lexical NodeKeys.
+ */
+export function anchorNodeIdFromDurableBlockId(
+  blockId: string | null | undefined,
+): string | null {
+  return typeof blockId === "string" ? blockId : null;
+}
+
+/** Reads the durable document block/visual id from a comment-anchor record. */
+export function durableBlockIdFromAnchorRecord(
+  record: Pick<CommentAnchorRecord, "anchorNodeId">,
+): string | null {
+  return anchorNodeIdFromDurableBlockId(record.anchorNodeId);
+}
+
 export function normalizeAnchorType(
   value: string | null,
 ): CommentAnchorType | null {
@@ -173,7 +192,7 @@ export function commentAnchorFromRecord(
     return {
       kind: "text",
       text: record.anchorText,
-      nodeId: record.anchorNodeId ?? null,
+      nodeId: durableBlockIdFromAnchorRecord(record),
     };
   }
   if (anchorType === "visual") {
@@ -181,7 +200,7 @@ export function commentAnchorFromRecord(
       kind: "document-block",
       blockKind: "visual",
       text: record.anchorText ?? null,
-      nodeId: record.anchorNodeId ?? null,
+      nodeId: durableBlockIdFromAnchorRecord(record),
     };
   }
 
@@ -196,7 +215,7 @@ export function commentAnchorToRecord(
       return {
         anchorType: "text",
         anchorText: anchor.text,
-        anchorNodeId: anchor.nodeId,
+        anchorNodeId: anchorNodeIdFromDurableBlockId(anchor.nodeId),
         slideId: null,
         elementId: null,
         anchorGeometry: null,
@@ -205,7 +224,7 @@ export function commentAnchorToRecord(
       return {
         anchorType: "visual",
         anchorText: anchor.text,
-        anchorNodeId: anchor.nodeId,
+        anchorNodeId: anchorNodeIdFromDurableBlockId(anchor.nodeId),
         slideId: null,
         elementId: null,
         anchorGeometry: null,

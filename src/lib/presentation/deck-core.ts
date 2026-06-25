@@ -5,6 +5,7 @@ import type {
   DeckThemeTokenSet,
   MasterSlide,
 } from "@/lib/presentation/deck-theme-token-types";
+import type { AssetReference, ResolvedAssetUrl } from "@/lib/asset-vocabulary";
 import type { SlideElement, TextRun } from "./deck-elements";
 import type { SlideLayout, SlideLayoutHint } from "./deck-layouts-model";
 
@@ -120,7 +121,7 @@ export interface Slide {
    * Optional per-slide background image (data URL or remote URL), rendered
    * cover. Takes precedence over the gradient and solid color when set.
    */
-  backgroundImage?: string;
+  backgroundImage?: ResolvedAssetUrl;
 
   /**
    * ID of the server-stored {@link Asset} row when this slide's background
@@ -128,7 +129,7 @@ export interface Slide {
    * When present, renderers SHOULD resolve the URL via the asset resolver
    * rather than treating `backgroundImage` as canonical.
    */
-  backgroundAssetId?: string;
+  backgroundAssetId?: AssetReference;
 
   /** Optional per-slide accent color (hex), overriding the theme accent. */
   accent?: string;

@@ -6,10 +6,11 @@
 These documents define persisted JSON contracts and database projections. They
 are the first place to update when a schema or source-of-truth boundary changes.
 
-| Document                             | Scope                                                                                       |
-| ------------------------------------ | ------------------------------------------------------------------------------------------- |
-| [deck.md](deck.md)                   | Current `Document.deckJson` shape, slide elements, source refs, sync, and deck persistence. |
-| [visual-mirror.md](visual-mirror.md) | Projection from Lexical visual nodes in `contentJson` to `Visual` rows.                     |
+| Document                                                               | Scope                                                                                       |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| [deck.md](deck.md)                                                     | Current `Document.deckJson` shape, slide elements, source refs, sync, and deck persistence. |
+| [visual-mirror.md](visual-mirror.md)                                   | Projection from Lexical visual nodes in `contentJson` to `Visual` rows.                     |
+| [../identity-and-payload-naming.md](../identity-and-payload-naming.md) | Durable id, source-ref/anchor, asset reference, and payload suffix vocabulary.              |
 
 ## Rules
 

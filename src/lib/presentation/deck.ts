@@ -58,6 +58,7 @@ export {
   isSourceStale,
   unlinkSource,
   relinkSource,
+  activeSourceRef,
 } from "./deck-source-refs";
 export type { SourceRef } from "./deck-source-refs";
 

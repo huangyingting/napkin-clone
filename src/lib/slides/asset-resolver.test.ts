@@ -10,9 +10,23 @@ import {
   resolveAssetSync,
   effectiveImageUrl,
   MISSING_ASSET_PLACEHOLDER,
+  type AssetResolveInput,
   type AssetResolverDb,
   type AssetResolverStorage,
 } from "./asset-resolver";
+import type { AssetReference, ResolvedAssetUrl } from "@/lib/asset-vocabulary";
+
+type Expect<T extends true> = T;
+
+export type AssetVocabularyTypeAssertions = [
+  Expect<AssetReference extends string ? true : false>,
+  Expect<ResolvedAssetUrl extends string ? true : false>,
+  Expect<
+    AssetResolveInput extends { assetId?: string; fallbackUrl?: string }
+      ? true
+      : false
+  >,
+];
 
 // ---------------------------------------------------------------------------
 // resolveAssetSync (pure helper)

@@ -105,11 +105,16 @@ type SourceRef = {
 The block kind is explicit. Refresh, staleness detection, and dependency health
 checks never infer a missing kind.
 
+`SourceRef.blockId` is durable: for text refs it is the document block
+`bid`/`blockId`; for visual refs it is the durable `visualId`. It is never a live
+Lexical `NodeKey`.
+
 Source-link helpers live in:
 
 - `src/lib/presentation/source-link-staleness.ts`
 - `src/lib/document/source-ref-model.ts`
 - `src/components/presentation/slide-editor.tsx`
+- `src/lib/presentation/deck-source-refs.ts`
 
 ## Deck Creation Paths
 
