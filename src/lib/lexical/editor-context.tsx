@@ -1,20 +1,8 @@
 "use client";
 
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { $isLinkNode } from "@lexical/link";
-import { $isListNode, ListNode } from "@lexical/list";
-import { $isHeadingNode, $isQuoteNode } from "@lexical/rich-text";
-import { $getSelectionStyleValueForProperty } from "@lexical/selection";
-import { $getNearestNodeOfType, mergeRegister } from "@lexical/utils";
-import {
-  $getSelection,
-  $isNodeSelection,
-  $isRangeSelection,
-  COMMAND_PRIORITY_LOW,
-  SELECTION_CHANGE_COMMAND,
-  type ElementFormatType,
-  type LexicalNode,
-} from "lexical";
+import { mergeRegister } from "@lexical/utils";
+import { COMMAND_PRIORITY_LOW, SELECTION_CHANGE_COMMAND } from "lexical";
 import {
   createContext,
   useContext,
@@ -24,106 +12,28 @@ import {
   type ReactNode,
 } from "react";
 
-/**
- * The single, typed snapshot of editor selection state that every contextual
- * surface (floating toolbar, insert menu, block gutter, visual controls) will
- * eventually read from instead of deriving its own. It is a strict *superset* of
- * what the four existing controls compute today:
- *
- * - `floating-toolbar.tsx` → `kind: 'range'`, `activeFormats`, `isLink`,
- *   `blockType`, `rects.selection`.
- * - `insert-menu.tsx` → `kind: 'collapsed' | 'empty-block'`, `blockKey`,
- *   `blockText`, `blockType`, `rects.block`.
- * - `block-spark.tsx` → `blockKey`, `blockText`, `rects.block` (the spark itself
- *   is pointer-hover driven, which stays local to that plugin).
- * - `visual-card.tsx` → `kind: 'visual'`, `selectedVisualId`,
- *   `selectedVisualNodeKey`.
- *
- * It is derived read-only from the Lexical selection. It never mutates the
- * document, never touches Yjs, and the only NodeKey it exposes
- * (`selectedVisualNodeKey` / `blockKey`) is a *live, transient* key for use
- * inside an immediate `editor.update()` — it is never persisted.
- */
-export type EditorContextKind =
-  | "range" // a non-collapsed text selection
-  | "collapsed" // a collapsed caret inside a non-empty block
-  | "empty-block" // a collapsed caret inside an empty paragraph
-  | "visual" // a VisualNode (decorator) is selected
-  | "none"; // no usable selection / editor blurred
+import {
+  readSelectionDescriptor,
+  snapshotsEqual,
+  type EditorContextKind,
+  type EditorContextSnapshot,
+  type RectSnapshot,
+  type SelectionDescriptor,
+} from "./selection-snapshot";
 
-/** Top-level block type, matching what `floating-text-toolbar.tsx` derives today. */
-type EditorBlockType =
-  | "paragraph"
-  | "h1"
-  | "h2"
-  | "h3"
-  | "quote"
-  | "bullet"
-  | "number";
-
-/** Inline text formats tracked on the active selection. */
-type EditorTextFormat =
-  | "bold"
-  | "italic"
-  | "underline"
-  | "strikethrough"
-  | "code";
-
-/** A plain, serialisable rectangle snapshot (a frozen `DOMRect`). */
-export type RectSnapshot = {
-  top: number;
-  left: number;
-  right: number;
-  bottom: number;
-  width: number;
-  height: number;
-};
-
-type EditorContextRects = {
-  /** Bounding rect of the native text selection range (floating toolbar). */
-  selection: RectSnapshot | null;
-  /** Bounding rect of the active top-level block element (gutter / menus). */
-  block: RectSnapshot | null;
-};
-
-export type EditorContextSnapshot = {
-  kind: EditorContextKind;
-  /** True while the editor is editable (mirrors `editor.isEditable()`). */
-  editable: boolean;
-  /** True when the selection is collapsed (or absent). */
-  isCollapsed: boolean;
-  /** The active top-level block type, when a text selection is present. */
-  blockType?: EditorBlockType;
-  /** Active inline formats on the selection. */
-  activeFormats: Set<EditorTextFormat>;
-  /**
-   * Element-level text alignment of the active block (`FORMAT_ELEMENT_COMMAND`
-   * value). Empty string means the inherited/default (left) alignment.
-   */
-  elementFormat: ElementFormatType;
-  /** Current `color` style on the selection (`""` when unset). */
-  textColor: string;
-  /** Current `background-color` (highlight) style on the selection (`""` when unset). */
-  highlightColor: string;
-  /** Whether the selection sits within a link. */
-  isLink: boolean;
-  /** Live Lexical key of the active top-level block (transient — never stored). */
-  blockKey?: string;
-  /** Plain-text content of the active top-level block. */
-  blockText?: string;
-  /** Plain-text content of the active native/Lexical text selection. */
-  selectionText?: string;
-  /** Live Lexical key of the last top-level block touched by a range selection. */
-  selectionEndBlockKey?: string;
-  /** True when the active block is an empty paragraph. */
-  isEmptyBlock: boolean;
-  /** Stable `visualId` of the selected VisualNode (safe to persist/anchor). */
-  selectedVisualId?: string;
-  /** Live Lexical key of the selected VisualNode (transient — never stored). */
-  selectedVisualNodeKey?: string;
-  /** Screen rects for positioning surfaces (recompute on scroll/resize). */
-  rects: EditorContextRects;
-};
+export type {
+  EditorBlockType,
+  EditorContextKind,
+  EditorContextSnapshot,
+  EditorTextFormat,
+  RectSnapshot,
+  SelectionDescriptor,
+  StableSelectionSnapshot,
+} from "./selection-snapshot";
+export {
+  readSelectionDescriptor,
+  stableSelectionSnapshot,
+} from "./selection-snapshot";
 
 const EMPTY_EDITOR_CONTEXT: EditorContextSnapshot = {
   kind: "none",
@@ -141,10 +51,6 @@ const EMPTY_EDITOR_CONTEXT: EditorContextSnapshot = {
 const EditorContextValue =
   createContext<EditorContextSnapshot>(EMPTY_EDITOR_CONTEXT);
 
-/**
- * Read the current {@link EditorContextSnapshot}. Must be used under an
- * {@link EditorContextProvider}; outside one it returns the empty snapshot.
- */
 export function useEditorContext(): EditorContextSnapshot {
   return useContext(EditorContextValue);
 }
@@ -160,226 +66,46 @@ function rectFromDOMRect(rect: DOMRect): RectSnapshot {
   };
 }
 
-function getBlockType(node: LexicalNode): EditorBlockType {
-  const element =
-    node.getKey() === "root" ? node : (node.getTopLevelElement() ?? node);
+function selectionRectForDescriptor(
+  kind: EditorContextKind,
+  editorRoot: HTMLElement | null,
+): RectSnapshot | null {
+  if (kind !== "range") {
+    return null;
+  }
 
-  const listNode = $getNearestNodeOfType(node, ListNode);
-  if (listNode && $isListNode(listNode)) {
-    return listNode.getListType() === "number" ? "number" : "bullet";
+  const nativeSelection = window.getSelection();
+  if (
+    !nativeSelection ||
+    nativeSelection.rangeCount === 0 ||
+    nativeSelection.isCollapsed ||
+    editorRoot === null ||
+    nativeSelection.anchorNode === null ||
+    !editorRoot.contains(nativeSelection.anchorNode)
+  ) {
+    return null;
   }
-  if ($isHeadingNode(element)) {
-    const tag = element.getTag();
-    if (tag === "h1") return "h1";
-    if (tag === "h2") return "h2";
-    if (tag === "h3") return "h3";
-  }
-  if ($isQuoteNode(element)) {
-    return "quote";
-  }
-  return "paragraph";
+
+  return rectFromDOMRect(nativeSelection.getRangeAt(0).getBoundingClientRect());
 }
 
-/** The subset of the snapshot derived purely from the Lexical editor state. */
-export type SelectionDescriptor = Pick<
-  EditorContextSnapshot,
-  | "kind"
-  | "isCollapsed"
-  | "blockType"
-  | "activeFormats"
-  | "elementFormat"
-  | "textColor"
-  | "highlightColor"
-  | "isLink"
-  | "blockKey"
-  | "blockText"
-  | "selectionText"
-  | "selectionEndBlockKey"
-  | "isEmptyBlock"
-  | "selectedVisualId"
-  | "selectedVisualNodeKey"
->;
-
-const EMPTY_DESCRIPTOR: SelectionDescriptor = {
-  kind: "none",
-  isCollapsed: true,
-  activeFormats: new Set(),
-  elementFormat: "",
-  textColor: "",
-  highlightColor: "",
-  isLink: false,
-  isEmptyBlock: false,
-};
-
-const TEXT_FORMATS: EditorTextFormat[] = [
-  "bold",
-  "italic",
-  "underline",
-  "strikethrough",
-  "code",
-];
-
-/**
- * Pure selection-derivation: reads the *current* Lexical selection and returns
- * the rect-free subset of {@link EditorContextSnapshot}. Must be invoked inside
- * an `editorState.read(...)` (or `editor.update(...)`) callback so `$getSelection`
- * resolves. Exported so the derivation can be exercised headlessly in tests; the
- * provider calls it identically.
- */
-export function readSelectionDescriptor(): SelectionDescriptor {
-  const selection = $getSelection();
-
-  // A selected decorator (e.g. a VisualNode) surfaces as a NodeSelection.
-  if ($isNodeSelection(selection)) {
-    for (const node of selection.getNodes()) {
-      if (node.getType() === "visual") {
-        const withId = node as LexicalNode & {
-          getVisualId?: () => string;
-        };
-        return {
-          ...EMPTY_DESCRIPTOR,
-          kind: "visual",
-          selectedVisualId:
-            typeof withId.getVisualId === "function"
-              ? withId.getVisualId()
-              : undefined,
-          selectedVisualNodeKey: node.getKey(),
-        };
-      }
-    }
-    return EMPTY_DESCRIPTOR;
-  }
-
-  if (!$isRangeSelection(selection)) {
-    return EMPTY_DESCRIPTOR;
-  }
-
-  const anchorNode = selection.anchor.getNode();
-  const topLevel =
-    anchorNode.getKey() === "root" ? null : anchorNode.getTopLevelElement();
-
-  const activeFormats = new Set<EditorTextFormat>();
-  for (const format of TEXT_FORMATS) {
-    if (selection.hasFormat(format)) {
-      activeFormats.add(format);
-    }
-  }
-
-  const isLink = selection.getNodes().some((node) => {
-    const parent = node.getParent();
-    return $isLinkNode(node) || (parent !== null && $isLinkNode(parent));
-  });
-
-  const blockType = getBlockType(anchorNode);
-  const blockKey = topLevel?.getKey();
-  const blockText = topLevel?.getTextContent() ?? "";
-  const selectionText = selection.getTextContent();
-  const selectedNodes = selection.getNodes();
-  const selectionEndBlock =
-    selectedNodes[selectedNodes.length - 1]?.getTopLevelElement() ?? topLevel;
-  const selectionEndBlockKey = selectionEndBlock?.getKey();
-  const isCollapsed = selection.isCollapsed();
-  const isEmptyBlock =
-    isCollapsed && blockType === "paragraph" && blockText.trim() === "";
-
-  // Element-level alignment lives on the top-level block (FORMAT_ELEMENT_COMMAND).
-  const elementFormat: ElementFormatType =
-    topLevel !== null ? topLevel.getFormatType() : "";
-  // Inline color styles serialise into the TextNode `style` (Yjs/collab-safe).
-  const textColor = $getSelectionStyleValueForProperty(selection, "color", "");
-  const highlightColor = $getSelectionStyleValueForProperty(
-    selection,
-    "background-color",
-    "",
-  );
-
-  let kind: EditorContextKind;
-  if (!isCollapsed && selectionText.trim() !== "") {
-    kind = "range";
-  } else if (isEmptyBlock) {
-    kind = "empty-block";
-  } else if (topLevel !== null) {
-    kind = "collapsed";
-  } else {
-    kind = "none";
-  }
-
+function buildSnapshot(
+  descriptor: SelectionDescriptor,
+  editable: boolean,
+  blockRect: RectSnapshot | null,
+  selectionRect: RectSnapshot | null,
+): EditorContextSnapshot {
   return {
-    kind,
-    isCollapsed,
-    blockType,
-    activeFormats,
-    elementFormat,
-    textColor,
-    highlightColor,
-    isLink,
-    blockKey,
-    blockText,
-    selectionText,
-    selectionEndBlockKey,
-    isEmptyBlock,
+    ...descriptor,
+    editable,
+    rects: { selection: selectionRect, block: blockRect },
   };
 }
 
-function sameFormats(
-  a: Set<EditorTextFormat>,
-  b: Set<EditorTextFormat>,
-): boolean {
-  if (a.size !== b.size) return false;
-  for (const value of a) {
-    if (!b.has(value)) return false;
-  }
-  return true;
-}
-
-function sameRect(a: RectSnapshot | null, b: RectSnapshot | null): boolean {
-  if (a === null || b === null) return a === b;
-  return (
-    a.top === b.top &&
-    a.left === b.left &&
-    a.right === b.right &&
-    a.bottom === b.bottom &&
-    a.width === b.width &&
-    a.height === b.height
-  );
-}
-
-function snapshotsEqual(
-  a: EditorContextSnapshot,
-  b: EditorContextSnapshot,
-): boolean {
-  return (
-    a.kind === b.kind &&
-    a.editable === b.editable &&
-    a.isCollapsed === b.isCollapsed &&
-    a.blockType === b.blockType &&
-    a.elementFormat === b.elementFormat &&
-    a.textColor === b.textColor &&
-    a.highlightColor === b.highlightColor &&
-    a.isLink === b.isLink &&
-    a.blockKey === b.blockKey &&
-    a.blockText === b.blockText &&
-    a.selectionText === b.selectionText &&
-    a.selectionEndBlockKey === b.selectionEndBlockKey &&
-    a.isEmptyBlock === b.isEmptyBlock &&
-    a.selectedVisualId === b.selectedVisualId &&
-    a.selectedVisualNodeKey === b.selectedVisualNodeKey &&
-    sameFormats(a.activeFormats, b.activeFormats) &&
-    sameRect(a.rects.selection, b.rects.selection) &&
-    sameRect(a.rects.block, b.rects.block)
-  );
-}
-
 /**
- * The single selection-derivation point for the editor. It subscribes *once* to
- * Lexical's update lifecycle (update listener + `SELECTION_CHANGE_COMMAND`) and
- * to the DOM `selectionchange` event (for native-range rects), produces an
- * {@link EditorContextSnapshot}, and exposes it via React context.
- *
- * In Phase 0 this is mounted *alongside* the existing four controls — it does
- * not replace their listeners yet. It is intentionally read-only: it never calls
- * `editor.update()`, never touches Yjs, and the live NodeKeys it surfaces are
- * transient (for an immediate update) and are never persisted.
+ * Single React/DOM boundary for selection snapshots. The descriptor is derived
+ * by the pure Lexical reader in `selection-snapshot`; this provider only adds
+ * transient DOM positioning rects and the live editable flag.
  */
 export function EditorContextProvider({ children }: { children: ReactNode }) {
   const [editor] = useLexicalComposerContext();
@@ -400,48 +126,19 @@ export function EditorContextProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      let selectionRect: RectSnapshot | null = null;
-      if (descriptor.kind === "range") {
-        const nativeSelection = window.getSelection();
-        const rootElement = editor.getRootElement();
-        // Only surface a selection rect when the *native* DOM selection is a
-        // visible, non-collapsed range inside the editor. Lexical keeps its
-        // internal range selection after the editor blurs (so toolbars can
-        // still apply formatting), but clicking outside the editor collapses
-        // the DOM selection — without this guard the floating toolbar would
-        // linger over an invisible/absent selection.
-        if (
-          nativeSelection &&
-          nativeSelection.rangeCount > 0 &&
-          !nativeSelection.isCollapsed &&
-          rootElement !== null &&
-          nativeSelection.anchorNode !== null &&
-          rootElement.contains(nativeSelection.anchorNode)
-        ) {
-          selectionRect = rectFromDOMRect(
-            nativeSelection.getRangeAt(0).getBoundingClientRect(),
-          );
-        }
-      }
-
-      const next: EditorContextSnapshot = {
-        ...descriptor,
-        editable: editor.isEditable(),
-        rects: { selection: selectionRect, block: blockRect },
-      };
+      const next = buildSnapshot(
+        descriptor,
+        editor.isEditable(),
+        blockRect,
+        selectionRectForDescriptor(descriptor.kind, editor.getRootElement()),
+      );
 
       setSnapshot((prev) => (snapshotsEqual(prev, next) ? prev : next));
     };
 
-    const onSelectionChange = () => {
-      editor.getEditorState().read(() => {
-        recompute();
-      });
-    };
+    const onSelectionChange = () => recompute();
     document.addEventListener("selectionchange", onSelectionChange);
 
-    // Keep the positioning rects fresh as the viewport moves under a stable
-    // selection (the floating surfaces are `position: fixed`).
     const onViewportChange = () => recompute();
     window.addEventListener("resize", onViewportChange);
     window.addEventListener("scroll", onViewportChange, true);

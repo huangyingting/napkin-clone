@@ -28,7 +28,7 @@ import { applyTheme } from "@/lib/visual/transforms";
 import { applyElasticLayout } from "@/lib/visual/transforms";
 import { applyVisualCommand } from "@/lib/commands/visual-command-adapter";
 
-import { VisualNode } from "./visual-node";
+import { VisualNode } from "@/lib/lexical/visual-node";
 
 // ---------------------------------------------------------------------------
 // useBrands — fetches brands lazily from /api/brand

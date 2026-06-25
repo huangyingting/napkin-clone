@@ -26,7 +26,7 @@ import {
   $isVisualNode,
   VisualNode,
   type SerializedVisualNode,
-} from "@/app/app/documents/[id]/visual-node";
+} from "@/lib/lexical/visual-node";
 
 import { $insertBlankVisualAfter } from "./insert-visual";
 

@@ -23,7 +23,7 @@ import {
   type TextFormatType,
 } from "lexical";
 
-import { VisualNode } from "@/app/app/documents/[id]/visual-node";
+import { VisualNode } from "@/lib/lexical/visual-node";
 
 /**
  * Headless editor wired with the SAME node set the app registers in
