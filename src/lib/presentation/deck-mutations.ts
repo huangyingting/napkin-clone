@@ -1,11 +1,80 @@
 /** Public mutation facade for deck editing helpers. */
 
-export * from "./deck-mutation-shared";
-export * from "./deck-mutation-slides";
-export * from "./deck-mutation-deck-settings";
-export * from "./deck-mutation-template";
-export * from "./deck-mutation-layout";
-export * from "./deck-mutation-elements";
-export * from "./deck-mutation-arrangement";
-export * from "./deck-mutation-slide-style";
-export * from "./deck-mutation-layers";
+export {
+  reindex,
+  freshBlankSlide,
+  mapSlide,
+  nextZIndex,
+  markElementsEdited,
+} from "./deck-mutation-shared";
+export type { DistributiveOmit, ElementPatch } from "./deck-mutation-shared";
+
+export {
+  reorderSlides,
+  moveSlide,
+  addSlide,
+  insertSlide,
+  duplicateSlide,
+  removeSlide,
+  updateSlide,
+} from "./deck-mutation-slides";
+
+export {
+  setDeckTheme,
+  setDeckSlideFormat,
+} from "./deck-mutation-deck-settings";
+
+export {
+  updateDeckTemplate,
+  resetDeckTemplate,
+} from "./deck-mutation-template";
+export type { DeckTemplatePatch } from "./deck-mutation-template";
+
+export {
+  applySlideLayoutPreservingContent,
+  resetSlideLayoutPositions,
+} from "./deck-mutation-layout";
+
+export {
+  addElement,
+  updateElement,
+  DUPLICATE_ELEMENT_OFFSET_PCT,
+  duplicateElement,
+  duplicateElements,
+  removeElement,
+  removeElements,
+  nudgeElements,
+  bringElementToFront,
+  sendElementToBack,
+  setElementBoxes,
+  setElementPatches,
+  groupElements,
+  ungroupElements,
+} from "./deck-mutation-elements";
+export type {
+  DuplicateElementResult,
+  DuplicateElementsResult,
+} from "./deck-mutation-elements";
+
+export {
+  alignElements,
+  distributeElements,
+  matchSizeElements,
+  arrangeSelectedElements,
+} from "./deck-mutation-arrangement";
+
+export {
+  setSlideBackground,
+  setSlideAccent,
+  setSlideBackgroundGradient,
+  setSlideBackgroundImage,
+  setSlideBackgroundAsset,
+} from "./deck-mutation-slide-style";
+
+export {
+  setElementHidden,
+  setElementLocked,
+  moveElementZOrder,
+  renameElement,
+  reorderElement,
+} from "./deck-mutation-layers";

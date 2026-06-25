@@ -1,6 +1,6 @@
 import type { Visual } from "@/lib/visual/schema";
 import { clearEffect, setEffect } from "@/lib/visual/transforms";
-import type { VisualCommand } from "./visual-commands";
+import type { VisualCommand } from "./visual-command-contracts";
 import {
   executionSuccess,
   failure,

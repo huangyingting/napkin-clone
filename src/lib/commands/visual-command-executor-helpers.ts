@@ -1,7 +1,5 @@
-import {
-  CURRENT_COMMAND_SCHEMA_VERSION,
-  makeSideEffects,
-} from "./command-envelope";
+import { CURRENT_COMMAND_SCHEMA_VERSION } from "./envelope-core";
+import { makeSideEffects } from "./command-result-helpers";
 import type {
   EdgeStylePatch,
   NodeExtStylePatch,
@@ -9,7 +7,7 @@ import type {
   VisualCommandResult,
   VisualPatch,
   VisualSideEffect,
-} from "./visual-commands";
+} from "./visual-command-contracts";
 import {
   DEFAULT_NODE_HEIGHT,
   DEFAULT_NODE_WIDTH,

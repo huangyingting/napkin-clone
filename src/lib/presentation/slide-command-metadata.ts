@@ -8,7 +8,7 @@ import {
   pushUnknownKeyErrors,
   type CommandTarget,
 } from "@/lib/commands/envelope-core";
-import type { SlideCommand, PatchOp } from "./slide-commands";
+import type { SlideCommand, PatchOp } from "./slide-command-contracts";
 
 export type SlideCommandType = SlideCommand["type"];
 export type SlideCommandCoalescing =

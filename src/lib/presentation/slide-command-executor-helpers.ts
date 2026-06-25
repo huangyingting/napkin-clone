@@ -1,5 +1,9 @@
 import { CURRENT_DECK_SCHEMA_VERSION, type Deck } from "./deck";
-import type { DeckPatch, PatchOp, CommandResult } from "./slide-commands";
+import type {
+  DeckPatch,
+  PatchOp,
+  CommandResult,
+} from "./slide-command-contracts";
 
 export function findSlideIndex(deck: Deck, slideId: string): number {
   return deck.slides.findIndex((s) => s.id === slideId);

@@ -1,4 +1,5 @@
-import type { PlaceholderType, TextElementStyle } from "./deck";
+import type { TextElementStyle } from "./deck-elements";
+import type { PlaceholderType } from "./deck-layout-primitives";
 
 /**
  * Content-level typography tokens, stored in points so they can drive editor

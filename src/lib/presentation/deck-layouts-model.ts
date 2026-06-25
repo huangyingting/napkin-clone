@@ -5,6 +5,11 @@ import {
   type SlideFormat as PresentationSlideFormat,
 } from "@/lib/presentation/slide-format";
 import type { ElementBox, PlaceholderElement } from "./deck-elements";
+import {
+  PLACEHOLDER_TYPES,
+  PLACEHOLDER_TYPE_LABELS,
+  type PlaceholderType,
+} from "./deck-layout-primitives";
 
 /**
  * Canonical slide layout hints. Exported as a `const` array so it is the single
@@ -29,25 +34,7 @@ export const SLIDE_LAYOUTS = [
 export type SlideLayoutHint = (typeof SLIDE_LAYOUTS)[number];
 
 /** Runtime list of supported reusable placeholder slot kinds. */
-export const PLACEHOLDER_TYPES = [
-  "title",
-  "subtitle",
-  "body",
-  "visual",
-  "footer",
-] as const;
-
-/** Placeholder slot kinds supported by reusable slide layouts. */
-export type PlaceholderType = (typeof PLACEHOLDER_TYPES)[number];
-
-/** Human-readable placeholder labels shared by the editor and tests. */
-export const PLACEHOLDER_TYPE_LABELS: Record<PlaceholderType, string> = {
-  title: "Title",
-  subtitle: "Subtitle",
-  body: "Body",
-  visual: "Visual",
-  footer: "Footer",
-};
+export { PLACEHOLDER_TYPES, PLACEHOLDER_TYPE_LABELS, type PlaceholderType };
 
 /**
  * A reusable slide layout definition. Stored on the deck and applied onto a

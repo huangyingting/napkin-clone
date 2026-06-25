@@ -1,7 +1,5 @@
 /** Source reference model and helpers. */
 
-import type { BaseElement } from "./deck-elements";
-
 /**
  * Provenance metadata linking an inserted slide element back to a source
  * document block for sync and staleness tracking.
@@ -18,6 +16,8 @@ export interface SourceRef {
   /** Kind of source block this ref points to. */
   blockKind: "text" | "visual";
 }
+
+type SourceRefCarrier = { sourceRef?: SourceRef };
 
 function cloneSourceRef(ref: SourceRef): SourceRef {
   return {
@@ -36,7 +36,7 @@ function cloneLinkedSourceRef(ref: SourceRef): SourceRef {
 }
 
 /** Returns true when an element still has an active source link. */
-export function isSourceLinked(el: BaseElement): boolean {
+export function isSourceLinked(el: SourceRefCarrier): boolean {
   return el.sourceRef !== undefined && el.sourceRef.unlinked !== true;
 }
 
@@ -44,7 +44,10 @@ export function isSourceLinked(el: BaseElement): boolean {
  * Returns true when an element's linked source content has changed since the
  * element was inserted or last relinked.
  */
-export function isSourceStale(el: BaseElement, currentHash: string): boolean {
+export function isSourceStale(
+  el: SourceRefCarrier,
+  currentHash: string,
+): boolean {
   const contentHash = el.sourceRef?.contentHash;
   return (
     isSourceLinked(el) &&
@@ -54,7 +57,7 @@ export function isSourceStale(el: BaseElement, currentHash: string): boolean {
 }
 
 /** Marks an element's source link as intentionally broken. */
-export function unlinkSource<T extends BaseElement>(el: T): T {
+export function unlinkSource<T extends SourceRefCarrier>(el: T): T {
   if (el.sourceRef === undefined || el.sourceRef.unlinked === true) {
     return el;
   }
@@ -68,7 +71,10 @@ export function unlinkSource<T extends BaseElement>(el: T): T {
 }
 
 /** Replaces an element's source link with a fresh active reference. */
-export function relinkSource<T extends BaseElement>(el: T, ref: SourceRef): T {
+export function relinkSource<T extends SourceRefCarrier>(
+  el: T,
+  ref: SourceRef,
+): T {
   return {
     ...el,
     sourceRef: cloneLinkedSourceRef(ref),

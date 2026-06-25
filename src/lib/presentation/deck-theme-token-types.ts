@@ -24,7 +24,11 @@ import type {
   ElementAlign,
   ImageFitMode,
   ImageMaskShape,
-} from "@/lib/presentation/deck";
+} from "@/lib/presentation/deck-element-primitives";
+import {
+  DECK_TEXT_ROLES,
+  type DeckTextRole,
+} from "@/lib/presentation/deck-theme-token-primitives";
 import type { FontScale } from "@/lib/presentation/theme-typography";
 
 // ---------------------------------------------------------------------------
@@ -40,19 +44,7 @@ import type { FontScale } from "@/lib/presentation/theme-typography";
  * (how it currently looks) so a single template edit can restyle every element
  * carrying a role without rewriting concrete element styles.
  */
-export const DECK_TEXT_ROLES = [
-  "h1",
-  "h2",
-  "h3",
-  "subtitle",
-  "body",
-  "bullet",
-  "caption",
-  "footer",
-  "shapeLabel",
-] as const;
-
-export type DeckTextRole = (typeof DECK_TEXT_ROLES)[number];
+export { DECK_TEXT_ROLES, type DeckTextRole };
 
 /**
  * Typography token for a single semantic role.  All fields except `fontSize`,

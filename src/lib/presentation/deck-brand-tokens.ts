@@ -5,4 +5,8 @@
  * into the dedicated brand-deck-theme-adapter boundary.
  */
 
-export * from "./brand-deck-theme-adapter";
+export {
+  brandToTokenSet,
+  brandToMasterChrome,
+  applyBrandToDeck,
+} from "./brand-deck-theme-adapter";

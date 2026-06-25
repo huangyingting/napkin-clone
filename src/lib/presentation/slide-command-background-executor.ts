@@ -13,7 +13,7 @@ import type {
   SetSlideBackgroundCommand,
   SetSlideBackgroundGradientCommand,
   SetSlideBackgroundImageCommand,
-} from "./slide-commands";
+} from "./slide-command-contracts";
 import {
   failure,
   findSlideIndex,

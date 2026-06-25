@@ -19,7 +19,7 @@ import type {
   UpdateSlideCommand,
   UpdateSlideNotesCommand,
   UpdateSlideTitleCommand,
-} from "./slide-commands";
+} from "./slide-command-contracts";
 import {
   failure,
   findSlideIndex,
