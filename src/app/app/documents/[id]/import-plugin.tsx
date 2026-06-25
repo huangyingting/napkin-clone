@@ -42,7 +42,7 @@ function ImportConfirmDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="import-replace-title"
-        className="relative z-10 w-full max-w-sm rounded-2xl border border-ds-border-strong bg-ds-surface-base p-6 shadow-xl"
+        className="relative z-raised w-full max-w-sm rounded-2xl border border-ds-border-strong bg-ds-surface-base p-6 shadow-xl"
       >
         <h2
           id="import-replace-title"

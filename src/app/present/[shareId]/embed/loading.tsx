@@ -4,7 +4,7 @@ export default function PresentEmbedLoading() {
   return (
     <LoadingRegion
       label="Loading presentation…"
-      className="flex min-h-screen w-full items-center justify-center bg-[#0f1117]"
+      className="flex min-h-screen w-full items-center justify-center bg-ds-present-loading"
     >
       <div className="w-full max-w-5xl px-4 sm:px-8" aria-hidden="true">
         <div className="aspect-video w-full rounded-2xl border border-white/10 bg-white/5 p-8 sm:p-12">

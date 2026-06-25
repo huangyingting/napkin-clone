@@ -29,7 +29,7 @@ import {
   VisualSkeleton,
 } from "@/components/motion/generation-status";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
-import { FOCUS_RING } from "@/components/motion/control-styles";
+import { FOCUS_RING } from "@/components/ui/tokens";
 import { useEditorContext } from "@/lib/lexical/editor-context";
 import {
   generateTargetForContext,

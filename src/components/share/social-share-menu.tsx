@@ -9,7 +9,7 @@ import {
 } from "react";
 import { Check, Copy, ExternalLink, Share2 } from "lucide-react";
 
-import { FOCUS_RING } from "@/components/motion/control-styles";
+import { FOCUS_RING } from "@/components/ui/tokens";
 import { exportPNG } from "@/lib/visual/export";
 import {
   applySocialPresetToOptions,

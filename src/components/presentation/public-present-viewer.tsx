@@ -262,7 +262,7 @@ export function PublicPresentViewer({
       {!embed && (
         <div
           aria-label="Presentation controls"
-          className={`pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-4 px-4 py-3 transition-opacity duration-300 ${hudVisible ? "opacity-100" : "opacity-0"}`}
+          className={`pointer-events-none absolute inset-x-0 top-0 z-raised flex items-center justify-between gap-4 px-4 py-3 transition-opacity duration-300 ${hudVisible ? "opacity-100" : "opacity-0"}`}
         >
           {/* Progress indicator + bar */}
           <div className="pointer-events-auto flex items-center gap-3">
@@ -348,7 +348,7 @@ export function PublicPresentViewer({
       {/* Bottom nav bar (always visible — minimal chrome even in embed)        */}
       {/* -------------------------------------------------------------------- */}
       <div
-        className={`pointer-events-none absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-3 transition-opacity duration-300 ${!embed && !hudVisible ? "opacity-0" : "opacity-100"}`}
+        className={`pointer-events-none absolute bottom-4 left-1/2 z-raised flex -translate-x-1/2 items-center gap-3 transition-opacity duration-300 ${!embed && !hudVisible ? "opacity-0" : "opacity-100"}`}
       >
         <div className="pointer-events-auto flex items-center gap-2 rounded-xl bg-ds-inverse-surface-muted px-3 py-2 backdrop-blur-sm">
           <button

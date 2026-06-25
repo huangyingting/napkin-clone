@@ -4,6 +4,27 @@
  */
 export { Button, IconButton } from "./button";
 
+export {
+  FieldRow,
+  IconActionCluster,
+  PanelSurface,
+  PopoverSection,
+  StatusPill,
+  ToolbarButton,
+} from "./chrome";
+export type {
+  FieldRowProps,
+  IconActionClusterProps,
+  PanelSurfaceProps,
+  PopoverSectionProps,
+  StatusPillProps,
+  StatusPillTone,
+  ToolbarButtonProps,
+  ToolbarButtonShape,
+  ToolbarButtonSize,
+  ToolbarButtonTone,
+} from "./chrome";
+
 export { ColorPicker, DEFAULT_SWATCH_PRESETS } from "./color-picker";
 
 export { Divider } from "./divider";
@@ -26,10 +47,13 @@ export { Popover } from "./popover";
 
 export {
   cx,
+  CONTROL_TRANSITION,
   EMPTY_STATE_CHROME,
   FIELD_CONTROL,
   FOCUS_RING,
+  GUTTER_BUTTON,
   MENU_CHROME,
   MENU_ITEM,
   PANEL_CHROME,
+  TOOLBAR_BUTTON_CHROME,
 } from "./tokens";

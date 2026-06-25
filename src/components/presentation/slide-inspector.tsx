@@ -43,7 +43,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { FOCUS_RING } from "@/components/motion/control-styles";
+import { FOCUS_RING } from "@/components/ui/tokens";
 import { DECK_THEMES } from "@/components/presentation/slide-canvas";
 import { LayerList } from "@/components/presentation/layer-list";
 import { Swatch, Tooltip } from "@/components/ui";

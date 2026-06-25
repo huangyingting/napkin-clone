@@ -18,7 +18,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { Divider, Surface, Tooltip } from "@/components/ui";
 import { cx } from "@/components/ui/tokens";
-import { FOCUS_RING } from "@/components/motion/control-styles";
+import { FOCUS_RING } from "@/components/ui/tokens";
 import type { BrandStyle } from "@/lib/brand/schema";
 import { BRAND_WEB_FONTS } from "@/lib/brand/schema";
 import { applyBrand, brandPreviewStyle } from "@/lib/brand/transforms";

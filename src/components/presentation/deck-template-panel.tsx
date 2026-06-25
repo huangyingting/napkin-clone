@@ -19,7 +19,7 @@ import {
   type DeckThemeTokenSet,
 } from "@/lib/presentation/deck-theme-tokens";
 import type { DeckTemplatePatch } from "@/lib/presentation/deck-mutations";
-import { FOCUS_RING } from "@/components/motion/control-styles";
+import { FOCUS_RING } from "@/components/ui/tokens";
 
 /** Roles surfaced in the editor, with friendly labels and sample text. */
 const ROLE_ROWS: ReadonlyArray<{ role: DeckTextRole; label: string }> = [

@@ -36,7 +36,7 @@ import {
   X,
 } from "lucide-react";
 
-import { FOCUS_RING } from "@/components/motion/control-styles";
+import { FOCUS_RING } from "@/components/ui/tokens";
 import {
   DECK_THEMES,
   SlideCanvas,
@@ -142,7 +142,7 @@ function KeyboardHelpOverlay({
 }): JSX.Element {
   return (
     <div
-      className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-6"
+      className="absolute inset-0 z-header flex items-center justify-center bg-black/60 p-6"
       onClick={onClose}
     >
       <div
@@ -229,7 +229,7 @@ function SlideOverviewPanel({
 
   return (
     <div
-      className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-6"
+      className="absolute inset-0 z-header flex items-center justify-center bg-black/60 p-6"
       onClick={onClose}
     >
       <div
@@ -830,7 +830,7 @@ export function PresentMode({
     >
       <div
         aria-label="Presentation controls"
-        className={`pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-4 px-4 py-3 transition-opacity duration-300 ${topHudVisible ? "opacity-100" : "opacity-0"}`}
+        className={`pointer-events-none absolute inset-x-0 top-0 z-raised flex items-start justify-between gap-4 px-4 py-3 transition-opacity duration-300 ${topHudVisible ? "opacity-100" : "opacity-0"}`}
       >
         <div className="pointer-events-auto flex flex-wrap items-center gap-3">
           <span
@@ -1004,7 +1004,7 @@ export function PresentMode({
       )}
 
       <div
-        className={`pointer-events-none absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-3 transition-opacity duration-300 ${bottomHudVisible ? "opacity-100" : "opacity-0"}`}
+        className={`pointer-events-none absolute bottom-4 left-1/2 z-raised flex -translate-x-1/2 items-center gap-3 transition-opacity duration-300 ${bottomHudVisible ? "opacity-100" : "opacity-0"}`}
       >
         <div className="pointer-events-auto flex items-center gap-2 rounded-xl bg-ds-inverse-surface-muted px-3 py-2 backdrop-blur-sm">
           <button
@@ -1034,7 +1034,7 @@ export function PresentMode({
       {laserActive && laserPosition ? (
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed z-20 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500 shadow-[0_0_0_6px_rgba(239,68,68,0.25)]"
+          className="pointer-events-none fixed z-sticky h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500 shadow-[0_0_0_6px_rgba(239,68,68,0.25)]"
           style={{ left: laserPosition.x, top: laserPosition.y }}
         />
       ) : null}

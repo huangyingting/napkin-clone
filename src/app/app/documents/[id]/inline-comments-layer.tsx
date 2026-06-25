@@ -21,7 +21,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-import { GUTTER_BUTTON } from "@/components/motion/control-styles";
+import { GUTTER_BUTTON } from "@/components/ui/tokens";
 import { Button, IconButton } from "@/components/ui";
 import { cx, FIELD_CONTROL, RADIUS } from "@/components/ui/tokens";
 

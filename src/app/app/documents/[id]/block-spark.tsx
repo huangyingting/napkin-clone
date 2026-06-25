@@ -22,7 +22,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 
-import { FOCUS_RING, GUTTER_BUTTON } from "@/components/motion/control-styles";
+import { FOCUS_RING, GUTTER_BUTTON } from "@/components/ui/tokens";
 import {
   GeneratingIndicator,
   VisualSkeleton,

@@ -95,7 +95,7 @@ export function DeleteAccountForm({ email }: { email: string }) {
               role="dialog"
               aria-modal="true"
               aria-labelledby="delete-account-title"
-              className="relative z-10 flex w-full max-w-md flex-col gap-4 rounded-2xl border border-ds-border-strong bg-ds-surface-base p-6 shadow-xl"
+              className="relative z-raised flex w-full max-w-md flex-col gap-4 rounded-2xl border border-ds-border-strong bg-ds-surface-base p-6 shadow-xl"
             >
               <h2
                 id="delete-account-title"

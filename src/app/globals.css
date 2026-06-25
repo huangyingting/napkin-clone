@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* =============================================================================
+   Design tokens — app chrome
+   ---------------------------------------------------------------------------
+   `--ds-*` tokens are the source of truth for TextIQ application chrome:
+   surfaces, controls, focus, status, motion, and semantic layering. Visual
+   content themes remain separate in src/lib/visual/themes.ts.
+   ========================================================================== */
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -10,9 +17,9 @@
    * One semantic layer for app chrome AND editor controls (floating toolbar,
    * insert menu, gutter buttons, visual-card surfaces). These are intentionally
    * SEPARATE from visual-content theming (src/lib/visual/themes.ts) and from the
-  * reading typography (.ds-prose stays serif on the same ds material tokens).
-  * Dark values live in the prefers-color-scheme block below; anything that uses
-  * these tokens flips automatically without mode-specific utilities.
+   * reading typography (.ds-prose stays serif on the same ds material tokens).
+   * Dark values live in the prefers-color-scheme block below; anything that uses
+   * these tokens flips automatically without mode-specific utilities.
    */
 
   /* Surfaces */
@@ -75,6 +82,7 @@
   --ds-stage-border: #27272a;
   --ds-stage-text: #d4d4d8;
   --ds-stage-muted: #71717a;
+  --ds-present-loading: #0f1117;
 
   /* Solid control (the pressed/active toggle: dark chip on light, inverted in dark) */
   --ds-control: #18181b;
@@ -127,6 +135,12 @@
   --ds-ease-standard: cubic-bezier(0.2, 0, 0, 1);
 }
 
+/* =============================================================================
+   Tailwind theme bridge
+   ---------------------------------------------------------------------------
+   Exposes the token layer as named Tailwind utilities (for example
+   `bg-ds-surface-raised`, `rounded-ds-md`, `z-modal`).
+   ========================================================================== */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -193,6 +207,7 @@
   --color-ds-stage-border: var(--ds-stage-border);
   --color-ds-stage-text: var(--ds-stage-text);
   --color-ds-stage-muted: var(--ds-stage-muted);
+  --color-ds-present-loading: var(--ds-present-loading);
 
   --color-ds-control: var(--ds-control);
   --color-ds-control-hover: var(--ds-control-hover);
@@ -239,6 +254,12 @@
   --ease-ds-standard: var(--ds-ease-standard);
 }
 
+/* =============================================================================
+   Dark-mode overrides
+   ---------------------------------------------------------------------------
+   Override token values only; component classes continue to consume the same
+   semantic `ds-*` utilities in both color schemes.
+   ========================================================================== */
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
@@ -283,12 +304,18 @@
   }
 }
 
+/* =============================================================================
+   Base application typography
+   ========================================================================== */
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
 }
 
+/* =============================================================================
+   Base document prose
+   ========================================================================== */
 /*
  * Design-system long-form reading typography (US-020).
  *
@@ -394,6 +421,9 @@ body {
   margin: 2em 0;
 }
 
+/* =============================================================================
+   App/layout utilities
+   ========================================================================== */
 /*
  * Inline bullets editor (slide stage). Renders the accent dot + spacing of the
  * static BulletsElementView via pseudo-elements so the markers never interfere
