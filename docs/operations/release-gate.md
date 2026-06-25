@@ -25,22 +25,28 @@ on every pull request (see `.github/workflows/ci.yml`):
 
 ```bash
 export DB_PROVIDER=sqlite DATABASE_URL="file:./prisma/dev.db" AUTH_SECRET=ci-placeholder
+npm run db:schema:check
+npm run db:generate
 npm test && npm run typecheck && npm run lint && npm run format:check
 ```
 
-| Step              | Tool / command         | Failure means                                    |
-| ----------------- | ---------------------- | ------------------------------------------------ |
-| Unit + pure tests | `npm test`             | A pure helper, schema, or domain model is broken |
-| TypeScript        | `npm run typecheck`    | Type errors in src/ or scripts/                  |
-| Lint              | `npm run lint`         | ESLint rule violations                           |
-| Formatting        | `npm run format:check` | Prettier formatting drift                        |
+| Step                | Tool / command            | Failure means                                    |
+| ------------------- | ------------------------- | ------------------------------------------------ |
+| SQLite schema drift | `npm run db:schema:check` | The generated SQLite schema is stale             |
+| Prisma client       | `npm run db:generate`     | Generated Prisma client cannot be refreshed      |
+| Unit + pure tests   | `npm test`                | A pure helper, schema, or domain model is broken |
+| TypeScript          | `npm run typecheck`       | Type errors in src/ or scripts/                  |
+| Lint                | `npm run lint`            | ESLint rule violations                           |
+| Formatting          | `npm run format:check`    | Prettier formatting drift                        |
 
-**All four steps must be green. A single failure is a release blocker.**
+**All six steps must be green. A single failure is a release blocker.**
 
 The CI job is defined in `.github/workflows/ci.yml` (`quality-gate` job,
-Node 22, SQLite). The build step (`npm run build`) is also run in CI but is
-not part of the local gate loop — a passing local gate with a failing build
-is still a release blocker and must be fixed immediately.
+Node 22, SQLite). CI runs the SQLite schema drift check before refreshing the
+generated Prisma client, so stale `prisma/schema.sqlite.prisma` changes fail
+before typechecking. The build step (`npm run build`) is also run in CI but is
+not part of the local gate loop — a passing local gate with a failing build is
+still a release blocker and must be fixed immediately.
 
 ### Persisted-schema audit (Epic #493)
 
@@ -205,7 +211,8 @@ For each flow below, check the indicated owner: **A** = automated test,
 
 ### Release blockers (must be green)
 
-1. `npm test && npm run typecheck && npm run lint && npm run format:check` — all green.
+1. `npm run db:schema:check`, `npm run db:generate`, `npm test`,
+   `npm run typecheck`, `npm run lint`, and `npm run format:check` — all green.
 2. Every critical flow marked **A** above has its corresponding test passing.
 3. Authorization denials (A-1 through A-6) all passing.
 4. No structured diagnostic emitting `severity: "fatal"` in the automated test run.
@@ -229,8 +236,9 @@ For each flow below, check the indicated owner: **A** = automated test,
 
 Before each foundation release wave:
 
-1. Run `npm test && npm run typecheck && npm run lint && npm run format:check`
-   locally. All four must exit 0.
+1. Run
+   `npm run db:schema:check && npm run db:generate && npm test && npm run typecheck && npm run lint && npm run format:check`
+   locally. All six must exit 0.
 2. Verify CI is green on the merge commit (`.github/workflows/ci.yml` → `quality-gate` job).
 3. Walk the checklist in Part 2 and confirm every **M** flow manually.
 4. Record any warnings (Part 3) in the release PR description with a brief risk note.
