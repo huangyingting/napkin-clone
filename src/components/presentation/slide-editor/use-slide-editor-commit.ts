@@ -31,6 +31,13 @@ export function replacePendingPatches(
   pendingPatchesRef.current = patches;
 }
 
+export function prependPendingPatches(
+  pendingPatchesRef: { current: DeckPatch[] },
+  patches: DeckPatch[],
+) {
+  pendingPatchesRef.current = [...patches, ...pendingPatchesRef.current];
+}
+
 export function useSlideEditorCommit(onDeckChange: DeckChange) {
   const pendingPatchesRef = useRef<DeckPatch[]>([]);
 

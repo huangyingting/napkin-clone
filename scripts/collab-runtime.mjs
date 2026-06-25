@@ -172,6 +172,7 @@ export function createRuntimeAuthorizer(options) {
   return createCollabAuthorizer({
     authorizeUrl: urls.authorizeUrl,
     fetchImpl: options.fetchImpl,
+    timeoutMs: options.env?.COLLAB_AUTHORIZE_TIMEOUT_MS,
   });
 }
 

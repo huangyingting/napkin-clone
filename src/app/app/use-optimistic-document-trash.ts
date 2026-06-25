@@ -4,6 +4,10 @@ import type { DocumentListActionPort } from "@/lib/action-ports";
 import type { DashboardDocument } from "@/lib/document-management/list";
 
 import type { DocumentCardData } from "./document-card";
+import {
+  isCurrentDocumentTrashOperation,
+  recordDocumentTrashOperation,
+} from "./document-list-async-ordering";
 
 const UNDO_DURATION_MS = 6000;
 
@@ -14,8 +18,11 @@ export function useOptimisticDocumentTrash(
   const [removedIds, setRemovedIds] = useState<Set<string>>(() => new Set());
   const [restored, setRestored] = useState<DashboardDocument[]>([]);
   const [undo, setUndo] = useState<DashboardDocument | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const operationSeqRef = useRef(0);
+  const latestOperationByDocumentRef = useRef<Map<string, number>>(new Map());
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -40,10 +47,42 @@ export function useOptimisticDocumentTrash(
       setRemovedIds((prev) => new Set(prev).add(data.id));
       setRestored((prev) => prev.filter((item) => item.id !== data.id));
       setUndo(stash);
+      setErrorMessage(null);
+      const operationSeq = recordDocumentTrashOperation(
+        latestOperationByDocumentRef.current,
+        data.id,
+        operationSeqRef.current,
+      );
+      operationSeqRef.current = operationSeq;
       clearTimer();
       timerRef.current = setTimeout(() => setUndo(null), UNDO_DURATION_MS);
       startTransition(async () => {
-        await actions.deleteDocument(data.id);
+        try {
+          await actions.deleteDocument(data.id);
+        } catch {
+          if (
+            !isCurrentDocumentTrashOperation(
+              latestOperationByDocumentRef.current,
+              data.id,
+              operationSeq,
+            )
+          ) {
+            return;
+          }
+          setRemovedIds((prev) => {
+            const next = new Set(prev);
+            next.delete(data.id);
+            return next;
+          });
+          setRestored((prev) => [
+            stash,
+            ...prev.filter((item) => item.id !== data.id),
+          ]);
+          setUndo((current) => (current?.id === data.id ? null : current));
+          setErrorMessage(
+            "Could not move the document to trash. It was restored.",
+          );
+        }
       });
     },
     [actions, clearTimer, documents],
@@ -53,6 +92,7 @@ export function useOptimisticDocumentTrash(
     if (!undo) return;
     const data = undo;
     setUndo(null);
+    setErrorMessage(null);
     clearTimer();
     setRemovedIds((prev) => {
       const next = new Set(prev);
@@ -63,8 +103,29 @@ export function useOptimisticDocumentTrash(
       data,
       ...prev.filter((item) => item.id !== data.id),
     ]);
+    const operationSeq = recordDocumentTrashOperation(
+      latestOperationByDocumentRef.current,
+      data.id,
+      operationSeqRef.current,
+    );
+    operationSeqRef.current = operationSeq;
     startTransition(async () => {
-      await actions.restoreDocument(data.id);
+      try {
+        await actions.restoreDocument(data.id);
+      } catch {
+        if (
+          !isCurrentDocumentTrashOperation(
+            latestOperationByDocumentRef.current,
+            data.id,
+            operationSeq,
+          )
+        ) {
+          return;
+        }
+        setRemovedIds((prev) => new Set(prev).add(data.id));
+        setRestored((prev) => prev.filter((item) => item.id !== data.id));
+        setErrorMessage("Could not restore the document. It remains in trash.");
+      }
     });
   }, [actions, undo, clearTimer]);
 
@@ -78,6 +139,7 @@ export function useOptimisticDocumentTrash(
     combinedDocuments: [...extra, ...base],
     removedIds,
     undo,
+    errorMessage,
     handleDelete,
     handleUndo,
   };
