@@ -46,7 +46,6 @@ import {
   normalizeBulletItems,
   PLACEHOLDER_TYPE_LABELS,
 } from "@/lib/presentation/deck";
-import { isEmptyImageSrc } from "@/lib/presentation/image-element";
 import { slideFormatConfig } from "@/lib/presentation/slide-format";
 import { resolveSlideStyle } from "@/lib/presentation/style-cascade";
 import {
@@ -57,14 +56,11 @@ import {
 import type { Visual } from "@/lib/visual/schema";
 import { exportPNG } from "@/lib/visual/export";
 import { applySpecsToSlide } from "@/lib/visual/pptx-apply";
-import { applyTheme } from "@/lib/visual/transforms";
 import {
-  isImageFallback,
-  toHex,
-  visualToNativeSpecs,
-  type PptxSlideLayout,
-  type PptxSpec,
-} from "@/lib/visual/pptx-shapes";
+  buildDeckImageOp,
+  buildDeckVisualOp,
+} from "@/lib/visual/deck-fallback-ops";
+import { toHex, type PptxSpec } from "@/lib/visual/pptx-shapes";
 
 // ---------------------------------------------------------------------------
 // Slide geometry
@@ -314,22 +310,6 @@ function roleFontFace(
   );
 }
 
-/**
- * Build a {@link PptxSlideLayout} that fits a visual (in its own canvas units)
- * uniformly inside an inch box, centered. This places a visual element within
- * its authored free-form box rather than centering it on the whole slide.
- */
-function layoutWithinBox(visual: Visual, box: InchBox): PptxSlideLayout {
-  const scale = Math.min(box.w / visual.width, box.h / visual.height);
-  const usedW = visual.width * scale;
-  const usedH = visual.height * scale;
-  return {
-    offsetX: box.x + (box.w - usedW) / 2,
-    offsetY: box.y + (box.h - usedH) / 2,
-    scale,
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Pure transform: Deck → DeckSlideSpec[]
 // ---------------------------------------------------------------------------
@@ -568,64 +548,16 @@ function buildSlideSpec(
         break;
       }
       case "image": {
-        // An image element with no source (e.g. one just added but never
-        // filled in) must not emit an op — pptxgenjs would otherwise try to
-        // load an empty path and break the export. Skip it instead.
-        if (isEmptyImageSrc(element.src)) break;
-        ops.push({
-          kind: "image",
-          ...box,
-          src: element.src,
-          ...(element.alt ? { alt: element.alt } : {}),
-          ...((element.fitMode ?? resolved.tokenSet.image?.fitMode) !==
-          undefined
-            ? { fitMode: element.fitMode ?? resolved.tokenSet.image?.fitMode }
-            : {}),
-          ...((element.maskShape ?? resolved.tokenSet.image?.maskShape) !==
-          undefined
-            ? {
-                maskShape:
-                  element.maskShape ?? resolved.tokenSet.image?.maskShape,
-              }
-            : {}),
-          ...(element.crop !== undefined ? { crop: element.crop } : {}),
-          ...((element.radius ?? resolved.tokenSet.image?.radiusPct)
-            ? {
-                radius:
-                  ((element.radius ?? resolved.tokenSet.image?.radiusPct ?? 0) /
-                    100) *
-                  Math.min(box.w, box.h),
-              }
-            : {}),
-        });
+        const op = buildDeckImageOp(element, box, resolved.tokenSet.image);
+        if (op) ops.push(op);
         break;
       }
       case "visual": {
         const visual = visuals.get(element.visualId);
         if (!visual) break;
-        // Honor the optional per-element restyle, mirroring the shared renderer
-        // (slide-canvas VisualElementView) so the export matches what the editor
-        // and present/public viewers draw. applyTheme is pure and node-safe.
-        // Falls back to the deck-template default styleThemeId (#607).
-        const styleThemeId =
-          element.styleThemeId ?? resolved.tokenSet.visual?.styleThemeId;
-        const styled = styleThemeId ? applyTheme(visual, styleThemeId) : visual;
-        const layout = layoutWithinBox(styled, box);
-        const specs = visualToNativeSpecs(styled, layout);
-        if (
-          isImageFallback(specs) ||
-          box.rotation ||
-          box.shadow ||
-          box.opacity
-        ) {
-          ops.push({
-            kind: "visual-fallback",
-            ...box,
-            visualId: element.visualId,
-          });
-        } else {
-          ops.push({ kind: "visual-native", specs });
-        }
+        ops.push(
+          buildDeckVisualOp(element, visual, box, resolved.tokenSet.visual),
+        );
         break;
       }
       case "connector": {
