@@ -14,14 +14,10 @@
  * `/api/brand-assets/…` URL returned here.
  */
 
-import { createHash } from "node:crypto";
-
+import { storeAssetWithUpsert } from "@/lib/assets/store";
+import { BRAND_MIME_TO_EXT } from "@/lib/brand/asset-policy";
 import { prisma } from "@/lib/prisma";
-import { withP2002Fallback } from "@/lib/db/p2002-fallback";
-import {
-  deriveBrandStorageKey,
-  getBrandStorageAdapter,
-} from "@/lib/brand/asset-storage";
+import { getBrandStorageAdapter } from "@/lib/brand/asset-storage";
 
 export interface StoreBrandAssetResult {
   assetId: string;
@@ -49,48 +45,47 @@ export async function storeBrandAsset(opts: {
 }): Promise<StoreBrandAssetResult> {
   const { ownerId, buffer, mimeType, originalName, brandId } = opts;
 
-  const checksum = createHash("sha256").update(buffer).digest("hex");
-  const storageKey = deriveBrandStorageKey(ownerId, checksum, mimeType);
   const adapter = getBrandStorageAdapter();
-
-  // Always (re)write the bytes so storage stays consistent even if a prior
-  // purge removed the file while the row lingered.
-  const url = await adapter.store(storageKey, buffer, mimeType);
-
-  // Dedup / revive by the unique storage key.
-  const existing = await prisma.asset.findUnique({
-    where: { storageKey },
-    select: { id: true, deletedAt: true, brandId: true },
-  });
-  if (existing) {
-    const data: { deletedAt?: null; brandId?: string } = {};
-    if (existing.deletedAt) data.deletedAt = null;
-    if (brandId && existing.brandId !== brandId) data.brandId = brandId;
-    if (Object.keys(data).length > 0) {
-      await prisma.asset.update({ where: { id: existing.id }, data });
-    }
-    return { assetId: existing.id, url, checksum, storageKey };
-  }
-
-  const asset = await withP2002Fallback<{ id: string }>(
-    () =>
-      prisma.asset.create({
+  return storeAssetWithUpsert({
+    scopeId: ownerId,
+    buffer,
+    mimeType,
+    originalName,
+    mimeToExt: BRAND_MIME_TO_EXT,
+    storage: adapter,
+    storeBeforeFind: true,
+    async findExisting({ storageKey }) {
+      return prisma.asset.findUnique({
+        where: { storageKey },
+        select: { id: true, storageKey: true, deletedAt: true, brandId: true },
+      });
+    },
+    async updateExisting(existing) {
+      const data: { deletedAt?: null; brandId?: string } = {};
+      if (existing.deletedAt) data.deletedAt = null;
+      if (brandId && existing.brandId !== brandId) data.brandId = brandId;
+      if (Object.keys(data).length > 0) {
+        await prisma.asset.update({ where: { id: existing.id }, data });
+      }
+    },
+    async createAsset(input) {
+      return prisma.asset.create({
         data: {
-          mimeType,
-          byteSize: buffer.byteLength,
-          checksum,
-          storageKey,
+          mimeType: input.mimeType,
+          byteSize: input.byteSize,
+          checksum: input.checksum,
+          storageKey: input.storageKey,
           ...(brandId ? { brandId } : {}),
-          ...(originalName ? { originalName } : {}),
+          ...(input.originalName ? { originalName: input.originalName } : {}),
         },
         select: { id: true },
-      }),
-    () =>
-      prisma.asset.findUnique({
+      });
+    },
+    async findAfterConflict({ storageKey }) {
+      return prisma.asset.findUnique({
         where: { storageKey },
         select: { id: true },
-      }),
-  );
-
-  return { assetId: asset.id, url, checksum, storageKey };
+      });
+    },
+  });
 }

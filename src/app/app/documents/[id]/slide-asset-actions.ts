@@ -3,30 +3,22 @@
 /**
  * Slide asset upload server action (Epic #374).
  *
- * Validates the uploaded image, computes a SHA-256 checksum for dedup,
- * stores the bytes via the configured {@link AssetStorageAdapter}, and
- * upserts an {@link Asset} row in the database.  Returns `{assetId, url}` on
- * success so the caller can persist `assetId` on the {@link ImageElement} and
- * use the URL as `src`.
+ * Validates the uploaded image and stores it through the slide asset adapter.
+ * Returns `{assetId, url}` on success so the caller can persist `assetId` on
+ * the {@link ImageElement} and use the URL as `src`.
  */
-
-import { createHash } from "node:crypto";
 
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 import { requireDocumentActionContext } from "@/lib/actions/document-action-context";
-import { prisma } from "@/lib/prisma";
+import { calculateAssetChecksum } from "@/lib/assets/store";
 import {
   buildAssetMeta,
   formatAssetUploadError,
   validateAssetUpload,
 } from "@/lib/slides/asset-upload";
-import {
-  deriveStorageKey,
-  getDefaultStorageAdapter,
-} from "@/lib/slides/asset-storage";
-import { withP2002Fallback } from "@/lib/db/p2002-fallback";
+import { storeSlideAsset } from "@/lib/slides/asset-store";
 
-export type UploadSlideAssetResult = { assetId: string; url: string };
+type UploadSlideAssetResult = { assetId: string; url: string };
 
 /**
  * Uploads a slide image asset for the given document.
@@ -37,7 +29,7 @@ export type UploadSlideAssetResult = { assetId: string; url: string };
  *  3. Checksum — SHA-256 of the raw bytes.
  *  4. Dedup — if an Asset row with the same `documentId` + `checksum` already
  *     exists the existing record is returned (no duplicate write).
- *  5. Storage — raw bytes written via {@link getDefaultStorageAdapter}.
+ *  5. Storage — raw bytes written via the configured slide storage adapter.
  *  6. DB row — an `Asset` record is created (with P2002 race recovery) and
  *     its `id` returned.
  *
@@ -65,19 +57,9 @@ export async function uploadSlideAsset(
     return actionError(formatAssetUploadError(validation.error));
   }
 
-  // Read raw bytes and compute SHA-256 checksum.
+  // Read raw bytes and compute shared SHA-256 checksum.
   const buffer = Buffer.from(await fileEntry.arrayBuffer());
-  const checksum = createHash("sha256").update(buffer).digest("hex");
-
-  // Dedup: return the existing asset if this document already has the same file.
-  const existing = await prisma.asset.findFirst({
-    where: { documentId, checksum },
-    select: { id: true, storageKey: true },
-  });
-  if (existing) {
-    const url = getDefaultStorageAdapter().urlFor(existing.storageKey);
-    return actionOk({ assetId: existing.id, url });
-  }
+  const checksum = calculateAssetChecksum(buffer);
 
   // Build full metadata (resolves MIME, validates again with name/ext).
   const metaResult = buildAssetMeta({
@@ -89,38 +71,11 @@ export async function uploadSlideAsset(
   if (!metaResult.ok) {
     return actionError(formatAssetUploadError(metaResult.error));
   }
-  const { meta } = metaResult;
-
-  // Extension is derived from the validated MIME type — never from the filename.
-  const storageKey = deriveStorageKey(documentId, checksum, meta.mimeType);
-
-  // Persist bytes.
-  const url = await getDefaultStorageAdapter().store(
-    storageKey,
+  const stored = await storeSlideAsset({
+    documentId,
     buffer,
-    meta.mimeType,
-  );
+    meta: metaResult.meta,
+  });
 
-  // Create Asset record, recovering from concurrent-insert P2002 races.
-  const asset = await withP2002Fallback<{ id: string }>(
-    () =>
-      prisma.asset.create({
-        data: {
-          documentId,
-          mimeType: meta.mimeType,
-          byteSize: meta.byteSize,
-          checksum,
-          storageKey,
-          ...(meta.originalName ? { originalName: meta.originalName } : {}),
-        },
-        select: { id: true },
-      }),
-    () =>
-      prisma.asset.findFirst({
-        where: { documentId, checksum },
-        select: { id: true },
-      }),
-  );
-
-  return actionOk({ assetId: asset.id, url });
+  return actionOk({ assetId: stored.assetId, url: stored.url });
 }

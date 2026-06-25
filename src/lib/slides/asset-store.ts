@@ -1,0 +1,57 @@
+import "server-only";
+
+import { storeAssetWithUpsert } from "@/lib/assets/store";
+import { prisma } from "@/lib/prisma";
+
+import { getDefaultStorageAdapter, MIME_TO_EXT } from "./asset-storage";
+import type { AssetMeta } from "./asset-upload";
+
+export interface StoreSlideAssetResult {
+  assetId: string;
+  url: string;
+  checksum: string;
+  storageKey: string;
+}
+
+export async function storeSlideAsset(opts: {
+  documentId: string;
+  buffer: Buffer;
+  meta: AssetMeta;
+}): Promise<StoreSlideAssetResult> {
+  const { documentId, buffer, meta } = opts;
+  const adapter = getDefaultStorageAdapter();
+
+  return storeAssetWithUpsert({
+    scopeId: documentId,
+    buffer,
+    mimeType: meta.mimeType,
+    originalName: meta.originalName,
+    mimeToExt: MIME_TO_EXT,
+    storage: adapter,
+    async findExisting({ checksum }) {
+      return prisma.asset.findFirst({
+        where: { documentId, checksum },
+        select: { id: true, storageKey: true },
+      });
+    },
+    async createAsset(input) {
+      return prisma.asset.create({
+        data: {
+          documentId,
+          mimeType: input.mimeType,
+          byteSize: input.byteSize,
+          checksum: input.checksum,
+          storageKey: input.storageKey,
+          ...(input.originalName ? { originalName: input.originalName } : {}),
+        },
+        select: { id: true },
+      });
+    },
+    async findAfterConflict({ checksum }) {
+      return prisma.asset.findFirst({
+        where: { documentId, checksum },
+        select: { id: true },
+      });
+    },
+  });
+}
