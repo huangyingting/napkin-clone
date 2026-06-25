@@ -252,6 +252,24 @@ describe("applyVisualCommand — edge + lifecycle edits (#507)", () => {
     assert.deepStrictEqual(patch.affectedNodeIds, ["n2"]);
     assert.deepStrictEqual([...patch.affectedEdgeIds].sort(), ["e1", "e2"]);
   });
+
+  test("visual.merge_content preserves refreshed source metadata", () => {
+    const visual = createBlankVisual("flowchart");
+    const refreshed = {
+      ...createBlankVisual("mindmap"),
+      sourceText: "Updated source",
+      sourceTextHash: "source-hash",
+    };
+
+    const result = applyVisualCommand(visual, VISUAL_ID, {
+      op: "visual.merge_content",
+      newVisual: refreshed,
+    });
+
+    assert.ok(result.ok);
+    assert.strictEqual(result.visual.sourceText, "Updated source");
+    assert.strictEqual(result.visual.sourceTextHash, "source-hash");
+  });
 });
 
 describe("applyVisualCommand — edge flip/toggle + label commits (#507)", () => {

@@ -27,6 +27,10 @@ export function executeVisualLifecycleFamily(
       if (!parsed.success)
         return failure(visual, `Invalid merge visual: ${parsed.error}`);
       const next = mergeVisualContent(visual, parsed.data);
+      if (parsed.data.sourceText) {
+        next.sourceText = parsed.data.sourceText;
+        next.sourceTextHash = parsed.data.sourceTextHash;
+      }
       return executionSuccess(
         next,
         wholeVisualNodeIds(visual, next),

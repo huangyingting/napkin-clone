@@ -28,16 +28,9 @@ import {
   type ReactNode,
 } from "react";
 
-import {
-  GeneratingIndicator,
-  VisualSkeleton,
-} from "@/components/motion/generation-status";
-import { ExportMenu } from "@/components/visual/export-menu";
 import { apiErrorMessageFromPayload } from "@/lib/api/error-message";
-import { sanitizeFilename } from "@/lib/visual/export";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import {
-  Button,
   ColorPicker,
   Divider,
   FloatingSurface,
@@ -97,10 +90,15 @@ import {
 import { applyBrand, brandPreviewStyle } from "@/lib/brand/transforms";
 import type { BrandStyle } from "@/lib/brand/schema";
 import { BRAND_WEB_FONTS } from "@/lib/brand/schema";
-import { computeVisualInfo } from "@/lib/visual/info";
 import type { VisualCommandPayload } from "@/lib/commands/visual-commands";
 
 import { IconPicker } from "./icon-picker";
+import {
+  VisualExportPanel,
+  VisualInfoPanel,
+  VisualSyncPanel,
+  VisualVariationsPanel,
+} from "./visual-context-popover-panels";
 
 // ---------------------------------------------------------------------------
 // Layout constants
@@ -1079,12 +1077,21 @@ export function VisualContextPopover({
         setSyncError("No usable visuals came back. Please try again.");
         return;
       }
-      const merged = mergeVisualContent(visualRef.current, valid[0]);
-      onChange({
-        ...merged,
+      const refreshed = {
+        ...valid[0],
         sourceText: syncText,
         sourceTextHash: hashSourceText(syncText),
-      });
+      };
+      if (onCommand) {
+        onCommand({ op: "visual.merge_content", newVisual: refreshed });
+      } else {
+        const merged = mergeVisualContent(visualRef.current, refreshed);
+        onChange({
+          ...merged,
+          sourceText: syncText,
+          sourceTextHash: hashSourceText(syncText),
+        });
+      }
       setActiveSection(null);
     } catch {
       setSyncError(
@@ -1093,15 +1100,20 @@ export function VisualContextPopover({
     } finally {
       setSyncStatus("idle");
     }
-  }, [currentSourceText, onChange]);
+  }, [currentSourceText, onChange, onCommand]);
 
   const chooseCandidate = useCallback(
     (candidate: Visual) => {
-      onChange({ ...candidate, autoLayout: visual.autoLayout });
+      const next = { ...candidate, autoLayout: visual.autoLayout };
+      if (onCommand) {
+        onCommand({ op: "visual.merge_content", newVisual: next });
+      } else {
+        onChange(next);
+      }
       setCandidates([]);
       setActiveSection(null);
     },
-    [onChange, visual],
+    [onChange, onCommand, visual],
   );
 
   const applyThemeById = useCallback(
@@ -1156,21 +1168,6 @@ export function VisualContextPopover({
   // ---------------------------------------------------------------------------
   // Submenu content renderers
   // ---------------------------------------------------------------------------
-
-  function renderExportSection() {
-    return (
-      <div className="space-y-3 py-1">
-        <p className="text-[11px] text-[var(--ds-text-muted,#6f7d83)]">
-          Export this visual as PNG, SVG, or PowerPoint.
-        </p>
-        <ExportMenu
-          getSvgElement={getSvgElement}
-          getVisual={() => visual}
-          filename={sanitizeFilename(visual.title ?? "")}
-        />
-      </div>
-    );
-  }
 
   function renderEffectsSection() {
     return (
@@ -1583,10 +1580,17 @@ export function VisualContextPopover({
                 variant="subtle"
                 disabled={style.fontSize <= FONT_SIZE_MIN}
                 onClick={() =>
-                  onChange(
-                    setVisualStyle(visual, {
-                      fontSize: Math.max(FONT_SIZE_MIN, style.fontSize - 1),
-                    }),
+                  runVisualEdit(
+                    {
+                      op: "visual.set_style",
+                      patch: {
+                        fontSize: Math.max(FONT_SIZE_MIN, style.fontSize - 1),
+                      },
+                    },
+                    () =>
+                      setVisualStyle(visual, {
+                        fontSize: Math.max(FONT_SIZE_MIN, style.fontSize - 1),
+                      }),
                   )
                 }
               >
@@ -1601,10 +1605,17 @@ export function VisualContextPopover({
                 variant="subtle"
                 disabled={style.fontSize >= FONT_SIZE_MAX}
                 onClick={() =>
-                  onChange(
-                    setVisualStyle(visual, {
-                      fontSize: Math.min(FONT_SIZE_MAX, style.fontSize + 1),
-                    }),
+                  runVisualEdit(
+                    {
+                      op: "visual.set_style",
+                      patch: {
+                        fontSize: Math.min(FONT_SIZE_MAX, style.fontSize + 1),
+                      },
+                    },
+                    () =>
+                      setVisualStyle(visual, {
+                        fontSize: Math.min(FONT_SIZE_MAX, style.fontSize + 1),
+                      }),
                   )
                 }
               >
@@ -1944,214 +1955,6 @@ export function VisualContextPopover({
     );
   }
 
-  function renderSyncSection() {
-    const hasSource = !!(visual.sourceText ?? currentSourceText);
-    return (
-      <div className="space-y-3 py-1">
-        {stale ? (
-          <div className="flex items-center gap-2 rounded-[var(--ds-radius-md,10px)] bg-ds-warning-surface px-3 py-2 text-[11px] text-ds-warning-text">
-            <span
-              className="inline-flex h-2 w-2 flex-shrink-0 rounded-full bg-ds-warning"
-              aria-hidden="true"
-            />
-            Source text has changed since this visual was generated.
-          </div>
-        ) : null}
-        {!hasSource ? (
-          <p className="text-[11px] text-[var(--ds-text-muted,#6f7d83)]">
-            No source text is associated with this visual. Attach it to a
-            paragraph to enable sync.
-          </p>
-        ) : null}
-        {syncStatus === "loading" ? (
-          <GeneratingIndicator
-            isLoading
-            className="text-xs text-[var(--ds-text-muted,#6f7d83)]"
-          />
-        ) : null}
-        {syncError !== null ? (
-          <div
-            role="alert"
-            className="flex flex-col gap-2 rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-danger,#dc2626)]/40 bg-[var(--ds-danger,#dc2626)]/10 px-3 py-2 text-xs text-[var(--ds-danger,#b91c1c)]"
-          >
-            <span>{syncError}</span>
-            <Button
-              size="sm"
-              variant="subtle"
-              className="self-start"
-              onClick={() => void runSync()}
-            >
-              Try again
-            </Button>
-          </div>
-        ) : null}
-        <Button
-          size="sm"
-          variant="subtle"
-          onClick={() => void runSync()}
-          disabled={syncStatus === "loading" || !hasSource}
-        >
-          <RefreshCw
-            aria-hidden="true"
-            className={cx(
-              "mr-1.5 h-3.5 w-3.5",
-              syncStatus === "loading" ? "animate-spin" : "",
-            )}
-          />
-          Sync to text
-        </Button>
-      </div>
-    );
-  }
-
-  function renderInfoSection() {
-    const info = computeVisualInfo(visual);
-    const kindMeta = VISUAL_KIND_META[info.kind];
-    return (
-      <dl className="space-y-2.5 py-1 text-xs">
-        <div className="flex justify-between gap-2">
-          <dt className="text-[var(--ds-text-muted,#6f7d83)]">Type</dt>
-          <dd className="font-medium text-[var(--ds-text-primary,#15171a)]">
-            {kindMeta.label}
-          </dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt className="text-[var(--ds-text-muted,#6f7d83)]">Nodes</dt>
-          <dd className="font-medium text-[var(--ds-text-primary,#15171a)] tabular-nums">
-            {info.nodeCount}
-          </dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt className="text-[var(--ds-text-muted,#6f7d83)]">Edges</dt>
-          <dd className="font-medium text-[var(--ds-text-primary,#15171a)] tabular-nums">
-            {info.edgeCount}
-          </dd>
-        </div>
-        {info.effectCount > 0 ? (
-          <div className="flex justify-between gap-2">
-            <dt className="text-[var(--ds-text-muted,#6f7d83)]">Effects</dt>
-            <dd className="font-medium text-[var(--ds-text-primary,#15171a)] tabular-nums">
-              {info.effectCount}
-            </dd>
-          </div>
-        ) : null}
-        {info.title ? (
-          <div className="flex justify-between gap-2">
-            <dt className="text-[var(--ds-text-muted,#6f7d83)]">Title</dt>
-            <dd className="max-w-[160px] truncate font-medium text-[var(--ds-text-primary,#15171a)]">
-              {info.title}
-            </dd>
-          </div>
-        ) : null}
-        {info.sourceText ? (
-          <div className="flex flex-col gap-1">
-            <dt className="text-[var(--ds-text-muted,#6f7d83)]">Source text</dt>
-            <dd className="line-clamp-3 rounded-[var(--ds-radius-sm,8px)] bg-[var(--ds-surface-sunken,#f5f5f5)] px-2 py-1.5 text-[11px] text-[var(--ds-text-primary,#15171a)]">
-              {info.sourceText}
-            </dd>
-          </div>
-        ) : null}
-        <div className="flex justify-between gap-2">
-          <dt className="text-[var(--ds-text-muted,#6f7d83)]">Font family</dt>
-          <dd className="max-w-[160px] truncate font-medium text-[var(--ds-text-primary,#15171a)]">
-            {info.fontFamily.split(",")[0].replace(/['"]/g, "").trim() ||
-              "System default"}
-          </dd>
-        </div>
-        {stale ? (
-          <div className="flex items-center gap-1.5 text-ds-warning-text">
-            <span
-              className="inline-flex h-2 w-2 flex-shrink-0 rounded-full bg-ds-warning"
-              aria-hidden="true"
-            />
-            <span className="text-[10px]">Source text has changed</span>
-          </div>
-        ) : null}
-      </dl>
-    );
-  }
-
-  function renderVariationsSection() {
-    return (
-      <div className="space-y-3 py-1">
-        {genStatus === "loading" ? (
-          <>
-            {/* Skeleton cards stabilise the panel layout while generation runs */}
-            <ul className="grid grid-cols-2 gap-2">
-              {[0, 1].map((i) => (
-                <li key={i}>
-                  <VisualSkeleton />
-                </li>
-              ))}
-            </ul>
-            <GeneratingIndicator
-              isLoading
-              className="text-xs text-[var(--ds-text-muted,#6f7d83)]"
-            />
-          </>
-        ) : null}
-        {genError !== null ? (
-          <div
-            role="alert"
-            className="flex flex-col gap-2 rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-danger,#dc2626)]/40 bg-[var(--ds-danger,#dc2626)]/10 px-3 py-2 text-xs text-[var(--ds-danger,#b91c1c)]"
-          >
-            <span>{genError}</span>
-            <Button
-              size="sm"
-              variant="subtle"
-              className="self-start"
-              onClick={() => void runGenerate()}
-            >
-              Try again
-            </Button>
-          </div>
-        ) : null}
-        {candidates.length > 0 ? (
-          <div>
-            <p className="mb-2 text-[11px] text-[var(--ds-text-muted,#6f7d83)]">
-              {candidates.length} variation{candidates.length !== 1 ? "s" : ""}{" "}
-              — click to apply
-            </p>
-            <ul className="grid grid-cols-2 gap-2">
-              {candidates.map((candidate, index) => (
-                <li key={index}>
-                  <Tooltip
-                    label={
-                      candidate.title ?? VISUAL_KIND_META[candidate.type].label
-                    }
-                    side="bottom"
-                  >
-                    <button
-                      type="button"
-                      aria-label={`Select variation ${index + 1} of ${candidates.length}`}
-                      onClick={() => chooseCandidate(candidate)}
-                      className={cx(
-                        "group flex w-full flex-col overflow-hidden rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-base,#ffffff)] p-1.5 text-left transition hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
-                        FOCUS_RING,
-                      )}
-                    >
-                      <VisualRenderer
-                        visual={candidate}
-                        className="h-auto w-full"
-                      />
-                    </button>
-                  </Tooltip>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-        {genStatus === "idle" &&
-        candidates.length === 0 &&
-        genError === null ? (
-          <p className="text-[11px] text-[var(--ds-text-muted,#6f7d83)]">
-            Use the AI button in the toolbar to generate variations.
-          </p>
-        ) : null}
-      </div>
-    );
-  }
-
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
@@ -2166,7 +1969,9 @@ export function VisualContextPopover({
     mode === "panel" ? "overflow-y-auto p-3" : componentContext ? "p-1" : "p-2";
   const sectionContent = (
     <>
-      {effectiveActiveSection === "export" && renderExportSection()}
+      {effectiveActiveSection === "export" && (
+        <VisualExportPanel visual={visual} getSvgElement={getSvgElement} />
+      )}
       {effectiveActiveSection === "effects" && renderEffectsSection()}
       {effectiveActiveSection === "colors" && renderColorsSection()}
       {effectiveActiveSection === "fonts" && renderFontsSection()}
@@ -2174,9 +1979,28 @@ export function VisualContextPopover({
       {effectiveActiveSection === "size" && renderSizeSection()}
       {effectiveActiveSection === "layout" && renderLayoutSection()}
       {effectiveActiveSection === "branding" && renderBrandingSection()}
-      {effectiveActiveSection === "sync" && renderSyncSection()}
-      {effectiveActiveSection === "info" && renderInfoSection()}
-      {effectiveActiveSection === "variations" && renderVariationsSection()}
+      {effectiveActiveSection === "sync" && (
+        <VisualSyncPanel
+          visual={visual}
+          currentSourceText={currentSourceText}
+          stale={stale}
+          syncStatus={syncStatus}
+          syncError={syncError}
+          onSync={() => void runSync()}
+        />
+      )}
+      {effectiveActiveSection === "info" && (
+        <VisualInfoPanel visual={visual} stale={stale} />
+      )}
+      {effectiveActiveSection === "variations" && (
+        <VisualVariationsPanel
+          candidates={candidates}
+          genStatus={genStatus}
+          genError={genError}
+          onGenerate={() => void runGenerate()}
+          onChooseCandidate={chooseCandidate}
+        />
+      )}
     </>
   );
 
@@ -2225,12 +2049,26 @@ export function VisualContextPopover({
                   size="sm"
                   onClick={() => {
                     if (!selectedNode) return;
-                    // #507 exemption: this is a composite reset spanning two ops
-                    // (visual.reset_node_style + visual.reset_node_ext_style)
-                    // applied as a single user action; kept as one direct
-                    // transform to preserve single-edit/undo granularity.
-                    const r1 = resetNodeStyle(visual, selectedNode.id);
-                    onChange(resetNodeExtStyle(r1, selectedNode.id));
+                    if (onCommand) {
+                      const coalesceKey = `reset-node:${selectedNode.id}`;
+                      onCommand(
+                        {
+                          op: "visual.reset_node_style",
+                          nodeId: selectedNode.id,
+                        },
+                        coalesceKey,
+                      );
+                      onCommand(
+                        {
+                          op: "visual.reset_node_ext_style",
+                          nodeId: selectedNode.id,
+                        },
+                        coalesceKey,
+                      );
+                    } else {
+                      const r1 = resetNodeStyle(visual, selectedNode.id);
+                      onChange(resetNodeExtStyle(r1, selectedNode.id));
+                    }
                   }}
                 >
                   <RefreshCw aria-hidden="true" className="h-4 w-4" />
