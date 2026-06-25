@@ -62,40 +62,40 @@ test("evaluateInviteAccess: revoked → deny", () => {
     allow: false,
     reason: "revoked",
   });
+});
 
-  test("invite access taxonomy maps domain deny reasons", () => {
-    assert.deepEqual(
-      inviteAccessDecisionToAccessDecision({
-        allow: false,
-        reason: "exhausted",
-      }),
-      {
-        allow: false,
-        resource: { kind: "invite" },
-        capability: "accept",
-        reason: "invite-exhausted",
-        status: 403,
-        safeMessage: "This invite link has reached its maximum number of uses.",
-        concealResource: false,
-      },
-    );
-  });
-
-  test("evaluateInviteAccessDecision returns shared allow/deny taxonomy", () => {
-    assert.deepEqual(evaluateInviteAccessDecision(input()), {
-      allow: true,
-      resource: { kind: "invite" },
-      capability: "accept",
-    });
-    assert.deepEqual(evaluateInviteAccessDecision(input({ isRevoked: true })), {
+test("invite access taxonomy maps domain deny reasons", () => {
+  assert.deepEqual(
+    inviteAccessDecisionToAccessDecision({
+      allow: false,
+      reason: "exhausted",
+    }),
+    {
       allow: false,
       resource: { kind: "invite" },
       capability: "accept",
-      reason: "invite-revoked",
+      reason: "invite-exhausted",
       status: 403,
-      safeMessage: "This invite link has been revoked by a workspace owner.",
+      safeMessage: "This invite link has reached its maximum number of uses.",
       concealResource: false,
-    });
+    },
+  );
+});
+
+test("evaluateInviteAccessDecision returns shared allow/deny taxonomy", () => {
+  assert.deepEqual(evaluateInviteAccessDecision(input()), {
+    allow: true,
+    resource: { kind: "invite" },
+    capability: "accept",
+  });
+  assert.deepEqual(evaluateInviteAccessDecision(input({ isRevoked: true })), {
+    allow: false,
+    resource: { kind: "invite" },
+    capability: "accept",
+    reason: "invite-revoked",
+    status: 403,
+    safeMessage: "This invite link has been revoked by a workspace owner.",
+    concealResource: false,
   });
 });
 
