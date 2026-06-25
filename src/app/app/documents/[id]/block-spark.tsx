@@ -39,11 +39,6 @@ import {
   type Visual,
   type VisualKind,
 } from "@/lib/visual/schema";
-import {
-  isCreditError,
-  requestVisualCandidates,
-  stampSourceText,
-} from "@/lib/visual/generate";
 import { type Orientation, type DetailLevel } from "@/lib/ai/prompt";
 import Link from "next/link";
 import { useIsPointerFine } from "@/lib/pointer";
@@ -53,6 +48,16 @@ import {
   leftGutterButtonLeft,
 } from "./document-gutter";
 import { $createVisualNode } from "./visual-node";
+import {
+  DEFAULT_EXPANDED_VISUAL_CATEGORIES,
+  type GenOptions,
+  MAX_GENERATED_VISUALS_PER_SECTION,
+  VISUAL_KIND_CATEGORY,
+  VISUAL_KIND_CATEGORY_ORDER,
+  type VisualResultSectionId,
+  useVisualGeneration,
+  visualResultSectionForType,
+} from "./use-visual-generation";
 
 // Top-level block types that carry text worth turning into a visual.
 const TEXT_BLOCK_TYPES = new Set(["paragraph", "heading", "quote", "list"]);
@@ -99,26 +104,6 @@ function textBlockAtY(root: HTMLElement, clientY: number): HTMLElement | null {
   return nearest && nearest.distance <= 24 ? nearest.element : null;
 }
 
-type GenStatus = "idle" | "loading";
-type VisualResultSectionId = "ai" | VisualKindCategoryId;
-
-const MAX_GENERATED_VISUALS_PER_SECTION = 8;
-
-/** Generation options surfaced in the spark panel. */
-interface GenOptions {
-  type: VisualKind | "auto";
-  orientation: Orientation;
-  detailLevel: DetailLevel | "auto";
-  stayCloserToText: boolean;
-}
-
-const DEFAULT_GEN_OPTIONS: GenOptions = {
-  type: "auto",
-  orientation: "auto",
-  detailLevel: "auto",
-  stayCloserToText: false,
-};
-
 const ORIENTATION_OPTIONS: ReadonlyArray<{
   value: Orientation;
   label: string;
@@ -157,40 +142,7 @@ const DETAIL_LEVEL_OPTIONS: ReadonlyArray<{
 
 const AUTO_TYPE_SEARCH = "auto automatic recommended generated";
 
-const VISUAL_KIND_CATEGORY_ORDER = [
-  { id: "mindmap", label: "Mindmap" },
-  { id: "process", label: "Process" },
-  { id: "data", label: "Data" },
-  { id: "timelines", label: "Timelines" },
-  { id: "comparison", label: "Comparison" },
-  { id: "business", label: "Business Frameworks" },
-  { id: "more", label: "More visuals" },
-] as const;
-
 type VisualKindCategoryId = (typeof VISUAL_KIND_CATEGORY_ORDER)[number]["id"];
-
-const VISUAL_KIND_CATEGORY: Partial<Record<VisualKind, VisualKindCategoryId>> =
-  {
-    mindmap: "mindmap",
-    concept: "mindmap",
-    orgchart: "mindmap",
-    flowchart: "process",
-    list: "process",
-    cycle: "process",
-    funnel: "process",
-    chart: "data",
-    matrix: "data",
-    timeline: "timelines",
-    comparison: "comparison",
-    venn: "comparison",
-    pyramid: "business",
-  };
-
-const DEFAULT_EXPANDED_VISUAL_CATEGORIES: Record<string, boolean> = {
-  ai: true,
-  mindmap: true,
-  process: true,
-};
 
 function visualKindMatchesQuery(kind: VisualKind, query: string): boolean {
   if (query === "") {
@@ -217,15 +169,6 @@ function groupVisualKinds(kinds: readonly VisualKind[]) {
       ? [{ ...category, kinds: categoryKinds }]
       : [];
   });
-}
-
-function visualResultSectionForType(
-  type: GenOptions["type"],
-): VisualResultSectionId {
-  if (type === "auto") {
-    return "ai";
-  }
-  return VISUAL_KIND_CATEGORY[type] ?? "more";
 }
 
 function elementFromNode(target: Node | null): Element | null {
@@ -265,17 +208,19 @@ export function BlockSparkPlugin() {
   const [block, setBlock] = useState<BlockInfo | null>(null);
   const [openTarget, setOpenTarget] = useState<BlockInfo | null>(null);
   const [openKey, setOpenKey] = useState<string | null>(null);
-  const [status, setStatus] = useState<GenStatus>("idle");
-  const [error, setError] = useState<string | null>(null);
-  const [errorSection, setErrorSection] =
-    useState<VisualResultSectionId | null>(null);
-  const [creditError, setCreditError] = useState(false);
-  const [activeGenerationSection, setActiveGenerationSection] =
-    useState<VisualResultSectionId | null>(null);
-  const [generatedVisualsBySection, setGeneratedVisualsBySection] = useState<
-    Partial<Record<VisualResultSectionId, Visual[]>>
-  >({});
-  const [genOptions, setGenOptions] = useState<GenOptions>(DEFAULT_GEN_OPTIONS);
+  const {
+    status,
+    error,
+    errorSection,
+    creditError,
+    activeGenerationSection,
+    generatedVisualsBySection,
+    genOptions,
+    setGenOptions,
+    generate: generateVisuals,
+    resetGeneration,
+    stampGeneratedVisual,
+  } = useVisualGeneration();
   const [showOptions, setShowOptions] = useState(false);
   const [hoveringVisual, setHoveringVisual] = useState(false);
   const [visualQuery, setVisualQuery] = useState("");
@@ -291,10 +236,6 @@ export function BlockSparkPlugin() {
   const keepRef = useRef(false);
   const openRef = useRef(false);
   const clearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Captures the block text at the moment generation is triggered, so the
-  // inserted visual can be stamped with the correct sourceText even if the
-  // block state updates before the user picks a candidate.
-  const sourceTextRef = useRef<string>("");
   useEffect(() => {
     openRef.current = openKey !== null;
   });
@@ -449,19 +390,12 @@ export function BlockSparkPlugin() {
   const closePanel = useCallback(() => {
     setOpenTarget(null);
     setOpenKey(null);
-    setGeneratedVisualsBySection({});
-    setError(null);
-    setErrorSection(null);
-    setStatus("idle");
-    setActiveGenerationSection(null);
+    resetGeneration(rememberChoices);
     keepRef.current = false;
     setHoveringVisual(false);
-    if (!rememberChoices) {
-      setGenOptions(DEFAULT_GEN_OPTIONS);
-    }
     setShowOptions(false);
     setVisualQuery("");
-  }, [rememberChoices]);
+  }, [rememberChoices, resetGeneration]);
 
   useEffect(() => {
     const dismissSpark = () => {
@@ -486,45 +420,23 @@ export function BlockSparkPlugin() {
     }));
   }, []);
 
-  const generate = useCallback(async (target: BlockInfo, opts: GenOptions) => {
-    const section = visualResultSectionForType(opts.type);
-    setOpenTarget(target);
-    setOpenKey(target.key);
-    setExpandedVisualCategories((current) => ({
-      ...current,
-      [section === "ai" ? "ai" : section]: true,
-    }));
-    // Capture source text at generation time so insertVisual can stamp it.
-    sourceTextRef.current = target.text.trim();
-    setStatus("loading");
-    setActiveGenerationSection(section);
-    setError(null);
-    setErrorSection(null);
-    setCreditError(false);
-
-    const result = await requestVisualCandidates(target.text, {
-      type: opts.type,
-      orientation: opts.orientation,
-      detailLevel: opts.detailLevel,
-      stayCloserToText: opts.stayCloserToText,
-    });
-
-    setStatus("idle");
-    setActiveGenerationSection(null);
-    if (result.ok) {
-      setGeneratedVisualsBySection((current) => ({
+  const generate = useCallback(
+    async (target: BlockInfo, opts: GenOptions) => {
+      const section = visualResultSectionForType(opts.type);
+      setOpenTarget(target);
+      setOpenKey(target.key);
+      setExpandedVisualCategories((current) => ({
         ...current,
-        [section]: [...result.candidates, ...(current[section] ?? [])].slice(
-          0,
-          MAX_GENERATED_VISUALS_PER_SECTION,
-        ),
+        [section === "ai" ? "ai" : section]: true,
       }));
-    } else {
-      setError(result.error);
-      setErrorSection(section);
-      setCreditError(isCreditError(result));
-    }
-  }, []);
+      await generateVisuals(target, {
+        options: opts,
+        append: true,
+        limit: MAX_GENERATED_VISUALS_PER_SECTION,
+      });
+    },
+    [generateVisuals],
+  );
 
   const insertVisual = useCallback(
     (visual: Visual) => {
@@ -533,7 +445,7 @@ export function BlockSparkPlugin() {
         return;
       }
       // Stamp sourceText so the visual remembers the text it was generated from.
-      const toInsert = stampSourceText(visual, sourceTextRef.current);
+      const toInsert = stampGeneratedVisual(visual);
       editor.update(() => {
         const top = $getNodeByKey(targetKey);
         if (top === null || !$isElementNode(top)) {
@@ -544,7 +456,7 @@ export function BlockSparkPlugin() {
       closePanel();
       editor.focus();
     },
-    [editor, openKey, closePanel],
+    [editor, openKey, closePanel, stampGeneratedVisual],
   );
 
   if (typeof document === "undefined" || !editable) {
