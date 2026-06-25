@@ -14,11 +14,12 @@
  * The returned base URL has no room segment; callers append `/<roomId>` (the
  * `y-websocket` provider does this from its `roomname` argument).
  */
+import { publicCollabWsPort, publicCollabWsUrl } from "@/lib/client-config";
+
 const COLLAB_PATH = "/collab";
-const DEFAULT_PORT = "4000";
 
 export function resolveCollabWsUrl(): string {
-  const explicit = process.env.NEXT_PUBLIC_COLLAB_WS_URL;
+  const explicit = publicCollabWsUrl();
   if (explicit) {
     return explicit;
   }
@@ -26,7 +27,7 @@ export function resolveCollabWsUrl(): string {
   // SSR / non-browser: no origin to derive from, use a localhost default that
   // matches the app server's inline collab mount.
   if (typeof window === "undefined" || !window.location) {
-    const port = process.env.NEXT_PUBLIC_COLLAB_WS_PORT || DEFAULT_PORT;
+    const port = publicCollabWsPort();
     return `ws://localhost:${port}${COLLAB_PATH}`;
   }
 

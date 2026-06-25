@@ -115,14 +115,19 @@ Recommended production setup:
 
 ### Environment reference
 
-| Variable                    | Read by                 | Default               | Description                                                                                                                              |
-| --------------------------- | ----------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `COLLAB_SINGLE_INSTANCE`    | collab server           | _(unset)_             | Set to `1` or `true` to declare single-instance mode. Suppresses the startup advisory and sets `"mode": "single-instance"` in `/health`. |
-| `COLLAB_INSTANCE_COUNT`     | collab server           | `1`                   | Number of collab instances behind the load balancer. Set >1 only with `COLLAB_STICKY_ROUTING=1`; otherwise the server refuses to start.  |
-| `COLLAB_STICKY_ROUTING`     | collab server           | _(unset)_             | Set to `1` or `true` to declare that sticky routing is configured at the load balancer. Required when `COLLAB_INSTANCE_COUNT>1`.         |
-| `COLLAB_PORT`               | collab server           | `1234`                | TCP port the websocket + `/health` HTTP server listens on.                                                                               |
-| `COLLAB_HOST`               | collab server           | `0.0.0.0`             | Bind address. Keep `0.0.0.0` behind a reverse proxy; narrow it if the proxy is on the same host.                                         |
-| `NEXT_PUBLIC_COLLAB_WS_URL` | browser editor (client) | `ws://localhost:1234` | WebSocket URL the editor connects to. Use `wss://collab.example.com` in production. Inlined at build time.                               |
+The complete runtime configuration inventory lives in
+[runtime-config.md](./runtime-config.md). Collaboration-specific variables are
+summarised here for convenience.
+
+| Variable                     | Read by                 | Default                                                             | Description                                                                                                                              |
+| ---------------------------- | ----------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `COLLAB_SINGLE_INSTANCE`     | collab server           | _(unset)_                                                           | Set to `1` or `true` to declare single-instance mode. Suppresses the startup advisory and sets `"mode": "single-instance"` in `/health`. |
+| `COLLAB_INSTANCE_COUNT`      | collab server           | `1`                                                                 | Number of collab instances behind the load balancer. Set >1 only with `COLLAB_STICKY_ROUTING=1`; otherwise the server refuses to start.  |
+| `COLLAB_STICKY_ROUTING`      | collab server           | _(unset)_                                                           | Set to `1` or `true` to declare that sticky routing is configured at the load balancer. Required when `COLLAB_INSTANCE_COUNT>1`.         |
+| `COLLAB_PORT`                | standalone collab       | `1234`                                                              | TCP port the standalone websocket + `/health` HTTP server listens on.                                                                    |
+| `COLLAB_HOST`                | standalone collab       | `0.0.0.0`                                                           | Bind address. Keep `0.0.0.0` behind a reverse proxy; narrow it if the proxy is on the same host.                                         |
+| `NEXT_PUBLIC_COLLAB_WS_URL`  | browser editor (client) | page origin + `/collab` (SSR fallback `ws://localhost:4000/collab`) | WebSocket URL the editor connects to. Use `wss://collab.example.com` for a standalone production endpoint. Inlined at build time.        |
+| `NEXT_PUBLIC_COLLAB_WS_PORT` | browser editor (client) | `4000`                                                              | Port used only for the SSR/non-browser fallback when `NEXT_PUBLIC_COLLAB_WS_URL` is unset.                                               |
 
 `COLLAB_PORT` / `COLLAB_HOST` configure the server process;
 `NEXT_PUBLIC_COLLAB_WS_URL` configures the client. In production they describe

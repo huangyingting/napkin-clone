@@ -10,6 +10,8 @@
 
 import Link from "next/link";
 
+import { publicAppUrl } from "@/lib/client-config";
+
 interface MadeWithBadgeProps {
   /** When false the badge renders nothing. Pass the result of
    * `shouldShowAttribution(ownerPlan)` from the server component. */
@@ -19,7 +21,7 @@ interface MadeWithBadgeProps {
 export function MadeWithBadge({ show }: MadeWithBadgeProps) {
   if (!show) return null;
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:4000";
+  const appUrl = publicAppUrl();
 
   return (
     <Link

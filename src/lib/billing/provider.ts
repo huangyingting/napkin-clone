@@ -13,6 +13,17 @@
  */
 
 import type { Plan } from "@/lib/billing/catalog";
+import {
+  decideBillingProvider,
+  isProductionEnv,
+  BillingMisconfiguredError,
+} from "@/lib/billing/config";
+export {
+  decideBillingProvider,
+  isProductionEnv,
+  BillingMisconfiguredError,
+} from "@/lib/billing/config";
+export type { BillingProviderKind } from "@/lib/billing/config";
 
 // ---------------------------------------------------------------------------
 // Interface
@@ -49,53 +60,6 @@ export interface BillingProvider {
    * provider is a no-op because it has no real Stripe subscription to cancel.
    */
   cancelSubscriptionImmediately(userId: string): Promise<void>;
-}
-
-// ---------------------------------------------------------------------------
-// Provider selection (pure decision — unit-tested)
-// ---------------------------------------------------------------------------
-
-/** Thrown when billing is misconfigured for the current environment. */
-export class BillingMisconfiguredError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "BillingMisconfiguredError";
-  }
-}
-
-export type BillingProviderKind = "stripe" | "mock";
-
-/** Returns true when running in a production environment. */
-export function isProductionEnv(
-  env: Record<string, string | undefined> = process.env,
-): boolean {
-  return env.NODE_ENV === "production";
-}
-
-/**
- * Pure decision: which billing provider should be used for the given env?
- *
- * - Stripe is "configured" when `STRIPE_SECRET_KEY` is set → use Stripe.
- * - Otherwise, in NON-production, fall back to the mock provider (CI/local dev).
- * - Otherwise, in PRODUCTION with no Stripe key → FAIL CLOSED: throw rather than
- *   silently serving paid billing through the mock provider.
- *
- * This keeps the environment gate explicit and testable without importing the
- * concrete provider modules.
- */
-export function decideBillingProvider(
-  env: Record<string, string | undefined> = process.env,
-): BillingProviderKind {
-  if (env.STRIPE_SECRET_KEY) return "stripe";
-
-  if (isProductionEnv(env)) {
-    throw new BillingMisconfiguredError(
-      "Billing is misconfigured: STRIPE_SECRET_KEY is not set in production. " +
-        "Refusing to fall back to the mock billing provider (fail-closed).",
-    );
-  }
-
-  return "mock";
 }
 
 // ---------------------------------------------------------------------------

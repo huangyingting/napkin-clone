@@ -20,6 +20,7 @@ import {
   shouldCancelSubscription,
 } from "@/lib/billing/provider";
 import { getSubscriptionCancellationState } from "@/lib/billing/service";
+import { publicAppUrl } from "@/lib/client-config";
 import { logError } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
@@ -215,7 +216,7 @@ export async function deleteAccount(
 
 /** Builds the absolute, ready-to-click email-verification URL with the token. */
 function buildVerifyUrl(rawToken: string): string {
-  const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:4000";
+  const base = publicAppUrl();
   return `${base.replace(/\/$/, "")}/verify-email/${encodeURIComponent(rawToken)}`;
 }
 

@@ -15,10 +15,8 @@ import {
   type Plan,
 } from "@/lib/billing/catalog";
 import {
-  isAiDeckGenEnabled,
   isUnlimitedCreditsEnabled,
   parseBillingFlag,
-  AI_DECK_GEN_ENABLED_ENV,
   BILLING_UNLIMITED_CREDITS_ENV,
 } from "@/lib/billing/config";
 
@@ -168,30 +166,5 @@ describe("isUnlimitedCreditsEnabled", () => {
       isUnlimitedCreditsEnabled({ NODE_ENV: "production" }),
       false,
     );
-  });
-});
-
-describe("isAiDeckGenEnabled", () => {
-  it("defaults to false (production-safe) when the flag is unset", () => {
-    assert.strictEqual(isAiDeckGenEnabled({}), false);
-  });
-
-  it("is enabled only when the env flag is explicitly truthy", () => {
-    assert.strictEqual(
-      isAiDeckGenEnabled({ [AI_DECK_GEN_ENABLED_ENV]: "true" }),
-      true,
-    );
-    assert.strictEqual(
-      isAiDeckGenEnabled({ [AI_DECK_GEN_ENABLED_ENV]: "1" }),
-      true,
-    );
-    assert.strictEqual(
-      isAiDeckGenEnabled({ [AI_DECK_GEN_ENABLED_ENV]: "false" }),
-      false,
-    );
-  });
-
-  it("is NOT enabled by default in production", () => {
-    assert.strictEqual(isAiDeckGenEnabled({ NODE_ENV: "production" }), false);
   });
 });

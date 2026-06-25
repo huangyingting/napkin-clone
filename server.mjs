@@ -20,6 +20,7 @@ import { parse } from "node:url";
 
 import next from "next";
 
+import { resolveInlineCollabConfig } from "./scripts/collab-config.mjs";
 import {
   createCollabWss,
   roomCount,
@@ -38,9 +39,7 @@ import {
 } from "./scripts/collab-runtime.mjs";
 
 const dev = process.env.NODE_ENV !== "production";
-const port = Number(process.env.PORT || 4000);
-const hostname = process.env.HOST || "0.0.0.0";
-const inlineCollab = process.env.COLLAB_INLINE !== "0";
+const { port, hostname, inlineCollab } = resolveInlineCollabConfig(process.env);
 const COLLAB_PATH = COLLAB_INLINE_PATH;
 
 // Resolve and validate the deployment configuration at startup.

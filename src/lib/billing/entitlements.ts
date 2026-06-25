@@ -2,7 +2,9 @@
  * Compatibility barrel for billing entitlements.
  *
  * Static plan metadata lives in `catalog.ts`; runtime billing feature flags live
- * in `config.ts`. Import those modules directly for new code.
+ * in `config.ts`. The AI deck-generation flag is re-exported from
+ * `@/lib/ai/config` for legacy callers. Import owned modules directly for new
+ * code.
  */
 
 export {
@@ -19,9 +21,9 @@ export {
 } from "./catalog";
 
 export {
-  AI_DECK_GEN_ENABLED_ENV,
   BILLING_UNLIMITED_CREDITS_ENV,
-  isAiDeckGenEnabled,
   isUnlimitedCreditsEnabled,
   parseBillingFlag,
 } from "./config";
+
+export { AI_DECK_GEN_ENABLED_ENV, isAiDeckGenEnabled } from "@/lib/ai/config";

@@ -1,13 +1,14 @@
 # Operations Docs
 
 **Status:** Current  
-**Last updated:** 2026-06-23
+**Last updated:** 2026-06-25
 
 Operational docs cover deployment, runtime constraints, readiness checks, and
 manual release procedures.
 
 | Document                                                                             | Scope                                                                                             |
 | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| [runtime-config.md](runtime-config.md)                                               | Environment-variable inventory across app, client, scripts, Prisma, and E2E tooling.              |
 | [collab-deployment.md](collab-deployment.md)                                         | Yjs collaboration server deployment, authorization, durability window, and scaling options.       |
 | [release-gate.md](release-gate.md)                                                   | Release readiness checklist and local/CI quality gate.                                            |
 | [persisted-schema-migrations.md](persisted-schema-migrations.md)                     | Offline migration harness for forward-migrating persisted payloads (Epic #493, #502).             |

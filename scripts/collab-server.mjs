@@ -15,6 +15,7 @@
  */
 import http from "node:http";
 
+import { resolveStandaloneCollabConfig } from "./collab-config.mjs";
 import {
   createCollabWss,
   roomCount,
@@ -32,8 +33,7 @@ import {
 } from "./collab-runtime.mjs";
 import { logScriptInfo } from "./structured-log.mjs";
 
-const PORT = Number(process.env.COLLAB_PORT || 1234);
-const HOST = process.env.COLLAB_HOST || "0.0.0.0";
+const { port: PORT, host: HOST } = resolveStandaloneCollabConfig(process.env);
 
 // Resolve and validate the deployment configuration at startup.
 const deploymentConfig = resolveCollabDeployment(process.env);
