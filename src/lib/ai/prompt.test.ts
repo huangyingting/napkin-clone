@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { buildGenerationMessages } from "@/lib/ai/prompt";
 import { VISUAL_KINDS } from "@/lib/visual/schema";
+import { getAllKindPromptGuidance } from "@/lib/visual/registry";
 
 test("prompt instructs the model to use only bundled catalog icons", () => {
   const messages = buildGenerationMessages({
@@ -47,6 +48,19 @@ test("the prompt enumerates every visual kind so the model can target it", () =>
       system,
       new RegExp(`- ${kind}[:/]`),
       `guidance section missing "${kind}"`,
+    );
+  }
+});
+
+test("visual type guidance is derived from the visual registry", () => {
+  const system =
+    buildGenerationMessages({ text: "Describe the process", count: 3 })[0]
+      ?.content ?? "";
+
+  for (const { guidance } of getAllKindPromptGuidance()) {
+    assert.match(
+      system,
+      new RegExp(`- ${guidance.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`),
     );
   }
 });

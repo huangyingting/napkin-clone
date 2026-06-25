@@ -33,6 +33,7 @@
  * | SOURCE_MISSING            | source    | error    | Yes          |
  * | UNSUPPORTED_COMMAND       | command   | error    | Dev/log      |
  * | BUDGET_EXCEEDED           | budget    | warning  | Dev/log      |
+ * | AI_GENERATION_REPAIR_FAILED | ai       | error    | Dev/log      |
  */
 
 import { buildErrorLog, logError, type ErrorLogRecord } from "@/lib/log";
@@ -74,6 +75,9 @@ export const ERROR_CODES = {
 
   // Performance / budget
   BUDGET_EXCEEDED: "BUDGET_EXCEEDED",
+
+  // AI generation
+  AI_GENERATION_REPAIR_FAILED: "AI_GENERATION_REPAIR_FAILED",
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
@@ -104,6 +108,7 @@ export const CODE_SEVERITY: Record<ErrorCode, DiagnosticSeverity> = {
   SOURCE_MISSING: "error",
   UNSUPPORTED_COMMAND: "error",
   BUDGET_EXCEEDED: "warning",
+  AI_GENERATION_REPAIR_FAILED: "error",
 };
 
 // ---------------------------------------------------------------------------

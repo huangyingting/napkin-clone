@@ -100,6 +100,24 @@ describe("shortcut catalog registry (#737, #751)", () => {
     assert.equal(shortcutDisplayLabel(newSlide, { isMac: true }), "⌘ + N");
     assert.equal(shortcutDisplayLabel(newSlide, { isMac: false }), "Ctrl + N");
   });
+
+  test("presentation shortcuts expose runtime navigation and in-app-only tools", () => {
+    assert.equal(matchesShortcut("presentation.next", key("PageDown")), true);
+    assert.equal(
+      matchesShortcut("presentation.previous", key("ArrowUp")),
+      true,
+    );
+    assert.equal(matchesShortcut("presentation.first", key("Home")), true);
+    assert.equal(matchesShortcut("presentation.last", key("End")), true);
+    assert.deepEqual(shortcutDisplayTokens(shortcutById("presentation.next")), [
+      "→",
+      "↓",
+      "Space",
+      "PgDn",
+    ]);
+    assert.equal(shortcutById("presentation.timer").surface, "present-mode");
+    assert.equal(shortcutById("presentation.laser").showInGlobalHelp, false);
+  });
 });
 
 function key(

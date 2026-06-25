@@ -11,6 +11,9 @@ const { auth } = NextAuth(authConfig);
 
 export const proxy = auth;
 
+// Next.js requires `config.matcher` to be a statically analyzable literal at
+// build time, so it is kept inline here and mirrors
+// `routeProtectionPolicy.proxy.matcher` (kept in sync manually).
 export const config = {
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };

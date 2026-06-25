@@ -12,8 +12,48 @@ import { prisma } from "@/lib/prisma";
 
 type PrismaClientLike = typeof prisma;
 
+export type AuthorizedCredentialsUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  image: string | null;
+};
+
 const GENERIC_PASSWORD_ERROR =
   "Could not change your password. Please try again.";
+
+export async function authorizeCredentialsUser(
+  credentials: Partial<Record<"email" | "password", unknown>> | undefined,
+  client: Pick<PrismaClientLike, "user"> = prisma,
+): Promise<AuthorizedCredentialsUser | null> {
+  const email =
+    typeof credentials?.email === "string"
+      ? normalizeEmail(credentials.email)
+      : "";
+  const password =
+    typeof credentials?.password === "string" ? credentials.password : "";
+
+  if (!email || !password) {
+    return null;
+  }
+
+  const user = await client.user.findUnique({ where: { email } });
+  if (!user?.passwordHash) {
+    return null;
+  }
+
+  const passwordMatches = await comparePassword(password, user.passwordHash);
+  if (!passwordMatches) {
+    return null;
+  }
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    image: user.image,
+  };
+}
 
 export async function registerCredentialsUser(
   input: {
