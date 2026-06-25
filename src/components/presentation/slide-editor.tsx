@@ -3017,6 +3017,65 @@ export function SlideEditor({
     [deck, doCommitAndChange],
   );
 
+  // Per-element Source panel actions (#644): drive the same source commands as
+  // the stale-links banner, but keyed on a selected element id so the inspector
+  // can offer update / unlink / relink for the current selection.
+  const staleReasonByElementId = useMemo(
+    () =>
+      new Map(staleLinks.map((link) => [link.elementId, link.reason] as const)),
+    [staleLinks],
+  );
+  const handlePanelUpdateFromSource = useCallback(
+    (elementId: string) => {
+      const link = staleLinks.find((l) => l.elementId === elementId);
+      if (link) handleUpdateFromSource(link);
+    },
+    [staleLinks, handleUpdateFromSource],
+  );
+  const handlePanelUnlinkElementSource = useCallback(
+    (elementId: string) => {
+      for (const slide of deck.slides) {
+        const el = (slide.elements ?? []).find((e) => e.id === elementId);
+        if (el?.sourceRef) {
+          doCommitAndChange(deck, {
+            type: "UNLINK_ELEMENT_SOURCE",
+            slideId: slide.id,
+            elementId,
+          });
+          return;
+        }
+      }
+    },
+    [deck, doCommitAndChange],
+  );
+  const handlePanelRelinkElementSource = useCallback(
+    (elementId: string) => {
+      for (const slide of deck.slides) {
+        const el = (slide.elements ?? []).find((e) => e.id === elementId);
+        if (el?.sourceRef) {
+          const ref = el.sourceRef;
+          const newRef: SourceRef = {
+            documentId: ref.documentId,
+            blockId: ref.blockId,
+            ...(ref.contentHash !== undefined
+              ? { contentHash: ref.contentHash }
+              : {}),
+            linkedAt: new Date().toISOString(),
+            blockKind: ref.blockKind,
+          };
+          doCommitAndChange(deck, {
+            type: "RELINK_ELEMENT_SOURCE",
+            slideId: slide.id,
+            elementId,
+            sourceRef: newRef,
+          });
+          return;
+        }
+      }
+    },
+    [deck, doCommitAndChange],
+  );
+
   // Stale-link action: remove an orphaned element from the slide (#410).
   // Only offered for orphaned elements (block_missing); never auto-invoked.
   const handleRemoveOrphaned = useCallback(
@@ -3155,6 +3214,10 @@ export function SlideEditor({
         onBackgroundAssetChange: handleBackgroundAssetChange,
         onAccentChange: handleAccentChange,
         brandSwatches,
+        sourceStaleReasonById: staleReasonByElementId,
+        onUpdateElementFromSource: handlePanelUpdateFromSource,
+        onUnlinkElementSource: handlePanelUnlinkElementSource,
+        onRelinkElementSource: handlePanelRelinkElementSource,
       }
     : null;
   const selectedElementForToolbar =

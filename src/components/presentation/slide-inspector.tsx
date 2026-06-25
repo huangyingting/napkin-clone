@@ -77,6 +77,11 @@ import {
   type DeckTextRole,
 } from "@/lib/presentation/deck-theme-tokens";
 import { resolveSlideTokenSet } from "@/lib/presentation/style-cascade";
+import type { StaleReason } from "@/lib/presentation/source-link-staleness";
+import {
+  resolveSourcePanelActions,
+  resolveSourcePanelStatus,
+} from "@/lib/presentation/source-panel-status";
 import type { RightPanelTab } from "@/lib/presentation/slide-panel-ui";
 import type {
   AlignMode,
@@ -190,6 +195,13 @@ export interface SlideInspectorProps {
   onMoveElementZOrder?: (elementId: string, direction: "up" | "down") => void;
   onRenameElement?: (elementId: string, name: string) => void;
   onReorderElement?: (elementId: string, targetElementId: string) => void;
+  // Per-element source-link panel actions (#644) — optional so existing
+  // callers compile unchanged. `sourceStaleReasonById` maps an element id to
+  // its stale reason when the linked source block has changed or gone missing.
+  sourceStaleReasonById?: ReadonlyMap<string, StaleReason>;
+  onUpdateElementFromSource?: (elementId: string) => void;
+  onUnlinkElementSource?: (elementId: string) => void;
+  onRelinkElementSource?: (elementId: string) => void;
   // Style
   onBackgroundChange: (color: string | undefined) => void;
   onBackgroundGradientChange: (
@@ -2574,6 +2586,10 @@ export function SlideInspector({
   onMoveElementZOrder,
   onRenameElement,
   onReorderElement,
+  sourceStaleReasonById,
+  onUpdateElementFromSource,
+  onUnlinkElementSource,
+  onRelinkElementSource,
   onBackgroundChange,
   onBackgroundGradientChange,
   onBackgroundImageChange,
@@ -3107,7 +3123,17 @@ export function SlideInspector({
             aria-labelledby="inspector-tab-source"
             className="flex flex-col gap-4"
           >
-            <SourceSummary element={selectedElement} />
+            <SourceSummary
+              element={selectedElement}
+              staleReason={
+                selectedElement
+                  ? sourceStaleReasonById?.get(selectedElement.id)
+                  : undefined
+              }
+              onUpdateFromSource={onUpdateElementFromSource}
+              onUnlink={onUnlinkElementSource}
+              onRelink={onRelinkElementSource}
+            />
           </div>
         ) : null}
       </div>
@@ -3116,14 +3142,25 @@ export function SlideInspector({
 }
 
 /**
- * Read-only summary of a selected element's source-document link. The
- * authoritative link controls live in the stage toolbar's "From document"
- * menu; this panel only surfaces the current provenance state (issue #580).
+ * Per-element source-document link panel (#580, #644). Surfaces the current
+ * provenance state — standalone, linked, stale, source-missing, or unlinked —
+ * and offers command-backed actions: update from source (when content drifted),
+ * unlink (detach a live link), and relink (re-establish a previously unlinked
+ * ref). Orphaned links whose source block is gone offer unlink rather than a
+ * dead "update" action.
  */
 function SourceSummary({
   element,
+  staleReason,
+  onUpdateFromSource,
+  onUnlink,
+  onRelink,
 }: {
   element: SlideElement | null | undefined;
+  staleReason?: StaleReason;
+  onUpdateFromSource?: (elementId: string) => void;
+  onUnlink?: (elementId: string) => void;
+  onRelink?: (elementId: string) => void;
 }) {
   if (!element) {
     return (
@@ -3133,29 +3170,56 @@ function SourceSummary({
     );
   }
   const ref = element.sourceRef;
-  if (!ref || ref.unlinked) {
+  if (!ref) {
     return (
       <div className="flex flex-col gap-2">
-        <p className="text-sm font-medium text-ds-text-primary">
-          Not linked to a document
-        </p>
+        <p className="text-sm font-medium text-ds-text-primary">Standalone</p>
         <p className="text-xs text-ds-text-muted">
-          This element is standalone. Insert content from the stage toolbar’s
-          “From document” menu to establish a source link.
+          This element is not linked to a document. Insert content from the
+          stage toolbar’s “From document” menu to establish a source link.
         </p>
       </div>
     );
   }
+
+  const status = resolveSourcePanelStatus({
+    hasSourceRef: true,
+    unlinked: ref.unlinked === true,
+    staleReason,
+  });
+  const actions = resolveSourcePanelActions(status);
+
+  const statusMeta = {
+    unlinked: { label: "Unlinked", tone: "text-ds-text-secondary" },
+    source_missing: { label: "Source missing", tone: "text-ds-danger-text" },
+    stale: { label: "Stale", tone: "text-ds-warning-text" },
+    linked: { label: "Up to date", tone: "text-ds-success-text" },
+    standalone: { label: "Standalone", tone: "text-ds-text-secondary" },
+  }[status];
+
+  const explanation = {
+    unlinked:
+      "This link was intentionally unlinked. Relink to track the source block again.",
+    source_missing:
+      "The linked source block no longer exists in the document. Unlink to keep this element as standalone.",
+    stale:
+      "The linked source block changed since this element was last synced. Update to pull the latest content.",
+    linked: "This element matches its linked source block.",
+    standalone: "This element is not linked to a document.",
+  }[status];
+
+  const actionClass = `rounded-ds-md border border-ds-border-subtle px-2.5 py-1.5 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`;
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-medium text-ds-text-primary">
-          Linked to document
-        </p>
-        <p className="text-xs text-ds-text-muted">
-          Source edits can be synced from the stage toolbar’s “From document”
-          menu.
-        </p>
+        <span
+          className={`text-sm font-semibold ${statusMeta.tone}`}
+          data-testid="source-status"
+        >
+          {statusMeta.label}
+        </span>
+        <p className="text-xs text-ds-text-muted">{explanation}</p>
       </div>
       <dl className="flex flex-col gap-1.5 text-xs">
         <div className="flex items-center justify-between gap-2">
@@ -3177,6 +3241,35 @@ function SourceSummary({
           </dd>
         </div>
       </dl>
+      <div className="flex flex-wrap gap-2">
+        {actions.canUpdate && onUpdateFromSource ? (
+          <button
+            type="button"
+            className={actionClass}
+            onClick={() => onUpdateFromSource(element.id)}
+          >
+            Update from source
+          </button>
+        ) : null}
+        {actions.canUnlink && onUnlink ? (
+          <button
+            type="button"
+            className={actionClass}
+            onClick={() => onUnlink(element.id)}
+          >
+            Unlink
+          </button>
+        ) : null}
+        {actions.canRelink && onRelink ? (
+          <button
+            type="button"
+            className={actionClass}
+            onClick={() => onRelink(element.id)}
+          >
+            Relink
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }
