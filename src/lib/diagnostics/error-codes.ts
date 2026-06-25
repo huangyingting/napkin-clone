@@ -9,8 +9,9 @@
  *  - Layered on top of {@link buildErrorLog}/{@link logError} from
  *    `src/lib/log.ts` — existing log behavior is unchanged.
  *  - Codes are `SCREAMING_SNAKE_CASE` strings grouped by domain prefix.
- *  - Each {@link DiagnosticRecord} carries a code, severity, scope, and safe
- *    metadata (ids/counts only — no PII or raw document content).
+ *  - Each {@link DiagnosticRecord} carries a code, severity, a scope (new/touched
+ *    scopes use `area.subsystem.operation`), and safe metadata (ids/counts only —
+ *    no PII or raw document content).
  *  - Three severities: `"fatal"` (operation cannot complete), `"error"`
  *    (operation failed but may retry), `"warning"` (partial degradation).
  *
@@ -118,7 +119,7 @@ export interface DiagnosticRecord {
   code: ErrorCode;
   /** Severity tier. */
   severity: DiagnosticSeverity;
-  /** The scope / subsystem that emitted the diagnostic (e.g. "save.deck"). */
+  /** The scope / subsystem that emitted the diagnostic (e.g. "command.validation.unsupported"). */
   scope: string;
   /** Human-readable description (English, developer-facing). */
   message: string;
@@ -318,7 +319,7 @@ export function commandDiagnosticUnsupported(
 ): DiagnosticRecord {
   return buildDiagnostic(
     ERROR_CODES.UNSUPPORTED_COMMAND,
-    "command",
+    "command.validation.unsupported",
     `Command op '${op}' is not supported.`,
     { op, ...meta },
   );

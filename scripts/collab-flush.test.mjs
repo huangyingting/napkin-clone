@@ -11,13 +11,18 @@
  *
  * Run with: node --test scripts/collab-flush.test.mjs
  */
-import { describe, it, beforeEach } from "node:test";
+import { describe, it, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
 import { createEvictionFlusher } from "./collab-flush.mjs";
 import { flushStats, recentFlushFailures, _testOnly } from "./collab-core.mjs";
 
 const { flushFailureRing, flushCounters } = _testOnly;
+const originalConsole = {
+  info: console.info,
+  warn: console.warn,
+  error: console.error,
+};
 
 /** Reset the shared observability ring + counters between tests. */
 function resetObservability() {
@@ -25,6 +30,18 @@ function resetObservability() {
   flushCounters.flushAttempts = 0;
   flushCounters.flushFailures = 0;
 }
+
+beforeEach(() => {
+  console.info = () => {};
+  console.warn = () => {};
+  console.error = () => {};
+});
+
+afterEach(() => {
+  console.info = originalConsole.info;
+  console.warn = originalConsole.warn;
+  console.error = originalConsole.error;
+});
 
 const ROOM = "doc-flush-room";
 const UPDATE = new Uint8Array([1, 2, 3, 4, 5]);
@@ -98,6 +115,29 @@ describe("createEvictionFlusher: successful flush", () => {
     assert.equal(flushStats().flushAttempts, 1);
     assert.equal(flushStats().flushFailures, 0);
     assert.equal(recentFlushFailures().length, 0);
+  });
+
+  it("emits structured logs without leaking update bytes or secrets", async () => {
+    const lines = [];
+    console.info = (line) => lines.push(String(line));
+    console.error = (line) => lines.push(String(line));
+    const flush = createEvictionFlusher({
+      flushUrl: "http://app/api/collab/flush",
+      internalSecret: "s3cret",
+      fetchImpl: async () => ({ ok: true, status: 200 }),
+    });
+
+    await flush(ROOM, UPDATE);
+
+    assert.equal(lines.length, 2);
+    const attempt = JSON.parse(lines[0]);
+    const success = JSON.parse(lines[1]);
+    assert.equal(attempt.scope, "collab.flush.attempt");
+    assert.equal(success.scope, "collab.flush.result");
+    assert.ok(!lines.join("\n").includes("s3cret"));
+    assert.ok(
+      !lines.join("\n").includes(Buffer.from(UPDATE).toString("base64")),
+    );
   });
 });
 

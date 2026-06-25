@@ -25,6 +25,7 @@ current system.
 | [product](product/README.md)           | Brand styles, billing plans, and credits.                    |
 | [security](security/README.md)         | Permissions, public sharing, and protected asset access.     |
 | [commands](commands/README.md)         | Command envelope and mutation routing inventory.             |
+| [diagnostics](diagnostics/README.md)   | Structured logging scopes, diagnostic codes, and telemetry.  |
 
 Operational material lives under [../operations/](../operations/README.md).
 

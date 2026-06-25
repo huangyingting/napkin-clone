@@ -18,6 +18,7 @@ import * as encoding from "lib0/encoding";
 import * as decoding from "lib0/decoding";
 import * as map from "lib0/map";
 import { WebSocketServer } from "ws";
+import { logScriptError } from "./structured-log.mjs";
 
 const PING_TIMEOUT = 30000;
 
@@ -249,10 +250,13 @@ const evictRoom = (doc, roomName, onBeforeEvict) => {
     try {
       const update = Y.encodeStateAsUpdate(doc);
       Promise.resolve(onBeforeEvict(roomName, update)).catch((err) => {
-        console.error("[collab] onBeforeEvict error", roomName, err);
+        logScriptError("collab.core.evict", err, { room: roomName });
       });
     } catch (err) {
-      console.error("[collab] onBeforeEvict sync error", roomName, err);
+      logScriptError("collab.core.evict", err, {
+        room: roomName,
+        phase: "sync",
+      });
     }
   }
   savedStateVectors.delete(roomName);
@@ -358,7 +362,7 @@ const messageListener = (
         break;
     }
   } catch (err) {
-    console.error("[collab] message error", err);
+    logScriptError("collab.core.message", err);
   }
 };
 
@@ -582,7 +586,7 @@ export function createCollabWss(roomFromUrl, options = {}) {
     try {
       decision = await authorize(req, toRoom(req.url || "/"));
     } catch (err) {
-      console.error("[collab] authorization error", err);
+      logScriptError("collab.core.authorize", err);
       decision = { ok: false, status: 500 };
     }
     if (!decision || !decision.ok) {

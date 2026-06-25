@@ -44,9 +44,12 @@
  * ```
  */
 
-import { logError, logInfo } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
 import { deductCredits } from "@/lib/billing/credits";
+import {
+  logUsageLedgerEvent,
+  logUsageLedgerFailure,
+} from "@/lib/diagnostics/domain-events";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -115,7 +118,7 @@ export async function reserveUsage(
     where: { idempotencyKey },
   });
   if (existing) {
-    logInfo("usage-ledger-reserve", "idempotent reserve — key already exists", {
+    logUsageLedgerEvent("reserve", "idempotent reserve", {
       idempotencyKey,
       status: existing.status,
     });
@@ -132,7 +135,7 @@ export async function reserveUsage(
     },
   });
 
-  logInfo("usage-ledger-reserve", "reserved", {
+  logUsageLedgerEvent("reserve", "reserved", {
     idempotencyKey,
     operation,
     creditCost,
@@ -173,7 +176,7 @@ export async function captureUsage(
   }
 
   if (entry.status === "captured") {
-    logInfo("usage-ledger-capture", "idempotent capture — already captured", {
+    logUsageLedgerEvent("capture", "idempotent capture", {
       idempotencyKey,
     });
     return entry as UsageLedgerEntry;
@@ -189,7 +192,7 @@ export async function captureUsage(
     data: { status: "captured", capturedAt: new Date() },
   });
 
-  logInfo("usage-ledger-capture", "captured", {
+  logUsageLedgerEvent("capture", "captured", {
     idempotencyKey,
     creditCost,
   });
@@ -220,12 +223,12 @@ export async function refundUsage(
       data: { status: "refunded", refundedAt: new Date() },
     });
 
-    logInfo("usage-ledger-refund", "refunded", { idempotencyKey });
+    logUsageLedgerEvent("refund", "refunded", { idempotencyKey });
     return updated as UsageLedgerEntry;
   } catch (err) {
     // Entry may not exist (reserveUsage failed before creating it) — log and
     // return null rather than masking the original error.
-    logError("usage-ledger-refund", err, { idempotencyKey });
+    logUsageLedgerFailure("refund", err, { idempotencyKey });
     return null;
   }
 }

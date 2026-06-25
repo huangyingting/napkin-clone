@@ -17,6 +17,7 @@ import {
   SCHEMA_FAILURE_CATEGORIES,
   SCHEMA_TELEMETRY_SCOPE,
 } from "./schema-telemetry";
+import { REDACTED } from "@/lib/log";
 
 describe("buildSchemaDiagnostic", () => {
   test("keeps the category and safe identifiers", () => {
@@ -64,6 +65,19 @@ describe("buildSchemaDiagnostic", () => {
     const serialized = JSON.stringify(record);
     assert.ok(!serialized.includes("leak"));
     assert.equal(record.documentId, "doc-1");
+  });
+
+  test("redacts sensitive scalar keys through the shared redaction helper", () => {
+    const record = buildSchemaDiagnostic("deck-parse-failed", {
+      documentId: "doc-1",
+      apiKey: "sk-secret",
+      Authorization: "Bearer token",
+    } as Record<string, string>);
+
+    assert.equal(record.documentId, "doc-1");
+    assert.equal(record.apiKey, REDACTED);
+    assert.equal(record.Authorization, REDACTED);
+    assert.ok(!JSON.stringify(record).includes("sk-secret"));
   });
 });
 

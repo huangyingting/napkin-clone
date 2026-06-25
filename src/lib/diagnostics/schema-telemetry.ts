@@ -21,9 +21,13 @@
  * The pure {@link buildSchemaDiagnostic} builder is exported for unit testing
  * the no-content-leak guarantee; production code calls
  * {@link reportSchemaFailure}.
+ *
+ * These categories intentionally remain domain telemetry categories rather than
+ * first-class `ERROR_CODES`; see `docs/architecture/diagnostics/`.
  */
 
 import { logError } from "@/lib/log";
+import redaction from "@/lib/log-redaction-core.cjs";
 
 /** Fixed scope used for every persisted-schema diagnostic. */
 export const SCHEMA_TELEMETRY_SCOPE = "schema.persisted";
@@ -49,30 +53,8 @@ export type SchemaFailureCategory = (typeof SCHEMA_FAILURE_CATEGORIES)[number];
  * (lower-cased, non-alphanumerics stripped) so `deckJson`, `deck_json`, and
  * `DeckJSON` all match.
  */
-const CONTENT_KEYS = new Set([
-  "deckjson",
-  "contentjson",
-  "data",
-  "visual",
-  "deck",
-  "node",
-  "payload",
-  "raw",
-  "rawdeck",
-  "rawvisual",
-  "value",
-  "snapshot",
-  "body",
-]);
-
-function normalizeKey(key: string): string {
-  return key.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
 /** True when a context key may hold raw document content and must be dropped. */
-export function isContentKey(key: string): boolean {
-  return CONTENT_KEYS.has(normalizeKey(key));
-}
+export const isContentKey = redaction.isContentKey;
 
 /** Safe identifiers a caller may attach to a schema diagnostic. */
 export interface SchemaFailureContext {
@@ -106,20 +88,10 @@ export function buildSchemaDiagnostic(
   category: SchemaFailureCategory,
   context: SchemaFailureContext = {},
 ): SchemaDiagnosticRecord {
-  const out: SchemaDiagnosticRecord = { category };
-  for (const [key, value] of Object.entries(context)) {
-    if (value === undefined) continue;
-    if (isContentKey(key)) continue;
-    if (
-      typeof value !== "string" &&
-      typeof value !== "number" &&
-      typeof value !== "boolean"
-    ) {
-      continue;
-    }
-    out[key] = value;
-  }
-  return out;
+  return {
+    category,
+    ...redaction.buildSafeTelemetryContext(context),
+  };
 }
 
 /**
