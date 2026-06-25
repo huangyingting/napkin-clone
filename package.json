@@ -9,6 +9,7 @@
     "collab": "node scripts/collab-server.mjs",
     "lint": "npm run design-system:check && npm run action-ports:check && eslint",
     "typecheck": "tsc --noEmit",
+    "typecheck:unused": "tsc --noEmit --noUnusedLocals --noUnusedParameters",
     "test": "node --import tsx --test \"src/**/*.test.ts\" && node --test \"scripts/**/*.test.mjs\"",
     "test:e2e": "playwright test",
     "test:e2e:profile": "E2E_PROFILE=1 playwright test",

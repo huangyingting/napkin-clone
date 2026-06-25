@@ -41,6 +41,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Check unused TypeScript symbols
+        run: npm run typecheck:unused
+
       - name: Lint
         run: npm run lint
 

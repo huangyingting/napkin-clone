@@ -27,19 +27,20 @@ on every pull request (see `.github/workflows/ci.yml`):
 export DB_PROVIDER=sqlite DATABASE_URL="file:./prisma/dev.db" AUTH_SECRET=ci-placeholder
 npm run db:schema:check
 npm run db:generate
-npm test && npm run typecheck && npm run lint && npm run format:check
+npm test && npm run typecheck && npm run typecheck:unused && npm run lint && npm run format:check
 ```
 
-| Step                | Tool / command            | Failure means                                    |
-| ------------------- | ------------------------- | ------------------------------------------------ |
-| SQLite schema drift | `npm run db:schema:check` | The generated SQLite schema is stale             |
-| Prisma client       | `npm run db:generate`     | Generated Prisma client cannot be refreshed      |
-| Unit + pure tests   | `npm test`                | A pure helper, schema, or domain model is broken |
-| TypeScript          | `npm run typecheck`       | Type errors in src/ or scripts/                  |
-| Lint                | `npm run lint`            | ESLint rule violations                           |
-| Formatting          | `npm run format:check`    | Prettier formatting drift                        |
+| Step                | Tool / command             | Failure means                                    |
+| ------------------- | -------------------------- | ------------------------------------------------ |
+| SQLite schema drift | `npm run db:schema:check`  | The generated SQLite schema is stale             |
+| Prisma client       | `npm run db:generate`      | Generated Prisma client cannot be refreshed      |
+| Unit + pure tests   | `npm test`                 | A pure helper, schema, or domain model is broken |
+| TypeScript          | `npm run typecheck`        | Type errors or unused symbols in src/ or scripts |
+| Unused guard        | `npm run typecheck:unused` | Focused unused-symbol gate regressed             |
+| Lint                | `npm run lint`             | ESLint rule violations                           |
+| Formatting          | `npm run format:check`     | Prettier formatting drift                        |
 
-**All six steps must be green. A single failure is a release blocker.**
+**All seven steps must be green. A single failure is a release blocker.**
 
 The CI job is defined in `.github/workflows/ci.yml` (`quality-gate` job,
 Node 22, SQLite). CI runs the SQLite schema drift check before refreshing the
@@ -240,8 +241,8 @@ For each flow below, check the indicated owner: **A** = automated test,
 Before each foundation release wave:
 
 1. Run
-   `npm run db:schema:check && npm run db:generate && npm test && npm run typecheck && npm run lint && npm run format:check`
-   locally. All six must exit 0.
+   `npm run db:schema:check && npm run db:generate && npm test && npm run typecheck && npm run typecheck:unused && npm run lint && npm run format:check`
+   locally. All seven must exit 0.
 2. Verify CI is green on the merge commit (`.github/workflows/ci.yml` → `quality-gate` job).
 3. Walk the checklist in Part 2 and confirm every **M** flow manually.
 4. Record any warnings (Part 3) in the release PR description with a brief risk note.

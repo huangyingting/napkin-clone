@@ -40,11 +40,7 @@ function nodeBox(
   return clampRegion(region, elementBox);
 }
 
-function visualRegions(
-  element: Extract<SlideElement, { kind: "visual" }>,
-  visual: Visual,
-  elementBox: ElementBox,
-): ElementBox[] {
+function visualRegions(visual: Visual, elementBox: ElementBox): ElementBox[] {
   return visual.nodes
     .map((node) => nodeBox(node, visual, elementBox))
     .filter((region): region is ElementBox => region !== null);
@@ -63,7 +59,7 @@ export function buildMediaHitGeometry({
       const visual = visuals.get(element.visualId);
       if (!visual) continue;
       const box = fittedBoxes.get(element.id) ?? element.box;
-      const regions = visualRegions(element, visual, box);
+      const regions = visualRegions(visual, box);
       if (regions.length > 0) mediaGeometry.set(element.id, { regions });
     }
   }
