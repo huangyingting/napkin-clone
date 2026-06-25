@@ -15,7 +15,11 @@
  *     throw a {@link GenerationError} with a clear message.
  */
 
-import { buildGenerationMessages, type ChatMessage } from "@/lib/ai/prompt";
+import { buildGenerationMessages } from "@/lib/ai/prompt";
+import {
+  runGenerationAttempts,
+  type CompleteFn,
+} from "@/lib/ai/generation-runner";
 import {
   AI_GENERATION_INPUT_MAX_CHARS,
   formatVisualInputTooLongError,
@@ -26,6 +30,8 @@ import {
   type VisualKind,
 } from "@/lib/visual/schema";
 import type { DetailLevel, Orientation } from "@/lib/ai/prompt";
+
+export { extractJson, type CompleteFn } from "@/lib/ai/generation-runner";
 
 /** Maximum accepted input length; longer text is rejected before any LLM call. */
 export const MAX_INPUT_CHARS = AI_GENERATION_INPUT_MAX_CHARS;
@@ -67,9 +73,6 @@ export class GenerationError extends Error {
   }
 }
 
-/** A function that performs one chat completion and returns the raw content. */
-export type CompleteFn = (messages: ChatMessage[]) => Promise<string>;
-
 export interface GenerateInput {
   text: string;
   /** Optional desired visual type. */
@@ -99,52 +102,6 @@ export interface GenerateDeps {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/** Strips a single ```...``` / ```json ... ``` fence if the content is wrapped. */
-function stripCodeFence(raw: string): string {
-  const match = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  return match ? match[1] : raw;
-}
-
-/**
- * Best-effort extraction of a JSON value from raw model output. Handles code
- * fences and leading/trailing prose by falling back to the first balanced-ish
- * `{...}` or `[...]` slice. Returns `undefined` when nothing parses.
- */
-export function extractJson(raw: string): unknown {
-  const text = stripCodeFence(raw).trim();
-  if (!text) {
-    return undefined;
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    // fall through to substring extraction
-  }
-
-  const candidates: Array<[number, number]> = [];
-  const objStart = text.indexOf("{");
-  const objEnd = text.lastIndexOf("}");
-  if (objStart !== -1 && objEnd > objStart) {
-    candidates.push([objStart, objEnd]);
-  }
-  const arrStart = text.indexOf("[");
-  const arrEnd = text.lastIndexOf("]");
-  if (arrStart !== -1 && arrEnd > arrStart) {
-    candidates.push([arrStart, arrEnd]);
-  }
-
-  for (const [start, end] of candidates) {
-    try {
-      return JSON.parse(text.slice(start, end + 1));
-    } catch {
-      // try the next candidate slice
-    }
-  }
-
-  return undefined;
 }
 
 /** Normalizes a parsed payload into an array of candidate visual objects. */
@@ -197,58 +154,66 @@ export async function generateVisuals(
   const maxAttempts = Math.max(1, deps.maxAttempts ?? DEFAULT_MAX_ATTEMPTS);
   const requested = Math.max(minCandidates, input.count ?? minCandidates);
 
-  let lastReason = "The AI did not return any valid visuals.";
-
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const messages = buildGenerationMessages({
-      text,
-      type: input.type,
-      count: requested,
-      retryReason: attempt > 0 ? lastReason : undefined,
-      orientation: input.orientation,
-      detailLevel: input.detailLevel,
-      stayCloserToText: input.stayCloserToText,
-    });
-
-    let raw: string;
-    try {
-      raw = await deps.complete(messages);
-    } catch (error) {
-      // A hard service/transport failure is not retried here; surface it.
-      const reason = error instanceof Error ? error.message : String(error);
-      throw new GenerationError(
-        `The AI service could not be reached: ${reason}`,
-        { cause: error },
-      );
-    }
-
-    const parsed = extractJson(raw);
-    if (parsed === undefined) {
-      lastReason = "The AI response was not valid JSON.";
-      continue;
-    }
-
-    const rawCandidates = coerceCandidates(parsed);
-    const valid: Visual[] = [];
-    for (const candidate of rawCandidates) {
-      const result = safeParseVisual(candidate);
-      if (result.success) {
-        valid.push(result.data);
+  return runGenerationAttempts<unknown[], Visual[]>({
+    pipeline: "visual",
+    maxAttempts,
+    initialFailureReason: "The AI did not return any valid visuals.",
+    complete: deps.complete,
+    buildMessages: (retryReason) =>
+      buildGenerationMessages({
+        text,
+        type: input.type,
+        count: requested,
+        retryReason,
+        orientation: input.orientation,
+        detailLevel: input.detailLevel,
+        stayCloserToText: input.stayCloserToText,
+      }),
+    repair: (parsed) => {
+      const rawCandidates = coerceCandidates(parsed);
+      return rawCandidates.length > 0
+        ? {
+            success: true,
+            data: rawCandidates,
+            meta: { rawCandidateCount: rawCandidates.length },
+          }
+        : {
+            success: false,
+            reason: "The AI response contained no visuals.",
+            meta: { rawCandidateCount: 0, minCandidateCount: minCandidates },
+          };
+    },
+    validate: (rawCandidates) => {
+      const valid: Visual[] = [];
+      for (const candidate of rawCandidates) {
+        const result = safeParseVisual(candidate);
+        if (result.success) {
+          valid.push(result.data);
+        }
       }
-    }
 
-    if (valid.length >= minCandidates) {
-      const ordered = input.type ? preferType(valid, input.type) : valid;
-      return ordered.slice(0, MAX_CANDIDATES);
-    }
+      if (valid.length >= minCandidates) {
+        const ordered = input.type ? preferType(valid, input.type) : valid;
+        return { success: true, data: ordered.slice(0, MAX_CANDIDATES) };
+      }
 
-    lastReason =
-      rawCandidates.length === 0
-        ? "The AI response contained no visuals."
-        : `Only ${valid.length} of ${rawCandidates.length} visuals were valid (need ${minCandidates}).`;
-  }
-
-  throw new GenerationError(
-    `Could not generate ${minCandidates} valid visuals after ${maxAttempts} attempt(s). ${lastReason}`,
-  );
+      return {
+        success: false,
+        reason: `Only ${valid.length} of ${rawCandidates.length} visuals were valid (need ${minCandidates}).`,
+        meta: {
+          rawCandidateCount: rawCandidates.length,
+          validCandidateCount: valid.length,
+          minCandidateCount: minCandidates,
+        },
+      };
+    },
+    makeServiceError: (reason, cause) =>
+      new GenerationError(`The AI service could not be reached: ${reason}`, {
+        cause,
+      }),
+    makeFinalError: (attempts, lastReason) =>
+      new GenerationError(
+        `Could not generate ${minCandidates} valid visuals after ${attempts} attempt(s). ${lastReason}`,
+      ),
+  });
 }

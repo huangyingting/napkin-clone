@@ -99,7 +99,10 @@ test("retries once on malformed JSON then throws GenerationError", async () => {
       { outline: "outline", visualInventory: INVENTORY },
       { complete },
     ),
-    (error) => error instanceof GenerationError,
+    (error) =>
+      error instanceof GenerationError &&
+      error.message ===
+        "Could not generate a valid deck after 2 attempt(s). The AI response was not valid JSON.",
   );
   assert.equal(calls.count, 2);
 });

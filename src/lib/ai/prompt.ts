@@ -14,6 +14,7 @@ import {
   VISUAL_SCHEMA_VERSION,
   type VisualKind,
 } from "@/lib/visual/schema";
+import { getAllKindPromptGuidance } from "@/lib/visual/registry";
 
 type ChatRole = "system" | "user" | "assistant";
 
@@ -69,34 +70,10 @@ export interface BuildMessagesOptions {
   stayCloserToText?: boolean;
 }
 
-const KIND_GUIDANCE: Record<VisualKind, string> = {
-  flowchart:
-    "flowchart: a directed process with edges; use shapes ellipse (start/end), diamond (decision), rounded (step); set node x/y to lay it out top-to-bottom.",
-  mindmap:
-    "mindmap: one central node with branches radiating out; use edges from the center; set x/y around the center.",
-  list: "list/scene: an ordered set of points; order nodes meaningfully; x/y may be omitted (layout is derived from order).",
-  chart:
-    "chart: a bar chart; every node needs a numeric `value`; x/y may be omitted (bars are laid out from value + index).",
-  concept:
-    "concept: a non-linear graph of related ideas connected by labeled edges; set x/y to spread nodes out.",
-  timeline:
-    "timeline: an ordered sequence of steps along a horizontal axis; order nodes chronologically; x/y may be omitted (steps are laid out from order).",
-  cycle:
-    "cycle: a repeating loop of stages; order nodes in the direction of the cycle; x/y and edges may be omitted (nodes are arranged around a ring with directed arrows).",
-  comparison:
-    "comparison: side-by-side columns of grouped items; set each node's `value` to its column index (0, 1, 2, …) to group nodes into columns; the FIRST node in each column is the column title and the rest are its items; x/y and edges may be omitted.",
-  funnel:
-    "funnel: stacked stages that narrow downward; order nodes from widest (top) to narrowest (bottom) and give each a decreasing numeric `value` that drives its band width; x/y and edges may be omitted.",
-  venn: "venn: 2–3 overlapping sets; set x/y to the center of each circle and `width` to its diameter (circles should partially overlap); no edges needed; 2 circles for simple overlap, 3 for triple overlap.",
-  pyramid:
-    "pyramid: stacked hierarchy levels — apex (top, narrowest) to base (bottom, widest); order nodes from apex to base (first node = top level, last = base level); no x/y or edges needed (widths are derived from position).",
-  matrix:
-    "matrix: 2×2 quadrant grid; set each node's `value` to its quadrant index (0=top-left, 1=top-right, 2=bottom-left, 3=bottom-right); multiple nodes can share a quadrant; x/y and edges may be omitted.",
-  orgchart:
-    "orgchart: hierarchical tree of roles or entities; set node x/y to lay it out top-to-bottom (root at top, leaves at bottom); add edges from each parent to its direct reports; use shape `rounded` for all nodes.",
-};
-
 const ICON_NAMES = ICON_CATALOG.map((entry) => entry.name);
+const KIND_GUIDANCE_LINES = getAllKindPromptGuidance().map(
+  ({ guidance }) => `- ${guidance}`,
+);
 
 function schemaDescription(): string {
   return [
@@ -141,7 +118,7 @@ const SYSTEM_PROMPT = [
   schemaDescription(),
   "",
   "Visual type guidance:",
-  ...VISUAL_KINDS.map((k) => `- ${KIND_GUIDANCE[k]}`),
+  ...KIND_GUIDANCE_LINES,
   "",
   "Bundled icon catalog:",
   `- Valid node.icon values: ${ICON_NAMES.map((name) => `"${name}"`).join(", ")}.`,
