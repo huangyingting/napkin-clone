@@ -89,6 +89,7 @@ import {
   type MarqueeRect,
 } from "@/lib/presentation/marquee-select";
 import {
+  selectionFrameChrome,
   STAGE_CHROME_Z_INDEX,
   stageElementOverlayZIndex,
 } from "@/lib/presentation/stage-chrome";
@@ -882,24 +883,19 @@ function ElementFrameOverlay({
   rotation?: number;
   variant: "selected" | "preselected";
 }) {
-  const selected = variant === "selected";
+  const chrome = selectionFrameChrome(variant);
   return (
     <div
       aria-hidden="true"
-      className={`pointer-events-none absolute box-border rounded-[2px] ${
-        selected ? "opacity-100" : "opacity-70"
-      }`}
+      className="pointer-events-none absolute box-border rounded-[2px]"
       style={{
         left: `${box.x}%`,
         top: `${box.y}%`,
         width: `${box.w}%`,
         height: `${box.h}%`,
-        zIndex: selected
-          ? STAGE_CHROME_Z_INDEX.selectedFrame
-          : STAGE_CHROME_Z_INDEX.preselectedFrame,
-        border: selected
-          ? "2px solid var(--ds-accent)"
-          : "1.5px solid var(--ds-accent)",
+        opacity: chrome.opacity,
+        zIndex: chrome.zIndex,
+        border: `${chrome.borderWidthPx}px solid var(--ds-accent)`,
         ...(rotation ? { transform: `rotate(${rotation}deg)` } : {}),
       }}
     />
