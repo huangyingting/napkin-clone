@@ -39,7 +39,7 @@ type DeckVisualInventoryItem = GenerateDeckInput["visualInventory"][number];
  * deterministically trimmed to fit {@link MAX_INPUT_CHARS}. `generateDeck`
  * itself only reads `outline` + `visualInventory` and ignores the rest.
  */
-export interface DeckSource extends Pick<
+export interface DeckGenerationSource extends Pick<
   GenerateDeckInput,
   "outline" | "visualInventory"
 > {
@@ -293,7 +293,7 @@ function buildInventory(
 export function buildDeckSource(
   contentJson: unknown,
   visuals: ReadonlyMap<string, Visual>,
-): DeckSource {
+): DeckGenerationSource {
   const blocks = collectDocumentBlocks(contentJson);
   const outline = buildOutline(blocks);
   return {
@@ -304,3 +304,6 @@ export function buildDeckSource(
     keptChars: outline.keptChars,
   };
 }
+
+export { buildDeckSource as buildDeckGenerationSource };
+export type { DeckGenerationSource as DeckSource };

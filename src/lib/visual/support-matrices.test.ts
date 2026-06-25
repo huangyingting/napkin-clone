@@ -17,6 +17,12 @@ import {
   getKindsForFormat,
   kindSupportsFormat,
 } from "@/lib/visual/support-matrices";
+import { FIXTURES } from "@/lib/visual/fixtures";
+import {
+  computeVisualSlideLayout,
+  isImageFallback,
+  visualToNativeSpecs,
+} from "@/lib/visual/pptx-shapes";
 
 // ---------------------------------------------------------------------------
 // Export matrix completeness
@@ -48,9 +54,21 @@ test("every kind in matrix supports SVG and PDF export", () => {
   }
 });
 
-test("positioned kinds support PPTX native in matrix", () => {
+test("mapper-backed kinds support PPTX native in matrix", () => {
   const matrix = buildKindExportMatrix();
-  const nativeKinds = ["flowchart", "mindmap", "concept", "orgchart"];
+  const nativeKinds = [
+    "flowchart",
+    "mindmap",
+    "list",
+    "chart",
+    "concept",
+    "timeline",
+    "cycle",
+    "comparison",
+    "venn",
+    "matrix",
+    "orgchart",
+  ];
   for (const kind of nativeKinds) {
     const row = matrix.find((r) => r.kind === kind);
     assert.ok(row, `No matrix row for "${kind}"`);
@@ -62,19 +80,9 @@ test("positioned kinds support PPTX native in matrix", () => {
   }
 });
 
-test("derived kinds use raster fallback in matrix", () => {
+test("funnel and pyramid use raster fallback in matrix", () => {
   const matrix = buildKindExportMatrix();
-  const derivedKinds = [
-    "list",
-    "chart",
-    "timeline",
-    "cycle",
-    "comparison",
-    "funnel",
-    "pyramid",
-    "matrix",
-  ];
-  for (const kind of derivedKinds) {
+  for (const kind of ["funnel", "pyramid"]) {
     const row = matrix.find((r) => r.kind === kind);
     assert.ok(row, `No matrix row for "${kind}"`);
     assert.equal(
@@ -86,6 +94,18 @@ test("derived kinds use raster fallback in matrix", () => {
       row!.pptxRasterFallback,
       true,
       `"${kind}" should have pptxRasterFallback=true`,
+    );
+  }
+});
+
+test("PPTX native metadata matches visualToNativeSpecs mapper reality", () => {
+  for (const kind of VISUAL_KINDS) {
+    const visual = FIXTURES[kind];
+    const specs = visualToNativeSpecs(visual, computeVisualSlideLayout(visual));
+    assert.equal(
+      getKindExportSupport(kind).pptxNative,
+      !isImageFallback(specs),
+      `"${kind}" pptxNative must match mapper fallback behavior`,
     );
   }
 });
@@ -104,7 +124,7 @@ test("getKindExportSupport returns correct row for flowchart", () => {
 test("getKindExportSupport returns correct row for chart", () => {
   const row = getKindExportSupport("chart");
   assert.equal(row.kind, "chart");
-  assert.equal(row.pptxNative, false);
+  assert.equal(row.pptxNative, true);
   assert.equal(row.pptxRasterFallback, true);
 });
 
@@ -112,16 +132,27 @@ test("getKindExportSupport returns correct row for chart", () => {
 // getKindsForFormat
 // ---------------------------------------------------------------------------
 
-test("getKindsForFormat pptx-native returns only positioned graph kinds", () => {
+test("getKindsForFormat pptx-native returns mapper-backed native kinds", () => {
   const nativeKinds = getKindsForFormat("pptx-native");
-  for (const kind of ["flowchart", "mindmap", "concept", "orgchart"]) {
+  for (const kind of [
+    "flowchart",
+    "mindmap",
+    "list",
+    "chart",
+    "concept",
+    "timeline",
+    "cycle",
+    "comparison",
+    "venn",
+    "matrix",
+    "orgchart",
+  ]) {
     assert.ok(
       nativeKinds.includes(kind as never),
       `Expected "${kind}" to support pptx-native`,
     );
   }
-  // Derived kinds should NOT appear
-  for (const kind of ["chart", "list", "timeline"]) {
+  for (const kind of ["funnel", "pyramid"]) {
     assert.equal(
       nativeKinds.includes(kind as never),
       false,
@@ -143,8 +174,8 @@ test("kindSupportsFormat for flowchart/pptx-native is true", () => {
   assert.equal(kindSupportsFormat("flowchart", "pptx-native"), true);
 });
 
-test("kindSupportsFormat for chart/pptx-native is false", () => {
-  assert.equal(kindSupportsFormat("chart", "pptx-native"), false);
+test("kindSupportsFormat for chart/pptx-native is true", () => {
+  assert.equal(kindSupportsFormat("chart", "pptx-native"), true);
 });
 
 test("kindSupportsFormat for chart/png is true", () => {

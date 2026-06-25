@@ -117,19 +117,19 @@ export function repairElement(
         style: repairTextStyle(input.style),
       };
     case "bullets": {
-      const bullets = toStringArray(input.bullets);
+      const items = Array.isArray(input.items)
+        ? input.items
+            .filter(
+              (item): item is { text: string } =>
+                isPlainObject(item) && typeof item.text === "string",
+            )
+            .map((item) => ({ text: item.text }))
+        : [];
       return {
         ...base,
         kind: "bullets",
-        bullets,
-        items: Array.isArray(input.items)
-          ? input.items
-              .filter(
-                (item): item is { text: string } =>
-                  isPlainObject(item) && typeof item.text === "string",
-              )
-              .map((item) => ({ text: item.text }))
-          : bullets.map((text) => ({ text })),
+        bullets: items.map((item) => item.text),
+        items,
         style: repairTextStyle(input.style),
       };
     }

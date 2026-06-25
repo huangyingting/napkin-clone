@@ -79,7 +79,7 @@ export function deckModelOutput(
         elements: [
           {
             kind: "bullets",
-            bullets: ["More"],
+            items: [{ text: "More" }],
             box: { x: 12, y: 24, w: 76, h: 48 },
           },
         ],
@@ -109,7 +109,7 @@ export function repairableDeckModelOutput(): Record<string, unknown> {
           {
             id: "same",
             kind: "bullets",
-            bullets: ["One", "Two"],
+            items: [{ text: "One" }, { text: "Two" }],
             box: null,
           },
           {

@@ -49,14 +49,11 @@ import {
 import { slideFormatConfig } from "@/lib/presentation/slide-format";
 import { resolveSlideStyle } from "@/lib/presentation/style-cascade";
 import {
-  cssFontStackToExportFontFace,
-  slideHeightPctToPoints,
-} from "@/lib/presentation/style-units";
-import {
-  resolveRoleToken,
-  type DeckTextRole,
-  type DeckThemeTokenSet,
-} from "@/lib/presentation/deck-theme-tokens";
+  adaptBulletsElementForExport,
+  adaptShapeLabelForExport,
+  adaptTextElementForExport,
+} from "@/lib/presentation/render-export-style-adapter";
+import { slideHeightPctToPoints } from "@/lib/presentation/style-units";
 import type { Visual } from "@/lib/visual/schema";
 import { exportPNG } from "@/lib/visual/export";
 import { applySpecsToSlide } from "@/lib/visual/pptx-apply";
@@ -284,31 +281,6 @@ function fontSizePt(percentOfHeight: number, geometry: DeckGeometry): number {
   return slideHeightPctToPoints(percentOfHeight, geometry.slideHPt);
 }
 
-/**
- * PPTX only accepts a single font face, not a CSS family stack. We preserve the
- * author's first explicit family and let Office/system substitution handle the
- * rest, which keeps typography intentional while acknowledging platform drift.
- */
-function primaryFontFace(fontFamily: string | undefined): string | undefined {
-  return cssFontStackToExportFontFace(fontFamily);
-}
-
-/**
- * Resolves the export font face for a text-bearing element (#606): the
- * element's own `fontFamily` override wins, otherwise the deck-template role
- * font (heading stack for heading/label roles, body stack otherwise) is
- * inherited from the cascade so exported text matches the editor's typography.
- */
-function roleFontFace(
-  ownFontFamily: string | undefined,
-  role: DeckTextRole,
-  tokenSet: DeckThemeTokenSet,
-): string | undefined {
-  return primaryFontFace(
-    ownFontFamily ?? resolveRoleToken(tokenSet, role).fontFamily,
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Pure transform: Deck → DeckSlideSpec[]
 // ---------------------------------------------------------------------------
@@ -399,14 +371,10 @@ function buildSlideSpec(
         break;
       }
       case "text": {
-        const textRole: DeckTextRole =
-          element.textRole ?? (element.role === "title" ? "h1" : "body");
-        const defaultColor =
-          element.role === "title" ? resolved.titleColor : resolved.bodyColor;
-        const fontFace = roleFontFace(
-          element.style.fontFamily,
-          textRole,
-          resolved.tokenSet,
+        const exportStyle = adaptTextElementForExport(
+          deck,
+          { ...element, styleOverride: element.style },
+          geometry.slideHPt,
         );
         ops.push({
           kind: "text",
@@ -415,32 +383,32 @@ function buildSlideSpec(
           ...(element.runs && element.runs.length > 0
             ? { runs: element.runs }
             : {}),
-          color: toHex(element.style.color ?? defaultColor),
-          fontSize: fontSizePt(element.style.fontSize, geometry),
-          ...(fontFace ? { fontFace } : {}),
-          bold: element.style.bold,
-          italic: element.style.italic,
-          ...(element.style.underline ? { underline: true } : {}),
-          align: element.style.align,
+          color: toHex(exportStyle.color),
+          fontSize: exportStyle.fontSizePt,
+          ...(exportStyle.fontFace ? { fontFace: exportStyle.fontFace } : {}),
+          bold: exportStyle.bold,
+          italic: exportStyle.italic,
+          ...(exportStyle.underline ? { underline: true } : {}),
+          align: exportStyle.align,
           ...(element.style.verticalAlign
             ? { verticalAlign: element.style.verticalAlign }
             : {}),
-          ...(element.style.lineHeight
-            ? { lineHeight: element.style.lineHeight }
+          ...(exportStyle.lineHeight
+            ? { lineHeight: exportStyle.lineHeight }
             : {}),
-          ...(element.style.paragraphSpacing
-            ? {
-                paragraphSpacingPt: fontSizePt(
-                  element.style.paragraphSpacing,
-                  geometry,
-                ),
-              }
+          ...(exportStyle.paragraphSpacingPt
+            ? { paragraphSpacingPt: exportStyle.paragraphSpacingPt }
             : {}),
           ...(element.fitMode ? { fitMode: element.fitMode } : {}),
         });
         break;
       }
       case "bullets": {
+        const exportStyle = adaptBulletsElementForExport(
+          deck,
+          { ...element, styleOverride: element.style },
+          geometry.slideHPt,
+        );
         // Use the authoritative item list.
         const bulletItems: BulletItem[] = normalizeBulletItems(element);
         const hasRichRuns = bulletItems.some(
@@ -464,36 +432,29 @@ function buildSlideSpec(
                 })),
               }
             : {}),
-          color: toHex(element.style.color ?? resolved.bodyColor),
-          fontSize: fontSizePt(element.style.fontSize, geometry),
-          ...(roleFontFace(
-            element.style.fontFamily,
-            element.textRole ?? "bullet",
-            resolved.tokenSet,
-          )
-            ? {
-                fontFace: roleFontFace(
-                  element.style.fontFamily,
-                  element.textRole ?? "bullet",
-                  resolved.tokenSet,
-                ),
-              }
-            : {}),
-          bold: element.style.bold,
-          italic: element.style.italic,
-          ...(element.style.underline ? { underline: true } : {}),
-          align: element.style.align,
+          color: toHex(exportStyle.color),
+          fontSize: exportStyle.fontSizePt,
+          ...(exportStyle.fontFace ? { fontFace: exportStyle.fontFace } : {}),
+          bold: exportStyle.bold,
+          italic: exportStyle.italic,
+          ...(exportStyle.underline ? { underline: true } : {}),
+          align: exportStyle.align,
           ...(element.style.verticalAlign
             ? { verticalAlign: element.style.verticalAlign }
             : {}),
-          ...(element.style.lineHeight
-            ? { lineHeight: element.style.lineHeight }
+          ...(exportStyle.lineHeight
+            ? { lineHeight: exportStyle.lineHeight }
             : {}),
           ...(element.fitMode ? { fitMode: element.fitMode } : {}),
         });
         break;
       }
       case "shape": {
+        const labelStyle = adaptShapeLabelForExport(
+          deck,
+          { ...element, textStyleOverride: element.textStyle },
+          geometry.slideHPt,
+        );
         const minInch = Math.min(box.w, box.h);
         ops.push({
           kind: "shape",
@@ -506,30 +467,15 @@ function buildSlideSpec(
                 ...(element.textRuns && element.textRuns.length > 0
                   ? { textRuns: element.textRuns }
                   : {}),
-                textColor: toHex(
-                  element.textStyle?.color ?? resolved.bodyColor,
-                ),
-                fontSize: fontSizePt(
-                  element.textStyle?.fontSize ?? 4,
-                  geometry,
-                ),
-                ...(roleFontFace(
-                  element.textStyle?.fontFamily,
-                  element.textRole ?? "shapeLabel",
-                  resolved.tokenSet,
-                )
-                  ? {
-                      fontFace: roleFontFace(
-                        element.textStyle?.fontFamily,
-                        element.textRole ?? "shapeLabel",
-                        resolved.tokenSet,
-                      ),
-                    }
+                textColor: toHex(labelStyle.color),
+                fontSize: labelStyle.fontSizePt,
+                ...(labelStyle.fontFace
+                  ? { fontFace: labelStyle.fontFace }
                   : {}),
-                bold: element.textStyle?.bold ?? false,
-                italic: element.textStyle?.italic ?? false,
-                ...(element.textStyle?.underline ? { underline: true } : {}),
-                align: element.textStyle?.align ?? "center",
+                bold: labelStyle.bold,
+                italic: labelStyle.italic,
+                ...(labelStyle.underline ? { underline: true } : {}),
+                align: labelStyle.align,
               }
             : {}),
           ...(element.stroke
