@@ -15,14 +15,14 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 
+import {
+  jsonError,
+  multipartFormDataError,
+  rateLimitedJsonError,
+} from "@/lib/api/errors";
 import { logError } from "@/lib/log";
 import { ABUSE_CATEGORIES, logRouteDenial } from "@/lib/diagnostics/api-abuse";
-import {
-  formatValidationError,
-  parseImportedFile,
-  validateImportFile,
-} from "@/lib/import";
-import { ParseTimeoutError, withTimeout } from "@/lib/import/timeout";
+import { processImportUpload } from "@/lib/import/upload-service";
 import { checkRateLimitWithStore } from "@/lib/ai/quota";
 import {
   getClientIp,
@@ -51,10 +51,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       reason: "missing-auth-secret",
       status: 500,
     });
-    return NextResponse.json(
-      { error: "Server is misconfigured (missing AUTH_SECRET)." },
-      { status: 500 },
-    );
+    return jsonError("Server is misconfigured (missing AUTH_SECRET).", 500);
   }
 
   const clientIp = getClientIp(request.headers) ?? "unknown";
@@ -67,21 +64,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     now,
   });
   if (!limit.allowed) {
+    const retryAfter = retryAfterSeconds(limit.resetAt, now);
     logRouteDenial({
       route: LOG_SCOPE,
       reason: ABUSE_CATEGORIES.RATE_LIMIT_HIT,
       status: 429,
       subjectHash: clientHash,
-      retryAfterSeconds: retryAfterSeconds(limit.resetAt, now),
+      retryAfterSeconds: retryAfter,
     });
-    return NextResponse.json(
-      { error: "Too many imports. Please wait a moment and try again." },
-      {
-        status: 429,
-        headers: {
-          "Retry-After": String(retryAfterSeconds(limit.resetAt, now)),
-        },
-      },
+    return rateLimitedJsonError(
+      retryAfter,
+      "Too many imports. Please wait a moment and try again.",
     );
   }
 
@@ -89,77 +82,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     formData = await request.formData();
   } catch {
-    return NextResponse.json(
-      { error: "Request must be multipart/form-data." },
-      { status: 400 },
-    );
+    return multipartFormDataError();
   }
 
   const file = formData.get("file");
   if (!(file instanceof File)) {
-    return NextResponse.json(
-      { error: "Missing `file` field in form data." },
-      { status: 400 },
-    );
+    return jsonError("Missing `file` field in form data.", 400);
   }
 
-  const validation = validateImportFile(file.type, file.name, file.size);
-  if (!validation.ok) {
-    return NextResponse.json(
-      { error: formatValidationError(validation.error) },
-      { status: validation.error.code === "file_too_large" ? 413 : 415 },
-    );
+  const result = await processImportUpload(file, { subjectHash: clientHash });
+  if (!result.ok) {
+    return jsonError(result.error, result.status);
   }
 
-  let buffer: Buffer;
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-    buffer = Buffer.from(arrayBuffer);
-  } catch (error) {
-    logError(LOG_SCOPE, error, { reason: "read-file", status: 400 });
-    return NextResponse.json(
-      { error: "Failed to read the uploaded file." },
-      { status: 400 },
-    );
-  }
-
-  try {
-    const markdown = await withTimeout(() =>
-      parseImportedFile(validation.mime, buffer, file.name),
-    );
-
-    if (!markdown.trim()) {
-      return NextResponse.json(
-        { error: "No readable text was found in the uploaded file." },
-        { status: 422 },
-      );
-    }
-
-    return NextResponse.json({ markdown });
-  } catch (error) {
-    if (error instanceof ParseTimeoutError) {
-      logError(LOG_SCOPE, error, { reason: "parse-timeout", status: 422 });
-      logRouteDenial({
-        route: LOG_SCOPE,
-        reason: ABUSE_CATEGORIES.PARSER_TIMEOUT,
-        status: 422,
-        subjectHash: clientHash,
-      });
-      return NextResponse.json(
-        {
-          error:
-            "The file took too long to parse. Try a smaller or simpler document.",
-        },
-        { status: 422 },
-      );
-    }
-    logError(LOG_SCOPE, error, { reason: "parse-failed", status: 422 });
-    return NextResponse.json(
-      {
-        error:
-          "Could not parse the file. Make sure it is a valid, uncorrupted document.",
-      },
-      { status: 422 },
-    );
-  }
+  return NextResponse.json({ markdown: result.markdown });
 }

@@ -12,9 +12,13 @@ import {
   API_ERROR_CODES,
   featureDisabled,
   forbidden,
+  jsonError,
+  multipartFormDataError,
   notFound,
+  rateLimitedJsonError,
   tooManyRequests,
   unauthorized,
+  uploadValidationStatus,
   validationError,
 } from "./errors";
 
@@ -91,4 +95,31 @@ test("tooManyRequests: omits Retry-After when not provided or non-positive", () 
   assert.equal(tooManyRequests().headers.get("Retry-After"), null);
   assert.equal(tooManyRequests(0).headers.get("Retry-After"), null);
   assert.equal(tooManyRequests(-5).headers.get("Retry-After"), null);
+});
+
+test("jsonError: preserves legacy plain { error } contracts", async () => {
+  const res = jsonError("Bad upload.", 415);
+  assert.equal(res.status, 415);
+  assert.deepEqual(await res.json(), { error: "Bad upload." });
+});
+
+test("multipartFormDataError: returns the shared multipart parse response", async () => {
+  const res = multipartFormDataError();
+  assert.equal(res.status, 400);
+  assert.deepEqual(await res.json(), {
+    error: "Request must be multipart/form-data.",
+  });
+});
+
+test("rateLimitedJsonError: emits a plain error with Retry-After", async () => {
+  const res = rateLimitedJsonError(8.2, "Too many imports.");
+  assert.equal(res.status, 429);
+  assert.equal(res.headers.get("Retry-After"), "9");
+  assert.deepEqual(await res.json(), { error: "Too many imports." });
+});
+
+test("uploadValidationStatus: maps size failures to 413 and type failures to 415", () => {
+  assert.equal(uploadValidationStatus({ code: "file_too_large" }), 413);
+  assert.equal(uploadValidationStatus({ code: "unsupported_type" }), 415);
+  assert.equal(uploadValidationStatus({ code: "type_rejected" }), 415);
 });

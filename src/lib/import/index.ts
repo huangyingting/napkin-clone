@@ -25,16 +25,13 @@ export { validateImportFile, formatValidationError } from "./validate";
  *
  * @param mime    - The resolved MIME type (from `validateImportFile`).
  * @param buffer  - The raw file bytes.
- * @param filename - Original filename (used for format-specific hints).
  *
  * @throws when the underlying parser reports a malformed file.
  */
 export async function parseImportedFile(
   mime: AcceptedMimeType,
   buffer: Buffer,
-  filename: string,
 ): Promise<string> {
-  void filename; // reserved for future format-specific hints
   let raw: string;
 
   switch (mime) {

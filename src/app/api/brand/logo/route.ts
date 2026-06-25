@@ -14,10 +14,9 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 
-import { forbidden, unauthorized } from "@/lib/api/errors";
+import { forbidden, jsonError, unauthorized } from "@/lib/api/errors";
 import { getCurrentUser } from "@/lib/session";
-import { validateLogoUpload, formatUploadError } from "@/lib/brand/upload";
-import { storeBrandAsset } from "@/lib/brand/asset-store";
+import { uploadBrandLogo } from "@/lib/brand/upload-route-service";
 import {
   resolveBrandEntitlements,
   BRAND_STYLES_UPGRADE_MESSAGE,
@@ -36,50 +35,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return forbidden(BRAND_STYLES_UPGRADE_MESSAGE);
   }
 
-  let formData: FormData;
-  try {
-    formData = await request.formData();
-  } catch {
-    return NextResponse.json(
-      { error: "Request must be multipart/form-data." },
-      { status: 400 },
-    );
+  const result = await uploadBrandLogo(request, user.id);
+  if (!result.ok) {
+    return jsonError(result.error, result.status);
   }
 
-  const file = formData.get("logo");
-  if (!(file instanceof File)) {
-    return NextResponse.json(
-      { error: "Missing `logo` field in form data." },
-      { status: 400 },
-    );
-  }
-
-  const validation = validateLogoUpload(file.type, file.name, file.size);
-  if (!validation.ok) {
-    return NextResponse.json(
-      { error: formatUploadError(validation.error) },
-      { status: validation.error.code === "file_too_large" ? 413 : 415 },
-    );
-  }
-
-  // Optional brand scope: present when editing an existing brand.
-  const brandIdRaw = formData.get("brandId");
-  const brandId =
-    typeof brandIdRaw === "string" && brandIdRaw ? brandIdRaw : null;
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const stored = await storeBrandAsset({
-    ownerId: user.id,
-    buffer,
-    mimeType: validation.mime,
-    originalName: file.name || undefined,
-    brandId,
-  });
-
-  return NextResponse.json({
-    url: stored.url,
-    assetId: stored.assetId,
-    mime: validation.mime,
-    palette: [],
-  });
+  return NextResponse.json(result.body);
 }
