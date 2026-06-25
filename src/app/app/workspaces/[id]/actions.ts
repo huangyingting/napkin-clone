@@ -9,7 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { requireUser } from "@/lib/session";
 import { BLANK_TEMPLATE_ID, getTemplateOrBlank } from "@/lib/templates/catalog";
-import { markdownToLexicalState } from "@/lib/lexical/from-markdown";
+import { markdownToLexicalState } from "@/lib/content";
 import { requireWorkspaceCapability } from "@/lib/auth/workspace-capabilities";
 import {
   assertInvitableWorkspaceRole,

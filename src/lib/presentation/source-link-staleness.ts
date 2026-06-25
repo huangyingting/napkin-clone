@@ -30,10 +30,7 @@
  */
 
 import type { Deck, SourceRef, TextElement, VisualElement } from "./deck";
-import type {
-  DocumentBlock,
-  DocumentTextBlock,
-} from "@/lib/visual/document-export";
+import type { DocumentBlock, DocumentTextBlock } from "@/lib/content";
 import { hashDocumentBlock } from "./document-block-hash";
 
 /** Reason a source link is considered stale. */

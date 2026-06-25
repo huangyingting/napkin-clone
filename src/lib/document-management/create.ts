@@ -1,5 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
-import { markdownToLexicalState } from "@/lib/lexical/from-markdown";
+import { markdownToLexicalState } from "@/lib/content";
 import {
   DOCUMENT_CONTENT_MAX_LENGTH,
   DOCUMENT_TITLE_MAX_LENGTH,

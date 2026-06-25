@@ -3,8 +3,8 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { useCallback } from "react";
 
-import { markdownToLexicalState } from "@/lib/lexical/from-markdown";
-import { IMPORT_TAG } from "@/lib/lexical/import-persistence";
+import { markdownToLexicalState } from "@/lib/content";
+import { IMPORT_TAG } from "@/lib/content";
 
 /**
  * Returns a stable `insertImportedMarkdown` callback that parses a Markdown

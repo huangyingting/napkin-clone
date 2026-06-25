@@ -7,7 +7,7 @@ import { HorizontalRuleNode } from "@lexical/react/LexicalHorizontalRuleNode";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import { $getRoot, $isElementNode, $isTextNode } from "lexical";
 
-import { collectDocumentBlocks } from "@/lib/visual/document-export";
+import { collectDocumentBlocks } from "@/lib/content";
 
 import {
   BLOCK_NODE_TYPES,
@@ -20,7 +20,7 @@ import {
   ensureLexicalBlockIdSupport,
   registerBlockIdTransforms,
 } from "./block-id-runtime";
-import { markdownToLexicalStateObject } from "./from-markdown";
+import { markdownToLexicalStateObject } from "@/lib/content";
 
 function bidlessState(): {
   root: {

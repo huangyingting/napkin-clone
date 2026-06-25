@@ -6,7 +6,7 @@ import {
   computePageBreaks,
   PAGE_SIZE_DIMENSIONS,
   type PageSize,
-} from "@/lib/visual/document-export";
+} from "@/lib/content";
 
 interface PageBreakIndicatorProps {
   /** The element whose scrollHeight drives page-break computation. */

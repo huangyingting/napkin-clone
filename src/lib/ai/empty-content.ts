@@ -15,7 +15,7 @@
  * deck-generation route derives its outline from.
  */
 
-import { collectDocumentBlocks } from "@/lib/visual/document-export";
+import { collectDocumentBlocks } from "@/lib/content";
 
 /**
  * True when a serialised Lexical editor state carries no meaningful content:

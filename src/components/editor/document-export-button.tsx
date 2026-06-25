@@ -34,14 +34,16 @@ import {
   exportDeckAsSlideImages,
   type DeckSlideImageFormat,
 } from "@/lib/visual/deck-export";
+import { collectDocumentBlocks } from "@/lib/content";
 import {
-  collectDocumentBlocks,
   exportDocumentAsPDF,
   exportDocumentAsInfographic,
-  INFOGRAPHIC_WIDTH_PRESETS,
-  type InfographicWidthPreset,
 } from "@/lib/visual/document-export";
-import { DEFAULT_INFOGRAPHIC_CONFIG } from "@/lib/visual/infographic-layout";
+import {
+  INFOGRAPHIC_WIDTH_PRESETS,
+  DEFAULT_INFOGRAPHIC_CONFIG,
+  type InfographicWidthPreset,
+} from "@/lib/visual/infographic-layout";
 import { downloadBlob, sanitizeFilename } from "@/lib/visual/export";
 import { useUserEntitlements } from "@/lib/billing/use-user-entitlements";
 import { resolveExportPolicy } from "@/lib/visual/export-policy";

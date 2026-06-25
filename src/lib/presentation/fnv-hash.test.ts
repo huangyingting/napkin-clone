@@ -13,7 +13,7 @@ import { test } from "node:test";
 import { fnv1aHash32 } from "./fnv-hash";
 import { fnv1aHex } from "./deck-hash";
 import { buildDeckFromBlocks } from "./deck";
-import type { DocumentBlock } from "@/lib/visual/document-export";
+import type { DocumentBlock } from "@/lib/content";
 
 // ---------------------------------------------------------------------------
 // fnv1aHash32 — standalone

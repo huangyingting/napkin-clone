@@ -18,7 +18,7 @@
  *    `visualIds[]` granularity already used by the deck model.
  */
 
-import type { DocumentBlock } from "@/lib/visual/document-export";
+import type { DocumentBlock } from "@/lib/content";
 import { fnv1aHex } from "./deck-hash";
 
 /**

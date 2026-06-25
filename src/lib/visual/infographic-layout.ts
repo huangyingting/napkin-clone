@@ -10,7 +10,7 @@
  * consumes this output and draws each block onto an HTML Canvas.
  */
 
-import type { DocumentBlock } from "@/lib/visual/document-export";
+import type { DocumentBlock } from "@/lib/content";
 
 // ---------------------------------------------------------------------------
 // Configuration

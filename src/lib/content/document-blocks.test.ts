@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Visual } from "@/lib/visual/schema";
-import { blockRichText, collectDocumentBlocks } from "./document-export";
+import { blockRichText, collectDocumentBlocks } from "./document-blocks";
 
 // ---------------------------------------------------------------------------
 // Helpers matching the Lexical serialised JSON shapes the editor emits

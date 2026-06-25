@@ -952,10 +952,7 @@ test("buildDeckFromBlocks stamps sourceSectionId; end-to-end: renamed slide titl
 // ---------------------------------------------------------------------------
 
 import type { TextElement } from "./deck";
-import type {
-  DocumentBlock,
-  DocumentTextBlock,
-} from "@/lib/visual/document-export";
+import type { DocumentBlock, DocumentTextBlock } from "@/lib/content";
 import { hashDocumentBlock } from "./document-block-hash";
 
 function linkedTextElement(

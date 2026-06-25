@@ -28,10 +28,7 @@ import type { Deck, Slide, SlideElement, TextRun, VisualElement } from "./deck";
 import { buildSlideElementsFromContent, buildVisualElement } from "./deck";
 import { normalizeTitle } from "./deck-hash";
 import { slideEffectiveTitle } from "./slide-title";
-import type {
-  DocumentBlock,
-  DocumentTextBlock,
-} from "@/lib/visual/document-export";
+import type { DocumentBlock, DocumentTextBlock } from "@/lib/content";
 import { hashDocumentBlock } from "./document-block-hash";
 import {
   updateTextElementFromBlock,

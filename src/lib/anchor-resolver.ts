@@ -16,7 +16,7 @@ import {
   resolveAnchorState,
   type SlideCommentAnchor,
 } from "./presentation/slide-comment-anchors";
-import type { DocumentBlock } from "./visual/document-export";
+import type { DocumentBlock } from "./content";
 
 export type AnchorTargetStatus =
   | "found"

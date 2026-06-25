@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseMarkdown } from "@/lib/markdown";
+import { parseMarkdown } from "@/lib/content";
 import { VISUAL_KINDS } from "@/lib/visual/schema";
 import {
   BLANK_TEMPLATE_ID,

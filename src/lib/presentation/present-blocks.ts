@@ -11,8 +11,8 @@
  * `DocumentBlock[]` narrowing internally.
  */
 
-import type { DocumentBlock } from "@/lib/visual/document-export";
-import { collectDocumentBlocks } from "@/lib/visual/document-export";
+import type { DocumentBlock } from "@/lib/content";
+import { collectDocumentBlocks } from "@/lib/content";
 
 /**
  * Returns the `DocumentBlock[]` list to use for building a presentation deck.

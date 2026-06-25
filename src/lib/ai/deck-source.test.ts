@@ -7,7 +7,7 @@ import { buildDeckSource } from "./deck-source";
 
 // ---------------------------------------------------------------------------
 // Fixtures — mirror the Lexical serialised JSON shapes the editor emits
-// (matching document-export.test.ts / deck.test.ts).
+// (matching content/document-blocks.test.ts / deck.test.ts).
 // ---------------------------------------------------------------------------
 
 const FORMAT_BOLD = 1;

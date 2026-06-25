@@ -1,7 +1,7 @@
 /** Pure document-to-deck derivation helpers. */
 
 import { DEFAULT_SLIDE_FORMAT as DEFAULT_DECK_SLIDE_FORMAT } from "@/lib/presentation/slide-format";
-import type { DocumentBlock } from "@/lib/visual/document-export";
+import type { DocumentBlock } from "@/lib/content";
 import { fnv1aHash32 } from "@/lib/presentation/fnv-hash";
 import {
   CURRENT_DECK_SCHEMA_VERSION,

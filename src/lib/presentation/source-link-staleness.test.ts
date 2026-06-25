@@ -10,10 +10,7 @@ import type {
   SourceRef,
 } from "@/lib/presentation/deck";
 import { unlinkSource } from "@/lib/presentation/deck";
-import type {
-  DocumentBlock,
-  DocumentTextBlock,
-} from "@/lib/visual/document-export";
+import type { DocumentBlock, DocumentTextBlock } from "@/lib/content";
 import type { Visual } from "@/lib/visual/schema";
 import { hashDocumentBlock } from "@/lib/presentation/document-block-hash";
 import {

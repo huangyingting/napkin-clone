@@ -8,7 +8,7 @@
  * re-declaring near-identical builders and drifting apart over time.
  *
  * The builders mirror the serialised JSON shapes the editor emits (the same
- * shapes `document-export.test.ts` / `deck-source.test.ts` already build by
+ * shapes `content/document-blocks.test.ts` / `deck-source.test.ts` already build by
  * hand). Like the modules under test, this file is intentionally free of any
  * network, DOM, or React dependency so it stays usable under `node --test`.
  *

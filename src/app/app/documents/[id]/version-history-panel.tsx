@@ -12,7 +12,7 @@ import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 
 import { listDocumentVersions, restoreDocumentVersion } from "./actions";
 import type { DocumentVersionSummary } from "@/lib/document/persistence-types";
-import { RESTORE_TAG } from "@/lib/lexical/import-persistence";
+import { RESTORE_TAG } from "@/lib/content";
 
 function formatTime(iso: string): string {
   const date = new Date(iso);
