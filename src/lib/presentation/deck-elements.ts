@@ -2,6 +2,7 @@
 
 import type { LayoutSlotBinding } from "@/lib/presentation/slide-slots";
 import type { DeckTextRole } from "@/lib/presentation/deck-theme-token-primitives";
+import type { AssetReference, ResolvedAssetUrl } from "@/lib/asset-vocabulary";
 import {
   IMAGE_FIT_MODES,
   IMAGE_MASK_SHAPES,
@@ -353,7 +354,8 @@ export interface ImageCrop {
 
 export interface ImageElement extends BaseElement {
   kind: "image";
-  src: string;
+  /** Resolved display URL or data URL. Persist uploaded asset identity in `assetId`. */
+  src: ResolvedAssetUrl;
   alt?: string;
   /** Optional corner radius as a percent of the box (0–50). */
   radius?: number;
@@ -368,7 +370,7 @@ export interface ImageElement extends BaseElement {
    * the slide asset upload action (Epic #374). Data-URL images use `src`
    * directly and leave this unset.
    */
-  assetId?: string;
+  assetId?: AssetReference;
 }
 
 export interface ShapeElement extends BaseElement {

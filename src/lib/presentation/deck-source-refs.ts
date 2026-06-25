@@ -6,6 +6,11 @@
  */
 export interface SourceRef {
   documentId: string;
+  /**
+   * Durable source block id. For `blockKind: "text"` this is the document
+   * block `bid` / `blockId`; for `blockKind: "visual"` this is the visual id.
+   * It is never a live Lexical NodeKey.
+   */
   blockId: string;
   /** Hash of the source content at insertion time, used for staleness checks. */
   contentHash?: string;
@@ -18,6 +23,14 @@ export interface SourceRef {
 }
 
 type SourceRefCarrier = { sourceRef?: SourceRef };
+
+export interface SourceRefFromDurableBlockIdInput {
+  documentId: string;
+  blockId: string;
+  blockKind: SourceRef["blockKind"];
+  linkedAt: string;
+  contentHash?: string;
+}
 
 function cloneSourceRef(ref: SourceRef): SourceRef {
   return {
@@ -33,6 +46,27 @@ function cloneSourceRef(ref: SourceRef): SourceRef {
 function cloneLinkedSourceRef(ref: SourceRef): SourceRef {
   const { unlinked: _unlinked, ...linkedRef } = ref;
   return cloneSourceRef(linkedRef);
+}
+
+/**
+ * Adapter for call sites that have a durable document block/visual id and need
+ * the persisted `SourceRef.blockId` field. The explicit name prevents confusing
+ * durable ids with transient Lexical node keys.
+ */
+export function sourceRefFromDurableBlockId(
+  input: SourceRefFromDurableBlockIdInput,
+): SourceRef {
+  return cloneLinkedSourceRef(input);
+}
+
+/** Returns the durable id stored in `SourceRef.blockId`. */
+export function durableBlockIdFromSourceRef(ref: SourceRef): string {
+  return ref.blockId;
+}
+
+/** Returns an active source ref by stripping the transient `unlinked` flag. */
+export function activeSourceRef(ref: SourceRef): SourceRef {
+  return cloneLinkedSourceRef(ref);
 }
 
 /** Returns true when an element still has an active source link. */
@@ -77,6 +111,6 @@ export function relinkSource<T extends SourceRefCarrier>(
 ): T {
   return {
     ...el,
-    sourceRef: cloneLinkedSourceRef(ref),
+    sourceRef: activeSourceRef(ref),
   };
 }

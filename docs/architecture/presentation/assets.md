@@ -33,6 +33,13 @@ SlideInspector file input
 Assets are document-scoped. The returned URL is a protected route under
 `/api/slide-assets/...`, not a public static path.
 
+Vocabulary:
+
+- `AssetReference` means persisted identity, such as `ImageElement.assetId` or
+  `Slide.backgroundAssetId`.
+- `ResolvedAssetUrl` means a derived display URL, such as `ImageElement.src` or
+  `Slide.backgroundImage`.
+
 ## Upload Validation
 
 Accepted MIME types:
@@ -96,6 +103,10 @@ Slide renderers and export paths use the asset resolver contract:
 
 - `ImageElement.assetId`;
 - `Slide.backgroundAssetId`.
+
+`ImageElement.src` and `Slide.backgroundImage` are cached resolved URLs for
+rendering. Server/export paths should resolve from asset ids when available
+instead of treating cached URLs as authoritative.
 
 ## Cleanup
 

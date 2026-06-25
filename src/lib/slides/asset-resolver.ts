@@ -19,6 +19,8 @@
  * import from both client components and server actions/routes.
  */
 
+import type { AssetReference, ResolvedAssetUrl } from "@/lib/asset-vocabulary";
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -29,7 +31,7 @@ export type AssetStatus = "loaded" | "missing" | "denied" | "pending";
 /** Result of resolving a single asset. */
 export interface AssetResolution {
   /** Displayable URL (or data URL) when `status === "loaded"`. */
-  url: string | undefined;
+  url: ResolvedAssetUrl | undefined;
   status: AssetStatus;
   /** MIME type if available (populated by the server resolver). */
   mimeType?: string;
@@ -46,10 +48,14 @@ export interface AssetResolution {
  *  - Both absent → `status: "missing"`, `url: undefined`.
  */
 export interface AssetResolver {
-  resolve(opts: {
-    assetId?: string;
-    fallbackUrl?: string;
-  }): Promise<AssetResolution>;
+  resolve(opts: AssetResolveInput): Promise<AssetResolution>;
+}
+
+export interface AssetResolveInput {
+  /** Persisted asset id/reference. */
+  assetId?: AssetReference;
+  /** Cached resolved display URL from upload/read-time serialization. */
+  fallbackUrl?: ResolvedAssetUrl;
 }
 
 // ---------------------------------------------------------------------------
@@ -74,10 +80,7 @@ export class ClientAssetResolver implements AssetResolver {
   async resolve({
     assetId,
     fallbackUrl,
-  }: {
-    assetId?: string;
-    fallbackUrl?: string;
-  }): Promise<AssetResolution> {
+  }: AssetResolveInput): Promise<AssetResolution> {
     if (!assetId) {
       return { url: undefined, status: "missing" };
     }
@@ -140,10 +143,7 @@ export class ServerAssetResolver implements AssetResolver {
   async resolve({
     assetId,
     fallbackUrl,
-  }: {
-    assetId?: string;
-    fallbackUrl?: string;
-  }): Promise<AssetResolution> {
+  }: AssetResolveInput): Promise<AssetResolution> {
     if (!assetId) {
       return { url: undefined, status: "missing" };
     }
@@ -182,7 +182,9 @@ export const MISSING_ASSET_PLACEHOLDER =
  * Returns the effective display URL for an image element or slide background,
  * using {@link MISSING_ASSET_PLACEHOLDER} when the resolution is missing/denied.
  */
-export function effectiveImageUrl(resolution: AssetResolution): string {
+export function effectiveImageUrl(
+  resolution: AssetResolution,
+): ResolvedAssetUrl {
   if (resolution.status === "loaded" && resolution.url) {
     return resolution.url;
   }
@@ -198,10 +200,7 @@ export function effectiveImageUrl(resolution: AssetResolution): string {
  *  - `assetId` set, no `fallbackUrl` → missing.
  *  - neither → missing.
  */
-export function resolveAssetSync(opts: {
-  assetId?: string;
-  fallbackUrl?: string;
-}): AssetResolution {
+export function resolveAssetSync(opts: AssetResolveInput): AssetResolution {
   const { assetId, fallbackUrl } = opts;
   if (!assetId) {
     return { url: undefined, status: "missing" };

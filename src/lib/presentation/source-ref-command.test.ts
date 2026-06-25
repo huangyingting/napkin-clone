@@ -10,6 +10,11 @@ import type {
 } from "./deck";
 import { CURRENT_DECK_SCHEMA_VERSION } from "./deck";
 import {
+  activeSourceRef,
+  durableBlockIdFromSourceRef,
+  sourceRefFromDurableBlockId,
+} from "./deck-source-refs";
+import {
   applyPatch,
   executeCommand,
   type SlideCommand,
@@ -151,6 +156,20 @@ test("REFRESH_ELEMENT_FROM_SOURCE re-activates an unlinked element", () => {
   assert.equal(result.ok, true);
   const updated = getElement(result.deck, "el-text") as TextElement;
   assert.equal(updated.sourceRef?.unlinked, undefined);
+});
+
+test("source-ref durable block id adapters preserve shape and strip unlinked", () => {
+  const ref = sourceRefFromDurableBlockId({
+    documentId: "doc-1",
+    blockId: "blk-1",
+    blockKind: "text",
+    contentHash: "hash-new",
+    linkedAt: "2026-06-23T00:00:00.000Z",
+  });
+
+  assert.deepEqual(ref, FRESH_REF);
+  assert.equal(durableBlockIdFromSourceRef(ref), "blk-1");
+  assert.deepEqual(activeSourceRef({ ...ref, unlinked: true }), ref);
 });
 
 test("REFRESH_ELEMENT_FROM_SOURCE on a visual only touches the sourceRef", () => {
