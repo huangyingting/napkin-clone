@@ -446,6 +446,13 @@ describe("unsupported-pptx-feature diagnostics", () => {
     assert.equal(w?.slideIndex, 0);
   });
 
+  test("shadow-only elements do not emit generic future fidelity warnings", () => {
+    const el = textEl({ shadow: true });
+    const deck = makeDeck([makeSlide([el])]);
+    const result = runExportPreflight(deck, { target: "pptx" });
+    assert.ok(!codesOf(result).includes("unsupported-pptx-feature"));
+  });
+
   test("unsupported-pptx-feature is NOT emitted for image target", () => {
     const el = connectorEl({ routing: "elbow" });
     const deck = makeDeck([makeSlide([el])]);

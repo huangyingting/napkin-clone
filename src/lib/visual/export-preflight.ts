@@ -108,36 +108,6 @@ export interface PreflightOptions {
 /** Slide count above which an `oversized-deck` warning is emitted. */
 export const DEFAULT_MAX_SLIDES = 50;
 
-/**
- * PPTX feature codes that may generate warnings when used in the deck.
- * Keyed by the feature code in the export-fidelity matrix.
- * Currently used for documentation and future per-element checks.
- */
-const _PPTX_FIDELITY_WARNING_FEATURES: ReadonlyMap<string, string> = new Map([
-  [
-    "connector-elbow",
-    "Elbow connectors export as straight lines in PPTX; routing fidelity reduced.",
-  ],
-  [
-    "image-crop",
-    "Image crop coordinates use raster fallback in PPTX for full fidelity.",
-  ],
-  ["image-fit-none", "Image fit-mode 'none' uses a raster fallback in PPTX."],
-  ["image-mask", "Non-rectangular image masks use a raster fallback in PPTX."],
-  [
-    "shadow",
-    "Drop-shadow effects use approximate PPTX outer-shadow; appearance may differ.",
-  ],
-  [
-    "background-gradient",
-    "Gradient backgrounds export as a flat colour approximation in PPTX.",
-  ],
-  [
-    "theme-typography",
-    "Custom theme typography may not carry over to PPTX slide masters.",
-  ],
-]);
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
