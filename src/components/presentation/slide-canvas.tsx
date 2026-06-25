@@ -48,7 +48,10 @@ import {
   resolveSlideThemeColors,
   resolveSlideTokenSet,
 } from "@/lib/presentation/style-cascade";
-import { resolveConnectorElementPoints } from "@/lib/presentation/connector-geometry";
+import {
+  connectorElbowPoints,
+  resolveConnectorElementPoints,
+} from "@/lib/presentation/connector-geometry";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 import type { Visual } from "@/lib/visual/schema";
 import { applyTheme } from "@/lib/visual/transforms";
@@ -928,21 +931,40 @@ function ConnectorElementView({
           </marker>
         )}
       </defs>
-      <line
-        x1={start.x}
-        y1={start.y}
-        x2={end.x}
-        y2={end.y}
-        stroke={strokeColor}
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeDasharray={dash}
-        vectorEffect="non-scaling-stroke"
-        markerEnd={arrowEnd !== "none" ? `url(#${endMarkerId})` : undefined}
-        markerStart={
-          arrowStart !== "none" ? `url(#${startMarkerId})` : undefined
-        }
-      />
+      {element.routing === "elbow" ? (
+        <polyline
+          points={connectorElbowPoints(start, end)
+            .map((p) => `${p.x},${p.y}`)
+            .join(" ")}
+          fill="none"
+          stroke={strokeColor}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeDasharray={dash}
+          vectorEffect="non-scaling-stroke"
+          markerEnd={arrowEnd !== "none" ? `url(#${endMarkerId})` : undefined}
+          markerStart={
+            arrowStart !== "none" ? `url(#${startMarkerId})` : undefined
+          }
+        />
+      ) : (
+        <line
+          x1={start.x}
+          y1={start.y}
+          x2={end.x}
+          y2={end.y}
+          stroke={strokeColor}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={dash}
+          vectorEffect="non-scaling-stroke"
+          markerEnd={arrowEnd !== "none" ? `url(#${endMarkerId})` : undefined}
+          markerStart={
+            arrowStart !== "none" ? `url(#${startMarkerId})` : undefined
+          }
+        />
+      )}
     </svg>
   );
 }

@@ -258,3 +258,29 @@ export function resolveConnectorElementPoints(
   }
   return { start: resolve(element.start), end: resolve(element.end) };
 }
+
+/**
+ * Computes the orthogonal waypoints for an `elbow`-routed connector between two
+ * resolved points (#643). The route steps along the dominant axis first, turns
+ * at the midpoint, and finishes on the other axis, yielding a clean stepped
+ * path. Returns at least `[start, end]`; collinear points collapse to a
+ * straight segment. All coordinates are in slide-percent space (the same units
+ * as {@link resolveConnectorElementPoints}).
+ */
+export function connectorElbowPoints(
+  start: PointPct,
+  end: PointPct,
+): PointPct[] {
+  const dx = Math.abs(end.x - start.x);
+  const dy = Math.abs(end.y - start.y);
+  // Degenerate / straight cases need no intermediate waypoints.
+  if (dx === 0 || dy === 0) return [start, end];
+  if (dx >= dy) {
+    // Horizontal-dominant: run to the midpoint x, then vertical, then across.
+    const midX = (start.x + end.x) / 2;
+    return [start, { x: midX, y: start.y }, { x: midX, y: end.y }, end];
+  }
+  // Vertical-dominant: run to the midpoint y, then horizontal, then down.
+  const midY = (start.y + end.y) / 2;
+  return [start, { x: start.x, y: midY }, { x: end.x, y: midY }, end];
+}

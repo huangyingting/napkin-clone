@@ -4946,7 +4946,9 @@ function SlideSelectionToolbar({
   const canOpenMediaPanel =
     selectedElement !== null &&
     selectedCount <= 1 &&
-    (selectedElement.kind === "image" || selectedElement.kind === "visual");
+    (selectedElement.kind === "image" ||
+      selectedElement.kind === "visual" ||
+      selectedElement.kind === "connector");
   const canOpenEffectsPanel = selectedElement !== null && selectedCount <= 1;
   const canOpenSourcePanel =
     selectedElement !== null &&
@@ -4993,11 +4995,17 @@ function SlideSelectionToolbar({
           )
         : null}
       {canOpenMediaPanel
-        ? panelEntry(
-            "Media settings",
-            <ImageIcon size={14} aria-hidden="true" />,
-            onOpenMedia,
-          )
+        ? selectedElement?.kind === "connector"
+          ? panelEntry(
+              "Line settings",
+              <Minus size={14} aria-hidden="true" />,
+              onOpenMedia,
+            )
+          : panelEntry(
+              "Media settings",
+              <ImageIcon size={14} aria-hidden="true" />,
+              onOpenMedia,
+            )
         : null}
       {canOpenEffectsPanel
         ? panelEntry(
