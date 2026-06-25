@@ -2805,6 +2805,7 @@ export function ElementToolbarContent({
   onSendToBack,
   onRemove,
   showAdvanced = true,
+  compact = false,
 }: {
   element: SlideElement;
   tc: ThemeConfig;
@@ -2815,6 +2816,7 @@ export function ElementToolbarContent({
   onSendToBack: () => void;
   onRemove: () => void;
   showAdvanced?: boolean;
+  compact?: boolean;
 }) {
   const textColorPresets = mergeSwatches(brandSwatches, [
     tc.titleColor,
@@ -2885,7 +2887,7 @@ export function ElementToolbarContent({
         </>
       ) : null}
       <ToolbarButton icon={Copy} label="Duplicate" onClick={onDuplicate} />
-      {showAdvanced ? (
+      {showAdvanced && !compact ? (
         <>
           <ToolbarButton
             icon={ArrowUpToLine}
