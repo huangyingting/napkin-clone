@@ -30,8 +30,10 @@ import {
   Expand,
   Italic,
   Link2Off,
+  Minus,
   MoveHorizontal,
   MoveVertical,
+  Plus,
   SendToBack,
   StepBack,
   StepForward,
@@ -106,7 +108,11 @@ import {
   splitRunsIntoLines,
 } from "@/lib/presentation/rich-text-html";
 import {
+  FONT_MAX,
+  FONT_MIN,
+  FONT_STEP,
   mergeSwatches,
+  stepFontSize,
   themeSwatchColors,
 } from "@/lib/presentation/text-style";
 import {
@@ -1256,6 +1262,62 @@ function OverrideHeader({
   );
 }
 
+/**
+ * Font-size stepper. The right Text panel owns precise typography size, so it
+ * is intentionally absent from the on-canvas context toolbar (#651, #635).
+ * Size is a percent of slide height, snapped to FONT_STEP and clamped to
+ * [FONT_MIN, FONT_MAX].
+ */
+function FontSizeControl({
+  style,
+  onChange,
+}: {
+  style: TextElementStyle;
+  onChange: (style: TextElementStyle) => void;
+}) {
+  const size = style.fontSize;
+  const setSize = (next: number) => onChange({ ...style, fontSize: next });
+  const btnClass = `flex h-7 w-7 items-center justify-center rounded-ds-sm border border-ds-border-subtle text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`;
+  return (
+    <div className="block">
+      <span className={LABEL_CLASS}>Size</span>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          aria-label="Decrease font size"
+          disabled={size <= FONT_MIN}
+          onClick={() => setSize(stepFontSize(size, -FONT_STEP))}
+          className={btnClass}
+        >
+          <Minus size={14} aria-hidden="true" />
+        </button>
+        <input
+          type="number"
+          min={FONT_MIN}
+          max={FONT_MAX}
+          step={FONT_STEP}
+          value={size}
+          aria-label="Font size"
+          onChange={(event) => {
+            const next = Number(event.target.value);
+            if (Number.isFinite(next)) setSize(stepFontSize(next, 0));
+          }}
+          className={`w-16 text-center ${FIELD_CLASS} ${FOCUS_RING}`}
+        />
+        <button
+          type="button"
+          aria-label="Increase font size"
+          disabled={size >= FONT_MAX}
+          onClick={() => setSize(stepFontSize(size, FONT_STEP))}
+          className={btnClass}
+        >
+          <Plus size={14} aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** Font control that surfaces inherited vs. local state with reset (#615). */
 function InheritedFontControl({
   style,
@@ -1468,6 +1530,7 @@ function TextPanel({
             inheritedLabel={inheritedFontLabel}
             onChange={updateStyle}
           />
+          <FontSizeControl style={style} onChange={updateStyle} />
           <LineHeightControl style={style} onChange={updateStyle} />
           {element.kind === "text" || element.kind === "shape" ? (
             <ParagraphSpacingControl style={style} onChange={updateStyle} />
