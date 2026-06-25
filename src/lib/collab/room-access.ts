@@ -26,6 +26,11 @@ import type {
   DocumentCapabilities,
   DocumentRole,
 } from "@/lib/auth/document-permissions";
+import {
+  allowAccess,
+  denyAccess,
+  type AccessDecision,
+} from "@/lib/access-policy/taxonomy";
 
 /** The outcome of an authorization check for a collaboration room. */
 export type CollabAccessDecision =
@@ -50,4 +55,25 @@ export function decideRoomAccess(
     role: capabilities.role,
     readOnly: !capabilities.canEdit,
   };
+}
+
+/** Maps a room-access outcome into the shared access-decision taxonomy. */
+export function roomAccessDecisionToAccessDecision(
+  decision: CollabAccessDecision,
+): AccessDecision {
+  if (decision.ok) {
+    return allowAccess({
+      resource: { kind: "collab-room" },
+      capability: "connect",
+    });
+  }
+
+  return denyAccess({
+    resource: { kind: "collab-room" },
+    capability: "connect",
+    reason: decision.status === 401 ? "unauthenticated" : "forbidden",
+    status: decision.status,
+    safeMessage: decision.status === 401 ? "Unauthorized." : "Forbidden.",
+    concealResource: decision.status === 403,
+  });
 }

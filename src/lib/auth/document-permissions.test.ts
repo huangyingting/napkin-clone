@@ -5,6 +5,7 @@ import {
   assertCapability,
   capabilitiesForRole,
   deriveDocumentRole,
+  documentCapabilityAccessDecision,
   documentCapabilities,
   DocumentPermissionError,
   type Capability,
@@ -209,6 +210,9 @@ test("assertCapability: no-access errors say 'Document not found.' with null cap
     assert.ok(error instanceof DocumentPermissionError);
     assert.equal(error.message, "Document not found.");
     assert.equal(error.capability, null);
+    assert.equal(error.accessDecision?.reason, "resource-not-found");
+    assert.equal(error.accessDecision?.status, 404);
+    assert.equal(error.accessDecision?.concealResource, true);
   }
 });
 
@@ -221,6 +225,8 @@ test("assertCapability: viewer edit denial carries a clear permission message", 
     assert.ok(error instanceof DocumentPermissionError);
     assert.match(error.message, /permission to edit/);
     assert.equal(error.capability, "edit");
+    assert.equal(error.accessDecision?.reason, "insufficient-capability");
+    assert.equal(error.accessDecision?.status, 403);
   }
 });
 
@@ -233,7 +239,40 @@ test("assertCapability: editor manage denial carries a clear permission message"
     assert.ok(error instanceof DocumentPermissionError);
     assert.match(error.message, /permission to manage/);
     assert.equal(error.capability, "manage");
+    assert.equal(error.accessDecision?.reason, "insufficient-capability");
+    assert.equal(error.accessDecision?.status, 403);
   }
+});
+
+test("documentCapabilityAccessDecision maps document denials to taxonomy", () => {
+  assert.deepEqual(
+    documentCapabilityAccessDecision(capabilitiesForRole("none"), "view"),
+    {
+      allow: false,
+      resource: { kind: "document" },
+      capability: "view",
+      reason: "resource-not-found",
+      status: 404,
+      safeMessage: "Document not found.",
+      concealResource: true,
+    },
+  );
+  assert.deepEqual(
+    documentCapabilityAccessDecision(capabilitiesForRole("viewer"), "edit"),
+    {
+      allow: false,
+      resource: { kind: "document" },
+      capability: "edit",
+      reason: "insufficient-capability",
+      status: 403,
+      safeMessage: "You do not have permission to edit this document.",
+      concealResource: false,
+    },
+  );
+  assert.deepEqual(
+    documentCapabilityAccessDecision(capabilitiesForRole("owner"), "manage"),
+    { allow: true, resource: { kind: "document" }, capability: "manage" },
+  );
 });
 
 // ---------------------------------------------------------------------------

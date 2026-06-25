@@ -3,7 +3,9 @@ import { test } from "node:test";
 
 import {
   evaluateShareAccess,
+  evaluateShareAccessDecision,
   isShareAccessAllowed,
+  shareAccessDecisionToAccessDecision,
   toShareAccessInput,
   type ShareAccessInput,
   type ShareMode,
@@ -41,6 +43,56 @@ test("evaluateShareAccess: active link → allow (embed and present too)", () =>
 test("evaluateShareAccess: disabled (not shared) → deny", () => {
   const decision = evaluateShareAccess(input({ isShared: false }));
   assert.deepEqual(decision, { allow: false, reason: "not-shared" });
+});
+
+test("share access taxonomy maps public denials to privacy 404", () => {
+  const decision = shareAccessDecisionToAccessDecision("view", {
+    allow: false,
+    reason: "not-shared",
+  });
+  assert.deepEqual(decision, {
+    allow: false,
+    resource: { kind: "share" },
+    capability: "view",
+    reason: "share-not-enabled",
+    status: 404,
+    safeMessage: "Shared document not found.",
+    concealResource: true,
+  });
+});
+
+test("evaluateShareAccessDecision uses the same mapping for view/embed/present", () => {
+  assert.deepEqual(evaluateShareAccessDecision(input({ mode: "view" })), {
+    allow: true,
+    resource: { kind: "share" },
+    capability: "view",
+  });
+  assert.deepEqual(
+    evaluateShareAccessDecision(input({ mode: "embed", embedEnabled: false })),
+    {
+      allow: false,
+      resource: { kind: "share" },
+      capability: "embed",
+      reason: "mode-disabled",
+      status: 404,
+      safeMessage: "Shared document not found.",
+      concealResource: true,
+    },
+  );
+  assert.deepEqual(
+    evaluateShareAccessDecision(
+      input({ mode: "present", presentEnabled: false }),
+    ),
+    {
+      allow: false,
+      resource: { kind: "share" },
+      capability: "present",
+      reason: "mode-disabled",
+      status: 404,
+      safeMessage: "Shared document not found.",
+      concealResource: true,
+    },
+  );
 });
 
 test("evaluateShareAccess: cleared shareId → deny as not-shared", () => {

@@ -6,7 +6,10 @@ import {
   type DocumentRoleInput,
 } from "@/lib/auth/document-permissions";
 
-import { decideRoomAccess } from "./room-access";
+import {
+  decideRoomAccess,
+  roomAccessDecisionToAccessDecision,
+} from "./room-access";
 // The collab WebSocket server is plain `.mjs`; exercise its upgrade-decision
 // translation here so the whole #88 path is covered without a test framework.
 import { interpretAuthorizeResponse } from "../../../scripts/collab-auth.mjs";
@@ -85,6 +88,15 @@ test("decideRoomAccess: viewer joins read-only", () => {
 test("decideRoomAccess: unrelated user is refused with 403", () => {
   const decision = accessFor(STRANGER);
   assert.deepEqual(decision, { ok: false, status: 403, reason: "forbidden" });
+  assert.deepEqual(roomAccessDecisionToAccessDecision(decision), {
+    allow: false,
+    resource: { kind: "collab-room" },
+    capability: "connect",
+    reason: "forbidden",
+    status: 403,
+    safeMessage: "Forbidden.",
+    concealResource: true,
+  });
 });
 
 test("decideRoomAccess: missing/deleted document (none) is refused with 403", () => {

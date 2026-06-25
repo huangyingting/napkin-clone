@@ -7,10 +7,11 @@ import { ShareLightbox } from "./share-lightbox";
 import { MadeWithBadge } from "@/components/made-with-badge";
 import { excerpt } from "@/lib/document-stats";
 import { shouldShowAttribution } from "@/lib/billing/attribution";
+import { assertAccessDecisionOrNotFound } from "@/lib/access-policy/adapters";
 import { prisma } from "@/lib/prisma";
 import { buildShareSegment, shareIdFromParam } from "@/lib/slug";
 import {
-  evaluateShareAccess,
+  evaluateShareAccessDecision,
   SHARE_ACCESS_SELECT,
   toShareAccessInput,
 } from "@/lib/share-access";
@@ -51,8 +52,9 @@ export async function generateMetadata({
   // no indexing, no leak (issue #101 AC #4).
   if (
     !document ||
-    !evaluateShareAccess(toShareAccessInput(document, resolvedShareId, "view"))
-      .allow
+    !evaluateShareAccessDecision(
+      toShareAccessInput(document, resolvedShareId, "view"),
+    ).allow
   ) {
     return {
       title: `Shared Document — ${SITE_NAME}`,
@@ -117,13 +119,15 @@ export default async function SharedDocumentPage({
     },
   });
 
-  if (
-    !document ||
-    !evaluateShareAccess(toShareAccessInput(document, resolvedShareId, "view"))
-      .allow
-  ) {
+  if (!document) {
     notFound();
   }
+  assertAccessDecisionOrNotFound(
+    evaluateShareAccessDecision(
+      toShareAccessInput(document, resolvedShareId, "view"),
+    ),
+    notFound,
+  );
 
   const ownerName = document.owner.name || document.owner.email.split("@")[0];
   const showAttribution = shouldShowAttribution(document.owner.plan);

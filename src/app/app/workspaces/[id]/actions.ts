@@ -1,6 +1,5 @@
 "use server";
 
-import { nanoid } from "nanoid";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
@@ -9,40 +8,30 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { requireUser } from "@/lib/session";
 import { BLANK_TEMPLATE_ID, getTemplateOrBlank } from "@/lib/templates/catalog";
-import {
-  asWorkspaceRole,
-  isInvitableWorkspaceRole,
-  type WorkspaceRole,
-} from "@/lib/workspace/roles";
 import { markdownToLexicalState } from "@/lib/lexical/from-markdown";
 import { requireWorkspaceCapability } from "@/lib/auth/workspace-capabilities";
 import {
+  assertInvitableWorkspaceRole,
+  createWorkspaceInviteLink,
+  deleteWorkspaceAndDetachDocuments,
+  getInviteLinkTarget,
+  getWorkspaceMemberRemovalTarget,
+  removeWorkspaceMemberAndDetachDocuments,
+  renameWorkspaceRecord,
+  revokeWorkspaceInviteLink,
+  type CreateInviteLinkOptions,
+  type InviteLink,
+} from "@/lib/workspace/service";
+import type { WorkspaceRole } from "@/lib/workspace/roles";
+import {
   DOCUMENT_CONTENT_MAX_LENGTH,
   DOCUMENT_TITLE_MAX_LENGTH,
-  WORKSPACE_NAME_MAX_LENGTH,
 } from "@/lib/limits";
 
-export type InviteLink = {
-  id: string;
-  token: string;
-  role: WorkspaceRole;
-  createdAt: Date;
-  expiresAt: Date | null;
-  maxUses: number | null;
-  useCount: number;
-};
-
-/** Options accepted when creating an invite link (issue #103). */
-export type CreateInviteLinkOptions = {
-  /**
-   * Days until the link expires. `null`/omitted = never expires. Expiry is
-   * computed server-side from the current time so the client clock is never
-   * trusted.
-   */
-  expiresInDays?: number | null;
-  /** Maximum accepted joins. `null`/omitted = unlimited. */
-  maxUses?: number | null;
-};
+export type {
+  CreateInviteLinkOptions,
+  InviteLink,
+} from "@/lib/workspace/service";
 
 export type WorkspaceDocument = {
   id: string;
@@ -56,93 +45,34 @@ export type WorkspaceDocumentsResult = {
   hasMore: boolean;
 };
 
-const MILLIS_PER_DAY = 24 * 60 * 60 * 1000;
-
-/** Largest accepted expiry window, guarding against overflow/typos. */
-const MAX_EXPIRY_DAYS = 365;
-
-/** Largest accepted usage cap. */
-const MAX_USES_LIMIT = 10_000;
-
 export async function createInviteLink(
   workspaceId: string,
   role: WorkspaceRole,
   options: CreateInviteLinkOptions = {},
 ): Promise<InviteLink> {
   const user = await requireUser();
-
-  // Validate the requested role SERVER-SIDE against the invitable roles; never
-  // trust the client to send a permissible value (issue #103). OWNER and any
-  // unknown value are rejected here rather than persisted.
-  if (!isInvitableWorkspaceRole(role)) {
-    throw new Error(`Invalid invite role: ${String(role)}.`);
-  }
+  assertInvitableWorkspaceRole(role);
 
   // Centralized authorization (issue #483): only the workspace owner may
   // create invite links (manage capability).
   await requireWorkspaceCapability(user.id, workspaceId, "manage");
 
-  const expiresAt = normalizeExpiry(options.expiresInDays);
-  const maxUses = normalizeMaxUses(options.maxUses);
-
-  const inviteLink = await prisma.inviteLink.create({
-    data: {
-      workspaceId,
-      token: nanoid(16),
-      role,
-      createdById: user.id,
-      expiresAt,
-      maxUses,
-    },
-    select: {
-      id: true,
-      token: true,
-      role: true,
-      createdAt: true,
-      expiresAt: true,
-      maxUses: true,
-      useCount: true,
-    },
+  const inviteLink = await createWorkspaceInviteLink({
+    workspaceId,
+    role,
+    createdById: user.id,
+    options,
   });
 
   revalidatePath(`/app/workspaces/${workspaceId}`);
-  return { ...inviteLink, role: asWorkspaceRole(inviteLink.role) };
-}
-
-/** Converts an optional expiry window in days to an absolute timestamp. */
-function normalizeExpiry(expiresInDays?: number | null): Date | null {
-  if (expiresInDays === null || expiresInDays === undefined) {
-    return null;
-  }
-  if (
-    !Number.isFinite(expiresInDays) ||
-    expiresInDays <= 0 ||
-    expiresInDays > MAX_EXPIRY_DAYS
-  ) {
-    throw new Error(`Invalid invite expiry: ${String(expiresInDays)} days.`);
-  }
-  return new Date(Date.now() + expiresInDays * MILLIS_PER_DAY);
-}
-
-/** Validates an optional usage cap. */
-function normalizeMaxUses(maxUses?: number | null): number | null {
-  if (maxUses === null || maxUses === undefined) {
-    return null;
-  }
-  if (!Number.isInteger(maxUses) || maxUses <= 0 || maxUses > MAX_USES_LIMIT) {
-    throw new Error(`Invalid invite usage limit: ${String(maxUses)}.`);
-  }
-  return maxUses;
+  return inviteLink;
 }
 
 export async function revokeInviteLink(linkId: string): Promise<void> {
   const user = await requireUser();
 
   // Look up the link to get its workspaceId for centralized authorization.
-  const link = await prisma.inviteLink.findFirst({
-    where: { id: linkId },
-    select: { workspaceId: true },
-  });
+  const link = await getInviteLinkTarget(linkId);
 
   if (!link) {
     throw new Error("Invite link not found or unauthorized.");
@@ -152,10 +82,7 @@ export async function revokeInviteLink(linkId: string): Promise<void> {
   // revoke invite links (manage capability).
   await requireWorkspaceCapability(user.id, link.workspaceId, "manage");
 
-  await prisma.inviteLink.update({
-    where: { id: linkId },
-    data: { isRevoked: true },
-  });
+  await revokeWorkspaceInviteLink(linkId);
 
   revalidatePath(`/app/workspaces/${link.workspaceId}`);
 }
@@ -164,10 +91,7 @@ export async function removeMember(memberId: string): Promise<void> {
   const user = await requireUser();
 
   // Look up the member to get the workspaceId and their userId.
-  const member = await prisma.workspaceMember.findFirst({
-    where: { id: memberId },
-    select: { workspaceId: true, userId: true },
-  });
+  const member = await getWorkspaceMemberRemovalTarget(memberId);
 
   if (!member) {
     throw new Error("Member not found or unauthorized.");
@@ -177,18 +101,7 @@ export async function removeMember(memberId: string): Promise<void> {
   // remove members (manage capability).
   await requireWorkspaceCapability(user.id, member.workspaceId, "manage");
 
-  // Document handoff: move documents the removed member owns within this
-  // workspace back to their personal space (workspaceId = null). This preserves
-  // the member's authorship and access to their own content rather than handing
-  // it to the workspace owner (privacy-preserving), and avoids stranding docs in
-  // a workspace the member can no longer reach.
-  await prisma.$transaction([
-    prisma.document.updateMany({
-      where: { workspaceId: member.workspaceId, ownerId: member.userId },
-      data: { workspaceId: null },
-    }),
-    prisma.workspaceMember.delete({ where: { id: memberId } }),
-  ]);
+  await removeWorkspaceMemberAndDetachDocuments(memberId, member);
 
   revalidatePath("/app");
   revalidatePath(`/app/workspaces/${member.workspaceId}`);
@@ -206,15 +119,7 @@ export async function renameWorkspace(
   const user = await requireUser();
   await requireWorkspaceCapability(user.id, workspaceId, "manage");
 
-  const name = rawName.trim().slice(0, WORKSPACE_NAME_MAX_LENGTH);
-  if (name === "") {
-    throw new Error("Workspace name is required.");
-  }
-
-  await prisma.workspace.update({
-    where: { id: workspaceId },
-    data: { name },
-  });
+  await renameWorkspaceRecord(workspaceId, rawName);
 
   revalidatePath("/app/workspaces");
   revalidatePath(`/app/workspaces/${workspaceId}`);
@@ -235,13 +140,7 @@ export async function deleteWorkspace(workspaceId: string): Promise<void> {
   const user = await requireUser();
   await requireWorkspaceCapability(user.id, workspaceId, "manage");
 
-  await prisma.$transaction([
-    prisma.document.updateMany({
-      where: { workspaceId },
-      data: { workspaceId: null },
-    }),
-    prisma.workspace.delete({ where: { id: workspaceId } }),
-  ]);
+  await deleteWorkspaceAndDetachDocuments(workspaceId);
 
   revalidatePath("/app");
   revalidatePath("/app/workspaces");

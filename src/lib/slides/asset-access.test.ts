@@ -23,6 +23,11 @@ import {
   toShareAccessInput,
   type ShareAccessFields,
 } from "@/lib/share-access";
+import {
+  decideSlideAssetAccess,
+  slideAssetAccessDecisionToAccessDecision,
+  type SlideAssetDocument,
+} from "./asset-access";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -186,4 +191,45 @@ test("#395: embed-disabled share denies embed access", () => {
     toShareAccessInput(doc, "share-abc", "embed"),
   );
   assert.ok(!decision.allow);
+});
+
+test("#395: slide-asset access taxonomy preserves privacy 404 vs forbidden 403", () => {
+  const notFoundDecision = slideAssetAccessDecisionToAccessDecision(
+    decideSlideAssetAccess({
+      asset: null,
+      document: null,
+      userId: null,
+    }),
+  );
+  assert.deepEqual(notFoundDecision, {
+    allow: false,
+    resource: { kind: "slide-asset" },
+    capability: "serve",
+    reason: "asset-not-found",
+    status: 404,
+    safeMessage: "Not found",
+    concealResource: true,
+  });
+
+  const document: SlideAssetDocument = {
+    ...makeDoc({ ownerId: "owner-1" }),
+    ...sharedDoc({ isShared: false }),
+    deletedAt: null,
+  };
+  const forbiddenDecision = slideAssetAccessDecisionToAccessDecision(
+    decideSlideAssetAccess({
+      asset: { id: "asset-1" },
+      document,
+      userId: "stranger",
+    }),
+  );
+  assert.deepEqual(forbiddenDecision, {
+    allow: false,
+    resource: { kind: "slide-asset" },
+    capability: "serve",
+    reason: "forbidden",
+    status: 403,
+    safeMessage: "Forbidden",
+    concealResource: false,
+  });
 });

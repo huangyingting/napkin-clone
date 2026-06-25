@@ -276,7 +276,7 @@ A 30 s ping interval per connection; if pong is not received the connection is c
 `src/lib/auth/document-permissions.ts`  
 `src/app/api/collab/authorize/route.ts`
 
-Three capability levels, checked via `requireDocumentCapability(userId, documentId, capability)`:
+Three document capability levels, checked via `requireDocumentCapability(userId, documentId, capability)`:
 
 | Capability | Grants       | Who                                                      |
 | ---------- | ------------ | -------------------------------------------------------- |
@@ -285,6 +285,11 @@ Three capability levels, checked via `requireDocumentCapability(userId, document
 | `"manage"` | Share/delete | Owner only                                               |
 
 The collab authorize route maps to `"view"` (read-only) or `"edit"` to set the `readOnly` flag on the WebSocket connection.
+
+Read-list scopes such as `documentAccessOr(userId)` are read-only filters for
+listing/searching visible documents. Mutations do not rely on list scopes; they
+use document or workspace capability checks and map denials through the shared
+access-decision taxonomy/adapters.
 
 ---
 

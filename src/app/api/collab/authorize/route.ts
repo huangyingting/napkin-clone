@@ -19,9 +19,13 @@
 
 import { NextResponse } from "next/server";
 
+import { accessDecisionToApiResponse } from "@/lib/access-policy/adapters";
 import { forbidden, unauthorized } from "@/lib/api/errors";
 import { getDocumentCapabilities } from "@/lib/auth/document-permissions";
-import { decideRoomAccess } from "@/lib/collab/room-access";
+import {
+  decideRoomAccess,
+  roomAccessDecisionToAccessDecision,
+} from "@/lib/collab/room-access";
 import { getCurrentUser } from "@/lib/session";
 
 export const runtime = "nodejs";
@@ -41,7 +45,9 @@ export async function GET(request: Request): Promise<NextResponse> {
   const decision = decideRoomAccess(capabilities);
 
   if (!decision.ok) {
-    return decision.status === 401 ? unauthorized() : forbidden();
+    return accessDecisionToApiResponse(
+      roomAccessDecisionToAccessDecision(decision),
+    )!;
   }
 
   return NextResponse.json({
