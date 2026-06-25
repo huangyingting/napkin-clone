@@ -4,7 +4,7 @@ export default function PresentLoading() {
   return (
     <LoadingRegion
       label="Loading presentation…"
-      className="flex min-h-screen flex-col items-center justify-center bg-[#0f1117]"
+      className="flex min-h-screen flex-col items-center justify-center bg-ds-present-loading"
     >
       {/* Slide placeholder */}
       <div

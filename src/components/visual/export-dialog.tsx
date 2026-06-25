@@ -14,7 +14,9 @@ import { createPortal } from "react-dom";
 import { usePopMotion } from "@/components/motion/reveal";
 import {
   Button,
+  FieldRow,
   IconButton,
+  PanelSurface,
   SegmentedControl,
   cx,
   FOCUS_RING,
@@ -373,8 +375,10 @@ export function ExportDialog({
             {...popMotion}
             className="fixed inset-0 z-modal flex items-center justify-center p-4"
           >
-            <div
-              className="relative flex w-full max-w-2xl flex-col overflow-hidden rounded-[var(--ds-radius-xl,18px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-raised,#ffffff)] shadow-[var(--ds-shadow-popover,0_12px_32px_rgba(0,0,0,0.18))]"
+            <PanelSurface
+              elevation="popover"
+              radius="xl"
+              className="relative flex w-full max-w-2xl flex-col overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
@@ -608,7 +612,7 @@ export function ExportDialog({
                   </Button>
                 </div>
               </div>
-            </div>
+            </PanelSurface>
           </motion.div>
         </>
       )}
@@ -628,14 +632,7 @@ function ControlField({
   label: string;
   children: React.ReactNode;
 }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-xs font-medium text-[var(--ds-text-secondary,#54666d)]">
-        {label}
-      </span>
-      {children}
-    </div>
-  );
+  return <FieldRow label={label}>{children}</FieldRow>;
 }
 
 function PreviewThumbnail({

@@ -24,7 +24,7 @@
 import { Sparkles } from "lucide-react";
 import { useId, useState } from "react";
 
-import { FOCUS_RING } from "@/components/motion/control-styles";
+import { FOCUS_RING } from "@/components/ui/tokens";
 import { GeneratingIndicator } from "@/components/motion/generation-status";
 import { Button } from "@/components/ui";
 import { Dialog } from "@/components/ui";

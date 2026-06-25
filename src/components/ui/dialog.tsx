@@ -135,7 +135,7 @@ export function Dialog({
             exit={popMotion.exit}
             transition={popMotion.transition}
             className={cx(
-              "relative z-10 w-full max-w-lg",
+              "relative z-raised w-full max-w-lg",
               "border p-6",
               SURFACE_BASE,
               RADIUS.lg,

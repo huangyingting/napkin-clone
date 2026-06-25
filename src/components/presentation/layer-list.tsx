@@ -43,7 +43,7 @@ import {
   type KeyboardEvent,
 } from "react";
 
-import { FOCUS_RING } from "@/components/motion/control-styles";
+import { FOCUS_RING } from "@/components/ui/tokens";
 import { Tooltip } from "@/components/ui";
 import { elementAccessibleName } from "@/lib/presentation/element-accessible-name";
 import { filterLayers } from "@/lib/presentation/layer-filter";

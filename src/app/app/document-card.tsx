@@ -371,7 +371,7 @@ export function DocumentCard({
         </div>
       </Link>
 
-      <div className="absolute left-2 top-2 z-10">
+      <div className="absolute left-2 top-2 z-raised">
         {canEdit && (
           <StarButton
             active={optimisticFavorite}
@@ -381,7 +381,7 @@ export function DocumentCard({
         )}
       </div>
 
-      <div ref={menuRef} className="absolute right-2 top-2 z-10">
+      <div ref={menuRef} className="absolute right-2 top-2 z-raised">
         <button
           type="button"
           aria-label={`Actions for ${optimisticTitle}`}

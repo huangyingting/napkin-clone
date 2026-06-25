@@ -44,7 +44,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Button, IconButton } from "@/components/ui";
 import { cx, FIELD_CONTROL, RADIUS } from "@/components/ui/tokens";
-import { GUTTER_BUTTON } from "@/components/motion/control-styles";
+import { GUTTER_BUTTON } from "@/components/ui/tokens";
 
 import {
   createComment,

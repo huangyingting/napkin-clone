@@ -55,7 +55,7 @@ import {
 } from "@/components/presentation/slide-canvas";
 import { TextStyleBar } from "@/components/presentation/text-style-bar";
 import { ColorPicker, DEFAULT_SWATCH_PRESETS } from "@/components/ui";
-import { FOCUS_RING } from "@/components/motion/control-styles";
+import { FOCUS_RING } from "@/components/ui/tokens";
 import { cx, MENU_CHROME, MENU_ITEM } from "@/components/ui/tokens";
 import type {
   BulletItem,

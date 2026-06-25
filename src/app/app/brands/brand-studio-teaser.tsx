@@ -50,7 +50,7 @@ export function BrandStudioTeaser() {
       <div className="relative flex flex-col gap-4 rounded-2xl border border-[var(--ds-border-subtle)] bg-ds-surface-base p-5 shadow-[var(--ds-shadow-raised)]">
         {/* Disabled overlay — intercepts all pointer events */}
         <div
-          className="absolute inset-0 z-10 cursor-not-allowed rounded-2xl bg-[var(--ds-surface-base,#fff)]/60"
+          className="absolute inset-0 z-raised cursor-not-allowed rounded-2xl bg-[var(--ds-surface-base,#fff)]/60"
           aria-hidden="true"
         />
 

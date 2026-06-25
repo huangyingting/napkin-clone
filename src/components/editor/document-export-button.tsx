@@ -23,7 +23,7 @@ import { FileDown, Image as ImageIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchDeckJson } from "@/app/app/documents/[id]/actions";
-import { FOCUS_RING } from "@/components/motion/control-styles";
+import { FOCUS_RING } from "@/components/ui/tokens";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { useVisualSvgRegistry } from "@/components/editor/visual-svg-registry";
 import { buildDeckFromBlocks } from "@/lib/presentation/deck";

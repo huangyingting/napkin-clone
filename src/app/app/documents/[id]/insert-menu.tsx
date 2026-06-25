@@ -25,9 +25,9 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { createPortal } from "react-dom";
 
-import { GUTTER_BUTTON } from "@/components/motion/control-styles";
+import { GUTTER_BUTTON } from "@/components/ui/tokens";
 import { usePopMotion } from "@/components/motion/reveal";
-import { FloatingSurface } from "@/components/ui";
+import { FloatingSurface, PopoverSection } from "@/components/ui";
 import { cx } from "@/components/ui/tokens";
 import { useEditorContext } from "@/lib/lexical/editor-context";
 import { useIsPointerFine } from "@/lib/pointer";
@@ -419,10 +419,7 @@ export function InsertMenuPlugin() {
             </div>
           ) : (
             sections.map((section) => (
-              <div key={section.id} className="py-0.5">
-                <div className="px-2 pb-1 pt-1.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-[var(--ds-text-muted,#a1a1aa)]">
-                  {section.label}
-                </div>
+              <PopoverSection key={section.id} title={section.label}>
                 {section.tools.map((tool) => {
                   const index = runningIndex;
                   runningIndex += 1;
@@ -477,7 +474,7 @@ export function InsertMenuPlugin() {
                     </button>
                   );
                 })}
-              </div>
+              </PopoverSection>
             ))
           )}
         </div>

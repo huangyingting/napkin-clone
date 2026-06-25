@@ -63,7 +63,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-import { FOCUS_RING } from "@/components/motion/control-styles";
+import { FOCUS_RING } from "@/components/ui/tokens";
 import type { ActionResult } from "@/lib/action-result";
 import { useFocusTrap } from "@/lib/presentation/use-focus-trap";
 import {
@@ -5038,7 +5038,7 @@ function SlideSelectionToolbar({
       role="toolbar"
       data-floating-panel="true"
       aria-label="Selected slide element tools"
-      className="pointer-events-auto absolute left-1/2 top-3 z-20 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-1 overflow-visible rounded-ds-lg border border-ds-border-subtle bg-ds-surface-raised p-1 shadow-ds-popover"
+      className="pointer-events-auto absolute left-1/2 top-3 z-sticky flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-1 overflow-visible rounded-ds-lg border border-ds-border-subtle bg-ds-surface-raised p-1 shadow-ds-popover"
     >
       {showRich && selectedElement ? (
         <ElementToolbarContent

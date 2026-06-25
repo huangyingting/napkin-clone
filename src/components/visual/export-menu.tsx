@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { FOCUS_RING } from "@/components/motion/control-styles";
+import { ToolbarButton } from "@/components/ui";
 import { ExportDialog } from "@/components/visual/export-dialog";
 import { useUserEntitlements } from "@/lib/billing/use-user-entitlements";
 import type { Visual } from "@/lib/visual/schema";
@@ -38,15 +38,18 @@ export function ExportMenu({
 
   return (
     <>
-      <button
-        type="button"
+      <ToolbarButton
         onClick={() => setDialogOpen(true)}
         aria-label="Export visual"
         aria-haspopup="dialog"
-        className={`flex h-9 items-center gap-2 rounded-full border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-raised,#ffffff)] px-4 text-sm font-medium text-[var(--ds-text-primary,#15171a)] transition hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.06))] active:bg-[var(--ds-state-active,rgba(0,0,0,0.12))] ${FOCUS_RING}`}
+        iconOnly={false}
+        shape="pill"
+        size="lg"
+        tone="surface"
+        className="gap-2 font-medium"
       >
         Export
-      </button>
+      </ToolbarButton>
 
       <ExportDialog
         open={dialogOpen}

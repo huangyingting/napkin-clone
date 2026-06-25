@@ -226,7 +226,7 @@ export function ShareLightbox({ children }: { children: ReactNode }) {
                   type="button"
                   onClick={close}
                   aria-label="Close enlarged visual"
-                  className="absolute right-2 top-2 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-raised text-ds-text-secondary shadow-sm transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-focus-ring"
+                  className="absolute right-2 top-2 z-raised inline-flex h-9 w-9 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-raised text-ds-text-secondary shadow-sm transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-focus-ring"
                 >
                   <svg
                     viewBox="0 0 24 24"

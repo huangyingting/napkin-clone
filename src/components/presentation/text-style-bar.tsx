@@ -28,8 +28,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { FOCUS_RING } from "@/components/motion/control-styles";
-import { ColorPicker, Tooltip } from "@/components/ui";
+import {
+  ColorPicker,
+  IconActionCluster,
+  ToolbarButton,
+  Tooltip,
+} from "@/components/ui";
 import type { ElementAlign, TextElementStyle } from "@/lib/presentation/deck";
 import {
   ALIGN_OPTIONS,
@@ -75,19 +79,9 @@ function IconToggle({
 }) {
   return (
     <Tooltip label={label} side="bottom">
-      <button
-        type="button"
-        aria-label={label}
-        aria-pressed={active}
-        onClick={onClick}
-        className={`flex h-7 w-7 items-center justify-center rounded-ds-sm transition-colors ${
-          active
-            ? "bg-ds-accent-surface text-ds-accent-text"
-            : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
-        } ${FOCUS_RING}`}
-      >
+      <ToolbarButton aria-label={label} active={active} onClick={onClick}>
         {children}
-      </button>
+      </ToolbarButton>
     </Tooltip>
   );
 }
@@ -122,29 +116,23 @@ function AlignGroup({
   onChange: (align: ElementAlign) => void;
 }) {
   return (
-    <div className="flex items-center overflow-hidden rounded-ds-sm border border-ds-border-subtle">
+    <IconActionCluster>
       {ALIGN_OPTIONS.map((option) => {
         const Icon = ALIGN_ICON[option];
         const selected = align === option;
         return (
           <Tooltip key={option} label={ALIGN_LABEL[option]} side="bottom">
-            <button
-              type="button"
+            <ToolbarButton
               aria-label={ALIGN_LABEL[option]}
-              aria-pressed={selected}
+              active={selected}
               onClick={() => onChange(option)}
-              className={`flex h-7 w-7 items-center justify-center transition-colors ${
-                selected
-                  ? "bg-ds-accent-surface text-ds-accent-text"
-                  : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
-              } ${FOCUS_RING}`}
             >
               <Icon size={14} aria-hidden="true" />
-            </button>
+            </ToolbarButton>
           </Tooltip>
         );
       })}
-    </div>
+    </IconActionCluster>
   );
 }
 

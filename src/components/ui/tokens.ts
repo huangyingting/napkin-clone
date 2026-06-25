@@ -10,12 +10,9 @@
  * are ignored.
  */
 
-/**
- * Keyboard focus ring driven by `--ds-focus-ring`. Pair with `focus-visible`
- * so the ring only shows for keyboard users.
- */
+/** Keyboard focus ring driven by the Tailwind `ds-*` token bridge. */
 export const FOCUS_RING =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-focus-ring,#15171a)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--ds-focus-offset,#ffffff)]";
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-focus-ring focus-visible:ring-offset-1 focus-visible:ring-offset-ds-focus-offset";
 
 /** Radii scale (`--ds-radius-*`). */
 export const RADIUS = {
@@ -71,6 +68,26 @@ export const MENU_CHROME = cx(
 /** Shared menu item row. */
 export const MENU_ITEM =
   "flex w-full items-center px-3 py-2 text-left text-sm text-ds-text-secondary transition hover:bg-ds-state-hover hover:text-ds-text-primary";
+
+/** Shared color transition for interactive chrome. */
+export const CONTROL_TRANSITION = "transition-colors";
+
+/** Square icon button used by editor gutter affordances. */
+export const GUTTER_BUTTON = cx(
+  "flex h-9 w-9 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised text-ds-text-muted shadow-ds-raised",
+  CONTROL_TRANSITION,
+  "hover:bg-ds-state-hover hover:text-ds-text-primary active:bg-ds-state-active aria-expanded:bg-ds-state-hover aria-expanded:text-ds-text-primary",
+  FOCUS_RING,
+);
+
+/** Base inactive/active toolbar icon-button states. */
+export const TOOLBAR_BUTTON_CHROME = {
+  active: "bg-ds-accent-surface text-ds-accent-text",
+  subtle:
+    "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary",
+  surface:
+    "border border-ds-border-subtle bg-ds-surface-raised text-ds-text-primary hover:bg-ds-state-hover active:bg-ds-state-active",
+} as const;
 
 /** Joins truthy class fragments. */
 export function cx(...parts: Array<string | false | null | undefined>): string {

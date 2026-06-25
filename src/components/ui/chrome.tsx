@@ -1,0 +1,245 @@
+import {
+  type ButtonHTMLAttributes,
+  type HTMLAttributes,
+  type ReactNode,
+} from "react";
+
+import {
+  cx,
+  ELEVATION,
+  FOCUS_RING,
+  RADIUS,
+  TOOLBAR_BUTTON_CHROME,
+  type Elevation,
+  type Radius,
+} from "./tokens";
+
+export type ToolbarButtonSize = "sm" | "md" | "lg";
+export type ToolbarButtonTone = "subtle" | "surface";
+export type ToolbarButtonShape = "sm" | "md" | "pill";
+
+const TOOLBAR_SIZE: Record<ToolbarButtonSize, string> = {
+  sm: "h-7 min-w-7 text-xs",
+  md: "h-8 min-w-8 text-sm",
+  lg: "h-9 min-w-9 text-sm",
+};
+
+const TOOLBAR_ICON_WIDTH: Record<ToolbarButtonSize, string> = {
+  sm: "w-7",
+  md: "w-8",
+  lg: "w-9",
+};
+
+const TOOLBAR_TEXT_PADDING: Record<ToolbarButtonSize, string> = {
+  sm: "px-2.5",
+  md: "px-3",
+  lg: "px-4",
+};
+
+const TOOLBAR_SHAPE: Record<ToolbarButtonShape, string> = {
+  sm: RADIUS.sm,
+  md: RADIUS.md,
+  pill: RADIUS.pill,
+};
+
+export type ToolbarButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  active?: boolean;
+  iconOnly?: boolean;
+  size?: ToolbarButtonSize;
+  tone?: ToolbarButtonTone;
+  shape?: ToolbarButtonShape;
+};
+
+export function ToolbarButton({
+  active,
+  iconOnly = true,
+  size = "sm",
+  tone = "subtle",
+  shape = "sm",
+  type,
+  className,
+  children,
+  ...rest
+}: ToolbarButtonProps) {
+  return (
+    <button
+      type={type ?? "button"}
+      aria-pressed={active === undefined ? undefined : active}
+      className={cx(
+        "inline-flex items-center justify-center transition-colors disabled:pointer-events-none disabled:opacity-50",
+        TOOLBAR_SIZE[size],
+        iconOnly ? TOOLBAR_ICON_WIDTH[size] : TOOLBAR_TEXT_PADDING[size],
+        TOOLBAR_SHAPE[shape],
+        active === true
+          ? TOOLBAR_BUTTON_CHROME.active
+          : TOOLBAR_BUTTON_CHROME[tone],
+        FOCUS_RING,
+        className,
+      )}
+      {...rest}
+    >
+      {children}
+    </button>
+  );
+}
+
+export type PanelSurfaceProps = HTMLAttributes<HTMLDivElement> & {
+  elevation?: Elevation;
+  radius?: Radius;
+  bordered?: boolean;
+  padding?: "none" | "sm" | "md";
+};
+
+const PANEL_PADDING: Record<
+  NonNullable<PanelSurfaceProps["padding"]>,
+  string
+> = {
+  none: "",
+  sm: "p-3",
+  md: "p-5",
+};
+
+export function PanelSurface({
+  elevation = "raised",
+  radius = "lg",
+  bordered = true,
+  padding = "none",
+  className,
+  ...rest
+}: PanelSurfaceProps) {
+  return (
+    <div
+      className={cx(
+        bordered && "border border-ds-border-subtle",
+        "bg-ds-surface-raised text-ds-text-primary",
+        RADIUS[radius],
+        ELEVATION[elevation],
+        PANEL_PADDING[padding],
+        className,
+      )}
+      {...rest}
+    />
+  );
+}
+
+export type PopoverSectionProps = HTMLAttributes<HTMLDivElement> & {
+  title: ReactNode;
+  headingClassName?: string;
+};
+
+export function PopoverSection({
+  title,
+  headingClassName,
+  className,
+  children,
+  ...rest
+}: PopoverSectionProps) {
+  return (
+    <div className={cx("py-0.5", className)} {...rest}>
+      <div
+        className={cx(
+          "px-2 pb-1 pt-1.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-ds-text-muted",
+          headingClassName,
+        )}
+      >
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+export type FieldRowProps = HTMLAttributes<HTMLDivElement> & {
+  label: ReactNode;
+  htmlFor?: string;
+  hint?: ReactNode;
+  error?: ReactNode;
+};
+
+export function FieldRow({
+  label,
+  htmlFor,
+  hint,
+  error,
+  className,
+  children,
+  ...rest
+}: FieldRowProps) {
+  const labelClass = "text-xs font-medium text-ds-text-secondary";
+  return (
+    <div className={cx("flex flex-col gap-1.5", className)} {...rest}>
+      {htmlFor ? (
+        <label className={labelClass} htmlFor={htmlFor}>
+          {label}
+        </label>
+      ) : (
+        <span className={labelClass}>{label}</span>
+      )}
+      {children}
+      {hint ? <p className="text-xs text-ds-text-muted">{hint}</p> : null}
+      {error ? (
+        <p role="alert" className="text-xs text-ds-danger">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+export type IconActionClusterProps = HTMLAttributes<HTMLDivElement> & {
+  bordered?: boolean;
+};
+
+export function IconActionCluster({
+  bordered = true,
+  className,
+  ...rest
+}: IconActionClusterProps) {
+  return (
+    <div
+      className={cx(
+        "flex items-center",
+        bordered &&
+          "overflow-hidden rounded-ds-sm border border-ds-border-subtle",
+        className,
+      )}
+      {...rest}
+    />
+  );
+}
+
+export type StatusPillTone =
+  | "neutral"
+  | "accent"
+  | "success"
+  | "warning"
+  | "danger";
+
+const STATUS_PILL_TONE: Record<StatusPillTone, string> = {
+  neutral: "bg-ds-surface-sunken text-ds-text-secondary",
+  accent: "bg-ds-accent-surface text-ds-accent-text",
+  success: "bg-ds-success-surface text-ds-success-text",
+  warning: "bg-ds-warning-surface text-ds-warning-text",
+  danger: "bg-ds-danger-surface text-ds-danger-text",
+};
+
+export type StatusPillProps = HTMLAttributes<HTMLSpanElement> & {
+  tone?: StatusPillTone;
+};
+
+export function StatusPill({
+  tone = "neutral",
+  className,
+  ...rest
+}: StatusPillProps) {
+  return (
+    <span
+      className={cx(
+        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+        STATUS_PILL_TONE[tone],
+        className,
+      )}
+      {...rest}
+    />
+  );
+}

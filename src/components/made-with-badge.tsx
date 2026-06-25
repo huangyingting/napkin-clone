@@ -28,7 +28,7 @@ export function MadeWithBadge({ show }: MadeWithBadgeProps) {
       rel="noopener noreferrer"
       aria-label="Made with TextIQ — create your own document"
       className="
-        fixed bottom-4 right-4 z-50
+        fixed bottom-4 right-4 z-overlay
         flex items-center gap-1.5
         rounded-full
         border border-ds-border-subtle
