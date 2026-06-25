@@ -2104,6 +2104,7 @@ function VisualElementEditor({
     ? applyTheme(visual, element.styleThemeId)
     : visual;
   const usingOriginal = !element.styleThemeId;
+  const visualOptions = [...visuals.entries()];
 
   return (
     <div className="flex flex-col gap-3">
@@ -2114,6 +2115,26 @@ function VisualElementEditor({
           transparentBackground
         />
       </span>
+
+      {visualOptions.length > 1 ? (
+        <label className="block">
+          <span className={LABEL_CLASS}>Replace</span>
+          <select
+            value={element.visualId}
+            aria-label="Replace visual from document"
+            onChange={(event) =>
+              onUpdateElement(element.id, { visualId: event.target.value })
+            }
+            className={`${FIELD_CLASS} ${FOCUS_RING}`}
+          >
+            {visualOptions.map(([id, candidate]) => (
+              <option key={id} value={id}>
+                {candidate.title?.trim() || `${candidate.type} visual`}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
 
       <div>
         <span className={LABEL_CLASS}>Restyle</span>
