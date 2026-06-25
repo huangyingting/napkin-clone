@@ -27,20 +27,15 @@ import {
   type RateLimitStore,
 } from "@/lib/ai/quota";
 import type { ChatMessage } from "@/lib/ai/prompt";
+import { InsufficientCreditsError } from "@/lib/billing/credits";
 import {
-  computeCreditCost,
-  deductCredits,
-  getUserCreditState,
-  hasSufficientCredits,
-  InsufficientCreditsError,
-  type UserCreditState,
-} from "@/lib/billing/credits";
-import { isUnlimitedCreditsEnabled } from "@/lib/billing/entitlements";
-import {
-  captureUsage,
-  refundUsage,
-  reserveUsage,
-} from "@/lib/billing/usage-ledger";
+  captureMeteredUsage,
+  refundMeteredUsage,
+  reserveMeteredUsage,
+  type CaptureMeteredUsageResult,
+  type MeteredUsageReservation,
+  type ReserveMeteredUsageResult,
+} from "@/lib/billing/metered-usage";
 import { ABUSE_CATEGORIES, logRouteDenial } from "@/lib/diagnostics/api-abuse";
 import { auth as authEnv } from "@/lib/env";
 import { logError } from "@/lib/log";
@@ -162,23 +157,16 @@ export interface GenerationRouteDeps {
   ): AnonState | null;
   newAnonState(): AnonState;
   signAnonState(state: AnonState, secret: string): string;
-  isUnlimitedCreditsEnabled(): boolean;
-  computeCreditCost(text: string): number;
-  getUserCreditState(userId: string): Promise<UserCreditState>;
-  hasSufficientCredits(balance: number, cost: number): boolean;
-  reserveUsage(opts: {
+  reserveMeteredUsage(opts: {
     idempotencyKey: string;
     userId: string;
     operation: string;
-    creditCost: number;
-  }): Promise<unknown>;
-  captureUsage(opts: {
-    idempotencyKey: string;
-    userId: string;
-    creditCost: number;
-  }): Promise<unknown>;
-  refundUsage(opts: { idempotencyKey: string }): Promise<unknown>;
-  deductCredits(userId: string, cost: number): Promise<unknown>;
+    creditText: string;
+  }): Promise<ReserveMeteredUsageResult>;
+  captureMeteredUsage(
+    reservation: MeteredUsageReservation,
+  ): Promise<CaptureMeteredUsageResult>;
+  refundMeteredUsage(reservation: MeteredUsageReservation): Promise<void>;
   isAzureConfigError(error: unknown): boolean;
   isTimeoutError(error: unknown): boolean;
   isInsufficientCreditsError(error: unknown): boolean;
@@ -213,14 +201,9 @@ const defaultDeps: GenerationRouteDeps = {
   parseAnonCookie,
   newAnonState,
   signAnonState,
-  isUnlimitedCreditsEnabled,
-  computeCreditCost,
-  getUserCreditState,
-  hasSufficientCredits,
-  reserveUsage,
-  captureUsage,
-  refundUsage,
-  deductCredits,
+  reserveMeteredUsage,
+  captureMeteredUsage,
+  refundMeteredUsage,
   isAzureConfigError: (error) => error instanceof AzureConfigError,
   isTimeoutError: (error) => error instanceof GenerateTimeoutError,
   isInsufficientCreditsError: (error) =>
@@ -344,8 +327,7 @@ export function createGenerationRouteHandler<TPayload, TResult>(
 
     const user = await deps.getCurrentUser();
     let commitAnonUsage: CookieWriter | null = null;
-    let creditCost = 0;
-    let ledgerReserved = false;
+    let meteredUsage: MeteredUsageReservation | null = null;
 
     if (user) {
       const rateLimit = await checkUserRateLimit(config, deps, user);
@@ -363,8 +345,7 @@ export function createGenerationRouteHandler<TPayload, TResult>(
       if ("response" in credit) {
         return credit.response;
       }
-      creditCost = credit.creditCost;
-      ledgerReserved = credit.ledgerReserved;
+      meteredUsage = credit.reservation;
     } else {
       const anon = await checkAnonymousAccess(config, deps, request, secret);
       if ("response" in anon) {
@@ -390,14 +371,7 @@ export function createGenerationRouteHandler<TPayload, TResult>(
 
       commitAnonUsage?.commit();
 
-      const capture = await captureCredits(
-        config,
-        deps,
-        user,
-        requestId,
-        creditCost,
-        ledgerReserved,
-      );
+      const capture = await captureCredits(config, deps, meteredUsage);
       if (capture) {
         return capture;
       }
@@ -417,15 +391,13 @@ export function createGenerationRouteHandler<TPayload, TResult>(
 
       return response;
     } catch (error) {
-      if (ledgerReserved) {
-        await deps
-          .refundUsage({ idempotencyKey: requestId })
-          .catch((refundErr) => {
-            deps.logError(config.logScope, refundErr, {
-              requestId,
-              reason: "ledger-refund-failed",
-            });
+      if (meteredUsage?.ledgerReserved) {
+        await deps.refundMeteredUsage(meteredUsage).catch((refundErr) => {
+          deps.logError(config.logScope, refundErr, {
+            requestId,
+            reason: "ledger-refund-failed",
           });
+        });
       }
 
       if (deps.isTimeoutError(error)) {
@@ -511,15 +483,15 @@ async function checkAndReserveCredits<TPayload, TResult>(
   user: GenerationRouteUser,
   requestId: string,
 ): Promise<
-  { creditCost: number; ledgerReserved: boolean } | { response: NextResponse }
+  { reservation: MeteredUsageReservation } | { response: NextResponse }
 > {
-  if (deps.isUnlimitedCreditsEnabled()) {
-    return { creditCost: 0, ledgerReserved: false };
-  }
-
-  const creditCost = deps.computeCreditCost(config.creditText(payload));
-  const creditState = await deps.getUserCreditState(user.id);
-  if (!deps.hasSufficientCredits(creditState.balance, creditCost)) {
+  const result = await deps.reserveMeteredUsage({
+    idempotencyKey: requestId,
+    userId: user.id,
+    operation: config.operation,
+    creditText: config.creditText(payload),
+  });
+  if (!result.ok) {
     deps.logRouteDenial({
       route: config.logScope,
       reason: ABUSE_CATEGORIES.CREDIT_DENIED,
@@ -527,34 +499,11 @@ async function checkAndReserveCredits<TPayload, TResult>(
       userId: user.id,
     });
     return {
-      response: errorResponse(
-        402,
-        `Insufficient credits: you need ${creditCost} but have ${creditState.balance}. ` +
-          `Your credits reset on ${creditState.periodEnd.toLocaleDateString()}. ` +
-          `Upgrade your plan or wait for your credits to reset.`,
-      ),
+      response: errorResponse(402, result.message),
     };
   }
 
-  let ledgerReserved = false;
-  if (creditCost > 0) {
-    try {
-      await deps.reserveUsage({
-        idempotencyKey: requestId,
-        userId: user.id,
-        operation: config.operation,
-        creditCost,
-      });
-      ledgerReserved = true;
-    } catch (err) {
-      deps.logError(config.logScope, err, {
-        requestId,
-        reason: "ledger-reserve-failed",
-      });
-    }
-  }
-
-  return { creditCost, ledgerReserved };
+  return { reservation: result.reservation };
 }
 
 async function checkAnonymousAccess<TPayload, TResult>(
@@ -632,43 +581,36 @@ async function checkAnonymousAccess<TPayload, TResult>(
 async function captureCredits<TPayload, TResult>(
   config: GenerationRouteConfig<TPayload, TResult>,
   deps: GenerationRouteDeps,
-  user: GenerationRouteUser | null,
-  requestId: string,
-  creditCost: number,
-  ledgerReserved: boolean,
+  meteredUsage: MeteredUsageReservation | null,
 ): Promise<NextResponse | null> {
-  if (!user || creditCost <= 0) {
+  if (!meteredUsage || meteredUsage.creditCost <= 0) {
     return null;
   }
 
-  try {
-    if (ledgerReserved) {
-      await deps.captureUsage({
-        idempotencyKey: requestId,
-        userId: user.id,
-        creditCost,
-      });
-    } else {
-      await deps.deductCredits(user.id, creditCost);
-    }
-    return null;
-  } catch (err) {
-    if (deps.isInsufficientCreditsError(err)) {
-      deps.logRouteDenial({
-        route: config.logScope,
-        reason: ABUSE_CATEGORIES.CREDIT_DENIED,
-        status: 402,
-        userId: user.id,
-      });
-      return errorResponse(
-        402,
-        err instanceof Error ? err.message : "Insufficient credits.",
-      );
-    }
-    deps.logError(config.logScope, err, {
-      requestId,
-      reason: "credit-capture-failed",
-    });
+  const result = await deps.captureMeteredUsage(meteredUsage);
+  if (result.ok) {
     return null;
   }
+  if (
+    result.insufficientCredits ||
+    deps.isInsufficientCreditsError(result.error)
+  ) {
+    deps.logRouteDenial({
+      route: config.logScope,
+      reason: ABUSE_CATEGORIES.CREDIT_DENIED,
+      status: 402,
+      userId: meteredUsage.userId,
+    });
+    return errorResponse(
+      402,
+      result.error instanceof Error
+        ? result.error.message
+        : "Insufficient credits.",
+    );
+  }
+  deps.logError(config.logScope, result.error, {
+    requestId: meteredUsage.idempotencyKey,
+    reason: "credit-capture-failed",
+  });
+  return null;
 }

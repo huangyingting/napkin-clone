@@ -9,14 +9,13 @@ import {
 import { SignOutButton } from "@/components/sign-out-button";
 import { MENU_ITEM, Tooltip } from "@/components/ui";
 import { UserMenu } from "@/components/user-menu";
+import { isUnlimitedCreditsEnabled } from "@/lib/billing/config";
+import { createEntitlementFacade } from "@/lib/billing/entitlement-facade";
+import { getBillingState } from "@/lib/billing/service";
 import { createTranslator, isLanguageSwitcherEnabled } from "@/lib/i18n";
 import { getLocale } from "@/lib/i18n/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
-import {
-  getEntitlements,
-  isUnlimitedCreditsEnabled,
-} from "@/lib/billing/entitlements";
 
 export async function SiteHeader() {
   const sessionUser = await getCurrentUser();
@@ -27,12 +26,16 @@ export async function SiteHeader() {
   const account = sessionUser
     ? await prisma.user.findUnique({
         where: { id: sessionUser.id },
-        select: { name: true, email: true, plan: true, creditBalance: true },
+        select: { name: true, email: true },
       })
     : null;
+  const billingState =
+    sessionUser && account ? await getBillingState(sessionUser.id) : null;
 
-  const entitlements = account ? getEntitlements(account.plan) : null;
-  const creditBalance = account?.creditBalance ?? 0;
+  const entitlements = billingState
+    ? createEntitlementFacade(billingState.plan).entitlements
+    : null;
+  const creditBalance = billingState?.creditBalance ?? 0;
   const creditsPerPeriod = entitlements?.creditsPerPeriod ?? 0;
   const unlimitedCredits = isUnlimitedCreditsEnabled();
   const creditCount = unlimitedCredits

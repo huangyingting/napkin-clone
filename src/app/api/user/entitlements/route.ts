@@ -12,8 +12,8 @@ import { NextResponse } from "next/server";
 
 import { unauthorized } from "@/lib/api/errors";
 import { getCurrentUser } from "@/lib/session";
-import { getEntitlements } from "@/lib/billing/entitlements";
-import { getUserCreditState } from "@/lib/billing/credits";
+import { createEntitlementFacade } from "@/lib/billing/entitlement-facade";
+import { getBillingState } from "@/lib/billing/service";
 
 export const runtime = "nodejs";
 
@@ -26,12 +26,12 @@ export async function GET(): Promise<NextResponse> {
   // Derive the balance from getUserCreditState so the period-rollover reset is
   // applied here too; otherwise this endpoint reports a stale raw balance that
   // disagrees with the generate API until the next generation resets it.
-  const creditState = await getUserCreditState(user.id);
-  const entitlements = getEntitlements(creditState.plan);
+  const billingState = await getBillingState(user.id);
+  const entitlements = createEntitlementFacade(billingState.plan).entitlements;
 
   return NextResponse.json({
-    plan: creditState.plan,
-    creditBalance: creditState.balance,
+    plan: billingState.plan,
+    creditBalance: billingState.creditBalance,
     entitlements,
   });
 }

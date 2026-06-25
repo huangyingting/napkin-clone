@@ -10,7 +10,7 @@
  * we default to showing the badge (fail-open for attribution).
  */
 
-import { PLAN_ENTITLEMENTS, type Plan } from "./entitlements";
+import { PLAN_ENTITLEMENTS, type Plan } from "./catalog";
 
 /**
  * Pure function — no I/O, DOM-free — that decides whether the attribution

@@ -7,7 +7,7 @@
 import { describe, it, before } from "node:test";
 import assert from "node:assert/strict";
 
-import type { Plan } from "@/lib/billing/entitlements";
+import type { Plan } from "@/lib/billing/catalog";
 
 // ---------------------------------------------------------------------------
 // In-memory store that mimics the shape of the DB calls MockBillingProvider
@@ -118,7 +118,7 @@ import {
   getEntitlements,
   isPlan,
   PLAN_ENTITLEMENTS,
-} from "@/lib/billing/entitlements";
+} from "@/lib/billing/catalog";
 
 function makeMockProvider(db: ReturnType<typeof makeFakeDb>) {
   return {

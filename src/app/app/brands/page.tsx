@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { prisma } from "@/lib/prisma";
+import { resolveUserEntitlements } from "@/lib/billing/entitlement-facade";
 import { requireUser } from "@/lib/session";
-import { hasEntitlement } from "@/lib/billing/entitlements";
 import { listBrands } from "./actions";
 import { BrandStudio } from "./brand-studio";
 import { BrandStudioTeaser } from "./brand-studio-teaser";
@@ -15,12 +14,9 @@ export const metadata: Metadata = {
 export default async function BrandsPage() {
   const user = await requireUser();
 
-  const dbUser = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { plan: true },
-  });
-  const canUseBrandStyles = hasEntitlement(dbUser?.plan, "brandStyles");
-  const canUploadFont = hasEntitlement(dbUser?.plan, "fontUpload");
+  const entitlements = await resolveUserEntitlements(user.id);
+  const canUseBrandStyles = entitlements.can("brandStyles");
+  const canUploadFont = entitlements.can("fontUpload");
 
   const brands = await listBrands();
 

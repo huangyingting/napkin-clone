@@ -11,7 +11,7 @@ import { revalidatePath } from "next/cache";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 import { requireUser } from "@/lib/session";
 import { getBillingProvider } from "@/lib/billing/provider";
-import { isPlan, type Plan } from "@/lib/billing/entitlements";
+import { isPlan, type Plan } from "@/lib/billing/catalog";
 
 /** Payload returned to the client when a plan change/cancel succeeds. */
 export interface BillingActionData {

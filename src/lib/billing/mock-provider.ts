@@ -14,8 +14,12 @@
  *    end (a cron job or webhook would handle that in prod — for mock we mark it).
  */
 
-import { prisma } from "@/lib/prisma";
-import { getEntitlements, isPlan, type Plan } from "@/lib/billing/entitlements";
+import { isPlan, type Plan } from "@/lib/billing/catalog";
+import {
+  applyLocalPlanChange,
+  getBillingSubscription,
+  markSubscriptionCancelAtPeriodEnd,
+} from "@/lib/billing/service";
 import type { BillingProvider, ChangePlanResult } from "@/lib/billing/provider";
 import { isProductionEnv } from "@/lib/billing/provider";
 
@@ -57,40 +61,7 @@ export class MockBillingProvider implements BillingProvider {
       };
     }
 
-    const entitlements = getEntitlements(targetPlan);
-    const now = new Date();
-    const periodEnd = new Date(
-      now.getTime() + entitlements.periodDays * 24 * 60 * 60 * 1000,
-    );
-
-    await prisma.$transaction([
-      prisma.user.update({
-        where: { id: userId },
-        data: {
-          plan: targetPlan,
-          creditBalance: entitlements.creditsPerPeriod,
-          creditPeriodStart: now,
-        },
-      }),
-      prisma.subscription.upsert({
-        where: { userId },
-        create: {
-          userId,
-          plan: targetPlan,
-          status: "active",
-          currentPeriodStart: now,
-          currentPeriodEnd: periodEnd,
-          cancelAtPeriodEnd: false,
-        },
-        update: {
-          plan: targetPlan,
-          status: "active",
-          currentPeriodStart: now,
-          currentPeriodEnd: periodEnd,
-          cancelAtPeriodEnd: false,
-        },
-      }),
-    ]);
+    await applyLocalPlanChange(userId, targetPlan);
 
     return {
       success: true,
@@ -103,7 +74,7 @@ export class MockBillingProvider implements BillingProvider {
   async cancelSubscriptionImmediately(_userId: string): Promise<void> {}
 
   async cancelSubscription(userId: string): Promise<ChangePlanResult> {
-    const sub = await prisma.subscription.findUnique({ where: { userId } });
+    const sub = await getBillingSubscription(userId);
 
     if (!sub) {
       // No active subscription — nothing to cancel
@@ -114,10 +85,7 @@ export class MockBillingProvider implements BillingProvider {
       };
     }
 
-    await prisma.subscription.update({
-      where: { userId },
-      data: { cancelAtPeriodEnd: true },
-    });
+    await markSubscriptionCancelAtPeriodEnd(userId);
 
     return {
       success: true,

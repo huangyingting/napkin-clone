@@ -19,6 +19,7 @@ import {
   getBillingProvider,
   shouldCancelSubscription,
 } from "@/lib/billing/provider";
+import { getSubscriptionCancellationState } from "@/lib/billing/service";
 import { logError } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
@@ -185,10 +186,7 @@ export async function deleteAccount(
   }
 
   try {
-    const sub = await prisma.subscription.findUnique({
-      where: { userId: user.id },
-      select: { stripeSubscriptionId: true, status: true },
-    });
+    const sub = await getSubscriptionCancellationState(user.id);
 
     if (shouldCancelSubscription(sub)) {
       try {
@@ -197,10 +195,10 @@ export async function deleteAccount(
       } catch (err) {
         // Fail-safe: log the Stripe error but allow account deletion to proceed
         // so a billing issue never traps a user who wants to leave.
-        console.error(
-          "[deleteAccount] Failed to cancel Stripe subscription — proceeding with deletion:",
-          err,
-        );
+        logError("billing.subscription.cancel_immediate", err, {
+          userId: user.id,
+          reason: "account-deletion",
+        });
       }
     }
 

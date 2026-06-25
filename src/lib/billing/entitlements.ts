@@ -1,176 +1,27 @@
 /**
- * Entitlements — plan definitions and per-tier feature flags (US-010 epic).
+ * Compatibility barrel for billing entitlements.
  *
- * Pure module: no DB calls, no side effects. Import from anywhere (server or
- * client) to decide what a user's plan allows.
- *
- * Tiers:
- *  - free  — 500 credits/week, PNG/PDF export, watermark present
- *  - plus  — 10 000 credits/month, SVG/PPTX export, brand styles, no watermark
- *  - pro   — 30 000 credits/month, all Plus + font upload, custom branding, top-ups
+ * Static plan metadata lives in `catalog.ts`; runtime billing feature flags live
+ * in `config.ts`. Import those modules directly for new code.
  */
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+export {
+  PLAN_CATALOG,
+  PLAN_ENTITLEMENTS,
+  PLAN_NAMES,
+  getEntitlements,
+  getPlanCatalogEntry,
+  hasEntitlement,
+  isPlan,
+  type Plan,
+  type PlanCatalogEntry,
+  type PlanEntitlements,
+} from "./catalog";
 
-export type Plan = "free" | "plus" | "pro";
-
-export interface PlanEntitlements {
-  /** Total AI credits granted at the start of each billing period. */
-  creditsPerPeriod: number;
-  /** Billing period length in days (7 for Free/weekly, 30 for Plus/Pro). */
-  periodDays: number;
-  /** Allow SVG export (paid tiers only). */
-  svgExport: boolean;
-  /** Allow PPTX export (paid tiers only). */
-  pptxExport: boolean;
-  /** Allow saving and applying Brand Styles. */
-  brandStyles: boolean;
-  /** Remove the "TextIQ" watermark from exports. */
-  removeWatermark: boolean;
-  /** Allow uploading custom fonts. */
-  fontUpload: boolean;
-  /**
-   * Plan metadata flag for future credit top-up purchases. NOTE: top-up
-   * purchasing is not yet implemented, so this flag is intentionally not
-   * surfaced as a purchasable affordance in the UI (see issue #97).
-   */
-  topUps: boolean;
-}
-
-// ---------------------------------------------------------------------------
-// Plan definitions
-// ---------------------------------------------------------------------------
-
-export const PLAN_ENTITLEMENTS: Record<Plan, PlanEntitlements> = {
-  free: {
-    creditsPerPeriod: 500,
-    periodDays: 7,
-    svgExport: false,
-    pptxExport: false,
-    brandStyles: false,
-    removeWatermark: false,
-    fontUpload: false,
-    topUps: false,
-  },
-  plus: {
-    creditsPerPeriod: 10_000,
-    periodDays: 30,
-    svgExport: true,
-    pptxExport: true,
-    brandStyles: true,
-    removeWatermark: true,
-    fontUpload: false,
-    topUps: false,
-  },
-  pro: {
-    creditsPerPeriod: 30_000,
-    periodDays: 30,
-    svgExport: true,
-    pptxExport: true,
-    brandStyles: true,
-    removeWatermark: true,
-    fontUpload: true,
-    topUps: true,
-  },
-};
-
-export const PLAN_NAMES: Record<Plan, string> = {
-  free: "Free",
-  plus: "Plus",
-  pro: "Pro",
-};
-
-/**
- * Environment variable that gates the "unlimited credits" behaviour. When set
- * to a truthy value (`1`, `true`, `yes`, `on`) authenticated users are never
- * metered. It defaults to OFF, so production is metered unless an operator
- * explicitly opts in.
- */
-export const BILLING_UNLIMITED_CREDITS_ENV = "BILLING_UNLIMITED_CREDITS";
-
-/**
- * Environment variable that gates the AI deck-generation feature (issue #265).
- * When set to a truthy value (`1`, `true`, `yes`, `on`) the
- * `POST /api/generate-deck` route is enabled. It defaults to OFF, so the route
- * stays disabled (returns 404) unless an operator explicitly opts in.
- */
-export const AI_DECK_GEN_ENABLED_ENV = "AI_DECK_GEN_ENABLED";
-
-/**
- * Parses a boolean-ish environment flag. Recognises `1/true/yes/on` (any case)
- * as `true`; everything else (including `undefined`) is `false`.
- */
-export function parseBillingFlag(value: string | null | undefined): boolean {
-  if (!value) return false;
-  return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
-}
-
-/**
- * Returns whether unlimited AI credits are enabled for the current environment.
- *
- * Driven entirely by {@link BILLING_UNLIMITED_CREDITS_ENV}. The default is
- * `false` (production-safe): users are metered unless an operator explicitly
- * opts into unlimited credits. When `true`, credit pre-checks and deductions
- * are skipped and usage is shown as "Unlimited" in the UI. Anonymous trial
- * users remain rate-limited regardless.
- *
- * Pure: pass an explicit `env` in tests; defaults to `process.env`.
- */
-export function isUnlimitedCreditsEnabled(
-  env: Record<string, string | undefined> = process.env,
-): boolean {
-  return parseBillingFlag(env[BILLING_UNLIMITED_CREDITS_ENV]);
-}
-
-/**
- * Returns whether the AI deck-generation route is enabled for the current
- * environment.
- *
- * Driven entirely by {@link AI_DECK_GEN_ENABLED_ENV}. The default is `false`
- * (production-safe): the `POST /api/generate-deck` route stays disabled (404)
- * unless an operator explicitly opts in. When `true`, the route accepts deck
- * generation requests (still subject to quota, credits, and the abort deadline).
- *
- * Pure: pass an explicit `env` in tests; defaults to `process.env`. Read at call
- * time so the flag can be toggled without restarting.
- */
-export function isAiDeckGenEnabled(
-  env: Record<string, string | undefined> = process.env,
-): boolean {
-  return parseBillingFlag(env[AI_DECK_GEN_ENABLED_ENV]);
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Returns true when `value` is a valid {@link Plan} string. */
-export function isPlan(value: unknown): value is Plan {
-  return value === "free" || value === "plus" || value === "pro";
-}
-
-/**
- * Returns the entitlements for the given plan string. Falls back to `"free"`
- * when the value is not a recognised plan (safe default).
- */
-export function getEntitlements(
-  plan: string | null | undefined,
-): PlanEntitlements {
-  if (isPlan(plan)) {
-    return PLAN_ENTITLEMENTS[plan];
-  }
-  return PLAN_ENTITLEMENTS.free;
-}
-
-/**
- * Checks whether the given plan includes a specific entitlement feature.
- * Returns `false` for unrecognised plan values (safe default = free tier).
- */
-export function hasEntitlement<K extends keyof PlanEntitlements>(
-  plan: string | null | undefined,
-  feature: K,
-): boolean {
-  return Boolean(getEntitlements(plan)[feature]);
-}
+export {
+  AI_DECK_GEN_ENABLED_ENV,
+  BILLING_UNLIMITED_CREDITS_ENV,
+  isAiDeckGenEnabled,
+  isUnlimitedCreditsEnabled,
+  parseBillingFlag,
+} from "./config";

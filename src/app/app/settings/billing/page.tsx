@@ -2,14 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
-import {
-  getEntitlements,
-  PLAN_NAMES,
-  isPlan,
-  isUnlimitedCreditsEnabled,
-} from "@/lib/billing/entitlements";
+import { PLAN_NAMES } from "@/lib/billing/catalog";
+import { isUnlimitedCreditsEnabled } from "@/lib/billing/config";
+import { createEntitlementFacade } from "@/lib/billing/entitlement-facade";
+import { getBillingState } from "@/lib/billing/service";
 
 import { BillingActions } from "./billing-actions";
 
@@ -20,45 +17,19 @@ export const metadata: Metadata = {
 export default async function BillingPage() {
   const sessionUser = await requireUser();
 
-  const user = await prisma.user.findUnique({
-    where: { id: sessionUser.id },
-    select: {
-      plan: true,
-      creditBalance: true,
-      creditPeriodStart: true,
-      subscription: {
-        select: {
-          status: true,
-          currentPeriodEnd: true,
-          cancelAtPeriodEnd: true,
-        },
-      },
-    },
-  });
+  const billingState = await getBillingState(sessionUser.id).catch(() =>
+    redirect("/login"),
+  );
 
-  if (!user) {
-    redirect("/login");
-  }
-
-  const plan = isPlan(user.plan) ? user.plan : "free";
-  const entitlements = getEntitlements(plan);
+  const plan = billingState.plan;
+  const entitlements = createEntitlementFacade(plan).entitlements;
   const unlimitedCredits = isUnlimitedCreditsEnabled();
-
-  // Compute period end from creditPeriodStart or subscription row
-  let periodEnd: Date | null = null;
-  if (user.creditPeriodStart) {
-    periodEnd = new Date(
-      user.creditPeriodStart.getTime() +
-        entitlements.periodDays * 24 * 60 * 60 * 1000,
-    );
-  }
-  if (user.subscription?.currentPeriodEnd) {
-    periodEnd = user.subscription.currentPeriodEnd;
-  }
+  const periodEnd =
+    billingState.subscription?.currentPeriodEnd ?? billingState.periodEnd;
 
   const creditsUsed = Math.max(
     0,
-    entitlements.creditsPerPeriod - user.creditBalance,
+    entitlements.creditsPerPeriod - billingState.creditBalance,
   );
 
   const usagePct =
@@ -102,7 +73,7 @@ export default async function BillingPage() {
           </div>
 
           {/* Subscription status */}
-          {user.subscription?.cancelAtPeriodEnd && (
+          {billingState.subscription?.cancelAtPeriodEnd && (
             <p className="rounded-lg bg-ds-warning-surface px-4 py-2 text-sm text-ds-warning-text">
               Your subscription will be cancelled at the end of the current
               billing period
@@ -110,7 +81,7 @@ export default async function BillingPage() {
             </p>
           )}
 
-          {periodEnd && !user.subscription?.cancelAtPeriodEnd && (
+          {periodEnd && !billingState.subscription?.cancelAtPeriodEnd && (
             <p className="text-sm text-ds-text-secondary">
               Renews on{" "}
               <span className="font-medium">
@@ -131,7 +102,7 @@ export default async function BillingPage() {
               <span className="text-3xl font-bold tabular-nums text-ds-text-primary">
                 {unlimitedCredits
                   ? "Unlimited"
-                  : user.creditBalance.toLocaleString()}
+                  : billingState.creditBalance.toLocaleString()}
               </span>
               <span className="text-sm text-ds-text-secondary">
                 {unlimitedCredits
@@ -216,7 +187,9 @@ export default async function BillingPage() {
           </h2>
           <BillingActions
             currentPlan={plan}
-            cancelAtPeriodEnd={user.subscription?.cancelAtPeriodEnd ?? false}
+            cancelAtPeriodEnd={
+              billingState.subscription?.cancelAtPeriodEnd ?? false
+            }
           />
         </section>
 

@@ -16,7 +16,7 @@
  * when generation is unavailable.
  */
 
-import { parseBillingFlag } from "@/lib/billing/entitlements";
+import { parseBillingFlag } from "@/lib/billing/config";
 
 /** Whether the client-side AI deck-generation entry point should be shown. */
 export function isAiDeckGenClientEnabled(): boolean {

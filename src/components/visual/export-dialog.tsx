@@ -22,7 +22,7 @@ import {
   FOCUS_RING,
   type SegmentedOption,
 } from "@/components/ui";
-import type { PlanEntitlements } from "@/lib/billing/entitlements";
+import type { PlanEntitlements } from "@/lib/billing/catalog";
 import {
   applySocialPresetToOptions,
   clearSocialPreset,

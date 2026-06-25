@@ -12,13 +12,15 @@ import {
   getEntitlements,
   hasEntitlement,
   isPlan,
+  type Plan,
+} from "@/lib/billing/catalog";
+import {
   isAiDeckGenEnabled,
   isUnlimitedCreditsEnabled,
   parseBillingFlag,
   AI_DECK_GEN_ENABLED_ENV,
   BILLING_UNLIMITED_CREDITS_ENV,
-  type Plan,
-} from "@/lib/billing/entitlements";
+} from "@/lib/billing/config";
 
 describe("PLAN_ENTITLEMENTS", () => {
   it("defines all three tiers", () => {
@@ -37,7 +39,6 @@ describe("PLAN_ENTITLEMENTS", () => {
     assert.strictEqual(e.brandStyles, false);
     assert.strictEqual(e.removeWatermark, false);
     assert.strictEqual(e.fontUpload, false);
-    assert.strictEqual(e.topUps, false);
   });
 
   it("plus tier: 10 000 credits, 30-day period, svg/pptx/brand/no-watermark", () => {
@@ -49,7 +50,6 @@ describe("PLAN_ENTITLEMENTS", () => {
     assert.strictEqual(e.brandStyles, true);
     assert.strictEqual(e.removeWatermark, true);
     assert.strictEqual(e.fontUpload, false);
-    assert.strictEqual(e.topUps, false);
   });
 
   it("pro tier: 30 000 credits, 30-day period, all features", () => {
@@ -61,7 +61,12 @@ describe("PLAN_ENTITLEMENTS", () => {
     assert.strictEqual(e.brandStyles, true);
     assert.strictEqual(e.removeWatermark, true);
     assert.strictEqual(e.fontUpload, true);
-    assert.strictEqual(e.topUps, true);
+  });
+
+  it("does not expose future top-up purchasing as a current entitlement", () => {
+    for (const e of Object.values(PLAN_ENTITLEMENTS)) {
+      assert.equal("topUps" in e, false);
+    }
   });
 });
 

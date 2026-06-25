@@ -20,6 +20,7 @@ import {
   signAnonState,
 } from "@/lib/ai/quota";
 import { InsufficientCreditsError } from "@/lib/billing/credits";
+import type { MeteredUsageReservation } from "@/lib/billing/metered-usage";
 
 interface FakePayload {
   text: string;
@@ -159,28 +160,40 @@ function createDeps(state: FakeState): GenerationRouteDeps {
     parseAnonCookie,
     newAnonState,
     signAnonState,
-    isUnlimitedCreditsEnabled: () => false,
-    computeCreditCost: (text) =>
-      text.trim().split(/\s+/).filter(Boolean).length,
-    getUserCreditState: async () => ({
-      balance: state.balance,
-      periodStart: new Date("2026-06-01T00:00:00Z"),
-      periodEnd: PERIOD_END,
-      creditsPerPeriod: 10,
-      plan: "FREE",
-    }),
-    hasSufficientCredits: (balance, cost) => balance >= cost,
-    reserveUsage: async (opts) => {
+    reserveMeteredUsage: async (opts) => {
+      const creditCost = opts.creditText
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean).length;
+      if (state.balance < creditCost) {
+        return {
+          ok: false,
+          reason: "insufficient-credits",
+          creditCost,
+          balance: state.balance,
+          periodEnd: PERIOD_END,
+          message:
+            `Insufficient credits: you need ${creditCost} but have ${state.balance}. ` +
+            `Your credits reset on ${PERIOD_END.toLocaleDateString()}. ` +
+            "Upgrade your plan or wait for your credits to reset.",
+        };
+      }
+      const reservation: MeteredUsageReservation = {
+        idempotencyKey: opts.idempotencyKey,
+        userId: opts.userId,
+        operation: opts.operation,
+        creditCost,
+        ledgerReserved: creditCost > 0,
+      };
       state.reserved.push(opts);
+      return { ok: true, reservation };
     },
-    captureUsage: async (opts) => {
-      state.captured.push(opts);
+    captureMeteredUsage: async (reservation) => {
+      state.captured.push(reservation);
+      return { ok: true };
     },
-    refundUsage: async (opts) => {
-      state.refunded.push(opts);
-    },
-    deductCredits: async (userId, cost) => {
-      state.deducted.push({ userId, cost });
+    refundMeteredUsage: async (reservation) => {
+      state.refunded.push(reservation);
     },
     isAzureConfigError: () => false,
     isTimeoutError: (error) => error instanceof GenerateTimeoutError,
