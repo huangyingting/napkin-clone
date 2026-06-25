@@ -17,7 +17,12 @@
  */
 
 import type { Deck, ImageElement, SlideElement } from "@/lib/presentation/deck";
+import type { ExportPolicy } from "@/lib/visual/export-policy";
 import { getFidelity } from "@/lib/visual/export-fidelity";
+import {
+  getOutputProfile,
+  type OutputProfileId,
+} from "@/lib/visual/output-profiles";
 import {
   EXPORT_PREFLIGHT_MAX_SLIDES,
   budgetExceededDiagnostic,
@@ -90,6 +95,13 @@ export interface PreflightResult {
    * errors).  The caller should still surface any warnings.
    */
   canExport: boolean;
+  /**
+   * Resolved output profile metadata when a profile is supplied. Preflight reads
+   * this from the shared output profile catalog instead of duplicating data.
+   */
+  outputProfile?: PreflightOutputProfile;
+  /** Entitlement-derived export policy summary relevant to export checks. */
+  exportPolicy?: PreflightExportPolicy;
 }
 
 /** Which export format is being preflight-checked. */
@@ -110,6 +122,28 @@ export interface PreflightOptions {
    * reported as `missing-font` for PPTX (fonts are not embedded).
    */
   customFontFamilies?: ReadonlySet<string>;
+  /** Optional output profile id to resolve from the shared catalog. */
+  outputProfile?: OutputProfileId;
+  /** Optional centralized export entitlement/watermark policy. */
+  exportPolicy?: ExportPolicy;
+}
+
+export interface PreflightOutputProfile {
+  id: OutputProfileId;
+  label: string;
+  canonicalWidth: number;
+  canonicalHeight: number;
+  aspectRatio: string;
+  padding: number;
+  background: string;
+  minScale: number;
+}
+
+export interface PreflightExportPolicy {
+  canSvg: boolean;
+  canPptx: boolean;
+  canRemoveWatermark: boolean;
+  defaultWatermark: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -143,6 +177,35 @@ function primaryFontFamily(fontFamily: string): string {
     .trim()
     .replace(/^['"]|['"]$/g, "")
     .trim();
+}
+
+function resolvePreflightOutputProfile(
+  outputProfile: OutputProfileId | undefined,
+): PreflightOutputProfile | undefined {
+  if (!outputProfile) return undefined;
+  const profile = getOutputProfile(outputProfile);
+  return {
+    id: profile.id,
+    label: profile.label,
+    canonicalWidth: profile.canonicalWidth,
+    canonicalHeight: profile.canonicalHeight,
+    aspectRatio: profile.aspectRatio,
+    padding: profile.padding,
+    background: profile.background,
+    minScale: profile.minScale,
+  };
+}
+
+function resolvePreflightExportPolicy(
+  policy: ExportPolicy | undefined,
+): PreflightExportPolicy | undefined {
+  if (!policy) return undefined;
+  return {
+    canSvg: policy.canSvg,
+    canPptx: policy.canPptx,
+    canRemoveWatermark: policy.canRemoveWatermark,
+    defaultWatermark: policy.defaultWatermark,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -325,6 +388,8 @@ export function runExportPreflight(
     target,
     maxSlides = DEFAULT_MAX_SLIDES,
     customFontFamilies = new Set<string>(),
+    outputProfile,
+    exportPolicy,
   } = options;
 
   const diagnostics: PreflightDiagnostic[] = [];
@@ -394,12 +459,21 @@ export function runExportPreflight(
   const hasFatal = diagnostics.some((d) => d.severity === "fatal");
   const hasWarnings = diagnostics.some((d) => d.severity === "warning");
 
-  return {
+  const result: PreflightResult = {
     diagnostics,
     hasFatal,
     hasWarnings,
     canExport: !hasFatal,
   };
+  const resolvedOutputProfile = resolvePreflightOutputProfile(outputProfile);
+  if (resolvedOutputProfile) {
+    result.outputProfile = resolvedOutputProfile;
+  }
+  const resolvedExportPolicy = resolvePreflightExportPolicy(exportPolicy);
+  if (resolvedExportPolicy) {
+    result.exportPolicy = resolvedExportPolicy;
+  }
+  return result;
 }
 
 // ---------------------------------------------------------------------------

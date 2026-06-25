@@ -12,6 +12,8 @@ import {
   applyExportOptionsToSvg,
   DEFAULT_EXPORT_OPTIONS,
 } from "@/lib/visual/export-options";
+import { resolveExportPolicy } from "@/lib/visual/export-policy";
+import { PLAN_ENTITLEMENTS } from "@/lib/billing/catalog";
 
 const SAMPLE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect x="0" y="0" width="400" height="300" fill="#ffffff"/><text x="200" y="150">Hello</text></svg>`;
 
@@ -80,15 +82,19 @@ describe("applyExportOptionsToSvg with watermark", () => {
 });
 
 describe("watermark decision (free vs paid)", () => {
-  it("free tier: watermark should be true (!removeWatermark)", () => {
-    const removeWatermark = false; // free tier
-    const watermark = !removeWatermark;
-    assert.strictEqual(watermark, true);
+  it("free tier: policy defaults watermark on", () => {
+    const policy = resolveExportPolicy(PLAN_ENTITLEMENTS.free);
+    assert.strictEqual(policy.defaultWatermark, true);
   });
 
-  it("plus/pro tier: watermark should be false (removeWatermark = true)", () => {
-    const removeWatermark = true; // plus/pro tier
-    const watermark = !removeWatermark;
-    assert.strictEqual(watermark, false);
+  it("plus/pro tier: policy defaults watermark off", () => {
+    assert.strictEqual(
+      resolveExportPolicy(PLAN_ENTITLEMENTS.plus).defaultWatermark,
+      false,
+    );
+    assert.strictEqual(
+      resolveExportPolicy(PLAN_ENTITLEMENTS.pro).defaultWatermark,
+      false,
+    );
   });
 });

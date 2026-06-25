@@ -44,6 +44,7 @@ import {
 import { DEFAULT_INFOGRAPHIC_CONFIG } from "@/lib/visual/infographic-layout";
 import { downloadBlob, sanitizeFilename } from "@/lib/visual/export";
 import { useUserEntitlements } from "@/lib/billing/use-user-entitlements";
+import { resolveExportPolicy } from "@/lib/visual/export-policy";
 
 interface DocumentExportButtonProps {
   documentTitle: string;
@@ -87,8 +88,9 @@ export function DocumentExportButton({
   const menuRef = useRef<HTMLDivElement>(null);
 
   const entitlements = useUserEntitlements();
-  const removeWatermark = entitlements.removeWatermark;
-  const canPptx = entitlements.pptxExport;
+  const exportPolicy = resolveExportPolicy(entitlements);
+  const canPptx = exportPolicy.canPptx;
+  const canRemoveWatermark = exportPolicy.canRemoveWatermark;
 
   // Close the menu on an outside click or Escape. A focus-based `onBlur` missed
   // clicks on non-focusable areas (plain page background), which left the menu
@@ -264,7 +266,7 @@ export function DocumentExportButton({
             ...DEFAULT_INFOGRAPHIC_CONFIG,
             width: presetWidth,
           },
-          watermark: !removeWatermark,
+          watermark: exportPolicy.defaultWatermark,
           outputFormat: format,
         },
       );
@@ -433,7 +435,7 @@ export function DocumentExportButton({
               </span>
             </button>
 
-            {!removeWatermark && (
+            {!canRemoveWatermark && (
               <p className="px-3 pb-2 text-[10px] text-ds-text-muted">
                 Free plan: includes watermark.{" "}
                 <a

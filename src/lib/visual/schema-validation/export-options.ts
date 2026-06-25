@@ -1,4 +1,4 @@
-/** Visual-level export/frame option validation. */
+/** Persisted visual-level export/frame preference validation. */
 
 import {
   isAspectRatioPreset,

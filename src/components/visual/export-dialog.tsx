@@ -5,6 +5,7 @@ import { Download, X } from "lucide-react";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ChangeEvent,
@@ -27,13 +28,14 @@ import {
   applySocialPresetToOptions,
   clearSocialPreset,
   applyExportOptionsToSvg,
-  DEFAULT_EXPORT_OPTIONS,
-  SOCIAL_PRESET_CONFIGS,
   type BackgroundMode,
   type ColorMode,
   type ExportOptions,
   type SocialPreset,
 } from "@/lib/visual/export-options";
+import { resolveExportPolicy } from "@/lib/visual/export-policy";
+import { createDefaultExportDialogOptions } from "@/lib/visual/export-settings";
+import { OUTPUT_PROFILE_CATALOG } from "@/lib/visual/output-profiles";
 import {
   downloadBlob,
   exportPDF,
@@ -81,14 +83,6 @@ const SCALE_OPTIONS: SegmentedOption<string>[] = [
   { value: "2", label: "2×" },
   { value: "3", label: "3×" },
 ];
-
-/** Ordered list of social presets shown in the dialog. */
-const SOCIAL_PRESET_LIST = [
-  SOCIAL_PRESET_CONFIGS.square,
-  SOCIAL_PRESET_CONFIGS.portrait,
-  SOCIAL_PRESET_CONFIGS.landscape,
-  SOCIAL_PRESET_CONFIGS.story,
-] as const;
 
 const FORMAT_OPTIONS: SegmentedOption<ExportFormat>[] = [
   { value: "png", label: "PNG" },
@@ -200,29 +194,31 @@ export function ExportDialog({
   filename,
   entitlements,
 }: ExportDialogProps) {
-  const canSvg = entitlements?.svgExport ?? false;
-  const canPptx = entitlements?.pptxExport ?? false;
-  const removeWatermark = entitlements?.removeWatermark ?? false;
+  const exportPolicy = resolveExportPolicy(entitlements);
+  const canSvg = exportPolicy.canSvg;
+  const canPptx = exportPolicy.canPptx;
+  const canRemoveWatermark = exportPolicy.canRemoveWatermark;
+  const defaultWatermark = exportPolicy.defaultWatermark;
 
   const [format, setFormat] = useState<ExportFormat>("png");
-  const [options, setOptions] = useState<ExportOptions>({
-    ...DEFAULT_EXPORT_OPTIONS,
-    watermark: !removeWatermark,
-  });
+  const [options, setOptions] = useState<ExportOptions>(() =>
+    createDefaultExportDialogOptions(exportPolicy),
+  );
+  const [watermarkOverride, setWatermarkOverride] = useState<
+    boolean | undefined
+  >(undefined);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Sync watermark option when removeWatermark entitlement changes (e.g. after
-  // plan upgrade without remounting the dialog). Use a ref to avoid triggering
-  // on every render — only update when the entitlement actually flips.
-  const prevRemoveWatermark = useRef(removeWatermark);
-  if (prevRemoveWatermark.current !== removeWatermark) {
-    prevRemoveWatermark.current = removeWatermark;
-    // Inline state update during render (safe: guarded by ref comparison)
-    setOptions((o) => ({ ...o, watermark: !removeWatermark }));
-  }
+  const effectiveWatermark = canRemoveWatermark
+    ? (watermarkOverride ?? defaultWatermark)
+    : defaultWatermark;
+  const exportOptions = useMemo<ExportOptions>(
+    () => ({ ...options, watermark: effectiveWatermark }),
+    [effectiveWatermark, options],
+  );
 
-  const previewUrl = useExportPreview(getSvgElement, options, format);
+  const previewUrl = useExportPreview(getSvgElement, exportOptions, format);
   const popMotion = usePopMotion();
 
   // Close on Escape
@@ -262,8 +258,8 @@ export function ExportDialog({
   );
 
   const toggleBranding = useCallback(
-    () => setOptions((o) => ({ ...o, watermark: !o.watermark })),
-    [],
+    () => setWatermarkOverride((current) => !(current ?? defaultWatermark)),
+    [defaultWatermark],
   );
 
   const setCustomBackground = useCallback(
@@ -304,7 +300,7 @@ export function ExportDialog({
           // For SVG apply the export options as transforms, then download
           const serializer = new XMLSerializer();
           const raw = serializer.serializeToString(svg);
-          const transformed = applyExportOptionsToSvg(raw, options);
+          const transformed = applyExportOptionsToSvg(raw, exportOptions);
           const xmlHeader = `<?xml version="1.0" encoding="UTF-8"?>\n`;
           blob = new Blob([xmlHeader + transformed], {
             type: "image/svg+xml;charset=utf-8",
@@ -312,13 +308,17 @@ export function ExportDialog({
           break;
         }
         case "png":
-          blob = await exportPNG(svg, options);
+          blob = await exportPNG(svg, exportOptions);
           break;
         case "pdf":
-          blob = await exportPDF(svg, options);
+          blob = await exportPDF(svg, exportOptions);
           break;
         case "pptx":
-          blob = await exportPPTX(svg, getVisual?.() ?? undefined, options);
+          blob = await exportPPTX(
+            svg,
+            getVisual?.() ?? undefined,
+            exportOptions,
+          );
           break;
       }
 
@@ -328,7 +328,9 @@ export function ExportDialog({
       }
 
       const scaleLabel =
-        format === "png" && options.scale !== 1 ? `@${options.scale}x` : "";
+        format === "png" && exportOptions.scale !== 1
+          ? `@${exportOptions.scale}x`
+          : "";
       downloadBlob(blob, `${filename}${scaleLabel}.${ext}`);
       onClose();
     } catch {
@@ -338,7 +340,7 @@ export function ExportDialog({
     }
   }, [
     format,
-    options,
+    exportOptions,
     getSvgElement,
     getVisual,
     filename,
@@ -412,7 +414,7 @@ export function ExportDialog({
                   {/* Social presets */}
                   <ControlField label="Social preset">
                     <div className="grid grid-cols-2 gap-1.5">
-                      {SOCIAL_PRESET_LIST.map((preset) => {
+                      {OUTPUT_PROFILE_CATALOG.map((preset) => {
                         const isActive = options.socialPreset === preset.id;
                         return (
                           <button
@@ -475,7 +477,7 @@ export function ExportDialog({
                         </a>
                       </p>
                     )}
-                    {!removeWatermark && (
+                    {!canRemoveWatermark && (
                       <p className="mt-1 text-xs text-[var(--ds-text-muted,#6f7d83)]">
                         Free plan: exports include a watermark.{" "}
                         <a href="/app/settings/billing" className="underline">
@@ -547,12 +549,12 @@ export function ExportDialog({
                   )}
 
                   {/* Branding toggle (paid plans only) */}
-                  {removeWatermark && (
+                  {canRemoveWatermark && (
                     <ControlField label="Branding">
                       <label className="flex cursor-pointer items-center gap-2">
                         <input
                           type="checkbox"
-                          checked={options.watermark ?? false}
+                          checked={exportOptions.watermark ?? false}
                           onChange={toggleBranding}
                           aria-label="Include TextIQ branding"
                           className={cx(

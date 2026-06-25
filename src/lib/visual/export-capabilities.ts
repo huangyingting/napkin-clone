@@ -7,6 +7,7 @@
  */
 
 import type { PlanEntitlements } from "@/lib/billing/catalog";
+import { resolveExportPolicy } from "@/lib/visual/export-policy";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -43,13 +44,11 @@ export function resolveExportCapabilities(
     "svgExport" | "pptxExport" | "removeWatermark"
   >,
 ): ExportCapabilities {
-  const canSvg = entitlements?.svgExport ?? false;
-  const canPptx = entitlements?.pptxExport ?? false;
-  const canRemoveWatermark = entitlements?.removeWatermark ?? false;
+  const policy = resolveExportPolicy(entitlements);
   return {
-    canSvg,
-    canPptx,
-    canRemoveWatermark,
-    showUpgrade: !canSvg || !canPptx || !canRemoveWatermark,
+    canSvg: policy.canSvg,
+    canPptx: policy.canPptx,
+    canRemoveWatermark: policy.canRemoveWatermark,
+    showUpgrade: policy.showUpgrade,
   };
 }

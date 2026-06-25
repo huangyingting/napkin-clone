@@ -13,6 +13,10 @@ import {
   resolveExportCapabilities,
   type ExportCapabilities,
 } from "@/lib/visual/export-capabilities";
+import {
+  resolveExportPolicy,
+  resolveExportPolicyFromEntitlementFacade,
+} from "@/lib/visual/export-policy";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -124,5 +128,30 @@ describe("resolveExportCapabilities — partial entitlements", () => {
       removeWatermark: true,
     });
     assert.strictEqual(result.showUpgrade, false);
+  });
+});
+
+describe("export policy — watermark defaults", () => {
+  it("derives watermark from entitlements in the centralized policy", () => {
+    assert.equal(
+      resolveExportPolicy(PLAN_ENTITLEMENTS.free).defaultWatermark,
+      true,
+    );
+    assert.equal(
+      resolveExportPolicy(PLAN_ENTITLEMENTS.plus).defaultWatermark,
+      false,
+    );
+  });
+
+  it("can consume the R17 entitlement facade shape", () => {
+    const policy = resolveExportPolicyFromEntitlementFacade({
+      can(feature) {
+        return feature !== "removeWatermark";
+      },
+    });
+    assert.equal(policy.canSvg, true);
+    assert.equal(policy.canPptx, true);
+    assert.equal(policy.canRemoveWatermark, false);
+    assert.equal(policy.defaultWatermark, true);
   });
 });

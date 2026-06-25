@@ -371,8 +371,8 @@ export interface InfographicExportOptions {
   config?: InfographicConfig;
   /**
    * When `true`, stamp a "TextIQ" watermark on the finished image.
-   * Defaults to `false`. Callers should set this to `!removeWatermark` based
-   * on the user's plan entitlements.
+   * Defaults to `false`. Callers should use export-policy.ts to derive this
+   * value from the user's plan entitlements.
    */
   watermark?: boolean;
   /**
@@ -452,7 +452,7 @@ function blobToImage(blob: Blob): Promise<HTMLImageElement> {
  * - The full layout geometry is computed by the pure
  *   {@link computeInfographicLayout} function before any drawing occurs.
  * - A "TextIQ" watermark is stamped in the bottom-right corner when
- *   `options.watermark` is `true` (apply for free-tier users).
+ *   `options.watermark` is `true` (derived via export-policy.ts).
  *
  * @param blocks        Output of {@link collectDocumentBlocks}
  * @param title         Document title — informational; callers may prepend it
