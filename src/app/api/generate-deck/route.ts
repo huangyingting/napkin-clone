@@ -30,82 +30,36 @@
  * timeout, 503 Azure misconfig.
  */
 
-import { randomUUID } from "node:crypto";
-
 import { NextResponse, type NextRequest } from "next/server";
 
-import {
-  AzureConfigError,
-  azureChatComplete,
-  getAzureConfig,
-} from "@/lib/ai/azure";
 import { buildDeckSource } from "@/lib/ai/deck-source";
-import {
-  GENERATE_TIMEOUT_MS,
-  GenerateTimeoutError,
-  withAbortDeadline,
-} from "@/lib/ai/deadline";
+import { computeDeckMetrics, countWords } from "@/lib/ai/deck-metrics";
 import {
   EmptyInputError,
   GenerationError,
   InputTooLongError,
   MAX_INPUT_CHARS,
-  type CompleteFn,
 } from "@/lib/ai/generate";
 import type { DeckGenerationOptions } from "@/lib/ai/generate-deck";
 import { DECK_OUTPUT_TOKEN_BUDGET } from "@/lib/ai/generate-deck";
+import {
+  createGenerationRouteHandler,
+  errorResponse,
+  isPlainObject,
+  type PayloadParseResult,
+} from "@/lib/ai/generation-route";
 import { runDeckGeneration } from "@/lib/ai/run-deck-generation";
-import {
-  ANON_COOKIE_NAME,
-  anonTrialLimit,
-  checkRateLimitWithStore,
-  newAnonState,
-  parseAnonCookie,
-  signAnonState,
-  userRateLimit,
-  userRateWindowMs,
-} from "@/lib/ai/quota";
-import {
-  anonIpRateLimit,
-  anonIpRateWindowMs,
-  getClientIp,
-  hashIdentifier,
-  prismaRateLimitStore,
-  rateLimitSubject,
-  retryAfterSeconds,
-} from "@/lib/rate-limit";
-import {
-  computeCreditCost,
-  deductCredits,
-  getUserCreditState,
-  hasSufficientCredits,
-  InsufficientCreditsError,
-} from "@/lib/billing/credits";
-import {
-  reserveUsage,
-  captureUsage,
-  refundUsage,
-} from "@/lib/billing/usage-ledger";
-import {
-  isAiDeckGenEnabled,
-  isUnlimitedCreditsEnabled,
-} from "@/lib/billing/entitlements";
-import { getCurrentUser } from "@/lib/session";
-import { logError, logInfo } from "@/lib/log";
-import { ABUSE_CATEGORIES, logRouteDenial } from "@/lib/diagnostics/api-abuse";
+import { isAiDeckGenEnabled } from "@/lib/billing/entitlements";
+import { logInfo } from "@/lib/log";
+import { inferDeckTheme } from "@/lib/presentation/infer-theme";
 import {
   collectDocumentBlocks,
   type DocumentBlock,
 } from "@/lib/visual/document-export";
-import { computeDeckMetrics, countWords } from "@/lib/ai/deck-metrics";
-import { inferDeckTheme } from "@/lib/presentation/infer-theme";
 import type { Visual } from "@/lib/visual/schema";
-import { auth as authEnv } from "@/lib/env";
 
 // Use the Node.js runtime: the Azure call and node:crypto signing need it.
 export const runtime = "nodejs";
-
-const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
 /** Scope tag for structured error logs from this route. */
 const LOG_SCOPE = "api.generate-deck";
@@ -116,16 +70,14 @@ const DECK_LENGTHS: readonly NonNullable<DeckGenerationOptions["length"]>[] = [
   "long",
 ];
 
-function errorResponse(
-  status: number,
-  message: string,
-  headers?: Record<string, string>,
-): NextResponse {
-  return NextResponse.json({ error: message }, { status, headers });
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+interface GenerateDeckPayload {
+  contentJson: unknown;
+  options: DeckGenerationOptions;
+  blocks: ReadonlyArray<DocumentBlock>;
+  visuals: Map<string, Visual>;
+  outline: string;
+  truncated: boolean;
+  preferredTheme: ReturnType<typeof inferDeckTheme>;
 }
 
 /**
@@ -189,6 +141,120 @@ function parseOptions(
   return { options };
 }
 
+function parsePayload(
+  body: Record<string, unknown>,
+): PayloadParseResult<GenerateDeckPayload> {
+  if (body.contentJson === undefined || body.contentJson === null) {
+    return { ok: false, status: 400, message: "`contentJson` is required." };
+  }
+
+  const parsedOptions = parseOptions(body.options);
+  if ("error" in parsedOptions) {
+    return { ok: false, status: 400, message: parsedOptions.error };
+  }
+
+  const blocks = collectDocumentBlocks(body.contentJson);
+  const visuals = visualsFromContent(blocks);
+  const { outline, truncated } = buildDeckSource(body.contentJson, visuals);
+  const preferredTheme = inferDeckTheme(blocks);
+
+  if (outline.trim().length === 0) {
+    return {
+      ok: false,
+      status: 400,
+      message: "`contentJson` does not contain any usable outline content.",
+    };
+  }
+  // Reject oversized input BEFORE any LLM call.
+  if (outline.length > MAX_INPUT_CHARS) {
+    return {
+      ok: false,
+      status: 413,
+      message: `Document outline is too long (${outline.length} characters). The maximum is ${MAX_INPUT_CHARS}.`,
+    };
+  }
+
+  return {
+    ok: true,
+    payload: {
+      contentJson: body.contentJson,
+      options: parsedOptions.options,
+      blocks,
+      visuals,
+      outline,
+      truncated,
+      preferredTheme,
+    },
+  };
+}
+
+type DeckGenerationResult = Awaited<ReturnType<typeof runDeckGeneration>>;
+
+const handleGenerateDeck = createGenerationRouteHandler<
+  GenerateDeckPayload,
+  DeckGenerationResult
+>({
+  logScope: LOG_SCOPE,
+  operation: "generate-deck",
+  rateLimitSubjects: {
+    user: "gen-deck-user",
+    anonymousIp: "gen-deck-anon-ip",
+  },
+  anonymousQuotaExceededMessage:
+    "You've used all your free generations. Sign in to keep creating decks.",
+  unexpectedErrorMessage: "Unexpected error while generating the deck.",
+  azureMaxOutputTokens: DECK_OUTPUT_TOKEN_BUDGET,
+  parsePayload,
+  creditText: (payload) => payload.outline,
+  generate: ({ payload, complete }) =>
+    runDeckGeneration({
+      contentJson: payload.contentJson,
+      visuals: payload.visuals,
+      complete,
+      options: payload.options,
+      preferredTheme: payload.preferredTheme,
+    }),
+  successResponse: ({ deck }, { payload }) =>
+    NextResponse.json({ deck, truncated: payload.truncated }),
+  mapGenerationError: (error) => {
+    if (error instanceof EmptyInputError) {
+      return { status: 400, message: error.message };
+    }
+    if (error instanceof InputTooLongError) {
+      return { status: 413, message: error.message };
+    }
+    if (error instanceof GenerationError) {
+      return {
+        status: 502,
+        message:
+          "We couldn't generate a deck from that document. Please try again.",
+        log: { reason: "generation-failed", status: 502 },
+      };
+    }
+    return null;
+  },
+  onSuccess: ({ deck }, { payload, requestId, latencyMs }) => {
+    try {
+      const metrics = computeDeckMetrics(deck, {
+        sourceWordCount: countWords(payload.outline),
+      });
+      logInfo(LOG_SCOPE, "deck-generated", {
+        requestId,
+        latencyMs,
+        outlineChars: payload.outline.length,
+        outlineWords: metrics.sourceWordCount ?? 0,
+        slideCount: metrics.slideCount,
+        wordsPerSlide: metrics.wordsPerSlide,
+        percentSlidesWithVisual: metrics.percentSlidesWithVisual,
+        schemaValid: metrics.schemaValid,
+        truncated: payload.truncated,
+      });
+    } catch {
+      // Metrics logging is best-effort and must never affect the response.
+    }
+  },
+});
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   // Disabled-by-default feature flag: bail out BEFORE doing any work so the
   // route is invisible until an operator opts in.
@@ -196,357 +262,5 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return errorResponse(404, "Not found.");
   }
 
-  // Correlation id shared by every structured log line for this request so an
-  // operator can trace a single generation across log entries.
-  const requestId = randomUUID();
-
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return errorResponse(400, "Request body must be valid JSON.");
-  }
-  if (!isPlainObject(body)) {
-    return errorResponse(400, "Request body must be a JSON object.");
-  }
-
-  if (body.contentJson === undefined || body.contentJson === null) {
-    return errorResponse(400, "`contentJson` is required.");
-  }
-
-  const parsedOptions = parseOptions(body.options);
-  if ("error" in parsedOptions) {
-    return errorResponse(400, parsedOptions.error);
-  }
-  const { options } = parsedOptions;
-
-  // Derive the document's outline + visual inventory up front so we can validate
-  // (and price) it BEFORE any LLM call. Visuals come from the embedded payloads.
-  const blocks = collectDocumentBlocks(body.contentJson);
-  const visuals = visualsFromContent(blocks);
-  const { outline, truncated } = buildDeckSource(body.contentJson, visuals);
-  // Derive a vibrant theme from the document's visuals so a model that returns
-  // the bleak "default" theme is upgraded to a document-appropriate one (#281).
-  const preferredTheme = inferDeckTheme(blocks);
-
-  if (outline.trim().length === 0) {
-    return errorResponse(
-      400,
-      "`contentJson` does not contain any usable outline content.",
-    );
-  }
-  // Reject oversized input BEFORE any LLM call.
-  if (outline.length > MAX_INPUT_CHARS) {
-    return errorResponse(
-      413,
-      `Document outline is too long (${outline.length} characters). The maximum is ${MAX_INPUT_CHARS}.`,
-    );
-  }
-
-  const secret = authEnv.secret();
-  if (!secret) {
-    logError(LOG_SCOPE, new Error("Missing AUTH_SECRET"), {
-      requestId,
-      reason: "missing-auth-secret",
-      status: 500,
-    });
-    return errorResponse(500, "Server is misconfigured (missing AUTH_SECRET).");
-  }
-
-  // Resolve the Azure client up front so misconfiguration is a clear 503 and
-  // never consumes the caller's quota.
-  let complete: CompleteFn;
-  try {
-    const config = getAzureConfig();
-    complete = (messages) =>
-      withAbortDeadline(
-        (signal) =>
-          azureChatComplete(messages, {
-            config,
-            signal,
-            maxOutputTokens: DECK_OUTPUT_TOKEN_BUDGET,
-          }),
-        GENERATE_TIMEOUT_MS,
-      );
-  } catch (error) {
-    if (error instanceof AzureConfigError) {
-      logError(LOG_SCOPE, error, {
-        requestId,
-        reason: "azure-config",
-        status: 503,
-      });
-      return errorResponse(503, "AI generation is not configured.");
-    }
-    logError(LOG_SCOPE, error, {
-      requestId,
-      reason: "azure-config-unexpected",
-      status: 500,
-    });
-    throw error;
-  }
-
-  const user = await getCurrentUser();
-
-  // Quota / rate limiting + credit metering.
-  let commitAnonUsage: (() => void) | null = null;
-  let setAnonCookie: string | null = null;
-  // For authenticated users: compute credit cost up-front; reserve before gen.
-  let creditCost = 0;
-  let ledgerReserved = false;
-
-  if (user) {
-    const result = await checkRateLimitWithStore(
-      prismaRateLimitStore,
-      rateLimitSubject("gen-deck-user", user.id),
-      {
-        limit: userRateLimit(),
-        windowMs: userRateWindowMs(),
-        now: Date.now(),
-      },
-    );
-    if (!result.allowed) {
-      const retryAfter = Math.max(
-        1,
-        Math.ceil((result.resetAt - Date.now()) / 1000),
-      );
-      logRouteDenial({
-        route: LOG_SCOPE,
-        reason: ABUSE_CATEGORIES.RATE_LIMIT_HIT,
-        status: 429,
-        userId: user.id,
-        retryAfterSeconds: retryAfter,
-      });
-      return errorResponse(
-        429,
-        "Rate limit exceeded. Please wait a moment and try again.",
-        { "Retry-After": String(retryAfter) },
-      );
-    }
-
-    // Credit pre-check: ensure period is initialised and balance is sufficient.
-    // Skipped entirely when credits are unlimited (creditCost stays 0, so the
-    // deduction below is also a no-op).
-    if (!isUnlimitedCreditsEnabled()) {
-      creditCost = computeCreditCost(outline);
-      const creditState = await getUserCreditState(user.id);
-      if (!hasSufficientCredits(creditState.balance, creditCost)) {
-        logRouteDenial({
-          route: LOG_SCOPE,
-          reason: ABUSE_CATEGORIES.CREDIT_DENIED,
-          status: 402,
-          userId: user.id,
-        });
-        return errorResponse(
-          402,
-          `Insufficient credits: you need ${creditCost} but have ${creditState.balance}. ` +
-            `Your credits reset on ${creditState.periodEnd.toLocaleDateString()}. ` +
-            `Upgrade your plan or wait for your credits to reset.`,
-        );
-      }
-      // Reserve usage in the ledger before calling the AI model (#481).
-      if (creditCost > 0) {
-        try {
-          await reserveUsage({
-            idempotencyKey: requestId,
-            userId: user.id,
-            operation: "generate-deck",
-            creditCost,
-          });
-          ledgerReserved = true;
-        } catch (err) {
-          logError(LOG_SCOPE, err, {
-            requestId,
-            reason: "ledger-reserve-failed",
-          });
-        }
-      }
-    }
-  } else {
-    // Server-side throttle keyed by hashed client IP (#96, criterion 2). This
-    // backs the signed cookie trial: because the window is persisted in the
-    // shared store keyed by IP, clearing the cookie does NOT reset it, so it is
-    // materially harder to reset than the local cookie alone.
-    const clientIp = getClientIp(request.headers) ?? "unknown";
-    const clientHash = hashIdentifier(clientIp, secret);
-    const ipKey = rateLimitSubject("gen-deck-anon-ip", clientHash);
-    const now = Date.now();
-    const ipResult = await checkRateLimitWithStore(
-      prismaRateLimitStore,
-      ipKey,
-      {
-        limit: anonIpRateLimit(),
-        windowMs: anonIpRateWindowMs(),
-        now,
-      },
-    );
-    if (!ipResult.allowed) {
-      logRouteDenial({
-        route: LOG_SCOPE,
-        reason: ABUSE_CATEGORIES.RATE_LIMIT_HIT,
-        status: 429,
-        subjectHash: clientHash,
-        retryAfterSeconds: retryAfterSeconds(ipResult.resetAt, now),
-      });
-      return errorResponse(
-        429,
-        "Too many anonymous generations from your network. Please wait and try again, or sign in.",
-        { "Retry-After": String(retryAfterSeconds(ipResult.resetAt, now)) },
-      );
-    }
-
-    const state =
-      parseAnonCookie(request.cookies.get(ANON_COOKIE_NAME)?.value, secret) ??
-      newAnonState();
-    if (state.count >= anonTrialLimit()) {
-      logRouteDenial({
-        route: LOG_SCOPE,
-        reason: ABUSE_CATEGORIES.ANON_QUOTA_DENIED,
-        status: 429,
-        subjectHash: clientHash,
-      });
-      return errorResponse(
-        429,
-        "You've used all your free generations. Sign in to keep creating decks.",
-      );
-    }
-    // Defer incrementing until a generation actually succeeds.
-    commitAnonUsage = () => {
-      const next = { id: state.id, count: state.count + 1 };
-      setAnonCookie = signAnonState(next, secret);
-    };
-  }
-
-  // Generate.
-  try {
-    const generateStartedAt = Date.now();
-    const { deck } = await runDeckGeneration({
-      contentJson: body.contentJson,
-      visuals,
-      complete,
-      options,
-      preferredTheme,
-    });
-    const latencyMs = Date.now() - generateStartedAt;
-
-    // Commit side effects only on success.
-    commitAnonUsage?.();
-
-    // Capture usage in the ledger (atomically deducts credits, #481).
-    if (user && creditCost > 0) {
-      try {
-        if (ledgerReserved) {
-          await captureUsage({
-            idempotencyKey: requestId,
-            userId: user.id,
-            creditCost,
-          });
-        } else {
-          await deductCredits(user.id, creditCost);
-        }
-      } catch (err) {
-        if (err instanceof InsufficientCreditsError) {
-          // Balance was depleted by a concurrent request between our pre-check
-          // and now — return the same 402 with updated info.
-          logRouteDenial({
-            route: LOG_SCOPE,
-            reason: ABUSE_CATEGORIES.CREDIT_DENIED,
-            status: 402,
-            userId: user.id,
-          });
-          return errorResponse(402, err.message);
-        }
-        // Non-fatal — log but don't fail the generation response.
-        logError(LOG_SCOPE, err, {
-          requestId,
-          reason: "credit-capture-failed",
-        });
-      }
-    }
-
-    const response = NextResponse.json({ deck, truncated });
-    if (setAnonCookie) {
-      response.cookies.set(ANON_COOKIE_NAME, setAnonCookie, {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        path: "/",
-        maxAge: ONE_YEAR_SECONDS,
-      });
-    }
-
-    // Best-effort evaluation metrics (issue #270). Content-free: only ids,
-    // counts, and numbers are emitted — never slide text, titles, or PII.
-    // Wrapped so a logging failure can never break a successful generation.
-    try {
-      const metrics = computeDeckMetrics(deck, {
-        sourceWordCount: countWords(outline),
-      });
-      logInfo(LOG_SCOPE, "deck-generated", {
-        requestId,
-        latencyMs,
-        outlineChars: outline.length,
-        outlineWords: metrics.sourceWordCount ?? 0,
-        slideCount: metrics.slideCount,
-        wordsPerSlide: metrics.wordsPerSlide,
-        percentSlidesWithVisual: metrics.percentSlidesWithVisual,
-        schemaValid: metrics.schemaValid,
-        truncated,
-      });
-    } catch {
-      // Metrics logging is best-effort and must never affect the response.
-    }
-
-    return response;
-  } catch (error) {
-    // Refund the ledger entry on any generation failure (#481).
-    if (ledgerReserved) {
-      await refundUsage({ idempotencyKey: requestId }).catch((refundErr) => {
-        logError(LOG_SCOPE, refundErr, {
-          requestId,
-          reason: "ledger-refund-failed",
-        });
-      });
-    }
-
-    if (error instanceof GenerateTimeoutError) {
-      logError(LOG_SCOPE, error, {
-        requestId,
-        reason: "timeout",
-        status: 504,
-      });
-      logRouteDenial({
-        route: LOG_SCOPE,
-        reason: ABUSE_CATEGORIES.AI_TIMEOUT,
-        status: 504,
-        userId: user?.id,
-      });
-      return errorResponse(
-        504,
-        "The AI took too long to respond. Please try again.",
-      );
-    }
-    if (error instanceof EmptyInputError) {
-      return errorResponse(400, error.message);
-    }
-    if (error instanceof InputTooLongError) {
-      return errorResponse(413, error.message);
-    }
-    if (error instanceof GenerationError) {
-      logError(LOG_SCOPE, error, {
-        requestId,
-        reason: "generation-failed",
-        status: 502,
-      });
-      return errorResponse(
-        502,
-        "We couldn't generate a deck from that document. Please try again.",
-      );
-    }
-    logError(LOG_SCOPE, error, {
-      requestId,
-      reason: "unexpected",
-      status: 500,
-    });
-    return errorResponse(500, "Unexpected error while generating the deck.");
-  }
+  return handleGenerateDeck(request);
 }
