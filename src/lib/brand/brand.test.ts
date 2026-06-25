@@ -53,8 +53,8 @@ const FULL_BRAND = {
   nodeText: "#881337",
   edgeColor: "#fda4af",
   fontFamily: "'Inter', sans-serif",
-  fontDataUrl: null,
-  logoUrl: null,
+  fontAssetUrl: null,
+  logoAssetUrl: null,
   createdAt: "2024-01-01T00:00:00.000Z",
   updatedAt: "2024-01-01T00:00:00.000Z",
 };
@@ -193,11 +193,14 @@ describe("validateBrandInput", () => {
       nodeText: "#000000",
       edgeColor: "#999999",
       fontFamily: "'Inter', sans-serif",
-      logoUrl: null,
+      logoAssetId: "logo-asset",
+      fontAssetId: "font-asset",
     });
     assert.equal(result.ok, true);
     if (result.ok) {
       assert.equal(result.data.name, "My Brand");
+      assert.equal(result.data.logoAssetId, "logo-asset");
+      assert.equal(result.data.fontAssetId, "font-asset");
     }
   });
 

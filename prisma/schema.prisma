@@ -328,9 +328,8 @@ model RateLimitHit {
 
 // A saved brand style owned by one user (US-007 — Brand Studio).
 // All color fields are optional so a brand can hold a partial palette
-// and defaults fall through to the visual DEFAULT_STYLE. `logoUrl` is
-// the public URL of an uploaded logo asset. `fontFamily` overrides the
-// visual's font when the brand is applied.
+// and defaults fall through to the visual DEFAULT_STYLE. `fontFamily`
+// overrides the visual's font when the brand is applied.
 model Brand {
   id           String   @id @default(cuid())
   name         String
@@ -344,26 +343,12 @@ model Brand {
   edgeColor    String?
   // Typography
   fontFamily   String?
-  // -------------------------------------------------------------------------
-  // Asset-backed brand media (Epic #496 — Brand and Asset Storage Unification).
-  //
-  // Logo and uploaded custom-font bytes are stored as protected `Asset` rows
-  // (served via /api/brand-assets/…), NOT as raw data URLs.  `logoAssetId` and
-  // `fontAssetId` point at the owning brand's `Asset.id` for the logo / font.
-  // Display URLs are DERIVED from the referenced asset's `storageKey` at read
-  // time — never persisted here.
-  //
-  // `logoUrl` / `fontDataUrl` are LEGACY columns retained ONLY as migration
-  // INPUT (they held base64 `data:` URLs before #496).  The offline migration
-  // `migrate-brand-assets` decodes them into assets and then clears them; new
-  // application writes set them to null and must use the asset refs instead
-  // (AGENTS.md: no runtime compatibility layer for superseded shapes).
-  // -------------------------------------------------------------------------
+  // Brand media is stored as protected `Asset` rows (served via
+  // /api/brand-assets/…), not as raw data URLs. `logoAssetId` and `fontAssetId`
+  // point at the owning brand's logo/font asset. Display URLs are derived from
+  // the referenced asset's `storageKey` at read time and are never persisted.
   logoAssetId  String?
   fontAssetId  String?
-  // LEGACY (migration input only — do not write from app code post-#496).
-  fontDataUrl  String?
-  logoUrl      String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

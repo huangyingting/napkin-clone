@@ -52,7 +52,13 @@ const DEFAULT_PALETTE = [
   "#8b5cf6",
 ];
 
-function emptyInput(): BrandInput & { id?: string } {
+type BrandFormState = BrandInput & {
+  id?: string;
+  logoAssetUrl: string | null;
+  fontAssetUrl: string | null;
+};
+
+function emptyInput(): BrandFormState {
   return {
     name: "",
     palette: [...DEFAULT_PALETTE],
@@ -64,8 +70,8 @@ function emptyInput(): BrandInput & { id?: string } {
     fontFamily: null,
     fontAssetId: null,
     logoAssetId: null,
-    fontDataUrl: null,
-    logoUrl: null,
+    fontAssetUrl: null,
+    logoAssetUrl: null,
   };
 }
 
@@ -122,12 +128,12 @@ function BrandForm({
   onCancel,
   canFontUpload,
 }: {
-  initial: BrandInput & { id?: string };
+  initial: BrandFormState;
   onSave: (saved: BrandStyle) => void;
   onCancel: () => void;
   canFontUpload: boolean;
 }) {
-  const [form, setForm] = useState<BrandInput & { id?: string }>(initial);
+  const [form, setForm] = useState<BrandFormState>(initial);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -184,8 +190,8 @@ function BrandForm({
         setError(json.error ?? "Logo upload failed.");
         return;
       }
-      const logoUrl = json.url;
-      setForm((f) => ({ ...f, logoUrl, logoAssetId: json.assetId! }));
+      const logoAssetUrl = json.url;
+      setForm((f) => ({ ...f, logoAssetUrl, logoAssetId: json.assetId! }));
 
       // Auto-extract palette from the image using canvas. The protected URL is
       // same-origin, so the canvas is not tainted and getImageData succeeds.
@@ -223,7 +229,7 @@ function BrandForm({
           // Best-effort; ignore extraction errors
         }
       };
-      img.src = logoUrl;
+      img.src = logoAssetUrl;
     } catch {
       setError("Logo upload failed. Please try again.");
     } finally {
@@ -257,9 +263,9 @@ function BrandForm({
       // Inject @font-face immediately so the name works in the current editor.
       // The src is the protected /api/brand-assets URL (same-origin cookie).
       const family = json.familyName!;
-      const fontUrl = json.url;
+      const fontAssetUrl = json.url;
       const styleEl = document.createElement("style");
-      styleEl.textContent = `@font-face { font-family: '${family}'; src: url('${fontUrl}'); }`;
+      styleEl.textContent = `@font-face { font-family: '${family}'; src: url('${fontAssetUrl}'); }`;
       document.head.appendChild(styleEl);
       // Persist the CSS family name plus the asset ref so the font survives
       // save → reload (rehydration done in BrandCard useEffect).
@@ -267,7 +273,7 @@ function BrandForm({
         ...f,
         fontFamily: `'${family}', sans-serif`,
         fontAssetId: json.assetId!,
-        fontDataUrl: fontUrl,
+        fontAssetUrl,
       }));
     } catch {
       setError("Font upload failed. Please try again.");
@@ -466,11 +472,11 @@ function BrandForm({
           Logo <span className="normal-case font-normal">(optional)</span>
         </span>
         <div className="flex items-center gap-3">
-          {form.logoUrl && (
+          {form.logoAssetUrl && (
             <div className="relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={form.logoUrl}
+                src={form.logoAssetUrl}
                 alt="Brand logo preview"
                 className="h-12 w-12 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border-subtle)] object-contain bg-white"
               />
@@ -478,7 +484,11 @@ function BrandForm({
                 type="button"
                 aria-label="Remove logo"
                 onClick={() =>
-                  setForm((f) => ({ ...f, logoUrl: null, logoAssetId: null }))
+                  setForm((f) => ({
+                    ...f,
+                    logoAssetUrl: null,
+                    logoAssetId: null,
+                  }))
                 }
                 className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--ds-surface-raised)] border border-[var(--ds-border-subtle)] text-[var(--ds-text-muted)] hover:bg-[var(--ds-danger,#dc2626)] hover:text-[var(--ds-text-on-accent,#ffffff)]"
               >
@@ -510,10 +520,10 @@ function BrandForm({
             onClick={() => logoInputRef.current?.click()}
             disabled={uploadingLogo}
           >
-            {form.logoUrl ? "Replace logo" : "Upload logo (PNG/SVG/JPG)"}
+            {form.logoAssetUrl ? "Replace logo" : "Upload logo (PNG/SVG/JPG)"}
           </Button>
         </div>
-        {form.logoUrl && (
+        {form.logoAssetUrl && (
           <p className="text-xs text-[var(--ds-text-muted)]">
             Palette extracted automatically from the logo.
           </p>
@@ -541,8 +551,8 @@ function BrandForm({
               nodeText: form.nodeText ?? null,
               edgeColor: form.edgeColor ?? null,
               fontFamily: form.fontFamily ?? null,
-              fontDataUrl: form.fontDataUrl ?? null,
-              logoUrl: form.logoUrl ?? null,
+              fontAssetUrl: form.fontAssetUrl ?? null,
+              logoAssetUrl: form.logoAssetUrl ?? null,
               createdAt: "",
               updatedAt: "",
             })}
@@ -612,12 +622,12 @@ function BrandCard({
       link.rel = "stylesheet";
       link.href = match.url;
       document.head.appendChild(link);
-    } else if (brand.fontDataUrl) {
-      // Custom uploaded font: rehydrate @font-face from the durable data-URL
+    } else if (brand.fontAssetUrl) {
+      // Custom uploaded font: rehydrate @font-face from the protected asset URL
       // so the brand's font renders after reload or in a different session.
-      injectBrandFontFace(brand.id, brand.fontFamily, brand.fontDataUrl);
+      injectBrandFontFace(brand.id, brand.fontFamily, brand.fontAssetUrl);
     }
-  }, [brand.id, brand.fontFamily, brand.fontDataUrl]);
+  }, [brand.id, brand.fontFamily, brand.fontAssetUrl]);
 
   const previewStyle = brandPreviewStyle(brand);
 
@@ -642,10 +652,10 @@ function BrandCard({
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--ds-radius-sm)] border border-[var(--ds-border-subtle)]"
           style={{ backgroundColor: previewStyle.background }}
         >
-          {brand.logoUrl ? (
+          {brand.logoAssetUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={brand.logoUrl}
+              src={brand.logoAssetUrl}
               alt=""
               aria-hidden="true"
               className="h-8 w-8 object-contain"
@@ -740,8 +750,8 @@ function BrandCard({
               fontFamily: brand.fontFamily,
               fontAssetId: brand.fontAssetId ?? null,
               logoAssetId: brand.logoAssetId ?? null,
-              fontDataUrl: brand.fontDataUrl,
-              logoUrl: brand.logoUrl,
+              fontAssetUrl: brand.fontAssetUrl,
+              logoAssetUrl: brand.logoAssetUrl,
             }}
             onSave={(saved) => {
               onUpdated(saved);

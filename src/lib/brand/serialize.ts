@@ -2,11 +2,8 @@
  * Brand row → client `BrandStyle` serialization (Epic #496).
  *
  * Brand media is persisted as asset references (`logoAssetId` / `fontAssetId`),
- * not raw data URLs. The display URL is DERIVED here from the referenced
- * asset's `storageKey` via the brand storage adapter — never read from the
- * legacy `logoUrl` / `fontDataUrl` columns (those exist only as offline
- * migration input; per AGENTS.md the runtime carries no compatibility branch
- * for the superseded data-URL shape).
+ * not raw data URLs. Display URLs are derived here from the referenced asset's
+ * `storageKey` via the brand storage adapter.
  *
  * Shared by `listBrands` / `createBrand` / `updateBrand` (server actions) and
  * the `GET /api/brand` route so every read produces identical, asset-backed
@@ -86,10 +83,10 @@ export function toBrandStyle(
   row: BrandRow,
   urlByAssetId: Map<string, string>,
 ): BrandStyle {
-  const logoUrl = row.logoAssetId
+  const logoAssetUrl = row.logoAssetId
     ? (urlByAssetId.get(row.logoAssetId) ?? null)
     : null;
-  const fontUrl = row.fontAssetId
+  const fontAssetUrl = row.fontAssetId
     ? (urlByAssetId.get(row.fontAssetId) ?? null)
     : null;
 
@@ -106,8 +103,8 @@ export function toBrandStyle(
     fontFamily: row.fontFamily,
     logoAssetId: row.logoAssetId,
     fontAssetId: row.fontAssetId,
-    fontDataUrl: fontUrl,
-    logoUrl,
+    fontAssetUrl,
+    logoAssetUrl,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
