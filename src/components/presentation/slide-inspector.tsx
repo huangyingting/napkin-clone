@@ -3,10 +3,8 @@
 /**
  * Tabbed inspector for the slide editor.
  *
- * Two tabs:
- *  - **Content** — edits the selected free-form element (text, bullets, image,
- *    shape, visual), lists all elements with reorder/delete, and adds new ones.
- *  - **Style** — per-slide background and accent color overrides.
+ * Task panels cover selected-element editing, slide styling, speaker notes,
+ * source links, and layer/arrange controls.
  *
  * Speaker notes live in a dedicated inspector tab so slide-level editing stays
  * in the right supplemental panel.
@@ -2675,6 +2673,7 @@ export function SlideInspector({
   onRemoveSlide,
   onApplyLayout,
   onResetLayout,
+  onUpdateNotes,
   onUpdateElement,
   onAlign,
   onDistribute,
@@ -2812,6 +2811,7 @@ export function SlideInspector({
     effects: "Effects",
     media: "Media",
     slide: "Slide",
+    notes: "Notes",
     source: "Source",
   };
 
@@ -3226,6 +3226,17 @@ export function SlideInspector({
               onUnlink={onUnlinkElementSource}
               onRelink={onRelinkElementSource}
             />
+          </div>
+        ) : null}
+
+        {panel === "notes" ? (
+          <div
+            role="tabpanel"
+            id="inspector-panel-notes"
+            aria-label="Speaker notes"
+            className="flex flex-col gap-4"
+          >
+            <SpeakerNotesControl notes={slide.notes} onChange={onUpdateNotes} />
           </div>
         ) : null}
       </div>
