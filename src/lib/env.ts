@@ -25,9 +25,9 @@
  * - **DB is delegated, not duplicated.** Database resolution stays in
  *   `@/lib/db-provider` (the single source of truth from #147); the `db`
  *   export simply re-exposes it under the unified surface.
- * - **NEXT_PUBLIC_* vars.** Only *server-side* reads are centralized here.
- *   Client components must keep statically referencing
- *   `process.env.NEXT_PUBLIC_*` so Next can inline them into the client bundle.
+ * - **NEXT_PUBLIC_* vars.** Only *server-side* reads are centralized here. Client
+ *   code uses `@/lib/client-config`, which keeps literal
+ *   `process.env.NEXT_PUBLIC_*` reads so Next can inline them into the bundle.
  */
 
 import { resolveProvider, resolveUrl } from "@/lib/db-provider";
@@ -198,9 +198,8 @@ const DEFAULT_APP_URL = "http://localhost:4000";
 /**
  * Public app origin configuration.
  *
- * NOTE: this is a **server-side** accessor. Client components must keep reading
- * `process.env.NEXT_PUBLIC_APP_URL` directly so Next can inline it into the
- * client bundle.
+ * NOTE: this is a **server-side** accessor. Client code should use
+ * `@/lib/client-config` so Next can inline public values into the client bundle.
  */
 export const app = {
   /**

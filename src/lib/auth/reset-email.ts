@@ -4,10 +4,10 @@ import { logError } from "@/lib/log";
  * Delivery seam for password-reset links (#140).
  *
  * This app has no email transport wired up yet, so this module is the single
- * place where one drops in. A real sender (Resend / SES / SMTP / Nodemailer)
- * implements {@link PasswordResetMailer} and is selected in
- * {@link getPasswordResetMailer}; until then the dev fallback logs the link so
- * the flow is exercisable end-to-end locally without leaking links in prod.
+ * place where one drops in. A real sender implements {@link PasswordResetMailer}
+ * and is selected in {@link getPasswordResetMailer}; until then the dev fallback
+ * logs the link so the flow is exercisable end-to-end locally without leaking
+ * links in prod.
  *
  * Callers (the forgot-password action) MUST stay agnostic of which sender ran:
  * the response is always the same "if an account exists, we sent a link" so the
@@ -50,13 +50,9 @@ const devConsoleMailer: PasswordResetMailer = {
 };
 
 /**
- * Selects the active mailer. Returns the dev console fallback today; swap in a
- * real {@link PasswordResetMailer} here (e.g. behind an env check for an API
- * key) and the rest of the flow is unchanged.
+ * Selects the active mailer. Returns the dev console fallback today.
  */
 function getPasswordResetMailer(): PasswordResetMailer {
-  // When a real transport is added, construct and return it here, e.g.:
-  //   if (process.env.RESEND_API_KEY) return createResendMailer(...);
   return devConsoleMailer;
 }
 

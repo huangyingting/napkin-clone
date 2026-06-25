@@ -4,11 +4,10 @@ import { logError } from "@/lib/log";
  * Delivery seam for email-verification links (#162).
  *
  * Mirrors `reset-email.ts`: this app has no email transport wired up yet, so
- * this module is the single place where one drops in. A real sender
- * (Resend / SES / SMTP / Nodemailer) implements {@link VerificationMailer} and
- * is selected in {@link getVerificationMailer}; until then the dev fallback logs
- * the link so the flow is exercisable end-to-end locally without leaking links
- * in prod.
+ * this module is the single place where one drops in. A real sender implements
+ * {@link VerificationMailer} and is selected in {@link getVerificationMailer};
+ * until then the dev fallback logs the link so the flow is exercisable
+ * end-to-end locally without leaking links in prod.
  *
  * Unlike the password-reset flow there is NO user-enumeration concern here: the
  * recipient is always the logged-in user's own, already-known address.
@@ -48,13 +47,9 @@ const devConsoleMailer: VerificationMailer = {
 };
 
 /**
- * Selects the active mailer. Returns the dev console fallback today; swap in a
- * real {@link VerificationMailer} here (e.g. behind an env check for an API key)
- * and the rest of the flow is unchanged.
+ * Selects the active mailer. Returns the dev console fallback today.
  */
 function getVerificationMailer(): VerificationMailer {
-  // When a real transport is added, construct and return it here, e.g.:
-  //   if (process.env.RESEND_API_KEY) return createResendMailer(...);
   return devConsoleMailer;
 }
 

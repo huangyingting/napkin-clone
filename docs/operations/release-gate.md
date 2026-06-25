@@ -48,6 +48,9 @@ before typechecking. The build step (`npm run build`) is also run in CI but is
 not part of the local gate loop — a passing local gate with a failing build is
 still a release blocker and must be fixed immediately.
 
+Runtime environment variables used by this gate and by deployed services are
+inventoried in [runtime-config.md](./runtime-config.md).
+
 ### Persisted-schema audit (Epic #493)
 
 The automated gate above validates code. A second, data-facing gate validates

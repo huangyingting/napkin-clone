@@ -15,6 +15,7 @@ import {
 
 export type { Locale, Messages };
 export { DEFAULT_LOCALE, SUPPORTED_LOCALES };
+export { I18N_SWITCHER_ENABLED_ENV, isLanguageSwitcherEnabled } from "./config";
 
 /**
  * Returns `true` when `value` is one of the supported locale codes.
@@ -77,24 +78,4 @@ export function createTranslator(locale: Locale) {
   }
 
   return t;
-}
-
-/**
- * Returns `true` only when the `I18N_SWITCHER_ENABLED` environment variable is
- * explicitly set to `"true"`.
- *
- * The language switcher is hidden by default because the current message
- * catalog covers less than 5 % of the app (header, dashboard, template-picker,
- * and the switcher itself). Surfacing a locale toggle that leaves most of the
- * UI in English is a worse experience than offering no switcher at all.
- *
- * Set `I18N_SWITCHER_ENABLED=true` once catalog coverage reaches a meaningful
- * threshold across the core authenticated surfaces (editor chrome, settings,
- * billing, workspaces, sharing, error/empty states).
- *
- * The underlying i18n infrastructure (messages.ts, LocaleProvider, hooks,
- * server utilities) remains fully intact and ready for that expansion.
- */
-export function isLanguageSwitcherEnabled(): boolean {
-  return process.env.I18N_SWITCHER_ENABLED === "true";
 }

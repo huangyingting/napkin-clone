@@ -49,7 +49,7 @@ import {
   type PayloadParseResult,
 } from "@/lib/ai/generation-route";
 import { runDeckGeneration } from "@/lib/ai/run-deck-generation";
-import { isAiDeckGenEnabled } from "@/lib/billing/config";
+import { isAiDeckGenEnabled } from "@/lib/ai/config";
 import { logInfo } from "@/lib/log";
 import { inferDeckTheme } from "@/lib/presentation/infer-theme";
 import {
