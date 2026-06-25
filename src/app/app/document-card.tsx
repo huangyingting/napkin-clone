@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import { Dialog, MENU_CHROME, MENU_ITEM, cx } from "@/components/ui";
+import type { DocumentListActionPort } from "@/lib/action-ports";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import type { Visual } from "@/lib/visual/schema";
 
@@ -17,6 +18,14 @@ import { duplicateDocument, renameDocument, toggleFavorite } from "./actions";
 
 /** Maximum document title length (mirrors the server action's clamp). */
 const MAX_TITLE_LENGTH = 200;
+const documentCardActions: Pick<
+  DocumentListActionPort,
+  "duplicateDocument" | "renameDocument" | "toggleFavorite"
+> = {
+  duplicateDocument,
+  renameDocument,
+  toggleFavorite,
+};
 
 /** Normalizes a title the same way `renameDocument` does, for optimistic UI. */
 function normalizeTitle(value: string): string {
@@ -304,7 +313,7 @@ export function DocumentCard({
   const handleToggleFavorite = () => {
     startTransition(async () => {
       setOptimisticFavorite(!optimisticFavorite);
-      await toggleFavorite(id);
+      await documentCardActions.toggleFavorite(id);
     });
   };
 
@@ -316,14 +325,14 @@ export function DocumentCard({
     }
     startTransition(async () => {
       setOptimisticTitle(normalized);
-      await renameDocument(id, nextTitle);
+      await documentCardActions.renameDocument(id, nextTitle);
     });
   };
 
   const handleDuplicate = () => {
     setMenuOpen(false);
     startTransition(async () => {
-      await duplicateDocument(id);
+      await documentCardActions.duplicateDocument(id);
     });
   };
 

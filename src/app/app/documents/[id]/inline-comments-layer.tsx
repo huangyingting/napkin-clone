@@ -26,6 +26,7 @@ import { Button, IconButton } from "@/components/ui";
 import { cx, FIELD_CONTROL, RADIUS } from "@/components/ui/tokens";
 
 import { createComment } from "./comments-actions";
+import type { CommentsActionPort } from "@/lib/action-ports";
 import type { CommentThread } from "@/lib/comments";
 import {
   COMMENT_CARD_VIEWPORT_BLOCK_GAP,
@@ -39,6 +40,10 @@ import {
   type AnchorPosition,
   type CommentCardPosition,
 } from "./inline-comment-dom";
+
+const commentsActions: Pick<CommentsActionPort, "createComment"> = {
+  createComment,
+};
 
 function subscribeToHydrationStore(): () => void {
   return () => {};
@@ -222,7 +227,7 @@ export function InlineCommentsLayer({
     setError(null);
     startTransition(async () => {
       try {
-        const next = await createComment(documentId, {
+        const next = await commentsActions.createComment(documentId, {
           body: trimmed,
           anchorType: "text",
           anchorText: anchor.text,

@@ -47,11 +47,20 @@ import { cx, FIELD_CONTROL, RADIUS } from "@/components/ui/tokens";
 import { GUTTER_BUTTON } from "@/components/ui/tokens";
 
 import { createComment, setCommentResolved } from "./comments-actions";
+import type { CommentsActionPort } from "@/lib/action-ports";
 import type { CommentThread } from "@/lib/comments";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+const commentsActions: Pick<
+  CommentsActionPort,
+  "createComment" | "setCommentResolved"
+> = {
+  createComment,
+  setCommentResolved,
+};
 
 /** A percent-coordinate point for a pin. */
 export type PinPosition = { x: number; y: number };
@@ -229,7 +238,7 @@ export function SlideCommentPanel({
     setError(null);
     startTransition(async () => {
       try {
-        const next = await createComment(documentId, {
+        const next = await commentsActions.createComment(documentId, {
           body: trimmed,
           slideId,
         });
@@ -244,7 +253,10 @@ export function SlideCommentPanel({
   const toggleResolved = (threadId: string, resolved: boolean) => {
     startTransition(async () => {
       try {
-        const next = await setCommentResolved(threadId, resolved);
+        const next = await commentsActions.setCommentResolved(
+          threadId,
+          resolved,
+        );
         onThreadsChange(next);
       } catch {
         setError("Couldn't update comment. Please try again.");

@@ -159,7 +159,6 @@ import {
 } from "@/lib/presentation/slide-reorder";
 import { useDeckHistory } from "@/lib/presentation/use-deck-history";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
-import { uploadSlideAsset } from "@/app/app/documents/[id]/slide-asset-actions";
 import {
   buildInsertables,
   insertableTextElement,
@@ -186,6 +185,7 @@ import {
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 import { useSlideSelection } from "@/components/presentation/slide-editor/use-slide-selection";
 import { useSlideClipboard } from "@/components/presentation/slide-editor/use-slide-clipboard";
+import type { SlideAssetActionPort } from "@/lib/action-ports";
 import {
   appendPendingPatches,
   clearPendingPatches,
@@ -228,6 +228,7 @@ interface SlideEditorProps {
    * panel is opened without a live document context.
    */
   documentId?: string;
+  slideAssetPort?: SlideAssetActionPort;
   onDeckChange: (deck: Deck) => void;
   onClose: () => void;
   /**
@@ -591,6 +592,7 @@ export function SlideEditor({
   documentTextBlocks = [],
   documentBlocks,
   documentId,
+  slideAssetPort,
   onDeckChange: onDeckChangeProp,
   onClose,
   onSave,
@@ -2358,7 +2360,7 @@ export function SlideEditor({
       setInsertImageError(message);
     },
     documentId,
-    uploadFn: documentId ? uploadSlideAsset : undefined,
+    uploadFn: documentId ? slideAssetPort?.uploadSlideAsset : undefined,
   });
 
   const handleAddElement = useCallback(
@@ -3471,6 +3473,7 @@ export function SlideEditor({
               key={`panel-${rightPanelTab}`}
               {...inspectorProps}
               documentId={documentId}
+              slideAssetPort={slideAssetPort}
               initialTab={rightPanelTab}
               onClose={closeRightPanel}
               className="absolute bottom-4 right-4 top-4 z-panel hidden w-80 flex-col overflow-y-auto overflow-x-hidden rounded-ds-lg border border-ds-border-subtle bg-ds-surface-overlay shadow-ds-overlay lg:flex"
@@ -3663,6 +3666,7 @@ export function SlideEditor({
                     key={`sheet-panel-${rightPanelTab}`}
                     {...inspectorProps}
                     documentId={documentId}
+                    slideAssetPort={slideAssetPort}
                     initialTab={rightPanelTab}
                     className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto overflow-x-hidden"
                   />
