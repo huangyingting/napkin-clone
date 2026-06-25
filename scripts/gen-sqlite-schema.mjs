@@ -15,7 +15,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const canonicalPath = join(repoRoot, "prisma", "schema.prisma");
@@ -28,6 +28,56 @@ const TARGET_PROVIDER = "sqlite";
 // `[^}]*?` keeps the match inside the datasource block.
 const DATASOURCE_PROVIDER =
   /(datasource\s+\w+\s*\{[^}]*?provider\s*=\s*)"([^"]*)"/;
+
+const REQUIRED_SCHEMA_CONTRACT_METADATA = [
+  {
+    name: "DocumentVersion persisted snapshots",
+    all: [
+      /model\s+DocumentVersion\s*\{/,
+      /contentJson\s+Json/,
+      /deckJson\s+Json\?/,
+      /Point-in-time snapshot of a document's editable state/,
+    ],
+  },
+  {
+    name: "Comment anchor persisted columns",
+    all: [
+      /model\s+Comment\s*\{/,
+      /anchorType\s+String\?/,
+      /anchorNodeId\s+String\?/,
+      /anchorGeometry\s+Json\?/,
+      /Slide-level anchor fields/,
+    ],
+  },
+  {
+    name: "Tag slug ownership invariants",
+    all: [
+      /model\s+Tag\s*\{/,
+      /slug\s+String/,
+      /@@unique\(\[ownerId,\s*slug\]\)/,
+      /The slug derives from slugify\(name\)/,
+    ],
+  },
+  {
+    name: "Workspace role string literal metadata",
+    all: [
+      /model\s+WorkspaceMember\s*\{/,
+      /role\s+String\s+@default\("VIEWER"\)/,
+      /model\s+InviteLink\s*\{/,
+      /model\s+InviteLinkUse\s*\{/,
+    ],
+  },
+  {
+    name: "Asset scope metadata",
+    all: [
+      /model\s+Asset\s*\{/,
+      /documentId\s+String\?/,
+      /workspaceId\s+String\?/,
+      /brandId\s+String\?/,
+      /Scope: an asset may be owned by a document, workspace, or brand/,
+    ],
+  },
+];
 
 function parseOptions(args) {
   const options = {
@@ -53,6 +103,17 @@ function parseOptions(args) {
   }
 
   return options;
+}
+
+export function validateSchemaContractMetadata(schema) {
+  const missing = [];
+  for (const requirement of REQUIRED_SCHEMA_CONTRACT_METADATA) {
+    const absent = requirement.all.filter((pattern) => !pattern.test(schema));
+    if (absent.length > 0) {
+      missing.push(requirement.name);
+    }
+  }
+  return missing;
 }
 
 function generateSqliteSchema(canonical) {
@@ -132,6 +193,20 @@ function main() {
       return;
     }
 
+    const missingMetadata = validateSchemaContractMetadata(canonical);
+    if (missingMetadata.length > 0) {
+      console.error(
+        "prisma/schema.prisma is missing persisted-contract metadata for: " +
+          missingMetadata.join(", "),
+      );
+      console.error(
+        "Document schema changes must keep migration/no-migration intent and " +
+          "contract comments with the schema they describe.",
+      );
+      process.exitCode = 1;
+      return;
+    }
+
     console.log(
       "prisma/schema.sqlite.prisma matches generated output from prisma/schema.prisma.",
     );
@@ -146,4 +221,6 @@ function main() {
   );
 }
 
-main();
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}

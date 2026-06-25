@@ -24,8 +24,16 @@ import { resolveProvider } from "@/lib/db-provider";
 import {
   auditRows,
   formatAuditReport,
+  type AssetAuditRow,
+  type CommentAuditRow,
   type DocumentAuditRow,
+  type DocumentVersionAuditRow,
+  type SubscriptionAuditRow,
+  type TagAuditRow,
+  type UsageLedgerAuditRow,
+  type UserPlanAuditRow,
   type VisualAuditRow,
+  type WorkspaceRoleAuditRow,
 } from "@/lib/schema-audit/audit";
 
 const PAGE_SIZE = 500;
@@ -74,17 +82,183 @@ async function loadVisuals(): Promise<VisualAuditRow[]> {
   return rows;
 }
 
+async function loadDocumentVersions(): Promise<DocumentVersionAuditRow[]> {
+  const rows: DocumentVersionAuditRow[] = [];
+  let cursor: string | undefined;
+  for (;;) {
+    const page = await prisma.documentVersion.findMany({
+      take: PAGE_SIZE,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+      orderBy: { id: "asc" },
+      select: {
+        id: true,
+        documentId: true,
+        deckJson: true,
+        contentJson: true,
+      },
+    });
+    if (page.length === 0) break;
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) break;
+    cursor = page[page.length - 1].id;
+  }
+  return rows;
+}
+
+async function loadComments(): Promise<CommentAuditRow[]> {
+  const rows: CommentAuditRow[] = [];
+  let cursor: string | undefined;
+  for (;;) {
+    const page = await prisma.comment.findMany({
+      take: PAGE_SIZE,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+      orderBy: { id: "asc" },
+      select: {
+        id: true,
+        documentId: true,
+        anchorType: true,
+        anchorText: true,
+        anchorNodeId: true,
+        slideId: true,
+        elementId: true,
+        anchorGeometry: true,
+      },
+    });
+    if (page.length === 0) break;
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) break;
+    cursor = page[page.length - 1].id;
+  }
+  return rows;
+}
+
+async function loadTags(): Promise<TagAuditRow[]> {
+  const rows: TagAuditRow[] = [];
+  let cursor: string | undefined;
+  for (;;) {
+    const page = await prisma.tag.findMany({
+      take: PAGE_SIZE,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+      orderBy: { id: "asc" },
+      select: { id: true, ownerId: true, name: true, slug: true },
+    });
+    if (page.length === 0) break;
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) break;
+    cursor = page[page.length - 1].id;
+  }
+  return rows;
+}
+
+async function loadRoleRows(): Promise<{
+  workspaceMembers: WorkspaceRoleAuditRow[];
+  inviteLinks: WorkspaceRoleAuditRow[];
+  inviteLinkUses: WorkspaceRoleAuditRow[];
+}> {
+  const [workspaceMembers, inviteLinks, inviteLinkUses] = await Promise.all([
+    prisma.workspaceMember.findMany({
+      select: { id: true, role: true },
+      orderBy: { id: "asc" },
+    }),
+    prisma.inviteLink.findMany({
+      select: { id: true, role: true },
+      orderBy: { id: "asc" },
+    }),
+    prisma.inviteLinkUse.findMany({
+      select: { id: true, role: true },
+      orderBy: { id: "asc" },
+    }),
+  ]);
+  return { workspaceMembers, inviteLinks, inviteLinkUses };
+}
+
+async function loadUsers(): Promise<UserPlanAuditRow[]> {
+  return prisma.user.findMany({
+    select: { id: true, plan: true },
+    orderBy: { id: "asc" },
+  });
+}
+
+async function loadSubscriptions(): Promise<SubscriptionAuditRow[]> {
+  return prisma.subscription.findMany({
+    select: { id: true, plan: true, status: true },
+    orderBy: { id: "asc" },
+  });
+}
+
+async function loadUsageLedgerEntries(): Promise<UsageLedgerAuditRow[]> {
+  return prisma.usageLedgerEntry.findMany({
+    select: { id: true, status: true },
+    orderBy: { id: "asc" },
+  });
+}
+
+async function loadAssets(): Promise<AssetAuditRow[]> {
+  const rows: AssetAuditRow[] = [];
+  let cursor: string | undefined;
+  for (;;) {
+    const page = await prisma.asset.findMany({
+      take: PAGE_SIZE,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+      orderBy: { id: "asc" },
+      select: {
+        id: true,
+        documentId: true,
+        workspaceId: true,
+        brandId: true,
+        deletedAt: true,
+      },
+    });
+    if (page.length === 0) break;
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) break;
+    cursor = page[page.length - 1].id;
+  }
+  return rows;
+}
 async function main(): Promise<void> {
   const args = new Set(process.argv.slice(2));
   const ci = args.has("--ci") || args.has("--strict");
   const json = args.has("--json");
 
-  const [documents, visuals] = await Promise.all([
+  const [
+    documents,
+    visuals,
+    documentVersions,
+    comments,
+    tags,
+    roles,
+    users,
+    subscriptions,
+    usageLedgerEntries,
+    assets,
+  ] = await Promise.all([
     loadDocuments(),
     loadVisuals(),
+    loadDocumentVersions(),
+    loadComments(),
+    loadTags(),
+    loadRoleRows(),
+    loadUsers(),
+    loadSubscriptions(),
+    loadUsageLedgerEntries(),
+    loadAssets(),
   ]);
 
-  const report = auditRows({ documents, visuals });
+  const report = auditRows({
+    documents,
+    visuals,
+    documentVersions,
+    comments,
+    tags,
+    workspaceMembers: roles.workspaceMembers,
+    inviteLinks: roles.inviteLinks,
+    inviteLinkUses: roles.inviteLinkUses,
+    users,
+    subscriptions,
+    usageLedgerEntries,
+    assets,
+  });
 
   if (json) {
     console.log(
