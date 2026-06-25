@@ -16,7 +16,7 @@ import {
   applyElementDeleteToAnchors,
   applySlideDeleteToAnchors,
   findOrphanedAnchors,
-} from "./slide-comment-lifecycle";
+} from "@/lib/comments";
 
 // ---------------------------------------------------------------------------
 // Fixtures

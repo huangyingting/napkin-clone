@@ -11,7 +11,7 @@ import {
   validateAnchorGeometry,
   validateElementId,
   validateSlideId,
-} from "./comment-anchor-validation";
+} from "@/lib/comments";
 
 // ---------------------------------------------------------------------------
 // validateAnchorGeometry

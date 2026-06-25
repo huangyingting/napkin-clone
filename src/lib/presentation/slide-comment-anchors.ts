@@ -14,15 +14,6 @@
  *  - `"unknown"`  — anchor data is present but the deck is unavailable, so
  *                   live resolution is impossible.
  *
- * ## DB ↔ TS mapping
- * The Prisma Comment model stores anchor data in three columns:
- *  - `slideId`        — maps 1-to-1 to {@link SlideCommentAnchor.slideId}
- *  - `elementId`      — maps 1-to-1 to {@link SlideCommentAnchor.elementId}
- *  - `anchorGeometry` — maps to {@link SlideCommentAnchor.geometry} (rename!)
- *
- * Always use {@link commentAnchorFromRecord} / {@link commentAnchorToRecord}
- * at the DB boundary to avoid silently dropping coordinates from the rename.
- *
  * ## Geometry shape
  * `anchorGeometry` stores a simple `{x, y}` point.
  */
@@ -181,62 +172,4 @@ export function retargetAnchorToSlideOnly(
   newSlideId: string,
 ): SlideCommentAnchor {
   return { ...anchor, slideId: newSlideId, elementId: null };
-}
-
-// ---------------------------------------------------------------------------
-// DB ↔ TS mappers
-// ---------------------------------------------------------------------------
-
-/**
- * Partial Prisma Comment record shape containing the anchor columns.
- * The `anchorGeometry` column is named differently from the TS field
- * (`geometry`) — always use these mappers at the DB boundary.
- */
-export interface CommentAnchorRecord {
-  slideId?: string | null;
-  elementId?: string | null;
-  /** Prisma Json? — an already-parsed object (Postgres and SQLite via Prisma). */
-  anchorGeometry?: unknown;
-}
-
-/**
- * Maps a Prisma Comment record to a {@link SlideCommentAnchor}.
- *
- * Handles the `anchorGeometry` → `geometry` rename and validates that the
- * stored value has the expected `{x, y}` shape, silently dropping malformed
- * blobs rather than letting bad data propagate into UI coordinates.
- */
-export function commentAnchorFromRecord(
-  record: CommentAnchorRecord,
-): SlideCommentAnchor {
-  let geometry: AnchorPoint | null = null;
-  if (record.anchorGeometry != null) {
-    const g = record.anchorGeometry as { x?: unknown; y?: unknown };
-    if (typeof g.x === "number" && typeof g.y === "number") {
-      geometry = { x: g.x, y: g.y };
-    }
-  }
-  return {
-    slideId: record.slideId ?? null,
-    elementId: record.elementId ?? null,
-    geometry,
-  };
-}
-
-/**
- * Maps a {@link SlideCommentAnchor} to the Prisma write shape for a Comment.
- *
- * Handles the `geometry` → `anchorGeometry` rename so callers never need to
- * remember the column name difference.
- */
-export function commentAnchorToRecord(anchor: SlideCommentAnchor): {
-  slideId: string | null;
-  elementId: string | null;
-  anchorGeometry: AnchorPoint | null;
-} {
-  return {
-    slideId: anchor.slideId ?? null,
-    elementId: anchor.elementId ?? null,
-    anchorGeometry: anchor.geometry ?? null,
-  };
 }

@@ -46,11 +46,8 @@ import { Button, IconButton } from "@/components/ui";
 import { cx, FIELD_CONTROL, RADIUS } from "@/components/ui/tokens";
 import { GUTTER_BUTTON } from "@/components/ui/tokens";
 
-import {
-  createComment,
-  setCommentResolved,
-  type CommentThread,
-} from "./comments-actions";
+import { createComment, setCommentResolved } from "./comments-actions";
+import type { CommentThread } from "@/lib/comments";
 
 // ---------------------------------------------------------------------------
 // Types

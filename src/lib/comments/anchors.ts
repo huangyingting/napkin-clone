@@ -1,0 +1,267 @@
+import type { SlideCommentAnchor } from "@/lib/presentation/slide-comment-anchors";
+
+export type CommentAnchorType = "text" | "visual";
+
+export type AnchorPoint = {
+  x: number;
+  y: number;
+};
+
+export type DeckCommentAnchor = {
+  kind: "deck";
+};
+
+export type TextCommentAnchor = {
+  kind: "text";
+  text: string;
+  nodeId: string | null;
+};
+
+export type DocumentBlockCommentAnchor = {
+  kind: "document-block";
+  blockKind: "visual";
+  text: string | null;
+  nodeId: string | null;
+};
+
+export type SlideLevelCommentAnchor = {
+  kind: "slide";
+  slideId: string;
+  geometry: AnchorPoint | null;
+};
+
+export type SlideElementCommentAnchor = {
+  kind: "slide-element";
+  slideId: string;
+  elementId: string;
+  geometry: AnchorPoint | null;
+};
+
+export type CommentAnchor =
+  | DeckCommentAnchor
+  | TextCommentAnchor
+  | DocumentBlockCommentAnchor
+  | SlideLevelCommentAnchor
+  | SlideElementCommentAnchor;
+
+export type CommentSlideAnchor = {
+  slideId: string | null;
+  elementId: string | null;
+  anchorGeometry: AnchorPoint | null;
+};
+
+export interface CommentAnchorRecord {
+  anchorType?: string | null;
+  anchorText?: string | null;
+  anchorNodeId?: string | null;
+  slideId?: string | null;
+  elementId?: string | null;
+  anchorGeometry?: unknown;
+}
+
+export function normalizeAnchorType(
+  value: string | null,
+): CommentAnchorType | null {
+  return value === "text" || value === "visual" ? value : null;
+}
+
+export function normalizeAnchorText(value: string, maxLength: number): string {
+  return value.replace(/\s+/g, " ").trim().slice(0, maxLength);
+}
+
+const COORD_MIN = 0;
+const COORD_MAX = 100;
+
+export function validateAnchorGeometry(
+  raw: { x: unknown; y: unknown } | null | undefined,
+): AnchorPoint | null {
+  if (raw == null) {
+    return null;
+  }
+
+  if (typeof raw.x !== "number" || typeof raw.y !== "number") {
+    throw new Error("Anchor geometry must have numeric x and y coordinates.");
+  }
+
+  if (
+    raw.x < COORD_MIN ||
+    raw.x > COORD_MAX ||
+    raw.y < COORD_MIN ||
+    raw.y > COORD_MAX
+  ) {
+    throw new Error(
+      `Anchor geometry coordinates must be between ${COORD_MIN} and ${COORD_MAX}.`,
+    );
+  }
+
+  return { x: raw.x, y: raw.y };
+}
+
+export function sanitizeAnchorGeometry(raw: unknown): AnchorPoint | null {
+  if (raw == null || typeof raw !== "object") {
+    return null;
+  }
+  const geometry = raw as { x?: unknown; y?: unknown };
+  if (typeof geometry.x !== "number" || typeof geometry.y !== "number") {
+    return null;
+  }
+  if (
+    geometry.x < COORD_MIN ||
+    geometry.x > COORD_MAX ||
+    geometry.y < COORD_MIN ||
+    geometry.y > COORD_MAX
+  ) {
+    return null;
+  }
+  return { x: geometry.x, y: geometry.y };
+}
+
+export function validateSlideId(raw: unknown): string | null {
+  if (raw == null) {
+    return null;
+  }
+  if (typeof raw !== "string") {
+    throw new Error("slideId must be a string.");
+  }
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+export function validateElementId(raw: unknown): string | null {
+  if (raw == null) {
+    return null;
+  }
+  if (typeof raw !== "string") {
+    throw new Error("elementId must be a string.");
+  }
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+export function slideAnchorFromRecord(
+  record: CommentAnchorRecord,
+): SlideCommentAnchor {
+  return {
+    slideId: record.slideId ?? null,
+    elementId: record.elementId ?? null,
+    geometry: sanitizeAnchorGeometry(record.anchorGeometry),
+  };
+}
+
+export function slideAnchorToRecord(anchor: SlideCommentAnchor): {
+  slideId: string | null;
+  elementId: string | null;
+  anchorGeometry: AnchorPoint | null;
+} {
+  return {
+    slideId: anchor.slideId ?? null,
+    elementId: anchor.elementId ?? null,
+    anchorGeometry: anchor.geometry ?? null,
+  };
+}
+
+export function commentAnchorFromRecord(
+  record: CommentAnchorRecord,
+): CommentAnchor {
+  const slideId = record.slideId ?? null;
+  const elementId = record.elementId ?? null;
+  const geometry = sanitizeAnchorGeometry(record.anchorGeometry);
+
+  if (slideId && elementId) {
+    return { kind: "slide-element", slideId, elementId, geometry };
+  }
+  if (slideId) {
+    return { kind: "slide", slideId, geometry };
+  }
+
+  const anchorType = normalizeAnchorType(record.anchorType ?? null);
+  if (anchorType === "text" && record.anchorText) {
+    return {
+      kind: "text",
+      text: record.anchorText,
+      nodeId: record.anchorNodeId ?? null,
+    };
+  }
+  if (anchorType === "visual") {
+    return {
+      kind: "document-block",
+      blockKind: "visual",
+      text: record.anchorText ?? null,
+      nodeId: record.anchorNodeId ?? null,
+    };
+  }
+
+  return { kind: "deck" };
+}
+
+export function commentAnchorToRecord(
+  anchor: CommentAnchor,
+): Required<CommentAnchorRecord> {
+  switch (anchor.kind) {
+    case "text":
+      return {
+        anchorType: "text",
+        anchorText: anchor.text,
+        anchorNodeId: anchor.nodeId,
+        slideId: null,
+        elementId: null,
+        anchorGeometry: null,
+      };
+    case "document-block":
+      return {
+        anchorType: "visual",
+        anchorText: anchor.text,
+        anchorNodeId: anchor.nodeId,
+        slideId: null,
+        elementId: null,
+        anchorGeometry: null,
+      };
+    case "slide":
+      return {
+        anchorType: null,
+        anchorText: null,
+        anchorNodeId: null,
+        slideId: anchor.slideId,
+        elementId: null,
+        anchorGeometry: anchor.geometry,
+      };
+    case "slide-element":
+      return {
+        anchorType: null,
+        anchorText: null,
+        anchorNodeId: null,
+        slideId: anchor.slideId,
+        elementId: anchor.elementId,
+        anchorGeometry: anchor.geometry,
+      };
+    case "deck":
+      return {
+        anchorType: null,
+        anchorText: null,
+        anchorNodeId: null,
+        slideId: null,
+        elementId: null,
+        anchorGeometry: null,
+      };
+  }
+}
+
+export function legacySlideAnchorFromAnchor(
+  anchor: CommentAnchor,
+): CommentSlideAnchor | null {
+  if (anchor.kind === "slide") {
+    return {
+      slideId: anchor.slideId,
+      elementId: null,
+      anchorGeometry: anchor.geometry,
+    };
+  }
+  if (anchor.kind === "slide-element") {
+    return {
+      slideId: anchor.slideId,
+      elementId: anchor.elementId,
+      anchorGeometry: anchor.geometry,
+    };
+  }
+  return null;
+}

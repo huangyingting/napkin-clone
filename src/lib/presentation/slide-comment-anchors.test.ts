@@ -8,8 +8,6 @@ import { test } from "node:test";
 
 import type { Deck, Slide } from "./deck";
 import {
-  commentAnchorFromRecord,
-  commentAnchorToRecord,
   floatAnchorToDeck,
   floatAnchorToSlide,
   resolveAnchorState,
@@ -286,92 +284,4 @@ test("retargetAnchorToSlideOnly: result resolves to attached even when elementId
   const a = anchor({ slideId: "sl-1", elementId: "el-a" });
   const retargeted = retargetAnchorToSlideOnly(a, "sl-2");
   assert.equal(resolveAnchorState(retargeted, d), "attached");
-});
-
-// ---------------------------------------------------------------------------
-// commentAnchorFromRecord
-// ---------------------------------------------------------------------------
-
-test("commentAnchorFromRecord: full record maps correctly", () => {
-  const result = commentAnchorFromRecord({
-    slideId: "sl-1",
-    elementId: "el-a",
-    anchorGeometry: { x: 25, y: 75 },
-  });
-  assert.equal(result.slideId, "sl-1");
-  assert.equal(result.elementId, "el-a");
-  assert.deepEqual(result.geometry, { x: 25, y: 75 });
-});
-
-test("commentAnchorFromRecord: null anchorGeometry → null geometry", () => {
-  const result = commentAnchorFromRecord({
-    slideId: "sl-1",
-    elementId: null,
-    anchorGeometry: null,
-  });
-  assert.equal(result.geometry, null);
-});
-
-test("commentAnchorFromRecord: missing anchorGeometry → null geometry", () => {
-  const result = commentAnchorFromRecord({ slideId: "sl-1" });
-  assert.equal(result.geometry, null);
-});
-
-test("commentAnchorFromRecord: malformed anchorGeometry (no x/y) → null geometry", () => {
-  const result = commentAnchorFromRecord({
-    slideId: "sl-1",
-    anchorGeometry: { label: "bad" },
-  });
-  assert.equal(result.geometry, null);
-});
-
-test("commentAnchorFromRecord: null slideId/elementId normalised to null", () => {
-  const result = commentAnchorFromRecord({
-    slideId: null,
-    elementId: null,
-  });
-  assert.equal(result.slideId, null);
-  assert.equal(result.elementId, null);
-});
-
-// ---------------------------------------------------------------------------
-// commentAnchorToRecord
-// ---------------------------------------------------------------------------
-
-test("commentAnchorToRecord: full anchor maps correctly", () => {
-  const result = commentAnchorToRecord({
-    slideId: "sl-1",
-    elementId: "el-a",
-    geometry: { x: 50, y: 50 },
-  });
-  assert.equal(result.slideId, "sl-1");
-  assert.equal(result.elementId, "el-a");
-  assert.deepEqual(result.anchorGeometry, { x: 50, y: 50 });
-});
-
-test("commentAnchorToRecord: undefined geometry → null anchorGeometry", () => {
-  const result = commentAnchorToRecord({ slideId: "sl-1" });
-  assert.equal(result.anchorGeometry, null);
-});
-
-test("commentAnchorToRecord: null geometry → null anchorGeometry", () => {
-  const result = commentAnchorToRecord({ slideId: "sl-1", geometry: null });
-  assert.equal(result.anchorGeometry, null);
-});
-
-test("commentAnchorToRecord: undefined slideId/elementId → null", () => {
-  const result = commentAnchorToRecord({});
-  assert.equal(result.slideId, null);
-  assert.equal(result.elementId, null);
-});
-
-test("commentAnchorFromRecord round-trips through commentAnchorToRecord", () => {
-  const original: SlideCommentAnchor = {
-    slideId: "sl-1",
-    elementId: "el-a",
-    geometry: { x: 33, y: 66 },
-  };
-  const record = commentAnchorToRecord(original);
-  const recovered = commentAnchorFromRecord(record);
-  assert.deepEqual(recovered, original);
 });

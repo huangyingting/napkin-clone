@@ -5,7 +5,7 @@ import {
   canDeleteComment,
   canEditComment,
   type CommentOwnership,
-} from "./comment-permissions";
+} from "@/lib/comments";
 
 function comment(authorId: string): CommentOwnership {
   return { authorId };

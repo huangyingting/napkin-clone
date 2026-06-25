@@ -15,19 +15,18 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { canDeleteComment, canEditComment } from "./comment-permissions";
-import {
-  sanitizeAnchorGeometry,
-  validateAnchorGeometry,
-} from "./comment-anchor-validation";
 import {
   applyElementDeleteToAnchors,
   applySlideDeleteToAnchors,
+  canDeleteComment,
+  canEditComment,
   findOrphanedAnchors,
-} from "./slide-comment-lifecycle";
+  sanitizeAnchorGeometry,
+  slideAnchorFromRecord,
+  slideAnchorToRecord,
+  validateAnchorGeometry,
+} from "@/lib/comments";
 import {
-  commentAnchorFromRecord,
-  commentAnchorToRecord,
   resolveAnchorState,
   type SlideCommentAnchor,
 } from "@/lib/presentation/slide-comment-anchors";
@@ -144,20 +143,20 @@ test("anchor sanitize: sanitizeAnchorGeometry silently drops non-objects", () =>
   assert.equal(sanitizeAnchorGeometry(null), null);
 });
 
-test("anchor DB round-trip: commentAnchorToRecord → commentAnchorFromRecord", () => {
+test("anchor DB round-trip: slideAnchorToRecord → slideAnchorFromRecord", () => {
   const original: SlideCommentAnchor = {
     slideId: "sl-1",
     elementId: "el-a",
     geometry: { x: 33, y: 66 },
   };
-  const record = commentAnchorToRecord(original);
-  const recovered = commentAnchorFromRecord(record);
+  const record = slideAnchorToRecord(original);
+  const recovered = slideAnchorFromRecord(record);
   assert.deepEqual(recovered, original);
 });
 
 test("anchor DB: text comment record (no slideId) maps to deck-level anchor", () => {
   const record = { slideId: null, elementId: null, anchorGeometry: null };
-  const anchor1 = commentAnchorFromRecord(record);
+  const anchor1 = slideAnchorFromRecord(record);
   assert.equal(anchor1.slideId, null);
   assert.equal(anchor1.elementId, null);
   assert.equal(anchor1.geometry, null);
@@ -168,7 +167,7 @@ test("anchor DB: malformed anchorGeometry blob is silently dropped", () => {
     slideId: "sl-1",
     anchorGeometry: { notX: 50, notY: 50 },
   };
-  const anchor1 = commentAnchorFromRecord(record);
+  const anchor1 = slideAnchorFromRecord(record);
   assert.equal(anchor1.geometry, null); // malformed blob dropped
   assert.equal(anchor1.slideId, "sl-1"); // slideId preserved
 });
@@ -267,15 +266,15 @@ test("text comment record has null slide anchor fields", () => {
     // anchorGeometry absent (same as null for CommentAnchorRecord).
   };
 
-  const anchor1 = commentAnchorFromRecord(record);
-  // commentAnchorFromRecord returns null for absent/null slideId.
+  const anchor1 = slideAnchorFromRecord(record);
+  // slideAnchorFromRecord returns null for absent/null slideId.
   assert.equal(anchor1.slideId, null);
   assert.equal(anchor1.elementId, null);
   assert.equal(anchor1.geometry, null);
 });
 
 test("deck-level anchor resolves to deck for text comment", () => {
-  const textCommentAnchor = commentAnchorFromRecord({});
+  const textCommentAnchor = slideAnchorFromRecord({});
   const deck = makeDeck([makeSlide("sl-1")]);
   assert.equal(resolveAnchorState(textCommentAnchor, deck), "deck");
 });
