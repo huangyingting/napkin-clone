@@ -35,8 +35,10 @@ import {
   acceptDeckCommandEnvelope,
   type CommandEnvelope,
 } from "@/lib/commands/command-envelope";
-
-const MAX_LEXICAL_STATE_LENGTH = 2_000_000;
+import {
+  LEXICAL_STATE_MAX_LENGTH,
+  formatLexicalStateTooLargeError,
+} from "@/lib/limits";
 
 /**
  * Saves the serialized Lexical editor state for a document.
@@ -51,8 +53,8 @@ export async function saveDocumentLexical(
 ): Promise<ActionResult<VisualMirrorOutcome>> {
   const user = await requireUser();
 
-  if (stateJson.length > MAX_LEXICAL_STATE_LENGTH) {
-    return actionError("Document is too large to save.");
+  if (stateJson.length > LEXICAL_STATE_MAX_LENGTH) {
+    return actionError(formatLexicalStateTooLargeError());
   }
 
   let parsed: unknown;

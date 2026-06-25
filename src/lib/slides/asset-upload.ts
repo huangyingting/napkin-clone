@@ -10,24 +10,21 @@
 // Constants
 // ---------------------------------------------------------------------------
 
-/**
- * Accepted image MIME types for slide assets.
- * SVG is excluded until server-side sanitization is in place.
- */
-export const SLIDE_IMAGE_TYPES = [
-  "image/png",
-  "image/jpeg",
-  "image/gif",
-  "image/webp",
-] as const;
+import {
+  SLIDE_ASSET_MAX_BYTES,
+  SLIDE_ASSET_MAX_DIMENSION_PX,
+  SLIDE_IMAGE_TYPES,
+  formatAssetFileTooLargeError,
+  type SlideImageMime,
+} from "@/lib/limits";
 
-export type SlideImageMime = (typeof SLIDE_IMAGE_TYPES)[number];
+export { SLIDE_IMAGE_TYPES, type SlideImageMime } from "@/lib/limits";
 
 /** Maximum upload size for a single slide asset (10 MB). */
-export const ASSET_MAX_BYTES = 10 * 1024 * 1024;
+export const ASSET_MAX_BYTES = SLIDE_ASSET_MAX_BYTES;
 
 /** Maximum pixel dimension (width or height) for raster images. */
-export const ASSET_MAX_DIMENSION_PX = 16_384;
+export const ASSET_MAX_DIMENSION_PX = SLIDE_ASSET_MAX_DIMENSION_PX;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -177,8 +174,7 @@ export function buildAssetMeta(opts: {
 export function formatAssetUploadError(error: AssetUploadError): string {
   switch (error.code) {
     case "file_too_large": {
-      const mb = Math.round(error.maxBytes / 1024 / 1024);
-      return `File exceeds the ${mb} MB limit.`;
+      return formatAssetFileTooLargeError(error.maxBytes);
     }
     case "type_rejected":
       return `Unsupported file type. Accepted: ${error.accepted.join(", ")}.`;

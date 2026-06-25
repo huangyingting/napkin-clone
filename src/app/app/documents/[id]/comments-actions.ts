@@ -4,6 +4,11 @@ import { revalidatePath } from "next/cache";
 
 import { Prisma } from "@/generated/prisma/client";
 import { requireDocumentCapability } from "@/lib/auth/document-permissions";
+import {
+  COMMENT_ANCHOR_NODE_ID_MAX_LENGTH,
+  COMMENT_ANCHOR_TEXT_MAX_LENGTH,
+  COMMENT_BODY_MAX_LENGTH,
+} from "@/lib/limits";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import {
@@ -73,10 +78,6 @@ export type ListCommentsOptions = {
   slideId?: string | null;
   anchorScope?: "all" | "text" | "slide";
 };
-
-const MAX_BODY_LENGTH = 5_000;
-const MAX_ANCHOR_TEXT_LENGTH = 280;
-const MAX_ANCHOR_NODE_ID_LENGTH = 200;
 
 type AuthorRecord = { id: string; name: string | null; email: string };
 
@@ -202,7 +203,7 @@ export async function createComment(
 
   await requireDocumentCapability(user.id, documentId, "view");
 
-  const body = input.body.trim().slice(0, MAX_BODY_LENGTH);
+  const body = input.body.trim().slice(0, COMMENT_BODY_MAX_LENGTH);
   if (body.length === 0) {
     throw new Error("Comment cannot be empty.");
   }
@@ -254,11 +255,13 @@ export async function createComment(
       // Text/visual document anchor.
       const anchorType = normalizeAnchorType(input.anchorType ?? null);
       const anchorText = anchorType
-        ? (input.anchorText?.trim().slice(0, MAX_ANCHOR_TEXT_LENGTH) ?? null)
+        ? (input.anchorText?.trim().slice(0, COMMENT_ANCHOR_TEXT_MAX_LENGTH) ??
+          null)
         : null;
       const anchorNodeId =
         anchorType === "visual"
-          ? (input.anchorNodeId?.slice(0, MAX_ANCHOR_NODE_ID_LENGTH) ?? null)
+          ? (input.anchorNodeId?.slice(0, COMMENT_ANCHOR_NODE_ID_MAX_LENGTH) ??
+            null)
           : null;
 
       await prisma.comment.create({
@@ -302,7 +305,7 @@ export async function editComment(
     throw new Error("You can only edit your own comments.");
   }
 
-  const body = newBody.trim().slice(0, MAX_BODY_LENGTH);
+  const body = newBody.trim().slice(0, COMMENT_BODY_MAX_LENGTH);
   if (body.length === 0) {
     throw new Error("Comment cannot be empty.");
   }

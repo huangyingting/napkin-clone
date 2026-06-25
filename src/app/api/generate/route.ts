@@ -41,6 +41,7 @@ import {
   type Visual,
   type VisualKind,
 } from "@/lib/visual/schema";
+import { formatVisualInputTooLongError } from "@/lib/limits";
 
 // Use the Node.js runtime: the Azure call and node:crypto signing need it.
 export const runtime = "nodejs";
@@ -68,7 +69,7 @@ function parsePayload(
     return {
       ok: false,
       status: 413,
-      message: `Input text is too long (${text.length} characters). The maximum is ${MAX_INPUT_CHARS}.`,
+      message: formatVisualInputTooLongError(text.length),
     };
   }
 

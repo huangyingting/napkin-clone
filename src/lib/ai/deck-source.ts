@@ -25,7 +25,7 @@
  */
 
 import type { GenerateDeckInput } from "@/lib/ai/generate-deck";
-import { MAX_INPUT_CHARS } from "@/lib/ai/generate";
+import { AI_GENERATION_INPUT_MAX_CHARS as MAX_INPUT_CHARS } from "@/lib/limits";
 import type { TextRun } from "@/lib/presentation/deck";
 import {
   collectDocumentBlocks,

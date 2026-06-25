@@ -17,6 +17,10 @@
 
 import { buildGenerationMessages, type ChatMessage } from "@/lib/ai/prompt";
 import {
+  AI_GENERATION_INPUT_MAX_CHARS,
+  formatVisualInputTooLongError,
+} from "@/lib/limits";
+import {
   safeParseVisual,
   type Visual,
   type VisualKind,
@@ -24,7 +28,7 @@ import {
 import type { DetailLevel, Orientation } from "@/lib/ai/prompt";
 
 /** Maximum accepted input length; longer text is rejected before any LLM call. */
-export const MAX_INPUT_CHARS = 10_000;
+export const MAX_INPUT_CHARS = AI_GENERATION_INPUT_MAX_CHARS;
 
 /** Minimum number of valid candidate visuals a generation must yield. */
 export const MIN_CANDIDATES = 3;
@@ -48,9 +52,7 @@ export class InputTooLongError extends Error {
   readonly length: number;
   readonly limit: number;
   constructor(length: number) {
-    super(
-      `Input text is too long (${length} characters). The maximum is ${MAX_INPUT_CHARS}.`,
-    );
+    super(formatVisualInputTooLongError(length));
     this.name = "InputTooLongError";
     this.length = length;
     this.limit = MAX_INPUT_CHARS;

@@ -5,21 +5,17 @@
  * (server) and unit tests without any framework dependency.
  */
 
-/** Absolute ceiling for any accepted upload, in bytes (20 MB). */
-export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+import {
+  IMPORT_ACCEPTED_MIME_TYPES,
+  IMPORT_MAX_BYTES_BY_MIME,
+  IMPORT_MAX_UPLOAD_BYTES,
+  formatImportFileTooLargeError,
+  type ImportAcceptedMimeType,
+} from "@/lib/limits";
 
-/** Accepted file MIME types (canonical names used in HTTP Content-Type). */
-export const ACCEPTED_MIME_TYPES = [
-  "text/markdown",
-  "text/x-markdown",
-  "text/plain",
-  "text/html",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-  "application/pdf",
-] as const;
-
-export type AcceptedMimeType = (typeof ACCEPTED_MIME_TYPES)[number];
+export const MAX_UPLOAD_BYTES = IMPORT_MAX_UPLOAD_BYTES;
+export const ACCEPTED_MIME_TYPES = IMPORT_ACCEPTED_MIME_TYPES;
+export type AcceptedMimeType = ImportAcceptedMimeType;
 
 /**
  * Per-type upload ceilings, in bytes (#96, criterion 3). Plain-text formats are
@@ -27,17 +23,7 @@ export type AcceptedMimeType = (typeof ACCEPTED_MIME_TYPES)[number];
  * get a tighter limit than the binary office/PDF formats whose useful documents
  * are legitimately larger. Every value stays at or below {@link MAX_UPLOAD_BYTES}.
  */
-const MAX_BYTES_BY_MIME: Record<AcceptedMimeType, number> = {
-  "text/markdown": 5 * 1024 * 1024,
-  "text/x-markdown": 5 * 1024 * 1024,
-  "text/plain": 5 * 1024 * 1024,
-  "text/html": 5 * 1024 * 1024,
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-    MAX_UPLOAD_BYTES,
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation":
-    MAX_UPLOAD_BYTES,
-  "application/pdf": MAX_UPLOAD_BYTES,
-};
+const MAX_BYTES_BY_MIME = IMPORT_MAX_BYTES_BY_MIME;
 
 /** Returns the per-type upload ceiling for a resolved MIME type. */
 export function maxBytesForMime(mime: AcceptedMimeType): number {
@@ -132,8 +118,7 @@ export function formatValidationError(error: ValidationError): string {
     case "unsupported_type":
       return "Unsupported file type. Please upload a .md, .html, .docx, .pptx, or .pdf file.";
     case "file_too_large": {
-      const maxMb = Math.round(error.maxBytes / (1024 * 1024));
-      return `File is too large. Maximum allowed size is ${maxMb} MB.`;
+      return formatImportFileTooLargeError(error.maxBytes);
     }
   }
 }

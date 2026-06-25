@@ -23,6 +23,10 @@ import {
   type InviteLink,
 } from "@/lib/workspace/service";
 import type { WorkspaceRole } from "@/lib/workspace/roles";
+import {
+  DOCUMENT_CONTENT_MAX_LENGTH,
+  DOCUMENT_TITLE_MAX_LENGTH,
+} from "@/lib/limits";
 
 export type {
   CreateInviteLinkOptions,
@@ -40,12 +44,6 @@ export type WorkspaceDocumentsResult = {
   documents: WorkspaceDocument[];
   hasMore: boolean;
 };
-
-/** Maximum stored document title length (mirrors the editor's title save). */
-const MAX_TITLE_LENGTH = 200;
-
-/** Maximum stored document content length. */
-const MAX_CONTENT_LENGTH = 100_000;
 
 export async function createInviteLink(
   workspaceId: string,
@@ -317,8 +315,8 @@ export async function importWorkspaceDocument(
   await requireWorkspaceCapability(user.id, workspaceId, "mutate");
 
   const title =
-    rawTitle.trim().slice(0, MAX_TITLE_LENGTH) || "Imported document";
-  const safeContent = content.slice(0, MAX_CONTENT_LENGTH);
+    rawTitle.trim().slice(0, DOCUMENT_TITLE_MAX_LENGTH) || "Imported document";
+  const safeContent = content.slice(0, DOCUMENT_CONTENT_MAX_LENGTH);
 
   // Normalize imported Markdown to canonical contentJson at creation time.
   const contentJson = JSON.parse(
