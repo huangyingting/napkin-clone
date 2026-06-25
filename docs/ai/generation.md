@@ -1,7 +1,7 @@
 # AI Generation
 
 **Status:** Current  
-**Last updated:** 2026-06-23
+**Last updated:** 2026-06-26
 
 This document describes the AI generation routes for visuals and decks. Both
 routes use the same operational envelope: validate before any model call,
@@ -10,20 +10,22 @@ validate/normalize output, and charge only successful generations.
 
 ## Source Files
 
-| Area                   | Source                                                                              |
-| ---------------------- | ----------------------------------------------------------------------------------- |
-| Visual route           | [`src/app/api/generate/route.ts`](../../../src/app/api/generate/route.ts)           |
-| Deck route             | [`src/app/api/generate-deck/route.ts`](../../../src/app/api/generate-deck/route.ts) |
-| Azure client           | [`src/lib/ai/azure.ts`](../../../src/lib/ai/azure.ts)                               |
-| Deadline wrapper       | [`src/lib/ai/deadline.ts`](../../../src/lib/ai/deadline.ts)                         |
-| Visual generation core | [`src/lib/ai/generate.ts`](../../../src/lib/ai/generate.ts)                         |
-| Deck generation core   | [`src/lib/ai/generate-deck.ts`](../../../src/lib/ai/generate-deck.ts)               |
-| Deck source extraction | [`src/lib/ai/deck-source.ts`](../../../src/lib/ai/deck-source.ts)                   |
-| Deck orchestration     | [`src/lib/ai/run-deck-generation.ts`](../../../src/lib/ai/run-deck-generation.ts)   |
-| Deck prompt            | [`src/lib/ai/deck-prompt.ts`](../../../src/lib/ai/deck-prompt.ts)                   |
-| Quota                  | [`src/lib/ai/quota.ts`](../../../src/lib/ai/quota.ts)                               |
-| Credits                | [`src/lib/billing/credits.ts`](../../../src/lib/billing/credits.ts)                 |
-| Usage ledger           | [`src/lib/billing/usage-ledger.ts`](../../../src/lib/billing/usage-ledger.ts)       |
+| Area                   | Source                                                                                           |
+| ---------------------- | ------------------------------------------------------------------------------------------------ |
+| Visual route           | [`src/app/api/generate/route.ts`](../../src/app/api/generate/route.ts)                           |
+| Deck route             | [`src/app/api/generate-deck/route.ts`](../../src/app/api/generate-deck/route.ts)                 |
+| Azure client           | [`src/lib/ai/azure.ts`](../../src/lib/ai/azure.ts)                                               |
+| Deadline wrapper       | [`src/lib/ai/deadline.ts`](../../src/lib/ai/deadline.ts)                                         |
+| Visual generation core | [`src/lib/ai/generate.ts`](../../src/lib/ai/generate.ts)                                         |
+| Deck generation core   | [`src/lib/ai/generate-deck.ts`](../../src/lib/ai/generate-deck.ts)                               |
+| Deck source extraction | [`src/lib/ai/deck-source.ts`](../../src/lib/ai/deck-source.ts)                                   |
+| Deck orchestration     | [`src/lib/ai/run-deck-generation.ts`](../../src/lib/ai/run-deck-generation.ts)                   |
+| Deck prompt            | [`src/lib/ai/deck-prompt.ts`](../../src/lib/ai/deck-prompt.ts)                                   |
+| Deck normalization     | [`src/lib/presentation/deck-layout-assign.ts`](../../src/lib/presentation/deck-layout-assign.ts) |
+| Deck schema validation | [`src/lib/presentation/deck-schema.ts`](../../src/lib/presentation/deck-schema.ts)               |
+| Quota                  | [`src/lib/ai/quota.ts`](../../src/lib/ai/quota.ts)                                               |
+| Credits                | [`src/lib/billing/credits.ts`](../../src/lib/billing/credits.ts)                                 |
+| Usage ledger           | [`src/lib/billing/usage-ledger.ts`](../../src/lib/billing/usage-ledger.ts)                       |
 
 ## Shared Route Flow
 
@@ -147,12 +149,12 @@ entitlements/configuration.
 
 ## Primary Tests
 
-- [`src/lib/ai/generate.test.ts`](../../../src/lib/ai/generate.test.ts)
-- [`src/lib/ai/generate-deck.test.ts`](../../../src/lib/ai/generate-deck.test.ts)
-- [`src/lib/ai/run-deck-generation.test.ts`](../../../src/lib/ai/run-deck-generation.test.ts)
-- [`src/lib/ai/deck-source.test.ts`](../../../src/lib/ai/deck-source.test.ts)
-- [`src/lib/ai/deck-prompt.test.ts`](../../../src/lib/ai/deck-prompt.test.ts)
-- [`src/lib/ai/deck-generation-request.test.ts`](../../../src/lib/ai/deck-generation-request.test.ts)
-- [`src/lib/ai/quota.test.ts`](../../../src/lib/ai/quota.test.ts)
-- [`src/lib/billing/credits.test.ts`](../../../src/lib/billing/credits.test.ts)
-- [`src/lib/billing/usage-ledger.test.ts`](../../../src/lib/billing/usage-ledger.test.ts)
+- [`src/lib/ai/generate.test.ts`](../../src/lib/ai/generate.test.ts)
+- [`src/lib/ai/generate-deck.test.ts`](../../src/lib/ai/generate-deck.test.ts)
+- [`src/lib/ai/run-deck-generation.test.ts`](../../src/lib/ai/run-deck-generation.test.ts)
+- [`src/lib/ai/deck-source.test.ts`](../../src/lib/ai/deck-source.test.ts)
+- [`src/lib/ai/deck-prompt.test.ts`](../../src/lib/ai/deck-prompt.test.ts)
+- [`src/lib/ai/deck-generation-request.test.ts`](../../src/lib/ai/deck-generation-request.test.ts)
+- [`src/lib/ai/quota.test.ts`](../../src/lib/ai/quota.test.ts)
+- [`src/lib/billing/credits.test.ts`](../../src/lib/billing/credits.test.ts)
+- [`src/lib/billing/usage-ledger.test.ts`](../../src/lib/billing/usage-ledger.test.ts)

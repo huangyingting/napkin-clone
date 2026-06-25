@@ -10,17 +10,17 @@ see [../editor/theme-layout.md](../editor/theme-layout.md).
 
 ## Source Files
 
-| Area                     | Source                                                                                                                    |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| Shared slide canvas      | [`src/components/presentation/slide-canvas.tsx`](../../../src/components/presentation/slide-canvas.tsx)                   |
-| In-app present mode      | [`src/components/presentation/present-mode.tsx`](../../../src/components/presentation/present-mode.tsx)                   |
-| Public present viewer    | [`src/components/presentation/public-present-viewer.tsx`](../../../src/components/presentation/public-present-viewer.tsx) |
-| Slide format geometry    | [`src/lib/presentation/slide-format.ts`](../../../src/lib/presentation/slide-format.ts)                                   |
-| Style cascade            | [`src/lib/presentation/style-cascade.ts`](../../../src/lib/presentation/style-cascade.ts)                                 |
-| Deck export specs        | [`src/lib/visual/deck-export.ts`](../../../src/lib/visual/deck-export.ts)                                                 |
-| Export preflight         | [`src/lib/visual/export-preflight.ts`](../../../src/lib/visual/export-preflight.ts)                                       |
-| PPTX native visual specs | [`src/lib/visual/pptx-shapes.ts`](../../../src/lib/visual/pptx-shapes.ts)                                                 |
-| PPTX applier             | [`src/lib/visual/pptx-apply.ts`](../../../src/lib/visual/pptx-apply.ts)                                                   |
+| Area                     | Source                                                                                                                 |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| Shared slide canvas      | [`src/components/presentation/slide-canvas.tsx`](../../src/components/presentation/slide-canvas.tsx)                   |
+| In-app present mode      | [`src/components/presentation/present-mode.tsx`](../../src/components/presentation/present-mode.tsx)                   |
+| Public present viewer    | [`src/components/presentation/public-present-viewer.tsx`](../../src/components/presentation/public-present-viewer.tsx) |
+| Slide format geometry    | [`src/lib/presentation/slide-format.ts`](../../src/lib/presentation/slide-format.ts)                                   |
+| Style cascade            | [`src/lib/presentation/style-cascade.ts`](../../src/lib/presentation/style-cascade.ts)                                 |
+| Deck export specs        | [`src/lib/visual/deck-export.ts`](../../src/lib/visual/deck-export.ts)                                                 |
+| Export preflight         | [`src/lib/visual/export-preflight.ts`](../../src/lib/visual/export-preflight.ts)                                       |
+| PPTX native visual specs | [`src/lib/visual/pptx-shapes.ts`](../../src/lib/visual/pptx-shapes.ts)                                                 |
+| PPTX applier             | [`src/lib/visual/pptx-apply.ts`](../../src/lib/visual/pptx-apply.ts)                                                   |
 
 ## Rendering Contract
 
@@ -144,11 +144,11 @@ Preflight warnings describe expected fidelity changes before the export starts.
 
 ## Primary Tests
 
-- [`src/lib/presentation/rendering-regression.test.ts`](../../../src/lib/presentation/rendering-regression.test.ts)
-- [`src/lib/visual/deck-export.test.ts`](../../../src/lib/visual/deck-export.test.ts)
-- [`src/lib/visual/export-preflight.test.ts`](../../../src/lib/visual/export-preflight.test.ts)
-- [`src/lib/visual/pptx-shapes.test.ts`](../../../src/lib/visual/pptx-shapes.test.ts)
-- [`src/lib/visual/export-fidelity.test.ts`](../../../src/lib/visual/export-fidelity.test.ts)
-- [`src/lib/presentation/stage-fit.test.ts`](../../../src/lib/presentation/stage-fit.test.ts)
-- [`e2e/slides-smoke.spec.ts`](../../../e2e/slides-smoke.spec.ts)
-- [`e2e/public-pages.spec.ts`](../../../e2e/public-pages.spec.ts)
+- [`src/lib/presentation/rendering-regression.test.ts`](../../src/lib/presentation/rendering-regression.test.ts)
+- [`src/lib/visual/deck-export.test.ts`](../../src/lib/visual/deck-export.test.ts)
+- [`src/lib/visual/export-preflight.test.ts`](../../src/lib/visual/export-preflight.test.ts)
+- [`src/lib/visual/pptx-shapes.test.ts`](../../src/lib/visual/pptx-shapes.test.ts)
+- [`src/lib/visual/export-fidelity.test.ts`](../../src/lib/visual/export-fidelity.test.ts)
+- [`src/lib/presentation/stage-fit.test.ts`](../../src/lib/presentation/stage-fit.test.ts)
+- [`e2e/slides-smoke.spec.ts`](../../e2e/slides-smoke.spec.ts)
+- [`e2e/public-pages.spec.ts`](../../e2e/public-pages.spec.ts)

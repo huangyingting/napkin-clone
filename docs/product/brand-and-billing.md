@@ -1,7 +1,7 @@
 # Brand And Billing
 
 **Status:** Current  
-**Last updated:** 2026-06-23
+**Last updated:** 2026-06-26
 
 This document describes plan entitlements, AI credit metering, and brand style
 ownership. It covers the product-tier decisions that affect visual generation,
@@ -9,19 +9,19 @@ deck generation, exports, and brand-kit UI.
 
 ## Source Files
 
-| Area                       | Source                                                                                    |
-| -------------------------- | ----------------------------------------------------------------------------------------- |
-| Entitlements               | [`src/lib/billing/entitlements.ts`](../../../src/lib/billing/entitlements.ts)             |
-| Credits                    | [`src/lib/billing/credits.ts`](../../../src/lib/billing/credits.ts)                       |
-| Usage ledger               | [`src/lib/billing/usage-ledger.ts`](../../../src/lib/billing/usage-ledger.ts)             |
-| Billing provider interface | [`src/lib/billing/provider.ts`](../../../src/lib/billing/provider.ts)                     |
-| Stripe provider            | [`src/lib/billing/stripe-provider.ts`](../../../src/lib/billing/stripe-provider.ts)       |
-| Brand entitlements         | [`src/lib/billing/brand-entitlements.ts`](../../../src/lib/billing/brand-entitlements.ts) |
-| Brand schema               | [`src/lib/brand/schema.ts`](../../../src/lib/brand/schema.ts)                             |
-| Brand transforms           | [`src/lib/brand/transforms.ts`](../../../src/lib/brand/transforms.ts)                     |
-| Font upload helpers        | [`src/lib/brand/upload.ts`](../../../src/lib/brand/upload.ts)                             |
-| Brand server actions       | [`src/app/app/brands/actions.ts`](../../../src/app/app/brands/actions.ts)                 |
-| Brand Studio UI            | [`src/app/app/brands/brand-studio.tsx`](../../../src/app/app/brands/brand-studio.tsx)     |
+| Area                          | Source                                                                                 |
+| ----------------------------- | -------------------------------------------------------------------------------------- |
+| Plan catalog and entitlements | [`src/lib/billing/catalog.ts`](../../src/lib/billing/catalog.ts)                       |
+| Credits                       | [`src/lib/billing/credits.ts`](../../src/lib/billing/credits.ts)                       |
+| Usage ledger                  | [`src/lib/billing/usage-ledger.ts`](../../src/lib/billing/usage-ledger.ts)             |
+| Billing provider interface    | [`src/lib/billing/provider.ts`](../../src/lib/billing/provider.ts)                     |
+| Stripe provider               | [`src/lib/billing/stripe-provider.ts`](../../src/lib/billing/stripe-provider.ts)       |
+| Brand entitlements            | [`src/lib/billing/brand-entitlements.ts`](../../src/lib/billing/brand-entitlements.ts) |
+| Brand schema                  | [`src/lib/brand/schema.ts`](../../src/lib/brand/schema.ts)                             |
+| Brand transforms              | [`src/lib/brand/transforms.ts`](../../src/lib/brand/transforms.ts)                     |
+| Font upload helpers           | [`src/lib/brand/upload.ts`](../../src/lib/brand/upload.ts)                             |
+| Brand server actions          | [`src/app/app/brands/actions.ts`](../../src/app/app/brands/actions.ts)                 |
+| Brand Studio UI               | [`src/app/app/brands/brand-studio.tsx`](../../src/app/app/brands/brand-studio.tsx)     |
 
 ## Plans And Entitlements
 
@@ -95,11 +95,11 @@ styles without allowing arbitrary font upload.
 
 ## Primary Tests
 
-- [`src/lib/billing/entitlements.test.ts`](../../../src/lib/billing/entitlements.test.ts)
-- [`src/lib/billing/credits.test.ts`](../../../src/lib/billing/credits.test.ts)
-- [`src/lib/billing/usage-ledger.test.ts`](../../../src/lib/billing/usage-ledger.test.ts)
-- [`src/lib/billing/brand-entitlements.test.ts`](../../../src/lib/billing/brand-entitlements.test.ts)
-- [`src/lib/billing/stripe-provider.test.ts`](../../../src/lib/billing/stripe-provider.test.ts)
-- [`src/lib/brand/brand.test.ts`](../../../src/lib/brand/brand.test.ts)
-- [`src/lib/brand/font-face.test.ts`](../../../src/lib/brand/font-face.test.ts)
-- [`e2e/billing-brand.spec.ts`](../../../e2e/billing-brand.spec.ts)
+- [`src/lib/billing/entitlements.test.ts`](../../src/lib/billing/entitlements.test.ts)
+- [`src/lib/billing/credits.test.ts`](../../src/lib/billing/credits.test.ts)
+- [`src/lib/billing/usage-ledger.test.ts`](../../src/lib/billing/usage-ledger.test.ts)
+- [`src/lib/billing/brand-entitlements.test.ts`](../../src/lib/billing/brand-entitlements.test.ts)
+- [`src/lib/billing/stripe-provider.test.ts`](../../src/lib/billing/stripe-provider.test.ts)
+- [`src/lib/brand/brand.test.ts`](../../src/lib/brand/brand.test.ts)
+- [`src/lib/brand/font-face.test.ts`](../../src/lib/brand/font-face.test.ts)
+- [`e2e/billing-brand.spec.ts`](../../e2e/billing-brand.spec.ts)

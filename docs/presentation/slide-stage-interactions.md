@@ -9,18 +9,18 @@ contract for `SlideStageEditor`, not the persisted deck schema.
 
 ## Source Files
 
-| Area                         | Source                                                                                                              |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Stage UI/controller          | [`src/components/presentation/slide-stage-editor.tsx`](../../../src/components/presentation/slide-stage-editor.tsx) |
-| Semantic hit testing         | [`src/lib/presentation/stage-hit-test.ts`](../../../src/lib/presentation/stage-hit-test.ts)                         |
-| Target resolution            | [`src/lib/presentation/stage-targeting.ts`](../../../src/lib/presentation/stage-targeting.ts)                       |
-| Chrome layering              | [`src/lib/presentation/stage-chrome.ts`](../../../src/lib/presentation/stage-chrome.ts)                             |
-| Interaction decision helpers | [`src/lib/presentation/stage-interaction.ts`](../../../src/lib/presentation/stage-interaction.ts)                   |
-| Media hit geometry           | [`src/lib/presentation/media-hit-geometry.ts`](../../../src/lib/presentation/media-hit-geometry.ts)                 |
-| Text hit geometry            | [`src/lib/presentation/text-hit-geometry.ts`](../../../src/lib/presentation/text-hit-geometry.ts)                   |
-| Keyboard canvas helpers      | [`src/lib/presentation/canvas-a11y.ts`](../../../src/lib/presentation/canvas-a11y.ts)                               |
-| Connector geometry           | [`src/lib/presentation/connector-geometry.ts`](../../../src/lib/presentation/connector-geometry.ts)                 |
-| Element fitting              | [`src/lib/presentation/text-element-fit.ts`](../../../src/lib/presentation/text-element-fit.ts)                     |
+| Area                         | Source                                                                                                           |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Stage UI/controller          | [`src/components/presentation/slide-stage-editor.tsx`](../../src/components/presentation/slide-stage-editor.tsx) |
+| Semantic hit testing         | [`src/lib/presentation/stage-hit-test.ts`](../../src/lib/presentation/stage-hit-test.ts)                         |
+| Target resolution            | [`src/lib/presentation/stage-targeting.ts`](../../src/lib/presentation/stage-targeting.ts)                       |
+| Chrome layering              | [`src/lib/presentation/stage-chrome.ts`](../../src/lib/presentation/stage-chrome.ts)                             |
+| Interaction decision helpers | [`src/lib/presentation/stage-interaction.ts`](../../src/lib/presentation/stage-interaction.ts)                   |
+| Media hit geometry           | [`src/lib/presentation/media-hit-geometry.ts`](../../src/lib/presentation/media-hit-geometry.ts)                 |
+| Text hit geometry            | [`src/lib/presentation/text-hit-geometry.ts`](../../src/lib/presentation/text-hit-geometry.ts)                   |
+| Keyboard canvas helpers      | [`src/lib/presentation/canvas-a11y.ts`](../../src/lib/presentation/canvas-a11y.ts)                               |
+| Connector geometry           | [`src/lib/presentation/connector-geometry.ts`](../../src/lib/presentation/connector-geometry.ts)                 |
+| Element fitting              | [`src/lib/presentation/text-element-fit.ts`](../../src/lib/presentation/text-element-fit.ts)                     |
 
 ## Goals
 
@@ -343,6 +343,6 @@ Implementation guidance:
 
 ## Primary Tests
 
-- [`src/lib/presentation/stage-hit-test.test.ts`](../../../src/lib/presentation/stage-hit-test.test.ts)
-- [`src/lib/presentation/stage-interaction.test.ts`](../../../src/lib/presentation/stage-interaction.test.ts)
-- [`src/lib/presentation/canvas-a11y.test.ts`](../../../src/lib/presentation/canvas-a11y.test.ts)
+- [`src/lib/presentation/stage-hit-test.test.ts`](../../src/lib/presentation/stage-hit-test.test.ts)
+- [`src/lib/presentation/stage-interaction.test.ts`](../../src/lib/presentation/stage-interaction.test.ts)
+- [`src/lib/presentation/canvas-a11y.test.ts`](../../src/lib/presentation/canvas-a11y.test.ts)

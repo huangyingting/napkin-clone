@@ -1,0 +1,110 @@
+# Collaboration Runtime
+
+**Status:** Current  
+**Last updated:** 2026-06-26
+
+This subsystem covers the application-level collaboration contract: Yjs room
+identity, client readiness, degraded local-only mode, title sync, presence, and
+room authorization. Deployment and scaling procedures live in
+[../operations/collab-deployment.md](../operations/collab-deployment.md).
+
+## Source Anchors
+
+| Area                         | Source                                                                                                                     |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Lexical collaboration client | [`src/lib/collab/use-lexical-collaboration.ts`](../../src/lib/collab/use-lexical-collaboration.ts)                         |
+| Plain text Y.Text binding    | [`src/lib/collab/use-collaboration.ts`](../../src/lib/collab/use-collaboration.ts)                                         |
+| Room authorization decision  | [`src/lib/collab/room-access.ts`](../../src/lib/collab/room-access.ts)                                                     |
+| Websocket URL resolution     | [`src/lib/collab/ws-url.ts`](../../src/lib/collab/ws-url.ts)                                                               |
+| Collab authorize route       | [`src/app/api/collab/authorize/route.ts`](../../src/app/api/collab/authorize/route.ts)                                     |
+| Eviction flush route         | [`src/app/api/collab/flush/route.ts`](../../src/app/api/collab/flush/route.ts)                                             |
+| Standalone server            | [`scripts/collab-server.mjs`](../../scripts/collab-server.mjs), [`scripts/collab-core.mjs`](../../scripts/collab-core.mjs) |
+
+## Room Model
+
+Collaboration rooms are keyed by document id. Joining a room is equivalent to
+opening the live Yjs document for that `Document`, so every upgrade is
+authorized before the websocket handshake completes.
+
+The database remains the durable source of truth:
+
+- `Document.contentJson` is canonical for document body state.
+- `Document.deckJson` is canonical for slides.
+- Yjs room state is a low-latency collaboration transport and short-term
+  history.
+- `Document.collabRecoverySnapshot` is a best-effort recovery aid written on
+  dirty room eviction, not a normal read-path source.
+
+## Client Readiness And Degraded Mode
+
+`useLexicalCollaboration` creates a `Y.Doc` and `y-websocket` provider for one
+document room. The provider is constructed with `connect: false`; Lexical's
+`CollaborationPlugin` owns connect/disconnect, while the hook observes status,
+sync, awareness, and cleanup.
+
+The editor is `ready` after either:
+
+- the provider emits an initial sync; or
+- the degraded fallback timer elapses.
+
+In degraded mode, the editor runs local-only from the database value. This keeps
+editing available when the collab server is down or unreachable. Autosave still
+writes to the app database through normal server actions.
+
+## Title And Presence
+
+Lexical binds document body state through `@lexical/yjs`. The document title is
+a separate `Y.Text` named `title`, bound by `useYText` so local and remote edits
+can preserve caret position and classify transaction origins.
+
+The title seed contract is intentionally self-healing: if the shared title is
+empty and the database title is non-empty, the client seeds it into the room.
+There is no permanent `titleSeeded` room latch, because an in-memory room can
+outlive a transiently empty title and should be able to recover from the
+database value.
+
+Presence is stored in provider awareness. Peers are sorted with the local client
+first, then by client id.
+
+## Authorization
+
+Room access maps document capabilities to websocket behavior:
+
+| Capability result | Upgrade behavior                                                        |
+| ----------------- | ----------------------------------------------------------------------- |
+| no view access    | Refuse with 403 and conceal the document.                               |
+| unauthenticated   | Refuse with 401 before room decision.                                   |
+| view but not edit | Connect read-only; viewers receive updates/presence but mutations drop. |
+| edit access       | Connect read-write.                                                     |
+
+The shared access-decision taxonomy is used so collab denials align with API
+and page denial semantics.
+
+## Websocket URL Resolution
+
+The browser websocket base URL resolves in this order:
+
+1. `NEXT_PUBLIC_COLLAB_WS_URL` explicit override.
+2. Current page origin plus `/collab`, with `https` mapped to `wss`.
+3. SSR/non-browser fallback `ws://localhost:${NEXT_PUBLIC_COLLAB_WS_PORT}/collab`.
+
+Callers pass the document id as the room name; `y-websocket` appends it as the
+path segment.
+
+## Invariants
+
+1. One collaboration room maps to one document id.
+2. The app database remains the canonical persisted state.
+3. Initial readiness is sync-or-degrade, never an indefinite blocked editor.
+4. Viewers may connect read-only for live viewing but cannot mutate the room.
+5. The title can reseed from the database when the shared title is empty.
+6. Provider and `Y.Doc` are destroyed on unmount.
+
+## Primary Tests
+
+- [`src/lib/collab/room-access.test.ts`](../../src/lib/collab/room-access.test.ts)
+- [`src/lib/collab/deployment-config.test.ts`](../../src/lib/collab/deployment-config.test.ts)
+- [`src/lib/lexical/use-collaboration-gate.test.ts`](../../src/lib/lexical/use-collaboration-gate.test.ts)
+- [`scripts/collab-auth.test.mjs`](../../scripts/collab-auth.test.mjs)
+- [`scripts/collab-core.test.mjs`](../../scripts/collab-core.test.mjs)
+- [`scripts/collab-durability.test.mjs`](../../scripts/collab-durability.test.mjs)

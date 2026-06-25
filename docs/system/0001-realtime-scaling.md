@@ -29,7 +29,7 @@ Two limits motivate this decision:
 
 This ADR records how we will scale realtime beyond one instance and make room
 state survive restarts. It complements the operator-facing comparison in
-[docs/operations/collab-deployment.md](../../operations/collab-deployment.md).
+[docs/operations/collab-deployment.md](../operations/collab-deployment.md).
 
 ## Options
 

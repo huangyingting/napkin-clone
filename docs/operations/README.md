@@ -19,4 +19,4 @@ manual release procedures.
 ## Rule Of Thumb
 
 If a document describes how to run, deploy, verify, or release the system, it
-belongs here rather than under `architecture/`.
+belongs here rather than under a product subsystem.

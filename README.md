@@ -103,20 +103,27 @@ deployment and scaling constraints are documented in
 
 ## Documentation
 
-The documentation entry point is [docs/README.md](docs/README.md). Important
-architecture contracts live under [docs/architecture/](docs/architecture/README.md):
+The documentation entry point is [docs/README.md](docs/README.md). Docs are
+grouped by subsystem under flat directories:
 
-| Area                        | Start here                                                                           |
-| --------------------------- | ------------------------------------------------------------------------------------ |
-| System overview             | [docs/architecture/current-state.md](docs/architecture/current-state.md)             |
-| AI generation               | [docs/architecture/ai/README.md](docs/architecture/ai/README.md)                     |
-| Data models                 | [docs/architecture/data-model/README.md](docs/architecture/data-model/README.md)     |
-| Editor architecture         | [docs/architecture/editor/README.md](docs/architecture/editor/README.md)             |
-| Presentation runtime/export | [docs/architecture/presentation/README.md](docs/architecture/presentation/README.md) |
-| Product/billing             | [docs/architecture/product/README.md](docs/architecture/product/README.md)           |
-| Security and sharing        | [docs/architecture/security/README.md](docs/architecture/security/README.md)         |
-| Commands and mutations      | [docs/architecture/commands/README.md](docs/architecture/commands/README.md)         |
-| Operations                  | [docs/operations/README.md](docs/operations/README.md)                               |
+| Area                        | Start here                                                   |
+| --------------------------- | ------------------------------------------------------------ |
+| System overview             | [docs/system/current-state.md](docs/system/current-state.md) |
+| AI generation               | [docs/ai/README.md](docs/ai/README.md)                       |
+| Authentication/account      | [docs/auth/README.md](docs/auth/README.md)                   |
+| Collaboration runtime       | [docs/collaboration/README.md](docs/collaboration/README.md) |
+| Data models                 | [docs/data-model/README.md](docs/data-model/README.md)       |
+| Document management         | [docs/documents/README.md](docs/documents/README.md)         |
+| Editor architecture         | [docs/editor/README.md](docs/editor/README.md)               |
+| Import pipeline             | [docs/import/README.md](docs/import/README.md)               |
+| Localization                | [docs/localization/README.md](docs/localization/README.md)   |
+| Presentation runtime/export | [docs/presentation/README.md](docs/presentation/README.md)   |
+| Product/billing             | [docs/product/README.md](docs/product/README.md)             |
+| Public render surfaces      | [docs/public-render/README.md](docs/public-render/README.md) |
+| Security and sharing        | [docs/security/README.md](docs/security/README.md)           |
+| Visual system               | [docs/visual/README.md](docs/visual/README.md)               |
+| Commands and mutations      | [docs/commands/README.md](docs/commands/README.md)           |
+| Operations                  | [docs/operations/README.md](docs/operations/README.md)       |
 
 Current schemas are authoritative during development. Do not add runtime
 compatibility paths for superseded deck/visual/document payload shapes; update

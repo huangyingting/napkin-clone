@@ -12,28 +12,35 @@ workflow and are not runtime payload readers.
 
 ## Start Here
 
-| Document                                                                       | Purpose                                                                         |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| [architecture/current-state.md](architecture/current-state.md)                 | System-wide runtime architecture and write paths.                               |
-| [architecture/README.md](architecture/README.md)                               | Architecture contracts grouped by data model, editor, and commands.             |
-| [operations/README.md](operations/README.md)                                   | Deployment, release gates, and operational runbooks.                            |
-| [architecture/editor/lexical-editor.md](architecture/editor/lexical-editor.md) | Lexical editor surfaces, tool registry, visual lifecycle, and deck autosave UX. |
+| Document                                             | Purpose                                                                         |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------- |
+| [system/current-state.md](system/current-state.md)   | System-wide runtime architecture and write paths.                               |
+| [system/subsystem-map.md](system/subsystem-map.md)   | Code subsystem to documentation coverage map.                                   |
+| [system/README.md](system/README.md)                 | Cross-subsystem contracts, invariants, naming, and ADR index.                   |
+| [operations/README.md](operations/README.md)         | Deployment, release gates, and operational runbooks.                            |
+| [editor/lexical-editor.md](editor/lexical-editor.md) | Lexical editor surfaces, tool registry, visual lifecycle, and deck autosave UX. |
 
-## Architecture Topics
+## Subsystems
 
-| Section                                                           | Contains                                                 |
-| ----------------------------------------------------------------- | -------------------------------------------------------- |
-| [architecture/ai/](architecture/ai/README.md)                     | AI-assisted generation contracts.                        |
-| [architecture/data-model/](architecture/data-model/README.md)     | Deck JSON and visual mirror contracts.                   |
-| [architecture/editor/](architecture/editor/README.md)             | Lexical editor and slide theme/layout architecture.      |
-| [architecture/presentation/](architecture/presentation/README.md) | Slide editor runtime, present mode, and export pipeline. |
-| [architecture/product/](architecture/product/README.md)           | Brand styles, billing plans, and credits.                |
-| [architecture/security/](architecture/security/README.md)         | Permissions, public sharing, and protected asset access. |
-| [architecture/commands/](architecture/commands/README.md)         | Command envelope and mutation routing inventory.         |
-| [architecture/diagnostics/](architecture/diagnostics/README.md)   | Logging scopes, diagnostic codes, and telemetry layers.  |
-| [architecture/decisions/](architecture/decisions/README.md)       | Architecture Decision Records and supersession rules.    |
-| [security/](security/README.md)                                   | API route security matrix and public-surface governance. |
-| [operations/](operations/README.md)                               | Collaboration deployment and release readiness.          |
+| Section                                   | Contains                                                  |
+| ----------------------------------------- | --------------------------------------------------------- |
+| [system/](system/README.md)               | System map, invariants, design system, naming, and ADRs.  |
+| [ai/](ai/README.md)                       | AI-assisted generation contracts.                         |
+| [auth/](auth/README.md)                   | Authentication, recovery, account settings, and deletion. |
+| [collaboration/](collaboration/README.md) | Yjs room model, readiness, presence, and room access.     |
+| [data-model/](data-model/README.md)       | Deck JSON and visual mirror contracts.                    |
+| [documents/](documents/README.md)         | Document creation, listing, search, tags, and trash.      |
+| [editor/](editor/README.md)               | Lexical editor and slide theme/layout architecture.       |
+| [import/](import/README.md)               | Document import parsing, validation, and abuse controls.  |
+| [localization/](localization/README.md)   | Typed catalogs, locale resolution, and activation gate.   |
+| [presentation/](presentation/README.md)   | Slide editor runtime, present mode, and export pipeline.  |
+| [product/](product/README.md)             | Brand styles, billing plans, and credits.                 |
+| [public-render/](public-render/README.md) | Public share/embed/present/asset render resolution.       |
+| [security/](security/README.md)           | Permissions, sharing, route matrix, and public surface.   |
+| [visual/](visual/README.md)               | Visual schemas, kind registry, rendering, and export.     |
+| [commands/](commands/README.md)           | Command envelope and mutation routing inventory.          |
+| [diagnostics/](diagnostics/README.md)     | Logging scopes, diagnostic codes, and telemetry layers.   |
+| [operations/](operations/README.md)       | Collaboration deployment and release readiness.           |
 
 ## Documentation Rules
 
@@ -44,7 +51,7 @@ workflow and are not runtime payload readers.
 - Prefer links to source files for implementation detail, but keep the docs
   readable without opening code.
 - Material source behavior changes must amend the relevant ADR or supersede it
-  with a new ADR; see the [ADR index](architecture/decisions/README.md).
+  with a new ADR; see the [ADR index](system/decisions.md).
 
 ## Verification
 

@@ -8,16 +8,16 @@ workspace roles feed document permissions.
 
 ## Source Files
 
-| Area                          | Source                                                                                                                    |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Workspace list/create actions | [`src/app/app/workspaces/actions.ts`](../../../src/app/app/workspaces/actions.ts)                                         |
-| Workspace detail actions      | [`src/app/app/workspaces/[id]/actions.ts`](../../../src/app/app/workspaces/%5Bid%5D/actions.ts)                           |
-| Workspace role helpers        | [`src/lib/workspace/roles.ts`](../../../src/lib/workspace/roles.ts)                                                       |
-| Workspace service helpers     | [`src/lib/workspace/service.ts`](../../../src/lib/workspace/service.ts)                                                   |
-| Workspace capability helpers  | [`src/lib/auth/workspace-capabilities.ts`](../../../src/lib/auth/workspace-capabilities.ts)                               |
-| Document permissions          | [`src/lib/auth/document-permissions.ts`](../../../src/lib/auth/document-permissions.ts)                                   |
-| Invite UI                     | [`src/app/app/workspaces/[id]/invite-link-manager.tsx`](../../../src/app/app/workspaces/%5Bid%5D/invite-link-manager.tsx) |
-| Members UI                    | [`src/app/app/workspaces/[id]/members-list.tsx`](../../../src/app/app/workspaces/%5Bid%5D/members-list.tsx)               |
+| Area                          | Source                                                                                                                 |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Workspace list/create actions | [`src/app/app/workspaces/actions.ts`](../../src/app/app/workspaces/actions.ts)                                         |
+| Workspace detail actions      | [`src/app/app/workspaces/[id]/actions.ts`](../../src/app/app/workspaces/%5Bid%5D/actions.ts)                           |
+| Workspace role helpers        | [`src/lib/workspace/roles.ts`](../../src/lib/workspace/roles.ts)                                                       |
+| Workspace service helpers     | [`src/lib/workspace/service.ts`](../../src/lib/workspace/service.ts)                                                   |
+| Workspace capability helpers  | [`src/lib/auth/workspace-capabilities.ts`](../../src/lib/auth/workspace-capabilities.ts)                               |
+| Document permissions          | [`src/lib/auth/document-permissions.ts`](../../src/lib/auth/document-permissions.ts)                                   |
+| Invite UI                     | [`src/app/app/workspaces/[id]/invite-link-manager.tsx`](../../src/app/app/workspaces/%5Bid%5D/invite-link-manager.tsx) |
+| Members UI                    | [`src/app/app/workspaces/[id]/members-list.tsx`](../../src/app/app/workspaces/%5Bid%5D/members-list.tsx)               |
 
 ## Role Model
 
@@ -96,7 +96,7 @@ semantics.
 
 ## Primary Tests
 
-- [`src/lib/workspace/service.test.ts`](../../../src/lib/workspace/service.test.ts)
-- [`src/lib/auth/workspace-capabilities.test.ts`](../../../src/lib/auth/workspace-capabilities.test.ts)
-- [`src/lib/auth/document-permissions.test.ts`](../../../src/lib/auth/document-permissions.test.ts)
-- [`e2e/workspace.spec.ts`](../../../e2e/workspace.spec.ts)
+- [`src/lib/workspace/service.test.ts`](../../src/lib/workspace/service.test.ts)
+- [`src/lib/auth/workspace-capabilities.test.ts`](../../src/lib/auth/workspace-capabilities.test.ts)
+- [`src/lib/auth/document-permissions.test.ts`](../../src/lib/auth/document-permissions.test.ts)
+- [`e2e/workspace.spec.ts`](../../e2e/workspace.spec.ts)

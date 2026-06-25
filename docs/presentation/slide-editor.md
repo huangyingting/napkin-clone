@@ -12,25 +12,25 @@ and pointer state rules, see
 
 ## Source Files
 
-| Area               | Source                                                                                                              |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| Editor shell       | [`src/components/presentation/slide-editor.tsx`](../../../src/components/presentation/slide-editor.tsx)             |
-| Stage interactions | [`src/components/presentation/slide-stage-editor.tsx`](../../../src/components/presentation/slide-stage-editor.tsx) |
-| Stage hit testing  | [`src/lib/presentation/stage-hit-test.ts`](../../../src/lib/presentation/stage-hit-test.ts)                         |
-| Stage targeting    | [`src/lib/presentation/stage-targeting.ts`](../../../src/lib/presentation/stage-targeting.ts)                       |
-| Stage chrome       | [`src/lib/presentation/stage-chrome.ts`](../../../src/lib/presentation/stage-chrome.ts)                             |
-| Select-under       | [`src/lib/presentation/stage-select-under.ts`](../../../src/lib/presentation/stage-select-under.ts)                 |
-| Stage decisions    | [`src/lib/presentation/stage-interaction.ts`](../../../src/lib/presentation/stage-interaction.ts)                   |
-| Media hit geometry | [`src/lib/presentation/media-hit-geometry.ts`](../../../src/lib/presentation/media-hit-geometry.ts)                 |
-| Text hit geometry  | [`src/lib/presentation/text-hit-geometry.ts`](../../../src/lib/presentation/text-hit-geometry.ts)                   |
-| Read-only canvas   | [`src/components/presentation/slide-canvas.tsx`](../../../src/components/presentation/slide-canvas.tsx)             |
-| Inspector          | [`src/components/presentation/slide-inspector.tsx`](../../../src/components/presentation/slide-inspector.tsx)       |
-| Layer list         | [`src/components/presentation/layer-list.tsx`](../../../src/components/presentation/layer-list.tsx)                 |
-| Text style toolbar | [`src/components/presentation/text-style-bar.tsx`](../../../src/components/presentation/text-style-bar.tsx)         |
-| Deck commands      | [`src/lib/presentation/slide-commands.ts`](../../../src/lib/presentation/slide-commands.ts)                         |
-| Deck mutations     | [`src/lib/presentation/deck-mutations.ts`](../../../src/lib/presentation/deck-mutations.ts)                         |
-| Patch autosave     | [`src/lib/presentation/patch-autosave.ts`](../../../src/lib/presentation/patch-autosave.ts)                         |
-| Slide presence     | [`src/lib/presentation/use-slide-presence.ts`](../../../src/lib/presentation/use-slide-presence.ts)                 |
+| Area               | Source                                                                                                           |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| Editor shell       | [`src/components/presentation/slide-editor.tsx`](../../src/components/presentation/slide-editor.tsx)             |
+| Stage interactions | [`src/components/presentation/slide-stage-editor.tsx`](../../src/components/presentation/slide-stage-editor.tsx) |
+| Stage hit testing  | [`src/lib/presentation/stage-hit-test.ts`](../../src/lib/presentation/stage-hit-test.ts)                         |
+| Stage targeting    | [`src/lib/presentation/stage-targeting.ts`](../../src/lib/presentation/stage-targeting.ts)                       |
+| Stage chrome       | [`src/lib/presentation/stage-chrome.ts`](../../src/lib/presentation/stage-chrome.ts)                             |
+| Select-under       | [`src/lib/presentation/stage-select-under.ts`](../../src/lib/presentation/stage-select-under.ts)                 |
+| Stage decisions    | [`src/lib/presentation/stage-interaction.ts`](../../src/lib/presentation/stage-interaction.ts)                   |
+| Media hit geometry | [`src/lib/presentation/media-hit-geometry.ts`](../../src/lib/presentation/media-hit-geometry.ts)                 |
+| Text hit geometry  | [`src/lib/presentation/text-hit-geometry.ts`](../../src/lib/presentation/text-hit-geometry.ts)                   |
+| Read-only canvas   | [`src/components/presentation/slide-canvas.tsx`](../../src/components/presentation/slide-canvas.tsx)             |
+| Inspector          | [`src/components/presentation/slide-inspector.tsx`](../../src/components/presentation/slide-inspector.tsx)       |
+| Layer list         | [`src/components/presentation/layer-list.tsx`](../../src/components/presentation/layer-list.tsx)                 |
+| Text style toolbar | [`src/components/presentation/text-style-bar.tsx`](../../src/components/presentation/text-style-bar.tsx)         |
+| Deck commands      | [`src/lib/presentation/slide-commands.ts`](../../src/lib/presentation/slide-commands.ts)                         |
+| Deck mutations     | [`src/lib/presentation/deck-mutations.ts`](../../src/lib/presentation/deck-mutations.ts)                         |
+| Patch autosave     | [`src/lib/presentation/patch-autosave.ts`](../../src/lib/presentation/patch-autosave.ts)                         |
+| Slide presence     | [`src/lib/presentation/use-slide-presence.ts`](../../src/lib/presentation/use-slide-presence.ts)                 |
 
 ## Ownership Model
 
@@ -214,11 +214,11 @@ refs must carry explicit `blockKind`.
 
 ## Primary Tests
 
-- [`src/lib/presentation/slide-commands.test.ts`](../../../src/lib/presentation/slide-commands.test.ts)
-- [`src/lib/presentation/deck-mutations.test.ts`](../../../src/lib/presentation/deck-mutations.test.ts)
-- [`src/lib/presentation/patch-autosave.test.ts`](../../../src/lib/presentation/patch-autosave.test.ts)
-- [`src/lib/presentation/autosave-hardening.test.ts`](../../../src/lib/presentation/autosave-hardening.test.ts)
-- [`src/lib/presentation/deck-merge.test.ts`](../../../src/lib/presentation/deck-merge.test.ts)
-- [`src/lib/presentation/source-link-staleness.test.ts`](../../../src/lib/presentation/source-link-staleness.test.ts)
-- [`src/lib/presentation/use-slide-presence.test.ts`](../../../src/lib/presentation/use-slide-presence.test.ts)
-- [`e2e/slides-smoke.spec.ts`](../../../e2e/slides-smoke.spec.ts)
+- [`src/lib/presentation/slide-commands.test.ts`](../../src/lib/presentation/slide-commands.test.ts)
+- [`src/lib/presentation/deck-mutations.test.ts`](../../src/lib/presentation/deck-mutations.test.ts)
+- [`src/lib/presentation/patch-autosave.test.ts`](../../src/lib/presentation/patch-autosave.test.ts)
+- [`src/lib/presentation/autosave-hardening.test.ts`](../../src/lib/presentation/autosave-hardening.test.ts)
+- [`src/lib/presentation/deck-merge.test.ts`](../../src/lib/presentation/deck-merge.test.ts)
+- [`src/lib/presentation/source-link-staleness.test.ts`](../../src/lib/presentation/source-link-staleness.test.ts)
+- [`src/lib/presentation/use-slide-presence.test.ts`](../../src/lib/presentation/use-slide-presence.test.ts)
+- [`e2e/slides-smoke.spec.ts`](../../e2e/slides-smoke.spec.ts)

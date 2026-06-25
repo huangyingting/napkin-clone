@@ -22,8 +22,12 @@ persisted deck contract and the React components that render/edit slides.
   master/layout resolution.
 - [../commands/command-envelope.md](../commands/command-envelope.md) for
   serializable command metadata.
+- [../public-render/README.md](../public-render/README.md) for public
+  share/embed/present/asset resolution.
 - [../security/access-and-sharing.md](../security/access-and-sharing.md) for
   public route and protected asset access policy.
+- [../visual/README.md](../visual/README.md) for visual kind registry and
+  renderer/export capabilities.
 
 ## Boundaries
 

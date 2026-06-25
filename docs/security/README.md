@@ -1,23 +1,41 @@
-# Security Operations Docs
+# Security Docs
 
 **Status:** Current
 **Last updated:** 2026-06-25
 
-Operational, governance-facing security docs. These complement the
-architecture-level access/sharing contracts under
-[../architecture/security/](../architecture/security/README.md): where those
-describe _how_ permissions are decided, the docs here inventory and govern the
-HTTP attack surface.
+Security docs cover authorization, public access, share-link behavior, and HTTP
+surface governance. They are the contract for routes and server actions that
+decide who may see or mutate a document.
 
 | Document                                                     | Scope                                                                                            |
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| [access-and-sharing.md](access-and-sharing.md)               | Document capabilities, workspace roles, public share/embed/present links, and route behavior.    |
+| [workspaces.md](workspaces.md)                               | Workspace roles, capabilities, invite links, member removal, and document handoff behavior.      |
 | [api-route-security-matrix.md](api-route-security-matrix.md) | Authoritative classification of every `src/app/api/**/route.ts` route, enforced by a guard test. |
 | [page-route-access-surface.md](page-route-access-surface.md) | Typed manifest for app/page surfaces, auth pages, share routes, and public proxy exclusions.     |
+
+## API Surface Governance
+
+The HTTP attack surface is inventoried in the
+[API route security matrix](api-route-security-matrix.md) (Epic #495), which
+classifies every `src/app/api/**/route.ts` route, documents its denial
+semantics, and is enforced by a guard test. Shared denial responses come from
+`src/lib/access-policy/adapters.ts` and `src/lib/api/errors.ts`; abuse-control
+diagnostics for the public expensive endpoints come from
+`src/lib/diagnostics/api-abuse.ts`.
 
 ## Related
 
 - Shared denial helper: `src/lib/api/errors.ts` (#511).
 - Abuse-control diagnostics for public expensive endpoints:
   `src/lib/diagnostics/api-abuse.ts` (#512).
+- [../auth/README.md](../auth/README.md) — sign-in, recovery, account settings,
+  export, and deletion.
+- [../data-model/visual-mirror.md](../data-model/visual-mirror.md) — projection
+  public routes consume.
+- [../public-render/README.md](../public-render/README.md) — public render
+  resolver and metadata/asset access decisions.
+- [../presentation/assets.md](../presentation/assets.md) — asset serving rules
+  tied to shared documents.
 - [../operations/release-gate.md](../operations/release-gate.md) — release
   readiness gate.

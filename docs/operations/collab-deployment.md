@@ -3,8 +3,10 @@
 Real-time collaborative editing (multiple cursors, presence, conflict-free
 merges) is powered by a self-hosted Yjs websocket sync server,
 [`scripts/collab-server.mjs`](../../scripts/collab-server.mjs). The browser editor
-connects to it through the [`useCollaboration`](../../src/lib/collab/use-collaboration.ts)
-hook.
+connects to it through
+[`useLexicalCollaboration`](../../src/lib/collab/use-lexical-collaboration.ts).
+The application-level room/readiness/access contract is documented in
+[../collaboration/README.md](../collaboration/README.md).
 
 This document describes how to run that server in production, the **required
 single-instance operational constraint**, what happens to live rooms on restart
@@ -351,7 +353,7 @@ transport plus short-term history — not the system of record — so a collab-l
 failure never loses a saved document.
 
 > **Decision record:** the formal trade-off analysis and the chosen path live in
-> [ADR 0001 — Realtime collaboration scaling and durability](../architecture/decisions/0001-realtime-scaling.md).
+> [ADR 0001 — Realtime collaboration scaling and durability](../system/0001-realtime-scaling.md).
 
 ## Eviction recovery snapshot (best-effort)
 

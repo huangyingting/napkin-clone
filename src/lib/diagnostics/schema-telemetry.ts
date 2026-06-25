@@ -23,7 +23,7 @@
  * {@link reportSchemaFailure}.
  *
  * These categories intentionally remain domain telemetry categories rather than
- * first-class `ERROR_CODES`; see `docs/architecture/diagnostics/`.
+ * first-class `ERROR_CODES`; see `docs/diagnostics/`.
  */
 
 import { logError } from "@/lib/log";

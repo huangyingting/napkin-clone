@@ -7,16 +7,16 @@ This document describes comment threads and their document/slide anchors.
 
 ## Source Files
 
-| Area                    | Source                                                                                                                            |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Comment actions         | [`src/app/app/documents/[id]/comments-actions.ts`](../../../src/app/app/documents/%5Bid%5D/comments-actions.ts)                   |
-| Comment permissions     | [`src/app/app/documents/[id]/comment-permissions.ts`](../../../src/app/app/documents/%5Bid%5D/comment-permissions.ts)             |
-| Anchor validation       | [`src/app/app/documents/[id]/comment-anchor-validation.ts`](../../../src/app/app/documents/%5Bid%5D/comment-anchor-validation.ts) |
-| Inline comments UI      | [`src/app/app/documents/[id]/inline-comments-layer.tsx`](../../../src/app/app/documents/%5Bid%5D/inline-comments-layer.tsx)       |
-| Slide comment panel     | [`src/app/app/documents/[id]/slide-comment-panel.tsx`](../../../src/app/app/documents/%5Bid%5D/slide-comment-panel.tsx)           |
-| Slide anchor helpers    | [`src/lib/presentation/slide-comment-anchors.ts`](../../../src/lib/presentation/slide-comment-anchors.ts)                         |
-| Slide lifecycle helpers | [`src/app/app/documents/[id]/slide-comment-lifecycle.ts`](../../../src/app/app/documents/%5Bid%5D/slide-comment-lifecycle.ts)     |
-| Unread helpers          | [`src/app/app/documents/[id]/slide-comment-unread.ts`](../../../src/app/app/documents/%5Bid%5D/slide-comment-unread.ts)           |
+| Area                    | Source                                                                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Comment actions         | [`src/app/app/documents/[id]/comments-actions.ts`](../../src/app/app/documents/%5Bid%5D/comments-actions.ts)                   |
+| Comment permissions     | [`src/app/app/documents/[id]/comment-permissions.ts`](../../src/app/app/documents/%5Bid%5D/comment-permissions.ts)             |
+| Anchor validation       | [`src/app/app/documents/[id]/comment-anchor-validation.ts`](../../src/app/app/documents/%5Bid%5D/comment-anchor-validation.ts) |
+| Inline comments UI      | [`src/app/app/documents/[id]/inline-comments-layer.tsx`](../../src/app/app/documents/%5Bid%5D/inline-comments-layer.tsx)       |
+| Slide comment panel     | [`src/app/app/documents/[id]/slide-comment-panel.tsx`](../../src/app/app/documents/%5Bid%5D/slide-comment-panel.tsx)           |
+| Slide anchor helpers    | [`src/lib/presentation/slide-comment-anchors.ts`](../../src/lib/presentation/slide-comment-anchors.ts)                         |
+| Slide lifecycle helpers | [`src/app/app/documents/[id]/slide-comment-lifecycle.ts`](../../src/app/app/documents/%5Bid%5D/slide-comment-lifecycle.ts)     |
+| Unread helpers          | [`src/app/app/documents/[id]/slide-comment-unread.ts`](../../src/app/app/documents/%5Bid%5D/slide-comment-unread.ts)           |
 
 ## Comment Thread Model
 
@@ -90,9 +90,9 @@ Unread helpers compute per-comment/thread read state for slide comment surfaces.
 
 ## Primary Tests
 
-- [`src/app/app/documents/[id]/comment-anchor-validation.test.ts`](../../../src/app/app/documents/%5Bid%5D/comment-anchor-validation.test.ts)
-- [`src/app/app/documents/[id]/comment-permissions.test.ts`](../../../src/app/app/documents/%5Bid%5D/comment-permissions.test.ts)
-- [`src/app/app/documents/[id]/slide-comment-lifecycle.test.ts`](../../../src/app/app/documents/%5Bid%5D/slide-comment-lifecycle.test.ts)
-- [`src/app/app/documents/[id]/slide-comment-permissions-lifecycle.test.ts`](../../../src/app/app/documents/%5Bid%5D/slide-comment-permissions-lifecycle.test.ts)
-- [`src/app/app/documents/[id]/slide-comment-unread.test.ts`](../../../src/app/app/documents/%5Bid%5D/slide-comment-unread.test.ts)
-- [`src/lib/presentation/slide-comment-anchors.test.ts`](../../../src/lib/presentation/slide-comment-anchors.test.ts)
+- [`src/app/app/documents/[id]/comment-anchor-validation.test.ts`](../../src/app/app/documents/%5Bid%5D/comment-anchor-validation.test.ts)
+- [`src/app/app/documents/[id]/comment-permissions.test.ts`](../../src/app/app/documents/%5Bid%5D/comment-permissions.test.ts)
+- [`src/app/app/documents/[id]/slide-comment-lifecycle.test.ts`](../../src/app/app/documents/%5Bid%5D/slide-comment-lifecycle.test.ts)
+- [`src/app/app/documents/[id]/slide-comment-permissions-lifecycle.test.ts`](../../src/app/app/documents/%5Bid%5D/slide-comment-permissions-lifecycle.test.ts)
+- [`src/app/app/documents/[id]/slide-comment-unread.test.ts`](../../src/app/app/documents/%5Bid%5D/slide-comment-unread.test.ts)
+- [`src/lib/presentation/slide-comment-anchors.test.ts`](../../src/lib/presentation/slide-comment-anchors.test.ts)

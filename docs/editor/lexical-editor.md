@@ -11,11 +11,11 @@ together and how to extend them safely.
 The editor is built around three ideas:
 
 1. **One place derives selection state.** Every contextual surface reads the
-   same read-only [`EditorContextSnapshot`](../../../src/lib/lexical/editor-context.tsx)
+   same read-only [`EditorContextSnapshot`](../../src/lib/lexical/editor-context.tsx)
    instead of running its own `selectionchange` listener or rect math.
 2. **Tools are data, not bespoke components.** Each editing affordance
    (bold, "Heading 2", "Insert flowchart") is a declarative
-   [`EditorTool`](../../../src/lib/lexical/tool-registry.ts) entry. Surfaces render
+   [`EditorTool`](../../src/lib/lexical/tool-registry.ts) entry. Surfaces render
    the subset of tools whose `when()` predicate matches the current snapshot.
 3. **Chrome and content are separate.** App chrome is themed with the `--ds-*`
    design-system tokens; visual _content_ colors live in the `Visual` payload
@@ -66,7 +66,7 @@ back through Lexical** (surface → command/`editor.update()` → editor state).
 
 ### EditorContext — the one derivation point
 
-[`src/lib/lexical/editor-context.tsx`](../../../src/lib/lexical/editor-context.tsx)
+[`src/lib/lexical/editor-context.tsx`](../../src/lib/lexical/editor-context.tsx)
 owns all selection derivation.
 
 - `EditorContextProvider` subscribes **once** to Lexical's update lifecycle
@@ -80,21 +80,30 @@ owns all selection derivation.
   exported so the logic can be unit-tested headlessly; the provider calls it
   identically.
 
-Key `EditorContextSnapshot` fields:
+Key `EditorContextSnapshot` fields (authoritative type:
+[`selection-snapshot.ts`](../../src/lib/lexical/selection-snapshot.ts)):
 
-| Field                          | Meaning                                                       |
-| ------------------------------ | ------------------------------------------------------------- |
-| `kind`                         | `range` \| `collapsed` \| `empty-block` \| `visual` \| `none` |
-| `editable`                     | mirrors `editor.isEditable()`                                 |
-| `blockType`                    | `paragraph`/`h1`/`h2`/`h3`/`quote`/`bullet`/`number`          |
-| `activeFormats`                | `Set` of active inline formats (bold/italic/…/code)           |
-| `elementFormat`                | block alignment (`""` = inherited/left)                       |
-| `textColor` / `highlightColor` | inline color styles (`""` when unset)                         |
-| `isLink`                       | selection sits within a link                                  |
-| `blockKey`                     | **live, transient** key of the active block                   |
-| `selectedVisualId`             | **stable** id of a selected `VisualNode` (safe to persist)    |
-| `selectedVisualNodeKey`        | **live, transient** key of that node                          |
-| `rects`                        | `selection` + `block` `DOMRect` snapshots for positioning     |
+| Field                   | Meaning                                                       |
+| ----------------------- | ------------------------------------------------------------- |
+| `kind`                  | `range` \| `collapsed` \| `empty-block` \| `visual` \| `none` |
+| `editable`              | mirrors `editor.isEditable()`                                 |
+| `isCollapsed`           | whether the active range selection is collapsed               |
+| `blockType`             | `paragraph`/`h1`/`h2`/`h3`/`quote`/`bullet`/`number`          |
+| `activeFormats`         | `Set` of active inline formats (bold/italic/…/code)           |
+| `elementFormat`         | block alignment (`""` = inherited/left)                       |
+| `textColor`             | inline text color style (`""` when unset)                     |
+| `highlightColor`        | inline highlight color style (`""` when unset)                |
+| `isLink`                | selection sits within a link                                  |
+| `blockKey`              | **live, transient** key of the active block                   |
+| `blockBid`              | **stable** durable `bid` of the active block                  |
+| `blockText`             | text content of the active block                              |
+| `selectionText`         | text content of the active selection                          |
+| `selectionEndBlockKey`  | **live, transient** key of the range end block                |
+| `selectionEndBlockBid`  | **stable** durable `bid` of the range end block               |
+| `isEmptyBlock`          | active block has no text/content                              |
+| `selectedVisualId`      | **stable** id of a selected `VisualNode` (safe to persist)    |
+| `selectedVisualNodeKey` | **live, transient** key of that node                          |
+| `rects`                 | `selection` + `block` `DOMRect` snapshots for positioning     |
 
 The provider is read-only: it never calls `editor.update()`, never touches Yjs,
 and the only NodeKeys it exposes (`blockKey`, `selectedVisualNodeKey`) are
@@ -103,7 +112,7 @@ stored.
 
 ### ToolRegistry — data-driven tools
 
-[`src/lib/lexical/tool-registry.ts`](../../../src/lib/lexical/tool-registry.ts)
+[`src/lib/lexical/tool-registry.ts`](../../src/lib/lexical/tool-registry.ts)
 defines the `EditorTool` model and a small registry.
 
 An `EditorTool` declares:
@@ -118,16 +127,20 @@ An `EditorTool` declares:
     snapshot) and `apply(editor, value)` (write an inline style via
     `$patchStyleText`).
 
-Groups partition tools by surface: `text-format`, `block-insert`,
-`visual-insert`, `visual-edit`, `visual-style`.
+`EditorToolGroup` partitions registry tools by surface: `text-format`,
+`block-insert`, `visual-insert`, `visual-edit`, `visual-style`. This is
+separate from `EditingSurfaceGroup` in
+[`editing-surface.ts`](../../src/lib/lexical/editing-surface.ts), which adds
+`overall` for document-level adjustments when no contextual selection owns the
+surface.
 
 Surfaces consume the registry through `toolsFor(group, ctx)`, which returns the
 visible tools in registration order:
 
-- [`floating-text-toolbar.tsx`](../../../src/app/app/documents/%5Bid%5D/floating-text-toolbar.tsx)
+- [`floating-text-toolbar.tsx`](../../src/app/app/documents/%5Bid%5D/floating-text-toolbar.tsx)
   renders `toolsFor("text-format", ctx)` as icon buttons above a non-collapsed
   selection.
-- [`insert-menu.tsx`](../../../src/app/app/documents/%5Bid%5D/insert-menu.tsx)
+- [`insert-menu.tsx`](../../src/app/app/documents/%5Bid%5D/insert-menu.tsx)
   renders `toolsFor("block-insert", ctx)` and `toolsFor("visual-insert", ctx)`
   as grouped, filterable rows in the `+`/`/` menu.
 
@@ -136,7 +149,7 @@ delegate all behavior to `tool.run(...)` / `tool.apply(...)`.
 
 ### Unified EditingSurface resolver
 
-[`src/lib/lexical/editing-surface.ts`](../../../src/lib/lexical/editing-surface.ts)
+[`src/lib/lexical/editing-surface.ts`](../../src/lib/lexical/editing-surface.ts)
 is the single, pure decision source for which contextual surface renders which
 content. Shipped as part of epic #87 ("surface unification"), it replaces the
 per-surface ad-hoc visibility checks that previously lived in
@@ -145,7 +158,7 @@ per-surface ad-hoc visibility checks that previously lived in
 #### Inputs
 
 The resolver takes two inputs — both gathered by the React bridge
-[`useEditingSurface()`](../../../src/app/app/documents/%5Bid%5D/use-editing-surface.ts):
+[`useEditingSurface()`](../../src/app/app/documents/%5Bid%5D/use-editing-surface.ts):
 
 | Input           | Source                                                 | Values                              |
 | --------------- | ------------------------------------------------------ | ----------------------------------- |
@@ -200,12 +213,12 @@ they are opened from the top toolbar.
 
 The function is total over its 2 × 3 = 6 input combinations and is
 exhaustively covered by
-[`editing-surface.test.ts`](../../../src/lib/lexical/editing-surface.test.ts).
+[`editing-surface.test.ts`](../../src/lib/lexical/editing-surface.test.ts).
 
 ### Shared UI primitives
 
-[`src/components/ui/`](../../../src/components/ui/) holds the surface primitives.
-The barrel [`index.ts`](../../../src/components/ui/index.ts) exports the primitives
+[`src/components/ui/`](../../src/components/ui/) holds the surface primitives.
+The barrel [`index.ts`](../../src/components/ui/index.ts) exports the primitives
 used as shared editor chrome (`Surface`, `Button`/`IconButton`,
 `SegmentedControl`, `FloatingSurface`, `Tooltip`, `Divider`, `Popover`,
 `ColorPicker`, and token helpers); route-specific primitives such as `Dialog`,
@@ -214,7 +227,7 @@ consume the `--ds-*` chrome tokens, so every surface looks like one system in
 both light and dark mode.
 
 Shared control class strings (focus ring, gutter button, toggle states) live in
-[`src/components/motion/control-styles.ts`](../../../src/components/motion/control-styles.ts)
+[`src/components/motion/control-styles.ts`](../../src/components/motion/control-styles.ts)
 and compose the same tokens.
 
 ## Invariants (and why)
@@ -238,7 +251,7 @@ collaboration.
    thumbnails, and history, never read back as primary state.
 4. **`--ds-*` chrome tokens are separate from visual-content `VisualStyle`.** The
    app's surfaces are themed with `--ds-*`
-   ([`globals.css`](../../../src/app/globals.css), exposed to Tailwind via
+   ([`globals.css`](../../src/app/globals.css), exposed to Tailwind via
    `@theme inline` and flipped in the `prefers-color-scheme: dark` block).
    A visual's own colors live in its `VisualStyle` (baked into the `Visual`
    payload) and must not be wired to `--ds-*` — a visual looks the same
@@ -249,7 +262,7 @@ collaboration.
 ### Add a new text / format tool
 
 Append an `EditorTool` with `group: "text-format"` to `TEXT_FORMAT_TOOLS` in
-[`tool-registry.ts`](../../../src/lib/lexical/tool-registry.ts). For a toggle, keep
+[`tool-registry.ts`](../../src/lib/lexical/tool-registry.ts). For a toggle, keep
 `run` thin and dispatch a Lexical command:
 
 ```ts
@@ -269,30 +282,30 @@ The tool appears in the floating toolbar automatically. For a color tool, set
 `control: "color"` and provide `value(ctx)` + `apply(editor, value)` instead of
 `run` (see `format-text-color`). If you track a new format in `isActive`, add it
 to `EditorTextFormat` / `TEXT_FORMATS` in
-[`editor-context.tsx`](../../../src/lib/lexical/editor-context.tsx) so the snapshot
+[`editor-context.tsx`](../../src/lib/lexical/editor-context.tsx) so the snapshot
 reports it.
 
 ### Add a new visual kind / blank template
 
 1. Add the kind to `VISUAL_KINDS` in
-   [`src/lib/visual/schema.ts`](../../../src/lib/visual/schema.ts) and its uppercase
+   [`src/lib/visual/schema.ts`](../../src/lib/visual/schema.ts) and its uppercase
    form to `VISUAL_TYPES` (+ the `VISUAL_KIND_TO_PRISMA` /
    `PRISMA_TO_VISUAL_KIND` maps).
 2. Add a `blank<Kind>()` builder returning a schema-valid `Visual` and register
    it in `BLANK_BUILDERS` in
-   [`src/lib/visual/fixtures.ts`](../../../src/lib/visual/fixtures.ts). `createBlankVisual(kind)`
+   [`src/lib/visual/fixtures.ts`](../../src/lib/visual/fixtures.ts). `createBlankVisual(kind)`
    picks it up — this is the deterministic, non-AI seed.
 3. Add presentational metadata (label, icon, description, keywords) to
    `VISUAL_KIND_META` in `tool-registry.ts`. The `visual-insert` tool set is
    generated from `VISUAL_KINDS`, so the new kind shows up in the insert menu
    with no further wiring.
 4. If it renders, teach the renderer/layout
-   ([`src/components/visual/`](../../../src/components/visual/)) how to draw it.
+   ([`src/components/visual/`](../../src/components/visual/)) how to draw it.
 
 ### Add or change a theme
 
 Append a `StyleTheme` to `STYLE_THEMES` in
-[`src/lib/visual/themes.ts`](../../../src/lib/visual/themes.ts). A theme is a
+[`src/lib/visual/themes.ts`](../../src/lib/visual/themes.ts). A theme is a
 `ThemeColors` patch (palette + base colors only — typography is preserved by
 `applyTheme`). `applyTheme`/`isThemeActive` resolve themes dynamically from this
 registry, so the new chip appears in the visual popover with no other change.
@@ -301,9 +314,9 @@ Keep `nodeText`-on-`nodeFill` contrast at WCAG AA (≥4.5:1).
 ### Add a new visual restyle control
 
 Whole-visual and per-node edits are **pure transforms** in
-[`src/lib/visual/transforms.ts`](../../../src/lib/visual/transforms.ts) (each takes a
+[`src/lib/visual/transforms.ts`](../../src/lib/visual/transforms.ts) (each takes a
 `Visual` and returns a new one). Add or reuse a transform, then call it from
-[`visual-context-popover.tsx`](../../../src/app/app/documents/%5Bid%5D/visual-context-popover.tsx)
+[`visual-context-popover.tsx`](../../src/app/app/documents/%5Bid%5D/visual-context-popover.tsx)
 through `onChange(transform(visual, …))`:
 
 ```ts
@@ -324,24 +337,24 @@ insert (deterministic or AI)  →  edit / restyle (theme-first)  →  persist / 
 ### Insert
 
 - **Deterministic (non-AI).** A `visual-insert` tool dispatches
-  [`INSERT_VISUAL_COMMAND`](../../../src/lib/lexical/commands.ts) with
+  [`INSERT_VISUAL_COMMAND`](../../src/lib/lexical/commands.ts) with
   `{ kind, afterNodeKey }`. The handler
-  ([`insert-visual-plugin.tsx`](../../../src/app/app/documents/%5Bid%5D/insert-visual-plugin.tsx))
+  ([`insert-visual-plugin.tsx`](../../src/app/app/documents/%5Bid%5D/insert-visual-plugin.tsx))
   delegates to `$insertBlankVisualAfter`
-  ([`insert-visual.ts`](../../../src/lib/lexical/insert-visual.ts)), which builds a
+  ([`insert-visual.ts`](../../src/lib/lexical/insert-visual.ts)), which builds a
   `VisualNode` from `createBlankVisual(kind)`, inserts it after the target
   block, and selects it as a `NodeSelection` — all in one `editor.update()`.
 - **AI.** The visual popover's "variations" path calls `/api/generate` and
   applies a chosen candidate through the same `node.setVisual()` seam.
 
-The `VisualNode` ([`visual-node.tsx`](../../../src/app/app/documents/%5Bid%5D/visual-node.tsx))
+The `VisualNode` ([`visual-node.tsx`](../../src/app/app/documents/%5Bid%5D/visual-node.tsx))
 is a Lexical `DecoratorNode` that serializes `{ visual, visualId }` into
 `contentJson` and renders via `VisualCard`.
 
 ### Edit / restyle (theme-first)
 
 Selecting a card makes the snapshot `kind === "visual"` and surfaces the
-[`VisualContextPopover`](../../../src/app/app/documents/%5Bid%5D/visual-context-popover.tsx).
+[`VisualContextPopover`](../../src/app/app/documents/%5Bid%5D/visual-context-popover.tsx).
 A one-click **theme chip** is the primary restyle path (`applyTheme`); per-color
 pickers, per-node overrides, and kind switching are progressive disclosure. Each
 edit is a pure transform from `transforms.ts`, committed via `node.setVisual()`
@@ -351,15 +364,15 @@ inside `editor.update()`.
 
 On the debounced autosave, the serialized state is written to `contentJson`, and
 `mirrorVisualNodes`
-([`actions.ts`](../../../src/app/app/documents/%5Bid%5D/actions.ts)) walks it via
+([`actions.ts`](../../src/app/app/documents/%5Bid%5D/actions.ts)) walks it via
 `collectVisualNodes`
-([`visual-nodes.ts`](../../../src/lib/lexical/visual-nodes.ts)) and upserts one
+([`visual-nodes.ts`](../../src/lib/lexical/visual-nodes.ts)) and upserts one
 `Visual` row per node (keyed by `visualId` → `anchorBlockId`, ordered by
 `orderIndex`). A changed payload snapshots a `VisualRevision` first (history);
 removed nodes prune their rows. Every payload is re-validated with
 `safeParseVisual` before it is written, so a tampered visual can never be
 persisted. Real-time collaboration is layered on Lexical via Yjs/`y-websocket`
-(see [collab-deployment.md](../../operations/collab-deployment.md)); the database remains the
+(see [collab-deployment.md](../operations/collab-deployment.md)); the database remains the
 durable source of truth.
 
 ## Deck (slide) autosave and version semantics
@@ -424,18 +437,18 @@ viewing. Presence is advisory — it does not imply real-time merge. Conflicts
 are handled by the revision-token CAS, not by presence locking. When the
 awareness channel is unavailable the hook degrades gracefully (empty peers).
 
-See [`use-slide-presence.ts`](../../../src/lib/presentation/use-slide-presence.ts)
+See [`use-slide-presence.ts`](../../src/lib/presentation/use-slide-presence.ts)
 for the `SlidePresencePayload` shape and `useSlidePresence` hook API.
 
 ## Tests
 
 Tests live next to the code they cover as `*.test.ts`, e.g.:
 
-- [`editor-context.test.ts`](../../../src/lib/lexical/editor-context.test.ts) — selection derivation
-- [`text-formatting.test.ts`](../../../src/lib/lexical/text-formatting.test.ts) — format commands at the document layer
-- [`insert-visual.test.ts`](../../../src/lib/lexical/insert-visual.test.ts) — deterministic insert in a headless editor
-- [`visual-edit-roundtrip.test.ts`](../../../src/lib/lexical/visual-edit-roundtrip.test.ts) — transform → `setVisual` → serialize round-trip
-- [`transforms.test.ts`](../../../src/lib/visual/transforms.test.ts), [`schema.test.ts`](../../../src/lib/visual/schema.test.ts), [`fixtures.test.ts`](../../../src/lib/visual/fixtures.test.ts) — pure data layer
+- [`editor-context.test.ts`](../../src/lib/lexical/editor-context.test.ts) — selection derivation
+- [`text-formatting.test.ts`](../../src/lib/lexical/text-formatting.test.ts) — format commands at the document layer
+- [`insert-visual.test.ts`](../../src/lib/lexical/insert-visual.test.ts) — deterministic insert in a headless editor
+- [`visual-edit-roundtrip.test.ts`](../../src/lib/lexical/visual-edit-roundtrip.test.ts) — transform → `setVisual` → serialize round-trip
+- [`transforms.test.ts`](../../src/lib/visual/transforms.test.ts), [`schema.test.ts`](../../src/lib/visual/schema.test.ts), [`fixtures.test.ts`](../../src/lib/visual/fixtures.test.ts) — pure data layer
 
 They run headlessly with `node --test` via `tsx` (no browser):
 

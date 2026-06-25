@@ -91,5 +91,5 @@ privacy-preserving bodies (see Notes).
 - Access adapters: `src/lib/access-policy/adapters.ts` (#813).
 - Error helper: `src/lib/api/errors.ts` (#511).
 - Abuse diagnostics: `src/lib/diagnostics/api-abuse.ts` (#512).
-- Access policy: [../architecture/security/access-and-sharing.md](../architecture/security/access-and-sharing.md).
+- Access policy: [access-and-sharing.md](access-and-sharing.md).
 - Release gate: [../operations/release-gate.md](../operations/release-gate.md).
