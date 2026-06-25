@@ -389,22 +389,24 @@ durable command log yet.
 
 ## Architecture Documents
 
-| Document                                                                     | Status   | Notes                                                     |
-| ---------------------------------------------------------------------------- | -------- | --------------------------------------------------------- |
-| [ai/generation.md](ai/generation.md)                                         | Current  | AI generation request flow and validation contracts       |
-| [data-model/deck.md](data-model/deck.md)                                     | Current  | Deck schema, slide elements, source refs, and persistence |
-| [data-model/visual-mirror.md](data-model/visual-mirror.md)                   | Current  | Visual projection contract                                |
-| [editor/comments-and-anchors.md](editor/comments-and-anchors.md)             | Current  | Comment threads and document/slide anchors                |
-| [editor/lexical-editor.md](editor/lexical-editor.md)                         | Current  | Editor surfaces, visual lifecycle, and deck autosave UX   |
-| [editor/theme-layout.md](editor/theme-layout.md)                             | Current  | Slide token cascade, masters, layouts, and overrides      |
-| [presentation/assets.md](presentation/assets.md)                             | Current  | Slide asset upload, serving, references, and cleanup      |
-| [presentation/slide-editor.md](presentation/slide-editor.md)                 | Current  | Slide editor runtime and interaction boundaries           |
-| [presentation/rendering-and-export.md](presentation/rendering-and-export.md) | Current  | Shared rendering, present mode, and export pipeline       |
-| [product/brand-and-billing.md](product/brand-and-billing.md)                 | Current  | Brand styles, plan entitlements, and AI credits           |
-| [security/access-and-sharing.md](security/access-and-sharing.md)             | Current  | Document permissions, public links, and asset access      |
-| [security/workspaces.md](security/workspaces.md)                             | Current  | Workspace roles, invites, and membership behavior         |
-| [commands/command-envelope.md](commands/command-envelope.md)                 | Current  | Cross-surface command envelope                            |
-| [commands/mutation-audit.md](commands/mutation-audit.md)                     | Current  | Mutation inventory and routing decisions                  |
-| [decisions/0001-realtime-scaling.md](decisions/0001-realtime-scaling.md)     | Accepted | ADR: realtime collaboration scaling and durability        |
-| [../operations/collab-deployment.md](../operations/collab-deployment.md)     | Current  | Collaboration deployment and scaling                      |
-| [../operations/release-gate.md](../operations/release-gate.md)               | Current  | Release readiness checklist                               |
+| Document                                                                                           | Status   | Notes                                                     |
+| -------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------- |
+| [ai/generation.md](ai/generation.md)                                                               | Current  | AI generation request flow and validation contracts       |
+| [data-model/deck.md](data-model/deck.md)                                                           | Current  | Deck schema, slide elements, source refs, and persistence |
+| [data-model/visual-mirror.md](data-model/visual-mirror.md)                                         | Current  | Visual projection contract                                |
+| [editor/comments-and-anchors.md](editor/comments-and-anchors.md)                                   | Current  | Comment threads and document/slide anchors                |
+| [editor/lexical-editor.md](editor/lexical-editor.md)                                               | Current  | Editor surfaces, visual lifecycle, and deck autosave UX   |
+| [editor/theme-layout.md](editor/theme-layout.md)                                                   | Current  | Slide token cascade, masters, layouts, and overrides      |
+| [presentation/assets.md](presentation/assets.md)                                                   | Current  | Slide asset upload, serving, references, and cleanup      |
+| [presentation/slide-editor.md](presentation/slide-editor.md)                                       | Current  | Slide editor runtime and interaction boundaries           |
+| [presentation/rendering-and-export.md](presentation/rendering-and-export.md)                       | Current  | Shared rendering, present mode, and export pipeline       |
+| [product/brand-and-billing.md](product/brand-and-billing.md)                                       | Current  | Brand styles, plan entitlements, and AI credits           |
+| [security/access-and-sharing.md](security/access-and-sharing.md)                                   | Current  | Document permissions, public links, and asset access      |
+| [security/workspaces.md](security/workspaces.md)                                                   | Current  | Workspace roles, invites, and membership behavior         |
+| [commands/command-envelope.md](commands/command-envelope.md)                                       | Current  | Cross-surface command envelope                            |
+| [commands/mutation-audit.md](commands/mutation-audit.md)                                           | Current  | Mutation inventory and routing decisions                  |
+| [decisions/README.md](decisions/README.md)                                                         | Current  | ADR index, supersession status, and source-drift rule     |
+| [decisions/0001-realtime-scaling.md](decisions/0001-realtime-scaling.md)                           | Accepted | ADR: realtime collaboration scaling and durability        |
+| [decisions/0002-canvas-keyboard-accessibility.md](decisions/0002-canvas-keyboard-accessibility.md) | Accepted | ADR: canvas keyboard accessibility decisions              |
+| [../operations/collab-deployment.md](../operations/collab-deployment.md)                           | Current  | Collaboration deployment and scaling                      |
+| [../operations/release-gate.md](../operations/release-gate.md)                                     | Current  | Release readiness checklist                               |

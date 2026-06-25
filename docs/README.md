@@ -31,6 +31,7 @@ workflow and are not runtime payload readers.
 | [architecture/security/](architecture/security/README.md)         | Permissions, public sharing, and protected asset access. |
 | [architecture/commands/](architecture/commands/README.md)         | Command envelope and mutation routing inventory.         |
 | [architecture/diagnostics/](architecture/diagnostics/README.md)   | Logging scopes, diagnostic codes, and telemetry layers.  |
+| [architecture/decisions/](architecture/decisions/README.md)       | Architecture Decision Records and supersession rules.    |
 | [security/](security/README.md)                                   | API route security matrix and public-surface governance. |
 | [operations/](operations/README.md)                               | Collaboration deployment and release readiness.          |
 
@@ -42,6 +43,8 @@ workflow and are not runtime payload readers.
   the same change.
 - Prefer links to source files for implementation detail, but keep the docs
   readable without opening code.
+- Material source behavior changes must amend the relevant ADR or supersede it
+  with a new ADR; see the [ADR index](architecture/decisions/README.md).
 
 ## Verification
 
@@ -52,4 +55,5 @@ docs describe executable behavior:
 npm run lint
 npm run typecheck
 npm test
+npm run docs:check
 ```

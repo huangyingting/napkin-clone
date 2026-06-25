@@ -15,6 +15,7 @@
     "test:e2e:profile": "E2E_PROFILE=1 playwright test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "docs:check": "node --import tsx --test src/app/api/api-route-security-matrix.test.ts && node scripts/check-docs-source-inventory.mjs && node scripts/check-docs-links.mjs && prettier --check \"docs/**/*.md\"",
     "design-system:check": "node scripts/check-design-system.mjs",
     "action-ports:check": "node scripts/check-action-ports.mjs",
     "postinstall": "prisma generate",

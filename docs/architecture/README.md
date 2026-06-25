@@ -9,11 +9,11 @@ current system.
 
 ## Overview
 
-| Document                                         | Scope                                                                                                                                                                                     |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [current-state.md](current-state.md)             | End-to-end system architecture and source-of-truth map.                                                                                                                                   |
-| [design-system.md](design-system.md)             | App chrome token ownership, shared UI primitives, and guardrails for z-index/color usage.                                                                                                 |
-| [decisions/](decisions/0001-realtime-scaling.md) | Architecture Decision Records (ADRs): [0001 realtime scaling](decisions/0001-realtime-scaling.md), [0002 canvas keyboard accessibility](decisions/0002-canvas-keyboard-accessibility.md). |
+| Document                             | Scope                                                                                                      |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| [current-state.md](current-state.md) | End-to-end system architecture and source-of-truth map.                                                    |
+| [design-system.md](design-system.md) | App chrome token ownership, shared UI primitives, and guardrails for z-index/color usage.                  |
+| [decisions/](decisions/README.md)    | Architecture Decision Records (ADRs), accepted-decision index, supersession fields, and source-drift rule. |
 
 ## Contract Groups
 

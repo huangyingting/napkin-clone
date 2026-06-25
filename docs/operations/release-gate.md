@@ -27,20 +27,21 @@ on every pull request (see `.github/workflows/ci.yml`):
 export DB_PROVIDER=sqlite DATABASE_URL="file:./prisma/dev.db" AUTH_SECRET=ci-placeholder
 npm run db:schema:check
 npm run db:generate
-npm test && npm run typecheck && npm run typecheck:unused && npm run lint && npm run format:check
+npm test && npm run typecheck && npm run typecheck:unused && npm run lint && npm run docs:check && npm run format:check
 ```
 
-| Step                | Tool / command             | Failure means                                    |
-| ------------------- | -------------------------- | ------------------------------------------------ |
-| SQLite schema drift | `npm run db:schema:check`  | The generated SQLite schema is stale             |
-| Prisma client       | `npm run db:generate`      | Generated Prisma client cannot be refreshed      |
-| Unit + pure tests   | `npm test`                 | A pure helper, schema, or domain model is broken |
-| TypeScript          | `npm run typecheck`        | Type errors or unused symbols in src/ or scripts |
-| Unused guard        | `npm run typecheck:unused` | Focused unused-symbol gate regressed             |
-| Lint                | `npm run lint`             | ESLint rule violations                           |
-| Formatting          | `npm run format:check`     | Prettier formatting drift                        |
+| Step                | Tool / command             | Failure means                                                                   |
+| ------------------- | -------------------------- | ------------------------------------------------------------------------------- |
+| SQLite schema drift | `npm run db:schema:check`  | The generated SQLite schema is stale                                            |
+| Prisma client       | `npm run db:generate`      | Generated Prisma client cannot be refreshed                                     |
+| Unit + pure tests   | `npm test`                 | A pure helper, schema, or domain model is broken                                |
+| TypeScript          | `npm run typecheck`        | Type errors or unused symbols in src/ or scripts                                |
+| Unused guard        | `npm run typecheck:unused` | Focused unused-symbol gate regressed                                            |
+| Lint                | `npm run lint`             | ESLint rule violations                                                          |
+| Docs verification   | `npm run docs:check`       | Runtime config, route inventory, docs links/indexes, or docs formatting drifted |
+| Formatting          | `npm run format:check`     | Prettier formatting drift                                                       |
 
-**All seven steps must be green. A single failure is a release blocker.**
+**All eight steps must be green. A single failure is a release blocker.**
 
 The CI job is defined in `.github/workflows/ci.yml` (`quality-gate` job,
 Node 22, SQLite). CI runs the SQLite schema drift check before refreshing the
@@ -51,6 +52,22 @@ still a release blocker and must be fixed immediately.
 
 Runtime environment variables used by this gate and by deployed services are
 inventoried in [runtime-config.md](./runtime-config.md).
+
+### Focused documentation gate (Epic #1004 / N8)
+
+`npm run docs:check` is the release-gate shortcut for source-driven docs drift.
+It runs:
+
+1. `node --import tsx --test src/app/api/api-route-security-matrix.test.ts` —
+   reuses the API route matrix schema/inventory guard.
+2. `scripts/check-docs-source-inventory.mjs` — compares source environment reads
+   with [runtime-config.md](./runtime-config.md) and API route files with the
+   [security matrix](../security/api-route-security-matrix.md). Unknown env reads
+   or routes fail with the source locations / route names to document.
+3. `scripts/check-docs-links.mjs` — validates local docs markdown links, confirms
+   all docs are reachable from [docs/README.md](../README.md), and requires a
+   `README.md` index in each docs directory.
+4. `prettier --check "docs/**/*.md"` — keeps documentation formatting reviewable.
 
 ### Persisted-schema audit (Epic #493)
 
@@ -213,7 +230,8 @@ For each flow below, check the indicated owner: **A** = automated test,
 ### Release blockers (must be green)
 
 1. `npm run db:schema:check`, `npm run db:generate`, `npm test`,
-   `npm run typecheck`, `npm run lint`, and `npm run format:check` — all green.
+   `npm run typecheck`, `npm run lint`, `npm run docs:check`, and
+   `npm run format:check` — all green.
 2. Every critical flow marked **A** above has its corresponding test passing.
 3. Authorization denials (A-1 through A-6) all passing.
 4. No structured diagnostic emitting `severity: "fatal"` in the automated test run.
@@ -238,8 +256,8 @@ For each flow below, check the indicated owner: **A** = automated test,
 Before each foundation release wave:
 
 1. Run
-   `npm run db:schema:check && npm run db:generate && npm test && npm run typecheck && npm run typecheck:unused && npm run lint && npm run format:check`
-   locally. All seven must exit 0.
+   `npm run db:schema:check && npm run db:generate && npm test && npm run typecheck && npm run typecheck:unused && npm run lint && npm run docs:check && npm run format:check`
+   locally. All eight must exit 0.
 2. Verify CI is green on the merge commit (`.github/workflows/ci.yml` → `quality-gate` job).
 3. Walk the checklist in Part 2 and confirm every **M** flow manually.
 4. Record any warnings (Part 3) in the release PR description with a brief risk note.
@@ -249,15 +267,16 @@ Before each foundation release wave:
 
 ## Part 5 — Cross-references
 
-| Related issue | Area                                                                                                                                                                                                                       |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| #430          | Block-anchor identity — `block-id.ts`, `block-id-runtime.ts`                                                                                                                                                               |
-| #448          | Visual projection repair — `mirror-diff.ts`, `mirror-repair.ts`                                                                                                                                                            |
-| #436          | Command envelope — `slide-commands.ts`, `commands/`                                                                                                                                                                        |
-| #379 / #380   | Export pipeline — `export-preflight.ts`, `deck-export.ts`                                                                                                                                                                  |
-| #376          | Conflict recovery — `deck-revision-token.ts`                                                                                                                                                                               |
-| #460          | Structured diagnostics — `src/lib/diagnostics/error-codes.ts`                                                                                                                                                              |
-| #461          | Performance budgets — `src/lib/presentation/perf-budgets.ts`                                                                                                                                                               |
-| #495          | API surface governance — `docs/security/api-route-security-matrix.md`, `src/lib/api/errors.ts`, `src/lib/diagnostics/api-abuse.ts`                                                                                         |
-| #493          | Persisted-schema gates — `src/lib/schema-audit/audit.ts`, `docs/operations/persisted-schema-repair.md`                                                                                                                     |
-| #517          | Release-gate E2E profile — `prisma/seed-e2e.ts`, `e2e/helpers/profile.ts`, `e2e/{import-roundtrip,present-export,slide-asset-upload}.spec.ts`, [ADR 0002](../architecture/decisions/0002-canvas-keyboard-accessibility.md) |
+| Related issue | Area                                                                                                                                                                                                                           |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| #430          | Block-anchor identity — `block-id.ts`, `block-id-runtime.ts`                                                                                                                                                                   |
+| #448          | Visual projection repair — `mirror-diff.ts`, `mirror-repair.ts`                                                                                                                                                                |
+| #436          | Command envelope — `slide-commands.ts`, `commands/`                                                                                                                                                                            |
+| #379 / #380   | Export pipeline — `export-preflight.ts`, `deck-export.ts`                                                                                                                                                                      |
+| #376          | Conflict recovery — `deck-revision-token.ts`                                                                                                                                                                                   |
+| #460          | Structured diagnostics — `src/lib/diagnostics/error-codes.ts`                                                                                                                                                                  |
+| #461          | Performance budgets — `src/lib/presentation/perf-budgets.ts`                                                                                                                                                                   |
+| #495          | API surface governance — `docs/security/api-route-security-matrix.md`, `src/lib/api/errors.ts`, `src/lib/diagnostics/api-abuse.ts`                                                                                             |
+| #493          | Persisted-schema gates — `src/lib/schema-audit/audit.ts`, `docs/operations/persisted-schema-repair.md`                                                                                                                         |
+| #517          | Release-gate E2E profile — `prisma/seed-e2e.ts`, `e2e/helpers/profile.ts`, `e2e/{import-roundtrip,present-export,slide-asset-upload}.spec.ts`, [ADR 0002](../architecture/decisions/0002-canvas-keyboard-accessibility.md)     |
+| #1004         | Documentation, ADR, and source-driven verification — [runtime config](runtime-config.md), [API route matrix](../security/api-route-security-matrix.md), [ADR index](../architecture/decisions/README.md), `npm run docs:check` |
