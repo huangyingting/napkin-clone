@@ -11,7 +11,7 @@ import {
   applyBrandToDeck,
   brandToMasterChrome,
   brandToTokenSet,
-} from "./deck-brand-tokens";
+} from "./brand-deck-theme-adapter";
 import { DEFAULT_TOKEN_SET } from "./deck-theme-tokens";
 
 function mockBrand(overrides: Partial<BrandStyle> = {}): BrandStyle {
