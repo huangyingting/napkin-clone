@@ -54,7 +54,7 @@ export function validateVisualCommand(
   cmd: VisualCommand,
   ctx: VisualCommandContext,
 ): CommandValidationResult {
-  if (cmd.schemaVersion > CURRENT_COMMAND_SCHEMA_VERSION) {
+  if (cmd.schemaVersion !== CURRENT_COMMAND_SCHEMA_VERSION) {
     return invalid(
       "unsupported_command",
       `Unsupported command schema version ${cmd.schemaVersion}.`,
@@ -119,7 +119,7 @@ export function validateDeckCommand(
   cmd: CommandEnvelope<unknown>,
   ctx: DeckCommandContext,
 ): CommandValidationResult {
-  if (cmd.schemaVersion > CURRENT_COMMAND_SCHEMA_VERSION) {
+  if (cmd.schemaVersion !== CURRENT_COMMAND_SCHEMA_VERSION) {
     return invalid(
       "unsupported_command",
       `Unsupported command schema version ${cmd.schemaVersion}.`,
