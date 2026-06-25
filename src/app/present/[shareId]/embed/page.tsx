@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { PublicPresentViewer } from "@/components/presentation/public-present-viewer";
+import { assertAccessDecisionOrNotFound } from "@/lib/access-policy/adapters";
 import { prisma } from "@/lib/prisma";
 import { shareIdFromParam } from "@/lib/slug";
 import {
-  evaluateShareAccess,
+  evaluateShareAccessDecision,
   SHARE_ACCESS_SELECT,
   toShareAccessInput,
 } from "@/lib/share-access";
@@ -52,14 +53,15 @@ export default async function PresentEmbedPage({
     },
   });
 
-  if (
-    !document ||
-    !evaluateShareAccess(
-      toShareAccessInput(document, resolvedShareId, "present"),
-    ).allow
-  ) {
+  if (!document) {
     notFound();
   }
+  assertAccessDecisionOrNotFound(
+    evaluateShareAccessDecision(
+      toShareAccessInput(document, resolvedShareId, "present"),
+    ),
+    notFound,
+  );
 
   const blocks = buildPresentationBlocks(document.contentJson);
 

@@ -25,6 +25,12 @@ import {
   isInvitableWorkspaceRole,
   type InvitableWorkspaceRole,
 } from "@/lib/workspace/roles";
+import {
+  allowAccess,
+  denyAccess,
+  type AccessDecision,
+  type AccessDenialReason,
+} from "@/lib/access-policy/taxonomy";
 
 /** Structured reason an invite acceptance was denied (for logging/UX copy). */
 export type InviteDenyReason =
@@ -97,6 +103,13 @@ export function isInviteAccessAllowed(input: InviteAccessInput): boolean {
   return evaluateInviteAccess(input).allow;
 }
 
+const INVITE_DENY_TAXONOMY: Record<InviteDenyReason, AccessDenialReason> = {
+  revoked: "invite-revoked",
+  expired: "expired",
+  exhausted: "invite-exhausted",
+  "invalid-role": "invalid-role",
+};
+
 /** Human-readable explanation for each deny reason (used by the join UI). */
 export const INVITE_DENY_MESSAGES: Record<InviteDenyReason, string> = {
   revoked: "This invite link has been revoked by a workspace owner.",
@@ -105,6 +118,31 @@ export const INVITE_DENY_MESSAGES: Record<InviteDenyReason, string> = {
   "invalid-role":
     "This invite link is misconfigured and can no longer be used.",
 };
+
+/** Maps invite policy outcomes into the shared access-decision taxonomy. */
+export function inviteAccessDecisionToAccessDecision(
+  decision: InviteAccessDecision,
+): AccessDecision {
+  if (decision.allow) {
+    return allowAccess({ resource: { kind: "invite" }, capability: "accept" });
+  }
+
+  return denyAccess({
+    resource: { kind: "invite" },
+    capability: "accept",
+    reason: INVITE_DENY_TAXONOMY[decision.reason],
+    status: 403,
+    safeMessage: INVITE_DENY_MESSAGES[decision.reason],
+    concealResource: false,
+  });
+}
+
+/** Evaluates invite access and returns the shared access-decision shape. */
+export function evaluateInviteAccessDecision(
+  input: InviteAccessInput,
+): AccessDecision {
+  return inviteAccessDecisionToAccessDecision(evaluateInviteAccess(input));
+}
 
 /**
  * Prisma `select` field set needed to evaluate invite access. Spread into the

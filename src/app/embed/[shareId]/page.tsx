@@ -3,10 +3,11 @@ import { notFound } from "next/navigation";
 
 import { LexicalReadOnly } from "@/components/lexical/lexical-read-only";
 import { MadeWithBadge } from "@/components/made-with-badge";
+import { assertAccessDecisionOrNotFound } from "@/lib/access-policy/adapters";
 import { prisma } from "@/lib/prisma";
 import { shareIdFromParam } from "@/lib/slug";
 import {
-  evaluateShareAccess,
+  evaluateShareAccessDecision,
   SHARE_ACCESS_SELECT,
   toShareAccessInput,
 } from "@/lib/share-access";
@@ -49,13 +50,15 @@ export default async function EmbedPage({
     },
   });
 
-  if (
-    !document ||
-    !evaluateShareAccess(toShareAccessInput(document, resolvedShareId, "embed"))
-      .allow
-  ) {
+  if (!document) {
     notFound();
   }
+  assertAccessDecisionOrNotFound(
+    evaluateShareAccessDecision(
+      toShareAccessInput(document, resolvedShareId, "embed"),
+    ),
+    notFound,
+  );
 
   if (document.contentJson == null) {
     notFound();

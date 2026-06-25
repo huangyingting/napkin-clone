@@ -1,7 +1,7 @@
 # Workspaces And Membership
 
 **Status:** Current  
-**Last updated:** 2026-06-23
+**Last updated:** 2026-06-25
 
 This document describes workspace ownership, membership, invite links, and how
 workspace roles feed document permissions.
@@ -13,6 +13,7 @@ workspace roles feed document permissions.
 | Workspace list/create actions | [`src/app/app/workspaces/actions.ts`](../../../src/app/app/workspaces/actions.ts)                                         |
 | Workspace detail actions      | [`src/app/app/workspaces/[id]/actions.ts`](../../../src/app/app/workspaces/%5Bid%5D/actions.ts)                           |
 | Workspace role helpers        | [`src/lib/workspace/roles.ts`](../../../src/lib/workspace/roles.ts)                                                       |
+| Workspace service helpers     | [`src/lib/workspace/service.ts`](../../../src/lib/workspace/service.ts)                                                   |
 | Workspace capability helpers  | [`src/lib/auth/workspace-capabilities.ts`](../../../src/lib/auth/workspace-capabilities.ts)                               |
 | Document permissions          | [`src/lib/auth/document-permissions.ts`](../../../src/lib/auth/document-permissions.ts)                                   |
 | Invite UI                     | [`src/app/app/workspaces/[id]/invite-link-manager.tsx`](../../../src/app/app/workspaces/%5Bid%5D/invite-link-manager.tsx) |
@@ -38,11 +39,16 @@ Workspace server actions use `requireWorkspaceCapability`.
 | Capability | Required role       |
 | ---------- | ------------------- |
 | `view`     | owner/editor/viewer |
-| `edit`     | owner/editor        |
+| `mutate`   | owner/editor        |
 | `manage`   | owner               |
 
 Owner-only operations include invite creation/revocation, member removal,
 workspace rename, and workspace deletion.
+
+The workspace detail action module remains the adapter layer: it resolves the
+session, performs the capability check, and revalidates or redirects. Invite
+creation/revocation, member removal plus document handoff, rename normalization,
+and delete orchestration live in `src/lib/workspace/service.ts`.
 
 ## Invite Links
 
@@ -54,6 +60,8 @@ Invite links are created with:
 - server-generated token.
 
 Expiry and max-use values are validated server-side. Links can be revoked.
+Expiry windows and max-use caps are normalized by service helpers so creation and
+tests use the same bounds.
 
 ## Member Removal And Workspace Deletion
 
@@ -88,7 +96,7 @@ semantics.
 
 ## Primary Tests
 
-- [`src/lib/workspace/capabilities.test.ts`](../../../src/lib/workspace/capabilities.test.ts)
+- [`src/lib/workspace/service.test.ts`](../../../src/lib/workspace/service.test.ts)
 - [`src/lib/auth/workspace-capabilities.test.ts`](../../../src/lib/auth/workspace-capabilities.test.ts)
 - [`src/lib/auth/document-permissions.test.ts`](../../../src/lib/auth/document-permissions.test.ts)
 - [`e2e/workspace.spec.ts`](../../../e2e/workspace.spec.ts)

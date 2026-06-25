@@ -28,10 +28,15 @@ import {
   type DocumentRoleInput,
 } from "@/lib/auth/document-permissions";
 import {
-  evaluateShareAccess,
+  evaluateShareAccessDecision,
   toShareAccessInput,
   type ShareAccessFields,
 } from "@/lib/share-access";
+import {
+  allowAccess,
+  denyAccess,
+  type AccessDecision,
+} from "@/lib/access-policy/taxonomy";
 
 /** Why an asset request was allowed (for observability / tests). */
 export type SlideAssetAllowReason =
@@ -101,14 +106,14 @@ export function decideSlideAssetAccess(
 
   // Anonymous (or no-capability): allow only via a valid public share link.
   const requestedShareId = doc.shareId ?? "";
-  const present = evaluateShareAccess(
+  const present = evaluateShareAccessDecision(
     toShareAccessInput(doc, requestedShareId, "present", input.now),
   );
   if (present.allow) {
     return { allow: true, via: "share-present" };
   }
 
-  const embed = evaluateShareAccess(
+  const embed = evaluateShareAccessDecision(
     toShareAccessInput(doc, requestedShareId, "embed", input.now),
   );
   if (embed.allow) {
@@ -116,4 +121,30 @@ export function decideSlideAssetAccess(
   }
 
   return { allow: false, status: 403, reason: "forbidden" };
+}
+
+/** Maps slide-asset route decisions to the shared access-decision taxonomy. */
+export function slideAssetAccessDecisionToAccessDecision(
+  decision: SlideAssetAccessDecision,
+): AccessDecision {
+  if (decision.allow) {
+    return allowAccess({
+      resource: { kind: "slide-asset" },
+      capability: "serve",
+    });
+  }
+
+  return denyAccess({
+    resource: { kind: "slide-asset" },
+    capability: "serve",
+    reason:
+      decision.reason === "asset-not-found"
+        ? "asset-not-found"
+        : decision.reason === "document-not-found"
+          ? "resource-not-found"
+          : "forbidden",
+    status: decision.status,
+    safeMessage: decision.status === 404 ? "Not found" : "Forbidden",
+    concealResource: decision.status === 404,
+  });
 }

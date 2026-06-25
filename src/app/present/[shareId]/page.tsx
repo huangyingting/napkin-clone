@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { PublicPresentViewer } from "@/components/presentation/public-present-viewer";
+import { assertAccessDecisionOrNotFound } from "@/lib/access-policy/adapters";
 import { excerpt } from "@/lib/document-stats";
 import { prisma } from "@/lib/prisma";
 import { buildShareSegment, shareIdFromParam } from "@/lib/slug";
 import {
-  evaluateShareAccess,
+  evaluateShareAccessDecision,
   SHARE_ACCESS_SELECT,
   toShareAccessInput,
 } from "@/lib/share-access";
@@ -48,7 +49,7 @@ export async function generateMetadata({
 
   if (
     !document ||
-    !evaluateShareAccess(
+    !evaluateShareAccessDecision(
       toShareAccessInput(document, resolvedShareId, "present"),
     ).allow
   ) {
@@ -111,14 +112,15 @@ export default async function PresentPage({
     },
   });
 
-  if (
-    !document ||
-    !evaluateShareAccess(
-      toShareAccessInput(document, resolvedShareId, "present"),
-    ).allow
-  ) {
+  if (!document) {
     notFound();
   }
+  assertAccessDecisionOrNotFound(
+    evaluateShareAccessDecision(
+      toShareAccessInput(document, resolvedShareId, "present"),
+    ),
+    notFound,
+  );
 
   const blocks = buildPresentationBlocks(document.contentJson);
 

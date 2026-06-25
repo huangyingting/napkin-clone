@@ -1,7 +1,7 @@
 # Security And Access Architecture
 
 **Status:** Current  
-**Last updated:** 2026-06-23
+**Last updated:** 2026-06-25
 
 These documents describe authorization, public access, and share-link behavior.
 They are the contract for routes and server actions that decide who may see or
@@ -18,8 +18,9 @@ The HTTP attack surface is inventoried in the
 [API route security matrix](../../security/api-route-security-matrix.md)
 (Epic #495), which classifies every `src/app/api/**/route.ts` route, documents
 its denial semantics, and is enforced by a guard test. Shared denial responses
-come from `src/lib/api/errors.ts`; abuse-control diagnostics for the public
-expensive endpoints come from `src/lib/diagnostics/api-abuse.ts`.
+come from `src/lib/access-policy/adapters.ts` and `src/lib/api/errors.ts`;
+abuse-control diagnostics for the public expensive endpoints come from
+`src/lib/diagnostics/api-abuse.ts`.
 
 ## Related Docs
 

@@ -3,7 +3,7 @@
 **Epic:** #495 — API Security and Public Surface Governance
 **Issue:** #509
 **Status:** Current — enforced by `src/app/api/api-route-security-matrix.test.ts`
-**Last updated:** 2026-06-23 (Epic #496 — added `brand-assets/[ownerId]/[...path]`)
+**Last updated:** 2026-06-25 (Epic #813 — access decision adapters)
 
 ---
 
@@ -38,13 +38,14 @@ handler itself) are tracked in the test's `NO_APP_GATE_ALLOWLIST` so the
 | `internal-secret`       | Verified by an internal shared secret header (service-to-service). |
 | `framework-auth`        | The Auth.js handler itself; public by design (no app-level gate).  |
 
-## Shared denial helper
+## Shared denial helpers
 
-Most app-gated routes return denials through `src/lib/api/errors.ts`
+Access-policy routes map domain decisions through
+`src/lib/access-policy/adapters.ts`, which preserves the status selected by the
+policy before delegating JSON denials to `src/lib/api/errors.ts`
 (`unauthorized()`, `forbidden()`, `notFound()`, `featureDisabled()`,
-`validationError()`, `tooManyRequests()`), which emit a canonical
-`{ "error": string, "code": string }` JSON body. The slide-asset route is the
-deliberate exception: it serves images and returns **plain-text**
+`validationError()`, `tooManyRequests()`). The slide-asset route is the
+deliberate exception: it serves images and uses the plain-text adapter for
 privacy-preserving bodies (see Notes).
 
 ---
@@ -60,12 +61,12 @@ privacy-preserving bodies (see Notes).
 | `brand-assets/[ownerId]/[...path]`    | `authenticated-session` + owner check  | Required              | No                              | Session `user.id` must equal the `ownerId` partition (`decideBrandAssetAccess`) | 404 plain `Not found` (missing asset — privacy); 401 plain `Unauthorized`; 403 plain `Forbidden` (authed non-owner); 200 bytes | Brand            | Serves private brand logo/font bytes (Epic #496). Owner-scoped; plain-text bodies (binary route). Privacy 404 must never become a 403/401. |
 | `brand/font`                          | `entitlement-gated`                    | Required              | No                              | `resolveBrandEntitlements().canFontUpload`                                      | 401 unauthorized; 403 `{error:<upgrade msg>,code:"FORBIDDEN"}`; 400 bad form; 413 too large; 415 wrong type                    | Brand/Billing    | 403 carries a product upgrade message (intentional). Stores font bytes as a protected `Asset` (#496).                                      |
 | `brand/logo`                          | `entitlement-gated`                    | Required              | No                              | `resolveBrandEntitlements().canBrand`                                           | 401 unauthorized; 403 `{error:<upgrade msg>,code:"FORBIDDEN"}`; 400 bad form; 413 too large; 415 wrong type                    | Brand/Billing    | 403 carries a product upgrade message (intentional). Stores logo bytes as a protected `Asset` (#496).                                      |
-| `collab/authorize`                    | `document-capability`                  | Required              | No                              | `getDocumentCapabilities` + `decideRoomAccess`                                  | 401 unauthorized; 403 forbidden (missing room or no view access — never leaks existence); 200 `{ok,role,readOnly}`             | Collab           | Called by the WebSocket upgrade handler. 403 deliberately covers missing/deleted docs.                                                     |
+| `collab/authorize`                    | `document-capability`                  | Required              | No                              | `getDocumentCapabilities` + `decideRoomAccess` + access adapter                 | 401 unauthorized; 403 forbidden (missing room or no view access — never leaks existence); 200 `{ok,role,readOnly}`             | Collab           | Called by the WebSocket upgrade handler. 403 deliberately covers missing/deleted docs.                                                     |
 | `collab/flush`                        | `internal-secret`                      | None (service-to-svc) | No                              | Constant-time `x-collab-internal-secret` compare                                | 503 disabled (no secret set); 401 invalid secret; 400 malformed; 404 missing document; 200 `{ok:true}`                         | Collab           | Internal recovery-snapshot endpoint (#497). Disabled (503) when `COLLAB_INTERNAL_SECRET` is unset.                                         |
 | `generate`                            | `public+rate-limited`                  | Optional              | Per-user + anon IP + anon trial | Credit metering for authenticated users                                         | 400/413 validation; 429 rate/quota (+`Retry-After`); 402 insufficient credits; 503 Azure misconfig; 504 timeout; 502           | AI               | Public by design. Abuse denials emit `api-abuse` diagnostics (#512).                                                                       |
 | `generate-deck`                       | `public+rate-limited`                  | Optional              | Per-user + anon IP + anon trial | Feature flag `AI_DECK_GEN_ENABLED`; credits                                     | 404 when flag OFF (intentional); 400/413; 429 (+`Retry-After`); 402; 503; 504; 502                                             | AI               | 404-when-disabled hides the route by design. Do NOT normalize this away. Emits `api-abuse` diagnostics (#512).                             |
 | `import`                              | `public+rate-limited`                  | None                  | Per client IP                   | Parser timeout bounds each parse                                                | 429 rate limit (+`Retry-After`); 400 bad form / read; 413/415 invalid file; 422 empty / parse-timeout / parse-failed           | AI/Import        | Public by design. Heavy parsers run server-side only. Emits `api-abuse` diagnostics (#512).                                                |
-| `slide-assets/[documentId]/[...path]` | `share-policy` + `document-capability` | Optional              | No                              | `decideSlideAssetAccess` (capability OR share)                                  | 404 plain `Not found` (missing asset/doc — privacy); 403 plain `Forbidden` (exists but unauthorized); 200 bytes                | Presentation     | Plain-text bodies on purpose (image route). Privacy 404 must NEVER become a 403. Decision tested in `route.test.ts`.                       |
+| `slide-assets/[documentId]/[...path]` | `share-policy` + `document-capability` | Optional              | No                              | `decideSlideAssetAccess` (capability OR share) + plain-text access adapter      | 404 plain `Not found` (missing asset/doc — privacy); 403 plain `Forbidden` (exists but unauthorized); 200 bytes                | Presentation     | Plain-text bodies on purpose (image route). Privacy 404 must NEVER become a 403. Decision tested in `asset-access.test.ts`.                |
 | `user/entitlements`                   | `authenticated-session`                | Required              | No                              | Derives plan/credit state for session `user.id`                                 | 401 `{error:"Unauthorized.",code:"UNAUTHORIZED"}`                                                                              | Billing          | Body normalized in #511 (was `"Unauthorized"` without a trailing period).                                                                  |
 
 ---
@@ -84,6 +85,7 @@ privacy-preserving bodies (see Notes).
 
 ## Related
 
+- Access adapters: `src/lib/access-policy/adapters.ts` (#813).
 - Error helper: `src/lib/api/errors.ts` (#511).
 - Abuse diagnostics: `src/lib/diagnostics/api-abuse.ts` (#512).
 - Access policy: [../architecture/security/access-and-sharing.md](../architecture/security/access-and-sharing.md).

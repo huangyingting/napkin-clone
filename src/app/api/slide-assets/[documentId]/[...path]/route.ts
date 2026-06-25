@@ -21,17 +21,21 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 
+import { accessDecisionToPlainTextApiResponse } from "@/lib/access-policy/adapters";
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { SHARE_ACCESS_SELECT } from "@/lib/share-access";
-import { decideSlideAssetAccess } from "@/lib/slides/asset-access";
+import {
+  decideSlideAssetAccess,
+  slideAssetAccessDecisionToAccessDecision,
+} from "@/lib/slides/asset-access";
 import { logError } from "@/lib/log";
 import { getDefaultStorageAdapter } from "@/lib/slides/asset-storage";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ documentId: string; path: string[] }> },
-): Promise<NextResponse> {
+): Promise<Response> {
   const { documentId, path: pathSegments } = await params;
   const filenamePart = Array.isArray(pathSegments)
     ? pathSegments.join("/")
@@ -77,8 +81,9 @@ export async function GET(
   if (!decision.allow) {
     // Privacy: missing asset/document and unauthorized requests both surface as
     // plain-text bodies; existence is never leaked (404 stays a 404).
-    const body = decision.status === 403 ? "Forbidden" : "Not found";
-    return new NextResponse(body, { status: decision.status });
+    return accessDecisionToPlainTextApiResponse(
+      slideAssetAccessDecisionToAccessDecision(decision),
+    )!;
   }
 
   // `asset` is non-null here (a null asset would have denied with 404 above).

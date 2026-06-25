@@ -25,6 +25,12 @@
 
 import { prisma } from "@/lib/prisma";
 import { asWorkspaceRole } from "@/lib/workspace/roles";
+import {
+  allowAccess,
+  denyAccess,
+  type AccessDecision,
+  type AccessDeniedDecision,
+} from "@/lib/access-policy/taxonomy";
 
 /** Effective role of a user for a single document. */
 export type DocumentRole = "owner" | "editor" | "viewer" | "none";
@@ -69,11 +75,17 @@ export type DocumentIdentity = {
  */
 export class DocumentPermissionError extends Error {
   readonly capability: Capability | null;
+  readonly accessDecision: AccessDeniedDecision | null;
 
-  constructor(message: string, capability: Capability | null = null) {
+  constructor(
+    message: string,
+    capability: Capability | null = null,
+    accessDecision: AccessDeniedDecision | null = null,
+  ) {
     super(message);
     this.name = "DocumentPermissionError";
     this.capability = capability;
+    this.accessDecision = accessDecision;
   }
 }
 
@@ -155,21 +167,56 @@ export function assertCapability(
   capabilities: DocumentCapabilities,
   capability: Capability,
 ): void {
+  const decision = documentCapabilityAccessDecision(capabilities, capability);
+  if (decision.allow) {
+    return;
+  }
+
+  const deniedCapability = capabilities.canView ? capability : null;
+  throw new DocumentPermissionError(
+    decision.safeMessage,
+    deniedCapability,
+    decision,
+  );
+}
+
+/** Maps a document capability check to the shared access-decision taxonomy. */
+export function documentCapabilityAccessDecision(
+  capabilities: DocumentCapabilities,
+  capability: Capability,
+): AccessDecision {
   if (!capabilities.canView) {
-    throw new DocumentPermissionError("Document not found.", null);
+    return denyAccess({
+      resource: { kind: "document" },
+      capability,
+      reason: "resource-not-found",
+      status: 404,
+      safeMessage: "Document not found.",
+      concealResource: true,
+    });
   }
   if (capability === "edit" && !capabilities.canEdit) {
-    throw new DocumentPermissionError(
-      "You do not have permission to edit this document.",
-      "edit",
-    );
+    return denyAccess({
+      resource: { kind: "document" },
+      capability,
+      reason: "insufficient-capability",
+      status: 403,
+      safeMessage: "You do not have permission to edit this document.",
+      concealResource: false,
+    });
   }
   if (capability === "manage" && !capabilities.canManage) {
-    throw new DocumentPermissionError(
-      "You do not have permission to manage this document.",
-      "manage",
-    );
+    return denyAccess({
+      resource: { kind: "document" },
+      capability,
+      reason: "insufficient-capability",
+      status: 403,
+      safeMessage: "You do not have permission to manage this document.",
+      concealResource: false,
+    });
   }
+
+  return allowAccess({ resource: { kind: "document" }, capability });
 }
 
 /**
@@ -233,7 +280,18 @@ export async function requireDocumentCapability(
   const result = await getDocumentCapabilities(userId, documentId, options);
 
   if (!result.document) {
-    throw new DocumentPermissionError("Document not found.", null);
+    throw new DocumentPermissionError(
+      "Document not found.",
+      null,
+      denyAccess({
+        resource: { kind: "document" },
+        capability,
+        reason: "resource-not-found",
+        status: 404,
+        safeMessage: "Document not found.",
+        concealResource: true,
+      }),
+    );
   }
 
   assertCapability(result, capability);
