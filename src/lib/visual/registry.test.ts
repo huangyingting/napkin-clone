@@ -18,6 +18,7 @@ import { KIND_DISPLAY_METADATA } from "@/lib/visual/registry-display";
 import { KIND_EDITING_CAPABILITIES } from "@/lib/visual/registry-editing";
 import { KIND_EXPORT_SUPPORT } from "@/lib/visual/registry-export";
 import { KIND_PROMPT_CONSTRAINTS } from "@/lib/visual/registry-prompt";
+import { KIND_RUNTIME_DESCRIPTORS } from "@/lib/visual/registry-runtime";
 import { assertRegistryDataCompleteness } from "@/lib/visual/registry-validation";
 import {
   VISUAL_KIND_REGISTRY,
@@ -27,6 +28,7 @@ import {
   getAllowedShapes,
   getKindEntry,
   getKindPromptGuidance,
+  getKindRuntimeDescriptor,
   getKindsByLayoutFamily,
   isGraphEditable,
   isPositionedKind,
@@ -70,6 +72,7 @@ test("split registry concern maps cover every VisualKind and compose into the fa
     assert.deepEqual(entry.editing, KIND_EDITING_CAPABILITIES[kind]);
     assert.deepEqual(entry.export, KIND_EXPORT_SUPPORT[kind]);
     assert.deepEqual(entry.prompt, KIND_PROMPT_CONSTRAINTS[kind]);
+    assert.deepEqual(entry.runtime, KIND_RUNTIME_DESCRIPTORS[kind]);
   }
 });
 
@@ -149,6 +152,42 @@ test("isPositionedKind / isDerivedLayoutKind are mutually exclusive for each kin
       derived,
       `"${kind}" must be exactly one of positioned or derived`,
     );
+  }
+});
+
+test("runtime descriptors complete the visual-kind addition checklist", () => {
+  const checklistItems = [
+    "schema",
+    "layout",
+    "render",
+    "edit",
+    "export",
+    "prompt",
+    "transforms",
+    "validation",
+  ] as const;
+
+  for (const kind of VISUAL_KINDS) {
+    const entry = getKindEntry(kind);
+    const runtime = getKindRuntimeDescriptor(kind);
+    assert.equal(runtime.layout.family, entry.layoutFamily);
+    assert.equal(runtime.transform.defaultShape, entry.defaultShape);
+    assert.equal(
+      runtime.transform.autoLayoutSupported,
+      entry.editing.autoLayoutSupported,
+    );
+    assert.deepEqual(runtime.validation, {
+      requiresNodeValue: entry.prompt.requiresNodeValue,
+      requiresNodePosition: entry.prompt.requiresNodePosition,
+      edgesRelevant: entry.prompt.edgesRelevant,
+    });
+    for (const item of checklistItems) {
+      assert.equal(
+        runtime.checklist[item],
+        true,
+        `"${kind}" is missing runtime checklist coverage for ${item}`,
+      );
+    }
   }
 });
 

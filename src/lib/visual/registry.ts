@@ -17,10 +17,12 @@ import { KIND_DISPLAY_METADATA } from "./registry-display";
 import { KIND_EDITING_CAPABILITIES } from "./registry-editing";
 import { KIND_EXPORT_SUPPORT } from "./registry-export";
 import { KIND_PROMPT_CONSTRAINTS } from "./registry-prompt";
+import { KIND_RUNTIME_DESCRIPTORS } from "./registry-runtime";
 import { assertRegistryCompletenessFor } from "./registry-validation";
 import type {
   LayoutFamily,
   VisualKindEntry,
+  VisualRuntimeDescriptor,
   VisualRegistry,
 } from "./registry-types";
 
@@ -32,6 +34,7 @@ export type {
   LayoutFamily,
   VisualKindDisplayMetadata,
   VisualKindEntry,
+  VisualRuntimeDescriptor,
   VisualRegistry,
 } from "./registry-types";
 
@@ -41,6 +44,7 @@ function buildVisualKindRegistry(): VisualRegistry {
     registry[kind] = {
       id: kind,
       ...KIND_DISPLAY_METADATA[kind],
+      runtime: KIND_RUNTIME_DESCRIPTORS[kind],
       editing: KIND_EDITING_CAPABILITIES[kind],
       export: KIND_EXPORT_SUPPORT[kind],
       prompt: KIND_PROMPT_CONSTRAINTS[kind],
@@ -58,6 +62,13 @@ export const VISUAL_KIND_REGISTRY: VisualRegistry = buildVisualKindRegistry();
  */
 export function getKindEntry(kind: VisualKind): VisualKindEntry {
   return VISUAL_KIND_REGISTRY[kind];
+}
+
+/** Returns the full runtime descriptor for a visual kind. */
+export function getKindRuntimeDescriptor(
+  kind: VisualKind,
+): VisualRuntimeDescriptor {
+  return VISUAL_KIND_REGISTRY[kind].runtime;
 }
 
 /** Returns true when the kind uses explicit node x/y coordinates. */

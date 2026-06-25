@@ -507,6 +507,26 @@ test("relayout_graph fails for chart (autoLayoutSupported=false)", () => {
   }
 });
 
+test("set_auto_layout fails when enabled for unsupported kinds", () => {
+  const visual = chartVisual();
+  const cmd = makeCommand({ op: "visual.set_auto_layout", enabled: true });
+  const result = executeVisualCommand(visual, cmd);
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.ok((result.error ?? "").includes("does not support auto-layout"));
+  }
+});
+
+test("set_auto_layout can disable unsupported stale flags", () => {
+  const visual = { ...chartVisual(), autoLayout: true };
+  const cmd = makeCommand({ op: "visual.set_auto_layout", enabled: false });
+  const result = executeVisualCommand(visual, cmd);
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.visual.autoLayout, undefined);
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Schema validity roundtrip
 // ---------------------------------------------------------------------------

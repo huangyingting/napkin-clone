@@ -78,7 +78,7 @@ import {
 } from "@/lib/visual/transforms";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { VISUAL_DISPLAY_STYLES } from "@/lib/visual/display-styles";
-import { isPositionedKind } from "@/components/visual/layout";
+import { isPositionedKind } from "@/lib/visual/layout";
 import {
   hashSourceText,
   VISUAL_KINDS,

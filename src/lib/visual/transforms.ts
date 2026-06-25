@@ -34,7 +34,8 @@ import {
 } from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { VISUAL_DISPLAY_STYLES } from "@/lib/visual/display-styles";
-import { elasticLayout } from "@/components/visual/elastic-layout";
+import { elasticLayout } from "@/lib/visual/elastic-layout";
+import { getKindRuntimeDescriptor } from "@/lib/visual/registry";
 
 /** Per-node color override fields the selected-element controls can set. */
 export type NodeStyleField = "color" | "stroke" | "textColor";
@@ -586,27 +587,20 @@ export function setVisualKind(visual: Visual, kind: VisualKind): Visual {
   }
   next.type = kind;
 
-  switch (kind) {
-    case "flowchart":
+  const runtime = getKindRuntimeDescriptor(kind);
+  switch (runtime.transform.kindSwitchLayout) {
+    case "stack-vertical":
       next.nodes = stackVerticalLayout(next.nodes, next.width, next.height);
       break;
-    case "mindmap":
+    case "radial":
       next.nodes = radialLayout(
         next.nodes,
         next.width,
         next.height,
-        POSITIONED_SHAPE.mindmap,
+        runtime.transform.defaultShape,
       );
       break;
-    case "concept":
-      next.nodes = radialLayout(
-        next.nodes,
-        next.width,
-        next.height,
-        POSITIONED_SHAPE.concept,
-      );
-      break;
-    default:
+    case "strip-position":
       // Derived-layout kinds position nodes from order at render time, so any
       // stale x/y from the previous kind is dropped to keep the payload clean.
       next.nodes = next.nodes.map((node) => {

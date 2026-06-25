@@ -139,7 +139,13 @@ test("setVisualKind preserves node labels and ids", () => {
 
 test("setVisualKind assigns finite positions for positioned kinds", () => {
   const source = sourceFor("list"); // list nodes have no x/y
-  for (const to of ["flowchart", "mindmap", "concept"] as const) {
+  for (const to of [
+    "flowchart",
+    "mindmap",
+    "concept",
+    "venn",
+    "orgchart",
+  ] as const) {
     const next = setVisualKind(source, to);
     for (const node of next.nodes) {
       assert.equal(typeof node.x, "number");
@@ -147,6 +153,17 @@ test("setVisualKind assigns finite positions for positioned kinds", () => {
       assert.ok(Number.isFinite(node.x as number));
       assert.ok(Number.isFinite(node.y as number));
     }
+  }
+});
+
+test("setVisualKind keeps auto-layout Venn circles positioned", () => {
+  const source: Visual = { ...sourceFor("flowchart"), autoLayout: true };
+  const next = setVisualKind(source, "venn");
+  for (const node of next.nodes) {
+    assert.equal(typeof node.x, "number");
+    assert.equal(typeof node.y, "number");
+    assert.ok(Number.isFinite(node.x as number));
+    assert.ok(Number.isFinite(node.y as number));
   }
 });
 

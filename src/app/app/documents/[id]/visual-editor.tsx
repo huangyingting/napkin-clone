@@ -15,7 +15,7 @@ import {
   type EdgeSegment,
   type NodeBox,
   type ResizeHandle,
-} from "@/components/visual/layout";
+} from "@/lib/visual/layout";
 import { useIsPointerFine } from "@/lib/pointer";
 import {
   flipEdge,

@@ -8,11 +8,7 @@ import { motion } from "framer-motion";
 
 import { useCardMotion } from "@/components/motion/reveal";
 import { FOCUS_RING } from "@/components/ui/tokens";
-import {
-  contentViewBox,
-  edgeSegments,
-  nodeBoxes,
-} from "@/components/visual/layout";
+import { contentViewBox, edgeSegments, nodeBoxes } from "@/lib/visual/layout";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 import {
