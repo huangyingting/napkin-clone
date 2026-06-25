@@ -38,7 +38,7 @@ import type {
   SaveDeckResult,
 } from "@/lib/document/persistence-types";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
-import { normalizeDeckRaw } from "@/lib/presentation/fresh-deck";
+import { normalizePersistedDeckJson } from "@/lib/presentation/persisted-deck";
 import { reconcileDocumentDeckDependencies } from "@/lib/document/source-ref-model";
 import { reportSchemaFailure } from "@/lib/diagnostics/schema-telemetry";
 import { MAX_DECK_JSON_BYTES } from "@/lib/presentation/deck-limits";
@@ -460,7 +460,7 @@ export function sanitizeRestoredDeck(
 ): Prisma.InputJsonValue | typeof Prisma.DbNull {
   if (rawDeckJson == null) return Prisma.DbNull;
 
-  const parsed = safeParseDeck(normalizeDeckRaw(rawDeckJson));
+  const parsed = safeParseDeck(normalizePersistedDeckJson(rawDeckJson));
   if (!parsed.success) {
     reportSchemaFailure("deck-parse-failed", {
       area: "DocumentVersion.deckJson",
@@ -496,7 +496,7 @@ export async function reconcileDeckAfterMirror(
     });
     if (!doc?.deckJson) return;
 
-    const parsed = safeParseDeck(normalizeDeckRaw(doc.deckJson));
+    const parsed = safeParseDeck(normalizePersistedDeckJson(doc.deckJson));
     if (!parsed.success) {
       reportSchemaFailure("deck-parse-failed", {
         area: "Document.deckJson",
@@ -649,12 +649,9 @@ export async function patchDeck(
     };
   }
 
-  const rawDeckJson =
-    typeof document.deckJson === "string"
-      ? JSON.parse(document.deckJson)
-      : document.deckJson;
-
-  const baseResult = safeParseDeck(rawDeckJson);
+  const baseResult = safeParseDeck(
+    normalizePersistedDeckJson(document.deckJson),
+  );
   if (!baseResult.success) {
     reportSchemaFailure("deck-parse-failed", {
       area: "patchDeck.storedDeck",

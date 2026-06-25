@@ -52,6 +52,9 @@ npm run audit:schema -- --json # machine-readable
 - CLI: `src/scripts/audit-persisted-schema.ts`
 
 The report lists `area`, `documentId`, `rowId`, `anchorId`, and `reason` only.
+For `Document.deckJson`, serialized JSON strings are reported as
+persisted-schema drift; runtime readers expect Prisma JSON values to be parsed
+objects and do not parse string decks.
 
 ---
 

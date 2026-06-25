@@ -128,18 +128,15 @@ The audit passes found these pressure points:
 
 ### Problem
 
-The current code has inconsistent persisted deck handling:
+Persisted deck handling now has a canonical boundary:
+`src/lib/presentation/persisted-deck.ts` exports
+`normalizePersistedDeckJson(raw: unknown): unknown`. Runtime persisted-deck
+readers use that helper before `safeParseDeck`; direct `JSON.parse(deckJson)`
+branches are not supported.
 
-- `src/lib/presentation/fresh-deck.ts` treats string deck values as unsupported.
-- `src/app/app/documents/[id]/actions.ts` parses string `deckJson` in
-  `fetchDeckJson` and `saveDeckCommand`.
-- `src/lib/document/persistence-service.ts` parses string `deckJson` in
-  `patchDeck`.
-- Public present/embed pages and schema audit use `normalizeDeckRaw`.
-
-That mix makes it unclear whether serialized JSON strings are still supported
-runtime input. The project invariant says current schemas are authoritative, so
-old persisted payload shapes should not be patched at read time.
+Serialized JSON strings are persisted-schema drift, not runtime input. Prisma
+JSON columns are expected to arrive as parsed JSON values, and audit reports
+string `Document.deckJson` values as violations with a clear reason.
 
 ### Best Strategy
 
@@ -167,7 +164,8 @@ silently parsed in runtime save/render paths.
 ### Suggested Issues
 
 1. **R1.1 - Introduce persisted deck boundary**
-   - Move or rename `normalizeDeckRaw` to a current-shape persisted-deck module.
+   - Move or rename the persisted deck raw normalizer to a current-shape
+     persisted-deck module.
    - Update imports in page, audit, and persistence code.
    - Add tests for `null`, `undefined`, object deck, malformed object, and
      serialized string.
