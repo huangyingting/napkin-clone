@@ -170,6 +170,8 @@ import { deriveSlideTitle } from "@/lib/presentation/slide-title";
 import {
   isSelectionToolbarVisible,
   shouldShowRichToolbarControls,
+  toolbarPanelEntries,
+  toToolbarSelectionKind,
   type RightPanelTab,
 } from "@/lib/presentation/slide-panel-ui";
 import { reorderTargetIndex } from "@/lib/presentation/slide-reorder";
@@ -4937,23 +4939,23 @@ function SlideSelectionToolbar({
       hasSelectedElement: selectedElement !== null,
       selectedCount,
     });
-  const canOpenTextPanel =
-    selectedElement !== null &&
-    selectedCount <= 1 &&
-    (selectedElement.kind === "text" ||
-      selectedElement.kind === "bullets" ||
-      (selectedElement.kind === "shape" && selectedElement.shape !== "line"));
-  const canOpenMediaPanel =
-    selectedElement !== null &&
-    selectedCount <= 1 &&
-    (selectedElement.kind === "image" ||
-      selectedElement.kind === "visual" ||
-      selectedElement.kind === "connector");
-  const canOpenEffectsPanel = selectedElement !== null && selectedCount <= 1;
-  const canOpenSourcePanel =
-    selectedElement !== null &&
-    selectedCount <= 1 &&
-    selectedElement.sourceRef !== undefined;
+  const panelEntries = toolbarPanelEntries({
+    kind:
+      selectedElement !== null
+        ? toToolbarSelectionKind(
+            selectedElement.kind,
+            selectedElement.kind === "shape"
+              ? selectedElement.shape
+              : undefined,
+          )
+        : null,
+    hasSourceRef: selectedElement?.sourceRef !== undefined,
+    selectedCount,
+  });
+  const canOpenTextPanel = panelEntries.text;
+  const canOpenMediaPanel = panelEntries.media;
+  const canOpenEffectsPanel = panelEntries.effects;
+  const canOpenSourcePanel = panelEntries.source;
   const panelEntry = (label: string, icon: ReactNode, onClick: () => void) => (
     <button
       type="button"
