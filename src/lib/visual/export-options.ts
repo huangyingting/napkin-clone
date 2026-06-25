@@ -7,9 +7,25 @@
  */
 
 import type { AspectRatioPreset } from "@/lib/visual/schema";
+import { SOCIAL_PRESET_CONFIGS } from "@/lib/visual/output-profiles";
+import type { SocialPreset } from "@/lib/visual/output-profiles";
 
-// Re-export for convenience — callers can get both types from one place.
+// Re-export for convenience — callers can get both types and profile catalog
+// data from one place while ownership stays in output-profiles.ts.
 export type { AspectRatioPreset };
+export {
+  OUTPUT_PROFILE_CATALOG,
+  SOCIAL_PRESET_CATALOG,
+  SOCIAL_PRESET_CONFIGS,
+  getOutputProfile,
+  listOutputProfiles,
+} from "@/lib/visual/output-profiles";
+export type {
+  OutputProfileConfig,
+  OutputProfileId,
+  SocialPreset,
+  SocialPresetConfig,
+} from "@/lib/visual/output-profiles";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -20,82 +36,6 @@ export type BackgroundMode = "include" | "transparent" | "custom";
 
 /** Whether colours are exported as-is or converted to greyscale. */
 export type ColorMode = "color" | "mono";
-
-/**
- * Named social-media export format. Each maps to a canonical aspect ratio,
- * safe-area padding, background colour, and minimum export scale.
- */
-export type SocialPreset = "square" | "portrait" | "landscape" | "story";
-
-/** Full configuration for a social export preset. */
-export interface SocialPresetConfig {
-  /** Preset identifier. */
-  id: SocialPreset;
-  /** Human-readable label shown in the UI. */
-  label: string;
-  /** Canonical pixel dimensions (reference; actual output depends on scale). */
-  canonicalWidth: number;
-  canonicalHeight: number;
-  /** Aspect ratio applied when letterboxing the SVG canvas. */
-  aspectRatio: Exclude<AspectRatioPreset, "auto">;
-  /**
-   * Safe-area padding in SVG canvas units. The content is inset from the
-   * canvas edge by this many units on every side.
-   */
-  padding: number;
-  /** Default background fill color as a CSS colour string. */
-  background: string;
-  /** Minimum export scale recommended for crisp output at the canonical size. */
-  minScale: number;
-}
-
-/**
- * All four social export presets covering the most common social-media formats.
- * Padding values assume a typical SVG canvas width of ~800 units; they produce
- * ≈ 5–8 % breathing room on each side.
- */
-export const SOCIAL_PRESET_CONFIGS: Record<SocialPreset, SocialPresetConfig> = {
-  square: {
-    id: "square",
-    label: "Square 1:1",
-    canonicalWidth: 1080,
-    canonicalHeight: 1080,
-    aspectRatio: "1:1",
-    padding: 48,
-    background: "#ffffff",
-    minScale: 2,
-  },
-  portrait: {
-    id: "portrait",
-    label: "Portrait 4:5",
-    canonicalWidth: 1080,
-    canonicalHeight: 1350,
-    aspectRatio: "4:5",
-    padding: 48,
-    background: "#ffffff",
-    minScale: 2,
-  },
-  landscape: {
-    id: "landscape",
-    label: "Landscape 16:9",
-    canonicalWidth: 1200,
-    canonicalHeight: 675,
-    aspectRatio: "16:9",
-    padding: 36,
-    background: "#ffffff",
-    minScale: 2,
-  },
-  story: {
-    id: "story",
-    label: "Story/Reel 9:16",
-    canonicalWidth: 1080,
-    canonicalHeight: 1920,
-    aspectRatio: "9:16",
-    padding: 64,
-    background: "#000000",
-    minScale: 2,
-  },
-};
 
 /** Controls applied when producing the exported file. */
 export interface ExportOptions {
@@ -131,8 +71,8 @@ export interface ExportOptions {
   socialPreset?: SocialPreset;
   /**
    * When `true`, a "TextIQ" watermark text is stamped in the bottom-right
-   * corner of the exported image. Set by the route / export handler based on the
-   * user's plan (`!removeWatermark` entitlement). Defaults to `false`.
+   * corner of the exported image. Use export-policy.ts to derive the default
+   * value from billing entitlements. Defaults to `false`.
    */
   watermark?: boolean;
 }

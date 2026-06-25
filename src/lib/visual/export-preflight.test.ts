@@ -24,6 +24,8 @@ import type {
   SlideElement,
   TextElement,
 } from "@/lib/presentation/deck";
+import { PLAN_ENTITLEMENTS } from "@/lib/billing/catalog";
+import { resolveExportPolicy } from "@/lib/visual/export-policy";
 import {
   DEFAULT_MAX_SLIDES,
   fatalDiagnostics,
@@ -31,6 +33,7 @@ import {
   warningDiagnostics,
   type PreflightCode,
 } from "@/lib/visual/export-preflight";
+import { getOutputProfile } from "@/lib/visual/output-profiles";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -125,6 +128,46 @@ function codesOf(
 ): PreflightCode[] {
   return result.diagnostics.map((d) => d.code);
 }
+
+// ---------------------------------------------------------------------------
+// Tests: output profile and export policy context
+// ---------------------------------------------------------------------------
+
+describe("output profile and export policy context", () => {
+  test("resolves output profile metadata from the shared catalog", () => {
+    const deck = makeDeck([makeSlide([])]);
+    const result = runExportPreflight(deck, {
+      target: "image",
+      outputProfile: "story",
+    });
+    const profile = getOutputProfile("story");
+    assert.deepEqual(result.outputProfile, {
+      id: profile.id,
+      label: profile.label,
+      canonicalWidth: profile.canonicalWidth,
+      canonicalHeight: profile.canonicalHeight,
+      aspectRatio: profile.aspectRatio,
+      padding: profile.padding,
+      background: profile.background,
+      minScale: profile.minScale,
+    });
+  });
+
+  test("carries centralized entitlement policy for watermark expectations", () => {
+    const deck = makeDeck([makeSlide([])]);
+    const policy = resolveExportPolicy(PLAN_ENTITLEMENTS.free);
+    const result = runExportPreflight(deck, {
+      target: "image",
+      exportPolicy: policy,
+    });
+    assert.deepEqual(result.exportPolicy, {
+      canSvg: false,
+      canPptx: false,
+      canRemoveWatermark: false,
+      defaultWatermark: true,
+    });
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Tests: missing-asset (fatal)

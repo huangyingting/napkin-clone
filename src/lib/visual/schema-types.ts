@@ -65,7 +65,10 @@ export const TEXT_ALIGNS = ["left", "center", "right"] as const;
 
 export type TextAlign = (typeof TEXT_ALIGNS)[number];
 
-/** Aspect-ratio preset for per-visual export letterboxing. `"auto"` keeps natural dimensions. */
+/**
+ * Persisted visual export preference for per-visual export letterboxing.
+ * `"auto"` keeps natural dimensions.
+ */
 export const ASPECT_RATIO_PRESETS = [
   "16:9",
   "1:1",
@@ -210,7 +213,10 @@ export interface Visual {
   nodes: VisualNode[];
   edges: VisualEdge[];
   style: VisualStyle;
-  /** Aspect-ratio preset. Controls export canvas letterboxing. Defaults to `"auto"`. */
+  /**
+   * Persisted visual export preference. Controls export canvas letterboxing and
+   * defaults to `"auto"`.
+   */
   aspectRatio?: AspectRatioPreset;
   /** Canvas background style. Defaults to `"blank"`. */
   canvasStyle?: CanvasStyle;

@@ -11,6 +11,7 @@ import {
   SOCIAL_PRESET_CONFIGS,
   type ExportOptions,
 } from "@/lib/visual/export-options";
+import { OUTPUT_PROFILE_CATALOG } from "@/lib/visual/output-profiles";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -27,6 +28,22 @@ function makeOptions(overrides: Partial<ExportOptions> = {}): ExportOptions {
 // ---------------------------------------------------------------------------
 // computeExportDimensions
 // ---------------------------------------------------------------------------
+
+test("DEFAULT_EXPORT_OPTIONS remains stable for existing callers", () => {
+  assert.deepEqual(DEFAULT_EXPORT_OPTIONS, {
+    background: "include",
+    colorMode: "color",
+    scale: 2,
+  });
+});
+
+test("output profile catalog owns social preset ordering and metadata", () => {
+  assert.deepEqual(
+    OUTPUT_PROFILE_CATALOG.map((profile) => profile.id),
+    ["square", "portrait", "landscape", "story"],
+  );
+  assert.equal(OUTPUT_PROFILE_CATALOG[0], SOCIAL_PRESET_CONFIGS.square);
+});
 
 test("computeExportDimensions: 1x returns natural dimensions", () => {
   const dims = computeExportDimensions({ width: 800, height: 600 }, 1);
