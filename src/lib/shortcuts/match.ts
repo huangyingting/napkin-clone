@@ -6,14 +6,9 @@
  * `node --test` (no DOM required) and keeps the matching rules in one place.
  */
 
-/** The subset of a `KeyboardEvent` the matchers need. */
-export type KeyEventLike = {
-  key: string;
-  ctrlKey: boolean;
-  metaKey: boolean;
-  altKey: boolean;
-  shiftKey: boolean;
-};
+import { matchesShortcut, type KeyEventLike } from "./catalog";
+
+export type { KeyEventLike };
 
 /**
  * Whether an element (by tag name / contentEditable) is a text-entry target
@@ -35,26 +30,15 @@ export function isEditableTagName(
 
 /** `?` (Shift+/) with no command modifier — opens the shortcuts help dialog. */
 export function isHelpShortcut(event: KeyEventLike): boolean {
-  return event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey;
+  return matchesShortcut("global.help", event);
 }
 
 /** A bare `n` — creates a new document from the dashboard. */
 export function isNewDocumentShortcut(event: KeyEventLike): boolean {
-  return (
-    (event.key === "n" || event.key === "N") &&
-    !event.ctrlKey &&
-    !event.metaKey &&
-    !event.altKey &&
-    !event.shiftKey
-  );
+  return matchesShortcut("dashboard.new-document", event);
 }
 
 /** `Ctrl+E` / `⌘+E` — toggles the editor's Write/Preview view. */
 export function isTogglePreviewShortcut(event: KeyEventLike): boolean {
-  return (
-    (event.key === "e" || event.key === "E") &&
-    (event.ctrlKey || event.metaKey) &&
-    !event.altKey &&
-    !event.shiftKey
-  );
+  return matchesShortcut("editor.toggle-preview", event);
 }

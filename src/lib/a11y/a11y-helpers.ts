@@ -45,6 +45,28 @@ export interface A11yAssertionResult {
   reason?: string;
 }
 
+export type A11ySurfaceKind =
+  | "dialog"
+  | "focus-trap"
+  | "icon-only-control"
+  | "read-only-public"
+  | "slide-canvas-keyboard"
+  | "live-announcement";
+
+export interface A11ySurfaceDescriptor {
+  /** Stable product surface id, e.g. `slide-editor.fullscreen-dialog`. */
+  id: string;
+  kind: A11ySurfaceKind;
+  /** Component or route that owns the surface. */
+  owner: string;
+  /** Short human-readable policy summary. */
+  policy: string;
+  /** Pure smoke checks that represent this surface's accessibility contract. */
+  checks: A11yAssertionResult[];
+  /** Unit/e2e coverage references that keep major surfaces from being ad hoc. */
+  coverage: readonly string[];
+}
+
 // ---------------------------------------------------------------------------
 // Accessible name derivation
 // ---------------------------------------------------------------------------
@@ -210,6 +232,172 @@ function collectDescendants(el: A11yElement): A11yElement[] {
     result.push(...collectDescendants(child));
   }
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Surface descriptor builders
+// ---------------------------------------------------------------------------
+
+export function dialogSurfaceDescriptor(args: {
+  id: string;
+  owner: string;
+  element: A11yElement;
+  focusTrap: boolean;
+  coverage: readonly string[];
+}): A11ySurfaceDescriptor {
+  return {
+    id: args.id,
+    kind: args.focusTrap ? "focus-trap" : "dialog",
+    owner: args.owner,
+    policy:
+      "Modal and fullscreen dialogs expose dialog semantics, an accessible name, and trapped/restored focus.",
+    checks: [
+      ...assertModalSemantics(args.element, args.id),
+      {
+        check: `${args.id} has focus-trap coverage`,
+        passed: args.focusTrap,
+        reason: args.focusTrap
+          ? undefined
+          : `${args.id} has no focus trap policy`,
+      },
+    ],
+    coverage: args.coverage,
+  };
+}
+
+export function iconOnlyButtonDescriptor(args: {
+  id: string;
+  owner: string;
+  element: A11yElement;
+  coverage: readonly string[];
+}): A11ySurfaceDescriptor {
+  return {
+    id: args.id,
+    kind: "icon-only-control",
+    owner: args.owner,
+    policy: "Icon-only controls expose an explicit accessible label.",
+    checks: [assertIconControlLabelled(args.element, args.id)],
+    coverage: args.coverage,
+  };
+}
+
+export function readOnlyPublicSurfaceDescriptor(args: {
+  id: string;
+  owner: string;
+  element: A11yElement;
+  coverage: readonly string[];
+}): A11ySurfaceDescriptor {
+  return {
+    id: args.id,
+    kind: "read-only-public",
+    owner: args.owner,
+    policy:
+      "Read-only and public surfaces remain navigable without hidden focus traps.",
+    checks: [assertReadOnlyNavigable(args.element, args.id)],
+    coverage: args.coverage,
+  };
+}
+
+export function slideCanvasKeyboardDescriptor(args: {
+  id: string;
+  owner: string;
+  hasRovingTabIndex: boolean;
+  hasKeyboardNavigation: boolean;
+  hasLiveAnnouncements: boolean;
+  coverage: readonly string[];
+}): A11ySurfaceDescriptor {
+  return {
+    id: args.id,
+    kind: "slide-canvas-keyboard",
+    owner: args.owner,
+    policy:
+      "Slide canvas keyboard navigation uses roving tabindex, deterministic traversal, and live announcements.",
+    checks: [
+      booleanCheck(
+        args.id,
+        "has roving tabindex policy",
+        args.hasRovingTabIndex,
+      ),
+      booleanCheck(
+        args.id,
+        "has keyboard navigation parity coverage",
+        args.hasKeyboardNavigation,
+      ),
+      booleanCheck(
+        args.id,
+        "has live announcements",
+        args.hasLiveAnnouncements,
+      ),
+    ],
+    coverage: args.coverage,
+  };
+}
+
+export function liveAnnouncementDescriptor(args: {
+  id: string;
+  owner: string;
+  politeness: "polite" | "assertive";
+  messages: readonly string[];
+  coverage: readonly string[];
+}): A11ySurfaceDescriptor {
+  return {
+    id: args.id,
+    kind: "live-announcement",
+    owner: args.owner,
+    policy: `Live region announces ${args.politeness} status updates with non-empty messages.`,
+    checks: [
+      {
+        check: `${args.id} uses a valid aria-live politeness`,
+        passed: args.politeness === "polite" || args.politeness === "assertive",
+      },
+      {
+        check: `${args.id} has non-empty announcement examples`,
+        passed:
+          args.messages.length > 0 && args.messages.every((msg) => msg.trim()),
+        reason:
+          args.messages.length === 0
+            ? `${args.id} has no announcement examples`
+            : undefined,
+      },
+    ],
+    coverage: args.coverage,
+  };
+}
+
+export function assertSurfaceDescriptor(
+  descriptor: A11ySurfaceDescriptor,
+): A11yAssertionResult[] {
+  return [
+    {
+      check: `${descriptor.id} has an accessibility policy`,
+      passed: descriptor.policy.trim().length > 0,
+      reason:
+        descriptor.policy.trim().length === 0
+          ? `${descriptor.id} is missing an accessibility policy`
+          : undefined,
+    },
+    {
+      check: `${descriptor.id} has coverage references`,
+      passed: descriptor.coverage.length > 0,
+      reason:
+        descriptor.coverage.length === 0
+          ? `${descriptor.id} has no unit or Playwright coverage reference`
+          : undefined,
+    },
+    ...descriptor.checks,
+  ];
+}
+
+function booleanCheck(
+  id: string,
+  label: string,
+  passed: boolean,
+): A11yAssertionResult {
+  return {
+    check: `${id} ${label}`,
+    passed,
+    reason: passed ? undefined : `${id} ${label} is not documented`,
+  };
 }
 
 // ---------------------------------------------------------------------------

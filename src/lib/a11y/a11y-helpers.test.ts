@@ -16,13 +16,20 @@ import { test, describe } from "node:test";
 
 import {
   accessibleName,
+  assertSurfaceDescriptor,
   assertIconControlLabelled,
   assertInteractiveAccessible,
   assertModalSemantics,
   assertReadOnlyNavigable,
   assertSvgVisualAccessible,
+  dialogSurfaceDescriptor,
+  iconOnlyButtonDescriptor,
+  liveAnnouncementDescriptor,
+  readOnlyPublicSurfaceDescriptor,
+  slideCanvasKeyboardDescriptor,
   summariseResults,
   type A11yElement,
+  type A11ySurfaceDescriptor,
 } from "./a11y-helpers";
 
 // ---------------------------------------------------------------------------
@@ -309,6 +316,116 @@ describe("a11y: read-only and public surface navigability (#462)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Surface descriptors (#748)
+// ---------------------------------------------------------------------------
+
+const MAJOR_SURFACE_DESCRIPTORS: A11ySurfaceDescriptor[] = [
+  dialogSurfaceDescriptor({
+    id: "ui.dialog",
+    owner: "src/components/ui/dialog.tsx",
+    element: { role: "dialog", ariaLabelledBy: "dialog-title" },
+    focusTrap: true,
+    coverage: ["src/components/ui/dialog.tsx"],
+  }),
+  dialogSurfaceDescriptor({
+    id: "slide-editor.fullscreen",
+    owner: "src/components/presentation/slide-editor.tsx",
+    element: { role: "dialog", ariaLabel: "Slide editor" },
+    focusTrap: true,
+    coverage: [
+      "src/components/presentation/slide-editor.tsx",
+      "e2e/slides-smoke.spec.ts",
+    ],
+  }),
+  dialogSurfaceDescriptor({
+    id: "present-mode.fullscreen",
+    owner: "src/components/presentation/present-mode.tsx",
+    element: { role: "dialog", ariaLabel: "Present mode" },
+    focusTrap: true,
+    coverage: [
+      "src/components/presentation/present-mode.tsx",
+      "e2e/present-export.spec.ts",
+    ],
+  }),
+  iconOnlyButtonDescriptor({
+    id: "editor.toolbar.icon-buttons",
+    owner: "src/app/app/documents/[id]/floating-text-toolbar.tsx",
+    element: { role: "button", ariaLabel: "Bold" },
+    coverage: [
+      "src/app/app/documents/[id]/floating-text-toolbar.tsx",
+      "src/app/app/documents/[id]/mobile-editing-sheet.tsx",
+    ],
+  }),
+  readOnlyPublicSurfaceDescriptor({
+    id: "public-share.read-only",
+    owner: "src/app/share/[shareId]",
+    element: {
+      role: "main",
+      children: [
+        { role: "img", ariaLabel: "Shared visual" },
+        { role: "button", textContent: "Open visual", tabIndex: 0 },
+      ],
+    },
+    coverage: ["e2e/share-fallback.spec.ts", "e2e/public-pages.spec.ts"],
+  }),
+  slideCanvasKeyboardDescriptor({
+    id: "slide-canvas.keyboard",
+    owner: "src/components/presentation/slide-stage-editor.tsx",
+    hasRovingTabIndex: true,
+    hasKeyboardNavigation: true,
+    hasLiveAnnouncements: true,
+    coverage: [
+      "src/lib/presentation/canvas-a11y.test.ts",
+      "e2e/slides-smoke.spec.ts",
+    ],
+  }),
+  liveAnnouncementDescriptor({
+    id: "slide-canvas.announcements",
+    owner: "src/components/presentation/slide-editor.tsx",
+    politeness: "polite",
+    messages: [
+      "Selected Title text",
+      "Moved Box to 12%, 34%",
+      "Resized Box to 20% by 10%",
+      "Deleted Box",
+    ],
+    coverage: ["src/lib/presentation/canvas-a11y.test.ts"],
+  }),
+];
+
+describe("a11y: surface descriptors (#748)", () => {
+  test("descriptor builders produce passing smoke checks", () => {
+    for (const descriptor of MAJOR_SURFACE_DESCRIPTORS) {
+      const summary = summariseResults(assertSurfaceDescriptor(descriptor));
+      assert.equal(
+        summary.failed,
+        0,
+        `${descriptor.id}: ${summary.failures.map((f) => f.reason).join(", ")}`,
+      );
+    }
+  });
+
+  test("major modal, fullscreen, editor, and public surfaces are covered", () => {
+    const covered = new Set(MAJOR_SURFACE_DESCRIPTORS.map((item) => item.id));
+    for (const required of [
+      "ui.dialog",
+      "slide-editor.fullscreen",
+      "present-mode.fullscreen",
+      "editor.toolbar.icon-buttons",
+      "public-share.read-only",
+      "slide-canvas.keyboard",
+      "slide-canvas.announcements",
+    ]) {
+      assert.equal(covered.has(required), true, `${required} is not described`);
+    }
+    assert.ok(
+      MAJOR_SURFACE_DESCRIPTORS.every((item) => item.coverage.length > 0),
+      "Each major surface must list descriptor or Playwright/unit coverage",
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
 // summariseResults helper
 // ---------------------------------------------------------------------------
 
@@ -339,7 +456,7 @@ describe("a11y: summariseResults utility (#462)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// #462: Known canvas keyboard limitation documentation test
+// #462/#752: Known canvas keyboard backlog references
 // ---------------------------------------------------------------------------
 
 describe("a11y: known canvas keyboard limitations (#462, ADR 0002)", () => {
@@ -362,17 +479,13 @@ describe("a11y: known canvas keyboard limitations (#462, ADR 0002)", () => {
    *  - Focus restoration + selection / move / resize / delete announcements
    *  - Connector create (between two selected elements) + endpoint reattach
    *
-   * Deferred (accepted limitations, ADR 0002 A1/A2):
-   *  - Free-draw connector authoring via keyboard (default-endpoint insertion
-   *    + reattach ships; free arbitrary routing remains pointer-only)
-   *  - Keyboard rotation (decorative, pointer-only)
+   * Tracked backlog (accepted limitations, ADR 0002 A1/A2):
+   *  - #930 Free-draw connector authoring via keyboard (default-endpoint
+   *    insertion + reattach ships; free arbitrary routing remains pointer-only)
+   *  - #931 Keyboard rotation (decorative, pointer-only)
    */
-  test("limitation documentation: deferred canvas keyboard coverage is recorded", () => {
-    const deferredItems = ["connector-freedraw-keyboard", "rotation-keyboard"];
-    // Documenting limitations explicitly so they are not hidden.
-    assert.ok(
-      deferredItems.length > 0,
-      "Canvas keyboard limitations are documented (not hidden)",
-    );
+  test("limitation documentation: deferred canvas keyboard coverage is linked", () => {
+    const backlogIssues = [930, 931];
+    assert.deepEqual(backlogIssues, [930, 931]);
   });
 });

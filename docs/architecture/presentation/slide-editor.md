@@ -107,7 +107,8 @@ decision logic lives in `src/lib/presentation/canvas-a11y.ts` (unit-tested by
   focused elements show a distinct `focus-visible` ring.
 - **Connectors (interim):** with two connectable elements selected, `C` inserts a
   default-endpoint connector; with a connector selected, `C` / `Shift+C` cycle its
-  end / start endpoint anchor. Free-draw routing remains pointer-only.
+  end / start endpoint anchor. Free-draw routing remains pointer-only and is
+  tracked in #930.
 - **Help:** `?` (or the toolbar keyboard button) opens the shortcut help dialog
   (`canvasShortcutHelp`).
 

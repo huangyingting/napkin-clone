@@ -80,9 +80,16 @@ import {
 } from "lucide-react";
 
 import { INSERT_VISUAL_COMMAND } from "@/lib/lexical/commands";
+import {
+  formatShortcut,
+  shortcutCanonical,
+  type ShortcutId,
+} from "@/lib/shortcuts/catalog";
 import { VISUAL_KINDS, type VisualKind } from "@/lib/visual/schema";
 
 import type { EditorContextSnapshot } from "./editor-context";
+
+export { formatShortcut };
 
 /** The contextual surface a tool belongs to. */
 export type EditorToolGroup =
@@ -116,7 +123,7 @@ export type EditorTool = {
   label: string;
   /** lucide-react icon for icon-first rendering. */
   icon?: LucideIcon;
-  /** Keyboard shortcut in canonical `Mod+Key` form (see {@link formatShortcut}). */
+  /** Keyboard shortcut in canonical `Mod+Key` form from the shortcut registry. */
   shortcut?: string;
   /** Optional visual sub-group for divider placement within a surface. */
   section?: EditorToolSection;
@@ -200,25 +207,15 @@ export function isToolActive(
   return tool.isActive ? tool.isActive(ctx) : false;
 }
 
-/**
- * Render a canonical `Mod+B` shortcut for the platform: `⌘B` on macOS,
- * `Ctrl+B` elsewhere. `Shift` collapses to `⇧` on macOS. Returns `undefined`
- * for tools without a shortcut.
- */
-export function formatShortcut(
-  shortcut: string | undefined,
-  isMac: boolean,
-): string | undefined {
-  if (!shortcut) {
-    return undefined;
-  }
-  if (isMac) {
-    return shortcut.replace(/Mod\+?/g, "⌘").replace(/Shift\+?/g, "⇧");
-  }
-  return shortcut.replace(/Mod/g, "Ctrl");
-}
-
 // --- run helpers (Lexical commands / editor.update only) --------------------
+
+function editorShortcut(id: ShortcutId): string {
+  const shortcut = shortcutCanonical(id);
+  if (!shortcut) {
+    throw new Error(`Shortcut ${id} has no canonical label`);
+  }
+  return shortcut;
+}
 
 function toggleFormat(editor: LexicalEditor, format: TextFormatType): void {
   editor.dispatchCommand(FORMAT_TEXT_COMMAND, format);
@@ -332,7 +329,7 @@ const TEXT_FORMAT_TOOLS: readonly EditorTool[] = [
     section: "inline",
     label: "Bold",
     icon: Bold,
-    shortcut: "Mod+B",
+    shortcut: editorShortcut("editor.format.bold"),
     when: onRangeSelection,
     isActive: (ctx) => ctx.activeFormats.has("bold"),
     run: (editor) => toggleFormat(editor, "bold"),
@@ -343,7 +340,7 @@ const TEXT_FORMAT_TOOLS: readonly EditorTool[] = [
     section: "inline",
     label: "Italic",
     icon: Italic,
-    shortcut: "Mod+I",
+    shortcut: editorShortcut("editor.format.italic"),
     when: onRangeSelection,
     isActive: (ctx) => ctx.activeFormats.has("italic"),
     run: (editor) => toggleFormat(editor, "italic"),
@@ -354,7 +351,7 @@ const TEXT_FORMAT_TOOLS: readonly EditorTool[] = [
     section: "inline",
     label: "Underline",
     icon: Underline,
-    shortcut: "Mod+U",
+    shortcut: editorShortcut("editor.format.underline"),
     when: onRangeSelection,
     isActive: (ctx) => ctx.activeFormats.has("underline"),
     run: (editor) => toggleFormat(editor, "underline"),
@@ -375,7 +372,7 @@ const TEXT_FORMAT_TOOLS: readonly EditorTool[] = [
     section: "inline",
     label: "Inline code",
     icon: Code,
-    shortcut: "Mod+E",
+    shortcut: editorShortcut("editor.format.inline-code"),
     when: onRangeSelection,
     isActive: (ctx) => ctx.activeFormats.has("code"),
     run: (editor) => toggleFormat(editor, "code"),
@@ -456,7 +453,7 @@ const TEXT_FORMAT_TOOLS: readonly EditorTool[] = [
     section: "align",
     label: "Align left",
     icon: AlignLeft,
-    shortcut: "Mod+Shift+L",
+    shortcut: editorShortcut("editor.align.left"),
     when: onRangeSelection,
     isActive: (ctx) => isAlignmentActive(ctx.elementFormat, "left"),
     run: (editor) => setAlignment(editor, "left"),
@@ -467,7 +464,7 @@ const TEXT_FORMAT_TOOLS: readonly EditorTool[] = [
     section: "align",
     label: "Align center",
     icon: AlignCenter,
-    shortcut: "Mod+Shift+E",
+    shortcut: editorShortcut("editor.align.center"),
     when: onRangeSelection,
     isActive: (ctx) => isAlignmentActive(ctx.elementFormat, "center"),
     run: (editor) => setAlignment(editor, "center"),
@@ -478,7 +475,7 @@ const TEXT_FORMAT_TOOLS: readonly EditorTool[] = [
     section: "align",
     label: "Align right",
     icon: AlignRight,
-    shortcut: "Mod+Shift+R",
+    shortcut: editorShortcut("editor.align.right"),
     when: onRangeSelection,
     isActive: (ctx) => isAlignmentActive(ctx.elementFormat, "right"),
     run: (editor) => setAlignment(editor, "right"),
@@ -489,7 +486,7 @@ const TEXT_FORMAT_TOOLS: readonly EditorTool[] = [
     section: "align",
     label: "Justify",
     icon: AlignJustify,
-    shortcut: "Mod+Shift+J",
+    shortcut: editorShortcut("editor.align.justify"),
     when: onRangeSelection,
     isActive: (ctx) => isAlignmentActive(ctx.elementFormat, "justify"),
     run: (editor) => setAlignment(editor, "justify"),
