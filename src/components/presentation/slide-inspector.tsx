@@ -285,7 +285,7 @@ function TabButton({
   );
 }
 
-function SpeakerNotesControl({
+export function SpeakerNotesControl({
   notes,
   onChange,
 }: {
@@ -2675,7 +2675,6 @@ export function SlideInspector({
   onRemoveSlide,
   onApplyLayout,
   onResetLayout,
-  onUpdateNotes,
   onUpdateElement,
   onAlign,
   onDistribute,
@@ -2813,7 +2812,6 @@ export function SlideInspector({
     effects: "Effects",
     media: "Media",
     slide: "Slide",
-    notes: "Notes",
     source: "Source",
   };
 
@@ -3207,17 +3205,6 @@ export function SlideInspector({
               Overrides apply to this slide only. Image &gt; gradient &gt; solid
               color. “Theme” clears the color override.
             </p>
-          </div>
-        ) : null}
-
-        {panel === "notes" ? (
-          <div
-            role="tabpanel"
-            id="inspector-panel-notes"
-            aria-labelledby="inspector-tab-notes"
-            className="flex flex-col gap-4"
-          >
-            <SpeakerNotesControl notes={slide.notes} onChange={onUpdateNotes} />
           </div>
         ) : null}
 

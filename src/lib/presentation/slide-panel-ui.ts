@@ -13,7 +13,6 @@ export type RightPanelTab =
   | "effects"
   | "media"
   | "slide"
-  | "notes"
   | "source";
 
 /**

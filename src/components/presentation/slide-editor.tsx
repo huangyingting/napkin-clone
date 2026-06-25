@@ -70,6 +70,7 @@ import {
 } from "@/components/presentation/slide-canvas";
 import {
   SlideInspector,
+  SpeakerNotesControl,
   type AddElementKind,
 } from "@/components/presentation/slide-inspector";
 import {
@@ -750,11 +751,27 @@ export function SlideEditor({
     [openInspectorSurface],
   );
   const openSelectionPanel = useCallback(() => {
-    setRightPanelTab((tab) => (tab === "notes" ? "position" : tab));
     openInspectorSurface();
   }, [openInspectorSurface]);
   const [snapToGrid, setSnapToGrid] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [notesDrawerOpen, setNotesDrawerOpen] = useState(false);
+  const [notesHeight, setNotesHeight] = useState(() => {
+    if (typeof window === "undefined") return 220;
+    const stored = window.localStorage.getItem("slide-notes-height");
+    const parsed = stored ? Number(stored) : NaN;
+    return Number.isFinite(parsed) ? Math.min(480, Math.max(120, parsed)) : 220;
+  });
+  const handleNotesHeightChange = useCallback((next: number) => {
+    const clamped = Math.min(480, Math.max(120, Math.round(next)));
+    setNotesHeight(clamped);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("slide-notes-height", String(clamped));
+    }
+  }, []);
+  const toggleNotesDrawer = useCallback(() => {
+    setNotesDrawerOpen((open) => !open);
+  }, []);
   const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
   const handleZoomChange = useCallback((nextZoom: number) => {
     setZoom(clampZoom(nextZoom));
@@ -2113,11 +2130,6 @@ export function SlideEditor({
     },
     [deck, onDeckChange],
   );
-
-  const openNotesPanel = useCallback(() => {
-    setRightPanelTab("notes");
-    openInspectorSurface();
-  }, [openInspectorSurface]);
 
   // ── Pointer-based thumbnail reorder (issue #209) ───────────────────────────
   // Uses the same Pointer API as the stage editor so reordering works with
@@ -3931,17 +3943,27 @@ export function SlideEditor({
           ) : null}
         </aside>
 
+        {selectedSlide && notesDrawerOpen ? (
+          <SlideNotesDrawer
+            notes={selectedSlide.notes}
+            height={notesHeight}
+            onHeightChange={handleNotesHeightChange}
+            onChange={(value, coalesceKey) =>
+              handleNotesChange(safeSelected, value, coalesceKey)
+            }
+            onClose={toggleNotesDrawer}
+          />
+        ) : null}
+
         {selectedSlide ? (
           <SlideBottomDock
             railOpen={railOpen}
-            notesOpen={
-              rightPanelTab === "notes" && (inspectorOpen || inspectorSheetOpen)
-            }
+            notesOpen={notesDrawerOpen}
             zoom={zoom}
             zoomMenuOpen={zoomMenuOpen}
             slideLabel={`Slide ${safeSelected + 1} of ${deck.slides.length}`}
             onToggleRail={handleToggleRail}
-            onOpenNotes={openNotesPanel}
+            onOpenNotes={toggleNotesDrawer}
             onZoomChange={handleZoomChange}
             onZoomMenuOpenChange={setZoomMenuOpen}
           />
@@ -5028,6 +5050,81 @@ function SlideSelectionToolbar({
         <Grid3x3 size={14} aria-hidden="true" />,
         onOpenPosition,
       )}
+    </div>
+  );
+}
+
+/**
+ * Bottom Notes drawer (#634, #648). Speaker notes live here as a workspace
+ * band above the dock — not as a right-panel tab — so the right panel stays
+ * focused on element/slide editing. The drawer height is user-resizable and
+ * remembered across sessions; edits route through the same undoable + autosaved
+ * notes command path as before.
+ */
+function SlideNotesDrawer({
+  notes,
+  height,
+  onHeightChange,
+  onChange,
+  onClose,
+}: {
+  notes: string;
+  height: number;
+  onHeightChange: (next: number) => void;
+  onChange: (value: string, coalesceKey?: string) => void;
+  onClose: () => void;
+}) {
+  const handleResizePointerDown = (
+    event: React.PointerEvent<HTMLDivElement>,
+  ) => {
+    event.preventDefault();
+    const startY = event.clientY;
+    const startHeight = height;
+    const onMove = (moveEvent: PointerEvent) => {
+      // Dragging up (smaller clientY) grows the drawer.
+      onHeightChange(startHeight + (startY - moveEvent.clientY));
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+
+  return (
+    <div
+      className="flex shrink-0 flex-col border-t border-ds-border-subtle bg-ds-surface-overlay"
+      style={{ height }}
+    >
+      <div
+        role="separator"
+        aria-orientation="horizontal"
+        aria-label="Resize notes drawer"
+        onPointerDown={handleResizePointerDown}
+        className="flex h-2 w-full cursor-row-resize items-center justify-center hover:bg-ds-state-hover"
+      >
+        <span
+          aria-hidden="true"
+          className="h-0.5 w-8 rounded-full bg-ds-border-subtle"
+        />
+      </div>
+      <div className="flex items-center justify-between px-3 pb-1">
+        <span className="text-xs font-semibold uppercase tracking-wide text-ds-text-muted">
+          Notes
+        </span>
+        <button
+          type="button"
+          aria-label="Close notes"
+          onClick={onClose}
+          className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+        >
+          <X size={14} aria-hidden="true" />
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto px-3 pb-3">
+        <SpeakerNotesControl notes={notes} onChange={onChange} />
+      </div>
     </div>
   );
 }
