@@ -27,32 +27,34 @@ import {
   flushStats,
   recentFlushFailures,
 } from "./scripts/collab-core.mjs";
-import { createCollabAuthorizer } from "./scripts/collab-auth.mjs";
-import { createEvictionFlusher } from "./scripts/collab-flush.mjs";
-import { resolveDeploymentConfig } from "./scripts/collab-deployment-config.mjs";
+import {
+  buildCollabHealthSummary,
+  COLLAB_INLINE_PATH,
+  createRuntimeAuthorizer,
+  createRuntimeEvictionFlusher,
+  emitDeploymentDiagnostics,
+  resolveCollabDeployment,
+  roomFromInlineUrl,
+} from "./scripts/collab-runtime.mjs";
 
 const dev = process.env.NODE_ENV !== "production";
 const port = Number(process.env.PORT || 4000);
 const hostname = process.env.HOST || "0.0.0.0";
 const inlineCollab = process.env.COLLAB_INLINE !== "0";
-const COLLAB_PATH = "/collab";
+const COLLAB_PATH = COLLAB_INLINE_PATH;
 
 // Resolve and validate the deployment configuration at startup.
-const deploymentConfig = resolveDeploymentConfig(process.env);
+const deploymentConfig = resolveCollabDeployment(process.env);
 
-if (!deploymentConfig.healthy) {
-  for (const warning of deploymentConfig.warnings) {
-    console.error(`[collab] FATAL CONFIG ERROR: ${warning}`);
-  }
-  console.error(
-    "[collab] Refusing to start in a misconfigured multi-instance environment. " +
-      "Fix the configuration and restart.",
-  );
+if (
+  !emitDeploymentDiagnostics(deploymentConfig, {
+    runtimeMode: "inline",
+    scope: "collab.server.configure",
+    writeInlineWarning: (line) => console.warn(line),
+    writeInlineError: (line) => console.error(line),
+  })
+) {
   process.exit(1);
-}
-
-for (const warning of deploymentConfig.warnings) {
-  console.warn(`[collab] CONFIG WARNING: ${warning}`);
 }
 
 const app = next({ dev, hostname, port, turbopack: dev });
@@ -63,16 +65,13 @@ await app.prepare();
 const server = createServer((req, res) => {
   // Health endpoint for the inline collab socket.
   if (req.url === `${COLLAB_PATH}/health`) {
-    const summary = {
-      ok: deploymentConfig.healthy,
+    const summary = buildCollabHealthSummary({
+      deploymentConfig,
       rooms: roomCount(),
       connections: connCount(),
-      mode: deploymentConfig.mode,
-      warnings: deploymentConfig.warnings,
-      healthy: deploymentConfig.healthy,
       flushFailures: flushStats().flushFailures,
       recentFlushFailures: recentFlushFailures(),
-    };
+    });
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify(summary));
     return;
@@ -85,26 +84,25 @@ if (inlineCollab) {
   // Authenticate + authorize each upgrade against the app's permission rules by
   // forwarding the request cookies to the `/api/collab/authorize` route on this
   // same server (issue #88). Unauthenticated/forbidden upgrades are refused.
-  const authorize = createCollabAuthorizer({
-    authorizeUrl: `http://127.0.0.1:${port}/api/collab/authorize`,
+  const authorize = createRuntimeAuthorizer({
+    runtimeMode: "inline",
+    env: process.env,
+    port,
   });
 
   // Flush dirty rooms to the internal recovery-snapshot endpoint before
   // eviction (#497). Resolves against this same server's app origin. When
   // COLLAB_INTERNAL_SECRET is unset the flusher is a no-op (logs one warning),
   // so dev without the secret still runs.
-  const onBeforeEvict = createEvictionFlusher({
-    flushUrl: `http://127.0.0.1:${port}/api/collab/flush`,
-    internalSecret: process.env.COLLAB_INTERNAL_SECRET,
+  const onBeforeEvict = createRuntimeEvictionFlusher({
+    runtimeMode: "inline",
+    env: process.env,
+    port,
   });
 
   // Room name is the path after `/collab/` (`/collab/<documentId>`).
   const { handleUpgrade: handleCollabUpgrade } = createCollabWss(
-    (url) => {
-      const pathname = (url || "/").split("?")[0];
-      const room = pathname.slice(COLLAB_PATH.length).replace(/^\/+/, "");
-      return room || "default";
-    },
+    (url) => roomFromInlineUrl(url, COLLAB_PATH),
     { authorize, onBeforeEvict },
   );
 

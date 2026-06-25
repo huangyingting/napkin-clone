@@ -22,54 +22,40 @@ import {
   flushStats,
   recentFlushFailures,
 } from "./collab-core.mjs";
-import { createCollabAuthorizer } from "./collab-auth.mjs";
-import { createEvictionFlusher } from "./collab-flush.mjs";
-import { resolveDeploymentConfig } from "./collab-deployment-config.mjs";
 import {
-  logScriptError,
-  logScriptInfo,
-  logScriptWarning,
-} from "./structured-log.mjs";
+  buildCollabHealthSummary,
+  createRuntimeAuthorizer,
+  createRuntimeEvictionFlusher,
+  emitDeploymentDiagnostics,
+  resolveCollabDeployment,
+  roomFromStandaloneUrl,
+} from "./collab-runtime.mjs";
+import { logScriptInfo } from "./structured-log.mjs";
 
 const PORT = Number(process.env.COLLAB_PORT || 1234);
 const HOST = process.env.COLLAB_HOST || "0.0.0.0";
 
 // Resolve and validate the deployment configuration at startup.
-const deploymentConfig = resolveDeploymentConfig(process.env);
+const deploymentConfig = resolveCollabDeployment(process.env);
 
-if (!deploymentConfig.healthy) {
-  for (const warning of deploymentConfig.warnings) {
-    logScriptError("collab.server.configure", new Error(warning), {
-      mode: deploymentConfig.mode,
-    });
-  }
-  logScriptError(
-    "collab.server.configure",
-    new Error("refusing to start in a misconfigured environment"),
-    { mode: deploymentConfig.mode },
-  );
+if (
+  !emitDeploymentDiagnostics(deploymentConfig, {
+    runtimeMode: "standalone",
+    scope: "collab.server.configure",
+  })
+) {
   process.exit(1);
-}
-
-for (const warning of deploymentConfig.warnings) {
-  logScriptWarning("collab.server.configure", "configuration warning", {
-    mode: deploymentConfig.mode,
-    warning,
-  });
 }
 
 const server = http.createServer((req, res) => {
   if (req.url === "/health") {
-    const summary = {
-      ok: deploymentConfig.healthy,
+    const summary = buildCollabHealthSummary({
+      deploymentConfig,
       rooms: roomCount(),
       connections: connCount(),
-      mode: deploymentConfig.mode,
-      warnings: deploymentConfig.warnings,
-      healthy: deploymentConfig.healthy,
       flushFailures: flushStats().flushFailures,
       recentFlushFailures: recentFlushFailures(),
-    };
+    });
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify(summary));
     return;
@@ -82,24 +68,20 @@ const server = http.createServer((req, res) => {
 // authenticated + authorized against the app's `/api/collab/authorize` route by
 // forwarding the request cookies (issue #88). Point at the app with
 // COLLAB_AUTHORIZE_URL (defaults to AUTH_URL or http://127.0.0.1:4000).
-const appBaseUrl = (process.env.AUTH_URL || "http://127.0.0.1:4000").replace(
-  /\/+$/,
-  "",
-);
-const authorize = createCollabAuthorizer({
-  authorizeUrl:
-    process.env.COLLAB_AUTHORIZE_URL || `${appBaseUrl}/api/collab/authorize`,
+const authorize = createRuntimeAuthorizer({
+  runtimeMode: "standalone",
+  env: process.env,
 });
 
 // Flush dirty rooms to the app's internal recovery-snapshot endpoint before
 // eviction (#497). Resolves against the same app origin used for authorize.
 // When COLLAB_INTERNAL_SECRET is unset the flusher is a no-op (logs one
 // warning), so dev without the secret still runs.
-const onBeforeEvict = createEvictionFlusher({
-  flushUrl: `${appBaseUrl}/api/collab/flush`,
-  internalSecret: process.env.COLLAB_INTERNAL_SECRET,
+const onBeforeEvict = createRuntimeEvictionFlusher({
+  runtimeMode: "standalone",
+  env: process.env,
 });
-const { handleUpgrade } = createCollabWss(undefined, {
+const { handleUpgrade } = createCollabWss(roomFromStandaloneUrl, {
   authorize,
   onBeforeEvict,
 });
