@@ -55,10 +55,7 @@ import { runDeckGeneration } from "@/lib/ai/run-deck-generation";
 import { isAiDeckGenEnabled } from "@/lib/ai/config";
 import { logInfo } from "@/lib/log";
 import { inferDeckTheme } from "@/lib/presentation/infer-theme";
-import {
-  collectDocumentBlocks,
-  type DocumentBlock,
-} from "@/lib/visual/document-export";
+import { collectDocumentBlocks, type DocumentBlock } from "@/lib/content";
 import type { Visual } from "@/lib/visual/schema";
 
 // Use the Node.js runtime: the Azure call and node:crypto signing need it.

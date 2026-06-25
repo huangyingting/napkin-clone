@@ -21,7 +21,7 @@ import { buildDeckFromBlocks, type Deck } from "@/lib/presentation/deck";
 import { pickFreshestDeck } from "@/lib/presentation/fresh-deck";
 import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
 import type { Visual } from "@/lib/visual/schema";
-import { collectDocumentBlocks } from "@/lib/visual/document-export";
+import { collectDocumentBlocks } from "@/lib/content";
 
 interface PresentButtonProps {
   documentId: string;

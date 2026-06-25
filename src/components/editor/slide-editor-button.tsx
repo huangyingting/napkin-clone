@@ -59,11 +59,8 @@ import { attemptPatchAutosave } from "@/lib/presentation/patch-autosave";
 import { mergeSwatches } from "@/lib/presentation/text-style";
 import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
 import { findStaleSourceLinks } from "@/lib/presentation/source-link-staleness";
-import { collectDocumentBlocks } from "@/lib/visual/document-export";
-import type {
-  DocumentBlock,
-  DocumentTextBlock,
-} from "@/lib/visual/document-export";
+import { collectDocumentBlocks } from "@/lib/content";
+import type { DocumentBlock, DocumentTextBlock } from "@/lib/content";
 import type { Visual } from "@/lib/visual/schema";
 import { useRightSurface } from "@/app/app/documents/[id]/right-surface-context";
 

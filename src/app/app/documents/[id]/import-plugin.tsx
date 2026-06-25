@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { useInsertImportedMarkdown } from "@/lib/lexical/use-insert-imported-markdown";
-import { resolveImportStep } from "@/lib/lexical/import-persistence";
+import { resolveImportStep } from "@/lib/content";
 import { ImportButton } from "@/components/editor/import-button";
 
 /**

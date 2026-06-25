@@ -16,7 +16,7 @@
  */
 
 import type { DeckTheme } from "@/lib/presentation/deck";
-import type { DocumentBlock } from "@/lib/visual/document-export";
+import type { DocumentBlock } from "@/lib/content";
 import { isThemeActive } from "@/lib/visual/transforms";
 
 /**

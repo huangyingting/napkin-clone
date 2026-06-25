@@ -18,7 +18,7 @@ import { readingTimeMinutes, wordCount } from "@/lib/document-stats";
 import { createEditorPlugin, EditorPluginHost } from "@/lib/lexical/editor-api";
 import { EditorContextProvider } from "@/lib/lexical/editor-context";
 import { createCoreEditorPlugins } from "@/lib/lexical/editor-plugins";
-import { shouldAutosaveUpdate } from "@/lib/lexical/import-persistence";
+import { shouldAutosaveUpdate } from "@/lib/content";
 import { ensureLexicalBlockIdSupport } from "@/lib/lexical/block-id-runtime";
 import { useLexicalAutosave } from "@/lib/lexical/use-autosave";
 import { useCollaborationEditable } from "@/lib/lexical/use-collaboration-gate";

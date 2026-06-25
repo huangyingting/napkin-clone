@@ -1,8 +1,9 @@
 /**
  * Public document export facade.
  *
- * `collectDocumentBlocks` and `blockRichText` remain the stable pure boundary;
- * browser-only PDF/PPTX/infographic rendering lives in document-export-targets.
+ * Browser-only PDF/PPTX/infographic rendering lives in
+ * document-export-targets. The shared content projection contract lives under
+ * `@/lib/content` and is re-exported here only for legacy callers.
  */
 
 export {
@@ -10,14 +11,14 @@ export {
   collectDocumentBlocks,
   computePageBreaks,
   PAGE_SIZE_DIMENSIONS,
-} from "@/lib/visual/document-blocks";
+} from "@/lib/content";
 export type {
   DocumentBlock,
   DocumentTextBlock,
   DocumentVisualBlock,
   PageSize,
   TextBlockKind,
-} from "@/lib/visual/document-blocks";
+} from "@/lib/content";
 export {
   exportDocumentAsInfographic,
   exportDocumentAsPDF,

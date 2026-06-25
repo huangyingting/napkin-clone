@@ -18,10 +18,7 @@ import {
   DEFAULT_INFOGRAPHIC_CONFIG,
   type InfographicConfig,
 } from "@/lib/visual/infographic-layout";
-import type {
-  DocumentBlock,
-  DocumentVisualBlock,
-} from "@/lib/visual/document-blocks";
+import type { DocumentBlock, DocumentVisualBlock } from "@/lib/content";
 
 // ---------------------------------------------------------------------------
 // PDF helpers (browser-only)

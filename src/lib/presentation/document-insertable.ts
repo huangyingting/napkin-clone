@@ -19,10 +19,7 @@
  *    from the slide-editor call-site is tracked in issue #377.
  */
 
-import type {
-  DocumentBlock,
-  DocumentTextBlock,
-} from "@/lib/visual/document-export";
+import type { DocumentBlock, DocumentTextBlock } from "@/lib/content";
 
 import {
   makeElementId,

@@ -24,7 +24,7 @@
  */
 
 import type { Deck, SlideElement, SourceRef } from "@/lib/presentation/deck";
-import type { DocumentBlock } from "@/lib/visual/document-export";
+import type { DocumentBlock } from "@/lib/content";
 import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
 import { resolveVisualRef, resolveSourceRef } from "@/lib/anchor-resolver";
 import type { AnchorResolution } from "@/lib/anchor-resolver";

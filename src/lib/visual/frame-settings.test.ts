@@ -15,10 +15,7 @@ import {
   applyAspectRatioToSvg,
   ASPECT_RATIO_VALUES,
 } from "@/lib/visual/export-options";
-import {
-  computePageBreaks,
-  PAGE_SIZE_DIMENSIONS,
-} from "@/lib/visual/document-export";
+import { computePageBreaks, PAGE_SIZE_DIMENSIONS } from "@/lib/content";
 
 // ---------------------------------------------------------------------------
 // Helpers

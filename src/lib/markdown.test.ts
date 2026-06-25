@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { blockText, parseMarkdown } from "@/lib/markdown";
+import { blockText, parseMarkdown } from "@/lib/content";
 
 test("parseMarkdown returns stable block ids for unchanged content", () => {
   const source = [

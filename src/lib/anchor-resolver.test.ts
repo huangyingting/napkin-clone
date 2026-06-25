@@ -12,10 +12,7 @@ import {
   resolveSourceRef,
   resolveVisualRef,
 } from "./anchor-resolver";
-import type {
-  DocumentBlock,
-  DocumentTextBlock,
-} from "./visual/document-export";
+import type { DocumentBlock, DocumentTextBlock } from "./content";
 import type { Visual } from "./visual/schema";
 
 function textBlock(

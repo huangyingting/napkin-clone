@@ -82,7 +82,7 @@ test("projects every core block type in document order", () => {
   ]);
   assert.equal(
     lexicalStateToPlainText(json),
-    "Title\nIntro paragraph\nfirst\nsecond\nstep one\nstep two\nA wise quote\n\nAfter the divider",
+    "Title\nIntro paragraph\nfirst\nsecond\nstep one\nstep two\nA wise quote\n---\nAfter the divider",
   );
 });
 

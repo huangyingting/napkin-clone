@@ -27,10 +27,7 @@
 import type { GenerateDeckInput } from "@/lib/ai/generate-deck";
 import { AI_GENERATION_INPUT_MAX_CHARS as MAX_INPUT_CHARS } from "@/lib/limits";
 import type { TextRun } from "@/lib/presentation/deck";
-import {
-  collectDocumentBlocks,
-  type DocumentBlock,
-} from "@/lib/visual/document-export";
+import { collectDocumentBlocks, type DocumentBlock } from "@/lib/content";
 import type { Visual } from "@/lib/visual/schema";
 
 /** One entry in the inventory the model may reference (mirrors generateDeck). */

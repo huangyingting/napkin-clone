@@ -17,7 +17,7 @@ import {
   registerBlockIdTransforms,
 } from "./block-id-runtime";
 import { createEditorPlugin, type CoreEditorPlugin } from "./editor-api";
-import { BLOCK_ID_REPAIR_TAG } from "./import-persistence";
+import { BLOCK_ID_REPAIR_TAG } from "@/lib/content";
 import {
   useCollaborationFallbackSeed,
   useEditableGate,

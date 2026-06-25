@@ -15,7 +15,7 @@ import {
   normalizeTitle,
   stampDeckContentHash,
 } from "./deck-hash";
-import type { DocumentBlock } from "@/lib/visual/document-export";
+import type { DocumentBlock } from "@/lib/content";
 
 function textBlock(
   text: string,

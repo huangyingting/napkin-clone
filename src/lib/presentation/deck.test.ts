@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { DocumentBlock } from "@/lib/visual/document-export";
+import type { DocumentBlock } from "@/lib/content";
 import {
   buildDeckFromBlocks,
   buildVisualElement,

@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type {
-  DocumentBlock,
-  DocumentTextBlock,
-} from "@/lib/visual/document-export";
+import type { DocumentBlock, DocumentTextBlock } from "@/lib/content";
 import type { Visual } from "@/lib/visual/schema";
 
 import {

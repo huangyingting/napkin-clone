@@ -174,10 +174,7 @@ import {
 } from "@/lib/presentation/source-link-staleness";
 import { hashDocumentBlock } from "@/lib/presentation/document-block-hash";
 import { type SourceRef } from "@/lib/presentation/deck";
-import type {
-  DocumentBlock,
-  DocumentTextBlock,
-} from "@/lib/visual/document-export";
+import type { DocumentBlock, DocumentTextBlock } from "@/lib/content";
 import {
   createTextResizeMeasurer,
   fitTextElementToContent,

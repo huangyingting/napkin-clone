@@ -25,7 +25,7 @@ import { customAlphabet } from "nanoid";
 import { Prisma } from "@/generated/prisma/client";
 import { app as appEnv } from "@/lib/env";
 import { collectVisualNodes } from "@/lib/lexical/visual-nodes";
-import { lexicalStateToPlainText } from "@/lib/lexical/plain-text";
+import { lexicalStateToPlainText } from "@/lib/content";
 import {
   MAX_DOCUMENT_VERSIONS,
   SNAPSHOT_MIN_INTERVAL_MS,
