@@ -137,9 +137,11 @@ test("buildDocumentSearchWhere wraps search in AND.OR", () => {
   delete process.env.DB_PROVIDER;
 
   const where = buildDocumentSearchWhere("textiq", fakeAccessOr);
-  const andClause = where.AND as { OR: unknown[] };
-  assert.ok(Array.isArray(andClause.OR), "AND.OR should be an array");
-  assert.equal(andClause.OR.length, 2, "AND.OR should have title + content");
+  const andClause = where.AND as { OR: unknown[] }[];
+  assert.ok(Array.isArray(andClause), "AND should be an array");
+  assert.equal(andClause.length, 1);
+  assert.ok(Array.isArray(andClause[0].OR), "AND[0].OR should be an array");
+  assert.equal(andClause[0].OR.length, 2, "AND.OR should have title + content");
 });
 
 test("buildDocumentSearchWhere empty accessOr still builds valid where", () => {

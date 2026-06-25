@@ -14,10 +14,13 @@ import { DocumentGrid, EmptyDocumentList } from "./document-grid";
 import { DocumentListToolbar } from "./document-list-toolbar";
 import { UndoToast } from "./document-list-undo-toast";
 import {
+  applyDocumentListViewState,
+  filterDocumentsByTag,
+  filterDocumentsByView,
+  parseTag,
   parseSort,
   parseView,
   replaceDocumentListQueryState,
-  sortDocuments,
   type SortKey,
   type ViewKey,
 } from "./document-list-url-state";
@@ -52,9 +55,7 @@ export function DocumentList({
   const sort = parseSort(searchParams.get("sort"));
   const view = parseView(searchParams.get("view"));
   const viewFavorites = view === "favorites";
-  const rawTag = searchParams.get("tag");
-  const selectedTag =
-    rawTag && availableTags.some((tag) => tag.slug === rawTag) ? rawTag : null;
+  const selectedTag = parseTag(searchParams.get("tag"), availableTags);
   const selectedTagName =
     availableTags.find((tag) => tag.slug === selectedTag)?.name ?? null;
 
@@ -141,17 +142,13 @@ export function DocumentList({
     ? (searchResults ?? []).filter((document) => !removedIds.has(document.id))
     : combinedDocuments;
 
-  const tagFiltered = selectedTag
-    ? activePool.filter((document) =>
-        document.tags.some((tag) => tag.slug === selectedTag),
-      )
-    : activePool;
-
-  const favFiltered = viewFavorites
-    ? tagFiltered.filter((document) => document.favorite)
-    : tagFiltered;
-
-  const visible = sortDocuments(favFiltered, sort, !viewFavorites);
+  const visible = applyDocumentListViewState(activePool, {
+    sort,
+    view,
+    tagSlug: selectedTag,
+  });
+  const tagFiltered = filterDocumentsByTag(activePool, selectedTag);
+  const favFiltered = filterDocumentsByView(tagFiltered, view);
 
   const hasDocuments = combinedDocuments.length > 0;
   const noTagMatch = selectedTag !== null && tagFiltered.length === 0;

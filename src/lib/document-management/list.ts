@@ -1,17 +1,10 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { documentCapabilities } from "@/lib/auth/document-permissions";
 import { excerpt, readingTimeMinutes } from "@/lib/document-stats";
-import {
-  capList,
-  documentAccessOr,
-  DOCUMENT_LIST_LIMIT,
-} from "@/lib/documents";
+import { capList, DOCUMENT_LIST_LIMIT } from "@/lib/documents";
+import { buildDocumentListArgs } from "@/lib/document-management/query";
 import { prisma } from "@/lib/prisma";
-import {
-  buildDocumentSearchWhere,
-  normalizeSearchQuery,
-  SEARCH_RESULT_LIMIT,
-} from "@/lib/search";
+import { normalizeSearchQuery, SEARCH_RESULT_LIMIT } from "@/lib/search";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
 type DocumentListDb = Pick<typeof prisma, "document" | "tag">;
@@ -48,6 +41,20 @@ export type SearchResults = {
   results: SearchResult[];
   hasMore: boolean;
 };
+
+export type DocumentListServiceFilters = {
+  tagSlug?: string | null;
+  favoritesOnly?: boolean;
+};
+
+function isDocumentListDb(value: unknown): value is DocumentListDb {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "document" in value &&
+    "tag" in value
+  );
+}
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -150,28 +157,30 @@ function availableTagsForDocuments(
 
 export async function listDashboardDocumentsForUser(
   userId: string,
+  filtersOrDb: DocumentListServiceFilters | DocumentListDb = {},
   db: DocumentListDb = prisma,
 ): Promise<DashboardDocumentList> {
+  const filters = isDocumentListDb(filtersOrDb) ? {} : filtersOrDb;
+  const client = isDocumentListDb(filtersOrDb) ? filtersOrDb : db;
+
   const [personalRows, workspaceRows] = await Promise.all([
-    db.document.findMany({
-      where: { ownerId: userId, workspaceId: null, deletedAt: null },
-      orderBy: { updatedAt: "desc" },
-      take: DOCUMENT_LIST_LIMIT + 1,
+    client.document.findMany({
+      ...buildDocumentListArgs({
+        scope: { kind: "dashboard-personal", userId },
+        filters,
+        limit: DOCUMENT_LIST_LIMIT,
+      }),
       select: {
         ...dashboardDocumentSelect,
         workspace: false,
       },
     }),
-    db.document.findMany({
-      where: {
-        workspaceId: { not: null },
-        deletedAt: null,
-        workspace: {
-          OR: [{ ownerId: userId }, { members: { some: { userId } } }],
-        },
-      },
-      orderBy: { updatedAt: "desc" },
-      take: DOCUMENT_LIST_LIMIT + 1,
+    client.document.findMany({
+      ...buildDocumentListArgs({
+        scope: { kind: "dashboard-workspace", userId },
+        filters,
+        limit: DOCUMENT_LIST_LIMIT,
+      }),
       select: {
         ...dashboardDocumentSelect,
         workspace: {
@@ -198,7 +207,7 @@ export async function listDashboardDocumentsForUser(
     toDashboardDocument(document, userId),
   );
 
-  const ownTags = await db.tag.findMany({
+  const ownTags = await client.tag.findMany({
     where: { ownerId: userId },
     select: { slug: true, name: true },
   });
@@ -220,9 +229,11 @@ export async function searchDocumentsForUser(
   if (!q) return { results: [], hasMore: false };
 
   const rows = await db.document.findMany({
-    where: buildDocumentSearchWhere(q, documentAccessOr(userId)),
-    orderBy: { updatedAt: "desc" },
-    take: SEARCH_RESULT_LIMIT + 1,
+    ...buildDocumentListArgs({
+      scope: { kind: "accessible", userId },
+      filters: { query: q },
+      limit: SEARCH_RESULT_LIMIT,
+    }),
     select: {
       ...dashboardDocumentSelect,
       workspace: {
