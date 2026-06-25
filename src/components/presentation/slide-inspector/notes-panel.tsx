@@ -1,1 +1,1 @@
-export { SpeakerNotesControl } from "@/components/presentation/slide-inspector";
+export { SpeakerNotesControl } from "@/components/presentation/slide-inspector/primitives";

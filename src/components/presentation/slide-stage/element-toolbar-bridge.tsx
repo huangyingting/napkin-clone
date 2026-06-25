@@ -1,1 +1,1 @@
-export { ElementToolbarContent } from "@/components/presentation/slide-stage-editor";
+export { ElementToolbarContent } from "@/components/presentation/slide-stage/element-overlays";
