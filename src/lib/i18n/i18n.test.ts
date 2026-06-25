@@ -2,14 +2,19 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  catalogBySurface,
   createTranslator,
   DEFAULT_LOCALE,
+  getI18nActivationStatus,
+  getI18nCoverageBySurface,
   getMessages,
-  isLanguageSwitcherEnabled,
+  I18N_ACTIVATION_REQUIRED_SURFACES,
+  I18N_USER_ACTIVATION_THRESHOLD,
   isSupportedLocale,
   normaliseLocale,
   SUPPORTED_LOCALES,
 } from "@/lib/i18n";
+import { isLanguageSwitcherEnabled } from "@/lib/i18n/config";
 
 // ── isSupportedLocale ────────────────────────────────────────────────────────
 
@@ -85,6 +90,23 @@ test("getMessages objects expose all required keys", () => {
   }
 });
 
+test("catalog is split into surface-owned sections", () => {
+  assert.deepEqual(Object.keys(catalogBySurface), [
+    "appShell",
+    "dashboard",
+    "templatePicker",
+    "languageSwitcher",
+  ]);
+  assert.equal(
+    catalogBySurface.dashboard.en["dashboard.title"],
+    "Your documents",
+  );
+  assert.equal(
+    catalogBySurface.appShell.es["header.nav.documents"],
+    "Documentos",
+  );
+});
+
 // ── createTranslator / t() ───────────────────────────────────────────────────
 
 test("t() returns a string for a plain string key", () => {
@@ -145,45 +167,64 @@ test("t() returns a non-empty string for every key in every locale", () => {
   }
 });
 
+// ── i18n coverage / activation ────────────────────────────────────────────────
+
+test("getI18nCoverageBySurface tracks catalogued coverage per surface", () => {
+  const coverage = getI18nCoverageBySurface("es");
+  const dashboard = coverage.find((row) => row.surface === "dashboard");
+
+  assert.ok(dashboard);
+  assert.equal(dashboard.catalogued, true);
+  assert.equal(dashboard.translatedMessages, dashboard.totalMessages);
+  assert.equal(dashboard.complete, true);
+});
+
+test("getI18nActivationStatus keeps user activation blocked until required surfaces are translated", () => {
+  const status = getI18nActivationStatus();
+
+  assert.equal(status.threshold, I18N_USER_ACTIVATION_THRESHOLD);
+  assert.equal(status.userActivationReady, false);
+  assert.deepEqual(status.requiredSurfaces, I18N_ACTIVATION_REQUIRED_SURFACES);
+  assert.ok(
+    status.blockingSurfaces.some(
+      (surface) =>
+        surface.surface === "documentEditor" && surface.catalogued === false,
+    ),
+  );
+});
+
 // ── isLanguageSwitcherEnabled ─────────────────────────────────────────────────
 
 test("isLanguageSwitcherEnabled returns false when env var is absent", () => {
-  const saved = process.env.I18N_SWITCHER_ENABLED;
-  delete process.env.I18N_SWITCHER_ENABLED;
-  try {
-    assert.equal(isLanguageSwitcherEnabled(), false);
-  } finally {
-    if (saved !== undefined) process.env.I18N_SWITCHER_ENABLED = saved;
-  }
+  assert.equal(isLanguageSwitcherEnabled({}), false);
 });
 
-test('isLanguageSwitcherEnabled returns true when env var is "true"', () => {
-  const saved = process.env.I18N_SWITCHER_ENABLED;
-  process.env.I18N_SWITCHER_ENABLED = "true";
-  try {
-    assert.equal(isLanguageSwitcherEnabled(), true);
-  } finally {
-    if (saved !== undefined) {
-      process.env.I18N_SWITCHER_ENABLED = saved;
-    } else {
-      delete process.env.I18N_SWITCHER_ENABLED;
-    }
-  }
+test('isLanguageSwitcherEnabled remains false when env var is "true" but activation threshold is not met', () => {
+  assert.equal(
+    isLanguageSwitcherEnabled({ I18N_SWITCHER_ENABLED: "true" }),
+    false,
+  );
+});
+
+test('isLanguageSwitcherEnabled returns true only when env var is "true" and activation is ready', () => {
+  const readyStatus = {
+    ...getI18nActivationStatus(),
+    userActivationReady: true,
+    blockingSurfaces: [],
+  };
+
+  assert.equal(
+    isLanguageSwitcherEnabled({ I18N_SWITCHER_ENABLED: "true" }, readyStatus),
+    true,
+  );
 });
 
 test("isLanguageSwitcherEnabled returns false for truthy non-exact values", () => {
-  const saved = process.env.I18N_SWITCHER_ENABLED;
   for (const val of ["1", "yes", "TRUE", "True", "on"]) {
-    process.env.I18N_SWITCHER_ENABLED = val;
     assert.equal(
-      isLanguageSwitcherEnabled(),
+      isLanguageSwitcherEnabled({ I18N_SWITCHER_ENABLED: val }),
       false,
       `expected false for I18N_SWITCHER_ENABLED="${val}"`,
     );
-  }
-  if (saved !== undefined) {
-    process.env.I18N_SWITCHER_ENABLED = saved;
-  } else {
-    delete process.env.I18N_SWITCHER_ENABLED;
   }
 });

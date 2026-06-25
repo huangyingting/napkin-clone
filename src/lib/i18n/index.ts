@@ -9,13 +9,21 @@ import {
   catalog,
   DEFAULT_LOCALE,
   SUPPORTED_LOCALES,
+  catalogBySurface,
   type Locale,
   type Messages,
 } from "./messages";
 
 export type { Locale, Messages };
-export { DEFAULT_LOCALE, SUPPORTED_LOCALES };
-export { I18N_SWITCHER_ENABLED_ENV, isLanguageSwitcherEnabled } from "./config";
+export { catalogBySurface, DEFAULT_LOCALE, SUPPORTED_LOCALES };
+export {
+  getI18nActivationStatus,
+  getI18nCoverageBySurface,
+  I18N_ACTIVATION_REQUIRED_SURFACES,
+  I18N_USER_ACTIVATION_THRESHOLD,
+  type I18nActivationStatus,
+  type I18nSurfaceCoverage,
+} from "./coverage";
 
 /**
  * Returns `true` when `value` is one of the supported locale codes.

@@ -15,7 +15,8 @@ interface OnboardingChecklistProps {
  *
  * Renders a dismissible card listing the core steps for getting value out of
  * TextIQ. The dismiss action persists server-side (User.onboardingDismissed)
- * so the checklist does not reappear on a new device or browser.
+ * so the checklist does not reappear on a new device or browser. Completing
+ * all tracked steps does not auto-dismiss it.
  */
 export function OnboardingChecklist({ steps }: OnboardingChecklistProps) {
   const [isPending, startTransition] = useTransition();
