@@ -4,6 +4,7 @@ import "./globals.css";
 import { HeaderGate } from "@/components/header-gate";
 import { MobileViewportSync } from "@/components/mobile-viewport-sync";
 import { SiteHeader } from "@/components/site-header";
+import { OverlayProvider } from "@/components/ui";
 import { LocaleProvider } from "@/lib/i18n/locale-context";
 import { getLocale } from "@/lib/i18n/server";
 
@@ -42,10 +43,12 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col">
         <MobileViewportSync />
         <LocaleProvider initialLocale={locale}>
-          <HeaderGate>
-            <SiteHeader />
-          </HeaderGate>
-          {children}
+          <OverlayProvider>
+            <HeaderGate>
+              <SiteHeader />
+            </HeaderGate>
+            {children}
+          </OverlayProvider>
         </LocaleProvider>
       </body>
     </html>

@@ -42,3 +42,45 @@ test("design-system check: ignores token-owned UI primitive hex values", () => {
 
   assert.deepEqual(findings, []);
 });
+
+test("design-system check: flags raw arbitrary radius classes outside token layers", () => {
+  const findings = scanText(
+    "src/app/app/example.tsx",
+    '<div className="rounded-[4px]" />',
+  );
+
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].rule, "raw-radius-class");
+  assert.equal(findings[0].match, "rounded-[4px]");
+});
+
+test("design-system check: accepts DS token radius classes", () => {
+  const findings = scanText(
+    "src/app/app/example.tsx",
+    '<div className="rounded-[var(--ds-radius-sm,8px)]" />',
+  );
+
+  assert.deepEqual(findings, []);
+});
+
+test("design-system check: flags raw arbitrary shadow classes outside token layers", () => {
+  const findings = scanText(
+    "src/app/app/example.tsx",
+    '<div className="shadow-[0_4px_12px_rgba(0,0,0,0.2)]" />',
+  );
+
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].rule, "raw-shadow-class");
+  assert.equal(findings[0].match, "shadow-[0_4px_12px_rgba(0,0,0,0.2)]");
+});
+
+test("design-system check: flags non-DS neutral utility classes", () => {
+  const findings = scanText(
+    "src/components/example.tsx",
+    '<div className="bg-zinc-100 text-gray-900" />',
+  );
+
+  assert.equal(findings.length, 2);
+  assert.equal(findings[0].rule, "non-ds-neutral-class");
+  assert.equal(findings[1].match, "text-gray-900");
+});

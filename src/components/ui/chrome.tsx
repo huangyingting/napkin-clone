@@ -1,6 +1,7 @@
 import {
   type ButtonHTMLAttributes,
   type HTMLAttributes,
+  type LabelHTMLAttributes,
   type ReactNode,
 } from "react";
 
@@ -8,11 +9,148 @@ import {
   cx,
   ELEVATION,
   FOCUS_RING,
+  MENU_ITEM,
   RADIUS,
   TOOLBAR_BUTTON_CHROME,
   type Elevation,
   type Radius,
 } from "./tokens";
+
+export type CardProps = HTMLAttributes<HTMLDivElement> & {
+  elevation?: Elevation;
+  padding?: "none" | "sm" | "md" | "lg";
+};
+
+const CARD_PADDING: Record<NonNullable<CardProps["padding"]>, string> = {
+  none: "",
+  sm: "p-3",
+  md: "p-5",
+  lg: "p-6",
+};
+
+export function Card({
+  elevation = "raised",
+  padding = "md",
+  className,
+  ...rest
+}: CardProps) {
+  return (
+    <div
+      className={cx(
+        "border border-ds-border-subtle bg-ds-surface-raised text-ds-text-primary",
+        RADIUS.lg,
+        ELEVATION[elevation],
+        CARD_PADDING[padding],
+        className,
+      )}
+      {...rest}
+    />
+  );
+}
+
+export type EmptyStateProps = HTMLAttributes<HTMLDivElement> & {
+  title: ReactNode;
+  description?: ReactNode;
+  action?: ReactNode;
+};
+
+export function EmptyState({
+  title,
+  description,
+  action,
+  className,
+  ...rest
+}: EmptyStateProps) {
+  return (
+    <div
+      className={cx(
+        "flex flex-col items-center gap-3 border border-dashed border-ds-border-strong bg-ds-surface-raised p-8 text-center",
+        RADIUS.lg,
+        className,
+      )}
+      {...rest}
+    >
+      <div className="space-y-1">
+        <h2 className="text-base font-semibold text-ds-text-primary">
+          {title}
+        </h2>
+        {description ? (
+          <p className="text-sm text-ds-text-secondary">{description}</p>
+        ) : null}
+      </div>
+      {action}
+    </div>
+  );
+}
+
+export function Kbd({ className, ...rest }: HTMLAttributes<HTMLElement>) {
+  return (
+    <kbd
+      className={cx(
+        "inline-flex min-w-5 items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface-sunken px-1.5 py-0.5 font-sans text-[0.6875rem] font-medium text-ds-text-muted shadow-ds-flat",
+        className,
+      )}
+      {...rest}
+    />
+  );
+}
+
+export type MenuItemProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  inset?: boolean;
+};
+
+export function MenuItem({ inset, className, type, ...rest }: MenuItemProps) {
+  return (
+    <button
+      type={type ?? "button"}
+      className={cx(MENU_ITEM, inset && "pl-8", FOCUS_RING, className)}
+      {...rest}
+    />
+  );
+}
+
+export type FormFieldProps = HTMLAttributes<HTMLDivElement> & {
+  label: ReactNode;
+  htmlFor?: string;
+  hint?: ReactNode;
+  error?: ReactNode;
+  labelProps?: LabelHTMLAttributes<HTMLLabelElement>;
+};
+
+export function FormField({
+  label,
+  htmlFor,
+  hint,
+  error,
+  labelProps,
+  className,
+  children,
+  ...rest
+}: FormFieldProps) {
+  const labelClass = "text-sm font-medium text-ds-text-primary";
+  return (
+    <div className={cx("flex flex-col gap-1.5", className)} {...rest}>
+      {htmlFor ? (
+        <label
+          {...labelProps}
+          htmlFor={htmlFor}
+          className={cx(labelClass, labelProps?.className)}
+        >
+          {label}
+        </label>
+      ) : (
+        <span className={labelClass}>{label}</span>
+      )}
+      {children}
+      {hint ? <p className="text-xs text-ds-text-muted">{hint}</p> : null}
+      {error ? (
+        <p role="alert" className="text-xs text-ds-danger">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 export type ToolbarButtonSize = "sm" | "md" | "lg";
 export type ToolbarButtonTone = "subtle" | "surface";

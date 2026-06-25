@@ -11,6 +11,7 @@ import {
   ShellLanguageSwitcherSlot,
   ShellUserMenuSlot,
 } from "@/components/shell-utility-slots";
+import type { ShellAction } from "@/lib/app-shell/chrome";
 import type { AppShellViewModel } from "@/lib/app-shell/view-model";
 
 export function SiteHeaderView({
@@ -26,6 +27,33 @@ export function SiteHeaderView({
     navItems,
     planCreditSummary,
   } = viewModel;
+  const languageAction: ShellAction = {
+    id: "language",
+    auth: "all",
+    slot: (
+      <ShellLanguageSwitcherSlot enabled={enabledUtilities.languageSwitcher} />
+    ),
+  };
+  const shortcutAction: ShellAction = {
+    id: "keyboard-shortcuts",
+    auth: "authenticated",
+    closeDrawerOnClick: false,
+    slot: (
+      <ShellKeyboardShortcutsSlot
+        enabled={enabledUtilities.keyboardShortcuts}
+      />
+    ),
+  };
+  const userAction: ShellAction = {
+    id: "user-menu",
+    auth: "authenticated",
+    slot: (
+      <ShellUserMenuSlot
+        enabled={enabledUtilities.userMenu}
+        identity={displayIdentity}
+      />
+    ),
+  };
 
   return (
     <header className="relative z-header flex w-full items-center justify-between overflow-x-clip border-b border-ds-border-strong bg-ds-surface-base/80 px-4 py-3 backdrop-blur sm:px-6">
@@ -45,22 +73,13 @@ export function SiteHeaderView({
               summary={planCreditSummary}
               variant="desktop"
             />
-            <ShellKeyboardShortcutsSlot
-              enabled={enabledUtilities.keyboardShortcuts}
-            />
-            <ShellLanguageSwitcherSlot
-              enabled={enabledUtilities.languageSwitcher}
-            />
-            <ShellUserMenuSlot
-              enabled={enabledUtilities.userMenu}
-              identity={displayIdentity}
-            />
+            {shortcutAction.slot}
+            {languageAction.slot}
+            {userAction.slot}
           </>
         ) : (
           <>
-            <ShellLanguageSwitcherSlot
-              enabled={enabledUtilities.languageSwitcher}
-            />
+            {languageAction.slot}
             <ShellNavLinks items={navItems} variant="desktop" />
           </>
         )}
@@ -69,10 +88,7 @@ export function SiteHeaderView({
       <div className="flex items-center gap-1 md:hidden">
         {auth.isAuthenticated ? (
           <>
-            <ShellUserMenuSlot
-              enabled={enabledUtilities.userMenu}
-              identity={displayIdentity}
-            />
+            {userAction.slot}
 
             <MobileNavMenu>
               <ShellNavLinks items={navItems} variant="mobileDrawer" />
@@ -85,20 +101,14 @@ export function SiteHeaderView({
               <div className="my-2 border-t border-ds-border-strong" />
 
               <MobileNavNonClosing className="flex flex-col gap-0.5">
-                <ShellLanguageSwitcherSlot
-                  enabled={enabledUtilities.languageSwitcher}
-                />
-                <ShellKeyboardShortcutsSlot
-                  enabled={enabledUtilities.keyboardShortcuts}
-                />
+                {languageAction.slot}
+                {shortcutAction.slot}
               </MobileNavNonClosing>
             </MobileNavMenu>
           </>
         ) : (
           <>
-            <ShellLanguageSwitcherSlot
-              enabled={enabledUtilities.languageSwitcher}
-            />
+            {languageAction.slot}
             <ShellNavLinks items={navItems} variant="mobileInline" />
           </>
         )}

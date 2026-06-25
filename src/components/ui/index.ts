@@ -3,18 +3,29 @@
  * editor's contextual surfaces. All consume the `--ds-*` token layer.
  */
 export { Button, IconButton } from "./button";
+export { ActionButton } from "./action-button";
+export type { ActionButtonProps, ActionIconButtonProps } from "./action-button";
 
 export {
+  Card,
+  EmptyState,
   FieldRow,
+  FormField,
   IconActionCluster,
+  Kbd,
+  MenuItem,
   PanelSurface,
   PopoverSection,
   StatusPill,
   ToolbarButton,
 } from "./chrome";
 export type {
+  CardProps,
+  EmptyStateProps,
   FieldRowProps,
+  FormFieldProps,
   IconActionClusterProps,
+  MenuItemProps,
   PanelSurfaceProps,
   PopoverSectionProps,
   StatusPillProps,
@@ -30,6 +41,12 @@ export { ColorPicker, DEFAULT_SWATCH_PRESETS } from "./color-picker";
 export { Divider } from "./divider";
 
 export { Dialog } from "./dialog";
+export {
+  BottomSheetSurface,
+  DrawerSurface,
+  ModalSurface,
+  OverlayProvider,
+} from "./overlay-stack";
 
 export { FloatingSurface } from "./floating-surface";
 

@@ -35,6 +35,8 @@ test("toolsFor preserves public grouping and pure active predicates", () => {
 
   assert.ok(bold, "expected bold text-format tool");
   assert.equal(isToolActive(bold, snapshot), true);
+  assert.equal(bold.action.label, "Bold");
+  assert.equal(bold.action.shortcutId, "editor.format.bold");
   assert.deepEqual(
     toolsFor("text-format", ctx({ editable: false })),
     [],

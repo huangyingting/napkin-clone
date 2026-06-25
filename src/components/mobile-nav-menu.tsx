@@ -1,9 +1,9 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
 import { Menu, X } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import { useState, type ReactNode } from "react";
+
+import { DrawerSurface } from "@/components/ui";
 
 /**
  * Hamburger button + right-side slide-in drawer for mobile navigation.
@@ -17,28 +17,6 @@ import { createPortal } from "react-dom";
  */
 export function MobileNavMenu({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
-
-  // Close drawer on Escape.
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open]);
-
-  // Lock body scroll while drawer is open.
-  useEffect(() => {
-    if (open) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [open]);
 
   return (
     <>
@@ -58,65 +36,35 @@ export function MobileNavMenu({ children }: { children: ReactNode }) {
         )}
       </button>
 
-      {/* Portal drawer + backdrop — guarded against SSR (no `document` on server) */}
-      {typeof document !== "undefined" &&
-        createPortal(
-          <AnimatePresence>
-            {open && (
-              <>
-                {/* Semi-transparent backdrop */}
-                <motion.div
-                  key="mobile-nav-backdrop"
-                  aria-hidden="true"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.18 }}
-                  onClick={() => setOpen(false)}
-                  className="fixed inset-0 z-overlay bg-ds-backdrop md:hidden"
-                />
+      <DrawerSurface
+        open={open}
+        onClose={() => setOpen(false)}
+        aria-label="Navigation menu"
+      >
+        {/* Drawer header */}
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-ds-border-strong px-4">
+          <span className="text-sm font-semibold text-ds-text-primary">
+            Menu
+          </span>
+          <button
+            type="button"
+            aria-label="Close navigation menu"
+            onClick={() => setOpen(false)}
+            className="tiq-touch-target flex h-8 w-8 items-center justify-center rounded-full text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
+          >
+            <X aria-hidden="true" className="h-4 w-4" />
+          </button>
+        </div>
 
-                {/* Slide-in drawer */}
-                <motion.div
-                  key="mobile-nav-drawer"
-                  role="dialog"
-                  aria-modal="true"
-                  aria-label="Navigation menu"
-                  initial={{ x: "100%" }}
-                  animate={{ x: 0 }}
-                  exit={{ x: "100%" }}
-                  transition={{ duration: 0.22, ease: "easeOut" }}
-                  className="tiq-full-viewport fixed right-0 top-0 z-panel flex h-full w-72 max-w-[85vw] flex-col overflow-y-auto border-l border-ds-border-strong bg-ds-surface-base shadow-xl md:hidden"
-                >
-                  {/* Drawer header */}
-                  <div className="flex h-14 shrink-0 items-center justify-between border-b border-ds-border-strong px-4">
-                    <span className="text-sm font-semibold text-ds-text-primary">
-                      Menu
-                    </span>
-                    <button
-                      type="button"
-                      aria-label="Close navigation menu"
-                      onClick={() => setOpen(false)}
-                      className="tiq-touch-target flex h-8 w-8 items-center justify-center rounded-full text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
-                    >
-                      <X aria-hidden="true" className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  {/* Drawer content — nav links & secondary actions */}
-                  <div
-                    className="flex flex-col gap-0.5 p-3"
-                    onClick={() => setOpen(false)}
-                    role="presentation"
-                  >
-                    {children}
-                  </div>
-                </motion.div>
-              </>
-            )}
-          </AnimatePresence>,
-          document.body,
-        )}
+        {/* Drawer content — nav links & secondary actions */}
+        <div
+          className="flex flex-col gap-0.5 p-3"
+          onClick={() => setOpen(false)}
+          role="presentation"
+        >
+          {children}
+        </div>
+      </DrawerSurface>
     </>
   );
 }

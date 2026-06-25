@@ -15,8 +15,10 @@ import {
   Divider,
   FloatingSurface,
   IconButton,
+  Kbd,
   Tooltip,
 } from "@/components/ui";
+import { actionAriaKeyShortcuts } from "@/lib/actions/action-descriptor";
 import { computeAnchoredPosition } from "@/lib/anchored-position";
 import { useEditorContext } from "@/lib/lexical/editor-context";
 import {
@@ -266,9 +268,7 @@ function ToolButton({
           shortcut ? (
             <span className="inline-flex items-center gap-1.5">
               {tool.label}
-              <kbd className="font-sans text-[var(--ds-text-muted,#a1a1aa)]">
-                {shortcut}
-              </kbd>
+              <Kbd>{shortcut}</Kbd>
             </span>
           ) : (
             tool.label
@@ -277,6 +277,8 @@ function ToolButton({
       >
         <IconButton
           aria-label={shortcut ? `${tool.label} (${shortcut})` : tool.label}
+          aria-keyshortcuts={actionAriaKeyShortcuts(tool.action)}
+          title={tool.action.disabledReason ?? tool.action.description}
           active={active}
           size="sm"
           // preventDefault keeps the editor text selection intact on click.
