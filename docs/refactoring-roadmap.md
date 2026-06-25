@@ -1949,7 +1949,7 @@ paths.
   - document list actions;
   - comments actions.
 - Keep server actions route-local if they need Next.js action semantics, but
-  export their types from stable modules when shared components need them.
+  export shared port types from stable modules when shared components need them.
 - Move route-independent code out of `src/app/**` before `src/lib` imports it.
 - For reusable components under `src/components`, avoid direct imports from
   `src/app/**/actions`.
@@ -1975,6 +1975,10 @@ paths.
 4. **R26.4 - Add lint/search guard for forbidden imports**
    - Add a documented check for `@/app/**/actions` imports in shared component
      and lib directories.
+   - `npm run action-ports:check` enforces that `src/components/**` does not
+     import app action modules and `src/lib/**` does not import app route
+     modules. Allowed exceptions are small route-only client components under
+     `src/app/**`, which may import sibling route actions directly.
 
 ### Verification
 

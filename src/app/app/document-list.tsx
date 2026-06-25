@@ -8,8 +8,9 @@ import type {
   DashboardDocument,
   SearchResult,
 } from "@/lib/document-management/list";
+import type { DocumentListActionPort } from "@/lib/action-ports";
 
-import { searchDocuments } from "./actions";
+import { deleteDocument, restoreDocument, searchDocuments } from "./actions";
 import { DocumentGrid, EmptyDocumentList } from "./document-grid";
 import { DocumentListToolbar } from "./document-list-toolbar";
 import { UndoToast } from "./document-list-undo-toast";
@@ -27,6 +28,14 @@ import {
 import { useOptimisticDocumentTrash } from "./use-optimistic-document-trash";
 
 const SEARCH_DEBOUNCE_MS = 300;
+const documentListActions: Pick<
+  DocumentListActionPort,
+  "deleteDocument" | "restoreDocument" | "searchDocuments"
+> = {
+  deleteDocument,
+  restoreDocument,
+  searchDocuments,
+};
 
 /**
  * Renders the dashboard document list. Server data stays capped by the
@@ -104,7 +113,8 @@ export function DocumentList({
     }
     searchDebounceRef.current = setTimeout(() => {
       startSearchTransition(async () => {
-        const { results, hasMore } = await searchDocuments(trimmed);
+        const { results, hasMore } =
+          await documentListActions.searchDocuments(trimmed);
         setSearchCapped(hasMore);
         setSearchResults(
           results.map((result: SearchResult) => ({
@@ -135,7 +145,7 @@ export function DocumentList({
   }, [query]);
 
   const { combinedDocuments, removedIds, undo, handleDelete, handleUndo } =
-    useOptimisticDocumentTrash(documents);
+    useOptimisticDocumentTrash(documents, documentListActions);
 
   const trimmedQuery = query.trim();
   const activePool: DashboardDocument[] = trimmedQuery

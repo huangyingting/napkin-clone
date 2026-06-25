@@ -28,16 +28,15 @@ import {
   useState,
 } from "react";
 
-import {
-  fetchDeckJson,
-  saveDeckJson,
-  saveDeckPatch,
-} from "@/app/app/documents/[id]/actions";
 import { ConflictRecoveryDialog } from "@/components/presentation/conflict-recovery-dialog";
-import { listBrands } from "@/app/app/brands/actions";
 import { SlideEditor } from "@/components/presentation/slide-editor";
 import { SlideEditorOpenDialog } from "@/components/editor/slide-editor-open-dialog";
 import { DeckGenerationPreview } from "@/components/presentation/deck-generation-preview";
+import type {
+  BrandListPort,
+  DeckActionPort,
+  SlideAssetActionPort,
+} from "@/lib/action-ports";
 import type { ActionResult } from "@/lib/action-result";
 import type { SaveDeckResult } from "@/lib/document/persistence-types";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
@@ -65,17 +64,21 @@ import type {
   DocumentTextBlock,
 } from "@/lib/visual/document-export";
 import type { Visual } from "@/lib/visual/schema";
-import { useRightSurface } from "@/app/app/documents/[id]/right-surface-context";
 
 interface SlideEditorButtonProps {
   documentId: string;
   initialDeckJson: unknown;
+  deckPort: DeckActionPort;
+  brandPort: BrandListPort;
+  slideAssetPort?: SlideAssetActionPort;
   /**
    * The DB-persisted serialised Lexical state the editor seeds from. Used as a
    * non-empty fallback for AI generation when the LIVE editor state hasn't
    * finished seeding yet (collab degraded/connecting — issue #280).
    */
   initialContentJson?: string | null;
+  onOpenRightSurface?: () => void;
+  onCloseRightSurface?: () => void;
   iconOnly?: boolean;
 }
 
@@ -107,10 +110,17 @@ interface AiPreviewState {
   contentJson: string;
 }
 
+const noop = () => undefined;
+
 export function SlideEditorButton({
   documentId,
   initialDeckJson,
+  deckPort,
+  brandPort,
+  slideAssetPort,
   initialContentJson = null,
+  onOpenRightSurface = noop,
+  onCloseRightSurface = noop,
   iconOnly = false,
 }: SlideEditorButtonProps) {
   const [editor] = useLexicalComposerContext();
@@ -161,7 +171,6 @@ export function SlideEditorButton({
   // pickers. Best-effort: brands are per-user (not document-scoped), loaded
   // once on mount; failures leave the pickers on their default swatches.
   const [brandSwatches, setBrandSwatches] = useState<readonly string[]>([]);
-  const { openSlideEditor, closeSlideEditor } = useRightSurface();
 
   const aiEnabled = isAiDeckGenClientEnabled();
 
@@ -171,7 +180,8 @@ export function SlideEditorButton({
   useEffect(() => {
     if (!open || brandSwatches.length > 0) return;
     let cancelled = false;
-    void listBrands()
+    void brandPort
+      .listBrands()
       .then((brands) => {
         if (cancelled) return;
         const swatches = mergeSwatches(
@@ -192,7 +202,7 @@ export function SlideEditorButton({
     return () => {
       cancelled = true;
     };
-  }, [open, brandSwatches.length]);
+  }, [brandPort, open, brandSwatches.length]);
 
   // Tracks the most recently saved deck so subsequent opens use fresh data
   // even without a server round-trip succeeding (e.g. offline).
@@ -296,9 +306,9 @@ export function SlideEditorButton({
       setPendingJson(null);
       setAiPreview(null);
       setOpen(true);
-      openSlideEditor();
+      onOpenRightSurface();
     },
-    [openSlideEditor],
+    [onOpenRightSurface],
   );
 
   // Deterministic open path (the default and the universal fallback). Seeds from
@@ -312,7 +322,7 @@ export function SlideEditorButton({
       // Fetch the freshest deckJson from the server; fall back gracefully.
       let fetchedRaw: unknown = null;
       try {
-        const fetched = await fetchDeckJson(documentId);
+        const fetched = await deckPort.fetchDeckJson(documentId);
         fetchedRaw = fetched.deckJson;
         revisionTokenRef.current = fetched.revisionToken;
       } catch {
@@ -325,7 +335,7 @@ export function SlideEditorButton({
       );
       return { startDeck, ctx };
     },
-    [buildOpenContext, documentId],
+    [buildOpenContext, deckPort, documentId],
   );
 
   // Deterministic open path (the default and the universal fallback).
@@ -421,8 +431,8 @@ export function SlideEditorButton({
     setEmptyDocument(false);
     setAiPreview(null);
     aiAppliedDeckRef.current = null;
-    closeSlideEditor();
-  }, [closeSlideEditor]);
+    onCloseRightSurface();
+  }, [onCloseRightSurface]);
 
   const handleSave = useCallback(
     async (
@@ -434,8 +444,8 @@ export function SlideEditorButton({
         updatedDeck,
         patches,
         revisionTokenRef.current,
-        saveDeckPatch,
-        saveDeckJson,
+        deckPort.saveDeckPatch,
+        deckPort.saveDeckJson,
       );
 
       if (result.ok === true) {
@@ -472,14 +482,14 @@ export function SlideEditorButton({
       }
       return { ok: false, error: result.error };
     },
-    [documentId],
+    [deckPort, documentId],
   );
 
   // Conflict recovery: "Keep mine" — force-save the local snapshot using the
   // server's current token so the CAS check passes (#404).
   const handleConflictKeepMine = useCallback(
     async (localDeck: Deck, serverToken: string | null) => {
-      const res: SaveDeckResult = await saveDeckJson(
+      const res: SaveDeckResult = await deckPort.saveDeckJson(
         documentId,
         localDeck,
         serverToken,
@@ -499,7 +509,7 @@ export function SlideEditorButton({
         throw new Error(res.error);
       }
     },
-    [documentId],
+    [deckPort, documentId],
   );
 
   // Conflict recovery: "Use theirs" — reload the server deck and discard local
@@ -508,7 +518,7 @@ export function SlideEditorButton({
     setConflictState(null);
     void (async () => {
       try {
-        const fetched = await fetchDeckJson(documentId);
+        const fetched = await deckPort.fetchDeckJson(documentId);
         revisionTokenRef.current = fetched.revisionToken;
         if (fetched.deckJson) {
           lastSavedRef.current = fetched.deckJson;
@@ -525,7 +535,7 @@ export function SlideEditorButton({
         // Best-effort — user will see the existing (local) deck if fetch fails.
       }
     })();
-  }, [documentId]);
+  }, [deckPort, documentId]);
 
   return (
     <>
@@ -578,6 +588,7 @@ export function SlideEditorButton({
           documentBlocks={documentBlocks}
           documentTextBlocks={documentTextBlocks}
           documentId={documentId}
+          slideAssetPort={slideAssetPort}
           onDeckChange={setDeck}
           onClose={handleClose}
           onSave={handleSave}

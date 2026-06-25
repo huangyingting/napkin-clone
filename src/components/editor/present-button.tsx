@@ -14,9 +14,9 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { MonitorPlay } from "lucide-react";
 import { useCallback, useState } from "react";
 
-import { fetchDeckJson } from "@/app/app/documents/[id]/actions";
 import { PresentMode } from "@/components/presentation/present-mode";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
+import type { DeckFetchPort } from "@/lib/action-ports";
 import { buildDeckFromBlocks, type Deck } from "@/lib/presentation/deck";
 import { pickFreshestDeck } from "@/lib/presentation/fresh-deck";
 import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
@@ -25,6 +25,7 @@ import { collectDocumentBlocks } from "@/lib/visual/document-export";
 
 interface PresentButtonProps {
   documentId: string;
+  deckPort: DeckFetchPort;
   initialDeckJson: unknown;
   documentTitle?: string;
   iconOnly?: boolean;
@@ -44,6 +45,7 @@ type PresentData = {
  */
 export function PresentButton({
   documentId,
+  deckPort,
   initialDeckJson,
   documentTitle,
   iconOnly = false,
@@ -68,7 +70,7 @@ export function PresentButton({
     let fetchedRaw: unknown = null;
     setIsLoading(true);
     try {
-      fetchedRaw = (await fetchDeckJson(documentId)).deckJson;
+      fetchedRaw = (await deckPort.fetchDeckJson(documentId)).deckJson;
     } catch {
       // Network/auth error — fall back to page-load deckJson, then live blocks.
     } finally {
@@ -81,7 +83,7 @@ export function PresentButton({
       knownVisualIds,
     );
     setPresentData({ deck, visuals: visualMap });
-  }, [documentId, editor, initialDeckJson]);
+  }, [deckPort, documentId, editor, initialDeckJson]);
 
   const handleClose = useCallback(() => {
     setPresentData(null);

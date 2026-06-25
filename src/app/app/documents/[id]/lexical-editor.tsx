@@ -28,7 +28,14 @@ import {
   type VisualNodeRendererProps,
 } from "@/lib/lexical/visual-node";
 
-import { saveDocumentLexical } from "./actions";
+import {
+  fetchDeckJson,
+  saveDeckJson,
+  saveDeckPatch,
+  saveDocumentLexical,
+} from "./actions";
+import { uploadSlideAsset } from "./slide-asset-actions";
+import { listBrands } from "../../brands/actions";
 import { BlockSparkPlugin } from "./block-spark";
 import { DocumentExportButton } from "@/components/editor/document-export-button";
 import { PageBreakIndicator } from "@/components/editor/page-break-indicator";
@@ -55,7 +62,7 @@ import { UndoRedoControls } from "./undo-redo-controls";
 import { VersionHistoryPanel } from "./version-history-panel";
 import { VisualCard } from "./visual-card";
 import { VisualPanelProvider } from "./visual-panel-context";
-import { RightSurfaceProvider } from "./right-surface-context";
+import { RightSurfaceProvider, useRightSurface } from "./right-surface-context";
 
 const theme: EditorThemeClasses = {
   paragraph: "mb-3 leading-7",
@@ -132,6 +139,77 @@ function DocumentStyleButton({ disabled }: { disabled: boolean }) {
     >
       <OverallAdjustmentsPanel />
     </Popover>
+  );
+}
+
+function RoutedSlideEditorButton({
+  documentId,
+  initialDeckJson,
+  initialContentJson,
+}: {
+  documentId: string;
+  initialDeckJson: unknown;
+  initialContentJson?: string | null;
+}) {
+  const { openSlideEditor, closeSlideEditor } = useRightSurface();
+  const deckPort = useMemo(
+    () => ({ fetchDeckJson, saveDeckJson, saveDeckPatch }),
+    [],
+  );
+  const brandPort = useMemo(() => ({ listBrands }), []);
+  const slideAssetPort = useMemo(() => ({ uploadSlideAsset }), []);
+
+  return (
+    <SlideEditorButton
+      documentId={documentId}
+      initialDeckJson={initialDeckJson}
+      initialContentJson={initialContentJson}
+      deckPort={deckPort}
+      brandPort={brandPort}
+      slideAssetPort={slideAssetPort}
+      onOpenRightSurface={openSlideEditor}
+      onCloseRightSurface={closeSlideEditor}
+    />
+  );
+}
+
+function RoutedPresentButton({
+  documentId,
+  initialDeckJson,
+  documentTitle,
+}: {
+  documentId: string;
+  initialDeckJson: unknown;
+  documentTitle: string;
+}) {
+  const deckPort = useMemo(() => ({ fetchDeckJson }), []);
+  return (
+    <PresentButton
+      documentId={documentId}
+      deckPort={deckPort}
+      initialDeckJson={initialDeckJson}
+      documentTitle={documentTitle}
+    />
+  );
+}
+
+function RoutedDocumentExportButton({
+  documentId,
+  initialDeckJson,
+  documentTitle,
+}: {
+  documentId: string;
+  initialDeckJson: unknown;
+  documentTitle: string;
+}) {
+  const deckPort = useMemo(() => ({ fetchDeckJson }), []);
+  return (
+    <DocumentExportButton
+      documentTitle={documentTitle}
+      documentId={documentId}
+      deckPort={deckPort}
+      initialDeckJson={initialDeckJson}
+    />
   );
 }
 
@@ -458,18 +536,18 @@ export function LexicalEditor({
 
                     <EditorToolbarGroup label="Create and present">
                       {canEdit && (
-                        <SlideEditorButton
+                        <RoutedSlideEditorButton
                           documentId={documentId}
                           initialDeckJson={initialDeckJson}
                           initialContentJson={initialStateJson}
                         />
                       )}
-                      <PresentButton
+                      <RoutedPresentButton
                         documentId={documentId}
                         initialDeckJson={initialDeckJson}
                         documentTitle={title.value}
                       />
-                      <DocumentExportButton
+                      <RoutedDocumentExportButton
                         documentTitle={title.value}
                         documentId={documentId}
                         initialDeckJson={initialDeckJson}

@@ -13,6 +13,7 @@
 import { createHash } from "node:crypto";
 
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
+import type { UploadSlideAssetResult } from "@/lib/action-ports";
 import { requireDocumentActionContext } from "@/lib/actions/document-action-context";
 import { prisma } from "@/lib/prisma";
 import {
@@ -25,8 +26,6 @@ import {
   getDefaultStorageAdapter,
 } from "@/lib/slides/asset-storage";
 import { withP2002Fallback } from "@/lib/db/p2002-fallback";
-
-export type UploadSlideAssetResult = { assetId: string; url: string };
 
 /**
  * Uploads a slide image asset for the given document.

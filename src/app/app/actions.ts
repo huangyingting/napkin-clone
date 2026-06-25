@@ -12,7 +12,6 @@ import {
 import { duplicateDocumentForUser } from "@/lib/document-management/duplicate";
 import {
   searchDocumentsForUser,
-  type SearchResult,
   type SearchResults,
 } from "@/lib/document-management/list";
 import {
@@ -25,8 +24,6 @@ import {
 } from "@/lib/document-management/trash";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
-
-export type { SearchResult, SearchResults };
 
 /**
  * Creates a document for the current user seeded from a starter template, then

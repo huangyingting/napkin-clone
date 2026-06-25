@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
+import type { DocumentListActionPort } from "@/lib/action-ports";
 import type { DashboardDocument } from "@/lib/document-management/list";
 
-import { deleteDocument, restoreDocument } from "./actions";
 import type { DocumentCardData } from "./document-card";
 
 const UNDO_DURATION_MS = 6000;
 
-export function useOptimisticDocumentTrash(documents: DashboardDocument[]) {
+export function useOptimisticDocumentTrash(
+  documents: DashboardDocument[],
+  actions: Pick<DocumentListActionPort, "deleteDocument" | "restoreDocument">,
+) {
   const [removedIds, setRemovedIds] = useState<Set<string>>(() => new Set());
   const [restored, setRestored] = useState<DashboardDocument[]>([]);
   const [undo, setUndo] = useState<DashboardDocument | null>(null);
@@ -40,10 +43,10 @@ export function useOptimisticDocumentTrash(documents: DashboardDocument[]) {
       clearTimer();
       timerRef.current = setTimeout(() => setUndo(null), UNDO_DURATION_MS);
       startTransition(async () => {
-        await deleteDocument(data.id);
+        await actions.deleteDocument(data.id);
       });
     },
-    [clearTimer, documents],
+    [actions, clearTimer, documents],
   );
 
   const handleUndo = useCallback(() => {
@@ -61,9 +64,9 @@ export function useOptimisticDocumentTrash(documents: DashboardDocument[]) {
       ...prev.filter((item) => item.id !== data.id),
     ]);
     startTransition(async () => {
-      await restoreDocument(data.id);
+      await actions.restoreDocument(data.id);
     });
-  }, [undo, clearTimer]);
+  }, [actions, undo, clearTimer]);
 
   const base = documents.filter((document) => !removedIds.has(document.id));
   const baseIds = new Set(base.map((document) => document.id));

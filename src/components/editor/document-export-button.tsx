@@ -22,10 +22,10 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { FileDown, Image as ImageIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { fetchDeckJson } from "@/app/app/documents/[id]/actions";
 import { FOCUS_RING } from "@/components/ui/tokens";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { useVisualSvgRegistry } from "@/components/editor/visual-svg-registry";
+import type { DeckFetchPort } from "@/lib/action-ports";
 import { buildDeckFromBlocks } from "@/lib/presentation/deck";
 import { pickFreshestDeck } from "@/lib/presentation/fresh-deck";
 import type { Visual } from "@/lib/visual/schema";
@@ -50,6 +50,7 @@ interface DocumentExportButtonProps {
   documentTitle: string;
   /** Document id — used to re-fetch the freshest saved deck for PPTX export. */
   documentId: string;
+  deckPort: DeckFetchPort;
   /** Page-load `deckJson`, used as a fallback when the re-fetch is unavailable. */
   initialDeckJson?: unknown;
   iconOnly?: boolean;
@@ -75,6 +76,7 @@ const WIDTH_PRESET_LIST = (
 export function DocumentExportButton({
   documentTitle,
   documentId,
+  deckPort,
   initialDeckJson = null,
   iconOnly = false,
 }: DocumentExportButtonProps) {
@@ -182,7 +184,7 @@ export function DocumentExportButton({
 
         let fetchedRaw: unknown = null;
         try {
-          fetchedRaw = (await fetchDeckJson(documentId)).deckJson;
+          fetchedRaw = (await deckPort.fetchDeckJson(documentId)).deckJson;
         } catch {
           // Network/auth error — fall back to page-load deckJson, then live blocks.
         }
@@ -225,7 +227,7 @@ export function DocumentExportButton({
 
       let fetchedRaw: unknown = null;
       try {
-        fetchedRaw = (await fetchDeckJson(documentId)).deckJson;
+        fetchedRaw = (await deckPort.fetchDeckJson(documentId)).deckJson;
       } catch {
         // Network/auth error — fall back to page-load deckJson, then live blocks.
       }

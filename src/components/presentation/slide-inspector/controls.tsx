@@ -98,7 +98,7 @@ import {
   isEmptyImageSrc,
 } from "@/lib/presentation/image-element";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
-import { uploadSlideAsset } from "@/app/app/documents/[id]/slide-asset-actions";
+import type { SlideAssetActionPort } from "@/lib/action-ports";
 import {
   bulletsToRuns,
   mergeRuns,
@@ -240,6 +240,7 @@ export interface SlideInspectorProps {
    * server-side asset upload (Epic #374) before falling back to a data URL.
    */
   documentId?: string;
+  slideAssetPort?: SlideAssetActionPort;
   /**
    * When provided, the panel is dismissable: a close button is shown in the
    * header so the supplemental panel only stays open while needed (Slides-UI.md).
@@ -501,12 +502,14 @@ export function ImageElementEditor({
   showAdvanced,
   onUpdateElement,
   documentId,
+  slideAssetPort,
 }: {
   element: ImageElement;
   deck: Deck;
   showAdvanced: boolean;
   onUpdateElement: SlideInspectorProps["onUpdateElement"];
   documentId?: string;
+  slideAssetPort?: SlideAssetActionPort;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -520,7 +523,7 @@ export function ImageElementEditor({
     },
     onError: (message) => setError(message),
     documentId,
-    uploadFn: documentId ? uploadSlideAsset : undefined,
+    uploadFn: documentId ? slideAssetPort?.uploadSlideAsset : undefined,
   });
 
   const hasSource = !isEmptyImageSrc(element.src);
@@ -1615,6 +1618,7 @@ export function ElementEditor({
   elements,
   onUpdateElement,
   documentId,
+  slideAssetPort,
 }: {
   element: SlideElement;
   deck: Deck;
@@ -1623,6 +1627,7 @@ export function ElementEditor({
   elements: readonly SlideElement[];
   onUpdateElement: SlideInspectorProps["onUpdateElement"];
   documentId?: string;
+  slideAssetPort?: SlideAssetActionPort;
 }) {
   switch (element.kind) {
     case "placeholder":
@@ -1794,6 +1799,7 @@ export function ElementEditor({
           showAdvanced={showAdvanced}
           onUpdateElement={onUpdateElement}
           documentId={documentId}
+          slideAssetPort={slideAssetPort}
         />
       );
     case "shape":
