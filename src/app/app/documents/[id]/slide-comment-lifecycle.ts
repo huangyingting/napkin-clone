@@ -1,19 +1,8 @@
 "use server";
 
 import { requireDocumentActionContext } from "@/lib/actions/document-action-context";
-import {
-  applyElementDeleteToAnchors,
-  applySlideDeleteToAnchors,
-  createCommentService,
-  findOrphanedAnchors,
-} from "@/lib/comments";
+import { createCommentService } from "@/lib/comments";
 import type { Deck } from "@/lib/presentation/deck";
-
-export {
-  applyElementDeleteToAnchors,
-  applySlideDeleteToAnchors,
-  findOrphanedAnchors,
-};
 
 const commentService = createCommentService({
   requireDocumentContext: requireDocumentActionContext,

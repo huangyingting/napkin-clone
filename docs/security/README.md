@@ -1,7 +1,7 @@
 # Security Operations Docs
 
 **Status:** Current
-**Last updated:** 2026-06-23
+**Last updated:** 2026-06-25
 
 Operational, governance-facing security docs. These complement the
 architecture-level access/sharing contracts under
@@ -12,6 +12,7 @@ HTTP attack surface.
 | Document                                                     | Scope                                                                                            |
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
 | [api-route-security-matrix.md](api-route-security-matrix.md) | Authoritative classification of every `src/app/api/**/route.ts` route, enforced by a guard test. |
+| [page-route-access-surface.md](page-route-access-surface.md) | Typed manifest for app/page surfaces, auth pages, share routes, and public proxy exclusions.     |
 
 ## Related
 

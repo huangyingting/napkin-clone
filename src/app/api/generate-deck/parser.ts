@@ -1,0 +1,151 @@
+import { buildDeckSource } from "@/lib/ai/deck-source";
+import {
+  EmptyInputError,
+  GenerationError,
+  InputTooLongError,
+  MAX_INPUT_CHARS,
+} from "@/lib/ai/generate";
+import type { DeckGenerationOptions } from "@/lib/ai/generate-deck";
+import {
+  isPlainObject,
+  type GenerationRouteErrorMapping,
+  type PayloadParseResult,
+} from "@/lib/ai/generation-route";
+import { formatDeckInputTooLongError } from "@/lib/limits";
+import { collectDocumentBlocks, type DocumentBlock } from "@/lib/content";
+import { inferDeckTheme } from "@/lib/presentation/infer-theme";
+import type { Visual } from "@/lib/visual/schema";
+
+const DECK_LENGTHS: readonly NonNullable<DeckGenerationOptions["length"]>[] = [
+  "short",
+  "medium",
+  "long",
+];
+
+export interface GenerateDeckPayload {
+  contentJson: unknown;
+  options: DeckGenerationOptions;
+  blocks: ReadonlyArray<DocumentBlock>;
+  visuals: Map<string, Visual>;
+  outline: string;
+  truncated: boolean;
+  preferredTheme: ReturnType<typeof inferDeckTheme>;
+}
+
+export function visualsFromContent(
+  blocks: ReadonlyArray<DocumentBlock>,
+): Map<string, Visual> {
+  const visuals = new Map<string, Visual>();
+  for (const block of blocks) {
+    if (block.kind === "visual") {
+      visuals.set(block.visualId, block.visual);
+    }
+  }
+  return visuals;
+}
+
+export function parseDeckOptions(
+  value: unknown,
+): { options: DeckGenerationOptions } | { error: string } {
+  if (value === undefined || value === null) {
+    return { options: {} };
+  }
+  if (!isPlainObject(value)) {
+    return { error: "`options` must be an object." };
+  }
+
+  const options: DeckGenerationOptions = {};
+
+  if (value.length !== undefined && value.length !== null) {
+    if (
+      !DECK_LENGTHS.includes(
+        value.length as NonNullable<DeckGenerationOptions["length"]>,
+      )
+    ) {
+      return {
+        error: `\`options.length\` must be one of: ${DECK_LENGTHS.join(", ")}.`,
+      };
+    }
+    options.length = value.length as DeckGenerationOptions["length"];
+  }
+  if (value.tone !== undefined && value.tone !== null) {
+    if (typeof value.tone !== "string") {
+      return { error: "`options.tone` must be a string." };
+    }
+    options.tone = value.tone;
+  }
+  if (value.audience !== undefined && value.audience !== null) {
+    if (typeof value.audience !== "string") {
+      return { error: "`options.audience` must be a string." };
+    }
+    options.audience = value.audience;
+  }
+
+  return { options };
+}
+
+export function parseGenerateDeckPayload(
+  body: Record<string, unknown>,
+): PayloadParseResult<GenerateDeckPayload> {
+  if (body.contentJson === undefined || body.contentJson === null) {
+    return { ok: false, status: 400, message: "`contentJson` is required." };
+  }
+
+  const parsedOptions = parseDeckOptions(body.options);
+  if ("error" in parsedOptions) {
+    return { ok: false, status: 400, message: parsedOptions.error };
+  }
+
+  const blocks = collectDocumentBlocks(body.contentJson);
+  const visuals = visualsFromContent(blocks);
+  const { outline, truncated } = buildDeckSource(body.contentJson, visuals);
+  const preferredTheme = inferDeckTheme(blocks);
+
+  if (outline.trim().length === 0) {
+    return {
+      ok: false,
+      status: 400,
+      message: "`contentJson` does not contain any usable outline content.",
+    };
+  }
+  if (outline.length > MAX_INPUT_CHARS) {
+    return {
+      ok: false,
+      status: 413,
+      message: formatDeckInputTooLongError(outline.length),
+    };
+  }
+
+  return {
+    ok: true,
+    payload: {
+      contentJson: body.contentJson,
+      options: parsedOptions.options,
+      blocks,
+      visuals,
+      outline,
+      truncated,
+      preferredTheme,
+    },
+  };
+}
+
+export function mapGenerateDeckError(
+  error: unknown,
+): GenerationRouteErrorMapping | null {
+  if (error instanceof EmptyInputError) {
+    return { status: 400, message: error.message };
+  }
+  if (error instanceof InputTooLongError) {
+    return { status: 413, message: error.message };
+  }
+  if (error instanceof GenerationError) {
+    return {
+      status: 502,
+      message:
+        "We couldn't generate a deck from that document. Please try again.",
+      log: { reason: "generation-failed", status: 502 },
+    };
+  }
+  return null;
+}

@@ -41,6 +41,8 @@ import {
   reasonFromStatus,
 } from "@/lib/telemetry/product";
 
+import { parseImportUploadRequest } from "./parser";
+
 // Node.js runtime: the parsers (mammoth, jszip, pdfjs) require it.
 export const runtime = "nodejs";
 
@@ -84,17 +86,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  let formData: FormData;
-  try {
-    formData = await request.formData();
-  } catch {
-    return validationError("Request must be multipart/form-data.");
+  const parsed = await parseImportUploadRequest(request);
+  if (!parsed.ok) {
+    return parsed.response;
   }
-
-  const file = formData.get("file");
-  if (!(file instanceof File)) {
-    return validationError("Missing `file` field in form data.");
-  }
+  const { file } = parsed;
 
   const startedAt = Date.now();
   const fileType = classifyFileType(file);

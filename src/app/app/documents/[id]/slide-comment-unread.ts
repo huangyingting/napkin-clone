@@ -1,13 +1,7 @@
 "use server";
 
 import { requireDocumentActionContext } from "@/lib/actions/document-action-context";
-import {
-  createCommentService,
-  isCommentUnread,
-  type UnreadCountScope,
-} from "@/lib/comments";
-
-export { isCommentUnread, type UnreadCountScope };
+import { createCommentService, type UnreadCountScope } from "@/lib/comments";
 
 const commentService = createCommentService({
   requireDocumentContext: requireDocumentActionContext,

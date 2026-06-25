@@ -38,6 +38,9 @@ import {
 } from "@/lib/api/errors";
 import { logError, logInfo } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
+import { readJsonValue } from "@/lib/api/route-adapters";
+
+import { parseCollabFlushPayload } from "./parser";
 
 export const runtime = "nodejs";
 
@@ -54,17 +57,6 @@ function secretsMatch(provided: string, expected: string): boolean {
   return timingSafeEqual(a, b);
 }
 
-/** Returns true when `value` is a non-empty, decodable base64 string. */
-function isValidBase64(value: unknown): value is string {
-  if (typeof value !== "string" || value.length === 0) {
-    return false;
-  }
-  const buf = Buffer.from(value, "base64");
-  // Re-encoding must round-trip; a non-empty input that decodes to 0 bytes is
-  // not a valid Yjs update.
-  return buf.length > 0 && buf.toString("base64") === value;
-}
-
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const expectedSecret = process.env.COLLAB_INTERNAL_SECRET?.trim();
   if (!expectedSecret) {
@@ -76,32 +68,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return unauthorized();
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
+  const json = await readJsonValue(request);
+  if (!json.ok) {
     return validationError("Invalid JSON body.");
   }
 
-  const payload = body as {
-    documentId?: unknown;
-    room?: unknown;
-    update?: unknown;
-  };
-  const documentId =
-    typeof payload.documentId === "string" && payload.documentId.trim()
-      ? payload.documentId.trim()
-      : typeof payload.room === "string" && payload.room.trim()
-        ? payload.room.trim()
-        : null;
-
-  if (!documentId) {
-    return validationError("Missing documentId.");
+  const parsed = parseCollabFlushPayload(json.body);
+  if (!parsed.ok) {
+    return validationError(parsed.message);
   }
-
-  if (!isValidBase64(payload.update)) {
-    return validationError("Missing or invalid update.");
-  }
+  const { documentId, update } = parsed.payload;
 
   // Never create rows — only snapshot onto an existing document.
   const existing = await prisma.document.findUnique({
@@ -118,7 +94,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     await prisma.document.update({
       where: { id: documentId },
       data: {
-        collabRecoverySnapshot: payload.update,
+        collabRecoverySnapshot: update,
         collabRecoverySavedAt: new Date(),
       },
     });
@@ -132,7 +108,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   logInfo(LOG_SCOPE, "recovery snapshot persisted", {
     documentId,
-    bytes: Buffer.from(payload.update, "base64").length,
+    bytes: Buffer.from(update, "base64").length,
   });
 
   return NextResponse.json({ ok: true });

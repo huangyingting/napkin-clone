@@ -16,106 +16,21 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 
+import { generateVisuals } from "@/lib/ai/generate";
+import { createGenerationRouteHandler } from "@/lib/ai/generation-route";
+import type { Visual } from "@/lib/visual/schema";
+
 import {
-  EmptyInputError,
-  GenerationError,
-  InputTooLongError,
-  MAX_INPUT_CHARS,
-  generateVisuals,
-} from "@/lib/ai/generate";
-import {
-  createGenerationRouteHandler,
-  type PayloadParseResult,
-} from "@/lib/ai/generation-route";
-import {
-  DETAIL_LEVELS,
-  ORIENTATIONS,
-  isDetailLevel,
-  isOrientation,
-  type DetailLevel,
-  type Orientation,
-} from "@/lib/ai/prompt";
-import {
-  VISUAL_KINDS,
-  isVisualKind,
-  type Visual,
-  type VisualKind,
-} from "@/lib/visual/schema";
-import { formatVisualInputTooLongError } from "@/lib/limits";
+  mapGenerateError,
+  parseGeneratePayload,
+  type GeneratePayload,
+} from "./parser";
 
 // Use the Node.js runtime: the Azure call and node:crypto signing need it.
 export const runtime = "nodejs";
 
 /** Scope tag for structured error logs from this route. */
 const LOG_SCOPE = "api.generate";
-
-interface GeneratePayload {
-  text: string;
-  type?: VisualKind;
-  orientation?: Orientation;
-  detailLevel?: DetailLevel;
-  stayCloserToText?: boolean;
-}
-
-function parsePayload(
-  body: Record<string, unknown>,
-): PayloadParseResult<GeneratePayload> {
-  const text = typeof body.text === "string" ? body.text : "";
-  if (text.trim().length === 0) {
-    return { ok: false, status: 400, message: "`text` is required." };
-  }
-  // Reject oversized input BEFORE any LLM call.
-  if (text.length > MAX_INPUT_CHARS) {
-    return {
-      ok: false,
-      status: 413,
-      message: formatVisualInputTooLongError(text.length),
-    };
-  }
-
-  let type: VisualKind | undefined;
-  if (body.type !== undefined && body.type !== null) {
-    if (!isVisualKind(body.type)) {
-      return {
-        ok: false,
-        status: 400,
-        message: `\`type\` must be one of: ${VISUAL_KINDS.join(", ")}.`,
-      };
-    }
-    type = body.type;
-  }
-
-  let orientation: Orientation | undefined;
-  if (body.orientation !== undefined && body.orientation !== null) {
-    if (!isOrientation(body.orientation)) {
-      return {
-        ok: false,
-        status: 400,
-        message: `\`orientation\` must be one of: ${ORIENTATIONS.join(", ")}.`,
-      };
-    }
-    orientation = body.orientation;
-  }
-
-  let detailLevel: DetailLevel | undefined;
-  if (body.detailLevel !== undefined && body.detailLevel !== null) {
-    if (!isDetailLevel(body.detailLevel)) {
-      return {
-        ok: false,
-        status: 400,
-        message: `\`detailLevel\` must be one of: ${DETAIL_LEVELS.join(", ")}.`,
-      };
-    }
-    detailLevel = body.detailLevel;
-  }
-
-  const stayCloserToText = body.stayCloserToText === true ? true : undefined;
-
-  return {
-    ok: true,
-    payload: { text, type, orientation, detailLevel, stayCloserToText },
-  };
-}
 
 const handleGenerate = createGenerationRouteHandler<GeneratePayload, Visual[]>({
   logScope: LOG_SCOPE,
@@ -127,27 +42,11 @@ const handleGenerate = createGenerationRouteHandler<GeneratePayload, Visual[]>({
   anonymousQuotaExceededMessage:
     "You've used all your free generations. Sign in to keep creating visuals.",
   unexpectedErrorMessage: "Unexpected error while generating visuals.",
-  parsePayload,
+  parsePayload: parseGeneratePayload,
   creditText: (payload) => payload.text,
   generate: ({ payload, complete }) => generateVisuals(payload, { complete }),
   successResponse: (candidates) => NextResponse.json({ candidates }),
-  mapGenerationError: (error) => {
-    if (error instanceof EmptyInputError) {
-      return { status: 400, message: error.message };
-    }
-    if (error instanceof InputTooLongError) {
-      return { status: 413, message: error.message };
-    }
-    if (error instanceof GenerationError) {
-      return {
-        status: 502,
-        message:
-          "We couldn't generate visuals from that text. Please try again.",
-        log: { reason: "generation-failed", status: 502 },
-      };
-    }
-    return null;
-  },
+  mapGenerationError: mapGenerateError,
 });
 
 export async function POST(request: NextRequest): Promise<NextResponse> {

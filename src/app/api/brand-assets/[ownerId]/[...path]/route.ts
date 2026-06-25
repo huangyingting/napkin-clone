@@ -27,6 +27,10 @@ import { prisma } from "@/lib/prisma";
 import { decideBrandAssetAccess } from "@/lib/brand/asset-access";
 import { getBrandStorageAdapter } from "@/lib/brand/asset-storage";
 import { logError } from "@/lib/log";
+import {
+  plainTextResponse,
+  privateImmutableCacheHeaders,
+} from "@/lib/api/route-adapters";
 
 export const runtime = "nodejs";
 
@@ -64,7 +68,7 @@ export async function GET(
         : decision.status === 401
           ? "Unauthorized"
           : "Forbidden";
-    return new NextResponse(body, { status: decision.status });
+    return plainTextResponse(body, decision.status);
   }
 
   // `asset` is non-null here (a null asset would have denied with 404 above).
@@ -88,13 +92,10 @@ async function serveAsset(
     const data = await getBrandStorageAdapter().read(storageKey);
     return new NextResponse(new Uint8Array(data), {
       status: 200,
-      headers: {
-        "Content-Type": mimeType,
-        "Cache-Control": "private, max-age=31536000, immutable",
-      },
+      headers: privateImmutableCacheHeaders(mimeType),
     });
   } catch (err) {
     logError("brand-asset-serve", err, { storageKey });
-    return new NextResponse("Not found", { status: 404 });
+    return plainTextResponse("Not found", 404);
   }
 }

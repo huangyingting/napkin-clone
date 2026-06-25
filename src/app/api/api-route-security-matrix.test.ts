@@ -35,6 +35,37 @@ const MATRIX_DOC = join(
  * "public by design" decision is intentional.
  */
 const NO_APP_GATE_ALLOWLIST = new Set<string>(["auth/[...nextauth]"]);
+const MATRIX_HEADERS = [
+  "Route",
+  "Classification",
+  "Auth/session",
+  "Rate limit",
+  "Capability / share / entitlement / signature gate",
+  "Denial status / body",
+  "Response exception",
+  "Owner",
+  "Notes",
+] as const;
+const CLASSIFICATIONS = new Set([
+  "public+rate-limited",
+  "authenticated-session",
+  "document-capability",
+  "share-policy",
+  "entitlement-gated",
+  "webhook-signature",
+  "internal-secret",
+  "framework-auth",
+]);
+const RESPONSE_EXCEPTIONS = new Set([
+  "None",
+  "Binary/plain-text",
+  "Framework delegated",
+  "Provider contract",
+  "Legacy {error} body",
+]);
+
+type MatrixHeader = (typeof MATRIX_HEADERS)[number];
+type MatrixRow = Record<MatrixHeader, string>;
 
 /** Recursively collect every `route.ts` file under `src/app/api`. */
 function collectRouteKeys(): string[] {
@@ -55,11 +86,20 @@ function collectRouteKeys(): string[] {
   return keys.sort();
 }
 
-/** Parse the route keys from the matrix table's first (backticked) column. */
-function parseMatrixRouteKeys(): string[] {
+function splitMarkdownRow(line: string): string[] {
+  return line
+    .trim()
+    .slice(1, -1)
+    .split("|")
+    .map((cell) => cell.trim().replace(/`/g, ""));
+}
+
+/** Parse the route contracts from the matrix table. */
+function parseMatrixRows(): MatrixRow[] {
   const md = readFileSync(MATRIX_DOC, "utf8");
-  const keys: string[] = [];
+  const rows: MatrixRow[] = [];
   let inMatrixSection = false;
+  let headers: string[] | null = null;
   for (const line of md.split("\n")) {
     const trimmed = line.trim();
     // Only parse rows inside the "## Matrix" section, so the Classifications
@@ -72,14 +112,29 @@ function parseMatrixRouteKeys(): string[] {
     if (!inMatrixSection || !trimmed.startsWith("|")) {
       continue;
     }
-    const firstCell = trimmed.split("|")[1]?.trim() ?? "";
-    // Only rows whose first cell is a backticked route key, e.g. `brand/font`.
-    const match = firstCell.match(/^`([^`]+)`$/);
-    if (match) {
-      keys.push(match[1]);
+    const cells = splitMarkdownRow(trimmed);
+    if (!headers) {
+      headers = cells;
+      continue;
+    }
+    if (cells.every((cell) => /^-+$/.test(cell))) {
+      continue;
+    }
+    const row = Object.fromEntries(
+      MATRIX_HEADERS.map((header, index) => [header, cells[index] ?? ""]),
+    ) as MatrixRow;
+    if (row.Route) {
+      rows.push(row);
     }
   }
-  return keys.sort();
+  assert.deepEqual(headers, [...MATRIX_HEADERS], "matrix headers drifted");
+  return rows;
+}
+
+function parseMatrixRouteKeys(): string[] {
+  return parseMatrixRows()
+    .map((row) => row.Route)
+    .sort();
 }
 
 test("#509: every filesystem API route has a security-matrix row", () => {
@@ -98,6 +153,68 @@ test("#509: every filesystem API route has a security-matrix row", () => {
     missing,
     [],
     `routes missing from docs/security/api-route-security-matrix.md: ${missing.join(", ")}`,
+  );
+});
+
+test("#985: each security-matrix row has a complete validated contract", () => {
+  const rows = parseMatrixRows();
+  assert.ok(rows.length >= 13, "matrix parsed too few rows");
+
+  for (const row of rows) {
+    assert.match(
+      row.Route,
+      /^[^`|]+$/,
+      `route cell is not normalized: ${row.Route}`,
+    );
+    assert.ok(
+      CLASSIFICATIONS.has(row.Classification),
+      `${row.Route}: invalid classification ${row.Classification}`,
+    );
+    assert.notEqual(
+      row["Auth/session"],
+      "",
+      `${row.Route}: missing auth/session`,
+    );
+    assert.notEqual(row["Rate limit"], "", `${row.Route}: missing rate limit`);
+    assert.notEqual(
+      row["Capability / share / entitlement / signature gate"],
+      "",
+      `${row.Route}: missing gate`,
+    );
+    assert.notEqual(
+      row["Denial status / body"],
+      "",
+      `${row.Route}: missing denial status/body`,
+    );
+    assert.ok(
+      /\b\d{3}\b|Delegated/.test(row["Denial status / body"]),
+      `${row.Route}: denial status/body must name a status or delegation`,
+    );
+    assert.ok(
+      RESPONSE_EXCEPTIONS.has(row["Response exception"]),
+      `${row.Route}: invalid response exception ${row["Response exception"]}`,
+    );
+    assert.notEqual(row.Owner, "", `${row.Route}: missing owner`);
+  }
+});
+
+test("#985: explicit response exceptions are scoped to known route contracts", () => {
+  const exceptionRoutes = new Map(
+    parseMatrixRows()
+      .filter((row) => row["Response exception"] !== "None")
+      .map((row) => [row.Route, row["Response exception"]]),
+  );
+
+  assert.deepEqual(
+    [...exceptionRoutes],
+    [
+      ["auth/[...nextauth]", "Framework delegated"],
+      ["billing/webhook", "Provider contract"],
+      ["brand-assets/[ownerId]/[...path]", "Binary/plain-text"],
+      ["generate", "Legacy {error} body"],
+      ["generate-deck", "Legacy {error} body"],
+      ["slide-assets/[documentId]/[...path]", "Binary/plain-text"],
+    ],
   );
 });
 
