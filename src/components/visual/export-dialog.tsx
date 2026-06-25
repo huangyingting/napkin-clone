@@ -422,12 +422,12 @@ export function ExportDialog({
             aria-modal="true"
             aria-label="Export visual"
             {...popMotion}
-            className="fixed inset-0 z-modal flex items-center justify-center p-4"
+            className="tiq-full-viewport fixed inset-0 z-modal flex items-center justify-center p-4"
           >
             <PanelSurface
               elevation="popover"
               radius="xl"
-              className="relative flex w-full max-w-2xl flex-col overflow-hidden"
+              className="relative flex max-h-[calc(var(--tiq-viewport-height)-var(--ds-space-6))] w-full max-w-2xl flex-col overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
@@ -446,7 +446,7 @@ export function ExportDialog({
               </div>
 
               {/* Body */}
-              <div className="flex min-h-0 flex-1 flex-col gap-0 sm:flex-row">
+              <div className="flex min-h-0 flex-1 flex-col gap-0 overflow-y-auto overscroll-contain sm:flex-row sm:overflow-hidden">
                 {/* Preview panel */}
                 <div className="flex min-h-[180px] flex-1 items-center justify-center bg-[var(--ds-surface-sunken,#f4f8fb)] p-4 sm:min-h-[280px]">
                   <PreviewThumbnail

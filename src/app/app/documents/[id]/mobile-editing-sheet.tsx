@@ -72,7 +72,7 @@ function MobileEditingSheet() {
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
         className={cx(
-          "fixed bottom-6 right-6 z-dropdown",
+          "tiq-safe-fab fixed z-dropdown",
           "flex h-12 w-12 items-center justify-center rounded-full",
           "bg-[var(--ds-accent,#6366f1)] text-[var(--ds-text-on-accent,#ffffff)]",
           "shadow-[var(--ds-shadow-overlay,0_8px_24px_rgba(0,0,0,0.18))]",
@@ -108,7 +108,7 @@ function MobileEditingSheet() {
                   animate={sheetMotion.animate}
                   exit={sheetMotion.exit}
                   transition={{ duration: 0.24, ease: "easeOut" }}
-                  className="fixed bottom-0 left-0 right-0 z-panel flex max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl border-t border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-base,#ffffff)] shadow-[var(--ds-shadow-popover,0_12px_32px_rgba(0,0,0,0.18))]"
+                  className="tiq-mobile-sheet fixed bottom-0 left-0 right-0 z-panel flex flex-col overflow-hidden rounded-t-2xl border-t border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-base,#ffffff)] shadow-[var(--ds-shadow-popover,0_12px_32px_rgba(0,0,0,0.18))]"
                 >
                   <div className="flex shrink-0 items-center justify-between px-4 pb-2 pt-3">
                     <div
@@ -122,13 +122,13 @@ function MobileEditingSheet() {
                       type="button"
                       aria-label="Close editing panel"
                       onClick={() => setOpen(false)}
-                      className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--ds-text-muted,#52525b)] transition hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.05))]"
+                      className="tiq-touch-target flex h-7 w-7 items-center justify-center rounded-full text-[var(--ds-text-muted,#52525b)] transition hover:bg-[var(--ds-state-hover,rgba(0,0,0,0.05))]"
                     >
                       <X aria-hidden="true" className="h-4 w-4" />
                     </button>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto">
+                  <div className="min-h-0 flex-1 overscroll-contain overflow-y-auto pb-3">
                     {group === "text-format" && (
                       <Surface elevation="flat" radius="sm" bordered={false}>
                         <GenerateVisualSection />

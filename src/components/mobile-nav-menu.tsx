@@ -86,7 +86,7 @@ export function MobileNavMenu({ children }: { children: ReactNode }) {
                   animate={{ x: 0 }}
                   exit={{ x: "100%" }}
                   transition={{ duration: 0.22, ease: "easeOut" }}
-                  className="fixed right-0 top-0 z-panel flex h-full w-72 max-w-[85vw] flex-col overflow-y-auto border-l border-ds-border-strong bg-ds-surface-base shadow-xl md:hidden"
+                  className="tiq-full-viewport fixed right-0 top-0 z-panel flex h-full w-72 max-w-[85vw] flex-col overflow-y-auto border-l border-ds-border-strong bg-ds-surface-base shadow-xl md:hidden"
                 >
                   {/* Drawer header */}
                   <div className="flex h-14 shrink-0 items-center justify-between border-b border-ds-border-strong px-4">
@@ -97,7 +97,7 @@ export function MobileNavMenu({ children }: { children: ReactNode }) {
                       type="button"
                       aria-label="Close navigation menu"
                       onClick={() => setOpen(false)}
-                      className="flex h-8 w-8 items-center justify-center rounded-full text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
+                      className="tiq-touch-target flex h-8 w-8 items-center justify-center rounded-full text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
                     >
                       <X aria-hidden="true" className="h-4 w-4" />
                     </button>

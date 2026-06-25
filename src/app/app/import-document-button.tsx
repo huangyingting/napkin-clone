@@ -88,7 +88,7 @@ export function ImportDocumentButton({ className }: { className: string }) {
           setError(null);
           inputRef.current?.click();
         }}
-        className={className}
+        className={`${className} tiq-touch-target`}
         aria-label="Import document"
       >
         <Upload className="h-4 w-4" aria-hidden="true" />
@@ -97,7 +97,10 @@ export function ImportDocumentButton({ className }: { className: string }) {
           : t("dashboard.action.import")}
       </button>
       {error && (
-        <p role="alert" className="text-xs text-ds-danger-text">
+        <p
+          role="alert"
+          className="max-w-xs text-right text-xs text-ds-danger-text"
+        >
           {error} —{" "}
           <button
             type="button"
@@ -105,7 +108,7 @@ export function ImportDocumentButton({ className }: { className: string }) {
               setError(null);
               inputRef.current?.click();
             }}
-            className="underline"
+            className="tiq-touch-target inline-flex items-center underline"
           >
             retry
           </button>

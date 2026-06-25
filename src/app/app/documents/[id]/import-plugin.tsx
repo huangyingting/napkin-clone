@@ -32,7 +32,7 @@ function ImportConfirmDialog({
   }, [onCancel]);
 
   return createPortal(
-    <div className="fixed inset-0 z-modal flex items-center justify-center p-4">
+    <div className="tiq-full-viewport fixed inset-0 z-modal flex items-end justify-center p-4 sm:items-center">
       <div
         className="absolute inset-0 bg-ds-backdrop"
         aria-hidden="true"
@@ -42,7 +42,7 @@ function ImportConfirmDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="import-replace-title"
-        className="relative z-raised w-full max-w-sm rounded-2xl border border-ds-border-strong bg-ds-surface-base p-6 shadow-xl"
+        className="tiq-mobile-sheet relative z-raised w-full max-w-sm rounded-ds-xl border border-ds-border-strong bg-ds-surface-base p-6 shadow-ds-popover"
       >
         <h2
           id="import-replace-title"
@@ -54,18 +54,18 @@ function ImportConfirmDialog({
           Importing will replace everything currently in this document. This can
           be undone right after.
         </p>
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="sticky bottom-0 mt-6 flex justify-end gap-3 bg-ds-surface-base pb-[var(--tiq-safe-area-bottom)]">
           <button
             type="button"
             onClick={onCancel}
-            className="flex h-9 items-center justify-center rounded-full border border-ds-border-strong px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
+            className="tiq-touch-target flex h-9 items-center justify-center rounded-full border border-ds-border-strong px-4 text-sm font-medium text-ds-text-secondary transition hover:bg-ds-surface-sunken hover:text-ds-text-primary"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="flex h-9 items-center justify-center rounded-full bg-ds-accent px-4 text-sm font-medium text-ds-text-on-accent transition hover:opacity-90 disabled:opacity-60"
+            className="tiq-touch-target flex h-9 items-center justify-center rounded-full bg-ds-accent px-4 text-sm font-medium text-ds-text-on-accent transition hover:opacity-90 disabled:opacity-60"
           >
             Replace
           </button>
