@@ -12,6 +12,10 @@
  */
 
 import { CONNECTOR_ANCHORS, anchorPoint } from "./connector-geometry";
+import {
+  SHORTCUT_REGISTRY,
+  shortcutDisplayLabel,
+} from "@/lib/shortcuts/catalog";
 import type {
   ConnectorAnchor,
   ConnectorElement,
@@ -376,74 +380,17 @@ export interface ShortcutHelpGroup {
 export function canvasShortcutHelp(
   opts: { isMac?: boolean } = {},
 ): ShortcutHelpGroup[] {
-  const mod = opts.isMac ? "⌘" : "Ctrl";
-  return [
-    {
-      title: "Selection",
-      entries: [
-        {
-          keys: "Tab / Shift + Tab",
-          description: "Select next / previous element",
-        },
-        { keys: "Space", description: "Select the focused element" },
-        {
-          keys: "Shift + Space",
-          description: "Add / remove from multi-selection",
-        },
-        { keys: `${mod} + A`, description: "Select all elements" },
-        {
-          keys: "Escape",
-          description: "Clear selection / release canvas focus",
-        },
-      ],
-    },
-    {
-      title: "Move & resize",
-      entries: [
-        { keys: "Arrow", description: "Move selection by 1%" },
-        { keys: "Shift + Arrow", description: "Move selection by 5%" },
-        { keys: "Alt + Arrow", description: "Resize selection by 1%" },
-        { keys: "Alt + Shift + Arrow", description: "Resize selection by 5%" },
-      ],
-    },
-    {
-      title: "Edit",
-      entries: [
-        { keys: "Enter", description: "Edit text / enter group" },
-        { keys: "Delete / Backspace", description: "Delete selection" },
-        { keys: `${mod} + D`, description: "Duplicate selection" },
-        { keys: `${mod} + C / X / V`, description: "Copy / cut / paste" },
-        { keys: `${mod} + Z`, description: "Undo" },
-        { keys: `${mod} + Shift + Z`, description: "Redo" },
-      ],
-    },
-    {
-      title: "Arrange",
-      entries: [
-        { keys: `${mod} + G`, description: "Group selection" },
-        { keys: `${mod} + Shift + G`, description: "Ungroup" },
-      ],
-    },
-    {
-      title: "Connectors",
-      entries: [
-        { keys: "C", description: "Connect two selected elements" },
-        {
-          keys: "C / Shift + C",
-          description: "Cycle a connector's end / start anchor",
-        },
-      ],
-    },
-    {
-      title: "Slides",
-      entries: [
-        {
-          keys: "Arrow Left / Right",
-          description: "Previous / next slide (nothing selected)",
-        },
-        { keys: `${mod} + N`, description: "New slide" },
-        { keys: "?", description: "Show this keyboard help" },
-      ],
-    },
-  ];
+  const groups = new Map<string, ShortcutHelpEntry[]>();
+  for (const shortcut of SHORTCUT_REGISTRY) {
+    if (shortcut.surface !== "slide-canvas" || !shortcut.helpGroup) {
+      continue;
+    }
+    const entries = groups.get(shortcut.helpGroup) ?? [];
+    entries.push({
+      keys: shortcutDisplayLabel(shortcut, opts),
+      description: shortcut.description,
+    });
+    groups.set(shortcut.helpGroup, entries);
+  }
+  return Array.from(groups, ([title, entries]) => ({ title, entries }));
 }

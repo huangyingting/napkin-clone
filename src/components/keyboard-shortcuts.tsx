@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Dialog, IconButton, Tooltip } from "@/components/ui";
 import {
   SHORTCUT_SCOPES,
+  shortcutDisplayTokens,
   shortcutsForScope,
   type ShortcutEntry,
 } from "@/lib/shortcuts/catalog";
@@ -77,13 +78,13 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
               <ul className="flex flex-col gap-1.5">
                 {entries.map((entry) => (
                   <li
-                    key={entry.description}
+                    key={entry.id}
                     className="flex items-center justify-between gap-4"
                   >
                     <span className="text-sm text-ds-text-secondary">
                       {entry.description}
                     </span>
-                    <KeyCombo keys={entry.keys} />
+                    <KeyCombo keys={shortcutDisplayTokens(entry)} />
                   </li>
                 ))}
               </ul>

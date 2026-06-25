@@ -65,7 +65,8 @@ The canvas already supports a non-trivial keyboard model:
   "next/previous element" model, and focus is not guaranteed to be restored to a
   sensible element after a mutation (move/delete/duplicate/group). There is no
   `aria-live` announcement of selection or move/resize results.
-- **No keyboard rotation.** Rotation is pointer-only (decorative).
+- **No keyboard rotation.** Rotation is pointer-only (decorative) and tracked in
+  #931.
 
 ## Decision
 
@@ -113,30 +114,32 @@ and keep their place after every edit.
   both (facing anchors via `buildConnectorBetween`); with a connector selected,
   **C** / **Shift+C** cycle its end / start endpoint among the candidate anchors
   (`cycleEndpointAnchor`). **Still deferred:** free-draw connector authoring
-  with arbitrary routing remains pointer-only. **User impact:** keyboard users
-  can connect and rebind elements but cannot free-draw an arbitrary path;
-  mitigated by default-endpoint insertion + anchor cycling + nudging.
-- **A2 — Keyboard rotation.** Deferred. Rotation is decorative and rarely needed
-  for comprehension; pointer-only is acceptable short term. **User impact:**
-  minimal; rotation is not required to author readable slides.
+  with arbitrary routing remains pointer-only and is tracked in #930. **User
+  impact:** keyboard users can connect and rebind elements but cannot free-draw
+  an arbitrary path; mitigated by default-endpoint insertion + anchor cycling +
+  nudging.
+- **A2 — Keyboard rotation.** Deferred and tracked in #931. Rotation is
+  decorative and rarely needed for comprehension; pointer-only is acceptable
+  short term. **User impact:** minimal; rotation is not required to author
+  readable slides.
 
 These limitations remain recorded as release-gate **AC-5** warnings (Part 3 of
-`docs/operations/release-gate.md`) until closed.
+`docs/operations/release-gate.md`) until #930 and #931 are closed.
 
 ### Ownership and timing
 
 - **Owner:** Accessibility / QA (Ghost) with the Presentation surface owner.
 - **Time-box:** R1–R3 shipped in the canvas keyboard accessibility wave
   (issues #530–#535), together with the A1 interim subset (connector
-  create/reattach). A2 (rotation) and free-draw connector authoring are
-  revisited in a later wave; AC-5 stays an explicit, signed-off release warning
-  for those remaining gaps.
+  create/reattach). A2 (rotation, #931) and free-draw connector authoring (#930)
+  are revisited in a later wave; AC-5 stays an explicit, signed-off release
+  warning for those remaining gaps.
 
 ## Consequences
 
 - The release gate's AC-5 item now points at this ADR; R1–R3 ship and AC-5 is a
-  narrowed warning covering only the accepted A1 (free-draw) / A2 (rotation)
-  limitations.
+  narrowed warning covering only the accepted A1 (free-draw, #930) / A2
+  (rotation, #931) limitations.
 - R1–R3 are additive to the existing keyboard model and the pure helpers that
   back it (`elementAccessibleName`, the nudge/step logic, and the new
   `canvas-a11y.ts` module), implemented and unit-tested
@@ -161,7 +164,7 @@ The wave delivered these (status in parentheses):
    `aria-live` updates for selection and operation results (#533 R3 — ✅ shipped).
 5. **Keyboard connector create/reattach** — connect two selected elements and
    rebind endpoints to anchors via keyboard (#534 A1 — 🟡 interim subset shipped;
-   free-draw still deferred).
+   free-draw tracked in #930).
 6. **In-product canvas keyboard shortcut help** — surface the keyboard model in
    the slide editor help overlay (#535 — ✅ shipped).
 
