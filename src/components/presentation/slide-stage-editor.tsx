@@ -38,10 +38,12 @@ import {
   Link2Off,
   Lock,
   LockOpen,
+  Minus,
   Palette,
   Pencil,
   RotateCw,
   Scissors,
+  Spline,
   Trash2,
   Ungroup,
   type LucideIcon,
@@ -2867,6 +2869,17 @@ export function ElementToolbarContent({
       ) : null}
       {element.kind === "connector" ? (
         <>
+          <ToolbarButton
+            icon={element.routing === "elbow" ? Minus : Spline}
+            label={
+              element.routing === "elbow" ? "Straight routing" : "Elbow routing"
+            }
+            onClick={() =>
+              onUpdateElement(element.id, {
+                routing: element.routing === "elbow" ? "straight" : "elbow",
+              })
+            }
+          />
           <ToolbarButton
             icon={element.dash ? Link : Link2Off}
             label={element.dash ? "Solid line" : "Dashed line"}

@@ -1959,6 +1959,24 @@ function ConnectorElementEditor({
         </select>
       </label>
 
+      {/* Routing */}
+      <label className="block">
+        <span className={LABEL_CLASS}>Routing</span>
+        <select
+          value={element.routing ?? "straight"}
+          onChange={(event) =>
+            onUpdateElement(element.id, {
+              routing: event.target.value as "straight" | "elbow",
+            })
+          }
+          className={`${FIELD_CLASS} ${FOCUS_RING}`}
+          aria-label="Connector routing"
+        >
+          <option value="straight">Straight</option>
+          <option value="elbow">Elbow</option>
+        </select>
+      </label>
+
       {/* Dashed line toggle */}
       <label className="flex items-center justify-between gap-2">
         <span className={LABEL_CLASS + " mb-0"}>Dashed line</span>
@@ -2613,7 +2631,9 @@ export function SlideInspector({
     (selectedElement?.kind === "shape" && selectedElement.shape !== "line");
   const canShowEffectsPanel = selectedElement !== null;
   const canShowMediaPanel =
-    selectedElement?.kind === "image" || selectedElement?.kind === "visual";
+    selectedElement?.kind === "image" ||
+    selectedElement?.kind === "visual" ||
+    selectedElement?.kind === "connector";
   const canShowSourcePanel = shouldShowSourceTab(selectedElement);
   const requestedPanel = initialTab ?? "position";
   const panel: Panel =
@@ -2899,7 +2919,8 @@ export function SlideInspector({
                   {elementLabel(selectedElement)}
                 </p>
                 {selectedElement.kind === "image" ||
-                selectedElement.kind === "visual" ? (
+                selectedElement.kind === "visual" ||
+                selectedElement.kind === "connector" ? (
                   <ElementEditor
                     element={selectedElement}
                     deck={deck}
@@ -2911,8 +2932,8 @@ export function SlideInspector({
                   />
                 ) : (
                   <p className="text-xs text-ds-text-muted">
-                    Media settings are available for images and document
-                    visuals.
+                    Media settings are available for images, document visuals,
+                    and connectors.
                   </p>
                 )}
               </>

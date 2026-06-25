@@ -5,6 +5,7 @@ import type { ElementBox, ShapeElement, SlideElement } from "./deck";
 import {
   anchorPoint,
   connectorAnchorCandidates,
+  connectorElbowPoints,
   lineBoxFromEndpoints,
   lineEndpoints,
   resolveConnectorEndpoint,
@@ -370,4 +371,35 @@ test("connectorAnchorCandidates excludes connectors, the active line, and other 
   );
 
   assert.deepEqual(candidates, []);
+});
+
+test("connectorElbowPoints: horizontal-dominant routes via midpoint x", () => {
+  const pts = connectorElbowPoints({ x: 10, y: 20 }, { x: 50, y: 40 });
+  assert.deepEqual(pts, [
+    { x: 10, y: 20 },
+    { x: 30, y: 20 },
+    { x: 30, y: 40 },
+    { x: 50, y: 40 },
+  ]);
+});
+
+test("connectorElbowPoints: vertical-dominant routes via midpoint y", () => {
+  const pts = connectorElbowPoints({ x: 20, y: 10 }, { x: 40, y: 70 });
+  assert.deepEqual(pts, [
+    { x: 20, y: 10 },
+    { x: 20, y: 40 },
+    { x: 40, y: 40 },
+    { x: 40, y: 70 },
+  ]);
+});
+
+test("connectorElbowPoints: collinear points collapse to a straight segment", () => {
+  assert.deepEqual(connectorElbowPoints({ x: 10, y: 5 }, { x: 80, y: 5 }), [
+    { x: 10, y: 5 },
+    { x: 80, y: 5 },
+  ]);
+  assert.deepEqual(connectorElbowPoints({ x: 5, y: 10 }, { x: 5, y: 80 }), [
+    { x: 5, y: 10 },
+    { x: 5, y: 80 },
+  ]);
 });
