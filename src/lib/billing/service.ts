@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getEntitlements, isPlan, type Plan } from "./catalog";
 
 type PrismaClientLike = typeof prisma;
+type BillingWriteClient = Pick<PrismaClientLike, "subscription" | "user">;
 
 export interface BillingSubscriptionState {
   plan: string;
@@ -155,41 +156,76 @@ export async function applyLocalPlanChange(
     updateSubscriptionPeriodOnExisting = true,
     cancelAtPeriodEnd = false,
   } = options;
+
+  await client.$transaction(async (tx) =>
+    writeLocalPlanChange(tx, userId, targetPlan, {
+      status,
+      stripeCustomerId,
+      stripeSubscriptionId,
+      currentPeriodStart,
+      currentPeriodEnd,
+      updateSubscriptionPeriodOnExisting,
+      cancelAtPeriodEnd,
+    }),
+  );
+}
+
+export async function writeLocalPlanChange(
+  client: BillingWriteClient,
+  userId: string,
+  targetPlan: Plan,
+  options: Required<
+    Pick<
+      LocalPlanChangeOptions,
+      | "status"
+      | "currentPeriodStart"
+      | "currentPeriodEnd"
+      | "updateSubscriptionPeriodOnExisting"
+      | "cancelAtPeriodEnd"
+    >
+  > &
+    Pick<LocalPlanChangeOptions, "stripeCustomerId" | "stripeSubscriptionId">,
+): Promise<void> {
   const entitlements = getEntitlements(targetPlan);
 
-  await client.$transaction([
-    client.user.update({
-      where: { id: userId },
-      data: {
-        plan: targetPlan,
-        creditBalance: entitlements.creditsPerPeriod,
-        creditPeriodStart: currentPeriodStart,
-      },
-    }),
-    client.subscription.upsert({
-      where: { userId },
-      create: {
-        userId,
-        plan: targetPlan,
-        status,
-        stripeCustomerId,
-        stripeSubscriptionId,
-        currentPeriodStart,
-        currentPeriodEnd,
-        cancelAtPeriodEnd,
-      },
-      update: {
-        plan: targetPlan,
-        status,
-        ...(stripeCustomerId !== undefined ? { stripeCustomerId } : {}),
-        ...(stripeSubscriptionId !== undefined ? { stripeSubscriptionId } : {}),
-        ...(updateSubscriptionPeriodOnExisting
-          ? { currentPeriodStart, currentPeriodEnd }
-          : {}),
-        cancelAtPeriodEnd,
-      },
-    }),
-  ]);
+  await client.user.update({
+    where: { id: userId },
+    data: {
+      plan: targetPlan,
+      creditBalance: entitlements.creditsPerPeriod,
+      creditPeriodStart: options.currentPeriodStart,
+    },
+  });
+  await client.subscription.upsert({
+    where: { userId },
+    create: {
+      userId,
+      plan: targetPlan,
+      status: options.status,
+      stripeCustomerId: options.stripeCustomerId,
+      stripeSubscriptionId: options.stripeSubscriptionId,
+      currentPeriodStart: options.currentPeriodStart,
+      currentPeriodEnd: options.currentPeriodEnd,
+      cancelAtPeriodEnd: options.cancelAtPeriodEnd,
+    },
+    update: {
+      plan: targetPlan,
+      status: options.status,
+      ...(options.stripeCustomerId !== undefined
+        ? { stripeCustomerId: options.stripeCustomerId }
+        : {}),
+      ...(options.stripeSubscriptionId !== undefined
+        ? { stripeSubscriptionId: options.stripeSubscriptionId }
+        : {}),
+      ...(options.updateSubscriptionPeriodOnExisting
+        ? {
+            currentPeriodStart: options.currentPeriodStart,
+            currentPeriodEnd: options.currentPeriodEnd,
+          }
+        : {}),
+      cancelAtPeriodEnd: options.cancelAtPeriodEnd,
+    },
+  });
 }
 
 export async function recordStripeCustomer(
@@ -258,6 +294,16 @@ export async function applyLocalSubscriptionUpdate(
   next: LocalSubscriptionUpdate,
   client: PrismaClientLike = prisma,
 ): Promise<"applied" | "missing" | "stale"> {
+  return client.$transaction(async (tx) =>
+    writeLocalSubscriptionUpdate(tx, stripeSubscriptionId, next),
+  );
+}
+
+export async function writeLocalSubscriptionUpdate(
+  client: BillingWriteClient,
+  stripeSubscriptionId: string,
+  next: LocalSubscriptionUpdate,
+): Promise<"applied" | "missing" | "stale"> {
   const sub = await client.subscription.findUnique({
     where: { stripeSubscriptionId },
   });
@@ -299,17 +345,29 @@ export async function applyLocalSubscriptionDeleted(
   client: PrismaClientLike = prisma,
   now: Date = new Date(),
 ): Promise<"applied" | "missing"> {
+  return client.$transaction(async (tx) =>
+    writeLocalSubscriptionDeleted(tx, stripeSubscriptionId, next, now),
+  );
+}
+
+export async function writeLocalSubscriptionDeleted(
+  client: BillingWriteClient,
+  stripeSubscriptionId: string,
+  next: LocalSubscriptionUpdate,
+  now: Date = new Date(),
+): Promise<"applied" | "missing"> {
   const sub = await client.subscription.findUnique({
     where: { stripeSubscriptionId },
   });
   if (!sub) return "missing";
 
-  await applyLocalPlanChange(sub.userId, "free", {
-    client,
-    now,
+  await writeLocalPlanChange(client, sub.userId, "free", {
     status: next.status,
+    stripeCustomerId: sub.stripeCustomerId,
+    stripeSubscriptionId,
     currentPeriodStart: now,
     currentPeriodEnd: now,
+    updateSubscriptionPeriodOnExisting: true,
     cancelAtPeriodEnd: next.cancelAtPeriodEnd,
   });
 

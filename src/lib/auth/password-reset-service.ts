@@ -22,8 +22,13 @@ import {
 import { singleUseTokenExpiresAt } from "@/lib/auth/single-use-token";
 import { logError } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
+import { logSecurityAudit } from "@/lib/security-audit";
 
 type PrismaClientLike = typeof prisma;
+type PasswordResetWriteClient = Pick<
+  PrismaClientLike,
+  "passwordResetToken" | "user"
+>;
 
 export const GENERIC_PASSWORD_RESET_SENT_MESSAGE =
   "If an account exists for that email, we've sent a link to reset your password.";
@@ -60,6 +65,10 @@ export async function requestPasswordResetForEmail(
         resetUrl: buildPasswordResetUrl(rawToken),
       });
     }
+    logSecurityAudit("auth.password_reset.requested", {
+      ...(user ? { userId: user.id } : {}),
+      outcome: "accepted",
+    });
   } catch (error) {
     logError("password-reset", error);
   }
@@ -116,24 +125,69 @@ export async function resetPasswordWithToken(
     const passwordHash = await hashPassword(newPassword);
     const usedAt = new Date();
 
-    await client.$transaction([
-      client.user.update({
-        where: { id: record.userId },
-        data: { passwordHash },
+    const consumed = await client.$transaction(async (tx) =>
+      consumePasswordResetTokenAndUpdatePassword(tx, {
+        tokenId: record.id,
+        userId: record.userId,
+        passwordHash,
+        usedAt,
       }),
-      client.passwordResetToken.update({
-        where: { id: record.id },
-        data: { usedAt },
-      }),
-      client.passwordResetToken.updateMany({
-        where: { userId: record.userId, usedAt: null, id: { not: record.id } },
-        data: { usedAt },
-      }),
-    ]);
+    );
 
+    if (!consumed) {
+      logSecurityAudit("auth.password_reset.consumed", {
+        userId: record.userId,
+        outcome: "rejected",
+        reason: "used",
+      });
+      return {
+        status: "error",
+        message: RESET_TOKEN_REJECTION_MESSAGE.used,
+      };
+    }
+
+    logSecurityAudit("auth.password_reset.consumed", {
+      userId: record.userId,
+      outcome: "success",
+    });
     return { status: "success" };
   } catch (error) {
     logError("password-reset", error);
     return { status: "error", message: GENERIC_RESET_ERROR };
   }
+}
+
+async function consumePasswordResetTokenAndUpdatePassword(
+  client: PasswordResetWriteClient,
+  input: {
+    tokenId: string;
+    userId: string;
+    passwordHash: string;
+    usedAt: Date;
+  },
+): Promise<boolean> {
+  const consumed = await client.passwordResetToken.updateMany({
+    where: {
+      id: input.tokenId,
+      userId: input.userId,
+      usedAt: null,
+      expiresAt: { gt: input.usedAt },
+    },
+    data: { usedAt: input.usedAt },
+  });
+
+  if (consumed.count !== 1) {
+    return false;
+  }
+
+  await client.user.update({
+    where: { id: input.userId },
+    data: { passwordHash: input.passwordHash },
+  });
+  await client.passwordResetToken.updateMany({
+    where: { userId: input.userId, usedAt: null, id: { not: input.tokenId } },
+    data: { usedAt: input.usedAt },
+  });
+
+  return true;
 }

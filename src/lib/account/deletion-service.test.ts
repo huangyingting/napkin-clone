@@ -60,6 +60,7 @@ test("deleteAccountForUser attempts billing cancellation and still deletes if ca
   const client = makeClient("ada@example.com");
   const cancelCalls: string[] = [];
   const logs: string[] = [];
+  const audits: Array<{ event: string; context: Record<string, unknown> }> = [];
 
   const result = await deleteAccountForUser(
     { userId: "u1", confirmation: "ADA@example.com" },
@@ -73,12 +74,25 @@ test("deleteAccountForUser attempts billing cancellation and still deletes if ca
       log(scope) {
         logs.push(scope);
       },
+      audit(event, context) {
+        audits.push({ event, context: context ?? {} });
+      },
     },
   );
 
   assert.deepEqual(result, { ok: true, data: undefined });
   assert.deepEqual(cancelCalls, ["u1"]);
   assert.deepEqual(logs, ["billing.subscription.cancel_immediate"]);
+  assert.deepEqual(audits[0], {
+    event: "account.deletion.billing_reconciliation_required",
+    context: {
+      userId: "u1",
+      subscriptionId: "sub_123",
+      status: "active",
+      reason: "stripe-cancellation-failed",
+      outcome: "failed",
+    },
+  });
   assert.deepEqual(client._deleted, ["u1"]);
 });
 
@@ -95,6 +109,7 @@ test("deleteAccountForUser skips billing cancellation for terminal subscriptions
         status: "cancelled",
       }),
       getProvider: async () => makeBillingProvider(cancelCalls),
+      audit() {},
     },
   );
 

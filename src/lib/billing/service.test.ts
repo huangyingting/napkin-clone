@@ -98,8 +98,8 @@ function makeFakeClient() {
         );
       },
     },
-    $transaction(ops: Promise<unknown>[]) {
-      return Promise.all(ops);
+    $transaction<T>(arg: Promise<unknown>[] | ((tx: unknown) => Promise<T>)) {
+      return typeof arg === "function" ? arg(client) : Promise.all(arg);
     },
     _users: users,
     _subs: subs,

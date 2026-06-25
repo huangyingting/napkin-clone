@@ -10,6 +10,7 @@ import {
 } from "@/lib/billing/service";
 import { logError } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
+import { logSecurityAudit } from "@/lib/security-audit";
 
 type PrismaClientLike = typeof prisma;
 
@@ -24,6 +25,7 @@ export interface DeleteAccountDependencies {
   ) => Promise<SubscriptionCancellationState | null>;
   getProvider?: () => Promise<BillingProvider>;
   log?: typeof logError;
+  audit?: typeof logSecurityAudit;
 }
 
 export async function deleteAccountForUser(
@@ -35,6 +37,7 @@ export async function deleteAccountForUser(
     getCancellationState = getSubscriptionCancellationState,
     getProvider = getBillingProvider,
     log = logError,
+    audit = logSecurityAudit,
   } = dependencies;
   const confirmation = String(input.confirmation ?? "").trim();
 
@@ -67,10 +70,23 @@ export async function deleteAccountForUser(
           userId: input.userId,
           reason: "account-deletion",
         });
+        audit("account.deletion.billing_reconciliation_required", {
+          userId: input.userId,
+          ...(sub?.stripeSubscriptionId
+            ? { subscriptionId: sub.stripeSubscriptionId }
+            : {}),
+          ...(sub?.status ? { status: sub.status } : {}),
+          reason: "stripe-cancellation-failed",
+          outcome: "failed",
+        });
       }
     }
 
     await client.user.delete({ where: { id: input.userId } });
+    audit("account.deletion.completed", {
+      userId: input.userId,
+      outcome: "success",
+    });
   } catch {
     return actionError(GENERIC_DELETE_ERROR);
   }

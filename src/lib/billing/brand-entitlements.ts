@@ -20,8 +20,8 @@
  */
 
 import {
-  createEntitlementFacade,
   FEATURE_UPGRADE_MESSAGES,
+  decideEntitlement,
   resolveUserEntitlements,
 } from "@/lib/billing/entitlement-facade";
 import { BRAND_WEB_FONTS } from "@/lib/brand/schema";
@@ -69,10 +69,9 @@ export class BrandEntitlementError extends Error {
 export function brandEntitlementDecision(
   plan: string | null | undefined,
 ): BrandEntitlementDecision {
-  const entitlements = createEntitlementFacade(plan).entitlements;
   return {
-    canBrand: entitlements.brandStyles,
-    canFontUpload: entitlements.fontUpload,
+    canBrand: decideEntitlement(plan, "brandStyles").allowed,
+    canFontUpload: decideEntitlement(plan, "fontUpload").allowed,
   };
 }
 
