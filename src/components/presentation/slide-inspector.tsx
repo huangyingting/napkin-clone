@@ -123,6 +123,13 @@ import { DEFAULT_SLIDE_FORMAT } from "@/lib/presentation/slide-format";
 import type { Visual } from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { applyTheme, isThemeActive } from "@/lib/visual/transforms";
+import { ArrangePanel } from "@/components/presentation/inspector/arrange-panel";
+import { LayersPanel } from "@/components/presentation/inspector/layers-panel";
+import { TextInspectorPanel } from "@/components/presentation/inspector/text-panel";
+import { EffectsInspectorPanel } from "@/components/presentation/inspector/effects-panel";
+import { MediaInspectorPanel } from "@/components/presentation/inspector/media-panel";
+import { SlideInspectorPanel } from "@/components/presentation/inspector/slide-panel";
+import { SourceInspectorPanel } from "@/components/presentation/inspector/source-panel";
 
 const SHAPE_OPTIONS: ShapeKind[] = ["rect", "ellipse", "line", "triangle"];
 
@@ -2890,12 +2897,7 @@ export function SlideInspector({
 
       <div className="flex flex-col gap-4 px-4 py-4">
         {panel === "position" && positionTab === "arrange" ? (
-          <div
-            role="tabpanel"
-            id="inspector-panel-arrange"
-            aria-labelledby="inspector-tab-arrange"
-            className="flex flex-col gap-4"
-          >
+          <ArrangePanel>
             {selectedElementIds && selectedElementIds.size >= 2 ? (
               <MultiSelectTools
                 selectedIds={[...selectedElementIds]}
@@ -2914,16 +2916,11 @@ export function SlideInspector({
                 Select an element to arrange it.
               </p>
             )}
-          </div>
+          </ArrangePanel>
         ) : null}
 
         {panel === "position" && positionTab === "layers" ? (
-          <div
-            role="tabpanel"
-            id="inspector-panel-layers"
-            aria-labelledby="inspector-tab-layers"
-            className="flex flex-col gap-4"
-          >
+          <LayersPanel>
             <>
               {/* Layer list (issue #331): single rich list with select, rename,
                   visibility, lock, z-order, filter, and drag-reorder (#639). */}
@@ -2955,46 +2952,31 @@ export function SlideInspector({
                 />
               )}
             </>
-          </div>
+          </LayersPanel>
         ) : null}
 
         {panel === "text" ? (
-          <div
-            role="tabpanel"
-            id="inspector-panel-text"
-            aria-label="Text settings"
-            className="flex flex-col gap-4"
-          >
+          <TextInspectorPanel>
             <TextPanel
               element={selectedElement}
               deck={deck}
               slide={slide}
               onUpdateElement={onUpdateElement}
             />
-          </div>
+          </TextInspectorPanel>
         ) : null}
 
         {panel === "effects" ? (
-          <div
-            role="tabpanel"
-            id="inspector-panel-effects"
-            aria-label="Effects settings"
-            className="flex flex-col gap-4"
-          >
+          <EffectsInspectorPanel>
             <EffectsPanel
               element={selectedElement}
               onUpdateElement={onUpdateElement}
             />
-          </div>
+          </EffectsInspectorPanel>
         ) : null}
 
         {panel === "media" ? (
-          <div
-            role="tabpanel"
-            id="inspector-panel-media"
-            aria-label="Media settings"
-            className="flex flex-col gap-4"
-          >
+          <MediaInspectorPanel>
             {selectedElement ? (
               <>
                 <p className="text-xs font-medium uppercase tracking-wide text-ds-text-muted">
@@ -3024,16 +3006,11 @@ export function SlideInspector({
                 Select an image or visual to edit media settings.
               </p>
             )}
-          </div>
+          </MediaInspectorPanel>
         ) : null}
 
         {panel === "slide" ? (
-          <div
-            role="tabpanel"
-            id="inspector-panel-slide"
-            aria-labelledby="inspector-tab-slide"
-            className="flex flex-col gap-4"
-          >
+          <SlideInspectorPanel>
             {selectedLayout ? (
               <div className="rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised p-3">
                 <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ds-text-muted">
@@ -3205,16 +3182,11 @@ export function SlideInspector({
               Overrides apply to this slide only. Image &gt; gradient &gt; solid
               color. “Theme” clears the color override.
             </p>
-          </div>
+          </SlideInspectorPanel>
         ) : null}
 
         {panel === "source" ? (
-          <div
-            role="tabpanel"
-            id="inspector-panel-source"
-            aria-labelledby="inspector-tab-source"
-            className="flex flex-col gap-4"
-          >
+          <SourceInspectorPanel>
             <SourceSummary
               element={selectedElement}
               staleReason={
@@ -3226,7 +3198,7 @@ export function SlideInspector({
               onUnlink={onUnlinkElementSource}
               onRelink={onRelinkElementSource}
             />
-          </div>
+          </SourceInspectorPanel>
         ) : null}
       </div>
     </aside>

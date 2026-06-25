@@ -34,10 +34,8 @@ import {
   Grid3x3,
   Image as ImageIcon,
   Keyboard,
-  LayoutPanelLeft,
   List,
   Minus,
-  MoreHorizontal,
   Plus,
   Redo2,
   RefreshCw,
@@ -49,8 +47,6 @@ import {
   X,
   Palette,
   Type,
-  BringToFront,
-  SendToBack,
 } from "lucide-react";
 import {
   useCallback,
@@ -69,20 +65,13 @@ import { useFocusTrap } from "@/lib/presentation/use-focus-trap";
 import {
   DECK_THEMES,
   SlideCanvas,
-  type ThemeConfig,
 } from "@/components/presentation/slide-canvas";
 import {
   SlideInspector,
-  SpeakerNotesControl,
   type AddElementKind,
 } from "@/components/presentation/slide-inspector";
-import {
-  ElementToolbarContent,
-  SlideStageEditor,
-  type SelectionMode,
-} from "@/components/presentation/slide-stage-editor";
+import { SlideStageEditor } from "@/components/presentation/slide-stage-editor";
 import { VisualPicker } from "@/components/presentation/visual-picker";
-import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { IconButton, Tooltip } from "@/components/ui";
 import { Dialog } from "@/components/ui/dialog";
 import { Popover } from "@/components/ui/popover";
@@ -91,8 +80,6 @@ import {
   DEFAULT_SCREEN_SIZE,
   fitAspectRatio,
   type Size,
-  ZOOM_PERCENT_PRESETS,
-  zoomToPercent,
 } from "@/lib/presentation/stage-fit";
 import {
   buildVisualElement,
@@ -108,8 +95,6 @@ import {
 import {
   resolveSlideFormat,
   slideAspectRatio,
-  SLIDE_FORMATS,
-  slideFormatConfig,
   type SlideFormat,
 } from "@/lib/presentation/slide-format";
 import {
@@ -125,11 +110,7 @@ import {
 } from "@/lib/presentation/slide-templates";
 import {
   SAVE_STATUS_LABEL,
-  SLIDE_SAVE_DEBOUNCE_MS,
   resolveSaveErrorMessage,
-  resolveSaveStatus,
-  shouldPersist,
-  shouldScheduleAutosave,
 } from "@/lib/presentation/save-status";
 import {
   commitCommand,
@@ -172,11 +153,7 @@ import type {
 import type { ArrangeMode } from "@/lib/presentation/element-arrange";
 import { deriveSlideTitle } from "@/lib/presentation/slide-title";
 import {
-  isSelectionToolbarVisible,
   shouldCollapseToolbar,
-  shouldShowRichToolbarControls,
-  toolbarPanelEntries,
-  toToolbarSelectionKind,
   type RightPanelTab,
 } from "@/lib/presentation/slide-panel-ui";
 import {
@@ -210,6 +187,25 @@ import {
   type TextLikeElement,
 } from "@/lib/presentation/text-element-fit";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
+import {
+  appendPendingPatches,
+  clearPendingPatches,
+  useSlideEditorAutosaveQueue,
+  useSlideEditorCommit,
+  type SlideDeckChangeHandler,
+} from "@/components/presentation/use-slide-editor-commit";
+import { useSlideClipboard } from "@/components/presentation/use-slide-clipboard";
+import { useSlideSelection } from "@/components/presentation/use-slide-selection";
+import { SlideSelectionToolbar } from "@/components/presentation/slide-selection-toolbar";
+import {
+  SlideBottomDock,
+  SlideNotesDrawer,
+} from "@/components/presentation/slide-bottom-dock";
+import { SlideSizeControl } from "@/components/presentation/slide-size-control";
+import { MergeSummaryDialog } from "@/components/presentation/merge-summary-dialog";
+import { SlideEditorTopToolbar } from "@/components/presentation/slide-editor-top-toolbar";
+import { SlideRail } from "@/components/presentation/slide-rail";
+import { FromDocumentPanel } from "@/components/presentation/document-insertable-panel";
 
 interface SlideEditorProps {
   deck: Deck;
@@ -233,7 +229,7 @@ interface SlideEditorProps {
    * panel is opened without a live document context.
    */
   documentId?: string;
-  onDeckChange: (deck: Deck) => void;
+  onDeckChange: SlideDeckChangeHandler;
   onClose: () => void;
   /**
    * Persists the deck through the owner-scoped save action. Returns the
@@ -510,26 +506,6 @@ function hsvToHex(h: number, s: number, v: number): string {
 }
 
 const FLOATING_PANEL_STAGE_RESERVE_PX = 352;
-const PASTE_OFFSET_PCT = 3;
-const PASTE_OFFSET_WRAP_STEPS = 8;
-
-function appendPendingPatches(
-  pendingPatchesRef: { current: DeckPatch[] },
-  patches: DeckPatch[],
-) {
-  pendingPatchesRef.current = [...pendingPatchesRef.current, ...patches];
-}
-
-function clearPendingPatches(pendingPatchesRef: { current: DeckPatch[] }) {
-  pendingPatchesRef.current = [];
-}
-
-function replacePendingPatches(
-  pendingPatchesRef: { current: DeckPatch[] },
-  patches: DeckPatch[],
-) {
-  pendingPatchesRef.current = patches;
-}
 
 /** Builds a freshly-positioned element for the "Add" buttons. */
 function buildDefaultElement(
@@ -785,17 +761,6 @@ export function SlideEditor({
   }, []);
   const [stageBounds, setStageBounds] = useState<Size>(DEFAULT_SCREEN_SIZE);
 
-  const [selectedElementId, setSelectedElementId] = useState<string | null>(
-    null,
-  );
-  // The full multi-selection (issue #237). `selectedElementId` is the primary
-  // (anchor) element used for single-element operations — move, resize, inline
-  // edit, keyboard nudge/delete, and inspector properties — and is always a member
-  // of this set when non-empty. A 1-element selection is the common path and
-  // behaves exactly as before.
-  const [selectedElementIds, setSelectedElementIds] = useState<Set<string>>(
-    () => new Set(),
-  );
   // Whether the stage "Add → Visual" picker popover is open.
   const [visualPickerOpen, setVisualPickerOpen] = useState(false);
   const [insertMenuOpen, setInsertMenuOpen] = useState(false);
@@ -841,9 +806,6 @@ export function SlideEditor({
     offsetY: number;
     moved: boolean;
   } | null>(null);
-  // In-memory element clipboard for copy / cut / paste (within & across slides).
-  const clipboardRef = useRef<SlideElement[] | null>(null);
-  const pasteCountRef = useRef(0);
   // Hidden file input for the Insert ▸ Image one-step picker flow (#299).
   const insertImageFileInputRef = useRef<HTMLInputElement>(null);
   // Element ID of the pending Insert ▸ Image pick session. Cleared by onAccept
@@ -890,126 +852,20 @@ export function SlideEditor({
   // In-product keyboard shortcut help overlay (#535).
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
 
-  // ── Autosave + save-status feedback (issue #208) ───────────────────────────
-  // Mirrors the document editor: a debounced autosave persists deck edits a
-  // short while after the user stops editing, the Save button flushes
-  // immediately, and a badge reflects the current persistence state.
-  const [isDirty, setIsDirty] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [hasSaveError, setHasSaveError] = useState(false);
-  // The server-returned reason for the last failed save, if any. Cleared on
-  // success and on new edits so stale messages are never shown after recovery.
-  const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
-
-  // Pending autosave debounce timer.
-  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // The freshest deck to persist; a save in flight reads this so a flush always
-  // writes the newest edits, not a stale snapshot captured when it was queued.
-  const latestDeckRef = useRef<Deck>(deck);
-  // The last deck reference the autosave effect observed. `null` until the
-  // initial deck is seen, so the first render is never autosaved.
-  const lastSeenDeckRef = useRef<Deck | null>(null);
-  // The serialized payload of the last deck successfully persisted, or `null`
-  // before anything has been saved. Lets `flushSave` skip redundant network
-  // writes when an edit serializes identically to what is already saved (#247).
-  const lastSavedSerializedRef = useRef<string | null>(null);
-  // Accumulated serializable patches emitted by committed commands. Cleared when
-  // passed to onSave (or on undo/redo which invalidates the accumulated history).
-  const pendingPatchesRef = useRef<DeckPatch[]>([]);
-
-  // Single commit path for command-based handlers: runs commitCommand, accumulates
-  // patches, then calls onDeckChange with the correct commitOptions.
-  const doCommitAndChange = useCallback(
-    (deck: Deck, cmd: Parameters<typeof commitCommand>[1]) => {
-      const { result, commitOptions, patches } = commitCommand(deck, cmd);
-      if (!result.ok) return;
-      appendPendingPatches(pendingPatchesRef, patches);
-      onDeckChange(result.deck, commitOptions);
-    },
-    [onDeckChange],
-  );
-
-  // Persists the latest deck immediately, cancelling any pending debounce. Both
-  // the autosave timer and the manual Save / Retry buttons route through here so
-  // there is a single save path.
-  const flushSave = useCallback(async () => {
-    if (autosaveTimerRef.current) {
-      clearTimeout(autosaveTimerRef.current);
-      autosaveTimerRef.current = null;
-    }
-    const deckToSave = latestDeckRef.current;
-    // Re-serializing and POSTing the whole deck (incl. inlined base64 images)
-    // is expensive, so skip the write entirely when nothing changed since the
-    // last successful save — e.g. an edit undone back to the saved state (#247).
-    const serialized = JSON.stringify(deckToSave);
-    if (!shouldPersist(lastSavedSerializedRef.current, serialized)) {
-      if (latestDeckRef.current === deckToSave) {
-        setIsDirty(false);
-      }
-      setHasSaveError(false);
-      setSaveErrorMessage(null);
-      return;
-    }
-    const patchSnapshot = pendingPatchesRef.current;
-    clearPendingPatches(pendingPatchesRef);
-    setIsSaving(true);
-    setHasSaveError(false);
-    setSaveErrorMessage(null);
-    try {
-      const res = await onSave(deckToSave, patchSnapshot);
-      if (res.ok) {
-        lastSavedSerializedRef.current = serialized;
-        // Only clear the dirty flag if no newer edit was queued mid-save.
-        if (latestDeckRef.current === deckToSave) {
-          setIsDirty(false);
-        }
-      } else {
-        if (latestDeckRef.current === deckToSave) {
-          replacePendingPatches(pendingPatchesRef, patchSnapshot);
-        }
-        setHasSaveError(true);
-        setSaveErrorMessage(res.error);
-      }
-    } catch {
-      if (latestDeckRef.current === deckToSave) {
-        replacePendingPatches(pendingPatchesRef, patchSnapshot);
-      }
-      setHasSaveError(true);
-    } finally {
-      setIsSaving(false);
-    }
-  }, [onSave]);
-
-  // Schedule a debounced autosave on each real user edit. The present deck only
-  // changes reference on a genuine action (mutation / undo / redo / applied
-  // sync); the initial load and staleness banner never reach here, so no
-  // spurious autosave fires.
-  useEffect(() => {
-    latestDeckRef.current = deck;
-    const lastSeen = lastSeenDeckRef.current;
-    lastSeenDeckRef.current = deck;
-    if (!shouldScheduleAutosave({ current: deck, lastSeen })) {
-      return;
-    }
-    setIsDirty(true);
-    setHasSaveError(false);
-    setSaveErrorMessage(null);
-    if (autosaveTimerRef.current) {
-      clearTimeout(autosaveTimerRef.current);
-    }
-    autosaveTimerRef.current = setTimeout(() => {
-      void flushSave();
-    }, SLIDE_SAVE_DEBOUNCE_MS);
-  }, [deck, flushSave]);
-
-  // Clear any pending autosave timer on unmount.
-  useEffect(() => {
-    return () => {
-      if (autosaveTimerRef.current) {
-        clearTimeout(autosaveTimerRef.current);
-      }
-    };
-  }, []);
+  const { pendingPatchesRef, doCommitAndChange } =
+    useSlideEditorCommit(onDeckChange);
+  const {
+    isDirty,
+    isSaving,
+    hasSaveError,
+    saveErrorMessage,
+    saveStatus,
+    flushSave,
+  } = useSlideEditorAutosaveQueue({
+    deck,
+    onSave,
+    pendingPatchesRef,
+  });
 
   // Lock page scroll while the full-screen editor overlay is open so the page
   // underneath can't peek through or leave a stray scrollbar. The page
@@ -1026,11 +882,6 @@ export function SlideEditor({
     };
   }, []);
 
-  const saveStatus = resolveSaveStatus({
-    isDirty,
-    isSaving,
-    hasError: hasSaveError,
-  });
   // There are edits at risk of being lost while not fully saved.
   const hasUnsavedWork = isDirty || isSaving || hasSaveError;
 
@@ -1082,31 +933,19 @@ export function SlideEditor({
   const selectedTheme = selectedSlide
     ? (DECK_THEMES[selectedSlide.theme] ?? DECK_THEMES.default)
     : DECK_THEMES.default;
-  // A selection is only valid while its element exists on the active slide, so
-  // switching slides (or deleting an element) implicitly clears it — no effect
-  // needed.
-  const effectiveSelectedElementId =
-    selectedElementId != null &&
-    (selectedSlide?.elements?.some((el) => el.id === selectedElementId) ??
-      false)
-      ? selectedElementId
-      : null;
-  // The multi-selection narrowed to elements that still exist on the active
-  // slide (issue #237). Switching slides or deleting elements implicitly prunes
-  // the selection — no effect needed, mirroring `effectiveSelectedElementId`.
-  const effectiveSelectedElementIds = useMemo(() => {
-    const existing = selectedSlide?.elements;
-    if (!existing || selectedElementIds.size === 0) {
-      return new Set<string>();
-    }
-    const next = new Set<string>();
-    for (const el of existing) {
-      if (selectedElementIds.has(el.id)) {
-        next.add(el.id);
-      }
-    }
-    return next;
-  }, [selectedSlide?.elements, selectedElementIds]);
+  const {
+    setSelectedElementId,
+    setSelectedElementIds,
+    effectiveSelectedElementId,
+    effectiveSelectedElementIds,
+    selectedElementIdList,
+    handleSelectElement,
+    handleSelectElements,
+  } = useSlideSelection({
+    elements: selectedSlide?.elements,
+    openSelectionPanel,
+    closeRightPanel,
+  });
   // Keep the keydown state ref current after every render so the single-subscribed
   // listener always reads the latest deck and selection without re-subscribing.
   // useLayoutEffect runs synchronously after DOM updates (before paint) so the ref
@@ -1503,77 +1342,8 @@ export function SlideEditor({
     [deck, doCommitAndChange, safeSelected],
   );
 
-  // ── Element clipboard (copy / cut / paste), shared by the keyboard handler
-  // and the right-click context menu. Uses an in-memory ref so it works within
-  // and across slides; each op routes through a pure mutation (single undo).
-  const selectedElementIdList = useCallback(() => {
-    if (!effectiveSelectedElementId) return [] as string[];
-    return effectiveSelectedElementIds.size > 0
-      ? [...effectiveSelectedElementIds]
-      : [effectiveSelectedElementId];
-  }, [effectiveSelectedElementId, effectiveSelectedElementIds]);
-
-  const copyElementsToClipboard = useCallback(
-    (sourceDeck: Deck, slideIndex: number, ids: readonly string[]) => {
-      if (ids.length === 0) return false;
-      const slideEls = sourceDeck.slides[slideIndex]?.elements ?? [];
-      const copied = slideEls.filter((el) => ids.includes(el.id));
-      if (copied.length === 0) return false;
-      const selectedIdSet = new Set(ids);
-      const partialGroups = new Set<string>();
-      for (const el of slideEls) {
-        const groupId = (el as { groupId?: string }).groupId;
-        if (groupId && !selectedIdSet.has(el.id)) partialGroups.add(groupId);
-      }
-      clipboardRef.current = copied.map((el) => {
-        const clone = structuredClone(el);
-        const groupId = (clone as { groupId?: string }).groupId;
-        if (groupId && partialGroups.has(groupId)) {
-          delete (clone as { groupId?: string }).groupId;
-        }
-        return clone;
-      });
-      pasteCountRef.current = 0;
-      return true;
-    },
-    [],
-  );
-
-  const pasteClipboardElements = useCallback(
-    (sourceDeck: Deck, slideIndex: number) => {
-      const clip = clipboardRef.current;
-      if (!clip || clip.length === 0) return null;
-      const groupRemap = new Map<string, string>();
-      for (const el of clip) {
-        const groupId = (el as { groupId?: string }).groupId;
-        if (groupId && !groupRemap.has(groupId)) {
-          groupRemap.set(groupId, makeElementId());
-        }
-      }
-      let nextDeck = sourceDeck;
-      const newIds: string[] = [];
-      const pasteStep = (pasteCountRef.current % PASTE_OFFSET_WRAP_STEPS) + 1;
-      const offset = pasteStep * PASTE_OFFSET_PCT;
-      for (const el of clip) {
-        const id = makeElementId();
-        newIds.push(id);
-        const x = Math.max(0, Math.min(100 - el.box.w, el.box.x + offset));
-        const y = Math.max(0, Math.min(100 - el.box.h, el.box.y + offset));
-        const clone = structuredClone(el);
-        clone.id = id;
-        clone.box = { ...clone.box, x, y };
-        delete (clone as { zIndex?: number }).zIndex;
-        const groupId = (clone as { groupId?: string }).groupId;
-        if (groupId) {
-          (clone as { groupId?: string }).groupId = groupRemap.get(groupId);
-        }
-        nextDeck = addElement(nextDeck, slideIndex, clone);
-      }
-      pasteCountRef.current += 1;
-      return { deck: nextDeck, newIds };
-    },
-    [],
-  );
+  const { copyElementsToClipboard, pasteClipboardElements } =
+    useSlideClipboard();
 
   const handleCopyElements = useCallback(() => {
     const ids = selectedElementIdList();
@@ -2320,76 +2090,6 @@ export function SlideEditor({
   }, []);
 
   const accentForSelected = selectedSlide?.accent ?? selectedTheme.accentColor;
-
-  const handleSelectElement = useCallback(
-    (id: string | null, mode: SelectionMode = "replace") => {
-      if (id == null) {
-        setSelectedElementId(null);
-        setSelectedElementIds((current) =>
-          current.size === 0 ? current : new Set(),
-        );
-        closeRightPanel();
-        return;
-      }
-      if (mode === "toggle") {
-        // Add/remove from the multi-selection. Removing the primary promotes
-        // another remaining member (or clears the primary when none remain).
-        const next = new Set(selectedElementIds);
-        if (next.has(id)) {
-          next.delete(id);
-          setSelectedElementId((primary) =>
-            primary === id ? ([...next][0] ?? null) : primary,
-          );
-        } else {
-          next.add(id);
-          setSelectedElementId(id);
-        }
-        setSelectedElementIds(next);
-        if (next.size > 0) {
-          openSelectionPanel();
-        } else {
-          closeRightPanel();
-        }
-      } else if (mode === "keep") {
-        // Make `id` the primary without disturbing an existing multi-selection
-        // (used when starting a drag on an already-selected element).
-        setSelectedElementId(id);
-        setSelectedElementIds((current) =>
-          current.has(id) ? current : new Set([id]),
-        );
-        openSelectionPanel();
-      } else {
-        // "replace": plain single selection.
-        setSelectedElementId(id);
-        setSelectedElementIds(new Set([id]));
-        openSelectionPanel();
-      }
-    },
-    [closeRightPanel, openSelectionPanel, selectedElementIds],
-  );
-
-  // Replaces (or, when `additive`, unions) the multi-selection with `ids` — used
-  // by the marquee/rubber-band selection (issue #245). The primary stays put
-  // when it is still in the resulting set, otherwise the first id becomes
-  // primary (or the selection clears when `ids` is empty).
-  const handleSelectElements = useCallback(
-    (ids: string[], additive = false) => {
-      const next = additive ? new Set(selectedElementIds) : new Set<string>();
-      for (const id of ids) {
-        next.add(id);
-      }
-      setSelectedElementIds(next);
-      setSelectedElementId((primary) =>
-        primary && next.has(primary) ? primary : ([...next][0] ?? null),
-      );
-      if (next.size > 0) {
-        openSelectionPanel();
-      } else {
-        closeRightPanel();
-      }
-    },
-    [closeRightPanel, openSelectionPanel, selectedElementIds],
-  );
 
   const handleUpdateElement = useCallback(
     (id: string, patch: ElementPatch, coalesceKey?: string) => {
@@ -3268,420 +2968,415 @@ export function SlideEditor({
         }}
       />
       {/* ── Top bar ─────────────────────────────────────────────────────── */}
-      <header className="flex items-center gap-2 border-b border-ds-border-subtle bg-ds-surface-chrome px-3 py-2 backdrop-blur">
-        <div className="flex min-w-0 items-center gap-2">
-          <h2 className="truncate text-sm font-semibold text-ds-text-primary">
-            Slide editor
-          </h2>
-          <span className="shrink-0 text-xs text-ds-text-muted">
-            {deck.slides.length} {deck.slides.length === 1 ? "slide" : "slides"}
-          </span>
-        </div>
-
-        {selectedSlide ? (
-          <div
-            role="toolbar"
-            aria-label="Slide editing tools"
-            className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain whitespace-nowrap px-1 py-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          >
-            <Popover
-              open={addTemplateOpen || spotlightPickerOpen}
-              onClose={() => {
-                setAddTemplateOpen(false);
-                setSpotlightPickerOpen(false);
-              }}
-              aria-label="Add slide"
-              align="start"
-              portal
-              layer="tooltip"
-              className="w-[300px] p-3"
-              trigger={
-                <button
-                  type="button"
-                  aria-label="Add slide"
-                  aria-haspopup="dialog"
-                  aria-expanded={addTemplateOpen || spotlightPickerOpen}
-                  onClick={() => {
-                    setSpotlightPickerOpen(false);
-                    setAddTemplateOpen((open) => !open);
-                  }}
-                  className={`flex h-7 shrink-0 items-center gap-1.5 rounded-ds-sm border border-transparent bg-ds-accent px-2 text-xs font-semibold text-ds-text-on-accent transition-colors hover:bg-ds-accent-hover ${FOCUS_RING}`}
-                >
-                  <Plus size={14} aria-hidden="true" />
-                  Add
-                </button>
-              }
-            >
-              {spotlightPickerOpen ? (
-                <VisualPicker
-                  className="w-full"
-                  visuals={visuals}
-                  onPick={handleSpotlightPick}
-                  onClose={() => setSpotlightPickerOpen(false)}
-                />
-              ) : (
-                <SlideTemplatePicker onPick={handleAddTemplate} />
-              )}
-            </Popover>
+      <SlideEditorTopToolbar
+        slideCount={deck.slides.length}
+        tools={
+          selectedSlide ? (
             <div
-              className="hidden h-5 w-px shrink-0 bg-ds-border-subtle sm:block"
-              aria-hidden="true"
-            />
-            <Popover
-              open={insertMenuOpen}
-              onClose={() => {
-                setInsertMenuOpen(false);
-                setVisualPickerOpen(false);
-              }}
-              aria-label="Insert element"
-              align="start"
-              portal
-              layer="tooltip"
-              className="w-[300px] p-3"
-              trigger={
-                <button
-                  type="button"
-                  aria-label="Insert element"
-                  aria-haspopup="dialog"
-                  aria-expanded={insertMenuOpen}
-                  onClick={() => setInsertMenuOpen((open) => !open)}
-                  className={`flex h-7 shrink-0 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-                >
-                  <Plus size={14} aria-hidden="true" />
-                  Insert
-                </button>
-              }
+              role="toolbar"
+              aria-label="Slide editing tools"
+              className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain whitespace-nowrap px-1 py-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
-              <div className="mb-3 flex items-center gap-2">
-                <Plus
-                  aria-hidden="true"
-                  className="h-5 w-5 shrink-0 text-ds-text-primary"
-                />
-                <h4 className="text-sm font-bold leading-none text-ds-text-primary">
-                  Insert element
-                </h4>
-              </div>
-              <div className="grid grid-cols-2 gap-1.5">
-                <InsertMenuButton
-                  icon={<Type size={14} aria-hidden="true" />}
-                  label="Text"
-                  onClick={() => handleAddElement("text")}
-                />
-                <InsertMenuButton
-                  icon={<List size={14} aria-hidden="true" />}
-                  label="Bullets"
-                  onClick={() => handleAddElement("bullets")}
-                />
-                <InsertMenuButton
-                  icon={<ImageIcon size={14} aria-hidden="true" />}
-                  label="Image"
-                  onClick={() => handleAddElement("image")}
-                />
-                <InsertMenuButton
-                  icon={<Square size={14} aria-hidden="true" />}
-                  label="Rectangle"
-                  onClick={() => handleAddElement("shape", "rect")}
-                />
-                <InsertMenuButton
-                  icon={<Circle size={14} aria-hidden="true" />}
-                  label="Ellipse"
-                  onClick={() => handleAddElement("shape", "ellipse")}
-                />
-                <InsertMenuButton
-                  icon={<Triangle size={14} aria-hidden="true" />}
-                  label="Triangle"
-                  onClick={() => handleAddElement("shape", "triangle")}
-                />
-                <InsertMenuButton
-                  icon={<Minus size={14} aria-hidden="true" />}
-                  label="Line"
-                  onClick={() => handleAddElement("shape", "line")}
-                />
-              </div>
-              {insertImageError ? (
-                <p role="alert" className="mt-1 text-xs text-ds-danger-text">
-                  {insertImageError}
-                </p>
-              ) : null}
-              <div className="mt-2 border-t border-ds-border-subtle pt-2">
-                {visualPickerOpen ? (
+              <Popover
+                open={addTemplateOpen || spotlightPickerOpen}
+                onClose={() => {
+                  setAddTemplateOpen(false);
+                  setSpotlightPickerOpen(false);
+                }}
+                aria-label="Add slide"
+                align="start"
+                portal
+                layer="tooltip"
+                className="w-[300px] p-3"
+                trigger={
+                  <button
+                    type="button"
+                    aria-label="Add slide"
+                    aria-haspopup="dialog"
+                    aria-expanded={addTemplateOpen || spotlightPickerOpen}
+                    onClick={() => {
+                      setSpotlightPickerOpen(false);
+                      setAddTemplateOpen((open) => !open);
+                    }}
+                    className={`flex h-7 shrink-0 items-center gap-1.5 rounded-ds-sm border border-transparent bg-ds-accent px-2 text-xs font-semibold text-ds-text-on-accent transition-colors hover:bg-ds-accent-hover ${FOCUS_RING}`}
+                  >
+                    <Plus size={14} aria-hidden="true" />
+                    Add
+                  </button>
+                }
+              >
+                {spotlightPickerOpen ? (
                   <VisualPicker
                     className="w-full"
                     visuals={visuals}
-                    onPick={handleAddVisual}
-                    onClose={() => setVisualPickerOpen(false)}
+                    onPick={handleSpotlightPick}
+                    onClose={() => setSpotlightPickerOpen(false)}
                   />
                 ) : (
-                  <InsertMenuButton
-                    icon={<Sparkles size={14} aria-hidden="true" />}
-                    label="Visual"
-                    onClick={() => setVisualPickerOpen(true)}
-                  />
+                  <SlideTemplatePicker onPick={handleAddTemplate} />
                 )}
-              </div>
-            </Popover>
-            <Popover
-              open={fromDocOpen}
-              onClose={() => setFromDocOpen(false)}
-              aria-label="Insert from document"
-              align="start"
-              portal
-              layer="tooltip"
-              className="w-[300px] p-0"
-              trigger={
-                <Tooltip label="Insert from document" side="bottom">
+              </Popover>
+              <div
+                className="hidden h-5 w-px shrink-0 bg-ds-border-subtle sm:block"
+                aria-hidden="true"
+              />
+              <Popover
+                open={insertMenuOpen}
+                onClose={() => {
+                  setInsertMenuOpen(false);
+                  setVisualPickerOpen(false);
+                }}
+                aria-label="Insert element"
+                align="start"
+                portal
+                layer="tooltip"
+                className="w-[300px] p-3"
+                trigger={
                   <button
                     type="button"
-                    aria-label={
-                      staleSourceLinkCount > 0
-                        ? `From document — ${staleSourceLinkCount} stale link${staleSourceLinkCount === 1 ? "" : "s"}`
-                        : "From document"
-                    }
+                    aria-label="Insert element"
                     aria-haspopup="dialog"
-                    aria-expanded={fromDocOpen}
-                    onClick={() => setFromDocOpen((open) => !open)}
-                    className={`relative flex h-7 shrink-0 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                    aria-expanded={insertMenuOpen}
+                    onClick={() => setInsertMenuOpen((open) => !open)}
+                    className={`flex h-7 shrink-0 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
                   >
-                    <FileText size={14} aria-hidden="true" />
-                    From document
-                    {staleSourceLinkCount > 0 ? (
+                    <Plus size={14} aria-hidden="true" />
+                    Insert
+                  </button>
+                }
+              >
+                <div className="mb-3 flex items-center gap-2">
+                  <Plus
+                    aria-hidden="true"
+                    className="h-5 w-5 shrink-0 text-ds-text-primary"
+                  />
+                  <h4 className="text-sm font-bold leading-none text-ds-text-primary">
+                    Insert element
+                  </h4>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <InsertMenuButton
+                    icon={<Type size={14} aria-hidden="true" />}
+                    label="Text"
+                    onClick={() => handleAddElement("text")}
+                  />
+                  <InsertMenuButton
+                    icon={<List size={14} aria-hidden="true" />}
+                    label="Bullets"
+                    onClick={() => handleAddElement("bullets")}
+                  />
+                  <InsertMenuButton
+                    icon={<ImageIcon size={14} aria-hidden="true" />}
+                    label="Image"
+                    onClick={() => handleAddElement("image")}
+                  />
+                  <InsertMenuButton
+                    icon={<Square size={14} aria-hidden="true" />}
+                    label="Rectangle"
+                    onClick={() => handleAddElement("shape", "rect")}
+                  />
+                  <InsertMenuButton
+                    icon={<Circle size={14} aria-hidden="true" />}
+                    label="Ellipse"
+                    onClick={() => handleAddElement("shape", "ellipse")}
+                  />
+                  <InsertMenuButton
+                    icon={<Triangle size={14} aria-hidden="true" />}
+                    label="Triangle"
+                    onClick={() => handleAddElement("shape", "triangle")}
+                  />
+                  <InsertMenuButton
+                    icon={<Minus size={14} aria-hidden="true" />}
+                    label="Line"
+                    onClick={() => handleAddElement("shape", "line")}
+                  />
+                </div>
+                {insertImageError ? (
+                  <p role="alert" className="mt-1 text-xs text-ds-danger-text">
+                    {insertImageError}
+                  </p>
+                ) : null}
+                <div className="mt-2 border-t border-ds-border-subtle pt-2">
+                  {visualPickerOpen ? (
+                    <VisualPicker
+                      className="w-full"
+                      visuals={visuals}
+                      onPick={handleAddVisual}
+                      onClose={() => setVisualPickerOpen(false)}
+                    />
+                  ) : (
+                    <InsertMenuButton
+                      icon={<Sparkles size={14} aria-hidden="true" />}
+                      label="Visual"
+                      onClick={() => setVisualPickerOpen(true)}
+                    />
+                  )}
+                </div>
+              </Popover>
+              <Popover
+                open={fromDocOpen}
+                onClose={() => setFromDocOpen(false)}
+                aria-label="Insert from document"
+                align="start"
+                portal
+                layer="tooltip"
+                className="w-[300px] p-0"
+                trigger={
+                  <Tooltip label="Insert from document" side="bottom">
+                    <button
+                      type="button"
+                      aria-label={
+                        staleSourceLinkCount > 0
+                          ? `From document — ${staleSourceLinkCount} stale link${staleSourceLinkCount === 1 ? "" : "s"}`
+                          : "From document"
+                      }
+                      aria-haspopup="dialog"
+                      aria-expanded={fromDocOpen}
+                      onClick={() => setFromDocOpen((open) => !open)}
+                      className={`relative flex h-7 shrink-0 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                    >
+                      <FileText size={14} aria-hidden="true" />
+                      From document
+                      {staleSourceLinkCount > 0 ? (
+                        <span
+                          aria-hidden="true"
+                          className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-ds-warning-surface px-1 text-[10px] font-semibold leading-none text-ds-warning-text"
+                        >
+                          {staleSourceLinkCount > 99
+                            ? "99+"
+                            : staleSourceLinkCount}
+                        </span>
+                      ) : null}
+                    </button>
+                  </Tooltip>
+                }
+              >
+                <FromDocumentPanel
+                  visuals={documentVisualEntries}
+                  textItems={documentTextInsertables}
+                  staleLinks={staleLinks}
+                  onAddAllVisuals={handleAddAllVisuals}
+                  onInsertVisual={handleInsertDocumentVisual}
+                  onInsertText={handleInsertDocumentText}
+                  onUpdateFromSource={handleUpdateFromSource}
+                  onUnlinkSource={handleUnlinkSource}
+                  onRelinkSource={handleRelinkSource}
+                  onRemoveOrphaned={handleRemoveOrphaned}
+                  documentTextInsertables={documentTextInsertables}
+                  documentVisualInsertables={documentVisualInsertables}
+                />
+              </Popover>
+              <div
+                className="h-5 w-px shrink-0 bg-ds-border-subtle"
+                aria-hidden="true"
+              />
+              <SlideSizeControl
+                value={resolveSlideFormat(deck.slideFormat)}
+                onChange={handleSlideFormatChange}
+              />
+              <Popover
+                open={themeMenuOpen}
+                onClose={() => setThemeMenuOpen(false)}
+                aria-label="Choose deck background"
+                portal
+                layer="tooltip"
+                className="w-[300px] p-3"
+                trigger={
+                  <Tooltip label="Deck background" side="bottom">
+                    <button
+                      type="button"
+                      aria-label="Choose deck background"
+                      aria-haspopup="dialog"
+                      aria-expanded={themeMenuOpen}
+                      onClick={() => setThemeMenuOpen((open) => !open)}
+                      className={`flex h-7 shrink-0 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                    >
+                      <Palette aria-hidden className="h-3.5 w-3.5" />
                       <span
                         aria-hidden="true"
-                        className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-ds-warning-surface px-1 text-[10px] font-semibold leading-none text-ds-warning-text"
-                      >
-                        {staleSourceLinkCount > 99
-                          ? "99+"
-                          : staleSourceLinkCount}
-                      </span>
-                    ) : null}
-                  </button>
-                </Tooltip>
-              }
-            >
-              <FromDocumentPanel
-                visuals={documentVisualEntries}
-                textItems={documentTextInsertables}
-                staleLinks={staleLinks}
-                onAddAllVisuals={handleAddAllVisuals}
-                onInsertVisual={handleInsertDocumentVisual}
-                onInsertText={handleInsertDocumentText}
-                onUpdateFromSource={handleUpdateFromSource}
-                onUnlinkSource={handleUnlinkSource}
-                onRelinkSource={handleRelinkSource}
-                onRemoveOrphaned={handleRemoveOrphaned}
-                documentTextInsertables={documentTextInsertables}
-                documentVisualInsertables={documentVisualInsertables}
-              />
-            </Popover>
+                        className="h-3.5 w-3.5 rounded-full border border-ds-border-subtle"
+                        style={backgroundPreviewStyle}
+                      />
+                    </button>
+                  </Tooltip>
+                }
+              >
+                <BackgroundThemePanel
+                  activeSolidId={activeSolidBackground}
+                  activeGradientId={activeGradientBackground}
+                  onPickSolid={applyDeckSolidBackground}
+                  onPickGradient={applyDeckGradientBackground}
+                />
+              </Popover>
+              <Popover
+                open={deckTemplateOpen}
+                onClose={() => setDeckTemplateOpen(false)}
+                aria-label="Edit deck theme"
+                portal
+                layer="tooltip"
+                className="p-3"
+                trigger={
+                  <Tooltip label="Deck theme" side="bottom">
+                    <button
+                      type="button"
+                      aria-label="Edit deck theme"
+                      aria-haspopup="dialog"
+                      aria-expanded={deckTemplateOpen}
+                      onClick={() => setDeckTemplateOpen((open) => !open)}
+                      className={`flex h-7 shrink-0 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                    >
+                      <Type aria-hidden className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Theme</span>
+                    </button>
+                  </Tooltip>
+                }
+              >
+                <DeckTemplatePanel
+                  tokenSet={deckTemplateTokenSet}
+                  isCustom={deck.customTokenSet !== undefined}
+                  onUpdate={handleUpdateDeckTemplate}
+                  onReset={handleResetDeckTemplate}
+                />
+              </Popover>
+              <span className="hidden min-w-0 shrink truncate text-xs text-ds-text-muted 2xl:inline">
+                Slide {safeSelected + 1} of {deck.slides.length} ·{" "}
+                {selectionSummary}
+              </span>
+            </div>
+          ) : (
+            <div className="min-w-0 flex-1" />
+          )
+        }
+        actions={
+          <div className="flex shrink-0 items-center gap-1.5">
+            {/* Undo / redo deck history */}
             <div
-              className="h-5 w-px shrink-0 bg-ds-border-subtle"
+              role="group"
+              aria-label="Undo and redo"
+              className="flex items-center"
+            >
+              <Tooltip label={`Undo (${undoShortcut})`} side="bottom">
+                <IconButton
+                  aria-label={`Undo (${undoShortcut})`}
+                  size="sm"
+                  variant="plain"
+                  disabled={!canUndo}
+                  onClick={handleUndo}
+                >
+                  <Undo2 aria-hidden className="h-3.5 w-3.5" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip label={`Redo (${redoShortcut})`} side="bottom">
+                <IconButton
+                  aria-label={`Redo (${redoShortcut})`}
+                  size="sm"
+                  variant="plain"
+                  disabled={!canRedo}
+                  onClick={handleRedo}
+                >
+                  <Redo2 aria-hidden className="h-3.5 w-3.5" />
+                </IconButton>
+              </Tooltip>
+            </div>
+
+            <div
+              className="hidden h-5 w-px bg-ds-border-subtle sm:block"
               aria-hidden="true"
             />
-            <SlideSizeControl
-              value={resolveSlideFormat(deck.slideFormat)}
-              onChange={handleSlideFormatChange}
-            />
-            <Popover
-              open={themeMenuOpen}
-              onClose={() => setThemeMenuOpen(false)}
-              aria-label="Choose deck background"
-              portal
-              layer="tooltip"
-              className="w-[300px] p-3"
-              trigger={
-                <Tooltip label="Deck background" side="bottom">
-                  <button
-                    type="button"
-                    aria-label="Choose deck background"
-                    aria-haspopup="dialog"
-                    aria-expanded={themeMenuOpen}
-                    onClick={() => setThemeMenuOpen((open) => !open)}
-                    className={`flex h-7 shrink-0 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-                  >
-                    <Palette aria-hidden className="h-3.5 w-3.5" />
-                    <span
-                      aria-hidden="true"
-                      className="h-3.5 w-3.5 rounded-full border border-ds-border-subtle"
-                      style={backgroundPreviewStyle}
-                    />
-                  </button>
-                </Tooltip>
-              }
+
+            {canSyncFromDocument ? (
+              <Tooltip label="Re-sync slides from the document" side="bottom">
+                <button
+                  type="button"
+                  onClick={handleRequestSync}
+                  className={`flex h-8 items-center gap-1.5 rounded-ds-md border px-2 text-sm font-medium transition-colors ${
+                    showStaleBanner
+                      ? "border-ds-warning-border bg-ds-warning-surface text-ds-warning-text hover:opacity-90"
+                      : "border-ds-border-subtle text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+                  } ${FOCUS_RING}`}
+                >
+                  <RefreshCw aria-hidden className="h-3.5 w-3.5" />
+                  <span className="hidden xl:inline">Sync</span>
+                </button>
+              </Tooltip>
+            ) : null}
+
+            <span
+              role="status"
+              aria-live="polite"
+              className="hidden text-xs text-ds-text-muted xl:inline"
             >
-              <BackgroundThemePanel
-                activeSolidId={activeSolidBackground}
-                activeGradientId={activeGradientBackground}
-                onPickSolid={applyDeckSolidBackground}
-                onPickGradient={applyDeckGradientBackground}
-              />
-            </Popover>
-            <Popover
-              open={deckTemplateOpen}
-              onClose={() => setDeckTemplateOpen(false)}
-              aria-label="Edit deck theme"
-              portal
-              layer="tooltip"
-              className="p-3"
-              trigger={
-                <Tooltip label="Deck theme" side="bottom">
-                  <button
-                    type="button"
-                    aria-label="Edit deck theme"
-                    aria-haspopup="dialog"
-                    aria-expanded={deckTemplateOpen}
-                    onClick={() => setDeckTemplateOpen((open) => !open)}
-                    className={`flex h-7 shrink-0 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-                  >
-                    <Type aria-hidden className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Theme</span>
-                  </button>
-                </Tooltip>
-              }
-            >
-              <DeckTemplatePanel
-                tokenSet={deckTemplateTokenSet}
-                isCustom={deck.customTokenSet !== undefined}
-                onUpdate={handleUpdateDeckTemplate}
-                onReset={handleResetDeckTemplate}
-              />
-            </Popover>
-            <span className="hidden min-w-0 shrink truncate text-xs text-ds-text-muted 2xl:inline">
-              Slide {safeSelected + 1} of {deck.slides.length} ·{" "}
-              {selectionSummary}
+              {saveStatus !== "error" ? SAVE_STATUS_LABEL[saveStatus] : null}
             </span>
-          </div>
-        ) : (
-          <div className="min-w-0 flex-1" />
-        )}
 
-        <div className="flex shrink-0 items-center gap-1.5">
-          {/* Undo / redo deck history */}
-          <div
-            role="group"
-            aria-label="Undo and redo"
-            className="flex items-center"
-          >
-            <Tooltip label={`Undo (${undoShortcut})`} side="bottom">
-              <IconButton
-                aria-label={`Undo (${undoShortcut})`}
-                size="sm"
-                variant="plain"
-                disabled={!canUndo}
-                onClick={handleUndo}
-              >
-                <Undo2 aria-hidden className="h-3.5 w-3.5" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip label={`Redo (${redoShortcut})`} side="bottom">
-              <IconButton
-                aria-label={`Redo (${redoShortcut})`}
-                size="sm"
-                variant="plain"
-                disabled={!canRedo}
-                onClick={handleRedo}
-              >
-                <Redo2 aria-hidden className="h-3.5 w-3.5" />
-              </IconButton>
-            </Tooltip>
-          </div>
-
-          <div
-            className="hidden h-5 w-px bg-ds-border-subtle sm:block"
-            aria-hidden="true"
-          />
-
-          {canSyncFromDocument ? (
-            <Tooltip label="Re-sync slides from the document" side="bottom">
+            {saveStatus === "error" ? (
               <button
                 type="button"
-                onClick={handleRequestSync}
-                className={`flex h-8 items-center gap-1.5 rounded-ds-md border px-2 text-sm font-medium transition-colors ${
-                  showStaleBanner
-                    ? "border-ds-warning-border bg-ds-warning-surface text-ds-warning-text hover:opacity-90"
-                    : "border-ds-border-subtle text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
-                } ${FOCUS_RING}`}
+                onClick={handleSave}
+                title={resolveSaveErrorMessage(saveErrorMessage)}
+                aria-label={`${resolveSaveErrorMessage(saveErrorMessage)} — Retry`}
+                className={`flex h-8 items-center rounded-ds-md border border-ds-danger-border bg-ds-danger-surface px-2.5 text-sm font-medium text-ds-danger-text transition-opacity hover:opacity-90 ${FOCUS_RING}`}
               >
-                <RefreshCw aria-hidden className="h-3.5 w-3.5" />
-                <span className="hidden xl:inline">Sync</span>
+                {SAVE_STATUS_LABEL.error}
               </button>
-            </Tooltip>
-          ) : null}
+            ) : null}
 
-          <span
-            role="status"
-            aria-live="polite"
-            className="hidden text-xs text-ds-text-muted xl:inline"
-          >
-            {saveStatus !== "error" ? SAVE_STATUS_LABEL[saveStatus] : null}
-          </span>
+            {saveStatus === "error" && saveErrorMessage ? (
+              <span
+                role="status"
+                aria-live="assertive"
+                className="hidden max-w-xs truncate text-xs text-ds-danger-text xl:inline"
+              >
+                {saveErrorMessage}
+              </span>
+            ) : null}
 
-          {saveStatus === "error" ? (
             <button
               type="button"
               onClick={handleSave}
-              title={resolveSaveErrorMessage(saveErrorMessage)}
-              aria-label={`${resolveSaveErrorMessage(saveErrorMessage)} — Retry`}
-              className={`flex h-8 items-center rounded-ds-md border border-ds-danger-border bg-ds-danger-surface px-2.5 text-sm font-medium text-ds-danger-text transition-opacity hover:opacity-90 ${FOCUS_RING}`}
+              disabled={isSaving}
+              className={`flex h-8 shrink-0 items-center rounded-ds-md bg-ds-accent px-3 text-sm font-medium text-ds-text-on-accent transition-colors hover:bg-ds-accent-hover disabled:opacity-60 ${FOCUS_RING}`}
             >
-              {SAVE_STATUS_LABEL.error}
+              {isSaving ? "Saving…" : "Save"}
             </button>
-          ) : null}
+            {/* Keyboard shortcuts help (#535) */}
+            <Tooltip label="Keyboard shortcuts" side="bottom">
+              <IconButton
+                aria-label="Keyboard shortcuts"
+                size="sm"
+                variant="plain"
+                active={keyboardHelpOpen}
+                onClick={() => setKeyboardHelpOpen(true)}
+              >
+                <Keyboard aria-hidden className="h-3.5 w-3.5" />
+              </IconButton>
+            </Tooltip>
 
-          {saveStatus === "error" && saveErrorMessage ? (
-            <span
-              role="status"
-              aria-live="assertive"
-              className="hidden max-w-xs truncate text-xs text-ds-danger-text xl:inline"
+            <Tooltip
+              label={snapToGrid ? "Snap to grid: on" : "Snap to grid: off"}
+              side="bottom"
             >
-              {saveErrorMessage}
-            </span>
-          ) : null}
-
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={isSaving}
-            className={`flex h-8 shrink-0 items-center rounded-ds-md bg-ds-accent px-3 text-sm font-medium text-ds-text-on-accent transition-colors hover:bg-ds-accent-hover disabled:opacity-60 ${FOCUS_RING}`}
-          >
-            {isSaving ? "Saving…" : "Save"}
-          </button>
-          {/* Keyboard shortcuts help (#535) */}
-          <Tooltip label="Keyboard shortcuts" side="bottom">
-            <IconButton
-              aria-label="Keyboard shortcuts"
-              size="sm"
-              variant="plain"
-              active={keyboardHelpOpen}
-              onClick={() => setKeyboardHelpOpen(true)}
+              <IconButton
+                aria-label="Toggle snap to grid"
+                size="sm"
+                variant="plain"
+                active={snapToGrid}
+                onClick={() => setSnapToGrid((on) => !on)}
+              >
+                <Grid3x3 aria-hidden className="h-3.5 w-3.5" />
+              </IconButton>
+            </Tooltip>
+            <button
+              type="button"
+              onClick={handleRequestClose}
+              aria-label="Close slide editor"
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-ds-md border border-ds-border-subtle text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
             >
-              <Keyboard aria-hidden className="h-3.5 w-3.5" />
-            </IconButton>
-          </Tooltip>
-
-          <Tooltip
-            label={snapToGrid ? "Snap to grid: on" : "Snap to grid: off"}
-            side="bottom"
-          >
-            <IconButton
-              aria-label="Toggle snap to grid"
-              size="sm"
-              variant="plain"
-              active={snapToGrid}
-              onClick={() => setSnapToGrid((on) => !on)}
-            >
-              <Grid3x3 aria-hidden className="h-3.5 w-3.5" />
-            </IconButton>
-          </Tooltip>
-          <button
-            type="button"
-            onClick={handleRequestClose}
-            aria-label="Close slide editor"
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-ds-md border border-ds-border-subtle text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-          >
-            <X size={16} aria-hidden="true" />
-          </button>
-        </div>
-      </header>
+              <X size={16} aria-hidden="true" />
+            </button>
+          </div>
+        }
+      />
 
       {/* ── Staleness banner (non-blocking) ──────────────────────────────── */}
       {showStaleBanner ? (
@@ -3848,135 +3543,115 @@ export function SlideEditor({
           ) : null}
         </div>
 
-        <aside
-          aria-hidden={!railOpen}
+        <SlideRail
+          open={railOpen}
+          mounted={railContentMounted}
           onTransitionEnd={(event) => {
             if (event.currentTarget === event.target && !railOpen) {
               setRailContentMounted(false);
             }
           }}
-          className={`shrink-0 overflow-hidden bg-ds-surface-sunken transition-[max-height,opacity,transform] duration-200 ease-out motion-reduce:transition-none ${
-            railOpen
-              ? "max-h-32 translate-y-0 opacity-100"
-              : "max-h-0 translate-y-1 opacity-0"
-          }`}
         >
-          {railContentMounted ? (
-            <div
-              className={`overflow-x-auto px-2 py-1 transition-opacity duration-150 ${
-                railOpen ? "opacity-100" : "pointer-events-none opacity-0"
-              }`}
-            >
-              <ul ref={railListRef} className="flex flex-row gap-1.5">
-                {deck.slides.map((slide, index) => {
-                  const selected = index === safeSelected;
-                  const dropTarget =
-                    dragOverIndex === index && dragIndex !== index;
-                  const dragging = dragIndex === index && dragPreview !== null;
-                  const title = deriveSlideTitle(slide, index);
-                  const canDelete = deck.slides.length > 1;
-                  return (
-                    <li
-                      key={slide.id}
-                      data-slide-thumb
-                      className={`group relative w-28 shrink-0 transition-transform sm:w-32 ${
-                        dragging ? "scale-[0.98] opacity-30" : ""
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setVisualPickerOpen(false);
-                          setSelectedIndex(index);
-                        }}
-                        onPointerDown={(event) => beginReorder(event, index)}
-                        onKeyDown={(event) => {
-                          const direction = slideReorderKeyDirection(
-                            event.key,
-                            event.altKey,
+          <ul ref={railListRef} className="flex flex-row gap-1.5">
+            {deck.slides.map((slide, index) => {
+              const selected = index === safeSelected;
+              const dropTarget = dragOverIndex === index && dragIndex !== index;
+              const dragging = dragIndex === index && dragPreview !== null;
+              const title = deriveSlideTitle(slide, index);
+              const canDelete = deck.slides.length > 1;
+              return (
+                <li
+                  key={slide.id}
+                  data-slide-thumb
+                  className={`group relative w-28 shrink-0 transition-transform sm:w-32 ${
+                    dragging ? "scale-[0.98] opacity-30" : ""
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVisualPickerOpen(false);
+                      setSelectedIndex(index);
+                    }}
+                    onPointerDown={(event) => beginReorder(event, index)}
+                    onKeyDown={(event) => {
+                      const direction = slideReorderKeyDirection(
+                        event.key,
+                        event.altKey,
+                      );
+                      if (direction === null) return;
+                      const nextIndex = index + direction;
+                      if (nextIndex < 0 || nextIndex >= deck.slides.length) {
+                        return;
+                      }
+                      event.preventDefault();
+                      const list = event.currentTarget.closest("ul");
+                      handleMove(index, direction);
+                      // Keep focus on the slide as it moves so repeated
+                      // nudges work without re-tabbing (#654).
+                      requestAnimationFrame(() => {
+                        const buttons =
+                          list?.querySelectorAll<HTMLButtonElement>(
+                            "li[data-slide-thumb] > button",
                           );
-                          if (direction === null) return;
-                          const nextIndex = index + direction;
-                          if (
-                            nextIndex < 0 ||
-                            nextIndex >= deck.slides.length
-                          ) {
-                            return;
-                          }
-                          event.preventDefault();
-                          const list = event.currentTarget.closest("ul");
-                          handleMove(index, direction);
-                          // Keep focus on the slide as it moves so repeated
-                          // nudges work without re-tabbing (#654).
-                          requestAnimationFrame(() => {
-                            const buttons =
-                              list?.querySelectorAll<HTMLButtonElement>(
-                                "li[data-slide-thumb] > button",
-                              );
-                            buttons?.[nextIndex]?.focus();
-                          });
-                        }}
-                        aria-label={`Slide ${index + 1}: ${title}`}
-                        aria-current={selected}
-                        aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
-                        title={title}
-                        className={`flex w-full rounded-ds-md border p-1 text-left transition-all ${
-                          selected
-                            ? "border-ds-accent-border bg-ds-accent-surface"
-                            : "border-transparent hover:bg-ds-state-hover"
-                        } ${
-                          dropTarget
-                            ? "border-ds-accent-border bg-ds-accent-surface shadow-ds-overlay ring-2 ring-ds-accent-border"
-                            : ""
-                        } ${dragging ? "cursor-grabbing" : "cursor-grab"} ${FOCUS_RING}`}
-                      >
-                        <span
-                          className="pointer-events-none relative block min-w-0 flex-1 overflow-hidden rounded-ds-sm border border-ds-border-subtle"
-                          style={{ aspectRatio: activeSlideAspectRatio }}
-                        >
-                          <SlideCanvas
-                            slide={slide}
-                            visuals={visuals}
-                            preview
-                          />
-                          <span className="absolute left-1.5 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-ds-sm bg-ds-surface-overlay px-1 text-[11px] font-semibold tabular-nums text-ds-text-secondary shadow-sm ring-1 ring-ds-border-subtle">
-                            {index + 1}
-                          </span>
-                        </span>
-                      </button>
+                        buttons?.[nextIndex]?.focus();
+                      });
+                    }}
+                    aria-label={`Slide ${index + 1}: ${title}`}
+                    aria-current={selected}
+                    aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+                    title={title}
+                    className={`flex w-full rounded-ds-md border p-1 text-left transition-all ${
+                      selected
+                        ? "border-ds-accent-border bg-ds-accent-surface"
+                        : "border-transparent hover:bg-ds-state-hover"
+                    } ${
+                      dropTarget
+                        ? "border-ds-accent-border bg-ds-accent-surface shadow-ds-overlay ring-2 ring-ds-accent-border"
+                        : ""
+                    } ${dragging ? "cursor-grabbing" : "cursor-grab"} ${FOCUS_RING}`}
+                  >
+                    <span
+                      className="pointer-events-none relative block min-w-0 flex-1 overflow-hidden rounded-ds-sm border border-ds-border-subtle"
+                      style={{ aspectRatio: activeSlideAspectRatio }}
+                    >
+                      <SlideCanvas slide={slide} visuals={visuals} preview />
+                      <span className="absolute left-1.5 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-ds-sm bg-ds-surface-overlay px-1 text-[11px] font-semibold tabular-nums text-ds-text-secondary shadow-sm ring-1 ring-ds-border-subtle">
+                        {index + 1}
+                      </span>
+                    </span>
+                  </button>
 
-                      <div className="absolute right-1 top-1 flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-                        <ThumbnailAction
-                          icon={<ChevronUp size={13} aria-hidden="true" />}
-                          label={`Move slide ${index + 1} up`}
-                          disabled={index === 0}
-                          onClick={() => handleMove(index, -1)}
-                        />
-                        <ThumbnailAction
-                          icon={<ChevronDown size={13} aria-hidden="true" />}
-                          label={`Move slide ${index + 1} down`}
-                          disabled={index === deck.slides.length - 1}
-                          onClick={() => handleMove(index, 1)}
-                        />
-                        <ThumbnailAction
-                          icon={<Copy size={13} aria-hidden="true" />}
-                          label={`Duplicate slide ${index + 1}`}
-                          onClick={() => handleDuplicate(index)}
-                        />
-                        <ThumbnailAction
-                          icon={<Trash2 size={13} aria-hidden="true" />}
-                          label={`Delete slide ${index + 1}`}
-                          disabled={!canDelete}
-                          onClick={() => handleRemove(index)}
-                        />
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ) : null}
-        </aside>
+                  <div className="absolute right-1 top-1 flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                    <ThumbnailAction
+                      icon={<ChevronUp size={13} aria-hidden="true" />}
+                      label={`Move slide ${index + 1} up`}
+                      disabled={index === 0}
+                      onClick={() => handleMove(index, -1)}
+                    />
+                    <ThumbnailAction
+                      icon={<ChevronDown size={13} aria-hidden="true" />}
+                      label={`Move slide ${index + 1} down`}
+                      disabled={index === deck.slides.length - 1}
+                      onClick={() => handleMove(index, 1)}
+                    />
+                    <ThumbnailAction
+                      icon={<Copy size={13} aria-hidden="true" />}
+                      label={`Duplicate slide ${index + 1}`}
+                      onClick={() => handleDuplicate(index)}
+                    />
+                    <ThumbnailAction
+                      icon={<Trash2 size={13} aria-hidden="true" />}
+                      label={`Delete slide ${index + 1}`}
+                      disabled={!canDelete}
+                      onClick={() => handleRemove(index)}
+                    />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </SlideRail>
 
         {selectedSlide && notesDrawerOpen ? (
           <SlideNotesDrawer
@@ -4629,767 +4304,6 @@ function InsertMenuButton({
   );
 }
 
-/** Short accessible label for a document visual card. */
-function fromDocVisualLabel(id: string, visual: Visual): string {
-  const title = visual.title?.trim();
-  if (title) return title;
-  const kind = visual.type
-    ? visual.type.charAt(0).toUpperCase() + visual.type.slice(1)
-    : "Visual";
-  return `${kind} · ${id.slice(0, 6)}`;
-}
-
-/**
- * The "From document" quick-insert panel (issue #293). Lists the document's
- * visuals and text as click-to-insert cards plus an "Add all visuals" action.
- * Each insert is routed through the editor's undoable `addElement` path; the
- * panel stays open after an insert so several items can be placed in a row.
- *
- * Issue #408/#410: When `staleLinks` is non-empty, a "Source links" section
- * is shown above the insert cards, listing each stale element with its reason
- * (changed vs orphaned/missing) and per-element actions (update, unlink/keep,
- * relink, remove). The panel never auto-deletes elements (#410).
- */
-function FromDocumentPanel({
-  visuals,
-  textItems,
-  staleLinks = [],
-  onAddAllVisuals,
-  onInsertVisual,
-  onInsertText,
-  onUpdateFromSource,
-  onUnlinkSource,
-  onRelinkSource,
-  onRemoveOrphaned,
-  documentTextInsertables = [],
-  documentVisualInsertables = [],
-}: {
-  visuals: readonly (readonly [string, Visual])[];
-  textItems: readonly Extract<Insertable, { kind: "text" }>[];
-  staleLinks?: StaleSourceLink[];
-  onAddAllVisuals: () => void;
-  onInsertVisual: (item: Extract<Insertable, { kind: "visual" }>) => void;
-  onInsertText: (item: Extract<Insertable, { kind: "text" }>) => void;
-  onUpdateFromSource?: (link: StaleSourceLink) => void;
-  onUnlinkSource?: (link: StaleSourceLink) => void;
-  onRelinkSource?: (
-    link: StaleSourceLink,
-    newBlockId: string,
-    newContentHash: string,
-  ) => void;
-  onRemoveOrphaned?: (link: StaleSourceLink) => void;
-  documentTextInsertables?: readonly Extract<Insertable, { kind: "text" }>[];
-  documentVisualInsertables?: readonly Extract<
-    Insertable,
-    { kind: "visual" }
-  >[];
-}) {
-  const hasVisuals = visuals.length > 0;
-  const hasText = textItems.length > 0;
-  const hasStale = staleLinks.length > 0;
-  const changedLinks = staleLinks.filter((l) => l.reason === "content_changed");
-  const missingLinks = staleLinks.filter((l) => l.reason === "block_missing");
-
-  return (
-    <div className="flex max-h-[70vh] flex-col rounded-ds-md bg-ds-surface-raised">
-      <div className="flex items-center gap-2 px-3 py-2.5">
-        <div className="flex min-w-0 items-center gap-2">
-          <FileText
-            aria-hidden="true"
-            className="h-5 w-5 shrink-0 text-ds-text-primary"
-          />
-          <h4 className="truncate text-sm font-bold leading-none text-ds-text-primary">
-            From document
-          </h4>
-        </div>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {/* Stale source links section (#408 / #410) */}
-        {hasStale ? (
-          <section
-            aria-label="Stale source links"
-            className="border-b border-ds-border-subtle p-3"
-          >
-            <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ds-warning-text">
-              Source links
-            </h3>
-            {changedLinks.length > 0 && (
-              <div className="mb-2">
-                <p className="mb-1.5 text-[11px] text-ds-text-muted">
-                  Content changed
-                </p>
-                <ul className="flex flex-col gap-1">
-                  {changedLinks.map((link) => (
-                    <li
-                      key={link.elementId}
-                      className="flex items-center gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5"
-                    >
-                      <span className="min-w-0 flex-1 truncate text-[11px] text-ds-text-secondary">
-                        {link.blockKind === "visual" ? "Visual" : "Text"} ·{" "}
-                        {link.blockId.slice(0, 8)}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => onUpdateFromSource?.(link)}
-                        aria-label="Update element from source"
-                        title="Update from source"
-                        className={`shrink-0 rounded-ds-sm px-1.5 py-0.5 text-[11px] font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-                      >
-                        Update
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onUnlinkSource?.(link)}
-                        aria-label="Unlink element from source"
-                        title="Keep as manual (unlink)"
-                        className={`shrink-0 rounded-ds-sm px-1.5 py-0.5 text-[11px] font-medium text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-                      >
-                        Unlink
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {missingLinks.length > 0 && (
-              <div>
-                <p className="mb-1.5 text-[11px] text-ds-text-muted">
-                  Orphaned (source deleted)
-                </p>
-                <ul className="flex flex-col gap-1">
-                  {missingLinks.map((link) => (
-                    <li
-                      key={link.elementId}
-                      className="flex items-center gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5"
-                    >
-                      <span className="min-w-0 flex-1 truncate text-[11px] text-ds-text-secondary">
-                        {link.blockKind === "visual" ? "Visual" : "Text"} ·{" "}
-                        {link.blockId.slice(0, 8)}
-                      </span>
-                      {/* Relink to a new block (visual or text) */}
-                      {link.blockKind === "visual" &&
-                        documentVisualInsertables.length > 0 && (
-                          <select
-                            aria-label="Relink to visual"
-                            defaultValue=""
-                            onChange={(e) => {
-                              const item = documentVisualInsertables.find(
-                                (i) => i.visualId === e.target.value,
-                              );
-                              if (item)
-                                onRelinkSource?.(
-                                  link,
-                                  item.visualId,
-                                  item.contentHash,
-                                );
-                            }}
-                            className={`shrink-0 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-1 py-0.5 text-[11px] text-ds-text-secondary ${FOCUS_RING}`}
-                          >
-                            <option value="" disabled>
-                              Relink…
-                            </option>
-                            {documentVisualInsertables.map((i) => (
-                              <option key={i.visualId} value={i.visualId}>
-                                {i.visualId.slice(0, 8)}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      {link.blockKind === "text" &&
-                        documentTextInsertables.length > 0 && (
-                          <select
-                            aria-label="Relink to text block"
-                            defaultValue=""
-                            onChange={(e) => {
-                              const item = documentTextInsertables.find(
-                                (i) => i.blockId === e.target.value,
-                              );
-                              if (item)
-                                onRelinkSource?.(
-                                  link,
-                                  item.blockId!,
-                                  item.contentHash,
-                                );
-                            }}
-                            className={`shrink-0 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-1 py-0.5 text-[11px] text-ds-text-secondary ${FOCUS_RING}`}
-                          >
-                            <option value="" disabled>
-                              Relink…
-                            </option>
-                            {documentTextInsertables
-                              .filter((i) => i.blockId !== undefined)
-                              .map((i) => (
-                                <option key={i.blockId} value={i.blockId}>
-                                  {i.label}
-                                </option>
-                              ))}
-                          </select>
-                        )}
-                      <button
-                        type="button"
-                        onClick={() => onUnlinkSource?.(link)}
-                        aria-label="Keep element as manual (unlink from source)"
-                        title="Keep as manual"
-                        className={`shrink-0 rounded-ds-sm px-1.5 py-0.5 text-[11px] font-medium text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-                      >
-                        Keep
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onRemoveOrphaned?.(link)}
-                        aria-label="Remove orphaned element"
-                        title="Remove element"
-                        className={`shrink-0 rounded-ds-sm px-1.5 py-0.5 text-[11px] font-medium text-ds-error-text transition-colors hover:bg-ds-error-surface ${FOCUS_RING}`}
-                      >
-                        Remove
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </section>
-        ) : null}
-
-        {!hasVisuals && !hasText && !hasStale ? (
-          <p className="px-3 py-8 text-center text-xs text-ds-text-muted">
-            This document has no text or visuals yet. Add content in the
-            document to reuse it on a slide.
-          </p>
-        ) : (
-          <div className="p-3">
-            {hasVisuals ? (
-              <section aria-label="Document visuals">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <h3 className="text-[11px] font-semibold uppercase tracking-wide text-ds-text-muted">
-                    Visuals
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={onAddAllVisuals}
-                    className={`flex h-6 items-center gap-1 rounded-ds-sm border border-ds-border-subtle bg-ds-surface px-2 text-[11px] font-semibold text-ds-text-secondary transition-colors hover:border-ds-accent-border hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-                  >
-                    <Plus size={12} aria-hidden="true" />
-                    Add all visuals
-                  </button>
-                </div>
-                <ul className="grid grid-cols-2 gap-1.5">
-                  {visuals.map(([id, visual]) => {
-                    const insertable = documentVisualInsertables.find(
-                      (i) => i.visualId === id,
-                    ) ?? {
-                      kind: "visual" as const,
-                      visualId: id,
-                      contentHash: "",
-                    };
-                    return (
-                      <li key={id}>
-                        <button
-                          type="button"
-                          onClick={() => onInsertVisual(insertable)}
-                          aria-label={`Insert ${fromDocVisualLabel(id, visual)}`}
-                          title={fromDocVisualLabel(id, visual)}
-                          className={`group flex w-full flex-col gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-1.5 text-left transition-colors hover:border-ds-accent-border hover:bg-ds-state-hover ${FOCUS_RING}`}
-                        >
-                          <span className="flex aspect-video items-center justify-center overflow-hidden rounded-ds-sm bg-ds-surface-base">
-                            <VisualRenderer
-                              visual={visual}
-                              className="h-full w-full object-contain"
-                              transparentBackground
-                            />
-                          </span>
-                          <span className="truncate text-[11px] text-ds-text-muted">
-                            {fromDocVisualLabel(id, visual)}
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-            ) : null}
-
-            {hasText ? (
-              <section
-                aria-label="Document text"
-                className={hasVisuals ? "mt-4" : ""}
-              >
-                <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ds-text-muted">
-                  Text
-                </h3>
-                <ul className="flex flex-col gap-1.5">
-                  {textItems.map((item, index) => (
-                    <li key={index}>
-                      <button
-                        type="button"
-                        onClick={() => onInsertText(item)}
-                        aria-label={`Insert ${item.heading ? "heading" : "text"}: ${item.label}`}
-                        title={item.text}
-                        className={`flex w-full items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-left transition-colors hover:border-ds-accent-border hover:bg-ds-state-hover ${FOCUS_RING}`}
-                      >
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-ds-sm bg-ds-accent-surface text-ds-accent-text">
-                          <Type size={13} aria-hidden="true" />
-                        </span>
-                        <span
-                          className={`min-w-0 flex-1 truncate text-xs ${
-                            item.heading
-                              ? "font-semibold text-ds-text-primary"
-                              : "text-ds-text-secondary"
-                          }`}
-                        >
-                          {item.label}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function SlideSelectionToolbar({
-  selectedElement,
-  selectedCount,
-  theme,
-  brandSwatches,
-  onUpdateElement,
-  onOpenPosition,
-  onOpenText,
-  onOpenEffects,
-  onOpenMedia,
-  onOpenSource,
-  onDuplicateElement,
-  onRemoveElement,
-  onBringToFront,
-  onSendToBack,
-  compact,
-}: {
-  selectedElement: SlideElement | null;
-  selectedCount: number;
-  theme: ThemeConfig;
-  brandSwatches: readonly string[];
-  onUpdateElement: (
-    id: string,
-    patch: ElementPatch,
-    coalesceKey?: string,
-  ) => void;
-  onOpenPosition: () => void;
-  onOpenText: () => void;
-  onOpenEffects: () => void;
-  onOpenMedia: () => void;
-  onOpenSource: () => void;
-  onDuplicateElement: (id: string) => void;
-  onRemoveElement: (id: string) => void;
-  onBringToFront: (id: string) => void;
-  onSendToBack: (id: string) => void;
-  compact: boolean;
-}) {
-  const [moreOpen, setMoreOpen] = useState(false);
-  if (
-    !isSelectionToolbarVisible({
-      hasSelectedElement: selectedElement !== null,
-      selectedCount,
-    })
-  ) {
-    return null;
-  }
-  const showRich =
-    selectedElement !== null &&
-    shouldShowRichToolbarControls({
-      hasSelectedElement: selectedElement !== null,
-      selectedCount,
-    });
-  const panelEntries = toolbarPanelEntries({
-    kind:
-      selectedElement !== null
-        ? toToolbarSelectionKind(
-            selectedElement.kind,
-            selectedElement.kind === "shape"
-              ? selectedElement.shape
-              : undefined,
-          )
-        : null,
-    hasSourceRef: selectedElement?.sourceRef !== undefined,
-    selectedCount,
-  });
-  const canOpenTextPanel = panelEntries.text;
-  const canOpenMediaPanel = panelEntries.media;
-  const canOpenEffectsPanel = panelEntries.effects;
-  const canOpenSourcePanel = panelEntries.source;
-  const panelEntry = (label: string, icon: ReactNode, onClick: () => void) => (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-    >
-      {icon}
-    </button>
-  );
-  return (
-    <div
-      role="toolbar"
-      data-floating-panel="true"
-      aria-label="Selected slide element tools"
-      className="pointer-events-auto absolute left-1/2 top-3 z-sticky flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-1 overflow-visible rounded-ds-lg border border-ds-border-subtle bg-ds-surface-raised p-1 shadow-ds-popover"
-    >
-      {showRich && selectedElement ? (
-        <ElementToolbarContent
-          element={selectedElement}
-          tc={theme}
-          brandSwatches={brandSwatches}
-          onUpdateElement={onUpdateElement}
-          onDuplicate={() => onDuplicateElement(selectedElement.id)}
-          onBringToFront={() => onBringToFront(selectedElement.id)}
-          onSendToBack={() => onSendToBack(selectedElement.id)}
-          onRemove={() => onRemoveElement(selectedElement.id)}
-          compact={compact}
-        />
-      ) : null}
-      {compact && showRich && selectedElement ? (
-        <Popover
-          open={moreOpen}
-          onClose={() => setMoreOpen(false)}
-          aria-label="More element actions"
-          placement="bottom"
-          className="w-44 p-1"
-          trigger={
-            <button
-              type="button"
-              aria-label="More actions"
-              aria-haspopup="dialog"
-              aria-expanded={moreOpen}
-              onClick={() => setMoreOpen((open) => !open)}
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-ds-md text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-            >
-              <MoreHorizontal size={16} aria-hidden="true" />
-            </button>
-          }
-        >
-          <div className="flex flex-col">
-            <button
-              type="button"
-              onClick={() => {
-                onBringToFront(selectedElement.id);
-                setMoreOpen(false);
-              }}
-              className={`flex items-center gap-2 rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-            >
-              <BringToFront size={14} aria-hidden="true" />
-              Bring to front
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                onSendToBack(selectedElement.id);
-                setMoreOpen(false);
-              }}
-              className={`flex items-center gap-2 rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-            >
-              <SendToBack size={14} aria-hidden="true" />
-              Send to back
-            </button>
-          </div>
-        </Popover>
-      ) : null}
-      {showRich ? (
-        <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
-      ) : null}
-      {canOpenTextPanel
-        ? panelEntry(
-            "Text settings",
-            <Type size={14} aria-hidden="true" />,
-            onOpenText,
-          )
-        : null}
-      {canOpenMediaPanel
-        ? selectedElement?.kind === "connector"
-          ? panelEntry(
-              "Line settings",
-              <Minus size={14} aria-hidden="true" />,
-              onOpenMedia,
-            )
-          : panelEntry(
-              "Media settings",
-              <ImageIcon size={14} aria-hidden="true" />,
-              onOpenMedia,
-            )
-        : null}
-      {canOpenEffectsPanel
-        ? panelEntry(
-            "Effects settings",
-            <Sparkles size={14} aria-hidden="true" />,
-            onOpenEffects,
-          )
-        : null}
-      {canOpenSourcePanel
-        ? panelEntry(
-            "Source settings",
-            <FileText size={14} aria-hidden="true" />,
-            onOpenSource,
-          )
-        : null}
-      {panelEntry(
-        "Position settings",
-        <Grid3x3 size={14} aria-hidden="true" />,
-        onOpenPosition,
-      )}
-    </div>
-  );
-}
-
-/**
- * Bottom Notes drawer (#634, #648). Speaker notes live here as a workspace
- * band above the dock — not as a right-panel tab — so the right panel stays
- * focused on element/slide editing. The drawer height is user-resizable and
- * remembered across sessions; edits route through the same undoable + autosaved
- * notes command path as before.
- */
-function SlideNotesDrawer({
-  notes,
-  height,
-  onHeightChange,
-  onChange,
-  onClose,
-}: {
-  notes: string;
-  height: number;
-  onHeightChange: (next: number) => void;
-  onChange: (value: string, coalesceKey?: string) => void;
-  onClose: () => void;
-}) {
-  const handleResizePointerDown = (
-    event: React.PointerEvent<HTMLDivElement>,
-  ) => {
-    event.preventDefault();
-    const startY = event.clientY;
-    const startHeight = height;
-    const onMove = (moveEvent: PointerEvent) => {
-      // Dragging up (smaller clientY) grows the drawer.
-      onHeightChange(startHeight + (startY - moveEvent.clientY));
-    };
-    const onUp = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  };
-
-  return (
-    <div
-      className="flex shrink-0 flex-col border-t border-ds-border-subtle bg-ds-surface-overlay"
-      style={{ height }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          event.stopPropagation();
-          onClose();
-        }
-      }}
-    >
-      <div
-        role="separator"
-        aria-orientation="horizontal"
-        aria-label="Resize notes drawer"
-        onPointerDown={handleResizePointerDown}
-        className="flex h-2 w-full cursor-row-resize items-center justify-center hover:bg-ds-state-hover"
-      >
-        <span
-          aria-hidden="true"
-          className="h-0.5 w-8 rounded-full bg-ds-border-subtle"
-        />
-      </div>
-      <div className="flex items-center justify-between px-3 pb-1">
-        <span className="text-xs font-semibold uppercase tracking-wide text-ds-text-muted">
-          Notes
-        </span>
-        <button
-          type="button"
-          aria-label="Close notes"
-          onClick={onClose}
-          className={`flex h-6 w-6 items-center justify-center rounded-ds-sm text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-        >
-          <X size={14} aria-hidden="true" />
-        </button>
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto px-3 pb-3">
-        <SpeakerNotesControl notes={notes} onChange={onChange} />
-      </div>
-    </div>
-  );
-}
-
-function SlideBottomDock({
-  railOpen,
-  notesOpen,
-  zoom,
-  zoomMenuOpen,
-  slideLabel,
-  onToggleRail,
-  onOpenNotes,
-  onZoomChange,
-  onZoomMenuOpenChange,
-}: {
-  railOpen: boolean;
-  notesOpen: boolean;
-  zoom: number;
-  zoomMenuOpen: boolean;
-  slideLabel: string;
-  onToggleRail: () => void;
-  onOpenNotes: () => void;
-  onZoomChange: (zoom: number) => void;
-  onZoomMenuOpenChange: (open: boolean) => void;
-}) {
-  const zoomPercent = zoomToPercent(zoom);
-  const setZoomPercent = (percent: number) => {
-    onZoomChange(percent / 100);
-    onZoomMenuOpenChange(false);
-  };
-  // Descending order (largest first) to match the zoom menu in the mockup.
-  const presets = [...ZOOM_PERCENT_PRESETS].sort((a, b) => b - a);
-
-  return (
-    <div className="shrink-0 bg-ds-surface-sunken">
-      <div className="flex min-h-10 items-center justify-center gap-1.5 px-2 py-1">
-        <Tooltip
-          label={railOpen ? "Hide slide thumbnails" : "Show slide thumbnails"}
-          side="top"
-        >
-          <button
-            type="button"
-            aria-label={
-              railOpen ? "Hide slide thumbnails" : "Show slide thumbnails"
-            }
-            aria-pressed={railOpen}
-            onClick={onToggleRail}
-            className={`flex h-8 items-center gap-1.5 rounded-ds-md px-2 text-xs font-semibold transition-colors ${
-              railOpen
-                ? "bg-ds-accent-surface text-ds-accent-text"
-                : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
-            } ${FOCUS_RING}`}
-          >
-            <LayoutPanelLeft size={14} aria-hidden="true" />
-            Slides
-          </button>
-        </Tooltip>
-        <button
-          type="button"
-          aria-pressed={notesOpen}
-          onClick={onOpenNotes}
-          className={`flex h-8 items-center rounded-ds-md px-2 text-xs font-semibold transition-colors ${
-            notesOpen
-              ? "bg-ds-accent-surface text-ds-accent-text"
-              : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
-          } ${FOCUS_RING}`}
-        >
-          Notes
-        </button>
-        <span className="hidden truncate text-xs font-medium text-ds-text-muted sm:inline">
-          {slideLabel}
-        </span>
-        <div className="mx-1 h-5 w-px bg-ds-border-subtle" aria-hidden="true" />
-        <input
-          type="range"
-          min={25}
-          max={200}
-          step={5}
-          value={zoomPercent}
-          onChange={(event) => onZoomChange(Number(event.target.value) / 100)}
-          aria-label="Slide zoom"
-          className="w-32 accent-ds-accent"
-        />
-        <Popover
-          open={zoomMenuOpen}
-          onClose={() => onZoomMenuOpenChange(false)}
-          aria-label="Zoom presets"
-          placement="top"
-          className="w-16 p-1"
-          trigger={
-            <button
-              type="button"
-              aria-haspopup="dialog"
-              aria-expanded={zoomMenuOpen}
-              onClick={() => onZoomMenuOpenChange(!zoomMenuOpen)}
-              className={`h-8 min-w-14 rounded-ds-md px-2 text-xs font-semibold tabular-nums text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-            >
-              {zoomPercent}%
-            </button>
-          }
-        >
-          <div className="flex flex-col">
-            {presets.map((preset) => (
-              <button
-                key={preset}
-                type="button"
-                onClick={() => setZoomPercent(preset)}
-                className={`rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${
-                  preset === zoomPercent
-                    ? "bg-ds-state-hover text-ds-text-primary"
-                    : "text-ds-text-secondary"
-                } ${FOCUS_RING}`}
-              >
-                {preset}%
-              </button>
-            ))}
-            <div className="my-1 border-t border-ds-border-subtle" />
-            <button
-              type="button"
-              onClick={() => setZoomPercent(100)}
-              className={`rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-            >
-              Fit
-            </button>
-          </div>
-        </Popover>
-      </div>
-    </div>
-  );
-}
-
-function SlideSizeControl({
-  value,
-  onChange,
-}: {
-  value: SlideFormat;
-  onChange: (format: SlideFormat) => void;
-}) {
-  return (
-    <div className="flex items-center gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-1">
-      <span className="px-1 text-xs font-medium text-ds-text-muted">Size</span>
-      <div role="radiogroup" aria-label="Slide size" className="flex gap-0.5">
-        {SLIDE_FORMATS.map((format) => {
-          const active = value === format;
-          const config = slideFormatConfig(format);
-          return (
-            <button
-              key={format}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              aria-label={config.label}
-              onClick={() => onChange(format)}
-              className={`rounded-ds-sm px-2 py-1 text-xs font-medium transition-colors ${
-                active
-                  ? "bg-ds-accent-surface text-ds-accent-text"
-                  : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
-              } ${FOCUS_RING}`}
-            >
-              {format}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 /**
  * A single icon button in a thumbnail's hover/focus action cluster
  * (move ↑/↓, duplicate, delete). Reuses the `VisualCard` hover-action pattern —
@@ -5422,120 +4336,5 @@ function ThumbnailAction({
     >
       {icon}
     </button>
-  );
-}
-
-/**
- * Modal summary shown before a "Sync from document" merge is applied. Lists the
- * per-slide before/after effect (updated / appended / preserved) so the user
- * sees exactly what will change — and that no manual element work is discarded —
- * before confirming. Pure presentation: all merge logic lives in `deck-merge`.
- */
-function MergeSummaryDialog({
-  summary,
-  onApply,
-  onCancel,
-}: {
-  summary: MergeSummary;
-  onApply: () => void;
-  onCancel: () => void;
-}) {
-  const dialogRef = useRef<HTMLDivElement>(null);
-  useFocusTrap(dialogRef);
-  const KIND_LABEL: Record<string, string> = {
-    updated: "Updated",
-    appended: "New",
-    preserved: "Kept",
-  };
-  const hasChanges = summary.updatedCount > 0 || summary.appendedCount > 0;
-
-  return createPortal(
-    <div
-      ref={dialogRef}
-      data-floating-panel="true"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Sync from document"
-      className="fixed inset-0 z-modal flex items-center justify-center bg-ds-backdrop p-4"
-    >
-      <div className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-ds-lg border border-ds-border-subtle bg-ds-surface-base shadow-lg">
-        <div className="flex items-center justify-between border-b border-ds-border-subtle px-5 py-4">
-          <h3 className="text-sm font-semibold text-ds-text-primary">
-            Sync from document
-          </h3>
-          <button
-            type="button"
-            onClick={onCancel}
-            aria-label="Cancel sync"
-            className={`flex h-7 w-7 items-center justify-center rounded-ds-md text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-          >
-            <X size={15} aria-hidden="true" />
-          </button>
-        </div>
-
-        <div className="border-b border-ds-border-subtle px-5 py-3 text-xs text-ds-text-secondary">
-          <p>
-            {summary.updatedCount} updated · {summary.appendedCount} new ·{" "}
-            {summary.preservedCount} kept · {summary.preservedElementCount}{" "}
-            element{summary.preservedElementCount === 1 ? "" : "s"} preserved
-          </p>
-          {!hasChanges ? (
-            <p className="mt-1 text-ds-text-muted">
-              This deck already matches the document.
-            </p>
-          ) : null}
-        </div>
-
-        <ul className="min-h-0 flex-1 divide-y divide-ds-border-subtle overflow-y-auto px-5 py-2 text-xs">
-          {summary.changes.map((change) => (
-            <li
-              key={`${change.kind}-${change.index}`}
-              className="flex items-center gap-3 py-2"
-            >
-              <span
-                className={`shrink-0 rounded-ds-sm px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                  change.kind === "updated"
-                    ? "bg-ds-warning-surface text-ds-warning-text"
-                    : change.kind === "appended"
-                      ? "bg-ds-success-surface text-ds-success-text"
-                      : "bg-ds-state-hover text-ds-text-muted"
-                }`}
-              >
-                {KIND_LABEL[change.kind]}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-ds-text-primary">
-                {change.after.title || "(untitled slide)"}
-              </span>
-              <span className="shrink-0 text-ds-text-muted">
-                {change.after.bulletCount} bullet
-                {change.after.bulletCount === 1 ? "" : "s"}
-                {change.elementsPreserved > 0
-                  ? ` · ${change.elementsPreserved} kept`
-                  : ""}
-              </span>
-            </li>
-          ))}
-        </ul>
-
-        <div className="flex items-center justify-end gap-2 border-t border-ds-border-subtle px-5 py-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            className={`flex h-8 items-center rounded-ds-md border border-ds-border-subtle px-3 text-sm font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onApply}
-            disabled={!hasChanges}
-            className={`flex h-8 items-center rounded-ds-md bg-ds-accent px-3 text-sm font-medium text-ds-text-on-accent transition-colors hover:bg-ds-accent-hover disabled:opacity-60 ${FOCUS_RING}`}
-          >
-            Apply changes
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body,
   );
 }

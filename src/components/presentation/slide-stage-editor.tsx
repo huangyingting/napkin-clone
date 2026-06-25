@@ -60,7 +60,6 @@ import { cx, MENU_CHROME, MENU_ITEM } from "@/components/ui/tokens";
 import type {
   BulletItem,
   ConnectorAnchor,
-  ConnectorElement,
   ConnectorEndpoint,
   ElementBox,
   Deck,
@@ -147,6 +146,10 @@ import { buildMediaHitGeometry } from "@/lib/presentation/media-hit-geometry";
 import { measureTextHitGeometry } from "@/lib/presentation/text-hit-geometry";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 import type { Visual } from "@/lib/visual/schema";
+import { useStageMarqueeSelection } from "@/components/presentation/stage/use-stage-marquee-selection";
+import { MarqueeSelectionOverlay } from "@/components/presentation/stage/marquee-selection-overlay";
+import { ConnectorEndpointHandles } from "@/components/presentation/stage/connector-endpoint-handles";
+import { MultiSelectBoundingBox } from "@/components/presentation/stage/resize-rotate-handles";
 
 type Handle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 type DragMode = "move" | "rotate" | Handle;
@@ -726,154 +729,6 @@ const LINE_HANDLES = HANDLES.filter(
 /** Bottom-edge handles dimmed for auto-height text/bullets (#333). */
 const BOTTOM_HANDLES = new Set<Handle>(["s", "se", "sw"]);
 
-/**
- * Endpoint drag handles for a selected {@link ConnectorElement} (issue #325).
- *
- * Renders two touchable dots positioned at the actual start/end screen
- * coordinates (as %-of-element-box offsets) rather than the element's
- * bounding-box edges. Bound endpoints receive a blue filled ring; free
- * endpoints use the default grey dot.
- */
-function ConnectorEndpointHandles({
-  element,
-  elements,
-  fittedBoxes,
-  onBeginDrag,
-}: {
-  element: ConnectorElement;
-  elements: readonly SlideElement[];
-  fittedBoxes: ReadonlyMap<string, ElementBox>;
-  onBeginDrag: (
-    event: React.PointerEvent,
-    mode: Extract<Handle, "w" | "e">,
-  ) => void;
-}) {
-  const cbox = fittedBoxes.get(element.id) ?? element.box;
-  const { start: startPt, end: endPt } = resolveConnectorElementPoints(
-    element,
-    elements,
-    (el) => fittedBoxes.get(el.id) ?? el.box,
-  );
-  // Convert slide-% coordinates to % relative to the element's bounding box so
-  // the <span> can be positioned with `left/top` inside the container div.
-  const toRel = (ptX: number, ptY: number) => ({
-    left: cbox.w > 0 ? ((ptX - cbox.x) / cbox.w) * 100 : 50,
-    top: cbox.h > 0 ? ((ptY - cbox.y) / cbox.h) * 100 : 50,
-  });
-  const handles: {
-    rel: { left: number; top: number };
-    mode: Extract<Handle, "w" | "e">;
-    bound: boolean;
-    label: string;
-  }[] = [
-    {
-      rel: toRel(startPt.x, startPt.y),
-      mode: "w",
-      bound: "elementId" in element.start,
-      label: "Drag start endpoint",
-    },
-    {
-      rel: toRel(endPt.x, endPt.y),
-      mode: "e",
-      bound: "elementId" in element.end,
-      label: "Drag end endpoint",
-    },
-  ];
-  return (
-    <>
-      {handles.map(({ rel, mode, bound, label }) => (
-        <span
-          key={mode}
-          onPointerDown={(event) => onBeginDrag(event, mode)}
-          aria-label={label}
-          className="absolute flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 touch-none items-center justify-center"
-          style={{
-            left: `${rel.left}%`,
-            top: `${rel.top}%`,
-            cursor: "crosshair",
-          }}
-        >
-          {/* Filled = bound to a shape; outlined = free floating. */}
-          <span
-            className={`h-3 w-3 rounded-full shadow transition-colors ${
-              bound
-                ? "bg-ds-accent"
-                : "border border-ds-accent bg-ds-accent-surface"
-            }`}
-          />
-        </span>
-      ))}
-    </>
-  );
-}
-
-/**
- * Overlay rendered around the combined bounding box of a multi-selection
- * (issue #329).  Shows a dashed border frame with eight resize handles and one
- * rotation handle (matching the per-element single-select style so the UX is
- * consistent).
- *
- * The component is purely presentational — all pointer events are forwarded
- * upstream via `onBeginDrag`.
- */
-function MultiSelectBoundingBox({
-  bbox,
-  showAdvanced,
-  onBeginDrag,
-}: {
-  bbox: ElementBox;
-  showAdvanced: boolean;
-  onBeginDrag: (
-    event: React.PointerEvent,
-    mode: Handle | "rotate",
-    bbox: ElementBox,
-  ) => void;
-}) {
-  return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute"
-      style={{
-        left: `${bbox.x}%`,
-        top: `${bbox.y}%`,
-        width: `${bbox.w}%`,
-        height: `${bbox.h}%`,
-        zIndex: STAGE_CHROME_Z_INDEX.multiSelectionBounds,
-        // Dashed outline distinguishes the combined box from single-select rings.
-        outline: "2px dashed var(--ds-accent)",
-        outlineOffset: "1px",
-      }}
-    >
-      {/* Eight resize handles — same positions and touch targets as HANDLES. */}
-      {HANDLES.map(({ handle, cursor, style }) => (
-        <span
-          key={handle}
-          onPointerDown={(event) => onBeginDrag(event, handle, bbox)}
-          aria-hidden="true"
-          className="pointer-events-auto absolute flex h-11 w-11 touch-none items-center justify-center"
-          style={{ ...style, cursor }}
-        >
-          <span className="h-2.5 w-2.5 rounded-full bg-ds-accent shadow" />
-        </span>
-      ))}
-
-      {/* Rotation handle — only in advanced mode, same style as single-select. */}
-      {showAdvanced ? (
-        <span
-          onPointerDown={(event) => onBeginDrag(event, "rotate", bbox)}
-          aria-hidden="true"
-          className="pointer-events-auto absolute left-1/2 flex h-11 w-11 -translate-x-1/2 touch-none items-center justify-center"
-          style={{ top: "calc(100% + 6px)", cursor: "grab" }}
-        >
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-ds-accent text-ds-text-on-accent shadow">
-            <RotateCw size={11} aria-hidden="true" />
-          </span>
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
 function ElementFrameOverlay({
   box,
   rotation,
@@ -1101,9 +956,8 @@ export function SlideStageEditor({
   // `marqueeRect` mirrors it for rendering the band; `marqueeRectRef` holds the
   // latest normalized rect so pointer-up can resolve the selection even when the
   // final move and the up arrive in the same frame.
-  const marqueeRef = useRef<MarqueeState | null>(null);
-  const marqueeRectRef = useRef<MarqueeRect | null>(null);
-  const [marqueeRect, setMarqueeRect] = useState<MarqueeRect | null>(null);
+  const { marqueeRef, marqueeRectRef, marqueeRect, setMarqueeRect } =
+    useStageMarqueeSelection<MarqueeState>();
   const [editingId, setEditingId] = useState<string | null>(null);
   // Group editing state (issue #330). When non-null, the user has "entered" this
   // group and pointer-down treats group members as individual elements.
@@ -2587,22 +2441,7 @@ export function SlideStageEditor({
           </div>
         ) : null}
 
-        {/* Marquee (rubber-band) selection rectangle — issue #245. */}
-        {marqueeRect &&
-        (marqueeRect.w >= MARQUEE_THRESHOLD_PCT ||
-          marqueeRect.h >= MARQUEE_THRESHOLD_PCT) ? (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute border border-ds-accent bg-ds-accent/10"
-            style={{
-              left: `${marqueeRect.x}%`,
-              top: `${marqueeRect.y}%`,
-              width: `${marqueeRect.w}%`,
-              height: `${marqueeRect.h}%`,
-              zIndex: STAGE_CHROME_Z_INDEX.marquee,
-            }}
-          />
-        ) : null}
+        <MarqueeSelectionOverlay rect={marqueeRect} />
 
         {/* Snap alignment guides — thin lines shown while dragging an element. */}
         {activeDrag === "move" && snapGuides.length > 0
