@@ -126,11 +126,22 @@ import {
   cycleEndpointAnchor,
   focusTargetAfterDelete,
   isArrowKey,
+  isConnectableElement,
   nextElementId,
   orderedElementIds,
   resizeBoxByStep,
   selectedConnectablePair,
 } from "@/lib/presentation/canvas-a11y";
+import {
+  keyboardConnectorDecision,
+  startKeyboardConnectorMode,
+  type KeyboardConnectorMode,
+} from "@/lib/presentation/canvas-keyboard-connector";
+import {
+  announceRotation,
+  applyKeyboardRotation,
+  keyboardRotationDelta,
+} from "@/lib/presentation/canvas-keyboard-rotate";
 import { resolveConnectorElementPoints } from "@/lib/presentation/connector-geometry";
 import { elementAccessibleName } from "@/lib/presentation/element-accessible-name";
 import {
@@ -151,6 +162,10 @@ import {
   shouldCollapseToolbar,
   type RightPanelTab,
 } from "@/lib/presentation/slide-panel-ui";
+import {
+  rotateElementsAroundCenter,
+  selectionBoundingBox,
+} from "@/lib/presentation/selection-transform";
 import {
   reorderTargetIndex,
   slideReorderKeyDirection,
@@ -746,6 +761,7 @@ export function SlideEditor({
     safeSelected: 0,
     effectiveSelectedElementId: null as string | null,
     effectiveSelectedElementIds: new Set<string>(),
+    keyboardConnectorMode: null as KeyboardConnectorMode | null,
   });
 
   // ── Canvas keyboard accessibility (#530–#535) ──────────────────────────────
@@ -774,6 +790,8 @@ export function SlideEditor({
   }, []);
   // In-product keyboard shortcut help overlay (#535).
   const [keyboardHelpOpen, setKeyboardHelpOpen] = useState(false);
+  const [keyboardConnectorMode, setKeyboardConnectorMode] =
+    useState<KeyboardConnectorMode | null>(null);
 
   const { pendingPatchesRef, doCommitAndChange } =
     useSlideEditorCommit(onDeckChange);
@@ -854,6 +872,7 @@ export function SlideEditor({
       safeSelected,
       effectiveSelectedElementId,
       effectiveSelectedElementIds,
+      keyboardConnectorMode,
     };
   });
   const selectionSummary = useMemo(() => {
@@ -1284,7 +1303,89 @@ export function SlideEditor({
         safeSelected: kSafe,
         effectiveSelectedElementId: kElemId,
         effectiveSelectedElementIds: kElemIds,
+        keyboardConnectorMode: kConnectorMode,
       } = keydownStateRef.current;
+
+      if (kConnectorMode) {
+        const modeSlide = kDeck.slides[kSafe];
+        const modeSlideId = modeSlide?.id;
+        const modeElements = modeSlide?.elements ?? [];
+        const connectableElements = modeElements.filter(isConnectableElement);
+        const source = modeElements.find(
+          (element) => element.id === kConnectorMode.sourceId,
+        );
+        if (!modeSlideId || !source || !isConnectableElement(source)) {
+          setKeyboardConnectorMode(null);
+          return;
+        }
+        const decision = keyboardConnectorDecision(
+          kConnectorMode,
+          { key: event.key, shiftKey: event.shiftKey },
+          connectableElements,
+        );
+        if (decision.type !== "none") {
+          event.preventDefault();
+        }
+        if (decision.type === "cancel") {
+          setKeyboardConnectorMode(null);
+          setSelectedElementId(decision.sourceId);
+          setSelectedElementIds(new Set([decision.sourceId]));
+          requestElementFocus(decision.sourceId);
+          announce("Connector mode canceled");
+          return;
+        }
+        if (decision.type === "target") {
+          const targetId = decision.mode.targetId;
+          if (!targetId) {
+            return;
+          }
+          setKeyboardConnectorMode(decision.mode);
+          setSelectedElementId(targetId);
+          setSelectedElementIds(new Set([decision.mode.sourceId, targetId]));
+          requestElementFocus(targetId);
+          const targetElement = modeElements.find(
+            (element) => element.id === targetId,
+          );
+          if (targetElement) {
+            announce(
+              `Connector target ${elementAccessibleName(
+                targetElement,
+                modeElements,
+              )}. Press Enter to connect.`,
+            );
+          }
+          return;
+        }
+        if (decision.type === "confirm") {
+          const targetElement = modeElements.find(
+            (element) => element.id === decision.targetId,
+          );
+          if (!targetElement || !isConnectableElement(targetElement)) {
+            setKeyboardConnectorMode(null);
+            return;
+          }
+          const newId = makeElementId();
+          doCommitAndChange(kDeck, {
+            type: "ADD_ELEMENT",
+            slideId: modeSlideId,
+            element: {
+              ...buildConnectorBetween(source, targetElement),
+              id: newId,
+            },
+          });
+          setKeyboardConnectorMode(null);
+          setSelectedElementId(newId);
+          setSelectedElementIds(new Set([newId]));
+          requestElementFocus(newId);
+          announce(
+            `Connected ${elementAccessibleName(
+              source,
+              modeElements,
+            )} to ${elementAccessibleName(targetElement, modeElements)}`,
+          );
+          return;
+        }
+      }
 
       if (event.key === "Escape") {
         event.preventDefault();
@@ -1552,12 +1653,13 @@ export function SlideEditor({
         return;
       }
 
-      // Connector keyboard authoring (#534, interim subset). Bare `c`:
+      // Connector keyboard authoring (#534, #930). Bare `c`:
       //  - one connector selected → cycle its END endpoint anchor among the
       //    candidate anchors (Shift+C cycles the START endpoint),
       //  - exactly two connectable elements selected → insert a connector with
-      //    default endpoints bound to both, then select + focus it.
-      // Free-draw connector authoring stays deferred (ADR 0002, A1).
+      //    default endpoints bound to both, then select + focus it,
+      //  - one connectable element selected → enter connector mode; Tab/arrows
+      //    preview nearby targets, Enter creates, Escape cancels.
       if (!mod && !event.altKey && (event.key === "c" || event.key === "C")) {
         const connSlide = kDeck.slides[kSafe];
         const connSlideId = connSlide?.id;
@@ -1624,6 +1726,37 @@ export function SlideEditor({
           );
           return;
         }
+        const connectorSource =
+          kElemId && kElemIds.size <= 1
+            ? connElements.find((el) => el.id === kElemId)
+            : undefined;
+        if (connectorSource && isConnectableElement(connectorSource)) {
+          event.preventDefault();
+          const mode = startKeyboardConnectorMode(
+            connElements.filter(isConnectableElement),
+            connectorSource.id,
+          );
+          if (!mode?.targetId) {
+            announce("No connector targets available");
+            return;
+          }
+          setKeyboardConnectorMode(mode);
+          setSelectedElementId(mode.targetId);
+          setSelectedElementIds(new Set([connectorSource.id, mode.targetId]));
+          requestElementFocus(mode.targetId);
+          const targetElement = connElements.find(
+            (el) => el.id === mode.targetId,
+          );
+          announce(
+            targetElement
+              ? `Connector target ${elementAccessibleName(
+                  targetElement,
+                  connElements,
+                )}. Press Enter to connect.`
+              : "Connector mode started",
+          );
+          return;
+        }
       }
 
       // With an element selected, arrow keys nudge it and Delete removes it.
@@ -1665,6 +1798,78 @@ export function SlideEditor({
           );
           requestElementFocus(focusTarget);
           announce(announceDelete(deletedName));
+          return;
+        }
+
+        const rotationDelta = keyboardRotationDelta(event);
+        if (rotationDelta !== null) {
+          event.preventDefault();
+          const transformableElements = selectedIds
+            .map((id) => slide?.elements?.find((el) => el.id === id))
+            .filter((el): el is SlideElement => el !== undefined && !el.locked);
+          if (transformableElements.length === 0) {
+            return;
+          }
+          if (transformableElements.length === 1) {
+            const [rotating] = transformableElements;
+            const nextRotation = applyKeyboardRotation(
+              rotating.rotation,
+              rotationDelta,
+            );
+            doCommitAndChange(kDeck, {
+              type: "UPDATE_ELEMENT",
+              slideId,
+              elementId: rotating.id,
+              patch: { rotation: nextRotation.rotation },
+            });
+            requestElementFocus(rotating.id);
+            announce(
+              announceRotation(
+                elementAccessibleName(rotating, slide?.elements),
+                nextRotation.angle,
+              ),
+            );
+            return;
+          }
+
+          const bbox = selectionBoundingBox(
+            transformableElements.map((el) => el.box),
+          );
+          const transformed = rotateElementsAroundCenter(
+            transformableElements,
+            bbox.x + bbox.w / 2,
+            bbox.y + bbox.h / 2,
+            rotationDelta,
+          );
+          const patchesById: Record<string, ElementPatch> = {};
+          for (const el of transformed) {
+            patchesById[el.id] = {
+              box: el.box,
+              rotation: el.rotation,
+            };
+          }
+          doCommitAndChange(kDeck, {
+            type: "SET_ELEMENT_PATCHES",
+            slideId,
+            patchesById,
+          });
+          const focusId = transformed.some((el) => el.id === selected.id)
+            ? selected.id
+            : transformed[0]!.id;
+          requestElementFocus(focusId);
+          const focusElement =
+            transformed.find((el) => el.id === focusId) ?? transformed[0]!;
+          const nextRotation = applyKeyboardRotation(
+            transformableElements.find((el) => el.id === focusElement.id)
+              ?.rotation,
+            rotationDelta,
+          );
+          announce(
+            announceRotation(
+              `${transformed.length} elements`,
+              nextRotation.angle,
+            ),
+          );
           return;
         }
 

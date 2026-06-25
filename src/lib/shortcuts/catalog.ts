@@ -46,6 +46,8 @@ export type ShortcutId =
   | "canvas.move.large-step"
   | "canvas.resize.step"
   | "canvas.resize.large-step"
+  | "canvas.rotate.step"
+  | "canvas.rotate.fine-step"
   | "canvas.edit.inline"
   | "canvas.edit.delete"
   | "canvas.edit.duplicate"
@@ -247,6 +249,22 @@ const SHORTCUTS: readonly ShortcutEntry[] = [
     description: "Resize selection by 5%",
   }),
   canvasShortcut({
+    id: "canvas.rotate.step",
+    group: "Move & resize",
+    displayLabel: "[ / ]",
+    tokens: ["["],
+    match: bracketKey(),
+    description: "Rotate selection by 15°",
+  }),
+  canvasShortcut({
+    id: "canvas.rotate.fine-step",
+    group: "Move & resize",
+    displayLabel: "Shift + [ / ]",
+    tokens: ["Shift", "["],
+    match: shiftBracketKey(),
+    description: "Rotate selection by 1°",
+  }),
+  canvasShortcut({
     id: "canvas.edit.inline",
     group: "Edit",
     tokens: ["Enter"],
@@ -326,7 +344,7 @@ const SHORTCUTS: readonly ShortcutEntry[] = [
     group: "Connectors",
     tokens: ["C"],
     match: bareKey("c"),
-    description: "Connect two selected elements",
+    description: "Connect selected elements / start connector mode",
   }),
   canvasShortcut({
     id: "canvas.connect.cycle-anchor",
@@ -658,6 +676,21 @@ function altArrowKey(): KeyMatcherMetadata {
 
 function altShiftArrowKey(): KeyMatcherMetadata {
   return { ...arrowKey(), altKey: "required", shiftKey: "required" };
+}
+
+function bracketKey(): KeyMatcherMetadata {
+  return {
+    key: ["[", "]"],
+    caseInsensitive: false,
+    ctrlKey: "forbidden",
+    metaKey: "forbidden",
+    altKey: "forbidden",
+    shiftKey: "forbidden",
+  };
+}
+
+function shiftBracketKey(): KeyMatcherMetadata {
+  return { ...bracketKey(), key: ["{", "}"], shiftKey: "required" };
 }
 
 function textTool(
