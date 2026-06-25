@@ -47,15 +47,15 @@ export function interpretAuthorizeResponse(status, body) {
  * {@link CollabUpgradeDecision}.
  *
  * @param {Object} [options]
- * @param {string} [options.authorizeUrl] Base URL of the app's authorize route,
+ * @param {string} options.authorizeUrl Base URL of the app's authorize route,
  *   e.g. `http://127.0.0.1:4000/api/collab/authorize`.
  * @param {typeof fetch} [options.fetchImpl] Override for testing.
  */
 export function createCollabAuthorizer(options = {}) {
-  const authorizeUrl =
-    options.authorizeUrl ||
-    process.env.COLLAB_AUTHORIZE_URL ||
-    `http://127.0.0.1:${process.env.PORT || 4000}/api/collab/authorize`;
+  const authorizeUrl = options.authorizeUrl;
+  if (!authorizeUrl) {
+    throw new Error("[collab] createCollabAuthorizer requires authorizeUrl");
+  }
   const fetchImpl = options.fetchImpl || fetch;
 
   return async function authorize(req, room) {
