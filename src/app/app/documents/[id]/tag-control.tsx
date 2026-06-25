@@ -2,7 +2,9 @@
 
 import { useId, useState, useTransition } from "react";
 
-import { addTag, removeTag, type DocumentTag } from "./tags-actions";
+import type { DocumentTag } from "@/lib/document-management/tags";
+
+import { addTag, removeTag } from "./tags-actions";
 
 /**
  * Tag editor shown in the document header. Lists the document's tags as chips,

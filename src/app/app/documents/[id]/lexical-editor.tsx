@@ -65,7 +65,7 @@ import { Presence } from "./presence";
 import { OverallAdjustmentsPanel } from "./overall-adjustments-panel";
 import { ShareButton } from "./share-button";
 import { TagControl } from "./tag-control";
-import type { DocumentTag } from "./tags-actions";
+import type { DocumentTag } from "@/lib/document-management/tags";
 import { UndoRedoControls } from "./undo-redo-controls";
 import { VersionHistoryPanel } from "./version-history-panel";
 import { VisualNode } from "./visual-node";

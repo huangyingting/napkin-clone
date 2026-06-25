@@ -10,8 +10,6 @@ import {
 } from "@/lib/document-management/tags";
 import { requireUser } from "@/lib/session";
 
-export type { DocumentTag };
-
 /**
  * Adds a tag (creating it if new) to a document the user may edit, and returns
  * the document's updated tag list. Requires edit access (owner or workspace
