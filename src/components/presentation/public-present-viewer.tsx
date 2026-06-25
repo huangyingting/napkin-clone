@@ -25,11 +25,7 @@ import {
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import type { Deck } from "@/lib/presentation/deck";
-import {
-  DEFAULT_SCREEN_SIZE,
-  fitAspectRatio,
-  type Size,
-} from "@/lib/presentation/stage-fit";
+import { fitAspectRatio } from "@/lib/presentation/stage-fit";
 import { slideAspectRatio } from "@/lib/presentation/slide-format";
 import type { Visual } from "@/lib/visual/schema";
 import {
@@ -37,12 +33,18 @@ import {
   SlideCanvas,
 } from "@/components/presentation/slide-canvas";
 import {
-  clampSlideIndex,
-  formatProgress,
-  hashFromSlideIndex,
-  resolveSwipeNavigation,
-  slideIndexFromHash,
-} from "@/lib/presentation/slide-helpers";
+  initialPublicHashSlideIndex,
+  usePublicSlideHash,
+} from "@/components/presentation/runtime/public-hash-plugin";
+import {
+  PRESENTATION_NAVIGATION_SHORTCUT_IDS,
+  usePresentationClickZones,
+  usePresentationKeyboardNavigation,
+  useSlideBounds,
+  useSlideNavigation,
+  useSwipeNavigation,
+  type PresentationShortcutAction,
+} from "@/components/presentation/runtime/navigation";
 import { MadeWithBadge } from "@/components/made-with-badge";
 
 // ---------------------------------------------------------------------------
@@ -93,107 +95,49 @@ export function PublicPresentViewer({
   // Slide index — initialised from URL hash on mount
   // ---------------------------------------------------------------------------
 
-  const [currentIndex, setCurrentIndex] = useState<number>(() => {
-    // During SSR `window` is not available → start at 0 (no hydration content).
-    // On the client the initializer runs once and reads the URL hash directly.
-    if (typeof window === "undefined") return 0;
-    return slideIndexFromHash(window.location.hash, total);
-  });
-  const [slideAreaBounds, setSlideAreaBounds] =
-    useState<Size>(DEFAULT_SCREEN_SIZE);
-  const slideAreaRef = useRef<HTMLDivElement>(null);
+  const { currentIndex, goNext, goPrev, goFirst, goLast, progress } =
+    useSlideNavigation(total, initialPublicHashSlideIndex(total));
+  const { slideAreaRef, slideAreaBounds } = useSlideBounds<HTMLDivElement>();
 
   // Sync URL hash to the current slide whenever the index changes.
-  useEffect(() => {
-    window.history.replaceState(null, "", hashFromSlideIndex(currentIndex));
-  }, [currentIndex]);
-
-  useEffect(() => {
-    const node = slideAreaRef.current;
-    if (!node) {
-      return;
-    }
-    const updateBounds = () => {
-      const rect = node.getBoundingClientRect();
-      setSlideAreaBounds({
-        width: Math.max(1, rect.width),
-        height: Math.max(1, rect.height),
-      });
-    };
-    updateBounds();
-    const observer = new ResizeObserver(updateBounds);
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
-  // ---------------------------------------------------------------------------
-  // Navigation callbacks
-  // ---------------------------------------------------------------------------
-
-  const goNext = useCallback(() => {
-    setCurrentIndex((i) => clampSlideIndex(i + 1, total));
-  }, [total]);
-
-  const goPrev = useCallback(() => {
-    setCurrentIndex((i) => clampSlideIndex(i - 1, total));
-  }, [total]);
+  usePublicSlideHash(currentIndex);
 
   // Keyboard navigation.
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement | null)?.tagName ?? "";
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
-
-      switch (e.key) {
-        case "ArrowRight":
-        case "ArrowDown":
-        case " ":
-        case "PageDown":
-          e.preventDefault();
+  const handleShortcut = useCallback(
+    (action: PresentationShortcutAction) => {
+      switch (action) {
+        case "next":
           goNext();
           break;
-        case "ArrowLeft":
-        case "ArrowUp":
-        case "PageUp":
-          e.preventDefault();
+        case "previous":
           goPrev();
           break;
-        case "Home":
-          e.preventDefault();
-          setCurrentIndex(0);
+        case "first":
+          goFirst();
           break;
-        case "End":
-          e.preventDefault();
-          setCurrentIndex(total - 1);
+        case "last":
+          goLast();
           break;
       }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [goNext, goPrev, total]);
-
-  // ---------------------------------------------------------------------------
-  // Touch / swipe navigation
-  // ---------------------------------------------------------------------------
-
-  const touchStartXRef = useRef<number | null>(null);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartXRef.current = e.touches[0].clientX;
-  }, []);
-
-  const handleTouchEnd = useCallback(
-    (e: React.TouchEvent) => {
-      if (touchStartXRef.current === null) return;
-      const dx = e.changedTouches[0].clientX - touchStartXRef.current;
-      touchStartXRef.current = null;
-      const intent = resolveSwipeNavigation(dx);
-      if (intent === "next") goNext();
-      else if (intent === "prev") goPrev();
     },
-    [goNext, goPrev],
+    [goFirst, goLast, goNext, goPrev],
   );
+
+  usePresentationKeyboardNavigation({
+    shortcuts: PRESENTATION_NAVIGATION_SHORTCUT_IDS,
+    onShortcut: handleShortcut,
+  });
+
+  const swipeHandlers = useSwipeNavigation({
+    onNext: goNext,
+    onPrevious: goPrev,
+  });
+  const clickZones = usePresentationClickZones({
+    currentIndex,
+    total,
+    onNext: goNext,
+    onPrevious: goPrev,
+  });
 
   // ---------------------------------------------------------------------------
   // HUD visibility (auto-hide after inactivity)
@@ -236,10 +180,8 @@ export function PublicPresentViewer({
     );
   }
 
-  const currentSlide = slides[clampSlideIndex(currentIndex, total)];
+  const currentSlide = slides[currentIndex];
   const tc = DECK_THEMES[currentSlide.theme] ?? DECK_THEMES.default;
-  const progress = formatProgress(currentIndex, total);
-  const progressPct = total > 1 ? (currentIndex / (total - 1)) * 100 : 100;
   const fittedSlideSize = fitAspectRatio(
     slideAreaBounds,
     slideAspectRatio(deck.slideFormat),
@@ -253,8 +195,8 @@ export function PublicPresentViewer({
       aria-atomic="true"
       className="relative flex h-screen w-full select-none flex-col overflow-hidden"
       style={{ backgroundColor: tc.bgColor }}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
+      onTouchStart={swipeHandlers.onTouchStart}
+      onTouchEnd={swipeHandlers.onTouchEnd}
     >
       {/* -------------------------------------------------------------------- */}
       {/* Top HUD (suppressed in embed mode)                                   */}
@@ -267,10 +209,10 @@ export function PublicPresentViewer({
           {/* Progress indicator + bar */}
           <div className="pointer-events-auto flex items-center gap-3">
             <span
-              aria-label={`Slide ${progress}`}
+              aria-label={`Slide ${progress.label}`}
               className="rounded-md bg-ds-inverse-surface-muted px-2 py-1 text-xs font-medium tabular-nums text-ds-inverse-muted backdrop-blur-sm"
             >
-              {progress}
+              {progress.label}
             </span>
             <div
               role="progressbar"
@@ -283,7 +225,7 @@ export function PublicPresentViewer({
               <div
                 className="h-full rounded-full transition-all duration-300"
                 style={{
-                  width: `${progressPct}%`,
+                  width: `${progress.percentage}%`,
                   backgroundColor: tc.accentColor,
                 }}
               />
@@ -314,9 +256,7 @@ export function PublicPresentViewer({
         {/* Left click zone — previous slide */}
         <button
           type="button"
-          aria-label="Previous slide"
-          onClick={goPrev}
-          disabled={currentIndex === 0}
+          {...clickZones.previousZone}
           className="group absolute bottom-0 left-0 top-0 w-1/2 cursor-pointer bg-transparent focus-visible:outline-none disabled:cursor-default"
         >
           <span
@@ -330,9 +270,7 @@ export function PublicPresentViewer({
         {/* Right click zone — next slide */}
         <button
           type="button"
-          aria-label="Next slide"
-          onClick={goNext}
-          disabled={currentIndex === total - 1}
+          {...clickZones.nextZone}
           className="group absolute bottom-0 right-0 top-0 w-1/2 cursor-pointer bg-transparent focus-visible:outline-none disabled:cursor-default"
         >
           <span
@@ -353,21 +291,17 @@ export function PublicPresentViewer({
         <div className="pointer-events-auto flex items-center gap-2 rounded-xl bg-ds-inverse-surface-muted px-3 py-2 backdrop-blur-sm">
           <button
             type="button"
-            aria-label="Previous slide"
-            onClick={goPrev}
-            disabled={currentIndex === 0}
+            {...clickZones.previousZone}
             className="flex h-7 w-7 items-center justify-center rounded-lg text-ds-inverse-muted transition-colors hover:bg-ds-inverse-state-hover hover:text-ds-inverse-text disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-inverse-focus"
           >
             <ChevronLeft size={16} aria-hidden="true" />
           </button>
           <span className="text-xs font-medium tabular-nums text-ds-inverse-subtle">
-            {progress}
+            {progress.label}
           </span>
           <button
             type="button"
-            aria-label="Next slide"
-            onClick={goNext}
-            disabled={currentIndex === total - 1}
+            {...clickZones.nextZone}
             className="flex h-7 w-7 items-center justify-center rounded-lg text-ds-inverse-muted transition-colors hover:bg-ds-inverse-state-hover hover:text-ds-inverse-text disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-inverse-focus"
           >
             <ChevronRight size={16} aria-hidden="true" />

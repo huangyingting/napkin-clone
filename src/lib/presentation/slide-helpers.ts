@@ -25,6 +25,25 @@ export function formatProgress(current: number, total: number): string {
   return `${display} / ${total}`;
 }
 
+export type PresentationProgress = {
+  label: string;
+  percentage: number;
+};
+
+/**
+ * Computes the shared present/public progress label and progress-bar fill.
+ */
+export function presentationProgress(
+  current: number,
+  total: number,
+): PresentationProgress {
+  return {
+    label: formatProgress(current, total),
+    percentage:
+      total > 1 ? (clampSlideIndex(current, total) / (total - 1)) * 100 : 100,
+  };
+}
+
 /**
  * Parses a 1-based slide index from a URL hash string (e.g. `"#3"` → `2`).
  *
