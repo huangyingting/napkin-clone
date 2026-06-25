@@ -35,6 +35,89 @@ export interface KindPromptConstraints {
   edgesRelevant: boolean;
 }
 
+export type RuntimeLayoutAlgorithm =
+  | "explicit-position"
+  | "flowchart-column"
+  | "radial"
+  | "orgchart-tree"
+  | "list-stack"
+  | "bar-chart"
+  | "timeline-axis"
+  | "cycle-ring"
+  | "comparison-columns"
+  | "funnel-bands"
+  | "venn-circles"
+  | "pyramid-bands"
+  | "matrix-quadrants";
+
+export type RuntimeRendererFamily =
+  | "positioned-graph"
+  | "ordered-list"
+  | "bar-chart"
+  | "timeline"
+  | "cycle"
+  | "comparison"
+  | "funnel"
+  | "venn"
+  | "pyramid"
+  | "matrix"
+  | "orgchart";
+
+export type RuntimeTransformLayout =
+  | "stack-vertical"
+  | "radial"
+  | "strip-position";
+
+/** Descriptor-owned runtime contract for one visual kind. */
+export interface VisualRuntimeDescriptor {
+  readonly schema: {
+    readonly core: "validateVisual";
+    readonly nodes: "validateNode";
+    readonly edges: "validateEdge";
+    readonly style: "normalizeStyle";
+    readonly effects: "parseEffects";
+    readonly exportOptions: "parseVisualExportOptions";
+  };
+  readonly layout: {
+    readonly family: LayoutFamily;
+    readonly algorithm: RuntimeLayoutAlgorithm;
+    readonly elasticAlgorithm?: "flowchart-column" | "radial" | "orgchart-tree";
+  };
+  readonly render: {
+    readonly family: RuntimeRendererFamily;
+    readonly component: string;
+    readonly primitives: readonly (
+      | "canvas"
+      | "effects"
+      | "nodes"
+      | "edges"
+      | "labels"
+      | "icons"
+    )[];
+  };
+  readonly transform: {
+    readonly kindSwitchLayout: RuntimeTransformLayout;
+    readonly defaultShape: NodeShape;
+    readonly preservesEdges: boolean;
+    readonly autoLayoutSupported: boolean;
+  };
+  readonly validation: {
+    readonly requiresNodeValue: boolean;
+    readonly requiresNodePosition: boolean;
+    readonly edgesRelevant: boolean;
+  };
+  readonly checklist: {
+    readonly schema: true;
+    readonly layout: true;
+    readonly render: true;
+    readonly edit: true;
+    readonly export: true;
+    readonly prompt: true;
+    readonly transforms: true;
+    readonly validation: true;
+  };
+}
+
 /** Display, layout, and shape metadata owned separately from capabilities. */
 export interface VisualKindDisplayMetadata {
   readonly label: string;
@@ -49,6 +132,7 @@ export interface VisualKindDisplayMetadata {
 /** The complete capability contract for a single VisualKind. */
 export interface VisualKindEntry extends VisualKindDisplayMetadata {
   readonly id: VisualKind;
+  readonly runtime: VisualRuntimeDescriptor;
   readonly editing: KindEditingCapabilities;
   readonly export: KindExportSupport;
   readonly prompt: KindPromptConstraints;

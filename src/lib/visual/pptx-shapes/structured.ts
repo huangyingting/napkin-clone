@@ -7,7 +7,7 @@ import {
   matrixLayout,
   timelineLayout,
   type Point,
-} from "@/components/visual/layout";
+} from "@/lib/visual/layout";
 import type { Visual, VisualNode } from "@/lib/visual/schema";
 import type { PptxSlideLayout, PptxSpec } from "@/lib/visual/pptx-shapes/types";
 import {

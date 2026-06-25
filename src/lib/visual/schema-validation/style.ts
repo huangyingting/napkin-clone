@@ -1,0 +1,66 @@
+/** Style-level visual schema validation and defaulting. */
+
+import { DEFAULT_STYLE, type VisualStyle } from "@/lib/visual/schema-types";
+import { VisualValidationError, isFiniteNumber, isPlainObject } from "./utils";
+
+export function normalizeStyle(input: unknown): VisualStyle {
+  if (input === undefined) {
+    return { ...DEFAULT_STYLE };
+  }
+  if (!isPlainObject(input)) {
+    throw new VisualValidationError("style must be an object");
+  }
+
+  const style: VisualStyle = { ...DEFAULT_STYLE };
+
+  if (input.palette !== undefined) {
+    if (
+      !Array.isArray(input.palette) ||
+      input.palette.length === 0 ||
+      !input.palette.every((color) => typeof color === "string")
+    ) {
+      throw new VisualValidationError(
+        "style.palette must be a non-empty array of strings",
+      );
+    }
+    style.palette = input.palette as string[];
+  }
+
+  const stringKeys = [
+    "background",
+    "nodeFill",
+    "nodeStroke",
+    "nodeText",
+    "edgeColor",
+    "fontFamily",
+  ] as const;
+  for (const key of stringKeys) {
+    const value = input[key];
+    if (value !== undefined) {
+      if (typeof value !== "string") {
+        throw new VisualValidationError(`style.${key} must be a string`);
+      }
+      style[key] = value;
+    }
+  }
+
+  if (input.fontSize !== undefined) {
+    if (!isFiniteNumber(input.fontSize) || input.fontSize <= 0) {
+      throw new VisualValidationError(
+        "style.fontSize must be a positive number",
+      );
+    }
+    style.fontSize = input.fontSize;
+  }
+
+  if (input.fontWeight !== undefined) {
+    if (!isFiniteNumber(input.fontWeight) || input.fontWeight <= 0) {
+      throw new VisualValidationError(
+        "style.fontWeight must be a positive number",
+      );
+    }
+    style.fontWeight = input.fontWeight;
+  }
+
+  return style;
+}

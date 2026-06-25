@@ -1,4 +1,4 @@
-import { boundaryPoint, type Point } from "@/components/visual/layout";
+import { boundaryPoint, type Point } from "@/lib/visual/layout";
 import {
   DEFAULT_NODE_HEIGHT,
   DEFAULT_NODE_WIDTH,

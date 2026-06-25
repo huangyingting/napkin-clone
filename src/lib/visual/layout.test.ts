@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { edgeSegments } from "@/components/visual/layout";
+import { edgeSegments } from "@/lib/visual/layout";
 import {
   DEFAULT_STYLE,
   VISUAL_SCHEMA_VERSION,

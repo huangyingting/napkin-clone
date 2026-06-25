@@ -1,5 +1,5 @@
 import type { Visual } from "@/lib/visual/schema";
-import { getKindEntry } from "@/lib/visual/registry";
+import { getKindRuntimeDescriptor } from "@/lib/visual/registry";
 import { setAspectRatio, setAutoLayout } from "@/lib/visual/transforms";
 import type { VisualCommand } from "./visual-commands";
 import {
@@ -20,12 +20,20 @@ export function executeVisualLayoutFamily(
     case "visual.set_aspect_ratio":
       next = setAspectRatio(visual, cmd.payload.preset);
       break;
-    case "visual.set_auto_layout":
+    case "visual.set_auto_layout": {
+      const runtime = getKindRuntimeDescriptor(visual.type);
+      if (cmd.payload.enabled && !runtime.transform.autoLayoutSupported) {
+        return failure(
+          visual,
+          `Kind "${visual.type}" does not support auto-layout.`,
+        );
+      }
       next = setAutoLayout(visual, cmd.payload.enabled);
       break;
+    }
     case "visual.relayout_graph": {
-      const kindEntryLayout = getKindEntry(visual.type);
-      if (!kindEntryLayout.editing.autoLayoutSupported) {
+      const runtime = getKindRuntimeDescriptor(visual.type);
+      if (!runtime.transform.autoLayoutSupported) {
         return failure(
           visual,
           `Kind "${visual.type}" does not support auto-layout.`,

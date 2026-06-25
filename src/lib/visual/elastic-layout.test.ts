@@ -7,7 +7,7 @@ import {
   estimateLabelBox,
   rectsOverlap,
   wrapText,
-} from "@/components/visual/elastic-layout";
+} from "@/lib/visual/elastic-layout";
 import {
   DEFAULT_STYLE,
   VISUAL_SCHEMA_VERSION,

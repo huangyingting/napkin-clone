@@ -5,6 +5,7 @@ import { KIND_DISPLAY_METADATA } from "./registry-display";
 import { KIND_EDITING_CAPABILITIES } from "./registry-editing";
 import { KIND_EXPORT_SUPPORT } from "./registry-export";
 import { KIND_PROMPT_CONSTRAINTS } from "./registry-prompt";
+import { KIND_RUNTIME_DESCRIPTORS } from "./registry-runtime";
 import type { VisualRegistry } from "./registry-types";
 
 export function assertCompleteKindMap<T>(
@@ -32,6 +33,7 @@ export function assertRegistryDataCompleteness(): void {
   assertCompleteKindMap("editing capabilities", KIND_EDITING_CAPABILITIES);
   assertCompleteKindMap("export support", KIND_EXPORT_SUPPORT);
   assertCompleteKindMap("prompt constraints", KIND_PROMPT_CONSTRAINTS);
+  assertCompleteKindMap("runtime descriptor", KIND_RUNTIME_DESCRIPTORS);
 }
 
 export function assertRegistryCompletenessFor(registry: VisualRegistry): void {
@@ -66,6 +68,50 @@ export function assertRegistryCompletenessFor(registry: VisualRegistry): void {
           kind +
           '" has no allowedShapes — at least one shape is required',
       );
+    }
+    const runtime = entry.runtime;
+    if (!runtime) {
+      throw new Error(
+        '[registry] Entry for "' + kind + '" is missing runtime descriptor',
+      );
+    }
+    if (runtime.layout.family !== entry.layoutFamily) {
+      throw new Error(
+        '[registry] Runtime layout family mismatch for "' + kind + '"',
+      );
+    }
+    if (runtime.transform.defaultShape !== entry.defaultShape) {
+      throw new Error(
+        '[registry] Runtime default shape mismatch for "' + kind + '"',
+      );
+    }
+    if (
+      runtime.transform.autoLayoutSupported !==
+      entry.editing.autoLayoutSupported
+    ) {
+      throw new Error(
+        '[registry] Runtime auto-layout support mismatch for "' + kind + '"',
+      );
+    }
+    if (
+      runtime.validation.requiresNodeValue !== entry.prompt.requiresNodeValue ||
+      runtime.validation.requiresNodePosition !==
+        entry.prompt.requiresNodePosition ||
+      runtime.validation.edgesRelevant !== entry.prompt.edgesRelevant
+    ) {
+      throw new Error(
+        '[registry] Runtime validation/prompt mismatch for "' + kind + '"',
+      );
+    }
+    for (const [item, covered] of Object.entries(runtime.checklist)) {
+      if (covered !== true) {
+        throw new Error(
+          '[registry] Runtime checklist item "' +
+            item +
+            '" is incomplete for kind: ' +
+            kind,
+        );
+      }
     }
   }
 }

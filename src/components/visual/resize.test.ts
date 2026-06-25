@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { resizeNodeBox, type NodeBox } from "@/components/visual/layout";
+import { resizeNodeBox, type NodeBox } from "@/lib/visual/layout";
 
 /** A 100×60 box centered at (200, 200); corners at (150,170)–(250,230). */
 const START: NodeBox = { x: 200, y: 200, width: 100, height: 60 };
