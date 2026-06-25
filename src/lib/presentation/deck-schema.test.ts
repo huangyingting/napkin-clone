@@ -26,32 +26,39 @@ import { CURRENT_DECK_SCHEMA_VERSION } from "./deck";
 // ---------------------------------------------------------------------------
 
 function currentDeck(): unknown {
-  return {
+  return deckFixture({
     theme: "default",
+    slide: slideFixture({
+      id: "sl-current",
+      title: "Current",
+      bullets: ["a", "b"],
+      layout: "content",
+      elements: [
+        {
+          id: "txt-1",
+          kind: "text",
+          text: "Current",
+          role: "title",
+          zIndex: 0,
+          box: { x: 6, y: 6, w: 88, h: 16 },
+          style: { fontSize: 6, bold: true, italic: false, align: "left" },
+        },
+      ],
+    }),
+  });
+}
+
+function deckFixture({
+  theme,
+  slide,
+}: {
+  theme: Deck["theme"];
+  slide: Record<string, unknown>;
+}): unknown {
+  return {
+    theme,
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
-    slides: [
-      {
-        id: "sl-current",
-        index: 0,
-        title: "Current",
-        bullets: ["a", "b"],
-        visualIds: [],
-        layout: "content",
-        notes: "",
-        theme: "default",
-        elements: [
-          {
-            id: "txt-1",
-            kind: "text",
-            text: "Current",
-            role: "title",
-            zIndex: 0,
-            box: { x: 6, y: 6, w: 88, h: 16 },
-            style: { fontSize: 6, bold: true, italic: false, align: "left" },
-          },
-        ],
-      },
-    ],
+    slides: [slide],
   };
 }
 
@@ -115,24 +122,33 @@ test("safeParseDeck rejects an unknown slide format", () => {
 // ---------------------------------------------------------------------------
 
 function elementDeck(elements: unknown[]): unknown {
-  return {
+  return deckFixture({
     theme: "indigo",
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
-    slides: [
-      {
-        id: "sl-element",
-        index: 0,
-        title: "",
-        bullets: [],
-        visualIds: [],
-        layout: "blank",
-        notes: "",
-        theme: "indigo",
-        background: "#101010",
-        accent: "#abcdef",
-        elements,
-      },
-    ],
+    slide: slideFixture({
+      id: "sl-element",
+      theme: "indigo",
+      background: "#101010",
+      accent: "#abcdef",
+      elements,
+    }),
+  });
+}
+
+function slideFixture(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  const theme = (overrides.theme as Deck["theme"] | undefined) ?? "default";
+  return {
+    id: "sl-fixture",
+    index: 0,
+    title: "",
+    bullets: [],
+    visualIds: [],
+    layout: "blank",
+    notes: "",
+    theme,
+    elements: [],
+    ...overrides,
   };
 }
 

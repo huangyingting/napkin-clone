@@ -78,6 +78,22 @@ function makeDeck(titles: string[]): Deck {
   };
 }
 
+function authoredSlide(overrides: Partial<Slide> = {}): Slide {
+  return {
+    id: "authored-id",
+    index: 0,
+    title: "",
+    bullets: [],
+    visualIds: [],
+    layout: "content",
+    notes: "",
+    theme: "default",
+    elements: [],
+    elementsDerived: false,
+    ...overrides,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // reorderSlides
 // ---------------------------------------------------------------------------
@@ -178,18 +194,7 @@ test("addSlide with -1 prepends", () => {
 
 test("insertSlide places a caller-built slide and re-indexes", () => {
   const deck = makeDeck(["A", "B"]);
-  const authored: Slide = {
-    id: "authored-id",
-    index: 0,
-    title: "",
-    bullets: [],
-    visualIds: [],
-    layout: "content",
-    notes: "",
-    theme: deck.theme,
-    elements: [],
-    elementsDerived: false,
-  };
+  const authored = authoredSlide({ theme: deck.theme });
   const next = insertSlide(deck, 0, authored);
 
   assert.equal(next.slides.length, 3);
@@ -203,16 +208,14 @@ test("insertSlide places a caller-built slide and re-indexes", () => {
 
 test("insertSlide with -1 prepends the slide", () => {
   const deck = makeDeck(["A"]);
-  const authored: Slide = {
+  const authored = authoredSlide({
     id: "first-id",
-    index: 0,
     title: "First",
-    bullets: [],
-    visualIds: [],
     layout: "title",
-    notes: "",
     theme: deck.theme,
-  };
+  });
+  delete authored.elements;
+  delete authored.elementsDerived;
   const next = insertSlide(deck, -1, authored);
   assert.equal(next.slides[0].title, "First");
   assert.equal(next.slides[1].title, "A");
