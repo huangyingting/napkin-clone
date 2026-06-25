@@ -3,30 +3,30 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
-import { Prisma } from "@/generated/prisma/client";
+import { requireDocumentCapability } from "@/lib/auth/document-permissions";
 import {
-  documentCapabilities,
-  requireDocumentCapability,
-} from "@/lib/auth/document-permissions";
-import { excerpt, readingTimeMinutes } from "@/lib/document-stats";
-import { capList, documentAccessOr } from "@/lib/documents";
+  createDocumentFromImportForUser,
+  createDocumentFromTemplateForUser,
+  clampDocumentTitle,
+} from "@/lib/document-management/create";
+import { duplicateDocumentForUser } from "@/lib/document-management/duplicate";
+import {
+  searchDocumentsForUser,
+  type SearchResult,
+  type SearchResults,
+} from "@/lib/document-management/list";
+import {
+  renameDocumentTitle,
+  toggleDocumentFavorite,
+} from "@/lib/document-management/mutations";
+import {
+  restoreDocumentFromTrash,
+  softDeleteDocument,
+} from "@/lib/document-management/trash";
 import { prisma } from "@/lib/prisma";
-import {
-  buildDocumentSearchWhere,
-  normalizeSearchQuery,
-  SEARCH_RESULT_LIMIT,
-} from "@/lib/search";
 import { requireUser } from "@/lib/session";
-import { BLANK_TEMPLATE_ID, getTemplateOrBlank } from "@/lib/templates/catalog";
-import { acquirePurgeLock, INVITE_LINK_RETENTION_MS } from "@/lib/maintenance";
-import { regenerateBlockIds } from "@/lib/lexical/block-id";
-import { markdownToLexicalState } from "@/lib/lexical/from-markdown";
-import {
-  DOCUMENT_CONTENT_MAX_LENGTH,
-  DOCUMENT_TITLE_MAX_LENGTH,
-} from "@/lib/limits";
-import { SOFT_DELETE_RETENTION_MS } from "@/lib/trash";
-import { safeParseVisual, type Visual } from "@/lib/visual/schema";
+
+export type { SearchResult, SearchResults };
 
 /**
  * Creates a document for the current user seeded from a starter template, then
@@ -45,13 +45,7 @@ export async function createDocumentFromTemplate(
 ): Promise<void> {
   const user = await requireUser();
 
-  const template = getTemplateOrBlank(templateId);
-  const content = template.id === BLANK_TEMPLATE_ID ? "" : template.content;
-
-  const document = await prisma.document.create({
-    data: { ownerId: user.id, content },
-    select: { id: true },
-  });
+  const document = await createDocumentFromTemplateForUser(user.id, templateId);
 
   revalidatePath("/app");
   redirect(`/app/documents/${document.id}`);
@@ -73,19 +67,11 @@ export async function createDocumentFromImport(
 ): Promise<void> {
   const user = await requireUser();
 
-  const title =
-    rawTitle.trim().slice(0, DOCUMENT_TITLE_MAX_LENGTH) || "Imported document";
-  const safeContent = content.slice(0, DOCUMENT_CONTENT_MAX_LENGTH);
-
-  // Normalize imported Markdown to canonical contentJson at creation time.
-  const contentJson = JSON.parse(
-    markdownToLexicalState(safeContent),
-  ) as Prisma.InputJsonValue;
-
-  const document = await prisma.document.create({
-    data: { ownerId: user.id, title, content: safeContent, contentJson },
-    select: { id: true },
-  });
+  const document = await createDocumentFromImportForUser(
+    user.id,
+    content,
+    rawTitle,
+  );
 
   revalidatePath("/app");
   redirect(`/app/documents/${document.id}`);
@@ -105,15 +91,11 @@ export async function renameDocument(
 ): Promise<{ title: string }> {
   const user = await requireUser();
 
-  const title =
-    rawTitle.trim().slice(0, DOCUMENT_TITLE_MAX_LENGTH) || "Untitled";
+  const title = clampDocumentTitle(rawTitle, "Untitled");
 
   await requireDocumentCapability(user.id, id, "edit");
 
-  await prisma.document.updateMany({
-    where: { id },
-    data: { title },
-  });
+  await renameDocumentTitle(id, title);
 
   revalidatePath("/app");
   return { title };
@@ -140,117 +122,9 @@ export async function duplicateDocument(id: string): Promise<void> {
 
   await requireDocumentCapability(user.id, id, "view");
 
-  const source = await prisma.document.findFirst({
-    where: {
-      id,
-      deletedAt: null,
-    },
-    select: {
-      title: true,
-      content: true,
-      contentJson: true,
-      deckJson: true,
-      visuals: {
-        orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }],
-        select: {
-          anchorBlockId: true,
-          orderIndex: true,
-          type: true,
-          title: true,
-          data: true,
-        },
-      },
-    },
-  });
-
-  if (!source) {
-    return;
-  }
-
-  let newContentJson: Prisma.JsonValue | null = source.contentJson;
-  let bidMap: Map<string, string> | undefined;
-  if (source.contentJson != null) {
-    const result = regenerateBlockIds(source.contentJson);
-    newContentJson = result.updated as Prisma.JsonValue;
-    bidMap = result.bidMap;
-  }
-
-  let newDeckJson: Prisma.JsonValue | null = source.deckJson;
-  if (source.deckJson != null && bidMap && bidMap.size > 0) {
-    newDeckJson = remapDeckSourceRefs(
-      source.deckJson,
-      id,
-      bidMap,
-    ) as Prisma.JsonValue;
-  }
-
-  await prisma.document.create({
-    data: {
-      ownerId: user.id,
-      title: `${source.title} (copy)`,
-      content: source.content,
-      ...(newContentJson != null && {
-        contentJson: newContentJson as Prisma.InputJsonValue,
-      }),
-      ...(newDeckJson != null && {
-        deckJson: newDeckJson as Prisma.InputJsonValue,
-      }),
-      visuals: {
-        create: source.visuals.map((visual) => ({
-          anchorBlockId: visual.anchorBlockId,
-          orderIndex: visual.orderIndex,
-          type: visual.type,
-          title: visual.title,
-          data: visual.data as unknown as Prisma.InputJsonValue,
-        })),
-      },
-    },
-    select: { id: true },
-  });
+  await duplicateDocumentForUser(user.id, id);
 
   revalidatePath("/app");
-}
-
-/**
- * Returns a copy of `deckJson` where every element `sourceRef` that points at
- * `sourceDocId` has its `blockId` remapped via `bidMap`. Refs whose blockId
- * does not appear in `bidMap` are left unchanged; they will resolve as missing
- * in the duplicate until the user refreshes the link.
- */
-function remapDeckSourceRefs(
-  deckJson: unknown,
-  sourceDocId: string,
-  bidMap: Map<string, string>,
-): unknown {
-  if (typeof deckJson !== "object" || deckJson === null) return deckJson;
-  const deck = deckJson as Record<string, unknown>;
-  if (!Array.isArray(deck.slides)) return deckJson;
-  return {
-    ...deck,
-    slides: (deck.slides as unknown[]).map((slide) => {
-      if (typeof slide !== "object" || slide === null) return slide;
-      const s = slide as Record<string, unknown>;
-      if (!Array.isArray(s.elements)) return slide;
-      return {
-        ...s,
-        elements: (s.elements as unknown[]).map((element) => {
-          if (typeof element !== "object" || element === null) return element;
-          const e = element as Record<string, unknown>;
-          const ref = e.sourceRef as Record<string, unknown> | undefined;
-          if (!ref || ref.documentId !== sourceDocId) return element;
-          const newBid =
-            typeof ref.blockId === "string"
-              ? bidMap.get(ref.blockId)
-              : undefined;
-          if (!newBid) return element;
-          return {
-            ...e,
-            sourceRef: { ...ref, blockId: newBid },
-          };
-        }),
-      };
-    }),
-  };
 }
 
 /**
@@ -270,24 +144,10 @@ export async function toggleFavorite(
 
   await requireDocumentCapability(user.id, id, "edit");
 
-  const document = await prisma.document.findFirst({
-    where: { id, deletedAt: null },
-    select: { favorite: true },
-  });
-
-  if (!document) {
-    return { favorite: false };
-  }
-
-  const favorite = !document.favorite;
-
-  await prisma.document.updateMany({
-    where: { id },
-    data: { favorite },
-  });
+  const result = await toggleDocumentFavorite(id);
 
   revalidatePath("/app");
-  return { favorite };
+  return result;
 }
 
 /**
@@ -309,10 +169,7 @@ export async function deleteDocument(id: string): Promise<void> {
 
   await requireDocumentCapability(user.id, id, "manage");
 
-  await prisma.document.updateMany({
-    where: { id },
-    data: { deletedAt: new Date() },
-  });
+  await softDeleteDocument(id);
 
   revalidatePath("/app");
 }
@@ -331,95 +188,10 @@ export async function restoreDocument(id: string): Promise<void> {
     includeDeleted: true,
   });
 
-  await prisma.document.updateMany({
-    where: { id, deletedAt: { not: null } },
-    data: { deletedAt: null },
-  });
+  await restoreDocumentFromTrash(id);
 
   revalidatePath("/app");
 }
-
-/**
- * Opportunistic maintenance sweep invoked on dashboard load.
- *
- * A module-level timestamp guard (acquirePurgeLock) ensures the global
- * deleteMany operations run at most once per PURGE_MIN_INTERVAL_MS (5 min)
- * across concurrent requests within the same process, avoiding redundant
- * contending writes on every page render.
- *
- * When the throttle allows a sweep the function:
- *   1. Permanently removes documents soft-deleted beyond the 30-day retention
- *      window (Visual/Comment rows cascade via onDelete: Cascade).
- *   2. Permanently removes InviteLink rows that are dead (revoked, expired, or
- *      exhausted) and older than the 7-day invite retention window.
- *      InviteLinkUse audit rows cascade via onDelete: Cascade.
- *
- * When the throttle suppresses the sweep the function returns immediately so
- * the dashboard load is not slowed.
- */
-export async function runMaintenance(): Promise<void> {
-  if (!acquirePurgeLock()) return;
-
-  const now = new Date();
-  const docCutoff = new Date(now.getTime() - SOFT_DELETE_RETENTION_MS);
-  const inviteCutoff = new Date(now.getTime() - INVITE_LINK_RETENTION_MS);
-
-  await Promise.all([
-    // Purge hard-expired soft-deleted documents (all owners).
-    prisma.document.deleteMany({
-      where: { deletedAt: { lt: docCutoff } },
-    }),
-
-    // Purge dead InviteLink rows past the retention window.
-    // "Dead" = revoked, OR expired (expiresAt ≤ now), OR exhausted
-    // (useCount >= maxUses — a column comparison requiring raw SQL).
-    // The createdAt anchor guards against purging recently-created dead links,
-    // giving workspace owners a 7-day audit window.
-    // InviteLinkUse rows cascade via onDelete: Cascade.
-    prisma.$executeRaw`
-      DELETE FROM "InviteLink"
-      WHERE "createdAt" < ${inviteCutoff}
-        AND (
-          "isRevoked" = ${true}
-          OR ("expiresAt" IS NOT NULL AND "expiresAt" < ${inviteCutoff})
-          OR ("maxUses" IS NOT NULL AND "useCount" >= "maxUses")
-        )
-    `,
-  ]);
-}
-
-/** Shape returned by `searchDocuments`, compatible with `DashboardDocument`. */
-export type SearchResult = {
-  id: string;
-  title: string;
-  favorite: boolean;
-  editedLabel: string;
-  workspaceName: string | null;
-  thumbnail: Visual | null;
-  excerpt: string;
-  readingMinutes: number;
-  createdAtMs: number;
-  updatedAtMs: number;
-  canEdit: boolean;
-  canManage: boolean;
-  tags: { slug: string; name: string }[];
-};
-
-/**
- * Result of a `searchDocuments` call: the (capped) matches plus `hasMore`,
- * which is `true` when the query hit {@link SEARCH_RESULT_LIMIT} and additional
- * matches were dropped. Callers surface `hasMore` as a "narrow your search" hint.
- */
-export type SearchResults = {
-  results: SearchResult[];
-  hasMore: boolean;
-};
-
-const searchDateFormatter = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-});
 
 /**
  * Server-side full-text search across the current user's accessible documents
@@ -446,74 +218,7 @@ export async function searchDocuments(
   rawQuery: string,
 ): Promise<SearchResults> {
   const user = await requireUser();
-
-  const q = normalizeSearchQuery(rawQuery);
-  if (!q) return { results: [], hasMore: false };
-
-  const rows = await prisma.document.findMany({
-    where: buildDocumentSearchWhere(q, documentAccessOr(user.id)),
-    orderBy: { updatedAt: "desc" },
-    take: SEARCH_RESULT_LIMIT + 1,
-    select: {
-      id: true,
-      title: true,
-      favorite: true,
-      content: true,
-      createdAt: true,
-      updatedAt: true,
-      ownerId: true,
-      workspaceId: true,
-      visuals: {
-        orderBy: [{ orderIndex: "asc" }, { createdAt: "asc" }],
-        take: 1,
-        select: { data: true },
-      },
-      tags: {
-        orderBy: { name: "asc" },
-        select: { slug: true, name: true },
-      },
-      workspace: {
-        select: {
-          name: true,
-          ownerId: true,
-          members: {
-            where: { userId: user.id },
-            select: { userId: true, role: true },
-          },
-        },
-      },
-    },
-  });
-
-  const { items, hasMore } = capList(rows, SEARCH_RESULT_LIMIT);
-
-  const results = items.map((doc) => {
-    const firstVisual = doc.visuals[0];
-    let thumbnail: Visual | null = null;
-    if (firstVisual) {
-      const parsed = safeParseVisual(firstVisual.data);
-      if (parsed.success) thumbnail = parsed.data;
-    }
-    const content = doc.content ?? "";
-    const { canEdit, canManage } = documentCapabilities(doc, user.id);
-    return {
-      id: doc.id,
-      title: doc.title,
-      favorite: doc.favorite,
-      editedLabel: searchDateFormatter.format(doc.updatedAt),
-      workspaceName: doc.workspace?.name ?? null,
-      thumbnail,
-      excerpt: excerpt(content),
-      readingMinutes: readingTimeMinutes(content),
-      createdAtMs: doc.createdAt.getTime(),
-      updatedAtMs: doc.updatedAt.getTime(),
-      canEdit,
-      canManage,
-      tags: doc.tags,
-    };
-  });
-
-  return { results, hasMore };
+  return searchDocumentsForUser(user.id, rawQuery);
 }
 
 /**
