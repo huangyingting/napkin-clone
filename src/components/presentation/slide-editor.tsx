@@ -179,7 +179,10 @@ import {
   toToolbarSelectionKind,
   type RightPanelTab,
 } from "@/lib/presentation/slide-panel-ui";
-import { reorderTargetIndex } from "@/lib/presentation/slide-reorder";
+import {
+  reorderTargetIndex,
+  slideReorderKeyDirection,
+} from "@/lib/presentation/slide-reorder";
 import { useDeckHistory } from "@/lib/presentation/use-deck-history";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
 import { uploadSlideAsset } from "@/app/app/documents/[id]/slide-asset-actions";
@@ -3887,8 +3890,35 @@ export function SlideEditor({
                           setSelectedIndex(index);
                         }}
                         onPointerDown={(event) => beginReorder(event, index)}
+                        onKeyDown={(event) => {
+                          const direction = slideReorderKeyDirection(
+                            event.key,
+                            event.altKey,
+                          );
+                          if (direction === null) return;
+                          const nextIndex = index + direction;
+                          if (
+                            nextIndex < 0 ||
+                            nextIndex >= deck.slides.length
+                          ) {
+                            return;
+                          }
+                          event.preventDefault();
+                          const list = event.currentTarget.closest("ul");
+                          handleMove(index, direction);
+                          // Keep focus on the slide as it moves so repeated
+                          // nudges work without re-tabbing (#654).
+                          requestAnimationFrame(() => {
+                            const buttons =
+                              list?.querySelectorAll<HTMLButtonElement>(
+                                "li[data-slide-thumb] > button",
+                              );
+                            buttons?.[nextIndex]?.focus();
+                          });
+                        }}
                         aria-label={`Slide ${index + 1}: ${title}`}
                         aria-current={selected}
+                        aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
                         title={title}
                         className={`flex w-full rounded-ds-md border p-1 text-left transition-all ${
                           selected
