@@ -40,15 +40,11 @@ import type {
   SaveDeckResult,
   ShareSettings,
 } from "@/lib/document/persistence-types";
+import { writeDeckWithCas } from "@/lib/document/deck-cas-writer";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { reconcileDocumentDeckDependencies } from "@/lib/document/source-ref-model";
 import { reportSchemaFailure } from "@/lib/diagnostics/schema-telemetry";
-import { generateRevisionToken } from "@/lib/presentation/deck-revision-token";
-import {
-  DOCUMENT_CONTENT_MAX_LENGTH,
-  MAX_DECK_JSON_BYTES,
-  formatDeckTooLargeError,
-} from "@/lib/limits";
+import { DOCUMENT_CONTENT_MAX_LENGTH } from "@/lib/limits";
 import {
   applyPatch,
   executeCommand,
@@ -750,56 +746,13 @@ export async function persistDeck(
   deckJson: unknown,
   clientToken?: string | null,
 ): Promise<SaveDeckResult> {
-  const result = safeParseDeck(deckJson);
-  if (!result.success) {
-    reportSchemaFailure("deck-parse-failed", {
-      area: "persistDeck.input",
-      documentId,
-      reason: result.error,
-    });
-    return { ok: false, error: `Invalid deck: ${result.error}` };
-  }
-
-  const serialized = JSON.stringify(result.data);
-  if (serialized.length > MAX_DECK_JSON_BYTES) {
-    return { ok: false, error: formatDeckTooLargeError() };
-  }
-
-  const newToken = generateRevisionToken();
-
-  if (clientToken != null) {
-    const { count } = await prisma.document.updateMany({
-      where: { id: documentId, deckRevisionToken: clientToken },
-      data: {
-        deckJson: result.data as unknown as Prisma.InputJsonValue,
-        deckRevisionToken: newToken,
-      },
-    });
-    if (count === 0) {
-      const latest = await prisma.document.findUnique({
-        where: { id: documentId },
-        select: { deckRevisionToken: true },
-      });
-      if (!latest) return { ok: false, error: "Document not found." };
-      return {
-        ok: "conflict",
-        serverRevisionToken: latest.deckRevisionToken,
-      };
-    }
-  } else {
-    const { count } = await prisma.document.updateMany({
-      where: { id: documentId },
-      data: {
-        deckJson: result.data as unknown as Prisma.InputJsonValue,
-        deckRevisionToken: newToken,
-      },
-    });
-    if (count === 0) return { ok: false, error: "Document not found." };
-  }
-
-  await snapshotDocumentVersion(documentId);
-
-  return { ok: true, revisionToken: newToken };
+  return writeDeckWithCas({
+    documentId,
+    deckJson,
+    clientToken,
+    telemetryArea: "persistDeck.input",
+    onSuccess: () => snapshotDocumentVersion(documentId),
+  });
 }
 
 /**
@@ -841,59 +794,25 @@ export async function patchDeck(
     deck = next;
   }
 
-  const resultParsed = safeParseDeck(deck);
-  if (!resultParsed.success) {
-    reportSchemaFailure("deck-parse-failed", {
-      area: "patchDeck.result",
-      documentId,
-      reason: resultParsed.error,
-    });
+  const writeResult = await writeDeckWithCas({
+    documentId,
+    deckJson: deck,
+    clientToken,
+    telemetryArea: "patchDeck.result",
+    onSuccess: () => snapshotDocumentVersion(documentId),
+  });
+
+  if (!writeResult.ok && writeResult.error.startsWith("Invalid deck: ")) {
     return {
       ok: false,
-      error: `Patch result is invalid: ${resultParsed.error}`,
+      error: writeResult.error.replace(
+        "Invalid deck: ",
+        "Patch result is invalid: ",
+      ),
     };
   }
 
-  const serialized = JSON.stringify(resultParsed.data);
-  if (serialized.length > MAX_DECK_JSON_BYTES) {
-    return { ok: false, error: formatDeckTooLargeError() };
-  }
-
-  const newToken = generateRevisionToken();
-
-  if (clientToken != null) {
-    const { count } = await prisma.document.updateMany({
-      where: { id: documentId, deckRevisionToken: clientToken },
-      data: {
-        deckJson: resultParsed.data as unknown as Prisma.InputJsonValue,
-        deckRevisionToken: newToken,
-      },
-    });
-    if (count === 0) {
-      const latest = await prisma.document.findUnique({
-        where: { id: documentId },
-        select: { deckRevisionToken: true },
-      });
-      if (!latest) return { ok: false, error: "Document not found." };
-      return {
-        ok: "conflict",
-        serverRevisionToken: latest.deckRevisionToken,
-      };
-    }
-  } else {
-    const { count } = await prisma.document.updateMany({
-      where: { id: documentId },
-      data: {
-        deckJson: resultParsed.data as unknown as Prisma.InputJsonValue,
-        deckRevisionToken: newToken,
-      },
-    });
-    if (count === 0) return { ok: false, error: "Document not found." };
-  }
-
-  await snapshotDocumentVersion(documentId);
-
-  return { ok: true, revisionToken: newToken };
+  return writeResult;
 }
 
 export async function persistDeckCommand(

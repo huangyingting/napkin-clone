@@ -1,6 +1,7 @@
 import type { Prisma } from "@/generated/prisma/client";
+import { documentAccessOr, workspaceAccessOr } from "@/lib/access-query";
 import { caseInsensitiveContains } from "@/lib/db-provider";
-import { documentAccessOr, DOCUMENT_LIST_LIMIT } from "@/lib/documents";
+import { DOCUMENT_LIST_LIMIT } from "@/lib/documents";
 
 export type DocumentListQueryFilters = {
   query?: string | null;
@@ -29,12 +30,6 @@ export function buildDocumentTextSearchOr(
 ): Prisma.DocumentWhereInput[] {
   const filter = caseInsensitiveContains(query);
   return [{ title: filter }, { content: filter }];
-}
-
-function workspaceAccessOr(
-  userId: string,
-): NonNullable<Prisma.WorkspaceWhereInput["OR"]> {
-  return [{ ownerId: userId }, { members: { some: { userId } } }];
 }
 
 function baseDocumentWhere(

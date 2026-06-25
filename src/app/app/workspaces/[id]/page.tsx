@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 
+import { accessibleWorkspaceWhere } from "@/lib/access-query";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { asWorkspaceRole } from "@/lib/workspace/roles";
@@ -25,10 +26,7 @@ export default async function WorkspacePage({
 
   // Check if user is owner or member
   const workspace = await prisma.workspace.findFirst({
-    where: {
-      id,
-      OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }],
-    },
+    where: accessibleWorkspaceWhere(user.id, id),
     select: {
       id: true,
       name: true,

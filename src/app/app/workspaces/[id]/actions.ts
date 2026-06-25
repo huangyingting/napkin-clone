@@ -3,32 +3,27 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
-import { DOCUMENT_LIST_LIMIT, capList } from "@/lib/documents";
-import { buildDocumentListArgs } from "@/lib/document-management/query";
-import { prisma } from "@/lib/prisma";
-import { Prisma } from "@/generated/prisma/client";
 import { requireUser } from "@/lib/session";
-import { BLANK_TEMPLATE_ID, getTemplateOrBlank } from "@/lib/templates/catalog";
-import { markdownToLexicalState } from "@/lib/content";
 import { requireWorkspaceCapability } from "@/lib/auth/workspace-capabilities";
 import {
   assertInvitableWorkspaceRole,
+  createWorkspaceDocumentForUser,
   createWorkspaceInviteLink,
   deleteWorkspaceAndDetachDocuments,
   getInviteLinkTarget,
   getWorkspaceMemberRemovalTarget,
+  importWorkspaceDocumentForUser,
+  leaveWorkspaceForUser,
+  listWorkspaceDocumentsForUser,
   removeWorkspaceMemberAndDetachDocuments,
   renameWorkspaceRecord,
   revokeWorkspaceInviteLink,
+  transferWorkspaceOwnership,
   type CreateInviteLinkOptions,
   type InviteLink,
+  type WorkspaceDocumentsResult,
 } from "@/lib/workspace/service";
 import type { WorkspaceRole } from "@/lib/workspace/roles";
-import type { WorkspaceDocumentsResult } from "@/lib/workspace/document-types";
-import {
-  DOCUMENT_CONTENT_MAX_LENGTH,
-  DOCUMENT_TITLE_MAX_LENGTH,
-} from "@/lib/limits";
 
 export async function createInviteLink(
   workspaceId: string,
@@ -144,31 +139,7 @@ export async function deleteWorkspace(workspaceId: string): Promise<void> {
 export async function leaveWorkspace(workspaceId: string): Promise<void> {
   const user = await requireUser();
 
-  const workspace = await prisma.workspace.findFirst({
-    where: { id: workspaceId },
-    select: { ownerId: true },
-  });
-
-  if (!workspace) {
-    throw new Error("Workspace not found or unauthorized.");
-  }
-
-  if (workspace.ownerId === user.id) {
-    throw new Error(
-      "The workspace owner cannot leave. Transfer ownership to another member first.",
-    );
-  }
-
-  const membership = await prisma.workspaceMember.findFirst({
-    where: { workspaceId, userId: user.id },
-    select: { id: true },
-  });
-
-  if (!membership) {
-    throw new Error("You are not a member of this workspace.");
-  }
-
-  await prisma.workspaceMember.delete({ where: { id: membership.id } });
+  await leaveWorkspaceForUser(workspaceId, user.id);
 
   revalidatePath("/app");
   revalidatePath("/app/workspaces");
@@ -193,31 +164,7 @@ export async function transferOwnership(
   const user = await requireUser();
   await requireWorkspaceCapability(user.id, workspaceId, "manage");
 
-  if (newOwnerUserId === user.id) {
-    throw new Error("You already own this workspace.");
-  }
-
-  const newOwnerMembership = await prisma.workspaceMember.findFirst({
-    where: { workspaceId, userId: newOwnerUserId },
-    select: { id: true },
-  });
-
-  if (!newOwnerMembership) {
-    throw new Error("New owner must be an existing member of the workspace.");
-  }
-
-  await prisma.$transaction([
-    prisma.workspace.update({
-      where: { id: workspaceId },
-      data: { ownerId: newOwnerUserId },
-    }),
-    prisma.workspaceMember.delete({ where: { id: newOwnerMembership.id } }),
-    prisma.workspaceMember.upsert({
-      where: { workspaceId_userId: { workspaceId, userId: user.id } },
-      create: { workspaceId, userId: user.id, role: "EDITOR" },
-      update: { role: "EDITOR" },
-    }),
-  ]);
+  await transferWorkspaceOwnership(workspaceId, user.id, newOwnerUserId);
 
   revalidatePath("/app");
   revalidatePath("/app/workspaces");
@@ -228,30 +175,7 @@ export async function getWorkspaceDocuments(
   workspaceId: string,
 ): Promise<WorkspaceDocumentsResult> {
   const user = await requireUser();
-
-  // Verify user has access to the workspace
-  const workspace = await prisma.workspace.findFirst({
-    where: {
-      id: workspaceId,
-      OR: [{ ownerId: user.id }, { members: { some: { userId: user.id } } }],
-    },
-  });
-
-  if (!workspace) {
-    throw new Error("Workspace not found or unauthorized.");
-  }
-
-  // Cap the list at DOCUMENT_LIST_LIMIT (one extra row flags `hasMore`).
-  const rows = await prisma.document.findMany({
-    ...buildDocumentListArgs({
-      scope: { kind: "workspace", workspaceId },
-      limit: DOCUMENT_LIST_LIMIT,
-    }),
-    select: { id: true, title: true, updatedAt: true },
-  });
-
-  const { items, hasMore } = capList(rows, DOCUMENT_LIST_LIMIT);
-  return { documents: items, hasMore };
+  return listWorkspaceDocumentsForUser(user.id, workspaceId);
 }
 
 /**
@@ -268,15 +192,11 @@ export async function createWorkspaceDocument(
   templateId: string,
 ): Promise<void> {
   const user = await requireUser();
-  await requireWorkspaceCapability(user.id, workspaceId, "mutate");
-
-  const template = getTemplateOrBlank(templateId);
-  const content = template.id === BLANK_TEMPLATE_ID ? "" : template.content;
-
-  const document = await prisma.document.create({
-    data: { ownerId: user.id, workspaceId, content },
-    select: { id: true },
-  });
+  const document = await createWorkspaceDocumentForUser(
+    user.id,
+    workspaceId,
+    templateId,
+  );
 
   revalidatePath("/app");
   revalidatePath(`/app/workspaces/${workspaceId}`);
@@ -298,27 +218,12 @@ export async function importWorkspaceDocument(
   rawTitle: string,
 ): Promise<void> {
   const user = await requireUser();
-  await requireWorkspaceCapability(user.id, workspaceId, "mutate");
-
-  const title =
-    rawTitle.trim().slice(0, DOCUMENT_TITLE_MAX_LENGTH) || "Imported document";
-  const safeContent = content.slice(0, DOCUMENT_CONTENT_MAX_LENGTH);
-
-  // Normalize imported Markdown to canonical contentJson at creation time.
-  const contentJson = JSON.parse(
-    markdownToLexicalState(safeContent),
-  ) as Prisma.InputJsonValue;
-
-  const document = await prisma.document.create({
-    data: {
-      ownerId: user.id,
-      workspaceId,
-      title,
-      content: safeContent,
-      contentJson,
-    },
-    select: { id: true },
-  });
+  const document = await importWorkspaceDocumentForUser(
+    user.id,
+    workspaceId,
+    content,
+    rawTitle,
+  );
 
   revalidatePath("/app");
   revalidatePath(`/app/workspaces/${workspaceId}`);

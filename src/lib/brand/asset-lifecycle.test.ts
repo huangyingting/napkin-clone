@@ -21,6 +21,7 @@ import {
   type BrandOrphanDb,
   type BrandOrphanStorage,
 } from "@/lib/brand/asset-orphan";
+import { brandAssetBelongsToOwner } from "@/lib/brand/persistence-service";
 
 // ---------------------------------------------------------------------------
 // decideBrandAssetAccess
@@ -184,6 +185,19 @@ describe("selectBrandOrphanIds", () => {
       { id: "drop2" },
     ]);
     assert.deepEqual(orphans.sort(), ["drop1", "drop2"]);
+  });
+
+  describe("brandAssetBelongsToOwner", () => {
+    it("accepts only storage keys in the owner's partition", () => {
+      assert.equal(
+        brandAssetBelongsToOwner("owner-1/logo.png", "owner-1"),
+        true,
+      );
+      assert.equal(
+        brandAssetBelongsToOwner("owner-2/logo.png", "owner-1"),
+        false,
+      );
+    });
   });
 
   it("returns empty when all assets are referenced", () => {

@@ -11,7 +11,12 @@ import {
   serializeBrands,
   type BrandRow,
 } from "@/lib/brand/serialize";
-import { reconcileBrandAssets } from "@/lib/brand/asset-orphan";
+import {
+  BrandAssetValidationError,
+  createBrandForOwner,
+  deleteBrandForOwner,
+  updateBrandForOwner,
+} from "@/lib/brand/persistence-service";
 import {
   resolveBrandEntitlements,
   isCustomFontFamily,
@@ -23,28 +28,6 @@ import {
 async function serializeOne(row: BrandRow): Promise<BrandStyle> {
   const [style] = await serializeBrands([row]);
   return style;
-}
-
-/**
- * Links the brand's logo/font assets to the brand (`Asset.brandId`) so the
- * orphan/cleanup pass treats them as live, then reconciles any assets that are
- * no longer referenced by the brand (e.g. a replaced logo) into orphans.
- */
-async function linkBrandAssets(
-  brandId: string,
-  logoAssetId: string | null,
-  fontAssetId: string | null,
-): Promise<void> {
-  const referenced = [logoAssetId, fontAssetId].filter(
-    (id): id is string => typeof id === "string" && id.length > 0,
-  );
-  if (referenced.length > 0) {
-    await prisma.asset.updateMany({
-      where: { id: { in: referenced }, deletedAt: null },
-      data: { brandId },
-    });
-  }
-  await reconcileBrandAssets(brandId, prisma, new Date());
 }
 
 /** Lists all brands owned by the current user. */
@@ -77,28 +60,15 @@ export async function createBrand(
     return actionError(FONT_UPLOAD_UPGRADE_MESSAGE);
   }
 
-  const row = await prisma.brand.create({
-    data: {
-      name: data.name,
-      ownerId: user.id,
-      palette: data.palette ?? undefined,
-      background: data.background ?? undefined,
-      nodeFill: data.nodeFill ?? undefined,
-      nodeStroke: data.nodeStroke ?? undefined,
-      nodeText: data.nodeText ?? undefined,
-      edgeColor: data.edgeColor ?? undefined,
-      fontFamily: data.fontFamily ?? undefined,
-      logoAssetId: data.logoAssetId ?? undefined,
-      fontAssetId: data.fontAssetId ?? undefined,
-    },
-    select: BRAND_SELECT,
-  });
-
-  await linkBrandAssets(
-    row.id,
-    data.logoAssetId ?? null,
-    data.fontAssetId ?? null,
-  );
+  let row: BrandRow;
+  try {
+    row = await createBrandForOwner(user.id, data);
+  } catch (error) {
+    if (error instanceof BrandAssetValidationError) {
+      return actionError(error.message);
+    }
+    throw error;
+  }
 
   revalidatePath("/app/brands");
   return actionOk(await serializeOne(row));
@@ -115,13 +85,6 @@ export async function updateBrand(
     return actionError(BRAND_STYLES_UPGRADE_MESSAGE);
   }
 
-  const existing = await prisma.brand.findUnique({
-    where: { id },
-    select: { ownerId: true },
-  });
-  if (!existing) return actionError("Brand not found.");
-  if (existing.ownerId !== user.id) return actionError("Not authorized.");
-
   const validation = validateBrandInput(raw);
   if (!validation.ok) return actionError(validation.error);
   const { data } = validation;
@@ -130,28 +93,19 @@ export async function updateBrand(
     return actionError(FONT_UPLOAD_UPGRADE_MESSAGE);
   }
 
-  const row = await prisma.brand.update({
-    where: { id },
-    data: {
-      name: data.name,
-      palette: data.palette ?? undefined,
-      background: data.background,
-      nodeFill: data.nodeFill,
-      nodeStroke: data.nodeStroke,
-      nodeText: data.nodeText,
-      edgeColor: data.edgeColor,
-      fontFamily: data.fontFamily,
-      logoAssetId: data.logoAssetId ?? null,
-      fontAssetId: data.fontAssetId ?? null,
-    },
-    select: BRAND_SELECT,
-  });
-
-  await linkBrandAssets(
-    row.id,
-    data.logoAssetId ?? null,
-    data.fontAssetId ?? null,
-  );
+  let row: BrandRow | null;
+  try {
+    row = await updateBrandForOwner(id, user.id, data);
+  } catch (error) {
+    if (error instanceof BrandAssetValidationError) {
+      return actionError(error.message);
+    }
+    if (error instanceof Error && error.message === "Not authorized.") {
+      return actionError("Not authorized.");
+    }
+    throw error;
+  }
+  if (!row) return actionError("Brand not found.");
 
   revalidatePath("/app/brands");
   return actionOk(await serializeOne(row));
@@ -165,28 +119,9 @@ export async function deleteBrand(id: string): Promise<ActionResult> {
     return actionError(BRAND_STYLES_UPGRADE_MESSAGE);
   }
 
-  const existing = await prisma.brand.findUnique({
-    where: { id },
-    select: { ownerId: true },
-  });
-  if (!existing) return actionError("Brand not found.");
-  if (existing.ownerId !== user.id) return actionError("Not authorized.");
-
-  // Capture the brand's assets before delete so the SetNull cascade does not
-  // leave them as permanent orphans; mark them orphaned afterward.
-  const brandAssets = await prisma.asset.findMany({
-    where: { brandId: id, deletedAt: null },
-    select: { id: true },
-  });
-
-  await prisma.brand.delete({ where: { id } });
-
-  if (brandAssets.length > 0) {
-    await prisma.asset.updateMany({
-      where: { id: { in: brandAssets.map((a) => a.id) }, deletedAt: null },
-      data: { deletedAt: new Date() },
-    });
-  }
+  const result = await deleteBrandForOwner(id, user.id);
+  if (result === "missing") return actionError("Brand not found.");
+  if (result === "unauthorized") return actionError("Not authorized.");
 
   revalidatePath("/app/brands");
   return actionOk();

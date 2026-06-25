@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { Prisma } from "@/generated/prisma/client";
+import { accessibleDocumentWhere } from "@/lib/access-query";
 import { listDashboardDocumentsForUser } from "@/lib/document-management/list";
 import type { Locale } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
@@ -14,17 +15,7 @@ const dashboardUserSelect = {
 
 function dashboardVisualCountWhere(userId: string): Prisma.VisualWhereInput {
   return {
-    document: {
-      deletedAt: null,
-      OR: [
-        { ownerId: userId },
-        {
-          workspace: {
-            OR: [{ ownerId: userId }, { members: { some: { userId } } }],
-          },
-        },
-      ],
-    },
+    document: accessibleDocumentWhere(userId),
   };
 }
 
