@@ -4,7 +4,9 @@ import { test } from "node:test";
 import {
   defaultPanelTab,
   isSelectionToolbarVisible,
+  shouldCollapseToolbar,
   shouldShowRichToolbarControls,
+  TOOLBAR_COMPACT_WIDTH,
   toolbarPanelEntries,
   toolbarQuickActions,
   toToolbarSelectionKind,
@@ -194,4 +196,14 @@ test("toolbarPanelEntries: no selection exposes nothing", () => {
     source: false,
     position: false,
   });
+});
+
+test("shouldCollapseToolbar collapses below the compact width", () => {
+  assert.equal(shouldCollapseToolbar(TOOLBAR_COMPACT_WIDTH - 1), true);
+  assert.equal(shouldCollapseToolbar(400), true);
+});
+
+test("shouldCollapseToolbar keeps actions inline at/above the compact width", () => {
+  assert.equal(shouldCollapseToolbar(TOOLBAR_COMPACT_WIDTH), false);
+  assert.equal(shouldCollapseToolbar(1280), false);
 });

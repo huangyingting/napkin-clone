@@ -37,6 +37,7 @@ import {
   LayoutPanelLeft,
   List,
   Minus,
+  MoreHorizontal,
   Plus,
   Redo2,
   RefreshCw,
@@ -48,6 +49,8 @@ import {
   X,
   Palette,
   Type,
+  BringToFront,
+  SendToBack,
 } from "lucide-react";
 import {
   useCallback,
@@ -170,6 +173,7 @@ import type { ArrangeMode } from "@/lib/presentation/element-arrange";
 import { deriveSlideTitle } from "@/lib/presentation/slide-title";
 import {
   isSelectionToolbarVisible,
+  shouldCollapseToolbar,
   shouldShowRichToolbarControls,
   toolbarPanelEntries,
   toToolbarSelectionKind,
@@ -3768,6 +3772,7 @@ export function SlideEditor({
                 onRemoveElement={handleRemoveElement}
                 onBringToFront={handleBringToFront}
                 onSendToBack={handleSendToBack}
+                compact={shouldCollapseToolbar(stageBounds.width)}
               />
             ) : null}
             <div
@@ -4933,6 +4938,7 @@ function SlideSelectionToolbar({
   onRemoveElement,
   onBringToFront,
   onSendToBack,
+  compact,
 }: {
   selectedElement: SlideElement | null;
   selectedCount: number;
@@ -4952,7 +4958,9 @@ function SlideSelectionToolbar({
   onRemoveElement: (id: string) => void;
   onBringToFront: (id: string) => void;
   onSendToBack: (id: string) => void;
+  compact: boolean;
 }) {
+  const [moreOpen, setMoreOpen] = useState(false);
   if (
     !isSelectionToolbarVisible({
       hasSelectedElement: selectedElement !== null,
@@ -5012,7 +5020,54 @@ function SlideSelectionToolbar({
           onBringToFront={() => onBringToFront(selectedElement.id)}
           onSendToBack={() => onSendToBack(selectedElement.id)}
           onRemove={() => onRemoveElement(selectedElement.id)}
+          compact={compact}
         />
+      ) : null}
+      {compact && showRich && selectedElement ? (
+        <Popover
+          open={moreOpen}
+          onClose={() => setMoreOpen(false)}
+          aria-label="More element actions"
+          placement="bottom"
+          className="w-44 p-1"
+          trigger={
+            <button
+              type="button"
+              aria-label="More actions"
+              aria-haspopup="dialog"
+              aria-expanded={moreOpen}
+              onClick={() => setMoreOpen((open) => !open)}
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-ds-md text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+            >
+              <MoreHorizontal size={16} aria-hidden="true" />
+            </button>
+          }
+        >
+          <div className="flex flex-col">
+            <button
+              type="button"
+              onClick={() => {
+                onBringToFront(selectedElement.id);
+                setMoreOpen(false);
+              }}
+              className={`flex items-center gap-2 rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+            >
+              <BringToFront size={14} aria-hidden="true" />
+              Bring to front
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onSendToBack(selectedElement.id);
+                setMoreOpen(false);
+              }}
+              className={`flex items-center gap-2 rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+            >
+              <SendToBack size={14} aria-hidden="true" />
+              Send to back
+            </button>
+          </div>
+        </Popover>
       ) : null}
       {showRich ? (
         <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
