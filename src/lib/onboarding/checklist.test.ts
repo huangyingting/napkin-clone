@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { PLAN_CATALOG } from "@/lib/billing/catalog";
+
 import { computeOnboardingState, type OnboardingInput } from "./checklist";
 
 // ---------------------------------------------------------------------------
@@ -46,16 +48,16 @@ test("computeOnboardingState: dismissed overrides hasDocuments/hasVisuals", () =
 // Step count and IDs
 // ---------------------------------------------------------------------------
 
-test("computeOnboardingState: returns exactly 4 steps for new user", () => {
+test("computeOnboardingState: returns exactly 2 persisted-signal steps for new user", () => {
   const { steps } = computeOnboardingState(newUser());
-  assert.equal(steps.length, 4);
+  assert.equal(steps.length, 2);
 });
 
 test("computeOnboardingState: step IDs are stable and ordered", () => {
   const { steps } = computeOnboardingState(newUser());
   assert.deepEqual(
     steps.map((s) => s.id),
-    ["create-doc", "generate-visual", "edit-style", "export-share"],
+    ["create-doc", "generate-visual"],
   );
 });
 
@@ -91,24 +93,6 @@ test("computeOnboardingState: hasVisuals=true → generate-visual step is done",
   assert.equal(step.done, true);
 });
 
-test("computeOnboardingState: edit-style step is always pending (no tracking signal)", () => {
-  const { steps } = computeOnboardingState(
-    newUser({ hasDocuments: true, hasVisuals: true }),
-  );
-  const step = steps.find((s) => s.id === "edit-style");
-  assert.ok(step);
-  assert.equal(step.done, false);
-});
-
-test("computeOnboardingState: export-share step is always pending (no tracking signal)", () => {
-  const { steps } = computeOnboardingState(
-    newUser({ hasDocuments: true, hasVisuals: true }),
-  );
-  const step = steps.find((s) => s.id === "export-share");
-  assert.ok(step);
-  assert.equal(step.done, false);
-});
-
 test("computeOnboardingState: all trackable steps done still shows checklist (user must dismiss)", () => {
   const { show } = computeOnboardingState(
     newUser({ hasDocuments: true, hasVisuals: true }),
@@ -117,30 +101,23 @@ test("computeOnboardingState: all trackable steps done still shows checklist (us
 });
 
 // ---------------------------------------------------------------------------
-// Step descriptions include accurate credit copy
+// Step descriptions keep billing copy separate from onboarding logic
 // ---------------------------------------------------------------------------
 
-test("computeOnboardingState: create-doc step description mentions free-plan credit limit", () => {
+test("computeOnboardingState: create-doc step description follows the billing catalog", () => {
   const { steps } = computeOnboardingState(newUser());
   const step = steps.find((s) => s.id === "create-doc");
-  assert.ok(step);
-  // Must reference 500 credits and the weekly cadence (from entitlements free tier)
-  assert.ok(
-    step.description.includes("500"),
-    `expected '500' in: ${step.description}`,
-  );
-});
+  const freePlan = PLAN_CATALOG.free;
 
-test("computeOnboardingState: export-share step description mentions PNG/PDF as free and SVG/PPTX as paid", () => {
-  const { steps } = computeOnboardingState(newUser());
-  const step = steps.find((s) => s.id === "export-share");
   assert.ok(step);
   assert.ok(
-    step.description.includes("PNG") && step.description.includes("PDF"),
-    `expected PNG/PDF mention in: ${step.description}`,
+    step.description.includes(
+      freePlan.entitlements.creditsPerPeriod.toLocaleString(),
+    ),
+    `expected credit count in: ${step.description}`,
   );
   assert.ok(
-    step.description.includes("SVG") && step.description.includes("PPTX"),
-    `expected SVG/PPTX mention in: ${step.description}`,
+    step.description.includes(freePlan.displayName),
+    `expected plan label in: ${step.description}`,
   );
 });
