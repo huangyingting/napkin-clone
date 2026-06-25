@@ -15,8 +15,8 @@ import {
   DEFAULT_EXPORT_OPTIONS,
   exportPNG,
   downloadBlob,
-  sanitizeFilename,
 } from "@/lib/visual/export";
+import { sanitizeFilename } from "@/lib/visual/export-filename";
 import { applySocialPresetToOptions } from "@/lib/visual/export-options";
 import { applyElasticLayout } from "@/lib/visual/transforms";
 import { applyBrand } from "@/lib/brand/transforms";

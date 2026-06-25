@@ -1,0 +1,33 @@
+name: Production install smoke
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  production-install-smoke:
+    name: Production install smoke (Node 22, omit dev)
+    runs-on: ubuntu-latest
+    env:
+      DB_PROVIDER: sqlite
+      DATABASE_URL: "file:./prisma/dev.db"
+      AUTH_SECRET: ci-placeholder-secret-not-used-in-production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install production dependencies
+        run: npm ci --omit=dev
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Run production install smoke
+        run: npm run production-install:smoke

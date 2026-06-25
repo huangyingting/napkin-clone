@@ -15,9 +15,11 @@ npm run dev:doctor
 
 `dev:setup` creates an ignored `.env` with SQLite defaults and a generated
 `AUTH_SECRET`, then runs the smallest database setup commands:
-`npm run db:generate` and `npm run db:push`. Use `npm run dev:setup -- --no-db`
-when dependencies or generated clients are intentionally supplied by another
-worktree.
+`npm run db:generate` and `npm run db:push`. `postinstall` runs the same
+`db:generate` lifecycle so fresh installs produce the ignored Prisma client; if
+the generated client is missing later, rerun `npm run db:generate`. Use
+`npm run dev:setup -- --no-db` when dependencies or generated clients are
+intentionally supplied by another worktree.
 
 `dev:doctor` checks Node, local env, generated Prisma client, SQLite schema file,
 the app port, and the Playwright Chromium browser. It redacts secret-like values
@@ -59,6 +61,30 @@ documented SQLite env:
 8. `npm run build`
 
 Output is staged and the command exits with the first failing stage's exit code.
+
+## Production install smoke
+
+```bash
+npm ci --omit=dev
+npm run db:generate
+npm run production-install:smoke
+```
+
+The production install contract is:
+
+- `prisma` and `dotenv` are production dependencies because production
+  `postinstall`/`db:generate` must be able to load `prisma.config.ts` and
+  regenerate the ignored Prisma client after `npm ci --omit=dev`.
+- `@prisma/client`, Prisma adapters, database drivers, Next, React, and Auth.js
+  must resolve from production dependencies.
+- Stripe is an optional external billing adapter. The app never statically
+  imports `stripe`; production without Stripe env fails closed at billing
+  provider selection, and production with `STRIPE_SECRET_KEY` set must install
+  the `stripe` package in the deployment artifact.
+
+`.github/workflows/production-install-smoke.yml` runs this gate on Node 22. The
+smoke script also checks that `src/generated/prisma/client.ts` exists and points
+missing generated-client failures at `npm run db:generate`.
 
 ## Browser QA
 

@@ -29,22 +29,14 @@ import type { DeckFetchPort } from "@/lib/action-ports";
 import { buildDeckFromBlocks } from "@/lib/presentation/deck";
 import { pickFreshestDeck } from "@/lib/presentation/fresh-deck";
 import type { Visual } from "@/lib/visual/schema";
-import {
-  exportDeckAsPPTX,
-  exportDeckAsSlideImages,
-  type DeckSlideImageFormat,
-} from "@/lib/visual/deck-export";
 import { collectDocumentBlocks } from "@/lib/content";
-import {
-  exportDocumentAsPDF,
-  exportDocumentAsInfographic,
-} from "@/lib/visual/document-export-targets";
 import {
   INFOGRAPHIC_WIDTH_PRESETS,
   DEFAULT_INFOGRAPHIC_CONFIG,
   type InfographicWidthPreset,
 } from "@/lib/visual/infographic-layout";
-import { downloadBlob, sanitizeFilename } from "@/lib/visual/export";
+import { downloadBlob } from "@/lib/visual/export";
+import { sanitizeFilename } from "@/lib/visual/export-filename";
 import { useUserEntitlements } from "@/lib/billing/use-user-entitlements";
 import { resolveExportPolicy } from "@/lib/visual/export-policy";
 import {
@@ -64,6 +56,7 @@ interface DocumentExportButtonProps {
 }
 
 type ExportStatus = "idle" | "exporting" | "error";
+type DeckSlideImageFormat = "svg" | "png";
 
 /** Ordered list of infographic width presets shown in the sub-menu. */
 const WIDTH_PRESET_LIST = (
@@ -188,6 +181,8 @@ export function DocumentExportButton({
     setIsOpen(false);
     const startedAt = trackExportStart("pdf");
     try {
+      const { exportDocumentAsPDF } =
+        await import("@/lib/visual/document-export-targets");
       const blocks = await getBlocks();
       const blob = await exportDocumentAsPDF(
         blocks,
@@ -217,6 +212,7 @@ export function DocumentExportButton({
     setIsOpen(false);
     const startedAt = trackExportStart("pptx");
     try {
+      const { exportDeckAsPPTX } = await import("@/lib/visual/deck-export");
       const resolveDeckExportContext = async () => {
         const blocks = await getBlocks();
 
@@ -266,6 +262,8 @@ export function DocumentExportButton({
     setIsOpen(false);
     const startedAt = trackExportStart(outputFormat);
     try {
+      const { exportDeckAsSlideImages } =
+        await import("@/lib/visual/deck-export");
       const blocks = await getBlocks();
 
       const visuals = new Map<string, Visual>();
@@ -313,6 +311,8 @@ export function DocumentExportButton({
     setIsOpen(false);
     const startedAt = trackExportStart(outputFormat);
     try {
+      const { exportDocumentAsInfographic } =
+        await import("@/lib/visual/document-export-targets");
       const blocks = await getBlocks();
       const presetWidth = INFOGRAPHIC_WIDTH_PRESETS[infogramWidth].width;
       const blob = await exportDocumentAsInfographic(
