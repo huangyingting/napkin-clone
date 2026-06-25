@@ -352,7 +352,7 @@ function BrandForm({
                   type="button"
                   aria-label={`Remove palette color ${i + 1}`}
                   onClick={() => removePaletteColor(i)}
-                  className="absolute -right-1.5 -top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[var(--ds-surface-raised)] text-[var(--ds-text-muted)] hover:bg-[var(--ds-danger,#dc2626)] hover:text-[var(--ds-text-on-accent,#ffffff)]"
+                  className="tiq-touch-target absolute -right-1.5 -top-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[var(--ds-surface-raised)] text-[var(--ds-text-muted)] hover:bg-[var(--ds-danger,#dc2626)] hover:text-[var(--ds-text-on-accent,#ffffff)]"
                 >
                   <X className="h-2 w-2" />
                 </button>
@@ -463,6 +463,11 @@ function BrandForm({
               )}
           </div>
         )}
+        {uploadingFont ? (
+          <p role="status" className="text-xs text-[var(--ds-text-muted)]">
+            Uploading and validating font…
+          </p>
+        ) : null}
       </div>
 
       {/* Logo */}
@@ -489,7 +494,7 @@ function BrandForm({
                     logoAssetId: null,
                   }))
                 }
-                className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--ds-surface-raised)] border border-[var(--ds-border-subtle)] text-[var(--ds-text-muted)] hover:bg-[var(--ds-danger,#dc2626)] hover:text-[var(--ds-text-on-accent,#ffffff)]"
+                className="tiq-touch-target absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--ds-surface-raised)] border border-[var(--ds-border-subtle)] text-[var(--ds-text-muted)] hover:bg-[var(--ds-danger,#dc2626)] hover:text-[var(--ds-text-on-accent,#ffffff)]"
               >
                 <X className="h-2.5 w-2.5" />
               </button>
@@ -527,6 +532,11 @@ function BrandForm({
             Palette extracted automatically from the logo.
           </p>
         )}
+        {uploadingLogo ? (
+          <p role="status" className="text-xs text-[var(--ds-text-muted)]">
+            Uploading logo and extracting palette…
+          </p>
+        ) : null}
       </div>
 
       {/* Live sample preview — updates reactively as the form changes */}
@@ -568,7 +578,7 @@ function BrandForm({
       )}
 
       {/* Actions */}
-      <div className="flex justify-end gap-2">
+      <div className="sticky bottom-0 -mx-1 flex justify-end gap-2 border-t border-[var(--ds-border-subtle)] bg-[var(--ds-surface-base,#fff)] px-1 py-3 pb-[calc(var(--ds-space-3)+var(--tiq-safe-area-bottom))]">
         <Button variant="plain" onClick={onCancel} disabled={isPending}>
           Cancel
         </Button>
@@ -606,6 +616,7 @@ function BrandCard({
   canFontUpload: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, startDelete] = useTransition();
 
   // Inject any Google Font link when the brand uses one; inject @font-face for
@@ -631,8 +642,6 @@ function BrandCard({
   const previewStyle = brandPreviewStyle(brand);
 
   function handleDelete() {
-    if (!confirm(`Delete brand "${brand.name}"? This cannot be undone.`))
-      return;
     startDelete(async () => {
       const result = await deleteBrand(brand.id);
       if (result.ok) onDeleted(brand.id);
@@ -696,7 +705,7 @@ function BrandCard({
             size="sm"
             variant="plain"
             aria-label="Delete brand"
-            onClick={handleDelete}
+            onClick={() => setConfirmingDelete(true)}
             disabled={deleting}
           >
             {deleting ? (
@@ -720,8 +729,45 @@ function BrandCard({
         </div>
       </div>
 
+      {confirmingDelete && (
+        <div
+          role="alertdialog"
+          aria-modal="false"
+          aria-labelledby={`delete-brand-${brand.id}`}
+          className="mx-4 mb-3 rounded-ds-md border border-ds-danger-border bg-ds-danger-surface p-3 text-sm text-ds-danger-text"
+        >
+          <p id={`delete-brand-${brand.id}`} className="font-semibold">
+            Delete “{brand.name}”?
+          </p>
+          <p className="mt-1 text-xs">This cannot be undone.</p>
+          <div className="mt-3 flex justify-end gap-2">
+            <Button
+              size="sm"
+              variant="plain"
+              onClick={() => setConfirmingDelete(false)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={handleDelete}
+              disabled={deleting}
+              leadingIcon={
+                deleting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : null
+              }
+            >
+              Delete brand
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Preview swatch row */}
-      {!expanded && (
+      {!expanded && !confirmingDelete && (
         <div
           className="mx-4 mb-3 rounded-[var(--ds-radius-sm)] border px-2 py-1.5"
           style={{

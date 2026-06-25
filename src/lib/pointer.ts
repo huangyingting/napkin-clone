@@ -20,6 +20,15 @@ export function queryIsPointerFine(
   return matchMedia("(pointer: fine)").matches;
 }
 
+export function queryIsPointerCoarse(
+  matchMedia: (query: string) => { matches: boolean } = typeof window !==
+  "undefined"
+    ? (q) => window.matchMedia(q)
+    : () => ({ matches: false }),
+): boolean {
+  return matchMedia("(pointer: coarse)").matches;
+}
+
 /**
  * Returns `true` when the primary pointing device is fine (mouse/trackpad) and
  * `false` when it is coarse (touch/stylus). Reacts to changes so plugging in a

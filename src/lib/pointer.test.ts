@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { queryIsPointerFine, queryIsWideViewport } from "./pointer";
+import {
+  queryIsPointerCoarse,
+  queryIsPointerFine,
+  queryIsWideViewport,
+} from "./pointer";
 
 test("queryIsPointerFine returns true when matchMedia reports matches:true", () => {
   const mockMatchMedia = (_: string) => ({ matches: true });
@@ -28,6 +32,21 @@ test("queryIsPointerFine defaults to true on server (no window)", () => {
   // undefined. Simulate by passing an explicit mock that mimics the SSR path.
   const ssrMatchMedia = (_: string) => ({ matches: true });
   assert.equal(queryIsPointerFine(ssrMatchMedia), true);
+});
+
+test("queryIsPointerCoarse passes the correct media query string", () => {
+  let receivedQuery = "";
+  const mockMatchMedia = (query: string) => {
+    receivedQuery = query;
+    return { matches: true };
+  };
+  assert.equal(queryIsPointerCoarse(mockMatchMedia), true);
+  assert.equal(receivedQuery, "(pointer: coarse)");
+});
+
+test("queryIsPointerCoarse defaults to false on server (no window)", () => {
+  const ssrMatchMedia = (_: string) => ({ matches: false });
+  assert.equal(queryIsPointerCoarse(ssrMatchMedia), false);
 });
 
 test("queryIsWideViewport returns true when matchMedia reports matches:true", () => {

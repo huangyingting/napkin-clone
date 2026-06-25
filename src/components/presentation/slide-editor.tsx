@@ -3207,7 +3207,7 @@ export function SlideEditor({
       role="dialog"
       aria-modal="true"
       aria-label="Slide editor"
-      className="fixed inset-0 z-modal flex flex-col bg-ds-surface-base"
+      className="tiq-full-viewport fixed inset-0 z-modal flex flex-col bg-ds-surface-base"
     >
       {/* Hidden file input for Insert ▸ Image one-step picker (#299). */}
       <input
@@ -3727,7 +3727,7 @@ export function SlideEditor({
             ) : null}
             <div
               ref={stageRef}
-              className="relative min-h-0 flex-1 overflow-auto px-4 py-2 sm:px-5 sm:py-3"
+              className="relative min-h-0 flex-1 overscroll-contain overflow-auto px-4 py-2 sm:px-5 sm:py-3"
             >
               <div
                 className="relative shrink-0 transition-[padding] duration-200 ease-out motion-reduce:transition-none"
@@ -3876,7 +3876,7 @@ export function SlideEditor({
                     </span>
                   </button>
 
-                  <div className="absolute right-1 top-1 flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                  <div className="tiq-coarse-actions absolute right-1 top-1 flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
                     <ThumbnailAction
                       icon={<ChevronUp size={13} aria-hidden="true" />}
                       label={`Move slide ${index + 1} up`}
@@ -3938,7 +3938,7 @@ export function SlideEditor({
             aria-haspopup="dialog"
             aria-expanded={inspectorSheetOpen}
             onClick={openInspectorSurface}
-            className={`fixed bottom-6 right-6 z-modal flex h-12 w-12 items-center justify-center rounded-full bg-ds-accent text-ds-text-on-accent shadow-ds-overlay transition-colors hover:bg-ds-accent-hover ${FOCUS_RING}`}
+            className={`tiq-safe-fab fixed z-modal flex h-12 w-12 items-center justify-center rounded-full bg-ds-accent text-ds-text-on-accent shadow-ds-overlay transition-colors hover:bg-ds-accent-hover ${FOCUS_RING}`}
           >
             <Edit3 aria-hidden="true" className="h-5 w-5" />
           </button>
@@ -3963,7 +3963,7 @@ export function SlideEditor({
                       setInspectorSheetOpen(false);
                     }
                   }}
-                  className="fixed inset-x-0 bottom-0 z-modal flex max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl border-t border-ds-border-subtle bg-ds-surface-base shadow-ds-popover"
+                  className="tiq-mobile-sheet fixed inset-x-0 bottom-0 z-modal flex flex-col overflow-hidden rounded-t-2xl border-t border-ds-border-subtle bg-ds-surface-base shadow-ds-popover"
                 >
                   <div className="relative flex shrink-0 items-center justify-between px-4 pb-2 pt-4">
                     <span
@@ -3977,7 +3977,7 @@ export function SlideEditor({
                       type="button"
                       aria-label="Close slide inspector"
                       onClick={() => setInspectorSheetOpen(false)}
-                      className={`flex h-7 w-7 items-center justify-center rounded-full text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                      className={`tiq-touch-target flex h-7 w-7 items-center justify-center rounded-full text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
                     >
                       <X size={16} aria-hidden="true" />
                     </button>

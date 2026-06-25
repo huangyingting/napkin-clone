@@ -133,6 +133,17 @@
   --ds-motion-base: 180ms;
   --ds-motion-slow: 240ms;
   --ds-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Mobile viewport contract */
+  --tiq-viewport-height: 100dvh;
+  --tiq-viewport-width: 100vw;
+  --tiq-viewport-offset-top: 0px;
+  --tiq-viewport-offset-left: 0px;
+  --tiq-safe-area-top: env(safe-area-inset-top, 0px);
+  --tiq-safe-area-right: env(safe-area-inset-right, 0px);
+  --tiq-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --tiq-safe-area-left: env(safe-area-inset-left, 0px);
+  --tiq-touch-target-min: 44px;
 }
 
 /* =============================================================================
@@ -311,6 +322,42 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+}
+
+/* Shared mobile viewport/safe-area utilities. */
+.tiq-full-viewport {
+  min-height: 100svh;
+  min-height: var(--tiq-viewport-height, 100dvh);
+  padding-top: var(--tiq-safe-area-top);
+  padding-right: var(--tiq-safe-area-right);
+  padding-left: var(--tiq-safe-area-left);
+}
+
+.tiq-mobile-sheet {
+  max-height: min(
+    85svh,
+    calc(
+      var(--tiq-viewport-height, 100dvh) -
+        max(var(--tiq-safe-area-top), var(--ds-space-3))
+    )
+  );
+  padding-bottom: var(--tiq-safe-area-bottom);
+}
+
+.tiq-safe-fab {
+  right: max(var(--ds-space-5), var(--tiq-safe-area-right));
+  bottom: max(var(--ds-space-5), var(--tiq-safe-area-bottom));
+}
+
+@media (hover: none), (pointer: coarse) {
+  .tiq-touch-target {
+    min-width: var(--tiq-touch-target-min);
+    min-height: var(--tiq-touch-target-min);
+  }
+
+  .tiq-coarse-actions {
+    opacity: 1;
+  }
 }
 
 /* =============================================================================

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { HeaderGate } from "@/components/header-gate";
+import { MobileViewportSync } from "@/components/mobile-viewport-sync";
 import { SiteHeader } from "@/components/site-header";
 import { LocaleProvider } from "@/lib/i18n/locale-context";
 import { getLocale } from "@/lib/i18n/server";
@@ -22,6 +23,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({
@@ -38,6 +40,7 @@ export default async function RootLayout({
       className={`${inter.variable} h-full scroll-smooth antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <MobileViewportSync />
         <LocaleProvider initialLocale={locale}>
           <HeaderGate>
             <SiteHeader />

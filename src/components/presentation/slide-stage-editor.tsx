@@ -2056,7 +2056,7 @@ function ToolbarButton({
       aria-label={label}
       title={label}
       onClick={onClick}
-      className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+      className={`tiq-touch-target flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
     >
       <Icon size={14} aria-hidden="true" />
     </button>

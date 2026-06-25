@@ -184,7 +184,7 @@ export function ImportButton({
               type="button"
               aria-label="Dismiss error"
               onClick={dismiss}
-              className="shrink-0 rounded-full p-0.5 hover:bg-ds-state-hover"
+              className="tiq-touch-target shrink-0 rounded-full p-0.5 hover:bg-ds-state-hover"
             >
               <X className="h-3 w-3" />
             </button>
@@ -225,7 +225,7 @@ export function ImportButton({
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              className="rounded-full border border-ds-danger-border px-3 py-1 text-xs font-medium transition hover:bg-ds-state-hover"
+              className="tiq-touch-target rounded-full border border-ds-danger-border px-3 py-1 text-xs font-medium transition hover:bg-ds-state-hover"
             >
               Try again
             </button>
@@ -233,7 +233,7 @@ export function ImportButton({
               type="button"
               aria-label="Dismiss error"
               onClick={dismiss}
-              className="rounded-full p-1 hover:bg-ds-state-hover"
+              className="tiq-touch-target rounded-full p-1 hover:bg-ds-state-hover"
             >
               <X className="h-4 w-4" />
             </button>
@@ -266,6 +266,11 @@ export function ImportButton({
               aria-hidden="true"
             />
           </div>
+          {isUploading ? (
+            <span role="status" className="text-xs text-ds-text-muted">
+              Uploading and validating file…
+            </span>
+          ) : null}
           <div className="flex flex-col gap-1">
             <span className="text-sm font-medium text-[var(--ds-text-primary,#18181b)]">
               {isUploading ? "Importing…" : "Drop a file or click to browse"}

@@ -391,163 +391,192 @@ export function DocumentExportButton({
       />
 
       {isOpen && !isExporting ? (
-        <div
-          role="menu"
-          aria-label="Export document"
-          className="absolute right-0 top-full z-dropdown mt-1 min-w-[240px] overflow-hidden rounded-ds-lg border border-ds-border-subtle bg-ds-surface-raised shadow-ds-overlay"
-        >
-          {/* ── Standard document formats ────────────────────────────── */}
-          <div className="p-1">
-            <p className="px-3 py-2 text-xs font-semibold text-ds-text-muted">
-              Document
-            </p>
-
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => void handleExportPDF()}
-              className={`flex w-full items-center justify-between rounded-ds-sm px-3 py-2 text-left text-sm text-ds-text-primary transition-colors hover:bg-ds-state-hover active:bg-ds-state-active ${FOCUS_RING}`}
-            >
-              <span>PDF</span>
-              <span className="text-xs text-ds-text-muted">
-                Text + all visuals
-              </span>
-            </button>
-
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => void handleExportPPTX()}
-              disabled={!canPptx}
-              aria-disabled={!canPptx}
-              className={`flex w-full items-center justify-between rounded-ds-sm px-3 py-2 text-left text-sm transition-colors ${canPptx ? `text-ds-text-primary hover:bg-ds-state-hover active:bg-ds-state-active ${FOCUS_RING}` : "cursor-not-allowed text-ds-text-muted"}`}
-            >
-              <span>PPTX deck</span>
-              <span className="text-xs text-ds-text-muted">
-                {canPptx ? "Your edited deck" : "Plus / Pro"}
-              </span>
-            </button>
-            {!canPptx && (
-              <p className="px-3 pb-2 text-[10px] text-ds-text-muted">
-                PPTX export requires Plus or Pro.{" "}
-                <a
-                  href="/app/settings/billing"
-                  className="underline"
-                  onClick={() => setIsOpen(false)}
-                >
-                  Upgrade
-                </a>{" "}
-                to unlock.
+        <>
+          <div
+            aria-hidden="true"
+            className="fixed inset-0 z-overlay bg-ds-backdrop sm:hidden"
+            onClick={() => setIsOpen(false)}
+          />
+          <div
+            role="menu"
+            aria-label="Export document"
+            className="tiq-mobile-sheet fixed inset-x-0 bottom-0 z-dropdown flex flex-col overflow-hidden rounded-t-ds-xl border-t border-ds-border-subtle bg-ds-surface-raised shadow-ds-overlay sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-1 sm:min-w-[240px] sm:rounded-ds-lg sm:border"
+          >
+            <div className="flex items-center justify-between px-4 pb-2 pt-4 sm:hidden">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ds-text-muted">
+                Export document
               </p>
-            )}
+              <button
+                type="button"
+                aria-label="Close export menu"
+                onClick={() => setIsOpen(false)}
+                className={`tiq-touch-target flex h-8 w-8 items-center justify-center rounded-ds-md text-ds-text-muted transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+              >
+                ×
+              </button>
+            </div>
+            <div className="min-h-0 overflow-y-auto overscroll-contain">
+              {/* ── Standard document formats ────────────────────────────── */}
+              <div className="p-1">
+                <p className="px-3 py-2 text-xs font-semibold text-ds-text-muted">
+                  Document
+                </p>
 
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => void handleExportSlideImages("svg")}
-              className={`flex w-full items-center justify-between rounded-ds-sm px-3 py-2 text-left text-sm text-ds-text-primary transition-colors hover:bg-ds-state-hover active:bg-ds-state-active ${FOCUS_RING}`}
-            >
-              <span>Slide SVGs</span>
-              <span className="text-xs text-ds-text-muted">
-                ZIP · one file per slide
-              </span>
-            </button>
-
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => void handleExportSlideImages("png")}
-              className={`flex w-full items-center justify-between rounded-ds-sm px-3 py-2 text-left text-sm text-ds-text-primary transition-colors hover:bg-ds-state-hover active:bg-ds-state-active ${FOCUS_RING}`}
-            >
-              <span>Slide PNGs</span>
-              <span className="text-xs text-ds-text-muted">
-                ZIP · one image per slide
-              </span>
-            </button>
-          </div>
-
-          {/* ── Infographic section ───────────────────────────────────── */}
-          <div className="border-t border-ds-border-subtle p-1">
-            <p className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-ds-text-muted">
-              <ImageIcon size={12} aria-hidden="true" />
-              Infographic
-            </p>
-
-            {/* Width preset chips */}
-            <div className="mb-2 flex gap-1 px-3">
-              {WIDTH_PRESET_LIST.map((p) => (
                 <button
-                  key={p.key}
                   type="button"
-                  aria-pressed={infogramWidth === p.key}
-                  onClick={() => setInfogramWidth(p.key)}
-                  className={`rounded-ds-sm border px-2 py-0.5 text-[10px] font-medium transition-colors ${FOCUS_RING} ${
-                    infogramWidth === p.key
-                      ? "border-ds-accent bg-ds-accent text-ds-text-on-accent"
-                      : "border-ds-border-subtle bg-ds-surface-base text-ds-text-secondary hover:border-ds-border-strong"
-                  }`}
+                  role="menuitem"
+                  onClick={() => void handleExportPDF()}
+                  className={`tiq-touch-target flex w-full items-center justify-between rounded-ds-sm px-3 py-2 text-left text-sm text-ds-text-primary transition-colors hover:bg-ds-state-hover active:bg-ds-state-active ${FOCUS_RING}`}
                 >
-                  {p.width}px
+                  <span>PDF</span>
+                  <span className="text-xs text-ds-text-muted">
+                    Text + all visuals
+                  </span>
                 </button>
-              ))}
-            </div>
 
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => void handleExportInfographic("png")}
-              className={`flex w-full items-center justify-between rounded-ds-sm px-3 py-2 text-left text-sm text-ds-text-primary transition-colors hover:bg-ds-state-hover active:bg-ds-state-active ${FOCUS_RING}`}
-            >
-              <span>Infographic PNG</span>
-              <span className="text-xs text-ds-text-muted">One tall image</span>
-            </button>
-
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => void handleExportInfographic("pdf")}
-              className={`flex w-full items-center justify-between rounded-ds-sm px-3 py-2 text-left text-sm text-ds-text-primary transition-colors hover:bg-ds-state-hover active:bg-ds-state-active ${FOCUS_RING}`}
-            >
-              <span>Infographic PDF</span>
-              <span className="text-xs text-ds-text-muted">
-                Single page PDF
-              </span>
-            </button>
-
-            {!canRemoveWatermark && (
-              <p className="px-3 pb-2 text-[10px] text-ds-text-muted">
-                Free plan: includes watermark.{" "}
-                <a
-                  href="/app/settings/billing"
-                  className="underline"
-                  onClick={() => setIsOpen(false)}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => void handleExportPPTX()}
+                  disabled={!canPptx}
+                  aria-disabled={!canPptx}
+                  className={`tiq-touch-target flex w-full items-center justify-between rounded-ds-sm px-3 py-2 text-left text-sm transition-colors ${canPptx ? `text-ds-text-primary hover:bg-ds-state-hover active:bg-ds-state-active ${FOCUS_RING}` : "cursor-not-allowed text-ds-text-muted"}`}
                 >
-                  Upgrade
-                </a>{" "}
-                to remove.
-              </p>
-            )}
-          </div>
+                  <span>PPTX deck</span>
+                  <span className="text-xs text-ds-text-muted">
+                    {canPptx ? "Your edited deck" : "Plus / Pro"}
+                  </span>
+                </button>
+                {!canPptx && (
+                  <p className="px-3 pb-2 text-[10px] text-ds-text-muted">
+                    PPTX export requires Plus or Pro.{" "}
+                    <a
+                      href="/app/settings/billing"
+                      className="tiq-touch-target inline-flex items-center underline"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Upgrade
+                    </a>{" "}
+                    to unlock.
+                  </p>
+                )}
 
-          {errorMsg ? (
-            <div
-              role="alert"
-              className="border-t border-ds-danger-border bg-ds-danger-surface px-3 py-2 text-xs text-ds-danger-text"
-            >
-              {errorMsg}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => void handleExportSlideImages("svg")}
+                  className={`tiq-touch-target flex w-full items-center justify-between rounded-ds-sm px-3 py-2 text-left text-sm text-ds-text-primary transition-colors hover:bg-ds-state-hover active:bg-ds-state-active ${FOCUS_RING}`}
+                >
+                  <span>Slide SVGs</span>
+                  <span className="text-xs text-ds-text-muted">
+                    ZIP · one file per slide
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => void handleExportSlideImages("png")}
+                  className={`tiq-touch-target flex w-full items-center justify-between rounded-ds-sm px-3 py-2 text-left text-sm text-ds-text-primary transition-colors hover:bg-ds-state-hover active:bg-ds-state-active ${FOCUS_RING}`}
+                >
+                  <span>Slide PNGs</span>
+                  <span className="text-xs text-ds-text-muted">
+                    ZIP · one image per slide
+                  </span>
+                </button>
+              </div>
+
+              {/* ── Infographic section ───────────────────────────────────── */}
+              <div className="border-t border-ds-border-subtle p-1">
+                <p className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-ds-text-muted">
+                  <ImageIcon size={12} aria-hidden="true" />
+                  Infographic
+                </p>
+
+                {/* Width preset chips */}
+                <div className="mb-2 flex gap-1 px-3">
+                  {WIDTH_PRESET_LIST.map((p) => (
+                    <button
+                      key={p.key}
+                      type="button"
+                      aria-pressed={infogramWidth === p.key}
+                      onClick={() => setInfogramWidth(p.key)}
+                      className={`tiq-touch-target rounded-ds-sm border px-2 py-0.5 text-[10px] font-medium transition-colors ${FOCUS_RING} ${
+                        infogramWidth === p.key
+                          ? "border-ds-accent bg-ds-accent text-ds-text-on-accent"
+                          : "border-ds-border-subtle bg-ds-surface-base text-ds-text-secondary hover:border-ds-border-strong"
+                      }`}
+                    >
+                      {p.width}px
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => void handleExportInfographic("png")}
+                  className={`tiq-touch-target flex w-full items-center justify-between rounded-ds-sm px-3 py-2 text-left text-sm text-ds-text-primary transition-colors hover:bg-ds-state-hover active:bg-ds-state-active ${FOCUS_RING}`}
+                >
+                  <span>Infographic PNG</span>
+                  <span className="text-xs text-ds-text-muted">
+                    One tall image
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => void handleExportInfographic("pdf")}
+                  className={`tiq-touch-target flex w-full items-center justify-between rounded-ds-sm px-3 py-2 text-left text-sm text-ds-text-primary transition-colors hover:bg-ds-state-hover active:bg-ds-state-active ${FOCUS_RING}`}
+                >
+                  <span>Infographic PDF</span>
+                  <span className="text-xs text-ds-text-muted">
+                    Single page PDF
+                  </span>
+                </button>
+
+                {!canRemoveWatermark && (
+                  <p className="px-3 pb-2 text-[10px] text-ds-text-muted">
+                    Free plan: includes watermark.{" "}
+                    <a
+                      href="/app/settings/billing"
+                      className="tiq-touch-target inline-flex items-center underline"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      Upgrade
+                    </a>{" "}
+                    to remove.
+                  </p>
+                )}
+              </div>
+
+              {errorMsg ? (
+                <div
+                  role="alert"
+                  className="border-t border-ds-danger-border bg-ds-danger-surface px-3 py-2 text-xs text-ds-danger-text"
+                >
+                  {errorMsg}
+                </div>
+              ) : null}
+              {warningMsg ? (
+                <div
+                  role="status"
+                  className="border-t border-ds-warning-border bg-ds-warning-surface px-3 py-2 text-xs text-ds-warning-text"
+                >
+                  {warningMsg}
+                </div>
+              ) : null}
             </div>
-          ) : null}
-          {warningMsg ? (
-            <div
-              role="status"
-              className="border-t border-ds-warning-border bg-ds-warning-surface px-3 py-2 text-xs text-ds-warning-text"
-            >
-              {warningMsg}
-            </div>
-          ) : null}
-        </div>
+          </div>
+        </>
       ) : null}
 
+      {isExporting ? (
+        <p role="status" className="mt-1 text-xs text-ds-text-muted">
+          Preparing export. Keep this tab open.
+        </p>
+      ) : null}
       {status === "error" && !isOpen && errorMsg ? (
         <p role="alert" className="mt-1 text-xs text-ds-danger-text">
           {errorMsg}
