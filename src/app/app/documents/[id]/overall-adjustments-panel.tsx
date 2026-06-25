@@ -226,7 +226,7 @@ function BrandSection() {
                   )}
                 >
                   <span
-                    className="flex h-8 w-8 items-center justify-center gap-0.5 rounded-[4px] border p-1"
+                    className="flex h-8 w-8 items-center justify-center gap-0.5 rounded-ds-sm border p-1"
                     style={{
                       backgroundColor: preview.nodeFill,
                       borderColor: preview.nodeStroke,

@@ -116,6 +116,7 @@ export type ToolMetadata = {
   label: string;
   icon?: ToolIconName;
   shortcut?: string;
+  shortcutId?: ShortcutId;
   section?: EditorToolSection;
   control?: EditorToolControl;
   description?: string;
@@ -135,6 +136,7 @@ export const TEXT_FORMAT_TOOL_METADATA: readonly ToolMetadata[] = [
     section: "inline",
     label: "Bold",
     icon: "bold",
+    shortcutId: "editor.format.bold",
     shortcut: editorShortcut("editor.format.bold"),
     when: "rangeSelection",
     isActive: "bold",
@@ -146,6 +148,7 @@ export const TEXT_FORMAT_TOOL_METADATA: readonly ToolMetadata[] = [
     section: "inline",
     label: "Italic",
     icon: "italic",
+    shortcutId: "editor.format.italic",
     shortcut: editorShortcut("editor.format.italic"),
     when: "rangeSelection",
     isActive: "italic",
@@ -157,6 +160,7 @@ export const TEXT_FORMAT_TOOL_METADATA: readonly ToolMetadata[] = [
     section: "inline",
     label: "Underline",
     icon: "underline",
+    shortcutId: "editor.format.underline",
     shortcut: editorShortcut("editor.format.underline"),
     when: "rangeSelection",
     isActive: "underline",
@@ -178,6 +182,7 @@ export const TEXT_FORMAT_TOOL_METADATA: readonly ToolMetadata[] = [
     section: "inline",
     label: "Inline code",
     icon: "code",
+    shortcutId: "editor.format.inline-code",
     shortcut: editorShortcut("editor.format.inline-code"),
     when: "rangeSelection",
     isActive: "code",
@@ -259,6 +264,7 @@ export const TEXT_FORMAT_TOOL_METADATA: readonly ToolMetadata[] = [
     section: "align",
     label: "Align left",
     icon: "alignLeft",
+    shortcutId: "editor.align.left",
     shortcut: editorShortcut("editor.align.left"),
     when: "rangeSelection",
     isActive: "alignLeft",
@@ -270,6 +276,7 @@ export const TEXT_FORMAT_TOOL_METADATA: readonly ToolMetadata[] = [
     section: "align",
     label: "Align center",
     icon: "alignCenter",
+    shortcutId: "editor.align.center",
     shortcut: editorShortcut("editor.align.center"),
     when: "rangeSelection",
     isActive: "alignCenter",
@@ -281,6 +288,7 @@ export const TEXT_FORMAT_TOOL_METADATA: readonly ToolMetadata[] = [
     section: "align",
     label: "Align right",
     icon: "alignRight",
+    shortcutId: "editor.align.right",
     shortcut: editorShortcut("editor.align.right"),
     when: "rangeSelection",
     isActive: "alignRight",
@@ -292,6 +300,7 @@ export const TEXT_FORMAT_TOOL_METADATA: readonly ToolMetadata[] = [
     section: "align",
     label: "Justify",
     icon: "alignJustify",
+    shortcutId: "editor.align.justify",
     shortcut: editorShortcut("editor.align.justify"),
     when: "rangeSelection",
     isActive: "alignJustify",

@@ -2,8 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  Card,
+  EmptyState,
   FieldRow,
+  FormField,
   IconActionCluster,
+  Kbd,
+  MenuItem,
   PopoverSection,
   StatusPill,
   ToolbarButton,
@@ -68,4 +73,42 @@ test("GUTTER_BUTTON: lives in the owned UI token module", () => {
   assert.match(GUTTER_BUTTON, /h-9 w-9/);
   assert.match(GUTTER_BUTTON, /shadow-ds-raised/);
   assert.match(GUTTER_BUTTON, /focus-visible:ring-ds-focus-ring/);
+});
+
+test("Card and EmptyState use DS chrome tokens", () => {
+  const card = Card({ children: "body" });
+  const empty = EmptyState({
+    title: "No documents",
+    description: "Create one",
+  });
+
+  assert.match(card.props.className, /bg-ds-surface-raised/);
+  assert.match(card.props.className, /rounded-\[var\(--ds-radius-lg/);
+  assert.match(empty.props.className, /border-dashed/);
+});
+
+test("Kbd and MenuItem expose keyboard/menu chrome", () => {
+  const kbd = Kbd({ children: "⌘K" });
+  const item = MenuItem({ children: "Rename" });
+
+  assert.equal(kbd.type, "kbd");
+  assert.match(kbd.props.className, /bg-ds-surface-sunken/);
+  assert.match(item.props.className, /text-ds-text-secondary/);
+});
+
+test("FormField renders label, hint, and error semantics", () => {
+  const element = FormField({
+    label: "Name",
+    htmlFor: "name",
+    hint: "Shown to collaborators",
+    error: "Required",
+    children: "control",
+  });
+  const [label, control, hint, error] = element.props.children;
+
+  assert.equal(label.type, "label");
+  assert.equal(label.props.htmlFor, "name");
+  assert.equal(control, "control");
+  assert.equal(hint.props.children, "Shown to collaborators");
+  assert.equal(error.props.role, "alert");
 });

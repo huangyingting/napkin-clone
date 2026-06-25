@@ -9,6 +9,11 @@ const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".css"]);
 const RAW_Z_CLASS = /\bz-(?:\[(?:\d+)\]|\d+)\b/g;
 const RAW_HEX_ARBITRARY_CLASS =
   /\b(?:bg|text|border|ring|shadow|fill|stroke|from|via|to)-\[#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})\]/g;
+const RAW_RADIUS_ARBITRARY_CLASS =
+  /\brounded(?:-[trbl]{1,2})?-\[(?!var\()[^\]]+\]/g;
+const RAW_SHADOW_ARBITRARY_CLASS = /\bshadow-\[(?!var\()[^\]]+\]/g;
+const NON_DS_NEUTRAL_CLASS =
+  /\b(?:bg|text|border|ring)-(?:slate|gray|zinc|neutral|stone)-\d{2,3}(?:\/\d{1,3})?\b/g;
 
 function extensionOf(filePath) {
   const index = filePath.lastIndexOf(".");
@@ -41,6 +46,20 @@ function shouldScanRawHex(filePath) {
   return true;
 }
 
+function shouldScanRawChrome(filePath) {
+  const normalized = toPosix(filePath);
+  if (normalized === "src/app/globals.css") {
+    return false;
+  }
+  if (normalized.startsWith("src/components/ui/")) {
+    return false;
+  }
+  if (normalized.startsWith("src/components/presentation/")) {
+    return false;
+  }
+  return true;
+}
+
 function finding(filePath, lineNumber, columnNumber, rule, match) {
   return { filePath, lineNumber, columnNumber, rule, match };
 }
@@ -49,6 +68,7 @@ export function scanText(filePath, text) {
   const findings = [];
   const lines = text.split(/\r?\n/);
   const scanHex = shouldScanRawHex(filePath);
+  const scanChrome = shouldScanRawChrome(filePath);
 
   lines.forEach((line, lineIndex) => {
     for (const match of line.matchAll(RAW_Z_CLASS)) {
@@ -64,19 +84,61 @@ export function scanText(filePath, text) {
     }
 
     if (!scanHex) {
-      return;
+      if (!scanChrome) {
+        return;
+      }
     }
 
-    for (const match of line.matchAll(RAW_HEX_ARBITRARY_CLASS)) {
-      findings.push(
-        finding(
-          filePath,
-          lineIndex + 1,
-          (match.index ?? 0) + 1,
-          "raw-hex-class",
-          match[0],
-        ),
-      );
+    if (scanChrome) {
+      for (const match of line.matchAll(RAW_RADIUS_ARBITRARY_CLASS)) {
+        findings.push(
+          finding(
+            filePath,
+            lineIndex + 1,
+            (match.index ?? 0) + 1,
+            "raw-radius-class",
+            match[0],
+          ),
+        );
+      }
+
+      for (const match of line.matchAll(RAW_SHADOW_ARBITRARY_CLASS)) {
+        findings.push(
+          finding(
+            filePath,
+            lineIndex + 1,
+            (match.index ?? 0) + 1,
+            "raw-shadow-class",
+            match[0],
+          ),
+        );
+      }
+
+      for (const match of line.matchAll(NON_DS_NEUTRAL_CLASS)) {
+        findings.push(
+          finding(
+            filePath,
+            lineIndex + 1,
+            (match.index ?? 0) + 1,
+            "non-ds-neutral-class",
+            match[0],
+          ),
+        );
+      }
+    }
+
+    if (scanHex) {
+      for (const match of line.matchAll(RAW_HEX_ARBITRARY_CLASS)) {
+        findings.push(
+          finding(
+            filePath,
+            lineIndex + 1,
+            (match.index ?? 0) + 1,
+            "raw-hex-class",
+            match[0],
+          ),
+        );
+      }
     }
   });
 
@@ -130,7 +192,9 @@ function main() {
     const guidance =
       item.rule === "raw-z-index"
         ? "Use a named semantic z utility from globals.css (for example z-raised, z-modal, z-toast)."
-        : "Move raw hex colors into the DS token/theme layer; feature class names must use semantic utilities.";
+        : item.rule === "raw-hex-class"
+          ? "Move raw hex colors into the DS token/theme layer; feature class names must use semantic utilities."
+          : "Use DS radius, elevation, and neutral utilities instead of raw chrome classes.";
     console.error(
       `${item.filePath}:${item.lineNumber}:${item.columnNumber} ${item.rule} ${item.match} — ${guidance}`,
     );
