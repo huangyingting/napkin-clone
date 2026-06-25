@@ -24,9 +24,11 @@
  */
 
 import {
-  logAssetOrphanEvent,
-  logAssetOrphanFailure,
-} from "@/lib/diagnostics/domain-events";
+  markOrphanedAssetIds,
+  purgeExpiredAssetRows,
+  selectOrphanAssetIds,
+  type AssetOrphanStorage,
+} from "@/lib/assets/orphan-lifecycle";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -51,7 +53,7 @@ export function selectBrandOrphanIds(
   liveRefs: ReadonlySet<string>,
   brandAssets: readonly { id: string }[],
 ): string[] {
-  return brandAssets.filter((a) => !liveRefs.has(a.id)).map((a) => a.id);
+  return selectOrphanAssetIds(liveRefs, brandAssets);
 }
 
 // ---------------------------------------------------------------------------
@@ -89,9 +91,7 @@ export interface BrandOrphanDb {
   };
 }
 
-export interface BrandOrphanStorage {
-  delete(storageKey: string): Promise<void>;
-}
+export type BrandOrphanStorage = AssetOrphanStorage;
 
 // ---------------------------------------------------------------------------
 // Reconcile a single brand's assets
@@ -122,20 +122,15 @@ export async function reconcileBrandAssets(
     select: { id: true },
   });
 
-  const orphanIds = selectBrandOrphanIds(liveRefs, liveAssets);
-  if (orphanIds.length === 0) return 0;
-
-  const result = await db.asset.updateMany({
-    where: { id: { in: orphanIds } },
-    data: { deletedAt: now },
+  return markOrphanedAssetIds({
+    domain: "brand",
+    message: "brand assets marked as orphaned",
+    logContext: { brandId },
+    liveRefs,
+    liveAssets,
+    now,
+    updateMany: (args) => db.asset.updateMany(args),
   });
-
-  logAssetOrphanEvent("brand", "mark", "brand assets marked as orphaned", {
-    brandId,
-    markedCount: result.count,
-  });
-
-  return result.count;
 }
 
 // ---------------------------------------------------------------------------
@@ -157,7 +152,7 @@ export async function purgeExpiredBrandAssets(
 ): Promise<number> {
   const cutoff = new Date(now.getTime() - retentionMs);
 
-  const rawAssets = await db.asset.findMany({
+  const expiredAssets = await db.asset.findMany({
     where: {
       documentId: null,
       workspaceId: null,
@@ -165,32 +160,13 @@ export async function purgeExpiredBrandAssets(
     },
     select: { id: true, storageKey: true },
   });
-  const expired = rawAssets.filter(
-    (a): a is { id: string; storageKey: string } =>
-      typeof a.storageKey === "string",
-  );
-  if (expired.length === 0) return 0;
 
-  const purgedIds: string[] = [];
-  for (const asset of expired) {
-    try {
-      await storage.delete(asset.storageKey);
-      purgedIds.push(asset.id);
-    } catch (err) {
-      logAssetOrphanFailure("brand", "storage_delete", err, {
-        storageKey: asset.storageKey,
-      });
-    }
-  }
-  if (purgedIds.length === 0) return 0;
-
-  const result = await db.asset.deleteMany({
-    where: { id: { in: purgedIds } },
+  return purgeExpiredAssetRows({
+    domain: "brand",
+    message: "brand assets physically purged",
+    logContext: {},
+    expiredAssets,
+    storage,
+    deleteMany: (args) => db.asset.deleteMany(args),
   });
-
-  logAssetOrphanEvent("brand", "purge", "brand assets physically purged", {
-    purgedCount: result.count,
-  });
-
-  return result.count;
 }

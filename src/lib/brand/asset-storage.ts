@@ -4,8 +4,8 @@
  * Brand logos and uploaded custom fonts are persisted as protected `Asset`
  * rows whose bytes live in a NON-public directory (`storage/brand-assets/`)
  * and are served only through the authorised `/api/brand-assets/…` route.
- * This mirrors the slide-asset design (`@/lib/slides/asset-storage`) and reuses
- * its {@link LocalAssetStorageAdapter}; only the storage root, the URL prefix,
+ * This mirrors the slide-asset design and reuses the neutral
+ * {@link LocalAssetStorageAdapter}; only the storage root, the URL prefix,
  * and the accepted MIME→extension map differ.
  *
  * Assets are partitioned by the OWNER (`userId`) rather than by brand id, so an
@@ -18,9 +18,11 @@
 import path from "node:path";
 
 import {
+  deriveAssetStorageKey,
   LocalAssetStorageAdapter,
   type AssetStorageAdapter,
-} from "@/lib/slides/asset-storage";
+} from "@/lib/assets/storage";
+import { BRAND_MIME_TO_EXT as BRAND_ASSET_MIME_TO_EXT } from "@/lib/brand/asset-policy";
 
 // ---------------------------------------------------------------------------
 // MIME → extension
@@ -35,23 +37,7 @@ import {
  * types (FONT_ACCEPTED_TYPES). `application/octet-stream` is mapped to `bin`;
  * the served `Content-Type` always comes from the stored `Asset.mimeType`.
  */
-export const BRAND_MIME_TO_EXT: Record<string, string> = {
-  // Logo images
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/svg+xml": "svg",
-  "image/webp": "webp",
-  // Fonts
-  "font/ttf": "ttf",
-  "font/otf": "otf",
-  "font/woff": "woff",
-  "font/woff2": "woff2",
-  "application/font-woff": "woff",
-  "application/font-woff2": "woff2",
-  "application/x-font-ttf": "ttf",
-  "application/x-font-otf": "otf",
-  "application/octet-stream": "bin",
-};
+export { BRAND_MIME_TO_EXT } from "@/lib/brand/asset-policy";
 
 /**
  * Derives the canonical storage key for a brand asset:
@@ -70,8 +56,12 @@ export function deriveBrandStorageKey(
   checksum: string,
   mimeType: string,
 ): string {
-  const ext = BRAND_MIME_TO_EXT[mimeType] ?? "bin";
-  return `${ownerId}/${checksum}.${ext}`;
+  return deriveAssetStorageKey(
+    ownerId,
+    checksum,
+    mimeType,
+    BRAND_ASSET_MIME_TO_EXT,
+  );
 }
 
 // ---------------------------------------------------------------------------

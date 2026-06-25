@@ -25,9 +25,10 @@
  */
 
 import {
-  logAssetOrphanEvent,
-  logAssetOrphanFailure,
-} from "@/lib/diagnostics/domain-events";
+  markOrphanedAssetIds,
+  purgeExpiredAssetRows,
+  type AssetOrphanStorage,
+} from "@/lib/assets/orphan-lifecycle";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -124,9 +125,7 @@ export interface OrphanDb {
 /**
  * Storage interface for physical file deletion.
  */
-export interface OrphanStorage {
-  delete(storageKey: string): Promise<void>;
-}
+export type OrphanStorage = AssetOrphanStorage;
 
 // ---------------------------------------------------------------------------
 // Mark orphaned assets
@@ -176,23 +175,15 @@ export async function markOrphanedAssets(
     select: { id: true },
   });
 
-  const orphanIds = liveAssets
-    .filter((a) => !activeRefs.has(a.id))
-    .map((a) => a.id);
-
-  if (orphanIds.length === 0) return 0;
-
-  const result = await db.asset.updateMany({
-    where: { id: { in: orphanIds } },
-    data: { deletedAt: now },
+  return markOrphanedAssetIds({
+    domain: "slide",
+    message: "assets marked as orphaned",
+    logContext: { documentId },
+    liveRefs: activeRefs,
+    liveAssets,
+    now,
+    updateMany: (args) => db.asset.updateMany(args),
   });
-
-  logAssetOrphanEvent("slide", "mark", "assets marked as orphaned", {
-    documentId,
-    markedCount: result.count,
-  });
-
-  return result.count;
 }
 
 // ---------------------------------------------------------------------------
@@ -216,43 +207,19 @@ export async function purgeExpiredAssets(
 ): Promise<number> {
   const cutoff = new Date(now.getTime() - retentionMs);
 
-  const rawAssets = await db.asset.findMany({
+  const expiredAssets = await db.asset.findMany({
     where: { documentId, deletedAt: { not: null, lt: cutoff } },
     select: { id: true, storageKey: true },
   });
-  const expiredAssets = rawAssets.filter(
-    (a): a is { id: string; storageKey: string } =>
-      typeof a.storageKey === "string",
-  );
 
-  if (expiredAssets.length === 0) return 0;
-
-  // Delete files from storage first; if storage delete fails for a key, skip
-  // the DB delete for that key so we don't lose the record.
-  const purgedIds: string[] = [];
-  for (const asset of expiredAssets) {
-    try {
-      await storage.delete(asset.storageKey);
-      purgedIds.push(asset.id);
-    } catch (err) {
-      logAssetOrphanFailure("slide", "storage_delete", err, {
-        storageKey: asset.storageKey,
-      });
-    }
-  }
-
-  if (purgedIds.length === 0) return 0;
-
-  const result = await db.asset.deleteMany({
-    where: { id: { in: purgedIds } },
+  return purgeExpiredAssetRows({
+    domain: "slide",
+    message: "assets physically purged",
+    logContext: { documentId },
+    expiredAssets,
+    storage,
+    deleteMany: (args) => db.asset.deleteMany(args),
   });
-
-  logAssetOrphanEvent("slide", "purge", "assets physically purged", {
-    documentId,
-    purgedCount: result.count,
-  });
-
-  return result.count;
 }
 
 // ---------------------------------------------------------------------------
