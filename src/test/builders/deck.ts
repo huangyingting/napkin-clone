@@ -138,6 +138,14 @@ export function buildBulletsElement(
     ...(overrides.sourceRef !== undefined
       ? { sourceRef: overrides.sourceRef }
       : {}),
+    ...(overrides.opacity !== undefined ? { opacity: overrides.opacity } : {}),
+    ...(overrides.rotation !== undefined
+      ? { rotation: overrides.rotation }
+      : {}),
+    ...(overrides.locked !== undefined ? { locked: overrides.locked } : {}),
+    ...(overrides.hidden !== undefined ? { hidden: overrides.hidden } : {}),
+    ...(overrides.name !== undefined ? { name: overrides.name } : {}),
+    ...(overrides.groupId !== undefined ? { groupId: overrides.groupId } : {}),
   };
 }
 
@@ -157,6 +165,14 @@ export function buildVisualElement(
     ...(overrides.sourceRef !== undefined
       ? { sourceRef: overrides.sourceRef }
       : {}),
+    ...(overrides.opacity !== undefined ? { opacity: overrides.opacity } : {}),
+    ...(overrides.rotation !== undefined
+      ? { rotation: overrides.rotation }
+      : {}),
+    ...(overrides.locked !== undefined ? { locked: overrides.locked } : {}),
+    ...(overrides.hidden !== undefined ? { hidden: overrides.hidden } : {}),
+    ...(overrides.name !== undefined ? { name: overrides.name } : {}),
+    ...(overrides.groupId !== undefined ? { groupId: overrides.groupId } : {}),
   };
 }
 
@@ -180,6 +196,15 @@ export function buildImageElement(
     ...(overrides.sourceRef !== undefined
       ? { sourceRef: overrides.sourceRef }
       : {}),
+    ...(overrides.opacity !== undefined ? { opacity: overrides.opacity } : {}),
+    ...(overrides.rotation !== undefined
+      ? { rotation: overrides.rotation }
+      : {}),
+    ...(overrides.shadow !== undefined ? { shadow: overrides.shadow } : {}),
+    ...(overrides.locked !== undefined ? { locked: overrides.locked } : {}),
+    ...(overrides.hidden !== undefined ? { hidden: overrides.hidden } : {}),
+    ...(overrides.name !== undefined ? { name: overrides.name } : {}),
+    ...(overrides.groupId !== undefined ? { groupId: overrides.groupId } : {}),
   };
 }
 
@@ -211,6 +236,15 @@ export function buildShapeElement(
     ...(overrides.sourceRef !== undefined
       ? { sourceRef: overrides.sourceRef }
       : {}),
+    ...(overrides.opacity !== undefined ? { opacity: overrides.opacity } : {}),
+    ...(overrides.rotation !== undefined
+      ? { rotation: overrides.rotation }
+      : {}),
+    ...(overrides.shadow !== undefined ? { shadow: overrides.shadow } : {}),
+    ...(overrides.locked !== undefined ? { locked: overrides.locked } : {}),
+    ...(overrides.hidden !== undefined ? { hidden: overrides.hidden } : {}),
+    ...(overrides.name !== undefined ? { name: overrides.name } : {}),
+    ...(overrides.groupId !== undefined ? { groupId: overrides.groupId } : {}),
   };
 }
 

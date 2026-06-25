@@ -100,7 +100,7 @@ test.describe("document import round-trip", () => {
       "persist: editor never became editable",
     ).toHaveAttribute("contenteditable", "true", { timeout: 20_000 });
 
-    const marker = `roundtrip-${Date.now()}`;
+    const marker = "roundtrip-profile-marker";
     await editor.click();
     await page.keyboard.press("End");
     await page.keyboard.type(` ${marker}`);

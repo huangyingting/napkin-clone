@@ -19,10 +19,17 @@ const baseURL =
   process.env.E2E_BASE_URL ?? process.env.BASE_URL ?? "http://localhost:3000";
 
 const startWebServer = process.env.E2E_WEB_SERVER === "1";
+const deterministicProfile = process.env.E2E_PROFILE === "1";
+const deterministicProfileSpecs = [
+  "document-editor-profile.spec.ts",
+  "import-roundtrip.spec.ts",
+  "present-export.spec.ts",
+  "slide-asset-upload.spec.ts",
+];
 
 export default defineConfig({
   testDir: "e2e",
-  testMatch: /.*\.spec\.ts/,
+  testMatch: deterministicProfile ? deterministicProfileSpecs : /.*\.spec\.ts/,
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
@@ -43,7 +50,7 @@ export default defineConfig({
         command: "npm run dev",
         url: baseURL,
         reuseExistingServer: !process.env.CI,
-        timeout: 120_000,
+        timeout: 240_000,
       }
     : undefined,
 });

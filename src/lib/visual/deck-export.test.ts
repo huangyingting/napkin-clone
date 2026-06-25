@@ -37,23 +37,38 @@ import {
   type DeckOp,
   type DeckTextOp,
 } from "@/lib/visual/deck-export";
+import {
+  buildBulletsElement,
+  buildConnectorElement,
+  buildImageElement,
+  buildPlaceholderElement,
+  buildShapeElement,
+  buildSlide,
+  buildTextElement,
+  buildVisualElement,
+} from "@/test/builders/deck";
+import {
+  buildVisual,
+  buildVisualEdge,
+  buildVisualNode,
+} from "@/test/builders/visual";
 
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
 
 function node(id: string, label: string, x: number, y: number): VisualNode {
-  return { id, label, x, y, width: 150, height: 56 };
+  return buildVisualNode({ id, label, x, y, width: 150, height: 56 });
 }
 
 function flowchart(): Visual {
-  return {
+  return buildVisual({
     version: 1,
     type: "flowchart",
     width: 760,
     height: 480,
     nodes: [node("a", "Alpha", 100, 100), node("b", "Beta", 100, 300)],
-    edges: [{ id: "e1", from: "a", to: "b" }],
+    edges: [buildVisualEdge({ id: "e1", from: "a", to: "b" })],
     style: {
       palette: ["#6366f1", "#0ea5e9", "#10b981"],
       background: "#ffffff",
@@ -65,24 +80,23 @@ function flowchart(): Visual {
       fontSize: 14,
       fontWeight: 600,
     },
-  };
+  });
 }
 
-function textEl(
+function fixtureTextElement(
   id: string,
   text: string,
   overrides: Partial<TextElement> = {},
 ): TextElement {
-  return {
+  return buildTextElement({
     id,
-    kind: "text",
     role: "title",
     text,
     zIndex: 0,
     box: { x: 6, y: 6, w: 88, h: 16 },
     style: { fontSize: 6, bold: true, italic: false, align: "left" },
     ...overrides,
-  };
+  });
 }
 
 function bulletsEl(
@@ -90,85 +104,79 @@ function bulletsEl(
   bullets: string[],
   overrides: Partial<BulletsElement> = {},
 ): BulletsElement {
-  return {
+  return buildBulletsElement({
     id,
-    kind: "bullets",
     bullets,
     items: bullets.map((text) => ({ text })),
     zIndex: 1,
     box: { x: 6, y: 26, w: 88, h: 66 },
     style: { fontSize: 4.5, bold: false, italic: false, align: "left" },
     ...overrides,
-  };
+  });
 }
 
 function visualEl(id: string, visualId: string): VisualElement {
-  return {
+  return buildVisualElement({
     id,
-    kind: "visual",
     visualId,
     zIndex: 2,
     box: { x: 54, y: 26, w: 40, h: 66 },
-  };
+  });
 }
 
-function shapeEl(
+function fixtureShapeElement(
   id: string,
   overrides: Partial<ShapeElement> = {},
 ): ShapeElement {
-  return {
+  return buildShapeElement({
     id,
-    kind: "shape",
     shape: "rect",
     color: "#ff8800",
     zIndex: 3,
     box: { x: 2, y: 2, w: 20, h: 10 },
     ...overrides,
-  };
+  });
 }
 
 function imageEl(
   id: string,
   overrides: Partial<ImageElement> = {},
 ): ImageElement {
-  return {
+  return buildImageElement({
     id,
-    kind: "image",
     src: "data:image/png;base64,AAAA",
     alt: "pic",
     zIndex: 4,
     box: { x: 70, y: 2, w: 25, h: 20 },
     ...overrides,
-  };
+  });
 }
 
 function placeholderEl(
   id: string,
   overrides: Partial<PlaceholderElement> = {},
 ): PlaceholderElement {
-  return {
+  return buildPlaceholderElement({
     id,
-    kind: "placeholder",
     placeholderType: "body",
     zIndex: 2,
     box: { x: 20, y: 20, w: 30, h: 20 },
     ...overrides,
-  };
+  });
 }
 
 function connectorEl(
   id: string,
   overrides: Partial<ConnectorElement> = {},
 ): ConnectorElement {
-  return {
+  return buildConnectorElement({
     id,
-    kind: "connector",
     zIndex: 5,
     box: { x: 0, y: 0, w: 100, h: 100 },
     start: { x: 10, y: 20 },
     end: { x: 80, y: 70 },
     ...overrides,
-  };
+  });
 }
 
 function freeFormSlide(
@@ -176,7 +184,7 @@ function freeFormSlide(
   elements: SlideElement[],
   overrides: Partial<Slide> = {},
 ): Slide {
-  return {
+  return buildSlide({
     id: "test-id",
     index,
     title: "",
@@ -186,7 +194,7 @@ function freeFormSlide(
     notes: "",
     elements,
     ...overrides,
-  };
+  });
 }
 
 function ofKind<K extends DeckOp["kind"]>(
@@ -250,9 +258,9 @@ test("slide count equals deck.slides length, in order", () => {
   const deck: Deck = {
     themeId: "indigo",
     slides: [
-      freeFormSlide(0, [textEl("t0", "First")]),
-      freeFormSlide(1, [textEl("t1", "Second")]),
-      freeFormSlide(2, [textEl("t2", "Third")]),
+      freeFormSlide(0, [fixtureTextElement("t0", "First")]),
+      freeFormSlide(1, [fixtureTextElement("t1", "Second")]),
+      freeFormSlide(2, [fixtureTextElement("t2", "Third")]),
     ],
   };
 
@@ -275,7 +283,7 @@ test("edited title and bullet text are present in the ops", () => {
     themeId: "indigo",
     slides: [
       freeFormSlide(0, [
-        textEl("t", "Edited Title"),
+        fixtureTextElement("t", "Edited Title"),
         bulletsEl("b", ["Edited bullet one", "Edited bullet two"]),
       ]),
     ],
@@ -295,7 +303,7 @@ test("4:3 decks convert percentage boxes against the standard 4:3 slide size", (
     slideFormat: "4:3",
     slides: [
       freeFormSlide(0, [
-        textEl("t", "Standard", {
+        fixtureTextElement("t", "Standard", {
           box: { x: 50, y: 10, w: 50, h: 20 },
           style: { fontSize: 10, bold: true, italic: false, align: "left" },
         }),
@@ -354,10 +362,10 @@ test("all five element kinds each emit at least one op", () => {
     themeId: "indigo",
     slides: [
       freeFormSlide(0, [
-        textEl("t", "Title"),
+        fixtureTextElement("t", "Title"),
         bulletsEl("b", ["one"]),
         visualEl("ve", "v1"),
-        shapeEl("sh"),
+        fixtureShapeElement("sh"),
         imageEl("im"),
       ]),
     ],
@@ -560,7 +568,7 @@ test("per-slide background and accent overrides are applied", () => {
   const deck: Deck = {
     themeId: "indigo",
     slides: [
-      freeFormSlide(0, [textEl("t", "Themed")], {
+      freeFormSlide(0, [fixtureTextElement("t", "Themed")], {
         background: "#123456",
         accent: "#abcdef",
       }),
@@ -576,7 +584,7 @@ test("per-slide background and accent overrides are applied", () => {
 test("slide without overrides uses the theme background/accent", () => {
   const deck: Deck = {
     themeId: "ocean",
-    slides: [freeFormSlide(0, [textEl("t", "Theme defaults")])],
+    slides: [freeFormSlide(0, [fixtureTextElement("t", "Theme defaults")])],
   };
 
   const [spec] = buildDeckSpecs(deck, new Map());
@@ -612,7 +620,9 @@ test("text/bullets boxes convert percentages to inches within slide bounds", () 
     themeId: "indigo",
     slides: [
       freeFormSlide(0, [
-        textEl("t", "Bounded", { box: { x: 0, y: 0, w: 100, h: 50 } }),
+        fixtureTextElement("t", "Bounded", {
+          box: { x: 0, y: 0, w: 100, h: 50 },
+        }),
       ]),
     ],
   };
@@ -679,7 +689,7 @@ test("text op carries runs when the element has them", () => {
     themeId: "indigo",
     slides: [
       freeFormSlide(0, [
-        textEl("t1", "Bold Title", {
+        fixtureTextElement("t1", "Bold Title", {
           runs: [
             { text: "Bold " },
             { text: "Title", bold: true, color: "#ff0000" },
@@ -700,7 +710,7 @@ test("text op carries runs when the element has them", () => {
 test("text op omits runs when the element has none (plain fallback)", () => {
   const deck: Deck = {
     themeId: "indigo",
-    slides: [freeFormSlide(0, [textEl("t1", "Plain")])],
+    slides: [freeFormSlide(0, [fixtureTextElement("t1", "Plain")])],
   };
   const [spec] = buildDeckSpecs(deck, new Map());
   const text = ofKind(spec.ops, "text")[0] as DeckTextOp;
@@ -843,10 +853,10 @@ test("all six element kinds (including connector) each emit at least one op", ()
     themeId: "indigo",
     slides: [
       freeFormSlide(0, [
-        textEl("t", "Title"),
+        fixtureTextElement("t", "Title"),
         bulletsEl("b", ["one"]),
         visualEl("ve", "v1"),
-        shapeEl("sh"),
+        fixtureShapeElement("sh"),
         imageEl("im"),
         connectorEl("cn"),
       ]),
@@ -871,7 +881,7 @@ test("shape text is applied to PPTX as a shape plus a text call", async () => {
     themeId: "indigo",
     slides: [
       freeFormSlide(0, [
-        shapeEl("shape-text", {
+        fixtureShapeElement("shape-text", {
           text: "Inside",
           rotation: 18,
           shadow: true,
@@ -1070,7 +1080,11 @@ test("bullets op carries both itemRuns and itemDetails for rich numbered/indente
 test("a hidden text element produces no ops", () => {
   const deck: Deck = {
     themeId: "default",
-    slides: [freeFormSlide(0, [textEl("t-hidden", "ghost", { hidden: true })])],
+    slides: [
+      freeFormSlide(0, [
+        fixtureTextElement("t-hidden", "ghost", { hidden: true }),
+      ]),
+    ],
   };
 
   const [spec] = buildDeckSpecs(deck, new Map());
@@ -1082,8 +1096,8 @@ test("a hidden element is dropped while its visible sibling on the same slide is
     themeId: "default",
     slides: [
       freeFormSlide(0, [
-        textEl("t-visible", "visible"),
-        textEl("t-hidden", "hidden", { hidden: true, zIndex: 1 }),
+        fixtureTextElement("t-visible", "visible"),
+        fixtureTextElement("t-hidden", "hidden", { hidden: true, zIndex: 1 }),
       ]),
     ],
   };
@@ -1100,7 +1114,7 @@ test("a hidden image and a hidden shape both produce no ops", () => {
     slides: [
       freeFormSlide(0, [
         imageEl("im", { hidden: true }),
-        shapeEl("sh", { hidden: true, zIndex: 1 }),
+        fixtureShapeElement("sh", { hidden: true, zIndex: 1 }),
       ]),
     ],
   };
@@ -1112,11 +1126,13 @@ test("a hidden image and a hidden shape both produce no ops", () => {
 test("a locked text element exports identically to an unlocked one", () => {
   const unlockedDeck: Deck = {
     themeId: "default",
-    slides: [freeFormSlide(0, [textEl("t", "hello")])],
+    slides: [freeFormSlide(0, [fixtureTextElement("t", "hello")])],
   };
   const lockedDeck: Deck = {
     themeId: "default",
-    slides: [freeFormSlide(0, [textEl("t", "hello", { locked: true })])],
+    slides: [
+      freeFormSlide(0, [fixtureTextElement("t", "hello", { locked: true })]),
+    ],
   };
 
   const [uSpec] = buildDeckSpecs(unlockedDeck, new Map());
@@ -1133,7 +1149,7 @@ test("a locked text element exports identically to an unlocked one", () => {
 test("a locked shape exports with full geometry (lock is editor-only)", () => {
   const deck: Deck = {
     themeId: "default",
-    slides: [freeFormSlide(0, [shapeEl("sh", { locked: true })])],
+    slides: [freeFormSlide(0, [fixtureShapeElement("sh", { locked: true })])],
   };
 
   const [spec] = buildDeckSpecs(deck, new Map());
@@ -1145,9 +1161,12 @@ test("grouped elements each emit their own op (group membership is flattened in 
     themeId: "default",
     slides: [
       freeFormSlide(0, [
-        textEl("t1", "Group member A", { groupId: "g1" }),
-        textEl("t2", "Group member B", { groupId: "g1", zIndex: 1 }),
-        textEl("t3", "No group", { zIndex: 2 }),
+        fixtureTextElement("t1", "Group member A", { groupId: "g1" }),
+        fixtureTextElement("t2", "Group member B", {
+          groupId: "g1",
+          zIndex: 1,
+        }),
+        fixtureTextElement("t3", "No group", { zIndex: 2 }),
       ]),
     ],
   };
@@ -1166,8 +1185,11 @@ test("grouped shapes export in z-order and preserve geometry", () => {
     themeId: "default",
     slides: [
       freeFormSlide(0, [
-        shapeEl("sh1", { groupId: "g2", box: { x: 5, y: 5, w: 20, h: 15 } }),
-        shapeEl("sh2", {
+        fixtureShapeElement("sh1", {
+          groupId: "g2",
+          box: { x: 5, y: 5, w: 20, h: 15 },
+        }),
+        fixtureShapeElement("sh2", {
           groupId: "g2",
           zIndex: 1,
           box: { x: 30, y: 5, w: 20, h: 15 },
@@ -1192,7 +1214,7 @@ test("backgroundGradient: spec.background uses the 'from' stop color", () => {
   const deck: Deck = {
     themeId: "default",
     slides: [
-      freeFormSlide(0, [textEl("t", "Gradient bg")], {
+      freeFormSlide(0, [fixtureTextElement("t", "Gradient bg")], {
         backgroundGradient: { from: "#112233", to: "#aabbcc" },
       }),
     ],
@@ -1213,7 +1235,7 @@ test("backgroundGradient takes precedence over explicit background color", () =>
   const deck: Deck = {
     themeId: "default",
     slides: [
-      freeFormSlide(0, [textEl("t", "Both")], {
+      freeFormSlide(0, [fixtureTextElement("t", "Both")], {
         background: "#ffffff",
         backgroundGradient: { from: "#334455", to: "#aabbcc" },
       }),
@@ -1229,7 +1251,7 @@ test("backgroundImage is forwarded verbatim to the slide spec", () => {
   const deck: Deck = {
     themeId: "default",
     slides: [
-      freeFormSlide(0, [textEl("t", "Image bg")], {
+      freeFormSlide(0, [fixtureTextElement("t", "Image bg")], {
         backgroundImage: dataUrl,
       }),
     ],
@@ -1246,7 +1268,7 @@ test("backgroundImage is forwarded verbatim to the slide spec", () => {
 test("slide without any background override uses the theme default", () => {
   const deck: Deck = {
     themeId: "indigo",
-    slides: [freeFormSlide(0, [textEl("t", "Theme bg")])],
+    slides: [freeFormSlide(0, [fixtureTextElement("t", "Theme bg")])],
   };
 
   const [spec] = buildDeckSpecs(deck, new Map());
@@ -1266,7 +1288,7 @@ test("text element with an active sourceRef still emits a normal text op", () =>
     themeId: "default",
     slides: [
       freeFormSlide(0, [
-        textEl("t-linked", "Source-linked text", {
+        fixtureTextElement("t-linked", "Source-linked text", {
           sourceRef: {
             documentId: "doc-x",
             blockId: "blk-1",
@@ -1338,7 +1360,7 @@ test("element with unlinked=true sourceRef exports normally (unlinked is metadat
     themeId: "default",
     slides: [
       freeFormSlide(0, [
-        textEl("t-unlinked", "Detached", {
+        fixtureTextElement("t-unlinked", "Detached", {
           sourceRef: {
             documentId: "doc-x",
             blockId: "blk-4",
@@ -1366,7 +1388,10 @@ test("exported text inherits the deck-template role font when no element overrid
     themeId: "indigo",
     slides: [
       freeFormSlide(0, [
-        textEl("title", "Heading", { role: "title", textRole: "h1" }),
+        fixtureTextElement("title", "Heading", {
+          role: "title",
+          textRole: "h1",
+        }),
         bulletsEl("b", ["point"]),
       ]),
     ],
@@ -1383,7 +1408,7 @@ test("an explicit element fontFamily still wins over the role font (#606)", () =
     themeId: "indigo",
     slides: [
       freeFormSlide(0, [
-        textEl("title", "Heading", {
+        fixtureTextElement("title", "Heading", {
           role: "title",
           style: {
             fontSize: 6,

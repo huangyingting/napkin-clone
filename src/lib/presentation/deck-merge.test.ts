@@ -9,17 +9,22 @@ import { test } from "node:test";
 import type { Deck, Slide, SlideElement, TextRun, VisualElement } from "./deck";
 import { DEFAULT_VISUAL_BOX, buildDeckFromBlocks } from "./deck";
 import { mergeDeckFromDocument } from "./deck-merge";
+import {
+  buildDeck,
+  buildSlide,
+  buildTextElement,
+  buildVisualElement,
+} from "@/test/builders/deck";
 
 function element(id: string): SlideElement {
-  return {
+  return buildTextElement({
     id,
-    kind: "text",
     role: "body",
     text: "manual",
     zIndex: 0,
     box: { x: 10, y: 10, w: 20, h: 20 },
     style: { fontSize: 5, bold: false, italic: false, align: "left" },
-  };
+  });
 }
 
 function withTitleElement(
@@ -37,7 +42,7 @@ function withTitleElement(
 function slide(partial: Partial<Slide>): Slide {
   const title = partial.title ?? "";
   const elements = withTitleElement(title, partial.elements ?? []);
-  return {
+  return buildSlide({
     id: "test-id",
     index: 0,
     title: "",
@@ -47,14 +52,14 @@ function slide(partial: Partial<Slide>): Slide {
     notes: "",
     ...partial,
     elements,
-  };
+  });
 }
 
 function deck(slides: Slide[], themeId = "default"): Deck {
-  return {
+  return buildDeck({
     slides: slides.map((s, index) => ({ ...s, index })),
     themeId,
-  };
+  });
 }
 
 test("matched slide: refreshes content but preserves elements", () => {
@@ -127,15 +132,14 @@ test("index match used when titles differ/empty", () => {
 });
 
 function titleElement(id: string, text: string): SlideElement {
-  return {
+  return buildTextElement({
     id,
-    kind: "text",
     role: "title",
     text,
     zIndex: 1,
     box: { x: 6, y: 6, w: 88, h: 16 },
     style: { fontSize: 6, bold: true, italic: false, align: "left" },
-  };
+  });
 }
 
 test("renamed title element matches its slide instead of appending a duplicate (#244)", () => {
@@ -580,13 +584,12 @@ test("hand-edited slide: run refresh never clobbers verbatim elements", () => {
 // ---------------------------------------------------------------------------
 
 function visualElement(id: string, visualId: string): VisualElement {
-  return {
+  return buildVisualElement({
     id,
-    kind: "visual",
     visualId,
     zIndex: 0,
     box: { x: 10, y: 10, w: 30, h: 30 },
-  };
+  });
 }
 
 test("new document visual is appended to hand-edited slide (#294)", () => {
@@ -959,9 +962,8 @@ function linkedTextElement(
   contentHash: string,
   text: string = "original",
 ): TextElement {
-  return {
+  return buildTextElement({
     id,
-    kind: "text",
     role: "body",
     text,
     box: { x: 10, y: 10, w: 60, h: 15 },
@@ -974,7 +976,7 @@ function linkedTextElement(
       linkedAt: "2026-01-01T00:00:00.000Z",
       blockKind: "text",
     },
-  };
+  });
 }
 
 function freshTextBlock(blockId: string, text: string): DocumentTextBlock {

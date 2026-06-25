@@ -1,0 +1,204 @@
+#!/usr/bin/env node
+
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { extname, join, relative, sep } from "node:path";
+import process from "node:process";
+
+const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs"]);
+const TEST_SIZE_LIMIT = 1_500;
+const OVERSIZED_TEST_ALLOWLIST = new Set([
+  "src/lib/presentation/deck-schema.test.ts",
+]);
+const FIXTURE_FACTORY_FILES = new Set([
+  "src/lib/presentation/slide-commands.test.ts",
+  "src/lib/presentation/slide-commands-advanced.test.ts",
+  "src/lib/presentation/slide-commands-commit.test.ts",
+  "src/lib/visual/deck-export.test.ts",
+  "src/lib/presentation/rendering-regression.test.ts",
+  "src/lib/presentation/deck-merge.test.ts",
+  "e2e/screenshot-regression.spec.ts",
+  "e2e/helpers/screenshot-fixtures.ts",
+]);
+const LEGACY_E2E_ALLOWLIST = new Map([
+  [
+    "e2e/slides-smoke.spec.ts",
+    new Set([
+      "test-skip",
+      "wait-for-timeout",
+      "nondeterministic-id",
+      "broad-catch",
+    ]),
+  ],
+  [
+    "e2e/slides-layout-screenshots.spec.ts",
+    new Set(["test-skip", "wait-for-timeout", "broad-catch"]),
+  ],
+  ["e2e/screenshot-regression.spec.ts", new Set(["test-skip", "broad-catch"])],
+  ["e2e/slide-asset-upload.spec.ts", new Set(["wait-for-timeout"])],
+]);
+
+const RULES = [
+  { rule: "test-only", pattern: /\btest\.only\s*\(/g },
+  { rule: "test-skip", pattern: /\btest\.skip\s*\(/g },
+  { rule: "wait-for-timeout", pattern: /\bwaitForTimeout\s*\(/g },
+  {
+    rule: "nondeterministic-id",
+    pattern:
+      /\b(?:Date\.now|Math\.random|randomUUID|crypto\.randomUUID|nanoid)\s*\(/g,
+  },
+  {
+    rule: "broad-catch",
+    pattern:
+      /\.catch\s*\(\s*(?:\(\s*\)|[a-zA-Z_$][\w$]*)\s*=>\s*(?:\{\s*\}|null|false)\s*\)/g,
+  },
+  { rule: "broad-catch", pattern: /\bcatch\s*(?:\([^)]*\))?\s*\{\s*\}/g },
+];
+const FACTORY_PATTERN =
+  /\b(?:function|const)\s+(makeDeck|makeSlide|textEl|shapeEl)\b/g;
+const ALLOW_MARKER = "e2e-governance-allow";
+
+function toPosix(path) {
+  return path.split(sep).join("/");
+}
+
+function walkFiles(root) {
+  const files = [];
+  const entries = readdirSync(root, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = join(root, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === "node_modules" || entry.name === ".next") continue;
+      files.push(...walkFiles(fullPath));
+    } else if (entry.isFile() && SOURCE_EXTENSIONS.has(extname(entry.name))) {
+      files.push(fullPath);
+    }
+  }
+  return files;
+}
+
+function lineAndColumn(text, index) {
+  const lines = text.slice(0, index).split(/\r?\n/);
+  return {
+    lineNumber: lines.length,
+    columnNumber: lines[lines.length - 1].length + 1,
+  };
+}
+
+function hasAllowComment(lines, lineNumber, rule) {
+  const window = lines.slice(Math.max(0, lineNumber - 3), lineNumber);
+  return window.some(
+    (line) => line.includes(ALLOW_MARKER) && line.includes(rule),
+  );
+}
+
+function isApprovedFinding(filePath, lines, item) {
+  if (hasAllowComment(lines, item.lineNumber, item.rule)) {
+    return true;
+  }
+  if (item.rule === "test-skip") {
+    const callWindow = lines
+      .slice(item.lineNumber - 1, Math.min(lines.length, item.lineNumber + 4))
+      .join("\n");
+    if (/Set E2E_|E2E_PROFILE|E2E_SCREENSHOT_REGRESSION/.test(callWindow)) {
+      return true;
+    }
+  }
+  return LEGACY_E2E_ALLOWLIST.get(filePath)?.has(item.rule) ?? false;
+}
+
+function finding(filePath, text, index, rule, match) {
+  const { lineNumber, columnNumber } = lineAndColumn(text, index);
+  return { filePath, lineNumber, columnNumber, rule, match };
+}
+
+export function scanText(filePath, text) {
+  const findings = [];
+  const normalized = toPosix(filePath);
+  const lines = text.split(/\r?\n/);
+
+  if (normalized.startsWith("e2e/")) {
+    for (const { rule, pattern } of RULES) {
+      for (const match of text.matchAll(pattern)) {
+        const item = finding(
+          normalized,
+          text,
+          match.index ?? 0,
+          rule,
+          match[0],
+        );
+        if (!isApprovedFinding(normalized, lines, item)) {
+          findings.push(item);
+        }
+      }
+    }
+  }
+
+  if (FIXTURE_FACTORY_FILES.has(normalized)) {
+    for (const match of text.matchAll(FACTORY_PATTERN)) {
+      const item = finding(
+        normalized,
+        text,
+        match.index ?? 0,
+        "local-fixture-factory",
+        match[0],
+      );
+      if (!isApprovedFinding(normalized, lines, item)) {
+        findings.push(item);
+      }
+    }
+  }
+
+  if (
+    (normalized.endsWith(".test.ts") || normalized.endsWith(".spec.ts")) &&
+    !OVERSIZED_TEST_ALLOWLIST.has(normalized)
+  ) {
+    const lineCount = lines.length;
+    if (lineCount > TEST_SIZE_LIMIT) {
+      findings.push({
+        filePath: normalized,
+        lineNumber: TEST_SIZE_LIMIT + 1,
+        columnNumber: 1,
+        rule: "oversized-test",
+        match: `${lineCount} lines`,
+      });
+    }
+  }
+
+  return findings;
+}
+
+export function scanGovernance(repoRoot = process.cwd()) {
+  const roots = ["e2e", "src", "scripts"];
+  const findings = [];
+  for (const root of roots) {
+    const absoluteRoot = join(repoRoot, root);
+    if (!statSync(absoluteRoot, { throwIfNoEntry: false })?.isDirectory()) {
+      continue;
+    }
+    for (const absolutePath of walkFiles(absoluteRoot)) {
+      const filePath = toPosix(relative(repoRoot, absolutePath));
+      findings.push(...scanText(filePath, readFileSync(absolutePath, "utf8")));
+    }
+  }
+  return findings;
+}
+
+function main() {
+  const findings = scanGovernance();
+  if (findings.length === 0) {
+    console.log("E2E governance guard passed.");
+    return;
+  }
+
+  console.error("E2E governance guard failed:");
+  for (const item of findings) {
+    console.error(
+      `${item.filePath}:${item.lineNumber}:${item.columnNumber} ${item.rule} ${item.match} — use shared builders/readiness helpers or add an ${ALLOW_MARKER} comment with a reason.`,
+    );
+  }
+  process.exitCode = 1;
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main();
+}

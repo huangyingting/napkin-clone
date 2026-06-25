@@ -81,9 +81,10 @@ credentials:
 
 The fast unit gate is intentionally credential-less, so the authenticated specs
 above skip without env credentials. The **deterministic E2E profile** removes
-that ambiguity for the critical-flow specs (`import-roundtrip.spec.ts`,
-`present-export.spec.ts`, `slide-asset-upload.spec.ts`): a fixed seed produces
-known users and a known document, and the specs run for real against it.
+that ambiguity for the critical-flow specs (`document-editor-profile.spec.ts`,
+`import-roundtrip.spec.ts`, `present-export.spec.ts`,
+`slide-asset-upload.spec.ts`): a fixed seed produces known users and a known
+document, and the specs run for real against it.
 
 ### What the profile seeds
 
@@ -118,6 +119,17 @@ npm run db:seed:e2e    # seed the deterministic fixture
 npm run dev &          # start the app
 npm run test:e2e:profile   # runs Playwright with E2E_PROFILE=1
 ```
+
+For fresh checkouts and CI, use the self-contained wrapper instead:
+
+```bash
+npm run test:e2e:profile:self-contained
+```
+
+It generates the Prisma client, pushes the SQLite schema, seeds the deterministic
+fixture, installs Chromium, starts the app through Playwright, and runs only the
+deterministic profile specs. CI uses the same profile in
+`.github/workflows/e2e-deterministic.yml`.
 
 Under the profile (`E2E_PROFILE=1`, set by `test:e2e:profile`) the
 profile-dependent specs **do not skip** — they run for real. Without
@@ -155,6 +167,14 @@ npx playwright test slides-smoke.spec.ts
 Screenshot regression tests are **opt-in** via `E2E_SCREENSHOT_REGRESSION=1`.
 They use a deterministic deck fixture (no server required for fixture-integrity
 tests) and compare rendered slides against stored baselines.
+
+### Snapshot policy
+
+Screenshot baselines are opt-in release artifacts, not part of the fast unit
+gate. Update them only when rendered slide-stage output intentionally changes;
+reviewers should compare the rendered diff with the corresponding schema/source
+change. Snapshot specs must use shared builders for deck fixtures and stable
+readiness helpers instead of raw sleeps.
 
 ### Generate baselines
 

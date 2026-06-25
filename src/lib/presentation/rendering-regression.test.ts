@@ -43,6 +43,22 @@ import {
   type DeckTextOp,
 } from "@/lib/visual/deck-export";
 import type { Visual, VisualNode } from "@/lib/visual/schema";
+import {
+  buildBulletsElement,
+  buildConnectorElement,
+  buildDeck,
+  buildImageElement,
+  buildPlaceholderElement,
+  buildShapeElement,
+  buildSlide,
+  buildTextElement,
+  buildVisualElement,
+} from "@/test/builders/deck";
+import {
+  buildVisual,
+  buildVisualEdge,
+  buildVisualNode,
+} from "@/test/builders/visual";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -59,7 +75,7 @@ function slide(
   elements: SlideElement[],
   overrides: Partial<Slide> = {},
 ): Slide {
-  return {
+  return buildSlide({
     id: "s1",
     index: 0,
     title: "",
@@ -69,15 +85,15 @@ function slide(
     notes: "",
     elements,
     ...overrides,
-  };
+  });
 }
 
 function deck(elements: SlideElement[], overrides: Partial<Deck> = {}): Deck {
-  return {
+  return buildDeck({
     themeId: "default",
     slides: [slide(elements)],
     ...overrides,
-  };
+  });
 }
 
 /** Extract ops of a specific kind from a spec. */
@@ -98,21 +114,20 @@ function buildOps(elements: SlideElement[]): DeckOp[] {
 // Fixtures
 // ---------------------------------------------------------------------------
 
-function textEl(
+function fixtureTextElement(
   id: string,
   text: string,
   overrides: Partial<TextElement> = {},
 ): TextElement {
-  return {
+  return buildTextElement({
     id,
-    kind: "text",
     role: "body",
     text,
     zIndex: 0,
     box: { x: 5, y: 5, w: 60, h: 20 },
     style: { fontSize: 5, bold: false, italic: false, align: "left" },
     ...overrides,
-  };
+  });
 }
 
 function bulletsEl(
@@ -120,46 +135,43 @@ function bulletsEl(
   bullets: string[],
   overrides: Partial<BulletsElement> = {},
 ): BulletsElement {
-  return {
+  return buildBulletsElement({
     id,
-    kind: "bullets",
     bullets,
     items: bullets.map((text) => ({ text })),
     zIndex: 0,
     box: { x: 5, y: 5, w: 60, h: 40 },
     style: { fontSize: 4, bold: false, italic: false, align: "left" },
     ...overrides,
-  };
+  });
 }
 
-function shapeEl(
+function fixtureShapeElement(
   id: string,
   overrides: Partial<ShapeElement> = {},
 ): ShapeElement {
-  return {
+  return buildShapeElement({
     id,
-    kind: "shape",
     shape: "rect",
     color: "#4444aa",
     zIndex: 0,
     box: { x: 10, y: 10, w: 20, h: 15 },
     ...overrides,
-  };
+  });
 }
 
 function connectorEl(
   id: string,
   overrides: Partial<ConnectorElement> = {},
 ): ConnectorElement {
-  return {
+  return buildConnectorElement({
     id,
-    kind: "connector",
     zIndex: 0,
     box: { x: 0, y: 0, w: 100, h: 100 },
     start: { x: 10, y: 20 },
     end: { x: 80, y: 70 },
     ...overrides,
-  };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -171,7 +183,7 @@ test("[AC-1] text op preserves bold+italic runs verbatim", () => {
     { text: "Hello ", bold: true },
     { text: "world", italic: true, bold: true },
   ];
-  const ops = buildOps([textEl("t1", "Hello world", { runs })]);
+  const ops = buildOps([fixtureTextElement("t1", "Hello world", { runs })]);
   const op = ofKind(ops, "text")[0] as DeckTextOp;
 
   assert.equal(op.text, "Hello world", "plain text field preserved");
@@ -182,7 +194,7 @@ test("[AC-1] text op preserves bold+italic runs verbatim", () => {
 });
 
 test("[AC-1] text op with no runs omits the runs field", () => {
-  const ops = buildOps([textEl("t2", "Plain text")]);
+  const ops = buildOps([fixtureTextElement("t2", "Plain text")]);
   const op = ofKind(ops, "text")[0] as DeckTextOp;
 
   assert.equal(op.text, "Plain text");
@@ -191,7 +203,7 @@ test("[AC-1] text op with no runs omits the runs field", () => {
 
 test("[AC-1] text op carries fitMode when set to shrink-to-fit", () => {
   const ops = buildOps([
-    textEl("t3", "Shrinking", { fitMode: "shrink-to-fit" }),
+    fixtureTextElement("t3", "Shrinking", { fitMode: "shrink-to-fit" }),
   ]);
   const op = ofKind(ops, "text")[0] as DeckTextOp;
 
@@ -203,14 +215,16 @@ test("[AC-1] text op carries fitMode when set to shrink-to-fit", () => {
 });
 
 test("[AC-1] text op carries fitMode when set to fixed-box", () => {
-  const ops = buildOps([textEl("t4", "Fixed box", { fitMode: "fixed-box" })]);
+  const ops = buildOps([
+    fixtureTextElement("t4", "Fixed box", { fitMode: "fixed-box" }),
+  ]);
   const op = ofKind(ops, "text")[0] as DeckTextOp;
 
   assert.equal(op.fitMode, "fixed-box");
 });
 
 test("[AC-1] text op omits fitMode when absent (auto-height default)", () => {
-  const ops = buildOps([textEl("t5", "Auto height")]);
+  const ops = buildOps([fixtureTextElement("t5", "Auto height")]);
   const op = ofKind(ops, "text")[0] as DeckTextOp;
 
   assert.equal(op.fitMode, undefined, "fitMode must be absent by default");
@@ -218,7 +232,7 @@ test("[AC-1] text op omits fitMode when absent (auto-height default)", () => {
 
 test("[AC-1] text op carries verticalAlign: middle", () => {
   const ops = buildOps([
-    textEl("t6", "Centred vertically", {
+    fixtureTextElement("t6", "Centred vertically", {
       style: {
         fontSize: 5,
         bold: false,
@@ -235,7 +249,7 @@ test("[AC-1] text op carries verticalAlign: middle", () => {
 
 test("[AC-1] text op carries verticalAlign: bottom", () => {
   const ops = buildOps([
-    textEl("t7", "Bottom", {
+    fixtureTextElement("t7", "Bottom", {
       style: {
         fontSize: 5,
         bold: false,
@@ -251,7 +265,7 @@ test("[AC-1] text op carries verticalAlign: bottom", () => {
 });
 
 test("[AC-1] text op omits verticalAlign when absent", () => {
-  const ops = buildOps([textEl("t8", "No valign")]);
+  const ops = buildOps([fixtureTextElement("t8", "No valign")]);
   const op = ofKind(ops, "text")[0] as DeckTextOp;
 
   assert.equal(op.verticalAlign, undefined);
@@ -260,7 +274,7 @@ test("[AC-1] text op omits verticalAlign when absent", () => {
 test("[AC-1] text op converts percentage box to correct inch-space coordinates", () => {
   // box 10%/20%/50%/30% on LAYOUT_WIDE (13.333" × 7.5")
   const ops = buildOps([
-    textEl("t9", "Geo", { box: { x: 10, y: 20, w: 50, h: 30 } }),
+    fixtureTextElement("t9", "Geo", { box: { x: 10, y: 20, w: 50, h: 30 } }),
   ]);
   const op = ofKind(ops, "text")[0] as DeckTextOp;
 
@@ -373,7 +387,7 @@ test("[AC-2] bullets items[] text is authoritative over flat bullets array", () 
 
 test("[AC-3] shape with text label produces DeckShapeOp containing text", () => {
   const ops = buildOps([
-    shapeEl("sh1", {
+    fixtureShapeElement("sh1", {
       text: "My Label",
       textStyle: {
         fontSize: 4,
@@ -390,7 +404,7 @@ test("[AC-3] shape with text label produces DeckShapeOp containing text", () => 
 });
 
 test("[AC-3] shape without text has no text field in the op", () => {
-  const ops = buildOps([shapeEl("sh2")]);
+  const ops = buildOps([fixtureShapeElement("sh2")]);
   const op = ofKind(ops, "shape")[0] as DeckShapeOp;
 
   assert.equal(op.text, undefined);
@@ -398,7 +412,7 @@ test("[AC-3] shape without text has no text field in the op", () => {
 
 test("[AC-3] shape text inherits bold/italic from textStyle", () => {
   const ops = buildOps([
-    shapeEl("sh3", {
+    fixtureShapeElement("sh3", {
       text: "Styled",
       textStyle: {
         fontSize: 4,
@@ -417,7 +431,7 @@ test("[AC-3] shape text inherits bold/italic from textStyle", () => {
 test("[AC-3] shape with textRuns carries runs in the op", () => {
   const runs = [{ text: "Bold", bold: true }, { text: " normal" }];
   const ops = buildOps([
-    shapeEl("sh4", {
+    fixtureShapeElement("sh4", {
       text: "Bold normal",
       textRuns: runs,
       textStyle: {
@@ -434,7 +448,7 @@ test("[AC-3] shape with textRuns carries runs in the op", () => {
 });
 
 test("[AC-3] shape textRuns absent when not set", () => {
-  const ops = buildOps([shapeEl("sh5", { text: "No runs" })]);
+  const ops = buildOps([fixtureShapeElement("sh5", { text: "No runs" })]);
   const op = ofKind(ops, "shape")[0] as DeckShapeOp;
 
   assert.equal(op.textRuns, undefined);
@@ -443,7 +457,7 @@ test("[AC-3] shape textRuns absent when not set", () => {
 test("[AC-3] line shape with text does NOT emit text (text suppressed for lines)", () => {
   // The export explicitly skips text on line shapes to prevent label-on-line.
   const ops = buildOps([
-    shapeEl("sh6", {
+    fixtureShapeElement("sh6", {
       shape: "line",
       text: "should be suppressed",
     }),
@@ -455,7 +469,7 @@ test("[AC-3] line shape with text does NOT emit text (text suppressed for lines)
 
 test("[AC-3] ellipse shape with text carries label correctly", () => {
   const ops = buildOps([
-    shapeEl("sh7", {
+    fixtureShapeElement("sh7", {
       shape: "ellipse",
       text: "Oval label",
       textStyle: { fontSize: 3.5, bold: false, italic: false, align: "center" },
@@ -839,15 +853,14 @@ function imageEl(
   id: string,
   overrides: Partial<ImageElement> = {},
 ): ImageElement {
-  return {
+  return buildImageElement({
     id,
-    kind: "image",
     src: "data:image/png;base64,AAAA",
     alt: "test image",
     zIndex: 0,
     box: { x: 10, y: 10, w: 40, h: 30 },
     ...overrides,
-  };
+  });
 }
 
 test("[AC-7] image op carries src and geometry", () => {
@@ -930,11 +943,11 @@ function visualNode(
   x: number,
   y: number,
 ): VisualNode {
-  return { id, label, x, y, width: 150, height: 56 };
+  return buildVisualNode({ id, label, x, y, width: 150, height: 56 });
 }
 
 function flowchartVisual(): Visual {
-  return {
+  return buildVisual({
     version: 1,
     type: "flowchart",
     width: 760,
@@ -943,7 +956,7 @@ function flowchartVisual(): Visual {
       visualNode("a", "Alpha", 100, 100),
       visualNode("b", "Beta", 100, 300),
     ],
-    edges: [{ id: "e1", from: "a", to: "b" }],
+    edges: [buildVisualEdge({ id: "e1", from: "a", to: "b" })],
     style: {
       palette: ["#6366f1", "#0ea5e9", "#10b981"],
       background: "#ffffff",
@@ -955,7 +968,7 @@ function flowchartVisual(): Visual {
       fontSize: 14,
       fontWeight: 600,
     },
-  };
+  });
 }
 
 function visualEl(
@@ -963,14 +976,13 @@ function visualEl(
   visualId: string,
   overrides: Partial<VisualElement> = {},
 ): VisualElement {
-  return {
+  return buildVisualElement({
     id,
-    kind: "visual",
     visualId,
     zIndex: 0,
     box: { x: 10, y: 10, w: 50, h: 40 },
     ...overrides,
-  };
+  });
 }
 
 test("[AC-8] native visual emits exactly one visual-native op and no fallback", () => {
@@ -1033,14 +1045,13 @@ function placeholderEl(
   id: string,
   overrides: Partial<PlaceholderElement> = {},
 ): PlaceholderElement {
-  return {
+  return buildPlaceholderElement({
     id,
-    kind: "placeholder",
     placeholderType: "body",
     zIndex: 0,
     box: { x: 10, y: 20, w: 50, h: 30 },
     ...overrides,
-  };
+  });
 }
 
 test("[AC-9] placeholder exports as a shape outline plus a label text op", () => {
@@ -1103,15 +1114,17 @@ test("[AC-9] placeholder text op carries correct geometry within slide bounds", 
 // ---------------------------------------------------------------------------
 
 test("[AC-10] hidden=true element produces no ops", () => {
-  const ops = buildOps([textEl("t1", "invisible", { hidden: true })]);
+  const ops = buildOps([
+    fixtureTextElement("t1", "invisible", { hidden: true }),
+  ]);
 
   assert.equal(ops.length, 0, "hidden element must not produce any ops");
 });
 
 test("[AC-10] hidden text element is dropped while sibling visible element is kept", () => {
   const ops = buildOps([
-    textEl("t-hidden", "hidden text", { hidden: true }),
-    textEl("t-visible", "visible text", { zIndex: 1 }),
+    fixtureTextElement("t-hidden", "hidden text", { hidden: true }),
+    fixtureTextElement("t-visible", "visible text", { zIndex: 1 }),
   ]);
 
   const textOps = ofKind(ops, "text");
@@ -1121,8 +1134,8 @@ test("[AC-10] hidden text element is dropped while sibling visible element is ke
 
 test("[AC-10] hidden shape is dropped while visible shape sibling is kept", () => {
   const ops = buildOps([
-    shapeEl("sh-hidden", { hidden: true }),
-    shapeEl("sh-visible", { zIndex: 1 }),
+    fixtureShapeElement("sh-hidden", { hidden: true }),
+    fixtureShapeElement("sh-visible", { zIndex: 1 }),
   ]);
 
   assert.equal(
@@ -1133,8 +1146,10 @@ test("[AC-10] hidden shape is dropped while visible shape sibling is kept", () =
 });
 
 test("[AC-10] locked=true element exports identically to an unlocked element", () => {
-  const unlockedOps = buildOps([textEl("t-unlocked", "hello")]);
-  const lockedOps = buildOps([textEl("t-locked", "hello", { locked: true })]);
+  const unlockedOps = buildOps([fixtureTextElement("t-unlocked", "hello")]);
+  const lockedOps = buildOps([
+    fixtureTextElement("t-locked", "hello", { locked: true }),
+  ]);
 
   const unlockedOp = ofKind(unlockedOps, "text")[0];
   const lockedOp = ofKind(lockedOps, "text")[0];
@@ -1147,16 +1162,16 @@ test("[AC-10] locked=true element exports identically to an unlocked element", (
 });
 
 test("[AC-10] locked=true shape exports with all geometry and style intact", () => {
-  const ops = buildOps([shapeEl("sh-locked", { locked: true })]);
+  const ops = buildOps([fixtureShapeElement("sh-locked", { locked: true })]);
 
   assert.equal(ofKind(ops, "shape").length, 1, "locked shape produces op");
 });
 
 test("[AC-10] grouped elements (same groupId) each produce their own op (flattened)", () => {
   const ops = buildOps([
-    textEl("t1", "Group A", { groupId: "g1" }),
-    textEl("t2", "Group A also", { groupId: "g1", zIndex: 1 }),
-    textEl("t3", "No group", { zIndex: 2 }),
+    fixtureTextElement("t1", "Group A", { groupId: "g1" }),
+    fixtureTextElement("t2", "Group A also", { groupId: "g1", zIndex: 1 }),
+    fixtureTextElement("t3", "No group", { zIndex: 2 }),
   ]);
 
   assert.equal(ofKind(ops, "text").length, 3, "all three elements produce ops");
@@ -1168,8 +1183,8 @@ test("[AC-10] grouped elements (same groupId) each produce their own op (flatten
 
 test("[AC-10] grouped shapes each export individually (group membership not merged)", () => {
   const ops = buildOps([
-    shapeEl("sh1", { groupId: "g1" }),
-    shapeEl("sh2", { groupId: "g1", zIndex: 1 }),
+    fixtureShapeElement("sh1", { groupId: "g1" }),
+    fixtureShapeElement("sh2", { groupId: "g1", zIndex: 1 }),
   ]);
 
   assert.equal(
@@ -1255,7 +1270,7 @@ test("[AC-11] backgroundImage takes precedence: spec carries it even when backgr
 
 test("[AC-12] text element with sourceRef still emits a normal text op", () => {
   const ops = buildOps([
-    textEl("t-ref", "Linked content", {
+    fixtureTextElement("t-ref", "Linked content", {
       sourceRef: {
         documentId: "doc-1",
         blockId: "block-42",
@@ -1290,7 +1305,7 @@ test("[AC-12] bullets element with sourceRef still emits a normal bullets op", (
 
 test("[AC-12] shape with sourceRef exports normally (sourceRef is opaque metadata)", () => {
   const ops = buildOps([
-    shapeEl("sh-ref", {
+    fixtureShapeElement("sh-ref", {
       sourceRef: {
         documentId: "doc-1",
         blockId: "block-5",
@@ -1309,7 +1324,7 @@ test("[AC-12] shape with sourceRef exports normally (sourceRef is opaque metadat
 
 test("[AC-12] unlinked sourceRef (unlinked=true) does not suppress the element", () => {
   const ops = buildOps([
-    textEl("t-unlinked", "Detached text", {
+    fixtureTextElement("t-unlinked", "Detached text", {
       sourceRef: {
         documentId: "doc-1",
         blockId: "block-9",
@@ -1367,7 +1382,8 @@ function titleOpColor(deckObj: Deck): string {
 }
 
 test("[#618] inherited title color tracks a deck-template change", () => {
-  const el = () => textEl("t", "Heading", { role: "title", textRole: "h1" });
+  const el = () =>
+    fixtureTextElement("t", "Heading", { role: "title", textRole: "h1" });
   const a = titleOpColor(
     deck([el()], {
       customTokenSet: tokenSetWith({ onBg: "#112233" }) as never,
@@ -1384,7 +1400,8 @@ test("[#618] inherited title color tracks a deck-template change", () => {
 });
 
 test("[#618] inherited role font tracks a deck-template heading-font change", () => {
-  const el = () => textEl("t", "Heading", { role: "title", textRole: "h1" });
+  const el = () =>
+    fixtureTextElement("t", "Heading", { role: "title", textRole: "h1" });
   const fontOf = (d: Deck) =>
     (
       buildDeckSpecs(d, new Map())[0].ops.find(
@@ -1413,7 +1430,7 @@ test("[#618] inherited role font tracks a deck-template heading-font change", ()
 
 test("[#618] a local color override is NOT clobbered by a global template change", () => {
   const el = () =>
-    textEl("t", "Heading", {
+    fixtureTextElement("t", "Heading", {
       role: "title",
       style: {
         fontSize: 6,
@@ -1448,9 +1465,9 @@ test("[#618] export smoke: custom template fonts + gradient background do not cr
   };
   const d = deck(
     [
-      textEl("t", "Title", { role: "title", textRole: "h1" }),
+      fixtureTextElement("t", "Title", { role: "title", textRole: "h1" }),
       bulletsEl("b", ["a", "b"]),
-      shapeEl("s", { text: "Label" }),
+      fixtureShapeElement("s", { text: "Label" }),
       connectorEl("c"),
     ],
     {
@@ -1466,7 +1483,7 @@ test("[#618] export smoke: custom template fonts + gradient background do not cr
           notes: "",
           backgroundGradient: { from: "#123456", to: "#654321" },
           elements: [
-            textEl("t", "Title", { role: "title", textRole: "h1" }),
+            fixtureTextElement("t", "Title", { role: "title", textRole: "h1" }),
             bulletsEl("b", ["a", "b"]),
           ],
         },
