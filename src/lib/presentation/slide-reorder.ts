@@ -39,3 +39,19 @@ export function reorderTargetIndex(
   }
   return items.length - 1;
 }
+
+/**
+ * Keyboard reorder intent for a focused slide thumbnail (#654). Holding `Alt`
+ * with the up/down arrows nudges the slide one position, giving a pointer-free
+ * reorder alternative to drag-and-drop. Returns the move direction (`-1` up,
+ * `+1` down) or `null` when the key combo is not a reorder gesture.
+ */
+export function slideReorderKeyDirection(
+  key: string,
+  altKey: boolean,
+): -1 | 1 | null {
+  if (!altKey) return null;
+  if (key === "ArrowUp" || key === "ArrowLeft") return -1;
+  if (key === "ArrowDown" || key === "ArrowRight") return 1;
+  return null;
+}

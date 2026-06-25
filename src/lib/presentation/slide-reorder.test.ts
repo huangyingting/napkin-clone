@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { reorderTargetIndex, type RailItemExtent } from "./slide-reorder";
+import {
+  reorderTargetIndex,
+  slideReorderKeyDirection,
+  type RailItemExtent,
+} from "./slide-reorder";
 
 // A simple vertical rail of three 100px-tall thumbnails stacked from y=0.
 const VERTICAL: RailItemExtent[] = [
@@ -56,4 +60,13 @@ test("reorderTargetIndex: single item always targets index 0", () => {
   const one: RailItemExtent[] = [{ start: 0, end: 100 }];
   assert.equal(reorderTargetIndex(-10, one), 0);
   assert.equal(reorderTargetIndex(500, one), 0);
+});
+
+test("slideReorderKeyDirection: Alt+Arrow nudges, plain arrows do not", () => {
+  assert.equal(slideReorderKeyDirection("ArrowUp", true), -1);
+  assert.equal(slideReorderKeyDirection("ArrowLeft", true), -1);
+  assert.equal(slideReorderKeyDirection("ArrowDown", true), 1);
+  assert.equal(slideReorderKeyDirection("ArrowRight", true), 1);
+  assert.equal(slideReorderKeyDirection("ArrowUp", false), null);
+  assert.equal(slideReorderKeyDirection("Enter", true), null);
 });
