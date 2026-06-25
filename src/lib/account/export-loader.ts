@@ -1,6 +1,10 @@
 import "server-only";
 
-import { buildAccountExport, type AccountExport } from "@/lib/account/export";
+import {
+  buildAccountExport,
+  type AccountExport,
+  type ExportDocumentInput,
+} from "@/lib/account/export";
 import { prisma } from "@/lib/prisma";
 
 export async function loadAccountExport(
@@ -28,10 +32,13 @@ export async function loadAccountExport(
     workspacesOwned,
     workspaceMemberships,
     comments,
+    commentReads,
     tags,
     brands,
     assets,
     subscription,
+    inviteLinkUses,
+    usageLedger,
   ] = await Promise.all([
     prisma.document.findMany({
       where: { ownerId: userId, deletedAt: null },
@@ -44,6 +51,11 @@ export async function loadAccountExport(
         deckJson: true,
         workspaceId: true,
         isShared: true,
+        shareExpiresAt: true,
+        shareEmbedEnabled: true,
+        sharePresentEnabled: true,
+        shareMetadataMode: true,
+        shareDiscoverable: true,
         createdAt: true,
         updatedAt: true,
         visuals: {
@@ -68,7 +80,7 @@ export async function loadAccountExport(
           },
         },
       },
-    }),
+    } as never),
     prisma.workspace.findMany({
       where: { ownerId: userId },
       orderBy: { createdAt: "asc" },
@@ -91,6 +103,11 @@ export async function loadAccountExport(
         createdAt: true,
         updatedAt: true,
       },
+    }),
+    prisma.commentRead.findMany({
+      where: { userId },
+      orderBy: { lastReadAt: "asc" },
+      select: { id: true, documentId: true, lastReadAt: true },
     }),
     prisma.tag.findMany({
       where: { ownerId: userId },
@@ -129,7 +146,10 @@ export async function loadAccountExport(
         id: true,
         mimeType: true,
         byteSize: true,
+        widthPx: true,
+        heightPx: true,
         checksum: true,
+        originalName: true,
         createdAt: true,
       },
     }),
@@ -146,18 +166,70 @@ export async function loadAccountExport(
         updatedAt: true,
       },
     }),
+    prisma.inviteLinkUse.findMany({
+      where: { userId },
+      orderBy: { usedAt: "asc" },
+      select: {
+        id: true,
+        inviteLinkId: true,
+        role: true,
+        usedAt: true,
+        inviteLink: { select: { workspaceId: true } },
+      },
+    }),
+    prisma.usageLedgerEntry.findMany({
+      where: { userId },
+      orderBy: { reservedAt: "asc" },
+      select: {
+        id: true,
+        operation: true,
+        creditCost: true,
+        status: true,
+        reservedAt: true,
+        capturedAt: true,
+        refundedAt: true,
+      },
+    }),
   ]);
 
   return buildAccountExport({
     user,
-    documents,
+    documents: (
+      documents as unknown as Array<
+        Omit<ExportDocumentInput, "sharePolicy"> & {
+          shareExpiresAt?: Date | null;
+          shareEmbedEnabled?: boolean;
+          sharePresentEnabled?: boolean;
+          shareMetadataMode?: string;
+          shareDiscoverable?: boolean;
+        }
+      >
+    ).map((doc) => ({
+      ...doc,
+      sharePolicy: {
+        expiresAt: doc.shareExpiresAt ?? null,
+        embedEnabled: doc.shareEmbedEnabled ?? true,
+        presentEnabled: doc.sharePresentEnabled ?? true,
+        metadataMode: doc.shareMetadataMode ?? "generic",
+        discoverable: doc.shareDiscoverable ?? false,
+      },
+    })),
     workspacesOwned,
     workspaceMemberships,
     comments,
+    commentReads,
     tags,
     brands,
     assets,
     subscription: subscription ?? null,
+    inviteLinkUses: inviteLinkUses.map((use) => ({
+      id: use.id,
+      inviteLinkId: use.inviteLinkId,
+      workspaceId: use.inviteLink?.workspaceId ?? null,
+      role: use.role,
+      usedAt: use.usedAt,
+    })),
+    usageLedger,
     now,
   });
 }

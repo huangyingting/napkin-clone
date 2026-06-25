@@ -27,10 +27,13 @@ function minimalInput() {
     workspacesOwned: [],
     workspaceMemberships: [],
     comments: [],
+    commentReads: [],
     tags: [],
     brands: [],
     assets: [],
     subscription: null,
+    inviteLinkUses: [],
+    usageLedger: [],
     now: NOW,
   };
 }
@@ -41,8 +44,8 @@ test("stamps the export version and a deterministic exportedAt", () => {
   assert.equal(result.exportedAt, NOW.toISOString());
 });
 
-test("export version is 2", () => {
-  assert.equal(ACCOUNT_EXPORT_VERSION, 2);
+test("export version is 3", () => {
+  assert.equal(ACCOUNT_EXPORT_VERSION, 3);
 });
 
 test("includes a compliance scope block", () => {
@@ -51,6 +54,25 @@ test("includes a compliance scope block", () => {
   assert.ok(typeof result.scope.description === "string");
   assert.ok(Array.isArray(result.scope.includedEntities));
   assert.ok(Array.isArray(result.scope.excludedEntities));
+});
+
+test("includes a manifest covering every exportable personal-data section", () => {
+  const result = buildAccountExport(minimalInput());
+  assert.deepEqual(result.manifest.personalDataSections.toSorted(), [
+    "assets",
+    "brands",
+    "commentReads",
+    "comments",
+    "documents",
+    "inviteLinkUses",
+    "subscription",
+    "tags",
+    "usageLedger",
+    "user",
+    "workspaceMemberships",
+    "workspacesOwned",
+  ]);
+  assert.equal(result.manifest.assetBytesIncluded, false);
 });
 
 test("serializes all dates to ISO strings, preserving null emailVerified", () => {
@@ -80,6 +102,13 @@ test("maps documents and their nested visuals and versions", () => {
         deckJson: null,
         workspaceId: null,
         isShared: false,
+        sharePolicy: {
+          expiresAt: null,
+          embedEnabled: true,
+          presentEnabled: true,
+          metadataMode: "generic",
+          discoverable: false,
+        },
         createdAt: CREATED,
         updatedAt: NOW,
         visuals: [
@@ -107,6 +136,13 @@ test("maps documents and their nested visuals and versions", () => {
 
   assert.equal(result.documents.length, 1);
   assert.equal(result.documents[0].id, "doc_1");
+  assert.deepEqual(result.documents[0].sharePolicy, {
+    expiresAt: null,
+    embedEnabled: true,
+    presentEnabled: true,
+    metadataMode: "generic",
+    discoverable: false,
+  });
   assert.deepEqual(result.documents[0].contentJson, { a: 1 });
   assert.equal(result.documents[0].deckJson, null);
   assert.equal(result.documents[0].visuals.length, 1);
@@ -160,6 +196,15 @@ test("maps comments", () => {
   assert.equal(result.comments[0].body, "Nice doc");
 });
 
+test("maps comment read state", () => {
+  const result = buildAccountExport({
+    ...minimalInput(),
+    commentReads: [{ id: "read_1", documentId: "doc_1", lastReadAt: CREATED }],
+  });
+  assert.equal(result.commentReads.length, 1);
+  assert.equal(result.commentReads[0].lastReadAt, CREATED.toISOString());
+});
+
 test("maps tags", () => {
   const result = buildAccountExport({
     ...minimalInput(),
@@ -196,7 +241,10 @@ test("maps assets (metadata only)", () => {
         id: "asset_1",
         mimeType: "image/png",
         byteSize: 1024,
+        widthPx: 640,
+        heightPx: 480,
         checksum: "abc123",
+        originalName: "../Quarterly Plan?.png",
         createdAt: CREATED,
       },
     ],
@@ -204,6 +252,8 @@ test("maps assets (metadata only)", () => {
   assert.equal(result.assets.length, 1);
   assert.equal(result.assets[0].mimeType, "image/png");
   assert.equal(result.assets[0].byteSize, 1024);
+  assert.equal(result.assets[0].widthPx, 640);
+  assert.equal(result.assets[0].displayName, ".._Quarterly Plan_.png");
 });
 
 test("subscription null when not present", () => {
@@ -229,6 +279,35 @@ test("maps subscription when present", () => {
   assert.equal(result.subscription!.plan, "pro");
   assert.equal(result.subscription!.status, "active");
   assert.equal(result.subscription!.cancelAtPeriodEnd, false);
+});
+
+test("maps invite-link uses without tokens and usage ledger entries", () => {
+  const result = buildAccountExport({
+    ...minimalInput(),
+    inviteLinkUses: [
+      {
+        id: "use_1",
+        inviteLinkId: "invite_1",
+        workspaceId: "ws_1",
+        role: "VIEWER",
+        usedAt: CREATED,
+      },
+    ],
+    usageLedger: [
+      {
+        id: "ledger_1",
+        operation: "generate",
+        creditCost: 3,
+        status: "captured",
+        reservedAt: CREATED,
+        capturedAt: NOW,
+        refundedAt: null,
+      },
+    ],
+  });
+
+  assert.equal(result.inviteLinkUses[0].workspaceId, "ws_1");
+  assert.equal(result.usageLedger[0].capturedAt, NOW.toISOString());
 });
 
 test("produces a fully JSON-serializable object", () => {

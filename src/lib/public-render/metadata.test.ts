@@ -24,6 +24,8 @@ test("buildPublicMetadata builds share canonical, excerpt, and OG image", () => 
       content: "A concise public launch plan.",
       slug: "launch-plan",
       shareId: "share123",
+      metadataMode: "title-excerpt",
+      discoverable: true,
     },
     surface: "share",
     baseUrl: "https://textiq.test",
@@ -31,6 +33,7 @@ test("buildPublicMetadata builds share canonical, excerpt, and OG image", () => 
 
   assert.equal(metadata.title, "Launch Plan — TextIQ");
   assert.equal(metadata.description, "A concise public launch plan.");
+  assert.deepEqual(metadata.robots, { index: true, follow: true });
   assert.deepEqual(metadata.alternates, {
     canonical: "https://textiq.test/share/launch-plan-share123",
   });
@@ -46,16 +49,48 @@ test("buildPublicMetadata includes present canonical and share see-also link", (
       content: "Deck summary",
       slug: "launch-deck",
       shareId: "share456",
+      metadataMode: "title",
+      discoverable: false,
     },
     surface: "present",
     baseUrl: "https://textiq.test",
   });
 
   assert.equal(metadata.title, "Launch Deck — Presentation — TextIQ");
+  assert.equal(
+    metadata.description,
+    "A read-only document shared with TextIQ.",
+  );
+  assert.deepEqual(metadata.robots, { index: false, follow: false });
   assert.deepEqual(metadata.alternates, {
     canonical: "https://textiq.test/present/launch-deck-share456",
   });
+
   assert.deepEqual(metadata.other, {
     "og:see_also": "https://textiq.test/share/launch-deck-share456",
   });
+});
+
+test("buildPublicMetadata defaults shared links to generic noindex previews", () => {
+  const metadata = buildPublicMetadata({
+    document: {
+      title: "Private Roadmap",
+      content: "Sensitive launch details",
+      slug: "private-roadmap",
+      shareId: "share789",
+      metadataMode: "generic",
+      discoverable: false,
+    },
+    surface: "share",
+    baseUrl: "https://textiq.test",
+  });
+
+  assert.equal(metadata.title, "Shared Document — TextIQ");
+  assert.equal(
+    metadata.description,
+    "A read-only document shared with TextIQ.",
+  );
+  assert.equal(metadata.openGraph?.title, "Shared Document — TextIQ");
+  assert.equal(metadata.openGraph?.description.includes("Sensitive"), false);
+  assert.deepEqual(metadata.robots, { index: false, follow: false });
 });

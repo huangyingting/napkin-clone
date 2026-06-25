@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 
 import {
   buildDocumentEditorViewModel,
+  type DocumentEditorRow,
   type DocumentEditorViewModel,
 } from "./view-model";
 
@@ -23,6 +24,8 @@ const documentEditorSelect = (userId: string) =>
     shareExpiresAt: true,
     shareEmbedEnabled: true,
     sharePresentEnabled: true,
+    shareMetadataMode: true,
+    shareDiscoverable: true,
     ownerId: true,
     workspaceId: true,
     tags: {
@@ -39,7 +42,7 @@ const documentEditorSelect = (userId: string) =>
         },
       },
     },
-  }) satisfies Prisma.DocumentSelect;
+  }) as Prisma.DocumentSelect;
 
 const userTagSelect = { id: true, name: true, slug: true } as const;
 
@@ -75,7 +78,7 @@ export async function loadDocumentEditorViewModel({
   ]);
 
   return buildDocumentEditorViewModel({
-    document,
+    document: document as unknown as DocumentEditorRow,
     userId,
     userName,
     initialComments,

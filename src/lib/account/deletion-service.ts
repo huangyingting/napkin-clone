@@ -12,6 +12,11 @@ import { logError } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
 import { logSecurityAudit } from "@/lib/security-audit";
 
+import {
+  eraseAccountPersonalData,
+  type AccountErasureStorage,
+} from "./erasure";
+
 type PrismaClientLike = typeof prisma;
 
 const DELETE_CONFIRMATION_KEYWORD = "DELETE";
@@ -26,6 +31,7 @@ export interface DeleteAccountDependencies {
   getProvider?: () => Promise<BillingProvider>;
   log?: typeof logError;
   audit?: typeof logSecurityAudit;
+  erasureStorage?: AccountErasureStorage;
 }
 
 export async function deleteAccountForUser(
@@ -38,6 +44,7 @@ export async function deleteAccountForUser(
     getProvider = getBillingProvider,
     log = logError,
     audit = logSecurityAudit,
+    erasureStorage,
   } = dependencies;
   const confirmation = String(input.confirmation ?? "").trim();
 
@@ -82,9 +89,33 @@ export async function deleteAccountForUser(
       }
     }
 
-    await client.user.delete({ where: { id: input.userId } });
+    const erasure = await eraseAccountPersonalData({
+      client,
+      userId: input.userId,
+      ...(erasureStorage ? { storage: erasureStorage } : {}),
+    });
+    if (erasure.findings.length > 0) {
+      audit("account.deletion.erasure_verification_failed", {
+        userId: input.userId,
+        outcome: "failed",
+        count: erasure.findings.reduce(
+          (sum, finding) => sum + finding.count,
+          0,
+        ),
+      });
+      log(
+        "account-deletion.erasure-verification",
+        new Error("erasure failed"),
+        {
+          userId: input.userId,
+          findingCount: erasure.findings.length,
+        },
+      );
+      return actionError(GENERIC_DELETE_ERROR);
+    }
     audit("account.deletion.completed", {
       userId: input.userId,
+      count: erasure.deletedAssetCount,
       outcome: "success",
     });
   } catch {

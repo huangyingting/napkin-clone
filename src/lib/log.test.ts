@@ -15,6 +15,7 @@ test("buildErrorLog redacts configured sensitive context keys", () => {
     requestId: "req-1",
     reason: "generation-failed",
     text: "raw user input that must never be logged",
+    payload: { text: "nested raw content" },
     input: "another raw input",
     prompt: "system prompt",
     apiKey: "sk-super-secret",
@@ -29,6 +30,7 @@ test("buildErrorLog redacts configured sensitive context keys", () => {
 
   for (const key of [
     "text",
+    "payload",
     "input",
     "prompt",
     "apiKey",
@@ -46,6 +48,20 @@ test("buildErrorLog redacts configured sensitive context keys", () => {
   // Non-sensitive correlation/diagnostic fields are preserved.
   assert.equal(record.requestId, "req-1");
   assert.equal(record.reason, "generation-failed");
+});
+
+test("buildErrorLog redacts PII-like message, stack, and generic context strings", () => {
+  const error = new Error("failed for ada@example.com");
+  error.stack = "Error: failed for ada@example.com\n    at x";
+  const record = buildErrorLog("api.generate", error, {
+    reason: "safe-code",
+    emailLikeValue: "ada@example.com",
+  });
+
+  assert.equal(record.message, REDACTED);
+  assert.equal(record.stack, REDACTED);
+  assert.equal(record.emailLikeValue, REDACTED);
+  assert.equal(record.reason, "safe-code");
 });
 
 test("buildErrorLog keeps reserved fields authoritative", () => {

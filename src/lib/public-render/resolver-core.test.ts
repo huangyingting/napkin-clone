@@ -29,7 +29,9 @@ function document(
     shareExpiresAt: null,
     shareEmbedEnabled: true,
     sharePresentEnabled: true,
-    owner: { name: null, email: "owner@example.com", plan: "free" },
+    shareMetadataMode: "generic",
+    shareDiscoverable: false,
+    owner: { name: null, plan: "free" },
     ...overrides,
   };
 }
@@ -59,8 +61,26 @@ test("resolvePublicRenderWithSource parses raw share segments and returns a rend
     throw new Error("Expected document projection.");
   }
   assert.equal(result.shareId, "share123");
-  assert.equal(result.document.ownerName, "owner");
+  assert.equal(result.document.ownerName, "Document owner");
   assert.equal(result.document.title, "Shared Doc");
+});
+
+test("resolvePublicRenderWithSource preserves display names without email fallback", async () => {
+  const result = await resolvePublicRenderWithSource(
+    source(document({ owner: { name: "Ada", plan: "free" } })),
+    {
+      params: { shareId: "shared-doc-share123" },
+      mode: "view",
+      projection: "document",
+      now: NOW,
+    },
+  );
+
+  assert.equal(result.ok, true);
+  if (!result.ok || result.projection !== "document") {
+    throw new Error("Expected document projection.");
+  }
+  assert.equal(result.document.ownerName, "Ada");
 });
 
 test("resolvePublicRenderWithSource denies regenerated links without returning document data", async () => {

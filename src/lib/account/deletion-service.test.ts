@@ -7,18 +7,58 @@ import type { prisma } from "@/lib/prisma";
 
 function makeClient(email: string | null) {
   const deleted: string[] = [];
-  return {
+  const deletedDelegates: string[] = [];
+  const countDelegate = () => ({ count: async () => 0 });
+  const deleteManyDelegate = (name: string) => ({
+    count: async () => 0,
+    deleteMany: async () => {
+      deletedDelegates.push(name);
+      return { count: 1 };
+    },
+  });
+  const client: {
+    _deleted: string[];
+    _deletedDelegates: string[];
+    $transaction?: (fn: (tx: unknown) => Promise<unknown>) => Promise<unknown>;
+    [key: string]: unknown;
+  } = {
     user: {
       findUnique() {
         return Promise.resolve(email ? { email } : null);
       },
+      count: async () => 0,
       delete({ where }: { where: { id: string } }) {
         deleted.push(where.id);
         return Promise.resolve({ id: where.id });
       },
     },
+    document: countDelegate(),
+    documentVersion: countDelegate(),
+    comment: countDelegate(),
+    commentRead: countDelegate(),
+    workspace: countDelegate(),
+    workspaceMember: countDelegate(),
+    tag: countDelegate(),
+    brand: countDelegate(),
+    subscription: countDelegate(),
+    inviteLink: deleteManyDelegate("inviteLink"),
+    inviteLinkUse: deleteManyDelegate("inviteLinkUse"),
+    usageLedgerEntry: deleteManyDelegate("usageLedgerEntry"),
+    rateLimitHit: deleteManyDelegate("rateLimitHit"),
+    asset: {
+      count: async () => 0,
+      findMany: async () => [],
+      deleteMany: async () => ({ count: 0 }),
+    },
     _deleted: deleted,
-  } as unknown as typeof prisma & { _deleted: string[] };
+    _deletedDelegates: deletedDelegates,
+  };
+  client.$transaction = async (fn: (tx: unknown) => Promise<unknown>) =>
+    fn(client);
+  return client as unknown as typeof prisma & {
+    _deleted: string[];
+    _deletedDelegates: string[];
+  };
 }
 
 function makeBillingProvider(
@@ -94,6 +134,12 @@ test("deleteAccountForUser attempts billing cancellation and still deletes if ca
     },
   });
   assert.deepEqual(client._deleted, ["u1"]);
+  assert.deepEqual(client._deletedDelegates, [
+    "inviteLinkUse",
+    "usageLedgerEntry",
+    "rateLimitHit",
+    "inviteLink",
+  ]);
 });
 
 test("deleteAccountForUser skips billing cancellation for terminal subscriptions", async () => {
@@ -116,4 +162,28 @@ test("deleteAccountForUser skips billing cancellation for terminal subscriptions
   assert.deepEqual(result, { ok: true, data: undefined });
   assert.deepEqual(cancelCalls, []);
   assert.deepEqual(client._deleted, ["u1"]);
+});
+
+test("deleteAccountForUser fails closed when erasure verification finds residual data", async () => {
+  const client = makeClient("ada@example.com");
+  Object.assign(client.comment, { count: async () => 1 });
+  const audits: Array<{ event: string; context: Record<string, unknown> }> = [];
+
+  const result = await deleteAccountForUser(
+    { userId: "u1", confirmation: "DELETE" },
+    {
+      client,
+      getCancellationState: async () => null,
+      audit(event, context) {
+        audits.push({ event, context: context ?? {} });
+      },
+      log() {},
+    },
+  );
+
+  assert.equal(result.ok, false);
+  assert.equal(
+    audits.at(-1)?.event,
+    "account.deletion.erasure_verification_failed",
+  );
 });

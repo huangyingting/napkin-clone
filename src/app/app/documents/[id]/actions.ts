@@ -193,6 +193,8 @@ export async function updateSharePolicy(
     expiresAt?: string | null;
     embedEnabled?: boolean;
     presentEnabled?: boolean;
+    metadataMode?: "generic" | "title" | "title-excerpt";
+    discoverable?: boolean;
   },
 ): Promise<ActionResult<ShareSettings>> {
   await requireDocumentActionContext(id, "manage");
@@ -201,6 +203,8 @@ export async function updateSharePolicy(
     shareExpiresAt?: Date | null;
     shareEmbedEnabled?: boolean;
     sharePresentEnabled?: boolean;
+    shareMetadataMode?: string;
+    shareDiscoverable?: boolean;
   } = {};
 
   if ("expiresAt" in policy) {
@@ -223,6 +227,15 @@ export async function updateSharePolicy(
   }
   if (typeof policy.presentEnabled === "boolean") {
     data.sharePresentEnabled = policy.presentEnabled;
+  }
+  if (typeof policy.metadataMode === "string") {
+    if (!["generic", "title", "title-excerpt"].includes(policy.metadataMode)) {
+      return actionError("Invalid metadata mode.");
+    }
+    data.shareMetadataMode = policy.metadataMode;
+  }
+  if (typeof policy.discoverable === "boolean") {
+    data.shareDiscoverable = policy.discoverable;
   }
 
   const settings = await updateDocumentSharePolicyData(id, data);

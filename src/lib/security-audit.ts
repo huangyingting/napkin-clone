@@ -8,6 +8,7 @@ export type SecurityAuditEventName =
   | "auth.email_verification.requested"
   | "auth.email_verification.consumed"
   | "account.deletion.completed"
+  | "account.deletion.erasure_verification_failed"
   | "account.deletion.billing_reconciliation_required"
   | "billing.webhook.processed";
 

@@ -40,9 +40,20 @@ export default async function Image({
       });
   const document =
     result?.ok && result.projection === "metadata" ? result.metadata : null;
+  const metadataMode =
+    document?.metadataMode === "title" ||
+    document?.metadataMode === "title-excerpt"
+      ? document.metadataMode
+      : "generic";
 
-  const title = document?.title?.trim() || "Shared document";
-  const description = document ? excerpt(document.content, 180) : "";
+  const title =
+    metadataMode === "title" || metadataMode === "title-excerpt"
+      ? document?.title?.trim() || "Shared document"
+      : "Shared document";
+  const description =
+    metadataMode === "title-excerpt" && document
+      ? excerpt(document.content, 180)
+      : "";
 
   return new ImageResponse(
     <div

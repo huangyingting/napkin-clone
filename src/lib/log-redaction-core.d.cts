@@ -4,6 +4,8 @@ declare const redaction: {
   isSensitiveKey(key: string): boolean;
   isContentKey(key: string): boolean;
   redactContext(context?: Record<string, unknown>): Record<string, unknown>;
+  isUnsafeLogString(value: string): boolean;
+  sanitizeLogString(value: string): string;
   isSafeTelemetryScalar(value: unknown): value is string | number | boolean;
   buildSafeTelemetryContext(
     context?: Record<string, unknown>,

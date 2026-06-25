@@ -13,7 +13,6 @@ export interface PublicPresentationDocument {
   deckJson: unknown;
   owner: {
     name: string | null;
-    email: string;
     plan: string;
   };
 }
