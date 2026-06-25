@@ -11,7 +11,7 @@ import { FOCUS_RING } from "@/components/ui/tokens";
 import { ExportMenu } from "@/components/visual/export-menu";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { VISUAL_KIND_META } from "@/lib/lexical/tool-registry";
-import { sanitizeFilename } from "@/lib/visual/export";
+import { sanitizeFilename } from "@/lib/visual/export-filename";
 import { computeVisualInfo } from "@/lib/visual/info";
 import type { Visual } from "@/lib/visual/schema";
 

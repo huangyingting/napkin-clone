@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { sanitizeFilename } from "@/lib/visual/export";
+import { sanitizeFilename } from "@/lib/visual/export-filename";
 
 // ---------------------------------------------------------------------------
 // Basic trimming and passthrough

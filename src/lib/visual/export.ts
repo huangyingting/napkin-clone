@@ -8,16 +8,7 @@
  * - PPTX: embed the visual as an image on a single slide
  */
 
-import { jsPDF } from "jspdf";
-import PptxGenJS from "pptxgenjs";
-
 import type { Visual } from "@/lib/visual/schema";
-import { applySpecsToSlide } from "@/lib/visual/pptx-apply";
-import {
-  computeVisualSlideLayout,
-  isImageFallback,
-  visualToNativeSpecs,
-} from "@/lib/visual/pptx-shapes";
 import {
   buildTransformedSvgString,
   computeExportDimensions,
@@ -29,37 +20,7 @@ import {
 // Re-export ExportOptions so callers can import from one place.
 export type { ExportOptions };
 export { DEFAULT_EXPORT_OPTIONS };
-
-const MAX_FILENAME_LENGTH = 120;
-
-/**
- * Sanitize a string for safe use as a download filename (without extension).
- *
- * - Trims leading/trailing whitespace
- * - Replaces path separators, Windows-reserved chars, and ASCII control chars with "_"
- * - Collapses runs of whitespace to a single space
- * - Strips leading/trailing dots and spaces
- * - Caps length at MAX_FILENAME_LENGTH characters
- * - Returns `fallback` (default "visual") when the result is empty
- */
-export function sanitizeFilename(name: string, fallback = "visual"): string {
-  let s = name
-    .trim()
-    // Collapse whitespace (including tabs/newlines) to a single space first
-    .replace(/\s+/g, " ")
-    // Replace reserved/unsafe characters and non-space control chars (0x00–0x1f, 0x7f)
-    .replace(/[/\\:*?"<>|\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "_")
-    .trim();
-
-  // Strip leading/trailing dots and spaces
-  s = s.replace(/^[. ]+|[. ]+$/g, "");
-
-  if (s.length > MAX_FILENAME_LENGTH) {
-    s = s.slice(0, MAX_FILENAME_LENGTH).replace(/[. ]+$/, "");
-  }
-
-  return s || fallback;
-}
+export { sanitizeFilename } from "@/lib/visual/export-filename";
 
 function sizeSvgForRasterization(
   svgString: string,
@@ -188,6 +149,7 @@ export async function exportPDF(
   const opts = options ?? DEFAULT_EXPORT_OPTIONS;
 
   try {
+    const { jsPDF } = await import("jspdf");
     // Get the SVG's viewBox to determine dimensions
     const viewBox = svgElement.viewBox.baseVal;
     const { canvasW, canvasH } = computeLetterboxedDimensions(
@@ -259,6 +221,15 @@ export async function exportPPTX(
   options?: ExportOptions,
 ): Promise<Blob | null> {
   try {
+    const [
+      { default: PptxGenJS },
+      { applySpecsToSlide },
+      { computeVisualSlideLayout, isImageFallback, visualToNativeSpecs },
+    ] = await Promise.all([
+      import("pptxgenjs"),
+      import("@/lib/visual/pptx-apply"),
+      import("@/lib/visual/pptx-shapes"),
+    ]);
     const viewBox = svgElement.viewBox.baseVal;
     const width = viewBox.width;
     const height = viewBox.height;
