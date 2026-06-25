@@ -118,6 +118,22 @@ describe("shortcut catalog registry (#737, #751)", () => {
     assert.equal(shortcutById("presentation.timer").surface, "present-mode");
     assert.equal(shortcutById("presentation.laser").showInGlobalHelp, false);
   });
+
+  test("canvas rotation shortcuts use bracket keys without colliding with arrows", () => {
+    assert.equal(matchesShortcut("canvas.rotate.step", key("]")), true);
+    assert.equal(
+      matchesShortcut("canvas.rotate.step", key("ArrowRight")),
+      false,
+    );
+    assert.equal(
+      matchesShortcut("canvas.rotate.fine-step", key("{", { shiftKey: true })),
+      true,
+    );
+    assert.equal(
+      matchesShortcut("canvas.rotate.fine-step", key("[", { ctrlKey: true })),
+      false,
+    );
+  });
 });
 
 function key(

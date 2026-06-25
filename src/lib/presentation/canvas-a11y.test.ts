@@ -375,6 +375,8 @@ describe("canvas-a11y: canvasShortcutHelp (#535)", () => {
     const flat = canvasShortcutHelp().flatMap((g) => g.entries);
     assert.ok(flat.some((e) => e.keys === "Alt + Arrow"));
     assert.ok(flat.some((e) => e.keys === "Alt + Shift + Arrow"));
+    assert.ok(flat.some((e) => e.keys === "[ / ]"));
+    assert.ok(flat.some((e) => e.keys === "Shift + [ / ]"));
     assert.ok(flat.some((e) => e.keys === "Tab / Shift + Tab"));
   });
 

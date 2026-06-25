@@ -329,6 +329,11 @@ interface SlideStageEditorProps {
   liveMessage?: { text: string; nonce: number };
 }
 
+const ELEMENT_ARIA_KEYSHORTCUTS =
+  "Space Enter Delete Backspace ArrowLeft ArrowRight ArrowUp ArrowDown " +
+  "Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown " +
+  "[ ] Shift+[ Shift+] C";
+
 export function SlideStageEditor({
   slide,
   deck,
@@ -1554,6 +1559,7 @@ export function SlideStageEditor({
               tabIndex={element.id === rovingTabId ? 0 : -1}
               aria-label={elementAccessibleName(element, elements)}
               aria-pressed={selected}
+              aria-keyshortcuts={ELEMENT_ARIA_KEYSHORTCUTS}
               onPointerDown={(event) => {
                 const hits = hitTestAtClientPoint(event.clientX, event.clientY);
                 const hit = hits[0];
