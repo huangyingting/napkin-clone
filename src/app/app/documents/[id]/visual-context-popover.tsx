@@ -33,6 +33,7 @@ import {
   VisualSkeleton,
 } from "@/components/motion/generation-status";
 import { ExportMenu } from "@/components/visual/export-menu";
+import { apiErrorMessageFromPayload } from "@/lib/api/error-message";
 import { sanitizeFilename } from "@/lib/visual/export";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import {
@@ -281,14 +282,6 @@ const COMPONENT_MENU_ITEMS: MenuItemConfig[] = [
 // ---------------------------------------------------------------------------
 // Utility helpers
 // ---------------------------------------------------------------------------
-
-function messageFrom(payload: unknown, fallback: string): string {
-  if (payload && typeof payload === "object" && "error" in payload) {
-    const error = (payload as { error: unknown }).error;
-    if (typeof error === "string") return error;
-  }
-  return fallback;
-}
 
 function candidatesFrom(payload: unknown): unknown[] {
   if (payload && typeof payload === "object" && "candidates" in payload) {
@@ -1022,7 +1015,10 @@ export function VisualContextPopover({
       const payload: unknown = await response.json().catch(() => null);
       if (!response.ok) {
         setGenError(
-          messageFrom(payload, "We couldn't generate. Please try again."),
+          apiErrorMessageFromPayload(
+            payload,
+            "We couldn't generate. Please try again.",
+          ),
         );
         setActiveSection("variations");
         return;
@@ -1069,7 +1065,9 @@ export function VisualContextPopover({
       });
       const payload: unknown = await response.json().catch(() => null);
       if (!response.ok) {
-        setSyncError(messageFrom(payload, "Sync failed. Please try again."));
+        setSyncError(
+          apiErrorMessageFromPayload(payload, "Sync failed. Please try again."),
+        );
         return;
       }
       const valid: Visual[] = [];

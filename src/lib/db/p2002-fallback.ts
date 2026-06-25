@@ -1,10 +1,10 @@
 /**
  * Generic helper for handling Prisma P2002 unique-constraint races.
  *
- * When two requests upload the same file simultaneously, both may pass a
- * pre-flight `findFirst` dedup check and then race to `create`.  The loser
- * hits a P2002 unique-constraint error.  Rather than propagating that error
- * the caller provides a `recoverFn` that fetches and returns the winning row.
+ * When two requests create the same uniquely constrained row simultaneously,
+ * both may pass a pre-flight lookup and then race to `create`. The loser hits a
+ * P2002 unique-constraint error. Rather than propagating that error the caller
+ * provides a `recoverFn` that fetches and returns the winning row.
  *
  * Kept in a separate module (no Prisma import) so it can be unit-tested
  * without a database connection.

@@ -9,7 +9,16 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
-import { app, auth, azure, db, google, stripe, MissingEnvError } from "./env";
+import {
+  app,
+  auth,
+  azure,
+  db,
+  google,
+  readPositiveIntEnv,
+  stripe,
+  MissingEnvError,
+} from "./env";
 
 // ---------------------------------------------------------------------------
 // Helpers: save / restore the env vars this suite mutates.
@@ -30,6 +39,7 @@ const MANAGED_VARS = [
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
   "NEXT_PUBLIC_APP_URL",
+  "POSITIVE_INT_TEST",
 ] as const;
 
 const saved: Record<string, string | undefined> = {};
@@ -49,6 +59,32 @@ afterEach(() => {
       process.env[name] = saved[name];
     }
   }
+});
+
+// ---------------------------------------------------------------------------
+// readPositiveIntEnv
+// ---------------------------------------------------------------------------
+
+describe("readPositiveIntEnv", () => {
+  it("returns the fallback when the variable is unset", () => {
+    assert.equal(readPositiveIntEnv("POSITIVE_INT_TEST", 7), 7);
+  });
+
+  it("returns the fallback for invalid, zero, or negative values", () => {
+    process.env.POSITIVE_INT_TEST = "abc";
+    assert.equal(readPositiveIntEnv("POSITIVE_INT_TEST", 7), 7);
+
+    process.env.POSITIVE_INT_TEST = "0";
+    assert.equal(readPositiveIntEnv("POSITIVE_INT_TEST", 7), 7);
+
+    process.env.POSITIVE_INT_TEST = "-3";
+    assert.equal(readPositiveIntEnv("POSITIVE_INT_TEST", 7), 7);
+  });
+
+  it("returns a valid positive integer value", () => {
+    process.env.POSITIVE_INT_TEST = "42";
+    assert.equal(readPositiveIntEnv("POSITIVE_INT_TEST", 7), 42);
+  });
 });
 
 // ---------------------------------------------------------------------------

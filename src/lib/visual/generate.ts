@@ -11,6 +11,7 @@
  */
 
 import type { DetailLevel, Orientation } from "@/lib/ai/prompt";
+import { apiErrorMessageFromPayload } from "@/lib/api/error-message";
 import {
   hashSourceText,
   safeParseVisual,
@@ -59,17 +60,6 @@ const FALLBACK_REQUEST_ERROR =
 const EMPTY_CANDIDATES_ERROR = "No usable visuals came back. Please try again.";
 const NETWORK_ERROR =
   "Couldn't reach the generator. Check your connection and try again.";
-
-/** Pull a string `error` field off a JSON payload, falling back when absent. */
-export function messageFrom(payload: unknown, fallback: string): string {
-  if (payload && typeof payload === "object" && "error" in payload) {
-    const error = (payload as { error: unknown }).error;
-    if (typeof error === "string") {
-      return error;
-    }
-  }
-  return fallback;
-}
 
 /** Pull the raw `candidates` array off a JSON payload (un-validated). */
 export function candidatesFrom(payload: unknown): unknown[] {
@@ -187,7 +177,7 @@ export async function requestVisualCandidates(
     if (!response.ok) {
       return {
         ok: false,
-        error: messageFrom(payload, FALLBACK_REQUEST_ERROR),
+        error: apiErrorMessageFromPayload(payload, FALLBACK_REQUEST_ERROR),
         errorKind: response.status === 402 ? "credit" : "other",
       };
     }

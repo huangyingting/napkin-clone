@@ -19,7 +19,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { resolveProvider } from "@/lib/db-provider";
-import { withP2002Fallback } from "@/lib/slides/p2002-fallback";
+import { withP2002Fallback } from "@/lib/db/p2002-fallback";
 import { getBrandStorageAdapter } from "@/lib/brand/asset-storage";
 import {
   applyBrandAssetMigration,

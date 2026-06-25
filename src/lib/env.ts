@@ -59,6 +59,17 @@ function readOptional(name: string): string | undefined {
   return trimmed.length === 0 ? undefined : trimmed;
 }
 
+/**
+ * Reads a positive integer env var. Missing, blank, invalid, zero, and negative
+ * values all return the provided fallback.
+ */
+export function readPositiveIntEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 /** Reads a required env var, throwing {@link MissingEnvError} when absent. */
 function readRequired(name: string, hint?: string): string {
   const value = readOptional(name);

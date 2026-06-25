@@ -10,6 +10,7 @@
  */
 
 import type { DeckGenerationOptions } from "@/lib/ai/deck-prompt";
+import { apiErrorMessageFromPayload } from "@/lib/api/error-message";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import type { Deck } from "@/lib/presentation/deck";
 
@@ -73,17 +74,6 @@ function isEmptyOutline400(payload: unknown): boolean {
     return typeof error === "string" && error.includes(EMPTY_OUTLINE_MARKER);
   }
   return false;
-}
-
-/** Pull a string `error` field off a JSON payload, falling back when absent. */
-export function messageFrom(payload: unknown, fallback: string): string {
-  if (payload && typeof payload === "object" && "error" in payload) {
-    const error = (payload as { error: unknown }).error;
-    if (typeof error === "string" && error.trim().length > 0) {
-      return error;
-    }
-  }
-  return fallback;
 }
 
 /**
@@ -177,21 +167,21 @@ export async function requestDeckGeneration(
     if (response.status === 404) {
       return {
         ok: false,
-        error: messageFrom(payload, UNAVAILABLE_ERROR),
+        error: apiErrorMessageFromPayload(payload, UNAVAILABLE_ERROR),
         errorKind: "unavailable",
       };
     }
     if (response.status === 402) {
       return {
         ok: false,
-        error: messageFrom(payload, FALLBACK_REQUEST_ERROR),
+        error: apiErrorMessageFromPayload(payload, FALLBACK_REQUEST_ERROR),
         errorKind: "credit",
       };
     }
     if (response.status === 504) {
       return {
         ok: false,
-        error: messageFrom(payload, TIMEOUT_ERROR),
+        error: apiErrorMessageFromPayload(payload, TIMEOUT_ERROR),
         errorKind: "timeout",
       };
     }
@@ -204,7 +194,7 @@ export async function requestDeckGeneration(
     }
     return {
       ok: false,
-      error: messageFrom(payload, FALLBACK_REQUEST_ERROR),
+      error: apiErrorMessageFromPayload(payload, FALLBACK_REQUEST_ERROR),
       errorKind: "other",
     };
   }

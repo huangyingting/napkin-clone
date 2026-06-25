@@ -10,8 +10,6 @@
  *    but re-exercised here in the server-action context)
  *  - `deriveStorageKey` — the storage key derivation that determines the
  *    final `storageKey` column value and dedup uniqueness
- *  - `withP2002Fallback` — the concurrent-insert race handler extracted from
- *    `uploadSlideAsset`, exercised here without a real Prisma connection
  *  - Extension-mismatch security: keys must use MIME-derived extension
  */
 
@@ -29,7 +27,6 @@ import {
   setDefaultStorageAdapter,
   resetDefaultStorageAdapter,
 } from "@/lib/slides/asset-storage";
-import { withP2002Fallback } from "@/lib/slides/p2002-fallback";
 
 // ---------------------------------------------------------------------------
 // SHA-256 checksum computation
@@ -140,63 +137,6 @@ describe("deriveStorageKey (upload action key shape)", () => {
     assert.ok(
       !key.includes(".html"),
       "must not produce .html under any circumstance",
-    );
-  });
-});
-
-// ---------------------------------------------------------------------------
-// withP2002Fallback — dedup race recovery
-// ---------------------------------------------------------------------------
-
-describe("withP2002Fallback", () => {
-  it("returns the result of createFn when it succeeds", async () => {
-    const result = await withP2002Fallback(
-      async () => ({ id: "asset-new" }),
-      async () => null,
-    );
-    assert.deepEqual(result, { id: "asset-new" });
-  });
-
-  it("calls recoverFn and returns its result when createFn throws P2002", async () => {
-    const p2002 = Object.assign(new Error("Unique constraint failed"), {
-      code: "P2002",
-    });
-    const result = await withP2002Fallback(
-      async () => {
-        throw p2002;
-      },
-      async () => ({ id: "asset-winner" }),
-    );
-    assert.deepEqual(result, { id: "asset-winner" });
-  });
-
-  it("re-throws P2002 when recoverFn returns null (winner row missing)", async () => {
-    const p2002 = Object.assign(new Error("Unique constraint failed"), {
-      code: "P2002",
-    });
-    await assert.rejects(
-      () =>
-        withP2002Fallback(
-          async () => {
-            throw p2002;
-          },
-          async () => null,
-        ),
-      (err: unknown) => (err as { code?: string }).code === "P2002",
-    );
-  });
-
-  it("re-throws non-P2002 errors unchanged", async () => {
-    const otherError = new Error("Unexpected DB error");
-    await assert.rejects(
-      () =>
-        withP2002Fallback(
-          async () => {
-            throw otherError;
-          },
-          async () => ({ id: "should-not-reach" }),
-        ),
-      otherError,
     );
   });
 });

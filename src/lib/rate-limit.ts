@@ -26,23 +26,17 @@ import {
   type RateLimitOptions,
   type RateLimitResult,
 } from "@/lib/ai/quota";
+import { readPositiveIntEnv } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
-
-function intFromEnv(name: string, fallback: number): number {
-  const raw = process.env[name];
-  if (!raw) return fallback;
-  const parsed = Number.parseInt(raw, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
 
 /** Max document imports allowed per client IP per window. */
 export function importRateLimit(): number {
-  return intFromEnv("IMPORT_RATE_LIMIT", 10);
+  return readPositiveIntEnv("IMPORT_RATE_LIMIT", 10);
 }
 
 /** Length of the import rate-limit window, in milliseconds (default 1 min). */
 export function importRateWindowMs(): number {
-  return intFromEnv("IMPORT_RATE_WINDOW_MS", 60_000);
+  return readPositiveIntEnv("IMPORT_RATE_WINDOW_MS", 60_000);
 }
 
 /**
@@ -51,7 +45,7 @@ export function importRateWindowMs(): number {
  * not reset it because the window is persisted keyed by hashed IP.
  */
 export function anonIpRateLimit(): number {
-  return intFromEnv("ANON_IP_GENERATION_RATE_LIMIT", 20);
+  return readPositiveIntEnv("ANON_IP_GENERATION_RATE_LIMIT", 20);
 }
 
 /**
@@ -59,7 +53,10 @@ export function anonIpRateLimit(): number {
  * (default 1 hour).
  */
 export function anonIpRateWindowMs(): number {
-  return intFromEnv("ANON_IP_GENERATION_RATE_WINDOW_MS", 60 * 60 * 1000);
+  return readPositiveIntEnv(
+    "ANON_IP_GENERATION_RATE_WINDOW_MS",
+    60 * 60 * 1000,
+  );
 }
 
 /**

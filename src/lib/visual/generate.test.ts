@@ -8,7 +8,6 @@ import {
   candidatesFrom,
   generateTargetForContext,
   isCreditError,
-  messageFrom,
   parseCandidates,
   requestVisualCandidates,
   stampSourceText,
@@ -19,24 +18,6 @@ import { FIXTURES } from "./fixtures";
 
 // A schema-valid visual reused across the parse/stamp tests.
 const VALID_VISUAL: Visual = FIXTURES.list;
-
-// ---------------------------------------------------------------------------
-// messageFrom — extract a string error or fall back.
-// ---------------------------------------------------------------------------
-
-test("messageFrom returns the payload error string when present", () => {
-  assert.equal(
-    messageFrom({ error: "Out of credits" }, "fallback"),
-    "Out of credits",
-  );
-});
-
-test("messageFrom falls back when error is missing or non-string", () => {
-  assert.equal(messageFrom({}, "fallback"), "fallback");
-  assert.equal(messageFrom({ error: 42 }, "fallback"), "fallback");
-  assert.equal(messageFrom(null, "fallback"), "fallback");
-  assert.equal(messageFrom("nope", "fallback"), "fallback");
-});
 
 // ---------------------------------------------------------------------------
 // candidatesFrom / parseCandidates — pull and validate candidates.

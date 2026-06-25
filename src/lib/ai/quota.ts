@@ -18,29 +18,24 @@
 
 import crypto from "node:crypto";
 
+import { readPositiveIntEnv } from "@/lib/env";
+
 /** Name of the signed anonymous-id cookie. */
 export const ANON_COOKIE_NAME = "textiq_anon";
 
-function intFromEnv(name: string, fallback: number): number {
-  const raw = process.env[name];
-  if (!raw) return fallback;
-  const parsed = Number.parseInt(raw, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
 /** Lifetime number of free generations for an anonymous visitor. */
 export function anonTrialLimit(): number {
-  return intFromEnv("ANON_GENERATION_LIMIT", 5);
+  return readPositiveIntEnv("ANON_GENERATION_LIMIT", 5);
 }
 
 /** Max authenticated generations allowed per user per window. */
 export function userRateLimit(): number {
-  return intFromEnv("USER_GENERATION_RATE_LIMIT", 30);
+  return readPositiveIntEnv("USER_GENERATION_RATE_LIMIT", 30);
 }
 
 /** Length of the authenticated rate-limit window, in milliseconds. */
 export function userRateWindowMs(): number {
-  return intFromEnv("USER_GENERATION_RATE_WINDOW_MS", 60_000);
+  return readPositiveIntEnv("USER_GENERATION_RATE_WINDOW_MS", 60_000);
 }
 
 export interface AnonState {
