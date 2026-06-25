@@ -18,19 +18,36 @@
  * runs inside request handling.
  */
 
-import {
-  safeParseDeck,
-  validateSourceRef,
-} from "@/lib/presentation/deck-schema";
+import { validateSourceRef } from "@/lib/presentation/deck-schema";
 import { safeParseVisual } from "@/lib/visual/schema";
 import { collectVisualNodes } from "@/lib/lexical/visual-nodes";
+import {
+  parsePlanLiteral,
+  parseSubscriptionStatusLiteral,
+  parseUsageLedgerStatusLiteral,
+  parseWorkspaceRoleLiteral,
+} from "@/lib/data-contracts/literals";
+import { getPersistedJsonContract } from "@/lib/data-contracts/persisted-json";
+import { isCurrentTagSlug } from "@/lib/data-contracts/prisma-row-mappers";
 
 /** Schema areas the audit covers. */
 export const SCHEMA_AREAS = [
   "Document.deckJson",
   "Document.contentJson:visual",
+  "DocumentVersion.deckJson",
+  "DocumentVersion.contentJson:visual",
   "Visual.data",
   "SourceRef",
+  "Comment.anchor",
+  "Tag.slug",
+  "WorkspaceMember.role",
+  "InviteLink.role",
+  "InviteLinkUse.role",
+  "User.plan",
+  "Subscription.plan",
+  "Subscription.status",
+  "UsageLedgerEntry.status",
+  "Asset.scope",
 ] as const;
 
 export type SchemaArea = (typeof SCHEMA_AREAS)[number];
@@ -65,15 +82,89 @@ export interface VisualAuditRow {
   data: unknown;
 }
 
+export interface DocumentVersionAuditRow {
+  id: string;
+  documentId: string;
+  deckJson: unknown;
+  contentJson: unknown;
+}
+
+export interface CommentAuditRow {
+  id: string;
+  documentId: string;
+  anchorType?: string | null;
+  anchorText?: string | null;
+  anchorNodeId?: string | null;
+  slideId?: string | null;
+  elementId?: string | null;
+  anchorGeometry?: unknown;
+}
+
+export interface TagAuditRow {
+  id: string;
+  ownerId: string;
+  name: string;
+  slug: string;
+}
+
+export interface WorkspaceRoleAuditRow {
+  id: string;
+  role: string;
+}
+
+export interface UserPlanAuditRow {
+  id: string;
+  plan: string;
+}
+
+export interface SubscriptionAuditRow {
+  id: string;
+  plan: string;
+  status: string;
+}
+
+export interface UsageLedgerAuditRow {
+  id: string;
+  status: string;
+}
+
+export interface AssetAuditRow {
+  id: string;
+  documentId: string | null;
+  workspaceId: string | null;
+  brandId: string | null;
+  deletedAt?: Date | null;
+}
+
 export interface AuditInput {
   documents?: readonly DocumentAuditRow[];
   visuals?: readonly VisualAuditRow[];
+  documentVersions?: readonly DocumentVersionAuditRow[];
+  comments?: readonly CommentAuditRow[];
+  tags?: readonly TagAuditRow[];
+  workspaceMembers?: readonly WorkspaceRoleAuditRow[];
+  inviteLinks?: readonly WorkspaceRoleAuditRow[];
+  inviteLinkUses?: readonly WorkspaceRoleAuditRow[];
+  users?: readonly UserPlanAuditRow[];
+  subscriptions?: readonly SubscriptionAuditRow[];
+  usageLedgerEntries?: readonly UsageLedgerAuditRow[];
+  assets?: readonly AssetAuditRow[];
 }
 
 export interface AuditSummary {
   /** Total rows scanned. */
   scannedDocuments: number;
   scannedVisuals: number;
+  scannedDocumentVersions: number;
+  scannedComments: number;
+  scannedTags: number;
+  scannedWorkspaceMembers: number;
+  scannedInviteLinks: number;
+  scannedInviteLinkUses: number;
+  scannedUsers: number;
+  scannedSubscriptions: number;
+  scannedUsageLedgerEntries: number;
+  scannedAssets: number;
   /** Total violations found. */
   violations: number;
   /** Violation counts keyed by schema area. */
@@ -87,6 +178,22 @@ export interface AuditReport {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function contractViolation(
+  area: Extract<
+    SchemaArea,
+    | "Document.deckJson"
+    | "Document.contentJson:visual"
+    | "DocumentVersion.deckJson"
+    | "DocumentVersion.contentJson:visual"
+    | "Visual.data"
+    | "Comment.anchor"
+  >,
+  value: unknown,
+): string | null {
+  const result = getPersistedJsonContract(area).validate(value);
+  return result.success ? null : result.error;
 }
 
 /**
@@ -115,24 +222,13 @@ export function auditDocumentDeck(row: DocumentAuditRow): SchemaViolation[] {
   const violations: SchemaViolation[] = [];
   if (row.deckJson == null) return violations;
 
-  if (typeof row.deckJson === "string") {
+  const deckError = contractViolation("Document.deckJson", row.deckJson);
+  if (deckError) {
     violations.push({
       area: "Document.deckJson",
       documentId: row.id,
       rowId: row.id,
-      reason:
-        "Serialized deck JSON strings are persisted-schema drift; deckJson must be a parsed JSON object.",
-    });
-    return violations;
-  }
-
-  const parsed = safeParseDeck(row.deckJson);
-  if (!parsed.success) {
-    violations.push({
-      area: "Document.deckJson",
-      documentId: row.id,
-      rowId: row.id,
-      reason: parsed.error,
+      reason: deckError,
     });
   }
 
@@ -178,14 +274,149 @@ export function auditDocumentContentVisuals(
 
 /** Audits a single `Visual.data` row. */
 export function auditVisualRow(row: VisualAuditRow): SchemaViolation[] {
-  const result = safeParseVisual(row.data);
-  if (result.success) return [];
+  const result = contractViolation("Visual.data", row.data);
+  if (!result) return [];
   return [
     {
       area: "Visual.data",
       documentId: row.documentId,
       rowId: row.id,
-      reason: result.error,
+      reason: result,
+    },
+  ];
+}
+
+export function auditDocumentVersionRow(
+  row: DocumentVersionAuditRow,
+): SchemaViolation[] {
+  const violations: SchemaViolation[] = [];
+  if (row.deckJson != null) {
+    const deckError = contractViolation(
+      "DocumentVersion.deckJson",
+      row.deckJson,
+    );
+    if (deckError) {
+      violations.push({
+        area: "DocumentVersion.deckJson",
+        documentId: row.documentId,
+        rowId: row.id,
+        reason: deckError,
+      });
+    }
+  }
+  if (row.contentJson != null) {
+    for (const node of collectVisualNodes(row.contentJson)) {
+      const result = safeParseVisual(node.visual);
+      if (!result.success) {
+        violations.push({
+          area: "DocumentVersion.contentJson:visual",
+          documentId: row.documentId,
+          rowId: row.id,
+          anchorId: node.visualId,
+          reason: result.error,
+        });
+      }
+    }
+  }
+  return violations;
+}
+
+export function auditCommentAnchor(row: CommentAuditRow): SchemaViolation[] {
+  const result = contractViolation("Comment.anchor", row);
+  return result
+    ? [
+        {
+          area: "Comment.anchor",
+          documentId: row.documentId,
+          rowId: row.id,
+          reason: result,
+        },
+      ]
+    : [];
+}
+
+export function auditTagSlug(row: TagAuditRow): SchemaViolation[] {
+  if (isCurrentTagSlug(row.name, row.slug)) return [];
+  return [
+    {
+      area: "Tag.slug",
+      rowId: row.id,
+      reason: "Tag slug must be derived from the current normalized tag name.",
+    },
+  ];
+}
+
+function auditWorkspaceRole(
+  area: Extract<
+    SchemaArea,
+    "WorkspaceMember.role" | "InviteLink.role" | "InviteLinkUse.role"
+  >,
+  row: WorkspaceRoleAuditRow,
+): SchemaViolation[] {
+  const role = parseWorkspaceRoleLiteral(row.role);
+  return role.success ? [] : [{ area, rowId: row.id, reason: role.error }];
+}
+
+export function auditUserPlan(row: UserPlanAuditRow): SchemaViolation[] {
+  const plan = parsePlanLiteral(row.plan);
+  return plan.success
+    ? []
+    : [{ area: "User.plan", rowId: row.id, reason: plan.error }];
+}
+
+export function auditSubscription(
+  row: SubscriptionAuditRow,
+): SchemaViolation[] {
+  const violations: SchemaViolation[] = [];
+  const plan = parsePlanLiteral(row.plan);
+  if (!plan.success) {
+    violations.push({
+      area: "Subscription.plan",
+      rowId: row.id,
+      reason: plan.error,
+    });
+  }
+  const status = parseSubscriptionStatusLiteral(row.status);
+  if (!status.success) {
+    violations.push({
+      area: "Subscription.status",
+      rowId: row.id,
+      reason: status.error,
+    });
+  }
+  return violations;
+}
+
+export function auditUsageLedgerEntry(
+  row: UsageLedgerAuditRow,
+): SchemaViolation[] {
+  const status = parseUsageLedgerStatusLiteral(row.status);
+  return status.success
+    ? []
+    : [
+        {
+          area: "UsageLedgerEntry.status",
+          rowId: row.id,
+          reason: status.error,
+        },
+      ];
+}
+
+export function auditAssetScope(row: AssetAuditRow): SchemaViolation[] {
+  const scopeCount = [row.documentId, row.workspaceId, row.brandId].filter(
+    (value) => value != null,
+  ).length;
+  const deleted = row.deletedAt != null;
+  if ((deleted && scopeCount <= 1) || (!deleted && scopeCount === 1)) {
+    return [];
+  }
+  return [
+    {
+      area: "Asset.scope",
+      rowId: row.id,
+      reason: deleted
+        ? "Deleted asset rows may have at most one scope."
+        : "Active asset rows must have exactly one document, workspace, or brand scope.",
     },
   ];
 }
@@ -194,8 +425,20 @@ function emptyByArea(): Record<SchemaArea, number> {
   return {
     "Document.deckJson": 0,
     "Document.contentJson:visual": 0,
+    "DocumentVersion.deckJson": 0,
+    "DocumentVersion.contentJson:visual": 0,
     "Visual.data": 0,
     SourceRef: 0,
+    "Comment.anchor": 0,
+    "Tag.slug": 0,
+    "WorkspaceMember.role": 0,
+    "InviteLink.role": 0,
+    "InviteLinkUse.role": 0,
+    "User.plan": 0,
+    "Subscription.plan": 0,
+    "Subscription.status": 0,
+    "UsageLedgerEntry.status": 0,
+    "Asset.scope": 0,
   };
 }
 
@@ -206,6 +449,16 @@ function emptyByArea(): Record<SchemaArea, number> {
 export function auditRows(input: AuditInput): AuditReport {
   const documents = input.documents ?? [];
   const visuals = input.visuals ?? [];
+  const documentVersions = input.documentVersions ?? [];
+  const comments = input.comments ?? [];
+  const tags = input.tags ?? [];
+  const workspaceMembers = input.workspaceMembers ?? [];
+  const inviteLinks = input.inviteLinks ?? [];
+  const inviteLinkUses = input.inviteLinkUses ?? [];
+  const users = input.users ?? [];
+  const subscriptions = input.subscriptions ?? [];
+  const usageLedgerEntries = input.usageLedgerEntries ?? [];
+  const assets = input.assets ?? [];
   const violations: SchemaViolation[] = [];
 
   for (const doc of documents) {
@@ -214,6 +467,36 @@ export function auditRows(input: AuditInput): AuditReport {
   }
   for (const visual of visuals) {
     violations.push(...auditVisualRow(visual));
+  }
+  for (const version of documentVersions) {
+    violations.push(...auditDocumentVersionRow(version));
+  }
+  for (const comment of comments) {
+    violations.push(...auditCommentAnchor(comment));
+  }
+  for (const tag of tags) {
+    violations.push(...auditTagSlug(tag));
+  }
+  for (const member of workspaceMembers) {
+    violations.push(...auditWorkspaceRole("WorkspaceMember.role", member));
+  }
+  for (const link of inviteLinks) {
+    violations.push(...auditWorkspaceRole("InviteLink.role", link));
+  }
+  for (const use of inviteLinkUses) {
+    violations.push(...auditWorkspaceRole("InviteLinkUse.role", use));
+  }
+  for (const user of users) {
+    violations.push(...auditUserPlan(user));
+  }
+  for (const subscription of subscriptions) {
+    violations.push(...auditSubscription(subscription));
+  }
+  for (const entry of usageLedgerEntries) {
+    violations.push(...auditUsageLedgerEntry(entry));
+  }
+  for (const asset of assets) {
+    violations.push(...auditAssetScope(asset));
   }
 
   const byArea = emptyByArea();
@@ -226,6 +509,16 @@ export function auditRows(input: AuditInput): AuditReport {
     summary: {
       scannedDocuments: documents.length,
       scannedVisuals: visuals.length,
+      scannedDocumentVersions: documentVersions.length,
+      scannedComments: comments.length,
+      scannedTags: tags.length,
+      scannedWorkspaceMembers: workspaceMembers.length,
+      scannedInviteLinks: inviteLinks.length,
+      scannedInviteLinkUses: inviteLinkUses.length,
+      scannedUsers: users.length,
+      scannedSubscriptions: subscriptions.length,
+      scannedUsageLedgerEntries: usageLedgerEntries.length,
+      scannedAssets: assets.length,
       violations: violations.length,
       byArea,
     },
@@ -241,7 +534,11 @@ export function formatAuditReport(report: AuditReport): string[] {
   const lines: string[] = [];
   lines.push(
     `Scanned ${report.summary.scannedDocuments} document(s), ` +
-      `${report.summary.scannedVisuals} visual(s).`,
+      `${report.summary.scannedVisuals} visual(s), ` +
+      `${report.summary.scannedDocumentVersions} document version(s), ` +
+      `${report.summary.scannedComments} comment(s), ` +
+      `${report.summary.scannedTags} tag(s), ` +
+      `${report.summary.scannedAssets} asset(s).`,
   );
   if (report.violations.length === 0) {
     lines.push("No schema violations found.");
