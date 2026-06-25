@@ -71,6 +71,30 @@ export function themeSwatchColors<T extends Record<string, unknown>>(
 }
 
 /**
+ * Extracts a deduped, ordered list of colors from deck theme token sets. The
+ * slide inspector uses this for built-in background/accent swatches so theme
+ * chips stay coupled to the authoritative token cascade.
+ */
+export function tokenSetSwatchColors<K extends string>(
+  tokenSets: readonly { colors: Partial<Record<K, string>> }[],
+  key: K,
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const tokenSet of tokenSets) {
+    const color = tokenSet.colors[key];
+    if (typeof color === "string") {
+      const lower = color.toLowerCase();
+      if (!seen.has(lower)) {
+        seen.add(lower);
+        out.push(color);
+      }
+    }
+  }
+  return out;
+}
+
+/**
  * Merges swatch lists in priority order, deduping by lowercased value (the
  * first-seen casing wins). Used to surface a user's brand-kit colors ahead of
  * the on-theme / default swatches in the editor's color pickers. Non-string

@@ -17,7 +17,6 @@ import { Copy, Trash2, Upload, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
 import { FOCUS_RING } from "@/components/ui/tokens";
-import { DECK_THEMES } from "@/components/presentation/slide-canvas";
 import { LayerList } from "@/components/presentation/layer-list";
 import { Tooltip } from "@/components/ui";
 import type {
@@ -54,13 +53,22 @@ import {
 } from "@/components/presentation/slide-inspector/controls";
 import {
   mergeSwatches,
-  themeSwatchColors,
+  tokenSetSwatchColors,
 } from "@/lib/presentation/text-style";
+import { allThemeTokenSets } from "@/lib/presentation/deck-theme-tokens";
+import { resolveSlideThemeColors } from "@/lib/presentation/style-cascade";
 import { DEFAULT_SLIDE_FORMAT } from "@/lib/presentation/slide-format";
 import type { Visual } from "@/lib/visual/schema";
 
-const THEME_BACKGROUND_SWATCHES = themeSwatchColors(DECK_THEMES, "bgColor");
-const THEME_ACCENT_SWATCHES = themeSwatchColors(DECK_THEMES, "accentColor");
+const BUILT_IN_THEME_TOKEN_SETS = allThemeTokenSets();
+const THEME_BACKGROUND_SWATCHES = tokenSetSwatchColors(
+  BUILT_IN_THEME_TOKEN_SETS,
+  "slideBg",
+);
+const THEME_ACCENT_SWATCHES = tokenSetSwatchColors(
+  BUILT_IN_THEME_TOKEN_SETS,
+  "accent",
+);
 
 type Panel = RightPanelTab;
 type PositionPanelTab = "arrange" | "layers";
@@ -412,7 +420,7 @@ export function SlideInspector({
     availableLayouts[0] ??
     null;
 
-  const themeConfig = DECK_THEMES[slide.theme] ?? DECK_THEMES.default;
+  const themeColors = resolveSlideThemeColors(deck, slide);
   const panelTitle: Record<Panel, string> = {
     position: "Position",
     text: "Text",
@@ -690,14 +698,14 @@ export function SlideInspector({
             <ColorOverride
               label="Background"
               value={slide.background}
-              fallback={themeConfig.bgColor}
+              fallback={themeColors.bgColor}
               presets={mergeSwatches(brandSwatches, THEME_BACKGROUND_SWATCHES)}
               onChange={onBackgroundChange}
             />
             <ColorOverride
               label="Accent"
               value={slide.accent}
-              fallback={themeConfig.accentColor}
+              fallback={themeColors.accentColor}
               presets={mergeSwatches(brandSwatches, THEME_ACCENT_SWATCHES)}
               onChange={onAccentChange}
             />

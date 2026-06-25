@@ -49,10 +49,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import {
-  SlideCanvas,
-  type ThemeConfig,
-} from "@/components/presentation/slide-canvas";
+import { SlideCanvas } from "@/components/presentation/slide-canvas";
 import { TextStyleBar } from "@/components/presentation/text-style-bar";
 import { ColorPicker, DEFAULT_SWATCH_PRESETS } from "@/components/ui";
 import { FOCUS_RING } from "@/components/ui/tokens";
@@ -71,6 +68,7 @@ import { normalizeBulletItems } from "@/lib/presentation/deck";
 import {
   resolveSlideThemeColors,
   resolveSlideTokenSet,
+  type SlideThemeColors,
 } from "@/lib/presentation/style-cascade";
 import {
   resolveRoleToken,
@@ -173,7 +171,7 @@ import {
 
 function resolveTextColor(
   element: Extract<SlideElement, { kind: "text" | "bullets" | "shape" }>,
-  tc: ThemeConfig,
+  tc: SlideThemeColors,
   tokenSet: DeckThemeTokenSet,
 ): string {
   if (element.kind === "text") {
@@ -2077,7 +2075,7 @@ export function ElementToolbarContent({
   compact = false,
 }: {
   element: SlideElement;
-  tc: ThemeConfig;
+  tc: SlideThemeColors;
   brandSwatches: readonly string[];
   onUpdateElement: SlideStageEditorProps["onUpdateElement"];
   onDuplicate: () => void;

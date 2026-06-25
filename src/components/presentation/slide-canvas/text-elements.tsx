@@ -17,8 +17,9 @@ import type {
 import { normalizeBulletItems } from "@/lib/presentation/deck";
 import type { DeckThemeTokenSet } from "@/lib/presentation/deck-theme-tokens";
 import { resolveRoleToken } from "@/lib/presentation/deck-theme-tokens";
+import type { SlideThemeColors } from "@/lib/presentation/style-cascade";
 
-import { boxStyle, renderRuns, type ThemeConfig } from "./primitives";
+import { boxStyle, renderRuns } from "./primitives";
 
 /**
  * Computes a CSS `font-size` string that shrinks the font until the content
@@ -71,7 +72,7 @@ export function TextElementView({
   tokenSet,
 }: {
   element: TextElement;
-  tc: ThemeConfig;
+  tc: SlideThemeColors;
   tokenSet: DeckThemeTokenSet;
 }): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -140,7 +141,7 @@ export function BulletsElementView({
   tokenSet,
 }: {
   element: BulletsElement;
-  tc: ThemeConfig;
+  tc: SlideThemeColors;
   accent: string;
   tokenSet: DeckThemeTokenSet;
 }): JSX.Element {

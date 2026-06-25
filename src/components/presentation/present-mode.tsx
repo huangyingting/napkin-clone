@@ -21,11 +21,9 @@ import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { FOCUS_RING } from "@/components/ui/tokens";
-import {
-  DECK_THEMES,
-  SlideCanvas,
-} from "@/components/presentation/slide-canvas";
+import { SlideCanvas } from "@/components/presentation/slide-canvas";
 import type { Deck } from "@/lib/presentation/deck";
+import { resolveSlideThemeColors } from "@/lib/presentation/style-cascade";
 import { PRESENT_MODE_SHORTCUT_IDS } from "@/components/presentation/present-mode/presenter-shortcuts";
 import {
   exitBrowserFullscreen,
@@ -335,7 +333,7 @@ export function PresentMode({
     );
   }
 
-  const tc = DECK_THEMES[currentSlide.theme] ?? DECK_THEMES.default;
+  const tc = resolveSlideThemeColors(deck, currentSlide);
 
   const overlay = (
     <div
@@ -463,7 +461,7 @@ export function PresentMode({
               height: fittedSlideSize.height,
             }}
           >
-            <SlideCanvas slide={currentSlide} visuals={visuals} />
+            <SlideCanvas slide={currentSlide} deck={deck} visuals={visuals} />
           </div>
         </div>
 
@@ -504,6 +502,7 @@ export function PresentMode({
             currentIndex={currentIndex}
             total={total}
             nextSlide={nextSlide}
+            deck={deck}
             visuals={visuals}
             slideFormat={deck.slideFormat}
           />
@@ -545,6 +544,7 @@ export function PresentMode({
       {overviewOpen ? (
         <SlideOverviewPanel
           slides={slides}
+          deck={deck}
           visuals={visuals}
           slideFormat={deck.slideFormat}
           currentIndex={currentIndex}

@@ -11,17 +11,13 @@
 import { memo, type JSX } from "react";
 
 import type { Deck, Slide } from "@/lib/presentation/deck";
-import { resolveSlideTokenSet } from "@/lib/presentation/style-cascade";
+import {
+  resolveSlideThemeColors,
+  resolveSlideTokenSet,
+} from "@/lib/presentation/style-cascade";
 import type { Visual } from "@/lib/visual/schema";
 
 import { ElementsSlideLayout } from "./slide-canvas/elements-slide-layout";
-import {
-  DECK_THEMES,
-  resolveThemeConfig,
-  type ThemeConfig,
-} from "./slide-canvas/primitives";
-
-export { DECK_THEMES, resolveThemeConfig, type ThemeConfig };
 
 // ---------------------------------------------------------------------------
 // SlideCanvas — selects the right layout renderer for a slide
@@ -76,7 +72,7 @@ export const SlideCanvas = memo(function SlideCanvas({
   // minimal deck is synthesised from the slide's own theme so present and public
   // viewers use the same cascade palette as the editor (light slide background,
   // theme-derived text colours) instead of the legacy dark fallback.
-  const tc: ThemeConfig = resolveThemeConfig(deck, slide);
+  const tc = resolveSlideThemeColors(deck, slide);
   // Token set drives optional non-text template defaults (#607): bullet marker,
   // image fit/radius/mask/shadow, connector stroke/arrows, shape stroke, visual
   // restyle. Built-in themes set none of these, so absent → existing defaults.

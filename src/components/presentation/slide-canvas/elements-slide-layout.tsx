@@ -3,12 +3,12 @@ import type * as React from "react";
 
 import type { Slide, SlideElement } from "@/lib/presentation/deck";
 import type { DeckThemeTokenSet } from "@/lib/presentation/deck-theme-tokens";
+import type { SlideThemeColors } from "@/lib/presentation/style-cascade";
 import type { Visual } from "@/lib/visual/schema";
 
 import { ConnectorElementView } from "./connector-elements";
 import { ImageElementView } from "./media-elements";
 import { PlaceholderElementView } from "./placeholder-elements";
-import type { ThemeConfig } from "./primitives";
 import { ShapeElementView } from "./shape-elements";
 import { BulletsElementView, TextElementView } from "./text-elements";
 import { VisualElementView } from "./visual-elements";
@@ -24,7 +24,7 @@ function SlideElementView({
 }: {
   element: SlideElement;
   elements: readonly SlideElement[];
-  tc: ThemeConfig;
+  tc: SlideThemeColors;
   accent: string;
   tokenSet: DeckThemeTokenSet;
   visuals: ReadonlyMap<string, Visual>;
@@ -97,7 +97,7 @@ export function ElementsSlideLayout({
   editable,
 }: {
   slide: Slide;
-  tc: ThemeConfig;
+  tc: SlideThemeColors;
   tokenSet: DeckThemeTokenSet;
   visuals: ReadonlyMap<string, Visual>;
   hiddenElementIds?: ReadonlySet<string>;

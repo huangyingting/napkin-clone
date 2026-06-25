@@ -475,6 +475,56 @@ test("resolveSlideThemeColors honors a deck custom token set", () => {
   assert.strictEqual(colors.accentColor, "#ff0000");
 });
 
+test("resolveSlideThemeColors keeps slide background and accent overrides first class", () => {
+  const deck = makeDeck({
+    theme: "ocean",
+    slides: [],
+  });
+  const colors = resolveSlideThemeColors(
+    deck,
+    makeSlide({
+      theme: "ocean",
+      background: "#123456",
+      accent: "#fedcba",
+    }),
+  );
+  assert.strictEqual(colors.bgColor, "#123456");
+  assert.strictEqual(colors.accentColor, "#fedcba");
+  assert.strictEqual(colors.titleColor, "#0c4a6e");
+});
+
+test("resolveSlideThemeColors is the shared editor and viewer chrome color source", () => {
+  const deck = makeDeck({
+    theme: "default",
+    customTokenSet: {
+      id: "brand:shared",
+      name: "Shared",
+      colors: {
+        slideBg: "#101820",
+        surface: "#1f2a33",
+        accent: "#f2aa4c",
+        onBg: "#f7f4ef",
+        onSurface: "#ffffff",
+        onAccent: "#101820",
+        muted: "#b9c0c8",
+      },
+      typography: {
+        fontFamily: "Inter",
+        scale: { h1: 36, h2: 28, h3: 22, body: 16, list: 14, footer: 10 },
+      },
+      spacing: { slidePaddingPt: 36, gridUnitPt: 6 },
+      shape: { cornerRadiusPt: 4, shadowCss: "none" },
+      defaultBackground: { type: "solid", color: "#101820" },
+    },
+  });
+  const slide = makeSlide({ theme: "default" });
+  const editorStageColors = resolveSlideThemeColors(deck, slide);
+  const presentChromeColors = resolveSlideThemeColors(deck, slide);
+  const publicViewerColors = resolveSlideThemeColors(deck, slide);
+  assert.deepEqual(presentChromeColors, editorStageColors);
+  assert.deepEqual(publicViewerColors, editorStageColors);
+});
+
 test("resolveSlideThemeColors collapses a slide gradient background to its from-stop", () => {
   const colors = resolveSlideThemeColors(
     undefined,

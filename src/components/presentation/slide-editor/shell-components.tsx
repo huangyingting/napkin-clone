@@ -24,11 +24,11 @@ import { Popover } from "@/components/ui/popover";
 import { Tooltip } from "@/components/ui";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { ElementToolbarContent } from "@/components/presentation/slide-stage-editor";
-import type { ThemeConfig } from "@/components/presentation/slide-canvas";
 import { useFocusTrap } from "@/lib/presentation/use-focus-trap";
 import type { Visual } from "@/lib/visual/schema";
 import type { SlideElement } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
+import type { SlideThemeColors } from "@/lib/presentation/style-cascade";
 import type { SlideFormat } from "@/lib/presentation/slide-format";
 import {
   SLIDE_FORMATS,
@@ -1230,7 +1230,7 @@ export function SlideSelectionToolbar({
 }: {
   selectedElement: SlideElement | null;
   selectedCount: number;
-  theme: ThemeConfig;
+  theme: SlideThemeColors;
   brandSwatches: readonly string[];
   onUpdateElement: (
     id: string,
