@@ -21,6 +21,70 @@ import { WebSocketServer } from "ws";
 import { logScriptError } from "./structured-log.mjs";
 
 const PING_TIMEOUT = 30000;
+const DEFAULT_MAX_CONNECTIONS_PER_ROOM = 50;
+const DEFAULT_MAX_CONNECTIONS_TOTAL = 500;
+const DEFAULT_MAX_MESSAGE_BYTES = 256 * 1024;
+const DEFAULT_MAX_MESSAGES_PER_WINDOW = 120;
+const DEFAULT_MESSAGE_WINDOW_MS = 10_000;
+const DEFAULT_MAX_AWARENESS_BYTES = 16 * 1024;
+
+const readPositiveInt = (name, fallback) => {
+  const parsed = Number.parseInt(process.env[name] ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const collabLimits = () => ({
+  maxConnectionsPerRoom: readPositiveInt(
+    "COLLAB_MAX_CONNECTIONS_PER_ROOM",
+    DEFAULT_MAX_CONNECTIONS_PER_ROOM,
+  ),
+  maxConnectionsTotal: readPositiveInt(
+    "COLLAB_MAX_CONNECTIONS_TOTAL",
+    DEFAULT_MAX_CONNECTIONS_TOTAL,
+  ),
+  maxMessageBytes: readPositiveInt(
+    "COLLAB_MAX_MESSAGE_BYTES",
+    DEFAULT_MAX_MESSAGE_BYTES,
+  ),
+  maxMessagesPerWindow: readPositiveInt(
+    "COLLAB_MAX_MESSAGES_PER_WINDOW",
+    DEFAULT_MAX_MESSAGES_PER_WINDOW,
+  ),
+  messageWindowMs: readPositiveInt(
+    "COLLAB_MESSAGE_WINDOW_MS",
+    DEFAULT_MESSAGE_WINDOW_MS,
+  ),
+  maxAwarenessBytes: readPositiveInt(
+    "COLLAB_MAX_AWARENESS_BYTES",
+    DEFAULT_MAX_AWARENESS_BYTES,
+  ),
+});
+
+const clientIpFromUpgrade = (req) => {
+  const forwarded = req.headers?.["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.trim()) {
+    return forwarded.split(",")[0].trim();
+  }
+  const realIp = req.headers?.["x-real-ip"];
+  if (typeof realIp === "string" && realIp.trim()) return realIp.trim();
+  return req.socket?.remoteAddress || "unknown";
+};
+
+const allowUpgradeAttempt = (subject, now = Date.now()) => {
+  const limit = readPositiveInt(
+    "COLLAB_UPGRADE_RATE_LIMIT",
+    DEFAULT_MAX_MESSAGES_PER_WINDOW,
+  );
+  const windowMs = readPositiveInt("COLLAB_UPGRADE_RATE_WINDOW_MS", 60_000);
+  const existing = upgradeWindows.get(subject);
+  if (!existing || now >= existing.resetAt) {
+    upgradeWindows.set(subject, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  if (existing.count >= limit) return false;
+  existing.count += 1;
+  return true;
+};
 
 /**
  * How long (ms) an empty room stays in memory after the last connection closes
@@ -31,6 +95,7 @@ export const ROOM_IDLE_TTL_MS = 60_000;
 
 /** @type {Map<string, ReturnType<typeof setTimeout>>} room name → pending eviction timer */
 const evictTimers = new Map();
+const upgradeWindows = new Map();
 
 const wsReadyStateConnecting = 0;
 const wsReadyStateOpen = 1;
@@ -285,6 +350,7 @@ const scheduleEviction = (
       evictRoom(doc, roomName, onBeforeEvict);
     }
   }, ttlMs);
+  timer.unref?.();
   evictTimers.set(roomName, timer);
 };
 
@@ -312,6 +378,38 @@ const messageListener = (
   onBeforeEvict = null,
 ) => {
   try {
+    const limits = collabLimits();
+    if (message.byteLength > limits.maxMessageBytes) {
+      logScriptError("collab.core.flood", new Error("message too large"), {
+        room: doc.name,
+        reason: "message_too_large",
+        bytes: message.byteLength,
+        budget: limits.maxMessageBytes,
+      });
+      closeConn(doc, conn, onBeforeEvict);
+      return;
+    }
+    const rate = conn.__textiqRate ?? {
+      count: 0,
+      resetAt: Date.now() + limits.messageWindowMs,
+    };
+    const now = Date.now();
+    if (now >= rate.resetAt) {
+      rate.count = 0;
+      rate.resetAt = now + limits.messageWindowMs;
+    }
+    rate.count += 1;
+    conn.__textiqRate = rate;
+    if (rate.count > limits.maxMessagesPerWindow) {
+      logScriptError("collab.core.flood", new Error("message rate exceeded"), {
+        room: doc.name,
+        reason: "message_rate",
+        budget: limits.maxMessagesPerWindow,
+      });
+      closeConn(doc, conn, onBeforeEvict);
+      return;
+    }
+
     const encoder = encoding.createEncoder();
     const decoder = decoding.createDecoder(message);
     const messageType = decoding.readVarUint(decoder);
@@ -339,11 +437,24 @@ const messageListener = (
         break;
       }
       case messageAwareness:
-        awarenessProtocol.applyAwarenessUpdate(
-          doc.awareness,
-          decoding.readVarUint8Array(decoder),
-          conn,
-        );
+        {
+          const update = decoding.readVarUint8Array(decoder);
+          if (update.byteLength > limits.maxAwarenessBytes) {
+            logScriptError(
+              "collab.core.flood",
+              new Error("awareness too large"),
+              {
+                room: doc.name,
+                reason: "awareness_too_large",
+                bytes: update.byteLength,
+                budget: limits.maxAwarenessBytes,
+              },
+            );
+            closeConn(doc, conn, onBeforeEvict);
+            return;
+          }
+          awarenessProtocol.applyAwarenessUpdate(doc.awareness, update, conn);
+        }
         break;
       case messageQueryAwareness:
         encoding.writeVarUint(encoder, messageAwareness);
@@ -426,9 +537,29 @@ const setupConnection = (
   onBeforeEvict = null,
 ) => {
   conn.binaryType = "arraybuffer";
-  const doc = getYDoc(roomName || "default");
+  const room = roomName || "default";
+  const limits = collabLimits();
+  const existingDoc = docs.get(room);
+  if (existingDoc && existingDoc.conns.size >= limits.maxConnectionsPerRoom) {
+    logScriptError("collab.core.flood", new Error("room connection cap"), {
+      room,
+      reason: "room_connection_cap",
+      budget: limits.maxConnectionsPerRoom,
+    });
+    conn.close();
+    return;
+  }
+  if (connCount() >= limits.maxConnectionsTotal) {
+    logScriptError("collab.core.flood", new Error("total connection cap"), {
+      reason: "total_connection_cap",
+      budget: limits.maxConnectionsTotal,
+    });
+    conn.close();
+    return;
+  }
+  const doc = getYDoc(room);
   // Cancel any pending eviction — this connection revives the room.
-  cancelEviction(roomName || "default");
+  cancelEviction(room);
   doc.conns.set(conn, new Set());
 
   conn.on("message", (message) =>
@@ -458,6 +589,7 @@ const setupConnection = (
       }
     }
   }, PING_TIMEOUT);
+  pingInterval.unref?.();
 
   conn.on("close", () => {
     closeConn(doc, conn, onBeforeEvict);
@@ -510,7 +642,12 @@ export const connCount = () => {
 export const _testOnly = {
   docs,
   evictTimers,
+  upgradeWindows,
   savedStateVectors,
+  collabLimits,
+  allowUpgradeAttempt,
+  messageListener,
+  setupConnection,
   scheduleEviction,
   cancelEviction,
   evictRoom,
@@ -582,6 +719,13 @@ export function createCollabWss(roomFromUrl, options = {}) {
   });
 
   const handleUpgrade = async (req, socket, head) => {
+    if (!allowUpgradeAttempt(clientIpFromUpgrade(req))) {
+      logScriptError("collab.core.flood", new Error("upgrade rate exceeded"), {
+        reason: "upgrade_rate",
+      });
+      refuseUpgrade(socket, 429);
+      return;
+    }
     let decision = { ok: true, readOnly: false };
     try {
       decision = await authorize(req, toRoom(req.url || "/"));

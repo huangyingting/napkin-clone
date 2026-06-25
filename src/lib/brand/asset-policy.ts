@@ -4,6 +4,7 @@ import {
   BRAND_FONT_MAX_BYTES,
   BRAND_LOGO_ACCEPTED_TYPES,
   BRAND_LOGO_MAX_BYTES,
+  SLIDE_ASSET_MAX_DIMENSION_PX,
 } from "@/lib/limits";
 
 /**
@@ -53,5 +54,6 @@ export const BRAND_LOGO_UPLOAD_POLICY: AssetUploadPolicy<string> = {
   acceptedMimeTypes: BRAND_LOGO_ACCEPTED_TYPES,
   mimeToExt: BRAND_MIME_TO_EXT,
   maxBytes: BRAND_LOGO_MAX_BYTES,
+  dimensions: { maxPx: SLIDE_ASSET_MAX_DIMENSION_PX },
   extensionMimeMap: BRAND_EXTENSION_MIME_MAP,
 };

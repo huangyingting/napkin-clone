@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { PublicPresentViewer } from "@/components/presentation/public-present-viewer";
+import { publicShareBudgetExceeded } from "@/app/public-abuse";
 import { app as appEnv } from "@/lib/env";
 import { buildPublicMetadata } from "@/lib/public-render/metadata";
 import { resolvePublicRender } from "@/lib/public-render/resolver";
@@ -40,6 +41,9 @@ export default async function PresentPage({
   params: Promise<{ shareId: string }>;
 }) {
   const { shareId } = await params;
+  if (await publicShareBudgetExceeded()) {
+    notFound();
+  }
 
   const result = await resolvePublicRender({
     params: { shareId },

@@ -1,6 +1,17 @@
 import "server-only";
 
 import { uploadValidationStatus } from "@/lib/api/errors";
+import { rejectOversizedBody } from "@/lib/api/route-adapters";
+import {
+  formatAssetUploadPolicyError,
+  imageDimensionsFromBytes,
+  validateAssetDimensionsPolicy,
+  validateAssetMagicBytes,
+} from "@/lib/assets/upload-policy";
+import {
+  BRAND_FONT_UPLOAD_POLICY,
+  BRAND_LOGO_UPLOAD_POLICY,
+} from "@/lib/brand/asset-policy";
 
 import { storeBrandAsset } from "./asset-store";
 import {
@@ -34,6 +45,7 @@ type BrandUploadKind = "logo" | "font";
 type BrandUploadConfig<TBody> = {
   kind: BrandUploadKind;
   validate(type: string, name: string, size: number): UploadValidation;
+  maxBytes: number;
   buildBody(input: {
     url: string;
     assetId: string;
@@ -59,6 +71,19 @@ async function uploadBrandAsset<TBody>(
   ownerId: string,
   config: BrandUploadConfig<TBody>,
 ): Promise<BrandUploadResult<TBody>> {
+  const oversized = rejectOversizedBody(
+    request,
+    config.maxBytes + 64 * 1024,
+    "Uploaded file is too large.",
+  );
+  if (oversized) {
+    return {
+      ok: false,
+      error: "Uploaded file is too large.",
+      status: 413,
+    };
+  }
+
   let formData: FormData;
   try {
     formData = await request.formData();
@@ -89,6 +114,29 @@ async function uploadBrandAsset<TBody>(
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
+  const magic = validateAssetMagicBytes(validation.mime, buffer);
+  if (!magic.ok) {
+    return {
+      ok: false,
+      error: formatAssetUploadPolicyError(magic.error),
+      status: uploadValidationStatus(magic.error),
+    };
+  }
+  if (config.kind === "logo") {
+    const dimensions = imageDimensionsFromBytes(validation.mime, buffer);
+    const dimensionValidation = validateAssetDimensionsPolicy(
+      BRAND_LOGO_UPLOAD_POLICY,
+      dimensions.widthPx,
+      dimensions.heightPx,
+    );
+    if (!dimensionValidation.ok) {
+      return {
+        ok: false,
+        error: formatAssetUploadPolicyError(dimensionValidation.error),
+        status: uploadValidationStatus(dimensionValidation.error),
+      };
+    }
+  }
   const stored = await storeBrandAsset({
     ownerId,
     buffer,
@@ -115,6 +163,7 @@ export function uploadBrandLogo(
   return uploadBrandAsset(request, ownerId, {
     kind: "logo",
     validate: validateLogoUpload,
+    maxBytes: BRAND_LOGO_UPLOAD_POLICY.maxBytes,
     buildBody: ({ url, assetId, mime }) => ({
       url,
       assetId,
@@ -130,6 +179,7 @@ export function uploadBrandFont(
   return uploadBrandAsset(request, ownerId, {
     kind: "font",
     validate: validateFontUpload,
+    maxBytes: BRAND_FONT_UPLOAD_POLICY.maxBytes,
     buildBody: ({ url, assetId, mime, fileName }) => ({
       url,
       assetId,

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { GenerationError, MAX_INPUT_CHARS } from "@/lib/ai/generate";
+import { ModelOutputBudgetError } from "@/lib/ai/generation-runner";
 
 import { mapGenerateError, parseGeneratePayload } from "./parser";
 
@@ -48,5 +49,16 @@ test("mapGenerateError preserves generation failure contract", () => {
     status: 502,
     message: "We couldn't generate visuals from that text. Please try again.",
     log: { reason: "generation-failed", status: 502 },
+  });
+
+  test("mapGenerateError maps model-output budget failures safely", () => {
+    assert.deepEqual(
+      mapGenerateError(new ModelOutputBudgetError("bytes", 10, 5)),
+      {
+        status: 502,
+        message: "The AI response was too large. Please try again.",
+        log: { reason: "model-output-budget", status: 502 },
+      },
+    );
   });
 });

@@ -17,7 +17,8 @@ export type AssetUploadPolicyError =
   | { code: "type_rejected"; accepted: readonly string[] }
   | { code: "file_too_large"; maxBytes: number }
   | { code: "dimension_exceeded"; maxPx: number }
-  | { code: "checksum_missing" };
+  | { code: "checksum_missing" }
+  | { code: "signature_mismatch" };
 
 export type AssetUploadPolicyValidation<TMime extends string = string> =
   | { ok: true; mime: TMime; byteSize: number }
@@ -92,6 +93,90 @@ export function validateAssetDimensionsPolicy(
   return { ok: true };
 }
 
+function hasPrefix(bytes: Uint8Array, prefix: readonly number[]): boolean {
+  return prefix.every((value, index) => bytes[index] === value);
+}
+
+export function sniffAssetMime(bytes: Uint8Array): string | null {
+  if (hasPrefix(bytes, [0x89, 0x50, 0x4e, 0x47])) return "image/png";
+  if (hasPrefix(bytes, [0xff, 0xd8, 0xff])) return "image/jpeg";
+  if (hasPrefix(bytes, [0x52, 0x49, 0x46, 0x46]) && bytes.length >= 12) {
+    const webp = String.fromCharCode(...bytes.slice(8, 12));
+    if (webp === "WEBP") return "image/webp";
+  }
+  if (hasPrefix(bytes, [0x77, 0x4f, 0x46, 0x46])) return "font/woff";
+  if (hasPrefix(bytes, [0x77, 0x4f, 0x46, 0x32])) return "font/woff2";
+  if (hasPrefix(bytes, [0x00, 0x01, 0x00, 0x00])) return "font/ttf";
+  if (hasPrefix(bytes, [0x4f, 0x54, 0x54, 0x4f])) return "font/otf";
+  return null;
+}
+
+export function validateAssetMagicBytes(
+  declaredMime: string,
+  bytes: Uint8Array,
+): { ok: true } | { ok: false; error: AssetUploadPolicyError } {
+  if (declaredMime === "image/svg+xml") return { ok: true };
+  const sniffed = sniffAssetMime(bytes);
+  if (sniffed === null) {
+    return { ok: false, error: { code: "signature_mismatch" } };
+  }
+  const equivalent =
+    (declaredMime === "application/font-woff" && sniffed === "font/woff") ||
+    (declaredMime === "application/font-woff2" && sniffed === "font/woff2") ||
+    (declaredMime === "application/x-font-ttf" && sniffed === "font/ttf") ||
+    (declaredMime === "application/x-font-otf" && sniffed === "font/otf");
+  if (declaredMime !== sniffed && !equivalent) {
+    return { ok: false, error: { code: "signature_mismatch" } };
+  }
+  return { ok: true };
+}
+
+export function imageDimensionsFromBytes(
+  mime: string,
+  bytes: Uint8Array,
+): { widthPx?: number; heightPx?: number } {
+  if (mime === "image/png" && bytes.length >= 24) {
+    return {
+      widthPx: readUInt32BE(bytes, 16),
+      heightPx: readUInt32BE(bytes, 20),
+    };
+  }
+  if (mime === "image/jpeg") {
+    return jpegDimensions(bytes);
+  }
+  return {};
+}
+
+function readUInt32BE(bytes: Uint8Array, offset: number): number {
+  return (
+    bytes[offset]! * 0x1000000 +
+    ((bytes[offset + 1]! << 16) |
+      (bytes[offset + 2]! << 8) |
+      bytes[offset + 3]!)
+  );
+}
+
+function jpegDimensions(bytes: Uint8Array): {
+  widthPx?: number;
+  heightPx?: number;
+} {
+  let offset = 2;
+  while (offset + 9 < bytes.length) {
+    if (bytes[offset] !== 0xff) break;
+    const marker = bytes[offset + 1]!;
+    const length = (bytes[offset + 2]! << 8) | bytes[offset + 3]!;
+    if (length < 2) break;
+    if (marker >= 0xc0 && marker <= 0xc3 && offset + 8 < bytes.length) {
+      return {
+        heightPx: (bytes[offset + 5]! << 8) | bytes[offset + 6]!,
+        widthPx: (bytes[offset + 7]! << 8) | bytes[offset + 8]!,
+      };
+    }
+    offset += 2 + length;
+  }
+  return {};
+}
+
 export function buildAssetPolicyMeta<TMime extends string>(opts: {
   policy: AssetUploadPolicy<TMime>;
   type: string;
@@ -139,5 +224,7 @@ export function formatAssetUploadPolicyError(
       return `Image dimensions exceed the ${error.maxPx}px limit.`;
     case "checksum_missing":
       return "File integrity check failed — checksum is required.";
+    case "signature_mismatch":
+      return "Uploaded file contents do not match the declared file type.";
   }
 }

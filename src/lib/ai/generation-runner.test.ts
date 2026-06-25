@@ -2,10 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  ModelOutputBudgetError,
   extractJson,
   runGenerationAttempts,
   type CompleteFn,
 } from "@/lib/ai/generation-runner";
+import {
+  AI_MODEL_OUTPUT_MAX_BYTES,
+  AI_MODEL_OUTPUT_MAX_JSON_NODES,
+} from "@/lib/limits";
 import type { GenerationFailureContext } from "@/lib/ai/generation-diagnostics";
 
 function completeSequence(responses: string[]): {
@@ -90,4 +95,25 @@ test("extractJson handles objects, arrays, fences, and surrounding prose", () =>
   assert.deepEqual(extractJson('prefix {"a":3} suffix'), { a: 3 });
   assert.equal(extractJson("not json at all"), undefined);
   assert.equal(extractJson(""), undefined);
+});
+
+test("extractJson rejects model output over byte budget", () => {
+  assert.throws(
+    () => extractJson("x".repeat(AI_MODEL_OUTPUT_MAX_BYTES + 1)),
+    (error) =>
+      error instanceof ModelOutputBudgetError &&
+      error.metric === "bytes" &&
+      error.limit === AI_MODEL_OUTPUT_MAX_BYTES,
+  );
+});
+
+test("extractJson rejects parsed output over node budget", () => {
+  const overBudget = JSON.stringify(
+    Array.from({ length: AI_MODEL_OUTPUT_MAX_JSON_NODES + 1 }, () => 1),
+  );
+  assert.throws(
+    () => extractJson(overBudget),
+    (error) =>
+      error instanceof ModelOutputBudgetError && error.metric === "jsonNodes",
+  );
 });

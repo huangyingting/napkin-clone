@@ -4,7 +4,9 @@ import { describe, it } from "node:test";
 import {
   buildAssetPolicyMeta,
   formatAssetUploadPolicyError,
+  imageDimensionsFromBytes,
   validateAssetDimensionsPolicy,
+  validateAssetMagicBytes,
   validateAssetUploadPolicy,
 } from "@/lib/assets/upload-policy";
 import { BRAND_LOGO_UPLOAD_POLICY } from "@/lib/brand/asset-policy";
@@ -77,6 +79,31 @@ describe("asset upload policy validation", () => {
     if (result.ok) {
       assert.equal(result.meta.mimeType, "image/webp");
       assert.equal(result.meta.originalName, "photo.webp");
+    }
+  });
+
+  it("validates raster/font magic bytes and extracts PNG dimensions", () => {
+    const png = new Uint8Array([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0, 0x49, 0x48,
+      0x44, 0x52, 0, 0, 0x01, 0x00, 0, 0, 0x02, 0x00,
+    ]);
+    assert.deepEqual(validateAssetMagicBytes("image/png", png), { ok: true });
+    assert.deepEqual(imageDimensionsFromBytes("image/png", png), {
+      widthPx: 256,
+      heightPx: 512,
+    });
+
+    assert.deepEqual(
+      validateAssetMagicBytes("font/woff2", Buffer.from("wOF2")),
+      {
+        ok: true,
+      },
+    );
+    const bad = validateAssetMagicBytes("image/png", Buffer.from("not-png"));
+    assert.equal(bad.ok, false);
+    if (!bad.ok) {
+      assert.equal(bad.error.code, "signature_mismatch");
+      assert.match(formatAssetUploadPolicyError(bad.error), /contents/);
     }
   });
 });

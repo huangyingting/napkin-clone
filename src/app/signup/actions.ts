@@ -5,14 +5,28 @@ import { AuthError } from "next-auth";
 import { signIn } from "@/auth";
 import { safeCallbackUrl } from "@/lib/auth/callback-url";
 import { registerCredentialsUser } from "@/lib/auth/credentials-service";
+import { normalizeEmail } from "@/lib/auth/password";
+import {
+  checkServerActionAbuseBudget,
+  retryMessage,
+} from "@/lib/server-action-abuse";
 
 export async function register(
   _prevState: string | undefined,
   formData: FormData,
 ): Promise<string | undefined> {
+  const email = normalizeEmail(formData.get("email"));
+  const budget = await checkServerActionAbuseBudget(
+    "auth.signup.email",
+    email || "missing-email",
+  );
+  if (!budget.allowed) {
+    return retryMessage(budget.retryAfterSeconds);
+  }
+
   const registered = await registerCredentialsUser({
     name: formData.get("name"),
-    email: formData.get("email"),
+    email,
     password: formData.get("password"),
   });
   if (!registered.ok) {

@@ -30,9 +30,11 @@ import { timingSafeEqual } from "node:crypto";
 
 import { NextResponse, type NextRequest } from "next/server";
 
+import { checkAbuseBudget } from "@/lib/abuse-budget";
 import {
   featureDisabled,
   notFound,
+  tooManyRequests,
   unauthorized,
   validationError,
 } from "@/lib/api/errors";
@@ -46,6 +48,7 @@ export const runtime = "nodejs";
 
 const LOG_SCOPE = "api.collab.flush";
 const SECRET_HEADER = "x-collab-internal-secret";
+const COLLAB_FLUSH_JSON_MAX_BYTES = 512 * 1024;
 
 /** Constant-time string comparison that never throws on length mismatch. */
 function secretsMatch(provided: string, expected: string): boolean {
@@ -68,9 +71,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return unauthorized();
   }
 
-  const json = await readJsonValue(request);
+  const json = await readJsonValue(request, "Invalid JSON body.", {
+    maxBytes: COLLAB_FLUSH_JSON_MAX_BYTES,
+    tooLargeMessage: "Collaboration flush body is too large.",
+  });
   if (!json.ok) {
-    return validationError("Invalid JSON body.");
+    return json.response.status === 413
+      ? validationError("Collaboration flush body is too large.", 413)
+      : validationError("Invalid JSON body.");
   }
 
   const parsed = parseCollabFlushPayload(json.body);
@@ -78,6 +86,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return validationError(parsed.message);
   }
   const { documentId, update } = parsed.payload;
+  const budget = await checkAbuseBudget({
+    namespace: "collab.flush.room",
+    subject: documentId,
+    secret: expectedSecret,
+  });
+  if (!budget.allowed) {
+    return tooManyRequests(
+      budget.retryAfterSeconds,
+      "Too many collaboration flushes.",
+    );
+  }
 
   // Never create rows — only snapshot onto an existing document.
   const existing = await prisma.document.findUnique({

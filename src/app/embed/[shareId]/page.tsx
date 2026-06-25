@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { LexicalReadOnly } from "@/components/lexical/lexical-read-only";
 import { MadeWithBadge } from "@/components/made-with-badge";
+import { publicShareBudgetExceeded } from "@/app/public-abuse";
 import { resolvePublicRender } from "@/lib/public-render/resolver";
 
 export const metadata: Metadata = {
@@ -24,6 +25,9 @@ export default async function EmbedPage({
   params: Promise<{ shareId: string }>;
 }) {
   const { shareId } = await params;
+  if (await publicShareBudgetExceeded()) {
+    notFound();
+  }
 
   const result = await resolvePublicRender({
     params: { shareId },

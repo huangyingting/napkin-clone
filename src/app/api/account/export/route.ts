@@ -13,7 +13,8 @@
 
 import { NextResponse } from "next/server";
 
-import { unauthorized } from "@/lib/api/errors";
+import { tooManyRequests, unauthorized } from "@/lib/api/errors";
+import { checkAbuseBudget, requireAbuseBudgetSecret } from "@/lib/abuse-budget";
 import { loadAccountExport } from "@/lib/account/export-loader";
 import { logError } from "@/lib/log";
 import { getCurrentUser } from "@/lib/session";
@@ -24,6 +25,17 @@ export async function GET(): Promise<NextResponse> {
   const sessionUser = await getCurrentUser();
   if (!sessionUser) {
     return unauthorized();
+  }
+  const secret = requireAbuseBudgetSecret();
+  if (secret) {
+    const budget = await checkAbuseBudget({
+      namespace: "account.export.user",
+      subject: sessionUser.id,
+      secret,
+    });
+    if (!budget.allowed) {
+      return tooManyRequests(budget.retryAfterSeconds);
+    }
   }
 
   try {

@@ -22,6 +22,11 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 
+import {
+  checkAbuseBudget,
+  getClientSubject,
+  requireAbuseBudgetSecret,
+} from "@/lib/abuse-budget";
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { decideBrandAssetAccess } from "@/lib/brand/asset-access";
@@ -35,9 +40,26 @@ import {
 export const runtime = "nodejs";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ ownerId: string; path: string[] }> },
 ): Promise<NextResponse> {
+  const secret = requireAbuseBudgetSecret();
+  if (secret) {
+    const budget = await checkAbuseBudget({
+      namespace: "public.asset.ip",
+      subject: getClientSubject(request.headers),
+      secret,
+    });
+    if (!budget.allowed) {
+      return new NextResponse("Too many requests", {
+        status: 429,
+        headers: budget.retryAfterSeconds
+          ? { "Retry-After": String(budget.retryAfterSeconds) }
+          : undefined,
+      });
+    }
+  }
+
   const { ownerId, path: pathSegments } = await params;
   const filenamePart = Array.isArray(pathSegments)
     ? pathSegments.join("/")

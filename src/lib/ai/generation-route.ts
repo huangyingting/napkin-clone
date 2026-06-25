@@ -39,6 +39,7 @@ import {
 import { ABUSE_CATEGORIES, logRouteDenial } from "@/lib/diagnostics/api-abuse";
 import { auth as authEnv } from "@/lib/env";
 import { logError } from "@/lib/log";
+import { AI_JSON_BODY_MAX_BYTES } from "@/lib/limits";
 import {
   anonIpRateLimit,
   anonIpRateWindowMs,
@@ -251,7 +252,10 @@ export function createGenerationRouteHandler<TPayload, TResult>(
   ): Promise<NextResponse> {
     const requestId = deps.requestId();
 
-    const json = await readJsonObject(request);
+    const json = await readJsonObject(request, {
+      maxBytes: AI_JSON_BODY_MAX_BYTES,
+      tooLargeMessage: "AI request body is too large.",
+    });
     if (!json.ok) {
       return json.response;
     }

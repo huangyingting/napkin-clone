@@ -8,6 +8,7 @@ import type {
   GenerationRouteErrorMapping,
   PayloadParseResult,
 } from "@/lib/ai/generation-route";
+import { ModelOutputBudgetError } from "@/lib/ai/generation-runner";
 import {
   DETAIL_LEVELS,
   ORIENTATIONS,
@@ -104,6 +105,13 @@ export function mapGenerateError(
       status: 502,
       message: "We couldn't generate visuals from that text. Please try again.",
       log: { reason: "generation-failed", status: 502 },
+    };
+  }
+  if (error instanceof ModelOutputBudgetError) {
+    return {
+      status: 502,
+      message: "The AI response was too large. Please try again.",
+      log: { reason: "model-output-budget", status: 502 },
     };
   }
   return null;

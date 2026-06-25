@@ -1,5 +1,9 @@
 import type { ChatMessage } from "@/lib/ai/prompt";
 import {
+  AI_MODEL_OUTPUT_MAX_BYTES,
+  AI_MODEL_OUTPUT_MAX_JSON_NODES,
+} from "@/lib/limits";
+import {
   reportGenerationFailure,
   type GenerationFailureContext,
 } from "@/lib/ai/generation-diagnostics";
@@ -32,6 +36,20 @@ export interface GenerationAttemptRunnerOptions<TRepaired, TValidated> {
   reportFailure?: (context: GenerationFailureContext) => void;
 }
 
+export class ModelOutputBudgetError extends Error {
+  readonly metric: "bytes" | "jsonNodes";
+  readonly actual: number;
+  readonly limit: number;
+
+  constructor(metric: "bytes" | "jsonNodes", actual: number, limit: number) {
+    super(`AI model output exceeded ${metric} budget.`);
+    this.name = "ModelOutputBudgetError";
+    this.metric = metric;
+    this.actual = actual;
+    this.limit = limit;
+  }
+}
+
 /** Strips a single ```...``` / ```json ... ``` fence if the content is wrapped. */
 function stripCodeFence(raw: string): string {
   const match = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
@@ -44,14 +62,19 @@ function stripCodeFence(raw: string): string {
  * `{...}` or `[...]` slice. Returns `undefined` when nothing parses.
  */
 export function extractJson(raw: string): unknown {
+  const bytes = Buffer.byteLength(raw, "utf8");
+  if (bytes > AI_MODEL_OUTPUT_MAX_BYTES) {
+    throw new ModelOutputBudgetError("bytes", bytes, AI_MODEL_OUTPUT_MAX_BYTES);
+  }
   const text = stripCodeFence(raw).trim();
   if (!text) {
     return undefined;
   }
 
   try {
-    return JSON.parse(text);
-  } catch {
+    return guardJsonNodeBudget(JSON.parse(text));
+  } catch (error) {
+    if (error instanceof ModelOutputBudgetError) throw error;
     // fall through to substring extraction
   }
 
@@ -69,13 +92,36 @@ export function extractJson(raw: string): unknown {
 
   for (const [start, end] of candidates) {
     try {
-      return JSON.parse(text.slice(start, end + 1));
-    } catch {
+      return guardJsonNodeBudget(JSON.parse(text.slice(start, end + 1)));
+    } catch (error) {
+      if (error instanceof ModelOutputBudgetError) throw error;
       // try the next candidate slice
     }
   }
 
   return undefined;
+}
+
+function guardJsonNodeBudget(value: unknown): unknown {
+  let nodes = 0;
+  const stack = [value];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    nodes += 1;
+    if (nodes > AI_MODEL_OUTPUT_MAX_JSON_NODES) {
+      throw new ModelOutputBudgetError(
+        "jsonNodes",
+        nodes,
+        AI_MODEL_OUTPUT_MAX_JSON_NODES,
+      );
+    }
+    if (current !== null && typeof current === "object") {
+      stack.push(
+        ...(Array.isArray(current) ? current : Object.values(current)),
+      );
+    }
+  }
+  return value;
 }
 
 function diagnosticContext(

@@ -36,8 +36,8 @@ const handleGenerate = createGenerationRouteHandler<GeneratePayload, Visual[]>({
   logScope: LOG_SCOPE,
   operation: "generate",
   rateLimitSubjects: {
-    user: "gen-user",
-    anonymousIp: "gen-anon-ip",
+    user: "ai.visual.user",
+    anonymousIp: "ai.visual.anonymous-ip",
   },
   anonymousQuotaExceededMessage:
     "You've used all your free generations. Sign in to keep creating visuals.",
