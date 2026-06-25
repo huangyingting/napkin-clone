@@ -23,7 +23,10 @@
  * live database. No React / Next / browser APIs.
  */
 
-import { logInfo, logError } from "@/lib/log";
+import {
+  logAssetOrphanEvent,
+  logAssetOrphanFailure,
+} from "@/lib/diagnostics/domain-events";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -127,7 +130,7 @@ export async function reconcileBrandAssets(
     data: { deletedAt: now },
   });
 
-  logInfo("brand-asset-orphan-mark", "brand assets marked as orphaned", {
+  logAssetOrphanEvent("brand", "mark", "brand assets marked as orphaned", {
     brandId,
     markedCount: result.count,
   });
@@ -174,7 +177,7 @@ export async function purgeExpiredBrandAssets(
       await storage.delete(asset.storageKey);
       purgedIds.push(asset.id);
     } catch (err) {
-      logError("brand-asset-purge-storage", err, {
+      logAssetOrphanFailure("brand", "storage_delete", err, {
         storageKey: asset.storageKey,
       });
     }
@@ -185,7 +188,7 @@ export async function purgeExpiredBrandAssets(
     where: { id: { in: purgedIds } },
   });
 
-  logInfo("brand-asset-orphan-purge", "brand assets physically purged", {
+  logAssetOrphanEvent("brand", "purge", "brand assets physically purged", {
     purgedCount: result.count,
   });
 

@@ -36,6 +36,7 @@ workflow. They are separate from application-level old-data compatibility.
 | [architecture/product/](architecture/product/README.md)           | Brand styles, billing plans, and credits.                |
 | [architecture/security/](architecture/security/README.md)         | Permissions, public sharing, and protected asset access. |
 | [architecture/commands/](architecture/commands/README.md)         | Command envelope and mutation routing inventory.         |
+| [architecture/diagnostics/](architecture/diagnostics/README.md)   | Logging scopes, diagnostic codes, and telemetry layers.  |
 | [security/](security/README.md)                                   | API route security matrix and public-surface governance. |
 | [operations/](operations/README.md)                               | Collaboration deployment and release readiness.          |
 

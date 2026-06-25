@@ -25,6 +25,11 @@ import {
 import { createCollabAuthorizer } from "./collab-auth.mjs";
 import { createEvictionFlusher } from "./collab-flush.mjs";
 import { resolveDeploymentConfig } from "./collab-deployment-config.mjs";
+import {
+  logScriptError,
+  logScriptInfo,
+  logScriptWarning,
+} from "./structured-log.mjs";
 
 const PORT = Number(process.env.COLLAB_PORT || 1234);
 const HOST = process.env.COLLAB_HOST || "0.0.0.0";
@@ -34,17 +39,23 @@ const deploymentConfig = resolveDeploymentConfig(process.env);
 
 if (!deploymentConfig.healthy) {
   for (const warning of deploymentConfig.warnings) {
-    console.error(`[collab] FATAL CONFIG ERROR: ${warning}`);
+    logScriptError("collab.server.configure", new Error(warning), {
+      mode: deploymentConfig.mode,
+    });
   }
-  console.error(
-    "[collab] Refusing to start in a misconfigured multi-instance environment. " +
-      "Fix the configuration and restart.",
+  logScriptError(
+    "collab.server.configure",
+    new Error("refusing to start in a misconfigured environment"),
+    { mode: deploymentConfig.mode },
   );
   process.exit(1);
 }
 
 for (const warning of deploymentConfig.warnings) {
-  console.warn(`[collab] CONFIG WARNING: ${warning}`);
+  logScriptWarning("collab.server.configure", "configuration warning", {
+    mode: deploymentConfig.mode,
+    warning,
+  });
 }
 
 const server = http.createServer((req, res) => {
@@ -97,8 +108,9 @@ server.on("upgrade", (req, socket, head) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(
-    `[collab] Yjs websocket server listening on ws://${HOST}:${PORT} ` +
-      `[mode: ${deploymentConfig.mode}]`,
-  );
+  logScriptInfo("collab.server.listen", "Yjs websocket server listening", {
+    host: HOST,
+    port: PORT,
+    mode: deploymentConfig.mode,
+  });
 });

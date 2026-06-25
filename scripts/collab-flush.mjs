@@ -21,27 +21,14 @@
  * Runs under plain Node (no TS path aliases), like the rest of `scripts/*.mjs`.
  */
 import { recordFlushAttempt, recordFlushFailure } from "./collab-core.mjs";
+import {
+  logScriptInfo,
+  logScriptWarning,
+  logScriptError,
+} from "./structured-log.mjs";
 
 /** Convert a Uint8Array Yjs update to a base64 string for JSON transport. */
 const toBase64 = (update) => Buffer.from(update).toString("base64");
-
-/** Emit a single structured JSON log line (ids/flags only, never content). */
-const log = (record) => {
-  try {
-    const level = record.level ?? (record.ok ? "info" : "error");
-    const { level: _ignored, ...rest } = record;
-    console.info(
-      JSON.stringify({
-        level,
-        scope: "collab.flush",
-        timestamp: new Date().toISOString(),
-        ...rest,
-      }),
-    );
-  } catch {
-    // Logging must never break eviction.
-  }
-};
 
 /**
  * Builds the `onBeforeEvict` callback wired into `createCollabWss`.
@@ -62,17 +49,16 @@ export function createEvictionFlusher(options = {}) {
   if (!internalSecret) {
     // No-op flusher: dev without the secret still runs. Warn once at startup so
     // the operator knows the eviction recovery snapshot is disabled.
-    console.warn(
-      "[collab] COLLAB_INTERNAL_SECRET is not set — eviction flush is DISABLED. " +
-        "Dirty rooms will rely on client autosave only (no recovery snapshot).",
-    );
+    logScriptWarning("collab.flush.configure", "eviction flush disabled", {
+      reason: "missing-internal-secret",
+    });
     return async () => {};
   }
 
   if (!flushUrl) {
-    console.warn(
-      "[collab] no flush URL configured — eviction flush is DISABLED.",
-    );
+    logScriptWarning("collab.flush.configure", "eviction flush disabled", {
+      reason: "missing-flush-url",
+    });
     return async () => {};
   }
 
@@ -80,8 +66,7 @@ export function createEvictionFlusher(options = {}) {
     // The room name IS the document id in both entry points.
     const docId = roomName;
     recordFlushAttempt();
-    log({
-      level: "info",
+    logScriptInfo("collab.flush.attempt", "eviction flush attempt", {
       room: roomName,
       docId,
       dirty: true,
@@ -105,7 +90,7 @@ export function createEvictionFlusher(options = {}) {
       if (!res.ok) {
         const failureReason = `http_${res.status}`;
         recordFlushFailure({ room: roomName, docId, reason: failureReason });
-        log({
+        logScriptError("collab.flush.result", new Error(failureReason), {
           room: roomName,
           docId,
           dirty: true,
@@ -117,7 +102,7 @@ export function createEvictionFlusher(options = {}) {
         return;
       }
 
-      log({
+      logScriptInfo("collab.flush.result", "eviction flush succeeded", {
         room: roomName,
         docId,
         dirty: true,
@@ -129,7 +114,7 @@ export function createEvictionFlusher(options = {}) {
       const failureReason =
         err instanceof Error ? err.name || "network_error" : "network_error";
       recordFlushFailure({ room: roomName, docId, reason: failureReason });
-      log({
+      logScriptError("collab.flush.result", err, {
         room: roomName,
         docId,
         dirty: true,

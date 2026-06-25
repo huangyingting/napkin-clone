@@ -13,6 +13,7 @@
  * The check fails closed: any error, non-2xx status, or malformed response
  * refuses the upgrade so a transient outage can never silently grant access.
  */
+import { logScriptError } from "./structured-log.mjs";
 
 /**
  * @typedef {Object} CollabUpgradeDecision
@@ -84,7 +85,7 @@ export function createCollabAuthorizer(options = {}) {
 
       return interpretAuthorizeResponse(res.status, body);
     } catch (err) {
-      console.error("[collab] authorize request failed", err);
+      logScriptError("collab.auth.request", err, { room });
       return { ok: false, status: 403 };
     }
   };

@@ -6,6 +6,11 @@ import {
   type CommandEnvelope,
 } from "@/lib/commands/command-envelope";
 import type { VisualCommand } from "@/lib/commands/visual-commands";
+import { buildCommandValidationContext } from "@/lib/diagnostics/domain-events";
+import {
+  commandDiagnosticUnsupported,
+  logDiagnostic,
+} from "@/lib/diagnostics/error-codes";
 
 export interface VisualCommandContext {
   documentId: string;
@@ -181,20 +186,24 @@ export function logCommandValidationFailure(
     return;
   }
 
-  logError(
-    scope,
-    new Error(result.errorMessage ?? "Command validation failed."),
-    {
-      commandId: cmd.id,
-      commandType: cmd.type,
-      commandSurface: cmd.target.surface,
-      schemaVersion: cmd.schemaVersion,
-      documentId: cmd.target.documentId,
-      visualId: cmd.target.visualId,
-      slideId: cmd.target.slideId,
-      elementId: cmd.target.elementId,
-      errorCode: result.errorCode,
-      ...context,
-    },
-  );
+  const error = new Error(result.errorMessage ?? "Command validation failed.");
+  const telemetry = buildCommandValidationContext({
+    ...context,
+    commandId: cmd.id,
+    commandType: cmd.type,
+    commandSurface: cmd.target.surface,
+    schemaVersion: cmd.schemaVersion,
+    documentId: cmd.target.documentId,
+    visualId: cmd.target.visualId,
+    slideId: cmd.target.slideId,
+    elementId: cmd.target.elementId,
+    errorCode: result.errorCode,
+  });
+
+  if (result.errorCode === "unsupported_command") {
+    logDiagnostic(commandDiagnosticUnsupported(cmd.type, telemetry), error);
+    return;
+  }
+
+  logError(scope, error, telemetry);
 }

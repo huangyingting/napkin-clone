@@ -11,62 +11,23 @@
  * The module is framework-free (only `console`) so it is safe server-side and
  * unit-testable via {@link buildErrorLog}, which builds the record without
  * writing anything.
+ *
+ * Key normalization/redaction comes from `log-redaction-core.cjs` so plain
+ * `.mjs` runtime scripts can use the same safety rules without TS path aliases.
  */
+
+import redaction from "@/lib/log-redaction-core.cjs";
 
 /** Replacement value written in place of a redacted sensitive context value. */
-export const REDACTED = "[redacted]";
+export const REDACTED = redaction.REDACTED;
 
-/**
- * Normalized substrings that mark a context key as sensitive. A key is matched
- * after lower-casing and stripping non-alphanumerics, so `AUTH_SECRET`,
- * `api_key`, and `Authorization` all match.
- */
-const SENSITIVE_SUBSTRINGS = [
-  "secret",
-  "password",
-  "passwd",
-  "token",
-  "apikey",
-  "authorization",
-  "cookie",
-  "credential",
-  "privatekey",
-];
-
-/** Normalized keys that hold raw user input and must never be logged. */
-const SENSITIVE_EXACT = new Set([
-  "text",
-  "input",
-  "inputtext",
-  "rawtext",
-  "usertext",
-  "prompt",
-  "messages",
-  "key",
-]);
-
-function normalizeKey(key: string): string {
-  return key.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
+/** Normalized key form used for log redaction comparisons. */
+export const normalizeLogKey = redaction.normalizeLogKey;
 
 /** True when a context key should be redacted before logging. */
-export function isSensitiveKey(key: string): boolean {
-  const normalized = normalizeKey(key);
-  if (SENSITIVE_EXACT.has(normalized)) {
-    return true;
-  }
-  return SENSITIVE_SUBSTRINGS.some((part) => normalized.includes(part));
-}
+export const isSensitiveKey = redaction.isSensitiveKey;
 
-function redactContext(
-  context: Record<string, unknown>,
-): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(context)) {
-    out[key] = isSensitiveKey(key) ? REDACTED : value;
-  }
-  return out;
-}
+const redactContext = redaction.redactContext;
 
 function safeStringify(value: unknown): string {
   try {

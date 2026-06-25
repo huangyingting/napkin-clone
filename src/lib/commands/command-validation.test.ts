@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import { CURRENT_COMMAND_SCHEMA_VERSION } from "@/lib/commands/command-envelope";
 import {
+  logCommandValidationFailure,
   validateDeckCommand,
   validateVisualCommand,
   type DeckCommandContext,
@@ -201,4 +202,67 @@ test("validateDeckCommand accepts valid deck envelopes", () => {
 
   const result = validateDeckCommand(makeDeckCommand(), ctx);
   assert.deepEqual(result, { valid: true });
+});
+
+test("logCommandValidationFailure emits allowlisted metadata without command payload content", () => {
+  const cmd = makeDeckCommand({
+    payload: {
+      type: "UPDATE_SLIDE_TITLE",
+      slideId: "s1",
+      title: "SECRET TITLE",
+    } as SlideCommand,
+  });
+  const result = {
+    valid: false,
+    errorCode: "invalid_command" as const,
+    errorMessage: "Invalid command.",
+  };
+  const original = console.error;
+  const lines: string[] = [];
+  console.error = (line?: unknown) => {
+    lines.push(String(line));
+  };
+  try {
+    logCommandValidationFailure("command.validation.reject", result, cmd, {
+      payload: { title: "SECRET TITLE" },
+      text: "raw command text",
+    });
+  } finally {
+    console.error = original;
+  }
+
+  assert.equal(lines.length, 1);
+  const record = JSON.parse(lines[0]);
+  assert.equal(record.scope, "command.validation.reject");
+  assert.equal(record.commandId, cmd.id);
+  assert.equal(record.errorCode, "invalid_command");
+  assert.ok(!lines[0].includes("SECRET TITLE"));
+  assert.ok(!lines[0].includes("raw command text"));
+});
+
+test("logCommandValidationFailure preserves UNSUPPORTED_COMMAND diagnostic code", () => {
+  const cmd = makeVisualCommand({
+    schemaVersion: CURRENT_COMMAND_SCHEMA_VERSION + 1,
+  });
+  const result = {
+    valid: false,
+    errorCode: "unsupported_command" as const,
+    errorMessage: "Unsupported command schema version.",
+  };
+  const original = console.error;
+  const lines: string[] = [];
+  console.error = (line?: unknown) => {
+    lines.push(String(line));
+  };
+  try {
+    logCommandValidationFailure("command.validation.reject", result, cmd);
+  } finally {
+    console.error = original;
+  }
+
+  assert.equal(lines.length, 1);
+  const record = JSON.parse(lines[0]);
+  assert.equal(record.scope, "command.validation.unsupported");
+  assert.equal(record.code, "UNSUPPORTED_COMMAND");
+  assert.equal(record.errorCode, "unsupported_command");
 });

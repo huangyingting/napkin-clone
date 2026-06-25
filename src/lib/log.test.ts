@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { REDACTED, buildErrorLog, isSensitiveKey, logError } from "@/lib/log";
+import {
+  REDACTED,
+  buildErrorLog,
+  isSensitiveKey,
+  logError,
+  normalizeLogKey,
+} from "@/lib/log";
 import { buildInfoLog, logInfo } from "@/lib/log";
 
 test("buildErrorLog redacts configured sensitive context keys", () => {
@@ -81,6 +87,12 @@ test("isSensitiveKey matches secrets and raw-input keys, not safe ones", () => {
   for (const key of ["requestId", "reason", "scope", "status", "durationMs"]) {
     assert.equal(isSensitiveKey(key), false, `${key} should be safe`);
   }
+});
+
+test("normalizeLogKey strips separators and casing for shared redaction", () => {
+  assert.equal(normalizeLogKey("AUTH_SECRET"), "authsecret");
+  assert.equal(normalizeLogKey("api-key"), "apikey");
+  assert.equal(normalizeLogKey("DeckJSON"), "deckjson");
 });
 
 test("logError emits a single JSON line with no raw newline", () => {

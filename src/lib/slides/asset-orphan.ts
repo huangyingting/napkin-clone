@@ -24,7 +24,10 @@
  * cron jobs, and tests running under `node --test`.
  */
 
-import { logInfo, logError } from "@/lib/log";
+import {
+  logAssetOrphanEvent,
+  logAssetOrphanFailure,
+} from "@/lib/diagnostics/domain-events";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -184,7 +187,7 @@ export async function markOrphanedAssets(
     data: { deletedAt: now },
   });
 
-  logInfo("slide-asset-orphan-mark", "assets marked as orphaned", {
+  logAssetOrphanEvent("slide", "mark", "assets marked as orphaned", {
     documentId,
     markedCount: result.count,
   });
@@ -232,7 +235,7 @@ export async function purgeExpiredAssets(
       await storage.delete(asset.storageKey);
       purgedIds.push(asset.id);
     } catch (err) {
-      logError("slide-asset-purge-storage", err, {
+      logAssetOrphanFailure("slide", "storage_delete", err, {
         storageKey: asset.storageKey,
       });
     }
@@ -244,7 +247,7 @@ export async function purgeExpiredAssets(
     where: { id: { in: purgedIds } },
   });
 
-  logInfo("slide-asset-orphan-purge", "assets physically purged", {
+  logAssetOrphanEvent("slide", "purge", "assets physically purged", {
     documentId,
     purgedCount: result.count,
   });
