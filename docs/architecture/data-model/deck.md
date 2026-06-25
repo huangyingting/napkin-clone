@@ -39,8 +39,8 @@ The current deck version is exported from
 
 There is no deck migration shim. A schema bump means fixtures, generators, and
 persisted development data must be updated to the new shape. Current decks use
-schema v3, which removed the legacy `Deck.theme` and `Slide.theme` fields in
-favor of required `Deck.themeId`.
+schema v3, which removed the superseded per-deck and per-slide theme snapshot
+fields in favor of required `Deck.themeId`.
 
 ## Slide Content Model
 

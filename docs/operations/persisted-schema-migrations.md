@@ -126,12 +126,12 @@ interface MigrationDescriptor<Row> {
 
 ## Deck theme unification (schema v3)
 
-Deck schema v3 removes the legacy `Deck.theme` and `Slide.theme` fields. The
-current persisted shape uses required `Deck.themeId` as the sole deck-level
-theme selector; slides no longer carry a theme snapshot. Built-in themes use
-the `DeckTheme` ids (`indigo`, `ocean`, `forest`, `sunset`, `grape`,
-`default`). Brand/custom themes set `Deck.themeId` to the custom token-set id
-and carry `Deck.customTokenSet`.
+Deck schema v3 removes the superseded per-deck and per-slide theme snapshot
+fields. The current persisted shape uses required `Deck.themeId` as the sole
+deck-level theme selector; slides no longer carry a theme snapshot. Built-in
+themes use the `DeckTheme` ids (`indigo`, `ocean`, `forest`, `sunset`,
+`grape`, `default`). Brand/custom themes set `Deck.themeId` to the custom
+token-set id and carry `Deck.customTokenSet`.
 
 There is no runtime compatibility shim for schema-v2 theme payloads. Persisted
 development data and fixtures must be regenerated or migrated to schema v3.

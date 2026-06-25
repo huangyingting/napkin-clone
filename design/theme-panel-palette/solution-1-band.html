@@ -1,60 +1,88 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Palette Solution 1 — Swatch Band</title>
-<link rel="stylesheet" href="panel.css" />
-</head>
-<body>
-  <header class="page-head">
-    <a class="back" href="index.html">← All palette solutions</a>
-    <div class="eyebrow">Palette integration · Solution 1</div>
-    <h1>Swatch Band (top strip)</h1>
-    <p>The deck palette appears as a single contiguous swatch band at the top of the customize view — the classic brand-palette strip, preserved. Hover a tile to widen it; click to edit it in the compact picker. Labels sit beneath, and the live preview + typography follow.</p>
-  </header>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Palette Solution 1 — Swatch Band</title>
+    <link rel="stylesheet" href="panel.css" />
+  </head>
+  <body>
+    <header class="page-head">
+      <a class="back" href="index.html">← All palette solutions</a>
+      <div class="eyebrow">Palette integration · Solution 1</div>
+      <h1>Swatch Band (top strip)</h1>
+      <p>
+        The deck palette appears as a single contiguous swatch band at the top
+        of the customize view — the classic brand-palette strip, preserved.
+        Hover a tile to widen it; click to edit it in the compact picker. Labels
+        sit beneath, and the live preview + typography follow.
+      </p>
+    </header>
 
-  <div class="shell">
-    <div class="editor-frame">
-      <div class="toolbar" id="toolbar"></div>
-      <div class="stage">
-        <div class="slide preview-frame" id="stage" style="border:none;background:transparent"></div>
-        <div class="hint">Click <b>Theme</b> → <b>Customize</b> → tap a band tile to recolor</div>
-      </div>
-      <div class="popover" id="pop" style="display:none">
-        <div class="view on" id="view-preset">
-          <div class="pop-head"><h3>Theme</h3><button class="icon-btn" id="goCustomize">✎ Customize</button></div>
-          <div class="status" id="presetStatus"></div>
-          <div class="pop-body scroll-y" style="max-height:50vh" id="presetBody"></div>
+    <div class="shell">
+      <div class="editor-frame">
+        <div class="toolbar" id="toolbar"></div>
+        <div class="stage">
+          <div
+            class="slide preview-frame"
+            id="stage"
+            style="border: none; background: transparent"
+          ></div>
+          <div class="hint">
+            Click <b>Theme</b> → <b>Customize</b> → tap a band tile to recolor
+          </div>
         </div>
-        <div class="view" id="view-customize">
-          <div class="pop-head"><button class="icon-btn" id="back">‹</button><h3>Customize</h3><button class="icon-btn" id="reset" title="Revert edits to the preset">Reset</button></div>
-          <div class="status" id="custStatus"></div>
-          <div id="custBody"></div>
-          <div class="pop-foot" id="foot"></div>
+        <div class="popover" id="pop" style="display: none">
+          <div class="view on" id="view-preset">
+            <div class="pop-head">
+              <h3>Theme</h3>
+              <button class="icon-btn" id="goCustomize">✎ Customize</button>
+            </div>
+            <div class="status" id="presetStatus"></div>
+            <div
+              class="pop-body scroll-y"
+              style="max-height: 50vh"
+              id="presetBody"
+            ></div>
+          </div>
+          <div class="view" id="view-customize">
+            <div class="pop-head">
+              <button class="icon-btn" id="back">‹</button>
+              <h3>Customize</h3>
+              <button
+                class="icon-btn"
+                id="reset"
+                title="Revert edits to the preset"
+              >
+                Reset
+              </button>
+            </div>
+            <div class="status" id="custStatus"></div>
+            <div id="custBody"></div>
+            <div class="pop-foot" id="foot"></div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <script src="theme-model.js"></script>
-  <script src="color-picker.js"></script>
-  <script src="popover.js"></script>
-  <script src="panel-core.js"></script>
-  <script>
-    window.PalettePlugin = {
-      name: "Swatch band",
-      renderBody(cfg, api) {
-        return `
+    <script src="theme-model.js"></script>
+    <script src="color-picker.js"></script>
+    <script src="popover.js"></script>
+    <script src="panel-core.js"></script>
+    <script>
+      window.PalettePlugin = {
+        name: "Swatch band",
+        renderBody(cfg, api) {
+          return `
           <div style="padding:10px 10px 0">
             <div class="section-title" style="margin-bottom:6px">Color palette</div>
             ${api.paletteBand()}
           </div>
           ${api.previewHTML()}
           <div class="cust-controls scroll-y" style="max-height:30vh">${api.matrixHTML()}</div>`;
-      },
-    };
-    initThemePanel({ theme: "indigo" });
-  </script>
-</body>
+        },
+      };
+      initThemePanel({ themeId: "indigo" });
+    </script>
+  </body>
 </html>

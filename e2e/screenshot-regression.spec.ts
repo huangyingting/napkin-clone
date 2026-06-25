@@ -48,7 +48,7 @@ const SCREENSHOT_REGRESSION_ENABLED =
  * to `evaluate()` parameters without requiring full Deck type imports.
  */
 const REGRESSION_DECK_FIXTURE: Record<string, unknown> = {
-  theme: "default",
+  themeId: "default",
   slides: [
     {
       id: "slide-text-bullets",
@@ -58,7 +58,6 @@ const REGRESSION_DECK_FIXTURE: Record<string, unknown> = {
       visualIds: [],
       layout: "blank",
       notes: "",
-      theme: "default",
       background: "#ffffff",
       elements: [
         {
@@ -88,7 +87,6 @@ const REGRESSION_DECK_FIXTURE: Record<string, unknown> = {
       visualIds: [],
       layout: "blank",
       notes: "",
-      theme: "default",
       background: "#f8f9fa",
       elements: [
         {
@@ -128,7 +126,6 @@ const REGRESSION_DECK_FIXTURE: Record<string, unknown> = {
       visualIds: [],
       layout: "blank",
       notes: "",
-      theme: "default",
       background: "#1e293b",
       elements: [
         {
