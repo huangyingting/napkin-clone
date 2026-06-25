@@ -24,7 +24,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { accessDecisionToPlainTextApiResponse } from "@/lib/access-policy/adapters";
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { SHARE_ACCESS_SELECT } from "@/lib/share-access";
+import { resolvePublicRender } from "@/lib/public-render/resolver";
 import {
   decideSlideAssetAccess,
   slideAssetAccessDecisionToAccessDecision,
@@ -52,20 +52,14 @@ export async function GET(
     select: { id: true, mimeType: true, storageKey: true },
   });
 
-  const doc = await prisma.document.findUnique({
-    where: { id: documentId },
-    select: {
-      ownerId: true,
-      workspaceId: true,
-      ...SHARE_ACCESS_SELECT,
-      workspace: {
-        select: {
-          ownerId: true,
-          members: { select: { userId: true, role: true } },
-        },
-      },
-    },
+  const publicAssetResolution = await resolvePublicRender({
+    params: { documentId },
+    mode: "asset",
+    projection: "assetAccess",
   });
+  if (publicAssetResolution.projection !== "assetAccess") {
+    throw new Error("Unexpected public asset resolver projection.");
+  }
 
   const user = await getCurrentUser();
 
@@ -74,8 +68,9 @@ export async function GET(
   // -------------------------------------------------------------------
   const decision = decideSlideAssetAccess({
     asset: asset ? { id: asset.id } : null,
-    document: doc,
+    document: publicAssetResolution.document,
     userId: user?.id ?? null,
+    publicAssetAccess: publicAssetResolution.publicAccess,
   });
 
   if (!decision.allow) {

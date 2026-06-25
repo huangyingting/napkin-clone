@@ -151,6 +151,20 @@ test("#510: anonymous request falls back to embed link when present is disabled"
   assert.deepEqual(decision, { allow: true, via: "share-embed" });
 });
 
+test("#721/#747: anonymous public asset access can be supplied by the public render resolver", () => {
+  const decision = decideSlideAssetAccess({
+    asset: ASSET,
+    document: sharedDoc({
+      sharePresentEnabled: false,
+      shareEmbedEnabled: true,
+    }),
+    userId: null,
+    publicAssetAccess: { allow: true, via: "share-embed" },
+    now: NOW,
+  });
+  assert.deepEqual(decision, { allow: true, via: "share-embed" });
+});
+
 // ---------------------------------------------------------------------------
 // Anonymous share access (disabled / unauthorized — private never served)
 // ---------------------------------------------------------------------------

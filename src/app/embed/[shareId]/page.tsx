@@ -3,15 +3,7 @@ import { notFound } from "next/navigation";
 
 import { LexicalReadOnly } from "@/components/lexical/lexical-read-only";
 import { MadeWithBadge } from "@/components/made-with-badge";
-import { assertAccessDecisionOrNotFound } from "@/lib/access-policy/adapters";
-import { prisma } from "@/lib/prisma";
-import { shareIdFromParam } from "@/lib/slug";
-import {
-  evaluateShareAccessDecision,
-  SHARE_ACCESS_SELECT,
-  toShareAccessInput,
-} from "@/lib/share-access";
-import { shouldShowAttribution } from "@/lib/billing/attribution";
+import { resolvePublicRender } from "@/lib/public-render/resolver";
 
 export const metadata: Metadata = {
   title: "Embedded Document — TextIQ",
@@ -33,44 +25,23 @@ export default async function EmbedPage({
 }) {
   const { shareId } = await params;
 
-  const resolvedShareId = shareIdFromParam(shareId);
-
-  // Resolve the document by shareId and apply the share-access policy. Embed
-  // mode is additionally gated by `shareEmbedEnabled`; a disabled/expired/
-  // regenerated link resolves to a safe 404 (issue #101 AC #4).
-  const document = await prisma.document.findFirst({
-    where: { shareId: resolvedShareId },
-    select: {
-      title: true,
-      contentJson: true,
-      ...SHARE_ACCESS_SELECT,
-      owner: {
-        select: { plan: true },
-      },
-    },
+  const result = await resolvePublicRender({
+    params: { shareId },
+    mode: "embed",
+    projection: "document",
   });
 
-  if (!document) {
+  if (!result.ok || result.projection !== "document") {
     notFound();
   }
-  assertAccessDecisionOrNotFound(
-    evaluateShareAccessDecision(
-      toShareAccessInput(document, resolvedShareId, "embed"),
-    ),
-    notFound,
-  );
-
-  if (document.contentJson == null) {
-    notFound();
-  }
-  const showAttribution = shouldShowAttribution(document.owner.plan);
+  const { document } = result;
 
   return (
     <main className="min-h-screen w-full bg-ds-surface-base p-4">
       <div className="mx-auto w-full max-w-3xl">
         <LexicalReadOnly state={document.contentJson} />
       </div>
-      <MadeWithBadge show={showAttribution} />
+      <MadeWithBadge show={document.showAttribution} />
     </main>
   );
 }

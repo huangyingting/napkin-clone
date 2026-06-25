@@ -1,0 +1,311 @@
+import {
+  allowAccess,
+  denyAccess,
+  type AccessDecision,
+} from "@/lib/access-policy/taxonomy";
+import {
+  evaluateShareAccessDecision,
+  toShareAccessInput,
+  type ShareAccessFields,
+  type ShareMode,
+} from "@/lib/share-access";
+import { shareIdFromParam } from "@/lib/slug";
+import type { DocumentRoleInput } from "@/lib/auth/document-permissions";
+
+import { buildPublicAttribution, type PublicAttribution } from "./attribution";
+import {
+  buildPublicPresentationModel,
+  type PublicPresentationModel,
+} from "./presentation";
+
+export type PublicRenderMode = "view" | "embed" | "present" | "og" | "asset";
+export type PublicRenderProjection =
+  | "document"
+  | "presentation"
+  | "metadata"
+  | "assetAccess";
+
+export interface PublicRenderRawParams {
+  shareId?: string;
+  documentId?: string;
+}
+
+export type PublicRenderDocumentRow = ShareAccessFields &
+  DocumentRoleInput & {
+    id: string;
+    title: string;
+    content: string;
+    contentJson: unknown;
+    deckJson: unknown;
+    slug: string | null;
+    owner: {
+      name: string | null;
+      email: string;
+      plan: string;
+    };
+  };
+
+export interface PublicDocumentModel {
+  id: string;
+  title: string;
+  contentJson: unknown;
+  ownerName: string;
+  showAttribution: boolean;
+}
+
+export interface PublicMetadataModel {
+  title: string;
+  content: string;
+  slug: string | null;
+  shareId: string | null;
+}
+
+export type PublicAssetAccessDecision =
+  | { allow: true; via: "share-present" | "share-embed" }
+  | {
+      allow: false;
+      status: 403 | 404;
+      reason: "document-not-found" | "forbidden";
+    };
+
+export interface PublicRenderSource {
+  findByShareId(shareId: string): Promise<PublicRenderDocumentRow | null>;
+  findByDocumentId(documentId: string): Promise<PublicRenderDocumentRow | null>;
+}
+
+type SharedProjectionResult =
+  | {
+      ok: true;
+      mode: Exclude<PublicRenderMode, "asset">;
+      projection: "document";
+      shareId: string;
+      document: PublicDocumentModel;
+      decision: AccessDecision;
+    }
+  | {
+      ok: true;
+      mode: Exclude<PublicRenderMode, "asset">;
+      projection: "metadata";
+      shareId: string;
+      metadata: PublicMetadataModel;
+      decision: AccessDecision;
+    }
+  | {
+      ok: true;
+      mode: Exclude<PublicRenderMode, "asset">;
+      projection: "presentation";
+      shareId: string;
+      presentation: PublicPresentationModel;
+      decision: AccessDecision;
+    };
+
+export type PublicRenderResult =
+  | SharedProjectionResult
+  | {
+      ok: false;
+      mode: Exclude<PublicRenderMode, "asset">;
+      projection: Exclude<PublicRenderProjection, "assetAccess">;
+      shareId: string;
+      decision: AccessDecision;
+    }
+  | {
+      ok: boolean;
+      mode: "asset";
+      projection: "assetAccess";
+      documentId: string;
+      document: PublicRenderDocumentRow | null;
+      publicAccess: PublicAssetAccessDecision;
+      decision: AccessDecision;
+    };
+
+export interface ResolvePublicRenderInput {
+  params: PublicRenderRawParams;
+  mode: PublicRenderMode;
+  projection: PublicRenderProjection;
+  now?: Date;
+}
+
+function shareModeForPublicMode(mode: PublicRenderMode): ShareMode {
+  switch (mode) {
+    case "embed":
+      return "embed";
+    case "present":
+      return "present";
+    case "view":
+    case "og":
+      return "view";
+    case "asset":
+      throw new Error("Asset mode uses asset access projection.");
+  }
+}
+
+function missingShareDecision(mode: PublicRenderMode): AccessDecision {
+  const capability = mode === "asset" ? "serve" : shareModeForPublicMode(mode);
+  return denyAccess({
+    resource: { kind: "share" },
+    capability,
+    reason: "resource-not-found",
+    status: 404,
+    safeMessage: "Shared document not found.",
+    concealResource: true,
+  });
+}
+
+function publicAssetAccessDecisionToAccessDecision(
+  decision: PublicAssetAccessDecision,
+): AccessDecision {
+  if (decision.allow) {
+    return allowAccess({
+      resource: { kind: "share" },
+      capability: "serve",
+    });
+  }
+
+  return denyAccess({
+    resource: { kind: "share" },
+    capability: "serve",
+    reason:
+      decision.reason === "document-not-found"
+        ? "resource-not-found"
+        : "forbidden",
+    status: decision.status,
+    safeMessage: decision.status === 404 ? "Not found" : "Forbidden",
+    concealResource: decision.status === 404,
+  });
+}
+
+export function resolvePublicAssetAccessForDocument(
+  document: (ShareAccessFields & { deletedAt: Date | null }) | null,
+  now?: Date,
+): PublicAssetAccessDecision {
+  if (!document || document.deletedAt) {
+    return { allow: false, status: 404, reason: "document-not-found" };
+  }
+
+  const requestedShareId = document.shareId ?? "";
+  const present = evaluateShareAccessDecision(
+    toShareAccessInput(document, requestedShareId, "present", now),
+  );
+  if (present.allow) {
+    return { allow: true, via: "share-present" };
+  }
+
+  const embed = evaluateShareAccessDecision(
+    toShareAccessInput(document, requestedShareId, "embed", now),
+  );
+  if (embed.allow) {
+    return { allow: true, via: "share-embed" };
+  }
+
+  return { allow: false, status: 403, reason: "forbidden" };
+}
+
+export async function resolvePublicRenderWithSource(
+  source: PublicRenderSource,
+  input: ResolvePublicRenderInput,
+): Promise<PublicRenderResult> {
+  if (input.mode === "asset" || input.projection === "assetAccess") {
+    if (input.mode !== "asset" || input.projection !== "assetAccess") {
+      throw new Error(
+        "Asset public render requests require assetAccess projection.",
+      );
+    }
+
+    const documentId = input.params.documentId ?? "";
+    const document = documentId
+      ? await source.findByDocumentId(documentId)
+      : null;
+    const publicAccess = resolvePublicAssetAccessForDocument(
+      document,
+      input.now,
+    );
+
+    return {
+      ok: publicAccess.allow,
+      mode: "asset",
+      projection: "assetAccess",
+      documentId,
+      document,
+      publicAccess,
+      decision: publicAssetAccessDecisionToAccessDecision(publicAccess),
+    };
+  }
+
+  const shareId = shareIdFromParam(input.params.shareId ?? "");
+  const document = shareId ? await source.findByShareId(shareId) : null;
+  const mode = input.mode;
+  const projection = input.projection;
+
+  if (!document) {
+    return {
+      ok: false,
+      mode,
+      projection,
+      shareId,
+      decision: missingShareDecision(mode),
+    };
+  }
+
+  const shareMode = shareModeForPublicMode(mode);
+  const decision = evaluateShareAccessDecision(
+    toShareAccessInput(document, shareId, shareMode, input.now),
+  );
+  if (!decision.allow) {
+    return { ok: false, mode, projection, shareId, decision };
+  }
+
+  if (projection === "document") {
+    if (document.contentJson == null) {
+      return {
+        ok: false,
+        mode,
+        projection,
+        shareId,
+        decision: missingShareDecision(mode),
+      };
+    }
+
+    const attribution: PublicAttribution = buildPublicAttribution(
+      document.owner,
+    );
+    return {
+      ok: true,
+      mode,
+      projection,
+      shareId,
+      document: {
+        id: document.id,
+        title: document.title,
+        contentJson: document.contentJson,
+        ownerName: attribution.ownerName,
+        showAttribution: attribution.showAttribution,
+      },
+      decision,
+    };
+  }
+
+  if (projection === "metadata") {
+    return {
+      ok: true,
+      mode,
+      projection,
+      shareId,
+      metadata: {
+        title: document.title,
+        content: document.content,
+        slug: document.slug,
+        shareId: document.shareId,
+      },
+      decision,
+    };
+  }
+
+  return {
+    ok: true,
+    mode,
+    projection,
+    shareId,
+    presentation: buildPublicPresentationModel(document),
+    decision,
+  };
+}
