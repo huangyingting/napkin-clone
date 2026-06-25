@@ -25,7 +25,10 @@
  */
 
 import type { GenerateDeckInput } from "@/lib/ai/generate-deck";
-import { AI_GENERATION_INPUT_MAX_CHARS as MAX_INPUT_CHARS } from "@/lib/limits";
+import {
+  AI_GENERATION_INPUT_MAX_CHARS as MAX_INPUT_CHARS,
+  AI_VISUAL_INVENTORY_MAX_ITEMS,
+} from "@/lib/limits";
 import type { TextRun } from "@/lib/presentation/deck";
 import { collectDocumentBlocks, type DocumentBlock } from "@/lib/content";
 import type { Visual } from "@/lib/visual/schema";
@@ -265,6 +268,7 @@ function buildInventory(
   const seen = new Set<string>();
 
   for (const block of blocks) {
+    if (inventory.length >= AI_VISUAL_INVENTORY_MAX_ITEMS) break;
     if (block.kind !== "visual") continue;
     if (seen.has(block.visualId)) continue;
     seen.add(block.visualId);

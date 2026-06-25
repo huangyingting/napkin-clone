@@ -64,7 +64,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const clientIp = getClientIp(request.headers) ?? "unknown";
   const clientHash = hashIdentifier(clientIp, secret);
-  const rateKey = rateLimitSubject("import", clientHash);
+  const rateKey = rateLimitSubject("import.ip", clientHash);
   const now = Date.now();
   const limit = await checkRateLimitWithStore(prismaRateLimitStore, rateKey, {
     limit: importRateLimit(),

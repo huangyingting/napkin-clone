@@ -20,7 +20,8 @@
 import { NextResponse } from "next/server";
 
 import { accessDecisionToApiResponse } from "@/lib/access-policy/adapters";
-import { forbidden, unauthorized } from "@/lib/api/errors";
+import { checkAbuseBudget, requireAbuseBudgetSecret } from "@/lib/abuse-budget";
+import { forbidden, tooManyRequests, unauthorized } from "@/lib/api/errors";
 import { getDocumentCapabilities } from "@/lib/auth/document-permissions";
 import {
   decideRoomAccess,
@@ -36,6 +37,20 @@ export async function GET(request: Request): Promise<NextResponse> {
   const user = await getCurrentUser();
   if (!user?.id) {
     return unauthorized();
+  }
+  const secret = requireAbuseBudgetSecret();
+  if (secret) {
+    const budget = await checkAbuseBudget({
+      namespace: "collab.authorize.user",
+      subject: user.id,
+      secret,
+    });
+    if (!budget.allowed) {
+      return tooManyRequests(
+        budget.retryAfterSeconds,
+        "Too many collaboration requests.",
+      );
+    }
   }
 
   const room = parseCollabAuthorizeRoom(request.url);

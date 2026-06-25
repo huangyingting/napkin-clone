@@ -1,7 +1,12 @@
 "use server";
 
 import type { ForgotPasswordState } from "@/lib/auth/form-state";
-import { requestPasswordResetForEmail } from "@/lib/auth/password-reset-service";
+import { normalizeEmail } from "@/lib/auth/password";
+import {
+  GENERIC_PASSWORD_RESET_SENT_MESSAGE,
+  requestPasswordResetForEmail,
+} from "@/lib/auth/password-reset-service";
+import { checkServerActionAbuseBudget } from "@/lib/server-action-abuse";
 
 /**
  * Issues a password-reset link for a credentials user (#140).
@@ -17,5 +22,13 @@ export async function requestPasswordReset(
   _prevState: ForgotPasswordState,
   formData: FormData,
 ): Promise<ForgotPasswordState> {
-  return requestPasswordResetForEmail(formData.get("email"));
+  const email = normalizeEmail(formData.get("email"));
+  const budget = await checkServerActionAbuseBudget(
+    "auth.password-reset.email",
+    email || "missing-email",
+  );
+  if (!budget.allowed) {
+    return { status: "sent", message: GENERIC_PASSWORD_RESET_SENT_MESSAGE };
+  }
+  return requestPasswordResetForEmail(email);
 }

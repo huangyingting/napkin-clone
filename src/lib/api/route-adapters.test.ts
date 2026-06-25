@@ -5,6 +5,7 @@ import {
   privateImmutableCacheHeaders,
   readFormData,
   readJsonObject,
+  readJsonValue,
   requiredSearchParam,
   retryAfterHeader,
 } from "@/lib/api/route-adapters";
@@ -28,6 +29,50 @@ test("readFormData maps parser failures to legacy route errors", async () => {
     async formData() {
       throw new Error("bad form");
     },
+  });
+
+  test("body adapters reject oversized content-length before parsing", async () => {
+    let jsonParsed = false;
+    const oversizedJson = await readJsonObject(
+      {
+        headers: new Headers({ "content-length": "11" }),
+        async json() {
+          jsonParsed = true;
+          return {};
+        },
+      },
+      { maxBytes: 10 },
+    );
+    assert.equal(oversizedJson.ok, false);
+    assert.equal(oversizedJson.response.status, 413);
+    assert.equal(jsonParsed, false);
+
+    const oversizedValue = await readJsonValue(
+      {
+        headers: new Headers({ "content-length": "12" }),
+        async json() {
+          return {};
+        },
+      },
+      "bad json",
+      { maxBytes: 10 },
+    );
+    assert.equal(oversizedValue.ok, false);
+    assert.equal(oversizedValue.response.status, 413);
+
+    const oversizedForm = await readFormData(
+      {
+        headers: new Headers({ "content-length": "12" }),
+        async formData() {
+          return new FormData();
+        },
+      },
+      "bad form",
+      undefined,
+      { maxBytes: 10 },
+    );
+    assert.equal(oversizedForm.ok, false);
+    assert.equal(oversizedForm.response.status, 413);
   });
 
   assert.equal(result.ok, false);

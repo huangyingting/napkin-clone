@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { signOut } from "@/auth";
-import { actionOk } from "@/lib/action-result";
+import { actionError, actionOk } from "@/lib/action-result";
 import { deleteAccountForUser } from "@/lib/account/deletion-service";
 import { changePasswordForUser } from "@/lib/auth/credentials-service";
 import { requestEmailVerificationForUser } from "@/lib/auth/email-verification-service";
@@ -14,6 +14,10 @@ import type {
   VerifyEmailResult,
 } from "@/lib/auth/form-state";
 import { prisma } from "@/lib/prisma";
+import {
+  checkServerActionAbuseBudget,
+  retryMessage,
+} from "@/lib/server-action-abuse";
 import { requireUser } from "@/lib/session";
 
 /** Maximum stored display-name length. */
@@ -69,6 +73,13 @@ export async function changePassword(
   formData: FormData,
 ): Promise<PasswordResult> {
   const user = await requireUser();
+  const budget = await checkServerActionAbuseBudget(
+    "account.change-password.user",
+    user.id,
+  );
+  if (!budget.allowed) {
+    return actionError(retryMessage(budget.retryAfterSeconds));
+  }
   return changePasswordForUser({
     userId: user.id,
     currentPassword: formData.get("currentPassword"),
@@ -130,5 +141,12 @@ export async function requestEmailVerification(
   _formData: FormData,
 ): Promise<VerifyEmailResult> {
   const user = await requireUser();
+  const budget = await checkServerActionAbuseBudget(
+    "auth.email-verification.user",
+    user.id,
+  );
+  if (!budget.allowed) {
+    return actionError(retryMessage(budget.retryAfterSeconds));
+  }
   return requestEmailVerificationForUser(user.id);
 }

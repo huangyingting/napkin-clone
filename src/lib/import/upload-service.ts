@@ -5,6 +5,7 @@ import { ABUSE_CATEGORIES, logRouteDenial } from "@/lib/diagnostics/api-abuse";
 import { logError } from "@/lib/log";
 
 import { parseImportedFile } from "./index";
+import { ImportBudgetError } from "./archive-budget";
 import { ParseTimeoutError, withTimeout } from "./timeout";
 import {
   formatValidationError,
@@ -108,6 +109,21 @@ export async function processImportUpload(
         ok: false,
         error:
           "The file took too long to parse. Try a smaller or simpler document.",
+        status: 422,
+      };
+    }
+    if (error instanceof ImportBudgetError) {
+      deps.logError(LOG_SCOPE, error, { reason: "parser-budget", status: 422 });
+      deps.logRouteDenial({
+        route: LOG_SCOPE,
+        reason: ABUSE_CATEGORIES.PARSER_TIMEOUT,
+        status: 422,
+        subjectHash: options.subjectHash,
+      });
+      return {
+        ok: false,
+        error:
+          "The file is too complex to parse. Try a smaller or simpler document.",
         status: 422,
       };
     }

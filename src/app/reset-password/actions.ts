@@ -2,6 +2,10 @@
 
 import type { ResetPasswordState } from "@/lib/auth/form-state";
 import { resetPasswordWithToken } from "@/lib/auth/password-reset-service";
+import {
+  checkServerActionAbuseBudget,
+  retryMessage,
+} from "@/lib/server-action-abuse";
 
 /**
  * Completes a password reset (#140).
@@ -17,8 +21,20 @@ export async function resetPassword(
   _prevState: ResetPasswordState,
   formData: FormData,
 ): Promise<ResetPasswordState> {
+  const token = String(formData.get("token") ?? "");
+  const budget = await checkServerActionAbuseBudget(
+    "auth.password-reset.token",
+    token || "missing-token",
+  );
+  if (!budget.allowed) {
+    return {
+      status: "error",
+      message: retryMessage(budget.retryAfterSeconds),
+    };
+  }
+
   return resetPasswordWithToken({
-    token: formData.get("token"),
+    token,
     newPassword: formData.get("newPassword"),
     confirmPassword: formData.get("confirmPassword"),
   });

@@ -6,12 +6,17 @@ import {
   MAX_INPUT_CHARS,
 } from "@/lib/ai/generate";
 import type { DeckGenerationOptions } from "@/lib/ai/generate-deck";
+import { ModelOutputBudgetError } from "@/lib/ai/generation-runner";
 import {
   isPlainObject,
   type GenerationRouteErrorMapping,
   type PayloadParseResult,
 } from "@/lib/ai/generation-route";
-import { formatDeckInputTooLongError } from "@/lib/limits";
+import {
+  AI_OPTION_MAX_CHARS,
+  formatAiOptionTooLongError,
+  formatDeckInputTooLongError,
+} from "@/lib/limits";
 import { collectDocumentBlocks, type DocumentBlock } from "@/lib/content";
 import { inferDeckTheme } from "@/lib/presentation/infer-theme";
 import type { Visual } from "@/lib/visual/schema";
@@ -72,11 +77,24 @@ export function parseDeckOptions(
     if (typeof value.tone !== "string") {
       return { error: "`options.tone` must be a string." };
     }
+    if (value.tone.length > AI_OPTION_MAX_CHARS) {
+      return {
+        error: formatAiOptionTooLongError("options.tone", value.tone.length),
+      };
+    }
     options.tone = value.tone;
   }
   if (value.audience !== undefined && value.audience !== null) {
     if (typeof value.audience !== "string") {
       return { error: "`options.audience` must be a string." };
+    }
+    if (value.audience.length > AI_OPTION_MAX_CHARS) {
+      return {
+        error: formatAiOptionTooLongError(
+          "options.audience",
+          value.audience.length,
+        ),
+      };
     }
     options.audience = value.audience;
   }
@@ -145,6 +163,13 @@ export function mapGenerateDeckError(
       message:
         "We couldn't generate a deck from that document. Please try again.",
       log: { reason: "generation-failed", status: 502 },
+    };
+  }
+  if (error instanceof ModelOutputBudgetError) {
+    return {
+      status: 502,
+      message: "The AI response was too large. Please try again.",
+      log: { reason: "model-output-budget", status: 502 },
     };
   }
   return null;

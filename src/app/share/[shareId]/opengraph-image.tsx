@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 
+import { publicShareBudgetExceeded } from "@/app/public-abuse";
 import { excerpt } from "@/lib/document-stats";
 import { resolvePublicRender } from "@/lib/public-render/resolver";
 
@@ -30,13 +31,15 @@ export default async function Image({
   params: Promise<{ shareId: string }>;
 }) {
   const { shareId } = await params;
-  const result = await resolvePublicRender({
-    params: { shareId },
-    mode: "og",
-    projection: "metadata",
-  });
+  const result = (await publicShareBudgetExceeded())
+    ? null
+    : await resolvePublicRender({
+        params: { shareId },
+        mode: "og",
+        projection: "metadata",
+      });
   const document =
-    result.ok && result.projection === "metadata" ? result.metadata : null;
+    result?.ok && result.projection === "metadata" ? result.metadata : null;
 
   const title = document?.title?.trim() || "Shared document";
   const description = document ? excerpt(document.content, 180) : "";

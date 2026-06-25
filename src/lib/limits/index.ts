@@ -1,5 +1,10 @@
 export {
   AI_GENERATION_INPUT_MAX_CHARS,
+  AI_JSON_BODY_MAX_BYTES,
+  AI_OPTION_MAX_CHARS,
+  AI_VISUAL_INVENTORY_MAX_ITEMS,
+  AI_MODEL_OUTPUT_MAX_BYTES,
+  AI_MODEL_OUTPUT_MAX_JSON_NODES,
   GENERATED_DECK_MAX_SLIDES,
   DECK_OUTPUT_TOKEN_BUDGET,
   AI_INPUT_LIMIT,
@@ -8,6 +13,7 @@ export {
   DECK_OUTPUT_TOKEN_LIMIT,
   formatVisualInputTooLongError,
   formatDeckInputTooLongError,
+  formatAiOptionTooLongError,
 } from "@/lib/limits/ai";
 
 export {

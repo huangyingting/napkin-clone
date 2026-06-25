@@ -11,7 +11,7 @@
  */
 import "server-only";
 
-import JSZip from "jszip";
+import { loadZipWithinBudget } from "./archive-budget";
 
 /** Regex to match all `<a:t>…</a:t>` text runs. */
 const TEXT_RE = /<a:t[^>]*>([\s\S]*?)<\/a:t>/g;
@@ -49,7 +49,7 @@ function extractText(xml: string): string {
  * outline (each slide separated by a blank line, titles as `## Heading`).
  */
 export async function parsePptx(buffer: Buffer): Promise<string> {
-  const zip = await JSZip.loadAsync(buffer);
+  const zip = await loadZipWithinBudget(buffer);
 
   // Collect slide XML files in sorted order so slides appear in sequence.
   const slideEntries = Object.keys(zip.files)

@@ -8,6 +8,7 @@ import { MadeWithBadge } from "@/components/made-with-badge";
 import { app as appEnv } from "@/lib/env";
 import { buildPublicMetadata } from "@/lib/public-render/metadata";
 import { resolvePublicRender } from "@/lib/public-render/resolver";
+import { publicShareBudgetExceeded } from "@/app/public-abuse";
 
 /** Absolute base URL for canonical/OG links. */
 function siteBaseUrl(): string {
@@ -46,6 +47,9 @@ export default async function SharedDocumentPage({
   params: Promise<{ shareId: string }>;
 }) {
   const { shareId } = await params;
+  if (await publicShareBudgetExceeded()) {
+    notFound();
+  }
 
   const result = await resolvePublicRender({
     params: { shareId },

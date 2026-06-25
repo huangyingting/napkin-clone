@@ -1,6 +1,11 @@
 import type { LimitDefinition } from "@/lib/limits/budgets";
 
 export const AI_GENERATION_INPUT_MAX_CHARS = 10_000;
+export const AI_JSON_BODY_MAX_BYTES = 256 * 1024;
+export const AI_OPTION_MAX_CHARS = 200;
+export const AI_VISUAL_INVENTORY_MAX_ITEMS = 80;
+export const AI_MODEL_OUTPUT_MAX_BYTES = 512 * 1024;
+export const AI_MODEL_OUTPUT_MAX_JSON_NODES = 12_000;
 export const GENERATED_DECK_MAX_SLIDES = 40;
 export const DECK_OUTPUT_TOKEN_BUDGET = 16_000;
 
@@ -51,4 +56,11 @@ export function formatVisualInputTooLongError(length: number): string {
 
 export function formatDeckInputTooLongError(length: number): string {
   return `Document outline is too long (${length} characters). The maximum is ${AI_GENERATION_INPUT_MAX_CHARS}.`;
+}
+
+export function formatAiOptionTooLongError(
+  field: string,
+  length: number,
+): string {
+  return `\`${field}\` is too long (${length} characters). The maximum is ${AI_OPTION_MAX_CHARS}.`;
 }

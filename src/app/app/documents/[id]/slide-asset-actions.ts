@@ -13,9 +13,15 @@ import type { UploadSlideAssetResult } from "@/lib/action-ports";
 import { requireDocumentActionContext } from "@/lib/actions/document-action-context";
 import { calculateAssetChecksum } from "@/lib/assets/store";
 import {
+  imageDimensionsFromBytes,
+  validateAssetDimensionsPolicy,
+  validateAssetMagicBytes,
+} from "@/lib/assets/upload-policy";
+import {
   buildAssetMeta,
   formatAssetUploadError,
   validateAssetUpload,
+  SLIDE_ASSET_UPLOAD_POLICY,
 } from "@/lib/slides/asset-upload";
 import { storeSlideAsset } from "@/lib/slides/asset-store";
 
@@ -58,6 +64,19 @@ export async function uploadSlideAsset(
 
   // Read raw bytes and compute shared SHA-256 checksum.
   const buffer = Buffer.from(await fileEntry.arrayBuffer());
+  const magic = validateAssetMagicBytes(validation.mime, buffer);
+  if (!magic.ok) {
+    return actionError(formatAssetUploadError(magic.error));
+  }
+  const dimensions = imageDimensionsFromBytes(validation.mime, buffer);
+  const dimensionValidation = validateAssetDimensionsPolicy(
+    SLIDE_ASSET_UPLOAD_POLICY,
+    dimensions.widthPx,
+    dimensions.heightPx,
+  );
+  if (!dimensionValidation.ok) {
+    return actionError(formatAssetUploadError(dimensionValidation.error));
+  }
   const checksum = calculateAssetChecksum(buffer);
 
   // Build full metadata (resolves MIME, validates again with name/ext).

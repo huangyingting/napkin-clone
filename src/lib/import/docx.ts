@@ -12,6 +12,7 @@ import "server-only";
 
 import mammoth from "mammoth";
 
+import { loadZipWithinBudget } from "./archive-budget";
 import { htmlToMarkdown } from "./html";
 
 /**
@@ -19,6 +20,7 @@ import { htmlToMarkdown } from "./html";
  * Throws when `mammoth` cannot parse the buffer (e.g. corrupt file).
  */
 export async function parseDocx(buffer: Buffer): Promise<string> {
+  await loadZipWithinBudget(buffer);
   const result = await mammoth.convertToHtml({ buffer });
   return htmlToMarkdown(result.value);
 }

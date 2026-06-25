@@ -63,8 +63,8 @@ const handleGenerateDeck = createGenerationRouteHandler<
   logScope: LOG_SCOPE,
   operation: "generate-deck",
   rateLimitSubjects: {
-    user: "gen-deck-user",
-    anonymousIp: "gen-deck-anon-ip",
+    user: "ai.deck.user",
+    anonymousIp: "ai.deck.anonymous-ip",
   },
   anonymousQuotaExceededMessage:
     "You've used all your free generations. Sign in to keep creating decks.",

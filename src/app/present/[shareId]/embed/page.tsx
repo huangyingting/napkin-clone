@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { PublicPresentViewer } from "@/components/presentation/public-present-viewer";
+import { publicShareBudgetExceeded } from "@/app/public-abuse";
 import { resolvePublicRender } from "@/lib/public-render/resolver";
 
 export const metadata: Metadata = {
@@ -24,6 +25,9 @@ export default async function PresentEmbedPage({
   params: Promise<{ shareId: string }>;
 }) {
   const { shareId } = await params;
+  if (await publicShareBudgetExceeded()) {
+    notFound();
+  }
 
   const result = await resolvePublicRender({
     params: { shareId },
