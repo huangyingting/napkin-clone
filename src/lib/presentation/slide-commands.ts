@@ -59,7 +59,6 @@ import {
   alignElements,
   arrangeSelectedElements,
   bringElementToFront,
-  applySlideLayout,
   applySlideLayoutPreservingContent,
   distributeElements,
   duplicateElement,
@@ -77,7 +76,6 @@ import {
   renameElement,
   reorderElement,
   reorderSlides,
-  resetSlideLayout,
   resetSlideLayoutPositions,
   sendElementToBack,
   setDeckSlideFormat,
@@ -246,32 +244,19 @@ export interface UpdateSlideLayoutHintCommand {
   commandId?: string;
 }
 
-/** Applies a reusable placeholder layout to the selected slide. */
+/** Applies a reusable layout to the selected slide while preserving authored content. */
 export interface ApplySlideLayoutCommand {
   type: "APPLY_SLIDE_LAYOUT";
   slideIndex: number;
   layout: ReusableSlideLayout;
-  /**
-   * When true, apply the layout **preserving authored content** (#630):
-   * slot-bound elements move into the matching placeholder geometry, empty
-   * slots get fresh placeholders, and free-form elements are untouched.
-   * Absent/false keeps the legacy rebuild behaviour.
-   */
-  preserveContent?: boolean;
   commandId?: string;
 }
 
-/** Resets the selected slide to a reusable placeholder layout. */
+/** Resets bound element positions to a reusable layout without changing content. */
 export interface ResetSlideLayoutCommand {
   type: "RESET_SLIDE_LAYOUT";
   slideIndex: number;
   layout: ReusableSlideLayout;
-  /**
-   * When true, reset only the *positions* of slot-bound elements to the layout
-   * geometry (#629) — no placeholder reinstall, no content change, no reorder.
-   * Absent/false keeps the legacy rebuild behaviour (reinstall placeholders).
-   */
-  positionsOnly?: boolean;
   commandId?: string;
 }
 
@@ -1142,9 +1127,11 @@ export function executeCommand(deck: Deck, cmd: SlideCommand): CommandResult {
         return failure(deck, `Invalid slideIndex: ${cmd.slideIndex}`);
       }
       const slide = deck.slides[cmd.slideIndex]!;
-      const nextDeck = cmd.preserveContent
-        ? applySlideLayoutPreservingContent(deck, cmd.slideIndex, cmd.layout)
-        : applySlideLayout(deck, cmd.slideIndex, cmd.layout);
+      const nextDeck = applySlideLayoutPreservingContent(
+        deck,
+        cmd.slideIndex,
+        cmd.layout,
+      );
       return success(nextDeck, [slide.id], [], undefined, [
         makePatch("slide.apply_layout", [slide.id], []),
       ]);
@@ -1155,9 +1142,11 @@ export function executeCommand(deck: Deck, cmd: SlideCommand): CommandResult {
         return failure(deck, `Invalid slideIndex: ${cmd.slideIndex}`);
       }
       const slide = deck.slides[cmd.slideIndex]!;
-      const nextDeck = cmd.positionsOnly
-        ? resetSlideLayoutPositions(deck, cmd.slideIndex, cmd.layout)
-        : resetSlideLayout(deck, cmd.slideIndex, cmd.layout);
+      const nextDeck = resetSlideLayoutPositions(
+        deck,
+        cmd.slideIndex,
+        cmd.layout,
+      );
       return success(nextDeck, [slide.id], [], undefined, [
         makePatch("slide.reset_layout", [slide.id], []),
       ]);

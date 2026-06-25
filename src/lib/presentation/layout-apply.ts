@@ -1,13 +1,11 @@
 /**
  * Safe, content-preserving layout application (#630).
  *
- * The legacy `applyLayout` (deck.ts) re-installs a layout's placeholders and
- * leaves existing content where it sits. This module instead *binds* a target
- * layout onto a populated slide: each layout placeholder is matched to the
- * existing element bound to the same semantic slot (#628) and that element is
- * moved into the placeholder's geometry, preserving its text, runs, styles, and
- * source refs. Slots with no existing content receive a fresh placeholder, and
- * free-form (unbound) elements are never moved or deleted.
+ * Binds a target layout onto a populated slide: each layout placeholder is
+ * matched to the existing element bound to the same semantic slot (#628) and
+ * that element is moved into the placeholder's geometry, preserving its text,
+ * runs, styles, and source refs. Slots with no existing content receive a fresh
+ * placeholder, and free-form (unbound) elements are never moved or deleted.
  *
  * Pure and DOM-free — fully testable under `node --test`.
  */

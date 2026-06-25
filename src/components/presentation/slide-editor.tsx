@@ -1486,7 +1486,7 @@ export function SlideEditor({
       if (
         typeof window !== "undefined" &&
         !window.confirm(
-          `Reset slide to the "${layout.name}" layout? This will remove any custom placeholder positions and labels.`,
+          `Reset slide positions to the "${layout.name}" layout? This will preserve slide content and element order.`,
         )
       ) {
         return;

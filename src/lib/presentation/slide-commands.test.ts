@@ -1229,7 +1229,7 @@ test("UPDATE_SLIDE_LAYOUT_HINT updates layout field", () => {
   assert.equal(result.patches[0]!.op, "slide.update_layout_hint");
 });
 
-test("APPLY_SLIDE_LAYOUT applies placeholder layout", () => {
+test("APPLY_SLIDE_LAYOUT applies content-preserving layout and emits patch", () => {
   const deck = makeDeck(["s1"]);
   const layout = {
     id: "two-col",
@@ -1247,7 +1247,7 @@ test("APPLY_SLIDE_LAYOUT applies placeholder layout", () => {
   assert.equal(result.patches[0]!.op, "slide.apply_layout");
 });
 
-test("APPLY_SLIDE_LAYOUT with preserveContent moves bound content and preserves free-form (#630)", () => {
+test("APPLY_SLIDE_LAYOUT moves bound content and preserves free-form (#630)", () => {
   const titleEl: SlideElement = {
     id: "t1",
     kind: "text",
@@ -1292,7 +1292,6 @@ test("APPLY_SLIDE_LAYOUT with preserveContent moves bound content and preserves 
     type: "APPLY_SLIDE_LAYOUT",
     slideIndex: 0,
     layout,
-    preserveContent: true,
   });
   assert.equal(result.ok, true);
   const els = result.deck.slides[0]!.elements ?? [];
@@ -1340,7 +1339,7 @@ test("RESET_SLIDE_LAYOUT resets layout and emits patch", () => {
   assert.deepEqual(result.affectedSlideIds, ["s1"]);
 });
 
-test("RESET_SLIDE_LAYOUT with positionsOnly repositions bound content without inserting placeholders (#629)", () => {
+test("RESET_SLIDE_LAYOUT repositions bound content without inserting placeholders (#629)", () => {
   const titleEl: SlideElement = {
     id: "t1",
     kind: "text",
@@ -1377,7 +1376,6 @@ test("RESET_SLIDE_LAYOUT with positionsOnly repositions bound content without in
     type: "RESET_SLIDE_LAYOUT",
     slideIndex: 0,
     layout,
-    positionsOnly: true,
   });
   assert.equal(result.ok, true);
   const els = result.deck.slides[0]!.elements ?? [];

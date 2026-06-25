@@ -2,15 +2,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-  applyLayout,
   defaultLayouts,
   isSourceLinked,
   isSourceStale,
   relinkSource,
-  resetLayout,
   unlinkSource,
   type Deck,
-  type Slide,
   type SourceRef,
   type TextElement,
 } from "./deck";
@@ -574,107 +571,6 @@ test("safeParseDeck rejects a non-hex background", () => {
   const input = elementDeck([]) as { slides: { background: string }[] };
   input.slides[0].background = "red";
   assert.equal(safeParseDeck(input).success, false);
-});
-
-function freeFormSlide(elements: NonNullable<Slide["elements"]>): Slide {
-  return {
-    id: "sl-freeform",
-    index: 0,
-    title: "",
-    bullets: [],
-    visualIds: [],
-    layout: "blank",
-    notes: "",
-    theme: "default",
-    elements,
-    elementsDerived: false,
-  };
-}
-
-function builtInLayout(name: string) {
-  const layout = defaultLayouts().find(
-    (candidate) => candidate.name === name && candidate.format === "16:9",
-  );
-  assert.ok(layout, `expected built-in layout "${name}"`);
-  return layout!;
-}
-
-test("applyLayout preserves free-form elements and refreshes matching placeholders", () => {
-  const slide = freeFormSlide([
-    {
-      id: "old-title",
-      kind: "placeholder",
-      placeholderType: "title",
-      label: "Headline",
-      zIndex: 7,
-      box: { x: 0, y: 0, w: 10, h: 10 },
-    },
-    {
-      id: "text-1",
-      kind: "text",
-      role: "body",
-      text: "Keep me",
-      zIndex: 9,
-      box: { x: 20, y: 30, w: 30, h: 12 },
-      style: { fontSize: 4, bold: false, italic: false, align: "left" },
-    },
-  ]);
-
-  const next = applyLayout(slide, builtInLayout("title-slide"));
-  const placeholders = (next.elements ?? []).filter(
-    (element) => element.kind === "placeholder",
-  );
-  assert.equal(placeholders.length, 3);
-  assert.equal(placeholders[0]?.id, "old-title");
-  assert.equal(
-    placeholders[0]?.kind === "placeholder" ? placeholders[0].label : undefined,
-    "Headline",
-  );
-  assert.ok((next.elements ?? []).some((element) => element.id === "text-1"));
-  assert.deepEqual(
-    (next.elements ?? []).map((element) => element.zIndex),
-    [0, 1, 2, 3],
-  );
-});
-
-test("resetLayout reinstalls fresh placeholders while preserving free-form elements", () => {
-  const slide = freeFormSlide([
-    {
-      id: "old-body",
-      kind: "placeholder",
-      placeholderType: "body",
-      label: "Old body",
-      zIndex: 0,
-      box: { x: 0, y: 0, w: 10, h: 10 },
-    },
-    {
-      id: "shape-1",
-      kind: "shape",
-      shape: "rect",
-      color: "#123456",
-      zIndex: 1,
-      box: { x: 60, y: 60, w: 20, h: 20 },
-    },
-  ]);
-
-  const next = resetLayout(slide, builtInLayout("title-content"));
-  const placeholders = (next.elements ?? []).filter(
-    (element) => element.kind === "placeholder",
-  );
-  assert.equal(placeholders.length, 4);
-  assert.ok(
-    placeholders.every((placeholder) => placeholder.id !== "old-body"),
-    "resetLayout should install fresh placeholder instances",
-  );
-  assert.ok(
-    placeholders.some(
-      (placeholder) =>
-        placeholder.kind === "placeholder" &&
-        placeholder.placeholderType === "body" &&
-        placeholder.label === "Body",
-    ),
-  );
-  assert.ok((next.elements ?? []).some((element) => element.id === "shape-1"));
 });
 
 test("safeParseDeck rejects a text element missing its style", () => {

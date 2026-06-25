@@ -108,9 +108,9 @@ New slides carry semantic identity up front:
 - The `+ Add` templates (`slide-templates.ts`) bind every materialized element
   to its slot (two-column body columns get `body#0` / `body#1`; the visual
   spotlight binds `visual` + `caption`).
-- Legacy slides without bindings can be inferred conservatively via
-  `inferSlideSlots` (`slide-slot-inference.ts`) — high-confidence elements bind,
-  ambiguous ones stay free-form, and geometry/content are never changed.
+- Legacy slides without bindings remain unbound at runtime. If persisted
+  role/slot stamping is needed, add an explicit offline migration descriptor
+  rather than application-layer enrichment.
 
 The slot vocabulary (`SLIDE_SLOT_KINDS`) and `LayoutSlotBinding` shape live in
 `src/lib/presentation/slide-slots.ts`.

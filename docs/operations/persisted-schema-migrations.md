@@ -36,12 +36,11 @@ shape:
 **Decision: no `CURRENT_DECK_SCHEMA_VERSION` bump.** Because every addition is an
 optional field, existing `schemaVersion: 2` decks remain valid unchanged, and
 decks carrying the new fields also parse. `validateDeck` continues to reject any
-deck whose `schemaVersion` is not the current version, so genuinely stale
-shapes are still rejected. No offline migration is required: legacy elements are
-enriched **forward and additively** at the application layer by the pure
-inference helpers (`slide-role-inference.ts`, `slide-slot-inference.ts`) without
-altering geometry, content, or concrete styles — so there is no visual drift and
-no superseded shape to strip.
+deck whose `schemaVersion` is not the current version, so genuinely stale shapes
+are still rejected. No offline migration is required for this rollout. Runtime
+render, export, and editor paths do not add role or slot bindings to legacy
+elements; if persisted role/slot stamping becomes necessary, it must be modeled
+as an explicit offline migration descriptor.
 
 `safeParseDeck` round-trips the full current-shape template model; see the
 "current-shape template model" tests in
