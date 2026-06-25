@@ -110,7 +110,7 @@ describe("patch fallback path", () => {
 
     const savePatch: PatchSaveFn = async () => ({ ok: "fallback" });
 
-    const saveDeck: DeckSaveFn = async (id, d, token) => {
+    const saveDeck: DeckSaveFn = async (id, _deck, token) => {
       deckCalled = true;
       assert.strictEqual(id, DOC_ID);
       assert.strictEqual(token, TOKEN);

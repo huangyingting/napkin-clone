@@ -1,7 +1,5 @@
 "use client";
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 /**
  * Tabbed inspector for the slide editor.
  *
@@ -26,7 +24,6 @@ import {
   AlignVerticalSpaceBetween,
   Bold,
   BringToFront,
-  Copy,
   Expand,
   Italic,
   Link2Off,
@@ -37,15 +34,11 @@ import {
   SendToBack,
   StepBack,
   StepForward,
-  Trash2,
   Upload,
-  X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { FOCUS_RING } from "@/components/ui/tokens";
-import { DECK_THEMES } from "@/components/presentation/slide-canvas";
-import { LayerList } from "@/components/presentation/layer-list";
 import { Swatch, Tooltip } from "@/components/ui";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import type {
@@ -69,7 +62,6 @@ import type {
   TextRun,
 } from "@/lib/presentation/deck";
 import {
-  defaultLayouts,
   normalizeBulletItems,
   PLACEHOLDER_TYPE_LABELS,
 } from "@/lib/presentation/deck";
@@ -92,11 +84,7 @@ import type {
 } from "@/lib/presentation/element-align";
 import type { ArrangeMode } from "@/lib/presentation/element-arrange";
 import { detachConnectorEndpoint } from "@/lib/presentation/connector-lifecycle";
-import {
-  canAddImage,
-  dataUrlByteSize,
-  isEmptyImageSrc,
-} from "@/lib/presentation/image-element";
+import { isEmptyImageSrc } from "@/lib/presentation/image-element";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
 import type { SlideAssetActionPort } from "@/lib/action-ports";
 import {
@@ -111,15 +99,12 @@ import {
   FONT_MAX,
   FONT_MIN,
   FONT_STEP,
-  mergeSwatches,
   stepFontSize,
-  themeSwatchColors,
 } from "@/lib/presentation/text-style";
 import {
   getThemeTypography,
   placeholderStyle,
 } from "@/lib/presentation/theme-typography";
-import { DEFAULT_SLIDE_FORMAT } from "@/lib/presentation/slide-format";
 import type { Visual } from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { applyTheme, isThemeActive } from "@/lib/visual/transforms";
@@ -136,12 +121,6 @@ const FONT_FAMILIES: { label: string; value: string }[] = [
     value: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
   },
 ];
-
-const THEME_BACKGROUND_SWATCHES = themeSwatchColors(DECK_THEMES, "bgColor");
-const THEME_ACCENT_SWATCHES = themeSwatchColors(DECK_THEMES, "accentColor");
-
-type Panel = RightPanelTab;
-type PositionPanelTab = "arrange" | "layers";
 
 const FIELD_CLASS =
   "w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-sm text-ds-text-primary outline-none";
@@ -316,39 +295,6 @@ export function SpeakerNotesControl({
         className={`${FIELD_CLASS} min-h-64 resize-y leading-6 placeholder:text-ds-text-muted ${FOCUS_RING}`}
       />
     </label>
-  );
-}
-
-function elementLabel(element: SlideElement): string {
-  switch (element.kind) {
-    case "placeholder":
-      return `Placeholder · ${placeholderDisplayName(element)}`;
-    case "text":
-      return element.role === "title" ? "Title" : "Text";
-    case "bullets":
-      return "Bullets";
-    case "visual":
-      return "Visual";
-    case "image":
-      return "Image";
-    case "shape":
-      return `Shape · ${element.shape}`;
-    case "connector":
-      return "Connector";
-    default:
-      return "Element";
-  }
-}
-
-function shouldShowSourceTab(element: SlideElement | null): boolean {
-  return element?.sourceRef !== undefined;
-}
-
-function placeholderDisplayName(
-  element: Pick<PlaceholderElement, "placeholderType" | "label">,
-): string {
-  return (
-    element.label?.trim() || PLACEHOLDER_TYPE_LABELS[element.placeholderType]
   );
 }
 

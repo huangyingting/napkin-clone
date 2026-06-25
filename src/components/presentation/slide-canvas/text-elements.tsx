@@ -7,7 +7,6 @@ import {
   type JSX,
   type RefObject,
 } from "react";
-import type * as React from "react";
 
 import type {
   BulletItem,

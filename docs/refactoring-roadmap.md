@@ -620,20 +620,9 @@ feature has verified native export support.
 
 ### Problem
 
-Running TypeScript with unused checks currently reports concrete cleanup items:
-
-- Unused `element` parameter in `src/lib/presentation/media-hit-geometry.ts`.
-- Unused `_PPTX_FIDELITY_WARNING_FEATURES` in
-  `src/lib/visual/export-preflight.ts`.
-- Unused test callback parameter in
-  `src/lib/presentation/patch-autosave.test.ts`.
-- `src/lib/import/index.ts` accepts `filename` only to `void` it as "reserved
-  for future format-specific hints".
-- `src/lib/presentation/slide-comment-anchors.ts` still labels current anchor
-  transforms as "stubs" even though several are used by lifecycle actions.
-
-The project does not currently enforce unused local/parameter checks in the
-default typecheck script.
+TypeScript unused checks are part of the release gate. `tsconfig.json` enables
+`noUnusedLocals` and `noUnusedParameters`, and `npm run typecheck:unused`
+provides the same focused guard for refactor-heavy branches.
 
 ### Best Strategy
 
@@ -678,6 +667,7 @@ unless TypeScript checks prove insufficient.
 ### Verification
 
 - `npx tsc --noEmit --noUnusedLocals --noUnusedParameters --pretty false`
+- `npm run typecheck:unused`
 - `npm run typecheck`
 
 ## R10 - Unified Asset Subsystem
@@ -3180,7 +3170,8 @@ Each issue created from this roadmap should include:
 - **Decision:** the chosen current-shape behavior.
 - **Requirements:** concrete behavior and API constraints.
 - **Non-goals:** what the issue must not refactor.
-- **Acceptance checks:** tests, typecheck, lint, E2E, or docs checks.
+- **Acceptance checks:** tests, focused unused/type checks for touched files or
+  the smallest reliable scope, lint, E2E, or docs checks.
 - **Rollback risk:** user-visible behavior that must remain stable.
 
 ## Recommended Execution Order

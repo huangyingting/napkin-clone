@@ -1,7 +1,5 @@
 "use client";
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 /**
  * Tabbed inspector for the slide editor.
  *
@@ -15,75 +13,26 @@
  * component never mutates the deck.
  */
 
-import {
-  AlignCenterHorizontal,
-  AlignCenterVertical,
-  AlignEndHorizontal,
-  AlignEndVertical,
-  AlignHorizontalSpaceBetween,
-  AlignStartHorizontal,
-  AlignStartVertical,
-  AlignVerticalSpaceBetween,
-  Bold,
-  BringToFront,
-  Copy,
-  Expand,
-  Italic,
-  Link2Off,
-  Minus,
-  MoveHorizontal,
-  MoveVertical,
-  Plus,
-  SendToBack,
-  StepBack,
-  StepForward,
-  Trash2,
-  Upload,
-  X,
-} from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Copy, Trash2, Upload, X } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
 
 import { FOCUS_RING } from "@/components/ui/tokens";
 import { DECK_THEMES } from "@/components/presentation/slide-canvas";
 import { LayerList } from "@/components/presentation/layer-list";
-import { Swatch, Tooltip } from "@/components/ui";
-import { VisualRenderer } from "@/components/visual/visual-renderer";
+import { Tooltip } from "@/components/ui";
 import type {
-  BulletItem,
-  BulletsElement,
-  ConnectorArrow,
-  ConnectorElement,
-  ConnectorEndpoint,
   Deck,
-  ImageCrop,
-  ImageElement,
-  ImageFitMode,
-  ImageMaskShape,
   PlaceholderElement,
   SlideLayout as ReusableSlideLayout,
-  ShapeKind,
   Slide,
   SlideElement,
-  TextElementStyle,
-  TextFitMode,
-  TextRun,
 } from "@/lib/presentation/deck";
 import {
   defaultLayouts,
-  normalizeBulletItems,
   PLACEHOLDER_TYPE_LABELS,
 } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
-import {
-  resolveRoleToken,
-  type DeckTextRole,
-} from "@/lib/presentation/deck-theme-tokens";
-import { resolveSlideTokenSet } from "@/lib/presentation/style-cascade";
 import type { StaleReason } from "@/lib/presentation/source-link-staleness";
-import {
-  resolveSourcePanelActions,
-  resolveSourcePanelStatus,
-} from "@/lib/presentation/source-panel-status";
 import type { RightPanelTab } from "@/lib/presentation/slide-panel-ui";
 import type {
   AlignMode,
@@ -91,12 +40,7 @@ import type {
   MatchSizeMode,
 } from "@/lib/presentation/element-align";
 import type { ArrangeMode } from "@/lib/presentation/element-arrange";
-import { detachConnectorEndpoint } from "@/lib/presentation/connector-lifecycle";
-import {
-  canAddImage,
-  dataUrlByteSize,
-  isEmptyImageSrc,
-} from "@/lib/presentation/image-element";
+import { canAddImage, dataUrlByteSize } from "@/lib/presentation/image-element";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
 import type { SlideAssetActionPort } from "@/lib/action-ports";
 import {
@@ -109,42 +53,11 @@ import {
   TextPanel,
 } from "@/components/presentation/slide-inspector/controls";
 import {
-  bulletsToRuns,
-  mergeRuns,
-  runsToHtml,
-  serializeRichText,
-  shouldStoreRuns,
-  splitRunsIntoLines,
-} from "@/lib/presentation/rich-text-html";
-import {
-  FONT_MAX,
-  FONT_MIN,
-  FONT_STEP,
   mergeSwatches,
-  stepFontSize,
   themeSwatchColors,
 } from "@/lib/presentation/text-style";
-import {
-  getThemeTypography,
-  placeholderStyle,
-} from "@/lib/presentation/theme-typography";
 import { DEFAULT_SLIDE_FORMAT } from "@/lib/presentation/slide-format";
 import type { Visual } from "@/lib/visual/schema";
-import { STYLE_THEMES } from "@/lib/visual/themes";
-import { applyTheme, isThemeActive } from "@/lib/visual/transforms";
-
-const SHAPE_OPTIONS: ShapeKind[] = ["rect", "ellipse", "line", "triangle"];
-
-/** Selectable font-family stacks for text/bullets elements. */
-const FONT_FAMILIES: { label: string; value: string }[] = [
-  { label: "Default", value: "" },
-  { label: "Sans", value: "ui-sans-serif, system-ui, sans-serif" },
-  { label: "Serif", value: "ui-serif, Georgia, Cambria, serif" },
-  {
-    label: "Mono",
-    value: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
-  },
-];
 
 const THEME_BACKGROUND_SWATCHES = themeSwatchColors(DECK_THEMES, "bgColor");
 const THEME_ACCENT_SWATCHES = themeSwatchColors(DECK_THEMES, "accentColor");
@@ -158,13 +71,6 @@ const FIELD_CLASS =
 const LABEL_CLASS = "mb-1 block text-xs font-medium text-ds-text-secondary";
 
 let _speakerNotesEditSeq = 0;
-
-const DEFAULT_SHAPE_TEXT_STYLE: TextElementStyle = {
-  fontSize: 4,
-  bold: false,
-  italic: false,
-  align: "center",
-};
 
 export type AddElementKind = "text" | "bullets" | "image" | "shape";
 
@@ -360,37 +266,6 @@ function placeholderDisplayName(
     element.label?.trim() || PLACEHOLDER_TYPE_LABELS[element.placeholderType]
   );
 }
-
-function primaryFontLabel(fontFamily: string): string {
-  const [first] = fontFamily.split(",");
-  return first?.trim().replace(/^['"]|['"]$/g, "") || fontFamily;
-}
-
-function placeholderThemeHint(
-  deck: Pick<Deck, "theme" | "themeId">,
-  element: Pick<PlaceholderElement, "placeholderType">,
-): string {
-  const style = placeholderStyle(
-    element.placeholderType,
-    getThemeTypography(deck.themeId ?? deck.theme),
-  );
-  const parts: string[] = [];
-  if (style.fontFamily) {
-    parts.push(primaryFontLabel(style.fontFamily));
-  }
-  if (style.fontSize !== undefined) {
-    parts.push(`${style.fontSize} pt`);
-  }
-  return parts.join(" · ");
-}
-
-/**
- * Module-level counter so every `RichTextBox` focus session gets a globally
- * unique coalesce key. Incrementing once per session (not per keystroke) means
- * the entire typed run collapses to one undo step, and each new focus session
- * starts a fresh entry (issue #306).
- */
-const _richTextEditSeq = 0;
 
 export function SlideInspector({
   slide,
