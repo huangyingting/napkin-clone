@@ -152,21 +152,21 @@ describe("toBrandStyle", () => {
       { ...baseRow, logoAssetId: "la", fontAssetId: "fa" },
       map,
     );
-    assert.equal(style.logoUrl, "/api/brand-assets/u1/aaa.png");
-    assert.equal(style.fontDataUrl, "/api/brand-assets/u1/bbb.woff2");
+    assert.equal(style.logoAssetUrl, "/api/brand-assets/u1/aaa.png");
+    assert.equal(style.fontAssetUrl, "/api/brand-assets/u1/bbb.woff2");
     assert.equal(style.logoAssetId, "la");
     assert.equal(style.fontAssetId, "fa");
   });
 
   it("null URLs when no asset ref is set", () => {
     const style = toBrandStyle(baseRow, new Map());
-    assert.equal(style.logoUrl, null);
-    assert.equal(style.fontDataUrl, null);
+    assert.equal(style.logoAssetUrl, null);
+    assert.equal(style.fontAssetUrl, null);
   });
 
   it("null URL when the referenced asset is missing from the map (purged)", () => {
     const style = toBrandStyle({ ...baseRow, logoAssetId: "gone" }, new Map());
-    assert.equal(style.logoUrl, null);
+    assert.equal(style.logoAssetUrl, null);
     assert.equal(style.logoAssetId, "gone");
   });
 });

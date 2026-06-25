@@ -52,8 +52,8 @@ export function brandToMasterChrome(
     name: `${brand.name} Master`,
     themeId: baseThemeId,
     showPageNumbers: false,
-    ...(brand.logoUrl
-      ? { logoUrl: brand.logoUrl, logoPlacement: "top-right" as const }
+    ...(brand.logoAssetUrl
+      ? { logoUrl: brand.logoAssetUrl, logoPlacement: "top-right" as const }
       : {}),
   };
 }

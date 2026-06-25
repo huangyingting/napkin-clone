@@ -96,7 +96,7 @@ export interface BrandStyle {
   fontFamily: string | null;
   /**
    * Asset id of the uploaded custom font, when present (Epic #496). The display
-   * URL in {@link fontDataUrl} is DERIVED from this asset's storage key.
+   * URL in {@link fontAssetUrl} is derived from this asset's storage key.
    */
   fontAssetId?: string | null;
   /** Asset id of the uploaded logo, when present (Epic #496). */
@@ -104,14 +104,13 @@ export interface BrandStyle {
   /**
    * Protected `/api/brand-assets/…` URL for the uploaded custom font, derived
    * from {@link fontAssetId} at read time (Epic #496). `null` for web fonts.
-   * (Historically a base64 `data:` URL; migrated to a protected URL by #496.)
    */
-  fontDataUrl: string | null;
+  fontAssetUrl: string | null;
   /**
    * Protected `/api/brand-assets/…` URL for the uploaded logo, derived from
    * {@link logoAssetId} at read time (Epic #496).
    */
-  logoUrl: string | null;
+  logoAssetUrl: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -130,13 +129,6 @@ export interface BrandInput {
   fontAssetId?: string | null;
   /** Asset id of the uploaded logo (Epic #496). */
   logoAssetId?: string | null;
-  /**
-   * Protected URL for the uploaded custom font (display only; not persisted —
-   * the brand stores {@link fontAssetId} and derives the URL at read time).
-   */
-  fontDataUrl?: string | null;
-  /** Protected URL for the uploaded logo (display only; not persisted). */
-  logoUrl?: string | null;
 }
 
 const HEX_COLOR = /^#[0-9a-fA-F]{3,8}$/;
@@ -211,17 +203,8 @@ export function validateBrandInput(
   const fontFamily =
     typeof r.fontFamily === "string" ? r.fontFamily.slice(0, 200) : null;
 
-  // fontDataUrl can be a large base64 data-URL (up to ~3 MB text for a 2 MB font).
-  const fontDataUrl =
-    typeof r.fontDataUrl === "string"
-      ? r.fontDataUrl.slice(0, 3 * 1024 * 1024)
-      : null;
-
-  const logoUrl =
-    typeof r.logoUrl === "string" ? r.logoUrl.slice(0, 2048) : null;
-
-  // Asset-backed refs (Epic #496). Brand media is persisted as asset ids; the
-  // protected display URL is derived at read time.
+  // Asset-backed refs. Brand media writes persist asset ids only; protected
+  // display URLs are derived at read time.
   const assetId = (key: string): string | null =>
     typeof r[key] === "string" && (r[key] as string).length > 0
       ? (r[key] as string).slice(0, 191)
@@ -242,8 +225,6 @@ export function validateBrandInput(
       fontFamily,
       fontAssetId,
       logoAssetId,
-      fontDataUrl,
-      logoUrl,
     },
   };
 }

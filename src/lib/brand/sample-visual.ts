@@ -49,8 +49,8 @@ export const SAMPLE_BRAND: BrandStyle = {
   nodeText: "#312e81",
   edgeColor: "#a5b4fc",
   fontFamily: "'Inter', sans-serif",
-  fontDataUrl: null,
-  logoUrl: null,
+  fontAssetUrl: null,
+  logoAssetUrl: null,
   createdAt: "2024-01-01T00:00:00.000Z",
   updatedAt: "2024-01-01T00:00:00.000Z",
 };

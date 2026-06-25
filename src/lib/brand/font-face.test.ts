@@ -1,9 +1,8 @@
 /**
  * Tests for font durable-asset helpers (@font-face generation + rehydration).
  *
- * Covers: buildFontFaceCss (pure), validateBrandInput with fontDataUrl,
- * upload-validate → data-URL production, save→reload scenario, and export
- * behavior notes.
+ * Covers: buildFontFaceCss (pure), validateBrandInput with fontAssetId,
+ * upload validation, save→reload scenario, and export behavior notes.
  *
  * DOM-free: runs under `node --import tsx --test`.
  */
@@ -24,7 +23,7 @@ describe("buildFontFaceCss", () => {
     assert.equal(buildFontFaceCss(null, "data:font/woff2;base64,abc"), "");
   });
 
-  it("returns empty string when fontDataUrl is null", () => {
+  it("returns empty string when fontAssetUrl is null", () => {
     assert.equal(buildFontFaceCss("'MyFont', sans-serif", null), "");
   });
 
@@ -72,18 +71,15 @@ describe("buildFontFaceCss", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Upload validation → data-URL production (mirrors the API route logic)
+// Upload validation
 // ---------------------------------------------------------------------------
 
-describe("font upload → data-URL production", () => {
-  it("validateFontUpload accepts woff2 and produces correct mime", () => {
+describe("font upload validation", () => {
+  it("validateFontUpload accepts woff2 and resolves the correct mime", () => {
     const result = validateFontUpload("font/woff2", "brand.woff2", 1024);
     assert.equal(result.ok, true);
     if (result.ok) {
-      // API route builds: `data:${validation.mime};base64,${buffer.toString("base64")}`
-      const fakeBuffer = Buffer.from("FAKEFONTDATA");
-      const dataUrl = `data:${result.mime};base64,${fakeBuffer.toString("base64")}`;
-      assert.match(dataUrl, /^data:font\/woff2;base64,/);
+      assert.equal(result.mime, "font/woff2");
     }
   });
 
@@ -115,57 +111,36 @@ describe("font upload → data-URL production", () => {
 });
 
 // ---------------------------------------------------------------------------
-// validateBrandInput — fontDataUrl field
+// validateBrandInput — fontAssetId field
 // ---------------------------------------------------------------------------
 
-describe("validateBrandInput with fontDataUrl", () => {
-  it("accepts a valid fontDataUrl (data-URL string)", () => {
-    const dataUrl = "data:font/woff2;base64," + "A".repeat(100);
+describe("validateBrandInput with fontAssetId", () => {
+  it("accepts a valid fontAssetId", () => {
     const result = validateBrandInput({
       name: "FontBrand",
       fontFamily: "'Acme', sans-serif",
-      fontDataUrl: dataUrl,
+      fontAssetId: "font-asset-1",
     });
     assert.equal(result.ok, true);
     if (result.ok) {
-      assert.equal(result.data.fontDataUrl, dataUrl);
+      assert.equal(result.data.fontAssetId, "font-asset-1");
       assert.equal(result.data.fontFamily, "'Acme', sans-serif");
     }
   });
 
-  it("accepts null fontDataUrl", () => {
+  it("accepts null fontAssetId", () => {
     const result = validateBrandInput({
       name: "NoFont",
-      fontDataUrl: null,
+      fontAssetId: null,
     });
     assert.equal(result.ok, true);
-    if (result.ok) assert.equal(result.data.fontDataUrl, null);
+    if (result.ok) assert.equal(result.data.fontAssetId, null);
   });
 
-  it("treats missing fontDataUrl as null", () => {
+  it("treats missing fontAssetId as null", () => {
     const result = validateBrandInput({ name: "NoFont" });
     assert.equal(result.ok, true);
-    if (result.ok) assert.equal(result.data.fontDataUrl, null);
-  });
-
-  it("accepts a large fontDataUrl up to 3 MB", () => {
-    // 3 MB - 1 byte: should be accepted
-    const large = "data:font/woff2;base64," + "A".repeat(3 * 1024 * 1024 - 23);
-    const result = validateBrandInput({ name: "Big", fontDataUrl: large });
-    assert.equal(result.ok, true);
-  });
-
-  it("truncates fontDataUrl longer than 3 MB without erroring", () => {
-    const oversize =
-      "data:font/woff2;base64," + "A".repeat(3 * 1024 * 1024 + 100);
-    const result = validateBrandInput({ name: "X", fontDataUrl: oversize });
-    assert.equal(result.ok, true);
-    if (result.ok) {
-      assert.ok(
-        result.data.fontDataUrl!.length <= 3 * 1024 * 1024,
-        "fontDataUrl should be truncated to 3 MB",
-      );
-    }
+    if (result.ok) assert.equal(result.data.fontAssetId, null);
   });
 });
 
@@ -178,16 +153,16 @@ describe("font save → reload rehydration contract", () => {
     // Simulate what is stored in DB after an upload + save
     const storedBrand = {
       fontFamily: "'AcmeBrand', sans-serif",
-      fontDataUrl: "data:font/woff2;base64,BASE64FONTDATA",
+      fontAssetUrl: "/api/brand-assets/u1/font.woff2",
     };
     const css = buildFontFaceCss(
       storedBrand.fontFamily,
-      storedBrand.fontDataUrl,
+      storedBrand.fontAssetUrl,
     );
     // On reload this CSS is injected via injectBrandFontFace → browser loads font
     assert.match(css, /@font-face/);
     assert.match(css, /font-family: 'AcmeBrand'/);
-    assert.match(css, /BASE64FONTDATA/);
+    assert.match(css, /\/api\/brand-assets\/u1\/font\.woff2/);
   });
 
   it("buildFontFaceCss is idempotent — same inputs produce same output", () => {
@@ -203,7 +178,7 @@ describe("font save → reload rehydration contract", () => {
   });
 
   it("returns empty string for a web-font brand (no custom data-URL needed)", () => {
-    // Web fonts (Google Fonts) have fontDataUrl = null; they use a <link> tag.
+    // Web fonts (Google Fonts) have fontAssetUrl = null; they use a <link> tag.
     const css = buildFontFaceCss("'Inter', sans-serif", null);
     assert.equal(css, "");
   });
@@ -214,14 +189,14 @@ describe("font save → reload rehydration contract", () => {
 // ---------------------------------------------------------------------------
 
 describe("export behavior — custom font in @font-face CSS", () => {
-  it("SVG/PNG: @font-face CSS embeds the font data-URL for rasterization", () => {
+  it("SVG/PNG: @font-face CSS references the font asset URL for rasterization", () => {
     // The brand's @font-face is injected into <head> before export; canvas
     // rendering picks up the font at rasterization time.
     const css = buildFontFaceCss(
       "'BrandFont'",
-      "data:font/woff2;base64,FONTDATA",
+      "/api/brand-assets/u1/font.woff2",
     );
-    assert.match(css, /src: url\('data:font\/woff2;base64,FONTDATA'\)/);
+    assert.match(css, /src: url\('\/api\/brand-assets\/u1\/font\.woff2'\)/);
   });
 
   it("PPTX: fontFamily string is referenced but font is not embedded (known limitation)", () => {

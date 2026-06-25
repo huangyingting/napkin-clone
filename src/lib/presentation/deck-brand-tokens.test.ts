@@ -26,8 +26,8 @@ function mockBrand(overrides: Partial<BrandStyle> = {}): BrandStyle {
     nodeText: "#ffffff",
     edgeColor: "#888888",
     fontFamily: "Helvetica Neue",
-    fontDataUrl: null,
-    logoUrl: "https://example.com/logo.png",
+    fontAssetUrl: null,
+    logoAssetUrl: "https://example.com/logo.png",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     ...overrides,
@@ -114,15 +114,15 @@ test("brandToMasterChrome creates master with brand id prefix", () => {
   assert.equal(master.showPageNumbers, false);
 });
 
-test("brandToMasterChrome includes logoUrl and logoPlacement when logoUrl is set", () => {
-  const brand = mockBrand({ logoUrl: "https://example.com/logo.png" });
+test("brandToMasterChrome includes deck logoUrl when logoAssetUrl is set", () => {
+  const brand = mockBrand({ logoAssetUrl: "https://example.com/logo.png" });
   const master = brandToMasterChrome(brand, "brand:brand-1");
   assert.equal(master.logoUrl, "https://example.com/logo.png");
   assert.equal(master.logoPlacement, "top-right");
 });
 
-test("brandToMasterChrome omits logo fields when logoUrl is null", () => {
-  const brand = mockBrand({ logoUrl: null });
+test("brandToMasterChrome omits logo fields when logoAssetUrl is null", () => {
+  const brand = mockBrand({ logoAssetUrl: null });
   const master = brandToMasterChrome(brand, "brand:brand-1");
   assert.equal(master.logoUrl, undefined);
   assert.equal(master.logoPlacement, undefined);

@@ -7,21 +7,21 @@
 
 /**
  * Builds a `@font-face` CSS rule that binds the CSS font-family name to a
- * durable font asset (a `data:font/...;base64,...` URL).  Returns an empty
+ * durable font asset URL. Returns an empty
  * string when either argument is absent or empty.
  *
  * @param fontFamily  - CSS font-family value, e.g. `'MyFont', sans-serif`
- * @param fontDataUrl - Durable `data:font/...;base64,...` URL
+ * @param fontAssetUrl - Protected font asset URL
  *
  * @example
- *   buildFontFaceCss("'Acme', sans-serif", "data:font/woff2;base64,...")
- *   // "@font-face { font-family: 'Acme'; src: url('data:font/woff2;base64,...'); font-display: swap; }"
+ *   buildFontFaceCss("'Acme', sans-serif", "/api/brand-assets/u/font.woff2")
+ *   // "@font-face { font-family: 'Acme'; src: url('/api/brand-assets/u/font.woff2'); font-display: swap; }"
  */
 export function buildFontFaceCss(
   fontFamily: string | null | undefined,
-  fontDataUrl: string | null | undefined,
+  fontAssetUrl: string | null | undefined,
 ): string {
-  if (!fontFamily || !fontDataUrl) return "";
+  if (!fontFamily || !fontAssetUrl) return "";
   // Extract the bare family name from a CSS font-family stack.
   // e.g. "'MyFont', sans-serif" → "MyFont"
   const bare = fontFamily
@@ -30,7 +30,7 @@ export function buildFontFaceCss(
     .replace(/^['"]|['"]$/g, "")
     .trim();
   if (!bare) return "";
-  return `@font-face { font-family: '${bare}'; src: url('${fontDataUrl}'); font-display: swap; }`;
+  return `@font-face { font-family: '${bare}'; src: url('${fontAssetUrl}'); font-display: swap; }`;
 }
 
 /**
@@ -42,15 +42,15 @@ export function buildFontFaceCss(
  *
  * @param brandId     - Unique brand id used to key the injected style element
  * @param fontFamily  - CSS font-family from the brand (can be null)
- * @param fontDataUrl - Durable font asset data-URL stored on the brand
+ * @param fontAssetUrl - Protected font asset URL derived from the brand asset id
  */
 export function injectBrandFontFace(
   brandId: string,
   fontFamily: string | null | undefined,
-  fontDataUrl: string | null | undefined,
+  fontAssetUrl: string | null | undefined,
 ): void {
   if (typeof document === "undefined") return;
-  const css = buildFontFaceCss(fontFamily, fontDataUrl);
+  const css = buildFontFaceCss(fontFamily, fontAssetUrl);
   if (!css) return;
   const id = `brand-font-${brandId}`;
   if (document.getElementById(id)) return;
