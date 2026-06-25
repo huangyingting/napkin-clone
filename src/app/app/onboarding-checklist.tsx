@@ -1,8 +1,9 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useTransition } from "react";
 
 import type { OnboardingStep } from "@/lib/onboarding/checklist";
+import { emitProductTelemetry } from "@/lib/telemetry/product";
 
 import { dismissOnboarding } from "./actions";
 
@@ -20,14 +21,26 @@ interface OnboardingChecklistProps {
  */
 export function OnboardingChecklist({ steps }: OnboardingChecklistProps) {
   const [isPending, startTransition] = useTransition();
+  const doneCount = steps.filter((s) => s.done).length;
+
+  useEffect(() => {
+    emitProductTelemetry("product.onboarding.activation", {
+      activationKind:
+        doneCount === steps.length ? "all_steps_complete" : "viewed",
+      completedStepCount: doneCount,
+      stepCount: steps.length,
+    });
+  }, [doneCount, steps.length]);
 
   function handleDismiss() {
+    emitProductTelemetry("product.onboarding.dismissed", {
+      completedStepCount: doneCount,
+      stepCount: steps.length,
+    });
     startTransition(async () => {
       await dismissOnboarding();
     });
   }
-
-  const doneCount = steps.filter((s) => s.done).length;
 
   return (
     <section

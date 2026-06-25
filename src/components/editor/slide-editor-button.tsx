@@ -60,6 +60,7 @@ import { stripOrphanedVisuals } from "@/lib/presentation/strip-orphans";
 import { findStaleSourceLinks } from "@/lib/presentation/source-link-staleness";
 import { collectDocumentBlocks } from "@/lib/content";
 import type { DocumentBlock, DocumentTextBlock } from "@/lib/content";
+import { bucketCount, emitProductTelemetry } from "@/lib/telemetry/product";
 import type { Visual } from "@/lib/visual/schema";
 
 interface SlideEditorButtonProps {
@@ -362,6 +363,12 @@ export function SlideEditorButton({
       // edit-distance signal (issue #270), captured after the same open
       // pipeline the editor uses so the first save is compared like-for-like.
       aiAppliedDeckRef.current = startDeck;
+      emitProductTelemetry("product.ai.deck.applied", {
+        editDistanceBucket: bucketCount(
+          deckEditDistance(ctx.baseDeck, startDeck).distance,
+        ),
+        slideCount: startDeck.slides.length,
+      });
       setAiPreview(null);
       finishOpen(startDeck, ctx);
     },
@@ -460,6 +467,10 @@ export function SlideEditorButton({
               slidesChanged: distance.slidesChanged,
               elementDelta: distance.elementDelta,
               distance: distance.distance,
+            });
+            emitProductTelemetry("product.ai.deck.saved", {
+              editDistanceBucket: bucketCount(distance.distance),
+              slideCount: updatedDeck.slides.length,
             });
           } catch {
             // Best-effort.

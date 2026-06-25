@@ -25,6 +25,11 @@ import {
 } from "@/lib/ai/deck-generation-request";
 import { useGenerationStatus } from "@/lib/ai/use-generation-status";
 import type { Deck } from "@/lib/presentation/deck";
+import {
+  bucketBytes,
+  bucketDurationMs,
+  emitProductTelemetry,
+} from "@/lib/telemetry/product";
 
 export type {
   DeckGenerateError,
@@ -99,6 +104,17 @@ export function useDeckGeneration(): UseDeckGenerationResult {
       setDeck(null);
       setTruncated(false);
       setError(null);
+      const serializedLength =
+        typeof contentJson === "string"
+          ? contentJson.length
+          : (JSON.stringify(contentJson)?.length ?? 0);
+      const inputSizeBucket = bucketBytes(serializedLength);
+      const startedAt = performance.now();
+      emitProductTelemetry("product.ai.deck.started", {
+        inputSizeBucket,
+        optionLength: options.length ?? "default",
+        sourceKind: "document",
+      });
 
       const result = await requestDeckGeneration(
         contentJson,
@@ -114,10 +130,23 @@ export function useDeckGeneration(): UseDeckGenerationResult {
       abortRef.current = null;
 
       if (result.ok) {
+        emitProductTelemetry("product.ai.deck.candidate", {
+          durationBucket: bucketDurationMs(performance.now() - startedAt),
+          inputSizeBucket,
+          optionLength: options.length ?? "default",
+          slideCount: result.deck.slides.length,
+          truncated: result.truncated,
+        });
         setDeck(result.deck);
         setTruncated(result.truncated);
         setStatus("success");
       } else {
+        emitProductTelemetry("product.ai.deck.failed", {
+          durationBucket: bucketDurationMs(performance.now() - startedAt),
+          failureReason: result.errorKind,
+          inputSizeBucket,
+          optionLength: options.length ?? "default",
+        });
         setError({ message: result.error, kind: result.errorKind });
         setStatus("error");
       }

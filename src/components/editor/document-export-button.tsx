@@ -47,6 +47,11 @@ import {
 import { downloadBlob, sanitizeFilename } from "@/lib/visual/export";
 import { useUserEntitlements } from "@/lib/billing/use-user-entitlements";
 import { resolveExportPolicy } from "@/lib/visual/export-policy";
+import {
+  bucketBytes,
+  bucketDurationMs,
+  emitProductTelemetry,
+} from "@/lib/telemetry/product";
 
 interface DocumentExportButtonProps {
   documentTitle: string;
@@ -143,10 +148,45 @@ export function DocumentExportButton({
     return `${sanitizeFilename(documentTitle, "document")}.${ext}`;
   };
 
+  const trackExportStart = (outputFormat: string) => {
+    emitProductTelemetry("product.export.started", {
+      exportKind: "document",
+      outputFormat,
+    });
+    return performance.now();
+  };
+
+  const trackExportSuccess = (
+    outputFormat: string,
+    startedAt: number,
+    blob: Blob,
+  ) => {
+    emitProductTelemetry("product.export.succeeded", {
+      durationBucket: bucketDurationMs(performance.now() - startedAt),
+      exportKind: "document",
+      fileSizeBucket: bucketBytes(blob.size),
+      outputFormat,
+    });
+  };
+
+  const trackExportFailure = (
+    outputFormat: string,
+    startedAt: number,
+    failureReason: string,
+  ) => {
+    emitProductTelemetry("product.export.failed", {
+      durationBucket: bucketDurationMs(performance.now() - startedAt),
+      exportKind: "document",
+      failureReason,
+      outputFormat,
+    });
+  };
+
   const handleExportPDF = async () => {
     setErrorMsg(null);
     setStatus("exporting");
     setIsOpen(false);
+    const startedAt = trackExportStart("pdf");
     try {
       const blocks = await getBlocks();
       const blob = await exportDocumentAsPDF(
@@ -155,13 +195,16 @@ export function DocumentExportButton({
         getSvg,
       );
       if (!blob) {
+        trackExportFailure("pdf", startedAt, "empty_blob");
         setErrorMsg("PDF export failed");
         setStatus("error");
         return;
       }
+      trackExportSuccess("pdf", startedAt, blob);
       downloadBlob(blob, safeFilename("pdf"));
       setStatus("idle");
     } catch {
+      trackExportFailure("pdf", startedAt, "exception");
       setErrorMsg("PDF export failed");
       setStatus("error");
     }
@@ -172,6 +215,7 @@ export function DocumentExportButton({
     setErrorMsg(null);
     setStatus("exporting");
     setIsOpen(false);
+    const startedAt = trackExportStart("pptx");
     try {
       const resolveDeckExportContext = async () => {
         const blocks = await getBlocks();
@@ -200,22 +244,27 @@ export function DocumentExportButton({
       const { deck, visuals } = await resolveDeckExportContext();
       const blob = await exportDeckAsPPTX(deck, visuals, getSvg);
       if (!blob) {
+        trackExportFailure("pptx", startedAt, "empty_blob");
         setErrorMsg("PPTX export failed");
         setStatus("error");
         return;
       }
+      trackExportSuccess("pptx", startedAt, blob);
       downloadBlob(blob, safeFilename("pptx"));
       setStatus("idle");
     } catch {
+      trackExportFailure("pptx", startedAt, "exception");
       setErrorMsg("PPTX export failed");
       setStatus("error");
     }
   };
 
   const handleExportSlideImages = async (format: DeckSlideImageFormat) => {
+    const outputFormat = `slides-${format}`;
     setErrorMsg(null);
     setStatus("exporting");
     setIsOpen(false);
+    const startedAt = trackExportStart(outputFormat);
     try {
       const blocks = await getBlocks();
 
@@ -239,25 +288,30 @@ export function DocumentExportButton({
         format,
       });
       if (!blob) {
+        trackExportFailure(outputFormat, startedAt, "empty_blob");
         setErrorMsg("Slide image export failed");
         setStatus("error");
         return;
       }
+      trackExportSuccess(outputFormat, startedAt, blob);
       downloadBlob(
         blob,
         `${sanitizeFilename(documentTitle, "document")}-slides.zip`,
       );
       setStatus("idle");
     } catch {
+      trackExportFailure(outputFormat, startedAt, "exception");
       setErrorMsg("Slide image export failed");
       setStatus("error");
     }
   };
 
   const handleExportInfographic = async (format: "png" | "pdf") => {
+    const outputFormat = `infographic-${format}`;
     setErrorMsg(null);
     setStatus("exporting");
     setIsOpen(false);
+    const startedAt = trackExportStart(outputFormat);
     try {
       const blocks = await getBlocks();
       const presetWidth = INFOGRAPHIC_WIDTH_PRESETS[infogramWidth].width;
@@ -275,13 +329,16 @@ export function DocumentExportButton({
         },
       );
       if (!blob) {
+        trackExportFailure(outputFormat, startedAt, "empty_blob");
         setErrorMsg("Infographic export failed");
         setStatus("error");
         return;
       }
+      trackExportSuccess(outputFormat, startedAt, blob);
       downloadBlob(blob, safeFilename(format));
       setStatus("idle");
     } catch {
+      trackExportFailure(outputFormat, startedAt, "exception");
       setErrorMsg("Infographic export failed");
       setStatus("error");
     }

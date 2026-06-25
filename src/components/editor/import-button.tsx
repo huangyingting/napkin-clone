@@ -4,6 +4,13 @@ import { Upload, X } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
+import {
+  bucketBytes,
+  bucketDurationMs,
+  classifyFileType,
+  emitProductTelemetry,
+  reasonFromStatus,
+} from "@/lib/telemetry/product";
 
 /** Accepted file extensions shown in the file picker and error messages. */
 const ACCEPTED_EXTENSIONS = ".md,.html,.htm,.docx,.pptx,.pdf";
@@ -47,8 +54,16 @@ export function ImportButton({
 
   const processFile = useCallback(
     async (file: File) => {
+      const fileType = classifyFileType(file);
+      const fileSizeBucket = bucketBytes(file.size);
       // Client-side size guard (20 MB).
       if (file.size > 20 * 1024 * 1024) {
+        emitProductTelemetry("product.import.failed", {
+          failureReason: "too_large",
+          fileSizeBucket,
+          fileType,
+          surface: compact ? "toolbar" : "dropzone",
+        });
         setState({
           status: "error",
           message: "File is too large. Maximum allowed size is 20 MB.",
@@ -57,6 +72,13 @@ export function ImportButton({
       }
 
       setState({ status: "uploading" });
+      const startedAt = performance.now();
+      const surface = compact ? "toolbar" : "dropzone";
+      emitProductTelemetry("product.import.started", {
+        fileSizeBucket,
+        fileType,
+        surface,
+      });
 
       const formData = new FormData();
       formData.append("file", file);
@@ -72,6 +94,14 @@ export function ImportButton({
           | { error: string };
 
         if (!response.ok || "error" in data) {
+          emitProductTelemetry("product.import.failed", {
+            durationBucket: bucketDurationMs(performance.now() - startedAt),
+            failureReason: reasonFromStatus(response.status),
+            fileSizeBucket,
+            fileType,
+            status: response.status,
+            surface,
+          });
           setState({
             status: "error",
             message: "error" in data ? data.error : "Import failed.",
@@ -80,15 +110,28 @@ export function ImportButton({
         }
 
         setState({ status: "idle" });
+        emitProductTelemetry("product.import.succeeded", {
+          durationBucket: bucketDurationMs(performance.now() - startedAt),
+          fileSizeBucket,
+          fileType,
+          surface,
+        });
         onImport(data.markdown);
       } catch {
+        emitProductTelemetry("product.import.failed", {
+          durationBucket: bucketDurationMs(performance.now() - startedAt),
+          failureReason: "network",
+          fileSizeBucket,
+          fileType,
+          surface,
+        });
         setState({
           status: "error",
           message: "Could not reach the server. Please try again.",
         });
       }
     },
-    [onImport],
+    [compact, onImport],
   );
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {

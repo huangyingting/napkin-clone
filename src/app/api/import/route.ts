@@ -33,6 +33,13 @@ import {
   retryAfterSeconds,
 } from "@/lib/rate-limit";
 import { auth as authEnv } from "@/lib/env";
+import {
+  bucketBytes,
+  bucketDurationMs,
+  classifyFileType,
+  emitProductTelemetry,
+  reasonFromStatus,
+} from "@/lib/telemetry/product";
 
 // Node.js runtime: the parsers (mammoth, jszip, pdfjs) require it.
 export const runtime = "nodejs";
@@ -89,10 +96,32 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return validationError("Missing `file` field in form data.");
   }
 
+  const startedAt = Date.now();
+  const fileType = classifyFileType(file);
+  const fileSizeBucket = bucketBytes(file.size);
+  emitProductTelemetry("product.import.started", {
+    fileSizeBucket,
+    fileType,
+    surface: "api",
+  });
   const result = await processImportUpload(file, { subjectHash: clientHash });
   if (!result.ok) {
+    emitProductTelemetry("product.import.failed", {
+      durationBucket: bucketDurationMs(Date.now() - startedAt),
+      failureReason: reasonFromStatus(result.status),
+      fileSizeBucket,
+      fileType,
+      status: result.status,
+      surface: "api",
+    });
     return validationError(result.error, result.status);
   }
 
+  emitProductTelemetry("product.import.succeeded", {
+    durationBucket: bucketDurationMs(Date.now() - startedAt),
+    fileSizeBucket,
+    fileType,
+    surface: "api",
+  });
   return NextResponse.json({ markdown: result.markdown });
 }

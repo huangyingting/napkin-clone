@@ -53,6 +53,26 @@ still a release blocker and must be fixed immediately.
 Runtime environment variables used by this gate and by deployed services are
 inventoried in [runtime-config.md](./runtime-config.md).
 
+### Product telemetry and release observability (Epic #1046 / N16)
+
+Product telemetry is privacy-safe by construction and separate from security
+audit events. The taxonomy and no-op-by-default emitter live in
+`src/lib/telemetry/product.ts`; release aggregate helpers live in
+`src/lib/telemetry/release-report.ts`.
+
+Before a release, review aggregate telemetry only:
+
+- funnel health: onboarding activation/dismissal, import/export success/failure,
+  AI visual candidate/apply, and AI deck candidate/apply/save counts;
+- error rates: stable reason codes such as `validation`, `quota`, `rate_limit`,
+  `timeout`, `server`, `entitlement`, and `empty_blob`;
+- performance regressions: duration buckets only, not raw timing traces;
+- gate status: the automated quality gate results in this document.
+
+Do not inspect or export raw event payloads for release sign-off. Events carry
+ids/enums/counts/buckets only and must never include email, names, document text,
+prompt/source text, raw filenames, or uploaded content.
+
 ### Focused documentation gate (Epic #1004 / N8)
 
 `npm run docs:check` is the release-gate shortcut for source-driven docs drift.

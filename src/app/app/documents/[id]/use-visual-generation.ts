@@ -8,6 +8,11 @@ import {
   stampSourceText,
 } from "@/lib/visual/generate";
 import type { DetailLevel, Orientation } from "@/lib/ai/prompt";
+import {
+  bucketCount,
+  bucketDurationMs,
+  emitProductTelemetry,
+} from "@/lib/telemetry/product";
 import type { Visual, VisualKind } from "@/lib/visual/schema";
 
 export type GenStatus = "idle" | "loading";
@@ -77,6 +82,7 @@ export function visualResultSectionForType(
 
 export interface VisualGenerationTarget {
   text: string;
+  sourceKind?: "block" | "selection";
 }
 
 interface GenerateOptions {
@@ -121,6 +127,11 @@ export function useVisualGeneration() {
       const section = visualResultSectionForType(opts.type);
       const append = generateOptions.append ?? true;
       const limit = generateOptions.limit ?? MAX_GENERATED_VISUALS_PER_SECTION;
+      const sourceKind = target.sourceKind ?? "block";
+      const inputSizeBucket = bucketCount(
+        target.text.trim() === "" ? 0 : target.text.trim().split(/\s+/).length,
+      );
+      const startedAt = performance.now();
 
       sourceTextRef.current = target.text.trim();
       setStatus("loading");
@@ -128,6 +139,13 @@ export function useVisualGeneration() {
       setError(null);
       setErrorSection(null);
       setCreditError(false);
+      emitProductTelemetry("product.ai.visual.started", {
+        detailLevel: opts.detailLevel,
+        inputSizeBucket,
+        orientation: opts.orientation,
+        sourceKind,
+        visualKind: opts.type,
+      });
 
       const result = await requestVisualCandidates(target.text, {
         type: opts.type,
@@ -139,6 +157,13 @@ export function useVisualGeneration() {
       setStatus("idle");
       setActiveGenerationSection(null);
       if (result.ok) {
+        emitProductTelemetry("product.ai.visual.candidates", {
+          candidateCount: result.candidates.length,
+          durationBucket: bucketDurationMs(performance.now() - startedAt),
+          inputSizeBucket,
+          sourceKind,
+          visualKind: opts.type,
+        });
         setGeneratedVisualsBySection((current) => ({
           ...current,
           [section]: append
@@ -149,6 +174,13 @@ export function useVisualGeneration() {
             : result.candidates.slice(0, limit),
         }));
       } else {
+        emitProductTelemetry("product.ai.visual.failed", {
+          durationBucket: bucketDurationMs(performance.now() - startedAt),
+          failureReason: result.errorKind === "credit" ? "quota" : "unknown",
+          inputSizeBucket,
+          sourceKind,
+          visualKind: opts.type,
+        });
         setError(result.error);
         setErrorSection(section);
         setCreditError(isCreditError(result));

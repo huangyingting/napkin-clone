@@ -204,6 +204,11 @@ import {
 } from "@/components/presentation/slide-editor/use-slide-editor-commit";
 import { useSlideEditorAutosaveQueue } from "@/components/presentation/slide-editor/use-slide-editor-autosave-queue";
 import {
+  bucketCount,
+  bucketDurationMs,
+  emitProductTelemetry,
+} from "@/lib/telemetry/product";
+import {
   BackgroundThemePanel,
   FromDocumentPanel,
   InsertMenuButton,
@@ -624,6 +629,9 @@ export function SlideEditor({
     canUndo,
     canRedo,
   } = useDeckHistory(deckProp, onDeckChangeProp);
+  const openedAtRef = useRef(0);
+  const loadReportedRef = useRef(false);
+  const firstRenderReportedRef = useRef(false);
 
   const [selectedIndex, setSelectedIndex] = useState(0);
   // Keep the selection within bounds as slides are added/removed.
@@ -803,6 +811,16 @@ export function SlideEditor({
     hasUnsavedWork,
   } = useSlideEditorAutosaveQueue({ deck, onSave, pendingPatchesRef });
 
+  useEffect(() => {
+    if (saveStatus !== "error") {
+      return;
+    }
+    emitProductTelemetry("product.editor.error.visible", {
+      errorCode: saveErrorMessage ? "SLIDE_SAVE_FAILED" : "UNKNOWN",
+      surface: "slide-editor",
+    });
+  }, [saveErrorMessage, saveStatus]);
+
   // Lock page scroll while the full-screen editor overlay is open so the page
   // underneath can't peek through or leave a stray scrollbar. The page
   // scrollbar usually lives on <html>, so lock both it and <body>.
@@ -912,6 +930,33 @@ export function SlideEditor({
       )
     : 0;
 
+  useEffect(() => {
+    if (loadReportedRef.current) {
+      return;
+    }
+    loadReportedRef.current = true;
+    openedAtRef.current = performance.now();
+    emitProductTelemetry("product.editor.load.timing", {
+      durationBucket: bucketDurationMs(performance.now() - openedAtRef.current),
+      slideCount: deck.slides.length,
+      surface: "slide-editor",
+      visualCountBucket: bucketCount(visuals.size),
+    });
+  }, [deck.slides.length, visuals.size]);
+
+  useEffect(() => {
+    if (firstRenderReportedRef.current || !selectedSlide) {
+      return;
+    }
+    firstRenderReportedRef.current = true;
+    emitProductTelemetry("product.editor.render.timing", {
+      durationBucket: bucketDurationMs(performance.now() - openedAtRef.current),
+      elementCountBucket: bucketCount(selectedSlide.elements?.length ?? 0),
+      slideCount: deck.slides.length,
+      surface: "slide-editor",
+    });
+  }, [deck.slides.length, selectedSlide]);
+
   const fitInsertedTextElement = useCallback(
     <T extends TextLikeElement>(element: T, anchor: "top-left" | "center") => {
       const stageWidth = fittedStageSize.width * zoom;
@@ -1015,7 +1060,14 @@ export function SlideEditor({
 
   const handleSlideFormatChange = useCallback(
     (slideFormat: SlideFormat) => {
+      const startedAt = performance.now();
       doCommitAndChange(deck, { type: "SET_DECK_FORMAT", slideFormat });
+      emitProductTelemetry("product.editor.command.succeeded", {
+        commandName: "set_deck_format",
+        durationBucket: bucketDurationMs(performance.now() - startedAt),
+        slideCount: deck.slides.length,
+        surface: "slide-editor",
+      });
     },
     [deck, doCommitAndChange],
   );
@@ -1060,6 +1112,12 @@ export function SlideEditor({
       if (patches.length > 0) {
         appendPendingPatches(pendingPatchesRef, patches);
         onDeckChange(nextDeck);
+        emitProductTelemetry("product.editor.command.succeeded", {
+          commandName: "apply_deck_solid_background",
+          elementCountBucket: bucketCount(patches.length),
+          slideCount: nextDeck.slides.length,
+          surface: "slide-editor",
+        });
       }
       setThemeMenuOpen(false);
     },
@@ -1106,6 +1164,12 @@ export function SlideEditor({
       if (patches.length > 0) {
         appendPendingPatches(pendingPatchesRef, patches);
         onDeckChange(nextDeck);
+        emitProductTelemetry("product.editor.command.succeeded", {
+          commandName: "apply_deck_gradient_background",
+          elementCountBucket: bucketCount(patches.length),
+          slideCount: nextDeck.slides.length,
+          surface: "slide-editor",
+        });
       }
       setThemeMenuOpen(false);
     },
@@ -1151,6 +1215,11 @@ export function SlideEditor({
       const next = insertSlide(deck, safeSelected, slide);
       clearPendingPatches(pendingPatchesRef);
       onDeckChange(next);
+      emitProductTelemetry("product.editor.command.succeeded", {
+        commandName: "add_template_slide",
+        slideCount: next.slides.length,
+        surface: "slide-editor",
+      });
       setSelectedIndex(Math.min(safeSelected + 1, next.slides.length - 1));
       setAddTemplateOpen(false);
     },
@@ -1166,6 +1235,11 @@ export function SlideEditor({
       const next = insertSlide(deck, safeSelected, slide);
       clearPendingPatches(pendingPatchesRef);
       onDeckChange(next);
+      emitProductTelemetry("product.editor.command.succeeded", {
+        commandName: "add_visual_spotlight_slide",
+        slideCount: next.slides.length,
+        surface: "slide-editor",
+      });
       setSelectedIndex(Math.min(safeSelected + 1, next.slides.length - 1));
       setSpotlightPickerOpen(false);
     },
@@ -1182,6 +1256,11 @@ export function SlideEditor({
       if (!result.ok) return;
       appendPendingPatches(pendingPatchesRef, patches);
       onDeckChange(result.deck, commitOptions);
+      emitProductTelemetry("product.editor.command.succeeded", {
+        commandName: "move_slide",
+        slideCount: result.deck.slides.length,
+        surface: "slide-editor",
+      });
       setSelectedIndex(index + (direction > 0 ? 1 : -1));
     },
     [deck, onDeckChange],
@@ -1198,6 +1277,11 @@ export function SlideEditor({
       if (!result.ok) return;
       appendPendingPatches(pendingPatchesRef, patches);
       onDeckChange(result.deck, commitOptions);
+      emitProductTelemetry("product.editor.command.succeeded", {
+        commandName: "duplicate_slide",
+        slideCount: result.deck.slides.length,
+        surface: "slide-editor",
+      });
       setSelectedIndex(index + 1);
     },
     [deck, onDeckChange],
@@ -1214,6 +1298,11 @@ export function SlideEditor({
       if (!result.ok) return;
       appendPendingPatches(pendingPatchesRef, patches);
       onDeckChange(result.deck, commitOptions);
+      emitProductTelemetry("product.editor.command.succeeded", {
+        commandName: "remove_slide",
+        slideCount: result.deck.slides.length,
+        surface: "slide-editor",
+      });
       setSelectedIndex((current) =>
         Math.max(0, Math.min(current, deck.slides.length - 2)),
       );
@@ -1276,12 +1365,20 @@ export function SlideEditor({
   const handleUndo = useCallback(() => {
     clearPendingPatches(pendingPatchesRef);
     undo();
-  }, [undo]);
+    emitProductTelemetry("product.editor.undo", {
+      slideCount: deck.slides.length,
+      surface: "slide-editor",
+    });
+  }, [deck.slides.length, undo]);
 
   const handleRedo = useCallback(() => {
     clearPendingPatches(pendingPatchesRef);
     redo();
-  }, [redo]);
+    emitProductTelemetry("product.editor.redo", {
+      slideCount: deck.slides.length,
+      surface: "slide-editor",
+    });
+  }, [deck.slides.length, redo]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
