@@ -21,11 +21,18 @@
  * under `node --test` + `tsx`.
  */
 
+import {
+  allowAccess,
+  denyAccess,
+  type AccessDecision,
+  type AccessDenialReason,
+} from "@/lib/access-policy/taxonomy";
+
 /** The kind of public access a request is asking for. */
 export type ShareMode = "view" | "embed" | "present";
 
 /** Structured reason a share request was denied (for logging/observability). */
-type ShareDenyReason =
+export type ShareDenyReason =
   | "not-shared"
   | "revoked"
   | "deleted"
@@ -107,6 +114,48 @@ export function evaluateShareAccess(
 /** Convenience boolean wrapper around {@link evaluateShareAccess}. */
 export function isShareAccessAllowed(input: ShareAccessInput): boolean {
   return evaluateShareAccess(input).allow;
+}
+
+const SHARE_DENY_TAXONOMY: Record<ShareDenyReason, AccessDenialReason> = {
+  "not-shared": "share-not-enabled",
+  revoked: "share-revoked",
+  deleted: "resource-deleted",
+  expired: "expired",
+  "embed-disabled": "mode-disabled",
+  "present-disabled": "mode-disabled",
+};
+
+/**
+ * Maps the public-share policy result into the shared access-decision taxonomy.
+ * Public share denial always uses privacy-preserving 404 semantics; routes may
+ * translate that 404 to `notFound()` or safe no-index metadata.
+ */
+export function shareAccessDecisionToAccessDecision(
+  mode: ShareMode,
+  decision: ShareAccessDecision,
+): AccessDecision {
+  if (decision.allow) {
+    return allowAccess({ resource: { kind: "share" }, capability: mode });
+  }
+
+  return denyAccess({
+    resource: { kind: "share" },
+    capability: mode,
+    reason: SHARE_DENY_TAXONOMY[decision.reason],
+    status: 404,
+    safeMessage: "Shared document not found.",
+    concealResource: true,
+  });
+}
+
+/** Evaluates share access and returns the shared access-decision shape. */
+export function evaluateShareAccessDecision(
+  input: ShareAccessInput,
+): AccessDecision {
+  return shareAccessDecisionToAccessDecision(
+    input.mode,
+    evaluateShareAccess(input),
+  );
 }
 
 /**

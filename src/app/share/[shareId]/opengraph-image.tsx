@@ -4,7 +4,7 @@ import { excerpt } from "@/lib/document-stats";
 import { prisma } from "@/lib/prisma";
 import { shareIdFromParam } from "@/lib/slug";
 import {
-  evaluateShareAccess,
+  evaluateShareAccessDecision,
   SHARE_ACCESS_SELECT,
   toShareAccessInput,
 } from "@/lib/share-access";
@@ -48,7 +48,9 @@ export default async function Image({
   // generic branded card so private documents never leak (issue #101 AC #4).
   const document =
     row &&
-    evaluateShareAccess(toShareAccessInput(row, resolvedShareId, "view")).allow
+    evaluateShareAccessDecision(
+      toShareAccessInput(row, resolvedShareId, "view"),
+    ).allow
       ? row
       : null;
 

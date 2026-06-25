@@ -3,6 +3,8 @@ import { test } from "node:test";
 
 import {
   evaluateInviteAccess,
+  evaluateInviteAccessDecision,
+  inviteAccessDecisionToAccessDecision,
   isInviteAccessAllowed,
   isUnderUseCap,
   toInviteAccessInput,
@@ -59,6 +61,41 @@ test("evaluateInviteAccess: revoked → deny", () => {
   assert.deepEqual(evaluateInviteAccess(input({ isRevoked: true })), {
     allow: false,
     reason: "revoked",
+  });
+
+  test("invite access taxonomy maps domain deny reasons", () => {
+    assert.deepEqual(
+      inviteAccessDecisionToAccessDecision({
+        allow: false,
+        reason: "exhausted",
+      }),
+      {
+        allow: false,
+        resource: { kind: "invite" },
+        capability: "accept",
+        reason: "invite-exhausted",
+        status: 403,
+        safeMessage: "This invite link has reached its maximum number of uses.",
+        concealResource: false,
+      },
+    );
+  });
+
+  test("evaluateInviteAccessDecision returns shared allow/deny taxonomy", () => {
+    assert.deepEqual(evaluateInviteAccessDecision(input()), {
+      allow: true,
+      resource: { kind: "invite" },
+      capability: "accept",
+    });
+    assert.deepEqual(evaluateInviteAccessDecision(input({ isRevoked: true })), {
+      allow: false,
+      resource: { kind: "invite" },
+      capability: "accept",
+      reason: "invite-revoked",
+      status: 403,
+      safeMessage: "This invite link has been revoked by a workspace owner.",
+      concealResource: false,
+    });
   });
 });
 

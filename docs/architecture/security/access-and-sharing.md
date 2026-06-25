@@ -1,7 +1,7 @@
 # Access Control And Public Sharing
 
 **Status:** Current  
-**Last updated:** 2026-06-23
+**Last updated:** 2026-06-25
 
 This document defines document-level access control and public share behavior.
 It covers authenticated app permissions, public share/embed/present routes, and
@@ -11,6 +11,8 @@ collaboration upgrade authorization.
 
 | Area                    | Source                                                                                        |
 | ----------------------- | --------------------------------------------------------------------------------------------- |
+| Access taxonomy         | [`src/lib/access-policy/taxonomy.ts`](../../../src/lib/access-policy/taxonomy.ts)             |
+| Access adapters         | [`src/lib/access-policy/adapters.ts`](../../../src/lib/access-policy/adapters.ts)             |
 | Document capabilities   | [`src/lib/auth/document-permissions.ts`](../../../src/lib/auth/document-permissions.ts)       |
 | Workspace role coercion | [`src/lib/workspace/roles.ts`](../../../src/lib/workspace/roles.ts)                           |
 | Share access policy     | [`src/lib/share-access.ts`](../../../src/lib/share-access.ts)                                 |
@@ -45,6 +47,21 @@ Server actions call `requireDocumentCapability(userId, documentId,
 capability)`. A user with no view access receives a not-found style error so the
 action does not reveal private document existence.
 
+Document, workspace, share, invite, slide-asset, and collab helpers map their
+domain-specific outcomes to the shared access taxonomy:
+
+- subject: anonymous or authenticated user;
+- resource: document, workspace, share, invite, slide asset, or collab room;
+- capability/mode: view, edit, manage, mutate, embed, present, accept, serve,
+  or connect;
+- denial reason: privacy not-found, insufficient capability, revoked/expired
+  share or invite, mode disabled, invalid role, or forbidden.
+
+Adapters convert that shared decision into server-action errors, API responses,
+`notFound()`, and safe diagnostics. The adapters preserve the status selected by
+the domain policy; they must not turn a privacy not-found into a forbidden
+response that would reveal resource existence.
+
 ## Public Share Access
 
 Public routes do not use workspace membership. They evaluate a pure share policy
@@ -74,6 +91,18 @@ mode is disabled.
 
 Denied requests become `notFound()` or no-index metadata. Private titles or
 content must not leak through metadata.
+
+The Open Graph image route uses the same share-access mapping. It preserves the
+existing safe fallback card for denied/unknown links instead of rendering private
+document content.
+
+## Read-List Scoping
+
+`documentAccessOr(userId)` is a read-only list/search scope: it selects documents
+owned by the user or visible through workspace membership. It is not a write
+authorization primitive. Write paths use `requireDocumentCapability` or
+`requireWorkspaceCapability` so the role-derived capability check decides the
+mutation.
 
 ## Share Link Lifecycle
 
@@ -110,12 +139,14 @@ from viewer connections.
 3. Share metadata must not leak private document content when access is denied.
 4. Regenerating a share link invalidates old URLs immediately.
 5. Collaboration upgrades require authorization.
+6. Read-list scopes are read-only; write paths use capability checks.
 
 ## Primary Tests
 
 - [`src/lib/auth/document-permissions.test.ts`](../../../src/lib/auth/document-permissions.test.ts)
 - [`src/lib/auth/authz-regression.test.ts`](../../../src/lib/auth/authz-regression.test.ts)
 - [`src/lib/auth/document-role-matrix.test.ts`](../../../src/lib/auth/document-role-matrix.test.ts)
+- [`src/lib/access-policy/adapters.test.ts`](../../../src/lib/access-policy/adapters.test.ts)
 - [`src/lib/share-access.test.ts`](../../../src/lib/share-access.test.ts)
 - [`src/lib/collab/room-access.test.ts`](../../../src/lib/collab/room-access.test.ts)
 - [`e2e/public-pages.spec.ts`](../../../e2e/public-pages.spec.ts)

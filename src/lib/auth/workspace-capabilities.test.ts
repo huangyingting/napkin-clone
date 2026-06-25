@@ -12,6 +12,7 @@ import {
   assertWorkspaceCapability,
   capabilitiesForWorkspaceRole,
   deriveWorkspaceRole,
+  workspaceCapabilityAccessDecision,
   workspaceCapabilities,
   WorkspacePermissionError,
   type WorkspaceCapability,
@@ -207,6 +208,9 @@ test("assertWorkspaceCapability: no-access error says 'Workspace not found.' wit
     assert.ok(error instanceof WorkspacePermissionError);
     assert.equal(error.message, "Workspace not found.");
     assert.equal(error.capability, null);
+    assert.equal(error.accessDecision?.reason, "resource-not-found");
+    assert.equal(error.accessDecision?.status, 404);
+    assert.equal(error.accessDecision?.concealResource, true);
   }
 });
 
@@ -219,6 +223,8 @@ test("assertWorkspaceCapability: viewer mutate denial carries a clear message", 
     assert.ok(error instanceof WorkspacePermissionError);
     assert.match(error.message, /owners and editors/);
     assert.equal(error.capability, "mutate");
+    assert.equal(error.accessDecision?.reason, "insufficient-capability");
+    assert.equal(error.accessDecision?.status, 403);
   }
 });
 
@@ -231,7 +237,50 @@ test("assertWorkspaceCapability: editor manage denial carries a clear message", 
     assert.ok(error instanceof WorkspacePermissionError);
     assert.match(error.message, /only the workspace owner/i);
     assert.equal(error.capability, "manage");
+    assert.equal(error.accessDecision?.reason, "insufficient-capability");
+    assert.equal(error.accessDecision?.status, 403);
   }
+});
+
+test("workspaceCapabilityAccessDecision maps workspace denials to taxonomy", () => {
+  assert.deepEqual(
+    workspaceCapabilityAccessDecision(
+      capabilitiesForWorkspaceRole("none"),
+      "view",
+    ),
+    {
+      allow: false,
+      resource: { kind: "workspace" },
+      capability: "view",
+      reason: "resource-not-found",
+      status: 404,
+      safeMessage: "Workspace not found.",
+      concealResource: true,
+    },
+  );
+  assert.deepEqual(
+    workspaceCapabilityAccessDecision(
+      capabilitiesForWorkspaceRole("viewer"),
+      "mutate",
+    ),
+    {
+      allow: false,
+      resource: { kind: "workspace" },
+      capability: "mutate",
+      reason: "insufficient-capability",
+      status: 403,
+      safeMessage:
+        "Only workspace owners and editors may create or import documents.",
+      concealResource: false,
+    },
+  );
+  assert.deepEqual(
+    workspaceCapabilityAccessDecision(
+      capabilitiesForWorkspaceRole("owner"),
+      "manage",
+    ),
+    { allow: true, resource: { kind: "workspace" }, capability: "manage" },
+  );
 });
 
 // ---------------------------------------------------------------------------

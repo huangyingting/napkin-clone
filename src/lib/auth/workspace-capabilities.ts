@@ -32,6 +32,12 @@
 
 import { prisma } from "@/lib/prisma";
 import { asWorkspaceRole } from "@/lib/workspace/roles";
+import {
+  allowAccess,
+  denyAccess,
+  type AccessDecision,
+  type AccessDeniedDecision,
+} from "@/lib/access-policy/taxonomy";
 
 /** Effective role of a user for a single workspace. */
 export type WorkspaceRole = "owner" | "editor" | "viewer" | "none";
@@ -70,11 +76,17 @@ export type WorkspaceIdentity = {
  */
 export class WorkspacePermissionError extends Error {
   readonly capability: WorkspaceCapability | null;
+  readonly accessDecision: AccessDeniedDecision | null;
 
-  constructor(message: string, capability: WorkspaceCapability | null = null) {
+  constructor(
+    message: string,
+    capability: WorkspaceCapability | null = null,
+    accessDecision: AccessDeniedDecision | null = null,
+  ) {
     super(message);
     this.name = "WorkspacePermissionError";
     this.capability = capability;
+    this.accessDecision = accessDecision;
   }
 }
 
@@ -157,21 +169,57 @@ export function assertWorkspaceCapability(
   capabilities: WorkspaceCapabilities,
   capability: WorkspaceCapability,
 ): void {
+  const decision = workspaceCapabilityAccessDecision(capabilities, capability);
+  if (decision.allow) {
+    return;
+  }
+
+  const deniedCapability = capabilities.canView ? capability : null;
+  throw new WorkspacePermissionError(
+    decision.safeMessage,
+    deniedCapability,
+    decision,
+  );
+}
+
+/** Maps a workspace capability check to the shared access-decision taxonomy. */
+export function workspaceCapabilityAccessDecision(
+  capabilities: WorkspaceCapabilities,
+  capability: WorkspaceCapability,
+): AccessDecision {
   if (!capabilities.canView) {
-    throw new WorkspacePermissionError("Workspace not found.", null);
+    return denyAccess({
+      resource: { kind: "workspace" },
+      capability,
+      reason: "resource-not-found",
+      status: 404,
+      safeMessage: "Workspace not found.",
+      concealResource: true,
+    });
   }
   if (capability === "mutate" && !capabilities.canMutate) {
-    throw new WorkspacePermissionError(
-      "Only workspace owners and editors may create or import documents.",
-      "mutate",
-    );
+    return denyAccess({
+      resource: { kind: "workspace" },
+      capability,
+      reason: "insufficient-capability",
+      status: 403,
+      safeMessage:
+        "Only workspace owners and editors may create or import documents.",
+      concealResource: false,
+    });
   }
   if (capability === "manage" && !capabilities.canManage) {
-    throw new WorkspacePermissionError(
-      "Only the workspace owner may perform this action.",
-      "manage",
-    );
+    return denyAccess({
+      resource: { kind: "workspace" },
+      capability,
+      reason: "insufficient-capability",
+      status: 403,
+      safeMessage: "Only the workspace owner may perform this action.",
+      concealResource: false,
+    });
   }
+
+  return allowAccess({ resource: { kind: "workspace" }, capability });
 }
 
 /**
@@ -223,7 +271,18 @@ export async function requireWorkspaceCapability(
   const result = await getWorkspaceCapabilities(userId, workspaceId);
 
   if (!result.workspace) {
-    throw new WorkspacePermissionError("Workspace not found.", null);
+    throw new WorkspacePermissionError(
+      "Workspace not found.",
+      null,
+      denyAccess({
+        resource: { kind: "workspace" },
+        capability,
+        reason: "resource-not-found",
+        status: 404,
+        safeMessage: "Workspace not found.",
+        concealResource: true,
+      }),
+    );
   }
 
   assertWorkspaceCapability(result, capability);
