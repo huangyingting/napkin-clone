@@ -1,9 +1,9 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
-import bcrypt from "bcryptjs";
 
 import { authConfig } from "@/auth.config";
+import { comparePassword } from "@/lib/auth/password";
 import { google } from "@/lib/env";
 import { isGoogleAuthConfigured } from "@/lib/auth/google-provider";
 import { seedSampleDocument } from "@/lib/onboarding/seed-sample-document";
@@ -34,7 +34,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const passwordMatches = await bcrypt.compare(
+        const passwordMatches = await comparePassword(
           password,
           user.passwordHash,
         );

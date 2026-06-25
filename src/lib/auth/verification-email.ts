@@ -1,5 +1,3 @@
-import { logError } from "@/lib/log";
-
 /**
  * Delivery seam for email-verification links (#162).
  *
@@ -13,56 +11,9 @@ import { logError } from "@/lib/log";
  * recipient is always the logged-in user's own, already-known address.
  */
 
-export interface VerificationEmail {
-  /** Recipient address (the logged-in user's own email). */
-  to: string;
-  /** Absolute, ready-to-click verification URL containing the raw token. */
-  verifyUrl: string;
-}
-
-interface VerificationMailer {
-  /** Delivers the verification link. Resolves on success; rejects on error. */
-  send(email: VerificationEmail): Promise<void>;
-}
-
-/**
- * Dev fallback used when no real transport is configured. It logs the verify URL
- * to the server console so a developer can complete the flow locally. It is
- * guarded to non-production so a misconfigured prod deploy can never print a live
- * verification link to the logs.
- */
-const devConsoleMailer: VerificationMailer = {
-  async send({ to, verifyUrl }) {
-    if (process.env.NODE_ENV === "production") {
-      logError(
-        "email-verification",
-        new Error("No email-verification transport is configured"),
-      );
-      return;
-    }
-    console.info(
-      `[email-verification] DEV ONLY — verify link for ${to}: ${verifyUrl}`,
-    );
-  },
-};
-
-/**
- * Selects the active mailer. Returns the dev console fallback today.
- */
-function getVerificationMailer(): VerificationMailer {
-  return devConsoleMailer;
-}
-
-/**
- * Sends a verification link via the active mailer. Failures are logged but
- * swallowed so the settings action can report a single generic outcome.
- */
-export async function deliverVerificationEmail(
-  email: VerificationEmail,
-): Promise<void> {
-  try {
-    await getVerificationMailer().send(email);
-  } catch (error) {
-    logError("email-verification", error);
-  }
-}
+export {
+  buildEmailVerificationUrl,
+  deliverVerificationEmail,
+  type AuthEmailDeliveryPort as VerificationMailer,
+  type VerificationEmail,
+} from "@/lib/auth/email";

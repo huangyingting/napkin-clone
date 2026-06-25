@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  comparePassword,
+  hashPassword,
   MIN_PASSWORD_LENGTH,
+  PASSWORD_HASH_COST,
   validatePasswordChange,
 } from "@/lib/auth/password";
 
@@ -60,4 +63,13 @@ test("rejects a long-enough password that does not match its confirmation", () =
     result.ok === false ? result.message : "",
     "New passwords don't match.",
   );
+});
+
+test("hashPassword and comparePassword share the centralized bcrypt cost", async () => {
+  const hash = await hashPassword("supersecret");
+
+  assert.match(hash, /^\$2[aby]\$/);
+  assert.match(hash, new RegExp(`^\\$2[aby]\\$${PASSWORD_HASH_COST}\\$`));
+  assert.equal(await comparePassword("supersecret", hash), true);
+  assert.equal(await comparePassword("wrong-secret", hash), false);
 });

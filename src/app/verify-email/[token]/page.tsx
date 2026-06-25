@@ -1,90 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import {
-  VERIFICATION_TOKEN_REJECTION_MESSAGE,
-  evaluateVerificationToken,
-  hashVerificationToken,
-} from "@/lib/auth/verification-token";
-import { logError } from "@/lib/log";
-import { prisma } from "@/lib/prisma";
+import { consumeEmailVerificationToken } from "@/lib/auth/email-verification-service";
 
 export const metadata: Metadata = {
   title: "Verify your email — TextIQ",
 };
-
-type VerifyOutcome =
-  | { status: "verified" }
-  | { status: "error"; message: string };
-
-/**
- * Consumes an email-verification token and stamps the owning user's
- * `emailVerified`.
- *
- * The token is looked up by its HASH (the raw value is never stored), evaluated
- * with the pure {@link evaluateVerificationToken} rules (exists, unused, not
- * expired), and on success — in one transaction — the user is marked verified,
- * the token is stamped used, and the user's other outstanding verification
- * tokens are invalidated so a second leaked link can't be replayed.
- */
-async function consumeVerificationToken(
-  rawToken: string,
-): Promise<VerifyOutcome> {
-  if (!rawToken) {
-    return {
-      status: "error",
-      message: VERIFICATION_TOKEN_REJECTION_MESSAGE.not_found,
-    };
-  }
-
-  try {
-    const tokenHash = hashVerificationToken(rawToken);
-    const record = await prisma.emailVerificationToken.findUnique({
-      where: { tokenHash },
-      select: { id: true, userId: true, expiresAt: true, usedAt: true },
-    });
-
-    const evaluation = evaluateVerificationToken({
-      exists: record !== null,
-      expiresAt: record?.expiresAt ?? null,
-      usedAt: record?.usedAt ?? null,
-      now: new Date(),
-    });
-
-    if (!evaluation.valid || record === null) {
-      return {
-        status: "error",
-        message: evaluation.valid
-          ? VERIFICATION_TOKEN_REJECTION_MESSAGE.not_found
-          : VERIFICATION_TOKEN_REJECTION_MESSAGE[evaluation.reason],
-      };
-    }
-
-    const usedAt = new Date();
-    await prisma.$transaction([
-      prisma.user.update({
-        where: { id: record.userId },
-        data: { emailVerified: usedAt },
-      }),
-      prisma.emailVerificationToken.update({
-        where: { id: record.id },
-        data: { usedAt },
-      }),
-      prisma.emailVerificationToken.updateMany({
-        where: { userId: record.userId, usedAt: null, id: { not: record.id } },
-        data: { usedAt },
-      }),
-    ]);
-
-    return { status: "verified" };
-  } catch (error) {
-    logError("email-verification", error);
-    return {
-      status: "error",
-      message: "Could not verify your email. Please try again.",
-    };
-  }
-}
 
 export default async function VerifyEmailPage({
   params,
@@ -92,7 +13,9 @@ export default async function VerifyEmailPage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const outcome = await consumeVerificationToken(decodeURIComponent(token));
+  const outcome = await consumeEmailVerificationToken(
+    decodeURIComponent(token),
+  );
 
   const verified = outcome.status === "verified";
 

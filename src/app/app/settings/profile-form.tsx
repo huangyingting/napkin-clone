@@ -2,7 +2,9 @@
 
 import { useActionState } from "react";
 
-import { updateProfile, type ProfileResult } from "./actions";
+import type { ProfileResult } from "@/lib/auth/form-state";
+
+import { updateProfile } from "./actions";
 
 const initialState: ProfileResult | null = null;
 

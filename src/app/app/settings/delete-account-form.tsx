@@ -3,7 +3,9 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { deleteAccount, type DeleteAccountResult } from "./actions";
+import type { DeleteAccountResult } from "@/lib/auth/form-state";
+
+import { deleteAccount } from "./actions";
 
 const initialState: DeleteAccountResult | null = null;
 

@@ -1,13 +1,20 @@
 /**
- * Pure, framework-free password rules shared by the change-password flow.
+ * Framework-free password rules and bcrypt helpers shared by auth flows.
  *
- * Keeping the validation logic here (no bcrypt, no Prisma, no React) lets it be
- * unit-tested under `node --test` + `tsx` with no I/O, and keeps a single source
- * of truth for the minimum length and the user-facing rejection messages.
+ * Keeping validation and hashing here (no Prisma, no Next.js, no React) gives
+ * signup, sign-in, reset-password, and settings one source of truth for password
+ * length, bcrypt cost, and comparison behavior.
  */
+
+import bcrypt from "bcryptjs";
 
 /** Minimum number of characters required for a stored password. */
 export const MIN_PASSWORD_LENGTH = 8;
+
+/** bcrypt cost factor used for every credentials password hash. */
+export const PASSWORD_HASH_COST = 12;
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export type PasswordValidationResult =
   | { ok: true }
@@ -19,9 +26,8 @@ export type PasswordValidationResult =
  * confirmation; the messages are safe to surface directly (they describe the
  * caller's own input and leak nothing about the account).
  *
- * It deliberately does NOT verify the current password (that needs the stored
- * hash and bcrypt, which live in the server action) — this stays pure so it can
- * be unit-tested in isolation.
+ * It deliberately does NOT verify the current password; credential services do
+ * that with the stored hash and centralized bcrypt compare helper.
  */
 export function validatePasswordChange(input: {
   newPassword: string;
@@ -41,4 +47,42 @@ export function validatePasswordChange(input: {
   }
 
   return { ok: true };
+}
+
+export function normalizeEmail(
+  value: FormDataEntryValue | string | null,
+): string {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
+}
+
+export function validateEmail(email: string): PasswordValidationResult {
+  if (!EMAIL_PATTERN.test(email)) {
+    return { ok: false, message: "Enter a valid email address." };
+  }
+  return { ok: true };
+}
+
+export function validatePasswordLength(
+  password: string,
+): PasswordValidationResult {
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return {
+      ok: false,
+      message: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
+    };
+  }
+  return { ok: true };
+}
+
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, PASSWORD_HASH_COST);
+}
+
+export async function comparePassword(
+  password: string,
+  passwordHash: string,
+): Promise<boolean> {
+  return bcrypt.compare(password, passwordHash);
 }
