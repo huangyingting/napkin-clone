@@ -18,6 +18,13 @@
 
 import type { Deck, ImageElement, SlideElement } from "@/lib/presentation/deck";
 import { getFidelity } from "@/lib/visual/export-fidelity";
+import {
+  EXPORT_PREFLIGHT_MAX_SLIDES,
+  budgetExceededDiagnostic,
+  checkLimit,
+  type BudgetCheckResult,
+  type BudgetExceededDiagnostic,
+} from "@/lib/limits";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -64,6 +71,10 @@ export interface PreflightDiagnostic {
   elementId?: string;
   /** Additional context (feature name, URL prefix, etc.). */
   detail?: string;
+  /** Advisory performance-budget check result, when the finding is budget-based. */
+  budget?: BudgetCheckResult;
+  /** Safe structured BUDGET_EXCEEDED metadata for diagnostics/logging. */
+  diagnostic?: BudgetExceededDiagnostic;
 }
 
 /** Aggregated result returned by {@link runExportPreflight}. */
@@ -106,7 +117,7 @@ export interface PreflightOptions {
 // ---------------------------------------------------------------------------
 
 /** Slide count above which an `oversized-deck` warning is emitted. */
-export const DEFAULT_MAX_SLIDES = 50;
+export const DEFAULT_MAX_SLIDES = EXPORT_PREFLIGHT_MAX_SLIDES;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -319,12 +330,34 @@ export function runExportPreflight(
   const diagnostics: PreflightDiagnostic[] = [];
 
   // Oversized-deck check.
-  if (deck.slides.length > maxSlides) {
+  const slideBudget = checkLimit(
+    {
+      id: "export.preflight.slides",
+      description: "Export preflight slide count threshold.",
+      value: maxSlides,
+      unit: "count",
+      enforcement: "warning",
+      warnAt: maxSlides,
+      diagnostic: { scope: "export.preflight", metric: "slideCount" },
+      source: "src/lib/visual/export-preflight.ts",
+    },
+    deck.slides.length,
+  );
+  if (slideBudget.exceeded) {
     diagnostics.push({
       severity: "warning",
       code: "oversized-deck",
       message: `Deck has ${deck.slides.length} slides (recommended maximum: ${maxSlides}). Export file may be very large.`,
       detail: String(deck.slides.length),
+      budget: {
+        metric: slideBudget.metric,
+        actual: slideBudget.actual,
+        warnAt: slideBudget.warnAt,
+        hardAt: slideBudget.hardAt,
+        exceeded: slideBudget.exceeded,
+        warned: slideBudget.warned,
+      },
+      diagnostic: budgetExceededDiagnostic(slideBudget),
     });
   }
 

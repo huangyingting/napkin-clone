@@ -21,14 +21,12 @@ import { BLANK_TEMPLATE_ID, getTemplateOrBlank } from "@/lib/templates/catalog";
 import { acquirePurgeLock, INVITE_LINK_RETENTION_MS } from "@/lib/maintenance";
 import { regenerateBlockIds } from "@/lib/lexical/block-id";
 import { markdownToLexicalState } from "@/lib/lexical/from-markdown";
+import {
+  DOCUMENT_CONTENT_MAX_LENGTH,
+  DOCUMENT_TITLE_MAX_LENGTH,
+} from "@/lib/limits";
 import { SOFT_DELETE_RETENTION_MS } from "@/lib/trash";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
-
-/** Maximum stored document title length. */
-const MAX_TITLE_LENGTH = 200;
-
-/** Maximum stored document content length. */
-const MAX_CONTENT_LENGTH = 100_000;
 
 /**
  * Creates a document for the current user seeded from a starter template, then
@@ -64,7 +62,7 @@ export async function createDocumentFromTemplate(
  *
  * The `content` is the normalized Markdown returned by `POST /api/import`. The
  * caller is responsible for ensuring it has already been validated/normalized.
- * Content is clamped server-side to `MAX_CONTENT_LENGTH` as a final safety net.
+ * Content is clamped server-side to the central document content limit as a final safety net.
  *
  * `redirect` throws `NEXT_REDIRECT`, so it must stay outside any try/catch and
  * run after the document is created.
@@ -76,8 +74,8 @@ export async function createDocumentFromImport(
   const user = await requireUser();
 
   const title =
-    rawTitle.trim().slice(0, MAX_TITLE_LENGTH) || "Imported document";
-  const safeContent = content.slice(0, MAX_CONTENT_LENGTH);
+    rawTitle.trim().slice(0, DOCUMENT_TITLE_MAX_LENGTH) || "Imported document";
+  const safeContent = content.slice(0, DOCUMENT_CONTENT_MAX_LENGTH);
 
   // Normalize imported Markdown to canonical contentJson at creation time.
   const contentJson = JSON.parse(
@@ -107,7 +105,8 @@ export async function renameDocument(
 ): Promise<{ title: string }> {
   const user = await requireUser();
 
-  const title = rawTitle.trim().slice(0, MAX_TITLE_LENGTH) || "Untitled";
+  const title =
+    rawTitle.trim().slice(0, DOCUMENT_TITLE_MAX_LENGTH) || "Untitled";
 
   await requireDocumentCapability(user.id, id, "edit");
 

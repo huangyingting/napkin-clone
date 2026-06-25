@@ -16,15 +16,11 @@ import {
 } from "@/lib/workspace/roles";
 import { markdownToLexicalState } from "@/lib/lexical/from-markdown";
 import { requireWorkspaceCapability } from "@/lib/auth/workspace-capabilities";
-
-/** Maximum stored document title length (mirrors the editor's title save). */
-const MAX_TITLE_LENGTH = 200;
-
-/** Maximum stored document content length. */
-const MAX_CONTENT_LENGTH = 100_000;
-
-/** Maximum stored workspace name length. */
-const MAX_WORKSPACE_NAME_LENGTH = 100;
+import {
+  DOCUMENT_CONTENT_MAX_LENGTH,
+  DOCUMENT_TITLE_MAX_LENGTH,
+  WORKSPACE_NAME_MAX_LENGTH,
+} from "@/lib/limits";
 
 export type InviteLink = {
   id: string;
@@ -210,7 +206,7 @@ export async function renameWorkspace(
   const user = await requireUser();
   await requireWorkspaceCapability(user.id, workspaceId, "manage");
 
-  const name = rawName.trim().slice(0, MAX_WORKSPACE_NAME_LENGTH);
+  const name = rawName.trim().slice(0, WORKSPACE_NAME_MAX_LENGTH);
   if (name === "") {
     throw new Error("Workspace name is required.");
   }
@@ -420,8 +416,8 @@ export async function importWorkspaceDocument(
   await requireWorkspaceCapability(user.id, workspaceId, "mutate");
 
   const title =
-    rawTitle.trim().slice(0, MAX_TITLE_LENGTH) || "Imported document";
-  const safeContent = content.slice(0, MAX_CONTENT_LENGTH);
+    rawTitle.trim().slice(0, DOCUMENT_TITLE_MAX_LENGTH) || "Imported document";
+  const safeContent = content.slice(0, DOCUMENT_CONTENT_MAX_LENGTH);
 
   // Normalize imported Markdown to canonical contentJson at creation time.
   const contentJson = JSON.parse(

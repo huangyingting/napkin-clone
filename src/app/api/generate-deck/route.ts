@@ -41,7 +41,10 @@ import {
   MAX_INPUT_CHARS,
 } from "@/lib/ai/generate";
 import type { DeckGenerationOptions } from "@/lib/ai/generate-deck";
-import { DECK_OUTPUT_TOKEN_BUDGET } from "@/lib/ai/generate-deck";
+import {
+  DECK_OUTPUT_TOKEN_BUDGET,
+  formatDeckInputTooLongError,
+} from "@/lib/limits";
 import {
   createGenerationRouteHandler,
   errorResponse,
@@ -170,7 +173,7 @@ function parsePayload(
     return {
       ok: false,
       status: 413,
-      message: `Document outline is too long (${outline.length} characters). The maximum is ${MAX_INPUT_CHARS}.`,
+      message: formatDeckInputTooLongError(outline.length),
     };
   }
 

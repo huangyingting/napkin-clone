@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireDocumentCapability } from "@/lib/auth/document-permissions";
+import { TAG_NAME_MAX_LENGTH } from "@/lib/limits";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { slugify } from "@/lib/slug";
@@ -14,15 +15,12 @@ export type DocumentTag = {
   slug: string;
 };
 
-// Maximum length of a tag name (in characters).
-const MAX_TAG_NAME_LENGTH = 50;
-
 /**
  * Normalizes a raw tag name: trims, collapses internal whitespace, and clamps
  * the length. Returns an empty string when there is nothing usable.
  */
 function normalizeTagName(raw: string): string {
-  return raw.trim().replace(/\s+/g, " ").slice(0, MAX_TAG_NAME_LENGTH).trim();
+  return raw.trim().replace(/\s+/g, " ").slice(0, TAG_NAME_MAX_LENGTH).trim();
 }
 
 /** Returns the document's tags (id/name/slug) ordered by name. */

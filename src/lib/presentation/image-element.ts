@@ -8,10 +8,9 @@
  */
 
 import type { Deck } from "./deck";
-import {
-  DECK_JSON_NON_IMAGE_RESERVE,
-  MAX_DECK_JSON_BYTES,
-} from "./deck-limits";
+import { MAX_IMAGE_UPLOAD_BYTES, TOTAL_IMAGE_BUDGET_BYTES } from "@/lib/limits";
+
+export { MAX_IMAGE_UPLOAD_BYTES, TOTAL_IMAGE_BUDGET_BYTES } from "@/lib/limits";
 
 /**
  * True when an image element has no usable source. A bare `<img src="">` shows
@@ -25,32 +24,17 @@ export function isEmptyImageSrc(src: string | null | undefined): boolean {
 /**
  * Total inlined-image budget for a single deck. Uploaded images are stored as
  * base64 data URLs inside `deckJson`, which is re-serialized and POSTed in full
- * on every autosave (issue #247). This budget is derived from
- * {@link MAX_DECK_JSON_BYTES} by reserving {@link DECK_JSON_NON_IMAGE_RESERVE}
- * bytes for non-image JSON overhead (slide structure, text, theme, geometry,
- * etc.), leaving the rest for inlined image payload. A future option is to
- * offload images to blob storage and reference them by URL instead of inlining.
+ * on every autosave (issue #247). This budget is derived from the deck JSON
+ * hard cap by reserving non-image JSON overhead (slide structure, text, theme,
+ * geometry, etc.), leaving the rest for inlined image payload. A future option
+ * is to offload images to blob storage and reference them by URL instead of
+ * inlining.
  *
  * The budget is measured against the size of the data-URL strings actually
  * stored in `deckJson` (the thing serialized and sent), not the decoded pixel
  * data. Both {@link ImageElement} `src` values and per-slide `backgroundImage`
  * data URLs count toward this limit.
  */
-export const TOTAL_IMAGE_BUDGET_BYTES =
-  MAX_DECK_JSON_BYTES - DECK_JSON_NON_IMAGE_RESERVE;
-
-/**
- * Upload size ceiling per image file. Uploads are inlined as base64 data URLs,
- * which expand the raw bytes by ~4/3 plus a small header prefix. This cap
- * ensures that a single maximally-sized upload, once inlined, stays within
- * {@link TOTAL_IMAGE_BUDGET_BYTES}: `MAX_IMAGE_UPLOAD_BYTES * 4/3 ≈
- * TOTAL_IMAGE_BUDGET_BYTES`. Larger files are rejected rather than silently
- * degrading autosave performance.
- */
-export const MAX_IMAGE_UPLOAD_BYTES = Math.floor(
-  TOTAL_IMAGE_BUDGET_BYTES * (3 / 4),
-);
-
 export type ImageFileValidation = { ok: true } | { ok: false; reason: string };
 
 /** The subset of {@link File} the validator needs (so it stays DOM-free). */

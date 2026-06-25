@@ -44,8 +44,12 @@ import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { normalizePersistedDeckJson } from "@/lib/presentation/persisted-deck";
 import { reconcileDocumentDeckDependencies } from "@/lib/document/source-ref-model";
 import { reportSchemaFailure } from "@/lib/diagnostics/schema-telemetry";
-import { MAX_DECK_JSON_BYTES } from "@/lib/presentation/deck-limits";
 import { generateRevisionToken } from "@/lib/presentation/deck-revision-token";
+import {
+  DOCUMENT_CONTENT_MAX_LENGTH,
+  MAX_DECK_JSON_BYTES,
+  formatDeckTooLargeError,
+} from "@/lib/limits";
 import {
   applyPatch,
   executeCommand,
@@ -66,7 +70,6 @@ import type { CommandEnvelope } from "@/lib/commands/command-envelope";
 // Constants
 // ---------------------------------------------------------------------------
 
-const MAX_CONTENT_LENGTH = 100_000;
 const MAX_ANCHOR_BLOCK_ID_LENGTH = 200;
 const MAX_VISUAL_REVISIONS = 10;
 const MAX_SLUG_WRITE_ATTEMPTS = 5;
@@ -567,7 +570,7 @@ export async function atomicSaveDocumentLexical(
 ): Promise<VisualMirrorOutcome> {
   const content = lexicalStateToPlainText(parsedState).slice(
     0,
-    MAX_CONTENT_LENGTH,
+    DOCUMENT_CONTENT_MAX_LENGTH,
   );
 
   await snapshotDocumentVersion(documentId, { userId });
@@ -760,7 +763,7 @@ export async function persistDeck(
 
   const serialized = JSON.stringify(result.data);
   if (serialized.length > MAX_DECK_JSON_BYTES) {
-    return { ok: false, error: "Deck is too large to save." };
+    return { ok: false, error: formatDeckTooLargeError() };
   }
 
   const newToken = generateRevisionToken();
@@ -856,7 +859,7 @@ export async function patchDeck(
 
   const serialized = JSON.stringify(resultParsed.data);
   if (serialized.length > MAX_DECK_JSON_BYTES) {
-    return { ok: false, error: "Deck is too large to save." };
+    return { ok: false, error: formatDeckTooLargeError() };
   }
 
   const newToken = generateRevisionToken();
@@ -976,7 +979,7 @@ export async function restoreVersion(
   const restoredContent = version.contentJson;
   const content = lexicalStateToPlainText(restoredContent).slice(
     0,
-    MAX_CONTENT_LENGTH,
+    DOCUMENT_CONTENT_MAX_LENGTH,
   );
   const restoredDeck = sanitizeRestoredDeck(version.deckJson, restoredContent);
 
