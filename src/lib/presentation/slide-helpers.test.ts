@@ -5,6 +5,7 @@ import {
   clampSlideIndex,
   formatProgress,
   hashFromSlideIndex,
+  presentationProgress,
   resolveSwipeNavigation,
   SWIPE_THRESHOLD_PX,
   slideIndexFromHash,
@@ -77,6 +78,17 @@ test("formatProgress: out-of-range index is clamped before formatting", () => {
 
 test("formatProgress: single slide deck is '1 / 1'", () => {
   assert.equal(formatProgress(0, 1), "1 / 1");
+});
+
+test("presentationProgress: returns shared progress label and percentage", () => {
+  assert.deepEqual(presentationProgress(2, 5), {
+    label: "3 / 5",
+    percentage: 50,
+  });
+  assert.deepEqual(presentationProgress(0, 1), {
+    label: "1 / 1",
+    percentage: 100,
+  });
 });
 
 // ---------------------------------------------------------------------------
