@@ -5,20 +5,10 @@ import { revalidatePath } from "next/cache";
 import { requireDocumentActionContext } from "@/lib/actions/document-action-context";
 import {
   createCommentService,
-  type CommentAnchorType,
-  type CommentSlideAnchor,
   type CommentThread,
   type CreateCommentInput,
   type ListCommentsOptions,
 } from "@/lib/comments";
-
-export type {
-  CommentAnchorType,
-  CommentSlideAnchor,
-  CommentThread,
-  CreateCommentInput,
-  ListCommentsOptions,
-};
 
 const commentService = createCommentService({
   requireDocumentContext: requireDocumentActionContext,

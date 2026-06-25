@@ -43,7 +43,7 @@ import {
 
 import { saveDocumentLexical } from "./actions";
 import { BlockSparkPlugin } from "./block-spark";
-import type { CommentThread } from "./comments-actions";
+import type { CommentThread } from "@/lib/comments";
 import { DocumentExportButton } from "@/components/editor/document-export-button";
 import { PageBreakIndicator } from "@/components/editor/page-break-indicator";
 import { PresentButton } from "@/components/editor/present-button";

@@ -25,7 +25,8 @@ import { GUTTER_BUTTON } from "@/components/ui/tokens";
 import { Button, IconButton } from "@/components/ui";
 import { cx, FIELD_CONTROL, RADIUS } from "@/components/ui/tokens";
 
-import { createComment, type CommentThread } from "./comments-actions";
+import { createComment } from "./comments-actions";
+import type { CommentThread } from "@/lib/comments";
 import {
   COMMENT_CARD_VIEWPORT_BLOCK_GAP,
   anchorPositionForBlock,
