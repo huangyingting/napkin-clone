@@ -73,7 +73,6 @@ export function buildCommentThread(
     anchorType: overrides.anchorType ?? null,
     anchorText: overrides.anchorText ?? null,
     anchorNodeId: overrides.anchorNodeId ?? null,
-    slideAnchor: overrides.slideAnchor ?? null,
     replies: overrides.replies ?? [],
   };
 }

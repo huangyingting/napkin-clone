@@ -12,10 +12,8 @@ import {
   API_ERROR_CODES,
   featureDisabled,
   forbidden,
-  jsonError,
-  multipartFormDataError,
   notFound,
-  rateLimitedJsonError,
+  serverError,
   tooManyRequests,
   unauthorized,
   uploadValidationStatus,
@@ -76,6 +74,24 @@ test("validationError: 400 with the provided message", async () => {
   });
 });
 
+test("validationError: preserves validation code for non-400 validation statuses", async () => {
+  const res = validationError("Unsupported file type.", 415);
+  assert.equal(res.status, 415);
+  assert.deepEqual(await res.json(), {
+    error: "Unsupported file type.",
+    code: API_ERROR_CODES.VALIDATION_ERROR,
+  });
+});
+
+test("serverError: 500 with canonical body", async () => {
+  const res = serverError("Server is misconfigured.");
+  assert.equal(res.status, 500);
+  assert.deepEqual(await res.json(), {
+    error: "Server is misconfigured.",
+    code: API_ERROR_CODES.SERVER_ERROR,
+  });
+});
+
 test("tooManyRequests: 429 with Retry-After header when positive", async () => {
   const res = tooManyRequests(12);
   assert.equal(res.status, 429);
@@ -95,27 +111,6 @@ test("tooManyRequests: omits Retry-After when not provided or non-positive", () 
   assert.equal(tooManyRequests().headers.get("Retry-After"), null);
   assert.equal(tooManyRequests(0).headers.get("Retry-After"), null);
   assert.equal(tooManyRequests(-5).headers.get("Retry-After"), null);
-});
-
-test("jsonError: preserves legacy plain { error } contracts", async () => {
-  const res = jsonError("Bad upload.", 415);
-  assert.equal(res.status, 415);
-  assert.deepEqual(await res.json(), { error: "Bad upload." });
-});
-
-test("multipartFormDataError: returns the shared multipart parse response", async () => {
-  const res = multipartFormDataError();
-  assert.equal(res.status, 400);
-  assert.deepEqual(await res.json(), {
-    error: "Request must be multipart/form-data.",
-  });
-});
-
-test("rateLimitedJsonError: emits a plain error with Retry-After", async () => {
-  const res = rateLimitedJsonError(8.2, "Too many imports.");
-  assert.equal(res.status, 429);
-  assert.equal(res.headers.get("Retry-After"), "9");
-  assert.deepEqual(await res.json(), { error: "Too many imports." });
 });
 
 test("uploadValidationStatus: maps size failures to 413 and type failures to 415", () => {

@@ -15,8 +15,7 @@
  *    supports adding a new slide-level comment, and provides a "resolve" toggle.
  *
  * Both components receive `threads: CommentThread[]` pre-filtered to the
- * current slide (filtered by `slideAnchor.slideId` before being passed in).
- * The parent is responsible for filtering.
+ * current slide. The parent is responsible for filtering.
  *
  * ## keyboard / focus
  * - Pin buttons are keyboard-focusable (`type="button"`).
@@ -68,6 +67,26 @@ export type PinPosition = { x: number; y: number };
 /** Caller-provided mapping from element ID → center in slide-percent coords. */
 export type ElementCenterMap = ReadonlyMap<string, PinPosition>;
 
+function slideAnchorForThread(thread: CommentThread):
+  | { slideId: string; elementId: string | null; geometry: PinPosition | null }
+  | null {
+  if (thread.anchor.kind === "slide") {
+    return {
+      slideId: thread.anchor.slideId,
+      elementId: null,
+      geometry: thread.anchor.geometry,
+    };
+  }
+  if (thread.anchor.kind === "slide-element") {
+    return {
+      slideId: thread.anchor.slideId,
+      elementId: thread.anchor.elementId,
+      geometry: thread.anchor.geometry,
+    };
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Pin position helpers
 // ---------------------------------------------------------------------------
@@ -77,12 +96,12 @@ function resolvePinPosition(
   thread: CommentThread,
   elementCenters?: ElementCenterMap,
 ): PinPosition | null {
-  const anchor = thread.slideAnchor;
+  const anchor = slideAnchorForThread(thread);
   if (!anchor) return null;
 
   // Prefer stored geometry.
-  if (anchor.anchorGeometry) {
-    return { x: anchor.anchorGeometry.x, y: anchor.anchorGeometry.y };
+  if (anchor.geometry) {
+    return { x: anchor.geometry.x, y: anchor.geometry.y };
   }
 
   // Fall back to element center.
@@ -98,7 +117,7 @@ function resolvePinPosition(
 // ---------------------------------------------------------------------------
 
 export interface SlideCommentPinsProps {
-  /** Threads already filtered to the current slide (slideAnchor.slideId matches). */
+  /** Threads already filtered to the current slide. */
   threads: CommentThread[];
   /** Width of the slide canvas container in pixels (used for percent → px). */
   canvasWidth: number;
@@ -203,7 +222,7 @@ export function SlideCommentPanel({
   onClose,
 }: SlideCommentPanelProps) {
   const slideThreads = allThreads.filter(
-    (t) => t.slideAnchor?.slideId === slideId,
+    (thread) => slideAnchorForThread(thread)?.slideId === slideId,
   );
   const visibleThreads = showResolved
     ? slideThreads

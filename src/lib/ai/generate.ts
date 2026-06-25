@@ -104,24 +104,12 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Normalizes a parsed payload into an array of candidate visual objects. */
+/** Reads candidate visual objects from the current model response shape. */
 export function coerceCandidates(parsed: unknown): unknown[] {
-  if (Array.isArray(parsed)) {
-    return parsed;
+  if (!isPlainObject(parsed)) {
+    return [];
   }
-  if (isPlainObject(parsed)) {
-    for (const key of ["visuals", "candidates", "options", "results"]) {
-      const value = parsed[key];
-      if (Array.isArray(value)) {
-        return value;
-      }
-    }
-    // A bare single-visual object.
-    if ("nodes" in parsed || "type" in parsed) {
-      return [parsed];
-    }
-  }
-  return [];
+  return Array.isArray(parsed.visuals) ? parsed.visuals : [];
 }
 
 /** Puts candidates matching `type` first while preserving relative order. */

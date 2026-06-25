@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { assertViewModelSerializable } from "@/lib/view-models/serializable";
+import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 
 import { buildDocumentEditorViewModel } from "./view-model";
 
@@ -13,7 +14,11 @@ test("document editor view model serializes document state and share settings", 
       id: "doc-1",
       title: "Roadmap",
       contentJson: { root: { children: [] } },
-      deckJson: { schemaVersion: 2, slides: [] },
+      deckJson: {
+        themeId: "default",
+        schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+        slides: [],
+      },
       isShared: true,
       shareId: "share-1",
       slug: "roadmap",
@@ -36,7 +41,6 @@ test("document editor view model serializes document state and share settings", 
         anchorType: "text",
         anchorText: "Roadmap",
         anchorNodeId: "node-1",
-        slideAnchor: null,
         replies: [],
       },
     ],
@@ -59,7 +63,7 @@ test("document editor view model derives workspace viewer capabilities", () => {
       id: "doc-1",
       title: "Shared",
       contentJson: null,
-      deckJson: "legacy-string-is-not-supported",
+      deckJson: null,
       isShared: false,
       shareId: null,
       slug: null,

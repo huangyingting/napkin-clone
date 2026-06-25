@@ -63,7 +63,7 @@ export interface DeckThemeSource {
  * Returns the token id that names the deck's current theme source.
  *
  * `themeId` is the authoritative deck-theme key. There is intentionally no
- * fallback to a legacy `theme` field: current deck payloads must carry
+ * fallback to a superseded `theme` field: current deck payloads must carry
  * `themeId`.
  */
 export function resolveDeckThemeId(source: DeckThemeSource): string {
@@ -158,10 +158,10 @@ export function isBuiltInTheme(id: string): id is DeckTheme {
 // ---------------------------------------------------------------------------
 
 /**
- * Derives a complete {@link TextRoleToken} for `role` from a token set's
- * legacy {@link FontScale}, font stacks, and color tokens.  This guarantees
- * every theme exposes usable role typography even when it predates the
- * explicit `typography.roles` map.
+ * Derives a complete {@link TextRoleToken} for `role` from a token set's base
+ * {@link FontScale}, font stacks, and color tokens. This guarantees every
+ * theme exposes usable role typography even when it omits an explicit
+ * `typography.roles` map.
  */
 export function deriveRoleToken(
   tokenSet: DeckThemeTokenSet,

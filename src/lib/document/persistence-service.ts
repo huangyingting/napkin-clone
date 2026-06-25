@@ -41,7 +41,6 @@ import type {
   ShareSettings,
 } from "@/lib/document/persistence-types";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
-import { normalizePersistedDeckJson } from "@/lib/presentation/persisted-deck";
 import { reconcileDocumentDeckDependencies } from "@/lib/document/source-ref-model";
 import { reportSchemaFailure } from "@/lib/diagnostics/schema-telemetry";
 import { generateRevisionToken } from "@/lib/presentation/deck-revision-token";
@@ -636,7 +635,7 @@ export function sanitizeRestoredDeck(
 ): Prisma.InputJsonValue | typeof Prisma.DbNull {
   if (rawDeckJson == null) return Prisma.DbNull;
 
-  const parsed = safeParseDeck(normalizePersistedDeckJson(rawDeckJson));
+  const parsed = safeParseDeck(rawDeckJson);
   if (!parsed.success) {
     reportSchemaFailure("deck-parse-failed", {
       area: "DocumentVersion.deckJson",
@@ -672,7 +671,7 @@ export async function reconcileDeckAfterMirror(
     });
     if (!doc?.deckJson) return;
 
-    const parsed = safeParseDeck(normalizePersistedDeckJson(doc.deckJson));
+    const parsed = safeParseDeck(doc.deckJson);
     if (!parsed.success) {
       reportSchemaFailure("deck-parse-failed", {
         area: "Document.deckJson",
@@ -825,9 +824,7 @@ export async function patchDeck(
     };
   }
 
-  const baseResult = safeParseDeck(
-    normalizePersistedDeckJson(document.deckJson),
-  );
+  const baseResult = safeParseDeck(document.deckJson);
   if (!baseResult.success) {
     reportSchemaFailure("deck-parse-failed", {
       area: "patchDeck.storedDeck",
@@ -911,7 +908,7 @@ export async function persistDeckCommand(
     return { ok: false, error: "Document not found." };
   }
 
-  const parsed = safeParseDeck(normalizePersistedDeckJson(document.deckJson));
+  const parsed = safeParseDeck(document.deckJson);
   if (!parsed.success) {
     logError("deck.command.stored_deck_invalid", new Error(parsed.error), {
       documentId,

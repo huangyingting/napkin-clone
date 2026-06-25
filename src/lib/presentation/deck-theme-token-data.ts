@@ -17,8 +17,8 @@ import type {
 
 /**
  * Maps a {@link DeckTextRole} onto the {@link FontScale} key whose size best
- * approximates it.  Used to derive role defaults from the legacy `scale` so
- * existing themes get complete role typography without hand-authoring tokens.
+ * approximates it. Used to derive role defaults from the base `scale` so
+ * themes get complete role typography without hand-authoring tokens.
  */
 export const ROLE_TO_SCALE_KEY: Record<DeckTextRole, keyof FontScale> = {
   h1: "h1",

@@ -19,12 +19,6 @@ workflow. They are separate from application-level old-data compatibility.
 | [operations/README.md](operations/README.md)                                   | Deployment, release gates, and operational runbooks.                            |
 | [architecture/editor/lexical-editor.md](architecture/editor/lexical-editor.md) | Lexical editor surfaces, tool registry, visual lifecycle, and deck autosave UX. |
 
-## Planning Backlogs
-
-| Document                                         | Purpose                                                                                |
-| ------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| [refactoring-roadmap.md](refactoring-roadmap.md) | Planning backlog for refactoring epics and issues based on the current codebase audit. |
-
 ## Architecture Topics
 
 | Section                                                           | Contains                                                 |

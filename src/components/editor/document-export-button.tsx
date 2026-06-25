@@ -38,7 +38,7 @@ import { collectDocumentBlocks } from "@/lib/content";
 import {
   exportDocumentAsPDF,
   exportDocumentAsInfographic,
-} from "@/lib/visual/document-export";
+} from "@/lib/visual/document-export-targets";
 import {
   INFOGRAPHIC_WIDTH_PRESETS,
   DEFAULT_INFOGRAPHIC_CONFIG,

@@ -7,18 +7,17 @@
  * `markdownToLexicalState`. Heavy parsers (mammoth, jszip, pdf-parse) run
  * server-side only; they never touch the client bundle.
  *
- * Validation errors are returned as `{ error: string }` with an appropriate
- * HTTP status so the client can surface a friendly, retryable message. The
- * route is public, so it is throttled per client IP (429 + `Retry-After` on
- * exceed) and each parse runs under a timeout to bound abuse (#96).
+ * Validation errors use the shared `{ error, code }` API error body. The route
+ * is public, so it is throttled per client IP (429 + `Retry-After` on exceed)
+ * and each parse runs under a timeout to bound abuse (#96).
  */
 
 import { NextResponse, type NextRequest } from "next/server";
 
 import {
-  jsonError,
-  multipartFormDataError,
-  rateLimitedJsonError,
+  serverError,
+  tooManyRequests,
+  validationError,
 } from "@/lib/api/errors";
 import { logError } from "@/lib/log";
 import { ABUSE_CATEGORIES, logRouteDenial } from "@/lib/diagnostics/api-abuse";
@@ -51,7 +50,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       reason: "missing-auth-secret",
       status: 500,
     });
-    return jsonError("Server is misconfigured (missing AUTH_SECRET).", 500);
+    return serverError("Server is misconfigured (missing AUTH_SECRET).");
   }
 
   const clientIp = getClientIp(request.headers) ?? "unknown";
@@ -72,7 +71,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       subjectHash: clientHash,
       retryAfterSeconds: retryAfter,
     });
-    return rateLimitedJsonError(
+    return tooManyRequests(
       retryAfter,
       "Too many imports. Please wait a moment and try again.",
     );
@@ -82,17 +81,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     formData = await request.formData();
   } catch {
-    return multipartFormDataError();
+    return validationError("Request must be multipart/form-data.");
   }
 
   const file = formData.get("file");
   if (!(file instanceof File)) {
-    return jsonError("Missing `file` field in form data.", 400);
+    return validationError("Missing `file` field in form data.");
   }
 
   const result = await processImportUpload(file, { subjectHash: clientHash });
   if (!result.ok) {
-    return jsonError(result.error, result.status);
+    return validationError(result.error, result.status);
   }
 
   return NextResponse.json({ markdown: result.markdown });

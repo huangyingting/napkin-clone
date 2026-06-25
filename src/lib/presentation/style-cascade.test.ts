@@ -384,7 +384,7 @@ test("resolveRoleTextStyle tracks absent optional fields as deck fallbacks", () 
   assert.equal(style.origin.paragraphSpacing, "deck");
 });
 
-test("resolveTextElementStyle maps legacy role title -> h1, body -> body", () => {
+test("resolveTextElementStyle maps text role title -> h1, body -> body", () => {
   const deck = makeDeck();
   const title = resolveTextElementStyle(deck, { role: "title" });
   const body = resolveTextElementStyle(deck, { role: "body" });
@@ -394,7 +394,7 @@ test("resolveTextElementStyle maps legacy role title -> h1, body -> body", () =>
   assert.strictEqual(body.fontSize, 16);
 });
 
-test("resolveTextElementStyle honors an explicit textRole over legacy role", () => {
+test("resolveTextElementStyle honors an explicit textRole over text role", () => {
   const deck = makeDeck();
   const style = resolveTextElementStyle(deck, {
     role: "body",

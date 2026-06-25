@@ -142,10 +142,9 @@ immutability and clear derived provenance for the affected slide.
 2. cached last-known deck from the component;
 3. freshly derived base deck from the current Lexical state.
 
-Each raw candidate is filtered by `normalizePersistedDeckJson` from
-`src/lib/presentation/persisted-deck.ts` and validated with `safeParseDeck`.
-Serialized JSON strings are rejected as persisted-schema drift and surfaced by
-schema audit rather than parsed at runtime.
+Each raw candidate is validated directly with `safeParseDeck`. Serialized JSON
+strings are rejected as persisted-schema drift and surfaced by schema audit
+rather than parsed at runtime.
 
 The slide editor receives the full current `documentBlocks` list. Text-only
 block lists are not used as a substitute for visual/source-ref workflows.

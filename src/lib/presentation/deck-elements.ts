@@ -231,8 +231,8 @@ export interface TextElement extends BaseElement {
   /**
    * Optional semantic deck-template role (#605). When present, the style
    * cascade resolves typography from the deck template for this role and treats
-   * {@link styleOverride} as local overrides on top. Absent → the element is
-   * styled entirely by its concrete `style` (legacy behaviour).
+  * {@link styleOverride} as local overrides on top. Absent → the element is
+  * styled entirely by its concrete `style`.
    */
   textRole?: DeckTextRole;
   /**
@@ -279,9 +279,9 @@ export interface BulletsElement extends BaseElement {
   items: BulletItem[];
   style: TextElementStyle;
   /**
-   * Optional semantic deck-template role (#605). Defaults conceptually to
-   * `"bullet"` when the element opts into template inheritance. Absent → styled
-   * entirely by concrete `style` (legacy behaviour).
+  * Optional semantic deck-template role (#605). Defaults conceptually to
+  * `"bullet"` when the element opts into template inheritance. Absent → styled
+  * entirely by concrete `style`.
    */
   textRole?: DeckTextRole;
   /**
@@ -387,9 +387,9 @@ export interface ShapeElement extends BaseElement {
   /** Optional style for the shape label; falls back to a centered body style. */
   textStyle?: TextElementStyle;
   /**
-   * Optional semantic deck-template role for the shape label (#605). Defaults
-   * conceptually to `"shapeLabel"` when inheriting from the template. Absent →
-   * styled by concrete `textStyle` (legacy behaviour).
+  * Optional semantic deck-template role for the shape label (#605). Defaults
+  * conceptually to `"shapeLabel"` when inheriting from the template. Absent →
+  * styled by concrete `textStyle`.
    */
   textRole?: DeckTextRole;
   /**

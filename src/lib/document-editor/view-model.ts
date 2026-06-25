@@ -1,7 +1,6 @@
 import { documentCapabilities } from "@/lib/auth/document-permissions";
 import type { CommentThread } from "@/lib/comments";
 import type { DocumentTag } from "@/lib/document-management/tags";
-import { normalizePersistedDeckJson } from "@/lib/presentation/persisted-deck";
 
 export interface DocumentEditorViewModel {
   documentId: string;
@@ -65,7 +64,7 @@ export function buildDocumentEditorViewModel({
     initialStateJson: document.contentJson
       ? JSON.stringify(document.contentJson)
       : null,
-    initialDeckJson: normalizePersistedDeckJson(document.deckJson) ?? null,
+    initialDeckJson: document.deckJson ?? null,
     initialIsShared: document.isShared,
     initialShareId: document.shareId,
     initialSlug: document.slug,

@@ -214,12 +214,13 @@ test("extractJson handles objects, arrays, fences, and surrounding prose", () =>
   assert.equal(extractJson(""), undefined);
 });
 
-test("coerceCandidates normalizes the supported shapes", () => {
+test("coerceCandidates accepts only the current visuals wrapper", () => {
   assert.equal(coerceCandidates({ visuals: [1, 2] }).length, 2);
-  assert.equal(coerceCandidates({ candidates: [1] }).length, 1);
-  assert.equal(coerceCandidates({ options: [1, 2, 3] }).length, 3);
-  assert.equal(coerceCandidates([1, 2]).length, 2);
-  assert.equal(coerceCandidates({ nodes: [], type: "flowchart" }).length, 1);
+  assert.equal(coerceCandidates({ candidates: [1] }).length, 0);
+  assert.equal(coerceCandidates({ options: [1, 2, 3] }).length, 0);
+  assert.equal(coerceCandidates({ results: [1] }).length, 0);
+  assert.equal(coerceCandidates([1, 2]).length, 0);
+  assert.equal(coerceCandidates({ nodes: [], type: "flowchart" }).length, 0);
   assert.equal(coerceCandidates({ unrelated: true }).length, 0);
   assert.equal(coerceCandidates(42).length, 0);
 });

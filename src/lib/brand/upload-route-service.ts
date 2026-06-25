@@ -16,7 +16,6 @@ export type BrandLogoUploadBody = {
   url: string;
   assetId: string;
   mime: string;
-  palette: [];
 };
 
 export type BrandFontUploadBody = {
@@ -120,7 +119,6 @@ export function uploadBrandLogo(
       url,
       assetId,
       mime,
-      palette: [],
     }),
   });
 }

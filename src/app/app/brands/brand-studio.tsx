@@ -183,7 +183,6 @@ function BrandForm({
       const json = (await res.json()) as {
         url?: string;
         assetId?: string;
-        palette?: string[];
         error?: string;
       };
       if (!res.ok || !json.url || !json.assetId) {

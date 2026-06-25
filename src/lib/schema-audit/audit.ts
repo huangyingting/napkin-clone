@@ -22,7 +22,6 @@ import {
   safeParseDeck,
   validateSourceRef,
 } from "@/lib/presentation/deck-schema";
-import { normalizePersistedDeckJson } from "@/lib/presentation/persisted-deck";
 import { safeParseVisual } from "@/lib/visual/schema";
 import { collectVisualNodes } from "@/lib/lexical/visual-nodes";
 
@@ -127,8 +126,7 @@ export function auditDocumentDeck(row: DocumentAuditRow): SchemaViolation[] {
     return violations;
   }
 
-  const raw = normalizePersistedDeckJson(row.deckJson);
-  const parsed = safeParseDeck(raw);
+  const parsed = safeParseDeck(row.deckJson);
   if (!parsed.success) {
     violations.push({
       area: "Document.deckJson",
@@ -139,7 +137,7 @@ export function auditDocumentDeck(row: DocumentAuditRow): SchemaViolation[] {
   }
 
   // Independently validate every active source ref.
-  collectRawSourceRefs(raw).forEach((ref, index) => {
+  collectRawSourceRefs(row.deckJson).forEach((ref, index) => {
     try {
       validateSourceRef(ref, `Document.deckJson sourceRef[${index}]`);
     } catch (error) {

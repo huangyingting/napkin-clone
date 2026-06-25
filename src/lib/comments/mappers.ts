@@ -1,6 +1,5 @@
 import {
   commentAnchorFromRecord,
-  legacySlideAnchorFromAnchor,
   normalizeAnchorType,
   type CommentAnchorRecord,
 } from "./anchors";
@@ -49,7 +48,6 @@ export function mapCommentThreadRecord(
     anchorType: normalizeAnchorType(record.anchorType ?? null),
     anchorText: record.anchorText ?? null,
     anchorNodeId: record.anchorNodeId ?? null,
-    slideAnchor: legacySlideAnchorFromAnchor(anchor),
     createdAt: record.createdAt.toISOString(),
     author: { id: record.author.id, name: displayName(record.author) },
     replies: record.replies.map(mapCommentNode),

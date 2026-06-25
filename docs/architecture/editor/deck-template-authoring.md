@@ -43,7 +43,7 @@ that omits them renders exactly as before they existed.
 `typography.roles`; any role it omits is derived from `typography.scale` +
 color tokens via `deriveRoleToken`, so **every theme exposes complete role
 typography**. A text-bearing element opts into the template by carrying a
-`textRole`; without one it falls back to the legacy mapping (`role: "title"` →
+`textRole`; without one it falls back to the text-element mapping (`role: "title"` →
 `h1`, `role: "body"` → `body`).
 
 ## Reset-to-inherited

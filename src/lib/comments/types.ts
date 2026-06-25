@@ -1,8 +1,4 @@
-import type {
-  CommentAnchor,
-  CommentAnchorType,
-  CommentSlideAnchor,
-} from "./anchors";
+import type { CommentAnchor, CommentAnchorType } from "./anchors";
 
 export type CommentAuthor = {
   id: string;
@@ -22,7 +18,6 @@ export type CommentThread = CommentNode & {
   anchorType: CommentAnchorType | null;
   anchorText: string | null;
   anchorNodeId: string | null;
-  slideAnchor: CommentSlideAnchor | null;
   replies: CommentNode[];
 };
 

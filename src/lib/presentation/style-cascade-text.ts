@@ -189,8 +189,8 @@ interface TextBearingElementLike {
 
 /**
  * Resolves the final style for a `text` element. The role comes from
- * `element.textRole`, falling back to the deck role for the element's legacy
- * `role` (`title` → `h1`, `body` → `body`).
+ * `element.textRole`, falling back to the current text element `role`
+ * (`title` → `h1`, `body` → `body`).
  */
 export function resolveTextElementStyle(
   deck: Deck,

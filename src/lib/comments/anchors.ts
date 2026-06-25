@@ -44,12 +44,6 @@ export type CommentAnchor =
   | SlideLevelCommentAnchor
   | SlideElementCommentAnchor;
 
-export type CommentSlideAnchor = {
-  slideId: string | null;
-  elementId: string | null;
-  anchorGeometry: AnchorPoint | null;
-};
-
 export interface CommentAnchorRecord {
   anchorType?: string | null;
   anchorText?: string | null;
@@ -244,24 +238,4 @@ export function commentAnchorToRecord(
         anchorGeometry: null,
       };
   }
-}
-
-export function legacySlideAnchorFromAnchor(
-  anchor: CommentAnchor,
-): CommentSlideAnchor | null {
-  if (anchor.kind === "slide") {
-    return {
-      slideId: anchor.slideId,
-      elementId: null,
-      anchorGeometry: anchor.geometry,
-    };
-  }
-  if (anchor.kind === "slide-element") {
-    return {
-      slideId: anchor.slideId,
-      elementId: anchor.elementId,
-      anchorGeometry: anchor.geometry,
-    };
-  }
-  return null;
 }

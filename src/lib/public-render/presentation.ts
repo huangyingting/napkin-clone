@@ -1,7 +1,6 @@
 import { reconcileDocumentDeckDependencies } from "@/lib/document/source-ref-model";
 import { buildDeckFromBlocks } from "@/lib/presentation/deck";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
-import { normalizePersistedDeckJson } from "@/lib/presentation/persisted-deck";
 import { buildPresentationBlocks } from "@/lib/presentation/present-blocks";
 import type { Deck } from "@/lib/presentation/deck";
 import type { Visual } from "@/lib/visual/schema";
@@ -38,8 +37,7 @@ export function buildPublicPresentationModel(
     }
   }
 
-  const normalized = normalizePersistedDeckJson(document.deckJson);
-  const parsed = normalized ? safeParseDeck(normalized) : null;
+  const parsed = document.deckJson ? safeParseDeck(document.deckJson) : null;
   const { deck } = reconcileDocumentDeckDependencies({
     deck: parsed && parsed.success ? parsed.data : buildDeckFromBlocks(blocks),
     visualsById: new Set(Object.keys(visuals)),

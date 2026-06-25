@@ -7,14 +7,11 @@
  * #496). The route returns `{ url, assetId, mime }` — a protected URL and the
  * asset id to persist on the brand (`logoAssetId`) — instead of a base64 data
  * URL.
- *
- * Palette extraction stays client-side (canvas) when the image loads in the UI;
- * the response carries an empty `palette` for backward compatibility.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
 
-import { forbidden, jsonError, unauthorized } from "@/lib/api/errors";
+import { forbidden, unauthorized, validationError } from "@/lib/api/errors";
 import { getCurrentUser } from "@/lib/session";
 import { uploadBrandLogo } from "@/lib/brand/upload-route-service";
 import {
@@ -37,7 +34,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const result = await uploadBrandLogo(request, user.id);
   if (!result.ok) {
-    return jsonError(result.error, result.status);
+    return validationError(result.error, result.status);
   }
 
   return NextResponse.json(result.body);

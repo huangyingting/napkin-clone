@@ -209,7 +209,7 @@ vocabulary: `h1`, `h2`, `h3`, `subtitle`, `body`, `bullet`, `caption`,
 `footer`, `shapeLabel`. A theme's `DeckThemeTokenSet.typography.roles` map may
 define a `TextRoleToken` (font family, size, color, weight, italic, underline,
 line height, paragraph spacing, alignment) per role. Any absent role is derived
-deterministically from the legacy `FontScale` + color tokens via
+deterministically from the base `FontScale` + color tokens via
 `deriveRoleToken`, so **every** theme exposes complete role typography. Use
 `resolveRoleToken(tokenSet, role)` to read the effective token (authored partial
 merged over derived defaults).
@@ -219,7 +219,7 @@ merged over derived defaults).
 `style-cascade.ts` exposes pure resolvers that turn the deck template role token
 plus local element overrides into a final `ResolvedTextStyle`:
 
-- `resolveTextElementStyle(deck, textElement)` — legacy `role: "title"` maps to
+- `resolveTextElementStyle(deck, textElement)` — text `role: "title"` maps to
   `h1`, `"body"` to `body`; an explicit `textRole` wins.
 - `resolveBulletsElementStyle(deck, bulletsElement)` — defaults to `bullet`.
 - `resolveShapeLabelStyle(deck, shapeElement)` — defaults to `shapeLabel`, reads

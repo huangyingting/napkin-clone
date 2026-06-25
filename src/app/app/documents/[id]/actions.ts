@@ -30,7 +30,6 @@ import type {
 } from "@/lib/document/persistence-types";
 import type { DeckPatch } from "@/lib/presentation/slide-commands";
 import type { SlideCommand } from "@/lib/presentation/slide-commands";
-import { normalizePersistedDeckJson } from "@/lib/presentation/persisted-deck";
 import {
   acceptDeckCommandEnvelope,
   type CommandEnvelope,
@@ -252,7 +251,7 @@ export async function fetchDeckJson(
   });
 
   return {
-    deckJson: normalizePersistedDeckJson(document.deckJson),
+    deckJson: document.deckJson,
     revisionToken: document.deckRevisionToken,
   };
 }

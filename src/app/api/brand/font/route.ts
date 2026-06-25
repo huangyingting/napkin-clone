@@ -22,7 +22,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 
-import { forbidden, jsonError, unauthorized } from "@/lib/api/errors";
+import { forbidden, unauthorized, validationError } from "@/lib/api/errors";
 import { getCurrentUser } from "@/lib/session";
 import { uploadBrandFont } from "@/lib/brand/upload-route-service";
 import {
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const result = await uploadBrandFont(request, user.id);
   if (!result.ok) {
-    return jsonError(result.error, result.status);
+    return validationError(result.error, result.status);
   }
 
   return NextResponse.json(result.body);
