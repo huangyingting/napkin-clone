@@ -2,9 +2,9 @@
  * Prompt construction for AI deck generation (issue #262).
  *
  * The model is asked to return a single JSON {@link Deck} object — `{ slides:
- * [...], theme? }` — whose slides carry concise, presentation-ready content and
+ * [...], themeId }` — whose slides carry concise, presentation-ready content and
  * (optionally) free-form positioned `elements[]`. The allowed `layout` and
- * `theme` value lists are derived from the exported `SLIDE_LAYOUTS` /
+ * `themeId` value lists are derived from the exported `SLIDE_LAYOUTS` /
  * `DECK_THEMES` const arrays in `@/lib/presentation/deck` so this prompt stays
  * in sync with the validator (`safeParseDeck`).
  *
@@ -67,7 +67,7 @@ function deckSchemaDescription(): string {
   return [
     "Return ONE JSON object describing a presentation Deck with this exact shape:",
     "{",
-    `  "theme": one of ${DECK_THEMES.map((t) => `"${t}"`).join(" | ")} (choose a vibrant one — see Theme rules below),`,
+    `  "themeId": one of ${DECK_THEMES.map((t) => `"${t}"`).join(" | ")} (choose a vibrant one — see Theme rules below),`,
     '  "slides": [',
     "    {",
     '      "title": short slide heading string (optional),',
@@ -107,7 +107,7 @@ const SYSTEM_PROMPT = [
   "",
   "Theme rules:",
   `- ALWAYS choose a VIBRANT theme (${VIBRANT_THEMES.map((t) => `"${t}"`).join(" | ")}) that fits the content's mood/subject, for strong visual impact.`,
-  "- Pick the single theme whose palette best matches the content and apply it to the whole deck via the top-level `theme` field.",
+  "- Pick the single theme whose palette best matches the content and apply it to the whole deck via the top-level `themeId` field.",
   '- Reserve "default" ONLY for explicitly dark or embed contexts (e.g. the content is about a dark UI, a terminal, or asks for a muted/dark look). Do NOT use "default" as a generic fallback — a vibrant theme is always preferred.',
   "",
   "Output rules:",
@@ -131,7 +131,7 @@ function renderInventory(
 
 /**
  * Builds the chat messages for a deck-generation request. The output JSON must
- * be a single {@link Deck} object: `{ "slides": [ ... ], "theme"?: ... }`.
+ * be a single {@link Deck} object: `{ "slides": [ ... ], "themeId": ... }`.
  */
 export function buildDeckGenerationMessages(
   options: BuildDeckMessagesOptions,

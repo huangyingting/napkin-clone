@@ -1,6 +1,5 @@
 import {
   CURRENT_DECK_SCHEMA_VERSION,
-  DECK_THEMES,
   SLIDE_LAYOUTS,
   type Deck,
   type Slide,
@@ -18,7 +17,6 @@ import { validateLayout } from "./layouts";
 import { validateCustomTokenSet, validateMaster } from "./theme";
 import {
   DeckValidationError,
-  isDeckTheme,
   isHexColor,
   isPlainObject,
   isSlideFormat,
@@ -63,11 +61,6 @@ function validateSlide(input: unknown, index: number): Slide {
   }
   if (typeof input.notes !== "string") {
     throw new DeckValidationError(`${context}.notes must be a string`);
-  }
-  if (!isDeckTheme(input.theme)) {
-    throw new DeckValidationError(
-      `${context}.theme must be one of: ${DECK_THEMES.join(", ")}`,
-    );
   }
 
   if (!Array.isArray(input.elements)) {
@@ -151,7 +144,6 @@ function validateSlide(input: unknown, index: number): Slide {
     visualIds,
     layout: input.layout as SlideLayoutHint,
     notes: input.notes,
-    theme: input.theme,
     elements,
     ...(input.elementsDerived !== undefined
       ? { elementsDerived: input.elementsDerived as boolean }
@@ -175,23 +167,20 @@ function validateSlide(input: unknown, index: number): Slide {
 /**
  * Validates an unknown value against the deck schema, returning a fully
  * populated `Deck` or throwing a `DeckValidationError` describing the first
- * problem found. A missing top-level `theme` defaults to `"default"`.
+ * problem found. Current deck payloads must carry a top-level `themeId`.
  */
 export function validateDeck(input: unknown): Deck {
   if (!isPlainObject(input)) {
     throw new DeckValidationError("Deck must be an object");
   }
 
-  const theme =
-    input.theme === undefined
-      ? "default"
-      : isDeckTheme(input.theme)
-        ? input.theme
-        : (() => {
-            throw new DeckValidationError(
-              `Deck.theme must be one of: ${DECK_THEMES.join(", ")}`,
-            );
-          })();
+  if (typeof input.themeId !== "string") {
+    throw new DeckValidationError("Deck.themeId must be a string");
+  }
+  const themeId = input.themeId.trim();
+  if (themeId.length === 0) {
+    throw new DeckValidationError("Deck.themeId must be a non-empty string");
+  }
 
   const slideFormat =
     input.slideFormat === undefined
@@ -221,20 +210,10 @@ export function validateDeck(input: unknown): Deck {
 
   const deck: Deck = {
     slides,
-    theme,
+    themeId,
     slideFormat,
     ...(layouts !== undefined ? { layouts } : {}),
   };
-
-  if (input.themeId !== undefined) {
-    if (typeof input.themeId !== "string") {
-      throw new DeckValidationError("Deck.themeId must be a string");
-    }
-    const trimmedThemeId = input.themeId.trim();
-    if (trimmedThemeId.length > 0) {
-      deck.themeId = trimmedThemeId;
-    }
-  }
 
   if (input.deckContentHash !== undefined) {
     if (typeof input.deckContentHash !== "string") {

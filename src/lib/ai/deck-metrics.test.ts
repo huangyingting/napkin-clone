@@ -70,7 +70,6 @@ function slide(index: number, title: string, elements: SlideElement[]): Slide {
     visualIds: [],
     layout: "blank",
     notes: "",
-    theme: "indigo",
     elements,
     elementsDerived: false,
   };
@@ -78,7 +77,7 @@ function slide(index: number, title: string, elements: SlideElement[]): Slide {
 
 function deck(slides: Slide[]): Deck {
   return {
-    theme: "indigo",
+    themeId: "indigo",
     slides,
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
   };
@@ -183,7 +182,7 @@ test("computeDeckMetrics: ignores non-positive sourceWordCount", () => {
 });
 
 test("computeDeckMetrics: schemaValid is false for a malformed deck", () => {
-  const bad = { theme: "indigo", slides: [{ index: 0 }] } as unknown as Deck;
+  const bad = { themeId: "indigo", slides: [{ index: 0 }] } as unknown as Deck;
   const metrics = computeDeckMetrics(bad);
   assert.equal(metrics.schemaValid, false);
 });

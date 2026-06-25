@@ -1,4 +1,4 @@
-import type { Deck, DeckTheme, Slide, SlideElement } from "./deck";
+import type { Deck, Slide, SlideElement } from "./deck";
 import { makeSlideId } from "./deck";
 
 /**
@@ -22,7 +22,7 @@ export function reindex(slides: Slide[]): Slide[] {
 }
 
 /** Creates a blank slide. `index` is a placeholder; callers re-index. */
-export function freshBlankSlide(theme: DeckTheme): Slide {
+export function freshBlankSlide(): Slide {
   return {
     id: makeSlideId(),
     index: 0,
@@ -31,7 +31,6 @@ export function freshBlankSlide(theme: DeckTheme): Slide {
     visualIds: [],
     layout: "blank",
     notes: "",
-    theme,
     elements: [],
     elementsDerived: false,
   };

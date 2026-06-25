@@ -33,7 +33,7 @@ import {
 
 function currentDeck(): unknown {
   return buildDeck({
-    theme: "default",
+    themeId: "default",
     slides: [
       buildSlide({
         id: "sl-current",
@@ -117,11 +117,11 @@ test("safeParseDeck rejects an unknown slide format", () => {
 
 function elementDeck(elements: unknown[]): unknown {
   return buildDeck({
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       slideFixture({
         id: "sl-element",
-        theme: "indigo",
+        themeId: "indigo",
         background: "#101010",
         accent: "#abcdef",
         elements,
@@ -133,9 +133,7 @@ function elementDeck(elements: unknown[]): unknown {
 function slideFixture(
   overrides: Record<string, unknown> = {},
 ): Record<string, unknown> {
-  const theme = (overrides.theme as Deck["theme"] | undefined) ?? "default";
   return buildSlide({
-    theme,
     id: "sl-fixture",
     title: "",
     bullets: [],

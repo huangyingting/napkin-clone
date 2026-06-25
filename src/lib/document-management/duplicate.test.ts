@@ -5,6 +5,7 @@ import {
   buildDuplicateDocumentCreateData,
   remapDeckSourceRefs,
 } from "./duplicate";
+import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 
 const sourceRef = {
   documentId: "source-doc",
@@ -15,8 +16,8 @@ const sourceRef = {
 
 function deckWithSourceRefs() {
   return {
-    schemaVersion: 2,
-    theme: "default",
+    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    themeId: "default",
     slides: [
       {
         id: "slide-1",
@@ -26,7 +27,6 @@ function deckWithSourceRefs() {
         visualIds: [],
         layout: "blank",
         notes: "",
-        theme: "default",
         elements: [
           {
             id: "el-linked",

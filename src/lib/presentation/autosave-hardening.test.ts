@@ -63,12 +63,11 @@ function makeSlide(id: string, index: number, title: string): Slide {
     visualIds: [],
     layout: "content",
     notes: "",
-    theme: "default",
   };
 }
 
 function makeDeck(slides: Slide[]): Deck {
-  return { theme: "default", slides };
+  return { themeId: "default", slides };
 }
 
 function makeExistingRow(
@@ -416,7 +415,7 @@ describe("autosave: dirty state survives failed save / reopen (#459)", () => {
 describe("autosave: schema validation rejects corrupt payloads (#459)", () => {
   test("safeParseDeck: valid minimal deck passes", () => {
     const result = safeParseDeck({
-      theme: "default",
+      themeId: "default",
       schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
       slides: [
         {
@@ -427,7 +426,7 @@ describe("autosave: schema validation rejects corrupt payloads (#459)", () => {
           visualIds: [],
           layout: "content",
           notes: "",
-          theme: "default",
+          themeId: "default",
           elements: [],
         },
       ],
@@ -441,12 +440,12 @@ describe("autosave: schema validation rejects corrupt payloads (#459)", () => {
   });
 
   test("safeParseDeck: unknown theme is rejected", () => {
-    const result = safeParseDeck({ theme: "not-a-theme", slides: [] });
+    const result = safeParseDeck({ themeId: "not-a-theme", slides: [] });
     assert.equal(result.success, false);
   });
 
   test("safeParseDeck: missing slides field is rejected", () => {
-    const result = safeParseDeck({ theme: "default" });
+    const result = safeParseDeck({ themeId: "default" });
     assert.equal(result.success, false);
   });
 

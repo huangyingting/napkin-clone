@@ -35,11 +35,11 @@ function validDeck(): unknown {
         visualIds: [],
         layout: "content",
         notes: "",
-        theme: "indigo",
+        themeId: "indigo",
         elements: [],
       },
     ],
-    theme: "indigo",
+    themeId: "indigo",
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
   };
 }

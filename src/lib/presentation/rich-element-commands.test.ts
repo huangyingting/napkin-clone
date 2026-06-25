@@ -23,7 +23,7 @@ import { executeCommand } from "./slide-commands";
 
 function deckWith(element: SlideElement): Deck {
   return {
-    theme: "default",
+    themeId: "default",
     slides: [
       {
         id: "s1",
@@ -33,7 +33,6 @@ function deckWith(element: SlideElement): Deck {
         visualIds: [],
         layout: "blank",
         notes: "",
-        theme: "default",
         elements: [element],
         elementsDerived: false,
       },

@@ -83,7 +83,6 @@ function slide(id: string, elements: SlideElement[]): Slide {
     visualIds: [],
     layout: "content",
     notes: "",
-    theme: "indigo",
     elements,
   };
 }
@@ -91,7 +90,7 @@ function slide(id: string, elements: SlideElement[]): Slide {
 function deck(...slides: Slide[]): Deck {
   return {
     slides: slides.map((s, i) => ({ ...s, index: i })),
-    theme: "indigo",
+    themeId: "indigo",
   };
 }
 
@@ -309,10 +308,9 @@ test("slides without elements array are skipped gracefully", () => {
     visualIds: [],
     layout: "content",
     notes: "",
-    theme: "indigo",
     // elements is absent
   };
-  const d: Deck = { slides: [slideNoElements], theme: "indigo" };
+  const d: Deck = { slides: [slideNoElements], themeId: "indigo" };
   const result = findStaleSourceLinks(d, []);
   assert.deepEqual(result, []);
 });

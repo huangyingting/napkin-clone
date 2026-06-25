@@ -184,7 +184,6 @@ function freeFormSlide(
     visualIds: [],
     layout: "blank",
     notes: "",
-    theme: "indigo",
     elements,
     ...overrides,
   };
@@ -249,7 +248,7 @@ const NO_SVG = () => null;
 
 test("slide count equals deck.slides length, in order", () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       freeFormSlide(0, [textEl("t0", "First")]),
       freeFormSlide(1, [textEl("t1", "Second")]),
@@ -273,7 +272,7 @@ test("slide count equals deck.slides length, in order", () => {
 
 test("edited title and bullet text are present in the ops", () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       freeFormSlide(0, [
         textEl("t", "Edited Title"),
@@ -292,7 +291,7 @@ test("edited title and bullet text are present in the ops", () => {
 
 test("4:3 decks convert percentage boxes against the standard 4:3 slide size", () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slideFormat: "4:3",
     slides: [
       freeFormSlide(0, [
@@ -316,7 +315,7 @@ test("4:3 decks convert percentage boxes against the standard 4:3 slide size", (
 test("a native visual is embedded as native shapes (not a fallback)", () => {
   const visuals = new Map<string, Visual>([["v1", flowchart()]]);
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [freeFormSlide(0, [visualEl("ve", "v1")])],
   };
 
@@ -339,7 +338,7 @@ test("a funnel visual falls back to a rasterised image op", () => {
   };
   const visuals = new Map<string, Visual>([["v1", funnel]]);
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [freeFormSlide(0, [visualEl("ve", "v1")])],
   };
 
@@ -352,7 +351,7 @@ test("a funnel visual falls back to a rasterised image op", () => {
 test("all five element kinds each emit at least one op", () => {
   const visuals = new Map<string, Visual>([["v1", flowchart()]]);
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       freeFormSlide(0, [
         textEl("t", "Title"),
@@ -379,7 +378,7 @@ test("all five element kinds each emit at least one op", () => {
 
 test("image ops carry fitMode, maskShape, and crop metadata", () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       freeFormSlide(0, [
         imageEl("im", {
@@ -407,7 +406,7 @@ test("an image element with fitMode=contain emits op with fitMode=contain", () =
   // Verifies that `contain` is forwarded so applyImageOp can pass
   // `sizing: { type: "contain" }` to PptxGenJS.
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [freeFormSlide(0, [imageEl("im-contain", { fitMode: "contain" })])],
   };
 
@@ -420,7 +419,7 @@ test("an image element with fitMode=cover emits op with fitMode=cover", () => {
   // Verifies that `cover` is forwarded so applyImageOp can pass
   // `sizing: { type: "cover" }` to PptxGenJS.
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [freeFormSlide(0, [imageEl("im-cover", { fitMode: "cover" })])],
   };
 
@@ -431,7 +430,7 @@ test("an image element with fitMode=cover emits op with fitMode=cover", () => {
 
 test("an image element with no fitMode emits op with no fitMode field", () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [freeFormSlide(0, [imageEl("im-plain")])],
   };
 
@@ -444,7 +443,7 @@ test("maskShape is present on op so PDF/image renderers can apply clip (PPTX deg
   // The PPTX applier does not support shape clipping, but the op must carry
   // maskShape so that future PDF/canvas renderers can act on it.
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [freeFormSlide(0, [imageEl("im-circle", { maskShape: "circle" })])],
   };
 
@@ -455,7 +454,7 @@ test("maskShape is present on op so PDF/image renderers can apply clip (PPTX deg
 
 test("an image element without maskShape emits op with no maskShape field", () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [freeFormSlide(0, [imageEl("im-no-mask")])],
   };
 
@@ -473,7 +472,7 @@ test("an image element with an empty src emits no image op (skips broken image)"
     box: { x: 10, y: 10, w: 30, h: 30 },
   };
   const deck: Deck = {
-    theme: "default",
+    themeId: "default",
     slides: [freeFormSlide(0, [empty])],
   };
 
@@ -494,7 +493,7 @@ test("a whitespace-only image src is treated as empty and skipped", () => {
     box: { x: 10, y: 10, w: 30, h: 30 },
   };
   const deck: Deck = {
-    theme: "default",
+    themeId: "default",
     slides: [freeFormSlide(0, [blank])],
   };
 
@@ -507,7 +506,7 @@ test("a visual element whose id is not in the visuals map emits no op", () => {
   // editor/renderer draws null for an orphaned reference, and the exporter
   // likewise skips it rather than emitting a broken native/fallback op.
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [freeFormSlide(0, [visualEl("v", "missing-visual")])],
   };
 
@@ -519,7 +518,7 @@ test("a visual element whose id is not in the visuals map emits no op", () => {
 
 test("a known visual survives alongside an unknown one (only the orphan drops)", () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       freeFormSlide(0, [
         visualEl("v-ok", "vis-known"),
@@ -544,7 +543,7 @@ test("a transformed visual degrades to a fallback image op instead of losing sty
     opacity: 0.4,
   };
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [freeFormSlide(0, [transformed])],
   };
 
@@ -559,7 +558,7 @@ test("a transformed visual degrades to a fallback image op instead of losing sty
 
 test("per-slide background and accent overrides are applied", () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       freeFormSlide(0, [textEl("t", "Themed")], {
         background: "#123456",
@@ -576,10 +575,8 @@ test("per-slide background and accent overrides are applied", () => {
 
 test("slide without overrides uses the theme background/accent", () => {
   const deck: Deck = {
-    theme: "ocean",
-    slides: [
-      freeFormSlide(0, [textEl("t", "Theme defaults")], { theme: "ocean" }),
-    ],
+    themeId: "ocean",
+    slides: [freeFormSlide(0, [textEl("t", "Theme defaults")])],
   };
 
   const [spec] = buildDeckSpecs(deck, new Map());
@@ -590,7 +587,7 @@ test("slide without overrides uses the theme background/accent", () => {
 test("slide without elements[] is not materialized for export", () => {
   const visuals = new Map<string, Visual>([["v1", flowchart()]]);
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       {
         id: "sl-no-elements",
@@ -600,7 +597,6 @@ test("slide without elements[] is not materialized for export", () => {
         visualIds: ["v1"],
         layout: "content",
         notes: "",
-        theme: "indigo",
       },
     ],
   };
@@ -613,7 +609,7 @@ test("slide without elements[] is not materialized for export", () => {
 
 test("text/bullets boxes convert percentages to inches within slide bounds", () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       freeFormSlide(0, [
         textEl("t", "Bounded", { box: { x: 0, y: 0, w: 100, h: 50 } }),
@@ -641,7 +637,7 @@ test("a visual with styleThemeId is restyled before mapping to native specs", ()
     styleThemeId: "ocean",
   };
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [freeFormSlide(0, [restyled])],
   };
 
@@ -659,7 +655,7 @@ test("a visual with styleThemeId is restyled before mapping to native specs", ()
 test("a visual without styleThemeId is mapped unchanged", () => {
   const visuals = new Map<string, Visual>([["v1", flowchart()]]);
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [freeFormSlide(0, [visualEl("ve", "v1")])],
   };
 
@@ -680,7 +676,7 @@ test("a visual without styleThemeId is mapped unchanged", () => {
 
 test("text op carries runs when the element has them", () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       freeFormSlide(0, [
         textEl("t1", "Bold Title", {
@@ -703,7 +699,7 @@ test("text op carries runs when the element has them", () => {
 
 test("text op omits runs when the element has none (plain fallback)", () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [freeFormSlide(0, [textEl("t1", "Plain")])],
   };
   const [spec] = buildDeckSpecs(deck, new Map());
@@ -714,7 +710,7 @@ test("text op omits runs when the element has none (plain fallback)", () => {
 
 test("bullets op carries parallel itemRuns when present", () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       freeFormSlide(0, [
         bulletsEl("b1", ["one", "two"], {
@@ -734,7 +730,7 @@ test("bullets op carries parallel itemRuns when present", () => {
 
 test("bullets op omits itemRuns when absent", () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [freeFormSlide(0, [bulletsEl("b1", ["one", "two"])])],
   };
   const [spec] = buildDeckSpecs(deck, new Map());
@@ -750,7 +746,7 @@ test("a connector element emits a connector op with inch-space endpoints", () =>
   // 10% of 13.333" = 1.3333", 20% of 7.5" = 1.5"
   // 80% of 13.333" = 10.6667", 70% of 7.5" = 5.25"
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [freeFormSlide(0, [connectorEl("c1")])],
   };
   const [spec] = buildDeckSpecs(deck, new Map());
@@ -765,7 +761,7 @@ test("a connector element emits a connector op with inch-space endpoints", () =>
 
 test("connector op color defaults to #a1a1aa when no stroke is set", () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [freeFormSlide(0, [connectorEl("c2")])],
   };
   const [spec] = buildDeckSpecs(deck, new Map());
@@ -775,7 +771,7 @@ test("connector op color defaults to #a1a1aa when no stroke is set", () => {
 
 test("connector op inherits custom stroke color and width", () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       freeFormSlide(0, [
         connectorEl("c3", { stroke: { color: "#ff0000", width: 2 } }),
@@ -790,7 +786,7 @@ test("connector op inherits custom stroke color and width", () => {
 
 test("connector op carries arrowEnd and dash when set", () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       freeFormSlide(0, [
         connectorEl("c4", {
@@ -828,7 +824,7 @@ test("connector op with bound endpoints resolves to element anchor positions", (
     end: { elementId: "target", anchor: "right" },
   };
   const deck: Deck = {
-    theme: "default",
+    themeId: "default",
     slides: [freeFormSlide(0, [target, connector])],
   };
   const [spec] = buildDeckSpecs(deck, new Map());
@@ -844,7 +840,7 @@ test("connector op with bound endpoints resolves to element anchor positions", (
 test("all six element kinds (including connector) each emit at least one op", () => {
   const visuals = new Map<string, Visual>([["v1", flowchart()]]);
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       freeFormSlide(0, [
         textEl("t", "Title"),
@@ -872,7 +868,7 @@ test("all six element kinds (including connector) each emit at least one op", ()
 
 test("shape text is applied to PPTX as a shape plus a text call", async () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       freeFormSlide(0, [
         shapeEl("shape-text", {
@@ -915,7 +911,7 @@ test("shape text is applied to PPTX as a shape plus a text call", async () => {
 
 test("connector export is applied to PPTX as a line shape", async () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       freeFormSlide(0, [
         connectorEl("pptx-connector", {
@@ -942,7 +938,7 @@ test("connector export is applied to PPTX as a line shape", async () => {
 
 test("placeholder elements export as labeled placeholder ops instead of dropping silently", async () => {
   const deck: Deck = {
-    theme: "default",
+    themeId: "default",
     slides: [freeFormSlide(0, [placeholderEl("ph1")])],
   };
 
@@ -966,7 +962,7 @@ test("placeholder elements export as labeled placeholder ops instead of dropping
 
 test("bullets op carries itemDetails when items have indent or listType", () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       freeFormSlide(0, [
         bulletsEl("b", ["one", "two", "three"], {
@@ -991,7 +987,7 @@ test("bullets op carries itemDetails when items have indent or listType", () => 
 
 test("bullets op omits itemDetails for a flat bullet list", () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [freeFormSlide(0, [bulletsEl("b", ["alpha", "beta"])])],
   };
   const [spec] = buildDeckSpecs(deck, new Map());
@@ -1002,7 +998,7 @@ test("bullets op omits itemDetails for a flat bullet list", () => {
 
 test("bullets op uses items[] text when element has items field", () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       freeFormSlide(0, [
         bulletsEl("b", ["mirrored text"], {
@@ -1018,7 +1014,7 @@ test("bullets op uses items[] text when element has items field", () => {
 
 test("bullets op numbered list carries all items as number listType", () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       freeFormSlide(0, [
         bulletsEl("b", ["step 1", "step 2"], {
@@ -1039,7 +1035,7 @@ test("bullets op numbered list carries all items as number listType", () => {
 
 test("bullets op carries both itemRuns and itemDetails for rich numbered/indented items", () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       freeFormSlide(0, [
         bulletsEl("b", ["top", "nested"], {
@@ -1073,7 +1069,7 @@ test("bullets op carries both itemRuns and itemDetails for rich numbered/indente
 
 test("a hidden text element produces no ops", () => {
   const deck: Deck = {
-    theme: "default",
+    themeId: "default",
     slides: [freeFormSlide(0, [textEl("t-hidden", "ghost", { hidden: true })])],
   };
 
@@ -1083,7 +1079,7 @@ test("a hidden text element produces no ops", () => {
 
 test("a hidden element is dropped while its visible sibling on the same slide is kept", () => {
   const deck: Deck = {
-    theme: "default",
+    themeId: "default",
     slides: [
       freeFormSlide(0, [
         textEl("t-visible", "visible"),
@@ -1100,7 +1096,7 @@ test("a hidden element is dropped while its visible sibling on the same slide is
 
 test("a hidden image and a hidden shape both produce no ops", () => {
   const deck: Deck = {
-    theme: "default",
+    themeId: "default",
     slides: [
       freeFormSlide(0, [
         imageEl("im", { hidden: true }),
@@ -1115,11 +1111,11 @@ test("a hidden image and a hidden shape both produce no ops", () => {
 
 test("a locked text element exports identically to an unlocked one", () => {
   const unlockedDeck: Deck = {
-    theme: "default",
+    themeId: "default",
     slides: [freeFormSlide(0, [textEl("t", "hello")])],
   };
   const lockedDeck: Deck = {
-    theme: "default",
+    themeId: "default",
     slides: [freeFormSlide(0, [textEl("t", "hello", { locked: true })])],
   };
 
@@ -1136,7 +1132,7 @@ test("a locked text element exports identically to an unlocked one", () => {
 
 test("a locked shape exports with full geometry (lock is editor-only)", () => {
   const deck: Deck = {
-    theme: "default",
+    themeId: "default",
     slides: [freeFormSlide(0, [shapeEl("sh", { locked: true })])],
   };
 
@@ -1146,7 +1142,7 @@ test("a locked shape exports with full geometry (lock is editor-only)", () => {
 
 test("grouped elements each emit their own op (group membership is flattened in export)", () => {
   const deck: Deck = {
-    theme: "default",
+    themeId: "default",
     slides: [
       freeFormSlide(0, [
         textEl("t1", "Group member A", { groupId: "g1" }),
@@ -1167,7 +1163,7 @@ test("grouped elements each emit their own op (group membership is flattened in 
 
 test("grouped shapes export in z-order and preserve geometry", () => {
   const deck: Deck = {
-    theme: "default",
+    themeId: "default",
     slides: [
       freeFormSlide(0, [
         shapeEl("sh1", { groupId: "g2", box: { x: 5, y: 5, w: 20, h: 15 } }),
@@ -1194,7 +1190,7 @@ test("grouped shapes export in z-order and preserve geometry", () => {
 
 test("backgroundGradient: spec.background uses the 'from' stop color", () => {
   const deck: Deck = {
-    theme: "default",
+    themeId: "default",
     slides: [
       freeFormSlide(0, [textEl("t", "Gradient bg")], {
         backgroundGradient: { from: "#112233", to: "#aabbcc" },
@@ -1215,7 +1211,7 @@ test("backgroundGradient takes precedence over explicit background color", () =>
   // and background are set, the gradient wins and its 'from' stop is used as the
   // PPTX solid background color.
   const deck: Deck = {
-    theme: "default",
+    themeId: "default",
     slides: [
       freeFormSlide(0, [textEl("t", "Both")], {
         background: "#ffffff",
@@ -1231,7 +1227,7 @@ test("backgroundGradient takes precedence over explicit background color", () =>
 test("backgroundImage is forwarded verbatim to the slide spec", () => {
   const dataUrl = "data:image/jpeg;base64,JFIF";
   const deck: Deck = {
-    theme: "default",
+    themeId: "default",
     slides: [
       freeFormSlide(0, [textEl("t", "Image bg")], {
         backgroundImage: dataUrl,
@@ -1249,7 +1245,7 @@ test("backgroundImage is forwarded verbatim to the slide spec", () => {
 
 test("slide without any background override uses the theme default", () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [freeFormSlide(0, [textEl("t", "Theme bg")])],
   };
 
@@ -1267,7 +1263,7 @@ test("slide without any background override uses the theme default", () => {
 
 test("text element with an active sourceRef still emits a normal text op", () => {
   const deck: Deck = {
-    theme: "default",
+    themeId: "default",
     slides: [
       freeFormSlide(0, [
         textEl("t-linked", "Source-linked text", {
@@ -1291,7 +1287,7 @@ test("text element with an active sourceRef still emits a normal text op", () =>
 
 test("bullets element with sourceRef still emits a normal bullets op", () => {
   const deck: Deck = {
-    theme: "default",
+    themeId: "default",
     slides: [
       freeFormSlide(0, [
         bulletsEl("b-linked", ["alpha", "beta"], {
@@ -1314,7 +1310,7 @@ test("bullets element with sourceRef still emits a normal bullets op", () => {
 
 test("image element with sourceRef still emits a normal image op", () => {
   const deck: Deck = {
-    theme: "default",
+    themeId: "default",
     slides: [
       freeFormSlide(0, [
         imageEl("im-linked", {
@@ -1339,7 +1335,7 @@ test("image element with sourceRef still emits a normal image op", () => {
 
 test("element with unlinked=true sourceRef exports normally (unlinked is metadata-only)", () => {
   const deck: Deck = {
-    theme: "default",
+    themeId: "default",
     slides: [
       freeFormSlide(0, [
         textEl("t-unlinked", "Detached", {
@@ -1365,9 +1361,9 @@ test("element with unlinked=true sourceRef exports normally (unlinked is metadat
 });
 
 test("exported text inherits the deck-template role font when no element override (#606)", () => {
-  // indigo theme: heading font "Space Grotesk", body font "Inter".
+  // indigo themeId: heading font "Space Grotesk", body font "Inter".
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       freeFormSlide(0, [
         textEl("title", "Heading", { role: "title", textRole: "h1" }),
@@ -1384,7 +1380,7 @@ test("exported text inherits the deck-template role font when no element overrid
 
 test("an explicit element fontFamily still wins over the role font (#606)", () => {
   const deck: Deck = {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       freeFormSlide(0, [
         textEl("title", "Heading", {
@@ -1414,7 +1410,7 @@ function brandDeckWith(
   tokenExtras: Record<string, unknown>,
 ): Deck {
   return {
-    theme: "default",
+    themeId: "default",
     customTokenSet: {
       id: "brand:nt",
       name: "NT",

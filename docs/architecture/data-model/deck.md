@@ -25,9 +25,10 @@ The current deck version is exported from
 `src/lib/presentation/deck-schema.ts` enforce the persisted shape:
 
 - `Deck.schemaVersion` must be the current version.
+- `Deck.themeId` is required and is the sole deck-level theme selector.
 - `Deck.slides[]` must be present and validated in order.
 - Every slide must carry `id`, `index`, `title`, `bullets`, `visualIds`,
-  `layout`, `notes`, `theme`, and `elements`.
+  `layout`, `notes`, and `elements`.
 - `Slide.elements` must be an array. It is the authoritative render/export
   surface.
 - `BulletsElement.items[]` is required and carries the authoritative bullet
@@ -37,7 +38,9 @@ The current deck version is exported from
   persisted input.
 
 There is no deck migration shim. A schema bump means fixtures, generators, and
-persisted development data must be updated to the new shape.
+persisted development data must be updated to the new shape. Current decks use
+schema v3, which removed the legacy `Deck.theme` and `Slide.theme` fields in
+favor of required `Deck.themeId`.
 
 ## Slide Content Model
 

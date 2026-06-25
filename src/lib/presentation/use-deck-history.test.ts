@@ -21,7 +21,7 @@ import {
 /** Builds a distinguishable deck whose single slide title encodes `n`. */
 function deck(n: number): Deck {
   return {
-    theme: "default",
+    themeId: "default",
     slides: [
       {
         id: "test-id",
@@ -31,7 +31,6 @@ function deck(n: number): Deck {
         visualIds: [],
         notes: "",
         layout: "content",
-        theme: "default",
       },
     ],
   };

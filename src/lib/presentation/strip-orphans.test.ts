@@ -39,13 +39,12 @@ function slide(partial: Partial<Slide>): Slide {
     visualIds: [],
     layout: "content",
     notes: "",
-    theme: "default",
     ...partial,
   };
 }
 
 function deck(slides: Slide[]): Deck {
-  return { theme: "default", slides };
+  return { themeId: "default", slides };
 }
 
 // ---------------------------------------------------------------------------

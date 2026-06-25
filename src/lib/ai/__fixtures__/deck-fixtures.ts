@@ -173,7 +173,7 @@ export const DOC_EMPTY: string = state([]);
  * can be asserted to PRESERVE `v1` and STRIP the orphaned `ghost`.
  */
 export const VALID_DECK_JSON: string = JSON.stringify({
-  theme: "indigo",
+  themeId: "indigo",
   slides: [
     {
       title: "Welcome",

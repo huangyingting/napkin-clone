@@ -36,7 +36,7 @@ function mockBrand(overrides: Partial<BrandStyle> = {}): BrandStyle {
 
 function baseDeck(): Deck {
   return {
-    theme: "default",
+    themeId: "default",
     slides: [
       {
         id: "s1",
@@ -46,7 +46,6 @@ function baseDeck(): Deck {
         visualIds: [],
         layout: "content",
         notes: "",
-        theme: "default",
       },
     ],
   };
@@ -180,7 +179,7 @@ test("applyBrandToDeck does not mutate original deck", () => {
   const deck = baseDeck();
   const brand = mockBrand();
   applyBrandToDeck(deck, brand);
-  assert.equal(deck.themeId, undefined);
+  assert.equal(deck.themeId, "default");
   assert.equal(deck.customTokenSet, undefined);
   assert.equal(deck.masters, undefined);
 });

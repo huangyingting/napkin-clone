@@ -260,7 +260,7 @@ function samePreselection(
 interface SlideStageEditorProps {
   slide: Slide;
   /** Deck context for full cascade resolution (custom token set / masters). */
-  deck?: Deck;
+  deck: Deck;
   visuals: ReadonlyMap<string, Visual>;
   width: number;
   height: number;
@@ -1502,7 +1502,7 @@ export function SlideStageEditor({
       <div className="pointer-events-none absolute inset-0">
         <SlideCanvas
           slide={slide}
-          {...(deck ? { deck } : {})}
+          deck={deck}
           visuals={visuals}
           hiddenElementIds={hiddenElementIds}
           editable

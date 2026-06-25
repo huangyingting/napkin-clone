@@ -19,7 +19,6 @@ const BASE_DECK: Deck = {
       visualIds: [],
       layout: "title",
       notes: "",
-      theme: "default",
       elements: [
         {
           id: "el-base-title",
@@ -33,7 +32,7 @@ const BASE_DECK: Deck = {
       ],
     },
   ],
-  theme: "default",
+  themeId: "default",
   schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
 };
 
@@ -47,7 +46,6 @@ const FETCHED_DECK: Deck = {
       visualIds: [],
       layout: "content",
       notes: "",
-      theme: "indigo",
       elements: [
         {
           id: "el-fetched-title",
@@ -70,7 +68,7 @@ const FETCHED_DECK: Deck = {
       ],
     },
   ],
-  theme: "indigo",
+  themeId: "indigo",
   schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
 };
 
@@ -84,7 +82,6 @@ const CACHED_DECK: Deck = {
       visualIds: [],
       layout: "section",
       notes: "",
-      theme: "ocean",
       elements: [
         {
           id: "el-cached-title",
@@ -98,7 +95,7 @@ const CACHED_DECK: Deck = {
       ],
     },
   ],
-  theme: "ocean",
+  themeId: "ocean",
   schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
 };
 
@@ -108,39 +105,39 @@ const CACHED_DECK: Deck = {
 
 test("pickFreshestDeck — uses fetched when valid", () => {
   const result = pickFreshestDeck(FETCHED_DECK, CACHED_DECK, BASE_DECK);
-  assert.strictEqual(result.theme, "indigo");
+  assert.strictEqual(result.themeId, "indigo");
   assert.strictEqual(result.slides[0]?.title, "Fetched (remote)");
 });
 
 test("pickFreshestDeck — uses cachedRaw when fetched is null", () => {
   const result = pickFreshestDeck(null, CACHED_DECK, BASE_DECK);
-  assert.strictEqual(result.theme, "ocean");
+  assert.strictEqual(result.themeId, "ocean");
   assert.strictEqual(result.slides[0]?.title, "Cached (prop)");
 });
 
 test("pickFreshestDeck — uses cachedRaw when fetched is invalid", () => {
-  const invalid = { slides: "not-an-array", theme: "default" };
+  const invalid = { slides: "not-an-array", themeId: "default" };
   const result = pickFreshestDeck(invalid, CACHED_DECK, BASE_DECK);
-  assert.strictEqual(result.theme, "ocean");
+  assert.strictEqual(result.themeId, "ocean");
 });
 
 test("pickFreshestDeck — uses baseDeck when both raw sources are invalid", () => {
   const result = pickFreshestDeck(null, undefined, BASE_DECK);
-  assert.strictEqual(result.theme, "default");
+  assert.strictEqual(result.themeId, "default");
   assert.strictEqual(result.slides[0]?.title, "Base");
 });
 
 test("pickFreshestDeck — rejects fetched JSON string", () => {
   const serialized = JSON.stringify(FETCHED_DECK);
   const result = pickFreshestDeck(serialized, CACHED_DECK, BASE_DECK);
-  assert.strictEqual(result.theme, "ocean");
+  assert.strictEqual(result.themeId, "ocean");
   assert.strictEqual(result.slides[0]?.title, "Cached (prop)");
 });
 
 test("pickFreshestDeck — rejects cachedRaw JSON string", () => {
   const serialized = JSON.stringify(CACHED_DECK);
   const result = pickFreshestDeck(null, serialized, BASE_DECK);
-  assert.strictEqual(result.theme, "default");
+  assert.strictEqual(result.themeId, "default");
 });
 
 test("pickFreshestDeck — uses fetched even when cachedRaw is also valid", () => {

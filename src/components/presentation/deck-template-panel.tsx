@@ -462,7 +462,7 @@ function PresetCard({
 export function DeckTemplatePanel({
   tokenSet,
   isCustom,
-  theme,
+  themeId,
   onUpdate,
   onReset,
   onApplyTheme,
@@ -471,12 +471,12 @@ export function DeckTemplatePanel({
   tokenSet: DeckThemeTokenSet;
   /** Whether the deck currently has a custom token set (enables Reset). */
   isCustom: boolean;
-  /** The deck's active built-in theme id (for preset highlighting). */
-  theme: DeckTheme;
+  /** The deck's active theme token id (for preset highlighting). */
+  themeId: string;
   onUpdate: (patch: DeckTemplatePatch) => void;
   onReset: () => void;
   /** Applies a built-in theme preset cleanly (clears any custom token set). */
-  onApplyTheme: (theme: DeckTheme) => void;
+  onApplyTheme: (themeId: DeckTheme) => void;
 }) {
   const [view, setView] = useState<PanelView>("preset");
   const [tab, setTab] = useState<PanelTab>("palette");
@@ -536,7 +536,7 @@ export function DeckTemplatePanel({
                   key={ts.id}
                   name={ts.name}
                   colors={ts.colors}
-                  active={!isCustom && theme === ts.id}
+                  active={!isCustom && themeId === ts.id}
                   onApply={() => {
                     if (isBuiltInTheme(ts.id)) onApplyTheme(ts.id);
                   }}

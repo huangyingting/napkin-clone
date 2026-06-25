@@ -23,8 +23,8 @@ import type {
 } from "./deck-theme-tokens";
 import {
   backgroundTreatmentToCss,
+  resolveDeckThemeTokens,
   resolveSlideBackground,
-  resolveThemeTokens,
 } from "./deck-theme-tokens";
 
 export const STYLE_CASCADE_LAYERS = [
@@ -54,8 +54,7 @@ export interface ResolvedSlideStyle {
 
 /** Resolves the token set for a deck, checking customTokenSet first. */
 export function resolveDeckTokenSet(deck: Deck): DeckThemeTokenSet {
-  if (deck.customTokenSet) return deck.customTokenSet;
-  return resolveThemeTokens(deck.themeId ?? deck.theme);
+  return resolveDeckThemeTokens(deck);
 }
 
 /**
@@ -130,22 +129,15 @@ export function renderFooterText(template: string, slideIndex: number): string {
 }
 
 /**
- * Resolves the {@link DeckThemeTokenSet} that governs a slide (#607). Mirrors
- * the deck/no-deck handling of {@link resolveSlideThemeColors} so the renderer
- * can read optional non-text default tokens (bullet/connector/image/visual/
- * shape) without a full deck. Returns the slide's custom token set when present,
- * otherwise the built-in set for its theme.
+ * Resolves the {@link DeckThemeTokenSet} that governs a slide (#607). A full
+ * deck is required because deck-level `themeId` / `customTokenSet` are the sole
+ * theme source.
  */
 export function resolveSlideTokenSet(
-  deck: Deck | undefined,
+  deck: Deck,
   slide: Slide,
 ): DeckThemeTokenSet {
-  const effectiveDeck: Deck = deck ?? {
-    theme: slide.theme,
-    themeId: slide.theme,
-    slides: [slide],
-  };
-  return resolveSlideStyle(effectiveDeck, slide).tokenSet;
+  return resolveSlideStyle(deck, slide).tokenSet;
 }
 
 // ---------------------------------------------------------------------------
@@ -163,22 +155,16 @@ export interface SlideThemeColors {
 
 /**
  * Resolves the renderer's slide colours from the deck token cascade (#609).
- * A full {@link Deck} carries master / custom-token context; when absent a
- * minimal deck is synthesised from the slide's own `theme` so present and
- * public viewers resolve the same palette as the editor instead of a legacy
- * fallback. The background colour collapses a gradient to its `from` stop and
- * an image background to the token-set's `slideBg`.
+ * A full {@link Deck} is required because deck-level `themeId` /
+ * `customTokenSet` are the sole theme source. The background colour collapses a
+ * gradient to its `from` stop and an image background to the token-set's
+ * `slideBg`.
  */
 export function resolveSlideThemeColors(
-  deck: Deck | undefined,
+  deck: Deck,
   slide: Slide,
 ): SlideThemeColors {
-  const effectiveDeck: Deck = deck ?? {
-    theme: slide.theme,
-    themeId: slide.theme,
-    slides: [slide],
-  };
-  const r = resolveSlideStyle(effectiveDeck, slide);
+  const r = resolveSlideStyle(deck, slide);
   const bgColor =
     r.background.type === "solid"
       ? r.background.color

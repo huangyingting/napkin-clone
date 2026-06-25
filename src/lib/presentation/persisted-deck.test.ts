@@ -14,11 +14,11 @@ const VALID_DECK = {
       visualIds: [],
       layout: "title",
       notes: "",
-      theme: "default",
+      themeId: "default",
       elements: [],
     },
   ],
-  theme: "default",
+  themeId: "default",
   schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
 };
 

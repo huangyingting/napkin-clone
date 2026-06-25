@@ -10,6 +10,7 @@ import {
   executeCommand,
   type SlideCommand,
 } from "./slide-commands";
+import { resolveThemeTokens } from "./deck-theme-tokens";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -24,7 +25,6 @@ function makeSlide(id: string, index: number, title = ""): Slide {
     visualIds: [],
     layout: "blank",
     notes: "",
-    theme: "default",
   };
 }
 
@@ -41,7 +41,6 @@ function makeSlideWithElements(
     visualIds: [],
     layout: "blank",
     notes: "",
-    theme: "default",
     elements,
     elementsDerived: false,
   };
@@ -60,14 +59,14 @@ function shapeElement(id: string, zIndex = 0): SlideElement {
 
 function makeDeck(slideIds: string[]): Deck {
   return {
-    theme: "default",
+    themeId: "default",
     slides: slideIds.map((id, i) => makeSlide(id, i, `Slide ${i}`)),
   };
 }
 
 function deckWithElements(slideId: string, elements: SlideElement[]): Deck {
   return {
-    theme: "default",
+    themeId: "default",
     slides: [makeSlideWithElements(slideId, 0, elements)],
   };
 }
@@ -999,7 +998,7 @@ test("REORDER_SLIDE failure (out-of-bounds): deck reference is unchanged so onDe
 
 function makeDeckWithElements(slideId: string, elements: SlideElement[]): Deck {
   return {
-    theme: "default",
+    themeId: "default",
     slides: [
       {
         id: slideId,
@@ -1009,7 +1008,6 @@ function makeDeckWithElements(slideId: string, elements: SlideElement[]): Deck {
         visualIds: [],
         layout: "blank",
         notes: "",
-        theme: "default",
         elements,
         elementsDerived: false,
       },
@@ -1099,7 +1097,6 @@ test("INSERT_TEMPLATE_SLIDE inserts at end by default", () => {
     visualIds: [],
     layout: "blank" as const,
     notes: "",
-    theme: "default" as const,
   };
   const result = executeCommand(deck, {
     type: "INSERT_TEMPLATE_SLIDE",
@@ -1123,7 +1120,6 @@ test("INSERT_TEMPLATE_SLIDE inserts after specified index", () => {
     visualIds: [],
     layout: "blank" as const,
     notes: "",
-    theme: "default" as const,
   };
   const result = executeCommand(deck, {
     type: "INSERT_TEMPLATE_SLIDE",
@@ -1881,17 +1877,33 @@ test("SET_DECK_THEME changes deck theme and emits patch with deckFields", () => 
   const deck = makeDeck(["s1", "s2"]);
   const result = executeCommand(deck, {
     type: "SET_DECK_THEME",
-    theme: "ocean",
+    themeId: "ocean",
   });
   assert.equal(result.ok, true);
-  assert.equal(result.deck.theme, "ocean");
-  for (const slide of result.deck.slides) {
-    assert.equal(slide.theme, "ocean");
-  }
+  assert.equal(result.deck.themeId, "ocean");
   assert.equal(result.patches[0]!.op, "deck.set_theme");
-  assert.equal(result.patches[0]!.deckFields?.theme, "ocean");
+  assert.equal(result.patches[0]!.deckFields?.themeId, "ocean");
   // All slide ids are affected
   assert.equal(result.affectedSlideIds.length, 2);
+});
+
+test("SET_DECK_THEME clears custom token set so built-in theme is visible", () => {
+  const deck = {
+    ...makeDeck(["s1"]),
+    customTokenSet: {
+      ...resolveThemeTokens("forest"),
+      id: "custom:forest",
+      name: "Custom Forest",
+      colors: { ...resolveThemeTokens("forest").colors, accent: "#ff0000" },
+    },
+  };
+  const result = executeCommand(deck, {
+    type: "SET_DECK_THEME",
+    themeId: "ocean",
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.deck.themeId, "ocean");
+  assert.equal(result.deck.customTokenSet, undefined);
 });
 
 // ---------------------------------------------------------------------------
@@ -1930,7 +1942,7 @@ test("SET_SLIDE_BACKGROUND sets background color and emits patch", () => {
 
 test("SET_SLIDE_BACKGROUND clears background with undefined", () => {
   const deck: Deck = {
-    theme: "default",
+    themeId: "default",
     slides: [{ ...makeDeck(["s1"]).slides[0]!, background: "#aabbcc" }],
   };
   const result = executeCommand(deck, {
@@ -2020,7 +2032,7 @@ test("SET_SLIDE_BACKGROUND_ASSET sets background asset and emits patch", () => {
 
 test("SET_SLIDE_BACKGROUND_ASSET clears asset with undefined", () => {
   const deck: Deck = {
-    theme: "default",
+    themeId: "default",
     slides: [
       {
         ...makeDeck(["s1"]).slides[0]!,
@@ -2058,7 +2070,7 @@ test("SET_SLIDE_ACCENT sets accent color and emits patch", () => {
 
 test("SET_SLIDE_ACCENT clears accent with undefined", () => {
   const deck: Deck = {
-    theme: "default",
+    themeId: "default",
     slides: [{ ...makeDeck(["s1"]).slides[0]!, accent: "#ff0000" }],
   };
   const result = executeCommand(deck, {
@@ -2092,7 +2104,7 @@ test("Patches carry schemaVersion matching CURRENT_DECK_SCHEMA_VERSION", () => {
   const deck = makeDeck(["s1"]);
   const result = executeCommand(deck, {
     type: "SET_DECK_THEME",
-    theme: "forest",
+    themeId: "forest",
   });
   assert.equal(result.patches[0]!.schemaVersion, version);
 });
@@ -2101,12 +2113,12 @@ test("applyPatch round-trip: SET_DECK_THEME", () => {
   const deck = makeDeck(["s1"]);
   const result = executeCommand(deck, {
     type: "SET_DECK_THEME",
-    theme: "grape",
+    themeId: "grape",
   });
   const patch = result.patches[0]!;
   const reproduced = applyPatch(deck, patch);
   assert.ok(reproduced !== null, "applyPatch should return a deck");
-  assert.equal(reproduced!.theme, "grape");
+  assert.equal(reproduced!.themeId, "grape");
 });
 
 test("applyPatch round-trip: UPDATE_SLIDE_TITLE", () => {
@@ -2209,7 +2221,7 @@ test("commitCommand on failure: result.ok false and patches empty", () => {
 
 test("commitCommand affectedSlideIds match result.affectedSlideIds", () => {
   const deck = makeDeck(["s1"]);
-  const cc = commitCommand(deck, { type: "SET_DECK_THEME", theme: "indigo" });
+  const cc = commitCommand(deck, { type: "SET_DECK_THEME", themeId: "indigo" });
   assert.deepEqual(cc.affectedSlideIds, cc.result.affectedSlideIds);
 });
 

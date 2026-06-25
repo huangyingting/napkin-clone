@@ -1,15 +1,20 @@
 import type { Deck, DeckTheme } from "./deck";
 import type { SlideFormat } from "./slide-format";
 
-/** Changes the deck theme, copying it onto every slide. */
-export function setDeckTheme(deck: Deck, theme: DeckTheme): Deck {
-  return {
+/**
+ * Changes the deck theme id.
+ *
+ * The style cascade resolves deck tokens exclusively through the deck-level
+ * theme resolver. Applying a built-in theme also clears a custom token set so
+ * the built-in token set is visible immediately.
+ */
+export function setDeckTheme(deck: Deck, themeId: DeckTheme): Deck {
+  const next: Deck = {
     ...deck,
-    theme,
-    slides: deck.slides.map((slide) =>
-      slide.theme === theme ? slide : { ...slide, theme },
-    ),
+    themeId,
   };
+  delete next.customTokenSet;
+  return next;
 }
 
 /** Changes the deck-wide slide format. */

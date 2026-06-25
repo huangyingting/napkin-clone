@@ -28,14 +28,13 @@ function makeSlide(overrides: Partial<Slide> = {}): Slide {
     visualIds: [],
     layout: "content",
     notes: "",
-    theme: "default",
     ...overrides,
   };
 }
 
 function makeDeck(overrides: Partial<Deck> = {}): Deck {
   return {
-    theme: "default",
+    themeId: "default",
     slides: [],
     ...overrides,
   };
@@ -108,8 +107,8 @@ test("documents the stable five cascade layers in order", () => {
 // ---------------------------------------------------------------------------
 
 test("resolveSlideStyle returns token set background when no overrides", () => {
-  const deck = makeDeck({ theme: "indigo" });
-  const slide = makeSlide({ theme: "indigo" });
+  const deck = makeDeck({ themeId: "indigo" });
+  const slide = makeSlide();
   const resolved = resolveSlideStyle(deck, slide);
   // indigo slideBg = "#ffffff"
   assert.equal(resolved.background.type, "solid");
@@ -119,8 +118,8 @@ test("resolveSlideStyle returns token set background when no overrides", () => {
 });
 
 test("resolveSlideStyle uses ocean token set for ocean theme", () => {
-  const deck = makeDeck({ theme: "ocean" });
-  const slide = makeSlide({ theme: "ocean" });
+  const deck = makeDeck({ themeId: "ocean" });
+  const slide = makeSlide();
   const resolved = resolveSlideStyle(deck, slide);
   // ocean slideBg = "#f6fbff"
   assert.equal(resolved.background.type, "solid");
@@ -132,7 +131,7 @@ test("resolveSlideStyle uses ocean token set for ocean theme", () => {
 
 test("resolveSlideStyle uses customTokenSet when present", () => {
   const deck = makeDeck({
-    theme: "default",
+    themeId: "default",
     customTokenSet: {
       id: "brand:x",
       name: "Custom",
@@ -167,7 +166,7 @@ test("resolveSlideStyle uses customTokenSet when present", () => {
 // ---------------------------------------------------------------------------
 
 test("resolveSlideStyle applies slide.background override", () => {
-  const deck = makeDeck({ theme: "indigo" });
+  const deck = makeDeck({ themeId: "indigo" });
   const slide = makeSlide({ background: "#123456" });
   const resolved = resolveSlideStyle(deck, slide);
   assert.equal(resolved.background.type, "solid");
@@ -177,7 +176,7 @@ test("resolveSlideStyle applies slide.background override", () => {
 });
 
 test("resolveSlideStyle applies slide.backgroundGradient override", () => {
-  const deck = makeDeck({ theme: "default" });
+  const deck = makeDeck({ themeId: "default" });
   const slide = makeSlide({
     backgroundGradient: { from: "#ff0000", to: "#0000ff", angle: 45 },
   });
@@ -191,7 +190,7 @@ test("resolveSlideStyle applies slide.backgroundGradient override", () => {
 });
 
 test("resolveSlideStyle applies slide.backgroundImage override", () => {
-  const deck = makeDeck({ theme: "default" });
+  const deck = makeDeck({ themeId: "default" });
   const slide = makeSlide({ backgroundImage: "https://example.com/img.jpg" });
   const resolved = resolveSlideStyle(deck, slide);
   assert.equal(resolved.background.type, "image");
@@ -201,7 +200,7 @@ test("resolveSlideStyle applies slide.backgroundImage override", () => {
 });
 
 test("resolveSlideStyle applies slide.accent override", () => {
-  const deck = makeDeck({ theme: "default" });
+  const deck = makeDeck({ themeId: "default" });
   const slide = makeSlide({ accent: "#ff9900" });
   const resolved = resolveSlideStyle(deck, slide);
   assert.equal(resolved.accent, "#ff9900");
@@ -295,14 +294,14 @@ test("resolveSlideStyle exposes logoUrl and logoPlacement from master", () => {
 // ---------------------------------------------------------------------------
 
 test("resolveSlideStyle provides correct backgroundCss for solid", () => {
-  const deck = makeDeck({ theme: "default" });
+  const deck = makeDeck({ themeId: "default" });
   const slide = makeSlide({ background: "#ff0000" });
   const resolved = resolveSlideStyle(deck, slide);
   assert.equal(resolved.backgroundCss, "#ff0000");
 });
 
 test("resolveSlideStyle provides correct backgroundCss for gradient", () => {
-  const deck = makeDeck({ theme: "default" });
+  const deck = makeDeck({ themeId: "default" });
   const slide = makeSlide({
     backgroundGradient: { from: "#111", to: "#222", angle: 90 },
   });
@@ -338,7 +337,7 @@ test("resolveRoleTextStyle uses the deck role token when no override", () => {
   const deck = makeDeck();
   const tokenSet = resolveSlideStyle(deck, makeSlide()).tokenSet;
   const style = resolveRoleTextStyle(tokenSet, "h1");
-  // default theme: h1 size 36, bold weight 700, centered
+  // default themeId: h1 size 36, bold weight 700, centered
   assert.strictEqual(style.fontSize, 36);
   assert.strictEqual(style.weight, 700);
   assert.strictEqual(style.align, "center");
@@ -422,11 +421,9 @@ test("resolveShapeLabelStyle defaults to shapeLabel and reads textStyleOverride"
 // resolveSlideThemeColors (#609)
 // ---------------------------------------------------------------------------
 
-test("resolveSlideThemeColors uses cascade colors without a deck (default theme)", () => {
-  const colors = resolveSlideThemeColors(
-    undefined,
-    makeSlide({ theme: "default" }),
-  );
+test("resolveSlideThemeColors uses deck cascade colors (default theme)", () => {
+  const deck = makeDeck({ themeId: "default" });
+  const colors = resolveSlideThemeColors(deck, makeSlide());
   // default token set: light slide background, dark onBg text
   assert.strictEqual(colors.bgColor, "#ffffff");
   assert.strictEqual(colors.titleColor, "#0f172a");
@@ -434,11 +431,9 @@ test("resolveSlideThemeColors uses cascade colors without a deck (default theme)
   assert.strictEqual(colors.mutedColor, "#64748b");
 });
 
-test("resolveSlideThemeColors resolves a different built-in theme without a deck", () => {
-  const colors = resolveSlideThemeColors(
-    undefined,
-    makeSlide({ theme: "indigo" }),
-  );
+test("resolveSlideThemeColors resolves a different built-in deck theme", () => {
+  const deck = makeDeck({ themeId: "indigo" });
+  const colors = resolveSlideThemeColors(deck, makeSlide());
   // indigo token set: still a light background with a theme-dark onBg
   assert.strictEqual(colors.bgColor, "#ffffff");
   assert.strictEqual(colors.titleColor, "#1e1b4b");
@@ -447,7 +442,7 @@ test("resolveSlideThemeColors resolves a different built-in theme without a deck
 
 test("resolveSlideThemeColors honors a deck custom token set", () => {
   const deck = makeDeck({
-    theme: "default",
+    themeId: "default",
     customTokenSet: {
       id: "brand:x",
       name: "X",
@@ -469,7 +464,7 @@ test("resolveSlideThemeColors honors a deck custom token set", () => {
       defaultBackground: { type: "solid", color: "#101010" },
     },
   });
-  const colors = resolveSlideThemeColors(deck, makeSlide({ theme: "default" }));
+  const colors = resolveSlideThemeColors(deck, makeSlide());
   assert.strictEqual(colors.bgColor, "#101010");
   assert.strictEqual(colors.titleColor, "#fafafa");
   assert.strictEqual(colors.accentColor, "#ff0000");
@@ -477,13 +472,12 @@ test("resolveSlideThemeColors honors a deck custom token set", () => {
 
 test("resolveSlideThemeColors keeps slide background and accent overrides first class", () => {
   const deck = makeDeck({
-    theme: "ocean",
+    themeId: "ocean",
     slides: [],
   });
   const colors = resolveSlideThemeColors(
     deck,
     makeSlide({
-      theme: "ocean",
       background: "#123456",
       accent: "#fedcba",
     }),
@@ -495,7 +489,7 @@ test("resolveSlideThemeColors keeps slide background and accent overrides first 
 
 test("resolveSlideThemeColors is the shared editor and viewer chrome color source", () => {
   const deck = makeDeck({
-    theme: "default",
+    themeId: "default",
     customTokenSet: {
       id: "brand:shared",
       name: "Shared",
@@ -517,7 +511,7 @@ test("resolveSlideThemeColors is the shared editor and viewer chrome color sourc
       defaultBackground: { type: "solid", color: "#101820" },
     },
   });
-  const slide = makeSlide({ theme: "default" });
+  const slide = makeSlide();
   const editorStageColors = resolveSlideThemeColors(deck, slide);
   const presentChromeColors = resolveSlideThemeColors(deck, slide);
   const publicViewerColors = resolveSlideThemeColors(deck, slide);
@@ -526,10 +520,10 @@ test("resolveSlideThemeColors is the shared editor and viewer chrome color sourc
 });
 
 test("resolveSlideThemeColors collapses a slide gradient background to its from-stop", () => {
+  const deck = makeDeck({ themeId: "default" });
   const colors = resolveSlideThemeColors(
-    undefined,
+    deck,
     makeSlide({
-      theme: "default",
       backgroundGradient: { from: "#123456", to: "#654321" },
     }),
   );

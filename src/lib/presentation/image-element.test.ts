@@ -104,10 +104,9 @@ function deckWithElements(elements: SlideElement[]): Deck {
     visualIds: [],
     layout: "blank",
     notes: "",
-    theme: "default",
     elements,
   };
-  return { theme: "default", slides: [slide] };
+  return { themeId: "default", slides: [slide] };
 }
 
 function deckWithBackground(backgroundImage: string | undefined): Deck {
@@ -119,10 +118,9 @@ function deckWithBackground(backgroundImage: string | undefined): Deck {
     visualIds: [],
     layout: "blank",
     notes: "",
-    theme: "default",
     backgroundImage,
   };
-  return { theme: "default", slides: [slide] };
+  return { themeId: "default", slides: [slide] };
 }
 
 test("dataUrlByteSize: a data URL is sized by its string length", () => {
@@ -157,7 +155,7 @@ test("totalInlineImageBytes: sums only inlined image data URLs", () => {
 });
 
 test("totalInlineImageBytes: a deck with no elements is 0", () => {
-  assert.equal(totalInlineImageBytes({ theme: "default", slides: [] }), 0);
+  assert.equal(totalInlineImageBytes({ themeId: "default", slides: [] }), 0);
   assert.equal(totalInlineImageBytes(deckWithElements([])), 0);
 });
 
@@ -218,7 +216,7 @@ test("budget derived from cap: MAX_IMAGE_UPLOAD_BYTES inlined stays within budge
 test("totalInlineImageBytes: background data URL counts toward the total", () => {
   const bgUrl = dataUrlOfBytes(5000);
   const deck: Deck = {
-    theme: "default",
+    themeId: "default",
     slides: [
       {
         id: "test-id",
@@ -228,7 +226,6 @@ test("totalInlineImageBytes: background data URL counts toward the total", () =>
         visualIds: [],
         layout: "blank",
         notes: "",
-        theme: "default",
         backgroundImage: bgUrl,
         elements: [imageElement(dataUrlOfBytes(1000))],
       },

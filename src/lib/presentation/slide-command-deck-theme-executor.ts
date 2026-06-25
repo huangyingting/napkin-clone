@@ -24,7 +24,7 @@ export function executeDeckThemeFamilyCommand(
   switch (cmd.type) {
     case "SET_DECK_THEME":
       return success(
-        setDeckTheme(deck, cmd.theme),
+        setDeckTheme(deck, cmd.themeId),
         deck.slides.map((s) => s.id),
         [],
         undefined,
@@ -33,7 +33,7 @@ export function executeDeckThemeFamilyCommand(
             "deck.set_theme",
             deck.slides.map((s) => s.id),
             [],
-            { deckFields: { theme: cmd.theme } },
+            { deckFields: { themeId: cmd.themeId } },
           ),
         ],
       );

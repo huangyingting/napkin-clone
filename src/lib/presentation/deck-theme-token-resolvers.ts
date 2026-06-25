@@ -51,6 +51,34 @@ export function resolveThemeTokens(themeId?: string | null): DeckThemeTokenSet {
   return TOKEN_SET_BY_ID.get(themeId) ?? DEFAULT_TOKEN_SET;
 }
 
+/** Minimal deck-shaped source used by theme-token resolvers. */
+export interface DeckThemeSource {
+  /** Authoritative token-set id for the deck theme cascade. */
+  themeId: string;
+  /** Custom/brand token set; when present it wins over built-in ids. */
+  customTokenSet?: DeckThemeTokenSet;
+}
+
+/**
+ * Returns the token id that names the deck's current theme source.
+ *
+ * `themeId` is the authoritative deck-theme key. There is intentionally no
+ * fallback to a legacy `theme` field: current deck payloads must carry
+ * `themeId`.
+ */
+export function resolveDeckThemeId(source: DeckThemeSource): string {
+  return source.customTokenSet?.id ?? source.themeId;
+}
+
+/** Resolves the deck-level token set, preferring custom/brand tokens. */
+export function resolveDeckThemeTokens(
+  source: DeckThemeSource,
+): DeckThemeTokenSet {
+  return (
+    source.customTokenSet ?? resolveThemeTokens(resolveDeckThemeId(source))
+  );
+}
+
 /**
  * Returns the resolved `BackgroundTreatment` for a slide, applying the
  * cascade: slide background image → slide overrides → master background →

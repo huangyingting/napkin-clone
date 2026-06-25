@@ -511,15 +511,12 @@ export function mergeDeckFromDocument(
     return merged;
   });
 
-  // Append unmatched fresh slides (when enabled), stamped with the deck theme.
+  // Append unmatched fresh slides (when enabled). Deck theme is deck-level.
   let appendedCount = 0;
   if (appendNew) {
     fresh.slides.forEach((freshSlide, freshIndex) => {
       if (matchedFresh.has(freshIndex)) return;
-      const appended: Slide = {
-        ...freshSlide,
-        theme: existing.theme,
-      };
+      const appended: Slide = { ...freshSlide };
       appendedCount += 1;
       changes.push({
         index: mergedSlides.length,

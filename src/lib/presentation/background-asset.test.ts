@@ -17,7 +17,7 @@ function minSlide(overrides: Record<string, unknown> = {}) {
     bullets: [],
     visualIds: [],
     layout: "blank",
-    theme: "default",
+    themeId: "default",
     elements: [],
     ...overrides,
   };
@@ -26,7 +26,7 @@ function minSlide(overrides: Record<string, unknown> = {}) {
 function deckWith(slides: object[]): unknown {
   return {
     slides,
-    theme: "default",
+    themeId: "default",
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
   };
 }
@@ -42,12 +42,11 @@ function minDeck(slideOverrides: Record<string, unknown> = {}): Deck {
         bullets: [],
         visualIds: [],
         layout: "blank",
-        theme: "default",
         elements: [],
         ...slideOverrides,
       },
     ],
-    theme: "default",
+    themeId: "default",
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
   };
 }

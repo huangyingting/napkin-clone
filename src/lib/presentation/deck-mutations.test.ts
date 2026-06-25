@@ -46,7 +46,6 @@ function slide(index: number, title: string): Slide {
     visualIds: [],
     layout: "content",
     notes: "",
-    theme: "default",
     elements: [
       {
         id: `title-${index}`,
@@ -73,7 +72,7 @@ function slide(index: number, title: string): Slide {
 
 function makeDeck(titles: string[]): Deck {
   return {
-    theme: "default",
+    themeId: "default",
     slides: titles.map((title, index) => slide(index, title)),
   };
 }
@@ -87,7 +86,6 @@ function authoredSlide(overrides: Partial<Slide> = {}): Slide {
     visualIds: [],
     layout: "content",
     notes: "",
-    theme: "default",
     elements: [],
     elementsDerived: false,
     ...overrides,
@@ -194,7 +192,7 @@ test("addSlide with -1 prepends", () => {
 
 test("insertSlide places a caller-built slide and re-indexes", () => {
   const deck = makeDeck(["A", "B"]);
-  const authored = authoredSlide({ theme: deck.theme });
+  const authored = authoredSlide();
   const next = insertSlide(deck, 0, authored);
 
   assert.equal(next.slides.length, 3);
@@ -212,7 +210,6 @@ test("insertSlide with -1 prepends the slide", () => {
     id: "first-id",
     title: "First",
     layout: "title",
-    theme: deck.theme,
   });
   delete authored.elements;
   delete authored.elementsDerived;
@@ -315,14 +312,13 @@ test("updateSlide applies mixed slide fields", () => {
 // setDeckTheme
 // ---------------------------------------------------------------------------
 
-test("setDeckTheme changes the deck and all slide themes", () => {
+test("setDeckTheme changes the deck-level themeId", () => {
   const deck = makeDeck(["A", "B"]);
   const next = setDeckTheme(deck, "ocean");
 
-  assert.equal(next.theme, "ocean");
-  assert.ok(next.slides.every((s) => s.theme === "ocean"));
+  assert.equal(next.themeId, "ocean");
   // original untouched
-  assert.equal(deck.theme, "default");
+  assert.equal(deck.themeId, "default");
 });
 
 // ---------------------------------------------------------------------------
@@ -916,7 +912,6 @@ function deckWithThreeByZ(): Deck {
       visualIds: [],
       layout: "blank",
       notes: "",
-      theme: "default",
       elements: [
         {
           id: "low",
@@ -945,7 +940,7 @@ function deckWithThreeByZ(): Deck {
       ],
     },
   ];
-  return { theme: "default", slides };
+  return { themeId: "default", slides };
 }
 
 test("moveElementZOrder 'up' increases an element's relative z-order", () => {
@@ -1053,7 +1048,7 @@ test("reorderElement is a no-op when ids are equal or missing (#639)", () => {
 });
 
 test("updateDeckTemplate materializes a custom token set from the theme then patches colors (#614)", () => {
-  const deck: Deck = { theme: "default", slides: [] };
+  const deck: Deck = { themeId: "default", slides: [] };
   const next = updateDeckTemplate(deck, { colors: { accent: "#ff0000" } });
   assert.ok(next.customTokenSet, "custom token set is created");
   assert.equal(next.customTokenSet!.colors.accent, "#ff0000");
@@ -1062,7 +1057,7 @@ test("updateDeckTemplate materializes a custom token set from the theme then pat
 });
 
 test("updateDeckTemplate merges a partial role token over the resolved role (#614)", () => {
-  const deck: Deck = { theme: "default", slides: [] };
+  const deck: Deck = { themeId: "default", slides: [] };
   const next = updateDeckTemplate(deck, {
     typography: { roles: { h1: { color: "#abcdef" } } },
   });
@@ -1074,7 +1069,7 @@ test("updateDeckTemplate merges a partial role token over the resolved role (#61
 });
 
 test("updateDeckTemplate merges over an existing custom token set (#614)", () => {
-  const deck: Deck = { theme: "default", slides: [] };
+  const deck: Deck = { themeId: "default", slides: [] };
   const once = updateDeckTemplate(deck, { colors: { accent: "#ff0000" } });
   const twice = updateDeckTemplate(once, { colors: { onBg: "#222222" } });
   assert.equal(twice.customTokenSet!.colors.accent, "#ff0000");

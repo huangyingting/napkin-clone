@@ -25,7 +25,7 @@ import type { DeckPatch } from "@/lib/presentation/slide-commands";
 
 function makeDeck(): Deck {
   return {
-    theme: "default",
+    themeId: "default",
     slides: [
       {
         id: "s1",
@@ -35,7 +35,6 @@ function makeDeck(): Deck {
         visualIds: [],
         layout: "blank",
         notes: "",
-        theme: "default",
       },
     ],
   };

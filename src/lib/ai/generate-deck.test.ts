@@ -32,7 +32,7 @@ function sequence(responses: string[]): Sequence {
 
 function deck(overrides: Record<string, unknown> = {}): string {
   return JSON.stringify({
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       {
         title: "Welcome",
@@ -58,7 +58,7 @@ test("parses a valid deck JSON in one attempt", async () => {
   );
   assert.equal(calls.count, 1);
   assert.ok(safeParseDeck(result).success);
-  assert.equal(result.theme, "indigo");
+  assert.equal(result.themeId, "indigo");
   assert.equal(result.slides.length, 2);
 });
 
@@ -83,13 +83,13 @@ test("tolerates prose-wrapped JSON deck", async () => {
 });
 
 test("takes the first deck when the model returns an array", async () => {
-  const array = "[" + deck() + "," + deck({ theme: "ocean" }) + "]";
+  const array = "[" + deck() + "," + deck({ themeId: "ocean" }) + "]";
   const { complete } = sequence([array]);
   const result = await generateDeck(
     { outline: "outline", visualInventory: INVENTORY },
     { complete },
   );
-  assert.equal(result.theme, "indigo");
+  assert.equal(result.themeId, "indigo");
 });
 
 test("retries once on malformed JSON then throws GenerationError", async () => {
@@ -228,16 +228,16 @@ test("regenerates duplicate element ids within a slide", async () => {
 });
 
 test("upgrades an invalid/default theme to a vibrant theme (#281)", async () => {
-  const { complete } = sequence([deck({ theme: "neon" })]);
+  const { complete } = sequence([deck({ themeId: "neon" })]);
   const result = await generateDeck(
     { outline: "outline", visualInventory: INVENTORY },
     { complete },
   );
-  assert.equal(result.theme, "indigo");
+  assert.equal(result.themeId, "indigo");
 });
 
 test("honors preferredTheme when the model returns 'default' (#281)", async () => {
-  const { complete } = sequence([deck({ theme: "default" })]);
+  const { complete } = sequence([deck({ themeId: "default" })]);
   const result = await generateDeck(
     {
       outline: "outline",
@@ -246,11 +246,11 @@ test("honors preferredTheme when the model returns 'default' (#281)", async () =
     },
     { complete },
   );
-  assert.equal(result.theme, "ocean");
+  assert.equal(result.themeId, "ocean");
 });
 
 test("preserves an explicit vibrant theme over preferredTheme (#281)", async () => {
-  const { complete } = sequence([deck({ theme: "forest" })]);
+  const { complete } = sequence([deck({ themeId: "forest" })]);
   const result = await generateDeck(
     {
       outline: "outline",
@@ -259,7 +259,7 @@ test("preserves an explicit vibrant theme over preferredTheme (#281)", async () 
     },
     { complete },
   );
-  assert.equal(result.theme, "forest");
+  assert.equal(result.themeId, "forest");
 });
 
 test("caps the deck to MAX_DECK_SLIDES slides", async () => {
@@ -291,7 +291,7 @@ test("rejects an empty outline before any LLM call", async () => {
 
 test("normalizes generateDeck output: every slide has authored elements", async () => {
   const payload = JSON.stringify({
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       { title: "Welcome", layout: "title" },
       { title: "Details", bullets: ["One", "Two"], layout: "content" },
@@ -305,13 +305,13 @@ test("normalizes generateDeck output: every slide has authored elements", async 
   );
 
   assert.ok(safeParseDeck(result).success);
+  assert.equal(result.themeId, "indigo", "theme stamped at deck level");
   for (const slide of result.slides) {
     assert.ok(
       slide.elements && slide.elements.length > 0,
       "slide has positioned elements",
     );
     assert.equal(slide.elementsDerived, false, "AI slides are authored");
-    assert.equal(slide.theme, "indigo", "theme stamped uniformly");
   }
 
   // The media slide places its document visual prominently.

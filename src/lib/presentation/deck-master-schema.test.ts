@@ -10,7 +10,7 @@ import { CURRENT_DECK_SCHEMA_VERSION } from "./deck";
 
 function baseDeck(overrides: Record<string, unknown> = {}) {
   return {
-    theme: "default",
+    themeId: "default",
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
     slides: [
       {
@@ -21,7 +21,7 @@ function baseDeck(overrides: Record<string, unknown> = {}) {
         visualIds: [],
         layout: "content",
         notes: "",
-        theme: "default",
+        themeId: "default",
         elements: [],
       },
     ],
@@ -449,7 +449,7 @@ function deckWithElement(element: Record<string, unknown>) {
         visualIds: [],
         layout: "content",
         notes: "",
-        theme: "default",
+        themeId: "default",
         elements: [{ zIndex: 0, ...element }],
       },
     ],
@@ -697,7 +697,7 @@ test("element with a negative layoutSlot index is rejected", () => {
 
 test("safeParseDeck round-trips the full current-shape template model", () => {
   const result = safeParseDeck({
-    theme: "indigo",
+    themeId: "indigo",
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
     customTokenSet: validTokenSet({
       typography: {
@@ -727,7 +727,7 @@ test("safeParseDeck round-trips the full current-shape template model", () => {
         visualIds: [],
         layout: "content",
         notes: "",
-        theme: "indigo",
+        themeId: "indigo",
         masterRef: "m1",
         elements: [
           {

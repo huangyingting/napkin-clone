@@ -193,11 +193,7 @@ function resolveLayout(builder: SlideBuilder): SlideLayoutHint {
   return "blank";
 }
 
-function finaliseSlide(
-  builder: SlideBuilder,
-  index: number,
-  theme: DeckTheme,
-): Slide {
+function finaliseSlide(builder: SlideBuilder, index: number): Slide {
   const hasBulletRuns = builder.bulletRuns.some((runs) => runs.length > 0);
   const sourceSectionId = computeSectionId(builder.title);
   const slide: Slide = {
@@ -212,7 +208,6 @@ function finaliseSlide(
     visualIds: builder.visualIds,
     layout: resolveLayout(builder),
     notes: builder.noteLines.join("\n").trim(),
-    theme,
     ...(sourceSectionId !== undefined ? { sourceSectionId } : {}),
   };
   return {
@@ -235,13 +230,12 @@ function finaliseSlide(
  * deck with a single blank slide.
  *
  * @param blocks  Block list from `collectDocumentBlocks`.
- * @param theme   Presentation theme to stamp on every slide.  Defaults to
- *                `"default"`.
+ * @param themeId Deck-level presentation theme id. Defaults to `"default"`.
  * @returns A fully-populated `Deck`.
  */
 export function buildDeckFromBlocks(
   blocks: DocumentBlock[],
-  theme: DeckTheme = "default",
+  themeId: DeckTheme = "default",
 ): Deck {
   const slides: Slide[] = [];
   let current: SlideBuilder = freshSlide("", "blank");
@@ -256,7 +250,7 @@ export function buildDeckFromBlocks(
       current.visualIds.length > 0 ||
       current.noteLines.length > 0
     ) {
-      slides.push(finaliseSlide(current, slides.length, theme));
+      slides.push(finaliseSlide(current, slides.length));
     }
   };
 
@@ -344,7 +338,6 @@ export function buildDeckFromBlocks(
       visualIds: [],
       layout: "blank",
       notes: "",
-      theme,
       elements: [],
       elementsDerived: false,
     });
@@ -353,8 +346,7 @@ export function buildDeckFromBlocks(
   // Re-index after all pushes (index is set at push time but guard may add one)
   return {
     slides,
-    theme,
-    themeId: theme,
+    themeId,
     slideFormat: DEFAULT_DECK_SLIDE_FORMAT,
     layouts: defaultLayouts(),
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,

@@ -412,7 +412,7 @@ export interface ReorderElementCommand {
 /** Changes the deck-level theme. */
 export interface SetDeckThemeCommand {
   type: "SET_DECK_THEME";
-  theme: DeckTheme;
+  themeId: DeckTheme;
   commandId?: string;
 }
 
@@ -697,7 +697,7 @@ export interface DeckPatch {
    * Only JSON-serialisable fields are included.
    */
   deckFields?: {
-    theme?: DeckTheme;
+    themeId?: DeckTheme;
     slideFormat?: SlideFormat;
     customTokenSet?: DeckThemeTokenSet;
     /** Signals a reset of the global template back to the built-in theme (#612). */
@@ -904,7 +904,7 @@ function mergeCommands(a: SlideCommand, b: SlideCommand): SlideCommand {
 export function applyPatch(deck: Deck, patch: DeckPatch): Deck | null {
   switch (patch.op) {
     case "deck.set_theme": {
-      const theme = patch.deckFields?.theme;
+      const theme = patch.deckFields?.themeId;
       if (!theme) return null;
       return setDeckTheme(deck, theme);
     }

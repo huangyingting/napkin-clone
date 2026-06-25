@@ -29,7 +29,6 @@ function slide(id: string, elementIds: string[] = []): Slide {
     visualIds: [],
     layout: "content",
     notes: "",
-    theme: "default",
     elements: elementIds.map((eid) => ({
       id: eid,
       kind: "text" as const,
@@ -50,7 +49,7 @@ function slide(id: string, elementIds: string[] = []): Slide {
 function deck(slides: Slide[]): Deck {
   return {
     slides: slides.map((s, i) => ({ ...s, index: i })),
-    theme: "default",
+    themeId: "default",
   };
 }
 

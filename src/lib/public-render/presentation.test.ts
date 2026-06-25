@@ -29,14 +29,13 @@ function slide(partial: Partial<Slide>): Slide {
     visualIds: [],
     layout: "content",
     notes: "",
-    theme: "default",
     ...partial,
   };
 }
 
 function deck(slides: Slide[]): Deck {
   return {
-    theme: "default",
+    themeId: "default",
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
     slides,
   };

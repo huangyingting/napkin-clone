@@ -100,10 +100,9 @@ function makeDeck(elements: SlideElement[]): Deck {
     visualIds: [],
     layout: "blank",
     notes: "",
-    theme: "default",
     elements,
   };
-  return { theme: "default", slides: [slide] };
+  return { themeId: "default", slides: [slide] };
 }
 
 // ---------------------------------------------------------------------------

@@ -12,7 +12,7 @@ import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 // A schema-valid deck reused across the parse/request tests. Mirrors the
 // current deck schema.
 const VALID_DECK = {
-  theme: "default",
+  themeId: "default",
   schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
   slides: [
     {
@@ -23,7 +23,7 @@ const VALID_DECK = {
       visualIds: [],
       layout: "content",
       notes: "",
-      theme: "default",
+      themeId: "default",
       elements: [
         {
           id: "text-1",

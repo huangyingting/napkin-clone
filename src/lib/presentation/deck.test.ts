@@ -70,17 +70,14 @@ test("empty input yields a single blank slide", () => {
   assert.equal(deck.slides[0].visualIds.length, 0);
 });
 
-test("theme is stamped on every slide", () => {
+test("themeId is stored at deck level", () => {
   const deck = buildDeckFromBlocks([h1("Title"), para("Body")], "ocean");
-  assert.equal(deck.theme, "ocean");
-  for (const slide of deck.slides) {
-    assert.equal(slide.theme, "ocean");
-  }
+  assert.equal(deck.themeId, "ocean");
 });
 
-test("default theme is 'default'", () => {
+test("default themeId is 'default'", () => {
   const deck = buildDeckFromBlocks([h1("Hi")]);
-  assert.equal(deck.theme, "default");
+  assert.equal(deck.themeId, "default");
 });
 
 test("slide indexes are zero-based and sequential", () => {
@@ -261,7 +258,7 @@ test("deck.slides is always an array", () => {
 
 test("returned deck has theme matching the argument", () => {
   const deck = buildDeckFromBlocks([h1("T")], "forest");
-  assert.equal(deck.theme, "forest");
+  assert.equal(deck.themeId, "forest");
 });
 
 test("returned deck carries themeId matching the chosen theme", () => {
@@ -380,7 +377,6 @@ test("buildSlideElementsFromContent builds a title element from slide content", 
     visualIds: [],
     layout: "title",
     notes: "",
-    theme: "default",
   });
   const title = elements.find((e) => e.kind === "text");
   assert.ok(title);
@@ -400,7 +396,6 @@ test("buildSlideElementsFromContent pairs bullets and a visual side by side", as
     visualIds: ["vis-1"],
     layout: "content",
     notes: "",
-    theme: "default",
   });
   assert.ok(elements.some((e) => e.kind === "bullets"));
   assert.ok(elements.some((e) => e.kind === "visual"));
@@ -416,7 +411,6 @@ test("buildSlideElementsFromContent binds title/body/visual layout slots (#627)"
     visualIds: ["vis-1", "vis-2"],
     layout: "content",
     notes: "",
-    theme: "default",
   });
   const slotKey = (e: (typeof elements)[number]) =>
     e.layoutSlot
@@ -440,7 +434,6 @@ test("buildSlideElementsFromContent cascades 3+ visuals into offset tiles", asyn
     visualIds: ["vis-a", "vis-b", "vis-c"],
     layout: "media",
     notes: "",
-    theme: "default",
   });
 
   const visuals = elements.filter((e) => e.kind === "visual");
@@ -487,7 +480,6 @@ test("buildSlideElementsFromContent tiles extra visuals alongside bullets", asyn
     visualIds: ["vis-1", "vis-2", "vis-3"],
     layout: "content",
     notes: "",
-    theme: "default",
   });
 
   // The bullets keep their pane; every visual still materializes (1 paired +
@@ -558,7 +550,7 @@ test("buildVisualElement: generates unique ids across calls", () => {
 
 test("safeParseDeck: preserves a visual element's styleThemeId", () => {
   const deck = {
-    theme: "default" as const,
+    themeId: "default" as const,
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
     slides: [
       {
@@ -569,7 +561,6 @@ test("safeParseDeck: preserves a visual element's styleThemeId", () => {
         visualIds: [],
         layout: "blank" as const,
         notes: "",
-        theme: "default" as const,
         elements: [
           {
             id: "v1",
@@ -595,7 +586,7 @@ test("safeParseDeck: preserves a visual element's styleThemeId", () => {
 
 test("safeParseDeck: omits styleThemeId when absent", () => {
   const deck = {
-    theme: "default" as const,
+    themeId: "default" as const,
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
     slides: [
       {
@@ -606,7 +597,6 @@ test("safeParseDeck: omits styleThemeId when absent", () => {
         visualIds: [],
         layout: "blank" as const,
         notes: "",
-        theme: "default" as const,
         elements: [
           {
             id: "v1",
@@ -688,7 +678,6 @@ test("buildSlideElementsFromContent copies titleRuns and bulletRuns to elements"
     visualIds: [],
     layout: "content",
     notes: "",
-    theme: "default",
   });
   const title = elements.find((e) => e.kind === "text");
   assert.ok(title && title.kind === "text");
@@ -804,7 +793,6 @@ test("buildSlideElementsFromContent stamps semantic textRole h1/bullet (#610)", 
     visualIds: [],
     layout: "content",
     notes: "",
-    theme: "default",
   });
   const title = elements.find((e) => e.kind === "text");
   const bullets = elements.find((e) => e.kind === "bullets");

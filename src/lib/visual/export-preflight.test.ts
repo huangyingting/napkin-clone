@@ -51,7 +51,6 @@ function makeSlide(
     visualIds: [],
     layout: "blank",
     notes: "",
-    theme: "default",
     elements,
     ...overrides,
   };
@@ -59,7 +58,7 @@ function makeSlide(
 
 function makeDeck(slides: Slide[], overrides: Partial<Deck> = {}): Deck {
   return {
-    theme: "default",
+    themeId: "default",
     slides,
     ...overrides,
   };

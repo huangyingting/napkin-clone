@@ -48,7 +48,7 @@ export function moveSlide(deck: Deck, index: number, direction: number): Deck {
 export function addSlide(deck: Deck, afterIndex: number): Deck {
   const slides = [...deck.slides];
   const insertAt = Math.max(0, Math.min(afterIndex + 1, slides.length));
-  slides.splice(insertAt, 0, freshBlankSlide(deck.theme));
+  slides.splice(insertAt, 0, freshBlankSlide());
 
   return { ...deck, slides: reindex(slides) };
 }
@@ -58,8 +58,8 @@ export function addSlide(deck: Deck, afterIndex: number): Deck {
  * re-indexes. Unlike {@link addSlide} (which always appends a blank slide), this
  * places a caller-built slide — e.g. one produced by `buildTemplateSlide` — so
  * the editor's template picker can route an authored slide through the same
- * undo/redo `commit` path. The slide is taken as-is; its `theme`/`elements` are
- * preserved verbatim.
+ * undo/redo `commit` path. The slide is taken as-is; its elements are preserved
+ * verbatim.
  */
 export function insertSlide(
   deck: Deck,
@@ -112,16 +112,14 @@ export function removeSlide(deck: Deck, index: number): Deck {
 export function updateSlide(
   deck: Deck,
   index: number,
-  patch: Partial<Omit<Slide, "index" | "theme">>,
+  patch: Partial<Omit<Slide, "index">>,
 ): Deck {
   if (index < 0 || index >= deck.slides.length) {
     return deck;
   }
 
   const slides = deck.slides.map((slide, i) =>
-    i === index
-      ? { ...slide, ...patch, index: slide.index, theme: slide.theme }
-      : slide,
+    i === index ? { ...slide, ...patch, index: slide.index } : slide,
   );
 
   return { ...deck, slides: reindex(slides) };

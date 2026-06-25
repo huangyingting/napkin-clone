@@ -45,16 +45,15 @@ function slide(partial: Partial<Slide>): Slide {
     visualIds: [],
     layout: "content",
     notes: "",
-    theme: "default",
     ...partial,
     elements,
   };
 }
 
-function deck(slides: Slide[], theme: Deck["theme"] = "default"): Deck {
+function deck(slides: Slide[], themeId = "default"): Deck {
   return {
     slides: slides.map((s, index) => ({ ...s, index })),
-    theme,
+    themeId,
   };
 }
 
@@ -177,8 +176,7 @@ test("appends new slides with no match", () => {
   assert.equal(merged.slides.length, 2);
   assert.equal(merged.slides[1].title, "Brand New");
   assert.deepEqual(merged.slides[1].bullets, ["fresh"]);
-  // New slides carry the existing deck theme and contiguous indices.
-  assert.equal(merged.slides[1].theme, "default");
+  // New slides carry contiguous indices; deck theme is deck-level.
   assert.equal(merged.slides[1].index, 1);
   assert.equal(summary.appendedCount, 1);
 });

@@ -160,15 +160,10 @@ export interface RepairedSlide {
   visualIds: string[];
   layout: SlideLayoutHint;
   notes: string;
-  theme: DeckTheme;
   elements?: SlideElement[];
 }
 
-export function repairSlide(
-  input: unknown,
-  index: number,
-  theme: DeckTheme,
-): RepairedSlide {
+export function repairSlide(input: unknown, index: number): RepairedSlide {
   const slide = isPlainObject(input) ? input : {};
 
   const layout = SLIDE_LAYOUTS.includes(slide.layout as SlideLayoutHint)
@@ -186,7 +181,6 @@ export function repairSlide(
     visualIds: toStringArray(slide.visualIds),
     layout,
     notes: typeof slide.notes === "string" ? slide.notes : "",
-    theme,
   };
 
   if (Array.isArray(slide.elements)) {
@@ -206,8 +200,8 @@ export function repairSlide(
 }
 
 /**
- * Turns the raw parsed model payload into a repaired deck candidate: defaults
- * the theme, maps unknown layouts to `"blank"`, regenerates missing ids, fills
+ * Turns the raw parsed model payload into a repaired deck candidate: resolves
+ * the deck theme id, maps unknown layouts to `"blank"`, regenerates missing ids, fills
  * sparse content fields, and caps the slide count.
  */
 export function repairDeck(parsed: unknown): Deck | undefined {
@@ -216,17 +210,17 @@ export function repairDeck(parsed: unknown): Deck | undefined {
     return undefined;
   }
 
-  const theme = DECK_THEMES.includes(candidate.theme as DeckTheme)
-    ? (candidate.theme as DeckTheme)
+  const themeId = DECK_THEMES.includes(candidate.themeId as DeckTheme)
+    ? (candidate.themeId as DeckTheme)
     : DEFAULT_THEME;
 
   const slides = candidate.slides
     .slice(0, REPAIRED_DECK_MAX_SLIDES)
-    .map((slide, index) => repairSlide(slide, index, theme));
+    .map((slide, index) => repairSlide(slide, index));
 
   return {
     slides,
-    theme,
+    themeId,
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
   } as Deck;
 }

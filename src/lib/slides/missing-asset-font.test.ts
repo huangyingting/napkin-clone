@@ -54,14 +54,13 @@ function makeSlide(
     visualIds: [],
     layout: "blank",
     notes: "",
-    theme: "default",
     elements,
     ...overrides,
   };
 }
 
 function makeDeck(slides: Slide[]): Deck {
-  return { theme: "default", slides };
+  return { themeId: "default", slides };
 }
 
 function imageEl(overrides: Partial<ImageElement> = {}): ImageElement {

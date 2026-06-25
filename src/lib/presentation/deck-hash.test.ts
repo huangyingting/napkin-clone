@@ -34,13 +34,12 @@ function slide(partial: Partial<Slide>): Slide {
     visualIds: [],
     layout: "content",
     notes: "",
-    theme: "default",
     ...partial,
   };
 }
 
-function deck(slides: Slide[], theme: Deck["theme"] = "default"): Deck {
-  return { slides, theme };
+function deck(slides: Slide[], themeId = "default"): Deck {
+  return { slides, themeId };
 }
 
 test("fnv1aHex is deterministic and 8-char hex", () => {

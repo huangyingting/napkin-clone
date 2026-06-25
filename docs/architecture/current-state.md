@@ -150,8 +150,9 @@ mirror. This guards against partial-mirror edge cases.
 `Document.deckJson` holds the entire deck as a single JSON column, separate
 from `contentJson`. Deck edits never modify `contentJson` and vice versa.
 `Document.deckRevisionToken` is a random token used for optimistic CAS locking.
-Persisted decks must carry the current `schemaVersion` and each slide must carry
-`elements[]`; renderers and exporters read elements directly.
+Persisted decks must carry the current `schemaVersion`, a deck-level `themeId`,
+and each slide must carry `elements[]`; renderers and exporters read elements
+directly.
 
 ### 4.2 Write paths
 

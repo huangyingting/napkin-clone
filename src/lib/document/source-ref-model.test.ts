@@ -25,7 +25,7 @@ import {
 function makeDeck(slides: Slide[]): Deck {
   return {
     slides,
-    theme: "indigo",
+    themeId: "indigo",
     version: 1,
   } as unknown as Deck;
 }
@@ -44,7 +44,7 @@ function makeVisualSlide(
     visualIds: [],
     layout: "content",
     notes: "",
-    theme: "indigo",
+    themeId: "indigo",
     elements: [
       {
         id: elementId,
@@ -72,7 +72,7 @@ function makeTextSlide(
     visualIds: [],
     layout: "content",
     notes: "",
-    theme: "indigo",
+    themeId: "indigo",
     elements: [
       {
         id: elementId,
@@ -109,7 +109,7 @@ describe("enumerateDeckDependencies", () => {
         visualIds: [],
         layout: "content",
         notes: "",
-        theme: "indigo",
+        themeId: "indigo",
       } as unknown as Slide,
     ]);
     const deps = enumerateDeckDependencies(deck);
@@ -248,7 +248,7 @@ describe("checkDependencyHealth", () => {
         visualIds: [],
         layout: "content",
         notes: "",
-        theme: "indigo",
+        themeId: "indigo",
       } as unknown as Slide,
     ]);
     const health = checkDependencyHealth(deck, []);
@@ -314,7 +314,7 @@ describe("collectDeckVisualIds", () => {
         visualIds: [],
         layout: "content",
         notes: "",
-        theme: "indigo",
+        themeId: "indigo",
       } as unknown as Slide,
     ]);
     const ids = collectDeckVisualIds(deck);

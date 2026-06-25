@@ -11,7 +11,11 @@ import type {
   TextRoleTokenMap,
   VisualDefaultsToken,
 } from "./deck-theme-tokens";
-import { resolveRoleToken, resolveThemeTokens } from "./deck-theme-tokens";
+import {
+  resolveDeckThemeId,
+  resolveDeckThemeTokens,
+  resolveRoleToken,
+} from "./deck-theme-tokens";
 
 /**
  * Structured patch for editing the global deck template (#614). Every field is
@@ -55,11 +59,11 @@ function mergeRoleTokens(
  * produces a complete, persistable set. Returns a new deck (immutable).
  */
 export function updateDeckTemplate(deck: Deck, patch: DeckTemplatePatch): Deck {
-  const themeId = deck.themeId ?? deck.theme;
+  const themeId = resolveDeckThemeId(deck);
   const base: DeckThemeTokenSet = deck.customTokenSet ?? {
-    ...resolveThemeTokens(themeId),
+    ...resolveDeckThemeTokens(deck),
     id: `custom:${themeId}`,
-    name: `Custom (${deck.theme})`,
+    name: `Custom (${themeId})`,
   };
   const next: DeckThemeTokenSet = {
     ...base,

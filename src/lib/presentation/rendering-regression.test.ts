@@ -67,7 +67,6 @@ function slide(
     visualIds: [],
     layout: "blank",
     notes: "",
-    theme: "default",
     elements,
     ...overrides,
   };
@@ -75,7 +74,7 @@ function slide(
 
 function deck(elements: SlideElement[], overrides: Partial<Deck> = {}): Deck {
   return {
-    theme: "default",
+    themeId: "default",
     slides: [slide(elements)],
     ...overrides,
   };
@@ -1186,7 +1185,7 @@ test("[AC-10] grouped shapes each export individually (group membership not merg
 
 function deckWith(slideOverrides: Partial<Slide>): Deck {
   return {
-    theme: "default",
+    themeId: "default",
     slides: [slide([], slideOverrides)],
   };
 }
@@ -1230,7 +1229,7 @@ test("[AC-11] backgroundImage is forwarded to the slide spec", () => {
 
 test("[AC-11] slide without background overrides falls back to theme defaults", () => {
   const [spec] = buildDeckSpecs(
-    { theme: "ocean", slides: [slide([], { theme: "ocean" })] },
+    { themeId: "ocean", slides: [slide([])] },
     new Map(),
   );
 
@@ -1465,7 +1464,6 @@ test("[#618] export smoke: custom template fonts + gradient background do not cr
           visualIds: [],
           layout: "blank",
           notes: "",
-          theme: "default",
           backgroundGradient: { from: "#123456", to: "#654321" },
           elements: [
             textEl("t", "Title", { role: "title", textRole: "h1" }),

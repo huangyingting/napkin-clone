@@ -33,14 +33,13 @@ shape:
 - Text/bullets elements gain optional `textRole` + `styleOverride`; shapes gain
   `textRole` + `textStyleOverride`; every element gains an optional `layoutSlot`.
 
-**Decision: no `CURRENT_DECK_SCHEMA_VERSION` bump.** Because every addition is an
-optional field, existing `schemaVersion: 2` decks remain valid unchanged, and
-decks carrying the new fields also parse. `validateDeck` continues to reject any
-deck whose `schemaVersion` is not the current version, so genuinely stale shapes
-are still rejected. No offline migration is required for this rollout. Runtime
-render, export, and editor paths do not add role or slot bindings to legacy
-elements; if persisted role/slot stamping becomes necessary, it must be modeled
-as an explicit offline migration descriptor.
+**Historical decision: no `CURRENT_DECK_SCHEMA_VERSION` bump for #620.** Because
+that rollout only added optional fields, then-current `schemaVersion: 2` decks
+remained valid unchanged. `validateDeck` continues to reject any deck whose
+`schemaVersion` is not the current version, so genuinely stale shapes are still
+rejected. Runtime render, export, and editor paths do not add role or slot
+bindings to legacy elements; if persisted role/slot stamping becomes necessary,
+it must be modeled as an explicit offline migration descriptor.
 
 `safeParseDeck` round-trips the full current-shape template model; see the
 "current-shape template model" tests in
@@ -117,8 +116,6 @@ interface MigrationDescriptor<Row> {
    npm run audit:schema -- --ci
    ```
 
----
-
 ## Guarantees
 
 - **Dry-run is the default** — `--apply` is required to write.
@@ -126,6 +123,18 @@ interface MigrationDescriptor<Row> {
   as `failed`; the run continues and reports a complete tally.
 - **No content in output** — counts and safe identifiers only.
 - **Idempotent** — re-applying changes 0 rows.
+
+## Deck theme unification (schema v3)
+
+Deck schema v3 removes the legacy `Deck.theme` and `Slide.theme` fields. The
+current persisted shape uses required `Deck.themeId` as the sole deck-level
+theme selector; slides no longer carry a theme snapshot. Built-in themes use
+the `DeckTheme` ids (`indigo`, `ocean`, `forest`, `sunset`, `grape`,
+`default`). Brand/custom themes set `Deck.themeId` to the custom token-set id
+and carry `Deck.customTokenSet`.
+
+There is no runtime compatibility shim for schema-v2 theme payloads. Persisted
+development data and fixtures must be regenerated or migrated to schema v3.
 
 ---
 

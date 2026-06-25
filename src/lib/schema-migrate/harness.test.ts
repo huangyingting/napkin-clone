@@ -20,7 +20,7 @@ import {
 
 interface DeckRow {
   id: string;
-  theme: string;
+  themeId: string;
 }
 
 /**
@@ -31,15 +31,15 @@ function makeThemeMigration(store: DeckRow[]): MigrationDescriptor<DeckRow> {
   return {
     name: "lowercase-deck-theme",
     selectRows: () => store,
-    isAlreadyMigrated: (row) => row.theme === row.theme.toLowerCase(),
+    isAlreadyMigrated: (row) => row.themeId === row.themeId.toLowerCase(),
     transformRow: (row) => {
-      const lowered = row.theme.toLowerCase();
-      if (lowered === row.theme) return null;
-      return { ...row, theme: lowered };
+      const lowered = row.themeId.toLowerCase();
+      if (lowered === row.themeId) return null;
+      return { ...row, themeId: lowered };
     },
     applyRow: (row) => {
       const target = store.find((r) => r.id === row.id);
-      if (target) target.theme = row.theme;
+      if (target) target.themeId = row.themeId;
     },
   };
 }
@@ -47,9 +47,9 @@ function makeThemeMigration(store: DeckRow[]): MigrationDescriptor<DeckRow> {
 describe("runMigration", () => {
   test("dry-run reports counts without mutating the store", async () => {
     const store: DeckRow[] = [
-      { id: "a", theme: "Indigo" },
-      { id: "b", theme: "amber" },
-      { id: "c", theme: "EMERALD" },
+      { id: "a", themeId: "Indigo" },
+      { id: "b", themeId: "amber" },
+      { id: "c", themeId: "EMERALD" },
     ];
     const result = await runMigration(makeThemeMigration(store), {
       apply: false,
@@ -60,27 +60,27 @@ describe("runMigration", () => {
     assert.equal(result.skipped, 1); // amber already lowercase
     assert.equal(result.failed, 0);
     // Store is untouched.
-    assert.equal(store.find((r) => r.id === "a")?.theme, "Indigo");
-    assert.equal(store.find((r) => r.id === "c")?.theme, "EMERALD");
+    assert.equal(store.find((r) => r.id === "a")?.themeId, "Indigo");
+    assert.equal(store.find((r) => r.id === "c")?.themeId, "EMERALD");
   });
 
   test("apply mutates the store", async () => {
     const store: DeckRow[] = [
-      { id: "a", theme: "Indigo" },
-      { id: "b", theme: "amber" },
+      { id: "a", themeId: "Indigo" },
+      { id: "b", themeId: "amber" },
     ];
     const result = await runMigration(makeThemeMigration(store), {
       apply: true,
     });
     assert.equal(result.applied, true);
     assert.equal(result.changed, 1);
-    assert.equal(store.find((r) => r.id === "a")?.theme, "indigo");
+    assert.equal(store.find((r) => r.id === "a")?.themeId, "indigo");
   });
 
   test("re-applying an applied migration is idempotent (0 changes)", async () => {
     const store: DeckRow[] = [
-      { id: "a", theme: "Indigo" },
-      { id: "b", theme: "Amber" },
+      { id: "a", themeId: "Indigo" },
+      { id: "b", themeId: "Amber" },
     ];
     const migration = makeThemeMigration(store);
     const first = await runMigration(migration, { apply: true });
@@ -94,17 +94,17 @@ describe("runMigration", () => {
 
   test("counts a row whose transform throws as failed without aborting", async () => {
     const store: DeckRow[] = [
-      { id: "ok", theme: "Indigo" },
-      { id: "boom", theme: "Amber" },
-      { id: "ok2", theme: "Emerald" },
+      { id: "ok", themeId: "Indigo" },
+      { id: "boom", themeId: "Amber" },
+      { id: "ok2", themeId: "Emerald" },
     ];
     const migration: MigrationDescriptor<DeckRow> = {
       name: "explodes-on-boom",
       selectRows: () => store,
-      isAlreadyMigrated: (row) => row.theme === row.theme.toLowerCase(),
+      isAlreadyMigrated: (row) => row.themeId === row.themeId.toLowerCase(),
       transformRow: (row) => {
         if (row.id === "boom") throw new Error("kaboom");
-        return { ...row, theme: row.theme.toLowerCase() };
+        return { ...row, themeId: row.themeId.toLowerCase() };
       },
     };
     const result = await runMigration(migration, { apply: false });
@@ -115,8 +115,8 @@ describe("runMigration", () => {
 
   test("emits per-row events with safe identifiers", async () => {
     const store: DeckRow[] = [
-      { id: "a", theme: "Indigo" },
-      { id: "b", theme: "amber" },
+      { id: "a", themeId: "Indigo" },
+      { id: "b", themeId: "amber" },
     ];
     const events: string[] = [];
     await runMigration(makeThemeMigration(store), {

@@ -279,7 +279,6 @@ function buildElements(
 function normalizeSlide(
   slide: Slide,
   index: number,
-  theme: DeckTheme,
   knownIds: ReadonlySet<string>,
   inventory: ReadonlyMap<string, VisualInventoryItem>,
 ): Slide {
@@ -289,7 +288,6 @@ function normalizeSlide(
   return {
     ...slide,
     index,
-    theme,
     visualIds,
     elements,
     // AI output is treated as hand-authored content: preserve it on sync.
@@ -297,10 +295,13 @@ function normalizeSlide(
   };
 }
 
-function resolveTheme(deck: Deck, preferredTheme?: DeckTheme): DeckTheme {
+function resolveThemeId(deck: Deck, preferredTheme?: DeckTheme): DeckTheme {
   // Preserve an explicit, valid NON-default vibrant theme the model chose.
-  if (deck.theme !== "default" && DECK_THEMES.includes(deck.theme)) {
-    return deck.theme;
+  if (
+    deck.themeId !== "default" &&
+    DECK_THEMES.includes(deck.themeId as DeckTheme)
+  ) {
+    return deck.themeId as DeckTheme;
   }
   // The model returned "default", or a missing/invalid theme. Substitute a
   // vibrant one (issue #281): prefer a document-derived theme when supplied,
@@ -317,7 +318,7 @@ function resolveTheme(deck: Deck, preferredTheme?: DeckTheme): DeckTheme {
 
 /**
  * Normalizes a validated, repaired {@link Deck} (as produced by `generateDeck`)
- * so every slide snaps to a template-conformant, theme-stamped, hierarchy-aware
+ * so every slide snaps to a template-conformant, deck-theme-aware
  * set of positioned `elements[]`. Pure and deterministic except for generated
  * element ids. The result remains `safeParseDeck`-valid.
  *
@@ -338,9 +339,14 @@ export function normalizeGeneratedDeck(
 ): Deck {
   const knownIds = toKnownIds(inventory);
   const inventoryMap = toInventoryMap(inventory);
-  const theme = resolveTheme(deck, preferredTheme);
+  const themeId = resolveThemeId(deck, preferredTheme);
   const slides = deck.slides.map((slide, index) =>
-    normalizeSlide(slide, index, theme, knownIds, inventoryMap),
+    normalizeSlide(slide, index, knownIds, inventoryMap),
   );
-  return { ...deck, theme, schemaVersion: CURRENT_DECK_SCHEMA_VERSION, slides };
+  return {
+    ...deck,
+    themeId,
+    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+    slides,
+  };
 }

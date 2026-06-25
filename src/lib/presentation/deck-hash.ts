@@ -62,7 +62,7 @@ function slideContentSignature(slide: Slide): string {
  */
 export function deckContentSignature(deck: Deck): string {
   return [
-    `theme:${deck.theme}`,
+    `theme:${deck.themeId}`,
     ...deck.slides.map(slideContentSignature),
   ].join("\u0003");
 }

@@ -54,7 +54,6 @@ function slide(id: string, elements: SlideElement[] = []): Slide {
     visualIds: [],
     layout: "content",
     notes: "",
-    theme: "default",
     elements,
   };
 }
@@ -62,7 +61,7 @@ function slide(id: string, elements: SlideElement[] = []): Slide {
 function deck(slides: Slide[]): Deck {
   return {
     slides: slides.map((entry, index) => ({ ...entry, index })),
-    theme: "default",
+    themeId: "default",
   };
 }
 

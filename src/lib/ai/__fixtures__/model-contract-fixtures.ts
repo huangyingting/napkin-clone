@@ -56,7 +56,7 @@ export function deckModelOutput(
   overrides: Record<string, unknown> = {},
 ): Record<string, unknown> {
   return {
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       {
         title: "Welcome",
@@ -91,7 +91,7 @@ export function deckModelOutput(
 
 export function repairableDeckModelOutput(): Record<string, unknown> {
   return deckModelOutput({
-    theme: "not-a-theme",
+    themeId: "not-a-theme",
     slides: [
       {
         title: "Repair me",

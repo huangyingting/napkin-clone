@@ -54,7 +54,7 @@ function constantComplete(response: string) {
 }
 
 function deckJson(slides: unknown[]): string {
-  return JSON.stringify({ theme: "indigo", slides });
+  return JSON.stringify({ themeId: "indigo", slides });
 }
 
 // ---------------------------------------------------------------------------
@@ -86,7 +86,7 @@ test("success: returns a safeParseDeck-valid deck from fixture JSON", async () =
   });
 
   assert.ok(safeParseDeck(deck).success);
-  assert.equal(deck.theme, "indigo");
+  assert.equal(deck.themeId, "indigo");
   assert.ok(deck.slides.length >= 2);
 });
 
@@ -163,7 +163,7 @@ test("no visuals: the generated deck contains no visual elements", async () => {
 test("threads preferredTheme through to upgrade a model 'default' (#281)", async () => {
   const complete = constantComplete(
     JSON.stringify({
-      theme: "default",
+      themeId: "default",
       slides: [{ title: "Welcome", layout: "title" }],
     }),
   );
@@ -176,13 +176,13 @@ test("threads preferredTheme through to upgrade a model 'default' (#281)", async
   });
 
   assert.ok(safeParseDeck(deck).success);
-  assert.equal(deck.theme, "ocean");
+  assert.equal(deck.themeId, "ocean");
 });
 
 test("preferredTheme does not override an explicit vibrant model theme (#281)", async () => {
   const complete = constantComplete(
     JSON.stringify({
-      theme: "forest",
+      themeId: "forest",
       slides: [{ title: "Welcome", layout: "title" }],
     }),
   );
@@ -194,7 +194,7 @@ test("preferredTheme does not override an explicit vibrant model theme (#281)", 
     preferredTheme: "ocean",
   });
 
-  assert.equal(deck.theme, "forest");
+  assert.equal(deck.themeId, "forest");
 });
 
 test("threads truncated=false through for a small document", async () => {

@@ -30,7 +30,7 @@ function textElement(overrides: Partial<TextElement> = {}): TextElement {
 
 function deck(element: TextElement): Deck {
   return {
-    theme: "default",
+    themeId: "default",
     customTokenSet: {
       id: "brand:x",
       name: "Brand X",
@@ -61,7 +61,6 @@ function deck(element: TextElement): Deck {
         visualIds: [],
         layout: "blank",
         notes: "",
-        theme: "default",
         elements: [element],
       },
     ],

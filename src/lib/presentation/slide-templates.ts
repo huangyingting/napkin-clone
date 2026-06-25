@@ -20,7 +20,6 @@ import {
   makeElementId,
   makeSlideId,
   PLACEHOLDER_TYPE_LABELS,
-  type DeckTheme,
   type ElementAlign,
   type ElementBox,
   type ImageElement,
@@ -77,8 +76,6 @@ export type SlideTemplateKind =
 
 /** Context threaded into {@link buildTemplateSlide} from the editor. */
 export interface SlideTemplateContext {
-  /** Theme stamped on the new slide (mirrors `Deck.theme`). */
-  theme: DeckTheme;
   /** Target slide format so placeholder layouts match the current deck. */
   slideFormat?: SlideFormat;
   /**
@@ -259,7 +256,6 @@ function spotlightElement(
 /** Builds an authored (non-derived) slide from a template's elements. */
 function authoredSlide(
   layout: SlideLayoutHint,
-  theme: DeckTheme,
   elements: SlideElement[],
   visualIds: string[] = [],
 ): Slide {
@@ -271,7 +267,6 @@ function authoredSlide(
     visualIds,
     layout,
     notes: "",
-    theme,
     elements,
     // Hand-authored: the merge step must PRESERVE these elements rather than
     // re-materialize them from document content (issue #221).
@@ -297,7 +292,6 @@ function findDefaultLayout(
 
 function layoutTemplateSlide(
   name: "title-slide" | "title-content" | "two-column",
-  theme: DeckTheme,
   slideFormat: SlideFormat | undefined,
 ): Slide {
   const hint: SlideLayoutHint = name === "title-slide" ? "title" : "content";
@@ -307,7 +301,6 @@ function layoutTemplateSlide(
   const slotCounts = new Map<SlideSlotKind, number>();
   return authoredSlide(
     hint,
-    theme,
     layout.placeholders.map((placeholder, index) => {
       const kind = placeholderSlotKind(placeholder.placeholderType);
       const occurrence = slotCounts.get(kind) ?? 0;
@@ -317,7 +310,7 @@ function layoutTemplateSlide(
   );
 }
 
-function blankSlide(theme: DeckTheme): Slide {
+function blankSlide(): Slide {
   return {
     id: makeSlideId(),
     index: 0,
@@ -326,7 +319,6 @@ function blankSlide(theme: DeckTheme): Slide {
     visualIds: [],
     layout: "blank",
     notes: "",
-    theme,
     elements: [],
     elementsDerived: false,
   };
@@ -343,20 +335,19 @@ export function buildTemplateSlide(
   kind: SlideTemplateKind,
   ctx: SlideTemplateContext,
 ): Slide {
-  const { theme, slideFormat } = ctx;
+  const { slideFormat } = ctx;
 
   switch (kind) {
     case "title":
-      return layoutTemplateSlide("title-slide", theme, slideFormat);
+      return layoutTemplateSlide("title-slide", slideFormat);
 
     case "content":
-      return layoutTemplateSlide("title-content", theme, slideFormat);
+      return layoutTemplateSlide("title-content", slideFormat);
 
     case "visual": {
       const visual = spotlightElement(0, ctx.visualId);
       return authoredSlide(
         "media",
-        theme,
         [
           visual,
           bodyTextElement(
@@ -375,9 +366,9 @@ export function buildTemplateSlide(
     }
 
     case "two-column":
-      return layoutTemplateSlide("two-column", theme, slideFormat);
+      return layoutTemplateSlide("two-column", slideFormat);
 
     case "blank":
-      return blankSlide(theme);
+      return blankSlide();
   }
 }

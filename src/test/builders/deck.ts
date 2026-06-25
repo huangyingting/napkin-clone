@@ -258,7 +258,6 @@ export function buildPlaceholderElement(
 
 export function buildSlide(overrides: Partial<Slide> = {}): Slide {
   const title = overrides.title ?? "Fixture slide";
-  const theme = overrides.theme ?? "default";
   return {
     id: overrides.id ?? "slide-fixture",
     index: overrides.index ?? 0,
@@ -267,7 +266,6 @@ export function buildSlide(overrides: Partial<Slide> = {}): Slide {
     visualIds: overrides.visualIds ?? [],
     layout: overrides.layout ?? "content",
     notes: overrides.notes ?? "",
-    theme,
     elements: overrides.elements ?? [
       buildTextElement({
         id: "slide-title",
@@ -309,15 +307,12 @@ export function buildSlide(overrides: Partial<Slide> = {}): Slide {
 }
 
 export function buildDeck(overrides: Partial<Deck> = {}): Deck {
-  const theme = overrides.theme ?? "default";
+  const themeId = overrides.themeId ?? "default";
   return {
-    theme,
+    themeId,
     slideFormat: overrides.slideFormat ?? "16:9",
     schemaVersion: overrides.schemaVersion ?? CURRENT_DECK_SCHEMA_VERSION,
-    slides: overrides.slides ?? [
-      buildSlide({ theme, ...(overrides.slides ? {} : undefined) }),
-    ],
-    ...(overrides.themeId !== undefined ? { themeId: overrides.themeId } : {}),
+    slides: overrides.slides ?? [buildSlide()],
     ...(overrides.layouts !== undefined ? { layouts: overrides.layouts } : {}),
     ...(overrides.deckContentHash !== undefined
       ? { deckContentHash: overrides.deckContentHash }
@@ -331,11 +326,10 @@ export function buildDeck(overrides: Partial<Deck> = {}): Deck {
 
 export function buildDeckWithElements(elements: SlideElement[]): Deck {
   return buildDeck({
-    theme: "indigo",
+    themeId: "indigo",
     slides: [
       buildSlide({
         id: "slide-elements",
-        theme: "indigo",
         background: "#101010",
         accent: "#abcdef",
         elements,

@@ -67,6 +67,7 @@ import {
 } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import {
+  resolveDeckThemeId,
   resolveRoleToken,
   type DeckTextRole,
 } from "@/lib/presentation/deck-theme-tokens";
@@ -304,12 +305,12 @@ function primaryFontLabel(fontFamily: string): string {
 }
 
 function placeholderThemeHint(
-  deck: Pick<Deck, "theme" | "themeId">,
+  deck: Pick<Deck, "themeId" | "customTokenSet">,
   element: Pick<PlaceholderElement, "placeholderType">,
 ): string {
   const style = placeholderStyle(
     element.placeholderType,
-    getThemeTypography(deck.themeId ?? deck.theme),
+    getThemeTypography(resolveDeckThemeId(deck)),
   );
   const parts: string[] = [];
   if (style.fontFamily) {

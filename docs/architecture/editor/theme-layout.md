@@ -59,9 +59,10 @@ deck:
 | `shape`             | `cornerRadiusPt`, `shadowCss`                                                        |
 | `defaultBackground` | `BackgroundTreatment` (solid / gradient / image)                                     |
 
-The deck references a token set via `Deck.themeId`. Built-in token sets match
-the `DeckTheme` names (`indigo`, `ocean`, `forest`, `sunset`, `grape`,
-`default`).
+The deck references a token set via required `Deck.themeId`. Built-in token
+sets match the `DeckTheme` names (`indigo`, `ocean`, `forest`, `sunset`,
+`grape`, `default`). Brand/custom decks set `Deck.themeId` to the custom token
+set id and carry `Deck.customTokenSet`.
 
 ---
 
@@ -186,13 +187,11 @@ Master scope rules:
 
 | Existing field                                                | Treatment in new architecture                                                  |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `Deck.theme` (`DeckTheme`)                                    | Stable; maps 1-to-1 to a built-in `DeckThemeTokenSet` id.                      |
-| `Deck.themeId`                                                | Preferred selector for the token set; otherwise `Deck.theme` is used.          |
+| `Deck.themeId`                                                | Required selector for the deck token set.                                      |
 | `Deck.layouts`                                                | Unchanged; becomes the layout catalogue for Layer 3.                           |
 | `Slide.background` / `backgroundGradient` / `backgroundImage` | Unchanged; are Layer 4 overrides.                                              |
 | `Slide.accent`                                                | Unchanged; is a Layer 4 color override.                                        |
 | `Slide.layout` (`SlideLayoutHint`)                            | Document-derived layout hint.                                                  |
-| `Slide.theme` (copy on each slide)                            | Slide-local theme snapshot.                                                    |
 | `Deck.masters`                                                | Optional explicit masters. Absent → single implicit master from the token set. |
 | `Slide.masterRef`                                             | Optional master reference. Absent → use the first/only master.                 |
 | `TextElement.textRole` / `BulletsElement.textRole`            | Optional semantic role (`h1`…`shapeLabel`); selects the template role token.   |

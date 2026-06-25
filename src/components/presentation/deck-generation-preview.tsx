@@ -209,7 +209,12 @@ export function DeckGenerationPreview({
                   className="relative block overflow-hidden rounded-ds-sm border border-ds-border-subtle"
                   style={{ aspectRatio: proposalAspectRatio }}
                 >
-                  <SlideCanvas slide={slide} visuals={visuals} preview />
+                  <SlideCanvas
+                    slide={slide}
+                    deck={proposal}
+                    visuals={visuals}
+                    preview
+                  />
                   <span
                     className={`absolute right-1 top-1 rounded-ds-sm px-1.5 py-0.5 text-[0.625rem] font-medium ${MARKER_CLASS[marker]}`}
                     aria-label={`${MARKER_LABEL[marker]}: ${title}`}

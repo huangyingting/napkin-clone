@@ -101,7 +101,7 @@ export function buildE2EProfileContentJson(
 
 export function buildE2EProfileDeck(assetUrl: string, assetId: string): Deck {
   return buildDeck({
-    theme: "default",
+    themeId: "default",
     slides: [
       buildSlide({
         id: "e2e-fixture-slide-1",
@@ -109,7 +109,6 @@ export function buildE2EProfileDeck(assetUrl: string, assetId: string): Deck {
         bullets: [],
         visualIds: [],
         notes: "",
-        theme: "default",
         background: "#ffffff",
         elements: [
           buildTextElement({

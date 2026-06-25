@@ -114,7 +114,7 @@ import {
   type DeckPatch,
 } from "@/lib/presentation/slide-commands";
 import { DeckTemplatePanel } from "@/components/presentation/deck-template-panel";
-import { resolveThemeTokens } from "@/lib/presentation/deck-theme-tokens";
+import { resolveDeckThemeTokens } from "@/lib/presentation/deck-theme-tokens";
 import type { DeckTemplatePatch } from "@/lib/presentation/deck-mutations";
 import {
   announceDelete,
@@ -639,7 +639,6 @@ export function SlideEditor({
         visualIds: [],
         layout: "content",
         notes: "",
-        theme: deck.theme,
       });
   const {
     selectedElementIds,
@@ -1147,7 +1146,6 @@ export function SlideEditor({
         return;
       }
       const slide = buildTemplateSlide(kind, {
-        theme: deck.theme,
         slideFormat: deck.slideFormat,
       });
       const next = insertSlide(deck, safeSelected, slide);
@@ -1162,7 +1160,6 @@ export function SlideEditor({
   const handleSpotlightPick = useCallback(
     (visualId: string) => {
       const slide = buildTemplateSlide("visual", {
-        theme: deck.theme,
         slideFormat: deck.slideFormat,
         visualId,
       });
@@ -3008,31 +3005,11 @@ export function SlideEditor({
     });
   }, [deck, doCommitAndChange]);
 
-  // Applies a built-in theme preset cleanly: clears any existing custom token
-  // set first (so the preset actually renders) then sets the deck theme. Both
-  // land as commits/patches; the second uses the deck produced by the first.
+  // Applies a built-in theme preset cleanly. `SET_DECK_THEME` owns clearing any
+  // custom token set, so built-in preset selection is one deck-theme command.
   const handleApplyDeckTheme = useCallback(
-    (theme: DeckTheme) => {
-      if (deck.customTokenSet !== undefined) {
-        const cleared = commitCommand(deck, {
-          type: "UPDATE_DECK_TEMPLATE",
-          patch: {},
-          reset: true,
-        });
-        if (cleared.result.ok) {
-          doCommitAndChange(deck, {
-            type: "UPDATE_DECK_TEMPLATE",
-            patch: {},
-            reset: true,
-          });
-          doCommitAndChange(cleared.result.deck, {
-            type: "SET_DECK_THEME",
-            theme,
-          });
-          return;
-        }
-      }
-      doCommitAndChange(deck, { type: "SET_DECK_THEME", theme });
+    (themeId: DeckTheme) => {
+      doCommitAndChange(deck, { type: "SET_DECK_THEME", themeId });
     },
     [deck, doCommitAndChange],
   );
@@ -3125,8 +3102,7 @@ export function SlideEditor({
     selectedSlide?.elements?.find(
       (element) => element.id === effectiveSelectedElementId,
     ) ?? null;
-  const deckTemplateTokenSet =
-    deck.customTokenSet ?? resolveThemeTokens(deck.themeId ?? deck.theme);
+  const deckTemplateTokenSet = resolveDeckThemeTokens(deck);
 
   return createPortal(
     <div
@@ -3412,7 +3388,7 @@ export function SlideEditor({
               <DeckTemplatePanel
                 tokenSet={deckTemplateTokenSet}
                 isCustom={deck.customTokenSet !== undefined}
-                theme={deck.theme}
+                themeId={deck.themeId}
                 onUpdate={handleUpdateDeckTemplate}
                 onReset={handleResetDeckTemplate}
                 onApplyTheme={handleApplyDeckTheme}

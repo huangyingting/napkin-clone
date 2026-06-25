@@ -20,7 +20,6 @@ function baseSlide(overrides: Partial<Slide> = {}): Slide {
     visualIds: [],
     layout: "blank",
     notes: "",
-    theme: "default",
     ...overrides,
   };
 }

@@ -9,7 +9,7 @@ import type { SlideElement, TextRun } from "./deck-elements";
 import type { SlideLayout, SlideLayoutHint } from "./deck-layouts-model";
 
 /** Increment this for future structural deck schema changes. */
-export const CURRENT_DECK_SCHEMA_VERSION = 2;
+export const CURRENT_DECK_SCHEMA_VERSION = 3;
 
 /**
  * Canonical presentation theme names — mirrors the Visual theme palette names.
@@ -74,9 +74,6 @@ export interface Slide {
 
   /** Speaker notes — overflow prose + quote blocks. */
   notes: string;
-
-  /** Presentation theme applied to the deck (copied from `Deck.theme`). */
-  theme: DeckTheme;
 
   /**
    * Free-form positioned elements. This is the authoritative slide content
@@ -148,14 +145,13 @@ export interface Deck {
   /** Ordered list of slides. */
   slides: Slide[];
 
-  /** Theme applied uniformly to all slides. */
-  theme: DeckTheme;
-
   /**
-   * Optional content/theme token id for typography and other theme-scoped
-   * design tokens.
+   * Deck-level theme token id for typography, palette, background, and other
+   * theme-scoped design tokens. Built-in decks use one of {@link DECK_THEMES};
+   * custom/brand decks may use a custom token-set id and carry
+   * {@link customTokenSet}.
    */
-  themeId?: string;
+  themeId: string;
 
   /** Deck-wide slide format. Missing values render as 16:9. */
   slideFormat?: PresentationSlideFormat;

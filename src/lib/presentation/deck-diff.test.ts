@@ -22,16 +22,15 @@ function slide(partial: Partial<Slide>): Slide {
     visualIds: [],
     layout: "content",
     notes: "",
-    theme: "default",
     elements,
     ...partial,
   };
 }
 
-function deck(slides: Slide[], theme: Deck["theme"] = "default"): Deck {
+function deck(slides: Slide[], themeId = "default"): Deck {
   return {
     slides: slides.map((s, index) => ({ ...s, index })),
-    theme,
+    themeId,
   };
 }
 

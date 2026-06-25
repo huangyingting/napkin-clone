@@ -60,7 +60,7 @@ function commandId(prefix: string, suffix: string): string {
 
 function makeDeck(slideIds: string[]): Deck {
   return {
-    theme: "default",
+    themeId: "default",
     slides: slideIds.map((id, index) => ({
       id,
       index,
@@ -69,7 +69,7 @@ function makeDeck(slideIds: string[]): Deck {
       visualIds: [],
       layout: "blank",
       notes: "",
-      theme: "default",
+      themeId: "default",
     })),
   };
 }

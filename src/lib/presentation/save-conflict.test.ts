@@ -76,17 +76,16 @@ function makeSlide(id: string, index: number, title: string): Slide {
     visualIds: [],
     layout: "content",
     notes: "",
-    theme: "default",
   };
 }
 
 function makeDeck(slides: Slide[]): Deck {
-  return { theme: "default", slides };
+  return { themeId: "default", slides };
 }
 
 function validMinimalDeck(): unknown {
   return {
-    theme: "default",
+    themeId: "default",
     schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
     slides: [
       {
@@ -97,7 +96,7 @@ function validMinimalDeck(): unknown {
         visualIds: [],
         layout: "content",
         notes: "",
-        theme: "default",
+        themeId: "default",
         elements: [],
       },
     ],
@@ -291,11 +290,11 @@ describe("applyPatch — patch-save round-trip (#403, #407)", () => {
   test("deck.set_theme: applies theme change", () => {
     const deck = makeDeck([makeSlide("slide-1", 0, "First")]);
     const patch = makePatch("deck.set_theme", [], [], {
-      deckFields: { theme: "ocean" },
+      deckFields: { themeId: "ocean" },
     });
     const result = applyPatch(deck, patch);
     assert.ok(result !== null);
-    assert.equal(result!.theme, "ocean");
+    assert.equal(result!.themeId, "ocean");
   });
 
   test("deck.set_theme with missing deckFields returns null", () => {
@@ -377,7 +376,7 @@ describe("DocumentVersion snapshot semantics (#405)", () => {
   });
 
   test("safeParseDeck: rejects an invalid deck", () => {
-    const result = safeParseDeck({ theme: "unknown-theme", slides: [] });
+    const result = safeParseDeck({ themeId: "unknown-theme", slides: [] });
     assert.equal(result.success, false);
   });
 });

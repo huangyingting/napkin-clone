@@ -18,7 +18,7 @@ import {
 // ---------------------------------------------------------------------------
 
 function elementKinds(kind: SlideTemplateKind, visualId?: string): string[] {
-  const slide = buildTemplateSlide(kind, { theme: "indigo", visualId });
+  const slide = buildTemplateSlide(kind, { visualId });
   return (slide.elements ?? []).map((element) => element.kind);
 }
 
@@ -41,16 +41,9 @@ test("SLIDE_TEMPLATES exposes the five expected kinds in order", () => {
 // Authored (non-blank) templates
 // ---------------------------------------------------------------------------
 
-test("non-blank templates carry the chosen theme", () => {
-  for (const kind of ["title", "content", "visual", "two-column"] as const) {
-    const slide = buildTemplateSlide(kind, { theme: "forest" });
-    assert.equal(slide.theme, "forest");
-  }
-});
-
 test("non-blank templates are authored (elementsDerived === false)", () => {
   for (const kind of ["title", "content", "visual", "two-column"] as const) {
-    const slide = buildTemplateSlide(kind, { theme: "indigo" });
+    const slide = buildTemplateSlide(kind, {});
     assert.equal(
       slide.elementsDerived,
       false,
@@ -65,7 +58,7 @@ test("non-blank templates are authored (elementsDerived === false)", () => {
 
 test("non-blank templates assign unique sequential z-indices", () => {
   for (const kind of ["title", "content", "visual", "two-column"] as const) {
-    const slide = buildTemplateSlide(kind, { theme: "indigo" });
+    const slide = buildTemplateSlide(kind, {});
     const zs = (slide.elements ?? []).map((element) => element.zIndex);
     assert.deepEqual(
       zs,
@@ -77,7 +70,7 @@ test("non-blank templates assign unique sequential z-indices", () => {
 
 test("non-blank templates assign unique element ids", () => {
   for (const kind of ["title", "content", "visual", "two-column"] as const) {
-    const slide = buildTemplateSlide(kind, { theme: "indigo" });
+    const slide = buildTemplateSlide(kind, {});
     const ids = (slide.elements ?? []).map((element) => element.id);
     assert.equal(new Set(ids).size, ids.length);
   }
@@ -85,10 +78,10 @@ test("non-blank templates assign unique element ids", () => {
 
 test("template slides are valid deck payloads", () => {
   for (const kind of SLIDE_TEMPLATES.map((option) => option.kind)) {
-    const slide = buildTemplateSlide(kind, { theme: "indigo" });
+    const slide = buildTemplateSlide(kind, {});
     const result = safeParseDeck({
       schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
-      theme: "indigo",
+      themeId: "indigo",
       slides: [{ ...slide, index: 0 }],
     });
     assert.equal(result.success, true, kind);
@@ -97,7 +90,7 @@ test("template slides are valid deck payloads", () => {
 
 test("title template = editable title, subtitle, and footer text", () => {
   assert.deepEqual(elementKinds("title"), ["text", "text", "text"]);
-  const slide = buildTemplateSlide("title", { theme: "indigo" });
+  const slide = buildTemplateSlide("title", {});
   assert.equal(slide.layout, "title");
   const textElements = slide.elements as TextElement[];
   assert.deepEqual(
@@ -109,7 +102,7 @@ test("title template = editable title, subtitle, and footer text", () => {
 
 test("content template = editable title/body text plus image/footer", () => {
   assert.deepEqual(elementKinds("content"), ["text", "text", "image", "text"]);
-  const slide = buildTemplateSlide("content", { theme: "indigo" });
+  const slide = buildTemplateSlide("content", {});
   assert.equal(slide.layout, "content");
   const [title, body, image, footer] = slide.elements ?? [];
   assert.equal(title?.kind, "text");
@@ -124,7 +117,7 @@ test("content template = editable title/body text plus image/footer", () => {
 
 test("layout templates no longer emit non-editable placeholders", () => {
   for (const kind of ["title", "content", "two-column"] as const) {
-    const slide = buildTemplateSlide(kind, { theme: "indigo" });
+    const slide = buildTemplateSlide(kind, {});
     assert.equal(
       (slide.elements ?? []).some((element) => element.kind === "placeholder"),
       false,
@@ -140,7 +133,7 @@ test("two-column template = title + two editable text columns + footer", () => {
     "text",
     "text",
   ]);
-  const slide = buildTemplateSlide("two-column", { theme: "indigo" });
+  const slide = buildTemplateSlide("two-column", {});
   const [, left, right] = slide.elements as [
     TextElement,
     TextElement,
@@ -157,7 +150,7 @@ test("two-column template = title + two editable text columns + footer", () => {
 
 test("visual spotlight without a visualId uses an image placeholder", () => {
   assert.deepEqual(elementKinds("visual"), ["image", "text"]);
-  const slide = buildTemplateSlide("visual", { theme: "indigo" });
+  const slide = buildTemplateSlide("visual", {});
   assert.equal(slide.layout, "media");
   const image = slide.elements?.[0] as ImageElement;
   assert.match(image.src, /^data:image\/svg\+xml,/);
@@ -167,7 +160,6 @@ test("visual spotlight without a visualId uses an image placeholder", () => {
 test("visual spotlight with a visualId references that document visual", () => {
   assert.deepEqual(elementKinds("visual", "vis-42"), ["visual", "text"]);
   const slide = buildTemplateSlide("visual", {
-    theme: "indigo",
     visualId: "vis-42",
   });
   const visual = slide.elements?.[0];
@@ -181,20 +173,19 @@ test("visual spotlight with a visualId references that document visual", () => {
 // ---------------------------------------------------------------------------
 
 test("blank template creates an element-first blank slide", () => {
-  const slide = buildTemplateSlide("blank", { theme: "ocean" });
+  const slide = buildTemplateSlide("blank", {});
   assert.equal(slide.title, "");
   assert.deepEqual(slide.bullets, []);
   assert.deepEqual(slide.visualIds, []);
   assert.equal(slide.layout, "blank");
   assert.equal(slide.notes, "");
-  assert.equal(slide.theme, "ocean");
   assert.deepEqual(slide.elements, []);
   assert.equal(slide.elementsDerived, false);
 });
 
 test("every box stays within the 0–100 percent slide bounds", () => {
   for (const kind of ["title", "content", "visual", "two-column"] as const) {
-    const slide = buildTemplateSlide(kind, { theme: "indigo" });
+    const slide = buildTemplateSlide(kind, {});
     for (const element of slide.elements ?? []) {
       const { x, y, w, h } = element.box;
       assert.ok(x >= 0 && y >= 0, `${kind} box origin in bounds`);
@@ -209,7 +200,7 @@ test("every box stays within the 0–100 percent slide bounds", () => {
 // ---------------------------------------------------------------------------
 
 function slotKeys(kind: SlideTemplateKind, visualId?: string): string[] {
-  const slide = buildTemplateSlide(kind, { theme: "indigo", visualId });
+  const slide = buildTemplateSlide(kind, { visualId });
   return (slide.elements ?? []).map((el) =>
     el.layoutSlot
       ? `${el.layoutSlot.kind}#${el.layoutSlot.index ?? 0}`
@@ -249,7 +240,7 @@ test("visual template binds a visual slot and a caption slot", () => {
 
 test("every non-blank template element carries a slot binding", () => {
   for (const kind of ["title", "content", "visual", "two-column"] as const) {
-    const slide = buildTemplateSlide(kind, { theme: "indigo" });
+    const slide = buildTemplateSlide(kind, {});
     for (const el of slide.elements ?? []) {
       assert.ok(
         el.layoutSlot !== undefined,
@@ -261,10 +252,10 @@ test("every non-blank template element carries a slot binding", () => {
 
 test("template slot bindings survive schema validation", () => {
   for (const kind of ["title", "content", "visual", "two-column"] as const) {
-    const slide = buildTemplateSlide(kind, { theme: "indigo" });
+    const slide = buildTemplateSlide(kind, {});
     const result = safeParseDeck({
-      theme: "indigo",
       schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
+      themeId: "indigo",
       slides: [{ ...slide, index: 0 }],
     });
     assert.ok(result.success, result.success ? "" : result.error);
@@ -281,7 +272,7 @@ test("template slot bindings survive schema validation", () => {
 // ---------------------------------------------------------------------------
 
 test("title template text carries h1/subtitle/footer textRoles", () => {
-  const slide = buildTemplateSlide("title", { theme: "indigo" });
+  const slide = buildTemplateSlide("title", {});
   const roles = (slide.elements ?? [])
     .filter((el) => el.kind === "text")
     .map((el) => (el.kind === "text" ? el.textRole : undefined));
@@ -292,7 +283,6 @@ test("title template text carries h1/subtitle/footer textRoles", () => {
 
 test("visual template caption text carries the caption role", () => {
   const slide = buildTemplateSlide("visual", {
-    theme: "indigo",
     visualId: "v1",
   });
   const roles = (slide.elements ?? [])
@@ -303,7 +293,7 @@ test("visual template caption text carries the caption role", () => {
 
 test("every non-blank template text element carries a textRole", () => {
   for (const kind of ["title", "content", "visual", "two-column"] as const) {
-    const slide = buildTemplateSlide(kind, { theme: "indigo" });
+    const slide = buildTemplateSlide(kind, {});
     for (const el of slide.elements ?? []) {
       if (el.kind === "text") {
         assert.ok(el.textRole !== undefined, `${kind} text needs a textRole`);

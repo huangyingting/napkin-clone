@@ -26,11 +26,10 @@ import { ElementsSlideLayout } from "./slide-canvas/elements-slide-layout";
 export interface SlideCanvasProps {
   slide: Slide;
   /**
-   * Optional deck context. When provided, enables full cascade resolution
-   * (master slides, custom token sets) for background and accent colours.
-   * When absent the built-in theme palette is used.
+    * Deck context for cascade resolution (themeId, custom token set, masters)
+    * for background, accent colours, and non-text template defaults.
    */
-  deck?: Deck;
+    deck: Deck;
   visuals: ReadonlyMap<string, Visual>;
   /** True when rendered at reduced size (e.g. presenter next-slide preview). */
   preview?: boolean;
@@ -67,11 +66,7 @@ export const SlideCanvas = memo(function SlideCanvas({
   hiddenElementIds,
   editable = false,
 }: SlideCanvasProps): JSX.Element {
-  // Resolve colours from the deck token cascade on every surface (#609). When a
-  // full deck is available it carries master/custom-token context; otherwise a
-  // minimal deck is synthesised from the slide's own theme so present and public
-  // viewers use the same cascade palette as the editor (light slide background,
-  // theme-derived text colours) instead of the legacy dark fallback.
+  // Resolve colours from the deck token cascade on every surface (#609).
   const tc = resolveSlideThemeColors(deck, slide);
   // Token set drives optional non-text template defaults (#607): bullet marker,
   // image fit/radius/mask/shadow, connector stroke/arrows, shape stroke, visual

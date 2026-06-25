@@ -144,7 +144,6 @@ const VALID_DECK = {
       visualIds: [],
       layout: "content",
       notes: "",
-      theme: "indigo",
       elements: [
         {
           id: "e1",
@@ -163,7 +162,7 @@ const VALID_DECK = {
       ],
     },
   ],
-  theme: "indigo",
+  themeId: "indigo",
   schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
 };
 

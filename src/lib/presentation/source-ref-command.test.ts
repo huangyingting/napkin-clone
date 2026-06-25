@@ -67,14 +67,13 @@ function slideWith(...elements: (TextElement | VisualElement)[]): Slide {
     visualIds: [],
     layout: "blank",
     notes: "",
-    theme: "default",
     elements,
     elementsDerived: false,
   };
 }
 
 function deckWith(...elements: (TextElement | VisualElement)[]): Deck {
-  return { theme: "default", slides: [slideWith(...elements)] };
+  return { themeId: "default", slides: [slideWith(...elements)] };
 }
 
 function getElement(deck: Deck, id: string) {

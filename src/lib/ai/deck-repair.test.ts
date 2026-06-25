@@ -59,7 +59,7 @@ test("repairElement drops unsupported and unusable visual elements", () => {
 
 test("repairSlide normalizes ids, layout, bullets, and duplicate element ids", () => {
   const [rawSlide] = repairableDeckModelOutput().slides as unknown[];
-  const slide = repairSlide(rawSlide, 0, "indigo");
+  const slide = repairSlide(rawSlide, 0);
   assert.equal(slide.id, "sl-1");
   assert.equal(slide.layout, "blank");
   assert.deepEqual(slide.bullets, ["Keep this"]);
@@ -71,7 +71,7 @@ test("repairSlide normalizes ids, layout, bullets, and duplicate element ids", (
 test("repairDeck repairs malformed model output into a schema-valid deck candidate", () => {
   const repaired = repairDeck(repairableDeckModelOutput());
   assert.ok(repaired);
-  assert.equal(repaired.theme, "default");
+  assert.equal(repaired.themeId, "default");
   assert.equal(repaired.schemaVersion, CURRENT_DECK_SCHEMA_VERSION);
   assert.equal(repaired.slides.length, 1);
   assert.equal(safeParseDeck(repaired).success, true);

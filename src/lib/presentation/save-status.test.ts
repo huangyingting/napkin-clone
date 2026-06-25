@@ -13,8 +13,8 @@ import {
 } from "./save-status";
 
 /** Builds a distinguishable deck (a fresh reference each call). */
-function deck(theme: Deck["theme"] = "default"): Deck {
-  return { theme, slides: [] };
+function deck(themeId = "default"): Deck {
+  return { themeId, slides: [] };
 }
 
 // ---------------------------------------------------------------------------

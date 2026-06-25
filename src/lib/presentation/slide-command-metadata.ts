@@ -434,8 +434,8 @@ function validatePayloadDetails(payload: Payload, errors: string[]): void {
       }
       break;
     case "SET_DECK_THEME":
-      if (!isNonEmptyString(payload.theme)) {
-        errors.push("payload.theme must be a non-empty string.");
+      if (!isNonEmptyString(payload.themeId)) {
+        errors.push("payload.themeId must be a non-empty string.");
       }
       break;
     case "UPDATE_DECK_TEMPLATE":
