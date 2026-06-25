@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Palette Solution 6 — Palette Tab + Gradient</title>
+<link rel="stylesheet" href="panel.css" />
+<style>
+  .seg-tabs { width: 100%; }
+  .seg-tabs button { flex: 1; }
+  .pane { display: none; }
+  .pane.on { display: block; }
+  .pal-hint { font-size: 10.5px; color: var(--ds-text-muted); margin-top: 8px; display: flex; align-items: center; gap: 6px; }
+  .pal-hint .bar { display: inline-flex; border-radius: 4px; overflow: hidden; }
+  .pal-hint .bar span { height: 12px; width: 14px; }
+
+  /* gradient / background controls */
+  .bg-bar { height: 34px; border-radius: var(--ds-radius-sm); border: 1px solid var(--ds-border-subtle); box-shadow: var(--ds-shadow-raised); }
+  .grad-presets { display: flex; gap: 6px; flex-wrap: wrap; }
+  .grad-presets button { height: 24px; width: 34px; border-radius: 5px; border: 1px solid var(--ds-border-subtle); padding: 0; cursor: pointer; }
+  .grad-presets button:hover { transform: translateY(-1px); }
+  .grad-presets button[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--ds-accent-surface); border-color: var(--ds-accent); }
+  .angle-row { display: flex; align-items: center; gap: 8px; }
+  .angle-row .val { font-size: 11px; font-family: ui-monospace, Menlo, monospace; color: var(--ds-text-muted); width: 34px; text-align: right; }
+</style>
+</head>
+<body>
+  <header class="page-head">
+    <a class="back" href="index.html">← All palette solutions</a>
+    <div class="eyebrow">Palette integration · Solution 6 · + gradient</div>
+    <h1>Palette Tab + Gradient</h1>
+    <p>The Palette tab now also owns the deck <b>background</b>: a Solid / Gradient toggle. Gradient mode adds one-click gradient presets, From/To color stops (via the compact picker), and an angle slider — all reflected live in the preview. Solid mode uses the Background palette color.</p>
+  </header>
+
+  <div class="shell">
+    <div class="editor-frame">
+      <div class="toolbar" id="toolbar"></div>
+      <div class="stage">
+        <div class="slide preview-frame" id="stage" style="border:none;background:transparent"></div>
+        <div class="hint">Click <b>Theme</b> → <b>Customize</b> → Palette tab → <b>Gradient</b></div>
+      </div>
+      <div class="popover" id="pop" style="display:none">
+        <div class="view on" id="view-preset">
+          <div class="pop-head"><h3>Theme</h3><button class="icon-btn" id="goCustomize">✎ Customize</button></div>
+          <div class="status" id="presetStatus"></div>
+          <div class="pop-body scroll-y" style="max-height:50vh" id="presetBody"></div>
+        </div>
+        <div class="view" id="view-customize">
+          <div class="pop-head"><button class="icon-btn" id="back">‹</button><h3>Customize</h3><button class="icon-btn" id="reset" title="Revert edits to the preset">Reset</button></div>
+          <div class="status" id="custStatus"></div>
+          <div id="custBody"></div>
+          <div class="pop-foot" id="foot"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="theme-model.js"></script>
+  <script src="color-picker.js"></script>
+  <script src="popover.js"></script>
+  <script src="panel-core.js"></script>
+  <script>
+    function bgSection(cfg, api) {
+      const g = cfg.background;
+      const isGrad = g.type === "gradient";
+      let controls;
+      if (isGrad) {
+        const presets = GRADIENT_PRESETS.map((p, i) => {
+          const pressed = g.from.toLowerCase() === p.from.toLowerCase() && g.to.toLowerCase() === p.to.toLowerCase();
+          return `<button class="gp" data-gp="${i}" aria-pressed="${pressed}" title="${p.name}" style="background:linear-gradient(${p.angle}deg,${p.from},${p.to})"></button>`;
+        }).join("");
+        controls = `
+          <div class="bg-bar" id="gradBar" style="background:linear-gradient(${g.angle}deg, ${g.from}, ${g.to})"></div>
+          <div class="grad-presets" style="margin-top:8px">${presets}</div>
+          <div class="two" style="margin-top:8px">${api.colorTrigger("background.from", "From")}${api.colorTrigger("background.to", "To")}</div>
+          <div class="angle-row" style="margin-top:8px">
+            <span class="field-label">Angle</span>
+            <input type="range" id="gAngle" min="0" max="360" value="${g.angle}">
+            <span class="val" id="gAngleVal">${g.angle}°</span>
+          </div>`;
+      } else {
+        controls = `${api.colorTrigger("colors.slideBg", "Background color")}
+          <div class="helper" style="margin-top:6px">Solid background uses the Background palette color.</div>`;
+      }
+      return `
+        <div class="section-title" style="margin:10px 0 6px">Background</div>
+        <div class="seg" id="bgMode" style="width:100%">
+          <button data-bg="solid" aria-pressed="${!isGrad}" style="flex:1">Solid</button>
+          <button data-bg="gradient" aria-pressed="${isGrad}" style="flex:1">Gradient</button>
+        </div>
+        <div style="margin-top:8px">${controls}</div>`;
+    }
+
+    window.PalettePlugin = {
+      name: "Palette tab + gradient",
+      renderBody(cfg, api) {
+        const harmony = api.PALETTE.map((p) => `<span style="background:${cfg.colors[p.token]}"></span>`).join("");
+        return `
+          ${api.previewHTML()}
+          <div style="padding:0 10px">
+            <div class="seg seg-tabs" id="segTabs">
+              <button data-seg="palette" aria-pressed="true">Palette</button>
+              <button data-seg="type" aria-pressed="false">Typography</button>
+            </div>
+          </div>
+          <div class="cust-controls scroll-y" style="max-height:32vh">
+            <div class="pane on" data-pane="palette">
+              <div class="section-title" style="margin-bottom:6px">Color palette</div>
+              ${api.paletteGrid({ exclude: ["slideBg"] })}
+              <div class="pal-hint"><span class="bar">${harmony}</span> Full palette harmony</div>
+              ${bgSection(cfg, api)}
+            </div>
+            <div class="pane" data-pane="type">${api.matrixHTML()}</div>
+          </div>`;
+      },
+      wireBody(root, cfg, api) {
+        // segmented Palette / Typography tabs
+        const tabs = root.querySelectorAll("#segTabs button");
+        tabs.forEach((b) => b.onclick = () => {
+          tabs.forEach((x) => x.setAttribute("aria-pressed", x === b));
+          root.querySelectorAll(".pane").forEach((p) => p.classList.toggle("on", p.dataset.pane === b.dataset.seg));
+        });
+
+        // Solid / Gradient toggle
+        root.querySelectorAll("#bgMode button").forEach((b) => b.onclick = () => {
+          cfg.background.type = b.dataset.bg;
+          api.rerender();
+        });
+
+        // one-click gradient presets
+        root.querySelectorAll("[data-gp]").forEach((b) => b.onclick = () => {
+          const p = GRADIENT_PRESETS[+b.dataset.gp];
+          cfg.background.from = p.from; cfg.background.to = p.to; cfg.background.angle = p.angle;
+          api.rerender();
+        });
+
+        // angle slider (live)
+        const ang = root.querySelector("#gAngle");
+        if (ang) ang.oninput = () => {
+          cfg.background.angle = +ang.value;
+          const v = root.querySelector("#gAngleVal"); if (v) v.textContent = ang.value + "°";
+          updateGradBar(); api.paint();
+        };
+
+        // Keep the gradient bar live while dragging From/To in the color picker.
+        if (!window.__gradWrap) {
+          window.__gradWrap = true;
+          const orig = window.__paint;
+          window.__paint = function () { orig(); updateGradBar(); };
+        }
+        function updateGradBar() {
+          const bar = document.getElementById("gradBar"); if (!bar) return;
+          const g = api.cfg.background;
+          if (g.type === "gradient") bar.style.background = `linear-gradient(${g.angle}deg, ${g.from}, ${g.to})`;
+        }
+      },
+    };
+    initThemePanel({ theme: "forest" });
+  </script>
+</body>
+</html>

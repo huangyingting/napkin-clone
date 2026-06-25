@@ -84,6 +84,7 @@ import {
   DEFAULT_VISUAL_BOX,
   makeElementId,
   type Deck,
+  type DeckTheme,
   type ConnectorElement,
   type ElementBox,
   type ShapeKind,
@@ -3007,6 +3008,35 @@ export function SlideEditor({
     });
   }, [deck, doCommitAndChange]);
 
+  // Applies a built-in theme preset cleanly: clears any existing custom token
+  // set first (so the preset actually renders) then sets the deck theme. Both
+  // land as commits/patches; the second uses the deck produced by the first.
+  const handleApplyDeckTheme = useCallback(
+    (theme: DeckTheme) => {
+      if (deck.customTokenSet !== undefined) {
+        const cleared = commitCommand(deck, {
+          type: "UPDATE_DECK_TEMPLATE",
+          patch: {},
+          reset: true,
+        });
+        if (cleared.result.ok) {
+          doCommitAndChange(deck, {
+            type: "UPDATE_DECK_TEMPLATE",
+            patch: {},
+            reset: true,
+          });
+          doCommitAndChange(cleared.result.deck, {
+            type: "SET_DECK_THEME",
+            theme,
+          });
+          return;
+        }
+      }
+      doCommitAndChange(deck, { type: "SET_DECK_THEME", theme });
+    },
+    [deck, doCommitAndChange],
+  );
+
   const handleBackgroundGradientChange = useCallback(
     (gradient: { from: string; to: string; angle?: number } | undefined) => {
       const slideId = deck.slides[safeSelected]?.id;
@@ -3382,8 +3412,10 @@ export function SlideEditor({
               <DeckTemplatePanel
                 tokenSet={deckTemplateTokenSet}
                 isCustom={deck.customTokenSet !== undefined}
+                theme={deck.theme}
                 onUpdate={handleUpdateDeckTemplate}
                 onReset={handleResetDeckTemplate}
+                onApplyTheme={handleApplyDeckTheme}
               />
             </Popover>
             <span className="hidden min-w-0 shrink truncate text-xs text-ds-text-muted 2xl:inline">

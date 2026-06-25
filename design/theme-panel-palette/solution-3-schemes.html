@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Palette Solution 3 — Schemes + Edit</title>
+<link rel="stylesheet" href="panel.css" />
+</head>
+<body>
+  <header class="page-head">
+    <a class="back" href="index.html">← All palette solutions</a>
+    <div class="eyebrow">Palette integration · Solution 3</div>
+    <h1>Palette Schemes + Edit</h1>
+    <p>A scrollable row of curated multi-swatch schemes you can apply in one click (recoloring the whole palette), with the editable swatch band underneath for fine-tuning. Lead with great palettes, then let power users adjust — the recommended pattern from the design decisions.</p>
+  </header>
+
+  <div class="shell">
+    <div class="editor-frame">
+      <div class="toolbar" id="toolbar"></div>
+      <div class="stage">
+        <div class="slide preview-frame" id="stage" style="border:none;background:transparent"></div>
+        <div class="hint">Click <b>Theme</b> → <b>Customize</b> → apply a scheme or edit the band</div>
+      </div>
+      <div class="popover" id="pop" style="display:none">
+        <div class="view on" id="view-preset">
+          <div class="pop-head"><h3>Theme</h3><button class="icon-btn" id="goCustomize">✎ Customize</button></div>
+          <div class="status" id="presetStatus"></div>
+          <div class="pop-body scroll-y" style="max-height:50vh" id="presetBody"></div>
+        </div>
+        <div class="view" id="view-customize">
+          <div class="pop-head"><button class="icon-btn" id="back">‹</button><h3>Customize</h3><button class="icon-btn" id="reset" title="Revert edits to the preset">Reset</button></div>
+          <div class="status" id="custStatus"></div>
+          <div id="custBody"></div>
+          <div class="pop-foot" id="foot"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="theme-model.js"></script>
+  <script src="color-picker.js"></script>
+  <script src="popover.js"></script>
+  <script src="panel-core.js"></script>
+  <script>
+    function schemeChip(s, cfg) {
+      const pressed = cfg.colors.accent.toLowerCase() === s.colors.accent.toLowerCase()
+        && cfg.colors.slideBg.toLowerCase() === s.colors.slideBg.toLowerCase();
+      const minis = ["slideBg", "surface", "accent", "onBg"].map((k) => `<span style="background:${s.colors[k]}"></span>`).join("");
+      return `<button class="scheme" data-scheme="${s.id}" aria-pressed="${pressed}"><div class="mini">${minis}</div><div class="nm">${s.name}</div></button>`;
+    }
+    window.PalettePlugin = {
+      name: "Schemes + edit",
+      renderBody(cfg, api) {
+        return `
+          ${api.previewHTML()}
+          <div class="cust-controls scroll-y" style="max-height:34vh">
+            <div><div class="section-title" style="margin-bottom:6px">Palette schemes</div>
+              <div class="scheme-row" id="schemeRow">${api.SCHEMES.map((s) => schemeChip(s, cfg)).join("")}</div></div>
+            <div><div class="section-title" style="margin-bottom:6px">Edit palette</div>${api.paletteBand()}</div>
+            ${api.matrixHTML()}
+          </div>`;
+      },
+      wireBody(root, cfg, api) {
+        root.querySelectorAll("[data-scheme]").forEach((b) => b.onclick = () => {
+          const s = api.SCHEMES.find((x) => x.id === b.dataset.scheme);
+          api.applyColors(s.colors);
+        });
+      },
+    };
+    initThemePanel({ theme: "indigo" });
+  </script>
+</body>
+</html>
