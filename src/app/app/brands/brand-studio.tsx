@@ -26,6 +26,7 @@ import {
   type BrandStyle,
   type BrandInput,
 } from "@/lib/brand/schema";
+import type { BrandStudioViewModel } from "@/lib/brand-studio/view-model";
 import { brandPreviewStyle } from "@/lib/brand/transforms";
 import { injectBrandFontFace } from "@/lib/brand/font-face";
 import {
@@ -818,8 +819,8 @@ export function BrandStudio({
   initialBrands,
   canFontUpload,
 }: {
-  initialBrands: BrandStyle[];
-  canFontUpload: boolean;
+  initialBrands: BrandStudioViewModel["brands"];
+  canFontUpload: BrandStudioViewModel["canUploadFont"];
 }) {
   const [brands, setBrands] = useState<BrandStyle[]>(initialBrands);
 

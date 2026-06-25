@@ -29,6 +29,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useLexicalCollaboration } from "@/lib/collab/use-lexical-collaboration";
 import { useYText } from "@/lib/collab/use-collaboration";
+import type { DocumentEditorViewModel } from "@/lib/document-editor/view-model";
 import { readingTimeMinutes, wordCount } from "@/lib/document-stats";
 import { EditorContextProvider } from "@/lib/lexical/editor-context";
 import {
@@ -43,7 +44,6 @@ import {
 
 import { saveDocumentLexical } from "./actions";
 import { BlockSparkPlugin } from "./block-spark";
-import type { CommentThread } from "@/lib/comments";
 import { DocumentExportButton } from "@/components/editor/document-export-button";
 import { PageBreakIndicator } from "@/components/editor/page-break-indicator";
 import { PresentButton } from "@/components/editor/present-button";
@@ -65,7 +65,6 @@ import { Presence } from "./presence";
 import { OverallAdjustmentsPanel } from "./overall-adjustments-panel";
 import { ShareButton } from "./share-button";
 import { TagControl } from "./tag-control";
-import type { DocumentTag } from "@/lib/document-management/tags";
 import { UndoRedoControls } from "./undo-redo-controls";
 import { VersionHistoryPanel } from "./version-history-panel";
 import { VisualNode } from "./visual-node";
@@ -356,25 +355,26 @@ export function LexicalEditor({
   initialSharePresentEnabled = true,
   initialTags = [],
   allTags = [],
-}: {
-  documentId: string;
-  initialTitle: string;
-  initialStateJson?: string | null;
-  initialDeckJson?: unknown;
-  userName: string;
-  canEdit?: boolean;
-  canManage?: boolean;
-  workspaceName?: string;
-  initialComments?: CommentThread[];
-  initialIsShared?: boolean;
-  initialShareId?: string | null;
-  initialSlug?: string | null;
-  initialShareExpiresAt?: string | null;
-  initialShareEmbedEnabled?: boolean;
-  initialSharePresentEnabled?: boolean;
-  initialTags?: DocumentTag[];
-  allTags?: DocumentTag[];
-}) {
+}: Partial<
+  Pick<
+    DocumentEditorViewModel,
+    | "initialStateJson"
+    | "initialDeckJson"
+    | "canEdit"
+    | "canManage"
+    | "workspaceName"
+    | "initialComments"
+    | "initialIsShared"
+    | "initialShareId"
+    | "initialSlug"
+    | "initialShareExpiresAt"
+    | "initialShareEmbedEnabled"
+    | "initialSharePresentEnabled"
+    | "initialTags"
+    | "allTags"
+  >
+> &
+  Pick<DocumentEditorViewModel, "documentId" | "initialTitle" | "userName">) {
   const collab = useLexicalCollaboration({ room: documentId, userName });
 
   // Editing is enabled only with permission AND once collaboration is ready
