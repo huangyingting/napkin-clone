@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { resolveUserEntitlements } from "@/lib/billing/entitlement-facade";
+import { loadBrandStudioViewModel } from "@/lib/brand-studio/loader";
 import { requireUser } from "@/lib/session";
-import { listBrands } from "./actions";
 import { BrandStudio } from "./brand-studio";
 import { BrandStudioTeaser } from "./brand-studio-teaser";
 
@@ -13,12 +12,7 @@ export const metadata: Metadata = {
 
 export default async function BrandsPage() {
   const user = await requireUser();
-
-  const entitlements = await resolveUserEntitlements(user.id);
-  const canUseBrandStyles = entitlements.can("brandStyles");
-  const canUploadFont = entitlements.can("fontUpload");
-
-  const brands = await listBrands();
+  const viewModel = await loadBrandStudioViewModel(user.id);
 
   return (
     <main className="flex flex-1 flex-col items-center bg-ds-surface-sunken px-4 py-8 sm:px-6 sm:py-12">
@@ -40,8 +34,11 @@ export default async function BrandsPage() {
           </Link>
         </header>
 
-        {canUseBrandStyles ? (
-          <BrandStudio initialBrands={brands} canFontUpload={canUploadFont} />
+        {viewModel.canUseBrandStyles ? (
+          <BrandStudio
+            initialBrands={viewModel.brands}
+            canFontUpload={viewModel.canUploadFont}
+          />
         ) : (
           <BrandStudioTeaser />
         )}

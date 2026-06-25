@@ -1,12 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { documentCapabilities } from "@/lib/auth/document-permissions";
-import { prisma } from "@/lib/prisma";
-import { normalizePersistedDeckJson } from "@/lib/presentation/persisted-deck";
+import { loadDocumentEditorViewModel } from "@/lib/document-editor/loader";
 import { requireUser } from "@/lib/session";
 
-import { listComments } from "./comments-actions";
 import { LexicalEditor } from "./lexical-editor";
 
 export const metadata: Metadata = {
@@ -20,98 +17,35 @@ export default async function DocumentEditorPage({
 }) {
   const user = await requireUser();
   const { id } = await params;
-
-  // Check if user owns the document or has workspace access
-  const document = await prisma.document.findFirst({
-    where: {
-      id,
-      deletedAt: null,
-      OR: [
-        { ownerId: user.id },
-        {
-          workspaceId: { not: null },
-          workspace: {
-            OR: [
-              { ownerId: user.id },
-              { members: { some: { userId: user.id } } },
-            ],
-          },
-        },
-      ],
-    },
-    select: {
-      id: true,
-      title: true,
-      contentJson: true,
-      deckJson: true,
-      isShared: true,
-      shareId: true,
-      slug: true,
-      shareExpiresAt: true,
-      shareEmbedEnabled: true,
-      sharePresentEnabled: true,
-      ownerId: true,
-      workspaceId: true,
-      tags: {
-        orderBy: { name: "asc" },
-        select: { id: true, name: true, slug: true },
-      },
-      workspace: {
-        select: {
-          name: true,
-          ownerId: true,
-          members: {
-            where: { userId: user.id },
-            select: { userId: true, role: true },
-          },
-        },
-      },
-    },
+  const viewModel = await loadDocumentEditorViewModel({
+    documentId: id,
+    userId: user.id,
+    userName: user.name ?? user.email ?? "Anonymous",
   });
 
-  if (!document) {
+  if (!viewModel) {
     notFound();
   }
 
-  // Derive the acting user's capabilities from the single role-aware helper so
-  // the UI and the server actions agree on what this user may do (issue #89).
-  const { canEdit, canManage } = documentCapabilities(document, user.id);
-
-  const initialStateJson = document.contentJson
-    ? JSON.stringify(document.contentJson)
-    : null;
-
-  // Comment threads for everyone with access (owner + workspace members).
-  const initialComments = await listComments(document.id);
-
-  // The acting user's tags, for the document metadata tag editor.
-  const userTags = await prisma.tag.findMany({
-    where: { ownerId: user.id },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true, slug: true },
-  });
-
   return (
     <LexicalEditor
-      documentId={document.id}
-      initialTitle={document.title}
-      initialStateJson={initialStateJson}
-      initialDeckJson={normalizePersistedDeckJson(document.deckJson)}
-      initialIsShared={document.isShared}
-      initialShareId={document.shareId}
-      initialSlug={document.slug}
-      initialShareExpiresAt={
-        document.shareExpiresAt ? document.shareExpiresAt.toISOString() : null
-      }
-      initialShareEmbedEnabled={document.shareEmbedEnabled}
-      initialSharePresentEnabled={document.sharePresentEnabled}
-      canEdit={canEdit}
-      canManage={canManage}
-      workspaceName={document.workspace?.name}
-      userName={user.name ?? user.email ?? "Anonymous"}
-      initialComments={initialComments}
-      initialTags={document.tags}
-      allTags={userTags}
+      documentId={viewModel.documentId}
+      initialTitle={viewModel.initialTitle}
+      initialStateJson={viewModel.initialStateJson}
+      initialDeckJson={viewModel.initialDeckJson}
+      initialIsShared={viewModel.initialIsShared}
+      initialShareId={viewModel.initialShareId}
+      initialSlug={viewModel.initialSlug}
+      initialShareExpiresAt={viewModel.initialShareExpiresAt}
+      initialShareEmbedEnabled={viewModel.initialShareEmbedEnabled}
+      initialSharePresentEnabled={viewModel.initialSharePresentEnabled}
+      canEdit={viewModel.canEdit}
+      canManage={viewModel.canManage}
+      workspaceName={viewModel.workspaceName}
+      userName={viewModel.userName}
+      initialComments={viewModel.initialComments}
+      initialTags={viewModel.initialTags}
+      allTags={viewModel.allTags}
     />
   );
 }

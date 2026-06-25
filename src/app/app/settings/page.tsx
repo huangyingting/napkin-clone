@@ -2,9 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { isGoogleAuthConfigured } from "@/lib/auth/google-provider";
-import { deriveConnectedAccounts } from "@/lib/auth/connected-accounts";
-import { prisma } from "@/lib/prisma";
+import { loadSettingsAccountViewModel } from "@/lib/settings/loader";
 import { requireUser } from "@/lib/session";
 
 import { ProfileForm } from "./profile-form";
@@ -18,31 +16,11 @@ export const metadata: Metadata = {
 
 export default async function SettingsPage() {
   const sessionUser = await requireUser();
+  const viewModel = await loadSettingsAccountViewModel(sessionUser.id);
 
-  // Read fresh from the database so the form shows the current name even after a
-  // previous save (the JWT session token still holds the sign-in-time name).
-  const user = await prisma.user.findUnique({
-    where: { id: sessionUser.id },
-    select: {
-      name: true,
-      email: true,
-      image: true,
-      passwordHash: true,
-      emailVerified: true,
-    },
-  });
-
-  if (!user) {
+  if (!viewModel) {
     redirect("/login");
   }
-
-  const hasPassword = Boolean(user.passwordHash);
-  const isEmailVerified = Boolean(user.emailVerified);
-  const connectedAccounts = deriveConnectedAccounts({
-    hasPassword,
-    image: user.image,
-    googleConfigured: isGoogleAuthConfigured(),
-  });
 
   return (
     <main className="flex flex-1 flex-col items-center bg-ds-surface-sunken px-6 py-12">
@@ -65,7 +43,10 @@ export default async function SettingsPage() {
               Update your display name.
             </p>
           </div>
-          <ProfileForm initialName={user.name ?? ""} email={user.email} />
+          <ProfileForm
+            initialName={viewModel.profile.initialName}
+            email={viewModel.profile.email}
+          />
         </section>
 
         <section className="flex flex-col gap-4 rounded-2xl border border-ds-border-strong bg-ds-surface-base p-6">
@@ -74,37 +55,35 @@ export default async function SettingsPage() {
               <h2 className="text-base font-semibold text-ds-text-primary">
                 Email verification
               </h2>
-              {isEmailVerified ? (
+              {viewModel.emailVerification.isVerified ? (
                 <span className="rounded-ds-pill bg-ds-success/10 px-2 py-0.5 text-xs font-medium text-ds-success">
-                  Verified
+                  {viewModel.emailVerification.badgeLabel}
                 </span>
               ) : (
                 <span className="rounded-ds-pill bg-ds-surface-sunken px-2 py-0.5 text-xs font-medium text-ds-text-secondary">
-                  Unverified
+                  {viewModel.emailVerification.badgeLabel}
                 </span>
               )}
             </div>
             <p className="text-sm text-ds-text-secondary">
-              {isEmailVerified
-                ? `Your email ${user.email} is verified.`
-                : `Confirm ${user.email} to secure your account.`}
+              {viewModel.emailVerification.message}
             </p>
           </div>
-          {isEmailVerified ? null : <EmailVerificationForm />}
+          {viewModel.emailVerification.isVerified ? null : (
+            <EmailVerificationForm />
+          )}
         </section>
 
         <section className="flex flex-col gap-4 rounded-2xl border border-ds-border-strong bg-ds-surface-base p-6">
           <div className="flex flex-col gap-1">
             <h2 className="text-base font-semibold text-ds-text-primary">
-              {hasPassword ? "Change password" : "Set a password"}
+              {viewModel.password.heading}
             </h2>
             <p className="text-sm text-ds-text-secondary">
-              {hasPassword
-                ? "Update the password you use to sign in."
-                : "Add a password so you can sign in with your email too."}
+              {viewModel.password.description}
             </p>
           </div>
-          <PasswordForm hasPassword={hasPassword} />
+          <PasswordForm hasPassword={viewModel.password.hasPassword} />
         </section>
 
         <section className="flex flex-col gap-4 rounded-2xl border border-ds-border-strong bg-ds-surface-base p-6">
@@ -117,7 +96,7 @@ export default async function SettingsPage() {
             </p>
           </div>
           <ul className="flex flex-col gap-2">
-            {connectedAccounts
+            {viewModel.connectedAccounts
               .filter((account) => account.available)
               .map((account) => (
                 <li
@@ -152,7 +131,7 @@ export default async function SettingsPage() {
           </div>
           <div>
             <a
-              href="/api/account/export"
+              href={viewModel.links.accountExport}
               download
               className="inline-flex h-11 items-center justify-center rounded-full border border-ds-border-strong bg-ds-surface-base px-6 text-sm font-medium text-ds-text-primary transition hover:bg-ds-surface-sunken"
             >
@@ -170,18 +149,18 @@ export default async function SettingsPage() {
               Irreversible actions for your account.
             </p>
           </div>
-          <DeleteAccountForm email={user.email} />
+          <DeleteAccountForm email={viewModel.profile.email} />
         </section>
 
         <Link
-          href="/app/settings/billing"
+          href={viewModel.links.billing}
           className="text-sm font-medium text-ds-text-secondary underline-offset-4 transition hover:text-ds-text-primary hover:underline"
         >
           Billing &amp; Plan →
         </Link>
 
         <Link
-          href="/app"
+          href={viewModel.links.documents}
           className="text-sm font-medium text-ds-text-secondary underline-offset-4 transition hover:text-ds-text-primary hover:underline"
         >
           ← Back to documents
