@@ -27,6 +27,7 @@ import {
   setDefaultStorageAdapter,
   resetDefaultStorageAdapter,
 } from "@/lib/slides/asset-storage";
+import { withP2002Fallback } from "@/lib/db/p2002-fallback";
 
 // ---------------------------------------------------------------------------
 // SHA-256 checksum computation
@@ -184,5 +185,40 @@ describe("upload dedup via in-memory adapter", () => {
     const url = adapter.urlFor(key);
     assert.equal(url, `/assets/${key}`);
     assert.ok(!stored.has(key), "urlFor must not write any bytes");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// P2002 recovery
+// ---------------------------------------------------------------------------
+
+describe("upload action P2002 recovery", () => {
+  it("returns the concurrently-created asset when create hits a unique race", async () => {
+    const winner = { id: "asset-winner" };
+    const result = await withP2002Fallback(
+      async () => {
+        throw Object.assign(new Error("unique constraint"), { code: "P2002" });
+      },
+      async () => winner,
+    );
+
+    assert.equal(result, winner);
+  });
+
+  it("rethrows P2002 when no winning asset can be recovered", async () => {
+    const p2002 = Object.assign(new Error("unique constraint"), {
+      code: "P2002",
+    });
+
+    await assert.rejects(
+      () =>
+        withP2002Fallback(
+          async () => {
+            throw p2002;
+          },
+          async () => null,
+        ),
+      (error) => error === p2002,
+    );
   });
 });

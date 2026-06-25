@@ -13,9 +13,8 @@
 import { createHash } from "node:crypto";
 
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
-import { requireDocumentCapability } from "@/lib/auth/document-permissions";
+import { requireDocumentActionContext } from "@/lib/actions/document-action-context";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/session";
 import {
   buildAssetMeta,
   formatAssetUploadError,
@@ -49,10 +48,7 @@ export async function uploadSlideAsset(
   documentId: string,
   formData: FormData,
 ): Promise<ActionResult<UploadSlideAssetResult>> {
-  const user = await requireUser();
-
-  // Auth: the acting user must be able to edit the document.
-  await requireDocumentCapability(user.id, documentId, "edit");
+  await requireDocumentActionContext(documentId, "edit");
 
   const fileEntry = formData.get("file");
   if (!(fileEntry instanceof File)) {

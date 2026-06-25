@@ -27,9 +27,8 @@
  * `isCommentUnread` is exported as a pure function for unit tests.
  */
 
-import { requireDocumentCapability } from "@/lib/auth/document-permissions";
+import { requireDocumentActionContext } from "@/lib/actions/document-action-context";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/session";
 
 // ---------------------------------------------------------------------------
 // Pure helper
@@ -80,8 +79,7 @@ export async function getUnreadCommentCount(
   documentId: string,
   scope: UnreadCountScope = "all",
 ): Promise<number> {
-  const user = await requireUser();
-  await requireDocumentCapability(user.id, documentId, "view");
+  const { user } = await requireDocumentActionContext(documentId, "view");
 
   // Fetch the user's last-read timestamp for this document.
   const readRecord = await prisma.commentRead.findUnique({
@@ -122,8 +120,7 @@ export async function getUnreadCommentCount(
 export async function markDocumentCommentsRead(
   documentId: string,
 ): Promise<void> {
-  const user = await requireUser();
-  await requireDocumentCapability(user.id, documentId, "view");
+  const { user } = await requireDocumentActionContext(documentId, "view");
 
   await prisma.commentRead.upsert({
     where: { userId_documentId: { userId: user.id, documentId } },

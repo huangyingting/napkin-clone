@@ -34,7 +34,7 @@
  * as pure functions so tests can verify the transformation policy without a DB.
  */
 
-import { requireDocumentCapability } from "@/lib/auth/document-permissions";
+import { requireDocumentActionContext } from "@/lib/actions/document-action-context";
 import {
   commentAnchorFromRecord,
   floatAnchorToDeck,
@@ -45,7 +45,6 @@ import {
 import type { Deck } from "@/lib/presentation/deck";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/session";
 
 // ---------------------------------------------------------------------------
 // Pure helpers (exported for tests)
@@ -119,8 +118,7 @@ export async function floatCommentsOnSlideDelete(
   documentId: string,
   slideId: string,
 ): Promise<void> {
-  const user = await requireUser();
-  await requireDocumentCapability(user.id, documentId, "view");
+  await requireDocumentActionContext(documentId, "view");
 
   await prisma.comment.updateMany({
     where: {
@@ -161,8 +159,7 @@ export async function floatCommentsOnElementDelete(
   slideId: string,
   elementId: string,
 ): Promise<void> {
-  const user = await requireUser();
-  await requireDocumentCapability(user.id, documentId, "view");
+  await requireDocumentActionContext(documentId, "view");
 
   await prisma.comment.updateMany({
     where: {
@@ -187,8 +184,7 @@ export async function getOrphanedCommentIds(
   documentId: string,
   deck: Deck,
 ): Promise<string[]> {
-  const user = await requireUser();
-  await requireDocumentCapability(user.id, documentId, "view");
+  await requireDocumentActionContext(documentId, "view");
 
   const slideAnchoredComments = await prisma.comment.findMany({
     where: { documentId, parentId: null, slideId: { not: null } },
@@ -221,8 +217,7 @@ export async function floatOrphanedCommentsAfterRestore(
   documentId: string,
   deck: Deck,
 ): Promise<{ floatedCount: number }> {
-  const user = await requireUser();
-  await requireDocumentCapability(user.id, documentId, "view");
+  await requireDocumentActionContext(documentId, "view");
 
   const slideAnchoredComments = await prisma.comment.findMany({
     where: { documentId, parentId: null, slideId: { not: null } },

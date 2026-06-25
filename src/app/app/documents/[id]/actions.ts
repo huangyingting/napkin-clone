@@ -1,23 +1,24 @@
 "use server";
 
-import { customAlphabet } from "nanoid";
 import { revalidatePath } from "next/cache";
 
-import { Prisma } from "@/generated/prisma/client";
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
+import { requireDocumentActionContext } from "@/lib/actions/document-action-context";
 import { requireDocumentCapability } from "@/lib/auth/document-permissions";
 import { stampBlockIds } from "@/lib/lexical/block-id";
 import { prisma } from "@/lib/prisma";
-import { app as appEnv } from "@/lib/env";
 import { requireUser } from "@/lib/session";
-import { buildShareSegment, buildSlugCandidate } from "@/lib/slug";
 import { logInfo, logError } from "@/lib/log";
 import {
   atomicSaveDocumentLexical,
   rebuildMirror,
   persistDeck,
   patchDeck,
+  persistDeckCommand,
   restoreVersion,
+  setDocumentSharing,
+  regenerateDocumentShareLink,
+  updateDocumentSharePolicyData,
   type VisualMirrorOutcome,
 } from "@/lib/document/persistence-service";
 import type {
@@ -28,24 +29,12 @@ import type {
   ShareSettings,
 } from "@/lib/document/persistence-types";
 import type { DeckPatch } from "@/lib/presentation/slide-commands";
-import { executeCommand } from "@/lib/presentation/slide-commands";
 import type { SlideCommand } from "@/lib/presentation/slide-commands";
-import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { normalizePersistedDeckJson } from "@/lib/presentation/persisted-deck";
 import {
   acceptDeckCommandEnvelope,
   type CommandEnvelope,
 } from "@/lib/commands/command-envelope";
-
-// URL-safe share ID generator (no ambiguous chars: 0/O, 1/l/I)
-const generateShareId = customAlphabet(
-  "23456789abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ",
-  12,
-);
-
-// Short random suffix appended to slug candidates to make same-title
-// collisions vanishingly unlikely (4 lowercase alphanumeric chars).
-const generateSlugSuffix = customAlphabet("23456789abcdefghjkmnpqrstuvwxyz", 4);
 
 const MAX_LEXICAL_STATE_LENGTH = 2_000_000;
 
@@ -95,8 +84,7 @@ export async function saveDocumentLexical(
 export async function rebuildVisualMirror(
   documentId: string,
 ): Promise<ActionResult<VisualMirrorOutcome>> {
-  const user = await requireUser();
-  await requireDocumentCapability(user.id, documentId, "edit");
+  await requireDocumentActionContext(documentId, "edit");
 
   const doc = await prisma.document.findUnique({
     where: { id: documentId },
@@ -138,43 +126,6 @@ export async function rebuildVisualMirror(
 // Furthest-out expiry a caller may set, guarding against absurd dates.
 const MAX_SHARE_EXPIRY_MS = 5 * 365 * 24 * 60 * 60 * 1000; // ~5 years
 
-/** Builds the canonical public share URL (or `null` when not shared). */
-function buildShareUrl(
-  slug: string | null,
-  shareId: string | null,
-): string | null {
-  if (!slug || !shareId) {
-    return null;
-  }
-  const base = appEnv.url();
-  return `${base}/share/${buildShareSegment(slug, shareId)}`;
-}
-
-/**
- * Assembles the {@link ShareSettings} payload from the persisted document row,
- * keeping the URL/expiry serialization in one place so all sharing actions
- * return an identically-shaped result.
- */
-function toShareSettings(row: {
-  isShared: boolean;
-  shareId: string | null;
-  slug: string | null;
-  shareExpiresAt: Date | null;
-  shareEmbedEnabled: boolean;
-  sharePresentEnabled: boolean;
-}): ShareSettings {
-  const shared = row.isShared && row.shareId !== null && row.slug !== null;
-  return {
-    isShared: row.isShared,
-    shareId: row.shareId,
-    slug: row.slug,
-    shareUrl: shared ? buildShareUrl(row.slug, row.shareId) : null,
-    expiresAt: row.shareExpiresAt ? row.shareExpiresAt.toISOString() : null,
-    embedEnabled: row.shareEmbedEnabled,
-    presentEnabled: row.sharePresentEnabled,
-  };
-}
-
 /**
  * Toggles sharing for a document owned by the current user.
  *
@@ -192,30 +143,13 @@ export async function toggleDocumentSharing(
   id: string,
   isShared: boolean,
 ): Promise<ActionResult<ShareSettings>> {
-  const user = await requireUser();
-
-  await requireDocumentCapability(user.id, id, "manage");
-
-  // Generate a new shareId when enabling, clear it when disabling. When
-  // enabling, also derive a readable (decorative) slug from the document title
-  // for the share URL; clear it when disabling.
-  const shareId = isShared ? generateShareId() : null;
-
-  let docTitle: string | null = null;
-  if (isShared) {
-    const doc = await prisma.document.findFirst({
-      where: { id },
-      select: { title: true },
-    });
-    if (doc) docTitle = doc.title;
-  }
-
-  const updated = await writeShareData(id, isShared, shareId, docTitle);
+  await requireDocumentActionContext(id, "manage");
+  const settings = await setDocumentSharing(id, isShared);
 
   revalidatePath(`/app/documents/${id}`);
   revalidatePath("/app");
 
-  return actionOk(toShareSettings(updated));
+  return actionOk(settings);
 }
 
 /**
@@ -229,26 +163,16 @@ export async function toggleDocumentSharing(
 export async function regenerateShareLink(
   id: string,
 ): Promise<ActionResult<ShareSettings>> {
-  const user = await requireUser();
-
-  await requireDocumentCapability(user.id, id, "manage");
-
-  const doc = await prisma.document.findFirst({
-    where: { id },
-    select: { title: true, isShared: true },
-  });
-
-  if (!doc || !doc.isShared) {
+  await requireDocumentActionContext(id, "manage");
+  const settings = await regenerateDocumentShareLink(id);
+  if (!settings) {
     return actionError("Enable sharing before regenerating the link.");
   }
-
-  const shareId = generateShareId();
-  const updated = await writeShareData(id, true, shareId, doc.title);
 
   revalidatePath(`/app/documents/${id}`);
   revalidatePath("/app");
 
-  return actionOk(toShareSettings(updated));
+  return actionOk(settings);
 }
 
 /**
@@ -270,9 +194,7 @@ export async function updateSharePolicy(
     presentEnabled?: boolean;
   },
 ): Promise<ActionResult<ShareSettings>> {
-  const user = await requireUser();
-
-  await requireDocumentCapability(user.id, id, "manage");
+  await requireDocumentActionContext(id, "manage");
 
   const data: {
     shareExpiresAt?: Date | null;
@@ -302,112 +224,12 @@ export async function updateSharePolicy(
     data.sharePresentEnabled = policy.presentEnabled;
   }
 
-  const updated = await prisma.document.update({
-    where: { id },
-    data,
-    select: {
-      isShared: true,
-      shareId: true,
-      slug: true,
-      shareExpiresAt: true,
-      shareEmbedEnabled: true,
-      sharePresentEnabled: true,
-    },
-  });
+  const settings = await updateDocumentSharePolicyData(id, data);
 
   revalidatePath(`/app/documents/${id}`);
   revalidatePath("/app");
 
-  return actionOk(toShareSettings(updated));
-}
-
-/**
- * Generates a slug candidate from `title` by slugifying it and appending a
- * short random suffix (4 chars). The suffix makes same-titled concurrent
- * shares vanishingly unlikely to collide without sacrificing readability.
- * Returns `null` when the title has no usable slug characters and the suffix
- * alone would not form a meaningful slug.
- *
- * Note: uniqueness is enforced at write-time via P2002 retry in callers rather
- * than by the check-then-write pattern, which has an inherent race window.
- */
-function generateSlugCandidate(title: string): string | null {
-  const suffix = generateSlugSuffix();
-  const candidate = buildSlugCandidate(title, suffix);
-  return candidate || null;
-}
-
-const MAX_SLUG_WRITE_ATTEMPTS = 5;
-
-/**
- * Writes share enable/disable data for a document, retrying on slug unique
- * constraint violations (Prisma P2002). Each retry generates a fresh random
- * slug candidate so the window for a second collision shrinks rapidly.
- *
- * When `isShared` is false the slug is cleared and no retry is needed.
- */
-async function writeShareData(
-  id: string,
-  isShared: boolean,
-  shareId: string | null,
-  title: string | null,
-): Promise<{
-  isShared: boolean;
-  shareId: string | null;
-  slug: string | null;
-  shareExpiresAt: Date | null;
-  shareEmbedEnabled: boolean;
-  sharePresentEnabled: boolean;
-}> {
-  if (!isShared) {
-    // Disabling share: clear slug/shareId/expiry — no uniqueness concern.
-    return prisma.document.update({
-      where: { id },
-      data: { isShared, shareId: null, slug: null, shareExpiresAt: null },
-      select: {
-        isShared: true,
-        shareId: true,
-        slug: true,
-        shareExpiresAt: true,
-        shareEmbedEnabled: true,
-        sharePresentEnabled: true,
-      },
-    });
-  }
-
-  let lastError: unknown;
-  for (let attempt = 0; attempt < MAX_SLUG_WRITE_ATTEMPTS; attempt++) {
-    const slug = title ? generateSlugCandidate(title) : null;
-    try {
-      return await prisma.document.update({
-        where: { id },
-        data: { isShared, shareId, slug },
-        select: {
-          isShared: true,
-          shareId: true,
-          slug: true,
-          shareExpiresAt: true,
-          shareEmbedEnabled: true,
-          sharePresentEnabled: true,
-        },
-      });
-    } catch (err) {
-      if (
-        err instanceof Prisma.PrismaClientKnownRequestError &&
-        err.code === "P2002"
-      ) {
-        // Slug collision (unique constraint): regenerate and retry.
-        lastError = err;
-        continue;
-      }
-      throw err;
-    }
-  }
-
-  throw new Error(
-    `Failed to generate a unique share slug after ${MAX_SLUG_WRITE_ATTEMPTS} attempts. Please try again.`,
-    { cause: lastError },
-  );
+  return actionOk(settings);
 }
 
 /**
@@ -420,8 +242,7 @@ async function writeShareData(
 export async function fetchDeckJson(
   id: string,
 ): Promise<{ deckJson: unknown; revisionToken: string | null }> {
-  const user = await requireUser();
-  await requireDocumentCapability(user.id, id, "view");
+  await requireDocumentActionContext(id, "view");
 
   const document = await prisma.document.findUniqueOrThrow({
     where: { id },
@@ -463,8 +284,7 @@ export async function saveDeckJson(
   deckJson: unknown,
   clientToken?: string | null,
 ): Promise<SaveDeckResult> {
-  const user = await requireUser();
-  await requireDocumentCapability(user.id, id, "edit");
+  await requireDocumentActionContext(id, "edit");
 
   const result = await persistDeck(id, deckJson, clientToken);
 
@@ -488,8 +308,7 @@ export async function saveDeckPatch(
   patches: DeckPatch[],
   clientToken: string | null | undefined,
 ): Promise<SaveDeckPatchResult> {
-  const user = await requireUser();
-  await requireDocumentCapability(user.id, id, "edit");
+  await requireDocumentActionContext(id, "edit");
 
   const result = await patchDeck(id, patches, clientToken);
 
@@ -521,8 +340,7 @@ export async function saveDeckCommand(
   id: string,
   envelope: CommandEnvelope<SlideCommand>,
 ): Promise<SaveDeckResult> {
-  const user = await requireUser();
-  await requireDocumentCapability(user.id, id, "edit");
+  await requireDocumentActionContext(id, "edit");
 
   const acceptance = acceptDeckCommandEnvelope(envelope, { documentId: id });
   if (!acceptance.ok) {
@@ -538,39 +356,7 @@ export async function saveDeckCommand(
     };
   }
 
-  const document = await prisma.document.findUnique({
-    where: { id },
-    select: { deckJson: true },
-  });
-  if (!document) {
-    return { ok: false, error: "Document not found." };
-  }
-
-  const parsed = safeParseDeck(normalizePersistedDeckJson(document.deckJson));
-  if (!parsed.success) {
-    logError("deck.command.stored_deck_invalid", new Error(parsed.error), {
-      documentId: id,
-      envelopeId: envelope.id,
-    });
-    return { ok: false, error: `Stored deck is invalid: ${parsed.error}` };
-  }
-
-  const result = executeCommand(parsed.data, envelope.payload);
-  if (!result.ok) {
-    logInfo("deck.command.execution_failed", "Deck command failed to execute", {
-      documentId: id,
-      envelopeId: envelope.id,
-      type: envelope.payload.type,
-      error: result.error,
-    });
-    return { ok: false, error: result.error ?? "Command failed to execute." };
-  }
-
-  const persisted = await persistDeck(
-    id,
-    result.deck,
-    envelope.target.expectedRevision ?? null,
-  );
+  const persisted = await persistDeckCommand(id, envelope);
 
   if (persisted.ok === true) {
     revalidatePath(`/app/documents/${id}`);
@@ -586,8 +372,7 @@ export async function saveDeckCommand(
 export async function listDocumentVersions(
   documentId: string,
 ): Promise<DocumentVersionSummary[]> {
-  const user = await requireUser();
-  await requireDocumentCapability(user.id, documentId, "view");
+  await requireDocumentActionContext(documentId, "view");
 
   const versions = await prisma.documentVersion.findMany({
     where: { documentId },

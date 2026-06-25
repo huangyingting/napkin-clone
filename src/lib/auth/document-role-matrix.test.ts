@@ -73,6 +73,10 @@ const SURFACES: SurfaceContract[] = [
         name: "saveDocumentLexical",
         file: "src/app/app/documents/[id]/actions.ts",
       },
+      {
+        name: "rebuildVisualMirror",
+        file: "src/app/app/documents/[id]/actions.ts",
+      },
     ],
   },
   {
@@ -80,6 +84,38 @@ const SURFACES: SurfaceContract[] = [
     capability: "edit",
     actions: [
       { name: "saveDeckJson", file: "src/app/app/documents/[id]/actions.ts" },
+      { name: "saveDeckPatch", file: "src/app/app/documents/[id]/actions.ts" },
+      {
+        name: "saveDeckCommand",
+        file: "src/app/app/documents/[id]/actions.ts",
+      },
+    ],
+  },
+  {
+    surface: "deck read",
+    capability: "view",
+    actions: [
+      { name: "fetchDeckJson", file: "src/app/app/documents/[id]/actions.ts" },
+    ],
+  },
+  {
+    surface: "versions read",
+    capability: "view",
+    actions: [
+      {
+        name: "listDocumentVersions",
+        file: "src/app/app/documents/[id]/actions.ts",
+      },
+    ],
+  },
+  {
+    surface: "versions restore",
+    capability: "edit",
+    actions: [
+      {
+        name: "restoreDocumentVersion",
+        file: "src/app/app/documents/[id]/actions.ts",
+      },
     ],
   },
   {
@@ -115,6 +151,40 @@ const SURFACES: SurfaceContract[] = [
       {
         name: "setCommentResolved",
         file: "src/app/app/documents/[id]/comments-actions.ts",
+      },
+      {
+        name: "floatCommentsOnSlideDelete",
+        file: "src/app/app/documents/[id]/slide-comment-lifecycle.ts",
+      },
+      {
+        name: "floatCommentsOnElementDelete",
+        file: "src/app/app/documents/[id]/slide-comment-lifecycle.ts",
+      },
+      {
+        name: "getOrphanedCommentIds",
+        file: "src/app/app/documents/[id]/slide-comment-lifecycle.ts",
+      },
+      {
+        name: "floatOrphanedCommentsAfterRestore",
+        file: "src/app/app/documents/[id]/slide-comment-lifecycle.ts",
+      },
+      {
+        name: "getUnreadCommentCount",
+        file: "src/app/app/documents/[id]/slide-comment-unread.ts",
+      },
+      {
+        name: "markDocumentCommentsRead",
+        file: "src/app/app/documents/[id]/slide-comment-unread.ts",
+      },
+    ],
+  },
+  {
+    surface: "slide assets",
+    capability: "edit",
+    actions: [
+      {
+        name: "uploadSlideAsset",
+        file: "src/app/app/documents/[id]/slide-asset-actions.ts",
       },
     ],
   },

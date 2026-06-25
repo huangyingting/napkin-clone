@@ -250,9 +250,17 @@ const ACTION_CAPABILITY: Record<string, Capability> = {
   deleteDocument: "manage",
   restoreDocument: "manage",
   // Editor (src/app/app/documents/[id]/actions.ts)
+  rebuildVisualMirror: "edit",
+  fetchDeckJson: "view",
   saveDocumentLexical: "edit",
   saveDeckJson: "edit",
+  saveDeckPatch: "edit",
+  saveDeckCommand: "edit",
   toggleDocumentSharing: "manage",
+  regenerateShareLink: "manage",
+  updateSharePolicy: "manage",
+  listDocumentVersions: "view",
+  restoreDocumentVersion: "edit",
   // Tags (src/app/app/documents/[id]/tags-actions.ts)
   addTag: "edit",
   removeTag: "edit",
@@ -260,6 +268,14 @@ const ACTION_CAPABILITY: Record<string, Capability> = {
   listComments: "view",
   createComment: "view",
   setCommentResolved: "view",
+  // Slide comments / assets
+  floatCommentsOnSlideDelete: "view",
+  floatCommentsOnElementDelete: "view",
+  getOrphanedCommentIds: "view",
+  floatOrphanedCommentsAfterRestore: "view",
+  getUnreadCommentCount: "view",
+  markDocumentCommentsRead: "view",
+  uploadSlideAsset: "edit",
 };
 
 for (const [action, capability] of Object.entries(ACTION_CAPABILITY)) {
