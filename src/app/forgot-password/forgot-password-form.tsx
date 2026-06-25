@@ -3,12 +3,19 @@
 import Link from "next/link";
 import { useActionState } from "react";
 
-import { type ForgotPasswordState, requestPasswordReset } from "./actions";
+import {
+  AuthField,
+  AuthMessage,
+  AuthSubmitButton,
+} from "@/components/auth/auth-form";
+import {
+  initialForgotPasswordState,
+  type ForgotPasswordState,
+} from "@/lib/auth/form-state";
 
-const fieldClass =
-  "h-11 rounded-ds-md border border-ds-border-strong bg-ds-surface-base px-3 text-sm text-ds-text-primary outline-none transition placeholder:text-ds-text-muted focus:border-ds-accent focus:ring-2 focus:ring-ds-accent/30";
+import { requestPasswordReset } from "./actions";
 
-const initialState: ForgotPasswordState = { status: "idle" };
+const initialState: ForgotPasswordState = initialForgotPasswordState;
 
 export function ForgotPasswordForm() {
   const [state, formAction, isPending] = useActionState(
@@ -19,12 +26,7 @@ export function ForgotPasswordForm() {
   if (state.status === "sent") {
     return (
       <div className="flex w-full flex-col gap-4">
-        <p
-          role="status"
-          className="rounded-ds-md border border-ds-border-subtle bg-ds-surface-base px-3 py-3 text-sm text-ds-text-secondary"
-        >
-          {state.message}
-        </p>
+        <AuthMessage kind="status">{state.message}</AuthMessage>
         <p className="text-center text-sm text-ds-text-secondary">
           <Link
             href="/login"
@@ -39,37 +41,23 @@ export function ForgotPasswordForm() {
 
   return (
     <form action={formAction} className="flex w-full flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
-        <label
-          htmlFor="email"
-          className="text-sm font-medium text-ds-text-primary"
-        >
-          Email
-        </label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="email"
-          required
-          className={fieldClass}
-          placeholder="you@example.com"
-        />
-      </div>
+      <AuthField
+        id="email"
+        name="email"
+        label="Email"
+        type="email"
+        autoComplete="email"
+        required
+        placeholder="you@example.com"
+      />
 
       {state.status === "error" ? (
-        <p role="alert" className="text-sm text-ds-danger">
-          {state.message}
-        </p>
+        <AuthMessage kind="error">{state.message}</AuthMessage>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={isPending}
-        className="flex h-11 items-center justify-center rounded-ds-pill bg-ds-accent px-6 text-sm font-medium text-ds-text-on-accent transition hover:bg-ds-accent-hover disabled:opacity-60"
-      >
-        {isPending ? "Sending…" : "Send reset link"}
-      </button>
+      <AuthSubmitButton isPending={isPending} pendingLabel="Sending…">
+        Send reset link
+      </AuthSubmitButton>
 
       <p className="text-center text-sm text-ds-text-secondary">
         Remembered it?{" "}

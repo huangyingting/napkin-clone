@@ -1,47 +1,23 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import bcrypt from "bcryptjs";
 
 import { signOut } from "@/auth";
-import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
-import { validatePasswordChange } from "@/lib/auth/password";
-import {
-  deliverVerificationEmail,
-  type VerificationEmail,
-} from "@/lib/auth/verification-email";
-import {
-  VERIFICATION_TOKEN_TTL_MS,
-  generateVerificationToken,
-  hashVerificationToken,
-} from "@/lib/auth/verification-token";
-import {
-  getBillingProvider,
-  shouldCancelSubscription,
-} from "@/lib/billing/provider";
-import { getSubscriptionCancellationState } from "@/lib/billing/service";
-import { publicAppUrl } from "@/lib/client-config";
-import { logError } from "@/lib/log";
+import { actionOk } from "@/lib/action-result";
+import { deleteAccountForUser } from "@/lib/account/deletion-service";
+import { changePasswordForUser } from "@/lib/auth/credentials-service";
+import { requestEmailVerificationForUser } from "@/lib/auth/email-verification-service";
+import type {
+  DeleteAccountResult,
+  PasswordResult,
+  ProfileResult,
+  VerifyEmailResult,
+} from "@/lib/auth/form-state";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 
 /** Maximum stored display-name length. */
 const MAX_NAME_LENGTH = 100;
-
-/** bcrypt cost factor — matches sign-up so all hashes are comparable. */
-const BCRYPT_COST = 12;
-
-/** Generic fallback so a failed change never leaks account state. */
-const GENERIC_PASSWORD_ERROR =
-  "Could not change your password. Please try again.";
-
-/** Literal keyword accepted as a confirmation alternative to the email. */
-const DELETE_CONFIRMATION_KEYWORD = "DELETE";
-
-/** Generic fallback so a failed deletion never leaks account state. */
-const GENERIC_DELETE_ERROR = "Could not delete your account. Please try again.";
-
-export type ProfileResult = ActionResult<{ name: string }>;
 
 /**
  * Updates the current user's display name.
@@ -77,8 +53,6 @@ export async function updateProfile(
   return actionOk({ name });
 }
 
-export type PasswordResult = ActionResult;
-
 /**
  * Changes (or sets) the current user's password.
  *
@@ -95,53 +69,13 @@ export async function changePassword(
   formData: FormData,
 ): Promise<PasswordResult> {
   const user = await requireUser();
-
-  const currentPassword = String(formData.get("currentPassword") ?? "");
-  const newPassword = String(formData.get("newPassword") ?? "");
-  const confirmPassword = String(formData.get("confirmPassword") ?? "");
-
-  const dbUser = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { passwordHash: true },
+  return changePasswordForUser({
+    userId: user.id,
+    currentPassword: formData.get("currentPassword"),
+    newPassword: formData.get("newPassword"),
+    confirmPassword: formData.get("confirmPassword"),
   });
-  if (!dbUser) {
-    return actionError(GENERIC_PASSWORD_ERROR);
-  }
-
-  const validation = validatePasswordChange({ newPassword, confirmPassword });
-  if (!validation.ok) {
-    return actionError(validation.message);
-  }
-
-  if (dbUser.passwordHash) {
-    const currentMatches =
-      currentPassword.length > 0 &&
-      (await bcrypt.compare(currentPassword, dbUser.passwordHash));
-    if (!currentMatches) {
-      return actionError("Your current password is incorrect.");
-    }
-
-    const sameAsCurrent = await bcrypt.compare(
-      newPassword,
-      dbUser.passwordHash,
-    );
-    if (sameAsCurrent) {
-      return actionError(
-        "New password must be different from your current password.",
-      );
-    }
-  }
-
-  const passwordHash = await bcrypt.hash(newPassword, BCRYPT_COST);
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { passwordHash },
-  });
-
-  return actionOk();
 }
-
-export type DeleteAccountResult = ActionResult;
 
 /**
  * Permanently deletes the current user's account.
@@ -166,46 +100,12 @@ export async function deleteAccount(
   formData: FormData,
 ): Promise<DeleteAccountResult> {
   const user = await requireUser();
-
-  const confirmation = String(formData.get("confirmation") ?? "").trim();
-
-  const dbUser = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { email: true },
+  const result = await deleteAccountForUser({
+    userId: user.id,
+    confirmation: formData.get("confirmation"),
   });
-  if (!dbUser) {
-    return actionError(GENERIC_DELETE_ERROR);
-  }
-
-  const matchesEmail =
-    confirmation.toLowerCase() === dbUser.email.trim().toLowerCase();
-  const matchesKeyword = confirmation === DELETE_CONFIRMATION_KEYWORD;
-  if (!matchesEmail && !matchesKeyword) {
-    return actionError(
-      `Type your email or "${DELETE_CONFIRMATION_KEYWORD}" to confirm.`,
-    );
-  }
-
-  try {
-    const sub = await getSubscriptionCancellationState(user.id);
-
-    if (shouldCancelSubscription(sub)) {
-      try {
-        const billing = await getBillingProvider();
-        await billing.cancelSubscriptionImmediately(user.id);
-      } catch (err) {
-        // Fail-safe: log the Stripe error but allow account deletion to proceed
-        // so a billing issue never traps a user who wants to leave.
-        logError("billing.subscription.cancel_immediate", err, {
-          userId: user.id,
-          reason: "account-deletion",
-        });
-      }
-    }
-
-    await prisma.user.delete({ where: { id: user.id } });
-  } catch {
-    return actionError(GENERIC_DELETE_ERROR);
+  if (!result.ok) {
+    return result;
   }
 
   await signOut({ redirectTo: "/" });
@@ -213,24 +113,6 @@ export async function deleteAccount(
   // action's return type.
   return actionOk();
 }
-
-/** Builds the absolute, ready-to-click email-verification URL with the token. */
-function buildVerifyUrl(rawToken: string): string {
-  const base = publicAppUrl();
-  return `${base.replace(/\/$/, "")}/verify-email/${encodeURIComponent(rawToken)}`;
-}
-
-/** Generic fallback so a failed verification request stays uninformative. */
-const GENERIC_VERIFICATION_ERROR =
-  "Could not send a verification email. Please try again.";
-
-/**
- * Success payload for {@link requestEmailVerification}: distinguishes a freshly
- * sent link from a short-circuit when the address was already verified.
- */
-export type VerifyEmailResult = ActionResult<{
-  status: "sent" | "already_verified";
-}>;
 
 /**
  * Sends an email-verification link to the current user's own address (#162).
@@ -248,42 +130,5 @@ export async function requestEmailVerification(
   _formData: FormData,
 ): Promise<VerifyEmailResult> {
   const user = await requireUser();
-
-  try {
-    const dbUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { email: true, emailVerified: true },
-    });
-    if (!dbUser) {
-      return actionError(GENERIC_VERIFICATION_ERROR);
-    }
-    if (dbUser.emailVerified) {
-      return actionOk({ status: "already_verified" });
-    }
-
-    const rawToken = generateVerificationToken();
-    const tokenHash = hashVerificationToken(rawToken);
-    const expiresAt = new Date(Date.now() + VERIFICATION_TOKEN_TTL_MS);
-
-    await prisma.$transaction([
-      prisma.emailVerificationToken.updateMany({
-        where: { userId: user.id, usedAt: null },
-        data: { usedAt: new Date() },
-      }),
-      prisma.emailVerificationToken.create({
-        data: { userId: user.id, tokenHash, expiresAt },
-      }),
-    ]);
-
-    const message: VerificationEmail = {
-      to: dbUser.email,
-      verifyUrl: buildVerifyUrl(rawToken),
-    };
-    await deliverVerificationEmail(message);
-
-    return actionOk({ status: "sent" });
-  } catch (error) {
-    logError("email-verification", error);
-    return actionError(GENERIC_VERIFICATION_ERROR);
-  }
+  return requestEmailVerificationForUser(user.id);
 }

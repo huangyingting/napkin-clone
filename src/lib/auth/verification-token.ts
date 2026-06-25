@@ -1,7 +1,7 @@
 /**
  * Pure, framework-free helpers for the email-verification flow (#162).
  *
- * Everything here is I/O-free (only `node:crypto`, no Prisma, no Next.js, no
+ * Everything here is I/O-free (no Prisma, no Next.js, no
  * React) so it can be unit-tested under `node --test` + `tsx` and kept as the
  * single source of truth for:
  *
@@ -17,13 +17,16 @@
  * hash-only, single-use, time-boxed token shape.
  */
 
-import crypto from "node:crypto";
+import {
+  evaluateSingleUseToken,
+  generateSingleUseToken,
+  hashSingleUseToken,
+  type SingleUseTokenEvaluation,
+  type SingleUseTokenRejection,
+} from "@/lib/auth/single-use-token";
 
 /** How long a verification token stays valid after it is issued (24 hours). */
 export const VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
-
-/** Number of random bytes behind a raw verification token (256 bits). */
-const TOKEN_BYTES = 32;
 
 /**
  * Generates a cryptographically-random, URL-safe verification token. The raw
@@ -31,7 +34,7 @@ const TOKEN_BYTES = 32;
  * {@link hashVerificationToken} digest is persisted.
  */
 export function generateVerificationToken(): string {
-  return crypto.randomBytes(TOKEN_BYTES).toString("base64url");
+  return generateSingleUseToken();
 }
 
 /**
@@ -41,15 +44,13 @@ export function generateVerificationToken(): string {
  * be, and a deterministic digest lets us look the row up by `tokenHash`.
  */
 export function hashVerificationToken(rawToken: string): string {
-  return crypto.createHash("sha256").update(rawToken).digest("hex");
+  return hashSingleUseToken(rawToken);
 }
 
 /** Why a token can't be used, when {@link evaluateVerificationToken} rejects. */
-export type VerificationTokenRejection = "not_found" | "used" | "expired";
+export type VerificationTokenRejection = SingleUseTokenRejection;
 
-export type VerificationTokenEvaluation =
-  | { valid: true }
-  | { valid: false; reason: VerificationTokenRejection };
+export type VerificationTokenEvaluation = SingleUseTokenEvaluation;
 
 /**
  * Decides whether a verification token may be used *now*, given the facts about
@@ -66,21 +67,7 @@ export function evaluateVerificationToken(input: {
   usedAt: Date | null;
   now: Date;
 }): VerificationTokenEvaluation {
-  const { exists, expiresAt, usedAt, now } = input;
-
-  if (!exists || expiresAt === null) {
-    return { valid: false, reason: "not_found" };
-  }
-
-  if (usedAt !== null) {
-    return { valid: false, reason: "used" };
-  }
-
-  if (now.getTime() >= expiresAt.getTime()) {
-    return { valid: false, reason: "expired" };
-  }
-
-  return { valid: true };
+  return evaluateSingleUseToken(input);
 }
 
 /** User-facing copy for each rejection reason (safe to surface directly). */

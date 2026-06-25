@@ -3,10 +3,13 @@
 import Link from "next/link";
 import { useActionState } from "react";
 
-import { authenticate } from "./actions";
+import {
+  AuthField,
+  AuthMessage,
+  AuthSubmitButton,
+} from "@/components/auth/auth-form";
 
-const fieldClass =
-  "h-11 rounded-ds-md border border-ds-border-strong bg-ds-surface-base px-3 text-sm text-ds-text-primary outline-none transition placeholder:text-ds-text-muted focus:border-ds-accent focus:ring-2 focus:ring-ds-accent/30";
+import { authenticate } from "./actions";
 
 export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
   const [errorMessage, formAction, isPending] = useActionState(
@@ -17,63 +20,41 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
   return (
     <form action={formAction} className="flex w-full flex-col gap-4">
       <input type="hidden" name="callbackUrl" value={callbackUrl} />
-      <div className="flex flex-col gap-1.5">
-        <label
-          htmlFor="email"
-          className="text-sm font-medium text-ds-text-primary"
-        >
-          Email
-        </label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="email"
-          required
-          className={fieldClass}
-          placeholder="you@example.com"
-        />
-      </div>
+      <AuthField
+        id="email"
+        name="email"
+        label="Email"
+        type="email"
+        autoComplete="email"
+        required
+        placeholder="you@example.com"
+      />
 
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-center justify-between">
-          <label
-            htmlFor="password"
-            className="text-sm font-medium text-ds-text-primary"
-          >
-            Password
-          </label>
+      <AuthField
+        id="password"
+        name="password"
+        label="Password"
+        type="password"
+        autoComplete="current-password"
+        required
+        placeholder="••••••••"
+        labelAccessory={
           <Link
             href="/forgot-password"
             className="text-sm font-medium text-ds-accent underline-offset-4 hover:underline"
           >
             Forgot password?
           </Link>
-        </div>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          className={fieldClass}
-          placeholder="••••••••"
-        />
-      </div>
+        }
+      />
 
       {errorMessage ? (
-        <p role="alert" className="text-sm text-ds-danger">
-          {errorMessage}
-        </p>
+        <AuthMessage kind="error">{errorMessage}</AuthMessage>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={isPending}
-        className="flex h-11 items-center justify-center rounded-ds-pill bg-ds-accent px-6 text-sm font-medium text-ds-text-on-accent transition hover:bg-ds-accent-hover disabled:opacity-60"
-      >
-        {isPending ? "Signing in…" : "Log in"}
-      </button>
+      <AuthSubmitButton isPending={isPending} pendingLabel="Signing in…">
+        Log in
+      </AuthSubmitButton>
 
       <p className="text-center text-sm text-ds-text-secondary">
         Don&apos;t have an account?{" "}

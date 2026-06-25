@@ -1,7 +1,7 @@
 /**
  * Pure, framework-free helpers for the self-serve password reset flow (#140).
  *
- * Everything here is I/O-free (only `node:crypto`, no Prisma, no Next.js, no
+ * Everything here is I/O-free (no Prisma, no Next.js, no
  * React) so it can be unit-tested under `node --test` + `tsx` and kept as the
  * single source of truth for:
  *
@@ -14,13 +14,16 @@
  * The server action does the database reads/writes; this module decides.
  */
 
-import crypto from "node:crypto";
+import {
+  evaluateSingleUseToken,
+  generateSingleUseToken,
+  hashSingleUseToken,
+  type SingleUseTokenEvaluation,
+  type SingleUseTokenRejection,
+} from "@/lib/auth/single-use-token";
 
 /** How long a reset token stays valid after it is issued (1 hour). */
 export const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
-
-/** Number of random bytes behind a raw reset token (256 bits of entropy). */
-const TOKEN_BYTES = 32;
 
 /**
  * Generates a cryptographically-random, URL-safe reset token. The raw value is
@@ -28,7 +31,7 @@ const TOKEN_BYTES = 32;
  * is persisted.
  */
 export function generateResetToken(): string {
-  return crypto.randomBytes(TOKEN_BYTES).toString("base64url");
+  return generateSingleUseToken();
 }
 
 /**
@@ -38,15 +41,13 @@ export function generateResetToken(): string {
  * a deterministic digest lets us look the row up by `tokenHash`.
  */
 export function hashResetToken(rawToken: string): string {
-  return crypto.createHash("sha256").update(rawToken).digest("hex");
+  return hashSingleUseToken(rawToken);
 }
 
 /** Why a token can't be used, when {@link evaluateResetToken} rejects it. */
-export type ResetTokenRejection = "not_found" | "used" | "expired";
+export type ResetTokenRejection = SingleUseTokenRejection;
 
-export type ResetTokenEvaluation =
-  | { valid: true }
-  | { valid: false; reason: ResetTokenRejection };
+export type ResetTokenEvaluation = SingleUseTokenEvaluation;
 
 /**
  * Decides whether a reset token may be used *now*, given the facts about the
@@ -63,21 +64,7 @@ export function evaluateResetToken(input: {
   usedAt: Date | null;
   now: Date;
 }): ResetTokenEvaluation {
-  const { exists, expiresAt, usedAt, now } = input;
-
-  if (!exists || expiresAt === null) {
-    return { valid: false, reason: "not_found" };
-  }
-
-  if (usedAt !== null) {
-    return { valid: false, reason: "used" };
-  }
-
-  if (now.getTime() >= expiresAt.getTime()) {
-    return { valid: false, reason: "expired" };
-  }
-
-  return { valid: true };
+  return evaluateSingleUseToken(input);
 }
 
 /** User-facing copy for each rejection reason (safe to surface directly). */
