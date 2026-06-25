@@ -28,6 +28,8 @@ import {
 } from "@/lib/collab/room-access";
 import { getCurrentUser } from "@/lib/session";
 
+import { parseCollabAuthorizeRoom } from "./parser";
+
 export const runtime = "nodejs";
 
 export async function GET(request: Request): Promise<NextResponse> {
@@ -36,7 +38,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     return unauthorized();
   }
 
-  const room = new URL(request.url).searchParams.get("room")?.trim();
+  const room = parseCollabAuthorizeRoom(request.url);
   if (!room) {
     return forbidden("Missing room.");
   }

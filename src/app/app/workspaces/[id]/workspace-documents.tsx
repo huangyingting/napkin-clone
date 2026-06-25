@@ -22,8 +22,8 @@ import {
   createWorkspaceDocument,
   importWorkspaceDocument,
   getWorkspaceDocuments,
-  type WorkspaceDocument,
 } from "./actions";
+import type { WorkspaceDocument } from "@/lib/workspace/document-types";
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",

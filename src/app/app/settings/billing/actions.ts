@@ -12,12 +12,7 @@ import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 import { requireUser } from "@/lib/session";
 import { getBillingProvider } from "@/lib/billing/provider";
 import { isPlan, type Plan } from "@/lib/billing/catalog";
-
-/** Payload returned to the client when a plan change/cancel succeeds. */
-export interface BillingActionData {
-  message: string;
-  redirectUrl?: string;
-}
+import type { BillingActionData } from "@/lib/billing/action-types";
 
 /** Change the current user's plan (upgrade or downgrade). */
 export async function changePlanAction(

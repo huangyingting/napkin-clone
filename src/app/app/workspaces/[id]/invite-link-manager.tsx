@@ -4,7 +4,9 @@ import { useState } from "react";
 
 import { Button, FIELD_CONTROL, PANEL_CHROME, cx } from "@/components/ui";
 
-import { createInviteLink, revokeInviteLink, type InviteLink } from "./actions";
+import type { InviteLink } from "@/lib/workspace/service";
+
+import { createInviteLink, revokeInviteLink } from "./actions";
 
 const roleLabels = {
   OWNER: "Owner",

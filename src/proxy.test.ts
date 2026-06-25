@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  classifyPageRoute,
+  pageRouteAccessManifest,
+} from "@/lib/auth/page-route-access-manifest";
+import {
   isProxyRouteMatched,
   routeProtectionPolicy,
 } from "@/lib/auth/route-protection-policy";
@@ -38,5 +42,16 @@ test("proxy matcher includes public, auth, and protected page routes", () => {
   for (const path of ["/", "/login", "/signup", "/app", "/app/settings"]) {
     assert.equal(proxyMatcherAllows(path), true, path);
     assert.equal(isProxyRouteMatched(path), true, path);
+  }
+});
+
+test("proxy matcher remains synced with the page route access manifest", () => {
+  for (const entry of pageRouteAccessManifest) {
+    assert.equal(classifyPageRoute(entry.pattern)?.pattern, entry.pattern);
+    assert.equal(
+      isProxyRouteMatched(entry.pattern),
+      entry.proxy === "matched",
+      entry.pattern,
+    );
   }
 });

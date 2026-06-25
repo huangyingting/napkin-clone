@@ -49,6 +49,12 @@ import {
   retryAfterSeconds,
 } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/session";
+import {
+  isPlainObject,
+  legacyErrorResponse as errorResponse,
+  readJsonObject,
+  retryAfterHeader,
+} from "@/lib/api/route-adapters";
 
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
@@ -212,43 +218,7 @@ const defaultDeps: GenerationRouteDeps = {
   logRouteDenial,
 };
 
-export function errorResponse(
-  status: number,
-  message: string,
-  headers?: HeadersInit,
-): NextResponse {
-  return NextResponse.json({ error: message }, { status, headers });
-}
-
-export function isPlainObject(
-  value: unknown,
-): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-export async function readJsonObject(
-  request: GenerationRouteRequest,
-): Promise<
-  | { ok: true; body: Record<string, unknown> }
-  | { ok: false; response: NextResponse }
-> {
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return {
-      ok: false,
-      response: errorResponse(400, "Request body must be valid JSON."),
-    };
-  }
-  if (!isPlainObject(body)) {
-    return {
-      ok: false,
-      response: errorResponse(400, "Request body must be a JSON object."),
-    };
-  }
-  return { ok: true, body };
-}
+export { errorResponse, isPlainObject, readJsonObject };
 
 export function createAzureComplete(
   deps: Pick<
@@ -472,7 +442,7 @@ async function checkUserRateLimit<TPayload, TResult>(
   return errorResponse(
     429,
     "Rate limit exceeded. Please wait a moment and try again.",
-    { "Retry-After": String(retryAfter) },
+    retryAfterHeader(retryAfter),
   );
 }
 
@@ -542,7 +512,7 @@ async function checkAnonymousAccess<TPayload, TResult>(
       response: errorResponse(
         429,
         "Too many anonymous generations from your network. Please wait and try again, or sign in.",
-        { "Retry-After": String(retryAfter) },
+        retryAfterHeader(retryAfter),
       ),
     };
   }

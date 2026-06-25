@@ -31,6 +31,10 @@ import {
 } from "@/lib/slides/asset-access";
 import { logError } from "@/lib/log";
 import { getDefaultStorageAdapter } from "@/lib/slides/asset-storage";
+import {
+  plainTextResponse,
+  privateImmutableCacheHeaders,
+} from "@/lib/api/route-adapters";
 
 export async function GET(
   _request: NextRequest,
@@ -106,13 +110,10 @@ async function serveAsset(
     // BodyInit expects a Uint8Array here.
     return new NextResponse(new Uint8Array(data), {
       status: 200,
-      headers: {
-        "Content-Type": mimeType,
-        "Cache-Control": "private, max-age=31536000, immutable",
-      },
+      headers: privateImmutableCacheHeaders(mimeType),
     });
   } catch (err) {
     logError("slide-asset-serve", err, { storageKey });
-    return new NextResponse("Not found", { status: 404 });
+    return plainTextResponse("Not found", 404);
   }
 }

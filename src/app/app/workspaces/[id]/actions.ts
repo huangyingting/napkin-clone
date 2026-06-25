@@ -24,27 +24,11 @@ import {
   type InviteLink,
 } from "@/lib/workspace/service";
 import type { WorkspaceRole } from "@/lib/workspace/roles";
+import type { WorkspaceDocumentsResult } from "@/lib/workspace/document-types";
 import {
   DOCUMENT_CONTENT_MAX_LENGTH,
   DOCUMENT_TITLE_MAX_LENGTH,
 } from "@/lib/limits";
-
-export type {
-  CreateInviteLinkOptions,
-  InviteLink,
-} from "@/lib/workspace/service";
-
-export type WorkspaceDocument = {
-  id: string;
-  title: string;
-  updatedAt: Date;
-};
-
-/** Result of {@link getWorkspaceDocuments}: capped documents plus `hasMore`. */
-export type WorkspaceDocumentsResult = {
-  documents: WorkspaceDocument[];
-  hasMore: boolean;
-};
 
 export async function createInviteLink(
   workspaceId: string,
