@@ -28,10 +28,10 @@ import {
   type DocumentRoleInput,
 } from "@/lib/auth/document-permissions";
 import {
-  evaluateShareAccessDecision,
-  toShareAccessInput,
-  type ShareAccessFields,
-} from "@/lib/share-access";
+  resolvePublicAssetAccessForDocument,
+  type PublicAssetAccessDecision,
+} from "@/lib/public-render/resolver-core";
+import { type ShareAccessFields } from "@/lib/share-access";
 import {
   allowAccess,
   denyAccess,
@@ -74,6 +74,8 @@ export interface SlideAssetAccessInput {
   userId: string | null;
   /** Clock injection point for deterministic tests (default `new Date()`). */
   now?: Date;
+  /** Public share access resolved by the public render resolver. */
+  publicAssetAccess?: PublicAssetAccessDecision;
 }
 
 /**
@@ -104,23 +106,23 @@ export function decideSlideAssetAccess(
     }
   }
 
-  // Anonymous (or no-capability): allow only via a valid public share link.
-  const requestedShareId = doc.shareId ?? "";
-  const present = evaluateShareAccessDecision(
-    toShareAccessInput(doc, requestedShareId, "present", input.now),
-  );
-  if (present.allow) {
-    return { allow: true, via: "share-present" };
+  // Anonymous (or no-capability): allow only via a valid public render resolver
+  // asset decision (present first, then embed), preserving the route semantics.
+  const publicAccess =
+    input.publicAssetAccess ??
+    resolvePublicAssetAccessForDocument(doc, input.now);
+  if (publicAccess.allow) {
+    return { allow: true, via: publicAccess.via };
   }
 
-  const embed = evaluateShareAccessDecision(
-    toShareAccessInput(doc, requestedShareId, "embed", input.now),
-  );
-  if (embed.allow) {
-    return { allow: true, via: "share-embed" };
-  }
-
-  return { allow: false, status: 403, reason: "forbidden" };
+  return {
+    allow: false,
+    status: publicAccess.status,
+    reason:
+      publicAccess.reason === "document-not-found"
+        ? "document-not-found"
+        : "forbidden",
+  };
 }
 
 /** Maps slide-asset route decisions to the shared access-decision taxonomy. */

@@ -2,24 +2,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { PublicPresentViewer } from "@/components/presentation/public-present-viewer";
-import { assertAccessDecisionOrNotFound } from "@/lib/access-policy/adapters";
-import { excerpt } from "@/lib/document-stats";
-import { prisma } from "@/lib/prisma";
-import { buildShareSegment, shareIdFromParam } from "@/lib/slug";
-import {
-  evaluateShareAccessDecision,
-  SHARE_ACCESS_SELECT,
-  toShareAccessInput,
-} from "@/lib/share-access";
-import { safeParseDeck } from "@/lib/presentation/deck-schema";
-import { buildDeckFromBlocks } from "@/lib/presentation/deck";
-import { buildPresentationBlocks } from "@/lib/presentation/present-blocks";
-import { normalizePersistedDeckJson } from "@/lib/presentation/persisted-deck";
-import { reconcileDocumentDeckDependencies } from "@/lib/document/source-ref-model";
-import type { Visual } from "@/lib/visual/schema";
-import { shouldShowAttribution } from "@/lib/billing/attribution";
 import { app as appEnv } from "@/lib/env";
-const SITE_NAME = "TextIQ";
+import { buildPublicMetadata } from "@/lib/public-render/metadata";
+import { resolvePublicRender } from "@/lib/public-render/resolver";
 
 function siteBaseUrl(): string {
   return appEnv.url();
@@ -35,59 +20,18 @@ export async function generateMetadata({
   params: Promise<{ shareId: string }>;
 }): Promise<Metadata> {
   const { shareId } = await params;
-  const resolvedShareId = shareIdFromParam(shareId);
-
-  const document = await prisma.document.findFirst({
-    where: { shareId: resolvedShareId },
-    select: {
-      title: true,
-      content: true,
-      slug: true,
-      ...SHARE_ACCESS_SELECT,
-    },
+  const result = await resolvePublicRender({
+    params: { shareId },
+    mode: "present",
+    projection: "metadata",
   });
 
-  if (
-    !document ||
-    !evaluateShareAccessDecision(
-      toShareAccessInput(document, resolvedShareId, "present"),
-    ).allow
-  ) {
-    return {
-      title: `Presentation — ${SITE_NAME}`,
-      robots: { index: false, follow: false },
-    };
-  }
-
-  const base = siteBaseUrl();
-  const segment = buildShareSegment(document.slug, resolvedShareId);
-  const canonical = `${base}/present/${segment}`;
-  const shareCanonical = `${base}/share/${segment}`;
-  const description = excerpt(document.content);
-  const ogImage = `${base}/share/${segment}/opengraph-image`;
-  const pageTitle = `${document.title} — Presentation — ${SITE_NAME}`;
-
-  return {
-    title: pageTitle,
-    description,
-    alternates: { canonical },
-    openGraph: {
-      title: pageTitle,
-      description,
-      url: canonical,
-      siteName: SITE_NAME,
-      type: "article",
-      images: [{ url: ogImage, width: 1200, height: 630, alt: document.title }],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: pageTitle,
-      description,
-      images: [ogImage],
-    },
-    // Point bots at the share page as the canonical document URL.
-    other: { "og:see_also": shareCanonical },
-  };
+  return buildPublicMetadata({
+    document:
+      result.ok && result.projection === "metadata" ? result.metadata : null,
+    surface: "present",
+    baseUrl: siteBaseUrl(),
+  });
 }
 
 export default async function PresentPage({
@@ -96,59 +40,24 @@ export default async function PresentPage({
   params: Promise<{ shareId: string }>;
 }) {
   const { shareId } = await params;
-  const resolvedShareId = shareIdFromParam(shareId);
 
-  const document = await prisma.document.findFirst({
-    where: { shareId: resolvedShareId },
-    select: {
-      title: true,
-      content: true,
-      contentJson: true,
-      deckJson: true,
-      ...SHARE_ACCESS_SELECT,
-      owner: {
-        select: { plan: true },
-      },
-    },
+  const result = await resolvePublicRender({
+    params: { shareId },
+    mode: "present",
+    projection: "presentation",
   });
 
-  if (!document) {
+  if (!result.ok || result.projection !== "presentation") {
     notFound();
   }
-  assertAccessDecisionOrNotFound(
-    evaluateShareAccessDecision(
-      toShareAccessInput(document, resolvedShareId, "present"),
-    ),
-    notFound,
-  );
-
-  const blocks = buildPresentationBlocks(document.contentJson);
-
-  // Build visual lookup map: visualId → Visual
-  const visualsRecord: Record<string, Visual> = {};
-  for (const block of blocks) {
-    if (block.kind === "visual") {
-      visualsRecord[block.visualId] = block.visual;
-    }
-  }
-
-  // Prefer the persisted (edited) deck; fall back to the auto-generated one.
-  // Strip orphaned visual references so the audience never sees a silently
-  // blank slide for a visual that no longer exists in the current content.
-  const normalized = normalizePersistedDeckJson(document.deckJson);
-  const parsed = normalized ? safeParseDeck(normalized) : null;
-  const { deck } = reconcileDocumentDeckDependencies({
-    deck: parsed && parsed.success ? parsed.data : buildDeckFromBlocks(blocks),
-    visualsById: new Set(Object.keys(visualsRecord)),
-  });
-  const showAttribution = shouldShowAttribution(document.owner.plan);
+  const { presentation } = result;
 
   return (
     <PublicPresentViewer
-      deck={deck}
-      visuals={visualsRecord}
-      title={document.title}
-      showAttribution={showAttribution}
+      deck={presentation.deck}
+      visuals={presentation.visuals}
+      title={presentation.title}
+      showAttribution={presentation.attribution.showAttribution}
     />
   );
 }

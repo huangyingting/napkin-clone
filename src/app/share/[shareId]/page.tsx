@@ -5,19 +5,9 @@ import { LexicalReadOnly } from "@/components/lexical/lexical-read-only";
 
 import { ShareLightbox } from "./share-lightbox";
 import { MadeWithBadge } from "@/components/made-with-badge";
-import { excerpt } from "@/lib/document-stats";
-import { shouldShowAttribution } from "@/lib/billing/attribution";
-import { assertAccessDecisionOrNotFound } from "@/lib/access-policy/adapters";
-import { prisma } from "@/lib/prisma";
-import { buildShareSegment, shareIdFromParam } from "@/lib/slug";
-import {
-  evaluateShareAccessDecision,
-  SHARE_ACCESS_SELECT,
-  toShareAccessInput,
-} from "@/lib/share-access";
 import { app as appEnv } from "@/lib/env";
-
-const SITE_NAME = "TextIQ";
+import { buildPublicMetadata } from "@/lib/public-render/metadata";
+import { resolvePublicRender } from "@/lib/public-render/resolver";
 
 /** Absolute base URL for canonical/OG links. */
 function siteBaseUrl(): string {
@@ -36,58 +26,18 @@ export async function generateMetadata({
   params: Promise<{ shareId: string }>;
 }): Promise<Metadata> {
   const { shareId } = await params;
-  const resolvedShareId = shareIdFromParam(shareId);
-
-  const document = await prisma.document.findFirst({
-    where: { shareId: resolvedShareId },
-    select: {
-      title: true,
-      content: true,
-      slug: true,
-      ...SHARE_ACCESS_SELECT,
-    },
+  const result = await resolvePublicRender({
+    params: { shareId },
+    mode: "view",
+    projection: "metadata",
   });
 
-  // Unknown, non-shared, expired, regenerated, or deleted link: safe defaults,
-  // no indexing, no leak (issue #101 AC #4).
-  if (
-    !document ||
-    !evaluateShareAccessDecision(
-      toShareAccessInput(document, resolvedShareId, "view"),
-    ).allow
-  ) {
-    return {
-      title: `Shared Document — ${SITE_NAME}`,
-      robots: { index: false, follow: false },
-    };
-  }
-
-  const base = siteBaseUrl();
-  const segment = buildShareSegment(document.slug, resolvedShareId);
-  const canonical = `${base}/share/${segment}`;
-  const description = excerpt(document.content);
-  const ogImage = `${base}/share/${segment}/opengraph-image`;
-  const pageTitle = `${document.title} — ${SITE_NAME}`;
-
-  return {
-    title: pageTitle,
-    description,
-    alternates: { canonical },
-    openGraph: {
-      title: pageTitle,
-      description,
-      url: canonical,
-      siteName: SITE_NAME,
-      type: "article",
-      images: [{ url: ogImage, width: 1200, height: 630, alt: document.title }],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: pageTitle,
-      description,
-      images: [ogImage],
-    },
-  };
+  return buildPublicMetadata({
+    document:
+      result.ok && result.projection === "metadata" ? result.metadata : null,
+    surface: "share",
+    baseUrl: siteBaseUrl(),
+  });
 }
 
 export default async function SharedDocumentPage({
@@ -97,44 +47,16 @@ export default async function SharedDocumentPage({
 }) {
   const { shareId } = await params;
 
-  const resolvedShareId = shareIdFromParam(shareId);
-
-  // Find the document by shareId and apply the share-access policy (shared,
-  // not expired/regenerated/deleted) via the centralized pure decision.
-  const document = await prisma.document.findFirst({
-    where: { shareId: resolvedShareId },
-    select: {
-      id: true,
-      title: true,
-      content: true,
-      contentJson: true,
-      ...SHARE_ACCESS_SELECT,
-      owner: {
-        select: {
-          name: true,
-          email: true,
-          plan: true,
-        },
-      },
-    },
+  const result = await resolvePublicRender({
+    params: { shareId },
+    mode: "view",
+    projection: "document",
   });
 
-  if (!document) {
+  if (!result.ok || result.projection !== "document") {
     notFound();
   }
-  assertAccessDecisionOrNotFound(
-    evaluateShareAccessDecision(
-      toShareAccessInput(document, resolvedShareId, "view"),
-    ),
-    notFound,
-  );
-
-  const ownerName = document.owner.name || document.owner.email.split("@")[0];
-  const showAttribution = shouldShowAttribution(document.owner.plan);
-
-  if (document.contentJson == null) {
-    notFound();
-  }
+  const { document } = result;
 
   return (
     <main className="min-h-screen bg-ds-surface-sunken">
@@ -146,7 +68,7 @@ export default async function SharedDocumentPage({
               Read-only
             </span>
             <span className="text-xs text-ds-text-muted">
-              Shared by {ownerName}
+              Shared by {document.ownerName}
             </span>
           </div>
           <h1 className="text-2xl font-semibold tracking-tight text-ds-text-primary">
@@ -163,7 +85,7 @@ export default async function SharedDocumentPage({
           </article>
         </ShareLightbox>
       </div>
-      <MadeWithBadge show={showAttribution} />
+      <MadeWithBadge show={document.showAttribution} />
     </main>
   );
 }

@@ -2,21 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { PublicPresentViewer } from "@/components/presentation/public-present-viewer";
-import { assertAccessDecisionOrNotFound } from "@/lib/access-policy/adapters";
-import { prisma } from "@/lib/prisma";
-import { shareIdFromParam } from "@/lib/slug";
-import {
-  evaluateShareAccessDecision,
-  SHARE_ACCESS_SELECT,
-  toShareAccessInput,
-} from "@/lib/share-access";
-import { safeParseDeck } from "@/lib/presentation/deck-schema";
-import { buildDeckFromBlocks } from "@/lib/presentation/deck";
-import { buildPresentationBlocks } from "@/lib/presentation/present-blocks";
-import { normalizePersistedDeckJson } from "@/lib/presentation/persisted-deck";
-import { reconcileDocumentDeckDependencies } from "@/lib/document/source-ref-model";
-import type { Visual } from "@/lib/visual/schema";
-import { shouldShowAttribution } from "@/lib/billing/attribution";
+import { resolvePublicRender } from "@/lib/public-render/resolver";
 
 export const metadata: Metadata = {
   title: "Presentation — TextIQ",
@@ -38,55 +24,25 @@ export default async function PresentEmbedPage({
   params: Promise<{ shareId: string }>;
 }) {
   const { shareId } = await params;
-  const resolvedShareId = shareIdFromParam(shareId);
 
-  const document = await prisma.document.findFirst({
-    where: { shareId: resolvedShareId },
-    select: {
-      title: true,
-      contentJson: true,
-      deckJson: true,
-      ...SHARE_ACCESS_SELECT,
-      owner: {
-        select: { plan: true },
-      },
-    },
+  const result = await resolvePublicRender({
+    params: { shareId },
+    mode: "present",
+    projection: "presentation",
   });
 
-  if (!document) {
+  if (!result.ok || result.projection !== "presentation") {
     notFound();
   }
-  assertAccessDecisionOrNotFound(
-    evaluateShareAccessDecision(
-      toShareAccessInput(document, resolvedShareId, "present"),
-    ),
-    notFound,
-  );
-
-  const blocks = buildPresentationBlocks(document.contentJson);
-
-  const visualsRecord: Record<string, Visual> = {};
-  for (const block of blocks) {
-    if (block.kind === "visual") {
-      visualsRecord[block.visualId] = block.visual;
-    }
-  }
-
-  const normalized = normalizePersistedDeckJson(document.deckJson);
-  const parsed = normalized ? safeParseDeck(normalized) : null;
-  const { deck } = reconcileDocumentDeckDependencies({
-    deck: parsed && parsed.success ? parsed.data : buildDeckFromBlocks(blocks),
-    visualsById: new Set(Object.keys(visualsRecord)),
-  });
-  const showAttribution = shouldShowAttribution(document.owner.plan);
+  const { presentation } = result;
 
   return (
     <PublicPresentViewer
-      deck={deck}
-      visuals={visualsRecord}
-      title={document.title}
+      deck={presentation.deck}
+      visuals={presentation.visuals}
+      title={presentation.title}
       embed
-      showAttribution={showAttribution}
+      showAttribution={presentation.attribution.showAttribution}
     />
   );
 }
