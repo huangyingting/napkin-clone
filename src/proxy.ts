@@ -1,7 +1,6 @@
 import NextAuth from "next-auth";
 
 import { authConfig } from "@/auth.config";
-import { routeProtectionPolicy } from "@/lib/auth/route-protection-policy";
 
 // Next.js 16 "proxy" convention (formerly "middleware"): runs on every matched
 // request and performs the optimistic auth check defined by
@@ -12,6 +11,9 @@ const { auth } = NextAuth(authConfig);
 
 export const proxy = auth;
 
+// Next.js requires `config.matcher` to be a statically analyzable literal at
+// build time, so it is kept inline here and mirrors
+// `routeProtectionPolicy.proxy.matcher` (kept in sync manually).
 export const config = {
-  matcher: routeProtectionPolicy.proxy.matcher,
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };
