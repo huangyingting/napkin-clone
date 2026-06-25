@@ -10,7 +10,8 @@ import {
 } from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { VISUAL_DISPLAY_STYLES } from "@/lib/visual/display-styles";
-import { createBlankVisual, FIXTURES } from "@/lib/visual/fixtures";
+import { createBlankVisual } from "@/lib/visual/blank";
+import { FIXTURES } from "@/lib/visual/fixtures";
 
 import {
   applyTheme,

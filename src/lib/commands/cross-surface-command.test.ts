@@ -34,7 +34,7 @@ import {
   type DeckPatch,
   type SlideCommand,
 } from "@/lib/presentation/slide-commands";
-import { createBlankVisual } from "@/lib/visual/fixtures";
+import { createBlankVisual } from "@/lib/visual/blank";
 import type { Visual } from "@/lib/visual/schema";
 
 const ACTOR = { id: "user-1", sessionId: "session-1" };

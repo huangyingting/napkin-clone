@@ -13,7 +13,7 @@ import {
   applyVisualCommand,
   buildVisualCommand,
 } from "./visual-command-adapter";
-import { createBlankVisual } from "@/lib/visual/fixtures";
+import { createBlankVisual } from "@/lib/visual/blank";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import {
   applyTheme,

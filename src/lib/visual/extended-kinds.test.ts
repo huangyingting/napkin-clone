@@ -15,7 +15,7 @@ import {
   VISUAL_KIND_TO_PRISMA,
   PRISMA_TO_VISUAL_KIND,
 } from "@/lib/visual/schema";
-import { createBlankVisual } from "@/lib/visual/fixtures";
+import { createBlankVisual } from "@/lib/visual/blank";
 
 // ---------------------------------------------------------------------------
 // Helpers

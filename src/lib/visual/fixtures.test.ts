@@ -8,7 +8,20 @@ import {
   type VisualKind,
 } from "@/lib/visual/schema";
 
-import { createBlankVisual } from "./fixtures";
+import { createBlankVisual } from "./blank";
+import { FIXTURE_LIST, FIXTURES } from "./fixtures";
+
+test("sample fixtures cover every kind in canonical order", () => {
+  assert.deepEqual(
+    FIXTURE_LIST.map((visual) => visual.type),
+    [...VISUAL_KINDS],
+  );
+
+  for (const kind of VISUAL_KINDS) {
+    assert.equal(FIXTURES[kind].type, kind);
+    assert.doesNotThrow(() => validateVisual(FIXTURES[kind]));
+  }
+});
 
 test("createBlankVisual returns a schema-valid Visual for every kind", () => {
   for (const kind of VISUAL_KINDS) {
