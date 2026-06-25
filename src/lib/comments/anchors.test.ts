@@ -10,12 +10,22 @@ import {
   validateAnchorGeometry,
 } from "./anchors";
 import type { SlideCommentAnchor } from "@/lib/presentation/slide-comment-anchors";
+import {
+  buildCommentAnchor,
+  buildCommentAnchorRecord,
+  buildSlideCommentAnchor,
+} from "@/test/builders/comments";
 
 test("slideAnchorFromRecord maps slide DB columns to slide anchors", () => {
   const result = slideAnchorFromRecord({
-    slideId: "sl-1",
-    elementId: "el-a",
-    anchorGeometry: { x: 25, y: 75 },
+    ...buildCommentAnchorRecord(),
+    ...slideAnchorToRecord(
+      buildSlideCommentAnchor({
+        slideId: "sl-1",
+        elementId: "el-a",
+        geometry: { x: 25, y: 75 },
+      }),
+    ),
   });
   assert.deepEqual(result, {
     slideId: "sl-1",
@@ -34,11 +44,11 @@ test("slideAnchorFromRecord silently drops malformed geometry", () => {
 });
 
 test("slideAnchorToRecord round-trips through slideAnchorFromRecord", () => {
-  const original: SlideCommentAnchor = {
+  const original: SlideCommentAnchor = buildSlideCommentAnchor({
     slideId: "sl-1",
     elementId: "el-a",
     geometry: { x: 33, y: 66 },
-  };
+  });
   assert.deepEqual(
     slideAnchorFromRecord(slideAnchorToRecord(original)),
     original,
@@ -58,10 +68,11 @@ test("commentAnchorFromRecord maps deck, text, visual, slide, and element varian
       anchorNodeId: "visual-1",
     }),
     {
-      kind: "document-block",
-      blockKind: "visual",
-      text: "Chart",
-      nodeId: "visual-1",
+      ...buildCommentAnchor({
+        kind: "document-block",
+        text: "Chart",
+        nodeId: "visual-1",
+      }),
     },
   );
   assert.deepEqual(
@@ -106,10 +117,12 @@ test("commentAnchorToRecord maps canonical variants to DB columns", () => {
   );
   assert.deepEqual(
     commentAnchorToRecord({
-      kind: "slide-element",
-      slideId: "sl-1",
-      elementId: "el-1",
-      geometry: { x: 5, y: 6 },
+      ...buildCommentAnchor({
+        kind: "slide-element",
+        slideId: "sl-1",
+        elementId: "el-1",
+        geometry: { x: 5, y: 6 },
+      }),
     }),
     {
       anchorType: null,

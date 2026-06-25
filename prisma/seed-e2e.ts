@@ -1,25 +1,26 @@
 import "dotenv/config";
 
-import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 
 import bcrypt from "bcryptjs";
 
 import { Prisma } from "../src/generated/prisma/client";
-import { buildSeedContentJson } from "../src/lib/lexical/seed-content";
-import {
-  CURRENT_DECK_SCHEMA_VERSION,
-  type Deck,
-} from "../src/lib/presentation/deck";
 import { safeParseDeck } from "../src/lib/presentation/deck-schema";
 import { deriveStorageKey } from "../src/lib/slides/asset-storage";
-import { FIXTURES } from "../src/lib/visual/fixtures";
 import {
   VISUAL_KIND_TO_PRISMA,
   safeParseVisual,
 } from "../src/lib/visual/schema";
-import { E2E_PROFILE_FIXTURE, fixturePngBuffer } from "../e2e/helpers/profile";
+import {
+  E2E_PROFILE_FIXTURE,
+  buildE2EProfileContentJson,
+  buildE2EProfileDeck,
+  buildE2EProfileFixtureDescriptor,
+  buildE2EProfileVisual,
+  fixtureAssetChecksum,
+  fixturePngBuffer,
+} from "../src/test/builders/e2e-profile";
 import { createScriptPrismaClient } from "./script-prisma-client";
 
 /**
@@ -45,70 +46,6 @@ import { createScriptPrismaClient } from "./script-prisma-client";
 const prisma = createScriptPrismaClient();
 
 const F = E2E_PROFILE_FIXTURE;
-
-/**
- * Builds the deterministic deck: a single slide with a title element, a bullets
- * element, and an ImageElement that references the seeded protected asset.
- */
-function buildFixtureDeck(assetUrl: string, assetId: string): Deck {
-  const raw = {
-    theme: "default",
-    slideFormat: "16:9",
-    schemaVersion: CURRENT_DECK_SCHEMA_VERSION,
-    slides: [
-      {
-        id: "e2e-fixture-slide-1",
-        index: 0,
-        title: F.slideTitleText,
-        bullets: [],
-        visualIds: [],
-        layout: "content",
-        notes: "",
-        theme: "default",
-        background: "#ffffff",
-        elements: [
-          {
-            id: "fixture-title",
-            kind: "text",
-            role: "title",
-            text: F.slideTitleText,
-            box: { x: 6, y: 6, w: 88, h: 14 },
-            zIndex: 0,
-            style: { fontSize: 6, bold: true, italic: false, align: "left" },
-          },
-          {
-            id: "fixture-bullets",
-            kind: "bullets",
-            bullets: [F.slideBodyText, "Second deterministic point"],
-            items: [
-              { text: F.slideBodyText },
-              { text: "Second deterministic point" },
-            ],
-            box: { x: 8, y: 26, w: 56, h: 50 },
-            zIndex: 1,
-            style: { fontSize: 4, bold: false, italic: false, align: "left" },
-          },
-          {
-            id: "fixture-image",
-            kind: "image",
-            src: assetUrl,
-            assetId,
-            alt: "Seeded fixture image",
-            fitMode: "contain",
-            box: { x: 68, y: 26, w: 26, h: 26 },
-            zIndex: 2,
-          },
-        ],
-      },
-    ],
-  };
-
-  const parsed = safeParseDeck(raw);
-  if (!parsed.success) {
-    throw new Error(`Fixture deck failed validation: ${parsed.error}`);
-  }
-  return parsed.data;
-}
 
 async function writeAssetBytes(
   storageKey: string,
@@ -179,18 +116,18 @@ async function main() {
   // -------------------------------------------------------------------------
   // 3. Visual — embedded into the document's contentJson as a VisualNode.
   // -------------------------------------------------------------------------
-  const sampleVisual = FIXTURES.flowchart;
-  const parsedVisual = safeParseVisual(sampleVisual);
+  const visual = buildE2EProfileVisual();
+  const parsedVisual = safeParseVisual(visual);
   if (!parsedVisual.success) {
     throw new Error(`Fixture visual failed validation: ${parsedVisual.error}`);
   }
-  const visualData = sampleVisual as unknown as Prisma.InputJsonValue;
+  const visualData = parsedVisual.data as unknown as Prisma.InputJsonValue;
 
   // -------------------------------------------------------------------------
   // 4. Slide asset — write bytes + create/refresh the Asset row.
   // -------------------------------------------------------------------------
   const pngBytes = fixturePngBuffer();
-  const checksum = createHash("sha256").update(pngBytes).digest("hex");
+  const checksum = fixtureAssetChecksum(pngBytes);
   const storageKey = deriveStorageKey(F.documentId, checksum, "image/png");
   await writeAssetBytes(storageKey, pngBytes);
   const assetUrl = `/api/slide-assets/${storageKey}`;
@@ -200,10 +137,8 @@ async function main() {
   //    Done in two steps so the embedded visual id is stable and the Asset can
   //    be linked to the document.
   // -------------------------------------------------------------------------
-  const contentJson = buildSeedContentJson(
-    F.documentBodyText,
+  const contentJson = buildE2EProfileContentJson(
     parsedVisual.data,
-    F.visualId,
   ) as unknown as Prisma.InputJsonValue;
 
   await prisma.document.upsert({
@@ -280,7 +215,12 @@ async function main() {
 
   // Persist the deck once the asset id is known so the ImageElement carries a
   // real `assetId`. Validated through safeParseDeck so a broken deck fails loud.
-  const deck = buildFixtureDeck(assetUrl, asset.id);
+  const rawDeck = buildE2EProfileDeck(assetUrl, asset.id);
+  const parsedDeck = safeParseDeck(rawDeck);
+  if (!parsedDeck.success) {
+    throw new Error(`Fixture deck failed validation: ${parsedDeck.error}`);
+  }
+  const deck = parsedDeck.data;
   await prisma.document.update({
     where: { id: F.documentId },
     data: { deckJson: deck as unknown as Prisma.InputJsonValue },
@@ -343,22 +283,12 @@ async function main() {
   // -------------------------------------------------------------------------
   // 6. Emit the fixture descriptor for transparency / debugging.
   // -------------------------------------------------------------------------
-  const fixtureOut = {
-    owner: { email: F.owner.email, password: F.owner.password },
-    viewer: { email: F.viewer.email, password: F.viewer.password },
-    documentId: F.documentId,
-    documentPath: `/app/documents/${F.documentId}`,
-    shareId: F.shareId,
-    slug: F.slug,
-    presentPath: `/present/${F.slug}-${F.shareId}`,
-    embedPath: `/embed/${F.slug}-${F.shareId}`,
+  const fixtureOut = buildE2EProfileFixtureDescriptor({
     assetId: asset.id,
     assetPath: assetUrl,
-    privateDocumentId: F.privateDocumentId,
     privateAssetPath: `/api/slide-assets/${privateStorageKey}`,
-    slideTitleText: F.slideTitleText,
     seededAt: now.toISOString(),
-  };
+  });
   await fs.writeFile(
     path.join(process.cwd(), "e2e", ".e2e-fixture.json"),
     `${JSON.stringify(fixtureOut, null, 2)}\n`,

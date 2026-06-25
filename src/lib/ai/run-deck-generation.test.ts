@@ -5,6 +5,20 @@ import { EmptyInputError, GenerationError } from "@/lib/ai/generate";
 import { runDeckGeneration } from "@/lib/ai/run-deck-generation";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import type { Visual } from "@/lib/visual/schema";
+import {
+  buildContentJson as state,
+  buildHeadingNode as heading,
+  buildListNode as list,
+  buildParagraphNode,
+  buildTextNode,
+  buildVisualLexicalNode as visualNode,
+  type SerializedFixtureRootChild,
+} from "@/test/builders/lexical";
+import {
+  buildVisual,
+  buildVisualMap,
+  buildVisualNode,
+} from "@/test/builders/visual";
 
 // ---------------------------------------------------------------------------
 // Fixtures — mirror the Lexical serialised JSON the editor emits (matching
@@ -12,41 +26,14 @@ import type { Visual } from "@/lib/visual/schema";
 // ---------------------------------------------------------------------------
 
 function visual(id: string, overrides: Partial<Visual> = {}): Visual {
-  return {
-    version: 1,
-    type: "flowchart",
+  return buildVisual({
     nodes: [
-      { id: `${id}-n1`, label: "Start" },
-      { id: `${id}-n2`, label: "Finish" },
+      buildVisualNode({ id: `${id}-n1`, label: "Start" }),
+      buildVisualNode({ id: `${id}-n2`, label: "Finish", x: 360 }),
     ],
     edges: [],
-    style: {},
     ...overrides,
-  } as unknown as Visual;
-}
-
-function text(value: string) {
-  return { type: "text", text: value, format: 0 };
-}
-
-function heading(level: 1 | 2, value: string) {
-  return { type: "heading", tag: `h${level}`, children: [text(value)] };
-}
-
-function listItem(value: string) {
-  return { type: "listitem", children: [text(value)] };
-}
-
-function list(items: string[]) {
-  return { type: "list", tag: "ul", children: items.map(listItem) };
-}
-
-function visualNode(visualId: string, v: Visual = visual(visualId)) {
-  return { type: "visual", visualId, visual: v };
-}
-
-function state(children: unknown[]): string {
-  return JSON.stringify({ root: { type: "root", children } });
+  });
 }
 
 const DOC_WITH_VISUAL = state([
@@ -94,7 +81,7 @@ test("success: returns a safeParseDeck-valid deck from fixture JSON", async () =
 
   const { deck } = await runDeckGeneration({
     contentJson: DOC_WITH_VISUAL,
-    visuals: new Map([["v1", visual("v1")]]),
+    visuals: buildVisualMap(["v1", visual("v1")]),
     complete,
   });
 
@@ -109,7 +96,7 @@ test("malformed JSON: throws GenerationError after retries", async () => {
   await assert.rejects(
     runDeckGeneration({
       contentJson: DOC_WITH_VISUAL,
-      visuals: new Map([["v1", visual("v1")]]),
+      visuals: buildVisualMap(["v1", visual("v1")]),
       complete,
       maxAttempts: 1,
     }),
@@ -127,7 +114,7 @@ test("empty contentJson: throws an empty-input error before calling complete", a
   await assert.rejects(
     runDeckGeneration({
       contentJson: state([]),
-      visuals: new Map(),
+      visuals: buildVisualMap(),
       complete,
     }),
     EmptyInputError,
@@ -162,7 +149,7 @@ test("no visuals: the generated deck contains no visual elements", async () => {
 
   const { deck } = await runDeckGeneration({
     contentJson: DOC_NO_VISUAL,
-    visuals: new Map(),
+    visuals: buildVisualMap(),
     complete,
   });
 
@@ -183,7 +170,7 @@ test("threads preferredTheme through to upgrade a model 'default' (#281)", async
 
   const { deck } = await runDeckGeneration({
     contentJson: DOC_NO_VISUAL,
-    visuals: new Map(),
+    visuals: buildVisualMap(),
     complete,
     preferredTheme: "ocean",
   });
@@ -202,7 +189,7 @@ test("preferredTheme does not override an explicit vibrant model theme (#281)", 
 
   const { deck } = await runDeckGeneration({
     contentJson: DOC_NO_VISUAL,
-    visuals: new Map(),
+    visuals: buildVisualMap(),
     complete,
     preferredTheme: "ocean",
   });
@@ -215,7 +202,7 @@ test("threads truncated=false through for a small document", async () => {
 
   const result = await runDeckGeneration({
     contentJson: DOC_NO_VISUAL,
-    visuals: new Map(),
+    visuals: buildVisualMap(),
     complete,
   });
 
@@ -226,18 +213,17 @@ test("threads truncated=false through for a small document", async () => {
 test("threads truncated=true through for a huge document", async () => {
   // A document large enough to blow past MAX_INPUT_CHARS, so buildDeckSource
   // trims detail and the run reports truncation.
-  const children: unknown[] = [heading(1, "Top")];
+  const children: SerializedFixtureRootChild[] = [heading(1, "Top")];
   for (let i = 0; i < 2000; i++) {
-    children.push({
-      type: "paragraph",
-      children: [text(`para ${i} ` + "x".repeat(200))],
-    });
+    children.push(
+      buildParagraphNode([buildTextNode(`para ${i} ` + "x".repeat(200))]),
+    );
   }
   const complete = constantComplete(deckJson([{ title: "X" }]));
 
   const result = await runDeckGeneration({
     contentJson: state(children),
-    visuals: new Map(),
+    visuals: buildVisualMap(),
     complete,
   });
 
