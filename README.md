@@ -29,22 +29,24 @@ real secret outside quick local testing.
 
 ## Scripts
 
-| Script                 | Description                                                                |
-| ---------------------- | -------------------------------------------------------------------------- |
-| `npm run dev`          | Start the Next app through `server.mjs` with inline collaboration enabled. |
-| `npm run build`        | Create a production build.                                                 |
-| `npm run start`        | Run the production server.                                                 |
-| `npm run collab`       | Run the standalone Yjs collaboration server.                               |
-| `npm test`             | Run unit/pure tests under `src/**/*.test.ts` and `scripts/**/*.test.mjs`.  |
-| `npm run test:e2e`     | Run Playwright E2E tests.                                                  |
-| `npm run typecheck`    | Type-check with `tsc --noEmit`.                                            |
-| `npm run lint`         | Run ESLint.                                                                |
-| `npm run format`       | Format the repository with Prettier.                                       |
-| `npm run format:check` | Check Prettier formatting.                                                 |
-| `npm run db:generate`  | Generate the Prisma client.                                                |
-| `npm run db:push`      | Apply the selected Prisma schema directly with `prisma db push`.           |
-| `npm run db:seed`      | Seed demo data.                                                            |
-| `npm run db:reset`     | Regenerate Prisma, force-reset via `db push`, and seed.                    |
+| Script                     | Description                                                                  |
+| -------------------------- | ---------------------------------------------------------------------------- |
+| `npm run dev`              | Start the Next app through `server.mjs` with inline collaboration enabled.   |
+| `npm run build`            | Create a production build.                                                   |
+| `npm run start`            | Run the production server.                                                   |
+| `npm run collab`           | Run the standalone Yjs collaboration server.                                 |
+| `npm test`                 | Run unit/pure tests under `src/**/*.test.ts` and `scripts/**/*.test.mjs`.    |
+| `npm run test:e2e`         | Run Playwright E2E tests.                                                    |
+| `npm run typecheck`        | Type-check with `tsc --noEmit`.                                              |
+| `npm run lint`             | Run ESLint.                                                                  |
+| `npm run format`           | Format the repository with Prettier.                                         |
+| `npm run format:check`     | Check Prettier formatting.                                                   |
+| `npm run db:generate`      | Regenerate the SQLite schema when selected, then generate the Prisma client. |
+| `npm run db:schema:sqlite` | Regenerate `prisma/schema.sqlite.prisma` from the canonical schema.          |
+| `npm run db:schema:check`  | Check the generated SQLite schema for drift.                                 |
+| `npm run db:push`          | Regenerate the SQLite schema when selected, then apply it with `db push`.    |
+| `npm run db:seed`          | Seed demo data.                                                              |
+| `npm run db:reset`         | Regenerate Prisma, force-reset via `db push`, and seed.                      |
 
 ## Database
 
@@ -57,6 +59,15 @@ The database provider is selected with `DB_PROVIDER`:
 
 During development, schemas are applied directly with `prisma db push`; migration
 history is not maintained. Development data can be reset when schemas change.
+`prisma/schema.prisma` is the only hand-edited schema. For SQLite, the tooling
+mechanically regenerates `prisma/schema.sqlite.prisma` from it by changing only
+the datasource provider.
+
+The Prisma client is generated into `src/generated/prisma`, which is ignored by
+git. Run `npm run db:generate` after installing dependencies or changing Prisma
+schema files, and before `npm run typecheck`; typechecking imports the generated
+client. CI also runs `npm run db:schema:check` before generating the client so a
+stale committed SQLite schema fails fast.
 
 Examples:
 

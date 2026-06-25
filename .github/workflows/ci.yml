@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check SQLite Prisma schema drift
+        run: npm run db:schema:check
+
       - name: Generate Prisma client (SQLite)
         run: npm run db:generate
 
