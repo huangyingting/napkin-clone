@@ -24,6 +24,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { FOCUS_RING } from "@/components/ui/tokens";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
+import { ExportWorkflowMessage } from "@/components/visual/export-workflow-chrome";
 import { useVisualSvgRegistry } from "@/components/editor/visual-svg-registry";
 import type { DeckFetchPort } from "@/lib/action-ports";
 import { collectDocumentBlocks } from "@/lib/content";
@@ -573,19 +574,17 @@ export function DocumentExportButton({
       ) : null}
 
       {isExporting ? (
-        <p role="status" className="mt-1 text-xs text-ds-text-muted">
+        <ExportWorkflowMessage kind="status">
           Preparing export. Keep this tab open.
-        </p>
+        </ExportWorkflowMessage>
       ) : null}
       {status === "error" && !isOpen && errorMsg ? (
-        <p role="alert" className="mt-1 text-xs text-ds-danger-text">
-          {errorMsg}
-        </p>
+        <ExportWorkflowMessage kind="error">{errorMsg}</ExportWorkflowMessage>
       ) : null}
       {status !== "error" && !isOpen && warningMsg ? (
-        <p role="status" className="mt-1 text-xs text-ds-warning-text">
+        <ExportWorkflowMessage kind="warning">
           {warningMsg}
-        </p>
+        </ExportWorkflowMessage>
       ) : null}
     </div>
   );

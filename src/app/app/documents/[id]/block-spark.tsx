@@ -23,15 +23,11 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 
 import { FOCUS_RING, GUTTER_BUTTON } from "@/components/ui/tokens";
-import {
-  GeneratingIndicator,
-  VisualSkeleton,
-} from "@/components/motion/generation-status";
 import { usePopMotion } from "@/components/motion/reveal";
 import { Button, FloatingSurface, IconButton, Tooltip } from "@/components/ui";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { cx } from "@/components/ui/tokens";
-import { VisualRenderer } from "@/components/visual/visual-renderer";
+import { GeneratedCandidatesPanel } from "@/components/visual/generated-candidates-panel";
 import { useEditorContext } from "@/lib/lexical/editor-context";
 import { VISUAL_KIND_META } from "@/lib/lexical/tool-registry";
 import {
@@ -40,7 +36,6 @@ import {
   type VisualKind,
 } from "@/lib/visual/schema";
 import { type Orientation, type DetailLevel } from "@/lib/ai/prompt";
-import Link from "next/link";
 import { useIsPointerFine } from "@/lib/pointer";
 import { emitProductTelemetry } from "@/lib/telemetry/product";
 
@@ -517,72 +512,19 @@ export function BlockSparkPlugin() {
     }
 
     return (
-      <div className="mt-2">
-        {sectionLoading ? (
-          <div className="space-y-1.5">
-            <ul className="grid grid-cols-2 gap-1.5">
-              {[0, 1].map((i) => (
-                <li key={i}>
-                  <VisualSkeleton />
-                </li>
-              ))}
-            </ul>
-            <GeneratingIndicator
-              isLoading
-              className="px-0.5 py-0 text-xs text-[var(--ds-text-muted,#71717a)]"
-            />
-          </div>
-        ) : null}
-
-        {sectionError !== null ? (
-          <div
-            role="alert"
-            className="flex flex-col items-start gap-1.5 rounded-[var(--ds-radius-md,8px)] bg-[var(--ds-surface-raised,#f4f4f5)] px-2 py-2 text-xs text-[var(--ds-danger,#dc2626)]"
-          >
-            <span>{sectionError}</span>
-            {creditError ? (
-              <Link
-                href="/app/settings/billing"
-                className="inline-flex items-center rounded-[var(--ds-radius-sm,6px)] bg-[var(--ds-accent,#6366f1)] px-2 py-1 text-xs font-medium text-[var(--ds-text-on-accent,#fff)] transition hover:opacity-90"
-              >
-                Upgrade
-              </Link>
-            ) : (
-              <Button
-                size="sm"
-                variant="subtle"
-                onClick={() =>
-                  panelTarget !== null
-                    ? void generate(panelTarget, genOptions)
-                    : undefined
-                }
-              >
-                Try again
-              </Button>
-            )}
-          </div>
-        ) : null}
-
-        {sectionVisuals.length > 0 ? (
-          <ul className="grid grid-cols-2 gap-1.5">
-            {sectionVisuals.map((visual, index) => (
-              <li key={`${visual.type}-${index}`}>
-                <button
-                  type="button"
-                  aria-label={`Insert generated visual ${index + 1}`}
-                  onClick={() => insertVisual(visual)}
-                  className={cx(
-                    "group flex w-full overflow-hidden rounded-[var(--ds-radius-sm,6px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-base,#ffffff)] p-1 text-left transition-colors hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
-                    FOCUS_RING,
-                  )}
-                >
-                  <VisualRenderer visual={visual} className="h-auto w-full" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </div>
+      <GeneratedCandidatesPanel
+        candidates={sectionVisuals}
+        status={sectionLoading ? "loading" : "idle"}
+        error={sectionError}
+        creditError={creditError}
+        variant="compact"
+        onRetry={() =>
+          panelTarget !== null
+            ? void generate(panelTarget, genOptions)
+            : undefined
+        }
+        onChooseCandidate={insertVisual}
+      />
     );
   };
 

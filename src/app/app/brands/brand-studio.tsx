@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useRef, useState, useTransition } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -16,6 +16,7 @@ import {
 
 import {
   Button,
+  Dialog,
   IconButton,
   ColorPicker,
   cx,
@@ -28,7 +29,7 @@ import {
 } from "@/lib/brand/schema";
 import type { BrandStudioViewModel } from "@/lib/brand-studio/view-model";
 import { brandPreviewStyle } from "@/lib/brand/transforms";
-import { injectBrandFontFace } from "@/lib/brand/font-face";
+import { hydrateBrandFont, useHydrateBrandFont } from "@/lib/brand/font-hooks";
 import {
   validateLogoUpload,
   validateFontUpload,
@@ -38,6 +39,10 @@ import { DEFAULT_STYLE } from "@/lib/visual/schema";
 import { buildSampleBrandedVisual } from "@/lib/brand/sample-visual";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { createBrand, updateBrand, deleteBrand } from "./actions";
+import {
+  routeBrandUploadPort,
+  type BrandUploadPort,
+} from "./brand-studio-ports";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -127,11 +132,13 @@ function BrandForm({
   onSave,
   onCancel,
   canFontUpload,
+  uploadPort,
 }: {
   initial: BrandFormState;
   onSave: (saved: BrandStyle) => void;
   onCancel: () => void;
   canFontUpload: boolean;
+  uploadPort: BrandUploadPort;
 }) {
   const [form, setForm] = useState<BrandFormState>(initial);
   const [error, setError] = useState<string | null>(null);
@@ -179,18 +186,9 @@ function BrandForm({
       const fd = new FormData();
       fd.append("logo", file);
       if (form.id) fd.append("brandId", form.id);
-      const res = await fetch("/api/brand/logo", { method: "POST", body: fd });
-      const json = (await res.json()) as {
-        url?: string;
-        assetId?: string;
-        error?: string;
-      };
-      if (!res.ok || !json.url || !json.assetId) {
-        setError(json.error ?? "Logo upload failed.");
-        return;
-      }
+      const json = await uploadPort.uploadLogo(fd);
       const logoAssetUrl = json.url;
-      setForm((f) => ({ ...f, logoAssetUrl, logoAssetId: json.assetId! }));
+      setForm((f) => ({ ...f, logoAssetUrl, logoAssetId: json.assetId }));
 
       // Auto-extract palette from the image using canvas. The protected URL is
       // same-origin, so the canvas is not tainted and getImageData succeeds.
@@ -248,30 +246,20 @@ function BrandForm({
       const fd = new FormData();
       fd.append("font", file);
       if (form.id) fd.append("brandId", form.id);
-      const res = await fetch("/api/brand/font", { method: "POST", body: fd });
-      const json = (await res.json()) as {
-        url?: string;
-        assetId?: string;
-        familyName?: string;
-        error?: string;
-      };
-      if (!res.ok || !json.url || !json.assetId) {
-        setError(json.error ?? "Font upload failed.");
-        return;
-      }
-      // Inject @font-face immediately so the name works in the current editor.
-      // The src is the protected /api/brand-assets URL (same-origin cookie).
-      const family = json.familyName!;
+      const json = await uploadPort.uploadFont(fd);
+      const family = json.familyName ?? file.name.replace(/\.[^.]+$/, "");
       const fontAssetUrl = json.url;
-      const styleEl = document.createElement("style");
-      styleEl.textContent = `@font-face { font-family: '${family}'; src: url('${fontAssetUrl}'); }`;
-      document.head.appendChild(styleEl);
+      hydrateBrandFont(
+        `upload-${json.assetId}`,
+        `'${family}', sans-serif`,
+        fontAssetUrl,
+      );
       // Persist the CSS family name plus the asset ref so the font survives
       // save → reload (rehydration done in BrandCard useEffect).
       setForm((f) => ({
         ...f,
         fontFamily: `'${family}', sans-serif`,
-        fontAssetId: json.assetId!,
+        fontAssetId: json.assetId,
         fontAssetUrl,
       }));
     } catch {
@@ -609,35 +597,19 @@ function BrandCard({
   onUpdated,
   onDeleted,
   canFontUpload,
+  uploadPort,
 }: {
   brand: BrandStyle;
   onUpdated: (b: BrandStyle) => void;
   onDeleted: (id: string) => void;
   canFontUpload: boolean;
+  uploadPort: BrandUploadPort;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, startDelete] = useTransition();
 
-  // Inject any Google Font link when the brand uses one; inject @font-face for
-  // custom uploaded fonts from the stored durable data-URL (rehydration path).
-  useEffect(() => {
-    if (!brand.fontFamily) return;
-    const match = BRAND_WEB_FONTS.find((f) => f.cssFamily === brand.fontFamily);
-    if (match) {
-      const id = `gfont-${match.id}`;
-      if (document.getElementById(id)) return;
-      const link = document.createElement("link");
-      link.id = id;
-      link.rel = "stylesheet";
-      link.href = match.url;
-      document.head.appendChild(link);
-    } else if (brand.fontAssetUrl) {
-      // Custom uploaded font: rehydrate @font-face from the protected asset URL
-      // so the brand's font renders after reload or in a different session.
-      injectBrandFontFace(brand.id, brand.fontFamily, brand.fontAssetUrl);
-    }
-  }, [brand.id, brand.fontFamily, brand.fontAssetUrl]);
+  useHydrateBrandFont(brand);
 
   const previewStyle = brandPreviewStyle(brand);
 
@@ -729,13 +701,14 @@ function BrandCard({
         </div>
       </div>
 
-      {confirmingDelete && (
-        <div
-          role="alertdialog"
-          aria-modal="false"
-          aria-labelledby={`delete-brand-${brand.id}`}
-          className="mx-4 mb-3 rounded-ds-md border border-ds-danger-border bg-ds-danger-surface p-3 text-sm text-ds-danger-text"
-        >
+      <Dialog
+        open={confirmingDelete}
+        onClose={() => setConfirmingDelete(false)}
+        aria-labelledby={`delete-brand-${brand.id}`}
+        aria-busy={deleting}
+        className="max-w-sm"
+      >
+        <div className="p-6 text-sm text-ds-danger-text">
           <p id={`delete-brand-${brand.id}`} className="font-semibold">
             Delete “{brand.name}”?
           </p>
@@ -764,7 +737,7 @@ function BrandCard({
             </Button>
           </div>
         </div>
-      )}
+      </Dialog>
 
       {/* Preview swatch row */}
       {!expanded && !confirmingDelete && (
@@ -804,6 +777,7 @@ function BrandCard({
             }}
             onCancel={() => setExpanded(false)}
             canFontUpload={canFontUpload}
+            uploadPort={uploadPort}
           />
         </div>
       )}
@@ -817,9 +791,11 @@ function BrandCard({
 function CreateBrandPanel({
   onCreated,
   canFontUpload,
+  uploadPort,
 }: {
   onCreated: (b: BrandStyle) => void;
   canFontUpload: boolean;
+  uploadPort: BrandUploadPort;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -862,6 +838,7 @@ function CreateBrandPanel({
         }}
         onCancel={() => setOpen(false)}
         canFontUpload={canFontUpload}
+        uploadPort={uploadPort}
       />
     </div>
   );
@@ -873,9 +850,11 @@ function CreateBrandPanel({
 export function BrandStudio({
   initialBrands,
   canFontUpload,
+  uploadPort = routeBrandUploadPort,
 }: {
   initialBrands: BrandStudioViewModel["brands"];
   canFontUpload: BrandStudioViewModel["canUploadFont"];
+  uploadPort?: BrandUploadPort;
 }) {
   const [brands, setBrands] = useState<BrandStyle[]>(initialBrands);
 
@@ -906,12 +885,14 @@ export function BrandStudio({
           onUpdated={handleUpdated}
           onDeleted={handleDeleted}
           canFontUpload={canFontUpload}
+          uploadPort={uploadPort}
         />
       ))}
 
       <CreateBrandPanel
         onCreated={handleCreated}
         canFontUpload={canFontUpload}
+        uploadPort={uploadPort}
       />
     </div>
   );

@@ -28,7 +28,6 @@ import {
   type ReactNode,
 } from "react";
 
-import { apiErrorMessageFromPayload } from "@/lib/api/error-message";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import {
   ColorPicker,
@@ -73,9 +72,7 @@ import { STYLE_THEMES } from "@/lib/visual/themes";
 import { VISUAL_DISPLAY_STYLES } from "@/lib/visual/display-styles";
 import { isPositionedKind } from "@/lib/visual/layout";
 import {
-  hashSourceText,
   VISUAL_KINDS,
-  safeParseVisual,
   type Visual,
   type VisualKind,
   type ArrowStyle,
@@ -90,7 +87,17 @@ import {
 import { applyBrand, brandPreviewStyle } from "@/lib/brand/transforms";
 import type { BrandStyle } from "@/lib/brand/schema";
 import { BRAND_WEB_FONTS } from "@/lib/brand/schema";
+import {
+  useHydrateBrandFont,
+  useHydrateVisualNodeFonts,
+} from "@/lib/brand/font-hooks";
 import type { VisualCommandPayload } from "@/lib/commands/visual-commands";
+import type { VisualGenerationActionPort } from "@/lib/action-ports";
+import {
+  isCreditError,
+  requestVisualCandidates,
+  stampSourceText,
+} from "@/lib/visual/generate";
 
 import { IconPicker } from "./icon-picker";
 import {
@@ -280,14 +287,6 @@ const COMPONENT_MENU_ITEMS: MenuItemConfig[] = [
 // ---------------------------------------------------------------------------
 // Utility helpers
 // ---------------------------------------------------------------------------
-
-function candidatesFrom(payload: unknown): unknown[] {
-  if (payload && typeof payload === "object" && "candidates" in payload) {
-    const candidates = (payload as { candidates: unknown }).candidates;
-    if (Array.isArray(candidates)) return candidates;
-  }
-  return [];
-}
 
 function visualPromptText(visual: Visual): string {
   const parts: string[] = [];
@@ -585,42 +584,6 @@ function useBrands() {
   return { brands, status, load };
 }
 
-function useBrandFont(fontFamily: string | null | undefined) {
-  useEffect(() => {
-    if (!fontFamily) return;
-    const match = BRAND_WEB_FONTS.find((f) => f.cssFamily === fontFamily);
-    if (!match) return;
-    const id = `gfont-brand-${match.id}`;
-    if (document.getElementById(id)) return;
-    const link = document.createElement("link");
-    link.id = id;
-    link.rel = "stylesheet";
-    link.href = match.url;
-    document.head.appendChild(link);
-  }, [fontFamily]);
-}
-
-function useVisualNodeFonts(visual: Visual) {
-  useEffect(() => {
-    const seen = new Set<string>();
-    for (const node of visual.nodes) {
-      if (!node.fontFamily) continue;
-      const match = BRAND_WEB_FONTS.find(
-        (f) => f.cssFamily === node.fontFamily,
-      );
-      if (!match || seen.has(match.id)) continue;
-      seen.add(match.id);
-      const id = `gfont-brand-${match.id}`;
-      if (document.getElementById(id)) continue;
-      const link = document.createElement("link");
-      link.id = id;
-      link.rel = "stylesheet";
-      link.href = match.url;
-      document.head.appendChild(link);
-    }
-  }, [visual.nodes]);
-}
-
 function BrandChip({
   brand,
   active,
@@ -632,7 +595,7 @@ function BrandChip({
   onApply: () => void;
   onApplyAll: () => void;
 }) {
-  useBrandFont(brand.fontFamily);
+  useHydrateBrandFont(brand);
   const preview = brandPreviewStyle(brand);
   return (
     <div
@@ -740,6 +703,12 @@ export type VisualContextPopoverProps = {
   mode?: "float" | "panel";
   /** Duplicate this visual node (shown in the toolbar header). */
   onDuplicate?: () => void;
+  /** Route-owned AI visual generation port. Defaults to the document route API. */
+  visualGenerationPort?: VisualGenerationActionPort;
+};
+
+const routeVisualGenerationPort: VisualGenerationActionPort = {
+  requestVisualCandidates,
 };
 
 function PopoverShell({
@@ -807,6 +776,7 @@ export function VisualContextPopover({
   onApplyBrandToAll,
   mode = "float",
   onDuplicate,
+  visualGenerationPort = routeVisualGenerationPort,
 }: VisualContextPopoverProps) {
   const measureRef = useRef<HTMLDivElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
@@ -837,11 +807,12 @@ export function VisualContextPopover({
   }, [activeSection, brandsStatus, loadBrands]);
 
   // Load any Google Fonts used as per-node font family overrides.
-  useVisualNodeFonts(visual);
+  useHydrateVisualNodeFonts(visual);
 
   // AI "variations" state (the /api/generate path).
   const [genStatus, setGenStatus] = useState<"idle" | "loading">("idle");
   const [genError, setGenError] = useState<string | null>(null);
+  const [genCreditError, setGenCreditError] = useState(false);
   const [candidates, setCandidates] = useState<Visual[]>([]);
 
   // "Sync to text" state
@@ -1003,45 +974,20 @@ export function VisualContextPopover({
     }
     setGenStatus("loading");
     setGenError(null);
+    setGenCreditError(false);
     setCandidates([]);
-    try {
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ text: promptText }),
-      });
-      const payload: unknown = await response.json().catch(() => null);
-      if (!response.ok) {
-        setGenError(
-          apiErrorMessageFromPayload(
-            payload,
-            "We couldn't generate. Please try again.",
-          ),
-        );
-        setActiveSection("variations");
-        return;
-      }
-      const valid: Visual[] = [];
-      for (const item of candidatesFrom(payload)) {
-        const result = safeParseVisual(item);
-        if (result.success) valid.push(result.data);
-      }
-      if (valid.length === 0) {
-        setGenError("No usable visuals came back. Please try again.");
-        setActiveSection("variations");
-        return;
-      }
-      setCandidates(valid);
+    const result =
+      await visualGenerationPort.requestVisualCandidates(promptText);
+    if (result.ok) {
+      setCandidates(result.candidates);
       setActiveSection("variations");
-    } catch {
-      setGenError(
-        "Couldn't reach the generator. Check your connection and try again.",
-      );
+    } else {
+      setGenError(result.error);
+      setGenCreditError(isCreditError(result));
       setActiveSection("variations");
-    } finally {
-      setGenStatus("idle");
     }
-  }, []);
+    setGenStatus("idle");
+  }, [visualGenerationPort]);
 
   const runSync = useCallback(async () => {
     const syncText = (
@@ -1055,52 +1001,26 @@ export function VisualContextPopover({
     }
     setSyncStatus("loading");
     setSyncError(null);
-    try {
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ text: syncText }),
-      });
-      const payload: unknown = await response.json().catch(() => null);
-      if (!response.ok) {
-        setSyncError(
-          apiErrorMessageFromPayload(payload, "Sync failed. Please try again."),
-        );
-        return;
-      }
-      const valid: Visual[] = [];
-      for (const item of candidatesFrom(payload)) {
-        const result = safeParseVisual(item);
-        if (result.success) valid.push(result.data);
-      }
-      if (valid.length === 0) {
-        setSyncError("No usable visuals came back. Please try again.");
-        return;
-      }
-      const refreshed = {
-        ...valid[0],
-        sourceText: syncText,
-        sourceTextHash: hashSourceText(syncText),
-      };
+    const result = await visualGenerationPort.requestVisualCandidates(syncText);
+    if (result.ok) {
+      const refreshed = stampSourceText(result.candidates[0], syncText);
       if (onCommand) {
         onCommand({ op: "visual.merge_content", newVisual: refreshed });
       } else {
         const merged = mergeVisualContent(visualRef.current, refreshed);
-        onChange({
-          ...merged,
-          sourceText: syncText,
-          sourceTextHash: hashSourceText(syncText),
-        });
+        onChange(stampSourceText(merged, syncText));
       }
       setActiveSection(null);
-    } catch {
-      setSyncError(
-        "Couldn't reach the generator. Check your connection and try again.",
-      );
-    } finally {
       setSyncStatus("idle");
+      return;
     }
-  }, [currentSourceText, onChange, onCommand]);
+    setSyncError(
+      result.error === "We couldn't generate a visual. Please try again."
+        ? "Sync failed. Please try again."
+        : result.error,
+    );
+    setSyncStatus("idle");
+  }, [currentSourceText, onChange, onCommand, visualGenerationPort]);
 
   const chooseCandidate = useCallback(
     (candidate: Visual) => {
@@ -1997,6 +1917,7 @@ export function VisualContextPopover({
           candidates={candidates}
           genStatus={genStatus}
           genError={genError}
+          creditError={genCreditError}
           onGenerate={() => void runGenerate()}
           onChooseCandidate={chooseCandidate}
         />

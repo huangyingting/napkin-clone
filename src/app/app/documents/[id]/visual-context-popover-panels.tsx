@@ -2,14 +2,10 @@
 
 import { RefreshCw } from "lucide-react";
 
-import {
-  GeneratingIndicator,
-  VisualSkeleton,
-} from "@/components/motion/generation-status";
-import { Button, Tooltip, cx } from "@/components/ui";
-import { FOCUS_RING } from "@/components/ui/tokens";
+import { GeneratingIndicator } from "@/components/motion/generation-status";
+import { Button, cx } from "@/components/ui";
 import { ExportMenu } from "@/components/visual/export-menu";
-import { VisualRenderer } from "@/components/visual/visual-renderer";
+import { GeneratedCandidatesPanel } from "@/components/visual/generated-candidates-panel";
 import { VISUAL_KIND_META } from "@/lib/lexical/tool-registry";
 import { sanitizeFilename } from "@/lib/visual/export-filename";
 import { computeVisualInfo } from "@/lib/visual/info";
@@ -187,88 +183,30 @@ export function VisualVariationsPanel({
   candidates,
   genStatus,
   genError,
+  creditError,
   onGenerate,
   onChooseCandidate,
 }: {
   candidates: Visual[];
   genStatus: "idle" | "loading";
   genError: string | null;
+  creditError?: boolean;
   onGenerate: () => void;
   onChooseCandidate: (candidate: Visual) => void;
 }) {
   return (
-    <div className="space-y-3 py-1">
-      {genStatus === "loading" ? (
-        <>
-          <ul className="grid grid-cols-2 gap-2">
-            {[0, 1].map((i) => (
-              <li key={i}>
-                <VisualSkeleton />
-              </li>
-            ))}
-          </ul>
-          <GeneratingIndicator
-            isLoading
-            className="text-xs text-[var(--ds-text-muted,#6f7d83)]"
-          />
-        </>
-      ) : null}
-      {genError !== null ? (
-        <div
-          role="alert"
-          className="flex flex-col gap-2 rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-danger,#dc2626)]/40 bg-[var(--ds-danger,#dc2626)]/10 px-3 py-2 text-xs text-[var(--ds-danger,#b91c1c)]"
-        >
-          <span>{genError}</span>
-          <Button
-            size="sm"
-            variant="subtle"
-            className="self-start"
-            onClick={onGenerate}
-          >
-            Try again
-          </Button>
-        </div>
-      ) : null}
-      {candidates.length > 0 ? (
-        <div>
-          <p className="mb-2 text-[11px] text-[var(--ds-text-muted,#6f7d83)]">
-            {candidates.length} variation{candidates.length !== 1 ? "s" : ""} —
-            click to apply
-          </p>
-          <ul className="grid grid-cols-2 gap-2">
-            {candidates.map((candidate, index) => (
-              <li key={index}>
-                <Tooltip
-                  label={
-                    candidate.title ?? VISUAL_KIND_META[candidate.type].label
-                  }
-                  side="bottom"
-                >
-                  <button
-                    type="button"
-                    aria-label={`Select variation ${index + 1} of ${candidates.length}`}
-                    onClick={() => onChooseCandidate(candidate)}
-                    className={cx(
-                      "group flex w-full flex-col overflow-hidden rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-base,#ffffff)] p-1.5 text-left transition hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
-                      FOCUS_RING,
-                    )}
-                  >
-                    <VisualRenderer
-                      visual={candidate}
-                      className="h-auto w-full"
-                    />
-                  </button>
-                </Tooltip>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-      {genStatus === "idle" && candidates.length === 0 && genError === null ? (
+    <GeneratedCandidatesPanel
+      candidates={candidates}
+      status={genStatus}
+      error={genError}
+      creditError={creditError}
+      onRetry={onGenerate}
+      onChooseCandidate={onChooseCandidate}
+      empty={
         <p className="text-[11px] text-[var(--ds-text-muted,#6f7d83)]">
           Use the AI button in the toolbar to generate variations.
         </p>
-      ) : null}
-    </div>
+      }
+    />
   );
 }

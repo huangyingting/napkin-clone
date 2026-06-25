@@ -12,6 +12,7 @@ import type {
 import type { SearchResults } from "@/lib/document-management/list";
 import type { Deck } from "@/lib/presentation/deck";
 import type { DeckPatch } from "@/lib/presentation/slide-commands";
+import type { GenerateOptions, GenerateResult } from "@/lib/visual/generate";
 import type { Visual } from "@/lib/visual/schema";
 
 export interface DeckFetchPort {
@@ -46,6 +47,13 @@ export interface BrandApplyPort {
 
 export type BrandActionPort = BrandListPort & Partial<BrandApplyPort>;
 
+export interface VisualGenerationActionPort {
+  requestVisualCandidates: (
+    text: string,
+    options?: GenerateOptions,
+  ) => Promise<GenerateResult>;
+}
+
 export interface UploadSlideAssetResult {
   assetId: string;
   url: string;
@@ -70,6 +78,15 @@ export interface DocumentListActionPort {
   toggleFavorite: (documentId: string) => Promise<{ favorite: boolean }>;
   deleteDocument: (documentId: string) => Promise<void>;
   restoreDocument: (documentId: string) => Promise<void>;
+}
+
+export interface ImportedDocumentPayload {
+  markdown: string;
+  title: string;
+}
+
+export interface DocumentImportActionPort {
+  importFile: (file: File) => Promise<ActionResult<ImportedDocumentPayload>>;
 }
 
 export interface CommentsActionPort {
