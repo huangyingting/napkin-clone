@@ -20,8 +20,10 @@
  */
 
 import { revalidatePath } from "next/cache";
+import { customAlphabet } from "nanoid";
 
 import { Prisma } from "@/generated/prisma/client";
+import { app as appEnv } from "@/lib/env";
 import { collectVisualNodes } from "@/lib/lexical/visual-nodes";
 import { lexicalStateToPlainText } from "@/lib/lexical/plain-text";
 import {
@@ -31,11 +33,12 @@ import {
   staleVersionIds,
 } from "@/lib/document-versions";
 import { prisma } from "@/lib/prisma";
-import { buildShareSegment } from "@/lib/slug";
+import { buildShareSegment, buildSlugCandidate } from "@/lib/slug";
 import type {
   RestoredDocumentVersion,
   SaveDeckPatchResult,
   SaveDeckResult,
+  ShareSettings,
 } from "@/lib/document/persistence-types";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { normalizePersistedDeckJson } from "@/lib/presentation/persisted-deck";
@@ -43,7 +46,12 @@ import { reconcileDocumentDeckDependencies } from "@/lib/document/source-ref-mod
 import { reportSchemaFailure } from "@/lib/diagnostics/schema-telemetry";
 import { MAX_DECK_JSON_BYTES } from "@/lib/presentation/deck-limits";
 import { generateRevisionToken } from "@/lib/presentation/deck-revision-token";
-import { applyPatch, type DeckPatch } from "@/lib/presentation/slide-commands";
+import {
+  applyPatch,
+  executeCommand,
+  type DeckPatch,
+  type SlideCommand,
+} from "@/lib/presentation/slide-commands";
 import { VISUAL_KIND_TO_PRISMA, safeParseVisual } from "@/lib/visual/schema";
 import {
   diffVisualMirror,
@@ -52,6 +60,7 @@ import {
   type VisualMirrorOutcome,
 } from "@/lib/visual/mirror-diff";
 import { logInfo, logError } from "@/lib/log";
+import type { CommandEnvelope } from "@/lib/commands/command-envelope";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -60,6 +69,13 @@ import { logInfo, logError } from "@/lib/log";
 const MAX_CONTENT_LENGTH = 100_000;
 const MAX_ANCHOR_BLOCK_ID_LENGTH = 200;
 const MAX_VISUAL_REVISIONS = 10;
+const MAX_SLUG_WRITE_ATTEMPTS = 5;
+
+const generateShareId = customAlphabet(
+  "23456789abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ",
+  12,
+);
+const generateSlugSuffix = customAlphabet("23456789abcdefghjkmnpqrstuvwxyz", 4);
 
 // ---------------------------------------------------------------------------
 // Public result types (re-exported so actions.ts can forward them)
@@ -102,6 +118,105 @@ function stableJsonString(value: unknown): string {
 
 function jsonEqual(a: unknown, b: unknown): boolean {
   return stableJsonString(a) === stableJsonString(b);
+}
+
+function buildShareUrl(
+  slug: string | null,
+  shareId: string | null,
+): string | null {
+  if (!slug || !shareId) {
+    return null;
+  }
+  const base = appEnv.url();
+  return `${base}/share/${buildShareSegment(slug, shareId)}`;
+}
+
+function toShareSettings(row: {
+  isShared: boolean;
+  shareId: string | null;
+  slug: string | null;
+  shareExpiresAt: Date | null;
+  shareEmbedEnabled: boolean;
+  sharePresentEnabled: boolean;
+}): ShareSettings {
+  const shared = row.isShared && row.shareId !== null && row.slug !== null;
+  return {
+    isShared: row.isShared,
+    shareId: row.shareId,
+    slug: row.slug,
+    shareUrl: shared ? buildShareUrl(row.slug, row.shareId) : null,
+    expiresAt: row.shareExpiresAt ? row.shareExpiresAt.toISOString() : null,
+    embedEnabled: row.shareEmbedEnabled,
+    presentEnabled: row.sharePresentEnabled,
+  };
+}
+
+function generateShareSlugCandidate(title: string): string | null {
+  const suffix = generateSlugSuffix();
+  const candidate = buildSlugCandidate(title, suffix);
+  return candidate || null;
+}
+
+async function writeShareData(
+  id: string,
+  isShared: boolean,
+  shareId: string | null,
+  title: string | null,
+): Promise<{
+  isShared: boolean;
+  shareId: string | null;
+  slug: string | null;
+  shareExpiresAt: Date | null;
+  shareEmbedEnabled: boolean;
+  sharePresentEnabled: boolean;
+}> {
+  if (!isShared) {
+    return prisma.document.update({
+      where: { id },
+      data: { isShared, shareId: null, slug: null, shareExpiresAt: null },
+      select: {
+        isShared: true,
+        shareId: true,
+        slug: true,
+        shareExpiresAt: true,
+        shareEmbedEnabled: true,
+        sharePresentEnabled: true,
+      },
+    });
+  }
+
+  let lastError: unknown;
+  for (let attempt = 0; attempt < MAX_SLUG_WRITE_ATTEMPTS; attempt++) {
+    const slug = title ? generateShareSlugCandidate(title) : null;
+    try {
+      return await prisma.document.update({
+        where: { id },
+        data: { isShared, shareId, slug },
+        select: {
+          isShared: true,
+          shareId: true,
+          slug: true,
+          shareExpiresAt: true,
+          shareEmbedEnabled: true,
+          sharePresentEnabled: true,
+        },
+      });
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2002"
+      ) {
+        lastError = err;
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  throw new Error(
+    `Failed to generate a unique share slug after ${MAX_SLUG_WRITE_ATTEMPTS} attempts. Please try again.`,
+    { cause: lastError },
+  );
 }
 
 /**
@@ -375,6 +490,64 @@ export async function mirrorVisualNodesInTx(
 // ---------------------------------------------------------------------------
 // Exported service operations
 // ---------------------------------------------------------------------------
+
+export async function setDocumentSharing(
+  id: string,
+  isShared: boolean,
+): Promise<ShareSettings> {
+  const shareId = isShared ? generateShareId() : null;
+
+  let docTitle: string | null = null;
+  if (isShared) {
+    const doc = await prisma.document.findFirst({
+      where: { id },
+      select: { title: true },
+    });
+    if (doc) docTitle = doc.title;
+  }
+
+  return toShareSettings(await writeShareData(id, isShared, shareId, docTitle));
+}
+
+export async function regenerateDocumentShareLink(
+  id: string,
+): Promise<ShareSettings | null> {
+  const doc = await prisma.document.findFirst({
+    where: { id },
+    select: { title: true, isShared: true },
+  });
+
+  if (!doc || !doc.isShared) {
+    return null;
+  }
+
+  const shareId = generateShareId();
+  return toShareSettings(await writeShareData(id, true, shareId, doc.title));
+}
+
+export async function updateDocumentSharePolicyData(
+  id: string,
+  data: {
+    shareExpiresAt?: Date | null;
+    shareEmbedEnabled?: boolean;
+    sharePresentEnabled?: boolean;
+  },
+): Promise<ShareSettings> {
+  const updated = await prisma.document.update({
+    where: { id },
+    data,
+    select: {
+      isShared: true,
+      shareId: true,
+      slug: true,
+      shareExpiresAt: true,
+      shareEmbedEnabled: true,
+      sharePresentEnabled: true,
+    },
+  });
+
+  return toShareSettings(updated);
+}
 
 /**
  * Atomically saves the Lexical editor state and rebuilds the Visual mirror
@@ -721,6 +894,45 @@ export async function patchDeck(
   await snapshotDocumentVersion(documentId);
 
   return { ok: true, revisionToken: newToken };
+}
+
+export async function persistDeckCommand(
+  documentId: string,
+  envelope: CommandEnvelope<SlideCommand>,
+): Promise<SaveDeckResult> {
+  const document = await prisma.document.findUnique({
+    where: { id: documentId },
+    select: { deckJson: true },
+  });
+  if (!document) {
+    return { ok: false, error: "Document not found." };
+  }
+
+  const parsed = safeParseDeck(normalizePersistedDeckJson(document.deckJson));
+  if (!parsed.success) {
+    logError("deck.command.stored_deck_invalid", new Error(parsed.error), {
+      documentId,
+      envelopeId: envelope.id,
+    });
+    return { ok: false, error: `Stored deck is invalid: ${parsed.error}` };
+  }
+
+  const result = executeCommand(parsed.data, envelope.payload);
+  if (!result.ok) {
+    logInfo("deck.command.execution_failed", "Deck command failed to execute", {
+      documentId,
+      envelopeId: envelope.id,
+      type: envelope.payload.type,
+      error: result.error,
+    });
+    return { ok: false, error: result.error ?? "Command failed to execute." };
+  }
+
+  return persistDeck(
+    documentId,
+    result.deck,
+    envelope.target.expectedRevision ?? null,
+  );
 }
 
 /**
