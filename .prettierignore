@@ -9,6 +9,9 @@ coverage
 package-lock.json
 *.tsbuildinfo
 next-env.d.ts
+
+# Standalone design mockups — reference prototypes, not part of the app build
+design/
 # Prisma Client (generated) and migration SQL
 src/generated
 prisma/migrations

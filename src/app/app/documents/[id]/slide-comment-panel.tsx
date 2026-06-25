@@ -67,9 +67,11 @@ export type PinPosition = { x: number; y: number };
 /** Caller-provided mapping from element ID → center in slide-percent coords. */
 export type ElementCenterMap = ReadonlyMap<string, PinPosition>;
 
-function slideAnchorForThread(thread: CommentThread):
-  | { slideId: string; elementId: string | null; geometry: PinPosition | null }
-  | null {
+function slideAnchorForThread(thread: CommentThread): {
+  slideId: string;
+  elementId: string | null;
+  geometry: PinPosition | null;
+} | null {
   if (thread.anchor.kind === "slide") {
     return {
       slideId: thread.anchor.slideId,
