@@ -1,4 +1,11 @@
 import { expect, test } from "@playwright/test";
+import {
+  REGRESSION_DECK_FIXTURE,
+  SCREENSHOT_OPTIONS,
+  SLIDE_VIEWPORT,
+  injectDeckFixture,
+} from "./helpers/screenshot-fixtures";
+import { waitForStableSlideStage } from "./helpers/readiness";
 
 /**
  * Playwright screenshot regression spec for Slides (Epic #379, issue #415).
@@ -28,165 +35,8 @@ import { expect, test } from "@playwright/test";
  *   E2E_SCREENSHOT_REGRESSION=1 npx playwright test screenshot-regression.spec.ts
  */
 
-// ---------------------------------------------------------------------------
-// Guard — skip unless explicitly opted in via env var.
-// This prevents accidental flakiness in the standard E2E suite.
-// ---------------------------------------------------------------------------
-
 const SCREENSHOT_REGRESSION_ENABLED =
   process.env.E2E_SCREENSHOT_REGRESSION === "1";
-
-// ---------------------------------------------------------------------------
-// Deterministic deck fixture
-// ---------------------------------------------------------------------------
-
-/**
- * A minimal deck JSON fixture that exercises all major element categories.
- * The deck is deterministic: no random IDs, no timestamps, no server state.
- *
- * Typed as `Record<string, unknown>` so the plain object literal is assignable
- * to `evaluate()` parameters without requiring full Deck type imports.
- */
-const REGRESSION_DECK_FIXTURE: Record<string, unknown> = {
-  themeId: "default",
-  slides: [
-    {
-      id: "slide-text-bullets",
-      index: 0,
-      title: "Text and Bullets",
-      bullets: [],
-      visualIds: [],
-      layout: "blank",
-      notes: "",
-      background: "#ffffff",
-      elements: [
-        {
-          id: "title-el",
-          kind: "text",
-          role: "title",
-          text: "Regression Title",
-          box: { x: 5, y: 5, w: 90, h: 15 },
-          zIndex: 0,
-          style: { fontSize: 6, bold: true, italic: false, align: "center" },
-        },
-        {
-          id: "body-bullets",
-          kind: "bullets",
-          bullets: ["First point", "Second point", "Third point"],
-          box: { x: 10, y: 25, w: 80, h: 50 },
-          zIndex: 1,
-          style: { fontSize: 4, bold: false, italic: false, align: "left" },
-        },
-      ],
-    },
-    {
-      id: "slide-shapes",
-      index: 1,
-      title: "Shapes",
-      bullets: [],
-      visualIds: [],
-      layout: "blank",
-      notes: "",
-      background: "#f8f9fa",
-      elements: [
-        {
-          id: "rect-el",
-          kind: "shape",
-          shape: "rect",
-          color: "#6366f1",
-          text: "Rectangle",
-          box: { x: 10, y: 20, w: 30, h: 20 },
-          zIndex: 0,
-          radius: 5,
-        },
-        {
-          id: "ellipse-el",
-          kind: "shape",
-          shape: "ellipse",
-          color: "#10b981",
-          text: "Ellipse",
-          box: { x: 60, y: 20, w: 25, h: 20 },
-          zIndex: 1,
-        },
-        {
-          id: "triangle-el",
-          kind: "shape",
-          shape: "triangle",
-          color: "#f59e0b",
-          box: { x: 35, y: 55, w: 25, h: 20 },
-          zIndex: 2,
-        },
-      ],
-    },
-    {
-      id: "slide-image-connector",
-      index: 2,
-      title: "Image and Connector",
-      bullets: [],
-      visualIds: [],
-      layout: "blank",
-      notes: "",
-      background: "#1e293b",
-      elements: [
-        {
-          id: "image-el",
-          kind: "image",
-          // Minimal 1x1 transparent PNG data URL
-          src: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
-          alt: "Test image",
-          fitMode: "contain",
-          box: { x: 10, y: 15, w: 35, h: 35 },
-          zIndex: 0,
-        },
-        {
-          id: "connector-el",
-          kind: "connector",
-          start: { x: 60, y: 25 },
-          end: { x: 85, y: 65 },
-          routing: "straight",
-          arrowEnd: "arrow",
-          stroke: { color: "#94a3b8", width: 2 },
-          box: { x: 60, y: 25, w: 25, h: 40 },
-          zIndex: 1,
-        },
-      ],
-    },
-  ],
-};
-
-// ---------------------------------------------------------------------------
-// Helper to inject the deck fixture into a page via localStorage
-// ---------------------------------------------------------------------------
-
-async function injectDeckFixture(
-  page: import("@playwright/test").Page,
-  documentId: string,
-): Promise<void> {
-  await page.evaluate(
-    ({ id, deck }) => {
-      try {
-        localStorage.setItem(
-          `textiq:deck:${id}`,
-          JSON.stringify({ deckJson: deck }),
-        );
-      } catch {
-        // localStorage may be unavailable — that is fine.
-      }
-    },
-    { id: documentId, deck: REGRESSION_DECK_FIXTURE },
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Viewport and tolerance constants
-// ---------------------------------------------------------------------------
-
-const SLIDE_VIEWPORT = { width: 1280, height: 720 };
-
-const SCREENSHOT_OPTIONS = {
-  maxDiffPixelRatio: 0.02,
-  threshold: 0.2,
-} as const;
 
 // ---------------------------------------------------------------------------
 // Tests: editor stage
@@ -214,11 +64,9 @@ test.describe("screenshot regression — slide editor", () => {
     const canvas = page
       .locator('[data-testid="slide-canvas"], .slide-canvas, [role="main"]')
       .first();
-    await canvas.waitFor({ state: "visible", timeout: 10_000 }).catch(() => {
+    await waitForStableSlideStage(canvas).catch(() => {
       test.skip();
     });
-
-    await page.waitForTimeout(500);
 
     await expect(page).toHaveScreenshot(
       "editor-text-bullets.png",
@@ -236,7 +84,7 @@ test.describe("screenshot regression — slide editor", () => {
       return;
     }
 
-    await page.waitForTimeout(500);
+    await waitForStableSlideStage(page.locator("body"));
 
     await expect(page).toHaveScreenshot(
       "editor-shapes.png",
@@ -275,11 +123,9 @@ test.describe("screenshot regression — in-app present viewer", () => {
       )
       .first();
 
-    await slideView.waitFor({ state: "visible", timeout: 10_000 }).catch(() => {
+    await waitForStableSlideStage(slideView).catch(() => {
       test.skip();
     });
-
-    await page.waitForTimeout(500);
 
     await expect(page).toHaveScreenshot(
       "present-text-bullets.png",
@@ -319,7 +165,7 @@ test.describe("screenshot regression — public present viewer", () => {
     }
 
     await page.waitForLoadState("networkidle").catch(() => {});
-    await page.waitForTimeout(500);
+    await waitForStableSlideStage(page.locator("body"));
 
     await expect(page).toHaveScreenshot(
       "public-present-slide.png",
@@ -344,7 +190,7 @@ test.describe("screenshot regression — public present viewer", () => {
     }
 
     await page.waitForLoadState("networkidle").catch(() => {});
-    await page.waitForTimeout(500);
+    await waitForStableSlideStage(page.locator("body"));
 
     await expect(page).toHaveScreenshot(
       "public-embed-slide.png",

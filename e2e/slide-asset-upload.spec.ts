@@ -11,6 +11,7 @@ import {
   profilePrivateAssetPath,
   profileViewerCredentials,
 } from "./helpers/profile";
+import { waitForSlideAutosave } from "./helpers/readiness";
 
 /**
  * Slide image upload + protected asset access-control E2E (Epic #517, #521).
@@ -157,8 +158,7 @@ test.describe("slide image upload round-trip", () => {
       "upload: inspector reported an upload error",
     ).toHaveCount(0, { timeout: 15_000 });
 
-    // Give the deck autosave time to persist the updated element, then reload.
-    await page.waitForTimeout(2_000);
+    await waitForSlideAutosave(page);
     await page.reload();
 
     // Verify the rendered slide still resolves a protected asset URL by loading
