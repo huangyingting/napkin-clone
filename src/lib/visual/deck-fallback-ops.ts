@@ -2,6 +2,7 @@ import type { ImageElement, VisualElement } from "@/lib/presentation/deck";
 import { isEmptyImageSrc } from "@/lib/presentation/image-element";
 import type { DeckThemeTokenSet } from "@/lib/presentation/deck-theme-tokens";
 import type { Visual } from "@/lib/visual/schema";
+import { resolveVisualThemeBridge } from "@/lib/visual/deck-visual-theme-bridge";
 import { applyTheme } from "@/lib/visual/transforms";
 import {
   isImageFallback,
@@ -65,8 +66,10 @@ export function buildDeckVisualOp(
   box: OperationBox,
   visualDefaults: DeckThemeTokenSet["visual"] | undefined,
 ) {
-  const styleThemeId = element.styleThemeId ?? visualDefaults?.styleThemeId;
-  const styled = styleThemeId ? applyTheme(visual, styleThemeId) : visual;
+  const bridge = resolveVisualThemeBridge(element.styleThemeId, visualDefaults);
+  const styled = bridge.styleThemeId
+    ? applyTheme(visual, bridge.styleThemeId)
+    : visual;
   const layout = layoutWithinBox(styled, box);
   const specs = visualToNativeSpecs(styled, layout);
 

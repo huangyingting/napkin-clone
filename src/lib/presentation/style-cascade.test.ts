@@ -16,6 +16,7 @@ import {
   resolveSlideStyle,
   resolveSlideThemeColors,
   resolveTextElementStyle,
+  STYLE_CASCADE_LAYERS,
 } from "./style-cascade";
 
 function makeSlide(overrides: Partial<Slide> = {}): Slide {
@@ -90,6 +91,16 @@ test("resolveMaster returns undefined when masterRef does not match any master",
   const slide = makeSlide({ masterRef: "non-existent" });
   const resolved = resolveMaster(deck, slide);
   assert.equal(resolved, undefined);
+});
+
+test("documents the stable five cascade layers in order", () => {
+  assert.deepEqual(STYLE_CASCADE_LAYERS, [
+    "deck",
+    "master",
+    "layout",
+    "slide",
+    "element",
+  ]);
 });
 
 // ---------------------------------------------------------------------------
@@ -248,6 +259,17 @@ test("resolveSlideStyle showPageNumbers defaults to false with no master", () =>
   assert.equal(resolved.showPageNumbers, false);
 });
 
+test("resolveSlideStyle falls back when optional master chrome fields are absent", () => {
+  const master = makeMaster();
+  const deck = makeDeck({ masters: [master] });
+  const resolved = resolveSlideStyle(deck, makeSlide());
+
+  assert.equal(resolved.footerText, undefined);
+  assert.equal(resolved.logoUrl, undefined);
+  assert.equal(resolved.logoPlacement, undefined);
+  assert.equal(resolved.showPageNumbers, false);
+});
+
 test("resolveSlideStyle exposes footerText from master", () => {
   const master = makeMaster({ footerText: "Slide {{pageNumber}}" });
   const deck = makeDeck({ masters: [master] });
@@ -351,6 +373,16 @@ test("resolveRoleTextStyle: deleting an override restores the inherited value", 
   // reset (override field removed) -> inherited deck color
   assert.strictEqual(reset.color, tokenSet.colors.onBg);
   assert.strictEqual(reset.origin.color, "deck");
+});
+
+test("resolveRoleTextStyle tracks absent optional fields as deck fallbacks", () => {
+  const tokenSet = resolveSlideStyle(makeDeck(), makeSlide()).tokenSet;
+  const style = resolveRoleTextStyle(tokenSet, "body");
+
+  assert.equal(style.lineHeight, undefined);
+  assert.equal(style.paragraphSpacing, undefined);
+  assert.equal(style.origin.lineHeight, "deck");
+  assert.equal(style.origin.paragraphSpacing, "deck");
 });
 
 test("resolveTextElementStyle maps legacy role title -> h1, body -> body", () => {

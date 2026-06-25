@@ -49,6 +49,10 @@ import {
 import { slideFormatConfig } from "@/lib/presentation/slide-format";
 import { resolveSlideStyle } from "@/lib/presentation/style-cascade";
 import {
+  cssFontStackToExportFontFace,
+  slideHeightPctToPoints,
+} from "@/lib/presentation/style-units";
+import {
   resolveRoleToken,
   type DeckTextRole,
   type DeckThemeTokenSet,
@@ -277,7 +281,7 @@ function boxToInches(box: ElementBox, geometry: DeckGeometry): InchBox {
 
 /** Convert a `cqh` (percent-of-slide-height) font size to points. */
 function fontSizePt(percentOfHeight: number, geometry: DeckGeometry): number {
-  return Math.max(6, Math.round((percentOfHeight / 100) * geometry.slideHPt));
+  return slideHeightPctToPoints(percentOfHeight, geometry.slideHPt);
 }
 
 /**
@@ -286,12 +290,7 @@ function fontSizePt(percentOfHeight: number, geometry: DeckGeometry): number {
  * rest, which keeps typography intentional while acknowledging platform drift.
  */
 function primaryFontFace(fontFamily: string | undefined): string | undefined {
-  if (!fontFamily) return undefined;
-  const first = fontFamily
-    .split(",")
-    .map((part) => part.trim().replace(/^['"]|['"]$/g, ""))
-    .find((part) => part.length > 0);
-  return first && first.toLowerCase() !== "inherit" ? first : undefined;
+  return cssFontStackToExportFontFace(fontFamily);
 }
 
 /**
