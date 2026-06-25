@@ -6,6 +6,7 @@ import { VISUAL_KINDS } from "@/lib/visual/schema";
 import {
   BLANK_TEMPLATE_ID,
   TEMPLATE_CATALOG,
+  assertTemplateCatalogCompleteness,
   getTemplate,
   getTemplateOrBlank,
   type TemplateEntry,
@@ -38,6 +39,14 @@ test("entries are well-formed with unique ids", () => {
     assert.ok(!seen.has(entry.id), `duplicate template id: ${entry.id}`);
     seen.add(entry.id);
   }
+});
+
+test("split template data and fallback lookup stay complete", () => {
+  assert.doesNotThrow(() => assertTemplateCatalogCompleteness());
+  assert.equal(
+    getTemplateOrBlank("__missing-template__").id,
+    BLANK_TEMPLATE_ID,
+  );
 });
 
 test("every template content parses to at least one block", () => {

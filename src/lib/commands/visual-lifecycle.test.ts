@@ -21,7 +21,7 @@ import {
   type VisualCommand,
   type VisualCommandPayload,
 } from "@/lib/commands/visual-commands";
-import { createBlankVisual } from "@/lib/visual/fixtures";
+import { createBlankVisual } from "@/lib/visual/blank";
 import { safeParseVisual, VISUAL_SCHEMA_VERSION } from "@/lib/visual/schema";
 import type { Visual, VisualNode, VisualEdge } from "@/lib/visual/schema";
 

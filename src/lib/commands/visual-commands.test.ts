@@ -7,7 +7,7 @@ import {
   type VisualCommand,
   type VisualCommandPayload,
 } from "@/lib/commands/visual-commands";
-import { createBlankVisual } from "@/lib/visual/fixtures";
+import { createBlankVisual } from "@/lib/visual/blank";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
 
 const ACTOR = { id: "user-1", sessionId: "session-1" };

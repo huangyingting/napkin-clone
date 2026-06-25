@@ -14,6 +14,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { VISUAL_KINDS } from "@/lib/visual/schema";
+import { KIND_DISPLAY_METADATA } from "@/lib/visual/registry-display";
+import { KIND_EDITING_CAPABILITIES } from "@/lib/visual/registry-editing";
+import { KIND_EXPORT_SUPPORT } from "@/lib/visual/registry-export";
+import { KIND_PROMPT_CONSTRAINTS } from "@/lib/visual/registry-prompt";
+import { assertRegistryDataCompleteness } from "@/lib/visual/registry-validation";
 import {
   VISUAL_KIND_REGISTRY,
   assertRegistryCompleteness,
@@ -43,6 +48,29 @@ test("every VisualKind has a registry entry", () => {
 
 test("assertRegistryCompleteness does not throw", () => {
   assert.doesNotThrow(() => assertRegistryCompleteness());
+});
+
+test("split registry concern maps cover every VisualKind and compose into the facade", () => {
+  assert.doesNotThrow(() => assertRegistryDataCompleteness());
+
+  for (const kind of VISUAL_KINDS) {
+    const entry = getKindEntry(kind);
+    assert.deepEqual(
+      {
+        label: entry.label,
+        description: entry.description,
+        keywords: entry.keywords,
+        iconName: entry.iconName,
+        layoutFamily: entry.layoutFamily,
+        allowedShapes: entry.allowedShapes,
+        defaultShape: entry.defaultShape,
+      },
+      KIND_DISPLAY_METADATA[kind],
+    );
+    assert.deepEqual(entry.editing, KIND_EDITING_CAPABILITIES[kind]);
+    assert.deepEqual(entry.export, KIND_EXPORT_SUPPORT[kind]);
+    assert.deepEqual(entry.prompt, KIND_PROMPT_CONSTRAINTS[kind]);
+  }
 });
 
 test("no duplicate kind ids in registry", () => {

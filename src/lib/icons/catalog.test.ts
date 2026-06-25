@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  DEFAULT_ICON_NAMES,
   ICON_CATALOG,
+  assertIconCatalogCompleteness,
   getIconEntry,
   isKnownIcon,
   searchIcons,
@@ -20,6 +22,14 @@ test("catalog entries are well-formed and uniquely named", () => {
     assert.ok(entry.keywords.length > 0);
     assert.ok(!seen.has(entry.name), `duplicate icon name: ${entry.name}`);
     seen.add(entry.name);
+  }
+});
+
+test("split catalog data and default index stay complete", () => {
+  assert.doesNotThrow(() => assertIconCatalogCompleteness());
+  assert.ok(DEFAULT_ICON_NAMES.length > 0);
+  for (const name of DEFAULT_ICON_NAMES) {
+    assert.ok(isKnownIcon(name), `default icon must exist: ${name}`);
   }
 });
 

@@ -21,7 +21,7 @@ import {
 } from "lexical";
 
 import type { InsertVisualPayload } from "@/lib/lexical/commands";
-import { createBlankVisual } from "@/lib/visual/fixtures";
+import { createBlankVisual } from "@/lib/visual/blank";
 
 import {
   $createVisualNode,
