@@ -8,7 +8,7 @@ and slide deck system. The project is still in development, so these docs treat
 the current schema as authoritative.
 
 Database migration commands in README/package scripts are normal Prisma schema
-workflow. They are separate from application-level old-data compatibility.
+workflow and are not runtime payload readers.
 
 ## Start Here
 

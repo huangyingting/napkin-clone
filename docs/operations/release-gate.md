@@ -68,10 +68,7 @@ The CLI (`src/scripts/audit-persisted-schema.ts`, core in
 `src/lib/schema-audit/audit.ts`) exits non-zero when any row fails its schema
 validator and reports only safe identifiers (document id / row id / schema area
 / failure reason) — never document content. A clean run is a precondition for
-release; drift is remediated with the offline migration harness
-(`npm run migrate:schema`, see
-[`persisted-schema-migrations.md`](./persisted-schema-migrations.md)) and the
-[repair playbook](./persisted-schema-repair.md).
+release; drift is remediated with the [repair playbook](./persisted-schema-repair.md).
 
 ### Test coverage scope
 
@@ -262,5 +259,5 @@ Before each foundation release wave:
 | #460          | Structured diagnostics — `src/lib/diagnostics/error-codes.ts`                                                                                                                                                              |
 | #461          | Performance budgets — `src/lib/presentation/perf-budgets.ts`                                                                                                                                                               |
 | #495          | API surface governance — `docs/security/api-route-security-matrix.md`, `src/lib/api/errors.ts`, `src/lib/diagnostics/api-abuse.ts`                                                                                         |
-| #493          | Persisted-schema gates — `src/lib/schema-audit/audit.ts`, `src/lib/schema-migrate/harness.ts`, `docs/operations/persisted-schema-repair.md`                                                                                |
+| #493          | Persisted-schema gates — `src/lib/schema-audit/audit.ts`, `docs/operations/persisted-schema-repair.md`                                                                                                                     |
 | #517          | Release-gate E2E profile — `prisma/seed-e2e.ts`, `e2e/helpers/profile.ts`, `e2e/{import-roundtrip,present-export,slide-asset-upload}.spec.ts`, [ADR 0002](../architecture/decisions/0002-canvas-keyboard-accessibility.md) |

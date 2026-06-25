@@ -1,11 +1,8 @@
 /**
  * Shared API error-response helpers (Epic #495, issue #511).
  *
- * Before this module each route hand-rolled its own denial responses, which
- * drifted apart over time: `{"error":"Unauthorized."}` vs
- * `{"error":"Unauthorized"}` (no trailing period), JSON vs plain-text 403/404
- * bodies, and so on. These helpers give every app-gated route ONE canonical
- * shape so clients and logs can rely on it:
+ * These helpers give every app-gated route one canonical shape so clients and
+ * logs can rely on it:
  *
  *   `NextResponse.json({ error, code }, { status })`
  *

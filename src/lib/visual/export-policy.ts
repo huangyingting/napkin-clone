@@ -1,5 +1,4 @@
 import type { PlanEntitlements } from "@/lib/billing/catalog";
-import type { EntitlementFacade } from "@/lib/billing/entitlement-facade";
 
 export type ExportEntitlements = Pick<
   PlanEntitlements,
@@ -40,17 +39,6 @@ export function resolveExportPolicy(
     entitlements?.svgExport ?? false,
     entitlements?.pptxExport ?? false,
     entitlements?.removeWatermark ?? false,
-  );
-}
-
-/** Adapter for R17's entitlement facade without importing its server runtime. */
-export function resolveExportPolicyFromEntitlementFacade(
-  facade: Pick<EntitlementFacade, "can">,
-): ExportPolicy {
-  return buildExportPolicy(
-    facade.can("svgExport"),
-    facade.can("pptxExport"),
-    facade.can("removeWatermark"),
   );
 }
 

@@ -1,12 +1,9 @@
 /**
  * The single, shared result shape returned by server actions (issue #144).
  *
- * Before this, actions returned four incompatible shapes — `{ ok, data, error }`,
- * `{ status, message }`, `{ success, message }`, and bare `throw new Error(msg)`.
- * The thrown variant was especially harmful: Next.js masks server-action error
- * messages in production, so user-facing strings never reached users. This
- * discriminated union lets every action return a uniform value, and callers
- * narrow on the `ok` flag:
+ * This discriminated union lets every action return a uniform value, and callers
+ * narrow on the `ok` flag while preserving user-facing error messages in
+ * production:
  *
  * ```ts
  * const res = await someAction();

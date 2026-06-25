@@ -14,8 +14,8 @@
  *
  * Why a separate module (no runtime compat layer): per AGENTS.md the runtime
  * render/export paths must not branch on superseded shapes. Detection of drift
- * lives here (audit) and remediation lives in the migration harness (#502);
- * neither runs inside request handling.
+ * lives here (audit); remediation is an explicit operator repair step and never
+ * runs inside request handling.
  */
 
 import {

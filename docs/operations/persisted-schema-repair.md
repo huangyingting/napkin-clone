@@ -62,16 +62,12 @@ objects and do not parse string decks.
 
 Pick the smallest remediation that resolves the violation.
 
-### 3a. Offline migration harness (#502)
+### 3a. One-off offline repair script
 
-For systematic drift (a shape change affecting many rows), write a one-off
-migration and run it offline. See
-[`persisted-schema-migrations.md`](./persisted-schema-migrations.md):
-
-```bash
-npm run migrate:schema -- --name <migration>            # dry run
-npm run migrate:schema -- --name <migration> --apply    # after backup
-```
+For systematic drift affecting many rows, write a scoped one-off repair script
+for that incident, review it like application code, run it against a backup or
+staging copy first, then delete it after the target data is repaired and audited.
+Do not add runtime readers that accept the non-current shape.
 
 ### 3b. Visual mirror rebuild
 
@@ -117,7 +113,6 @@ npm test && npm run typecheck && npm run lint && npm run format:check
 ## Related
 
 - Audit CLI (#501): `src/lib/schema-audit/audit.ts`
-- Migration harness (#502): [`persisted-schema-migrations.md`](./persisted-schema-migrations.md)
 - Telemetry helper (#504): `src/lib/diagnostics/schema-telemetry.ts`
 - Reconciliation model (#503): `src/lib/document/source-ref-model.ts`
 - Release gate: [`release-gate.md`](./release-gate.md)

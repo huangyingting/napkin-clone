@@ -7,12 +7,10 @@
  * is publicly shared with a valid present/embed link — and otherwise refuse
  * without leaking whether a private asset exists. That decision combines two
  * existing pure helpers (`documentCapabilities` and `evaluateShareAccess`),
- * which historically lived inline in the route and so could only be regression-
- * tested as two disconnected parallel checks.
+ * and keeps the route and its regression tests on the same code path.
  *
- * This module hoists the route's composed decision into one pure function so
- * the route and its regression tests exercise the SAME code path. It performs
- * no I/O: the caller does the asset/document lookups and passes the rows in.
+ * This module performs no I/O: the caller does the asset/document lookups and
+ * passes the rows in.
  *
  * Privacy contract (do NOT weaken):
  *   - missing asset, missing document, or soft-deleted document → `404`
