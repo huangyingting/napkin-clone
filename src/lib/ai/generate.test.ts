@@ -113,7 +113,10 @@ test("throws GenerationError when output never parses", async () => {
   const { complete, calls } = sequence(["nope"]);
   await assert.rejects(
     generateVisuals({ text: "hello" }, { complete, maxAttempts: 3 }),
-    (error) => error instanceof GenerationError,
+    (error) =>
+      error instanceof GenerationError &&
+      error.message ===
+        "Could not generate 3 valid visuals after 3 attempt(s). The AI response was not valid JSON.",
   );
   assert.equal(calls.count, 3);
 });
