@@ -4003,6 +4003,12 @@ export function SlideEditor({
                   role="dialog"
                   aria-modal="true"
                   aria-label="Slide inspector"
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.stopPropagation();
+                      setInspectorSheetOpen(false);
+                    }
+                  }}
                   className="fixed inset-x-0 bottom-0 z-modal flex max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl border-t border-ds-border-subtle bg-ds-surface-base shadow-ds-popover"
                 >
                   <div className="relative flex shrink-0 items-center justify-between px-4 pb-2 pt-4">
@@ -5096,6 +5102,12 @@ function SlideNotesDrawer({
     <div
       className="flex shrink-0 flex-col border-t border-ds-border-subtle bg-ds-surface-overlay"
       style={{ height }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.stopPropagation();
+          onClose();
+        }
+      }}
     >
       <div
         role="separator"
