@@ -6,7 +6,7 @@
  * testable in Node without a DOM.
  */
 
-import type { PlanEntitlements } from "@/lib/billing/entitlements";
+import type { PlanEntitlements } from "@/lib/billing/catalog";
 
 // ---------------------------------------------------------------------------
 // Types

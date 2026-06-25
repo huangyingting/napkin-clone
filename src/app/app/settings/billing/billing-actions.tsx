@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 
-import type { Plan } from "@/lib/billing/entitlements";
+import type { Plan } from "@/lib/billing/catalog";
 import { changePlanAction, cancelSubscriptionAction } from "./actions";
 
 interface BillingActionsProps {

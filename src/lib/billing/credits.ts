@@ -10,7 +10,8 @@
  * the balance is reset to the plan's `creditsPerPeriod`.
  */
 
-import { getEntitlements, type Plan } from "@/lib/billing/entitlements";
+import type { Plan } from "@/lib/billing/catalog";
+import { getBillingState } from "@/lib/billing/service";
 import { prisma } from "@/lib/prisma";
 
 // ---------------------------------------------------------------------------
@@ -66,60 +67,14 @@ export async function getUserCreditState(
   userId: string,
   client: typeof prisma = prisma,
 ): Promise<UserCreditState> {
-  const user = await client.user.findUniqueOrThrow({
-    where: { id: userId },
-    select: {
-      plan: true,
-      creditBalance: true,
-      creditPeriodStart: true,
-    },
-  });
-
-  const entitlements = getEntitlements(user.plan);
-  const now = new Date();
-  const periodMs = entitlements.periodDays * 24 * 60 * 60 * 1000;
-
-  let periodStart: Date;
-  let balance: number;
-
-  if (!user.creditPeriodStart) {
-    // First access — initialise period
-    periodStart = now;
-    balance = entitlements.creditsPerPeriod;
-    await client.user.update({
-      where: { id: userId },
-      data: {
-        creditBalance: balance,
-        creditPeriodStart: periodStart,
-      },
-    });
-  } else {
-    const elapsed = now.getTime() - user.creditPeriodStart.getTime();
-    if (elapsed >= periodMs) {
-      // Period has rolled over — reset balance
-      periodStart = now;
-      balance = entitlements.creditsPerPeriod;
-      await client.user.update({
-        where: { id: userId },
-        data: {
-          creditBalance: balance,
-          creditPeriodStart: periodStart,
-        },
-      });
-    } else {
-      periodStart = user.creditPeriodStart;
-      balance = user.creditBalance;
-    }
-  }
-
-  const periodEnd = new Date(periodStart.getTime() + periodMs);
+  const state = await getBillingState(userId, client);
 
   return {
-    balance,
-    periodStart,
-    periodEnd,
-    creditsPerPeriod: entitlements.creditsPerPeriod,
-    plan: user.plan,
+    balance: state.creditBalance,
+    periodStart: state.periodStart,
+    periodEnd: state.periodEnd,
+    creditsPerPeriod: state.creditsPerPeriod,
+    plan: state.rawPlan,
   };
 }
 

@@ -65,6 +65,50 @@ export function logUsageLedgerFailure(
   );
 }
 
+export type MeteredUsageOperation = "reserve" | "capture" | "refund";
+
+export interface MeteredUsageTelemetryEvent extends UsageLedgerTelemetryEvent {
+  userId?: string;
+}
+
+const METERED_USAGE_KEYS = [
+  "idempotencyKey",
+  "operation",
+  "creditCost",
+  "status",
+  "userId",
+] as const;
+
+export function buildMeteredUsageContext(
+  event: MeteredUsageTelemetryEvent,
+): Record<string, SafeScalar> {
+  return copyAllowedScalars(event, METERED_USAGE_KEYS);
+}
+
+export function logMeteredUsageEvent(
+  operation: MeteredUsageOperation,
+  message: string,
+  event: MeteredUsageTelemetryEvent,
+): void {
+  logInfo(
+    `billing.metered.${operation}`,
+    message,
+    buildMeteredUsageContext(event),
+  );
+}
+
+export function logMeteredUsageFailure(
+  operation: MeteredUsageOperation,
+  error: unknown,
+  event: MeteredUsageTelemetryEvent,
+): void {
+  logError(
+    `billing.metered.${operation}`,
+    error,
+    buildMeteredUsageContext(event),
+  );
+}
+
 export type AssetTelemetryArea = "slide" | "brand";
 export type AssetTelemetryOperation = "mark" | "purge" | "storage_delete";
 

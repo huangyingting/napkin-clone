@@ -22,8 +22,17 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { getEntitlements, isPlan, type Plan } from "@/lib/billing/entitlements";
+import { isPlan, type Plan } from "@/lib/billing/catalog";
 import type { BillingProvider, ChangePlanResult } from "@/lib/billing/provider";
+import {
+  applyLocalPlanChange,
+  applyLocalSubscriptionDeleted,
+  applyLocalSubscriptionUpdate,
+  getBillingSubscription,
+  markSubscriptionCancelAtPeriodEnd,
+  recordStripeCustomer,
+  shouldApplySubscriptionUpdate,
+} from "@/lib/billing/service";
 import { stripe as stripeEnv, app as appEnv } from "@/lib/env";
 
 function getStripeKey(): string {
@@ -89,7 +98,7 @@ export class StripeBillingProvider implements BillingProvider {
 
     // Look up or create a Stripe customer (reuse the stored customer id; it can
     // outlive any single subscription).
-    const sub = await prisma.subscription.findUnique({ where: { userId } });
+    const sub = await getBillingSubscription(userId);
     let customerId: string | undefined = sub?.stripeCustomerId ?? undefined;
 
     if (!customerId) {
@@ -98,26 +107,14 @@ export class StripeBillingProvider implements BillingProvider {
         metadata: { userId },
       });
       customerId = customer.id;
+      if (!customerId) {
+        throw new Error("Stripe customer creation did not return an id.");
+      }
 
-      // Persist the customer id immediately so a retried checkout doesn't create
-      // a duplicate Stripe customer.
-      const now = new Date();
-      const entitlements = getEntitlements(targetPlan);
-      const periodEnd = new Date(
-        now.getTime() + entitlements.periodDays * 24 * 60 * 60 * 1000,
-      );
-      await prisma.subscription.upsert({
-        where: { userId },
-        create: {
-          userId,
-          plan: sub?.plan ?? "free",
-          status: sub?.status ?? "inactive",
-          stripeCustomerId: customerId,
-          currentPeriodStart: now,
-          currentPeriodEnd: periodEnd,
-          cancelAtPeriodEnd: false,
-        },
-        update: { stripeCustomerId: customerId },
+      await recordStripeCustomer(userId, customerId, {
+        fallbackPlan: isPlan(sub?.plan) ? sub.plan : "free",
+        periodPlan: targetPlan,
+        fallbackStatus: sub?.status ?? "inactive",
       });
     }
 
@@ -139,7 +136,7 @@ export class StripeBillingProvider implements BillingProvider {
   }
 
   async cancelSubscriptionImmediately(userId: string): Promise<void> {
-    const sub = await prisma.subscription.findUnique({ where: { userId } });
+    const sub = await getBillingSubscription(userId);
     if (!sub?.stripeSubscriptionId) return;
 
     const stripe = await loadStripe();
@@ -147,10 +144,12 @@ export class StripeBillingProvider implements BillingProvider {
   }
 
   async cancelSubscription(userId: string): Promise<ChangePlanResult> {
-    const sub = await prisma.subscription.findUnique({ where: { userId } });
+    const sub = await getBillingSubscription(userId);
     if (!sub?.stripeSubscriptionId) {
       // No Stripe subscription on record — downgrade locally
-      await this._applyFreePlan(userId);
+      await applyLocalPlanChange(userId, "free", {
+        updateSubscriptionPeriodOnExisting: false,
+      });
       return {
         success: true,
         plan: "free",
@@ -163,10 +162,7 @@ export class StripeBillingProvider implements BillingProvider {
       cancel_at_period_end: true,
     });
 
-    await prisma.subscription.update({
-      where: { userId },
-      data: { cancelAtPeriodEnd: true },
-    });
+    await markSubscriptionCancelAtPeriodEnd(userId);
 
     return {
       success: true,
@@ -174,41 +170,6 @@ export class StripeBillingProvider implements BillingProvider {
       message:
         "Subscription will be cancelled at the end of the current period.",
     };
-  }
-
-  private async _applyFreePlan(userId: string): Promise<void> {
-    const entitlements = getEntitlements("free");
-    const now = new Date();
-    const periodEnd = new Date(
-      now.getTime() + entitlements.periodDays * 24 * 60 * 60 * 1000,
-    );
-
-    await prisma.$transaction([
-      prisma.user.update({
-        where: { id: userId },
-        data: {
-          plan: "free",
-          creditBalance: entitlements.creditsPerPeriod,
-          creditPeriodStart: now,
-        },
-      }),
-      prisma.subscription.upsert({
-        where: { userId },
-        create: {
-          userId,
-          plan: "free",
-          status: "active",
-          currentPeriodStart: now,
-          currentPeriodEnd: periodEnd,
-          cancelAtPeriodEnd: false,
-        },
-        update: {
-          plan: "free",
-          status: "active",
-          cancelAtPeriodEnd: false,
-        },
-      }),
-    ]);
   }
 }
 
@@ -320,14 +281,7 @@ export function reduceStripeSubscriptionEvent(
  * have no period to compare against), so out-of-order events are ignored
  * instead of reverting newer subscription state.
  */
-export function shouldApplySubscriptionUpdate(
-  storedPeriodEnd: Date | null | undefined,
-  incomingPeriodEnd: Date | null | undefined,
-): boolean {
-  if (!storedPeriodEnd) return true;
-  if (!incomingPeriodEnd) return false;
-  return incomingPeriodEnd.getTime() >= storedPeriodEnd.getTime();
-}
+export { shouldApplySubscriptionUpdate };
 
 export async function handleStripeWebhookEvent(
   rawBody: string,
@@ -375,11 +329,7 @@ export async function handleStripeWebhookEvent(
       const userId = (session.metadata as Record<string, string>)?.userId;
       const plan = (session.metadata as Record<string, string>)?.plan;
       if (userId && isPlan(plan)) {
-        const entitlements = getEntitlements(plan);
         const now = new Date();
-        const periodEnd = new Date(
-          now.getTime() + entitlements.periodDays * 24 * 60 * 60 * 1000,
-        );
         const stripeSubscriptionId =
           typeof session.subscription === "string"
             ? session.subscription
@@ -387,38 +337,12 @@ export async function handleStripeWebhookEvent(
         const stripeCustomerId =
           typeof session.customer === "string" ? session.customer : undefined;
 
-        await prisma.$transaction([
-          prisma.user.update({
-            where: { id: userId },
-            data: {
-              plan,
-              creditBalance: entitlements.creditsPerPeriod,
-              creditPeriodStart: now,
-            },
-          }),
-          prisma.subscription.upsert({
-            where: { userId },
-            create: {
-              userId,
-              plan,
-              status: "active",
-              stripeCustomerId,
-              stripeSubscriptionId,
-              currentPeriodStart: now,
-              currentPeriodEnd: periodEnd,
-              cancelAtPeriodEnd: false,
-            },
-            update: {
-              plan,
-              status: "active",
-              stripeCustomerId,
-              stripeSubscriptionId,
-              currentPeriodStart: now,
-              currentPeriodEnd: periodEnd,
-              cancelAtPeriodEnd: false,
-            },
-          }),
-        ]);
+        await applyLocalPlanChange(userId, plan, {
+          now,
+          status: "active",
+          stripeCustomerId,
+          stripeSubscriptionId,
+        });
       }
       break;
     }
@@ -427,43 +351,13 @@ export async function handleStripeWebhookEvent(
       const stripeSub = event.data.object as StripeSubscriptionLike;
       const stripeSubscriptionId = stripeSub.id;
       if (!stripeSubscriptionId) break;
-      const sub = await prisma.subscription.findUnique({
-        where: { stripeSubscriptionId },
-      });
-      if (sub) {
-        const next = reduceStripeSubscriptionEvent(event.type, stripeSub);
-        // Ordering guard: ignore redeliveries that carry an older billing
-        // period than the one we already persisted, so out-of-order events
-        // cannot revert newer subscription state.
-        if (
-          !shouldApplySubscriptionUpdate(
-            sub.currentPeriodEnd,
-            next.currentPeriodEnd,
-          )
-        ) {
-          return { status: 200, message: "stale subscription update ignored" };
-        }
-        await prisma.subscription.update({
-          where: { stripeSubscriptionId },
-          data: {
-            status: next.status,
-            cancelAtPeriodEnd: next.cancelAtPeriodEnd,
-            ...(next.plan ? { plan: next.plan } : {}),
-            ...(next.currentPeriodStart
-              ? { currentPeriodStart: next.currentPeriodStart }
-              : {}),
-            ...(next.currentPeriodEnd
-              ? { currentPeriodEnd: next.currentPeriodEnd }
-              : {}),
-          },
-        });
-        // Keep the user's plan in sync when the subscription's plan changes.
-        if (next.plan) {
-          await prisma.user.update({
-            where: { id: sub.userId },
-            data: { plan: next.plan },
-          });
-        }
+      const next = reduceStripeSubscriptionEvent(event.type, stripeSub);
+      const applied = await applyLocalSubscriptionUpdate(
+        stripeSubscriptionId,
+        next,
+      );
+      if (applied === "stale") {
+        return { status: 200, message: "stale subscription update ignored" };
       }
       break;
     }
@@ -472,34 +366,8 @@ export async function handleStripeWebhookEvent(
       const stripeSub = event.data.object as StripeSubscriptionLike;
       const stripeSubscriptionId = stripeSub.id;
       if (!stripeSubscriptionId) break;
-      const sub = await prisma.subscription.findUnique({
-        where: { stripeSubscriptionId },
-      });
-      if (sub) {
-        const next = reduceStripeSubscriptionEvent(event.type, stripeSub);
-        const entitlements = getEntitlements("free");
-        const now = new Date();
-        await prisma.$transaction([
-          prisma.user.update({
-            where: { id: sub.userId },
-            data: {
-              plan: "free",
-              creditBalance: entitlements.creditsPerPeriod,
-              creditPeriodStart: now,
-            },
-          }),
-          prisma.subscription.update({
-            where: { stripeSubscriptionId },
-            data: {
-              plan: next.plan ?? "free",
-              status: next.status,
-              currentPeriodEnd: now,
-              currentPeriodStart: now,
-              cancelAtPeriodEnd: next.cancelAtPeriodEnd,
-            },
-          }),
-        ]);
-      }
+      const next = reduceStripeSubscriptionEvent(event.type, stripeSub);
+      await applyLocalSubscriptionDeleted(stripeSubscriptionId, next);
       break;
     }
 

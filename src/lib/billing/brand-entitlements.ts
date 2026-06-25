@@ -6,7 +6,7 @@
  * server actions and the brand logo/font upload APIs must independently verify
  * the caller's plan before mutating or accepting uploads.
  *
- * Two distinct entitlements are enforced (see `@/lib/billing/entitlements`):
+ * Two distinct entitlements are enforced (see `@/lib/billing/entitlement-facade`):
  *
  *   - `brandStyles` — gates brand CRUD (create/update/delete) and logo upload.
  *                     Available on Plus and Pro.
@@ -19,9 +19,12 @@
  * the same logic.
  */
 
-import { getEntitlements } from "@/lib/billing/entitlements";
+import {
+  createEntitlementFacade,
+  FEATURE_UPGRADE_MESSAGES,
+  resolveUserEntitlements,
+} from "@/lib/billing/entitlement-facade";
 import { BRAND_WEB_FONTS } from "@/lib/brand/schema";
-import { prisma } from "@/lib/prisma";
 
 /** The Brand Studio features that can be gated by plan. */
 export type BrandEntitlementFeature = "brandStyles" | "fontUpload";
@@ -36,11 +39,10 @@ export interface BrandEntitlementDecision {
 
 /** Actionable upgrade message for the `brandStyles` gate. */
 export const BRAND_STYLES_UPGRADE_MESSAGE =
-  "Brand Studio requires a Plus or Pro plan. Upgrade your plan to create and manage brand styles.";
+  FEATURE_UPGRADE_MESSAGES.brandStyles;
 
 /** Actionable upgrade message for the `fontUpload` gate. */
-export const FONT_UPLOAD_UPGRADE_MESSAGE =
-  "Custom font upload requires a Pro plan. Upgrade to Pro to upload and use custom fonts.";
+export const FONT_UPLOAD_UPGRADE_MESSAGE = FEATURE_UPGRADE_MESSAGES.fontUpload;
 
 /**
  * Thrown when a user attempts a Brand Studio action their plan does not allow.
@@ -62,12 +64,12 @@ export class BrandEntitlementError extends Error {
 
 /**
  * Pure decision: maps a plan string to its Brand Studio capabilities. Unknown
- * plans fall back to the free tier (no capabilities) via `getEntitlements`.
+ * plans fall back to the free tier (no capabilities) via the entitlement facade.
  */
 export function brandEntitlementDecision(
   plan: string | null | undefined,
 ): BrandEntitlementDecision {
-  const entitlements = getEntitlements(plan);
+  const entitlements = createEntitlementFacade(plan).entitlements;
   return {
     canBrand: entitlements.brandStyles,
     canFontUpload: entitlements.fontUpload,
@@ -82,7 +84,7 @@ export function assertCanBrand(decision: BrandEntitlementDecision): void {
   if (!decision.canBrand) {
     throw new BrandEntitlementError(
       "brandStyles",
-      BRAND_STYLES_UPGRADE_MESSAGE,
+      FEATURE_UPGRADE_MESSAGES.brandStyles,
     );
   }
 }
@@ -93,7 +95,10 @@ export function assertCanBrand(decision: BrandEntitlementDecision): void {
  */
 export function assertCanFontUpload(decision: BrandEntitlementDecision): void {
   if (!decision.canFontUpload) {
-    throw new BrandEntitlementError("fontUpload", FONT_UPLOAD_UPGRADE_MESSAGE);
+    throw new BrandEntitlementError(
+      "fontUpload",
+      FEATURE_UPGRADE_MESSAGES.fontUpload,
+    );
   }
 }
 
@@ -121,9 +126,9 @@ export function isCustomFontFamily(
 export async function resolveBrandEntitlements(
   userId: string,
 ): Promise<BrandEntitlementDecision> {
-  const dbUser = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { plan: true },
-  });
-  return brandEntitlementDecision(dbUser?.plan);
+  const facade = await resolveUserEntitlements(userId);
+  return {
+    canBrand: facade.can("brandStyles"),
+    canFontUpload: facade.can("fontUpload"),
+  };
 }

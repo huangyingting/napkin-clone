@@ -4,6 +4,7 @@ import { describe, test } from "node:test";
 import {
   buildAssetOrphanContext,
   buildCommandValidationContext,
+  buildMeteredUsageContext,
   buildUsageLedgerContext,
 } from "./domain-events";
 
@@ -26,6 +27,26 @@ describe("domain telemetry event builders", () => {
     });
     assert.ok(!JSON.stringify(context).includes("draft content"));
     assert.ok(!JSON.stringify(context).includes("sk-secret"));
+  });
+
+  test("metered usage context carries billing operation metadata only", () => {
+    const context = buildMeteredUsageContext({
+      idempotencyKey: "req-1",
+      operation: "generate",
+      creditCost: 3,
+      status: "captured",
+      userId: "user-1",
+      prompt: "draft content",
+    } as never);
+
+    assert.deepEqual(context, {
+      idempotencyKey: "req-1",
+      operation: "generate",
+      creditCost: 3,
+      status: "captured",
+      userId: "user-1",
+    });
+    assert.ok(!JSON.stringify(context).includes("draft content"));
   });
 
   test("asset orphan context carries only safe purge metadata", () => {

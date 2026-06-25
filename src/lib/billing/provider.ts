@@ -12,7 +12,7 @@
  * loaded) it throws rather than silently serving paid billing through the mock.
  */
 
-import type { Plan } from "@/lib/billing/entitlements";
+import type { Plan } from "@/lib/billing/catalog";
 
 // ---------------------------------------------------------------------------
 // Interface

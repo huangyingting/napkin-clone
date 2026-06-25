@@ -8,7 +8,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { PLAN_ENTITLEMENTS } from "@/lib/billing/entitlements";
+import { PLAN_ENTITLEMENTS } from "@/lib/billing/catalog";
 import {
   resolveExportCapabilities,
   type ExportCapabilities,

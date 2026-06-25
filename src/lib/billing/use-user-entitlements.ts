@@ -11,10 +11,7 @@
 
 import { useEffect, useState } from "react";
 
-import {
-  getEntitlements,
-  type PlanEntitlements,
-} from "@/lib/billing/entitlements";
+import { getEntitlements, type PlanEntitlements } from "@/lib/billing/catalog";
 
 const FREE_ENTITLEMENTS: PlanEntitlements = getEntitlements("free");
 
