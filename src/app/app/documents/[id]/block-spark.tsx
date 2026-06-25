@@ -42,6 +42,7 @@ import {
 import { type Orientation, type DetailLevel } from "@/lib/ai/prompt";
 import Link from "next/link";
 import { useIsPointerFine } from "@/lib/pointer";
+import { emitProductTelemetry } from "@/lib/telemetry/product";
 
 import {
   DOCUMENT_GUTTER_BUTTON_SIZE,
@@ -70,6 +71,7 @@ type BlockInfo = {
   anchorHeight: number;
   gutterLeft: number;
   text: string;
+  sourceKind: "block" | "selection";
 };
 
 function resolveAnchorRect(blockElement: HTMLElement): {
@@ -313,6 +315,7 @@ export function BlockSparkPlugin() {
       return {
         key: info.key,
         text: info.text,
+        sourceKind: "block",
         anchorTop: anchor.top,
         anchorHeight: anchor.height,
         gutterLeft,
@@ -446,6 +449,10 @@ export function BlockSparkPlugin() {
       }
       // Stamp sourceText so the visual remembers the text it was generated from.
       const toInsert = stampGeneratedVisual(visual);
+      emitProductTelemetry("product.ai.visual.applied", {
+        sourceKind: openTarget?.sourceKind ?? "block",
+        visualKind: visual.type,
+      });
       editor.update(() => {
         const top = $getNodeByKey(targetKey);
         if (top === null || !$isElementNode(top)) {
@@ -456,7 +463,7 @@ export function BlockSparkPlugin() {
       closePanel();
       editor.focus();
     },
-    [editor, openKey, closePanel, stampGeneratedVisual],
+    [editor, openKey, openTarget, closePanel, stampGeneratedVisual],
   );
 
   if (typeof document === "undefined" || !editable) {
@@ -477,6 +484,7 @@ export function BlockSparkPlugin() {
       ? {
           key: selectionInsertKey,
           text: selectionText,
+          sourceKind: "selection",
           anchorTop: selectionRect.top,
           anchorHeight: selectionRect.height,
           gutterLeft: selectionGutterLeft,

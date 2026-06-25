@@ -42,6 +42,11 @@ import {
   exportPNG,
   exportPPTX,
 } from "@/lib/visual/export";
+import {
+  bucketBytes,
+  bucketDurationMs,
+  emitProductTelemetry,
+} from "@/lib/telemetry/product";
 import type { Visual } from "@/lib/visual/schema";
 
 // ---------------------------------------------------------------------------
@@ -271,14 +276,31 @@ export function ExportDialog({
   const handleExport = useCallback(async () => {
     setError(null);
     setExporting(true);
+    const startedAt = performance.now();
+    emitProductTelemetry("product.export.started", {
+      exportKind: "visual",
+      outputFormat: format,
+    });
 
     // Entitlement guard
     if (format === "svg" && !canSvg) {
+      emitProductTelemetry("product.export.failed", {
+        durationBucket: bucketDurationMs(performance.now() - startedAt),
+        exportKind: "visual",
+        failureReason: "entitlement",
+        outputFormat: format,
+      });
       setError("SVG export requires Plus or Pro. Upgrade your plan.");
       setExporting(false);
       return;
     }
     if (format === "pptx" && !canPptx) {
+      emitProductTelemetry("product.export.failed", {
+        durationBucket: bucketDurationMs(performance.now() - startedAt),
+        exportKind: "visual",
+        failureReason: "entitlement",
+        outputFormat: format,
+      });
       setError("PPTX export requires Plus or Pro. Upgrade your plan.");
       setExporting(false);
       return;
@@ -286,6 +308,12 @@ export function ExportDialog({
 
     const svg = getSvgElement();
     if (!svg) {
+      emitProductTelemetry("product.export.failed", {
+        durationBucket: bucketDurationMs(performance.now() - startedAt),
+        exportKind: "visual",
+        failureReason: "missing_visual",
+        outputFormat: format,
+      });
       setError("No visual to export");
       setExporting(false);
       return;
@@ -323,6 +351,12 @@ export function ExportDialog({
       }
 
       if (!blob) {
+        emitProductTelemetry("product.export.failed", {
+          durationBucket: bucketDurationMs(performance.now() - startedAt),
+          exportKind: "visual",
+          failureReason: "empty_blob",
+          outputFormat: format,
+        });
         setError(`${formatLabel(format)} export failed`);
         return;
       }
@@ -332,8 +366,20 @@ export function ExportDialog({
           ? `@${exportOptions.scale}x`
           : "";
       downloadBlob(blob, `${filename}${scaleLabel}.${ext}`);
+      emitProductTelemetry("product.export.succeeded", {
+        durationBucket: bucketDurationMs(performance.now() - startedAt),
+        exportKind: "visual",
+        fileSizeBucket: bucketBytes(blob.size),
+        outputFormat: format,
+      });
       onClose();
     } catch {
+      emitProductTelemetry("product.export.failed", {
+        durationBucket: bucketDurationMs(performance.now() - startedAt),
+        exportKind: "visual",
+        failureReason: "exception",
+        outputFormat: format,
+      });
       setError(`${formatLabel(format)} export failed`);
     } finally {
       setExporting(false);
