@@ -6,7 +6,7 @@ import {
   setVisualKind,
   setVisualStyle,
 } from "@/lib/visual/transforms";
-import type { VisualCommand } from "./visual-commands";
+import type { VisualCommand } from "./visual-command-contracts";
 import {
   executionSuccess,
   wholeVisualEdgeIds,

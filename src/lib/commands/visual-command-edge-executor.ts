@@ -6,7 +6,7 @@ import {
   toggleEdgeDirected,
   toggleEdgeStyle,
 } from "@/lib/visual/transforms";
-import type { VisualCommand } from "./visual-commands";
+import type { VisualCommand } from "./visual-command-contracts";
 import {
   applyEdgeStyle,
   ensureEdgeExists,

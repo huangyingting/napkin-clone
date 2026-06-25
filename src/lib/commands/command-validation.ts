@@ -2,10 +2,10 @@ import { logError } from "@/lib/log";
 
 import {
   CURRENT_COMMAND_SCHEMA_VERSION,
-  validateCommandEnvelope,
   type CommandEnvelope,
-} from "@/lib/commands/command-envelope";
-import type { VisualCommand } from "@/lib/commands/visual-commands";
+} from "@/lib/commands/envelope-core";
+import { validateCommandEnvelope } from "@/lib/commands/command-envelope-validation";
+import type { VisualCommand } from "@/lib/commands/visual-command-contracts";
 import { buildCommandValidationContext } from "@/lib/diagnostics/domain-events";
 import {
   commandDiagnosticUnsupported,

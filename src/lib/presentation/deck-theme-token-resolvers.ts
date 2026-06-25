@@ -8,10 +8,10 @@
 
 import type {
   ConnectorArrow,
-  DeckTheme,
   ImageFitMode,
   ImageMaskShape,
-} from "@/lib/presentation/deck";
+} from "@/lib/presentation/deck-element-primitives";
+import type { DeckTheme } from "@/lib/presentation/deck-core";
 import {
   BUILT_IN_TOKEN_SETS,
   DEFAULT_TOKEN_SET,

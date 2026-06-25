@@ -4,7 +4,7 @@ import type { SlideFormat as PresentationSlideFormat } from "@/lib/presentation/
 import type {
   DeckThemeTokenSet,
   MasterSlide,
-} from "@/lib/presentation/deck-theme-tokens";
+} from "@/lib/presentation/deck-theme-token-types";
 import type { SlideElement, TextRun } from "./deck-elements";
 import type { SlideLayout, SlideLayoutHint } from "./deck-layouts-model";
 

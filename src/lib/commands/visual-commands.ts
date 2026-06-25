@@ -1,12 +1,14 @@
 import {
   adaptSlideCommandResult,
   makeAffectedIds,
-  validateCommandEnvelope,
-  type CommandEnvelope,
-  type CommandTarget,
   type CrossSurfaceCommandResult,
-} from "@/lib/commands/command-envelope";
-import type { DeckPatch } from "@/lib/presentation/slide-commands";
+} from "@/lib/commands/command-result-helpers";
+import { validateCommandEnvelope } from "@/lib/commands/command-envelope-validation";
+import type {
+  CommandEnvelope,
+  CommandTarget,
+} from "@/lib/commands/envelope-core";
+import type { DeckPatch } from "@/lib/presentation/slide-command-contracts";
 import type {
   ArrowStyle,
   AspectRatioPreset,

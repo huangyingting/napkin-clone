@@ -1,9 +1,41 @@
-export * from "./envelope-core";
-export * from "./command-result-helpers";
-export * from "./command-envelope-validation";
-export * from "./deck-command-acceptance";
+export {
+  CURRENT_COMMAND_SCHEMA_VERSION,
+  isPlainObject,
+  isNonEmptyString,
+  isFiniteNumber,
+  isPositiveNumber,
+  isInteger,
+  isNonNegativeNumber,
+  isOneOf,
+  isStringArray,
+  uniqueStrings,
+  pushUnknownKeyErrors,
+  validateTarget,
+  validateCommandEnvelopeStructure,
+} from "./envelope-core";
+export type {
+  CommandSource,
+  CommandTargetSurface,
+  CommandActor,
+  CommandTarget,
+  CommandEnvelope,
+  ValidationResult,
+} from "./envelope-core";
 
-import type { SlideCommand } from "@/lib/presentation/slide-commands";
-import type { CommandEnvelope } from "./envelope-core";
+export {
+  makeAffectedIds,
+  makeSideEffects,
+  adaptSlideCommandResult,
+} from "./command-result-helpers";
+export type {
+  CommandAffectedIds,
+  CrossSurfaceCommandResult,
+} from "./command-result-helpers";
 
-export type SlideCommandEnvelope = CommandEnvelope<SlideCommand>;
+export { validateCommandEnvelope } from "./command-envelope-validation";
+
+export { acceptDeckCommandEnvelope } from "./deck-command-acceptance";
+export type {
+  EnvelopeRejectionCode,
+  EnvelopeAcceptance,
+} from "./deck-command-acceptance";

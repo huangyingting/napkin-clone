@@ -14,7 +14,10 @@ import {
 } from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { VISUAL_DISPLAY_STYLES } from "@/lib/visual/display-styles";
-import type { VisualCommand, VisualCommandPayload } from "./visual-commands";
+import type {
+  VisualCommand,
+  VisualCommandPayload,
+} from "./visual-command-contracts";
 
 const NODE_STYLE_FIELDS = ["color", "stroke", "textColor"] as const;
 const FILL_STYLES = ["solid", "gradient"] as const;

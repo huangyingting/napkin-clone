@@ -6,7 +6,7 @@
  * stable deck-theme-tokens facade).
  */
 
-import type { ElementAlign } from "@/lib/presentation/deck";
+import type { ElementAlign } from "@/lib/presentation/deck-element-primitives";
 import type { FontScale } from "@/lib/presentation/theme-typography";
 import type {
   DeckTextRole,

@@ -9,7 +9,7 @@ import type {
   SetDeckFormatCommand,
   SetDeckThemeCommand,
   UpdateDeckTemplateCommand,
-} from "./slide-commands";
+} from "./slide-command-contracts";
 import { makePatch, success } from "./slide-command-executor-helpers";
 
 export type DeckThemeFamilyCommand =

@@ -7,7 +7,10 @@ import {
   setNodeLabel,
   setNodeStyle,
 } from "@/lib/visual/transforms";
-import type { VisualCommand, VisualCommandPayload } from "./visual-commands";
+import type {
+  VisualCommand,
+  VisualCommandPayload,
+} from "./visual-command-contracts";
 import {
   applyNodeExtStyle,
   ensureNodeExists,

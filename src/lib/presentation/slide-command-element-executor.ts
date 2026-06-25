@@ -46,7 +46,7 @@ import type {
   UngroupElementsCommand,
   GroupElementsCommand,
   UpdateElementCommand,
-} from "./slide-commands";
+} from "./slide-command-contracts";
 import {
   failure,
   findSlideIndex,

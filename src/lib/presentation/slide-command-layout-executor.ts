@@ -8,7 +8,7 @@ import type {
   ApplySlideLayoutCommand,
   ResetSlideLayoutCommand,
   UpdateSlideLayoutHintCommand,
-} from "./slide-commands";
+} from "./slide-command-contracts";
 import {
   failure,
   findSlideIndex,

@@ -1,9 +1,17 @@
 /** Slide element families and element helper constructors. */
 
 import type { LayoutSlotBinding } from "@/lib/presentation/slide-slots";
-import type { DeckTextRole } from "@/lib/presentation/deck-theme-tokens";
+import type { DeckTextRole } from "@/lib/presentation/deck-theme-token-primitives";
+import {
+  IMAGE_FIT_MODES,
+  IMAGE_MASK_SHAPES,
+  type ConnectorArrow,
+  type ElementAlign,
+  type ImageFitMode,
+  type ImageMaskShape,
+} from "./deck-element-primitives";
 import { makeElementId } from "./deck-ids";
-import type { PlaceholderType } from "./deck-layouts-model";
+import type { PlaceholderType } from "./deck-layout-primitives";
 import type { SourceRef } from "./deck-source-refs";
 
 /**
@@ -21,8 +29,6 @@ export interface ElementBox {
   /** Height, percent of slide height. */
   h: number;
 }
-
-export type ElementAlign = "left" | "center" | "right";
 
 /**
  * A formatted span of text within a line. Produced by `blockRichText()` from a
@@ -121,8 +127,6 @@ export type ConnectorPoint = ConnectorPointFree | ConnectorEndpoint;
 export type ConnectorRouting = "straight" | "elbow";
 
 /** Arrowhead style for a connector endpoint. */
-export type ConnectorArrow = "none" | "arrow" | "filled";
-
 /**
  * A first-class connector element — a directed line between two points that may
  * optionally be anchored to other slide elements.
@@ -331,18 +335,10 @@ export interface VisualElement extends BaseElement {
 }
 
 /** How an image is sized within its element box. */
-export const IMAGE_FIT_MODES = ["contain", "cover", "fill", "none"] as const;
-export type ImageFitMode = (typeof IMAGE_FIT_MODES)[number];
+export { IMAGE_FIT_MODES, IMAGE_MASK_SHAPES };
+export type { ConnectorArrow, ElementAlign, ImageFitMode, ImageMaskShape };
 
 /** Shape mask options for an image element. */
-export const IMAGE_MASK_SHAPES = [
-  "none",
-  "circle",
-  "rounded",
-  "diamond",
-] as const;
-export type ImageMaskShape = (typeof IMAGE_MASK_SHAPES)[number];
-
 /** Fractional clipping inset applied to an image element. */
 export interface ImageCrop {
   /** Fraction clipped from the top edge (0–1). */
