@@ -17,7 +17,10 @@
  *   - unrecoverable model output → {@link GenerationError}.
  */
 
-import { buildDeckSource } from "@/lib/ai/deck-source";
+import {
+  buildDeckGenerationSource,
+  type DeckGenerationSource,
+} from "@/lib/ai/deck-source";
 import type { CompleteFn } from "@/lib/ai/generate";
 import {
   generateDeck,
@@ -31,6 +34,8 @@ export interface RunDeckGenerationInput {
   contentJson: unknown;
   /** The document's visuals, keyed by visual id. May be empty. */
   visuals: ReadonlyMap<string, Visual>;
+  /** Precomputed source from the route/parser; avoids drifting re-extraction. */
+  source?: DeckGenerationSource;
   /** The injected LLM completion function. */
   complete: CompleteFn;
   /** Optional length/tone/audience tuning. */
@@ -65,7 +70,8 @@ export interface RunDeckGenerationResult {
 export async function runDeckGeneration(
   input: RunDeckGenerationInput,
 ): Promise<RunDeckGenerationResult> {
-  const source = buildDeckSource(input.contentJson, input.visuals);
+  const source =
+    input.source ?? buildDeckGenerationSource(input.contentJson, input.visuals);
   const deck = await generateDeck(
     {
       outline: source.outline,

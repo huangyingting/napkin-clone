@@ -395,8 +395,9 @@ export function ExportDialog({
     canPptx,
   ]);
 
-  // Options that only apply to raster formats
-  const isRaster = format === "png" || format === "pdf" || format === "pptx";
+  // PPTX native exports are editable Office shapes; raster-only controls do not apply.
+  const isRaster = format === "png" || format === "pdf";
+  const supportsCanvasOptions = format !== "pptx";
 
   if (typeof document === "undefined") return null;
 
@@ -457,41 +458,42 @@ export function ExportDialog({
 
                 {/* Controls panel */}
                 <div className="flex w-full flex-col gap-4 border-t border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] p-5 sm:w-[260px] sm:border-l sm:border-t-0">
-                  {/* Social presets */}
-                  <ControlField label="Social preset">
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {OUTPUT_PROFILE_CATALOG.map((preset) => {
-                        const isActive = options.socialPreset === preset.id;
-                        return (
-                          <button
-                            key={preset.id}
-                            type="button"
-                            aria-pressed={isActive}
-                            onClick={() => selectSocialPreset(preset.id)}
-                            className={cx(
-                              "flex flex-col items-start rounded-[var(--ds-radius-sm,8px)] border px-2.5 py-2 text-left transition-colors",
-                              FOCUS_RING,
-                              isActive
-                                ? "border-[var(--ds-accent,#6366f1)] bg-[var(--ds-state-selected,#eef2ff)] text-[var(--ds-accent,#6366f1)]"
-                                : "border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-raised,#ffffff)] text-[var(--ds-text-primary,#15171a)] hover:border-[var(--ds-border-strong,#dde1e5)]",
-                            )}
-                          >
-                            <span className="text-[11px] font-semibold leading-tight">
-                              {preset.label}
-                            </span>
-                            <span className="mt-0.5 text-[10px] leading-tight opacity-60">
-                              {preset.canonicalWidth}×{preset.canonicalHeight}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {options.socialPreset && (
-                      <p className="mt-1 text-xs text-[var(--ds-text-muted,#6f7d83)]">
-                        Click again to clear preset.
-                      </p>
-                    )}
-                  </ControlField>
+                  {supportsCanvasOptions && (
+                    <ControlField label="Social preset">
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {OUTPUT_PROFILE_CATALOG.map((preset) => {
+                          const isActive = options.socialPreset === preset.id;
+                          return (
+                            <button
+                              key={preset.id}
+                              type="button"
+                              aria-pressed={isActive}
+                              onClick={() => selectSocialPreset(preset.id)}
+                              className={cx(
+                                "flex flex-col items-start rounded-[var(--ds-radius-sm,8px)] border px-2.5 py-2 text-left transition-colors",
+                                FOCUS_RING,
+                                isActive
+                                  ? "border-[var(--ds-accent,#6366f1)] bg-[var(--ds-state-selected,#eef2ff)] text-[var(--ds-accent,#6366f1)]"
+                                  : "border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-raised,#ffffff)] text-[var(--ds-text-primary,#15171a)] hover:border-[var(--ds-border-strong,#dde1e5)]",
+                              )}
+                            >
+                              <span className="text-[11px] font-semibold leading-tight">
+                                {preset.label}
+                              </span>
+                              <span className="mt-0.5 text-[10px] leading-tight opacity-60">
+                                {preset.canonicalWidth}×{preset.canonicalHeight}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {options.socialPreset && (
+                        <p className="mt-1 text-xs text-[var(--ds-text-muted,#6f7d83)]">
+                          Click again to clear preset.
+                        </p>
+                      )}
+                    </ControlField>
+                  )}
 
                   {/* Format */}
                   <ControlField label="Format">
@@ -535,32 +537,34 @@ export function ExportDialog({
                   </ControlField>
 
                   {/* Background (raster/SVG) */}
-                  <ControlField label="Background">
-                    <SegmentedControl
-                      options={BG_OPTIONS}
-                      value={options.background}
-                      onChange={setBackground}
-                      aria-label="Background mode"
-                      size="sm"
-                    />
-                    {options.background === "custom" && (
-                      <div className="mt-2 flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={options.customBackground ?? "#ffffff"}
-                          onChange={setCustomBackground}
-                          aria-label="Custom background color"
-                          className={cx(
-                            "h-7 w-7 cursor-pointer rounded-[var(--ds-radius-sm,8px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))]",
-                            FOCUS_RING,
-                          )}
-                        />
-                        <span className="font-mono text-xs text-[var(--ds-text-muted,#6f7d83)]">
-                          {options.customBackground ?? "#ffffff"}
-                        </span>
-                      </div>
-                    )}
-                  </ControlField>
+                  {supportsCanvasOptions && (
+                    <ControlField label="Background">
+                      <SegmentedControl
+                        options={BG_OPTIONS}
+                        value={options.background}
+                        onChange={setBackground}
+                        aria-label="Background mode"
+                        size="sm"
+                      />
+                      {options.background === "custom" && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={options.customBackground ?? "#ffffff"}
+                            onChange={setCustomBackground}
+                            aria-label="Custom background color"
+                            className={cx(
+                              "h-7 w-7 cursor-pointer rounded-[var(--ds-radius-sm,8px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))]",
+                              FOCUS_RING,
+                            )}
+                          />
+                          <span className="font-mono text-xs text-[var(--ds-text-muted,#6f7d83)]">
+                            {options.customBackground ?? "#ffffff"}
+                          </span>
+                        </div>
+                      )}
+                    </ControlField>
+                  )}
 
                   {/* Color mode (raster) */}
                   {isRaster && (
@@ -618,6 +622,9 @@ export function ExportDialog({
                   {/* Format hint */}
                   <p className="text-xs text-[var(--ds-text-muted,#6f7d83)]">
                     {formatLabel(format)} — {formatDescription(format)}
+                    {format === "pptx"
+                      ? ". Native PPTX exports are editable shapes; social, background, color, and resolution controls apply only to raster formats."
+                      : ""}
                   </p>
                 </div>
               </div>

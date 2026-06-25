@@ -26,9 +26,6 @@ import { FOCUS_RING } from "@/components/ui/tokens";
 import { EditorToolbarButton } from "@/components/editor/toolbar-button";
 import { useVisualSvgRegistry } from "@/components/editor/visual-svg-registry";
 import type { DeckFetchPort } from "@/lib/action-ports";
-import { buildDeckFromBlocks } from "@/lib/presentation/deck";
-import { pickFreshestDeck } from "@/lib/presentation/fresh-deck";
-import type { Visual } from "@/lib/visual/schema";
 import { collectDocumentBlocks } from "@/lib/content";
 import {
   INFOGRAPHIC_WIDTH_PRESETS,
@@ -39,6 +36,8 @@ import { downloadBlob } from "@/lib/visual/export";
 import { sanitizeFilename } from "@/lib/visual/export-filename";
 import { useUserEntitlements } from "@/lib/billing/use-user-entitlements";
 import { resolveExportPolicy } from "@/lib/visual/export-policy";
+import { runExportPreflight } from "@/lib/visual/export-preflight";
+import { resolveDeckExportContext } from "@/lib/visual/deck-export-context";
 import {
   bucketBytes,
   bucketDurationMs,
@@ -85,6 +84,7 @@ export function DocumentExportButton({
   const [isOpen, setIsOpen] = useState(false);
   const [status, setStatus] = useState<ExportStatus>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [warningMsg, setWarningMsg] = useState<string | null>(null);
   const [infogramWidth, setInfogramWidth] =
     useState<InfographicWidthPreset>("1080");
   const menuRef = useRef<HTMLDivElement>(null);
@@ -175,8 +175,46 @@ export function DocumentExportButton({
     });
   };
 
+  const fetchDeckJson = async (): Promise<unknown> => {
+    try {
+      return (await deckPort.fetchDeckJson(documentId)).deckJson;
+    } catch {
+      return null;
+    }
+  };
+
+  const preflightDeckExport = (
+    deck: Parameters<typeof runExportPreflight>[0],
+    target: "pptx" | "image",
+  ): boolean => {
+    const result = runExportPreflight(deck, {
+      target,
+      exportPolicy,
+    });
+    if (result.hasFatal) {
+      setErrorMsg(
+        result.diagnostics
+          .filter((diagnostic) => diagnostic.severity === "fatal")
+          .map((diagnostic) => diagnostic.message)
+          .join(" "),
+      );
+      setStatus("error");
+      return false;
+    }
+    setWarningMsg(
+      result.hasWarnings
+        ? result.diagnostics
+            .filter((diagnostic) => diagnostic.severity === "warning")
+            .map((diagnostic) => diagnostic.message)
+            .join(" ")
+        : null,
+    );
+    return true;
+  };
+
   const handleExportPDF = async () => {
     setErrorMsg(null);
+    setWarningMsg(null);
     setStatus("exporting");
     setIsOpen(false);
     const startedAt = trackExportStart("pdf");
@@ -212,32 +250,18 @@ export function DocumentExportButton({
     setIsOpen(false);
     const startedAt = trackExportStart("pptx");
     try {
-      const { exportDeckAsPPTX } = await import("@/lib/visual/deck-export");
-      const resolveDeckExportContext = async () => {
-        const blocks = await getBlocks();
-
-        const visuals = new Map<string, Visual>();
-        for (const block of blocks) {
-          if (block.kind === "visual") {
-            visuals.set(block.visualId, block.visual);
-          }
-        }
-        const baseDeck = buildDeckFromBlocks(blocks);
-
-        let fetchedRaw: unknown = null;
-        try {
-          fetchedRaw = (await deckPort.fetchDeckJson(documentId)).deckJson;
-        } catch {
-          // Network/auth error — fall back to page-load deckJson, then live blocks.
-        }
-
-        return {
-          deck: pickFreshestDeck(fetchedRaw, initialDeckJson, baseDeck),
-          visuals,
-        };
-      };
-
-      const { deck, visuals } = await resolveDeckExportContext();
+      const { exportDeckAsPPTX } =
+        await import("@/lib/visual/deck-export-pptx");
+      const blocks = await getBlocks();
+      const { deck, visuals } = resolveDeckExportContext(
+        blocks,
+        await fetchDeckJson(),
+        initialDeckJson,
+      );
+      if (!preflightDeckExport(deck, "pptx")) {
+        trackExportFailure("pptx", startedAt, "preflight_fatal");
+        return;
+      }
       const blob = await exportDeckAsPPTX(deck, visuals, getSvg);
       if (!blob) {
         trackExportFailure("pptx", startedAt, "empty_blob");
@@ -258,29 +282,23 @@ export function DocumentExportButton({
   const handleExportSlideImages = async (format: DeckSlideImageFormat) => {
     const outputFormat = `slides-${format}`;
     setErrorMsg(null);
+    setWarningMsg(null);
     setStatus("exporting");
     setIsOpen(false);
     const startedAt = trackExportStart(outputFormat);
     try {
       const { exportDeckAsSlideImages } =
-        await import("@/lib/visual/deck-export");
+        await import("@/lib/visual/deck-export-slide-images");
       const blocks = await getBlocks();
-
-      const visuals = new Map<string, Visual>();
-      for (const block of blocks) {
-        if (block.kind === "visual") {
-          visuals.set(block.visualId, block.visual);
-        }
+      const { deck, visuals } = resolveDeckExportContext(
+        blocks,
+        await fetchDeckJson(),
+        initialDeckJson,
+      );
+      if (!preflightDeckExport(deck, "image")) {
+        trackExportFailure(outputFormat, startedAt, "preflight_fatal");
+        return;
       }
-      const baseDeck = buildDeckFromBlocks(blocks);
-
-      let fetchedRaw: unknown = null;
-      try {
-        fetchedRaw = (await deckPort.fetchDeckJson(documentId)).deckJson;
-      } catch {
-        // Network/auth error — fall back to page-load deckJson, then live blocks.
-      }
-      const deck = pickFreshestDeck(fetchedRaw, initialDeckJson, baseDeck);
 
       const blob = await exportDeckAsSlideImages(deck, visuals, getSvg, {
         format,
@@ -519,12 +537,25 @@ export function DocumentExportButton({
               {errorMsg}
             </div>
           ) : null}
+          {warningMsg ? (
+            <div
+              role="status"
+              className="border-t border-ds-warning-border bg-ds-warning-surface px-3 py-2 text-xs text-ds-warning-text"
+            >
+              {warningMsg}
+            </div>
+          ) : null}
         </div>
       ) : null}
 
       {status === "error" && !isOpen && errorMsg ? (
         <p role="alert" className="mt-1 text-xs text-ds-danger-text">
           {errorMsg}
+        </p>
+      ) : null}
+      {status !== "error" && !isOpen && warningMsg ? (
+        <p role="status" className="mt-1 text-xs text-ds-warning-text">
+          {warningMsg}
         </p>
       ) : null}
     </div>

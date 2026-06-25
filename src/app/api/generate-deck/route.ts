@@ -32,7 +32,10 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 
-import { buildDeckSource } from "@/lib/ai/deck-source";
+import {
+  buildDeckGenerationSource,
+  type DeckGenerationSource,
+} from "@/lib/ai/deck-source";
 import { computeDeckMetrics, countWords } from "@/lib/ai/deck-metrics";
 import {
   EmptyInputError,
@@ -75,8 +78,7 @@ interface GenerateDeckPayload {
   options: DeckGenerationOptions;
   blocks: ReadonlyArray<DocumentBlock>;
   visuals: Map<string, Visual>;
-  outline: string;
-  truncated: boolean;
+  source: DeckGenerationSource;
   preferredTheme: ReturnType<typeof inferDeckTheme>;
 }
 
@@ -155,10 +157,10 @@ function parsePayload(
 
   const blocks = collectDocumentBlocks(body.contentJson);
   const visuals = visualsFromContent(blocks);
-  const { outline, truncated } = buildDeckSource(body.contentJson, visuals);
+  const source = buildDeckGenerationSource(body.contentJson, visuals);
   const preferredTheme = inferDeckTheme(blocks);
 
-  if (outline.trim().length === 0) {
+  if (source.outline.trim().length === 0) {
     return {
       ok: false,
       status: 400,
@@ -166,11 +168,11 @@ function parsePayload(
     };
   }
   // Reject oversized input BEFORE any LLM call.
-  if (outline.length > MAX_INPUT_CHARS) {
+  if (source.outline.length > MAX_INPUT_CHARS) {
     return {
       ok: false,
       status: 413,
-      message: formatDeckInputTooLongError(outline.length),
+      message: formatDeckInputTooLongError(source.outline.length),
     };
   }
 
@@ -181,8 +183,7 @@ function parsePayload(
       options: parsedOptions.options,
       blocks,
       visuals,
-      outline,
-      truncated,
+      source,
       preferredTheme,
     },
   };
@@ -205,17 +206,18 @@ const handleGenerateDeck = createGenerationRouteHandler<
   unexpectedErrorMessage: "Unexpected error while generating the deck.",
   azureMaxOutputTokens: DECK_OUTPUT_TOKEN_BUDGET,
   parsePayload,
-  creditText: (payload) => payload.outline,
+  creditText: (payload) => payload.source.outline,
   generate: ({ payload, complete }) =>
     runDeckGeneration({
       contentJson: payload.contentJson,
       visuals: payload.visuals,
+      source: payload.source,
       complete,
       options: payload.options,
       preferredTheme: payload.preferredTheme,
     }),
   successResponse: ({ deck }, { payload }) =>
-    NextResponse.json({ deck, truncated: payload.truncated }),
+    NextResponse.json({ deck, truncated: payload.source.truncated }),
   mapGenerationError: (error) => {
     if (error instanceof EmptyInputError) {
       return { status: 400, message: error.message };
@@ -236,18 +238,18 @@ const handleGenerateDeck = createGenerationRouteHandler<
   onSuccess: ({ deck }, { payload, requestId, latencyMs }) => {
     try {
       const metrics = computeDeckMetrics(deck, {
-        sourceWordCount: countWords(payload.outline),
+        sourceWordCount: countWords(payload.source.outline),
       });
       logInfo(LOG_SCOPE, "deck-generated", {
         requestId,
         latencyMs,
-        outlineChars: payload.outline.length,
+        outlineChars: payload.source.outline.length,
         outlineWords: metrics.sourceWordCount ?? 0,
         slideCount: metrics.slideCount,
         wordsPerSlide: metrics.wordsPerSlide,
         percentSlidesWithVisual: metrics.percentSlidesWithVisual,
         schemaValid: metrics.schemaValid,
-        truncated: payload.truncated,
+        truncated: payload.source.truncated,
       });
     } catch {
       // Metrics logging is best-effort and must never affect the response.

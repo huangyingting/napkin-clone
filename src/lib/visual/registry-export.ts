@@ -2,10 +2,11 @@
 
 import type { VisualKind } from "@/lib/visual/schema";
 import type { KindExportSupport } from "./registry-types";
+import { KIND_RUNTIME_DESCRIPTORS } from "./registry-runtime";
 
 /**
  * Full SVG/PNG/PDF export + PPTX as embedded raster (no native Office shapes).
- * Applicable to the majority of derived-layout diagram kinds.
+ * Applicable to visual families whose mapper returns an image-fallback sentinel.
  */
 const RASTER_EXPORT: KindExportSupport = {
   svg: true,
@@ -18,8 +19,6 @@ const RASTER_EXPORT: KindExportSupport = {
 
 /**
  * Full SVG/PNG/PDF/PPTX native export.
- * Currently only positioned graph kinds (flowchart, mindmap, concept, orgchart)
- * render to native Office shapes via pptx-shapes.ts.
  */
 const FULL_EXPORT: KindExportSupport = {
   svg: true,
@@ -30,18 +29,16 @@ const FULL_EXPORT: KindExportSupport = {
   pptxDegradations: [],
 };
 
-export const KIND_EXPORT_SUPPORT = {
-  flowchart: FULL_EXPORT,
-  mindmap: FULL_EXPORT,
-  list: RASTER_EXPORT,
-  chart: RASTER_EXPORT,
-  concept: FULL_EXPORT,
-  timeline: RASTER_EXPORT,
-  cycle: RASTER_EXPORT,
-  comparison: RASTER_EXPORT,
-  funnel: RASTER_EXPORT,
-  venn: RASTER_EXPORT,
-  pyramid: RASTER_EXPORT,
-  matrix: RASTER_EXPORT,
-  orgchart: FULL_EXPORT,
-} satisfies Record<VisualKind, KindExportSupport>;
+function supportForKind(kind: VisualKind): KindExportSupport {
+  const family = KIND_RUNTIME_DESCRIPTORS[kind].render.family;
+  return family === "funnel" || family === "pyramid"
+    ? RASTER_EXPORT
+    : FULL_EXPORT;
+}
+
+export const KIND_EXPORT_SUPPORT = Object.fromEntries(
+  (Object.keys(KIND_RUNTIME_DESCRIPTORS) as VisualKind[]).map((kind) => [
+    kind,
+    supportForKind(kind),
+  ]),
+) as Record<VisualKind, KindExportSupport>;
