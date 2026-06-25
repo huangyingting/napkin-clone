@@ -1,7 +1,7 @@
 # Presentation Rendering And Export
 
 **Status:** Current  
-**Last updated:** 2026-06-23
+**Last updated:** 2026-06-25
 
 This document describes how authored decks render in the editor, present mode,
 public viewers, and export pipeline. For the deck JSON shape, see
@@ -31,8 +31,11 @@ see [../editor/theme-layout.md](../editor/theme-layout.md).
 - in-app present mode;
 - public present/share viewers.
 
-The canvas resolves style with `resolveSlideStyle(deck, slide)` when deck
-context is available. Without deck context it uses the built-in theme palette.
+The canvas resolves its flat renderer colors with
+`resolveSlideThemeColors(deck, slide)` and non-text defaults with
+`resolveSlideTokenSet(deck, slide)`. When deck context is available, master
+slides and custom token sets participate in the cascade; isolated previews fall
+back through the same built-in token sets.
 
 Supported element rendering:
 

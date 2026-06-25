@@ -60,10 +60,7 @@ import { createPortal } from "react-dom";
 import { FOCUS_RING } from "@/components/ui/tokens";
 import type { ActionResult } from "@/lib/action-result";
 import { useFocusTrap } from "@/lib/presentation/use-focus-trap";
-import {
-  DECK_THEMES,
-  SlideCanvas,
-} from "@/components/presentation/slide-canvas";
+import { SlideCanvas } from "@/components/presentation/slide-canvas";
 import {
   SlideInspector,
   type AddElementKind,
@@ -108,6 +105,7 @@ import {
   TEMPLATE_IMAGE_PLACEHOLDER_SRC,
   type SlideTemplateKind,
 } from "@/lib/presentation/slide-templates";
+import { resolveSlideThemeColors } from "@/lib/presentation/style-cascade";
 import { resolveSaveErrorMessage } from "@/lib/presentation/save-status";
 import {
   commitCommand,
@@ -616,8 +614,17 @@ export function SlideEditor({
   const safeSelected = Math.min(selectedIndex, deck.slides.length - 1);
   const selectedSlide = deck.slides[safeSelected];
   const selectedTheme = selectedSlide
-    ? (DECK_THEMES[selectedSlide.theme] ?? DECK_THEMES.default)
-    : DECK_THEMES.default;
+    ? resolveSlideThemeColors(deck, selectedSlide)
+    : resolveSlideThemeColors(deck, {
+        id: "fallback",
+        index: 0,
+        title: "",
+        bullets: [],
+        visualIds: [],
+        layout: "content",
+        notes: "",
+        theme: deck.theme,
+      });
   const {
     selectedElementIds,
     setSelectedElementId,
@@ -3372,6 +3379,7 @@ export function SlideEditor({
             >
               <SlideCanvas
                 slide={deck.slides[dragPreview.index]}
+                deck={deck}
                 visuals={visuals}
                 preview
               />
@@ -3546,7 +3554,12 @@ export function SlideEditor({
                       className="pointer-events-none relative block min-w-0 flex-1 overflow-hidden rounded-ds-sm border border-ds-border-subtle"
                       style={{ aspectRatio: activeSlideAspectRatio }}
                     >
-                      <SlideCanvas slide={slide} visuals={visuals} preview />
+                      <SlideCanvas
+                        slide={slide}
+                        deck={deck}
+                        visuals={visuals}
+                        preview
+                      />
                       <span className="absolute left-1.5 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-ds-sm bg-ds-surface-overlay px-1 text-[11px] font-semibold tabular-nums text-ds-text-secondary shadow-sm ring-1 ring-ds-border-subtle">
                         {index + 1}
                       </span>

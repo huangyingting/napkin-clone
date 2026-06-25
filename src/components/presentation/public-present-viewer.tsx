@@ -28,10 +28,8 @@ import type { Deck } from "@/lib/presentation/deck";
 import { fitAspectRatio } from "@/lib/presentation/stage-fit";
 import { slideAspectRatio } from "@/lib/presentation/slide-format";
 import type { Visual } from "@/lib/visual/schema";
-import {
-  DECK_THEMES,
-  SlideCanvas,
-} from "@/components/presentation/slide-canvas";
+import { resolveSlideThemeColors } from "@/lib/presentation/style-cascade";
+import { SlideCanvas } from "@/components/presentation/slide-canvas";
 import {
   initialPublicHashSlideIndex,
   usePublicSlideHash,
@@ -181,7 +179,7 @@ export function PublicPresentViewer({
   }
 
   const currentSlide = slides[currentIndex];
-  const tc = DECK_THEMES[currentSlide.theme] ?? DECK_THEMES.default;
+  const tc = resolveSlideThemeColors(deck, currentSlide);
   const fittedSlideSize = fitAspectRatio(
     slideAreaBounds,
     slideAspectRatio(deck.slideFormat),
@@ -249,7 +247,7 @@ export function PublicPresentViewer({
               height: fittedSlideSize.height,
             }}
           >
-            <SlideCanvas slide={currentSlide} visuals={visuals} />
+            <SlideCanvas slide={currentSlide} deck={deck} visuals={visuals} />
           </div>
         </div>
 

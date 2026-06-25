@@ -4,11 +4,9 @@ import type { JSX, ReactNode } from "react";
 import { FileText, Grid3x3, Maximize2, Minimize2, X } from "lucide-react";
 
 import { FOCUS_RING } from "@/components/ui/tokens";
-import {
-  DECK_THEMES,
-  SlideCanvas,
-} from "@/components/presentation/slide-canvas";
+import { SlideCanvas } from "@/components/presentation/slide-canvas";
 import type { Deck, Slide } from "@/lib/presentation/deck";
+import { resolveSlideThemeColors } from "@/lib/presentation/style-cascade";
 import { slideAspectRatio } from "@/lib/presentation/slide-format";
 import type { Visual } from "@/lib/visual/schema";
 
@@ -107,6 +105,7 @@ export function PresenterTimer({
 
 export function SlideOverviewPanel({
   slides,
+  deck,
   visuals,
   slideFormat,
   currentIndex,
@@ -114,6 +113,7 @@ export function SlideOverviewPanel({
   onClose,
 }: {
   slides: Slide[];
+  deck: Deck;
   visuals: ReadonlyMap<string, Visual>;
   slideFormat: Deck["slideFormat"];
   currentIndex: number;
@@ -162,8 +162,7 @@ export function SlideOverviewPanel({
               const isCurrent = index === currentIndex;
               const slideLabel =
                 slide.title.trim() || `Untitled slide ${index + 1}`;
-              const accent = (DECK_THEMES[slide.theme] ?? DECK_THEMES.default)
-                .accentColor;
+              const accent = resolveSlideThemeColors(deck, slide).accentColor;
               return (
                 <button
                   key={slide.id}
@@ -184,7 +183,12 @@ export function SlideOverviewPanel({
                     className="overflow-hidden rounded-lg border border-ds-inverse-border-subtle bg-ds-inverse-surface"
                     style={{ aspectRatio }}
                   >
-                    <SlideCanvas slide={slide} visuals={visuals} preview />
+                    <SlideCanvas
+                      slide={slide}
+                      deck={deck}
+                      visuals={visuals}
+                      preview
+                    />
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center justify-between gap-3">
@@ -216,6 +220,7 @@ export function PresenterPanel({
   currentIndex,
   total,
   nextSlide,
+  deck,
   visuals,
   slideFormat,
 }: {
@@ -223,6 +228,7 @@ export function PresenterPanel({
   currentIndex: number;
   total: number;
   nextSlide: Slide | undefined;
+  deck: Deck;
   visuals: ReadonlyMap<string, Visual>;
   slideFormat: Deck["slideFormat"];
 }): JSX.Element {
@@ -266,7 +272,12 @@ export function PresenterPanel({
             style={{ aspectRatio: previewAspectRatio }}
           >
             <div className="h-full w-full overflow-hidden">
-              <SlideCanvas slide={nextSlide} visuals={visuals} preview />
+              <SlideCanvas
+                slide={nextSlide}
+                deck={deck}
+                visuals={visuals}
+                preview
+              />
             </div>
           </div>
           <p className="mt-2 truncate text-sm text-ds-stage-muted">

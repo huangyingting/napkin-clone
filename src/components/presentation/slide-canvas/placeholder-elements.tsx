@@ -2,8 +2,9 @@ import type { JSX } from "react";
 
 import type { PlaceholderElement } from "@/lib/presentation/deck";
 import { PLACEHOLDER_TYPE_LABELS } from "@/lib/presentation/deck";
+import type { SlideThemeColors } from "@/lib/presentation/style-cascade";
 
-import { boxStyle, hexToRgba, type ThemeConfig } from "./primitives";
+import { boxStyle, hexToRgba } from "./primitives";
 
 export function PlaceholderElementView({
   element,
@@ -12,7 +13,7 @@ export function PlaceholderElementView({
   editable,
 }: {
   element: PlaceholderElement;
-  tc: ThemeConfig;
+  tc: SlideThemeColors;
   accent: string;
   editable?: boolean;
 }): JSX.Element {

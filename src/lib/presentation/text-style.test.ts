@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { allThemeTokenSets } from "./deck-theme-tokens";
 import {
   ALIGN_OPTIONS,
   clampFontSize,
@@ -10,6 +11,7 @@ import {
   mergeSwatches,
   stepFontSize,
   themeSwatchColors,
+  tokenSetSwatchColors,
 } from "./text-style";
 
 test("clampFontSize snaps to the nearest step", () => {
@@ -73,6 +75,27 @@ test("themeSwatchColors skips non-string values", () => {
     b: { accentColor: "#222222", weight: 2 },
   } as unknown as Record<string, Record<string, string>>;
   assert.deepEqual(themeSwatchColors(themes, "weight"), []);
+});
+
+test("tokenSetSwatchColors derives built-in slide background swatches from token sets", () => {
+  assert.deepEqual(tokenSetSwatchColors(allThemeTokenSets(), "slideBg"), [
+    "#ffffff",
+    "#f6fbff",
+    "#f6fdf8",
+    "#fffaf5",
+    "#fdf7ff",
+  ]);
+});
+
+test("tokenSetSwatchColors derives built-in accent swatches from token sets", () => {
+  assert.deepEqual(tokenSetSwatchColors(allThemeTokenSets(), "accent"), [
+    "#6366f1",
+    "#4f46e5",
+    "#0284c7",
+    "#16a34a",
+    "#ea580c",
+    "#9333ea",
+  ]);
 });
 
 test("mergeSwatches keeps priority order and dedupes case-insensitively", () => {
