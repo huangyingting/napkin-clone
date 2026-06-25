@@ -2,12 +2,11 @@
  * Browser-only document export renderers for PDF, PPTX, and infographic targets.
  */
 
-import { jsPDF } from "jspdf";
-import PptxGenJS from "pptxgenjs";
+import type { jsPDF } from "jspdf";
+import type PptxGenJS from "pptxgenjs";
 
 import type { Visual } from "@/lib/visual/schema";
 import { exportPNG } from "@/lib/visual/export";
-import { applySpecsToSlide } from "@/lib/visual/pptx-apply";
 import {
   computeVisualSlideLayout,
   isImageFallback,
@@ -104,6 +103,7 @@ export async function exportDocumentAsPDF(
   getSvg: (visualId: string) => SVGSVGElement | null,
 ): Promise<Blob | null> {
   try {
+    const { jsPDF } = await import("jspdf");
     const pdf = new jsPDF({
       orientation: "portrait",
       unit: "mm",
@@ -260,6 +260,7 @@ async function addVisualSlide(
     const specs = visualToNativeSpecs(visual, layout);
 
     if (!isImageFallback(specs)) {
+      const { applySpecsToSlide } = await import("@/lib/visual/pptx-apply");
       applySpecsToSlide(slide, specs);
       return;
     }
@@ -297,6 +298,7 @@ export async function exportDocumentAsPPTX(
   getSvg: (visualId: string) => SVGSVGElement | null,
 ): Promise<Blob | null> {
   try {
+    const { default: PptxGenJS } = await import("pptxgenjs");
     const pptx = new PptxGenJS();
     pptx.layout = "LAYOUT_WIDE";
 
@@ -663,6 +665,7 @@ export async function exportDocumentAsInfographic(
         reader.readAsDataURL(pngBlob);
       });
 
+      const { jsPDF } = await import("jspdf");
       const widthMM = (config.width * 25.4) / 96;
       const heightMM = (totalHeight * 25.4) / 96;
 

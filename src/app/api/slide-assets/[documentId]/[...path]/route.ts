@@ -36,10 +36,8 @@ import {
 } from "@/lib/slides/asset-access";
 import { logError } from "@/lib/log";
 import { getDefaultStorageAdapter } from "@/lib/slides/asset-storage";
-import {
-  plainTextResponse,
-  privateImmutableCacheHeaders,
-} from "@/lib/api/route-adapters";
+import { plainTextResponse } from "@/lib/api/route-adapters";
+import { serveStoredAsset } from "@/lib/assets/serve";
 
 export async function GET(
   request: NextRequest,
@@ -108,7 +106,7 @@ export async function GET(
   }
 
   // `asset` is non-null here (a null asset would have denied with 404 above).
-  return serveAsset(asset!.storageKey, asset!.mimeType);
+  return serveAsset(request, asset!.storageKey, asset!.mimeType);
 }
 
 // ---------------------------------------------------------------------------
@@ -124,15 +122,16 @@ export async function GET(
  * inconsistency after a cleanup run).
  */
 async function serveAsset(
+  request: Request,
   storageKey: string,
   mimeType: string,
 ): Promise<NextResponse> {
   try {
-    const data = await getDefaultStorageAdapter().read(storageKey);
-    // BodyInit expects a Uint8Array here.
-    return new NextResponse(new Uint8Array(data), {
-      status: 200,
-      headers: privateImmutableCacheHeaders(mimeType),
+    return await serveStoredAsset({
+      adapter: getDefaultStorageAdapter(),
+      storageKey,
+      mimeType,
+      request,
     });
   } catch (err) {
     logError("slide-asset-serve", err, { storageKey });

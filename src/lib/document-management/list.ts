@@ -62,7 +62,7 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
 });
 
-const dashboardDocumentSelect = {
+export const DASHBOARD_DOCUMENT_CARD_SELECT = {
   id: true,
   title: true,
   favorite: true,
@@ -171,7 +171,7 @@ export async function listDashboardDocumentsForUser(
         limit: DOCUMENT_LIST_LIMIT,
       }),
       select: {
-        ...dashboardDocumentSelect,
+        ...DASHBOARD_DOCUMENT_CARD_SELECT,
         workspace: false,
       },
     }),
@@ -182,10 +182,10 @@ export async function listDashboardDocumentsForUser(
         limit: DOCUMENT_LIST_LIMIT,
       }),
       select: {
-        ...dashboardDocumentSelect,
+        ...DASHBOARD_DOCUMENT_CARD_SELECT,
         workspace: {
           select: {
-            ...dashboardDocumentSelect.workspace.select,
+            ...DASHBOARD_DOCUMENT_CARD_SELECT.workspace.select,
             members: {
               where: { userId },
               select: { userId: true, role: true },
@@ -235,10 +235,10 @@ export async function searchDocumentsForUser(
       limit: SEARCH_RESULT_LIMIT,
     }),
     select: {
-      ...dashboardDocumentSelect,
+      ...DASHBOARD_DOCUMENT_CARD_SELECT,
       workspace: {
         select: {
-          ...dashboardDocumentSelect.workspace.select,
+          ...DASHBOARD_DOCUMENT_CARD_SELECT.workspace.select,
           members: {
             where: { userId },
             select: { userId: true, role: true },

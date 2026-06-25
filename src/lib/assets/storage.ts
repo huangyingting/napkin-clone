@@ -1,5 +1,7 @@
+import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { Readable } from "node:stream";
 
 /**
  * Contract for an asset storage backend.
@@ -18,6 +20,14 @@ export interface AssetStorageAdapter {
    * Throws (ENOENT-like) when the file does not exist.
    */
   read(key: string): Promise<Buffer>;
+  /**
+   * Returns local metadata when the backend can serve bytes without buffering.
+   */
+  stat?(key: string): Promise<{ size: number; mtime: Date }>;
+  /**
+   * Streams raw bytes for the given storage key when supported by the backend.
+   */
+  stream?(key: string): Promise<ReadableStream<Uint8Array>>;
   /**
    * Deletes the file for the given storage key.
    * Must be idempotent: no-op if the file is already absent.
@@ -56,6 +66,17 @@ export class LocalAssetStorageAdapter implements AssetStorageAdapter {
 
   async read(key: string): Promise<Buffer> {
     return fs.readFile(path.join(this.rootDir, key));
+  }
+
+  async stat(key: string): Promise<{ size: number; mtime: Date }> {
+    const stats = await fs.stat(path.join(this.rootDir, key));
+    return { size: stats.size, mtime: stats.mtime };
+  }
+
+  async stream(key: string): Promise<ReadableStream<Uint8Array>> {
+    return Readable.toWeb(
+      fsSync.createReadStream(path.join(this.rootDir, key)),
+    ) as ReadableStream<Uint8Array>;
   }
 
   async delete(key: string): Promise<void> {

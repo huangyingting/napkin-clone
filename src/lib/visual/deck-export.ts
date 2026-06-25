@@ -25,8 +25,7 @@
  * physical slide height.
  */
 
-import JSZip from "jszip";
-import PptxGenJS from "pptxgenjs";
+import type PptxGenJS from "pptxgenjs";
 
 import type {
   BulletItem,
@@ -55,8 +54,6 @@ import {
 } from "@/lib/presentation/render-export-style-adapter";
 import { slideHeightPctToPoints } from "@/lib/presentation/style-units";
 import type { Visual } from "@/lib/visual/schema";
-import { exportPNG } from "@/lib/visual/export";
-import { applySpecsToSlide } from "@/lib/visual/pptx-apply";
 import {
   buildDeckImageOp,
   buildDeckVisualOp,
@@ -576,6 +573,7 @@ const SHAPES: Record<ShapeKind | "roundRect", ShapeName> = {
 
 /** Rasterise a live SVG to a PNG data URL (browser-only). */
 async function svgToPngDataUrl(svg: SVGSVGElement): Promise<string | null> {
+  const { exportPNG } = await import("@/lib/visual/export");
   const pngBlob = await exportPNG(svg, {
     background: "include",
     colorMode: "color",
@@ -1070,7 +1068,10 @@ async function applyDeckOp(
       applyConnectorOp(slide, op);
       break;
     case "visual-native":
-      applySpecsToSlide(slide, op.specs);
+      {
+        const { applySpecsToSlide } = await import("@/lib/visual/pptx-apply");
+        applySpecsToSlide(slide, op.specs);
+      }
       break;
     case "visual-fallback":
       await applyVisualFallbackOp(slide, op, getSvg);
@@ -1114,6 +1115,7 @@ export async function exportDeckAsPPTX(
   getSvg: (visualId: string) => SVGSVGElement | null,
 ): Promise<Blob | null> {
   try {
+    const { default: PptxGenJS } = await import("pptxgenjs");
     const specs = buildDeckSpecs(deck, visuals);
     const geometry = deckGeometry(deck.slideFormat);
 
@@ -1672,6 +1674,10 @@ export async function exportDeckAsSlideImages(
   options: DeckSlideImageExportOptions = {},
 ): Promise<Blob | null> {
   try {
+    const [{ default: JSZip }, { exportPNG }] = await Promise.all([
+      import("jszip"),
+      import("@/lib/visual/export"),
+    ]);
     const format = options.format ?? "svg";
     const specs = buildDeckSpecs(deck, visuals);
     const geometry = slideImageGeometry(deck.slideFormat);

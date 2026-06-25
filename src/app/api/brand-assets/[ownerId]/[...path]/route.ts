@@ -32,10 +32,8 @@ import { prisma } from "@/lib/prisma";
 import { decideBrandAssetAccess } from "@/lib/brand/asset-access";
 import { getBrandStorageAdapter } from "@/lib/brand/asset-storage";
 import { logError } from "@/lib/log";
-import {
-  plainTextResponse,
-  privateImmutableCacheHeaders,
-} from "@/lib/api/route-adapters";
+import { plainTextResponse } from "@/lib/api/route-adapters";
+import { serveStoredAsset } from "@/lib/assets/serve";
 
 export const runtime = "nodejs";
 
@@ -94,7 +92,7 @@ export async function GET(
   }
 
   // `asset` is non-null here (a null asset would have denied with 404 above).
-  return serveAsset(asset!.storageKey, asset!.mimeType);
+  return serveAsset(request, asset!.storageKey, asset!.mimeType);
 }
 
 // ---------------------------------------------------------------------------
@@ -107,14 +105,16 @@ export async function GET(
  * cleanup run).
  */
 async function serveAsset(
+  request: Request,
   storageKey: string,
   mimeType: string,
 ): Promise<NextResponse> {
   try {
-    const data = await getBrandStorageAdapter().read(storageKey);
-    return new NextResponse(new Uint8Array(data), {
-      status: 200,
-      headers: privateImmutableCacheHeaders(mimeType),
+    return await serveStoredAsset({
+      adapter: getBrandStorageAdapter(),
+      storageKey,
+      mimeType,
+      request,
     });
   } catch (err) {
     logError("brand-asset-serve", err, { storageKey });
