@@ -26,10 +26,10 @@ import { ElementsSlideLayout } from "./slide-canvas/elements-slide-layout";
 export interface SlideCanvasProps {
   slide: Slide;
   /**
-    * Deck context for cascade resolution (themeId, custom token set, masters)
-    * for background, accent colours, and non-text template defaults.
+   * Deck context for cascade resolution (themeId, custom token set, masters)
+   * for background, accent colours, and non-text template defaults.
    */
-    deck: Deck;
+  deck: Deck;
   visuals: ReadonlyMap<string, Visual>;
   /** True when rendered at reduced size (e.g. presenter next-slide preview). */
   preview?: boolean;
