@@ -149,3 +149,15 @@ export function toolbarPanelEntries(input: {
     position: single,
   };
 }
+
+/**
+ * Below this stage width (px) the selected-object context toolbar collapses its
+ * lower-priority z-order actions (bring-to-front / send-to-back) into a "More"
+ * menu so it never overflows incoherently on narrow stages (#631, #647).
+ */
+export const TOOLBAR_COMPACT_WIDTH = 640;
+
+/** Whether the context toolbar should collapse secondary actions into More. */
+export function shouldCollapseToolbar(availableWidth: number): boolean {
+  return availableWidth < TOOLBAR_COMPACT_WIDTH;
+}
