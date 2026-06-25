@@ -17,7 +17,7 @@
 import { createHash } from "node:crypto";
 
 import { prisma } from "@/lib/prisma";
-import { withP2002Fallback } from "@/lib/slides/p2002-fallback";
+import { withP2002Fallback } from "@/lib/db/p2002-fallback";
 import {
   deriveBrandStorageKey,
   getBrandStorageAdapter,
