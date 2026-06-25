@@ -395,8 +395,8 @@ durable command log yet.
 | [../auth/README.md](../auth/README.md)                                             | Current  | Authentication and account lifecycle                      |
 | [../collaboration/README.md](../collaboration/README.md)                           | Current  | Collaboration room model and runtime readiness            |
 | [../data-model/deck.md](../data-model/deck.md)                                     | Current  | Deck schema, slide elements, source refs, and persistence |
+| [../data-model/database-persistence.md](../data-model/database-persistence.md)     | Current  | Prisma provider resolution and relational model           |
 | [../data-model/document-persistence.md](../data-model/document-persistence.md)     | Current  | Document save transactions and version restore            |
-| [../data-model/persistence.md](../data-model/persistence.md)                       | Current  | Prisma provider resolution and relational model           |
 | [../data-model/visual-mirror.md](../data-model/visual-mirror.md)                   | Current  | Visual projection contract                                |
 | [../documents/README.md](../documents/README.md)                                   | Current  | Document creation, listing, search, tags, and trash       |
 | [../editor/comments-and-anchors.md](../editor/comments-and-anchors.md)             | Current  | Comment threads and document/slide anchors                |
@@ -407,7 +407,8 @@ durable command log yet.
 | [../presentation/assets.md](../presentation/assets.md)                             | Current  | Slide asset upload, serving, references, and cleanup      |
 | [../presentation/slide-editor.md](../presentation/slide-editor.md)                 | Current  | Slide editor runtime and interaction boundaries           |
 | [../presentation/rendering-and-export.md](../presentation/rendering-and-export.md) | Current  | Shared rendering, present mode, and export pipeline       |
-| [../product/brand-and-billing.md](../product/brand-and-billing.md)                 | Current  | Brand styles, plan entitlements, and AI credits           |
+| [../product/billing.md](../product/billing.md)                                     | Current  | Plan entitlements, providers, and AI credits              |
+| [../product/brand-studio.md](../product/brand-studio.md)                           | Current  | Saved brand styles and brand asset lifecycle              |
 | [../public-render/README.md](../public-render/README.md)                           | Current  | Public render resolver, metadata, and asset access        |
 | [../security/access-and-sharing.md](../security/access-and-sharing.md)             | Current  | Document permissions, public links, and asset access      |
 | [../security/workspaces.md](../security/workspaces.md)                             | Current  | Workspace roles, invites, and membership behavior         |

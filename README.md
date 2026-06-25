@@ -118,7 +118,7 @@ grouped by subsystem under flat directories:
 | Import pipeline             | [docs/import/README.md](docs/import/README.md)               |
 | Localization                | [docs/localization/README.md](docs/localization/README.md)   |
 | Presentation runtime/export | [docs/presentation/README.md](docs/presentation/README.md)   |
-| Product/billing             | [docs/product/README.md](docs/product/README.md)             |
+| Product                     | [docs/product/README.md](docs/product/README.md)             |
 | Public render surfaces      | [docs/public-render/README.md](docs/public-render/README.md) |
 | Security and sharing        | [docs/security/README.md](docs/security/README.md)           |
 | Visual system               | [docs/visual/README.md](docs/visual/README.md)               |

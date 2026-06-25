@@ -1,4 +1,4 @@
-# Persistence And Database Model
+# Database Persistence
 
 **Status:** Current  
 **Last updated:** 2026-06-26
