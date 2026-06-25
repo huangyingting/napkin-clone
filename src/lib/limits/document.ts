@@ -69,7 +69,7 @@ export const TAG_NAME_LIMIT: LimitDefinition = {
   unit: "chars",
   enforcement: "enforced",
   diagnostic: { scope: "document.tag", metric: "tagNameChars" },
-  source: "src/app/app/documents/[id]/tags-actions.ts",
+  source: "src/lib/taxonomy.ts",
 };
 
 export const COMMENT_LIMITS: readonly LimitDefinition[] = [

@@ -24,6 +24,15 @@ export function parseView(value: string | null): ViewKey {
   return value === "favorites" ? "favorites" : "all";
 }
 
+export function parseTag(
+  value: string | null,
+  availableTags: { slug: string }[],
+): string | null {
+  return value && availableTags.some((tag) => tag.slug === value)
+    ? value
+    : null;
+}
+
 export function replaceDocumentListQueryState(
   pathname: string,
   searchParams: SearchParamsLike,
@@ -60,4 +69,37 @@ export function sortDocuments(
     ...copy.filter((document) => document.favorite),
     ...copy.filter((document) => !document.favorite),
   ];
+}
+
+export function filterDocumentsByTag(
+  docs: DashboardDocument[],
+  tagSlug: string | null,
+): DashboardDocument[] {
+  return tagSlug
+    ? docs.filter((document) =>
+        document.tags.some((tag) => tag.slug === tagSlug),
+      )
+    : docs;
+}
+
+export function filterDocumentsByView(
+  docs: DashboardDocument[],
+  view: ViewKey,
+): DashboardDocument[] {
+  return view === "favorites"
+    ? docs.filter((document) => document.favorite)
+    : docs;
+}
+
+export function applyDocumentListViewState(
+  docs: DashboardDocument[],
+  state: { sort: SortKey; view: ViewKey; tagSlug: string | null },
+): DashboardDocument[] {
+  const tagFiltered = filterDocumentsByTag(docs, state.tagSlug);
+  const favoriteFiltered = filterDocumentsByView(tagFiltered, state.view);
+  return sortDocuments(
+    favoriteFiltered,
+    state.sort,
+    state.view !== "favorites",
+  );
 }

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { DOCUMENT_LIST_LIMIT, capList } from "@/lib/documents";
+import { buildDocumentListArgs } from "@/lib/document-management/query";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { requireUser } from "@/lib/session";
@@ -258,9 +259,10 @@ export async function getWorkspaceDocuments(
 
   // Cap the list at DOCUMENT_LIST_LIMIT (one extra row flags `hasMore`).
   const rows = await prisma.document.findMany({
-    where: { workspaceId, deletedAt: null },
-    orderBy: { updatedAt: "desc" },
-    take: DOCUMENT_LIST_LIMIT + 1,
+    ...buildDocumentListArgs({
+      scope: { kind: "workspace", workspaceId },
+      limit: DOCUMENT_LIST_LIMIT,
+    }),
     select: { id: true, title: true, updatedAt: true },
   });
 

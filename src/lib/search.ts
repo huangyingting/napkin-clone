@@ -1,5 +1,8 @@
 import type { Prisma } from "@/generated/prisma/client";
-import { caseInsensitiveContains } from "@/lib/db-provider";
+import {
+  buildDocumentListWhere,
+  buildDocumentTextSearchOr,
+} from "@/lib/document-management/query";
 
 /**
  * Maximum length of a user-supplied search query accepted by the server.
@@ -35,17 +38,17 @@ export function normalizeSearchQuery(raw: string): string {
  * @param query – pre-normalised, non-empty search string.
  */
 export function buildSearchOr(query: string): Prisma.DocumentWhereInput[] {
-  const filter = caseInsensitiveContains(query);
-  return [{ title: filter }, { content: filter }];
+  return buildDocumentTextSearchOr(query);
 }
 
 /**
  * Builds the complete `DocumentWhereInput` for a full-text search scoped to a
  * specific user's accessible documents. Combines the access-scope `OR` (owner
- * or workspace member) with the content-search `AND { OR [...] }` so that
- * Prisma generates a single efficient query.
+ * or workspace member) with the content-search clause so that Prisma generates
+ * a single efficient query.
  *
- * Callers are responsible for adding `deletedAt: null` to the outer where.
+ * The shared document-list query builder owns the deleted filter and the exact
+ * composition shape.
  *
  * @param query    – pre-normalised, non-empty search string.
  * @param accessOr – the result of `documentAccessOr(userId)`.
@@ -54,9 +57,8 @@ export function buildDocumentSearchWhere(
   query: string,
   accessOr: NonNullable<Prisma.DocumentWhereInput["OR"]>,
 ): Prisma.DocumentWhereInput {
-  return {
-    deletedAt: null,
-    OR: accessOr,
-    AND: { OR: buildSearchOr(query) },
-  };
+  return buildDocumentListWhere({
+    scope: { kind: "custom-access", accessOr },
+    filters: { query },
+  });
 }
