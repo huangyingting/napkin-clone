@@ -14,8 +14,13 @@ import {
 import { singleUseTokenExpiresAt } from "@/lib/auth/single-use-token";
 import { logError } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
+import { logSecurityAudit } from "@/lib/security-audit";
 
 type PrismaClientLike = typeof prisma;
+type EmailVerificationWriteClient = Pick<
+  PrismaClientLike,
+  "emailVerificationToken" | "user"
+>;
 
 export type VerifyOutcome =
   | { status: "verified" }
@@ -37,6 +42,10 @@ export async function requestEmailVerificationForUser(
       return actionError(GENERIC_VERIFICATION_ERROR);
     }
     if (dbUser.emailVerified) {
+      logSecurityAudit("auth.email_verification.requested", {
+        userId,
+        outcome: "already_verified",
+      });
       return actionOk({ status: "already_verified" });
     }
 
@@ -60,6 +69,10 @@ export async function requestEmailVerificationForUser(
       verifyUrl: buildEmailVerificationUrl(rawToken),
     });
 
+    logSecurityAudit("auth.email_verification.requested", {
+      userId,
+      outcome: "sent",
+    });
     return actionOk({ status: "sent" });
   } catch (error) {
     logError("email-verification", error);
@@ -102,21 +115,30 @@ export async function consumeEmailVerificationToken(
     }
 
     const usedAt = new Date();
-    await client.$transaction([
-      client.user.update({
-        where: { id: record.userId },
-        data: { emailVerified: usedAt },
+    const consumed = await client.$transaction(async (tx) =>
+      consumeVerificationTokenAndVerifyEmail(tx, {
+        tokenId: record.id,
+        userId: record.userId,
+        usedAt,
       }),
-      client.emailVerificationToken.update({
-        where: { id: record.id },
-        data: { usedAt },
-      }),
-      client.emailVerificationToken.updateMany({
-        where: { userId: record.userId, usedAt: null, id: { not: record.id } },
-        data: { usedAt },
-      }),
-    ]);
+    );
 
+    if (!consumed) {
+      logSecurityAudit("auth.email_verification.consumed", {
+        userId: record.userId,
+        outcome: "rejected",
+        reason: "used",
+      });
+      return {
+        status: "error",
+        message: VERIFICATION_TOKEN_REJECTION_MESSAGE.used,
+      };
+    }
+
+    logSecurityAudit("auth.email_verification.consumed", {
+      userId: record.userId,
+      outcome: "success",
+    });
     return { status: "verified" };
   } catch (error) {
     logError("email-verification", error);
@@ -125,4 +147,34 @@ export async function consumeEmailVerificationToken(
       message: "Could not verify your email. Please try again.",
     };
   }
+}
+
+async function consumeVerificationTokenAndVerifyEmail(
+  client: EmailVerificationWriteClient,
+  input: { tokenId: string; userId: string; usedAt: Date },
+): Promise<boolean> {
+  const consumed = await client.emailVerificationToken.updateMany({
+    where: {
+      id: input.tokenId,
+      userId: input.userId,
+      usedAt: null,
+      expiresAt: { gt: input.usedAt },
+    },
+    data: { usedAt: input.usedAt },
+  });
+
+  if (consumed.count !== 1) {
+    return false;
+  }
+
+  await client.user.update({
+    where: { id: input.userId },
+    data: { emailVerified: input.usedAt },
+  });
+  await client.emailVerificationToken.updateMany({
+    where: { userId: input.userId, usedAt: null, id: { not: input.tokenId } },
+    data: { usedAt: input.usedAt },
+  });
+
+  return true;
 }

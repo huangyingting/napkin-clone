@@ -19,6 +19,7 @@ import {
   parseBillingFlag,
   BILLING_UNLIMITED_CREDITS_ENV,
 } from "@/lib/billing/config";
+import { decideEntitlement } from "@/lib/billing/entitlement-decision";
 
 describe("PLAN_ENTITLEMENTS", () => {
   it("defines all three tiers", () => {
@@ -104,6 +105,26 @@ describe("getEntitlements", () => {
 describe("hasEntitlement", () => {
   it("free: svgExport = false", () => {
     assert.strictEqual(hasEntitlement("free", "svgExport"), false);
+  });
+
+  describe("decideEntitlement", () => {
+    it("returns a single typed decision shape for allowed gates", () => {
+      assert.deepStrictEqual(decideEntitlement("pro", "fontUpload"), {
+        allowed: true,
+        feature: "fontUpload",
+        plan: "pro",
+        reason: "included",
+      });
+    });
+
+    it("safe-defaults unknown plans to free and denies paid gates", () => {
+      assert.deepStrictEqual(decideEntitlement("enterprise", "pptxExport"), {
+        allowed: false,
+        feature: "pptxExport",
+        plan: "free",
+        reason: "upgrade_required",
+      });
+    });
   });
 
   it("plus: svgExport = true", () => {

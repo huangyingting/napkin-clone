@@ -1,18 +1,14 @@
 import { prisma } from "@/lib/prisma";
 
+import { getEntitlements, type PlanEntitlements } from "./catalog";
 import {
-  getEntitlements,
-  hasEntitlement,
-  isPlan,
-  type Plan,
-  type PlanEntitlements,
-} from "./catalog";
+  decideEntitlement,
+  resolveEntitlementPlan,
+  type EntitlementDecision,
+  type EntitlementFeature,
+} from "./entitlement-decision";
 
-export type EntitlementFeature = {
-  [K in keyof PlanEntitlements]: PlanEntitlements[K] extends boolean
-    ? K
-    : never;
-}[keyof PlanEntitlements];
+export { decideEntitlement, type EntitlementDecision, type EntitlementFeature };
 
 export const FEATURE_UPGRADE_MESSAGES: Record<EntitlementFeature, string> = {
   svgExport:
@@ -28,22 +24,26 @@ export const FEATURE_UPGRADE_MESSAGES: Record<EntitlementFeature, string> = {
 };
 
 export interface EntitlementFacade {
-  plan: Plan;
+  plan: EntitlementDecision["plan"];
   entitlements: PlanEntitlements;
   can(feature: EntitlementFeature): boolean;
+  decide(feature: EntitlementFeature): EntitlementDecision;
   upgradeMessage(feature: EntitlementFeature): string;
 }
 
 export function createEntitlementFacade(
   plan: string | null | undefined,
 ): EntitlementFacade {
-  const resolvedPlan = isPlan(plan) ? plan : "free";
+  const resolvedPlan = resolveEntitlementPlan(plan);
   const entitlements = getEntitlements(resolvedPlan);
   return {
     plan: resolvedPlan,
     entitlements,
     can(feature) {
-      return hasEntitlement(resolvedPlan, feature);
+      return decideEntitlement(resolvedPlan, feature).allowed;
+    },
+    decide(feature) {
+      return decideEntitlement(resolvedPlan, feature);
     },
     upgradeMessage(feature) {
       return getUpgradeMessage(feature);

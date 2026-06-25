@@ -26,14 +26,30 @@ import { isPlan, type Plan } from "@/lib/billing/catalog";
 import type { BillingProvider, ChangePlanResult } from "@/lib/billing/provider";
 import {
   applyLocalPlanChange,
-  applyLocalSubscriptionDeleted,
-  applyLocalSubscriptionUpdate,
   getBillingSubscription,
   markSubscriptionCancelAtPeriodEnd,
+  periodEndForPlan,
   recordStripeCustomer,
   shouldApplySubscriptionUpdate,
+  writeLocalPlanChange,
+  writeLocalSubscriptionDeleted,
+  writeLocalSubscriptionUpdate,
 } from "@/lib/billing/service";
 import { stripe as stripeEnv, app as appEnv } from "@/lib/env";
+import { logSecurityAudit } from "@/lib/security-audit";
+
+type PrismaClientLike = typeof prisma;
+type StripeWebhookWriteClient = Pick<
+  PrismaClientLike,
+  "$transaction" | "stripeWebhookEvent" | "subscription" | "user"
+>;
+
+class DuplicateStripeWebhookEventError extends Error {
+  constructor() {
+    super("Duplicate Stripe webhook event");
+    this.name = "DuplicateStripeWebhookEventError";
+  }
+}
 
 function getStripeKey(): string {
   return stripeEnv.secretKey();
@@ -305,76 +321,127 @@ export async function handleStripeWebhookEvent(
     return { status: 400, message: "Webhook signature verification failed" };
   }
 
-  // Idempotency: record the event id before applying it. A duplicate id (Stripe
-  // retry/redelivery) fails the unique constraint (P2002), so we short-circuit
-  // as an already-processed no-op instead of re-applying state.
+  let outcome: StripeWebhookProcessingOutcome = "success";
   try {
-    await prisma.stripeWebhookEvent.create({
-      data: { id: event.id, type: event.type },
-    });
+    outcome = await applyStripeWebhookEvent(prisma, event);
   } catch (err) {
-    if (
-      typeof err === "object" &&
-      err !== null &&
-      (err as { code?: string }).code === "P2002"
-    ) {
+    if (err instanceof DuplicateStripeWebhookEventError) {
+      logSecurityAudit("billing.webhook.processed", {
+        stripeEventId: event.id,
+        eventType: event.type,
+        outcome: "duplicate",
+        idempotent: true,
+      });
       return { status: 200, message: "duplicate event ignored" };
     }
     throw err;
   }
 
-  switch (event.type) {
-    case "checkout.session.completed": {
-      const session = event.data.object;
-      const userId = (session.metadata as Record<string, string>)?.userId;
-      const plan = (session.metadata as Record<string, string>)?.plan;
-      if (userId && isPlan(plan)) {
-        const now = new Date();
-        const stripeSubscriptionId =
-          typeof session.subscription === "string"
-            ? session.subscription
-            : undefined;
-        const stripeCustomerId =
-          typeof session.customer === "string" ? session.customer : undefined;
+  logSecurityAudit("billing.webhook.processed", {
+    stripeEventId: event.id,
+    eventType: event.type,
+    outcome,
+  });
 
-        await applyLocalPlanChange(userId, plan, {
-          now,
-          status: "active",
-          stripeCustomerId,
-          stripeSubscriptionId,
-        });
-      }
-      break;
-    }
-
-    case "customer.subscription.updated": {
-      const stripeSub = event.data.object as StripeSubscriptionLike;
-      const stripeSubscriptionId = stripeSub.id;
-      if (!stripeSubscriptionId) break;
-      const next = reduceStripeSubscriptionEvent(event.type, stripeSub);
-      const applied = await applyLocalSubscriptionUpdate(
-        stripeSubscriptionId,
-        next,
-      );
-      if (applied === "stale") {
-        return { status: 200, message: "stale subscription update ignored" };
-      }
-      break;
-    }
-
-    case "customer.subscription.deleted": {
-      const stripeSub = event.data.object as StripeSubscriptionLike;
-      const stripeSubscriptionId = stripeSub.id;
-      if (!stripeSubscriptionId) break;
-      const next = reduceStripeSubscriptionEvent(event.type, stripeSub);
-      await applyLocalSubscriptionDeleted(stripeSubscriptionId, next);
-      break;
-    }
-
-    default:
-      // Unhandled event type — log and ignore
-      break;
+  if (outcome === "stale") {
+    return { status: 200, message: "stale subscription update ignored" };
   }
 
   return { status: 200, message: "ok" };
+}
+
+export type StripeWebhookEventLike = {
+  id: string;
+  type: string;
+  data: { object: Record<string, unknown> };
+};
+
+export type StripeWebhookProcessingOutcome =
+  | "success"
+  | "duplicate"
+  | "stale"
+  | "missing"
+  | "ignored";
+
+export async function applyStripeWebhookEvent(
+  client: StripeWebhookWriteClient,
+  event: StripeWebhookEventLike,
+): Promise<Exclude<StripeWebhookProcessingOutcome, "duplicate">> {
+  return client.$transaction(async (tx) => {
+    try {
+      await tx.stripeWebhookEvent.create({
+        data: { id: event.id, type: event.type },
+      });
+    } catch (error) {
+      if (isPrismaUniqueConstraintError(error)) {
+        throw new DuplicateStripeWebhookEventError();
+      }
+      throw error;
+    }
+
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object;
+        const userId = (session.metadata as Record<string, string>)?.userId;
+        const plan = (session.metadata as Record<string, string>)?.plan;
+        if (userId && isPlan(plan)) {
+          const now = new Date();
+          const stripeSubscriptionId =
+            typeof session.subscription === "string"
+              ? session.subscription
+              : undefined;
+          const stripeCustomerId =
+            typeof session.customer === "string" ? session.customer : undefined;
+
+          await writeLocalPlanChange(tx, userId, plan, {
+            status: "active",
+            stripeCustomerId,
+            stripeSubscriptionId,
+            currentPeriodStart: now,
+            currentPeriodEnd: periodEndForPlan(plan, now),
+            updateSubscriptionPeriodOnExisting: true,
+            cancelAtPeriodEnd: false,
+          });
+        }
+        return "success";
+      }
+
+      case "customer.subscription.updated": {
+        const stripeSub = event.data.object as StripeSubscriptionLike;
+        const stripeSubscriptionId = stripeSub.id;
+        if (!stripeSubscriptionId) return "ignored";
+        const next = reduceStripeSubscriptionEvent(event.type, stripeSub);
+        const applied = await writeLocalSubscriptionUpdate(
+          tx,
+          stripeSubscriptionId,
+          next,
+        );
+        return applied === "applied" ? "success" : applied;
+      }
+
+      case "customer.subscription.deleted": {
+        const stripeSub = event.data.object as StripeSubscriptionLike;
+        const stripeSubscriptionId = stripeSub.id;
+        if (!stripeSubscriptionId) return "ignored";
+        const next = reduceStripeSubscriptionEvent(event.type, stripeSub);
+        const applied = await writeLocalSubscriptionDeleted(
+          tx,
+          stripeSubscriptionId,
+          next,
+        );
+        return applied === "applied" ? "success" : applied;
+      }
+
+      default:
+        return "ignored";
+    }
+  });
+}
+
+function isPrismaUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: string }).code === "P2002"
+  );
 }
