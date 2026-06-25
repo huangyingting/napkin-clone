@@ -9,6 +9,7 @@
  */
 
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
+import type { UploadSlideAssetResult } from "@/lib/action-ports";
 import { requireDocumentActionContext } from "@/lib/actions/document-action-context";
 import { calculateAssetChecksum } from "@/lib/assets/store";
 import {
@@ -17,8 +18,6 @@ import {
   validateAssetUpload,
 } from "@/lib/slides/asset-upload";
 import { storeSlideAsset } from "@/lib/slides/asset-store";
-
-type UploadSlideAssetResult = { assetId: string; url: string };
 
 /**
  * Uploads a slide image asset for the given document.

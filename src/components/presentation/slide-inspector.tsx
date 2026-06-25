@@ -98,7 +98,7 @@ import {
   isEmptyImageSrc,
 } from "@/lib/presentation/image-element";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
-import { uploadSlideAsset } from "@/app/app/documents/[id]/slide-asset-actions";
+import type { SlideAssetActionPort } from "@/lib/action-ports";
 import {
   ColorOverride,
   EffectsPanel,
@@ -249,6 +249,7 @@ export interface SlideInspectorProps {
    * server-side asset upload (Epic #374) before falling back to a data URL.
    */
   documentId?: string;
+  slideAssetPort?: SlideAssetActionPort;
   /**
    * When provided, the panel is dismissable: a close button is shown in the
    * header so the supplemental panel only stays open while needed (Slides-UI.md).
@@ -430,6 +431,7 @@ export function SlideInspector({
   className = "flex w-80 shrink-0 flex-col overflow-y-auto overflow-x-hidden border-l border-ds-border-subtle",
   showAdvanced = true,
   documentId,
+  slideAssetPort,
   onClose,
   initialTab,
 }: SlideInspectorProps) {
@@ -496,7 +498,7 @@ export function SlideInspector({
     },
     onError: (message) => setBgImageError(message),
     documentId: documentId ?? undefined,
-    uploadFn: documentId ? uploadSlideAsset : undefined,
+    uploadFn: documentId ? slideAssetPort?.uploadSlideAsset : undefined,
   });
 
   function handleBackgroundImageChange(value: string | undefined) {
@@ -742,6 +744,7 @@ export function SlideInspector({
                     elements={elements}
                     onUpdateElement={onUpdateElement}
                     documentId={documentId}
+                    slideAssetPort={slideAssetPort}
                   />
                 ) : (
                   <p className="text-xs text-ds-text-muted">
