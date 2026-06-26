@@ -31,55 +31,55 @@ test("readFormData maps parser failures to legacy route errors", async () => {
     },
   });
 
-  test("body adapters reject oversized content-length before parsing", async () => {
-    let jsonParsed = false;
-    const oversizedJson = await readJsonObject(
-      {
-        headers: new Headers({ "content-length": "11" }),
-        async json() {
-          jsonParsed = true;
-          return {};
-        },
-      },
-      { maxBytes: 10 },
-    );
-    assert.equal(oversizedJson.ok, false);
-    assert.equal(oversizedJson.response.status, 413);
-    assert.equal(jsonParsed, false);
-
-    const oversizedValue = await readJsonValue(
-      {
-        headers: new Headers({ "content-length": "12" }),
-        async json() {
-          return {};
-        },
-      },
-      "bad json",
-      { maxBytes: 10 },
-    );
-    assert.equal(oversizedValue.ok, false);
-    assert.equal(oversizedValue.response.status, 413);
-
-    const oversizedForm = await readFormData(
-      {
-        headers: new Headers({ "content-length": "12" }),
-        async formData() {
-          return new FormData();
-        },
-      },
-      "bad form",
-      undefined,
-      { maxBytes: 10 },
-    );
-    assert.equal(oversizedForm.ok, false);
-    assert.equal(oversizedForm.response.status, 413);
-  });
-
   assert.equal(result.ok, false);
   assert.equal(result.response.status, 400);
   assert.deepEqual(await result.response.json(), {
     error: "Request must be multipart/form-data.",
   });
+});
+
+test("body adapters reject oversized content-length before parsing", async () => {
+  let jsonParsed = false;
+  const oversizedJson = await readJsonObject(
+    {
+      headers: new Headers({ "content-length": "11" }),
+      async json() {
+        jsonParsed = true;
+        return {};
+      },
+    },
+    { maxBytes: 10 },
+  );
+  assert.equal(oversizedJson.ok, false);
+  assert.equal(oversizedJson.response.status, 413);
+  assert.equal(jsonParsed, false);
+
+  const oversizedValue = await readJsonValue(
+    {
+      headers: new Headers({ "content-length": "12" }),
+      async json() {
+        return {};
+      },
+    },
+    "bad json",
+    { maxBytes: 10 },
+  );
+  assert.equal(oversizedValue.ok, false);
+  assert.equal(oversizedValue.response.status, 413);
+
+  const oversizedForm = await readFormData(
+    {
+      headers: new Headers({ "content-length": "12" }),
+      async formData() {
+        return new FormData();
+      },
+    },
+    "bad form",
+    undefined,
+    { maxBytes: 10 },
+  );
+  assert.equal(oversizedForm.ok, false);
+  assert.equal(oversizedForm.response.status, 413);
 });
 
 test("shared adapters expose statically comparable headers and params", () => {
