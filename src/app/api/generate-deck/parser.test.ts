@@ -50,15 +50,15 @@ test("mapGenerateDeckError preserves generation failure contract", () => {
       "We couldn't generate a deck from that document. Please try again.",
     log: { reason: "generation-failed", status: 502 },
   });
+});
 
-  test("mapGenerateDeckError maps model-output budget failures safely", () => {
-    assert.deepEqual(
-      mapGenerateDeckError(new ModelOutputBudgetError("bytes", 10, 5)),
-      {
-        status: 502,
-        message: "The AI response was too large. Please try again.",
-        log: { reason: "model-output-budget", status: 502 },
-      },
-    );
-  });
+test("mapGenerateDeckError maps model-output budget failures safely", () => {
+  assert.deepEqual(
+    mapGenerateDeckError(new ModelOutputBudgetError("bytes", 10, 5)),
+    {
+      status: 502,
+      message: "The AI response was too large. Please try again.",
+      log: { reason: "model-output-budget", status: 502 },
+    },
+  );
 });

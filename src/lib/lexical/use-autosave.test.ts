@@ -66,66 +66,6 @@ test("autosave controller keeps pending status when newer JSON arrives mid-save"
     },
   });
 
-  test("autosave controller ignores stale failed completion after newer JSON", async () => {
-    const statuses: SaveStatus[] = [];
-    const errors: unknown[] = [];
-    const first = deferred<{ ok: boolean; error?: string }>();
-    const second = deferred<{ ok: boolean }>();
-    const saved: string[] = [];
-
-    const controller = createAutosaveController({
-      save: (json) => {
-        saved.push(json);
-        return saved.length === 1 ? first.promise : second.promise;
-      },
-      debounceMs: 10,
-      onStatus: (status) => statuses.push(status),
-      onError: (error) => errors.push(error),
-    });
-
-    controller.queue("first");
-    const firstFlush = controller.flush();
-    controller.queue("second");
-    first.resolve({ ok: false, error: "stale failure" });
-    await Promise.resolve();
-
-    assert.deepEqual(errors, []);
-    assert.deepEqual(statuses, ["pending", "saving", "pending", "saving"]);
-    second.resolve({ ok: true });
-    await firstFlush;
-
-    assert.deepEqual(saved, ["first", "second"]);
-    assert.deepEqual(statuses, [
-      "pending",
-      "saving",
-      "pending",
-      "saving",
-      "saved",
-    ]);
-    controller.dispose();
-  });
-
-  test("autosave controller suppresses callbacks after dispose", async () => {
-    const statuses: SaveStatus[] = [];
-    const errors: unknown[] = [];
-    const save = deferred<{ ok: false; error: string }>();
-    const controller = createAutosaveController({
-      save: () => save.promise,
-      debounceMs: 10,
-      onStatus: (status) => statuses.push(status),
-      onError: (error) => errors.push(error),
-    });
-
-    controller.queue("first");
-    const flushing = controller.flush();
-    controller.dispose();
-    save.resolve({ ok: false, error: "late failure" });
-    await flushing;
-
-    assert.deepEqual(statuses, ["pending", "saving"]);
-    assert.deepEqual(errors, []);
-  });
-
   controller.queue("first");
   const saving = controller.flush();
   controller.queue("second");
@@ -143,4 +83,64 @@ test("autosave controller keeps pending status when newer JSON arrives mid-save"
   ]);
   assert.equal(controller.latestJson(), "second");
   controller.dispose();
+});
+
+test("autosave controller ignores stale failed completion after newer JSON", async () => {
+  const statuses: SaveStatus[] = [];
+  const errors: unknown[] = [];
+  const first = deferred<{ ok: boolean; error?: string }>();
+  const second = deferred<{ ok: boolean }>();
+  const saved: string[] = [];
+
+  const controller = createAutosaveController({
+    save: (json) => {
+      saved.push(json);
+      return saved.length === 1 ? first.promise : second.promise;
+    },
+    debounceMs: 10,
+    onStatus: (status) => statuses.push(status),
+    onError: (error) => errors.push(error),
+  });
+
+  controller.queue("first");
+  const firstFlush = controller.flush();
+  controller.queue("second");
+  first.resolve({ ok: false, error: "stale failure" });
+  await Promise.resolve();
+
+  assert.deepEqual(errors, []);
+  assert.deepEqual(statuses, ["pending", "saving", "pending", "saving"]);
+  second.resolve({ ok: true });
+  await firstFlush;
+
+  assert.deepEqual(saved, ["first", "second"]);
+  assert.deepEqual(statuses, [
+    "pending",
+    "saving",
+    "pending",
+    "saving",
+    "saved",
+  ]);
+  controller.dispose();
+});
+
+test("autosave controller suppresses callbacks after dispose", async () => {
+  const statuses: SaveStatus[] = [];
+  const errors: unknown[] = [];
+  const save = deferred<{ ok: false; error: string }>();
+  const controller = createAutosaveController({
+    save: () => save.promise,
+    debounceMs: 10,
+    onStatus: (status) => statuses.push(status),
+    onError: (error) => errors.push(error),
+  });
+
+  controller.queue("first");
+  const flushing = controller.flush();
+  controller.dispose();
+  save.resolve({ ok: false, error: "late failure" });
+  await flushing;
+
+  assert.deepEqual(statuses, ["pending", "saving"]);
+  assert.deepEqual(errors, []);
 });
