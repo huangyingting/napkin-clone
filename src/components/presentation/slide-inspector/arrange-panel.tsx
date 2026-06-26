@@ -20,7 +20,7 @@ import {
 
 import type { SlideInspectorProps } from "./types";
 import { LABEL_CLASS, NumberField } from "./primitives";
-import { Tooltip } from "@/components/ui";
+import { Tooltip, ToolbarButton } from "@/components/ui";
 import { FOCUS_RING } from "@/components/ui/tokens";
 import type { SlideElement } from "@/lib/presentation/deck";
 import type {
@@ -96,64 +96,6 @@ export function ElementArrangeControl({
   );
 }
 
-/** Small icon-button used inside the multi-select tools grid. */
-export function ToolBtn({
-  label,
-  onClick,
-  disabled = false,
-  disabledReason,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-  disabledReason?: string;
-  children: React.ReactNode;
-}) {
-  const btn = (
-    <button
-      type="button"
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-      className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`}
-    >
-      {children}
-    </button>
-  );
-  if (!disabled) {
-    return (
-      <Tooltip label={label} side="bottom">
-        {btn}
-      </Tooltip>
-    );
-  }
-  return (
-    <Tooltip label={disabledReason ?? label} side="bottom">
-      {btn}
-    </Tooltip>
-  );
-}
-
-/**
- * Inline tool-group row shown inside the multi-select tools panel.
- * Renders a label and a horizontal row of icon buttons.
- */
-export function ToolRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-xs text-ds-text-muted">{label}</span>
-      <div className="flex items-center gap-0.5">{children}</div>
-    </div>
-  );
-}
-
 /**
  * Multi-select tools panel (issue #328).
  * Shown when 2+ elements are selected. Provides align, distribute, match-size,
@@ -183,114 +125,168 @@ export function MultiSelectTools({
       </p>
       <div className="flex flex-col gap-2">
         {/* Align */}
-        <ToolRow label="Align">
-          <ToolBtn
-            label="Align left"
-            onClick={() => onAlign?.(selectedIds, "left")}
-          >
-            <AlignStartHorizontal size={14} aria-hidden="true" />
-          </ToolBtn>
-          <ToolBtn
-            label="Align center"
-            onClick={() => onAlign?.(selectedIds, "hcenter")}
-          >
-            <AlignCenterHorizontal size={14} aria-hidden="true" />
-          </ToolBtn>
-          <ToolBtn
-            label="Align right"
-            onClick={() => onAlign?.(selectedIds, "right")}
-          >
-            <AlignEndHorizontal size={14} aria-hidden="true" />
-          </ToolBtn>
-          <ToolBtn
-            label="Align top"
-            onClick={() => onAlign?.(selectedIds, "top")}
-          >
-            <AlignStartVertical size={14} aria-hidden="true" />
-          </ToolBtn>
-          <ToolBtn
-            label="Align middle"
-            onClick={() => onAlign?.(selectedIds, "vmiddle")}
-          >
-            <AlignCenterVertical size={14} aria-hidden="true" />
-          </ToolBtn>
-          <ToolBtn
-            label="Align bottom"
-            onClick={() => onAlign?.(selectedIds, "bottom")}
-          >
-            <AlignEndVertical size={14} aria-hidden="true" />
-          </ToolBtn>
-        </ToolRow>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-ds-text-muted">Align</span>
+          <div className="flex items-center gap-0.5">
+            <Tooltip label="Align left" side="bottom">
+              <ToolbarButton
+                aria-label="Align left"
+                onClick={() => onAlign?.(selectedIds, "left")}
+              >
+                <AlignStartHorizontal size={14} aria-hidden="true" />
+              </ToolbarButton>
+            </Tooltip>
+            <Tooltip label="Align center" side="bottom">
+              <ToolbarButton
+                aria-label="Align center"
+                onClick={() => onAlign?.(selectedIds, "hcenter")}
+              >
+                <AlignCenterHorizontal size={14} aria-hidden="true" />
+              </ToolbarButton>
+            </Tooltip>
+            <Tooltip label="Align right" side="bottom">
+              <ToolbarButton
+                aria-label="Align right"
+                onClick={() => onAlign?.(selectedIds, "right")}
+              >
+                <AlignEndHorizontal size={14} aria-hidden="true" />
+              </ToolbarButton>
+            </Tooltip>
+            <Tooltip label="Align top" side="bottom">
+              <ToolbarButton
+                aria-label="Align top"
+                onClick={() => onAlign?.(selectedIds, "top")}
+              >
+                <AlignStartVertical size={14} aria-hidden="true" />
+              </ToolbarButton>
+            </Tooltip>
+            <Tooltip label="Align middle" side="bottom">
+              <ToolbarButton
+                aria-label="Align middle"
+                onClick={() => onAlign?.(selectedIds, "vmiddle")}
+              >
+                <AlignCenterVertical size={14} aria-hidden="true" />
+              </ToolbarButton>
+            </Tooltip>
+            <Tooltip label="Align bottom" side="bottom">
+              <ToolbarButton
+                aria-label="Align bottom"
+                onClick={() => onAlign?.(selectedIds, "bottom")}
+              >
+                <AlignEndVertical size={14} aria-hidden="true" />
+              </ToolbarButton>
+            </Tooltip>
+          </div>
+        </div>
 
         {/* Distribute */}
-        <ToolRow label="Distribute">
-          <ToolBtn
-            label="Distribute horizontally"
-            disabled={!canDistribute}
-            disabledReason={distributeDisabledReason}
-            onClick={() => onDistribute?.(selectedIds, "horizontal")}
-          >
-            <AlignHorizontalSpaceBetween size={14} aria-hidden="true" />
-          </ToolBtn>
-          <ToolBtn
-            label="Distribute vertically"
-            disabled={!canDistribute}
-            disabledReason={distributeDisabledReason}
-            onClick={() => onDistribute?.(selectedIds, "vertical")}
-          >
-            <AlignVerticalSpaceBetween size={14} aria-hidden="true" />
-          </ToolBtn>
-        </ToolRow>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-ds-text-muted">Distribute</span>
+          <div className="flex items-center gap-0.5">
+            <Tooltip
+              label={
+                !canDistribute
+                  ? distributeDisabledReason
+                  : "Distribute horizontally"
+              }
+              side="bottom"
+            >
+              <ToolbarButton
+                aria-label="Distribute horizontally"
+                disabled={!canDistribute}
+                onClick={() => onDistribute?.(selectedIds, "horizontal")}
+              >
+                <AlignHorizontalSpaceBetween size={14} aria-hidden="true" />
+              </ToolbarButton>
+            </Tooltip>
+            <Tooltip
+              label={
+                !canDistribute
+                  ? distributeDisabledReason
+                  : "Distribute vertically"
+              }
+              side="bottom"
+            >
+              <ToolbarButton
+                aria-label="Distribute vertically"
+                disabled={!canDistribute}
+                onClick={() => onDistribute?.(selectedIds, "vertical")}
+              >
+                <AlignVerticalSpaceBetween size={14} aria-hidden="true" />
+              </ToolbarButton>
+            </Tooltip>
+          </div>
+        </div>
 
         {/* Match size */}
-        <ToolRow label="Match size">
-          <ToolBtn
-            label="Match width"
-            onClick={() => onMatchSize?.(selectedIds, "width")}
-          >
-            <MoveHorizontal size={14} aria-hidden="true" />
-          </ToolBtn>
-          <ToolBtn
-            label="Match height"
-            onClick={() => onMatchSize?.(selectedIds, "height")}
-          >
-            <MoveVertical size={14} aria-hidden="true" />
-          </ToolBtn>
-          <ToolBtn
-            label="Match width & height"
-            onClick={() => onMatchSize?.(selectedIds, "both")}
-          >
-            <Expand size={14} aria-hidden="true" />
-          </ToolBtn>
-        </ToolRow>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-ds-text-muted">Match size</span>
+          <div className="flex items-center gap-0.5">
+            <Tooltip label="Match width" side="bottom">
+              <ToolbarButton
+                aria-label="Match width"
+                onClick={() => onMatchSize?.(selectedIds, "width")}
+              >
+                <MoveHorizontal size={14} aria-hidden="true" />
+              </ToolbarButton>
+            </Tooltip>
+            <Tooltip label="Match height" side="bottom">
+              <ToolbarButton
+                aria-label="Match height"
+                onClick={() => onMatchSize?.(selectedIds, "height")}
+              >
+                <MoveVertical size={14} aria-hidden="true" />
+              </ToolbarButton>
+            </Tooltip>
+            <Tooltip label="Match width &amp; height" side="bottom">
+              <ToolbarButton
+                aria-label="Match width & height"
+                onClick={() => onMatchSize?.(selectedIds, "both")}
+              >
+                <Expand size={14} aria-hidden="true" />
+              </ToolbarButton>
+            </Tooltip>
+          </div>
+        </div>
 
         {/* Arrange */}
-        <ToolRow label="Arrange">
-          <ToolBtn
-            label="Send to back"
-            onClick={() => onArrange?.(selectedIds, "back")}
-          >
-            <SendToBack size={14} aria-hidden="true" />
-          </ToolBtn>
-          <ToolBtn
-            label="Send backward"
-            onClick={() => onArrange?.(selectedIds, "backward")}
-          >
-            <StepBack size={14} aria-hidden="true" />
-          </ToolBtn>
-          <ToolBtn
-            label="Bring forward"
-            onClick={() => onArrange?.(selectedIds, "forward")}
-          >
-            <StepForward size={14} aria-hidden="true" />
-          </ToolBtn>
-          <ToolBtn
-            label="Bring to front"
-            onClick={() => onArrange?.(selectedIds, "front")}
-          >
-            <BringToFront size={14} aria-hidden="true" />
-          </ToolBtn>
-        </ToolRow>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-ds-text-muted">Arrange</span>
+          <div className="flex items-center gap-0.5">
+            <Tooltip label="Send to back" side="bottom">
+              <ToolbarButton
+                aria-label="Send to back"
+                onClick={() => onArrange?.(selectedIds, "back")}
+              >
+                <SendToBack size={14} aria-hidden="true" />
+              </ToolbarButton>
+            </Tooltip>
+            <Tooltip label="Send backward" side="bottom">
+              <ToolbarButton
+                aria-label="Send backward"
+                onClick={() => onArrange?.(selectedIds, "backward")}
+              >
+                <StepBack size={14} aria-hidden="true" />
+              </ToolbarButton>
+            </Tooltip>
+            <Tooltip label="Bring forward" side="bottom">
+              <ToolbarButton
+                aria-label="Bring forward"
+                onClick={() => onArrange?.(selectedIds, "forward")}
+              >
+                <StepForward size={14} aria-hidden="true" />
+              </ToolbarButton>
+            </Tooltip>
+            <Tooltip label="Bring to front" side="bottom">
+              <ToolbarButton
+                aria-label="Bring to front"
+                onClick={() => onArrange?.(selectedIds, "front")}
+              >
+                <BringToFront size={14} aria-hidden="true" />
+              </ToolbarButton>
+            </Tooltip>
+          </div>
+        </div>
       </div>
     </div>
   );
