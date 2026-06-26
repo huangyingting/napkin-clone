@@ -1,15 +1,16 @@
 /**
- * Theme parity regression coverage (#608).
+ * Theme parity regression coverage (#608, #1104).
  *
- * The editor and presentation viewers render via `SlideCanvas` (which resolves
- * colours through `resolveSlideThemeColors`), while export emits native slide
- * specs via `buildDeckSpecs`. Both must derive inherited text colour and font
- * from the SAME deck token cascade so a deck looks the same in the editor,
- * present mode, the public viewer, and an exported PPTX.
+ * 1. Renderer↔export parity: the editor and presentation viewers render via
+ *    `SlideCanvas` (which resolves colours through `resolveSlideThemeColors`),
+ *    while export emits native slide specs via `buildDeckSpecs`. Both must
+ *    derive inherited text colour and font from the SAME deck token cascade so
+ *    a deck looks the same in the editor, present mode, the public viewer, and
+ *    an exported PPTX.
  *
- * These tests pin renderer↔export parity for inherited H1/body/bullet styles,
- * across a built-in theme and a custom (brand-derived) token set, and confirm
- * local element overrides win identically on both surfaces.
+ * 2. Catalog parity (#1104): every STYLE_THEMES entry must be present in
+ *    DECK_THEMES so AI generation and validation accept rose/amber/slate and
+ *    any future additions.
  */
 
 import assert from "node:assert/strict";
@@ -21,6 +22,7 @@ import type {
   Slide,
   TextElement,
 } from "@/lib/presentation/deck";
+import { DECK_THEMES } from "@/lib/presentation/deck";
 import { resolveSlideThemeColors } from "@/lib/presentation/style-cascade";
 import {
   resolveRoleToken,
@@ -32,6 +34,7 @@ import {
   type DeckBulletsOp,
   type DeckTextOp,
 } from "@/lib/visual/deck-export";
+import { STYLE_THEMES } from "@/lib/visual/themes";
 
 function titleEl(overrides: Partial<TextElement> = {}): TextElement {
   return {
@@ -202,4 +205,18 @@ test("a local color override wins in export regardless of the theme", () => {
     ],
   };
   assert.equal(exportTitleColor(deck).toLowerCase(), "00ff00");
+});
+
+// ---------------------------------------------------------------------------
+// Catalog parity: DECK_THEMES derived from STYLE_THEMES (#1104)
+// ---------------------------------------------------------------------------
+
+test("every STYLE_THEMES id is present in DECK_THEMES", () => {
+  const deckThemesSet = new Set<string>(DECK_THEMES);
+  for (const theme of STYLE_THEMES) {
+    assert.ok(
+      deckThemesSet.has(theme.id),
+      `DECK_THEMES is missing "${theme.id}" from STYLE_THEMES — update STYLE_THEME_IDS in deck-theme-ids.ts`,
+    );
+  }
 });
