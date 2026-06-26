@@ -25,6 +25,7 @@ import {
   type TextLikeElement,
 } from "@/lib/presentation/text-element-fit";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
+import { resolveElementFontCss } from "@/lib/presentation/slide-fonts";
 
 function defaultShapeTextStyle(): TextElementStyle {
   return {
@@ -233,7 +234,9 @@ export function InlineTextEditor({
     lineHeight: kind === "bullets" ? 1.2 : 1.15,
     wordBreak: "break-word",
     ...(style.underline ? { textDecoration: "underline" } : {}),
-    ...(style.fontFamily ? { fontFamily: style.fontFamily } : {}),
+    ...(resolveElementFontCss(style.fontId)
+      ? { fontFamily: resolveElementFontCss(style.fontId) }
+      : {}),
   } as CSSProperties & Record<string, string>;
   if (kind === "bullets") {
     editableStyle["--ds-bullet-accent"] = accent;

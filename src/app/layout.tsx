@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import "./slide-fonts.css";
 import { HeaderGate } from "@/components/header-gate";
 import { MobileViewportSync } from "@/components/mobile-viewport-sync";
 import { SiteHeader } from "@/components/site-header";

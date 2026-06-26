@@ -39,7 +39,7 @@ import {
   saveThemePreset,
   type CustomThemePreset,
 } from "@/lib/presentation/theme-preset-store";
-import { BRAND_WEB_FONTS } from "@/lib/brand/schema";
+import { SLIDE_FONT_OPTIONS } from "@/lib/presentation/slide-fonts";
 import { ColorPicker, SegmentedControl } from "@/components/ui";
 import { cx, FOCUS_RING } from "@/components/ui/tokens";
 
@@ -83,7 +83,7 @@ const ROLE_LABELS: Record<DeckTextRole, string> = {
 };
 
 const FONT_OPTIONS: ReadonlyArray<{ value: string; label: string }> =
-  BRAND_WEB_FONTS.map((f) => ({ value: f.cssFamily, label: f.name }));
+  SLIDE_FONT_OPTIONS.map((f) => ({ value: f.value, label: f.label }));
 
 /** Curated gradient backgrounds for one-click selection. */
 const GRADIENT_PRESETS: ReadonlyArray<{ from: string; to: string }> = [

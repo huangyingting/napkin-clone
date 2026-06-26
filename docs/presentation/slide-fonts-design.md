@@ -1,15 +1,45 @@
 # Presentation Slide Font System Design
 
-**Status:** Accepted design; implementation pending  
+**Status:** Implemented (element-level); see Implementation Status below  
 **Last updated:** 2026-06-26
 
 This document records the accepted design for adding font support to TextIQ
 presentation slides without depending on fonts installed on the user's local
-machine. It is a design proposal, not a description of currently shipped runtime
-behavior. Once implemented, the runtime contract should be folded into
-[rendering-and-export.md](rendering-and-export.md),
-[../data-model/deck.md](../data-model/deck.md), and
-[../editor/theme-layout.md](../editor/theme-layout.md).
+machine. The core of this design is implemented; see the runtime contract in
+[rendering-and-export.md](rendering-and-export.md). The sections below describe
+the intended design; the Implementation Status section records what shipped and
+what was intentionally deviated or deferred.
+
+## Implementation Status
+
+Implemented:
+
+- Self-hosted font registry and assets (`src/lib/presentation/slide-fonts.ts`,
+  `public/fonts/slides/`, `src/app/slide-fonts.css`).
+- Element-level `fontId` (`TextElementStyle.fontId`) with schema version bump
+  and validation; the cascade resolves `fontId` to a CSS stack.
+- Inspector and deck-template font pickers backed by the registry.
+- Self-hosted CJK fallback (`Noto Sans SC`) appended to every resolved role
+  token via `ensureCjkFallback`, so theme-default Chinese text is deterministic.
+- Editable PPTX font mapping (Latin + CJK-aware) and a non-blocking
+  `font-cjk-mapping` preflight notice for Chinese decks.
+- Font readiness: shrink-to-fit re-measures once fonts load; PDF/PNG export and
+  present mode preload via `loadSlideFonts()`.
+
+Deviated / deferred:
+
+- **Theme-level `bodyFontId` / `headingFontId` not migrated.** Deck/theme and
+  brand typography remain CSS stacks because brand styles carry arbitrary,
+  user-authored font names that cannot be registry ids. Cross-platform CJK
+  determinism for theme text is instead achieved by `ensureCjkFallback`.
+- **No deck migration ramp.** The codebase uses strict schema-version
+  validation with rebuild-from-blocks on mismatch; a bumped version means old
+  persisted decks rebuild rather than transform in place.
+- **Latin determinism for non-bundled theme fonts.** A few built-in themes still
+  reference non-self-hosted Latin families (e.g. Avenir Next); these are not
+  pixel-deterministic until remapped to bundled fonts.
+- **E2E screenshot coverage** for English and Simplified-Chinese decks is not
+  yet added.
 
 ## Problem Statement
 

@@ -102,6 +102,10 @@ import {
   stepFontSize,
 } from "@/lib/presentation/text-style";
 import {
+  SLIDE_FONT_OPTIONS,
+  matchSlideFont,
+} from "@/lib/presentation/slide-fonts";
+import {
   getThemeTypography,
   placeholderStyle,
 } from "@/lib/presentation/theme-typography";
@@ -112,15 +116,17 @@ import { assertNever } from "@/lib/assert-never";
 
 const SHAPE_OPTIONS: ShapeKind[] = ["rect", "ellipse", "line", "triangle"];
 
-/** Selectable font-family stacks for text/bullets elements. */
+/**
+ * Selectable slide fonts for text/bullets elements. Each `value` is a stable
+ * slide `fontId` from the self-hosted registry; the empty value inherits the
+ * theme/role font.
+ */
 const FONT_FAMILIES: { label: string; value: string }[] = [
   { label: "Default", value: "" },
-  { label: "Sans", value: "ui-sans-serif, system-ui, sans-serif" },
-  { label: "Serif", value: "ui-serif, Georgia, Cambria, serif" },
-  {
-    label: "Mono",
-    value: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
-  },
+  ...SLIDE_FONT_OPTIONS.map((font) => ({
+    label: font.label,
+    value: font.id,
+  })),
 ];
 
 const FIELD_CLASS =
@@ -1117,7 +1123,7 @@ export function InheritedFontControl({
   inheritedLabel: string;
   onChange: (style: TextElementStyle) => void;
 }) {
-  const overridden = style.fontFamily !== undefined;
+  const overridden = style.fontId !== undefined;
   return (
     <div className="block">
       <OverrideHeader
@@ -1125,18 +1131,18 @@ export function InheritedFontControl({
         overridden={overridden}
         onReset={() => {
           const next = { ...style };
-          delete next.fontFamily;
+          delete next.fontId;
           onChange(next);
         }}
       />
       <select
-        value={style.fontFamily ?? ""}
+        value={style.fontId ?? ""}
         aria-label="Font family"
         onChange={(event) => {
           const value = event.target.value;
           const next = { ...style };
-          if (value) next.fontFamily = value;
-          else delete next.fontFamily;
+          if (value) next.fontId = value;
+          else delete next.fontId;
           onChange(next);
         }}
         className={`${FIELD_CLASS} ${FOCUS_RING}`}
@@ -1258,10 +1264,8 @@ export function TextPanel({
   const roleToken = resolveRoleToken(tokenSet, role);
   const inheritedColor = roleToken.color;
   const inheritedFontLabel =
-    FONT_FAMILIES.find(
-      (font) =>
-        font.value === (roleToken.fontFamily ?? tokenSet.typography.fontFamily),
-    )?.label ?? "theme font";
+    matchSlideFont(roleToken.fontFamily ?? tokenSet.typography.fontFamily)
+      ?.label ?? "theme font";
 
   return (
     <div className="flex flex-col gap-4">
@@ -2220,8 +2224,8 @@ export function ElementOpacityControl({
 }
 
 /**
- * Font-family picker for text / bullets elements. Stores a CSS font stack in
- * `style.fontFamily` (cleared to inherit the base font when "Default").
+ * Font picker for text / bullets elements. Stores a stable slide `fontId` in
+ * `style.fontId` (cleared to inherit the theme/role font when "Default").
  */
 export function FontFamilyControl({
   style,
@@ -2234,12 +2238,12 @@ export function FontFamilyControl({
     <label className="block">
       <span className={LABEL_CLASS}>Font</span>
       <select
-        value={style.fontFamily ?? ""}
+        value={style.fontId ?? ""}
         onChange={(event) => {
           const value = event.target.value;
           const next = { ...style };
-          if (value) next.fontFamily = value;
-          else delete next.fontFamily;
+          if (value) next.fontId = value;
+          else delete next.fontId;
           onChange(next);
         }}
         className={`${FIELD_CLASS} ${FOCUS_RING}`}

@@ -14,6 +14,7 @@
 import type { Deck, TextElementStyle } from "./deck";
 import type { DeckTextRole, DeckThemeTokenSet } from "./deck-theme-tokens";
 import { resolveRoleToken } from "./deck-theme-tokens";
+import { slideFontCssStack } from "./slide-fonts";
 import { resolveDeckTokenSet } from "./style-cascade-layers";
 
 /** Which cascade layer supplied a resolved value (for inspector UI). */
@@ -86,8 +87,11 @@ export function resolveRoleTextStyle(
   const origin = {} as Record<TextStyleField, StyleOrigin>;
 
   let fontFamily: string;
-  if (o.fontFamily !== undefined) {
-    fontFamily = o.fontFamily;
+  if (o.fontId !== undefined) {
+    fontFamily =
+      slideFontCssStack(o.fontId) ??
+      token.fontFamily ??
+      tokenSet.typography.fontFamily;
     origin.fontFamily = "element";
   } else {
     fontFamily = token.fontFamily ?? tokenSet.typography.fontFamily;

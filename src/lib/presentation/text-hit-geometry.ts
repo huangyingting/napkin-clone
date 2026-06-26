@@ -6,6 +6,7 @@ import {
 } from "./deck";
 import type { TextHitGeometry } from "./stage-hit-test";
 import { runsToHtml } from "./rich-text-html";
+import { resolveElementFontCss } from "./slide-fonts";
 
 type TextHitElement = Extract<SlideElement, { kind: "text" | "bullets" }>;
 
@@ -65,7 +66,8 @@ function applyCommonTextStyle(
   style.wordBreak = "normal";
   style.whiteSpace = element.kind === "text" ? "pre-wrap" : "normal";
   style.textDecoration = element.style.underline ? "underline" : "";
-  if (element.style.fontFamily) style.fontFamily = element.style.fontFamily;
+  const fontCss = resolveElementFontCss(element.style.fontId);
+  if (fontCss) style.fontFamily = fontCss;
 }
 
 function fillInline(

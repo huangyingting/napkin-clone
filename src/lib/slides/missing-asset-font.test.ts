@@ -4,7 +4,6 @@
  * Covers:
  *  - Editor/present fallback for unresolvable assetId (MISSING_ASSET_PLACEHOLDER).
  *  - Export behavior for missing image assets.
- *  - Custom font fallback/warning for PPTX (fonts not embedded).
  *  - Missing optional fonts do not crash render.
  *  - buildDeckSpecs (pure export transform) handles missing image elements gracefully.
  *
@@ -35,7 +34,6 @@ import { buildDeckSpecs } from "@/lib/visual/deck-export";
 import {
   fatalDiagnostics,
   runExportPreflight,
-  warningDiagnostics,
 } from "@/lib/visual/export-preflight";
 
 // ---------------------------------------------------------------------------
@@ -272,104 +270,14 @@ describe("ServerAssetResolver: export behavior for missing image assets", () => 
 });
 
 // ---------------------------------------------------------------------------
-// #417-C: Custom font fallback/warning for PPTX
-// ---------------------------------------------------------------------------
-
-describe("custom font fallback and warning for PPTX", () => {
-  test("PPTX export emits missing-font warning when custom font is used", () => {
-    const el = textEl({
-      style: {
-        fontFamily: "'AcmeBrand', sans-serif",
-        fontSize: 5,
-        bold: false,
-        italic: false,
-        align: "left",
-      },
-    });
-    const deck = makeDeck([makeSlide([el])]);
-    const result = runExportPreflight(deck, {
-      target: "pptx",
-      customFontFamilies: new Set(["AcmeBrand"]),
-    });
-    const warnings = warningDiagnostics(result);
-    const fontWarning = warnings.find((w) => w.code === "missing-font");
-    assert.ok(fontWarning, "should warn about missing-font");
-    assert.equal(fontWarning?.severity, "warning");
-    assert.equal(fontWarning?.detail, "AcmeBrand");
-  });
-
-  test("missing-font warning does NOT block export (canExport remains true)", () => {
-    const el = textEl({
-      style: {
-        fontFamily: "'CustomFont', serif",
-        fontSize: 5,
-        bold: false,
-        italic: false,
-        align: "left",
-      },
-    });
-    const deck = makeDeck([makeSlide([el])]);
-    const result = runExportPreflight(deck, {
-      target: "pptx",
-      customFontFamilies: new Set(["CustomFont"]),
-    });
-    assert.equal(result.hasFatal, false, "font warning must not be fatal");
-    assert.equal(result.canExport, true, "export should still be allowed");
-  });
-
-  test("bullets element with custom font also generates missing-font warning", () => {
-    const el = bulletsEl({
-      style: {
-        fontFamily: "'BrandFont', sans-serif",
-        fontSize: 4,
-        bold: false,
-        italic: false,
-        align: "left",
-      },
-    });
-    const deck = makeDeck([makeSlide([el])]);
-    const result = runExportPreflight(deck, {
-      target: "pptx",
-      customFontFamilies: new Set(["BrandFont"]),
-    });
-    const fontWarning = warningDiagnostics(result).find(
-      (w) => w.code === "missing-font",
-    );
-    assert.ok(fontWarning);
-    assert.equal(fontWarning?.detail, "BrandFont");
-  });
-
-  test("image export does NOT emit missing-font warning (fonts irrelevant for image)", () => {
-    const el = textEl({
-      style: {
-        fontFamily: "'AcmeBrand', sans-serif",
-        fontSize: 5,
-        bold: false,
-        italic: false,
-        align: "left",
-      },
-    });
-    const deck = makeDeck([makeSlide([el])]);
-    const result = runExportPreflight(deck, {
-      target: "image",
-      customFontFamilies: new Set(["AcmeBrand"]),
-    });
-    const fontWarnings = warningDiagnostics(result).filter(
-      (w) => w.code === "missing-font",
-    );
-    assert.equal(fontWarnings.length, 0);
-  });
-});
-
-// ---------------------------------------------------------------------------
 // #417-D: Missing optional fonts do not crash render
 // ---------------------------------------------------------------------------
 
 describe("missing optional fonts do not crash render", () => {
-  test("buildDeckSpecs does not throw for element with unknown fontFamily", () => {
+  test("buildDeckSpecs does not throw for element with unknown fontId", () => {
     const el = textEl({
       style: {
-        fontFamily: "'NonExistentFont-XYZ', sans-serif",
+        fontId: "non-existent-font-xyz",
         fontSize: 5,
         bold: false,
         italic: false,
@@ -383,7 +291,7 @@ describe("missing optional fonts do not crash render", () => {
   test("buildDeckSpecs does not throw for bullets element with missing font", () => {
     const el = bulletsEl({
       style: {
-        fontFamily: "'GhostFont-Missing', sans-serif",
+        fontId: "ghost-font-missing",
         fontSize: 4,
         bold: false,
         italic: false,
@@ -408,7 +316,7 @@ describe("missing optional fonts do not crash render", () => {
     const el = textEl({
       id: "txt-ghost-font",
       style: {
-        fontFamily: "'UnavailableFont', sans-serif",
+        fontId: "unavailable-font",
         fontSize: 5,
         bold: false,
         italic: false,
@@ -425,27 +333,6 @@ describe("missing optional fonts do not crash render", () => {
       1,
       "text op must be present despite missing font",
     );
-  });
-
-  test("export preflight warns about missing font but does not prevent export", () => {
-    const el = textEl({
-      style: {
-        fontFamily: "'GhostFont', sans-serif",
-        fontSize: 5,
-        bold: false,
-        italic: false,
-        align: "left",
-      },
-    });
-    const deck = makeDeck([makeSlide([el])]);
-    const result = runExportPreflight(deck, {
-      target: "pptx",
-      customFontFamilies: new Set(["GhostFont"]),
-    });
-    // Must warn, but must not block export.
-    assert.ok(result.hasWarnings, "should warn");
-    assert.equal(result.hasFatal, false, "should not be fatal");
-    assert.equal(result.canExport, true, "export must proceed");
   });
 
   test("runExportPreflight never throws for any well-formed deck", () => {

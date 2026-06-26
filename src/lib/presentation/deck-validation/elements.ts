@@ -26,6 +26,7 @@ import {
   isDeckTextRole,
   type DeckTextRole,
 } from "../deck-theme-tokens";
+import { isSlideFontId } from "../slide-fonts";
 import {
   validateImageCrop,
   validateImageFitMode,
@@ -170,9 +171,7 @@ function validateTextStyle(input: unknown, context: string): TextElementStyle {
       ? { paragraphSpacing: input.paragraphSpacing as number }
       : {}),
     ...(input.color !== undefined ? { color: input.color as string } : {}),
-    ...(typeof input.fontFamily === "string" && input.fontFamily.length > 0
-      ? { fontFamily: input.fontFamily }
-      : {}),
+    ...(isSlideFontId(input.fontId) ? { fontId: input.fontId } : {}),
   };
 }
 
@@ -232,8 +231,8 @@ function validatePartialTextStyle(
     );
   }
   if (input.color !== undefined) out.color = input.color as string;
-  if (typeof input.fontFamily === "string" && input.fontFamily.length > 0) {
-    out.fontFamily = input.fontFamily;
+  if (isSlideFontId(input.fontId)) {
+    out.fontId = input.fontId;
   }
   return out;
 }

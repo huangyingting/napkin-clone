@@ -1399,11 +1399,11 @@ test("exported text inherits the deck-template role font when no element overrid
   const [spec] = buildDeckSpecs(deck, new Map());
   const title = ofKind(spec.ops, "text")[0] as DeckTextOp;
   const bullets = ofKind(spec.ops, "bullets")[0] as DeckBulletsOp;
-  assert.equal(title.fontFace, "Space Grotesk");
-  assert.equal(bullets.fontFace, "Inter");
+  assert.equal(title.fontFace, "Aptos Display");
+  assert.equal(bullets.fontFace, "Aptos");
 });
 
-test("an explicit element fontFamily still wins over the role font (#606)", () => {
+test("an explicit element fontId still wins over the role font (#606)", () => {
   const deck: Deck = {
     themeId: "indigo",
     slides: [
@@ -1415,7 +1415,7 @@ test("an explicit element fontFamily still wins over the role font (#606)", () =
             bold: true,
             italic: false,
             align: "left",
-            fontFamily: "Courier New, monospace",
+            fontId: "jetbrains-mono",
           },
         }),
       ]),
@@ -1423,7 +1423,7 @@ test("an explicit element fontFamily still wins over the role font (#606)", () =
   };
   const [spec] = buildDeckSpecs(deck, new Map());
   const title = ofKind(spec.ops, "text")[0] as DeckTextOp;
-  assert.equal(title.fontFace, "Courier New");
+  assert.equal(title.fontFace, "Consolas");
 });
 
 // ---------------------------------------------------------------------------

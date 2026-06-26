@@ -169,8 +169,12 @@ test("custom token set: export inherits the brand heading font for h1", () => {
   };
   // h1 is a heading role → heading font stack "Oswald".
   assert.equal(exportTitleFont(deck), "Oswald");
-  // and matches the cascade role token the renderer would inherit.
-  assert.equal(resolveRoleToken(BRAND, "h1").fontFamily, "Oswald, sans-serif");
+  // and matches the cascade role token the renderer would inherit (with the
+  // self-hosted CJK fallback inserted by the resolver).
+  assert.equal(
+    resolveRoleToken(BRAND, "h1").fontFamily,
+    "Oswald, 'Noto Sans SC', sans-serif",
+  );
 });
 
 test("custom token set: export bullet color matches the brand onBg (body role)", () => {

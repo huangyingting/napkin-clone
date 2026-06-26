@@ -1,5 +1,6 @@
 import type { BulletsElement, ElementBox, TextElement, TextRun } from "./deck";
 import { runsToHtml } from "./rich-text-html";
+import { resolveElementFontCss } from "./slide-fonts";
 
 export type TextBoxFitAnchor = "top-left" | "center" | "preserve-text-position";
 
@@ -66,7 +67,8 @@ function applyMeasuredTextStyle(
   style.overflowWrap = mode === "height" ? "break-word" : "normal";
   style.wordBreak = "normal";
   style.textDecoration = element.style.underline ? "underline" : "";
-  if (element.style.fontFamily) style.fontFamily = element.style.fontFamily;
+  const fontCss = resolveElementFontCss(element.style.fontId);
+  if (fontCss) style.fontFamily = fontCss;
 }
 
 function fillMeasuredInline(

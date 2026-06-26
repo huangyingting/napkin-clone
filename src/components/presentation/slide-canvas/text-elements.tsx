@@ -17,6 +17,8 @@ import type {
 import { normalizeBulletItems } from "@/lib/presentation/deck";
 import type { DeckThemeTokenSet } from "@/lib/presentation/deck-theme-tokens";
 import { resolveRoleToken } from "@/lib/presentation/deck-theme-tokens";
+import { resolveElementFontCss } from "@/lib/presentation/slide-fonts";
+import { useSlideFontsReady } from "@/lib/presentation/slide-font-loading";
 import type { SlideThemeColors } from "@/lib/presentation/style-cascade";
 
 import { boxStyle, renderRuns } from "./primitives";
@@ -39,7 +41,11 @@ function useShrinkFontSizeCss(
   fitMode: TextFitMode | undefined,
 ): string {
   const enabled = fitMode === "shrink-to-fit";
-  const configKey = `${baseFontSize}:${fitMode ?? ""}`;
+  // Re-key on font readiness so the fit measurement re-runs against real
+  // self-hosted font metrics once the bundled fonts load (avoids measuring
+  // shrink scale with a fallback font and keeping the wrong size).
+  const fontsReady = useSlideFontsReady();
+  const configKey = `${baseFontSize}:${fitMode ?? ""}:${fontsReady ? 1 : 0}`;
   const [sizing, setSizing] = useState({ key: configKey, scale: 1 });
   const scale = sizing.key === configKey ? sizing.scale : 1;
 
@@ -91,7 +97,8 @@ export function TextElementView({
   );
   void tc;
   const color = element.style.color ?? roleToken.color;
-  const roleFontFamily = element.style.fontFamily ?? roleToken.fontFamily;
+  const roleFontFamily =
+    resolveElementFontCss(element.style.fontId) ?? roleToken.fontFamily;
   const hasRuns = element.runs !== undefined && element.runs.length > 0;
   return (
     <div
@@ -205,8 +212,8 @@ export function BulletsElementView({
         fontWeight: element.style.bold ? 700 : 400,
         fontStyle: element.style.italic ? "italic" : "normal",
         ...(element.style.underline ? { textDecoration: "underline" } : {}),
-        ...(element.style.fontFamily
-          ? { fontFamily: element.style.fontFamily }
+        ...(resolveElementFontCss(element.style.fontId)
+          ? { fontFamily: resolveElementFontCss(element.style.fontId) }
           : {}),
         textAlign: element.style.align,
         lineHeight: element.style.lineHeight ?? 1.2,

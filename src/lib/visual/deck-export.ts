@@ -47,6 +47,7 @@ import {
 } from "@/lib/presentation/deck";
 import { slideFormatConfig } from "@/lib/presentation/slide-format";
 import { resolveSlideStyle } from "@/lib/presentation/style-cascade";
+import { slideFontExportFace } from "@/lib/presentation/slide-fonts";
 import {
   adaptBulletsElementForExport,
   adaptShapeLabelForExport,
@@ -374,6 +375,12 @@ function buildSlideSpec(
           { ...element, styleOverride: element.style },
           geometry.slideHPt,
         );
+        // Content-aware editable-PPTX font face: registry fonts map to an
+        // Office-compatible face, switching to the CJK face for Chinese text.
+        const textFontFace = slideFontExportFace(
+          exportStyle.resolved.fontFamily,
+          element.text,
+        );
         ops.push({
           kind: "text",
           ...box,
@@ -383,7 +390,7 @@ function buildSlideSpec(
             : {}),
           color: toHex(exportStyle.color),
           fontSize: exportStyle.fontSizePt,
-          ...(exportStyle.fontFace ? { fontFace: exportStyle.fontFace } : {}),
+          ...(textFontFace ? { fontFace: textFontFace } : {}),
           bold: exportStyle.bold,
           italic: exportStyle.italic,
           ...(exportStyle.underline ? { underline: true } : {}),
@@ -415,6 +422,11 @@ function buildSlideSpec(
         const hasItemMeta = bulletItems.some(
           (it) => (it.indent ?? 0) !== 0 || it.listType === "number",
         );
+        // Content-aware editable-PPTX font face across all bullet text.
+        const bulletsFontFace = slideFontExportFace(
+          exportStyle.resolved.fontFamily,
+          bulletItems.map((it) => it.text).join(" "),
+        );
         ops.push({
           kind: "bullets",
           ...box,
@@ -432,7 +444,7 @@ function buildSlideSpec(
             : {}),
           color: toHex(exportStyle.color),
           fontSize: exportStyle.fontSizePt,
-          ...(exportStyle.fontFace ? { fontFace: exportStyle.fontFace } : {}),
+          ...(bulletsFontFace ? { fontFace: bulletsFontFace } : {}),
           bold: exportStyle.bold,
           italic: exportStyle.italic,
           ...(exportStyle.underline ? { underline: true } : {}),
