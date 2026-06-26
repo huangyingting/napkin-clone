@@ -62,6 +62,12 @@ import {
   SlideInspectorFromContext,
   SlideSelectionToolbarFromContext,
 } from "@/components/presentation/slide-editor/slide-editor-context";
+import {
+  selectBackgroundPreviewStyle,
+  selectCanDeleteSlide,
+  selectSafeSelectedIndex,
+  selectSelectionSummary,
+} from "@/components/presentation/slide-editor/slide-editor-view-model";
 import { createPortal } from "react-dom";
 
 import { FOCUS_RING } from "@/components/ui/tokens";
@@ -77,7 +83,7 @@ import {
   fitAspectRatio,
   type Size,
 } from "@/lib/presentation/stage-fit";
-import { type Deck, type SlideElement } from "@/lib/presentation/deck";
+import { type Deck } from "@/lib/presentation/deck";
 import {
   resolveSlideFormat,
   slideAspectRatio,
@@ -136,11 +142,7 @@ import { useSlideElementCommands } from "@/components/presentation/slide-editor/
 import { useSlideInsertCommands } from "@/components/presentation/slide-editor/use-slide-insert-commands";
 import { useSlideManagementCommands } from "@/components/presentation/slide-editor/use-slide-management-commands";
 import { useSlideSourceLinkCommands } from "@/components/presentation/slide-editor/use-slide-source-link-commands";
-import {
-  gradientCss,
-  useSlideBackgroundCommands,
-} from "@/components/presentation/slide-editor/use-slide-background-commands";
-import { assertNever } from "@/lib/assert-never";
+import { useSlideBackgroundCommands } from "@/components/presentation/slide-editor/use-slide-background-commands";
 
 interface SlideEditorProps {
   deck: Deck;
@@ -199,27 +201,6 @@ interface SlideEditorProps {
 
 const FLOATING_PANEL_STAGE_RESERVE_PX = 352;
 
-function slideElementTypeLabel(element: SlideElement): string {
-  switch (element.kind) {
-    case "placeholder":
-      return "Placeholder";
-    case "text":
-      return element.role === "title" ? "Title" : "Text";
-    case "bullets":
-      return "Bullets";
-    case "image":
-      return "Image";
-    case "shape":
-      return "Shape";
-    case "visual":
-      return "Visual";
-    case "connector":
-      return "Connector";
-    default:
-      return assertNever(element);
-  }
-}
-
 export function SlideEditor({
   deck: deckProp,
   visuals,
@@ -253,7 +234,7 @@ export function SlideEditor({
 
   const [selectedIndex, setSelectedIndex] = useState(0);
   // Keep the selection within bounds as slides are added/removed.
-  const safeSelected = Math.min(selectedIndex, deck.slides.length - 1);
+  const safeSelected = selectSafeSelectedIndex(deck.slides, selectedIndex);
   const selectedSlide = deck.slides[safeSelected];
   const selectedTheme = selectedSlide
     ? resolveSlideThemeColors(deck, selectedSlide)
@@ -369,7 +350,7 @@ export function SlideEditor({
       return;
     }
     onClose();
-  }, [hasUnsavedWork, onClose]);
+  }, [hasUnsavedWork, onClose, setCloseConfirmOpen]);
 
   // Native beforeunload guard: warn before a full page unload while edits are
   // still in flight or unsaved, mirroring the close confirmation.
@@ -399,20 +380,15 @@ export function SlideEditor({
   const undoShortcut = isMac ? "⌘Z" : "Ctrl+Z";
   const redoShortcut = isMac ? "⌘⇧Z" : "Ctrl+Shift+Z";
 
-  const selectionSummary = useMemo(() => {
-    if (effectiveSelectedElementIds.size > 1) {
-      return `${effectiveSelectedElementIds.size} elements selected`;
-    }
-    if (!effectiveSelectedElementId || !selectedSlide?.elements) {
-      return "No element selected";
-    }
-    const element = selectedSlide.elements.find(
-      (candidate) => candidate.id === effectiveSelectedElementId,
-    );
-    return element
-      ? `${slideElementTypeLabel(element)} selected`
-      : "No element selected";
-  }, [effectiveSelectedElementId, effectiveSelectedElementIds, selectedSlide]);
+  const selectionSummary = useMemo(
+    () =>
+      selectSelectionSummary({
+        effectiveSelectedElementId,
+        effectiveSelectedElementIds,
+        selectedSlide,
+      }),
+    [effectiveSelectedElementId, effectiveSelectedElementIds, selectedSlide],
+  );
   const activeSlideAspectRatio = slideAspectRatio(deck.slideFormat);
   // Fit the stage to the deck's slide format — not the viewport's — so
   // cqh-sized slide text never overflows on portrait phones.
@@ -568,10 +544,10 @@ export function SlideEditor({
     doCommitAndChange,
     setThemeMenuOpen,
   });
-  const backgroundPreviewGradient = selectedSlide?.backgroundGradient;
-  const backgroundPreviewStyle = backgroundPreviewGradient
-    ? { background: gradientCss(backgroundPreviewGradient) }
-    : { backgroundColor: selectedSlide?.background ?? selectedTheme.bgColor };
+  const backgroundPreviewStyle = selectBackgroundPreviewStyle(
+    selectedSlide,
+    selectedTheme,
+  );
 
   const {
     pendingResetLayout,
@@ -898,7 +874,7 @@ export function SlideEditor({
       handleCutElements,
       handlePasteElements,
       handleAddTextElement,
-      canDelete: deck.slides.length > 1,
+      canDelete: selectCanDeleteSlide(deck.slides),
       handleDuplicateSlide,
       handleRemoveSlide,
       handleApplyReusableLayout,
