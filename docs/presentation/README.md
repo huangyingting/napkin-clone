@@ -21,9 +21,10 @@ These documents record accepted designs that are not yet fully implemented.
 When implemented, fold the resulting runtime contracts back into the current
 behavior documents above.
 
-| Document                                       | Scope                                                                                  |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------- |
-| [slide-fonts-design.md](slide-fonts-design.md) | Self-hosted slide fonts, `fontId` registry, editable PPTX mapping, and migration plan. |
+| Document                                                         | Scope                                                                                            |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| [slide-fonts-design.md](slide-fonts-design.md)                   | Self-hosted slide fonts, `fontId` registry, editable PPTX mapping, and migration plan.          |
+| [slide-editing-ui-redesign.md](slide-editing-ui-redesign.md)     | Object model, surface split (toolbar/popover/panel), and element-model consolidation for the editor. |
 
 ## Related Contracts
 

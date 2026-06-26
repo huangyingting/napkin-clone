@@ -38,7 +38,6 @@ function makeSlide(id: string, elementIds: string[] = []): Slide {
     elements: elementIds.map((eid) => ({
       id: eid,
       kind: "text" as const,
-      role: "body" as const,
       text: "",
       zIndex: 0,
       box: { x: 0, y: 0, w: 100, h: 10 },

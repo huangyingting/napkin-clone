@@ -21,11 +21,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type {
-  BulletsElement,
   ConnectorElement,
   Deck,
   ImageElement,
-  PlaceholderElement,
   ShapeElement,
   Slide,
   SlideElement,
@@ -48,7 +46,6 @@ import {
   buildConnectorElement,
   buildDeck,
   buildImageElement,
-  buildPlaceholderElement,
   buildShapeElement,
   buildSlide,
   buildTextElement,
@@ -121,7 +118,6 @@ function fixtureTextElement(
 ): TextElement {
   return buildTextElement({
     id,
-    role: "body",
     text,
     zIndex: 0,
     box: { x: 5, y: 5, w: 60, h: 20 },
@@ -133,8 +129,8 @@ function fixtureTextElement(
 function bulletsEl(
   id: string,
   bullets: string[],
-  overrides: Partial<BulletsElement> = {},
-): BulletsElement {
+  overrides: Parameters<typeof buildBulletsElement>[0] = {},
+): TextElement {
   return buildBulletsElement({
     id,
     bullets,
@@ -1038,78 +1034,6 @@ test("[AC-8] known visual alongside unknown emits only one op (orphan is dropped
 });
 
 // ---------------------------------------------------------------------------
-// AC-9 — Placeholder element rendering
-// ---------------------------------------------------------------------------
-
-function placeholderEl(
-  id: string,
-  overrides: Partial<PlaceholderElement> = {},
-): PlaceholderElement {
-  return buildPlaceholderElement({
-    id,
-    placeholderType: "body",
-    zIndex: 0,
-    box: { x: 10, y: 20, w: 50, h: 30 },
-    ...overrides,
-  });
-}
-
-test("[AC-9] placeholder exports as a shape outline plus a label text op", () => {
-  const ops = buildOps([placeholderEl("ph1")]);
-
-  assert.equal(ofKind(ops, "shape").length, 1, "placeholder outline shape op");
-  assert.equal(ofKind(ops, "text").length, 1, "placeholder label text op");
-  assert.equal(
-    ofKind(ops, "text")[0]?.text,
-    "Body",
-    "label shows placeholder type",
-  );
-});
-
-test("[AC-9] placeholder with custom label uses that label in the text op", () => {
-  const ops = buildOps([
-    placeholderEl("ph2", { placeholderType: "title", label: "Custom Heading" }),
-  ]);
-  const textOp = ofKind(ops, "text")[0];
-
-  assert.equal(
-    textOp?.text,
-    "Custom Heading",
-    "custom label used over type name",
-  );
-});
-
-test("[AC-9] placeholder text op carries correct geometry within slide bounds", () => {
-  const ops = buildOps([
-    placeholderEl("ph3", { box: { x: 0, y: 0, w: 100, h: 50 } }),
-  ]);
-  const textOp = ofKind(ops, "text")[0];
-
-  assert.ok(textOp, "text op present");
-  // Placeholder insets the label by 8% on each side (see deck-export.ts).
-  const expectedX = SLIDE_W * 0.08;
-  const expectedY = SLIDE_H * 0.5 * 0.08;
-  const expectedW = SLIDE_W * 0.84;
-  const expectedH = SLIDE_H * 0.5 * 0.84;
-  assert.ok(
-    Math.abs(textOp.x - expectedX) < 0.01,
-    `x ≈ ${expectedX.toFixed(3)}`,
-  );
-  assert.ok(
-    Math.abs(textOp.y - expectedY) < 0.01,
-    `y ≈ ${expectedY.toFixed(3)}`,
-  );
-  assert.ok(
-    Math.abs(textOp.w - expectedW) < 0.01,
-    `w ≈ ${expectedW.toFixed(3)}`,
-  );
-  assert.ok(
-    Math.abs(textOp.h - expectedH) < 0.01,
-    `h ≈ ${expectedH.toFixed(3)}`,
-  );
-});
-
-// ---------------------------------------------------------------------------
 // AC-10 — Hidden / locked / grouped element rendering
 // ---------------------------------------------------------------------------
 
@@ -1382,8 +1306,7 @@ function titleOpColor(deckObj: Deck): string {
 }
 
 test("[#618] inherited title color tracks a deck-template change", () => {
-  const el = () =>
-    fixtureTextElement("t", "Heading", { role: "title", textRole: "h1" });
+  const el = () => fixtureTextElement("t", "Heading", { textRole: "h1" });
   const a = titleOpColor(
     deck([el()], {
       customTokenSet: tokenSetWith({ onBg: "#112233" }) as never,
@@ -1400,8 +1323,7 @@ test("[#618] inherited title color tracks a deck-template change", () => {
 });
 
 test("[#618] inherited role font tracks a deck-template heading-font change", () => {
-  const el = () =>
-    fixtureTextElement("t", "Heading", { role: "title", textRole: "h1" });
+  const el = () => fixtureTextElement("t", "Heading", { textRole: "h1" });
   const fontOf = (d: Deck) =>
     (
       buildDeckSpecs(d, new Map())[0].ops.find(
@@ -1431,7 +1353,7 @@ test("[#618] inherited role font tracks a deck-template heading-font change", ()
 test("[#618] a local color override is NOT clobbered by a global template change", () => {
   const el = () =>
     fixtureTextElement("t", "Heading", {
-      role: "title",
+      textRole: "h1",
       style: {
         fontSize: 6,
         bold: true,
@@ -1465,7 +1387,7 @@ test("[#618] export smoke: custom template fonts + gradient background do not cr
   };
   const d = deck(
     [
-      fixtureTextElement("t", "Title", { role: "title", textRole: "h1" }),
+      fixtureTextElement("t", "Title", { textRole: "h1" }),
       bulletsEl("b", ["a", "b"]),
       fixtureShapeElement("s", { text: "Label" }),
       connectorEl("c"),
@@ -1483,7 +1405,7 @@ test("[#618] export smoke: custom template fonts + gradient background do not cr
           notes: "",
           backgroundGradient: { from: "#123456", to: "#654321" },
           elements: [
-            fixtureTextElement("t", "Title", { role: "title", textRole: "h1" }),
+            fixtureTextElement("t", "Title", { textRole: "h1" }),
             bulletsEl("b", ["a", "b"]),
           ],
         },

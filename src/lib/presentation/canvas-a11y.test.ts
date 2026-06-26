@@ -50,7 +50,6 @@ function textEl(id: string, b: ElementBox): TextElement {
     box: b,
     zIndex: 1,
     text: id,
-    role: "body",
     style: { fontSize: 5, bold: false, italic: false, align: "left" },
   };
 }

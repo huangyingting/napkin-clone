@@ -187,8 +187,6 @@ export function insertableTextElement(
   const fontSize = heading
     ? headingFontSize(item.level)
     : SLIDE_TEXT_FONT_SIZE.text;
-  const role: TextElement["role"] =
-    heading && item.level === 1 ? "title" : "body";
   // Semantic deck-template role (#610): map document heading levels onto
   // h1/h2/h3 deterministically; non-heading text is body. The concrete `style`
   // below remains the authoritative local style during the render-wiring
@@ -214,7 +212,6 @@ export function insertableTextElement(
   return {
     id: options.id ?? makeElementId(),
     kind: "text",
-    role,
     textRole,
     text: item.text,
     ...(item.runs && item.runs.length > 0 ? { runs: item.runs } : {}),

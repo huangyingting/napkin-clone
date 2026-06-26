@@ -133,16 +133,12 @@ import { InlineTextEditor } from "@/components/presentation/slide-stage/inline-t
 import { ElementContextMenu } from "@/components/presentation/slide-stage/element-overlays";
 
 function resolveTextColor(
-  element: Extract<SlideElement, { kind: "text" | "bullets" | "shape" }>,
+  element: Extract<SlideElement, { kind: "text" | "shape" }>,
   tc: SlideThemeColors,
   tokenSet: DeckThemeTokenSet,
 ): string {
   if (element.kind === "text") {
-    const role = element.textRole ?? (element.role === "title" ? "h1" : "body");
-    return element.style.color ?? resolveRoleToken(tokenSet, role).color;
-  }
-  if (element.kind === "bullets") {
-    const role = element.textRole ?? "bullet";
+    const role = element.textRole ?? "body";
     return element.style.color ?? resolveRoleToken(tokenSet, role).color;
   }
   void tc;
@@ -566,8 +562,7 @@ export function SlideStageEditor({
 
   const hiddenElementIds = useMemo(
     () =>
-      editingElement &&
-      (editingElement.kind === "text" || editingElement.kind === "bullets")
+      editingElement && editingElement.kind === "text"
         ? new Set([editingElement.id])
         : undefined,
     [editingElement],
@@ -942,10 +937,7 @@ export function SlideStageEditor({
           rdx = (lx / rect.width) * 100;
           rdy = (ly / rect.height) * 100;
         }
-        if (
-          resized &&
-          (resized.kind === "text" || resized.kind === "bullets")
-        ) {
+        if (resized && resized.kind === "text") {
           const isFixed = resized.fitMode === "fixed-box";
           const isAutoH = isAutoHeight(resized);
           if (isFixed || (isAutoH && BOTTOM_HANDLES.has(drag.mode))) {
@@ -1327,8 +1319,7 @@ export function SlideStageEditor({
         coalesceKey: nextGestureKey(mode === "move" ? "move" : "resize", id),
         moved: false,
         startFontSize:
-          startElement &&
-          (startElement.kind === "text" || startElement.kind === "bullets")
+          startElement && startElement.kind === "text"
             ? startElement.style.fontSize
             : undefined,
         groupBoxes,
@@ -1716,7 +1707,7 @@ export function SlideStageEditor({
                   ).map(({ handle, cursor, style }) => {
                     const dimmed =
                       BOTTOM_HANDLES.has(handle) &&
-                      (element.kind === "text" || element.kind === "bullets") &&
+                      element.kind === "text" &&
                       isAutoHeight(element);
                     return (
                       <span

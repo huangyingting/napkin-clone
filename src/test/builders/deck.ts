@@ -1,17 +1,18 @@
 import {
   CURRENT_DECK_SCHEMA_VERSION,
-  type BulletsElement,
   type ConnectorElement,
   type Deck,
   type ElementBox,
   type ImageElement,
-  type PlaceholderElement,
+  type LayoutPlaceholder,
+  type Paragraph,
   type ShapeElement,
   type Slide,
   type SlideElement,
   type SourceRef,
   type TextElement,
   type TextElementStyle,
+  type TextRun,
   type VisualElement,
 } from "@/lib/presentation/deck";
 
@@ -71,11 +72,19 @@ export function buildSourceRef(overrides: Partial<SourceRef> = {}): SourceRef {
 export function buildTextElement(
   overrides: Partial<TextElement> = {},
 ): TextElement {
+  const text = overrides.text ?? "Fixture text";
   return {
     id: overrides.id ?? "text-fixture",
     kind: "text",
-    role: overrides.role ?? "body",
-    text: overrides.text ?? "Fixture text",
+    text,
+    paragraphs: overrides.paragraphs ?? [
+      {
+        text,
+        ...(overrides.runs !== undefined && overrides.runs.length > 0
+          ? { runs: overrides.runs }
+          : {}),
+      },
+    ],
     zIndex: overrides.zIndex ?? 0,
     box: buildElementBox(overrides.box),
     style: buildTextStyle(overrides.style),
@@ -99,30 +108,49 @@ export function buildTextElement(
     ...(overrides.hidden !== undefined ? { hidden: overrides.hidden } : {}),
     ...(overrides.name !== undefined ? { name: overrides.name } : {}),
     ...(overrides.groupId !== undefined ? { groupId: overrides.groupId } : {}),
-    ...(overrides.layoutSlot !== undefined
-      ? { layoutSlot: overrides.layoutSlot }
+    ...(overrides.bulletGap !== undefined
+      ? { bulletGap: overrides.bulletGap }
+      : {}),
+    ...(overrides.bulletIndent !== undefined
+      ? { bulletIndent: overrides.bulletIndent }
       : {}),
   };
 }
 
+type TextListOverrides = Partial<TextElement> & {
+  bullets?: string[];
+  bulletRuns?: TextRun[][];
+  items?: Paragraph[];
+};
+
 export function buildBulletsElement(
-  overrides: Partial<BulletsElement> = {},
-): BulletsElement {
+  overrides: TextListOverrides = {},
+): TextElement {
   const bullets = overrides.bullets ?? ["First point", "Second point"];
+  const paragraphs = (
+    overrides.paragraphs ??
+    overrides.items ??
+    bullets.map((text: string, index: number) => ({
+      text,
+      ...(overrides.bulletRuns?.[index] &&
+      overrides.bulletRuns[index].length > 0
+        ? { runs: overrides.bulletRuns[index] }
+        : {}),
+      listType: "bullet" as const,
+    }))
+  ).map((paragraph) => ({
+    ...paragraph,
+    listType: paragraph.listType ?? ("bullet" as const),
+  }));
   return {
     id: overrides.id ?? "bullets-fixture",
-    kind: "bullets",
-    bullets,
-    items: overrides.items ?? bullets.map((text) => ({ text })),
+    kind: "text",
+    text: paragraphs.map((paragraph) => paragraph.text).join("\n"),
+    paragraphs,
     zIndex: overrides.zIndex ?? 1,
     box: buildElementBox(overrides.box ?? { y: 28, h: 48 }),
     style: buildTextStyle(overrides.style),
-    ...(overrides.bulletRuns !== undefined
-      ? { bulletRuns: overrides.bulletRuns }
-      : {}),
-    ...(overrides.textRole !== undefined
-      ? { textRole: overrides.textRole }
-      : {}),
+    textRole: overrides.textRole ?? "bullet",
     ...(overrides.styleOverride !== undefined
       ? { styleOverride: overrides.styleOverride }
       : {}),
@@ -273,18 +301,14 @@ export function buildConnectorElement(
 }
 
 export function buildPlaceholderElement(
-  overrides: Partial<PlaceholderElement> = {},
-): PlaceholderElement {
+  overrides: Partial<LayoutPlaceholder> = {},
+): LayoutPlaceholder {
   return {
     id: overrides.id ?? "placeholder-fixture",
-    kind: "placeholder",
     placeholderType: overrides.placeholderType ?? "title",
     zIndex: overrides.zIndex ?? 0,
     box: buildElementBox(overrides.box),
     ...(overrides.label !== undefined ? { label: overrides.label } : {}),
-    ...(overrides.sourceRef !== undefined
-      ? { sourceRef: overrides.sourceRef }
-      : {}),
   };
 }
 
@@ -301,7 +325,7 @@ export function buildSlide(overrides: Partial<Slide> = {}): Slide {
     elements: overrides.elements ?? [
       buildTextElement({
         id: "slide-title",
-        role: "title",
+        textRole: "h1",
         text: title,
         style: { fontSize: 6, bold: true, italic: false, align: "left" },
       }),

@@ -419,8 +419,8 @@ function buildDefaultElement(
       return {
         id,
         kind: "text",
-        role: "body",
         text: "New text",
+        paragraphs: [{ text: "New text" }],
         box: { x: 20, y: 40, w: 60, h: 16 },
         style: {
           fontSize: SLIDE_TEXT_FONT_SIZE.text,
@@ -432,9 +432,13 @@ function buildDefaultElement(
     case "bullets":
       return {
         id,
-        kind: "bullets",
-        bullets: ["First point", "Second point"],
-        items: [{ text: "First point" }, { text: "Second point" }],
+        kind: "text",
+        text: "First point\nSecond point",
+        paragraphs: [
+          { text: "First point", listType: "bullet" },
+          { text: "Second point", listType: "bullet" },
+        ],
+        textRole: "bullet",
         box: { x: 14, y: 28, w: 72, h: 48 },
         style: {
           fontSize: SLIDE_TEXT_FONT_SIZE.list,
@@ -467,12 +471,8 @@ function buildDefaultElement(
 
 function slideElementTypeLabel(element: SlideElement): string {
   switch (element.kind) {
-    case "placeholder":
-      return "Placeholder";
     case "text":
-      return element.role === "title" ? "Title" : "Text";
-    case "bullets":
-      return "Bullets";
+      return element.textRole === "h1" ? "Title" : "Text";
     case "image":
       return "Image";
     case "shape":
@@ -938,7 +938,7 @@ export function SlideEditor({
 
         let slideChanged = false;
         const elements = slide.elements.map((element) => {
-          if (element.kind !== "text" && element.kind !== "bullets") {
+          if (element.kind !== "text") {
             return element;
           }
           const fitted = fitTextElementToContent(
@@ -1862,7 +1862,7 @@ export function SlideEditor({
         shapeKind,
       );
       const element =
-        rawElement.kind === "text" || rawElement.kind === "bullets"
+        rawElement.kind === "text"
           ? fitInsertedTextElement(rawElement, "top-left")
           : rawElement;
       doCommitAndChange(deck, { type: "ADD_ELEMENT", slideId, element });

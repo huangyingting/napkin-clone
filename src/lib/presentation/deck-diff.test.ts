@@ -38,7 +38,7 @@ function titleElement(id: string, text: string): SlideElement {
   return {
     id,
     kind: "text",
-    role: "title",
+    textRole: "h1",
     text,
     zIndex: 0,
     box: { x: 5, y: 5, w: 90, h: 15 },

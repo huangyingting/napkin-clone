@@ -1,5 +1,5 @@
 import {
-  normalizeBulletItems,
+  normalizeTextParagraphs,
   type ElementBox,
   type SlideElement,
   type TextRun,
@@ -8,7 +8,7 @@ import type { TextHitGeometry } from "./stage-hit-test";
 import { runsToHtml } from "./rich-text-html";
 import { resolveElementFontCss } from "./slide-fonts";
 
-type TextHitElement = Extract<SlideElement, { kind: "text" | "bullets" }>;
+type TextHitElement = Extract<SlideElement, { kind: "text" }>;
 
 interface MeasureTextHitGeometryOptions {
   elements: readonly SlideElement[];
@@ -56,15 +56,18 @@ function applyCommonTextStyle(
   style.fontWeight = element.style.bold ? "700" : "400";
   style.fontStyle = element.style.italic ? "italic" : "normal";
   style.textAlign = element.style.align;
+  const hasListParagraphs = normalizeTextParagraphs(element).some(
+    (paragraph) => paragraph.listType !== undefined,
+  );
   style.lineHeight = String(
-    element.style.lineHeight ?? (element.kind === "bullets" ? 1.2 : 1.15),
+    element.style.lineHeight ?? (hasListParagraphs ? 1.2 : 1.15),
   );
   style.margin = "0";
   style.padding = "0";
   style.overflow = "visible";
   style.overflowWrap = "break-word";
   style.wordBreak = "normal";
-  style.whiteSpace = element.kind === "text" ? "pre-wrap" : "normal";
+  style.whiteSpace = hasListParagraphs ? "normal" : "pre-wrap";
   style.textDecoration = element.style.underline ? "underline" : "";
   const fontCss = resolveElementFontCss(element.style.fontId);
   if (fontCss) style.fontFamily = fontCss;
@@ -85,7 +88,10 @@ function createOuterNode(
   stageWidthPx: number,
   stageHeightPx: number,
 ): HTMLElement {
-  const outer = document.createElement(element.kind === "text" ? "div" : "ul");
+  const hasListParagraphs = normalizeTextParagraphs(element).some(
+    (paragraph) => paragraph.listType !== undefined,
+  );
+  const outer = document.createElement(hasListParagraphs ? "ul" : "div");
   applyCommonTextStyle(outer, element, stageHeightPx);
   outer.style.display = "flex";
   outer.style.flexDirection = "column";
@@ -101,24 +107,25 @@ function createOuterNode(
   return outer;
 }
 
-function createTextNode(element: Extract<TextHitElement, { kind: "text" }>) {
-  const inner = document.createElement("div");
-  inner.dataset.textHitContent = "true";
-  inner.style.width = "100%";
-  inner.style.whiteSpace = "pre-wrap";
-  inner.style.overflowWrap = "break-word";
-  inner.style.wordBreak = "normal";
-  if (element.style.paragraphSpacing) {
-    inner.style.marginBottom = `${element.style.paragraphSpacing}cqh`;
-  }
-  fillInline(inner, element.runs, element.text || "\u00a0");
-  return inner;
+function createTextNodes(element: TextHitElement) {
+  const paragraphs = normalizeTextParagraphs(element);
+  return paragraphs.map((paragraph, index) => {
+    const inner = document.createElement("div");
+    inner.dataset.textHitContent = "true";
+    inner.style.width = "100%";
+    inner.style.whiteSpace = "pre-wrap";
+    inner.style.overflowWrap = "break-word";
+    inner.style.wordBreak = "normal";
+    if (element.style.paragraphSpacing && index < paragraphs.length - 1) {
+      inner.style.marginBottom = `${element.style.paragraphSpacing}cqh`;
+    }
+    fillInline(inner, paragraph.runs, paragraph.text || "\u00a0");
+    return inner;
+  });
 }
 
-function createBulletsNodes(
-  element: Extract<TextHitElement, { kind: "bullets" }>,
-) {
-  const items = normalizeBulletItems(element);
+function createListNodes(element: TextHitElement) {
+  const items = normalizeTextParagraphs(element);
   const rows = items.length > 0 ? items : [{ text: "\u00a0" }];
   return rows.map((item) => {
     const row = document.createElement("li");
@@ -224,9 +231,10 @@ function measureElement(
   if (!host || stageWidthPx <= 0 || stageHeightPx <= 0) return null;
 
   const outer = createOuterNode(element, box, stageWidthPx, stageHeightPx);
-  if (element.kind === "text") {
-    outer.appendChild(createTextNode(element));
-  } else {
+  const hasListParagraphs = normalizeTextParagraphs(element).some(
+    (paragraph) => paragraph.listType !== undefined,
+  );
+  if (hasListParagraphs) {
     outer.style.gap = element.bulletGap
       ? `${(element.bulletGap / 100) * stageHeightPx}px`
       : "0.6em";
@@ -235,7 +243,9 @@ function measureElement(
     if (element.bulletIndent) {
       outer.style.paddingLeft = `${(element.bulletIndent / 100) * stageWidthPx}px`;
     }
-    outer.append(...createBulletsNodes(element));
+    outer.append(...createListNodes(element));
+  } else {
+    outer.append(...createTextNodes(element));
   }
 
   host.replaceChildren(outer);
@@ -265,7 +275,7 @@ export function measureTextHitGeometry({
 
   for (const element of elements) {
     if (element.hidden) continue;
-    if (element.kind !== "text" && element.kind !== "bullets") continue;
+    if (element.kind !== "text") continue;
     const box = fittedBoxes.get(element.id) ?? element.box;
     const geometry = measureElement(element, box, stageWidthPx, stageHeightPx);
     if (geometry) measured.set(element.id, geometry);

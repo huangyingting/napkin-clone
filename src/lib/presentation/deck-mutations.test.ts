@@ -50,17 +50,22 @@ function slide(index: number, title: string): Slide {
       {
         id: `title-${index}`,
         kind: "text",
-        role: "title",
+        textRole: "h1",
         text: title,
+        paragraphs: [{ text: title }],
         zIndex: 0,
         box: { x: 6, y: 6, w: 88, h: 16 },
         style: { fontSize: 6, align: "left", bold: true, italic: false },
       },
       {
         id: `bullets-${index}`,
-        kind: "bullets",
-        bullets,
-        items: bullets.map((text) => ({ text })),
+        kind: "text",
+        text: bullets.join("\n"),
+        paragraphs: bullets.map((text) => ({
+          text,
+          listType: "bullet" as const,
+        })),
+        textRole: "bullet",
         zIndex: 1,
         box: { x: 6, y: 26, w: 88, h: 66 },
         style: { fontSize: 4.5, align: "left", bold: false, italic: false },
@@ -368,7 +373,6 @@ test("addElement honors an explicit id", () => {
   const next = addElement(deck, 0, {
     id: "custom-id",
     kind: "text",
-    role: "body",
     text: "Hi",
     box: { x: 0, y: 0, w: 10, h: 10 },
     style: { fontSize: 5, bold: false, italic: false, align: "left" },
@@ -381,7 +385,6 @@ test("updateElement patches a single element by id", () => {
   const base = addElement(deckWithBullets(), 0, {
     id: "t1",
     kind: "text",
-    role: "body",
     text: "Old",
     box: { x: 0, y: 0, w: 10, h: 10 },
     style: { fontSize: 5, bold: false, italic: false, align: "left" },
@@ -399,7 +402,6 @@ test("updateElement clears stale runs when an inline plain-text edit commits (#2
   const base = addElement(deckWithBullets(), 0, {
     id: "t1",
     kind: "text",
-    role: "body",
     text: "Old",
     runs: [{ text: "Old", bold: true }],
     box: { x: 0, y: 0, w: 10, h: 10 },
@@ -412,23 +414,42 @@ test("updateElement clears stale runs when an inline plain-text edit commits (#2
   assert.equal(el?.kind === "text" && el.runs, undefined);
 });
 
-test("updateElement clears stale bulletRuns when an inline bullets edit commits (#243)", () => {
+test("updateElement clears stale paragraph runs when an inline list edit commits (#243)", () => {
   const base = addElement(deckWithBullets(), 0, {
     id: "b1",
-    kind: "bullets",
-    bullets: ["Old"],
-    bulletRuns: [[{ text: "Old", italic: true }]],
-    items: [{ text: "Old", runs: [{ text: "Old", italic: true }] }],
+    kind: "text",
+    text: "Old",
+    paragraphs: [
+      {
+        text: "Old",
+        runs: [{ text: "Old", italic: true }],
+        listType: "bullet",
+      },
+    ],
+    textRole: "bullet",
     box: { x: 0, y: 0, w: 10, h: 10 },
     style: { fontSize: 5, bold: false, italic: false, align: "left" },
   });
   const next = updateElement(base, 0, "b1", {
-    bullets: ["New", "Extra"],
-    bulletRuns: undefined,
+    text: "New\nExtra",
+    paragraphs: [
+      { text: "New", listType: "bullet" },
+      { text: "Extra", listType: "bullet" },
+    ],
   });
   const el = next.slides[0].elements?.find((e) => e.id === "b1");
-  assert.deepEqual(el?.kind === "bullets" && el.bullets, ["New", "Extra"]);
-  assert.equal(el?.kind === "bullets" && el.bulletRuns, undefined);
+  assert.deepEqual(
+    el?.kind === "text"
+      ? el.paragraphs?.map((paragraph) => paragraph.text)
+      : [],
+    ["New", "Extra"],
+  );
+  assert.deepEqual(
+    el?.kind === "text"
+      ? el.paragraphs?.map((paragraph) => paragraph.runs)
+      : [],
+    [undefined, undefined],
+  );
 });
 
 test("removeElement deletes an element by id", () => {
@@ -825,7 +846,6 @@ function deckWithTwo(): Deck {
     id: "e1",
     kind: "text",
     text: "Hello",
-    role: "body",
     style: { fontSize: 16, bold: false, italic: false, align: "left" },
     box: { x: 10, y: 10, w: 30, h: 10 },
   });
@@ -833,7 +853,6 @@ function deckWithTwo(): Deck {
     id: "e2",
     kind: "text",
     text: "World",
-    role: "body",
     style: { fontSize: 16, bold: false, italic: false, align: "left" },
     box: { x: 20, y: 20, w: 30, h: 10 },
   });

@@ -97,7 +97,7 @@ test("title template = editable title, subtitle, and footer text", () => {
     textElements.map((element) => element.text),
     ["Title", "Subtitle", "Footer"],
   );
-  assert.equal(textElements[0]?.role, "title");
+  assert.equal(textElements[0]?.textRole, "h1");
 });
 
 test("content template = editable title/body text plus image/footer", () => {
@@ -119,7 +119,7 @@ test("layout templates no longer emit non-editable placeholders", () => {
   for (const kind of ["title", "content", "two-column"] as const) {
     const slide = buildTemplateSlide(kind, {});
     assert.equal(
-      (slide.elements ?? []).some((element) => element.kind === "placeholder"),
+      (slide.elements ?? []).some((element) => "placeholderType" in element),
       false,
       `${kind} should use editable concrete elements`,
     );
@@ -196,61 +196,23 @@ test("every box stays within the 0–100 percent slide bounds", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Semantic layout-slot bindings (#627)
+// Layout slots removed
 // ---------------------------------------------------------------------------
 
-function slotKeys(kind: SlideTemplateKind, visualId?: string): string[] {
-  const slide = buildTemplateSlide(kind, { visualId });
-  return (slide.elements ?? []).map((el) =>
-    el.layoutSlot
-      ? `${el.layoutSlot.kind}#${el.layoutSlot.index ?? 0}`
-      : "unbound",
-  );
-}
-
-test("title template binds title/subtitle/footer slots", () => {
-  const keys = slotKeys("title");
-  assert.ok(keys.includes("title#0"), keys.join(","));
-  assert.ok(keys.includes("subtitle#0"), keys.join(","));
-  assert.ok(keys.includes("footer#0"), keys.join(","));
-});
-
-test("content template binds title/body/visual/footer slots", () => {
-  const keys = slotKeys("content");
-  assert.ok(keys.includes("title#0"), keys.join(","));
-  assert.ok(keys.includes("body#0"), keys.join(","));
-  assert.ok(keys.includes("visual#0"), keys.join(","));
-  assert.ok(keys.includes("footer#0"), keys.join(","));
-});
-
-test("two-column template binds two distinct body slots (body#0, body#1)", () => {
-  const keys = slotKeys("two-column");
-  assert.ok(keys.includes("body#0"), keys.join(","));
-  assert.ok(keys.includes("body#1"), keys.join(","));
-});
-
-test("visual template binds a visual slot and a caption slot", () => {
-  const withVisual = slotKeys("visual", "visual-123");
-  assert.ok(withVisual.includes("visual#0"), withVisual.join(","));
-  assert.ok(withVisual.includes("caption#0"), withVisual.join(","));
-  // Without a visual id the spotlight image still fills the visual slot.
-  const withoutVisual = slotKeys("visual");
-  assert.ok(withoutVisual.includes("visual#0"), withoutVisual.join(","));
-});
-
-test("every non-blank template element carries a slot binding", () => {
+test("non-blank template elements do not carry layout-slot bindings", () => {
   for (const kind of ["title", "content", "visual", "two-column"] as const) {
     const slide = buildTemplateSlide(kind, {});
     for (const el of slide.elements ?? []) {
-      assert.ok(
-        el.layoutSlot !== undefined,
-        `${kind} element ${el.kind} should be slot-bound`,
+      assert.equal(
+        "layoutSlot" in el,
+        false,
+        `${kind} ${el.kind} is free-form`,
       );
     }
   }
 });
 
-test("template slot bindings survive schema validation", () => {
+test("template free-form elements survive schema validation", () => {
   for (const kind of ["title", "content", "visual", "two-column"] as const) {
     const slide = buildTemplateSlide(kind, {});
     const result = safeParseDeck({
@@ -260,10 +222,7 @@ test("template slot bindings survive schema validation", () => {
     });
     assert.ok(result.success, result.success ? "" : result.error);
     if (!result.success) return;
-    const bound = (result.data.slides[0].elements ?? []).filter(
-      (el) => el.layoutSlot !== undefined,
-    );
-    assert.ok(bound.length > 0, `${kind} should retain bound slots`);
+    assert.ok((result.data.slides[0].elements ?? []).length > 0);
   }
 });
 

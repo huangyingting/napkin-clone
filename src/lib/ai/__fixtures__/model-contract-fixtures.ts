@@ -67,7 +67,7 @@ export function deckModelOutput(
           {
             kind: "text",
             text: "Welcome",
-            role: "title",
+            textRole: "h1",
             box: { x: 8, y: 8, w: 84, h: 20 },
           },
         ],
@@ -102,7 +102,7 @@ export function repairableDeckModelOutput(): Record<string, unknown> {
             id: "same",
             kind: "text",
             text: "Repair me",
-            role: "title",
+            textRole: "h1",
             box: { x: -50, y: 150, w: 999, h: -10 },
             style: { fontSize: 6, align: "sideways", color: "not-a-color" },
           },

@@ -14,7 +14,6 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import type {
-  BulletsElement,
   Deck,
   ImageElement,
   Slide,
@@ -73,11 +72,13 @@ function imageEl(overrides: Partial<ImageElement> = {}): ImageElement {
 }
 
 function textEl(overrides: Partial<TextElement> = {}): TextElement {
+  const text = overrides.text ?? "Slide title";
   return {
     id: "txt-1",
     kind: "text",
-    role: "title",
-    text: "Slide title",
+    textRole: "h1",
+    text,
+    paragraphs: overrides.paragraphs ?? [{ text }],
     box: { x: 5, y: 5, w: 90, h: 15 },
     zIndex: 0,
     style: { fontSize: 5, bold: false, italic: false, align: "left" },
@@ -85,12 +86,20 @@ function textEl(overrides: Partial<TextElement> = {}): TextElement {
   };
 }
 
-function bulletsEl(overrides: Partial<BulletsElement> = {}): BulletsElement {
+function bulletsEl(
+  overrides: Parameters<
+    typeof import("@/test/builders/deck").buildBulletsElement
+  >[0] = {},
+): TextElement {
   return {
     id: "bul-1",
-    kind: "bullets",
-    bullets: ["Point one", "Point two"],
-    items: [{ text: "Point one" }, { text: "Point two" }],
+    kind: "text",
+    text: "Point one\nPoint two",
+    paragraphs: [
+      { text: "Point one", listType: "bullet" },
+      { text: "Point two", listType: "bullet" },
+    ],
+    textRole: "bullet",
     box: { x: 5, y: 25, w: 90, h: 60 },
     zIndex: 0,
     style: { fontSize: 4, bold: false, italic: false, align: "left" },

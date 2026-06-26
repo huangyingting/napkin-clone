@@ -16,8 +16,12 @@
  *    localise messages without parsing the `message` field.
  */
 
-import type { Deck, ImageElement, SlideElement } from "@/lib/presentation/deck";
-import { normalizeBulletItems } from "@/lib/presentation/deck";
+import {
+  normalizeTextParagraphs,
+  type Deck,
+  type ImageElement,
+  type SlideElement,
+} from "@/lib/presentation/deck";
 import { isPrimarilyCjk } from "@/lib/presentation/slide-fonts";
 import type { ExportPolicy } from "@/lib/visual/export-policy";
 import { getFidelity } from "@/lib/visual/export-fidelity";
@@ -314,9 +318,9 @@ function slideTextStrings(slide: Deck["slides"][number]): string[] {
   for (const el of slide.elements ?? []) {
     if (el.hidden) continue;
     if (el.kind === "text") {
-      if (el.text) out.push(el.text);
-    } else if (el.kind === "bullets") {
-      for (const item of normalizeBulletItems(el)) out.push(item.text);
+      for (const paragraph of normalizeTextParagraphs(el)) {
+        if (paragraph.text) out.push(paragraph.text);
+      }
     } else if (el.kind === "shape") {
       if (el.text) out.push(el.text);
     }

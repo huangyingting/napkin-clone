@@ -14,12 +14,11 @@ const BASE = {
   zIndex: 1,
 } as const;
 
-function textEl(text: string, role: "title" | "body" = "body"): SlideElement {
+function textEl(text: string): SlideElement {
   return {
     ...BASE,
     kind: "text",
     text,
-    role,
     style: { fontSize: 5, bold: false, italic: false, align: "left" },
   };
 }
@@ -27,9 +26,10 @@ function textEl(text: string, role: "title" | "body" = "body"): SlideElement {
 function bulletsEl(bullets: string[]): SlideElement {
   return {
     ...BASE,
-    kind: "bullets",
-    bullets,
-    items: bullets.map((text) => ({ text })),
+    kind: "text",
+    text: bullets.join("\n"),
+    paragraphs: bullets.map((text) => ({ text, listType: "bullet" as const })),
+    textRole: "bullet",
     style: { fontSize: 4, bold: false, italic: false, align: "left" },
   };
 }
@@ -89,8 +89,8 @@ test("bullets element truncates at 60 chars", () => {
   assert.equal(name.length, 61);
 });
 
-test("bullets element with no non-empty bullets returns fallback", () => {
-  assert.equal(elementAccessibleName(bulletsEl([])), "Bullets element");
+test("list text element with no non-empty paragraphs returns fallback", () => {
+  assert.equal(elementAccessibleName(bulletsEl([])), "Text element");
 });
 
 // ---------------------------------------------------------------------------

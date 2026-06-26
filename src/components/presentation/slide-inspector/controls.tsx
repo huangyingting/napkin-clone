@@ -45,8 +45,6 @@ import type { SlideInspectorProps } from "@/components/presentation/slide-inspec
 import { Swatch, Tooltip } from "@/components/ui";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import type {
-  BulletItem,
-  BulletsElement,
   ConnectorArrow,
   ConnectorElement,
   ConnectorEndpoint,
@@ -55,7 +53,7 @@ import type {
   ImageElement,
   ImageFitMode,
   ImageMaskShape,
-  PlaceholderElement,
+  Paragraph,
   ShapeKind,
   Slide,
   SlideElement,
@@ -63,12 +61,8 @@ import type {
   TextFitMode,
   TextRun,
 } from "@/lib/presentation/deck";
+import { normalizeTextParagraphs } from "@/lib/presentation/deck";
 import {
-  normalizeBulletItems,
-  PLACEHOLDER_TYPE_LABELS,
-} from "@/lib/presentation/deck";
-import {
-  resolveDeckThemeId,
   resolveRoleToken,
   type DeckTextRole,
 } from "@/lib/presentation/deck-theme-tokens";
@@ -89,12 +83,9 @@ import { isEmptyImageSrc } from "@/lib/presentation/image-element";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
 import type { SlideAssetActionPort } from "@/lib/action-ports";
 import {
-  bulletsToRuns,
-  mergeRuns,
   runsToHtml,
   serializeRichText,
   shouldStoreRuns,
-  splitRunsIntoLines,
 } from "@/lib/presentation/rich-text-html";
 import {
   FONT_MAX,
@@ -106,10 +97,6 @@ import {
   SLIDE_FONT_OPTIONS,
   matchSlideFont,
 } from "@/lib/presentation/slide-fonts";
-import {
-  getThemeTypography,
-  placeholderStyle,
-} from "@/lib/presentation/theme-typography";
 import type { Visual } from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { applyTheme, isThemeActive } from "@/lib/visual/transforms";
@@ -141,29 +128,6 @@ const DEFAULT_SHAPE_TEXT_STYLE: TextElementStyle = {
   italic: false,
   align: "center",
 };
-
-function primaryFontLabel(fontFamily: string): string {
-  const [first] = fontFamily.split(",");
-  return first?.trim().replace(/^['"]|['"]$/g, "") || fontFamily;
-}
-
-function placeholderThemeHint(
-  deck: Pick<Deck, "themeId" | "customTokenSet">,
-  element: Pick<PlaceholderElement, "placeholderType">,
-): string {
-  const style = placeholderStyle(
-    element.placeholderType,
-    getThemeTypography(resolveDeckThemeId(deck)),
-  );
-  const parts: string[] = [];
-  if (style.fontFamily) {
-    parts.push(primaryFontLabel(style.fontFamily));
-  }
-  if (style.fontSize !== undefined) {
-    parts.push(`${style.fontSize} pt`);
-  }
-  return parts.join(" · ");
-}
 
 /**
  * Module-level counter so every `RichTextBox` focus session gets a globally
@@ -818,8 +782,8 @@ export function BulletGapControl({
   element,
   onChange,
 }: {
-  element: BulletsElement;
-  onChange: (patch: Partial<BulletsElement>) => void;
+  element: Extract<SlideElement, { kind: "text" }>;
+  onChange: (patch: Partial<Extract<SlideElement, { kind: "text" }>>) => void;
 }) {
   return (
     <label className="flex items-center justify-between gap-2">
@@ -848,8 +812,8 @@ export function BulletIndentControl({
   element,
   onChange,
 }: {
-  element: BulletsElement;
-  onChange: (patch: Partial<BulletsElement>) => void;
+  element: Extract<SlideElement, { kind: "text" }>;
+  onChange: (patch: Partial<Extract<SlideElement, { kind: "text" }>>) => void;
 }) {
   return (
     <label className="flex items-center justify-between gap-2">
@@ -882,23 +846,23 @@ export function ListTypeControl({
   element,
   onChange,
 }: {
-  element: BulletsElement;
-  onChange: (patch: Partial<BulletsElement>) => void;
+  element: Extract<SlideElement, { kind: "text" }>;
+  onChange: (patch: Partial<Extract<SlideElement, { kind: "text" }>>) => void;
 }) {
-  const items = normalizeBulletItems(element);
+  const items = normalizeTextParagraphs(element);
   // Consider the list "numbered" if a majority of items are numbered.
   const numberedCount = items.filter(
-    (it: BulletItem) => it.listType === "number",
+    (it: Paragraph) => it.listType === "number",
   ).length;
   const isNumbered = items.length > 0 && numberedCount > items.length / 2;
 
   function toggle() {
     const targetType = isNumbered ? "bullet" : "number";
-    const newItems: BulletItem[] = items.map((it: BulletItem) => ({
+    const newItems: Paragraph[] = items.map((it: Paragraph) => ({
       ...it,
       listType: targetType,
     }));
-    onChange({ items: newItems });
+    onChange({ paragraphs: newItems });
   }
 
   return (
@@ -972,16 +936,12 @@ export const TEXT_ROLE_OPTIONS: Readonly<
 
 /** The role an element inherits when it carries no explicit `textRole`. */
 function defaultTextRole(element: SlideElement): DeckTextRole {
-  if (element.kind === "text") return element.role === "title" ? "h1" : "body";
-  if (element.kind === "bullets") return "bullet";
+  if (element.kind === "text") return element.textRole ?? "body";
   return "shapeLabel";
 }
 
 /** Elements that carry a semantic text role + local style override (#615). */
-type TextBearingElement = Extract<
-  SlideElement,
-  { kind: "text" | "bullets" | "shape" }
->;
+type TextBearingElement = Extract<SlideElement, { kind: "text" | "shape" }>;
 
 /** Role dropdown: switches the element's semantic typography role (#615). */
 export function RoleSelectControl({
@@ -991,8 +951,7 @@ export function RoleSelectControl({
   element: TextBearingElement;
   onChange: (role: DeckTextRole) => void;
 }) {
-  const kindKey =
-    element.kind === "shape" ? "shape" : (element.kind as "text" | "bullets");
+  const kindKey = element.kind === "shape" ? "shape" : "text";
   const options = TEXT_ROLE_OPTIONS[kindKey];
   const current = element.textRole ?? defaultTextRole(element);
   return (
@@ -1233,7 +1192,6 @@ export function TextPanel({
 
   if (
     element.kind !== "text" &&
-    element.kind !== "bullets" &&
     !(element.kind === "shape" && element.shape !== "line")
   ) {
     return (
@@ -1326,7 +1284,10 @@ export function TextPanel({
           {element.kind === "text" || element.kind === "shape" ? (
             <ParagraphSpacingControl style={style} onChange={updateStyle} />
           ) : null}
-          {element.kind === "bullets" ? (
+          {element.kind === "text" &&
+          normalizeTextParagraphs(element).some(
+            (paragraph) => paragraph.listType !== undefined,
+          ) ? (
             <BulletGapControl
               element={element}
               onChange={(patch) => onUpdateElement(element.id, patch)}
@@ -1342,14 +1303,17 @@ export function TextPanel({
           aria-labelledby="text-panel-tab-style"
           className="flex flex-col gap-3"
         >
-          {element.kind === "text" || element.kind === "bullets" ? (
+          {element.kind === "text" ? (
             <FitModeControl
               fitMode={element.fitMode}
               onChange={(fitMode) => onUpdateElement(element.id, { fitMode })}
             />
           ) : null}
           <VerticalAlignControl style={style} onChange={updateStyle} />
-          {element.kind === "bullets" ? (
+          {element.kind === "text" &&
+          normalizeTextParagraphs(element).some(
+            (paragraph) => paragraph.listType !== undefined,
+          ) ? (
             <>
               <BulletIndentControl
                 element={element}
@@ -1415,42 +1379,6 @@ export function ElementEditor({
   slideAssetPort?: SlideAssetActionPort;
 }) {
   switch (element.kind) {
-    case "placeholder":
-      return (
-        <div className="flex flex-col gap-3">
-          <label className="block">
-            <span className={LABEL_CLASS}>Placeholder type</span>
-            <div
-              className={`${FIELD_CLASS} cursor-default bg-ds-state-hover text-ds-text-secondary`}
-            >
-              {PLACEHOLDER_TYPE_LABELS[element.placeholderType]}
-            </div>
-          </label>
-          <label className="block">
-            <span className={LABEL_CLASS}>Label</span>
-            <input
-              type="text"
-              value={element.label ?? ""}
-              onChange={(event) =>
-                onUpdateElement(element.id, {
-                  label:
-                    event.target.value.trim().length > 0
-                      ? event.target.value
-                      : undefined,
-                })
-              }
-              placeholder={PLACEHOLDER_TYPE_LABELS[element.placeholderType]}
-              className={`${FIELD_CLASS} ${FOCUS_RING}`}
-            />
-          </label>
-          <p className="text-xs text-ds-text-muted">
-            Theme hint: {placeholderThemeHint(deck, element)}.
-          </p>
-          <p className="text-xs text-ds-text-muted">
-            Shown on-canvas until this slot is replaced with slide content.
-          </p>
-        </div>
-      );
     case "text":
       return (
         <div className="flex flex-col gap-3">
@@ -1463,6 +1391,12 @@ export function ElementEditor({
                 {
                   text,
                   runs: shouldStoreRuns(runs) ? runs : undefined,
+                  paragraphs: [
+                    {
+                      text,
+                      ...(shouldStoreRuns(runs) ? { runs } : {}),
+                    },
+                  ],
                 },
                 coalesceKey,
               )
@@ -1487,92 +1421,6 @@ export function ElementEditor({
           <ParagraphSpacingControl
             style={element.style}
             onChange={(style) => onUpdateElement(element.id, { style })}
-          />
-        </div>
-      );
-    case "bullets":
-      return (
-        <div className="flex flex-col gap-3">
-          <RichTextBox
-            label="Bullets"
-            html={runsToHtml(
-              bulletsToRuns(element.bullets, element.bulletRuns),
-              element.bullets.join("\n"),
-            )}
-            onChange={({ runs }, coalesceKey) => {
-              const lines = splitRunsIntoLines(runs)
-                .map((line) => ({
-                  text: line.text.replace(/\s+$/, ""),
-                  runs: mergeRuns(line.runs),
-                }))
-                .filter((line) => line.text.length > 0);
-              const hasRichBullets = lines.some((line) =>
-                shouldStoreRuns(line.runs),
-              );
-              // Co-update items[] when it is the authoritative source so that
-              // normalizeBulletItems doesn't shadow the text edit.  We preserve
-              // each item's indent/listType by index; indices beyond the
-              // existing length (newly added lines) get no metadata.
-              const existingItems = element.items;
-              const updatedItems: BulletItem[] | undefined = existingItems
-                ? lines.map((line, i) => {
-                    const prev = existingItems[i];
-                    return {
-                      text: line.text,
-                      ...(shouldStoreRuns(line.runs)
-                        ? { runs: line.runs }
-                        : {}),
-                      ...(prev?.indent !== undefined
-                        ? { indent: prev.indent }
-                        : {}),
-                      ...(prev?.listType !== undefined
-                        ? { listType: prev.listType }
-                        : {}),
-                    };
-                  })
-                : undefined;
-              onUpdateElement(
-                element.id,
-                {
-                  bullets: lines.map((line) => line.text),
-                  bulletRuns: hasRichBullets
-                    ? lines.map((line) => line.runs)
-                    : undefined,
-                  ...(updatedItems !== undefined
-                    ? { items: updatedItems }
-                    : {}),
-                },
-                coalesceKey,
-              );
-            }}
-          />
-          <FontFamilyControl
-            style={element.style}
-            onChange={(style) => onUpdateElement(element.id, { style })}
-          />
-          <FitModeControl
-            fitMode={element.fitMode}
-            onChange={(fitMode) => onUpdateElement(element.id, { fitMode })}
-          />
-          <VerticalAlignControl
-            style={element.style}
-            onChange={(style) => onUpdateElement(element.id, { style })}
-          />
-          <LineHeightControl
-            style={element.style}
-            onChange={(style) => onUpdateElement(element.id, { style })}
-          />
-          <BulletGapControl
-            element={element}
-            onChange={(patch) => onUpdateElement(element.id, patch)}
-          />
-          <BulletIndentControl
-            element={element}
-            onChange={(patch) => onUpdateElement(element.id, patch)}
-          />
-          <ListTypeControl
-            element={element}
-            onChange={(patch) => onUpdateElement(element.id, patch)}
           />
         </div>
       );
@@ -2078,7 +1926,7 @@ export function NumberField({
 
 /**
  * Shared position & size editor for any element (percent units). Height is only
- * offered for non-text kinds, since text / bullets height auto-fits the content.
+ * offered for non-text kinds, since text height auto-fits the content.
  */
 export function ElementArrangeControl({
   element,
@@ -2088,7 +1936,7 @@ export function ElementArrangeControl({
   onUpdateElement: SlideInspectorProps["onUpdateElement"];
 }) {
   const { x, y, w, h } = element.box;
-  const showHeight = element.kind !== "text" && element.kind !== "bullets";
+  const showHeight = element.kind !== "text";
   const rotation = element.rotation ?? 0;
   const update = (patch: Partial<typeof element.box>) =>
     onUpdateElement(element.id, { box: { ...element.box, ...patch } });

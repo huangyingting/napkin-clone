@@ -124,7 +124,7 @@ function isVisualSlot(element: SlideElement): boolean {
 }
 
 function isTitleText(element: SlideElement): element is TextElement {
-  return element.kind === "text" && element.role === "title";
+  return element.kind === "text" && element.textRole === "h1";
 }
 
 /**
@@ -143,7 +143,7 @@ function elementsMatchLayout(
     case "section":
       return elements.some(isTitleText);
     case "content":
-      return elements.some((el) => el.kind === "bullets" || el.kind === "text");
+      return elements.some((el) => el.kind === "text");
     case "blank":
       return true;
     default:
@@ -159,9 +159,9 @@ function elementsMatchLayout(
 function applyTextHierarchy(element: TextElement): TextElement {
   const style: TextElementStyle = { ...element.style };
   if (!Number.isFinite(style.fontSize) || style.fontSize <= 0) {
-    style.fontSize = element.role === "title" ? 6 : BODY_FONT_SIZE;
+    style.fontSize = element.textRole === "h1" ? 6 : BODY_FONT_SIZE;
   }
-  if (element.role === "title") {
+  if (element.textRole === "h1") {
     style.bold = true;
     if (style.fontSize < BODY_FONT_SIZE) {
       style.fontSize = BODY_FONT_SIZE;

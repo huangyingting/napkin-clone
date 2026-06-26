@@ -72,7 +72,11 @@ test("every slide gets template-conformant positioned elements", () => {
 
   // Layout-appropriate kinds are present.
   assert.ok(result.slides[0].elements?.some((e) => e.kind === "text"));
-  assert.ok(result.slides[1].elements?.some((e) => e.kind === "bullets"));
+  assert.ok(
+    result.slides[1].elements?.some(
+      (e) => e.kind === "text" && e.textRole === "bullet",
+    ),
+  );
   assert.ok(result.slides[2].elements?.some((e) => e.kind === "visual"));
 });
 
@@ -100,7 +104,6 @@ test("injects a prominent visual when a media slide's elements lack one", () => 
         {
           id: "cap",
           kind: "text",
-          role: "body",
           text: "Caption",
           zIndex: 0,
           box: { x: 6, y: 82, w: 88, h: 12 },
@@ -128,9 +131,10 @@ test("re-scaffolds elements that do not match the declared layout", () => {
       elements: [
         {
           id: "b",
-          kind: "bullets",
-          bullets: ["x"],
-          items: [{ text: "x" }],
+          kind: "text",
+          text: "x",
+          paragraphs: [{ text: "x", listType: "bullet" }],
+          textRole: "bullet",
           zIndex: 0,
           box: { x: 6, y: 26, w: 88, h: 66 },
           style: { fontSize: 4.5, bold: false, italic: false, align: "left" },
@@ -152,17 +156,22 @@ test("keeps and cleans model elements that match the layout", () => {
         {
           id: "t",
           kind: "text",
-          role: "title",
+          textRole: "h1",
           text: "My Title",
+          paragraphs: [{ text: "My Title" }],
           zIndex: 0,
           box: { x: 6, y: 6, w: 88, h: 16 },
           style: { fontSize: 6, bold: true, italic: false, align: "left" },
         },
         {
           id: "b",
-          kind: "bullets",
-          bullets: ["one", "two"],
-          items: [{ text: "one" }, { text: "two" }],
+          kind: "text",
+          text: "one\ntwo",
+          paragraphs: [
+            { text: "one", listType: "bullet" },
+            { text: "two", listType: "bullet" },
+          ],
+          textRole: "bullet",
           zIndex: 1,
           box: { x: 6, y: 26, w: 88, h: 66 },
           style: { fontSize: 4.5, bold: false, italic: false, align: "left" },
@@ -175,7 +184,7 @@ test("keeps and cleans model elements that match the layout", () => {
   const els = result.slides[0].elements ?? [];
   const title = els.find((e) => e.kind === "text");
   assert.ok(title && title.kind === "text" && title.text === "My Title");
-  assert.ok(els.some((e) => e.kind === "bullets"));
+  assert.ok(els.some((e) => e.kind === "text" && e.textRole === "bullet"));
 });
 
 test("title text is forced bold for clear hierarchy", () => {
@@ -187,7 +196,7 @@ test("title text is forced bold for clear hierarchy", () => {
         {
           id: "t",
           kind: "text",
-          role: "title",
+          textRole: "h1",
           text: "Heading",
           zIndex: 0,
           box: { x: 6, y: 6, w: 88, h: 16 },
@@ -311,7 +320,11 @@ test("edge case: slide with no visual yields no visual element", () => {
 
   const result = normalizeGeneratedDeck(input, KNOWN);
   assert.ok(!result.slides[0].elements?.some((e) => e.kind === "visual"));
-  assert.ok(result.slides[0].elements?.some((e) => e.kind === "bullets"));
+  assert.ok(
+    result.slides[0].elements?.some(
+      (e) => e.kind === "text" && e.textRole === "bullet",
+    ),
+  );
 });
 
 test("edge case: slide with multiple visuals keeps every known visual", () => {

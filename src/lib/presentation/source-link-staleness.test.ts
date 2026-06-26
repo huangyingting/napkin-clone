@@ -46,7 +46,6 @@ function linkedElement(
   return {
     id,
     kind: "text",
-    role: "body",
     text: "slide text",
     box: { x: 0, y: 0, w: 50, h: 20 },
     zIndex: 0,
@@ -66,7 +65,6 @@ function unlinkedElement(id: string): TextElement {
   return {
     id,
     kind: "text",
-    role: "body",
     text: "slide text",
     box: { x: 0, y: 0, w: 50, h: 20 },
     zIndex: 0,
@@ -211,7 +209,6 @@ test("ignores sourceRef without contentHash", () => {
   const el: TextElement = {
     id: "el-no-hash",
     kind: "text",
-    role: "body",
     text: "text",
     box: { x: 0, y: 0, w: 50, h: 20 },
     zIndex: 0,
@@ -487,7 +484,6 @@ test("updateTextElementFromBlock: updates text and runs, preserves geometry", ()
   assert.equal(updated.zIndex, el.zIndex);
   assert.deepEqual(updated.style, el.style);
   assert.equal(updated.id, el.id);
-  assert.equal(updated.role, el.role);
   // sourceRef updated:
   assert.equal(updated.sourceRef!.contentHash, freshHash);
   assert.equal(updated.sourceRef!.linkedAt, "2026-06-01T00:00:00.000Z");

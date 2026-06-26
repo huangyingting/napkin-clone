@@ -22,7 +22,11 @@
  * safe to log alongside a `requestId`.
  */
 
-import type { Deck, Slide } from "@/lib/presentation/deck";
+import {
+  normalizeTextParagraphs,
+  type Deck,
+  type Slide,
+} from "@/lib/presentation/deck";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { diffDecks } from "@/lib/presentation/deck-diff";
 
@@ -72,11 +76,9 @@ function slideWordCount(slide: Slide): number {
     let words = 0;
     for (const element of elements) {
       if (element.kind === "text") {
-        words += countWords(element.text);
-      } else if (element.kind === "bullets") {
-        const bullets = Array.isArray(element.bullets) ? element.bullets : [];
-        for (const bullet of bullets) {
-          words += countWords(bullet);
+        const paragraphs = normalizeTextParagraphs(element);
+        for (const paragraph of paragraphs) {
+          words += countWords(paragraph.text);
         }
       }
     }

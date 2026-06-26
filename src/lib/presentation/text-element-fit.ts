@@ -1,12 +1,15 @@
-import type { BulletsElement, ElementBox, TextElement, TextRun } from "./deck";
+import {
+  normalizeTextParagraphs,
+  type ElementBox,
+  type TextElement,
+  type TextRun,
+} from "./deck";
 import { runsToHtml } from "./rich-text-html";
 import { resolveElementFontCss } from "./slide-fonts";
 
 export type TextBoxFitAnchor = "top-left" | "center" | "preserve-text-position";
 
-export type TextLikeElement =
-  | (Omit<TextElement, "zIndex"> & { zIndex?: number })
-  | (Omit<BulletsElement, "zIndex"> & { zIndex?: number });
+export type TextLikeElement = Omit<TextElement, "zIndex"> & { zIndex?: number };
 
 export interface TextResizeMeasurer {
   measureHeightPct: (
@@ -58,11 +61,7 @@ function applyMeasuredTextStyle(
   style.margin = "0";
   style.padding = "0";
   style.whiteSpace =
-    element.kind === "text"
-      ? "pre-wrap"
-      : mode === "maxWidth"
-        ? "nowrap"
-        : "normal";
+    hasListParagraphs(element) && mode === "maxWidth" ? "nowrap" : "pre-wrap";
   style.overflow = "visible";
   style.overflowWrap = mode === "height" ? "break-word" : "normal";
   style.wordBreak = "normal";
@@ -86,7 +85,8 @@ function createMeasuredTextNode(
   widthPx: number | null,
   mode: "height" | "minWidth" | "maxWidth",
 ): HTMLElement {
-  if (element.kind === "text") {
+  const paragraphs = normalizeTextParagraphs(element);
+  if (!hasListParagraphs(element)) {
     const node = document.createElement("div");
     applyMeasuredTextStyle(node, element, fontSizePx, 1.15, mode);
     node.style.display = "block";
@@ -97,7 +97,11 @@ function createMeasuredTextNode(
           : "min-content"
         : `${widthPx}px`;
     node.style.height = "auto";
-    fillMeasuredInline(node, element.runs, element.text || "\u00a0");
+    for (const paragraph of paragraphs) {
+      const line = document.createElement("div");
+      fillMeasuredInline(line, paragraph.runs, paragraph.text || "\u00a0");
+      node.appendChild(line);
+    }
     return node;
   }
 
@@ -115,8 +119,8 @@ function createMeasuredTextNode(
         : "min-content"
       : `${widthPx}px`;
   list.style.height = "auto";
-  const bullets = element.bullets.length > 0 ? element.bullets : [""];
-  bullets.forEach((bullet, index) => {
+  const rows = paragraphs.length > 0 ? paragraphs : [{ text: "" }];
+  rows.forEach((paragraph) => {
     const item = document.createElement("li");
     item.style.display = "flex";
     item.style.alignItems = "flex-start";
@@ -135,7 +139,7 @@ function createMeasuredTextNode(
           : "0";
     text.style.overflowWrap = mode === "height" ? "break-word" : "normal";
     text.style.wordBreak = "normal";
-    fillMeasuredInline(text, element.bulletRuns?.[index], bullet || "\u00a0");
+    fillMeasuredInline(text, paragraph.runs, paragraph.text || "\u00a0");
     item.append(marker, text);
     list.appendChild(item);
   });
@@ -178,6 +182,12 @@ export function createTextResizeMeasurer(
 
 const AUTO_FIT_PADDING_PCT = 1.2;
 
+function hasListParagraphs(element: TextLikeElement): boolean {
+  return normalizeTextParagraphs(element).some(
+    (paragraph) => paragraph.listType !== undefined,
+  );
+}
+
 export function textFitPaddingPct(
   element: TextLikeElement,
   fontSizePct: number = element.style.fontSize,
@@ -185,7 +195,7 @@ export function textFitPaddingPct(
   // Bullets carry marker rows, flex gaps, and larger descender-heavy line boxes;
   // a little font-relative slack keeps newly inserted lists from clipping the
   // top/bottom when rendered with `overflow: hidden` on the slide canvas.
-  const fontSlack = element.kind === "bullets" ? fontSizePct * 0.35 : 0;
+  const fontSlack = hasListParagraphs(element) ? fontSizePct * 0.35 : 0;
   return AUTO_FIT_PADDING_PCT * 2 + fontSlack;
 }
 

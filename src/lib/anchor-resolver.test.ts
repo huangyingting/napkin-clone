@@ -37,7 +37,6 @@ function textElement(id: string): SlideElement {
   return {
     id,
     kind: "text",
-    role: "body",
     text: "",
     box: { x: 0, y: 0, w: 40, h: 10 },
     zIndex: 0,

@@ -9,6 +9,10 @@ import {
   type SlideLayoutHint,
   type TextElementStyle,
 } from "@/lib/presentation/deck";
+import {
+  type DeckTextRole,
+  isDeckTextRole,
+} from "@/lib/presentation/deck-theme-tokens";
 
 export const REPAIRED_DECK_MAX_SLIDES = GENERATED_DECK_MAX_SLIDES;
 
@@ -106,28 +110,35 @@ export function repairElement(
   const base = { id, box: repairBox(input.box), zIndex };
 
   switch (input.kind) {
-    case "text":
+    case "text": {
+      const textRole: DeckTextRole | undefined = isDeckTextRole(input.textRole)
+        ? input.textRole
+        : undefined;
+      const text = typeof input.text === "string" ? input.text : "";
       return {
         ...base,
         kind: "text",
-        text: typeof input.text === "string" ? input.text : "",
-        role: input.role === "title" ? "title" : "body",
+        text,
+        paragraphs: [{ text }],
+        ...(textRole !== undefined ? { textRole } : {}),
         style: repairTextStyle(input.style),
       };
+    }
     case "bullets": {
-      const items = Array.isArray(input.items)
+      const paragraphs = Array.isArray(input.items)
         ? input.items
             .filter(
               (item): item is { text: string } =>
                 isPlainObject(item) && typeof item.text === "string",
             )
-            .map((item) => ({ text: item.text }))
+            .map((item) => ({ text: item.text, listType: "bullet" as const }))
         : [];
       return {
         ...base,
-        kind: "bullets",
-        bullets: items.map((item) => item.text),
-        items,
+        kind: "text",
+        text: paragraphs.map((paragraph) => paragraph.text).join("\n"),
+        paragraphs,
+        textRole: "bullet",
         style: repairTextStyle(input.style),
       };
     }

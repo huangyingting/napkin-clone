@@ -294,16 +294,16 @@ test("APPLY_SLIDE_LAYOUT applies content-preserving layout and emits patch", () 
   assert.equal(result.patches[0]!.op, "slide.apply_layout");
 });
 
-test("APPLY_SLIDE_LAYOUT moves bound content and preserves free-form (#630)", () => {
+test("APPLY_SLIDE_LAYOUT keeps authored elements and does not insert placeholders", () => {
   const titleEl: SlideElement = {
     id: "t1",
     kind: "text",
-    role: "title",
+    textRole: "h1",
     text: "Heading",
+    paragraphs: [{ text: "Heading" }],
     zIndex: 0,
     box: { x: 1, y: 1, w: 10, h: 10 },
     style: { fontSize: 6, bold: true, italic: false, align: "left" },
-    layoutSlot: { kind: "title" },
   };
   const freeEl: SlideElement = {
     id: "f1",
@@ -321,14 +321,12 @@ test("APPLY_SLIDE_LAYOUT moves bound content and preserves free-form (#630)", ()
     placeholders: [
       {
         id: "ph-title",
-        kind: "placeholder" as const,
         placeholderType: "title" as const,
         zIndex: 0,
         box: { x: 8, y: 6, w: 84, h: 14 },
       },
       {
         id: "ph-body",
-        kind: "placeholder" as const,
         placeholderType: "body" as const,
         zIndex: 1,
         box: { x: 8, y: 24, w: 84, h: 60 },
@@ -343,11 +341,11 @@ test("APPLY_SLIDE_LAYOUT moves bound content and preserves free-form (#630)", ()
   assert.equal(result.ok, true);
   const els = result.deck.slides[0]!.elements ?? [];
   const movedTitle = els.find((e) => e.id === "t1");
-  assert.deepEqual(movedTitle?.box, { x: 8, y: 6, w: 84, h: 14 });
+  assert.deepEqual(movedTitle?.box, { x: 1, y: 1, w: 10, h: 10 });
   assert.equal(movedTitle?.kind === "text" ? movedTitle.text : "", "Heading");
   const keptFree = els.find((e) => e.id === "f1");
   assert.deepEqual(keptFree?.box, { x: 70, y: 70, w: 20, h: 20 });
-  assert.ok(els.some((e) => e.kind === "placeholder"));
+  assert.equal(els.length, 2);
   assert.equal(result.patches[0]!.op, "slide.apply_layout");
 });
 
@@ -386,16 +384,16 @@ test("RESET_SLIDE_LAYOUT resets layout and emits patch", () => {
   assert.deepEqual(result.affectedSlideIds, ["s1"]);
 });
 
-test("RESET_SLIDE_LAYOUT repositions bound content without inserting placeholders (#629)", () => {
+test("RESET_SLIDE_LAYOUT keeps authored elements without inserting placeholders", () => {
   const titleEl: SlideElement = {
     id: "t1",
     kind: "text",
-    role: "title",
+    textRole: "h1",
     text: "Heading",
+    paragraphs: [{ text: "Heading" }],
     zIndex: 0,
     box: { x: 1, y: 1, w: 10, h: 10 },
     style: { fontSize: 6, bold: true, italic: false, align: "left" },
-    layoutSlot: { kind: "title" },
   };
   const deck = buildCommandDeckWithElements("s1", [titleEl]);
   const layout = {
@@ -405,14 +403,12 @@ test("RESET_SLIDE_LAYOUT repositions bound content without inserting placeholder
     placeholders: [
       {
         id: "ph-title",
-        kind: "placeholder" as const,
         placeholderType: "title" as const,
         zIndex: 0,
         box: { x: 8, y: 6, w: 84, h: 14 },
       },
       {
         id: "ph-body",
-        kind: "placeholder" as const,
         placeholderType: "body" as const,
         zIndex: 1,
         box: { x: 8, y: 24, w: 84, h: 60 },
@@ -426,9 +422,9 @@ test("RESET_SLIDE_LAYOUT repositions bound content without inserting placeholder
   });
   assert.equal(result.ok, true);
   const els = result.deck.slides[0]!.elements ?? [];
-  // title repositioned, content preserved, NO placeholder inserted for empty body
+  // content preserved, NO placeholder inserted for empty body
   assert.equal(els.length, 1);
-  assert.deepEqual(els[0]!.box, { x: 8, y: 6, w: 84, h: 14 });
+  assert.deepEqual(els[0]!.box, { x: 1, y: 1, w: 10, h: 10 });
   assert.equal(els[0]!.kind === "text" ? els[0]!.text : "", "Heading");
   assert.equal(result.patches[0]!.op, "slide.reset_layout");
 });

@@ -18,7 +18,7 @@
  * React, no DOM: unit-tested under `node --test`.
  */
 
-import type { Deck, Slide, TextElement, BulletsElement } from "./deck";
+import { normalizeTextParagraphs, type Deck, type Slide } from "./deck";
 import { normalizeTitle } from "./deck-hash";
 import { slideEffectiveTitle } from "./slide-title";
 
@@ -82,18 +82,11 @@ function contentSignature(slide: Slide): string {
 
   const elements = slide.elements ?? [];
   for (const element of elements) {
-    if (element.kind === "placeholder") {
-      parts.push(
-        `ep:${element.placeholderType}:${element.label?.trim() ?? ""}:${element.box.x},${element.box.y},${element.box.w},${element.box.h}`,
-      );
-    } else if (element.kind === "text") {
-      const text = (element as TextElement).text.trim();
-      parts.push(`et:${(element as TextElement).role}:${text}`);
-    } else if (element.kind === "bullets") {
-      const bullets = (element as BulletsElement).bullets
-        .map((bullet) => bullet.trim())
+    if (element.kind === "text") {
+      const text = normalizeTextParagraphs(element)
+        .map((paragraph) => paragraph.text.trim())
         .join("\u0001");
-      parts.push(`eb:${bullets}`);
+      parts.push(`et:${element.textRole ?? ""}:${text}`);
     } else if (element.kind === "visual") {
       parts.push(`ev:${element.visualId}`);
     } else if (element.kind === "image") {

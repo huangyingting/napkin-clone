@@ -7,7 +7,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Deck, Slide, SlideElement, TextRun, VisualElement } from "./deck";
-import { DEFAULT_VISUAL_BOX, buildDeckFromBlocks } from "./deck";
+import {
+  DEFAULT_VISUAL_BOX,
+  buildDeckFromBlocks,
+  normalizeTextParagraphs,
+} from "./deck";
 import { mergeDeckFromDocument } from "./deck-merge";
 import {
   buildDeck,
@@ -19,7 +23,6 @@ import {
 function element(id: string): SlideElement {
   return buildTextElement({
     id,
-    role: "body",
     text: "manual",
     zIndex: 0,
     box: { x: 10, y: 10, w: 20, h: 20 },
@@ -32,7 +35,7 @@ function withTitleElement(
   elements: SlideElement[],
 ): SlideElement[] {
   if (!title.trim()) return elements;
-  if (elements.some((el) => el.kind === "text" && el.role === "title")) {
+  if (elements.some((el) => el.kind === "text" && el.textRole === "h1")) {
     return elements;
   }
   const id = `title-${title.toLowerCase().replace(/\s+/g, "-") || "slide"}`;
@@ -134,7 +137,7 @@ test("index match used when titles differ/empty", () => {
 function titleElement(id: string, text: string): SlideElement {
   return buildTextElement({
     id,
-    role: "title",
+    textRole: "h1",
     text,
     zIndex: 1,
     box: { x: 6, y: 6, w: 88, h: 16 },
@@ -278,8 +281,9 @@ test("merge is immutable — inputs untouched", () => {
 /** Returns the rendered text of every text/bullets element on a slide. */
 function elementText(s: Slide): string[] {
   return (s.elements ?? []).flatMap((el) => {
-    if (el.kind === "text") return [el.text];
-    if (el.kind === "bullets") return el.bullets;
+    if (el.kind === "text") {
+      return normalizeTextParagraphs(el).map((paragraph) => paragraph.text);
+    }
     return [];
   });
 }
@@ -295,17 +299,19 @@ test("derived slide: sync re-materializes elements so document edits render", ()
         {
           id: "title",
           kind: "text",
-          role: "title",
+          textRole: "h1",
           text: "Intro",
+          paragraphs: [{ text: "Intro" }],
           zIndex: 0,
           box: { x: 6, y: 6, w: 88, h: 16 },
           style: { fontSize: 6, bold: true, italic: false, align: "left" },
         },
         {
           id: "body",
-          kind: "bullets",
-          bullets: ["old bullet"],
-          items: [{ text: "old bullet" }],
+          kind: "text",
+          text: "old bullet",
+          paragraphs: [{ text: "old bullet", listType: "bullet" }],
+          textRole: "bullet",
           zIndex: 1,
           box: { x: 6, y: 26, w: 88, h: 66 },
           style: { fontSize: 4.5, bold: false, italic: false, align: "left" },
@@ -396,15 +402,19 @@ test("slide with elements but no provenance flag is treated as hand-edited", () 
 /** The title element's runs, or undefined. */
 function titleElementRuns(s: Slide): TextRun[] | undefined {
   const el = (s.elements ?? []).find(
-    (e) => e.kind === "text" && e.role === "title",
+    (e) => e.kind === "text" && e.textRole === "h1",
   );
   return el && el.kind === "text" ? el.runs : undefined;
 }
 
 /** The bullets element's per-line runs, or undefined. */
 function bulletElementRuns(s: Slide): TextRun[][] | undefined {
-  const el = (s.elements ?? []).find((e) => e.kind === "bullets");
-  return el && el.kind === "bullets" ? el.bulletRuns : undefined;
+  const el = (s.elements ?? []).find(
+    (e) => e.kind === "text" && e.textRole === "bullet",
+  );
+  return el && el.kind === "text"
+    ? normalizeTextParagraphs(el).map((paragraph) => paragraph.runs ?? [])
+    : undefined;
 }
 
 test("derived slide: document run text change reaches re-materialized elements", () => {
@@ -419,21 +429,26 @@ test("derived slide: document run text change reaches re-materialized elements",
         {
           id: "title",
           kind: "text",
-          role: "title",
+          textRole: "h1",
           text: "Intro",
           runs: [{ text: "Intro" }],
+          paragraphs: [{ text: "Intro", runs: [{ text: "Intro" }] }],
           zIndex: 0,
           box: { x: 6, y: 6, w: 88, h: 16 },
           style: { fontSize: 6, bold: true, italic: false, align: "left" },
         },
         {
           id: "body",
-          kind: "bullets",
-          bullets: ["old bullet"],
-          bulletRuns: [[{ text: "old bullet", bold: true }]],
-          items: [
-            { text: "old bullet", runs: [{ text: "old bullet", bold: true }] },
+          kind: "text",
+          text: "old bullet",
+          paragraphs: [
+            {
+              text: "old bullet",
+              runs: [{ text: "old bullet", bold: true }],
+              listType: "bullet",
+            },
           ],
+          textRole: "bullet",
           zIndex: 1,
           box: { x: 6, y: 26, w: 88, h: 66 },
           style: { fontSize: 4.5, bold: false, italic: false, align: "left" },
@@ -479,7 +494,7 @@ test("derived slide: stale title runs dropped when fresh has none", () => {
         {
           id: "title",
           kind: "text",
-          role: "title",
+          textRole: "h1",
           text: "Intro",
           runs: [{ text: "Intro", bold: true }],
           zIndex: 0,
@@ -514,10 +529,12 @@ test("formatting-only document edit (same text, new runs) is detected as changed
       elements: [
         {
           id: "body",
-          kind: "bullets",
-          bullets: ["point"],
-          bulletRuns: [[{ text: "point" }]],
-          items: [{ text: "point", runs: [{ text: "point" }] }],
+          kind: "text",
+          text: "point",
+          paragraphs: [
+            { text: "point", runs: [{ text: "point" }], listType: "bullet" },
+          ],
+          textRole: "bullet",
           zIndex: 0,
           box: { x: 6, y: 26, w: 88, h: 66 },
           style: { fontSize: 4.5, bold: false, italic: false, align: "left" },
@@ -964,7 +981,6 @@ function linkedTextElement(
 ): TextElement {
   return buildTextElement({
     id,
-    role: "body",
     text,
     box: { x: 10, y: 10, w: 60, h: 15 },
     zIndex: 1,
@@ -1029,7 +1045,6 @@ test("element-level merge: preserves geometry and style of updated element (#409
   const el: TextElement = {
     id: "el-positioned",
     kind: "text",
-    role: "body",
     text: "Old content",
     box: { x: 30, y: 40, w: 25, h: 12 },
     zIndex: 5,
@@ -1105,7 +1120,6 @@ test("element-level merge: unlinked elements are not updated (#409)", () => {
   const unlinkedEl: TextElement = {
     id: "el-unlinked",
     kind: "text",
-    role: "body",
     text: "Manual override",
     box: { x: 10, y: 10, w: 60, h: 15 },
     zIndex: 1,
@@ -1175,7 +1189,6 @@ test("element-level merge: mixed linked/unlinked/manual elements on one slide (#
   const unlinkedEl: TextElement = {
     id: "el-unlinked",
     kind: "text",
-    role: "body",
     text: "Manual override",
     box: { x: 10, y: 10, w: 60, h: 15 },
     zIndex: 2,

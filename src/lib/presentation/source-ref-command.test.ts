@@ -39,7 +39,6 @@ function textElement(): TextElement {
     text: "old text",
     runs: [{ text: "old text" }],
     style: { fontSize: 5, bold: true, italic: false, align: "left" },
-    role: "body",
     box: { x: 12, y: 34, w: 56, h: 7 },
     zIndex: 9,
     rotation: 15,
@@ -123,7 +122,6 @@ test("REFRESH_ELEMENT_FROM_SOURCE updates text + sourceRef and preserves geometr
   assert.equal(updated.rotation, original.rotation);
   assert.equal(updated.opacity, original.opacity);
   assert.equal(updated.name, original.name);
-  assert.equal(updated.role, original.role);
   // Input deck never mutated.
   assert.equal((getElement(deck, "el-text") as TextElement).text, "old text");
 

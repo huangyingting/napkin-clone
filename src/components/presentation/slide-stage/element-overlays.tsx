@@ -120,7 +120,7 @@ export function ElementToolbarContent({
   );
   return (
     <>
-      {element.kind === "text" || element.kind === "bullets" ? (
+      {element.kind === "text" ? (
         <>
           <TextStyleBar
             variant="compact"

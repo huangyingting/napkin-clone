@@ -382,7 +382,7 @@ test("buildSlideElementsFromContent builds a title element from slide content", 
   assert.ok(title);
   if (title?.kind === "text") {
     assert.equal(title.text, "Hello");
-    assert.equal(title.role, "title");
+    assert.equal(title.textRole, "h1");
   }
 });
 
@@ -397,11 +397,11 @@ test("buildSlideElementsFromContent pairs bullets and a visual side by side", as
     layout: "content",
     notes: "",
   });
-  assert.ok(elements.some((e) => e.kind === "bullets"));
+  assert.ok(elements.some((e) => e.kind === "text" && e.textRole === "bullet"));
   assert.ok(elements.some((e) => e.kind === "visual"));
 });
 
-test("buildSlideElementsFromContent binds title/body/visual layout slots (#627)", async () => {
+test("buildSlideElementsFromContent emits free-form elements without layout slots", async () => {
   const { buildSlideElementsFromContent } = await import("./deck");
   const elements = buildSlideElementsFromContent({
     id: "test-id",
@@ -412,16 +412,12 @@ test("buildSlideElementsFromContent binds title/body/visual layout slots (#627)"
     layout: "content",
     notes: "",
   });
-  const slotKey = (e: (typeof elements)[number]) =>
-    e.layoutSlot
-      ? `${e.layoutSlot.kind}#${e.layoutSlot.index ?? 0}`
-      : "unbound";
-  const keys = elements.map(slotKey);
-  assert.ok(keys.includes("title#0"), keys.join(","));
-  assert.ok(keys.includes("body#0"), keys.join(","));
-  assert.ok(keys.includes("visual#0"), keys.join(","));
-  // The second visual cascades into a distinct visual occurrence.
-  assert.ok(keys.includes("visual#1"), keys.join(","));
+  assert.ok(elements.every((element) => !("layoutSlot" in element)));
+  assert.ok(elements.some((element) => element.kind === "text"));
+  assert.equal(
+    elements.filter((element) => element.kind === "visual").length,
+    2,
+  );
 });
 
 test("buildSlideElementsFromContent cascades 3+ visuals into offset tiles", async () => {
@@ -484,7 +480,10 @@ test("buildSlideElementsFromContent tiles extra visuals alongside bullets", asyn
 
   // The bullets keep their pane; every visual still materializes (1 paired +
   // 2 cascaded), preserving source order.
-  assert.equal(elements.filter((e) => e.kind === "bullets").length, 1);
+  assert.equal(
+    elements.filter((e) => e.kind === "text" && e.textRole === "bullet").length,
+    1,
+  );
   const visuals = elements.filter((e) => e.kind === "visual");
   assert.deepEqual(
     visuals.map((e) => (e.kind === "visual" ? e.visualId : null)),
@@ -684,10 +683,15 @@ test("buildSlideElementsFromContent copies titleRuns and bulletRuns to elements"
   if (title.kind === "text") {
     assert.deepEqual(title.runs, [{ text: "Title", bold: true }]);
   }
-  const bullets = elements.find((e) => e.kind === "bullets");
-  assert.ok(bullets && bullets.kind === "bullets");
-  if (bullets.kind === "bullets") {
-    assert.deepEqual(bullets.bulletRuns, [[], [{ text: "two", italic: true }]]);
+  const bullets = elements.find(
+    (e) => e.kind === "text" && e.textRole === "bullet",
+  );
+  assert.ok(bullets && bullets.kind === "text");
+  if (bullets.kind === "text") {
+    assert.deepEqual(
+      bullets.paragraphs?.map((paragraph) => paragraph.runs),
+      [undefined, [{ text: "two", italic: true }]],
+    );
   }
 });
 
@@ -742,16 +746,16 @@ test("makeElementId holds no module-level state (order-independent)", async () =
 });
 
 // ---------------------------------------------------------------------------
-// normalizeBulletItems — multi-level bullets (#335)
+// normalizeTextParagraphs — multi-level list paragraphs (#335)
 // ---------------------------------------------------------------------------
 
-test("normalizeBulletItems returns items[] as-is when present", async () => {
-  const { normalizeBulletItems } = await import("./deck");
+test("normalizeTextParagraphs returns paragraphs[] as-is when present", async () => {
+  const { normalizeTextParagraphs } = await import("./deck");
   const el = {
     id: "b",
-    kind: "bullets" as const,
-    bullets: ["fallback"],
-    items: [
+    kind: "text" as const,
+    text: "fallback",
+    paragraphs: [
       { text: "First", indent: 0, listType: "bullet" as const },
       { text: "Second", indent: 1, listType: "number" as const },
     ],
@@ -759,7 +763,7 @@ test("normalizeBulletItems returns items[] as-is when present", async () => {
     box: { x: 0, y: 0, w: 10, h: 10 },
     style: { fontSize: 4, bold: false, italic: false, align: "left" as const },
   };
-  const result = normalizeBulletItems(el);
+  const result = normalizeTextParagraphs(el);
   assert.equal(result.length, 2);
   assert.equal(result[0].text, "First");
   assert.equal(result[0].indent, 0);
@@ -768,18 +772,18 @@ test("normalizeBulletItems returns items[] as-is when present", async () => {
   assert.equal(result[1].listType, "number");
 });
 
-test("normalizeBulletItems returns empty current items", async () => {
-  const { normalizeBulletItems } = await import("./deck");
+test("normalizeTextParagraphs returns empty current paragraphs", async () => {
+  const { normalizeTextParagraphs } = await import("./deck");
   const el = {
     id: "b",
-    kind: "bullets" as const,
-    bullets: [],
-    items: [],
+    kind: "text" as const,
+    text: "",
+    paragraphs: [],
     zIndex: 0,
     box: { x: 0, y: 0, w: 10, h: 10 },
     style: { fontSize: 4, bold: false, italic: false, align: "left" as const },
   };
-  const result = normalizeBulletItems(el);
+  const result = normalizeTextParagraphs(el);
   assert.equal(result.length, 0);
 });
 
@@ -795,10 +799,12 @@ test("buildSlideElementsFromContent stamps semantic textRole h1/bullet (#610)", 
     notes: "",
   });
   const title = elements.find((e) => e.kind === "text");
-  const bullets = elements.find((e) => e.kind === "bullets");
+  const bullets = elements.find(
+    (e) => e.kind === "text" && e.textRole === "bullet",
+  );
   assert.equal(title?.kind === "text" ? title.textRole : undefined, "h1");
   assert.equal(
-    bullets?.kind === "bullets" ? bullets.textRole : undefined,
+    bullets?.kind === "text" ? bullets.textRole : undefined,
     "bullet",
   );
 });

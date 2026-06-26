@@ -44,7 +44,7 @@ function currentDeck(): unknown {
           buildTextElement({
             id: "txt-1",
             text: "Current",
-            role: "title",
+            textRole: "h1",
             zIndex: 0,
             box: { x: 6, y: 6, w: 88, h: 16 },
             style: { fontSize: 6, bold: true, italic: false, align: "left" },
@@ -116,6 +116,21 @@ test("safeParseDeck rejects an unknown slide format", () => {
 // ---------------------------------------------------------------------------
 
 function elementDeck(elements: unknown[]): unknown {
+  const normalizedElements = elements.map((element) => {
+    if (
+      typeof element === "object" &&
+      element !== null &&
+      !Array.isArray(element) &&
+      "kind" in element &&
+      element.kind === "text" &&
+      !("paragraphs" in element) &&
+      "text" in element &&
+      typeof element.text === "string"
+    ) {
+      return { ...element, paragraphs: [{ text: element.text }] };
+    }
+    return element;
+  });
   return buildDeck({
     themeId: "indigo",
     slides: [
@@ -124,7 +139,7 @@ function elementDeck(elements: unknown[]): unknown {
         themeId: "indigo",
         background: "#101010",
         accent: "#abcdef",
-        elements,
+        elements: normalizedElements,
       }) as unknown as Deck["slides"][number],
     ],
   });
@@ -157,7 +172,6 @@ function sourceLinkedTextElement(
 ): TextElement {
   return buildTextElement({
     id: "linked-text",
-    role: "body",
     text: "Linked content",
     zIndex: 0,
     box: { x: 1, y: 2, w: 30, h: 12 },
@@ -171,7 +185,7 @@ test("safeParseDeck round-trips every element kind", () => {
     {
       id: "t",
       kind: "text",
-      role: "title",
+      textRole: "h1",
       text: "Hello",
       zIndex: 0,
       box: { x: 1, y: 2, w: 3, h: 4 },
@@ -179,9 +193,13 @@ test("safeParseDeck round-trips every element kind", () => {
     },
     {
       id: "b",
-      kind: "bullets",
-      bullets: ["one", "two"],
-      items: [{ text: "one" }, { text: "two" }],
+      kind: "text",
+      text: "one\ntwo",
+      paragraphs: [
+        { text: "one", listType: "bullet" },
+        { text: "two", listType: "bullet" },
+      ],
+      textRole: "bullet",
       zIndex: 1,
       box: { x: 1, y: 2, w: 3, h: 4 },
       style: { fontSize: 4, bold: false, italic: true, align: "left" },
@@ -209,13 +227,21 @@ test("safeParseDeck round-trips every element kind", () => {
       zIndex: 4,
       box: { x: 1, y: 2, w: 3, h: 4 },
     },
+    {
+      id: "c",
+      kind: "connector",
+      start: { x: 1, y: 2 },
+      end: { x: 4, y: 5 },
+      zIndex: 5,
+      box: { x: 0, y: 0, w: 10, h: 10 },
+    },
   ]);
 
   const result = safeParseDeck(input);
   assert.equal(result.success, true);
   if (result.success) {
     const slide = result.data.slides[0];
-    assert.equal(slide.elements?.length, 5);
+    assert.equal(slide.elements?.length, 6);
     assert.equal(slide.background, "#101010");
     assert.equal(slide.accent, "#abcdef");
   }
@@ -474,7 +500,6 @@ test("unlinkSource returns same object identity when element has no sourceRef", 
   const element: TextElement = {
     id: "no-source",
     kind: "text",
-    role: "body",
     text: "No source",
     zIndex: 0,
     box: { x: 0, y: 0, w: 10, h: 5 },
@@ -509,39 +534,21 @@ test("relinkSource restores an active source link", () => {
   });
 });
 
-test("validateElement accepts a placeholder element", () => {
-  const element = validateElement(
-    {
-      id: "ph-title",
-      kind: "placeholder",
-      placeholderType: "title",
-      label: "Deck title",
-      zIndex: 0,
-      box: { x: 8, y: 12, w: 84, h: 16 },
-    },
-    "element",
-  );
-  assert.equal(element.kind, "placeholder");
-  if (element.kind === "placeholder") {
-    assert.equal(element.placeholderType, "title");
-    assert.equal(element.label, "Deck title");
-  }
-});
-
-test("validateElement rejects an unknown placeholder type", () => {
+test("validateElement rejects a placeholder element", () => {
   assert.throws(
     () =>
       validateElement(
         {
-          id: "ph-bad",
+          id: "ph-title",
           kind: "placeholder",
-          placeholderType: "chart",
+          placeholderType: "title",
+          label: "Deck title",
           zIndex: 0,
-          box: { x: 0, y: 0, w: 10, h: 10 },
+          box: { x: 8, y: 12, w: 84, h: 16 },
         },
         "element",
       ),
-    /placeholderType/,
+    /kind must be one of: text, visual, image, shape, connector/,
   );
 });
 
@@ -555,8 +562,8 @@ test("safeParseDeck round-trips reusable layouts", () => {
   if (result.success) {
     assert.equal(result.data.layouts?.length, layouts.length);
     assert.equal(
-      result.data.layouts?.[1]?.placeholders[0]?.kind,
-      "placeholder",
+      result.data.layouts?.[1]?.placeholders[0]?.placeholderType,
+      layouts[1]?.placeholders[0]?.placeholderType,
     );
   }
 });
@@ -573,7 +580,6 @@ test("safeParseDeck rejects a text element missing its style", () => {
       {
         id: "t",
         kind: "text",
-        role: "body",
         text: "x",
         zIndex: 0,
         box: { x: 0, y: 0, w: 1, h: 1 },
@@ -903,7 +909,6 @@ function textElementWithFitMode(fitMode: unknown) {
     {
       id: "t",
       kind: "text",
-      role: "body",
       text: "hi",
       zIndex: 0,
       box: { x: 0, y: 0, w: 10, h: 10 },
@@ -917,9 +922,13 @@ function bulletsElementWithFitMode(fitMode: unknown) {
   return elementDeck([
     {
       id: "b",
-      kind: "bullets",
-      bullets: ["one", "two"],
-      items: [{ text: "one" }, { text: "two" }],
+      kind: "text",
+      text: "one\ntwo",
+      paragraphs: [
+        { text: "one", listType: "bullet" },
+        { text: "two", listType: "bullet" },
+      ],
+      textRole: "bullet",
       zIndex: 0,
       box: { x: 0, y: 0, w: 10, h: 10 },
       style: { fontSize: 4, bold: false, italic: false, align: "left" },
@@ -969,31 +978,31 @@ test("safeParseDeck rejects an invalid fitMode on a text element", () => {
   assert.equal(result.success, false);
 });
 
-test("safeParseDeck round-trips fitMode=fixed-box on a bullets element", () => {
+test("safeParseDeck round-trips fitMode=fixed-box on a list text element", () => {
   const result = safeParseDeck(bulletsElementWithFitMode("fixed-box"));
   assert.equal(result.success, true);
   if (result.success) {
     const el = result.data.slides[0].elements?.[0];
-    assert.equal(el?.kind, "bullets");
-    if (el?.kind === "bullets") {
+    assert.equal(el?.kind, "text");
+    if (el?.kind === "text") {
       assert.equal(el.fitMode, "fixed-box");
     }
   }
 });
 
-test("safeParseDeck round-trips fitMode=shrink-to-fit on a bullets element", () => {
+test("safeParseDeck round-trips fitMode=shrink-to-fit on a list text element", () => {
   const result = safeParseDeck(bulletsElementWithFitMode("shrink-to-fit"));
   assert.equal(result.success, true);
   if (result.success) {
     const el = result.data.slides[0].elements?.[0];
-    assert.equal(el?.kind, "bullets");
-    if (el?.kind === "bullets") {
+    assert.equal(el?.kind, "text");
+    if (el?.kind === "text") {
       assert.equal(el.fitMode, "shrink-to-fit");
     }
   }
 });
 
-test("safeParseDeck rejects an invalid fitMode on a bullets element", () => {
+test("safeParseDeck rejects an invalid fitMode on a list text element", () => {
   const result = safeParseDeck(bulletsElementWithFitMode(42));
   assert.equal(result.success, false);
 });
@@ -1007,7 +1016,6 @@ function elementWithMetadata(extra: Record<string, unknown>) {
     {
       id: "m",
       kind: "text",
-      role: "body",
       text: "meta",
       zIndex: 0,
       box: { x: 0, y: 0, w: 10, h: 10 },
@@ -1026,7 +1034,6 @@ function textElementWithStyle(style: unknown) {
     {
       id: "t",
       kind: "text",
-      role: "body",
       text: "hi",
       zIndex: 0,
       box: { x: 0, y: 0, w: 10, h: 10 },
@@ -1232,16 +1239,20 @@ test("safeParseDeck rejects a non-finite paragraphSpacing on a text element", ()
 });
 
 // ---------------------------------------------------------------------------
-// bulletGap / bulletIndent on BulletsElement (issue #334)
+// bulletGap / bulletIndent on list text elements (issue #334)
 // ---------------------------------------------------------------------------
 
 function bulletsElementWith(extra: unknown) {
   return elementDeck([
     {
       id: "b",
-      kind: "bullets",
-      bullets: ["one", "two"],
-      items: [{ text: "one" }, { text: "two" }],
+      kind: "text",
+      text: "one\ntwo",
+      paragraphs: [
+        { text: "one", listType: "bullet" },
+        { text: "two", listType: "bullet" },
+      ],
+      textRole: "bullet",
       zIndex: 0,
       box: { x: 0, y: 0, w: 10, h: 10 },
       style: { fontSize: 4, bold: false, italic: false, align: "left" },
@@ -1250,60 +1261,61 @@ function bulletsElementWith(extra: unknown) {
   ]);
 }
 
-test("safeParseDeck round-trips bulletGap on a bullets element", () => {
+test("safeParseDeck round-trips bulletGap on a list text element", () => {
   const result = safeParseDeck(bulletsElementWith({ bulletGap: 1.5 }));
   assert.equal(result.success, true);
   if (result.success) {
     const el = result.data.slides[0].elements?.[0];
-    assert.equal(el?.kind, "bullets");
-    if (el?.kind === "bullets") {
+    assert.equal(el?.kind, "text");
+    if (el?.kind === "text") {
       assert.equal(el.bulletGap, 1.5);
     }
   }
 });
 
-test("safeParseDeck omits bulletGap when absent on a bullets element", () => {
+test("safeParseDeck omits bulletGap when absent on a list text element", () => {
   const result = safeParseDeck(bulletsElementWith({}));
   assert.equal(result.success, true);
   if (result.success) {
     const el = result.data.slides[0].elements?.[0];
-    assert.equal(el?.kind, "bullets");
-    if (el?.kind === "bullets") {
+    assert.equal(el?.kind, "text");
+    if (el?.kind === "text") {
       assert.equal(el.bulletGap, undefined);
     }
   }
 });
 
-test("safeParseDeck rejects a non-finite bulletGap on a bullets element", () => {
+test("safeParseDeck rejects a non-finite bulletGap on a list text element", () => {
   const result = safeParseDeck(bulletsElementWith({ bulletGap: "wide" }));
   assert.equal(result.success, false);
 });
 
-test("safeParseDeck round-trips bulletIndent on a bullets element", () => {
+test("safeParseDeck round-trips bulletIndent on a list text element", () => {
   const result = safeParseDeck(bulletsElementWith({ bulletIndent: 5 }));
   assert.equal(result.success, true);
   if (result.success) {
     const el = result.data.slides[0].elements?.[0];
-    assert.equal(el?.kind, "bullets");
-    if (el?.kind === "bullets") {
+    assert.equal(el?.kind, "text");
+    if (el?.kind === "text") {
       assert.equal(el.bulletIndent, 5);
     }
   }
 });
 
-test("safeParseDeck rejects a non-finite bulletIndent on a bullets element", () => {
+test("safeParseDeck rejects a non-finite bulletIndent on a list text element", () => {
   const result = safeParseDeck(bulletsElementWith({ bulletIndent: null }));
   assert.equal(result.success, false);
 });
 
-test("safeParseDeck round-trips verticalAlign=middle on a bullets element style", () => {
+test("safeParseDeck round-trips verticalAlign=middle on a list text element style", () => {
   const result = safeParseDeck(
     elementDeck([
       {
         id: "b",
-        kind: "bullets",
-        bullets: ["x"],
-        items: [{ text: "x" }],
+        kind: "text",
+        text: "x",
+        paragraphs: [{ text: "x", listType: "bullet" }],
+        textRole: "bullet",
         zIndex: 0,
         box: { x: 0, y: 0, w: 10, h: 10 },
         style: {
@@ -1319,21 +1331,21 @@ test("safeParseDeck round-trips verticalAlign=middle on a bullets element style"
   assert.equal(result.success, true);
   if (result.success) {
     const el = result.data.slides[0].elements?.[0];
-    assert.equal(el?.kind, "bullets");
-    if (el?.kind === "bullets") {
+    assert.equal(el?.kind, "text");
+    if (el?.kind === "text") {
       assert.equal(el.style.verticalAlign, "middle");
     }
   }
 });
 
 // ---------------------------------------------------------------------------
-// items[] — multi-level bullets (#335)
+// paragraphs[] — multi-level lists (#335)
 // ---------------------------------------------------------------------------
 
-test("safeParseDeck round-trips items[] with indent and listType", () => {
+test("safeParseDeck round-trips paragraphs[] with indent and listType", () => {
   const result = safeParseDeck(
     bulletsElementWith({
-      items: [
+      paragraphs: [
         { text: "Top level", indent: 0, listType: "bullet" },
         { text: "Nested", indent: 1, listType: "number" },
         { text: "Deep", indent: 2, listType: "bullet" },
@@ -1343,14 +1355,14 @@ test("safeParseDeck round-trips items[] with indent and listType", () => {
   assert.equal(result.success, true);
   if (result.success) {
     const el = result.data.slides[0].elements?.[0];
-    assert.equal(el?.kind, "bullets");
-    if (el?.kind === "bullets") {
-      assert.equal(el.items?.length, 3);
-      assert.equal(el.items?.[0].indent, 0);
-      assert.equal(el.items?.[0].listType, "bullet");
-      assert.equal(el.items?.[1].indent, 1);
-      assert.equal(el.items?.[1].listType, "number");
-      assert.equal(el.items?.[2].indent, 2);
+    assert.equal(el?.kind, "text");
+    if (el?.kind === "text") {
+      assert.equal(el.paragraphs?.length, 3);
+      assert.equal(el.paragraphs?.[0].indent, 0);
+      assert.equal(el.paragraphs?.[0].listType, "bullet");
+      assert.equal(el.paragraphs?.[1].indent, 1);
+      assert.equal(el.paragraphs?.[1].listType, "number");
+      assert.equal(el.paragraphs?.[2].indent, 2);
     }
   }
 });
@@ -1358,7 +1370,7 @@ test("safeParseDeck round-trips items[] with indent and listType", () => {
 test("safeParseDeck rejects indent out of range (>5)", () => {
   const result = safeParseDeck(
     bulletsElementWith({
-      items: [{ text: "Too deep", indent: 6, listType: "bullet" }],
+      paragraphs: [{ text: "Too deep", indent: 6, listType: "bullet" }],
     }),
   );
   assert.equal(result.success, false);
@@ -1367,43 +1379,43 @@ test("safeParseDeck rejects indent out of range (>5)", () => {
 test("safeParseDeck rejects invalid listType", () => {
   const result = safeParseDeck(
     bulletsElementWith({
-      items: [{ text: "Bad type", listType: "roman" }],
+      paragraphs: [{ text: "Bad type", listType: "roman" }],
     }),
   );
   assert.equal(result.success, false);
 });
 
-test("safeParseDeck accepts items[] without optional indent/listType", () => {
+test("safeParseDeck accepts paragraphs[] without optional indent/listType", () => {
   const result = safeParseDeck(
     bulletsElementWith({
-      items: [{ text: "Simple item" }],
+      paragraphs: [{ text: "Simple item" }],
     }),
   );
   assert.equal(result.success, true);
   if (result.success) {
     const el = result.data.slides[0].elements?.[0];
-    assert.equal(el?.kind, "bullets");
-    if (el?.kind === "bullets") {
-      assert.equal(el.items?.[0].text, "Simple item");
-      assert.equal(el.items?.[0].indent, undefined);
-      assert.equal(el.items?.[0].listType, undefined);
+    assert.equal(el?.kind, "text");
+    if (el?.kind === "text") {
+      assert.equal(el.paragraphs?.[0].text, "Simple item");
+      assert.equal(el.paragraphs?.[0].indent, undefined);
+      assert.equal(el.paragraphs?.[0].listType, undefined);
     }
   }
 });
 
-test("safeParseDeck rejects negative indent (-1) on items[]", () => {
+test("safeParseDeck rejects negative indent (-1) on paragraphs[]", () => {
   const result = safeParseDeck(
     bulletsElementWith({
-      items: [{ text: "Bad", indent: -1 }],
+      paragraphs: [{ text: "Bad", indent: -1 }],
     }),
   );
   assert.equal(result.success, false);
 });
 
-test("safeParseDeck rejects non-integer float indent (1.5) on items[]", () => {
+test("safeParseDeck rejects non-integer float indent (1.5) on paragraphs[]", () => {
   const result = safeParseDeck(
     bulletsElementWith({
-      items: [{ text: "Bad", indent: 1.5 }],
+      paragraphs: [{ text: "Bad", indent: 1.5 }],
     }),
   );
   assert.equal(result.success, false);

@@ -1,5 +1,5 @@
 import {
-  normalizeBulletItems,
+  normalizeTextParagraphs,
   type ElementBox,
   type SlideElement,
 } from "./deck";
@@ -63,7 +63,6 @@ const SCORE = {
   largeShapeInterior: 58,
   coveringShapeInterior: 24,
   boxInterior: 68,
-  placeholderInterior: 42,
   selectedBonus: 88,
   maxZIndexBonus: 8,
 } as const;
@@ -126,33 +125,32 @@ function pointInElementBox(
 
 function textLines(element: SlideElement): string[] {
   if (element.kind === "text") {
-    const lines = element.text.split(/\r?\n/).filter((line) => line.trim());
-    return lines.length > 0 ? lines : [element.text];
-  }
-  if (element.kind === "bullets") {
-    const items = normalizeBulletItems(element)
-      .map((item) => item.text)
+    const lines = normalizeTextParagraphs(element)
+      .flatMap((paragraph) => paragraph.text.split(/\r?\n/))
       .filter((line) => line.trim());
-    return items.length > 0 ? items : element.bullets;
+    return lines.length > 0 ? lines : [element.text];
   }
   return [];
 }
 
 function textVisibleBox(
-  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+  element: Extract<SlideElement, { kind: "text" }>,
   box: ElementBox,
   stageAspect: number,
 ): ElementBox {
   const lines = textLines(element).filter((line) => line.trim().length > 0);
   if (lines.length === 0) return box;
+  const hasListParagraphs = normalizeTextParagraphs(element).some(
+    (paragraph) => paragraph.listType !== undefined,
+  );
 
   const lineHeight =
-    element.style.lineHeight ?? (element.kind === "bullets" ? 1.2 : 1.15);
+    element.style.lineHeight ?? (hasListParagraphs ? 1.2 : 1.15);
   const fontSize = element.style.fontSize;
   const maxChars = Math.max(...lines.map((line) => line.length));
   const estimatedTextWidth =
     (maxChars * fontSize * 0.56) / Math.max(0.1, stageAspect) +
-    (element.kind === "bullets" ? 5 : 2);
+    (hasListParagraphs ? 5 : 2);
   const estimatedTextHeight = lines.length * fontSize * lineHeight + 2;
   const w = Math.min(box.w, Math.max(MIN_TEXT_HIT_W_PCT, estimatedTextWidth));
   const h = Math.min(box.h, Math.max(MIN_TEXT_HIT_H_PCT, estimatedTextHeight));
@@ -175,7 +173,7 @@ function textVisibleBox(
 }
 
 function textContentBoxes(
-  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+  element: Extract<SlideElement, { kind: "text" }>,
   box: ElementBox,
   stageAspect: number,
   textHitGeometry: ReadonlyMap<string, TextHitGeometry> | undefined,
@@ -273,8 +271,7 @@ function hitTestElement(
   );
 
   switch (element.kind) {
-    case "text":
-    case "bullets": {
+    case "text": {
       const contentBoxes = textContentBoxes(
         element,
         box,
@@ -387,18 +384,6 @@ function hitTestElement(
         reason: "box-interior",
       };
     }
-    default:
-      if (!pointInElementBox(point, element, box, stageAspect)) return null;
-      return {
-        score: withBonuses(
-          element.kind === "placeholder"
-            ? SCORE.placeholderInterior
-            : SCORE.boxInterior,
-          element,
-          selectedElementIds,
-        ),
-        reason: "box-interior",
-      };
   }
 }
 

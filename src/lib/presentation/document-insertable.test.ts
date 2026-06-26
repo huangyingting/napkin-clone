@@ -135,7 +135,7 @@ test("maps a level-1 heading to a large bold title element", () => {
   const el = insertableTextElement(item, { id: "fixed" });
   assert.equal(el.id, "fixed");
   assert.equal(el.kind, "text");
-  assert.equal(el.role, "title");
+  assert.equal(el.textRole, "h1");
   assert.equal(el.text, "Hello");
   assert.equal(el.style.bold, true);
   assert.equal(el.style.fontSize, 6.5);
@@ -146,7 +146,7 @@ test("maps a level-1 heading to a large bold title element", () => {
 test("maps lower-level headings to bold body elements with smaller sizes", () => {
   const [h2] = textItems(buildInsertables([heading("H2", 2)]));
   const [h3] = textItems(buildInsertables([heading("H3", 3)]));
-  assert.equal(insertableTextElement(h2).role, "body");
+  assert.equal(insertableTextElement(h2).textRole, "h2");
   assert.equal(insertableTextElement(h2).style.fontSize, 5.5);
   assert.equal(insertableTextElement(h2).style.bold, true);
   assert.equal(insertableTextElement(h3).style.fontSize, 5);
@@ -166,7 +166,7 @@ test("maps document heading levels to semantic textRole h1/h2/h3 (#610)", () => 
 test("maps a paragraph to a non-bold body element at body size", () => {
   const [item] = textItems(buildInsertables([para("Body text")]));
   const el = insertableTextElement(item);
-  assert.equal(el.role, "body");
+  assert.equal(el.textRole, "body");
   assert.equal(el.style.bold, false);
   assert.equal(el.style.fontSize, 4);
   assert.ok(el.id.length > 0);
@@ -336,7 +336,7 @@ test("insertableTextElement heading stamps sourceRef when both ids present", () 
   });
   assert.equal(el.sourceRef!.documentId, "doc-2");
   assert.equal(el.sourceRef!.blockId, "blk-h2");
-  assert.equal(el.role, "body");
+  assert.equal(el.textRole, "h2");
   assert.equal(el.style.bold, true);
 });
 

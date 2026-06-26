@@ -35,7 +35,7 @@ function textEl(overrides: {
     id: "t",
     box: { x: 10, y: 10, w: 40, h: 20 },
     text: "Hello world",
-    role: "body",
+    paragraphs: [{ text: "Hello world" }],
     style: {
       fontSize: overrides.fontSize ?? 5,
       bold: false,
@@ -51,11 +51,15 @@ function textEl(overrides: {
 
 function bulletsEl(fontSize = 5): TextLikeElement {
   return {
-    kind: "bullets",
+    kind: "text",
     id: "b",
     box: { x: 10, y: 10, w: 40, h: 20 },
-    bullets: ["one", "two"],
-    items: [{ text: "one" }, { text: "two" }],
+    text: "one\ntwo",
+    paragraphs: [
+      { text: "one", listType: "bullet" },
+      { text: "two", listType: "bullet" },
+    ],
+    textRole: "bullet",
     style: { fontSize, bold: false, italic: false, align: "left" },
   };
 }

@@ -88,7 +88,6 @@ export const SNAP_THRESHOLD_PCT = 1.5;
 
 export const AUTO_FIT_PADDING_PCT = 1.2;
 export const TEXT_MIN_W_PCT = 10;
-export const BULLETS_MIN_W_PCT = 18;
 export const SELECTION_MIN_H_PCT = 4;
 // Font-size bounds (percent of stage height) for corner-handle text scaling.
 export const MIN_FONT_PCT = 2;
@@ -140,7 +139,7 @@ export function positionFitWithinBox(
 }
 
 export function fitTextElementBox(
-  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+  element: Extract<SlideElement, { kind: "text" }>,
 ): ElementBox {
   // Canva model: the frame IS the element box — width is user-controlled, height
   // tracks the content (kept in sync by the editor / resize handlers). No
@@ -149,7 +148,7 @@ export function fitTextElementBox(
 }
 
 export function fitTextHeightPct(
-  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+  element: Extract<SlideElement, { kind: "text" }>,
   fontSizePct: number,
   boxWidthPct: number,
   measurer: TextResizeMeasurer,
@@ -168,7 +167,7 @@ export function fitTextHeightPct(
  * frame below this. Bullets add the marker + gap indent to the requirement.
  */
 export function minContentWidthPct(
-  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+  element: Extract<SlideElement, { kind: "text" }>,
   fontSizePct: number,
   measurer: TextResizeMeasurer,
 ): number {
@@ -187,19 +186,19 @@ export function availableHeightPct(
 }
 
 export function minWidthForFontPct(
-  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+  element: Extract<SlideElement, { kind: "text" }>,
   fontSizePct: number,
   maxWidthPct: number,
   measurer: TextResizeMeasurer,
 ): number {
   return Math.max(
-    element.kind === "bullets" ? BULLETS_MIN_W_PCT : TEXT_MIN_W_PCT,
+    TEXT_MIN_W_PCT,
     Math.min(maxWidthPct, minContentWidthPct(element, fontSizePct, measurer)),
   );
 }
 
 export function minWidthThatFitsHeightPct(
-  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+  element: Extract<SlideElement, { kind: "text" }>,
   fontSizePct: number,
   minWidthPct: number,
   maxWidthPct: number,
@@ -231,7 +230,7 @@ export function minWidthThatFitsHeightPct(
 }
 
 export function largestFontForFixedWidthPct(
-  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+  element: Extract<SlideElement, { kind: "text" }>,
   requestedFontPct: number,
   widthPct: number,
   maxHeightPct: number,
@@ -262,7 +261,7 @@ export function largestFontForFixedWidthPct(
 }
 
 export function cornerWidthForFontPct(
-  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+  element: Extract<SlideElement, { kind: "text" }>,
   startBox: ElementBox,
   startFontSize: number,
   fontSizePct: number,
@@ -273,7 +272,7 @@ export function cornerWidthForFontPct(
   return Math.min(
     maxWidthPct,
     Math.max(
-      element.kind === "bullets" ? BULLETS_MIN_W_PCT : TEXT_MIN_W_PCT,
+      TEXT_MIN_W_PCT,
       scaledWidth,
       minContentWidthPct(element, fontSizePct, measurer),
     ),
@@ -281,7 +280,7 @@ export function cornerWidthForFontPct(
 }
 
 export function largestFontForCornerPct(
-  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+  element: Extract<SlideElement, { kind: "text" }>,
   startBox: ElementBox,
   startFontSize: number,
   requestedFontPct: number,
@@ -337,7 +336,7 @@ export function largestFontForCornerPct(
  * canvas/character heuristics and post-render corrections.
  */
 export function resizeTextBox(
-  element: Extract<SlideElement, { kind: "text" | "bullets" }>,
+  element: Extract<SlideElement, { kind: "text" }>,
   startBox: ElementBox,
   startFontSize: number,
   handle: Handle,
@@ -466,10 +465,7 @@ export function fitElementBoxToContent(
   elements: readonly SlideElement[] = [element],
 ): ElementBox {
   switch (element.kind) {
-    case "placeholder":
-      return element.box;
     case "text":
-    case "bullets":
       return fitTextElementBox(element);
     case "visual": {
       const visual = visuals.get(element.visualId);

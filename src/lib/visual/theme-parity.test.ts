@@ -16,12 +16,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type {
-  BulletsElement,
-  Deck,
-  Slide,
-  TextElement,
-} from "@/lib/presentation/deck";
+import type { Deck, Slide, TextElement } from "@/lib/presentation/deck";
 import { DECK_THEMES } from "@/lib/presentation/deck";
 import { resolveSlideThemeColors } from "@/lib/presentation/style-cascade";
 import {
@@ -37,12 +32,13 @@ import {
 import { STYLE_THEMES } from "@/lib/visual/themes";
 
 function titleEl(overrides: Partial<TextElement> = {}): TextElement {
+  const text = overrides.text ?? "Heading";
   return {
     id: "title",
     kind: "text",
-    role: "title",
     textRole: "h1",
-    text: "Heading",
+    text,
+    paragraphs: overrides.paragraphs ?? [{ text }],
     zIndex: 0,
     box: { x: 6, y: 6, w: 88, h: 16 },
     style: { fontSize: 6, bold: true, italic: false, align: "left" },
@@ -50,14 +46,13 @@ function titleEl(overrides: Partial<TextElement> = {}): TextElement {
   };
 }
 
-function bodyBulletsEl(
-  overrides: Partial<BulletsElement> = {},
-): BulletsElement {
+function bodyBulletsEl(overrides: Partial<TextElement> = {}): TextElement {
   return {
     id: "b",
-    kind: "bullets",
-    bullets: ["point"],
-    items: [{ text: "point" }],
+    kind: "text",
+    text: "point",
+    paragraphs: [{ text: "point", listType: "bullet" }],
+    textRole: "bullet",
     zIndex: 1,
     box: { x: 6, y: 26, w: 88, h: 60 },
     style: { fontSize: 4.5, bold: false, italic: false, align: "left" },
@@ -65,7 +60,7 @@ function bodyBulletsEl(
   };
 }
 
-function slide(elements: (TextElement | BulletsElement)[]): Slide {
+function slide(elements: TextElement[]): Slide {
   return {
     id: "s1",
     index: 0,

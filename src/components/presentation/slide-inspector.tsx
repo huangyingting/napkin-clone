@@ -23,11 +23,8 @@ import {
 } from "@/components/presentation/slide-inspector/primitives";
 import { LayerList } from "@/components/presentation/layer-list";
 import { Tooltip } from "@/components/ui";
-import type { PlaceholderElement, SlideElement } from "@/lib/presentation/deck";
-import {
-  defaultLayouts,
-  PLACEHOLDER_TYPE_LABELS,
-} from "@/lib/presentation/deck";
+import type { SlideElement } from "@/lib/presentation/deck";
+import { defaultLayouts } from "@/lib/presentation/deck";
 import { assertNever } from "@/lib/assert-never";
 import type { RightPanelTab } from "@/lib/presentation/slide-panel-ui";
 import { canAddImage, dataUrlByteSize } from "@/lib/presentation/image-element";
@@ -75,12 +72,8 @@ import type { SlideInspectorProps } from "@/components/presentation/slide-inspec
 
 function elementLabel(element: SlideElement): string {
   switch (element.kind) {
-    case "placeholder":
-      return `Placeholder · ${placeholderDisplayName(element)}`;
     case "text":
-      return element.role === "title" ? "Title" : "Text";
-    case "bullets":
-      return "Bullets";
+      return element.textRole === "h1" ? "Title" : "Text";
     case "visual":
       return "Visual";
     case "image":
@@ -96,14 +89,6 @@ function elementLabel(element: SlideElement): string {
 
 function shouldShowSourceTab(element: SlideElement | null): boolean {
   return element?.sourceRef !== undefined;
-}
-
-function placeholderDisplayName(
-  element: Pick<PlaceholderElement, "placeholderType" | "label">,
-): string {
-  return (
-    element.label?.trim() || PLACEHOLDER_TYPE_LABELS[element.placeholderType]
-  );
 }
 
 export function SlideInspector({
@@ -156,7 +141,6 @@ export function SlideInspector({
     elements.find((element) => element.id === selectedElementId) ?? null;
   const canShowTextPanel =
     selectedElement?.kind === "text" ||
-    selectedElement?.kind === "bullets" ||
     (selectedElement?.kind === "shape" && selectedElement.shape !== "line");
   const canShowEffectsPanel = selectedElement !== null;
   const canShowMediaPanel =
