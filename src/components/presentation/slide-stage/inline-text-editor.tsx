@@ -17,6 +17,10 @@ import {
   splitRunsIntoLines,
 } from "@/lib/presentation/rich-text-html";
 import {
+  applyBoldOrItalic,
+  insertTextAtCursor,
+} from "@/lib/presentation/rich-text-commands";
+import {
   AUTO_FIT_PADDING_PCT,
   clampBox,
 } from "@/lib/presentation/stage-resize";
@@ -410,7 +414,7 @@ export function InlineTextEditor({
           // runs; formatting stays under the editor's own controls.
           event.preventDefault();
           const text = event.clipboardData.getData("text/plain");
-          document.execCommand("insertText", false, text);
+          insertTextAtCursor(text);
           dirtyRef.current = true;
           emitChange();
         }}
@@ -447,7 +451,10 @@ export function InlineTextEditor({
             const key = event.key.toLowerCase();
             if (key === "b" || key === "i") {
               event.preventDefault();
-              document.execCommand(key === "b" ? "bold" : "italic");
+              const node = ref.current;
+              if (node) {
+                applyBoldOrItalic(key === "b" ? "bold" : "italic", node);
+              }
               dirtyRef.current = true;
               emitChange();
             }

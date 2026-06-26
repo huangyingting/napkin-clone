@@ -1,42 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { CURRENT_COMMAND_SCHEMA_VERSION } from "@/lib/commands/command-envelope";
 import {
   executeVisualCommand,
   type VisualCommand,
-  type VisualCommandPayload,
 } from "@/lib/commands/visual-commands";
 import { createBlankVisual } from "@/lib/visual/blank";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
+import { makeVisualCommand } from "@/test/builders/commands";
 
-const ACTOR = { id: "user-1", sessionId: "session-1" };
 const VISUAL_ID = "vis-1";
-
-function commandId(suffix: string): string {
-  return `10000000-0000-4000-8000-${suffix.padStart(12, "0")}`;
-}
-
-function makeCommand(
-  payload: VisualCommandPayload,
-  overrides: Partial<VisualCommand> = {},
-): VisualCommand {
-  return {
-    id: commandId(String(payload.op.length)),
-    schemaVersion: CURRENT_COMMAND_SCHEMA_VERSION,
-    type: payload.op,
-    timestamp: "2026-06-23T00:00:00.000Z",
-    actor: ACTOR,
-    target: {
-      surface: "visual",
-      documentId: "doc-1",
-      visualId: VISUAL_ID,
-    },
-    payload,
-    source: "user",
-    ...overrides,
-  };
-}
+const makeCommand = makeVisualCommand;
 
 test("executeVisualCommand supports every visual command op with schema-valid output", () => {
   const flowchart = createBlankVisual("flowchart");

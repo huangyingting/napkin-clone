@@ -42,6 +42,7 @@ import {
   removeElements,
   ungroupElements,
 } from "./deck-mutations";
+import { makeMinimalDeck } from "@/test/builders/deck";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -91,19 +92,19 @@ const FREE_START: ConnectorPointFree = { x: 30, y: 20 };
 const FREE_END: ConnectorPointFree = { x: 70, y: 20 };
 
 /** Creates a minimal one-slide deck with the given elements. */
-function makeDeck(elements: SlideElement[]): Deck {
-  const slide: Slide = {
-    id: "sl-1",
-    index: 0,
-    title: "",
-    bullets: [],
-    visualIds: [],
-    layout: "blank",
-    notes: "",
-    elements,
-  };
-  return { themeId: "default", slides: [slide] };
-}
+const makeDeck = (elements: SlideElement[]): Deck =>
+  makeMinimalDeck([
+    {
+      id: "sl-1",
+      index: 0,
+      title: "",
+      bullets: [],
+      visualIds: [],
+      layout: "blank",
+      notes: "",
+      elements,
+    } satisfies Slide,
+  ]);
 
 // ---------------------------------------------------------------------------
 // detachConnectorEndpoint

@@ -8,7 +8,7 @@
  * unit-testable without React.
  */
 
-import type { ElementAlign } from "./deck";
+import type { ElementAlign } from "./deck-elements";
 
 /** Lower bound for a text element's font size (percent of slide height). */
 export const FONT_MIN = 2;

@@ -150,12 +150,26 @@ function createDeps(state: FakeState): GenerationRouteDeps {
     rateLimitSubject: (scope, identifier) => `${scope}:${identifier}`,
     userRateLimit: () => 10,
     userRateWindowMs: () => 60_000,
-    anonIpRateLimit: () => 10,
-    anonIpRateWindowMs: () => 60_000,
-    retryAfterSeconds: (resetAt, now) =>
-      Math.max(1, Math.ceil((resetAt - now) / 1000)),
-    getClientIp: (headers) => headers.get("x-forwarded-for"),
-    hashIdentifier: (identifier, secret) => `hash:${secret}:${identifier}`,
+    checkIpRateLimit: async ({ namespace, headers }) => {
+      const ip = headers.get("x-forwarded-for") ?? "unknown";
+      const hash = `hash:${SECRET}:${ip}`;
+      const key = `${namespace}:${hash}`;
+      state.subjects.push(key);
+      return {
+        allowed: state.rateAllowed,
+        result: {
+          allowed: state.rateAllowed,
+          remaining: state.rateAllowed ? 9 : 0,
+          limit: 10,
+          resetAt: state.rateResetAt,
+        },
+        retryAfterSeconds: state.rateAllowed
+          ? undefined
+          : Math.max(1, Math.ceil((state.rateResetAt - state.now) / 1000)),
+        subjectHash: hash,
+        key,
+      };
+    },
     anonTrialLimit: () => 5,
     parseAnonCookie,
     newAnonState,
@@ -234,6 +248,7 @@ async function responseJson(response: Response): Promise<unknown> {
   return response.json();
 }
 
+// @compat — ensures route error shape is compatible with existing generation-route consumers
 test("readJsonObject returns route-compatible invalid payload errors", async () => {
   const invalidJson = await readJsonObject(
     createRequest(new Error("bad json")),

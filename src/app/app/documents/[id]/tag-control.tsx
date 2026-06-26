@@ -2,7 +2,7 @@
 
 import { useId, useState, useTransition } from "react";
 
-import type { DocumentTag } from "@/lib/document-management/tags";
+import type { DocumentTag } from "@/lib/document/tags";
 
 import { addTag, removeTag } from "./tags-actions";
 

@@ -6,7 +6,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { Deck, Slide } from "@/lib/presentation/deck";
 import {
   resolveAnchorState,
   type SlideCommentAnchor,
@@ -17,6 +16,7 @@ import {
   applySlideDeleteToAnchors,
   findOrphanedAnchors,
 } from "@/lib/comments";
+import { makeMinimalDeck, makeSlideWithElementIds } from "@/test/builders/deck";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -26,37 +26,8 @@ function anchor(partial: Partial<SlideCommentAnchor>): SlideCommentAnchor {
   return partial;
 }
 
-function makeSlide(id: string, elementIds: string[] = []): Slide {
-  return {
-    id,
-    index: 0,
-    title: "",
-    bullets: [],
-    visualIds: [],
-    layout: "content",
-    notes: "",
-    elements: elementIds.map((eid) => ({
-      id: eid,
-      kind: "text" as const,
-      text: "",
-      zIndex: 0,
-      box: { x: 0, y: 0, w: 100, h: 10 },
-      style: {
-        fontSize: 4.5,
-        bold: false,
-        italic: false,
-        align: "left" as const,
-      },
-    })),
-  };
-}
-
-function makeDeck(slides: Slide[]): Deck {
-  return {
-    slides: slides.map((s, i) => ({ ...s, index: i })),
-    themeId: "default",
-  };
-}
+const makeSlide = makeSlideWithElementIds;
+const makeDeck = makeMinimalDeck;
 
 // ---------------------------------------------------------------------------
 // applySlideDeleteToAnchors

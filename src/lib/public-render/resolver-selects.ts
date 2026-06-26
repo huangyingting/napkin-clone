@@ -9,7 +9,7 @@ const PUBLIC_RENDER_ACCESS_SELECT = {
 
 export const PUBLIC_RENDER_METADATA_SELECT = {
   title: true,
-  content: true,
+  contentJson: true,
   slug: true,
   ...PUBLIC_RENDER_ACCESS_SELECT,
 } satisfies Prisma.DocumentSelect;

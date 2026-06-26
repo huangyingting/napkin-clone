@@ -11,9 +11,10 @@
  * adapters. Colors are CSS hex strings and font families are CSS stacks.
  */
 
-import type { Deck, TextElementStyle } from "./deck";
-import type { DeckTextRole, DeckThemeTokenSet } from "./deck-theme-tokens";
-import { resolveRoleToken } from "./deck-theme-tokens";
+import type { Deck } from "./deck-core";
+import type { TextElementStyle } from "./deck-elements";
+import type { DeckTextRole, DeckThemeTokenSet } from "./deck-theme-token-types";
+import { resolveRoleToken } from "./deck-theme-token-resolvers";
 import { slideFontCssStack } from "./slide-fonts";
 import { resolveDeckTokenSet } from "./style-cascade-layers";
 

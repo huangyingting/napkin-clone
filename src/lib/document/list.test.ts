@@ -5,14 +5,14 @@ import {
   DASHBOARD_DOCUMENT_CARD_SELECT,
   listDashboardDocumentsForUser,
   searchDocumentsForUser,
-} from "@/lib/document-management/list";
+} from "@/lib/document/list";
 
 test("dashboard card select stays skinny and excludes heavy document JSON", () => {
   const select = DASHBOARD_DOCUMENT_CARD_SELECT as Record<string, unknown>;
-  assert.equal(select.contentJson, undefined);
+  assert.equal(select.contentJson, true);
   assert.equal(select.deckJson, undefined);
   assert.equal(select.collabRecoverySnapshot, undefined);
-  assert.equal(select.content, true);
+  assert.equal(select.content, undefined);
   assert.deepEqual((select.visuals as { select: unknown }).select, {
     data: true,
   });
@@ -44,9 +44,9 @@ test("dashboard list uses two capped document queries plus tags only", async () 
   for (const call of documentCalls as Array<{
     select: Record<string, unknown>;
   }>) {
-    assert.equal(call.select.contentJson, undefined);
+    assert.equal(call.select.contentJson, true);
     assert.equal(call.select.deckJson, undefined);
-    assert.equal(call.select.content, true);
+    assert.equal(call.select.content, undefined);
   }
 });
 
@@ -66,7 +66,7 @@ test("dashboard search uses one skinny accessible document query", async () => {
   assert.deepEqual(result, { results: [], hasMore: false });
   assert.equal(calls.length, 1);
   const select = (calls[0] as { select: Record<string, unknown> }).select;
-  assert.equal(select.contentJson, undefined);
+  assert.equal(select.contentJson, true);
   assert.equal(select.deckJson, undefined);
-  assert.equal(select.content, true);
+  assert.equal(select.content, undefined);
 });

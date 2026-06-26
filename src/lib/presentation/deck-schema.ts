@@ -5,7 +5,7 @@
  * schema-area modules under `deck-validation/`.
  */
 
-import type { Deck } from "./deck";
+import type { Deck } from "./deck-core";
 import { validateDeck } from "./deck-validation/core";
 import { DeckValidationError } from "./deck-validation/shared";
 

@@ -29,7 +29,9 @@
  *    of {@link StaleReason} so callers can display them distinctly (#410).
  */
 
-import type { Deck, SourceRef, TextElement, VisualElement } from "./deck";
+import type { Deck } from "./deck-core";
+import type { TextElement, VisualElement } from "./deck-elements";
+import type { SourceRef } from "./deck-source-refs";
 import type { DocumentBlock, DocumentTextBlock } from "@/lib/content";
 import { hashDocumentBlock } from "./document-block-hash";
 

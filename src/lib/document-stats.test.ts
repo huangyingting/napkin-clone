@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { excerpt, readingTimeMinutes, wordCount } from "./document-stats";
+import {
+  deriveFromContentJson,
+  excerpt,
+  readingTimeMinutes,
+  wordCount,
+} from "./document-stats";
 
 test("wordCount returns 0 for empty or whitespace input", () => {
   assert.equal(wordCount(""), 0);
@@ -63,4 +68,28 @@ test("excerpt truncates on a word boundary with an ellipsis", () => {
 
 test("excerpt handles empty input", () => {
   assert.equal(excerpt(""), "");
+});
+
+test("deriveFromContentJson extracts plaintext, excerpt, and readingMinutes from Lexical state", () => {
+  const contentJson = {
+    root: {
+      children: [
+        {
+          type: "paragraph",
+          children: [{ type: "text", text: "Hello world." }],
+        },
+      ],
+    },
+  };
+  const result = deriveFromContentJson(contentJson);
+  assert.equal(result.plaintext, "Hello world.");
+  assert.equal(result.excerpt, "Hello world.");
+  assert.equal(result.readingMinutes, 1);
+});
+
+test("deriveFromContentJson returns empty values for null/invalid contentJson", () => {
+  const result = deriveFromContentJson(null);
+  assert.equal(result.plaintext, "");
+  assert.equal(result.excerpt, "");
+  assert.equal(result.readingMinutes, 0);
 });

@@ -1,5 +1,6 @@
-import type { Deck, Slide, SlideElement } from "./deck";
-import { makeSlideId } from "./deck";
+import type { Deck, Slide } from "./deck-core";
+import type { SlideElement } from "./deck-elements";
+import { makeSlideId } from "./deck-ids";
 
 /**
  * `Omit` that distributes over a discriminated union, preserving each member's

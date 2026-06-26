@@ -1,0 +1,124 @@
+/**
+ * Shared internal helpers for the persistence sub-modules.
+ *
+ * `snapshotDocumentVersion` is called from visual (via atomicSaveDocumentLexical),
+ * deck (persistDeck / patchDeck), and versioning (restoreVersion). Centralising
+ * it here avoids circular imports between those modules.
+ */
+
+import { Prisma } from "@/generated/prisma/client";
+import {
+  MAX_DOCUMENT_VERSIONS,
+  SNAPSHOT_MIN_INTERVAL_MS,
+  shouldSnapshot,
+  staleVersionIds,
+} from "@/lib/document-versions";
+import { prisma } from "@/lib/prisma";
+
+// ---------------------------------------------------------------------------
+// Private utilities
+// ---------------------------------------------------------------------------
+
+function stableJsonString(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${(value as unknown[]).map(stableJsonString).join(",")}]`;
+  }
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${stableJsonString(record[key])}`)
+    .join(",")}}`;
+}
+
+function jsonEqual(a: unknown, b: unknown): boolean {
+  return stableJsonString(a) === stableJsonString(b);
+}
+
+// ---------------------------------------------------------------------------
+// Shared snapshot helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Records a point-in-time snapshot of a document's current persisted editable
+ * state into `DocumentVersion`, then prunes to the most recent
+ * `MAX_DOCUMENT_VERSIONS` entries. Snapshots are throttled by
+ * `shouldSnapshot`; failures are swallowed so they never break the caller.
+ */
+export async function snapshotDocumentVersion(
+  documentId: string,
+  options: {
+    userId?: string | null;
+    force?: boolean;
+    label?: string | null;
+  } = {},
+): Promise<void> {
+  try {
+    const now = new Date();
+
+    const last = await prisma.documentVersion.findFirst({
+      where: { documentId },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true, contentJson: true, deckJson: true },
+    });
+
+    if (
+      !shouldSnapshot(
+        last?.createdAt ?? null,
+        now,
+        SNAPSHOT_MIN_INTERVAL_MS,
+        options.force ?? false,
+      )
+    ) {
+      return;
+    }
+
+    const doc = await prisma.document.findUnique({
+      where: { id: documentId },
+      select: { contentJson: true, deckJson: true },
+    });
+    if (!doc || doc.contentJson == null) return;
+
+    if (
+      !(options.force ?? false) &&
+      last &&
+      jsonEqual(doc.contentJson, last.contentJson) &&
+      jsonEqual(doc.deckJson, last.deckJson)
+    ) {
+      return;
+    }
+
+    await prisma.documentVersion.create({
+      data: {
+        documentId,
+        contentJson: (doc.contentJson ??
+          Prisma.JsonNull) as Prisma.InputJsonValue,
+        deckJson:
+          doc.deckJson == null
+            ? Prisma.DbNull
+            : (doc.deckJson as Prisma.InputJsonValue),
+        label: options.label ?? null,
+        createdById: options.userId ?? null,
+      },
+    });
+
+    const existing = await prisma.documentVersion.findMany({
+      where: { documentId },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: { id: true },
+    });
+    const stale = staleVersionIds(
+      existing.map((v) => v.id),
+      MAX_DOCUMENT_VERSIONS,
+    );
+    if (stale.length > 0) {
+      await prisma.documentVersion.deleteMany({
+        where: { id: { in: stale } },
+      });
+    }
+  } catch {
+    // A failed snapshot must never surface to the caller's save.
+  }
+}

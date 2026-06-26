@@ -2,50 +2,48 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { elementAccessibleName } from "./element-accessible-name";
+import {
+  buildBulletsElement,
+  buildConnectorElement,
+  buildImageElement,
+  buildShapeElement,
+  buildTextElement,
+  buildVisualElement,
+} from "@/test/builders";
 import type { SlideElement } from "./deck";
 
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
 
-const BASE = {
-  id: "e1",
-  box: { x: 10, y: 10, w: 40, h: 20 },
-  zIndex: 1,
-} as const;
+const BASE = { id: "e1", box: { x: 10, y: 10, w: 40, h: 20 }, zIndex: 1 };
 
-function textEl(text: string): SlideElement {
-  return {
-    ...BASE,
-    kind: "text",
-    text,
-    style: { fontSize: 5, bold: false, italic: false, align: "left" },
-  };
+function fixtureText(text: string): SlideElement {
+  return buildTextElement({ ...BASE, text, paragraphs: [{ text }] });
 }
 
 function bulletsEl(bullets: string[]): SlideElement {
-  return {
-    ...BASE,
-    kind: "text",
-    text: bullets.join("\n"),
-    paragraphs: bullets.map((text) => ({ text, listType: "bullet" as const })),
-    textRole: "bullet",
-    style: { fontSize: 4, bold: false, italic: false, align: "left" },
-  };
+  return buildBulletsElement({ ...BASE, bullets });
 }
 
 function imageEl(alt?: string): SlideElement {
-  return { ...BASE, kind: "image", src: "https://example.com/img.png", alt };
+  return buildImageElement({
+    ...BASE,
+    src: "https://example.com/img.png",
+    ...(alt !== undefined ? { alt } : {}),
+  });
 }
 
 function visualEl(alt?: string): SlideElement {
-  return { ...BASE, kind: "visual", visualId: "v1", alt };
+  return buildVisualElement({
+    ...BASE,
+    visualId: "v1",
+    ...(alt !== undefined ? { alt } : {}),
+  });
 }
 
-function shapeEl(
-  shape: "rect" | "ellipse" | "line" | "triangle",
-): SlideElement {
-  return { ...BASE, kind: "shape", shape, color: "#ff0000" };
+function fixtureShape(shape: "rect" | "ellipse" | "line" | "triangle") {
+  return buildShapeElement({ ...BASE, shape, color: "#ff0000" });
 }
 
 // ---------------------------------------------------------------------------
@@ -53,22 +51,25 @@ function shapeEl(
 // ---------------------------------------------------------------------------
 
 test("text element with content returns its text", () => {
-  assert.equal(elementAccessibleName(textEl("Hello world")), "Hello world");
+  assert.equal(
+    elementAccessibleName(fixtureText("Hello world")),
+    "Hello world",
+  );
 });
 
 test("text element truncates at 60 chars", () => {
   const long = "A".repeat(65);
-  const name = elementAccessibleName(textEl(long));
+  const name = elementAccessibleName(fixtureText(long));
   assert.equal(name.length, 61); // 60 + "…"
   assert.ok(name.endsWith("…"));
 });
 
 test("text element with empty string returns fallback", () => {
-  assert.equal(elementAccessibleName(textEl("")), "Text element");
+  assert.equal(elementAccessibleName(fixtureText("")), "Text element");
 });
 
 test("text element with whitespace-only returns fallback", () => {
-  assert.equal(elementAccessibleName(textEl("   ")), "Text element");
+  assert.equal(elementAccessibleName(fixtureText("   ")), "Text element");
 });
 
 // ---------------------------------------------------------------------------
@@ -132,50 +133,50 @@ test("visual element without alt returns 'Visual'", () => {
 // ---------------------------------------------------------------------------
 
 test("shape element returns 'Shape: rect'", () => {
-  assert.equal(elementAccessibleName(shapeEl("rect")), "Shape: rect");
+  assert.equal(elementAccessibleName(fixtureShape("rect")), "Shape: rect");
 });
 
 test("shape element returns 'Shape: ellipse'", () => {
-  assert.equal(elementAccessibleName(shapeEl("ellipse")), "Shape: ellipse");
+  assert.equal(
+    elementAccessibleName(fixtureShape("ellipse")),
+    "Shape: ellipse",
+  );
 });
 
 test("shape element returns 'Shape: line'", () => {
-  assert.equal(elementAccessibleName(shapeEl("line")), "Shape: line");
+  assert.equal(elementAccessibleName(fixtureShape("line")), "Shape: line");
 });
 
 // ---------------------------------------------------------------------------
 // Connector element
 // ---------------------------------------------------------------------------
 
-const SHAPE_ONE: SlideElement = {
+const SHAPE_ONE = buildShapeElement({
   id: "shape1",
   box: { x: 0, y: 0, w: 20, h: 20 },
   zIndex: 0,
-  kind: "shape",
   shape: "rect",
   color: "#ff0000",
-};
+});
 
-const SHAPE_TWO: SlideElement = {
+const SHAPE_TWO = buildShapeElement({
   id: "shape2",
   box: { x: 80, y: 80, w: 20, h: 20 },
   zIndex: 0,
-  kind: "shape",
   shape: "ellipse",
   color: "#0000ff",
-};
+});
 
-function connectorEl(startBound?: boolean, endBound?: boolean): SlideElement {
-  return {
+function connectorEl(startBound?: boolean, endBound?: boolean) {
+  return buildConnectorElement({
     ...BASE,
-    kind: "connector",
     start: startBound
       ? { elementId: "shape1", anchor: "center" as const }
       : { x: 10, y: 20 },
     end: endBound
       ? { elementId: "shape2", anchor: "center" as const }
       : { x: 50, y: 60 },
-  };
+  });
 }
 
 test("connector without allElements returns 'Connector'", () => {

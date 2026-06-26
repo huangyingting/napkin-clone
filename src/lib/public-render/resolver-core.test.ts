@@ -16,7 +16,6 @@ function document(
   return {
     id: "doc-1",
     title: "Shared Doc",
-    content: "Public content",
     contentJson: { root: { children: [] } },
     deckJson: null,
     slug: "shared-doc",

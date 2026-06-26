@@ -3,14 +3,13 @@ import { nanoid } from "nanoid";
 import { Prisma } from "@/generated/prisma/client";
 import { requireWorkspaceCapability } from "@/lib/auth/workspace-capabilities";
 import { markdownToLexicalState } from "@/lib/content";
-import { buildDocumentListArgs } from "@/lib/document-management/query";
+import { buildDocumentListArgs } from "@/lib/document/query";
 import { DOCUMENT_LIST_LIMIT, capList } from "@/lib/documents";
 import {
   DOCUMENT_CONTENT_MAX_LENGTH,
   DOCUMENT_TITLE_MAX_LENGTH,
 } from "@/lib/limits";
 import { prisma } from "@/lib/prisma";
-import { BLANK_TEMPLATE_ID, getTemplateOrBlank } from "@/lib/templates/catalog";
 import {
   asWorkspaceRole,
   isInvitableWorkspaceRole,
@@ -303,15 +302,14 @@ export async function listWorkspaceDocumentsForUser(
 export async function createWorkspaceDocumentForUser(
   userId: string,
   workspaceId: string,
-  templateId: string,
+  _templateId: string,
 ): Promise<{ id: string }> {
   await requireWorkspaceCapability(userId, workspaceId, "mutate");
 
-  const template = getTemplateOrBlank(templateId);
-  const content = template.id === BLANK_TEMPLATE_ID ? "" : template.content;
-
+  // Document.content (the plaintext mirror) is deprecated — stop writing it.
+  // Physical column drop is a follow-up migration.
   return prisma.document.create({
-    data: { ownerId: userId, workspaceId, content },
+    data: { ownerId: userId, workspaceId },
     select: { id: true },
   });
 }
@@ -331,12 +329,13 @@ export async function importWorkspaceDocumentForUser(
     markdownToLexicalState(safeContent),
   ) as Prisma.InputJsonValue;
 
+  // Document.content (the plaintext mirror) is deprecated — stop writing it.
+  // Physical column drop is a follow-up migration.
   return prisma.document.create({
     data: {
       ownerId: userId,
       workspaceId,
       title,
-      content: safeContent,
       contentJson,
     },
     select: { id: true },

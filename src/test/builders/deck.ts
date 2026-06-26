@@ -393,3 +393,80 @@ export function buildDeckWithElements(elements: SlideElement[]): Deck {
     ],
   });
 }
+
+// ---------------------------------------------------------------------------
+// Lightweight factories — for tests that need a minimal Slide or Deck shape
+// without the full element defaults from buildSlide/buildDeck.
+// ---------------------------------------------------------------------------
+
+/** Minimal slide with text elements identified only by their IDs. */
+export function makeSlideWithElementIds(
+  id: string,
+  elementIds: string[] = [],
+): Slide {
+  return {
+    id,
+    index: 0,
+    title: "",
+    bullets: [],
+    visualIds: [],
+    layout: "content" as const,
+    notes: "",
+    elements: elementIds.map((eid) => ({
+      id: eid,
+      kind: "text" as const,
+      role: "body" as const,
+      text: "",
+      zIndex: 0,
+      box: { x: 0, y: 0, w: 100, h: 10 },
+      style: {
+        fontSize: 4.5,
+        bold: false,
+        italic: false,
+        align: "left" as const,
+      },
+    })),
+  };
+}
+
+/** Minimal slide with explicit id/index/title and no elements. */
+export function makeMinimalSlide(
+  id: string,
+  index: number,
+  title: string,
+): Slide {
+  return {
+    id,
+    index,
+    title,
+    bullets: [],
+    visualIds: [],
+    layout: "content" as const,
+    notes: "",
+  };
+}
+
+/** Minimal deck wrapping an array of slides (themeId "default"). */
+export function makeMinimalDeck(slides: Slide[]): Deck {
+  return { themeId: "default", slides };
+}
+
+/**
+ * Minimal deck built from an array of slide IDs.
+ * Each slide gets a sequential index and a generic title.
+ */
+export function makeDeckFromIds(slideIds: string[]): Deck {
+  return {
+    themeId: "default",
+    slides: slideIds.map((id, index) => ({
+      id,
+      index,
+      title: `Slide ${index + 1}`,
+      bullets: [],
+      visualIds: [],
+      layout: "blank" as const,
+      notes: "",
+      themeId: "default",
+    })),
+  };
+}

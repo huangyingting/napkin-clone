@@ -1,8 +1,8 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { documentCapabilities } from "@/lib/auth/document-permissions";
-import { excerpt, readingTimeMinutes } from "@/lib/document-stats";
+import { deriveFromContentJson } from "@/lib/document-stats";
 import { capList, DOCUMENT_LIST_LIMIT } from "@/lib/documents";
-import { buildDocumentListArgs } from "@/lib/document-management/query";
+import { buildDocumentListArgs } from "@/lib/document/query";
 import { prisma } from "@/lib/prisma";
 import { normalizeSearchQuery, SEARCH_RESULT_LIMIT } from "@/lib/search";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";
@@ -66,7 +66,7 @@ export const DASHBOARD_DOCUMENT_CARD_SELECT = {
   id: true,
   title: true,
   favorite: true,
-  content: true,
+  contentJson: true,
   createdAt: true,
   updatedAt: true,
   ownerId: true,
@@ -105,7 +105,7 @@ function toDashboardDocument(
     id: string;
     title: string;
     favorite: boolean;
-    content: string;
+    contentJson: unknown;
     createdAt: Date;
     updatedAt: Date;
     ownerId: string;
@@ -121,7 +121,9 @@ function toDashboardDocument(
   userId: string,
 ): DashboardDocument {
   const { canEdit, canManage } = documentCapabilities(document, userId);
-  const content = document.content ?? "";
+  const { excerpt: docExcerpt, readingMinutes } = deriveFromContentJson(
+    document.contentJson,
+  );
   return {
     id: document.id,
     title: document.title,
@@ -129,8 +131,8 @@ function toDashboardDocument(
     editedLabel: dateFormatter.format(document.updatedAt),
     workspaceName: document.workspace?.name ?? null,
     thumbnail: thumbnailFromVisuals(document),
-    excerpt: excerpt(content),
-    readingMinutes: readingTimeMinutes(content),
+    excerpt: docExcerpt,
+    readingMinutes,
     createdAtMs: document.createdAt.getTime(),
     updatedAtMs: document.updatedAt.getTime(),
     canEdit,

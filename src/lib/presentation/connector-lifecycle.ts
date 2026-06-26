@@ -28,7 +28,7 @@ import type {
   ConnectorPoint,
   ConnectorPointFree,
   SlideElement,
-} from "./deck";
+} from "./deck-elements";
 import { anchorPoint } from "./connector-geometry";
 
 // ---------------------------------------------------------------------------

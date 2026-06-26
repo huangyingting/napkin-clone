@@ -12,9 +12,9 @@ import {
   computeCreditCost,
   hasSufficientCredits,
   deductCredits,
-  getUserCreditState,
   InsufficientCreditsError,
 } from "@/lib/billing/credits";
+import { loadAndSyncBillingState } from "@/lib/billing/service";
 
 import { prisma } from "@/lib/prisma";
 
@@ -185,16 +185,16 @@ describe("deductCredits (atomic conditional decrement)", () => {
   });
 });
 
-describe("getUserCreditState (entitlements-derived balance)", () => {
+describe("loadAndSyncBillingState (entitlements-derived balance)", () => {
   it("returns the live balance within an active period", async () => {
     const { client } = makeFakeClient({
       creditBalance: 320,
       plan: "free",
       creditPeriodStart: new Date(),
     });
-    const state = await getUserCreditState("user-1", client);
-    assert.strictEqual(state.balance, 320);
-    assert.strictEqual(state.plan, "free");
+    const state = await loadAndSyncBillingState("user-1", client);
+    assert.strictEqual(state.creditBalance, 320);
+    assert.strictEqual(state.rawPlan, "free");
   });
 
   it("resets the balance to creditsPerPeriod on first access", async () => {
@@ -203,9 +203,9 @@ describe("getUserCreditState (entitlements-derived balance)", () => {
       plan: "free",
       creditPeriodStart: null,
     });
-    const state = await getUserCreditState("user-1", client);
+    const state = await loadAndSyncBillingState("user-1", client);
     // free plan = 500 credits/week.
-    assert.strictEqual(state.balance, 500);
+    assert.strictEqual(state.creditBalance, 500);
     assert.strictEqual(row.creditBalance, 500);
   });
 
@@ -216,8 +216,8 @@ describe("getUserCreditState (entitlements-derived balance)", () => {
       plan: "free",
       creditPeriodStart: eightDaysAgo,
     });
-    const state = await getUserCreditState("user-1", client);
-    assert.strictEqual(state.balance, 500);
+    const state = await loadAndSyncBillingState("user-1", client);
+    assert.strictEqual(state.creditBalance, 500);
     assert.strictEqual(row.creditBalance, 500);
   });
 });

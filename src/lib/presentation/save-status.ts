@@ -12,7 +12,7 @@
  * unit-tested with no DOM, React or browser dependencies.
  */
 
-import type { Deck } from "./deck";
+import type { Deck } from "./deck-core";
 
 /** The four save states surfaced to the user, mirroring the document editor. */
 export type SaveStatus = "saved" | "pending" | "saving" | "error";

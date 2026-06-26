@@ -7,7 +7,7 @@ import type {
   AvailableTag,
   DashboardDocument,
   SearchResult,
-} from "@/lib/document-management/list";
+} from "@/lib/document/list";
 import type { DocumentListActionPort } from "@/lib/action-ports";
 
 import { deleteDocument, restoreDocument, searchDocuments } from "./actions";
@@ -43,7 +43,7 @@ const documentListActions: Pick<
 
 /**
  * Renders the dashboard document list. Server data stays capped by the
- * document-management list service; this component owns only client view state,
+ * document list service; this component owns only client view state,
  * debounced search, and optimistic trash/undo UX.
  */
 export function DocumentList({

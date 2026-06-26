@@ -118,6 +118,9 @@
     0 10px 30px -12px rgb(0 0 0 / 0.25), 0 2px 8px -2px rgb(0 0 0 / 0.12);
   --ds-shadow-popover:
     0 16px 48px -16px rgb(0 0 0 / 0.3), 0 4px 12px -4px rgb(0 0 0 / 0.15);
+  /* Laser-pointer glow rings used in present-mode */
+  --ds-shadow-laser-indicator: 0 0 0 4px rgba(248, 113, 113, 0.25);
+  --ds-shadow-laser-cursor: 0 0 0 6px rgba(239, 68, 68, 0.25);
 
   /* Spacing scale (consumed via arbitrary values, kept out of @theme so it
      doesn't override Tailwind's default spacing multiplier) */

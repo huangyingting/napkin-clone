@@ -10,12 +10,8 @@
 
 import type PptxGenJS from "pptxgenjs";
 
-import type {
-  Deck,
-  ImageCrop,
-  ShapeKind,
-  TextRun,
-} from "@/lib/presentation/deck";
+import type { Deck } from "../deck-core";
+import type { ImageCrop, ShapeKind, TextRun } from "../deck-elements";
 import type { Visual } from "@/lib/visual/schema";
 import { toHex } from "@/lib/visual/pptx-shapes";
 import {
@@ -30,7 +26,7 @@ import {
   type DeckSlideSpec,
   type DeckTextOp,
   type DeckVisualFallbackOp,
-} from "@/lib/visual/deck-export-spec";
+} from "@/lib/presentation/export/deck-export-spec";
 
 // ---------------------------------------------------------------------------
 // Internal types

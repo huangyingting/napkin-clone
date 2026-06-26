@@ -5,7 +5,7 @@ import {
   InsufficientCreditsError,
 } from "@/lib/billing/credits";
 import { isUnlimitedCreditsEnabled } from "@/lib/billing/config";
-import { getBillingState } from "@/lib/billing/service";
+import { loadAndSyncBillingState } from "@/lib/billing/service";
 import {
   captureUsage,
   refundUsage,
@@ -64,7 +64,7 @@ export async function reserveMeteredUsage(
   }
 
   const creditCost = computeCreditCost(creditText);
-  const billingState = await getBillingState(userId);
+  const billingState = await loadAndSyncBillingState(userId);
   if (!hasSufficientCredits(billingState.creditBalance, creditCost)) {
     const message =
       `Insufficient credits: you need ${creditCost} but have ${billingState.creditBalance}. ` +

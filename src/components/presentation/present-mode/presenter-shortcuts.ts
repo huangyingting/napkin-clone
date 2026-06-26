@@ -2,7 +2,7 @@ import {
   PRESENTATION_NAVIGATION_SHORTCUT_IDS,
   presentationShortcutRows,
   type PresentationShortcutIdMap,
-} from "@/components/presentation/runtime/navigation";
+} from "@/components/presentation/runtime/navigation-constants";
 
 export const PRESENT_MODE_SHORTCUT_IDS = {
   ...PRESENTATION_NAVIGATION_SHORTCUT_IDS,

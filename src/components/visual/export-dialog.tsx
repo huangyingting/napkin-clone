@@ -2,18 +2,12 @@
 
 import { AnimatePresence } from "framer-motion";
 import { Download } from "lucide-react";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ChangeEvent,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import {
   Button,
+  ColorPicker,
   FieldRow,
   SegmentedControl,
   cx,
@@ -268,8 +262,7 @@ export function ExportDialog({
   );
 
   const setCustomBackground = useCallback(
-    (e: ChangeEvent<HTMLInputElement>) =>
-      setOptions((o) => ({ ...o, customBackground: e.target.value })),
+    (hex: string) => setOptions((o) => ({ ...o, customBackground: hex })),
     [],
   );
 
@@ -409,7 +402,7 @@ export function ExportDialog({
             {/* Body */}
             <div className="flex min-h-0 flex-1 flex-col gap-0 overflow-y-auto overscroll-contain sm:flex-row sm:overflow-hidden">
               {/* Preview panel */}
-              <div className="flex min-h-[180px] flex-1 items-center justify-center bg-[var(--ds-surface-sunken,#f4f8fb)] p-4 sm:min-h-[280px]">
+              <div className="flex min-h-[180px] flex-1 items-center justify-center bg-ds-surface-sunken p-4 sm:min-h-[280px]">
                 <ExportPreviewThumbnail
                   dataUrl={previewUrl}
                   background={options.background}
@@ -418,7 +411,7 @@ export function ExportDialog({
               </div>
 
               {/* Controls panel */}
-              <div className="flex w-full flex-col gap-4 border-t border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] p-5 sm:w-[260px] sm:border-l sm:border-t-0">
+              <div className="flex w-full flex-col gap-4 border-t border-ds-border-subtle p-5 sm:w-[260px] sm:border-l sm:border-t-0">
                 {supportsCanvasOptions && (
                   <ControlField label="Social preset">
                     <div className="grid grid-cols-2 gap-1.5">
@@ -431,11 +424,11 @@ export function ExportDialog({
                             aria-pressed={isActive}
                             onClick={() => selectSocialPreset(preset.id)}
                             className={cx(
-                              "flex flex-col items-start rounded-[var(--ds-radius-sm,8px)] border px-2.5 py-2 text-left transition-colors",
+                              "flex flex-col items-start rounded-ds-sm border px-2.5 py-2 text-left transition-colors",
                               FOCUS_RING,
                               isActive
-                                ? "border-[var(--ds-accent,#6366f1)] bg-[var(--ds-state-selected,#eef2ff)] text-[var(--ds-accent,#6366f1)]"
-                                : "border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-raised,#ffffff)] text-[var(--ds-text-primary,#15171a)] hover:border-[var(--ds-border-strong,#dde1e5)]",
+                                ? "border-ds-accent bg-ds-state-selected text-ds-accent"
+                                : "border-ds-border-subtle bg-ds-surface-raised text-ds-text-primary hover:border-ds-border-strong",
                             )}
                           >
                             <span className="text-[11px] font-semibold leading-tight">
@@ -449,7 +442,7 @@ export function ExportDialog({
                       })}
                     </div>
                     {options.socialPreset && (
-                      <p className="mt-1 text-xs text-[var(--ds-text-muted,#6f7d83)]">
+                      <p className="mt-1 text-xs text-ds-text-muted">
                         Click again to clear preset.
                       </p>
                     )}
@@ -471,7 +464,7 @@ export function ExportDialog({
                     size="sm"
                   />
                   {format === "svg" && !canSvg && (
-                    <p className="mt-1 text-xs text-[var(--ds-danger,#dc2626)]">
+                    <p className="mt-1 text-xs text-ds-danger">
                       SVG export requires Plus or Pro.{" "}
                       <a href="/app/settings/billing" className="underline">
                         Upgrade
@@ -479,7 +472,7 @@ export function ExportDialog({
                     </p>
                   )}
                   {format === "pptx" && !canPptx && (
-                    <p className="mt-1 text-xs text-[var(--ds-danger,#dc2626)]">
+                    <p className="mt-1 text-xs text-ds-danger">
                       PPTX export requires Plus or Pro.{" "}
                       <a href="/app/settings/billing" className="underline">
                         Upgrade
@@ -487,7 +480,7 @@ export function ExportDialog({
                     </p>
                   )}
                   {!canRemoveWatermark && (
-                    <p className="mt-1 text-xs text-[var(--ds-text-muted,#6f7d83)]">
+                    <p className="mt-1 text-xs text-ds-text-muted">
                       Free plan: exports include a watermark.{" "}
                       <a href="/app/settings/billing" className="underline">
                         Upgrade
@@ -509,17 +502,12 @@ export function ExportDialog({
                     />
                     {options.background === "custom" && (
                       <div className="mt-2 flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={options.customBackground ?? "#ffffff"}
+                        <ColorPicker
+                          color={options.customBackground ?? "#ffffff"}
                           onChange={setCustomBackground}
                           aria-label="Custom background color"
-                          className={cx(
-                            "h-7 w-7 cursor-pointer rounded-[var(--ds-radius-sm,8px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))]",
-                            FOCUS_RING,
-                          )}
                         />
-                        <span className="font-mono text-xs text-[var(--ds-text-muted,#6f7d83)]">
+                        <span className="font-mono text-xs text-ds-text-muted">
                           {options.customBackground ?? "#ffffff"}
                         </span>
                       </div>
@@ -550,7 +538,7 @@ export function ExportDialog({
                       aria-label="Export resolution"
                       size="sm"
                     />
-                    <p className="mt-1 text-xs text-[var(--ds-text-muted,#6f7d83)]">
+                    <p className="mt-1 text-xs text-ds-text-muted">
                       <ExportDimensions
                         getSvgElement={getSvgElement}
                         options={options}
@@ -569,11 +557,11 @@ export function ExportDialog({
                         onChange={toggleBranding}
                         aria-label="Include TextIQ branding"
                         className={cx(
-                          "h-4 w-4 cursor-pointer rounded border border-[var(--ds-border-strong,#dde1e5)]",
+                          "h-4 w-4 cursor-pointer rounded border border-ds-border-strong",
                           FOCUS_RING,
                         )}
                       />
-                      <span className="text-xs text-[var(--ds-text-secondary,#54666d)]">
+                      <span className="text-xs text-ds-text-secondary">
                         Include TextIQ branding
                       </span>
                     </label>
@@ -581,7 +569,7 @@ export function ExportDialog({
                 )}
 
                 {/* Format hint */}
-                <p className="text-xs text-[var(--ds-text-muted,#6f7d83)]">
+                <p className="text-xs text-ds-text-muted">
                   {formatLabel(format)} — {formatDescription(format)}
                   {format === "pptx"
                     ? ". Native PPTX exports are editable shapes; social, background, color, and resolution controls apply only to raster formats."
@@ -591,12 +579,9 @@ export function ExportDialog({
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between border-t border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] px-5 py-3">
+            <div className="flex items-center justify-between border-t border-ds-border-subtle px-5 py-3">
               {error ? (
-                <p
-                  role="alert"
-                  className="text-xs text-[var(--ds-danger,#dc2626)]"
-                >
+                <p role="alert" className="text-xs text-ds-danger">
                   {error}
                 </p>
               ) : (

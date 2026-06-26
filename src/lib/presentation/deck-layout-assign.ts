@@ -10,19 +10,21 @@
 
 import {
   DECK_THEMES,
-  buildSlideElementsFromContent,
-  makeElementId,
   type Deck,
   type DeckTheme,
-  type ElementBox,
   type Slide,
-  type SlideElement,
-  type SlideLayoutHint,
-  type TextElement,
-  type TextElementStyle,
-  type VisualElement,
-} from "./deck";
-import { CURRENT_DECK_SCHEMA_VERSION } from "./deck";
+} from "./deck-core";
+import { buildSlideElementsFromContent } from "./deck-derivation";
+import type {
+  ElementBox,
+  SlideElement,
+  TextElement,
+  TextElementStyle,
+  VisualElement,
+} from "./deck-elements";
+import { makeElementId } from "./deck-ids";
+import type { SlideLayoutHint } from "./deck-layouts-model";
+import { CURRENT_DECK_SCHEMA_VERSION } from "./deck-core";
 
 /**
  * Brand-aligned theme used when the deck carries no valid theme. Mirrors the

@@ -1,4 +1,4 @@
-import type { Deck, Slide } from "./deck";
+import type { Deck, Slide } from "./deck-core";
 import {
   addSlide,
   duplicateSlide,
@@ -7,7 +7,7 @@ import {
   removeSlide,
   reorderSlides,
   updateSlide,
-} from "./deck-mutations";
+} from "./deck-mutation-slides";
 import type {
   AddSlideCommand,
   DuplicateSlideCommand,

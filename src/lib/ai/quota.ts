@@ -28,16 +28,6 @@ export function anonTrialLimit(): number {
   return readPositiveIntEnv("ANON_GENERATION_LIMIT", 5);
 }
 
-/** Max authenticated generations allowed per user per window. */
-export function userRateLimit(): number {
-  return readPositiveIntEnv("USER_GENERATION_RATE_LIMIT", 30);
-}
-
-/** Length of the authenticated rate-limit window, in milliseconds. */
-export function userRateWindowMs(): number {
-  return readPositiveIntEnv("USER_GENERATION_RATE_WINDOW_MS", 60_000);
-}
-
 export interface AnonState {
   id: string;
   count: number;

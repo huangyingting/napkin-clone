@@ -22,16 +22,16 @@
 import type { DocumentBlock, DocumentTextBlock } from "@/lib/content";
 
 import {
-  makeElementId,
   buildVisualElement,
   type BaseElement,
   type ElementBox,
-  type SourceRef,
   type TextElement,
   type TextRun,
-} from "./deck";
+} from "./deck-elements";
+import { makeElementId } from "./deck-ids";
+import type { SourceRef } from "./deck-source-refs";
 import { hashDocumentBlock } from "./document-block-hash";
-import type { DeckTextRole } from "./deck-theme-tokens";
+import type { DeckTextRole } from "./deck-theme-token-types";
 import { headingFontSize, SLIDE_TEXT_FONT_SIZE } from "./text-defaults";
 
 /** A single click-to-insert entry derived from the source document. */

@@ -22,16 +22,7 @@ import {
 import { logError } from "@/lib/log";
 import { ABUSE_CATEGORIES, logRouteDenial } from "@/lib/diagnostics/api-abuse";
 import { processImportUpload } from "@/lib/import/upload-service";
-import { checkRateLimitWithStore } from "@/lib/ai/quota";
-import {
-  getClientIp,
-  hashIdentifier,
-  importRateLimit,
-  importRateWindowMs,
-  prismaRateLimitStore,
-  rateLimitSubject,
-  retryAfterSeconds,
-} from "@/lib/rate-limit";
+import { checkIpRateLimit } from "@/lib/abuse-budget";
 import { auth as authEnv } from "@/lib/env";
 import {
   bucketBytes,
@@ -62,26 +53,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return serverError("Server is misconfigured (missing AUTH_SECRET).");
   }
 
-  const clientIp = getClientIp(request.headers) ?? "unknown";
-  const clientHash = hashIdentifier(clientIp, secret);
-  const rateKey = rateLimitSubject("import.ip", clientHash);
-  const now = Date.now();
-  const limit = await checkRateLimitWithStore(prismaRateLimitStore, rateKey, {
-    limit: importRateLimit(),
-    windowMs: importRateWindowMs(),
-    now,
+  const ipCheck = await checkIpRateLimit({
+    namespace: "import.ip",
+    headers: request.headers,
+    secret,
   });
-  if (!limit.allowed) {
-    const retryAfter = retryAfterSeconds(limit.resetAt, now);
+  if (!ipCheck.allowed) {
     logRouteDenial({
       route: LOG_SCOPE,
       reason: ABUSE_CATEGORIES.RATE_LIMIT_HIT,
       status: 429,
-      subjectHash: clientHash,
-      retryAfterSeconds: retryAfter,
+      subjectHash: ipCheck.subjectHash,
+      retryAfterSeconds: ipCheck.retryAfterSeconds,
     });
     return tooManyRequests(
-      retryAfter,
+      ipCheck.retryAfterSeconds,
       "Too many imports. Please wait a moment and try again.",
     );
   }
@@ -100,7 +86,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     fileType,
     surface: "api",
   });
-  const result = await processImportUpload(file, { subjectHash: clientHash });
+  const result = await processImportUpload(file, {
+    subjectHash: ipCheck.subjectHash,
+  });
   if (!result.ok) {
     emitProductTelemetry("product.import.failed", {
       durationBucket: bucketDurationMs(Date.now() - startedAt),

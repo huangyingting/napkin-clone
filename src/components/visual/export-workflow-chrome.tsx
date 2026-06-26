@@ -42,8 +42,8 @@ export function VisualExportDialogShell({
           className="relative flex max-h-[calc(var(--tiq-viewport-height)-var(--ds-space-6))] w-full max-w-2xl flex-col overflow-hidden"
           onClick={(event) => event.stopPropagation()}
         >
-          <div className="flex items-center justify-between border-b border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] px-5 py-4">
-            <h2 className="text-sm font-semibold text-[var(--ds-text-primary,#15171a)]">
+          <div className="flex items-center justify-between border-b border-ds-border-subtle px-5 py-4">
+            <h2 className="text-sm font-semibold text-ds-text-primary">
               {title}
             </h2>
             <IconButton
@@ -77,7 +77,7 @@ export function ExportPreviewThumbnail({
 
   return (
     <div
-      className="relative flex max-h-[220px] max-w-[320px] items-center justify-center overflow-hidden rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))]"
+      className="relative flex max-h-[220px] max-w-[320px] items-center justify-center overflow-hidden rounded-ds-md border border-ds-border-subtle"
       style={
         isTransparent
           ? {
@@ -103,7 +103,7 @@ export function ExportPreviewThumbnail({
         <div className="flex h-32 w-48 items-center justify-center">
           <span
             aria-hidden="true"
-            className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--ds-border-strong,#dde1e5)] border-t-[var(--ds-text-muted,#6f7d83)]"
+            className="h-5 w-5 animate-spin rounded-full border-2 border-ds-border-strong border-t-ds-text-muted"
           />
         </div>
       )}

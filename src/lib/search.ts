@@ -2,7 +2,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import {
   buildDocumentListWhere,
   buildDocumentTextSearchOr,
-} from "@/lib/document-management/query";
+} from "@/lib/document/query";
 
 /**
  * Maximum length of a user-supplied search query accepted by the server.

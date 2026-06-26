@@ -7,15 +7,23 @@ import process from "node:process";
 const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs"]);
 const TEST_SIZE_LIMIT = 1_500;
 const OVERSIZED_TEST_ALLOWLIST = new Set([
-  "src/lib/presentation/deck-schema.test.ts",
+  // deck-schema.test.ts was split into focused per-concern files (#1147)
 ]);
 const FIXTURE_FACTORY_FILES = new Set([
-  "src/lib/presentation/slide-commands.test.ts",
-  "src/lib/presentation/slide-commands-advanced.test.ts",
+  // slide-commands.test.ts and slide-commands-advanced.test.ts were split into
+  // focused per-concern files (#1145); the new split files are tracked below.
   "src/lib/presentation/slide-commands-commit.test.ts",
-  "src/lib/visual/deck-export.test.ts",
-  "src/lib/presentation/rendering-regression.test.ts",
+  "src/lib/presentation/slide-commands.background.test.ts",
+  "src/lib/presentation/slide-commands.deck.test.ts",
+  "src/lib/presentation/slide-commands.element.test.ts",
+  "src/lib/presentation/slide-commands.infra.test.ts",
+  "src/lib/presentation/slide-commands.layout.test.ts",
+  "src/lib/presentation/slide-commands.slide.test.ts",
+  // deck-export.test.ts and rendering-regression.test.ts moved to export/ (#1145)
+  "src/lib/presentation/export/deck-export.test.ts",
+  "src/lib/presentation/export/rendering-regression.test.ts",
   "src/lib/presentation/deck-merge.test.ts",
+  "src/lib/presentation/element-accessible-name.test.ts",
   "e2e/screenshot-regression.spec.ts",
   "e2e/helpers/screenshot-fixtures.ts",
 ]);
@@ -34,7 +42,9 @@ const LEGACY_E2E_ALLOWLIST = new Map([
     new Set(["test-skip", "wait-for-timeout", "broad-catch"]),
   ],
   ["e2e/screenshot-regression.spec.ts", new Set(["test-skip", "broad-catch"])],
-  ["e2e/slide-asset-upload.spec.ts", new Set(["wait-for-timeout"])],
+  // slide-asset-upload.spec.ts: wait-for-timeout removed (#1150) — no
+  // waitForTimeout calls remain in the file; test.skip calls match the
+  // auto-approved "Set E2E_" pattern and need no allowlist entry.
 ]);
 
 const RULES = [

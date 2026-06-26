@@ -3,7 +3,7 @@ import {
   type ElementBox,
   type SlideElement,
   type TextRun,
-} from "./deck";
+} from "./deck-elements";
 import type { TextHitGeometry } from "./stage-hit-test";
 import { runsToHtml } from "./rich-text-html";
 import { resolveElementFontCss } from "./slide-fonts";

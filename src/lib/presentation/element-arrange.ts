@@ -11,7 +11,7 @@
  * `selectedIds`.  The input array and its elements are never mutated.
  */
 
-import type { SlideElement } from "./deck";
+import type { SlideElement } from "./deck-elements";
 
 /** The four arrange modes. */
 export type ArrangeMode = "front" | "back" | "forward" | "backward";

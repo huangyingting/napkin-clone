@@ -1,5 +1,6 @@
-import type { Deck, ElementBox, SlideElement } from "./deck";
-import { makeElementId } from "./deck";
+import type { Deck } from "./deck-core";
+import type { ElementBox, SlideElement } from "./deck-elements";
+import { makeElementId } from "./deck-ids";
 import {
   remapConnectorBindings,
   updateConnectorBindingsOnDelete,

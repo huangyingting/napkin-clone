@@ -12,19 +12,16 @@ import type { LucideIcon } from "lucide-react";
 
 import { formatShortcut } from "@/lib/shortcuts/catalog";
 import type { VisualKind } from "@/lib/visual/schema";
+import { KIND_DISPLAY_METADATA } from "@/lib/visual/registry-display";
 
-import {
-  TOOL_METADATA,
-  VISUAL_KIND_META_DATA,
-  type ToolMetadata,
-} from "./tool-metadata";
+import { TOOL_METADATA, type ToolMetadata } from "./tool-metadata";
 import {
   createVisualInsertRunner,
   TOOL_APPLIERS,
   TOOL_RUNNERS,
 } from "./tool-mutations";
 import { TOOL_ACTIVE, TOOL_VALUES, TOOL_VISIBILITY } from "./tool-predicates";
-import { resolveToolIcon } from "./tool-icons";
+import { resolveToolIcon, type ToolIconName } from "./tool-icons";
 import type { EditorContextSnapshot } from "./selection-snapshot";
 import type { EditorTool, EditorToolGroup } from "./tool-types";
 
@@ -39,14 +36,16 @@ export type VisualKindMeta = {
 };
 
 export const VISUAL_KIND_META = Object.fromEntries(
-  Object.entries(VISUAL_KIND_META_DATA).map(([kind, meta]) => [
+  Object.entries(KIND_DISPLAY_METADATA).map(([kind, meta]) => [
     kind,
     {
-      ...meta,
-      icon: resolveToolIcon(meta.icon),
+      label: meta.label,
+      icon: resolveToolIcon(meta.icon as ToolIconName),
+      description: meta.description,
+      keywords: meta.keywords,
     },
   ]),
-) as Record<VisualKind, VisualKindMeta>;
+) as unknown as Record<VisualKind, VisualKindMeta>;
 
 const registry = new Map<string, EditorTool>();
 const order: string[] = [];

@@ -22,7 +22,7 @@
  * live hash client-side) and under `node --test`.
  */
 
-import type { Deck, Slide } from "./deck";
+import type { Deck, Slide } from "./deck-core";
 import { fnv1aHash32 } from "./fnv-hash";
 
 /**

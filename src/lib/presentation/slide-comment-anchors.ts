@@ -18,7 +18,7 @@
  * `anchorGeometry` stores a simple `{x, y}` point.
  */
 
-import type { Deck } from "./deck";
+import type { Deck } from "./deck-core";
 
 // ---------------------------------------------------------------------------
 // Types

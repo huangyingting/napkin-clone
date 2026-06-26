@@ -9,9 +9,9 @@ import {
   validateCommandEnvelope,
   type CommandEnvelope,
 } from "@/lib/commands/command-envelope";
-import type { Deck } from "@/lib/presentation/deck";
 import type { SlideCommand } from "@/lib/presentation/slide-commands";
 import { executeCommand } from "@/lib/presentation/slide-commands";
+import { makeDeckFromIds } from "@/test/builders/deck";
 
 const ACTOR = { id: "user-1", sessionId: "session-1" };
 const BASE_TIMESTAMP = "2026-06-23T00:00:00.000Z";
@@ -20,21 +20,7 @@ function commandId(suffix: string): string {
   return `00000000-0000-4000-8000-${suffix.padStart(12, "0")}`;
 }
 
-function makeDeck(slideIds: string[]): Deck {
-  return {
-    themeId: "default",
-    slides: slideIds.map((id, index) => ({
-      id,
-      index,
-      title: `Slide ${index + 1}`,
-      bullets: [],
-      visualIds: [],
-      layout: "blank",
-      notes: "",
-      themeId: "default",
-    })),
-  };
-}
+const makeDeck = makeDeckFromIds;
 
 test("validateCommandEnvelope accepts a valid visual envelope", () => {
   const envelope: CommandEnvelope = {
@@ -182,6 +168,7 @@ test("command envelopes remain JSON-serializable", () => {
   assert.deepEqual(JSON.parse(JSON.stringify(envelope)), envelope);
 });
 
+// @compat — ensures deck command envelopes remain compatible with existing persisted slide metadata
 test("deck envelopes stay compatible with existing slide metadata", () => {
   const payload: SlideCommand = {
     type: "UPDATE_SLIDE_TITLE",

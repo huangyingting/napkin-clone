@@ -1,4 +1,4 @@
-import type { ElementBox } from "./deck";
+import type { ElementBox } from "./deck-elements";
 
 /**
  * Converts a client-space point to stage-relative percentages (0–100).

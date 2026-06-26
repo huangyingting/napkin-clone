@@ -1,4 +1,4 @@
-import type { AvailableTag } from "@/lib/document-management/list";
+import type { AvailableTag } from "@/lib/document/list";
 
 import {
   SORT_OPTIONS,

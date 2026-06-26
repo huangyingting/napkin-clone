@@ -4,8 +4,7 @@
  *
  *  1. the highest-priority heading text element (`textRole` h1, then h2, h3);
  *  2. otherwise the first non-empty `text` element;
- *  3. otherwise a title placeholder label;
- *  4. otherwise the positional fallback `"Slide N"` (1-based).
+ *  3. otherwise the positional fallback `"Slide N"` (1-based).
  *
  * No React, no DOM — fully testable under `node --test`.
  */
