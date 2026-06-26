@@ -1601,10 +1601,6 @@ export function SlideEditor({
                       {showSlideToolbar ? (
                         <SlideToolbar
                           slide={selectedSlide}
-                          slideLabel={deriveSlideTitle(
-                            selectedSlide,
-                            safeSelected,
-                          )}
                           layouts={toolbarLayouts}
                           selectedLayoutId={activeSlideToolbarLayoutId}
                           canDelete={deck.slides.length > 1}

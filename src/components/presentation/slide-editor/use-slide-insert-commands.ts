@@ -37,6 +37,7 @@ import { useImageUpload } from "@/lib/presentation/use-image-upload";
 import type { Visual } from "@/lib/visual/schema";
 import type { DocumentTextBlock } from "@/lib/content";
 import type { ElementBox } from "@/lib/presentation/deck";
+import type { DeckTextRole } from "@/lib/presentation/deck-theme-tokens";
 import { emitProductTelemetry } from "@/lib/telemetry/product";
 import type { SlideAssetActionPort } from "@/lib/action-ports";
 
@@ -44,6 +45,98 @@ type DoCommitAndChange = (
   deck: Deck,
   cmd: Parameters<typeof commitCommand>[1],
 ) => void;
+
+function textRoleLabel(role: DeckTextRole): string {
+  switch (role) {
+    case "h1":
+      return "Heading 1";
+    case "h2":
+      return "Heading 2";
+    case "h3":
+      return "Heading 3";
+    case "subtitle":
+      return "Subtitle";
+    case "body":
+      return "Body text";
+    case "bullet":
+      return "Bullet list";
+    case "caption":
+      return "Caption";
+    case "footer":
+      return "Footer";
+    case "shapeLabel":
+      return "Shape label";
+  }
+}
+
+function textRoleFontSize(role: DeckTextRole): number {
+  switch (role) {
+    case "h1":
+      return SLIDE_TEXT_FONT_SIZE.h1;
+    case "h2":
+      return SLIDE_TEXT_FONT_SIZE.h2;
+    case "h3":
+      return SLIDE_TEXT_FONT_SIZE.h3;
+    case "bullet":
+      return SLIDE_TEXT_FONT_SIZE.list;
+    case "subtitle":
+    case "caption":
+    case "footer":
+    case "shapeLabel":
+    case "body":
+      return SLIDE_TEXT_FONT_SIZE.text;
+  }
+}
+
+function defaultTextBox(role: DeckTextRole): ElementBox {
+  switch (role) {
+    case "h1":
+      return { x: 10, y: 18, w: 80, h: 14 };
+    case "h2":
+      return { x: 14, y: 26, w: 72, h: 10 };
+    case "h3":
+      return { x: 16, y: 30, w: 68, h: 9 };
+    case "subtitle":
+      return { x: 14, y: 34, w: 72, h: 9 };
+    case "bullet":
+      return { x: 14, y: 28, w: 72, h: 48 };
+    case "caption":
+      return { x: 18, y: 78, w: 64, h: 8 };
+    case "footer":
+      return { x: 8, y: 90, w: 84, h: 5 };
+    case "shapeLabel":
+      return { x: 30, y: 44, w: 40, h: 10 };
+    case "body":
+      return { x: 20, y: 40, w: 60, h: 16 };
+  }
+}
+
+function buildDefaultTextElement(
+  role: DeckTextRole,
+  id: string,
+): DistributiveOmit<SlideElement, "id" | "zIndex"> & { id: string } {
+  const label = textRoleLabel(role);
+  const isBullet = role === "bullet";
+  return {
+    id,
+    kind: "text",
+    text: isBullet ? "First point\nSecond point" : label,
+    paragraphs: isBullet
+      ? [
+          { text: "First point", listType: "bullet" },
+          { text: "Second point", listType: "bullet" },
+        ]
+      : [{ text: label }],
+    textRole: role,
+    box: defaultTextBox(role),
+    style: {
+      fontSize: textRoleFontSize(role),
+      bold: role === "h1" || role === "h2" || role === "h3",
+      italic: role === "caption",
+      align: role === "h1" || role === "subtitle" ? "center" : "left",
+    },
+  };
+}
 
 /** Builds a freshly-positioned element for the "Add" buttons. */
 function buildDefaultElement(
@@ -53,38 +146,6 @@ function buildDefaultElement(
   shapeKind: ShapeKind = "rect",
 ): DistributiveOmit<SlideElement, "id" | "zIndex"> & { id: string } {
   switch (kind) {
-    case "text":
-      return {
-        id,
-        kind: "text",
-        text: "New text",
-        paragraphs: [{ text: "New text" }],
-        box: { x: 20, y: 40, w: 60, h: 16 },
-        style: {
-          fontSize: SLIDE_TEXT_FONT_SIZE.text,
-          bold: false,
-          italic: false,
-          align: "left",
-        },
-      };
-    case "bullets":
-      return {
-        id,
-        kind: "text",
-        text: "First point\nSecond point",
-        paragraphs: [
-          { text: "First point", listType: "bullet" },
-          { text: "Second point", listType: "bullet" },
-        ],
-        textRole: "bullet",
-        box: { x: 14, y: 28, w: 72, h: 48 },
-        style: {
-          fontSize: SLIDE_TEXT_FONT_SIZE.list,
-          bold: false,
-          italic: false,
-          align: "left",
-        },
-      };
     case "image":
       return {
         id,
@@ -104,6 +165,8 @@ function buildDefaultElement(
             ? { x: 20, y: 50, w: 60, h: 2 }
             : { x: 30, y: 34, w: 40, h: 32 },
       };
+    default:
+      return buildDefaultTextElement(kind, id);
   }
 }
 
@@ -349,7 +412,7 @@ export function useSlideInsertCommands({
       const id = makeElementId();
       const element: TextLikeElement = {
         ...(buildDefaultElement(
-          "text",
+          "body",
           accentForSelected,
           id,
         ) as TextLikeElement),

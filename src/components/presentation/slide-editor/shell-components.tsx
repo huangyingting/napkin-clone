@@ -14,12 +14,18 @@ import {
   AlignEndVertical,
   AlignHorizontalDistributeCenter,
   BringToFront,
+  Captions,
+  Check,
   ChevronLeft,
   Copy,
   Crop,
   FileText,
   Grid3x3,
   Group,
+  Heading,
+  Heading1,
+  Heading2,
+  Heading3,
   Image as ImageIcon,
   LayoutPanelLeft,
   List,
@@ -27,6 +33,7 @@ import {
   Minus,
   MoreHorizontal,
   Palette,
+  PanelBottom,
   Paintbrush,
   Plus,
   Replace,
@@ -34,6 +41,8 @@ import {
   Sparkles,
   Columns3,
   Square,
+  Tag,
+  Text as TextIcon,
   Type,
   Trash2,
   Ungroup,
@@ -47,13 +56,18 @@ import {
 import { FOCUS_RING } from "@/components/ui/tokens";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Popover } from "@/components/ui/popover";
-import { Tooltip } from "@/components/ui";
+import { SelectMenu, Tooltip } from "@/components/ui";
 import { VisualPicker } from "@/components/presentation/visual-picker";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { ElementToolbarContent } from "@/components/presentation/slide-stage/element-overlays";
 import { useFocusTrap } from "@/lib/presentation/use-focus-trap";
 import type { Visual } from "@/lib/visual/schema";
+import {
+  DECK_TEXT_ROLES,
+  type DeckTextRole,
+} from "@/lib/presentation/deck-theme-tokens";
 import type {
+  ShapeKind,
   Slide,
   SlideElement,
   SlideLayout as ReusableSlideLayout,
@@ -237,6 +251,7 @@ function SlideFloatingToolbar({
       : createPortal(
           <div
             ref={toolbarRef}
+            data-slide-floating-toolbar="true"
             data-floating-panel="true"
             role="toolbar"
             aria-label={ariaLabel}
@@ -332,9 +347,9 @@ export function SlideRail({
   );
 }
 
-type BackgroundGradient = { from: string; to: string; angle?: number };
+type ColorGradient = { from: string; to: string; angle?: number };
 
-const SOLID_BACKGROUND_OPTIONS: {
+const SOLID_COLOR_OPTIONS: {
   id: string;
   label: string;
   color: string;
@@ -369,10 +384,10 @@ const SOLID_BACKGROUND_OPTIONS: {
   { id: "orange", label: "Orange", color: "#e5782e" },
 ];
 
-const GRADIENT_BACKGROUND_OPTIONS: {
+const GRADIENT_COLOR_OPTIONS: {
   id: string;
   label: string;
-  gradient: BackgroundGradient;
+  gradient: ColorGradient;
 }[] = [
   {
     id: "black-gloss",
@@ -481,7 +496,7 @@ const GRADIENT_BACKGROUND_OPTIONS: {
   },
 ];
 
-function gradientCss(gradient: BackgroundGradient): string {
+function gradientCss(gradient: ColorGradient): string {
   return `linear-gradient(${gradient.angle ?? 135}deg, ${gradient.from}, ${gradient.to})`;
 }
 
@@ -493,7 +508,132 @@ function swatchColor(value: string, fallback: string): string {
   return isCompleteHexColor(value) ? value : fallback;
 }
 
-export function BackgroundThemePanel({
+function SlideLayoutPreview({
+  layout,
+  selected,
+}: {
+  layout: ReusableSlideLayout | undefined;
+  selected?: boolean;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      className="relative block h-16 w-28 shrink-0 overflow-hidden rounded-ds-sm border border-ds-border-subtle bg-ds-surface-base"
+    >
+      {layout?.placeholders.length ? (
+        layout.placeholders.map((placeholder) => {
+          const isTitle = placeholder.placeholderType === "title";
+          const isFooter = placeholder.placeholderType === "footer";
+          const isVisual = placeholder.placeholderType === "visual";
+          return (
+            <span
+              key={placeholder.id}
+              className={`absolute rounded-[2px] ${
+                isTitle
+                  ? "bg-ds-text-muted/60"
+                  : isFooter
+                    ? "bg-ds-border-subtle"
+                    : isVisual
+                      ? "bg-ds-accent-surface ring-1 ring-ds-accent-border"
+                      : "bg-ds-surface-raised ring-1 ring-ds-border-subtle"
+              }`}
+              style={{
+                left: `${placeholder.box.x}%`,
+                top: `${placeholder.box.y}%`,
+                width: `${placeholder.box.w}%`,
+                height: `${placeholder.box.h}%`,
+              }}
+            />
+          );
+        })
+      ) : (
+        <span className="absolute inset-2 rounded-[2px] border border-dashed border-ds-border-subtle" />
+      )}
+      {selected ? (
+        <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-ds-accent text-ds-text-on-accent shadow-sm">
+          <Check size={11} aria-hidden="true" />
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+function layoutDisplayName(layout: ReusableSlideLayout | undefined): string {
+  if (layout?.title) return layout.title;
+  const name = layout?.name;
+  if (!name) return "Layout";
+  return name
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+const TEXT_ROLE_LABELS: Record<DeckTextRole, string> = {
+  h1: "Heading 1",
+  h2: "Heading 2",
+  h3: "Heading 3",
+  subtitle: "Subtitle",
+  body: "Body text",
+  bullet: "Bullet list",
+  caption: "Caption",
+  footer: "Footer",
+  shapeLabel: "Shape label",
+};
+
+const SHAPE_INSERT_OPTIONS: ReadonlyArray<{ kind: ShapeKind; label: string }> =
+  [
+    { kind: "rect", label: "Rectangle" },
+    { kind: "ellipse", label: "Ellipse" },
+    { kind: "line", label: "Line" },
+    { kind: "triangle", label: "Triangle" },
+  ];
+
+function textRoleIcon(role: DeckTextRole): ReactNode {
+  switch (role) {
+    case "h1":
+      return <Heading1 size={16} aria-hidden="true" />;
+    case "h2":
+      return <Heading2 size={16} aria-hidden="true" />;
+    case "h3":
+      return <Heading3 size={16} aria-hidden="true" />;
+    case "subtitle":
+      return <Heading size={16} aria-hidden="true" />;
+    case "body":
+      return <TextIcon size={16} aria-hidden="true" />;
+    case "bullet":
+      return <List size={16} aria-hidden="true" />;
+    case "caption":
+      return <Captions size={16} aria-hidden="true" />;
+    case "footer":
+      return <PanelBottom size={16} aria-hidden="true" />;
+    case "shapeLabel":
+      return <Tag size={16} aria-hidden="true" />;
+  }
+}
+
+function shapeIcon(shape: ShapeKind): ReactNode {
+  switch (shape) {
+    case "rect":
+      return <Square size={16} aria-hidden="true" />;
+    case "ellipse":
+      return (
+        <span
+          aria-hidden="true"
+          className="h-4 w-4 rounded-full border-2 border-current"
+        />
+      );
+    case "line":
+      return <Minus size={16} aria-hidden="true" />;
+    case "triangle":
+      return (
+        <span
+          aria-hidden="true"
+          className="h-0 w-0 border-x-[8px] border-b-[15px] border-x-transparent border-b-current"
+        />
+      );
+  }
+}
+
+export function ColorThemePanel({
   activeSolidId,
   activeGradientId,
   onPickSolid,
@@ -502,7 +642,7 @@ export function BackgroundThemePanel({
   activeSolidId?: string;
   activeGradientId?: string;
   onPickSolid: (color: string) => void;
-  onPickGradient: (gradient: BackgroundGradient) => void;
+  onPickGradient: (gradient: ColorGradient) => void;
 }) {
   const [view, setView] = useState<"presets" | "customize">("presets");
   const [customMode, setCustomMode] = useState<"solid" | "gradient">("solid");
@@ -715,7 +855,7 @@ export function BackgroundThemePanel({
           </button>
         </div>
         <div className="grid grid-cols-7 gap-x-2 gap-y-3">
-          {SOLID_BACKGROUND_OPTIONS.map((option) => {
+          {SOLID_COLOR_OPTIONS.map((option) => {
             const active = activeSolidId === option.id;
             return (
               <button
@@ -765,7 +905,7 @@ export function BackgroundThemePanel({
           </button>
         </div>
         <div className="grid grid-cols-7 gap-x-2 gap-y-3">
-          {GRADIENT_BACKGROUND_OPTIONS.map((option) => {
+          {GRADIENT_COLOR_OPTIONS.map((option) => {
             const active = activeGradientId === option.id;
             return (
               <button
@@ -1609,7 +1749,6 @@ export function SlideSelectionToolbar({
 
 export function SlideToolbar({
   slide,
-  slideLabel,
   layouts,
   selectedLayoutId,
   canDelete,
@@ -1625,16 +1764,13 @@ export function SlideToolbar({
   onOpenPanel,
 }: {
   slide: Slide;
-  slideLabel: string;
   layouts: readonly ReusableSlideLayout[];
   selectedLayoutId: string;
   canDelete: boolean;
   onSelectLayout: (layout: ReusableSlideLayout) => void;
   onBackgroundChange: (color: string | undefined) => void;
-  onBackgroundGradientChange: (
-    gradient: BackgroundGradient | undefined,
-  ) => void;
-  onAddElement: (kind: AddElementKind) => void;
+  onBackgroundGradientChange: (gradient: ColorGradient | undefined) => void;
+  onAddElement: (kind: AddElementKind, shapeKind?: ShapeKind) => void;
   visuals: ReadonlyMap<string, Visual>;
   imageError?: string | null;
   onPickVisual: (visualId: string) => void;
@@ -1644,29 +1780,31 @@ export function SlideToolbar({
 }) {
   const [addOpen, setAddOpen] = useState(false);
   const [addVisualOpen, setAddVisualOpen] = useState(false);
+  const [addTab, setAddTab] = useState<"text" | "media" | "shape">("text");
+  const [layoutOpen, setLayoutOpen] = useState(false);
+  const [backgroundOpen, setBackgroundOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const selectedLayout =
     layouts.find((layout) => layout.id === selectedLayoutId) ?? layouts[0];
-  const quickBackgrounds = SOLID_BACKGROUND_OPTIONS.slice(0, 8);
-  const quickGradients = GRADIENT_BACKGROUND_OPTIONS.slice(0, 4);
+  const activeSolidId =
+    slide.backgroundImage === undefined &&
+    slide.backgroundGradient === undefined
+      ? SOLID_COLOR_OPTIONS.find((option) => option.color === slide.background)
+          ?.id
+      : undefined;
+  const activeGradientId =
+    slide.backgroundImage === undefined && slide.background === undefined
+      ? GRADIENT_COLOR_OPTIONS.find(
+          (option) =>
+            option.gradient.from === slide.backgroundGradient?.from &&
+            option.gradient.to === slide.backgroundGradient?.to,
+        )?.id
+      : undefined;
   const iconButtonClass = `flex h-7 w-7 shrink-0 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`;
   const closeAddMenu = () => {
     setAddOpen(false);
     setAddVisualOpen(false);
   };
-  const addMenuItem = (label: string, icon: ReactNode, onClick: () => void) => (
-    <button
-      type="button"
-      onClick={() => {
-        onClick();
-        closeAddMenu();
-      }}
-      className={`flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-    >
-      {icon}
-      {label}
-    </button>
-  );
   const moreMenuItem = (
     label: string,
     icon: ReactNode,
@@ -1684,6 +1822,94 @@ export function SlideToolbar({
       {label}
     </button>
   );
+  const addTile = (item: {
+    key: string;
+    label: string;
+    icon: ReactNode;
+    onClick: () => void;
+    keepOpen?: boolean;
+  }) => (
+    <Tooltip key={item.key} label={item.label} side="top">
+      <button
+        type="button"
+        aria-label={item.label}
+        onClick={() => {
+          item.onClick();
+          if (!item.keepOpen) closeAddMenu();
+        }}
+        className={`flex aspect-square w-full items-center justify-center rounded-ds-sm border border-ds-border-subtle bg-ds-surface text-ds-text-secondary transition-colors hover:border-ds-accent-border hover:bg-ds-accent-surface hover:text-ds-accent ${FOCUS_RING}`}
+      >
+        <span className="flex h-5 w-5 items-center justify-center">
+          {item.icon}
+        </span>
+      </button>
+    </Tooltip>
+  );
+  const textItems = DECK_TEXT_ROLES.map((role) => ({
+    key: role,
+    label: TEXT_ROLE_LABELS[role],
+    icon: textRoleIcon(role),
+    onClick: () => onAddElement(role),
+  }));
+  const mediaItems = [
+    {
+      key: "image",
+      label: "Image",
+      icon: <ImageIcon size={16} aria-hidden="true" />,
+      onClick: () => onAddElement("image"),
+    },
+    {
+      key: "visual",
+      label: "Visual",
+      icon: <Sparkles size={16} aria-hidden="true" />,
+      onClick: () => setAddVisualOpen(true),
+      keepOpen: true,
+    },
+  ];
+  const shapeItems = SHAPE_INSERT_OPTIONS.map((option) => ({
+    key: option.kind,
+    label: option.label,
+    icon: shapeIcon(option.kind),
+    onClick: () => onAddElement("shape", option.kind),
+  }));
+  const addTabs = [
+    { id: "text" as const, label: "Text", items: textItems },
+    { id: "media" as const, label: "Media", items: mediaItems },
+    { id: "shape" as const, label: "Shapes", items: shapeItems },
+  ];
+  const activeAddItems =
+    addTabs.find((tab) => tab.id === addTab)?.items ?? textItems;
+  const addTriggerButton = (
+    <button
+      type="button"
+      aria-label="Add element"
+      aria-haspopup="dialog"
+      aria-expanded={addOpen || addVisualOpen}
+      onClick={() => {
+        setBackgroundOpen(false);
+        setAddVisualOpen(false);
+        setAddOpen((open) => !open);
+      }}
+      className={iconButtonClass}
+    >
+      <Plus size={14} aria-hidden="true" />
+    </button>
+  );
+  const backgroundTriggerButton = (
+    <button
+      type="button"
+      aria-label="Slide background"
+      aria-haspopup="dialog"
+      aria-expanded={backgroundOpen}
+      onClick={() => {
+        closeAddMenu();
+        setBackgroundOpen((open) => !open);
+      }}
+      className={iconButtonClass}
+    >
+      <Palette size={14} aria-hidden="true" />
+    </button>
+  );
 
   return (
     <SlideFloatingToolbar ariaLabel="Slide tools">
@@ -1692,30 +1918,24 @@ export function SlideToolbar({
         onClose={closeAddMenu}
         aria-label="Add element"
         placement="bottom"
+        align="center"
+        anchor="toolbar"
         portal
         layer="tooltip"
-        className="w-[280px] p-3"
+        className="w-[320px] p-0 text-xs"
         trigger={
-          <Tooltip label="Add element" side="bottom">
-            <button
-              type="button"
-              aria-label="Add element"
-              aria-haspopup="dialog"
-              aria-expanded={addOpen || addVisualOpen}
-              onClick={() => {
-                setAddVisualOpen(false);
-                setAddOpen((open) => !open);
-              }}
-              className={iconButtonClass}
-            >
-              <Plus size={14} aria-hidden="true" />
-            </button>
-          </Tooltip>
+          addOpen || addVisualOpen ? (
+            addTriggerButton
+          ) : (
+            <Tooltip label="Add element" side="bottom">
+              {addTriggerButton}
+            </Tooltip>
+          )
         }
       >
         {addVisualOpen ? (
           <VisualPicker
-            className="w-full"
+            className="w-full p-3"
             visuals={visuals}
             onPick={(visualId) => {
               onPickVisual(visualId);
@@ -1724,34 +1944,43 @@ export function SlideToolbar({
             onClose={() => setAddVisualOpen(false)}
           />
         ) : (
-          <div className="grid grid-cols-2 gap-1.5">
-            {addMenuItem("Text", <Type size={14} aria-hidden="true" />, () =>
-              onAddElement("text"),
-            )}
-            {addMenuItem("List", <List size={14} aria-hidden="true" />, () =>
-              onAddElement("bullets"),
-            )}
-            {addMenuItem(
-              "Image",
-              <ImageIcon size={14} aria-hidden="true" />,
-              () => onAddElement("image"),
-            )}
-            {addMenuItem("Shape", <Square size={14} aria-hidden="true" />, () =>
-              onAddElement("shape"),
-            )}
-            <button
-              type="button"
-              onClick={() => setAddVisualOpen(true)}
-              className={`col-span-2 flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+          <div className="flex flex-col">
+            <div
+              role="tablist"
+              aria-label="Element category"
+              className="flex gap-1 border-b border-ds-border-subtle px-2 py-1.5"
             >
-              <Sparkles size={14} aria-hidden="true" />
-              Visual
-            </button>
+              {addTabs.map((tab) => {
+                const selected = tab.id === addTab;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => setAddTab(tab.id)}
+                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-ds-sm px-2 py-1.5 text-xs font-semibold transition-colors ${
+                      selected
+                        ? "bg-ds-accent-surface text-ds-accent"
+                        : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+                    } ${FOCUS_RING}`}
+                  >
+                    {tab.label}
+                    <span className="rounded-full bg-ds-surface-raised px-1.5 text-[10px] text-ds-text-muted">
+                      {tab.items.length}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div
+              role="tabpanel"
+              className="grid max-h-[min(28rem,calc(100vh-9rem))] grid-cols-5 gap-1.5 overflow-y-auto p-2"
+            >
+              {activeAddItems.map(addTile)}
+            </div>
             {imageError ? (
-              <p
-                role="alert"
-                className="col-span-2 text-xs text-ds-danger-text"
-              >
+              <p role="alert" className="px-3 pb-3 text-xs text-ds-danger-text">
                 {imageError}
               </p>
             ) : null}
@@ -1761,92 +1990,85 @@ export function SlideToolbar({
 
       <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
 
-      <div className="flex min-w-0 items-center gap-2 px-2">
-        <FileText size={14} className="text-ds-text-muted" aria-hidden="true" />
-        <span className="max-w-36 truncate text-xs font-semibold text-ds-text-primary">
-          Slide · {slideLabel}
-        </span>
-      </div>
-
-      <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
-
-      <label className="flex h-7 items-center gap-1 rounded-ds-sm px-1 text-xs text-ds-text-secondary">
-        <Columns3 size={14} aria-hidden="true" />
-        <select
+      <div className="flex h-7 items-center text-xs text-ds-text-secondary">
+        <SelectMenu
           value={selectedLayout?.id ?? ""}
           aria-label="Slide layout"
-          onChange={(event) => {
-            const layout = layouts.find(
-              (item) => item.id === event.target.value,
-            );
+          tooltipLabel={
+            layoutOpen
+              ? undefined
+              : `Layout: ${layoutDisplayName(selectedLayout)}`
+          }
+          triggerIcon={<Columns3 size={14} aria-hidden="true" />}
+          showSelectedLabel={false}
+          showChevron={false}
+          showCheck={false}
+          align="center"
+          anchor="toolbar"
+          onOpenChange={(open) => {
+            setLayoutOpen(open);
+            if (open) {
+              closeAddMenu();
+              setBackgroundOpen(false);
+            }
+          }}
+          options={layouts.map((layout) => ({
+            value: layout.id,
+            label: "",
+            icon: (
+              <span className="flex flex-col items-center gap-1.5">
+                <span className="text-xs font-medium leading-tight text-ds-text-primary">
+                  {layoutDisplayName(layout)}
+                </span>
+                <SlideLayoutPreview
+                  layout={layout}
+                  selected={layout.id === selectedLayout?.id}
+                />
+              </span>
+            ),
+          }))}
+          onChange={(value) => {
+            const layout = layouts.find((item) => item.id === value);
             if (layout) onSelectLayout(layout);
           }}
-          className={`max-w-28 bg-transparent text-xs font-medium text-ds-text-secondary outline-none ${FOCUS_RING}`}
-        >
-          {layouts.map((layout) => (
-            <option key={layout.id} value={layout.id}>
-              {layout.title ?? layout.name}
-            </option>
-          ))}
-        </select>
-      </label>
+          buttonClassName="w-7 px-0 justify-center"
+          menuClassName="w-fit min-w-0 text-xs"
+        />
+      </div>
 
-      <span
-        className="flex items-center gap-0.5"
-        aria-label="Background presets"
+      <Popover
+        open={backgroundOpen}
+        onClose={() => setBackgroundOpen(false)}
+        aria-label="Slide background"
+        placement="bottom"
+        align="center"
+        anchor="toolbar"
+        portal
+        layer="tooltip"
+        className="w-[300px] p-3 text-xs"
+        trigger={
+          backgroundOpen ? (
+            backgroundTriggerButton
+          ) : (
+            <Tooltip label="Background" side="bottom">
+              {backgroundTriggerButton}
+            </Tooltip>
+          )
+        }
       >
-        {quickBackgrounds.map((option) => {
-          const active =
-            slide.background === option.color &&
-            slide.backgroundGradient === undefined &&
-            slide.backgroundImage === undefined;
-          return (
-            <Tooltip key={option.id} label={option.label} side="bottom">
-              <button
-                type="button"
-                aria-label={`Set background ${option.label}`}
-                aria-pressed={active}
-                onClick={() => {
-                  onBackgroundGradientChange(undefined);
-                  onBackgroundChange(option.color);
-                }}
-                className={`h-5 w-5 rounded-full border transition-transform hover:scale-110 ${
-                  active
-                    ? "border-ds-accent shadow-ds-focus"
-                    : "border-ds-border-subtle"
-                } ${FOCUS_RING}`}
-                style={{ backgroundColor: option.color }}
-              />
-            </Tooltip>
-          );
-        })}
-        {quickGradients.map((option) => {
-          const active =
-            slide.background === undefined &&
-            slide.backgroundImage === undefined &&
-            slide.backgroundGradient?.from === option.gradient.from &&
-            slide.backgroundGradient?.to === option.gradient.to;
-          return (
-            <Tooltip key={option.id} label={option.label} side="bottom">
-              <button
-                type="button"
-                aria-label={`Set background ${option.label}`}
-                aria-pressed={active}
-                onClick={() => {
-                  onBackgroundChange(undefined);
-                  onBackgroundGradientChange(option.gradient);
-                }}
-                className={`h-5 w-5 rounded-full border transition-transform hover:scale-110 ${
-                  active
-                    ? "border-ds-accent shadow-ds-focus"
-                    : "border-ds-border-subtle"
-                } ${FOCUS_RING}`}
-                style={{ background: gradientCss(option.gradient) }}
-              />
-            </Tooltip>
-          );
-        })}
-      </span>
+        <ColorThemePanel
+          activeSolidId={activeSolidId}
+          activeGradientId={activeGradientId}
+          onPickSolid={(color) => {
+            onBackgroundGradientChange(undefined);
+            onBackgroundChange(color);
+          }}
+          onPickGradient={(gradient) => {
+            onBackgroundChange(undefined);
+            onBackgroundGradientChange(gradient);
+          }}
+        />
+      </Popover>
 
       <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
 

@@ -18,9 +18,10 @@ import type {
   RightPanelTab,
 } from "@/lib/presentation/slide-panel-ui";
 import type { StaleReason } from "@/lib/presentation/source-link-staleness";
+import type { DeckTextRole } from "@/lib/presentation/deck-theme-tokens";
 import type { Visual } from "@/lib/visual/schema";
 
-export type AddElementKind = "text" | "bullets" | "image" | "shape";
+export type AddElementKind = DeckTextRole | "image" | "shape";
 
 export interface SlideInspectorProps {
   slide: Slide;

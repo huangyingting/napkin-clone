@@ -18,6 +18,7 @@
 import { createServer } from "node:http";
 import { parse } from "node:url";
 
+import "dotenv/config";
 import next from "next";
 
 import { resolveInlineCollabConfig } from "./scripts/collab-config.mjs";
@@ -56,7 +57,7 @@ if (
   process.exit(1);
 }
 
-const app = next({ dev, hostname, port, turbopack: dev });
+const app = next({ dev, hostname, port, turbopack: false });
 const handle = app.getRequestHandler();
 
 await app.prepare();

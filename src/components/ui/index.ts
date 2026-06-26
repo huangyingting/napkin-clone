@@ -53,6 +53,9 @@ export { FloatingSurface } from "./floating-surface";
 export { SegmentedControl } from "./segmented-control";
 export type { SegmentedOption } from "./segmented-control";
 
+export { SelectMenu } from "./select-menu";
+export type { SelectMenuOption } from "./select-menu";
+
 export { Surface } from "./surface";
 
 export { Swatch } from "./swatch";

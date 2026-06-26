@@ -41,8 +41,10 @@ export type PopoverProps = {
    * the bottom of the viewport, e.g. the slide bottom dock).
    */
   placement?: "bottom" | "top";
-  /** Horizontal alignment relative to the trigger. Defaults to end-aligned. */
-  align?: "start" | "end";
+  /** Horizontal alignment relative to the anchor. Defaults to end-aligned. */
+  align?: "start" | "center" | "end";
+  /** Element used for panel placement. Defaults to the trigger wrapper. */
+  anchor?: "trigger" | "toolbar";
   /** Render the panel in `document.body` so overflow ancestors cannot clip it. */
   portal?: boolean;
   /** Semantic z-index layer for the floating panel. */
@@ -81,6 +83,7 @@ export function Popover({
   className,
   placement = "bottom",
   align = "end",
+  anchor = "trigger",
   portal = false,
   layer = "dropdown",
   role = "dialog",
@@ -103,12 +106,20 @@ export function Popover({
   const reposition = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
-    const rect = el.getBoundingClientRect();
+    const anchorEl =
+      anchor === "toolbar"
+        ? ((el.closest(
+            '[data-slide-floating-toolbar="true"]',
+          ) as HTMLElement | null) ?? el)
+        : el;
+    const rect = anchorEl.getBoundingClientRect();
     const panelWidth = panelRef.current?.offsetWidth ?? 0;
     const preferredLeft =
       align === "start" || panelWidth === 0
         ? rect.left
-        : rect.right - panelWidth;
+        : align === "center"
+          ? rect.left + rect.width / 2 - panelWidth / 2
+          : rect.right - panelWidth;
     const maxLeft = Math.max(
       VIEWPORT_INSET,
       window.innerWidth - (panelWidth || rect.width) - VIEWPORT_INSET,
@@ -122,7 +133,7 @@ export function Popover({
     } else {
       setCoords({ top: rect.bottom + PANEL_GAP, left });
     }
-  }, [align, placement]);
+  }, [align, anchor, placement]);
 
   // Measure the trigger on open and keep the panel pinned while the user
   // scrolls or resizes.
