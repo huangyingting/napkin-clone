@@ -203,19 +203,6 @@ export function resolveTextElementStyle(
 }
 
 /**
- * Resolves the final style for a `bullets` element, defaulting to the
- * `"bullet"` role when none is named.
- */
-export function resolveBulletsElementStyle(
-  deck: Deck,
-  element: TextBearingElementLike,
-): ResolvedTextStyle {
-  const tokenSet = resolveDeckTokenSet(deck);
-  const role: DeckTextRole = element.textRole ?? ELEMENT_DEFAULT_ROLE.bullet;
-  return resolveRoleTextStyle(tokenSet, role, element.styleOverride);
-}
-
-/**
  * Resolves the final style for a shape label, defaulting to the
  * `"shapeLabel"` role. Shape labels carry their override on
  * `textStyleOverride` rather than `styleOverride`.

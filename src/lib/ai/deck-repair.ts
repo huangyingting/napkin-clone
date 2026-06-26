@@ -124,24 +124,6 @@ export function repairElement(
         style: repairTextStyle(input.style),
       };
     }
-    case "bullets": {
-      const paragraphs = Array.isArray(input.items)
-        ? input.items
-            .filter(
-              (item): item is { text: string } =>
-                isPlainObject(item) && typeof item.text === "string",
-            )
-            .map((item) => ({ text: item.text, listType: "bullet" as const }))
-        : [];
-      return {
-        ...base,
-        kind: "text",
-        text: paragraphs.map((paragraph) => paragraph.text).join("\n"),
-        paragraphs,
-        textRole: "bullet",
-        style: repairTextStyle(input.style),
-      };
-    }
     case "visual": {
       if (typeof input.visualId !== "string" || input.visualId.length === 0) {
         return undefined;

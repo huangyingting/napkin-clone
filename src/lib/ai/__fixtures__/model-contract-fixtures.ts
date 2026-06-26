@@ -67,6 +67,7 @@ export function deckModelOutput(
           {
             kind: "text",
             text: "Welcome",
+            paragraphs: [{ text: "Welcome" }],
             textRole: "h1",
             box: { x: 8, y: 8, w: 84, h: 20 },
           },
@@ -78,8 +79,10 @@ export function deckModelOutput(
         layout: "content",
         elements: [
           {
-            kind: "bullets",
-            items: [{ text: "More" }],
+            kind: "text",
+            text: "More",
+            paragraphs: [{ text: "More", listType: "bullet" }],
+            textRole: "bullet",
             box: { x: 12, y: 24, w: 76, h: 48 },
           },
         ],
@@ -102,14 +105,20 @@ export function repairableDeckModelOutput(): Record<string, unknown> {
             id: "same",
             kind: "text",
             text: "Repair me",
+            paragraphs: [{ text: "Repair me" }],
             textRole: "h1",
             box: { x: -50, y: 150, w: 999, h: -10 },
             style: { fontSize: 6, align: "sideways", color: "not-a-color" },
           },
           {
             id: "same",
-            kind: "bullets",
-            items: [{ text: "One" }, { text: "Two" }],
+            kind: "text",
+            text: "One\nTwo",
+            paragraphs: [
+              { text: "One", listType: "bullet" },
+              { text: "Two", listType: "bullet" },
+            ],
+            textRole: "bullet",
             box: null,
           },
           {

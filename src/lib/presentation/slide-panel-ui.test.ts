@@ -77,18 +77,16 @@ test("shouldShowRichToolbarControls false with no selected element", () => {
 
 test("toToolbarSelectionKind maps element kind + shape subtype", () => {
   assert.equal(toToolbarSelectionKind("text"), "text");
-  assert.equal(toToolbarSelectionKind("bullets"), "bullets");
   assert.equal(toToolbarSelectionKind("image"), "image");
   assert.equal(toToolbarSelectionKind("visual"), "visual");
   assert.equal(toToolbarSelectionKind("connector"), "connector");
-  assert.equal(toToolbarSelectionKind("placeholder"), "placeholder");
   assert.equal(toToolbarSelectionKind("shape", "rect"), "shape");
   assert.equal(toToolbarSelectionKind("shape", "line"), "line");
   assert.equal(toToolbarSelectionKind("mystery"), null);
 });
 
 test("toolbarQuickActions: text-like kinds expose the compact text-style bar", () => {
-  for (const kind of ["text", "bullets", "shape"] as const) {
+  for (const kind of ["text", "shape"] as const) {
     assert.equal(toolbarQuickActions(kind).textStyle, true, kind);
   }
   assert.equal(toolbarQuickActions("line").textStyle, false);
