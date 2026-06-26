@@ -159,6 +159,7 @@ import { SlideStageEditor } from "@/components/presentation/slide-stage-editor";
 import { SlideInspector } from "@/components/presentation/slide-inspector";
 import { SlideSelectionToolbar } from "@/components/presentation/slide-editor/selection-toolbar";
 import { shouldCollapseToolbar } from "@/lib/presentation/slide-panel-ui";
+import { selectSelectedElement } from "@/components/presentation/slide-editor/slide-editor-view-model";
 
 /** Renders SlideStageEditor with all data sourced from SlideEditorContext. */
 export function SlideStageEditorFromContext({
@@ -352,10 +353,10 @@ export function SlideSelectionToolbarFromContext() {
     stageBounds,
   } = useSlideEditorContext();
 
-  const selectedElement =
-    selectedSlide?.elements?.find(
-      (el) => el.id === effectiveSelectedElementId,
-    ) ?? null;
+  const selectedElement = selectSelectedElement(
+    selectedSlide,
+    effectiveSelectedElementId,
+  );
 
   return (
     <SlideSelectionToolbar
