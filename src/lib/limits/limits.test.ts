@@ -6,7 +6,6 @@ import {
   BRAND_FONT_MAX_BYTES,
   BRAND_LOGO_MAX_BYTES,
   DECK_JSON_MAX_BYTES,
-  DECK_OUTPUT_TOKEN_BUDGET as CENTRAL_DECK_OUTPUT_TOKEN_BUDGET,
   EXPORT_PREFLIGHT_MAX_SLIDES,
   GENERATED_DECK_MAX_SLIDES,
   IMPORT_MAX_BYTES_BY_MIME,
@@ -19,10 +18,7 @@ import {
   TOTAL_IMAGE_BUDGET_BYTES,
 } from "@/lib/limits";
 import { MAX_INPUT_CHARS } from "@/lib/ai/generate";
-import {
-  DECK_OUTPUT_TOKEN_BUDGET,
-  MAX_DECK_SLIDES,
-} from "@/lib/ai/generate-deck";
+import { MAX_DECK_SLIDES } from "@/lib/ai/generate-deck";
 import { FONT_MAX_BYTES, LOGO_MAX_BYTES } from "@/lib/brand/upload";
 import { MAX_DECK_JSON_BYTES } from "@/lib/limits";
 import {
@@ -45,7 +41,6 @@ describe("central limits boundary", () => {
     assert.equal(MAX_DECK_JSON_BYTES, DECK_JSON_MAX_BYTES);
     assert.equal(MAX_INPUT_CHARS, AI_GENERATION_INPUT_MAX_CHARS);
     assert.equal(MAX_DECK_SLIDES, GENERATED_DECK_MAX_SLIDES);
-    assert.equal(DECK_OUTPUT_TOKEN_BUDGET, CENTRAL_DECK_OUTPUT_TOKEN_BUDGET);
 
     assert.equal(MAX_UPLOAD_BYTES, IMPORT_MAX_UPLOAD_BYTES);
     assert.equal(

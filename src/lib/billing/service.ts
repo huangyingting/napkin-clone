@@ -48,14 +48,7 @@ export function resolvePlan(plan: string | null | undefined): Plan {
   return isPlan(plan) ? plan : "free";
 }
 
-export function periodEndForPlan(plan: Plan, periodStart: Date): Date {
-  const entitlements = getEntitlements(plan);
-  return new Date(
-    periodStart.getTime() + entitlements.periodDays * 24 * 60 * 60 * 1000,
-  );
-}
-
-export async function getBillingState(
+export async function loadAndSyncBillingState(
   userId: string,
   client: PrismaClientLike = prisma,
 ): Promise<BillingState> {
@@ -152,7 +145,10 @@ export async function applyLocalPlanChange(
     stripeCustomerId,
     stripeSubscriptionId,
     currentPeriodStart = now,
-    currentPeriodEnd = periodEndForPlan(targetPlan, currentPeriodStart),
+    currentPeriodEnd = new Date(
+      currentPeriodStart.getTime() +
+        getEntitlements(targetPlan).periodDays * 24 * 60 * 60 * 1000,
+    ),
     updateSubscriptionPeriodOnExisting = true,
     cancelAtPeriodEnd = false,
   } = options;
@@ -254,7 +250,10 @@ export async function recordStripeCustomer(
       status: fallbackStatus,
       stripeCustomerId,
       currentPeriodStart: now,
-      currentPeriodEnd: periodEndForPlan(periodPlan, now),
+      currentPeriodEnd: new Date(
+        now.getTime() +
+          getEntitlements(periodPlan).periodDays * 24 * 60 * 60 * 1000,
+      ),
       cancelAtPeriodEnd: false,
     },
     update: { stripeCustomerId },
