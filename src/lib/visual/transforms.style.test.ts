@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { skipIf } from "@/test/skip";
+
 import { VISUAL_KINDS, safeParseVisual } from "@/lib/visual/schema";
 import {
   resetNodeExtStyle,
@@ -157,9 +159,9 @@ test("resetNodeExtStyle leaves other nodes unchanged", () => {
 
 // ── New per-edge transforms ───────────────────────────────────────────────────
 
-test("setEdgeArrowStyle sets arrowStyle and is immutable", () => {
+test("setEdgeArrowStyle sets arrowStyle and is immutable", (t) => {
   const source = sourceFor("flowchart");
-  if (source.edges.length === 0) return;
+  skipIf(t, source.edges.length === 0, "flowchart fixture has no edges");
   const id = source.edges[0].id;
   const before = JSON.stringify(source);
   const next = setEdgeArrowStyle(source, id, "open");
@@ -169,9 +171,9 @@ test("setEdgeArrowStyle sets arrowStyle and is immutable", () => {
   assert.ok(safeParseVisual(next).success);
 });
 
-test("setEdgeLineStyle sets lineStyle and is immutable", () => {
+test("setEdgeLineStyle sets lineStyle and is immutable", (t) => {
   const source = sourceFor("flowchart");
-  if (source.edges.length === 0) return;
+  skipIf(t, source.edges.length === 0, "flowchart fixture has no edges");
   const id = source.edges[0].id;
   const before = JSON.stringify(source);
   const next = setEdgeLineStyle(source, id, "dashed");
@@ -181,9 +183,9 @@ test("setEdgeLineStyle sets lineStyle and is immutable", () => {
   assert.ok(safeParseVisual(next).success);
 });
 
-test("setEdgeLineWidth sets lineWidth and is immutable", () => {
+test("setEdgeLineWidth sets lineWidth and is immutable", (t) => {
   const source = sourceFor("flowchart");
-  if (source.edges.length === 0) return;
+  skipIf(t, source.edges.length === 0, "flowchart fixture has no edges");
   const id = source.edges[0].id;
   const before = JSON.stringify(source);
   const next = setEdgeLineWidth(source, id, 3);
@@ -322,9 +324,9 @@ test("validateVisual silently drops unknown fillStyle values", () => {
   }
 });
 
-test("validateVisual silently drops unknown arrowStyle values", () => {
+test("validateVisual silently drops unknown arrowStyle values", (t) => {
   const source = sourceFor("flowchart");
-  if (source.edges.length === 0) return;
+  skipIf(t, source.edges.length === 0, "flowchart fixture has no edges");
   const withBad = {
     ...source,
     edges: [

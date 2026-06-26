@@ -168,6 +168,7 @@ test("command envelopes remain JSON-serializable", () => {
   assert.deepEqual(JSON.parse(JSON.stringify(envelope)), envelope);
 });
 
+// @compat — ensures deck command envelopes remain compatible with existing persisted slide metadata
 test("deck envelopes stay compatible with existing slide metadata", () => {
   const payload: SlideCommand = {
     type: "UPDATE_SLIDE_TITLE",
