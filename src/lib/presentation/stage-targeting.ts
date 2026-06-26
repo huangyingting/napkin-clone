@@ -72,3 +72,44 @@ export function isStageTargetSelected(
 ): boolean {
   return target.elementIds.every((id) => selectedElementIds.has(id));
 }
+
+/**
+ * Lightweight snapshot of a hovered target used for the hover-preselection
+ * frame overlay. Separate from `StageInteractionTarget` so we don't hold
+ * live element references across renders.
+ */
+export type StagePreselection =
+  | { kind: "element"; elementId: string }
+  | { kind: "group"; groupId: string; elementIds: string[] };
+
+export function preselectionFromStageTarget(
+  target: StageInteractionTarget,
+): StagePreselection {
+  return target.kind === "group"
+    ? {
+        kind: "group",
+        groupId: target.groupId,
+        elementIds: target.elementIds,
+      }
+    : { kind: "element", elementId: target.element.id };
+}
+
+export function samePreselection(
+  a: StagePreselection | null,
+  b: StagePreselection | null,
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.kind !== b.kind) return false;
+  if (a.kind === "element" && b.kind === "element") {
+    return a.elementId === b.elementId;
+  }
+  if (a.kind === "group" && b.kind === "group") {
+    return (
+      a.groupId === b.groupId &&
+      a.elementIds.length === b.elementIds.length &&
+      a.elementIds.every((id, index) => id === b.elementIds[index])
+    );
+  }
+  return false;
+}
