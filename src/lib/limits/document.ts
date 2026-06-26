@@ -49,7 +49,7 @@ export const LEXICAL_STATE_LIMIT: LimitDefinition = {
   enforcement: "enforced",
   warnAt: LEXICAL_STATE_WARN_BYTES,
   diagnostic: { scope: "document.lexical.save", metric: "lexicalStateBytes" },
-  source: "src/app/app/documents/[id]/actions.ts",
+  source: "src/app/app/documents/[id]/lexical-actions.ts",
 };
 
 export const WORKSPACE_NAME_LIMIT: LimitDefinition = {

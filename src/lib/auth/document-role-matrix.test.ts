@@ -71,11 +71,11 @@ const SURFACES: SurfaceContract[] = [
     actions: [
       {
         name: "saveDocumentLexical",
-        file: "src/app/app/documents/[id]/actions.ts",
+        file: "src/app/app/documents/[id]/lexical-actions.ts",
       },
       {
         name: "rebuildVisualMirror",
-        file: "src/app/app/documents/[id]/actions.ts",
+        file: "src/app/app/documents/[id]/lexical-actions.ts",
       },
     ],
   },
@@ -83,11 +83,17 @@ const SURFACES: SurfaceContract[] = [
     surface: "deck",
     capability: "edit",
     actions: [
-      { name: "saveDeckJson", file: "src/app/app/documents/[id]/actions.ts" },
-      { name: "saveDeckPatch", file: "src/app/app/documents/[id]/actions.ts" },
+      {
+        name: "saveDeckJson",
+        file: "src/app/app/documents/[id]/deck-actions.ts",
+      },
+      {
+        name: "saveDeckPatch",
+        file: "src/app/app/documents/[id]/deck-actions.ts",
+      },
       {
         name: "saveDeckCommand",
-        file: "src/app/app/documents/[id]/actions.ts",
+        file: "src/app/app/documents/[id]/deck-actions.ts",
       },
     ],
   },
@@ -95,7 +101,10 @@ const SURFACES: SurfaceContract[] = [
     surface: "deck read",
     capability: "view",
     actions: [
-      { name: "fetchDeckJson", file: "src/app/app/documents/[id]/actions.ts" },
+      {
+        name: "fetchDeckJson",
+        file: "src/app/app/documents/[id]/deck-actions.ts",
+      },
     ],
   },
   {
@@ -104,7 +113,7 @@ const SURFACES: SurfaceContract[] = [
     actions: [
       {
         name: "listDocumentVersions",
-        file: "src/app/app/documents/[id]/actions.ts",
+        file: "src/app/app/documents/[id]/versioning-actions.ts",
       },
     ],
   },
@@ -114,7 +123,7 @@ const SURFACES: SurfaceContract[] = [
     actions: [
       {
         name: "restoreDocumentVersion",
-        file: "src/app/app/documents/[id]/actions.ts",
+        file: "src/app/app/documents/[id]/versioning-actions.ts",
       },
     ],
   },
@@ -124,15 +133,15 @@ const SURFACES: SurfaceContract[] = [
     actions: [
       {
         name: "toggleDocumentSharing",
-        file: "src/app/app/documents/[id]/actions.ts",
+        file: "src/app/app/documents/[id]/sharing-actions.ts",
       },
       {
         name: "regenerateShareLink",
-        file: "src/app/app/documents/[id]/actions.ts",
+        file: "src/app/app/documents/[id]/sharing-actions.ts",
       },
       {
         name: "updateSharePolicy",
-        file: "src/app/app/documents/[id]/actions.ts",
+        file: "src/app/app/documents/[id]/sharing-actions.ts",
       },
     ],
   },
