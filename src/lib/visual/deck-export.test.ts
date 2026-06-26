@@ -32,11 +32,11 @@ import {
   buildDeckSpecs,
   type DeckBulletsOp,
   type DeckConnectorOp,
-  deckExportTestHelpers,
   type DeckImageOp,
   type DeckOp,
   type DeckTextOp,
 } from "@/lib/visual/deck-export";
+import { deckExportTestHelpers } from "@/test/deck-export-helpers";
 import {
   buildBulletsElement,
   buildConnectorElement,
