@@ -29,7 +29,7 @@ import {
   recentFlushFailures,
 } from "./scripts/collab-core.mjs";
 import {
-  buildCollabHealthSummary,
+  createCollabHealthHandler,
   COLLAB_INLINE_PATH,
   createRuntimeAuthorizer,
   createRuntimeEvictionFlusher,
@@ -61,18 +61,20 @@ const handle = app.getRequestHandler();
 
 await app.prepare();
 
+const collabHealthHandler = createCollabHealthHandler({
+  deploymentConfig,
+  getStats: () => ({
+    rooms: roomCount(),
+    connections: connCount(),
+    flushFailures: flushStats().flushFailures,
+    recentFlushFailures: recentFlushFailures(),
+  }),
+});
+
 const server = createServer((req, res) => {
   // Health endpoint for the inline collab socket.
   if (req.url === `${COLLAB_PATH}/health`) {
-    const summary = buildCollabHealthSummary({
-      deploymentConfig,
-      rooms: roomCount(),
-      connections: connCount(),
-      flushFailures: flushStats().flushFailures,
-      recentFlushFailures: recentFlushFailures(),
-    });
-    res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify(summary));
+    collabHealthHandler(req, res);
     return;
   }
   const parsedUrl = parse(req.url || "/", true);

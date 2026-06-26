@@ -124,6 +124,32 @@ export function buildCollabHealthSummary(input) {
 }
 
 /**
+ * Creates a ready-to-use HTTP request handler for the collaboration `/health`
+ * endpoint. Both the standalone and inline entry points share the same
+ * serialisation logic; only their `getStats` source differs.
+ *
+ * @param {{
+ *   deploymentConfig: { mode: string, warnings: string[], healthy: boolean },
+ *   getStats: () => { rooms: number, connections: number, flushFailures: number, recentFlushFailures: unknown[] },
+ * }} options
+ * @returns {(req: unknown, res: { writeHead: Function, end: Function }) => void}
+ */
+export function createCollabHealthHandler({ deploymentConfig, getStats }) {
+  return function handleCollabHealth(_req, res) {
+    const stats = getStats();
+    const summary = buildCollabHealthSummary({
+      deploymentConfig,
+      rooms: stats.rooms,
+      connections: stats.connections,
+      flushFailures: stats.flushFailures,
+      recentFlushFailures: stats.recentFlushFailures,
+    });
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify(summary));
+  };
+}
+
+/**
  * Resolves the app base URL and internal service endpoints used by the collab
  * runtime. Inline mode always points at its own HTTP server to preserve existing
  * cookie forwarding and internal-flush behavior; standalone mode points at

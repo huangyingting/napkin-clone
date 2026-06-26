@@ -79,7 +79,7 @@ test("maps document rows to serial DTOs and validates current JSON contracts", (
         updatedAt: now,
         deckJson: JSON.stringify(deck()),
       } as DocumentDtoRow),
-    /persisted-schema drift/,
+    /Deck must be an object/,
   );
 });
 

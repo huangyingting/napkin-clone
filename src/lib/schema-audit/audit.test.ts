@@ -118,7 +118,7 @@ describe("auditRows — invalid rows", () => {
     assert.equal(v?.documentId, "doc-bad");
   });
 
-  test("flags serialized string Document.deckJson as persisted-schema drift", () => {
+  test("flags a serialized-string Document.deckJson as a violation", () => {
     const report = auditRows({
       documents: [
         {
@@ -131,8 +131,7 @@ describe("auditRows — invalid rows", () => {
     const v = report.violations.find((x) => x.area === "Document.deckJson");
     assert.ok(v);
     assert.equal(v?.documentId, "doc-string");
-    assert.match(v?.reason ?? "", /persisted-schema drift/);
-    assert.match(v?.reason ?? "", /parsed JSON object/);
+    assert.match(v?.reason ?? "", /Deck must be an object/);
     assert.equal(report.summary.byArea["Document.deckJson"], 1);
   });
 
