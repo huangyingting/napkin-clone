@@ -33,35 +33,28 @@ import {
   type PreflightCode,
 } from "@/lib/visual/export-preflight";
 import { getOutputProfile } from "@/lib/visual/output-profiles";
+import { buildDeck, buildSlide } from "@/test/builders/deck";
 
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
 
-function makeSlide(
+const makeSlide = (
   elements: SlideElement[],
   overrides: Partial<Slide> = {},
-): Slide {
-  return {
+): Slide =>
+  buildSlide({
     id: "s1",
-    index: 0,
     title: "Test slide",
-    bullets: [],
-    visualIds: [],
     layout: "blank",
+    bullets: [],
     notes: "",
     elements,
     ...overrides,
-  };
-}
+  });
 
-function makeDeck(slides: Slide[], overrides: Partial<Deck> = {}): Deck {
-  return {
-    themeId: "default",
-    slides,
-    ...overrides,
-  };
-}
+const makeDeck = (slides: Slide[], overrides: Partial<Deck> = {}): Deck =>
+  buildDeck({ slides, ...overrides });
 
 function imageEl(overrides: Partial<ImageElement> = {}): ImageElement {
   return {

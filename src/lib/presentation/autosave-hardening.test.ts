@@ -48,27 +48,14 @@ import {
   ERROR_CODES,
 } from "@/lib/diagnostics/error-codes";
 
-import type { Deck, Slide } from "@/lib/presentation/deck";
+import { makeMinimalDeck, makeMinimalSlide } from "@/test/builders/deck";
 
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
 
-function makeSlide(id: string, index: number, title: string): Slide {
-  return {
-    id,
-    index,
-    title,
-    bullets: [],
-    visualIds: [],
-    layout: "content",
-    notes: "",
-  };
-}
-
-function makeDeck(slides: Slide[]): Deck {
-  return { themeId: "default", slides };
-}
+const makeSlide = makeMinimalSlide;
+const makeDeck = makeMinimalDeck;
 
 function makeExistingRow(
   id: string,

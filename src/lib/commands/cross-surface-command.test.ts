@@ -23,11 +23,9 @@ import {
   coalesceVisualCommands,
   executeVisualCommand,
   type VisualCommand,
-  type VisualCommandPayload,
   type VisualPatch,
   type VisualSideEffect,
 } from "@/lib/commands/visual-commands";
-import type { Deck } from "@/lib/presentation/deck";
 import {
   coalesceCommands,
   executeCommand,
@@ -35,7 +33,10 @@ import {
   type SlideCommand,
 } from "@/lib/presentation/slide-commands";
 import { createBlankVisual } from "@/lib/visual/blank";
+import type { Deck } from "@/lib/presentation/deck";
 import type { Visual } from "@/lib/visual/schema";
+import { makeDeckFromIds } from "@/test/builders/deck";
+import { makeVisualCommand } from "@/test/builders/commands";
 
 const ACTOR = { id: "user-1", sessionId: "session-1" };
 const DOC_ID = "doc-1";
@@ -58,42 +59,7 @@ function commandId(prefix: string, suffix: string): string {
   return `${prefix}0000000-0000-4000-8000-${suffix.padStart(12, "0")}`;
 }
 
-function makeDeck(slideIds: string[]): Deck {
-  return {
-    themeId: "default",
-    slides: slideIds.map((id, index) => ({
-      id,
-      index,
-      title: `Slide ${index + 1}`,
-      bullets: [],
-      visualIds: [],
-      layout: "blank",
-      notes: "",
-      themeId: "default",
-    })),
-  };
-}
-
-function makeVisualCommand(
-  payload: VisualCommandPayload,
-  overrides: Partial<VisualCommand> = {},
-): VisualCommand {
-  return {
-    id: commandId("3", String(payload.op.length)),
-    schemaVersion: CURRENT_COMMAND_SCHEMA_VERSION,
-    type: payload.op,
-    timestamp: "2026-06-23T00:00:00.000Z",
-    actor: ACTOR,
-    target: {
-      surface: "visual",
-      documentId: DOC_ID,
-      visualId: VISUAL_ID,
-    },
-    payload,
-    source: "user",
-    ...overrides,
-  };
-}
+const makeDeck = makeDeckFromIds;
 
 function makeDeckEnvelope(
   payload: SlideCommand,
