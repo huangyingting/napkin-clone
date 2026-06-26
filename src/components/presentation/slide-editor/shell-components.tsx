@@ -161,7 +161,7 @@ export function SlideTemplatePicker({
 /** Bar used inside {@link TemplatePreview} to mock a line of slide content. */
 function PreviewBar({ className = "" }: { className?: string }) {
   return (
-    <span className={`block rounded-[1px] bg-ds-text-muted/40 ${className}`} />
+    <span className={`block rounded-xs bg-ds-text-muted/40 ${className}`} />
   );
 }
 
@@ -191,7 +191,7 @@ function TemplatePreview({ kind }: { kind: SlideTemplateKind }) {
       ) : null}
       {kind === "visual" ? (
         <span className="flex h-full flex-col gap-1 p-1.5">
-          <span className="block flex-1 rounded-[2px] bg-ds-text-muted/30" />
+          <span className="block flex-1 rounded-xs bg-ds-text-muted/30" />
           <PreviewBar className="h-1 w-1/2 self-center bg-ds-text-muted/25" />
         </span>
       ) : null}
@@ -212,7 +212,7 @@ function TemplatePreview({ kind }: { kind: SlideTemplateKind }) {
       ) : null}
       {kind === "blank" ? (
         <span className="flex h-full items-center justify-center">
-          <span className="block h-3/4 w-5/6 rounded-[2px] border border-dashed border-ds-border-strong" />
+          <span className="block h-3/4 w-5/6 rounded-xs border border-dashed border-ds-border-strong" />
         </span>
       ) : null}
     </span>

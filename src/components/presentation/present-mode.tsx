@@ -543,7 +543,7 @@ export function PresentMode({
       {laserActive && laserPosition ? (
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed z-sticky h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500 shadow-[0_0_0_6px_rgba(239,68,68,0.25)]"
+          className="pointer-events-none fixed z-sticky h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500 shadow-[var(--ds-shadow-laser-cursor)]"
           style={{ left: laserPosition.x, top: laserPosition.y }}
         />
       ) : null}

@@ -236,7 +236,7 @@ export function ElementFrameOverlay({
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute box-border rounded-[2px]"
+      className="pointer-events-none absolute box-border rounded-xs"
       style={{
         left: `${box.x}%`,
         top: `${box.y}%`,

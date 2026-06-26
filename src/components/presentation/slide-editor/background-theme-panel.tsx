@@ -461,7 +461,7 @@ export function BackgroundThemePanel({
               className="h-5 w-5 shrink-0 rounded-ds-sm border border-ds-text-primary p-0.5"
             >
               <span
-                className="block h-full w-full rounded-[2px]"
+                className="block h-full w-full rounded-xs"
                 style={{
                   background:
                     "linear-gradient(90deg, #111827 0 33%, #737373 33% 66%, #f8fafc 66% 100%)",

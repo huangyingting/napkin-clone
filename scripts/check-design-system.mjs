@@ -54,9 +54,6 @@ function shouldScanRawChrome(filePath) {
   if (normalized.startsWith("src/components/ui/")) {
     return false;
   }
-  if (normalized.startsWith("src/components/presentation/")) {
-    return false;
-  }
   return true;
 }
 

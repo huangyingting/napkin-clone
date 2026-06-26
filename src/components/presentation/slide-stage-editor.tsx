@@ -998,7 +998,7 @@ export const SlideStageEditor = memo(function SlideStageEditor({
             }}
           >
             <span
-              className="absolute -top-5 left-0 rounded-ds-sm bg-[var(--ds-accent-surface,#e0e7ff)] px-1 text-[10px] font-medium leading-5 text-[var(--ds-accent,#6366f1)]"
+              className="absolute -top-5 left-0 rounded-ds-sm bg-ds-accent-surface px-1 text-[10px] font-medium leading-5 text-ds-accent"
               style={{ whiteSpace: "nowrap" }}
             >
               Group

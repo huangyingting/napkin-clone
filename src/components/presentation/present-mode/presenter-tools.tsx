@@ -339,7 +339,7 @@ export function PresenterToolIcon({
           aria-hidden="true"
           className={`block h-2.5 w-2.5 rounded-full ${
             laserActive
-              ? "bg-red-400 shadow-[0_0_0_4px_rgba(248,113,113,0.25)]"
+              ? "bg-red-400 shadow-[var(--ds-shadow-laser-indicator)]"
               : "border border-current"
           }`}
         />
