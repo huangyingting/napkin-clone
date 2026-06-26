@@ -291,7 +291,7 @@ export const allowedInternalFacadeImports = [
       "Deferred broad same-domain facade migration; current N11 changes retired cycles and star barrels without changing deck/editor behavior.",
   },
   {
-    file: "src/lib/presentation/render-export-style-adapter.ts",
+    file: "src/lib/presentation/style-export-normalizers.ts",
     facade: "src/lib/presentation/deck.ts",
     reason:
       "Deferred broad same-domain facade migration; current N11 changes retired cycles and star barrels without changing deck/editor behavior.",

@@ -24,7 +24,7 @@ import {
   MAX_DECK_SLIDES,
 } from "@/lib/ai/generate-deck";
 import { FONT_MAX_BYTES, LOGO_MAX_BYTES } from "@/lib/brand/upload";
-import { MAX_DECK_JSON_BYTES } from "@/lib/presentation/deck-limits";
+import { MAX_DECK_JSON_BYTES } from "@/lib/limits";
 import {
   MAX_IMAGE_UPLOAD_BYTES,
   TOTAL_IMAGE_BUDGET_BYTES as IMAGE_ELEMENT_BUDGET_BYTES,

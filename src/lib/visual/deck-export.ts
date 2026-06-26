@@ -52,7 +52,7 @@ import {
   adaptBulletsElementForExport,
   adaptShapeLabelForExport,
   adaptTextElementForExport,
-} from "@/lib/presentation/render-export-style-adapter";
+} from "@/lib/presentation/style-export-normalizers";
 import { slideHeightPctToPoints } from "@/lib/presentation/style-units";
 import type { Visual } from "@/lib/visual/schema";
 import {

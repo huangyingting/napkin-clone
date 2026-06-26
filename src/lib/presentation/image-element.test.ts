@@ -2,10 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Deck, ImageElement, Slide, SlideElement } from "./deck";
-import {
-  DECK_JSON_NON_IMAGE_RESERVE,
-  MAX_DECK_JSON_BYTES,
-} from "./deck-limits";
+import { DECK_JSON_NON_IMAGE_RESERVE, MAX_DECK_JSON_BYTES } from "@/lib/limits";
 import {
   MAX_IMAGE_UPLOAD_BYTES,
   TOTAL_IMAGE_BUDGET_BYTES,
