@@ -27,6 +27,7 @@ import {
   requireAbuseBudgetSecret,
 } from "@/lib/abuse-budget";
 import { accessDecisionToPlainTextApiResponse } from "@/lib/access-policy/adapters";
+import { notFound, tooManyRequests } from "@/lib/api/errors";
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { resolvePublicRender } from "@/lib/public-render/resolver";
@@ -36,7 +37,6 @@ import {
 } from "@/lib/slides/asset-access";
 import { logError } from "@/lib/log";
 import { getDefaultStorageAdapter } from "@/lib/slides/asset-storage";
-import { plainTextResponse } from "@/lib/api/route-adapters";
 import { serveStoredAsset } from "@/lib/assets/serve";
 
 export async function GET(
@@ -51,12 +51,7 @@ export async function GET(
       secret,
     });
     if (!budget.allowed) {
-      return new NextResponse("Too many requests", {
-        status: 429,
-        headers: budget.retryAfterSeconds
-          ? { "Retry-After": String(budget.retryAfterSeconds) }
-          : undefined,
-      });
+      return tooManyRequests(budget.retryAfterSeconds);
     }
   }
 
@@ -135,6 +130,6 @@ async function serveAsset(
     });
   } catch (err) {
     logError("slide-asset-serve", err, { storageKey });
-    return plainTextResponse("Not found", 404);
+    return notFound();
   }
 }

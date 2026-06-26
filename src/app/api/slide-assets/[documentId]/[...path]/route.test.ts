@@ -13,10 +13,15 @@
  * anonymous present/embed (enabled and disabled), and expired/revoked/deleted/
  * missing cases — including the privacy guarantee that private assets are never
  * served via a predictable URL.
+ *
+ * Canonical-shape coverage (#1119): the two non-access-control error responses
+ * emitted by the route — 429 rate-limit and 404 storage-miss — are asserted via
+ * the `tooManyRequests` / `notFound` helpers used directly in the handler.
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import { notFound, tooManyRequests } from "@/lib/api/errors";
 import {
   decideSlideAssetAccess,
   type SlideAssetDocument,
@@ -292,4 +297,34 @@ test("#510: a deleted but publicly shared document is not served anonymously", (
     status: 404,
     reason: "document-not-found",
   });
+});
+
+// ---------------------------------------------------------------------------
+// Canonical error-body shape (#1119)
+// ---------------------------------------------------------------------------
+
+test("#1119: rate-limit 429 emits canonical envelope with Retry-After header", async () => {
+  const resp = tooManyRequests(30);
+  assert.strictEqual(resp.status, 429);
+  assert.strictEqual(resp.headers.get("Retry-After"), "30");
+  const body = await resp.json();
+  assert.deepEqual(body, {
+    error: "Too many requests. Please wait a moment and try again.",
+    code: "RATE_LIMITED",
+  });
+});
+
+test("#1119: rate-limit 429 omits Retry-After when seconds are not available", async () => {
+  const resp = tooManyRequests(undefined);
+  assert.strictEqual(resp.status, 429);
+  assert.strictEqual(resp.headers.get("Retry-After"), null);
+  const body = await resp.json();
+  assert.strictEqual(body.code, "RATE_LIMITED");
+});
+
+test("#1119: storage-miss 404 emits canonical envelope", async () => {
+  const resp = notFound();
+  assert.strictEqual(resp.status, 404);
+  const body = await resp.json();
+  assert.deepEqual(body, { error: "Not found.", code: "NOT_FOUND" });
 });

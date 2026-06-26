@@ -18,6 +18,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 
+import { serverError, validationError } from "@/lib/api/errors";
 import { stripe as stripeEnv } from "@/lib/env";
 
 export const runtime = "nodejs";
@@ -30,10 +31,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const signature = request.headers.get("stripe-signature");
   if (!signature) {
-    return NextResponse.json(
-      { error: "Missing stripe-signature header" },
-      { status: 400 },
-    );
+    return validationError("Missing stripe-signature header");
   }
 
   const rawBody = await request.text();
@@ -49,6 +47,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Webhook handler failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return serverError(message);
   }
 }
