@@ -208,7 +208,7 @@ function PaletteStrip({ colors }: { colors: ColorToken }) {
       {PREVIEW_KEYS.map((key) => (
         <span
           key={key}
-          className="h-2.5 w-2.5 rounded-[3px] border border-ds-border-subtle"
+          className="h-2.5 w-2.5 rounded-sm border border-ds-border-subtle"
           style={{ backgroundColor: colors[key] }}
         />
       ))}

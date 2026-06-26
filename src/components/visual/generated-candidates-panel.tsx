@@ -50,8 +50,8 @@ export function GeneratedCandidatesPanel({
             isLoading
             className={
               compact
-                ? "px-0.5 py-0 text-xs text-[var(--ds-text-muted,#71717a)]"
-                : "text-xs text-[var(--ds-text-muted,#6f7d83)]"
+                ? "px-0.5 py-0 text-xs text-ds-text-muted"
+                : "text-xs text-ds-text-muted"
             }
           />
         </div>
@@ -62,8 +62,8 @@ export function GeneratedCandidatesPanel({
           role="alert"
           className={
             compact
-              ? "flex flex-col items-start gap-1.5 rounded-[var(--ds-radius-md,8px)] bg-[var(--ds-surface-raised,#f4f4f5)] px-2 py-2 text-xs text-[var(--ds-danger,#dc2626)]"
-              : "flex flex-col gap-2 rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-danger,#dc2626)]/40 bg-[var(--ds-danger,#dc2626)]/10 px-3 py-2 text-xs text-[var(--ds-danger,#b91c1c)]"
+              ? "flex flex-col items-start gap-1.5 rounded-ds-md bg-ds-surface-raised px-2 py-2 text-xs text-ds-danger"
+              : "flex flex-col gap-2 rounded-ds-md border border-ds-danger/40 bg-ds-danger/10 px-3 py-2 text-xs text-ds-danger"
           }
         >
           <span>{error}</span>
@@ -72,8 +72,8 @@ export function GeneratedCandidatesPanel({
               href="/app/settings/billing"
               className={
                 compact
-                  ? "inline-flex items-center rounded-[var(--ds-radius-sm,6px)] bg-[var(--ds-accent,#6366f1)] px-2 py-1 text-xs font-medium text-[var(--ds-text-on-accent,#fff)] transition hover:opacity-90"
-                  : "inline-flex self-start rounded-[var(--ds-radius-sm,6px)] bg-[var(--ds-accent,#6366f1)] px-3 py-1.5 text-sm font-medium text-[var(--ds-text-on-accent,#fff)] transition hover:opacity-90"
+                  ? "inline-flex items-center rounded-ds-sm bg-ds-accent px-2 py-1 text-xs font-medium text-ds-text-on-accent transition hover:opacity-90"
+                  : "inline-flex self-start rounded-ds-sm bg-ds-accent px-3 py-1.5 text-sm font-medium text-ds-text-on-accent transition hover:opacity-90"
               }
             >
               Upgrade
@@ -94,7 +94,7 @@ export function GeneratedCandidatesPanel({
       {candidates.length > 0 ? (
         <div>
           {!compact ? (
-            <p className="mb-2 text-[11px] text-[var(--ds-text-muted,#6f7d83)]">
+            <p className="mb-2 text-[11px] text-ds-text-muted">
               {candidates.length} variation{candidates.length !== 1 ? "s" : ""}{" "}
               — click to apply
             </p>
@@ -112,8 +112,8 @@ export function GeneratedCandidatesPanel({
                   onClick={() => onChooseCandidate(candidate)}
                   className={cx(
                     compact
-                      ? "group flex w-full overflow-hidden rounded-[var(--ds-radius-sm,6px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-base,#ffffff)] p-1 text-left transition-colors hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]"
-                      : "group flex w-full flex-col overflow-hidden rounded-[var(--ds-radius-md,10px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))] bg-[var(--ds-surface-base,#ffffff)] p-1.5 text-left transition hover:border-[var(--ds-border-strong,rgba(0,0,0,0.2))]",
+                      ? "group flex w-full overflow-hidden rounded-ds-sm border border-ds-border-subtle bg-ds-surface-base p-1 text-left transition-colors hover:border-ds-border-strong"
+                      : "group flex w-full flex-col overflow-hidden rounded-ds-md border border-ds-border-subtle bg-ds-surface-base p-1.5 text-left transition hover:border-ds-border-strong",
                     FOCUS_RING,
                   )}
                 >
