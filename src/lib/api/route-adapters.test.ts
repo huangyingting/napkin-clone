@@ -21,6 +21,7 @@ test("readJsonObject preserves legacy route error bodies", async () => {
   assert.equal(invalid.response.status, 400);
   assert.deepEqual(await invalid.response.json(), {
     error: "Request body must be valid JSON.",
+    code: "VALIDATION_ERROR",
   });
 });
 
@@ -35,6 +36,7 @@ test("readFormData maps parser failures to legacy route errors", async () => {
   assert.equal(result.response.status, 400);
   assert.deepEqual(await result.response.json(), {
     error: "Request must be multipart/form-data.",
+    code: "VALIDATION_ERROR",
   });
 });
 
