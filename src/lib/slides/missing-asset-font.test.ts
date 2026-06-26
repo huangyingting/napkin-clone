@@ -35,31 +35,27 @@ import {
   fatalDiagnostics,
   runExportPreflight,
 } from "@/lib/visual/export-preflight";
+import { buildSlide, makeMinimalDeck } from "@/test/builders/deck";
 
 // ---------------------------------------------------------------------------
 // Shared fixtures
 // ---------------------------------------------------------------------------
 
-function makeSlide(
+const makeSlide = (
   elements: SlideElement[],
   overrides: Partial<Slide> = {},
-): Slide {
-  return {
+): Slide =>
+  buildSlide({
     id: "s1",
-    index: 0,
     title: "",
-    bullets: [],
-    visualIds: [],
     layout: "blank",
+    bullets: [],
     notes: "",
     elements,
     ...overrides,
-  };
-}
+  });
 
-function makeDeck(slides: Slide[]): Deck {
-  return { themeId: "default", slides };
-}
+const makeDeck = (slides: Slide[]): Deck => makeMinimalDeck(slides);
 
 function imageEl(overrides: Partial<ImageElement> = {}): ImageElement {
   return {

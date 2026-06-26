@@ -15,40 +15,20 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { CURRENT_COMMAND_SCHEMA_VERSION } from "@/lib/commands/command-envelope";
 import {
   executeVisualCommand,
   type VisualCommand,
-  type VisualCommandPayload,
 } from "@/lib/commands/visual-commands";
 import { createBlankVisual } from "@/lib/visual/blank";
 import { safeParseVisual, VISUAL_SCHEMA_VERSION } from "@/lib/visual/schema";
 import type { Visual, VisualNode, VisualEdge } from "@/lib/visual/schema";
+import { makeVisualCommand } from "@/test/builders/commands";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const ACTOR = { id: "user-1", sessionId: "session-1" };
-
-let _cmdCounter = 0;
-function makeCommand(payload: VisualCommandPayload): VisualCommand {
-  _cmdCounter += 1;
-  return {
-    id: `10000000-0000-4000-8000-${String(_cmdCounter).padStart(12, "0")}`,
-    schemaVersion: CURRENT_COMMAND_SCHEMA_VERSION,
-    type: payload.op,
-    timestamp: "2026-06-23T00:00:00.000Z",
-    actor: ACTOR,
-    target: {
-      surface: "visual",
-      documentId: "doc-1",
-      visualId: "vis-1",
-    },
-    payload,
-    source: "user",
-  };
-}
+const makeCommand = makeVisualCommand;
 
 function assertSchemaValid(visual: Visual): void {
   const result = safeParseVisual(visual);

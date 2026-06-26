@@ -18,27 +18,13 @@ import {
   resolveTextElementStyle,
   STYLE_CASCADE_LAYERS,
 } from "./style-cascade";
+import { buildDeck, buildSlide } from "@/test/builders/deck";
 
-function makeSlide(overrides: Partial<Slide> = {}): Slide {
-  return {
-    id: "s1",
-    index: 0,
-    title: "Test Slide",
-    bullets: [],
-    visualIds: [],
-    layout: "content",
-    notes: "",
-    ...overrides,
-  };
-}
+const makeSlide = (overrides: Partial<Slide> = {}): Slide =>
+  buildSlide({ id: "s1", title: "Test Slide", bullets: [], ...overrides });
 
-function makeDeck(overrides: Partial<Deck> = {}): Deck {
-  return {
-    themeId: "default",
-    slides: [],
-    ...overrides,
-  };
-}
+const makeDeck = (overrides: Partial<Deck> = {}): Deck =>
+  buildDeck({ slides: [], ...overrides });
 
 function makeMaster(overrides: Partial<MasterSlide> = {}): MasterSlide {
   return {

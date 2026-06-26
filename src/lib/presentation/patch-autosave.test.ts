@@ -16,29 +16,14 @@ import { test, describe } from "node:test";
 
 import { attemptPatchAutosave } from "./patch-autosave";
 import type { PatchSaveFn, DeckSaveFn } from "./patch-autosave";
-import type { Deck } from "@/lib/presentation/deck";
 import type { DeckPatch } from "@/lib/presentation/slide-commands";
+import { makeMinimalDeck, makeMinimalSlide } from "@/test/builders/deck";
 
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
 
-function makeDeck(): Deck {
-  return {
-    themeId: "default",
-    slides: [
-      {
-        id: "s1",
-        index: 0,
-        title: "Slide 1",
-        bullets: [],
-        visualIds: [],
-        layout: "blank",
-        notes: "",
-      },
-    ],
-  };
-}
+const makeDeck = () => makeMinimalDeck([makeMinimalSlide("s1", 0, "Slide 1")]);
 
 function makePatch(op: DeckPatch["op"] = "deck.set_theme"): DeckPatch {
   return {

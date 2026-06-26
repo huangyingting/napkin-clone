@@ -17,18 +17,14 @@ import {
   reconcileDocumentDeckDependencies,
   collectDeckVisualIds,
 } from "./source-ref-model";
+import { buildDeck } from "@/test/builders/deck";
 
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
 
-function makeDeck(slides: Slide[]): Deck {
-  return {
-    slides,
-    themeId: "indigo",
-    version: 1,
-  } as unknown as Deck;
-}
+const makeDeck = (slides: Slide[]): Deck =>
+  buildDeck({ themeId: "indigo", slides });
 
 function makeVisualSlide(
   slideId: string,

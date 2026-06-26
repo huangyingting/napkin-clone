@@ -31,6 +31,7 @@ import {
   updateElement,
   updateSlide,
 } from "./deck-mutations";
+import { makeMinimalDeck } from "@/test/builders/deck";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -70,12 +71,8 @@ function slide(index: number, title: string): Slide {
   };
 }
 
-function makeDeck(titles: string[]): Deck {
-  return {
-    themeId: "default",
-    slides: titles.map((title, index) => slide(index, title)),
-  };
-}
+const makeDeck = (titles: string[]): Deck =>
+  makeMinimalDeck(titles.map((title, index) => slide(index, title)));
 
 function authoredSlide(overrides: Partial<Slide> = {}): Slide {
   return {
