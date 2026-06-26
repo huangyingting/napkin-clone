@@ -26,7 +26,10 @@ import { Tooltip } from "@/components/ui";
 import type { SlideElement } from "@/lib/presentation/deck";
 import { defaultLayouts } from "@/lib/presentation/deck";
 import { assertNever } from "@/lib/assert-never";
-import type { RightPanelTab } from "@/lib/presentation/slide-panel-ui";
+import type {
+  InspectorMode,
+  RightPanelTab,
+} from "@/lib/presentation/slide-panel-ui";
 import { canAddImage, dataUrlByteSize } from "@/lib/presentation/image-element";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
 import {
@@ -57,7 +60,6 @@ const THEME_ACCENT_SWATCHES = tokenSetSwatchColors(
 );
 
 type Panel = RightPanelTab;
-type PositionPanelTab = "arrange" | "layers";
 
 const FIELD_CLASS =
   "w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-sm text-ds-text-primary outline-none";
@@ -133,8 +135,9 @@ export function SlideInspector({
   slideAssetPort,
   onClose,
   initialTab,
+  inspectorMode = "properties",
+  onInspectorModeChange,
 }: SlideInspectorProps) {
-  const [positionTab, setPositionTab] = useState<PositionPanelTab>("arrange");
   const [selectedLayoutId, setSelectedLayoutId] = useState("");
   const elements = slide.elements ?? [];
   const selectedElement =
@@ -156,22 +159,37 @@ export function SlideInspector({
     (requestedPanel === "source" && !canShowSourcePanel)
       ? "position"
       : requestedPanel;
+  const activePanel: Panel =
+    inspectorMode === "properties" &&
+    selectedElement === null &&
+    panel !== "notes"
+      ? "slide"
+      : panel;
 
-  function handleTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
-    const tabs: PositionPanelTab[] = ["arrange", "layers"];
-    const idx = tabs.indexOf(positionTab);
+  function handleModeChange(mode: InspectorMode) {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("textiq.slideInspectorMode", mode);
+    }
+    onInspectorModeChange?.(mode);
+  }
+
+  function handleModeKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
     if (event.key === "ArrowRight" || event.key === "ArrowDown") {
       event.preventDefault();
-      setPositionTab(tabs[(idx + 1) % tabs.length]);
+      handleModeChange(
+        inspectorMode === "properties" ? "layers" : "properties",
+      );
     } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
       event.preventDefault();
-      setPositionTab(tabs[(idx - 1 + tabs.length) % tabs.length]);
+      handleModeChange(
+        inspectorMode === "properties" ? "layers" : "properties",
+      );
     } else if (event.key === "Home") {
       event.preventDefault();
-      setPositionTab(tabs[0]);
+      handleModeChange("properties");
     } else if (event.key === "End") {
       event.preventDefault();
-      setPositionTab(tabs[tabs.length - 1]);
+      handleModeChange("layers");
     }
   }
 
@@ -236,15 +254,12 @@ export function SlideInspector({
     null;
 
   const themeColors = resolveSlideThemeColors(deck, slide);
-  const panelTitle: Record<Panel, string> = {
-    position: "Position",
-    text: "Text",
-    effects: "Effects",
-    media: "Media",
-    slide: "Slide",
-    notes: "Notes",
-    source: "Source",
-  };
+  const identityLabel =
+    inspectorMode === "layers"
+      ? "Layers"
+      : selectedElement
+        ? elementLabel(selectedElement)
+        : "Slide";
 
   return (
     <aside className={className}>
@@ -254,10 +269,32 @@ export function SlideInspector({
             Slide {slideIndex + 1}
           </p>
           <h3 className="text-sm font-semibold text-ds-text-primary">
-            {panelTitle[panel]}
+            {identityLabel}
           </h3>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          <div
+            role="tablist"
+            aria-label="Right panel mode"
+            className="flex items-center gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-0.5"
+          >
+            <TabButton
+              active={inspectorMode === "properties"}
+              tabId="inspector-mode-properties"
+              panelId="inspector-panel-properties"
+              label="Properties"
+              onClick={() => handleModeChange("properties")}
+              onKeyDown={handleModeKeyDown}
+            />
+            <TabButton
+              active={inspectorMode === "layers"}
+              tabId="inspector-mode-layers"
+              panelId="inspector-panel-layers"
+              label="Layers"
+              onClick={() => handleModeChange("layers")}
+              onKeyDown={handleModeKeyDown}
+            />
+          </div>
           <Tooltip label="Duplicate slide" side="bottom">
             <button
               type="button"
@@ -294,37 +331,19 @@ export function SlideInspector({
         </div>
       </div>
 
-      {panel === "position" ? (
-        <div
-          role="tablist"
-          aria-label="Position panel tabs"
-          className="flex items-center gap-1 border-b border-ds-border-subtle px-3 py-2"
-        >
-          <TabButton
-            active={positionTab === "arrange"}
-            tabId="inspector-tab-arrange"
-            panelId="inspector-panel-arrange"
-            label="Arrange"
-            onClick={() => setPositionTab("arrange")}
-            onKeyDown={handleTabKeyDown}
-          />
-          <TabButton
-            active={positionTab === "layers"}
-            tabId="inspector-tab-layers"
-            panelId="inspector-panel-layers"
-            label="Layers"
-            onClick={() => setPositionTab("layers")}
-            onKeyDown={handleTabKeyDown}
-          />
-        </div>
-      ) : null}
-
-      <div className="flex flex-col gap-4 px-4 py-4">
-        {panel === "position" && positionTab === "arrange" ? (
+      <div
+        id={
+          inspectorMode === "layers"
+            ? "inspector-panel-layers"
+            : "inspector-panel-properties"
+        }
+        className="flex flex-col gap-4 px-4 py-4"
+      >
+        {inspectorMode === "properties" && activePanel === "position" ? (
           <div
             role="tabpanel"
             id="inspector-panel-arrange"
-            aria-labelledby="inspector-tab-arrange"
+            aria-labelledby="inspector-mode-properties"
             className="flex flex-col gap-4"
           >
             {selectedElementIds && selectedElementIds.size >= 2 ? (
@@ -340,19 +359,15 @@ export function SlideInspector({
                 element={selectedElement}
                 onUpdateElement={onUpdateElement}
               />
-            ) : (
-              <p className="text-xs text-ds-text-muted">
-                Select an element to arrange it.
-              </p>
-            )}
+            ) : null}
           </div>
         ) : null}
 
-        {panel === "position" && positionTab === "layers" ? (
+        {inspectorMode === "layers" ? (
           <div
             role="tabpanel"
             id="inspector-panel-layers"
-            aria-labelledby="inspector-tab-layers"
+            aria-labelledby="inspector-mode-layers"
             className="flex flex-col gap-4"
           >
             <>
@@ -389,7 +404,7 @@ export function SlideInspector({
           </div>
         ) : null}
 
-        {panel === "text" ? (
+        {inspectorMode === "properties" && activePanel === "text" ? (
           <div
             role="tabpanel"
             id="inspector-panel-text"
@@ -405,7 +420,7 @@ export function SlideInspector({
           </div>
         ) : null}
 
-        {panel === "effects" ? (
+        {inspectorMode === "properties" && activePanel === "effects" ? (
           <div
             role="tabpanel"
             id="inspector-panel-effects"
@@ -419,7 +434,7 @@ export function SlideInspector({
           </div>
         ) : null}
 
-        {panel === "media" ? (
+        {inspectorMode === "properties" && activePanel === "media" ? (
           <div
             role="tabpanel"
             id="inspector-panel-media"
@@ -459,7 +474,7 @@ export function SlideInspector({
           </div>
         ) : null}
 
-        {panel === "slide" ? (
+        {inspectorMode === "properties" && activePanel === "slide" ? (
           <div
             role="tabpanel"
             id="inspector-panel-slide"
@@ -640,7 +655,7 @@ export function SlideInspector({
           </div>
         ) : null}
 
-        {panel === "source" ? (
+        {inspectorMode === "properties" && activePanel === "source" ? (
           <div
             role="tabpanel"
             id="inspector-panel-source"
@@ -661,7 +676,7 @@ export function SlideInspector({
           </div>
         ) : null}
 
-        {panel === "notes" ? (
+        {inspectorMode === "properties" && activePanel === "notes" ? (
           <div
             role="tabpanel"
             id="inspector-panel-notes"

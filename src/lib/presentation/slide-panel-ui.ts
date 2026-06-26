@@ -16,6 +16,14 @@ export type RightPanelTab =
   | "notes"
   | "source";
 
+/** Mutually-exclusive modes in the floating right panel. */
+export type InspectorMode = "properties" | "layers";
+
+/** Default right-panel mode when opening the inspector. */
+export function defaultInspectorMode(): InspectorMode {
+  return "properties";
+}
+
 /**
  * The tab the panel should open to by default. With a selection, the most
  * useful default is `arrange`; with no selection, slide-level settings.
@@ -33,6 +41,18 @@ export function isSelectionToolbarVisible(input: {
   selectedCount: number;
 }): boolean {
   return input.hasSelectedElement || input.selectedCount > 0;
+}
+
+/**
+ * Whether the slide-level current-object toolbar should be shown. It appears
+ * only when the selection is empty, because the current object then resolves to
+ * the active slide.
+ */
+export function isSlideToolbarVisible(input: {
+  selectedElementId: string | null;
+  selectedCount: number;
+}): boolean {
+  return input.selectedElementId === null && input.selectedCount === 0;
 }
 
 /**

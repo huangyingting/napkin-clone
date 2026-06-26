@@ -5,17 +5,22 @@ import { createPortal } from "react-dom";
 import {
   BringToFront,
   ChevronLeft,
+  Copy,
   FileText,
   Grid3x3,
   Image as ImageIcon,
   LayoutPanelLeft,
+  List,
   Minus,
   MoreHorizontal,
   Palette,
   Plus,
   SendToBack,
   Sparkles,
+  Columns3,
+  Square,
   Type,
+  Trash2,
   X,
 } from "lucide-react";
 
@@ -23,11 +28,16 @@ import { FOCUS_RING } from "@/components/ui/tokens";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Popover } from "@/components/ui/popover";
 import { Tooltip } from "@/components/ui";
+import { VisualPicker } from "@/components/presentation/visual-picker";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { ElementToolbarContent } from "@/components/presentation/slide-stage/element-overlays";
 import { useFocusTrap } from "@/lib/presentation/use-focus-trap";
 import type { Visual } from "@/lib/visual/schema";
-import type { SlideElement } from "@/lib/presentation/deck";
+import type {
+  Slide,
+  SlideElement,
+  SlideLayout as ReusableSlideLayout,
+} from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import type { SlideThemeColors } from "@/lib/presentation/style-cascade";
 import type { SlideFormat } from "@/lib/presentation/slide-format";
@@ -46,6 +56,7 @@ import {
 import type { MergeSummary } from "@/lib/presentation/deck-merge";
 import type { Insertable } from "@/lib/presentation/document-insertable";
 import type { StaleSourceLink } from "@/lib/presentation/source-link-staleness";
+import type { AddElementKind } from "@/components/presentation/slide-inspector/types";
 import {
   isSelectionToolbarVisible,
   shouldShowRichToolbarControls,
@@ -1036,6 +1047,7 @@ export function SlideSelectionToolbar({
   onOpenEffects,
   onOpenMedia,
   onOpenSource,
+  onOpenPanel,
   onDuplicateElement,
   onRemoveElement,
   onBringToFront,
@@ -1056,6 +1068,7 @@ export function SlideSelectionToolbar({
   onOpenEffects: () => void;
   onOpenMedia: () => void;
   onOpenSource: () => void;
+  onOpenPanel: () => void;
   onDuplicateElement: (id: string) => void;
   onRemoveElement: (id: string) => void;
   onBringToFront: (id: string) => void;
@@ -1213,6 +1226,245 @@ export function SlideSelectionToolbar({
         <Grid3x3 size={14} aria-hidden="true" />,
         onOpenPosition,
       )}
+      {panelEntry(
+        "Open properties panel",
+        <LayoutPanelLeft size={14} aria-hidden="true" />,
+        onOpenPanel,
+      )}
+    </div>
+  );
+}
+
+export function SlideToolbar({
+  slide,
+  slideLabel,
+  layouts,
+  selectedLayoutId,
+  canDelete,
+  onSelectLayout,
+  onBackgroundChange,
+  onBackgroundGradientChange,
+  onAddElement,
+  visuals,
+  visualPickerOpen,
+  imageError,
+  onVisualPickerOpenChange,
+  onPickVisual,
+  onDuplicateSlide,
+  onRemoveSlide,
+  onOpenPanel,
+}: {
+  slide: Slide;
+  slideLabel: string;
+  layouts: readonly ReusableSlideLayout[];
+  selectedLayoutId: string;
+  canDelete: boolean;
+  onSelectLayout: (layout: ReusableSlideLayout) => void;
+  onBackgroundChange: (color: string | undefined) => void;
+  onBackgroundGradientChange: (
+    gradient: BackgroundGradient | undefined,
+  ) => void;
+  onAddElement: (kind: AddElementKind) => void;
+  visuals: ReadonlyMap<string, Visual>;
+  visualPickerOpen: boolean;
+  imageError?: string | null;
+  onVisualPickerOpenChange: (open: boolean) => void;
+  onPickVisual: (visualId: string) => void;
+  onDuplicateSlide: () => void;
+  onRemoveSlide: () => void;
+  onOpenPanel: () => void;
+}) {
+  const selectedLayout =
+    layouts.find((layout) => layout.id === selectedLayoutId) ?? layouts[0];
+  const quickBackgrounds = SOLID_BACKGROUND_OPTIONS.slice(0, 8);
+  const quickGradients = GRADIENT_BACKGROUND_OPTIONS.slice(0, 4);
+  const iconButtonClass = `flex h-7 w-7 shrink-0 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`;
+
+  return (
+    <div
+      role="toolbar"
+      data-floating-panel="true"
+      aria-label="Slide tools"
+      className="pointer-events-auto absolute left-1/2 top-3 z-sticky flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-1 overflow-visible rounded-ds-lg border border-ds-border-subtle bg-ds-surface-raised p-1 shadow-ds-popover"
+    >
+      <div className="flex min-w-0 items-center gap-2 px-2">
+        <FileText size={14} className="text-ds-text-muted" aria-hidden="true" />
+        <span className="max-w-36 truncate text-xs font-semibold text-ds-text-primary">
+          Slide · {slideLabel}
+        </span>
+      </div>
+
+      <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
+
+      <label className="flex h-7 items-center gap-1 rounded-ds-sm px-1 text-xs text-ds-text-secondary">
+        <Columns3 size={14} aria-hidden="true" />
+        <select
+          value={selectedLayout?.id ?? ""}
+          aria-label="Slide layout"
+          onChange={(event) => {
+            const layout = layouts.find(
+              (item) => item.id === event.target.value,
+            );
+            if (layout) onSelectLayout(layout);
+          }}
+          className={`max-w-28 bg-transparent text-xs font-medium text-ds-text-secondary outline-none ${FOCUS_RING}`}
+        >
+          {layouts.map((layout) => (
+            <option key={layout.id} value={layout.id}>
+              {layout.title ?? layout.name}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <span
+        className="flex items-center gap-0.5"
+        aria-label="Background presets"
+      >
+        {quickBackgrounds.map((option) => {
+          const active =
+            slide.background === option.color &&
+            slide.backgroundGradient === undefined &&
+            slide.backgroundImage === undefined;
+          return (
+            <Tooltip key={option.id} label={option.label} side="bottom">
+              <button
+                type="button"
+                aria-label={`Set background ${option.label}`}
+                aria-pressed={active}
+                onClick={() => {
+                  onBackgroundGradientChange(undefined);
+                  onBackgroundChange(option.color);
+                }}
+                className={`h-5 w-5 rounded-full border transition-transform hover:scale-110 ${
+                  active
+                    ? "border-ds-accent shadow-ds-focus"
+                    : "border-ds-border-subtle"
+                } ${FOCUS_RING}`}
+                style={{ backgroundColor: option.color }}
+              />
+            </Tooltip>
+          );
+        })}
+        {quickGradients.map((option) => {
+          const active =
+            slide.background === undefined &&
+            slide.backgroundImage === undefined &&
+            slide.backgroundGradient?.from === option.gradient.from &&
+            slide.backgroundGradient?.to === option.gradient.to;
+          return (
+            <Tooltip key={option.id} label={option.label} side="bottom">
+              <button
+                type="button"
+                aria-label={`Set background ${option.label}`}
+                aria-pressed={active}
+                onClick={() => {
+                  onBackgroundChange(undefined);
+                  onBackgroundGradientChange(option.gradient);
+                }}
+                className={`h-5 w-5 rounded-full border transition-transform hover:scale-110 ${
+                  active
+                    ? "border-ds-accent shadow-ds-focus"
+                    : "border-ds-border-subtle"
+                } ${FOCUS_RING}`}
+                style={{ background: gradientCss(option.gradient) }}
+              />
+            </Tooltip>
+          );
+        })}
+      </span>
+
+      <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
+
+      {(
+        [
+          ["text", Type, "Add text"],
+          ["bullets", List, "Add list"],
+          ["image", ImageIcon, "Add image"],
+          ["shape", Square, "Add shape"],
+        ] as const
+      ).map(([kind, Icon, label]) => (
+        <Tooltip key={kind} label={label} side="bottom">
+          <button
+            type="button"
+            aria-label={label}
+            onClick={() => onAddElement(kind)}
+            className={iconButtonClass}
+          >
+            <Icon size={14} aria-hidden="true" />
+          </button>
+        </Tooltip>
+      ))}
+      <Popover
+        open={visualPickerOpen}
+        onClose={() => onVisualPickerOpenChange(false)}
+        aria-label="Insert visual"
+        placement="bottom"
+        className="w-[300px] p-0"
+        trigger={
+          <Tooltip label="Add visual" side="bottom">
+            <button
+              type="button"
+              aria-label="Add visual"
+              aria-haspopup="dialog"
+              aria-expanded={visualPickerOpen}
+              onClick={() => onVisualPickerOpenChange(!visualPickerOpen)}
+              className={iconButtonClass}
+            >
+              <Sparkles size={14} aria-hidden="true" />
+            </button>
+          </Tooltip>
+        }
+      >
+        <VisualPicker
+          className="w-full"
+          visuals={visuals}
+          onPick={onPickVisual}
+          onClose={() => onVisualPickerOpenChange(false)}
+        />
+      </Popover>
+      {imageError ? (
+        <span role="alert" className="px-1 text-[11px] text-ds-danger-text">
+          {imageError}
+        </span>
+      ) : null}
+
+      <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
+
+      <Tooltip label="Duplicate slide" side="bottom">
+        <button
+          type="button"
+          aria-label="Duplicate slide"
+          onClick={onDuplicateSlide}
+          className={iconButtonClass}
+        >
+          <Copy size={14} aria-hidden="true" />
+        </button>
+      </Tooltip>
+      <Tooltip label="Delete slide" side="bottom">
+        <button
+          type="button"
+          aria-label="Delete slide"
+          disabled={!canDelete}
+          onClick={onRemoveSlide}
+          className={`${iconButtonClass} disabled:pointer-events-none disabled:opacity-40`}
+        >
+          <Trash2 size={14} aria-hidden="true" />
+        </button>
+      </Tooltip>
+
+      <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
+
+      <Tooltip label="Open properties panel" side="bottom">
+        <button
+          type="button"
+          aria-label="Open properties panel"
+          onClick={onOpenPanel}
+          className={iconButtonClass}
+        >
+          <LayoutPanelLeft size={14} aria-hidden="true" />
+        </button>
+      </Tooltip>
     </div>
   );
 }

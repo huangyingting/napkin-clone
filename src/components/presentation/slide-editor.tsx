@@ -26,25 +26,20 @@
 import {
   ChevronUp,
   ChevronDown,
-  Circle,
   Copy,
   Edit3,
-  FileText,
   Grid3x3,
   Image as ImageIcon,
   Keyboard,
   List,
-  Minus,
   Plus,
   Redo2,
   RefreshCw,
   Sparkles,
   Square,
   Trash2,
-  Triangle,
   Undo2,
   X,
-  Palette,
   Type,
 } from "lucide-react";
 import {
@@ -80,7 +75,7 @@ import {
 } from "@/lib/presentation/stage-fit";
 import {
   buildVisualElement,
-  DEFAULT_VISUAL_BOX,
+  defaultLayouts,
   makeElementId,
   type Deck,
   type DeckTheme,
@@ -116,7 +111,6 @@ import {
   orderedElementIds,
 } from "@/lib/presentation/canvas-a11y";
 import {
-  addElement,
   insertSlide,
   type DistributiveOmit,
   type ElementPatch,
@@ -129,15 +123,10 @@ import type {
 import type { ArrangeMode } from "@/lib/presentation/element-arrange";
 import { deriveSlideTitle } from "@/lib/presentation/slide-title";
 import { shouldCollapseToolbar } from "@/lib/presentation/slide-panel-ui";
+import { isSlideToolbarVisible } from "@/lib/presentation/slide-panel-ui";
 import { slideReorderKeyDirection } from "@/lib/presentation/slide-reorder";
 import { useDeckHistory } from "@/lib/presentation/use-deck-history";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
-import {
-  buildInsertables,
-  insertableTextElement,
-  insertableVisualElement,
-  type Insertable,
-} from "@/lib/presentation/document-insertable";
 import {
   findStaleSourceLinks,
   updateTextElementFromBlock,
@@ -172,14 +161,12 @@ import {
   emitProductTelemetry,
 } from "@/lib/telemetry/product";
 import {
-  BackgroundThemePanel,
-  FromDocumentPanel,
-  InsertMenuButton,
   MergeSummaryDialog,
   SlideBottomDock,
   SlideEditorTopToolbar,
   SlideRail,
   SlideSelectionToolbar,
+  SlideToolbar,
   SlideSizeControl,
   SlideTemplatePicker,
   ThumbnailAction,
@@ -234,175 +221,10 @@ interface SlideEditorProps {
   brandSwatches?: readonly string[];
   /**
    * Number of slide elements whose source-document links are stale (issue
-   * #377). Drives the stale-count badge on the "From document" button. Absent
-   * or zero means no badge is rendered.
+   * #377). Drives the stale-count badge on the sync action. Absent or zero
+   * means no badge is rendered.
    */
   staleSourceLinkCount?: number;
-}
-
-/** Tabs available in the right supplemental panel (Slides-UI.md). */
-
-type BackgroundGradient = { from: string; to: string; angle?: number };
-
-const SOLID_BACKGROUND_OPTIONS: {
-  id: string;
-  label: string;
-  color: string;
-}[] = [
-  { id: "black", label: "Black", color: "#050505" },
-  { id: "graphite", label: "Graphite", color: "#525252" },
-  { id: "ash", label: "Ash", color: "#737373" },
-  { id: "stone", label: "Stone", color: "#a3a3a3" },
-  { id: "silver", label: "Silver", color: "#b8b8b8" },
-  { id: "mist", label: "Mist", color: "#d4d4d4" },
-  { id: "white", label: "White", color: "#fbfbfb" },
-  { id: "vermillion", label: "Vermillion", color: "#df4038" },
-  { id: "coral", label: "Coral", color: "#df625d" },
-  { id: "orchid", label: "Orchid", color: "#d662b8" },
-  { id: "lilac", label: "Lilac", color: "#caa2e7" },
-  { id: "violet", label: "Violet", color: "#ad6ddd" },
-  { id: "iris", label: "Iris", color: "#7b5cf0" },
-  { id: "royal", label: "Royal", color: "#512ddc" },
-  { id: "fjord", label: "Fjord", color: "#5799af" },
-  { id: "sky", label: "Sky", color: "#6dbbd5" },
-  { id: "aqua", label: "Aqua", color: "#8bd6d8" },
-  { id: "azure", label: "Azure", color: "#6aaef0" },
-  { id: "periwinkle", label: "Periwinkle", color: "#6374ee" },
-  { id: "cobalt", label: "Cobalt", color: "#3455ad" },
-  { id: "indigo", label: "Indigo", color: "#24139b" },
-  { id: "leaf", label: "Leaf", color: "#66ba69" },
-  { id: "lime", label: "Lime", color: "#9bd363" },
-  { id: "sprout", label: "Sprout", color: "#cbfb6f" },
-  { id: "sun", label: "Sun", color: "#f6dc62" },
-  { id: "sand", label: "Sand", color: "#efbf61" },
-  { id: "apricot", label: "Apricot", color: "#e99350" },
-  { id: "orange", label: "Orange", color: "#e5782e" },
-];
-
-const GRADIENT_BACKGROUND_OPTIONS: {
-  id: string;
-  label: string;
-  gradient: BackgroundGradient;
-}[] = [
-  {
-    id: "black-gloss",
-    label: "Black gloss",
-    gradient: { from: "#050505", to: "#525252", angle: 90 },
-  },
-  {
-    id: "mono-shine",
-    label: "Mono shine",
-    gradient: { from: "#0b0b0b", to: "#f5f5f5", angle: 90 },
-  },
-  {
-    id: "pearl",
-    label: "Pearl",
-    gradient: { from: "#a8a8a8", to: "#f7f7f7", angle: 135 },
-  },
-  {
-    id: "lime-pop",
-    label: "Lime pop",
-    gradient: { from: "#8bd548", to: "#daf56d", angle: 135 },
-  },
-  {
-    id: "gold-night",
-    label: "Gold night",
-    gradient: { from: "#0f0d05", to: "#99741a", angle: 90 },
-  },
-  {
-    id: "sunset-glow",
-    label: "Sunset glow",
-    gradient: { from: "#7c3f96", to: "#f5d64d", angle: 90 },
-  },
-  {
-    id: "deep-violet",
-    label: "Deep violet",
-    gradient: { from: "#060a36", to: "#2514a0", angle: 135 },
-  },
-  {
-    id: "frost",
-    label: "Frost",
-    gradient: { from: "#d4f8de", to: "#b9c8ff", angle: 135 },
-  },
-  {
-    id: "ember",
-    label: "Ember",
-    gradient: { from: "#dd3f3a", to: "#ec9a4e", angle: 135 },
-  },
-  {
-    id: "berry",
-    label: "Berry",
-    gradient: { from: "#d94d59", to: "#7b5cf0", angle: 135 },
-  },
-  {
-    id: "candy",
-    label: "Candy",
-    gradient: { from: "#5b73f0", to: "#d45fc4", angle: 135 },
-  },
-  {
-    id: "cosmic",
-    label: "Cosmic",
-    gradient: { from: "#2f58b8", to: "#8b4fda", angle: 135 },
-  },
-  {
-    id: "aqua-pop",
-    label: "Aqua pop",
-    gradient: { from: "#7a5cf2", to: "#78d5dd", angle: 135 },
-  },
-  {
-    id: "ocean",
-    label: "Ocean",
-    gradient: { from: "#70ced8", to: "#3455ad", angle: 135 },
-  },
-  {
-    id: "rainforest",
-    label: "Rainforest",
-    gradient: { from: "#745cf0", to: "#58b96a", angle: 135 },
-  },
-  {
-    id: "meadow",
-    label: "Meadow",
-    gradient: { from: "#5e9eaf", to: "#98d45f", angle: 135 },
-  },
-  {
-    id: "sea-lime",
-    label: "Sea lime",
-    gradient: { from: "#63b7d6", to: "#e8df66", angle: 135 },
-  },
-  {
-    id: "honey",
-    label: "Honey",
-    gradient: { from: "#f8d35a", to: "#ee9f51", angle: 135 },
-  },
-  {
-    id: "peach",
-    label: "Peach",
-    gradient: { from: "#d95faa", to: "#f2d65d", angle: 135 },
-  },
-  {
-    id: "blush",
-    label: "Blush",
-    gradient: { from: "#fff2a8", to: "#e5a7f0", angle: 135 },
-  },
-  {
-    id: "sherbet",
-    label: "Sherbet",
-    gradient: { from: "#7b5cf0", to: "#e99350", angle: 135 },
-  },
-];
-
-function gradientCss(gradient: BackgroundGradient): string {
-  return `linear-gradient(${gradient.angle ?? 135}deg, ${gradient.from}, ${gradient.to})`;
-}
-
-function sameGradient(
-  a: BackgroundGradient | undefined,
-  b: BackgroundGradient,
-): boolean {
-  if (!a) return false;
-  return (
-    a.from === b.from && a.to === b.to && (a.angle ?? 135) === (b.angle ?? 135)
-  );
 }
 
 const FLOATING_PANEL_STAGE_RESERVE_PX = 352;
@@ -659,7 +481,6 @@ function ResetLayoutConfirmDialog({
 export function SlideEditor({
   deck: deckProp,
   visuals,
-  documentTextBlocks = [],
   documentBlocks,
   documentId,
   slideAssetPort,
@@ -723,6 +544,8 @@ export function SlideEditor({
     openInspectorSurface,
     closeRightPanel,
     rightPanelTab,
+    inspectorMode,
+    setInspectorMode,
     openRightPanel,
     openSelectionPanel,
     zoom,
@@ -733,14 +556,8 @@ export function SlideEditor({
     setAddTemplateOpen,
     spotlightPickerOpen,
     setSpotlightPickerOpen,
-    insertMenuOpen,
-    setInsertMenuOpen,
     visualPickerOpen,
     setVisualPickerOpen,
-    fromDocOpen,
-    setFromDocOpen,
-    themeMenuOpen,
-    setThemeMenuOpen,
     deckTemplateOpen,
     setDeckTemplateOpen,
     mergePreview,
@@ -771,6 +588,8 @@ export function SlideEditor({
   // knows whether to insert the empty placeholder.
   const insertImagePendingIdRef = useRef<string | null>(null);
   const [insertImageError, setInsertImageError] = useState<string | null>(null);
+  const [canvasAddOpen, setCanvasAddOpen] = useState(false);
+  const [canvasAddVisualOpen, setCanvasAddVisualOpen] = useState(false);
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
   const [pendingResetLayout, setPendingResetLayout] =
     useState<ReusableSlideLayout | null>(null);
@@ -859,8 +678,6 @@ export function SlideEditor({
       : "No element selected";
   }, [effectiveSelectedElementId, effectiveSelectedElementIds, selectedSlide]);
   const activeSlideAspectRatio = slideAspectRatio(deck.slideFormat);
-  // Fit the stage to the deck's slide format — not the viewport's — so
-  // cqh-sized slide text never overflows on portrait phones.
   const fittedStageSize = fitAspectRatio(stageBounds, activeSlideAspectRatio);
   const renderedStageWidth = fittedStageSize.width * zoom;
   const renderedStageHeight = fittedStageSize.height * zoom;
@@ -1017,133 +834,6 @@ export function SlideEditor({
     },
     [deck, doCommitAndChange],
   );
-
-  const applyDeckSolidBackground = useCallback(
-    (color: string) => {
-      let nextDeck = deck;
-      const patches: DeckPatch[] = [];
-      for (const slide of deck.slides) {
-        const commands: Parameters<typeof commitCommand>[1][] = [];
-        if (slide.backgroundImage !== undefined || slide.backgroundAssetId) {
-          commands.push({
-            type: "SET_SLIDE_BACKGROUND_ASSET",
-            slideId: slide.id,
-            opts: undefined,
-          });
-        }
-        if (slide.backgroundGradient !== undefined) {
-          commands.push({
-            type: "SET_SLIDE_BACKGROUND_GRADIENT",
-            slideId: slide.id,
-            gradient: undefined,
-          });
-        }
-        if (slide.background !== color) {
-          commands.push({
-            type: "SET_SLIDE_BACKGROUND",
-            slideId: slide.id,
-            background: color,
-          });
-        }
-        for (const command of commands) {
-          const { result, patches: commandPatches } = commitCommand(
-            nextDeck,
-            command,
-          );
-          if (!result.ok) return;
-          nextDeck = result.deck;
-          patches.push(...commandPatches);
-        }
-      }
-      if (patches.length > 0) {
-        appendPendingPatches(pendingPatchesRef, patches);
-        onDeckChange(nextDeck);
-        emitProductTelemetry("product.editor.command.succeeded", {
-          commandName: "apply_deck_solid_background",
-          elementCountBucket: bucketCount(patches.length),
-          slideCount: nextDeck.slides.length,
-          surface: "slide-editor",
-        });
-      }
-      setThemeMenuOpen(false);
-    },
-    [deck, onDeckChange],
-  );
-
-  const applyDeckGradientBackground = useCallback(
-    (gradient: BackgroundGradient) => {
-      let nextDeck = deck;
-      const patches: DeckPatch[] = [];
-      for (const slide of deck.slides) {
-        const commands: Parameters<typeof commitCommand>[1][] = [];
-        if (slide.backgroundImage !== undefined || slide.backgroundAssetId) {
-          commands.push({
-            type: "SET_SLIDE_BACKGROUND_ASSET",
-            slideId: slide.id,
-            opts: undefined,
-          });
-        }
-        if (slide.background !== undefined) {
-          commands.push({
-            type: "SET_SLIDE_BACKGROUND",
-            slideId: slide.id,
-            background: undefined,
-          });
-        }
-        if (!sameGradient(slide.backgroundGradient, gradient)) {
-          commands.push({
-            type: "SET_SLIDE_BACKGROUND_GRADIENT",
-            slideId: slide.id,
-            gradient,
-          });
-        }
-        for (const command of commands) {
-          const { result, patches: commandPatches } = commitCommand(
-            nextDeck,
-            command,
-          );
-          if (!result.ok) return;
-          nextDeck = result.deck;
-          patches.push(...commandPatches);
-        }
-      }
-      if (patches.length > 0) {
-        appendPendingPatches(pendingPatchesRef, patches);
-        onDeckChange(nextDeck);
-        emitProductTelemetry("product.editor.command.succeeded", {
-          commandName: "apply_deck_gradient_background",
-          elementCountBucket: bucketCount(patches.length),
-          slideCount: nextDeck.slides.length,
-          surface: "slide-editor",
-        });
-      }
-      setThemeMenuOpen(false);
-    },
-    [deck, onDeckChange],
-  );
-
-  const activeSolidBackground = SOLID_BACKGROUND_OPTIONS.find((option) =>
-    deck.slides.every(
-      (slide) =>
-        slide.background === option.color &&
-        slide.backgroundGradient === undefined &&
-        slide.backgroundImage === undefined &&
-        slide.backgroundAssetId === undefined,
-    ),
-  )?.id;
-  const activeGradientBackground = GRADIENT_BACKGROUND_OPTIONS.find((option) =>
-    deck.slides.every(
-      (slide) =>
-        sameGradient(slide.backgroundGradient, option.gradient) &&
-        slide.background === undefined &&
-        slide.backgroundImage === undefined &&
-        slide.backgroundAssetId === undefined,
-    ),
-  )?.id;
-  const backgroundPreviewGradient = selectedSlide?.backgroundGradient;
-  const backgroundPreviewStyle = backgroundPreviewGradient
-    ? { background: gradientCss(backgroundPreviewGradient) }
-    : { backgroundColor: selectedSlide?.background ?? selectedTheme.bgColor };
 
   const handleAddTemplate = useCallback(
     (kind: SlideTemplateKind) => {
@@ -1776,7 +1466,6 @@ export function SlideEditor({
       doCommitAndChange(deck, { type: "ADD_ELEMENT", slideId, element });
       handleSelectElement(id);
       setInsertImageError(null);
-      setInsertMenuOpen(false);
     },
     [
       accentForSelected,
@@ -1815,7 +1504,6 @@ export function SlideEditor({
           const element = buildDefaultElement("image", accentForSelected, id);
           doCommitAndChange(deck, { type: "ADD_ELEMENT", slideId, element });
           handleSelectElement(id);
-          setInsertMenuOpen(false);
           return;
         }
 
@@ -1831,7 +1519,6 @@ export function SlideEditor({
           const element = buildDefaultElement("image", accentForSelected, id);
           doCommitAndChange(deck, { type: "ADD_ELEMENT", slideId, element });
           handleSelectElement(id);
-          setInsertMenuOpen(false);
         };
 
         const handleCancel = () => {
@@ -1867,7 +1554,6 @@ export function SlideEditor({
           : rawElement;
       doCommitAndChange(deck, { type: "ADD_ELEMENT", slideId, element });
       handleSelectElement(id);
-      setInsertMenuOpen(false);
     },
     [
       accentForSelected,
@@ -1923,86 +1609,8 @@ export function SlideEditor({
       doCommitAndChange(deck, { type: "ADD_ELEMENT", slideId, element });
       handleSelectElement(element.id);
       setVisualPickerOpen(false);
-      setInsertMenuOpen(false);
     },
     [deck, doCommitAndChange, handleSelectElement, safeSelected],
-  );
-
-  // "From document" panel inserts. These keep the panel open so the user can
-  // place several items in a row; each insert is a single undoable step.
-  const handleInsertDocumentVisual = useCallback(
-    (item: Extract<Insertable, { kind: "visual" }>) => {
-      const slideId = deck.slides[safeSelected]?.id;
-      if (!slideId) return;
-      // Stamp sourceRef when documentId is available (issue #424).
-      const element = insertableVisualElement(item, { documentId });
-      doCommitAndChange(deck, { type: "ADD_ELEMENT", slideId, element });
-      handleSelectElement(element.id);
-    },
-    [deck, doCommitAndChange, documentId, handleSelectElement, safeSelected],
-  );
-
-  const handleInsertDocumentText = useCallback(
-    (item: Extract<Insertable, { kind: "text" }>) => {
-      const slideId = deck.slides[safeSelected]?.id;
-      if (!slideId) return;
-      const element = fitInsertedTextElement(
-        insertableTextElement(item, { documentId }),
-        "top-left",
-      );
-      doCommitAndChange(deck, { type: "ADD_ELEMENT", slideId, element });
-      handleSelectElement(element.id);
-    },
-    [
-      deck,
-      doCommitAndChange,
-      documentId,
-      fitInsertedTextElement,
-      handleSelectElement,
-      safeSelected,
-    ],
-  );
-
-  // Inserts every document visual onto the current slide in one undoable step,
-  // cascading each by a small offset so they don't perfectly stack.
-  const handleAddAllVisuals = useCallback(() => {
-    const ids = [...visuals.keys()];
-    if (ids.length === 0) return;
-    let next = deck;
-    ids.forEach((visualId, i) => {
-      const offset = Math.min(i, 8) * 2;
-      const element = buildVisualElement(visualId, {
-        box: {
-          x: DEFAULT_VISUAL_BOX.x + offset,
-          y: DEFAULT_VISUAL_BOX.y + offset,
-          w: DEFAULT_VISUAL_BOX.w,
-          h: DEFAULT_VISUAL_BOX.h,
-        },
-      });
-      next = addElement(next, safeSelected, element);
-    });
-    clearPendingPatches(pendingPatchesRef);
-    onDeckChange(next);
-  }, [deck, onDeckChange, safeSelected, visuals]);
-
-  // Click-to-insert text entries derived from the document's text blocks.
-  const documentTextInsertables = useMemo(
-    () =>
-      buildInsertables(documentTextBlocks as DocumentTextBlock[]).filter(
-        (item): item is Extract<Insertable, { kind: "text" }> =>
-          item.kind === "text",
-      ),
-    [documentTextBlocks],
-  );
-
-  // All visual insertables from the document (for use in relink pickers).
-  const documentVisualInsertables = useMemo(
-    () =>
-      buildInsertables(documentBlocks).filter(
-        (item): item is Extract<Insertable, { kind: "visual" }> =>
-          item.kind === "visual",
-      ),
-    [documentBlocks],
   );
 
   // Compute stale links from the full current document block list.
@@ -2070,52 +1678,6 @@ export function SlideEditor({
     [deck, doCommitAndChange, documentBlocks],
   );
 
-  // Stale-link action: unlink element from its source (keep as manual).
-  const handleUnlinkSource = useCallback(
-    (link: StaleSourceLink) => {
-      const slideIndex = deck.slides.findIndex((s) => s.id === link.slideId);
-      if (slideIndex < 0) return;
-      const slide = deck.slides[slideIndex];
-      const element = (slide.elements ?? []).find(
-        (el) => el.id === link.elementId,
-      );
-      if (!element?.sourceRef) return;
-      doCommitAndChange(deck, {
-        type: "UNLINK_ELEMENT_SOURCE",
-        slideId: link.slideId,
-        elementId: link.elementId,
-      });
-    },
-    [deck, doCommitAndChange],
-  );
-
-  // Stale-link action: relink element to a different document block.
-  const handleRelinkSource = useCallback(
-    (link: StaleSourceLink, newBlockId: string, newContentHash: string) => {
-      const slideIndex = deck.slides.findIndex((s) => s.id === link.slideId);
-      if (slideIndex < 0) return;
-      const slide = deck.slides[slideIndex];
-      const element = (slide.elements ?? []).find(
-        (el) => el.id === link.elementId,
-      );
-      if (!element?.sourceRef) return;
-      const newRef: SourceRef = {
-        documentId: element.sourceRef.documentId,
-        blockId: newBlockId,
-        contentHash: newContentHash,
-        linkedAt: new Date().toISOString(),
-        blockKind: link.blockKind,
-      };
-      doCommitAndChange(deck, {
-        type: "RELINK_ELEMENT_SOURCE",
-        slideId: link.slideId,
-        elementId: link.elementId,
-        sourceRef: newRef,
-      });
-    },
-    [deck, doCommitAndChange],
-  );
-
   // Per-element Source panel actions (#644): drive the same source commands as
   // the stale-links banner, but keyed on a selected element id so the inspector
   // can offer update / unlink / relink for the current selection.
@@ -2173,24 +1735,6 @@ export function SlideEditor({
       }
     },
     [deck, doCommitAndChange],
-  );
-
-  // Stale-link action: remove an orphaned element from the slide (#410).
-  // Only offered for orphaned elements (block_missing); never auto-invoked.
-  const handleRemoveOrphaned = useCallback(
-    (link: StaleSourceLink) => {
-      doCommitAndChange(deck, {
-        type: "REMOVE_SOURCE_ELEMENT",
-        slideId: link.slideId,
-        elementId: link.elementId,
-      });
-    },
-    [deck, doCommitAndChange],
-  );
-
-  const documentVisualEntries = useMemo(
-    () => [...visuals.entries()],
-    [visuals],
   );
 
   const handleBackgroundChange = useCallback(
@@ -2333,6 +1877,34 @@ export function SlideEditor({
       (element) => element.id === effectiveSelectedElementId,
     ) ?? null;
   const deckTemplateTokenSet = resolveDeckThemeTokens(deck);
+  const toolbarLayouts = useMemo(() => {
+    const source =
+      deck.layouts && deck.layouts.length > 0 ? deck.layouts : defaultLayouts();
+    const format = resolveSlideFormat(deck.slideFormat);
+    const filtered = source.filter((layout) => layout.format === format);
+    return filtered.length > 0 ? filtered : source;
+  }, [deck.layouts, deck.slideFormat]);
+  const activeSlideToolbarLayoutId = useMemo(() => {
+    const preferredName =
+      selectedSlide?.layout === "title" || selectedSlide?.layout === "section"
+        ? "title-slide"
+        : selectedSlide?.layout === "content"
+          ? "title-content"
+          : selectedSlide?.layout === "blank"
+            ? "blank"
+            : "title-content";
+    return (
+      toolbarLayouts.find((layout) => layout.name === preferredName)?.id ??
+      toolbarLayouts[0]?.id ??
+      ""
+    );
+  }, [selectedSlide?.layout, toolbarLayouts]);
+  const showSlideToolbar = selectedSlide
+    ? isSlideToolbarVisible({
+        selectedElementId: effectiveSelectedElementId,
+        selectedCount: effectiveSelectedElementIds.size,
+      })
+    : false;
 
   return createPortal(
     <div
@@ -2404,194 +1976,10 @@ export function SlideEditor({
               className="hidden h-5 w-px shrink-0 bg-ds-border-subtle sm:block"
               aria-hidden="true"
             />
-            <Popover
-              open={insertMenuOpen}
-              onClose={() => {
-                setInsertMenuOpen(false);
-                setVisualPickerOpen(false);
-              }}
-              aria-label="Insert element"
-              align="start"
-              portal
-              layer="tooltip"
-              className="w-[300px] p-3"
-              trigger={
-                <button
-                  type="button"
-                  aria-label="Insert element"
-                  aria-haspopup="dialog"
-                  aria-expanded={insertMenuOpen}
-                  onClick={() => setInsertMenuOpen((open) => !open)}
-                  className={`flex h-7 shrink-0 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-                >
-                  <Plus size={14} aria-hidden="true" />
-                  Insert
-                </button>
-              }
-            >
-              <div className="mb-3 flex items-center gap-2">
-                <Plus
-                  aria-hidden="true"
-                  className="h-5 w-5 shrink-0 text-ds-text-primary"
-                />
-                <h4 className="text-sm font-bold leading-none text-ds-text-primary">
-                  Insert element
-                </h4>
-              </div>
-              <div className="grid grid-cols-2 gap-1.5">
-                <InsertMenuButton
-                  icon={<Type size={14} aria-hidden="true" />}
-                  label="Text"
-                  onClick={() => handleAddElement("text")}
-                />
-                <InsertMenuButton
-                  icon={<List size={14} aria-hidden="true" />}
-                  label="Bullets"
-                  onClick={() => handleAddElement("bullets")}
-                />
-                <InsertMenuButton
-                  icon={<ImageIcon size={14} aria-hidden="true" />}
-                  label="Image"
-                  onClick={() => handleAddElement("image")}
-                />
-                <InsertMenuButton
-                  icon={<Square size={14} aria-hidden="true" />}
-                  label="Rectangle"
-                  onClick={() => handleAddElement("shape", "rect")}
-                />
-                <InsertMenuButton
-                  icon={<Circle size={14} aria-hidden="true" />}
-                  label="Ellipse"
-                  onClick={() => handleAddElement("shape", "ellipse")}
-                />
-                <InsertMenuButton
-                  icon={<Triangle size={14} aria-hidden="true" />}
-                  label="Triangle"
-                  onClick={() => handleAddElement("shape", "triangle")}
-                />
-                <InsertMenuButton
-                  icon={<Minus size={14} aria-hidden="true" />}
-                  label="Line"
-                  onClick={() => handleAddElement("shape", "line")}
-                />
-              </div>
-              {insertImageError ? (
-                <p role="alert" className="mt-1 text-xs text-ds-danger-text">
-                  {insertImageError}
-                </p>
-              ) : null}
-              <div className="mt-2 border-t border-ds-border-subtle pt-2">
-                {visualPickerOpen ? (
-                  <VisualPicker
-                    className="w-full"
-                    visuals={visuals}
-                    onPick={handleAddVisual}
-                    onClose={() => setVisualPickerOpen(false)}
-                  />
-                ) : (
-                  <InsertMenuButton
-                    icon={<Sparkles size={14} aria-hidden="true" />}
-                    label="Visual"
-                    onClick={() => setVisualPickerOpen(true)}
-                  />
-                )}
-              </div>
-            </Popover>
-            <Popover
-              open={fromDocOpen}
-              onClose={() => setFromDocOpen(false)}
-              aria-label="Insert from document"
-              align="start"
-              portal
-              layer="tooltip"
-              className="w-[300px] p-0"
-              trigger={
-                <Tooltip label="Insert from document" side="bottom">
-                  <button
-                    type="button"
-                    aria-label={
-                      staleSourceLinkCount > 0
-                        ? `From document — ${staleSourceLinkCount} stale link${staleSourceLinkCount === 1 ? "" : "s"}`
-                        : "From document"
-                    }
-                    aria-haspopup="dialog"
-                    aria-expanded={fromDocOpen}
-                    onClick={() => setFromDocOpen((open) => !open)}
-                    className={`relative flex h-7 shrink-0 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-                  >
-                    <FileText size={14} aria-hidden="true" />
-                    From document
-                    {staleSourceLinkCount > 0 ? (
-                      <span
-                        aria-hidden="true"
-                        className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-ds-warning-surface px-1 text-[10px] font-semibold leading-none text-ds-warning-text"
-                      >
-                        {staleSourceLinkCount > 99
-                          ? "99+"
-                          : staleSourceLinkCount}
-                      </span>
-                    ) : null}
-                  </button>
-                </Tooltip>
-              }
-            >
-              <FromDocumentPanel
-                visuals={documentVisualEntries}
-                textItems={documentTextInsertables}
-                staleLinks={staleLinks}
-                onAddAllVisuals={handleAddAllVisuals}
-                onInsertVisual={handleInsertDocumentVisual}
-                onInsertText={handleInsertDocumentText}
-                onUpdateFromSource={handleUpdateFromSource}
-                onUnlinkSource={handleUnlinkSource}
-                onRelinkSource={handleRelinkSource}
-                onRemoveOrphaned={handleRemoveOrphaned}
-                documentTextInsertables={documentTextInsertables}
-                documentVisualInsertables={documentVisualInsertables}
-              />
-            </Popover>
-            <div
-              className="h-5 w-px shrink-0 bg-ds-border-subtle"
-              aria-hidden="true"
-            />
             <SlideSizeControl
               value={resolveSlideFormat(deck.slideFormat)}
               onChange={handleSlideFormatChange}
             />
-            <Popover
-              open={themeMenuOpen}
-              onClose={() => setThemeMenuOpen(false)}
-              aria-label="Choose deck background"
-              portal
-              layer="tooltip"
-              className="w-[300px] p-3"
-              trigger={
-                <Tooltip label="Deck background" side="bottom">
-                  <button
-                    type="button"
-                    aria-label="Choose deck background"
-                    aria-haspopup="dialog"
-                    aria-expanded={themeMenuOpen}
-                    onClick={() => setThemeMenuOpen((open) => !open)}
-                    className={`flex h-7 shrink-0 items-center gap-1.5 rounded-ds-sm border border-ds-border-subtle bg-ds-surface-raised px-2 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-                  >
-                    <Palette aria-hidden className="h-3.5 w-3.5" />
-                    <span
-                      aria-hidden="true"
-                      className="h-3.5 w-3.5 rounded-full border border-ds-border-subtle"
-                      style={backgroundPreviewStyle}
-                    />
-                  </button>
-                </Tooltip>
-              }
-            >
-              <BackgroundThemePanel
-                activeSolidId={activeSolidBackground}
-                activeGradientId={activeGradientBackground}
-                onPickSolid={applyDeckSolidBackground}
-                onPickGradient={applyDeckGradientBackground}
-              />
-            </Popover>
             <Popover
               open={deckTemplateOpen}
               onClose={() => setDeckTemplateOpen(false)}
@@ -2839,6 +2227,110 @@ export function SlideEditor({
         <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
           {/* Stage — large live preview of the selected slide */}
           <main className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-ds-surface-sunken">
+            {selectedSlide && showSlideToolbar ? (
+              <SlideToolbar
+                slide={selectedSlide}
+                slideLabel={deriveSlideTitle(selectedSlide, safeSelected)}
+                layouts={toolbarLayouts}
+                selectedLayoutId={activeSlideToolbarLayoutId}
+                canDelete={deck.slides.length > 1}
+                onSelectLayout={handleApplyReusableLayout}
+                onBackgroundChange={handleBackgroundChange}
+                onBackgroundGradientChange={handleBackgroundGradientChange}
+                onAddElement={handleAddElement}
+                visuals={visuals}
+                visualPickerOpen={visualPickerOpen}
+                imageError={insertImageError}
+                onVisualPickerOpenChange={setVisualPickerOpen}
+                onPickVisual={handleAddVisual}
+                onDuplicateSlide={() => handleDuplicate(safeSelected)}
+                onRemoveSlide={() => handleRemove(safeSelected)}
+                onOpenPanel={() => openRightPanel("slide")}
+              />
+            ) : null}
+            {selectedSlide ? (
+              <Popover
+                open={canvasAddOpen || canvasAddVisualOpen}
+                onClose={() => {
+                  setCanvasAddOpen(false);
+                  setCanvasAddVisualOpen(false);
+                }}
+                aria-label="Add element"
+                placement="bottom"
+                className="w-[280px] p-3"
+                trigger={
+                  <Tooltip label="Add element" side="bottom">
+                    <button
+                      type="button"
+                      data-floating-panel="true"
+                      aria-label="Add element"
+                      aria-haspopup="dialog"
+                      aria-expanded={canvasAddOpen || canvasAddVisualOpen}
+                      onClick={() => {
+                        setCanvasAddVisualOpen(false);
+                        setCanvasAddOpen((open) => !open);
+                      }}
+                      className={`absolute right-4 top-3 z-sticky flex h-9 w-9 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-raised text-ds-text-secondary shadow-ds-popover transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                    >
+                      <Plus size={18} aria-hidden="true" />
+                    </button>
+                  </Tooltip>
+                }
+              >
+                {canvasAddVisualOpen ? (
+                  <VisualPicker
+                    className="w-full"
+                    visuals={visuals}
+                    onPick={(visualId) => {
+                      handleAddVisual(visualId);
+                      setCanvasAddVisualOpen(false);
+                      setCanvasAddOpen(false);
+                    }}
+                    onClose={() => setCanvasAddVisualOpen(false)}
+                  />
+                ) : (
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {(
+                      [
+                        ["text", Type, "Text"],
+                        ["bullets", List, "List"],
+                        ["image", ImageIcon, "Image"],
+                        ["shape", Square, "Shape"],
+                      ] as const
+                    ).map(([kind, Icon, label]) => (
+                      <button
+                        key={kind}
+                        type="button"
+                        onClick={() => {
+                          handleAddElement(kind);
+                          setCanvasAddOpen(false);
+                        }}
+                        className={`flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                      >
+                        <Icon size={14} aria-hidden="true" />
+                        {label}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setCanvasAddVisualOpen(true)}
+                      className={`col-span-2 flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                    >
+                      <Sparkles size={14} aria-hidden="true" />
+                      Visual
+                    </button>
+                    {insertImageError ? (
+                      <p
+                        role="alert"
+                        className="col-span-2 text-xs text-ds-danger-text"
+                      >
+                        {insertImageError}
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+              </Popover>
+            ) : null}
             {selectedSlide ? (
               <SlideSelectionToolbar
                 selectedElement={selectedElementForToolbar}
@@ -2851,6 +2343,7 @@ export function SlideEditor({
                 onOpenEffects={() => openRightPanel("effects")}
                 onOpenMedia={() => openRightPanel("media")}
                 onOpenSource={() => openRightPanel("source")}
+                onOpenPanel={() => openRightPanel("position")}
                 onDuplicateElement={handleDuplicateElement}
                 onRemoveElement={handleRemoveElement}
                 onBringToFront={handleBringToFront}
@@ -2923,6 +2416,8 @@ export function SlideEditor({
               documentId={documentId}
               slideAssetPort={slideAssetPort}
               initialTab={rightPanelTab}
+              inspectorMode={inspectorMode}
+              onInspectorModeChange={setInspectorMode}
               onClose={closeRightPanel}
               className="absolute bottom-4 right-4 top-4 z-panel hidden w-80 flex-col overflow-y-auto overflow-x-hidden rounded-ds-lg border border-ds-border-subtle bg-ds-surface-overlay shadow-ds-overlay lg:flex"
             />
@@ -3121,6 +2616,8 @@ export function SlideEditor({
                     documentId={documentId}
                     slideAssetPort={slideAssetPort}
                     initialTab={rightPanelTab}
+                    inspectorMode={inspectorMode}
+                    onInspectorModeChange={setInspectorMode}
                     className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto overflow-x-hidden"
                   />
                 </div>
