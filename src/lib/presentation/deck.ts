@@ -1,8 +1,9 @@
 /**
- * Public deck model facade.
+ * Permanent public boundary for the presentation deck subsystem.
  *
- * Re-export focused schema modules while downstream imports migrate. Persisted
- * decks still use only CURRENT_DECK_SCHEMA_VERSION and Slide.elements[].
+ * This facade is the sole stable import surface for all deck types and
+ * helpers. Consumers must import from here, not from the internal modules.
+ * Persisted decks use CURRENT_DECK_SCHEMA_VERSION and Slide.elements[].
  */
 
 export {
