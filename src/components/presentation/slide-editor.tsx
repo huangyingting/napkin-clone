@@ -95,7 +95,11 @@ import {
   orderedElementIds,
 } from "@/lib/presentation/canvas-a11y";
 import { deriveSlideTitle } from "@/lib/presentation/slide-title";
-import { isSlideToolbarVisible } from "@/lib/presentation/slide-panel-ui";
+import {
+  isPanelAvailable,
+  isSlideToolbarVisible,
+  toToolbarSelectionKind,
+} from "@/lib/presentation/slide-panel-ui";
 import { slideReorderKeyDirection } from "@/lib/presentation/slide-reorder";
 import { useDeckHistory } from "@/lib/presentation/use-deck-history";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
@@ -455,8 +459,7 @@ export function SlideEditor({
     openInspectorSurface,
     closeRightPanel,
     rightPanelTab,
-    inspectorMode,
-    setInspectorMode,
+    setRightPanelTab,
     openRightPanel,
     openSelectionPanel,
     zoom,
@@ -603,6 +606,50 @@ export function SlideEditor({
     selectedSlide,
     slideSelectionActive,
   ]);
+
+  // No fallback panel routing: when the selection changes so the active
+  // right-panel tab no longer applies, close the panel instead of guessing a
+  // replacement (slide-editor-panel-taxonomy.md).
+  useEffect(() => {
+    if (!inspectorOpen && !inspectorSheetOpen) return;
+    const elements = selectedSlide?.elements ?? [];
+    const selectedElement =
+      elements.find((element) => element.id === effectiveSelectedElementId) ??
+      null;
+    const selectedCount =
+      effectiveSelectedElementIds.size > 0
+        ? effectiveSelectedElementIds.size
+        : selectedElement
+          ? 1
+          : 0;
+    const kind =
+      selectedCount >= 2 || !selectedElement
+        ? null
+        : toToolbarSelectionKind(
+            selectedElement.kind,
+            selectedElement.kind === "shape"
+              ? selectedElement.shape
+              : undefined,
+          );
+    if (
+      !isPanelAvailable(rightPanelTab, {
+        kind,
+        selectedCount,
+        hasSourceRef: selectedElement?.sourceRef !== undefined,
+      })
+    ) {
+      closeRightPanel();
+    }
+  }, [
+    inspectorOpen,
+    inspectorSheetOpen,
+    rightPanelTab,
+    effectiveSelectedElementId,
+    effectiveSelectedElementIds,
+    selectedSlide,
+    closeRightPanel,
+  ]);
+
   const activeSlideAspectRatio = slideAspectRatio(deck.slideFormat);
   const stageLayout = computeStageLayout({
     stageBounds,
@@ -1282,8 +1329,7 @@ export function SlideEditor({
     handlePanelUnlinkElementSource,
     handlePanelRelinkElementSource,
     rightPanelTab,
-    inspectorMode,
-    setInspectorMode: (mode) => setInspectorMode(mode),
+    setRightPanelTab,
     openRightPanel,
     closeRightPanel,
   };

@@ -1991,7 +1991,8 @@ export function ElementArrangeControl({
 }
 
 /**
- * Shared effects (drop shadow) and lock toggles for any selected element.
+ * Shared drop-shadow toggle for any selected element. Lock is not a visual
+ * effect; it lives in the Layers panel (slide-editor-panel-taxonomy.md).
  */
 export function ElementEffectsControl({
   element,
@@ -2014,19 +2015,6 @@ export function ElementEffectsControl({
           className="accent-ds-accent"
         />
         Shadow
-      </label>
-      <label className="flex items-center gap-2 text-xs text-ds-text-secondary">
-        <input
-          type="checkbox"
-          checked={element.locked ?? false}
-          onChange={(event) =>
-            onUpdateElement(element.id, {
-              locked: event.target.checked ? true : undefined,
-            })
-          }
-          className="accent-ds-accent"
-        />
-        Lock
       </label>
     </div>
   );

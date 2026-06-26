@@ -1,34 +1,37 @@
 "use client";
 
 /**
- * Tabbed inspector for the slide editor.
+ * Right-side task-panel router for the slide editor.
  *
- * Task panels cover selected-element editing, slide styling, speaker notes,
- * source links, and layer/arrange controls.
- *
- * Speaker notes live in a dedicated inspector tab so slide-level editing stays
- * in the right supplemental panel.
+ * The inspector renders exactly one active panel at a time
+ * (slide-editor-panel-taxonomy.md). Each panel owns one broad property
+ * category — Slide, Arrange, Text, Appearance, Effects, Source, Notes, or
+ * Layers — and the available set is computed from the current selection by
+ * {@link availablePanels}. A compact in-panel switcher moves between the
+ * available panels; it mirrors the toolbar `...` menu and never offers a panel
+ * that cannot render.
  *
  * Purely presentational: every change is reported through callbacks; the
  * component never mutates the deck.
  */
 
-import { Copy, Trash2, Upload, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, ChevronDown, Copy, Trash2, Upload, X } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
 
 import { FOCUS_RING } from "@/components/ui/tokens";
-import {
-  SpeakerNotesControl,
-  TabButton,
-} from "@/components/presentation/slide-inspector/primitives";
+import { SpeakerNotesControl } from "@/components/presentation/slide-inspector/primitives";
 import { LayerList } from "@/components/presentation/layer-list";
-import { Tooltip } from "@/components/ui";
-import type { SlideElement } from "@/lib/presentation/deck";
+import { Popover, Tooltip } from "@/components/ui";
+import type { Deck, Slide, SlideElement } from "@/lib/presentation/deck";
 import { defaultLayouts } from "@/lib/presentation/deck";
 import { assertNever } from "@/lib/assert-never";
-import type {
-  InspectorMode,
-  RightPanelTab,
+import {
+  availablePanels,
+  defaultPanelTab,
+  isPanelAvailable,
+  PANEL_LABELS,
+  toToolbarSelectionKind,
+  type RightPanelTab,
 } from "@/lib/presentation/slide-panel-ui";
 import { canAddImage, dataUrlByteSize } from "@/lib/presentation/image-element";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
@@ -46,7 +49,10 @@ import {
   tokenSetSwatchColors,
 } from "@/lib/presentation/text-style";
 import { allThemeTokenSets } from "@/lib/presentation/deck-theme-tokens";
-import { resolveSlideThemeColors } from "@/lib/presentation/style-cascade";
+import {
+  resolveSlideThemeColors,
+  type SlideThemeColors,
+} from "@/lib/presentation/style-cascade";
 import { DEFAULT_SLIDE_FORMAT } from "@/lib/presentation/slide-format";
 import {
   scaleElementsInBoundingBox,
@@ -62,8 +68,6 @@ const THEME_ACCENT_SWATCHES = tokenSetSwatchColors(
   BUILT_IN_THEME_TOKEN_SETS,
   "accent",
 );
-
-type Panel = RightPanelTab;
 
 const FIELD_CLASS =
   "w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-sm text-ds-text-primary outline-none";
@@ -93,92 +97,80 @@ function elementLabel(element: SlideElement): string {
   }
 }
 
-function shouldShowSourceTab(element: SlideElement | null): boolean {
-  return element?.sourceRef !== undefined;
-}
-
-function PropertySection({
-  title,
-  defaultOpen = true,
-  sectionRef,
-  active = false,
-  children,
+/**
+ * Compact dropdown that switches between the available task panels. Hidden when
+ * there is zero or one choice, matching the toolbar `...` menu rules
+ * (slide-editor-panel-taxonomy.md).
+ */
+function PanelSwitcher({
+  panels,
+  activeTab,
+  onSelectTab,
 }: {
-  title: string;
-  defaultOpen?: boolean;
-  sectionRef?: React.Ref<HTMLDetailsElement>;
-  active?: boolean;
-  children: React.ReactNode;
+  panels: readonly RightPanelTab[];
+  activeTab: RightPanelTab;
+  onSelectTab: (tab: RightPanelTab) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  if (panels.length <= 1) return null;
   return (
-    <details
-      ref={sectionRef}
-      open={defaultOpen || active}
-      tabIndex={-1}
-      className="rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised p-3"
+    <Popover
+      open={open}
+      onClose={() => setOpen(false)}
+      placement="bottom"
+      align="end"
+      role="menu"
+      aria-label="Switch panel"
+      className="w-44 p-1"
+      trigger={
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+          className={`flex shrink-0 items-center gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1 text-xs font-semibold text-ds-text-primary transition-colors hover:bg-ds-state-hover ${FOCUS_RING}`}
+        >
+          {PANEL_LABELS[activeTab]}
+          <ChevronDown size={13} aria-hidden="true" />
+        </button>
+      }
     >
-      <summary className="cursor-pointer select-none text-xs font-semibold uppercase tracking-wide text-ds-text-muted">
-        {title}
-      </summary>
-      <div className="mt-3 flex flex-col gap-3">{children}</div>
-    </details>
-  );
-}
-
-function ObjectIdentityRow({
-  label,
-  selectedElement,
-  selectedCount,
-  selectedGroupId,
-  onRenameElement,
-}: {
-  label: string;
-  selectedElement: SlideElement | null;
-  selectedCount: number;
-  selectedGroupId: string | null;
-  onRenameElement?: (elementId: string, name: string) => void;
-}) {
-  const objectLabel = selectedGroupId
-    ? "Group"
-    : selectedCount >= 2
-      ? `${selectedCount} selected`
-      : label;
-  const canRename = selectedElement !== null && selectedCount <= 1;
-
-  return (
-    <section className="rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised p-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-ds-text-muted">
-        Current object
-      </p>
-      <div className="mt-2 flex items-center gap-2">
-        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ds-text-primary">
-          {objectLabel}
-        </span>
+      <div className="flex flex-col">
+        {panels.map((panel) => {
+          const active = panel === activeTab;
+          return (
+            <button
+              key={panel}
+              type="button"
+              role="menuitemradio"
+              aria-checked={active}
+              onClick={() => {
+                onSelectTab(panel);
+                setOpen(false);
+              }}
+              className={`flex items-center justify-between gap-2 rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium transition-colors hover:bg-ds-state-hover ${
+                active
+                  ? "text-ds-text-primary"
+                  : "text-ds-text-secondary hover:text-ds-text-primary"
+              } ${FOCUS_RING}`}
+            >
+              {PANEL_LABELS[panel]}
+              {active ? (
+                <Check
+                  size={13}
+                  aria-hidden="true"
+                  className="text-ds-accent"
+                />
+              ) : null}
+            </button>
+          );
+        })}
       </div>
-      {canRename ? (
-        <label className="mt-3 block">
-          <span className={LABEL_CLASS}>Name</span>
-          <input
-            key={selectedElement.id}
-            defaultValue={selectedElement.name ?? ""}
-            placeholder={label}
-            onBlur={(event) =>
-              onRenameElement?.(selectedElement.id, event.currentTarget.value)
-            }
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                event.currentTarget.blur();
-              }
-            }}
-            className={`${FIELD_CLASS} ${FOCUS_RING}`}
-          />
-        </label>
-      ) : null}
-    </section>
+    </Popover>
   );
 }
 
+/** Union position/size editor for a multi-selection (Arrange panel). */
 function SelectionBoundsControl({
   elements,
   onUpdateElement,
@@ -259,6 +251,10 @@ function SelectionBoundsControl({
   );
 }
 
+/**
+ * Batch effects for a multi-selection. Effects own visual effects only; lock is
+ * not a visual effect and lives in Layers (slide-editor-panel-taxonomy.md).
+ */
 function SelectionEffectsControl({
   elements,
   onUpdateElement,
@@ -267,40 +263,285 @@ function SelectionEffectsControl({
   onUpdateElement: SlideInspectorProps["onUpdateElement"];
 }) {
   const allShadowed = elements.length > 0 && elements.every((el) => el.shadow);
-  const allLocked = elements.length > 0 && elements.every((el) => el.locked);
   return (
-    <div className="flex items-center gap-4">
-      <label className="flex items-center gap-2 text-xs text-ds-text-secondary">
+    <label className="flex items-center gap-2 text-xs text-ds-text-secondary">
+      <input
+        type="checkbox"
+        checked={allShadowed}
+        onChange={(event) => {
+          for (const element of elements) {
+            onUpdateElement(element.id, {
+              shadow: event.target.checked ? true : undefined,
+            });
+          }
+        }}
+        className="accent-ds-accent"
+      />
+      Shadow
+    </label>
+  );
+}
+
+/**
+ * Slide-level design surface: reusable layout, per-slide background, accent,
+ * gradient, and background image. Layout and background stay in one panel for
+ * now (decision #12).
+ */
+function SlidePanelBody({
+  slide,
+  deck,
+  themeColors,
+  brandSwatches,
+  showAdvanced,
+  documentId,
+  slideAssetPort,
+  onApplyLayout,
+  onResetLayout,
+  onBackgroundChange,
+  onBackgroundGradientChange,
+  onBackgroundImageChange,
+  onBackgroundAssetChange,
+  onAccentChange,
+}: {
+  slide: Slide;
+  deck: Deck;
+  themeColors: SlideThemeColors;
+  brandSwatches: readonly string[];
+  showAdvanced: boolean;
+  documentId?: string;
+  slideAssetPort?: SlideInspectorProps["slideAssetPort"];
+  onApplyLayout: SlideInspectorProps["onApplyLayout"];
+  onResetLayout: SlideInspectorProps["onResetLayout"];
+  onBackgroundChange: SlideInspectorProps["onBackgroundChange"];
+  onBackgroundGradientChange: SlideInspectorProps["onBackgroundGradientChange"];
+  onBackgroundImageChange: SlideInspectorProps["onBackgroundImageChange"];
+  onBackgroundAssetChange?: SlideInspectorProps["onBackgroundAssetChange"];
+  onAccentChange: SlideInspectorProps["onAccentChange"];
+}) {
+  const [selectedLayoutId, setSelectedLayoutId] = useState("");
+  const [bgImageError, setBgImageError] = useState<string | null>(null);
+  const bgFileInputRef = useRef<HTMLInputElement>(null);
+
+  const builtInLayouts = useMemo(() => defaultLayouts(), []);
+  const availableLayouts = useMemo(() => {
+    const source =
+      deck.layouts && deck.layouts.length > 0 ? deck.layouts : builtInLayouts;
+    const format = deck.slideFormat ?? DEFAULT_SLIDE_FORMAT;
+    const filtered = source.filter((layout) => layout.format === format);
+    return filtered.length > 0 ? filtered : source;
+  }, [builtInLayouts, deck.layouts, deck.slideFormat]);
+  const selectedLayout =
+    availableLayouts.find((layout) => layout.id === selectedLayoutId) ??
+    availableLayouts[0] ??
+    null;
+
+  function handleBackgroundImageChange(value: string | undefined) {
+    if (value?.startsWith("data:")) {
+      if (!value.startsWith("data:image/")) {
+        setBgImageError("Please enter an image data URL (data:image/…).");
+        return;
+      }
+      const addedBytes = value.length - dataUrlByteSize(slide.backgroundImage);
+      if (addedBytes > 0) {
+        const budget = canAddImage(deck, addedBytes);
+        if (!budget.ok) {
+          const usedMb = (budget.totalBytes / (1024 * 1024)).toFixed(1);
+          setBgImageError(
+            `Deck image storage is full (${usedMb} MB). Remove an image or use a smaller file.`,
+          );
+          return;
+        }
+      }
+    }
+    setBgImageError(null);
+    onBackgroundImageChange(value);
+  }
+
+  const { handleFile: handleBgImageFile } = useImageUpload({
+    deck,
+    currentSrc: slide.backgroundImage,
+    onAccept: (src, assetId) => {
+      setBgImageError(null);
+      if (assetId && onBackgroundAssetChange) {
+        onBackgroundAssetChange({ url: src, assetId });
+      } else {
+        handleBackgroundImageChange(src);
+      }
+    },
+    onError: (message) => setBgImageError(message),
+    documentId: documentId ?? undefined,
+    uploadFn: documentId ? slideAssetPort?.uploadSlideAsset : undefined,
+  });
+
+  return (
+    <>
+      {selectedLayout ? (
+        <div className="rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised p-3">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ds-text-muted">
+            Reusable layout
+          </p>
+          <label className="block">
+            <span className={LABEL_CLASS}>Layout</span>
+            <select
+              value={selectedLayout.id}
+              onChange={(event) => setSelectedLayoutId(event.target.value)}
+              className={`${FIELD_CLASS} ${FOCUS_RING}`}
+            >
+              {availableLayouts.map((layout) => (
+                <option key={layout.id} value={layout.id}>
+                  {layout.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => onApplyLayout(selectedLayout)}
+              className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-3 py-2 text-sm font-medium text-ds-text-primary hover:bg-ds-state-hover ${FOCUS_RING}`}
+            >
+              Apply
+            </button>
+            <button
+              type="button"
+              onClick={() => onResetLayout(selectedLayout)}
+              className={`rounded-ds-md border border-ds-danger-border bg-ds-danger-surface px-3 py-2 text-sm font-medium text-ds-danger-text hover:opacity-90 ${FOCUS_RING}`}
+            >
+              Reset
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-ds-text-muted">
+            Apply refreshes placeholders while keeping your other elements.
+            Reset replaces all placeholders with the layout defaults.
+          </p>
+        </div>
+      ) : null}
+      <ColorOverride
+        label="Background"
+        value={slide.background}
+        fallback={themeColors.bgColor}
+        presets={mergeSwatches(brandSwatches, THEME_BACKGROUND_SWATCHES)}
+        onChange={onBackgroundChange}
+      />
+      <ColorOverride
+        label="Accent"
+        value={slide.accent}
+        fallback={themeColors.accentColor}
+        presets={mergeSwatches(brandSwatches, THEME_ACCENT_SWATCHES)}
+        onChange={onAccentChange}
+      />
+      {showAdvanced ? (
+        <div className="border-t border-ds-border-subtle pt-3">
+          <span className={`${LABEL_CLASS} flex items-center justify-between`}>
+            <span>Gradient</span>
+            <input
+              type="checkbox"
+              checked={slide.backgroundGradient !== undefined}
+              onChange={(event) =>
+                onBackgroundGradientChange(
+                  event.target.checked
+                    ? {
+                        from: slide.backgroundGradient?.from ?? "#6366f1",
+                        to: slide.backgroundGradient?.to ?? "#ec4899",
+                        angle: slide.backgroundGradient?.angle ?? 135,
+                      }
+                    : undefined,
+                )
+              }
+              className="accent-ds-accent"
+              aria-label="Enable gradient background"
+            />
+          </span>
+          {slide.backgroundGradient ? (
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                type="color"
+                value={slide.backgroundGradient.from}
+                onChange={(event) =>
+                  onBackgroundGradientChange({
+                    ...slide.backgroundGradient!,
+                    from: event.target.value,
+                  })
+                }
+                className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
+                aria-label="Gradient start color"
+              />
+              <input
+                type="color"
+                value={slide.backgroundGradient.to}
+                onChange={(event) =>
+                  onBackgroundGradientChange({
+                    ...slide.backgroundGradient!,
+                    to: event.target.value,
+                  })
+                }
+                className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
+                aria-label="Gradient end color"
+              />
+              <input
+                type="range"
+                min={0}
+                max={360}
+                step={5}
+                value={slide.backgroundGradient.angle ?? 135}
+                onChange={(event) =>
+                  onBackgroundGradientChange({
+                    ...slide.backgroundGradient!,
+                    angle: Number(event.target.value),
+                  })
+                }
+                className="flex-1 accent-ds-accent"
+                aria-label="Gradient angle"
+              />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      <div>
+        <span className={LABEL_CLASS}>Background image</span>
+        <button
+          type="button"
+          onClick={() => bgFileInputRef.current?.click()}
+          className={`flex w-full items-center justify-center gap-2 rounded-ds-md border border-dashed border-ds-border-subtle bg-ds-surface px-2 py-2 text-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover ${FOCUS_RING}`}
+        >
+          <Upload size={14} aria-hidden="true" />
+          {slide.backgroundImage ? "Replace image" : "Upload image"}
+        </button>
         <input
-          type="checkbox"
-          checked={allShadowed}
+          ref={bgFileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
           onChange={(event) => {
-            for (const element of elements) {
-              onUpdateElement(element.id, {
-                shadow: event.target.checked ? true : undefined,
-              });
-            }
+            handleBgImageFile(event.target.files?.[0]);
+            event.target.value = "";
           }}
-          className="accent-ds-accent"
         />
-        Shadow
-      </label>
-      <label className="flex items-center gap-2 text-xs text-ds-text-secondary">
         <input
-          type="checkbox"
-          checked={allLocked}
-          onChange={(event) => {
-            for (const element of elements) {
-              onUpdateElement(element.id, {
-                locked: event.target.checked ? true : undefined,
-              });
-            }
-          }}
-          className="accent-ds-accent"
+          type="text"
+          value={slide.backgroundImage ?? ""}
+          onChange={(event) =>
+            handleBackgroundImageChange(
+              event.target.value.trim() === ""
+                ? undefined
+                : event.target.value.trim(),
+            )
+          }
+          placeholder="https://… or data:image/…"
+          className={`mt-1.5 ${FIELD_CLASS} ${FOCUS_RING}`}
+          aria-label="Background image URL"
         />
-        Lock
-      </label>
-    </div>
+        {bgImageError ? (
+          <p role="alert" className="mt-1 text-xs text-ds-danger-text">
+            {bgImageError}
+          </p>
+        ) : null}
+      </div>
+      <p className="text-xs text-ds-text-muted">
+        Overrides apply to this slide only. Image &gt; gradient &gt; solid
+        color. “Theme” clears the color override.
+      </p>
+    </>
   );
 }
 
@@ -323,8 +564,6 @@ export function SlideInspector({
   onDistribute,
   onMatchSize,
   onArrange,
-  onGroupElements: _onGroupElements,
-  onUngroupElements: _onUngroupElements,
   onSetElementHidden,
   onSetElementLocked,
   onMoveElementZOrder,
@@ -347,10 +586,8 @@ export function SlideInspector({
   slideAssetPort,
   onClose,
   initialTab,
-  inspectorMode = "properties",
-  onInspectorModeChange,
+  onSelectTab,
 }: SlideInspectorProps) {
-  const [selectedLayoutId, setSelectedLayoutId] = useState("");
   const elements = useMemo(() => slide.elements ?? [], [slide.elements]);
   const selectedElement =
     elements.find((element) => element.id === selectedElementId) ?? null;
@@ -360,6 +597,7 @@ export function SlideInspector({
     }
     return elements.filter((element) => selectedElementIds.has(element.id));
   }, [elements, selectedElement, selectedElementIds]);
+  const selectedCount = selectedElements.length;
   const selectedGroupId = useMemo(() => {
     if (selectedElements.length < 2) return null;
     const groupId = selectedElements[0]?.groupId;
@@ -368,636 +606,223 @@ export function SlideInspector({
       ? groupId
       : null;
   }, [selectedElements]);
-  const canShowTextPanel =
-    selectedElement?.kind === "text" ||
-    (selectedElement?.kind === "shape" && selectedElement.shape !== "line");
-  const canShowEffectsPanel = selectedElement !== null;
-  const canShowMediaPanel =
-    selectedElement?.kind === "image" ||
-    selectedElement?.kind === "visual" ||
-    selectedElement?.kind === "connector";
-  const canShowSourcePanel = shouldShowSourceTab(selectedElement);
-  const requestedPanel = initialTab ?? "position";
-  const panel: Panel =
-    (requestedPanel === "text" && !canShowTextPanel) ||
-    (requestedPanel === "effects" && !canShowEffectsPanel) ||
-    (requestedPanel === "media" && !canShowMediaPanel) ||
-    (requestedPanel === "source" && !canShowSourcePanel)
-      ? "position"
-      : requestedPanel;
-  const activePanel: Panel =
-    inspectorMode === "properties" &&
-    selectedElement === null &&
-    panel !== "notes"
-      ? "slide"
-      : panel;
-  const showElementProperties =
-    inspectorMode === "properties" &&
-    selectedElement !== null &&
-    activePanel !== "slide" &&
-    activePanel !== "notes";
-  const identitySectionRef = useRef<HTMLDivElement>(null);
-  const multiToolsSectionRef = useRef<HTMLDetailsElement>(null);
-  const textSectionRef = useRef<HTMLDetailsElement>(null);
-  const mediaSectionRef = useRef<HTMLDetailsElement>(null);
-  const positionSectionRef = useRef<HTMLDetailsElement>(null);
-  const effectsSectionRef = useRef<HTMLDetailsElement>(null);
-  const sourceSectionRef = useRef<HTMLDetailsElement>(null);
 
-  useEffect(() => {
-    if (inspectorMode !== "properties") return;
-    const target =
-      activePanel === "text"
-        ? textSectionRef.current
-        : activePanel === "media"
-          ? mediaSectionRef.current
-          : activePanel === "effects"
-            ? effectsSectionRef.current
-            : activePanel === "source"
-              ? sourceSectionRef.current
-              : activePanel === "position"
-                ? positionSectionRef.current
-                : activePanel === "slide"
-                  ? identitySectionRef.current
-                  : null;
-    if (!target) return;
-    const frame = window.requestAnimationFrame(() => {
-      target.scrollIntoView({ block: "nearest" });
-      target.focus({ preventScroll: true });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [
-    activePanel,
-    inspectorMode,
-    selectedElement?.id,
-    selectedElements.length,
-  ]);
+  const selectionKind = selectedElement
+    ? toToolbarSelectionKind(
+        selectedElement.kind,
+        selectedElement.kind === "shape" ? selectedElement.shape : undefined,
+      )
+    : null;
+  const availability = {
+    kind: selectedCount >= 2 ? null : selectionKind,
+    selectedCount,
+    hasSourceRef: selectedElement?.sourceRef !== undefined,
+  };
+  const panels = availablePanels(availability);
 
-  function handleModeChange(mode: InspectorMode) {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("textiq.slideInspectorMode", mode);
-    }
-    onInspectorModeChange?.(mode);
-  }
-
-  function handleModeKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
-    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
-      event.preventDefault();
-      handleModeChange(
-        inspectorMode === "properties" ? "layers" : "properties",
-      );
-    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
-      event.preventDefault();
-      handleModeChange(
-        inspectorMode === "properties" ? "layers" : "properties",
-      );
-    } else if (event.key === "Home") {
-      event.preventDefault();
-      handleModeChange("properties");
-    } else if (event.key === "End") {
-      event.preventDefault();
-      handleModeChange("layers");
-    }
-  }
-
-  // Validation error for the background image URL field — only set when the
-  // user enters a data URL that is too large or not an image type.
-  const [bgImageError, setBgImageError] = useState<string | null>(null);
-  const bgFileInputRef = useRef<HTMLInputElement>(null);
-
-  // Background image upload: when documentId + uploadFn are available, attempt
-  // server-side upload and persist the assetId via onBackgroundAssetChange.
-  // Falls back to the data-URL path so the editor remains usable offline.
-  const { handleFile: handleBgImageFile } = useImageUpload({
-    deck,
-    currentSrc: slide.backgroundImage,
-    onAccept: (src, assetId) => {
-      setBgImageError(null);
-      if (assetId && onBackgroundAssetChange) {
-        onBackgroundAssetChange({ url: src, assetId });
-      } else {
-        handleBackgroundImageChange(src);
-      }
-    },
-    onError: (message) => setBgImageError(message),
-    documentId: documentId ?? undefined,
-    uploadFn: documentId ? slideAssetPort?.uploadSlideAsset : undefined,
-  });
-
-  function handleBackgroundImageChange(value: string | undefined) {
-    if (value?.startsWith("data:")) {
-      if (!value.startsWith("data:image/")) {
-        setBgImageError("Please enter an image data URL (data:image/…).");
-        return;
-      }
-      // Net change in inlined bytes relative to the current background.
-      const addedBytes = value.length - dataUrlByteSize(slide.backgroundImage);
-      if (addedBytes > 0) {
-        const budget = canAddImage(deck, addedBytes);
-        if (!budget.ok) {
-          const usedMb = (budget.totalBytes / (1024 * 1024)).toFixed(1);
-          setBgImageError(
-            `Deck image storage is full (${usedMb} MB). Remove an image or use a smaller file.`,
-          );
-          return;
-        }
-      }
-    }
-    setBgImageError(null);
-    onBackgroundImageChange(value);
-  }
-
-  const builtInLayouts = useMemo(() => defaultLayouts(), []);
-  const availableLayouts = useMemo(() => {
-    const source =
-      deck.layouts && deck.layouts.length > 0 ? deck.layouts : builtInLayouts;
-    const format = deck.slideFormat ?? DEFAULT_SLIDE_FORMAT;
-    const filtered = source.filter((layout) => layout.format === format);
-    return filtered.length > 0 ? filtered : source;
-  }, [builtInLayouts, deck.layouts, deck.slideFormat]);
-  const selectedLayout =
-    availableLayouts.find((layout) => layout.id === selectedLayoutId) ??
-    availableLayouts[0] ??
-    null;
+  const requestedTab = initialTab ?? defaultPanelTab(selectedCount > 0);
+  // No fallback routing: when the requested panel is unavailable the shell
+  // closes the right panel. Render nothing until that effect runs.
+  const activeTab = isPanelAvailable(requestedTab, availability)
+    ? requestedTab
+    : null;
 
   const themeColors = resolveSlideThemeColors(deck, slide);
-  const identityLabel =
-    inspectorMode === "layers"
-      ? "Layers"
+  const objectLabel = selectedGroupId
+    ? "Group"
+    : selectedCount >= 2
+      ? `${selectedCount} selected`
       : selectedElement
         ? elementLabel(selectedElement)
         : "Slide";
 
+  const multiSelectedIds = useMemo(
+    () => selectedElements.map((element) => element.id),
+    [selectedElements],
+  );
+
   return (
     <aside className={className} style={style}>
-      <div className="flex items-center justify-between border-b border-ds-border-subtle px-4 py-3">
-        <div>
+      <div className="border-b border-ds-border-subtle px-3 py-2.5">
+        <div className="flex items-center justify-between gap-2">
           <p className="text-xs font-medium uppercase tracking-wide text-ds-text-muted">
             Slide {slideIndex + 1}
           </p>
-          <h3 className="text-sm font-semibold text-ds-text-primary">
-            {identityLabel}
-          </h3>
-        </div>
-        <div className="flex items-center gap-2">
-          <div
-            role="tablist"
-            aria-label="Right panel mode"
-            className="flex items-center gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-0.5"
-          >
-            <TabButton
-              active={inspectorMode === "properties"}
-              tabId="inspector-mode-properties"
-              panelId="inspector-panel-properties"
-              label="Properties"
-              onClick={() => handleModeChange("properties")}
-              onKeyDown={handleModeKeyDown}
-            />
-            <TabButton
-              active={inspectorMode === "layers"}
-              tabId="inspector-mode-layers"
-              panelId="inspector-panel-layers"
-              label="Layers"
-              onClick={() => handleModeChange("layers")}
-              onKeyDown={handleModeKeyDown}
-            />
-          </div>
-          <Tooltip label="Duplicate slide" side="bottom">
-            <button
-              type="button"
-              onClick={onDuplicateSlide}
-              aria-label="Duplicate slide"
-              className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-muted transition-colors hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
-            >
-              <Copy size={14} aria-hidden="true" />
-            </button>
-          </Tooltip>
-          <Tooltip label="Delete slide" side="bottom">
-            <button
-              type="button"
-              onClick={onRemoveSlide}
-              disabled={!canDelete}
-              aria-label="Delete slide"
-              className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-muted transition-colors hover:bg-ds-state-active hover:text-ds-text-primary disabled:opacity-40 ${FOCUS_RING}`}
-            >
-              <Trash2 size={14} aria-hidden="true" />
-            </button>
-          </Tooltip>
-          {onClose ? (
-            <Tooltip label="Close panel" side="bottom">
+          <div className="flex items-center gap-1">
+            <Tooltip label="Duplicate slide" side="bottom">
               <button
                 type="button"
-                onClick={onClose}
-                aria-label="Close properties panel"
+                onClick={onDuplicateSlide}
+                aria-label="Duplicate slide"
                 className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-muted transition-colors hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
               >
-                <X size={14} aria-hidden="true" />
+                <Copy size={14} aria-hidden="true" />
               </button>
             </Tooltip>
+            <Tooltip label="Delete slide" side="bottom">
+              <button
+                type="button"
+                onClick={onRemoveSlide}
+                disabled={!canDelete}
+                aria-label="Delete slide"
+                className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-muted transition-colors hover:bg-ds-state-active hover:text-ds-text-primary disabled:opacity-40 ${FOCUS_RING}`}
+              >
+                <Trash2 size={14} aria-hidden="true" />
+              </button>
+            </Tooltip>
+            {onClose ? (
+              <Tooltip label="Close panel" side="bottom">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Close panel"
+                  className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-muted transition-colors hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
+                >
+                  <X size={14} aria-hidden="true" />
+                </button>
+              </Tooltip>
+            ) : null}
+          </div>
+        </div>
+        <div className="mt-1.5 flex items-center justify-between gap-2">
+          <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-ds-text-primary">
+            {objectLabel}
+          </h3>
+          {activeTab && onSelectTab ? (
+            <PanelSwitcher
+              panels={panels}
+              activeTab={activeTab}
+              onSelectTab={onSelectTab}
+            />
           ) : null}
         </div>
       </div>
 
-      <div
-        id={
-          inspectorMode === "layers"
-            ? "inspector-panel-layers"
-            : "inspector-panel-properties"
-        }
-        className="flex flex-col gap-4 px-4 py-4"
-      >
-        {inspectorMode === "properties" ? (
-          <div ref={identitySectionRef} tabIndex={-1}>
-            <ObjectIdentityRow
-              label={identityLabel}
-              selectedElement={selectedElement}
-              selectedCount={selectedElements.length}
-              selectedGroupId={selectedGroupId}
-              onRenameElement={onRenameElement}
-            />
-          </div>
+      <div className="flex flex-col gap-4 px-3 py-3">
+        {activeTab === "slide" ? (
+          <SlidePanelBody
+            slide={slide}
+            deck={deck}
+            themeColors={themeColors}
+            brandSwatches={brandSwatches}
+            showAdvanced={showAdvanced}
+            documentId={documentId}
+            slideAssetPort={slideAssetPort}
+            onApplyLayout={onApplyLayout}
+            onResetLayout={onResetLayout}
+            onBackgroundChange={onBackgroundChange}
+            onBackgroundGradientChange={onBackgroundGradientChange}
+            onBackgroundImageChange={onBackgroundImageChange}
+            onBackgroundAssetChange={onBackgroundAssetChange}
+            onAccentChange={onAccentChange}
+          />
         ) : null}
 
-        {showElementProperties ? (
-          <div
-            role="tabpanel"
-            id="inspector-panel-arrange"
-            aria-labelledby="inspector-mode-properties"
-            className="flex flex-col gap-4"
-          >
-            {selectedElementIds && selectedElementIds.size >= 2 ? (
-              <>
-                <PropertySection
-                  title={
-                    selectedGroupId
-                      ? "Group actions"
-                      : `${selectedElementIds.size} selected`
-                  }
-                  sectionRef={multiToolsSectionRef}
-                  defaultOpen={activePanel === "position"}
-                  active={activePanel === "position"}
-                >
-                  <MultiSelectTools
-                    selectedIds={[...selectedElementIds]}
-                    onAlign={onAlign}
-                    onDistribute={onDistribute}
-                    onMatchSize={onMatchSize}
-                    onArrange={onArrange}
-                  />
-                </PropertySection>
-                <PropertySection
-                  title="Position & size"
-                  sectionRef={positionSectionRef}
-                  defaultOpen={activePanel === "position"}
-                  active={activePanel === "position"}
-                >
-                  <SelectionBoundsControl
-                    elements={selectedElements}
-                    onUpdateElement={onUpdateElement}
-                  />
-                </PropertySection>
-                <PropertySection
-                  title="Effects"
-                  sectionRef={effectsSectionRef}
-                  defaultOpen={activePanel === "effects"}
-                  active={activePanel === "effects"}
-                >
-                  <SelectionEffectsControl
-                    elements={selectedElements}
-                    onUpdateElement={onUpdateElement}
-                  />
-                </PropertySection>
-              </>
-            ) : selectedElement ? (
-              <>
-                {canShowTextPanel ? (
-                  <PropertySection
-                    title="Typography"
-                    sectionRef={textSectionRef}
-                    defaultOpen={
-                      activePanel === "text" || activePanel === "position"
-                    }
-                    active={activePanel === "text"}
-                  >
-                    <TextPanel
-                      element={selectedElement}
-                      deck={deck}
-                      slide={slide}
-                      onUpdateElement={onUpdateElement}
-                    />
-                  </PropertySection>
-                ) : null}
-                {selectedElement.kind === "image" ||
-                selectedElement.kind === "visual" ||
-                selectedElement.kind === "connector" ||
-                selectedElement.kind === "shape" ? (
-                  <PropertySection
-                    title={elementLabel(selectedElement)}
-                    sectionRef={mediaSectionRef}
-                    defaultOpen={
-                      activePanel === "media" || activePanel === "position"
-                    }
-                    active={activePanel === "media"}
-                  >
-                    <ElementEditor
-                      element={selectedElement}
-                      deck={deck}
-                      visuals={visuals}
-                      showAdvanced={showAdvanced}
-                      elements={elements}
-                      onUpdateElement={onUpdateElement}
-                      documentId={documentId}
-                      slideAssetPort={slideAssetPort}
-                    />
-                  </PropertySection>
-                ) : null}
-                <PropertySection
-                  title="Position & size"
-                  sectionRef={positionSectionRef}
-                  defaultOpen={activePanel === "position"}
-                  active={activePanel === "position"}
-                >
-                  <ElementArrangeControl
-                    element={selectedElement}
-                    onUpdateElement={onUpdateElement}
-                  />
-                </PropertySection>
-                <PropertySection
-                  title="Effects"
-                  sectionRef={effectsSectionRef}
-                  defaultOpen={activePanel === "effects"}
-                  active={activePanel === "effects"}
-                >
-                  <EffectsPanel
-                    element={selectedElement}
-                    onUpdateElement={onUpdateElement}
-                  />
-                </PropertySection>
-                {canShowSourcePanel ? (
-                  <PropertySection
-                    title="Source link"
-                    sectionRef={sourceSectionRef}
-                    defaultOpen={activePanel === "source"}
-                    active={activePanel === "source"}
-                  >
-                    <SourceSummary
-                      element={selectedElement}
-                      staleReason={sourceStaleReasonById?.get(
-                        selectedElement.id,
-                      )}
-                      onUpdateFromSource={onUpdateElementFromSource}
-                      onUnlink={onUnlinkElementSource}
-                      onRelink={onRelinkElementSource}
-                    />
-                  </PropertySection>
-                ) : null}
-              </>
-            ) : null}
-          </div>
+        {activeTab === "notes" ? (
+          <SpeakerNotesControl notes={slide.notes} onChange={onUpdateNotes} />
         ) : null}
 
-        {inspectorMode === "layers" ? (
-          <div
-            role="tabpanel"
-            id="inspector-panel-layers"
-            aria-labelledby="inspector-mode-layers"
-            className="flex flex-col gap-4"
-          >
+        {activeTab === "layers" ? (
+          <LayerList
+            elements={elements}
+            selectedElementId={selectedElementId}
+            onSelectElement={onSelectElement}
+            onToggleHidden={(id) =>
+              onSetElementHidden?.(
+                id,
+                !(elements.find((el) => el.id === id)?.hidden ?? false),
+              )
+            }
+            onToggleLocked={(id) =>
+              onSetElementLocked?.(
+                id,
+                !(elements.find((el) => el.id === id)?.locked ?? false),
+              )
+            }
+            onMoveZOrder={(id, direction) =>
+              onMoveElementZOrder?.(id, direction)
+            }
+            onRename={(id, name) => onRenameElement?.(id, name)}
+            {...(onReorderElement ? { onReorder: onReorderElement } : {})}
+          />
+        ) : null}
+
+        {activeTab === "text" && selectedElement ? (
+          <TextPanel
+            element={selectedElement}
+            deck={deck}
+            slide={slide}
+            onUpdateElement={onUpdateElement}
+          />
+        ) : null}
+
+        {activeTab === "appearance" && selectedElement ? (
+          <ElementEditor
+            element={selectedElement}
+            deck={deck}
+            visuals={visuals}
+            showAdvanced={showAdvanced}
+            elements={elements}
+            onUpdateElement={onUpdateElement}
+            documentId={documentId}
+            slideAssetPort={slideAssetPort}
+          />
+        ) : null}
+
+        {activeTab === "arrange" ? (
+          selectedCount >= 2 ? (
             <>
-              {/* Layer list (issue #331): single rich list with select, rename,
-                  visibility, lock, z-order, filter, and drag-reorder (#639). */}
-              {(onSetElementHidden ||
-                onSetElementLocked ||
-                onMoveElementZOrder ||
-                onRenameElement) && (
-                <LayerList
-                  elements={elements}
-                  selectedElementId={selectedElementId}
-                  onSelectElement={onSelectElement}
-                  onToggleHidden={(id) =>
-                    onSetElementHidden?.(
-                      id,
-                      !(elements.find((el) => el.id === id)?.hidden ?? false),
-                    )
-                  }
-                  onToggleLocked={(id) =>
-                    onSetElementLocked?.(
-                      id,
-                      !(elements.find((el) => el.id === id)?.locked ?? false),
-                    )
-                  }
-                  onMoveZOrder={(id, direction) =>
-                    onMoveElementZOrder?.(id, direction)
-                  }
-                  onRename={(id, name) => onRenameElement?.(id, name)}
-                  {...(onReorderElement ? { onReorder: onReorderElement } : {})}
-                />
-              )}
-            </>
-          </div>
-        ) : null}
-
-        {inspectorMode === "properties" && activePanel === "slide" ? (
-          <div
-            role="tabpanel"
-            id="inspector-panel-slide"
-            aria-labelledby="inspector-tab-slide"
-            className="flex flex-col gap-4"
-          >
-            {selectedLayout ? (
               <div className="rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised p-3">
-                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ds-text-muted">
-                  Reusable layout
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ds-text-muted">
+                  {selectedGroupId
+                    ? "Group actions"
+                    : `${selectedCount} selected`}
                 </p>
-                <label className="block">
-                  <span className={LABEL_CLASS}>Layout</span>
-                  <select
-                    value={selectedLayout.id}
-                    onChange={(event) =>
-                      setSelectedLayoutId(event.target.value)
-                    }
-                    className={`${FIELD_CLASS} ${FOCUS_RING}`}
-                  >
-                    {availableLayouts.map((layout) => (
-                      <option key={layout.id} value={layout.id}>
-                        {layout.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onApplyLayout(selectedLayout)}
-                    className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-3 py-2 text-sm font-medium text-ds-text-primary hover:bg-ds-state-hover ${FOCUS_RING}`}
-                  >
-                    Apply
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onResetLayout(selectedLayout)}
-                    className={`rounded-ds-md border border-ds-danger-border bg-ds-danger-surface px-3 py-2 text-sm font-medium text-ds-danger-text hover:opacity-90 ${FOCUS_RING}`}
-                  >
-                    Reset
-                  </button>
-                </div>
-                <p className="mt-2 text-xs text-ds-text-muted">
-                  Apply refreshes placeholders while keeping your other
-                  elements. Reset replaces all placeholders with the layout
-                  defaults.
-                </p>
+                <MultiSelectTools
+                  selectedIds={multiSelectedIds}
+                  onAlign={onAlign}
+                  onDistribute={onDistribute}
+                  onMatchSize={onMatchSize}
+                  onArrange={onArrange}
+                />
               </div>
-            ) : null}
-            <ColorOverride
-              label="Background"
-              value={slide.background}
-              fallback={themeColors.bgColor}
-              presets={mergeSwatches(brandSwatches, THEME_BACKGROUND_SWATCHES)}
-              onChange={onBackgroundChange}
-            />
-            <ColorOverride
-              label="Accent"
-              value={slide.accent}
-              fallback={themeColors.accentColor}
-              presets={mergeSwatches(brandSwatches, THEME_ACCENT_SWATCHES)}
-              onChange={onAccentChange}
-            />
-            {showAdvanced ? (
-              <div className="border-t border-ds-border-subtle pt-3">
-                <span
-                  className={`${LABEL_CLASS} flex items-center justify-between`}
-                >
-                  <span>Gradient</span>
-                  <input
-                    type="checkbox"
-                    checked={slide.backgroundGradient !== undefined}
-                    onChange={(event) =>
-                      onBackgroundGradientChange(
-                        event.target.checked
-                          ? {
-                              from: slide.backgroundGradient?.from ?? "#6366f1",
-                              to: slide.backgroundGradient?.to ?? "#ec4899",
-                              angle: slide.backgroundGradient?.angle ?? 135,
-                            }
-                          : undefined,
-                      )
-                    }
-                    className="accent-ds-accent"
-                    aria-label="Enable gradient background"
-                  />
-                </span>
-                {slide.backgroundGradient ? (
-                  <div className="mt-2 flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={slide.backgroundGradient.from}
-                      onChange={(event) =>
-                        onBackgroundGradientChange({
-                          ...slide.backgroundGradient!,
-                          from: event.target.value,
-                        })
-                      }
-                      className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
-                      aria-label="Gradient start color"
-                    />
-                    <input
-                      type="color"
-                      value={slide.backgroundGradient.to}
-                      onChange={(event) =>
-                        onBackgroundGradientChange({
-                          ...slide.backgroundGradient!,
-                          to: event.target.value,
-                        })
-                      }
-                      className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
-                      aria-label="Gradient end color"
-                    />
-                    <input
-                      type="range"
-                      min={0}
-                      max={360}
-                      step={5}
-                      value={slide.backgroundGradient.angle ?? 135}
-                      onChange={(event) =>
-                        onBackgroundGradientChange({
-                          ...slide.backgroundGradient!,
-                          angle: Number(event.target.value),
-                        })
-                      }
-                      className="flex-1 accent-ds-accent"
-                      aria-label="Gradient angle"
-                    />
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-            <div>
-              <span className={LABEL_CLASS}>Background image</span>
-              <button
-                type="button"
-                onClick={() => bgFileInputRef.current?.click()}
-                className={`flex w-full items-center justify-center gap-2 rounded-ds-md border border-dashed border-ds-border-subtle bg-ds-surface px-2 py-2 text-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover ${FOCUS_RING}`}
-              >
-                <Upload size={14} aria-hidden="true" />
-                {slide.backgroundImage ? "Replace image" : "Upload image"}
-              </button>
-              <input
-                ref={bgFileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(event) => {
-                  handleBgImageFile(event.target.files?.[0]);
-                  event.target.value = "";
-                }}
+              <SelectionBoundsControl
+                elements={selectedElements}
+                onUpdateElement={onUpdateElement}
               />
-              <input
-                type="text"
-                value={slide.backgroundImage ?? ""}
-                onChange={(event) =>
-                  handleBackgroundImageChange(
-                    event.target.value.trim() === ""
-                      ? undefined
-                      : event.target.value.trim(),
-                  )
-                }
-                placeholder="https://… or data:image/…"
-                className={`mt-1.5 ${FIELD_CLASS} ${FOCUS_RING}`}
-                aria-label="Background image URL"
-              />
-              {bgImageError ? (
-                <p role="alert" className="mt-1 text-xs text-ds-danger-text">
-                  {bgImageError}
-                </p>
-              ) : null}
-            </div>
-            <p className="text-xs text-ds-text-muted">
-              Overrides apply to this slide only. Image &gt; gradient &gt; solid
-              color. “Theme” clears the color override.
-            </p>
-          </div>
+            </>
+          ) : selectedElement ? (
+            <ElementArrangeControl
+              element={selectedElement}
+              onUpdateElement={onUpdateElement}
+            />
+          ) : null
         ) : null}
 
-        {inspectorMode === "properties" && activePanel === "notes" ? (
-          <div
-            role="tabpanel"
-            id="inspector-panel-notes"
-            aria-label="Speaker notes"
-            className="flex flex-col gap-4"
-          >
-            <SpeakerNotesControl notes={slide.notes} onChange={onUpdateNotes} />
-          </div>
+        {activeTab === "effects" ? (
+          selectedCount >= 2 ? (
+            <SelectionEffectsControl
+              elements={selectedElements}
+              onUpdateElement={onUpdateElement}
+            />
+          ) : selectedElement ? (
+            <EffectsPanel
+              element={selectedElement}
+              onUpdateElement={onUpdateElement}
+            />
+          ) : null
+        ) : null}
+
+        {activeTab === "source" && selectedElement ? (
+          <SourceSummary
+            element={selectedElement}
+            staleReason={sourceStaleReasonById?.get(selectedElement.id)}
+            onUpdateFromSource={onUpdateElementFromSource}
+            onUnlink={onUnlinkElementSource}
+            onRelink={onRelinkElementSource}
+          />
         ) : null}
       </div>
     </aside>
   );
 }
-
-/**
- * Per-element source-document link panel (#580, #644). Surfaces the current
- * provenance state — standalone, linked, stale, source-missing, or unlinked —
- * and offers command-backed actions: update from source (when content drifted),
- * unlink (detach a live link), and relink (re-establish a previously unlinked
- * ref). Orphaned links whose source block is gone offer unlink rather than a
- * dead "update" action.
- */

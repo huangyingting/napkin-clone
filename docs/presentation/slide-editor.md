@@ -65,14 +65,14 @@ those surfaces target that selection.
 
 The desktop editor is a current-object workflow:
 
-| Surface        | Responsibility                                                                                  |
-| -------------- | ----------------------------------------------------------------------------------------------- |
-| Top toolbar    | Deck/app controls: slide creation templates, deck theme, slide size, undo/redo, sync, save.      |
-| Canvas popover | Frequent verbs for the current object: slide verbs, element formatting, arrange, object actions. |
-| Stage          | Direct manipulation of slide elements on a fixed-format canvas.                                  |
-| Inspector      | Precise Properties/Layers for the current object.                                                |
-| Bottom dock    | Zoom, notes, rail toggle, and status.                                                           |
-| Slide rail     | Select, duplicate, remove, and reorder slides.                                                   |
+| Surface        | Responsibility                                                                                            |
+| -------------- | --------------------------------------------------------------------------------------------------------- |
+| Top toolbar    | Deck/app controls: slide creation templates, deck theme, slide size, undo/redo, sync, save.               |
+| Canvas popover | Frequent verbs for the current object: slide verbs, element formatting, arrange, object actions.          |
+| Stage          | Direct manipulation of slide elements on a fixed-format canvas.                                           |
+| Inspector      | One active task panel (Slide/Arrange/Text/Appearance/Effects/Source/Notes/Layers) for the current object. |
+| Bottom dock    | Zoom, notes, rail toggle, and status.                                                                     |
+| Slide rail     | Select, duplicate, remove, and reorder slides.                                                            |
 
 On smaller surfaces, the inspector can render as a sheet while the stage remains
 the same controlled editor surface.
@@ -141,16 +141,26 @@ only; it does not make `SlideCanvas` mutate state.
 
 ## Inspector Runtime
 
-`SlideInspector` owns editing controls, not deck state. It renders a remembered
-`Properties | Layers` mode switch in the same floating panel. The panel open
-state and mode are persisted in local storage; wide screens default open when no
-preference exists, while narrow screens use a bottom sheet.
+`SlideInspector` owns editing controls, not deck state. It is a task-panel
+router that renders exactly one active panel at a time —
+`Slide / Arrange / Text / Appearance / Effects / Source / Notes / Layers` — with
+a compact in-panel switcher for moving between the panels available to the
+current selection (see
+[slide-editor-panel-taxonomy.md](slide-editor-panel-taxonomy.md)). The panel
+open state is persisted in local storage; wide screens default open when no
+preference exists, while narrow screens use a bottom sheet. `Layers` is a normal
+panel rather than a separate inspector mode.
 
-Properties mode always has a target. With no element selected, it shows slide
-properties. With a single element selected, it shows a current-object identity
-row plus contextual sections. With a multi-selection or group selected, it shows
-selection actions, union position/size, and shared effects. The popover panel
-bridge opens Properties and scrolls/focuses the matching section.
+The available panel set is computed from the selection by `availablePanels`
+(`slide-panel-ui.ts`), which also powers the canvas toolbar `...` menu so the two
+never drift. With no element selected the current object is the slide
+(`Slide / Notes / Layers`); a single element exposes its kind-specific panels
+plus `Arrange`, `Effects`, and `Layers`, with `Source` only when the element has
+a `sourceRef`; a multi-selection exposes `Arrange / Effects / Layers`. There is
+no fallback routing: when the selection changes so the active panel no longer
+applies, `SlideEditor` closes the right panel instead of guessing a replacement.
+The object-identity header names the current object but no longer exposes a
+permanent `Name` input — element naming lives in `Layers`.
 
 `SlideInspector` receives callbacks for every action:
 

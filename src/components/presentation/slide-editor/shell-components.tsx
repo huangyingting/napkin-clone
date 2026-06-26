@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Fragment,
   useCallback,
   useLayoutEffect,
   useRef,
@@ -98,11 +99,29 @@ import type { Insertable } from "@/lib/presentation/document-insertable";
 import type { StaleSourceLink } from "@/lib/presentation/source-link-staleness";
 import type { AddElementKind } from "@/components/presentation/slide-inspector/types";
 import {
+  availablePanels,
   isSelectionToolbarVisible,
+  PANEL_LABELS,
   shouldShowRichToolbarControls,
-  toolbarPanelEntries,
   toToolbarSelectionKind,
+  type RightPanelTab,
 } from "@/lib/presentation/slide-panel-ui";
+
+/**
+ * Icons for the toolbar `...` panel menu, keyed by panel (plus a `line`
+ * variant for connector appearance).
+ */
+const PANEL_MENU_ICONS: Record<RightPanelTab | "line", ReactNode> = {
+  slide: <LayoutPanelLeft size={14} aria-hidden="true" />,
+  arrange: <Grid3x3 size={14} aria-hidden="true" />,
+  text: <Type size={14} aria-hidden="true" />,
+  appearance: <ImageIcon size={14} aria-hidden="true" />,
+  effects: <Sparkles size={14} aria-hidden="true" />,
+  source: <FileText size={14} aria-hidden="true" />,
+  notes: <Captions size={14} aria-hidden="true" />,
+  layers: <LayoutPanelLeft size={14} aria-hidden="true" />,
+  line: <Minus size={14} aria-hidden="true" />,
+};
 
 const STAGE_FLOATING_TOOLBAR_GAP = 12;
 const STAGE_FLOATING_TOOLBAR_EDGE_INSET = 8;
@@ -1400,11 +1419,6 @@ export function SlideSelectionToolbar({
   theme,
   brandSwatches,
   onUpdateElement,
-  onOpenPosition,
-  onOpenText,
-  onOpenEffects,
-  onOpenMedia,
-  onOpenSource,
   onOpenPanel,
   onDuplicateElement,
   onRemoveElement,
@@ -1435,12 +1449,7 @@ export function SlideSelectionToolbar({
     patch: ElementPatch,
     coalesceKey?: string,
   ) => void;
-  onOpenPosition: () => void;
-  onOpenText: () => void;
-  onOpenEffects: () => void;
-  onOpenMedia: () => void;
-  onOpenSource: () => void;
-  onOpenPanel: () => void;
+  onOpenPanel: (tab: RightPanelTab) => void;
   onDuplicateElement: (id: string) => void;
   onRemoveElement: (id: string) => void;
   onBringToFront: (id: string) => void;
@@ -1474,23 +1483,20 @@ export function SlideSelectionToolbar({
       hasSelectedElement: selectedElement !== null,
       selectedCount,
     });
-  const panelEntries = toolbarPanelEntries({
-    kind:
-      selectedElement !== null
-        ? toToolbarSelectionKind(
-            selectedElement.kind,
-            selectedElement.kind === "shape"
-              ? selectedElement.shape
-              : undefined,
-          )
-        : null,
-    hasSourceRef: selectedElement?.sourceRef !== undefined,
+  const selectionKind =
+    selectedElement !== null
+      ? toToolbarSelectionKind(
+          selectedElement.kind,
+          selectedElement.kind === "shape" ? selectedElement.shape : undefined,
+        )
+      : null;
+  // Same availability calculation as the right-panel switcher so a toolbar
+  // hand-off always opens a panel that can render (slide-editor-panel-taxonomy.md).
+  const panels = availablePanels({
+    kind: selectedCount >= 2 ? null : selectionKind,
     selectedCount,
+    hasSourceRef: selectedElement?.sourceRef !== undefined,
   });
-  const canOpenTextPanel = panelEntries.text;
-  const canOpenMediaPanel = panelEntries.media;
-  const canOpenEffectsPanel = panelEntries.effects;
-  const canOpenSourcePanel = panelEntries.source;
   const hasMultiSelection = selectedIds.length >= 2;
   const withToolbarPanelsClosed = (onClick: () => void) => () => {
     setMoreOpen(false);
@@ -1711,53 +1717,26 @@ export function SlideSelectionToolbar({
             ? menuItem(
                 "Crop image",
                 <Crop size={14} aria-hidden="true" />,
-                onOpenMedia,
+                () => onOpenPanel("appearance"),
               )
             : null}
-          {canOpenTextPanel
-            ? menuItem(
-                "Text settings",
-                <Type size={14} aria-hidden="true" />,
-                onOpenText,
-              )
-            : null}
-          {canOpenMediaPanel
-            ? selectedElement?.kind === "connector"
-              ? menuItem(
-                  "Line settings",
-                  <Minus size={14} aria-hidden="true" />,
-                  onOpenMedia,
-                )
-              : menuItem(
-                  "Media settings",
-                  <ImageIcon size={14} aria-hidden="true" />,
-                  onOpenMedia,
-                )
-            : null}
-          {canOpenEffectsPanel
-            ? menuItem(
-                "Effects settings",
-                <Sparkles size={14} aria-hidden="true" />,
-                onOpenEffects,
-              )
-            : null}
-          {canOpenSourcePanel
-            ? menuItem(
-                "Source settings",
-                <FileText size={14} aria-hidden="true" />,
-                onOpenSource,
-              )
-            : null}
-          {menuItem(
-            "Position settings",
-            <Grid3x3 size={14} aria-hidden="true" />,
-            onOpenPosition,
-          )}
-          {menuItem(
-            "Open properties panel",
-            <LayoutPanelLeft size={14} aria-hidden="true" />,
-            onOpenPanel,
-          )}
+          {panels.map((panel) => {
+            const connectorAppearance =
+              panel === "appearance" && selectedElement?.kind === "connector";
+            const label = connectorAppearance
+              ? "Line settings"
+              : panel === "layers"
+                ? "Layers"
+                : `${PANEL_LABELS[panel]} settings`;
+            const icon = connectorAppearance
+              ? PANEL_MENU_ICONS.line
+              : PANEL_MENU_ICONS[panel];
+            return (
+              <Fragment key={panel}>
+                {menuItem(label, icon, () => onOpenPanel(panel))}
+              </Fragment>
+            );
+          })}
         </div>
       </Popover>
     </StageFloatingToolbar>

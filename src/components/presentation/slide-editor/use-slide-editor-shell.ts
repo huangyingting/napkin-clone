@@ -17,7 +17,12 @@
  * to those domains.
  */
 
-import { useCallback, useState, type Dispatch, type SetStateAction } from "react";
+import {
+  useCallback,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 
 import type { Deck } from "@/lib/presentation/deck";
 import {
@@ -26,11 +31,7 @@ import {
 } from "@/lib/presentation/deck-merge";
 import type { DeckPatch } from "@/lib/presentation/slide-commands";
 import { clampZoom } from "@/lib/presentation/stage-fit";
-import {
-  defaultInspectorMode,
-  type InspectorMode,
-  type RightPanelTab,
-} from "@/lib/presentation/slide-panel-ui";
+import { type RightPanelTab } from "@/lib/presentation/slide-panel-ui";
 import { clearPendingPatches } from "@/components/presentation/slide-editor/use-slide-editor-commit";
 
 interface SlideEditorShellOptions {
@@ -42,7 +43,6 @@ interface SlideEditorShellOptions {
 }
 
 const INSPECTOR_OPEN_STORAGE_KEY = "textiq.slideInspectorOpen";
-const INSPECTOR_MODE_STORAGE_KEY = "textiq.slideInspectorMode";
 
 function isNarrowInspectorViewport(): boolean {
   return (
@@ -130,18 +130,13 @@ export function useSlideEditorShell({
   }, []);
 
   // ── Right-panel tab routing ───────────────────────────────────────────────
-  const [rightPanelTab, setRightPanelTab] = useState<RightPanelTab>("position");
-  const [inspectorMode, setInspectorMode] = useState<InspectorMode>(() => {
-    if (typeof window === "undefined") return defaultInspectorMode();
-    return window.localStorage.getItem(INSPECTOR_MODE_STORAGE_KEY) === "layers"
-      ? "layers"
-      : "properties";
-  });
+  // Exactly one task panel is active at a time. `Layers` is a normal panel, not
+  // a separate inspector mode (slide-editor-panel-taxonomy.md).
+  const [rightPanelTab, setRightPanelTab] = useState<RightPanelTab>("slide");
 
   const openRightPanel = useCallback(
     (tab: RightPanelTab) => {
       setRightPanelTab(tab);
-      setInspectorMode("properties");
       openInspectorSurface();
     },
     [openInspectorSurface],
@@ -233,8 +228,7 @@ export function useSlideEditorShell({
     closeRightPanel,
     // Right-panel tab
     rightPanelTab,
-    inspectorMode,
-    setInspectorMode,
+    setRightPanelTab,
     openRightPanel,
     openSelectionPanel,
     // Zoom

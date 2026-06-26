@@ -6,30 +6,56 @@
  * unit-tested in isolation.
  */
 
-/** Task panels available in the right supplemental panel (Slides-UI.md). */
+/**
+ * Task panels available in the right supplemental panel. Each panel owns one
+ * broad property category and exactly one is rendered at a time
+ * (slide-editor-panel-taxonomy.md). `Layers` is a normal panel, not a separate
+ * inspector mode; `appearance` replaces the older `media` id and `arrange`
+ * replaces `position`.
+ */
 export type RightPanelTab =
-  | "position"
-  | "text"
-  | "effects"
-  | "media"
   | "slide"
+  | "arrange"
+  | "text"
+  | "appearance"
+  | "effects"
+  | "source"
   | "notes"
-  | "source";
+  | "layers";
 
-/** Mutually-exclusive modes in the floating right panel. */
-export type InspectorMode = "properties" | "layers";
-
-/** Default right-panel mode when opening the inspector. */
-export function defaultInspectorMode(): InspectorMode {
-  return "properties";
-}
+/** Human-readable labels for each panel, shared by the toolbar and switcher. */
+export const PANEL_LABELS: Record<RightPanelTab, string> = {
+  slide: "Slide",
+  arrange: "Arrange",
+  text: "Text",
+  appearance: "Appearance",
+  effects: "Effects",
+  source: "Source",
+  notes: "Notes",
+  layers: "Layers",
+};
 
 /**
- * The tab the panel should open to by default. With a selection, the most
- * useful default is `arrange`; with no selection, slide-level settings.
+ * Canonical render/menu order for panels. Availability filters this list so the
+ * toolbar menu and in-panel switcher always agree on ordering.
+ */
+const PANEL_ORDER: readonly RightPanelTab[] = [
+  "slide",
+  "notes",
+  "text",
+  "appearance",
+  "arrange",
+  "effects",
+  "source",
+  "layers",
+];
+
+/**
+ * The tab the panel should open to by default. With a selection the most useful
+ * default is `arrange`; with no selection, slide-level settings.
  */
 export function defaultPanelTab(hasSelection: boolean): RightPanelTab {
-  return hasSelection ? "position" : "slide";
+  return hasSelection ? "arrange" : "slide";
 }
 
 /**
@@ -131,38 +157,78 @@ export function toToolbarSelectionKind(
   }
 }
 
-/** Right-panel entry buttons the toolbar offers for a selection (#651, #631). */
-export interface ToolbarPanelEntries {
-  text: boolean;
-  media: boolean;
-  effects: boolean;
-  source: boolean;
-  /** Position/Arrange is always available for any single selection. */
-  position: boolean;
+/** Selection context used to compute which panels apply (#651, #634). */
+export interface PanelAvailabilityContext {
+  /**
+   * The single-selection element kind (+ shape subtype mapped through
+   * {@link toToolbarSelectionKind}), or `null` for an empty selection or a
+   * kind the contract does not model.
+   */
+  kind: ToolbarSelectionKind | null;
+  /** Number of selected elements (0 for an empty selection). */
+  selectedCount: number;
+  /** Whether the single selected element already has a `sourceRef`. */
+  hasSourceRef: boolean;
 }
 
 /**
- * Which right-panel tabs the context toolbar exposes for the current
- * selection. Mirrors the panel availability used by the inspector so a toolbar
- * hand-off always opens a tab that can render (#634). Deep controls (font
- * size/family, line height, precise crop, alt text, source forms, exact
- * geometry) live behind these entries, never in the toolbar itself.
+ * The dynamic set of panels valid for the current object or selection, in
+ * canonical {@link PANEL_ORDER}. This single helper powers the toolbar `...`
+ * menu, the in-panel switcher, and active-panel invalidation, so they can never
+ * drift (slide-editor-panel-taxonomy.md).
+ *
+ * - Empty selection (slide is the current object): `slide`, `notes`, `layers`.
+ * - Multi-selection: `arrange`, `effects`, `layers`.
+ * - Single element: `arrange`, `effects`, `layers`, plus `text` for text
+ *   elements and non-line shapes, `appearance` for shapes/lines/images/visuals/
+ *   connectors, and `source` only when the element already has a `sourceRef`.
  */
-export function toolbarPanelEntries(input: {
-  kind: ToolbarSelectionKind | null;
-  hasSourceRef: boolean;
-  selectedCount: number;
-}): ToolbarPanelEntries {
-  const single = input.kind !== null && input.selectedCount <= 1;
-  const kind = input.kind;
-  return {
-    text: single && (kind === "text" || kind === "shape"),
-    media:
-      single && (kind === "image" || kind === "visual" || kind === "connector"),
-    effects: single,
-    source: single && input.hasSourceRef,
-    position: single,
-  };
+export function availablePanels(
+  context: PanelAvailabilityContext,
+): RightPanelTab[] {
+  const set = new Set<RightPanelTab>();
+
+  if (context.selectedCount === 0 && context.kind === null) {
+    // Empty selection — the slide is the current object.
+    set.add("slide");
+    set.add("notes");
+    set.add("layers");
+  } else if (context.selectedCount >= 2) {
+    // Multi-selection stays conservative: geometry and effects only.
+    set.add("arrange");
+    set.add("effects");
+    set.add("layers");
+  } else {
+    // Single element.
+    set.add("arrange");
+    set.add("effects");
+    set.add("layers");
+    if (context.kind === "text" || context.kind === "shape") {
+      set.add("text");
+    }
+    if (
+      context.kind === "shape" ||
+      context.kind === "line" ||
+      context.kind === "image" ||
+      context.kind === "visual" ||
+      context.kind === "connector"
+    ) {
+      set.add("appearance");
+    }
+    if (context.hasSourceRef) {
+      set.add("source");
+    }
+  }
+
+  return PANEL_ORDER.filter((panel) => set.has(panel));
+}
+
+/** Whether a specific panel is available for the given selection context. */
+export function isPanelAvailable(
+  panel: RightPanelTab,
+  context: PanelAvailabilityContext,
+): boolean {
+  return availablePanels(context).includes(panel);
 }
 
 /**

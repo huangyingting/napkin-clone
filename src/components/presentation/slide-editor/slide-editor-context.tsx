@@ -11,7 +11,6 @@
 import {
   createContext,
   memo,
-  useCallback,
   useContext,
   useMemo,
   type CSSProperties,
@@ -37,7 +36,6 @@ import type { StaleReason } from "@/lib/presentation/source-link-staleness";
 import type { SlideAssetActionPort } from "@/lib/action-ports";
 import type { Visual } from "@/lib/visual/schema";
 import type { SelectionMode } from "@/components/presentation/slide-stage-editor";
-import type { InspectorMode } from "@/lib/presentation/slide-panel-ui";
 
 export interface SlideEditorContextValue {
   // ── Deck / slide state ────────────────────────────────────────────────
@@ -146,8 +144,7 @@ export interface SlideEditorContextValue {
 
   // ── Right panel ───────────────────────────────────────────────────────
   rightPanelTab: RightPanelTab;
-  inspectorMode: InspectorMode;
-  setInspectorMode: (mode: InspectorMode) => void;
+  setRightPanelTab: (tab: RightPanelTab) => void;
   openRightPanel: (tab: RightPanelTab) => void;
   closeRightPanel: () => void;
 }
@@ -314,8 +311,7 @@ export const SlideInspectorFromContext = memo(
       handlePanelRelinkElementSource,
       documentId,
       slideAssetPort,
-      inspectorMode,
-      setInspectorMode,
+      setRightPanelTab,
     } = useSlideEditorContext();
 
     if (!selectedSlide) return null;
@@ -361,8 +357,7 @@ export const SlideInspectorFromContext = memo(
         onRelinkElementSource={handlePanelRelinkElementSource}
         documentId={documentId}
         slideAssetPort={slideAssetPort}
-        inspectorMode={inspectorMode}
-        onInspectorModeChange={setInspectorMode}
+        onSelectTab={setRightPanelTab}
         className={className}
         style={style}
         initialTab={initialTab}
@@ -407,26 +402,6 @@ export const SlideSelectionToolbarFromContext = memo(
       [selectedSlide, effectiveSelectedElementId],
     );
 
-    const handleOpenPosition = useCallback(
-      () => openRightPanel("position"),
-      [openRightPanel],
-    );
-    const handleOpenText = useCallback(
-      () => openRightPanel("text"),
-      [openRightPanel],
-    );
-    const handleOpenEffects = useCallback(
-      () => openRightPanel("effects"),
-      [openRightPanel],
-    );
-    const handleOpenMedia = useCallback(
-      () => openRightPanel("media"),
-      [openRightPanel],
-    );
-    const handleOpenSource = useCallback(
-      () => openRightPanel("source"),
-      [openRightPanel],
-    );
     const selectedIds = useMemo(
       () => [...effectiveSelectedElementIds],
       [effectiveSelectedElementIds],
@@ -450,12 +425,7 @@ export const SlideSelectionToolbarFromContext = memo(
         theme={selectedTheme}
         brandSwatches={brandSwatches}
         onUpdateElement={handleUpdateElement}
-        onOpenPosition={handleOpenPosition}
-        onOpenText={handleOpenText}
-        onOpenEffects={handleOpenEffects}
-        onOpenMedia={handleOpenMedia}
-        onOpenSource={handleOpenSource}
-        onOpenPanel={handleOpenPosition}
+        onOpenPanel={openRightPanel}
         onDuplicateElement={handleDuplicateElement}
         onRemoveElement={handleRemoveElement}
         onBringToFront={handleBringToFront}

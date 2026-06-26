@@ -2,28 +2,24 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  availablePanels,
   defaultPanelTab,
-  defaultInspectorMode,
+  isPanelAvailable,
   isSelectionToolbarVisible,
   isSlideToolbarVisible,
   shouldCollapseToolbar,
   shouldShowRichToolbarControls,
   TOOLBAR_COMPACT_WIDTH,
-  toolbarPanelEntries,
   toolbarQuickActions,
   toToolbarSelectionKind,
 } from "./slide-panel-ui";
 
-test("defaultPanelTab is position with a selection", () => {
-  assert.equal(defaultPanelTab(true), "position");
+test("defaultPanelTab is arrange with a selection", () => {
+  assert.equal(defaultPanelTab(true), "arrange");
 });
 
 test("defaultPanelTab is slide with no selection", () => {
   assert.equal(defaultPanelTab(false), "slide");
-});
-
-test("defaultInspectorMode is properties", () => {
-  assert.equal(defaultInspectorMode(), "properties");
 });
 
 test("isSelectionToolbarVisible is hidden with no selection", () => {
@@ -131,90 +127,77 @@ test("toolbarQuickActions: only connectors expose dash + routing toggles", () =>
   }
 });
 
-test("toolbarPanelEntries: text element offers Text + Effects + Position", () => {
-  const e = toolbarPanelEntries({
-    kind: "text",
-    hasSourceRef: false,
-    selectedCount: 1,
-  });
-  assert.deepEqual(e, {
-    text: true,
-    media: false,
-    effects: true,
-    source: false,
-    position: true,
-  });
+test("availablePanels: empty selection exposes slide, notes, layers", () => {
+  assert.deepEqual(
+    availablePanels({ kind: null, hasSourceRef: false, selectedCount: 0 }),
+    ["slide", "notes", "layers"],
+  );
 });
 
-test("toolbarPanelEntries: line shape gets no Text panel entry", () => {
-  const e = toolbarPanelEntries({
-    kind: "line",
-    hasSourceRef: false,
-    selectedCount: 1,
-  });
-  assert.equal(e.text, false);
-  assert.equal(e.media, false);
-  assert.equal(e.effects, true);
+test("availablePanels: single text element", () => {
+  assert.deepEqual(
+    availablePanels({ kind: "text", hasSourceRef: false, selectedCount: 1 }),
+    ["text", "arrange", "effects", "layers"],
+  );
 });
 
-test("toolbarPanelEntries: image/visual/connector offer Media", () => {
+test("availablePanels: non-line shape exposes Text + Appearance", () => {
+  assert.deepEqual(
+    availablePanels({ kind: "shape", hasSourceRef: false, selectedCount: 1 }),
+    ["text", "appearance", "arrange", "effects", "layers"],
+  );
+});
+
+test("availablePanels: line shape has Appearance but no Text", () => {
+  assert.deepEqual(
+    availablePanels({ kind: "line", hasSourceRef: false, selectedCount: 1 }),
+    ["appearance", "arrange", "effects", "layers"],
+  );
+});
+
+test("availablePanels: image/visual/connector expose Appearance", () => {
   for (const kind of ["image", "visual", "connector"] as const) {
-    assert.equal(
-      toolbarPanelEntries({ kind, hasSourceRef: false, selectedCount: 1 })
-        .media,
-      true,
+    assert.deepEqual(
+      availablePanels({ kind, hasSourceRef: false, selectedCount: 1 }),
+      ["appearance", "arrange", "effects", "layers"],
       kind,
     );
   }
 });
 
-test("toolbarPanelEntries: Source entry only when a sourceRef exists", () => {
-  assert.equal(
-    toolbarPanelEntries({
-      kind: "visual",
-      hasSourceRef: true,
-      selectedCount: 1,
-    }).source,
-    true,
+test("availablePanels: Source only when a sourceRef exists", () => {
+  assert.deepEqual(
+    availablePanels({ kind: "visual", hasSourceRef: true, selectedCount: 1 }),
+    ["appearance", "arrange", "effects", "source", "layers"],
   );
   assert.equal(
-    toolbarPanelEntries({
+    isPanelAvailable("source", {
       kind: "visual",
       hasSourceRef: false,
       selectedCount: 1,
-    }).source,
+    }),
     false,
   );
 });
 
-test("toolbarPanelEntries: multi-select exposes no single-element entries", () => {
-  const e = toolbarPanelEntries({
-    kind: "text",
-    hasSourceRef: true,
-    selectedCount: 3,
-  });
-  assert.deepEqual(e, {
-    text: false,
-    media: false,
-    effects: false,
-    source: false,
-    position: false,
-  });
+test("availablePanels: multi-selection exposes arrange, effects, layers", () => {
+  assert.deepEqual(
+    availablePanels({ kind: "text", hasSourceRef: true, selectedCount: 3 }),
+    ["arrange", "effects", "layers"],
+  );
 });
 
-test("toolbarPanelEntries: no selection exposes nothing", () => {
-  const e = toolbarPanelEntries({
-    kind: null,
-    hasSourceRef: false,
-    selectedCount: 0,
-  });
-  assert.deepEqual(e, {
-    text: false,
-    media: false,
-    effects: false,
-    source: false,
-    position: false,
-  });
+test("isPanelAvailable: empty selection excludes element panels", () => {
+  const ctx = { kind: null, hasSourceRef: false, selectedCount: 0 } as const;
+  for (const panel of [
+    "arrange",
+    "text",
+    "appearance",
+    "effects",
+    "source",
+  ] as const) {
+    assert.equal(isPanelAvailable(panel, ctx), false, panel);
+  }
 });
 
 test("shouldCollapseToolbar collapses below the compact width", () => {

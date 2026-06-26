@@ -13,10 +13,7 @@ import type {
   MatchSizeMode,
 } from "@/lib/presentation/element-align";
 import type { ArrangeMode } from "@/lib/presentation/element-arrange";
-import type {
-  InspectorMode,
-  RightPanelTab,
-} from "@/lib/presentation/slide-panel-ui";
+import type { RightPanelTab } from "@/lib/presentation/slide-panel-ui";
 import type { StaleReason } from "@/lib/presentation/source-link-staleness";
 import type { DeckTextRole } from "@/lib/presentation/deck-theme-tokens";
 import type { Visual } from "@/lib/visual/schema";
@@ -77,7 +74,8 @@ export interface SlideInspectorProps {
   documentId?: string;
   slideAssetPort?: SlideAssetActionPort;
   onClose?: () => void;
+  /** The active panel to render. The router shows exactly one panel. */
   initialTab?: RightPanelTab;
-  inspectorMode?: InspectorMode;
-  onInspectorModeChange?: (mode: InspectorMode) => void;
+  /** Switch the active panel from the in-panel switcher. */
+  onSelectTab?: (tab: RightPanelTab) => void;
 }
