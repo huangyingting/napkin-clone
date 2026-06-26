@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { memo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   BringToFront,
@@ -532,8 +532,8 @@ export function FromDocumentPanel({
                   Text
                 </h3>
                 <ul className="flex flex-col gap-1.5">
-                  {textItems.map((item, index) => (
-                    <li key={index}>
+                  {textItems.map((item) => (
+                    <li key={item.contentHash}>
                       <button
                         type="button"
                         onClick={() => onInsertText(item)}
@@ -566,7 +566,7 @@ export function FromDocumentPanel({
   );
 }
 
-export function SlideSelectionToolbar({
+export const SlideSelectionToolbar = memo(function SlideSelectionToolbar({
   selectedElement,
   selectedCount,
   theme,
@@ -756,7 +756,7 @@ export function SlideSelectionToolbar({
       )}
     </div>
   );
-}
+});
 
 export function SlideBottomDock({
   railOpen,

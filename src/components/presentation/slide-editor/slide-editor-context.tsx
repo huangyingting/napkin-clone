@@ -8,7 +8,7 @@
  * context instead of receiving the values as individually threaded props.
  */
 
-import { createContext, useContext } from "react";
+import { createContext, memo, useCallback, useContext, useMemo } from "react";
 
 import type {
   Deck,
@@ -162,219 +162,246 @@ import { shouldCollapseToolbar } from "@/lib/presentation/slide-panel-ui";
 import { selectSelectedElement } from "@/components/presentation/slide-editor/slide-editor-view-model";
 
 /** Renders SlideStageEditor with all data sourced from SlideEditorContext. */
-export function SlideStageEditorFromContext({
-  width,
-  height,
-}: {
-  width: number;
-  height: number;
-}) {
-  const {
-    selectedSlide,
-    deck,
-    visuals,
-    effectiveSelectedElementId,
-    effectiveSelectedElementIds,
-    handleSelectElement,
-    handleSelectElements,
-    handleUpdateElement,
-    handleDuplicateElement,
-    handleRemoveElement,
-    handleBringToFront,
-    handleSendToBack,
-    handleCopyElements,
-    handleCutElements,
-    handlePasteElements,
-    handleSetElementBoxes,
-    handleSetElementPatches,
-    handleGroupElements,
-    handleUngroupElements,
-    snapToGrid,
-    brandSwatches,
-    handleAddTextElement,
-    focusRequest,
-    liveMessage,
-  } = useSlideEditorContext();
+export const SlideStageEditorFromContext = memo(
+  function SlideStageEditorFromContext({
+    width,
+    height,
+  }: {
+    width: number;
+    height: number;
+  }) {
+    const {
+      selectedSlide,
+      deck,
+      visuals,
+      effectiveSelectedElementId,
+      effectiveSelectedElementIds,
+      handleSelectElement,
+      handleSelectElements,
+      handleUpdateElement,
+      handleDuplicateElement,
+      handleRemoveElement,
+      handleBringToFront,
+      handleSendToBack,
+      handleCopyElements,
+      handleCutElements,
+      handlePasteElements,
+      handleSetElementBoxes,
+      handleSetElementPatches,
+      handleGroupElements,
+      handleUngroupElements,
+      snapToGrid,
+      brandSwatches,
+      handleAddTextElement,
+      focusRequest,
+      liveMessage,
+    } = useSlideEditorContext();
 
-  if (!selectedSlide) return null;
+    if (!selectedSlide) return null;
 
-  return (
-    <SlideStageEditor
-      slide={selectedSlide}
-      deck={deck}
-      visuals={visuals}
-      width={width}
-      height={height}
-      selectedElementId={effectiveSelectedElementId}
-      selectedElementIds={effectiveSelectedElementIds}
-      onSelectElement={handleSelectElement}
-      onSelectElements={handleSelectElements}
-      onUpdateElement={handleUpdateElement}
-      onDuplicateElement={handleDuplicateElement}
-      onRemoveElement={handleRemoveElement}
-      onBringToFront={handleBringToFront}
-      onSendToBack={handleSendToBack}
-      onCopyElements={handleCopyElements}
-      onCutElements={handleCutElements}
-      onPasteElements={handlePasteElements}
-      onSetElementBoxes={handleSetElementBoxes}
-      onSetElementPatches={handleSetElementPatches}
-      onGroupElements={handleGroupElements}
-      onUngroupElements={handleUngroupElements}
-      snapToGrid={snapToGrid}
-      brandSwatches={brandSwatches}
-      onAddTextElement={handleAddTextElement}
-      focusRequest={focusRequest}
-      liveMessage={liveMessage}
-    />
-  );
-}
+    return (
+      <SlideStageEditor
+        slide={selectedSlide}
+        deck={deck}
+        visuals={visuals}
+        width={width}
+        height={height}
+        selectedElementId={effectiveSelectedElementId}
+        selectedElementIds={effectiveSelectedElementIds}
+        onSelectElement={handleSelectElement}
+        onSelectElements={handleSelectElements}
+        onUpdateElement={handleUpdateElement}
+        onDuplicateElement={handleDuplicateElement}
+        onRemoveElement={handleRemoveElement}
+        onBringToFront={handleBringToFront}
+        onSendToBack={handleSendToBack}
+        onCopyElements={handleCopyElements}
+        onCutElements={handleCutElements}
+        onPasteElements={handlePasteElements}
+        onSetElementBoxes={handleSetElementBoxes}
+        onSetElementPatches={handleSetElementPatches}
+        onGroupElements={handleGroupElements}
+        onUngroupElements={handleUngroupElements}
+        snapToGrid={snapToGrid}
+        brandSwatches={brandSwatches}
+        onAddTextElement={handleAddTextElement}
+        focusRequest={focusRequest}
+        liveMessage={liveMessage}
+      />
+    );
+  },
+);
 
 /**
  * Renders SlideInspector with all data/handlers sourced from SlideEditorContext.
  * Only layout/config props (`className`, `initialTab`, `onClose`) are accepted
  * as explicit props, since those vary between the desktop panel and the mobile sheet.
  */
-export function SlideInspectorFromContext({
-  className,
-  initialTab,
-  onClose,
-}: {
-  className?: string;
-  initialTab?: RightPanelTab;
-  onClose?: () => void;
-}) {
-  const {
-    selectedSlide,
-    safeSelected,
-    deck,
-    visuals,
-    effectiveSelectedElementId,
-    effectiveSelectedElementIds,
-    handleSelectElement,
-    canDelete,
-    handleDuplicateSlide,
-    handleRemoveSlide,
-    handleApplyReusableLayout,
-    handleResetReusableLayout,
-    handleNotesChangeForSelected,
-    handleUpdateElement,
-    handleRemoveElement,
-    handleDuplicateElement,
-    handleBringToFront,
-    handleSendToBack,
-    handleSetElementHidden,
-    handleSetElementLocked,
-    handleMoveElementZOrder,
-    handleRenameElement,
-    handleReorderElement,
-    handleAlign,
-    handleDistribute,
-    handleMatchSize,
-    handleArrange,
-    handleBackgroundChange,
-    handleBackgroundGradientChange,
-    handleBackgroundImageChange,
-    handleBackgroundAssetChange,
-    handleAccentChange,
-    brandSwatches,
-    staleReasonByElementId,
-    handlePanelUpdateFromSource,
-    handlePanelUnlinkElementSource,
-    handlePanelRelinkElementSource,
-    documentId,
-    slideAssetPort,
-  } = useSlideEditorContext();
+export const SlideInspectorFromContext = memo(
+  function SlideInspectorFromContext({
+    className,
+    initialTab,
+    onClose,
+  }: {
+    className?: string;
+    initialTab?: RightPanelTab;
+    onClose?: () => void;
+  }) {
+    const {
+      selectedSlide,
+      safeSelected,
+      deck,
+      visuals,
+      effectiveSelectedElementId,
+      effectiveSelectedElementIds,
+      handleSelectElement,
+      canDelete,
+      handleDuplicateSlide,
+      handleRemoveSlide,
+      handleApplyReusableLayout,
+      handleResetReusableLayout,
+      handleNotesChangeForSelected,
+      handleUpdateElement,
+      handleRemoveElement,
+      handleDuplicateElement,
+      handleBringToFront,
+      handleSendToBack,
+      handleSetElementHidden,
+      handleSetElementLocked,
+      handleMoveElementZOrder,
+      handleRenameElement,
+      handleReorderElement,
+      handleAlign,
+      handleDistribute,
+      handleMatchSize,
+      handleArrange,
+      handleBackgroundChange,
+      handleBackgroundGradientChange,
+      handleBackgroundImageChange,
+      handleBackgroundAssetChange,
+      handleAccentChange,
+      brandSwatches,
+      staleReasonByElementId,
+      handlePanelUpdateFromSource,
+      handlePanelUnlinkElementSource,
+      handlePanelRelinkElementSource,
+      documentId,
+      slideAssetPort,
+    } = useSlideEditorContext();
 
-  if (!selectedSlide) return null;
+    if (!selectedSlide) return null;
 
-  return (
-    <SlideInspector
-      slide={selectedSlide}
-      slideIndex={safeSelected}
-      deck={deck}
-      visuals={visuals}
-      selectedElementId={effectiveSelectedElementId}
-      selectedElementIds={effectiveSelectedElementIds}
-      onSelectElement={handleSelectElement}
-      canDelete={canDelete}
-      onDuplicateSlide={handleDuplicateSlide}
-      onRemoveSlide={handleRemoveSlide}
-      onApplyLayout={handleApplyReusableLayout}
-      onResetLayout={handleResetReusableLayout}
-      onUpdateNotes={handleNotesChangeForSelected}
-      onUpdateElement={handleUpdateElement}
-      onRemoveElement={handleRemoveElement}
-      onDuplicateElement={handleDuplicateElement}
-      onBringToFront={handleBringToFront}
-      onSendToBack={handleSendToBack}
-      onSetElementHidden={handleSetElementHidden}
-      onSetElementLocked={handleSetElementLocked}
-      onMoveElementZOrder={handleMoveElementZOrder}
-      onRenameElement={handleRenameElement}
-      onReorderElement={handleReorderElement}
-      onAlign={handleAlign}
-      onDistribute={handleDistribute}
-      onMatchSize={handleMatchSize}
-      onArrange={handleArrange}
-      onBackgroundChange={handleBackgroundChange}
-      onBackgroundGradientChange={handleBackgroundGradientChange}
-      onBackgroundImageChange={handleBackgroundImageChange}
-      onBackgroundAssetChange={handleBackgroundAssetChange}
-      onAccentChange={handleAccentChange}
-      brandSwatches={brandSwatches}
-      sourceStaleReasonById={staleReasonByElementId}
-      onUpdateElementFromSource={handlePanelUpdateFromSource}
-      onUnlinkElementSource={handlePanelUnlinkElementSource}
-      onRelinkElementSource={handlePanelRelinkElementSource}
-      documentId={documentId}
-      slideAssetPort={slideAssetPort}
-      className={className}
-      initialTab={initialTab}
-      onClose={onClose}
-    />
-  );
-}
+    return (
+      <SlideInspector
+        slide={selectedSlide}
+        slideIndex={safeSelected}
+        deck={deck}
+        visuals={visuals}
+        selectedElementId={effectiveSelectedElementId}
+        selectedElementIds={effectiveSelectedElementIds}
+        onSelectElement={handleSelectElement}
+        canDelete={canDelete}
+        onDuplicateSlide={handleDuplicateSlide}
+        onRemoveSlide={handleRemoveSlide}
+        onApplyLayout={handleApplyReusableLayout}
+        onResetLayout={handleResetReusableLayout}
+        onUpdateNotes={handleNotesChangeForSelected}
+        onUpdateElement={handleUpdateElement}
+        onRemoveElement={handleRemoveElement}
+        onDuplicateElement={handleDuplicateElement}
+        onBringToFront={handleBringToFront}
+        onSendToBack={handleSendToBack}
+        onSetElementHidden={handleSetElementHidden}
+        onSetElementLocked={handleSetElementLocked}
+        onMoveElementZOrder={handleMoveElementZOrder}
+        onRenameElement={handleRenameElement}
+        onReorderElement={handleReorderElement}
+        onAlign={handleAlign}
+        onDistribute={handleDistribute}
+        onMatchSize={handleMatchSize}
+        onArrange={handleArrange}
+        onBackgroundChange={handleBackgroundChange}
+        onBackgroundGradientChange={handleBackgroundGradientChange}
+        onBackgroundImageChange={handleBackgroundImageChange}
+        onBackgroundAssetChange={handleBackgroundAssetChange}
+        onAccentChange={handleAccentChange}
+        brandSwatches={brandSwatches}
+        sourceStaleReasonById={staleReasonByElementId}
+        onUpdateElementFromSource={handlePanelUpdateFromSource}
+        onUnlinkElementSource={handlePanelUnlinkElementSource}
+        onRelinkElementSource={handlePanelRelinkElementSource}
+        documentId={documentId}
+        slideAssetPort={slideAssetPort}
+        className={className}
+        initialTab={initialTab}
+        onClose={onClose}
+      />
+    );
+  },
+);
 
 /** Renders SlideSelectionToolbar with all data/handlers sourced from SlideEditorContext. */
-export function SlideSelectionToolbarFromContext() {
-  const {
-    selectedSlide,
-    effectiveSelectedElementId,
-    effectiveSelectedElementIds,
-    selectedTheme,
-    brandSwatches,
-    handleUpdateElement,
-    openRightPanel,
-    handleDuplicateElement,
-    handleRemoveElement,
-    handleBringToFront,
-    handleSendToBack,
-    stageBounds,
-  } = useSlideEditorContext();
+export const SlideSelectionToolbarFromContext = memo(
+  function SlideSelectionToolbarFromContext() {
+    const {
+      selectedSlide,
+      effectiveSelectedElementId,
+      effectiveSelectedElementIds,
+      selectedTheme,
+      brandSwatches,
+      handleUpdateElement,
+      openRightPanel,
+      handleDuplicateElement,
+      handleRemoveElement,
+      handleBringToFront,
+      handleSendToBack,
+      stageBounds,
+    } = useSlideEditorContext();
 
-  const selectedElement = selectSelectedElement(
-    selectedSlide,
-    effectiveSelectedElementId,
-  );
+    const selectedElement = useMemo(
+      () => selectSelectedElement(selectedSlide, effectiveSelectedElementId),
+      [selectedSlide, effectiveSelectedElementId],
+    );
 
-  return (
-    <SlideSelectionToolbar
-      selectedElement={selectedElement}
-      selectedCount={effectiveSelectedElementIds.size}
-      theme={selectedTheme}
-      brandSwatches={brandSwatches}
-      onUpdateElement={handleUpdateElement}
-      onOpenPosition={() => openRightPanel("position")}
-      onOpenText={() => openRightPanel("text")}
-      onOpenEffects={() => openRightPanel("effects")}
-      onOpenMedia={() => openRightPanel("media")}
-      onOpenSource={() => openRightPanel("source")}
-      onDuplicateElement={handleDuplicateElement}
-      onRemoveElement={handleRemoveElement}
-      onBringToFront={handleBringToFront}
-      onSendToBack={handleSendToBack}
-      compact={shouldCollapseToolbar(stageBounds.width)}
-    />
-  );
-}
+    const handleOpenPosition = useCallback(
+      () => openRightPanel("position"),
+      [openRightPanel],
+    );
+    const handleOpenText = useCallback(
+      () => openRightPanel("text"),
+      [openRightPanel],
+    );
+    const handleOpenEffects = useCallback(
+      () => openRightPanel("effects"),
+      [openRightPanel],
+    );
+    const handleOpenMedia = useCallback(
+      () => openRightPanel("media"),
+      [openRightPanel],
+    );
+    const handleOpenSource = useCallback(
+      () => openRightPanel("source"),
+      [openRightPanel],
+    );
+
+    return (
+      <SlideSelectionToolbar
+        selectedElement={selectedElement}
+        selectedCount={effectiveSelectedElementIds.size}
+        theme={selectedTheme}
+        brandSwatches={brandSwatches}
+        onUpdateElement={handleUpdateElement}
+        onOpenPosition={handleOpenPosition}
+        onOpenText={handleOpenText}
+        onOpenEffects={handleOpenEffects}
+        onOpenMedia={handleOpenMedia}
+        onOpenSource={handleOpenSource}
+        onDuplicateElement={handleDuplicateElement}
+        onRemoveElement={handleRemoveElement}
+        onBringToFront={handleBringToFront}
+        onSendToBack={handleSendToBack}
+        compact={shouldCollapseToolbar(stageBounds.width)}
+      />
+    );
+  },
+);

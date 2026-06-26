@@ -11,7 +11,7 @@ import { slideAspectRatio } from "@/lib/presentation/slide-format";
 import type { Visual } from "@/lib/visual/schema";
 
 import { PRESENT_MODE_SHORTCUTS } from "./presenter-shortcuts";
-import { formatElapsedTime } from "./use-presenter-timer";
+import { formatElapsedTime } from "./format-elapsed-time";
 
 function ShortcutKeys({ keys }: { keys: string[] }): JSX.Element {
   return (

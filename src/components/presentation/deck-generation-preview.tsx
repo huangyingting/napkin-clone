@@ -204,7 +204,7 @@ export function DeckGenerationPreview({
             const marker = entry?.status ?? "unchanged";
             const title = entry?.title ?? `Slide ${index + 1}`;
             return (
-              <li key={index} className="flex flex-col gap-1">
+              <li key={slide.id} className="flex flex-col gap-1">
                 <span
                   className="relative block overflow-hidden rounded-ds-sm border border-ds-border-subtle"
                   style={{ aspectRatio: proposalAspectRatio }}
