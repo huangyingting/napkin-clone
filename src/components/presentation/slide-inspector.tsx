@@ -18,6 +18,8 @@ import { useMemo, useRef, useState } from "react";
 
 import { FOCUS_RING } from "@/components/ui/tokens";
 import {
+  FIELD_CLASS,
+  LABEL_CLASS,
   SpeakerNotesControl,
   TabButton,
 } from "@/components/presentation/slide-inspector/primitives";
@@ -61,11 +63,6 @@ const THEME_ACCENT_SWATCHES = tokenSetSwatchColors(
 
 type Panel = RightPanelTab;
 type PositionPanelTab = "arrange" | "layers";
-
-const FIELD_CLASS =
-  "w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-sm text-ds-text-primary outline-none";
-
-const LABEL_CLASS = "mb-1 block text-xs font-medium text-ds-text-secondary";
 
 export type {
   AddElementKind,

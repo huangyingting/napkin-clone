@@ -44,4 +44,3 @@ export {
   InheritedColorControl,
 } from "./text-panel";
 export { ElementEffectsControl, ElementOpacityControl } from "./effects-panel";
-export { ToolBtn, ToolRow } from "./arrange-panel";

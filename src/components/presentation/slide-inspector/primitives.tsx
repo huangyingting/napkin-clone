@@ -1,6 +1,6 @@
 "use client";
 
-import { FOCUS_RING } from "@/components/ui/tokens";
+import { FOCUS_RING, TOOLBAR_BUTTON_CHROME } from "@/components/ui/tokens";
 import type {
   BulletItem,
   BulletsElement,
@@ -152,8 +152,8 @@ export function FitModeControl({
               }
               className={`rounded-ds-sm px-2 py-1 text-xs font-medium transition-colors ${
                 isActive
-                  ? "bg-ds-accent-surface text-ds-accent-text"
-                  : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+                  ? TOOLBAR_BUTTON_CHROME.active
+                  : TOOLBAR_BUTTON_CHROME.subtle
               } ${FOCUS_RING}`}
             >
               {label}
@@ -217,8 +217,8 @@ export function VerticalAlignControl({
               }
               className={`rounded-ds-sm px-2 py-1 text-xs font-medium transition-colors ${
                 isActive
-                  ? "bg-ds-accent-surface text-ds-accent-text"
-                  : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+                  ? TOOLBAR_BUTTON_CHROME.active
+                  : TOOLBAR_BUTTON_CHROME.subtle
               } ${FOCUS_RING}`}
             >
               {label}
@@ -273,8 +273,8 @@ export function LineHeightControl({
               }
               className={`rounded-ds-sm px-2 py-1 text-xs font-medium transition-colors ${
                 isActive
-                  ? "bg-ds-accent-surface text-ds-accent-text"
-                  : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+                  ? TOOLBAR_BUTTON_CHROME.active
+                  : TOOLBAR_BUTTON_CHROME.subtle
               } ${FOCUS_RING}`}
             >
               {label}
