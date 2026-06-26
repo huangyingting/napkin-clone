@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   useCallback,
   useId,
@@ -10,6 +10,9 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+
+import { DURATION, EASE } from "@/components/motion/tokens";
+import { useReducedMotion } from "@/components/motion/use-reduced-motion";
 
 import { cx, ELEVATION, RADIUS } from "./tokens";
 
@@ -113,7 +116,10 @@ export function Tooltip({
           }
           animate={{ opacity: 1, y: 0 }}
           exit={reduce ? { opacity: 1 } : { opacity: 0 }}
-          transition={{ duration: reduce ? 0 : 0.12, ease: "easeOut" }}
+          transition={{
+            duration: reduce ? DURATION.instant : DURATION.tooltip,
+            ease: EASE.out,
+          }}
           style={{ top: coords.top, left: coords.left }}
           className={cx(
             "pointer-events-none fixed z-tooltip whitespace-nowrap border px-2 py-1 text-xs font-medium",

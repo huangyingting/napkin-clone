@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 
 import { useGenerationStatus } from "@/lib/ai/use-generation-status";
 
+import { DURATION } from "./tokens";
 import { ThinkingIndicator } from "./thinking-indicator";
 
 /**
@@ -31,7 +32,7 @@ export function GeneratingIndicator({
           initial={{ opacity: 0, y: 2 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -2 }}
-          transition={{ duration: 0.15 }}
+          transition={{ duration: DURATION.status }}
           className={className}
         >
           <ThinkingIndicator label={stageLabel} />
@@ -60,7 +61,7 @@ export function VisualSkeleton({ className = "" }: { className?: string }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, scale: 0.97 }}
-      transition={{ duration: 0.2 }}
+      transition={{ duration: DURATION.card }}
       aria-hidden="true"
       className={[
         "relative w-full overflow-hidden",

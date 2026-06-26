@@ -204,16 +204,21 @@ const FONT_BY_FAMILY = new Map(
 /** All registry font ids in picker order. */
 export const SLIDE_FONT_IDS: readonly string[] = SLIDE_FONTS.map((f) => f.id);
 
-/** UI picker options. `value` is the full CSS stack stored in `fontFamily`. */
-export const SLIDE_FONT_OPTIONS: ReadonlyArray<{
+/** A single UI picker option for a slide font. `value` is the full CSS stack. */
+export type FontOption = {
   id: string;
   label: string;
   value: string;
-}> = SLIDE_FONTS.map((font) => ({
-  id: font.id,
-  label: font.label,
-  value: font.cssStack,
-}));
+};
+
+/** UI picker options. `value` is the full CSS stack stored in `fontFamily`. */
+export const SLIDE_FONT_OPTIONS: ReadonlyArray<FontOption> = SLIDE_FONTS.map(
+  (font) => ({
+    id: font.id,
+    label: font.label,
+    value: font.cssStack,
+  }),
+);
 
 /** Narrowing guard for a registry font id. */
 export function isSlideFontId(value: unknown): value is string {

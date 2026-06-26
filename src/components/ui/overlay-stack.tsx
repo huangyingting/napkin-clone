@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   createContext,
   useCallback,
@@ -14,6 +14,9 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+
+import { DURATION, EASE } from "@/components/motion/tokens";
+import { useReducedMotion } from "@/components/motion/use-reduced-motion";
 
 import { getTabbableElements, nextFocusIndex } from "./focus-helpers";
 import { cx, ELEVATION, RADIUS, SURFACE_BASE } from "./tokens";
@@ -196,7 +199,7 @@ export function ModalSurface({
             }
             animate={{ opacity: 1, scale: 1 }}
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98 }}
-            transition={{ duration: 0.16, ease: "easeOut" }}
+            transition={{ duration: DURATION.modal, ease: EASE.out }}
             onKeyDown={onKeyDown}
             className={cx(
               "relative z-raised w-full max-w-lg border p-6 outline-none",
@@ -238,7 +241,7 @@ export function DrawerSurface({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
+            transition={{ duration: DURATION.backdrop }}
             onClick={onClose}
             className="fixed inset-0 z-overlay bg-ds-backdrop md:hidden"
           />
@@ -253,7 +256,7 @@ export function DrawerSurface({
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
-            transition={{ duration: 0.22, ease: "easeOut" }}
+            transition={{ duration: DURATION.drawer, ease: EASE.out }}
             onKeyDown={onKeyDown}
             className={cx(
               "tiq-full-viewport fixed right-0 top-0 z-panel flex h-full w-72 max-w-[85vw] flex-col overflow-y-auto border-l border-ds-border-strong bg-ds-surface-base shadow-ds-popover outline-none md:hidden",
@@ -293,7 +296,7 @@ export function BottomSheetSurface({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
+            transition={{ duration: DURATION.backdrop }}
             onClick={onClose}
             className="fixed inset-0 z-overlay bg-ds-backdrop"
           />
@@ -308,7 +311,7 @@ export function BottomSheetSurface({
             initial={reduceMotion ? { opacity: 1, y: 0 } : { y: "100%" }}
             animate={{ opacity: 1, y: 0 }}
             exit={reduceMotion ? { opacity: 0, y: 0 } : { y: "100%" }}
-            transition={{ duration: 0.24, ease: "easeOut" }}
+            transition={{ duration: DURATION.sheet, ease: EASE.out }}
             onKeyDown={onKeyDown}
             className={cx(
               "tiq-mobile-sheet fixed bottom-0 left-0 right-0 z-panel flex flex-col overflow-hidden rounded-t-ds-xl border-t border-ds-border-subtle bg-ds-surface-base shadow-ds-popover outline-none",
