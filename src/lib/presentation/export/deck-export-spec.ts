@@ -13,24 +13,21 @@
  * and converted to points.
  */
 
+import type { Deck, Slide } from "../deck-core";
 import type {
   BulletItem,
-  Deck,
   ElementAlign,
   ElementBox,
   ImageCrop,
   ImageFitMode,
   ImageMaskShape,
   ShapeKind,
-  Slide,
   TextFitMode,
   TextRun,
-} from "@/lib/presentation/deck";
+} from "../deck-elements";
 import { resolveConnectorElementPoints } from "@/lib/presentation/connector-geometry";
-import {
-  normalizeBulletItems,
-  PLACEHOLDER_TYPE_LABELS,
-} from "@/lib/presentation/deck";
+import { normalizeBulletItems } from "../deck-elements";
+import { PLACEHOLDER_TYPE_LABELS } from "../deck-layouts-model";
 import { slideFormatConfig } from "@/lib/presentation/slide-format";
 import { resolveSlideStyle } from "@/lib/presentation/style-cascade";
 import { slideFontExportFace } from "@/lib/presentation/slide-fonts";

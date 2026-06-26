@@ -7,7 +7,7 @@
  * browser File API.
  */
 
-import type { Deck } from "./deck";
+import type { Deck } from "./deck-core";
 import { MAX_IMAGE_UPLOAD_BYTES, TOTAL_IMAGE_BUDGET_BYTES } from "@/lib/limits";
 
 export { MAX_IMAGE_UPLOAD_BYTES, TOTAL_IMAGE_BUDGET_BYTES } from "@/lib/limits";

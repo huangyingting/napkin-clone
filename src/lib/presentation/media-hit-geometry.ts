@@ -1,4 +1,4 @@
-import type { ElementBox, SlideElement } from "./deck";
+import type { ElementBox, SlideElement } from "./deck-elements";
 import type { MediaHitGeometry } from "./stage-hit-test";
 import type { Visual, VisualNode } from "@/lib/visual/schema";
 

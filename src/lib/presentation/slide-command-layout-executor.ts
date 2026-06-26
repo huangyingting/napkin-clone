@@ -1,9 +1,9 @@
-import type { Deck } from "./deck";
+import type { Deck } from "./deck-core";
 import {
   applySlideLayoutPreservingContent,
   resetSlideLayoutPositions,
-  updateSlide,
-} from "./deck-mutations";
+} from "./deck-mutation-layout";
+import { updateSlide } from "./deck-mutation-slides";
 import type {
   ApplySlideLayoutCommand,
   ResetSlideLayoutCommand,

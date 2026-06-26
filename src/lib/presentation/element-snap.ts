@@ -13,7 +13,7 @@
  * leaves the box exactly where the user dropped it.
  */
 
-import type { ElementBox } from "./deck";
+import type { ElementBox } from "./deck-elements";
 
 /**
  * An active alignment guide to render while dragging.

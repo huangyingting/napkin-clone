@@ -15,9 +15,10 @@ import type {
   TextRoleToken,
   TypographyToken,
   VisualDefaultsToken,
-} from "../deck-theme-tokens";
-import { DECK_TEXT_ROLES, isDeckTextRole } from "../deck-theme-tokens";
-import type { ConnectorArrow, ElementAlign } from "../deck";
+} from "../deck-theme-token-types";
+import { isDeckTextRole } from "../deck-theme-token-resolvers";
+import { DECK_TEXT_ROLES } from "../deck-theme-token-types";
+import type { ConnectorArrow, ElementAlign } from "../deck-elements";
 import { validateImageFitMode, validateImageMaskShape } from "./media";
 import {
   CONNECTOR_ARROWS,

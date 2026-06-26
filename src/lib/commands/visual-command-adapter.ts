@@ -8,7 +8,7 @@
  * `visual-card.tsx`; this module is pure and DOM-free.
  */
 
-import { CURRENT_COMMAND_SCHEMA_VERSION } from "@/lib/commands/command-envelope";
+import { CURRENT_COMMAND_SCHEMA_VERSION } from "./envelope-core";
 import {
   executeVisualCommand,
   type VisualCommand,

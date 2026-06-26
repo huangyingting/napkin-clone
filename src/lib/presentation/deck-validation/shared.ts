@@ -1,15 +1,13 @@
-import {
-  DECK_THEMES,
-  SLIDE_LAYOUTS,
-  type DeckTheme,
-  type SlideLayoutHint,
-  type ElementAlign,
-  type ShapeKind,
-  type ConnectorAnchor,
-  type ConnectorArrow,
-  type ConnectorRouting,
-  type TextFitMode,
-} from "../deck";
+import { DECK_THEMES, type DeckTheme } from "../deck-core";
+import type {
+  ElementAlign,
+  ShapeKind,
+  ConnectorAnchor,
+  ConnectorArrow,
+  ConnectorRouting,
+  TextFitMode,
+} from "../deck-elements";
+import { SLIDE_LAYOUTS, type SlideLayoutHint } from "../deck-layouts-model";
 import { SLIDE_FORMATS, type SlideFormat } from "../slide-format";
 
 export class DeckValidationError extends Error {

@@ -1,4 +1,4 @@
-import type { Deck } from "./deck";
+import type { Deck } from "./deck-core";
 import { mapSlide } from "./deck-mutation-shared";
 
 /** Sets (or clears, with `undefined`) a slide's background color override. */

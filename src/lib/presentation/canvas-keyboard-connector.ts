@@ -5,7 +5,7 @@
  * module decides which target is active and how mode keys transition.
  */
 
-import type { ElementBox } from "./deck";
+import type { ElementBox } from "./deck-elements";
 
 export interface KeyboardConnectorElement {
   id: string;

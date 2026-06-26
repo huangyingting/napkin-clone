@@ -13,7 +13,7 @@
  * Pure and DOM-free — fully testable under `node --test`.
  */
 
-import type { DeckTheme } from "@/lib/presentation/deck";
+import type { DeckTheme } from "./deck-core";
 import type { DocumentBlock } from "@/lib/content";
 import { isThemeActive } from "@/lib/visual/transforms";
 

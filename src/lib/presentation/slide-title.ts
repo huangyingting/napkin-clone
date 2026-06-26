@@ -10,12 +10,9 @@
  * No React, no DOM — fully testable under `node --test`.
  */
 
-import {
-  PLACEHOLDER_TYPE_LABELS,
-  type PlaceholderElement,
-  type Slide,
-  type TextElement,
-} from "./deck";
+import type { Slide } from "./deck-core";
+import type { PlaceholderElement, TextElement } from "./deck-elements";
+import { PLACEHOLDER_TYPE_LABELS } from "./deck-layouts-model";
 
 /**
  * The slide's effective title (without any positional fallback). The title is

@@ -6,7 +6,7 @@ import type {
   ElementBox,
   ShapeElement,
   SlideElement,
-} from "./deck";
+} from "./deck-elements";
 
 export interface PointPct {
   x: number;

@@ -1,4 +1,4 @@
-import type { ElementBox, SlideElement } from "./deck";
+import type { ElementBox, SlideElement } from "./deck-elements";
 import type { Visual } from "@/lib/visual/schema";
 import {
   resolveLineEndpoints,

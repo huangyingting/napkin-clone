@@ -1,10 +1,12 @@
-import type { Deck } from "./deck";
+import type { Deck } from "./deck-core";
 import {
-  resetDeckTemplate,
   setDeckSlideFormat,
   setDeckTheme,
+} from "./deck-mutation-deck-settings";
+import {
+  resetDeckTemplate,
   updateDeckTemplate,
-} from "./deck-mutations";
+} from "./deck-mutation-template";
 import type {
   SetDeckFormatCommand,
   SetDeckThemeCommand,

@@ -1,4 +1,4 @@
-import type { Deck, DeckTheme } from "./deck";
+import type { Deck, DeckTheme } from "./deck-core";
 import type { SlideFormat } from "./slide-format";
 
 /**

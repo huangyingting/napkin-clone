@@ -1,4 +1,5 @@
-import type { Deck, SlideElement } from "./deck";
+import type { Deck } from "./deck-core";
+import type { SlideElement } from "./deck-elements";
 import { mapSlide, markElementsEdited } from "./deck-mutation-shared";
 
 // ---------------------------------------------------------------------------

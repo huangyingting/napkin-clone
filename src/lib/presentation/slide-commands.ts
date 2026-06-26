@@ -38,14 +38,14 @@
  * `onDeckChange` (commit) and downstream analytics hooks.
  */
 
-import type { Deck } from "./deck";
+import type { Deck } from "./deck-core";
 import {
   setDeckSlideFormat,
   setDeckTheme,
-  resetDeckTemplate,
-  setElementPatches,
-  updateSlide,
-} from "./deck-mutations";
+} from "./deck-mutation-deck-settings";
+import { setElementPatches } from "./deck-mutation-elements";
+import { updateSlide } from "./deck-mutation-slides";
+import { resetDeckTemplate } from "./deck-mutation-template";
 import { executeBackgroundFamilyCommand } from "./slide-command-background-executor";
 import { executeDeckThemeFamilyCommand } from "./slide-command-deck-theme-executor";
 import { executeElementFamilyCommand } from "./slide-command-element-executor";

@@ -1,4 +1,9 @@
-import type { BulletsElement, ElementBox, TextElement, TextRun } from "./deck";
+import type {
+  BulletsElement,
+  ElementBox,
+  TextElement,
+  TextRun,
+} from "./deck-elements";
 import { runsToHtml } from "./rich-text-html";
 import { resolveElementFontCss } from "./slide-fonts";
 

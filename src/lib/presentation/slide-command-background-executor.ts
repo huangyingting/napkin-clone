@@ -1,11 +1,11 @@
-import type { Deck } from "./deck";
+import type { Deck } from "./deck-core";
 import {
   setSlideAccent,
   setSlideBackground,
   setSlideBackgroundAsset,
   setSlideBackgroundGradient,
   setSlideBackgroundImage,
-} from "./deck-mutations";
+} from "./deck-mutation-slide-style";
 import type {
   DeckPatch,
   SetSlideAccentCommand,

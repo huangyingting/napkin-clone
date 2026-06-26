@@ -8,7 +8,8 @@
  * deck-export-spec.ts.
  */
 
-import type { Deck, TextRun } from "@/lib/presentation/deck";
+import type { Deck } from "../deck-core";
+import type { TextRun } from "../deck-elements";
 import type { Visual } from "@/lib/visual/schema";
 import { toHex } from "@/lib/visual/pptx-shapes";
 import type { PptxSpec } from "@/lib/visual/pptx-shapes";

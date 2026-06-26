@@ -1,13 +1,15 @@
 import {
   CURRENT_DECK_SCHEMA_VERSION,
-  SLIDE_LAYOUTS,
   type Deck,
   type Slide,
+} from "../deck-core";
+import {
+  SLIDE_LAYOUTS,
   type SlideLayout as DeckLayout,
   type SlideLayoutHint,
-} from "../deck";
+} from "../deck-layouts-model";
 import { DEFAULT_SLIDE_FORMAT, SLIDE_FORMATS } from "../slide-format";
-import type { MasterSlide } from "../deck-theme-tokens";
+import type { MasterSlide } from "../deck-theme-token-types";
 import {
   validateElement,
   validateBulletRuns,

@@ -17,7 +17,7 @@
  *     - error            → return error.
  */
 
-import type { Deck } from "@/lib/presentation/deck";
+import type { Deck } from "./deck-core";
 import type { DeckPatch } from "@/lib/presentation/slide-commands";
 import type {
   SaveDeckPatchResult,

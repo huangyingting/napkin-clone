@@ -1,4 +1,4 @@
-import type { SlideElement } from "./deck";
+import type { SlideElement } from "./deck-elements";
 
 export function effectiveSlideElementId(
   elements: readonly SlideElement[] | undefined,

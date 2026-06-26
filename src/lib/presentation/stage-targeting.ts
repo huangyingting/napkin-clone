@@ -1,4 +1,4 @@
-import type { SlideElement } from "./deck";
+import type { SlideElement } from "./deck-elements";
 import type { HitTestCandidate } from "./stage-hit-test";
 
 export type StageInteractionTarget =
