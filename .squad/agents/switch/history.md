@@ -95,3 +95,20 @@ Slides editing review produced epic #199 and child issues #200–#214. Switch ow
 ## 2026-06-22T15:47:18+08:00 — Slides review + #293 "From document" panel
 
 Frontend impl review (8 HIGH issues → #304–#307); immediately implemented #293 "From document" quick-insert panel (11 tests, commit af4d248, PR #308).
+
+## 2026-06-25T22:57:28Z — 10-pass code-health review → frontend findings + epics #1094/#1101
+
+**Session:** 10-pass refactoring/code-health review (requested by Switch).
+
+**Contributions:** 23 frontend findings (SWTCH-01–SWTCH-23). P0: `document.execCommand` deprecated in `inline-text-editor.tsx` + `controls.tsx` (SWTCH-10). P1 structural: `slide-editor.tsx` 60+ inline handlers (SWTCH-01), `controls.tsx` 2660L incomplete split (SWTCH-04), `visual-context-popover.tsx` 2118L conflating gen/brand/style/positioning (SWTCH-08). HSV color math duplicated `shell-components.tsx` vs `ui/color-picker.tsx` (SWTCH-05). `SlideInspectorProps` 50-prop interface → `SlideEditorContext` needed (SWTCH-11).
+
+**Owned epics (primary):**
+- **#1094** (Epic 2): Slide & visual large-file decomposition — SWTCH-01/03/04/08/18/19/23. Complete controls.tsx (2660L) split into existing per-panel stubs; split slide-editor.tsx + visual-context-popover.tsx.
+- **#1101** (Epic 9): Frontend state/perf/browser-compat — SWTCH-10/11/12/14/16/20/21/22. Fix execCommand (P0); introduce SlideEditorContext; fix browser-compat issues.
+
+**Co-owns:**
+- **#1097** (Epic 5): design-token consolidation — SWTCH-05 HSV dedup (ColorPicker-first approach).
+
+**Child issues:** #1103–#1150 range (see epic-plan.md for exact assignments).
+
+**P0 to fix first:** SWTCH-10 `execCommand` deprecation (issue #1138 range, Epic 9.2).

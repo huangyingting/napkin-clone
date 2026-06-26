@@ -65,3 +65,18 @@ Shipped #81 for #75 (seed visual). Extracted `buildSeedContentJson()` pure helpe
 ## 2026-06-21T20:35:42+08:00 — Slides editing review backlog
 
 Slides editing review produced epic #199 and child issues #200–#214. Tank owns #203 (deck→PPTX honoring deckJson), #204 (orphan-visual guard), #210 (rich-text preservation in derivation), and #213 (schema hygiene: SSR-safe IDs + legacy→free-form migration).
+
+## 2026-06-25T22:57:28Z — 10-pass code-health review → backend findings + epics #1096/#1099
+
+**Session:** 10-pass refactoring/code-health review (requested by Switch).
+
+**Contributions:** 22 backend findings across 4 proposed epics. Key items: `legacyErrorResponse` still present with 12+ callsites not using canonical helpers (TANK-01/-02/-03/-16); `deck-export.ts` 1709L with 2–3 line stub split files (TANK-04/-20); `Document.content` plain-text field written at creation only, queried in 6 places for search/excerpt/OG metadata — stale post-edit (TANK-05/-15); config/boilerplate across `persistence-service.ts` (938L, 4 concerns), rate-limit split, `getBillingState` DB-write side-effect, `document-permissions.ts`/`workspace-capabilities.ts` parallel 300-line duplicates (TANK-06 through TANK-22).
+
+**Owned epics (primary):**
+- **#1096** (Epic 4): Canonical API error shape & legacy compat removal — TANK-01/-02/-03/-16. Delete `legacyErrorResponse` entirely (no compat alias); migrate all 12+ callsites to canonical helpers from `errors.ts`.
+- **#1099** (Epic 7): Backend config/persistence splits & Document.content deprecation — TANK-05 through TANK-22. Split `persistence-service.ts`; unify rate-limit config; migrate stale `Document.content` reads to `contentJson`.
+
+**Co-owns:**
+- **#1095** (Epic 3): Deck-export modularization — TANK-04/-20 (real deck-export.ts split into spec-builder/PPTX/SVG appliers).
+
+**Child issues:** #1103–#1150 range (see epic-plan.md for exact assignments).

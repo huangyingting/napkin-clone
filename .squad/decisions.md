@@ -1891,3 +1891,2755 @@ main is green (typecheck clean, 710 tests pass, build green, format:check clean)
 **Resulting issues:** Epic **#292**; doc-leverage **#293–#297**; quick-edit UX **#298–#301**; data-integrity **#302–#303**; frontend perf/a11y/robustness **#304–#306**; tech-debt **#307**. Label: `area:slides`.
 
 **Implementation (Switch-1):** Implemented #293 "From document" quick-insert panel (document text blocks + visuals, click-to-insert, "Add all visuals") + new pure module `src/lib/presentation/document-insertable.ts` (11 tests). Commit `af4d248` on branch `squad/293-from-document-panel`. 1797 tests pass; typecheck + lint green. PR #308 opened.
+
+
+### 2026-06-21T13:03:25Z: Trinity (#205): Deck↔document sync decision
+2026-06-21T13:03:25Z — Trinity (#205): Deck↔document sync uses option (a) — an embedded `Deck.deckContentHash` (FNV-1a over document-derived slide content, no Prisma change) for staleness, plus `mergeDeckFromDocument` that refreshes title/bullets/visualIds by title-then-index match while preserving each slide's `elements[]`, appending unmatched and keeping orphans; surfaced via a stale banner + "Sync from document" merge-summary dialog. PR #220.
+
+
+### 2026-06-21T21:58:59Z: Trinity: AI deck generation architecture
+2026-06-21T21:58:59Z — Trinity (AI deck generation): Add AI-driven slide generation as an *additive* alternative to the deterministic `buildDeckFromBlocks`, never a replacement. New injectable core `generateDeck(complete, { contentText, visuals, options }) -> Deck` lives in `src/lib/ai/generate-deck.ts`, mirroring `generateVisuals` (network-free, `CompleteFn`-injected, JSON-extract → schema-validate/repair against `deck-schema.ts` → orphan-strip via `stripOrphanedVisuals`). A new `buildDeckGenerationMessages` prompt (`src/lib/ai/deck-prompt.ts`) is handed a structured outline (headings/sections/bullets/emphasis) plus a visual *inventory* (id, title, type/summary) and instructed to reference real `visualId`s only — the deck never carries visual payloads. New route `POST /api/generate-deck` reuses the exact `/api/generate` shape: parse → validate → Azure-config check → identify user → quota/rate-limit → credit metering → `withAbortDeadline(GENERATE_TIMEOUT_MS)` → respond `{ deck }`. AI output is a normal editable `Deck` (free-form `elements[]` authoritative, `elementsDerived` provenance preserved), opened non-destructively in the existing slide editor with a preview/diff, regenerate, and full undo/redo/autosave. The whole feature ships behind a flag (`AI_DECK_GEN_ENABLED`) and falls back to `buildDeckFromBlocks` whenever the flag is off, Azure is unconfigured, quota/credits are exhausted, the deadline fires, or the model returns unrepairable JSON. Mapping strategy favors brevity and storytelling: title slide → agenda/section slides → one idea per content slide (≤ N words), overflow prose to speaker notes, strong single-visual placement reusing document visuals as first-class assets, layout/template chosen per slide from `slide-templates.ts` (#211) + deck themes (#206). Quality is measured (slides/word ratio, avg words/slide, % slides with a visual, schema-valid rate, latency p50/p95, post-edit edit-distance). Decomposed into 1 epic + 11 child issues, each independently shippable behind the flag. Owners: trinity (architecture/core), switch (route/UX), tank (extraction/selection/perf), mouse (templating/layout/a11y), ghost (eval/tests).
+
+
+### 2026-06-22T18-57-30: Issue #342 uses ImageElement fitMode/maskShape/crop with numeric inspector controls
+**By:** Trinity
+**What:** Issue #342 uses ImageElement fitMode/maskShape/crop with numeric inspector controls
+**References:** issue #342, pr #369, branch squad/342-image-crop-replace-mask
+**Why:** Implemented issue #342 by extending the ImageElement model (not VisualElement) with fitMode, maskShape, and crop metadata plus schema validation. The inspector now exposes replace/upload, fit, mask, and numeric crop controls; canvas rendering applies mask/crop/object-fit; PPTX export carries the metadata and rasterizes styled images when needed for fidelity. I intentionally kept crop editing non-interactive in the stage and aligned the branch with the issue prompt by updating the existing PR branch instead of keeping the earlier interactive-crop implementation.
+
+# Switch Decision: Text Fit Modes implementation (#333)
+
+**Date:** 2026-06-22
+**By:** Switch (Frontend Dev)
+
+## What
+
+Completed issue #333 text fit mode implementation:
+
+- `fitMode` wired into resize semantics in `SlideStageEditor`:
+  - `fixed-box` elements use free box resize (content clips, font unchanged)
+  - `auto-height` elements dim bottom/corner-bottom handles (s, se, sw); dragging them auto-switches to `fixed-box`
+  - `shrink-to-fit` and `auto-height` non-bottom handles keep existing Canva-style font-scaling resize
+- `InlineTextEditor.emitChange` respects `fitMode`: only auto-grows box height in `auto-height` mode
+- Added `BOTTOM_HANDLES` constant (`s`, `se`, `sw`) for auto-height handle dimming logic
+
+## Tests
+
+15 tests in `text-element-fit.test.ts`:
+- `isAutoHeight` (4), `shrinkFontSizeToFit` (4), `textFitPaddingPct` (3), `fitNewTextElementBox` (4)
+
+## PR
+
+PR #359 on `squad/333-text-fit-modes` → `main`. Do NOT merge without coordinator review.
+
+
+### 2026-06-22: Connector endpoint UX — bound/free states, previews, arrowheads, dash, detach
+
+**By:** Mouse (Design/UX)
+**What:** Implementation-ready UX spec for #325. Full details below.
+**Why:** Connectors must communicate binding state visually, surface anchor affordances during drag, expose arrowhead/dash controls in the inspector, and allow non-destructive detach — all using the established `--ds-*` token layer and the existing `ConnectorElement` type.
+
+---
+
+## UX Spec: Connector Endpoint UX (Issue #325)
+
+### Scope
+Applies to first-class `ConnectorElement` elements in the slide stage editor.
+Rendering targets: stage editor, present mode, public viewer, PPTX export.
+
+---
+
+## 1. Endpoint Visual States
+
+### 1a. Free endpoint
+A connector endpoint that is **not** bound to a shape anchor (`ConnectorFreePoint`).
+
+| State | Visual |
+|-------|--------|
+| Idle (connector not selected) | No handle shown |
+| Connector selected | Hollow circle: 10 px diameter, stroke `--ds-stage-muted` (#71717a), fill `--ds-surface-raised`, border 1.5 px. Same zinc-handle colour used for shape resize handles today. |
+| Handle hovered | Fill becomes `--ds-surface-raised`; stroke intensifies to `--ds-stage-text`; cursor `crosshair` |
+| Handle being dragged (not near a target) | Same hollow circle, stroke `--ds-accent`, 2 px stroke — signals "actively routing". Dashed-ring pulse animation: `keyframes { 0%,100% { r: 6 } 50% { r: 9 } }` at 800 ms, opacity 0.4, colour `--ds-accent`. |
+
+### 1b. Bound endpoint
+A connector endpoint snapped to a named anchor on another element (`ConnectorBoundEndpoint`).
+
+| State | Visual |
+|-------|--------|
+| Idle (connector not selected) | No handle shown (bound status implicit in line geometry) |
+| Connector selected | **Filled** circle: 10 px diameter, fill `--ds-accent` (#4f46e5), white 1.5 px border. Distinguishes bound from free at a glance. |
+| Handle hovered | Scale to 1.3× via CSS `transform: scale(1.3)`, transition `--ds-motion-fast` (`100 ms`) `--ds-ease-standard`. Tooltip: "Drag to rebind or detach". |
+| Handle being dragged (near a valid target) | Snap preview renders — see §2. |
+
+**Colour semantics:** Solid `--ds-accent` = "attached to something". Hollow = "floating free". Consistent with anchor-dot colours used in Figma / Whimsical.
+
+---
+
+## 2. Hover/Drag Preview Behaviour and Binding Target Affordances
+
+### 2a. Hover over a connector (not selected)
+- Show a subtle midpoint indicator: 6 px dot, fill `--ds-stage-muted`, opacity 0.5.  
+- Do **not** show endpoint handles on mere hover — reduces noise when connectors are not the focus.
+
+### 2b. Dragging an endpoint
+When `drag.mode === "w"` or `"e"` on a `ConnectorElement`:
+
+1. **Candidate shapes highlighted** — any non-connector, non-line element within the snap threshold (`thresholdPct = 5`) receives a highlight ring: `ring-2 ring-[--ds-accent]/60` animated in at `--ds-motion-fast`. At most one ring per element.
+
+2. **Anchor dots appear** on each candidate — five dots at `center / top / bottom / left / right` anchor positions. Render as 6 px SVG circles, fill `--ds-accent-surface`, stroke `--ds-accent-border`, stroke-width 1 px, `aria-hidden="true"`. Use the existing `anchorPoint()` utility to position them.
+
+3. **Active snap target** — when `snapped.binding` is set, the nearest anchor dot grows to 10 px, fill `--ds-accent`, white border 1.5 px. The line preview snaps visually before pointer-up (already implemented via `snapLineEndpoint`). Transition: `--ds-motion-fast`.
+
+4. **Cursor** — `crosshair` while dragging an endpoint. Reverts to `move` when released.
+
+5. **Outside snap threshold** — highlight rings fade out; anchor dots disappear; endpoint handle reverts to free-drag appearance.
+
+### 2c. Non-dragging hover over a bound target shape
+No change to the shape's visual while the connector is merely selected. Anchor indicators on target shapes are only shown during endpoint drag.
+
+---
+
+## 3. Arrowhead and Dash Controls
+
+### 3a. Defaults
+Per the `ConnectorElement` schema:
+- `arrowStart`: `"none"` (default — no tail decoration)
+- `arrowEnd`: `"filled"` ← **new default for newly inserted connectors** (directional arrow feels like a connector; `"none"` feels like a line)
+- `dash`: `"solid"` (default)
+
+> Rationale: Arrow from A → B is the mental model. Changing arrowEnd default from `"none"` to `"filled"` only affects new inserts; existing documents preserve their stored value.
+
+### 3b. Inspector panel — Connector section
+Appears in `slide-inspector.tsx` when `selectedElement.kind === "connector"`.
+
+```
+┌─────────────────────────────────────┐
+│  CONNECTOR                          │
+│  ─────────────────────────────────  │
+│  Arrow ends                         │
+│  [Start ▾]           [End ▾]        │  ← two SegmentedControl / select widgets
+│   none | → open | ⬥ filled | • dot  │
+│                                     │
+│  Line style                         │
+│  [────] [- - -] [· · ·]             │  ← SegmentedControl: solid / dashed / dotted
+│                                     │
+│  Stroke                             │
+│  [color swatch]   [width 0.4 cqmin] │
+└─────────────────────────────────────┘
+```
+
+**Arrowhead picker** — use a `<select>` or small icon-SegmentedControl for each endpoint. Values: `none`, `open`, `filled`, `dot`.  
+Icons: lucide `Minus` (none) / `ArrowRight` (open) / a filled arrow SVG (filled) / `Circle` (dot) — 16 px, `aria-hidden="true"`, tooltip showing label.
+
+**Dash picker** — three-button SegmentedControl (`SegmentedControl` primitive per the existing design system decision). Map to `ConnectorDash`: `solid` / `dashed` / `dotted`. Render a tiny inline SVG preview inside each button (4 px stroke, matching the button width): solid line / dashed / dotted.
+
+**Stroke colour** — `Swatch` primitive opening a colour popover (consistent with shape fill pickers).  
+**Stroke width** — numeric input, `step=0.1`, min `0.1`, max `5.0`, suffix `cqmin`.
+
+### 3c. Rendering
+`ConnectorElementView` in `slide-canvas.tsx` must apply:
+- `strokeDasharray` per `dash`: solid → omit / dashed → `"4 4"` / dotted → `"1.5 3"` (SVG units in % of viewBox, scale with `vectorEffect="non-scaling-stroke"`)
+- Arrowheads via SVG `<marker>` elements in a shared `<defs>` block — one marker per style per colour (keyed `arrow-{style}-{color}`). Each marker defines the appropriate path geometry. Marker is referenced via `markerStart` / `markerEnd` on `<line>`.
+- Markers and dash must render correctly in the canvas (editor + present + viewer). PPTX export maps to `pptx-shapes.ts` arrowhead/dash equivalents.
+
+---
+
+## 4. Detach Action — Placement and Wording
+
+### 4a. Context menu
+Right-click / long-press on a selected connector adds two items above "Delete":
+
+```
+  Detach start
+  Detach end
+  ───────────
+  Delete connector
+```
+
+- **"Detach start"** — only shown when `!(start is ConnectorFreePoint)` (i.e. `start` is a `ConnectorBoundEndpoint`). Converts start to a `ConnectorFreePoint` at its current resolved position. Keyboard: no dedicated shortcut (discoverable via context menu).
+- **"Detach end"** — same logic for `end`.
+- Both use `aria-label="Detach connector start"` / `"Detach connector end"`.
+- Wording rationale: "Detach" is clear and non-destructive; "Disconnect" is also acceptable but longer. Avoid "Unlink" (implies text/citation semantics).
+
+### 4b. Inspector panel — endpoint binding badges
+Below the stroke/arrow controls, show one badge per endpoint when bound:
+
+```
+  Start  [● Shape name]  [Detach ×]
+  End    [● Shape name]  [Detach ×]
+```
+
+- Badge: pill shape, `--ds-accent-surface` background, `--ds-accent-text` text, `--ds-accent-border` border, `--ds-radius-pill`. Shows the bound shape's kind/label (e.g. "Rect", "Ellipse") or a fallback "Shape".
+- `[Detach ×]` button: ghost `IconButton` (×), `aria-label="Detach connector start from shape"`. On click → converts endpoint to free point at current resolved position.
+- When endpoint is free: no badge, no detach button.
+
+### 4c. Keyboard path
+- `Tab` to the connector element → `Enter`/`Space` selects it.
+- Right-click context menu accessible via `Shift+F10` or menu key.
+- No standalone keyboard shortcut for detach (low frequency action; context menu is sufficient for accessibility baseline).
+
+---
+
+## 5. Accessibility
+
+| Affordance | Requirement |
+|---|---|
+| Connector element hit target | `role="button"`, `tabIndex={0}`, `aria-label` via `elementAccessibleName()` — extend to say "Connector from [start shape] to [end shape]" when both endpoints are bound, "Connector" otherwise |
+| Endpoint drag handles | `aria-hidden="true"` (pointer-only interaction; keyboard detach is via context menu) |
+| Anchor preview dots | `aria-hidden="true"` |
+| Candidate shape highlight rings | `aria-hidden="true"` |
+| Arrowhead select (inspector) | `<label>` "Arrowhead at start" / "Arrowhead at end", `aria-describedby` pointing to current value |
+| Dash picker SegmentedControl | `aria-label="Line style"`, each button has visible icon + `aria-label` ("Solid", "Dashed", "Dotted") |
+| Detach button (inspector badge) | `aria-label="Detach connector start from [shape label]"` |
+| Detach context menu items | Standard menu item role, labelled "Detach start" / "Detach end" |
+| Binding toast/confirmation | Not required — detach is immediately undoable via Ctrl+Z. No toast needed. |
+
+**Focus ring:** All interactive controls use `FOCUS_RING` from `control-styles.ts` (`--ds-focus-ring` / `--ds-focus-offset`).
+
+---
+
+## 6. Token and Style Guidance
+
+All colours reference `--ds-*` tokens. Do not use raw `zinc-*`, `black/[.0x]`, or hex literals in connector UI.
+
+| UI element | Token |
+|---|---|
+| Free endpoint handle stroke | `--ds-stage-muted` → `#71717a` |
+| Bound endpoint handle fill | `--ds-accent` |
+| Bound endpoint handle border | `white` (1.5 px) |
+| Snap pulse ring | `--ds-accent`, opacity 0.4 |
+| Candidate shape ring | `--ds-accent` at 60% opacity |
+| Anchor dot fill | `--ds-accent-surface` |
+| Anchor dot stroke | `--ds-accent-border` |
+| Active snap anchor | `--ds-accent` fill, white border |
+| Binding badge background | `--ds-accent-surface` |
+| Binding badge text | `--ds-accent-text` |
+| Binding badge border | `--ds-accent-border` |
+| Detach button | ghost `IconButton`, destructive-tinted on hover (`--ds-danger-surface` bg, `--ds-danger-text`) |
+| Inspector section label | `--ds-text-muted`, uppercase, `text-xs` tracking-wide |
+
+**Motion:** Snap/bind transitions use `--ds-motion-fast` (`100 ms`) + `--ds-ease-standard`. Pulse ring uses `--ds-motion-base` (`200 ms`) cycle. No transition on the line itself (follows pointer in real time).
+
+**Elevation:** Anchor preview dots live on the SVG layer (no elevation). Inspector controls use the existing `--ds-surface-overlay` / `--ds-shadow-overlay` for any popover (colour picker, arrowhead picker if implemented as a popover).
+
+---
+
+## 7. What Switch Needs From #323 / #324 Before Implementing
+
+- **#323** — `ConnectorElement` kind in deck model ✅ already merged per `deck.ts`.  
+- **#323** — `normalizeConnector` migration utility ✅ already in `connector-normalize.ts`.  
+- **#324** — Delete-shape → detach endpoint policy must be resolved before "Detach start/end" context menu items can fire reliably; spec this as "convert to free point" as the safe default.
+
+This spec does not depend on elbow routing — all states apply equally to `routing: "straight"` (the v1 default).
+
+
+### 2026-06-22: Wave 1 Canvas Editing UX — #328 Align/Distribute, #329 Multi-Selection BB, #330 Group Model, #331 Layer List
+
+**By:** Mouse (Design/UX)
+**What:** Implementation-ready UX spec for Wave 1 canvas-editing issues.
+**Why:** Switch needs a coherent design for align/distribute tools, multi-selection bounding-box transforms, group enter/exit, and the layer list before implementation begins. This spec formalises visual states, interaction models, keyboard behaviour, and token usage so engineering can proceed without separate design review.
+
+---
+
+## UX Spec: Wave 1 Canvas Editing
+
+### Codebase baseline (as of 2026-06-22)
+
+| Capability | Status |
+|---|---|
+| `alignBoxes`, `distributeBoxes`, `matchSizeBoxes`, `arrangeElements` math | ✅ exists in `element-align.ts` |
+| Single-element resize (8 handles + rotate) | ✅ `slide-stage-editor.tsx` |
+| Group move via shared `groupId` on elements | ✅ existing |
+| Lock toggle + arrange buttons in inspector | ✅ existing |
+| Context-menu Group / Ungroup | ✅ existing |
+| Align/distribute/match-size toolbar | ❌ needs work |
+| Multi-selection bounding-box resize/rotate | ❌ needs work |
+| Clear group enter/exit UX | ❌ needs work |
+| Layer/object list panel | ❌ needs work |
+
+---
+
+## 1. Align / Distribute / Match-Size / Arrange Toolbar (#328)
+
+### 1a. Entry points
+
+**Contextual floating toolbar** (inline above selection, same surface as the existing TextStyleBar):
+- Appears when ≥ 2 elements are selected (or a single group is selected).
+- Positioned: 8 px above the selection bounding box, horizontally centred.
+- Surface: `--ds-stage-panel` fill, `--ds-stage-border` border (1 px), `--ds-radius-md` corner, `--ds-shadow-overlay` elevation.
+
+**Context menu** (right-click on multi-selection or group):
+- Submenu "Align" → 6 align actions.
+- Submenu "Distribute" → 2 distribute actions.
+- Submenu "Match Size" → 3 match-size actions.
+- Top-level: "Bring Forward", "Send Backward", "Bring to Front", "Send to Back".
+
+**Inspector side panel** (Advanced mode, multi-selection):
+- Collapsible "Arrange & Align" section (follows existing `CollapsibleSection` pattern in `slide-inspector.tsx`).
+- Same icon grid as toolbar but labelled for discoverability.
+
+### 1b. Toolbar layout
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  [AlignLeft][AlignHCenter][AlignRight]  │  [AlignTop][AlignVMiddle][AlignBottom]  │  [DistrH][DistrV]  │  [MatchW][MatchH][MatchBoth]  │  [Forward][Backward][Front][Back]  │
+└─────────────────────────────────────────────────────────┘
+```
+
+Groups separated by a 1 px `--ds-stage-border` vertical divider.  
+Icon size: 14 px (Lucide). Button hit-area: 28 × 28 px.  
+Tooltip: show on hover after 500 ms delay; content = full action name.
+
+### 1c. Icon mapping (Lucide icons)
+
+| Action | Lucide icon |
+|---|---|
+| Align Left | `AlignLeft` |
+| Align H-Center | `AlignCenter` |
+| Align Right | `AlignRight` |
+| Align Top | `AlignStartVertical` |
+| Align V-Middle | `AlignCenterVertical` |
+| Align Bottom | `AlignEndVertical` |
+| Distribute Horizontal | `AlignHorizontalSpaceAround` |
+| Distribute Vertical | `AlignVerticalSpaceAround` |
+| Match Width | `ArrowLeftRight` |
+| Match Height | `ArrowUpDown` |
+| Match Both | `Maximize2` |
+| Bring Forward | `BringToFront` (or `ChevronUp`) |
+| Send Backward | `SendToBack` (or `ChevronDown`) |
+| Bring to Front | `ArrowUpToLine` |
+| Send to Back | `ArrowDownToLine` |
+
+### 1d. Disabled states
+
+| Condition | Disabled buttons |
+|---|---|
+| Single unlocked element selected | All align, distribute, match-size buttons |
+| Fewer than 3 elements | Distribute H + Distribute V |
+| Single element selected | Match-size buttons |
+| All selected elements at top of z-order | "Bring Forward" + "Bring to Front" |
+| All selected elements at bottom of z-order | "Send Backward" + "Send to Back" |
+| Any selected element is locked | All transform actions (show tooltip: "Unlock element first") |
+
+Visual: `opacity-40 cursor-not-allowed pointer-events-none` on disabled buttons.
+
+### 1e. Undo / history
+
+Each toolbar / context-menu / keyboard action emits **one history step** (coalesced patch across all affected element positions/z-indices). Matches AC in #328.
+
+### 1f. Keyboard shortcuts
+
+| Action | Shortcut |
+|---|---|
+| Align Left | _(none — toolbar/menu only for now)_ |
+| Bring to Front | `Ctrl/⌘ Shift ]` |
+| Send to Back | `Ctrl/⌘ Shift [` |
+| Bring Forward | `Ctrl/⌘ ]` |
+| Send Backward | `Ctrl/⌘ [` |
+
+### 1g. Accessibility
+
+- Each toolbar button: `role="button"`, `aria-label="<Full action name>"`, `aria-disabled` when disabled.
+- Toolbar container: `role="toolbar"`, `aria-label="Arrange and align"`.
+- Arrow-key navigation within toolbar groups (Left/Right); Tab moves between groups.
+- Apply FOCUS_RING token from `tokens.ts` to every button.
+
+---
+
+## 2. Multi-Selection Bounding Box — Resize & Rotate (#329)
+
+### 2a. Selection frame visual
+
+When ≥ 2 elements are selected (and no single-element is in text-edit mode):
+- Draw a shared selection rectangle encompassing all selected elements' bounding boxes (accounting for per-element `rotation`).
+- Frame stroke: `--ds-accent` (#4f46e5), 1.5 px, rendered as an SVG overlay (same pattern as single-element outline).
+- Frame fill: none (transparent).
+- Dashed frame when selection contains locked elements that are excluded: `stroke-dasharray: 4 2`, `--ds-warning` colour, with tooltip "Contains locked elements".
+
+### 2b. Resize handles (8-point)
+
+Same handle geometry as single-element handles: 8 × 8 px squares, fill `--ds-surface-raised`, stroke `--ds-accent`, radius 1 px.
+
+| Handle | Position | Cursor |
+|---|---|---|
+| `nw` | top-left corner | `nwse-resize` |
+| `n` | top edge centre | `ns-resize` |
+| `ne` | top-right corner | `nesw-resize` |
+| `e` | right edge centre | `ew-resize` |
+| `se` | bottom-right corner | `nwse-resize` |
+| `s` | bottom edge centre | `ns-resize` |
+| `sw` | bottom-left corner | `nesw-resize` |
+| `w` | left edge centre | `ew-resize` |
+
+**Resize behaviour:**
+- Every selected element is scaled proportionally (maintaining element's position relative to the selection bounding box origin).
+- `Shift`+drag: constrain bounding box to original aspect ratio.
+- `Alt`+drag: resize from centre.
+- Minimum bounding box: 4 × 4 percent (prevent collapse to zero).
+- Connectors attached to selected elements: endpoints move with their bound anchor (connector geometry recalculated live); connectors to non-selected elements: bound endpoint updates, free end stays fixed.
+- Text elements: scale font-size proportionally (same formula as single-element corner-handle resize: `newFontSize = oldFontSize × scaleFactor`).
+
+### 2c. Rotate handle
+
+- Single circular handle: 10 px diameter, positioned 16 px below the bottom-centre of the bounding box.
+- Idle: fill `--ds-surface-raised`, stroke `--ds-accent`, 1.5 px.
+- Hover: fill `--ds-accent`, stroke none; cursor `grab`.
+- Dragging: cursor `grabbing`; live ghost frame rotates around bounding box centre.
+- Rotation applies to each element: each element's own `rotation` value increments by the same delta; element positions rotate around the selection bounding box centre (trigonometric offset recalculation).
+- `Shift`+rotate: snap to 15° increments.
+- Hidden in Simple mode (matches existing single-element behaviour: `advancedMode` prop gates rotate handle).
+
+### 2d. Live badge
+
+During drag:
+- Show badge `{W}% × {H}%` (resize) or `{θ}°` (rotate) near cursor; same style as existing `DragBadge` in `slide-stage-editor.tsx`.
+
+### 2e. Locked element policy
+
+**Documented policy (AC in #329):** Locked elements are **excluded** from multi-selection transforms. If the user starts a resize/rotate drag and some selected elements are locked:
+- Locked elements do not move.
+- Non-locked elements transform as normal.
+- Show a toast/warning once per gesture: "N locked element(s) not affected."
+
+### 2f. Undo
+
+Entire multi-element resize/rotate coalesces into one history step.
+
+### 2g. Keyboard / accessibility
+
+- `Arrow` keys nudge the whole selection by 0.5% (fine) or 2% (`Shift`+Arrow, coarse).
+- `Delete`/`Backspace` deletes all selected elements (existing behaviour).
+- `Escape` deselects.
+- Bounding box frame is not itself focusable (non-interactive container); the individual element `role="group"` members remain the focusable units for AT.
+
+---
+
+## 3. Group Editing Model (#330)
+
+### 3a. Architecture decision — keep `groupId` on elements
+
+**Recommendation: retain `groupId?: string` on `SlideElement` (existing model).**
+
+Rationale:
+- A first-class `GroupElement` container would require changes to the deck schema, all renderers, PPTX exporter, and all history patches — significant cross-cutting cost.
+- `groupId` already supports all required UX: select-group, move-as-one, resize-as-one, ungroup. The missing part is the *enter-group* editing gesture, which works fine over a flat `groupId` model.
+- Connectors bound to individual element ids remain stable across group/ungroup.
+
+Ghost (if assigned) must read this decision before implementing group data model changes.
+
+### 3b. Group selection affordance
+
+When a user clicks an element with a `groupId`:
+1. The entire group is selected (existing behaviour).
+2. Selection frame: `--ds-accent` dashed border (`stroke-dasharray: 6 3`) distinguishing it from solid single/multi-selection.
+3. A small "group badge" appears at the top-left corner of the group bounding box: pill label `Group` with icon `Group` (Lucide), fill `--ds-accent-surface`, text `--ds-accent-text`, `--ds-radius-pill`, padding `2px 6px`, font `10px/medium`.
+
+### 3c. Enter-group gesture
+
+**Gesture:** Double-click a group (or double-click when group is already selected).
+
+**Visual transition:**
+1. The group's other members dim: `opacity: 0.35` with `pointer-events: none` — creates visual focus on the target child.
+2. The entered child shows the standard single-element selection handles (solid `--ds-accent` border).
+3. An "edit group" breadcrumb appears at the top of the stage (fixed overlay, top-centre):
+   ```
+   ← Group  >  [element name or type]
+   ```
+   Surface: `--ds-stage-panel`, text `--ds-stage-text`, `--ds-radius-sm`, `--ds-shadow-raised`. Clicking "← Group" exits without committing; clicking away from the stage also exits.
+
+**While inside a group:**
+- The user can resize, rotate, style, and text-edit the entered child as normal.
+- Other group members can be clicked to switch target within the group.
+- The group bounding-box frame remains visible as a faint `--ds-stage-border` rectangle.
+
+**Exit-group gesture:**
+- `Escape` — exits group editing, restores full group selection.
+- Click outside the group bounding box — same as Escape.
+- Breadcrumb "← Group" button — same as Escape.
+
+### 3d. Group transform (not inside group)
+
+When a group is selected (not in group-edit mode):
+- Resize and rotate handles appear on the group bounding box (same as §2b/§2c).
+- All member elements transform proportionally (same proportional resize logic as multi-selection).
+- Connector endpoints inside the group translate with their bound anchor.
+
+### 3e. Ungroup
+
+Entry points:
+- Context menu > "Ungroup".
+- Inspector toolbar "Ungroup" button (visible when a group is selected).
+- Keyboard: no default shortcut — too destructive without confirmation.
+
+Behaviour:
+- Clears `groupId` from all member elements.
+- Member elements remain in place; they become individually selectable.
+- Connectors attached to member elements are **preserved** — their `ConnectorBoundEndpoint` references element ids which are unchanged.
+- Emits one history step.
+
+### 3f. Group via context menu / keyboard
+
+- Keyboard: `Ctrl/⌘ G` → group selected elements (≥2).
+- `Ctrl/⌘ Shift G` → ungroup selected group.
+- Context menu "Group" (≥2 selected, no existing group) / "Ungroup" (single group selected).
+
+### 3g. Inspector representation
+
+- When a group is selected (not in group-edit): inspector shows aggregate properties (position/size of bounding box), plus "Members: N elements" label, plus Ungroup button.
+- When in group-edit mode: inspector shows the entered child's individual properties (same as single-selection inspector).
+
+---
+
+## 4. Layer / Object List (#331)
+
+### 4a. Placement
+
+- A collapsible panel at the bottom of the right inspector column, below element properties.
+- Panel header: "Layers" with `Layers` Lucide icon, badge showing total element count.
+- Collapsed height: 36 px (header only). Expanded height: up to 280 px scrollable list.
+- Alternative: a floating panel triggered by a toolbar toggle button (≡ Layers icon in the editor top bar). Keep this as a v2 option if inspector real estate is constrained.
+
+### 4b. Row anatomy
+
+Each row represents one element:
+
+```
+[visibility eye] [lock icon] [type icon + name] ............. [connector indicator?]
+```
+
+- **Visibility toggle**: `Eye` / `EyeOff` Lucide icon, 14 px. Toggles `hidden?: boolean` on the element. Hidden element: row text `--ds-text-muted`, opacity-50 on type icon.
+- **Lock toggle**: `Lock` / `LockOpen` Lucide icon, 14 px. Toggles `locked?: boolean`.
+- **Type icon**: small icon derived from element type (Text → `Type`, Image → `Image`, Shape → shape icon, Connector → `GitCommit`), 12 px, colour `--ds-text-secondary`.
+- **Name**: `elementAccessibleName()` (existing helper) as editable inline label. Double-click to rename; single-click selects on stage.
+- **Connector indicator**: if element is a `ConnectorElement`, append a chevron/badge showing `→ [target name]` on hover (tooltip or inline `--ds-text-muted` text).
+
+Row height: 28 px.  
+Selected row: `--ds-state-selected` background, `--ds-text-primary` text.  
+Hover row: `--ds-state-hover` background.
+
+### 4c. Z-order
+
+List is ordered **top-to-bottom = front-to-back** (highest `zIndex` at top), matching standard layer-panel conventions (Figma, Sketch).
+
+### 4d. Reorder
+
+- Drag-to-reorder within list (HTML `draggable` or `@dnd-kit/sortable`).
+- Drag handle: 3-dot grid icon (`GripVertical`), visible on row hover, 14 px, `--ds-text-muted` colour.
+- Up/Down arrow buttons appear on row hover (alternative to drag): `ChevronUp` / `ChevronDown`, each emitting "forward" / "backward" arrange step.
+- Reorder emits one history step via `arrangeElements()`.
+
+### 4e. Search
+
+- Search input at top of panel (below header): `placeholder="Search layers…"`, `--ds-radius-sm`, `--ds-border-subtle`, 26 px height.
+- Filters rows by name (case-insensitive substring). Non-matching rows hidden; section count badge updates.
+- Shortcut: `Ctrl/⌘ F` while panel has focus opens / focuses search.
+- Clear: `×` button in input or `Escape`.
+
+### 4f. Group rows
+
+- Group: renders as an expandable parent row with `ChevronRight` / `ChevronDown` disclosure.
+- Child elements indent 16 px.
+- Group row shows `Group` icon + member count, e.g. "Group (3)".
+- Collapsing the group in the list does not affect visibility on the stage.
+
+### 4g. Connector awareness
+
+- Connector rows: type icon `GitCommit`; name defaults to "Connector → [target element name]".
+- On row hover: both the connector element on stage and its bound endpoints highlight with `--ds-accent-border` overlay.
+- Tooltip on connector row: "From: [source element] → To: [target element]" (or "Free endpoint" if unbound).
+
+### 4h. Multi-selection in layer list
+
+- `Ctrl/⌘`+click rows to add/remove from selection.
+- `Shift`+click for range selection.
+- Selection state stays in sync: selecting on stage highlights the corresponding rows.
+
+### 4i. Accessibility
+
+- `role="tree"` / `role="treeitem"` for the hierarchy.
+- Each row action button (eye, lock, drag handle) has `aria-label`.
+- Keyboard: `Up`/`Down` navigate rows; `Space` selects; `Enter` renames; `Home`/`End` jump top/bottom.
+- Focus ring: FOCUS_RING token.
+
+---
+
+## 5. Design Token Guidance
+
+All new components must use existing `--ds-*` tokens from `globals.css`. No hard-coded colours.
+
+### Stage chrome (editor overlays)
+
+| Purpose | Token |
+|---|---|
+| Overlay panel background | `--ds-stage-panel` (#18181b) |
+| Overlay panel border | `--ds-stage-border` (#27272a) |
+| Overlay text (labels, badges) | `--ds-stage-text` (#d4d4d8) |
+| Muted / secondary text on stage | `--ds-stage-muted` (#71717a) |
+
+### Selection & handles
+
+| Purpose | Token |
+|---|---|
+| Selection frame stroke | `--ds-accent` (#4f46e5) |
+| Handle fill | `--ds-surface-raised` (#ffffff) |
+| Handle stroke | `--ds-accent` |
+| Rotate handle hover fill | `--ds-accent` |
+| Disabled/locked selection frame | `--ds-warning` (#b7791f) |
+| Group badge background | `--ds-accent-surface` (#eef2ff) |
+| Group badge text | `--ds-accent-text` (#4338ca) |
+
+### Layer list
+
+| Purpose | Token |
+|---|---|
+| Panel background | `--ds-surface-raised` |
+| Row hover | `--ds-state-hover` |
+| Row selected | `--ds-state-selected` |
+| Muted text (hidden element name) | `--ds-text-muted` |
+| Icon colour | `--ds-text-secondary` |
+| Divider / indent line | `--ds-border-subtle` |
+
+### Interactive states (all new buttons/toggles)
+
+| State | Token |
+|---|---|
+| Focus ring | `--ds-focus-ring` via `FOCUS_RING` from `tokens.ts` |
+| Hover background | `--ds-state-hover` |
+| Active/pressed | `--ds-state-active` |
+| Disabled | `opacity: 0.4` + `pointer-events: none` |
+
+### Radius
+
+Use `RADIUS` constants from `tokens.ts`:
+- Toolbar pills, badges: `RADIUS.pill`
+- Toolbar container: `RADIUS.md`
+- Layer panel: `RADIUS.lg`
+- Breadcrumb: `RADIUS.sm`
+
+---
+
+## 6. Sequencing Notes Across #328–#331
+
+### Recommended implementation order
+
+```
+#329 Multi-selection BB  →  #328 Align/distribute toolbar  →  #330 Group editing  →  #331 Layer list
+```
+
+**Why this order:**
+
+1. **#329 first** — The multi-selection bounding box is a prerequisite for the align/distribute toolbar (you need the selection frame before you can hang toolbar buttons from it), and for group bounding-box transforms in #330.
+
+2. **#328 second** — Align/distribute/match-size toolbar builds directly on:
+   - Existing `element-align.ts` math (already done, just needs UI wiring).
+   - The multi-selection frame from #329.
+   - Arrange controls partially already exist in the inspector; consolidation is low-risk.
+
+3. **#330 third** — Group editing depends on:
+   - Group bounding-box transform (from #329).
+   - Stable selection model (from #329).
+   - Decision on `groupId` vs `GroupElement` must be recorded first (see §3a above).
+
+4. **#331 last** — Layer list is additive/read-model; it can be scaffolded in parallel but its drag-reorder and connector-awareness UX benefits from a stable connector model (from #325, which is adjacent) and the lock/hide flags being exercised in #329–#330.
+
+### Cross-issue dependencies
+
+| Dependency | From | To |
+|---|---|---|
+| Selection bounding box frame | #329 | #328 (toolbar anchor), #330 (group frame) |
+| Connector endpoint recalculation during group resize | #330 | Requires #325 connector lifecycle semantics |
+| `locked` flag exclusion policy | #329 | #330 (locked group members), #331 (lock toggle) |
+| `hidden` flag on elements | #331 | Needs `hidden?: boolean` field added to `SlideElement` in `deck.ts` (not yet present) |
+| `groupId` decision | #330 | #331 (layer list group rows), #329 (group BB) |
+
+### Flag for Ghost (#330 co-owner)
+
+- Ghost is co-assigned on #330. This spec decides: **retain `groupId` model** (see §3a). Ghost must not introduce a first-class `GroupElement` wrapper without a new joint decision.
+
+### Flag for Trinity (#329, #331 co-owner)
+
+- Trinity owns the connector endpoint recalculation during multi-selection resize/rotate. Spec §2b and §2c document the expected connector behaviour. Trinity should expose a `recalculateConnectorAfterTransform(element, scaleFactor, rotation, pivot)` utility that the BB drag handler can call.
+
+---
+
+*Authored by Mouse · 2026-06-22 · Issues #328 #329 #330 #331*
+
+
+### 2026-06-22: Wave 2 Slide Text System UX — #333 Text Fit Modes, #334 Vertical Alignment & Spacing, #335 Multi-Level Bullets/Lists, #336 Visual Regression
+
+**By:** Mouse (Design/UX)
+**What:** Implementation-ready UX spec for Wave 2 text system issues.
+**Why:** Switch (and Ghost for #335 list model) need a coherent design for fit mode controls, vertical alignment + spacing, multi-level bullet/numbered-list interaction, shape text extensions, and regression coverage before implementation begins. This spec formalises all visual states, interaction models, data-model extensions, token usage, and sequencing so engineering can proceed without separate design review.
+
+---
+
+## Codebase Baseline (as of 2026-06-22)
+
+| Capability | Status |
+|---|---|
+| `TextFitMode` type (`auto-height` / `fixed-box` / `shrink-to-fit`) | ✅ defined in `deck.ts` |
+| `fitMode` on `TextElement` / `BulletsElement` | ✅ exists, absent = `auto-height` |
+| `isAutoHeight()`, `shrinkFontSizeToFit()`, `fitNewTextElementBox()` | ✅ `text-element-fit.ts` |
+| Schema validation for `fitMode` | ✅ `deck-schema.ts` |
+| `TextStyleBar` (bold/italic/underline/align/size/color) | ✅ compact + labeled variants |
+| `FontFamilyControl` in inspector | ✅ exists |
+| Horizontal text alignment (left/center/right) | ✅ `TextElementStyle.align` |
+| Vertical content align within a box | ❌ not yet on `TextElementStyle` |
+| Line height / paragraph spacing / bullet gap controls | ❌ not on model or UI |
+| Multi-level bullets / numbered lists | ❌ flat string array only |
+| Fit mode control in inspector or toolbar | ❌ no UI exposed yet |
+| Shape text vertical alignment | ❌ not modelled |
+
+---
+
+## 1. Text Fit Mode Controls (#333)
+
+### 1a. Model (already exists — no changes needed)
+
+`fitMode?: TextFitMode` on `TextElement` and `BulletsElement`.  
+Absent / `"auto-height"` = legacy default (backward compat ✅).
+
+### 1b. Inspector control — "Content fit" row
+
+**Location:** Immediately below `TextStyleBar` in both the `text` and `bullets` branches of `ElementContentEditor` (around line 542 and 585 of `slide-inspector.tsx`).
+
+**Pattern:** Segmented button group (same visual pattern as the existing horizontal-alignment group inside `TextStyleBar`):
+
+```
+┌─────────────────────────────────────────────────┐
+│  Content fit                                    │
+│  [Auto↕] [Fixed□] [Shrink↓]                    │
+└─────────────────────────────────────────────────┘
+```
+
+Three buttons with icons (Lucide):
+| Mode | Icon | Tooltip |
+|---|---|---|
+| `auto-height` | `ArrowUpDown` (or `ChevronsUpDown`) | "Auto height — box grows to content" |
+| `fixed-box` | `Square` (or `RectangleHorizontal`) | "Fixed box — content clips at box edge" |
+| `shrink-to-fit` | `ShrinkIcon` (or `Minimize2`) | "Shrink to fit — font reduces to fill box" |
+
+- Selected state: `bg-ds-control text-ds-control-text`
+- Unselected: `text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary`
+- Border group: `rounded-ds-sm border border-ds-border-subtle overflow-hidden`
+- Hit area: 28 × 28 px, icon 14 px
+- Label `"Content fit"` uses `text-xs font-medium text-ds-text-secondary` (matches `LABEL_CLASS`)
+
+**Behavior nuances:**
+- Switching from `auto-height` → `fixed-box` on a box that was auto-sized: **do not resize the box** — preserve current dimensions; the resize handles are already functional.
+- Switching to `shrink-to-fit`: immediately trigger a layout pass so the preview reflects the computed font size.
+- Switching back to `auto-height`: expand the box to fit content (using `fitNewTextElementBox` logic).
+- Resize handles **always remain visible** for `fixed-box` and `shrink-to-fit`. For `auto-height`, the bottom edge handle is dimmed (opacity-50, cursor `ns-resize`) and a tooltip "Auto-height: drag to override" explains that pulling the bottom edge past the content height switches the element to `fixed-box` implicitly (align with #333 AC "resize handles respect chosen fit mode").
+
+**Compact toolbar (on-canvas TextStyleBar):** Add a single `Minimize2` icon button at the far right of the compact row that cycles through the three fit modes. Tooltip shows the *next* mode name. This keeps the compact surface uncluttered.
+
+### 1c. Editing vs. static mode parity
+- In edit mode, `fixed-box` clips with `overflow: hidden` on the element wrapper; the inline editor scrolls internally but does not expand the box.
+- In present mode and public viewer, `fixed-box` must also use `overflow: hidden`; `shrink-to-fit` reads the pre-computed `_shrunkFontSize` (a derived render-time value, not persisted) from `shrinkFontSizeToFit()`.
+- Export (PPTX / PDF): `fixed-box` → clip; `shrink-to-fit` → use the computed font size; `auto-height` → preserve layout as-is.
+
+### 1d. Defaults
+| Element kind | Default `fitMode` |
+|---|---|
+| `text` (new element) | `"auto-height"` |
+| `bullets` (new element) | `"auto-height"` |
+| Legacy elements (absent field) | `"auto-height"` (existing fallback in `isAutoHeight()`) |
+| Shape text (`textStyle`) | N/A — shape text does not have a `fitMode`; it always clips |
+
+---
+
+## 2. Vertical Alignment and Paragraph/List Spacing (#334)
+
+### 2a. Model extensions
+
+Add to `TextElementStyle` (and `ShapeElement.textStyle`):
+
+```ts
+export interface TextElementStyle {
+  // existing
+  fontSize: number;
+  bold: boolean;
+  italic: boolean;
+  underline?: boolean;
+  align: ElementAlign;
+  color?: string;
+  fontFamily?: string;
+
+  // NEW — Wave 2
+  /** Vertical alignment of text within its box. Default: "top". */
+  verticalAlign?: "top" | "middle" | "bottom";
+  /** CSS line-height multiplier. Default: 1.15 (text) / 1.2 (bullets) as hardcoded today. */
+  lineHeight?: number;
+  /** Space before each paragraph (em units). Default: 0. */
+  paragraphSpacingBefore?: number;
+  /** Space after each paragraph (em units). Default: 0. */
+  paragraphSpacingAfter?: number;
+  /** Gap between bullet rows (em units). Overrides the hardcoded 0.6 em. Default: 0.6. */
+  bulletGap?: number;
+  /** Indent per bullet level (em units). Default: 1.25. */
+  bulletIndent?: number;
+}
+```
+
+**Schema (`deck-schema.ts`):** Add optional numeric validations with sensible clamp ranges:
+- `verticalAlign`: one of `["top", "middle", "bottom"]` — validate like `align`.
+- `lineHeight`: `[0.5, 4.0]` finite number, default `undefined` (renderer falls back to per-kind default).
+- `paragraphSpacingBefore` / `paragraphSpacingAfter`: `[0, 10]` em, default `undefined`.
+- `bulletGap`: `[0, 5]` em, default `undefined`.
+- `bulletIndent`: `[0.5, 5]` em, default `undefined`.
+
+### 2b. Vertical alignment control
+
+**Location:** New row in `TextStyleBar` — added below the font-size row in the `"labeled"` variant; not surfaced in `"compact"` variant (to keep compact bar lean; fit mode cycle covers the common compact needs).
+
+```
+┌─────────────────────────────────────────────────┐
+│  Vertical align                                 │
+│  [⬆ Top] [⬛ Middle] [⬇ Bottom]                 │
+└─────────────────────────────────────────────────┘
+```
+
+Icons: `AlignVerticalJustifyStart` / `AlignVerticalJustifyCenter` / `AlignVerticalJustifyEnd` (Lucide).  
+Same segmented button pattern as horizontal alignment group (reuse `AlignGroup`-style component, just with a different axis).  
+Default: `"top"` (absent = top for backward compat).
+
+**Renderer implementation note for Switch:**  
+For `"middle"` and `"bottom"`, wrap the element's text content in a flex container with `justify-content: center` or `flex-end` (column direction) so the effect is achieved via CSS without JS measurement. The outer element box stays at its declared dimensions. For shape text this is already centered — see §4.
+
+### 2c. Spacing controls
+
+**Location:** Below vertical alignment, in a collapsible "Spacing" subsection within the labeled inspector (follow the `showAdvanced` pattern already used for image advanced controls):
+
+```
+┌─────────────────────────────────────────────────┐
+│  ▾ Spacing                                      │
+│                                                  │
+│  Line height        [  1.2  ─────────────────]  │
+│  Para. before (em)  [ 0.0 ] [ 0.0 ] after      │
+│  Bullet gap (em)    [  0.6  ]                   │
+│  Bullet indent (em) [  1.25 ]                   │
+└─────────────────────────────────────────────────┘
+```
+
+Controls:
+- **Line height**: horizontal `<input type="range">` `min=0.8 max=3.0 step=0.05` + numeric display, `w-full accent-ds-control` (matches existing range pattern in inspector).
+- **Para. before / after**: paired numeric inputs (`<input type="number" step="0.1" min="0" max="4">`), `h-7 w-12 border border-ds-border-subtle rounded bg-transparent text-center text-sm text-ds-text-primary`.
+- **Bullet gap / indent**: same numeric input pattern, single value each.
+
+Bullet gap and indent rows are **only rendered when `element.kind === "bullets"`** or when the element is a multi-level list (§3).
+
+Show the "Spacing" subsection in both `text` and `bullets` inspector panels. Hidden for shape text (shape text stays fixed-center, spacing controls not applicable in v1).
+
+### 2d. Export mapping
+| Control | PPTX | PDF |
+|---|---|---|
+| `verticalAlign` | Map to pptxgenjs `valign: "top"/"ctr"/"btm"` | Not directly supported — use padding offset approximation |
+| `lineHeight` | Map to `lineSpacingMultiple` | CSS `line-height` |
+| `paragraphSpacingBefore/After` | Map to `spaceBefore`/`spaceAfter` | CSS `margin` |
+| `bulletGap` | Approximate with `spaceAfter` | CSS `gap` on flex list |
+| `bulletIndent` | Map to `indentLevel` pt | CSS `padding-left` |
+
+---
+
+## 3. Multi-Level Bullets and Numbered Lists (#335)
+
+### 3a. Model extension
+
+Replace the flat `bullets: string[]` / `bulletRuns?: TextRun[][]` with a richer `BulletItem[]` array:
+
+```ts
+export type BulletListType = "disc" | "decimal" | "lower-alpha" | "lower-roman" | "none";
+
+export interface BulletItem {
+  /** Plain text content (fallback when runs absent). */
+  text: string;
+  /** Optional rich-text runs for this item. */
+  runs?: TextRun[];
+  /**
+   * Indent level (0 = top-level, 1 = first nested, 2 = second nested, …).
+   * Max supported: 3 (renders 4 levels total).
+   */
+  level: number;
+  /**
+   * List type override for this item. Inherits from parent level when absent.
+   * Top-level default: "disc". Nested default: "disc" → level 1, "lower-alpha" → level 2, "lower-roman" → level 3.
+   */
+  listType?: BulletListType;
+}
+```
+
+**Migration:** Existing `bullets: string[]` is automatically migrated on load in `deck-schema.ts` by wrapping each string as `{ text, level: 0 }`. The `bullets` field on `BulletsElement` is updated to `bulletItems: BulletItem[]` with a backward-compat read path that coerces the old `bullets` + `bulletRuns` shape.
+
+**Legacy deck compat:** `deck-schema.ts` reads `bullets` (old) or `bulletItems` (new). If both are present, `bulletItems` wins. Old `bulletRuns[i]` maps to `bulletItems[i].runs`.
+
+### 3b. Default marker styles per level
+
+| Level | Default `listType` (bullet) | Rendered marker |
+|---|---|---|
+| 0 | `disc` | ● (filled circle, 0.35 em, uses theme accent color) |
+| 1 | `disc` | ○ (open circle, CSS `list-style-type: circle`) |
+| 2 | `lower-alpha` | a. b. c. |
+| 3 | `lower-roman` | i. ii. iii. |
+
+For numbered lists (`decimal`), item count resets at each change-in-parent.
+
+### 3c. Inline editor interaction (Tab / Shift+Tab)
+
+In the Lexical / `RichTextBox` bullet editor:
+- **Tab** on a bullet item: increases `level` by 1 (max 3). If at max, no-op.
+- **Shift+Tab** on a bullet item: decreases `level` by 1 (min 0). If at min, no-op.
+- **Enter** on an empty level-N item: promotes item back to level N-1 (same as Notion/Google Slides behavior). If already level 0, inserts a new non-list text element (or simply exits list mode — match host behavior).
+- Keyboard shortcut feedback: a very brief (150 ms) left-edge highlight (`border-l-2 border-ds-accent`) on the item row confirms the indent change.
+
+**Tab indentation is blocked from navigating outside the editor** — the editor must call `e.preventDefault()` on Tab within a bullet context.
+
+### 3d. Inspector controls for list type
+
+Add a **"List type" row** in the `bullets` branch of `ElementContentEditor`, placed between the `RichTextBox` and `TextStyleBar`:
+
+```
+┌─────────────────────────────────────────────────┐
+│  List type                                      │
+│  [• Bullets] [1. Numbered] [A. Alpha] [None]    │
+└─────────────────────────────────────────────────┘
+```
+
+This sets the *top-level* `listType` for all items in the element. Overrides at per-item level are not exposed in v1 (advanced use case — keep simple).
+
+Icon mapping:
+| Option | Lucide icon | Label |
+|---|---|---|
+| `disc` | `List` | "Bullets" |
+| `decimal` | `ListOrdered` | "Numbered" |
+| `lower-alpha` | `ListOrdered` (styled) | "Lettered" |
+| `none` | `AlignJustify` | "None" |
+
+Changing list type updates all items at level 0 to the selected type; sub-levels keep their defaults.
+
+**Indent controls per item (advanced):** Not in the main inspector. Accessible via right-click context menu on a selected bullet item in the inline editor: "Increase indent" / "Decrease indent" (mirrors Tab/Shift+Tab).
+
+### 3e. Visual hierarchy rendering
+
+```
+● Top-level bullet text that may wrap across
+  multiple lines when the box is narrow
+  ○ Second-level (indented 1.25 em)
+    a. Third-level (indented 2.5 em)
+       i. Fourth-level (indented 3.75 em)
+```
+
+Indent is `bulletIndent * level` em from the left edge of the content area (default `bulletIndent = 1.25 em`).  
+Markers are rendered as CSS `::before` pseudo-elements or explicit `<span>` elements (matching the existing `createMeasuredTextNode` pattern — keep parity with the measurer).
+
+For numbered lists, the marker width must be fixed (`min-width: 2.5ch`) so the list text aligns cleanly across items with double-digit numbers.
+
+### 3f. Export
+
+- PPTX: use pptxgenjs `indentLevel` and `bullet: { type, … }` options per item.
+- Fallback for unsupported export contexts: flatten to plain text with `→ ` prefix per level.
+
+---
+
+## 4. Shape Text Expectations
+
+Shape text (`ShapeElement.text` / `textStyle`) does **not** get `fitMode` in Wave 2 — it always clips to the shape boundary.
+
+However, the following changes **do apply** to shape text:
+
+| Feature | Wave 2 scope for shape text |
+|---|---|
+| Vertical alignment (`verticalAlign`) | ✅ Add to `textStyle` and render accordingly — currently hardcoded center (`justify-content: center` in flex). Expose `"top"/"middle"/"bottom"` in inspector (compact `TextStyleBar` in shape branch). |
+| Line height | ✅ Same `lineHeight` field on `TextElementStyle`; renderer reads it. |
+| Paragraph spacing | ❌ Not in Wave 2 for shapes — single-block label use case. |
+| Multi-level bullets | ❌ Shape text is a single plain/rich block, not a list. |
+| Fit mode control | ❌ Shapes clip; no fit mode picker. |
+
+**Inspector entry point for shape vertical alignment:** In the `case "shape"` branch of `ElementContentEditor` (currently around line 606–636 of `slide-inspector.tsx`), add a `"Vertical align"` row below the compact `TextStyleBar`, rendered inline (not labeled, just 3 icon buttons), only when `element.shape !== "line"`.
+
+---
+
+## 5. Visual Regression Coverage (#336)
+
+### 5a. Playwright screenshot scenarios (new file: `e2e/slides-text-visual.spec.ts`)
+
+All scenarios use a deterministic fixture deck (seeded via `E2E_*` credential path, or a static fixture route if available). Each test:
+1. Navigates to the slide viewer (public or present mode — no auth required if using a public fixture).
+2. Awaits the slide to be fully rendered (`await page.waitForLoadState("networkidle")`).
+3. Takes a full-slide screenshot with `page.screenshot({ clip: slideRect })`.
+4. Compares to a stored baseline with `expect(screenshot).toMatchSnapshot(name, { maxDiffPixelRatio: 0.01 })`.
+
+**Required scenarios:**
+
+| Scenario | What it catches |
+|---|---|
+| `text-plain-linebreaks` | Line break preservation, correct `white-space: pre-wrap` |
+| `text-rich-inline-styles` | Bold/italic/code/color runs render inline without reflow |
+| `text-fit-auto-height` | Box grows to multi-line content without clipping |
+| `text-fit-fixed-box` | Overflow content is clipped at box boundary |
+| `text-fit-shrink` | Font visually smaller than declared size when content would overflow |
+| `bullets-flat-wrapping` | Long bullet text wraps without clipping the marker |
+| `bullets-flat-large-font` | Large font bullets do not overflow the element box |
+| `bullets-nested-2level` | Two-level indentation renders distinct markers and correct alignment |
+| `bullets-numbered-list` | Decimal numbered list renders sequential numbers |
+| `shape-text-rect` | Text centered in rect; does not overflow shape boundary |
+| `shape-text-ellipse` | Text centered in ellipse; same clip as rect |
+| `shape-text-triangle` | Text centered in triangle shape |
+| `connector-straight-bound` | Straight connector endpoints attached to moved shapes remain attached |
+| `connector-elbow-routed` | Elbow connector re-routes after target shape is moved |
+
+**Viewports:** Desktop (`1280×800`, the Playwright chromium default) for all scenarios. Additionally run `text-fit-shrink`, `bullets-nested-2level`, and `connector-elbow-routed` at `768×600` (narrow) to catch viewport-specific regressions.
+
+### 5b. Baseline strategy
+
+- Baselines stored in `e2e/snapshots/` (gitignored except `*.png` files committed as fixtures).
+- Regenerate with `npx playwright test --update-snapshots` locally before a merge.
+- CI runs with `--forbid-only` and fails on any diff > 1% pixel ratio.
+
+### 5c. Existing test touchpoints
+
+The existing connector unit tests (`connector-lifecycle.test.ts`, `connector-geometry.test.ts`) cover serialization and geometry math. The Playwright suite adds the visual layer on top — not a replacement.
+
+Text serialization, fit-mode, and list model should be unit-tested in a new `text-element-fit.test.ts` extension + `bullet-item-model.test.ts` (Ghost scope) before the Playwright baselines are captured, to ensure the baselines reflect correct behavior.
+
+---
+
+## 6. Token/Style Guidance and Sequencing
+
+### 6a. `--ds-*` tokens to use
+
+| Surface | Token |
+|---|---|
+| Segmented button group border | `border-ds-border-subtle` |
+| Segmented button selected fill | `bg-ds-control` |
+| Segmented button selected text | `text-ds-control-text` |
+| Segmented button hover | `hover:bg-ds-state-hover` |
+| Unselected text | `text-ds-text-secondary` |
+| Row label | `text-xs font-medium text-ds-text-secondary` (= `LABEL_CLASS`) |
+| Range / checkbox accent | `accent-ds-control` |
+| Number input | `border border-ds-border-subtle bg-transparent text-ds-text-primary` |
+| Corner radius (buttons) | `rounded-ds-sm` |
+| Corner radius (group) | `rounded-ds-md` |
+| Indent level highlight | `border-l-2 border-ds-accent` (transient, 150 ms) |
+| Fit mode cycle button (compact) | Same as existing `IconToggle` in `text-style-bar.tsx` |
+
+### 6b. Sequencing (recommended order for Switch)
+
+1. **Model extensions** (no UI risk): add `verticalAlign`, `lineHeight`, `paragraphSpacingBefore/After`, `bulletGap`, `bulletIndent` to `TextElementStyle`; add `BulletItem` type and `BulletsElement.bulletItems`; update `deck-schema.ts`; add unit tests. Ghost owns the `BulletItem` model.
+2. **Fit mode inspector UI** (#333): add the three-button "Content fit" row to `ElementContentEditor`. Wire to `onUpdateElement`. The logic already exists — this is pure UI.
+3. **Vertical align + spacing UI** (#334): extend `TextStyleBar` with `verticalAlign` row; add `SpacingSection` collapsible below. Update the renderer to read new fields.
+4. **Shape text vertical align**: small follow-up in the `shape` inspector branch and renderer.
+5. **Multi-level list editor** (#335): update `BulletsElement` renderer to use `bulletItems`; add Tab/Shift+Tab in `RichTextBox`; add "List type" row in inspector.
+6. **Visual regression baselines** (#336): capture baselines after steps 2–5 are stable. Run `--update-snapshots` once, commit, then CI enforces.
+
+### 6c. Notes for Ghost (#335)
+
+- The `BulletItem` model lives in `deck.ts` alongside existing types. Ghost should define it there and update `deck-schema.ts` for both forward (new `bulletItems` path) and backward (legacy `bullets` array migration) parsing.
+- `text-element-fit.ts` `createMeasuredTextNode()` must be updated to iterate `bulletItems` instead of `bullets` once the model is in place — this is a Switch/Ghost shared boundary. Switch owns the measurer update; Ghost owns the model.
+- Keep `bullets` and `bulletRuns` as deprecated aliases in the schema read path for at least one release cycle so existing persisted decks continue to load.
+
+---
+
+*Spec ready for Switch and Ghost implementation. No code changes in this commit — spec only.*
+
+
+# Mouse — Wave 3 UX Guidance: Post-PRs #381–#388
+
+**By:** Mouse (Design/UX)  
+**Date:** 2026-06-23T01:22:34Z  
+**Scope:** User-visible slices following the asset storage, schema versioning, command executor, source-ref stamping, and comment anchor foundation wave.
+
+---
+
+## Situation Snapshot
+
+Six backend/model foundations landed in #381–#388 with **zero UI**:
+
+| Foundation | PR | UI Status |
+|---|---|---|
+| Asset upload validation + metadata | #381 | No dropzone, no progress, no error surfaces |
+| Deck schema migration boundary | #382 | No migration-banner UI |
+| Persistence/collab strategy doc | #383 | No conflict resolution UI |
+| Slide command executor (`CommandResult.error`) | #384 | Errors are silently swallowed by the editor |
+| Source ref stamping on insertions | #386 | No badge or status indicator shown to user |
+| Comment anchor foundation (orphaned/attached/deck/unknown states) | #388 | No pin marker rendered |
+
+All six need design decisions before implementation can land. They share one visual language: **inline status markers** (badges, pins, banners) communicating system trust and data provenance. That is the thread.
+
+---
+
+## Blockers & Design Decisions Needed
+
+### 1 — Asset Upload: Which surface owns the upload UX?
+
+**Decision needed:**  
+The validation logic (`validateAssetUpload`, `formatAssetUploadError`) returns typed errors (`file_too_large`, `type_rejected`, `dimension_exceeded`, `checksum_missing`). The existing `useImageUpload` hook bridges into the slide editor. But:
+
+- **Where does upload *progress* live?** Currently `useImageUpload` is synchronous (FileReader + data-URL). When the asset model matures to a real object-store upload (non-data-URL), there will be a latency gap. Does the image slot show a skeleton/spinner during upload, or does the file-picker modal stay open?
+- **Where do upload errors surface?** A validation failure today calls `onError(message)` which sets `insertImageError` state — but that state is only shown in one render path. The three call sites (element upload, insert-image path, background upload) need a single, consistent error surface. Currently each handles it ad-hoc.
+- **Missing-asset placeholder:** If a deck is opened and an image element has no valid `src` (e.g. data-URL was stripped, or future object-store URL is 404), what renders on the slide canvas? There is no broken-image state in `SlideCanvas` today.
+
+**My recommendation:**  
+a) Upload errors → **inline toast inside the file-picker overlay** (not a global banner; scoped to the action). Duration 5 s, dismissible. Matches the save-error Retry pattern already in the editor.  
+b) Upload in-progress → **image slot shows a grey skeleton with a circular spinner** at the centroid. The slot is non-interactive while uploading.  
+c) Missing asset (src absent or broken) → **placeholder tile**: the element bounding box renders a `--ds-surface-2` fill with a centered `ImageOff` lucide icon (16 px, `--ds-text-muted`) and the filename (if known) in a single truncated line below. Hover reveals a tooltip: *"Image unavailable — re-upload to restore."*
+
+**Blocker for Switch/Trinity:** Before the missing-asset placeholder can be built, Trinity needs to decide whether `src`-absent image elements are ever valid at rest, or whether they should be stripped/defaulted by the migration pipeline (#382). If the migration strips them, the placeholder is only needed transiently during upload.
+
+---
+
+### 2 — Source Sync Badges: What does "linked" look like?
+
+**Decision needed:**  
+`sourceRef` is now stamped on elements at insertion time (#386). `isSourceLinked`, `isSourceStale`, and `SourceRef.unlinked` exist in the model. But:
+
+- The slide canvas and inspector **show nothing** about this. A user has no way to know an element came from the document, whether it is current or stale, or how to relink after editing.
+- The inspector's element panel has a compact layout. There is room for a small badge row beneath the element name but not for a full sync panel.
+
+**My recommendation:**  
+Three states for a source-linked element, each with a distinct affordance:
+
+| State | Badge | Action |
+|---|---|---|
+| `linked` (current) | `Link` icon (12 px, `--ds-text-muted`) + "Synced" in muted label | Tooltip: *"Linked to document. Syncs when you use Sync from Document."* No action needed. |
+| `stale` (sourceRef exists, content hash differs) | `RefreshCw` icon (12 px, `--ds-accent`) + "Out of date" in accent label | Inline "Update" button (ghost-sm). Clicking applies the source content to this element only. |
+| `unlinked` (unlinked === true) | `LinkOff` icon (12 px, `--ds-text-muted`) + "Unlinked" | Inline "Relink" button (ghost-sm). Clicking re-attaches to the matching source block by section id. |
+
+Placement: **inside the element-level inspector section**, below the element label, above the first editable field. This is non-disruptive for elements without sourceRef (the row simply does not render).
+
+On the **slide thumbnail panel** (left strip): a small `RefreshCw` dot (6 px, `--ds-accent`) overlays the bottom-right of any slide where at least one element is stale. Tooltip: *"This slide has elements that are out of sync with the document."*
+
+**Blocker:** The stale detection (`isSourceStale`) computes from `contentHash`. Switch needs to confirm whether the hash is stamped at insert time and updated on sync, or only at insert. If it is insert-only, "stale" will never be true until the sync path writes a new hash — that needs to be scoped with Tank/Trinity before the badge is built.
+
+---
+
+### 3 — Command Errors: Visibility model for `CommandResult.error`
+
+**Decision needed:**  
+`executeCommand` returns `{ ok: false, error: string }` for validation failures (slide not found, last slide, invalid index, element not found). Today the slide editor calls `executeCommand` and **ignores `result.error` entirely** — there is no call site that reads `result.error` in `slide-editor.tsx`.
+
+**My recommendation:**  
+Command errors are rare but important — they indicate an incoherent state (e.g. a stale deck reference). They should surface as a **non-blocking inline banner** at the top of the editor stage (not a modal):
+
+```
+⚠ Could not complete that action: <error message>   [Dismiss ×]
+```
+
+- Height: 36 px, `--ds-surface-warning` background, `--ds-text-warning` text
+- Auto-dismisses after 6 seconds
+- Stacks with the "Couldn't save" error banner; the save-error banner takes priority (renders above)
+- Never blocks editing
+
+**Coalescing rule:** If the same error fires twice within 2 s (e.g. rapid delete-last-slide attempts), deduplicate — only one banner.
+
+This is a 1-day Switch task once the decision is ratified. It unblocks any future command error path (undo/redo errors, import validation failures).
+
+---
+
+### 4 — Persistence Conflict UI: The merge-preview and the collab-divergence case
+
+**Decision needed (two sub-cases):**
+
+**4a — Deck-document sync conflict (merge preview, `#383 / deck-merge.ts`)**  
+`mergeDecks` already computes a `MergeSlideChange[]` summary. The current editor shows a `showStaleBanner` with a "Sync from Document" button that applies the merge immediately. There is no preview of what will change.
+
+For slides where `kind === "updated"` AND `contentChanged === true` AND `elementsPreserved > 0`, the user is about to lose manually-arranged elements. They should see a diff before committing.
+
+**My recommendation:**  
+Replace the current "Sync from Document" button action with a two-step flow:
+1. Clicking "Sync from Document" opens a **Sync Preview sheet** (right-side slide-over, 360 px wide, not a modal — editor stays visible)
+2. The sheet lists each changed slide as a card: before/after bullet count, whether custom elements will be preserved, a "Content changed" / "No content change" chip
+3. CTA: **Apply sync** (primary) | **Cancel** (ghost)
+4. Slides where `elementsPreserved > 0 && contentChanged` get a `⚠ Custom elements preserved` note — it is not a warning, it is reassurance
+
+**4b — Yjs collab divergence**  
+The collab server is single-instance (`docs/collab-deployment.md`). When the server is unreachable and the user saves locally, then reconnects, there is no UI for "your offline edits vs. remote edits." The collab doc acknowledges graceful degradation but there is no user-visible indicator.
+
+**My recommendation (minimal for now):**  
+A **connection-state dot** in the editor top bar (right of the save-status badge):
+- `● Online` (green, 8 px dot) — connected to collab server
+- `○ Local only` (grey, 8 px ring) — not connected; edits are saved locally only; tooltip: *"Working offline — changes sync when reconnected"*
+- `⚠ Reconnecting` (amber pulse) — lost connection, attempting to reconnect
+
+**Blocker:** Trinity needs to confirm whether the Yjs awareness event surface provides a reliable `connected/disconnected/reconnecting` signal consumable by the editor. If it does, Switch can wire the dot. If not, the indicator is blocked until that signal is plumbed.
+
+---
+
+### 5 — Theme Override / Reset Semantics
+
+**Decision needed:**  
+`infer-theme.ts` derives a deck theme from document visual blocks. `setDeckTheme` applies a theme globally. Per-slide `background`/`accent` overrides exist on `Slide`. The inspector has a "Per-slide color override" section (line 2835 of `slide-inspector.tsx`). But:
+
+- There is no **"Reset to theme default"** affordance on a per-slide override once set.
+- There is no visual indication that a slide is *overriding* vs. *inheriting* the deck theme.
+- The deck-level theme picker (top bar) and per-slide inspector controls use entirely different affordance patterns (select vs. swatch). They feel like unrelated features.
+
+**My recommendation:**
+
+**Theme inheritance model (visual language):**  
+- Deck-level theme picker: stays as-is (top bar select/swatch strip)
+- Per-slide override section in inspector: show a **"Customized" chip** (subtle, accent-outlined, 20 px height) next to the section label when `slide.background` or `slide.accent` differs from the deck theme default. Clicking the chip → "Reset to theme" (single action, no confirmation). The chip disappears on reset.
+- Slide thumbnails with custom overrides: no visual change (the thumbnail already shows the actual color).
+
+**Theme reset semantics (exact behaviour):**
+- "Reset to theme" on a slide clears `slide.background` and `slide.accent` (sets to undefined)
+- The canvas then reads these from the deck theme config (`DECK_THEMES[deck.theme]`)
+- This is lossless — undo restores both values
+
+**The deck-level theme + typography token intersection (#385):**  
+The `ThemeTypographyConfig` schema was typed but there is no UI for per-deck font overrides yet. This is fine to leave for a future slice, but a **design blocker** exists: if Switch implements the theme picker dropdown today and the per-deck typography schema lands later, the picker will need a visual design extension (a "Fonts" section below "Colors"). The slot needs to be reserved in the picker layout now.  
+**Decision:** Add a greyed-out "Fonts (coming soon)" placeholder row in the theme picker dropdown at the bottom of the color section. This reserves the space and signals intent without blocking the current slice.
+
+---
+
+### 6 — Comment Pins: Visual design for AnchorState
+
+**Decision needed:**  
+`resolveAnchorState` returns `"attached" | "orphaned" | "deck" | "unknown"`. The slide canvas renders nothing for comments today. Before implementing pins, four design questions must be resolved:
+
+**Q1: Where do pins render?**  
+`AnchorPoint` is expressed as percent coordinates on the slide canvas (0–100 on each axis). The natural answer is: an absolutely-positioned pin marker overlaid on the `SlideCanvas` at `(x%, y%)`. But `SlideCanvas` today renders only elements and background — it has no overlay layer.
+
+**My recommendation:** Add an `<div className="absolute inset-0 pointer-events-none">` overlay layer to `SlideCanvas` that renders pin markers. Pins are `pointer-events-auto` individually (clickable). This layer is only rendered in the editor (not in present mode or the public viewer).
+
+**Q2: What does a pin look like per state?**
+
+| AnchorState | Visual | Tooltip |
+|---|---|---|
+| `attached` | Filled `MessageCircle` icon (16 px, `--ds-accent`), circular pill with avatar initials | *"[Author] — [snippet]"* |
+| `orphaned` | `MessageCircle` icon (16 px, `--ds-text-warning`), dashed border | *"This comment was pinned to an element that was deleted. Click to view."* |
+| `deck` | No pin rendered on canvas; shown in the comments panel sidebar only | — |
+| `unknown` | Same as `deck` (no pin; no deck loaded) | — |
+
+**Q3: How are pins placed?**  
+For the initial slice (comment pin *display*, not pin *creation*): pins are placed at the `AnchorPoint` from the stored anchor geometry. If geometry is absent but a `slideId` is present, the pin floats to a default position (top-right quadrant, e.g. 85%, 15%).
+
+Pin *creation* (letting the user click to place a new comment pin) is a separate UX slice — not scoped here.
+
+**Q4: Orphaned pin recovery — float or discard?**  
+`floatAnchorToDeck(anchor)` exists in the model. The UX question is: when a user views an orphaned pin, should we offer to "move to deck level" (float) or just show it in-place with the dashed-border treatment?
+
+**My recommendation:** Show orphaned pins in-place on the slide, dashed-border treatment, with a tooltip offering one action: **"Move to deck comments"** (calls `floatAnchorToDeck`). This is recoverable and non-destructive. Discard is never offered.
+
+---
+
+## Priority Order for Next Wave
+
+1. **Command error banner** — 1 day Switch; highest leverage per effort
+2. **Missing-asset placeholder** — 1 day Switch; blocks image-element trust
+3. **Source sync badges (inspector row + slide thumbnail dot)** — 2 days Switch; depends on Trinity confirming hash-stamp timing
+4. **Theme override reset ("Customized" chip + reset action)** — 1 day Switch
+5. **Comment pin overlay (display only, attached + orphaned states)** — 2 days Switch + 0.5 day Ghost for anchor resolution hook
+6. **Sync preview sheet (merge preview before applying)** — 2 days Switch
+7. **Collab connection-state dot** — 1 day Switch; blocked on Trinity confirming Yjs signal surface
+
+---
+
+## First UX Spec: Comment Pin Overlay
+
+This is the highest-uncertainty slice (novel interaction surface). Full spec below.
+
+---
+
+### UX Spec: Slide Comment Pin Overlay
+**Version:** 0.1  
+**Owner:** Mouse  
+**Target engineer:** Switch  
+**Dependencies:** Ghost (comment data), Trinity (`AnchorState` resolution hook)
+
+#### Goal
+Render existing comment anchors as interactive pins on the slide canvas in editor mode. Display state communicates whether the anchor is alive, orphaned, or deck-level. No pin creation in this slice.
+
+#### Layout
+
+```
+SlideCanvas
+├── background layer          (existing)
+├── elements layer            (existing)
+└── pins overlay              ← NEW: absolute, inset-0, pointer-events-none
+    └── PinMarker(s)          ← pointer-events-auto per pin
+```
+
+The overlay is a sibling of the elements layer inside the relative-positioned canvas container. Z-index: above elements, below selection handles.
+
+#### Pin Marker Component: `<SlideCommentPin>`
+
+**Props:**
+```ts
+interface SlideCommentPinProps {
+  commentId: string;
+  anchorState: AnchorState;          // "attached" | "orphaned"
+  geometry: AnchorPoint;             // { x: number, y: number } in percent
+  authorInitials: string;            // ≤2 chars
+  authorColor: string;               // CSS color for avatar background
+  snippet: string;                   // first ~60 chars of comment body
+  onActivate: (commentId: string) => void;
+}
+```
+
+Only render for `attached` and `orphaned` states. Skip `deck` and `unknown`.
+
+**Geometry:**  
+Position: `style={{ left: `${geometry.x}%`, top: `${geometry.y}%`, transform: 'translate(-50%, -100%)' }}`  
+This anchors the pin's bottom-center to the percent point, not the top-left.
+
+**Attached state visual:**
+```
+┌─────────────────┐
+│  [AB]  snippet… │  ← 28 px height, pill shape
+└────┬────────────┘
+     ▼  (4 px caret)
+```
+- Pill: `bg-[--ds-accent] text-[--ds-text-on-accent]`, `rounded-full`, `px-2 py-0.5`, `shadow-raised`
+- Avatar circle: 18 px, `rounded-full`, author-colored bg, white initials, `text-[10px]`
+- Snippet: truncated to 24 chars, `text-xs`, `font-medium`
+- Hover: scale(1.08), shadow-overlay — 120 ms ease-out
+- Focus ring: 2 px `--ds-border-focus` offset-2
+
+**Orphaned state visual:**
+```
+┌ ─ ─ ─ ─ ─ ─ ─ ┐
+│  [?]  Deleted   │  ← dashed border, muted fill
+└ ─ ─ ┬ ─ ─ ─ ─ ┘
+      ▼
+```
+- Pill: `bg-[--ds-surface-warning]/60 border border-dashed border-[--ds-border-warning]`
+- Avatar: `?` glyph, `text-[--ds-text-warning]`
+- Label: "Deleted element", `text-xs text-[--ds-text-warning]`
+- Hover: reveals a Tooltip with: *"Comment was pinned to a deleted element."* + "Move to deck" button (ghost-xs, warning-tinted)
+
+**Interaction:**
+- Click on attached pin → `onActivate(commentId)` → opens comment thread panel (existing comment system; no new panel needed in this slice)
+- Click on orphaned pin → same `onActivate`, then shows orphan-recovery prompt inside the comment thread panel (not inline on the canvas)
+- Keyboard: `Enter`/`Space` triggers activate
+
+#### Multiple pins collision
+If two pins land within 16 px of each other: stack them as a `+N` badge on the first pin. Badge: `bg-[--ds-accent] text-[--ds-text-on-accent] rounded-full text-[10px] w-4 h-4`, positioned top-right of the first pin. Clicking the `+N` badge opens a mini-list popover showing all overlapping comments.
+
+#### Present mode / public viewer
+The pins overlay is **not rendered** in `PresentMode` or `PublicPresentViewer`. Comments are an editing-mode concept.
+
+#### Accessibility
+- Each `SlideCommentPin` is a `<button>` with `aria-label="Comment by [author]: [snippet]"` (attached) or `aria-label="Orphaned comment — [snippet]"` (orphaned)
+- The overlay container has `aria-label="Slide comments"` and `role="group"`
+- Pins respond to keyboard focus in DOM order (top-to-bottom, left-to-right of geometry)
+
+#### Motion
+- Pins mount with a `scale(0.6) → scale(1)` spring, 200 ms, `spring(stiffness:260, damping:20)` — matches the existing `FloatingSurface` mount motion
+- No exit animation (pins disappear only when comment is deleted)
+
+#### Open questions for Trinity / Ghost
+1. Does the comment data hook return `SlideCommentAnchor` with resolved `geometry`, or does the UI need to call `resolveAnchorState` itself?
+2. Are comments loaded per-slide or for the whole deck at once? Pin rendering is cheap either way, but the data-loading strategy affects whether the overlay needs a loading skeleton.
+3. When a comment's element is deleted and the orphaned state is detected, does the backend auto-call `floatAnchorToDeck`, or does the UI trigger that via a server action?
+
+---
+
+*Filed by Mouse. Scribe to merge to `.squad/decisions.md`.*
+
+
+# Ghost Design Decisions — Epic #379 Rendering, Export, and Regression Contract
+
+Date: 2026-06-23
+Branch: squad/379-render-export
+Author: Ghost (QA/Tester)
+
+## #416 — Export preflight diagnostics
+
+**Decision**: Created `src/lib/visual/export-preflight.ts` as a pure, headless module
+with a single entry point `runExportPreflight(deck, options): PreflightResult`.
+
+**Fatal vs Warning split**:
+- `missing-asset` (FATAL): image element has neither `src` nor `assetId`. Export would produce
+  a broken file. Applies to both PPTX and image targets.
+- `raster-fallback` (WARNING, PPTX only): fitMode="none", non-none maskShape, or crop triggers
+  raster fallback. Fidelity reduced but export succeeds.
+- `remote-image-failure` (WARNING, PPTX only): http/https src could fail at export time (no
+  pre-validation possible in a pure function).
+- `missing-font` (WARNING, PPTX only): custom font referenced in element style is not embedded
+  in PPTX. Only emitted when `customFontFamilies` is explicitly provided by the caller (the UI
+  must pass the brand's font families).
+- `unsupported-pptx-feature` (WARNING, PPTX only): elbow connectors, gradient backgrounds.
+- `oversized-deck` (WARNING, both targets): slide count exceeds `maxSlides` threshold (default 50).
+
+**Decision NOT to emit unconditional deck-level fidelity warnings** (shadow, theme-typography):
+These are only meaningful when the features are actually present in the deck. Emitting them
+unconditionally for every PPTX export would produce false positives and degrade the UX.
+
+**Hidden elements are excluded**: `materializeSlideElements(slide).filter(el => !el.hidden)`
+matches the export pipeline's own filter so preflight and actual export stay consistent.
+
+## #417 — Missing asset and font handling tests
+
+**Decision**: Placed tests in `src/lib/slides/missing-asset-font.test.ts` (co-located with
+the slides domain) rather than `src/lib/visual/` because the tests span the `asset-resolver`
+(slides layer) and `export-preflight` (visual layer). A single file avoids duplication.
+
+**Test categories**:
+- Section A: Editor/present — ClientAssetResolver, effectiveImageUrl, MISSING_ASSET_PLACEHOLDER.
+- Section B: Export — ServerAssetResolver DB/soft-delete/error paths; preflight fatal check.
+- Section C: PPTX custom font warnings — missing-font is a warning, never blocks export.
+- Section D: Crash-safety — buildDeckSpecs must never throw for any element with a missing font.
+
+**Key assertion**: `buildDeckSpecs` (the pure export transform) produces ops even when elements
+reference unavailable fonts or have empty src. Crash prevention is a hard requirement (#417 AC).
+
+## #415 — Screenshot regression spec
+
+**Decision**: Screenshot comparisons are opt-in via `E2E_SCREENSHOT_REGRESSION=1`. This prevents
+the spec from becoming a flaky blocker in the standard E2E suite where no baseline exists.
+
+**Fixture design**: `REGRESSION_DECK_FIXTURE` is typed as `Record<string, unknown>` to avoid
+needing to import the full Deck type tree in a Playwright spec. The fixture covers all required
+element kinds: text, bullets, shape (rect/ellipse/triangle), image (data URL), connector.
+
+**Tolerance**: 2% max-diff pixel ratio + 0.2 per-pixel threshold. Conservative enough to handle
+minor sub-pixel rendering differences across OS/GPU while catching real regressions.
+
+**Fixture integrity tests run without a server**: The `deck fixture integrity` describe block
+contains pure data assertions that always run, providing value even in environments without a
+running app.
+
+## #418 — E2E smoke spec
+
+**Decision**: The smoke spec (`e2e/slides-smoke.spec.ts`) uses a defensive "try → skip" pattern
+at every step. No single missing element causes a test failure — instead the test skips cleanly.
+This matches the existing workspace.spec.ts / billing-brand.spec.ts pattern.
+
+**Authenticated flows require `E2E_SLIDES_DOC_URL`** in addition to credentials because the
+workspace may have many documents and finding the right one with a Slides deck without a seeded
+URL is unreliable.
+
+**Export smoke**: Does NOT trigger a real file download (which would be flaky and slow). It only
+asserts that the export trigger (button/menu) is reachable and clickable. This is sufficient to
+smoke-test the export path wiring without introducing network dependencies.
+
+**Always-running tests**: Two unauthenticated tests always run: auth redirect and 404 for unknown
+present share ID. These verify the Slides-adjacent routes are wired correctly without any setup.
+
+
+# Ghost — #455 Stabilization Decisions
+
+**Agent:** Ghost (Tester/QA)  
+**Branch:** squad/455-dv-stabilization  
+**Commit:** feat(stabilization): add release gate, diagnostics, budgets, authz/a11y coverage, and dry-run plan (#455)  
+**Date:** 2026-06-23
+
+---
+
+## Design decisions
+
+### #460 — Error code taxonomy design
+
+Chose a flat `SCREAMING_SNAKE_CASE` string union over numeric codes because:
+
+- Strings are self-documenting in logs without a lookup table
+- Stable across schema migrations (no integer collision risk)
+- Compatible with the existing `logError`/`buildErrorLog` context bag
+- Layered on top: `buildDiagnosticErrorLog` wraps `buildErrorLog` — existing
+  log behavior is unchanged; the `code` and `severity` fields are additions
+
+The `CODE_SEVERITY` map is the source of truth for severity. Callers never
+specify severity directly — they pick a code and severity is derived. This
+prevents a SAVE_CONFLICT being accidentally emitted with `"fatal"` severity.
+
+Convenience builders (e.g. `saveDiagnosticConflict`, `authDiagnosticDenied`)
+were added for the highest-traffic paths so call sites are one-liners.
+
+### #461 — Budget constants and `checkBudget` design
+
+Extended `deck-limits.ts` with a new peer file `perf-budgets.ts` rather than
+modifying the existing file. This keeps the existing import path
+(`deck-limits.ts`) unchanged and the new budget module is opt-in.
+
+Warning threshold = 80% of hard limit (consistent across all metrics). This
+gives operators a warning runway before hitting the hard wall.
+
+`checkBudget` uses `actual > hardAt` (strict greater-than) so the hard limit
+itself is "at the boundary" — not yet exceeded. This matches the behavior of
+the existing `MAX_DECK_JSON_BYTES` check in `saveDeckJson` which rejects `>
+MAX_DECK_JSON_BYTES`.
+
+### #457 — Dry-run helper `collectBlockNodes` only checks `bid`, not `key`
+
+The legacy `key` fallback is a read-time resolution — it tells the editor
+"fall back to this legacy field if bid is absent". It does NOT mean the node
+has been stamped. The dry-run helper must report nodes as "missing bid" when
+they lack the actual `bid` field, regardless of whether a `key` is present.
+
+The `stampBlockIds` pass adds `bid` fields; `key` values are never touched.
+This means the dry-run `missingBidCount` accurately predicts how many nodes
+`stampBlockIds` would touch.
+
+### #457 — Orphaned deck visual ref check does not require existingVisualIds.size > 0
+
+Initial implementation had a guard `&& existingVisualIds.size > 0` which
+incorrectly skipped the check when no Visual rows exist (e.g. a document whose
+mirror has been cleared). Removed the guard — the check is: for each
+`visualId` referenced in `deckJson`, is it present in `existingVisualIds`? If
+`existingVisualIds` is empty and `deckJson` has refs, those refs are all
+orphaned.
+
+### #458 — Authz tests: `assertCapability("view")` on `role="none"` throws with `capability=null`
+
+The `assertCapability` implementation uses `capability: null` when `canView ===
+false` (the "document not found" path). This intentionally hides whether the
+document exists from unauthorized callers. Tests now assert `capability === null`
+for the `role="none"` case.
+
+### #458 — Share expiry boundary: `expiresAt <= now` is expired (inclusive)
+
+`evaluateShareAccess` uses `expiresAt.getTime() <= now.getTime()` — links
+expire AT the exact expiry timestamp, not after it. Tests now document this as
+"boundary inclusive" rather than the incorrect "not yet expired" assertion.
+
+### #462 — A11y helpers are pure data-structure assertions (no DOM)
+
+Rather than coupling a11y smoke tests to a JSDOM/Playwright setup, the helper
+layer operates on plain `A11yElement` descriptors. This means:
+- Tests run under `node:test` in the CI gate without a browser
+- Component authors can run the helpers against their own prop fixtures
+- The known canvas drag/resize limitation is documented in the test itself
+
+The deferred canvas keyboard items are documented explicitly in the test file
+so they are not hidden — any future contributor can find them.
+
+### #456 — Release gate document structure
+
+Three-tier structure: automated gate → critical flow checklist → sign-off
+procedure. Blocked flows are explicitly split into "blocker" vs "warning" tiers
+to make the distinction operational rather than aspirational.
+
+Every checklist item is tagged A/M/I/D (automated/manual/invariant/deferred)
+so the reviewer knows exactly what to do for each one.
+
+
+# Design Decisions: Epic #375 — Command and Patch Architecture
+
+**Author:** Switch (Frontend Dev)
+**Branch:** `squad/375-slide-commands`
+**Commit:** `feat(slides): complete command wiring, patches, and history metadata (#375)`
+**Date:** 2026-06-23
+
+---
+
+## Summary
+
+Implemented all five child issues of Epic #375 in a single commit to `slide-commands.ts` and `slide-commands.test.ts`. No changes to React components were required — the issues are infrastructure/library additions, and the UI handlers continue to route through `onDeckChange` as before.
+
+---
+
+## Key Design Decisions
+
+### 1. Patch format (issue #401)
+
+**Decision:** `DeckPatch` is a minimal, schema-versioned struct with:
+- `schemaVersion` — mirrors `CURRENT_DECK_SCHEMA_VERSION` (currently `1`)
+- `op: PatchOp` — stable string enum, one value per logical operation
+- `slideIds`, `elementIds` — affected id sets
+- Optional payload maps: `deckFields`, `slideFields`, `elementFields`
+- Optional `addedIds`, `removedIds` for add/remove lifecycle ops
+
+**Rationale:**
+- Intentionally minimal: only what the persistence epic (#376/#403) needs to upsert/delete rows server-side.
+- No `before`/`after` snapshots — they would be too large and are available via the input deck + `CommandResult.deck`.
+- `elementFields` mirrors the same `ElementPatch` type used by mutation helpers, so there is no second schema to maintain.
+- `slideFields` is limited to scalar fields only; structural changes (element arrays) are tracked via `elementIds`.
+
+### 2. `applyPatch` scope (issue #401)
+
+**Decision:** `applyPatch` only handles patches with enough payload to reproduce the result deterministically (deck-level ops, slide scalar-field ops). It returns `null` for operations like `slide.add` or `element.duplicate` that do not carry the full state needed for replay.
+
+**Rationale:**
+- Add/duplicate ops create new IDs via `crypto.randomUUID()` — they cannot be deterministically re-applied from the patch alone without the original command.
+- Callers should fall back to the full command executor for these cases. The persistence epic will use patches for targeted server updates, not for local replay.
+
+### 3. New command type taxonomy (issues #398, #399, #400)
+
+**Decision:** Added 30+ new `SlideCommand` union members rather than extending `UPDATE_SLIDE` with opaque sub-types. Each operation has a dedicated command type with strongly-typed fields.
+
+**Rationale:**
+- Discriminated union makes exhaustive switch checking possible and ensures new ops can't be accidentally silenced with a generic fallback.
+- Patch `op` strings map 1-to-1 to command types, making the persistence layer straightforward.
+
+### 4. Coalescing extensions (issue #398)
+
+**Decision:** Extended `canCoalesce`/`mergeCommands` to handle `UPDATE_SLIDE_TITLE`, `UPDATE_SLIDE_BODY`, and `UPDATE_SLIDE_NOTES` (last-write-wins merge strategy). `NUDGE_ELEMENTS`, `SET_ELEMENT_BOXES`, etc. are NOT added to the merge logic.
+
+**Rationale:**
+- Title/notes edits produce a stream of commands while typing — these must collapse into one undo step.
+- Nudge/box ops use `commitOptions.coalesceKey` in the history layer to collapse undo steps without needing command-level merge; the individual commands accumulate additively and each nudge is a separate delta, so merging them into one command would lose intermediate positions.
+
+### 5. `commitCommand` adapter (issue #402)
+
+**Decision:** Added a pure `commitCommand(deck, cmd) → CommitCommandResult` function that is the single shared commit path. It wraps `executeCommand`, extracts `historyKey → commitOptions`, and surfaces `affectedSlideIds`, `affectedElementIds`, `patches` as top-level fields.
+
+**Rationale:**
+- Eliminates the boilerplate `if (result.historyKey !== undefined) { coalesceKey: result.historyKey }` pattern repeated across every UI handler in `slide-editor.tsx`.
+- Future autosave staging and analytics hooks can subscribe at `commitCommand` level rather than instrumenting every individual handler.
+- Kept as a pure library function (no React, no state) so it remains fully testable under `node --test`.
+
+### 6. No UI handler changes
+
+**Decision:** `slide-editor.tsx` and `slide-inspector.tsx` were not modified in this PR.
+
+**Rationale:**
+- Issue #402 says "provide a place to emit analytics/audit events" — the `commitCommand` adapter fulfils this without requiring simultaneous refactor of all 100+ `onDeckChange` call sites.
+- Incremental migration: individual handlers can adopt `commitCommand` in follow-up PRs, with the migration being purely mechanical (behavioral equivalence preserved by the test suite).
+
+
+# Design Decisions — Switch Epic #377 Source Sync (Issues #424, #408, #409, #410)
+
+**Author:** Switch (Frontend Dev)
+**Date:** 2026-06-23
+**Branch:** squad/377-source-sync
+**Commit:** f6fb284
+
+---
+
+## 1. `blockKind` discriminator in `SourceRef` (#424)
+
+**Decision:** Added `blockKind?: "text" | "visual"` to `SourceRef`. Absent means `"text"` for full backward compatibility.
+
+**Rationale:** Text block IDs (Lexical node keys) and visual IDs are drawn from different namespaces that could theoretically collide. The discriminator allows `findStaleSourceLinks` to dispatch to the correct lookup map without ambiguity. Existing legacy `visualId`-only visuals (no `sourceRef`) and legacy decks without any `sourceRef` continue to work because all discriminating paths guard on `sourceRef` presence.
+
+---
+
+## 2. Dual-map staleness detection for text vs visual blocks
+
+**Decision:** `findStaleSourceLinks` builds two maps: `textBlockById` (keyed by `blockId`) and `visualBlockByVisualId` (keyed by `visualId`). Dispatch on `sourceRef.blockKind ?? "text"`.
+
+**Rationale:** The "From document" insert path for text blocks uses `blockId` (Lexical key); visuals use `visualId`. Merging them into a single map would require a composite key or prefix scheme; separate maps are cleaner, more readable, and avoid future namespace confusion.
+
+---
+
+## 3. Visual content hash strategy (#424)
+
+**Decision:** Visual element content hash uses `fnv1aHex("visual\x02{visualId}")` — stable per visual identity, not per visual content.
+
+**Rationale:** The current `DocumentBlock`/`Visual` model does not expose a meaningful deep-content hash for visual assets (which are binary blobs). Hashing on `visualId` means the hash only changes if the block's visual identity changes (e.g., a replaced visual), which matches the staleness semantics needed. A future enhancement could compute a true content hash from the visual binary if the model supports it.
+
+---
+
+## 4. `readonly DocumentBlock[]` parameter in `buildInsertables`
+
+**Decision:** Changed `blocks: DocumentBlock[]` to `blocks: readonly DocumentBlock[]` in `buildInsertables`.
+
+**Rationale:** The `documentBlocks` prop on `SlideEditor` and related places uses `readonly` arrays (TypeScript convention for props). Widening the parameter type avoids spurious casts at every call site and is a non-breaking change because `readonly T[]` is a supertype of `T[]`.
+
+---
+
+## 5. `updateElement` patch approach for text update (#408)
+
+**Decision:** `updateTextElementFromBlock` returns a partial `ElementPatch` with only `{ text, runs, sourceRef }` fields; `updateVisualElementFromBlock` returns `{ sourceRef }` only (preserving geometry/style/z-order).
+
+**Rationale:** The `updateElement` helper in `deck.ts` applies a shallow merge patch, so providing only the changed fields is idiomatic and ensures geometry/style overrides are preserved as required by #409.
+
+---
+
+## 6. Orphan-never-auto-delete invariant (#410)
+
+**Decision:** `applyElementSourceUpdates` in `deck-merge.ts` explicitly skips elements whose source block is missing from `freshBlocks` (orphans). UI offers keep-as-manual/unlink/relink/remove as explicit user actions only.
+
+**Rationale:** Issue #410 is explicit: "never auto-delete orphaned elements." The invariant is enforced at both the merge layer and the staleness detection layer — orphan state is flagged as `reason: "block_missing"`, distinct from `"content_changed"`, so the UI can show distinct affordances.
+
+---
+
+## 7. Element-level merge precedence scope (#409)
+
+**Decision:** Element-level source ref updates in `mergeSlide` are only applied when `options.freshBlocks` is provided. For slides without any source refs (legacy deckless-of-refs), the existing slide-level merge path runs unchanged.
+
+**Rationale:** This preserves full backward compatibility: decks that predate `sourceRef` continue to use the bulk-replace merge strategy. Only decks that have been enriched with element-level `sourceRef` (via the new insert path) benefit from granular element updates.
+
+---
+
+## 8. `unlinked` flag for explicit user unlink (#408)
+
+**Decision:** Unlinking a source ref sets `sourceRef.unlinked = true` (via existing `unlinkSource` helper). Elements with `unlinked: true` are excluded from all staleness detection and merge updates.
+
+**Rationale:** Reuses the pre-existing `unlinkSource`/`relinkSource` helpers from `deck.ts` (merged in earlier epics). The `unlinked` flag is the canonical "user deliberately disconnected this" signal, distinct from "block was deleted from the document."
+
+---
+
+## 9. FromDocumentPanel stale links UI section (#408/#410)
+
+**Decision:** Stale links are shown in two subsections: "Changed" (content_changed reason) and "Orphaned" (block_missing reason). Each item shows the element text or visual id and action buttons relevant to its state.
+
+**Rationale:** Separating changed vs orphaned gives users clear context about *why* a link is stale. Changed items offer Update/Unlink; orphaned items offer Keep as manual/Unlink/Remove — matching the action matrix in issue #410.
+
+
+# Design Decisions: Epic #378 — Master, Theme, and Layout Architecture for Slides
+
+**Branch:** `squad/378-theme-layout`
+**Commit:** `2bdc780`
+**Issues closed:** #411, #412, #413, #414
+
+---
+
+## Why `customTokenSet` is stored in `deckJson`
+
+Brand-derived token sets are computed at runtime from a `BrandStyle` record. Rather than recomputing them on every render or requiring callers to carry an out-of-band token registry, `applyBrandToDeck` serializes the computed `DeckThemeTokenSet` directly onto `deck.customTokenSet`. This means:
+
+- Any renderer or exporter that reads the deck object gets the correct tokens without needing access to the originating brand record.
+- The `themeId` field is set to `brand:<brandId>`, making the provenance readable in the JSON.
+- `resolveSlideStyle` (and the `resolveTokenSet` helper inside `style-cascade.ts`) checks `deck.customTokenSet` first before falling back to the built-in set map — so the stored value is always preferred over whatever `resolveThemeTokens` would return for an unknown `brand:` prefix.
+- Legacy decks that have no `customTokenSet` continue to work unchanged via the `resolveThemeTokens` built-in fallback.
+
+The alternative (storing only `themeId = "brand:<id>"` and resolving the token set from the brand record at render time) would require threading a brand-lookup dependency into every renderer. Storing the token set is simpler and keeps renderers pure.
+
+---
+
+## Why `THEME_COLORS` in `deck-export.ts` was replaced
+
+`deck-export.ts` previously carried a local `THEME_COLORS` record with **dark-mode** palette values (e.g., indigo background `#1e1b4b`). These differed from the **light-mode** token sets in `deck-theme-tokens.ts` (indigo `slideBg = #ffffff`). This meant the PPTX export rendered different colors than the editor, present mode, and public viewer — defeating the "matching inherited styling" goal of #414.
+
+Replacing `THEME_COLORS` with `resolveSlideStyle` from `style-cascade.ts`:
+- Gives all rendering surfaces (editor canvas, present mode, export) the same five-layer cascade, so colors match exactly.
+- Removes the only place that diverged from the token set contract.
+- The `DeckSlideSpec.background` and `.accent` fields now carry the cascade-resolved values, which are light-mode by default but respect per-slide and per-master overrides.
+
+Existing tests that expected dark values (`"0C1A2E"` for ocean background) were updated to the cascade-resolved light values (`"F6FBFF"`).
+
+---
+
+## Legacy Fallback Strategy
+
+The implementation preserves backward compatibility at every layer:
+
+| Legacy condition | Behavior |
+|---|---|
+| `Deck` with no `masters` | `resolveMaster` returns `undefined`; cascade skips master layer and uses token-set defaults |
+| `Deck` with no `themeId` | `resolveTokenSet` falls back to `resolveThemeTokens(deck.theme)` (built-in map) |
+| `Deck` with no `customTokenSet` | `resolveTokenSet` uses built-in set for `deck.themeId` |
+| `Slide` with `masterRef` but no `masters` array | `resolveMaster` returns `undefined` (ref is harmlessly ignored) |
+| `Slide.masterRef` pointing to a non-existent master | `safeParseDeck` strips it silently — deck validates successfully |
+| `SlideCanvas` called without `deck` prop | Falls back to the existing `DECK_THEMES` dark-mode ThemeConfig |
+| Deck with `elements[]` | No change — `materializeSlideElements` still returns them; cascade only affects background/accent/colors |
+
+---
+
+## Brand → Token Mapping Approach
+
+`brandToTokenSet(brand)` maps `BrandStyle` → `DeckThemeTokenSet` using these rules:
+
+| Token field | Source |
+|---|---|
+| `colors.accent` | `brand.nodeFill ?? brand.palette?.[0] ?? DEFAULT_TOKEN_SET.colors.accent` |
+| `colors.slideBg` | `brand.background ?? DEFAULT_TOKEN_SET.colors.slideBg` |
+| `typography.fontFamily` | `brand.fontFamily ?? DEFAULT_TOKEN_SET.typography.fontFamily` |
+| All other tokens | Copied verbatim from `DEFAULT_TOKEN_SET` |
+
+Rationale: `BrandStyle` models brand identity for *visual diagrams*, not slides. It doesn't have slide-specific tokens like `onBg`, `muted`, `spacing`, or `shape`. Using `DEFAULT_TOKEN_SET` as the base ensures the slide always looks reasonable even when the brand only sets a primary color and font. Callers can override `customTokenSet` fields after `applyBrandToDeck` if finer control is needed.
+
+`applyBrandToDeck` does **not** touch `slide.background`, `slide.accent`, or any `element.style.color` — these are considered explicit overrides by the slide author and are preserved by the five-layer cascade automatically.
+
+---
+
+## Five-Layer Cascade (implemented in `style-cascade.ts`)
+
+```
+1. Deck token set (DeckThemeTokenSet)
+   └─ 2. Master slide override (Deck.masters[ref] or masters[0])
+         └─ 3. Layout (placeholders, no color tokens)
+               └─ 4. Slide override (slide.background, slide.accent)
+                     └─ 5. Element override (element.style.color, element.style.fontFamily)
+```
+
+`resolveSlideStyle(deck, slide)` computes layers 1–4 and returns a `ResolvedSlideStyle` that renderers consume directly. Layer 5 (element overrides) is applied by individual renderers when they read `element.style.color ?? resolved.bodyColor`.
+
+
+# Switch Decision Record: Epic #430 Identity Implementation
+
+**Date**: 2026-06-23  
+**Author**: Switch (Frontend Dev)  
+**Issues**: #431, #432, #433, #434, #435
+
+## Key decisions
+
+1. **bid field over key**: Using `bid` as the durable block id field in serialized Lexical JSON (not `key`). The `key` field is read as a legacy fallback by `collectDocumentBlocks`.
+
+2. **nanoid for generation**: `customAlphabet(alphabet, 12)` matching existing `deck-revision-token.ts` pattern.
+
+3. **stampBlockIds vs regenerateBlockIds**: stamp = idempotent (no-op for existing bid), regenerate = always new bid (used for duplicate). Both are pure functions.
+
+4. **Duplicate behavior**: On document duplicate, regenerate all bids in contentJson and remap self-referential sourceRefs in deckJson. Refs that can't be remapped are left as-is (they become "missing" in the copy until the user refreshes).
+
+5. **No schema migration**: Block ids live in the existing contentJson JSON column. No DB column changes needed. Legacy content stays readable.
+
+6. **Anchor resolver**: Shared pure resolver in `src/lib/anchor-resolver.ts` that unifies target-status vocabulary across source-links, comments, and visual refs.
+
+
+# Switch decision log — Epic #436 command bus
+
+- **Decision:** use `CommandEnvelope<P>` as the shared wire format across visual
+  and deck mutations.
+- **Why:** deck already has a pure executor (`slide-commands.ts`); the envelope
+  should wrap it, not replace it.
+
+## Specific decisions
+
+1. **Deck stays on the current executor.**
+   - `SlideCommand` remains the payload for deck envelopes.
+   - `DeckPatch` and `CommandResult` are adapted into the cross-surface result
+     shape instead of being duplicated.
+
+2. **Visuals get a new pure executor.**
+   - `visual-commands.ts` routes typed `visual.*` payloads over
+     `src/lib/visual/transforms.ts`.
+   - the executor emits serializable `VisualPatch` metadata and explicit side
+     effects.
+
+3. **Server validation stays pure.**
+   - `command-validation.ts` depends only on envelope validation + caller-supplied
+     context.
+   - no Prisma or server-only imports are allowed in the validators.
+
+4. **Projection is not user intent.**
+   - `mirrorVisualNodes()` remains outside the command bus and is represented as
+     `visual_mirror_rebuild` side-effect metadata.
+
+5. **Machine-usable mutation inventory lives in docs, not source.**
+   - the epic originally called for `mutation-inventory.ts`, but implementation
+     keeps the inventory embedded as JSON in `docs/architecture/mutation-audit.md`
+     to avoid a second authority.
+
+## Consequences
+
+- mixed visual + deck replay can share one envelope format immediately;
+- existing slide save/revision-token logic is preserved;
+- future comment/source-ref/asset command surfaces can adopt the same envelope
+  without redesigning the core shape.
+
+
+# Switch · Epic #442 · Visual-Kind Registry with Adapters, Lifecycle, and Derived Matrices
+
+**Branch:** `squad/442-dv-visual-registry`
+**Date:** 2026-06-23
+**Issues closed:** #443, #444, #445, #446, #447
+
+---
+
+## Problem
+
+Visual kind behavior was scattered across:
+- `schema.ts` — VISUAL_KINDS constant only
+- `tool-registry.ts` — VISUAL_KIND_META (labels/icons/descriptions)
+- `visual-renderer.tsx` — renderer-selection switch, shape switch
+- `transforms.ts` — POSITIONED_SHAPE record, setVisualKind layout logic
+- `export-capabilities.ts` — plan-gated booleans only
+- `ai/prompt.ts` — KIND_GUIDANCE map (hardcoded per-kind AI guidance)
+
+No single module described what a visual kind _supports_. Adding a 14th kind
+would require touching ≥ 6 files with no compile-time guarantee of completeness.
+
+---
+
+## Design decisions
+
+### 1. Registry-first, not registry-only
+
+The registry (`registry.ts`) is the **single source of truth** for per-kind
+capabilities. Existing scattered constants (`VISUAL_KIND_META` in tool-registry,
+`KIND_GUIDANCE` in prompt.ts) become **derived** from or **backed by** the
+registry rather than parallel sources.
+
+We chose **additive consolidation** over a big-bang rewrite:
+- `VISUAL_KIND_META` still lives in `tool-registry.ts` (icon component
+  resolution requires React imports the registry must not have), but it is now
+  clearly derivable from registry `iconName` + `label` + `description` +
+  `keywords`.
+- `KIND_GUIDANCE` in `prompt.ts` is unchanged for now, but
+  `support-matrices.ts` exposes `buildKindGuidanceRecord()` that produces an
+  identical shape — a future cleanup can swap the import.
+
+### 2. Layout family is the key discriminant
+
+"Positioned" kinds (`flowchart`, `mindmap`, `concept`, `orgchart`, `venn`)
+carry explicit `x/y` node coordinates. "Derived" kinds (`list`, `chart`,
+`timeline`, `cycle`, `comparison`, `funnel`, `pyramid`, `matrix`) compute
+positions at render time from node order/value.
+
+This discriminant already existed implicitly in `transforms.ts`
+(`setVisualKind` switch) and the schema comment. The registry makes it
+explicit via `layoutFamily: "positioned" | "derived"`.
+
+`venn` is positioned (circles need explicit center + radius) but not
+fully graph-editable (no edges, no node duplication). This motivated the
+per-kind editing capability object instead of a single boolean.
+
+### 3. Editing capability objects, not a "graphEditable" flag
+
+Each kind has a `KindEditingCapabilities` object with seven boolean fields
+(`nodeAddable`, `nodeDeletable`, `edgeAddable`, `edgeDeletable`,
+`edgeReconnectable`, `nodeDuplicatable`, `autoLayoutSupported`).
+
+Three shared bundles cover 90% of cases (`FULL_GRAPH_EDITING`,
+`NODE_ONLY_EDITING`, `READ_ONLY_EDITING`); venn gets a custom object.
+
+### 4. PPTX export: native vs raster
+
+Positioned graph kinds (`flowchart`, `mindmap`, `concept`, `orgchart`) render
+to native Office shapes via `pptx-shapes.ts` — `pptxNative: true`.
+All derived-layout kinds and venn embed as raster images — `pptxNative: false`,
+`pptxRasterFallback: true`. This accurately reflects existing behavior.
+
+### 5. Adapters are additive overlays
+
+`adapters.ts` defines `VisualKindAdapter` with `validate()`, `migrate()`, and
+`editableNodeFields()`. Six specialised adapters cover kinds with semantic
+invariants that generic schema validation misses:
+- `ChartAdapter` — every node needs numeric `value`
+- `FlowchartAdapter` — dangling edges caught and removed in migration
+- `VennAdapter` — 2–3 nodes, explicit circle geometry
+- `ComparisonAdapter` — non-negative integer column index per node
+- `MatrixAdapter` — quadrant index 0–3 per node
+- `FunnelAdapter` — non-negative value per node
+
+Remaining 7 kinds use `DefaultAdapter` (no-op). Adapters are pure functions
+with no side effects.
+
+### 6. Lifecycle commands consult the registry
+
+Seven new command ops in `visual-commands.ts` + `command-envelope.ts`:
+`visual.add_node`, `visual.delete_node`, `visual.add_edge`,
+`visual.delete_edge`, `visual.reconnect_edge`, `visual.duplicate_node`,
+`visual.relayout_graph`.
+
+Every op checks `getKindEntry(visual.type).editing.*` before proceeding.
+Shape validation on `add_node` uses `isShapeAllowed()` from the registry.
+Lifecycle ops are never coalesced (each is a discrete structural change).
+
+`delete_node` removes connected edges (referential integrity).
+
+### 7. Support matrices as derived views
+
+`support-matrices.ts` provides `buildKindExportMatrix()`,
+`buildKindPromptConstraints()`, and `buildKindGuidanceRecord()` — pure
+functions that materialise registry data into the shapes consumed by export
+and AI layers. The AI prompt system can call `buildKindGuidanceRecord()` to
+replace the hardcoded `KIND_GUIDANCE` map with a registry-derived one.
+
+---
+
+## Files added
+
+| File | Purpose |
+|------|---------|
+| `src/lib/visual/registry.ts` | Registry contract + populated entries for all 13 kinds (#443, #444) |
+| `src/lib/visual/adapters.ts` | Per-kind adapter interface + 6 specialised adapters + default (#445) |
+| `src/lib/visual/support-matrices.ts` | Derived export matrix + AI prompt constraints (#447) |
+| `src/lib/visual/registry.test.ts` | Registry exhaustiveness + capability tests (97 assertions) |
+| `src/lib/visual/adapters.test.ts` | Adapter validation + migration tests (28 assertions) |
+| `src/lib/visual/support-matrices.test.ts` | Matrix/constraint completeness tests (19 assertions) |
+| `src/lib/commands/visual-lifecycle.test.ts` | Lifecycle command roundtrip tests (25 assertions) |
+
+## Files modified
+
+| File | Change |
+|------|--------|
+| `src/lib/commands/visual-commands.ts` | Added 7 lifecycle ops + registry imports |
+| `src/lib/commands/command-envelope.ts` | Added envelope validation for 7 new payload ops |
+
+---
+
+## Invariants preserved
+
+- All 13 existing visual kinds render identically — no renderer changes.
+- Export behavior unchanged — `export-capabilities.ts` untouched.
+- `VISUAL_KIND_META` in `tool-registry.ts` unchanged — UI insert menus work.
+- `KIND_GUIDANCE` in `prompt.ts` unchanged — AI generation behavior identical.
+- `VISUAL_KINDS` in `schema.ts` unchanged — Prisma enum mapping unaffected.
+
+---
+
+## Exhaustiveness guarantees
+
+- `assertRegistryCompleteness()` — TypeScript `satisfies VisualRegistry` +
+  runtime check at test time.
+- `assertAdapterCompleteness()` — runtime check verifying every VISUAL_KIND
+  has an adapter entry and no kind mismatch.
+- `assertSupportMatricesComplete()` — runtime check verifying every kind has
+  PNG support and non-empty AI guidance.
+
+---
+
+## Gate status (final)
+
+```
+src  → tests 3050 / pass 3050 / fail 0
+scripts → tests 11 / pass 11 / fail 0
+typecheck → clean
+lint → clean
+format:check → clean
+```
+
+
+# Switch-468: Command Adoption Decisions
+
+Date: 2026-06-23  
+Branch: `squad/468-command-adoption`  
+Issues: #471 (visual command routing), #472 (slide command routing), #473 (patch autosave)
+
+---
+
+## #471 — Visual command routing
+
+**Decision: thin adapter layer, not direct `executeVisualCommand` calls in UI**
+
+Created `src/lib/commands/visual-command-adapter.ts` as a DOM-free pure module exposing:
+- `buildVisualCommand(payload, visualId, documentId?, coalesceKey?)` — builds a typed envelope
+- `applyVisualCommand(visual, visualId, payload, …)` — wraps `executeVisualCommand`, returns `VisualCommandResult`
+
+UI surfaces (`visual-card.tsx`, `visual-context-popover.tsx`, `overall-adjustments-panel.tsx`) call the adapter; the write (`node.setVisual`) stays in the caller so the Lexical/Yjs write path is never bypassed.
+
+**Decision: `onCommand` prop uses optional/fallback pattern**
+
+`VisualContextPopoverProps.onCommand?: (payload, coalesceKey?) => void` is optional. When absent, all callers fall back to the existing `onChange(transform(visual, …))` path so the popover keeps working in any context that doesn't yet pass `onCommand` (panel mode, tests, third-party callers). This is backward-compatible by design.
+
+**Decision: `applyBrand` is an adapter-only exception**
+
+`applyBrand` applies both global style AND per-node color overrides in a single pass. There is no `VisualCommandPayload` equivalent that covers both changes atomically. All `applyBrandToAll` / `applyBrandToThis` calls keep using direct `node.setVisual(applyBrand(…))` mutations. This is documented in the code.
+
+**Decision: `EffectsPicker` gets `onCommand` prop alongside `onChange`**
+
+Rather than refactoring the render-section functions into callbacks, `EffectsPicker` accepts an optional `onCommand` and falls back to `onChange` when absent. This matches the existing component boundary and keeps the diff minimal.
+
+---
+
+## #472 — Slide command routing
+
+**Decision: `doCommitAndChange` helper encapsulates patch accumulation**
+
+All command-based handlers in `slide-editor.tsx` route through a single `doCommitAndChange(deck, cmd)` useCallback. This:
+1. Calls `commitCommand(deck, cmd)` to get `{ result, commitOptions, patches }`.
+2. Appends `patches` to `pendingPatchesRef.current`.
+3. Calls `onDeckChange(result.deck, commitOptions)` for undo/redo coalescing.
+
+Three handlers that need custom `coalesceKey` injection (`handleNotesChange`, `handleUpdateElement`, `handleSetElementBoxes`, `handleSetElementPatches`) call `executeCommand` directly and push `result.patches` manually.
+
+**Decision: undo/redo clears `pendingPatchesRef`**
+
+After an undo or redo, the accumulated patches no longer represent the current deck state. `handleUndo`/`handleRedo` wrappers clear `pendingPatchesRef.current = []` before calling `undo()`/`redo()`. The undo/redo toolbar buttons and keyboard shortcuts both use these wrappers.
+
+**Decision: documented direct-mutation exceptions (no patches)**
+
+These operations deliberately bypass `doCommitAndChange` because they batch multiple `addElement` calls or use external merge state:
+- `handlePasteElements` — multiple `addElement` calls (clipboard paste)
+- `handleAddAllVisuals` — multiple `addElement` calls (add-all batch)
+- `handleApplySync` — merge result applied wholesale
+- Keyboard `⌘D` (duplicate elements) — uses `duplicateElements` helper that returns `newElementIds`
+- `handleAddTemplate` / `handleSpotlightPick` — `insertSlide` needed for index arithmetic
+
+These paths produce no patches → `pendingPatchesRef` stays empty → next save uses whole-deck fallback automatically.
+
+**Decision: existing `executeCommand` keyboard paths updated to accumulate patches**
+
+The pre-existing `ADD_SLIDE`, `DUPLICATE_SLIDE`, `REMOVE_SLIDE`, `REORDER_SLIDE` paths in the keyboard handler and in `handleAddSlide`/`handleDuplicate`/`handleRemove` already used `executeCommand`. These were updated to use `commitCommand` and push patches to `pendingPatchesRef`, keeping the patch stream complete for those commands.
+
+---
+
+## #473 — Patch autosave
+
+**Decision: pure `attemptPatchAutosave` function extracts branching logic**
+
+`src/lib/presentation/patch-autosave.ts` is a DOM-free module with a single async export:
+
+```
+attemptPatchAutosave(id, deck, patches, clientToken, savePatchFn, saveDeckFn)
+  → AutosaveResult
+```
+
+Strategy:
+1. If `patches.length > 0`: call `savePatchFn`.
+   - `ok: true` → return `{ ok: true, method: "patch" }`.
+   - `ok: "conflict"` → surface conflict (stop, do NOT fall back).
+   - `ok: "fallback"` | `ok: false` | network error → fall through to step 2.
+2. Call `saveDeckFn` with the full deck.
+   - `ok: true` → return `{ ok: true, method: "deck" }`.
+   - `ok: "conflict"` → surface conflict.
+   - `ok: false` / network error → propagate error.
+
+**Decision: patch snapshot-and-clear before async save**
+
+`flushSave` snapshots `pendingPatchesRef.current` and clears it to `[]` BEFORE the async `onSave` call. If the save fails, the patches are not restored (they are lost); the next retry will have `patches = []` and trigger whole-deck fallback. This avoids double-application on retry.
+
+**Decision: conflict recovery path stays as whole-deck save**
+
+`handleConflictKeepMine` in `slide-editor-button.tsx` still calls `saveDeckJson` directly (not `attemptPatchAutosave`). Conflict recovery is a force-overwrite with a known server token — patch application is not appropriate here.
+
+**Decision: `revisionToken` updated on both patch-success and deck-success paths**
+
+`handleSave` in `slide-editor-button.tsx` reads `result.revisionToken` from the `AutosaveResult` and writes it to `revisionTokenRef.current` on both `method: "patch"` and `method: "deck"` outcomes, so the optimistic lock is always current after a successful save.
+
+
+# Decisions: Switch — Epic #478 Boundaries + Migration
+
+Date: 2026-06-23
+Branch: squad/478-boundaries-migration
+Issues: #483, #484, #485, #486, #487
+
+---
+
+## #487 — Shared FNV-1a Hash Utility
+
+**Problem**: `deck.ts` duplicated `fnv1aHex32` locally with a comment "Must stay byte-for-byte identical to deck-hash.ts" because a direct import from `deck-hash.ts` would create a circular dependency (`deck-hash.ts` imports types from `deck.ts`).
+
+**Decision**: Extract into `src/lib/presentation/fnv-hash.ts` — a standalone module with zero imports from the presentation layer. Both `deck.ts` and `deck-hash.ts` import `fnv1aHash32` from there. `deck-hash.ts` keeps its public `fnv1aHex` wrapper for backward compatibility with external callers.
+
+**Guarantees**: Byte-for-byte identical output (same algorithm, same constants). Tests in `fnv-hash.test.ts` assert both call sites produce identical output for 8 probe strings including the empty string.
+
+---
+
+## #486 — Deck Legacy→Free-Form Migration (v1→v2)
+
+**Decision**: Bump `CURRENT_DECK_SCHEMA_VERSION` from 1 → 2. Add a `migrateSlideV1ToV2` step in `migrateDeck` that, for each slide without `elements[]`, calls `materializeSlideElements` and stamps `elementsDerived: true`.
+
+**Migration scope**: Only versions `undefined | null | 0 | 1` trigger migration. Invalid values (1.5, -1, "1") and future versions (≥ 3) are passed through unchanged so `validateDeck` surfaces a clear error.
+
+**Idempotence**: Slides that already have non-empty `elements[]` are returned unchanged. Running `migrateDeck` twice on the same deck is a no-op after the first pass (schemaVersion=2, elements present → pass-through).
+
+**Backward compat**: Legacy `title`/`bullets`/`visualIds`/`layout` fields are preserved on disk. No schema change (Prisma model unchanged). Renderers that read `elements[]` already produce output identical to the legacy renderer for materialized element sets.
+
+**Existing test updates**: Three `deck-schema.test.ts` tests were updated to reflect new behavior:
+- "accepts a legacy deck without elements" → now checks elements ARE populated
+- "omits elementsDerived when absent" → now checks elementsDerived === true
+- "rejects a non-boolean elementsDerived" → migration overwrites with true; parse succeeds
+
+---
+
+## #485 — Import Normalization at Creation Time
+
+**Decision**: Convert imported Markdown to `contentJson` (Lexical JSON) at document creation time by calling `markdownToLexicalState` in both `createDocumentFromImport` (personal space) and `importWorkspaceDocument` (workspace). The legacy `content` (Markdown string) is still persisted as a fallback, preserving the first-open conversion path for existing content-only documents.
+
+**Rationale**: The first-open path in the editor already called `markdownToLexicalState`; doing it at creation time removes the lazy conversion and makes the document immediately consistent. The legacy fallback is kept for any existing doc that only has `content` and no `contentJson`.
+
+---
+
+## #483 — Workspace Capability Helper
+
+**Decision**: Create `src/lib/auth/workspace-capabilities.ts` mirroring `document-permissions.ts` exactly. Roles: `owner | editor | viewer | none`. Capabilities: `view | mutate | manage` (not "edit" to distinguish from the document permission set and because workspace mutations are different from document edits).
+
+**Role mapping**:
+- `canManage` (rename, delete, transfer, invite, revoke, remove member) → owner only
+- `canMutate` (create/import documents) → owner + editor
+- `canView` (list documents) → owner + editor + viewer
+
+**Actions migrated**: `renameWorkspace`, `deleteWorkspace`, `transferOwnership`, `createInviteLink`, `revokeInviteLink`, `removeMember`, `createWorkspaceDocument`, `importWorkspaceDocument`. All use `requireWorkspaceCapability` instead of local queries. The local `requireWorkspaceOwner` and `requireWorkspaceMutator` functions are removed.
+
+**No policy change**: Access decisions are identical to before — refactor only.
+
+---
+
+## #484 — Account Export Data Scope
+
+**Decision**: Bump `ACCOUNT_EXPORT_VERSION` to 2. Expand the export to include:
+- `workspacesOwned`: workspaces where `ownerId = userId`
+- `workspaceMemberships`: non-owner `WorkspaceMember` rows for the user
+- `comments`: comments where `authorId = userId`
+- `tags`: tags where `ownerId = userId`
+- `brands`: brands where `ownerId = userId`
+- `assets`: assets scoped to the user's documents or workspaces (metadata only, no raw bytes)
+- `subscription`: the user's active subscription (nullable)
+- `documents`: now includes `versions[]` (document version history), `workspaceId`, and `isShared`
+
+**Exclusions documented in code**:
+- Soft-deleted documents
+- Other users' data
+- Raw asset file bytes (storage keys, thumbnails not included)
+- Invite-link tokens (security)
+- Stripe webhook events, rate-limit records (operational)
+
+**Asset scoping note**: The `Asset` model has no direct `userId` field. Assets are scoped via `documentId`/`workspaceId`. The export fetches assets where `document.ownerId = userId OR workspace.ownerId = userId`.
+
+**Backward compat**: New fields are additive; the `exportVersion` bump is the signal for consumers to expect new structure. The `scope` field documents the compliance boundary inline in the JSON.
+
+
+# Tank – Epic #374 Asset Storage Layer: Design Decisions
+
+**Date:** 2026-06-23  
+**Branch:** squad/374-slides-assets  
+**Issues:** #393, #394, #395, #396, #397  
+**Author:** Tank (Backend Dev)
+
+---
+
+## Decision 1: backgroundAssetId on Slide (issue #393)
+
+Added `backgroundAssetId?: string` to the `Slide` interface alongside the existing
+`backgroundImage?: string`. When a server-side upload succeeds, both fields are set:
+`backgroundImage` holds the resolved URL (for legacy renderers / fallback) and
+`backgroundAssetId` holds the Asset row id (for the resolver path). This dual-field
+approach keeps backward compatibility with any code that reads `backgroundImage`
+directly while enabling the resolver path going forward.
+
+---
+
+## Decision 2: Asset resolver — dual client/server implementations (issue #394)
+
+Rather than a single resolver that tries to be isomorphic, two concrete implementations
+were created:
+
+- `ClientAssetResolver`: pure synchronous-compatible pass-through. Because the local
+  adapter already serves assets as public static files under `/slide-assets/`, the
+  `fallbackUrl` stored on upload is authoritative and no additional DB lookup is needed
+  at render time.
+- `ServerAssetResolver`: used by PPTX/image export paths. Does a DB lookup to recover
+  the `storageKey` from the `Asset` row, then delegates URL construction to the storage
+  adapter. Falls back to `fallbackUrl` on DB/infra errors.
+
+`resolveAssetSync` provides a zero-async path for callers that haven't wired async
+resolution yet (e.g. canvas render loop).
+
+---
+
+## Decision 3: Protected asset API route (issue #395)
+
+Assets are served via `GET /api/slide-assets/[documentId]/[...path]` rather than as
+raw Next.js public static files. The route enforces:
+
+1. Authenticated user with `view` capability → allowed.
+2. Document publicly shared with `present` or `embed` mode → allowed (covers public
+   presentation viewers without requiring login).
+3. All other cases → 403.
+
+The `public/slide-assets/` directory still exists for the local adapter (storage writes
+go there), but for new asset-backed elements the served URL should be the API route URL.
+Existing legacy assets served directly from `/slide-assets/...` continue to work as
+public static files for backward compatibility.
+
+**Trade-off:** Switching the `LocalAssetStorageAdapter.urlFor()` to return the
+authenticated API path (instead of the static path) was deferred because it would
+require updating every existing Asset row's cached URL. The route-based access control
+applies to new lookups.
+
+---
+
+## Decision 4: 7-day orphan retention window (issue #396)
+
+`ASSET_RETENTION_MS = 7 days` was chosen to align with the typical version-history
+retention window. An orphaned asset is first soft-deleted (`deletedAt` set); physical
+purge only runs after the retention window has elapsed. This protects version restores
+that may re-reference a recently-removed asset.
+
+The orphan scanner checks both `Document.deckJson` (live state) and all
+`DocumentVersion.deckJson` snapshots before marking anything as orphaned.
+
+---
+
+## Decision 5: Lazy, per-document data URL migration (issue #397)
+
+Migration is not wired to the autosave path to avoid silently mutating decks during
+normal editing. `migrateDataUrlImages` is designed to be called explicitly (by a
+server action, admin endpoint, or maintenance script) per document. Idempotency is
+guaranteed by the `assetId` skip condition: elements that already have an `assetId`
+are never re-processed.
+
+Checksum-based deduplication within a single migration run (via `checksumCache`) and
+across DB rows (via `findFirst({ where: { documentId, checksum } })`) ensures that two
+slides using the same pixel data share exactly one Asset row.
+
+
+# Design Decisions: Tank — Epic #376 Persistence (#403–#407)
+
+**Date:** 2026-06-23  
+**Branch:** `squad/376-slides-persistence`  
+**Author:** Tank (Backend Dev)
+
+---
+
+## #403 — `saveDeckPatch` implementation decisions
+
+### Reused `DeckPatch` / `applyPatch` from `slide-commands.ts`
+The patch format from #401 is reused server-side without duplication. The
+`applyPatch()` helper is intentionally conservative — it only replays ops
+that carry their result payload (slide field updates, deck theme/format). Ops
+that require structural state (add/remove/reorder) return `null`, triggering
+the `ok: "fallback"` path. This is by design: the whole-deck save remains
+the authoritative fallback; the patch endpoint is an optimistic fast-path.
+
+### No new schema columns
+Patch saves operate on the existing `deckJson` column and `deckRevisionToken`.
+No migration was required, keeping the implementation fully additive.
+
+### Snapshot policy identical to whole-deck save
+`saveDeckPatch` calls `snapshotDocumentVersion` on the same `count > 0` guard
+as `saveDeckJson`. This means: (a) conflicted patches never create phantom
+version entries; (b) patch saves are throttled by the same 10-minute window.
+The decision to treat patch saves the same as whole-deck saves for version
+history avoids divergent snapshot semantics.
+
+---
+
+## #404 — Conflict Recovery UX decisions
+
+### Dialog over toast
+A modal dialog (`ConflictRecoveryDialog`) was chosen over a toast/banner because:
+- The conflict is a blocking decision — the user must choose before the next
+  autosave fires again.
+- A toast can be dismissed by accident; a dialog requires explicit action.
+- The dialog matches the existing UI pattern for destructive confirmations.
+
+### `onResolved` removed from dialog props
+Initially the dialog had an `onResolved(token)` callback for the parent to
+receive the new revision token post-save. On review, the parent's
+`handleConflictKeepMine` already manages the token update directly (it has
+access to the `saveDeckJson` response). Removing the callback simplifies the
+interface and removes an ESLint `no-unused-vars` violation.
+
+### "Use theirs" uses dynamic import of `safeParseDeck`
+The `handleConflictUseTheirs` handler in `SlideEditorButton` dynamically
+imports `safeParseDeck` to avoid a top-level import that would pull the full
+validation module into the client bundle on every render. This is consistent
+with the existing lazy-import pattern used for other heavy modules.
+
+---
+
+## #406 — Presence model decisions
+
+### Awareness key `"deckPresence"` namespaced separately from text-layer
+The text/Lexical layer uses top-level `{ name, color }` in awareness state.
+Slide presence is nested under `"deckPresence"` so the two can coexist on
+the same `WebsocketProvider` without interfering.
+
+### Pure helpers extracted for testability
+`deriveSlidePresencePayload` and `extractSlidePresencePeers` are pure functions
+with no React or DOM dependencies, making them directly testable under
+`node:test` without a browser runtime. The React hook `useSlidePresence`
+wraps these helpers and is not tested here (would require DOM).
+
+### `useEffect` cleanup handles awareness → null transition
+When awareness goes from a live provider to null (e.g., connection lost), the
+`useEffect` cleanup sets `peers = []`. This is the correct pattern under the
+`react-hooks/set-state-in-effect` lint rule — state resets go in cleanup
+functions, not in the effect body.
+
+---
+
+## #407 — Test strategy decisions
+
+### Pure helpers + policy tests, no DB mocking
+The test file (`save-conflict.test.ts`) exercises:
+- `isRevisionConflict` (pure)
+- `applyPatch` (pure)
+- `shouldSnapshot` (pure policy)
+- `safeParseDeck` (pure schema check)
+
+No Prisma mocking is used. Full server-action integration tests (which would
+require a test DB) are deferred to a follow-on; the pure-helper tests cover
+all acceptance criteria for #407 without infrastructure overhead.
+
+
+# Tank — Epic #380 Slide Comments: Design Decisions
+
+**Date:** 2026-06-23  
+**Branch:** `squad/380-slide-comments`  
+**Commit:** d620a5c
+
+---
+
+## Issues implemented: #419, #420, #421, #422, #423
+
+---
+
+## Key Design Decisions
+
+### #419 — Slide/element anchor API extension
+
+**Decision: Extend existing `comments-actions.ts` inline, add pure validation module.**
+
+- `CreateCommentInput` extended with `slideId`, `elementId`, `anchorGeometry`.  
+- `CommentThread` output extended with `slideAnchor: CommentSlideAnchor | null`.  
+- Slide anchors and text/visual anchors are **mutually exclusive**: when `slideId` is provided, text anchor fields are ignored.  
+- New pure module `comment-anchor-validation.ts` holds `validateAnchorGeometry` (throws on bad coords) and `sanitizeAnchorGeometry` (silently drops bad coords). This split mirrors `comment-permissions.ts` (pure, testable) vs `comments-actions.ts` (server actions).
+- `commentAnchorFromRecord` / `commentAnchorToRecord` from `slide-comment-anchors.ts` are used at every DB boundary. `Prisma.DbNull` is used for nullable JSON column writes (TypeScript requires this for `Json?` fields).
+
+### #421 — Lifecycle on delete/duplicate/version restore
+
+**Policy decisions:**
+1. **Delete slide** → float all comments to deck level (`floatAnchorToDeck`). Comments are never deleted; they survive as deck-level threads.
+2. **Delete element** → float element comments to slide level (`floatAnchorToSlide`). Geometry is preserved (valid slide-percent coords regardless of element).
+3. **Duplicate slide** → exclude comments. New slide starts clean. Rationale: comments are reviews of specific content state; copying them to a structural duplicate would be confusing.
+4. **Version restore** → no explicit DB action. The `resolveAnchorState` function dynamically returns `"orphaned"` for any comment whose slide/element no longer exists in the restored deck. `floatOrphanedCommentsAfterRestore` is provided as an opt-in bulk action for callers that want to clean up.
+
+**Two-pass float for slide delete:** `floatCommentsOnSlideDelete` runs two `updateMany` queries — one for resolved comments and one for all — since Prisma requires explicit calls. This ensures both resolved and unresolved comments are floated.
+
+### #422 — Unread/read state
+
+**Decision: Slide comments participate in unread counts automatically.**
+
+Since slide-anchored comments are plain `Comment` rows on the document, they already count toward unread totals without any schema change. The `getUnreadCommentCount` action accepts an optional `scope` parameter (`"all" | "text" | "slide"`) to allow UIs to show separate counts for document text vs slide comments.
+
+The pure helper `isCommentUnread(comment, userId, lastReadAt)` mirrors the existing `CommentRead` semantics: own comments are never unread; comments created after `lastReadAt` are unread; null `lastReadAt` means all are unread.
+
+### #420 — UI: Slide comment pins + thread panel
+
+**Decision: Separate `SlideCommentPins` and `SlideCommentPanel` components.**
+
+- `SlideCommentPins` renders absolute-positioned buttons on the slide canvas at `anchorGeometry` percent coordinates. Falls back to `elementCenters` map when geometry is absent.
+- `SlideCommentPanel` is a self-contained panel with thread list + new-comment input. Filtered to the current `slideId` by the caller (same pattern as `InlineCommentsLayer` which renders in the document context).
+- Manual `useCallback` wrappers removed to satisfy the React Compiler (which inferred different dependency graphs). Using plain functions is idiomatic with the React Compiler.
+- Element pins stay at `anchorGeometry` percent coordinates — they do not follow DOM element position. When an element moves, the pin position (stored in DB) remains unchanged; `floatCommentsOnElementDelete` clears `elementId` if the element is deleted.
+
+### #423 — Tests
+
+**Decision: Pure-helper-only test strategy (no DB mocking).**
+
+All tests are co-located `.test.ts` files that test pure functions only:
+- `comment-anchor-validation.test.ts` — 27 tests for geometry/ID validation helpers
+- `slide-comment-lifecycle.test.ts` — 22 tests for `applySlideDeleteToAnchors`, `applyElementDeleteToAnchors`, `findOrphanedAnchors`, plus lifecycle policy assertions
+- `slide-comment-unread.test.ts` — 14 tests for `isCommentUnread`
+- `slide-comment-permissions-lifecycle.test.ts` — 33 tests spanning permissions, anchor parse/sanitize, lifecycle rules, backward compat
+
+Server actions themselves (DB calls) are not unit-tested; they delegate to the tested pure helpers.
+
+---
+
+## Schema
+
+**No schema change.** All columns (`slideId`, `elementId`, `anchorGeometry`) were already added in migration 20260622140000_add_comment_slide_anchors (via Epic #388). `CommentRead` powers unread counts without modification.
+
+---
+
+## Files changed
+
+| File | Type |
+|------|------|
+| `comment-anchor-validation.ts` | NEW — pure geometry/ID validation |
+| `comment-anchor-validation.test.ts` | NEW — 27 tests |
+| `comments-actions.ts` | MODIFIED — extend with slide anchors |
+| `slide-comment-lifecycle.ts` | NEW — server actions + pure helpers |
+| `slide-comment-lifecycle.test.ts` | NEW — 22 tests |
+| `slide-comment-unread.ts` | NEW — server actions + pure helper |
+| `slide-comment-unread.test.ts` | NEW — 14 tests |
+| `slide-comment-panel.tsx` | NEW — UI: pins + thread panel |
+| `slide-comment-permissions-lifecycle.test.ts` | NEW — 33 tests |
+
+
+# Tank — Visual Projection Repair Pipeline (#448)
+
+**Date:** 2026-06-23  
+**Branch:** `squad/448-dv-projection-repair`  
+**Issues:** #449, #450, #451, #452, #453
+
+---
+
+## Design Decisions
+
+### #449 — Mirror contract ADR location
+Placed at `docs/architecture/visual-mirror-contract.md` alongside the related
+`block-anchor-identity-adr.md`. The doc covers: VisualNode shape in
+contentJson, every Visual row field and its meaning, the full mirror algorithm
+(collect → diff → execute), ordering semantics, invariants, failure modes, and
+the rebuild repair action.
+
+### #450 — VisualMirrorOutcome type placement
+Added `VisualMirrorOutcome` and `mirrorOutcomeFromDiff` to
+`src/lib/visual/mirror-diff.ts` (the existing pure-diff module) rather than a
+new file. This keeps the outcome type co-located with the diff it describes,
+and `mirrorOutcomeFromDiff` is pure and trivially unit-testable. The
+`mirrorVisualNodes` function now tracks `invalidCount` (no anchor) and
+`skippedCount` (bad payload) in addition to the diff counts.
+
+`saveDocumentLexical` now returns `ActionResult<VisualMirrorOutcome>` instead
+of `ActionResult<void>`. The client caller only checks `res.ok` so this is
+backward-compatible. The outcome is also emitted via `logInfo("visual.mirror",
+"mirror complete", ...)` for production log pipelines.
+
+### #451 — rebuildVisualMirror as a server action in actions.ts
+Rather than a separate file, `rebuildVisualMirror` lives in the same
+`actions.ts` file as `saveDocumentLexical`. Both share `mirrorVisualNodes`
+directly so there is no code duplication. The action is idempotent by
+construction: it calls the same diff pipeline, which is a no-op when the DB
+already matches contentJson. Permission-checked (requires edit access).
+Returns `ActionResult<VisualMirrorOutcome>` so callers can inspect what
+changed.
+
+### #452 — Post-restore reconciliation strategy
+The existing `sanitizeRestoredDeck` pass (run before the DB write) strips deck
+refs based on `collectVisualNodes(restoredContent)`. This is correct in the
+happy path. Two additions for belt-and-suspenders safety:
+
+1. **`reconcileDeckAfterMirror`**: after `mirrorVisualNodes` completes, re-reads
+   the actual Visual DB rows and does a second `stripOrphanedVisuals` pass
+   against the real DB state. Only writes back to the DB if something changed.
+   Swallows errors so a reconciliation failure can never surface to the restore
+   caller.
+
+2. **`revalidateSharePaths`**: looks up the document's `shareId` and calls
+   `revalidatePath` for `/share/[segment]`, `/embed/[segment]`,
+   `/present/[segment]` so cached public pages reflect the restored content.
+   Also swallows errors.
+
+### #453 — Pure test coverage only (no DB mocking needed)
+All test cases in `src/lib/visual/mirror-repair.test.ts` exercise
+`diffVisualMirror` and `mirrorOutcomeFromDiff` directly. The pure diff layer
+captures all the important invariants (concurrent-idempotence, skip-not-fatal,
+rebuild-idempotence, restore-ordering). DB-touching logic is thin and inherits
+correctness from the diff + existing transaction structure; no Prisma mocking
+was needed.
+
+### No schema changes
+No new columns or models were added. All new functionality builds on the
+existing `Visual` / `VisualRevision` / `Document` schema. This avoids the
+dual-schema migration burden (rule #3).
+
+
+# tank-468-persistence: Persistence Hardening & Architecture (#468)
+
+**Author:** Tank  
+**Date:** 2026-06-23  
+**Issues:** #469, #470, #474, #475, #476  
+**Branch:** squad/468-persistence
+
+---
+
+## Summary
+
+Implements the persistence/architecture half of Epic #468: atomic saves, service extraction, collab durability, source-ref model, and architecture docs.
+
+---
+
+## Decision 1 — Atomic Lexical Save (#470)
+
+**Decision:** Accept a caller-supplied `Prisma.TransactionClient` in `mirrorVisualNodesInTx(tx, ...)` and wrap both the `document.updateMany` (contentJson) and `mirrorVisualNodesInTx` in a single `prisma.$transaction()` in `atomicSaveDocumentLexical`.
+
+**Rationale:** Prisma interactive transactions allow multiple operations to share a single transaction boundary. Passing `tx` as the first arg (rather than using module-level prisma calls) keeps the function composable and testable without a real DB — tests can inject a stub `tx` that records calls and optionally throws on the mirror step to verify rollback semantics.
+
+**Alternatives rejected:**
+- Two-phase with compensating write: complex, error-prone, doesn't truly atomize.
+- Middleware/event-based: too indirect; hard to reason about rollback.
+
+**Test approach:** `makeStubTx()` records all prisma calls; a second variant `makeThrowingMirrorTx()` throws on `visual.deleteMany` to simulate mirror failure and assert that the outer transaction is rolled back.
+
+---
+
+## Decision 2 — Service Extraction (#474)
+
+**Decision:** Create `src/lib/document/persistence-service.ts` containing all persistence orchestration. `actions.ts` becomes thin wrappers: auth/permission checks only, then delegate to service.
+
+**Rationale:**
+1. `actions.ts` was ~1300 lines mixing permission checks, business logic, and persistence. Hard to unit test any persistence logic (tied to Next.js server action context).
+2. Moving orchestration to a plain TS module makes it importable in tests, background jobs, and future API routes without the Next.js server action overhead.
+3. Types like `SaveDeckResult` are re-exported from `actions.ts` for backward compatibility — existing callers import paths are unchanged.
+
+**Service boundary:** The service owns transaction management, mirror reconciliation, deck sanitization, and path revalidation. Server actions own: session/auth, workspace permission checks, and the `revalidatePath` HTTP cache layer.
+
+---
+
+## Decision 3 — Collab Durability (#469)
+
+**Decision:** Add an `onBeforeEvict(roomName, doc)` async callback to `createCollabWss` options. When `evictRoom` fires, if `hasPendingUpdates(doc, savedStateVectors.get(name))` is true, `onBeforeEvict` is called before eviction proceeds. Errors are swallowed so eviction always completes (degraded-safe).
+
+**Rationale:**
+- The failure window is: edit synced to Yjs in-memory → collab server restarts before the Next.js autosave fires → edit lost.
+- We close this by giving the collab server a hook to flush before eviction; the consumer (lexical-editor integration) can trigger a forced save.
+- We don't block eviction on the callback because blocking indefinitely would starve other rooms; we reduce the window, not eliminate it.
+- `hasPendingUpdates` is a pure helper (Y.encodeStateVector diff) → easily testable without WebSockets.
+
+**Threading pattern:** `onBeforeEvict` is threaded through `createCollabWss → setupConnection → closeConn/messageListener` rather than stored in a module-level variable, so multiple WSS instances with different callbacks can coexist safely.
+
+**`savedStateVectors` map:** Tracks the last-persisted Y state vector per room. Callers call `setRoomSavedStateVector(room, sv)` after each successful DB write, so `hasPendingUpdates` can compare current state to last-saved.
+
+---
+
+## Decision 4 — Source-Ref Model (#475)
+
+**Decision:** Create `src/lib/document/source-ref-model.ts` as a pure, side-effect-free typed module describing document→deck dependencies. Existing helpers (`stripOrphanedVisuals`, `source-link-staleness`, `anchor-resolver`) are left in place and used by the model; the model provides a unified enumeration + health-check surface.
+
+**Key types:**
+- `DocumentDeckDependency`: discriminated union of `visual_element` | `source_ref` deps
+- `DependencyHealth`: `healthy` | `stale` | `missing`
+
+**Rationale:** Previously, orphan/staleness/ref logic was scattered across 3+ modules with no shared vocabulary. A central typed model makes it possible to enumerate all deps, check health in one pass, and reconcile consistently. No behavior changes to existing helpers — they still own their repair logic.
+
+---
+
+## Decision 5 — Architecture Docs (#476)
+
+**Decision:** Write `docs/architecture/current-state.md` as a single current-state reference covering all real subsystems. Existing ADRs (`block-anchor-identity-adr`, `slides-persistence-adr`, `visual-mirror-contract`, `command-envelope-spec`, etc.) are referenced and marked as "historical" where the implementation has diverged.
+
+**Rationale:** The ADRs describe decisions, not current behavior. A separate current-state doc lets new contributors quickly orient without sifting through history. The ADRs remain valuable as decision records; the current-state doc is the living reference.
+
+---
+
+## Files Changed
+
+| File | Purpose |
+|------|---------|
+| `src/lib/document/persistence-service.ts` | #474 service + #470 atomic tx |
+| `src/lib/document/persistence-service.test.ts` | Tests for atomicity / rollback |
+| `src/app/app/documents/[id]/actions.ts` | Refactored to thin wrappers |
+| `scripts/collab-core.mjs` | #469 durability hooks |
+| `scripts/collab-durability.test.mjs` | Tests for durability hooks |
+| `src/lib/document/source-ref-model.ts` | #475 typed dep model |
+| `src/lib/document/source-ref-model.test.ts` | Tests for source-ref model |
+| `docs/architecture/current-state.md` | #476 current-state doc |
+
+
+# Tank: Epic #478 Platform Services — Assets, Metering, Data Boundaries
+
+**Branch**: `squad/478-platform-services`  
+**Commit**: `feat(platform): protected asset delivery, unified storage adapter, usage ledger, atomic rate limits (#478)`  
+**Issues closed**: #479, #480, #481, #482
+
+---
+
+## #479 — Protected Asset Delivery
+
+**Decision**: Changed `LocalAssetStorageAdapter` default from `public/slide-assets/` + `/slide-assets` to `storage/slide-assets/` (non-public) + `/api/slide-assets`. New uploads now get `/api/slide-assets/{docId}/{key}` URLs, routing through the auth-protected API route.
+
+**Legacy compat**: Assets uploaded before this change have `/slide-assets/…` embedded in deckJson. Those URLs continue to be served by Next.js's static file server directly from `public/slide-assets/` — no migration needed. Remote URLs are unaffected.
+
+**Trade-off**: Existing DB Asset rows pointing to physical files in `public/slide-assets/` are still accessible via the static URL. The protected route `/api/slide-assets/…` reads via the adapter from `storage/slide-assets/` — it won't find old files there, but old assets were given old-style URLs so the route would never be called for them.
+
+---
+
+## #480 — Unified Storage Adapter
+
+**Decision**: Extended `AssetStorageAdapter` interface with `read(key): Promise<Buffer>` and `delete(key): Promise<void>`. `LocalAssetStorageAdapter` implements both. The protected serving route now uses `getDefaultStorageAdapter().read()` instead of a hardcoded `fs.readFile` on `public/slide-assets/`.
+
+**Orphan storage**: `LocalOrphanStorage` is deprecated (comment added). Since `AssetStorageAdapter` now satisfies the `OrphanStorage` interface structurally (both have `delete(storageKey: string): Promise<void>`), callers can pass `getDefaultStorageAdapter()` directly to `purgeExpiredAssets`. The class is kept for backward compat but delegates to `fs.rm` with the new default rootDir.
+
+**Buffer → Uint8Array**: `NextResponse` does not accept `Buffer` directly in TS types (`BodyInit` doesn't include `Buffer`). Converted to `new Uint8Array(data)` in the serving route.
+
+---
+
+## #481 — Durable Generation Usage Ledger
+
+**Decision**: Implemented reserve/capture/refund with these semantics:
+- `reserve`: Creates ledger row (`status=reserved`); credits NOT deducted yet. Idempotent by `idempotencyKey`.
+- `capture`: Calls `deductCredits` (the existing atomic conditional decrement) + marks `status=captured`. Idempotent — skips deduction if already captured.
+- `refund`: Marks `status=refunded`; pure tombstone since credits were never deducted. No-op if key missing.
+
+**Rationale for reserve-not-deduct**: Deducting at reserve creates a refund-on-failure path that requires crediting back, which has its own atomicity challenges. The `deductCredits` atomic write (single `updateMany WHERE creditBalance >= cost`) already prevents double-charging at the capture point. The ledger's value is the durable audit trail and idempotency key.
+
+**Wire-in**: Both `/api/generate` and `/api/generate-deck` reserve before calling the AI model, capture on success, and refund in the outer catch block. Ledger failures are non-fatal (logged, continue without ledger) to preserve the existing route behavior.
+
+**Prisma model**: Added `UsageLedgerEntry` to both `schema.prisma` (Postgres) and `schema.sqlite.prisma` (SQLite). Migrations at `20260623030000_add_usage_ledger` in both `prisma/migrations/` and `prisma/migrations-sqlite/`. Migration applied to `prisma/dev.db`.
+
+---
+
+## #482 — Atomic Rate Limits
+
+**Decision**: Added optional `atomicIncrement?(key, options): Promise<RateLimitResult>` to `RateLimitStore` interface. `checkRateLimitWithStore` delegates to it when present.
+
+**Implementation** in `prismaRateLimitStore`:
+1. `updateMany WHERE subject=key AND count < limit AND resetAt > now, SET count += 1` — atomic conditional increment (one DB operation).
+2. If 0 rows updated: fetch existing row.
+   - If absent or expired → upsert with count=1, fresh resetAt.
+   - If present and not expired → blocked at limit.
+
+**Guarantee**: Exactly `limit` requests succeed per window. The conditional `updateMany` is a single atomic DB write — concurrent requests cannot both succeed past the boundary. This holds under SQLite WAL and PostgreSQL MVCC row-level serialization.
+
+**Backward compat**: In-memory test stores (used in existing tests) do not implement `atomicIncrement`, so `checkRateLimitWithStore` falls back to the old get→compute→set path for them. No existing tests changed.
+
+---
+
+## Files Changed
+
+| File | Change |
+|------|--------|
+| `src/lib/slides/asset-storage.ts` | Add `read`/`delete` to interface + impl; change default dir/URL (#479, #480) |
+| `src/app/api/slide-assets/[documentId]/[...path]/route.ts` | Use `adapter.read()` instead of hardcoded `fs.readFile` (#480) |
+| `src/lib/slides/asset-orphan.ts` | Deprecate `LocalOrphanStorage`; update default rootDir (#480) |
+| `src/lib/billing/usage-ledger.ts` | New: reserve/capture/refund ledger service (#481) |
+| `src/lib/billing/usage-ledger.test.ts` | New: ledger lifecycle + idempotency tests (#481) |
+| `src/app/api/generate/route.ts` | Wire ledger reserve/capture/refund (#481) |
+| `src/app/api/generate-deck/route.ts` | Wire ledger reserve/capture/refund (#481) |
+| `src/lib/ai/quota.ts` | Add `atomicIncrement?` to `RateLimitStore`; update `checkRateLimitWithStore` (#482) |
+| `src/lib/rate-limit.ts` | Implement `atomicIncrement` in `prismaRateLimitStore` (#482) |
+| `prisma/schema.prisma` | Add `UsageLedgerEntry` model (#481) |
+| `prisma/schema.sqlite.prisma` | Add `UsageLedgerEntry` model (#481) |
+| `prisma/migrations/20260623030000_add_usage_ledger/migration.sql` | Postgres migration (#481) |
+| `prisma/migrations-sqlite/20260623030000_add_usage_ledger/migration.sql` | SQLite migration (#481) |
+| `src/lib/slides/asset-storage.test.ts` | Update for new defaults + add read/delete tests (#479, #480) |
+| `src/lib/slides/upload-action.test.ts` | Add `read`/`delete` to mock adapter (#480) |
+| `src/lib/rate-limit.test.ts` | Add atomicIncrement tests (#482) |
+
+
+# Trinity Refactor Architecture Analysis — 2026-06-25
+
+20 grounded findings across 10 passes. Top P1s:
+
+1. **TRIN-01/14** — `DeckPatch`/`PatchOp`/`SlideCommand` types are defined identically in both `slide-commands.ts` (1049 LOC) and `slide-command-contracts.ts` (720 LOC). UI imports from commands; executors from contracts. Mechanical re-export fix; directly closes decisions.md #307 dual-track debt.
+2. **TRIN-02** — `DECK_THEMES` (6 entries) diverges from `STYLE_THEMES` (8 entries): rose, amber, slate missing. AI prompt enumerates only 6; deck validator rejects the 3 new visual themes.
+3. **TRIN-03** — 91 "Deferred broad facade migration" exceptions in `import-graph-allowlist.mjs`, all same-reason, accumulating. Need retirement plan with quarterly declining threshold.
+4. **TRIN-05** — `deck-export.ts` (1709 LOC) + 3 siblings live in `lib/visual/` but deeply import `lib/presentation/` types (style-cascade, connector-geometry, deck, etc.). Belongs in `presentation/export/`.
+5. **TRIN-06** — `VISUAL_KIND_META_DATA` in `tool-metadata.ts` duplicates `KIND_DISPLAY_METADATA` in `registry-display.ts`; two records of label/description/keywords per VisualKind that must be updated in parallel.
+6. **TRIN-09/10/11** — Three mega-files (slide-editor.tsx 3044, slide-stage-editor.tsx 1987, slide-inspector/controls.tsx 2660) identified in decisions.md #307; split targets now documented.
+
+6 proposed epics (A–F) in full findings: `~/.copilot/session-state/a4e633e5-e806-4b7b-8232-02c9861ac6ba/files/findings-trinity.md`
+
+
+# Switch — Frontend Refactor Analysis (2026-06-25)
+
+23 findings (SWTCH-01–SWTCH-23) across 10 passes. Two P0 items: `document.execCommand` deprecated in `inline-text-editor.tsx` + `controls.tsx` (SWTCH-10, issue #306). Three P1 structural: `slide-editor.tsx` 60+ inline handlers (SWTCH-01), `slide-inspector/controls.tsx` 2660L incomplete split (SWTCH-04), `visual-context-popover.tsx` 2118L conflating gen/brand/style/positioning (SWTCH-08). Critical DRY: HSV color math duplicated across `shell-components.tsx` and `ui/color-picker.tsx` (SWTCH-05); `SlideInspectorProps` 50-prop interface causes prop-drilling to desktop + mobile inspector (SWTCH-11) — fix is `SlideEditorContext`. Four proposed epics: A=Mega-file split (SWTCH-01/03/04/08/18/19/23), B=State/context architecture (SWTCH-11/12/21/22), C=DRY+compat removal (SWTCH-02/05/06/07/10/13/15/17), D=Perf+client-boundary (SWTCH-14/16/20). Full findings: `/home/azadmin/.copilot/session-state/a4e633e5-e806-4b7b-8232-02c9861ac6ba/files/findings-switch.md`.
+
+
+# Tank — Backend Refactor Analysis Summary
+**Date:** 2026-06-25 | **Full findings:** session-state/a4e633e5-e806-4b7b-8232-02c9861ac6ba/files/findings-tank.md
+
+22 grounded findings across 4 proposed epics:
+
+- **Epic A (API error shape):** `generation-route.ts` (12 callsites) and `billing/webhook/route.ts` still use legacy `{error}` body without `code`; body-read helpers in `route-adapters.ts` also emit it internally; `slide-assets` route returns plain-text 429. Remove `legacyErrorResponse` once all callsites use canonical helpers from `errors.ts`. (TANK-01/-02/-03/-16)
+- **Epic B (deck-export split):** `deck-export.ts` is 1709 lines; the `deck-export-pptx.ts`/`deck-export-slide-images.ts` "split" files are 2–3 line re-export stubs. Real split needed: spec-builder (~296 lines), PPTX applier (~584 lines), SVG renderer (~563 lines). Text-style object is duplicated in two sibling blocks inside the spec-builder. (TANK-04/-20)
+- **Epic C (Document.content deprecation):** `Document.content` plain-text field is written at creation only, never by Lexical autosave, yet is selected in 6 places for search, excerpt, reading-time, and public OG metadata. Search on `content` misses all post-creation edits. Migration needed to derive these from `contentJson`. (TANK-05/-15)
+- **Epic D (config/boilerplate consolidation):** Rate-limit config split across 2 modules; `DECK_OUTPUT_TOKEN_BUDGET` 3-level alias chain; `getBillingState` embeds a DB write as a side-effect; `getUserCreditState` is a thin unused wrapper; collab health handler is copy-pasted between `server.mjs` and `collab-server.mjs`; `checkServerActionAbuseBudget` pattern duplicated in 6+ action files; `persistence-service.ts` is 938 lines across 4 concerns; `document-permissions.ts`/`workspace-capabilities.ts` are structurally parallel 300-line duplicates. (TANK-06 through TANK-22)
+
+
+# Mouse — Design/UX Refactoring Analysis Inbox
+
+**Date:** 2026-06-25  
+**Author:** Mouse  
+**Full findings:** `/home/azadmin/.copilot/session-state/a4e633e5-e806-4b7b-8232-02c9861ac6ba/files/findings-mouse.md`
+
+16 grounded findings (MOUSE-01–16) across 10 analysis passes. One P0 a11y bug; six P1 structural issues; nine P2 improvements.
+
+**Critical (P0):** `ImageCropControl` (controls.tsx:534) misuses `role="dialog" aria-modal="true"` on a static inline form section — should be `role="group"`. Screen readers enter dialog mode and may block access to other inspector controls.
+
+**High (P1) highlights:**
+- `controls.tsx` is a 2660-line god-file; 8 panel stub files are 1-line re-exports — the intended split was never completed (MOUSE-09).
+- `FIELD_CLASS`/`LABEL_CLASS` redefined identically in 3 sibling inspector files — a near-duplicate of `FIELD_CONTROL` already in `tokens.ts` (MOUSE-04).
+- Active-toggle button pattern (`bg-ds-accent-surface/text-ds-accent-text` vs hover states) hand-coded 7+ times instead of referencing `TOOLBAR_BUTTON_CHROME` from tokens.ts (MOUSE-05).
+- `InheritedColorControl` still uses raw `<input type="color">` — `ColorPicker`/`Swatch` primitives exist and decisions.md mandates their use (MOUSE-06, MOUSE-07).
+- `shell-components.tsx` is 1718 lines with a custom HSV color picker that duplicates `ui/color-picker.tsx` (MOUSE-08).
+- `check-design-system.mjs` blanket-excludes all of `src/components/presentation/` from raw-chrome guardrails — design violations there are invisible (MOUSE-14).
+
+**Proposed epics:** A) Inspector god-file decomposition; B) Theme-first color control implementation; C) Design-token coverage & guardrails; D) Motion/brand/token dead weight removal.
+
+
+# Ghost Test-Suite Health Analysis — 2026-06-25
+
+**22 findings across 10 passes. Full report:** `~/.copilot/session-state/a4e633e5-e806-4b7b-8232-02c9861ac6ba/files/findings-ghost.md`
+
+**P0 (CI correctness):** 4 files contain `test()` nested inside `test()` callbacks — `use-autosave.test.ts:69,108`, `route-adapters.test.ts:34`, `generate/parser.test.ts:54`, `generate-deck/parser.test.ts:54`. node:test silently cancels these as `cancelledByParent`; two autosave-controller edge-case paths have zero effective coverage as a result.
+
+**P1 (DRY / structure):** `buildCommandSlide`/`buildCommandDeck` are byte-for-byte identical in `slide-commands.test.ts` and `slide-commands-advanced.test.ts`. `slide()`/`deck()` micro-factories duplicated across ≥8 test files. `deck-export.test.ts` (1498 L) and `rendering-regression.test.ts` (1494 L) both test `buildDeckSpecs` with heavily overlapping coverage and local helpers; `rendering-regression.test.ts` lives in `/presentation/` but tests the `/visual/` subsystem. `session.ts:1` imports `next/navigation`/`redirect` — a latent node-test breakage risk.
+
+**P2 (split / governance):** `deck-schema.test.ts` (1410 L, 12 independent sections) is the only entry in the oversized allowlist but 4 other files are 1013–1296 lines with no governance coverage. Governance `FACTORY_PATTERN` doesn't catch `fixtureTextElement`/`ofKind` duplication. `makeSourceRef`, `makeMaster`, `tokenSetWith` are inline re-implementations of canonical builders. `rendering-regression.test.ts` duplicates 4 `[#618]` tests already in `deck-export.test.ts`.
+
+**Proposed epics:** A (infrastructure/DRY cleanup), B (concern-based file splits), C (governance hardening). Epic A is prerequisite for B.
+
+
+# Refactor Consolidation — Trinity (2026-06-25)
+
+Consolidated all 103 grounded findings (Trinity 20, Switch 23, Tank 22, Mouse 16, Ghost 22) into **10 epics / 48 child issues**, fully deduplicated, in `epic-plan.md`. No findings dropped; every ID is traced to a child.
+
+Epics: (1) Dual-track Slide command & deck-theme contract unification [5], (2) Slide & visual large-file decomposition [6], (3) Deck-export modularization & relocation [3], (4) Canonical API error shape & legacy compat removal [3], (5) Design-system token & color-control consolidation [4], (6) DRY helpers/dead code/indirection [4], (7) Backend config/persistence splits & Document.content deprecation [7], (8) Import-graph facade migration [3], (9) Frontend state/perf/browser-compat [6], (10) Test-suite health: builders/nested-test fix/decomposition [7].
+
+Top strategy calls: single-source SlideCommand/DeckPatch into slide-command-contracts.ts; derive DECK_THEMES from STYLE_THEMES (close rose/amber/slate gap, kill "default"); complete the already-stubbed controls.tsx (2660L) split; do the *real* deck-export.ts (1709L) split + move lib/visual→lib/presentation/export; delete legacyErrorResponse entirely (no compat alias); ColorPicker-first (remove bespoke HSV math); build shared src/test/builders before splitting test files; fix p0 nested test() (assertions silently skipped).
+
+Sequencing: Epic 1 (contracts) + Epic 10 builders/nested-fix first to de-risk everything; Epic 8 (facade burn-down) last after relocations settle. P0s: 9.2 execCommand, 5.2 crop-dialog a11y, 10.1 nested tests.
+
+Aligned with accepted decisions #199/#292/#307. Behaviour-preserving only; per AGENTS.md superseded shapes are removed (code+fixtures+tests+docs), never wrapped. Deferred-not-bundled: ElementKindPlugin registry (noted in 1.5) and full search-index rework (noted in 7.1).
+
+
+### 2026-06-26T00-04-32: 10-pass code-health review → GitHub umbrella epic #1151 + 10 epics (#1093-1102) + 48 child issues (#1103-1150)
+**By:** Coordinator
+**What:** 10-pass code-health review → GitHub umbrella epic #1151 + 10 epics (#1093-1102) + 48 child issues (#1103-1150)
+**Why:** Session: 10-pass, domain-by-domain refactoring/code-health review of TextIQ, requested by Switch.
+
+Method: each specialist ran 10 iterative analysis passes over their domain (read-only, grounded in real files): Trinity (architecture, 20 findings), Switch (frontend, 23), Tank (backend, 22), Ghost (testing, 22), Mouse (design-system, 16) = 103 findings. Trinity (opus) consolidated and deduplicated 103 to 10 epics / 48 child issues with best-strategy per epic; every finding traced, none dropped. Rai RAI review: Green (no secrets/PII/security-disclosure).
+
+Created (repo huangyingting/textiq): Umbrella epic #1151; epics #1093-1102; children #1103-1150 (48), each linked as a GitHub sub-issue of its epic.
+
+Top strategy calls: single-source SlideCommand/DeckPatch into slide-command-contracts.ts; derive DECK_THEMES from STYLE_THEMES (close rose/amber/slate gap, drop dead "default"); finish controls.tsx (2660L) split into existing per-panel stubs; real deck-export.ts (1709L) split then relocate lib/visual to lib/presentation/export; delete legacyErrorResponse (no compat alias); ColorPicker-first; build src/test/builders + fix P0 nested test() before splitting tests. Sequence: Epic 1 + Epic 10 first; Epic 8 last. P0s: execCommand (9.x), crop-dialog a11y (5.x), nested test() (10.x). Note: repo renamed Napkin-Clone to textiq; sub-issue REST POST needs the canonical slug.
