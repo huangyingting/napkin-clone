@@ -9,24 +9,38 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import {
+  AlignCenter,
+  AlignCenterVertical,
+  AlignEndVertical,
+  AlignHorizontalDistributeCenter,
   BringToFront,
   ChevronLeft,
   Copy,
+  Crop,
   FileText,
   Grid3x3,
+  Group,
   Image as ImageIcon,
   LayoutPanelLeft,
   List,
+  Maximize2,
   Minus,
   MoreHorizontal,
   Palette,
+  Paintbrush,
   Plus,
+  Replace,
   SendToBack,
   Sparkles,
   Columns3,
   Square,
   Type,
   Trash2,
+  Ungroup,
+  AlignLeft,
+  AlignRight,
+  AlignStartVertical,
+  AlignVerticalDistributeCenter,
   X,
 } from "lucide-react";
 
@@ -100,8 +114,18 @@ function SlideFloatingToolbar({
     const slideNode = anchorNode.closest(
       '[data-slide-toolbar-anchor="true"]',
     ) as HTMLElement | null;
+    const dialogNode = anchorNode.closest(
+      '[role="dialog"][aria-label="Slide editor"]',
+    ) as HTMLElement | null;
+    const chromeNode = dialogNode?.querySelector(
+      '[data-slide-editor-chrome="true"]',
+    ) as HTMLElement | null;
     const slideRect = (slideNode ?? anchorNode).getBoundingClientRect();
     const toolbarHeight = toolbarNode.offsetHeight;
+    const chromeRect = chromeNode?.getBoundingClientRect();
+    const minTop = chromeRect
+      ? chromeRect.bottom + SLIDE_FLOATING_TOOLBAR_GAP + toolbarHeight
+      : SLIDE_FLOATING_TOOLBAR_EDGE_INSET + toolbarHeight;
     const maxWidth = Math.max(
       1,
       Math.min(
@@ -110,10 +134,7 @@ function SlideFloatingToolbar({
       ),
     );
     const next = {
-      top: Math.max(
-        SLIDE_FLOATING_TOOLBAR_EDGE_INSET + toolbarHeight,
-        slideRect.top - SLIDE_FLOATING_TOOLBAR_GAP,
-      ),
+      top: Math.max(minTop, slideRect.top - SLIDE_FLOATING_TOOLBAR_GAP),
       left: slideRect.left + slideRect.width / 2,
       maxWidth,
     };
@@ -163,13 +184,7 @@ function SlideFloatingToolbar({
     // The slide animates its left/top/width/height when the inspector opens or
     // the layout reflows; follow every frame of that transition (a counter
     // keeps tracking alive while several properties animate together).
-    const TRACKED_PROPERTIES = new Set([
-      "left",
-      "top",
-      "width",
-      "height",
-      "transform",
-    ]);
+    const TRACKED_PROPERTIES = new Set(["left", "top", "width", "height"]);
     const handleTransitionStart = (event: Event) => {
       const transition = event as TransitionEvent;
       if (
@@ -262,7 +277,10 @@ export function SlideEditorTopToolbar({
   children: ReactNode;
 }) {
   return (
-    <header className="flex items-center gap-2 border-b border-ds-border-subtle bg-ds-surface-chrome px-3 py-2 backdrop-blur">
+    <header
+      data-slide-editor-chrome="true"
+      className="flex items-center gap-2 border-b border-ds-border-subtle bg-ds-surface-chrome px-3 py-2 backdrop-blur"
+    >
       <div className="flex min-w-0 items-center gap-2">
         <h2 className="truncate text-sm font-semibold text-ds-text-primary">
           Slide editor
@@ -1325,8 +1343,9 @@ export function SlideSelectionToolbar({
   const canOpenEffectsPanel = panelEntries.effects;
   const canOpenSourcePanel = panelEntries.source;
   const hasMultiSelection = selectedIds.length >= 2;
-  const multiButton = (
+  const iconButton = (
     label: string,
+    icon: ReactNode,
     onClick: () => void,
     disabled = false,
   ) => (
@@ -1336,20 +1355,23 @@ export function SlideSelectionToolbar({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className={`flex h-7 min-w-7 shrink-0 items-center justify-center rounded-ds-sm px-1.5 text-[11px] font-semibold text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:pointer-events-none disabled:opacity-40 ${FOCUS_RING}`}
+      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:pointer-events-none disabled:opacity-40 ${FOCUS_RING}`}
     >
-      {label}
+      {icon}
     </button>
   );
-  const panelEntry = (label: string, icon: ReactNode, onClick: () => void) => (
+  const menuItem = (label: string, icon: ReactNode, onClick: () => void) => (
     <button
       type="button"
       aria-label={label}
-      title={label}
-      onClick={onClick}
-      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+      onClick={() => {
+        onClick();
+        setMoreOpen(false);
+      }}
+      className={`flex items-center gap-2 rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
     >
       {icon}
+      {label}
     </button>
   );
   return (
@@ -1363,46 +1385,85 @@ export function SlideSelectionToolbar({
             {selectedIds.length} selected
           </span>
           <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
-          {multiButton("Left", () => onAlignSelected("left"))}
-          {multiButton("Center", () => onAlignSelected("hcenter"))}
-          {multiButton("Right", () => onAlignSelected("right"))}
-          {multiButton("Top", () => onAlignSelected("top"))}
-          {multiButton("Middle", () => onAlignSelected("vmiddle"))}
-          {multiButton("Bottom", () => onAlignSelected("bottom"))}
+          {iconButton(
+            "Align left",
+            <AlignLeft size={14} aria-hidden="true" />,
+            () => onAlignSelected("left"),
+          )}
+          {iconButton(
+            "Align center",
+            <AlignCenter size={14} aria-hidden="true" />,
+            () => onAlignSelected("hcenter"),
+          )}
+          {iconButton(
+            "Align right",
+            <AlignRight size={14} aria-hidden="true" />,
+            () => onAlignSelected("right"),
+          )}
+          {iconButton(
+            "Align top",
+            <AlignStartVertical size={14} aria-hidden="true" />,
+            () => onAlignSelected("top"),
+          )}
+          {iconButton(
+            "Align middle",
+            <AlignCenterVertical size={14} aria-hidden="true" />,
+            () => onAlignSelected("vmiddle"),
+          )}
+          {iconButton(
+            "Align bottom",
+            <AlignEndVertical size={14} aria-hidden="true" />,
+            () => onAlignSelected("bottom"),
+          )}
           <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
-          {multiButton(
-            "Distribute H",
+          {iconButton(
+            "Distribute horizontally",
+            <AlignHorizontalDistributeCenter size={14} aria-hidden="true" />,
             () => onDistributeSelected("horizontal"),
             selectedIds.length < 3,
           )}
-          {multiButton(
-            "Distribute V",
+          {iconButton(
+            "Distribute vertically",
+            <AlignVerticalDistributeCenter size={14} aria-hidden="true" />,
             () => onDistributeSelected("vertical"),
             selectedIds.length < 3,
           )}
-          {multiButton("Match W", () => onMatchSizeSelected("width"))}
-          {multiButton("Match H", () => onMatchSizeSelected("height"))}
+          {iconButton(
+            "Match width",
+            <Maximize2 size={14} aria-hidden="true" />,
+            () => onMatchSizeSelected("width"),
+          )}
+          {iconButton(
+            "Match height",
+            <Maximize2 size={14} aria-hidden="true" className="rotate-90" />,
+            () => onMatchSizeSelected("height"),
+          )}
           <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
-          {panelEntry(
+          {iconButton(
             "Bring selection to front",
             <BringToFront size={14} aria-hidden="true" />,
             () => onArrangeSelected("front"),
           )}
-          {panelEntry(
+          {iconButton(
             "Send selection to back",
             <SendToBack size={14} aria-hidden="true" />,
             () => onArrangeSelected("back"),
           )}
-          {multiButton(
-            selectedGroupId ? "Ungroup" : "Group",
+          {iconButton(
+            selectedGroupId ? "Ungroup selection" : "Group selection",
+            selectedGroupId ? (
+              <Ungroup size={14} aria-hidden="true" />
+            ) : (
+              <Group size={14} aria-hidden="true" />
+            ),
             selectedGroupId ? onUngroupSelected : onGroupSelected,
           )}
-          {panelEntry(
+          {iconButton(
             "Duplicate selection",
             <Copy size={14} aria-hidden="true" />,
             onDuplicateSelected,
           )}
-          {panelEntry(
+          {iconButton(
             "Delete selection",
             <Trash2 size={14} aria-hidden="true" />,
             onRemoveSelected,
@@ -1426,113 +1487,122 @@ export function SlideSelectionToolbar({
       ) : null}
       {showRich && selectedElement?.kind === "image" ? (
         <>
-          {multiButton("Replace", () => onReplaceImage(selectedElement.id))}
-          {multiButton("Crop", onOpenMedia)}
+          {iconButton(
+            "Replace image",
+            <Replace size={14} aria-hidden="true" />,
+            () => onReplaceImage(selectedElement.id),
+          )}
           <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
         </>
       ) : null}
       {showRich && selectedElement?.kind === "visual" ? (
         <>
-          {multiButton("Replace", () => onReplaceVisual(selectedElement.id))}
-          {multiButton("Restyle", () => onRestyleVisual(selectedElement.id))}
+          {iconButton(
+            "Replace visual",
+            <Replace size={14} aria-hidden="true" />,
+            () => onReplaceVisual(selectedElement.id),
+          )}
+          {iconButton(
+            "Restyle visual",
+            <Paintbrush size={14} aria-hidden="true" />,
+            () => onRestyleVisual(selectedElement.id),
+          )}
           <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
         </>
-      ) : null}
-      {compact && showRich && selectedElement && !isEditingText ? (
-        <Popover
-          open={moreOpen}
-          onClose={() => setMoreOpen(false)}
-          aria-label="More element actions"
-          placement="bottom"
-          portal
-          layer="tooltip"
-          className="w-44 p-1"
-          trigger={
-            <button
-              type="button"
-              aria-label="More actions"
-              aria-haspopup="dialog"
-              aria-expanded={moreOpen}
-              onClick={() => setMoreOpen((open) => !open)}
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-ds-md text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-            >
-              <MoreHorizontal size={16} aria-hidden="true" />
-            </button>
-          }
-        >
-          <div className="flex flex-col">
-            <button
-              type="button"
-              onClick={() => {
-                onBringToFront(selectedElement.id);
-                setMoreOpen(false);
-              }}
-              className={`flex items-center gap-2 rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-            >
-              <BringToFront size={14} aria-hidden="true" />
-              Bring to front
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                onSendToBack(selectedElement.id);
-                setMoreOpen(false);
-              }}
-              className={`flex items-center gap-2 rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-            >
-              <SendToBack size={14} aria-hidden="true" />
-              Send to back
-            </button>
-          </div>
-        </Popover>
       ) : null}
       {showRich ? (
         <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
       ) : null}
-      {canOpenTextPanel
-        ? panelEntry(
-            "Text settings",
-            <Type size={14} aria-hidden="true" />,
-            onOpenText,
-          )
-        : null}
-      {canOpenMediaPanel
-        ? selectedElement?.kind === "connector"
-          ? panelEntry(
-              "Line settings",
-              <Minus size={14} aria-hidden="true" />,
-              onOpenMedia,
-            )
-          : panelEntry(
-              "Media settings",
-              <ImageIcon size={14} aria-hidden="true" />,
-              onOpenMedia,
-            )
-        : null}
-      {canOpenEffectsPanel
-        ? panelEntry(
-            "Effects settings",
-            <Sparkles size={14} aria-hidden="true" />,
-            onOpenEffects,
-          )
-        : null}
-      {canOpenSourcePanel
-        ? panelEntry(
-            "Source settings",
-            <FileText size={14} aria-hidden="true" />,
-            onOpenSource,
-          )
-        : null}
-      {panelEntry(
-        "Position settings",
-        <Grid3x3 size={14} aria-hidden="true" />,
-        onOpenPosition,
-      )}
-      {panelEntry(
-        "Open properties panel",
-        <LayoutPanelLeft size={14} aria-hidden="true" />,
-        onOpenPanel,
-      )}
+      <Popover
+        open={moreOpen}
+        onClose={() => setMoreOpen(false)}
+        aria-label="More element actions"
+        placement="bottom"
+        portal
+        layer="tooltip"
+        className="w-48 p-1"
+        trigger={
+          <button
+            type="button"
+            aria-label="More actions"
+            aria-haspopup="dialog"
+            aria-expanded={moreOpen}
+            onClick={() => setMoreOpen((open) => !open)}
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-ds-md text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+          >
+            <MoreHorizontal size={16} aria-hidden="true" />
+          </button>
+        }
+      >
+        <div className="flex flex-col">
+          {compact && showRich && selectedElement && !isEditingText ? (
+            <>
+              {menuItem(
+                "Bring to front",
+                <BringToFront size={14} aria-hidden="true" />,
+                () => onBringToFront(selectedElement.id),
+              )}
+              {menuItem(
+                "Send to back",
+                <SendToBack size={14} aria-hidden="true" />,
+                () => onSendToBack(selectedElement.id),
+              )}
+              <div className="my-1 h-px bg-ds-border-subtle" aria-hidden />
+            </>
+          ) : null}
+          {showRich && selectedElement?.kind === "image"
+            ? menuItem(
+                "Crop image",
+                <Crop size={14} aria-hidden="true" />,
+                onOpenMedia,
+              )
+            : null}
+          {canOpenTextPanel
+            ? menuItem(
+                "Text settings",
+                <Type size={14} aria-hidden="true" />,
+                onOpenText,
+              )
+            : null}
+          {canOpenMediaPanel
+            ? selectedElement?.kind === "connector"
+              ? menuItem(
+                  "Line settings",
+                  <Minus size={14} aria-hidden="true" />,
+                  onOpenMedia,
+                )
+              : menuItem(
+                  "Media settings",
+                  <ImageIcon size={14} aria-hidden="true" />,
+                  onOpenMedia,
+                )
+            : null}
+          {canOpenEffectsPanel
+            ? menuItem(
+                "Effects settings",
+                <Sparkles size={14} aria-hidden="true" />,
+                onOpenEffects,
+              )
+            : null}
+          {canOpenSourcePanel
+            ? menuItem(
+                "Source settings",
+                <FileText size={14} aria-hidden="true" />,
+                onOpenSource,
+              )
+            : null}
+          {menuItem(
+            "Position settings",
+            <Grid3x3 size={14} aria-hidden="true" />,
+            onOpenPosition,
+          )}
+          {menuItem(
+            "Open properties panel",
+            <LayoutPanelLeft size={14} aria-hidden="true" />,
+            onOpenPanel,
+          )}
+        </div>
+      </Popover>
     </SlideFloatingToolbar>
   );
 }
@@ -1548,9 +1618,7 @@ export function SlideToolbar({
   onBackgroundGradientChange,
   onAddElement,
   visuals,
-  visualPickerOpen,
   imageError,
-  onVisualPickerOpenChange,
   onPickVisual,
   onDuplicateSlide,
   onRemoveSlide,
@@ -1568,22 +1636,131 @@ export function SlideToolbar({
   ) => void;
   onAddElement: (kind: AddElementKind) => void;
   visuals: ReadonlyMap<string, Visual>;
-  visualPickerOpen: boolean;
   imageError?: string | null;
-  onVisualPickerOpenChange: (open: boolean) => void;
   onPickVisual: (visualId: string) => void;
   onDuplicateSlide: () => void;
   onRemoveSlide: () => void;
   onOpenPanel: () => void;
 }) {
+  const [addOpen, setAddOpen] = useState(false);
+  const [addVisualOpen, setAddVisualOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const selectedLayout =
     layouts.find((layout) => layout.id === selectedLayoutId) ?? layouts[0];
   const quickBackgrounds = SOLID_BACKGROUND_OPTIONS.slice(0, 8);
   const quickGradients = GRADIENT_BACKGROUND_OPTIONS.slice(0, 4);
   const iconButtonClass = `flex h-7 w-7 shrink-0 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`;
+  const closeAddMenu = () => {
+    setAddOpen(false);
+    setAddVisualOpen(false);
+  };
+  const addMenuItem = (label: string, icon: ReactNode, onClick: () => void) => (
+    <button
+      type="button"
+      onClick={() => {
+        onClick();
+        closeAddMenu();
+      }}
+      className={`flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+  const moreMenuItem = (
+    label: string,
+    icon: ReactNode,
+    onClick: () => void,
+  ) => (
+    <button
+      type="button"
+      onClick={() => {
+        onClick();
+        setMoreOpen(false);
+      }}
+      className={`flex items-center gap-2 rounded-ds-sm px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
 
   return (
     <SlideFloatingToolbar ariaLabel="Slide tools">
+      <Popover
+        open={addOpen || addVisualOpen}
+        onClose={closeAddMenu}
+        aria-label="Add element"
+        placement="bottom"
+        portal
+        layer="tooltip"
+        className="w-[280px] p-3"
+        trigger={
+          <Tooltip label="Add element" side="bottom">
+            <button
+              type="button"
+              aria-label="Add element"
+              aria-haspopup="dialog"
+              aria-expanded={addOpen || addVisualOpen}
+              onClick={() => {
+                setAddVisualOpen(false);
+                setAddOpen((open) => !open);
+              }}
+              className={iconButtonClass}
+            >
+              <Plus size={14} aria-hidden="true" />
+            </button>
+          </Tooltip>
+        }
+      >
+        {addVisualOpen ? (
+          <VisualPicker
+            className="w-full"
+            visuals={visuals}
+            onPick={(visualId) => {
+              onPickVisual(visualId);
+              closeAddMenu();
+            }}
+            onClose={() => setAddVisualOpen(false)}
+          />
+        ) : (
+          <div className="grid grid-cols-2 gap-1.5">
+            {addMenuItem("Text", <Type size={14} aria-hidden="true" />, () =>
+              onAddElement("text"),
+            )}
+            {addMenuItem("List", <List size={14} aria-hidden="true" />, () =>
+              onAddElement("bullets"),
+            )}
+            {addMenuItem(
+              "Image",
+              <ImageIcon size={14} aria-hidden="true" />,
+              () => onAddElement("image"),
+            )}
+            {addMenuItem("Shape", <Square size={14} aria-hidden="true" />, () =>
+              onAddElement("shape"),
+            )}
+            <button
+              type="button"
+              onClick={() => setAddVisualOpen(true)}
+              className={`col-span-2 flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+            >
+              <Sparkles size={14} aria-hidden="true" />
+              Visual
+            </button>
+            {imageError ? (
+              <p
+                role="alert"
+                className="col-span-2 text-xs text-ds-danger-text"
+              >
+                {imageError}
+              </p>
+            ) : null}
+          </div>
+        )}
+      </Popover>
+
+      <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
+
       <div className="flex min-w-0 items-center gap-2 px-2">
         <FileText size={14} className="text-ds-text-muted" aria-hidden="true" />
         <span className="max-w-36 truncate text-xs font-semibold text-ds-text-primary">
@@ -1673,63 +1850,6 @@ export function SlideToolbar({
 
       <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
 
-      {(
-        [
-          ["text", Type, "Add text"],
-          ["bullets", List, "Add list"],
-          ["image", ImageIcon, "Add image"],
-          ["shape", Square, "Add shape"],
-        ] as const
-      ).map(([kind, Icon, label]) => (
-        <Tooltip key={kind} label={label} side="bottom">
-          <button
-            type="button"
-            aria-label={label}
-            onClick={() => onAddElement(kind)}
-            className={iconButtonClass}
-          >
-            <Icon size={14} aria-hidden="true" />
-          </button>
-        </Tooltip>
-      ))}
-      <Popover
-        open={visualPickerOpen}
-        onClose={() => onVisualPickerOpenChange(false)}
-        aria-label="Insert visual"
-        placement="bottom"
-        portal
-        layer="tooltip"
-        className="w-[300px] p-0"
-        trigger={
-          <Tooltip label="Add visual" side="bottom">
-            <button
-              type="button"
-              aria-label="Add visual"
-              aria-haspopup="dialog"
-              aria-expanded={visualPickerOpen}
-              onClick={() => onVisualPickerOpenChange(!visualPickerOpen)}
-              className={iconButtonClass}
-            >
-              <Sparkles size={14} aria-hidden="true" />
-            </button>
-          </Tooltip>
-        }
-      >
-        <VisualPicker
-          className="w-full"
-          visuals={visuals}
-          onPick={onPickVisual}
-          onClose={() => onVisualPickerOpenChange(false)}
-        />
-      </Popover>
-      {imageError ? (
-        <span role="alert" className="px-1 text-[11px] text-ds-danger-text">
-          {imageError}
-        </span>
-      ) : null}
-
-      <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
-
       <Tooltip label="Duplicate slide" side="bottom">
         <button
           type="button"
@@ -1753,17 +1873,35 @@ export function SlideToolbar({
       </Tooltip>
 
       <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
-
-      <Tooltip label="Open properties panel" side="bottom">
-        <button
-          type="button"
-          aria-label="Open properties panel"
-          onClick={onOpenPanel}
-          className={iconButtonClass}
-        >
-          <LayoutPanelLeft size={14} aria-hidden="true" />
-        </button>
-      </Tooltip>
+      <Popover
+        open={moreOpen}
+        onClose={() => setMoreOpen(false)}
+        aria-label="More slide actions"
+        placement="bottom"
+        portal
+        layer="tooltip"
+        className="w-44 p-1"
+        trigger={
+          <button
+            type="button"
+            aria-label="More actions"
+            aria-haspopup="dialog"
+            aria-expanded={moreOpen}
+            onClick={() => setMoreOpen((open) => !open)}
+            className={iconButtonClass}
+          >
+            <MoreHorizontal size={14} aria-hidden="true" />
+          </button>
+        }
+      >
+        <div className="flex flex-col">
+          {moreMenuItem(
+            "Open properties panel",
+            <LayoutPanelLeft size={14} aria-hidden="true" />,
+            onOpenPanel,
+          )}
+        </div>
+      </Popover>
     </SlideFloatingToolbar>
   );
 }

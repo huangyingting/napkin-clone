@@ -4,16 +4,22 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowDownToLine,
+  ArrowLeftFromLine,
+  ArrowRightFromLine,
   ArrowUpToLine,
   ClipboardPaste,
   Copy,
   Group,
+  Indent,
   Layers,
   Link,
   Link2Off,
+  List,
+  ListOrdered,
   Lock,
   LockOpen,
   Minus,
+  Outdent,
   Palette,
   Pencil,
   Scissors,
@@ -86,11 +92,11 @@ function ToolbarButton({
 
 function ToolbarTextButton({
   label,
-  text,
+  icon: Icon,
   onClick,
 }: {
   label: string;
-  text: string;
+  icon: LucideIcon;
   onClick: () => void;
 }) {
   return (
@@ -99,9 +105,9 @@ function ToolbarTextButton({
       aria-label={label}
       title={label}
       onClick={onClick}
-      className={`tiq-touch-target flex h-7 min-w-7 items-center justify-center rounded-ds-sm px-1.5 text-[11px] font-semibold text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+      className={`tiq-touch-target flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
     >
-      {text}
+      <Icon size={14} aria-hidden="true" />
     </button>
   );
 }
@@ -223,7 +229,7 @@ export function ElementToolbarContent({
           />
           <ToolbarTextButton
             label={allBullets ? "Remove bullets" : "Bulleted list"}
-            text="Bullets"
+            icon={List}
             onClick={() =>
               hideObjectActions
                 ? dispatchInlineTextCommand({
@@ -243,7 +249,7 @@ export function ElementToolbarContent({
           />
           <ToolbarTextButton
             label={allNumbers ? "Remove numbering" : "Numbered list"}
-            text="Numbers"
+            icon={ListOrdered}
             onClick={() =>
               hideObjectActions
                 ? dispatchInlineTextCommand({
@@ -263,7 +269,7 @@ export function ElementToolbarContent({
           />
           <ToolbarTextButton
             label="Outdent list paragraphs"
-            text="Outdent"
+            icon={Outdent}
             onClick={() =>
               hideObjectActions
                 ? dispatchInlineTextCommand({ command: "indent", delta: -1 })
@@ -277,7 +283,7 @@ export function ElementToolbarContent({
           />
           <ToolbarTextButton
             label="Indent list paragraphs"
-            text="Indent"
+            icon={Indent}
             onClick={() =>
               hideObjectActions
                 ? dispatchInlineTextCommand({ command: "indent", delta: 1 })
@@ -336,7 +342,7 @@ export function ElementToolbarContent({
           />
           <ToolbarTextButton
             label="Cycle start arrowhead"
-            text={`S:${element.arrowStart ?? "none"}`}
+            icon={ArrowLeftFromLine}
             onClick={() =>
               onUpdateElement(element.id, {
                 arrowStart: nextArrow(element.arrowStart ?? "none"),
@@ -345,7 +351,7 @@ export function ElementToolbarContent({
           />
           <ToolbarTextButton
             label="Cycle end arrowhead"
-            text={`E:${element.arrowEnd ?? "arrow"}`}
+            icon={ArrowRightFromLine}
             onClick={() =>
               onUpdateElement(element.id, {
                 arrowEnd: nextArrow(element.arrowEnd ?? "arrow"),

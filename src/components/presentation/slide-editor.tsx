@@ -29,14 +29,10 @@ import {
   Copy,
   Edit3,
   Grid3x3,
-  Image as ImageIcon,
   Keyboard,
-  List,
   Plus,
   Redo2,
   RefreshCw,
-  Sparkles,
-  Square,
   Trash2,
   Undo2,
   X,
@@ -464,7 +460,6 @@ export function SlideEditor({
     setAddTemplateOpen,
     spotlightPickerOpen,
     setSpotlightPickerOpen,
-    visualPickerOpen,
     setVisualPickerOpen,
     deckTemplateOpen,
     setDeckTemplateOpen,
@@ -507,8 +502,6 @@ export function SlideEditor({
   const [replaceImageError, setReplaceImageError] = useState<string | null>(
     null,
   );
-  const [canvasAddOpen, setCanvasAddOpen] = useState(false);
-  const [canvasAddVisualOpen, setCanvasAddVisualOpen] = useState(false);
   const [editingElementId, setEditingElementId] = useState<string | null>(null);
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
   const {
@@ -1622,101 +1615,13 @@ export function SlideEditor({
                           }
                           onAddElement={handleAddElement}
                           visuals={visuals}
-                          visualPickerOpen={visualPickerOpen}
                           imageError={insertImageError ?? replaceImageError}
-                          onVisualPickerOpenChange={setVisualPickerOpen}
                           onPickVisual={handleAddVisual}
                           onDuplicateSlide={() => handleDuplicate(safeSelected)}
                           onRemoveSlide={() => handleRemove(safeSelected)}
                           onOpenPanel={() => openRightPanel("slide")}
                         />
                       ) : null}
-                      <div className="absolute right-3 top-3 z-sticky">
-                        <Popover
-                          open={canvasAddOpen || canvasAddVisualOpen}
-                          onClose={() => {
-                            setCanvasAddOpen(false);
-                            setCanvasAddVisualOpen(false);
-                          }}
-                          aria-label="Add element"
-                          placement="bottom"
-                          portal
-                          className="w-[280px] p-3"
-                          trigger={
-                            <Tooltip label="Add element" side="bottom">
-                              <button
-                                type="button"
-                                data-floating-panel="true"
-                                aria-label="Add element"
-                                aria-haspopup="dialog"
-                                aria-expanded={
-                                  canvasAddOpen || canvasAddVisualOpen
-                                }
-                                onClick={() => {
-                                  setCanvasAddVisualOpen(false);
-                                  setCanvasAddOpen((open) => !open);
-                                }}
-                                className={`flex h-9 w-9 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-raised text-ds-text-secondary shadow-ds-popover transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-                              >
-                                <Plus size={18} aria-hidden="true" />
-                              </button>
-                            </Tooltip>
-                          }
-                        >
-                          {canvasAddVisualOpen ? (
-                            <VisualPicker
-                              className="w-full"
-                              visuals={visuals}
-                              onPick={(visualId) => {
-                                handleAddVisual(visualId);
-                                setCanvasAddVisualOpen(false);
-                                setCanvasAddOpen(false);
-                              }}
-                              onClose={() => setCanvasAddVisualOpen(false)}
-                            />
-                          ) : (
-                            <div className="grid grid-cols-2 gap-1.5">
-                              {(
-                                [
-                                  ["text", Type, "Text"],
-                                  ["bullets", List, "List"],
-                                  ["image", ImageIcon, "Image"],
-                                  ["shape", Square, "Shape"],
-                                ] as const
-                              ).map(([kind, Icon, label]) => (
-                                <button
-                                  key={kind}
-                                  type="button"
-                                  onClick={() => {
-                                    handleAddElement(kind);
-                                    setCanvasAddOpen(false);
-                                  }}
-                                  className={`flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-                                >
-                                  <Icon size={14} aria-hidden="true" />
-                                  {label}
-                                </button>
-                              ))}
-                              <button
-                                type="button"
-                                onClick={() => setCanvasAddVisualOpen(true)}
-                                className={`col-span-2 flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-                              >
-                                <Sparkles size={14} aria-hidden="true" />
-                                Visual
-                              </button>
-                              {(insertImageError ?? replaceImageError) ? (
-                                <p
-                                  role="alert"
-                                  className="col-span-2 text-xs text-ds-danger-text"
-                                >
-                                  {insertImageError ?? replaceImageError}
-                                </p>
-                              ) : null}
-                            </div>
-                          )}
-                        </Popover>
-                      </div>
                       <SlideSelectionToolbarFromContext />
                       <SlideStageEditorFromContext
                         width={renderedStageWidth}
