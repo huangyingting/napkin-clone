@@ -20,7 +20,6 @@ import {
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -40,13 +39,11 @@ import {
   FOCUS_RING,
   type SegmentedOption,
 } from "@/components/ui";
-import { computeAnchoredPosition } from "@/lib/anchored-position";
 import { VISUAL_KIND_META } from "@/lib/lexical/tool-registry";
 import {
   applyTheme,
   isThemeActive,
   isSourceStale,
-  mergeVisualContent,
   resetNodeStyle,
   resetNodeExtStyle,
   setNodeIcon,
@@ -93,11 +90,7 @@ import {
 } from "@/lib/brand/font-hooks";
 import type { VisualCommandPayload } from "@/lib/commands/visual-commands";
 import type { VisualGenerationActionPort } from "@/lib/action-ports";
-import {
-  isCreditError,
-  requestVisualCandidates,
-  stampSourceText,
-} from "@/lib/visual/generate";
+import { requestVisualCandidates } from "@/lib/visual/generate";
 
 import { IconPicker } from "./icon-picker";
 import {
@@ -106,13 +99,18 @@ import {
   VisualSyncPanel,
   VisualVariationsPanel,
 } from "./visual-context-popover-panels";
+import {
+  useBrandContext,
+  usePopoverGeneration,
+  usePopoverPosition,
+  useVisualSync,
+  type MenuSection,
+} from "./visual-context-popover-hooks";
 
 // ---------------------------------------------------------------------------
 // Layout constants
 // ---------------------------------------------------------------------------
 
-const POPOVER_GAP = 8;
-const EDGE_INSET = 8;
 const POPOVER_WIDTH = 400;
 const COMPONENT_POPOVER_WIDTH = 300;
 
@@ -191,18 +189,7 @@ const KIND_OPTIONS: SegmentedOption<VisualKind>[] = VISUAL_KINDS.map((kind) => {
 // Section navigation
 // ---------------------------------------------------------------------------
 
-export type MenuSection =
-  | "export"
-  | "effects"
-  | "colors"
-  | "fonts"
-  | "icon"
-  | "size"
-  | "layout"
-  | "branding"
-  | "sync"
-  | "info"
-  | "variations";
+// MenuSection is exported from ./visual-context-popover-hooks
 
 interface MenuItemConfig {
   id: MenuSection;
@@ -283,34 +270,6 @@ const COMPONENT_MENU_ITEMS: MenuItemConfig[] = [
     description: "Icon picker",
   },
 ];
-
-// ---------------------------------------------------------------------------
-// Utility helpers
-// ---------------------------------------------------------------------------
-
-function visualPromptText(visual: Visual): string {
-  const parts: string[] = [];
-  if (visual.title && visual.title.trim().length > 0)
-    parts.push(visual.title.trim());
-  for (const node of visual.nodes) {
-    if (node.label && node.label.trim().length > 0)
-      parts.push(node.label.trim());
-  }
-  return parts.join("\n");
-}
-
-function findVisualNodeElement(
-  root: HTMLElement,
-  nodeId: string | null,
-): Element | null {
-  if (!nodeId) return null;
-  for (const element of root.querySelectorAll("[data-node-id]")) {
-    if (element.getAttribute("data-node-id") === nodeId) {
-      return element;
-    }
-  }
-  return null;
-}
 
 // ---------------------------------------------------------------------------
 // Shared small UI atoms
@@ -557,32 +516,8 @@ function EffectsPicker({
 }
 
 // ---------------------------------------------------------------------------
-// Brand hooks + chip
+// Brand chip
 // ---------------------------------------------------------------------------
-
-function useBrands() {
-  const [brands, setBrands] = useState<BrandStyle[]>([]);
-  const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
-
-  const load = useCallback(async () => {
-    if (status !== "idle") return;
-    setStatus("loading");
-    try {
-      const res = await fetch("/api/brand");
-      if (!res.ok) return;
-      const json = (await res.json()) as { brands?: unknown };
-      if (Array.isArray(json.brands)) {
-        setBrands(json.brands as BrandStyle[]);
-      }
-    } catch {
-      // Best-effort; ignore errors
-    } finally {
-      setStatus("done");
-    }
-  }, [status]);
-
-  return { brands, status, load };
-}
 
 function BrandChip({
   brand,
@@ -781,11 +716,6 @@ export function VisualContextPopover({
   const measureRef = useRef<HTMLDivElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
 
-  const [coords, setCoords] = useState<{ top: number; left: number }>({
-    top: -1000,
-    left: -1000,
-  });
-
   // Drill-down navigation: null = main menu, string = active submenu section
   const [activeSection, setActiveSection] = useState<MenuSection | null>(null);
   const [selectionContextKey, setSelectionContextKey] = useState(
@@ -796,29 +726,6 @@ export function VisualContextPopover({
   // Colors submenu: progressive disclosure for per-color overrides
   const [customizeOpen, setCustomizeOpen] = useState(false);
 
-  // Brands (lazy-loaded when the branding section opens)
-  const { brands, status: brandsStatus, load: loadBrands } = useBrands();
-
-  // Trigger brand load when the branding section becomes active.
-  useEffect(() => {
-    if (activeSection === "branding" && brandsStatus === "idle") {
-      void loadBrands();
-    }
-  }, [activeSection, brandsStatus, loadBrands]);
-
-  // Load any Google Fonts used as per-node font family overrides.
-  useHydrateVisualNodeFonts(visual);
-
-  // AI "variations" state (the /api/generate path).
-  const [genStatus, setGenStatus] = useState<"idle" | "loading">("idle");
-  const [genError, setGenError] = useState<string | null>(null);
-  const [genCreditError, setGenCreditError] = useState(false);
-  const [candidates, setCandidates] = useState<Visual[]>([]);
-
-  // "Sync to text" state
-  const [syncStatus, setSyncStatus] = useState<"idle" | "loading">("idle");
-  const [syncError, setSyncError] = useState<string | null>(null);
-
   // The most recently chosen theme this session, for "Reset to theme".
   const [lastThemeId, setLastThemeId] = useState<string | null>(null);
 
@@ -827,6 +734,9 @@ export function VisualContextPopover({
   useEffect(() => {
     visualRef.current = visual;
   });
+
+  // Load any Google Fonts used as per-node font family overrides.
+  useHydrateVisualNodeFonts(visual);
 
   const stale = isSourceStale(visual, currentSourceText ?? "");
   const { style } = visual;
@@ -845,16 +755,6 @@ export function VisualContextPopover({
         : null,
     [visual.nodes, selectedNodeId],
   );
-  const nextSelectionContextKey = `${visualId}:${selectedNodeId ?? "visual"}`;
-  if (nextSelectionContextKey !== selectionContextKey) {
-    setSelectionContextKey(nextSelectionContextKey);
-    setActiveSection(null);
-    setNodeFontPickerOpen(false);
-    setCustomizeOpen(false);
-    setCandidates([]);
-    setGenError(null);
-    setSyncError(null);
-  }
   const componentContext = selectedNode !== null;
   const effectiveActiveSection: MenuSection | null =
     componentContext &&
@@ -865,176 +765,65 @@ export function VisualContextPopover({
       : activeSection;
   const popoverExpanded = effectiveActiveSection !== null;
 
-  // Position above the visual card via the shared anchored-positioning helper
-  // (auto-flip below when there isn't room above, cross-axis clamp to the
-  // viewport, and anchor-collision avoidance so the toolbox never covers the
-  // visual).
-  const reposition = useCallback(() => {
-    if (mode !== "float") return;
-    const anchor = anchorRef.current;
-    const el = measureRef.current;
-    if (!anchor || !el) return;
-    const toolbar = toolbarRef.current;
-    const componentAnchor = componentContext
-      ? findVisualNodeElement(anchor, selectedNodeId)
-      : null;
-    const rect = (componentAnchor ?? anchor).getBoundingClientRect();
-    const elRect = el.getBoundingClientRect();
-    const toolbarRect = toolbar?.getBoundingClientRect();
-    const toolbarOffset = toolbarRect
-      ? {
-          top: toolbarRect.top - elRect.top,
-          left: toolbarRect.left - elRect.left,
-        }
-      : { top: 0, left: 0 };
-    const width = toolbarRect?.width ?? el.offsetWidth;
-    const height = toolbarRect?.height ?? el.offsetHeight;
-    const positionedToolbar = computeAnchoredPosition({
-      anchor: {
-        top: rect.top,
-        left: rect.left,
-        right: rect.right,
-        bottom: rect.bottom,
-        width: rect.width,
-        height: rect.height,
-      },
-      float: { width, height },
-      viewport: { width: window.innerWidth, height: window.innerHeight },
-      placement: componentContext ? "right" : "top",
-      gap: POPOVER_GAP,
-      padding: EDGE_INSET,
-    });
-    const top = positionedToolbar.top - toolbarOffset.top;
-    const left = positionedToolbar.left - toolbarOffset.left;
-    setCoords((prev) =>
-      prev.top === top && prev.left === left ? prev : { top, left },
-    );
-  }, [anchorRef, componentContext, mode, selectedNodeId]);
+  // Brands — lazy-loaded when the branding section opens
+  const { brands, status: brandsStatus } = useBrandContext(activeSection);
 
-  useLayoutEffect(() => {
-    if (mode !== "float") return;
-    reposition();
-    window.addEventListener("resize", reposition);
-    return () => {
-      window.removeEventListener("resize", reposition);
-    };
-  }, [mode, reposition]);
+  // AI variations generation
+  const {
+    genStatus,
+    genError,
+    genCreditError,
+    candidates,
+    runGenerate,
+    chooseCandidate,
+    reset: resetGeneration,
+  } = usePopoverGeneration({
+    visualRef,
+    visualGenerationPort,
+    visual,
+    onChange,
+    onCommand,
+    onSectionChange: setActiveSection,
+  });
 
-  // Dismiss floating visual/component toolbars on document scroll. Internal
-  // scrolling inside the popover (for long menus/pickers) should remain usable.
-  useEffect(() => {
-    if (mode !== "float") return;
-    const onScroll = (event: Event) => {
-      const target = event.target;
-      if (
-        target instanceof Element &&
-        (target.closest("[data-visual-chrome]") ||
-          target.closest("[data-ds-floating]"))
-      ) {
-        return;
-      }
-      if (popoverExpanded) {
-        reposition();
-        return;
-      }
-      onClose();
-    };
-    window.addEventListener("scroll", onScroll, true);
-    return () => window.removeEventListener("scroll", onScroll, true);
-  }, [mode, onClose, popoverExpanded, reposition]);
+  // Sync-to-text
+  const {
+    syncStatus,
+    syncError,
+    runSync,
+    reset: resetSync,
+  } = useVisualSync({
+    visualRef,
+    visualGenerationPort,
+    currentSourceText,
+    onChange,
+    onCommand,
+    onSectionChange: setActiveSection,
+  });
 
-  // Click-away: dismiss when a pointer-down lands outside any visual chrome.
-  // Only active in float mode.
-  useEffect(() => {
-    if (mode !== "float") return;
-    const onPointerDown = (event: MouseEvent) => {
-      const target = event.target as Element | null;
-      if (
-        target?.closest("[data-visual-chrome]") ||
-        target?.closest("[data-ds-floating]")
-      ) {
-        return;
-      }
-      onClose();
-    };
-    document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
-  }, [mode, onClose]);
+  // Popover positioning: coords + scroll/click-away effects delegated to hook
+  const { coords } = usePopoverPosition({
+    mode,
+    anchorRef,
+    measureRef,
+    toolbarRef,
+    componentContext,
+    selectedNodeId,
+    popoverExpanded,
+    onClose,
+  });
 
-  // ---------------------------------------------------------------------------
-  // Action handlers
-  // ---------------------------------------------------------------------------
-
-  const runGenerate = useCallback(async () => {
-    const promptText = visualPromptText(visualRef.current);
-    if (promptText.trim().length === 0) {
-      setGenError("Add some labels before generating variations.");
-      setActiveSection("variations");
-      return;
-    }
-    setGenStatus("loading");
-    setGenError(null);
-    setGenCreditError(false);
-    setCandidates([]);
-    const result =
-      await visualGenerationPort.requestVisualCandidates(promptText);
-    if (result.ok) {
-      setCandidates(result.candidates);
-      setActiveSection("variations");
-    } else {
-      setGenError(result.error);
-      setGenCreditError(isCreditError(result));
-      setActiveSection("variations");
-    }
-    setGenStatus("idle");
-  }, [visualGenerationPort]);
-
-  const runSync = useCallback(async () => {
-    const syncText = (
-      currentSourceText ??
-      visualRef.current.sourceText ??
-      ""
-    ).trim();
-    if (!syncText) {
-      setSyncError("No source text to sync from.");
-      return;
-    }
-    setSyncStatus("loading");
-    setSyncError(null);
-    const result = await visualGenerationPort.requestVisualCandidates(syncText);
-    if (result.ok) {
-      const refreshed = stampSourceText(result.candidates[0], syncText);
-      if (onCommand) {
-        onCommand({ op: "visual.merge_content", newVisual: refreshed });
-      } else {
-        const merged = mergeVisualContent(visualRef.current, refreshed);
-        onChange(stampSourceText(merged, syncText));
-      }
-      setActiveSection(null);
-      setSyncStatus("idle");
-      return;
-    }
-    setSyncError(
-      result.error === "We couldn't generate a visual. Please try again."
-        ? "Sync failed. Please try again."
-        : result.error,
-    );
-    setSyncStatus("idle");
-  }, [currentSourceText, onChange, onCommand, visualGenerationPort]);
-
-  const chooseCandidate = useCallback(
-    (candidate: Visual) => {
-      const next = { ...candidate, autoLayout: visual.autoLayout };
-      if (onCommand) {
-        onCommand({ op: "visual.merge_content", newVisual: next });
-      } else {
-        onChange(next);
-      }
-      setCandidates([]);
-      setActiveSection(null);
-    },
-    [onChange, onCommand, visual],
-  );
+  // Synchronous derived-state reset when the selection context changes so the
+  // popover doesn't briefly show stale candidates or errors for the new selection.
+  const nextSelectionContextKey = `${visualId}:${selectedNodeId ?? "visual"}`;
+  if (nextSelectionContextKey !== selectionContextKey) {
+    setSelectionContextKey(nextSelectionContextKey);
+    setActiveSection(null);
+    setNodeFontPickerOpen(false);
+    setCustomizeOpen(false);
+    resetGeneration();
+    resetSync();
+  }
 
   const applyThemeById = useCallback(
     (themeId: string) => {
