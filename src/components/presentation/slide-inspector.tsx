@@ -14,7 +14,7 @@
  */
 
 import { Copy, Trash2, Upload, X } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { memo, useMemo, useRef, useState } from "react";
 
 import { FOCUS_RING } from "@/components/ui/tokens";
 import {
@@ -103,7 +103,7 @@ function placeholderDisplayName(
   );
 }
 
-export function SlideInspector({
+export const SlideInspector = memo(function SlideInspector({
   slide,
   slideIndex,
   deck,
@@ -683,7 +683,7 @@ export function SlideInspector({
       </div>
     </aside>
   );
-}
+});
 
 /**
  * Per-element source-document link panel (#580, #644). Surfaces the current

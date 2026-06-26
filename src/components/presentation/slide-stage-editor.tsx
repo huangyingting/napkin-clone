@@ -18,6 +18,7 @@
  */
 
 import {
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -222,7 +223,7 @@ const ELEMENT_ARIA_KEYSHORTCUTS =
   "Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown " +
   "[ ] Shift+[ Shift+] C";
 
-export function SlideStageEditor({
+export const SlideStageEditor = memo(function SlideStageEditor({
   slide,
   deck,
   visuals,
@@ -1157,7 +1158,7 @@ export function SlideStageEditor({
       </div>
     </div>
   );
-}
+});
 
 function formatBadge(mode: DragMode, box: ElementBox): string {
   if (mode === "move") {
