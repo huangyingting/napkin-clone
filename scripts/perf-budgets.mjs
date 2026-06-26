@@ -7,8 +7,6 @@ const HEAVY_EXPORT_MODULES = [
   "src/lib/visual/export.ts",
   "src/lib/visual/document-export-targets.ts",
   "src/lib/visual/deck-export.ts",
-  "src/lib/visual/deck-export-pptx.ts",
-  "src/lib/visual/deck-export-slide-images.ts",
 ];
 
 const PAYLOAD_BUDGETS = [

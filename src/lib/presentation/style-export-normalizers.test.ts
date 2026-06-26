@@ -5,7 +5,7 @@ import type { Deck, TextElement } from "./deck";
 import {
   adaptTextElementForExport,
   adaptTextElementForRenderer,
-} from "./render-export-style-adapter";
+} from "./style-export-normalizers";
 
 const SLIDE_HEIGHT_PT = 540;
 
