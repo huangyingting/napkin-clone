@@ -21,6 +21,7 @@ import { toHex } from "@/lib/visual/pptx-shapes";
 import {
   buildDeckSpecs,
   deckGeometry,
+  toExportTextStyle,
   type DeckBulletsOp,
   type DeckConnectorOp,
   type DeckImageOp,
@@ -190,10 +191,11 @@ type PptxTextRun = { text: string; options: Record<string, unknown> };
 // ---------------------------------------------------------------------------
 
 export function applyTextOp(slide: PptxSlide, op: DeckTextOp): void {
+  const style = toExportTextStyle(op);
   const pptxValign =
-    op.verticalAlign === "top"
+    style.verticalAlign === "top"
       ? ("top" as const)
-      : op.verticalAlign === "bottom"
+      : style.verticalAlign === "bottom"
         ? ("bottom" as const)
         : ("middle" as const);
   const shared = {
@@ -201,23 +203,25 @@ export function applyTextOp(slide: PptxSlide, op: DeckTextOp): void {
     y: op.y,
     w: op.w,
     h: op.h,
-    color: op.color,
-    fontSize: op.fontSize,
-    ...(op.fontFace ? { fontFace: op.fontFace } : {}),
-    bold: op.bold,
-    italic: op.italic,
-    align: op.align,
+    color: style.color,
+    fontSize: style.fontSize,
+    ...(style.fontFace ? { fontFace: style.fontFace } : {}),
+    bold: style.bold,
+    italic: style.italic,
+    align: style.align,
     valign: pptxValign,
     wrap: true,
     // `shrinkText: true` instructs PPTX to reduce font size until text fits.
     ...(op.fitMode === "shrink-to-fit" ? { shrinkText: true } : {}),
     ...(op.rotation ? { rotate: op.rotation } : {}),
-    ...(op.underline ? { underline: { style: "sng" as const } } : {}),
+    ...(style.underline ? { underline: { style: "sng" as const } } : {}),
     ...(op.shadow ? { shadow: SHADOW_OPTS } : {}),
     ...(opacityTransparency(op.opacity) !== undefined
       ? { transparency: opacityTransparency(op.opacity) }
       : {}),
-    ...(op.lineHeight ? { lineSpacing: Math.round(op.lineHeight * 100) } : {}),
+    ...(style.lineHeight
+      ? { lineSpacing: Math.round(style.lineHeight * 100) }
+      : {}),
     ...(op.paragraphSpacingPt ? { paraSpaceAfter: op.paragraphSpacingPt } : {}),
   };
 
@@ -235,10 +239,11 @@ export function applyTextOp(slide: PptxSlide, op: DeckTextOp): void {
 }
 
 export function applyBulletsOp(slide: PptxSlide, op: DeckBulletsOp): void {
+  const style = toExportTextStyle(op);
   const pptxValign =
-    op.verticalAlign === "top"
+    style.verticalAlign === "top"
       ? ("top" as const)
-      : op.verticalAlign === "bottom"
+      : style.verticalAlign === "bottom"
         ? ("bottom" as const)
         : ("middle" as const);
   const shared = {
@@ -246,23 +251,25 @@ export function applyBulletsOp(slide: PptxSlide, op: DeckBulletsOp): void {
     y: op.y,
     w: op.w,
     h: op.h,
-    color: op.color,
-    fontSize: op.fontSize,
-    ...(op.fontFace ? { fontFace: op.fontFace } : {}),
-    bold: op.bold,
-    italic: op.italic,
-    align: op.align,
+    color: style.color,
+    fontSize: style.fontSize,
+    ...(style.fontFace ? { fontFace: style.fontFace } : {}),
+    bold: style.bold,
+    italic: style.italic,
+    align: style.align,
     valign: pptxValign,
     wrap: true,
     // `shrinkText: true` instructs PPTX to reduce font size until text fits.
     ...(op.fitMode === "shrink-to-fit" ? { shrinkText: true } : {}),
     ...(op.rotation ? { rotate: op.rotation } : {}),
-    ...(op.underline ? { underline: { style: "sng" as const } } : {}),
+    ...(style.underline ? { underline: { style: "sng" as const } } : {}),
     ...(op.shadow ? { shadow: SHADOW_OPTS } : {}),
     ...(opacityTransparency(op.opacity) !== undefined
       ? { transparency: opacityTransparency(op.opacity) }
       : {}),
-    ...(op.lineHeight ? { lineSpacing: Math.round(op.lineHeight * 100) } : {}),
+    ...(style.lineHeight
+      ? { lineSpacing: Math.round(style.lineHeight * 100) }
+      : {}),
   };
 
   const hasRuns =
