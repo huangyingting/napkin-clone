@@ -25,10 +25,19 @@ test("collab authorizer fails closed when authorization hangs", async () => {
       }),
   });
 
-  const decision = await authorize(
-    { headers: { cookie: "session=abc" } },
-    "doc-1",
-  );
+  // The production abort timer is unref()'d (see collab-auth.mjs), so under
+  // `node --test` it will not, by itself, keep the event loop alive. Hold a
+  // ref'd timer across the await so the 1ms abort timer reliably fires;
+  // otherwise the loop can drain first and node:test cancels this test in CI.
+  const keepAlive = setInterval(() => {}, 1000);
+  try {
+    const decision = await authorize(
+      { headers: { cookie: "session=abc" } },
+      "doc-1",
+    );
 
-  assert.deepEqual(decision, { ok: false, status: 403 });
+    assert.deepEqual(decision, { ok: false, status: 403 });
+  } finally {
+    clearInterval(keepAlive);
+  }
 });
