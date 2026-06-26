@@ -242,6 +242,7 @@ test("readJsonObject returns route-compatible invalid payload errors", async () 
   assert.equal(invalidJson.response.status, 400);
   assert.deepEqual(await responseJson(invalidJson.response), {
     error: "Request body must be valid JSON.",
+    code: "VALIDATION_ERROR",
   });
 
   const nonObject = await readJsonObject(createRequest([]));
@@ -249,6 +250,7 @@ test("readJsonObject returns route-compatible invalid payload errors", async () 
   assert.equal(nonObject.response.status, 400);
   assert.deepEqual(await responseJson(nonObject.response), {
     error: "Request body must be a JSON object.",
+    code: "VALIDATION_ERROR",
   });
 });
 

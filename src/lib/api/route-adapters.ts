@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { validationError } from "@/lib/api/errors";
+
 export interface JsonObjectRequest {
   json(): Promise<unknown>;
   headers?: Headers;
@@ -8,14 +10,6 @@ export interface JsonObjectRequest {
 export interface FormDataRequest {
   formData(): Promise<FormData>;
   headers?: Headers;
-}
-
-export function legacyErrorResponse(
-  status: number,
-  message: string,
-  headers?: HeadersInit,
-): NextResponse {
-  return NextResponse.json({ error: message }, { status, headers });
 }
 
 export function isPlainObject(
@@ -40,7 +34,7 @@ export function rejectOversizedBody(
 ): NextResponse | null {
   const contentLength = requestContentLength(request);
   if (contentLength !== null && contentLength > maxBytes) {
-    return legacyErrorResponse(413, message);
+    return validationError(message, 413);
   }
   return null;
 }
@@ -66,13 +60,13 @@ export async function readJsonObject(
   } catch {
     return {
       ok: false,
-      response: legacyErrorResponse(400, "Request body must be valid JSON."),
+      response: validationError("Request body must be valid JSON."),
     };
   }
   if (!isPlainObject(body)) {
     return {
       ok: false,
-      response: legacyErrorResponse(400, "Request body must be a JSON object."),
+      response: validationError("Request body must be a JSON object."),
     };
   }
   return { ok: true, body };
@@ -96,7 +90,7 @@ export async function readJsonValue(
   try {
     return { ok: true, body: await request.json() };
   } catch {
-    return { ok: false, response: legacyErrorResponse(400, invalidMessage) };
+    return { ok: false, response: validationError(invalidMessage) };
   }
 }
 
@@ -104,7 +98,7 @@ export async function readFormData(
   request: FormDataRequest,
   invalidMessage = "Request must be multipart/form-data.",
   createErrorResponse: (message: string) => NextResponse = (message) =>
-    legacyErrorResponse(400, message),
+    validationError(message),
   options: { maxBytes?: number; tooLargeMessage?: string } = {},
 ): Promise<
   { ok: true; formData: FormData } | { ok: false; response: NextResponse }
