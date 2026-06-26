@@ -153,6 +153,7 @@ import {
   type TextLikeElement,
 } from "@/lib/presentation/text-element-fit";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
+import { assertNever } from "@/lib/assert-never";
 import { useSlideSelection } from "@/components/presentation/slide-editor/use-slide-selection";
 import { useSlideClipboard } from "@/components/presentation/slide-editor/use-slide-clipboard";
 import type { SlideAssetActionPort } from "@/lib/action-ports";
@@ -480,6 +481,8 @@ function slideElementTypeLabel(element: SlideElement): string {
       return "Visual";
     case "connector":
       return "Connector";
+    default:
+      return assertNever(element);
   }
 }
 

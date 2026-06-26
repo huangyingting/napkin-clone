@@ -108,6 +108,7 @@ import {
 import type { Visual } from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { applyTheme, isThemeActive } from "@/lib/visual/transforms";
+import { assertNever } from "@/lib/assert-never";
 
 const SHAPE_OPTIONS: ShapeKind[] = ["rect", "ellipse", "line", "triangle"];
 
@@ -1718,7 +1719,7 @@ export function ElementEditor({
         />
       );
     default:
-      return null;
+      return assertNever(element);
   }
 }
 
