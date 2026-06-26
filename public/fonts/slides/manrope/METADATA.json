@@ -1,0 +1,15 @@
+{
+  "fontId": "manrope",
+  "family": "Manrope",
+  "sourcePackage": "@fontsource/manrope",
+  "sourceVersion": "5.2.8",
+  "license": "OFL-1.1",
+  "homepage": "https://fontsource.org/fonts/manrope",
+  "repository": "https://github.com/fontsource/font-files/tree/main/fonts/google/manrope",
+  "subsetSource": "Prebuilt Fontsource latin subset files; no local subset command was run.",
+  "files": [
+    "manrope-latin-400-normal.woff2",
+    "manrope-latin-600-normal.woff2",
+    "manrope-latin-700-normal.woff2"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "fontId": "inter",
+  "family": "Inter",
+  "sourcePackage": "@fontsource/inter",
+  "sourceVersion": "5.2.8",
+  "license": "OFL-1.1",
+  "homepage": "https://fontsource.org/fonts/inter",
+  "repository": "https://github.com/fontsource/font-files/tree/main/fonts/google/inter",
+  "subsetSource": "Prebuilt Fontsource latin subset files; no local subset command was run.",
+  "files": [
+    "inter-latin-400-normal.woff2",
+    "inter-latin-600-normal.woff2",
+    "inter-latin-700-normal.woff2",
+    "inter-latin-400-italic.woff2"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "fontId": "source-serif-4",
+  "family": "Source Serif 4",
+  "sourcePackage": "@fontsource/source-serif-4",
+  "sourceVersion": "5.2.9",
+  "license": "OFL-1.1",
+  "homepage": "https://fontsource.org/fonts/source-serif-4",
+  "repository": "https://github.com/fontsource/font-files/tree/main/fonts/google/source-serif-4",
+  "subsetSource": "Prebuilt Fontsource latin subset files; no local subset command was run.",
+  "files": [
+    "source-serif-4-latin-400-normal.woff2",
+    "source-serif-4-latin-600-normal.woff2",
+    "source-serif-4-latin-700-normal.woff2",
+    "source-serif-4-latin-400-italic.woff2"
+  ]
+}

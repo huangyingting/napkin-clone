@@ -1,0 +1,16 @@
+{
+  "fontId": "ibm-plex-sans",
+  "family": "IBM Plex Sans",
+  "sourcePackage": "@fontsource/ibm-plex-sans",
+  "sourceVersion": "5.2.8",
+  "license": "OFL-1.1",
+  "homepage": "https://fontsource.org/fonts/ibm-plex-sans",
+  "repository": "https://github.com/fontsource/font-files/tree/main/fonts/google/ibm-plex-sans",
+  "subsetSource": "Prebuilt Fontsource latin subset files; no local subset command was run.",
+  "files": [
+    "ibm-plex-sans-latin-400-normal.woff2",
+    "ibm-plex-sans-latin-600-normal.woff2",
+    "ibm-plex-sans-latin-700-normal.woff2",
+    "ibm-plex-sans-latin-400-italic.woff2"
+  ]
+}

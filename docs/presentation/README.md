@@ -1,7 +1,7 @@
 # Presentation Architecture
 
 **Status:** Current  
-**Last updated:** 2026-06-23
+**Last updated:** 2026-06-26
 
 These documents describe the runtime presentation layer: the slide editor UI,
 stage interactions, present mode, and export pipeline. They sit between the
@@ -13,6 +13,16 @@ persisted deck contract and the React components that render/edit slides.
 | [slide-editor.md](slide-editor.md)                         | Slide editor runtime, stage/inspector boundaries, autosave, source links, and presence.  |
 | [slide-stage-interactions.md](slide-stage-interactions.md) | Stage hit-testing, preselection, selection, drag, edit, connector, and overlap behavior. |
 | [rendering-and-export.md](rendering-and-export.md)         | Shared slide rendering, present/public viewers, export specs, and preflight diagnostics. |
+
+## Design Proposals
+
+These documents record accepted designs that are not yet fully implemented.
+When implemented, fold the resulting runtime contracts back into the current
+behavior documents above.
+
+| Document                                       | Scope                                                                                  |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------- |
+| [slide-fonts-design.md](slide-fonts-design.md) | Self-hosted slide fonts, `fontId` registry, editable PPTX mapping, and migration plan. |
 
 ## Related Contracts
 

@@ -1,0 +1,15 @@
+{
+  "fontId": "space-grotesk",
+  "family": "Space Grotesk",
+  "sourcePackage": "@fontsource/space-grotesk",
+  "sourceVersion": "5.2.10",
+  "license": "OFL-1.1",
+  "homepage": "https://fontsource.org/fonts/space-grotesk",
+  "repository": "https://github.com/fontsource/font-files/tree/main/fonts/google/space-grotesk",
+  "subsetSource": "Prebuilt Fontsource latin subset files; no local subset command was run.",
+  "files": [
+    "space-grotesk-latin-400-normal.woff2",
+    "space-grotesk-latin-600-normal.woff2",
+    "space-grotesk-latin-700-normal.woff2"
+  ]
+}

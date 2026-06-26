@@ -1,0 +1,16 @@
+{
+  "fontId": "source-sans-3",
+  "family": "Source Sans 3",
+  "sourcePackage": "@fontsource/source-sans-3",
+  "sourceVersion": "5.2.9",
+  "license": "OFL-1.1",
+  "homepage": "https://fontsource.org/fonts/source-sans-3",
+  "repository": "https://github.com/fontsource/font-files/tree/main/fonts/google/source-sans-3",
+  "subsetSource": "Prebuilt Fontsource latin subset files; no local subset command was run.",
+  "files": [
+    "source-sans-3-latin-400-normal.woff2",
+    "source-sans-3-latin-600-normal.woff2",
+    "source-sans-3-latin-700-normal.woff2",
+    "source-sans-3-latin-400-italic.woff2"
+  ]
+}

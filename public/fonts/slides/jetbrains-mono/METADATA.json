@@ -1,0 +1,16 @@
+{
+  "fontId": "jetbrains-mono",
+  "family": "JetBrains Mono",
+  "sourcePackage": "@fontsource/jetbrains-mono",
+  "sourceVersion": "5.2.8",
+  "license": "OFL-1.1",
+  "homepage": "https://fontsource.org/fonts/jetbrains-mono",
+  "repository": "https://github.com/fontsource/font-files/tree/main/fonts/google/jetbrains-mono",
+  "subsetSource": "Prebuilt Fontsource latin subset files; no local subset command was run.",
+  "files": [
+    "jetbrains-mono-latin-400-normal.woff2",
+    "jetbrains-mono-latin-600-normal.woff2",
+    "jetbrains-mono-latin-700-normal.woff2",
+    "jetbrains-mono-latin-400-italic.woff2"
+  ]
+}
