@@ -71,7 +71,9 @@ test("repairSlide normalizes ids, layout, bullets, and duplicate element ids", (
 test("repairDeck repairs malformed model output into a schema-valid deck candidate", () => {
   const repaired = repairDeck(repairableDeckModelOutput());
   assert.ok(repaired);
-  assert.equal(repaired.themeId, "default");
+  // repairDeck preserves the model's themeId string; the downstream
+  // normalizer resolves it to a valid theme via the generic fallback.
+  assert.equal(repaired.themeId, "not-a-theme");
   assert.equal(repaired.schemaVersion, CURRENT_DECK_SCHEMA_VERSION);
   assert.equal(repaired.slides.length, 1);
   assert.equal(safeParseDeck(repaired).success, true);

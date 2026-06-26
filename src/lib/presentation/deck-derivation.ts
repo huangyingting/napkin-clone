@@ -230,12 +230,12 @@ function finaliseSlide(builder: SlideBuilder, index: number): Slide {
  * deck with a single blank slide.
  *
  * @param blocks  Block list from `collectDocumentBlocks`.
- * @param themeId Deck-level presentation theme id. Defaults to `"default"`.
+ * @param themeId Deck-level presentation theme id. Defaults to `"indigo"`.
  * @returns A fully-populated `Deck`.
  */
 export function buildDeckFromBlocks(
   blocks: DocumentBlock[],
-  themeId: DeckTheme = "default",
+  themeId: DeckTheme = "indigo",
 ): Deck {
   const slides: Slide[] = [];
   let current: SlideBuilder = freshSlide("", "blank");

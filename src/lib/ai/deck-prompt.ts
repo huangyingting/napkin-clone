@@ -16,14 +16,11 @@ import type { ChatMessage } from "@/lib/ai/prompt";
 import { DECK_THEMES, SLIDE_LAYOUTS } from "@/lib/presentation/deck";
 
 /**
- * The vibrant, content-appropriate themes the model should choose from for
- * strong visual impact (issue #281). Derived from {@link DECK_THEMES} so it
- * stays in sync with the validator: every theme EXCEPT `default`, which is
- * reserved for explicitly dark / embed contexts.
+ * The named visual-content themes the model should choose from (all entries
+ * in {@link DECK_THEMES}).  Kept as a named constant so the theme-rules
+ * section of the prompt and the schema description share the same list.
  */
-const VIBRANT_THEMES: readonly string[] = DECK_THEMES.filter(
-  (theme) => theme !== "default",
-);
+const VIBRANT_THEMES: readonly string[] = DECK_THEMES;
 
 /** A single visual the model may reference (and ONLY these) by `id`. */
 export interface DeckVisualInventoryItem {
@@ -67,7 +64,7 @@ function deckSchemaDescription(): string {
   return [
     "Return ONE JSON object describing a presentation Deck with this exact shape:",
     "{",
-    `  "themeId": one of ${DECK_THEMES.map((t) => `"${t}"`).join(" | ")} (choose a vibrant one — see Theme rules below),`,
+    `  "themeId": one of ${VIBRANT_THEMES.map((t) => `"${t}"`).join(" | ")} (choose the one that fits the content best — see Theme rules below),`,
     '  "slides": [',
     "    {",
     '      "title": short slide heading string (optional),',
@@ -108,7 +105,6 @@ const SYSTEM_PROMPT = [
   "Theme rules:",
   `- ALWAYS choose a VIBRANT theme (${VIBRANT_THEMES.map((t) => `"${t}"`).join(" | ")}) that fits the content's mood/subject, for strong visual impact.`,
   "- Pick the single theme whose palette best matches the content and apply it to the whole deck via the top-level `themeId` field.",
-  '- Reserve "default" ONLY for explicitly dark or embed contexts (e.g. the content is about a dark UI, a terminal, or asks for a muted/dark look). Do NOT use "default" as a generic fallback — a vibrant theme is always preferred.',
   "",
   "Output rules:",
   "- Output the JSON object ONLY — no surrounding prose, no markdown, no code fences.",

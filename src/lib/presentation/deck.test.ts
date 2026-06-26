@@ -75,9 +75,9 @@ test("themeId is stored at deck level", () => {
   assert.equal(deck.themeId, "ocean");
 });
 
-test("default themeId is 'default'", () => {
+test("default themeId is 'indigo'", () => {
   const deck = buildDeckFromBlocks([h1("Hi")]);
-  assert.equal(deck.themeId, "default");
+  assert.equal(deck.themeId, "indigo");
 });
 
 test("slide indexes are zero-based and sequential", () => {

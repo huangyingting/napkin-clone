@@ -296,21 +296,14 @@ function normalizeSlide(
 }
 
 function resolveThemeId(deck: Deck, preferredTheme?: DeckTheme): DeckTheme {
-  // Preserve an explicit, valid NON-default vibrant theme the model chose.
-  if (
-    deck.themeId !== "default" &&
-    DECK_THEMES.includes(deck.themeId as DeckTheme)
-  ) {
+  // Preserve an explicit, recognised named theme the model chose.
+  if (DECK_THEMES.includes(deck.themeId as DeckTheme)) {
     return deck.themeId as DeckTheme;
   }
-  // The model returned "default", or a missing/invalid theme. Substitute a
+  // Unrecognised themeId (e.g. a legacy persisted value) — substitute a
   // vibrant one (issue #281): prefer a document-derived theme when supplied,
-  // otherwise the brand-aligned indigo — never the bleak "default".
-  if (
-    preferredTheme &&
-    preferredTheme !== "default" &&
-    DECK_THEMES.includes(preferredTheme)
-  ) {
+  // otherwise fall back to the brand-aligned indigo.
+  if (preferredTheme && DECK_THEMES.includes(preferredTheme)) {
     return preferredTheme;
   }
   return FALLBACK_THEME;
@@ -327,10 +320,10 @@ function resolveThemeId(deck: Deck, preferredTheme?: DeckTheme): DeckTheme {
  *                   array of `{ id }` carriers. Visuals not present here are
  *                   dropped. Omit for "no known visuals".
  * @param preferredTheme  A document-derived vibrant theme (from
- *                   {@link inferDeckTheme}) used when the model returns
- *                   `"default"` or a missing/invalid theme (issue #281). An
- *                   explicit NON-default vibrant theme the model chose is always
- *                   preserved. Falls back to {@link FALLBACK_THEME} when omitted.
+ *                   {@link inferDeckTheme}) used when the model returns an
+ *                   unrecognised themeId (issue #281). An explicit named theme
+ *                   the model chose is always preserved. Falls back to
+ *                   {@link FALLBACK_THEME} when omitted.
  */
 export function normalizeGeneratedDeck(
   deck: Deck,

@@ -8,12 +8,7 @@ import {
 } from "@/lib/presentation/deck-layout-assign";
 import { CURRENT_DECK_SCHEMA_VERSION } from "@/lib/presentation/deck";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
-import type {
-  Deck,
-  DeckTheme,
-  Slide,
-  SlideElement,
-} from "@/lib/presentation/deck";
+import type { Deck, Slide, SlideElement } from "@/lib/presentation/deck";
 
 const KNOWN = new Set(["vis-1", "vis-2"]);
 
@@ -30,7 +25,7 @@ function slide(overrides: Partial<Slide> = {}): Slide {
   };
 }
 
-function deck(slides: Slide[], themeId: DeckTheme = "indigo"): Deck {
+function deck(slides: Slide[], themeId: string = "indigo"): Deck {
   return {
     themeId,
     slides,
