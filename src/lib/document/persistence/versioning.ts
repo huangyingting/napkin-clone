@@ -8,8 +8,6 @@
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { collectVisualNodes } from "@/lib/lexical/visual-nodes";
-import { lexicalStateToPlainText } from "@/lib/content";
-import { DOCUMENT_CONTENT_MAX_LENGTH } from "@/lib/limits";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { reconcileDocumentDeckDependencies } from "@/lib/document/source-ref-model";
 import { reportSchemaFailure } from "@/lib/diagnostics/schema-telemetry";
@@ -94,19 +92,16 @@ export async function restoreVersion(
   });
 
   const restoredContent = version.contentJson;
-  const content = lexicalStateToPlainText(restoredContent).slice(
-    0,
-    DOCUMENT_CONTENT_MAX_LENGTH,
-  );
   const restoredDeck = sanitizeRestoredDeck(version.deckJson, restoredContent);
 
   // Write the restored document state + atomically rebuild the Visual mirror.
+  // Document.content (the plaintext mirror) is deprecated — no longer written
+  // here. Physical column drop is a follow-up migration.
   await prisma.$transaction(async (tx) => {
     await tx.document.updateMany({
       where: { id: documentId },
       data: {
         contentJson: restoredContent as Prisma.InputJsonValue,
-        content,
         deckJson: restoredDeck,
       },
     });

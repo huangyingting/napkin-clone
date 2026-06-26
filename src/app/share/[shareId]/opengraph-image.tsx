@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 import { publicShareBudgetExceeded } from "@/app/public-abuse";
-import { excerpt } from "@/lib/document-stats";
+import { deriveFromContentJson, excerpt } from "@/lib/document-stats";
 import { resolvePublicRender } from "@/lib/public-render/resolver";
 
 // Prisma access requires the Node.js runtime (not the default edge runtime).
@@ -52,7 +52,7 @@ export default async function Image({
       : "Shared document";
   const description =
     metadataMode === "title-excerpt" && document
-      ? excerpt(document.content, 180)
+      ? excerpt(deriveFromContentJson(document.contentJson).plaintext, 180)
       : "";
 
   return new ImageResponse(

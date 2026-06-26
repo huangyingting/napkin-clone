@@ -20,8 +20,8 @@ test("public render selects are projection-specific", () => {
     unknown
   >;
 
-  assert.equal(metadata.content, true);
-  assert.equal(metadata.contentJson, undefined);
+  assert.equal(metadata.contentJson, true);
+  assert.equal(metadata.content, undefined);
   assert.equal(metadata.deckJson, undefined);
   assert.equal(metadata.owner, undefined);
 

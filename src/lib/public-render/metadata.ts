@@ -1,4 +1,4 @@
-import { excerpt } from "@/lib/document-stats";
+import { deriveFromContentJson } from "@/lib/document-stats";
 import { buildShareSegment } from "@/lib/slug";
 
 export const PUBLIC_SITE_NAME = "TextIQ";
@@ -7,7 +7,7 @@ export type PublicMetadataSurface = "share" | "present";
 
 export interface PublicMetadataDocument {
   title: string;
-  content: string;
+  contentJson: unknown;
   slug: string | null;
   shareId: string | null;
   metadataMode: string;
@@ -75,7 +75,7 @@ export function buildPublicMetadata({
   const canShowExcerpt = metadataMode === "title-excerpt";
   const safeTitle = canShowTitle ? document.title : "Shared Document";
   const description = canShowExcerpt
-    ? excerpt(document.content)
+    ? deriveFromContentJson(document.contentJson).excerpt
     : "A read-only document shared with TextIQ.";
   const ogImage = `${baseUrl}/share/${segment}/opengraph-image`;
   const pageTitle =
