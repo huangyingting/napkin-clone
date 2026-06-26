@@ -5,7 +5,7 @@ import {
   DASHBOARD_DOCUMENT_CARD_SELECT,
   listDashboardDocumentsForUser,
   searchDocumentsForUser,
-} from "@/lib/document-management/list";
+} from "@/lib/document/list";
 
 test("dashboard card select stays skinny and excludes heavy document JSON", () => {
   const select = DASHBOARD_DOCUMENT_CARD_SELECT as Record<string, unknown>;

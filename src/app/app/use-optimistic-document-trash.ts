@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
 import type { DocumentListActionPort } from "@/lib/action-ports";
-import type { DashboardDocument } from "@/lib/document-management/list";
+import type { DashboardDocument } from "@/lib/document/list";
 
 import type { DocumentCardData } from "./document-card";
 import {

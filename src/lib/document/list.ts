@@ -2,7 +2,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { documentCapabilities } from "@/lib/auth/document-permissions";
 import { excerpt, readingTimeMinutes } from "@/lib/document-stats";
 import { capList, DOCUMENT_LIST_LIMIT } from "@/lib/documents";
-import { buildDocumentListArgs } from "@/lib/document-management/query";
+import { buildDocumentListArgs } from "@/lib/document/query";
 import { prisma } from "@/lib/prisma";
 import { normalizeSearchQuery, SEARCH_RESULT_LIMIT } from "@/lib/search";
 import { safeParseVisual, type Visual } from "@/lib/visual/schema";

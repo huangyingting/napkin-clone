@@ -8,7 +8,7 @@ import {
   addDocumentTag,
   disconnectDocumentTag,
   type DocumentTag,
-} from "@/lib/document-management/tags";
+} from "@/lib/document/tags";
 import { requireUser } from "@/lib/session";
 
 /**

@@ -3,7 +3,7 @@ import { nanoid } from "nanoid";
 import { Prisma } from "@/generated/prisma/client";
 import { requireWorkspaceCapability } from "@/lib/auth/workspace-capabilities";
 import { markdownToLexicalState } from "@/lib/content";
-import { buildDocumentListArgs } from "@/lib/document-management/query";
+import { buildDocumentListArgs } from "@/lib/document/query";
 import { DOCUMENT_LIST_LIMIT, capList } from "@/lib/documents";
 import {
   DOCUMENT_CONTENT_MAX_LENGTH,
