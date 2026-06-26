@@ -34,10 +34,8 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { computeDeckMetrics, countWords } from "@/lib/ai/deck-metrics";
 import { DECK_OUTPUT_TOKEN_BUDGET } from "@/lib/limits";
-import {
-  createGenerationRouteHandler,
-  errorResponse,
-} from "@/lib/ai/generation-route";
+import { createGenerationRouteHandler } from "@/lib/ai/generation-route";
+import { notFound } from "@/lib/api/errors";
 import { runDeckGeneration } from "@/lib/ai/run-deck-generation";
 import { isAiDeckGenEnabled } from "@/lib/ai/config";
 import { logInfo } from "@/lib/log";
@@ -109,7 +107,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // Disabled-by-default feature flag: bail out BEFORE doing any work so the
   // route is invisible until an operator opts in.
   if (!isAiDeckGenEnabled()) {
-    return errorResponse(404, "Not found.");
+    return notFound("Not found.");
   }
 
   return handleGenerateDeck(request);

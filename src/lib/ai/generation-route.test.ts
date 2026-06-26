@@ -319,6 +319,7 @@ test("rate limit returns 429 with Retry-After before generation", async () => {
   assert.equal(response.headers.get("Retry-After"), "9");
   assert.deepEqual(await responseJson(response), {
     error: "Rate limit exceeded. Please wait a moment and try again.",
+    code: "RATE_LIMITED",
   });
   assert.equal(state.generated, 0);
   assert.equal(state.denials.length, 1);
@@ -339,6 +340,7 @@ test("insufficient credits returns 402 before reserve or generation", async () =
       "Insufficient credits: you need 2 but have 1. " +
       `Your credits reset on ${PERIOD_END.toLocaleDateString()}. ` +
       "Upgrade your plan or wait for your credits to reset.",
+    code: "PAYMENT_REQUIRED",
   });
   assert.equal(state.generated, 0);
   assert.equal(state.reserved.length, 0);
@@ -359,6 +361,7 @@ test("timeout refunds reserved usage and preserves 504 semantics", async () => {
   assert.equal(response.status, 504);
   assert.deepEqual(await responseJson(response), {
     error: "The AI took too long to respond. Please try again.",
+    code: "SERVER_ERROR",
   });
   assert.equal(state.reserved.length, 1);
   assert.equal(state.captured.length, 0);
@@ -380,6 +383,7 @@ test("generation failure refunds reserved usage and preserves 502 semantics", as
   assert.equal(response.status, 502);
   assert.deepEqual(await responseJson(response), {
     error: "We couldn't generate fakes from that text. Please try again.",
+    code: "SERVER_ERROR",
   });
   assert.equal(state.reserved.length, 1);
   assert.equal(state.captured.length, 0);

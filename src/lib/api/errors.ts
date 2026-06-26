@@ -29,6 +29,7 @@ export const API_ERROR_CODES = {
   VALIDATION_ERROR: "VALIDATION_ERROR",
   RATE_LIMITED: "RATE_LIMITED",
   SERVER_ERROR: "SERVER_ERROR",
+  PAYMENT_REQUIRED: "PAYMENT_REQUIRED",
 } as const;
 
 export type ApiErrorCode =
@@ -48,6 +49,12 @@ function errorResponse(
 ): NextResponse<ApiErrorBody> {
   return NextResponse.json({ error: message, code }, { status, headers });
 }
+
+/**
+ * Escape hatch for routes that need a status code not covered by the named
+ * helpers below. Prefer a named helper when one exists.
+ */
+export { errorResponse as rawErrorResponse };
 
 /** Maps upload validation failures to their shared HTTP status. */
 export function uploadValidationStatus(error: { code: string }): 413 | 415 {
@@ -107,4 +114,26 @@ export function tooManyRequests(
       ? { "Retry-After": String(Math.ceil(retryAfterSeconds)) }
       : undefined;
   return errorResponse(429, API_ERROR_CODES.RATE_LIMITED, message, headers);
+}
+
+/** 402 — the caller lacks sufficient credits to perform the operation. */
+export function paymentRequired(
+  message = "Insufficient credits.",
+): NextResponse<ApiErrorBody> {
+  return errorResponse(402, API_ERROR_CODES.PAYMENT_REQUIRED, message);
+}
+
+/**
+ * Maps an HTTP status code to the best-fit ApiErrorCode.
+ * Use this when you have a dynamic status (e.g. from a user-supplied error
+ * mapping) and no explicit code is provided.
+ */
+export function codeForStatus(status: number): ApiErrorCode {
+  if (status === 401) return API_ERROR_CODES.UNAUTHORIZED;
+  if (status === 402) return API_ERROR_CODES.PAYMENT_REQUIRED;
+  if (status === 403) return API_ERROR_CODES.FORBIDDEN;
+  if (status === 404) return API_ERROR_CODES.NOT_FOUND;
+  if (status === 429) return API_ERROR_CODES.RATE_LIMITED;
+  if (status >= 400 && status < 500) return API_ERROR_CODES.VALIDATION_ERROR;
+  return API_ERROR_CODES.SERVER_ERROR;
 }

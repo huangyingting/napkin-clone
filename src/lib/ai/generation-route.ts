@@ -51,11 +51,17 @@ import {
 } from "@/lib/rate-limit";
 import { getCurrentUser } from "@/lib/session";
 import {
-  isPlainObject,
-  legacyErrorResponse as errorResponse,
-  readJsonObject,
-  retryAfterHeader,
-} from "@/lib/api/route-adapters";
+  API_ERROR_CODES,
+  codeForStatus,
+  featureDisabled,
+  paymentRequired,
+  rawErrorResponse,
+  serverError,
+  tooManyRequests,
+  validationError,
+  type ApiErrorCode,
+} from "@/lib/api/errors";
+import { isPlainObject, readJsonObject } from "@/lib/api/route-adapters";
 
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 
@@ -80,6 +86,7 @@ export type PayloadParseResult<TPayload> =
 export interface GenerationRouteErrorMapping {
   status: number;
   message: string;
+  code?: ApiErrorCode;
   log?: {
     reason: string;
     status: number;
@@ -219,7 +226,7 @@ const defaultDeps: GenerationRouteDeps = {
   logRouteDenial,
 };
 
-export { errorResponse, isPlainObject, readJsonObject };
+export { isPlainObject, readJsonObject };
 
 export function createAzureComplete(
   deps: Pick<
@@ -262,7 +269,7 @@ export function createGenerationRouteHandler<TPayload, TResult>(
 
     const parsed = config.parsePayload(json.body);
     if (!parsed.ok) {
-      return errorResponse(parsed.status, parsed.message, parsed.headers);
+      return validationError(parsed.message, parsed.status);
     }
     const { payload } = parsed;
 
@@ -273,10 +280,7 @@ export function createGenerationRouteHandler<TPayload, TResult>(
         reason: "missing-auth-secret",
         status: 500,
       });
-      return errorResponse(
-        500,
-        "Server is misconfigured (missing AUTH_SECRET).",
-      );
+      return serverError("Server is misconfigured (missing AUTH_SECRET).");
     }
 
     let complete: CompleteFn;
@@ -289,7 +293,7 @@ export function createGenerationRouteHandler<TPayload, TResult>(
           reason: "azure-config",
           status: 503,
         });
-        return errorResponse(503, "AI generation is not configured.");
+        return featureDisabled("AI generation is not configured.");
       }
       deps.logError(config.logScope, error, {
         requestId,
@@ -386,8 +390,9 @@ export function createGenerationRouteHandler<TPayload, TResult>(
           status: 504,
           userId: user?.id,
         });
-        return errorResponse(
+        return rawErrorResponse(
           504,
+          API_ERROR_CODES.SERVER_ERROR,
           "The AI took too long to respond. Please try again.",
         );
       }
@@ -401,7 +406,8 @@ export function createGenerationRouteHandler<TPayload, TResult>(
             status: mapped.log.status,
           });
         }
-        return errorResponse(mapped.status, mapped.message);
+        const code: ApiErrorCode = mapped.code ?? codeForStatus(mapped.status);
+        return rawErrorResponse(mapped.status, code, mapped.message);
       }
 
       deps.logError(config.logScope, error, {
@@ -409,7 +415,7 @@ export function createGenerationRouteHandler<TPayload, TResult>(
         reason: "unexpected",
         status: 500,
       });
-      return errorResponse(500, config.unexpectedErrorMessage);
+      return serverError(config.unexpectedErrorMessage);
     }
   };
 }
@@ -443,10 +449,9 @@ async function checkUserRateLimit<TPayload, TResult>(
     userId: user.id,
     retryAfterSeconds: retryAfter,
   });
-  return errorResponse(
-    429,
+  return tooManyRequests(
+    retryAfter,
     "Rate limit exceeded. Please wait a moment and try again.",
-    retryAfterHeader(retryAfter),
   );
 }
 
@@ -473,7 +478,7 @@ async function checkAndReserveCredits<TPayload, TResult>(
       userId: user.id,
     });
     return {
-      response: errorResponse(402, result.message),
+      response: paymentRequired(result.message),
     };
   }
 
@@ -513,10 +518,9 @@ async function checkAnonymousAccess<TPayload, TResult>(
       retryAfterSeconds: retryAfter,
     });
     return {
-      response: errorResponse(
-        429,
+      response: tooManyRequests(
+        retryAfter,
         "Too many anonymous generations from your network. Please wait and try again, or sign in.",
-        retryAfterHeader(retryAfter),
       ),
     };
   }
@@ -534,7 +538,10 @@ async function checkAnonymousAccess<TPayload, TResult>(
       subjectHash: clientHash,
     });
     return {
-      response: errorResponse(429, config.anonymousQuotaExceededMessage),
+      response: tooManyRequests(
+        undefined,
+        config.anonymousQuotaExceededMessage,
+      ),
     };
   }
 
@@ -575,8 +582,7 @@ async function captureCredits<TPayload, TResult>(
       status: 402,
       userId: meteredUsage.userId,
     });
-    return errorResponse(
-      402,
+    return paymentRequired(
       result.error instanceof Error
         ? result.error.message
         : "Insufficient credits.",
