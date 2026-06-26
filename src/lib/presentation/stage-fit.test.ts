@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  computeStageLayout,
   DEFAULT_SCREEN_SIZE,
   SLIDE_ASPECT_RATIO,
   clampZoom,
@@ -69,6 +70,76 @@ test("fitAspectRatio letterboxes a 4:3 slide inside wide and tall bounds", () =>
   const tall = fitAspectRatio({ width: 360, height: 800 }, ratio);
   assert.equal(tall.width, 360);
   assert.equal(tall.height, 270);
+});
+
+test("computeStageLayout centers the slide vertically without 100% scroll", () => {
+  // aspect 2 keeps the math clean. Wide-but-short stage, panel closed.
+  const layout = computeStageLayout({
+    stageBounds: { width: 1000, height: 600 },
+    stagePaddingTop: 10,
+    aspectRatio: 2,
+    zoom: 1,
+    inspectorOpen: false,
+    inspectorReserveX: 300,
+  });
+
+  // avail = 1000 × 600; fit aspect-2 → 1000 × 500 (width-limited), centered.
+  assert.deepEqual(layout.slide, {
+    left: 0,
+    top: 50,
+    width: 1000,
+    height: 500,
+  });
+  assert.deepEqual(layout.scrollContentSize, { width: 1000, height: 600 });
+  assert.equal(layout.needsScroll, false);
+  // Panel top = stage padding (10) + slide top (50); height matches the slide.
+  assert.deepEqual(layout.inspectorPanel, { top: 60, height: 500 });
+});
+
+test("computeStageLayout fits the slide into the remaining width when the inspector is open", () => {
+  const layout = computeStageLayout({
+    stageBounds: { width: 1000, height: 600 },
+    stagePaddingTop: 10,
+    aspectRatio: 2,
+    zoom: 1,
+    inspectorOpen: true,
+    inspectorReserveX: 300,
+  });
+
+  // avail = 700 × 600; fit aspect-2 → 700 × 350 (width-limited), centered.
+  assert.deepEqual(layout.slide, {
+    left: 0,
+    top: 125,
+    width: 700,
+    height: 350,
+  });
+  assert.deepEqual(layout.scrollContentSize, { width: 1000, height: 600 });
+  assert.equal(layout.needsScroll, false);
+  // Panel Y/height match the slide exactly (10 padding + 125 slide top).
+  assert.deepEqual(layout.inspectorPanel, { top: 135, height: 350 });
+});
+
+test("computeStageLayout overflows into scroll only when zoomed past the stage", () => {
+  const layout = computeStageLayout({
+    stageBounds: { width: 800, height: 450 },
+    stagePaddingTop: 8,
+    aspectRatio: 2,
+    zoom: 1.5,
+    inspectorOpen: false,
+    inspectorReserveX: 300,
+  });
+
+  // avail = 800 × 450; fit → 800 × 400; ×1.5 → 1200 × 600.
+  assert.deepEqual(layout.slide, {
+    left: 0,
+    top: 0,
+    width: 1200,
+    height: 600,
+  });
+  assert.deepEqual(layout.scrollContentSize, { width: 1200, height: 600 });
+  assert.equal(layout.needsScroll, true);
+  // Panel height clamps to the visible stage height.
+  assert.deepEqual(layout.inspectorPanel, { top: 8, height: 450 });
 });
 
 // Bottom-dock zoom controls (issue #591) — pure clamp/convert helpers.

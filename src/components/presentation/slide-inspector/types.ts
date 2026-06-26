@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 import type { SlideAssetActionPort } from "@/lib/action-ports";
 import type {
   Deck,
@@ -69,6 +71,7 @@ export interface SlideInspectorProps {
   onAccentChange: (color: string | undefined) => void;
   brandSwatches?: readonly string[];
   className?: string;
+  style?: CSSProperties;
   showAdvanced?: boolean;
   documentId?: string;
   slideAssetPort?: SlideAssetActionPort;

@@ -341,6 +341,7 @@ export function SlideInspector({
   onAccentChange,
   brandSwatches = [],
   className = "flex w-80 shrink-0 flex-col overflow-y-auto overflow-x-hidden border-l border-ds-border-subtle",
+  style,
   showAdvanced = true,
   documentId,
   slideAssetPort,
@@ -528,7 +529,7 @@ export function SlideInspector({
         : "Slide";
 
   return (
-    <aside className={className}>
+    <aside className={className} style={style}>
       <div className="flex items-center justify-between border-b border-ds-border-subtle px-4 py-3">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-ds-text-muted">

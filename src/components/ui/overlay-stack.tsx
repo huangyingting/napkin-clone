@@ -37,6 +37,7 @@ const OverlayStackContext = createContext<OverlayStackContextValue | null>(
 
 export function OverlayProvider({ children }: { children: ReactNode }) {
   const [stack, setStack] = useState<OverlayEntry[]>([]);
+  const topId = stack.at(-1)?.id ?? null;
 
   const register = useCallback((entry: OverlayEntry) => {
     setStack((current) => [
@@ -60,8 +61,8 @@ export function OverlayProvider({ children }: { children: ReactNode }) {
   }, [stack.length]);
 
   const value = useMemo<OverlayStackContextValue>(
-    () => ({ register, topId: stack.at(-1)?.id ?? null }),
-    [register, stack],
+    () => ({ register, topId }),
+    [register, topId],
   );
 
   return (
@@ -75,13 +76,20 @@ function useOverlayStack(open: boolean, onEscape?: () => void) {
   const explicitId = useId();
   const fallbackId = useRef(`overlay-${explicitId}`);
   const context = useContext(OverlayStackContext);
+  const register = context?.register;
+  const topId = context?.topId ?? null;
+  const onEscapeRef = useRef(onEscape);
 
   useEffect(() => {
-    if (!open || !context) {
+    onEscapeRef.current = onEscape;
+  }, [onEscape]);
+
+  useEffect(() => {
+    if (!open || !register) {
       return;
     }
-    return context.register({ id: fallbackId.current, onEscape });
-  }, [context, onEscape, open]);
+    return register({ id: fallbackId.current });
+  }, [open, register]);
 
   useEffect(() => {
     if (!open) {
@@ -91,16 +99,16 @@ function useOverlayStack(open: boolean, onEscape?: () => void) {
       if (event.key !== "Escape") {
         return;
       }
-      if (context && context.topId !== fallbackId.current) {
+      if (topId !== null && topId !== fallbackId.current) {
         return;
       }
       event.preventDefault();
       event.stopPropagation();
-      onEscape?.();
+      onEscapeRef.current?.();
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [context, onEscape, open]);
+  }, [open, topId]);
 }
 
 function useFocusTrap(open: boolean) {

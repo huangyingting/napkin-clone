@@ -1,6 +1,12 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import {
   BringToFront,
@@ -69,6 +75,184 @@ import {
   toolbarPanelEntries,
   toToolbarSelectionKind,
 } from "@/lib/presentation/slide-panel-ui";
+
+const SLIDE_FLOATING_TOOLBAR_GAP = 12;
+const SLIDE_FLOATING_TOOLBAR_EDGE_INSET = 8;
+const OFFSCREEN_TOOLBAR_POSITION = { top: -1000, left: -1000, maxWidth: 0 };
+
+function SlideFloatingToolbar({
+  ariaLabel,
+  keepSelection = false,
+  children,
+}: {
+  ariaLabel: string;
+  keepSelection?: boolean;
+  children: ReactNode;
+}) {
+  const anchorRef = useRef<HTMLSpanElement | null>(null);
+  const toolbarRef = useRef<HTMLDivElement | null>(null);
+  const [position, setPosition] = useState(OFFSCREEN_TOOLBAR_POSITION);
+
+  const updatePosition = useCallback(() => {
+    const anchorNode = anchorRef.current;
+    const toolbarNode = toolbarRef.current;
+    if (!anchorNode || !toolbarNode) return;
+    const slideNode = anchorNode.closest(
+      '[data-slide-toolbar-anchor="true"]',
+    ) as HTMLElement | null;
+    const slideRect = (slideNode ?? anchorNode).getBoundingClientRect();
+    const toolbarHeight = toolbarNode.offsetHeight;
+    const maxWidth = Math.max(
+      1,
+      Math.min(
+        slideRect.width,
+        window.innerWidth - SLIDE_FLOATING_TOOLBAR_EDGE_INSET * 2,
+      ),
+    );
+    const next = {
+      top: Math.max(
+        SLIDE_FLOATING_TOOLBAR_EDGE_INSET + toolbarHeight,
+        slideRect.top - SLIDE_FLOATING_TOOLBAR_GAP,
+      ),
+      left: slideRect.left + slideRect.width / 2,
+      maxWidth,
+    };
+    setPosition((current) =>
+      current.top === next.top &&
+      current.left === next.left &&
+      current.maxWidth === next.maxWidth
+        ? current
+        : next,
+    );
+  }, []);
+
+  useLayoutEffect(() => {
+    updatePosition();
+  });
+
+  useLayoutEffect(() => {
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    const resizeObserver = new ResizeObserver(updatePosition);
+    const slideNode = anchorRef.current?.closest(
+      '[data-slide-toolbar-anchor="true"]',
+    );
+    let frameId: number | null = null;
+    let runningTransitions = 0;
+    let trackingTransition = false;
+    const trackTransition = () => {
+      updatePosition();
+      if (trackingTransition) {
+        frameId = window.requestAnimationFrame(trackTransition);
+      }
+    };
+    const startTrackingTransition = () => {
+      if (trackingTransition) return;
+      trackingTransition = true;
+      frameId = window.requestAnimationFrame(trackTransition);
+    };
+    const stopTrackingTransition = () => {
+      trackingTransition = false;
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+        frameId = null;
+      }
+      updatePosition();
+    };
+    // The slide animates its left/top/width/height when the inspector opens or
+    // the layout reflows; follow every frame of that transition (a counter
+    // keeps tracking alive while several properties animate together).
+    const TRACKED_PROPERTIES = new Set([
+      "left",
+      "top",
+      "width",
+      "height",
+      "transform",
+    ]);
+    const handleTransitionStart = (event: Event) => {
+      const transition = event as TransitionEvent;
+      if (
+        transition.target !== slideNode ||
+        !TRACKED_PROPERTIES.has(transition.propertyName)
+      ) {
+        return;
+      }
+      runningTransitions += 1;
+      startTrackingTransition();
+    };
+    const handleTransitionEnd = (event: Event) => {
+      const transition = event as TransitionEvent;
+      if (
+        transition.target !== slideNode ||
+        !TRACKED_PROPERTIES.has(transition.propertyName)
+      ) {
+        return;
+      }
+      runningTransitions = Math.max(0, runningTransitions - 1);
+      if (runningTransitions === 0) {
+        stopTrackingTransition();
+      }
+    };
+    if (slideNode) {
+      resizeObserver.observe(slideNode);
+      slideNode.addEventListener("transitionrun", handleTransitionStart);
+      slideNode.addEventListener("transitionend", handleTransitionEnd);
+      slideNode.addEventListener("transitioncancel", handleTransitionEnd);
+    }
+    if (toolbarRef.current) {
+      resizeObserver.observe(toolbarRef.current);
+    }
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+      if (slideNode) {
+        slideNode.removeEventListener("transitionrun", handleTransitionStart);
+        slideNode.removeEventListener("transitionend", handleTransitionEnd);
+        slideNode.removeEventListener("transitioncancel", handleTransitionEnd);
+      }
+      stopTrackingTransition();
+      resizeObserver.disconnect();
+    };
+  }, [updatePosition]);
+
+  const toolbar =
+    typeof document === "undefined"
+      ? null
+      : createPortal(
+          <div
+            ref={toolbarRef}
+            data-floating-panel="true"
+            role="toolbar"
+            aria-label={ariaLabel}
+            onMouseDownCapture={
+              keepSelection ? (event) => event.preventDefault() : undefined
+            }
+            onPointerMove={(event) => event.stopPropagation()}
+            onMouseMove={(event) => event.stopPropagation()}
+            style={{
+              top: position.top,
+              left: position.left,
+              maxWidth: position.maxWidth || undefined,
+            }}
+            className="pointer-events-auto fixed z-tooltip flex -translate-x-1/2 -translate-y-full flex-wrap items-center justify-center gap-1 overflow-visible rounded-ds-lg border border-ds-border-subtle bg-ds-surface-raised p-1 shadow-ds-popover"
+          >
+            {children}
+          </div>,
+          document.body,
+        );
+
+  return (
+    <>
+      <span
+        ref={anchorRef}
+        aria-hidden="true"
+        className="pointer-events-none absolute left-0 top-0 h-0 w-0"
+      />
+      {toolbar}
+    </>
+  );
+}
 
 export function SlideEditorTopToolbar({
   slideCount,
@@ -1070,7 +1254,6 @@ export function SlideSelectionToolbar({
   onReplaceImage,
   onReplaceVisual,
   onRestyleVisual,
-  anchor,
   selectedGroupId,
   isEditingText = false,
   compact,
@@ -1106,18 +1289,16 @@ export function SlideSelectionToolbar({
   onReplaceImage: (id: string) => void;
   onReplaceVisual: (id: string) => void;
   onRestyleVisual: (id: string) => void;
-  anchor?: { leftPct: number; topPct: number; placement: "above" | "below" };
   selectedGroupId?: string | null;
   isEditingText?: boolean;
   compact: boolean;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
-  if (
-    !isSelectionToolbarVisible({
-      hasSelectedElement: selectedElement !== null,
-      selectedCount,
-    })
-  ) {
+  const visible = isSelectionToolbarVisible({
+    hasSelectedElement: selectedElement !== null,
+    selectedCount,
+  });
+  if (!visible) {
     return null;
   }
   const showRich =
@@ -1172,29 +1353,9 @@ export function SlideSelectionToolbar({
     </button>
   );
   return (
-    <div
-      role="toolbar"
-      data-floating-panel="true"
-      aria-label="Selected slide element tools"
-      onMouseDownCapture={
-        isEditingText ? (event) => event.preventDefault() : undefined
-      }
-      className="pointer-events-auto absolute z-sticky flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-1 overflow-visible rounded-ds-lg border border-ds-border-subtle bg-ds-surface-raised p-1 shadow-ds-popover"
-      style={
-        anchor
-          ? {
-              left: `${anchor.leftPct}%`,
-              top:
-                anchor.placement === "above"
-                  ? `calc(${anchor.topPct}% - 12px)`
-                  : `calc(${anchor.topPct}% + 12px)`,
-              transform:
-                anchor.placement === "above"
-                  ? "translate(-50%, -100%)"
-                  : "translate(-50%, 0)",
-            }
-          : { left: "50%", top: "0.75rem" }
-      }
+    <SlideFloatingToolbar
+      ariaLabel="Selected slide element tools"
+      keepSelection={isEditingText}
     >
       {hasMultiSelection ? (
         <>
@@ -1283,6 +1444,8 @@ export function SlideSelectionToolbar({
           onClose={() => setMoreOpen(false)}
           aria-label="More element actions"
           placement="bottom"
+          portal
+          layer="tooltip"
           className="w-44 p-1"
           trigger={
             <button
@@ -1370,7 +1533,7 @@ export function SlideSelectionToolbar({
         <LayoutPanelLeft size={14} aria-hidden="true" />,
         onOpenPanel,
       )}
-    </div>
+    </SlideFloatingToolbar>
   );
 }
 
@@ -1420,12 +1583,7 @@ export function SlideToolbar({
   const iconButtonClass = `flex h-7 w-7 shrink-0 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`;
 
   return (
-    <div
-      role="toolbar"
-      data-floating-panel="true"
-      aria-label="Slide tools"
-      className="pointer-events-auto absolute left-1/2 top-3 z-sticky flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-1 overflow-visible rounded-ds-lg border border-ds-border-subtle bg-ds-surface-raised p-1 shadow-ds-popover"
-    >
+    <SlideFloatingToolbar ariaLabel="Slide tools">
       <div className="flex min-w-0 items-center gap-2 px-2">
         <FileText size={14} className="text-ds-text-muted" aria-hidden="true" />
         <span className="max-w-36 truncate text-xs font-semibold text-ds-text-primary">
@@ -1539,6 +1697,8 @@ export function SlideToolbar({
         onClose={() => onVisualPickerOpenChange(false)}
         aria-label="Insert visual"
         placement="bottom"
+        portal
+        layer="tooltip"
         className="w-[300px] p-0"
         trigger={
           <Tooltip label="Add visual" side="bottom">
@@ -1604,7 +1764,7 @@ export function SlideToolbar({
           <LayoutPanelLeft size={14} aria-hidden="true" />
         </button>
       </Tooltip>
-    </div>
+    </SlideFloatingToolbar>
   );
 }
 

@@ -69,8 +69,8 @@ import { IconButton, Tooltip } from "@/components/ui";
 import { Dialog } from "@/components/ui/dialog";
 import { Popover } from "@/components/ui/popover";
 import {
+  computeStageLayout,
   DEFAULT_SCREEN_SIZE,
-  fitAspectRatio,
   type Size,
 } from "@/lib/presentation/stage-fit";
 import {
@@ -484,6 +484,12 @@ export function SlideEditor({
   });
   const [snapToGrid, setSnapToGrid] = useState(false);
   const [stageBounds, setStageBounds] = useState<Size>(DEFAULT_SCREEN_SIZE);
+  const [stageInsets, setStageInsets] = useState({
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  });
 
   const stageRef = useRef<HTMLDivElement>(null);
   // Focus-trap ref for the main editor dialog.
@@ -590,25 +596,21 @@ export function SlideEditor({
       : "No element selected";
   }, [effectiveSelectedElementId, effectiveSelectedElementIds, selectedSlide]);
   const activeSlideAspectRatio = slideAspectRatio(deck.slideFormat);
-  const fittedStageSize = fitAspectRatio(stageBounds, activeSlideAspectRatio);
-  const renderedStageWidth = fittedStageSize.width * zoom;
-  const renderedStageHeight = fittedStageSize.height * zoom;
-  const scrollContentWidth = Math.max(stageBounds.width, renderedStageWidth);
-  const scrollContentHeight = Math.max(stageBounds.height, renderedStageHeight);
-  const scrollInsetX = Math.max(
-    0,
-    (stageBounds.width - renderedStageWidth) / 2,
-  );
-  const scrollInsetY = Math.max(
-    0,
-    (scrollContentHeight - renderedStageHeight) / 2,
-  );
-  const panelSlideShiftX = inspectorOpen
-    ? Math.max(
-        -scrollInsetX,
-        -Math.min(FLOATING_PANEL_STAGE_RESERVE_PX / 2, scrollInsetX),
-      )
-    : 0;
+  const stageLayout = computeStageLayout({
+    stageBounds,
+    stagePaddingTop: stageInsets.top,
+    aspectRatio: activeSlideAspectRatio,
+    zoom,
+    inspectorOpen,
+    inspectorReserveX: FLOATING_PANEL_STAGE_RESERVE_PX,
+  });
+  const renderedStageWidth = stageLayout.slide.width;
+  const renderedStageHeight = stageLayout.slide.height;
+  // Unzoomed fitted slide size, for hooks that map percent boxes to px.
+  const fittedStageSize = {
+    width: zoom > 0 ? renderedStageWidth / zoom : renderedStageWidth,
+    height: zoom > 0 ? renderedStageHeight / zoom : renderedStageHeight,
+  };
 
   useEffect(() => {
     if (loadReportedRef.current) {
@@ -702,15 +704,31 @@ export function SlideEditor({
     const updateBounds = () => {
       const rect = node.getBoundingClientRect();
       const style = window.getComputedStyle(node);
-      const paddingX =
-        Number.parseFloat(style.paddingLeft) +
-        Number.parseFloat(style.paddingRight);
-      const paddingY =
-        Number.parseFloat(style.paddingTop) +
-        Number.parseFloat(style.paddingBottom);
+      const paddingTop = Number.parseFloat(style.paddingTop);
+      const paddingRight = Number.parseFloat(style.paddingRight);
+      const paddingBottom = Number.parseFloat(style.paddingBottom);
+      const paddingLeft = Number.parseFloat(style.paddingLeft);
+      const paddingX = paddingLeft + paddingRight;
+      const paddingY = paddingTop + paddingBottom;
       setStageBounds({
         width: Math.max(1, rect.width - paddingX),
         height: Math.max(1, rect.height - paddingY),
+      });
+      setStageInsets((current) => {
+        if (
+          current.top === paddingTop &&
+          current.right === paddingRight &&
+          current.bottom === paddingBottom &&
+          current.left === paddingLeft
+        ) {
+          return current;
+        }
+        return {
+          top: paddingTop,
+          right: paddingRight,
+          bottom: paddingBottom,
+          left: paddingLeft,
+        };
       });
     };
 
@@ -1564,25 +1582,27 @@ export function SlideEditor({
             <main className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-ds-surface-sunken">
               <div
                 ref={stageRef}
-                className="relative min-h-0 flex-1 overscroll-contain overflow-auto px-4 py-2 sm:px-5 sm:py-3"
+                className={`relative min-h-0 flex-1 overscroll-contain px-4 py-2 sm:px-5 sm:py-3 ${
+                  stageLayout.needsScroll ? "overflow-auto" : "overflow-hidden"
+                }`}
               >
                 <div
-                  className="relative shrink-0 transition-[padding] duration-200 ease-out motion-reduce:transition-none"
+                  className="relative shrink-0"
                   style={{
                     boxSizing: "border-box",
-                    width: scrollContentWidth,
-                    height: scrollContentHeight,
-                    paddingLeft: scrollInsetX,
-                    paddingTop: scrollInsetY,
+                    width: stageLayout.scrollContentSize.width,
+                    height: stageLayout.scrollContentSize.height,
                   }}
                 >
                   {selectedSlide ? (
                     <div
-                      className="relative transition-transform duration-200 ease-out motion-reduce:transition-none"
+                      data-slide-toolbar-anchor="true"
+                      className="absolute transition-[left,top,width,height] duration-200 ease-out motion-reduce:transition-none"
                       style={{
+                        left: stageLayout.slide.left,
+                        top: stageLayout.slide.top,
                         width: renderedStageWidth,
                         height: renderedStageHeight,
-                        transform: `translateX(${panelSlideShiftX}px)`,
                       }}
                     >
                       {showSlideToolbar ? (
@@ -1611,89 +1631,92 @@ export function SlideEditor({
                           onOpenPanel={() => openRightPanel("slide")}
                         />
                       ) : null}
-                      <Popover
-                        open={canvasAddOpen || canvasAddVisualOpen}
-                        onClose={() => {
-                          setCanvasAddOpen(false);
-                          setCanvasAddVisualOpen(false);
-                        }}
-                        aria-label="Add element"
-                        placement="bottom"
-                        className="w-[280px] p-3"
-                        trigger={
-                          <Tooltip label="Add element" side="bottom">
-                            <button
-                              type="button"
-                              data-floating-panel="true"
-                              aria-label="Add element"
-                              aria-haspopup="dialog"
-                              aria-expanded={
-                                canvasAddOpen || canvasAddVisualOpen
-                              }
-                              onClick={() => {
-                                setCanvasAddVisualOpen(false);
-                                setCanvasAddOpen((open) => !open);
-                              }}
-                              className={`absolute right-3 top-3 z-sticky flex h-9 w-9 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-raised text-ds-text-secondary shadow-ds-popover transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-                            >
-                              <Plus size={18} aria-hidden="true" />
-                            </button>
-                          </Tooltip>
-                        }
-                      >
-                        {canvasAddVisualOpen ? (
-                          <VisualPicker
-                            className="w-full"
-                            visuals={visuals}
-                            onPick={(visualId) => {
-                              handleAddVisual(visualId);
-                              setCanvasAddVisualOpen(false);
-                              setCanvasAddOpen(false);
-                            }}
-                            onClose={() => setCanvasAddVisualOpen(false)}
-                          />
-                        ) : (
-                          <div className="grid grid-cols-2 gap-1.5">
-                            {(
-                              [
-                                ["text", Type, "Text"],
-                                ["bullets", List, "List"],
-                                ["image", ImageIcon, "Image"],
-                                ["shape", Square, "Shape"],
-                              ] as const
-                            ).map(([kind, Icon, label]) => (
+                      <div className="absolute right-3 top-3 z-sticky">
+                        <Popover
+                          open={canvasAddOpen || canvasAddVisualOpen}
+                          onClose={() => {
+                            setCanvasAddOpen(false);
+                            setCanvasAddVisualOpen(false);
+                          }}
+                          aria-label="Add element"
+                          placement="bottom"
+                          portal
+                          className="w-[280px] p-3"
+                          trigger={
+                            <Tooltip label="Add element" side="bottom">
                               <button
-                                key={kind}
                                 type="button"
+                                data-floating-panel="true"
+                                aria-label="Add element"
+                                aria-haspopup="dialog"
+                                aria-expanded={
+                                  canvasAddOpen || canvasAddVisualOpen
+                                }
                                 onClick={() => {
-                                  handleAddElement(kind);
-                                  setCanvasAddOpen(false);
+                                  setCanvasAddVisualOpen(false);
+                                  setCanvasAddOpen((open) => !open);
                                 }}
-                                className={`flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                                className={`flex h-9 w-9 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-raised text-ds-text-secondary shadow-ds-popover transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
                               >
-                                <Icon size={14} aria-hidden="true" />
-                                {label}
+                                <Plus size={18} aria-hidden="true" />
                               </button>
-                            ))}
-                            <button
-                              type="button"
-                              onClick={() => setCanvasAddVisualOpen(true)}
-                              className={`col-span-2 flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-                            >
-                              <Sparkles size={14} aria-hidden="true" />
-                              Visual
-                            </button>
-                            {(insertImageError ?? replaceImageError) ? (
-                              <p
-                                role="alert"
-                                className="col-span-2 text-xs text-ds-danger-text"
+                            </Tooltip>
+                          }
+                        >
+                          {canvasAddVisualOpen ? (
+                            <VisualPicker
+                              className="w-full"
+                              visuals={visuals}
+                              onPick={(visualId) => {
+                                handleAddVisual(visualId);
+                                setCanvasAddVisualOpen(false);
+                                setCanvasAddOpen(false);
+                              }}
+                              onClose={() => setCanvasAddVisualOpen(false)}
+                            />
+                          ) : (
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {(
+                                [
+                                  ["text", Type, "Text"],
+                                  ["bullets", List, "List"],
+                                  ["image", ImageIcon, "Image"],
+                                  ["shape", Square, "Shape"],
+                                ] as const
+                              ).map(([kind, Icon, label]) => (
+                                <button
+                                  key={kind}
+                                  type="button"
+                                  onClick={() => {
+                                    handleAddElement(kind);
+                                    setCanvasAddOpen(false);
+                                  }}
+                                  className={`flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                                >
+                                  <Icon size={14} aria-hidden="true" />
+                                  {label}
+                                </button>
+                              ))}
+                              <button
+                                type="button"
+                                onClick={() => setCanvasAddVisualOpen(true)}
+                                className={`col-span-2 flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
                               >
-                                {insertImageError ?? replaceImageError}
-                              </p>
-                            ) : null}
-                          </div>
-                        )}
-                      </Popover>
+                                <Sparkles size={14} aria-hidden="true" />
+                                Visual
+                              </button>
+                              {(insertImageError ?? replaceImageError) ? (
+                                <p
+                                  role="alert"
+                                  className="col-span-2 text-xs text-ds-danger-text"
+                                >
+                                  {insertImageError ?? replaceImageError}
+                                </p>
+                              ) : null}
+                            </div>
+                          )}
+                        </Popover>
+                      </div>
                       <SlideSelectionToolbarFromContext />
                       <SlideStageEditorFromContext
                         width={renderedStageWidth}
@@ -1714,7 +1737,11 @@ export function SlideEditor({
                 key={`panel-${rightPanelTab}`}
                 initialTab={rightPanelTab}
                 onClose={closeRightPanel}
-                className="absolute bottom-4 right-4 top-4 z-panel hidden w-80 flex-col overflow-y-auto overflow-x-hidden rounded-ds-lg border border-ds-border-subtle bg-ds-surface-overlay shadow-ds-overlay lg:flex"
+                className="absolute right-4 z-panel box-border hidden w-80 flex-col overflow-y-auto overflow-x-hidden rounded-ds-lg border border-ds-border-subtle bg-ds-surface-overlay shadow-ds-overlay lg:flex"
+                style={{
+                  top: stageLayout.inspectorPanel.top,
+                  height: stageLayout.inspectorPanel.height,
+                }}
               />
             ) : null}
           </div>

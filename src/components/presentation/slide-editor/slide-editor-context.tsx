@@ -8,7 +8,14 @@
  * context instead of receiving the values as individually threaded props.
  */
 
-import { createContext, memo, useCallback, useContext, useMemo } from "react";
+import {
+  createContext,
+  memo,
+  useCallback,
+  useContext,
+  useMemo,
+  type CSSProperties,
+} from "react";
 
 import type {
   Deck,
@@ -170,7 +177,6 @@ import { SlideInspector } from "@/components/presentation/slide-inspector";
 import { SlideSelectionToolbar } from "@/components/presentation/slide-editor/selection-toolbar";
 import { shouldCollapseToolbar } from "@/lib/presentation/slide-panel-ui";
 import { selectSelectedElement } from "@/components/presentation/slide-editor/slide-editor-view-model";
-import { selectionBoundingBox } from "@/lib/presentation/selection-transform";
 
 /** Renders SlideStageEditor with all data sourced from SlideEditorContext. */
 export const SlideStageEditorFromContext = memo(
@@ -253,10 +259,12 @@ export const SlideStageEditorFromContext = memo(
 export const SlideInspectorFromContext = memo(
   function SlideInspectorFromContext({
     className,
+    style,
     initialTab,
     onClose,
   }: {
     className?: string;
+    style?: CSSProperties;
     initialTab?: RightPanelTab;
     onClose?: () => void;
   }) {
@@ -350,6 +358,7 @@ export const SlideInspectorFromContext = memo(
         inspectorMode={inspectorMode}
         onInspectorModeChange={setInspectorMode}
         className={className}
+        style={style}
         initialTab={initialTab}
         onClose={onClose}
       />
@@ -427,21 +436,6 @@ export const SlideSelectionToolbarFromContext = memo(
         ? groupId
         : null;
     }, [effectiveSelectedElementIds, selectedSlide?.elements]);
-    const anchor = useMemo(() => {
-      const selected = (selectedSlide?.elements ?? []).filter((element) =>
-        effectiveSelectedElementIds.has(element.id),
-      );
-      if (selected.length === 0) return undefined;
-      const box = selectionBoundingBox(selected.map((element) => element.box));
-      const leftPct = Math.min(96, Math.max(4, box.x + box.w / 2));
-      const canFitAbove = box.y >= 9;
-      return {
-        leftPct,
-        topPct: canFitAbove ? box.y : box.y + box.h,
-        placement: canFitAbove ? "above" : "below",
-      } as const;
-    }, [effectiveSelectedElementIds, selectedSlide?.elements]);
-
     return (
       <SlideSelectionToolbar
         selectedElement={selectedElement}
@@ -473,7 +467,6 @@ export const SlideSelectionToolbarFromContext = memo(
         onReplaceImage={handleReplaceSelectedImage}
         onReplaceVisual={handleReplaceSelectedVisual}
         onRestyleVisual={handleRestyleSelectedVisual}
-        anchor={anchor}
         selectedGroupId={selectedGroupId}
         isEditingText={
           selectedElement?.kind === "text" &&

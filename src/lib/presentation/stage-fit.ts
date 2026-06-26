@@ -21,6 +21,27 @@ import {
 
 export type Size = { width: number; height: number };
 
+export type Rect = { left: number; top: number; width: number; height: number };
+
+export type StageLayout = {
+  /**
+   * The slide box, in coordinates of the (padding-excluded) stage content area.
+   * The slide is centered in the region left after reserving horizontal space
+   * for the inspector and vertical space above it for the floating toolbar.
+   */
+  slide: Rect;
+  /** Size of the scroll-content wrapper; grows past the stage when zoomed in. */
+  scrollContentSize: Size;
+  /** Whether the slide overflows the stage and the stage must scroll. */
+  needsScroll: boolean;
+  /**
+   * Desktop inspector placement. `top` is relative to the stage's positioned
+   * ancestor (it already includes the stage's top padding); `height` matches
+   * the slide and is clamped to the visible stage height.
+   */
+  inspectorPanel: { top: number; height: number };
+};
+
 /** The default slide aspect ratio (16:9 — matches LAYOUT_WIDE 13.333"×7.5"). */
 export const SLIDE_ASPECT_RATIO = slideAspectRatio(DEFAULT_SLIDE_FORMAT);
 
@@ -48,6 +69,87 @@ export function fitAspectRatio(bounds: Size, aspectRatio: number): Size {
   }
 
   return { width: bounds.width, height: bounds.width / aspectRatio };
+}
+
+/**
+ * Compute the single source-of-truth layout for the slide-editor stage.
+ *
+ * Design goals (one frame everything derives from):
+ *   - The slide is letterboxed into the region left after reserving the
+ *     inspector's width (when open), then centered in that region — so it is
+ *     vertically and horizontally centered and never exceeds 100% of the
+ *     available height. The floating toolbar overlays the band above the slide
+ *     without reserving layout space for itself.
+ *   - The inspector panel's `top`/`height` are pinned to the slide so their
+ *     Y-axes and heights match exactly.
+ *   - Scroll content only grows past the stage when the (zoomed) slide does not
+ *     fit, so 100% view never shows scrollbars.
+ *
+ * Pure and DOM-free so it can be unit-tested headlessly.
+ */
+export function computeStageLayout({
+  stageBounds,
+  stagePaddingTop,
+  aspectRatio,
+  zoom,
+  inspectorOpen,
+  inspectorReserveX,
+}: {
+  /** Inner stage size (after the stage container's own padding). */
+  stageBounds: Size;
+  /** The stage container's top padding, to offset the panel's parent origin. */
+  stagePaddingTop: number;
+  aspectRatio: number;
+  zoom: number;
+  inspectorOpen: boolean;
+  /** Horizontal space reserved on the right for the inspector when open. */
+  inspectorReserveX: number;
+}): StageLayout {
+  const width = Math.max(0, stageBounds.width);
+  const height = Math.max(0, stageBounds.height);
+  const safeZoom = zoom > 0 ? zoom : 1;
+
+  const reserveX = inspectorOpen
+    ? Math.min(Math.max(0, inspectorReserveX), Math.max(0, width - 1))
+    : 0;
+
+  const availWidth = Math.max(1, width - reserveX);
+  const availHeight = Math.max(1, height);
+
+  const fitted = fitAspectRatio(
+    { width: availWidth, height: availHeight },
+    aspectRatio,
+  );
+  const slideWidth = fitted.width * safeZoom;
+  const slideHeight = fitted.height * safeZoom;
+
+  const leftMargin = Math.max(0, (availWidth - slideWidth) / 2);
+  const topMargin = Math.max(0, (availHeight - slideHeight) / 2);
+  const slideLeft = leftMargin;
+  const slideTop = topMargin;
+
+  const scrollContentSize = {
+    width: Math.max(width, slideLeft + slideWidth + leftMargin),
+    height: Math.max(height, slideTop + slideHeight + topMargin),
+  };
+  const needsScroll =
+    scrollContentSize.width > width + 1 ||
+    scrollContentSize.height > height + 1;
+
+  return {
+    slide: {
+      left: slideLeft,
+      top: slideTop,
+      width: slideWidth,
+      height: slideHeight,
+    },
+    scrollContentSize,
+    needsScroll,
+    inspectorPanel: {
+      top: stagePaddingTop + slideTop,
+      height: Math.min(slideHeight, Math.max(0, height - slideTop)),
+    },
+  };
 }
 
 /** Minimum supported stage zoom factor (`1` === 100%). */
