@@ -52,6 +52,10 @@ import {
   splitRunsIntoLines,
 } from "@/lib/presentation/rich-text-html";
 import {
+  applyBoldOrItalic,
+  applyForeColor,
+} from "@/lib/presentation/rich-text-commands";
+import {
   getThemeTypography,
   placeholderStyle,
 } from "@/lib/presentation/theme-typography";
@@ -134,7 +138,11 @@ export function RichTextBox({
       const node = ref.current;
       if (!node) return;
       node.focus();
-      document.execCommand(command, false, value);
+      if (command === "foreColor" && value !== undefined) {
+        applyForeColor(value, node);
+      } else if (command === "bold" || command === "italic") {
+        applyBoldOrItalic(command, node);
+      }
       emitChange();
     },
     [emitChange],
