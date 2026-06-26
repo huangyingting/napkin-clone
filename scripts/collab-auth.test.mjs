@@ -16,9 +16,12 @@ test("collab authorizer fails closed when authorization hangs", async () => {
     timeoutMs: 1,
     fetchImpl: (_url, init) =>
       new Promise((_resolve, reject) => {
-        init.signal.addEventListener("abort", () =>
-          reject(new Error("aborted")),
-        );
+        const abort = () => reject(new Error("aborted"));
+        // Register the listener first, then handle an already-aborted signal:
+        // with a 1ms timeout the abort can fire before this fetch stub runs,
+        // and a missed abort event would hang the promise (flaky in CI).
+        init.signal.addEventListener("abort", abort, { once: true });
+        if (init.signal.aborted) abort();
       }),
   });
 
