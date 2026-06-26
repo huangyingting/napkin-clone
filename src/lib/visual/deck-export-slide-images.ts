@@ -15,6 +15,7 @@ import type { PptxSpec } from "@/lib/visual/pptx-shapes";
 import {
   buildDeckSpecs,
   deckGeometry,
+  toExportTextStyle,
   type DeckBulletsOp,
   type DeckConnectorOp,
   type DeckImageOp,
@@ -164,26 +165,27 @@ function renderTextForeignObject(
   const y = px(op.y, pxPerIn);
   const w = px(op.w, pxPerIn);
   const h = px(op.h, pxPerIn);
+  const style = toExportTextStyle(op);
   const valign =
-    op.verticalAlign === "top"
+    style.verticalAlign === "top"
       ? "flex-start"
-      : op.verticalAlign === "bottom"
+      : style.verticalAlign === "bottom"
         ? "flex-end"
         : "center";
   const outerStyle = [
     "width:100%;height:100%;display:flex;",
     `align-items:${valign};`,
     "justify-content:stretch;",
-    `color:#${op.color};`,
-    `font-size:${pxFromPt(op.fontSize, pxPerIn)}px;`,
-    op.bold ? "font-weight:700;" : "font-weight:400;",
-    op.italic ? "font-style:italic;" : "font-style:normal;",
-    op.underline ? "text-decoration:underline;" : "",
-    `text-align:${op.align};`,
-    `line-height:${op.lineHeight ?? 1.15};`,
+    `color:#${style.color};`,
+    `font-size:${pxFromPt(style.fontSize, pxPerIn)}px;`,
+    style.bold ? "font-weight:700;" : "font-weight:400;",
+    style.italic ? "font-style:italic;" : "font-style:normal;",
+    style.underline ? "text-decoration:underline;" : "",
+    `text-align:${style.align};`,
+    `line-height:${style.lineHeight ?? 1.15};`,
     "white-space:pre-wrap;overflow-wrap:break-word;word-break:normal;",
     "overflow:hidden;",
-    cssFontFace(op.fontFace),
+    cssFontFace(style.fontFace),
     op.opacity !== undefined ? `opacity:${op.opacity};` : "",
     shadowCss(op.shadow),
   ].join("");

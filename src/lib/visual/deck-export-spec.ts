@@ -245,6 +245,64 @@ export interface DeckSlideSpec {
 }
 
 // ---------------------------------------------------------------------------
+// Shared text-style helper
+// ---------------------------------------------------------------------------
+
+/** Normalised text-style fields common to {@link DeckTextOp} and {@link DeckBulletsOp}. */
+export interface ExportTextStyle {
+  /** Hex color without leading `#`. */
+  color: string;
+  /** Font size in points. */
+  fontSize: number;
+  fontFace?: string;
+  bold: boolean;
+  italic: boolean;
+  underline?: boolean;
+  align: ElementAlign;
+  /** Vertical alignment of text within its box. */
+  verticalAlign?: "top" | "middle" | "bottom";
+  /** CSS line-height multiplier. */
+  lineHeight?: number;
+}
+
+/**
+ * Extract the text-styling fields shared by {@link DeckTextOp} and
+ * {@link DeckBulletsOp} into a single {@link ExportTextStyle} record.
+ *
+ * Both the PPTX applier (`deck-export-pptx.ts`) and the SVG renderer
+ * (`deck-export-slide-images.ts`) call this helper, giving the set of
+ * "text style" properties a single definition.
+ */
+export function toExportTextStyle(
+  op: Pick<
+    DeckTextOp,
+    | "color"
+    | "fontSize"
+    | "fontFace"
+    | "bold"
+    | "italic"
+    | "underline"
+    | "align"
+    | "verticalAlign"
+    | "lineHeight"
+  >,
+): ExportTextStyle {
+  return {
+    color: op.color,
+    fontSize: op.fontSize,
+    bold: op.bold,
+    italic: op.italic,
+    align: op.align,
+    ...(op.fontFace !== undefined ? { fontFace: op.fontFace } : {}),
+    ...(op.underline ? { underline: true } : {}),
+    ...(op.verticalAlign !== undefined
+      ? { verticalAlign: op.verticalAlign }
+      : {}),
+    ...(op.lineHeight !== undefined ? { lineHeight: op.lineHeight } : {}),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Geometry helpers
 // ---------------------------------------------------------------------------
 
