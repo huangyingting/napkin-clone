@@ -6,7 +6,6 @@ import { prisma } from "@/lib/prisma";
 
 const duplicateDocumentSourceSelect = {
   title: true,
-  content: true,
   contentJson: true,
   deckJson: true,
   visuals: {
@@ -103,10 +102,11 @@ export function buildDuplicateDocumentCreateData(
   contentJson: Prisma.JsonValue | null,
   bidMap: Map<string, string>,
 ) {
+  // Document.content (the plaintext mirror) is deprecated — stop writing it.
+  // Physical column drop is a follow-up migration.
   return {
     ownerId,
     title: `${source.title} (copy)`,
-    content: source.content,
     ...(contentJson != null && {
       contentJson: cloneJsonForCreate(contentJson),
     }),

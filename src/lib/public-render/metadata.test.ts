@@ -21,7 +21,21 @@ test("buildPublicMetadata builds share canonical, excerpt, and OG image", () => 
   const metadata = buildPublicMetadata({
     document: {
       title: "Launch Plan",
-      content: "A concise public launch plan.",
+      contentJson: {
+        root: {
+          children: [
+            {
+              type: "paragraph",
+              children: [
+                {
+                  type: "text",
+                  text: "A concise public launch plan.",
+                },
+              ],
+            },
+          ],
+        },
+      },
       slug: "launch-plan",
       shareId: "share123",
       metadataMode: "title-excerpt",
@@ -46,7 +60,9 @@ test("buildPublicMetadata includes present canonical and share see-also link", (
   const metadata = buildPublicMetadata({
     document: {
       title: "Launch Deck",
-      content: "Deck summary",
+      contentJson: {
+        root: { children: [{ type: "paragraph", children: [] }] },
+      },
       slug: "launch-deck",
       shareId: "share456",
       metadataMode: "title",
@@ -75,7 +91,16 @@ test("buildPublicMetadata defaults shared links to generic noindex previews", ()
   const metadata = buildPublicMetadata({
     document: {
       title: "Private Roadmap",
-      content: "Sensitive launch details",
+      contentJson: {
+        root: {
+          children: [
+            {
+              type: "paragraph",
+              children: [{ type: "text", text: "Sensitive launch details" }],
+            },
+          ],
+        },
+      },
       slug: "private-roadmap",
       shareId: "share789",
       metadataMode: "generic",

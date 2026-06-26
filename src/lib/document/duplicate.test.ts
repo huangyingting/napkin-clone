@@ -72,7 +72,6 @@ test("duplicate create data is private and clones visuals without comments or sh
   const data = buildDuplicateDocumentCreateData(
     {
       title: "Source",
-      content: "Body",
       contentJson: { root: { children: [] } },
       deckJson: null,
       visuals: [

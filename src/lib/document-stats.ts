@@ -7,6 +7,8 @@
  * `node --test` + `tsx`.
  */
 
+import { lexicalStateToPlainText } from "@/lib/content/plain-text";
+
 const WORDS_PER_MINUTE = 200;
 const DEFAULT_EXCERPT_CHARS = 160;
 
@@ -97,4 +99,28 @@ export function excerpt(
   const lastSpace = sliced.lastIndexOf(" ");
   const boundary = lastSpace > 0 ? sliced.slice(0, lastSpace) : sliced;
   return `${boundary.trimEnd()}…`;
+}
+
+/**
+ * Derives display statistics from a serialized Lexical editor state
+ * (Document.contentJson), superseding reads of the deprecated
+ * Document.content plaintext mirror.
+ *
+ * Physical removal of the `content` column is deferred to a follow-up
+ * migration.
+ *
+ * @returns { excerpt, readingMinutes, plaintext } — all derived on-the-fly
+ *   from contentJson.
+ */
+export function deriveFromContentJson(contentJson: unknown): {
+  excerpt: string;
+  readingMinutes: number;
+  plaintext: string;
+} {
+  const plaintext = lexicalStateToPlainText(contentJson);
+  return {
+    excerpt: excerpt(plaintext),
+    readingMinutes: readingTimeMinutes(plaintext),
+    plaintext,
+  };
 }

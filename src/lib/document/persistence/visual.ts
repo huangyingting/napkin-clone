@@ -7,9 +7,7 @@
 
 import { Prisma } from "@/generated/prisma/client";
 import { collectVisualNodes } from "@/lib/lexical/visual-nodes";
-import { lexicalStateToPlainText } from "@/lib/content";
 import { prisma } from "@/lib/prisma";
-import { DOCUMENT_CONTENT_MAX_LENGTH } from "@/lib/limits";
 import { safeParseDeck } from "@/lib/presentation/deck-schema";
 import { reconcileDocumentDeckDependencies } from "@/lib/document/source-ref-model";
 import { reportSchemaFailure } from "@/lib/diagnostics/schema-telemetry";
@@ -257,11 +255,6 @@ export async function atomicSaveDocumentLexical(
   parsedState: unknown,
   userId?: string | null,
 ): Promise<VisualMirrorOutcome> {
-  const content = lexicalStateToPlainText(parsedState).slice(
-    0,
-    DOCUMENT_CONTENT_MAX_LENGTH,
-  );
-
   await snapshotDocumentVersion(documentId, { userId });
 
   let outcome: VisualMirrorOutcome;
@@ -271,7 +264,8 @@ export async function atomicSaveDocumentLexical(
       where: { id: documentId },
       data: {
         contentJson: parsedState as Prisma.InputJsonValue,
-        content,
+        // Document.content (the plaintext mirror) is deprecated — no longer
+        // written here. Physical column drop is a follow-up migration.
       },
     });
 

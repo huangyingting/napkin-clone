@@ -5,7 +5,6 @@ import {
   DOCUMENT_TITLE_MAX_LENGTH,
 } from "@/lib/limits";
 import { prisma } from "@/lib/prisma";
-import { BLANK_TEMPLATE_ID, getTemplateOrBlank } from "@/lib/templates/catalog";
 
 type DocumentCreateDb = Pick<typeof prisma, "document">;
 
@@ -27,14 +26,15 @@ export function importedMarkdownToContentJson(
 
 export async function createDocumentFromTemplateForUser(
   userId: string,
-  templateId: string,
+  _templateId: string,
   db: DocumentCreateDb = prisma,
 ): Promise<CreatedDocument> {
-  const template = getTemplateOrBlank(templateId);
-  const content = template.id === BLANK_TEMPLATE_ID ? "" : template.content;
-
+  // Document.content (the plaintext mirror) is deprecated; physical column drop
+  // is a follow-up migration. Template Markdown seed content is no longer
+  // written to the deprecated column — a future task will persist it as
+  // contentJson via importedMarkdownToContentJson.
   return db.document.create({
-    data: { ownerId: userId, content },
+    data: { ownerId: userId },
     select: { id: true },
   });
 }
@@ -49,8 +49,10 @@ export async function createDocumentFromImportForUser(
   const safeContent = clampDocumentContent(content);
   const contentJson = importedMarkdownToContentJson(safeContent);
 
+  // Document.content (the plaintext mirror) is deprecated — stop writing it.
+  // Physical column drop is a follow-up migration.
   return db.document.create({
-    data: { ownerId: userId, title, content: safeContent, contentJson },
+    data: { ownerId: userId, title, contentJson },
     select: { id: true },
   });
 }

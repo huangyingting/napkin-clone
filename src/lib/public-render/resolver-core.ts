@@ -34,7 +34,6 @@ export type PublicRenderDocumentRow = ShareAccessFields &
   DocumentRoleInput & {
     id: string;
     title: string;
-    content: string;
     contentJson: unknown;
     deckJson: unknown;
     slug: string | null;
@@ -54,7 +53,7 @@ export interface PublicDocumentModel {
 
 export interface PublicMetadataModel {
   title: string;
-  content: string;
+  contentJson: unknown;
   slug: string | null;
   shareId: string | null;
   metadataMode: string;
@@ -293,7 +292,7 @@ export async function resolvePublicRenderWithSource(
       shareId,
       metadata: {
         title: document.title,
-        content: document.content,
+        contentJson: document.contentJson,
         slug: document.slug,
         shareId: document.shareId,
         metadataMode: document.shareMetadataMode ?? "generic",
