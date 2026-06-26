@@ -18,7 +18,7 @@ interface L extends FilterableLayer {
 
 const els: L[] = [
   { id: "t1", name: "Title", kind: "text" },
-  { id: "b1", name: "Bullets", kind: "bullets", locked: true },
+  { id: "b1", name: "Bullets", kind: "text", locked: true },
   { id: "i1", name: "Hero image", kind: "image", hidden: true },
   { id: "v1", name: "Chart", kind: "visual", sourceRef: { documentId: "d" } },
   { id: "s1", name: "Box", kind: "shape", groupId: "g1" },
@@ -47,7 +47,7 @@ test("plain text matches the display name (case-insensitive)", () => {
 test("kind: filters by element kind", () => {
   assert.deepStrictEqual(
     filterLayers(els, "kind:text", nameOf).map((e) => e.id),
-    ["t1"],
+    ["t1", "b1"],
   );
 });
 

@@ -16,11 +16,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type {
-  BulletsElement,
   ConnectorElement,
   Deck,
   ImageElement,
-  PlaceholderElement,
   ShapeElement,
   Slide,
   SlideElement,
@@ -41,7 +39,6 @@ import {
   buildBulletsElement,
   buildConnectorElement,
   buildImageElement,
-  buildPlaceholderElement,
   buildShapeElement,
   buildSlide,
   buildTextElement,
@@ -90,7 +87,7 @@ function fixtureTextElement(
 ): TextElement {
   return buildTextElement({
     id,
-    role: "title",
+    textRole: "h1",
     text,
     zIndex: 0,
     box: { x: 6, y: 6, w: 88, h: 16 },
@@ -102,8 +99,8 @@ function fixtureTextElement(
 function bulletsEl(
   id: string,
   bullets: string[],
-  overrides: Partial<BulletsElement> = {},
-): BulletsElement {
+  overrides: Parameters<typeof buildBulletsElement>[0] = {},
+): TextElement {
   return buildBulletsElement({
     id,
     bullets,
@@ -148,19 +145,6 @@ function imageEl(
     alt: "pic",
     zIndex: 4,
     box: { x: 70, y: 2, w: 25, h: 20 },
-    ...overrides,
-  });
-}
-
-function placeholderEl(
-  id: string,
-  overrides: Partial<PlaceholderElement> = {},
-): PlaceholderElement {
-  return buildPlaceholderElement({
-    id,
-    placeholderType: "body",
-    zIndex: 2,
-    box: { x: 20, y: 20, w: 30, h: 20 },
     ...overrides,
   });
 }
@@ -560,7 +544,7 @@ test("text op carries runs when the element has them", () => {
         fixtureTextElement("t1", "Bold Title", {
           runs: [
             { text: "Bold " },
-            { text: "Title", bold: true, color: "#ff0000" },
+            { text: "Title", bold: true, color: "#ff0000", fontSize: 4 },
           ],
         }),
       ]),
@@ -571,7 +555,7 @@ test("text op carries runs when the element has them", () => {
   assert.equal(text.text, "Bold Title");
   assert.deepEqual(text.runs, [
     { text: "Bold " },
-    { text: "Title", bold: true, color: "#ff0000" },
+    { text: "Title", bold: true, color: "#ff0000", fontSize: 22 },
   ]);
 });
 
@@ -746,26 +730,6 @@ test("connector export is applied to PPTX as a line shape", async () => {
   assert.equal(shapeCalls[0]?.options.line?.transparency, 60);
 });
 
-test("placeholder elements export as labeled placeholder ops instead of dropping silently", async () => {
-  const deck: Deck = {
-    themeId: "default",
-    slides: [freeFormSlide(0, [placeholderEl("ph1")])],
-  };
-
-  const [spec] = buildDeckSpecs(deck, new Map());
-  const shapes = ofKind(spec.ops, "shape");
-  const texts = ofKind(spec.ops, "text");
-  assert.equal(shapes.length, 1, "placeholder outline emitted");
-  assert.equal(texts.length, 1, "placeholder label emitted");
-  assert.equal(texts[0]?.text, "Body");
-
-  const { slide, shapeCalls, textCalls } = recordingSlide();
-  await deckExportTestHelpers.applyDeckOp(slide, shapes[0], NO_SVG);
-  await deckExportTestHelpers.applyDeckOp(slide, texts[0], NO_SVG);
-  assert.equal(shapeCalls.length, 1);
-  assert.equal(textCalls.length, 1);
-});
-
 // ---------------------------------------------------------------------------
 // Multi-level bullets / numbered lists (#335)
 // ---------------------------------------------------------------------------
@@ -927,7 +891,6 @@ test("exported text inherits the deck-template role font when no element overrid
     slides: [
       freeFormSlide(0, [
         fixtureTextElement("title", "Heading", {
-          role: "title",
           textRole: "h1",
         }),
         bulletsEl("b", ["point"]),
@@ -947,7 +910,7 @@ test("an explicit element fontId still wins over the role font (#606)", () => {
     slides: [
       freeFormSlide(0, [
         fixtureTextElement("title", "Heading", {
-          role: "title",
+          textRole: "h1",
           style: {
             fontSize: 6,
             bold: true,

@@ -31,7 +31,6 @@ function textEl(
     zIndex: 1,
     text: id,
     style: { fontSize: 5, bold: false, italic: false, align: "left" },
-    role: "body",
     ...(rotation !== undefined ? { rotation } : {}),
   } as SlideElement;
 }

@@ -3,15 +3,8 @@
  * parity without coupling style-cascade to React, DOM, or PPTX libraries.
  */
 
-import type { Deck } from "./deck-core";
-import type {
-  BulletsElement,
-  ElementAlign,
-  ShapeElement,
-  TextElement,
-} from "./deck-elements";
+import type { Deck, ElementAlign, ShapeElement, TextElement } from "./deck";
 import {
-  resolveBulletsElementStyle,
   resolveShapeLabelStyle,
   resolveTextElementStyle,
   type ResolvedTextStyle,
@@ -108,24 +101,6 @@ export function adaptTextElementForExport(
 ): ExportTextStyleAdapter {
   return exportFromResolved(
     resolveTextElementStyle(deck, element),
-    slideHeightPt,
-  );
-}
-
-export function adaptBulletsElementForRenderer(
-  deck: Deck,
-  element: BulletsElement,
-): RendererTextStyleAdapter {
-  return rendererFromResolved(resolveBulletsElementStyle(deck, element));
-}
-
-export function adaptBulletsElementForExport(
-  deck: Deck,
-  element: BulletsElement,
-  slideHeightPt: number,
-): ExportTextStyleAdapter {
-  return exportFromResolved(
-    resolveBulletsElementStyle(deck, element),
     slideHeightPt,
   );
 }

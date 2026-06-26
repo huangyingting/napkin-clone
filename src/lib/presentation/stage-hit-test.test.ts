@@ -32,7 +32,6 @@ function text(
   return {
     id,
     kind: "text",
-    role: "body",
     text: value,
     zIndex,
     box: elementBox,

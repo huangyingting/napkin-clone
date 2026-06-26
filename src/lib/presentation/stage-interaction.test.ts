@@ -13,7 +13,6 @@ function textElement(): SlideElement {
   return {
     id: "text-1",
     kind: "text",
-    role: "body",
     text: "Hello",
     zIndex: 1,
     box: { x: 10, y: 10, w: 40, h: 10 },

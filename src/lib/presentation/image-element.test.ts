@@ -145,7 +145,6 @@ test("totalInlineImageBytes: sums only inlined image data URLs", () => {
       box: { x: 0, y: 0, w: 10, h: 10 },
       zIndex: 0,
       style: { fontSize: 16, align: "left", bold: false, italic: false },
-      role: "body",
     },
   ]);
   assert.equal(totalInlineImageBytes(deck), 3000);

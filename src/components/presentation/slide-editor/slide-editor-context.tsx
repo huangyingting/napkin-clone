@@ -355,6 +355,12 @@ export const SlideSelectionToolbarFromContext = memo(
       handleRemoveElement,
       handleBringToFront,
       handleSendToBack,
+      handleAlign,
+      handleDistribute,
+      handleMatchSize,
+      handleArrange,
+      handleGroupElements,
+      handleUngroupElements,
       stageBounds,
     } = useSlideEditorContext();
 
@@ -383,10 +389,26 @@ export const SlideSelectionToolbarFromContext = memo(
       () => openRightPanel("source"),
       [openRightPanel],
     );
+    const selectedIds = useMemo(
+      () => [...effectiveSelectedElementIds],
+      [effectiveSelectedElementIds],
+    );
+    const selectedGroupId = useMemo(() => {
+      const selected = (selectedSlide?.elements ?? []).filter((element) =>
+        effectiveSelectedElementIds.has(element.id),
+      );
+      if (selected.length === 0) return null;
+      const groupId = selected[0]?.groupId;
+      if (!groupId) return null;
+      return selected.every((element) => element.groupId === groupId)
+        ? groupId
+        : null;
+    }, [effectiveSelectedElementIds, selectedSlide?.elements]);
 
     return (
       <SlideSelectionToolbar
         selectedElement={selectedElement}
+        selectedIds={selectedIds}
         selectedCount={effectiveSelectedElementIds.size}
         theme={selectedTheme}
         brandSwatches={brandSwatches}
@@ -396,10 +418,26 @@ export const SlideSelectionToolbarFromContext = memo(
         onOpenEffects={handleOpenEffects}
         onOpenMedia={handleOpenMedia}
         onOpenSource={handleOpenSource}
+        onOpenPanel={handleOpenPosition}
         onDuplicateElement={handleDuplicateElement}
         onRemoveElement={handleRemoveElement}
         onBringToFront={handleBringToFront}
         onSendToBack={handleSendToBack}
+        onAlignSelected={(mode) => handleAlign(selectedIds, mode)}
+        onDistributeSelected={(mode) => handleDistribute(selectedIds, mode)}
+        onMatchSizeSelected={(mode) => handleMatchSize(selectedIds, mode)}
+        onArrangeSelected={(mode) => handleArrange(selectedIds, mode)}
+        onGroupSelected={() => handleGroupElements(selectedIds)}
+        onUngroupSelected={() => {
+          if (selectedGroupId) handleUngroupElements(selectedGroupId);
+        }}
+        onDuplicateSelected={() => undefined}
+        onRemoveSelected={() => undefined}
+        onReplaceImage={() => undefined}
+        onReplaceVisual={() => undefined}
+        onRestyleVisual={() => undefined}
+        selectedGroupId={selectedGroupId}
+        isEditingText={false}
         compact={shouldCollapseToolbar(stageBounds.width)}
       />
     );

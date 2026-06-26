@@ -1,33 +1,52 @@
 "use client";
 
-import { memo, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   BringToFront,
+  ChevronLeft,
+  Copy,
   FileText,
   Grid3x3,
   Image as ImageIcon,
   LayoutPanelLeft,
+  List,
   Minus,
   MoreHorizontal,
+  Palette,
   Plus,
   SendToBack,
   Sparkles,
+  Columns3,
+  Square,
   Type,
+  Trash2,
   X,
 } from "lucide-react";
 
 import { FOCUS_RING } from "@/components/ui/tokens";
+import { ColorPicker } from "@/components/ui/color-picker";
 import { Popover } from "@/components/ui/popover";
 import { Tooltip } from "@/components/ui";
+import { VisualPicker } from "@/components/presentation/visual-picker";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { ElementToolbarContent } from "@/components/presentation/slide-stage/element-overlays";
 import { useFocusTrap } from "@/lib/presentation/use-focus-trap";
 import type { Visual } from "@/lib/visual/schema";
-import type { SlideElement } from "@/lib/presentation/deck";
+import type {
+  Slide,
+  SlideElement,
+  SlideLayout as ReusableSlideLayout,
+} from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import type { SlideThemeColors } from "@/lib/presentation/style-cascade";
 import type { SlideFormat } from "@/lib/presentation/slide-format";
+import type {
+  AlignMode,
+  DistributeMode,
+  MatchSizeMode,
+} from "@/lib/presentation/element-align";
+import type { ArrangeMode } from "@/lib/presentation/element-arrange";
 import {
   SLIDE_FORMATS,
   slideFormatConfig,
@@ -43,14 +62,13 @@ import {
 import type { MergeSummary } from "@/lib/presentation/deck-merge";
 import type { Insertable } from "@/lib/presentation/document-insertable";
 import type { StaleSourceLink } from "@/lib/presentation/source-link-staleness";
+import type { AddElementKind } from "@/components/presentation/slide-inspector/types";
 import {
   isSelectionToolbarVisible,
   shouldShowRichToolbarControls,
   toolbarPanelEntries,
   toToolbarSelectionKind,
 } from "@/lib/presentation/slide-panel-ui";
-
-export { BackgroundThemePanel } from "./background-theme-panel";
 
 export function SlideEditorTopToolbar({
   slideCount,
@@ -112,6 +130,464 @@ export function SlideRail({
   );
 }
 
+type BackgroundGradient = { from: string; to: string; angle?: number };
+
+const SOLID_BACKGROUND_OPTIONS: {
+  id: string;
+  label: string;
+  color: string;
+}[] = [
+  { id: "black", label: "Black", color: "#050505" },
+  { id: "graphite", label: "Graphite", color: "#525252" },
+  { id: "ash", label: "Ash", color: "#737373" },
+  { id: "stone", label: "Stone", color: "#a3a3a3" },
+  { id: "silver", label: "Silver", color: "#b8b8b8" },
+  { id: "mist", label: "Mist", color: "#d4d4d4" },
+  { id: "white", label: "White", color: "#fbfbfb" },
+  { id: "vermillion", label: "Vermillion", color: "#df4038" },
+  { id: "coral", label: "Coral", color: "#df625d" },
+  { id: "orchid", label: "Orchid", color: "#d662b8" },
+  { id: "lilac", label: "Lilac", color: "#caa2e7" },
+  { id: "violet", label: "Violet", color: "#ad6ddd" },
+  { id: "iris", label: "Iris", color: "#7b5cf0" },
+  { id: "royal", label: "Royal", color: "#512ddc" },
+  { id: "fjord", label: "Fjord", color: "#5799af" },
+  { id: "sky", label: "Sky", color: "#6dbbd5" },
+  { id: "aqua", label: "Aqua", color: "#8bd6d8" },
+  { id: "azure", label: "Azure", color: "#6aaef0" },
+  { id: "periwinkle", label: "Periwinkle", color: "#6374ee" },
+  { id: "cobalt", label: "Cobalt", color: "#3455ad" },
+  { id: "indigo", label: "Indigo", color: "#24139b" },
+  { id: "leaf", label: "Leaf", color: "#66ba69" },
+  { id: "lime", label: "Lime", color: "#9bd363" },
+  { id: "sprout", label: "Sprout", color: "#cbfb6f" },
+  { id: "sun", label: "Sun", color: "#f6dc62" },
+  { id: "sand", label: "Sand", color: "#efbf61" },
+  { id: "apricot", label: "Apricot", color: "#e99350" },
+  { id: "orange", label: "Orange", color: "#e5782e" },
+];
+
+const GRADIENT_BACKGROUND_OPTIONS: {
+  id: string;
+  label: string;
+  gradient: BackgroundGradient;
+}[] = [
+  {
+    id: "black-gloss",
+    label: "Black gloss",
+    gradient: { from: "#050505", to: "#525252", angle: 90 },
+  },
+  {
+    id: "mono-shine",
+    label: "Mono shine",
+    gradient: { from: "#0b0b0b", to: "#f5f5f5", angle: 90 },
+  },
+  {
+    id: "pearl",
+    label: "Pearl",
+    gradient: { from: "#a8a8a8", to: "#f7f7f7", angle: 135 },
+  },
+  {
+    id: "lime-pop",
+    label: "Lime pop",
+    gradient: { from: "#8bd548", to: "#daf56d", angle: 135 },
+  },
+  {
+    id: "gold-night",
+    label: "Gold night",
+    gradient: { from: "#0f0d05", to: "#99741a", angle: 90 },
+  },
+  {
+    id: "sunset-glow",
+    label: "Sunset glow",
+    gradient: { from: "#7c3f96", to: "#f5d64d", angle: 90 },
+  },
+  {
+    id: "deep-violet",
+    label: "Deep violet",
+    gradient: { from: "#060a36", to: "#2514a0", angle: 135 },
+  },
+  {
+    id: "frost",
+    label: "Frost",
+    gradient: { from: "#d4f8de", to: "#b9c8ff", angle: 135 },
+  },
+  {
+    id: "ember",
+    label: "Ember",
+    gradient: { from: "#dd3f3a", to: "#ec9a4e", angle: 135 },
+  },
+  {
+    id: "berry",
+    label: "Berry",
+    gradient: { from: "#d94d59", to: "#7b5cf0", angle: 135 },
+  },
+  {
+    id: "candy",
+    label: "Candy",
+    gradient: { from: "#5b73f0", to: "#d45fc4", angle: 135 },
+  },
+  {
+    id: "cosmic",
+    label: "Cosmic",
+    gradient: { from: "#2f58b8", to: "#8b4fda", angle: 135 },
+  },
+  {
+    id: "aqua-pop",
+    label: "Aqua pop",
+    gradient: { from: "#7a5cf2", to: "#78d5dd", angle: 135 },
+  },
+  {
+    id: "ocean",
+    label: "Ocean",
+    gradient: { from: "#70ced8", to: "#3455ad", angle: 135 },
+  },
+  {
+    id: "rainforest",
+    label: "Rainforest",
+    gradient: { from: "#745cf0", to: "#58b96a", angle: 135 },
+  },
+  {
+    id: "meadow",
+    label: "Meadow",
+    gradient: { from: "#5e9eaf", to: "#98d45f", angle: 135 },
+  },
+  {
+    id: "sea-lime",
+    label: "Sea lime",
+    gradient: { from: "#63b7d6", to: "#e8df66", angle: 135 },
+  },
+  {
+    id: "honey",
+    label: "Honey",
+    gradient: { from: "#f8d35a", to: "#ee9f51", angle: 135 },
+  },
+  {
+    id: "peach",
+    label: "Peach",
+    gradient: { from: "#d95faa", to: "#f2d65d", angle: 135 },
+  },
+  {
+    id: "blush",
+    label: "Blush",
+    gradient: { from: "#fff2a8", to: "#e5a7f0", angle: 135 },
+  },
+  {
+    id: "sherbet",
+    label: "Sherbet",
+    gradient: { from: "#7b5cf0", to: "#e99350", angle: 135 },
+  },
+];
+
+function gradientCss(gradient: BackgroundGradient): string {
+  return `linear-gradient(${gradient.angle ?? 135}deg, ${gradient.from}, ${gradient.to})`;
+}
+
+function isCompleteHexColor(value: string): boolean {
+  return /^#[0-9a-fA-F]{6}$/.test(value);
+}
+
+function swatchColor(value: string, fallback: string): string {
+  return isCompleteHexColor(value) ? value : fallback;
+}
+
+export function BackgroundThemePanel({
+  activeSolidId,
+  activeGradientId,
+  onPickSolid,
+  onPickGradient,
+}: {
+  activeSolidId?: string;
+  activeGradientId?: string;
+  onPickSolid: (color: string) => void;
+  onPickGradient: (gradient: BackgroundGradient) => void;
+}) {
+  const [view, setView] = useState<"presets" | "customize">("presets");
+  const [customMode, setCustomMode] = useState<"solid" | "gradient">("solid");
+  const [customSolid, setCustomSolid] = useState("#2563eb");
+  const [customGradientFrom, setCustomGradientFrom] = useState("#6366f1");
+  const [customGradientTo, setCustomGradientTo] = useState("#ec4899");
+  const [customGradientAngle, setCustomGradientAngle] = useState(135);
+  const [activeGradientStop, setActiveGradientStop] = useState<"from" | "to">(
+    "from",
+  );
+
+  const openCustomize = (mode: "solid" | "gradient") => {
+    setCustomMode(mode);
+    setView("customize");
+  };
+
+  if (view === "customize") {
+    const solidPreview = swatchColor(customSolid, "#2563eb");
+    const gradientFromPreview = swatchColor(customGradientFrom, "#6366f1");
+    const gradientToPreview = swatchColor(customGradientTo, "#ec4899");
+    const customGradient = {
+      from: gradientFromPreview,
+      to: gradientToPreview,
+      angle: customGradientAngle,
+    };
+
+    return (
+      <div className="flex w-[272px] flex-col gap-4 p-1">
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => setView("presets")}
+            className={`flex h-7 items-center gap-1 rounded-ds-sm px-1.5 text-xs font-semibold text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+          >
+            <ChevronLeft aria-hidden="true" className="h-3.5 w-3.5" />
+            Back
+          </button>
+          <span className="text-xs font-bold uppercase tracking-wide text-ds-text-muted">
+            Customize
+          </span>
+        </div>
+
+        <div
+          role="tablist"
+          aria-label="Custom background type"
+          className="grid grid-cols-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-0.5"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={customMode === "solid"}
+            onClick={() => setCustomMode("solid")}
+            className={`rounded-ds-sm px-2 py-1 text-xs font-semibold transition-colors ${
+              customMode === "solid"
+                ? "bg-ds-accent-surface text-ds-accent-text"
+                : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+            } ${FOCUS_RING}`}
+          >
+            Solid
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={customMode === "gradient"}
+            onClick={() => setCustomMode("gradient")}
+            className={`rounded-ds-sm px-2 py-1 text-xs font-semibold transition-colors ${
+              customMode === "gradient"
+                ? "bg-ds-accent-surface text-ds-accent-text"
+                : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+            } ${FOCUS_RING}`}
+          >
+            Gradient
+          </button>
+        </div>
+
+        {customMode === "solid" ? (
+          <div className="flex flex-col gap-3">
+            <ColorPicker
+              color={customSolid}
+              onChange={setCustomSolid}
+              aria-label="Custom solid color"
+              fallback="#2563eb"
+            />
+            <button
+              type="button"
+              onClick={() => onPickSolid(solidPreview)}
+              disabled={!isCompleteHexColor(customSolid)}
+              className={`h-8 rounded-ds-md bg-ds-accent px-3 text-xs font-semibold text-ds-text-on-accent transition-colors hover:bg-ds-accent-hover disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
+            >
+              Apply solid color
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <span
+              aria-hidden="true"
+              className="block h-14 rounded-ds-md border border-ds-border-subtle shadow-sm"
+              style={{ background: gradientCss(customGradient) }}
+            />
+            <div className="grid grid-cols-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface p-0.5">
+              <button
+                type="button"
+                aria-pressed={activeGradientStop === "from"}
+                onClick={() => setActiveGradientStop("from")}
+                className={`flex items-center justify-center gap-1.5 rounded-ds-sm px-2 py-1 text-xs font-semibold transition-colors ${
+                  activeGradientStop === "from"
+                    ? "bg-ds-accent-surface text-ds-accent-text"
+                    : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+                } ${FOCUS_RING}`}
+              >
+                <span
+                  aria-hidden="true"
+                  className="h-3 w-3 rounded-full border border-ds-border-subtle"
+                  style={{ backgroundColor: gradientFromPreview }}
+                />
+                From
+              </button>
+              <button
+                type="button"
+                aria-pressed={activeGradientStop === "to"}
+                onClick={() => setActiveGradientStop("to")}
+                className={`flex items-center justify-center gap-1.5 rounded-ds-sm px-2 py-1 text-xs font-semibold transition-colors ${
+                  activeGradientStop === "to"
+                    ? "bg-ds-accent-surface text-ds-accent-text"
+                    : "text-ds-text-secondary hover:bg-ds-state-hover hover:text-ds-text-primary"
+                } ${FOCUS_RING}`}
+              >
+                <span
+                  aria-hidden="true"
+                  className="h-3 w-3 rounded-full border border-ds-border-subtle"
+                  style={{ backgroundColor: gradientToPreview }}
+                />
+                To
+              </button>
+            </div>
+            <ColorPicker
+              color={
+                activeGradientStop === "from"
+                  ? customGradientFrom
+                  : customGradientTo
+              }
+              onChange={
+                activeGradientStop === "from"
+                  ? setCustomGradientFrom
+                  : setCustomGradientTo
+              }
+              aria-label={
+                activeGradientStop === "from"
+                  ? "Gradient start color"
+                  : "Gradient end color"
+              }
+              fallback={activeGradientStop === "from" ? "#6366f1" : "#ec4899"}
+            />
+            <label className="flex items-center gap-3 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5">
+              <span className="w-10 text-xs font-medium text-ds-text-secondary">
+                Angle
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={360}
+                step={5}
+                value={customGradientAngle}
+                onChange={(event) =>
+                  setCustomGradientAngle(Number(event.target.value))
+                }
+                className="min-w-0 flex-1 accent-ds-accent"
+                aria-label="Gradient angle"
+              />
+              <span className="w-9 text-right text-xs tabular-nums text-ds-text-muted">
+                {customGradientAngle}°
+              </span>
+            </label>
+            <button
+              type="button"
+              onClick={() => onPickGradient(customGradient)}
+              disabled={
+                !isCompleteHexColor(customGradientFrom) ||
+                !isCompleteHexColor(customGradientTo)
+              }
+              className={`h-8 rounded-ds-md bg-ds-accent px-3 text-xs font-semibold text-ds-text-on-accent transition-colors hover:bg-ds-accent-hover disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS_RING}`}
+            >
+              Apply gradient
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex w-[272px] flex-col gap-5 p-1">
+      <section aria-label="Solid color backgrounds">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Palette
+              aria-hidden="true"
+              className="h-5 w-5 shrink-0 text-ds-text-primary"
+            />
+            <h4 className="text-sm font-bold leading-none text-ds-text-primary">
+              Default solid colors
+            </h4>
+          </div>
+          <button
+            type="button"
+            onClick={() => openCustomize("solid")}
+            className={`rounded-ds-sm px-1.5 py-1 text-xs font-semibold text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+          >
+            Customize
+          </button>
+        </div>
+        <div className="grid grid-cols-7 gap-x-2 gap-y-3">
+          {SOLID_BACKGROUND_OPTIONS.map((option) => {
+            const active = activeSolidId === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                aria-label={`Apply ${option.label} solid background to deck`}
+                aria-pressed={active}
+                onClick={() => onPickSolid(option.color)}
+                title={option.label}
+                className={`h-8 w-8 rounded-full border shadow-sm transition-transform hover:scale-105 ${
+                  active
+                    ? "border-ds-accent ring-2 ring-ds-accent ring-offset-2 ring-offset-ds-surface-overlay"
+                    : "border-ds-border-subtle"
+                } ${FOCUS_RING}`}
+                style={{ backgroundColor: option.color }}
+              />
+            );
+          })}
+        </div>
+      </section>
+
+      <section aria-label="Gradient backgrounds">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span
+              aria-hidden="true"
+              className="h-5 w-5 shrink-0 rounded-ds-sm border border-ds-text-primary p-0.5"
+            >
+              <span
+                className="block h-full w-full rounded-[2px]"
+                style={{
+                  background:
+                    "linear-gradient(90deg, #111827 0 33%, #737373 33% 66%, #f8fafc 66% 100%)",
+                }}
+              ></span>
+            </span>
+            <h4 className="text-sm font-bold leading-none text-ds-text-primary">
+              Default gradient colors
+            </h4>
+          </div>
+          <button
+            type="button"
+            onClick={() => openCustomize("gradient")}
+            className={`rounded-ds-sm px-1.5 py-1 text-xs font-semibold text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+          >
+            Customize
+          </button>
+        </div>
+        <div className="grid grid-cols-7 gap-x-2 gap-y-3">
+          {GRADIENT_BACKGROUND_OPTIONS.map((option) => {
+            const active = activeGradientId === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                aria-label={`Apply ${option.label} gradient background to deck`}
+                aria-pressed={active}
+                onClick={() => onPickGradient(option.gradient)}
+                title={option.label}
+                className={`h-8 w-8 rounded-full border shadow-sm transition-transform hover:scale-105 ${
+                  active
+                    ? "border-ds-accent ring-2 ring-ds-accent ring-offset-2 ring-offset-ds-surface-overlay"
+                    : "border-ds-border-subtle"
+                } ${FOCUS_RING}`}
+                style={{ background: gradientCss(option.gradient) }}
+              />
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export function SlideTemplatePicker({
   onPick,
 }: {
@@ -161,7 +637,7 @@ export function SlideTemplatePicker({
 /** Bar used inside {@link TemplatePreview} to mock a line of slide content. */
 function PreviewBar({ className = "" }: { className?: string }) {
   return (
-    <span className={`block rounded-xs bg-ds-text-muted/40 ${className}`} />
+    <span className={`block rounded-[1px] bg-ds-text-muted/40 ${className}`} />
   );
 }
 
@@ -191,7 +667,7 @@ function TemplatePreview({ kind }: { kind: SlideTemplateKind }) {
       ) : null}
       {kind === "visual" ? (
         <span className="flex h-full flex-col gap-1 p-1.5">
-          <span className="block flex-1 rounded-xs bg-ds-text-muted/30" />
+          <span className="block flex-1 rounded-[2px] bg-ds-text-muted/30" />
           <PreviewBar className="h-1 w-1/2 self-center bg-ds-text-muted/25" />
         </span>
       ) : null}
@@ -212,7 +688,7 @@ function TemplatePreview({ kind }: { kind: SlideTemplateKind }) {
       ) : null}
       {kind === "blank" ? (
         <span className="flex h-full items-center justify-center">
-          <span className="block h-3/4 w-5/6 rounded-xs border border-dashed border-ds-border-strong" />
+          <span className="block h-3/4 w-5/6 rounded-[2px] border border-dashed border-ds-border-strong" />
         </span>
       ) : null}
     </span>
@@ -532,8 +1008,8 @@ export function FromDocumentPanel({
                   Text
                 </h3>
                 <ul className="flex flex-col gap-1.5">
-                  {textItems.map((item) => (
-                    <li key={item.contentHash}>
+                  {textItems.map((item, index) => (
+                    <li key={index}>
                       <button
                         type="button"
                         onClick={() => onInsertText(item)}
@@ -566,8 +1042,9 @@ export function FromDocumentPanel({
   );
 }
 
-export const SlideSelectionToolbar = memo(function SlideSelectionToolbar({
+export function SlideSelectionToolbar({
   selectedElement,
+  selectedIds,
   selectedCount,
   theme,
   brandSwatches,
@@ -577,13 +1054,29 @@ export const SlideSelectionToolbar = memo(function SlideSelectionToolbar({
   onOpenEffects,
   onOpenMedia,
   onOpenSource,
+  onOpenPanel,
   onDuplicateElement,
   onRemoveElement,
   onBringToFront,
   onSendToBack,
+  onAlignSelected,
+  onDistributeSelected,
+  onMatchSizeSelected,
+  onArrangeSelected,
+  onGroupSelected,
+  onUngroupSelected,
+  onDuplicateSelected,
+  onRemoveSelected,
+  onReplaceImage,
+  onReplaceVisual,
+  onRestyleVisual,
+  anchor,
+  selectedGroupId,
+  isEditingText = false,
   compact,
 }: {
   selectedElement: SlideElement | null;
+  selectedIds: readonly string[];
   selectedCount: number;
   theme: SlideThemeColors;
   brandSwatches: readonly string[];
@@ -597,10 +1090,25 @@ export const SlideSelectionToolbar = memo(function SlideSelectionToolbar({
   onOpenEffects: () => void;
   onOpenMedia: () => void;
   onOpenSource: () => void;
+  onOpenPanel: () => void;
   onDuplicateElement: (id: string) => void;
   onRemoveElement: (id: string) => void;
   onBringToFront: (id: string) => void;
   onSendToBack: (id: string) => void;
+  onAlignSelected: (mode: AlignMode) => void;
+  onDistributeSelected: (mode: DistributeMode) => void;
+  onMatchSizeSelected: (mode: MatchSizeMode) => void;
+  onArrangeSelected: (mode: ArrangeMode) => void;
+  onGroupSelected: () => void;
+  onUngroupSelected: () => void;
+  onDuplicateSelected: () => void;
+  onRemoveSelected: () => void;
+  onReplaceImage: (id: string) => void;
+  onReplaceVisual: (id: string) => void;
+  onRestyleVisual: (id: string) => void;
+  anchor?: { leftPct: number; topPct: number; placement: "above" | "below" };
+  selectedGroupId?: string | null;
+  isEditingText?: boolean;
   compact: boolean;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
@@ -635,6 +1143,23 @@ export const SlideSelectionToolbar = memo(function SlideSelectionToolbar({
   const canOpenMediaPanel = panelEntries.media;
   const canOpenEffectsPanel = panelEntries.effects;
   const canOpenSourcePanel = panelEntries.source;
+  const hasMultiSelection = selectedIds.length >= 2;
+  const multiButton = (
+    label: string,
+    onClick: () => void,
+    disabled = false,
+  ) => (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className={`flex h-7 min-w-7 shrink-0 items-center justify-center rounded-ds-sm px-1.5 text-[11px] font-semibold text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:pointer-events-none disabled:opacity-40 ${FOCUS_RING}`}
+    >
+      {label}
+    </button>
+  );
   const panelEntry = (label: string, icon: ReactNode, onClick: () => void) => (
     <button
       type="button"
@@ -651,8 +1176,79 @@ export const SlideSelectionToolbar = memo(function SlideSelectionToolbar({
       role="toolbar"
       data-floating-panel="true"
       aria-label="Selected slide element tools"
-      className="pointer-events-auto absolute left-1/2 top-3 z-sticky flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-1 overflow-visible rounded-ds-lg border border-ds-border-subtle bg-ds-surface-raised p-1 shadow-ds-popover"
+      onMouseDownCapture={
+        isEditingText ? (event) => event.preventDefault() : undefined
+      }
+      className="pointer-events-auto absolute z-sticky flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-1 overflow-visible rounded-ds-lg border border-ds-border-subtle bg-ds-surface-raised p-1 shadow-ds-popover"
+      style={
+        anchor
+          ? {
+              left: `${anchor.leftPct}%`,
+              top:
+                anchor.placement === "above"
+                  ? `calc(${anchor.topPct}% - 12px)`
+                  : `calc(${anchor.topPct}% + 12px)`,
+              transform:
+                anchor.placement === "above"
+                  ? "translate(-50%, -100%)"
+                  : "translate(-50%, 0)",
+            }
+          : { left: "50%", top: "0.75rem" }
+      }
     >
+      {hasMultiSelection ? (
+        <>
+          <span className="shrink-0 px-2 text-xs font-semibold text-ds-text-primary">
+            {selectedIds.length} selected
+          </span>
+          <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
+          {multiButton("Left", () => onAlignSelected("left"))}
+          {multiButton("Center", () => onAlignSelected("hcenter"))}
+          {multiButton("Right", () => onAlignSelected("right"))}
+          {multiButton("Top", () => onAlignSelected("top"))}
+          {multiButton("Middle", () => onAlignSelected("vmiddle"))}
+          {multiButton("Bottom", () => onAlignSelected("bottom"))}
+          <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
+          {multiButton(
+            "Distribute H",
+            () => onDistributeSelected("horizontal"),
+            selectedIds.length < 3,
+          )}
+          {multiButton(
+            "Distribute V",
+            () => onDistributeSelected("vertical"),
+            selectedIds.length < 3,
+          )}
+          {multiButton("Match W", () => onMatchSizeSelected("width"))}
+          {multiButton("Match H", () => onMatchSizeSelected("height"))}
+          <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
+          {panelEntry(
+            "Bring selection to front",
+            <BringToFront size={14} aria-hidden="true" />,
+            () => onArrangeSelected("front"),
+          )}
+          {panelEntry(
+            "Send selection to back",
+            <SendToBack size={14} aria-hidden="true" />,
+            () => onArrangeSelected("back"),
+          )}
+          {multiButton(
+            selectedGroupId ? "Ungroup" : "Group",
+            selectedGroupId ? onUngroupSelected : onGroupSelected,
+          )}
+          {panelEntry(
+            "Duplicate selection",
+            <Copy size={14} aria-hidden="true" />,
+            onDuplicateSelected,
+          )}
+          {panelEntry(
+            "Delete selection",
+            <Trash2 size={14} aria-hidden="true" />,
+            onRemoveSelected,
+          )}
+          <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
+        </>
+      ) : null}
       {showRich && selectedElement ? (
         <ElementToolbarContent
           element={selectedElement}
@@ -663,10 +1259,25 @@ export const SlideSelectionToolbar = memo(function SlideSelectionToolbar({
           onBringToFront={() => onBringToFront(selectedElement.id)}
           onSendToBack={() => onSendToBack(selectedElement.id)}
           onRemove={() => onRemoveElement(selectedElement.id)}
+          hideObjectActions={isEditingText}
           compact={compact}
         />
       ) : null}
-      {compact && showRich && selectedElement ? (
+      {showRich && selectedElement?.kind === "image" ? (
+        <>
+          {multiButton("Replace", () => onReplaceImage(selectedElement.id))}
+          {multiButton("Crop", onOpenMedia)}
+          <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
+        </>
+      ) : null}
+      {showRich && selectedElement?.kind === "visual" ? (
+        <>
+          {multiButton("Replace", () => onReplaceVisual(selectedElement.id))}
+          {multiButton("Restyle", () => onRestyleVisual(selectedElement.id))}
+          <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
+        </>
+      ) : null}
+      {compact && showRich && selectedElement && !isEditingText ? (
         <Popover
           open={moreOpen}
           onClose={() => setMoreOpen(false)}
@@ -754,9 +1365,248 @@ export const SlideSelectionToolbar = memo(function SlideSelectionToolbar({
         <Grid3x3 size={14} aria-hidden="true" />,
         onOpenPosition,
       )}
+      {panelEntry(
+        "Open properties panel",
+        <LayoutPanelLeft size={14} aria-hidden="true" />,
+        onOpenPanel,
+      )}
     </div>
   );
-});
+}
+
+export function SlideToolbar({
+  slide,
+  slideLabel,
+  layouts,
+  selectedLayoutId,
+  canDelete,
+  onSelectLayout,
+  onBackgroundChange,
+  onBackgroundGradientChange,
+  onAddElement,
+  visuals,
+  visualPickerOpen,
+  imageError,
+  onVisualPickerOpenChange,
+  onPickVisual,
+  onDuplicateSlide,
+  onRemoveSlide,
+  onOpenPanel,
+}: {
+  slide: Slide;
+  slideLabel: string;
+  layouts: readonly ReusableSlideLayout[];
+  selectedLayoutId: string;
+  canDelete: boolean;
+  onSelectLayout: (layout: ReusableSlideLayout) => void;
+  onBackgroundChange: (color: string | undefined) => void;
+  onBackgroundGradientChange: (
+    gradient: BackgroundGradient | undefined,
+  ) => void;
+  onAddElement: (kind: AddElementKind) => void;
+  visuals: ReadonlyMap<string, Visual>;
+  visualPickerOpen: boolean;
+  imageError?: string | null;
+  onVisualPickerOpenChange: (open: boolean) => void;
+  onPickVisual: (visualId: string) => void;
+  onDuplicateSlide: () => void;
+  onRemoveSlide: () => void;
+  onOpenPanel: () => void;
+}) {
+  const selectedLayout =
+    layouts.find((layout) => layout.id === selectedLayoutId) ?? layouts[0];
+  const quickBackgrounds = SOLID_BACKGROUND_OPTIONS.slice(0, 8);
+  const quickGradients = GRADIENT_BACKGROUND_OPTIONS.slice(0, 4);
+  const iconButtonClass = `flex h-7 w-7 shrink-0 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`;
+
+  return (
+    <div
+      role="toolbar"
+      data-floating-panel="true"
+      aria-label="Slide tools"
+      className="pointer-events-auto absolute left-1/2 top-3 z-sticky flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-1 overflow-visible rounded-ds-lg border border-ds-border-subtle bg-ds-surface-raised p-1 shadow-ds-popover"
+    >
+      <div className="flex min-w-0 items-center gap-2 px-2">
+        <FileText size={14} className="text-ds-text-muted" aria-hidden="true" />
+        <span className="max-w-36 truncate text-xs font-semibold text-ds-text-primary">
+          Slide · {slideLabel}
+        </span>
+      </div>
+
+      <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
+
+      <label className="flex h-7 items-center gap-1 rounded-ds-sm px-1 text-xs text-ds-text-secondary">
+        <Columns3 size={14} aria-hidden="true" />
+        <select
+          value={selectedLayout?.id ?? ""}
+          aria-label="Slide layout"
+          onChange={(event) => {
+            const layout = layouts.find(
+              (item) => item.id === event.target.value,
+            );
+            if (layout) onSelectLayout(layout);
+          }}
+          className={`max-w-28 bg-transparent text-xs font-medium text-ds-text-secondary outline-none ${FOCUS_RING}`}
+        >
+          {layouts.map((layout) => (
+            <option key={layout.id} value={layout.id}>
+              {layout.title ?? layout.name}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <span
+        className="flex items-center gap-0.5"
+        aria-label="Background presets"
+      >
+        {quickBackgrounds.map((option) => {
+          const active =
+            slide.background === option.color &&
+            slide.backgroundGradient === undefined &&
+            slide.backgroundImage === undefined;
+          return (
+            <Tooltip key={option.id} label={option.label} side="bottom">
+              <button
+                type="button"
+                aria-label={`Set background ${option.label}`}
+                aria-pressed={active}
+                onClick={() => {
+                  onBackgroundGradientChange(undefined);
+                  onBackgroundChange(option.color);
+                }}
+                className={`h-5 w-5 rounded-full border transition-transform hover:scale-110 ${
+                  active
+                    ? "border-ds-accent shadow-ds-focus"
+                    : "border-ds-border-subtle"
+                } ${FOCUS_RING}`}
+                style={{ backgroundColor: option.color }}
+              />
+            </Tooltip>
+          );
+        })}
+        {quickGradients.map((option) => {
+          const active =
+            slide.background === undefined &&
+            slide.backgroundImage === undefined &&
+            slide.backgroundGradient?.from === option.gradient.from &&
+            slide.backgroundGradient?.to === option.gradient.to;
+          return (
+            <Tooltip key={option.id} label={option.label} side="bottom">
+              <button
+                type="button"
+                aria-label={`Set background ${option.label}`}
+                aria-pressed={active}
+                onClick={() => {
+                  onBackgroundChange(undefined);
+                  onBackgroundGradientChange(option.gradient);
+                }}
+                className={`h-5 w-5 rounded-full border transition-transform hover:scale-110 ${
+                  active
+                    ? "border-ds-accent shadow-ds-focus"
+                    : "border-ds-border-subtle"
+                } ${FOCUS_RING}`}
+                style={{ background: gradientCss(option.gradient) }}
+              />
+            </Tooltip>
+          );
+        })}
+      </span>
+
+      <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
+
+      {(
+        [
+          ["text", Type, "Add text"],
+          ["bullets", List, "Add list"],
+          ["image", ImageIcon, "Add image"],
+          ["shape", Square, "Add shape"],
+        ] as const
+      ).map(([kind, Icon, label]) => (
+        <Tooltip key={kind} label={label} side="bottom">
+          <button
+            type="button"
+            aria-label={label}
+            onClick={() => onAddElement(kind)}
+            className={iconButtonClass}
+          >
+            <Icon size={14} aria-hidden="true" />
+          </button>
+        </Tooltip>
+      ))}
+      <Popover
+        open={visualPickerOpen}
+        onClose={() => onVisualPickerOpenChange(false)}
+        aria-label="Insert visual"
+        placement="bottom"
+        className="w-[300px] p-0"
+        trigger={
+          <Tooltip label="Add visual" side="bottom">
+            <button
+              type="button"
+              aria-label="Add visual"
+              aria-haspopup="dialog"
+              aria-expanded={visualPickerOpen}
+              onClick={() => onVisualPickerOpenChange(!visualPickerOpen)}
+              className={iconButtonClass}
+            >
+              <Sparkles size={14} aria-hidden="true" />
+            </button>
+          </Tooltip>
+        }
+      >
+        <VisualPicker
+          className="w-full"
+          visuals={visuals}
+          onPick={onPickVisual}
+          onClose={() => onVisualPickerOpenChange(false)}
+        />
+      </Popover>
+      {imageError ? (
+        <span role="alert" className="px-1 text-[11px] text-ds-danger-text">
+          {imageError}
+        </span>
+      ) : null}
+
+      <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
+
+      <Tooltip label="Duplicate slide" side="bottom">
+        <button
+          type="button"
+          aria-label="Duplicate slide"
+          onClick={onDuplicateSlide}
+          className={iconButtonClass}
+        >
+          <Copy size={14} aria-hidden="true" />
+        </button>
+      </Tooltip>
+      <Tooltip label="Delete slide" side="bottom">
+        <button
+          type="button"
+          aria-label="Delete slide"
+          disabled={!canDelete}
+          onClick={onRemoveSlide}
+          className={`${iconButtonClass} disabled:pointer-events-none disabled:opacity-40`}
+        >
+          <Trash2 size={14} aria-hidden="true" />
+        </button>
+      </Tooltip>
+
+      <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
+
+      <Tooltip label="Open properties panel" side="bottom">
+        <button
+          type="button"
+          aria-label="Open properties panel"
+          onClick={onOpenPanel}
+          className={iconButtonClass}
+        >
+          <LayoutPanelLeft size={14} aria-hidden="true" />
+        </button>
+      </Tooltip>
+    </div>
+  );
+}
 
 export function SlideBottomDock({
   railOpen,

@@ -1,5 +1,4 @@
-import type { SlideElement } from "./deck-elements";
-import { PLACEHOLDER_TYPE_LABELS } from "./deck-layouts-model";
+import { normalizeTextParagraphs, type SlideElement } from "./deck";
 import { assertNever } from "@/lib/assert-never";
 
 /**
@@ -9,7 +8,7 @@ import { assertNever } from "@/lib/assert-never";
  * instead of "text element").
  *
  * Rules:
- * - text / bullets → leading text of the content (max 60 chars)
+ * - text           → leading paragraph text (max 60 chars)
  * - image          → `alt` when set, otherwise "Image"
  * - visual         → `alt` when set, otherwise "Visual"
  * - shape          → "Shape: <kind>"
@@ -22,21 +21,12 @@ export function elementAccessibleName(
   allElements?: readonly SlideElement[],
 ): string {
   switch (element.kind) {
-    case "placeholder": {
-      const label =
-        element.label?.trim() ||
-        `${PLACEHOLDER_TYPE_LABELS[element.placeholderType]} placeholder`;
-      return label.length > 60 ? `${label.slice(0, 60)}…` : label;
-    }
     case "text": {
-      const raw = element.text?.trim();
+      const raw = normalizeTextParagraphs(element)
+        .find((paragraph) => paragraph.text.trim() !== "")
+        ?.text.trim();
       if (!raw) return "Text element";
       return raw.length > 60 ? `${raw.slice(0, 60)}…` : raw;
-    }
-    case "bullets": {
-      const first = element.bullets.find((b) => b.trim() !== "")?.trim();
-      if (!first) return "Bullets element";
-      return first.length > 60 ? `${first.slice(0, 60)}…` : first;
     }
     case "image": {
       const alt = element.alt?.trim();
@@ -75,26 +65,15 @@ export function elementAccessibleName(
 /** Short label for a shape connected to a connector — used in accessible names. */
 function connectorTargetLabel(element: SlideElement): string {
   switch (element.kind) {
-    case "placeholder":
-      return (
-        element.label?.trim() ||
-        PLACEHOLDER_TYPE_LABELS[element.placeholderType]
-      );
     case "text": {
-      const text = element.text?.trim();
+      const text = normalizeTextParagraphs(element)
+        .find((paragraph) => paragraph.text.trim() !== "")
+        ?.text.trim();
       return text
         ? text.length > 20
           ? `${text.slice(0, 20)}…`
           : text
         : "text";
-    }
-    case "bullets": {
-      const first = element.bullets.find((b) => b.trim() !== "")?.trim();
-      return first
-        ? first.length > 20
-          ? `${first.slice(0, 20)}…`
-          : first
-        : "bullets";
     }
     case "image":
       return element.alt?.trim() || "image";

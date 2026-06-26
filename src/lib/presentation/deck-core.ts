@@ -11,7 +11,7 @@ import type { SlideLayout, SlideLayoutHint } from "./deck-layouts-model";
 import { STYLE_THEME_IDS } from "./deck-theme-ids";
 
 /** Increment this for future structural deck schema changes. */
-export const CURRENT_DECK_SCHEMA_VERSION = 4;
+export const CURRENT_DECK_SCHEMA_VERSION = 5;
 
 /**
  * Canonical presentation theme names — identical to the visual style theme
@@ -59,7 +59,7 @@ export interface Slide {
    * Optional rich-text runs, parallel to `bullets`: `bulletRuns[i]` holds the
    * formatted spans for visible bullet line `i`. Additive — absent entries fall
    * back to the plain `bullets[i]` string. Threaded into generated
-   * {@link BulletsElement} values by {@link buildSlideElementsFromContent}.
+   * text-element paragraphs by {@link buildSlideElementsFromContent}.
    */
   bulletRuns?: TextRun[][];
 

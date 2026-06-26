@@ -10,6 +10,7 @@ import {
   buildTextElement,
   buildVisualElement,
 } from "@/test/builders";
+import type { SlideElement } from "./deck";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -17,15 +18,15 @@ import {
 
 const BASE = { id: "e1", box: { x: 10, y: 10, w: 40, h: 20 }, zIndex: 1 };
 
-function fixtureText(text: string, role: "title" | "body" = "body") {
-  return buildTextElement({ ...BASE, text, role });
+function fixtureText(text: string): SlideElement {
+  return buildTextElement({ ...BASE, text, paragraphs: [{ text }] });
 }
 
-function bulletsEl(bullets: string[]) {
+function bulletsEl(bullets: string[]): SlideElement {
   return buildBulletsElement({ ...BASE, bullets });
 }
 
-function imageEl(alt?: string) {
+function imageEl(alt?: string): SlideElement {
   return buildImageElement({
     ...BASE,
     src: "https://example.com/img.png",
@@ -33,7 +34,7 @@ function imageEl(alt?: string) {
   });
 }
 
-function visualEl(alt?: string) {
+function visualEl(alt?: string): SlideElement {
   return buildVisualElement({
     ...BASE,
     visualId: "v1",
@@ -89,8 +90,8 @@ test("bullets element truncates at 60 chars", () => {
   assert.equal(name.length, 61);
 });
 
-test("bullets element with no non-empty bullets returns fallback", () => {
-  assert.equal(elementAccessibleName(bulletsEl([])), "Bullets element");
+test("list text element with no non-empty paragraphs returns fallback", () => {
+  assert.equal(elementAccessibleName(bulletsEl([])), "Text element");
 });
 
 // ---------------------------------------------------------------------------

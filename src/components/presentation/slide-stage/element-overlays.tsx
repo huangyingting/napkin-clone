@@ -27,13 +27,23 @@ import { TextStyleBar } from "@/components/presentation/text-style-bar";
 import { ColorPicker, DEFAULT_SWATCH_PRESETS } from "@/components/ui";
 import { FOCUS_RING } from "@/components/ui/tokens";
 import { cx, MENU_CHROME, MENU_ITEM } from "@/components/ui/tokens";
-import type { SlideElement, TextElementStyle } from "@/lib/presentation/deck";
+import type {
+  ConnectorArrow,
+  SlideElement,
+  TextElementStyle,
+} from "@/lib/presentation/deck";
+import { normalizeTextParagraphs } from "@/lib/presentation/deck";
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import { elementAccessibleName } from "@/lib/presentation/element-accessible-name";
 import type { SlideThemeColors } from "@/lib/presentation/style-cascade";
 import { mergeSwatches } from "@/lib/presentation/text-style";
 import { isInlineEditableStageElement } from "@/lib/presentation/stage-interaction";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
+import {
+  INLINE_TEXT_COMMAND_EVENT,
+  type InlineTextCommandDetail,
+  type InlineTextCommandPayload,
+} from "@/components/presentation/slide-stage/inline-text-editor";
 
 function defaultShapeTextStyle(): TextElementStyle {
   return {
@@ -74,6 +84,28 @@ function ToolbarButton({
   );
 }
 
+function ToolbarTextButton({
+  label,
+  text,
+  onClick,
+}: {
+  label: string;
+  text: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className={`tiq-touch-target flex h-7 min-w-7 items-center justify-center rounded-ds-sm px-1.5 text-[11px] font-semibold text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+    >
+      {text}
+    </button>
+  );
+}
+
 function ToolbarDivider() {
   return <span className="mx-0.5 h-5 w-px bg-ds-border-subtle" aria-hidden />;
 }
@@ -88,6 +120,7 @@ export function ElementToolbarContent({
   onBringToFront,
   onSendToBack,
   onRemove,
+  hideObjectActions = false,
   showAdvanced = true,
   compact = false,
 }: {
@@ -103,6 +136,7 @@ export function ElementToolbarContent({
   onBringToFront: () => void;
   onSendToBack: () => void;
   onRemove: () => void;
+  hideObjectActions?: boolean;
   showAdvanced?: boolean;
   compact?: boolean;
 }) {
@@ -118,15 +152,144 @@ export function ElementToolbarContent({
     brandSwatches,
     DEFAULT_SWATCH_PRESETS,
   );
+  const textParagraphs =
+    element.kind === "text" ? normalizeTextParagraphs(element) : [];
+  const allBullets =
+    textParagraphs.length > 0 &&
+    textParagraphs.every((paragraph) => paragraph.listType === "bullet");
+  const allNumbers =
+    textParagraphs.length > 0 &&
+    textParagraphs.every((paragraph) => paragraph.listType === "number");
+  const updateTextParagraphs = (
+    paragraphs: typeof textParagraphs,
+    textRole?: "body" | "bullet",
+  ) => {
+    if (element.kind !== "text") return;
+    onUpdateElement(element.id, {
+      text: paragraphs.map((paragraph) => paragraph.text).join("\n"),
+      paragraphs,
+      ...(textRole ? { textRole } : {}),
+    });
+  };
+  const nextArrow = (arrow: ConnectorArrow): ConnectorArrow => {
+    if (arrow === "none") return "arrow";
+    if (arrow === "arrow") return "filled";
+    return "none";
+  };
+  const dispatchInlineTextCommand = (command: InlineTextCommandPayload) => {
+    window.dispatchEvent(
+      new CustomEvent<InlineTextCommandDetail>(INLINE_TEXT_COMMAND_EVENT, {
+        detail: {
+          elementId: element.id,
+          ...command,
+        } as InlineTextCommandDetail,
+      }),
+    );
+  };
+  const handleTextStyleChange = (style: TextElementStyle) => {
+    if (element.kind !== "text") return;
+    if (!hideObjectActions) {
+      onUpdateElement(element.id, { style });
+      return;
+    }
+    if (style.bold !== element.style.bold) {
+      dispatchInlineTextCommand({ command: "bold" });
+    }
+    if (style.italic !== element.style.italic) {
+      dispatchInlineTextCommand({ command: "italic" });
+    }
+    if ((style.underline ?? false) !== (element.style.underline ?? false)) {
+      dispatchInlineTextCommand({ command: "underline" });
+    }
+    if (style.color !== element.style.color && style.color) {
+      dispatchInlineTextCommand({ command: "color", value: style.color });
+    }
+    if (style.align !== element.style.align) {
+      dispatchInlineTextCommand({ command: "align", value: style.align });
+    }
+    if (style.fontSize !== element.style.fontSize) {
+      dispatchInlineTextCommand({ command: "fontSize", value: style.fontSize });
+    }
+  };
   return (
     <>
-      {element.kind === "text" || element.kind === "bullets" ? (
+      {element.kind === "text" ? (
         <>
           <TextStyleBar
             variant="compact"
             style={element.style}
             colorPresets={textColorPresets}
-            onChange={(style) => onUpdateElement(element.id, { style })}
+            onChange={handleTextStyleChange}
+          />
+          <ToolbarTextButton
+            label={allBullets ? "Remove bullets" : "Bulleted list"}
+            text="Bullets"
+            onClick={() =>
+              hideObjectActions
+                ? dispatchInlineTextCommand({
+                    command: "list",
+                    value: allBullets ? undefined : "bullet",
+                  })
+                : updateTextParagraphs(
+                    textParagraphs.map((paragraph) => {
+                      const next = { ...paragraph };
+                      if (allBullets) delete next.listType;
+                      else next.listType = "bullet";
+                      return next;
+                    }),
+                    allBullets ? "body" : "bullet",
+                  )
+            }
+          />
+          <ToolbarTextButton
+            label={allNumbers ? "Remove numbering" : "Numbered list"}
+            text="Numbers"
+            onClick={() =>
+              hideObjectActions
+                ? dispatchInlineTextCommand({
+                    command: "list",
+                    value: allNumbers ? undefined : "number",
+                  })
+                : updateTextParagraphs(
+                    textParagraphs.map((paragraph) => {
+                      const next = { ...paragraph };
+                      if (allNumbers) delete next.listType;
+                      else next.listType = "number";
+                      return next;
+                    }),
+                    allNumbers ? "body" : "bullet",
+                  )
+            }
+          />
+          <ToolbarTextButton
+            label="Outdent list paragraphs"
+            text="Outdent"
+            onClick={() =>
+              hideObjectActions
+                ? dispatchInlineTextCommand({ command: "indent", delta: -1 })
+                : updateTextParagraphs(
+                    textParagraphs.map((paragraph) => ({
+                      ...paragraph,
+                      indent: Math.max(0, (paragraph.indent ?? 0) - 1),
+                    })),
+                  )
+            }
+          />
+          <ToolbarTextButton
+            label="Indent list paragraphs"
+            text="Indent"
+            onClick={() =>
+              hideObjectActions
+                ? dispatchInlineTextCommand({ command: "indent", delta: 1 })
+                : updateTextParagraphs(
+                    textParagraphs.map((paragraph) => ({
+                      ...paragraph,
+                      indent: Math.min(5, (paragraph.indent ?? 0) + 1),
+                      listType: paragraph.listType ?? "bullet",
+                    })),
+                    "bullet",
+                  )
+            }
           />
           <ToolbarDivider />
         </>
@@ -171,11 +334,31 @@ export function ElementToolbarContent({
             label={element.dash ? "Solid line" : "Dashed line"}
             onClick={() => onUpdateElement(element.id, { dash: !element.dash })}
           />
+          <ToolbarTextButton
+            label="Cycle start arrowhead"
+            text={`S:${element.arrowStart ?? "none"}`}
+            onClick={() =>
+              onUpdateElement(element.id, {
+                arrowStart: nextArrow(element.arrowStart ?? "none"),
+              })
+            }
+          />
+          <ToolbarTextButton
+            label="Cycle end arrowhead"
+            text={`E:${element.arrowEnd ?? "arrow"}`}
+            onClick={() =>
+              onUpdateElement(element.id, {
+                arrowEnd: nextArrow(element.arrowEnd ?? "arrow"),
+              })
+            }
+          />
           <ToolbarDivider />
         </>
       ) : null}
-      <ToolbarButton icon={Copy} label="Duplicate" onClick={onDuplicate} />
-      {showAdvanced && !compact ? (
+      {!hideObjectActions ? (
+        <ToolbarButton icon={Copy} label="Duplicate" onClick={onDuplicate} />
+      ) : null}
+      {showAdvanced && !compact && !hideObjectActions ? (
         <>
           <ToolbarButton
             icon={ArrowUpToLine}
@@ -189,7 +372,9 @@ export function ElementToolbarContent({
           />
         </>
       ) : null}
-      <ToolbarButton icon={Trash2} label="Delete" onClick={onRemove} />
+      {!hideObjectActions ? (
+        <ToolbarButton icon={Trash2} label="Delete" onClick={onRemove} />
+      ) : null}
     </>
   );
 }

@@ -3,11 +3,11 @@
 import { FOCUS_RING, TOOLBAR_BUTTON_CHROME } from "@/components/ui/tokens";
 import type {
   BulletItem,
-  BulletsElement,
+  TextElement,
   TextElementStyle,
   TextFitMode,
 } from "@/lib/presentation/deck";
-import { normalizeBulletItems } from "@/lib/presentation/deck";
+import { normalizeTextParagraphs } from "@/lib/presentation/deck";
 import { useCoalesceSession } from "@/lib/presentation/gesture-primitives";
 import { SLIDE_FONT_OPTIONS } from "@/lib/presentation/slide-fonts";
 
@@ -330,8 +330,8 @@ export function BulletGapControl({
   element,
   onChange,
 }: {
-  element: BulletsElement;
-  onChange: (patch: Partial<BulletsElement>) => void;
+  element: TextElement;
+  onChange: (patch: Partial<TextElement>) => void;
 }) {
   return (
     <label className="flex items-center justify-between gap-2">
@@ -360,8 +360,8 @@ export function BulletIndentControl({
   element,
   onChange,
 }: {
-  element: BulletsElement;
-  onChange: (patch: Partial<BulletsElement>) => void;
+  element: TextElement;
+  onChange: (patch: Partial<TextElement>) => void;
 }) {
   return (
     <label className="flex items-center justify-between gap-2">
@@ -394,10 +394,10 @@ export function ListTypeControl({
   element,
   onChange,
 }: {
-  element: BulletsElement;
-  onChange: (patch: Partial<BulletsElement>) => void;
+  element: TextElement;
+  onChange: (patch: Partial<TextElement>) => void;
 }) {
-  const items = normalizeBulletItems(element);
+  const items = normalizeTextParagraphs(element);
   // Consider the list "numbered" if a majority of items are numbered.
   const numberedCount = items.filter(
     (it: BulletItem) => it.listType === "number",
@@ -410,7 +410,7 @@ export function ListTypeControl({
       ...it,
       listType: targetType,
     }));
-    onChange({ items: newItems });
+    onChange({ paragraphs: newItems });
   }
 
   return (

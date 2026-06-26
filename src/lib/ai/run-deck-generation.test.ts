@@ -139,7 +139,6 @@ test("no visuals: the generated deck contains no visual elements", async () => {
           {
             kind: "text",
             text: "Body",
-            role: "body",
             box: { x: 10, y: 10, w: 80, h: 20 },
           },
         ],

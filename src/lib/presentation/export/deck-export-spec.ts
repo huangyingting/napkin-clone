@@ -15,7 +15,6 @@
 
 import type { Deck, Slide } from "../deck-core";
 import type {
-  BulletItem,
   ElementAlign,
   ElementBox,
   ImageCrop,
@@ -26,13 +25,11 @@ import type {
   TextRun,
 } from "../deck-elements";
 import { resolveConnectorElementPoints } from "@/lib/presentation/connector-geometry";
-import { normalizeBulletItems } from "../deck-elements";
-import { PLACEHOLDER_TYPE_LABELS } from "../deck-layouts-model";
+import { normalizeTextParagraphs } from "../deck-elements";
 import { slideFormatConfig } from "@/lib/presentation/slide-format";
 import { resolveSlideStyle } from "@/lib/presentation/style-cascade";
 import { slideFontExportFace } from "@/lib/presentation/slide-fonts";
 import {
-  adaptBulletsElementForExport,
   adaptShapeLabelForExport,
   adaptTextElementForExport,
 } from "@/lib/presentation/style-export-normalizers";
@@ -64,6 +61,19 @@ export function deckGeometry(format: Deck["slideFormat"]): DeckGeometry {
     slideH: config.pptxHeightIn,
     slideHPt: config.pptxHeightIn * 72,
   };
+}
+
+function exportTextRuns(
+  runs: readonly TextRun[] | undefined,
+  slideHeightPt: number,
+): TextRun[] | undefined {
+  if (!runs || runs.length === 0) return undefined;
+  return runs.map((run) => ({
+    ...run,
+    ...(run.fontSize !== undefined
+      ? { fontSize: slideHeightPctToPoints(run.fontSize, slideHeightPt) }
+      : {}),
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -313,11 +323,6 @@ function boxToInches(box: ElementBox, geometry: DeckGeometry): InchBox {
   };
 }
 
-/** Convert a `cqh` (percent-of-slide-height) font size to points. */
-function fontSizePt(percentOfHeight: number, geometry: DeckGeometry): number {
-  return slideHeightPctToPoints(percentOfHeight, geometry.slideHPt);
-}
-
 // ---------------------------------------------------------------------------
 // Pure transform: Deck → DeckSlideSpec[]
 // ---------------------------------------------------------------------------
@@ -377,42 +382,65 @@ function buildSlideSpec(
     }
 
     switch (element.kind) {
-      case "placeholder": {
-        const label =
-          element.label?.trim() ||
-          PLACEHOLDER_TYPE_LABELS[element.placeholderType];
-        const minInch = Math.min(box.w, box.h);
-        ops.push({
-          kind: "shape",
-          ...box,
-          shape: "rect",
-          color: accent,
-          opacity: 0.12,
-          stroke: { color: accent, width: 1.5, dash: true },
-          radius: minInch * 0.08,
-        });
-        ops.push({
-          kind: "text",
-          x: box.x + box.w * 0.08,
-          y: box.y + box.h * 0.08,
-          w: box.w * 0.84,
-          h: box.h * 0.84,
-          text: label,
-          color: toHex(resolved.mutedColor),
-          fontSize: fontSizePt(3.2, geometry),
-          bold: true,
-          italic: false,
-          align: "center",
-          verticalAlign: "middle",
-        });
-        break;
-      }
       case "text": {
         const exportStyle = adaptTextElementForExport(
           deck,
           { ...element, styleOverride: element.style },
           geometry.slideHPt,
         );
+        const paragraphs = normalizeTextParagraphs(element);
+        const hasListParagraphs = paragraphs.some(
+          (paragraph) => paragraph.listType !== undefined,
+        );
+        if (hasListParagraphs) {
+          const hasRichRuns = paragraphs.some(
+            (paragraph) => paragraph.runs && paragraph.runs.length > 0,
+          );
+          const hasItemMeta = paragraphs.some(
+            (paragraph) =>
+              (paragraph.indent ?? 0) !== 0 || paragraph.listType === "number",
+          );
+          const bulletsFontFace = slideFontExportFace(
+            exportStyle.resolved.fontFamily,
+            paragraphs.map((paragraph) => paragraph.text).join(" "),
+          );
+          ops.push({
+            kind: "bullets",
+            ...box,
+            items: paragraphs.map((paragraph) => paragraph.text),
+            ...(hasRichRuns
+              ? {
+                  itemRuns: paragraphs.map(
+                    (paragraph) =>
+                      exportTextRuns(paragraph.runs, geometry.slideHPt) ?? [],
+                  ),
+                }
+              : {}),
+            ...(hasItemMeta
+              ? {
+                  itemDetails: paragraphs.map((paragraph) => ({
+                    indent: paragraph.indent,
+                    listType: paragraph.listType,
+                  })),
+                }
+              : {}),
+            color: toHex(exportStyle.color),
+            fontSize: exportStyle.fontSizePt,
+            ...(bulletsFontFace ? { fontFace: bulletsFontFace } : {}),
+            bold: exportStyle.bold,
+            italic: exportStyle.italic,
+            ...(exportStyle.underline ? { underline: true } : {}),
+            align: exportStyle.align,
+            ...(element.style.verticalAlign
+              ? { verticalAlign: element.style.verticalAlign }
+              : {}),
+            ...(exportStyle.lineHeight
+              ? { lineHeight: exportStyle.lineHeight }
+              : {}),
+            ...(element.fitMode ? { fitMode: element.fitMode } : {}),
+          });
+          break;
+        }
         // Content-aware editable-PPTX font face: registry fonts map to an
         // Office-compatible face, switching to the CJK face for Chinese text.
         const textFontFace = slideFontExportFace(
@@ -424,7 +452,7 @@ function buildSlideSpec(
           ...box,
           text: element.text,
           ...(element.runs && element.runs.length > 0
-            ? { runs: element.runs }
+            ? { runs: exportTextRuns(element.runs, geometry.slideHPt) }
             : {}),
           color: toHex(exportStyle.color),
           fontSize: exportStyle.fontSizePt,
@@ -446,57 +474,6 @@ function buildSlideSpec(
         });
         break;
       }
-      case "bullets": {
-        const exportStyle = adaptBulletsElementForExport(
-          deck,
-          { ...element, styleOverride: element.style },
-          geometry.slideHPt,
-        );
-        // Use the authoritative item list.
-        const bulletItems: BulletItem[] = normalizeBulletItems(element);
-        const hasRichRuns = bulletItems.some(
-          (it) => it.runs && it.runs.length > 0,
-        );
-        const hasItemMeta = bulletItems.some(
-          (it) => (it.indent ?? 0) !== 0 || it.listType === "number",
-        );
-        // Content-aware editable-PPTX font face across all bullet text.
-        const bulletsFontFace = slideFontExportFace(
-          exportStyle.resolved.fontFamily,
-          bulletItems.map((it) => it.text).join(" "),
-        );
-        ops.push({
-          kind: "bullets",
-          ...box,
-          items: bulletItems.map((it) => it.text),
-          ...(hasRichRuns
-            ? { itemRuns: bulletItems.map((it) => it.runs ?? []) }
-            : {}),
-          ...(hasItemMeta
-            ? {
-                itemDetails: bulletItems.map((it) => ({
-                  indent: it.indent,
-                  listType: it.listType,
-                })),
-              }
-            : {}),
-          color: toHex(exportStyle.color),
-          fontSize: exportStyle.fontSizePt,
-          ...(bulletsFontFace ? { fontFace: bulletsFontFace } : {}),
-          bold: exportStyle.bold,
-          italic: exportStyle.italic,
-          ...(exportStyle.underline ? { underline: true } : {}),
-          align: exportStyle.align,
-          ...(element.style.verticalAlign
-            ? { verticalAlign: element.style.verticalAlign }
-            : {}),
-          ...(exportStyle.lineHeight
-            ? { lineHeight: exportStyle.lineHeight }
-            : {}),
-          ...(element.fitMode ? { fitMode: element.fitMode } : {}),
-        });
-        break;
-      }
       case "shape": {
         const labelStyle = adaptShapeLabelForExport(
           deck,
@@ -513,7 +490,12 @@ function buildSlideSpec(
             ? {
                 text: element.text,
                 ...(element.textRuns && element.textRuns.length > 0
-                  ? { textRuns: element.textRuns }
+                  ? {
+                      textRuns: exportTextRuns(
+                        element.textRuns,
+                        geometry.slideHPt,
+                      ),
+                    }
                   : {}),
                 textColor: toHex(labelStyle.color),
                 fontSize: labelStyle.fontSizePt,

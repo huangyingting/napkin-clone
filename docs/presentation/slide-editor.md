@@ -1,7 +1,7 @@
 # Slide Editor Runtime
 
 **Status:** Current  
-**Last updated:** 2026-06-23
+**Last updated:** 2026-06-26
 
 This document describes the runtime architecture of the slide editor. It is
 about interaction and UI ownership, not the persisted deck schema. For the JSON
@@ -47,15 +47,32 @@ and pointer state rules, see
 Child components are controlled. They receive slide/element state plus callbacks
 and never mutate `Deck` objects directly.
 
+## Current Object Model
+
+The editor always has one current object:
+
+```text
+current object = selected element(s) ?? current slide
+```
+
+Deck-level controls never participate in selection. They stay in the top
+toolbar. When the element selection is empty, the slide itself is the current
+object and the canvas popover plus inspector target slide background, layout,
+notes, and slide actions. When one element, a group, or a multiset is selected,
+those surfaces target that selection.
+
 ## Surface Layout
 
-The desktop editor is a three-surface workflow:
+The desktop editor is a current-object workflow:
 
-| Surface    | Responsibility                                                                                            |
-| ---------- | --------------------------------------------------------------------------------------------------------- |
-| Slide rail | Select, duplicate, remove, and reorder slides.                                                            |
-| Stage      | Direct manipulation of slide elements on a fixed-format canvas.                                           |
-| Inspector  | Slide settings, element settings, layout controls, upload controls, layer list, and multi-select actions. |
+| Surface        | Responsibility                                                                                  |
+| -------------- | ----------------------------------------------------------------------------------------------- |
+| Top toolbar    | Deck/app controls: slide creation templates, deck theme, slide size, undo/redo, sync, save.      |
+| Canvas popover | Frequent verbs for the current object: slide verbs, element formatting, arrange, object actions. |
+| Stage          | Direct manipulation of slide elements on a fixed-format canvas.                                  |
+| Inspector      | Precise Properties/Layers for the current object.                                                |
+| Bottom dock    | Zoom, notes, rail toggle, and status.                                                           |
+| Slide rail     | Select, duplicate, remove, and reorder slides.                                                   |
 
 On smaller surfaces, the inspector can render as a sheet while the stage remains
 the same controlled editor surface.
@@ -73,7 +90,7 @@ Current stage capabilities:
 - move, resize, and rotate elements;
 - drag connector endpoints and snap them to element anchors;
 - snap boxes to guides/grid;
-- inline-edit text and bullet elements;
+- inline-edit text elements, including paragraph/list text;
 - create a text element by double-clicking empty canvas;
 - copy/cut/paste/duplicate/delete selected elements;
 - group and ungroup elements;
@@ -124,8 +141,18 @@ only; it does not make `SlideCanvas` mutate state.
 
 ## Inspector Runtime
 
-`SlideInspector` owns editing controls, not deck state. It receives callbacks for
-every action:
+`SlideInspector` owns editing controls, not deck state. It renders a remembered
+`Properties | Layers` mode switch in the same floating panel. The panel open
+state and mode are persisted in local storage; wide screens default open when no
+preference exists, while narrow screens use a bottom sheet.
+
+Properties mode always has a target. With no element selected, it shows slide
+properties. With a single element selected, it shows a current-object identity
+row plus contextual sections. With a multi-selection or group selected, it shows
+selection actions, union position/size, and shared effects. The popover panel
+bridge opens Properties and scrolls/focuses the matching section.
+
+`SlideInspector` receives callbacks for every action:
 
 - slide duplicate/remove;
 - layout apply/reset;
@@ -138,6 +165,19 @@ every action:
 
 The inspector must not infer missing context. If a workflow requires full source
 document blocks or document id, those values are passed by `SlideEditor`.
+
+## Popover Runtime
+
+The canvas popover is anchored to the current object: the selected union bbox for
+element selections and the slide top edge when the slide is current. Text edit
+mode keeps the popover anchored to the text bbox and hides object actions so a
+caret edit cannot accidentally delete or reorder the whole element.
+
+Single-element popovers expose frequent kind-specific verbs: text styling and
+list controls, shape color, connector routing/dash/arrowheads, image replace and
+crop bridge, and visual replace/restyle. Multi-select popovers expose alignment,
+distribution, match-size, z-order, group/ungroup, duplicate, delete, and the
+panel bridge.
 
 ## Mutation Flow
 

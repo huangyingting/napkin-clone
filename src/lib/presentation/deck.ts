@@ -20,7 +20,7 @@ export { CURRENT_DECK_SCHEMA_VERSION, DECK_THEMES } from "./deck-core";
 export type { DeckTheme, Slide, Deck } from "./deck-core";
 
 export {
-  normalizeBulletItems,
+  normalizeTextParagraphs,
   IMAGE_FIT_MODES,
   IMAGE_MASK_SHAPES,
   DEFAULT_VISUAL_BOX,
@@ -39,10 +39,9 @@ export type {
   ConnectorRouting,
   ConnectorElement,
   BaseElement,
-  PlaceholderElement,
   TextElement,
+  Paragraph,
   BulletItem,
-  BulletsElement,
   VisualElement,
   ConnectorArrow,
   ElementAlign,
@@ -72,8 +71,9 @@ export {
 } from "./deck-layouts-model";
 export type {
   SlideLayoutHint,
-  PlaceholderType,
   SlideLayout,
+  LayoutPlaceholder,
+  PlaceholderType,
 } from "./deck-layouts-model";
 
 export { makeElementId, makeSlideId } from "./deck-ids";

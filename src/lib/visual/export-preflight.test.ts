@@ -71,7 +71,7 @@ function textEl(overrides: Partial<TextElement> = {}): TextElement {
   return {
     id: "txt-1",
     kind: "text",
-    role: "title",
+    textRole: "h1",
     text: "Hello",
     box: { x: 5, y: 5, w: 90, h: 15 },
     zIndex: 0,

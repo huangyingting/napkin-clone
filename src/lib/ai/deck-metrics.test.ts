@@ -34,8 +34,8 @@ function textElement(id: string, text: string): SlideElement {
     zIndex: 0,
     kind: "text",
     text,
+    paragraphs: [{ text }],
     style: { ...TEXT_STYLE },
-    role: "body",
   };
 }
 
@@ -44,9 +44,10 @@ function bulletsElement(id: string, bullets: string[]): SlideElement {
     id,
     box: { ...BOX },
     zIndex: 1,
-    kind: "bullets",
-    bullets,
-    items: bullets.map((text) => ({ text })),
+    kind: "text",
+    text: bullets.join("\n"),
+    paragraphs: bullets.map((text) => ({ text, listType: "bullet" as const })),
+    textRole: "bullet",
     style: { ...TEXT_STYLE },
   };
 }
@@ -258,6 +259,7 @@ test("deckEditDistance: an edited slide (same element count) is changed", () => 
   assert.ok(el && el.kind === "text");
   if (el && el.kind === "text") {
     el.text = "A completely different idea";
+    el.paragraphs = [{ text: "A completely different idea" }];
   }
   const distance = deckEditDistance(before, after);
   assert.equal(distance.slidesChanged, 1);

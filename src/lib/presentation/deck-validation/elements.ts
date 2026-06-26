@@ -1,6 +1,6 @@
 import type {
   BaseElement,
-  BulletItem,
+  Paragraph,
   ConnectorAnchor,
   ConnectorArrow,
   ConnectorElement,
@@ -14,12 +14,6 @@ import type {
   TextFitMode,
   TextRun,
 } from "../deck-elements";
-import { PLACEHOLDER_TYPES, type PlaceholderType } from "../deck-layouts-model";
-import {
-  SLIDE_SLOT_KINDS,
-  isSlideSlotKind,
-  type LayoutSlotBinding,
-} from "../slide-slots";
 import { isDeckTextRole } from "../deck-theme-token-resolvers";
 import { DECK_TEXT_ROLES, type DeckTextRole } from "../deck-theme-token-types";
 import { isSlideFontId } from "../slide-fonts";
@@ -43,20 +37,7 @@ import {
   isPlainObject,
   validateFiniteNumber,
   validateOpacity,
-  validateStringArray,
 } from "./shared";
-
-function validatePlaceholderType(
-  value: unknown,
-  context: string,
-): PlaceholderType {
-  if (!PLACEHOLDER_TYPES.includes(value as PlaceholderType)) {
-    throw new DeckValidationError(
-      `${context} must be one of: ${PLACEHOLDER_TYPES.join(", ")}`,
-    );
-  }
-  return value as PlaceholderType;
-}
 
 function validateTextFitMode(
   value: unknown,
@@ -69,32 +50,6 @@ function validateTextFitMode(
     );
   }
   return value as TextFitMode;
-}
-
-/** Validates an optional semantic layout-slot binding (#628). */
-function validateLayoutSlot(
-  input: unknown,
-  context: string,
-): LayoutSlotBinding {
-  if (!isPlainObject(input)) {
-    throw new DeckValidationError(`${context} must be an object`);
-  }
-  if (!isSlideSlotKind(input.kind)) {
-    throw new DeckValidationError(
-      `${context}.kind must be one of: ${SLIDE_SLOT_KINDS.join(", ")}`,
-    );
-  }
-  const binding: LayoutSlotBinding = { kind: input.kind };
-  if (input.index !== undefined) {
-    const index = validateFiniteNumber(input.index, `${context}.index`);
-    if (!Number.isInteger(index) || index < 0) {
-      throw new DeckValidationError(
-        `${context}.index must be a non-negative integer`,
-      );
-    }
-    binding.index = index;
-  }
-  return binding;
 }
 
 function validateBox(input: unknown, context: string): ElementBox {
@@ -259,6 +214,10 @@ function validateTextRun(input: unknown, context: string): TextRun {
   const run: TextRun = { text: input.text };
   if (input.bold !== undefined) run.bold = Boolean(input.bold);
   if (input.italic !== undefined) run.italic = Boolean(input.italic);
+  if (input.underline !== undefined) run.underline = Boolean(input.underline);
+  if (input.fontSize !== undefined) {
+    run.fontSize = validateFiniteNumber(input.fontSize, `${context}.fontSize`);
+  }
   if (input.code !== undefined) run.code = Boolean(input.code);
   if (input.color !== undefined) run.color = input.color as string;
   if (input.link !== undefined) run.link = input.link as string;
@@ -321,15 +280,15 @@ export function validateBulletRuns(
 
 const LIST_TYPES = ["bullet", "number"] as const;
 
-/** Validates and normalises a single {@link BulletItem} (#335). */
-function validateBulletItem(input: unknown, context: string): BulletItem {
+/** Validates and normalises a single {@link Paragraph}. */
+function validateParagraph(input: unknown, context: string): Paragraph {
   if (!isPlainObject(input)) {
     throw new DeckValidationError(`${context} must be an object`);
   }
   if (typeof input.text !== "string") {
     throw new DeckValidationError(`${context}.text must be a string`);
   }
-  const item: BulletItem = { text: input.text };
+  const item: Paragraph = { text: input.text };
   if (input.runs !== undefined) {
     item.runs = validateTextRuns(input.runs, `${context}.runs`);
   }
@@ -350,18 +309,18 @@ function validateBulletItem(input: unknown, context: string): BulletItem {
         `${context}.listType must be "bullet" or "number"`,
       );
     }
-    item.listType = input.listType as BulletItem["listType"];
+    item.listType = input.listType as Paragraph["listType"];
   }
   return item;
 }
 
-/** Validates an array of {@link BulletItem}s (#335). */
-function validateBulletItems(value: unknown, context: string): BulletItem[] {
+/** Validates an array of canonical text paragraphs. */
+function validateParagraphs(value: unknown, context: string): Paragraph[] {
   if (!Array.isArray(value)) {
     throw new DeckValidationError(`${context} must be an array`);
   }
   return value.map((item, index) =>
-    validateBulletItem(item, `${context}[${index}]`),
+    validateParagraph(item, `${context}[${index}]`),
   );
 }
 
@@ -374,6 +333,11 @@ function validateBaseElementFields(
   }
   const box = validateBox(input.box, `${context}.box`);
   const zIndex = validateFiniteNumber(input.zIndex, `${context}.zIndex`);
+  if (input.layoutSlot !== undefined) {
+    throw new DeckValidationError(
+      `${context}.layoutSlot is no longer supported`,
+    );
+  }
   return {
     id: input.id,
     box,
@@ -400,14 +364,6 @@ function validateBaseElementFields(
           sourceRef: validateSourceRef(input.sourceRef, `${context}.sourceRef`),
         }
       : {}),
-    ...(input.layoutSlot !== undefined
-      ? {
-          layoutSlot: validateLayoutSlot(
-            input.layoutSlot,
-            `${context}.layoutSlot`,
-          ),
-        }
-      : {}),
   };
 }
 
@@ -418,59 +374,15 @@ export function validateElement(input: unknown, context: string): SlideElement {
   const base = validateBaseElementFields(input, context);
 
   switch (input.kind) {
-    case "placeholder": {
-      return {
-        ...base,
-        kind: "placeholder",
-        placeholderType: validatePlaceholderType(
-          input.placeholderType,
-          `${context}.placeholderType`,
-        ),
-        ...(typeof input.label === "string" && input.label.trim().length > 0
-          ? { label: input.label }
-          : {}),
-      };
-    }
     case "text": {
       if (typeof input.text !== "string") {
         throw new DeckValidationError(`${context}.text must be a string`);
       }
-      if (input.role !== "title" && input.role !== "body") {
-        throw new DeckValidationError(
-          `${context}.role must be "title" or "body"`,
-        );
-      }
-      const fitMode = validateTextFitMode(input.fitMode, `${context}.fitMode`);
-      return {
-        ...base,
-        kind: "text",
-        text: input.text,
-        role: input.role,
-        ...(input.runs !== undefined
-          ? { runs: validateTextRuns(input.runs, `${context}.runs`) }
-          : {}),
-        style: validateTextStyle(input.style, `${context}.style`),
-        ...(input.textRole !== undefined
-          ? {
-              textRole: validateTextRole(input.textRole, `${context}.textRole`),
-            }
-          : {}),
-        ...(input.styleOverride !== undefined
-          ? {
-              styleOverride: validatePartialTextStyle(
-                input.styleOverride,
-                `${context}.styleOverride`,
-              ),
-            }
-          : {}),
-        ...(fitMode !== undefined ? { fitMode } : {}),
-      };
-    }
-    case "bullets": {
-      const bulletsFitMode = validateTextFitMode(
-        input.fitMode,
-        `${context}.fitMode`,
+      const paragraphs = validateParagraphs(
+        input.paragraphs,
+        `${context}.paragraphs`,
       );
+      const fitMode = validateTextFitMode(input.fitMode, `${context}.fitMode`);
       if (
         input.bulletGap !== undefined &&
         (typeof input.bulletGap !== "number" ||
@@ -489,20 +401,14 @@ export function validateElement(input: unknown, context: string): SlideElement {
           `${context}.bulletIndent must be a finite number`,
         );
       }
-      const items = validateBulletItems(input.items, `${context}.items`);
       return {
         ...base,
-        kind: "bullets",
-        bullets: validateStringArray(input.bullets, `${context}.bullets`),
-        ...(input.bulletRuns !== undefined
-          ? {
-              bulletRuns: validateBulletRuns(
-                input.bulletRuns,
-                `${context}.bulletRuns`,
-              ),
-            }
+        kind: "text",
+        text: input.text,
+        paragraphs,
+        ...(input.runs !== undefined
+          ? { runs: validateTextRuns(input.runs, `${context}.runs`) }
           : {}),
-        items,
         style: validateTextStyle(input.style, `${context}.style`),
         ...(input.textRole !== undefined
           ? {
@@ -517,7 +423,7 @@ export function validateElement(input: unknown, context: string): SlideElement {
               ),
             }
           : {}),
-        ...(bulletsFitMode !== undefined ? { fitMode: bulletsFitMode } : {}),
+        ...(fitMode !== undefined ? { fitMode } : {}),
         ...(input.bulletGap !== undefined
           ? { bulletGap: input.bulletGap as number }
           : {}),
@@ -723,7 +629,7 @@ export function validateElement(input: unknown, context: string): SlideElement {
     }
     default:
       throw new DeckValidationError(
-        `${context}.kind must be one of: placeholder, text, bullets, visual, image, shape, connector`,
+        `${context}.kind must be one of: text, visual, image, shape, connector`,
       );
   }
 }

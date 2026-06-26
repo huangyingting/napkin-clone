@@ -19,8 +19,8 @@ test("safeParseDeck round-trips reusable layouts", () => {
   if (result.success) {
     assert.equal(result.data.layouts?.length, layouts.length);
     assert.equal(
-      result.data.layouts?.[1]?.placeholders[0]?.kind,
-      "placeholder",
+      result.data.layouts?.[1]?.placeholders[0]?.placeholderType,
+      layouts[1]?.placeholders[0]?.placeholderType,
     );
   }
 });

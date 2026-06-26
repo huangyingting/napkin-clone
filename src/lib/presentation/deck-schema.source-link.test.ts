@@ -27,7 +27,7 @@ function sourceLinkedTextElement(
 ): TextElement {
   return buildTextElement({
     id: "linked-text",
-    role: "body",
+    textRole: "body",
     text: "Linked content",
     zIndex: 0,
     box: { x: 1, y: 2, w: 30, h: 12 },
@@ -142,8 +142,8 @@ test("unlinkSource returns same object identity when element has no sourceRef", 
   const element: TextElement = {
     id: "no-source",
     kind: "text",
-    role: "body",
     text: "No source",
+    paragraphs: [{ text: "No source" }],
     zIndex: 0,
     box: { x: 0, y: 0, w: 10, h: 5 },
     style: { fontSize: 4, bold: false, italic: false, align: "left" },

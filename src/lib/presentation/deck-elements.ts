@@ -1,6 +1,5 @@
 /** Slide element families and element helper constructors. */
 
-import type { LayoutSlotBinding } from "@/lib/presentation/slide-slots";
 import type { DeckTextRole } from "@/lib/presentation/deck-theme-token-primitives";
 import type { AssetReference, ResolvedAssetUrl } from "@/lib/asset-vocabulary";
 import {
@@ -12,7 +11,6 @@ import {
   type ImageMaskShape,
 } from "./deck-element-primitives";
 import { makeElementId } from "./deck-ids";
-import type { PlaceholderType } from "./deck-layout-primitives";
 import type { SourceRef } from "./deck-source-refs";
 
 /**
@@ -46,6 +44,10 @@ export interface TextRun {
   bold?: boolean;
   /** Italic emphasis. */
   italic?: boolean;
+  /** Underline emphasis. */
+  underline?: boolean;
+  /** Optional run font size as a percent of slide height. */
+  fontSize?: number;
   /** Inline (monospace) code. */
   code?: boolean;
   /** Hex color (e.g. `#ff0000`) carried by the span, if any. */
@@ -55,7 +57,7 @@ export interface TextRun {
 }
 
 /**
- * Controls how a text or bullets element handles content that exceeds its box.
+ * Controls how a text element handles content that exceeds its box.
  *
  * - `"auto-height"` (default / absent): the box grows to fit the content
  *   height in the editor; the canvas clips only if the box is intentionally
@@ -66,7 +68,7 @@ export interface TextRun {
  */
 export type TextFitMode = "auto-height" | "fixed-box" | "shrink-to-fit";
 
-/** Text styling shared by `text` and `bullets` elements. */
+/** Text styling for text elements and shape labels. */
 export interface TextElementStyle {
   /** Font size as a percent of slide height (rendered via `cqh`). */
   fontSize: number;
@@ -203,29 +205,16 @@ export interface BaseElement {
   groupId?: string;
   /** Optional provenance link back to the source document block. */
   sourceRef?: SourceRef;
-  /**
-   * Optional binding to a semantic layout slot (#628). When present, layout
-   * application moves this element into the matching slot's geometry instead of
-   * replacing it. Absent → the element is free-form/unbound and is never moved
-   * by layout actions.
-   */
-  layoutSlot?: LayoutSlotBinding;
-}
-
-/**
- * A reusable layout slot rendered on-canvas until the user replaces it with
- * slide content.
- */
-export interface PlaceholderElement extends BaseElement {
-  kind: "placeholder";
-  placeholderType: PlaceholderType;
-  /** Optional editor-facing label shown instead of the generic type name. */
-  label?: string;
 }
 
 export interface TextElement extends BaseElement {
   kind: "text";
   text: string;
+  /**
+   * Canonical paragraph model for both plain text and lists. Plain paragraphs
+   * omit `listType`; bulleted/numbered list paragraphs set it per paragraph.
+   */
+  paragraphs?: Paragraph[];
   /**
    * Optional rich-text runs for `text`. When present and non-empty, renderers
    * and exporters use these formatted spans (bold/italic/code/color/link) and
@@ -235,8 +224,6 @@ export interface TextElement extends BaseElement {
    */
   runs?: TextRun[];
   style: TextElementStyle;
-  /** Theming hint for the default color when `style.color` is unset. */
-  role: "title" | "body";
   /**
    * Optional semantic deck-template role (#605). When present, the style
    * cascade resolves typography from the deck template for this role and treats
@@ -255,14 +242,19 @@ export interface TextElement extends BaseElement {
    * Absent / `"auto-height"` preserves the pre-#333 behaviour.
    */
   fitMode?: TextFitMode;
+  /** Optional vertical gap between list paragraphs, in slide-height percent. */
+  bulletGap?: number;
+  /** Optional left indent applied to list paragraphs, in slide-width percent. */
+  bulletIndent?: number;
 }
 
 /**
- * A single item in a multi-level bullet or numbered list (#335).
+ * A single paragraph in a text element. When `listType` is present, the
+ * paragraph renders as a bullet or numbered list item.
  */
-export interface BulletItem {
+export interface Paragraph {
   text: string;
-  /** Rich-text runs for this item; falls back to `text` when absent. */
+  /** Rich-text runs for this paragraph; falls back to `text` when absent. */
   runs?: TextRun[];
   /**
    * Nesting depth: 0 = top level (default), 1 = first nested, 2 = second
@@ -273,56 +265,24 @@ export interface BulletItem {
   listType?: "bullet" | "number";
 }
 
-export interface BulletsElement extends BaseElement {
-  kind: "bullets";
-  bullets: string[];
-  /**
-   * Optional rich-text runs, parallel to `bullets`: `bulletRuns[i]` holds the
-   * formatted spans for bullet line `i`. When present and non-empty, renderers
-   * and exporters use the runs for that line and fall back to the plain
-   * `bullets[i]` string otherwise. The array may be shorter than `bullets`;
-   * any bullet without a matching entry renders from its plain string.
-   */
-  bulletRuns?: TextRun[][];
-  /** Authoritative multi-level item list (#335). */
-  items: BulletItem[];
-  style: TextElementStyle;
-  /**
-   * Optional semantic deck-template role (#605). Defaults conceptually to
-   * `"bullet"` when the element opts into template inheritance. Absent → styled
-   * entirely by concrete `style`.
-   */
-  textRole?: DeckTextRole;
-  /**
-   * Optional local style overrides applied over the resolved template/role
-   * style (#605). Present fields win; absent fields inherit from the template.
-   */
-  styleOverride?: Partial<TextElementStyle>;
-  /**
-   * How the element handles content that exceeds the box height.
-   * Absent / `"auto-height"` preserves the pre-#333 behaviour.
-   */
-  fitMode?: TextFitMode;
-  /**
-   * Extra vertical gap between bullet items, expressed as a percent of slide
-   * height. Supplements the default `gap` on the list container. Absent → 0.
-   */
-  bulletGap?: number;
-  /**
-   * Extra left indent applied to the entire bullet list, expressed as a
-   * percent of slide width. Absent → 0.
-   */
-  bulletIndent?: number;
-}
+export type BulletItem = Paragraph;
 
 /**
- * Returns the authoritative item list for a bullets element (#335).
- *
- * Current deck payloads must carry `items[]`; flat `bullets[]` exists only as
- * a compact text mirror for form controls and export APIs.
+ * Returns the canonical paragraph list for a text element. Older in-memory
+ * constructors may still omit `paragraphs`; render-time code treats the legacy
+ * `text`/`runs` fields as a single plain paragraph until those callers are
+ * migrated.
  */
-export function normalizeBulletItems(el: BulletsElement): BulletItem[] {
-  return el.items;
+export function normalizeTextParagraphs(
+  el: Pick<TextElement, "text" | "runs" | "paragraphs">,
+): Paragraph[] {
+  if (el.paragraphs !== undefined) return el.paragraphs;
+  return [
+    {
+      text: el.text,
+      ...(el.runs !== undefined && el.runs.length > 0 ? { runs: el.runs } : {}),
+    },
+  ];
 }
 
 export interface VisualElement extends BaseElement {
@@ -411,9 +371,7 @@ export interface ShapeElement extends BaseElement {
 
 /** Discriminated union of every free-form slide element. */
 export type SlideElement =
-  | PlaceholderElement
   | TextElement
-  | BulletsElement
   | VisualElement
   | ImageElement
   | ShapeElement

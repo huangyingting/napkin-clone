@@ -1,10 +1,10 @@
-/** Reusable layout and placeholder model helpers. */
+/** Reusable layout preset helpers. */
 
 import {
   SLIDE_FORMATS as PRESENTATION_SLIDE_FORMATS,
   type SlideFormat as PresentationSlideFormat,
 } from "@/lib/presentation/slide-format";
-import type { ElementBox, PlaceholderElement } from "./deck-elements";
+import type { ElementBox } from "./deck-elements";
 import {
   PLACEHOLDER_TYPES,
   PLACEHOLDER_TYPE_LABELS,
@@ -36,15 +36,24 @@ export type SlideLayoutHint = (typeof SLIDE_LAYOUTS)[number];
 /** Runtime list of supported reusable placeholder slot kinds. */
 export { PLACEHOLDER_TYPES, PLACEHOLDER_TYPE_LABELS, type PlaceholderType };
 
+/** A typed region in a reusable layout preset. It is not a slide element. */
+export interface LayoutPlaceholder {
+  id: string;
+  placeholderType: PlaceholderType;
+  zIndex: number;
+  box: ElementBox;
+  label?: string;
+}
+
 /**
- * A reusable slide layout definition. Stored on the deck and applied onto a
- * slide as placeholder elements.
+ * A reusable slide layout definition. Stored on the deck as typed regions used
+ * to create real slide elements when a slide is created.
  */
 export interface SlideLayout {
   id: string;
   name: string;
   format: PresentationSlideFormat;
-  placeholders: PlaceholderElement[];
+  placeholders: LayoutPlaceholder[];
   /** Human-readable display title shown in the layout picker. */
   title?: string;
   /** Short description of the layout intent. */
@@ -56,20 +65,19 @@ function cloneBox(box: ElementBox): ElementBox {
 }
 
 function clonePlaceholder(
-  placeholder: PlaceholderElement,
-  overrides: Partial<PlaceholderElement> = {},
-): PlaceholderElement {
+  placeholder: LayoutPlaceholder,
+  overrides: Partial<LayoutPlaceholder> = {},
+): LayoutPlaceholder {
   const label =
     typeof overrides.label === "string"
       ? overrides.label
       : placeholder.label?.trim()
         ? placeholder.label
         : undefined;
-  const next: PlaceholderElement = {
+  const next: LayoutPlaceholder = {
     ...placeholder,
     ...overrides,
     id: overrides.id ?? placeholder.id,
-    kind: "placeholder",
     placeholderType: overrides.placeholderType ?? placeholder.placeholderType,
     zIndex: overrides.zIndex ?? placeholder.zIndex,
     box: cloneBox(overrides.box ?? placeholder.box),
@@ -100,7 +108,7 @@ export function layoutHintForReusableLayout(
 
 function reusableLayoutBoxes(
   name: string,
-): readonly Omit<PlaceholderElement, "id" | "kind" | "zIndex">[] {
+): readonly Omit<LayoutPlaceholder, "id" | "zIndex">[] {
   switch (name) {
     case "blank":
       return [];
@@ -198,7 +206,6 @@ const BUILTIN_LAYOUTS: readonly SlideLayout[] =
         format,
         placeholders: reusableLayoutBoxes(name).map((placeholder, index) => ({
           id: `layout-ph:${format}:${name}:${placeholder.placeholderType}:${index}`,
-          kind: "placeholder" as const,
           zIndex: index,
           box: cloneBox(placeholder.box),
           placeholderType: placeholder.placeholderType,

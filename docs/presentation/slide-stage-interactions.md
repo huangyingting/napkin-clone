@@ -1,7 +1,7 @@
 # Slide Stage Interactions
 
 **Status:** Current design target  
-**Last updated:** 2026-06-24
+**Last updated:** 2026-06-26
 
 This document defines how the slide editor stage should choose, preview, select,
 move, resize, and edit elements when many elements overlap. It is the interaction
@@ -28,7 +28,7 @@ contract for `SlideStageEditor`, not the persisted deck schema.
   the element the editor believes the user is most likely targeting.
 - Selection, drag, double-click edit, and context-menu targeting should use the
   same semantic hit-test result.
-- Large text/bullet frames and large background-like shapes should not make lower
+- Large text/list frames and large background-like shapes should not make lower
   content impossible to target.
 - Selected/preselected frames must remain visible even when the target element is
   behind another element.
@@ -101,9 +101,9 @@ Examples:
 
 | Candidate condition                  | Priority intent                                                                                 |
 | ------------------------------------ | ----------------------------------------------------------------------------------------------- |
-| Text/bullet actual content hit       | Very high. Text content is often what users intend to edit/select, even if covered by a shape.  |
-| Text/bullet near content             | High. A little tolerance around text makes targeting humane.                                    |
-| Text/bullet frame-only hit           | Low. Empty frame area should not block lower visible objects.                                   |
+| Text/list actual content hit         | Very high. Text content is often what users intend to edit/select, even if covered by a shape.  |
+| Text/list near content               | High. A little tolerance around text makes targeting humane.                                    |
+| Text/list frame-only hit             | Low. Empty frame area should not block lower visible objects.                                   |
 | Connector or line stroke hit         | Very high. Thin objects need a generous distance threshold to be selectable.                    |
 | Shape edge hit                       | Very high. Edges/corners usually mean the user is targeting the shape itself.                   |
 | Small shape interior                 | High. Small shapes are likely intentional targets.                                              |
@@ -135,11 +135,13 @@ coordinates, and is passed into the pure `stage-hit-test.ts` pipeline. Cache
 misses fall back to the heuristic geometry derived from line count, character
 count, font size, alignment, and stage aspect ratio.
 
-### Bullets
+### List Paragraphs
 
-Bullets follow the text model, but include marker/indent slack:
+List paragraphs follow the text model, but include marker/indent slack:
 
-- `BulletsElement.items[]` is authoritative for bullet text.
+- `TextElement.paragraphs[]` is authoritative for plain text, bullets, and
+  numbered lists. Paragraphs with `listType` render markers; `indent` carries
+  nesting depth.
 - Visible rows/near rows should outrank large shape interiors.
 - Empty list frame areas should not trap lower objects.
 
@@ -193,10 +195,12 @@ conservative. Future scoring may need additional signals, such as:
 - background/cover intent from slide layout, element role, or user lock state;
 - selected-object stickiness so large media remains operable once selected.
 
-### Placeholders
+### Empty Template Elements
 
-Placeholders are low-priority box hits. They should be targetable, but should not
-beat text content, line strokes, or explicit shape edges.
+Reusable layouts materialize real typed elements, not placeholder elements.
+Empty template text/image/visual affordances are therefore hit-tested through
+their normal element kind and should not beat text content, line strokes, or
+explicit shape edges unless the pointer is clearly targeting them.
 
 ## Selection And Preselection Frames
 

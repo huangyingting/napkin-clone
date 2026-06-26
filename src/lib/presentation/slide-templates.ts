@@ -20,7 +20,6 @@ import type {
   ElementAlign,
   ElementBox,
   ImageElement,
-  PlaceholderElement,
   SlideElement,
   TextElement,
   TextElementStyle,
@@ -30,22 +29,13 @@ import { makeElementId, makeSlideId } from "./deck-ids";
 import {
   defaultLayouts,
   PLACEHOLDER_TYPE_LABELS,
+  type LayoutPlaceholder,
   type PlaceholderType,
   type SlideLayout as ReusableSlideLayout,
   type SlideLayoutHint,
 } from "./deck-layouts-model";
 import { DEFAULT_SLIDE_FORMAT, type SlideFormat } from "./slide-format";
-import type { LayoutSlotBinding, SlideSlotKind } from "./slide-slots";
 import type { DeckTextRole } from "./deck-theme-token-types";
-
-/**
- * Maps a reusable {@link PlaceholderType} onto its semantic layout slot (#627).
- * The five placeholder kinds are all valid {@link SlideSlotKind}s, so this is a
- * 1:1 identity used to give materialized template elements slot bindings.
- */
-function placeholderSlotKind(type: PlaceholderType): SlideSlotKind {
-  return type;
-}
 
 /**
  * Maps a {@link PlaceholderType} onto its semantic {@link DeckTextRole} (#610)
@@ -145,7 +135,6 @@ function placeholderImageElement(
   label: string,
   box: ElementBox,
   zIndex: number,
-  layoutSlot?: LayoutSlotBinding,
 ): ImageElement {
   return {
     id: makeElementId(),
@@ -154,7 +143,6 @@ function placeholderImageElement(
     alt: `${label} placeholder`,
     zIndex,
     box: { ...box },
-    ...(layoutSlot ? { layoutSlot } : {}),
   };
 }
 
@@ -181,7 +169,7 @@ function templateTextStyle(type: PlaceholderType): TextElementStyle {
   }
 }
 
-function placeholderLabel(placeholder: PlaceholderElement): string {
+function placeholderLabel(placeholder: LayoutPlaceholder): string {
   return (
     placeholder.label?.trim() ||
     PLACEHOLDER_TYPE_LABELS[placeholder.placeholderType]
@@ -189,29 +177,23 @@ function placeholderLabel(placeholder: PlaceholderElement): string {
 }
 
 function materializePlaceholderElement(
-  placeholder: PlaceholderElement,
+  placeholder: LayoutPlaceholder,
   zIndex: number,
-  slotIndex = 0,
 ): SlideElement {
   const label = placeholderLabel(placeholder);
-  const layoutSlot: LayoutSlotBinding = {
-    kind: placeholderSlotKind(placeholder.placeholderType),
-    ...(slotIndex > 0 ? { index: slotIndex } : {}),
-  };
   if (placeholder.placeholderType === "visual") {
-    return placeholderImageElement(label, placeholder.box, zIndex, layoutSlot);
+    return placeholderImageElement(label, placeholder.box, zIndex);
   }
 
   return {
     id: makeElementId(),
     kind: "text",
-    role: placeholder.placeholderType === "title" ? "title" : "body",
     text: label,
+    paragraphs: [{ text: label }],
     zIndex,
     box: { ...placeholder.box },
     style: templateTextStyle(placeholder.placeholderType),
     textRole: placeholderTextRole(placeholder.placeholderType),
-    layoutSlot,
   };
 }
 
@@ -220,19 +202,17 @@ function bodyTextElement(
   box: ElementBox,
   zIndex: number,
   align: ElementAlign = "center",
-  layoutSlot?: LayoutSlotBinding,
   textRole?: DeckTextRole,
 ): TextElement {
   return {
     id: makeElementId(),
     kind: "text",
-    role: "body",
     text,
+    paragraphs: [{ text }],
     zIndex,
     box: { ...box },
     style: textStyle(4.5, align, false),
     ...(textRole ? { textRole } : {}),
-    ...(layoutSlot ? { layoutSlot } : {}),
   };
 }
 
@@ -240,7 +220,6 @@ function spotlightElement(
   zIndex: number,
   visualId: string | undefined,
 ): VisualElement | ImageElement {
-  const layoutSlot: LayoutSlotBinding = { kind: "visual" };
   if (visualId) {
     return {
       id: makeElementId(),
@@ -248,10 +227,9 @@ function spotlightElement(
       visualId,
       zIndex,
       box: { ...BOX.spotlight },
-      layoutSlot,
     };
   }
-  return placeholderImageElement("Visual", BOX.spotlight, zIndex, layoutSlot);
+  return placeholderImageElement("Visual", BOX.spotlight, zIndex);
 }
 
 /** Builds an authored (non-derived) slide from a template's elements. */
@@ -297,17 +275,11 @@ function layoutTemplateSlide(
 ): Slide {
   const hint: SlideLayoutHint = name === "title-slide" ? "title" : "content";
   const layout = findDefaultLayout(name, slideFormat);
-  // Per-slot-kind occurrence counter so repeated kinds (e.g. two body columns)
-  // get deterministic indices (body#0, body#1) for layout binding (#627/#628).
-  const slotCounts = new Map<SlideSlotKind, number>();
   return authoredSlide(
     hint,
-    layout.placeholders.map((placeholder, index) => {
-      const kind = placeholderSlotKind(placeholder.placeholderType);
-      const occurrence = slotCounts.get(kind) ?? 0;
-      slotCounts.set(kind, occurrence + 1);
-      return materializePlaceholderElement(placeholder, index, occurrence);
-    }),
+    layout.placeholders.map((placeholder, index) =>
+      materializePlaceholderElement(placeholder, index),
+    ),
   );
 }
 
@@ -351,16 +323,7 @@ export function buildTemplateSlide(
         "media",
         [
           visual,
-          bodyTextElement(
-            "Caption",
-            BOX.caption,
-            1,
-            "center",
-            {
-              kind: "caption",
-            },
-            "caption",
-          ),
+          bodyTextElement("Caption", BOX.caption, 1, "center", "caption"),
         ],
         ctx.visualId ? [ctx.visualId] : [],
       );

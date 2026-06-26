@@ -23,7 +23,6 @@ import {
   Box,
   Image as ImageIcon,
   Link2,
-  List,
   Lock,
   LockOpen,
   Minus,
@@ -67,12 +66,8 @@ function getDisplayName(
 function KindIcon({ element }: { element: SlideElement }) {
   const cls = "shrink-0 text-ds-text-muted";
   switch (element.kind) {
-    case "placeholder":
-      return <PenLine size={12} className={cls} aria-hidden="true" />;
     case "text":
       return <Type size={12} className={cls} aria-hidden="true" />;
-    case "bullets":
-      return <List size={12} className={cls} aria-hidden="true" />;
     case "image":
       return <ImageIcon size={12} className={cls} aria-hidden="true" />;
     case "visual":

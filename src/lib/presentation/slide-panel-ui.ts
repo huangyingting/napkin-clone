@@ -16,6 +16,14 @@ export type RightPanelTab =
   | "notes"
   | "source";
 
+/** Mutually-exclusive modes in the floating right panel. */
+export type InspectorMode = "properties" | "layers";
+
+/** Default right-panel mode when opening the inspector. */
+export function defaultInspectorMode(): InspectorMode {
+  return "properties";
+}
+
 /**
  * The tab the panel should open to by default. With a selection, the most
  * useful default is `arrange`; with no selection, slide-level settings.
@@ -36,6 +44,18 @@ export function isSelectionToolbarVisible(input: {
 }
 
 /**
+ * Whether the slide-level current-object toolbar should be shown. It appears
+ * only when the selection is empty, because the current object then resolves to
+ * the active slide.
+ */
+export function isSlideToolbarVisible(input: {
+  selectedElementId: string | null;
+  selectedCount: number;
+}): boolean {
+  return input.selectedElementId === null && input.selectedCount === 0;
+}
+
+/**
  * Whether the selected-object toolbar should render the rich per-element
  * controls (single selection) versus a compact multi-selection summary.
  */
@@ -52,13 +72,11 @@ export function shouldShowRichToolbarControls(input: {
  */
 export type ToolbarSelectionKind =
   | "text"
-  | "bullets"
   | "shape"
   | "line"
   | "image"
   | "visual"
-  | "connector"
-  | "placeholder";
+  | "connector";
 
 /**
  * Quick (low-risk, icon-level) actions the context toolbar may render inline
@@ -81,7 +99,7 @@ export function toolbarQuickActions(
   kind: ToolbarSelectionKind,
 ): ToolbarQuickActions {
   return {
-    textStyle: kind === "text" || kind === "bullets" || kind === "shape",
+    textStyle: kind === "text" || kind === "shape",
     shapeColor: kind === "shape" || kind === "line",
     connectorRouting: kind === "connector",
     connectorDash: kind === "connector",
@@ -100,16 +118,12 @@ export function toToolbarSelectionKind(
   switch (kind) {
     case "text":
       return "text";
-    case "bullets":
-      return "bullets";
     case "image":
       return "image";
     case "visual":
       return "visual";
     case "connector":
       return "connector";
-    case "placeholder":
-      return "placeholder";
     case "shape":
       return shape === "line" ? "line" : "shape";
     default:
@@ -142,7 +156,7 @@ export function toolbarPanelEntries(input: {
   const single = input.kind !== null && input.selectedCount <= 1;
   const kind = input.kind;
   return {
-    text: single && (kind === "text" || kind === "bullets" || kind === "shape"),
+    text: single && (kind === "text" || kind === "shape"),
     media:
       single && (kind === "image" || kind === "visual" || kind === "connector"),
     effects: single,

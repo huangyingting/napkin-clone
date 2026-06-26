@@ -500,10 +500,7 @@ export function useStageDrag({
           rdx = (lx / rect.width) * 100;
           rdy = (ly / rect.height) * 100;
         }
-        if (
-          resized &&
-          (resized.kind === "text" || resized.kind === "bullets")
-        ) {
+        if (resized && resized.kind === "text") {
           const isFixed = resized.fitMode === "fixed-box";
           const isAutoH = isAutoHeight(resized);
           if (isFixed || (isAutoH && BOTTOM_HANDLES.has(drag.mode))) {
@@ -673,11 +670,18 @@ export function useStageDrag({
     },
     [
       activeEditingId,
+      containerRef,
+      elementsRef,
       groupEditingId,
       hitTestAtClientPoint,
+      marqueeRectRef,
+      marqueeRef,
       onUpdateElement,
       onSetElementBoxes,
       onSetElementPatches,
+      setAnchorPreview,
+      setMarqueeRect,
+      setPreselectedTarget,
       stageAspect,
       visuals,
       snapToGrid,
@@ -747,7 +751,18 @@ export function useStageDrag({
     setMultiActiveDrag(null);
     setSnapGuides([]);
     setAnchorPreview(null);
-  }, [onSelectElement, onSelectElements, stageAspect, visuals, startEditing]);
+  }, [
+    elementsRef,
+    marqueeRectRef,
+    marqueeRef,
+    onSelectElement,
+    onSelectElements,
+    setAnchorPreview,
+    setMarqueeRect,
+    stageAspect,
+    visuals,
+    startEditing,
+  ]);
 
   useEffect(() => {
     window.addEventListener("pointermove", handlePointerMove);
@@ -822,8 +837,7 @@ export function useStageDrag({
         coalesceKey: nextGestureKey(mode === "move" ? "move" : "resize", id),
         moved: false,
         startFontSize:
-          startElement &&
-          (startElement.kind === "text" || startElement.kind === "bullets")
+          startElement && startElement.kind === "text"
             ? startElement.style.fontSize
             : undefined,
         groupBoxes,
@@ -834,10 +848,12 @@ export function useStageDrag({
     },
     [
       groupEditingId,
+      elementsRef,
       nextGestureKey,
       selectStageTarget,
       selectedElementId,
       selectedElementIds,
+      setPreselectedTarget,
     ],
   );
 
@@ -884,7 +900,13 @@ export function useStageDrag({
         moved: false,
       };
     },
-    [nextGestureKey, selectedElementIds, fittedBoxes],
+    [
+      containerRef,
+      elementsRef,
+      nextGestureKey,
+      selectedElementIds,
+      fittedBoxes,
+    ],
   );
 
   return {

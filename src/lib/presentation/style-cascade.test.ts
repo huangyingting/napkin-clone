@@ -9,7 +9,6 @@ import type { Deck, Slide } from "./deck";
 import type { MasterSlide } from "./deck-theme-tokens";
 import {
   renderFooterText,
-  resolveBulletsElementStyle,
   resolveMaster,
   resolveRoleTextStyle,
   resolveShapeLabelStyle,
@@ -372,8 +371,8 @@ test("resolveRoleTextStyle tracks absent optional fields as deck fallbacks", () 
 
 test("resolveTextElementStyle maps text role title -> h1, body -> body", () => {
   const deck = makeDeck();
-  const title = resolveTextElementStyle(deck, { role: "title" });
-  const body = resolveTextElementStyle(deck, { role: "body" });
+  const title = resolveTextElementStyle(deck, { textRole: "h1" });
+  const body = resolveTextElementStyle(deck, {});
   assert.strictEqual(title.role, "h1");
   assert.strictEqual(body.role, "body");
   assert.strictEqual(title.fontSize, 36);
@@ -383,15 +382,9 @@ test("resolveTextElementStyle maps text role title -> h1, body -> body", () => {
 test("resolveTextElementStyle honors an explicit textRole over text role", () => {
   const deck = makeDeck();
   const style = resolveTextElementStyle(deck, {
-    role: "body",
     textRole: "caption",
   });
   assert.strictEqual(style.role, "caption");
-});
-
-test("resolveBulletsElementStyle defaults to the bullet role", () => {
-  const style = resolveBulletsElementStyle(makeDeck(), {});
-  assert.strictEqual(style.role, "bullet");
 });
 
 test("resolveShapeLabelStyle defaults to shapeLabel and reads textStyleOverride", () => {

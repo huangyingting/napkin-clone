@@ -25,6 +25,7 @@ import type {
   SlideElement,
   TextElementStyle,
 } from "@/lib/presentation/deck";
+import { normalizeTextParagraphs } from "@/lib/presentation/deck";
 import {
   resolveRoleToken,
   type DeckTextRole,
@@ -53,7 +54,7 @@ function isHexColor(value: string): boolean {
 /** Semantic roles offered per element kind in the Text panel (#615). */
 export const TEXT_ROLE_OPTIONS: Readonly<
   Record<
-    "text" | "bullets" | "shape",
+    "text" | "shape",
     ReadonlyArray<{ value: DeckTextRole; label: string }>
   >
 > = {
@@ -63,11 +64,8 @@ export const TEXT_ROLE_OPTIONS: Readonly<
     { value: "h3", label: "Heading 3" },
     { value: "subtitle", label: "Subtitle" },
     { value: "body", label: "Body" },
-    { value: "caption", label: "Caption" },
-  ],
-  bullets: [
     { value: "bullet", label: "Bullet" },
-    { value: "body", label: "Body" },
+    { value: "caption", label: "Caption" },
   ],
   shape: [
     { value: "shapeLabel", label: "Shape label" },
@@ -81,16 +79,18 @@ export const TEXT_ROLE_OPTIONS: Readonly<
 
 /** The role an element inherits when it carries no explicit `textRole`. */
 function defaultTextRole(element: SlideElement): DeckTextRole {
-  if (element.kind === "text") return element.role === "title" ? "h1" : "body";
-  if (element.kind === "bullets") return "bullet";
+  if (element.kind === "text") {
+    return normalizeTextParagraphs(element).some(
+      (paragraph) => paragraph.listType !== undefined,
+    )
+      ? "bullet"
+      : "body";
+  }
   return "shapeLabel";
 }
 
 /** Elements that carry a semantic text role + local style override (#615). */
-type TextBearingElement = Extract<
-  SlideElement,
-  { kind: "text" | "bullets" | "shape" }
->;
+type TextBearingElement = Extract<SlideElement, { kind: "text" | "shape" }>;
 
 /** Role dropdown: switches the element's semantic typography role (#615). */
 export function RoleSelectControl({
@@ -100,8 +100,7 @@ export function RoleSelectControl({
   element: TextBearingElement;
   onChange: (role: DeckTextRole) => void;
 }) {
-  const kindKey =
-    element.kind === "shape" ? "shape" : (element.kind as "text" | "bullets");
+  const kindKey = element.kind === "shape" ? "shape" : "text";
   const options = TEXT_ROLE_OPTIONS[kindKey];
   const current = element.textRole ?? defaultTextRole(element);
   return (
@@ -340,12 +339,11 @@ export function TextPanel({
 
   if (
     element.kind !== "text" &&
-    element.kind !== "bullets" &&
     !(element.kind === "shape" && element.shape !== "line")
   ) {
     return (
       <p className="text-xs text-ds-text-muted">
-        Text settings are available for text, bullets, and labeled shapes.
+        Text settings are available for text and labeled shapes.
       </p>
     );
   }
@@ -371,6 +369,11 @@ export function TextPanel({
   const inheritedFontLabel =
     matchSlideFont(roleToken.fontFamily ?? tokenSet.typography.fontFamily)
       ?.label ?? "theme font";
+  const hasListParagraphs =
+    element.kind === "text" &&
+    normalizeTextParagraphs(element).some(
+      (paragraph) => paragraph.listType !== undefined,
+    );
 
   return (
     <div className="flex flex-col gap-4">
@@ -433,7 +436,7 @@ export function TextPanel({
           {element.kind === "text" || element.kind === "shape" ? (
             <ParagraphSpacingControl style={style} onChange={updateStyle} />
           ) : null}
-          {element.kind === "bullets" ? (
+          {hasListParagraphs && element.kind === "text" ? (
             <BulletGapControl
               element={element}
               onChange={(patch) => onUpdateElement(element.id, patch)}
@@ -449,14 +452,14 @@ export function TextPanel({
           aria-labelledby="text-panel-tab-style"
           className="flex flex-col gap-3"
         >
-          {element.kind === "text" || element.kind === "bullets" ? (
+          {element.kind === "text" ? (
             <FitModeControl
               fitMode={element.fitMode}
               onChange={(fitMode) => onUpdateElement(element.id, { fitMode })}
             />
           ) : null}
           <VerticalAlignControl style={style} onChange={updateStyle} />
-          {element.kind === "bullets" ? (
+          {hasListParagraphs && element.kind === "text" ? (
             <>
               <BulletIndentControl
                 element={element}

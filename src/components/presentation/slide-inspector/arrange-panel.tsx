@@ -32,7 +32,7 @@ import type { ArrangeMode } from "@/lib/presentation/element-arrange";
 
 /**
  * Shared position & size editor for any element (percent units). Height is only
- * offered for non-text kinds, since text / bullets height auto-fits the content.
+ * offered for non-text kinds, since text height auto-fits the content.
  */
 export function ElementArrangeControl({
   element,
@@ -42,7 +42,7 @@ export function ElementArrangeControl({
   onUpdateElement: SlideInspectorProps["onUpdateElement"];
 }) {
   const { x, y, w, h } = element.box;
-  const showHeight = element.kind !== "text" && element.kind !== "bullets";
+  const showHeight = element.kind !== "text";
   const rotation = element.rotation ?? 0;
   const update = (patch: Partial<typeof element.box>) =>
     onUpdateElement(element.id, { box: { ...element.box, ...patch } });

@@ -7,7 +7,7 @@ export type ElementPointerDownIntent =
 
 export type InlineEditableStageElement = Extract<
   SlideElement,
-  { kind: "text" | "bullets" | "shape" }
+  { kind: "text" | "shape" }
 >;
 
 export function isInlineEditableStageElement(
@@ -15,7 +15,6 @@ export function isInlineEditableStageElement(
 ): element is InlineEditableStageElement {
   return (
     element.kind === "text" ||
-    element.kind === "bullets" ||
     (element.kind === "shape" && element.shape !== "line")
   );
 }

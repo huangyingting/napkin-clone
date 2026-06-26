@@ -174,6 +174,8 @@ function runToOptions(run: TextRun): Record<string, unknown> {
   const options: Record<string, unknown> = {};
   if (run.bold) options.bold = true;
   if (run.italic) options.italic = true;
+  if (run.underline) options.underline = { style: "sng" };
+  if (run.fontSize !== undefined) options.fontSize = run.fontSize;
   if (run.code) options.fontFace = CODE_FONT_FACE;
   if (run.color) options.color = toHex(run.color);
   if (run.link) options.hyperlink = { url: run.link };

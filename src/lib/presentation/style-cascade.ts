@@ -22,7 +22,6 @@ export type {
 export {
   resolveRoleTextStyle,
   resolveTextElementStyle,
-  resolveBulletsElementStyle,
   resolveShapeLabelStyle,
 } from "./style-cascade-text";
 export type {

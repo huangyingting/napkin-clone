@@ -12,7 +12,6 @@ const elements = [
   {
     id: "a",
     kind: "text",
-    role: "body",
     text: "A",
     box: { x: 0, y: 0, w: 10, h: 10 },
     style: { fontSize: 5, bold: false, italic: false, align: "left" },
@@ -21,7 +20,6 @@ const elements = [
   {
     id: "b",
     kind: "text",
-    role: "body",
     text: "B",
     box: { x: 0, y: 0, w: 10, h: 10 },
     style: { fontSize: 5, bold: false, italic: false, align: "left" },

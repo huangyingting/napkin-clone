@@ -439,6 +439,12 @@ test("customTokenSet with a role token missing color is rejected", () => {
 // ---------------------------------------------------------------------------
 
 function deckWithElement(element: Record<string, unknown>) {
+  const normalizedElement =
+    element.kind === "text" &&
+    element.paragraphs === undefined &&
+    typeof element.text === "string"
+      ? { ...element, paragraphs: [{ text: element.text }] }
+      : element;
   return baseDeck({
     slides: [
       {
@@ -450,7 +456,7 @@ function deckWithElement(element: Record<string, unknown>) {
         layout: "content",
         notes: "",
         themeId: "default",
-        elements: [{ zIndex: 0, ...element }],
+        elements: [{ zIndex: 0, ...normalizedElement }],
       },
     ],
   });
@@ -470,7 +476,6 @@ test("text element with valid textRole and styleOverride is accepted", () => {
       kind: "text",
       box: { x: 0, y: 0, w: 10, h: 10 },
       text: "Hi",
-      role: "body",
       style: baseTextStyle,
       textRole: "h2",
       styleOverride: { color: "#ff00ff", bold: true },
@@ -493,7 +498,6 @@ test("text element with an unknown textRole is rejected", () => {
       kind: "text",
       box: { x: 0, y: 0, w: 10, h: 10 },
       text: "Hi",
-      role: "body",
       style: baseTextStyle,
       textRole: "headline",
     }),
@@ -509,7 +513,6 @@ test("text element with an invalid styleOverride color is rejected", () => {
       kind: "text",
       box: { x: 0, y: 0, w: 10, h: 10 },
       text: "Hi",
-      role: "body",
       style: baseTextStyle,
       styleOverride: { color: "magenta" },
     }),
@@ -618,77 +621,23 @@ test("customTokenSet with an invalid shape fill color is rejected", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Semantic layout-slot binding validation (#628)
+// Removed layout-slot binding validation
 // ---------------------------------------------------------------------------
 
-test("element with a valid layoutSlot binding is accepted", () => {
+test("element with a layoutSlot binding is rejected", () => {
   const result = safeParseDeck(
     deckWithElement({
       id: "e1",
       kind: "text",
       box: { x: 0, y: 0, w: 10, h: 10 },
-      text: "Title",
-      role: "title",
+      text: "x",
+      paragraphs: [{ text: "x" }],
       style: baseTextStyle,
       layoutSlot: { kind: "title" },
     }),
   );
-  assert.ok(result.success, result.success ? "" : result.error);
-  if (!result.success) return;
-  const el = result.data.slides[0].elements?.[0];
-  assert.equal(el?.layoutSlot?.kind, "title");
-});
-
-test("element with a repeated-slot index binding is accepted", () => {
-  const result = safeParseDeck(
-    deckWithElement({
-      id: "e1",
-      kind: "text",
-      box: { x: 0, y: 0, w: 10, h: 10 },
-      text: "Body col 2",
-      role: "body",
-      style: baseTextStyle,
-      layoutSlot: { kind: "body", index: 1 },
-    }),
-  );
-  assert.ok(result.success, result.success ? "" : result.error);
-  if (!result.success) return;
-  assert.equal(result.data.slides[0].elements?.[0].layoutSlot?.index, 1);
-});
-
-test("element with an unknown layoutSlot kind is rejected", () => {
-  const result = safeParseDeck(
-    deckWithElement({
-      id: "e1",
-      kind: "text",
-      box: { x: 0, y: 0, w: 10, h: 10 },
-      text: "x",
-      role: "body",
-      style: baseTextStyle,
-      layoutSlot: { kind: "header" },
-    }),
-  );
   assert.ok(!result.success);
-  assert.match(result.error, /layoutSlot\.kind must be one of/);
-});
-
-test("element with a negative layoutSlot index is rejected", () => {
-  const result = safeParseDeck(
-    deckWithElement({
-      id: "e1",
-      kind: "text",
-      box: { x: 0, y: 0, w: 10, h: 10 },
-      text: "x",
-      role: "body",
-      style: baseTextStyle,
-      layoutSlot: { kind: "body", index: -1 },
-    }),
-  );
-  assert.ok(!result.success);
-  assert.match(
-    result.error,
-    /layoutSlot\.index must be a non-negative integer/,
-  );
+  assert.match(result.error, /layoutSlot is no longer supported/);
 });
 
 // ---------------------------------------------------------------------------
@@ -736,22 +685,23 @@ test("safeParseDeck round-trips the full current-shape template model", () => {
             zIndex: 0,
             box: { x: 6, y: 6, w: 80, h: 16 },
             text: "Heading",
-            role: "title",
+            paragraphs: [{ text: "Heading" }],
             style: { fontSize: 6, bold: true, italic: false, align: "center" },
             textRole: "h1",
             styleOverride: { color: "#ffffff" },
-            layoutSlot: { kind: "title" },
           },
           {
             id: "b1",
-            kind: "bullets",
+            kind: "text",
             zIndex: 1,
             box: { x: 6, y: 26, w: 80, h: 60 },
-            bullets: ["a", "b"],
-            items: [{ text: "a" }, { text: "b" }],
+            text: "a\nb",
+            paragraphs: [
+              { text: "a", listType: "bullet" },
+              { text: "b", listType: "bullet" },
+            ],
             style: { fontSize: 4.5, bold: false, italic: false, align: "left" },
             textRole: "bullet",
-            layoutSlot: { kind: "body" },
           },
           {
             id: "sh1",
@@ -763,7 +713,6 @@ test("safeParseDeck round-trips the full current-shape template model", () => {
             text: "Label",
             textRole: "shapeLabel",
             textStyleOverride: { bold: true, align: "center" },
-            layoutSlot: { kind: "caption" },
           },
         ],
       },
@@ -772,8 +721,8 @@ test("safeParseDeck round-trips the full current-shape template model", () => {
   assert.ok(result.success, result.success ? "" : result.error);
   if (!result.success) return;
   const el = result.data.slides[0].elements ?? [];
-  assert.equal(el[0].layoutSlot?.kind, "title");
-  assert.equal(el[1].kind === "bullets" ? el[1].textRole : "x", "bullet");
+  assert.equal(el[0].kind === "text" ? el[0].textRole : "x", "h1");
+  assert.equal(el[1].kind === "text" ? el[1].textRole : "x", "bullet");
   assert.equal(el[2].kind === "shape" ? el[2].textRole : "x", "shapeLabel");
   assert.equal(result.data.customTokenSet?.typography.roles?.h1?.fontSize, 42);
 });

@@ -14,7 +14,7 @@ export function currentDeck(): unknown {
           buildTextElement({
             id: "txt-1",
             text: "Current",
-            role: "title",
+            textRole: "h1",
             zIndex: 0,
             box: { x: 6, y: 6, w: 88, h: 16 },
             style: { fontSize: 6, bold: true, italic: false, align: "left" },

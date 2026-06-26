@@ -57,8 +57,8 @@ function buildDefaultElement(
       return {
         id,
         kind: "text",
-        role: "body",
         text: "New text",
+        paragraphs: [{ text: "New text" }],
         box: { x: 20, y: 40, w: 60, h: 16 },
         style: {
           fontSize: SLIDE_TEXT_FONT_SIZE.text,
@@ -70,9 +70,13 @@ function buildDefaultElement(
     case "bullets":
       return {
         id,
-        kind: "bullets",
-        bullets: ["First point", "Second point"],
-        items: [{ text: "First point" }, { text: "Second point" }],
+        kind: "text",
+        text: "First point\nSecond point",
+        paragraphs: [
+          { text: "First point", listType: "bullet" },
+          { text: "Second point", listType: "bullet" },
+        ],
+        textRole: "bullet",
         box: { x: 14, y: 28, w: 72, h: 48 },
         style: {
           fontSize: SLIDE_TEXT_FONT_SIZE.list,
@@ -189,6 +193,7 @@ export function useSlideInsertCommands({
     [
       deck,
       onDeckChange,
+      pendingPatchesRef,
       safeSelected,
       visuals,
       setAddTemplateOpen,
@@ -217,6 +222,7 @@ export function useSlideInsertCommands({
     [
       deck,
       onDeckChange,
+      pendingPatchesRef,
       safeSelected,
       setSpotlightPickerOpen,
       setSelectedIndex,
@@ -317,7 +323,7 @@ export function useSlideInsertCommands({
         shapeKind,
       );
       const element =
-        rawElement.kind === "text" || rawElement.kind === "bullets"
+        rawElement.kind === "text"
           ? fitInsertedTextElement(rawElement, "top-left")
           : rawElement;
       doCommitAndChange(deck, { type: "ADD_ELEMENT", slideId, element });
@@ -438,7 +444,7 @@ export function useSlideInsertCommands({
     });
     clearPendingPatches(pendingPatchesRef);
     onDeckChange(next);
-  }, [deck, onDeckChange, safeSelected, visuals]);
+  }, [deck, onDeckChange, pendingPatchesRef, safeSelected, visuals]);
 
   const documentTextInsertables = useMemo(
     () =>

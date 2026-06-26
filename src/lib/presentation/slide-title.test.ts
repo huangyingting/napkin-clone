@@ -27,14 +27,14 @@ function baseSlide(overrides: Partial<Slide> = {}): Slide {
 function textElement(
   id: string,
   text: string,
-  role: "title" | "body",
+  kind: "title" | "body",
   zIndex: number,
 ): SlideElement {
   return {
     kind: "text",
     id,
     text,
-    role,
+    ...(kind === "title" ? { textRole: "h1" as const } : {}),
     style: STYLE,
     zIndex,
     box: { x: 0, y: 0, w: 50, h: 10 },

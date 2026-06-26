@@ -183,7 +183,7 @@ export const VALID_DECK_JSON: string = JSON.stringify({
         {
           kind: "text",
           text: "Welcome",
-          role: "title",
+          textRole: "h1",
           box: { x: 8, y: 8, w: 84, h: 20 },
         },
       ],
@@ -195,7 +195,7 @@ export const VALID_DECK_JSON: string = JSON.stringify({
         {
           kind: "text",
           text: "Overview",
-          role: "title",
+          textRole: "h1",
           box: { x: 6, y: 6, w: 88, h: 16 },
         },
         {

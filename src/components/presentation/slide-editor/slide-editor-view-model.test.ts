@@ -56,17 +56,9 @@ function makeElement(
       return {
         ...base,
         kind: "text",
-        role: "body",
-        runs: [],
-        style: {},
-        ...rest,
-      } as SlideElement;
-    case "bullets":
-      return {
-        ...base,
-        kind: "bullets",
-        items: [],
-        style: {},
+        text: "Text",
+        paragraphs: [{ text: "Text" }],
+        style: { fontSize: 4, bold: false, italic: false, align: "left" },
         ...rest,
       } as SlideElement;
     case "image":
@@ -95,16 +87,9 @@ function makeElement(
       return {
         ...base,
         kind: "connector",
-        start: { kind: "free", x: 0, y: 0 },
-        end: { kind: "free", x: 100, y: 0 },
+        start: { x: 0, y: 0 },
+        end: { x: 100, y: 0 },
         routing: "straight",
-        ...rest,
-      } as SlideElement;
-    case "placeholder":
-      return {
-        ...base,
-        kind: "placeholder",
-        placeholderType: "title",
         ...rest,
       } as SlideElement;
     default:
@@ -144,31 +129,17 @@ test("selectCanDeleteSlide is true when deck has two or more slides", () => {
 
 // ── selectElementTypeLabel ─────────────────────────────────────────────────
 
-test("selectElementTypeLabel returns Placeholder for placeholder elements", () => {
+test("selectElementTypeLabel returns Title for h1 text elements", () => {
   assert.equal(
-    selectElementTypeLabel(makeElement({ kind: "placeholder" })),
-    "Placeholder",
-  );
-});
-
-test("selectElementTypeLabel returns Title for text elements with title role", () => {
-  assert.equal(
-    selectElementTypeLabel(makeElement({ kind: "text", role: "title" })),
+    selectElementTypeLabel(makeElement({ kind: "text", textRole: "h1" })),
     "Title",
   );
 });
 
-test("selectElementTypeLabel returns Text for text elements with non-title role", () => {
+test("selectElementTypeLabel returns Text for non-h1 text elements", () => {
   assert.equal(
-    selectElementTypeLabel(makeElement({ kind: "text", role: "body" })),
+    selectElementTypeLabel(makeElement({ kind: "text", textRole: "body" })),
     "Text",
-  );
-});
-
-test("selectElementTypeLabel returns Bullets for bullets elements", () => {
-  assert.equal(
-    selectElementTypeLabel(makeElement({ kind: "bullets" })),
-    "Bullets",
   );
 });
 
@@ -215,7 +186,7 @@ test("selectSelectionSummary returns multi-selection count for multiple elements
 });
 
 test("selectSelectionSummary returns element type label for single selection", () => {
-  const el = makeElement({ id: "el-42", kind: "text", role: "body" });
+  const el = makeElement({ id: "el-42", kind: "text", textRole: "body" });
   const slide = makeSlide({ elements: [el] });
   const summary = selectSelectionSummary({
     effectiveSelectedElementId: "el-42",
@@ -248,7 +219,7 @@ test("selectSelectionSummary returns no-selection when selectedSlide is undefine
 
 test("selectSelectedElement returns null when effectiveSelectedElementId is null", () => {
   const slide = makeSlide({
-    elements: [makeElement({ id: "el-1", kind: "text", role: "body" })],
+    elements: [makeElement({ id: "el-1", kind: "text", textRole: "body" })],
   });
   assert.equal(selectSelectedElement(slide, null), null);
 });
@@ -259,7 +230,7 @@ test("selectSelectedElement returns null when selectedSlide is undefined", () =>
 
 test("selectSelectedElement returns null when element id not found", () => {
   const slide = makeSlide({
-    elements: [makeElement({ id: "el-1", kind: "text", role: "body" })],
+    elements: [makeElement({ id: "el-1", kind: "text", textRole: "body" })],
   });
   assert.equal(selectSelectedElement(slide, "not-there"), null);
 });

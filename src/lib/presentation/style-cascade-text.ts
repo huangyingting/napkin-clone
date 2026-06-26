@@ -63,8 +63,6 @@ export interface ResolvedTextStyle {
 
 /** Default semantic role per text-bearing element kind (#605). */
 const ELEMENT_DEFAULT_ROLE = {
-  title: "h1",
-  body: "body",
   bullet: "bullet",
   shapeLabel: "shapeLabel",
 } as const;
@@ -194,29 +192,14 @@ interface TextBearingElementLike {
 
 /**
  * Resolves the final style for a `text` element. The role comes from
- * `element.textRole`, falling back to the current text element `role`
- * (`title` → `h1`, `body` → `body`).
+ * `element.textRole`, defaulting to `"body"` when unset.
  */
 export function resolveTextElementStyle(
-  deck: Deck,
-  element: TextBearingElementLike & { role: "title" | "body" },
-): ResolvedTextStyle {
-  const tokenSet = resolveDeckTokenSet(deck);
-  const role: DeckTextRole =
-    element.textRole ?? ELEMENT_DEFAULT_ROLE[element.role];
-  return resolveRoleTextStyle(tokenSet, role, element.styleOverride);
-}
-
-/**
- * Resolves the final style for a `bullets` element, defaulting to the
- * `"bullet"` role when none is named.
- */
-export function resolveBulletsElementStyle(
   deck: Deck,
   element: TextBearingElementLike,
 ): ResolvedTextStyle {
   const tokenSet = resolveDeckTokenSet(deck);
-  const role: DeckTextRole = element.textRole ?? ELEMENT_DEFAULT_ROLE.bullet;
+  const role: DeckTextRole = element.textRole ?? "body";
   return resolveRoleTextStyle(tokenSet, role, element.styleOverride);
 }
 

@@ -5,14 +5,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { SlideInspectorProps } from "./types";
 import {
-  BulletGapControl,
-  BulletIndentControl,
   FIELD_CLASS,
   FitModeControl,
   FONT_FAMILIES,
   LABEL_CLASS,
   LineHeightControl,
-  ListTypeControl,
   NumberField,
   ParagraphSpacingControl,
   VerticalAlignControl,
@@ -23,7 +20,6 @@ import { VisualRenderer } from "@/components/visual/visual-renderer";
 import type { SlideAssetActionPort } from "@/lib/action-ports";
 import { assertNever } from "@/lib/assert-never";
 import type {
-  BulletItem,
   ConnectorArrow,
   ConnectorElement,
   ConnectorEndpoint,
@@ -32,62 +28,29 @@ import type {
   ImageElement,
   ImageFitMode,
   ImageMaskShape,
-  PlaceholderElement,
   ShapeKind,
   SlideElement,
   TextElementStyle,
   TextRun,
 } from "@/lib/presentation/deck";
-import { PLACEHOLDER_TYPE_LABELS } from "@/lib/presentation/deck";
 import { detachConnectorEndpoint } from "@/lib/presentation/connector-lifecycle";
-import { resolveDeckThemeId } from "@/lib/presentation/deck-theme-tokens";
 import { useCoalesceSession } from "@/lib/presentation/gesture-primitives";
 import { isEmptyImageSrc } from "@/lib/presentation/image-element";
 import {
-  bulletsToRuns,
-  mergeRuns,
   runsToHtml,
   serializeRichText,
   shouldStoreRuns,
-  splitRunsIntoLines,
 } from "@/lib/presentation/rich-text-html";
 import {
   applyBoldOrItalic,
   applyForeColor,
 } from "@/lib/presentation/rich-text-commands";
-import {
-  getThemeTypography,
-  placeholderStyle,
-} from "@/lib/presentation/theme-typography";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
 import type { Visual } from "@/lib/visual/schema";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 import { applyTheme, isThemeActive } from "@/lib/visual/transforms";
 
 const SHAPE_OPTIONS: ShapeKind[] = ["rect", "ellipse", "line", "triangle"];
-
-function primaryFontLabel(fontFamily: string): string {
-  const [first] = fontFamily.split(",");
-  return first?.trim().replace(/^['"]|['"]$/g, "") || fontFamily;
-}
-
-function placeholderThemeHint(
-  deck: Pick<Deck, "themeId" | "customTokenSet">,
-  element: Pick<PlaceholderElement, "placeholderType">,
-): string {
-  const style = placeholderStyle(
-    element.placeholderType,
-    getThemeTypography(resolveDeckThemeId(deck)),
-  );
-  const parts: string[] = [];
-  if (style.fontFamily) {
-    parts.push(primaryFontLabel(style.fontFamily));
-  }
-  if (style.fontSize !== undefined) {
-    parts.push(`${style.fontSize} pt`);
-  }
-  return parts.join(" · ");
-}
 
 /**
  * Module-level counter so every `RichTextBox` focus session gets a globally
@@ -131,7 +94,7 @@ export function RichTextBox({
     const serialized = serializeRichText(node);
     lastHtmlRef.current = node.innerHTML;
     onChange(serialized, coalesceKeyRef.current ?? undefined);
-  }, [onChange]);
+  }, [coalesceKeyRef, onChange]);
 
   const applyCommand = useCallback(
     (command: "bold" | "italic" | "foreColor", value?: string) => {
@@ -556,42 +519,6 @@ export function ElementEditor({
   slideAssetPort?: SlideAssetActionPort;
 }) {
   switch (element.kind) {
-    case "placeholder":
-      return (
-        <div className="flex flex-col gap-3">
-          <label className="block">
-            <span className={LABEL_CLASS}>Placeholder type</span>
-            <div
-              className={`${FIELD_CLASS} cursor-default bg-ds-state-hover text-ds-text-secondary`}
-            >
-              {PLACEHOLDER_TYPE_LABELS[element.placeholderType]}
-            </div>
-          </label>
-          <label className="block">
-            <span className={LABEL_CLASS}>Label</span>
-            <input
-              type="text"
-              value={element.label ?? ""}
-              onChange={(event) =>
-                onUpdateElement(element.id, {
-                  label:
-                    event.target.value.trim().length > 0
-                      ? event.target.value
-                      : undefined,
-                })
-              }
-              placeholder={PLACEHOLDER_TYPE_LABELS[element.placeholderType]}
-              className={`${FIELD_CLASS} ${FOCUS_RING}`}
-            />
-          </label>
-          <p className="text-xs text-ds-text-muted">
-            Theme hint: {placeholderThemeHint(deck, element)}.
-          </p>
-          <p className="text-xs text-ds-text-muted">
-            Shown on-canvas until this slot is replaced with slide content.
-          </p>
-        </div>
-      );
     case "text":
       return (
         <div className="flex flex-col gap-3">
@@ -628,92 +555,6 @@ export function ElementEditor({
           <ParagraphSpacingControl
             style={element.style}
             onChange={(style) => onUpdateElement(element.id, { style })}
-          />
-        </div>
-      );
-    case "bullets":
-      return (
-        <div className="flex flex-col gap-3">
-          <RichTextBox
-            label="Bullets"
-            html={runsToHtml(
-              bulletsToRuns(element.bullets, element.bulletRuns),
-              element.bullets.join("\n"),
-            )}
-            onChange={({ runs }, coalesceKey) => {
-              const lines = splitRunsIntoLines(runs)
-                .map((line) => ({
-                  text: line.text.replace(/\s+$/, ""),
-                  runs: mergeRuns(line.runs),
-                }))
-                .filter((line) => line.text.length > 0);
-              const hasRichBullets = lines.some((line) =>
-                shouldStoreRuns(line.runs),
-              );
-              // Co-update items[] when it is the authoritative source so that
-              // normalizeBulletItems doesn't shadow the text edit.  We preserve
-              // each item's indent/listType by index; indices beyond the
-              // existing length (newly added lines) get no metadata.
-              const existingItems = element.items;
-              const updatedItems: BulletItem[] | undefined = existingItems
-                ? lines.map((line, i) => {
-                    const prev = existingItems[i];
-                    return {
-                      text: line.text,
-                      ...(shouldStoreRuns(line.runs)
-                        ? { runs: line.runs }
-                        : {}),
-                      ...(prev?.indent !== undefined
-                        ? { indent: prev.indent }
-                        : {}),
-                      ...(prev?.listType !== undefined
-                        ? { listType: prev.listType }
-                        : {}),
-                    };
-                  })
-                : undefined;
-              onUpdateElement(
-                element.id,
-                {
-                  bullets: lines.map((line) => line.text),
-                  bulletRuns: hasRichBullets
-                    ? lines.map((line) => line.runs)
-                    : undefined,
-                  ...(updatedItems !== undefined
-                    ? { items: updatedItems }
-                    : {}),
-                },
-                coalesceKey,
-              );
-            }}
-          />
-          <FontFamilyControl
-            style={element.style}
-            onChange={(style) => onUpdateElement(element.id, { style })}
-          />
-          <FitModeControl
-            fitMode={element.fitMode}
-            onChange={(fitMode) => onUpdateElement(element.id, { fitMode })}
-          />
-          <VerticalAlignControl
-            style={element.style}
-            onChange={(style) => onUpdateElement(element.id, { style })}
-          />
-          <LineHeightControl
-            style={element.style}
-            onChange={(style) => onUpdateElement(element.id, { style })}
-          />
-          <BulletGapControl
-            element={element}
-            onChange={(patch) => onUpdateElement(element.id, patch)}
-          />
-          <BulletIndentControl
-            element={element}
-            onChange={(patch) => onUpdateElement(element.id, patch)}
-          />
-          <ListTypeControl
-            element={element}
-            onChange={(patch) => onUpdateElement(element.id, patch)}
           />
         </div>
       );

@@ -3,7 +3,9 @@ import { test } from "node:test";
 
 import {
   defaultPanelTab,
+  defaultInspectorMode,
   isSelectionToolbarVisible,
+  isSlideToolbarVisible,
   shouldCollapseToolbar,
   shouldShowRichToolbarControls,
   TOOLBAR_COMPACT_WIDTH,
@@ -18,6 +20,10 @@ test("defaultPanelTab is position with a selection", () => {
 
 test("defaultPanelTab is slide with no selection", () => {
   assert.equal(defaultPanelTab(false), "slide");
+});
+
+test("defaultInspectorMode is properties", () => {
+  assert.equal(defaultInspectorMode(), "properties");
 });
 
 test("isSelectionToolbarVisible is hidden with no selection", () => {
@@ -38,6 +44,21 @@ test("isSelectionToolbarVisible is shown for multi-selection without primary", (
   assert.equal(
     isSelectionToolbarVisible({ hasSelectedElement: false, selectedCount: 3 }),
     true,
+  );
+});
+
+test("isSlideToolbarVisible is shown only for an empty selection", () => {
+  assert.equal(
+    isSlideToolbarVisible({ selectedElementId: null, selectedCount: 0 }),
+    true,
+  );
+  assert.equal(
+    isSlideToolbarVisible({ selectedElementId: "element-1", selectedCount: 1 }),
+    false,
+  );
+  assert.equal(
+    isSlideToolbarVisible({ selectedElementId: null, selectedCount: 2 }),
+    false,
   );
 });
 
@@ -77,18 +98,16 @@ test("shouldShowRichToolbarControls false with no selected element", () => {
 
 test("toToolbarSelectionKind maps element kind + shape subtype", () => {
   assert.equal(toToolbarSelectionKind("text"), "text");
-  assert.equal(toToolbarSelectionKind("bullets"), "bullets");
   assert.equal(toToolbarSelectionKind("image"), "image");
   assert.equal(toToolbarSelectionKind("visual"), "visual");
   assert.equal(toToolbarSelectionKind("connector"), "connector");
-  assert.equal(toToolbarSelectionKind("placeholder"), "placeholder");
   assert.equal(toToolbarSelectionKind("shape", "rect"), "shape");
   assert.equal(toToolbarSelectionKind("shape", "line"), "line");
   assert.equal(toToolbarSelectionKind("mystery"), null);
 });
 
 test("toolbarQuickActions: text-like kinds expose the compact text-style bar", () => {
-  for (const kind of ["text", "bullets", "shape"] as const) {
+  for (const kind of ["text", "shape"] as const) {
     assert.equal(toolbarQuickActions(kind).textStyle, true, kind);
   }
   assert.equal(toolbarQuickActions("line").textStyle, false);

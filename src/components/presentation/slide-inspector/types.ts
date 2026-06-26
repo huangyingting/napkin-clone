@@ -11,7 +11,10 @@ import type {
   MatchSizeMode,
 } from "@/lib/presentation/element-align";
 import type { ArrangeMode } from "@/lib/presentation/element-arrange";
-import type { RightPanelTab } from "@/lib/presentation/slide-panel-ui";
+import type {
+  InspectorMode,
+  RightPanelTab,
+} from "@/lib/presentation/slide-panel-ui";
 import type { StaleReason } from "@/lib/presentation/source-link-staleness";
 import type { Visual } from "@/lib/visual/schema";
 
@@ -71,4 +74,6 @@ export interface SlideInspectorProps {
   slideAssetPort?: SlideAssetActionPort;
   onClose?: () => void;
   initialTab?: RightPanelTab;
+  inspectorMode?: InspectorMode;
+  onInspectorModeChange?: (mode: InspectorMode) => void;
 }

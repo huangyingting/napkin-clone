@@ -9,9 +9,8 @@ import { assertNever } from "@/lib/assert-never";
 
 import { ConnectorElementView } from "./connector-elements";
 import { ImageElementView } from "./media-elements";
-import { PlaceholderElementView } from "./placeholder-elements";
 import { ShapeElementView } from "./shape-elements";
-import { BulletsElementView, TextElementView } from "./text-elements";
+import { TextElementView } from "./text-elements";
 import { VisualElementView } from "./visual-elements";
 
 function SlideElementView({
@@ -32,20 +31,9 @@ function SlideElementView({
   editable?: boolean;
 }): JSX.Element | null {
   switch (element.kind) {
-    case "placeholder":
-      return (
-        <PlaceholderElementView
-          element={element}
-          tc={tc}
-          accent={accent}
-          editable={editable}
-        />
-      );
     case "text":
-      return <TextElementView element={element} tc={tc} tokenSet={tokenSet} />;
-    case "bullets":
       return (
-        <BulletsElementView
+        <TextElementView
           element={element}
           tc={tc}
           accent={tokenSet.bullet?.markerColor ?? accent}

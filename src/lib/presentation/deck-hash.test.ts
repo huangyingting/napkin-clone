@@ -72,7 +72,7 @@ test("content hash ignores free-form elements and per-slide colors", () => {
       {
         id: "el-1",
         kind: "text",
-        role: "title",
+        textRole: "h1",
         text: "Intro",
         zIndex: 0,
         box: { x: 0, y: 0, w: 10, h: 10 },

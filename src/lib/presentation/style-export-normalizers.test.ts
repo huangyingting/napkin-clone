@@ -13,7 +13,6 @@ function textElement(overrides: Partial<TextElement> = {}): TextElement {
   return {
     id: "t1",
     kind: "text",
-    role: "title",
     textRole: "h1",
     text: "Hello",
     zIndex: 0,
