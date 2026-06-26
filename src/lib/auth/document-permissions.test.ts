@@ -288,7 +288,7 @@ const ACTION_CAPABILITY: Record<string, Capability> = {
   duplicateDocument: "view",
   deleteDocument: "manage",
   restoreDocument: "manage",
-  // Editor (src/app/app/documents/[id]/actions.ts)
+  // Editor (lexical-actions.ts / sharing-actions.ts / deck-actions.ts / versioning-actions.ts)
   rebuildVisualMirror: "edit",
   fetchDeckJson: "view",
   saveDocumentLexical: "edit",
