@@ -1,6 +1,9 @@
 "use client";
 
-import { useReducedMotion, type Transition } from "framer-motion";
+import { type Transition } from "framer-motion";
+
+import { DURATION, EASE } from "./tokens";
+import { useReducedMotion } from "./use-reduced-motion";
 
 /**
  * Motion props spreadable onto a `motion.*` element (`initial`/`animate`/`exit`
@@ -21,7 +24,7 @@ const NO_MOTION: RevealMotion = {
   initial: { opacity: 1 },
   animate: { opacity: 1 },
   exit: { opacity: 1 },
-  transition: { duration: 0 },
+  transition: { duration: DURATION.instant },
 };
 
 /**
@@ -38,7 +41,7 @@ export function usePopMotion(): RevealMotion {
     initial: { opacity: 0, scale: 0.96 },
     animate: { opacity: 1, scale: 1 },
     exit: { opacity: 0, scale: 0.96 },
-    transition: { duration: 0.14, ease: "easeOut" },
+    transition: { duration: DURATION.pop, ease: EASE.out },
   };
 }
 
@@ -56,6 +59,6 @@ export function useCardMotion(): RevealMotion {
     initial: { opacity: 0, scale: 0.97 },
     animate: { opacity: 1, scale: 1 },
     exit: { opacity: 0, scale: 0.97 },
-    transition: { duration: 0.2, ease: "easeOut" },
+    transition: { duration: DURATION.card, ease: EASE.out },
   };
 }

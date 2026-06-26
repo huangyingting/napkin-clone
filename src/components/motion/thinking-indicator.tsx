@@ -1,6 +1,9 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
+
+import { DURATION, EASE } from "./tokens";
+import { useReducedMotion } from "./use-reduced-motion";
 
 /**
  * Animated "thinking" indicator shown while a generation request is in flight
@@ -38,12 +41,12 @@ export function ThinkingIndicator({
             }
             transition={
               reduce
-                ? { duration: 0 }
+                ? { duration: DURATION.instant }
                 : {
-                    duration: 0.9,
+                    duration: DURATION.pulse,
                     repeat: Infinity,
-                    ease: "easeInOut",
-                    delay: i * 0.15,
+                    ease: EASE.inOut,
+                    delay: i * DURATION.status,
                   }
             }
           />

@@ -1,14 +1,11 @@
 "use client";
 
-import { useRef } from "react";
-
 import { FOCUS_RING } from "@/components/ui/tokens";
+import { useCoalesceSession } from "@/lib/presentation/gesture-primitives";
 
 const FIELD_CLASS =
   "w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-sm text-ds-text-primary outline-none";
 const LABEL_CLASS = "mb-1 block text-xs font-medium text-ds-text-secondary";
-
-let speakerNotesEditSeq = 0;
 
 export function TabButton({
   active,
@@ -53,7 +50,8 @@ export function SpeakerNotesControl({
   notes: string;
   onChange: (value: string, coalesceKey?: string) => void;
 }) {
-  const coalesceKeyRef = useRef<string | null>(null);
+  const { coalesceKeyRef, onSessionStart, onSessionEnd } =
+    useCoalesceSession("notes-edit");
 
   return (
     <label className="block">
@@ -63,13 +61,8 @@ export function SpeakerNotesControl({
         onChange={(event) =>
           onChange(event.target.value, coalesceKeyRef.current ?? undefined)
         }
-        onFocus={() => {
-          speakerNotesEditSeq += 1;
-          coalesceKeyRef.current = `notes-edit:${speakerNotesEditSeq}`;
-        }}
-        onBlur={() => {
-          coalesceKeyRef.current = null;
-        }}
+        onFocus={onSessionStart}
+        onBlur={onSessionEnd}
         rows={12}
         aria-label="Speaker notes"
         placeholder="Add speaker notes…"

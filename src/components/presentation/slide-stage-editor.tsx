@@ -101,6 +101,7 @@ import {
 import { buildMediaHitGeometry } from "@/lib/presentation/media-hit-geometry";
 import { measureTextHitGeometry } from "@/lib/presentation/text-hit-geometry";
 import { elementAccessibleName } from "@/lib/presentation/element-accessible-name";
+import { useGestureKey } from "@/lib/presentation/gesture-primitives";
 import type { Visual } from "@/lib/visual/schema";
 
 import {
@@ -357,11 +358,7 @@ export function SlideStageEditor({
   // Monotonic gesture counter (issue #242). Each drag / resize / inline-edit
   // gesture derives a coalesce key with a unique suffix so consecutive gestures
   // of the same kind on the same element never merge into one undo step.
-  const gestureSeqRef = useRef(0);
-  const nextGestureKey = useCallback((prefix: string, id: string) => {
-    gestureSeqRef.current += 1;
-    return `${prefix}:${id}#${gestureSeqRef.current}`;
-  }, []);
+  const nextGestureKey = useGestureKey();
   // Coalesce key for the active inline-text typing session, or null when not
   // editing — the whole session collapses to one undo step (issue #242).
   const [editCoalesceKey, setEditCoalesceKey] = useState<string | null>(null);

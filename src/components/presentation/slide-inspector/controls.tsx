@@ -39,6 +39,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { FOCUS_RING } from "@/components/ui/tokens";
+import { useCoalesceSession } from "@/lib/presentation/gesture-primitives";
 import { TabButton } from "@/components/presentation/slide-inspector/primitives";
 import type { SlideInspectorProps } from "@/components/presentation/slide-inspector/types";
 import { Swatch, Tooltip } from "@/components/ui";
@@ -170,7 +171,6 @@ function placeholderThemeHint(
  * the entire typed run collapses to one undo step, and each new focus session
  * starts a fresh entry (issue #306).
  */
-let _richTextEditSeq = 0;
 
 export function RichTextBox({
   label,
@@ -188,7 +188,8 @@ export function RichTextBox({
   const lastHtmlRef = useRef("");
   // Coalesce key for the active editing session — the whole run of keystrokes
   // collapses to one undo step (issue #306). Set on focus, cleared on blur.
-  const coalesceKeyRef = useRef<string | null>(null);
+  const { coalesceKeyRef, onSessionStart, onSessionEnd } =
+    useCoalesceSession("rich-text-edit");
 
   useEffect(() => {
     const node = ref.current;
@@ -256,13 +257,10 @@ export function RichTextBox({
         contentEditable
         suppressContentEditableWarning
         onInput={emitChange}
-        onFocus={() => {
-          _richTextEditSeq += 1;
-          coalesceKeyRef.current = `rich-text-edit:${_richTextEditSeq}`;
-        }}
+        onFocus={onSessionStart}
         onBlur={() => {
           emitChange();
-          coalesceKeyRef.current = null;
+          onSessionEnd();
         }}
         onKeyDown={(event) => event.stopPropagation()}
         className={`min-h-24 w-full whitespace-pre-wrap rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-sm text-ds-text-primary outline-none ${FOCUS_RING}`}
