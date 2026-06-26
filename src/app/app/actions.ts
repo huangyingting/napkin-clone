@@ -8,20 +8,20 @@ import {
   createDocumentFromImportForUser,
   createDocumentFromTemplateForUser,
   clampDocumentTitle,
-} from "@/lib/document-management/create";
-import { duplicateDocumentForUser } from "@/lib/document-management/duplicate";
+} from "@/lib/document/create";
+import { duplicateDocumentForUser } from "@/lib/document/duplicate";
 import {
   searchDocumentsForUser,
   type SearchResults,
-} from "@/lib/document-management/list";
+} from "@/lib/document/list";
 import {
   renameDocumentTitle,
   toggleDocumentFavorite,
-} from "@/lib/document-management/mutations";
+} from "@/lib/document/mutations";
 import {
   restoreDocumentFromTrash,
   softDeleteDocument,
-} from "@/lib/document-management/trash";
+} from "@/lib/document/trash";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 

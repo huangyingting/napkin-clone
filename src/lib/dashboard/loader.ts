@@ -2,10 +2,10 @@ import "server-only";
 
 import type { Prisma } from "@/generated/prisma/client";
 import { accessibleDocumentWhere } from "@/lib/access-query";
-import { listDashboardDocumentsForUser } from "@/lib/document-management/list";
+import { listDashboardDocumentsForUser } from "@/lib/document/list";
 import type { Locale } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
-import { runDashboardLoadMaintenance } from "@/lib/document-management/trash";
+import { runDashboardLoadMaintenance } from "@/lib/document/trash";
 
 import { buildDashboardViewModel, type DashboardViewModel } from "./view-model";
 

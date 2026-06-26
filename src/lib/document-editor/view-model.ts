@@ -1,6 +1,6 @@
 import { documentCapabilities } from "@/lib/auth/document-permissions";
 import type { CommentThread } from "@/lib/comments";
-import type { DocumentTag } from "@/lib/document-management/tags";
+import type { DocumentTag } from "@/lib/document/tags";
 
 export interface DocumentEditorViewModel {
   documentId: string;

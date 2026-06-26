@@ -2,7 +2,7 @@ import type {
   AvailableTag,
   DashboardDocument,
   DashboardDocumentList,
-} from "@/lib/document-management/list";
+} from "@/lib/document/list";
 import type { Locale } from "@/lib/i18n";
 import { createTranslator } from "@/lib/i18n";
 import {

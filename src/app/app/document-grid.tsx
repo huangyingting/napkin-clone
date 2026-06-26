@@ -1,4 +1,4 @@
-import type { DashboardDocument } from "@/lib/document-management/list";
+import type { DashboardDocument } from "@/lib/document/list";
 
 import { DocumentCard, type DocumentCardData } from "./document-card";
 import { NewDocumentButton } from "./new-document-button";
