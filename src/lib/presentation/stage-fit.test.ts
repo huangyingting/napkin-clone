@@ -79,8 +79,6 @@ test("computeStageLayout centers the slide vertically without 100% scroll", () =
     stagePaddingTop: 10,
     aspectRatio: 2,
     zoom: 1,
-    inspectorOpen: false,
-    inspectorReserveX: 300,
   });
 
   // avail = 1000 × 600; fit aspect-2 → 1000 × 500 (width-limited), centered.
@@ -96,27 +94,38 @@ test("computeStageLayout centers the slide vertically without 100% scroll", () =
   assert.deepEqual(layout.inspectorPanel, { top: 60, height: 500 });
 });
 
-test("computeStageLayout fits the slide into the remaining width when the inspector is open", () => {
-  const layout = computeStageLayout({
-    stageBounds: { width: 1000, height: 600 },
+test("computeStageLayout shifts left for the overlay inspector without resizing", () => {
+  const closed = computeStageLayout({
+    stageBounds: { width: 1400, height: 600 },
+    stagePaddingTop: 10,
+    aspectRatio: 2,
+    zoom: 1,
+  });
+  const open = computeStageLayout({
+    stageBounds: { width: 1400, height: 600 },
     stagePaddingTop: 10,
     aspectRatio: 2,
     zoom: 1,
     inspectorOpen: true,
-    inspectorReserveX: 300,
+    inspectorShiftX: 300,
   });
 
-  // avail = 700 × 600; fit aspect-2 → 700 × 350 (width-limited), centered.
-  assert.deepEqual(layout.slide, {
-    left: 0,
-    top: 125,
-    width: 700,
-    height: 350,
+  // Full-stage fit is height-limited: 1200 × 600 with 100px side gutters.
+  assert.deepEqual(closed.slide, {
+    left: 100,
+    top: 0,
+    width: 1200,
+    height: 600,
   });
-  assert.deepEqual(layout.scrollContentSize, { width: 1000, height: 600 });
-  assert.equal(layout.needsScroll, false);
-  // Panel Y/height match the slide exactly (10 padding + 125 slide top).
-  assert.deepEqual(layout.inspectorPanel, { top: 135, height: 350 });
+  assert.deepEqual(open.slide, {
+    left: 0,
+    top: 0,
+    width: 1200,
+    height: 600,
+  });
+  assert.deepEqual(open.scrollContentSize, closed.scrollContentSize);
+  assert.equal(open.needsScroll, false);
+  assert.deepEqual(open.inspectorPanel, closed.inspectorPanel);
 });
 
 test("computeStageLayout overflows into scroll only when zoomed past the stage", () => {
@@ -125,8 +134,6 @@ test("computeStageLayout overflows into scroll only when zoomed past the stage",
     stagePaddingTop: 8,
     aspectRatio: 2,
     zoom: 1.5,
-    inspectorOpen: false,
-    inspectorReserveX: 300,
   });
 
   // avail = 800 × 450; fit → 800 × 400; ×1.5 → 1200 × 600.

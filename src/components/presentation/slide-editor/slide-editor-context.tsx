@@ -50,10 +50,12 @@ export interface SlideEditorContextValue {
   selectedTheme: SlideThemeColors;
 
   // ── Selection ─────────────────────────────────────────────────────────
+  slideSelected: boolean;
   effectiveSelectedElementId: string | null;
   effectiveSelectedElementIds: ReadonlySet<string>;
   handleSelectElement: (id: string | null, mode?: SelectionMode) => void;
   handleSelectElements: (ids: string[], additive?: boolean) => void;
+  handleSelectSlide: () => void;
   editingElementId: string | null;
   handleEditingElementChange: (elementId: string | null) => void;
 
@@ -191,10 +193,12 @@ export const SlideStageEditorFromContext = memo(
       selectedSlide,
       deck,
       visuals,
+      slideSelected,
       effectiveSelectedElementId,
       effectiveSelectedElementIds,
       handleSelectElement,
       handleSelectElements,
+      handleSelectSlide,
       handleEditingElementChange,
       handleUpdateElement,
       handleDuplicateElement,
@@ -224,10 +228,12 @@ export const SlideStageEditorFromContext = memo(
         visuals={visuals}
         width={width}
         height={height}
+        slideSelected={slideSelected}
         selectedElementId={effectiveSelectedElementId}
         selectedElementIds={effectiveSelectedElementIds}
         onSelectElement={handleSelectElement}
         onSelectElements={handleSelectElements}
+        onSelectSlide={handleSelectSlide}
         onUpdateElement={handleUpdateElement}
         onDuplicateElement={handleDuplicateElement}
         onRemoveElement={handleRemoveElement}

@@ -109,7 +109,7 @@ export function Popover({
     const anchorEl =
       anchor === "toolbar"
         ? ((el.closest(
-            '[data-slide-floating-toolbar="true"]',
+            '[data-stage-floating-toolbar="true"]',
           ) as HTMLElement | null) ?? el)
         : el;
     const rect = anchorEl.getBoundingClientRect();

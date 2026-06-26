@@ -26,8 +26,10 @@ export type Rect = { left: number; top: number; width: number; height: number };
 export type StageLayout = {
   /**
    * The slide box, in coordinates of the (padding-excluded) stage content area.
-   * The slide is centered in the region left after reserving horizontal space
-   * for the inspector and vertical space above it for the floating toolbar.
+   * The slide is sized from the full stage area so overlay UI such as the
+   * inspector cannot alter its fit or vertical letterboxing. When the overlay
+   * inspector is open, the already-fitted slide may shift left within available
+   * horizontal slack, but its width/height stay fixed.
    */
   slide: Rect;
   /** Size of the scroll-content wrapper; grows past the stage when zoomed in. */
@@ -75,11 +77,11 @@ export function fitAspectRatio(bounds: Size, aspectRatio: number): Size {
  * Compute the single source-of-truth layout for the slide-editor stage.
  *
  * Design goals (one frame everything derives from):
- *   - The slide is letterboxed into the region left after reserving the
- *     inspector's width (when open), then centered in that region — so it is
- *     vertically and horizontally centered and never exceeds 100% of the
- *     available height. The floating toolbar overlays the band above the slide
- *     without reserving layout space for itself.
+ *   - The slide is letterboxed into the full stage bounds, then centered in
+ *     that region. Overlay inspector open/close may shift the slide left, but
+ *     never resizes it or alters the vertical letterboxing. The floating
+ *     toolbar overlays the band above the slide without reserving layout space
+ *     for itself.
  *   - The inspector panel's `top`/`height` are pinned to the slide so their
  *     Y-axes and heights match exactly.
  *   - Scroll content only grows past the stage when the (zoomed) slide does not
@@ -92,8 +94,8 @@ export function computeStageLayout({
   stagePaddingTop,
   aspectRatio,
   zoom,
-  inspectorOpen,
-  inspectorReserveX,
+  inspectorOpen = false,
+  inspectorShiftX = 0,
 }: {
   /** Inner stage size (after the stage container's own padding). */
   stageBounds: Size;
@@ -101,19 +103,16 @@ export function computeStageLayout({
   stagePaddingTop: number;
   aspectRatio: number;
   zoom: number;
-  inspectorOpen: boolean;
-  /** Horizontal space reserved on the right for the inspector when open. */
-  inspectorReserveX: number;
+  /** Whether the overlay inspector is open. Does not affect slide sizing. */
+  inspectorOpen?: boolean;
+  /** Overlay width used only to shift the fitted slide left when possible. */
+  inspectorShiftX?: number;
 }): StageLayout {
   const width = Math.max(0, stageBounds.width);
   const height = Math.max(0, stageBounds.height);
   const safeZoom = zoom > 0 ? zoom : 1;
 
-  const reserveX = inspectorOpen
-    ? Math.min(Math.max(0, inspectorReserveX), Math.max(0, width - 1))
-    : 0;
-
-  const availWidth = Math.max(1, width - reserveX);
+  const availWidth = Math.max(1, width);
   const availHeight = Math.max(1, height);
 
   const fitted = fitAspectRatio(
@@ -125,7 +124,10 @@ export function computeStageLayout({
 
   const leftMargin = Math.max(0, (availWidth - slideWidth) / 2);
   const topMargin = Math.max(0, (availHeight - slideHeight) / 2);
-  const slideLeft = leftMargin;
+  const slideShift = inspectorOpen
+    ? Math.min(leftMargin, Math.max(0, inspectorShiftX) / 2)
+    : 0;
+  const slideLeft = leftMargin - slideShift;
   const slideTop = topMargin;
 
   const scrollContentSize = {

@@ -18,6 +18,13 @@ interface SlideRailControllerOptions {
   setVisualPickerOpen: (open: boolean) => void;
 }
 
+interface ReorderPointerEvent {
+  pointerId: number;
+  clientX: number;
+  clientY: number;
+  type: string;
+}
+
 export function useSlideRailController({
   deck,
   pendingPatchesRef,
@@ -80,62 +87,58 @@ export function useSlideRailController({
     [],
   );
 
-  useEffect(() => {
-    if (dragIndex === null) {
+  const updateReorder = useCallback((event: ReorderPointerEvent) => {
+    const drag = reorderRef.current;
+    if (!drag || event.pointerId !== drag.capturedPointerId) {
       return;
     }
-
-    const handlePointerMove = (event: PointerEvent) => {
-      const drag = reorderRef.current;
-      if (!drag || event.pointerId !== drag.capturedPointerId) {
-        return;
-      }
-      const movement = Math.hypot(
-        event.clientX - drag.startClientX,
-        event.clientY - drag.startClientY,
-      );
-      if (!drag.moved && movement < 4) {
-        return;
-      }
-      drag.moved = true;
-      const rects = drag.cachedRects;
-      if (rects.length === 0) {
-        return;
-      }
-      const vertical =
-        rects.length < 2 ||
-        Math.abs(rects[1].top - rects[0].top) >=
-          Math.abs(rects[1].left - rects[0].left);
-      const pointer = vertical ? event.clientY : event.clientX;
-      const extents = rects.map((rect) =>
-        vertical
-          ? { start: rect.top, end: rect.bottom }
-          : { start: rect.left, end: rect.right },
-      );
-      const target = reorderTargetIndex(pointer, extents);
-      drag.overIndex = target;
-      setDragOverIndex(target);
-      setDragPreview((preview) =>
-        preview
+    const movement = Math.hypot(
+      event.clientX - drag.startClientX,
+      event.clientY - drag.startClientY,
+    );
+    if (!drag.moved && movement < 4) {
+      return;
+    }
+    drag.moved = true;
+    const rects = drag.cachedRects;
+    if (rects.length === 0) {
+      return;
+    }
+    const vertical =
+      rects.length < 2 ||
+      Math.abs(rects[1].top - rects[0].top) >=
+        Math.abs(rects[1].left - rects[0].left);
+    const pointer = vertical ? event.clientY : event.clientX;
+    const extents = rects.map((rect) =>
+      vertical
+        ? { start: rect.top, end: rect.bottom }
+        : { start: rect.left, end: rect.right },
+    );
+    const target = reorderTargetIndex(pointer, extents);
+    drag.overIndex = target;
+    setDragOverIndex(target);
+    setDragPreview((preview) =>
+      preview
+        ? {
+            ...preview,
+            x: event.clientX - preview.offsetX,
+            y: event.clientY - preview.offsetY,
+          }
+        : rects[drag.fromIndex]
           ? {
-              ...preview,
-              x: event.clientX - preview.offsetX,
-              y: event.clientY - preview.offsetY,
+              index: drag.fromIndex,
+              x: event.clientX - drag.offsetX,
+              y: event.clientY - drag.offsetY,
+              width: rects[drag.fromIndex].width,
+              offsetX: drag.offsetX,
+              offsetY: drag.offsetY,
             }
-          : rects[drag.fromIndex]
-            ? {
-                index: drag.fromIndex,
-                x: event.clientX - drag.offsetX,
-                y: event.clientY - drag.offsetY,
-                width: rects[drag.fromIndex].width,
-                offsetX: drag.offsetX,
-                offsetY: drag.offsetY,
-              }
-            : null,
-      );
-    };
+          : null,
+    );
+  }, []);
 
-    const handlePointerUp = (event: PointerEvent) => {
+  const endReorder = useCallback(
+    (event: ReorderPointerEvent) => {
       const drag = reorderRef.current;
       if (!drag || event.pointerId !== drag.capturedPointerId) {
         return;
@@ -164,6 +167,27 @@ export function useSlideRailController({
       setDragIndex(null);
       setDragOverIndex(null);
       setDragPreview(null);
+    },
+    [
+      deck,
+      onDeckChange,
+      pendingPatchesRef,
+      setSelectedIndex,
+      setVisualPickerOpen,
+    ],
+  );
+
+  useEffect(() => {
+    if (dragIndex === null) {
+      return;
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      updateReorder(event);
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      endReorder(event);
     };
 
     window.addEventListener("pointermove", handlePointerMove);
@@ -174,14 +198,7 @@ export function useSlideRailController({
       window.removeEventListener("pointerup", handlePointerUp);
       window.removeEventListener("pointercancel", handlePointerUp);
     };
-  }, [
-    dragIndex,
-    deck,
-    onDeckChange,
-    pendingPatchesRef,
-    setSelectedIndex,
-    setVisualPickerOpen,
-  ]);
+  }, [dragIndex, endReorder, updateReorder]);
 
   return {
     dragIndex,
@@ -189,5 +206,7 @@ export function useSlideRailController({
     dragPreview,
     railListRef,
     beginReorder,
+    updateReorder,
+    endReorder,
   };
 }

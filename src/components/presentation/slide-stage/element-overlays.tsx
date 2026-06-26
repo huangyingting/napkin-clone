@@ -30,8 +30,11 @@ import {
 } from "lucide-react";
 
 import { TextStyleBar } from "@/components/presentation/text-style-bar";
-import { ColorPicker, DEFAULT_SWATCH_PRESETS } from "@/components/ui";
-import { FOCUS_RING } from "@/components/ui/tokens";
+import {
+  ColorPicker,
+  DEFAULT_SWATCH_PRESETS,
+  ToolbarButton as StageToolbarButton,
+} from "@/components/ui";
 import { cx, MENU_CHROME, MENU_ITEM } from "@/components/ui/tokens";
 import type {
   ConnectorArrow,
@@ -68,7 +71,7 @@ function defaultShapeTextStyle(): TextElementStyle {
 
 const OVERLAY_Z = 80;
 
-function ToolbarButton({
+function ElementToolbarButton({
   icon: Icon,
   label,
   onClick,
@@ -78,19 +81,13 @@ function ToolbarButton({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      className={`tiq-touch-target flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-    >
+    <StageToolbarButton aria-label={label} title={label} onClick={onClick}>
       <Icon size={14} aria-hidden="true" />
-    </button>
+    </StageToolbarButton>
   );
 }
 
-function ToolbarTextButton({
+function ElementToolbarButtonWithText({
   label,
   icon: Icon,
   onClick,
@@ -100,15 +97,9 @@ function ToolbarTextButton({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      className={`tiq-touch-target flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-    >
+    <StageToolbarButton aria-label={label} title={label} onClick={onClick}>
       <Icon size={14} aria-hidden="true" />
-    </button>
+    </StageToolbarButton>
   );
 }
 
@@ -227,7 +218,7 @@ export function ElementToolbarContent({
             colorPresets={textColorPresets}
             onChange={handleTextStyleChange}
           />
-          <ToolbarTextButton
+          <ElementToolbarButtonWithText
             label={allBullets ? "Remove bullets" : "Bulleted list"}
             icon={List}
             onClick={() =>
@@ -247,7 +238,7 @@ export function ElementToolbarContent({
                   )
             }
           />
-          <ToolbarTextButton
+          <ElementToolbarButtonWithText
             label={allNumbers ? "Remove numbering" : "Numbered list"}
             icon={ListOrdered}
             onClick={() =>
@@ -267,7 +258,7 @@ export function ElementToolbarContent({
                   )
             }
           />
-          <ToolbarTextButton
+          <ElementToolbarButtonWithText
             label="Outdent list paragraphs"
             icon={Outdent}
             onClick={() =>
@@ -281,7 +272,7 @@ export function ElementToolbarContent({
                   )
             }
           />
-          <ToolbarTextButton
+          <ElementToolbarButtonWithText
             label="Indent list paragraphs"
             icon={Indent}
             onClick={() =>
@@ -307,6 +298,8 @@ export function ElementToolbarContent({
             onChange={(color) => onUpdateElement(element.id, { color })}
             aria-label="Shape color"
             presets={shapeColorPresets}
+            size="lg"
+            triggerChrome="toolbar"
             icon={<Palette size={14} aria-hidden="true" />}
           />
           {element.shape !== "line" ? (
@@ -324,7 +317,7 @@ export function ElementToolbarContent({
       ) : null}
       {element.kind === "connector" ? (
         <>
-          <ToolbarButton
+          <ElementToolbarButton
             icon={element.routing === "elbow" ? Minus : Spline}
             label={
               element.routing === "elbow" ? "Straight routing" : "Elbow routing"
@@ -335,12 +328,12 @@ export function ElementToolbarContent({
               })
             }
           />
-          <ToolbarButton
+          <ElementToolbarButton
             icon={element.dash ? Link : Link2Off}
             label={element.dash ? "Solid line" : "Dashed line"}
             onClick={() => onUpdateElement(element.id, { dash: !element.dash })}
           />
-          <ToolbarTextButton
+          <ElementToolbarButtonWithText
             label="Cycle start arrowhead"
             icon={ArrowLeftFromLine}
             onClick={() =>
@@ -349,7 +342,7 @@ export function ElementToolbarContent({
               })
             }
           />
-          <ToolbarTextButton
+          <ElementToolbarButtonWithText
             label="Cycle end arrowhead"
             icon={ArrowRightFromLine}
             onClick={() =>
@@ -362,16 +355,20 @@ export function ElementToolbarContent({
         </>
       ) : null}
       {!hideObjectActions ? (
-        <ToolbarButton icon={Copy} label="Duplicate" onClick={onDuplicate} />
+        <ElementToolbarButton
+          icon={Copy}
+          label="Duplicate"
+          onClick={onDuplicate}
+        />
       ) : null}
       {showAdvanced && !compact && !hideObjectActions ? (
         <>
-          <ToolbarButton
+          <ElementToolbarButton
             icon={ArrowUpToLine}
             label="Bring to front"
             onClick={onBringToFront}
           />
-          <ToolbarButton
+          <ElementToolbarButton
             icon={ArrowDownToLine}
             label="Send to back"
             onClick={onSendToBack}
@@ -379,7 +376,7 @@ export function ElementToolbarContent({
         </>
       ) : null}
       {!hideObjectActions ? (
-        <ToolbarButton icon={Trash2} label="Delete" onClick={onRemove} />
+        <ElementToolbarButton icon={Trash2} label="Delete" onClick={onRemove} />
       ) : null}
     </>
   );

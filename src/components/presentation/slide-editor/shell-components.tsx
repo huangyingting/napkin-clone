@@ -56,7 +56,7 @@ import {
 import { FOCUS_RING } from "@/components/ui/tokens";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Popover } from "@/components/ui/popover";
-import { SelectMenu, Tooltip } from "@/components/ui";
+import { SelectMenu, ToolbarButton, Tooltip } from "@/components/ui";
 import { VisualPicker } from "@/components/presentation/visual-picker";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { ElementToolbarContent } from "@/components/presentation/slide-stage/element-overlays";
@@ -104,11 +104,15 @@ import {
   toToolbarSelectionKind,
 } from "@/lib/presentation/slide-panel-ui";
 
-const SLIDE_FLOATING_TOOLBAR_GAP = 12;
-const SLIDE_FLOATING_TOOLBAR_EDGE_INSET = 8;
-const OFFSCREEN_TOOLBAR_POSITION = { top: -1000, left: -1000, maxWidth: 0 };
+const STAGE_FLOATING_TOOLBAR_GAP = 12;
+const STAGE_FLOATING_TOOLBAR_EDGE_INSET = 8;
+const OFFSCREEN_STAGE_TOOLBAR_POSITION = {
+  top: -1000,
+  left: -1000,
+  maxWidth: 0,
+};
 
-function SlideFloatingToolbar({
+function StageFloatingToolbar({
   ariaLabel,
   keepSelection = false,
   children,
@@ -119,7 +123,7 @@ function SlideFloatingToolbar({
 }) {
   const anchorRef = useRef<HTMLSpanElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
-  const [position, setPosition] = useState(OFFSCREEN_TOOLBAR_POSITION);
+  const [position, setPosition] = useState(OFFSCREEN_STAGE_TOOLBAR_POSITION);
 
   const updatePosition = useCallback(() => {
     const anchorNode = anchorRef.current;
@@ -138,17 +142,17 @@ function SlideFloatingToolbar({
     const toolbarHeight = toolbarNode.offsetHeight;
     const chromeRect = chromeNode?.getBoundingClientRect();
     const minTop = chromeRect
-      ? chromeRect.bottom + SLIDE_FLOATING_TOOLBAR_GAP + toolbarHeight
-      : SLIDE_FLOATING_TOOLBAR_EDGE_INSET + toolbarHeight;
+      ? chromeRect.bottom + STAGE_FLOATING_TOOLBAR_GAP + toolbarHeight
+      : STAGE_FLOATING_TOOLBAR_EDGE_INSET + toolbarHeight;
     const maxWidth = Math.max(
       1,
       Math.min(
         slideRect.width,
-        window.innerWidth - SLIDE_FLOATING_TOOLBAR_EDGE_INSET * 2,
+        window.innerWidth - STAGE_FLOATING_TOOLBAR_EDGE_INSET * 2,
       ),
     );
     const next = {
-      top: Math.max(minTop, slideRect.top - SLIDE_FLOATING_TOOLBAR_GAP),
+      top: Math.max(minTop, slideRect.top - STAGE_FLOATING_TOOLBAR_GAP),
       left: slideRect.left + slideRect.width / 2,
       maxWidth,
     };
@@ -251,21 +255,24 @@ function SlideFloatingToolbar({
       : createPortal(
           <div
             ref={toolbarRef}
-            data-slide-floating-toolbar="true"
+            data-stage-floating-toolbar="true"
             data-floating-panel="true"
             role="toolbar"
             aria-label={ariaLabel}
             onMouseDownCapture={
               keepSelection ? (event) => event.preventDefault() : undefined
             }
+            onPointerDown={(event) => event.stopPropagation()}
+            onMouseDown={(event) => event.stopPropagation()}
             onPointerMove={(event) => event.stopPropagation()}
             onMouseMove={(event) => event.stopPropagation()}
             style={{
               top: position.top,
               left: position.left,
               maxWidth: position.maxWidth || undefined,
+              transform: "translate(-50%, -100%)",
             }}
-            className="pointer-events-auto fixed z-tooltip flex -translate-x-1/2 -translate-y-full flex-wrap items-center justify-center gap-1 overflow-visible rounded-ds-lg border border-ds-border-subtle bg-ds-surface-raised p-1 shadow-ds-popover"
+            className="pointer-events-auto fixed z-tooltip flex h-10 min-h-10 flex-nowrap items-center justify-center gap-1 overflow-visible rounded-ds-lg border border-ds-border-subtle bg-ds-surface-raised p-1 shadow-ds-popover"
           >
             {children}
           </div>,
@@ -1489,16 +1496,14 @@ export function SlideSelectionToolbar({
     onClick: () => void,
     disabled = false,
   ) => (
-    <button
-      type="button"
+    <ToolbarButton
       title={label}
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:pointer-events-none disabled:opacity-40 ${FOCUS_RING}`}
     >
       {icon}
-    </button>
+    </ToolbarButton>
   );
   const menuItem = (label: string, icon: ReactNode, onClick: () => void) => (
     <button
@@ -1515,7 +1520,7 @@ export function SlideSelectionToolbar({
     </button>
   );
   return (
-    <SlideFloatingToolbar
+    <StageFloatingToolbar
       ariaLabel="Selected slide element tools"
       keepSelection={isEditingText}
     >
@@ -1662,16 +1667,14 @@ export function SlideSelectionToolbar({
         layer="tooltip"
         className="w-48 p-1"
         trigger={
-          <button
-            type="button"
+          <ToolbarButton
             aria-label="More actions"
             aria-haspopup="dialog"
             aria-expanded={moreOpen}
             onClick={() => setMoreOpen((open) => !open)}
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-ds-md text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
           >
-            <MoreHorizontal size={16} aria-hidden="true" />
-          </button>
+            <MoreHorizontal size={14} aria-hidden="true" />
+          </ToolbarButton>
         }
       >
         <div className="flex flex-col">
@@ -1743,7 +1746,7 @@ export function SlideSelectionToolbar({
           )}
         </div>
       </Popover>
-    </SlideFloatingToolbar>
+    </StageFloatingToolbar>
   );
 }
 
@@ -1800,7 +1803,6 @@ export function SlideToolbar({
             option.gradient.to === slide.backgroundGradient?.to,
         )?.id
       : undefined;
-  const iconButtonClass = `flex h-7 w-7 shrink-0 items-center justify-center rounded-ds-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`;
   const closeAddMenu = () => {
     setAddOpen(false);
     setAddVisualOpen(false);
@@ -1880,8 +1882,7 @@ export function SlideToolbar({
   const activeAddItems =
     addTabs.find((tab) => tab.id === addTab)?.items ?? textItems;
   const addTriggerButton = (
-    <button
-      type="button"
+    <ToolbarButton
       aria-label="Add element"
       aria-haspopup="dialog"
       aria-expanded={addOpen || addVisualOpen}
@@ -1890,14 +1891,12 @@ export function SlideToolbar({
         setAddVisualOpen(false);
         setAddOpen((open) => !open);
       }}
-      className={iconButtonClass}
     >
       <Plus size={14} aria-hidden="true" />
-    </button>
+    </ToolbarButton>
   );
   const backgroundTriggerButton = (
-    <button
-      type="button"
+    <ToolbarButton
       aria-label="Slide background"
       aria-haspopup="dialog"
       aria-expanded={backgroundOpen}
@@ -1905,14 +1904,13 @@ export function SlideToolbar({
         closeAddMenu();
         setBackgroundOpen((open) => !open);
       }}
-      className={iconButtonClass}
     >
       <Palette size={14} aria-hidden="true" />
-    </button>
+    </ToolbarButton>
   );
 
   return (
-    <SlideFloatingToolbar ariaLabel="Slide tools">
+    <StageFloatingToolbar ariaLabel="Slide tools">
       <Popover
         open={addOpen || addVisualOpen}
         onClose={closeAddMenu}
@@ -2073,25 +2071,18 @@ export function SlideToolbar({
       <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
 
       <Tooltip label="Duplicate slide" side="bottom">
-        <button
-          type="button"
-          aria-label="Duplicate slide"
-          onClick={onDuplicateSlide}
-          className={iconButtonClass}
-        >
+        <ToolbarButton aria-label="Duplicate slide" onClick={onDuplicateSlide}>
           <Copy size={14} aria-hidden="true" />
-        </button>
+        </ToolbarButton>
       </Tooltip>
       <Tooltip label="Delete slide" side="bottom">
-        <button
-          type="button"
+        <ToolbarButton
           aria-label="Delete slide"
           disabled={!canDelete}
           onClick={onRemoveSlide}
-          className={`${iconButtonClass} disabled:pointer-events-none disabled:opacity-40`}
         >
           <Trash2 size={14} aria-hidden="true" />
-        </button>
+        </ToolbarButton>
       </Tooltip>
 
       <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
@@ -2104,16 +2095,14 @@ export function SlideToolbar({
         layer="tooltip"
         className="w-44 p-1"
         trigger={
-          <button
-            type="button"
+          <ToolbarButton
             aria-label="More actions"
             aria-haspopup="dialog"
             aria-expanded={moreOpen}
             onClick={() => setMoreOpen((open) => !open)}
-            className={iconButtonClass}
           >
             <MoreHorizontal size={14} aria-hidden="true" />
-          </button>
+          </ToolbarButton>
         }
       >
         <div className="flex flex-col">
@@ -2124,7 +2113,7 @@ export function SlideToolbar({
           )}
         </div>
       </Popover>
-    </SlideFloatingToolbar>
+    </StageFloatingToolbar>
   );
 }
 

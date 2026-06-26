@@ -14,7 +14,7 @@ import {
 
 import { FloatingSurface } from "./floating-surface";
 import { Swatch, type SwatchSize } from "./swatch";
-import { cx, FOCUS_RING, RADIUS } from "./tokens";
+import { cx, FOCUS_RING, RADIUS, TOOLBAR_BUTTON_CHROME } from "./tokens";
 
 /**
  * A neutral, broadly-useful default palette spanning the hue wheel plus a
@@ -80,6 +80,8 @@ export type ColorPickerProps = {
   icon?: ReactNode;
   /** Whether the trigger reads as active/selected (a value is applied). */
   active?: boolean;
+  /** Use shared toolbar button chrome for icon-only toolbar triggers. */
+  triggerChrome?: "swatch" | "toolbar";
   /**
    * When provided, the popover shows a "reset" action that clears the style.
    * Used for the "Default / None" affordance on text color & highlight.
@@ -117,6 +119,7 @@ export function ColorPicker({
   fallback = "#000000",
   icon,
   active,
+  triggerChrome = "swatch",
   onReset,
   resetLabel = "Default",
   preserveSelection = false,
@@ -221,27 +224,56 @@ export function ColorPicker({
 
   return (
     <>
-      <Swatch
-        ref={triggerRef}
-        color={icon ? "transparent" : hex}
-        size={size}
-        selected={active && !icon}
-        aria-label={ariaLabel}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
-      >
-        {icon ? (
-          <span className="relative flex h-full w-full items-center justify-center text-[var(--ds-text-secondary,#52525b)]">
+      {icon && triggerChrome === "toolbar" ? (
+        <button
+          ref={triggerRef}
+          type="button"
+          aria-pressed={active}
+          aria-label={ariaLabel}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+          className={cx(
+            "inline-flex items-center justify-center transition-colors disabled:pointer-events-none disabled:opacity-50 h-7 min-w-7 text-xs w-7",
+            RADIUS.sm,
+            active === true
+              ? TOOLBAR_BUTTON_CHROME.active
+              : TOOLBAR_BUTTON_CHROME.subtle,
+            FOCUS_RING,
+          )}
+        >
+          <span className="relative flex h-full w-full items-center justify-center">
             {icon}
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute bottom-[2px] left-1 right-1 h-[3px] rounded-full border border-[var(--ds-border-subtle,rgba(0,0,0,0.12))]"
+              className="pointer-events-none absolute bottom-[2px] left-1 right-1 h-[3px] rounded-full border border-ds-border-subtle"
               style={{ backgroundColor: hasColor ? hex : "transparent" }}
             />
           </span>
-        ) : null}
-      </Swatch>
+        </button>
+      ) : (
+        <Swatch
+          ref={triggerRef}
+          color={icon ? "transparent" : hex}
+          size={size}
+          selected={active && !icon}
+          aria-label={ariaLabel}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+        >
+          {icon ? (
+            <span className="relative flex h-full w-full items-center justify-center text-[var(--ds-text-secondary,#52525b)]">
+              {icon}
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute bottom-[2px] left-1 right-1 h-[3px] rounded-full border border-[var(--ds-border-subtle,rgba(0,0,0,0.12))]"
+                style={{ backgroundColor: hasColor ? hex : "transparent" }}
+              />
+            </span>
+          ) : null}
+        </Swatch>
+      )}
       <FloatingSurface
         open={open}
         onClose={() => setOpen(false)}

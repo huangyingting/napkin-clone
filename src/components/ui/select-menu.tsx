@@ -120,7 +120,7 @@ export function SelectMenu({
     const anchorEl =
       anchor === "toolbar"
         ? ((button.closest(
-            '[data-slide-floating-toolbar="true"]',
+            '[data-stage-floating-toolbar="true"]',
           ) as HTMLElement | null) ?? button)
         : button;
     const anchorRect = anchorEl.getBoundingClientRect();

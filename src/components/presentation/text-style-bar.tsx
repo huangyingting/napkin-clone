@@ -111,12 +111,14 @@ function FontStepper({
 function AlignGroup({
   align,
   onChange,
+  variant,
 }: {
   align: ElementAlign;
   onChange: (align: ElementAlign) => void;
+  variant: TextStyleBarVariant;
 }) {
   return (
-    <IconActionCluster>
+    <IconActionCluster bordered={variant !== "compact"}>
       {ALIGN_OPTIONS.map((option) => {
         const Icon = ALIGN_ICON[option];
         const selected = align === option;
@@ -152,7 +154,7 @@ export function TextStyleBar({
     <ColorPicker
       color={style.color ?? ""}
       aria-label="Text color"
-      size="md"
+      size={variant === "compact" ? "lg" : "md"}
       presets={colorPresets}
       icon={
         variant === "compact" ? (
@@ -160,6 +162,7 @@ export function TextStyleBar({
         ) : undefined
       }
       active={style.color !== undefined}
+      triggerChrome={variant === "compact" ? "toolbar" : "swatch"}
       onChange={(hex) => set({ color: hex })}
       onReset={() => {
         const next = { ...style };
@@ -194,7 +197,11 @@ export function TextStyleBar({
         >
           <Underline size={14} aria-hidden="true" />
         </IconToggle>
-        <AlignGroup align={style.align} onChange={(align) => set({ align })} />
+        <AlignGroup
+          align={style.align}
+          onChange={(align) => set({ align })}
+          variant={variant}
+        />
         <span
           className="mx-0.5 h-5 w-px bg-ds-border-subtle"
           aria-hidden="true"
@@ -232,6 +239,7 @@ export function TextStyleBar({
           <AlignGroup
             align={style.align}
             onChange={(align) => set({ align })}
+            variant={variant}
           />
         </div>
       </div>

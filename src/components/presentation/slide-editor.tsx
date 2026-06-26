@@ -45,6 +45,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -192,7 +193,7 @@ interface SlideEditorProps {
   staleSourceLinkCount?: number;
 }
 
-const FLOATING_PANEL_STAGE_RESERVE_PX = 352;
+const FLOATING_PANEL_STAGE_SHIFT_PX = 352;
 
 function slideElementTypeLabel(element: SlideElement): string {
   switch (element.kind) {
@@ -413,9 +414,14 @@ export function SlideEditor({
   const firstRenderReportedRef = useRef(false);
 
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selectedSlideFrameId, setSelectedSlideFrameId] = useState<
+    string | null
+  >(null);
   // Keep the selection within bounds as slides are added/removed.
   const safeSelected = Math.min(selectedIndex, deck.slides.length - 1);
   const selectedSlide = deck.slides[safeSelected];
+  const slideSelectionActive =
+    selectedSlideFrameId !== null && selectedSlideFrameId === selectedSlide?.id;
   const selectedTheme = selectedSlide
     ? resolveSlideThemeColors(deck, selectedSlide)
     : resolveSlideThemeColors(deck, {
@@ -435,6 +441,7 @@ export function SlideEditor({
     effectiveSelectedElementIds,
     clearSelection,
   } = useSlideSelection(selectedSlide?.elements);
+
   const { pendingPatchesRef, doCommitAndChange } =
     useSlideEditorCommit(onDeckChange);
   const {
@@ -578,6 +585,9 @@ export function SlideEditor({
     if (effectiveSelectedElementIds.size > 1) {
       return `${effectiveSelectedElementIds.size} elements selected`;
     }
+    if (slideSelectionActive && selectedSlide) {
+      return "Slide selected";
+    }
     if (!effectiveSelectedElementId || !selectedSlide?.elements) {
       return "No element selected";
     }
@@ -587,7 +597,12 @@ export function SlideEditor({
     return element
       ? `${slideElementTypeLabel(element)} selected`
       : "No element selected";
-  }, [effectiveSelectedElementId, effectiveSelectedElementIds, selectedSlide]);
+  }, [
+    effectiveSelectedElementId,
+    effectiveSelectedElementIds,
+    selectedSlide,
+    slideSelectionActive,
+  ]);
   const activeSlideAspectRatio = slideAspectRatio(deck.slideFormat);
   const stageLayout = computeStageLayout({
     stageBounds,
@@ -595,7 +610,7 @@ export function SlideEditor({
     aspectRatio: activeSlideAspectRatio,
     zoom,
     inspectorOpen,
-    inspectorReserveX: FLOATING_PANEL_STAGE_RESERVE_PX,
+    inspectorShiftX: FLOATING_PANEL_STAGE_SHIFT_PX,
   });
   const renderedStageWidth = stageLayout.slide.width;
   const renderedStageHeight = stageLayout.slide.height;
@@ -814,14 +829,21 @@ export function SlideEditor({
     handleRequestClose,
   });
 
-  const { dragIndex, dragOverIndex, dragPreview, railListRef, beginReorder } =
-    useSlideRailController({
-      deck,
-      pendingPatchesRef,
-      onDeckChange,
-      setSelectedIndex,
-      setVisualPickerOpen,
-    });
+  const {
+    dragIndex,
+    dragOverIndex,
+    dragPreview,
+    railListRef,
+    beginReorder,
+    updateReorder,
+    endReorder,
+  } = useSlideRailController({
+    deck,
+    pendingPatchesRef,
+    onDeckChange,
+    setSelectedIndex,
+    setVisualPickerOpen,
+  });
 
   const handleSave = useCallback(() => {
     void flushSave();
@@ -829,16 +851,36 @@ export function SlideEditor({
 
   const accentForSelected = selectedSlide?.accent ?? selectedTheme.accentColor;
 
+  const handleClearSelection = useCallback(() => {
+    setSelectedSlideFrameId(null);
+    setSelectedElementId(null);
+    setSelectedElementIds((current) =>
+      current.size === 0 ? current : new Set(),
+    );
+    closeRightPanel();
+  }, [closeRightPanel, setSelectedElementId, setSelectedElementIds]);
+
+  const handleSelectSlide = useCallback(() => {
+    setSelectedSlideFrameId(selectedSlide?.id ?? null);
+    setSelectedElementId(null);
+    setSelectedElementIds((current) =>
+      current.size === 0 ? current : new Set(),
+    );
+    closeRightPanel();
+  }, [
+    closeRightPanel,
+    selectedSlide?.id,
+    setSelectedElementId,
+    setSelectedElementIds,
+  ]);
+
   const handleSelectElement = useCallback(
     (id: string | null, mode: SelectionMode = "replace") => {
       if (id == null) {
-        setSelectedElementId(null);
-        setSelectedElementIds((current) =>
-          current.size === 0 ? current : new Set(),
-        );
-        closeRightPanel();
+        handleClearSelection();
         return;
       }
+      setSelectedSlideFrameId(null);
       if (mode === "toggle") {
         // Add/remove from the multi-selection. Removing the primary promotes
         // another remaining member (or clears the primary when none remain).
@@ -875,6 +917,7 @@ export function SlideEditor({
     },
     [
       closeRightPanel,
+      handleClearSelection,
       openSelectionPanel,
       selectedElementIds,
       setSelectedElementId,
@@ -892,6 +935,7 @@ export function SlideEditor({
       for (const id of ids) {
         next.add(id);
       }
+      setSelectedSlideFrameId(null);
       setSelectedElementIds(next);
       setSelectedElementId((primary) =>
         primary && next.has(primary) ? primary : ([...next][0] ?? null),
@@ -1164,7 +1208,8 @@ export function SlideEditor({
     );
   }, [selectedSlide?.layout, toolbarLayouts]);
   const showSlideToolbar = selectedSlide
-    ? isSlideToolbarVisible({
+    ? slideSelectionActive &&
+      isSlideToolbarVisible({
         selectedElementId: effectiveSelectedElementId,
         selectedCount: effectiveSelectedElementIds.size,
       })
@@ -1176,10 +1221,12 @@ export function SlideEditor({
     safeSelected,
     selectedSlide,
     selectedTheme,
+    slideSelected: slideSelectionActive,
     effectiveSelectedElementId,
     effectiveSelectedElementIds,
     handleSelectElement,
     handleSelectElements,
+    handleSelectSlide,
     editingElementId,
     handleEditingElementChange: setEditingElementId,
     renderedStageWidth,
@@ -1240,6 +1287,22 @@ export function SlideEditor({
     openRightPanel,
     closeRightPanel,
   };
+
+  const handleStageAreaPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (event.button !== 0) {
+        return;
+      }
+      if (
+        event.target instanceof Element &&
+        event.target.closest('[data-slide-toolbar-anchor="true"]')
+      ) {
+        return;
+      }
+      handleClearSelection();
+    },
+    [handleClearSelection],
+  );
 
   return createPortal(
     <SlideEditorContext.Provider value={ctxValue}>
@@ -1575,6 +1638,7 @@ export function SlideEditor({
             <main className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-ds-surface-sunken">
               <div
                 ref={stageRef}
+                onPointerDown={handleStageAreaPointerDown}
                 className={`relative min-h-0 flex-1 overscroll-contain px-4 py-2 sm:px-5 sm:py-3 ${
                   stageLayout.needsScroll ? "overflow-auto" : "overflow-hidden"
                 }`}
@@ -1675,6 +1739,9 @@ export function SlideEditor({
                         setSelectedIndex(index);
                       }}
                       onPointerDown={(event) => beginReorder(event, index)}
+                      onPointerMove={(event) => updateReorder(event)}
+                      onPointerUp={(event) => endReorder(event)}
+                      onPointerCancel={(event) => endReorder(event)}
                       onKeyDown={(event) => {
                         const direction = slideReorderKeyDirection(
                           event.key,

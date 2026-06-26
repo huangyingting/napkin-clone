@@ -172,6 +172,7 @@ function contrastTextColor(hex: string): string {
 export type SelectionMode = "replace" | "toggle" | "keep";
 
 type StagePreselection =
+  | { kind: "slide" }
   | { kind: "element"; elementId: string }
   | { kind: "group"; groupId: string; elementIds: string[] };
 
@@ -194,6 +195,9 @@ function samePreselection(
   if (a === b) return true;
   if (!a || !b) return false;
   if (a.kind !== b.kind) return false;
+  if (a.kind === "slide" && b.kind === "slide") {
+    return true;
+  }
   if (a.kind === "element" && b.kind === "element") {
     return a.elementId === b.elementId;
   }
@@ -214,6 +218,7 @@ interface SlideStageEditorProps {
   visuals: ReadonlyMap<string, Visual>;
   width: number;
   height: number;
+  slideSelected: boolean;
   selectedElementId: string | null;
   selectedElementIds: ReadonlySet<string>;
   onSelectElement: (id: string | null, mode?: SelectionMode) => void;
@@ -223,6 +228,7 @@ interface SlideStageEditorProps {
    * the marquee; the first id becomes the primary.
    */
   onSelectElements: (ids: string[], additive?: boolean) => void;
+  onSelectSlide: () => void;
   onUpdateElement: (
     id: string,
     patch: ElementPatch,
@@ -286,16 +292,20 @@ const ELEMENT_ARIA_KEYSHORTCUTS =
   "Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown " +
   "[ ] Shift+[ Shift+] C";
 
+const SLIDE_FRAME_BOX: ElementBox = { x: 0, y: 0, w: 100, h: 100 };
+
 export function SlideStageEditor({
   slide,
   deck,
   visuals,
   width,
   height,
+  slideSelected,
   selectedElementId,
   selectedElementIds,
   onSelectElement,
   onSelectElements,
+  onSelectSlide,
   onUpdateElement,
   onDuplicateElement,
   onRemoveElement,
@@ -512,6 +522,9 @@ export function SlideStageEditor({
   const activeEditingId = editingElement?.id ?? null;
   const preselectedFrame = useMemo(() => {
     if (!preselectedTarget) return null;
+    if (preselectedTarget.kind === "slide") {
+      return { box: SLIDE_FRAME_BOX, rotation: undefined };
+    }
     if (preselectedTarget.kind === "element") {
       const element = elements.find(
         (item) => item.id === preselectedTarget.elementId,
@@ -666,6 +679,11 @@ export function SlideStageEditor({
           multiDragRef.current === null &&
           dragRef.current === null;
         if (hoveringInteraction) {
+          const pointerInSlide =
+            ev.clientX >= rect.left &&
+            ev.clientX <= rect.right &&
+            ev.clientY >= rect.top &&
+            ev.clientY <= rect.bottom;
           const hit =
             hitTestAtClientPoint(ev.clientX, ev.clientY, {
               selectedElementBonus: false,
@@ -675,7 +693,9 @@ export function SlideStageEditor({
           });
           const nextPreselection = target
             ? preselectionFromStageTarget(target)
-            : null;
+            : pointerInSlide
+              ? { kind: "slide" as const }
+              : null;
           setPreselectedTarget((current) =>
             samePreselection(current, nextPreselection)
               ? current
@@ -1198,8 +1218,8 @@ export function SlideStageEditor({
     }
     // Resolve a marquee gesture: a band that grew past the threshold selects
     // every intersecting element (additive when shift/ctrl/cmd was held);
-    // otherwise the gesture was a bare click on empty stage and clears the
-    // selection. Issue #245.
+    // otherwise the gesture was a bare click on the slide and selects the
+    // slide itself. Issue #245.
     const marquee = marqueeRef.current;
     if (marquee) {
       const finalRect = marqueeRectRef.current;
@@ -1221,7 +1241,7 @@ export function SlideStageEditor({
         );
         onSelectElements(ids, marquee.additive);
       } else if (!marquee.additive) {
-        onSelectElement(null);
+        onSelectSlide();
       }
     }
     // A plain click on the already-selected primary text element enters inline
@@ -1251,7 +1271,7 @@ export function SlideStageEditor({
     setMultiActiveDrag(null);
     setSnapGuides([]);
     setAnchorPreview(null);
-  }, [onSelectElement, onSelectElements, stageAspect, visuals, startEditing]);
+  }, [onSelectElements, onSelectSlide, stageAspect, visuals, startEditing]);
 
   useEffect(() => {
     window.addEventListener("pointermove", handlePointerMove);
@@ -1365,7 +1385,7 @@ export function SlideStageEditor({
         })
       ) {
         stopEditing();
-        onSelectElement(null);
+        onSelectSlide();
         return;
       }
       if (event.button !== 0) {
@@ -1391,7 +1411,7 @@ export function SlideStageEditor({
       };
       marqueeRectRef.current = { x: xPct, y: yPct, w: 0, h: 0 };
     },
-    [activeEditingId, onSelectElement, stopEditing],
+    [activeEditingId, onSelectSlide, stopEditing],
   );
 
   // Double-click on the empty stage background (not an element) creates a text
@@ -1761,6 +1781,10 @@ export function SlideStageEditor({
             rotation={primaryElement.rotation}
             variant="selected"
           />
+        ) : null}
+
+        {slideSelected ? (
+          <ElementFrameOverlay box={SLIDE_FRAME_BOX} variant="selected" />
         ) : null}
 
         {showPreselectedFrame && preselectedFrame ? (
