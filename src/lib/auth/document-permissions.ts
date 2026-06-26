@@ -24,16 +24,19 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { asWorkspaceRole } from "@/lib/workspace/roles";
 import {
-  allowAccess,
   denyAccess,
   type AccessDecision,
   type AccessDeniedDecision,
 } from "@/lib/access-policy/taxonomy";
+import {
+  type ResourceRole,
+  createPermissionBuilder,
+  deriveRoleFromOwnerAndMembers,
+} from "./permission-builder";
 
 /** Effective role of a user for a single document. */
-export type DocumentRole = "owner" | "editor" | "viewer" | "none";
+export type DocumentRole = ResourceRole;
 
 /** A document capability that a mutation/action can require. */
 export type Capability = "view" | "edit" | "manage";
@@ -97,7 +100,7 @@ export class DocumentPermissionError extends Error {
  * with no relationship to the document gets `none`.
  *
  * Unknown/garbled membership role strings are coerced to the least-privilege
- * `VIEWER` via {@link asWorkspaceRole}.
+ * `VIEWER` via the shared {@link deriveRoleFromOwnerAndMembers} helper.
  */
 export function deriveDocumentRole(
   document: DocumentRoleInput,
@@ -108,40 +111,31 @@ export function deriveDocumentRole(
   }
 
   if (document.workspaceId && document.workspace) {
-    if (document.workspace.ownerId === userId) {
-      return "owner";
-    }
-
-    const membership = document.workspace.members.find(
-      (member) => member.userId === userId,
+    return deriveRoleFromOwnerAndMembers(
+      document.workspace.ownerId,
+      document.workspace.members,
+      userId,
     );
-    if (membership) {
-      const role = asWorkspaceRole(membership.role);
-      if (role === "OWNER") {
-        return "owner";
-      }
-      if (role === "EDITOR") {
-        return "editor";
-      }
-      return "viewer";
-    }
   }
 
   return "none";
 }
 
+/** Permission-builder instance for the document resource type. */
+const _docBuilder = createPermissionBuilder({
+  resource: "document",
+  midCapKey: "canEdit" as const,
+  midCapMode: "edit" as const,
+  messages: {
+    notFound: "Document not found.",
+    midCapDenied: "You do not have permission to edit this document.",
+    manageDenied: "You do not have permission to manage this document.",
+  },
+});
+
 /** Maps a {@link DocumentRole} to its concrete capability flags. */
 export function capabilitiesForRole(role: DocumentRole): DocumentCapabilities {
-  switch (role) {
-    case "owner":
-      return { role, canView: true, canEdit: true, canManage: true };
-    case "editor":
-      return { role, canView: true, canEdit: true, canManage: false };
-    case "viewer":
-      return { role, canView: true, canEdit: false, canManage: false };
-    default:
-      return { role: "none", canView: false, canEdit: false, canManage: false };
-  }
+  return _docBuilder.capabilitiesForRole(role);
 }
 
 /**
@@ -185,38 +179,7 @@ export function documentCapabilityAccessDecision(
   capabilities: DocumentCapabilities,
   capability: Capability,
 ): AccessDecision {
-  if (!capabilities.canView) {
-    return denyAccess({
-      resource: { kind: "document" },
-      capability,
-      reason: "resource-not-found",
-      status: 404,
-      safeMessage: "Document not found.",
-      concealResource: true,
-    });
-  }
-  if (capability === "edit" && !capabilities.canEdit) {
-    return denyAccess({
-      resource: { kind: "document" },
-      capability,
-      reason: "insufficient-capability",
-      status: 403,
-      safeMessage: "You do not have permission to edit this document.",
-      concealResource: false,
-    });
-  }
-  if (capability === "manage" && !capabilities.canManage) {
-    return denyAccess({
-      resource: { kind: "document" },
-      capability,
-      reason: "insufficient-capability",
-      status: 403,
-      safeMessage: "You do not have permission to manage this document.",
-      concealResource: false,
-    });
-  }
-
-  return allowAccess({ resource: { kind: "document" }, capability });
+  return _docBuilder.capabilityAccessDecision(capabilities, capability);
 }
 
 /**
