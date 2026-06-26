@@ -2,15 +2,13 @@
  * Pure helper that derives a deck's starting {@link DeckTheme} from the visual
  * blocks in a document's block list.
  *
- * The six deck themes mirror the visual style-theme names, so the mapping is
+ * The deck themes mirror the visual style-theme names, so the mapping is
  * direct: a visual whose colors match the `indigo` / `ocean` / `forest` /
  * `sunset` / `grape` STYLE_THEME contributes one vote to the same-named deck
  * theme. The most-frequently-used visual theme becomes the deck theme.
  *
- * `default` is intentionally NOT inferred — it stays reserved for embed/dark
- * contexts and remains selectable from the top-bar theme picker. When no visual
- * matches an inferable theme (no visuals, or all custom-colored), the deck falls
- * back to the brand-aligned `indigo` rather than the bleak `default`.
+ * When no visual matches an inferable theme (no visuals, or all
+ * custom-colored), the deck falls back to the brand-aligned `indigo`.
  *
  * Pure and DOM-free — fully testable under `node --test`.
  */
@@ -22,8 +20,7 @@ import { isThemeActive } from "@/lib/visual/transforms";
 /**
  * Deck themes that mirror a visual STYLE_THEME of the same id, listed in
  * canonical tie-break order. When two themes are used equally often, the one
- * earlier in this list wins, keeping inference deterministic. `default` is
- * excluded because it is never inferred.
+ * earlier in this list wins, keeping inference deterministic.
  */
 const INFERABLE_THEMES: readonly DeckTheme[] = [
   "indigo",

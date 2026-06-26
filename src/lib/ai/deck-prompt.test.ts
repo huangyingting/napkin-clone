@@ -53,7 +53,7 @@ test("system message states JSON-only, brevity, visual-id, and language rules", 
   assert.match(content, /SAME LANGUAGE/i);
 });
 
-test("system message biases toward a vibrant theme and reserves default for dark contexts (#281)", () => {
+test("system message biases toward a vibrant theme (#281)", () => {
   const [system] = buildDeckGenerationMessages({
     outline: "An outline",
     visualInventory: INVENTORY,
@@ -61,17 +61,13 @@ test("system message biases toward a vibrant theme and reserves default for dark
   const content = system.content;
   // Vibrant-theme guidance is present.
   assert.match(content, /VIBRANT theme/i);
-  // Every non-default (vibrant) theme is named in the guidance.
+  // Every theme is named in the guidance.
   for (const theme of DECK_THEMES) {
-    if (theme === "default") continue;
     assert.ok(
       content.includes(`"${theme}"`),
-      `vibrant theme ${theme} missing from theme guidance`,
+      `theme ${theme} missing from theme guidance`,
     );
   }
-  // "default" is explicitly reserved for dark/embed contexts only.
-  assert.match(content, /Reserve "default" ONLY for/i);
-  assert.match(content, /dark or embed contexts/i);
 });
 
 test("system message lists every layout and theme value", () => {

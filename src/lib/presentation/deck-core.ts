@@ -14,16 +14,17 @@ import { STYLE_THEME_IDS } from "./deck-theme-ids";
 export const CURRENT_DECK_SCHEMA_VERSION = 3;
 
 /**
- * Canonical presentation theme names — derived from the visual style theme
- * catalog ({@link STYLE_THEME_IDS}) so both lists stay in sync automatically.
- * `"default"` is kept as the first entry for backward-compat with persisted
- * decks (removal is tracked in issue #1105).
+ * Canonical presentation theme names — identical to the visual style theme
+ * catalog ({@link STYLE_THEME_IDS}).  Persisted decks with an unrecognised
+ * `themeId` (e.g. the legacy `"default"` value) still parse because the
+ * validator only requires a non-empty string; renderers fall back to the
+ * visual default token set via the generic resolver fallback.
  *
  * Exported as a `const` array so it is the single source of truth for both the
  * {@link DeckTheme} type and any code (validators, AI prompts) that needs to
  * enumerate the allowed values at runtime.
  */
-export const DECK_THEMES = ["default", ...STYLE_THEME_IDS] as const;
+export const DECK_THEMES = [...STYLE_THEME_IDS] as const;
 
 /** Presentation themes — derived from the visual style theme catalog. */
 export type DeckTheme = (typeof DECK_THEMES)[number];

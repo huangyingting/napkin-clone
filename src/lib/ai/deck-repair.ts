@@ -1,10 +1,8 @@
 import { GENERATED_DECK_MAX_SLIDES } from "@/lib/limits";
 import {
   CURRENT_DECK_SCHEMA_VERSION,
-  DECK_THEMES,
   SLIDE_LAYOUTS,
   type Deck,
-  type DeckTheme,
   type ElementAlign,
   type ElementBox,
   type SlideElement,
@@ -14,7 +12,7 @@ import {
 
 export const REPAIRED_DECK_MAX_SLIDES = GENERATED_DECK_MAX_SLIDES;
 
-const DEFAULT_THEME: DeckTheme = "default";
+const DEFAULT_THEME = "indigo";
 const DEFAULT_LAYOUT: SlideLayoutHint = "blank";
 const ELEMENT_ALIGNS: readonly ElementAlign[] = ["left", "center", "right"];
 
@@ -210,9 +208,13 @@ export function repairDeck(parsed: unknown): Deck | undefined {
     return undefined;
   }
 
-  const themeId = DECK_THEMES.includes(candidate.themeId as DeckTheme)
-    ? (candidate.themeId as DeckTheme)
-    : DEFAULT_THEME;
+  // Preserve any non-empty string themeId from the model so the downstream
+  // normalizer (normalizeGeneratedDeck) can apply the generic resolver
+  // fallback — including substituting preferredTheme when the value is
+  // unrecognised. Fall back to DEFAULT_THEME only when themeId is absent.
+  const rawThemeId =
+    typeof candidate.themeId === "string" ? candidate.themeId.trim() : "";
+  const themeId: string = rawThemeId.length > 0 ? rawThemeId : DEFAULT_THEME;
 
   const slides = candidate.slides
     .slice(0, REPAIRED_DECK_MAX_SLIDES)
