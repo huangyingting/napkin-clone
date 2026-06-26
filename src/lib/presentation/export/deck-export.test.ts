@@ -410,138 +410,6 @@ test("image ops carry fitMode, maskShape, and crop metadata", () => {
   });
 });
 
-test("an image element with fitMode=contain emits op with fitMode=contain", () => {
-  // Verifies that `contain` is forwarded so applyImageOp can pass
-  // `sizing: { type: "contain" }` to PptxGenJS.
-  const deck: Deck = {
-    themeId: "indigo",
-    slides: [freeFormSlide(0, [imageEl("im-contain", { fitMode: "contain" })])],
-  };
-
-  const [spec] = buildDeckSpecs(deck, new Map());
-  const image = ofKind(spec.ops, "image")[0] as DeckImageOp;
-  assert.equal(image?.fitMode, "contain");
-});
-
-test("an image element with fitMode=cover emits op with fitMode=cover", () => {
-  // Verifies that `cover` is forwarded so applyImageOp can pass
-  // `sizing: { type: "cover" }` to PptxGenJS.
-  const deck: Deck = {
-    themeId: "indigo",
-    slides: [freeFormSlide(0, [imageEl("im-cover", { fitMode: "cover" })])],
-  };
-
-  const [spec] = buildDeckSpecs(deck, new Map());
-  const image = ofKind(spec.ops, "image")[0] as DeckImageOp;
-  assert.equal(image?.fitMode, "cover");
-});
-
-test("an image element with no fitMode emits op with no fitMode field", () => {
-  const deck: Deck = {
-    themeId: "indigo",
-    slides: [freeFormSlide(0, [imageEl("im-plain")])],
-  };
-
-  const [spec] = buildDeckSpecs(deck, new Map());
-  const image = ofKind(spec.ops, "image")[0] as DeckImageOp;
-  assert.equal(image?.fitMode, undefined);
-});
-
-test("maskShape is present on op so PDF/image renderers can apply clip (PPTX degrades gracefully)", () => {
-  // The PPTX applier does not support shape clipping, but the op must carry
-  // maskShape so that future PDF/canvas renderers can act on it.
-  const deck: Deck = {
-    themeId: "indigo",
-    slides: [freeFormSlide(0, [imageEl("im-circle", { maskShape: "circle" })])],
-  };
-
-  const [spec] = buildDeckSpecs(deck, new Map());
-  const image = ofKind(spec.ops, "image")[0] as DeckImageOp;
-  assert.equal(image?.maskShape, "circle");
-});
-
-test("an image element without maskShape emits op with no maskShape field", () => {
-  const deck: Deck = {
-    themeId: "indigo",
-    slides: [freeFormSlide(0, [imageEl("im-no-mask")])],
-  };
-
-  const [spec] = buildDeckSpecs(deck, new Map());
-  const image = ofKind(spec.ops, "image")[0] as DeckImageOp;
-  assert.equal(image?.maskShape, undefined);
-});
-
-test("an image element with an empty src emits no image op (skips broken image)", () => {
-  const empty: ImageElement = {
-    id: "im-empty",
-    kind: "image",
-    src: "",
-    zIndex: 1,
-    box: { x: 10, y: 10, w: 30, h: 30 },
-  };
-  const deck: Deck = {
-    themeId: "default",
-    slides: [freeFormSlide(0, [empty])],
-  };
-
-  const [spec] = buildDeckSpecs(deck, new Map());
-  assert.equal(
-    ofKind(spec.ops, "image").length,
-    0,
-    "empty-src image must not emit an image op",
-  );
-});
-
-test("a whitespace-only image src is treated as empty and skipped", () => {
-  const blank: ImageElement = {
-    id: "im-blank",
-    kind: "image",
-    src: "   ",
-    zIndex: 1,
-    box: { x: 10, y: 10, w: 30, h: 30 },
-  };
-  const deck: Deck = {
-    themeId: "default",
-    slides: [freeFormSlide(0, [blank])],
-  };
-
-  const [spec] = buildDeckSpecs(deck, new Map());
-  assert.equal(ofKind(spec.ops, "image").length, 0);
-});
-
-test("a visual element whose id is not in the visuals map emits no op", () => {
-  // The pure-level analogue of "an unknown visualId renders null safely": the
-  // editor/renderer draws null for an orphaned reference, and the exporter
-  // likewise skips it rather than emitting a broken native/fallback op.
-  const deck: Deck = {
-    themeId: "indigo",
-    slides: [freeFormSlide(0, [visualEl("v", "missing-visual")])],
-  };
-
-  const [spec] = buildDeckSpecs(deck, new Map());
-  assert.equal(ofKind(spec.ops, "visual-native").length, 0);
-  assert.equal(ofKind(spec.ops, "visual-fallback").length, 0);
-  assert.equal(spec.ops.length, 0);
-});
-
-test("a known visual survives alongside an unknown one (only the orphan drops)", () => {
-  const deck: Deck = {
-    themeId: "indigo",
-    slides: [
-      freeFormSlide(0, [
-        visualEl("v-ok", "vis-known"),
-        { ...visualEl("v-bad", "vis-missing"), zIndex: 3 },
-      ]),
-    ],
-  };
-
-  const [spec] = buildDeckSpecs(deck, new Map([["vis-known", flowchart()]]));
-  const visualOps =
-    ofKind(spec.ops, "visual-native").length +
-    ofKind(spec.ops, "visual-fallback").length;
-  assert.equal(visualOps, 1, "only the resolvable visual emits an op");
-});
-
 test("a transformed visual degrades to a fallback image op instead of losing styling", () => {
   const visuals = new Map<string, Visual>([["v1", flowchart()]]);
   const transformed: VisualElement = {
@@ -707,17 +575,6 @@ test("text op carries runs when the element has them", () => {
   ]);
 });
 
-test("text op omits runs when the element has none (plain fallback)", () => {
-  const deck: Deck = {
-    themeId: "indigo",
-    slides: [freeFormSlide(0, [fixtureTextElement("t1", "Plain")])],
-  };
-  const [spec] = buildDeckSpecs(deck, new Map());
-  const text = ofKind(spec.ops, "text")[0] as DeckTextOp;
-  assert.equal(text.text, "Plain");
-  assert.equal(text.runs, undefined);
-});
-
 test("bullets op carries parallel itemRuns when present", () => {
   const deck: Deck = {
     themeId: "indigo",
@@ -738,46 +595,9 @@ test("bullets op carries parallel itemRuns when present", () => {
   assert.deepEqual(bullets.itemRuns, [[], [{ text: "two", italic: true }]]);
 });
 
-test("bullets op omits itemRuns when absent", () => {
-  const deck: Deck = {
-    themeId: "indigo",
-    slides: [freeFormSlide(0, [bulletsEl("b1", ["one", "two"])])],
-  };
-  const [spec] = buildDeckSpecs(deck, new Map());
-  const bullets = ofKind(spec.ops, "bullets")[0] as DeckBulletsOp;
-  assert.equal(bullets.itemRuns, undefined);
-});
-
 // ---------------------------------------------------------------------------
 // ConnectorElement export — new first-class connector kind (issue #323)
 // ---------------------------------------------------------------------------
-
-test("a connector element emits a connector op with inch-space endpoints", () => {
-  // 10% of 13.333" = 1.3333", 20% of 7.5" = 1.5"
-  // 80% of 13.333" = 10.6667", 70% of 7.5" = 5.25"
-  const deck: Deck = {
-    themeId: "indigo",
-    slides: [freeFormSlide(0, [connectorEl("c1")])],
-  };
-  const [spec] = buildDeckSpecs(deck, new Map());
-  const ops = ofKind(spec.ops, "connector");
-  assert.equal(ops.length, 1, "one connector op emitted");
-  const op = ops[0] as DeckConnectorOp;
-  assert.ok(Math.abs(op.x1 - 1.333) < 0.01, "x1 ≈ 10% of slide width");
-  assert.ok(Math.abs(op.y1 - 1.5) < 0.01, "y1 ≈ 20% of slide height");
-  assert.ok(Math.abs(op.x2 - 10.666) < 0.01, "x2 ≈ 80% of slide width");
-  assert.ok(Math.abs(op.y2 - 5.25) < 0.01, "y2 ≈ 70% of slide height");
-});
-
-test("connector op color defaults to #a1a1aa when no stroke is set", () => {
-  const deck: Deck = {
-    themeId: "indigo",
-    slides: [freeFormSlide(0, [connectorEl("c2")])],
-  };
-  const [spec] = buildDeckSpecs(deck, new Map());
-  const op = ofKind(spec.ops, "connector")[0] as DeckConnectorOp;
-  assert.equal(op.color, "A1A1AA");
-});
 
 test("connector op inherits custom stroke color and width", () => {
   const deck: Deck = {
@@ -792,26 +612,6 @@ test("connector op inherits custom stroke color and width", () => {
   const op = ofKind(spec.ops, "connector")[0] as DeckConnectorOp;
   assert.equal(op.color, "FF0000");
   assert.ok(op.width > 0, "stroke width is positive");
-});
-
-test("connector op carries arrowEnd and dash when set", () => {
-  const deck: Deck = {
-    themeId: "indigo",
-    slides: [
-      freeFormSlide(0, [
-        connectorEl("c4", {
-          arrowEnd: "filled",
-          dash: true,
-          arrowStart: "none",
-        }),
-      ]),
-    ],
-  };
-  const [spec] = buildDeckSpecs(deck, new Map());
-  const op = ofKind(spec.ops, "connector")[0] as DeckConnectorOp;
-  assert.equal(op.arrowEnd, "filled");
-  assert.equal(op.arrowStart, "none");
-  assert.equal(op.dash, true);
 });
 
 test("connector op with bound endpoints resolves to element anchor positions", () => {
@@ -970,79 +770,6 @@ test("placeholder elements export as labeled placeholder ops instead of dropping
 // Multi-level bullets / numbered lists (#335)
 // ---------------------------------------------------------------------------
 
-test("bullets op carries itemDetails when items have indent or listType", () => {
-  const deck: Deck = {
-    themeId: "indigo",
-    slides: [
-      freeFormSlide(0, [
-        bulletsEl("b", ["one", "two", "three"], {
-          items: [
-            { text: "one", indent: 0, listType: "bullet" },
-            { text: "two", indent: 1, listType: "number" },
-            { text: "three", indent: 2, listType: "bullet" },
-          ],
-        }),
-      ]),
-    ],
-  };
-  const [spec] = buildDeckSpecs(deck, new Map());
-  const op = ofKind(spec.ops, "bullets")[0] as DeckBulletsOp;
-  assert.deepEqual(op.items, ["one", "two", "three"]);
-  assert.ok(op.itemDetails, "itemDetails present");
-  assert.equal(op.itemDetails?.[0].indent, 0);
-  assert.equal(op.itemDetails?.[1].indent, 1);
-  assert.equal(op.itemDetails?.[1].listType, "number");
-  assert.equal(op.itemDetails?.[2].indent, 2);
-});
-
-test("bullets op omits itemDetails for a flat bullet list", () => {
-  const deck: Deck = {
-    themeId: "indigo",
-    slides: [freeFormSlide(0, [bulletsEl("b", ["alpha", "beta"])])],
-  };
-  const [spec] = buildDeckSpecs(deck, new Map());
-  const op = ofKind(spec.ops, "bullets")[0] as DeckBulletsOp;
-  assert.deepEqual(op.items, ["alpha", "beta"]);
-  assert.equal(op.itemDetails, undefined);
-});
-
-test("bullets op uses items[] text when element has items field", () => {
-  const deck: Deck = {
-    themeId: "indigo",
-    slides: [
-      freeFormSlide(0, [
-        bulletsEl("b", ["mirrored text"], {
-          items: [{ text: "authoritative text", indent: 0 }],
-        }),
-      ]),
-    ],
-  };
-  const [spec] = buildDeckSpecs(deck, new Map());
-  const op = ofKind(spec.ops, "bullets")[0] as DeckBulletsOp;
-  assert.deepEqual(op.items, ["authoritative text"]);
-});
-
-test("bullets op numbered list carries all items as number listType", () => {
-  const deck: Deck = {
-    themeId: "indigo",
-    slides: [
-      freeFormSlide(0, [
-        bulletsEl("b", ["step 1", "step 2"], {
-          items: [
-            { text: "step 1", listType: "number" },
-            { text: "step 2", listType: "number" },
-          ],
-        }),
-      ]),
-    ],
-  };
-  const [spec] = buildDeckSpecs(deck, new Map());
-  const op = ofKind(spec.ops, "bullets")[0] as DeckBulletsOp;
-  assert.ok(op.itemDetails, "itemDetails present for numbered list");
-  assert.equal(op.itemDetails?.[0].listType, "number");
-  assert.equal(op.itemDetails?.[1].listType, "number");
-});
-
 test("bullets op carries both itemRuns and itemDetails for rich numbered/indented items", () => {
   const deck: Deck = {
     themeId: "indigo",
@@ -1077,37 +804,6 @@ test("bullets op carries both itemRuns and itemDetails for rich numbered/indente
 // Hidden / locked / grouped elements (issue #379)
 // ---------------------------------------------------------------------------
 
-test("a hidden text element produces no ops", () => {
-  const deck: Deck = {
-    themeId: "default",
-    slides: [
-      freeFormSlide(0, [
-        fixtureTextElement("t-hidden", "ghost", { hidden: true }),
-      ]),
-    ],
-  };
-
-  const [spec] = buildDeckSpecs(deck, new Map());
-  assert.equal(spec.ops.length, 0, "hidden element must not produce any ops");
-});
-
-test("a hidden element is dropped while its visible sibling on the same slide is kept", () => {
-  const deck: Deck = {
-    themeId: "default",
-    slides: [
-      freeFormSlide(0, [
-        fixtureTextElement("t-visible", "visible"),
-        fixtureTextElement("t-hidden", "hidden", { hidden: true, zIndex: 1 }),
-      ]),
-    ],
-  };
-
-  const [spec] = buildDeckSpecs(deck, new Map());
-  const texts = ofKind(spec.ops, "text");
-  assert.equal(texts.length, 1, "only the visible text op survives");
-  assert.equal(texts[0]?.text, "visible");
-});
-
 test("a hidden image and a hidden shape both produce no ops", () => {
   const deck: Deck = {
     themeId: "default",
@@ -1123,29 +819,6 @@ test("a hidden image and a hidden shape both produce no ops", () => {
   assert.equal(spec.ops.length, 0, "all hidden elements dropped");
 });
 
-test("a locked text element exports identically to an unlocked one", () => {
-  const unlockedDeck: Deck = {
-    themeId: "default",
-    slides: [freeFormSlide(0, [fixtureTextElement("t", "hello")])],
-  };
-  const lockedDeck: Deck = {
-    themeId: "default",
-    slides: [
-      freeFormSlide(0, [fixtureTextElement("t", "hello", { locked: true })]),
-    ],
-  };
-
-  const [uSpec] = buildDeckSpecs(unlockedDeck, new Map());
-  const [lSpec] = buildDeckSpecs(lockedDeck, new Map());
-  const uText = ofKind(uSpec.ops, "text")[0] as DeckTextOp;
-  const lText = ofKind(lSpec.ops, "text")[0] as DeckTextOp;
-
-  assert.ok(uText && lText, "both produce text ops");
-  assert.equal(lText.text, uText.text);
-  assert.equal(lText.x, uText.x);
-  assert.equal(lText.w, uText.w);
-});
-
 test("a locked shape exports with full geometry (lock is editor-only)", () => {
   const deck: Deck = {
     themeId: "default",
@@ -1154,30 +827,6 @@ test("a locked shape exports with full geometry (lock is editor-only)", () => {
 
   const [spec] = buildDeckSpecs(deck, new Map());
   assert.equal(ofKind(spec.ops, "shape").length, 1, "locked shape produces op");
-});
-
-test("grouped elements each emit their own op (group membership is flattened in export)", () => {
-  const deck: Deck = {
-    themeId: "default",
-    slides: [
-      freeFormSlide(0, [
-        fixtureTextElement("t1", "Group member A", { groupId: "g1" }),
-        fixtureTextElement("t2", "Group member B", {
-          groupId: "g1",
-          zIndex: 1,
-        }),
-        fixtureTextElement("t3", "No group", { zIndex: 2 }),
-      ]),
-    ],
-  };
-
-  const [spec] = buildDeckSpecs(deck, new Map());
-  const texts = ofKind(spec.ops, "text");
-  assert.equal(texts.length, 3, "all three elements produce ops");
-  assert.deepEqual(
-    texts.map((t) => t.text),
-    ["Group member A", "Group member B", "No group"],
-  );
 });
 
 test("grouped shapes export in z-order and preserve geometry", () => {
@@ -1210,24 +859,6 @@ test("grouped shapes export in z-order and preserve geometry", () => {
 // Background gradient and image (issue #379)
 // ---------------------------------------------------------------------------
 
-test("backgroundGradient: spec.background uses the 'from' stop color", () => {
-  const deck: Deck = {
-    themeId: "default",
-    slides: [
-      freeFormSlide(0, [fixtureTextElement("t", "Gradient bg")], {
-        backgroundGradient: { from: "#112233", to: "#aabbcc" },
-      }),
-    ],
-  };
-
-  const [spec] = buildDeckSpecs(deck, new Map());
-  assert.equal(
-    spec.background,
-    "112233",
-    "gradient from-stop used as PPTX background",
-  );
-});
-
 test("backgroundGradient takes precedence over explicit background color", () => {
   // The cascade resolves: image > gradient > solid, so when both backgroundGradient
   // and background are set, the gradient wins and its 'from' stop is used as the
@@ -1244,25 +875,6 @@ test("backgroundGradient takes precedence over explicit background color", () =>
 
   const [spec] = buildDeckSpecs(deck, new Map());
   assert.equal(spec.background, "334455");
-});
-
-test("backgroundImage is forwarded verbatim to the slide spec", () => {
-  const dataUrl = "data:image/jpeg;base64,JFIF";
-  const deck: Deck = {
-    themeId: "default",
-    slides: [
-      freeFormSlide(0, [fixtureTextElement("t", "Image bg")], {
-        backgroundImage: dataUrl,
-      }),
-    ],
-  };
-
-  const [spec] = buildDeckSpecs(deck, new Map());
-  assert.equal(
-    spec.backgroundImage,
-    dataUrl,
-    "backgroundImage verbatim in spec",
-  );
 });
 
 test("slide without any background override uses the theme default", () => {
@@ -1282,53 +894,6 @@ test("slide without any background override uses the theme default", () => {
 // ---------------------------------------------------------------------------
 // sourceRef metadata (issue #379)
 // ---------------------------------------------------------------------------
-
-test("text element with an active sourceRef still emits a normal text op", () => {
-  const deck: Deck = {
-    themeId: "default",
-    slides: [
-      freeFormSlide(0, [
-        fixtureTextElement("t-linked", "Source-linked text", {
-          sourceRef: {
-            documentId: "doc-x",
-            blockId: "blk-1",
-            contentHash: "deadbeef",
-            linkedAt: "2026-01-01T00:00:00Z",
-            blockKind: "text",
-          },
-        }),
-      ]),
-    ],
-  };
-
-  const [spec] = buildDeckSpecs(deck, new Map());
-  const text = ofKind(spec.ops, "text")[0] as DeckTextOp;
-  assert.ok(text, "text op emitted");
-  assert.equal(text.text, "Source-linked text");
-});
-
-test("bullets element with sourceRef still emits a normal bullets op", () => {
-  const deck: Deck = {
-    themeId: "default",
-    slides: [
-      freeFormSlide(0, [
-        bulletsEl("b-linked", ["alpha", "beta"], {
-          sourceRef: {
-            documentId: "doc-x",
-            blockId: "blk-2",
-            linkedAt: "2026-01-01T00:00:00Z",
-            blockKind: "text",
-          },
-        }),
-      ]),
-    ],
-  };
-
-  const [spec] = buildDeckSpecs(deck, new Map());
-  const bullets = ofKind(spec.ops, "bullets")[0] as DeckBulletsOp;
-  assert.ok(bullets, "bullets op emitted");
-  assert.deepEqual(bullets.items, ["alpha", "beta"]);
-});
 
 test("image element with sourceRef still emits a normal image op", () => {
   const deck: Deck = {
@@ -1353,33 +918,6 @@ test("image element with sourceRef still emits a normal image op", () => {
     1,
     "image op emitted with sourceRef",
   );
-});
-
-test("element with unlinked=true sourceRef exports normally (unlinked is metadata-only)", () => {
-  const deck: Deck = {
-    themeId: "default",
-    slides: [
-      freeFormSlide(0, [
-        fixtureTextElement("t-unlinked", "Detached", {
-          sourceRef: {
-            documentId: "doc-x",
-            blockId: "blk-4",
-            linkedAt: "2026-01-01T00:00:00Z",
-            unlinked: true,
-            blockKind: "text",
-          },
-        }),
-      ]),
-    ],
-  };
-
-  const [spec] = buildDeckSpecs(deck, new Map());
-  assert.equal(
-    ofKind(spec.ops, "text").length,
-    1,
-    "unlinked element still exports",
-  );
-  assert.equal(ofKind(spec.ops, "text")[0]?.text, "Detached");
 });
 
 test("exported text inherits the deck-template role font when no element override (#606)", () => {
