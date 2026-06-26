@@ -24,7 +24,7 @@ import {
   recentFlushFailures,
 } from "./collab-core.mjs";
 import {
-  buildCollabHealthSummary,
+  createCollabHealthHandler,
   createRuntimeAuthorizer,
   createRuntimeEvictionFlusher,
   emitDeploymentDiagnostics,
@@ -47,17 +47,19 @@ if (
   process.exit(1);
 }
 
+const collabHealthHandler = createCollabHealthHandler({
+  deploymentConfig,
+  getStats: () => ({
+    rooms: roomCount(),
+    connections: connCount(),
+    flushFailures: flushStats().flushFailures,
+    recentFlushFailures: recentFlushFailures(),
+  }),
+});
+
 const server = http.createServer((req, res) => {
   if (req.url === "/health") {
-    const summary = buildCollabHealthSummary({
-      deploymentConfig,
-      rooms: roomCount(),
-      connections: connCount(),
-      flushFailures: flushStats().flushFailures,
-      recentFlushFailures: recentFlushFailures(),
-    });
-    res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify(summary));
+    collabHealthHandler(req, res);
     return;
   }
   res.writeHead(200, { "content-type": "text/plain" });

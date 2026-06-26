@@ -14,13 +14,9 @@
  * refuses the upgrade so a transient outage can never silently grant access.
  */
 import { logScriptError } from "./structured-log.mjs";
+import { readPositiveInt } from "./collab-utils.mjs";
 
 const DEFAULT_AUTHORIZE_TIMEOUT_MS = 5000;
-
-const readPositiveInt = (value, fallback) => {
-  const parsed = Number.parseInt(String(value ?? ""), 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-};
 
 /**
  * @typedef {Object} CollabUpgradeDecision

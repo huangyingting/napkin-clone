@@ -19,6 +19,7 @@ import * as decoding from "lib0/decoding";
 import * as map from "lib0/map";
 import { WebSocketServer } from "ws";
 import { logScriptError } from "./structured-log.mjs";
+import { readPositiveInt } from "./collab-utils.mjs";
 
 const PING_TIMEOUT = 30000;
 const DEFAULT_MAX_CONNECTIONS_PER_ROOM = 50;
@@ -29,34 +30,29 @@ const DEFAULT_MESSAGE_WINDOW_MS = 10_000;
 const DEFAULT_MAX_AWARENESS_BYTES = 16 * 1024;
 const DEFAULT_ACCESS_REVALIDATE_MS = 60_000;
 
-const readPositiveInt = (name, fallback) => {
-  const parsed = Number.parseInt(process.env[name] ?? "", 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-};
-
 const collabLimits = () => ({
   maxConnectionsPerRoom: readPositiveInt(
-    "COLLAB_MAX_CONNECTIONS_PER_ROOM",
+    process.env.COLLAB_MAX_CONNECTIONS_PER_ROOM,
     DEFAULT_MAX_CONNECTIONS_PER_ROOM,
   ),
   maxConnectionsTotal: readPositiveInt(
-    "COLLAB_MAX_CONNECTIONS_TOTAL",
+    process.env.COLLAB_MAX_CONNECTIONS_TOTAL,
     DEFAULT_MAX_CONNECTIONS_TOTAL,
   ),
   maxMessageBytes: readPositiveInt(
-    "COLLAB_MAX_MESSAGE_BYTES",
+    process.env.COLLAB_MAX_MESSAGE_BYTES,
     DEFAULT_MAX_MESSAGE_BYTES,
   ),
   maxMessagesPerWindow: readPositiveInt(
-    "COLLAB_MAX_MESSAGES_PER_WINDOW",
+    process.env.COLLAB_MAX_MESSAGES_PER_WINDOW,
     DEFAULT_MAX_MESSAGES_PER_WINDOW,
   ),
   messageWindowMs: readPositiveInt(
-    "COLLAB_MESSAGE_WINDOW_MS",
+    process.env.COLLAB_MESSAGE_WINDOW_MS,
     DEFAULT_MESSAGE_WINDOW_MS,
   ),
   maxAwarenessBytes: readPositiveInt(
-    "COLLAB_MAX_AWARENESS_BYTES",
+    process.env.COLLAB_MAX_AWARENESS_BYTES,
     DEFAULT_MAX_AWARENESS_BYTES,
   ),
 });
@@ -73,10 +69,13 @@ const clientIpFromUpgrade = (req) => {
 
 const allowUpgradeAttempt = (subject, now = Date.now()) => {
   const limit = readPositiveInt(
-    "COLLAB_UPGRADE_RATE_LIMIT",
+    process.env.COLLAB_UPGRADE_RATE_LIMIT,
     DEFAULT_MAX_MESSAGES_PER_WINDOW,
   );
-  const windowMs = readPositiveInt("COLLAB_UPGRADE_RATE_WINDOW_MS", 60_000);
+  const windowMs = readPositiveInt(
+    process.env.COLLAB_UPGRADE_RATE_WINDOW_MS,
+    60_000,
+  );
   const existing = upgradeWindows.get(subject);
   if (!existing || now >= existing.resetAt) {
     upgradeWindows.set(subject, { count: 1, resetAt: now + windowMs });
@@ -616,7 +615,7 @@ const setupConnection = (
             }
           },
           readPositiveInt(
-            "COLLAB_ACCESS_REVALIDATE_MS",
+            process.env.COLLAB_ACCESS_REVALIDATE_MS,
             DEFAULT_ACCESS_REVALIDATE_MS,
           ),
         )

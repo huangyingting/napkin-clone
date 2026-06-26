@@ -36,11 +36,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function validateDeckContract(value: unknown): ContractValidationResult {
-  if (typeof value === "string") {
-    return fail(
-      "Serialized deck JSON strings are persisted-schema drift; deckJson must be a parsed JSON object.",
-    );
-  }
   const parsed = safeParseDeck(value);
   return parsed.success ? ok() : fail(parsed.error);
 }
