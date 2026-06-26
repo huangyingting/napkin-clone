@@ -76,7 +76,7 @@ export function useSlideElementCommands({
             : undefined,
       );
     },
-    [deck, onDeckChange, safeSelected],
+    [deck, onDeckChange, pendingPatchesRef, safeSelected],
   );
 
   const handleSetElementBoxes = useCallback(
@@ -100,7 +100,7 @@ export function useSlideElementCommands({
             : undefined,
       );
     },
-    [deck, onDeckChange, safeSelected],
+    [deck, onDeckChange, pendingPatchesRef, safeSelected],
   );
 
   const handleSetElementPatches = useCallback(
@@ -124,7 +124,7 @@ export function useSlideElementCommands({
             : undefined,
       );
     },
-    [deck, onDeckChange, safeSelected],
+    [deck, onDeckChange, pendingPatchesRef, safeSelected],
   );
 
   const handleGroupElements = useCallback(
@@ -167,7 +167,14 @@ export function useSlideElementCommands({
       setSelectedElementIds(focusTarget ? new Set([focusTarget]) : new Set());
       requestElementFocus(focusTarget);
     },
-    [deck, doCommitAndChange, requestElementFocus, safeSelected],
+    [
+      deck,
+      doCommitAndChange,
+      requestElementFocus,
+      safeSelected,
+      setSelectedElementId,
+      setSelectedElementIds,
+    ],
   );
 
   const handleDuplicateElement = useCallback(
@@ -187,7 +194,7 @@ export function useSlideElementCommands({
       );
       if (newId) handleSelectElement(newId);
     },
-    [deck, onDeckChange, safeSelected, handleSelectElement],
+    [deck, handleSelectElement, onDeckChange, pendingPatchesRef, safeSelected],
   );
 
   const handleBringToFront = useCallback(

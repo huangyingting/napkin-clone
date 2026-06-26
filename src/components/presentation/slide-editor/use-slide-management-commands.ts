@@ -60,7 +60,7 @@ export function useSlideManagementCommands({
       });
       setSelectedIndex(index + (direction > 0 ? 1 : -1));
     },
-    [deck, onDeckChange, setSelectedIndex],
+    [deck, onDeckChange, pendingPatchesRef, setSelectedIndex],
   );
 
   const handleDuplicate = useCallback(
@@ -81,7 +81,7 @@ export function useSlideManagementCommands({
       });
       setSelectedIndex(index + 1);
     },
-    [deck, onDeckChange, setSelectedIndex],
+    [deck, onDeckChange, pendingPatchesRef, setSelectedIndex],
   );
 
   const handleRemove = useCallback(
@@ -104,7 +104,7 @@ export function useSlideManagementCommands({
         Math.max(0, Math.min(current, deck.slides.length - 2)),
       );
     },
-    [deck, onDeckChange, setSelectedIndex],
+    [deck, onDeckChange, pendingPatchesRef, setSelectedIndex],
   );
 
   const handleNotesChange = useCallback(
@@ -128,7 +128,7 @@ export function useSlideManagementCommands({
             : undefined,
       );
     },
-    [deck, onDeckChange],
+    [deck, onDeckChange, pendingPatchesRef],
   );
 
   const handleApplyReusableLayout = useCallback(

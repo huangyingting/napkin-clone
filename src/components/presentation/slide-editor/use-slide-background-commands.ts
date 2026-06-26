@@ -250,7 +250,7 @@ export function useSlideBackgroundCommands({
       }
       setThemeMenuOpen(false);
     },
-    [deck, onDeckChange, setThemeMenuOpen],
+    [deck, onDeckChange, pendingPatchesRef, setThemeMenuOpen],
   );
 
   const applyDeckGradientBackground = useCallback(
@@ -302,7 +302,7 @@ export function useSlideBackgroundCommands({
       }
       setThemeMenuOpen(false);
     },
-    [deck, onDeckChange, setThemeMenuOpen],
+    [deck, onDeckChange, pendingPatchesRef, setThemeMenuOpen],
   );
 
   const handleBackgroundChange = useCallback(

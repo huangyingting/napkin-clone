@@ -30,6 +30,7 @@ import type { StaleReason } from "@/lib/presentation/source-link-staleness";
 import type { SlideAssetActionPort } from "@/lib/action-ports";
 import type { Visual } from "@/lib/visual/schema";
 import type { SelectionMode } from "@/components/presentation/slide-stage-editor";
+import type { InspectorMode } from "@/lib/presentation/slide-panel-ui";
 
 export interface SlideEditorContextValue {
   // ── Deck / slide state ────────────────────────────────────────────────
@@ -46,6 +47,8 @@ export interface SlideEditorContextValue {
   effectiveSelectedElementIds: ReadonlySet<string>;
   handleSelectElement: (id: string | null, mode?: SelectionMode) => void;
   handleSelectElements: (ids: string[], additive?: boolean) => void;
+  editingElementId: string | null;
+  handleEditingElementChange: (elementId: string | null) => void;
 
   // ── Stage layout ──────────────────────────────────────────────────────
   renderedStageWidth: number;
@@ -83,6 +86,11 @@ export interface SlideEditorContextValue {
   handleDuplicateElement: (id: string) => void;
   handleBringToFront: (id: string) => void;
   handleSendToBack: (id: string) => void;
+  handleDuplicateSelectedElements: () => void;
+  handleRemoveSelectedElements: () => void;
+  handleReplaceSelectedImage: (id: string) => void;
+  handleReplaceSelectedVisual: (id: string) => void;
+  handleRestyleSelectedVisual: (id: string) => void;
   handleSetElementHidden: (id: string, hidden: boolean) => void;
   handleSetElementLocked: (id: string, locked: boolean) => void;
   handleMoveElementZOrder: (id: string, direction: "up" | "down") => void;
@@ -129,6 +137,8 @@ export interface SlideEditorContextValue {
 
   // ── Right panel ───────────────────────────────────────────────────────
   rightPanelTab: RightPanelTab;
+  inspectorMode: InspectorMode;
+  setInspectorMode: (mode: InspectorMode) => void;
   openRightPanel: (tab: RightPanelTab) => void;
   closeRightPanel: () => void;
 }
@@ -160,6 +170,7 @@ import { SlideInspector } from "@/components/presentation/slide-inspector";
 import { SlideSelectionToolbar } from "@/components/presentation/slide-editor/selection-toolbar";
 import { shouldCollapseToolbar } from "@/lib/presentation/slide-panel-ui";
 import { selectSelectedElement } from "@/components/presentation/slide-editor/slide-editor-view-model";
+import { selectionBoundingBox } from "@/lib/presentation/selection-transform";
 
 /** Renders SlideStageEditor with all data sourced from SlideEditorContext. */
 export const SlideStageEditorFromContext = memo(
@@ -178,6 +189,7 @@ export const SlideStageEditorFromContext = memo(
       effectiveSelectedElementIds,
       handleSelectElement,
       handleSelectElements,
+      handleEditingElementChange,
       handleUpdateElement,
       handleDuplicateElement,
       handleRemoveElement,
@@ -222,6 +234,7 @@ export const SlideStageEditorFromContext = memo(
         onSetElementPatches={handleSetElementPatches}
         onGroupElements={handleGroupElements}
         onUngroupElements={handleUngroupElements}
+        onEditingElementChange={handleEditingElementChange}
         snapToGrid={snapToGrid}
         brandSwatches={brandSwatches}
         onAddTextElement={handleAddTextElement}
@@ -287,6 +300,8 @@ export const SlideInspectorFromContext = memo(
       handlePanelRelinkElementSource,
       documentId,
       slideAssetPort,
+      inspectorMode,
+      setInspectorMode,
     } = useSlideEditorContext();
 
     if (!selectedSlide) return null;
@@ -332,6 +347,8 @@ export const SlideInspectorFromContext = memo(
         onRelinkElementSource={handlePanelRelinkElementSource}
         documentId={documentId}
         slideAssetPort={slideAssetPort}
+        inspectorMode={inspectorMode}
+        onInspectorModeChange={setInspectorMode}
         className={className}
         initialTab={initialTab}
         onClose={onClose}
@@ -355,6 +372,11 @@ export const SlideSelectionToolbarFromContext = memo(
       handleRemoveElement,
       handleBringToFront,
       handleSendToBack,
+      handleDuplicateSelectedElements,
+      handleRemoveSelectedElements,
+      handleReplaceSelectedImage,
+      handleReplaceSelectedVisual,
+      handleRestyleSelectedVisual,
       handleAlign,
       handleDistribute,
       handleMatchSize,
@@ -362,6 +384,7 @@ export const SlideSelectionToolbarFromContext = memo(
       handleGroupElements,
       handleUngroupElements,
       stageBounds,
+      editingElementId,
     } = useSlideEditorContext();
 
     const selectedElement = useMemo(
@@ -404,6 +427,20 @@ export const SlideSelectionToolbarFromContext = memo(
         ? groupId
         : null;
     }, [effectiveSelectedElementIds, selectedSlide?.elements]);
+    const anchor = useMemo(() => {
+      const selected = (selectedSlide?.elements ?? []).filter((element) =>
+        effectiveSelectedElementIds.has(element.id),
+      );
+      if (selected.length === 0) return undefined;
+      const box = selectionBoundingBox(selected.map((element) => element.box));
+      const leftPct = Math.min(96, Math.max(4, box.x + box.w / 2));
+      const canFitAbove = box.y >= 9;
+      return {
+        leftPct,
+        topPct: canFitAbove ? box.y : box.y + box.h,
+        placement: canFitAbove ? "above" : "below",
+      } as const;
+    }, [effectiveSelectedElementIds, selectedSlide?.elements]);
 
     return (
       <SlideSelectionToolbar
@@ -431,13 +468,17 @@ export const SlideSelectionToolbarFromContext = memo(
         onUngroupSelected={() => {
           if (selectedGroupId) handleUngroupElements(selectedGroupId);
         }}
-        onDuplicateSelected={() => undefined}
-        onRemoveSelected={() => undefined}
-        onReplaceImage={() => undefined}
-        onReplaceVisual={() => undefined}
-        onRestyleVisual={() => undefined}
+        onDuplicateSelected={handleDuplicateSelectedElements}
+        onRemoveSelected={handleRemoveSelectedElements}
+        onReplaceImage={handleReplaceSelectedImage}
+        onReplaceVisual={handleReplaceSelectedVisual}
+        onRestyleVisual={handleRestyleSelectedVisual}
+        anchor={anchor}
         selectedGroupId={selectedGroupId}
-        isEditingText={false}
+        isEditingText={
+          selectedElement?.kind === "text" &&
+          selectedElement.id === editingElementId
+        }
         compact={shouldCollapseToolbar(stageBounds.width)}
       />
     );
