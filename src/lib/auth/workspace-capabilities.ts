@@ -31,16 +31,19 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { asWorkspaceRole } from "@/lib/workspace/roles";
 import {
-  allowAccess,
   denyAccess,
   type AccessDecision,
   type AccessDeniedDecision,
 } from "@/lib/access-policy/taxonomy";
+import {
+  type ResourceRole,
+  createPermissionBuilder,
+  deriveRoleFromOwnerAndMembers,
+} from "./permission-builder";
 
 /** Effective role of a user for a single workspace. */
-export type WorkspaceRole = "owner" | "editor" | "viewer" | "none";
+export type WorkspaceRole = ResourceRole;
 
 /** A workspace capability that a mutation/action can require. */
 export type WorkspaceCapability = "view" | "mutate" | "manage";
@@ -97,54 +100,37 @@ export class WorkspacePermissionError extends Error {
  * `viewer`, and a user with no relationship gets `none`.
  *
  * Unknown/garbled membership role strings are coerced to the least-privilege
- * `VIEWER` via {@link asWorkspaceRole}.
+ * `VIEWER` via the shared {@link deriveRoleFromOwnerAndMembers} helper.
  */
 export function deriveWorkspaceRole(
   workspace: WorkspaceRoleInput,
   userId: string,
 ): WorkspaceRole {
-  if (workspace.ownerId === userId) {
-    return "owner";
-  }
-
-  const membership = workspace.members.find(
-    (member) => member.userId === userId,
+  return deriveRoleFromOwnerAndMembers(
+    workspace.ownerId,
+    workspace.members,
+    userId,
   );
-  if (membership) {
-    const role = asWorkspaceRole(membership.role);
-    if (role === "OWNER") {
-      // OWNER role in a member row is treated as workspace owner (same as
-      // document-permissions.ts treats OWNER-role members).
-      return "owner";
-    }
-    if (role === "EDITOR") {
-      return "editor";
-    }
-    return "viewer";
-  }
-
-  return "none";
 }
+
+/** Permission-builder instance for the workspace resource type. */
+const _wsBuilder = createPermissionBuilder({
+  resource: "workspace",
+  midCapKey: "canMutate" as const,
+  midCapMode: "mutate" as const,
+  messages: {
+    notFound: "Workspace not found.",
+    midCapDenied:
+      "Only workspace owners and editors may create or import documents.",
+    manageDenied: "Only the workspace owner may perform this action.",
+  },
+});
 
 /** Maps a {@link WorkspaceRole} to its concrete capability flags. */
 export function capabilitiesForWorkspaceRole(
   role: WorkspaceRole,
 ): WorkspaceCapabilities {
-  switch (role) {
-    case "owner":
-      return { role, canView: true, canMutate: true, canManage: true };
-    case "editor":
-      return { role, canView: true, canMutate: true, canManage: false };
-    case "viewer":
-      return { role, canView: true, canMutate: false, canManage: false };
-    default:
-      return {
-        role: "none",
-        canView: false,
-        canMutate: false,
-        canManage: false,
-      };
-  }
+  return _wsBuilder.capabilitiesForRole(role);
 }
 
 /**
@@ -187,39 +173,7 @@ export function workspaceCapabilityAccessDecision(
   capabilities: WorkspaceCapabilities,
   capability: WorkspaceCapability,
 ): AccessDecision {
-  if (!capabilities.canView) {
-    return denyAccess({
-      resource: { kind: "workspace" },
-      capability,
-      reason: "resource-not-found",
-      status: 404,
-      safeMessage: "Workspace not found.",
-      concealResource: true,
-    });
-  }
-  if (capability === "mutate" && !capabilities.canMutate) {
-    return denyAccess({
-      resource: { kind: "workspace" },
-      capability,
-      reason: "insufficient-capability",
-      status: 403,
-      safeMessage:
-        "Only workspace owners and editors may create or import documents.",
-      concealResource: false,
-    });
-  }
-  if (capability === "manage" && !capabilities.canManage) {
-    return denyAccess({
-      resource: { kind: "workspace" },
-      capability,
-      reason: "insufficient-capability",
-      status: 403,
-      safeMessage: "Only the workspace owner may perform this action.",
-      concealResource: false,
-    });
-  }
-
-  return allowAccess({ resource: { kind: "workspace" }, capability });
+  return _wsBuilder.capabilityAccessDecision(capabilities, capability);
 }
 
 /**
