@@ -17,6 +17,8 @@
  */
 
 import type { Deck, ImageElement, SlideElement } from "@/lib/presentation/deck";
+import { normalizeBulletItems } from "@/lib/presentation/deck";
+import { isPrimarilyCjk } from "@/lib/presentation/slide-fonts";
 import type { ExportPolicy } from "@/lib/visual/export-policy";
 import { getFidelity } from "@/lib/visual/export-fidelity";
 import {
@@ -53,6 +55,9 @@ export type PreflightSeverity = "fatal" | "warning";
  *                               could fail at export time.
  * - `oversized-deck`          — the deck exceeds the recommended slide count
  *                               threshold, risking large file size or OOM.
+ * - `font-cjk-mapping`        — editable PPTX maps the self-hosted CJK font to
+ *                               an Office font (e.g. Microsoft YaHei); Chinese
+ *                               text may look slightly different from preview.
  */
 export type PreflightCode =
   | "missing-asset"
@@ -60,7 +65,8 @@ export type PreflightCode =
   | "unsupported-pptx-feature"
   | "raster-fallback"
   | "remote-image-failure"
-  | "oversized-deck";
+  | "oversized-deck"
+  | "font-cjk-mapping";
 
 /** A single preflight finding. */
 export interface PreflightDiagnostic {
@@ -260,41 +266,13 @@ function checkImageElement(
   }
 }
 
-function checkFontUsage(
-  el: SlideElement,
-  slideIndex: number,
-  customFontFamilies: ReadonlySet<string>,
-  diagnostics: PreflightDiagnostic[],
-): void {
-  if (el.kind !== "text" && el.kind !== "bullets" && el.kind !== "shape") {
-    return;
-  }
-  const fontFamily =
-    el.kind === "text" || el.kind === "bullets"
-      ? el.style?.fontFamily
-      : el.textStyle?.fontFamily;
-  if (!fontFamily) return;
-
-  const primary = primaryFontFamily(fontFamily);
-  if (customFontFamilies.has(primary)) {
-    diagnostics.push({
-      severity: "warning",
-      code: "missing-font",
-      message: `Slide ${slideIndex + 1}: custom font "${primary}" is not embedded in PPTX — Office will substitute a system font.`,
-      slideIndex,
-      elementId: el.id,
-      detail: primary,
-    });
-  }
-}
-
 /**
  * Deck-level check (#617): warns when an applied custom deck template (e.g. a
  * brand-derived `customTokenSet`) declares typography fonts that PPTX cannot
- * embed. Resolved template fonts may never appear on an element's own
- * `style.fontFamily`, so the per-element {@link checkFontUsage} would miss
- * them. Gated on the same caller-provided `customFontFamilies` set so behaviour
- * stays predictable and opt-in.
+ * embed. The element-level font override now stores a self-hosted slide
+ * `fontId`, so only template/brand typography can introduce a non-embeddable
+ * custom font. Gated on the caller-provided `customFontFamilies` set so
+ * behaviour stays predictable and opt-in.
  */
 function checkCustomTemplateFonts(
   deck: Deck,
@@ -328,6 +306,45 @@ function checkCustomTemplateFonts(
       });
     }
   }
+}
+
+/** Collects the visible text strings from a slide's text-bearing elements. */
+function slideTextStrings(slide: Deck["slides"][number]): string[] {
+  const out: string[] = [];
+  for (const el of slide.elements ?? []) {
+    if (el.hidden) continue;
+    if (el.kind === "text") {
+      if (el.text) out.push(el.text);
+    } else if (el.kind === "bullets") {
+      for (const item of normalizeBulletItems(el)) out.push(item.text);
+    } else if (el.kind === "shape") {
+      if (el.text) out.push(el.text);
+    }
+  }
+  return out;
+}
+
+/**
+ * Deck-level notice: editable PPTX maps the self-hosted CJK fallback
+ * (`Noto Sans SC`) to an Office CJK font (e.g. Microsoft YaHei). Chinese text
+ * may render slightly differently from the TextIQ preview on the target client.
+ * Emitted once per deck, only when the deck actually contains Chinese text, so
+ * Latin-only decks are unaffected. Non-blocking.
+ */
+function checkCjkFontMapping(
+  deck: Deck,
+  diagnostics: PreflightDiagnostic[],
+): void {
+  const hasCjk = deck.slides.some((slide) =>
+    slideTextStrings(slide).some((text) => isPrimarilyCjk(text)),
+  );
+  if (!hasCjk) return;
+  diagnostics.push({
+    severity: "warning",
+    code: "font-cjk-mapping",
+    message:
+      "Editable PPTX maps fonts to Office-compatible faces. Chinese text may look slightly different from the TextIQ preview on machines without the mapped font.",
+  });
 }
 
 function checkPptxFidelityFeatures(
@@ -431,6 +448,12 @@ export function runExportPreflight(
     checkCustomTemplateFonts(deck, customFontFamilies, diagnostics);
   }
 
+  // Deck-level CJK font-mapping notice: editable PPTX maps the self-hosted CJK
+  // fallback to an Office CJK font, which can differ from the TextIQ preview.
+  if (target === "pptx") {
+    checkCjkFontMapping(deck, diagnostics);
+  }
+
   // Per-slide element checks.
   for (let i = 0; i < deck.slides.length; i++) {
     const slide = deck.slides[i];
@@ -439,10 +462,6 @@ export function runExportPreflight(
     for (const el of elements) {
       if (el.kind === "image") {
         checkImageElement(el, i, target, diagnostics);
-      }
-
-      if (target === "pptx" && customFontFamilies.size > 0) {
-        checkFontUsage(el, i, customFontFamilies, diagnostics);
       }
     }
 

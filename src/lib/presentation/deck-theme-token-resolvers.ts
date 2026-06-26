@@ -30,6 +30,7 @@ import {
   type DeckThemeTokenSet,
   type TextRoleToken,
 } from "./deck-theme-token-types";
+import { ensureCjkFallback } from "./slide-fonts";
 
 /** Type guard: is `value` a known {@link DeckTextRole}? */
 export function isDeckTextRole(value: unknown): value is DeckTextRole {
@@ -169,9 +170,12 @@ export function deriveRoleToken(
 ): TextRoleToken {
   const { typography, colors } = tokenSet;
   const sizeKey = ROLE_TO_SCALE_KEY[role];
-  const fontFamily = HEADING_ROLES.has(role)
+  const baseFamily = HEADING_ROLES.has(role)
     ? (typography.headingFontFamily ?? typography.fontFamily)
     : typography.fontFamily;
+  // Guarantee the self-hosted CJK fallback so Simplified Chinese renders
+  // deterministically across platforms, regardless of the theme/brand font.
+  const fontFamily = ensureCjkFallback(baseFamily);
   const color =
     role === "footer" || role === "caption" ? colors.muted : colors.onBg;
   return {
@@ -200,7 +204,13 @@ export function resolveRoleToken(
   const derived = deriveRoleToken(tokenSet, role);
   const authored = tokenSet.typography.roles?.[role];
   if (!authored) return derived;
-  return { ...derived, ...authored };
+  const merged = { ...derived, ...authored };
+  // Re-apply the CJK fallback in case an authored role token supplied its own
+  // font stack without one.
+  if (authored.fontFamily !== undefined) {
+    merged.fontFamily = ensureCjkFallback(authored.fontFamily);
+  }
+  return merged;
 }
 
 // ---------------------------------------------------------------------------

@@ -22,14 +22,3 @@ export function slideHeightPctToPoints(
 ): ExportPoints {
   return Math.max(minPt, Math.round((percentOfHeight / 100) * slideHeightPt));
 }
-
-export function cssFontStackToExportFontFace(
-  fontFamily: CssFontStack | undefined,
-): string | undefined {
-  if (!fontFamily) return undefined;
-  const first = fontFamily
-    .split(",")
-    .map((part) => part.trim().replace(/^['"]|['"]$/g, ""))
-    .find((part) => part.length > 0);
-  return first && first.toLowerCase() !== "inherit" ? first : undefined;
-}

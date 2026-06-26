@@ -28,6 +28,7 @@ import { ExportWorkflowMessage } from "@/components/visual/export-workflow-chrom
 import { useVisualSvgRegistry } from "@/components/editor/visual-svg-registry";
 import type { DeckFetchPort } from "@/lib/action-ports";
 import { collectDocumentBlocks } from "@/lib/content";
+import { loadSlideFonts } from "@/lib/presentation/slide-font-loading";
 import {
   INFOGRAPHIC_WIDTH_PRESETS,
   DEFAULT_INFOGRAPHIC_CONFIG,
@@ -223,6 +224,8 @@ export function DocumentExportButton({
       const { exportDocumentAsPDF } =
         await import("@/lib/visual/document-export-targets");
       const blocks = await getBlocks();
+      // Load self-hosted slide fonts before rasterizing the PDF pages.
+      await loadSlideFonts();
       const blob = await exportDocumentAsPDF(
         blocks,
         documentTitle || "Untitled",
@@ -301,6 +304,9 @@ export function DocumentExportButton({
         return;
       }
 
+      // Ensure self-hosted slide fonts are loaded before rasterizing so the
+      // exported pixels use the real fonts, not a fallback.
+      await loadSlideFonts();
       const blob = await exportDeckAsSlideImages(deck, visuals, getSvg, {
         format,
       });

@@ -75,7 +75,7 @@ test("renderer/export text adapters keep inherited color and font in parity", ()
 
   assert.equal(renderer.color, "#fafafa");
   assert.equal(exported.color, "#fafafa");
-  assert.equal(renderer.fontFamily, "Oswald, sans-serif");
+  assert.equal(renderer.fontFamily, "Oswald, 'Noto Sans SC', sans-serif");
   assert.equal(exported.fontFace, "Oswald");
   assert.equal(renderer.resolved.origin.color, "deck");
   assert.equal(exported.resolved.origin.fontFamily, "deck");
@@ -85,7 +85,7 @@ test("renderer/export text adapters track local override origin consistently", (
   const element = textElement({
     styleOverride: {
       color: "#00ff00",
-      fontFamily: "Arial, sans-serif",
+      fontId: "inter",
       bold: false,
       italic: true,
     },
@@ -96,8 +96,8 @@ test("renderer/export text adapters track local override origin consistently", (
 
   assert.equal(renderer.color, "#00ff00");
   assert.equal(exported.color, "#00ff00");
-  assert.equal(renderer.fontFamily, "Arial, sans-serif");
-  assert.equal(exported.fontFace, "Arial");
+  assert.equal(renderer.fontFamily, "'Inter', 'Noto Sans SC', sans-serif");
+  assert.equal(exported.fontFace, "Aptos");
   assert.equal(renderer.fontWeight, 400);
   assert.equal(exported.bold, false);
   assert.equal(exported.italic, true);

@@ -47,9 +47,7 @@ export function buildTextStyle(
       ? { paragraphSpacing: overrides.paragraphSpacing }
       : {}),
     ...(overrides.color !== undefined ? { color: overrides.color } : {}),
-    ...(overrides.fontFamily !== undefined
-      ? { fontFamily: overrides.fontFamily }
-      : {}),
+    ...(overrides.fontId !== undefined ? { fontId: overrides.fontId } : {}),
   };
 }
 

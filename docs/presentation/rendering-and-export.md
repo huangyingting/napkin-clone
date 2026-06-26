@@ -104,7 +104,8 @@ Current diagnostic categories:
 | Code                       | Severity | Meaning                                                           |
 | -------------------------- | -------- | ----------------------------------------------------------------- |
 | `missing-asset`            | fatal    | An image element has no resolvable source.                        |
-| `missing-font`             | warning  | PPTX cannot embed a custom font used by text/bullets.             |
+| `missing-font`             | warning  | A deck-template/brand typography font is not embeddable in PPTX.  |
+| `font-cjk-mapping`         | warning  | Editable PPTX maps the self-hosted CJK font to an Office face.    |
 | `unsupported-pptx-feature` | warning  | A used feature has partial or unsupported PPTX fidelity.          |
 | `raster-fallback`          | warning  | An image feature will rasterize rather than remain vector/native. |
 | `remote-image-failure`     | warning  | A remote image may fail during export.                            |
@@ -112,6 +113,31 @@ Current diagnostic categories:
 
 Callers decide whether to block export based on `hasFatal` / `canExport` and
 surface warnings separately.
+
+## Slide Fonts
+
+Slide typography uses self-hosted fonts from the registry in
+[`src/lib/presentation/slide-fonts.ts`](../../src/lib/presentation/slide-fonts.ts),
+served from `public/fonts/slides/` and loaded via
+[`src/app/slide-fonts.css`](../../src/app/slide-fonts.css). This keeps rendering
+deterministic across platforms.
+
+- Element font selection is a stable `fontId` (`TextElementStyle.fontId`); the
+  cascade resolves it to a CSS stack via `slideFontCssStack`.
+- Deck/theme typography stays as CSS stacks. Every resolved role token gets the
+  self-hosted CJK fallback (`Noto Sans SC`) appended by `ensureCjkFallback` in
+  the token resolver, so Simplified Chinese renders deterministically even for
+  theme-default text.
+- Editable PPTX export maps registry fonts to Office-compatible faces
+  (`slideFontExportFace`), choosing the CJK face for primarily-Chinese text.
+  Preflight emits a non-blocking `font-cjk-mapping` notice when the deck
+  contains Chinese text.
+- Rasterized exports (PDF, per-slide PNG) and present mode await
+  `loadSlideFonts()` so output/first paint use the real fonts. The shrink-to-fit
+  measurement re-runs once fonts are ready.
+
+For the full design and scope, see
+[slide-fonts-design.md](slide-fonts-design.md).
 
 ## Slide Format And Geometry
 

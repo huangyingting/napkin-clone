@@ -2,6 +2,7 @@ import type { JSX } from "react";
 
 import type { ShapeElement, SlideElement } from "@/lib/presentation/deck";
 import type { ShapeToken } from "@/lib/presentation/deck-theme-tokens";
+import { resolveElementFontCss } from "@/lib/presentation/slide-fonts";
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 
 import { boxStyle, contrastTextColor, renderRuns } from "./primitives";
@@ -16,6 +17,7 @@ function ShapeText({ element }: { element: ShapeElement }): JSX.Element | null {
     align: "center" as const,
   };
   const color = style.color ?? contrastTextColor(element.color);
+  const fontCss = resolveElementFontCss(style.fontId);
   return (
     <div
       style={{
@@ -29,7 +31,7 @@ function ShapeText({ element }: { element: ShapeElement }): JSX.Element | null {
         fontWeight: style.bold ? 700 : 400,
         fontStyle: style.italic ? "italic" : "normal",
         ...(style.underline ? { textDecoration: "underline" } : {}),
-        ...(style.fontFamily ? { fontFamily: style.fontFamily } : {}),
+        ...(fontCss ? { fontFamily: fontCss } : {}),
         textAlign: style.align,
         lineHeight: 1.15,
         whiteSpace: "pre-wrap",

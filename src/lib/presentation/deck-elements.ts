@@ -94,8 +94,12 @@ export interface TextElementStyle {
   paragraphSpacing?: number;
   /** Optional hex color override; falls back to the theme color when unset. */
   color?: string;
-  /** Optional CSS font-family stack; falls back to the base/theme font. */
-  fontFamily?: string;
+  /**
+   * Optional slide font id (see `slide-fonts.ts`). Selects a self-hosted,
+   * cross-platform font for this element; falls back to the theme/role font
+   * when unset. Replaces the legacy free-form `fontFamily` CSS stack.
+   */
+  fontId?: string;
 }
 
 export type ShapeKind = "rect" | "ellipse" | "line" | "triangle";

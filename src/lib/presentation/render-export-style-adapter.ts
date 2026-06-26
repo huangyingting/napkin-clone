@@ -16,11 +16,8 @@ import {
   resolveTextElementStyle,
   type ResolvedTextStyle,
 } from "./style-cascade";
-import {
-  cssFontStackToExportFontFace,
-  slideHeightPctToPoints,
-  type ExportPoints,
-} from "./style-units";
+import { slideFontExportFace } from "./slide-fonts";
+import { slideHeightPctToPoints, type ExportPoints } from "./style-units";
 
 export interface RendererTextStyleAdapter {
   color: string;
@@ -73,7 +70,7 @@ function exportFromResolved(
   resolved: ResolvedTextStyle,
   slideHeightPt: number,
 ): ExportTextStyleAdapter {
-  const fontFace = cssFontStackToExportFontFace(resolved.fontFamily);
+  const fontFace = slideFontExportFace(resolved.fontFamily);
   return {
     color: resolved.color,
     ...(fontFace ? { fontFace } : {}),

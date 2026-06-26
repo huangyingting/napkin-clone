@@ -16,7 +16,6 @@ import assert from "node:assert/strict";
 import { test, describe } from "node:test";
 
 import type {
-  BulletsElement,
   ConnectorElement,
   Deck,
   ImageElement,
@@ -84,19 +83,6 @@ function textEl(overrides: Partial<TextElement> = {}): TextElement {
     box: { x: 5, y: 5, w: 90, h: 15 },
     zIndex: 0,
     style: { fontSize: 5, bold: false, italic: false, align: "left" },
-    ...overrides,
-  };
-}
-
-function bulletsEl(overrides: Partial<BulletsElement> = {}): BulletsElement {
-  return {
-    id: "bul-1",
-    kind: "bullets",
-    bullets: ["Item 1"],
-    items: [{ text: "Item 1" }],
-    box: { x: 5, y: 20, w: 90, h: 60 },
-    zIndex: 0,
-    style: { fontSize: 4, bold: false, italic: false, align: "left" },
     ...overrides,
   };
 }
@@ -330,117 +316,54 @@ describe("remote-image-failure diagnostics", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Tests: missing-font (pptx warning)
+// Tests: missing-font for custom deck templates (brand typography)
+// ---------------------------------------------------------------------------
+// Element font overrides now use a self-hosted slide `fontId`, so only
+// template/brand typography can introduce a non-embeddable custom font. The
+// element-level missing-font path was removed; see the #617 template-font
+// tests below for the surviving coverage.
+
+// ---------------------------------------------------------------------------
+// Tests: font-cjk-mapping (editable PPTX CJK notice)
 // ---------------------------------------------------------------------------
 
-describe("missing-font diagnostics", () => {
-  test("text element with custom font emits missing-font warning in pptx", () => {
-    const el = textEl({
-      style: {
-        fontFamily: "'AcmeBrand', sans-serif",
-        fontSize: 5,
-        bold: false,
-        italic: false,
-        align: "left",
-      },
-    });
-    const deck = makeDeck([makeSlide([el])]);
-    const result = runExportPreflight(deck, {
-      target: "pptx",
-      customFontFamilies: new Set(["AcmeBrand"]),
-    });
-    assert.ok(codesOf(result).includes("missing-font"));
-    const w = warningDiagnostics(result).find((d) => d.code === "missing-font");
-    assert.equal(w?.severity, "warning");
-    assert.equal(w?.detail, "AcmeBrand");
-    assert.equal(w?.slideIndex, 0);
-  });
-
-  test("bullets element with custom font emits missing-font warning", () => {
-    const el = bulletsEl({
-      style: {
-        fontFamily: "'BrandFont', sans-serif",
-        fontSize: 4,
-        bold: false,
-        italic: false,
-        align: "left",
-      },
-    });
-    const deck = makeDeck([makeSlide([el])]);
-    const result = runExportPreflight(deck, {
-      target: "pptx",
-      customFontFamilies: new Set(["BrandFont"]),
-    });
-    assert.ok(codesOf(result).includes("missing-font"));
-  });
-
-  test("element with system font does NOT emit missing-font", () => {
-    const el = textEl({
-      style: {
-        fontFamily: "'Inter', sans-serif",
-        fontSize: 5,
-        bold: false,
-        italic: false,
-        align: "left",
-      },
-    });
-    const deck = makeDeck([makeSlide([el])]);
-    const result = runExportPreflight(deck, {
-      target: "pptx",
-      customFontFamilies: new Set(["AcmeBrand"]),
-    });
-    assert.ok(!codesOf(result).includes("missing-font"));
-  });
-
-  test("missing-font is NOT emitted when customFontFamilies is empty", () => {
-    const el = textEl({
-      style: {
-        fontFamily: "'AcmeBrand', sans-serif",
-        fontSize: 5,
-        bold: false,
-        italic: false,
-        align: "left",
-      },
-    });
-    const deck = makeDeck([makeSlide([el])]);
-    const result = runExportPreflight(deck, {
-      target: "pptx",
-      customFontFamilies: new Set(),
-    });
-    assert.ok(!codesOf(result).includes("missing-font"));
-  });
-
-  test("missing-font is NOT emitted for image target", () => {
-    const el = textEl({
-      style: {
-        fontFamily: "'AcmeBrand', sans-serif",
-        fontSize: 5,
-        bold: false,
-        italic: false,
-        align: "left",
-      },
-    });
-    const deck = makeDeck([makeSlide([el])]);
-    const result = runExportPreflight(deck, {
-      target: "image",
-      customFontFamilies: new Set(["AcmeBrand"]),
-    });
-    assert.ok(!codesOf(result).includes("missing-font"));
-  });
-
-  test("missing-font is NOT emitted when customFontFamilies is absent", () => {
-    const el = textEl({
-      style: {
-        fontFamily: "'AcmeBrand', sans-serif",
-        fontSize: 5,
-        bold: false,
-        italic: false,
-        align: "left",
-      },
-    });
+describe("font-cjk-mapping diagnostics", () => {
+  test("Chinese text emits a non-blocking font-cjk-mapping warning in pptx", () => {
+    const el = textEl({ text: "这是中文标题" });
     const deck = makeDeck([makeSlide([el])]);
     const result = runExportPreflight(deck, { target: "pptx" });
-    assert.ok(!codesOf(result).includes("missing-font"));
+    const w = warningDiagnostics(result).find(
+      (d) => d.code === "font-cjk-mapping",
+    );
+    assert.ok(w, "should warn about CJK font mapping");
+    assert.equal(result.hasFatal, false);
+    assert.equal(result.canExport, true);
+  });
+
+  test("Latin-only text does NOT emit font-cjk-mapping", () => {
+    const el = textEl({ text: "Hello world" });
+    const deck = makeDeck([makeSlide([el])]);
+    const result = runExportPreflight(deck, { target: "pptx" });
+    assert.ok(!codesOf(result).includes("font-cjk-mapping"));
+  });
+
+  test("font-cjk-mapping is emitted at most once per deck", () => {
+    const deck = makeDeck([
+      makeSlide([textEl({ id: "t1", text: "中文一" })], { id: "s1", index: 0 }),
+      makeSlide([textEl({ id: "t2", text: "中文二" })], { id: "s2", index: 1 }),
+    ]);
+    const result = runExportPreflight(deck, { target: "pptx" });
+    const cjk = warningDiagnostics(result).filter(
+      (d) => d.code === "font-cjk-mapping",
+    );
+    assert.equal(cjk.length, 1);
+  });
+
+  test("font-cjk-mapping is NOT emitted for image target", () => {
+    const el = textEl({ text: "这是中文" });
+    const deck = makeDeck([makeSlide([el])]);
+    const result = runExportPreflight(deck, { target: "image" });
+    assert.ok(!codesOf(result).includes("font-cjk-mapping"));
   });
 });
 

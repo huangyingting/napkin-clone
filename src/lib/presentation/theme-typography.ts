@@ -1,4 +1,3 @@
-import type { TextElementStyle } from "./deck-elements";
 import type { PlaceholderType } from "./deck-layout-primitives";
 
 /**
@@ -93,11 +92,23 @@ export function resolveBodyFont(typography: ThemeTypography): string {
   return typography.fontFamily;
 }
 
-/** Build a partial text style token for a specific placeholder type. */
+/**
+ * Display hint for a placeholder's theme typography. This is an editor hint
+ * (font stack + point size), not persisted element data — element font
+ * overrides use a slide `fontId`, while the theme/role font is a CSS stack.
+ */
+export type PlaceholderStyleHint = {
+  fontFamily?: string;
+  fontSize?: number;
+  bold?: boolean;
+  align?: "left" | "center" | "right";
+};
+
+/** Build a partial text style hint for a specific placeholder type. */
 export function placeholderStyle(
   placeholderType: PlaceholderType,
   typography: ThemeTypography,
-): Partial<TextElementStyle> {
+): PlaceholderStyleHint {
   switch (placeholderType) {
     case "title":
       return {

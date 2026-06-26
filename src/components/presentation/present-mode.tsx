@@ -50,6 +50,7 @@ import {
   type PresentationShortcutAction,
 } from "@/components/presentation/runtime/navigation";
 import { slideAspectRatio } from "@/lib/presentation/slide-format";
+import { loadSlideFonts } from "@/lib/presentation/slide-font-loading";
 import { fitAspectRatio } from "@/lib/presentation/stage-fit";
 import type { Visual } from "@/lib/visual/schema";
 
@@ -136,6 +137,12 @@ export function PresentMode({
     }
     onClose();
   }, [onClose]);
+
+  // Preload the self-hosted slide fonts on entry so present-mode text renders
+  // with the real fonts from the first paint rather than a fallback.
+  useEffect(() => {
+    void loadSlideFonts();
+  }, []);
 
   useEffect(() => {
     startedAtRef.current = Date.now();
