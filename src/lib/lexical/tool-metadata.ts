@@ -1,5 +1,6 @@
 import { shortcutCanonical, type ShortcutId } from "@/lib/shortcuts/catalog";
 import { VISUAL_KINDS, type VisualKind } from "@/lib/visual/schema";
+import { KIND_DISPLAY_METADATA } from "@/lib/visual/registry-display";
 
 import type { ToolIconName } from "./tool-icons";
 import type {
@@ -21,94 +22,6 @@ function editorShortcut(id: ShortcutId): string {
   }
   return shortcut;
 }
-
-export type VisualKindMeta = {
-  label: string;
-  icon: ToolIconName;
-  description: string;
-  keywords: readonly string[];
-};
-
-export const VISUAL_KIND_META_DATA: Record<VisualKind, VisualKindMeta> = {
-  flowchart: {
-    label: "Flowchart",
-    icon: "workflow",
-    description: "Steps & decisions",
-    keywords: ["flow", "process", "steps", "diagram", "workflow"],
-  },
-  mindmap: {
-    label: "Mind map",
-    icon: "network",
-    description: "Branching ideas",
-    keywords: ["mind", "map", "brainstorm", "branches", "ideas"],
-  },
-  list: {
-    label: "List",
-    icon: "listChecks",
-    description: "Itemized points",
-    keywords: ["list", "items", "points", "checklist"],
-  },
-  chart: {
-    label: "Chart",
-    icon: "barChart",
-    description: "Bars & values",
-    keywords: ["chart", "bar", "graph", "data", "values"],
-  },
-  concept: {
-    label: "Concept",
-    icon: "lightbulb",
-    description: "Central idea map",
-    keywords: ["concept", "idea", "relationship", "map"],
-  },
-  timeline: {
-    label: "Timeline",
-    icon: "milestone",
-    description: "Events over time",
-    keywords: ["timeline", "time", "events", "history", "schedule"],
-  },
-  cycle: {
-    label: "Cycle",
-    icon: "refresh",
-    description: "Repeating loop",
-    keywords: ["cycle", "loop", "circular", "process"],
-  },
-  comparison: {
-    label: "Comparison",
-    icon: "columns",
-    description: "Side by side",
-    keywords: ["comparison", "compare", "versus", "vs", "columns"],
-  },
-  funnel: {
-    label: "Funnel",
-    icon: "filter",
-    description: "Narrowing stages",
-    keywords: ["funnel", "stages", "conversion", "pipeline"],
-  },
-  venn: {
-    label: "Venn",
-    icon: "combine",
-    description: "Overlapping sets",
-    keywords: ["venn", "overlap", "sets", "intersection"],
-  },
-  pyramid: {
-    label: "Pyramid",
-    icon: "triangle",
-    description: "Stacked hierarchy",
-    keywords: ["pyramid", "hierarchy", "levels", "stack"],
-  },
-  matrix: {
-    label: "Matrix",
-    icon: "grid",
-    description: "2×2 quadrant grid",
-    keywords: ["matrix", "quadrant", "grid", "2x2"],
-  },
-  orgchart: {
-    label: "Org chart",
-    icon: "gitBranch",
-    description: "Team hierarchy",
-    keywords: ["org", "orgchart", "hierarchy", "team", "tree"],
-  },
-};
 
 export type ToolMetadata = {
   id: string;
@@ -407,12 +320,12 @@ export const BLOCK_INSERT_TOOL_METADATA: readonly ToolMetadata[] = [
 
 export const VISUAL_INSERT_TOOL_METADATA: readonly ToolMetadata[] =
   VISUAL_KINDS.map((kind) => {
-    const meta = VISUAL_KIND_META_DATA[kind];
+    const meta = KIND_DISPLAY_METADATA[kind];
     return {
       id: `insert-visual-${kind}`,
       group: "visual-insert",
       label: meta.label,
-      icon: meta.icon,
+      icon: meta.icon as ToolIconName,
       description: meta.description,
       keywords: meta.keywords,
       when: "editable",

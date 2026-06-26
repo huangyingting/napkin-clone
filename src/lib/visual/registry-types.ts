@@ -124,6 +124,8 @@ export interface VisualKindDisplayMetadata {
   readonly description: string;
   readonly keywords: readonly string[];
   readonly iconName: string;
+  /** Tool-icon key (camelCase, used by the lexical tool layer). */
+  readonly icon: string;
   readonly layoutFamily: LayoutFamily;
   readonly allowedShapes: readonly NodeShape[];
   readonly defaultShape: NodeShape;
