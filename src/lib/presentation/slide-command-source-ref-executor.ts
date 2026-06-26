@@ -1,15 +1,12 @@
+import type { Deck } from "./deck-core";
 import {
   activeSourceRef,
   relinkSource,
   unlinkSource,
-  type Deck,
   type SourceRef,
-} from "./deck";
-import {
-  removeElement,
-  updateElement,
-  type ElementPatch,
-} from "./deck-mutations";
+} from "./deck-source-refs";
+import { removeElement, updateElement } from "./deck-mutation-elements";
+import type { ElementPatch } from "./deck-mutation-shared";
 import type {
   RefreshElementFromSourceCommand,
   RelinkElementSourceCommand,

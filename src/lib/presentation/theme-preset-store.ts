@@ -14,7 +14,7 @@
  * malformed/oversized storage (try/catch, returns `[]` on failure).
  */
 
-import type { DeckThemeTokenSet } from "@/lib/presentation/deck-theme-tokens";
+import type { DeckThemeTokenSet } from "./deck-theme-token-types";
 
 const STORAGE_KEY = "textiq:deck-theme-presets:v1";
 

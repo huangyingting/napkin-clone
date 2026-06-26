@@ -1,4 +1,5 @@
-import type { Deck, ElementBox, SlideElement } from "./deck";
+import type { Deck } from "./deck-core";
+import type { ElementBox, SlideElement } from "./deck-elements";
 import {
   type AlignMode,
   type DistributeMode,

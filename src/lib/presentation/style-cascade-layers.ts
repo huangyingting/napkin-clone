@@ -15,17 +15,17 @@
  * sizes at their own boundary.
  */
 
-import type { Deck, Slide } from "./deck";
+import type { Deck, Slide } from "./deck-core";
 import type {
   BackgroundTreatment,
   DeckThemeTokenSet,
   MasterSlide,
-} from "./deck-theme-tokens";
+} from "./deck-theme-token-types";
 import {
   backgroundTreatmentToCss,
   resolveDeckThemeTokens,
   resolveSlideBackground,
-} from "./deck-theme-tokens";
+} from "./deck-theme-token-resolvers";
 
 export const STYLE_CASCADE_LAYERS = [
   "deck",

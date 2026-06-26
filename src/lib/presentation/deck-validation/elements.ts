@@ -1,31 +1,27 @@
-import {
-  PLACEHOLDER_TYPES,
-  type BaseElement,
-  type BulletItem,
-  type ConnectorAnchor,
-  type ConnectorArrow,
-  type ConnectorElement,
-  type ConnectorPoint,
-  type ConnectorRouting,
-  type ElementAlign,
-  type ElementBox,
-  type PlaceholderType,
-  type ShapeKind,
-  type SlideElement,
-  type TextElementStyle,
-  type TextFitMode,
-  type TextRun,
-} from "../deck";
+import type {
+  BaseElement,
+  BulletItem,
+  ConnectorAnchor,
+  ConnectorArrow,
+  ConnectorElement,
+  ConnectorPoint,
+  ConnectorRouting,
+  ElementAlign,
+  ElementBox,
+  ShapeKind,
+  SlideElement,
+  TextElementStyle,
+  TextFitMode,
+  TextRun,
+} from "../deck-elements";
+import { PLACEHOLDER_TYPES, type PlaceholderType } from "../deck-layouts-model";
 import {
   SLIDE_SLOT_KINDS,
   isSlideSlotKind,
   type LayoutSlotBinding,
 } from "../slide-slots";
-import {
-  DECK_TEXT_ROLES,
-  isDeckTextRole,
-  type DeckTextRole,
-} from "../deck-theme-tokens";
+import { isDeckTextRole } from "../deck-theme-token-resolvers";
+import { DECK_TEXT_ROLES, type DeckTextRole } from "../deck-theme-token-types";
 import { isSlideFontId } from "../slide-fonts";
 import {
   validateImageCrop,

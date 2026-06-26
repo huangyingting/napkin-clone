@@ -24,8 +24,10 @@
  * Pure and headless — fully testable under `node --test`.
  */
 
-import type { Deck, Slide, SlideElement, TextRun, VisualElement } from "./deck";
-import { buildSlideElementsFromContent, buildVisualElement } from "./deck";
+import type { Deck, Slide } from "./deck-core";
+import type { SlideElement, TextRun, VisualElement } from "./deck-elements";
+import { buildSlideElementsFromContent } from "./deck-derivation";
+import { buildVisualElement } from "./deck-elements";
 import { normalizeTitle } from "./deck-hash";
 import { slideEffectiveTitle } from "./slide-title";
 import type { DocumentBlock, DocumentTextBlock } from "@/lib/content";

@@ -15,27 +15,28 @@
  * under `node --test`.
  */
 
+import type { Slide } from "./deck-core";
+import type {
+  ElementAlign,
+  ElementBox,
+  ImageElement,
+  PlaceholderElement,
+  SlideElement,
+  TextElement,
+  TextElementStyle,
+  VisualElement,
+} from "./deck-elements";
+import { makeElementId, makeSlideId } from "./deck-ids";
 import {
   defaultLayouts,
-  makeElementId,
-  makeSlideId,
   PLACEHOLDER_TYPE_LABELS,
-  type ElementAlign,
-  type ElementBox,
-  type ImageElement,
-  type PlaceholderElement,
   type PlaceholderType,
-  type Slide,
-  type SlideElement,
   type SlideLayout as ReusableSlideLayout,
   type SlideLayoutHint,
-  type TextElement,
-  type TextElementStyle,
-  type VisualElement,
-} from "./deck";
+} from "./deck-layouts-model";
 import { DEFAULT_SLIDE_FORMAT, type SlideFormat } from "./slide-format";
 import type { LayoutSlotBinding, SlideSlotKind } from "./slide-slots";
-import type { DeckTextRole } from "./deck-theme-tokens";
+import type { DeckTextRole } from "./deck-theme-token-types";
 
 /**
  * Maps a reusable {@link PlaceholderType} onto its semantic layout slot (#627).

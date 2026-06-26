@@ -1,28 +1,32 @@
-import type { Deck } from "./deck";
+import type { Deck } from "./deck-core";
 import {
-  addElement,
   alignElements,
   arrangeSelectedElements,
-  bringElementToFront,
   distributeElements,
+  matchSizeElements,
+} from "./deck-mutation-arrangement";
+import {
+  addElement,
+  bringElementToFront,
   duplicateElement,
   duplicateElements,
   groupElements,
-  matchSizeElements,
-  moveElementZOrder,
   nudgeElements,
   removeElement,
   removeElements,
-  renameElement,
-  reorderElement,
   sendElementToBack,
   setElementBoxes,
-  setElementHidden,
-  setElementLocked,
   setElementPatches,
   ungroupElements,
   updateElement,
-} from "./deck-mutations";
+} from "./deck-mutation-elements";
+import {
+  moveElementZOrder,
+  renameElement,
+  reorderElement,
+  setElementHidden,
+  setElementLocked,
+} from "./deck-mutation-layers";
 import type {
   AddElementCommand,
   AlignElementsCommand,

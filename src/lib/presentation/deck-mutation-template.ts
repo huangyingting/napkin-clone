@@ -1,4 +1,4 @@
-import type { Deck } from "./deck";
+import type { Deck } from "./deck-core";
 import type {
   BackgroundTreatment,
   BulletDefaultsToken,
@@ -10,12 +10,12 @@ import type {
   TextRoleToken,
   TextRoleTokenMap,
   VisualDefaultsToken,
-} from "./deck-theme-tokens";
+} from "./deck-theme-token-types";
 import {
   resolveDeckThemeId,
   resolveDeckThemeTokens,
   resolveRoleToken,
-} from "./deck-theme-tokens";
+} from "./deck-theme-token-resolvers";
 
 /**
  * Structured patch for editing the global deck template (#614). Every field is

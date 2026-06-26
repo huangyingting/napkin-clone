@@ -4,7 +4,7 @@ import {
   type ImageCrop,
   type ImageFitMode,
   type ImageMaskShape,
-} from "../deck";
+} from "../deck-elements";
 import {
   DeckValidationError,
   isPlainObject,

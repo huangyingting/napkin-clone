@@ -1,5 +1,5 @@
-import type { Deck, Slide } from "./deck";
-import { makeSlideId } from "./deck";
+import type { Deck, Slide } from "./deck-core";
+import { makeSlideId } from "./deck-ids";
 import { freshBlankSlide, reindex } from "./deck-mutation-shared";
 
 /** Reorders slides: moves the slide at `fromIndex` to `toIndex`. */

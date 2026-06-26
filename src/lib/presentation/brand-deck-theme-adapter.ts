@@ -7,9 +7,9 @@
  */
 
 import type { BrandStyle } from "@/lib/brand/schema";
-import type { Deck } from "./deck";
-import type { DeckThemeTokenSet, MasterSlide } from "./deck-theme-tokens";
-import { DEFAULT_TOKEN_SET } from "./deck-theme-tokens";
+import type { Deck } from "./deck-core";
+import type { DeckThemeTokenSet, MasterSlide } from "./deck-theme-token-types";
+import { DEFAULT_TOKEN_SET } from "./deck-theme-token-data";
 
 /**
  * Generates a custom DeckThemeTokenSet from a BrandStyle.

@@ -22,7 +22,7 @@ import type {
   ConnectorEndpoint,
   ElementBox,
   SlideElement,
-} from "./deck";
+} from "./deck-elements";
 
 // ---------------------------------------------------------------------------
 // Shared types

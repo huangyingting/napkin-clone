@@ -10,12 +10,9 @@
  * Pure and DOM-free — fully testable under `node --test`.
  */
 
-import {
-  makeElementId,
-  type PlaceholderElement,
-  type SlideElement,
-  type SlideLayout,
-} from "./deck";
+import type { PlaceholderElement, SlideElement } from "./deck-elements";
+import { makeElementId } from "./deck-ids";
+import type { SlideLayout } from "./deck-layouts-model";
 import {
   slotKey,
   type LayoutSlotBinding,

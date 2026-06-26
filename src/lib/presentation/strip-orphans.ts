@@ -12,7 +12,8 @@
  * No DOM, no React — fully testable under `node --test`.
  */
 
-import type { Deck, Slide, SlideElement } from "./deck";
+import type { Deck, Slide } from "./deck-core";
+import type { SlideElement } from "./deck-elements";
 
 /**
  * Returns a copy of `deck` with every visual reference that is not present in

@@ -2,7 +2,7 @@ import {
   normalizeBulletItems,
   type ElementBox,
   type SlideElement,
-} from "./deck";
+} from "./deck-elements";
 import {
   resolveConnectorElementPoints,
   resolveLineEndpoints,

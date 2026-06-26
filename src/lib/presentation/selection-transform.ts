@@ -7,7 +7,7 @@
  * `node --test`.
  */
 
-import type { ElementBox, SlideElement } from "./deck";
+import type { ElementBox, SlideElement } from "./deck-elements";
 
 // ---------------------------------------------------------------------------
 // Bounding box

@@ -25,7 +25,7 @@
 import { useCallback } from "react";
 
 import type { ActionResult } from "@/lib/action-result";
-import type { Deck } from "./deck";
+import type { Deck } from "./deck-core";
 import {
   canAddImage,
   dataUrlByteSize,

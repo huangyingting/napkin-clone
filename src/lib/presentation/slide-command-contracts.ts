@@ -1,22 +1,15 @@
 /** Slide command payload/result contracts with no executor imports. */
 
+import type { Deck, DeckTheme, Slide } from "./deck-core";
+import type { ElementBox, SlideElement, TextRun } from "./deck-elements";
 import type {
-  Deck,
-  DeckTheme,
-  ElementBox,
-  Slide,
-  SlideElement,
   SlideLayout as ReusableSlideLayout,
   SlideLayoutHint,
-  SourceRef,
-  TextRun,
-} from "./deck";
-import type { DeckThemeTokenSet } from "./deck-theme-tokens";
-import type {
-  DeckTemplatePatch,
-  DistributiveOmit,
-  ElementPatch,
-} from "./deck-mutations";
+} from "./deck-layouts-model";
+import type { SourceRef } from "./deck-source-refs";
+import type { DeckThemeTokenSet } from "./deck-theme-token-types";
+import type { DistributiveOmit, ElementPatch } from "./deck-mutation-shared";
+import type { DeckTemplatePatch } from "./deck-mutation-template";
 import type { AlignMode, DistributeMode, MatchSizeMode } from "./element-align";
 import type { ArrangeMode } from "./element-arrange";
 import type { SlideFormat } from "./slide-format";

@@ -1,5 +1,6 @@
-import type { Deck, SlideLayout as DeckLayout } from "./deck";
-import { layoutHintForReusableLayout } from "./deck";
+import type { Deck } from "./deck-core";
+import type { SlideLayout as DeckLayout } from "./deck-layouts-model";
+import { layoutHintForReusableLayout } from "./deck-layouts-model";
 import {
   applyLayoutPreservingContent,
   resetLayoutPositions,

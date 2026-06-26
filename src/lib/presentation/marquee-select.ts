@@ -18,7 +18,7 @@
  * No DOM, no React — fully testable under `node --test`.
  */
 
-import type { ElementBox } from "./deck";
+import type { ElementBox } from "./deck-elements";
 
 /** A rectangle in percent coordinates; `w`/`h` may be negative before normalize. */
 export interface MarqueeRect {

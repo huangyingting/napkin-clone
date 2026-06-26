@@ -1,4 +1,4 @@
-import type { SourceRef } from "../deck";
+import type { SourceRef } from "../deck-source-refs";
 import { DeckValidationError, isPlainObject } from "./shared";
 
 const ISO_TIMESTAMP_PATTERN =

@@ -1,4 +1,5 @@
-import type { PlaceholderElement, SlideLayout as DeckLayout } from "../deck";
+import type { PlaceholderElement } from "../deck-elements";
+import type { SlideLayout as DeckLayout } from "../deck-layouts-model";
 import { SLIDE_FORMATS } from "../slide-format";
 import { validateElement } from "./elements";
 import { DeckValidationError, isPlainObject, isSlideFormat } from "./shared";

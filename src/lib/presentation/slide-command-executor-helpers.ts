@@ -1,4 +1,4 @@
-import { CURRENT_DECK_SCHEMA_VERSION, type Deck } from "./deck";
+import { CURRENT_DECK_SCHEMA_VERSION, type Deck } from "./deck-core";
 import type {
   DeckPatch,
   PatchOp,

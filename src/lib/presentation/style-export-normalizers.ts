@@ -3,13 +3,13 @@
  * parity without coupling style-cascade to React, DOM, or PPTX libraries.
  */
 
+import type { Deck } from "./deck-core";
 import type {
   BulletsElement,
-  Deck,
   ElementAlign,
   ShapeElement,
   TextElement,
-} from "./deck";
+} from "./deck-elements";
 import {
   resolveBulletsElementStyle,
   resolveShapeLabelStyle,

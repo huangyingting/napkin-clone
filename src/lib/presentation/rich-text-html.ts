@@ -9,7 +9,7 @@
  * raw HTML, and `runsToHtml` escapes all text, so round-tripping is XSS-safe.
  */
 
-import type { TextRun } from "@/lib/presentation/deck";
+import type { TextRun } from "./deck-elements";
 
 export function escapeHtml(value: string): string {
   return value

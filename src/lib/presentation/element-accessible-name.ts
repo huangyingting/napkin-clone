@@ -1,4 +1,5 @@
-import { PLACEHOLDER_TYPE_LABELS, type SlideElement } from "./deck";
+import type { SlideElement } from "./deck-elements";
+import { PLACEHOLDER_TYPE_LABELS } from "./deck-layouts-model";
 import { assertNever } from "@/lib/assert-never";
 
 /**

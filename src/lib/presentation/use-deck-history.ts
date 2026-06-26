@@ -29,7 +29,7 @@
 
 import { useCallback, useEffect, useReducer, useRef } from "react";
 
-import type { Deck } from "./deck";
+import type { Deck } from "./deck-core";
 
 /** Maximum number of `past` snapshots retained before the oldest is evicted. */
 export const DECK_HISTORY_LIMIT = 50;
