@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/session";
 import { PLAN_NAMES } from "@/lib/billing/catalog";
 import { isUnlimitedCreditsEnabled } from "@/lib/billing/config";
 import { createEntitlementFacade } from "@/lib/billing/entitlement-facade";
-import { getBillingState } from "@/lib/billing/service";
+import { loadAndSyncBillingState } from "@/lib/billing/service";
 
 import { BillingActions } from "./billing-actions";
 
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 export default async function BillingPage() {
   const sessionUser = await requireUser(redirect);
 
-  const billingState = await getBillingState(sessionUser.id).catch(() =>
+  const billingState = await loadAndSyncBillingState(sessionUser.id).catch(() =>
     redirect("/login"),
   );
 

@@ -22,13 +22,12 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { isPlan, type Plan } from "@/lib/billing/catalog";
+import { getEntitlements, isPlan, type Plan } from "@/lib/billing/catalog";
 import type { BillingProvider, ChangePlanResult } from "@/lib/billing/provider";
 import {
   applyLocalPlanChange,
   getBillingSubscription,
   markSubscriptionCancelAtPeriodEnd,
-  periodEndForPlan,
   recordStripeCustomer,
   shouldApplySubscriptionUpdate,
   writeLocalPlanChange,
@@ -398,7 +397,10 @@ export async function applyStripeWebhookEvent(
             stripeCustomerId,
             stripeSubscriptionId,
             currentPeriodStart: now,
-            currentPeriodEnd: periodEndForPlan(plan, now),
+            currentPeriodEnd: new Date(
+              now.getTime() +
+                getEntitlements(plan).periodDays * 24 * 60 * 60 * 1000,
+            ),
             updateSubscriptionPeriodOnExisting: true,
             cancelAtPeriodEnd: false,
           });

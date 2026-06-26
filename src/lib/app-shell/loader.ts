@@ -2,7 +2,7 @@ import "server-only";
 
 import { createEntitlementFacade } from "@/lib/billing/entitlement-facade";
 import { isUnlimitedCreditsEnabled } from "@/lib/billing/config";
-import { getBillingState } from "@/lib/billing/service";
+import { loadAndSyncBillingState } from "@/lib/billing/service";
 import { createTranslator } from "@/lib/i18n";
 import { isLanguageSwitcherEnabled } from "@/lib/i18n/config";
 import { getLocale } from "@/lib/i18n/server";
@@ -27,7 +27,8 @@ export async function loadAppShellViewModel(): Promise<AppShellViewModel> {
       })
     : null;
 
-  const billingState = userId && account ? await getBillingState(userId) : null;
+  const billingState =
+    userId && account ? await loadAndSyncBillingState(userId) : null;
   const entitlementFacade = billingState
     ? createEntitlementFacade(billingState.plan)
     : null;

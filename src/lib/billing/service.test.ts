@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { PLAN_ENTITLEMENTS } from "@/lib/billing/catalog";
 import {
   applyLocalPlanChange,
-  getBillingState,
+  loadAndSyncBillingState,
   recordStripeCustomer,
 } from "@/lib/billing/service";
 import { prisma } from "@/lib/prisma";
@@ -120,7 +120,7 @@ describe("billing service state", () => {
       creditPeriodStart: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
     });
 
-    const state = await getBillingState("u1", client);
+    const state = await loadAndSyncBillingState("u1", client);
 
     assert.equal(state.plan, "free");
     assert.equal(state.creditBalance, PLAN_ENTITLEMENTS.free.creditsPerPeriod);

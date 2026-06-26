@@ -10,8 +10,6 @@
  * the balance is reset to the plan's `creditsPerPeriod`.
  */
 
-import type { Plan } from "@/lib/billing/catalog";
-import { getBillingState } from "@/lib/billing/service";
 import { prisma } from "@/lib/prisma";
 
 // ---------------------------------------------------------------------------
@@ -48,35 +46,6 @@ export function hasSufficientCredits(balance: number, cost: number): boolean {
 // ---------------------------------------------------------------------------
 // DB helpers (server-only)
 // ---------------------------------------------------------------------------
-
-export interface UserCreditState {
-  balance: number;
-  periodStart: Date;
-  periodEnd: Date;
-  creditsPerPeriod: number;
-  plan: Plan | string;
-}
-
-/**
- * Reads the current credit state for `userId`, performing a period-reset if the
- * current period has elapsed. Returns the up-to-date balance and period dates.
- *
- * Writes to the DB only when a period reset is needed.
- */
-export async function getUserCreditState(
-  userId: string,
-  client: typeof prisma = prisma,
-): Promise<UserCreditState> {
-  const state = await getBillingState(userId, client);
-
-  return {
-    balance: state.creditBalance,
-    periodStart: state.periodStart,
-    periodEnd: state.periodEnd,
-    creditsPerPeriod: state.creditsPerPeriod,
-    plan: state.rawPlan,
-  };
-}
 
 /**
  * Atomically deducts `cost` credits from `userId`'s balance. Returns the new
