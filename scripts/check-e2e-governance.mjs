@@ -7,7 +7,7 @@ import process from "node:process";
 const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs"]);
 const TEST_SIZE_LIMIT = 1_500;
 const OVERSIZED_TEST_ALLOWLIST = new Set([
-  "src/lib/presentation/deck-schema.test.ts",
+  // deck-schema.test.ts was split into focused per-concern files (#1147)
 ]);
 const FIXTURE_FACTORY_FILES = new Set([
   "src/lib/presentation/slide-commands.test.ts",
