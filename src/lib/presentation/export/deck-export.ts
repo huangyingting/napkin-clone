@@ -36,15 +36,15 @@ export type {
   DeckTextOp,
   DeckVisualFallbackOp,
   DeckVisualNativeOp,
-} from "@/lib/visual/deck-export-spec";
-export { buildDeckSpecs } from "@/lib/visual/deck-export-spec";
+} from "@/lib/presentation/export/deck-export-spec";
+export { buildDeckSpecs } from "@/lib/presentation/export/deck-export-spec";
 
 // PPTX applier
-export { exportDeckAsPPTX } from "@/lib/visual/deck-export-pptx";
+export { exportDeckAsPPTX } from "@/lib/presentation/export/deck-export-pptx";
 
 // Slide-image renderer
 export type {
   DeckSlideImageExportOptions,
   DeckSlideImageFormat,
-} from "@/lib/visual/deck-export-slide-images";
-export { exportDeckAsSlideImages } from "@/lib/visual/deck-export-slide-images";
+} from "@/lib/presentation/export/deck-export-slide-images";
+export { exportDeckAsSlideImages } from "@/lib/presentation/export/deck-export-slide-images";

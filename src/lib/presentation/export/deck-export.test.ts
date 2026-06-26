@@ -35,7 +35,7 @@ import {
   type DeckImageOp,
   type DeckOp,
   type DeckTextOp,
-} from "@/lib/visual/deck-export";
+} from "@/lib/presentation/export/deck-export";
 import { deckExportTestHelpers } from "@/test/deck-export-helpers";
 import {
   buildBulletsElement,

@@ -30,7 +30,7 @@ import {
   type AssetResolverDb,
   type AssetResolverStorage,
 } from "@/lib/slides/asset-resolver";
-import { buildDeckSpecs } from "@/lib/visual/deck-export";
+import { buildDeckSpecs } from "@/lib/presentation/export/deck-export";
 import {
   fatalDiagnostics,
   runExportPreflight,

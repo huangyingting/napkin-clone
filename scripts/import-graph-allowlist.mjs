@@ -560,6 +560,24 @@ export const allowedInternalFacadeImports = [
     reason:
       "Deferred broad same-domain facade migration; current N11 changes retired cycles and star barrels without changing deck/editor behavior.",
   },
+  {
+    file: "src/lib/presentation/export/deck-export-pptx.ts",
+    facade: "src/lib/presentation/deck.ts",
+    reason:
+      "Relocated from lib/visual to lib/presentation/export (#1116); imports deck types directly as other presentation-domain internals do.",
+  },
+  {
+    file: "src/lib/presentation/export/deck-export-slide-images.ts",
+    facade: "src/lib/presentation/deck.ts",
+    reason:
+      "Relocated from lib/visual to lib/presentation/export (#1116); imports deck types directly as other presentation-domain internals do.",
+  },
+  {
+    file: "src/lib/presentation/export/deck-export-spec.ts",
+    facade: "src/lib/presentation/deck.ts",
+    reason:
+      "Relocated from lib/visual to lib/presentation/export (#1116); imports deck types directly as other presentation-domain internals do.",
+  },
 ];
 
 export const facadeRules = [

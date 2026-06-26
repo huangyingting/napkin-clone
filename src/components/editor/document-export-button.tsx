@@ -254,7 +254,8 @@ export function DocumentExportButton({
     setIsOpen(false);
     const startedAt = trackExportStart("pptx");
     try {
-      const { exportDeckAsPPTX } = await import("@/lib/visual/deck-export");
+      const { exportDeckAsPPTX } =
+        await import("@/lib/presentation/export/deck-export");
       const blocks = await getBlocks();
       const { deck, visuals } = resolveDeckExportContext(
         blocks,
@@ -291,7 +292,7 @@ export function DocumentExportButton({
     const startedAt = trackExportStart(outputFormat);
     try {
       const { exportDeckAsSlideImages } =
-        await import("@/lib/visual/deck-export");
+        await import("@/lib/presentation/export/deck-export");
       const blocks = await getBlocks();
       const { deck, visuals } = resolveDeckExportContext(
         blocks,

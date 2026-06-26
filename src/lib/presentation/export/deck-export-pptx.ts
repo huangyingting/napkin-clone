@@ -30,7 +30,7 @@ import {
   type DeckSlideSpec,
   type DeckTextOp,
   type DeckVisualFallbackOp,
-} from "@/lib/visual/deck-export-spec";
+} from "@/lib/presentation/export/deck-export-spec";
 
 // ---------------------------------------------------------------------------
 // Internal types
