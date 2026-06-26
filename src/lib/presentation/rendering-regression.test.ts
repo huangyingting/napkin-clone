@@ -41,7 +41,7 @@ import {
   type DeckOp,
   type DeckShapeOp,
   type DeckTextOp,
-} from "@/lib/visual/deck-export";
+} from "@/lib/presentation/export/deck-export";
 import type { Visual, VisualNode } from "@/lib/visual/schema";
 import {
   buildBulletsElement,

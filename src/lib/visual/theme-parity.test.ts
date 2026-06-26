@@ -33,7 +33,7 @@ import {
   buildDeckSpecs,
   type DeckBulletsOp,
   type DeckTextOp,
-} from "@/lib/visual/deck-export";
+} from "@/lib/presentation/export/deck-export";
 import { STYLE_THEMES } from "@/lib/visual/themes";
 
 function titleEl(overrides: Partial<TextElement> = {}): TextElement {
