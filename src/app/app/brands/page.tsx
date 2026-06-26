@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 
 import { loadBrandStudioViewModel } from "@/lib/brand-studio/loader";
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
 };
 
 export default async function BrandsPage() {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
   const viewModel = await loadBrandStudioViewModel(user.id);
 
   return (

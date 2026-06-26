@@ -1,5 +1,6 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
@@ -32,7 +33,7 @@ async function serializeOne(row: BrandRow): Promise<BrandStyle> {
 
 /** Lists all brands owned by the current user. */
 export async function listBrands(): Promise<BrandStyle[]> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
   const rows = await prisma.brand.findMany({
     where: { ownerId: user.id },
     orderBy: { createdAt: "asc" },
@@ -45,7 +46,7 @@ export async function listBrands(): Promise<BrandStyle[]> {
 export async function createBrand(
   raw: unknown,
 ): Promise<ActionResult<BrandStyle>> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
   const entitlements = await resolveBrandEntitlements(user.id);
   if (!entitlements.canBrand) {
     return actionError(BRAND_STYLES_UPGRADE_MESSAGE);
@@ -79,7 +80,7 @@ export async function updateBrand(
   id: string,
   raw: unknown,
 ): Promise<ActionResult<BrandStyle>> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
   const entitlements = await resolveBrandEntitlements(user.id);
   if (!entitlements.canBrand) {
     return actionError(BRAND_STYLES_UPGRADE_MESSAGE);
@@ -113,7 +114,7 @@ export async function updateBrand(
 
 /** Deletes a brand owned by the current user. */
 export async function deleteBrand(id: string): Promise<ActionResult> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
   const entitlements = await resolveBrandEntitlements(user.id);
   if (!entitlements.canBrand) {
     return actionError(BRAND_STYLES_UPGRADE_MESSAGE);

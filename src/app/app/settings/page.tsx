@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 export default async function SettingsPage() {
-  const sessionUser = await requireUser();
+  const sessionUser = await requireUser(redirect);
   const viewModel = await loadSettingsAccountViewModel(sessionUser.id);
 
   if (!viewModel) {

@@ -1,5 +1,6 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { requireDocumentCapability } from "@/lib/auth/document-permissions";
@@ -18,7 +19,7 @@ import { requireUser } from "@/lib/session";
  * never accidentally hard-deleted.
  */
 export async function permanentDeleteDocument(id: string): Promise<void> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
 
   await requireDocumentCapability(user.id, id, "manage", {
     includeDeleted: true,

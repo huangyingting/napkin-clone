@@ -1,5 +1,6 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { requireUser } from "@/lib/session";
@@ -9,7 +10,7 @@ export async function createWorkspace(
   _prevState: string | null,
   formData: FormData,
 ): Promise<string | null> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
 
   const name = formData.get("name");
   if (!name || typeof name !== "string" || name.trim() === "") {

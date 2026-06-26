@@ -10,7 +10,7 @@
 
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
 import type { UploadSlideAssetResult } from "@/lib/action-ports";
-import { requireDocumentActionContext } from "@/lib/actions/document-action-context";
+import { requireDocumentActionContext } from "./document-context";
 import { calculateAssetChecksum } from "@/lib/assets/store";
 import {
   imageDimensionsFromBytes,

@@ -1,5 +1,6 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { requireDocumentCapability } from "@/lib/auth/document-permissions";
@@ -21,7 +22,7 @@ export async function addTag(
   documentId: string,
   rawName: string,
 ): Promise<DocumentTag[]> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
   await requireDocumentCapability(user.id, documentId, "edit");
 
   const tags = await addDocumentTag(documentId, user.id, rawName);
@@ -40,7 +41,7 @@ export async function removeTag(
   documentId: string,
   tagId: string,
 ): Promise<DocumentTag[]> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
   await requireDocumentCapability(user.id, documentId, "edit");
 
   const tags = await disconnectDocumentTag(documentId, tagId);

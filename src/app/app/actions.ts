@@ -40,7 +40,7 @@ import { requireUser } from "@/lib/session";
 export async function createDocumentFromTemplate(
   templateId: string,
 ): Promise<void> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
 
   const document = await createDocumentFromTemplateForUser(user.id, templateId);
 
@@ -62,7 +62,7 @@ export async function createDocumentFromImport(
   content: string,
   rawTitle: string,
 ): Promise<void> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
 
   const document = await createDocumentFromImportForUser(
     user.id,
@@ -86,7 +86,7 @@ export async function renameDocument(
   id: string,
   rawTitle: string,
 ): Promise<{ title: string }> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
 
   const title = clampDocumentTitle(rawTitle, "Untitled");
 
@@ -115,7 +115,7 @@ export async function renameDocument(
  * "now" and it sorts to the top of the dashboard's most-recent ordering.
  */
 export async function duplicateDocument(id: string): Promise<void> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
 
   await requireDocumentCapability(user.id, id, "view");
 
@@ -137,7 +137,7 @@ export async function duplicateDocument(id: string): Promise<void> {
 export async function toggleFavorite(
   id: string,
 ): Promise<{ favorite: boolean }> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
 
   await requireDocumentCapability(user.id, id, "edit");
 
@@ -162,7 +162,7 @@ export async function toggleFavorite(
  * sweep once the recovery window has elapsed.
  */
 export async function deleteDocument(id: string): Promise<void> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
 
   await requireDocumentCapability(user.id, id, "manage");
 
@@ -179,7 +179,7 @@ export async function deleteDocument(id: string): Promise<void> {
  * The write uses `updateMany` so a concurrent change is a harmless no-op.
  */
 export async function restoreDocument(id: string): Promise<void> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
 
   await requireDocumentCapability(user.id, id, "manage", {
     includeDeleted: true,
@@ -214,7 +214,7 @@ export async function restoreDocument(id: string): Promise<void> {
 export async function searchDocuments(
   rawQuery: string,
 ): Promise<SearchResults> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
   return searchDocumentsForUser(user.id, rawQuery);
 }
 
@@ -226,7 +226,7 @@ export async function searchDocuments(
  * calling it again on an already-dismissed user is a harmless no-op.
  */
 export async function dismissOnboarding(): Promise<void> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
 
   await prisma.user.updateMany({
     where: { id: user.id },

@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 export default async function BillingPage() {
-  const sessionUser = await requireUser();
+  const sessionUser = await requireUser(redirect);
 
   const billingState = await getBillingState(sessionUser.id).catch(() =>
     redirect("/login"),

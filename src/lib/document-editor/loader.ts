@@ -1,9 +1,11 @@
 import "server-only";
 
 import type { Prisma } from "@/generated/prisma/client";
-import { requireDocumentActionContext } from "@/lib/actions/document-action-context";
 import { accessibleDocumentWhere } from "@/lib/access-query";
-import { createCommentService } from "@/lib/comments";
+import {
+  createCommentService,
+  type RequireCommentDocumentContext,
+} from "@/lib/comments";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -46,19 +48,19 @@ const documentEditorSelect = (userId: string) =>
 
 const userTagSelect = { id: true, name: true, slug: true } as const;
 
-const commentService = createCommentService({
-  requireDocumentContext: requireDocumentActionContext,
-});
-
 export async function loadDocumentEditorViewModel({
   documentId,
   userId,
   userName,
+  requireDocumentContext,
 }: {
   documentId: string;
   userId: string;
   userName: string;
+  requireDocumentContext: RequireCommentDocumentContext;
 }): Promise<DocumentEditorViewModel | null> {
+  const commentService = createCommentService({ requireDocumentContext });
+
   const document = await prisma.document.findFirst({
     where: accessibleDocumentWhere(userId, documentId),
     select: documentEditorSelect(userId),
