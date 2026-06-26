@@ -306,3 +306,24 @@ export function getClientSubject(headers: Headers): string {
 export function requireAbuseBudgetSecret(): string | undefined {
   return authEnv.secret();
 }
+
+/**
+ * Checks the abuse budget for the client IP extracted from `headers`.
+ * Combines {@link getClientSubject} + {@link checkAbuseBudget} so every
+ * IP-keyed rate-limit check goes through a single implementation.
+ */
+export async function checkIpRateLimit(opts: {
+  namespace: AbuseBudgetNamespaceId;
+  headers: Headers;
+  secret: string;
+  store?: RateLimitStore;
+  now?: number;
+}): Promise<AbuseBudgetCheck> {
+  return checkAbuseBudget({
+    namespace: opts.namespace,
+    subject: getClientSubject(opts.headers),
+    secret: opts.secret,
+    store: opts.store,
+    now: opts.now,
+  });
+}
