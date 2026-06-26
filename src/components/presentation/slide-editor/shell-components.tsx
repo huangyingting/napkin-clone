@@ -56,7 +56,7 @@ import {
 import { FOCUS_RING } from "@/components/ui/tokens";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Popover } from "@/components/ui/popover";
-import { SelectMenu, ToolbarButton, Tooltip } from "@/components/ui";
+import { ToolbarButton, Tooltip } from "@/components/ui";
 import { VisualPicker } from "@/components/presentation/visual-picker";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import { ElementToolbarContent } from "@/components/presentation/slide-stage/element-overlays";
@@ -518,14 +518,16 @@ function swatchColor(value: string, fallback: string): string {
 function SlideLayoutPreview({
   layout,
   selected,
+  className = "h-16 w-28 shrink-0",
 }: {
   layout: ReusableSlideLayout | undefined;
   selected?: boolean;
+  className?: string;
 }) {
   return (
     <span
       aria-hidden="true"
-      className="relative block h-16 w-28 shrink-0 overflow-hidden rounded-ds-sm border border-ds-border-subtle bg-ds-surface-base"
+      className={`relative block overflow-hidden rounded-ds-sm border border-ds-border-subtle bg-ds-surface-base ${className}`}
     >
       {layout?.placeholders.length ? (
         layout.placeholders.map((placeholder) => {
@@ -1490,6 +1492,10 @@ export function SlideSelectionToolbar({
   const canOpenEffectsPanel = panelEntries.effects;
   const canOpenSourcePanel = panelEntries.source;
   const hasMultiSelection = selectedIds.length >= 2;
+  const withToolbarPanelsClosed = (onClick: () => void) => () => {
+    setMoreOpen(false);
+    onClick();
+  };
   const iconButton = (
     label: string,
     icon: ReactNode,
@@ -1500,7 +1506,7 @@ export function SlideSelectionToolbar({
       title={label}
       aria-label={label}
       disabled={disabled}
-      onClick={onClick}
+      onClick={withToolbarPanelsClosed(onClick)}
     >
       {icon}
     </ToolbarButton>
@@ -1622,10 +1628,18 @@ export function SlideSelectionToolbar({
           tc={theme}
           brandSwatches={brandSwatches}
           onUpdateElement={onUpdateElement}
-          onDuplicate={() => onDuplicateElement(selectedElement.id)}
-          onBringToFront={() => onBringToFront(selectedElement.id)}
-          onSendToBack={() => onSendToBack(selectedElement.id)}
-          onRemove={() => onRemoveElement(selectedElement.id)}
+          onDuplicate={withToolbarPanelsClosed(() =>
+            onDuplicateElement(selectedElement.id),
+          )}
+          onBringToFront={withToolbarPanelsClosed(() =>
+            onBringToFront(selectedElement.id),
+          )}
+          onSendToBack={withToolbarPanelsClosed(() =>
+            onSendToBack(selectedElement.id),
+          )}
+          onRemove={withToolbarPanelsClosed(() =>
+            onRemoveElement(selectedElement.id),
+          )}
           hideObjectActions={isEditingText}
           compact={compact}
         />
@@ -1803,10 +1817,18 @@ export function SlideToolbar({
             option.gradient.to === slide.backgroundGradient?.to,
         )?.id
       : undefined;
-  const closeAddMenu = () => {
-    setAddOpen(false);
-    setAddVisualOpen(false);
+  const closeToolbarPanels = (
+    keep?: "add" | "layout" | "background" | "more",
+  ) => {
+    if (keep !== "add") {
+      setAddOpen(false);
+      setAddVisualOpen(false);
+    }
+    if (keep !== "layout") setLayoutOpen(false);
+    if (keep !== "background") setBackgroundOpen(false);
+    if (keep !== "more") setMoreOpen(false);
   };
+  const closeAddMenu = () => closeToolbarPanels();
   const moreMenuItem = (
     label: string,
     icon: ReactNode,
@@ -1887,9 +1909,9 @@ export function SlideToolbar({
       aria-haspopup="dialog"
       aria-expanded={addOpen || addVisualOpen}
       onClick={() => {
-        setBackgroundOpen(false);
-        setAddVisualOpen(false);
-        setAddOpen((open) => !open);
+        const nextOpen = !(addOpen || addVisualOpen);
+        closeToolbarPanels();
+        setAddOpen(nextOpen);
       }}
     >
       <Plus size={14} aria-hidden="true" />
@@ -1901,11 +1923,26 @@ export function SlideToolbar({
       aria-haspopup="dialog"
       aria-expanded={backgroundOpen}
       onClick={() => {
-        closeAddMenu();
-        setBackgroundOpen((open) => !open);
+        const nextOpen = !backgroundOpen;
+        closeToolbarPanels();
+        setBackgroundOpen(nextOpen);
       }}
     >
       <Palette size={14} aria-hidden="true" />
+    </ToolbarButton>
+  );
+  const layoutTriggerButton = (
+    <ToolbarButton
+      aria-label="Slide layout"
+      aria-haspopup="dialog"
+      aria-expanded={layoutOpen}
+      onClick={() => {
+        const nextOpen = !layoutOpen;
+        closeToolbarPanels();
+        setLayoutOpen(nextOpen);
+      }}
+    >
+      <Columns3 size={14} aria-hidden="true" />
     </ToolbarButton>
   );
 
@@ -1988,51 +2025,60 @@ export function SlideToolbar({
 
       <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
 
-      <div className="flex h-7 items-center text-xs text-ds-text-secondary">
-        <SelectMenu
-          value={selectedLayout?.id ?? ""}
-          aria-label="Slide layout"
-          tooltipLabel={
-            layoutOpen
-              ? undefined
-              : `Layout: ${layoutDisplayName(selectedLayout)}`
-          }
-          triggerIcon={<Columns3 size={14} aria-hidden="true" />}
-          showSelectedLabel={false}
-          showChevron={false}
-          showCheck={false}
-          align="center"
-          anchor="toolbar"
-          onOpenChange={(open) => {
-            setLayoutOpen(open);
-            if (open) {
-              closeAddMenu();
-              setBackgroundOpen(false);
-            }
-          }}
-          options={layouts.map((layout) => ({
-            value: layout.id,
-            label: "",
-            icon: (
-              <span className="flex flex-col items-center gap-1.5">
-                <span className="text-xs font-medium leading-tight text-ds-text-primary">
-                  {layoutDisplayName(layout)}
-                </span>
+      <Popover
+        open={layoutOpen}
+        onClose={() => setLayoutOpen(false)}
+        aria-label="Slide layout"
+        placement="bottom"
+        align="center"
+        anchor="toolbar"
+        portal
+        layer="tooltip"
+        className="w-[336px] p-2.5 text-xs"
+        trigger={
+          layoutOpen ? (
+            layoutTriggerButton
+          ) : (
+            <Tooltip
+              label={`Layout: ${layoutDisplayName(selectedLayout)}`}
+              side="bottom"
+            >
+              {layoutTriggerButton}
+            </Tooltip>
+          )
+        }
+      >
+        <div className="grid max-h-[min(24rem,calc(100vh-9rem))] grid-cols-2 gap-1.5 overflow-y-auto">
+          {layouts.map((layout) => {
+            const selected = layout.id === selectedLayout?.id;
+            return (
+              <button
+                key={layout.id}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => {
+                  onSelectLayout(layout);
+                  setLayoutOpen(false);
+                }}
+                className={`relative rounded-ds-md border bg-ds-surface p-1.5 text-left transition-colors ${
+                  selected
+                    ? "border-ds-accent-border bg-ds-accent-surface text-ds-text-primary shadow-sm ring-1 ring-ds-accent-border"
+                    : "border-ds-border-subtle text-ds-text-secondary hover:border-ds-border-strong hover:bg-ds-state-hover hover:text-ds-text-primary"
+                } ${FOCUS_RING}`}
+              >
                 <SlideLayoutPreview
                   layout={layout}
-                  selected={layout.id === selectedLayout?.id}
+                  selected={selected}
+                  className="h-20 w-full"
                 />
-              </span>
-            ),
-          }))}
-          onChange={(value) => {
-            const layout = layouts.find((item) => item.id === value);
-            if (layout) onSelectLayout(layout);
-          }}
-          buttonClassName="w-7 px-0 justify-center"
-          menuClassName="w-fit min-w-0 text-xs"
-        />
-      </div>
+                <span className="mt-1.5 block text-xs font-semibold leading-tight text-ds-text-primary">
+                  {layoutDisplayName(layout)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </Popover>
 
       <Popover
         open={backgroundOpen}
@@ -2071,7 +2117,13 @@ export function SlideToolbar({
       <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
 
       <Tooltip label="Duplicate slide" side="bottom">
-        <ToolbarButton aria-label="Duplicate slide" onClick={onDuplicateSlide}>
+        <ToolbarButton
+          aria-label="Duplicate slide"
+          onClick={() => {
+            closeToolbarPanels();
+            onDuplicateSlide();
+          }}
+        >
           <Copy size={14} aria-hidden="true" />
         </ToolbarButton>
       </Tooltip>
@@ -2079,7 +2131,10 @@ export function SlideToolbar({
         <ToolbarButton
           aria-label="Delete slide"
           disabled={!canDelete}
-          onClick={onRemoveSlide}
+          onClick={() => {
+            closeToolbarPanels();
+            onRemoveSlide();
+          }}
         >
           <Trash2 size={14} aria-hidden="true" />
         </ToolbarButton>
@@ -2099,7 +2154,11 @@ export function SlideToolbar({
             aria-label="More actions"
             aria-haspopup="dialog"
             aria-expanded={moreOpen}
-            onClick={() => setMoreOpen((open) => !open)}
+            onClick={() => {
+              const nextOpen = !moreOpen;
+              closeToolbarPanels();
+              setMoreOpen(nextOpen);
+            }}
           >
             <MoreHorizontal size={14} aria-hidden="true" />
           </ToolbarButton>
