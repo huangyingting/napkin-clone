@@ -7,7 +7,6 @@
  */
 
 export type CssColor = string;
-export type CssFontStack = string;
 export type PointSize = number;
 export type SlideHeightPercent = number;
 export type ExportInches = number;
