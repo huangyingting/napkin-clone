@@ -6,7 +6,7 @@ import {
   GENERIC_PASSWORD_RESET_SENT_MESSAGE,
   requestPasswordResetForEmail,
 } from "@/lib/auth/password-reset-service";
-import { checkServerActionAbuseBudget } from "@/lib/server-action-abuse";
+import { withAbuseBudget } from "@/lib/server-action-abuse";
 
 /**
  * Issues a password-reset link for a credentials user (#140).
@@ -23,12 +23,10 @@ export async function requestPasswordReset(
   formData: FormData,
 ): Promise<ForgotPasswordState> {
   const email = normalizeEmail(formData.get("email"));
-  const budget = await checkServerActionAbuseBudget(
+  return withAbuseBudget(
     "auth.password-reset.email",
     email || "missing-email",
+    async () => requestPasswordResetForEmail(email),
+    () => ({ status: "sent", message: GENERIC_PASSWORD_RESET_SENT_MESSAGE }),
   );
-  if (!budget.allowed) {
-    return { status: "sent", message: GENERIC_PASSWORD_RESET_SENT_MESSAGE };
-  }
-  return requestPasswordResetForEmail(email);
 }

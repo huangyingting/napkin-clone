@@ -21,8 +21,6 @@ import {
   newAnonState,
   parseAnonCookie,
   signAnonState,
-  userRateLimit,
-  userRateWindowMs,
   type AnonState,
   type RateLimitStore,
 } from "@/lib/ai/quota";
@@ -40,15 +38,13 @@ import { ABUSE_CATEGORIES, logRouteDenial } from "@/lib/diagnostics/api-abuse";
 import { auth as authEnv } from "@/lib/env";
 import { logError } from "@/lib/log";
 import { AI_JSON_BODY_MAX_BYTES } from "@/lib/limits";
+import { prismaRateLimitStore, rateLimitSubject } from "@/lib/rate-limit";
 import {
-  anonIpRateLimit,
-  anonIpRateWindowMs,
-  getClientIp,
-  hashIdentifier,
-  prismaRateLimitStore,
-  rateLimitSubject,
-  retryAfterSeconds,
-} from "@/lib/rate-limit";
+  checkIpRateLimit,
+  abuseBudgetOptions,
+  type AbuseBudgetCheck,
+  type AbuseBudgetNamespaceId,
+} from "@/lib/abuse-budget";
 import { getCurrentUser } from "@/lib/session";
 import {
   API_ERROR_CODES,
@@ -159,11 +155,13 @@ export interface GenerationRouteDeps {
   rateLimitSubject(scope: string, identifier: string): string;
   userRateLimit(): number;
   userRateWindowMs(): number;
-  anonIpRateLimit(): number;
-  anonIpRateWindowMs(): number;
-  retryAfterSeconds(resetAt: number, now: number): number;
-  getClientIp(headers: Headers): string | null;
-  hashIdentifier(identifier: string, secret: string): string;
+  /** Checks IP-based rate limit; replaces the former getClientIp/hashIdentifier/anonIp* deps. */
+  checkIpRateLimit(opts: {
+    namespace: string;
+    headers: Headers;
+    secret: string;
+    now: number;
+  }): Promise<AbuseBudgetCheck>;
   anonTrialLimit(): number;
   parseAnonCookie(
     value: string | undefined | null,
@@ -204,13 +202,13 @@ const defaultDeps: GenerationRouteDeps = {
   rateLimitStore: prismaRateLimitStore,
   checkRateLimitWithStore,
   rateLimitSubject,
-  userRateLimit,
-  userRateWindowMs,
-  anonIpRateLimit,
-  anonIpRateWindowMs,
-  retryAfterSeconds,
-  getClientIp,
-  hashIdentifier,
+  userRateLimit: () => abuseBudgetOptions("ai.visual.user").limit,
+  userRateWindowMs: () => abuseBudgetOptions("ai.visual.user").windowMs,
+  checkIpRateLimit: (opts) =>
+    checkIpRateLimit({
+      ...opts,
+      namespace: opts.namespace as AbuseBudgetNamespaceId,
+    }),
   anonTrialLimit,
   parseAnonCookie,
   newAnonState,
@@ -491,35 +489,25 @@ async function checkAnonymousAccess<TPayload, TResult>(
   request: GenerationRouteRequest,
   secret: string,
 ): Promise<{ cookieWriter: CookieWriter } | { response: NextResponse }> {
-  const clientIp = deps.getClientIp(request.headers) ?? "unknown";
-  const clientHash = deps.hashIdentifier(clientIp, secret);
-  const ipKey = deps.rateLimitSubject(
-    config.rateLimitSubjects.anonymousIp,
-    clientHash,
-  );
   const now = deps.now();
-  const ipResult = await deps.checkRateLimitWithStore(
-    deps.rateLimitStore,
-    ipKey,
-    {
-      limit: deps.anonIpRateLimit(),
-      windowMs: deps.anonIpRateWindowMs(),
-      now,
-    },
-  );
+  const ipCheck = await deps.checkIpRateLimit({
+    namespace: config.rateLimitSubjects.anonymousIp,
+    headers: request.headers,
+    secret,
+    now,
+  });
 
-  if (!ipResult.allowed) {
-    const retryAfter = deps.retryAfterSeconds(ipResult.resetAt, now);
+  if (!ipCheck.allowed) {
     deps.logRouteDenial({
       route: config.logScope,
       reason: ABUSE_CATEGORIES.RATE_LIMIT_HIT,
       status: 429,
-      subjectHash: clientHash,
-      retryAfterSeconds: retryAfter,
+      subjectHash: ipCheck.subjectHash,
+      retryAfterSeconds: ipCheck.retryAfterSeconds,
     });
     return {
       response: tooManyRequests(
-        retryAfter,
+        ipCheck.retryAfterSeconds,
         "Too many anonymous generations from your network. Please wait and try again, or sign in.",
       ),
     };
@@ -535,7 +523,7 @@ async function checkAnonymousAccess<TPayload, TResult>(
       route: config.logScope,
       reason: ABUSE_CATEGORIES.ANON_QUOTA_DENIED,
       status: 429,
-      subjectHash: clientHash,
+      subjectHash: ipCheck.subjectHash,
     });
     return {
       response: tooManyRequests(

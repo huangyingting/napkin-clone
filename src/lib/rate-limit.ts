@@ -26,38 +26,7 @@ import {
   type RateLimitOptions,
   type RateLimitResult,
 } from "@/lib/ai/quota";
-import { readPositiveIntEnv } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
-
-/** Max document imports allowed per client IP per window. */
-export function importRateLimit(): number {
-  return readPositiveIntEnv("IMPORT_RATE_LIMIT", 10);
-}
-
-/** Length of the import rate-limit window, in milliseconds (default 1 min). */
-export function importRateWindowMs(): number {
-  return readPositiveIntEnv("IMPORT_RATE_WINDOW_MS", 60_000);
-}
-
-/**
- * Max anonymous generations allowed per client IP per window. This is the
- * server-side throttle that backs the cookie trial: clearing the cookie does
- * not reset it because the window is persisted keyed by hashed IP.
- */
-export function anonIpRateLimit(): number {
-  return readPositiveIntEnv("ANON_IP_GENERATION_RATE_LIMIT", 20);
-}
-
-/**
- * Length of the anonymous per-IP generation window, in milliseconds
- * (default 1 hour).
- */
-export function anonIpRateWindowMs(): number {
-  return readPositiveIntEnv(
-    "ANON_IP_GENERATION_RATE_WINDOW_MS",
-    60 * 60 * 1000,
-  );
-}
 
 /**
  * Extracts the originating client IP from standard proxy headers. Returns the

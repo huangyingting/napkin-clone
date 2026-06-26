@@ -15,10 +15,7 @@ import type {
   VerifyEmailResult,
 } from "@/lib/auth/form-state";
 import { prisma } from "@/lib/prisma";
-import {
-  checkServerActionAbuseBudget,
-  retryMessage,
-} from "@/lib/server-action-abuse";
+import { retryMessage, withAbuseBudget } from "@/lib/server-action-abuse";
 import { requireUser } from "@/lib/session";
 
 /** Maximum stored display-name length. */
@@ -74,19 +71,18 @@ export async function changePassword(
   formData: FormData,
 ): Promise<PasswordResult> {
   const user = await requireUser(redirect);
-  const budget = await checkServerActionAbuseBudget(
+  return withAbuseBudget(
     "account.change-password.user",
     user.id,
+    async () =>
+      changePasswordForUser({
+        userId: user.id,
+        currentPassword: formData.get("currentPassword"),
+        newPassword: formData.get("newPassword"),
+        confirmPassword: formData.get("confirmPassword"),
+      }),
+    (retryAfterSecs) => actionError(retryMessage(retryAfterSecs)),
   );
-  if (!budget.allowed) {
-    return actionError(retryMessage(budget.retryAfterSeconds));
-  }
-  return changePasswordForUser({
-    userId: user.id,
-    currentPassword: formData.get("currentPassword"),
-    newPassword: formData.get("newPassword"),
-    confirmPassword: formData.get("confirmPassword"),
-  });
 }
 
 /**
@@ -142,12 +138,10 @@ export async function requestEmailVerification(
   _formData: FormData,
 ): Promise<VerifyEmailResult> {
   const user = await requireUser(redirect);
-  const budget = await checkServerActionAbuseBudget(
+  return withAbuseBudget(
     "auth.email-verification.user",
     user.id,
+    async () => requestEmailVerificationForUser(user.id),
+    (retryAfterSecs) => actionError(retryMessage(retryAfterSecs)),
   );
-  if (!budget.allowed) {
-    return actionError(retryMessage(budget.retryAfterSeconds));
-  }
-  return requestEmailVerificationForUser(user.id);
 }
