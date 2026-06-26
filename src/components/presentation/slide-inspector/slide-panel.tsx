@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { Swatch } from "@/components/ui";
+import { ColorPicker, Swatch } from "@/components/ui";
 import { FOCUS_RING } from "@/components/ui/tokens";
 
 /**
@@ -69,18 +69,16 @@ export function ColorOverride({
         </button>
       </div>
       {showCustom ? (
-        <label className="flex items-center gap-2">
-          <input
-            type="color"
-            value={value ?? fallback}
-            onChange={(event) => onChange(event.target.value)}
-            className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
+        <div className="flex items-center gap-2">
+          <ColorPicker
+            color={value ?? fallback}
+            onChange={onChange}
             aria-label={`${label} custom color`}
           />
           <span className="font-mono text-xs tabular-nums text-ds-text-secondary">
             {(value ?? fallback).toLowerCase()}
           </span>
-        </label>
+        </div>
       ) : null}
     </div>
   );

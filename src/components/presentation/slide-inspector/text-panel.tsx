@@ -18,6 +18,7 @@ import {
   VerticalAlignControl,
 } from "./primitives";
 import { FOCUS_RING } from "@/components/ui/tokens";
+import { ColorPicker } from "@/components/ui/color-picker";
 import type {
   Deck,
   Slide,
@@ -289,12 +290,10 @@ export function InheritedColorControl({
         }}
       />
       <div className="flex items-center gap-2">
-        <input
-          type="color"
+        <ColorPicker
+          color={isHexColor(value) ? value : "#000000"}
+          onChange={setColor}
           aria-label="Text color"
-          value={isHexColor(value) ? value : "#000000"}
-          onChange={(event) => setColor(event.target.value)}
-          className="h-7 w-9 cursor-pointer rounded-ds-sm border border-ds-border-subtle bg-ds-surface"
         />
         <input
           key={value}

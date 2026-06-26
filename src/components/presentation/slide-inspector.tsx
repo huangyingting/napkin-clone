@@ -24,7 +24,7 @@ import {
   TabButton,
 } from "@/components/presentation/slide-inspector/primitives";
 import { LayerList } from "@/components/presentation/layer-list";
-import { Tooltip } from "@/components/ui";
+import { ColorPicker, Tooltip } from "@/components/ui";
 import type { PlaceholderElement, SlideElement } from "@/lib/presentation/deck";
 import {
   defaultLayouts,
@@ -563,28 +563,24 @@ export function SlideInspector({
                 </span>
                 {slide.backgroundGradient ? (
                   <div className="mt-2 flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={slide.backgroundGradient.from}
-                      onChange={(event) =>
+                    <ColorPicker
+                      color={slide.backgroundGradient.from}
+                      onChange={(hex) =>
                         onBackgroundGradientChange({
                           ...slide.backgroundGradient!,
-                          from: event.target.value,
+                          from: hex,
                         })
                       }
-                      className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
                       aria-label="Gradient start color"
                     />
-                    <input
-                      type="color"
-                      value={slide.backgroundGradient.to}
-                      onChange={(event) =>
+                    <ColorPicker
+                      color={slide.backgroundGradient.to}
+                      onChange={(hex) =>
                         onBackgroundGradientChange({
                           ...slide.backgroundGradient!,
-                          to: event.target.value,
+                          to: hex,
                         })
                       }
-                      className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
                       aria-label="Gradient end color"
                     />
                     <input

@@ -2,18 +2,12 @@
 
 import { AnimatePresence } from "framer-motion";
 import { Download } from "lucide-react";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ChangeEvent,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import {
   Button,
+  ColorPicker,
   FieldRow,
   SegmentedControl,
   cx,
@@ -268,8 +262,7 @@ export function ExportDialog({
   );
 
   const setCustomBackground = useCallback(
-    (e: ChangeEvent<HTMLInputElement>) =>
-      setOptions((o) => ({ ...o, customBackground: e.target.value })),
+    (hex: string) => setOptions((o) => ({ ...o, customBackground: hex })),
     [],
   );
 
@@ -509,15 +502,10 @@ export function ExportDialog({
                     />
                     {options.background === "custom" && (
                       <div className="mt-2 flex items-center gap-2">
-                        <input
-                          type="color"
-                          value={options.customBackground ?? "#ffffff"}
+                        <ColorPicker
+                          color={options.customBackground ?? "#ffffff"}
                           onChange={setCustomBackground}
                           aria-label="Custom background color"
-                          className={cx(
-                            "h-7 w-7 cursor-pointer rounded-[var(--ds-radius-sm,8px)] border border-[var(--ds-border-subtle,rgba(0,0,0,0.08))]",
-                            FOCUS_RING,
-                          )}
                         />
                         <span className="font-mono text-xs text-[var(--ds-text-muted,#6f7d83)]">
                           {options.customBackground ?? "#ffffff"}

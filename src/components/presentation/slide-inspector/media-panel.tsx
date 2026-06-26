@@ -17,7 +17,7 @@ import {
   ParagraphSpacingControl,
   VerticalAlignControl,
 } from "./primitives";
-import { Tooltip } from "@/components/ui";
+import { ColorPicker, Dialog, Tooltip } from "@/components/ui";
 import { FOCUS_RING } from "@/components/ui/tokens";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
 import type { SlideAssetActionPort } from "@/lib/action-ports";
@@ -106,6 +106,7 @@ export function RichTextBox({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const lastHtmlRef = useRef("");
+  const [textColor, setTextColor] = useState("#000000");
   // Coalesce key for the active editing session — the whole run of keystrokes
   // collapses to one undo step (issue #306). Set on focus, cleared on blur.
   const { coalesceKeyRef, onSessionStart, onSessionEnd } =
@@ -159,15 +160,14 @@ export function RichTextBox({
         >
           <Italic size={14} aria-hidden="true" />
         </button>
-        <label className="ml-auto flex items-center gap-1 text-xs text-ds-text-muted">
-          Color
-          <input
-            type="color"
-            aria-label="Selected text color"
-            className="h-7 w-9 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
-            onChange={(event) => applyCommand("foreColor", event.target.value)}
-          />
-        </label>
+        <ColorPicker
+          color={textColor}
+          onChange={(hex) => {
+            setTextColor(hex);
+            applyCommand("foreColor", hex);
+          }}
+          aria-label="Selected text color"
+        />
       </div>
       <div
         ref={ref}
@@ -437,6 +437,7 @@ export function ImageCropControl({
   crop: ImageCrop | undefined;
   onChange: (crop: ImageCrop | undefined) => void;
 }) {
+  const [open, setOpen] = useState(false);
   const current: ImageCrop = crop ?? {
     top: 0,
     right: 0,
@@ -455,51 +456,75 @@ export function ImageCropControl({
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="image-crop-dialog-label"
-      className="flex flex-col gap-2"
-    >
+    <>
       <div className="flex items-center justify-between">
-        <span id="image-crop-dialog-label" className={LABEL_CLASS + " mb-0"}>
-          Crop
-        </span>
-        {/* Visible instruction pill — decorative; screen-reader text below */}
-        <span
-          aria-hidden="true"
-          className="rounded-full border border-ds-border-subtle px-2 py-0.5 text-xs text-ds-text-secondary"
+        <span className={LABEL_CLASS + " mb-0"}>Crop</span>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className={`text-xs text-ds-text-muted underline hover:text-ds-text-primary ${FOCUS_RING}`}
         >
-          Enter % per side
+          {crop ? "Edit crop…" : "Set crop…"}
+        </button>
+      </div>
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        aria-labelledby="image-crop-dialog-label"
+        className="max-w-sm"
+      >
+        <div className="flex items-center justify-between">
+          <h2
+            id="image-crop-dialog-label"
+            className="text-base font-semibold text-ds-text-primary"
+          >
+            Crop
+          </h2>
+          {/* Visible instruction pill — decorative; screen-reader text below */}
+          <span
+            aria-hidden="true"
+            className="rounded-full border border-ds-border-subtle px-2 py-0.5 text-xs text-ds-text-secondary"
+          >
+            Enter % per side
+          </span>
+        </div>
+        <span className="sr-only">
+          Enter percentage values from 0 to 100 to crop each side of the image.
+          Top, Right, Bottom, and Left fields trim that fraction of the image.
         </span>
-      </div>
-      <span className="sr-only">
-        Enter percentage values from 0 to 100 to crop each side of the image.
-        Top, Right, Bottom, and Left fields trim that fraction of the image.
-      </span>
-      <div className="grid grid-cols-2 gap-2">
-        <NumberField
-          label="Top %"
-          value={current.top * 100}
-          onCommit={(value) => commit("top", value)}
-        />
-        <NumberField
-          label="Right %"
-          value={current.right * 100}
-          onCommit={(value) => commit("right", value)}
-        />
-        <NumberField
-          label="Bottom %"
-          value={current.bottom * 100}
-          onCommit={(value) => commit("bottom", value)}
-        />
-        <NumberField
-          label="Left %"
-          value={current.left * 100}
-          onCommit={(value) => commit("left", value)}
-        />
-      </div>
-    </div>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <NumberField
+            label="Top %"
+            value={current.top * 100}
+            onCommit={(value) => commit("top", value)}
+          />
+          <NumberField
+            label="Right %"
+            value={current.right * 100}
+            onCommit={(value) => commit("right", value)}
+          />
+          <NumberField
+            label="Bottom %"
+            value={current.bottom * 100}
+            onCommit={(value) => commit("bottom", value)}
+          />
+          <NumberField
+            label="Left %"
+            value={current.left * 100}
+            onCommit={(value) => commit("left", value)}
+          />
+        </div>
+        <div className="mt-6 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="flex h-9 items-center justify-center rounded-full bg-ds-accent px-4 text-sm font-medium text-ds-text-on-accent transition hover:opacity-90"
+          >
+            Done
+          </button>
+        </div>
+      </Dialog>
+    </>
   );
 }
 
@@ -742,18 +767,16 @@ export function ElementEditor({
               </span>
               <span className="flex items-center gap-2">
                 {element.shape !== "line" ? (
-                  <input
-                    type="color"
-                    value={element.stroke?.color ?? "#000000"}
-                    onChange={(event) =>
+                  <ColorPicker
+                    color={element.stroke?.color ?? "#000000"}
+                    onChange={(hex) =>
                       onUpdateElement(element.id, {
                         stroke: {
-                          color: event.target.value,
+                          color: hex,
                           width: element.stroke?.width ?? 0.4,
                         },
                       })
                     }
-                    className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
                     aria-label="Border color"
                   />
                 ) : null}
@@ -957,23 +980,21 @@ export function ConnectorElementEditor({
       </label>
 
       {/* Stroke color */}
-      <label className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2">
         <span className={LABEL_CLASS + " mb-0"}>Stroke color</span>
-        <input
-          type="color"
-          value={element.stroke?.color ?? "#a1a1aa"}
-          onChange={(event) =>
+        <ColorPicker
+          color={element.stroke?.color ?? "#a1a1aa"}
+          onChange={(hex) =>
             onUpdateElement(element.id, {
               stroke: {
-                color: event.target.value,
+                color: hex,
                 width: element.stroke?.width ?? 0.4,
               },
             })
           }
-          className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
           aria-label="Stroke color"
         />
-      </label>
+      </div>
 
       {/* Stroke width */}
       <label className="block">
