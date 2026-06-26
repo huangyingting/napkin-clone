@@ -12,7 +12,7 @@ export type DocumentActionContext = {
 };
 
 type DocumentActionContextDeps = {
-  requireUser: typeof requireUser;
+  requireUser: () => Promise<DocumentActionUser>;
   requireDocumentCapability: typeof requireDocumentCapability;
 };
 
@@ -35,8 +35,3 @@ export function createRequireDocumentActionContext(
     return { user, authorization };
   };
 }
-
-export const requireDocumentActionContext = createRequireDocumentActionContext({
-  requireUser,
-  requireDocumentCapability,
-});

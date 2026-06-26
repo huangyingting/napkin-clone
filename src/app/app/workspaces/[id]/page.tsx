@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 
 import { accessibleWorkspaceWhere } from "@/lib/access-query";
@@ -22,7 +22,7 @@ export default async function WorkspacePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const user = await requireUser();
+  const user = await requireUser(redirect);
 
   // Check if user is owner or member
   const workspace = await prisma.workspace.findFirst({

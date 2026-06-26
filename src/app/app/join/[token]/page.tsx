@@ -47,7 +47,7 @@ export default async function JoinWorkspacePage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const user = await requireUser();
+  const user = await requireUser(redirect);
 
   // Resolve the link by token only (not filtered by revocation) so the access
   // policy can produce a precise, safe failure state instead of a bare 404.

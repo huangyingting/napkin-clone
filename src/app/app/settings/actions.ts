@@ -1,5 +1,6 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { signOut } from "@/auth";
@@ -40,7 +41,7 @@ export async function updateProfile(
   _prevState: ProfileResult | null,
   formData: FormData,
 ): Promise<ProfileResult> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
 
   const name = String(formData.get("name") ?? "")
     .trim()
@@ -72,7 +73,7 @@ export async function changePassword(
   _prevState: PasswordResult | null,
   formData: FormData,
 ): Promise<PasswordResult> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
   const budget = await checkServerActionAbuseBudget(
     "account.change-password.user",
     user.id,
@@ -110,7 +111,7 @@ export async function deleteAccount(
   _prevState: DeleteAccountResult | null,
   formData: FormData,
 ): Promise<DeleteAccountResult> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
   const result = await deleteAccountForUser({
     userId: user.id,
     confirmation: formData.get("confirmation"),
@@ -140,7 +141,7 @@ export async function requestEmailVerification(
   _prevState: VerifyEmailResult | null,
   _formData: FormData,
 ): Promise<VerifyEmailResult> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
   const budget = await checkServerActionAbuseBudget(
     "auth.email-verification.user",
     user.id,

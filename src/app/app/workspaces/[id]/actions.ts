@@ -30,7 +30,7 @@ export async function createInviteLink(
   role: WorkspaceRole,
   options: CreateInviteLinkOptions = {},
 ): Promise<InviteLink> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
   assertInvitableWorkspaceRole(role);
 
   // Centralized authorization (issue #483): only the workspace owner may
@@ -49,7 +49,7 @@ export async function createInviteLink(
 }
 
 export async function revokeInviteLink(linkId: string): Promise<void> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
 
   // Look up the link to get its workspaceId for centralized authorization.
   const link = await getInviteLinkTarget(linkId);
@@ -68,7 +68,7 @@ export async function revokeInviteLink(linkId: string): Promise<void> {
 }
 
 export async function removeMember(memberId: string): Promise<void> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
 
   // Look up the member to get the workspaceId and their userId.
   const member = await getWorkspaceMemberRemovalTarget(memberId);
@@ -96,7 +96,7 @@ export async function renameWorkspace(
   workspaceId: string,
   rawName: string,
 ): Promise<void> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
   await requireWorkspaceCapability(user.id, workspaceId, "manage");
 
   await renameWorkspaceRecord(workspaceId, rawName);
@@ -117,7 +117,7 @@ export async function renameWorkspace(
  * with the workspace.
  */
 export async function deleteWorkspace(workspaceId: string): Promise<void> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
   await requireWorkspaceCapability(user.id, workspaceId, "manage");
 
   await deleteWorkspaceAndDetachDocuments(workspaceId);
@@ -137,7 +137,7 @@ export async function deleteWorkspace(workspaceId: string): Promise<void> {
  * lists; only the membership row is removed.
  */
 export async function leaveWorkspace(workspaceId: string): Promise<void> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
 
   await leaveWorkspaceForUser(workspaceId, user.id);
 
@@ -161,7 +161,7 @@ export async function transferOwnership(
   workspaceId: string,
   newOwnerUserId: string,
 ): Promise<void> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
   await requireWorkspaceCapability(user.id, workspaceId, "manage");
 
   await transferWorkspaceOwnership(workspaceId, user.id, newOwnerUserId);
@@ -174,7 +174,7 @@ export async function transferOwnership(
 export async function getWorkspaceDocuments(
   workspaceId: string,
 ): Promise<WorkspaceDocumentsResult> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
   return listWorkspaceDocumentsForUser(user.id, workspaceId);
 }
 
@@ -191,7 +191,7 @@ export async function createWorkspaceDocument(
   workspaceId: string,
   templateId: string,
 ): Promise<void> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
   const document = await createWorkspaceDocumentForUser(
     user.id,
     workspaceId,
@@ -217,7 +217,7 @@ export async function importWorkspaceDocument(
   content: string,
   rawTitle: string,
 ): Promise<void> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
   const document = await importWorkspaceDocumentForUser(
     user.id,
     workspaceId,

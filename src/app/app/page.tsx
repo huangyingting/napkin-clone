@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { getLocale } from "@/lib/i18n/server";
 import { loadDashboardViewModel } from "@/lib/dashboard/loader";
@@ -18,7 +19,7 @@ const primaryButtonClass =
   "flex h-10 items-center justify-center rounded-full bg-ds-accent px-5 text-sm font-medium text-ds-text-on-accent transition hover:opacity-90 disabled:opacity-60";
 
 export default async function DashboardPage() {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
   const locale = await getLocale();
   const viewModel = await loadDashboardViewModel({
     userId: user.id,

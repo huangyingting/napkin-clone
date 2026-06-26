@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 
 import { EMPTY_STATE_CHROME, PANEL_CHROME, cx } from "@/components/ui";
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 export default async function WorkspacesPage() {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
 
   // Get workspaces where the user is owner or member
   const ownedWorkspaces = await prisma.workspace.findMany({

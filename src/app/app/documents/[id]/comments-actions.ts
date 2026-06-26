@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { requireDocumentActionContext } from "@/lib/actions/document-action-context";
+import { requireDocumentActionContext } from "./document-context";
 import {
   createCommentService,
   type CommentThread,

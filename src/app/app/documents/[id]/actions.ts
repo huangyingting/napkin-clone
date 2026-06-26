@@ -1,9 +1,10 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
-import { requireDocumentActionContext } from "@/lib/actions/document-action-context";
+import { requireDocumentActionContext } from "./document-context";
 import { requireDocumentCapability } from "@/lib/auth/document-permissions";
 import { stampBlockIds } from "@/lib/lexical/block-id";
 import { prisma } from "@/lib/prisma";
@@ -50,7 +51,7 @@ export async function saveDocumentLexical(
   id: string,
   stateJson: string,
 ): Promise<ActionResult<VisualMirrorOutcome>> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
 
   if (stateJson.length > LEXICAL_STATE_MAX_LENGTH) {
     return actionError(formatLexicalStateTooLargeError());
@@ -421,7 +422,7 @@ export async function listDocumentVersions(
 export async function restoreDocumentVersion(
   versionId: string,
 ): Promise<ActionResult<RestoredDocumentVersion>> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
 
   const version = await prisma.documentVersion.findUnique({
     where: { id: versionId },

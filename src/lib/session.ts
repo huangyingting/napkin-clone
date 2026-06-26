@@ -1,5 +1,3 @@
-import { redirect } from "next/navigation";
-
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -13,10 +11,10 @@ export async function getCurrentUser() {
 }
 
 /**
- * Returns the currently authenticated user, or redirects to the login page when
- * no valid session exists. Use in protected server components and actions as the
- * secure, server-side guard (the Edge middleware only performs an optimistic
- * check).
+ * Returns the currently authenticated user, or calls the supplied `redirect`
+ * function when no valid session exists. The `redirect` parameter must be
+ * injected by the caller (component or action layer), keeping this lib module
+ * free of framework navigation dependencies and node-test-safe.
  *
  * Also defends against a "stale" session: with the JWT strategy the session can
  * be cryptographically valid while its user row no longer exists in the database
@@ -25,7 +23,7 @@ export async function getCurrentUser() {
  * (`document.create({ ownerId })`). When the user can't be found we route to
  * `/signout`, which clears the stale cookie and returns to login.
  */
-export async function requireUser() {
+export async function requireUser(redirect: (url: string) => never) {
   const user = await getCurrentUser();
   if (!user?.id) {
     redirect("/login");

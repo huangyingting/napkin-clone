@@ -6,6 +6,7 @@
  */
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { actionError, actionOk, type ActionResult } from "@/lib/action-result";
@@ -18,7 +19,7 @@ import type { BillingActionData } from "@/lib/billing/action-types";
 export async function changePlanAction(
   targetPlan: string,
 ): Promise<ActionResult<BillingActionData>> {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
 
   if (!isPlan(targetPlan)) {
     return actionError(`Invalid plan: ${targetPlan}.`);
@@ -41,7 +42,7 @@ export async function changePlanAction(
 export async function cancelSubscriptionAction(): Promise<
   ActionResult<BillingActionData>
 > {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
 
   const provider = await getBillingProvider();
   const result = await provider.cancelSubscription(user.id);

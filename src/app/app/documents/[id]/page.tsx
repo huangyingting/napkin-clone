@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { loadDocumentEditorViewModel } from "@/lib/document-editor/loader";
 import { requireUser } from "@/lib/session";
 
+import { requireDocumentActionContext } from "./document-context";
 import { LexicalEditor } from "./lexical-editor";
 
 export const metadata: Metadata = {
@@ -15,12 +16,13 @@ export default async function DocumentEditorPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
   const { id } = await params;
   const viewModel = await loadDocumentEditorViewModel({
     documentId: id,
     userId: user.id,
     userName: user.name ?? user.email ?? "Anonymous",
+    requireDocumentContext: requireDocumentActionContext,
   });
 
   if (!viewModel) {

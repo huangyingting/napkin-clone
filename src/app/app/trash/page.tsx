@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 
 import { prisma } from "@/lib/prisma";
@@ -49,7 +50,7 @@ async function fetchTrashDocuments(userId: string) {
  * capability enforced server-side.
  */
 export default async function TrashPage() {
-  const user = await requireUser();
+  const user = await requireUser(redirect);
 
   const documents = await fetchTrashDocuments(user.id);
 

@@ -1,6 +1,6 @@
 "use server";
 
-import { requireDocumentActionContext } from "@/lib/actions/document-action-context";
+import { requireDocumentActionContext } from "./document-context";
 import { createCommentService } from "@/lib/comments";
 import type { Deck } from "@/lib/presentation/deck";
 
