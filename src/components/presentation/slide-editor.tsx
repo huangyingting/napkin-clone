@@ -171,8 +171,8 @@ import {
   bucketDurationMs,
   emitProductTelemetry,
 } from "@/lib/telemetry/product";
+import { BackgroundThemePanel } from "@/components/presentation/slide-editor/background-theme-panel";
 import {
-  BackgroundThemePanel,
   FromDocumentPanel,
   InsertMenuButton,
   MergeSummaryDialog,
