@@ -90,6 +90,7 @@ import {
   type SlideFormat,
 } from "@/lib/presentation/slide-format";
 import type { Visual } from "@/lib/visual/schema";
+import { STYLE_THEMES } from "@/lib/visual/themes";
 import {
   buildTemplateSlide,
   TEMPLATE_IMAGE_PLACEHOLDER_SRC,
@@ -125,6 +126,7 @@ import { deriveSlideTitle } from "@/lib/presentation/slide-title";
 import { shouldCollapseToolbar } from "@/lib/presentation/slide-panel-ui";
 import { isSlideToolbarVisible } from "@/lib/presentation/slide-panel-ui";
 import { slideReorderKeyDirection } from "@/lib/presentation/slide-reorder";
+import { selectionBoundingBox } from "@/lib/presentation/selection-transform";
 import { useDeckHistory } from "@/lib/presentation/use-deck-history";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
 import {
@@ -583,13 +585,23 @@ export function SlideEditor({
   useFocusTrap(dialogRef);
   // Hidden file input for the Insert ▸ Image one-step picker flow (#299).
   const insertImageFileInputRef = useRef<HTMLInputElement>(null);
+  const replaceImageFileInputRef = useRef<HTMLInputElement>(null);
   // Element ID of the pending Insert ▸ Image pick session. Cleared by onAccept
   // (file chosen) and onError (validation failure) so the cancel-fallback
   // knows whether to insert the empty placeholder.
   const insertImagePendingIdRef = useRef<string | null>(null);
+  const replaceImagePendingRef = useRef<{
+    id: string;
+    currentSrc: string;
+  } | null>(null);
+  const [replaceImagePending, setReplaceImagePending] = useState<{
+    id: string;
+    currentSrc: string;
+  } | null>(null);
   const [insertImageError, setInsertImageError] = useState<string | null>(null);
   const [canvasAddOpen, setCanvasAddOpen] = useState(false);
   const [canvasAddVisualOpen, setCanvasAddVisualOpen] = useState(false);
+  const [editingElementId, setEditingElementId] = useState<string | null>(null);
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
   const [pendingResetLayout, setPendingResetLayout] =
     useState<ReusableSlideLayout | null>(null);
@@ -859,7 +871,15 @@ export function SlideEditor({
       setSelectedIndex(Math.min(safeSelected + 1, next.slides.length - 1));
       setAddTemplateOpen(false);
     },
-    [deck, onDeckChange, safeSelected, visuals],
+    [
+      deck,
+      onDeckChange,
+      pendingPatchesRef,
+      safeSelected,
+      setAddTemplateOpen,
+      setSpotlightPickerOpen,
+      visuals,
+    ],
   );
 
   const handleSpotlightPick = useCallback(
@@ -879,7 +899,13 @@ export function SlideEditor({
       setSelectedIndex(Math.min(safeSelected + 1, next.slides.length - 1));
       setSpotlightPickerOpen(false);
     },
-    [deck, onDeckChange, safeSelected],
+    [
+      deck,
+      onDeckChange,
+      pendingPatchesRef,
+      safeSelected,
+      setSpotlightPickerOpen,
+    ],
   );
 
   const handleMove = useCallback(
@@ -899,7 +925,7 @@ export function SlideEditor({
       });
       setSelectedIndex(index + (direction > 0 ? 1 : -1));
     },
-    [deck, onDeckChange],
+    [deck, onDeckChange, pendingPatchesRef],
   );
 
   const handleDuplicate = useCallback(
@@ -920,7 +946,7 @@ export function SlideEditor({
       });
       setSelectedIndex(index + 1);
     },
-    [deck, onDeckChange],
+    [deck, onDeckChange, pendingPatchesRef],
   );
 
   const handleRemove = useCallback(
@@ -943,7 +969,7 @@ export function SlideEditor({
         Math.max(0, Math.min(current, deck.slides.length - 2)),
       );
     },
-    [deck, onDeckChange],
+    [deck, onDeckChange, pendingPatchesRef],
   );
 
   const handleApplyReusableLayout = useCallback(
@@ -956,7 +982,7 @@ export function SlideEditor({
       });
       clearSelection();
     },
-    [deck, doCommitAndChange, safeSelected],
+    [clearSelection, deck, doCommitAndChange, safeSelected],
   );
 
   const handleResetReusableLayout = useCallback(
@@ -1012,7 +1038,7 @@ export function SlideEditor({
       slideCount: deck.slides.length,
       surface: "slide-editor",
     });
-  }, [deck.slides.length, undo]);
+  }, [deck.slides.length, pendingPatchesRef, undo]);
 
   const handleRedo = useCallback(() => {
     clearPendingPatches(pendingPatchesRef);
@@ -1021,7 +1047,7 @@ export function SlideEditor({
       slideCount: deck.slides.length,
       surface: "slide-editor",
     });
-  }, [deck.slides.length, redo]);
+  }, [deck.slides.length, pendingPatchesRef, redo]);
 
   const {
     focusRequest,
@@ -1071,7 +1097,7 @@ export function SlideEditor({
             : undefined,
       );
     },
-    [deck, onDeckChange],
+    [deck, onDeckChange, pendingPatchesRef],
   );
 
   const { dragIndex, dragOverIndex, dragPreview, railListRef, beginReorder } =
@@ -1133,7 +1159,13 @@ export function SlideEditor({
         openSelectionPanel();
       }
     },
-    [closeRightPanel, openSelectionPanel, selectedElementIds],
+    [
+      closeRightPanel,
+      openSelectionPanel,
+      selectedElementIds,
+      setSelectedElementId,
+      setSelectedElementIds,
+    ],
   );
 
   // Replaces (or, when `additive`, unions) the multi-selection with `ids` — used
@@ -1156,7 +1188,13 @@ export function SlideEditor({
         closeRightPanel();
       }
     },
-    [closeRightPanel, openSelectionPanel, selectedElementIds],
+    [
+      closeRightPanel,
+      openSelectionPanel,
+      selectedElementIds,
+      setSelectedElementId,
+      setSelectedElementIds,
+    ],
   );
 
   const handleUpdateElement = useCallback(
@@ -1181,7 +1219,7 @@ export function SlideEditor({
             : undefined,
       );
     },
-    [deck, onDeckChange, safeSelected],
+    [deck, onDeckChange, pendingPatchesRef, safeSelected],
   );
 
   const handleSetElementBoxes = useCallback(
@@ -1205,7 +1243,7 @@ export function SlideEditor({
             : undefined,
       );
     },
-    [deck, onDeckChange, safeSelected],
+    [deck, onDeckChange, pendingPatchesRef, safeSelected],
   );
 
   const handleSetElementPatches = useCallback(
@@ -1229,7 +1267,7 @@ export function SlideEditor({
             : undefined,
       );
     },
-    [deck, onDeckChange, safeSelected],
+    [deck, onDeckChange, pendingPatchesRef, safeSelected],
   );
 
   const handleGroupElements = useCallback(
@@ -1272,7 +1310,14 @@ export function SlideEditor({
       setSelectedElementIds(focusTarget ? new Set([focusTarget]) : new Set());
       requestElementFocus(focusTarget);
     },
-    [deck, doCommitAndChange, requestElementFocus, safeSelected],
+    [
+      deck,
+      doCommitAndChange,
+      requestElementFocus,
+      safeSelected,
+      setSelectedElementId,
+      setSelectedElementIds,
+    ],
   );
 
   const handleDuplicateElement = useCallback(
@@ -1292,8 +1337,69 @@ export function SlideEditor({
       );
       if (newId) handleSelectElement(newId);
     },
-    [deck, onDeckChange, safeSelected, handleSelectElement],
+    [deck, handleSelectElement, onDeckChange, pendingPatchesRef, safeSelected],
   );
+
+  const handleDuplicateSelectedElements = useCallback(() => {
+    const slideId = deck.slides[safeSelected]?.id;
+    const elementIds = [...effectiveSelectedElementIds];
+    if (!slideId || elementIds.length === 0) return;
+    const { result, commitOptions, patches } = commitCommand(deck, {
+      type: "DUPLICATE_ELEMENTS",
+      slideId,
+      elementIds,
+    });
+    if (!result.ok) return;
+    appendPendingPatches(pendingPatchesRef, patches);
+    onDeckChange(result.deck, commitOptions);
+    const newIds = result.affectedElementIds.filter(
+      (elementId) => !elementIds.includes(elementId),
+    );
+    if (newIds.length > 0) {
+      setSelectedElementId(newIds[0] ?? null);
+      setSelectedElementIds(new Set(newIds));
+      requestElementFocus(newIds[0] ?? null);
+    }
+  }, [
+    deck,
+    effectiveSelectedElementIds,
+    onDeckChange,
+    pendingPatchesRef,
+    requestElementFocus,
+    safeSelected,
+    setSelectedElementId,
+    setSelectedElementIds,
+  ]);
+
+  const handleRemoveSelectedElements = useCallback(() => {
+    const slideId = deck.slides[safeSelected]?.id;
+    const elementIds = [...effectiveSelectedElementIds];
+    if (!slideId || elementIds.length === 0) return;
+    const ordered = orderedElementIds(
+      deck.slides[safeSelected]?.elements ?? [],
+    );
+    const focusTarget = focusTargetAfterDelete(ordered, new Set(elementIds));
+    const { result, commitOptions, patches } = commitCommand(deck, {
+      type: "REMOVE_ELEMENTS",
+      slideId,
+      elementIds,
+    });
+    if (!result.ok) return;
+    appendPendingPatches(pendingPatchesRef, patches);
+    onDeckChange(result.deck, commitOptions);
+    setSelectedElementId(focusTarget);
+    setSelectedElementIds(focusTarget ? new Set([focusTarget]) : new Set());
+    requestElementFocus(focusTarget);
+  }, [
+    deck,
+    effectiveSelectedElementIds,
+    onDeckChange,
+    pendingPatchesRef,
+    requestElementFocus,
+    safeSelected,
+    setSelectedElementId,
+    setSelectedElementIds,
+  ]);
 
   const handleBringToFront = useCallback(
     (id: string) => {
@@ -1489,6 +1595,82 @@ export function SlideEditor({
     uploadFn: documentId ? slideAssetPort?.uploadSlideAsset : undefined,
   });
 
+  const handleReplaceImageAccept = useCallback(
+    (src: string, assetId?: string) => {
+      const target = replaceImagePendingRef.current;
+      if (!target) return;
+      replaceImagePendingRef.current = null;
+      setReplaceImagePending(null);
+      handleUpdateElement(target.id, {
+        src,
+        assetId: assetId ?? undefined,
+      });
+      setInsertImageError(null);
+    },
+    [handleUpdateElement],
+  );
+
+  const { handleFile: handleReplaceImageFile } = useImageUpload({
+    deck,
+    currentSrc: replaceImagePending?.currentSrc ?? "",
+    onAccept: handleReplaceImageAccept,
+    onError: (message) => {
+      replaceImagePendingRef.current = null;
+      setReplaceImagePending(null);
+      setInsertImageError(message);
+    },
+    documentId,
+    uploadFn: documentId ? slideAssetPort?.uploadSlideAsset : undefined,
+  });
+
+  const handleReplaceSelectedImage = useCallback(
+    (elementId: string) => {
+      const image = (deck.slides[safeSelected]?.elements ?? []).find(
+        (element) => element.id === elementId && element.kind === "image",
+      );
+      if (!image || image.kind !== "image") return;
+      const target = { id: image.id, currentSrc: image.src };
+      replaceImagePendingRef.current = target;
+      setReplaceImagePending(target);
+      setInsertImageError(null);
+      window.requestAnimationFrame(() =>
+        replaceImageFileInputRef.current?.click(),
+      );
+    },
+    [deck.slides, safeSelected],
+  );
+
+  const handleReplaceSelectedVisual = useCallback(
+    (elementId: string) => {
+      const visualIds = [...visuals.keys()];
+      if (visualIds.length < 2) return;
+      const visual = (deck.slides[safeSelected]?.elements ?? []).find(
+        (element) => element.id === elementId && element.kind === "visual",
+      );
+      if (!visual || visual.kind !== "visual") return;
+      const currentIndex = Math.max(0, visualIds.indexOf(visual.visualId));
+      const nextVisualId = visualIds[(currentIndex + 1) % visualIds.length];
+      if (!nextVisualId || nextVisualId === visual.visualId) return;
+      handleUpdateElement(visual.id, { visualId: nextVisualId });
+    },
+    [deck.slides, handleUpdateElement, safeSelected, visuals],
+  );
+
+  const handleRestyleSelectedVisual = useCallback(
+    (elementId: string) => {
+      const visual = (deck.slides[safeSelected]?.elements ?? []).find(
+        (element) => element.id === elementId && element.kind === "visual",
+      );
+      if (!visual || visual.kind !== "visual") return;
+      const currentIndex = visual.styleThemeId
+        ? STYLE_THEMES.findIndex((theme) => theme.id === visual.styleThemeId)
+        : -1;
+      const nextTheme = STYLE_THEMES[(currentIndex + 1) % STYLE_THEMES.length];
+      handleUpdateElement(visual.id, { styleThemeId: nextTheme?.id });
+    },
+    [deck.slides, handleUpdateElement, safeSelected],
+  );
+
   const handleAddElement = useCallback(
     (kind: AddElementKind, shapeKind?: ShapeKind) => {
       const slideId = deck.slides[safeSelected]?.id;
@@ -1610,7 +1792,13 @@ export function SlideEditor({
       handleSelectElement(element.id);
       setVisualPickerOpen(false);
     },
-    [deck, doCommitAndChange, handleSelectElement, safeSelected],
+    [
+      deck,
+      doCommitAndChange,
+      handleSelectElement,
+      safeSelected,
+      setVisualPickerOpen,
+    ],
   );
 
   // Compute stale links from the full current document block list.
@@ -1876,6 +2064,32 @@ export function SlideEditor({
     selectedSlide?.elements?.find(
       (element) => element.id === effectiveSelectedElementId,
     ) ?? null;
+  const selectionToolbarAnchor = useMemo(() => {
+    const elements = selectedSlide?.elements ?? [];
+    const selected = elements.filter((element) =>
+      effectiveSelectedElementIds.has(element.id),
+    );
+    if (selected.length === 0) return undefined;
+    const box = selectionBoundingBox(selected.map((element) => element.box));
+    const leftPct = Math.min(96, Math.max(4, box.x + box.w / 2));
+    const canFitAbove = box.y >= 9;
+    return {
+      leftPct,
+      topPct: canFitAbove ? box.y : box.y + box.h,
+      placement: canFitAbove ? "above" : "below",
+    } as const;
+  }, [effectiveSelectedElementIds, selectedSlide?.elements]);
+  const selectedGroupId = useMemo(() => {
+    const selected = (selectedSlide?.elements ?? []).filter((element) =>
+      effectiveSelectedElementIds.has(element.id),
+    );
+    if (selected.length === 0) return null;
+    const groupId = selected[0]?.groupId;
+    if (!groupId) return null;
+    return selected.every((element) => element.groupId === groupId)
+      ? groupId
+      : null;
+  }, [effectiveSelectedElementIds, selectedSlide?.elements]);
   const deckTemplateTokenSet = resolveDeckThemeTokens(deck);
   const toolbarLayouts = useMemo(() => {
     const source =
@@ -1922,6 +2136,16 @@ export function SlideEditor({
         className="hidden"
         onChange={(event) => {
           handleInsertImageFile(event.target.files?.[0]);
+          event.target.value = "";
+        }}
+      />
+      <input
+        ref={replaceImageFileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(event) => {
+          handleReplaceImageFile(event.target.files?.[0]);
           event.target.value = "";
         }}
       />
@@ -2227,130 +2451,6 @@ export function SlideEditor({
         <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
           {/* Stage — large live preview of the selected slide */}
           <main className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-ds-surface-sunken">
-            {selectedSlide && showSlideToolbar ? (
-              <SlideToolbar
-                slide={selectedSlide}
-                slideLabel={deriveSlideTitle(selectedSlide, safeSelected)}
-                layouts={toolbarLayouts}
-                selectedLayoutId={activeSlideToolbarLayoutId}
-                canDelete={deck.slides.length > 1}
-                onSelectLayout={handleApplyReusableLayout}
-                onBackgroundChange={handleBackgroundChange}
-                onBackgroundGradientChange={handleBackgroundGradientChange}
-                onAddElement={handleAddElement}
-                visuals={visuals}
-                visualPickerOpen={visualPickerOpen}
-                imageError={insertImageError}
-                onVisualPickerOpenChange={setVisualPickerOpen}
-                onPickVisual={handleAddVisual}
-                onDuplicateSlide={() => handleDuplicate(safeSelected)}
-                onRemoveSlide={() => handleRemove(safeSelected)}
-                onOpenPanel={() => openRightPanel("slide")}
-              />
-            ) : null}
-            {selectedSlide ? (
-              <Popover
-                open={canvasAddOpen || canvasAddVisualOpen}
-                onClose={() => {
-                  setCanvasAddOpen(false);
-                  setCanvasAddVisualOpen(false);
-                }}
-                aria-label="Add element"
-                placement="bottom"
-                className="w-[280px] p-3"
-                trigger={
-                  <Tooltip label="Add element" side="bottom">
-                    <button
-                      type="button"
-                      data-floating-panel="true"
-                      aria-label="Add element"
-                      aria-haspopup="dialog"
-                      aria-expanded={canvasAddOpen || canvasAddVisualOpen}
-                      onClick={() => {
-                        setCanvasAddVisualOpen(false);
-                        setCanvasAddOpen((open) => !open);
-                      }}
-                      className={`absolute right-4 top-3 z-sticky flex h-9 w-9 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-raised text-ds-text-secondary shadow-ds-popover transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-                    >
-                      <Plus size={18} aria-hidden="true" />
-                    </button>
-                  </Tooltip>
-                }
-              >
-                {canvasAddVisualOpen ? (
-                  <VisualPicker
-                    className="w-full"
-                    visuals={visuals}
-                    onPick={(visualId) => {
-                      handleAddVisual(visualId);
-                      setCanvasAddVisualOpen(false);
-                      setCanvasAddOpen(false);
-                    }}
-                    onClose={() => setCanvasAddVisualOpen(false)}
-                  />
-                ) : (
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {(
-                      [
-                        ["text", Type, "Text"],
-                        ["bullets", List, "List"],
-                        ["image", ImageIcon, "Image"],
-                        ["shape", Square, "Shape"],
-                      ] as const
-                    ).map(([kind, Icon, label]) => (
-                      <button
-                        key={kind}
-                        type="button"
-                        onClick={() => {
-                          handleAddElement(kind);
-                          setCanvasAddOpen(false);
-                        }}
-                        className={`flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-                      >
-                        <Icon size={14} aria-hidden="true" />
-                        {label}
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => setCanvasAddVisualOpen(true)}
-                      className={`col-span-2 flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
-                    >
-                      <Sparkles size={14} aria-hidden="true" />
-                      Visual
-                    </button>
-                    {insertImageError ? (
-                      <p
-                        role="alert"
-                        className="col-span-2 text-xs text-ds-danger-text"
-                      >
-                        {insertImageError}
-                      </p>
-                    ) : null}
-                  </div>
-                )}
-              </Popover>
-            ) : null}
-            {selectedSlide ? (
-              <SlideSelectionToolbar
-                selectedElement={selectedElementForToolbar}
-                selectedCount={effectiveSelectedElementIds.size}
-                theme={selectedTheme}
-                brandSwatches={brandSwatches}
-                onUpdateElement={handleUpdateElement}
-                onOpenPosition={() => openRightPanel("position")}
-                onOpenText={() => openRightPanel("text")}
-                onOpenEffects={() => openRightPanel("effects")}
-                onOpenMedia={() => openRightPanel("media")}
-                onOpenSource={() => openRightPanel("source")}
-                onOpenPanel={() => openRightPanel("position")}
-                onDuplicateElement={handleDuplicateElement}
-                onRemoveElement={handleRemoveElement}
-                onBringToFront={handleBringToFront}
-                onSendToBack={handleSendToBack}
-                compact={shouldCollapseToolbar(stageBounds.width)}
-              />
-            ) : null}
             <div
               ref={stageRef}
               className="relative min-h-0 flex-1 overscroll-contain overflow-auto px-4 py-2 sm:px-5 sm:py-3"
@@ -2367,9 +2467,169 @@ export function SlideEditor({
               >
                 {selectedSlide ? (
                   <div
-                    className="transition-transform duration-200 ease-out motion-reduce:transition-none"
-                    style={{ transform: `translateX(${panelSlideShiftX}px)` }}
+                    className="relative transition-transform duration-200 ease-out motion-reduce:transition-none"
+                    style={{
+                      width: renderedStageWidth,
+                      height: renderedStageHeight,
+                      transform: `translateX(${panelSlideShiftX}px)`,
+                    }}
                   >
+                    {showSlideToolbar ? (
+                      <SlideToolbar
+                        slide={selectedSlide}
+                        slideLabel={deriveSlideTitle(
+                          selectedSlide,
+                          safeSelected,
+                        )}
+                        layouts={toolbarLayouts}
+                        selectedLayoutId={activeSlideToolbarLayoutId}
+                        canDelete={deck.slides.length > 1}
+                        onSelectLayout={handleApplyReusableLayout}
+                        onBackgroundChange={handleBackgroundChange}
+                        onBackgroundGradientChange={
+                          handleBackgroundGradientChange
+                        }
+                        onAddElement={handleAddElement}
+                        visuals={visuals}
+                        visualPickerOpen={visualPickerOpen}
+                        imageError={insertImageError}
+                        onVisualPickerOpenChange={setVisualPickerOpen}
+                        onPickVisual={handleAddVisual}
+                        onDuplicateSlide={() => handleDuplicate(safeSelected)}
+                        onRemoveSlide={() => handleRemove(safeSelected)}
+                        onOpenPanel={() => openRightPanel("slide")}
+                      />
+                    ) : null}
+                    <Popover
+                      open={canvasAddOpen || canvasAddVisualOpen}
+                      onClose={() => {
+                        setCanvasAddOpen(false);
+                        setCanvasAddVisualOpen(false);
+                      }}
+                      aria-label="Add element"
+                      placement="bottom"
+                      className="w-[280px] p-3"
+                      trigger={
+                        <Tooltip label="Add element" side="bottom">
+                          <button
+                            type="button"
+                            data-floating-panel="true"
+                            aria-label="Add element"
+                            aria-haspopup="dialog"
+                            aria-expanded={canvasAddOpen || canvasAddVisualOpen}
+                            onClick={() => {
+                              setCanvasAddVisualOpen(false);
+                              setCanvasAddOpen((open) => !open);
+                            }}
+                            className={`absolute right-3 top-3 z-sticky flex h-9 w-9 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-raised text-ds-text-secondary shadow-ds-popover transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                          >
+                            <Plus size={18} aria-hidden="true" />
+                          </button>
+                        </Tooltip>
+                      }
+                    >
+                      {canvasAddVisualOpen ? (
+                        <VisualPicker
+                          className="w-full"
+                          visuals={visuals}
+                          onPick={(visualId) => {
+                            handleAddVisual(visualId);
+                            setCanvasAddVisualOpen(false);
+                            setCanvasAddOpen(false);
+                          }}
+                          onClose={() => setCanvasAddVisualOpen(false)}
+                        />
+                      ) : (
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {(
+                            [
+                              ["text", Type, "Text"],
+                              ["bullets", List, "List"],
+                              ["image", ImageIcon, "Image"],
+                              ["shape", Square, "Shape"],
+                            ] as const
+                          ).map(([kind, Icon, label]) => (
+                            <button
+                              key={kind}
+                              type="button"
+                              onClick={() => {
+                                handleAddElement(kind);
+                                setCanvasAddOpen(false);
+                              }}
+                              className={`flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                            >
+                              <Icon size={14} aria-hidden="true" />
+                              {label}
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => setCanvasAddVisualOpen(true)}
+                            className={`col-span-2 flex items-center gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-left text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+                          >
+                            <Sparkles size={14} aria-hidden="true" />
+                            Visual
+                          </button>
+                          {insertImageError ? (
+                            <p
+                              role="alert"
+                              className="col-span-2 text-xs text-ds-danger-text"
+                            >
+                              {insertImageError}
+                            </p>
+                          ) : null}
+                        </div>
+                      )}
+                    </Popover>
+                    <SlideSelectionToolbar
+                      selectedElement={selectedElementForToolbar}
+                      selectedIds={[...effectiveSelectedElementIds]}
+                      selectedCount={effectiveSelectedElementIds.size}
+                      theme={selectedTheme}
+                      brandSwatches={brandSwatches}
+                      onUpdateElement={handleUpdateElement}
+                      onOpenPosition={() => openRightPanel("position")}
+                      onOpenText={() => openRightPanel("text")}
+                      onOpenEffects={() => openRightPanel("effects")}
+                      onOpenMedia={() => openRightPanel("media")}
+                      onOpenSource={() => openRightPanel("source")}
+                      onOpenPanel={() => openRightPanel("position")}
+                      onDuplicateElement={handleDuplicateElement}
+                      onRemoveElement={handleRemoveElement}
+                      onBringToFront={handleBringToFront}
+                      onSendToBack={handleSendToBack}
+                      onAlignSelected={(mode) =>
+                        handleAlign([...effectiveSelectedElementIds], mode)
+                      }
+                      onDistributeSelected={(mode) =>
+                        handleDistribute([...effectiveSelectedElementIds], mode)
+                      }
+                      onMatchSizeSelected={(mode) =>
+                        handleMatchSize([...effectiveSelectedElementIds], mode)
+                      }
+                      onArrangeSelected={(mode) =>
+                        handleArrange([...effectiveSelectedElementIds], mode)
+                      }
+                      onGroupSelected={() =>
+                        handleGroupElements([...effectiveSelectedElementIds])
+                      }
+                      onUngroupSelected={() => {
+                        if (selectedGroupId)
+                          handleUngroupElements(selectedGroupId);
+                      }}
+                      onDuplicateSelected={handleDuplicateSelectedElements}
+                      onRemoveSelected={handleRemoveSelectedElements}
+                      onReplaceImage={handleReplaceSelectedImage}
+                      onReplaceVisual={handleReplaceSelectedVisual}
+                      onRestyleVisual={handleRestyleSelectedVisual}
+                      anchor={selectionToolbarAnchor}
+                      selectedGroupId={selectedGroupId}
+                      isEditingText={
+                        selectedElementForToolbar?.kind === "text" &&
+                        selectedElementForToolbar.id === editingElementId
+                      }
+                      compact={shouldCollapseToolbar(stageBounds.width)}
+                    />
                     <SlideStageEditor
                       slide={selectedSlide}
                       deck={deck}
@@ -2395,6 +2655,7 @@ export function SlideEditor({
                       snapToGrid={snapToGrid}
                       brandSwatches={brandSwatches}
                       onAddTextElement={handleAddTextElement}
+                      onEditingElementChange={setEditingElementId}
                       focusRequest={focusRequest}
                       liveMessage={liveMessage}
                     />
@@ -2408,7 +2669,6 @@ export function SlideEditor({
             opened as a bottom sheet via the FAB below. The desktop panel does
             not participate in flex layout, so opening it never resizes the
             slide stage. */}
-          {/* eslint-disable-next-line react-hooks/refs -- handler props only run on user events. */}
           {inspectorProps && inspectorOpen ? (
             <SlideInspector
               key={`panel-${rightPanelTab}`}
@@ -2556,7 +2816,6 @@ export function SlideEditor({
       {/* Reuses the document editor's MobileEditingSheet pattern: a FAB toggles
           a bottom sheet that hosts the same inspector. Hidden at `lg+` where the
           inspector is a permanent right panel. Issue #209. */}
-      {/* eslint-disable-next-line react-hooks/refs -- handler props only run on user events. */}
       {inspectorProps ? (
         <div className="lg:hidden">
           <button

@@ -27,6 +27,20 @@ import {
 import { SLIDE_TEXT_FONT_SIZE } from "@/lib/presentation/text-defaults";
 import { resolveElementFontCss } from "@/lib/presentation/slide-fonts";
 
+export const INLINE_TEXT_COMMAND_EVENT = "textiq:inline-text-command";
+
+export type InlineTextCommandPayload =
+  | { command: "bold" | "italic" | "underline" }
+  | { command: "color"; value: string }
+  | { command: "fontSize"; value: number }
+  | { command: "align"; value: "left" | "center" | "right" }
+  | { command: "list"; value: "bullet" | "number" | undefined }
+  | { command: "indent"; delta: -1 | 1 };
+
+export type InlineTextCommandDetail = InlineTextCommandPayload & {
+  elementId: string;
+};
+
 function defaultShapeTextStyle(): TextElementStyle {
   return {
     fontSize: SLIDE_TEXT_FONT_SIZE.text,
@@ -104,6 +118,40 @@ export function InlineTextEditor({
   >([]);
   const dirtyRef = useRef(false);
 
+  const currentLineIndex = useCallback(() => {
+    const node = ref.current;
+    const sel = window.getSelection();
+    if (!node || !sel || sel.rangeCount === 0) return -1;
+    let cursor: Node | null = sel.getRangeAt(0).startContainer;
+    while (cursor && cursor.parentNode !== node) {
+      cursor = cursor.parentNode;
+    }
+    if (!cursor) return -1;
+    return Array.from(node.children).indexOf(cursor as Element);
+  }, []);
+
+  const applySelectionSpanStyle = useCallback(
+    (style: Partial<CSSStyleDeclaration>) => {
+      const node = ref.current;
+      const selection = window.getSelection();
+      if (!node || !selection || selection.rangeCount === 0) return false;
+      const range = selection.getRangeAt(0);
+      if (range.collapsed || !node.contains(range.commonAncestorContainer)) {
+        return false;
+      }
+      const span = document.createElement("span");
+      Object.assign(span.style, style);
+      span.append(range.extractContents());
+      range.insertNode(span);
+      selection.removeAllRanges();
+      const nextRange = document.createRange();
+      nextRange.selectNodeContents(span);
+      selection.addRange(nextRange);
+      return true;
+    },
+    [],
+  );
+
   const emitChange = useCallback(() => {
     const node = ref.current;
     if (!node) return;
@@ -176,6 +224,77 @@ export function InlineTextEditor({
     }
     onCommit();
   }, [emitChange, onCommit]);
+
+  useEffect(() => {
+    function onInlineTextCommand(event: Event) {
+      const detail = (event as CustomEvent<InlineTextCommandDetail>).detail;
+      if (!detail || detail.elementId !== element.id) return;
+      const node = ref.current;
+      if (!node) return;
+      const selection = window.getSelection();
+      if (
+        !selection ||
+        selection.rangeCount === 0 ||
+        !selection.anchorNode ||
+        !node.contains(selection.anchorNode)
+      ) {
+        node.focus();
+      }
+
+      if (detail.command === "bold") document.execCommand("bold");
+      else if (detail.command === "italic") document.execCommand("italic");
+      else if (detail.command === "underline") {
+        document.execCommand("underline");
+      } else if (detail.command === "color") {
+        document.execCommand("foreColor", false, detail.value);
+      } else if (detail.command === "fontSize") {
+        applySelectionSpanStyle({ fontSize: `${detail.value}cqh` });
+      } else if (detail.command === "align") {
+        const command =
+          detail.value === "center"
+            ? "justifyCenter"
+            : detail.value === "right"
+              ? "justifyRight"
+              : "justifyLeft";
+        document.execCommand(command);
+      } else if (isListText && detail.command === "list") {
+        const lineIdx = currentLineIndex();
+        if (lineIdx >= 0) {
+          const meta = itemMetaRef.current;
+          const current = meta[lineIdx] ?? { indent: 0, listType: "bullet" };
+          meta[lineIdx] = {
+            ...current,
+            listType: detail.value ?? current.listType,
+          };
+        }
+      } else if (isListText && detail.command === "indent") {
+        const lineIdx = currentLineIndex();
+        if (lineIdx >= 0) {
+          const meta = itemMetaRef.current;
+          const current = meta[lineIdx] ?? { indent: 0, listType: "bullet" };
+          meta[lineIdx] = {
+            ...current,
+            indent: Math.max(0, Math.min(5, current.indent + detail.delta)),
+          };
+        }
+      }
+      dirtyRef.current = true;
+      emitChange();
+    }
+
+    window.addEventListener(INLINE_TEXT_COMMAND_EVENT, onInlineTextCommand);
+    return () =>
+      window.removeEventListener(
+        INLINE_TEXT_COMMAND_EVENT,
+        onInlineTextCommand,
+      );
+  }, [
+    applySelectionSpanStyle,
+    currentLineIndex,
+    element.id,
+    emitChange,
+    isListText,
+  ]);
 
   // Seed the editable surface with the rendered runs, then place the caret: at
   // the click point for a single-click open, otherwise select all (double-click
@@ -305,34 +424,21 @@ export function InlineTextEditor({
           // Tab / Shift+Tab in bullet editing: change indent of current item (#335).
           if (isListText && event.key === "Tab") {
             event.preventDefault();
-            const node = ref.current;
-            const sel = window.getSelection();
-            if (node && sel && sel.rangeCount > 0) {
-              let cursor: Node | null = sel.getRangeAt(0).startContainer;
-              // Walk up to find the direct child <div> of the editable root.
-              while (cursor && cursor.parentNode !== node) {
-                cursor = cursor.parentNode;
+            const lineIdx = currentLineIndex();
+            if (lineIdx >= 0) {
+              const meta = itemMetaRef.current;
+              if (!meta[lineIdx]) {
+                meta[lineIdx] = { indent: 0, listType: "bullet" };
               }
-              if (cursor) {
-                const divs = Array.from(node.children);
-                const lineIdx = divs.indexOf(cursor as Element);
-                if (lineIdx >= 0) {
-                  const meta = itemMetaRef.current;
-                  // Ensure entry exists.
-                  if (!meta[lineIdx]) {
-                    meta[lineIdx] = { indent: 0, listType: "bullet" };
-                  }
-                  const cur = meta[lineIdx].indent;
-                  meta[lineIdx] = {
-                    ...meta[lineIdx],
-                    indent: event.shiftKey
-                      ? Math.max(0, cur - 1)
-                      : Math.min(5, cur + 1),
-                  };
-                  dirtyRef.current = true;
-                  emitChange();
-                }
-              }
+              const cur = meta[lineIdx].indent;
+              meta[lineIdx] = {
+                ...meta[lineIdx],
+                indent: event.shiftKey
+                  ? Math.max(0, cur - 1)
+                  : Math.min(5, cur + 1),
+              };
+              dirtyRef.current = true;
+              emitChange();
             }
             return;
           }

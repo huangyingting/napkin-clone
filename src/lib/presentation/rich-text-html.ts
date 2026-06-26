@@ -34,6 +34,14 @@ export function normalizeCssColor(
   return `#${toHex(rgb[1])}${toHex(rgb[2])}${toHex(rgb[3])}`;
 }
 
+function normalizeCssFontSize(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const match = value.trim().match(/^(-?\d+(?:\.\d+)?)cqh$/i);
+  if (!match) return undefined;
+  const size = Number(match[1]);
+  return Number.isFinite(size) ? size : undefined;
+}
+
 export function plainTextToRuns(value: string): TextRun[] {
   const runs: TextRun[] = [];
   const parts = value.split("\n");
@@ -48,6 +56,8 @@ export function runStyle(run: TextRun): string {
   const rules: string[] = [];
   if (run.bold) rules.push("font-weight:700");
   if (run.italic) rules.push("font-style:italic");
+  if (run.underline) rules.push("text-decoration:underline");
+  if (run.fontSize !== undefined) rules.push(`font-size:${run.fontSize}cqh`);
   if (run.color) rules.push(`color:${run.color}`);
   if (run.code) {
     rules.push(
@@ -78,6 +88,8 @@ function sameRunStyle(a: TextRun, b: TextRun): boolean {
   return (
     a.bold === b.bold &&
     a.italic === b.italic &&
+    a.underline === b.underline &&
+    a.fontSize === b.fontSize &&
     a.code === b.code &&
     a.color === b.color &&
     a.link === b.link
@@ -144,12 +156,18 @@ export function serializeRichText(root: HTMLElement): {
     const next: Omit<TextRun, "text"> = { ...style };
     if (tag === "b" || tag === "strong") next.bold = true;
     if (tag === "i" || tag === "em") next.italic = true;
+    if (tag === "u") next.underline = true;
     if (tag === "code") next.code = true;
     if (tag === "a") next.link = node.getAttribute("href") ?? undefined;
 
     const fontWeight = node.style.fontWeight;
     if (fontWeight === "bold" || Number(fontWeight) >= 600) next.bold = true;
     if (node.style.fontStyle === "italic") next.italic = true;
+    if ((node.style.textDecoration ?? "").includes("underline")) {
+      next.underline = true;
+    }
+    const fontSize = normalizeCssFontSize(node.style.fontSize || undefined);
+    if (fontSize !== undefined) next.fontSize = fontSize;
     const color = normalizeCssColor(
       node.style.color || node.getAttribute("color") || undefined,
     );
@@ -175,6 +193,8 @@ export function shouldStoreRuns(runs: readonly TextRun[]): boolean {
       run.text.includes("\n") ||
       run.bold ||
       run.italic ||
+      run.underline ||
+      run.fontSize !== undefined ||
       run.code ||
       run.color ||
       run.link,

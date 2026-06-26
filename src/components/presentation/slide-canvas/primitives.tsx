@@ -29,6 +29,8 @@ export function renderRuns(runs: TextRun[]): JSX.Element[] {
     const style: React.CSSProperties = {};
     if (run.bold) style.fontWeight = 700;
     if (run.italic) style.fontStyle = "italic";
+    if (run.underline) style.textDecoration = "underline";
+    if (run.fontSize !== undefined) style.fontSize = `${run.fontSize}cqh`;
     if (run.color) style.color = run.color;
     if (run.code) {
       style.fontFamily =

@@ -1,15 +1,12 @@
 # Slide Editing UI Redesign
 
-**Status:** Design Proposal (accepted, not yet implemented)
+**Status:** Implemented and folded into current docs
 **Last updated:** 2026-06-26
 
-This document records the accepted design for reworking the slide editing UI.
-It defines the addressable object model, the division of labor between the
-editing surfaces (top toolbar, popover toolbar, right panel, bottom dock), and
-the data-model simplifications that fall out of that model. When implemented,
-fold the resulting runtime contracts back into
+This proposal has been implemented and folded into
 [slide-editor.md](slide-editor.md), [slide-stage-interactions.md](slide-stage-interactions.md),
-and [../data-model/deck.md](../data-model/deck.md), and retire this proposal.
+and [../data-model/deck.md](../data-model/deck.md). It remains here as design
+history; those current docs are authoritative for runtime and schema behavior.
 
 ---
 

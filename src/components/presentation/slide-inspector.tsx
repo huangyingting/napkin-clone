@@ -14,7 +14,7 @@
  */
 
 import { Copy, Trash2, Upload, X } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { FOCUS_RING } from "@/components/ui/tokens";
 import {
@@ -48,6 +48,10 @@ import {
 import { allThemeTokenSets } from "@/lib/presentation/deck-theme-tokens";
 import { resolveSlideThemeColors } from "@/lib/presentation/style-cascade";
 import { DEFAULT_SLIDE_FORMAT } from "@/lib/presentation/slide-format";
+import {
+  scaleElementsInBoundingBox,
+  selectionBoundingBox,
+} from "@/lib/presentation/selection-transform";
 
 const BUILT_IN_THEME_TOKEN_SETS = allThemeTokenSets();
 const THEME_BACKGROUND_SWATCHES = tokenSetSwatchColors(
@@ -91,6 +95,213 @@ function elementLabel(element: SlideElement): string {
 
 function shouldShowSourceTab(element: SlideElement | null): boolean {
   return element?.sourceRef !== undefined;
+}
+
+function PropertySection({
+  title,
+  defaultOpen = true,
+  sectionRef,
+  active = false,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  sectionRef?: React.Ref<HTMLDetailsElement>;
+  active?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <details
+      ref={sectionRef}
+      open={defaultOpen || active}
+      tabIndex={-1}
+      className="rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised p-3"
+    >
+      <summary className="cursor-pointer select-none text-xs font-semibold uppercase tracking-wide text-ds-text-muted">
+        {title}
+      </summary>
+      <div className="mt-3 flex flex-col gap-3">{children}</div>
+    </details>
+  );
+}
+
+function ObjectIdentityRow({
+  label,
+  selectedElement,
+  selectedCount,
+  selectedGroupId,
+  onRenameElement,
+}: {
+  label: string;
+  selectedElement: SlideElement | null;
+  selectedCount: number;
+  selectedGroupId: string | null;
+  onRenameElement?: (elementId: string, name: string) => void;
+}) {
+  const objectLabel = selectedGroupId
+    ? "Group"
+    : selectedCount >= 2
+      ? `${selectedCount} selected`
+      : label;
+  const canRename = selectedElement !== null && selectedCount <= 1;
+
+  return (
+    <section className="rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised p-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-ds-text-muted">
+        Current object
+      </p>
+      <div className="mt-2 flex items-center gap-2">
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ds-text-primary">
+          {objectLabel}
+        </span>
+      </div>
+      {canRename ? (
+        <label className="mt-3 block">
+          <span className={LABEL_CLASS}>Name</span>
+          <input
+            key={selectedElement.id}
+            defaultValue={selectedElement.name ?? ""}
+            placeholder={label}
+            onBlur={(event) =>
+              onRenameElement?.(selectedElement.id, event.currentTarget.value)
+            }
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                event.currentTarget.blur();
+              }
+            }}
+            className={`${FIELD_CLASS} ${FOCUS_RING}`}
+          />
+        </label>
+      ) : null}
+    </section>
+  );
+}
+
+function SelectionBoundsControl({
+  elements,
+  onUpdateElement,
+}: {
+  elements: SlideElement[];
+  onUpdateElement: SlideInspectorProps["onUpdateElement"];
+}) {
+  const bbox = selectionBoundingBox(elements.map((element) => element.box));
+  const updateBounds = (patch: Partial<typeof bbox>) => {
+    const nextBox = {
+      ...bbox,
+      ...patch,
+      w: Math.max(1, patch.w ?? bbox.w),
+      h: Math.max(1, patch.h ?? bbox.h),
+    };
+    const nextElements = scaleElementsInBoundingBox(elements, bbox, nextBox);
+    for (const element of nextElements) {
+      onUpdateElement(element.id, { box: element.box });
+    }
+  };
+
+  return (
+    <div>
+      <span className={LABEL_CLASS}>Union position &amp; size</span>
+      <div className="grid grid-cols-2 gap-2">
+        <label>
+          <span className="sr-only">Selection X percent</span>
+          <input
+            type="number"
+            value={bbox.x}
+            onChange={(event) =>
+              updateBounds({ x: Number(event.target.value) })
+            }
+            className={`${FIELD_CLASS} ${FOCUS_RING}`}
+            aria-label="Selection X percent"
+          />
+        </label>
+        <label>
+          <span className="sr-only">Selection Y percent</span>
+          <input
+            type="number"
+            value={bbox.y}
+            onChange={(event) =>
+              updateBounds({ y: Number(event.target.value) })
+            }
+            className={`${FIELD_CLASS} ${FOCUS_RING}`}
+            aria-label="Selection Y percent"
+          />
+        </label>
+        <label>
+          <span className="sr-only">Selection width percent</span>
+          <input
+            type="number"
+            min={1}
+            value={bbox.w}
+            onChange={(event) =>
+              updateBounds({ w: Number(event.target.value) })
+            }
+            className={`${FIELD_CLASS} ${FOCUS_RING}`}
+            aria-label="Selection width percent"
+          />
+        </label>
+        <label>
+          <span className="sr-only">Selection height percent</span>
+          <input
+            type="number"
+            min={1}
+            value={bbox.h}
+            onChange={(event) =>
+              updateBounds({ h: Number(event.target.value) })
+            }
+            className={`${FIELD_CLASS} ${FOCUS_RING}`}
+            aria-label="Selection height percent"
+          />
+        </label>
+      </div>
+    </div>
+  );
+}
+
+function SelectionEffectsControl({
+  elements,
+  onUpdateElement,
+}: {
+  elements: SlideElement[];
+  onUpdateElement: SlideInspectorProps["onUpdateElement"];
+}) {
+  const allShadowed = elements.length > 0 && elements.every((el) => el.shadow);
+  const allLocked = elements.length > 0 && elements.every((el) => el.locked);
+  return (
+    <div className="flex items-center gap-4">
+      <label className="flex items-center gap-2 text-xs text-ds-text-secondary">
+        <input
+          type="checkbox"
+          checked={allShadowed}
+          onChange={(event) => {
+            for (const element of elements) {
+              onUpdateElement(element.id, {
+                shadow: event.target.checked ? true : undefined,
+              });
+            }
+          }}
+          className="accent-ds-accent"
+        />
+        Shadow
+      </label>
+      <label className="flex items-center gap-2 text-xs text-ds-text-secondary">
+        <input
+          type="checkbox"
+          checked={allLocked}
+          onChange={(event) => {
+            for (const element of elements) {
+              onUpdateElement(element.id, {
+                locked: event.target.checked ? true : undefined,
+              });
+            }
+          }}
+          className="accent-ds-accent"
+        />
+        Lock
+      </label>
+    </div>
+  );
 }
 
 export function SlideInspector({
@@ -139,9 +350,23 @@ export function SlideInspector({
   onInspectorModeChange,
 }: SlideInspectorProps) {
   const [selectedLayoutId, setSelectedLayoutId] = useState("");
-  const elements = slide.elements ?? [];
+  const elements = useMemo(() => slide.elements ?? [], [slide.elements]);
   const selectedElement =
     elements.find((element) => element.id === selectedElementId) ?? null;
+  const selectedElements = useMemo(() => {
+    if (!selectedElementIds || selectedElementIds.size === 0) {
+      return selectedElement ? [selectedElement] : [];
+    }
+    return elements.filter((element) => selectedElementIds.has(element.id));
+  }, [elements, selectedElement, selectedElementIds]);
+  const selectedGroupId = useMemo(() => {
+    if (selectedElements.length < 2) return null;
+    const groupId = selectedElements[0]?.groupId;
+    if (!groupId) return null;
+    return selectedElements.every((element) => element.groupId === groupId)
+      ? groupId
+      : null;
+  }, [selectedElements]);
   const canShowTextPanel =
     selectedElement?.kind === "text" ||
     (selectedElement?.kind === "shape" && selectedElement.shape !== "line");
@@ -165,6 +390,47 @@ export function SlideInspector({
     panel !== "notes"
       ? "slide"
       : panel;
+  const showElementProperties =
+    inspectorMode === "properties" &&
+    selectedElement !== null &&
+    activePanel !== "slide" &&
+    activePanel !== "notes";
+  const identitySectionRef = useRef<HTMLDivElement>(null);
+  const multiToolsSectionRef = useRef<HTMLDetailsElement>(null);
+  const textSectionRef = useRef<HTMLDetailsElement>(null);
+  const mediaSectionRef = useRef<HTMLDetailsElement>(null);
+  const positionSectionRef = useRef<HTMLDetailsElement>(null);
+  const effectsSectionRef = useRef<HTMLDetailsElement>(null);
+  const sourceSectionRef = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    if (inspectorMode !== "properties") return;
+    const target =
+      activePanel === "text"
+        ? textSectionRef.current
+        : activePanel === "media"
+          ? mediaSectionRef.current
+          : activePanel === "effects"
+            ? effectsSectionRef.current
+            : activePanel === "source"
+              ? sourceSectionRef.current
+              : activePanel === "position"
+                ? positionSectionRef.current
+                : activePanel === "slide"
+                  ? identitySectionRef.current
+                  : null;
+    if (!target) return;
+    const frame = window.requestAnimationFrame(() => {
+      target.scrollIntoView({ block: "nearest" });
+      target.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [
+    activePanel,
+    inspectorMode,
+    selectedElement?.id,
+    selectedElements.length,
+  ]);
 
   function handleModeChange(mode: InspectorMode) {
     if (typeof window !== "undefined") {
@@ -339,7 +605,19 @@ export function SlideInspector({
         }
         className="flex flex-col gap-4 px-4 py-4"
       >
-        {inspectorMode === "properties" && activePanel === "position" ? (
+        {inspectorMode === "properties" ? (
+          <div ref={identitySectionRef} tabIndex={-1}>
+            <ObjectIdentityRow
+              label={identityLabel}
+              selectedElement={selectedElement}
+              selectedCount={selectedElements.length}
+              selectedGroupId={selectedGroupId}
+              onRenameElement={onRenameElement}
+            />
+          </div>
+        ) : null}
+
+        {showElementProperties ? (
           <div
             role="tabpanel"
             id="inspector-panel-arrange"
@@ -347,18 +625,132 @@ export function SlideInspector({
             className="flex flex-col gap-4"
           >
             {selectedElementIds && selectedElementIds.size >= 2 ? (
-              <MultiSelectTools
-                selectedIds={[...selectedElementIds]}
-                onAlign={onAlign}
-                onDistribute={onDistribute}
-                onMatchSize={onMatchSize}
-                onArrange={onArrange}
-              />
+              <>
+                <PropertySection
+                  title={
+                    selectedGroupId
+                      ? "Group actions"
+                      : `${selectedElementIds.size} selected`
+                  }
+                  sectionRef={multiToolsSectionRef}
+                  defaultOpen={activePanel === "position"}
+                  active={activePanel === "position"}
+                >
+                  <MultiSelectTools
+                    selectedIds={[...selectedElementIds]}
+                    onAlign={onAlign}
+                    onDistribute={onDistribute}
+                    onMatchSize={onMatchSize}
+                    onArrange={onArrange}
+                  />
+                </PropertySection>
+                <PropertySection
+                  title="Position & size"
+                  sectionRef={positionSectionRef}
+                  defaultOpen={activePanel === "position"}
+                  active={activePanel === "position"}
+                >
+                  <SelectionBoundsControl
+                    elements={selectedElements}
+                    onUpdateElement={onUpdateElement}
+                  />
+                </PropertySection>
+                <PropertySection
+                  title="Effects"
+                  sectionRef={effectsSectionRef}
+                  defaultOpen={activePanel === "effects"}
+                  active={activePanel === "effects"}
+                >
+                  <SelectionEffectsControl
+                    elements={selectedElements}
+                    onUpdateElement={onUpdateElement}
+                  />
+                </PropertySection>
+              </>
             ) : selectedElement ? (
-              <ElementArrangeControl
-                element={selectedElement}
-                onUpdateElement={onUpdateElement}
-              />
+              <>
+                {canShowTextPanel ? (
+                  <PropertySection
+                    title="Typography"
+                    sectionRef={textSectionRef}
+                    defaultOpen={
+                      activePanel === "text" || activePanel === "position"
+                    }
+                    active={activePanel === "text"}
+                  >
+                    <TextPanel
+                      element={selectedElement}
+                      deck={deck}
+                      slide={slide}
+                      onUpdateElement={onUpdateElement}
+                    />
+                  </PropertySection>
+                ) : null}
+                {selectedElement.kind === "image" ||
+                selectedElement.kind === "visual" ||
+                selectedElement.kind === "connector" ||
+                selectedElement.kind === "shape" ? (
+                  <PropertySection
+                    title={elementLabel(selectedElement)}
+                    sectionRef={mediaSectionRef}
+                    defaultOpen={
+                      activePanel === "media" || activePanel === "position"
+                    }
+                    active={activePanel === "media"}
+                  >
+                    <ElementEditor
+                      element={selectedElement}
+                      deck={deck}
+                      visuals={visuals}
+                      showAdvanced={showAdvanced}
+                      elements={elements}
+                      onUpdateElement={onUpdateElement}
+                      documentId={documentId}
+                      slideAssetPort={slideAssetPort}
+                    />
+                  </PropertySection>
+                ) : null}
+                <PropertySection
+                  title="Position & size"
+                  sectionRef={positionSectionRef}
+                  defaultOpen={activePanel === "position"}
+                  active={activePanel === "position"}
+                >
+                  <ElementArrangeControl
+                    element={selectedElement}
+                    onUpdateElement={onUpdateElement}
+                  />
+                </PropertySection>
+                <PropertySection
+                  title="Effects"
+                  sectionRef={effectsSectionRef}
+                  defaultOpen={activePanel === "effects"}
+                  active={activePanel === "effects"}
+                >
+                  <EffectsPanel
+                    element={selectedElement}
+                    onUpdateElement={onUpdateElement}
+                  />
+                </PropertySection>
+                {canShowSourcePanel ? (
+                  <PropertySection
+                    title="Source link"
+                    sectionRef={sourceSectionRef}
+                    defaultOpen={activePanel === "source"}
+                    active={activePanel === "source"}
+                  >
+                    <SourceSummary
+                      element={selectedElement}
+                      staleReason={sourceStaleReasonById?.get(
+                        selectedElement.id,
+                      )}
+                      onUpdateFromSource={onUpdateElementFromSource}
+                      onUnlink={onUnlinkElementSource}
+                      onRelink={onRelinkElementSource}
+                    />
+                  </PropertySection>
+                ) : null}
+              </>
             ) : null}
           </div>
         ) : null}
@@ -401,76 +793,6 @@ export function SlideInspector({
                 />
               )}
             </>
-          </div>
-        ) : null}
-
-        {inspectorMode === "properties" && activePanel === "text" ? (
-          <div
-            role="tabpanel"
-            id="inspector-panel-text"
-            aria-label="Text settings"
-            className="flex flex-col gap-4"
-          >
-            <TextPanel
-              element={selectedElement}
-              deck={deck}
-              slide={slide}
-              onUpdateElement={onUpdateElement}
-            />
-          </div>
-        ) : null}
-
-        {inspectorMode === "properties" && activePanel === "effects" ? (
-          <div
-            role="tabpanel"
-            id="inspector-panel-effects"
-            aria-label="Effects settings"
-            className="flex flex-col gap-4"
-          >
-            <EffectsPanel
-              element={selectedElement}
-              onUpdateElement={onUpdateElement}
-            />
-          </div>
-        ) : null}
-
-        {inspectorMode === "properties" && activePanel === "media" ? (
-          <div
-            role="tabpanel"
-            id="inspector-panel-media"
-            aria-label="Media settings"
-            className="flex flex-col gap-4"
-          >
-            {selectedElement ? (
-              <>
-                <p className="text-xs font-medium uppercase tracking-wide text-ds-text-muted">
-                  {elementLabel(selectedElement)}
-                </p>
-                {selectedElement.kind === "image" ||
-                selectedElement.kind === "visual" ||
-                selectedElement.kind === "connector" ? (
-                  <ElementEditor
-                    element={selectedElement}
-                    deck={deck}
-                    visuals={visuals}
-                    showAdvanced={showAdvanced}
-                    elements={elements}
-                    onUpdateElement={onUpdateElement}
-                    documentId={documentId}
-                    slideAssetPort={slideAssetPort}
-                  />
-                ) : (
-                  <p className="text-xs text-ds-text-muted">
-                    Media settings are available for images, document visuals,
-                    and connectors.
-                  </p>
-                )}
-              </>
-            ) : (
-              <p className="text-xs text-ds-text-muted">
-                Select an image or visual to edit media settings.
-              </p>
-            )}
           </div>
         ) : null}
 
@@ -652,27 +974,6 @@ export function SlideInspector({
               Overrides apply to this slide only. Image &gt; gradient &gt; solid
               color. “Theme” clears the color override.
             </p>
-          </div>
-        ) : null}
-
-        {inspectorMode === "properties" && activePanel === "source" ? (
-          <div
-            role="tabpanel"
-            id="inspector-panel-source"
-            aria-labelledby="inspector-tab-source"
-            className="flex flex-col gap-4"
-          >
-            <SourceSummary
-              element={selectedElement}
-              staleReason={
-                selectedElement
-                  ? sourceStaleReasonById?.get(selectedElement.id)
-                  : undefined
-              }
-              onUpdateFromSource={onUpdateElementFromSource}
-              onUnlink={onUnlinkElementSource}
-              onRelink={onRelinkElementSource}
-            />
           </div>
         ) : null}
 

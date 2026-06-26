@@ -257,6 +257,8 @@ interface SlideStageEditorProps {
    * deck mutation so it lands on the undo stack.
    */
   onAddTextElement?: (box: ElementBox) => string | null;
+  /** Reports the active inline editing element to parent UI chrome. */
+  onEditingElementChange?: (elementId: string | null) => void;
   /**
    * When false (Simple mode) advanced controls are hidden: rotate handle,
    * bring-to-front / send-to-back in the floating toolbar, and lock / group /
@@ -311,6 +313,7 @@ export function SlideStageEditor({
   showAdvanced = true,
   focusRequest,
   liveMessage,
+  onEditingElementChange,
 }: SlideStageEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
@@ -380,6 +383,9 @@ export function SlideStageEditor({
   useEffect(() => {
     elementsRef.current = elements;
   }, [elements]);
+  useEffect(() => {
+    return () => onEditingElementChange?.(null);
+  }, [onEditingElementChange]);
   // Focus restoration (#532). When the parent requests focus after a keyboard
   // mutation, move DOM focus to the target element (or the canvas container
   // when none remains) so keyboard users keep their place instead of being
@@ -1121,11 +1127,12 @@ export function SlideStageEditor({
       if (isInlineEditableStageElement(element)) {
         onSelectElement(element.id);
         setEditingId(element.id);
+        onEditingElementChange?.(element.id);
         setEditCoalesceKey(nextGestureKey("edit-text", element.id));
         setPendingCaret(caret ?? null);
       }
     },
-    [nextGestureKey, onSelectElement],
+    [nextGestureKey, onEditingElementChange, onSelectElement],
   );
 
   /**
@@ -1339,9 +1346,10 @@ export function SlideStageEditor({
 
   const stopEditing = useCallback(() => {
     setEditingId(null);
+    onEditingElementChange?.(null);
     setEditCoalesceKey(null);
     setPendingCaret(null);
-  }, []);
+  }, [onEditingElementChange]);
 
   // Pointer-down on the empty stage background starts a marquee (issue #245).
   // Element pointer-downs stop propagation (they begin a drag or a shift-toggle)

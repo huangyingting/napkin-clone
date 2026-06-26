@@ -1,7 +1,7 @@
 # Current Deck Model
 
 **Status:** Current  
-**Last updated:** 2026-06-23
+**Last updated:** 2026-06-26
 
 This document defines the current `Document.deckJson` contract. The deck schema
 is development-authoritative: payloads that do not match the current shape are
@@ -31,8 +31,10 @@ The current deck version is exported from
   `layout`, `notes`, and `elements`.
 - `Slide.elements` must be an array. It is the authoritative render/export
   surface.
-- `BulletsElement.items[]` is required and carries the authoritative bullet
-  content for bullet elements.
+- Text elements must carry `paragraphs[]`, the canonical paragraph model for
+  plain text, bullets, and numbered lists.
+- `BaseElement.layoutSlot`, `PlaceholderElement`, `BulletsElement`, and legacy
+  `TextElement.role` are no longer supported.
 - `SourceRef.blockKind` is required and must be either `"text"` or `"visual"`.
 - Serialized deck JSON strings are persisted-schema drift, not supported
   persisted input.
@@ -51,9 +53,7 @@ stage editor consume positioned elements directly.
 
 Supported element kinds are defined in `src/lib/presentation/deck.ts`:
 
-- `placeholder`
 - `text`
-- `bullets`
 - `visual`
 - `image`
 - `shape`
@@ -62,6 +62,16 @@ Supported element kinds are defined in `src/lib/presentation/deck.ts`:
 Each element has stable identity, geometry, z-order, and kind-specific payload.
 Element mutations clear `elementsDerived` so later document sync preserves the
 authored layout.
+
+`TextElement.paragraphs[]` is the canonical text payload. Plain paragraphs omit
+`listType`; bulleted and numbered paragraphs set `listType` and optional
+`indent`. The legacy `text` field remains a compact fallback string mirrored
+from paragraph text, and `runs` / paragraph `runs` carry inline rich text.
+
+Reusable layout placeholders remain only in `Deck.layouts[]` as template
+blueprints. Applying a layout to a populated slide is a no-op for authored
+element geometry; template creation materializes real typed elements instead of
+stored placeholder elements or slot bindings.
 
 ### Document-derived metadata
 
@@ -194,7 +204,7 @@ They do not synthesize elements from flat slide fields at render time.
 
 1. Persisted decks must pass `safeParseDeck`.
 2. Persisted slides must carry `elements[]`.
-3. Bullet elements use `items[]` as authoritative content.
+3. Text elements use `paragraphs[]` as authoritative text/list content.
 4. Source refs must carry explicit `blockKind`.
 5. Render/export paths consume elements directly.
 6. Document sync only rebuilds derived slides.

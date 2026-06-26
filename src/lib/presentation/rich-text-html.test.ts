@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 
-import { serializeRichText } from "./rich-text-html";
+import { runsToHtml, serializeRichText } from "./rich-text-html";
 
 const globals = globalThis as unknown as {
   Node: unknown;
@@ -88,5 +88,23 @@ test("serializeRichText keeps one newline between sibling contentEditable divs",
   assert.equal(
     serializeRichText(root as unknown as HTMLElement).text,
     "First line\nSecond line",
+  );
+});
+
+test("rich text helpers preserve underline runs", () => {
+  const underlined = element("u", [text("Underlined")]);
+  underlined.style.fontSize = "4cqh";
+  const root = element("div", [underlined]);
+
+  assert.deepEqual(serializeRichText(root as unknown as HTMLElement).runs, [
+    { text: "Underlined", underline: true, fontSize: 4 },
+  ]);
+  assert.match(
+    runsToHtml([{ text: "Underlined", underline: true, fontSize: 4 }], ""),
+    /text-decoration:underline/,
+  );
+  assert.match(
+    runsToHtml([{ text: "Underlined", underline: true, fontSize: 4 }], ""),
+    /font-size:4cqh/,
   );
 });

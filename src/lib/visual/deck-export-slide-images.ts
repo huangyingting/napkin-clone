@@ -115,7 +115,11 @@ function rotationTransform(
 /** Monospace font face used to render inline-code runs in SVG slides. */
 const CODE_FONT_FACE = "Courier New";
 
-function textHtml(text: string, runs?: TextRun[]): string {
+function textHtml(
+  text: string,
+  runs: TextRun[] | undefined,
+  pxPerIn: number,
+): string {
   if (runs && runs.length > 0) {
     return runs
       .map((run) => {
@@ -123,6 +127,10 @@ function textHtml(text: string, runs?: TextRun[]): string {
         const styles = [
           run.bold ? "font-weight:700;" : "",
           run.italic ? "font-style:italic;" : "",
+          run.underline ? "text-decoration:underline;" : "",
+          run.fontSize !== undefined
+            ? `font-size:${pxFromPt(run.fontSize, pxPerIn)}px;`
+            : "",
           run.code ? `font-family:${CODE_FONT_FACE};` : "",
           run.color ? `color:#${toHex(run.color)};` : "",
         ].join("");
@@ -199,6 +207,7 @@ function renderTextForeignObject(
   )}><div xmlns="http://www.w3.org/1999/xhtml" style="${outerStyle}"><div style="${innerStyle}">${textHtml(
     op.text,
     op.runs,
+    pxPerIn,
   )}</div></div></foreignObject>`;
 }
 
@@ -216,7 +225,7 @@ function renderBulletsForeignObject(
       bulletCounters.set(indent, current);
       if (!numbered) bulletCounters.delete(indent + 1);
       const marker = numbered ? `${current}.` : "•";
-      const html = textHtml(item, op.itemRuns?.[index]);
+      const html = textHtml(item, op.itemRuns?.[index], pxPerIn);
       return `<div style="display:flex;gap:0.5em;padding-left:${indent * 1.5}em;"><span style="width:1.2em;flex:0 0 1.2em;">${marker}</span><span style="flex:1 1 auto;">${html}</span></div>`;
     })
     .join("");

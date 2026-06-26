@@ -217,6 +217,10 @@ function validateTextRun(input: unknown, context: string): TextRun {
   const run: TextRun = { text: input.text };
   if (input.bold !== undefined) run.bold = Boolean(input.bold);
   if (input.italic !== undefined) run.italic = Boolean(input.italic);
+  if (input.underline !== undefined) run.underline = Boolean(input.underline);
+  if (input.fontSize !== undefined) {
+    run.fontSize = validateFiniteNumber(input.fontSize, `${context}.fontSize`);
+  }
   if (input.code !== undefined) run.code = Boolean(input.code);
   if (input.color !== undefined) run.color = input.color as string;
   if (input.link !== undefined) run.link = input.link as string;

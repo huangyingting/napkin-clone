@@ -247,6 +247,41 @@ test("safeParseDeck round-trips every element kind", () => {
   }
 });
 
+test("safeParseDeck round-trips run-level underline", () => {
+  const result = safeParseDeck(
+    elementDeck([
+      {
+        id: "underlined-text",
+        kind: "text",
+        text: "Hello",
+        paragraphs: [
+          {
+            text: "Hello",
+            runs: [{ text: "Hello", underline: true, fontSize: 4 }],
+          },
+        ],
+        runs: [{ text: "Hello", underline: true, fontSize: 4 }],
+        zIndex: 0,
+        box: { x: 1, y: 2, w: 30, h: 12 },
+        style: { fontSize: 4, bold: false, italic: false, align: "left" },
+      },
+    ]),
+  );
+
+  assert.equal(result.success, true);
+  if (result.success) {
+    const element = result.data.slides[0]?.elements?.[0];
+    assert.ok(element);
+    assert.equal(element.kind, "text");
+    if (element.kind === "text") {
+      assert.equal(element.runs?.[0]?.underline, true);
+      assert.equal(element.runs?.[0]?.fontSize, 4);
+      assert.equal(element.paragraphs?.[0]?.runs?.[0]?.underline, true);
+      assert.equal(element.paragraphs?.[0]?.runs?.[0]?.fontSize, 4);
+    }
+  }
+});
+
 test("safeParseDeck rejects an unknown element kind", () => {
   const result = safeParseDeck(
     elementDeck([

@@ -41,6 +41,12 @@ import type {
 import type { ElementPatch } from "@/lib/presentation/deck-mutations";
 import type { SlideThemeColors } from "@/lib/presentation/style-cascade";
 import type { SlideFormat } from "@/lib/presentation/slide-format";
+import type {
+  AlignMode,
+  DistributeMode,
+  MatchSizeMode,
+} from "@/lib/presentation/element-align";
+import type { ArrangeMode } from "@/lib/presentation/element-arrange";
 import {
   SLIDE_FORMATS,
   slideFormatConfig,
@@ -1038,6 +1044,7 @@ export function FromDocumentPanel({
 
 export function SlideSelectionToolbar({
   selectedElement,
+  selectedIds,
   selectedCount,
   theme,
   brandSwatches,
@@ -1052,9 +1059,24 @@ export function SlideSelectionToolbar({
   onRemoveElement,
   onBringToFront,
   onSendToBack,
+  onAlignSelected,
+  onDistributeSelected,
+  onMatchSizeSelected,
+  onArrangeSelected,
+  onGroupSelected,
+  onUngroupSelected,
+  onDuplicateSelected,
+  onRemoveSelected,
+  onReplaceImage,
+  onReplaceVisual,
+  onRestyleVisual,
+  anchor,
+  selectedGroupId,
+  isEditingText = false,
   compact,
 }: {
   selectedElement: SlideElement | null;
+  selectedIds: readonly string[];
   selectedCount: number;
   theme: SlideThemeColors;
   brandSwatches: readonly string[];
@@ -1073,6 +1095,20 @@ export function SlideSelectionToolbar({
   onRemoveElement: (id: string) => void;
   onBringToFront: (id: string) => void;
   onSendToBack: (id: string) => void;
+  onAlignSelected: (mode: AlignMode) => void;
+  onDistributeSelected: (mode: DistributeMode) => void;
+  onMatchSizeSelected: (mode: MatchSizeMode) => void;
+  onArrangeSelected: (mode: ArrangeMode) => void;
+  onGroupSelected: () => void;
+  onUngroupSelected: () => void;
+  onDuplicateSelected: () => void;
+  onRemoveSelected: () => void;
+  onReplaceImage: (id: string) => void;
+  onReplaceVisual: (id: string) => void;
+  onRestyleVisual: (id: string) => void;
+  anchor?: { leftPct: number; topPct: number; placement: "above" | "below" };
+  selectedGroupId?: string | null;
+  isEditingText?: boolean;
   compact: boolean;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
@@ -1107,6 +1143,23 @@ export function SlideSelectionToolbar({
   const canOpenMediaPanel = panelEntries.media;
   const canOpenEffectsPanel = panelEntries.effects;
   const canOpenSourcePanel = panelEntries.source;
+  const hasMultiSelection = selectedIds.length >= 2;
+  const multiButton = (
+    label: string,
+    onClick: () => void,
+    disabled = false,
+  ) => (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className={`flex h-7 min-w-7 shrink-0 items-center justify-center rounded-ds-sm px-1.5 text-[11px] font-semibold text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary disabled:pointer-events-none disabled:opacity-40 ${FOCUS_RING}`}
+    >
+      {label}
+    </button>
+  );
   const panelEntry = (label: string, icon: ReactNode, onClick: () => void) => (
     <button
       type="button"
@@ -1123,8 +1176,79 @@ export function SlideSelectionToolbar({
       role="toolbar"
       data-floating-panel="true"
       aria-label="Selected slide element tools"
-      className="pointer-events-auto absolute left-1/2 top-3 z-sticky flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-1 overflow-visible rounded-ds-lg border border-ds-border-subtle bg-ds-surface-raised p-1 shadow-ds-popover"
+      onMouseDownCapture={
+        isEditingText ? (event) => event.preventDefault() : undefined
+      }
+      className="pointer-events-auto absolute z-sticky flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-1 overflow-visible rounded-ds-lg border border-ds-border-subtle bg-ds-surface-raised p-1 shadow-ds-popover"
+      style={
+        anchor
+          ? {
+              left: `${anchor.leftPct}%`,
+              top:
+                anchor.placement === "above"
+                  ? `calc(${anchor.topPct}% - 12px)`
+                  : `calc(${anchor.topPct}% + 12px)`,
+              transform:
+                anchor.placement === "above"
+                  ? "translate(-50%, -100%)"
+                  : "translate(-50%, 0)",
+            }
+          : { left: "50%", top: "0.75rem" }
+      }
     >
+      {hasMultiSelection ? (
+        <>
+          <span className="shrink-0 px-2 text-xs font-semibold text-ds-text-primary">
+            {selectedIds.length} selected
+          </span>
+          <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
+          {multiButton("Left", () => onAlignSelected("left"))}
+          {multiButton("Center", () => onAlignSelected("hcenter"))}
+          {multiButton("Right", () => onAlignSelected("right"))}
+          {multiButton("Top", () => onAlignSelected("top"))}
+          {multiButton("Middle", () => onAlignSelected("vmiddle"))}
+          {multiButton("Bottom", () => onAlignSelected("bottom"))}
+          <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
+          {multiButton(
+            "Distribute H",
+            () => onDistributeSelected("horizontal"),
+            selectedIds.length < 3,
+          )}
+          {multiButton(
+            "Distribute V",
+            () => onDistributeSelected("vertical"),
+            selectedIds.length < 3,
+          )}
+          {multiButton("Match W", () => onMatchSizeSelected("width"))}
+          {multiButton("Match H", () => onMatchSizeSelected("height"))}
+          <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
+          {panelEntry(
+            "Bring selection to front",
+            <BringToFront size={14} aria-hidden="true" />,
+            () => onArrangeSelected("front"),
+          )}
+          {panelEntry(
+            "Send selection to back",
+            <SendToBack size={14} aria-hidden="true" />,
+            () => onArrangeSelected("back"),
+          )}
+          {multiButton(
+            selectedGroupId ? "Ungroup" : "Group",
+            selectedGroupId ? onUngroupSelected : onGroupSelected,
+          )}
+          {panelEntry(
+            "Duplicate selection",
+            <Copy size={14} aria-hidden="true" />,
+            onDuplicateSelected,
+          )}
+          {panelEntry(
+            "Delete selection",
+            <Trash2 size={14} aria-hidden="true" />,
+            onRemoveSelected,
+          )}
+          <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
+        </>
+      ) : null}
       {showRich && selectedElement ? (
         <ElementToolbarContent
           element={selectedElement}
@@ -1135,10 +1259,25 @@ export function SlideSelectionToolbar({
           onBringToFront={() => onBringToFront(selectedElement.id)}
           onSendToBack={() => onSendToBack(selectedElement.id)}
           onRemove={() => onRemoveElement(selectedElement.id)}
+          hideObjectActions={isEditingText}
           compact={compact}
         />
       ) : null}
-      {compact && showRich && selectedElement ? (
+      {showRich && selectedElement?.kind === "image" ? (
+        <>
+          {multiButton("Replace", () => onReplaceImage(selectedElement.id))}
+          {multiButton("Crop", onOpenMedia)}
+          <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
+        </>
+      ) : null}
+      {showRich && selectedElement?.kind === "visual" ? (
+        <>
+          {multiButton("Replace", () => onReplaceVisual(selectedElement.id))}
+          {multiButton("Restyle", () => onRestyleVisual(selectedElement.id))}
+          <span className="mx-0.5 h-5 w-px shrink-0 bg-ds-border-subtle" />
+        </>
+      ) : null}
+      {compact && showRich && selectedElement && !isEditingText ? (
         <Popover
           open={moreOpen}
           onClose={() => setMoreOpen(false)}

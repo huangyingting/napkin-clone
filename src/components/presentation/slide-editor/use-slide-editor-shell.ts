@@ -17,7 +17,7 @@
  * to those domains.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, type Dispatch, type SetStateAction } from "react";
 
 import type { Deck } from "@/lib/presentation/deck";
 import {
@@ -41,6 +41,30 @@ interface SlideEditorShellOptions {
   onDeckChange: (deck: Deck) => void;
 }
 
+const INSPECTOR_OPEN_STORAGE_KEY = "textiq.slideInspectorOpen";
+const INSPECTOR_MODE_STORAGE_KEY = "textiq.slideInspectorMode";
+
+function isNarrowInspectorViewport(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 1023px)").matches
+  );
+}
+
+function defaultInspectorOpen(): boolean {
+  if (typeof window === "undefined") return false;
+  const stored = window.localStorage.getItem(INSPECTOR_OPEN_STORAGE_KEY);
+  if (stored === "true") return true;
+  if (stored === "false") return false;
+  return window.matchMedia("(min-width: 1024px)").matches;
+}
+
+function persistInspectorOpen(open: boolean) {
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem(INSPECTOR_OPEN_STORAGE_KEY, String(open));
+  }
+}
+
 export function useSlideEditorShell({
   deck,
   freshDeck,
@@ -60,18 +84,43 @@ export function useSlideEditorShell({
   }, []);
 
   // ── Inspector panel (desktop) / sheet (mobile) ───────────────────────────
-  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpenState] = useState(
+    () => defaultInspectorOpen() && !isNarrowInspectorViewport(),
+  );
   // Mobile bottom-sheet variant (below `lg`). Issue #209.
-  const [inspectorSheetOpen, setInspectorSheetOpen] = useState(false);
+  const [inspectorSheetOpen, setInspectorSheetOpenState] = useState(
+    () => defaultInspectorOpen() && isNarrowInspectorViewport(),
+  );
+
+  const setInspectorOpen: Dispatch<SetStateAction<boolean>> = useCallback(
+    (value) => {
+      setInspectorOpenState((current) => {
+        const next = typeof value === "function" ? value(current) : value;
+        persistInspectorOpen(next || inspectorSheetOpen);
+        return next;
+      });
+    },
+    [inspectorSheetOpen],
+  );
+
+  const setInspectorSheetOpen: Dispatch<SetStateAction<boolean>> = useCallback(
+    (value) => {
+      setInspectorSheetOpenState((current) => {
+        const next = typeof value === "function" ? value(current) : value;
+        persistInspectorOpen(inspectorOpen || next);
+        return next;
+      });
+    },
+    [inspectorOpen],
+  );
 
   const openInspectorSurface = useCallback(() => {
-    if (
-      typeof window !== "undefined" &&
-      window.matchMedia("(max-width: 1023px)").matches
-    ) {
+    if (isNarrowInspectorViewport()) {
+      setInspectorOpenState(false);
       setInspectorSheetOpen(true);
       return;
     }
+    setInspectorSheetOpenState(false);
     setInspectorOpen(true);
   }, []);
 
@@ -84,7 +133,7 @@ export function useSlideEditorShell({
   const [rightPanelTab, setRightPanelTab] = useState<RightPanelTab>("position");
   const [inspectorMode, setInspectorMode] = useState<InspectorMode>(() => {
     if (typeof window === "undefined") return defaultInspectorMode();
-    return window.localStorage.getItem("textiq.slideInspectorMode") === "layers"
+    return window.localStorage.getItem(INSPECTOR_MODE_STORAGE_KEY) === "layers"
       ? "layers"
       : "properties";
   });

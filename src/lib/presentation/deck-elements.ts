@@ -44,6 +44,10 @@ export interface TextRun {
   bold?: boolean;
   /** Italic emphasis. */
   italic?: boolean;
+  /** Underline emphasis. */
+  underline?: boolean;
+  /** Optional run font size as a percent of slide height. */
+  fontSize?: number;
   /** Inline (monospace) code. */
   code?: boolean;
   /** Hex color (e.g. `#ff0000`) carried by the span, if any. */

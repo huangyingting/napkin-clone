@@ -34,6 +34,7 @@ import {
   adaptShapeLabelForExport,
   adaptTextElementForExport,
 } from "@/lib/presentation/style-export-normalizers";
+import { slideHeightPctToPoints } from "@/lib/presentation/style-units";
 import type { Visual } from "@/lib/visual/schema";
 import {
   buildDeckImageOp,
@@ -61,6 +62,19 @@ export function deckGeometry(format: Deck["slideFormat"]): DeckGeometry {
     slideH: config.pptxHeightIn,
     slideHPt: config.pptxHeightIn * 72,
   };
+}
+
+function exportTextRuns(
+  runs: readonly TextRun[] | undefined,
+  slideHeightPt: number,
+): TextRun[] | undefined {
+  if (!runs || runs.length === 0) return undefined;
+  return runs.map((run) => ({
+    ...run,
+    ...(run.fontSize !== undefined
+      ? { fontSize: slideHeightPctToPoints(run.fontSize, slideHeightPt) }
+      : {}),
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -397,7 +411,10 @@ function buildSlideSpec(
             items: paragraphs.map((paragraph) => paragraph.text),
             ...(hasRichRuns
               ? {
-                  itemRuns: paragraphs.map((paragraph) => paragraph.runs ?? []),
+                  itemRuns: paragraphs.map(
+                    (paragraph) =>
+                      exportTextRuns(paragraph.runs, geometry.slideHPt) ?? [],
+                  ),
                 }
               : {}),
             ...(hasItemMeta
@@ -436,7 +453,7 @@ function buildSlideSpec(
           ...box,
           text: element.text,
           ...(element.runs && element.runs.length > 0
-            ? { runs: element.runs }
+            ? { runs: exportTextRuns(element.runs, geometry.slideHPt) }
             : {}),
           color: toHex(exportStyle.color),
           fontSize: exportStyle.fontSizePt,
@@ -474,7 +491,12 @@ function buildSlideSpec(
             ? {
                 text: element.text,
                 ...(element.textRuns && element.textRuns.length > 0
-                  ? { textRuns: element.textRuns }
+                  ? {
+                      textRuns: exportTextRuns(
+                        element.textRuns,
+                        geometry.slideHPt,
+                      ),
+                    }
                   : {}),
                 textColor: toHex(labelStyle.color),
                 fontSize: labelStyle.fontSizePt,

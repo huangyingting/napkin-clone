@@ -676,7 +676,7 @@ test("text op carries runs when the element has them", () => {
         fixtureTextElement("t1", "Bold Title", {
           runs: [
             { text: "Bold " },
-            { text: "Title", bold: true, color: "#ff0000" },
+            { text: "Title", bold: true, color: "#ff0000", fontSize: 4 },
           ],
         }),
       ]),
@@ -687,7 +687,7 @@ test("text op carries runs when the element has them", () => {
   assert.equal(text.text, "Bold Title");
   assert.deepEqual(text.runs, [
     { text: "Bold " },
-    { text: "Title", bold: true, color: "#ff0000" },
+    { text: "Title", bold: true, color: "#ff0000", fontSize: 22 },
   ]);
 });
 
