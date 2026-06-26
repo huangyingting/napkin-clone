@@ -63,6 +63,7 @@ test("split registry concern maps cover every VisualKind and compose into the fa
         description: entry.description,
         keywords: entry.keywords,
         iconName: entry.iconName,
+        icon: entry.icon,
         layoutFamily: entry.layoutFamily,
         allowedShapes: entry.allowedShapes,
         defaultShape: entry.defaultShape,
