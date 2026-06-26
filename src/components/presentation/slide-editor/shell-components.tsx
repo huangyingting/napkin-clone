@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { FOCUS_RING } from "@/components/ui/tokens";
+import { ColorPicker } from "@/components/ui/color-picker";
 import { Popover } from "@/components/ui/popover";
 import { Tooltip } from "@/components/ui";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
@@ -265,83 +266,12 @@ function gradientCss(gradient: BackgroundGradient): string {
   return `linear-gradient(${gradient.angle ?? 135}deg, ${gradient.from}, ${gradient.to})`;
 }
 
-function normalizeHexInput(value: string): string {
-  const cleaned = value.replace(/[^0-9a-f]/gi, "").slice(0, 6);
-  return `#${cleaned}`;
-}
-
 function isCompleteHexColor(value: string): boolean {
   return /^#[0-9a-fA-F]{6}$/.test(value);
 }
 
 function swatchColor(value: string, fallback: string): string {
   return isCompleteHexColor(value) ? value : fallback;
-}
-
-function clampColorChannel(value: number): number {
-  return Math.max(0, Math.min(255, Math.round(value)));
-}
-
-function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
-  if (!isCompleteHexColor(hex)) return null;
-  return {
-    r: Number.parseInt(hex.slice(1, 3), 16),
-    g: Number.parseInt(hex.slice(3, 5), 16),
-    b: Number.parseInt(hex.slice(5, 7), 16),
-  };
-}
-
-function rgbToHex(r: number, g: number, b: number): string {
-  return `#${[r, g, b]
-    .map((channel) => clampColorChannel(channel).toString(16).padStart(2, "0"))
-    .join("")}`;
-}
-
-function rgbToHsv(r: number, g: number, b: number) {
-  const rn = r / 255;
-  const gn = g / 255;
-  const bn = b / 255;
-  const max = Math.max(rn, gn, bn);
-  const min = Math.min(rn, gn, bn);
-  const delta = max - min;
-  let h = 0;
-  if (delta !== 0) {
-    if (max === rn) h = 60 * (((gn - bn) / delta) % 6);
-    else if (max === gn) h = 60 * ((bn - rn) / delta + 2);
-    else h = 60 * ((rn - gn) / delta + 4);
-  }
-  if (h < 0) h += 360;
-  return { h, s: max === 0 ? 0 : delta / max, v: max };
-}
-
-function hsvToRgb(h: number, s: number, v: number) {
-  const c = v * s;
-  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-  const m = v - c;
-  let rp = 0;
-  let gp = 0;
-  let bp = 0;
-  if (h < 60) [rp, gp, bp] = [c, x, 0];
-  else if (h < 120) [rp, gp, bp] = [x, c, 0];
-  else if (h < 180) [rp, gp, bp] = [0, c, x];
-  else if (h < 240) [rp, gp, bp] = [0, x, c];
-  else if (h < 300) [rp, gp, bp] = [x, 0, c];
-  else [rp, gp, bp] = [c, 0, x];
-  return {
-    r: (rp + m) * 255,
-    g: (gp + m) * 255,
-    b: (bp + m) * 255,
-  };
-}
-
-function hexToHsv(hex: string, fallback: string) {
-  const rgb = hexToRgb(hex) ?? hexToRgb(fallback)!;
-  return rgbToHsv(rgb.r, rgb.g, rgb.b);
-}
-
-function hsvToHex(h: number, s: number, v: number): string {
-  const rgb = hsvToRgb(h, s, v);
-  return rgbToHex(rgb.r, rgb.g, rgb.b);
 }
 
 export function BackgroundThemePanel({
@@ -431,11 +361,11 @@ export function BackgroundThemePanel({
 
         {customMode === "solid" ? (
           <div className="flex flex-col gap-3">
-            <InlineColorPalette
-              value={customSolid}
-              fallback="#2563eb"
-              label="Custom solid color"
+            <ColorPicker
+              color={customSolid}
               onChange={setCustomSolid}
+              aria-label="Custom solid color"
+              fallback="#2563eb"
             />
             <button
               type="button"
@@ -489,23 +419,23 @@ export function BackgroundThemePanel({
                 To
               </button>
             </div>
-            <InlineColorPalette
-              value={
+            <ColorPicker
+              color={
                 activeGradientStop === "from"
                   ? customGradientFrom
                   : customGradientTo
-              }
-              fallback={activeGradientStop === "from" ? "#6366f1" : "#ec4899"}
-              label={
-                activeGradientStop === "from"
-                  ? "Gradient start color"
-                  : "Gradient end color"
               }
               onChange={
                 activeGradientStop === "from"
                   ? setCustomGradientFrom
                   : setCustomGradientTo
               }
+              aria-label={
+                activeGradientStop === "from"
+                  ? "Gradient start color"
+                  : "Gradient end color"
+              }
+              fallback={activeGradientStop === "from" ? "#6366f1" : "#ec4899"}
             />
             <label className="flex items-center gap-3 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5">
               <span className="w-10 text-xs font-medium text-ds-text-secondary">
@@ -637,122 +567,6 @@ export function BackgroundThemePanel({
           })}
         </div>
       </section>
-    </div>
-  );
-}
-
-function InlineColorPalette({
-  value,
-  fallback,
-  label,
-  onChange,
-}: {
-  value: string;
-  fallback: string;
-  label: string;
-  onChange: (color: string) => void;
-}) {
-  const preview = swatchColor(value, fallback);
-  const hsv = hexToHsv(preview, fallback);
-  const hueColor = hsvToHex(hsv.h, 1, 1);
-
-  function setFromHsv(next: { h?: number; s?: number; v?: number }) {
-    onChange(
-      hsvToHex(next.h ?? hsv.h, next.s ?? hsv.s, next.v ?? hsv.v).toUpperCase(),
-    );
-  }
-
-  function updateSaturationValue(event: React.PointerEvent<HTMLDivElement>) {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const pointerX = Math.max(
-      0,
-      Math.min(rect.width, event.clientX - rect.left),
-    );
-    const pointerY = Math.max(
-      0,
-      Math.min(rect.height, event.clientY - rect.top),
-    );
-    setFromHsv({ s: pointerX / rect.width, v: 1 - pointerY / rect.height });
-  }
-
-  return (
-    <div className="rounded-ds-lg border border-ds-border-subtle bg-ds-surface p-2 shadow-sm">
-      <div
-        aria-label={`${label} saturation and brightness`}
-        role="slider"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(hsv.s * 100)}
-        aria-valuetext={`${Math.round(hsv.s * 100)}% saturation, ${Math.round(hsv.v * 100)}% brightness`}
-        tabIndex={0}
-        onPointerDown={(event) => {
-          event.currentTarget.setPointerCapture(event.pointerId);
-          updateSaturationValue(event);
-        }}
-        onPointerMove={(event) => {
-          if (event.buttons !== 1) return;
-          updateSaturationValue(event);
-        }}
-        className={`relative h-28 cursor-crosshair overflow-hidden rounded-ds-md border border-ds-border-subtle ${FOCUS_RING}`}
-        style={{ backgroundColor: hueColor }}
-      >
-        <span
-          aria-hidden="true"
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(90deg, #fff, transparent), linear-gradient(0deg, #000, transparent)",
-          }}
-        />
-        <span
-          aria-hidden="true"
-          className="absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.45),0_4px_12px_rgba(0,0,0,0.25)]"
-          style={{
-            left: `${hsv.s * 100}%`,
-            top: `${(1 - hsv.v) * 100}%`,
-            backgroundColor: preview,
-          }}
-        />
-      </div>
-
-      <div className="mt-2 flex items-center gap-2">
-        <span
-          aria-hidden="true"
-          className="h-8 w-8 shrink-0 rounded-full border border-ds-border-subtle shadow-sm"
-          style={{ backgroundColor: preview }}
-        />
-        <input
-          type="range"
-          min={0}
-          max={360}
-          step={1}
-          value={Math.round(hsv.h)}
-          onChange={(event) => setFromHsv({ h: Number(event.target.value) })}
-          className="min-w-0 flex-1 accent-ds-accent"
-          style={{
-            background:
-              "linear-gradient(90deg, #ef4444, #f97316, #facc15, #22c55e, #06b6d4, #2563eb, #7c3aed, #ec4899, #ef4444)",
-          }}
-          aria-label={`${label} hue`}
-        />
-      </div>
-
-      <div className="mt-2 flex items-center gap-2">
-        <span className="text-xs font-semibold text-ds-text-muted">HEX</span>
-        <input
-          type="text"
-          inputMode="text"
-          spellCheck={false}
-          value={value.toUpperCase()}
-          onChange={(event) => onChange(normalizeHexInput(event.target.value))}
-          className={`h-8 min-w-0 flex-1 rounded-ds-sm border bg-ds-surface px-2 text-xs font-semibold uppercase tabular-nums text-ds-text-primary outline-none ${
-            isCompleteHexColor(value)
-              ? "border-ds-border-subtle"
-              : "border-ds-warning-border"
-          } ${FOCUS_RING}`}
-          aria-label={`${label} hex color`}
-        />
-      </div>
     </div>
   );
 }
