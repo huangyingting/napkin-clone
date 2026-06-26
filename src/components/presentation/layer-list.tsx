@@ -48,6 +48,7 @@ import { Tooltip } from "@/components/ui";
 import { elementAccessibleName } from "@/lib/presentation/element-accessible-name";
 import { filterLayers } from "@/lib/presentation/layer-filter";
 import type { SlideElement } from "@/lib/presentation/deck";
+import { assertNever } from "@/lib/assert-never";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -85,7 +86,7 @@ function KindIcon({ element }: { element: SlideElement }) {
     case "connector":
       return <Link2 size={12} className={cls} aria-hidden="true" />;
     default:
-      return <Box size={12} className={cls} aria-hidden="true" />;
+      return assertNever(element);
   }
 }
 

@@ -59,6 +59,7 @@ import {
   buildDeckVisualOp,
 } from "@/lib/visual/deck-fallback-ops";
 import { toHex, type PptxSpec } from "@/lib/visual/pptx-shapes";
+import { assertNever } from "@/lib/assert-never";
 
 // ---------------------------------------------------------------------------
 // Slide geometry
@@ -542,6 +543,8 @@ function buildSlideSpec(
         });
         break;
       }
+      default:
+        assertNever(element);
     }
   }
 

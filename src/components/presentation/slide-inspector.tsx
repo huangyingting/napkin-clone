@@ -28,6 +28,7 @@ import {
   defaultLayouts,
   PLACEHOLDER_TYPE_LABELS,
 } from "@/lib/presentation/deck";
+import { assertNever } from "@/lib/assert-never";
 import type { RightPanelTab } from "@/lib/presentation/slide-panel-ui";
 import { canAddImage, dataUrlByteSize } from "@/lib/presentation/image-element";
 import { useImageUpload } from "@/lib/presentation/use-image-upload";
@@ -89,7 +90,7 @@ function elementLabel(element: SlideElement): string {
     case "connector":
       return "Connector";
     default:
-      return "Element";
+      return assertNever(element);
   }
 }
 

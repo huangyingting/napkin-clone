@@ -5,6 +5,7 @@ import {
   lineBoxFromEndpoints,
 } from "./connector-geometry";
 import { textFitPaddingPct, type TextResizeMeasurer } from "./text-element-fit";
+import { assertNever } from "@/lib/assert-never";
 
 export type Handle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 export type DragMode = "move" | "rotate" | Handle;
@@ -504,6 +505,8 @@ export function fitElementBoxToContent(
       return element.box;
     case "connector":
       return element.box;
+    default:
+      return assertNever(element);
   }
 }
 

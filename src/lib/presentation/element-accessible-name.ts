@@ -1,4 +1,5 @@
 import { PLACEHOLDER_TYPE_LABELS, type SlideElement } from "./deck";
+import { assertNever } from "@/lib/assert-never";
 
 /**
  * Returns a concise, screen-reader–friendly accessible name for a slide
@@ -66,7 +67,7 @@ export function elementAccessibleName(
       return `Connector from ${startName} to ${endName}`;
     }
     default:
-      return "Element";
+      return assertNever(element);
   }
 }
 

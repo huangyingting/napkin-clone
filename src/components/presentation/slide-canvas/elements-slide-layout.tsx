@@ -5,6 +5,7 @@ import type { Slide, SlideElement } from "@/lib/presentation/deck";
 import type { DeckThemeTokenSet } from "@/lib/presentation/deck-theme-tokens";
 import type { SlideThemeColors } from "@/lib/presentation/style-cascade";
 import type { Visual } from "@/lib/visual/schema";
+import { assertNever } from "@/lib/assert-never";
 
 import { ConnectorElementView } from "./connector-elements";
 import { ImageElementView } from "./media-elements";
@@ -84,7 +85,7 @@ function SlideElementView({
         />
       );
     default:
-      return null;
+      return assertNever(element);
   }
 }
 
