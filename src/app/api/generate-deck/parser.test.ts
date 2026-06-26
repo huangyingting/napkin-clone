@@ -20,6 +20,7 @@ test("parseDeckOptions accepts current tuning fields", () => {
   );
 });
 
+// @compat — validates rejection of superseded option shapes (non-object, retired enum values)
 test("parseDeckOptions rejects superseded or invalid option shapes", () => {
   assert.deepEqual(parseDeckOptions("short"), {
     error: "`options` must be an object.",

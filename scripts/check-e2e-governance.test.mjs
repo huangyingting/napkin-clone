@@ -27,7 +27,7 @@ test("e2e governance: accepts explicitly allowed skips", () => {
 
 test("e2e governance: flags local deck fixture factories in high-risk files", () => {
   const findings = scanText(
-    "src/lib/visual/deck-export.test.ts",
+    "src/lib/presentation/export/deck-export.test.ts",
     "function makeDeck() { return {}; }",
   );
 

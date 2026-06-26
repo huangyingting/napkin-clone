@@ -54,6 +54,7 @@ test("persisted JSON registry points at current validators", () => {
   );
 });
 
+// @compat — confirms superseded deck shapes and retired anchor types are rejected at the persistence boundary
 test("registry rejects superseded deck and invalid comment anchor shapes", () => {
   assert.equal(
     PERSISTED_JSON_CONTRACTS["Document.deckJson"].validate(
