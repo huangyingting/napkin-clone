@@ -45,6 +45,19 @@ test("docs source inventory: extracts env names from abuse-budget config entries
   ]);
 });
 
+test("docs source inventory: extracts env names from configurable env key fields", () => {
+  const reads = scanEnvReadsInText(
+    "scripts/check-line-coverage.mjs",
+    `
+      export const LINE_COVERAGE_STAGES = [{
+        envKey: "SOURCE_LINE_COVERAGE_MIN",
+      }];
+    `,
+  );
+
+  assert.deepEqual([...reads.keys()].sort(), ["SOURCE_LINE_COVERAGE_MIN"]);
+});
+
 test("docs source inventory: parses runtime-config table names", () => {
   const names = parseRuntimeConfigNames(`
 | Name | Context |

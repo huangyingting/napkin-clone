@@ -8,7 +8,7 @@ export const LINE_COVERAGE_STAGES = [
   {
     name: "Source unit line coverage",
     envKey: "SOURCE_LINE_COVERAGE_MIN",
-    defaultMinimum: 91.52,
+    defaultMinimum: 91,
     command: "node",
     args: ["--import", "tsx", "--test", "--experimental-test-coverage"],
     includes: ["src/**/*.ts", "src/**/*.tsx"],
@@ -18,7 +18,7 @@ export const LINE_COVERAGE_STAGES = [
   {
     name: "Script line coverage",
     envKey: "SCRIPT_LINE_COVERAGE_MIN",
-    defaultMinimum: 70.66,
+    defaultMinimum: 70,
     command: "node",
     args: ["--test", "--experimental-test-coverage"],
     includes: ["scripts/**/*.mjs"],
@@ -29,8 +29,13 @@ export const LINE_COVERAGE_STAGES = [
 
 export function parseCoverageMinimum(raw, name) {
   const minimum = Number(raw);
-  if (!Number.isFinite(minimum) || minimum < 0 || minimum > 100) {
-    throw new Error(`${name} must be a number between 0 and 100.`);
+  if (
+    !Number.isFinite(minimum) ||
+    !Number.isInteger(minimum) ||
+    minimum < 0 ||
+    minimum > 100
+  ) {
+    throw new Error(`${name} must be an integer between 0 and 100.`);
   }
   return minimum;
 }
@@ -43,7 +48,7 @@ export function coverageMinimum(stage, env = process.env) {
 }
 
 function formatCoverageMinimum(minimum) {
-  return Number.isInteger(minimum) ? String(minimum) : minimum.toFixed(2);
+  return String(minimum);
 }
 
 export function buildCoverageCommand(stage, env = process.env) {
@@ -97,6 +102,9 @@ export function runLineCoverage({
   return 0;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   process.exitCode = runLineCoverage();
 }

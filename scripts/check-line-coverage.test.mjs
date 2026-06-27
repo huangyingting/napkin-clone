@@ -24,7 +24,7 @@ test("line coverage stages cover source and script unit gates", () => {
 });
 
 test("line coverage minimum uses global and stage-specific overrides", () => {
-  assert.equal(coverageMinimum(LINE_COVERAGE_STAGES[0], {}), 91.52);
+  assert.equal(coverageMinimum(LINE_COVERAGE_STAGES[0], {}), 91);
   assert.equal(
     coverageMinimum(LINE_COVERAGE_STAGES[0], { LINE_COVERAGE_MIN: "100" }),
     100,
@@ -32,26 +32,30 @@ test("line coverage minimum uses global and stage-specific overrides", () => {
   assert.equal(
     coverageMinimum(LINE_COVERAGE_STAGES[0], {
       LINE_COVERAGE_MIN: "100",
-      SOURCE_LINE_COVERAGE_MIN: "92.25",
+      SOURCE_LINE_COVERAGE_MIN: "92",
     }),
-    92.25,
+    92,
   );
 });
 
 test("line coverage minimum rejects invalid thresholds", () => {
   assert.throws(
     () => parseCoverageMinimum("101", "LINE_COVERAGE_MIN"),
-    /between 0 and 100/,
+    /integer between 0 and 100/,
   );
   assert.throws(
     () => parseCoverageMinimum("not-a-number", "LINE_COVERAGE_MIN"),
-    /between 0 and 100/,
+    /integer between 0 and 100/,
+  );
+  assert.throws(
+    () => parseCoverageMinimum("91.5", "LINE_COVERAGE_MIN"),
+    /integer between 0 and 100/,
   );
 });
 
 test("line coverage command includes threshold, include, exclude, and tests", () => {
   const command = buildCoverageCommand(LINE_COVERAGE_STAGES[0], {
-    SOURCE_LINE_COVERAGE_MIN: "92.25",
+    SOURCE_LINE_COVERAGE_MIN: "92",
   });
 
   assert.equal(command.command, "node");
@@ -60,7 +64,7 @@ test("line coverage command includes threshold, include, exclude, and tests", ()
     "tsx",
     "--test",
     "--experimental-test-coverage",
-    "--test-coverage-lines=92.25",
+    "--test-coverage-lines=92",
     "--test-coverage-include=src/**/*.ts",
     "--test-coverage-include=src/**/*.tsx",
     "--test-coverage-exclude=src/**/*.test.ts",
