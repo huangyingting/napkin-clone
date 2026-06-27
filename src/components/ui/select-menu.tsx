@@ -39,6 +39,12 @@ export type SelectMenuProps = {
   showCheck?: boolean;
   align?: "start" | "center" | "end";
   anchor?: "trigger" | "toolbar";
+  /**
+   * Visual style of the trigger. `ghost` (default) is a compact borderless
+   * button for toolbars; `field` renders a full-width bordered form control
+   * that matches text/number inputs in the inspector panels.
+   */
+  variant?: "ghost" | "field";
   onOpenChange?: (open: boolean) => void;
   tooltipLabel?: ReactNode;
   triggerIcon?: ReactNode;
@@ -57,6 +63,7 @@ export function SelectMenu({
   showCheck = true,
   align = "start",
   anchor = "trigger",
+  variant = "ghost",
   onOpenChange,
   tooltipLabel,
   triggerIcon,
@@ -229,14 +236,21 @@ export function SelectMenu({
       }}
       onKeyDown={handleButtonKeyDown}
       className={cx(
-        "inline-flex h-7 max-w-40 items-center gap-1.5 rounded-ds-sm px-1.5 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
+        variant === "field"
+          ? "flex h-auto w-full items-center justify-between gap-1.5 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-[13px] font-normal text-ds-text-primary transition-colors hover:bg-ds-state-hover"
+          : "inline-flex h-7 max-w-40 items-center gap-1.5 rounded-ds-sm px-1.5 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary",
         FOCUS_RING,
         buttonClassName,
       )}
     >
       {displayIcon ? <span className="shrink-0">{displayIcon}</span> : null}
       {showSelectedLabel ? (
-        <span className="min-w-0 truncate">
+        <span
+          className={cx(
+            "min-w-0 truncate",
+            variant === "field" ? "flex-1 text-left" : undefined,
+          )}
+        >
           {selected?.label ?? placeholder}
         </span>
       ) : null}

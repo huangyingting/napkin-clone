@@ -15,11 +15,18 @@
  * component never mutates the deck.
  */
 
-import { Check, ChevronDown, Copy, Trash2, Upload, X } from "lucide-react";
+import { Check, ChevronDown, Upload, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
 import { FOCUS_RING } from "@/components/ui/tokens";
-import { SpeakerNotesControl } from "@/components/presentation/slide-inspector/primitives";
+import {
+  PropRow,
+  FIELD_CLASS,
+  PANEL_BODY_CLASS,
+  PanelSection,
+  SelectField,
+  SpeakerNotesControl,
+} from "@/components/presentation/slide-inspector/primitives";
 import { LayerList } from "@/components/presentation/layer-list";
 import { Popover, Tooltip } from "@/components/ui";
 import type { Deck, Slide, SlideElement } from "@/lib/presentation/deck";
@@ -68,11 +75,6 @@ const THEME_ACCENT_SWATCHES = tokenSetSwatchColors(
   BUILT_IN_THEME_TOKEN_SETS,
   "accent",
 );
-
-const FIELD_CLASS =
-  "w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-sm text-ds-text-primary outline-none";
-
-const LABEL_CLASS = "mb-1 block text-xs font-medium text-ds-text-secondary";
 
 export type {
   AddElementKind,
@@ -193,61 +195,42 @@ function SelectionBoundsControl({
   };
 
   return (
-    <div>
-      <span className={LABEL_CLASS}>Union position &amp; size</span>
-      <div className="grid grid-cols-2 gap-2">
-        <label>
-          <span className="sr-only">Selection X percent</span>
-          <input
-            type="number"
-            value={bbox.x}
-            onChange={(event) =>
-              updateBounds({ x: Number(event.target.value) })
-            }
-            className={`${FIELD_CLASS} ${FOCUS_RING}`}
-            aria-label="Selection X percent"
-          />
-        </label>
-        <label>
-          <span className="sr-only">Selection Y percent</span>
-          <input
-            type="number"
-            value={bbox.y}
-            onChange={(event) =>
-              updateBounds({ y: Number(event.target.value) })
-            }
-            className={`${FIELD_CLASS} ${FOCUS_RING}`}
-            aria-label="Selection Y percent"
-          />
-        </label>
-        <label>
-          <span className="sr-only">Selection width percent</span>
-          <input
-            type="number"
-            min={1}
-            value={bbox.w}
-            onChange={(event) =>
-              updateBounds({ w: Number(event.target.value) })
-            }
-            className={`${FIELD_CLASS} ${FOCUS_RING}`}
-            aria-label="Selection width percent"
-          />
-        </label>
-        <label>
-          <span className="sr-only">Selection height percent</span>
-          <input
-            type="number"
-            min={1}
-            value={bbox.h}
-            onChange={(event) =>
-              updateBounds({ h: Number(event.target.value) })
-            }
-            className={`${FIELD_CLASS} ${FOCUS_RING}`}
-            aria-label="Selection height percent"
-          />
-        </label>
-      </div>
-    </div>
+    <>
+      <PropRow label="Position">
+        <input
+          type="number"
+          value={bbox.x}
+          onChange={(event) => updateBounds({ x: Number(event.target.value) })}
+          className={`w-16 text-right ${FIELD_CLASS} ${FOCUS_RING}`}
+          aria-label="Selection X percent"
+        />
+        <input
+          type="number"
+          value={bbox.y}
+          onChange={(event) => updateBounds({ y: Number(event.target.value) })}
+          className={`w-16 text-right ${FIELD_CLASS} ${FOCUS_RING}`}
+          aria-label="Selection Y percent"
+        />
+      </PropRow>
+      <PropRow label="Size">
+        <input
+          type="number"
+          min={1}
+          value={bbox.w}
+          onChange={(event) => updateBounds({ w: Number(event.target.value) })}
+          className={`w-16 text-right ${FIELD_CLASS} ${FOCUS_RING}`}
+          aria-label="Selection width percent"
+        />
+        <input
+          type="number"
+          min={1}
+          value={bbox.h}
+          onChange={(event) => updateBounds({ h: Number(event.target.value) })}
+          className={`w-16 text-right ${FIELD_CLASS} ${FOCUS_RING}`}
+          aria-label="Selection height percent"
+        />
+      </PropRow>
+    </>
   );
 }
 
@@ -376,186 +359,172 @@ function SlidePanelBody({
   return (
     <>
       {selectedLayout ? (
-        <div className="rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised p-3">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ds-text-muted">
-            Reusable layout
-          </p>
-          <label className="block">
-            <span className={LABEL_CLASS}>Layout</span>
-            <select
+        <PanelSection title="Layout">
+          <PropRow label="Preset">
+            <SelectField
               value={selectedLayout.id}
-              onChange={(event) => setSelectedLayoutId(event.target.value)}
-              className={`${FIELD_CLASS} ${FOCUS_RING}`}
-            >
-              {availableLayouts.map((layout) => (
-                <option key={layout.id} value={layout.id}>
-                  {layout.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="mt-3 grid grid-cols-2 gap-2">
+              onChange={setSelectedLayoutId}
+              ariaLabel="Reusable layout"
+              options={availableLayouts.map((layout) => ({
+                value: layout.id,
+                label: layout.name,
+              }))}
+            />
+          </PropRow>
+          <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => onApplyLayout(selectedLayout)}
-              className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-3 py-2 text-sm font-medium text-ds-text-primary hover:bg-ds-state-hover ${FOCUS_RING}`}
+              className={`rounded-ds-md border border-ds-border-subtle bg-ds-surface px-3 py-1.5 text-[13px] font-medium text-ds-text-primary hover:bg-ds-state-hover ${FOCUS_RING}`}
             >
               Apply
             </button>
             <button
               type="button"
               onClick={() => onResetLayout(selectedLayout)}
-              className={`rounded-ds-md border border-ds-danger-border bg-ds-danger-surface px-3 py-2 text-sm font-medium text-ds-danger-text hover:opacity-90 ${FOCUS_RING}`}
+              className={`rounded-ds-md border border-ds-danger-border bg-ds-danger-surface px-3 py-1.5 text-[13px] font-medium text-ds-danger-text hover:opacity-90 ${FOCUS_RING}`}
             >
               Reset
             </button>
           </div>
-          <p className="mt-2 text-xs text-ds-text-muted">
-            Apply refreshes placeholders while keeping your other elements.
-            Reset replaces all placeholders with the layout defaults.
-          </p>
-        </div>
+        </PanelSection>
       ) : null}
-      <ColorOverride
-        label="Background"
-        value={slide.background}
-        fallback={themeColors.bgColor}
-        presets={mergeSwatches(brandSwatches, THEME_BACKGROUND_SWATCHES)}
-        onChange={onBackgroundChange}
-      />
-      <ColorOverride
-        label="Accent"
-        value={slide.accent}
-        fallback={themeColors.accentColor}
-        presets={mergeSwatches(brandSwatches, THEME_ACCENT_SWATCHES)}
-        onChange={onAccentChange}
-      />
-      {showAdvanced ? (
-        <div className="border-t border-ds-border-subtle pt-3">
-          <span className={`${LABEL_CLASS} flex items-center justify-between`}>
-            <span>Gradient</span>
-            <input
-              type="checkbox"
-              checked={slide.backgroundGradient !== undefined}
-              onChange={(event) =>
-                onBackgroundGradientChange(
-                  event.target.checked
-                    ? {
-                        from: slide.backgroundGradient?.from ?? "#6366f1",
-                        to: slide.backgroundGradient?.to ?? "#ec4899",
-                        angle: slide.backgroundGradient?.angle ?? 135,
-                      }
-                    : undefined,
-                )
-              }
-              className="accent-ds-accent"
-              aria-label="Enable gradient background"
-            />
-          </span>
-          {slide.backgroundGradient ? (
-            <div className="mt-2 flex items-center gap-2">
-              <input
-                type="color"
-                value={slide.backgroundGradient.from}
-                onChange={(event) =>
-                  onBackgroundGradientChange({
-                    ...slide.backgroundGradient!,
-                    from: event.target.value,
-                  })
-                }
-                className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
-                aria-label="Gradient start color"
-              />
-              <input
-                type="color"
-                value={slide.backgroundGradient.to}
-                onChange={(event) =>
-                  onBackgroundGradientChange({
-                    ...slide.backgroundGradient!,
-                    to: event.target.value,
-                  })
-                }
-                className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
-                aria-label="Gradient end color"
-              />
-              <input
-                type="range"
-                min={0}
-                max={360}
-                step={5}
-                value={slide.backgroundGradient.angle ?? 135}
-                onChange={(event) =>
-                  onBackgroundGradientChange({
-                    ...slide.backgroundGradient!,
-                    angle: Number(event.target.value),
-                  })
-                }
-                className="flex-1 accent-ds-accent"
-                aria-label="Gradient angle"
-              />
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-      <div>
-        <span className={LABEL_CLASS}>Background image</span>
-        <button
-          type="button"
-          onClick={() => bgFileInputRef.current?.click()}
-          className={`flex w-full items-center justify-center gap-2 rounded-ds-md border border-dashed border-ds-border-subtle bg-ds-surface px-2 py-2 text-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover ${FOCUS_RING}`}
-        >
-          <Upload size={14} aria-hidden="true" />
-          {slide.backgroundImage ? "Replace image" : "Upload image"}
-        </button>
-        <input
-          ref={bgFileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(event) => {
-            handleBgImageFile(event.target.files?.[0]);
-            event.target.value = "";
-          }}
+      <PanelSection title="Background">
+        <ColorOverride
+          label="Background"
+          value={slide.background}
+          fallback={themeColors.bgColor}
+          presets={mergeSwatches(brandSwatches, THEME_BACKGROUND_SWATCHES)}
+          onChange={onBackgroundChange}
         />
-        <input
-          type="text"
-          value={slide.backgroundImage ?? ""}
-          onChange={(event) =>
-            handleBackgroundImageChange(
-              event.target.value.trim() === ""
-                ? undefined
-                : event.target.value.trim(),
-            )
-          }
-          placeholder="https://… or data:image/…"
-          className={`mt-1.5 ${FIELD_CLASS} ${FOCUS_RING}`}
-          aria-label="Background image URL"
+        <ColorOverride
+          label="Accent"
+          value={slide.accent}
+          fallback={themeColors.accentColor}
+          presets={mergeSwatches(brandSwatches, THEME_ACCENT_SWATCHES)}
+          onChange={onAccentChange}
         />
-        {bgImageError ? (
-          <p role="alert" className="mt-1 text-xs text-ds-danger-text">
-            {bgImageError}
-          </p>
+        {showAdvanced ? (
+          <>
+            <PropRow label="Gradient">
+              <input
+                type="checkbox"
+                checked={slide.backgroundGradient !== undefined}
+                onChange={(event) =>
+                  onBackgroundGradientChange(
+                    event.target.checked
+                      ? {
+                          from: slide.backgroundGradient?.from ?? "#6366f1",
+                          to: slide.backgroundGradient?.to ?? "#ec4899",
+                          angle: slide.backgroundGradient?.angle ?? 135,
+                        }
+                      : undefined,
+                  )
+                }
+                className="h-4 w-4 accent-ds-accent"
+                aria-label="Enable gradient background"
+              />
+            </PropRow>
+            {slide.backgroundGradient ? (
+              <PropRow label="Stops" align="center">
+                <input
+                  type="color"
+                  value={slide.backgroundGradient.from}
+                  onChange={(event) =>
+                    onBackgroundGradientChange({
+                      ...slide.backgroundGradient!,
+                      from: event.target.value,
+                    })
+                  }
+                  className="h-7 w-9 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
+                  aria-label="Gradient start color"
+                />
+                <input
+                  type="color"
+                  value={slide.backgroundGradient.to}
+                  onChange={(event) =>
+                    onBackgroundGradientChange({
+                      ...slide.backgroundGradient!,
+                      to: event.target.value,
+                    })
+                  }
+                  className="h-7 w-9 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
+                  aria-label="Gradient end color"
+                />
+                <input
+                  type="range"
+                  min={0}
+                  max={360}
+                  step={5}
+                  value={slide.backgroundGradient.angle ?? 135}
+                  onChange={(event) =>
+                    onBackgroundGradientChange({
+                      ...slide.backgroundGradient!,
+                      angle: Number(event.target.value),
+                    })
+                  }
+                  className="min-w-0 flex-1 accent-ds-accent"
+                  aria-label="Gradient angle"
+                />
+              </PropRow>
+            ) : null}
+          </>
         ) : null}
-      </div>
-      <p className="text-xs text-ds-text-muted">
-        Overrides apply to this slide only. Image &gt; gradient &gt; solid
-        color. “Theme” clears the color override.
-      </p>
+        <div className="flex flex-col gap-1.5">
+          <button
+            type="button"
+            onClick={() => bgFileInputRef.current?.click()}
+            className={`flex w-full items-center justify-center gap-2 rounded-ds-md border border-dashed border-ds-border-subtle bg-ds-surface px-2 py-2 text-[13px] text-ds-text-secondary transition-colors hover:bg-ds-state-hover ${FOCUS_RING}`}
+          >
+            <Upload size={14} aria-hidden="true" />
+            {slide.backgroundImage ? "Replace image" : "Upload image"}
+          </button>
+          <input
+            ref={bgFileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(event) => {
+              handleBgImageFile(event.target.files?.[0]);
+              event.target.value = "";
+            }}
+          />
+          <input
+            type="text"
+            value={slide.backgroundImage ?? ""}
+            onChange={(event) =>
+              handleBackgroundImageChange(
+                event.target.value.trim() === ""
+                  ? undefined
+                  : event.target.value.trim(),
+              )
+            }
+            placeholder="https://… or data:image/…"
+            className={`${FIELD_CLASS} ${FOCUS_RING}`}
+            aria-label="Background image URL"
+          />
+          {bgImageError ? (
+            <p role="alert" className="text-xs text-ds-danger-text">
+              {bgImageError}
+            </p>
+          ) : null}
+          <p className="text-[11px] leading-relaxed text-ds-text-muted">
+            Overrides apply to this slide only. Image &gt; gradient &gt; solid
+            color. “Theme” clears the color override.
+          </p>
+        </div>
+      </PanelSection>
     </>
   );
 }
 
 export function SlideInspector({
   slide,
-  slideIndex,
   deck,
   visuals,
   selectedElementId,
   selectedElementIds,
   onSelectElement,
-  canDelete,
-  onDuplicateSlide,
-  onRemoveSlide,
   onApplyLayout,
   onResetLayout,
   onUpdateNotes,
@@ -643,51 +612,11 @@ export function SlideInspector({
 
   return (
     <aside className={className} style={style}>
-      <div className="border-b border-ds-border-subtle px-3 py-2.5">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-xs font-medium uppercase tracking-wide text-ds-text-muted">
-            Slide {slideIndex + 1}
-          </p>
-          <div className="flex items-center gap-1">
-            <Tooltip label="Duplicate slide" side="bottom">
-              <button
-                type="button"
-                onClick={onDuplicateSlide}
-                aria-label="Duplicate slide"
-                className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-muted transition-colors hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
-              >
-                <Copy size={14} aria-hidden="true" />
-              </button>
-            </Tooltip>
-            <Tooltip label="Delete slide" side="bottom">
-              <button
-                type="button"
-                onClick={onRemoveSlide}
-                disabled={!canDelete}
-                aria-label="Delete slide"
-                className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-muted transition-colors hover:bg-ds-state-active hover:text-ds-text-primary disabled:opacity-40 ${FOCUS_RING}`}
-              >
-                <Trash2 size={14} aria-hidden="true" />
-              </button>
-            </Tooltip>
-            {onClose ? (
-              <Tooltip label="Close panel" side="bottom">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  aria-label="Close panel"
-                  className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-muted transition-colors hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
-                >
-                  <X size={14} aria-hidden="true" />
-                </button>
-              </Tooltip>
-            ) : null}
-          </div>
-        </div>
-        <div className="mt-1.5 flex items-center justify-between gap-2">
-          <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-ds-text-primary">
-            {objectLabel}
-          </h3>
+      <div className="flex items-center justify-between gap-2 border-b border-ds-border-subtle px-3.5 py-2.5">
+        <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-ds-text-primary">
+          {objectLabel}
+        </h3>
+        <div className="flex shrink-0 items-center gap-1">
           {activeTab && onSelectTab ? (
             <PanelSwitcher
               panels={panels}
@@ -695,10 +624,22 @@ export function SlideInspector({
               onSelectTab={onSelectTab}
             />
           ) : null}
+          {onClose ? (
+            <Tooltip label="Close panel" side="bottom">
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close panel"
+                className={`flex h-7 w-7 items-center justify-center rounded-ds-sm text-ds-text-muted transition-colors hover:bg-ds-state-active hover:text-ds-text-primary ${FOCUS_RING}`}
+              >
+                <X size={14} aria-hidden="true" />
+              </button>
+            </Tooltip>
+          ) : null}
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 px-3 py-3">
+      <div className={PANEL_BODY_CLASS}>
         {activeTab === "slide" ? (
           <SlidePanelBody
             slide={slide}
@@ -719,32 +660,36 @@ export function SlideInspector({
         ) : null}
 
         {activeTab === "notes" ? (
-          <SpeakerNotesControl notes={slide.notes} onChange={onUpdateNotes} />
+          <PanelSection title="Speaker notes">
+            <SpeakerNotesControl notes={slide.notes} onChange={onUpdateNotes} />
+          </PanelSection>
         ) : null}
 
         {activeTab === "layers" ? (
-          <LayerList
-            elements={elements}
-            selectedElementId={selectedElementId}
-            onSelectElement={onSelectElement}
-            onToggleHidden={(id) =>
-              onSetElementHidden?.(
-                id,
-                !(elements.find((el) => el.id === id)?.hidden ?? false),
-              )
-            }
-            onToggleLocked={(id) =>
-              onSetElementLocked?.(
-                id,
-                !(elements.find((el) => el.id === id)?.locked ?? false),
-              )
-            }
-            onMoveZOrder={(id, direction) =>
-              onMoveElementZOrder?.(id, direction)
-            }
-            onRename={(id, name) => onRenameElement?.(id, name)}
-            {...(onReorderElement ? { onReorder: onReorderElement } : {})}
-          />
+          <div className="p-2">
+            <LayerList
+              elements={elements}
+              selectedElementId={selectedElementId}
+              onSelectElement={onSelectElement}
+              onToggleHidden={(id) =>
+                onSetElementHidden?.(
+                  id,
+                  !(elements.find((el) => el.id === id)?.hidden ?? false),
+                )
+              }
+              onToggleLocked={(id) =>
+                onSetElementLocked?.(
+                  id,
+                  !(elements.find((el) => el.id === id)?.locked ?? false),
+                )
+              }
+              onMoveZOrder={(id, direction) =>
+                onMoveElementZOrder?.(id, direction)
+              }
+              onRename={(id, name) => onRenameElement?.(id, name)}
+              {...(onReorderElement ? { onReorder: onReorderElement } : {})}
+            />
+          </div>
         ) : null}
 
         {activeTab === "text" && selectedElement ? (
@@ -772,12 +717,13 @@ export function SlideInspector({
         {activeTab === "arrange" ? (
           selectedCount >= 2 ? (
             <>
-              <div className="rounded-ds-md border border-ds-border-subtle bg-ds-surface-raised p-3">
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ds-text-muted">
-                  {selectedGroupId
+              <PanelSection
+                title={
+                  selectedGroupId
                     ? "Group actions"
-                    : `${selectedCount} selected`}
-                </p>
+                    : `${selectedCount} selected`
+                }
+              >
                 <MultiSelectTools
                   selectedIds={multiSelectedIds}
                   onAlign={onAlign}
@@ -785,11 +731,13 @@ export function SlideInspector({
                   onMatchSize={onMatchSize}
                   onArrange={onArrange}
                 />
-              </div>
-              <SelectionBoundsControl
-                elements={selectedElements}
-                onUpdateElement={onUpdateElement}
-              />
+              </PanelSection>
+              <PanelSection title="Position &amp; size">
+                <SelectionBoundsControl
+                  elements={selectedElements}
+                  onUpdateElement={onUpdateElement}
+                />
+              </PanelSection>
             </>
           ) : selectedElement ? (
             <ElementArrangeControl
@@ -801,10 +749,12 @@ export function SlideInspector({
 
         {activeTab === "effects" ? (
           selectedCount >= 2 ? (
-            <SelectionEffectsControl
-              elements={selectedElements}
-              onUpdateElement={onUpdateElement}
-            />
+            <PanelSection title="Effects">
+              <SelectionEffectsControl
+                elements={selectedElements}
+                onUpdateElement={onUpdateElement}
+              />
+            </PanelSection>
           ) : selectedElement ? (
             <EffectsPanel
               element={selectedElement}

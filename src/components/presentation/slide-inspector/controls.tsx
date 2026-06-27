@@ -40,7 +40,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { FOCUS_RING } from "@/components/ui/tokens";
 import { useCoalesceSession } from "@/lib/presentation/gesture-primitives";
-import { TabButton } from "@/components/presentation/slide-inspector/primitives";
+import {
+  PropRow,
+  PanelSection,
+  SelectField,
+} from "@/components/presentation/slide-inspector/primitives";
 import type { SlideInspectorProps } from "@/components/presentation/slide-inspector/types";
 import { Swatch, Tooltip } from "@/components/ui";
 import { VisualRenderer } from "@/components/visual/visual-renderer";
@@ -118,7 +122,7 @@ const FONT_FAMILIES: { label: string; value: string }[] = [
 ];
 
 const FIELD_CLASS =
-  "w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-sm text-ds-text-primary outline-none";
+  "w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-[13px] text-ds-text-primary outline-none";
 
 const LABEL_CLASS = "mb-1 block text-xs font-medium text-ds-text-secondary";
 
@@ -280,13 +284,12 @@ export function ImageElementEditor({
   const hasSource = !isEmptyImageSrc(element.src);
 
   return (
-    <div className="flex flex-col gap-3">
-      <div>
-        <span className={LABEL_CLASS}>Image</span>
+    <>
+      <PanelSection title="Image">
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className={`flex w-full items-center justify-center gap-2 rounded-ds-md border border-dashed border-ds-border-subtle bg-ds-surface px-2 py-2 text-sm text-ds-text-secondary transition-colors hover:bg-ds-state-hover ${FOCUS_RING}`}
+          className={`flex w-full items-center justify-center gap-2 rounded-ds-md border border-dashed border-ds-border-subtle bg-ds-surface px-2 py-2 text-[13px] text-ds-text-secondary transition-colors hover:bg-ds-state-hover ${FOCUS_RING}`}
         >
           <Upload size={14} aria-hidden="true" />
           {hasSource ? "Replace image" : "Upload image"}
@@ -303,67 +306,68 @@ export function ImageElementEditor({
           }}
         />
         {error ? (
-          <p role="alert" className="mt-1 text-xs text-ds-danger-text">
+          <p role="alert" className="text-xs text-ds-danger-text">
             {error}
           </p>
         ) : null}
-      </div>
-      <label className="block">
-        <span className={LABEL_CLASS}>Image URL</span>
-        <input
-          type="text"
-          value={element.src}
-          onChange={(event) =>
-            onUpdateElement(element.id, { src: event.target.value })
-          }
-          placeholder="https://… or data:image/…"
-          className={`${FIELD_CLASS} ${FOCUS_RING}`}
-        />
-      </label>
-      <label className="block">
-        <span className={LABEL_CLASS}>Alt text</span>
-        <input
-          type="text"
-          value={element.alt ?? ""}
-          onChange={(event) =>
-            onUpdateElement(element.id, { alt: event.target.value })
-          }
-          className={`${FIELD_CLASS} ${FOCUS_RING}`}
-        />
-      </label>
-      <ImageFitModeControl
-        fitMode={element.fitMode}
-        onChange={(fitMode) => onUpdateElement(element.id, { fitMode })}
-      />
-      <ImageMaskControl
-        maskShape={element.maskShape}
-        onChange={(maskShape) => onUpdateElement(element.id, { maskShape })}
-      />
-      <ImageCropControl
-        crop={element.crop}
-        onChange={(crop) => onUpdateElement(element.id, { crop })}
-      />
-      {showAdvanced ? (
         <label className="block">
-          <span className={LABEL_CLASS}>Corner radius</span>
+          <span className={LABEL_CLASS}>Image URL</span>
           <input
-            type="range"
-            min={0}
-            max={50}
-            step={1}
-            value={element.radius ?? 0}
-            onChange={(event) => {
-              const radius = Number(event.target.value);
-              onUpdateElement(element.id, {
-                radius: radius <= 0 ? undefined : radius,
-              });
-            }}
-            className="w-full accent-ds-accent"
-            aria-label="Image corner radius"
+            type="text"
+            value={element.src}
+            onChange={(event) =>
+              onUpdateElement(element.id, { src: event.target.value })
+            }
+            placeholder="https://… or data:image/…"
+            className={`${FIELD_CLASS} ${FOCUS_RING}`}
           />
         </label>
-      ) : null}
-    </div>
+        <label className="block">
+          <span className={LABEL_CLASS}>Alt text</span>
+          <input
+            type="text"
+            value={element.alt ?? ""}
+            onChange={(event) =>
+              onUpdateElement(element.id, { alt: event.target.value })
+            }
+            className={`${FIELD_CLASS} ${FOCUS_RING}`}
+          />
+        </label>
+      </PanelSection>
+      <PanelSection title="Adjust">
+        <ImageFitModeControl
+          fitMode={element.fitMode}
+          onChange={(fitMode) => onUpdateElement(element.id, { fitMode })}
+        />
+        <ImageMaskControl
+          maskShape={element.maskShape}
+          onChange={(maskShape) => onUpdateElement(element.id, { maskShape })}
+        />
+        <ImageCropControl
+          crop={element.crop}
+          onChange={(crop) => onUpdateElement(element.id, { crop })}
+        />
+        {showAdvanced ? (
+          <PropRow label="Radius">
+            <input
+              type="range"
+              min={0}
+              max={50}
+              step={1}
+              value={element.radius ?? 0}
+              onChange={(event) => {
+                const radius = Number(event.target.value);
+                onUpdateElement(element.id, {
+                  radius: radius <= 0 ? undefined : radius,
+                });
+              }}
+              className="min-w-0 flex-1 accent-ds-accent"
+              aria-label="Image corner radius"
+            />
+          </PropRow>
+        ) : null}
+      </PanelSection>
+    </>
   );
 }
 
@@ -454,23 +458,19 @@ export function ImageMaskControl({
   onChange: (maskShape: ImageMaskShape | undefined) => void;
 }) {
   return (
-    <label className="block">
-      <span className={LABEL_CLASS}>Mask</span>
-      <select
+    <PropRow label="Mask">
+      <SelectField
         value={maskShape ?? "none"}
-        onChange={(event) => {
-          const value = event.target.value as ImageMaskShape;
-          onChange(value === "none" ? undefined : value);
-        }}
-        className={`${FIELD_CLASS} ${FOCUS_RING}`}
-      >
-        {IMAGE_MASK_OPTIONS.map(({ value, label }) => (
-          <option key={value} value={value}>
-            {label}
-          </option>
-        ))}
-      </select>
-    </label>
+        ariaLabel="Image mask shape"
+        onChange={(value) =>
+          onChange(value === "none" ? undefined : (value as ImageMaskShape))
+        }
+        options={IMAGE_MASK_OPTIONS.map((option) => ({
+          value: option.value,
+          label: option.label,
+        }))}
+      />
+    </PropRow>
   );
 }
 
@@ -955,24 +955,23 @@ export function RoleSelectControl({
   const options = TEXT_ROLE_OPTIONS[kindKey];
   const current = element.textRole ?? defaultTextRole(element);
   return (
-    <label className="block">
-      <span className={LABEL_CLASS}>Role</span>
-      <select
-        value={current}
-        onChange={(event) => onChange(event.target.value as DeckTextRole)}
-        className={`${FIELD_CLASS} ${FOCUS_RING}`}
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <span className="mt-1 block text-[11px] text-ds-text-muted">
+    <div className="flex flex-col gap-1.5">
+      <PropRow label="Role">
+        <SelectField
+          value={current}
+          ariaLabel="Text role"
+          onChange={(value) => onChange(value as DeckTextRole)}
+          options={options.map((option) => ({
+            value: option.value,
+            label: option.label,
+          }))}
+        />
+      </PropRow>
+      <span className="text-[11px] text-ds-text-muted">
         Inherits theme typography for this role; edits below override it
         locally.
       </span>
-    </label>
+    </div>
   );
 }
 
@@ -1092,25 +1091,23 @@ export function InheritedFontControl({
           onChange(next);
         }}
       />
-      <select
+      <SelectField
         value={style.fontId ?? ""}
-        aria-label="Font family"
-        onChange={(event) => {
-          const value = event.target.value;
+        ariaLabel="Font family"
+        onChange={(value) => {
           const next = { ...style };
           if (value) next.fontId = value;
           else delete next.fontId;
           onChange(next);
         }}
-        className={`${FIELD_CLASS} ${FOCUS_RING}`}
-      >
-        <option value="">Theme default ({inheritedLabel})</option>
-        {FONT_FAMILIES.filter((font) => font.value).map((font) => (
-          <option key={font.label} value={font.value}>
-            {font.label}
-          </option>
-        ))}
-      </select>
+        options={[
+          { value: "", label: `Theme default (${inheritedLabel})` },
+          ...FONT_FAMILIES.filter((font) => font.value).map((font) => ({
+            value: font.value,
+            label: font.label,
+          })),
+        ]}
+      />
     </div>
   );
 }
@@ -1180,13 +1177,13 @@ export function TextPanel({
   slide: Slide;
   onUpdateElement: SlideInspectorProps["onUpdateElement"];
 }) {
-  const [textTab, setTextTab] = useState<"font" | "style">("font");
-
   if (!element) {
     return (
-      <p className="text-xs text-ds-text-muted">
-        Select a text-bearing element to edit typography.
-      </p>
+      <PanelSection>
+        <p className="text-xs text-ds-text-muted">
+          Select a text-bearing element to edit typography.
+        </p>
+      </PanelSection>
     );
   }
 
@@ -1195,9 +1192,11 @@ export function TextPanel({
     !(element.kind === "shape" && element.shape !== "line")
   ) {
     return (
-      <p className="text-xs text-ds-text-muted">
-        Text settings are available for text, bullets, and labeled shapes.
-      </p>
+      <PanelSection>
+        <p className="text-xs text-ds-text-muted">
+          Text settings are available for text, bullets, and labeled shapes.
+        </p>
+      </PanelSection>
     );
   }
 
@@ -1223,111 +1222,62 @@ export function TextPanel({
     matchSlideFont(roleToken.fontFamily ?? tokenSet.typography.fontFamily)
       ?.label ?? "theme font";
 
-  return (
-    <div className="flex flex-col gap-4">
-      <div
-        role="tablist"
-        aria-label="Text settings tabs"
-        className="flex items-center gap-1 rounded-ds-md bg-ds-surface-raised p-1"
-      >
-        <TabButton
-          active={textTab === "font"}
-          tabId="text-panel-tab-font"
-          panelId="text-panel-font"
-          label="Font"
-          onClick={() => setTextTab("font")}
-          onKeyDown={(event) => {
-            if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
-              event.preventDefault();
-              setTextTab((current) => (current === "font" ? "style" : "font"));
-            }
-          }}
-        />
-        <TabButton
-          active={textTab === "style"}
-          tabId="text-panel-tab-style"
-          panelId="text-panel-style"
-          label="Style"
-          onClick={() => setTextTab("style")}
-          onKeyDown={(event) => {
-            if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
-              event.preventDefault();
-              setTextTab((current) => (current === "font" ? "style" : "font"));
-            }
-          }}
-        />
-      </div>
+  const hasList =
+    element.kind === "text" &&
+    normalizeTextParagraphs(element).some(
+      (paragraph) => paragraph.listType !== undefined,
+    );
 
-      {textTab === "font" ? (
-        <div
-          role="tabpanel"
-          id="text-panel-font"
-          aria-labelledby="text-panel-tab-font"
-          className="flex flex-col gap-3"
-        >
-          <RoleSelectControl
-            element={element}
-            onChange={(textRole) => onUpdateElement(element.id, { textRole })}
+  return (
+    <>
+      <PanelSection title="Font">
+        <RoleSelectControl
+          element={element}
+          onChange={(textRole) => onUpdateElement(element.id, { textRole })}
+        />
+        <InheritedColorControl
+          style={style}
+          inheritedColor={inheritedColor}
+          onChange={updateStyle}
+        />
+        <InheritedFontControl
+          style={style}
+          inheritedLabel={inheritedFontLabel}
+          onChange={updateStyle}
+        />
+        <FontSizeControl style={style} onChange={updateStyle} />
+        <LineHeightControl style={style} onChange={updateStyle} />
+      </PanelSection>
+
+      <PanelSection title="Paragraph">
+        {element.kind === "text" || element.kind === "shape" ? (
+          <ParagraphSpacingControl style={style} onChange={updateStyle} />
+        ) : null}
+        <VerticalAlignControl style={style} onChange={updateStyle} />
+        {element.kind === "text" ? (
+          <FitModeControl
+            fitMode={element.fitMode}
+            onChange={(fitMode) => onUpdateElement(element.id, { fitMode })}
           />
-          <InheritedColorControl
-            style={style}
-            inheritedColor={inheritedColor}
-            onChange={updateStyle}
-          />
-          <InheritedFontControl
-            style={style}
-            inheritedLabel={inheritedFontLabel}
-            onChange={updateStyle}
-          />
-          <FontSizeControl style={style} onChange={updateStyle} />
-          <LineHeightControl style={style} onChange={updateStyle} />
-          {element.kind === "text" || element.kind === "shape" ? (
-            <ParagraphSpacingControl style={style} onChange={updateStyle} />
-          ) : null}
-          {element.kind === "text" &&
-          normalizeTextParagraphs(element).some(
-            (paragraph) => paragraph.listType !== undefined,
-          ) ? (
+        ) : null}
+        {hasList && element.kind === "text" ? (
+          <>
+            <ListTypeControl
+              element={element}
+              onChange={(patch) => onUpdateElement(element.id, patch)}
+            />
+            <BulletIndentControl
+              element={element}
+              onChange={(patch) => onUpdateElement(element.id, patch)}
+            />
             <BulletGapControl
               element={element}
               onChange={(patch) => onUpdateElement(element.id, patch)}
             />
-          ) : null}
-        </div>
-      ) : null}
-
-      {textTab === "style" ? (
-        <div
-          role="tabpanel"
-          id="text-panel-style"
-          aria-labelledby="text-panel-tab-style"
-          className="flex flex-col gap-3"
-        >
-          {element.kind === "text" ? (
-            <FitModeControl
-              fitMode={element.fitMode}
-              onChange={(fitMode) => onUpdateElement(element.id, { fitMode })}
-            />
-          ) : null}
-          <VerticalAlignControl style={style} onChange={updateStyle} />
-          {element.kind === "text" &&
-          normalizeTextParagraphs(element).some(
-            (paragraph) => paragraph.listType !== undefined,
-          ) ? (
-            <>
-              <BulletIndentControl
-                element={element}
-                onChange={(patch) => onUpdateElement(element.id, patch)}
-              />
-              <ListTypeControl
-                element={element}
-                onChange={(patch) => onUpdateElement(element.id, patch)}
-              />
-            </>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
+          </>
+        ) : null}
+      </PanelSection>
+    </>
   );
 }
 
@@ -1340,13 +1290,15 @@ export function EffectsPanel({
 }) {
   if (!element) {
     return (
-      <p className="text-xs text-ds-text-muted">
-        Select an element to edit effects.
-      </p>
+      <PanelSection>
+        <p className="text-xs text-ds-text-muted">
+          Select an element to edit effects.
+        </p>
+      </PanelSection>
     );
   }
   return (
-    <div className="flex flex-col gap-4">
+    <PanelSection title="Effects">
       <ElementOpacityControl
         element={element}
         onUpdateElement={onUpdateElement}
@@ -1355,7 +1307,7 @@ export function EffectsPanel({
         element={element}
         onUpdateElement={onUpdateElement}
       />
-    </div>
+    </PanelSection>
   );
 }
 
@@ -1381,7 +1333,7 @@ export function ElementEditor({
   switch (element.kind) {
     case "text":
       return (
-        <div className="flex flex-col gap-3">
+        <PanelSection title="Text">
           <RichTextBox
             label="Text"
             html={runsToHtml(element.runs, element.text)}
@@ -1422,7 +1374,7 @@ export function ElementEditor({
             style={element.style}
             onChange={(style) => onUpdateElement(element.id, { style })}
           />
-        </div>
+        </PanelSection>
       );
     case "image":
       return (
@@ -1437,50 +1389,46 @@ export function ElementEditor({
       );
     case "shape":
       return (
-        <div className="flex flex-col gap-3">
+        <>
           {element.shape !== "line" ? (
-            <RichTextBox
-              label="Text"
-              html={runsToHtml(element.textRuns, element.text ?? "")}
-              onChange={({ text, runs }, coalesceKey) =>
-                onUpdateElement(
-                  element.id,
-                  {
-                    text: text.trim().length > 0 ? text : undefined,
-                    textRuns:
-                      shouldStoreRuns(runs) && text.trim().length > 0
-                        ? runs
-                        : undefined,
-                  },
-                  coalesceKey,
-                )
-              }
-            />
+            <PanelSection title="Label">
+              <RichTextBox
+                label="Text"
+                html={runsToHtml(element.textRuns, element.text ?? "")}
+                onChange={({ text, runs }, coalesceKey) =>
+                  onUpdateElement(
+                    element.id,
+                    {
+                      text: text.trim().length > 0 ? text : undefined,
+                      textRuns:
+                        shouldStoreRuns(runs) && text.trim().length > 0
+                          ? runs
+                          : undefined,
+                    },
+                    coalesceKey,
+                  )
+                }
+              />
+            </PanelSection>
           ) : null}
-          <label className="block">
-            <span className={LABEL_CLASS}>Shape</span>
-            <select
-              value={element.shape}
-              onChange={(event) =>
-                onUpdateElement(element.id, {
-                  shape: event.target.value as ShapeKind,
-                })
-              }
-              className={`${FIELD_CLASS} ${FOCUS_RING}`}
-            >
-              {SHAPE_OPTIONS.map((shape) => (
-                <option key={shape} value={shape}>
-                  {shape}
-                </option>
-              ))}
-            </select>
-          </label>
-          {element.shape !== "triangle" ? (
-            <label className="flex items-center justify-between gap-2">
-              <span className={LABEL_CLASS + " mb-0"}>
-                {element.shape === "line" ? "Thickness" : "Border"}
-              </span>
-              <span className="flex items-center gap-2">
+          <PanelSection title="Shape">
+            <PropRow label="Kind">
+              <SelectField
+                value={element.shape}
+                ariaLabel="Shape kind"
+                onChange={(value) =>
+                  onUpdateElement(element.id, { shape: value as ShapeKind })
+                }
+                options={SHAPE_OPTIONS.map((shape) => ({
+                  value: shape,
+                  label: shape,
+                }))}
+              />
+            </PropRow>
+            {element.shape !== "triangle" ? (
+              <PropRow
+                label={element.shape === "line" ? "Thickness" : "Border"}
+              >
                 {element.shape !== "line" ? (
                   <input
                     type="color"
@@ -1493,7 +1441,7 @@ export function ElementEditor({
                         },
                       })
                     }
-                    className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
+                    className="h-7 w-9 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
                     aria-label="Border color"
                   />
                 ) : null}
@@ -1522,35 +1470,34 @@ export function ElementEditor({
                             },
                     });
                   }}
-                  className="w-24 accent-ds-accent"
+                  className="min-w-0 flex-1 accent-ds-accent"
                   aria-label={
                     element.shape === "line" ? "Line thickness" : "Border width"
                   }
                 />
-              </span>
-            </label>
-          ) : null}
-          {element.shape === "rect" && showAdvanced ? (
-            <label className="block">
-              <span className={LABEL_CLASS}>Corner radius</span>
-              <input
-                type="range"
-                min={0}
-                max={50}
-                step={1}
-                value={element.radius ?? 0}
-                onChange={(event) => {
-                  const radius = Number(event.target.value);
-                  onUpdateElement(element.id, {
-                    radius: radius <= 0 ? undefined : radius,
-                  });
-                }}
-                className="w-full accent-ds-accent"
-                aria-label="Corner radius"
-              />
-            </label>
-          ) : null}
-        </div>
+              </PropRow>
+            ) : null}
+            {element.shape === "rect" && showAdvanced ? (
+              <PropRow label="Radius">
+                <input
+                  type="range"
+                  min={0}
+                  max={50}
+                  step={1}
+                  value={element.radius ?? 0}
+                  onChange={(event) => {
+                    const radius = Number(event.target.value);
+                    onUpdateElement(element.id, {
+                      radius: radius <= 0 ? undefined : radius,
+                    });
+                  }}
+                  className="min-w-0 flex-1 accent-ds-accent"
+                  aria-label="Corner radius"
+                />
+              </PropRow>
+            ) : null}
+          </PanelSection>
+        </>
       );
     case "visual":
       return (
@@ -1621,70 +1568,60 @@ export function ConnectorElementEditor({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <PanelSection title="Line">
       {/* Arrowhead at start */}
-      <label className="block">
-        <span className={LABEL_CLASS}>Arrow at start</span>
-        <select
+      <PropRow label="Arrow start">
+        <SelectField
           value={arrowStart}
-          onChange={(event) =>
+          ariaLabel="Arrowhead style at start"
+          onChange={(value) =>
             onUpdateElement(element.id, {
-              arrowStart: event.target.value as ConnectorArrow,
+              arrowStart: value as ConnectorArrow,
             })
           }
-          className={`${FIELD_CLASS} ${FOCUS_RING}`}
-          aria-label="Arrowhead style at start"
-        >
-          {ARROW_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </label>
+          options={ARROW_OPTIONS.map((opt) => ({
+            value: opt.value,
+            label: opt.label,
+          }))}
+        />
+      </PropRow>
 
       {/* Arrowhead at end */}
-      <label className="block">
-        <span className={LABEL_CLASS}>Arrow at end</span>
-        <select
+      <PropRow label="Arrow end">
+        <SelectField
           value={arrowEnd}
-          onChange={(event) =>
+          ariaLabel="Arrowhead style at end"
+          onChange={(value) =>
             onUpdateElement(element.id, {
-              arrowEnd: event.target.value as ConnectorArrow,
+              arrowEnd: value as ConnectorArrow,
             })
           }
-          className={`${FIELD_CLASS} ${FOCUS_RING}`}
-          aria-label="Arrowhead style at end"
-        >
-          {ARROW_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </label>
+          options={ARROW_OPTIONS.map((opt) => ({
+            value: opt.value,
+            label: opt.label,
+          }))}
+        />
+      </PropRow>
 
       {/* Routing */}
-      <label className="block">
-        <span className={LABEL_CLASS}>Routing</span>
-        <select
+      <PropRow label="Routing">
+        <SelectField
           value={element.routing ?? "straight"}
-          onChange={(event) =>
+          ariaLabel="Connector routing"
+          onChange={(value) =>
             onUpdateElement(element.id, {
-              routing: event.target.value as "straight" | "elbow",
+              routing: value as "straight" | "elbow",
             })
           }
-          className={`${FIELD_CLASS} ${FOCUS_RING}`}
-          aria-label="Connector routing"
-        >
-          <option value="straight">Straight</option>
-          <option value="elbow">Elbow</option>
-        </select>
-      </label>
+          options={[
+            { value: "straight", label: "Straight" },
+            { value: "elbow", label: "Elbow" },
+          ]}
+        />
+      </PropRow>
 
       {/* Dashed line toggle */}
-      <label className="flex items-center justify-between gap-2">
-        <span className={LABEL_CLASS + " mb-0"}>Dashed line</span>
+      <PropRow label="Dashed line">
         <input
           type="checkbox"
           checked={element.dash ?? false}
@@ -1694,11 +1631,10 @@ export function ConnectorElementEditor({
           className="h-4 w-4 accent-ds-accent"
           aria-label="Toggle dashed line style"
         />
-      </label>
+      </PropRow>
 
       {/* Stroke color */}
-      <label className="flex items-center justify-between gap-2">
-        <span className={LABEL_CLASS + " mb-0"}>Stroke color</span>
+      <PropRow label="Stroke">
         <input
           type="color"
           value={element.stroke?.color ?? "#a1a1aa"}
@@ -1710,14 +1646,9 @@ export function ConnectorElementEditor({
               },
             })
           }
-          className="h-7 w-10 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
+          className="h-7 w-9 cursor-pointer rounded border border-ds-border-subtle bg-transparent"
           aria-label="Stroke color"
         />
-      </label>
-
-      {/* Stroke width */}
-      <label className="block">
-        <span className={LABEL_CLASS}>Stroke width</span>
         <input
           type="range"
           min={0.1}
@@ -1733,48 +1664,45 @@ export function ConnectorElementEditor({
               },
             });
           }}
-          className="w-full accent-ds-accent"
+          className="min-w-0 flex-1 accent-ds-accent"
           aria-label="Stroke width"
         />
-      </label>
+      </PropRow>
 
       {/* Detach endpoint buttons — disabled when the endpoint is already free */}
-      <div>
-        <span className={LABEL_CLASS}>Endpoints</span>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            disabled={!startBound}
-            onClick={detachStart}
-            aria-label="Detach start endpoint from shape"
-            title={
-              startBound
-                ? "Detach start from its bound shape"
-                : "Start endpoint is already free"
-            }
-            className={`flex flex-1 items-center justify-center gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`}
-          >
-            <Link2Off size={12} aria-hidden="true" />
-            Start
-          </button>
-          <button
-            type="button"
-            disabled={!endBound}
-            onClick={detachEnd}
-            aria-label="Detach end endpoint from shape"
-            title={
-              endBound
-                ? "Detach end from its bound shape"
-                : "End endpoint is already free"
-            }
-            className={`flex flex-1 items-center justify-center gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`}
-          >
-            <Link2Off size={12} aria-hidden="true" />
-            End
-          </button>
-        </div>
-      </div>
-    </div>
+      <PropRow label="Endpoints" align="center">
+        <button
+          type="button"
+          disabled={!startBound}
+          onClick={detachStart}
+          aria-label="Detach start endpoint from shape"
+          title={
+            startBound
+              ? "Detach start from its bound shape"
+              : "Start endpoint is already free"
+          }
+          className={`flex flex-1 items-center justify-center gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`}
+        >
+          <Link2Off size={12} aria-hidden="true" />
+          Start
+        </button>
+        <button
+          type="button"
+          disabled={!endBound}
+          onClick={detachEnd}
+          aria-label="Detach end endpoint from shape"
+          title={
+            endBound
+              ? "Detach end from its bound shape"
+              : "End endpoint is already free"
+          }
+          className={`flex flex-1 items-center justify-center gap-1 rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`}
+        >
+          <Link2Off size={12} aria-hidden="true" />
+          End
+        </button>
+      </PropRow>
+    </PanelSection>
   );
 }
 
@@ -1798,10 +1726,12 @@ export function VisualElementEditor({
 
   if (!visual) {
     return (
-      <p className="text-xs text-ds-text-muted">
-        This visual is no longer in the document. Delete it or pick another from
-        the Add menu.
-      </p>
+      <PanelSection>
+        <p className="text-xs text-ds-text-muted">
+          This visual is no longer in the document. Delete it or pick another
+          from the Add menu.
+        </p>
+      </PanelSection>
     );
   }
 
@@ -1812,7 +1742,7 @@ export function VisualElementEditor({
   const visualOptions = [...visuals.entries()];
 
   return (
-    <div className="flex flex-col gap-3">
+    <PanelSection title="Visual">
       <span className="flex aspect-video items-center justify-center overflow-hidden rounded-ds-sm border border-ds-border-subtle bg-ds-surface-base">
         <VisualRenderer
           visual={preview}
@@ -1822,23 +1752,19 @@ export function VisualElementEditor({
       </span>
 
       {visualOptions.length > 1 ? (
-        <label className="block">
-          <span className={LABEL_CLASS}>Replace</span>
-          <select
+        <PropRow label="Replace">
+          <SelectField
             value={element.visualId}
-            aria-label="Replace visual from document"
-            onChange={(event) =>
-              onUpdateElement(element.id, { visualId: event.target.value })
+            ariaLabel="Replace visual from document"
+            onChange={(value) =>
+              onUpdateElement(element.id, { visualId: value })
             }
-            className={`${FIELD_CLASS} ${FOCUS_RING}`}
-          >
-            {visualOptions.map(([id, candidate]) => (
-              <option key={id} value={id}>
-                {candidate.title?.trim() || `${candidate.type} visual`}
-              </option>
-            ))}
-          </select>
-        </label>
+            options={visualOptions.map(([id, candidate]) => ({
+              value: id,
+              label: candidate.title?.trim() || `${candidate.type} visual`,
+            }))}
+          />
+        </PropRow>
       ) : null}
 
       <div>
@@ -1883,7 +1809,7 @@ export function VisualElementEditor({
           })}
         </div>
       </div>
-    </div>
+    </PanelSection>
   );
 }
 
@@ -1940,53 +1866,96 @@ export function ElementArrangeControl({
   const rotation = element.rotation ?? 0;
   const update = (patch: Partial<typeof element.box>) =>
     onUpdateElement(element.id, { box: { ...element.box, ...patch } });
+  const numClass = `w-16 text-right ${FIELD_CLASS} ${FOCUS_RING}`;
+  const round = (n: number) => Math.round(n * 10) / 10;
+  const clamp = (n: number, min: number, max: number) =>
+    Math.max(min, Math.min(max, n));
   return (
-    <div className="mt-3">
-      <span className={LABEL_CLASS}>Position &amp; size</span>
-      <div className="grid grid-cols-2 gap-2">
-        <NumberField label="X %" value={x} onCommit={(v) => update({ x: v })} />
-        <NumberField label="Y %" value={y} onCommit={(v) => update({ y: v })} />
-        <NumberField
-          label="W %"
-          value={w}
+    <PanelSection title="Position &amp; size">
+      <PropRow label="Position">
+        <input
+          type="number"
+          value={round(x)}
+          onChange={(event) => {
+            const n = Number(event.target.value);
+            if (Number.isFinite(n)) update({ x: clamp(n, 0, 100) });
+          }}
+          className={numClass}
+          aria-label="X percent"
+        />
+        <input
+          type="number"
+          value={round(y)}
+          onChange={(event) => {
+            const n = Number(event.target.value);
+            if (Number.isFinite(n)) update({ y: clamp(n, 0, 100) });
+          }}
+          className={numClass}
+          aria-label="Y percent"
+        />
+      </PropRow>
+      <PropRow label="Size">
+        <input
+          type="number"
           min={1}
-          onCommit={(v) => update({ w: v })}
+          value={round(w)}
+          onChange={(event) => {
+            const n = Number(event.target.value);
+            if (Number.isFinite(n)) update({ w: clamp(n, 1, 100) });
+          }}
+          className={numClass}
+          aria-label="Width percent"
         />
         {showHeight ? (
-          <NumberField
-            label="H %"
-            value={h}
+          <input
+            type="number"
             min={1}
-            onCommit={(v) => update({ h: v })}
+            value={round(h)}
+            onChange={(event) => {
+              const n = Number(event.target.value);
+              if (Number.isFinite(n)) update({ h: clamp(n, 1, 100) });
+            }}
+            className={numClass}
+            aria-label="Height percent"
           />
         ) : null}
-        <NumberField
-          label="Rotate °"
-          value={rotation}
+      </PropRow>
+      <PropRow label="Rotation">
+        <input
+          type="number"
           min={-180}
           max={180}
-          onCommit={(v) =>
-            onUpdateElement(element.id, { rotation: v === 0 ? undefined : v })
-          }
+          value={round(rotation)}
+          onChange={(event) => {
+            const n = Number(event.target.value);
+            if (Number.isFinite(n)) {
+              const v = clamp(n, -180, 180);
+              onUpdateElement(element.id, {
+                rotation: v === 0 ? undefined : v,
+              });
+            }
+          }}
+          className={numClass}
+          aria-label="Rotation degrees"
         />
-      </div>
-      <div className="mt-2 flex gap-2">
+      </PropRow>
+      <PropRow label="Center" align="center">
         <button
           type="button"
           onClick={() => update({ x: (100 - w) / 2 })}
-          className={`flex-1 rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+          className={`flex-1 rounded-ds-md border border-ds-border-subtle px-2 py-1.5 text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
         >
-          Center H
+          Horizontal
         </button>
         <button
           type="button"
           onClick={() => update({ y: (100 - h) / 2 })}
-          className={`flex-1 rounded-ds-sm border border-ds-border-subtle px-2 py-1 text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
+          className={`flex-1 rounded-ds-md border border-ds-border-subtle px-2 py-1.5 text-xs text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`}
         >
-          Center V
+          Vertical
         </button>
-      </div>
-    </div>
+      </PropRow>
+    </PanelSection>
   );
 }
 
@@ -2002,21 +1971,19 @@ export function ElementEffectsControl({
   onUpdateElement: SlideInspectorProps["onUpdateElement"];
 }) {
   return (
-    <div className="mt-3 flex items-center gap-4">
-      <label className="flex items-center gap-2 text-xs text-ds-text-secondary">
-        <input
-          type="checkbox"
-          checked={element.shadow ?? false}
-          onChange={(event) =>
-            onUpdateElement(element.id, {
-              shadow: event.target.checked ? true : undefined,
-            })
-          }
-          className="accent-ds-accent"
-        />
-        Shadow
-      </label>
-    </div>
+    <PropRow label="Shadow">
+      <input
+        type="checkbox"
+        checked={element.shadow ?? false}
+        onChange={(event) =>
+          onUpdateElement(element.id, {
+            shadow: event.target.checked ? true : undefined,
+          })
+        }
+        className="h-4 w-4 accent-ds-accent"
+        aria-label="Drop shadow"
+      />
+    </PropRow>
   );
 }
 
@@ -2034,11 +2001,7 @@ export function ElementOpacityControl({
   const value = element.opacity ?? 1;
   const pct = Math.round(value * 100);
   return (
-    <label className="mt-3 block">
-      <span className={`${LABEL_CLASS} flex items-center justify-between`}>
-        <span>Opacity</span>
-        <span className="tabular-nums text-ds-text-muted">{pct}%</span>
-      </span>
+    <PropRow label="Opacity">
       <input
         type="range"
         min={0}
@@ -2050,10 +2013,13 @@ export function ElementOpacityControl({
             opacity: next >= 1 ? undefined : next,
           });
         }}
-        className="w-full accent-ds-accent"
+        className="min-w-0 flex-1 accent-ds-accent"
         aria-label="Element opacity"
       />
-    </label>
+      <span className="w-8 shrink-0 text-right text-xs tabular-nums text-ds-text-muted">
+        {pct}%
+      </span>
+    </PropRow>
   );
 }
 
@@ -2069,26 +2035,22 @@ export function FontFamilyControl({
   onChange: (style: TextElementStyle) => void;
 }) {
   return (
-    <label className="block">
-      <span className={LABEL_CLASS}>Font</span>
-      <select
+    <PropRow label="Font">
+      <SelectField
         value={style.fontId ?? ""}
-        onChange={(event) => {
-          const value = event.target.value;
+        ariaLabel="Font family"
+        onChange={(value) => {
           const next = { ...style };
           if (value) next.fontId = value;
           else delete next.fontId;
           onChange(next);
         }}
-        className={`${FIELD_CLASS} ${FOCUS_RING}`}
-      >
-        {FONT_FAMILIES.map((font) => (
-          <option key={font.label} value={font.value}>
-            {font.label}
-          </option>
-        ))}
-      </select>
-    </label>
+        options={FONT_FAMILIES.map((font) => ({
+          value: font.value,
+          label: font.label,
+        }))}
+      />
+    </PropRow>
   );
 }
 
@@ -2173,121 +2135,116 @@ export function MultiSelectTools({
   const distributeDisabledReason = "Need 3+ elements to distribute";
 
   return (
-    <div className="mt-2 border-t border-ds-border-subtle pt-3">
-      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ds-text-muted">
-        {count} elements selected
-      </p>
-      <div className="flex flex-col gap-2">
-        {/* Align */}
-        <ToolRow label="Align">
-          <ToolBtn
-            label="Align left"
-            onClick={() => onAlign?.(selectedIds, "left")}
-          >
-            <AlignStartHorizontal size={14} aria-hidden="true" />
-          </ToolBtn>
-          <ToolBtn
-            label="Align center"
-            onClick={() => onAlign?.(selectedIds, "hcenter")}
-          >
-            <AlignCenterHorizontal size={14} aria-hidden="true" />
-          </ToolBtn>
-          <ToolBtn
-            label="Align right"
-            onClick={() => onAlign?.(selectedIds, "right")}
-          >
-            <AlignEndHorizontal size={14} aria-hidden="true" />
-          </ToolBtn>
-          <ToolBtn
-            label="Align top"
-            onClick={() => onAlign?.(selectedIds, "top")}
-          >
-            <AlignStartVertical size={14} aria-hidden="true" />
-          </ToolBtn>
-          <ToolBtn
-            label="Align middle"
-            onClick={() => onAlign?.(selectedIds, "vmiddle")}
-          >
-            <AlignCenterVertical size={14} aria-hidden="true" />
-          </ToolBtn>
-          <ToolBtn
-            label="Align bottom"
-            onClick={() => onAlign?.(selectedIds, "bottom")}
-          >
-            <AlignEndVertical size={14} aria-hidden="true" />
-          </ToolBtn>
-        </ToolRow>
+    <div className="flex flex-col gap-2">
+      {/* Align */}
+      <ToolRow label="Align">
+        <ToolBtn
+          label="Align left"
+          onClick={() => onAlign?.(selectedIds, "left")}
+        >
+          <AlignStartHorizontal size={14} aria-hidden="true" />
+        </ToolBtn>
+        <ToolBtn
+          label="Align center"
+          onClick={() => onAlign?.(selectedIds, "hcenter")}
+        >
+          <AlignCenterHorizontal size={14} aria-hidden="true" />
+        </ToolBtn>
+        <ToolBtn
+          label="Align right"
+          onClick={() => onAlign?.(selectedIds, "right")}
+        >
+          <AlignEndHorizontal size={14} aria-hidden="true" />
+        </ToolBtn>
+        <ToolBtn
+          label="Align top"
+          onClick={() => onAlign?.(selectedIds, "top")}
+        >
+          <AlignStartVertical size={14} aria-hidden="true" />
+        </ToolBtn>
+        <ToolBtn
+          label="Align middle"
+          onClick={() => onAlign?.(selectedIds, "vmiddle")}
+        >
+          <AlignCenterVertical size={14} aria-hidden="true" />
+        </ToolBtn>
+        <ToolBtn
+          label="Align bottom"
+          onClick={() => onAlign?.(selectedIds, "bottom")}
+        >
+          <AlignEndVertical size={14} aria-hidden="true" />
+        </ToolBtn>
+      </ToolRow>
 
-        {/* Distribute */}
-        <ToolRow label="Distribute">
-          <ToolBtn
-            label="Distribute horizontally"
-            disabled={!canDistribute}
-            disabledReason={distributeDisabledReason}
-            onClick={() => onDistribute?.(selectedIds, "horizontal")}
-          >
-            <AlignHorizontalSpaceBetween size={14} aria-hidden="true" />
-          </ToolBtn>
-          <ToolBtn
-            label="Distribute vertically"
-            disabled={!canDistribute}
-            disabledReason={distributeDisabledReason}
-            onClick={() => onDistribute?.(selectedIds, "vertical")}
-          >
-            <AlignVerticalSpaceBetween size={14} aria-hidden="true" />
-          </ToolBtn>
-        </ToolRow>
+      {/* Distribute */}
+      <ToolRow label="Distribute">
+        <ToolBtn
+          label="Distribute horizontally"
+          disabled={!canDistribute}
+          disabledReason={distributeDisabledReason}
+          onClick={() => onDistribute?.(selectedIds, "horizontal")}
+        >
+          <AlignHorizontalSpaceBetween size={14} aria-hidden="true" />
+        </ToolBtn>
+        <ToolBtn
+          label="Distribute vertically"
+          disabled={!canDistribute}
+          disabledReason={distributeDisabledReason}
+          onClick={() => onDistribute?.(selectedIds, "vertical")}
+        >
+          <AlignVerticalSpaceBetween size={14} aria-hidden="true" />
+        </ToolBtn>
+      </ToolRow>
 
-        {/* Match size */}
-        <ToolRow label="Match size">
-          <ToolBtn
-            label="Match width"
-            onClick={() => onMatchSize?.(selectedIds, "width")}
-          >
-            <MoveHorizontal size={14} aria-hidden="true" />
-          </ToolBtn>
-          <ToolBtn
-            label="Match height"
-            onClick={() => onMatchSize?.(selectedIds, "height")}
-          >
-            <MoveVertical size={14} aria-hidden="true" />
-          </ToolBtn>
-          <ToolBtn
-            label="Match width & height"
-            onClick={() => onMatchSize?.(selectedIds, "both")}
-          >
-            <Expand size={14} aria-hidden="true" />
-          </ToolBtn>
-        </ToolRow>
+      {/* Match size */}
+      <ToolRow label="Match size">
+        <ToolBtn
+          label="Match width"
+          onClick={() => onMatchSize?.(selectedIds, "width")}
+        >
+          <MoveHorizontal size={14} aria-hidden="true" />
+        </ToolBtn>
+        <ToolBtn
+          label="Match height"
+          onClick={() => onMatchSize?.(selectedIds, "height")}
+        >
+          <MoveVertical size={14} aria-hidden="true" />
+        </ToolBtn>
+        <ToolBtn
+          label="Match width & height"
+          onClick={() => onMatchSize?.(selectedIds, "both")}
+        >
+          <Expand size={14} aria-hidden="true" />
+        </ToolBtn>
+      </ToolRow>
 
-        {/* Arrange */}
-        <ToolRow label="Arrange">
-          <ToolBtn
-            label="Send to back"
-            onClick={() => onArrange?.(selectedIds, "back")}
-          >
-            <SendToBack size={14} aria-hidden="true" />
-          </ToolBtn>
-          <ToolBtn
-            label="Send backward"
-            onClick={() => onArrange?.(selectedIds, "backward")}
-          >
-            <StepBack size={14} aria-hidden="true" />
-          </ToolBtn>
-          <ToolBtn
-            label="Bring forward"
-            onClick={() => onArrange?.(selectedIds, "forward")}
-          >
-            <StepForward size={14} aria-hidden="true" />
-          </ToolBtn>
-          <ToolBtn
-            label="Bring to front"
-            onClick={() => onArrange?.(selectedIds, "front")}
-          >
-            <BringToFront size={14} aria-hidden="true" />
-          </ToolBtn>
-        </ToolRow>
-      </div>
+      {/* Arrange */}
+      <ToolRow label="Arrange">
+        <ToolBtn
+          label="Send to back"
+          onClick={() => onArrange?.(selectedIds, "back")}
+        >
+          <SendToBack size={14} aria-hidden="true" />
+        </ToolBtn>
+        <ToolBtn
+          label="Send backward"
+          onClick={() => onArrange?.(selectedIds, "backward")}
+        >
+          <StepBack size={14} aria-hidden="true" />
+        </ToolBtn>
+        <ToolBtn
+          label="Bring forward"
+          onClick={() => onArrange?.(selectedIds, "forward")}
+        >
+          <StepForward size={14} aria-hidden="true" />
+        </ToolBtn>
+        <ToolBtn
+          label="Bring to front"
+          onClick={() => onArrange?.(selectedIds, "front")}
+        >
+          <BringToFront size={14} aria-hidden="true" />
+        </ToolBtn>
+      </ToolRow>
     </div>
   );
 }
@@ -2307,21 +2264,23 @@ export function SourceSummary({
 }) {
   if (!element) {
     return (
-      <p className="text-xs text-ds-text-muted">
-        Select an element to see its document source link.
-      </p>
+      <PanelSection>
+        <p className="text-xs text-ds-text-muted">
+          Select an element to see its document source link.
+        </p>
+      </PanelSection>
     );
   }
   const ref = element.sourceRef;
   if (!ref) {
     return (
-      <div className="flex flex-col gap-2">
+      <PanelSection>
         <p className="text-sm font-medium text-ds-text-primary">Standalone</p>
         <p className="text-xs text-ds-text-muted">
           This element is not linked to a document. Insert content from the
           stage toolbar’s “From document” menu to establish a source link.
         </p>
-      </div>
+      </PanelSection>
     );
   }
 
@@ -2354,7 +2313,7 @@ export function SourceSummary({
   const actionClass = `rounded-ds-md border border-ds-border-subtle px-2.5 py-1.5 text-xs font-medium text-ds-text-secondary transition-colors hover:bg-ds-state-hover hover:text-ds-text-primary ${FOCUS_RING}`;
 
   return (
-    <div className="flex flex-col gap-3">
+    <PanelSection title="Source">
       <div className="flex flex-col gap-1">
         <span
           className={`text-sm font-semibold ${statusMeta.tone}`}
@@ -2413,7 +2372,7 @@ export function SourceSummary({
           </button>
         ) : null}
       </div>
-    </div>
+    </PanelSection>
   );
 }
 

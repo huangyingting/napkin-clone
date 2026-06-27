@@ -1,6 +1,9 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 import { FOCUS_RING, TOOLBAR_BUTTON_CHROME } from "@/components/ui/tokens";
+import { SelectMenu, type SelectMenuOption } from "@/components/ui/select-menu";
 import type {
   BulletItem,
   TextElement,
@@ -12,8 +15,90 @@ import { useCoalesceSession } from "@/lib/presentation/gesture-primitives";
 import { SLIDE_FONT_OPTIONS } from "@/lib/presentation/slide-fonts";
 
 const FIELD_CLASS =
-  "w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-sm text-ds-text-primary outline-none";
+  "w-full rounded-ds-md border border-ds-border-subtle bg-ds-surface px-2 py-1.5 text-[13px] text-ds-text-primary outline-none";
 const LABEL_CLASS = "mb-1 block text-xs font-medium text-ds-text-secondary";
+
+/**
+ * Option-3 panel scaffolding (slide-editor-panel-taxonomy.md + the chosen
+ * "borderless rows" mock). A panel body is a vertical stack of {@link
+ * PanelSection}s separated by hairline dividers (`divide-y` on the parent), each
+ * with a small uppercase caption; properties inside render as {@link PropRow}s
+ * with the label on the left and the control flush right.
+ */
+export const PANEL_BODY_CLASS = "divide-y divide-ds-border-subtle";
+
+export function PanelSection({
+  title,
+  children,
+  className,
+}: {
+  title?: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      className={`flex flex-col gap-2.5 px-3.5 py-3 ${className ?? ""}`.trim()}
+    >
+      {title ? (
+        <h4 className="text-[10px] font-bold uppercase tracking-[0.06em] text-ds-text-muted">
+          {title}
+        </h4>
+      ) : null}
+      {children}
+    </section>
+  );
+}
+
+export function PropRow({
+  label,
+  children,
+  align = "center",
+}: {
+  label: ReactNode;
+  children: ReactNode;
+  /** Vertical alignment when the control is taller than one line. */
+  align?: "center" | "start";
+}) {
+  return (
+    <div
+      className={`grid grid-cols-[84px_minmax(0,1fr)] gap-2 ${
+        align === "start" ? "items-start" : "items-center"
+      }`}
+    >
+      <span className="pt-px text-xs text-ds-text-secondary">{label}</span>
+      <div className="flex min-w-0 items-center justify-end gap-1.5">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** Full-width custom select styled as an inspector form field. */
+export function SelectField({
+  value,
+  options,
+  onChange,
+  ariaLabel,
+  align = "end",
+}: {
+  value: string;
+  options: readonly SelectMenuOption[];
+  onChange: (value: string) => void;
+  ariaLabel: string;
+  align?: "start" | "center" | "end";
+}) {
+  return (
+    <SelectMenu
+      variant="field"
+      value={value}
+      options={options}
+      onChange={onChange}
+      aria-label={ariaLabel}
+      align={align}
+    />
+  );
+}
 
 /**
  * Selectable slide fonts for text/bullets elements. Each `value` is a stable
@@ -77,21 +162,18 @@ export function SpeakerNotesControl({
     useCoalesceSession("notes-edit");
 
   return (
-    <label className="block">
-      <span className={LABEL_CLASS}>Speaker notes</span>
-      <textarea
-        value={notes}
-        onChange={(event) =>
-          onChange(event.target.value, coalesceKeyRef.current ?? undefined)
-        }
-        onFocus={onSessionStart}
-        onBlur={onSessionEnd}
-        rows={12}
-        aria-label="Speaker notes"
-        placeholder="Add speaker notes…"
-        className={`${FIELD_CLASS} min-h-64 resize-y leading-6 placeholder:text-ds-text-muted ${FOCUS_RING}`}
-      />
-    </label>
+    <textarea
+      value={notes}
+      onChange={(event) =>
+        onChange(event.target.value, coalesceKeyRef.current ?? undefined)
+      }
+      onFocus={onSessionStart}
+      onBlur={onSessionEnd}
+      rows={12}
+      aria-label="Speaker notes"
+      placeholder="Add speaker notes…"
+      className={`${FIELD_CLASS} min-h-64 resize-y leading-6 placeholder:text-ds-text-muted ${FOCUS_RING}`}
+    />
   );
 }
 
