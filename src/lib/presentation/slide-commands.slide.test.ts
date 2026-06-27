@@ -435,6 +435,32 @@ test("INSERT_TEMPLATE_SLIDE inserts after specified index", () => {
   assert.equal(result.deck.slides[1]!.id, "tmpl2");
 });
 
+test("INSERT_TEMPLATE_SLIDE regenerates duplicate slide ids", () => {
+  const deck = buildCommandDeck(["s1", "s2"]);
+  const newSlide = {
+    id: "s1",
+    index: 0,
+    title: "Template",
+    bullets: [],
+    layout: "blank" as const,
+    notes: "",
+  };
+  const result = executeCommand(deck, {
+    type: "INSERT_TEMPLATE_SLIDE",
+    slide: newSlide,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.deck.slides.length, 3);
+  const ids = result.deck.slides.map((slide) => slide.id);
+  assert.equal(new Set(ids).size, ids.length);
+  const addedId = result.affectedSlideIds[0]!;
+  assert.notEqual(addedId, "s1");
+  assert.match(addedId, /^sl-/);
+  assert.equal(result.deck.slides[2]!.id, addedId);
+  assert.deepEqual(result.patches[0]!.addedIds, [addedId]);
+});
+
 // ---------------------------------------------------------------------------
 // Issue #398 — UPDATE_SLIDE_TITLE, UPDATE_SLIDE_NOTES
 // ---------------------------------------------------------------------------

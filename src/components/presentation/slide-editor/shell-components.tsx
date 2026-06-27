@@ -1030,9 +1030,9 @@ export function SlideTemplatePicker({
             <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-ds-text-muted">
               Custom
             </p>
-            {customTemplates.map((template) => (
+            {customTemplates.map((template, index) => (
               <button
-                key={template.id}
+                key={`custom-${template.id}-${index}`}
                 type="button"
                 role="menuitem"
                 onClick={() => onPick(template.id)}

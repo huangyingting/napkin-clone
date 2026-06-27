@@ -351,6 +351,7 @@ test("ADD_SLIDE_FROM_TEMPLATE materializes a custom template", () => {
   });
   assert.equal(result.ok, true);
   const added = result.deck.slides.at(-1) as any;
+  assert.match(added.id, /^sl-/);
   assert.equal(added.templateId, "template-custom");
   assert.equal(added.elements[0].content.text, "Custom title");
   assert.equal(safeParseDeck(result.deck).success, true);

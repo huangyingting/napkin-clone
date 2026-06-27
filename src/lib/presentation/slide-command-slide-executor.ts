@@ -1,4 +1,5 @@
 import type { Deck, Slide } from "./deck-core";
+import { makeSlideId } from "./deck-ids";
 import {
   addSlide,
   duplicateSlide,
@@ -36,6 +37,21 @@ export type SlideFamilyCommand =
   | InsertTemplateSlideCommand
   | UpdateSlideTitleCommand
   | UpdateSlideNotesCommand;
+
+function uniqueSlideId(deck: Deck): string {
+  const existingIds = new Set(deck.slides.map((slide) => slide.id));
+  let id = makeSlideId();
+  while (existingIds.has(id)) {
+    id = makeSlideId();
+  }
+  return id;
+}
+
+function ensureUniqueInsertedSlideId(deck: Deck, slide: Slide): Slide {
+  return deck.slides.some((entry) => entry.id === slide.id)
+    ? ({ ...slide, id: uniqueSlideId(deck) } as Slide)
+    : slide;
+}
 
 export function executeSlideFamilyCommand(deck: Deck, cmd: SlideFamilyCommand) {
   switch (cmd.type) {
@@ -145,10 +161,11 @@ export function executeSlideFamilyCommand(deck: Deck, cmd: SlideFamilyCommand) {
       if (afterIndex < -1 || afterIndex >= deck.slides.length) {
         return failure(deck, `Invalid afterIndex: ${afterIndex}`);
       }
-      const next = insertSlide(deck, afterIndex, cmd.slide);
-      return success(next, [cmd.slide.id], [], undefined, [
-        makePatch("slide.insert_template", [cmd.slide.id], [], {
-          addedIds: [cmd.slide.id],
+      const slide = ensureUniqueInsertedSlideId(deck, cmd.slide);
+      const next = insertSlide(deck, afterIndex, slide);
+      return success(next, [slide.id], [], undefined, [
+        makePatch("slide.insert_template", [slide.id], [], {
+          addedIds: [slide.id],
         }),
       ]);
     }

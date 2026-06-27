@@ -1,4 +1,5 @@
 import type { Deck } from "./deck-core";
+import { makeElementId, makeSlideId } from "./deck-ids";
 import { insertSlide, updateSlide } from "./deck-mutation-slides";
 import {
   setDeckSlideFormat,
@@ -59,6 +60,24 @@ function deckFormat(deck: Deck) {
   return (deck as any).canvas?.format;
 }
 
+function uniqueSlideId(deck: Deck): string {
+  const existingIds = new Set(deck.slides.map((slide) => slide.id));
+  let id = makeSlideId();
+  while (existingIds.has(id)) {
+    id = makeSlideId();
+  }
+  return id;
+}
+
+function ensureUniqueInsertedSlideId(
+  deck: Deck,
+  slide: Deck["slides"][number],
+): Deck["slides"][number] {
+  return deck.slides.some((entry) => entry.id === slide.id)
+    ? ({ ...slide, id: uniqueSlideId(deck) } as Deck["slides"][number])
+    : slide;
+}
+
 function materializeTemplate(
   deck: Deck,
   templateId: string,
@@ -75,7 +94,7 @@ function materializeTemplate(
   );
   if (!template) return null;
   return {
-    id: crypto.randomUUID(),
+    id: makeSlideId(),
     index: 0,
     title: template.name,
     notes: "",
@@ -85,7 +104,7 @@ function materializeTemplate(
       ? { designOverrides: template.slideDesignDefaults }
       : {}),
     elements: template.elements.map((element, index) => ({
-      id: crypto.randomUUID(),
+      id: makeElementId(),
       kind: element.kind,
       role: element.role,
       box: (element as any).box ?? { x: 10, y: 10, w: 80, h: 20 },
@@ -307,8 +326,14 @@ export function executePresentationThemeFamilyCommand(
       ]);
     }
     case "ADD_SLIDE_FROM_TEMPLATE": {
-      const slide = materializeTemplate(deck, cmd.templateId, cmd.visualId);
-      if (!slide) return failure(deck, `Template not found: ${cmd.templateId}`);
+      const materialized = materializeTemplate(
+        deck,
+        cmd.templateId,
+        cmd.visualId,
+      );
+      if (!materialized)
+        return failure(deck, `Template not found: ${cmd.templateId}`);
+      const slide = ensureUniqueInsertedSlideId(deck, materialized);
       const afterIndex =
         cmd.afterSlideId == null
           ? deck.slides.length - 1
